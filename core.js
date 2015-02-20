@@ -28,7 +28,7 @@ var core = {
     name: 'backendjs',
 
     // Protocol version
-    version: '2015.02.01',
+    version: '2015.02.20',
 
     // Application version, read from package.json if exists
     appName: '',
@@ -228,7 +228,8 @@ var core = {
             { name: "cache-port", type: "int", descr: "Port to use for nanomsg sockets for cache requests" },
             { name: "cache-bind", descr: "Listen only on specified address for cache sockets server in the master process" },
             { name: "worker", type:"bool", descr: "Set this process as a worker even it is actually a master, this skips some initializations" },
-            { name: "no-modules", type: "regexp", descr: "A regexp with modules names to be excluded form loading on startup", pass: 1 },
+            { name: "deny-modules", type: "regexp", descr: "A regexp with modules names to be excluded from loading on startup", pass: 1 },
+            { name: "allow-modules", type: "regexp", descr: "A regexp with modules name to be loaded on startup, only matched modules will be loaded", pass: 1 },
             { name: "logwatcher-from", descr: "Email address to send logwatcher notifications from, for cases with strict mail servers accepting only from known addresses" },
             { name: "logwatcher-interval", type: "number", min: 1, descr: "How often to check for errors in the log files in minutes" },
             { name: "logwatcher-any-range", type: "number", min: 1, descr: "Number of lines for matched channel `any` to be attached to the previous matched channel, if more than this number use the channel `any` on its own" },
@@ -264,7 +265,10 @@ core.init = function(options, callback)
 
     // Already initialized, skip the whole sequence so it is safe to run in the server the scripts which
     // can be used as standalone node programs
-    if (this._initialized) return callback ? callback.call(self, null, options) : true;
+    if (this._initialized) {
+        logger.debug("init:", "already initialized");
+        return callback ? callback.call(self, null, options) : true;
+    }
 
     // Process role
     if (options.role) this.role = options.role;
@@ -298,21 +302,47 @@ core.init = function(options, callback)
     self.hostName = os.hostname().toLowerCase();
     self.domain = corelib.domainName(self.hostName);
     self.location = "http://" + self.hostName + ":" + core.port;
-
-    // Load external modules
-    self.loadModules(self.path.modules, { exclude: self.noModules });
+    // Pre load config files into memory to perform 2 passes
+    var config = "";
 
     // Serialize initialization procedure, run each function one after another
     corelib.series([
         function(next) {
-            // Default config file, locate in the etc if just name is given
+            // Default config files, locate in the etc if just name is given
             if (self.confFile.indexOf("/") == -1) self.confFile = path.join(self.path.etc, self.confFile);
             self.confFile = path.resolve(self.confFile);
-            self.loadConfig(self.confFile, function() {
-                self.loadConfig(self.confFile + ".local", function() {
-                    next();
+            corelib.forEachSeries([self.confFile, self.confFile + ".local"], function(file, next2) {
+                logger.debug('loadConfig:', file);
+                fs.readFile(file, function(err, data) {
+                    if (data) config += data.toString() + "\n";
+                    next2();
                 });
-            });
+            }, next);
+        },
+
+        // Process first pass parameters, this is important for modules to be loaded
+        function(next) {
+            self.parseConfig(config, 1);
+            next();
+        },
+
+        // Load external modules, from the core and from the app home
+        function(next) {
+            var modules = path.resolve(__dirname, "modules");
+            if (modules != path.resolve(self.path.modules)) {
+                self.loadModules(modules, { denyModules: self.denyModules, allowModules: self.allowModules });
+            }
+            self.loadModules(self.path.modules, { denyModules: self.denyModules, allowModules: self.allowModules });
+            next();
+        },
+
+        // Now process all other config parameters for all modules
+        function(next) {
+            self.parseConfig(config);
+
+            // Override by the command line parameters
+            self.parseArgs(process.argv);
+            next();
         },
 
         // Application version from the package.json
@@ -339,9 +369,6 @@ core.init = function(options, callback)
         function(next) {
             // Redirect system logging to stderr
             logger.setChannel("stderr");
-
-            // Process all other arguments
-            self.parseArgs(process.argv);
 
             try { process.umask(self.umask); } catch(e) { logger.error("umask:", self.umask, e) }
 
@@ -458,7 +485,7 @@ core.setHome = function(home)
 }
 
 // Parse config lines for the file or other place
-core.parseConfig = function(data)
+core.parseConfig = function(data, pass)
 {
     if (!data) return;
     var argv = [], lines = String(data).split("\n");
@@ -469,27 +496,26 @@ core.parseConfig = function(data)
         if (line[0]) argv.push('-' + line[0].trim());
         if (line[1]) argv.push(line.slice(1).join('=').trim());
     }
-    this.parseArgs(argv);
+    this.parseArgs(argv, pass);
 }
 
 // Parse command line arguments
-core.parseArgs = function(argv)
+core.parseArgs = function(argv, pass)
 {
-    var self = this;
     if (!Array.isArray(argv) || !argv.length) return;
 
     // Convert spaces if passed via command line
     argv = argv.map(function(x) {
         return x.replace(/(\\n|%20|%0A)/ig, function(m) { return m == '\\n' || m == '%0a' || m == '%0A' ? '\n' : m == "%20" ? ' ' : m; });
     });
-    logger.debug('parseArgs:', argv.join(' '));
+    logger.dev('parseArgs:', argv.join(' '));
 
    // Core parameters
-    self.processArgs(self, argv);
+    this.processArgs(this, argv, pass);
 
     // Run registered handlers for each module
     for (var n in this.modules) {
-        self.processArgs(this.modules[n], argv);
+        this.processArgs(this.modules[n], argv, pass);
     }
 }
 
@@ -1107,7 +1133,8 @@ core.sendRequest = function(options, callback)
 // in the options back to the caller. Errors from a module is never propagated and simply ignored.
 //
 // The following properties can be specified in the options:
-//  - noModules - a regexp of the modules names to be excluded form calling the method
+//  - denyModules - a regexp of the modules names to be excluded from calling the method
+//  - allowModules - a regexp of the modules names to be called only
 //
 core.runMethods = function(name, options, callback)
 {
@@ -1117,7 +1144,8 @@ core.runMethods = function(name, options, callback)
     if (!options) options = {};
 
     corelib.forEachSeries(Object.keys(self.modules), function(mod, next) {
-        if (options.noModules instanceof RegExp && options.noModules.test(mod)) return next();
+        if (options.denyModules instanceof RegExp && options.denyModules.test(mod)) return next();
+        if (options.allowModules instanceof RegExp && !options.allowModules.test(mod)) return next();
         var ctx = self.modules[mod];
         if (typeof ctx[name] != "function") return next();
         logger.debug("runMethods:", name, mod);
@@ -1167,25 +1195,35 @@ core.addModule = function()
     }
 }
 
-// Dynamically load services from the specified directory. The modules are loaded using `require` as normal node module but in addition if the module exports
+// Dynamically load services from the specified directory. The modules are loaded using `require` as a normal nodejs module but in addition if the module exports
 // `init` method it is called immediately with options passed as an argument. This is a synchronous function so it is supposed to be
 // called on startup, not dynamically during a request processing. Only top level .js files are loaded, not subdirectories. `core.addModule` is called
 // automatically.
 //
+// **Caution must be taken for module naming, it is possible to override any default bkjs module which will result in unexpected behaviour**
+//
 // The following options properties can be specified:
-//  - noModules - a regexp with modules name/file to be excluded from loading, the whole file name is checked
+//  - denyModules - a regexp with modules name(s) to be excluded from loading, the basename of a file is checked only
+//  - allowModules - a regexp with modules name(s) to be loaded only
 //
 //  Example, to load all modules from the local relative directory
 //
 //       core.loadModules("modules")
 //
-core.loadModules = function(name, options, callback)
+core.loadModules = function(dir, options, callback)
 {
     var self = this;
-    corelib.findFileSync(path.resolve(name), { depth: 1, types: "f", exclude: options.noModules, include: new RegExp(/\.js$/) }).sort().forEach(function(file) {
+    if (typeof options == "function") callback = options, options = null;
+    if (!options) options = {};
+
+    corelib.findFileSync(path.resolve(dir), { depth: 1, types: "f", include: /\.js$/ }).sort().forEach(function(file) {
         try {
+            var base = path.basename(file, ".js");
+            if (options.denyModules instanceof RegExp && options.denyModules.test(base)) return;
+            if (options.allowModules instanceof RegExp && !options.allowModules.test(base)) return;
+
             var mod = require(file);
-            self.addModule(mod.name || path.basename(file, ".js"), mod);
+            self.addModule(mod.name || base, mod);
             // Call the initializer method for the module after it is registered
             if (typeof mod.init == "function") {
                 mod.init(options);

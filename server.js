@@ -146,7 +146,7 @@ server.start = function()
 
     // Backend Web server
     if (core.isArg("-web")) {
-        return core.init({ role: "web", noDb: cluster.isMaster }, function(err, opts) { self.startWeb(opts); });
+        return core.init({ role: "web" }, function(err, opts) { self.startWeb(opts); });
     }
 }
 
@@ -330,7 +330,7 @@ server.startWeb = function(options)
             if (self.workerArgs.length) process.execArgv = self.workerArgs;
 
             // Create tables and spawn Web workers
-            api.initTables(options, function(err) {
+            db.initTables(options, function(err) {
                 for (var i = 0; i < self.maxProcesses; i++) self.clusterFork();
             });
 
@@ -552,28 +552,27 @@ server.startShell = function(options)
         return api.getOptions({ query: query, options: { path: ["", "", ""], ops: {} } });
     }
 
-    // Force API tables
-    if (core.isArg("-account-add") || core.isArg("-account-update")) api.dbInitTables = 1;
-
     core.runMethods("configureShell", options, function(err, opts) {
         if (opts.done) exit();
 
         // Add a user
         if (core.isArg("-account-add")) {
+            if (!core.modules.accounts) exit("accounts module not loaded");
             var query = getQuery(), opts = getOptions();
             if (core.isArg("-scramble")) opts.scramble = 1;
             if (query.login && !query.name) query.name = query.login;
-            api.addAccount({ query: query, account: { type: 'admin' } }, opts, function(err, data) {
+            core.modules.accounts.addAccount({ query: query, account: { type: 'admin' } }, opts, function(err, data) {
                 exit(err, data);
             });
         } else
 
         // Delete a user and all its history according to the options
         if (core.isArg("-account-update")) {
+            if (!core.modules.accounts) exit("accounts module not loaded");
             var query = getQuery(), opts = getOptions();
             if (core.isArg("-scramble")) opts.scramble = 1;
             getUser(query, function(row) {
-                api.updateAccount({ account: row, query: query }, opts, function(err, data) {
+                core.modules.accounts.updateAccount({ account: row, query: query }, opts, function(err, data) {
                     exit(err, data);
                 });
             });
@@ -581,13 +580,14 @@ server.startShell = function(options)
 
         // Delete a user and all its history according to the options
         if (core.isArg("-account-del")) {
+            if (!core.modules.accounts) exit("accounts module not loaded");
             var query = getQuery();
             var options = {};
             for (var i = 1; i < process.argv.length - 1; i += 2) {
                 if (process.argv[i] == "-keep") options[process.argv[i + 1]] = 1;
             }
             getUser(query, function(row) {
-                api.deleteAccount(row.id, options, function(err, data) {
+                core.modules.accounts.deleteAccount(row.id, options, function(err, data) {
                     exit(err, data);
                 });
             });
@@ -595,9 +595,10 @@ server.startShell = function(options)
 
         // Update location
         if (core.isArg("-location-put")) {
+            if (!core.modules.locations) exit("locations module not loaded");
             var query = getQuery();
             getUser(query, function(row) {
-                api.putLocation({ account: row, query: query }, {}, function(err, data) {
+                core.modules.locations.putLocation({ account: row, query: query }, {}, function(err, data) {
                     exit(err, data);
                 });
             });

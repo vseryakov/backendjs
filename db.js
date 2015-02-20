@@ -144,8 +144,25 @@ var db = {
     // Refresh config from the db
     configInterval: 1800,
 
+    processRows: {},
+    processColumns: [],
+
     // Default tables
     tables: {
+        // Authentication by login, only keeps id and secret to check the siganture
+        bk_auth: { login: { primary: 1 },                              // Account login
+                   id: {},                                             // Auto generated UUID to be linked with other records
+                   alias: {},                                          // Account alias
+                   status: {},                                         // Status of the account
+                   type: { admin: 1 },                                 // Account type: admin, ....
+                   secret: { secure: 1 },                              // Account password
+                   token_secret: { admin: 1, secure: 1 },              // Secret for access tokens
+                   acl_deny: { admin: 1, secure: 1 },                  // Deny access to matched url, a regexp
+                   acl_allow: { admin: 1, secure: 1 },                 // Only grant access if path matches this regexp
+                   query_deny: { admin: 1, secure: 1 },                // Ignore these query params, a regexp
+                   expires: { type: "bigint", admin: 1, secure: 1 },   // Deny access to the account if this value is before current date, milliseconds
+                   mtime: { type: "bigint", now: 1 } },
+
         // Configuration store, same parameters as in the commandline or config file, can be placed in separate config groups
         // to be used by different backends or workers, 'core' is default global group
         bk_config: { name: { primary: 1 },                      // name of the parameter
@@ -171,7 +188,44 @@ var db = {
                     ctime: { type: "bigint", readonly: 1, now: 1 },   // creation time
                     mtime: { type: "bigint", now: 1 }
         },
-    }, // tables
+
+        // Collected metrics per worker process, basic columns are defined in the table to be collected like
+        // api and db request rates(.rmean), response times(.hmean) and total number of requests(_0).
+        // Counters ending with _0 are snapshots, i.e. they must be summed up for any given interval.
+        // All other counters are averages.
+        bk_collect: { id: { primary: 1 },
+                       mtime: { type: "bigint", primary: 1 },
+                       app: {},
+                       ip: {},
+                       type: {},
+                       instance: {},
+                       worker: {},
+                       pid: { type: "int" },
+                       latency: { type: "int" },
+                       cpus: { type: "int" },
+                       mem: { type: "bigint" },
+                       rss_hmean: { type: "real" },
+                       heap_hmean: { type: "real" },
+                       avg_hmean: { type: "real" },
+                       free_hmean: { type: "real" },
+                       util_hmean: { type: "real" },
+                       api_req_rmean: { type: "real" },
+                       api_req_hmean: { type: "real" },
+                       api_req_0: { type: "real" },
+                       api_errors_0: { type: "real" },
+                       api_bad_0: { type: "real" },
+                       api_que_rmean: { type: "real" },
+                       api_que_hmean: { type: "real" },
+                       pool_req_rmean: { type: "real" },
+                       pool_req_hmean: { type: "real" },
+                       pool_req_hmean: { type: "real" },
+                       pool_req_0: { type: "real" },
+                       pool_errors_0: { type: "real" },
+                       pool_que_rmean: { type: "real" },
+                       pool_que_hmean: { type: "real" },
+                       ctime: { type: "bigint" },
+        },
+    },
 };
 
 module.exports = db;
@@ -348,13 +402,13 @@ db.initConfig = function(options, callback)
 }
 
 // Create tables in all pools
-db.initTables = function(tables, options, callback)
+db.initTables = function(options, callback)
 {
     var self = this;
     if (typeof options == "function") callback = options, options = null;
 
     corelib.forEachSeries(Object.keys(self.pools), function(name, next) {
-        self.initPoolTables(name, tables, options, next);
+        self.initPoolTables(name, self.tables, options, next);
     }, callback);
 }
 
@@ -412,6 +466,31 @@ db.initPoolTables = function(name, tables, options, callback)
     });
 }
 
+// Define new tables or extend/customize existing tables. Table definitions are used with every database operation,
+// on startup, the backend read all existing table columns from the database and cache them in the memory but some properties
+// like public columns are only specific to the backend so to mark such columns the table with such properties must be described
+// using this method. Only columns with changed properties need to be specified, other columns will be left as it is.
+//
+// Example
+//
+//          db.describeTables({ bk_account: { name: { pub: 1 } },
+//                              test: { id: { primary: 1, type: "int" },
+//                                      name: { pub: 1, index: 1 } });
+//
+db.describeTables = function(tables)
+{
+    for (var p in tables) {
+        if (!this.tables[p]) this.tables[p] = {};
+        for (var c in tables[p]) {
+            if (!this.tables[p][c]) this.tables[p][c] = {};
+            // Merge columns
+            for (var k in tables[p][c]) {
+                this.tables[p][c][k] = tables[p][c][k];
+            }
+        }
+    }
+}
+
 // Delete all specified tables from the pool, if `name` is empty then default pool will be used, `tables` is an object with table names as
 // properties, same table definition format as for create table method
 db.dropPoolTables = function(name, tables, options, callback)
@@ -425,207 +504,6 @@ db.dropPoolTables = function(name, tables, options, callback)
     corelib.forEachSeries(Object.keys(tables || {}), function(table, next) {
         self.drop(table, options, function() { next() });
     }, callback);
-}
-
-// Return all tables know to the given pool, returned tables are in the object with
-// column information merged from cached columns from the database with description columns
-// given by the application. Property fake: 1 in any column signifies not a real column but
-// a column described by the application and not yet created by the database driver or could not be added
-// due to some error.
-db.getPoolTables = function(name)
-{
-    var pool = this.getPool('', { pool: name });
-    return pool.dbcolumns || {};
-}
-
-// Return a list of all active database pools, returns list of objects with name: and type: properties
-db.getPools = function()
-{
-    var rc = [];
-    for (var p in this.pools) rc.push({ name: this.pools[p].name, type: this.pools[p].type });
-    return rc;
-}
-
-// Create a new database pool with default methods and properties
-// - options - an object with default pool properties
-//    - type - pool type, this is the db driver name
-//    - pool or name - pool name
-//    - pooling - create generic pool for connection caching
-//    - watchfile - file path to be watched for changes, all clients will be destroyed gracefully
-//    - min - min number of open database connections
-//    - max - max number of open database connections, all attempts to run more will result in clients waiting for the next available db connection, if set to Infinity no
-//            pooling will be enabled and result in unlimited connections, this is default for DynamoDB
-//    - max_queue - how many db requests can be in the waiting queue, above that all requests will be denied instead of putting in the waiting queue
-// The following pool callback can be assigned to the pool object:
-// - connect - a callback to be called when actual database client needs to be created, the callback signature is
-//    function(pool, callback) and will be called with first arg an error object and second arg is the database instance, required for pooling
-// - close - a callback to be called when a db connection needs to be closed, optional callback with error can be provided to this method
-// - bindValue - a callback function(val, info) that returns the value to be used in binding, mostly for SQL drivers, on input value and col info are passed, this callback
-//   may convert the val into something different depending on the DB driver requirements, like timestamp as string into milliseconds
-// - convertError - a callback function(table, op, err, options) that converts native DB driver error into other human readable format
-// - processColumns - a callback function(pool) taht is called after this pool cached columms from the database, it is called sychnroniously inside the `db.cacheColumns` method.
-// - resolveTable - a callback function(op, table, obj, options) that returns possible different table at the time of the query, it is called by the `db.prepare` method
-//   and if exist it must return the same or new table name for the given query parameters.
-//
-// The db methods cover most use cases but in case native driver needs to be used this is how to get the client and use it with its native API,
-// it is required to call `pool.free` at the end to return the connection back to the connection pool.
-//
-//          var pool = db.getPool("", { pool: "mongodb" });
-//          pool.get(function(err, client) {
-//              var collection = client.collection('bk_account');
-//              collection.findOne({ id: '123' }, function() {
-//                  pool.free(client);
-//              });
-//          });
-//
-db.createPool = function(options)
-{
-    var self = this;
-    if (!options || !options.pool) throw "Options with pool: must be provided";
-
-    logger.debug('createPool:', options);
-
-    if (options.pooling || (options.max > 0 && options.max != Infinity)) {
-        var pool = corelib.createPool({
-            min: options.min,
-            max: options.max,
-            idle: options.idle,
-
-            create: function(callback) {
-                var me = this;
-                if (typeof callback != "function") callback = corelib.noop;
-                try {
-                    me.connect.call(self, me, function(err, client) {
-                        if (err) return callback(err, client);
-                        me.watch(client);
-                        me.setup(client, callback);
-                    });
-                } catch(e) {
-                    logger.error('pool.create:', this.name, e);
-                    callback(e);
-                }
-            },
-            validate: function(client) {
-                return self.pools[this.name].serialNum == client.pool_serial;
-            },
-            destroy: function(client) {
-                var me = this;
-                logger.debug('pool.destroy', this.name, "#", client.pool_serial);
-                try {
-                    this.close(client, function(err) { if (err) logger.error("db.close:", me.name, err) });
-                } catch(e) {
-                    logger.error("pool.destroy:", thus.name, e);
-                }
-            },
-        });
-
-        // Acquire a connection with error reporting
-        pool.get = function(callback) {
-            this.acquire(function(err, client) {
-                if (err) logger.error('pool.get:', pool.name, err);
-                if (typeof callback == "function") callback(err, client);
-            });
-        }
-        // Release or destroy a client depending on the database watch counter
-        pool.free = function(client) {
-            if (this.serialNum != client.pool_serial) {
-                this.destroy(client);
-            } else {
-                this.release(client);
-            }
-        }
-    } else {
-        var pool = {};
-        pool.get = function(cb) { if (typeof cb == "function" ) cb(null, {}); else logger.error("pool.get:", "invalid callback", cb); };
-        pool.free = function(client) {};
-        pool.closeAll = function() {};
-        pool.stats = function() { return null };
-        pool.shutdown = function(cb) { if (typeof cb == "function") cb() }
-    }
-
-    // Save all options and methods
-    for (var p in options) {
-        if (p[0] != "_" && !pool[p] && typeof options[p] != "undefined") pool[p] = options[p];
-    }
-
-    // Watch for changes or syncs and reopen the database file
-    pool.watch = function(client) {
-        var me = this;
-        if (this.watchfile && !this.serialNum) {
-            this.serialNum = 1;
-            fs.watch(this.watchfile, function(event, filename) {
-                logger.log('db.watch:', me.name, event, filename, me.watchfile, "#", me.serialNum);
-                me.serialNum++;
-                me.closeAll();
-            });
-        }
-        // Mark the client with the current db pool serial number, if on release this number differs we
-        // need to destroy the client, not return to the pool
-        client.pool_serial = this.serialNum;
-        client.pool_name = this.name;
-        logger.debug('pool:', 'open', this.name, "#", this.serialNum);
-    }
-
-    // Save existing options and return as new object, first arg is options, then list of properties to save
-    pool.saveOptions = function(opts) {
-        var old = {};
-        for (var i = 1; i < arguments.length; i++) {
-            var p = arguments[i];
-            old[p] = opts[p];
-        }
-        return old;
-    }
-
-    // Restore the properties we replaced
-    pool.restoreOptions = function(opts, old) {
-        for (var p in old) {
-            if (old[p]) opts[p] = old[p]; else delete opts[p];
-        }
-    }
-
-    // Default methods if not setup from the options
-    if (typeof pool.connect != "function") pool.connect = function(pool, cb) { if (typeof cb == "function" ) cb(null, {}); };
-    if (typeof pool.close != "function") pool.close = function(client, cb) { if (typeof cb == "function" ) cb() }
-    if (typeof pool.setup != "function") pool.setup = function(client, cb) { if (typeof cb == "function" ) cb(null, client); };
-    if (typeof pool.query != "function") pool.query = function(client, req, opts, cb) { if (typeof cb == "function" ) cb(null, []); };
-    if (typeof pool.cacheColumns != "function") pool.cacheColumns = function(opts, cb) { if (typeof cb == "function" ) cb(); }
-    if (typeof pool.cacheIndexes != "function") pool.cacheIndexes = function(opts, cb) { if (typeof cb == "function" ) cb(); };
-    if (typeof pool.nextToken != "function") pool.nextToken = function(client, req, rows, opts) { return client.next_token || null };
-    // Pass all request in an object with predefined properties
-    if (typeof pool.prepare != "function") {
-        pool.prepare = function(op, table, obj, opts) {
-            return { text: table, op: op, table: (table || "").toLowerCase(), obj: obj };
-        }
-    }
-
-    pool.name = pool.pool || pool.name;
-    delete pool.pool;
-    pool.processRow = {};
-    pool.serialNum = 0;
-    pool.dbtables = {};
-    pool.dbcolumns = {};
-    pool.dbkeys = {};
-    pool.dbindexes = {};
-    pool.dbcache = {};
-    pool.metrics = new metrics.Metrics('name', pool.name);
-    [ 'dbinit', 'dboptions'].forEach(function(x) { if (corelib.typeName(pool[x]) != "object") pool[x] = {}; });
-    [ 'ops', 'typesMap', 'opsMap', 'namesMap', 'skipNull' ].forEach(function(x) { if (!pool.dboptions[x]) pool.dboptions[x] = {} });
-    if (!pool.type) pool.type = "unknown";
-    this.pools[pool.name] = pool;
-    logger.debug('db.createPool:', pool.type, pool.name);
-    return pool;
-}
-
-// Convenient helper to show results from the database requests, can be used as the callback in all db method.
-//
-// Example:
-//
-//          db.select("bk_account", {}, db.showResult);
-//
-db.showResult = function(err, rows, info)
-{
-    if (err) return console.log(err.stack);
-    console.log(util.inspect(rows, { depth: 5 }), info);
 }
 
 // Execute query using native database driver, the query is passed directly to the driver.
@@ -646,7 +524,7 @@ db.showResult = function(err, rows, info)
 //          the calback on result will return err and rows as any other regular database callbacks. This filter can be used to perform
 //          filtering based on the ata in the other table for example.
 //     - silence_error - do not report about the error in the log, still the error is retirned to the caller
-//     - noprocessrows - if true then skip post processing result rows, return the data as is, this will result in returning combined columns as is
+//     - noprocessrows - if true then skip post processing result rows, return the data as is, this will result in returning combined columns as it is
 //     - noconvertrows - if true skip converting the data from the database format into Javascript data types, it uses column definitions
 //       for the table to convert values returned from the db into the the format defined by the column
 //     - cached - if true perform cache invalidation for the operations that resulted in modification of the table record(s)
@@ -734,12 +612,12 @@ db.query = function(req, options, callback)
 
                     // Convert from db types into javascript, deal with json and joined columns
                     if (rows.length && !options.noconvertrows) {
-                        self.convertRows(pool, table, rows, options);
+                        self.convertRows(pool, req.op, table, rows, options);
                     }
 
                     // Convert values if we have custom column callback
                     if (!options.noprocessrows) {
-                        rows = self.processRows("post", pool, table, rows, options);
+                        rows = self.runProcessRows("post", req.op, table, rows, options);
                     }
 
                     // Custom filter to return the final result set
@@ -873,7 +751,6 @@ db.updateAll = function(table, query, obj, options, callback)
     var pool = this.getPool(table, options);
     if (pool.updateAll && !options.process) return pool.updateAll(table, query, obj, options, callback);
 
-    options.noprocessrows = 1;
     self.select(table, query, options, function(err, rows) {
         if (err) return callback(err);
 
@@ -941,7 +818,6 @@ db.delAll = function(table, query, options, callback)
     if (typeof options == "function") callback = options,options = {};
     options = this.getOptions(table, options);
     if (typeof callback != "function") callback = corelib.noop;
-    options.noprocessrows = 1;
 
     // Custom handler for the operation
     var pool = this.getPool(table, options);
@@ -1108,7 +984,6 @@ db.batch = function(table, op, objs, options, callback)
 //  - options - same as in `db.select`, with the following additions:
 //    - count - size of every batch, default is 100
 //    - batch - if true rowCallback will be called with all rows from the batch, not every row individually, batch size is defined by the count property
-//    - noprocessrows - default is 1 to pass raw records for processing, to work with normal records pass 0 to disable default behaviour
 //  - rowCallback - process records when called like this `callback(rows, next)
 //  - endCallback - end of scan when called like this: `callback(err)
 //
@@ -1125,7 +1000,6 @@ db.scan = function(table, query, options, rowCallback, endCallback)
     options = this.getOptions(table, options);
     if (!options.count) options.count = 100;
     options.start = "";
-    if (typeof options.noprocessrows == "undefined") options.noprocessrows = 1;
 
     corelib.whilst(
       function() {
@@ -1285,7 +1159,7 @@ db.join = function(table, rows, options, callback)
 //
 //  When defining the table for location searches the begining of the table must be defined as the following:
 //
-//          api.describeTables({
+//          db.describeTables({
 //                  geo: { geohash: { primary: 1 },
 //                         id: { primary: 1 },
 //                         latitude: { type: "real" },
@@ -1555,37 +1429,6 @@ db.getCached = function(op, table, query, options, callback)
     });
 }
 
-// Retrieve an object from the cache by key
-db.getCache = function(table, query, options, callback)
-{
-    var key = this.getCacheKey(table, query, options);
-    if (!key) return callback();
-    if (options) options.cacheKey = key;
-    ipc.get(key, options, callback);
-}
-
-// Store a record in the cache
-db.putCache = function(table, obj, options)
-{
-    var key = options && options.cacheKey ? options.cacheKey : this.getCacheKey(table, obj, options);
-    if (key) ipc.put(key, corelib.stringify(obj), options);
-}
-
-// Notify or clear cached record, this is called after del/update operation to clear cached version by primary keys
-db.delCache = function(table, query, options)
-{
-    var key = options && options.cacheKey ? options.cacheKey : this.getCacheKey(table, query, options);
-    if (key) ipc.del(key, options);
-}
-
-// Returns concatenated values for the primary keys, this is used for caching records by primary key
-db.getCacheKey = function(table, query, options)
-{
-    var keys = this.getKeys(table, options).filter(function(x) { return query[x] }).map(function(x) { return query[x] }).join("|");
-    if (keys) keys = (options && options.cachePrefix ? options.cachePrefix : table) + "|" + keys;
-    return keys;
-}
-
 // Create a table using column definitions represented as a list of objects. Each column definition can
 // contain the following properties:
 // - `name` - column name
@@ -1685,11 +1528,95 @@ db.drop = function(table, options, callback)
 db.prepare = function(op, table, obj, options)
 {
     var pool = this.getPool(table, options);
-
     options = this.getOptions(table, options);
 
     // Check for table name, it can be determined in the real time
     if (pool.resolveTable) table = pool.resolveTable(op, table, obj, options);
+
+    // Prepare row properties
+    obj = this.prepareRow(pool, op, table, obj, options);
+    switch (op) {
+    case "upgrade":
+        if (options.noUpgrade) return {};
+        break;
+    }
+
+    // Pre-process input properties before sending it to the database
+    if (!options.noprocessrows) this.runProcessRows("pre", op, table, obj, options);
+
+    return pool.prepare(op, table, obj, options);
+}
+
+// Convert native database error in some generic human readable string
+db.convertError = function(table, op, err, options)
+{
+    if (!err || !(err instanceof Error)) return err;
+    var cb = this.getPool(table, options).convertError;
+    return typeof cb == "function" ? cb(table, op, err, options) : err;
+}
+
+// Reload all columns into the cache for the pool
+db.cacheColumns = function(options, callback)
+{
+    var self = this;
+    if (typeof options == "function") callback = options, options = null;
+    if (typeof callback != "function") callback = corelib.noop;
+    if (!options) options = {};
+
+    var pool = this.getPool('', options);
+    pool.cacheColumns.call(pool, options, function(err) {
+        if (err) logger.error('cacheColumns:', pool.name, err);
+        self.mergeColumns(pool);
+        pool.cacheIndexes.call(pool, options, function(err) {
+            if (err) logger.error('cacheIndexes:', pool.name, err);
+            self.mergeKeys(pool);
+            // Allow other modules to handle just cached columns for post processing
+            if (Array.isArray(self.processColumns)) {
+                self.processColumns.forEach(function(x) {
+                    if (typeof x == "function") x.call(pool, options);
+                });
+            }
+            callback(err);
+        });
+    });
+}
+
+// Merge JavaScript column definitions with the db cached columns
+db.mergeColumns = function(pool)
+{
+    var tables = pool.dbtables;
+    var dbcolumns = pool.dbcolumns;
+    for (var table in tables) {
+        for (var col in tables[table]) {
+            if (!dbcolumns[table]) dbcolumns[table] = {};
+            if (!dbcolumns[table][col]) {
+                dbcolumns[table][col] = { fake: 1 };
+            } else {
+                delete dbcolumns[table][col].fake;
+            }
+            for (var p in tables[table][col]) {
+                if (!dbcolumns[table][col][p]) dbcolumns[table][col][p] = tables[table][col][p];
+            }
+        }
+    }
+}
+
+// Update pool keys with the primary keys form the table definitions in addition to the actual cached
+// column info from the database, if no caching performed than this just set the keys assuming it will work, for databases that do
+// not provide info about primary keys
+db.mergeKeys = function(pool)
+{
+    var dbcolumns = pool.dbcolumns;
+    var dbkeys = pool.dbkeys;
+    for (var table in dbcolumns) {
+        if (!dbkeys[table]) dbkeys[table] = corelib.searchObj(dbcolumns[table], { name: 'primary', sort: 1, names: 1 });
+    }
+}
+
+// Preprocess an object for a given operation, convert types, assign defaults...
+db.prepareRow = function(pool, op, table, obj, options)
+{
+    if (!pool) pool = this.getPool(table, options);
 
     // Keep an object in the format we support
     if (["object","string","array"].indexOf(corelib.typeName(obj)) == -1) obj = {};
@@ -1698,6 +1625,7 @@ db.prepare = function(op, table, obj, options)
     var keys = pool.dbkeys[table.toLowerCase()] || [];
     var cols = pool.dbcolumns[table.toLowerCase()] || {};
     var now = Date.now();
+
     switch (op) {
     case "add":
     case "put":
@@ -1718,91 +1646,233 @@ db.prepare = function(op, table, obj, options)
         }
 
     case "update":
-        // Current timestamps, for primary keys only support add
-        for (var p in cols) {
-            if (cols[p].now && !obj[p] && (!cols[p].primary || op == "add")) obj[p] = now;
-        }
-
         // Keep only columns from the table definition if we have it
         // Go over all properties in the object and makes sure the types of the values correspond to the column definition types,
         // this is for those databases which are very sensitive on the types like DynamoDB. This function updates the object in-place.
         var o = {};
         for (var p in obj) {
             var v = obj[p];
-            var col = cols[p];
-            if (col) {
-                if (col.hidden) continue;
-                if (col.readonly && (op == "incr" || op == "update")) continue;
-                if (col.writeonly && (op == "add" || op == "put")) continue;
+            if (cols[p]) {
+                if (cols[p].hidden) continue;
+                if (cols[p].readonly && (op == "incr" || op == "update")) continue;
+                if (cols[p].writeonly && (op == "add" || op == "put")) continue;
                 // Handle json separately in sync with processRows
                 if (options.noJson && !options.strictTypes && cols[p].type == "json" && typeof obj[p] != "undefined") v = JSON.stringify(v);
                 // Convert into native data type
-                if (options.strictTypes && (col.primary || col.type) && typeof obj[p] != "undefined") v = corelib.toValue(v, col.type);
+                if (options.strictTypes && (cols[p].primary || cols[p].type) && typeof obj[p] != "undefined") v = corelib.toValue(v, cols[p].type);
                 // Verify against allowed values
-                if (Array.isArray(col.values) && col.values.indexOf(String(v)) == -1) continue;
-                // The field is combined from several values contatenated for complex primary keys
-                if (col.join) v = col.join.map(function(x) { return obj[x] || "" }).join("|");
+                if (Array.isArray(cols[p].values) && cols[p].values.indexOf(String(v)) == -1) continue;
                 // Max length limit for text fields
-                if (col.maxlength && typeof v == "string" && !col.type && v.length > col.maxlength) v = v.substr(0, col.maxlength);
+                if (cols[p].maxlength && typeof v == "string" && !cols[p].type && v.length > cols[p].maxlength) v = v.substr(0, cols[p].maxlength);
             }
             if (this.skipColumn(p, v, options, cols)) continue;
             if ((v == null || v === "") && options.skipNull[op]) continue;
             o[p] = v;
         }
         obj = o;
-        if (!options.noprocessrows) this.processRows("pre", pool, table, obj, options);
+        for (var p in cols) {
+            // Current timestamps, for primary keys only support add
+            if (cols[p].now && !obj[p] && (!cols[p].primary || op == "add")) obj[p] = now;
+            // The field is combined from several values contatenated for complex primary keys
+            if (Array.isArray(cols[p].join) && (typeof obj[p] != "string" || obj[p].indexOf("|") == -1)) obj[p] = cols[p].join.map(function(x) { return obj[x] || "" }).join("|");
+        }
         break;
 
     case "del":
         var o = {};
         for (var p in obj) {
-            var v = obj[p];
-            var col = cols[p];
-            if (!col) continue;
+            if (!cols[p]) continue;
+            o[p] = obj[p];
             // Convert into native data type
-            if (options.strictTypes && (col.primary || col.type) && typeof obj[p] != "undefined") v = corelib.toValue(v, col.type);
-            // The field is combined from several values contatenated for complex primary keys
-            if (col.join && typeof obj[p] != "undefined") v = col.join.map(function(x) { return obj[x] || "" }).join("|");
-            o[p] = v;
+            if (options.strictTypes && (cols[p].primary || cols[p].type) && typeof o[p] != "undefined") o[p] = corelib.toValue(o[p], cols[p].type);
         }
         obj = o;
-        if (!options.noprocessrows) this.processRows("pre", pool, table, obj, options);
+        for (var p in cols) {
+            // The field is combined from several values contatenated for complex primary keys
+            if (Array.isArray(cols[p].join) && (typeof obj[p] != "string" || obj[p].indexOf("|") == -1)) obj[p] = cols[p].join.map(function(x) { return obj[x] || "" }).join("|");
+        }
         break;
 
+    case "get":
     case "select":
-        if (options.ops) {
-            for (var p in options.ops) {
-                switch (options.ops[p]) {
-                case "in":
-                case "between":
-                    if (obj[p] && !Array.isArray(obj[p])) {
-                        var type = cols[p] ? cols[p].type : "";
-                        obj[p] = corelib.strSplit(obj[p], null, corelib.isNumeric(type));
-                    }
-                    break;
+        if (corelib.typeName(options.ops) != "object") options.ops = {};
+        for (var p in options.ops) {
+            switch (options.ops[p]) {
+            case "in":
+            case "between":
+                if (obj[p] && !Array.isArray(obj[p])) {
+                    var type = cols[p] ? cols[p].type : "";
+                    obj[p] = corelib.strSplit(obj[p], null, corelib.isNumeric(type));
                 }
+                break;
             }
         }
 
         // Convert simple types into the native according to the table definition, some query parameters are not
         // that strict and can be more arrays which we should not convert due to options.ops
-        if (options.strictTypes) {
-            for (var p in cols) {
+        for (var p in cols) {
+            if (options.strictTypes) {
                 if (corelib.isNumeric(cols[p].type)) {
                     if (typeof obj[p] == "string") obj[p] = corelib.toNumber(obj[p]);
                 } else {
                     if (typeof obj[p] == "number") obj[p] = String(obj[p]);
                 }
             }
+            // Default search op, for primary key cases
+            if (!options.ops[p] && corelib.typeName(cols[p].ops) == "object" && cols[p].ops[op]) options.ops[p] = cols[p].ops[op];
+            // Joined values for queries
+            if (Array.isArray(cols[p].join) && (typeof obj[p] != "string" || obj[p].indexOf("|") == -1)) {
+                var v = cols[p].join.map(function(x) { return obj[x] || "" }).join("|");
+                if (!v.match(/^[\|]+$/)) obj[p] = v;
+            }
         }
-        if (!options.noprocessrows) this.processRows("pre", pool, table, obj, options);
-        break;
-
-    case "upgrade":
-        if (options.noUpgrade) return {};
         break;
     }
-    return pool.prepare(op, table, obj, options);
+    return obj;
+}
+
+// Convert rows returned by the database into the Javascript format or into the format
+// defined by the table columns. The following special properties in the column definition chnage the format:
+//  - type = json - if a column type is json and the value is a string returned will be converted into a Javascript object
+//  - list - split the value into array
+//  - join - a list of names, it produces new properties by splitting the value by | and assigning pieces to
+//      separate properties using names from the join list
+//
+//      Example:
+//              db.describeTables([ { user: { id: {}, name: {}, pair: { join: ["left","right"], split: ["left", "right"] } } ]);
+//
+//              db.put("test", { id: "1", type: "user", name: "Test", left: "123", right: "000" })
+//              db.select("test", {}, db.showResult)
+//
+db.convertRows = function(pool, op, table, rows, options)
+{
+    if (!pool) pool = this.getPool(table, options);
+    var cols = pool.dbcolumns[table.toLowerCase()] || {};
+    for (var p in cols) {
+        var col = cols[p];
+        // Convert from JSON type
+        if (options.noJson && col.type == "json") {
+            rows.forEach(function(row) {
+                if (typeof row[p] == "string" && row[p]) row[p] = corelib.jsonParse(row[p], { logging : 1 });
+            });
+        }
+        // Split into a list
+        if (col.list) {
+            rows.forEach(function(row) {
+                row[p] = corelib.strSplit(row[p]);
+            });
+        }
+        // Extract joined values and place into separate columns
+        if (Array.isArray(col.join)) {
+            rows.forEach(function(row) {
+                if (typeof row[p] == "string" && row[p].indexOf("|") > -1) {
+                    var v = row[p].split("|");
+                    if (v.length == col.join.length) col.join.forEach(function(x, i) { row[x] = v[i]; });
+                }
+            });
+        }
+    }
+}
+
+// Add a callback to be called after each cache columns event, it will be called for each pool separately.
+// The callback to be called may take options argument and it is called in the context of the pool.
+//
+// The primary goal for this hook is to allow management of the existing tables which are not own by the
+// backendjs application. For such tables, because we have not created them, we need to define column properties
+// after the fact and to keep column definitions in the app for such cases is not realistic. This callback will
+// allow to handle such situations and can be used to set necessary propeties to the table columns.
+//
+// Example, a few public columns, allow an admin to see all the columns
+//
+//         db.setProcessColumns(function() {
+//             var cols = db.getColumns("users", { pool: this.name });
+//             for (var p in  cols) {
+//                 if (["id","name"].indexOf(p) > -1) cols[p].pub = 1; else cols[p].admin = 1;
+//             }
+//         })
+db.setProcessColumns = function(callback)
+{
+    if (typeof callback != "function") return;
+    this.processColumns.push(callback);
+}
+
+// Run registsred pre- or post- process callbacks.
+db.runProcessRows = function(type, op, table, rows, options)
+{
+    if (!this.processRows[type]) return rows;
+    var hooks = this.processRows[type][table];
+    if (!Array.isArray(hooks) || !hooks.length) return rows;
+    var cols = this.getColumns(table, options);
+
+    // Stop of the first hook returning true to remove this row from the list
+    function processRow(row) {
+        for (var i = 0; i < hooks.length; i++) {
+            if (hooks[i].call(row, op, row, options, cols) === true) return false;
+        }
+        return true;
+    }
+    if (Array.isArray(rows)) {
+        rows = rows.filter(processRow);
+    } else {
+        processRow(rows);
+    }
+    return rows;
+}
+
+// Assign a processRow callback for a table, this callback will be called for every row on every result being retrieved from the
+// specified table thus providing an opportunity to customize the result.
+//
+// type defines at what time the callback will be called:
+//  - `pre` - making a request to the db on the query record
+//  - `post` - after the request finished to be called on the result rows
+//
+// All assigned callback to this table will be called in the order of the assignment.
+//
+// The callback accepts 4 arguments: function(op, row, options, columns)
+//   where - op is a db operation, row is a row from the table, options are the obj passed to the db called and columns is an object with table's columns
+//
+// When producing complex properties by combining other properties it needs to be synchronized using both pre and post
+// callbacks to keep the record consistent.
+//
+// **For queries returning rows, if the callback returns true for a row it will be filtered out and not included in the final result set.**
+//
+//
+//  Example
+//
+//      db.setProcessRow("post", "bk_account", function(op, row, opts, cols) {
+//          if (row.birthday) row.age = Math.floor((Date.now() - corelib.toDate(row.birthday))/(86400000*365));
+//      });
+//
+//      db.setProcessRow("post", "bk_icon", function(op, row, opts, cols) {
+//          if (row.type == "private" && row.id != opts.account.id) return true;
+//      });
+//
+db.setProcessRow = function(type, table, options, callback)
+{
+    if (typeof options == "function") callback = options, options = null;
+    if (!table || typeof callback != "function") return;
+    if (!this.processRows[type]) this.processRows[type] = {};
+    if (!this.processRows[type][table]) this.processRows[type][table] = [];
+    this.processRows[type][table].push(callback);
+}
+
+// Return all tables know to the given pool, returned tables are in the object with
+// column information merged from cached columns from the database with description columns
+// given by the application. Property fake: 1 in any column signifies not a real column but
+// a column described by the application and not yet created by the database driver or could not be added
+// due to some error.
+db.getPoolTables = function(name)
+{
+    var pool = this.getPool('', { pool: name });
+    return pool.dbcolumns || {};
+}
+
+// Return a list of all active database pools, returns list of objects with name: and type: properties
+db.getPools = function()
+{
+    var rc = [];
+    for (var p in this.pools) rc.push({ name: this.pools[p].name, type: this.pools[p].type });
+    return rc;
 }
 
 // Return database pool by table name or default pool, options may contain { pool: name } to return
@@ -1894,12 +1964,15 @@ db.getSelectedColumns = function(table, options)
 }
 
 // Verify column against common options for inclusion/exclusion into the operation, returns 1 if the column must be skipped
+//  - to enable all properties to be saved in the record without column definition set `options.all_columns=1`
+//  - to skip all null values set `options.skip_null=1`
+//  - to skip specific columns define `options.skip_columns=["a","b"]`
 db.skipColumn = function(name, val, options, columns)
 {
     return !name || name[0] == '_' || typeof val == "undefined" ||
            (options && options.skip_null && val === null) ||
            (options && !options.all_columns && (!columns || !columns[name])) ||
-           (options && options.skip_columns && options.skip_columns.indexOf(name) > -1) ? true : false;
+           (options && Array.isArray(options.skip_columns) && options.skip_columns.indexOf(name) > -1) ? true : false;
 }
 
 // Given object with data and list of keys perform comparison in memory for all rows, return only rows that match all keys. This method is usee
@@ -1978,198 +2051,216 @@ db.getColumnValue = function(table, options, val, info)
     return typeof cb == "function" ? cb(val, info) : val;
 }
 
-// Convert native database error in some generic human readable string
-db.convertError = function(table, op, err, options)
+// Retrieve an object from the cache by key
+db.getCache = function(table, query, options, callback)
 {
-    if (!err || !(err instanceof Error)) return err;
-    var cb = this.getPool(table, options).convertError;
-    return typeof cb == "function" ? cb(table, op, err, options) : err;
+    var key = this.getCacheKey(table, query, options);
+    if (!key) return callback();
+    if (options) options.cacheKey = key;
+    ipc.get(key, options, callback);
 }
 
-// Reload all columns into the cache for the pool
-db.cacheColumns = function(options, callback)
+// Store a record in the cache
+db.putCache = function(table, obj, options)
+{
+    var key = options && options.cacheKey ? options.cacheKey : this.getCacheKey(table, obj, options);
+    if (key) ipc.put(key, corelib.stringify(obj), options);
+}
+
+// Notify or clear cached record, this is called after del/update operation to clear cached version by primary keys
+db.delCache = function(table, query, options)
+{
+    var key = options && options.cacheKey ? options.cacheKey : this.getCacheKey(table, query, options);
+    if (key) ipc.del(key, options);
+}
+
+// Returns concatenated values for the primary keys, this is used for caching records by primary key
+db.getCacheKey = function(table, query, options)
+{
+    var keys = this.getKeys(table, options).filter(function(x) { return query[x] }).map(function(x) { return query[x] }).join("|");
+    if (keys) keys = (options && options.cachePrefix ? options.cachePrefix : table) + "|" + keys;
+    return keys;
+}
+
+// Convenient helper to show results from the database requests, can be used as the callback in all db method.
+//
+// Example:
+//
+//          db.select("bk_account", {}, db.showResult);
+//
+db.showResult = function(err, rows, info)
+{
+    if (err) return console.log(err.stack);
+    console.log(util.inspect(rows, { depth: 5 }), info);
+}
+
+// Create a new database pool with default methods and properties
+// - options - an object with default pool properties
+//    - type - pool type, this is the db driver name
+//    - pool or name - pool name
+//    - pooling - create generic pool for connection caching
+//    - watchfile - file path to be watched for changes, all clients will be destroyed gracefully
+//    - min - min number of open database connections
+//    - max - max number of open database connections, all attempts to run more will result in clients waiting for the next available db connection, if set to Infinity no
+//            pooling will be enabled and result in unlimited connections, this is default for DynamoDB
+//    - max_queue - how many db requests can be in the waiting queue, above that all requests will be denied instead of putting in the waiting queue
+// The following pool callback can be assigned to the pool object:
+// - connect - a callback to be called when actual database client needs to be created, the callback signature is
+//    function(pool, callback) and will be called with first arg an error object and second arg is the database instance, required for pooling
+// - close - a callback to be called when a db connection needs to be closed, optional callback with error can be provided to this method
+// - bindValue - a callback function(val, info) that returns the value to be used in binding, mostly for SQL drivers, on input value and col info are passed, this callback
+//   may convert the val into something different depending on the DB driver requirements, like timestamp as string into milliseconds
+// - convertError - a callback function(table, op, err, options) that converts native DB driver error into other human readable format
+// - processColumns - a callback function(pool) taht is called after this pool cached columms from the database, it is called sychnroniously inside the `db.cacheColumns` method.
+// - resolveTable - a callback function(op, table, obj, options) that returns possible different table at the time of the query, it is called by the `db.prepare` method
+//   and if exist it must return the same or new table name for the given query parameters.
+//
+// The db methods cover most use cases but in case native driver needs to be used this is how to get the client and use it with its native API,
+// it is required to call `pool.free` at the end to return the connection back to the connection pool.
+//
+//          var pool = db.getPool("", { pool: "mongodb" });
+//          pool.get(function(err, client) {
+//              var collection = client.collection('bk_account');
+//              collection.findOne({ id: '123' }, function() {
+//                  pool.free(client);
+//              });
+//          });
+//
+db.createPool = function(options)
 {
     var self = this;
-    if (typeof options == "function") callback = options, options = null;
-    if (typeof callback != "function") callback = corelib.noop;
-    if (!options) options = {};
+    if (!options || !options.pool) throw "Options with pool: must be provided";
 
-    var pool = this.getPool('', options);
-    pool.cacheColumns.call(pool, options, function(err) {
-        if (err) logger.error('cacheColumns:', pool.name, err);
-        self.mergeColumns(pool);
-        pool.cacheIndexes.call(pool, options, function(err) {
-            if (err) logger.error('cacheIndexes:', pool.name, err);
-            self.mergeKeys(pool);
-            // Allow other modules to handle just cached columns for post processing
-            if (Array.isArray(self.processColumns)) {
-                self.processColumns.forEach(function(x) {
-                    if (typeof x == "function") x.call(pool, options);
-                });
-            }
-            callback(err);
-        });
-    });
-}
+    logger.debug('createPool:', options);
 
-// Merge JavaScript column definitions with the db cached columns
-db.mergeColumns = function(pool)
-{
-    var tables = pool.dbtables;
-    var dbcolumns = pool.dbcolumns;
-    for (var table in tables) {
-        for (var col in tables[table]) {
-            if (!dbcolumns[table]) dbcolumns[table] = {};
-            if (!dbcolumns[table][col]) {
-                dbcolumns[table][col] = { fake: 1 };
-            } else {
-                delete dbcolumns[table][col].fake;
-            }
-            for (var p in tables[table][col]) {
-                if (!dbcolumns[table][col][p]) dbcolumns[table][col][p] = tables[table][col][p];
-            }
-        }
-    }
-}
+    if (options.pooling || (options.max > 0 && options.max != Infinity)) {
+        var pool = corelib.createPool({
+            min: options.min,
+            max: options.max,
+            idle: options.idle,
 
-// Update pool keys with the primary keys form the table definitions in addition to the actual cached
-// column info from the database, if no caching performed than this just set the keys assuming it will work, for databases that do
-// not provide info about primary keys
-db.mergeKeys = function(pool)
-{
-    var dbcolumns = pool.dbcolumns;
-    var dbkeys = pool.dbkeys;
-    for (var table in dbcolumns) {
-        if (!dbkeys[table]) dbkeys[table] = corelib.searchObj(dbcolumns[table], { name: 'primary', sort: 1, names: 1 });
-    }
-}
-
-// Convert rows returned by the database into the Javascript format or into the format
-// defined by the table columns. The following special properties in the column definition chnage the format:
-//  - type = json - if a column type is json and the value is a string returned will be converted into a Javascript object
-//  - list - split the value into array
-//  - join - a list of names, it produces new properties by splitting the value by | and assigning pieces to
-//      separate properties using names from the join list
-//
-//      Example:
-//              api.describeTables([ { user: { id: { type: "text", join: ["id","type"] }, name: {} } ]);
-//
-//              db.put("test", { id: "1", type: "user", name: "Test" })
-//              db.select("test", {}, db.showResult)
-//
-db.convertRows = function(pool, table, rows, options)
-{
-    if (!pool) pool = this.getPool(table, options);
-    var cols = pool.dbcolumns[table.toLowerCase()] || {};
-    for (var p in cols) {
-        var col = cols[p];
-        // Convert from JSON type
-        if (options.noJson && col.type == "json") {
-            rows.forEach(function(row) {
-                if (typeof row[p] == "string" && row[p]) row[p] = corelib.jsonParse(row[p], { logging : 1 });
-            });
-        }
-        // Split into a list
-        if (col.list) {
-            rows.forEach(function(row) {
-                row[p] = corelib.strSplit(row[p]);
-            });
-        }
-        // Extract joined values and place into separate columns
-        if (col.join) {
-            rows.forEach(function(row) {
-                if (typeof row[p] == "string" && row[p]) {
-                    var v = row[p].split("|");
-                    if (v.length == col.join.length) col.join.forEach(function(x, i) { row[x] = v[i]; });
+            create: function(callback) {
+                var me = this;
+                if (typeof callback != "function") callback = corelib.noop;
+                try {
+                    me.connect.call(self, me, function(err, client) {
+                        if (err) return callback(err, client);
+                        me.watch(client);
+                        me.setup(client, callback);
+                    });
+                } catch(e) {
+                    logger.error('pool.create:', this.name, e);
+                    callback(e);
                 }
+            },
+            validate: function(client) {
+                return self.pools[this.name].serialNum == client.pool_serial;
+            },
+            destroy: function(client) {
+                var me = this;
+                logger.debug('pool.destroy', this.name, "#", client.pool_serial);
+                try {
+                    this.close(client, function(err) { if (err) logger.error("db.close:", me.name, err) });
+                } catch(e) {
+                    logger.error("pool.destroy:", thus.name, e);
+                }
+            },
+        });
+
+        // Acquire a connection with error reporting
+        pool.get = function(callback) {
+            this.acquire(function(err, client) {
+                if (err) logger.error('pool.get:', pool.name, err);
+                if (typeof callback == "function") callback(err, client);
             });
         }
-    }
-}
-
-// Add a callback to be called after each cache columns event, it will be called for each pool separately.
-// The callback to be called may take options argument and it is called in the context of the pool.
-//
-// The primary goal for this hook is to allow management of the existing tables which are not own by the
-// backendjs application. For such tables, because we have not created them, we need to define column properties
-// after the fact and to keep column definitions in the app for such cases is not realistic. This callback will
-// allow to handle such situations and can be used to set necessary propeties to the table columns.
-//
-// Example, a few public columns, allow an admin to see all the columns
-//
-//         db.setProcessColumns(function() {
-//             var cols = db.getColumns("users", { pool: this.name });
-//             for (var p in  cols) {
-//                 if (["id","name"].indexOf(p) > -1) cols[p].pub = 1; else cols[p].admin = 1;
-//             }
-//         })
-db.setProcessColumns = function(callback)
-{
-    if (typeof callback != "function") return;
-    if (!Array.isArray(this.processColumns)) this.processColumns = [];
-    this.processColumns.push(callback);
-}
-
-// Run registsred pre- or post- process callbacks.
-db.processRows = function(type, pool, table, rows, options)
-{
-    if (!pool) pool = this.getPool(table, options);
-    if (!pool.processRow[type]) return rows;
-    var hooks = pool.processRow[type][table];
-    if (!Array.isArray(hooks) || !hooks.length) return rows;
-    var cols = this.getColumns(table, options);
-
-    // Stop of the first hook returning true to remove this row from the list
-    function processRow(row) {
-        for (var i = 0; i < hooks.length; i++) {
-            if (hooks[i].call(pool, row, options, cols) === true) return false;
+        // Release or destroy a client depending on the database watch counter
+        pool.free = function(client) {
+            if (this.serialNum != client.pool_serial) {
+                this.destroy(client);
+            } else {
+                this.release(client);
+            }
         }
-        return true;
-    }
-    if (Array.isArray(rows)) {
-        rows = rows.filter(processRow);
     } else {
-        processRow(rows);
+        var pool = {};
+        pool.get = function(cb) { if (typeof cb == "function" ) cb(null, {}); else logger.error("pool.get:", "invalid callback", cb); };
+        pool.free = function(client) {};
+        pool.closeAll = function() {};
+        pool.stats = function() { return null };
+        pool.shutdown = function(cb) { if (typeof cb == "function") cb() }
     }
-    return rows;
-}
 
-// Assign a processRow callback for a table, this callback will be called for every row on every result being retrieved from the
-// specified table thus providing an opportunity to customize the result.
-//
-// type defines at what time the callback will be called:
-//  - `pre` - making a request to the db on the query record
-//  - `post` - after the request finished to be called on the result rows
-//
-// All assigned callback to this table will be called in the order of the assignment.
-//
-// The callback accepts 3 arguments: function(row, options, columns)
-//   where - row is a row from the table, options are the obj passed to the db called and columns is an object with table's columns
-//
-// **If the callback returns true, row will be filtered out and not included in the final result set.**
-//
-//
-//  Example
-//
-//      db.setProcessRow("post", "bk_account", function(row, opts, cols) {
-//          if (row.birthday) row.age = Math.floor((Date.now() - corelib.toDate(row.birthday))/(86400000*365));
-//      });
-//
-//      db.setProcessRow("post", "bk_icon", function(row, opts, cols) {
-//          if (row.type == "private" && row.id != opts.account.id) return true;
-//      });
-//
-db.setProcessRow = function(type, table, options, callback)
-{
-    var self = this;
-    if (typeof options == "function") callback = options, options = null;
-    if (!table || typeof callback != "function") return;
-    for (var p in this.pools) {
-        var pool = this.pools[p];
-        if (!pool.processRow[type]) pool.processRow[type] = {};
-        if (!pool.processRow[type][table]) pool.processRow[type][table] = [];
-        pool.processRow[type][table].push(callback);
+    // Save all options and methods
+    for (var p in options) {
+        if (p[0] != "_" && !pool[p] && typeof options[p] != "undefined") pool[p] = options[p];
     }
+
+    // Watch for changes or syncs and reopen the database file
+    pool.watch = function(client) {
+        var me = this;
+        if (this.watchfile && !this.serialNum) {
+            this.serialNum = 1;
+            fs.watch(this.watchfile, function(event, filename) {
+                logger.log('db.watch:', me.name, event, filename, me.watchfile, "#", me.serialNum);
+                me.serialNum++;
+                me.closeAll();
+            });
+        }
+        // Mark the client with the current db pool serial number, if on release this number differs we
+        // need to destroy the client, not return to the pool
+        client.pool_serial = this.serialNum;
+        client.pool_name = this.name;
+        logger.debug('pool:', 'open', this.name, "#", this.serialNum);
+    }
+
+    // Save existing options and return as new object, first arg is options, then list of properties to save
+    pool.saveOptions = function(opts) {
+        var old = {};
+        for (var i = 1; i < arguments.length; i++) {
+            var p = arguments[i];
+            old[p] = opts[p];
+        }
+        return old;
+    }
+
+    // Restore the properties we replaced
+    pool.restoreOptions = function(opts, old) {
+        for (var p in old) {
+            if (old[p]) opts[p] = old[p]; else delete opts[p];
+        }
+    }
+
+    // Default methods if not setup from the options
+    if (typeof pool.connect != "function") pool.connect = function(pool, cb) { if (typeof cb == "function" ) cb(null, {}); };
+    if (typeof pool.close != "function") pool.close = function(client, cb) { if (typeof cb == "function" ) cb() }
+    if (typeof pool.setup != "function") pool.setup = function(client, cb) { if (typeof cb == "function" ) cb(null, client); };
+    if (typeof pool.query != "function") pool.query = function(client, req, opts, cb) { if (typeof cb == "function" ) cb(null, []); };
+    if (typeof pool.cacheColumns != "function") pool.cacheColumns = function(opts, cb) { if (typeof cb == "function" ) cb(); }
+    if (typeof pool.cacheIndexes != "function") pool.cacheIndexes = function(opts, cb) { if (typeof cb == "function" ) cb(); };
+    if (typeof pool.nextToken != "function") pool.nextToken = function(client, req, rows, opts) { return client.next_token || null };
+    // Pass all request in an object with predefined properties
+    if (typeof pool.prepare != "function") {
+        pool.prepare = function(op, table, obj, opts) {
+            return { text: table, op: op, table: (table || "").toLowerCase(), obj: obj };
+        }
+    }
+
+    pool.name = pool.pool || pool.name;
+    delete pool.pool;
+    pool.serialNum = 0;
+    pool.dbtables = {};
+    pool.dbcolumns = {};
+    pool.dbkeys = {};
+    pool.dbindexes = {};
+    pool.dbcache = {};
+    pool.metrics = new metrics.Metrics('name', pool.name);
+    [ 'dbinit', 'dboptions'].forEach(function(x) { if (corelib.typeName(pool[x]) != "object") pool[x] = {}; });
+    [ 'ops', 'typesMap', 'opsMap', 'namesMap', 'skipNull' ].forEach(function(x) { if (!pool.dboptions[x]) pool.dboptions[x] = {} });
+    if (!pool.type) pool.type = "unknown";
+    this.pools[pool.name] = pool;
+    logger.debug('db.createPool:', pool.type, pool.name);
+    return pool;
 }
 
 // Make sure the empty pool is created to properly report init issues

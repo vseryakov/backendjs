@@ -29,6 +29,7 @@ var core = require(__dirname + '/core');
 var corelib = require(__dirname + '/corelib');
 var ipc = require(__dirname + '/ipc');
 var msg = require(__dirname + '/msg');
+var db = require(__dirname + '/db');
 var app = require(__dirname + '/app');
 var metrics = require(__dirname + '/metrics');
 var logger = require(__dirname + '/logger');
@@ -39,224 +40,8 @@ var utils = require(__dirname + '/build/Release/backend');
 // the worker processes if they die and restart them automatically. How many processes to spawn can be configured via `-server-max-workers` config parameter.
 var api = {
 
-    // Main tables to support default endpoints
-    tables: {
-        // Authentication by login, only keeps id and secret to check the siganture
-        bk_auth: { login: { primary: 1 },                              // Account login
-                   id: {},                                             // Auto generated UUID
-                   alias: {},                                          // Account alias
-                   status: {},                                         // Status of the account
-                   type: { admin: 1 },                                 // Account type: admin, ....
-                   secret: { secure: 1 },                              // Account password
-                   token_secret: { admin: 1, secure: 1 },              // Secret for access tokens
-                   acl_deny: { admin: 1, secure: 1 },                  // Deny access to matched url, a regexp
-                   acl_allow: { admin: 1, secure: 1 },                 // Only grant access if path matches this regexp
-                   query_deny: { admin: 1, secure: 1 },                // Ignore these query params, a regexp
-                   expires: { type: "bigint", admin: 1, secure: 1 },   // Deny access to the account if this value is before current date, milliseconds
-                   mtime: { type: "bigint", now: 1 } },
-
-        // Basic account information
-        bk_account: { id: { primary: 1, pub: 1 },
-                      login: {},
-                      name: {},
-                      first_name: {},
-                      last_name: {},
-                      alias: { pub: 1 },
-                      status: {},
-                      type: { admin: 1 },
-                      email: {},
-                      phone: {},
-                      website: {},
-                      company: {},
-                      birthday: {},
-                      gender: {},
-                      address: {},
-                      city: {},
-                      state: {},
-                      zipcode: {},
-                      country: {},
-                      device_id: {},                                    // Device for notifications
-                      geohash: { location: 1 },                         // To prevent regular account updates
-                      latitude: { type: "real", location: 1 },          // overriding location columns
-                      longitude: { type: "real", location: 1 },
-                      location: { location: 1 },
-                      ltime: { type: "bigint", location: 1 },           // Last location update time
-                      ctime: { type: "bigint", readonly: 1, now: 1 },   // Create time
-                      mtime: { type: "bigint", now: 1 } },              // Last update time
-
-       // Status/presence support
-       bk_status: { id: { primary: 1 },                               // account id
-                    status: {},                                       // status, online, offline, away
-                    alias: {},
-                    atime: { type: "bigint", now: 1 },                // last access time
-                    mtime: { type: "bigint" }},                       // last status save to db time
-
-       // Keep track of icons uploaded
-       bk_icon: { id: { primary: 1 },                         // Account id
-                  type: { primary: 1, pub: 1 },               // prefix:type
-                  prefix: {},                                 // icon prefix/namespace
-                  acl_allow: {},                              // Who can see it: all, auth, id:id...
-                  ext: {},                                    // Saved image extension
-                  descr: {},
-                  geohash: {},                                // Location associated with the icon
-                  latitude: { type: "real" },
-                  longitude: { type: "real" },
-                  mtime: { type: "bigint", now: 1 }},         // Last time added/updated
-
-       // Locations for all accounts to support distance searches
-       bk_location: { geohash: { primary: 1 },                    // geohash, api.minDistance defines the size
-                      id: { primary: 1, pub: 1 },                 // my account id, part of the primary key for pagination
-                      latitude: { type: "real" },
-                      longitude: { type: "real" },
-                      alias: { pub: 1 },
-                      mtime: { type: "bigint", now: 1 }},
-
-       // All connections between accounts: like,dislike,friend...
-       bk_connection: { id: { primary: 1, pub: 1 },                    // my account_id
-                        type: { primary: 1, pub: 1 },                  // type:connection
-                        connection: { pub: 1 },                        // other id of the connection
-                        alias: { pub: 1 },
-                        status: {},
-                        mtime: { type: "bigint", now: 1, pub: 1 }},
-
-       // References from other accounts, likes,dislikes...
-       bk_reference: { id: { primary: 1, pub: 1 },                    // account_id
-                       type: { primary: 1, pub: 1 },                  // type:connection
-                       connection: { pub: 1 },                        // other id of the connection
-                       alias: { pub: 1 },
-                       status: {},
-                       mtime: { type: "bigint", now: 1, pub: 1 }},
-
-       // New messages
-       bk_message: { id: { primary: 1 },                         // my account_id
-                     mtime: { primary: 1 },                      // mtime:sender
-                     sender: { index: 1 },                       // Sender id
-                     alias: {},                                  // Sender alias
-                     acl_allow: {},                              // Who has access: all, auth, id:id...
-                     msg: {},                                    // Text of the message
-                     icon: { type: "int" }},                     // 1 - icon present, 0 - no icon
-
-       // Archived messages
-       bk_archive: { id: { primary: 1, index: 1 },               // my account_id
-                     mtime: { primary: 1 },                      // mtime:sender
-                     sender: { index: 1 },                       // Sender id
-                     alias: {},                                  // Sender alias
-                     msg: {},                                    // Text of the message
-                     icon: { type: "int" }},                     // 1 - icon present, 0 - no icon
-
-       // Messages sent
-       bk_sent: { id: { primary: 1, index: 1 },                // my account
-                  mtime: { primary: 1 },                       // mtime:recipient
-                  recipient: { index: 1 },                     // Recipient id
-                  alias: {},                                   // Recipient alias
-                  msg: {},                                     // Text of the message
-                  icon: { type: "int" }},                      // 1 - icon present, 0 - no icon
-
-       // All accumulated counters for accounts
-       bk_counter: { id: { primary: 1, pub: 1 },                               // account id
-                     ping: { type: "counter", value: 0, pub: 1 },              // public column to ping the buddy with notification
-                     like0: { type: "counter", value: 0, autoincr: 1 },        // who i like
-                     like1: { type: "counter", value: 0, autoincr: 1 },        // reversed, who likes me
-                     follow0: { type: "counter", value: 0, autoincr: 1 },      // who i follow
-                     follow1: { type: "counter", value: 0, autoincr: 1 }},     // reversed, who follows me
-
-        // Wiki pages
-        bk_pages: { id: { primary: 1, pub: 1 },
-                    title: { pub: 1 },
-                    subtitle: { pub: 1 },
-                    icon: { pub: 1 },                            // icon class, glyphicon, fa....
-                    link: { pub: 1 },                            // external link to the content
-                    content: { pub: 1 },                         // the page content
-                    toc: { type:" bool", pub: 1 },               // produce table of content
-                    pub: { type: "bool", pub: 1 },               // no account to see thos page
-                    userid: { pub: 1 },                          // id of the last user
-                    mtime: { type: "bigint", now: 1, pub: 1 }},
-
-       // Collected metrics per worker process, basic columns are defined in the table to be collected like
-       // api and db request rates(.rmean), response times(.hmean) and total number of requests(_0).
-       // Counters ending with _0 are snapshots, i.e. they must be summed up for any given interval.
-       // All other counters are averages.
-       bk_collect: { id: { primary: 1 },
-                     mtime: { type: "bigint", primary: 1 },
-                     app: {},
-                     ip: {},
-                     type: {},
-                     instance: {},
-                     worker: {},
-                     pid: { type: "int" },
-                     latency: { type: "int" },
-                     cpus: { type: "int" },
-                     mem: { type: "bigint" },
-                     rss_hmean: { type: "real" },
-                     heap_hmean: { type: "real" },
-                     avg_hmean: { type: "real" },
-                     free_hmean: { type: "real" },
-                     util_hmean: { type: "real" },
-                     api_req_rmean: { type: "real" },
-                     api_req_hmean: { type: "real" },
-                     api_req_0: { type: "real" },
-                     api_errors_0: { type: "real" },
-                     api_bad_0: { type: "real" },
-                     api_que_rmean: { type: "real" },
-                     api_que_hmean: { type: "real" },
-                     pool_req_rmean: { type: "real" },
-                     pool_req_hmean: { type: "real" },
-                     pool_req_hmean: { type: "real" },
-                     pool_req_0: { type: "real" },
-                     pool_errors_0: { type: "real" },
-                     pool_que_rmean: { type: "real" },
-                     pool_que_hmean: { type: "real" },
-                     url_account_get_rmean: { type: "real" },
-                     url_account_get_hmean: { type: "real" },
-                     url_account_get_0: { type: "real" },
-                     url_account_select_rmean: { type: "real" },
-                     url_account_select_hmean: { type: "real" },
-                     url_account_select_0: { type: "real" },
-                     url_account_update_rmean: { type: "real" },
-                     url_account_update_hmean: { type: "real" },
-                     url_account_update_0: { type: "real" },
-                     url_message_get_rmean: { type: "real" },
-                     url_message_get_hmean: { type: "real" },
-                     url_message_get_0: { type: "real" },
-                     url_message_add_rmean: { type: "real" },
-                     url_message_add_hmean: { type: "real" },
-                     url_message_add_0: { type: "real" },
-                     url_counter_incr_rmean: { type: "real" },
-                     url_counter_incr_hmean: { type: "real" },
-                     url_counter_incr_0: { type: "real" },
-                     url_connection_get_rmean: { type: "real" },
-                     url_connection_get_hmean: { type: "real" },
-                     url_connection_get_0: { type: "real" },
-                     url_connection_select_rmean: { type: "real" },
-                     url_connection_select_hmean: { type: "real" },
-                     url_connection_select_0: { type: "real" },
-                     url_connection_add_rmean: { type: "real" },
-                     url_connection_add_hmean: { type: "real" },
-                     url_connection_add_0: { type: "real" },
-                     url_connection_incr_rmean: { type: "real" },
-                     url_connection_incr_hmean: { type: "real" },
-                     url_connection_incr_0: { type: "real" },
-                     url_connection_del_rmean: { type: "real" },
-                     url_connection_del_hmean: { type: "real" },
-                     url_connection_del_0: { type: "real" },
-                     url_location_get_rmean: { type: "real" },
-                     url_location_get_hmean: { type: "real" },
-                     url_location_get_0: { type: "real" },
-                     url_location_put_rmean: { type: "real" },
-                     url_location_put_hmean: { type: "real" },
-                     url_location_put_0: { type: "real" },
-                     url_icon_get_rmean: { type: "real" },
-                     url_icon_get_hmean: { type: "real" },
-                     url_icon_get_0: { type: "real" },
-                     url_image_account_rmean: { type: "real" },
-                     url_image_account_hmean: { type: "real" },
-                     url_image_account_0: { type: "real" },
-                     url_image_message_rmean: { type: "real" },
-                     url_image_message_hmean: { type: "real" },
-                     url_image_message_0: { type: "real" },
-                     ctime: { type: "bigint" }},
-
-    }, // tables
+    // Tables required by the API endpoints
+    tables: {},
 
     // Config parameters
     args: [{ name: "images-url", descr: "URL where images are stored, for cases of central image server(s), must be full URL with optional path and trailing slash at the end" },
@@ -267,7 +52,6 @@ var api = {
            { name: "files-s3", descr: "S3 bucket name where to store files uploaded with the File API" },
            { name: "busy-latency", type: "number", min: 11, descr: "Max time in ms for a request to wait in the queue, if exceeds this value server returns too busy error" },
            { name: "access-log", descr: "File for access logging" },
-           { name: "init-tables", type: "bool", key: 'dbInitTables', descr: "Initialize/create API tables in the shell/worker or other non-API modules" },
            { name: "salt", descr: "Salt to be used for scrambling credentials or other hashing activities" },
            { name: "notifications", type: "bool", descr: "Initialize notifications in the API Web worker process to allow sending push notifications from the API handlers" },
            { name: "no-access-log", type: "bool", descr: "Disable access logging in both file or syslog" },
@@ -282,12 +66,9 @@ var api = {
            { name: "access-token-name", descr: "Name for the access token query parameter or header" },
            { name: "access-token-secret", descr: "A secret to be used for access token signatures, additional enryption on top of the signature to use for API access without signing requests, it is required for access tokens to be used" },
            { name: "access-token-age", type: "int", descr: "Access tokens age in milliseconds, for API requests with access tokens only" },
-           { name: "no-modules", type: "regexp", descr: "A regexp with module names which routes should not be setup, supports internal API modules and external loaded modules, even if a module is loaded it will not server API requests because the configureWeb method will not be called for it" },
            { name: "disable-session", type: "regexpobj", descr: "Disable access to API endpoints for Web sessions, must be signed properly" },
-           { name: "allow-connection", type: "map", descr: "Map of connection type to operations to be allowed only, once a type is specified, all operations must be defined, the format is: type:op,type:op..." },
            { name: "allow-admin", type: "regexpobj", descr: "URLs which can be accessed by admin accounts only, can be partial urls or Regexp, this is a convenient option which registers `AuthCheck` callback for the given endpoints" },
            { name: "allow-account-", type: "regexpobj", obj: "allow-account", descr: "URLs which can be accessed by specific account type only, can be partial urls or Regexp, this is a convenient option which registers AuthCheck callback for the given endpoints and only allow access to the specified account types" },
-           { name: "icon-limit", type: "intmap", descr: "Set the limit of how many icons by type can be uploaded by an account, type:N,type:N..., type * means global limit for any icon type" },
            { name: "express-enable", type: "list", descr: "Enable/set Express config option(s), can be a list of options separated by comma or pipe |, to set value user name=val,... to just enable use name,...." },
            { name: "allow", type: "regexpobj", set: 1, descr: "Regexp for URLs that dont need credentials, replace the whole access list" },
            { name: "allow-path", type: "regexpobj", key: "allow", descr: "Add to the list of allowed URL paths without authentication, return result before even checking for the signature" },
@@ -300,10 +81,7 @@ var api = {
            { name: "deny-path", type: "regexpobj", key: "deny", descr: "Add to the list of URL paths to be denied without authentication" },
            { name: "subscribe-timeout", type: "number", min: 60000, max: 3600000, descr: "Timeout for Long POLL subscribe listener, how long to wait for events before closing the connection, milliseconds"  },
            { name: "subscribe-interval", type: "number", min: 0, max: 3600000, descr: "Interval between delivering events to subscribed clients, milliseconds"  },
-           { name: "status-interval", type: "number", descr: "Number of milliseconds between status record updates, presence is considered offline if last access was more than this interval ago" },
            { name: "mime-body", array: 1, descr: "Collect full request body in the req.body property for the given MIME type in addition to json and form posts, this is for custom body processing" },
-           { name: "pages-view", descr: "A view template to be used when rendering markdown pages using Express render engine, for /pages/show command and .md files" },
-           { name: "pages-main", descr: "A template for the main page to be created when starting the wiki engine for the first time, if not given a default simple welcome message will be used" },
            { name: "collect-host", descr: "The backend URL where all collected statistics should be sent over, if set to `pool` then each web worker will save metrics directly into the statistics database pool" },
            { name: "collect-pool", descr: "Database pool where to save collected statistics" },
            { name: "collect-interval", type: "number", min: 30, descr: "How often to collect statistics and metrics in seconds" },
@@ -312,10 +90,7 @@ var api = {
            { name: "cors-origin", descr: "Origin header for CORS requests" },
            { name: "exit-on-error", type: "bool", descr: "Exit on uncaught exception" },
            { name: "signature-age", type: "int", descr: "Max age for request signature in milliseconds, how old the API signature can be to be considered valid, the 'expires' field in the signature must be less than current time plus this age, this is to support time drifts" },
-           { name: "select-limit", type: "int", descr: "Max value that can be passed in the _count parameter, limits how many records can be retrieved in one API call from the database" },
            { name: "upload-limit", type: "number", min: 1024*1024, max: 1024*1024*10, descr: "Max size for uploads, bytes"  },
-           { name: "max-distance", type: "number", min: 0.1, max: 999, descr: "Max searchable distance(radius) in km, for location searches to limit the upper bound" },
-           { name: "min-distance", type: "number", min: 0.1, max: 999, descr: "Radius for the smallest bounding box in km containing single location, radius searches will combine neighboring boxes of this size to cover the whole area with the given distance request, also this affects the length of geohash keys stored in the bk_location table" },
     ],
 
     // Access handlers to grant access to the endpoint before checking for signature.
@@ -360,7 +135,6 @@ var api = {
     imagesUrl: '',
     imagesS3: '',
     filesS3: '',
-    pagesView: "pages.html",
 
     disableSession: {},
     templating: "ejs",
@@ -389,20 +163,8 @@ var api = {
     accessTokenSecret: "",
     accessTokenName: 'bk-access-token',
 
-    // Intervals between updating presence status table
-    statusInterval: 900000,
-
     // Default busy latency 1 sec
     busyLatency: 1000,
-
-    // API related limts
-    allowConnection: {},
-    iconLimit: {},
-
-    // Geo min distance for the hash key, km
-    minDistance: 5,
-    // Max searchable distance, km
-    maxDistance: 50,
 
     // Metrics and stats
     metrics: new metrics.Metrics('id', '',
@@ -429,8 +191,33 @@ var api = {
     collectErrors: 0,
     collectQuiet: false,
 
-    // Endpoints for registered API services, each service registers itself of load
-    endpoints: {},
+    // Query options, special parameters that start with the underscore, separated by type, it can be a simple
+    // list or an object with option name and value to be passed to the conversion utility.
+    controls: {
+        boolean: [
+            "details", "consistent", "desc", "total", "connected", "check",
+            "noscan", "noprocessrows", "noconvertrows", "noreference", "nocounter",
+            "publish", "archive", "trash",
+        ],
+        // String parameters
+        string: [
+            "name","alias","format","separator","pool", "cleanup","sort","ext","encoding",
+        ],
+        // Numeric parameters to be passed to corelib.toNumber
+        number: [
+            "session", "accesstoken", "width", "height", "quality", "round", "interval",
+            { count: { float: 0, dflt: 50, min: 0 } },
+            { page: { float: 0, dflt: 0, min: 0 } },
+        ],
+        // Decrypted with api.getTokenSecret
+        token: [
+            "start", "token",
+        ],
+        // Split by using corelib.strSplit
+        list: [
+            "select",
+        ],
+    },
 }
 
 module.exports = api;
@@ -453,8 +240,6 @@ api.init = function(options, callback)
     if (typeof options == "function") callback = options, options = null;
     if (typeof callback != "function") callback = corelib.noop;
     if (!options) options = {};
-
-    var db = core.modules.db;
 
     // Performance statistics
     self.initStatistics();
@@ -655,6 +440,12 @@ api.init = function(options, callback)
             });
         });
 
+        // Authentication check without accounts module
+        self.app.all("/auth", function(req, res) {
+            self.handleSessionSignature(req, self.getOptions(req));
+            self.sendJSON(req, null, req.account);
+        });
+
         // Return images by prefix, id and possibly type
         self.app.all(/^\/image\/([a-zA-Z0-9_\.\:-]+)\/([^\/ ]+)\/?([^\/ ]+)?$/, function(req, res) {
             var options = self.getOptions(req);
@@ -663,62 +454,48 @@ api.init = function(options, callback)
             self.sendIcon(req, res, req.params[1], options);
         });
 
-        // Setup all tables
-        self.initTables(options, function(err) {
+        // Setup routes from the loaded modules
+        core.runMethods("configureWeb", options, function(err) {
             if (err) return callback.call(self, err);
 
-            // Default endpoints
-            for (var p in self.endpoints) {
-                if (!self.noModules || !self.noModules.test(p)) self[self.endpoints[p]].call(self);
+            // Start http server
+            if (core.port) {
+                self.server = core.createServer({ name: "http", port: core.port, bind: core.bind, restart: "web", timeout: core.timeout }, self.handleServerRequest);
             }
 
-            // Pass disabled endponts to skip installing routes for disable dmodules
-            if (self.noModules) options.noModules = self.noModules;
+            // Start SSL server
+            if (core.ssl.port && (core.ssl.key || core.ssl.pfx)) {
+                self.sslServer = core.createServer({ name: "https", ssl: core.ssl, port: core.ssl.port, bind: core.ssl.bind, restart: "web", timeout: core.timeout }, self.handleServerRequest);
+            }
 
-            // Setup routes from the loaded modules
-            core.runMethods("configureWeb", options, function(err) {
-                if (err) return callback.call(self, err);
-
-                // Start http server
-                if (core.port) {
-                    self.server = core.createServer({ name: "http", port: core.port, bind: core.bind, restart: "web", timeout: core.timeout }, self.handleServerRequest);
+            // WebSocket server, by default uses the http port
+            if (core.ws.port) {
+                var server = core.ws.port == core.port ? self.server : core.ws.port == core.ssl.port ? self.sslServer : null;
+                if (!server) server = core.createServer({ ssl: core.ws.ssl ? core.ssl : null, port: core.ws.port, bind: core.ws.bind, restart: "web" }, function(req, res) { res.send(200, "OK"); });
+                if (server) {
+                    var opts = { server: server, verifyClient: function(data, callback) { self.checkWebSocketRequest(data, callback); } };
+                    if (core.ws.path) opts.path = core.ws.path;
+                    self.wsServer = new ws.Server(opts);
+                    self.wsServer.serverName = "ws";
+                    self.wsServer.serverPort = core.ws.port;
+                    self.wsServer.on("error", function(err) { logger.error("api.init: ws:", err.stack)});
+                    self.wsServer.on('connection', function(socket) { self.handleWebSocketConnect(socket); });
                 }
+            }
 
-                // Start SSL server
-                if (core.ssl.port && (core.ssl.key || core.ssl.pfx)) {
-                    self.sslServer = core.createServer({ name: "https", ssl: core.ssl, port: core.ssl.port, bind: core.ssl.bind, restart: "web", timeout: core.timeout }, self.handleServerRequest);
-                }
+            // Notify the master about new worker server
+            ipc.command({ op: "api:ready", value: { id: cluster.isWorker ? cluster.worker.id : process.pid, pid: process.pid, port: core.port, ready: true } });
 
-                // WebSocket server, by default uses the http port
-                if (core.ws.port) {
-                    var server = core.ws.port == core.port ? self.server : core.ws.port == core.ssl.port ? self.sslServer : null;
-                    if (!server) server = core.createServer({ ssl: core.ws.ssl ? core.ssl : null, port: core.ws.port, bind: core.ws.bind, restart: "web" }, function(req, res) { res.send(200, "OK"); });
-                    if (server) {
-                        var opts = { server: server, verifyClient: function(data, callback) { self.checkWebSocketRequest(data, callback); } };
-                        if (core.ws.path) opts.path = core.ws.path;
-                        self.wsServer = new ws.Server(opts);
-                        self.wsServer.serverName = "ws";
-                        self.wsServer.serverPort = core.ws.port;
-                        self.wsServer.on("error", function(err) { logger.error("api.init: ws:", err.stack)});
-                        self.wsServer.on('connection', function(socket) { self.handleWebSocketConnect(socket); });
-                    }
-                }
-
-                // Notify the master about new worker server
-                ipc.command({ op: "api:ready", value: { id: cluster.isWorker ? cluster.worker.id : process.pid, pid: process.pid, port: core.port, ready: true } });
-
-                // Allow push notifications in the API handlers
-                if (self.notifications) {
-                    msg.init(function() {
-                        callback.call(self, err);
-                    });
-                } else {
+            // Allow push notifications in the API handlers
+            if (self.notifications) {
+                msg.init(function() {
                     callback.call(self, err);
-                }
-            });
+                });
+            } else {
+                callback.call(self, err);
+            }
         });
         self.exiting = false;
-
     });
 }
 
@@ -753,15 +530,13 @@ api.shutdown = function(callback)
 // Allow access to API table in worker processes
 api.configureWorker = function(options, callback)
 {
-    if (!this.dbInitTables) return callback();
-    this.initTables(options, callback);
+    db.initTables(options, callback);
 }
 
 // Access to the API table in the shell
 api.configureShell = function(options, callback)
 {
-    if (!this.dbInitTables) return callback();
-    this.initTables(options, callback);
+    db.initTables(options, callback);
 }
 
 // Start Express middleware processing wrapped in the node domain
@@ -1062,7 +837,7 @@ api.checkAuthorization = function(req, status, callback)
     }
     // Admin only access
     if (self.allowAdmin.rx) {
-        if (!self.checkAccountType(req, "admin") && req.path.match(self.allowAdmin.rx)) return callback({ status: 401, message: "Restricted access" });
+        if (!self.checkAccountType(req.account, "admin") && req.path.match(self.allowAdmin.rx)) return callback({ status: 401, message: "Restricted access" });
     }
     // Verify access by account type
     if (self.allowAccount[req.account.type] && self.allowAccount[req.account.type].rx) {
@@ -1114,7 +889,7 @@ api.checkSignature = function(req, callback)
     }
 
     // Verify if the access key is valid, they all are cached so a bad cache may result in rejects
-    core.modules.db.get("bk_auth", { login: sig.login }, function(err, account) {
+    db.get("bk_auth", { login: sig.login }, function(err, account) {
         if (err) return callback({ status: 500, message: String(err) });
         if (!account) return callback({ status: 404, message: "No account record found" });
 
@@ -1301,104 +1076,52 @@ api.handleSessionSignature = function(req, options)
     }
 }
 
-// Called in the master process to create/upgrade API related tables
-api.initTables = function(options, callback)
-{
-    var self = this;
-    var db = core.modules.db;
-
-    if (typeof options == "function") callback = options, options = {};
-    if (typeof callback != "function") callback = corelib.noop;
-    if (!options) options = {};
-
-    db.initTables(this.tables, options, function(err) {
-        // Make sure we only assign callbacks once because this can be called multiple times
-        if (!self._processRow) {
-            self._processRow = true;
-
-            function onMessageRow(row, options, cols) {
-                delete row.recipient;
-                if (row.mtime) {
-                    var mtime = row.mtime.split(":");
-                    row.mtime = corelib.toNumber(mtime[0]);
-                    row.id = row.sender = mtime[1];
-                }
-                if (row.icon) row.icon = '/message/image?sender=' + row.sender + '&mtime=' + row.mtime; else delete row.icon;
-            }
-
-            function onSentRow(row, options, cols) {
-                delete row.sender;
-                if (row.mtime) {
-                    var mtime = row.mtime.split(":");
-                    row.mtime = corelib.toNumber(mtime[0]);
-                    row.id = row.recipient = mtime[1];
-                }
-                if (row.icon) row.icon = '/message/image?sender=' + row.sender + '&mtime=' + row.mtime; else delete row.icon;
-            }
-
-            function onConnectionRow(row, options, cols) {
-                if (row.type) {
-                    var type = row.type.split(":");
-                    row.type = type[0];
-                    row.id = type[1];
-                }
-            }
-
-            function onAccountRow(row, options, cols) {
-                if (row.birthday) {
-                    row.age = Math.floor((Date.now() - corelib.toDate(row.birthday))/(86400000*365));
-                }
-            }
-
-            db.setProcessRow("post", "bk_account", options, onAccountRow);
-            db.setProcessRow("post", "bk_sent", options, onSentRow);
-            db.setProcessRow("post", "bk_message", options, onMessageRow);
-            db.setProcessRow("post", "bk_archive", options, onMessageRow);
-            db.setProcessRow("post", "bk_connection", options, onConnectionRow);
-            db.setProcessRow("post", "bk_reference", options, onConnectionRow);
-            db.setProcessRow("post", "bk_icon", options, self.checkIcon);
-        }
-        callback(err);
-    });
-}
-
 // Return true if the current user belong to the specified type, account type may contain more than one type
-api.checkAccountType = function(req, type)
+api.checkAccountType = function(row, type)
 {
-    return req.account && req.account.type && corelib.strSplit(req.account.type).indexOf(type) > -1;
+    return corelib.typeName(row) == "object" && typeof row.type == "string" && corelib.strSplit(row.type).indexOf(type) > -1;
 }
 
-// Convert query options into database options, most options are the same as for `db.select` but prepended with underscore to
+// Convert query options into internal options, such options are prepended with the underscore to
 // distinguish control parameters from query parameters.
+// For security purposes this is the only place that translates special control query parameters into the options properties.
 api.getOptions = function(req)
 {
+    var self = this;
     if (!req.options) req.options = {};
-    // Boolean parameters that can be passed with 0 or 1
-    ["details", "consistent", "desc", "total", "connected", "check",
-     "noscan", "noprocessrows", "noconvertrows", "noreference", "nocounter",
-     "publish", "archive", "trash"].forEach(function(x) {
-        if (typeof req.query["_" + x] != "undefined") req.options[x] = corelib.toBool(req.query["_" + x]);
-    });
-    // String parameters
-    ["name","alias","format","separator","pool",
-     "cleanup","sort","ext","encoding"].forEach(function(x) {
-        if (req.query["_" + x]) req.options[x] = req.query["_" + x];
-    });
-    // Numeric parameters
-    if (req.query._session) req.options.session = corelib.toNumber(req.query._session);
-    if (req.query._accesstoken) req.options.accessToken = corelib.toNumber(req.query._accesstoken);
-    if (req.query._count) req.options.count = corelib.toNumber(req.query._count, { float: 0, dflt: 50, min: 0, max: this.selectLimit });
-    if (req.query._start) req.options.start = corelib.base64ToJson(req.query._start, this.getTokenSecret(req));
-    if (req.query._token) req.options.token = corelib.base64ToJson(req.query._token, this.getTokenSecret(req));
-    if (req.query._page) req.options.page = corelib.toNumber(req.query._page, { float: 0, dflt: 0, min: 0 });
-    if (req.query._width) req.options.width = corelib.toNumber(req.query._width);
-    if (req.query._height) req.options.height = corelib.toNumber(req.query._height);
-    if (req.query._tm) req.options.tm = corelib.strftime(Date.now(), "%Y-%m-%d-%H:%M:%S.%L");
-    if (req.query._quality) req.options.quality = corelib.toNumber(req.query._quality);
-    if (req.query._round) req.options.round = corelib.toNumber(req.query._round);
-    if (req.query._interval) req.options.interval = corelib.toNumber(req.query._interval);
+    for (var type in this.controls) {
+        var params = this.controls[type], o = null, p;
+        if (!Array.isArray(params)) continue;
+        params.forEach(function(x) {
+            o = null;
+            if (typeof x == "object") {
+                for (var i in x) {
+                    o = x[i];
+                    x = i;
+                }
+            }
+            p = "_" + x;
+            switch (type) {
+            case "boolean":
+                if (typeof req.query[p] != "undefined") req.options[x] = corelib.toBool(req.query[p]);
+                break;
+            case "number":
+                if (req.query[p]) req.options[x] = corelib.toNumber(req.query[p], o);
+                break;
+            case "list":
+                if (req.query[p]) req.options[x] = corelib.strSplit(req.query[p]);
+                break;
+            case "token":
+                if (req.query[p]) req.options[x] = corelib.base64ToJson(req.query[p], self.getTokenSecret(req));
+                break;
+            case "string":
+                if (req.query[p]) req.options[x] = req.query[p];
+                break;
+            }
+        });
+    }
     // Other special parameters
-    if (req.query._select) req.options.select = corelib.strSplit(req.query._select);
+    if (req.query._tm) req.options.tm = corelib.strftime(Date.now(), "%Y-%m-%d-%H:%M:%S.%L");
     if (req.query._ops) {
         var ops = corelib.strSplit(req.query._ops);
         for (var i = 0; i < ops.length -1; i+= 2) req.options.ops[ops[i]] = ops[i+1];
@@ -1463,7 +1186,6 @@ api.checkResultColumns = function(table, rows, options)
 {
     if (!table || !rows) return;
     if (!options) options = {};
-    var db = core.modules.db;
     var cols = {};
     var admin = this.checkAccountType(options, "admin");
     corelib.strSplit(table).forEach(function(x) {
@@ -1487,34 +1209,6 @@ api.checkResultColumns = function(table, rows, options)
     });
 }
 
-// Define new tables or extend/customize existing tables. Table definitions are used with every database operation,
-// on startup, the backend read all existing table columns from the database and cache them in the memory but some properties
-// like public columns are only specific to the backend so to mark such columns the table with such properties must be described
-// using this method. Only columns with changed properties need to be specified, other columns will be left as it is.
-//
-// Example
-//
-//          api.describeTables({ bk_account: { name: { pub: 1 } },
-//
-//                               test: { id: { primary: 1, type: "int" },
-//                                       name: { pub: 1, index: 1 } });
-//
-api.describeTables = function(tables)
-{
-    var self = this;
-    for (var p in tables) {
-        var dbtables = self.tables[p] ? self.tables : core.modules.db.tables[p] ? core.modules.db.tables : self.tables;
-        if (!dbtables[p]) dbtables[p] = {};
-        for (var c in tables[p]) {
-            if (!dbtables[p][c]) dbtables[p][c] = {};
-            // Merge columns
-            for (var k in tables[p][c]) {
-                dbtables[p][c][k] = tables[p][c][k];
-            }
-        }
-    }
-}
-
 // Clear request query properties specified in the table definition, if any columns for the table contains the property `name` nonempty, then
 // all request properties with the same name as this column name will be removed from the query. This for example is used for the `bk_account`
 // table to disable updating location related columns because speial location API maintains location data and updates the accounts table.
@@ -1530,7 +1224,7 @@ api.clearQuery = function(query, options, table, name)
     for (var i = 3; i < arguments.length; i++) {
         var name = arguments[i];
         if (options && options['keep_' + name]) continue;
-        var cols = core.modules.db.getColumns(table, options);
+        var cols = db.getColumns(table, options);
         for (var p in cols) {
             if ((!reverse && cols[p][name]) || (reverse && !cols[p][name])) delete query[p];
         }
@@ -1671,7 +1365,7 @@ api.registerCleanup = function(method, path, callback)
 //  - fetchAccount - a new function to be used instead of api.fetchAccount for new account creation or mapping
 //     for the given authenticated profile. This is for processing or customizing new account properties and doing
 //     some post processing work after the account has been created.
-//     For any function, `req.profile`, `req.accessToken`,`req.refreshToken` will be set for the authenticated profile object from the provider.
+//     For any function, `query._profile`, `query._accessToken`, `query._refreshToken` will be set for the authenticated profile object from the provider.
 api.registerOAuthStrategy = function(strategy, options, callback)
 {
     var self = this;
@@ -1691,25 +1385,22 @@ api.registerOAuthStrategy = function(strategy, options, callback)
     }
 
     strategy = new strategy(options, function(accessToken, refreshToken, profile, done) {
-        var req = { query: {},
-                    account: { type: "admin" },
-                    profile: profile,
-                    accessToken: accessToken,
-                    refreshToken: refreshToken };
-        req.query.login = profile.provider + ":" + profile.id;
-        req.query.secret = corelib.uuid();
-        req.query.name = profile.displayName;
-        req.query.gender = profile.gender;
-        req.query.email = profile.email;
-        if (!req.query.email && profile.emails && profile.emails.length) req.query.email = profile.emails[0].value;
-        // Deal with broken or not complete implementations
-        if (profile.photos && profile.photos.length) req.query.icon = profile.photos[0].value || profile.photos[0];
-        if (!req.query.icon && profile._json && profile._json.picture) req.query.icon = profile._json.picture;
-        // Login or create new account for the profile
+        // Refuse to login if no account method exists
         var cb = options.fetchAccount || self.fetchAccount;
-        cb.call(self, req, options, function(err, user) {
-            if (err) logger.error('registerOAuthStrategy:', strategy.name, err);
-            logger.debug('registerOAuthStrategy: account:', strategy.name, user, profile)
+        if (typeof cb != "function") return done(new Error("OAuth login is not configured"));
+        var query = { _profile: profile, _accessToken: accessToken, _refreshToken: refreshToken };
+        query.login = profile.provider + ":" + profile.id;
+        query.secret = corelib.uuid();
+        query.name = query.alias = profile.displayName;
+        query.gender = profile.gender;
+        query.email = profile.email;
+        if (!query.email && profile.emails && profile.emails.length) query.email = profile.emails[0].value;
+        // Deal with broken or not complete implementations
+        if (profile.photos && profile.photos.length) query.icon = profile.photos[0].value || profile.photos[0];
+        if (!query.icon && profile._json && profile._json.picture) query.icon = profile._json.picture;
+        // Login or create new account for the profile
+        cb.call(self, query, options, function(err, user) {
+            logger[err ? "error" : "debug"]('registerOAuthStrategy: user:', strategy.name, err || "", user, profile)
             done(err, user);
         });
     });
@@ -1924,154 +1615,3 @@ api.sendEvent = function(req, key, data)
         }, req.msgInterval);
     }
 }
-
-// Setup statistics collections
-api.initStatistics = function()
-{
-    var self = this;
-    // Add some delay to make all workers collect not at the same time
-    var delay = corelib.randomShort();
-
-    self.getStatistics();
-    setInterval(function() { self.getStatistics(); }, self.collectInterval * 1000);
-    setInterval(function() { self.sendStatistics() }, self.collectSendInterval * 1000 - delay);
-
-    logger.debug("initStatistics:", "delay:",  delay, "interval:", self.collectInterval, self.collectSendInterval);
-}
-
-// Updates metrics with the current values and returns an object ready to be saved in the database, i.e. flattened ito one object
-// where all property names of the complex objects are combined into one name separated by comma.
-api.getStatistics = function(options)
-{
-    var self = this;
-    var now = Date.now();
-    var cpus = os.cpus();
-    var util = cpus.reduce(function(n, cpu) { return n + (cpu.times.user / (cpu.times.user + cpu.times.nice + cpu.times.sys + cpu.times.idle + cpu.times.irq)); }, 0);
-    var avg = os.loadavg();
-    var mem = process.memoryUsage();
-    // Cache stats are always behind
-    ipc.stats(function(data) { self.metrics.cache = data });
-    this.metrics.mtime = now;
-    this.metrics.app = core.appName + "/" + core.appVersion;
-    this.metrics.ip = core.ipaddr;
-    this.metrics.pid = process.pid;
-    this.metrics.ctime = core.ctime;
-    this.metrics.cpus = core.maxCPUs;
-    this.metrics.mem = os.totalmem();
-    this.metrics.instance = core.instance.id;
-    this.metrics.worker = core.workerId || '0';
-    this.metrics.id = core.ipaddr + '-' + process.pid;
-    this.metrics.latency = utils.getBusy();
-    this.metrics.Histogram('rss').update(mem.rss);
-    this.metrics.Histogram('heap').update(mem.heapUsed);
-    this.metrics.Histogram('avg').update(avg[2]);
-    this.metrics.Histogram('free').update(os.freemem());
-    this.metrics.Histogram("util").update(util * 100 / cpus.length);
-    this.metrics.pool = core.modules.db.getPool().metrics;
-
-    // Convert into simple object with all deep properties using names concatenated with dots
-    var obj = corelib.flattenObj(this.metrics.toJSON(), { separator: '_' });
-
-    // Clear all counters to make a snapshot and start over, this way in the monitoring station it is only needd to be summed up without
-    // tracking any other states, the naming convention is to use _0 for snapshot counters.
-    if (options && options.clear) this.metrics.reset(/\_0$/);
-    return obj;
-}
-
-// Send collected statistics to the collection server, `backend-host` must be configured and possibly `backend-login` and `backend-secret` in case
-// the system API is secured, the user can be any valid user registered in the bk_auth table.
-api.sendStatistics = function()
-{
-    var self = this;
-
-    if (!self.collectHost) return {};
-
-    var obj = this.getStatistics({ clear: 1 });
-
-    // Using local db connection, this is usefull in case of distributed database where there is no
-    // need for the collection ost in the middle.
-    if (self.collectHost == "pool") return self.saveStatistics(obj);
-
-    // Send to the collection host for storing in the special database or due to security restrictions when
-    // only HTTP is open and authentication is required
-    core.sendRequest({ url: self.collectHost, method: "POST", postdata: obj, quiet: self.collectQuiet }, function(err) {
-        logger.debug("sendStatistics:", self.collectHost, self.collectErrors, err || "");
-        if (!err) {
-            self.collectErrors = self.collectQuiet = 0;
-        } else {
-            // Stop reporting about collection errors
-            if (++self.collectErrors > 3) self.collectQuiet = 1;
-        }
-    });
-    return obj;
-}
-
-// Save collected statistics in the bk_collect table, this can be called via API or directly by the backend, this wrapper
-// is supposed to be overrriden by the application with additional logic how the statistics is saved. Columns in the bk_collect table
-// must be defined for any metrics to be saved, use api.describeTable with additional columns from the api.metrics object in additional to the default ones.
-//
-// Example, add pool cache stats to the table
-//
-//          api.describeTable({ bk_collect: { pool_cache_rmean: { type: "real" },
-//                                            pool_cache_hmean: { type: "real" } });
-//
-api.saveStatistics = function(obj, callback)
-{
-    var self = this;
-    core.modules.db.add("bk_collect", obj, { pool: self.collectPool, skip_null: true }, callback);
-}
-
-// Calculate statistics for a period of time, query and options must confirm to the db.select conventions.
-api.calcStatistics = function(query, options, callback)
-{
-    var self = this;
-    if (typeof optinons == "function") callback = options, options = null;
-    if (!options) options = {};
-    var db = core.modules.db;
-    // Default sample interval
-    if (!options.interval) options.interval = 300000;
-
-    db.select("bk_collect", query, options, function(err, rows) {
-        var series = {}, totals = {};
-        rows.forEach(function(x) {
-            var avg = {}, agg = {};
-            // Extract properties to be shown by type
-            for (var p in x) {
-                if (typeof x[p] != "number") continue;
-                if (p.slice(p.length - 2) == "_0") {
-                    agg[p] = x[p];
-                } else {
-                    avg[p] = x[p];
-                }
-            }
-
-            // Aggregate by specified interval
-            var mtime = Math.round(x.mtime/options.interval)*options.interval;
-            if (!series[mtime]) {
-                series[mtime] = {};
-                totals[mtime] = {};
-            }
-            for (var y in avg) {
-                if (!totals[mtime][y]) totals[mtime][y] = 0;
-                if (!series[mtime][y]) series[mtime][y] = 0;
-                totals[mtime][y]++;
-                series[mtime][y] += avg[y];
-            }
-            for (var y in agg) {
-                if (!series[mtime][y]) series[mtime][y] = 0;
-                series[mtime][y] += agg[y];
-            }
-        });
-        rows = [];
-        Object.keys(series).sort().forEach(function(x) {
-            var obj = { mtime: corelib.toNumber(x) };
-            for (var y in series[x]) {
-                if (totals[x][y]) series[x][y] /= totals[x][y];
-                obj[y] = series[x][y];
-            }
-            rows.push(obj);
-        });
-        callback(null, rows);
-    });
-}
-

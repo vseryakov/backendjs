@@ -50,7 +50,7 @@ core.describeArgs('app',
        { name: "facebook-enable-proof", obj: "facebook", type: "bool", descr: "Sign with client secret all API requests" },
       ]);
 
-api.describeTables({
+db.describeTables({
         bk_account: {
             google_access_token: {},
             google_refresh_token: {},

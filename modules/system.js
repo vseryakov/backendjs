@@ -9,23 +9,40 @@ var fs = require('fs');
 var http = require('http');
 var url = require('url');
 var core = require(__dirname + '/../core');
-var corelib = require(__dirname + '/../corelib');
-var msg = require(__dirname + '/../msg');
-var api = require(__dirname + '/../api');
-var ipc = require(__dirname + '/../ipc');
-var logger = require(__dirname + '/../logger');
-var utils = require(__dirname + '/../build/Release/backend');
+var bkjs = require('backendjs');
+var db = bkjs.db;
+var api = bkjs.api;
+var app = bkjs.app;
+var ipc = bkjs.ipc;
+var msg = bkjs.msg;
+var core = bkjs.core;
+var corelib = bkjs.corelib;
+var logger = bkjs.logger;
 
-api.endpoints["system"] = "initSystemAPI";
+// System management
+var system = {
+    name: "system"
+};
+module.exports = system;
+
+// Initialize the module
+system.init = function(options)
+{
+}
+
+// Create API endpoints and routes
+system.configureWeb = function(options, callback)
+{
+    this.configureSystemAPI();
+    callback()
+}
 
 // API for internal provisioning and configuration
-api.initSystemAPI = function()
+system.configureSystemAPI = function()
 {
-    var self = this;
-
     // Return current statistics
-    this.app.all(/^\/system\/([^\/]+)\/?(.+)?/, function(req, res) {
-        var options = self.getOptions(req);
+    api.app.all(/^\/system\/([^\/]+)\/?(.+)?/, function(req, res) {
+        var options = api.getOptions(req);
         switch (req.params[0]) {
         case "restart":
             ipc.send("api:restart");
@@ -48,35 +65,35 @@ api.initSystemAPI = function()
         case "stats":
             switch (req.params[1]) {
             case 'get':
-                res.json(self.getStatistics());
+                res.json(api.getStatistics());
                 break;
 
             case "send":
-                res.json(self.sendStatistics());
+                res.json(api.sendStatistics());
                 break;
 
             case 'put':
-                self.saveStatistics(self.getStatistics({ clear: true }), function(err) {
-                    self.sendReply(res, err);
+                api.saveStatistics(api.getStatistics({ clear: true }), function(err) {
+                    api.sendReply(res, err);
                 });
                 break;
 
             case 'collect':
-                if (!req.query.id || !req.query.ip || !req.query.pid || !req.query.mtime) return self.sendReply(res, 400, "invalid format: " + req.query.id +","+ req.query.ip +"," + req.query.pid + ","+ req.query.mtime);
-                self.saveStatistics(req.query, function(err) {
-                    self.sendReply(res, err);
+                if (!req.query.id || !req.query.ip || !req.query.pid || !req.query.mtime) return api.sendReply(res, 400, "invalid format: " + req.query.id +","+ req.query.ip +"," + req.query.pid + ","+ req.query.mtime);
+                api.saveStatistics(req.query, function(err) {
+                    api.sendReply(res, err);
                 });
                 break;
 
             case 'calc':
-                self.calcStatistics(req.query, options, function(err, data) {
-                    if (err) return self.sendReply(res, err);
+                api.calcStatistics(req.query, options, function(err, data) {
+                    if (err) return api.sendReply(res, err);
                     res.json(data);
                 });
                 break;
 
             default:
-                self.sendReply(res, 400, "Invalid command:" + req.params[1]);
+                api.sendReply(res, 400, "Invalid command:" + req.params[1]);
             }
             break;
 
@@ -152,12 +169,12 @@ api.initSystemAPI = function()
                 res.json({});
                 break;
             default:
-                self.sendReply(res, 400, "Invalid command:" + req.params[1]);
+                api.sendReply(res, 400, "Invalid command:" + req.params[1]);
             }
             break;
 
         default:
-            self.sendReply(res, 400, "Invalid command:" + req.params[0]);
+            api.sendReply(res, 400, "Invalid command:" + req.params[0]);
         }
     });
 }

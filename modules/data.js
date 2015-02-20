@@ -8,24 +8,42 @@ var util = require('util');
 var fs = require('fs');
 var http = require('http');
 var url = require('url');
-var core = require(__dirname + '/../core');
-var corelib = require(__dirname + '/../corelib');
-var msg = require(__dirname + '/../msg');
-var api = require(__dirname + '/../api');
-var logger = require(__dirname + '/../logger');
-var utils = require(__dirname + '/../build/Release/backend');
+var bkjs = require('backendjs');
+var db = bkjs.db;
+var api = bkjs.api;
+var app = bkjs.app;
+var ipc = bkjs.ipc;
+var msg = bkjs.msg;
+var core = bkjs.core;
+var corelib = bkjs.corelib;
+var logger = bkjs.logger;
 
-api.endpoints["data"] = "initDataAPI";
+// Account management
+var data = {
+    name: "data"
+};
+module.exports = data;
+
+// Initialize the module
+data.init = function(options)
+{
+}
+
+// Create API endpoints and routes
+data.configureWeb = function(options, callback)
+{
+    this.configureDataAPI();
+    callback()
+}
 
 // API for full access to all tables
-api.initDataAPI = function()
+data.configureDataAPI = function()
 {
     var self = this;
-    var db = core.modules.db;
 
     // Return table columns
-    this.app.all(/^\/data\/columns\/?([a-z_0-9]+)?$/, function(req, res) {
-        var options = self.getOptions(req);
+    api.app.all(/^\/data\/columns\/?([a-z_0-9]+)?$/, function(req, res) {
+        var options = api.getOptions(req);
         if (req.params[0]) {
             return res.json(db.getColumns(req.params[0], options));
         }
@@ -36,18 +54,18 @@ api.initDataAPI = function()
     });
 
     // Return table keys
-    this.app.all(/^\/data\/keys\/([a-z_0-9]+)$/, function(req, res) {
-        var options = self.getOptions(req);
+    api.app.all(/^\/data\/keys\/([a-z_0-9]+)$/, function(req, res) {
+        var options = api.getOptions(req);
         res.json(db.getKeys(req.params[0], options));
     });
 
     // Basic operations on a table
-    this.app.all(/^\/data\/(select|scan|search|list|get|add|put|update|del|incr|replace)\/([a-z_0-9]+)$/, function(req, res) {
+    api.app.all(/^\/data\/(select|scan|search|list|get|add|put|update|del|incr|replace)\/([a-z_0-9]+)$/, function(req, res) {
         // Table must exist
         var dbcols = db.getColumns(req.params[1]);
-        if (!dbcols) return self.sendReply(res, "Unknown table");
+        if (!dbcols) return api.sendReply(res, "Unknown table");
 
-        var options = self.getOptions(req);
+        var options = api.getOptions(req);
 
         switch (req.params[0]) {
         case "scan":
@@ -56,7 +74,7 @@ api.initDataAPI = function()
                 rows.push(row);
                 next();
             },function(err) {
-                self.sendJSON(req, err, rows);
+                api.sendJSON(req, err, rows);
             });
             break;
 
@@ -65,10 +83,10 @@ api.initDataAPI = function()
                 switch (req.params[0]) {
                 case "select":
                 case "search":
-                    self.sendJSON(req, err, self.getResultPage(req, options, rows, info));
+                    api.sendJSON(req, err, api.getResultPage(req, options, rows, info));
                     break;
                 default:
-                    self.sendJSON(req, err, rows);
+                    api.sendJSON(req, err, rows);
                 }
             });
         }

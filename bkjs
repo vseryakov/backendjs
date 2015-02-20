@@ -1058,7 +1058,7 @@ var core = bkjs.core;
 var corelib = bkjs.corelib;
 var logger = bkjs.logger;
 
-api.describeTables({
+db.describeTables({
     // New table
     test: {
         id: { primary: 1 },
@@ -1120,7 +1120,7 @@ app.processTestJob = function(options, callback)
 }
 
 // Modify every row returned to the client, we can add/del properties
-app.processTestRow = function(row, options, cols)
+app.processTestRow = function(op, row, options, cols)
 {
     row.url = '/test/list';
     return row;

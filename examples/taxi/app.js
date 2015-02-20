@@ -12,7 +12,7 @@ var logger = bkjs.logger;
 
 var center = [ 37.758565, -122.450523 ];
 
-api.describeTables({
+db.describeTables({
     taxi: { id: { primary: 1, pub: 1, notnull: 1 },
             status: { pub: 1 },
             latitude: { type: "real", pub: 1 },

@@ -267,7 +267,7 @@ void SQLiteDatabase::Init(Handle<Object> target)
 {
     HandleScope scope;
 
-    NODE_SET_METHOD(target, "listStatements", listStatements);
+    NODE_SET_METHOD(target, "sqliteStats", listStatements);
 
     Local < FunctionTemplate > t = FunctionTemplate::New(New);
     constructor_template = Persistent < FunctionTemplate > ::New(t);

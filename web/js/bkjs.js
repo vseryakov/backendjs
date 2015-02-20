@@ -74,22 +74,11 @@ var Bkjs = {
     },
 
     // Retrieve account record, call the callback with the object or error
-    getAccount: function(login, secret, callback) {
+    getAccount: function(callback) {
         var self = this;
-        if (typeof login == "function") callback = login, login = secret = null;
-        if (typeof login =="string" && typeof secret == "string") this.setCredentials(login, secret);
-
-        self.send({ url: "/account/get?" + (this.session ? "_session=1" : "_session=0"), jsonType: "obj" }, function(data, xhr) {
-            self.loggedIn = true;
-            self.account = data;
-            // Clear credentials from the memory if we use sessions
-            if (self.session) self.setCredentials();
-            if (typeof callback == "function") callback(null, data, xhr);
-        }, function(err, xhr) {
-            self.loggedIn = false;
-            self.account = {};
-            self.setCredentials();
-            if (typeof callback == "function") callback(err, null, xhr);
+        self.sendRequest({ url: "/account/get", jsonType: "obj" }, function(err, data, xhr) {
+            for (var p in data) self.account[p] = data[p];
+            if (typeof callback == "function") callback(err, data, xhr);
         });
     },
 
@@ -133,7 +122,7 @@ var Bkjs = {
         var self = this;
         self.loggedIn = false;
         self.account = {};
-        self.sendRequest("/account/logout", function(err, data, xhr) {
+        self.sendRequest("/auth?_session=0&_accesstoken=0", function(err, data, xhr) {
             self.setCredentials();
             if (typeof callback == "function") callback(err, data, xhr);
         });
@@ -141,7 +130,22 @@ var Bkjs = {
 
     // Try to login with the supplied credentials
     login: function(login, secret, callback) {
-        this.getAccount(login, secret, callback);
+        var self = this;
+        if (typeof login == "function") callback = login, login = secret = null;
+        if (typeof login =="string" && typeof secret == "string") this.setCredentials(login, secret);
+
+        self.send({ url: "/auth?" + (this.session ? "_session=1" : "_session=0"), jsonType: "obj" }, function(data, xhr) {
+            self.loggedIn = true;
+            self.account = data;
+            // Clear credentials from the memory if we use sessions
+            if (self.session) self.setCredentials();
+            if (typeof callback == "function") callback(null, data, xhr);
+        }, function(err, xhr) {
+            self.loggedIn = false;
+            self.account = {};
+            self.setCredentials();
+            if (typeof callback == "function") callback(err, null, xhr);
+        });
     },
 
     // Sign request with key and secret

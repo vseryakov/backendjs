@@ -11,7 +11,7 @@ var app = bkjs.app;
 var logger = bkjs.logger;
 var server = bkjs.server;
 
-api.describeTables({
+db.describeTables({
         bk_message: {
             title: {},
             tags: {},

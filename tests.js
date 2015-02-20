@@ -765,6 +765,10 @@ tests.db = function(callback)
                      num: { type: "counter", value: 0, pub: 1 } },
             test4: { id: { primary: 1, pub: 1 },
                      type: { pub: 1 } },
+            test5: { id: { primary: 1, pub: 1 },
+                     hkey: { primary: 1, join: ["type","peer"], ops: { select: "begins_with" }  },
+                     type: { pub: 1 },
+                     peer: { pub: 1 } },
     };
     var now = Date.now();
     var id = corelib.random(64);
@@ -772,7 +776,7 @@ tests.db = function(callback)
     var num2 = corelib.randomNum(this.bbox[0], this.bbox[2]);
     var next_token = null;
 
-    db.setProcessRow("post", "test4", function(row, options, cols) {
+    db.setProcessRow("post", "test4", function(op, row, options, cols) {
         logger.log(row, options, cols)
         var type = (row.type || "").split(":");
         row.type = type[0];
@@ -941,6 +945,13 @@ tests.db = function(callback)
             });
         },
         function(next) {
+            corelib.forEachSeries([1,2,3], function(i, next2) {
+                db.put("test5", { id: id, type: "like", peer: i }, next2);
+            }, function(err) {
+                next(err);
+            });
+        },
+        function(next) {
             // Check pagination
             next_token = null;
             var rc = [];
@@ -1028,6 +1039,21 @@ tests.db = function(callback)
                 next2();
             }, function(err) {
                 core.checkTest(next, err, rows.length!=11, "err19:", rows.length);
+            });
+        },
+        function(next) {
+            db.select("test5", { id: id }, {}, function(err, rows) {
+                core.checkTest(next, err, rows.length!=3 , "err20:", rows);
+            });
+        },
+        function(next) {
+            db.select("test5", { id: id, type: "like" }, {}, function(err, rows) {
+                core.checkTest(next, err, rows.length!=3 , "err21:", rows);
+            });
+        },
+        function(next) {
+            db.get("test5", { id: id, type: "like", peer: 2 }, {}, function(err, row) {
+                core.checkTest(next, err, !row, "err22:", row);
             });
         },
     ],
@@ -1339,7 +1365,6 @@ tests.config = function(callback)
                 "-api-allow-admin", "^/a",
                 "-api-allow-account-dev=^/a",
                 "-api-allow-anonymous=^/a",
-                "-api-init-tables","1",
                 "-api-redirect-url", '{ "^a/$": "a", "^b": "b" }',
                 "-logwatcher-email-error", "a",
                 "-logwatcher-file-error", "a",
@@ -1352,11 +1377,10 @@ tests.config = function(callback)
     core.parseArgs(argv);
     if (core.uid != 1) return callback("invalid uid");
     if (core.proxy.port != 3000) return callback("invalid proxy-port");
-    if (!db.cpools.sqliteNoInitTables) return callback("invalid sqlite no init tables");
-    if (db.cpools.sqliteMax != 10) return callback("invalid sqlite max");
-    if (db.npools.sqlite1 != "a") return callback("invalid sqlite1");
-    if (db.cpools.sqliteMax1 != 10) return callback("invalid sqlite1 max");
-    if (!api.dbInitTables) return callback("invalid api init tables");
+    if (!db.poolParams.sqliteNoInitTables) return callback("invalid sqlite no init tables");
+    if (db.poolParams.sqliteMax != 10) return callback("invalid sqlite max");
+    if (db.poolNames.sqlite1 != "a") return callback("invalid sqlite1");
+    if (db.poolParams.sqliteMax1 != 10) return callback("invalid sqlite1 max");
     if (core.logwatcherEmail.error != "a") return callback("invalid logwatcher email:" + JSON.stringify(core.logwatcherEmail));
     if (core.logwatcherMatch.error.indexOf("a") == -1) return callback("invalid logwatcher match: " + JSON.stringify(core.logwatcherMatch));
     if (!core.logwatcherFile.some(function(x) { return x.file == "a" && x.type == "error"})) return callback("invalid logwatcher file: " + JSON.stringify(core.logwatcherFile));

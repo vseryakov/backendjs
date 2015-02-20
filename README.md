@@ -209,7 +209,7 @@ The typical structure of a backendjs application is the following (created by th
             var db = bkjs.db;
 
             // Describe the tables or data model
-            api.describeTables({
+            db.describeTables({
                 ...
             });
 
@@ -250,10 +250,12 @@ the application is structured.
 ## Modules
 
 Another way to add functionality to the backend is via external modules specific to the backend, these modules are loaded on startup from the backend
-home subdirectory `modules/`. The format is the same as for regular node.js modules and only top level .js files are loaded on the backend startup.
+home subdirectory `modules/` and from the backendjs package directory for core modules. The format is the same as for regular node.js modules and
+only top level .js files are loaded on the backend startup. By default all present in the module/ directories will be loaded, to restrict which
+modules to load or to ignore see command line parameters `-deny-modules` and `-allow-modules`.
 
 Once loaded they have the same access to the backend as the rest of the code, the only difference is that they reside in the backend home and
-can be shipped regardless of the npm, node nodules and other env setup. These modules are exposed in the `core.modules` the same way as all other core submodules.
+can be shipped regardless of the npm, node nodules and other env setup. These modules are exposed in the `core.modules` the same way as all other core submodules
 methods.
 
 Let's assuming the modules/ contains file facebook.js which implements custom FB logic:
@@ -293,7 +295,7 @@ Before the tables can be queried the schema must be defined and created, the bac
 - first the table needs to be described, this is achieved by creating a Javascript object with properties describing each column, multiple tables can be described
   at the same time, for example lets define album table and make sure it exists when we run our application:
 
-            api.describeTables({
+            db.describeTables({
                 album: {
                     id: { primary: 1 },                         // Primary key for an album
                     name: { pub: 1 },                           // Album name, public column
@@ -318,7 +320,7 @@ one or two columns can be marked with primary property while for SQL databases t
 
 The backendjs always creates several tables in the configured database pools by default, these tables are required to support default API functionality and some
 are required for backend opertions. Refer below for the Javascript modules documenttion that described which tables are created by default. In the custom applications
-same `api.describeTables` method can modify columns in the default table and add more columns if needed.
+the `db.describeTables` method can modify columns in the default table and add more columns if needed.
 
 For example, to make age and some other columns in the accounts table public and visible by other users with additional columns the following can be
 done in the `api.initApplication` method. It will extend the bk_account table and the application can use new columns the same way as the already existing columns.
@@ -329,7 +331,7 @@ and all properties not defined and configured are passed as is.
 The cleanup of the public columns is done by the `api.sendJSON` which is used by all API routes when redy to send data back to the client. If any postprocess
 hooks are registered and return data itself then it is the hook responsibility to cleanup non-public columns.
 
-            api.describeTables({
+            db.describeTables({
                     bk_account: {
                            gender: { pub: 1 },
                            birthday: {},
@@ -346,10 +348,9 @@ hooks are registered and return data itself then it is the hook responsibility t
                 ...
                 callback();
             }
-            app.processAccountRow = function(row, options, cols)
+            app.processAccountRow = function(op, row, options, cols)
             {
                 if (row.birthday) row.age = Math.floor((Date.now() - core.toDate(row.birthday))/(86400000*365));
-                return row;
             }
 
 
@@ -704,7 +705,7 @@ a connection with it. No direct operations on bk_reference is allowed.
 - `/connection/add`
 - `/connection/put`
   Create or replace a connection between two accounts, required parameters are:
-    - `id` - id of account to connect to
+    - `peer` - id of account to connect to
     - `type` - type of connection, like,dislike,....
     - _connected - the reply will contain a connection record if the other side of our connection is connected to us as well
     - _publish - notify another account about this via pub/sub messaging system if it is active
@@ -719,7 +720,7 @@ a connection with it. No direct operations on bk_reference is allowed.
 
   Example:
 
-        /connection/add?id=12345&type=invite&state=sent
+        /connection/add?peer=12345&type=invite&state=sent
 
 - `/connection/update`
 - `/connection/incr`
@@ -728,30 +729,31 @@ a connection with it. No direct operations on bk_reference is allowed.
 
   Example:
 
-        /connection/update?id=12345&type=invite&state=accepted
+        /connection/update?peer=12345&type=invite&state=accepted
 
 - `/connection/del`
   Delete existing connection(s), `id` and/or `type` may be be specified, if not all existing connections will be deleted.
 
   Example:
 
-        /connection/del?type=invite&id=12345
+        /connection/del?type=invite&peer=12345
 
 - `/connection/get`
   Return a single connection for given id
 
   Parameters:
-  - id - account id of the connection, required
+  - peer - account id of the connection, required
   - type - connection type, required
 
   Example:
 
-        /connection/get?id=12345&type=like
+        /connection/get?peer=12345&type=like
 
   Response:
 
-        { "id": "12345",
+        { "id": "1111",
           "type: "like",
+          "peer": "12345",
           "mtime": "2434343543543" }
 
 - `/reference/get`
@@ -769,7 +771,7 @@ a connection with it. No direct operations on bk_reference is allowed.
         # Return all accounts who i invited
         /connection/select?type=invite
         # Return connection for specific type and account id
-        /connection/select?type=invite&id=12345
+        /connection/select?type=invite&peer=12345
         # Return accounts who i invited me after specified mtime
         /connection/select?type=invite&_ops=mtime,gt&mtime=12334312543
         # Return accounts who i invited before specified mtime
@@ -777,8 +779,9 @@ a connection with it. No direct operations on bk_reference is allowed.
 
   Response:
 
-        { "data": [ { "id": "12345",
+        { "data": [ { "id": "111",
                       "type": "invite",
+                      "peer": "12345",
                       "status": "",
                       "mtime": "12334312543"
                   }],
@@ -797,8 +800,9 @@ a connection with it. No direct operations on bk_reference is allowed.
 
   Response:
 
-        { "data": [ { "id": "57d07a4e28fc4f33bdca9f6c8e04d6c3",
+        { "data": [ { "id": "111",
                       "type": "invite",
+                      "peer": "12345",
                       "status": "",
                       "mtime": "12334312543"
                   }],
@@ -937,12 +941,12 @@ may keep messages there as new, delete or archive them. Archiving means transfer
 
   Example:
 
-        /message/get/sent?id=123
-        /message/get/sent?id=123&mtime=123475658690&_ops=mtime,le
+        /message/get/sent?recipient=123
+        /message/get/sent?recipient=123&mtime=123475658690&_ops=mtime,le
 
 - `/message/add`
   Send a message to an account, the following parameters must be specified:
-    - `id` - account id of the receiver
+    - `id` - recipient account id
     - `msg` - text of the message, can be empty if `icon` property exists
     - `icon` - icon of the message, it can be base64 encoded image in the query or JSON string if the whole message is posted as JSON or
       can be a multipart file upload if submitted via browser, can be omitted if `msg/connection/get?type=invite&id=12345` property exists.

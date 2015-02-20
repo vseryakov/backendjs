@@ -8,39 +8,88 @@ var util = require('util');
 var fs = require('fs');
 var http = require('http');
 var url = require('url');
-var core = require(__dirname + '/../core');
-var corelib = require(__dirname + '/../corelib');
-var msg = require(__dirname + '/../msg');
-var api = require(__dirname + '/../api');
-var logger = require(__dirname + '/../logger');
-var utils = require(__dirname + '/../build/Release/backend');
+var bkjs = require('backendjs');
+var db = bkjs.db;
+var api = bkjs.api;
+var app = bkjs.app;
+var ipc = bkjs.ipc;
+var msg = bkjs.msg;
+var core = bkjs.core;
+var corelib = bkjs.corelib;
+var logger = bkjs.logger;
+var utils = bkjs.utils;
 
-api.endpoints["location"] = "initLocationsAPI";
+// Locations management
+var locations = {
+    name: "locations",
+
+    // Geo min distance for the hash key, km
+    minDistance: 5,
+    // Max searchable distance, km
+    maxDistance: 50,
+};
+module.exports = locations;
+
+// Initialize the module
+locations.init = function(options)
+{
+    core.describeArgs("locations", [
+         { name: "max-distance", type: "number", min: 0.1, max: 999, descr: "Max searchable distance(radius) in km, for location searches to limit the upper bound" },
+         { name: "min-distance", type: "number", min: 0.1, max: 999, descr: "Radius for the smallest bounding box in km containing single location, radius searches will combine neighboring boxes of this size to cover the whole area with the given distance request, also this affects the length of geohash keys stored in the bk_location table" },
+    ]);
+
+    // Locations for all accounts to support distance searches
+    db.describeTables({
+           bk_location: { geohash: { primary: 1 },                    // geohash, api.minDistance defines the size
+                          id: { primary: 1, pub: 1 },                 // my account id, part of the primary key for pagination
+                          latitude: { type: "real" },
+                          longitude: { type: "real" },
+                          alias: { pub: 1 },
+                          mtime: { type: "bigint", now: 1 }},
+
+           // Metrics
+           bk_collect: {
+                          url_location_get_rmean: { type: "real" },
+                          url_location_get_hmean: { type: "real" },
+                          url_location_get_0: { type: "real" },
+                          url_location_put_rmean: { type: "real" },
+                          url_location_put_hmean: { type: "real" },
+                          url_location_put_0: { type: "real" },
+                      },
+
+    });
+}
+
+// Create API endpoints and routes
+locations.configureWeb = function(options, callback)
+{
+    this.configureLocationsAPI();
+    callback()
+}
 
 // Geo locations management
-api.initLocationsAPI = function()
+locations.configureLocationsAPI = function()
 {
     var self = this;
-    var db = core.modules.db;
 
-    this.app.all(/^\/location\/([a-z]+)$/, function(req, res) {
-        var options = self.getOptions(req);
+    api.app.all(/^\/location\/([a-z]+)$/, function(req, res) {
+        var options = api.getOptions(req);
 
         switch (req.params[0]) {
         case "put":
             self.putLocation(req, options, function(err, data) {
-                self.sendJSON(req, err, data);
+                api.sendJSON(req, err, data);
             });
             break;
 
         case "get":
             self.getLocation(req, options, function(err, data) {
-                self.sendJSON(req, err, data);
+                api.sendJSON(req, err, data);
             });
             break;
 
         default:
-            self.sendReply(res, 400, "Invalid command");
+            api.sendReply(res, 400, "Invalid command");
         }
     });
 }
@@ -51,20 +100,19 @@ api.initLocationsAPI = function()
 // Example
 //
 //          # Request will look like: /recent/locations?latitude=34.1&longitude=-118.1&mtime=123456789
-//          this.app.all(/^\/recent\/locations$/, function(req, res) {
-//              var options = self.getOptions(req);
+//          api.app.all(/^\/recent\/locations$/, function(req, res) {
+//              var options = api.getOptions(req);
 //              options.keys = ["geohash","mtime"];
 //              options.ops = { mtime: 'gt' };
 //              options.details = true;
-//              self.getLocations(req, options, function(err, data) {
+//              api.getLocations(req, options, function(err, data) {
 //                  self.sendJSON(req, err, data);
 //              });
 //          });
 //
-api.getLocation = function(req, options, callback)
+locations.getLocation = function(req, options, callback)
 {
     var self = this;
-    var db = core.modules.db;
     var table = options.table || "bk_location";
 
     // Continue pagination using the search token, it carries all query and pagination info
@@ -92,21 +140,20 @@ api.getLocation = function(req, options, callback)
         // Return accounts with locations
         if (corelib.toNumber(options.details) && rows.length && table != "bk_account") {
 
-            self.listAccount(rows, { select: options.select }, function(err, rows) {
-                if (err) return self.sendReply(res, err);
-                callback(null, self.getResultPage(req, options, rows, info));
+            core.modules.accounts.listAccount(rows, { select: options.select }, function(err, rows) {
+                if (err) return callback(err);
+                callback(null, api.getResultPage(req, options, rows, info));
             });
         } else {
-            callback(null, self.getResultPage(req, options, rows, info));
+            callback(null, api.getResultPage(req, options, rows, info));
         }
     });
 }
 
 // Save location coordinates for current account, this function is called by the `/location/put` API call
-api.putLocation = function(req, options, callback)
+locations.putLocation = function(req, options, callback)
 {
     var self = this;
-    var db = core.modules.db;
     var now = Date.now();
     var table = options.table || "bk_location";
 
