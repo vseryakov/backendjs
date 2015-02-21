@@ -103,12 +103,12 @@ files.forEach(function(file) {
             continue;
         }
         // Tables
-        d = line.match(/^    tables: {$/);
+        d = line.match(/^ +tables: {$|^db.describeTables\(\{/);
         if (d) {
             doc = "* `Database tables`\n\n";
             while (i < data.length) {
                 var line = data[++i];
-                if (line == "    }, // tables") break;
+                if (line.match(/\}, \/\/ tables$|^ +}\);$/)) break;
                 doc += "    " + line + "\n";
             }
             // Precaution

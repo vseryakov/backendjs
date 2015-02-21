@@ -168,14 +168,12 @@ var db = {
         bk_config: { name: { primary: 1 },                      // name of the parameter
                      type: { primary: 1 },                      // config type
                      value: {},                                 // the value
-                     mtime: { type: "bigint", now: 1 }
-        },
+                     mtime: { type: "bigint", now: 1 } },
 
         // General purpose properties, can be used to store arbitrary values
         bk_property: { name: { primary: 1 },
                        value: {},
-                       mtime: { type: "bigint", now: 1 }
-        },
+                       mtime: { type: "bigint", now: 1 } },
 
         // Pending jobs or other requests to be processed
         bk_queue: { id: { type: "uuid", primary: 1 },
@@ -186,8 +184,7 @@ var db = {
                     stime: { type: "bigint" },                        // time when valid for processing
                     etime: { type: "bigint" },                        // expiration time
                     ctime: { type: "bigint", readonly: 1, now: 1 },   // creation time
-                    mtime: { type: "bigint", now: 1 }
-        },
+                    mtime: { type: "bigint", now: 1 } },
 
         // Collected metrics per worker process, basic columns are defined in the table to be collected like
         // api and db request rates(.rmean), response times(.hmean) and total number of requests(_0).
@@ -223,9 +220,8 @@ var db = {
                        pool_errors_0: { type: "real" },
                        pool_que_rmean: { type: "real" },
                        pool_que_hmean: { type: "real" },
-                       ctime: { type: "bigint" },
-        },
-    },
+                       ctime: { type: "bigint" } },
+    }, // tables
 };
 
 module.exports = db;
