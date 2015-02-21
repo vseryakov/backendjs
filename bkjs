@@ -540,7 +540,7 @@ case "$ARG" in
 
     case "$ARG" in
      run-server)
-        $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME -daemon -monitor -master -syslog $BKJS_ARGS $@
+        $NODE_BIN $NODE_ARGS $SCRIPT -syslog -home $BKJS_HOME -daemon -monitor -master $BKJS_ARGS $@
         ;;
 
      run-backend)

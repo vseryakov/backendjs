@@ -123,7 +123,7 @@ icons.handleIconRequest = function(req, res, options, callback)
     if (!req.query.id) req.query.id = req.account.id;
 
     // Max number of allowed icons per type or globally
-    var limit = self.iconLimit[options.type] || self.iconLimit['*'];
+    var limit = self.limit[options.type] || self.limit['*'];
     var icons = [];
 
     corelib.series([

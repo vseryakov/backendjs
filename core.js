@@ -655,7 +655,7 @@ core.processArgs = function(ctx, argv, pass)
                     try { put(obj, name, fs.readFileSync(path.resolve(val)), x); } catch(e) { logger.error('procesArgs:', name, val, e); }
                     break;
                 case "callback":
-                    if (!val) break;
+                    if (!x.callback) break;
                     if (typeof x.callback == "string") {
                         obj[x.callback](val, name);
                     } else

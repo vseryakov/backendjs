@@ -51,7 +51,7 @@ core.describeArgs('app',
       ]);
 
 db.describeTables({
-        bk_account: {
+        bk_auth: {
             google_access_token: {},
             google_refresh_token: {},
             github_access_token: {},
@@ -66,13 +66,13 @@ db.describeTables({
 });
 
 // This is optional to show how an account can be post or pre processed on success
-app.fetchAccount = function(req, options, callback)
+app.fetchAccount = function(query, options, callback)
 {
-    api.fetchAccount(req, {}, function(err, row) {
+    api.fetchAccount(query, options, function(err, row) {
         if (err) return callback(err);
         // Save new access tokens in the account record
         req = corelib.newObj('id', row.id, req.profile.provider + "_access_token", req.accessToken, req.profile.provider + "_refresh_token", req.refreshToken);
-        db.update("bk_account", req, function(err) {
+        db.update("bk_auth", req, function(err) {
             callback(err, row);
         });
     });

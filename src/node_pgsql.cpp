@@ -51,6 +51,8 @@ public:
             Local < Value > argv[2] = { err ? Exception::Error(Local<String>::New(String::New(err))) : Local<Value>::New(Null()),
                                         result ? db->getResult(result) : Local<Array>::New(Array::New(0))  };
             TRY_CATCH_CALL(db->handle_, callback, 2, argv);
+            callback.Dispose();
+            callback.Clear();
         }
         virtual ~Baton() {
             LogDev("%p: cb=%d, %s", this, !callback.IsEmpty(), text.c_str());
@@ -60,57 +62,61 @@ public:
         }
     };
 
-    PgSQLDatabase(const char *info = 0): ObjectWrap(), fd(-1), events(-1), handle(NULL), inserted_oid(0), baton(0) {
+    PgSQLDatabase(const char *info = 0): ObjectWrap(), fd(-1), events(-1), handle(NULL), inserted_oid(0) {
         if (info) conninfo = info;
         uv_timer_init(uv_default_loop(), &timer);
         timer.data = this;
+        poll.data = NULL;
         LogDev("%p: %s", this, info);
     }
 
     ~PgSQLDatabase() {
+        LogDev("%p", this);
         Close();
-        LogDev("%p:", this);
     }
 
     void StopPoll() {
-        uv_timer_stop(&timer);
+        if (!poll.data) return;
+        LogTest("%p: fd=%d, batons=%d", this, fd, batons.size());
         uv_poll_stop(&poll);
+        poll.data = NULL;
         events = -1;
-        LogTest("%p: fd=%d, baton=%p", this, fd, baton);
     }
 
     void StartPoll(int mode, uv_poll_cb cb, Handle<Function> callback, string text) {
-        baton = new Baton(this, callback, text);
+        Baton *baton = new Baton(this, callback, text);
+        batons.push_back(baton);
         events = mode;
         uv_poll_start(&poll, mode, cb);
         poll.data = this;
-        LogTest("%p: fd=%d, baton=%p", this, fd, baton);
+        LogTest("%p: fd=%d, batons=%d", this, fd, batons.size());
     }
 
     void StartPoll(int mode, uv_poll_cb cb) {
         events = mode;
         uv_poll_start(&poll, mode, cb);
         poll.data = this;
-        LogTest("%p: fd=%d, baton=%p", this, fd, baton);
+        LogTest("%p: fd=%d, batons=%d", this, fd, batons.size());
     }
 
     void Emit(const char *err = 0, PGresult* result = 0) {
-        LogDev("%p: %s, res=%p", baton, err, result);
-        if (!baton) return;
-        Baton *b = baton;
+        LogDev("%p: %s, res=%p, batons=%d", this, err, result, batons.size());
+        if (!batons.size()) return;
+        Baton *b = batons.front();
+        batons.pop_front();
         b->Call(err, result);
         delete b;
-        if (b == baton) baton = NULL;
     }
 
     void Close() {
-        LogDev("%p: fd=%d", this, fd);
+        LogNotice("%p: fd=%d, batons=%d", this, fd, batons.size());
         Clear();
         StopPoll();
         if (handle) PQfinish(handle);
         handle = NULL;
         fd = -1;
         if (!notify.IsEmpty()) notify.Dispose();
+        notify.Clear();
     }
 
     void Clear() {
@@ -156,7 +162,7 @@ public:
     string affected_rows;
     Persistent<Function> notify;
     vector<PGresult*> results;
-    Baton *baton;
+    list<Baton*> batons;
 };
 
 Persistent<FunctionTemplate> PgSQLDatabase::constructor_template;
@@ -313,7 +319,7 @@ void PgSQLDatabase::Handle_Poll(uv_poll_t* w, int status, int revents)
 {
     if (status == -1) return;
     PgSQLDatabase *db = static_cast<PgSQLDatabase*>(w->data);
-    LogTest("%p: status=%d, revents=%d, baton=%p", w->data, status, revents, db->baton);
+    LogTest("%p: status=%d, revents=%d, batons=%d", w->data, status, revents, db->batons.size());
 
     if (revents & UV_READABLE) {
         if (!PQconsumeInput(db->handle)) {
