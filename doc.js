@@ -16,8 +16,39 @@ marked.setOptions({ gfm: true, tables: true, breaks: false, pedantic: false, san
 
 var renderer = new marked.Renderer();
 
-var header = '<head><title>Backendjs Documentation</title><link rel="stylesheet" href="css/doc.css"></head><body class="pages">\n';
-var toc = "# ![Backend](img/logo.png) Backendjs Documentation\n##Table of contents\n";
+var header = '<head><title>Backendjs Documentation</title>' +
+        '<link rel="shortcut icon" href="img/logo.png" type="image/png" />' +
+        '<link rel="icon" href="img/logo.png" type="image/png" />' +
+        '<link href="css/font-awesome.css" rel="stylesheet">' +
+        '<script src="js/jquery.js"></script>' +
+        '<link href="css/bootstrap.css" rel="stylesheet">' +
+        '<script src="js/bootstrap.js"></script>' +
+        '<link rel="stylesheet" href="css/doc.css">' +
+        '</head>' +
+        '<body class="pages">\n' +
+        '<div class="container">' +
+        '<nav class="navbar">' +
+        '<div class="container-fluid">' +
+        '<div class="navbar-header">' +
+        '<button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar" aria-expanded="false" aria-controls="navbar">' +
+        '<span class="sr-only">Toggle navigation</span>' +
+        '<span class="icon-bar"></span>' +
+        '<span class="icon-bar"></span>' +
+        '<span class="icon-bar"></span>' +
+        '</button>' +
+        '<a href="/"><img class="logo" src="img/logo.png"></a>' +
+        '<span>Backendjs Documentation</span>' +
+        '</div>' +
+        '<div id="navbar" class="navbar-collapse collapse">' +
+        '<ul class="nav navbar-nav navbar-right">' +
+        '<li><a href="/"><span class="fa fa-gears fa-fw"></span> Home</a></li>' +
+        '<li><a href="http://github.com/vseryakov/backendjs"><span class="fa fa-github fa-fw"></span> Github</a><li>' +
+        '</ul>' +
+        '</div>' +
+        '</div>' +
+        '</nav>';
+
+var toc = "# Backendjs Documentation\n##Table of contents\n";
 
 var readme = fs.readFileSync("README.md").toString();
 
@@ -88,6 +119,6 @@ files.forEach(function(file) {
     }
 });
 
-console.log(header + text + "</body>");
+console.log(header + text + "</div></body>");
 process.exit(0);
 

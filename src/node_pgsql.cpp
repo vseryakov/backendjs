@@ -109,7 +109,7 @@ public:
     }
 
     void Close() {
-        LogNotice("%p: fd=%d, batons=%d", this, fd, batons.size());
+        LogDev("%p: fd=%d, batons=%d", this, fd, batons.size());
         Clear();
         StopPoll();
         if (handle) PQfinish(handle);
