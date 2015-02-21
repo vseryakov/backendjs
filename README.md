@@ -32,8 +32,8 @@ Features:
 * Supports push notifications for mobile devices, APN and GCM
 * Supports HTTP(S) reverse proxy mode where multiple Web workers are load-balanced by the proxy
   server running in the master process instead of relying on the OS scheduling between processes listening on the same port.
-* Can be used with any MVC or other types of frameworks that work on top or with the Express server.
-* Hosted on [github](https://github.com/vseryakov/backendjs), http://bkjs.io or http://vseryakov.github.io/backendjs, BSD licensed.
+* Can be used with any MVC, MVVC or other types of frameworks that work on top or with the Express server.
+* Hosted on [github](https://github.com/vseryakov/backendjs), BSD licensed.
 
 Check out the [Documentation](http://bkjs.io) for more details.
 
@@ -84,8 +84,8 @@ or simply
 * Simplest way of using the backendjs, it will start the server listening on port 8000
 
         # node
-        > var bk = require('backendjs')
-        > bk.server.start()
+        > var bkjs = require('backendjs')
+        > bkjs.server.start()
 
 * Same but using the helper tool, by default it will use embedded Sqlite database and listen on port 8000
 
@@ -104,20 +104,15 @@ or simply
 * While the local backendjs is runnning the documentation is always available when the backend Web server is running at http://localhost:8000/doc.html
 
 * Go to http://localhost:8000/api.html for the Web console to test API requests.
-  For this example let's create a couple of accounts, type and execute the following URLs in the Web console
+  For this example let's create an account, type and execute the following URLs in the Web console:
 
         /account/add?name=test1&secret=test1&login=test1@test.com
-        /account/add?name=test2&secret=test2&login=test2@test.com&gender=m&alias=Test%20User&birthday=1980-01-01
 
 
 * Now login with any of the accounts above, click on *Login* at the top-right corner and enter 'test1' as login and 'test1' as secret in the login popup dialog.
 * If no error message appeared after the login, try to get your current account details:
 
         /account/get
-
-* To see all public fields for all accounts just execute
-
-        /account/select
 
 * Shutdown the backend by pressing Ctrl-C
 * To make your own custom Web app, create a new directory (somewhere else) to store your project and run the following command from that directory:
@@ -153,7 +148,7 @@ or simply
 
 * To see current metrics run the command in the console '/system/stats/get'
 
-* To see charts about accumulated metrics go to http://localhist:8000/metrics.html
+* To see charts about accumulated metrics go to http://localhost:8000/metrics.html
 
 # Backend runtime
 When the backendjs server starts it spawns several processes the perform different tasks.
@@ -358,6 +353,8 @@ hooks are registered and return data itself then it is the hook responsibility t
 
 ## Accounts
 The accounts API manages accounts and authentication, it provides basic user account features with common fields like email, name, address.
+
+This is implemented by the `accounts` module from the core. To disable accounts functionality specify `-deny-modules=accounts`.
 
 - `/account/get`
 
@@ -577,7 +574,28 @@ The accounts API manages accounts and authentication, it provides basic user acc
 
         /account/icon/del?type=1
 
-### Status enquiry
+- `/account/get/status
+  Return status for the account by id, if no id is psecified return status for the current account.
+
+  The system maintains account status with the timestamp to be used for presence or any other purposes. The bk_status table can be cached with any available
+  caching system like Redis, memcache, nanomsg to be very fast presence state system.
+
+  Example:
+
+        /account/get/status?id=12345
+
+- `/account/put/status`
+  Set the status of the current account, requires status parameter, automatically updates the timestamp
+
+  Example:
+
+        /account/put/status?status=online
+
+- `/account/del/status`
+  Delete current account status, mostly for clearing the cache or marking offline status
+
+
+### Health enquiry
 When running with AWS load balancer there should be a url that a load balancer polls all the time and this must be very quick and lightweight request. For this
 purpose there is an API endpoint `/ping` that just responds with status 200. It is not open by default, the `allow-path` or other way to allow non-authenticted access
 needs to be configured. This is to be able to control how pinging can be perform in the apps in cae it is not simple open access.
@@ -616,6 +634,7 @@ The supposed usage for type is to concatenate common identifiers first with more
 by prefix or exactly by icon type. For example album id can be prefixed first, then sequential con number like album1:icon1, album1:icon2....
 then retrieving all icons for an album would be only query with album1: prefix.
 
+The is implemented by the `icons` module from the core. To disable this functionality specify `-deny-modules=icons`.
 
 - `/icon/get`
 
@@ -674,6 +693,8 @@ then retrieving all icons for an album would be only query with album1: prefix.
 
 The file API provides ability to store and retrieve files. The operations are similar to the Icon API.
 
+This is implemented by the `files` module from the core. To disable this functionality specify `-deny-modules=files`.
+
 - `/file/get`
 
     Return a file with given prefix and name, the contents are returned in the response body.
@@ -698,9 +719,12 @@ The file API provides ability to store and retrieve files. The operations are si
     Delete file, prefix and name must be given
 
 ## Connections
+
 The connections API maintains two tables `bk_connection` and `bk_reference` for links between accounts of any type. bk_connection table maintains my
 links, i.e. when i make explicit connection to other account, and bk_reference table is automatically updated with reference for that other account that i made
 a connection with it. No direct operations on bk_reference is allowed.
+
+This is implemented by the `connections` module from the core. To disable this functionality specify `-deny-modules=connections`.
 
 - `/connection/add`
 - `/connection/put`
@@ -825,6 +849,8 @@ When request comes for all matches for the location for example 37.7, -122.4, th
 - continue untill we visit all neighbors or received required number of macthed records
 - on return the next_token opaque value will be provided if we want to continue the search for more matched for the same location
 
+This is implemented by the `locations` module from the core. To disable this functionality specify `-deny-modules=locations`.
+
 - `/location/put`
   Store currenct location for current account, latitude and longitude parameters must be given, this call will update the bk_account table as well with
   these coordinates
@@ -868,6 +894,8 @@ When request comes for all matches for the location for example 37.7, -122.4, th
 ## Messages
 The messaging API allows sending and recieving messages between accounts, it supports text and images. All new messages arrive into the bk_messsage table, the inbox. The client
 may keep messages there as new, delete or archive them. Archiving means transfering messages into the bk_archive table. All sent messages are kept in the bk_sent table.
+
+This is implemented by the `messages` module from the core. To disable this functionality specify `-deny-modules=messages`.
 
 - `/message/get`
   Read all new messages, i.e. the messages that never been read or issued `/message/archive` call.
@@ -997,6 +1025,8 @@ The counters API maintains realtime counters for every account records, the coun
 is always cached with whatever cache service is used, by default it is cached by the Web server process on every machine. Web worker processes ask the master Web server
 process for the cached records thus only one copy of the cache per machine even in the case of multiple CPU cores.
 
+This is implemented by the `counters` module from the core. To disable this functionality specify `-deny-modules=counters|accounts`.
+
 - `/counter/get`
   Return counter record for current account with all available columns of if `id` is given return public columns for given account, it works with `bk_counter` table
   which by default defines some common columns:
@@ -1021,38 +1051,19 @@ process for the cached records thus only one copy of the cache per machine even 
         /counter/incr?msg_read=5&
         /counter/incr?id=12345&ping=1
 
-## Status
-The status API maintains account status with the timestamp to be used for presence or any other purposes. This table can be cached with any available
-caching system like Redis, memcache, nanomsg to be very fast presence state system.
-
-- `/status/put`
-  Set the status of the current account, requires status parameter, automatically updates the timestamp
-
-  Example:
-
-        /status/put?status=online
-
-- `/status/get`
-  Return status for the account by id, if no id is psecified return statrus for the current account
-
-  Example:
-
-        /status/get?id=12345
-
-- `/status/del`
-  Delete current account status, mostly for clearing the cache or marking offline status
-
 ## Data
 The data API is a generic way to access any table in the database with common operations, as oppose to the any specific APIs above this API only deals with
 one table and one record without maintaining any other features like auto counters, cache...
 
 *Because it exposes the whole database to anybody who has a login it is a good idea to disable this endpoint in the production or provide access callback that verifies
 who can access it.*
-  - To disable this endpoint completely in the config: `api-disable=data`
+  - To disable this endpoint completely in the config: `deny-modules=data`
   - To allow admins to access it only in the config: `api-allow-admin=^/data`
   - To allow admins to access it only:
 
         api.registerPreProcess('GET', '/data', function(req, status, cb) { if (req.account.type != "admin") return cb({ status: 401, message: 'access denied' }; cb(status)); });
+
+This is implemented by the `data` module from the core.
 
 - `/data/columns`
 - `/data/columns/TABLE`
@@ -1087,6 +1098,8 @@ to work.
 
 All .md files will be rendered into html automatically if there is not _raw=1 query parameter and pages view exists (api-pages-view=pages.html by default).
 
+This is implemented by the `pages` module from the core. To disable this functionality specify `-deny-modules=accounts`.
+
 - `/pages/get/ID`
   Return a page with given id or the main page if id is empty. If the query parameter `_render=1` is given, the content will be rendered into html from markdown, otherwie
   returns all data as is.
@@ -1108,6 +1121,8 @@ All .md files will be rendered into html automatically if there is not _raw=1 qu
 ## System API
 The system API returns information about the backend statistics, allows provisioning and configuration commands and other internal maintenance functions. By
 default is is open for access to all users but same security considerations apply here as for the Data API.
+
+This is implemented by the `system` module from the core. To disable this functionality specify `-deny-modules=accounts`.
 
 - `/system/restart`
     Perform restart of the Web processes, this will be done gracefully, only one Web worker process will be restarting while the other processes will keep
@@ -1487,6 +1502,7 @@ The backend directory structure is the following:
 
     * etc/crontab.local - additional local crontab that is read after the main one, for local or dev environment
 
+* `modules` - loadable modules with specific functionality
 * `images` - all images to be served by the API server, every subfolder represent naming space with lots of subfolders for images
 * `var` - database files created by the server
 * `tmp` - temporary files
@@ -1693,7 +1709,7 @@ On the backend side in your application app.js it needs more secure settings def
 in case of error will be redirected to the login page by the server. Note, in the login page `Bkjs.session` must be set to true for all
 html pages to work after login without singing every API request.
 
-First we disable all allowed paths to the html and registration:
+1. We disable all allowed paths to the html and registration:
 
         app.configureMiddleware = function(options, callback) {
             self.allow.splice(self.allow.indexOf('^/$'), 1);
@@ -1703,7 +1719,7 @@ First we disable all allowed paths to the html and registration:
         }
 
 
-Second we define auth callback in the app and redirect to login if the reauest has no valid signature, we check all html pages, all allowed html pages from the /public
+2. We define an auth callback in the app and redirect to login if the reauest has no valid signature, we check all html pages, all allowed html pages from the /public
 will never end up in this callback because it is called after the signature check but allowed pages are served before that:
 
         api.registerPreProcess('', /^\/$|\.html$/, function(req, status, callback) {
@@ -1840,22 +1856,25 @@ All requests to the API server must be signed with account login/secret pair.
     * Join sorted list of parameters with "&"
         - Make sure all + are encoded as %2B
     * Form canonical string to be signed as the following:
-        - Line1: The HTTP method(GET), followed by a newline.
-        - Line2: the host, lowercase, followed by a newline.
-        - Line3: The request URI (/), followed by a newline.
-        - Line4: The sorted and joined query parameters as one string, followed by a newline.
-        - Line5: The expiration value in milliseconds, required, followed by a newline
-        - Line6: The Content-Type HTTP header, lowercase, followed by a newline
+        - Line1: The signature version
+        - Line2: The application tag or other opaque data
+        - Line3: The login name
+        - Line4: The HTTP method(GET), followed by a newline.
+        - Line5: the host, lowercase, followed by a newline.
+        - Line6: The request URI (/), followed by a newline.
+        - Line7: The sorted and joined query parameters as one string, followed by a newline.
+        - Line8: The expiration value in milliseconds, required, followed by a newline
+        - Line9: The Content-Type HTTP header, lowercase, followed by a newline
     * Computed HMAC-SHA1 digest from the canonical string and encode it as BASE64 string, preserve trailing = if any
     * Form the signature HTTP header as the following:
         - The header string consist of multiple fields separated by pipe |
             - Field1: Signature version:
-                - version 1, normal signature
-                - version 2, only used in session cookies, not headers
-                - version 3, same as 1 but uses SHA256
-            - Field2: Application version or other app specific data
+                - version 1, obsolete, do not use first 3 lines in the canonical string
+                - version 2,3 to be used in session cookies only
+                - version 4
+            - Field2: Application tag or other app specific data
             - Field3: account login or whatever it might be in the login column
-            - Field4: HMAC-SHA digest from the canonical string, version 1 o 3 defines SHA1 or SHA256
+            - Field4: HMAC-SHA digest from the canonical string, version 1 uses SHA1, other SHA256
             - Field5: expiration value in milliseconds, same as in the canonical string
             - Field6: SHA1 checksum of the body content, optional, for JSON and other forms of requests not supported by query paremeters
             - Field7: empty, reserved for future use

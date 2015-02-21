@@ -14,7 +14,7 @@
 <li><a href="#database-schema-definition"> Database schema definition</a></li>
 <li><a href="#api-endpoints-provided-by-the-backend"> API endpoints provided by the backend</a><ul>
 <li><a href="#accounts"> Accounts</a></li>
-<li><a href="#status-enquiry"> Status enquiry</a></li>
+<li><a href="#health-enquiry"> Health enquiry</a></li>
 <li><a href="#public-images-endpoint"> Public Images endpoint</a></li>
 <li><a href="#icons"> Icons</a></li>
 <li><a href="#file-api"> File API</a></li>
@@ -22,7 +22,6 @@
 <li><a href="#locations"> Locations</a></li>
 <li><a href="#messages"> Messages</a></li>
 <li><a href="#counters"> Counters</a></li>
-<li><a href="#status"> Status</a></li>
 <li><a href="#data"> Data</a></li>
 <li><a href="#pages"> Pages</a></li>
 <li><a href="#system-api"> System API</a></li>
@@ -132,8 +131,8 @@ same way allowing to switch databases without changing the code.</li>
 <li>Supports push notifications for mobile devices, APN and GCM</li>
 <li>Supports HTTP(S) reverse proxy mode where multiple Web workers are load-balanced by the proxy
 server running in the master process instead of relying on the OS scheduling between processes listening on the same port.</li>
-<li>Can be used with any MVC or other types of frameworks that work on top or with the Express server.</li>
-<li>Hosted on <a href="https://github.com/vseryakov/backendjs">github</a>, <a href="http://bkjs.io">http://bkjs.io</a> or <a href="http://vseryakov.github.io/backendjs">http://vseryakov.github.io/backendjs</a>, BSD licensed.</li>
+<li>Can be used with any MVC, MVVC or other types of frameworks that work on top or with the Express server.</li>
+<li>Hosted on <a href="https://github.com/vseryakov/backendjs">github</a>, BSD licensed.</li>
 </ul>
 <p>Check out the <a href="http://bkjs.io">Documentation</a> for more details.</p>
 <h1 id="requirements-and-dependencies">Requirements and dependencies</h1>
@@ -166,8 +165,8 @@ applications but still part of the core of the system to be available once neede
 <ul>
 <li><p>Simplest way of using the backendjs, it will start the server listening on port 8000</p>
 <pre><code>  # node
-  &gt; var bk = require(&#39;backendjs&#39;)
-  &gt; bk.server.start()
+  &gt; var bkjs = require(&#39;backendjs&#39;)
+  &gt; bkjs.server.start()
 </code></pre></li>
 <li><p>Same but using the helper tool, by default it will use embedded Sqlite database and listen on port 8000</p>
 <pre><code>  bkjs run-backend
@@ -183,18 +182,14 @@ applications but still part of the core of the system to be available once neede
 <li><p>While the local backendjs is runnning the documentation is always available when the backend Web server is running at <a href="http://localhost:8000/doc.html">http://localhost:8000/doc.html</a></p>
 </li>
 <li><p>Go to <a href="http://localhost:8000/api.html">http://localhost:8000/api.html</a> for the Web console to test API requests.
-For this example let&#39;s create a couple of accounts, type and execute the following URLs in the Web console</p>
+For this example let&#39;s create an account, type and execute the following URLs in the Web console:</p>
 <pre><code>  /account/add?name=test1&amp;secret=test1&amp;login=test1@test.com
-  /account/add?name=test2&amp;secret=test2&amp;login=test2@test.com&amp;gender=m&amp;alias=Test%20User&amp;birthday=1980-01-01
 </code></pre></li>
 </ul>
 <ul>
 <li>Now login with any of the accounts above, click on <em>Login</em> at the top-right corner and enter &#39;test1&#39; as login and &#39;test1&#39; as secret in the login popup dialog.</li>
 <li><p>If no error message appeared after the login, try to get your current account details:</p>
 <pre><code>  /account/get
-</code></pre></li>
-<li><p>To see all public fields for all accounts just execute</p>
-<pre><code>  /account/select
 </code></pre></li>
 <li><p>Shutdown the backend by pressing Ctrl-C</p>
 </li>
@@ -228,7 +223,7 @@ is only enabled by default in development mode, check app.sh for parameters befo
 </code></pre></li>
 <li><p>To see current metrics run the command in the console &#39;/system/stats/get&#39;</p>
 </li>
-<li><p>To see charts about accumulated metrics go to <a href="http://localhist:8000/metrics.html">http://localhist:8000/metrics.html</a></p>
+<li><p>To see charts about accumulated metrics go to <a href="http://localhost:8000/metrics.html">http://localhost:8000/metrics.html</a></p>
 </li>
 </ul>
 <h1 id="backend-runtime">Backend runtime</h1>
@@ -404,6 +399,7 @@ hooks are registered and return data itself then it is the hook responsibility t
 </code></pre><h1 id="api-endpoints-provided-by-the-backend">API endpoints provided by the backend</h1>
 <h2 id="accounts">Accounts</h2>
 <p>The accounts API manages accounts and authentication, it provides basic user account features with common fields like email, name, address.</p>
+<p>This is implemented by the <code>accounts</code> module from the core. To disable accounts functionality specify <code>-deny-modules=accounts</code>.</p>
 <ul>
 <li><p><code>/account/get</code></p>
 <p>Returns information about current account or other accounts, all account columns are returned for the current account and only public columns
@@ -590,8 +586,23 @@ for JSON the Content-Type HTTP headers must be set to <code>application/json</co
 <p>Example:</p>
 <pre><code>  /account/icon/del?type=1
 </code></pre></li>
+<li><p>`/account/get/status
+Return status for the account by id, if no id is psecified return status for the current account.</p>
+<p>The system maintains account status with the timestamp to be used for presence or any other purposes. The bk_status table can be cached with any available
+caching system like Redis, memcache, nanomsg to be very fast presence state system.</p>
+<p>Example:</p>
+<pre><code>  /account/get/status?id=12345
+</code></pre></li>
+<li><p><code>/account/put/status</code>
+Set the status of the current account, requires status parameter, automatically updates the timestamp</p>
+<p>Example:</p>
+<pre><code>  /account/put/status?status=online
+</code></pre></li>
+<li><p><code>/account/del/status</code>
+Delete current account status, mostly for clearing the cache or marking offline status</p>
+</li>
 </ul>
-<h3 id="status-enquiry">Status enquiry</h3>
+<h3 id="health-enquiry">Health enquiry</h3>
 <p>When running with AWS load balancer there should be a url that a load balancer polls all the time and this must be very quick and lightweight request. For this
 purpose there is an API endpoint <code>/ping</code> that just responds with status 200. It is not open by default, the <code>allow-path</code> or other way to allow non-authenticted access
 needs to be configured. This is to be able to control how pinging can be perform in the apps in cae it is not simple open access.</p>
@@ -623,6 +634,7 @@ a special mapping between prefix/type and album titles for example needs to be c
 <p>The supposed usage for type is to concatenate common identifiers first with more specific to form unique icon type which later can be queried
 by prefix or exactly by icon type. For example album id can be prefixed first, then sequential con number like album1:icon1, album1:icon2....
 then retrieving all icons for an album would be only query with album1: prefix.</p>
+<p>The is implemented by the <code>icons</code> module from the core. To disable this functionality specify <code>-deny-modules=icons</code>.</p>
 <ul>
 <li><p><code>/icon/get</code></p>
 <p> Return icon for the current account in the given prefix, icons are kept on the local disk in the directory
@@ -673,6 +685,7 @@ the <code>url</code> property will provide full URL to retrieve the icon content
 </ul>
 <h2 id="file-api">File API</h2>
 <p>The file API provides ability to store and retrieve files. The operations are similar to the Icon API.</p>
+<p>This is implemented by the <code>files</code> module from the core. To disable this functionality specify <code>-deny-modules=files</code>.</p>
 <ul>
 <li><p><code>/file/get</code></p>
 <p>  Return a file with given prefix and name, the contents are returned in the response body.</p>
@@ -701,6 +714,7 @@ the <code>url</code> property will provide full URL to retrieve the icon content
 <p>The connections API maintains two tables <code>bk_connection</code> and <code>bk_reference</code> for links between accounts of any type. bk_connection table maintains my
 links, i.e. when i make explicit connection to other account, and bk_reference table is automatically updated with reference for that other account that i made
 a connection with it. No direct operations on bk_reference is allowed.</p>
+<p>This is implemented by the <code>connections</code> module from the core. To disable this functionality specify <code>-deny-modules=connections</code>.</p>
 <ul>
 <li><code>/connection/add</code></li>
 <li><p><code>/connection/put</code>
@@ -808,8 +822,10 @@ When request comes for all matches for the location for example 37.7, -122.4, th
 <li>filter out all records beyond our radius by calculating the difference between our point and the candidate record</li>
 <li>if total number of results expcted is still less than required, continue to the next neighbor area</li>
 <li>continue untill we visit all neighbors or received required number of macthed records</li>
-<li><p>on return the next_token opaque value will be provided if we want to continue the search for more matched for the same location</p>
-</li>
+<li>on return the next_token opaque value will be provided if we want to continue the search for more matched for the same location</li>
+</ul>
+<p>This is implemented by the <code>locations</code> module from the core. To disable this functionality specify <code>-deny-modules=locations</code>.</p>
+<ul>
 <li><p><code>/location/put</code>
 Store currenct location for current account, latitude and longitude parameters must be given, this call will update the bk_account table as well with
 these coordinates</p>
@@ -846,6 +862,7 @@ it must be passed as is as <code>_token=</code> parameter with all original quer
 <h2 id="messages">Messages</h2>
 <p>The messaging API allows sending and recieving messages between accounts, it supports text and images. All new messages arrive into the bk_messsage table, the inbox. The client
 may keep messages there as new, delete or archive them. Archiving means transfering messages into the bk_archive table. All sent messages are kept in the bk_sent table.</p>
+<p>This is implemented by the <code>messages</code> module from the core. To disable this functionality specify <code>-deny-modules=messages</code>.</p>
 <ul>
 <li><p><code>/message/get</code>
 Read all new messages, i.e. the messages that never been read or issued <code>/message/archive</code> call.</p>
@@ -964,6 +981,7 @@ Return the image data for the given message, the required parameters are:</p>
 <p>The counters API maintains realtime counters for every account records, the counters record may contain many different counter columns for different purposes and
 is always cached with whatever cache service is used, by default it is cached by the Web server process on every machine. Web worker processes ask the master Web server
 process for the cached records thus only one copy of the cache per machine even in the case of multiple CPU cores.</p>
+<p>This is implemented by the <code>counters</code> module from the core. To disable this functionality specify <code>-deny-modules=counters|accounts</code>.</p>
 <ul>
 <li><p><code>/counter/get</code>
 Return counter record for current account with all available columns of if <code>id</code> is given return public columns for given account, it works with <code>bk_counter</code> table
@@ -989,36 +1007,19 @@ if <code>id</code> parameter is specified, only public columns will be increased
   /counter/incr?id=12345&amp;ping=1
 </code></pre></li>
 </ul>
-<h2 id="status">Status</h2>
-<p>The status API maintains account status with the timestamp to be used for presence or any other purposes. This table can be cached with any available
-caching system like Redis, memcache, nanomsg to be very fast presence state system.</p>
-<ul>
-<li><p><code>/status/put</code>
-Set the status of the current account, requires status parameter, automatically updates the timestamp</p>
-<p>Example:</p>
-<pre><code>  /status/put?status=online
-</code></pre></li>
-<li><p><code>/status/get</code>
-Return status for the account by id, if no id is psecified return statrus for the current account</p>
-<p>Example:</p>
-<pre><code>  /status/get?id=12345
-</code></pre></li>
-<li><p><code>/status/del</code>
-Delete current account status, mostly for clearing the cache or marking offline status</p>
-</li>
-</ul>
 <h2 id="data">Data</h2>
 <p>The data API is a generic way to access any table in the database with common operations, as oppose to the any specific APIs above this API only deals with
 one table and one record without maintaining any other features like auto counters, cache...</p>
 <p><em>Because it exposes the whole database to anybody who has a login it is a good idea to disable this endpoint in the production or provide access callback that verifies
 who can access it.</em></p>
 <ul>
-<li>To disable this endpoint completely in the config: <code>api-disable=data</code></li>
+<li>To disable this endpoint completely in the config: <code>deny-modules=data</code></li>
 <li>To allow admins to access it only in the config: <code>api-allow-admin=^/data</code></li>
 <li><p>To allow admins to access it only:</p>
 <pre><code>api.registerPreProcess(&#39;GET&#39;, &#39;/data&#39;, function(req, status, cb) { if (req.account.type != &quot;admin&quot;) return cb({ status: 401, message: &#39;access denied&#39; }; cb(status)); });
 </code></pre></li>
 </ul>
+<p>This is implemented by the <code>data</code> module from the core.</p>
 <ul>
 <li><code>/data/columns</code></li>
 <li><p><code>/data/columns/TABLE</code>
@@ -1047,6 +1048,7 @@ exposes an API to manage and render pages.</p>
 <p>The pages support public mode, all pages with <code>pub</code> set to true will be returning without an account, this must be enabled with <code>api-allow-path=^/pages/(get|select|show)</code>
 to work.</p>
 <p>All .md files will be rendered into html automatically if there is not _raw=1 query parameter and pages view exists (api-pages-view=pages.html by default).</p>
+<p>This is implemented by the <code>pages</code> module from the core. To disable this functionality specify <code>-deny-modules=accounts</code>.</p>
 <ul>
 <li><p><code>/pages/get/ID</code>
 Return a page with given id or the main page if id is empty. If the query parameter <code>_render=1</code> is given, the content will be rendered into html from markdown, otherwie
@@ -1070,6 +1072,7 @@ is provided to simply wrap the markdown in the page layout.</p>
 <h2 id="system-api">System API</h2>
 <p>The system API returns information about the backend statistics, allows provisioning and configuration commands and other internal maintenance functions. By
 default is is open for access to all users but same security considerations apply here as for the Data API.</p>
+<p>This is implemented by the <code>system</code> module from the core. To disable this functionality specify <code>-deny-modules=accounts</code>.</p>
 <ul>
 <li><p><code>/system/restart</code>
   Perform restart of the Web processes, this will be done gracefully, only one Web worker process will be restarting while the other processes will keep
@@ -1455,8 +1458,9 @@ concatenated with the domain and queried for the TXT record, for example: <code>
 </li>
 </ul>
 </li>
-<li><p><code>images</code> - all images to be served by the API server, every subfolder represent naming space with lots of subfolders for images</p>
+<li><p><code>modules</code> - loadable modules with specific functionality</p>
 </li>
+<li><code>images</code> - all images to be served by the API server, every subfolder represent naming space with lots of subfolders for images</li>
 <li><code>var</code> - database files created by the server</li>
 <li><code>tmp</code> - temporary files</li>
 <li><code>web</code> - Web pages served by the static Express middleware</li>
@@ -1650,23 +1654,29 @@ this assumes the default path &#39;/public&#39; still allowed without the signat
 <p>On the backend side in your application app.js it needs more secure settings defined i.e. no html except /public will be accessible and
 in case of error will be redirected to the login page by the server. Note, in the login page <code>Bkjs.session</code> must be set to true for all
 html pages to work after login without singing every API request.</p>
-<p>First we disable all allowed paths to the html and registration:</p>
-<pre><code>    app.configureMiddleware = function(options, callback) {
-        self.allow.splice(self.allow.indexOf(&#39;^/$&#39;), 1);
-        self.allow.splice(self.allow.indexOf(&#39;\\.html$&#39;), 1);
-        self.allow.splice(self.allow.indexOf(&#39;^/account/add$&#39;), 1);
-        callback();
-    }
-</code></pre><p>Second we define auth callback in the app and redirect to login if the reauest has no valid signature, we check all html pages, all allowed html pages from the /public
+<ol>
+<li><p>We disable all allowed paths to the html and registration:</p>
+<pre><code> app.configureMiddleware = function(options, callback) {
+     self.allow.splice(self.allow.indexOf(&#39;^/$&#39;), 1);
+     self.allow.splice(self.allow.indexOf(&#39;\\.html$&#39;), 1);
+     self.allow.splice(self.allow.indexOf(&#39;^/account/add$&#39;), 1);
+     callback();
+ }
+</code></pre></li>
+</ol>
+<ol>
+<li><p>We define an auth callback in the app and redirect to login if the reauest has no valid signature, we check all html pages, all allowed html pages from the /public
 will never end up in this callback because it is called after the signature check but allowed pages are served before that:</p>
-<pre><code>    api.registerPreProcess(&#39;&#39;, /^\/$|\.html$/, function(req, status, callback) {
-        if (status.status != 200) {
-            status.status = 302;
-            status.url = &#39;/public/index.html&#39;;
-        }
-        callback(status);
-    });
-</code></pre><h1 id="websockets-connections">WebSockets connections</h1>
+<pre><code> api.registerPreProcess(&#39;&#39;, /^\/$|\.html$/, function(req, status, callback) {
+     if (status.status != 200) {
+         status.status = 302;
+         status.url = &#39;/public/index.html&#39;;
+     }
+     callback(status);
+ });
+</code></pre></li>
+</ol>
+<h1 id="websockets-connections">WebSockets connections</h1>
 <p>The simplest way is to configure <code>ws-port</code> to the same value as the HTTP port. This will run WebSockets server along the regular Web server.
 All requests must be properly signed with all parameters encoded as for GET requests.</p>
 <p>Example:</p>
@@ -1775,26 +1785,29 @@ all config parameters support DNS store. To see which parmeteres can be stored i
 </ul>
 </li>
 <li>Form canonical string to be signed as the following:<ul>
-<li>Line1: The HTTP method(GET), followed by a newline.</li>
-<li>Line2: the host, lowercase, followed by a newline.</li>
-<li>Line3: The request URI (/), followed by a newline.</li>
-<li>Line4: The sorted and joined query parameters as one string, followed by a newline.</li>
-<li>Line5: The expiration value in milliseconds, required, followed by a newline</li>
-<li>Line6: The Content-Type HTTP header, lowercase, followed by a newline</li>
+<li>Line1: The signature version</li>
+<li>Line2: The application tag or other opaque data</li>
+<li>Line3: The login name</li>
+<li>Line4: The HTTP method(GET), followed by a newline.</li>
+<li>Line5: the host, lowercase, followed by a newline.</li>
+<li>Line6: The request URI (/), followed by a newline.</li>
+<li>Line7: The sorted and joined query parameters as one string, followed by a newline.</li>
+<li>Line8: The expiration value in milliseconds, required, followed by a newline</li>
+<li>Line9: The Content-Type HTTP header, lowercase, followed by a newline</li>
 </ul>
 </li>
 <li>Computed HMAC-SHA1 digest from the canonical string and encode it as BASE64 string, preserve trailing = if any</li>
 <li>Form the signature HTTP header as the following:<ul>
 <li>The header string consist of multiple fields separated by pipe |<ul>
 <li>Field1: Signature version:<ul>
-<li>version 1, normal signature</li>
-<li>version 2, only used in session cookies, not headers</li>
-<li>version 3, same as 1 but uses SHA256</li>
+<li>version 1, obsolete, do not use first 3 lines in the canonical string</li>
+<li>version 2,3 to be used in session cookies only</li>
+<li>version 4</li>
 </ul>
 </li>
-<li>Field2: Application version or other app specific data</li>
+<li>Field2: Application tag or other app specific data</li>
 <li>Field3: account login or whatever it might be in the login column</li>
-<li>Field4: HMAC-SHA digest from the canonical string, version 1 o 3 defines SHA1 or SHA256</li>
+<li>Field4: HMAC-SHA digest from the canonical string, version 1 uses SHA1, other SHA256</li>
 <li>Field5: expiration value in milliseconds, same as in the canonical string</li>
 <li>Field6: SHA1 checksum of the body content, optional, for JSON and other forms of requests not supported by query paremeters</li>
 <li>Field7: empty, reserved for future use</li>
