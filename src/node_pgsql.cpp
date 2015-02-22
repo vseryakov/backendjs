@@ -10,7 +10,7 @@
 
 #define EXCEPTION(name, result) \
         Local<Value> name = Local<Value>::New(Null()); \
-        const char *name ##_msg = PQresultErrorField(result, PG_DIAG_MESSAGE_PRIMARY); \
+        const char *name ##_msg = result ? PQresultErrorField(result, PG_DIAG_MESSAGE_PRIMARY) : NULL; \
         if (name ##_msg) { \
             Local<Object> name ##_obj = Local<Object>::Cast(Exception::Error(Local<String>::New(String::New(name ##_msg)))); \
             for (int i = 0; errnames[i]; i++) { \
@@ -26,6 +26,8 @@
         TRY_CATCH_CALL(db->handle_, cb, 1, argv); \
     }
 
+static const char *errnames[] = { "severity", "code", "detail", "hint", "position", "internalPosition", "internalQuery", "where", "file", "line", "routine", NULL };
+static const char errcodes[] = { PG_DIAG_SEVERITY, PG_DIAG_SQLSTATE, PG_DIAG_MESSAGE_DETAIL, PG_DIAG_MESSAGE_HINT, PG_DIAG_STATEMENT_POSITION, PG_DIAG_INTERNAL_POSITION, PG_DIAG_INTERNAL_QUERY, PG_DIAG_CONTEXT, PG_DIAG_SOURCE_FILE, PG_DIAG_SOURCE_LINE, PG_DIAG_SOURCE_FUNCTION, 0 };
 static map<void *,bool> _batons;
 
 class PgSQLDatabase: public ObjectWrap {
@@ -48,7 +50,8 @@ public:
         void Call(const char *err = 0, PGresult* result = 0) {
             LogDev("%p: err=%s, res=%p, cb=%d, %s", this, err, result, !callback.IsEmpty(), text.c_str());
             if (callback.IsEmpty() || !callback->IsFunction()) return;
-            Local < Value > argv[2] = { err ? Exception::Error(Local<String>::New(String::New(err))) : Local<Value>::New(Null()),
+            EXCEPTION(exp, result);
+            Local < Value > argv[2] = { err ? Exception::Error(Local<String>::New(String::New(err))) : exp,
                                         result ? db->getResult(result) : Local<Array>::New(Array::New(0))  };
             TRY_CATCH_CALL(db->handle_, callback, 2, argv);
             callback.Dispose();
@@ -166,8 +169,6 @@ public:
 };
 
 Persistent<FunctionTemplate> PgSQLDatabase::constructor_template;
-static const char *errnames[] = { "severity", "code", "detail", "hint", "position", "internalPosition", "internalQuery", "where", "file", "line", "routine", NULL };
-static const char errcodes[] = { PG_DIAG_SEVERITY, PG_DIAG_SQLSTATE, PG_DIAG_MESSAGE_DETAIL, PG_DIAG_MESSAGE_HINT, PG_DIAG_STATEMENT_POSITION, PG_DIAG_INTERNAL_POSITION, PG_DIAG_INTERNAL_QUERY, PG_DIAG_CONTEXT, PG_DIAG_SOURCE_FILE, PG_DIAG_SOURCE_LINE, PG_DIAG_SOURCE_FUNCTION, 0 };
 
 static Handle<Value> listBatons(const Arguments& args)
 {
@@ -334,8 +335,8 @@ void PgSQLDatabase::Handle_Poll(uv_poll_t* w, int status, int revents)
                 ExecStatusType status = PQresultStatus(result);
 
                 switch (status) {
-                case PGRES_SINGLE_TUPLE:
                 case PGRES_TUPLES_OK:
+                case PGRES_SINGLE_TUPLE:
                     db->results.push_back(result);
                     break;
 
@@ -500,6 +501,7 @@ Local<Array> PgSQLDatabase::getResult(PGresult* result)
 {
 	HandleScope scope;
 	inserted_oid = PQoidValue(result);
+	affected_rows = PQcmdTuples(result);
 	int rcount = PQntuples(result);
 	Local<Array> rc = Local<Array>::New(Array::New(rcount));
 	for (int r = 0; r < rcount; r++) {

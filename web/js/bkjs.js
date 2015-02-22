@@ -239,7 +239,7 @@ var Bkjs = {
             var msg = "";
             try { msg = JSON.parse(xhr.responseText).message; } catch(e) { msg = status; }
             self.log('send: error:', status, msg, error, options);
-            if (typeof onerror == "function") onerror(msg || error, xhr, status, error);
+            if (typeof onerror == "function") onerror(msg || error || status, xhr, status, error);
         }
         if (!options.nosignature) {
             options.headers = this.sign(options.type, options.url, options.data, { expires: options.expires, checksum: options.checksum });

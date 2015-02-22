@@ -1529,6 +1529,9 @@ db.prepare = function(op, table, obj, options)
     // Check for table name, it can be determined in the real time
     if (pool.resolveTable) table = pool.resolveTable(op, table, obj, options);
 
+    // Pre-process input properties before sending it to the database
+    if (!options.noprocessrows) this.runProcessRows("pre", op, table, obj, options);
+
     // Prepare row properties
     obj = this.prepareRow(pool, op, table, obj, options);
     switch (op) {
@@ -1536,9 +1539,6 @@ db.prepare = function(op, table, obj, options)
         if (options.noUpgrade) return {};
         break;
     }
-
-    // Pre-process input properties before sending it to the database
-    if (!options.noprocessrows) this.runProcessRows("pre", op, table, obj, options);
 
     return pool.prepare(op, table, obj, options);
 }

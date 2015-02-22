@@ -48,7 +48,7 @@ corelib.toTitle = function(name)
 // Convert into camelized form
 corelib.toCamel = function(name)
 {
-    return String(name || "").replace(/(?:[-_])(\w)/g, function (_, c) { return c ? c.toUpperCase () : ''; });
+    return String(name || "").replace(/(?:[\-\_\.])(\w)/g, function (_, c) { return c ? c.toUpperCase () : ''; });
 }
 
 // Convert Camel names into names with dashes
@@ -480,9 +480,7 @@ corelib.runCallback = function(obj, msg)
 {
     var self = this;
     if (!msg) return;
-    if (typeof msg == "string") {
-        try { msg = JSON.parse(msg); } catch(e) { logger.error('runCallback:', msg, e.stack); }
-    }
+    if (typeof msg == "string") msg = this.jsonParse(msg, { error: 1 });
     if (!msg.id || !obj[msg.id]) return;
     // Only keep reference for the callback
     var item = obj[msg.id];
@@ -822,6 +820,321 @@ corelib.base64ToJson = function(data, secret)
         logger.debug("base64ToJson:", e.stack, data);
     }
     return rc;
+}
+
+// Extract domain from the host name, takes all host parts except the first one
+corelib.domainName = function(host)
+{
+    var name = String(host || "").split('.');
+    return (name.length > 2 ? name.slice(1).join('.') : host).toLowerCase();
+}
+
+// Return object type, try to detect any distinguished type
+corelib.typeName = function(v)
+{
+    var t = typeof(v);
+    if (v === null) return "null";
+    if (t !== "object") return t;
+    if (Array.isArray(v)) return "array";
+    if (Buffer.isBuffer(v)) return "buffer";
+    if (v instanceof Date) return "date";
+    if (v instanceof RegExp) return "regexp";
+    return "object";
+}
+
+// Return true of the given value considered empty
+corelib.isEmpty = function(val)
+{
+    switch (this.typeName(val)) {
+    case "null":
+    case "undefined":
+        return true;
+    case "buffer":
+    case "array":
+        return val.length == 0;
+    case "number":
+    case "regexp":
+    case "boolean":
+        return false;
+    case "date":
+        return isNaN(val);
+    default:
+        return val ? false: true;
+    }
+}
+
+// Return true if a variable or property in the object exists, just a syntax sugar
+corelib.exists = function(obj, name)
+{
+    if (typeof obj == "undefined") return false;
+    if (typeof obj == "obj" && typeof obj[name] == "undefined") return false;
+    return true;
+}
+
+// A copy of an object, this is a shallow copy, only arrays and objects are created but all other types are just referenced in the new object
+// - first argument is the object to clone, can be null
+// - all additional arguments are treated as name value pairs and added to the cloned object as additional properties
+// Example:
+//          corelib.cloneObj({ 1: 2 }, "3", 3, "4", 4)
+corelib.cloneObj = function()
+{
+    var obj = arguments[0];
+    var rc = {};
+    for (var p in obj) {
+        switch (this.typeName(obj[p])) {
+        case "object":
+            rc[p] = {};
+            for (var k in obj[p]) rc[p][k] = obj[p][k];
+            break;
+        case "array":
+            rc[p] = [];
+            for (var k in obj[p]) rc[p][k] = obj[p][k];
+            break;
+        default:
+            rc[p] = obj[p];
+        }
+    }
+    for (var i = 1; i < arguments.length - 1; i += 2) rc[arguments[i]] = arguments[i + 1];
+    return rc;
+}
+
+// Return a new Error object, options can be a string which will create an error with a message only
+// or an object with message, code, status, and name properties to build full error
+corelib.newError = function(options)
+{
+    if (typeof options == "string") options = { message: options };
+    if (!options) options = {};
+    var err = new Error(options.message || "Unknown error");
+    if (options.name) err.name = options.name;
+    if (options.code) err.code = options.code;
+    if (options.status) err.status = options.status;
+    if (err.code && !err.status) err.status = err.code;
+    if (err.status && !err.code) err.code = err.status;
+    return err;
+}
+
+// Return new object using arguments as name value pairs for new object properties
+corelib.newObj = function()
+{
+    var obj = {};
+    for (var i = 0; i < arguments.length - 1; i += 2) obj[arguments[i]] = arguments[i + 1];
+    return obj;
+}
+
+// Merge an object with the options, all properties in the options override existing in the object, returns a new object, shallow copy,
+// only top level properties are reassigned.
+//
+//  Example
+//
+//       var o = corelib.mergeObject({ a:1, b:2, c:3 }, { c:5, d:1 })
+//       o = { a:1, b:2, c:5, d:1 }
+corelib.mergeObj = function(obj, options)
+{
+    var rc = {};
+    for (var p in options) rc[p] = options[p];
+    for (var p in obj) {
+        var val = obj[p];
+        switch (corelib.typeName(val)) {
+        case "object":
+            if (!rc[p]) rc[p] = {};
+            for (var c in val) {
+                if (!rc[p][c]) rc[p][c] = val[c];
+            }
+            break;
+        case "null":
+        case "undefined":
+            break;
+        default:
+            if (!rc[p]) rc[p] = val;
+        }
+    }
+    return rc;
+}
+
+// Flatten a javascript object into a single-depth object, all nested values will have property names appended separated by comma
+//
+// Example
+//
+//          > corelib.flattenObj({ a: { c: 1 }, b: { d: 1 } } )
+//          { 'a.c': 1, 'b.d': 1 }
+corelib.flattenObj = function(obj, options)
+{
+    var rc = {};
+
+    for (var p in obj) {
+        if (typeof obj[p] == 'object') {
+            var o = this.flattenObj(obj[p], options);
+            for (var x in o) {
+                rc[p + (options && options.separator ? options.separator : '.') + x] = o[x];
+            }
+        } else {
+            rc[p] = obj[p];
+        }
+    }
+    return rc;
+}
+
+// Add properties to existing object, first arg is the object, the rest are pairs: name, value,....
+// If the second argument is an object then add all properties from this object only.
+//
+//         corelib.extendObj({ a: 1 }, 'b', 2, 'c' 3 )
+//         corelib.extendObj({ a: 1 }, { b: 2, c: 3 })
+//
+corelib.extendObj = function()
+{
+    if (this.typeName(arguments[0]) != "object") arguments[0] = {};
+    if (this.typeName(arguments[1]) == "object") {
+        for (var p in arguments[1]) arguments[0][p] = arguments[1][p];
+    } else {
+        for (var i = 1; i < arguments.length - 1; i += 2) arguments[0][arguments[i]] = arguments[i + 1];
+    }
+    return arguments[0];
+}
+
+// Delete properties from the object, first arg is an object, the rest are properties to be deleted
+corelib.delObj = function()
+{
+    if (this.typeName(arguments[0]) != "object") return;
+    for (var i = 1; i < arguments.length; i++) delete arguments[0][arguments[i]];
+    return arguments[0];
+}
+
+// Return an object consisting of properties that matched given criteria in the given object.
+// optins can define the following properties:
+// - name - search by property name, return all objects that contain given property
+// - value - search by value, return all objects that have a property with given value
+// - sort if true then sort found columns by the property value.
+// - names - if true just return list of column names
+// - flag - if true, return object with all properties set to flag value
+//
+// Example
+//
+//          corelib.searchObj({id:{index:1},name:{index:3},type:{index:2},descr:{}}, { name: 'index', sort: 1 });
+//          { id: { index: 1 }, type: { index: 2 }, name: { index: 3 } }
+//
+corelib.searchObj = function(obj, options)
+{
+    if (!options) options = {};
+    var name = options.name;
+    var val = options.value;
+    var rc = Object.keys(obj).
+                    filter(function(x) {
+                        if (typeof obj[x] != "object") return 0;
+                        if (typeof name != "undefined" && typeof obj[x][name] == "undefined") return 0;
+                        if (typeof val != "undefined" && !Object.keys(obj[x]).some(function(y) { return obj[x][y] == val })) return 0;
+                        return 1;
+                    }).
+                    sort(function(a, b) {
+                        if (options.sort) return obj[a][name] - obj[b][name];
+                        return 0;
+                    }).
+                    reduce(function(x,y) { x[y] = options.flag || obj[y]; return x; }, {});
+
+    if (options.names) return Object.keys(rc);
+    return rc;
+}
+
+// Return a property from the object, name specifies the path to the property, if the required property belong to another object inside the top one
+// the name uses . to separate objects. This is a convenient method to extract properties from nested objects easily.
+// Options may contains the following properties:
+//   - list - return the value as a list even if there is only one value found
+//   - obj - return the value as an object, if the result is a simple type, wrap into an object like { name: name, value: result }
+//   - str - return the value as a string, convert any other type into string
+//   - num - return the value as a number, convert any other type by using toNumber
+//   - func - return the value as a function, if the object is not a function returns null
+//
+// Example:
+//
+//          > corelib.objGet({ response: { item : { id: 123, name: "Test" } } }, "response.item.name")
+//          "Test"
+//          > corelib.objGet({ response: { item : { id: 123, name: "Test" } } }, "response.item.name", { list: 1 })
+//          [ "Test" ]
+corelib.objGet = function(obj, name, options)
+{
+    if (!obj) return options ? (options.list ? [] : options.obj ? {} : options.str ? "" : options.num ? 0 : null) : null;
+    var path = !Array.isArray(name) ? String(name).split(".") : name;
+    for (var i = 0; i < path.length; i++) {
+        obj = obj[path[i]];
+        if (typeof obj == "undefined") return options ? (options.list ? [] : options.obj ? {} : options.str ? "" : options.num ? 0 : null) : null;
+    }
+    if (obj && options) {
+        if (options.func && typeof obj != "function") return null;
+        if (options.list && !Array.isArray(obj)) return [ obj ];
+        if (options.obj && typeof obj != "object") return { name: name, value: obj };
+        if (options.str && typeof obj != "string") return String(obj);
+        if (options.num && typeof obj != "number") return this.toNumber(obj);
+    }
+    return obj;
+}
+
+// Set a property of the object, name can be an array or a string with property path inside the object, all non existent intermediate
+// objects will be create automatically. The options can have the folowing properties:
+// - incr - if 1 the numeric value will be added to the existing if any
+// - push - add to the array, if it is not an array a new empty aray is created
+//
+// Example
+//
+//          var a = corelib.objSet({}, "response.item.count", 1)
+//          corelib.objSet(a, "response.item.count", 1, { incr: 1 })
+//
+corelib.objSet = function(obj, name, value, options)
+{
+    if (!obj) obj = {};
+    if (!Array.isArray(name)) name = String(name).split(".");
+    if (!name || !name.length) return obj;
+    var p = name[name.length - 1], v = obj;
+    for (var i = 0; i < name.length - 1; i++) {
+        if (typeof obj[name[i]] == "undefined") obj[name[i]] = {};
+        obj = obj[name[i]];
+    }
+    if (options && options.push) {
+        if (!Array.isArray(obj[p])) obj[p] = [];
+        obj[p].push(value);
+    } else
+    if (options && options.incr) {
+        if (!obj[p]) obj[p] = 0;
+        obj[p] += value;
+    } else {
+        obj[p] = value;
+    }
+    return v;
+}
+
+// JSON stringify without exceptions, on error just returns an empty string and logs the error
+corelib.stringify = function(obj, filter)
+{
+    try { return JSON.stringify(obj, filter); } catch(e) { logger.error("stringify:", e); return "" }
+}
+
+// Silent JSON parse, returns null on error, no exceptions raised.
+// options can specify the output in case of an error:
+//  - list - return empty list
+//  - obj - return empty obj
+//  - str - return empty string
+//  - error - report all errors
+//  - debug - report errors in debug level
+corelib.jsonParse = function(obj, options)
+{
+    function onerror(e) {
+        if (options) {
+            if (options.error) logger.error('jsonParse:', e, obj);
+            if (options.debug) logger.debug('jsonParse:', e, obj);
+            if (options.obj) return {};
+            if (options.list) return [];
+            if (options.str) return "";
+        }
+        return null;
+    }
+    if (!obj) return onerror("empty");
+    try {
+        obj = typeof obj == "string" ? JSON.parse(obj) : obj;
+        if (options && options.obj && this.typeName(obj) != "object") obj = {};
+        if (options && options.list && this.typeName(obj) != "array") obj = [];
+        if (options && options.str && this.typeName(obj) != "string") obj = "";
+    } catch(e) {
+        obj = onerror(e);
+    }
+    return obj;
 }
 
 // Copy file and then remove the source, do not overwrite existing file
@@ -1209,321 +1522,6 @@ corelib.mkdirSync = function()
             try { fs.mkdirSync(dir) } catch(e) { logger.error('mkdirSync:', dir, e); }
         }
     }
-}
-
-// Extract domain from the host name, takes all host parts except the first one
-corelib.domainName = function(host)
-{
-    var name = String(host || "").split('.');
-    return (name.length > 2 ? name.slice(1).join('.') : host).toLowerCase();
-}
-
-// Return object type, try to detect any distinguished type
-corelib.typeName = function(v)
-{
-    var t = typeof(v);
-    if (v === null) return "null";
-    if (t !== "object") return t;
-    if (Array.isArray(v)) return "array";
-    if (Buffer.isBuffer(v)) return "buffer";
-    if (v instanceof Date) return "date";
-    if (v instanceof RegExp) return "regexp";
-    return "object";
-}
-
-// Return true of the given value considered empty
-corelib.isEmpty = function(val)
-{
-    switch (this.typeName(val)) {
-    case "null":
-    case "undefined":
-        return true;
-    case "buffer":
-    case "array":
-        return val.length == 0;
-    case "number":
-    case "regexp":
-    case "boolean":
-        return false;
-    case "date":
-        return isNaN(val);
-    default:
-        return val ? false: true;
-    }
-}
-
-// Return true if a variable or property in the object exists, just a syntax sugar
-corelib.exists = function(obj, name)
-{
-    if (typeof obj == "undefined") return false;
-    if (typeof obj == "obj" && typeof obj[name] == "undefined") return false;
-    return true;
-}
-
-// A copy of an object, this is a shallow copy, only arrays and objects are created but all other types are just referenced in the new object
-// - first argument is the object to clone, can be null
-// - all additional arguments are treated as name value pairs and added to the cloned object as additional properties
-// Example:
-//          corelib.cloneObj({ 1: 2 }, "3", 3, "4", 4)
-corelib.cloneObj = function()
-{
-    var obj = arguments[0];
-    var rc = {};
-    for (var p in obj) {
-        switch (this.typeName(obj[p])) {
-        case "object":
-            rc[p] = {};
-            for (var k in obj[p]) rc[p][k] = obj[p][k];
-            break;
-        case "array":
-            rc[p] = [];
-            for (var k in obj[p]) rc[p][k] = obj[p][k];
-            break;
-        default:
-            rc[p] = obj[p];
-        }
-    }
-    for (var i = 1; i < arguments.length - 1; i += 2) rc[arguments[i]] = arguments[i + 1];
-    return rc;
-}
-
-// Return a new Error object, options can be a string which will create an error with a message only
-// or an object with message, code, status, and name properties to build full error
-corelib.newError = function(options)
-{
-    if (typeof options == "string") options = { message: options };
-    if (!options) options = {};
-    var err = new Error(options.message || "Unknown error");
-    if (options.name) err.name = options.name;
-    if (options.code) err.code = options.code;
-    if (options.status) err.status = options.status;
-    if (err.code && !err.status) err.status = err.code;
-    if (err.status && !err.code) err.code = err.status;
-    return err;
-}
-
-// Return new object using arguments as name value pairs for new object properties
-corelib.newObj = function()
-{
-    var obj = {};
-    for (var i = 0; i < arguments.length - 1; i += 2) obj[arguments[i]] = arguments[i + 1];
-    return obj;
-}
-
-// Merge an object with the options, all properties in the options override existing in the object, returns a new object, shallow copy,
-// only top level properties are reassigned.
-//
-//  Example
-//
-//       var o = corelib.mergeObject({ a:1, b:2, c:3 }, { c:5, d:1 })
-//       o = { a:1, b:2, c:5, d:1 }
-corelib.mergeObj = function(obj, options)
-{
-    var rc = {};
-    for (var p in options) rc[p] = options[p];
-    for (var p in obj) {
-        var val = obj[p];
-        switch (corelib.typeName(val)) {
-        case "object":
-            if (!rc[p]) rc[p] = {};
-            for (var c in val) {
-                if (!rc[p][c]) rc[p][c] = val[c];
-            }
-            break;
-        case "null":
-        case "undefined":
-            break;
-        default:
-            if (!rc[p]) rc[p] = val;
-        }
-    }
-    return rc;
-}
-
-// Flatten a javascript object into a single-depth object, all nested values will have property names appended separated by comma
-//
-// Example
-//
-//          > corelib.flattenObj({ a: { c: 1 }, b: { d: 1 } } )
-//          { 'a.c': 1, 'b.d': 1 }
-corelib.flattenObj = function(obj, options)
-{
-    var rc = {};
-
-    for (var p in obj) {
-        if (typeof obj[p] == 'object') {
-            var o = this.flattenObj(obj[p], options);
-            for (var x in o) {
-                rc[p + (options && options.separator ? options.separator : '.') + x] = o[x];
-            }
-        } else {
-            rc[p] = obj[p];
-        }
-    }
-    return rc;
-}
-
-// Add properties to existing object, first arg is the object, the rest are pairs: name, value,....
-// If the second argument is an object then add all properties from this object only.
-//
-//         corelib.extendObj({ a: 1 }, 'b', 2, 'c' 3 )
-//         corelib.extendObj({ a: 1 }, { b: 2, c: 3 })
-//
-corelib.extendObj = function()
-{
-    if (this.typeName(arguments[0]) != "object") arguments[0] = {};
-    if (this.typeName(arguments[1]) == "object") {
-        for (var p in arguments[1]) arguments[0][p] = arguments[1][p];
-    } else {
-        for (var i = 1; i < arguments.length - 1; i += 2) arguments[0][arguments[i]] = arguments[i + 1];
-    }
-    return arguments[0];
-}
-
-// Delete properties from the object, first arg is an object, the rest are properties to be deleted
-corelib.delObj = function()
-{
-    if (this.typeName(arguments[0]) != "object") return;
-    for (var i = 1; i < arguments.length; i++) delete arguments[0][arguments[i]];
-    return arguments[0];
-}
-
-// Return an object consisting of properties that matched given criteria in the given object.
-// optins can define the following properties:
-// - name - search by property name, return all objects that contain given property
-// - value - search by value, return all objects that have a property with given value
-// - sort if true then sort found columns by the property value.
-// - names - if true just return list of column names
-// - flag - if true, return object with all properties set to flag value
-//
-// Example
-//
-//          corelib.searchObj({id:{index:1},name:{index:3},type:{index:2},descr:{}}, { name: 'index', sort: 1 });
-//          { id: { index: 1 }, type: { index: 2 }, name: { index: 3 } }
-//
-corelib.searchObj = function(obj, options)
-{
-    if (!options) options = {};
-    var name = options.name;
-    var val = options.value;
-    var rc = Object.keys(obj).
-                    filter(function(x) {
-                        if (typeof obj[x] != "object") return 0;
-                        if (typeof name != "undefined" && typeof obj[x][name] == "undefined") return 0;
-                        if (typeof val != "undefined" && !Object.keys(obj[x]).some(function(y) { return obj[x][y] == val })) return 0;
-                        return 1;
-                    }).
-                    sort(function(a, b) {
-                        if (options.sort) return obj[a][name] - obj[b][name];
-                        return 0;
-                    }).
-                    reduce(function(x,y) { x[y] = options.flag || obj[y]; return x; }, {});
-
-    if (options.names) return Object.keys(rc);
-    return rc;
-}
-
-// Return a property from the object, name specifies the path to the property, if the required property belong to another object inside the top one
-// the name uses . to separate objects. This is a convenient method to extract properties from nested objects easily.
-// Options may contains the following properties:
-//   - list - return the value as a list even if there is only one value found
-//   - obj - return the value as an object, if the result is a simple type, wrap into an object like { name: name, value: result }
-//   - str - return the value as a string, convert any other type into string
-//   - num - return the value as a number, convert any other type by using toNumber
-//   - func - return the value as a function, if the object is not a function returns null
-//
-// Example:
-//
-//          > corelib.objGet({ response: { item : { id: 123, name: "Test" } } }, "response.item.name")
-//          "Test"
-//          > corelib.objGet({ response: { item : { id: 123, name: "Test" } } }, "response.item.name", { list: 1 })
-//          [ "Test" ]
-corelib.objGet = function(obj, name, options)
-{
-    if (!obj) return options ? (options.list ? [] : options.obj ? {} : options.str ? "" : options.num ? 0 : null) : null;
-    var path = !Array.isArray(name) ? String(name).split(".") : name;
-    for (var i = 0; i < path.length; i++) {
-        obj = obj[path[i]];
-        if (typeof obj == "undefined") return options ? (options.list ? [] : options.obj ? {} : options.str ? "" : options.num ? 0 : null) : null;
-    }
-    if (obj && options) {
-        if (options.func && typeof obj != "function") return null;
-        if (options.list && !Array.isArray(obj)) return [ obj ];
-        if (options.obj && typeof obj != "object") return { name: name, value: obj };
-        if (options.str && typeof obj != "string") return String(obj);
-        if (options.num && typeof obj != "number") return this.toNumber(obj);
-    }
-    return obj;
-}
-
-// Set a property of the object, name can be an array or a string with property path inside the object, all non existent intermediate
-// objects will be create automatically. The options can have the folowing properties:
-// - incr - if 1 the numeric value will be added to the existing if any
-// - push - add to the array, if it is not an array a new empty aray is created
-//
-// Example
-//
-//          var a = corelib.objSet({}, "response.item.count", 1)
-//          corelib.objSet(a, "response.item.count", 1, { incr: 1 })
-//
-corelib.objSet = function(obj, name, value, options)
-{
-    if (!obj) obj = {};
-    if (!Array.isArray(name)) name = String(name).split(".");
-    if (!name || !name.length) return obj;
-    var p = name[name.length - 1], v = obj;
-    for (var i = 0; i < name.length - 1; i++) {
-        if (typeof obj[name[i]] == "undefined") obj[name[i]] = {};
-        obj = obj[name[i]];
-    }
-    if (options && options.push) {
-        if (!Array.isArray(obj[p])) obj[p] = [];
-        obj[p].push(value);
-    } else
-    if (options && options.incr) {
-        if (!obj[p]) obj[p] = 0;
-        obj[p] += value;
-    } else {
-        obj[p] = value;
-    }
-    return v;
-}
-
-// JSON stringify without exceptions, on error just returns an empty string and logs the error
-corelib.stringify = function(obj, filter)
-{
-    try { return JSON.stringify(obj, filter); } catch(e) { logger.error("stringify:", e); return "" }
-}
-
-// Silent JSON parse, returns null on error, no exceptions raised.
-// options can specify the output in case of an error:
-//  - list - return empty list
-//  - obj - return empty obj
-//  - str - return empty string
-//  - error - report all errors
-//  - debug - report errors in debug level
-corelib.jsonParse = function(obj, options)
-{
-    function onerror(e) {
-        if (options) {
-            if (options.error) logger.error('jsonParse:', e, obj);
-            if (options.debug) logger.debug('jsonParse:', e, obj);
-            if (options.obj) return {};
-            if (options.list) return [];
-            if (options.str) return "";
-        }
-        return null;
-    }
-    if (!obj) return onerror("empty");
-    try {
-        obj = typeof obj == "string" ? JSON.parse(obj) : obj;
-        if (options && options.obj && this.typeName(obj) != "object") obj = {};
-        if (options && options.list && this.typeName(obj) != "array") obj = [];
-        if (options && options.str && this.typeName(obj) != "string") obj = "";
-    } catch(e) {
-        obj = onerror(e);
-    }
-    return obj;
 }
 
 // Create a resource pool, create and close callbacks must be given which perform allocation and deallocation of the resources like db connections.

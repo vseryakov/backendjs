@@ -677,7 +677,7 @@ server.startShell = function(options)
         if (core.isArg("-db-import")) {
             var query = getQuery(), opts = getOptions(), table = core.getArg("-table"), file = core.getArg("-file"), nostop = core.getArgInt("-nostop");
             corelib.forEachLine(file, opts, function(line, next) {
-                var row = corelib.jsonParse(line, { logger: 1 });
+                var row = corelib.jsonParse(line, { error: 1 });
                 if (!row) return next(nostop ? null : "ERROR: parse error, line: " + opts.lines);
                 db.put(table, row, opts, function(err) { next(nostop ? null : err) });
             }, function(err) {

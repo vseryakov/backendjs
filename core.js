@@ -336,7 +336,7 @@ core.init = function(options, callback)
             next();
         },
 
-        // Now process all other config parameters for all modules
+        // Now re-process all other config parameters for all modules again
         function(next) {
             self.parseConfig(config);
 
