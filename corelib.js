@@ -42,7 +42,7 @@ corelib.encodeURIComponent = function(str)
 // Convert text into capitalized words
 corelib.toTitle = function(name)
 {
-    return String(name || "").replace(/_/g, " ").split(/[ ]+/).reduce(function(x,y) { return x + y[0].toUpperCase() + y.substr(1) + " "; }, "").trim();
+    return String(name || "").replace(/_/g, " ").split(/[ ]+/).reduce(function(x,y) { return x + (y ? (y[0].toUpperCase() + y.substr(1) + " ") : "") }, "").trim();
 }
 
 // Convert into camelized form

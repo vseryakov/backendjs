@@ -1529,8 +1529,12 @@ db.prepare = function(op, table, obj, options)
     // Check for table name, it can be determined in the real time
     if (pool.resolveTable) table = pool.resolveTable(op, table, obj, options);
 
-    // Pre-process input properties before sending it to the database
-    if (!options.noprocessrows) this.runProcessRows("pre", op, table, obj, options);
+    // Pre-process input properties before sending it to the database, make a shallow copy of the
+    // object to preserve the original properties in the parent
+    if (!options.noprocessrows) {
+        if (this.getProcessRows('pre', table, options)) obj = corelib.cloneObj(obj);
+        this.runProcessRows("pre", op, table, obj, options);
+    }
 
     // Prepare row properties
     obj = this.prepareRow(pool, op, table, obj, options);
@@ -1768,6 +1772,7 @@ db.convertRows = function(pool, op, table, rows, options)
             });
         }
     }
+    return rows;
 }
 
 // Add a callback to be called after each cache columns event, it will be called for each pool separately.
@@ -1792,15 +1797,22 @@ db.setProcessColumns = function(callback)
     this.processColumns.push(callback);
 }
 
-// Run registsred pre- or post- process callbacks.
+// Returns a list of hook to be used for processing rows for the given table
+db.getProcessRows = function(type, table, options)
+{
+    if (!this.processRows[type]) return null;
+    var hooks = this.processRows[type][table];
+    return Array.isArray(hooks) && hooks.length ? hooks : null;
+}
+
+// Run registered pre- or post- process callbacks.
 db.runProcessRows = function(type, op, table, rows, options)
 {
-    if (!this.processRows[type]) return rows;
-    var hooks = this.processRows[type][table];
-    if (!Array.isArray(hooks) || !hooks.length) return rows;
+    var hooks = this.getProcessRows(type, table, options);
+    if (!hooks) return rows;
     var cols = this.getColumns(table, options);
 
-    // Stop of the first hook returning true to remove this row from the list
+    // Stop on the first hook returning true to remove this row from the list
     function processRow(row) {
         for (var i = 0; i < hooks.length; i++) {
             if (hooks[i].call(row, op, row, options, cols) === true) return false;
