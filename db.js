@@ -1869,10 +1869,13 @@ db.setProcessRow = function(type, table, options, callback)
 // given by the application. Property fake: 1 in any column signifies not a real column but
 // a column described by the application and not yet created by the database driver or could not be added
 // due to some error.
-db.getPoolTables = function(name)
+// If `options.names` is 1 then return just table names as a list
+db.getPoolTables = function(name, options)
 {
     var pool = this.getPool('', { pool: name });
-    return pool.dbcolumns || {};
+    var tables = pool.dbcolumns || {};
+    if (options && options.names) tables = Object.keys(tables);
+    return tables;
 }
 
 // Return a list of all active database pools, returns list of objects with name: and type: properties

@@ -460,7 +460,7 @@ server.startWatcher = function()
     // REPL command prompt over TCP instead of the master process
     if (core.replPort && !core.isArg("-master")) self.startRepl(core.replPort, core.replBind);
 
-    if (core.watchdirs.indexOf(__dirname) == -1) core.watchdirs.push(__dirname, __dirname + "/lib");
+    if (core.watchdirs.indexOf(__dirname) == -1) core.watchdirs.push(__dirname, __dirname + "/lib", __dirname + "/modules");
     logger.debug('startWatcher:', core.watchdirs);
     core.watchdirs.forEach(function(dir) {
         core.watchFiles(dir, /\.js$/, function(file) {

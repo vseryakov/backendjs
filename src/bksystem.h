@@ -80,6 +80,9 @@
 using namespace std::tr1;
 using namespace std;
 
+#define bkStringify2(x)   #x
+#define bkStringify(x)    bkStringify2(x)
+
 #ifdef UNICODE
 typedef wchar_t TCHAR;
 #define _tcslen     wcslen

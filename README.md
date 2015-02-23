@@ -351,6 +351,22 @@ hooks are registered and return data itself then it is the hook responsibility t
 
 # API endpoints provided by the backend
 
+## Authentication and sessions
+
+- `/auth`
+
+   This API request returns the current user record from the `bk_auth` table if the request is verified and the signature provided
+   is valid. If no signature or it is invalid the result will be an error with the corresponding error code and message.
+
+   Parameters:
+
+   - `_session=1` - if the call is authenticated a cookie with the session signature is returned, from now on
+      all requests with such cookie will be authenticated, the primary use for this is Web apps
+   - `_session=0` - clears all sessions cookies, if no session or no cookies provided returns an error for not authenticated request
+   - `_accesstoken=1` - returns new access token to be used for subsequent requests without a signature for the current account,
+      the token is short lived with expirtion date returned as well. This access token can be used instead of a signature and
+      is passed in the query as `bk-access-token=TOKEN`.
+
 ## Accounts
 The accounts API manages accounts and authentication, it provides basic user account features with common fields like email, name, address.
 
@@ -366,8 +382,8 @@ This is implemented by the `accounts` module from the core. To disable accounts 
 
     - no id is given, return only one current account record as JSON
     - id=id,id,... - return information about given account(s), the id parameter can be a single account id or list of ids separated by comma
-    - _session - after successful login setup a session with cookies so the Web app can perform requests without signing every request anymore
-    - _accesstoken - after successful login, return new access token that ca be used to make requests without signing every request, it can be
+    - _session=1 - after successful login setup a session with cookies so the Web app can perform requests without signing every request anymore
+    - _accesstoken=1 - after successful login, return new access token that ca be used to make requests without signing every request, it can be
        passed in the query or headers with the name `bk-access-token`
 
   Note: When retrieving current account, all properties will be present including the location, for other accounts only the properties marked as `pub` in the

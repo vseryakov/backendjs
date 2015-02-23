@@ -197,7 +197,7 @@ var api = {
         boolean: [
             "details", "consistent", "desc", "total", "connected", "check",
             "noscan", "noprocessrows", "noconvertrows", "noreference", "nocounter",
-            "publish", "archive", "trash",
+            "publish", "archive", "trash", "session", "accesstoken",
         ],
         // String parameters
         string: [
@@ -205,7 +205,7 @@ var api = {
         ],
         // Numeric parameters to be passed to corelib.toNumber
         number: [
-            "session", "accesstoken", "width", "height", "quality", "round", "interval",
+            "width", "height", "quality", "round", "interval",
             { count: { float: 0, dflt: 50, min: 0 } },
             { page: { float: 0, dflt: 0, min: 0 } },
         ],
@@ -432,27 +432,8 @@ api.init = function(options, callback)
             self.sendReply(res, err);
         });
 
-        // For health checks
-        self.app.all("/ping", function(req, res) {
-            if (!req.query.file) return self.sendJSON(req, null, {});
-            fs.stat(core.path.web + "/public/" + req.query.file, function(err, stats) {
-                self.sendJSON(req, err, { size: stats.size, mtime: stats.mtime.getTime(), atime: stats.atime.getTime(), ctime: stats.ctime.getTime() });
-            });
-        });
-
-        // Authentication check without accounts module
-        self.app.all("/auth", function(req, res) {
-            self.handleSessionSignature(req, self.getOptions(req));
-            self.sendJSON(req, null, req.account);
-        });
-
-        // Return images by prefix, id and possibly type
-        self.app.all(/^\/image\/([a-zA-Z0-9_\.\:-]+)\/([^\/ ]+)\/?([^\/ ]+)?$/, function(req, res) {
-            var options = self.getOptions(req);
-            options.prefix = req.params[0];
-            options.type = req.params[2] || "";
-            self.sendIcon(req, res, req.params[1], options);
-        });
+        // Default API calls
+        self.configureDefaultAPI();
 
         // Setup routes from the loaded modules
         core.runMethods("configureWeb", options, function(err) {
@@ -1057,6 +1038,8 @@ api.createSignature = function(login, secret, method, host, uri, options)
 // properties after successful authorization.
 api.handleSessionSignature = function(req, options)
 {
+    logger.debug("handleSessionSignature:", options);
+
     if (typeof options.accessToken != "undefined" && req.session) {
         if (options.accessToken && req.account && req.account.login && req.account.secret && req.headers) {
             var sig = this.createSignature(req.account.login, req.account.secret + ":" + (req.account.token_secret || ""), "", req.headers.host, "", { version: 3, expires: options.sessionAge || this.accessTokenAge });
@@ -1106,7 +1089,7 @@ api.getOptions = function(req)
                 if (typeof req.query[p] != "undefined") req.options[x] = corelib.toBool(req.query[p]);
                 break;
             case "number":
-                if (req.query[p]) req.options[x] = corelib.toNumber(req.query[p], o);
+                if (typeof req.query[p] != "undefined") req.options[x] = corelib.toNumber(req.query[p], o);
                 break;
             case "list":
                 if (req.query[p]) req.options[x] = corelib.strSplit(req.query[p]);

@@ -571,7 +571,7 @@ accounts.fetchAccount = function(query, options, callback)
         if (err) return callback(err);
 
         if (auth) {
-            self.getAccount({ query: query }, options, function(err, row) {
+            self.getAccount({ query: {}, account: auth }, options, function(err, row) {
                 if (!err) for (var p in row) auth[p] = row[p];
                 callback(err, auth);
             });
