@@ -13,6 +13,7 @@
 </li>
 <li><a href="#database-schema-definition"> Database schema definition</a></li>
 <li><a href="#api-endpoints-provided-by-the-backend"> API endpoints provided by the backend</a><ul>
+<li><a href="#authentication-and-sessions"> Authentication and sessions</a></li>
 <li><a href="#accounts"> Accounts</a></li>
 <li><a href="#health-enquiry"> Health enquiry</a></li>
 <li><a href="#public-images-endpoint"> Public Images endpoint</a></li>
@@ -397,6 +398,22 @@ hooks are registered and return data itself then it is the hook responsibility t
             if (row.birthday) row.age = Math.floor((Date.now() - core.toDate(row.birthday))/(86400000*365));
         }
 </code></pre><h1 id="api-endpoints-provided-by-the-backend">API endpoints provided by the backend</h1>
+<h2 id="authentication-and-sessions">Authentication and sessions</h2>
+<ul>
+<li><p><code>/auth</code></p>
+<p> This API request returns the current user record from the <code>bk_auth</code> table if the request is verified and the signature provided
+ is valid. If no signature or it is invalid the result will be an error with the corresponding error code and message.</p>
+<p> Parameters:</p>
+<ul>
+<li><code>_session=1</code> - if the call is authenticated a cookie with the session signature is returned, from now on
+ all requests with such cookie will be authenticated, the primary use for this is Web apps</li>
+<li><code>_session=0</code> - clears all sessions cookies, if no session or no cookies provided returns an error for not authenticated request</li>
+<li><code>_accesstoken=1</code> - returns new access token to be used for subsequent requests without a signature for the current account,
+ the token is short lived with expirtion date returned as well. This access token can be used instead of a signature and
+ is passed in the query as <code>bk-access-token=TOKEN</code>.</li>
+</ul>
+</li>
+</ul>
 <h2 id="accounts">Accounts</h2>
 <p>The accounts API manages accounts and authentication, it provides basic user account features with common fields like email, name, address.</p>
 <p>This is implemented by the <code>accounts</code> module from the core. To disable accounts functionality specify <code>-deny-modules=accounts</code>.</p>
@@ -409,8 +426,8 @@ verifying if the given login and secret are valid, there is no special login API
 <ul>
 <li>no id is given, return only one current account record as JSON</li>
 <li>id=id,id,... - return information about given account(s), the id parameter can be a single account id or list of ids separated by comma</li>
-<li>_session - after successful login setup a session with cookies so the Web app can perform requests without signing every request anymore</li>
-<li>_accesstoken - after successful login, return new access token that ca be used to make requests without signing every request, it can be
+<li>_session=1 - after successful login setup a session with cookies so the Web app can perform requests without signing every request anymore</li>
+<li>_accesstoken=1 - after successful login, return new access token that ca be used to make requests without signing every request, it can be
  passed in the query or headers with the name <code>bk-access-token</code></li>
 </ul>
 <p>Note: When retrieving current account, all properties will be present including the location, for other accounts only the properties marked as <code>pub</code> in the
@@ -5135,12 +5152,13 @@ callbacks to keep the record consistent.</p>
   });
 </code></pre>
 <ul>
-<li><p><code>db.getPoolTables(name)</code></p>
+<li><p><code>db.getPoolTables(name, options)</code></p>
 <p> Return all tables know to the given pool, returned tables are in the object with
 column information merged from cached columns from the database with description columns
 given by the application. Property fake: 1 in any column signifies not a real column but
 a column described by the application and not yet created by the database driver or could not be added
-due to some error.</p>
+due to some error.
+If <code>options.names</code> is 1 then return just table names as a list</p>
 </li>
 </ul>
 
@@ -5925,6 +5943,12 @@ the higher level management tool must take care when and what to run and in what
 </ul>
 
 <h2 id="module-api_accounts">Module: API_ACCOUNTS</h2>
+<ul>
+<li><p><code>api.configureDefaultAPI()</code></p>
+<p> Default API calls that endpoints for health check, authentication and public image access</p>
+</li>
+</ul>
+
 <ul>
 <li><p><code>api.prepareAccountSecret(query, options)</code></p>
 <p> If specified in the options, prepare credentials to be stored in the db, returns null if no error or an error object</p>
