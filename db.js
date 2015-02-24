@@ -288,7 +288,7 @@ db.initPool = function(name, options, callback)
     if (!self[type + "InitPool"]) return callback(new Error("invalid pool type " + name));
 
     // Pool specific tables
-    (this.poolParams[type + 'Tables' + n] || []).forEach(function(y) { self.poolTables[y] = pool; });
+    (this.poolParams[type + 'Tables' + n] || []).forEach(function(y) { self.poolTables[y] = name; });
 
     // All pool specific parameters
     var opts = { pool: name,
