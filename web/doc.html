@@ -4191,6 +4191,20 @@ options can specify the output in case of an error:</p>
 </ul>
 
 <ul>
+<li><p><code>corelib.forEachLine(file, options, lineCallback, endCallback)</code></p>
+<p> Call callback for each line in the file
+options may specify the following parameters:</p>
+<ul>
+<li>sync - read file synchronously and call callback for every line</li>
+<li>abort - signal to stop processing</li>
+<li>limit - number of lines to process and exit</li>
+<li>progress - if &gt; 0 report how many lines processed so far every specified lines</li>
+<li>until - skip lines until this regexp matches</li>
+</ul>
+</li>
+</ul>
+
+<ul>
 <li><p><code>corelib.execProcess(cmd, callback)</code></p>
 <p> Run the process and return all output to the callback, this a simply wrapper around child_processes.exec so the corelib.runProcess
 can be used without importing the child_processes module. All fatal errors are logged.</p>
@@ -5239,7 +5253,7 @@ write requests with any database or can be used generically. The <code>obj</code
 
 <ul>
 <li><p><code>db.filterColumns(obj, rows, options)</code></p>
-<p> Given object with data and list of keys perform comparison in memory for all rows, return only rows that match all keys. This method is usee
+<p> Given object with data and list of keys perform comparison in memory for all rows, return only rows that match all keys. This method is used
 by custom filters in <code>db.select</code> by the drivers which cannot perform comparisons with non-indexes columns like DynamoDb, Cassandra.
 The rows that satisfy primary key conditions are retunred and then called this function to eliminate the records that do not satisfy non-indexed column conditions.</p>
 <p>Options support the following propertis:</p>
