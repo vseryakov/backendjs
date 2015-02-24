@@ -1181,6 +1181,82 @@ corelib.copyFile = function(src, dst, overwrite, callback)
     fs.stat(dstopy);
 }
 
+// Call callback for each line in the file
+// options may specify the following parameters:
+// - sync - read file synchronously and call callback for every line
+// - abort - signal to stop processing
+// - limit - number of lines to process and exit
+// - progress - if > 0 report how many lines processed so far every specified lines
+// - until - skip lines until this regexp matches
+corelib.forEachLine = function(file, options, lineCallback, endCallback)
+{
+    var self = this;
+    if (!options) options = {};
+    var buffer = new Buffer(4096);
+    var data = '';
+    options.lines = 0;
+
+    function readData(fd, pos, finish) {
+        fs.read(fd, buffer, 0, buffer.length, pos, function(err, nread, buf) {
+            data += buffer.slice(0, nread).toString(options.encoding || 'utf8');
+            var lines = data.split("\n");
+            data = lines.pop();
+            self.forEachSeries(lines, function(line, next) {
+                options.lines++;
+                if (options.progress && options.lines % options.progress == 0) logger.log('forEachLine:', file, 'lines:', options.lines);
+                // Skip lines until we see our pattern
+                if (options.until && !options.until_seen) {
+                    options.until_seen = line.match(options.until);
+                    return next();
+                }
+                lineCallback(line.trim(), next);
+            }, function(err2) {
+                // Stop on reaching limit or end of file
+                if (options.abort || (options.limit && options.lines >= options.limit) || nread < buffer.length) return finish(err2);
+                setImmediate(function() { readData(fd, null, finish); });
+            });
+        });
+    }
+
+    fs.open(file, 'r', function(err, fd) {
+        if (err) {
+            logger.error('forEachLine:', file, err);
+            return (endCallback ? endCallback(err) : null);
+        }
+        // Synchronous version, read every line and call callback which may not do any async operations
+        // because they will not be executed right away but only after all lines processed
+        if (options.sync) {
+            while (!options.abort) {
+                var nread = fs.readSync(fd, buffer, 0, buffer.length, options.lines == 0 ? options.start : null);
+                data += buffer.slice(0, nread).toString(options.encoding || 'utf8');
+                var lines = data.split("\n");
+                data = lines.pop();
+                for (var i = 0; i < lines.length; i++) {
+                    options.lines++;
+                    if (options.progress && options.lines % options.progress == 0) logger.log('forEachLine:', file, 'lines:', options.lines);
+                    // Skip lines until we see our pattern
+                    if (options.until && !options.until_seen) {
+                        options.until_seen = lines[i].match(options.until);
+                        continue;
+                    }
+                    lineCallback(lines[i].trim());
+                }
+                // Stop on reaching limit or end of file
+                if (nread < buffer.length) break;
+                if (options.limit && options.lines >= options.limit) break;
+            }
+            fs.close(fd, function() {});
+            return (endCallback ? endCallback() : null);
+        }
+
+        // Start reading data from the optional position or from the beginning
+        readData(fd, options.start, function(err2) {
+            fs.close(fd, function() {});
+            return (endCallback ? endCallback() : null);
+        });
+    });
+}
+
 // Run the process and return all output to the callback, this a simply wrapper around child_processes.exec so the corelib.runProcess
 // can be used without importing the child_processes module. All fatal errors are logged.
 corelib.execProcess = function(cmd, callback)

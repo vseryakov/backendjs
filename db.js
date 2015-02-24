@@ -1986,7 +1986,7 @@ db.skipColumn = function(name, val, options, columns)
            (options && Array.isArray(options.skip_columns) && options.skip_columns.indexOf(name) > -1) ? true : false;
 }
 
-// Given object with data and list of keys perform comparison in memory for all rows, return only rows that match all keys. This method is usee
+// Given object with data and list of keys perform comparison in memory for all rows, return only rows that match all keys. This method is used
 // by custom filters in `db.select` by the drivers which cannot perform comparisons with non-indexes columns like DynamoDb, Cassandra.
 // The rows that satisfy primary key conditions are retunred and then called this function to eliminate the records that do not satisfy non-indexed column conditions.
 //

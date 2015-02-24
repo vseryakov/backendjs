@@ -567,6 +567,8 @@ accounts.fetchAccount = function(query, options, callback)
 {
     var self = this;
 
+    logger.debug("fetchAccount:", query);
+
     db.get("bk_auth", { login: query.login }, function(err, auth) {
         if (err) return callback(err);
 
@@ -582,7 +584,7 @@ accounts.fetchAccount = function(query, options, callback)
             function(next) {
                 // Pretend to be an admin
                 self.addAccount({ query: query, account: { type: "admin" } }, options, function(err, row) {
-                    if (row) query = row;
+                    if (row) auth = row;
                     next(err);
                 });
             },
@@ -590,14 +592,14 @@ accounts.fetchAccount = function(query, options, callback)
                 if (!query.icon) return next();
                 core.httpGet(query.icon, { binary: 1 }, function(err, params) {
                     if (err || !params.data.length) return next();
-                    api.storeIcon(params.data, query.id, { prefix: "account", type: "0", width: options.width }, function(err) {
+                    api.storeIcon(params.data, auth.id, { prefix: "account", type: "0", width: options.width }, function(err) {
                         if (err) return next();
-                        db.put("bk_icon", { id: query.id, prefix: "account", type:"account:0" }, options, function(err, rows) { next() });
+                        db.put("bk_icon", { id: auth.id, prefix: "account", type:"account:0" }, options, function(err, rows) { next() });
                     });
                 });
             },
             ], function(err) {
-                callback(err, query);
+                callback(err, auth);
             });
     });
 }
