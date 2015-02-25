@@ -5054,14 +5054,6 @@ so the callback is called as soon as the table is active or after the timeout wh
 </ul>
 
 <ul>
-<li><p><code>db.prepare(op, table, obj, options)</code></p>
-<p> Prepare for execution for the given operation: add, del, put, update,...
-Returns prepared object to be passed to the driver&#39;s .query method. This method is a part of the driver
-helpers and is not used directly in the applications.</p>
-</li>
-</ul>
-
-<ul>
 <li><p><code>db.convertError(table, op, err, options)</code></p>
 <p> Convert native database error in some generic human readable string</p>
 </li>
@@ -5084,6 +5076,14 @@ helpers and is not used directly in the applications.</p>
 <p> Update pool keys with the primary keys form the table definitions in addition to the actual cached
 column info from the database, if no caching performed than this just set the keys assuming it will work, for databases that do
 not provide info about primary keys</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.prepare(op, table, obj, options)</code></p>
+<p> Prepare for execution for the given operation: add, del, put, update,...
+Returns prepared object to be passed to the driver&#39;s .query method. This method is a part of the driver
+helpers and is not used directly in the applications.</p>
 </li>
 </ul>
 
@@ -6788,7 +6788,7 @@ if options.accounts is 1 then combine with account record.</p>
 <ul>
 <li><p><code>connections.makeConnection(id, obj, options, callback)</code></p>
 <p> Lower level connection creation with all counters support, can be used outside of the current account scope for
-any two accounts and arbitrary properties, <code>id</code> is the primary account id, <code>obj</code> contains id and type for other account
+any two accounts and arbitrary properties, <code>id</code> is the primary account id, <code>obj</code> contains id or peer and type for other account
 with other properties to be added. <code>obj</code> is left untouched.</p>
 <p>To maintain aliases for both sides of the connection, set alias in the obj for the bk_connection and options.alias for bk_reference.</p>
 <p>The following properties can alter the actions:</p>
@@ -7072,7 +7072,7 @@ is used in <code>/location/get</code> request. It can be used in the application
                         mtime: { primary: 1,                           // mtime:sender
                                  join: [&quot;mtime&quot;,&quot;sender&quot;],
                                  ops: { select: &quot;ge&quot; } },
-                        sender: { index: 1 },                          // Sender id
+                        sender: { type: &quot;text&quot;, index: 1 },            // Sender id
                         alias: {},                                     // Sender alias
                         acl_allow: {},                                 // Who has access: all, auth, id:id...
                         msg: {},                                       // Text of the message
@@ -7083,7 +7083,7 @@ is used in <code>/location/get</code> request. It can be used in the application
                         mtime: { primary: 1,                           // mtime:sender
                                  join: [&quot;mtime&quot;,&quot;sender&quot;],
                                  ops: { select: &quot;ge&quot; } },
-                        sender: { index: 1 },                          // Sender id
+                        sender: { type: &quot;text&quot;, index: 1 },            // Sender id
                         alias: {},                                     // Sender alias
                         msg: {},                                       // Text of the message
                         icon: { type: &quot;int&quot; }},                        // 1 - icon present, 0 - no icon
@@ -7093,7 +7093,7 @@ is used in <code>/location/get</code> request. It can be used in the application
                      mtime: { primary: 1,                               // mtime:recipient
                               join: [&quot;mtime&quot;,&quot;recipient&quot;],
                               ops: { select: &quot;ge&quot; } },
-                     recipient: { index: 1 },                           // Recipient id
+                     recipient: { type: &quot;text&quot;, index: 1 },             // Recipient id
                      alias: {},                                         // Recipient alias
                      msg: {},                                           // Text of the message
                      icon: { type: &quot;int&quot; }},                            // 1 - icon present, 0 - no icon
