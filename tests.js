@@ -464,7 +464,7 @@ tests.account = function(callback)
             });
         },
         function(next) {
-            var options = { url: "/connection/select", login: login, secret: secret, query: { type: "follow", _details: 1 } }
+            var options = { url: "/connection/select", login: login, secret: secret, query: { type: "follow", _accounts: 1 } }
             core.sendRequest(options, function(err, params) {
                 core.checkTest(next, err, !params.obj || !params.obj.data || params.obj.data.length!=1, "err7:" , params.obj);
             });

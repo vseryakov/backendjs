@@ -222,7 +222,6 @@ accounts.configureAccountsAPI = function()
 // Return an account, used in /account/get API call
 accounts.getAccount = function(req, options, callback)
 {
-    var self = this;
     if (!req.query.id) {
         if (!req.account || !req.account.id) return callback({ status: 400, message: "invalid account" });
         db.get("bk_account", { id: req.account.id }, options, function(err, row, info) {
@@ -255,7 +254,6 @@ accounts.getAccount = function(req, options, callback)
 // system will pick the right delivery service depending on the device id, the default service is apple.
 accounts.notifyAccount = function(id, options, callback)
 {
-    var self = this;
     if (!id || !options) return callback({ status: 500, message: "invalid arguments, id, and options.handler must be provided" }, {});
 
     options = corelib.cloneObj(options);
@@ -269,7 +267,7 @@ accounts.notifyAccount = function(id, options, callback)
         break;
     }
 
-    core.modules.statuses.getStatus(id, {}, function(err, status) {
+    this.getStatus(id, {}, function(err, status) {
         if (err || (options.check && status.online)) return callback(err, status);
 
         db.get("bk_account", { id: id }, function(err, account) {
@@ -305,16 +303,17 @@ accounts.notifyAccount = function(id, options, callback)
     });
 }
 
-// Return account details for the list of rows, options.key specified the column to use for the account id in the `rows`, or `id` will be used.
+// Return account details for the list of rows, `options.account_key` specified the column to use for the account id in the `rows`, or `id` will be used.
 // The result accounts are cleaned for public columns, all original properties from the `rows` are kept as is.
 // If options.existing is 1 then return only record with found accounts, all other records in the rows will be deleted
 accounts.listAccount = function(rows, options, callback)
 {
-    var self = this;
-    var key = options.key || "id";
+    if (!rows) return callback(null, []);
+    var key = options.account_key || "id";
     var map = {};
+    if (!Array.isArray(rows)) rows = [ rows ];
     rows.forEach(function(x) { if (!map[x[key]]) map[x[key]] = []; map[x[key]].push(x); });
-    db.list("bk_account", Object.keys(map).map(function(x) { return { id: x } }), { select: options.select }, function(err, list, info) {
+    db.list("bk_account", Object.keys(map).map(function(x) { return { id: x } }), options, function(err, list, info) {
         if (err) return callback(err, []);
 
         api.checkResultColumns("bk_account", list, options);
@@ -333,7 +332,6 @@ accounts.listAccount = function(rows, options, callback)
 // Query accounts, used in /accout/select API call, simple wrapper around db.select but can be replaced in the apps while using the same API endpoint
 accounts.selectAccount = function(req, options, callback)
 {
-    var self = this;
     db.select("bk_account", req.query, options, function(err, rows, info) {
         if (err) return callback(err, []);
         callback(err, api.getResultPage(req, options, rows, info));
@@ -343,8 +341,6 @@ accounts.selectAccount = function(req, options, callback)
 // Register new account, used in /account/add API call
 accounts.addAccount = function(req, options, callback)
 {
-    var self = this;
-
     // Verify required fields
     if (!req.query.name && !req.query.alias) return callback({ status: 400, message: "name is required"});
     if (!req.query.alias && req.query.name) req.query.alias = req.query.name;
@@ -397,7 +393,6 @@ accounts.addAccount = function(req, options, callback)
 // Update existing account, used in /account/update API call
 accounts.updateAccount = function(req, options, callback)
 {
-    var self = this;
     req.query.mtime = Date.now();
     // Cannot have account alias empty
     if (!req.query.alias) delete req.query.alias;
@@ -431,8 +426,6 @@ accounts.updateAccount = function(req, options, callback)
 // delete an account but keep all messages and location: keep: { message: 1, location: 1 }
 accounts.deleteAccount = function(id, options, callback)
 {
-    var self = this;
-
     if (!id) return callback({ status: 400, message: "id must be specified" });
 
     if (!options.keep) options.keep = {};

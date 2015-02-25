@@ -195,7 +195,7 @@ var api = {
     // list or an object with option name and value to be passed to the conversion utility.
     controls: {
         boolean: [
-            "details", "consistent", "desc", "total", "connected", "check",
+            "details", "accounts", "consistent", "desc", "total", "connected", "check",
             "noscan", "noprocessrows", "noconvertrows", "noreference", "nocounter",
             "publish", "archive", "trash", "session", "accesstoken",
         ],
@@ -1152,7 +1152,7 @@ api.getPublicColumns = function(table, options)
 // /connection/get - bk_connection.
 //
 // In the `options` account object can be present to detect account own records which will not be cleaned and all properties will be returned, by default `id`
-// property is used to detect current account but can be specified by the `options.key` property.
+// property is used to detect current account but can be specified by the `options.account_key` property.
 //
 // By default primary keys are not kept and must be marked with `pub` property in the table definition to be returned.
 //
@@ -1179,7 +1179,7 @@ api.checkResultColumns = function(table, rows, options)
     logger.debug("checkResultColumns:", table, cols, rows.length, options);
     rows.forEach(function(row) {
         // For personal records, skip only special columns
-        var owner = options.account && options.account.id == row[options.key || 'id'];
+        var owner = options.account && options.account.id == row[options.account_key || 'id'];
         for (var p in row) {
             if (typeof cols[p] == "undefined") {
                 if (options.strict) delete row[p];

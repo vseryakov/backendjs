@@ -178,15 +178,15 @@ connections.queryConnection = function(id, obj, options, callback)
         if (err) return callback(err, []);
 
         // Just return connections
-        if (!corelib.toNumber(options.details) || !core.modules.accounts) return callback(null, rows, info);
+        if (!corelib.toNumber(options.accounts) || !core.modules.accounts) return callback(null, rows, info);
 
         // Get all account records for the id list
-        core.modules.account.listAccount(rows, options, callback);
+        core.modules.accounts.listAccount(rows, corelib.extendObj(options, "account_key", "peer"), callback);
     });
 }
 
 // Return one connection for given id, obj must have .peer and .type properties defined,
-// if options.details is 1 then combine with account record.
+// if options.accounts is 1 then combine with account record.
 connections.readConnection = function(id, obj, options, callback)
 {
     db.get("bk_" + (options.op || "connection"), { id: id, type: obj.type, peer: obj.peer }, options, function(err, row) {
@@ -194,10 +194,10 @@ connections.readConnection = function(id, obj, options, callback)
         if (!row) return callback({ status: 404, message: "no connection" }, {});
 
         // Just return connections
-        if (!corelib.toNumber(options.details) || !core.modules.accounts) return callback(err, row);
+        if (!corelib.toNumber(options.accounts) || !core.modules.accounts) return callback(err, row);
 
         // Get account details for connection
-        core.modules.listAccount([ row ], options, function(err, rows) {
+        core.modules.accounts.listAccount(row, corelib.extendObj(options, "account_key", "peer"), function(err, rows) {
             callback(null, row);
         });
     });

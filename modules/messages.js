@@ -198,8 +198,8 @@ messages.getMessage = function(req, options, callback)
     function details(rows, info, next) {
         if (options.total) return next(null, rows, info);
         if (total) return next(null, [{ count: rows.count }], info);
-        if (!corelib.toNumber(options.details) || !core.modules.accounts) return next(null, rows, info);
-        core.modules.accounts.listAccount(rows, { key: 'sender', select: options.select }, function(err, rows) { next(err, rows, info); });
+        if (!corelib.toNumber(options.accounts) || !core.modules.accounts) return next(null, rows, info);
+        core.modules.accounts.listAccount(rows, options.extendObj(options, "account_key", 'sender'), function(err, rows) { next(err, rows, info); });
     }
 
     db.select("bk_message", req.query, options, function(err, rows, info) {

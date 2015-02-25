@@ -804,7 +804,7 @@ This is implemented by the `connections` module from the core. To disable this f
   Receive all my connections of the given type, i.e. connection(s) i made, if `id` is given only one record for the specified connection will be returned. Supports special
   query parameters `_select,_ops,_desc`, see docs about `db.select` for more info. All `db.select` options can be passed in the query with prepended underscore.
 
-  By default only connection columns will be returned, specifying `_details=1` will return public account columns as well.
+  By default only connection columns will be returned, specifying `_accounts=1` will return public account columns as well.
 
   Example:
 
@@ -881,7 +881,7 @@ This is implemented by the `locations` module from the core. To disable this fun
   point. If there are more matched records than specified by the `_count`, the `next_token` property is set with the token to be used in the subsequent call,
   it must be passed as is as `_token=` parameter with all original query parameters.
 
-  By default only locations with account ids will be returned, specifying `_details=1` will return public account columns as well.
+  By default only locations with account ids will be returned, specifying `_accounts=1` will return public account columns as well.
 
   Note: The current account will not be present in the results  even if it is within the range, to know my own location use `/account/get` call.
 
@@ -919,7 +919,7 @@ This is implemented by the `messages` module from the core. To disable this func
   Parameters:
    - `_archive` - if set to 1, all returned messages will be archived automatically, so no individual /message/read call needed
    - `_trash` - if set to 1, all returned messages will be deleted, not archived
-   - `_details` - if set to 1, return associated account details for the sender
+   - `_accounts` - if set to 1, return associated account details for the sender
 
   Example:
 

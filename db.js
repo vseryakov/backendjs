@@ -1107,12 +1107,15 @@ db.search = function(table, query, options, callback)
 // The properties from the joined table will be merged with the original rows preserving the existing properties
 //
 // - options.keys defines custom primary key to use instead of table's primary key
+// - options.keysMap - an object that defines which property should be used for a key in the given rows, this is
+//   for cases when actual primary keys in the table are different from the rows properties.
 // - options.existing is 1 then return only joined records.
 // - options.override - joined table properties will replace existing ones
 //
 // Example:
 //
 //          db.join("bk_account", [{id:"123",key1:1},{id:"234",key1:2}], db.showResult)
+//          db.join("bk_account", [{aid:"123",key1:1},{aid:"234",key1:2}], { keysMap: { id: "aid" }}, db.showResult)
 //
 db.join = function(table, rows, options, callback)
 {
@@ -1123,8 +1126,10 @@ db.join = function(table, rows, options, callback)
 
     var map = {}, ids = [];
     var keys = options.keys || self.getKeys(table, options);
+    var mkeys = options.keysMap ? keys.map(function(x) { return options.keysMap[x] || x }) : keys;
+    var rkeys = options.keysMap ? Object.keys(options.keysMap).reduce(function(x,y) { x[options.keysMap[y]] = y; return x }, {}) : null;
     rows.forEach(function(x) {
-        var key = self.getQueryForKeys(keys, x);
+        var key = self.getQueryForKeys(mkeys, x, { keysMap: rkeys });
         var k = Object.keys(key).map(function(y) { return key[y]}).join("|");
         if (!map[k]) map[k] = [];
         map[k].push(x);
@@ -2029,17 +2034,18 @@ db.getSearchKeys = function(table, options)
 // will be returned in the query object
 db.getSearchQuery = function(table, obj, options)
 {
-    return this.getQueryForKeys(this.getSearchKeys(table, options), obj);
+    return this.getQueryForKeys(this.getSearchKeys(table, options), obj, options);
 }
 
 // Returns an object based on the list of keys, basically returns a subset of properties
+// `options.keysMap` defins an object to map record properties with the actual names to be returned.
 db.getQueryForKeys = function(keys, obj, options)
 {
     var self = this;
     return (keys || []).
             filter(function(x) { return !self.skipColumn(x, obj[x]) }).
-            map(function(x) { return [ x, obj[x] ] }).
-            reduce(function(x,y) { x[y[0]] = y[1]; return x }, {});
+            map(function(x) { return [ options && options.keysMap ? (options.keysMap[x] || x) : x, obj[x] ] }).
+            reduce(function(x,y) { x[y[0]] = y[1]; return x; }, {});
 }
 
 // Return possibly converted value to be used for inserting/updating values in the database,
