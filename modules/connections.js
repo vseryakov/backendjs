@@ -204,7 +204,7 @@ connections.readConnection = function(id, obj, options, callback)
 }
 
 // Lower level connection creation with all counters support, can be used outside of the current account scope for
-// any two accounts and arbitrary properties, `id` is the primary account id, `obj` contains id and type for other account
+// any two accounts and arbitrary properties, `id` is the primary account id, `obj` contains id or peer and type for other account
 // with other properties to be added. `obj` is left untouched.
 //
 // To maintain aliases for both sides of the connection, set alias in the obj for the bk_connection and options.alias for bk_reference.
@@ -231,7 +231,7 @@ connections.makeConnection = function(id, obj, options, callback)
             if (options.noconnection) return next();
             query.id = id;
             query.type = obj.type;
-            query.peer = obj.peer;
+            query.peer = obj.peer || obj.id;
             query.mtime = now;
             db[op]("bk_connection", query, options, function(err) {
                 if (err) return next(err);
@@ -242,13 +242,14 @@ connections.makeConnection = function(id, obj, options, callback)
         function(next) {
             // Reverse connection, a reference
             if (options.noreference) return next();
-            query.id = obj.peer;
+            query.id = obj.peer || obj.id;
             query.type = obj.type;
             query.peer = id;
+            query.mtime = now;
             if (options.alias) query.alias = options.alias;
             db[op]("bk_reference", query, options, function(err) {
                 // Remove on error
-                if (err && (op == "add" || op == "put")) return db.del("bk_connection", { id: id, type: obj.type, peer: obj.peer }, function() { next(err); });
+                if (err && (op == "add" || op == "put")) return db.del("bk_connection", { id: id, type: obj.type, peer: obj.peer || obj.id }, function() { next(err); });
                 next(err);
             });
         },
@@ -259,18 +260,18 @@ connections.makeConnection = function(id, obj, options, callback)
         },
         function(next) {
             if (options.nocounter || !core.modules.counters || (op != "add" && op != "put")) return next();
-            core.modules.counters.incrAutoCounter(obj.id, obj.type + '1', 1, options, function(err) { next(); });
+            core.modules.counters.incrAutoCounter(obj.peer || obj.id, obj.type + '1', 1, options, function(err) { next(); });
         },
         function(next) {
             // Notify about connection the other side
             if (!options.publish) return next();
-            api.publish(obj.id, { path: "/connection/" + op, mtime: now, alias: options.alias || obj.alias, type: obj.type }, options);
+            api.publish(obj.peer || obj.id, { path: "/connection/" + op, mtime: now, alias: options.alias || obj.alias, type: obj.type }, options);
             next();
         },
         function(next) {
             // We need to know if the other side is connected too, this will save one extra API call later
             if (!options.connected) return next();
-            db.get("bk_connection", { id: obj.peer, type: obj.type, peer: id }, options, function(err, row) {
+            db.get("bk_connection", { id: obj.peer, type: obj.type || obj.id, peer: id }, options, function(err, row) {
                 if (row) result = row;
                 next(err);
             });

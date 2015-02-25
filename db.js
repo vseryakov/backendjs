@@ -1411,12 +1411,14 @@ db.getCached = function(op, table, query, options, callback)
     options = this.getOptions(table, options);
     var pool = this.getPool(table, options);
     var m = pool.metrics.Timer('cache').start();
-    this.getCache(table, query, options, function(rc) {
+    var obj = this.prepareRow(pool, "get", table, query, options);
+    this.getCache(table, obj, options, function(rc) {
         m.end();
         // Cached value retrieved
         if (rc) rc = corelib.jsonParse(rc);
         // Parse errors treated as miss
         if (rc) {
+            logger.debug("getCached:", options.cacheKey);
             pool.metrics.Counter("hits").inc();
             return callback(null, rc, {});
         }
@@ -1523,35 +1525,6 @@ db.drop = function(table, options, callback)
     });
 }
 
-// Prepare for execution for the given operation: add, del, put, update,...
-// Returns prepared object to be passed to the driver's .query method. This method is a part of the driver
-// helpers and is not used directly in the applications.
-db.prepare = function(op, table, obj, options)
-{
-    var pool = this.getPool(table, options);
-    options = this.getOptions(table, options);
-
-    // Check for table name, it can be determined in the real time
-    if (pool.resolveTable) table = pool.resolveTable(op, table, obj, options);
-
-    // Pre-process input properties before sending it to the database, make a shallow copy of the
-    // object to preserve the original properties in the parent
-    if (!options.noprocessrows) {
-        if (this.getProcessRows('pre', table, options)) obj = corelib.cloneObj(obj);
-        this.runProcessRows("pre", op, table, obj, options);
-    }
-
-    // Prepare row properties
-    obj = this.prepareRow(pool, op, table, obj, options);
-    switch (op) {
-    case "upgrade":
-        if (options.noUpgrade) return {};
-        break;
-    }
-
-    return pool.prepare(op, table, obj, options);
-}
-
 // Convert native database error in some generic human readable string
 db.convertError = function(table, op, err, options)
 {
@@ -1618,6 +1591,28 @@ db.mergeKeys = function(pool)
     }
 }
 
+// Prepare for execution for the given operation: add, del, put, update,...
+// Returns prepared object to be passed to the driver's .query method. This method is a part of the driver
+// helpers and is not used directly in the applications.
+db.prepare = function(op, table, obj, options)
+{
+    var pool = this.getPool(table, options);
+    options = this.getOptions(table, options);
+
+    // Check for table name, it can be determined in the real time
+    if (pool.resolveTable) table = pool.resolveTable(op, table, obj, options);
+
+    // Prepare row properties
+    obj = this.prepareRow(pool, op, table, obj, options);
+    switch (op) {
+    case "upgrade":
+        if (options.noUpgrade) return {};
+        break;
+    }
+
+    return pool.prepare(op, table, obj, options);
+}
+
 // Preprocess an object for a given operation, convert types, assign defaults...
 db.prepareRow = function(pool, op, table, obj, options)
 {
@@ -1625,6 +1620,13 @@ db.prepareRow = function(pool, op, table, obj, options)
 
     // Keep an object in the format we support
     if (["object","string","array"].indexOf(corelib.typeName(obj)) == -1) obj = {};
+
+    // Pre-process input properties before sending it to the database, make a shallow copy of the
+    // object to preserve the original properties in the parent
+    if (!options.noprocessrows) {
+        if (this.getProcessRows('pre', table, options)) obj = corelib.cloneObj(obj);
+        this.runProcessRows("pre", op, table, obj, options);
+    }
 
     // Process special columns
     var keys = pool.dbkeys[table.toLowerCase()] || [];
@@ -1725,7 +1727,7 @@ db.prepareRow = function(pool, op, table, obj, options)
             }
             // Default search op, for primary key cases
             if (!options.ops[p] && corelib.typeName(cols[p].ops) == "object" && cols[p].ops[op]) options.ops[p] = cols[p].ops[op];
-            // Joined values for queries
+            // Joined values for queries, if nothing joined or only one field is present keep the original value
             if (Array.isArray(cols[p].join) && (typeof obj[p] != "string" || obj[p].indexOf("|") == -1)) {
                 var v = cols[p].join.map(function(x) { return obj[x] || "" }).join("|");
                 if (!v.match(/^[\|]+$/)) obj[p] = v;
@@ -2081,7 +2083,9 @@ db.getCache = function(table, query, options, callback)
 db.putCache = function(table, obj, options)
 {
     var key = options && options.cacheKey ? options.cacheKey : this.getCacheKey(table, obj, options);
-    if (key) ipc.put(key, corelib.stringify(obj), options);
+    if (!key) return;
+    logger.debug("putCache:", key);
+    ipc.put(key, corelib.stringify(obj), options);
 }
 
 // Notify or clear cached record, this is called after del/update operation to clear cached version by primary keys

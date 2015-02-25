@@ -33,7 +33,7 @@ messages.init = function(options)
                           mtime: { primary: 1,                           // mtime:sender
                                    join: ["mtime","sender"],
                                    ops: { select: "ge" } },
-                          sender: { index: 1 },                          // Sender id
+                          sender: { type: "text", index: 1 },            // Sender id
                           alias: {},                                     // Sender alias
                           acl_allow: {},                                 // Who has access: all, auth, id:id...
                           msg: {},                                       // Text of the message
@@ -44,7 +44,7 @@ messages.init = function(options)
                           mtime: { primary: 1,                           // mtime:sender
                                    join: ["mtime","sender"],
                                    ops: { select: "ge" } },
-                          sender: { index: 1 },                          // Sender id
+                          sender: { type: "text", index: 1 },            // Sender id
                           alias: {},                                     // Sender alias
                           msg: {},                                       // Text of the message
                           icon: { type: "int" }},                        // 1 - icon present, 0 - no icon
@@ -54,7 +54,7 @@ messages.init = function(options)
                        mtime: { primary: 1,                               // mtime:recipient
                                 join: ["mtime","recipient"],
                                 ops: { select: "ge" } },
-                       recipient: { index: 1 },                           // Recipient id
+                       recipient: { type: "text", index: 1 },             // Recipient id
                        alias: {},                                         // Recipient alias
                        msg: {},                                           // Text of the message
                        icon: { type: "int" }},                            // 1 - icon present, 0 - no icon
