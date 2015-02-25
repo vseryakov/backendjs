@@ -787,7 +787,7 @@ Return a single reference record for given account id, works the same way as <co
 <li><p><code>/connection/select</code>
 Receive all my connections of the given type, i.e. connection(s) i made, if <code>id</code> is given only one record for the specified connection will be returned. Supports special
 query parameters <code>_select,_ops,_desc</code>, see docs about <code>db.select</code> for more info. All <code>db.select</code> options can be passed in the query with prepended underscore.</p>
-<p>By default only connection columns will be returned, specifying <code>_details=1</code> will return public account columns as well.</p>
+<p>By default only connection columns will be returned, specifying <code>_accounts=1</code> will return public account columns as well.</p>
 <p>Example:</p>
 <pre><code>  # Return all accounts who i invited
   /connection/select?type=invite
@@ -854,7 +854,7 @@ Return matched accounts within the distance(radius) specified by <code>distance=
 call returns results in chunks and requires navigation through all pages to receive all matched records. Records returned will start with the closest to the current
 point. If there are more matched records than specified by the <code>_count</code>, the <code>next_token</code> property is set with the token to be used in the subsequent call,
 it must be passed as is as <code>_token=</code> parameter with all original query parameters.</p>
-<p>By default only locations with account ids will be returned, specifying <code>_details=1</code> will return public account columns as well.</p>
+<p>By default only locations with account ids will be returned, specifying <code>_accounts=1</code> will return public account columns as well.</p>
 <p>Note: The current account will not be present in the results  even if it is within the range, to know my own location use <code>/account/get</code> call.</p>
 <p>Example:</p>
 <pre><code>      /location/get?distance=10&amp;latitude=-118.23434&amp;longitude=23.45665656&amp;_count=25
@@ -887,7 +887,7 @@ Read all new messages, i.e. the messages that never been read or issued <code>/m
 <ul>
 <li><code>_archive</code> - if set to 1, all returned messages will be archived automatically, so no individual /message/read call needed</li>
 <li><code>_trash</code> - if set to 1, all returned messages will be deleted, not archived</li>
-<li><code>_details</code> - if set to 1, return associated account details for the sender</li>
+<li><code>_accounts</code> - if set to 1, return associated account details for the sender</li>
 </ul>
 <p>Example:</p>
 <pre><code>  # Get all new messages
@@ -2331,7 +2331,7 @@ all non public columns if necessary.</p>
 is kept in the <code>req.options.cleanup</code> which by default is a table name of the API endpoint, for example for /account/get it will contain bk_account, for
 /connection/get - bk_connection.</p>
 <p>In the <code>options</code> account object can be present to detect account own records which will not be cleaned and all properties will be returned, by default <code>id</code>
-property is used to detect current account but can be specified by the <code>options.key</code> property.</p>
+property is used to detect current account but can be specified by the <code>options.account_key</code> property.</p>
 <p>By default primary keys are not kept and must be marked with <code>pub</code> property in the table definition to be returned.</p>
 <p>If any column is marked with <code>secure</code> property this means never return that column in the result even for the owner of the record</p>
 <p>If any column is marked with <code>admin</code> property and the current account is an admin this property will be returned as well.</p>
@@ -4830,11 +4830,14 @@ this works the same way as the <code>select</code> method.</p>
 The properties from the joined table will be merged with the original rows preserving the existing properties</p>
 <ul>
 <li>options.keys defines custom primary key to use instead of table&#39;s primary key</li>
+<li>options.keysMap - an object that defines which property should be used for a key in the given rows, this is
+for cases when actual primary keys in the table are different from the rows properties.</li>
 <li>options.existing is 1 then return only joined records.</li>
 <li>options.override - joined table properties will replace existing ones</li>
 </ul>
 <p>Example:</p>
 <pre><code>    db.join(&quot;bk_account&quot;, [{id:&quot;123&quot;,key1:1},{id:&quot;234&quot;,key1:2}], db.showResult)
+    db.join(&quot;bk_account&quot;, [{aid:&quot;123&quot;,key1:1},{aid:&quot;234&quot;,key1:2}], { keysMap: { id: &quot;aid&quot; }}, db.showResult)
 </code></pre></li>
 </ul>
 
@@ -5290,7 +5293,8 @@ will be returned in the query object</p>
 
 <ul>
 <li><p><code>db.getQueryForKeys(keys, obj, options)</code></p>
-<p> Returns an object based on the list of keys, basically returns a subset of properties</p>
+<p> Returns an object based on the list of keys, basically returns a subset of properties
+<code>options.keysMap</code> defins an object to map record properties with the actual names to be returned.</p>
 </li>
 </ul>
 
@@ -6616,7 +6620,7 @@ system will pick the right delivery service depending on the device id, the defa
 
 <ul>
 <li><p><code>accounts.listAccount(rows, options, callback)</code></p>
-<p> Return account details for the list of rows, options.key specified the column to use for the account id in the <code>rows</code>, or <code>id</code> will be used.
+<p> Return account details for the list of rows, <code>options.account_key</code> specified the column to use for the account id in the <code>rows</code>, or <code>id</code> will be used.
 The result accounts are cleaned for public columns, all original properties from the <code>rows</code> are kept as is.
 If options.existing is 1 then return only record with found accounts, all other records in the rows will be deleted</p>
 </li>
@@ -6777,7 +6781,7 @@ On return the row will have a property <code>saved</code> if it was flushed to d
 <ul>
 <li><p><code>connections.readConnection(id, obj, options, callback)</code></p>
 <p> Return one connection for given id, obj must have .peer and .type properties defined,
-if options.details is 1 then combine with account record.</p>
+if options.accounts is 1 then combine with account record.</p>
 </li>
 </ul>
 
@@ -7034,7 +7038,7 @@ is used in <code>/location/get</code> request. It can be used in the application
         var options = api.getOptions(req);
         options.keys = [&quot;geohash&quot;,&quot;mtime&quot;];
         options.ops = { mtime: &#39;gt&#39; };
-        options.details = true;
+        options.accounts = true;
         api.getLocations(req, options, function(err, data) {
             self.sendJSON(req, err, data);
         });
