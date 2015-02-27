@@ -29,6 +29,12 @@ module.exports = corelib;
 // Empty function to be used when callback was no provided
 corelib.noop = function() {}
 
+// Returns a floating number from the version string
+corelib.toVersion = function(str)
+{
+    return String(str).replace("_", ".").replace(/[^0-9.]/g, "").split(".").reduce(function(x,y,i) { return x + Number(y) / Math.pow(10, i * 3) }, 0);
+}
+
 // Encode with additional symbols, convert these into percent encoded:
 //
 //          ! -> %21, * -> %2A, ' -> %27, ( -> %28, ) -> %29
@@ -1079,7 +1085,7 @@ corelib.objGet = function(obj, name, options)
 //
 corelib.objSet = function(obj, name, value, options)
 {
-    if (!obj) obj = {};
+    if (this.typeName(obj) != "object") obj = {};
     if (!Array.isArray(name)) name = String(name).split(".");
     if (!name || !name.length) return obj;
     var p = name[name.length - 1], v = obj;

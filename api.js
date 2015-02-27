@@ -264,7 +264,8 @@ api.init = function(options, callback)
     self.app.use(function(req, res, next) {
         res.header('Server', core.name + '/' + core.version + " " + core.appName + "/" + core.appVersion);
         res.header('Access-Control-Allow-Origin', self.corsOrigin);
-        res.header('Access-Control-Allow-Headers', self.signatureName);
+        res.header('Access-Control-Allow-Headers', 'content-type, bk-app, bk-version, ' + self.signatureName);
+        res.header('Access-Control-Allow-Methods', 'OPTIONS, HEAD, GET, POST, PUT, DELETE');
         logger.debug('handleServerRequest:', req.ip || "", req.method, req.path, req.get('content-type') || "");
         next();
     });
@@ -339,7 +340,7 @@ api.init = function(options, callback)
                        (res.get("Content-Length") || '-') + " - " +
                        (now - req._startTime) + " ms - " +
                        (req.headers['user-agent'] || "-") + " " +
-                       (req.headers['version'] || "-") + " " +
+                       (req.headers['bk-version'] || "-") + " " +
                        (req.account ? (req.account.id || "-") : "-") + "\n";
             self.accesslog.write(line);
         }
@@ -635,7 +636,7 @@ api.checkRequest = function(req, res, callback)
     req.account = {};
 
     // Parse user agent application version, extract first product and version only
-    var d = (req.headers['user-agent'] || "").match(/^([^\/]+)\/([0-9a-zA-Z_\.\-]+)/);
+    var d = (req.headers['bk-app'] || req.headers['user-agent'] || "").match(/^([^\/]+)\/([0-9a-zA-Z_\.\-]+)/);
     if (d) {
         req.options.appName = d[1];
         req.options.appVersion = d[2];
