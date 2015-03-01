@@ -431,9 +431,9 @@ tests.account = function(callback)
             });
         },
         function(next) {
-            var options = { url: "/connection/add", login: login, secret: secret, query: { id: otherid, type: "like" }  }
+            var options = { url: "/connection/add", login: login, secret: secret, query: { peer: otherid, type: "like" }  }
             core.sendRequest(options, function(err, params) {
-                options = { url: "/connection/add", login: login, secret: secret, query: { id: otherid, type: "follow" }  }
+                options = { url: "/connection/add", login: login, secret: secret, query: { peer: otherid, type: "follow" }  }
                 core.sendRequest(options, function(err, params) {
                     next(err);
                 });
@@ -452,7 +452,7 @@ tests.account = function(callback)
             });
         },
         function(next) {
-            var options = { url: "/connection/del", login: login, secret: secret, query: { id: otherid, type: "like" }  }
+            var options = { url: "/connection/del", login: login, secret: secret, query: { peer: otherid, type: "like" }  }
             core.sendRequest(options, function(err, params) {
                 next(err);
             });

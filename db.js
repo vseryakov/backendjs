@@ -1730,7 +1730,7 @@ db.prepareRow = function(pool, op, table, obj, options)
             // Joined values for queries, if nothing joined or only one field is present keep the original value
             if (Array.isArray(cols[p].join) && (typeof obj[p] != "string" || obj[p].indexOf("|") == -1)) {
                 var v = cols[p].join.map(function(x) { return obj[x] || "" }).join("|");
-                if (!v.match(/^[\|]+$/)) obj[p] = v;
+                if (v[0] != "|") obj[p] = v;
             }
         }
         break;

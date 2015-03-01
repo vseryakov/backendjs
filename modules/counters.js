@@ -69,19 +69,19 @@ counters.configureCountersAPI = function()
         case "incr":
             options.op = req.params[0];
             self.incrCounter(req, options, function(err, data) {
-                self.sendJSON(req, err, data);
+                api.sendJSON(req, err, data);
             });
             break;
 
         case "get":
             var id = req.query.id || req.account.id;
             db.get("bk_counter", { id: id }, options, function(err, row) {
-                self.sendJSON(req, err, row);
+                api.sendJSON(req, err, row);
             });
             break;
 
         default:
-            self.sendReply(res, 400, "Invalid command");
+            api.sendReply(res, 400, "Invalid command");
         }
     });
 }
@@ -121,7 +121,7 @@ counters.incrAutoCounter = function(id, type, num, options, callback)
 
     if (!id || !type || !num) return callback(null, []);
     var col = db.getColumn("bk_counter", type, options);
-    if (!col || col.autoincr) return callback(null, []);
+    if (!col || !col.autoincr) return callback(null, []);
     db.incr("bk_counter", corelib.newObj('id', id, type, num), options, callback);
 }
 

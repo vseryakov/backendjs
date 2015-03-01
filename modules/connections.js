@@ -154,7 +154,7 @@ connections.putConnection = function(req, options, callback)
 {
     var op = options.op || 'put';
 
-    if (!req.query.peer || !req.query.type) return callback({ status: 400, message: "id and type are required"});
+    if (!req.query.peer || !req.query.type) return callback({ status: 400, message: "peer and type are required"});
     if (req.query.peer == req.account.id) return callback({ status: 400, message: "cannot connect to itself"});
 
     // Check for allowed connection types
