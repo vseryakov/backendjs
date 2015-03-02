@@ -1669,14 +1669,14 @@ To use publish/subcribe with nanomsg, first nanomsg must be compiled in the back
 options to the npm install, see above how to install the package.
 
 All nodes must have the same configuration, similar to the LRU cache otherwise some unexpected behaviour may happen.
-The config parameter `msg-host` defines where to publish messages and from where messages can be retrieved. Having more than one hosts listed will ensure
+The config parameter `queue-host` defines where to publish messages and from where messages can be retrieved. Having more than one hosts listed will ensure
 better reliability of delivering messages, publishing will be load-balanced between all configured hosts.
 
 ## Redis
-To configure the backend to use Redis for messaging set `msg-type=redis` and `redis-host=HOST` where HOST is IP address or hostname of the single Redis server.
+To configure the backend to use Redis for messaging set `queue-type=redis` and `redis-host=HOST` where HOST is IP address or hostname of the single Redis server.
 
 ## RabbitMQ
-To configure the backend to use RabbitMQ for messaging set `msg-type=amqp` and `amqp-host=HOST` and optionally `amqp-options=JSON` with options to the amqp module.
+To configure the backend to use RabbitMQ for messaging set `queue-type=amqp` and `amqp-host=HOST` and optionally `amqp-options=JSON` with options to the amqp module.
 
 # Security configurations
 

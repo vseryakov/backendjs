@@ -197,11 +197,11 @@ var api = {
         boolean: [
             "details", "accounts", "consistent", "desc", "total", "connected", "check",
             "noscan", "noprocessrows", "noconvertrows", "noreference", "nocounter",
-            "publish", "archive", "trash", "session", "accesstoken",
+            "publish", "archive", "trash", "session", "accesstoken", "force",
         ],
         // String parameters
         string: [
-            "name","alias","format","separator","pool", "cleanup","sort","ext","encoding",
+            "name","alias","format","separator","pool","cleanup","sort","ext","encoding",
         ],
         // Numeric parameters to be passed to corelib.toNumber
         number: [
@@ -1463,12 +1463,12 @@ api.sendFormatted = function(req, err, data, options)
     switch (options.format) {
     case "xml":
         if (req.options.cleanup) this.checkResultColumns(req.options.cleanup, data.count && data.data ? data.data : data, req.options);
-        var xml = "<data>";
-        if (data.next_token) xml += "<next_token>" + data.next_token + "</next_token>";
+        var xml = "<data>\n";
+        if (data.next_token) xml += "<next_token>" + data.next_token + "</next_token>\n";
         var rows = Array.isArray(data) ? data : (data.data || []);
         rows.forEach(function(x) {
-            xml += "<row>";
-            for (var y in x) data += "<" + y + ">" + String(x[y]).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/'/g, '&apos;').replace(/"/g, '&quot;') + "</" + y + ">";
+            xml += "<row>\n";
+            for (var y in x) xml += "<" + y + ">" + String(x[y]).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/'/g, '&apos;').replace(/"/g, '&quot;') + "</" + y + ">\n";
             xml += "</row>\n";
         });
         xml += "</data>";
