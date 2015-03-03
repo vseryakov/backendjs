@@ -398,11 +398,18 @@ hooks are registered and return data itself then it is the hook responsibility t
             if (row.birthday) row.age = Math.floor((Date.now() - core.toDate(row.birthday))/(86400000*365));
         }
 </code></pre><h1 id="api-endpoints-provided-by-the-backend">API endpoints provided by the backend</h1>
+<p>All API endpoints are optional and can be disabled or replaced easily. By default the naming convention is:</p>
+<pre><code> /namespace/command[/subname[/subcommand]]
+</code></pre><p>Any HTTP methods can be used because its the command in the URL that defines the operation. The payload can be urlencoded query
+parameters or JSON or any other format supported by any particular endpoint. This makes the backend universal and usable with any
+environment, not just a Web browser. Event signature can be passed in the query so it does not require HTTP headers at all.</p>
 <h2 id="authentication-and-sessions">Authentication and sessions</h2>
 <ul>
 <li><p><code>/auth</code></p>
 <p> This API request returns the current user record from the <code>bk_auth</code> table if the request is verified and the signature provided
  is valid. If no signature or it is invalid the result will be an error with the corresponding error code and message.</p>
+<p> By default this endpoint is secired, i.e. requires valid signature. It can be used in anonymous mode as well thus
+ allowing to clear cookies uncodnitionally, set config <code>api-allow-anonymous=/auth</code>.</p>
 <p> Parameters:</p>
 <ul>
 <li><code>_session=1</code> - if the call is authenticated a cookie with the session signature is returned, from now on
@@ -1628,12 +1635,12 @@ message being a JSON object with the request API path and mtime, other propertie
 <p>To use publish/subcribe with nanomsg, first nanomsg must be compiled in the backend module. Usually this is done when explicitely installed with <code>--backendjs_nanomsg</code>
 options to the npm install, see above how to install the package.</p>
 <p>All nodes must have the same configuration, similar to the LRU cache otherwise some unexpected behaviour may happen.
-The config parameter <code>msg-host</code> defines where to publish messages and from where messages can be retrieved. Having more than one hosts listed will ensure
+The config parameter <code>queue-host</code> defines where to publish messages and from where messages can be retrieved. Having more than one hosts listed will ensure
 better reliability of delivering messages, publishing will be load-balanced between all configured hosts.</p>
 <h2 id="redis">Redis</h2>
-<p>To configure the backend to use Redis for messaging set <code>msg-type=redis</code> and <code>redis-host=HOST</code> where HOST is IP address or hostname of the single Redis server.</p>
+<p>To configure the backend to use Redis for messaging set <code>queue-type=redis</code> and <code>redis-host=HOST</code> where HOST is IP address or hostname of the single Redis server.</p>
 <h2 id="rabbitmq">RabbitMQ</h2>
-<p>To configure the backend to use RabbitMQ for messaging set <code>msg-type=amqp</code> and <code>amqp-host=HOST</code> and optionally <code>amqp-options=JSON</code> with options to the amqp module.</p>
+<p>To configure the backend to use RabbitMQ for messaging set <code>queue-type=amqp</code> and <code>amqp-host=HOST</code> and optionally <code>amqp-options=JSON</code> with options to the amqp module.</p>
 <h1 id="security-configurations">Security configurations</h1>
 <h2 id="api-only">API only</h2>
 <p>This is default setup of the backend when all API requests except <code>/account/add</code> must provide valid signature and all HTML, Javascript, CSS and image files
@@ -4050,8 +4057,18 @@ that data is not chnaged and was signed with the same secret</p>
 
 <ul>
 <li><p><code>corelib.exists(obj, name)</code></p>
-<p> Return true if a variable or property in the object exists, just a syntax sugar</p>
-</li>
+<p> Return true if a variable or property in the object exists,</p>
+<ul>
+<li>if obj is null or undefined return false</li>
+<li>if obj is an object, returne true if the property is not undefined</li>
+<li>if obj is an array then search for the value with indexOf, only simple values supported,</li>
+<li>if both are arrays return true if at least one item is in both arrays</li>
+</ul>
+<p>Example:</p>
+<pre><code>   corelib.exists({ 1: 1 }, &quot;1&quot;)
+   corelib.exists([ 1, 2, 3 ], 1)
+   corelib.exists([ 1, 2, 3 ], [ 1, 5 ])
+</code></pre></li>
 </ul>
 
 <ul>

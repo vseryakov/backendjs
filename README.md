@@ -351,12 +351,23 @@ hooks are registered and return data itself then it is the hook responsibility t
 
 # API endpoints provided by the backend
 
+All API endpoints are optional and can be disabled or replaced easily. By default the naming convention is:
+
+     /namespace/command[/subname[/subcommand]]
+
+Any HTTP methods can be used because its the command in the URL that defines the operation. The payload can be urlencoded query
+parameters or JSON or any other format supported by any particular endpoint. This makes the backend universal and usable with any
+environment, not just a Web browser. Event signature can be passed in the query so it does not require HTTP headers at all.
+
 ## Authentication and sessions
 
 - `/auth`
 
    This API request returns the current user record from the `bk_auth` table if the request is verified and the signature provided
    is valid. If no signature or it is invalid the result will be an error with the corresponding error code and message.
+
+   By default this endpoint is secired, i.e. requires valid signature. It can be used in anonymous mode as well thus
+   allowing to clear cookies uncodnitionally, set config `api-allow-anonymous=/auth`.
 
    Parameters:
 
