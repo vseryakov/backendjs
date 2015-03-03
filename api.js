@@ -829,7 +829,7 @@ api.checkAuthorization = function(req, status, callback)
     var hooks = this.findHook('auth', req.method, req.path);
     if (hooks.length) {
         corelib.forEachSeries(hooks, function(hook, next) {
-            logger.debug('checkAuthorization:', req.method, req.path, hook.path);
+            logger.debug('checkAuthorization:', req.method, req.path, hook.path, req.account.id);
             hook.callbacks.call(self, req, status, function(err) {
                 if (err && err.status != 200) return next(err);
                 next();

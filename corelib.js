@@ -869,12 +869,30 @@ corelib.isEmpty = function(val)
     }
 }
 
-// Return true if a variable or property in the object exists, just a syntax sugar
+// Return true if a variable or property in the object exists,
+// - if obj is null or undefined return false
+// - if obj is an object, returne true if the property is not undefined
+// - if obj is an array then search for the value with indexOf, only simple values supported,
+// - if both are arrays return true if at least one item is in both arrays
+//
+// Example:
+//
+//         corelib.exists({ 1: 1 }, "1")
+//         corelib.exists([ 1, 2, 3 ], 1)
+//         corelib.exists([ 1, 2, 3 ], [ 1, 5 ])
 corelib.exists = function(obj, name)
 {
-    if (typeof obj == "undefined") return false;
-    if (typeof obj == "obj" && typeof obj[name] == "undefined") return false;
-    return true;
+    switch (this.typeName(obj)) {
+    case "null":
+    case "undefined":
+        return false;
+    case "object":
+        return typeof obj[name] != "undefined";
+    case "array":
+        if (Array.isArray(name)) return obj.some(function(x) { return name.indexOf(x) > -1 });
+        return obj.indexOf(name) > -1;
+    }
+    return !!obj;
 }
 
 // A copy of an object, this is a shallow copy, only arrays and objects are created but all other types are just referenced in the new object
