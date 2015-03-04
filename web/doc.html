@@ -634,22 +634,23 @@ needs to be configured. This is to be able to control how pinging can be perform
 <p>This endpoint can server any icon uploaded to the server for any account, it is supposed to be a non-secure method, i.e. no authentication will be performed and no signagture
 will be needed once it is confgiured which prefix can be public using <code>api-allow</code> or <code>api-allow-path</code> config parameters.</p>
 <p>The format of the endpoint is:</p>
-<pre><code>/image/prefix/id/type
+<ul>
+<li><p><code>/image/prefix/id/type</code></p>
+<p>  Example:</p>
+<pre><code>  # Configure accounts icons to be public in the etc/config
+  api-allow-path=/image/account/
 
-Example:
+  # Or pass in the command line
+  ./app.sh -api-allow-path /image/account/
 
-    # Configure accounts icons to be public in the etc/config
-    api-allow-path=/image/account/
+  # Make requests
+  /image/account/12345/0
+  /image/account/12345/1
 
-    # Or pass in the command line
-    ./app.sh -api-allow-path /image/account/
-
-    # Make requests
-    /image/account/12345/0
-    /image/account/12345/1
-
-    #Return icons for account 12345 for types 0 and 1
-</code></pre><h2 id="icons">Icons</h2>
+  #Return icons for account 12345 for types 0 and 1
+</code></pre></li>
+</ul>
+<h2 id="icons">Icons</h2>
 <p>The icons API provides ability for an account to store icons of different types. Each account keeps its own icons separate form other
 accounts, within the account icons can be separated by <code>prefix</code> which is just a namespace assigned to the icons set, for example to keep messages
 icons separate from albums, or use prefix for each separate album. Within the prefix icons can be assigned with unique type which can be any string.</p>
@@ -3764,6 +3765,18 @@ Options properties:</p>
 <ul>
 <li><p><code>corelib.toRegexpObj(obj, val, del)</code></p>
 <p> Add a regexp to the object that consist of list of patterns and compiled regexp, this is used in the config type <code>regexpobj</code></p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>corelib.toDuration(mtime)</code></p>
+<p> Return duration in human format, mtime is msecs</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>corelib.toAge(mtime)</code></p>
+<p> Given time in msecs, return how long ago it happened</p>
 </li>
 </ul>
 
