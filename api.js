@@ -248,7 +248,7 @@ api.init = function(options, callback)
     options.api = self;
     options.app = self.app;
 
-    // Setup toobusy timer to detect when our requests waiting in the queue for too long
+    // Setup busy timer to detect when our requests waiting in the queue for too long
     if (this.busyLatency) utils.initBusy(this.busyLatency);
 
     // Latency watcher
@@ -266,7 +266,7 @@ api.init = function(options, callback)
         res.header('Access-Control-Allow-Origin', self.corsOrigin);
         res.header('Access-Control-Allow-Headers', 'content-type, bk-app, bk-version, ' + self.signatureName);
         res.header('Access-Control-Allow-Methods', 'OPTIONS, HEAD, GET, POST, PUT, DELETE');
-        logger.debug('handleServerRequest:', req.ip || "", req.method, req.path, req.get('content-type') || "");
+        if (logger.level >= 1) logger.debug('handleServerRequest:', req.ip || "", req.method, req.path, req.get('content-type') || "", req.get('bk-app') || "", req.get(self.signatureName) || "");
         next();
     });
 

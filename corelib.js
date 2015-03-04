@@ -194,6 +194,59 @@ corelib.toRegexpObj = function(obj, val, del)
     return obj;
 }
 
+// Return duration in human format, mtime is msecs
+corelib.toDuration = function(mtime)
+{
+    var str = "";
+    mtime = typeof mtime == "number" ? mtime : this.toNumber(mtime);
+    if (mtime > 0) {
+        var seconds = mtime/1000;
+        var d = Math.floor(seconds / 86400);
+        var h = Math.floor((seconds - d * 86400) / 3600);
+        var m = Math.floor((seconds - d * 86400 - h * 3600) / 60);
+        if (d > 0) {
+            str = d + " day" + (d > 1 ? "s" : "");
+            if (h > 0) str += " " + h + " hour" + (h > 1 ? "s" : "");
+            if (m > 0) str += " " + m + " minute" + (m > 1 ? "s" : "");
+        } else
+        if (h > 0) {
+            str = h + " hour" + (h > 1 ? "s" : "");
+            if (m > 0) str += " " + m + " minute" + (m > 1 ? "s" : "");
+        } else
+        if (m > 0) {
+            str = m + " minute" + (m > 1 ? "s" : "");
+        } else {
+            str = seconds + " second" + (seconds > 1 ? "s" : "");
+        }
+    }
+    return str;
+}
+
+// Given time in msecs, return how long ago it happened
+corelib.toAge = function(mtime)
+{
+    var str = "";
+    mtime = typeof mtime == "number" ? mtime : this.toNumber(mtime);
+    if (mtime > 0) {
+        var seconds = (Date.now() - mtime)/1000;
+        var d = Math.floor(seconds / 86400);
+        var h = Math.floor((seconds - d * 86400) / 3600);
+        var m = Math.floor((seconds - d * 86400 - h * 3600) / 60);
+        if (d > 0) {
+            str = d + " day" + (d > 1 ? "s" : "");
+        } else
+        if (h > 0) {
+            str = h + " hour" + (h > 1 ? "s" : "");
+        } else
+        if (m > 0) {
+            str = m + " minute" + (m > 1 ? "s" : "");
+        } else {
+            str = seconds + " second" + (seconds > 1 ? "s" : "");
+        }
+    }
+    return str;
+}
+
 // Returns true if the given type belongs to the numeric family
 corelib.isNumeric = function(type)
 {

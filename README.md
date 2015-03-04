@@ -633,7 +633,7 @@ will be needed once it is confgiured which prefix can be public using `api-allow
 
 The format of the endpoint is:
 
-    /image/prefix/id/type
+- `/image/prefix/id/type`
 
     Example:
 
