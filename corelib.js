@@ -230,8 +230,16 @@ corelib.toAge = function(mtime)
     if (mtime > 0) {
         var seconds = (Date.now() - mtime)/1000;
         var d = Math.floor(seconds / 86400);
+        var mm = Math.floor(d / 30);
+        var w = Math.floor(d / 7);
         var h = Math.floor((seconds - d * 86400) / 3600);
         var m = Math.floor((seconds - d * 86400 - h * 3600) / 60);
+        if (mm > 0) {
+            str = mm + " month" + (mm > 1 ? "s" : "");
+        } else
+        if (w > 0) {
+            str = w + " week" + (w > 1 ? "s" : "");
+        } else
         if (d > 0) {
             str = d + " day" + (d > 1 ? "s" : "");
         } else
@@ -250,7 +258,7 @@ corelib.toAge = function(mtime)
 // Returns true if the given type belongs to the numeric family
 corelib.isNumeric = function(type)
 {
-    return ["int","bigint","counter","real","float","double","numeric"].indexOf(String(type).trim()) > -1;
+    return ["int","bigint","counter","real","float","double","numeric","number"].indexOf(String(type).trim()) > -1;
 }
 
 // Evaluate expr, compare 2 values with optional type and operation
