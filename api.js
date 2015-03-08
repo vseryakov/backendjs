@@ -1372,7 +1372,7 @@ api.registerOAuthStrategy = function(strategy, options, callback)
         // Refuse to login if no account method exists
         var cb = options.fetchAccount || self.fetchAccount;
         if (typeof cb != "function") return done(new Error("OAuth login is not configured"));
-        var query = { _profile: profile, _accessToken: accessToken, _refreshToken: refreshToken };
+        var query = {};
         query.login = profile.provider + ":" + profile.id;
         query.secret = corelib.uuid();
         query.name = query.alias = profile.displayName;
@@ -1382,6 +1382,9 @@ api.registerOAuthStrategy = function(strategy, options, callback)
         // Deal with broken or not complete implementations
         if (profile.photos && profile.photos.length) query.icon = profile.photos[0].value || profile.photos[0];
         if (!query.icon && profile._json && profile._json.picture) query.icon = profile._json.picture;
+        query._accessToken = accessToken;
+        query._refreshToken = refreshToken;
+        query._profile = profile;
         // Login or create new account for the profile
         cb.call(self, query, options, function(err, user) {
             logger[err ? "error" : "debug"]('registerOAuthStrategy: user:', strategy.name, err || "", user, profile)

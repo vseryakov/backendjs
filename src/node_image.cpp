@@ -15,7 +15,9 @@ public:
         memset(&d, 0, sizeof(d));
         filter = LanczosFilter;
     }
-    ~MagickBaton() { cb.Dispose(); }
+    ~MagickBaton() {
+        if (!cb.IsEmpty()) cb.Dispose();
+    }
     Persistent<Function> cb;
     unsigned char *image;
     char *exception;
@@ -97,11 +99,11 @@ static void doResizeImage(uv_work_t *req)
     ExceptionType severity;
 
     if (baton->image) {
-    	status = MagickReadImageBlob(wand, baton->image, baton->length);
-    	free(baton->image);
-    	baton->image = NULL;
+        status = MagickReadImageBlob(wand, baton->image, baton->length);
+        free(baton->image);
+        baton->image = NULL;
     } else {
-    	status = MagickReadImage(wand, baton->path.c_str());
+        status = MagickReadImage(wand, baton->path.c_str());
     }
     int width = MagickGetImageWidth(wand);
     int height = MagickGetImageHeight(wand);
@@ -185,13 +187,13 @@ static void doResizeImage(uv_work_t *req)
         MagickSetImageCompressionQuality(wand, baton->d.quality);
     }
     if (baton->out.size()) {
-    	// Make sure all subdirs exist
-    	if (vMakePath(baton->out)) {
-    		status = MagickWriteImage(wand, baton->out.c_str());
-    		if (status == MagickFalse) goto err;
-    	} else {
-    		baton->err = errno;
-    	}
+        // Make sure all subdirs exist
+        if (vMakePath(baton->out)) {
+            status = MagickWriteImage(wand, baton->out.c_str());
+            if (status == MagickFalse) goto err;
+        } else {
+            baton->err = errno;
+        }
     } else {
         baton->image = MagickGetImageBlob(wand, &baton->length);
         if (!baton->image) goto err;
@@ -223,8 +225,8 @@ static void afterResizeImage(uv_work_t *req)
             argv[3] = Local<Value>::New(Integer::New(baton->d.height));
             TRY_CATCH_CALL(Context::GetCurrent()->Global(), baton->cb, 4, argv);
         } else {
-        	argv[0] = Local<Value>::New(Null());
-        	TRY_CATCH_CALL(Context::GetCurrent()->Global(), baton->cb, 1, argv);
+            argv[0] = Local<Value>::New(Null());
+            TRY_CATCH_CALL(Context::GetCurrent()->Global(), baton->cb, 1, argv);
         }
     }
     if (baton->image) MagickRelinquishMemory(baton->image);
@@ -280,14 +282,14 @@ static Handle<Value> resizeImage(const Arguments& args)
 
     // If a Buffer passed we use it as a source for image
     if (args[0]->IsObject()) {
-    	Local<Object> buf = args[0]->ToObject();
-    	baton->length = Buffer::Length(buf);
-    	baton->image = (unsigned char*)malloc(baton->length);
-    	memcpy(baton->image, Buffer::Data(buf), baton->length);
+        Local<Object> buf = args[0]->ToObject();
+        baton->length = Buffer::Length(buf);
+        baton->image = (unsigned char*)malloc(baton->length);
+        memcpy(baton->image, Buffer::Data(buf), baton->length);
     } else {
-    	// Otherwise read form file
-    	String::Utf8Value name(args[0]);
-    	baton->path = *name;
+        // Otherwise read form file
+        String::Utf8Value name(args[0]);
+        baton->path = *name;
     }
 
     uv_queue_work(uv_default_loop(), req, doResizeImage, (uv_after_work_cb)afterResizeImage);

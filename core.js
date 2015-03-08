@@ -252,9 +252,11 @@ module.exports = core;
 
 // Main initialization, must be called prior to perform any actions.
 // If options are given they may contain the following properties:
-// - noInit - if true do not initialize database and do not run all configure methods
+// - noDb - if true do not initialize database
+// - noConfigure - do not run all configure methods
 // - noDns - do not retrieve config from DNS
-// - noDb - no db pools except local and config
+// - noWatch - do not watch and reload config files
+// - localDb - no db pools except local and config, this is passed to db.init
 core.init = function(options, callback)
 {
     var self = this;
@@ -361,7 +363,7 @@ core.init = function(options, callback)
 
         // Load config params from the DNS TXT records, only the ones marked as dns
         function(next) {
-            if (options.noInit) return next();
+            if (options.noDns) return next();
             self.loadDnsConfig(options, next);
         },
 
@@ -384,19 +386,19 @@ core.init = function(options, callback)
 
         // Run all configure methods for every module
         function(next) {
-            if (options.noInit) return next();
+            if (options.noConfigure) return next();
             self.runMethods("configure", options, next);
         },
 
         // Initialize all database pools
         function(next) {
-            if (options.noInit) return next();
+            if (options.noDb) return next();
             db.init(options, next);
         },
 
         // Load all available config parameters from the config database for the specified config type
         function(next) {
-            if (options.noInit) return next();
+            if (options.noDb) return next();
             db.initConfig(options, next);
         },
 
@@ -409,7 +411,7 @@ core.init = function(options, callback)
         },
 
         function(next) {
-            if (options.noInit) return next();
+            if (options.noWatch) return next();
             // Can only watch existing files
             corelib.forEach([self.confFile, self.confFile + ".local"], function(file, next2) {
                 fs.exists(file, function(exists) {
@@ -422,7 +424,7 @@ core.init = function(options, callback)
         },
         // Initialize all modules after core is done
         function(next) {
-            if (options.noInit) return next();
+            if (options.noConfigure) return next();
             self.runMethods("configureModule", options, next);
         },
         function(next) {
@@ -764,7 +766,7 @@ core.loadDnsConfig = function(options, callback)
     if (!options) options = {};
     if (typeof callback != "function") callback = corelib.noop;
 
-    if (options.noDns || !self.configDomain) return callback();
+    if (!self.configDomain) return callback();
 
     var args = [], argv = [];
     this.args.forEach(function(x) { if (x.name && x.dns) push(["", x]); });

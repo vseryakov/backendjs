@@ -59,7 +59,7 @@ public:
     friend class SQLiteStatement;
 
     SQLiteDatabase() : ObjectWrap(), handle(NULL), timeout(500), retries(2) {}
-    ~SQLiteDatabase() { sqlite3_close_v2(handle); }
+    virtual ~SQLiteDatabase() { sqlite3_close_v2(handle); }
 
     static Handle<Value> New(const Arguments& args);
     static Handle<Value> OpenGetter(Local<String> str, const AccessorInfo& accessor);
@@ -133,7 +133,7 @@ public:
         _stmts[this] = 0;
     }
 
-    ~SQLiteStatement() {
+    virtual ~SQLiteStatement() {
         Finalize();
         db->Unref();
         _stmts.erase(this);

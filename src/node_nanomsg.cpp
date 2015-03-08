@@ -90,7 +90,9 @@ public:
 
     int ClosePoll() {
         if (!callback.IsEmpty()) callback.Dispose();
-        if (poll.data) uv_poll_stop(&poll), poll.data = NULL;
+        callback.Clear();
+        if (poll.data) uv_poll_stop(&poll);
+        poll.data = NULL;
         peer = -1;
         return 0;
     }

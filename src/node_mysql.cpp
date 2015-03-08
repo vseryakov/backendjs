@@ -65,7 +65,7 @@ public:
     friend class MysqlStatement;
 
     MysqlDatabase() : ObjectWrap(), handle(NULL) {}
-    ~MysqlDatabase() { if (handle) mysql_close(handle); }
+    virtual ~MysqlDatabase() { if (handle) mysql_close(handle); }
 
     static Handle<Value> New(const Arguments& args);
     static Handle<Value> OpenGetter(Local<String> str, const AccessorInfo& accessor);
@@ -140,7 +140,7 @@ public:
         memset(bind, 0, sizeof(bind));
     }
 
-    ~MysqlStatement() {
+    virtual ~MysqlStatement() {
         Finalize();
         db->Unref();
         _stmts.erase(this);

@@ -122,7 +122,7 @@ server.start = function()
 
     // Go to background
     if (core.isArg("-daemon")) {
-        return core.init({ role: "daemon", noInit: 1 }, function(err, opts) { self.startDaemon(opts); });
+        return core.init({ role: "daemon", noWatch: 1, noDb: 1, noDns: 1, noConfigure: 1 }, function(err, opts) { self.startDaemon(opts); });
     }
 
     // Graceful shutdown, kill all children processes
@@ -131,17 +131,17 @@ server.start = function()
 
     // Watch monitor for modified source files, for development mode only, in production -monitor is used
     if (core.isArg("-watch")) {
-        return core.init({ role: "watcher", noInit: 1 }, function(err, opts) { self.startWatcher(opts); });
+        return core.init({ role: "watcher", noDb: 1, noDns: 1, noConfigure: 1 }, function(err, opts) { self.startWatcher(opts); });
     }
 
     // Start server monitor, it will watch the process and restart automatically
     if (core.isArg("-monitor")) {
-        return core.init({ role: "monitor", noInit: 1 }, function(err, opts) { self.startMonitor(opts); });
+        return core.init({ role: "monitor", noDb: 1, noDns: 1, noConfigure: 1 }, function(err, opts) { self.startMonitor(opts); });
     }
 
     // Master server, always create tables in the masters processes
     if (core.isArg("-master")) {
-        return core.init({ role: "master", noDb: true }, function(err, opts) { self.startMaster(opts); });
+        return core.init({ role: "master", localMode: true }, function(err, opts) { self.startMaster(opts); });
     }
 
     // Backend Web server
@@ -185,7 +185,7 @@ server.startMaster = function(options)
 
             // Log watcher job, always runs even if no email configured, if enabled it will
             // start sending only new errors and not from the past
-            setInterval(function() { core.watchLogs(); }, core.logwatcherInterval * 60000);
+            self.watchInterval = setInterval(function() { core.watchLogs(); }, core.logwatcherInterval * 60000);
 
             // Primary cron jobs
             if (self.jobsInterval > 0) setInterval(function() { self.processQueue(); }, self.jobsInterval * 1000);

@@ -140,6 +140,8 @@ var db = {
 
     // Local db pool, sqlite is default, used for local storage by the core
     local: 'sqlite',
+    // If true, only local and config db pools will be initialized
+    localMode: false,
 
     // Refresh config from the db
     configInterval: 1800,
@@ -236,7 +238,8 @@ db.shutdownWeb = function(optios, callback)
 }
 
 // Initialize all database pools. the options may containt the following properties:
-//  - noDb - only open local and config db pools, other pools are ignored
+// - localMode - only initialize local and config db pool, other pools are ignored, if not given
+//    global value is used. Currently it can be set globally from the app only, no config parameter.
 db.init = function(options, callback)
 {
     var self = this;
@@ -245,12 +248,13 @@ db.init = function(options, callback)
 
     // Config pool can be set to default which means use the current default pool
     if (this.config == "default") this.config = this.pool;
+    if (typeof options.localMode != "undefined") this.localMode = options.localMode;
 
-    logger.debug("init: db:", Object.keys(this.poolNames), Object.keys(this.pools));
+    logger.debug("db.init:", core.role, Object.keys(this.poolNames), Object.keys(this.pools));
 
     // Configured pools for supported databases
     corelib.forEachSeries(Object.keys(this.poolNames), function(pool, next) {
-        if (options.noDb && pool != self.local && pool != self.config) return next();
+        if (self.localMode && pool != self.local && pool != self.config) return next();
         self.initPool(pool, options, function(err) {
             if (err) logger.error("init: db:", pool, err);
             next();
@@ -367,14 +371,14 @@ db.initConfig = function(options, callback)
     // Make sure we have only unique items in the list, skip empty or incomplete items
     types = corelib.strSplitUnique(types);
 
-    logger.debug("intConfig:", self.config, types);
+    logger.debug("intConfig:", core.role, self.config, types);
 
     self.select(options.table || "bk_config", { type: types }, { ops: { type: "in" }, pool: self.config }, function(err, rows) {
         if (err) return callback(err, []);
 
         // Sort inside to be persistent across databases
         rows.sort(function(a,b) { return types.indexOf(b.type) - types.indexOf(a.type); });
-        logger.dev("initConfig:", rows);
+        logger.dev("initConfig:", core.role, rows);
 
         // Only keep the most specific value, it is sorted in descendent order most specific at the top
         var args = {};

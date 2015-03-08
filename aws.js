@@ -53,7 +53,7 @@ aws.configure = function(options, callback)
     var self = this;
     if (typeof callback != "function") callback = corelib.noop;
     // Do not retrieve metadata if not running inside important process
-    if (os.platform() != "linux" || options.noInit || ["shell","web","master","worker"].indexOf(core.role) == -1) {
+    if (os.platform() != "linux" || options.noConfigure || ["shell","web","master","worker"].indexOf(core.role) == -1) {
         if (!self.key) return self.readCredentials(self.sdkProfile, callback);
         return callback();
     }

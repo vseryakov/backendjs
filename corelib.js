@@ -932,7 +932,7 @@ corelib.isEmpty = function(val)
 
 // Return true if a variable or property in the object exists,
 // - if obj is null or undefined return false
-// - if obj is an object, returne true if the property is not undefined
+// - if obj is an object, return true if the property is not undefined
 // - if obj is an array then search for the value with indexOf, only simple values supported,
 // - if both are arrays return true if at least one item is in both arrays
 //
@@ -1754,7 +1754,7 @@ corelib.createPool = function(options)
             this._pbusy.splice(idx, 1);
             return;
         }
-        var idx = this._pavail.indexOf(client);
+        idx = this._pavail.indexOf(client);
         if (idx > -1) {
             this._pclose(client);
             this._pavail.splice(idx, 1);
@@ -1806,7 +1806,7 @@ corelib.createPool = function(options)
     // if callback is provided then wait until all items are released and call it, optional maxtime can be used to retsrict how long to wait for
     // all items to be released, when expired the callback will be called
     pool.shutdown = function(callback, maxtime) {
-        logger.debug('pool.close:', 'shutdown:', this.name, 'avail:', this._pavail.length, 'busy:', this._pbusy.length);
+        logger.debug('pool.close:', this.name, 'shutdown:', 'avail:', this._pavail.length, 'busy:', this._pbusy.length);
         var self = this;
         this._pmax = -1;
         this.closeAll();
@@ -1825,9 +1825,9 @@ corelib.createPool = function(options)
     pool._palloc = function(callback) {
         try {
             this._pcreate.call(this, callback);
-            logger.dev('pool.alloc:', 'avail:', this._pavail.length, 'busy:', this._pbusy.length);
+            logger.dev('pool.alloc:', this.name, 'avail:', this._pavail.length, 'busy:', this._pbusy.length);
         } catch(e) {
-            logger.error('pool.alloc:', e);
+            logger.error('pool.alloc:', this.name, e);
             callback(e);
         }
     }
@@ -1836,9 +1836,9 @@ corelib.createPool = function(options)
     pool._pclose = function(client) {
         try {
             this._pdestroy.call(this, client);
-            logger.dev('pool.close:', 'destroy:', this._pavail.length, 'busy:', this._pbusy.length);
+            logger.dev('pool.close:', this.name, 'destroy:', this._pavail.length, 'busy:', this._pbusy.length);
         } catch(e) {
-            logger.error('pool.close:', e);
+            logger.error('pool.close:', this.name, e);
         }
     }
 
@@ -1847,7 +1847,7 @@ corelib.createPool = function(options)
         try {
             return this._pvalidate.call(this, client);
         } catch(e) {
-            logger.error('pool.check:', e);
+            logger.error('pool.check:', this.name, e);
             return false;
         }
     }
@@ -1870,7 +1870,11 @@ corelib.createPool = function(options)
         // Ensure min number of items
         var min = this._pmin - this._pavail.length - this._pbusy.length;
         for (var i = 0; i < min; i++) {
-            this._palloc(function(err, client) { if (!err) me._pavail.push(client); });
+            this._palloc(function(err, client) {
+                if (err) return;
+                me._pavail.push(client);
+                me._pmtime.push(now);
+            });
         }
     }
 
