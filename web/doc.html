@@ -3363,9 +3363,11 @@ Example:</p>
 <p> Main initialization, must be called prior to perform any actions.
 If options are given they may contain the following properties:</p>
 <ul>
-<li>noInit - if true do not initialize database and do not run all configure methods</li>
+<li>noDb - if true do not initialize database</li>
+<li>noConfigure - do not run all configure methods</li>
 <li>noDns - do not retrieve config from DNS</li>
-<li>noDb - no db pools except local and config</li>
+<li>noWatch - do not watch and reload config files</li>
+<li>localDb - no db pools except local and config, this is passed to db.init</li>
 </ul>
 </li>
 </ul>
@@ -4073,7 +4075,7 @@ that data is not chnaged and was signed with the same secret</p>
 <p> Return true if a variable or property in the object exists,</p>
 <ul>
 <li>if obj is null or undefined return false</li>
-<li>if obj is an object, returne true if the property is not undefined</li>
+<li>if obj is an object, return true if the property is not undefined</li>
 <li>if obj is an array then search for the value with indexOf, only simple values supported,</li>
 <li>if both are arrays return true if at least one item is in both arrays</li>
 </ul>
@@ -4516,7 +4518,8 @@ database like DynamoDB for real-time requests and slower SQL database running on
 <li><p><code>db.init(options, callback)</code></p>
 <p> Initialize all database pools. the options may containt the following properties:</p>
 <ul>
-<li>noDb - only open local and config db pools, other pools are ignored</li>
+<li>localMode - only initialize local and config db pool, other pools are ignored, if not given
+global value is used. Currently it can be set globally from the app only, no config parameter.</li>
 </ul>
 </li>
 </ul>
