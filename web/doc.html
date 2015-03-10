@@ -6099,35 +6099,6 @@ Output file name is built according to the following options properties:</li>
 </ul>
 
 <ul>
-<li><p><code>api.downloadIcon(uri, options, callback)</code></p>
-<p> Download image and convert into JPG, store under core.path.images
-Options may be controlled using the properties:</p>
-<ul>
-<li>force - force rescaling for all types even if already exists</li>
-<li>id - id for the icon</li>
-<li>type - type for the icon, prepended to the icon id</li>
-<li>prefix - where to store all scaled icons</li>
-<li>verify - check if the original icon is the same as at the source</li>
-</ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.saveIcon(file, id, options, callback)</code></p>
-<p> Save original or just downloaded file in the proper location according to the types for given id,
-this function is used after downloading new image or when moving images from other places. On success
-the callback will be called with the second argument set to the output file name where the image has been saved.
-Valid properties in the options:</p>
-<ul>
-<li>type - icon type, this will be prepended to the name of the icon</li>
-<li>prefix - top level subdirectory under images/</li>
-<li>force - to rescale even if it already exists</li>
-<li>width, height, filter, ext, quality for backend.resizeImage function</li>
-</ul>
-</li>
-</ul>
-
-<ul>
 <li><p><code>api.scaleIcon(infile, options, callback)</code></p>
 <p> Scale image using ImageMagick, return err if failed</p>
 <ul>
@@ -6188,8 +6159,17 @@ Valid properties in the options:</p>
 </ul>
 
 <ul>
-<li><p><code>api.storeIcon(file, id, options, callback)</code></p>
-<p> Place the icon data to the destination, if api.imagesS3 or options.imagesS3 specified then plave the image on the S3 drive</p>
+<li><p><code>api.saveIcon(file, id, options, callback)</code></p>
+<p> Save the icon data to the destination, if api.imagesS3 or options.imagesS3 specified then plave the image on the S3 drive.
+Store in the proper location according to the types for given id, this function is used after downloading new image or
+when moving images from other places. On success the callback will be called with the second argument set to the output
+file name where the image has been saved.
+Valid properties in the options:</p>
+<ul>
+<li>type - icon type, this will be prepended to the name of the icon</li>
+<li>prefix - top level subdirectory under images/</li>
+<li>width, height, filter, ext, quality for <code>utils.resizeImage</code> function</li>
+</ul>
 </li>
 </ul>
 
