@@ -70,6 +70,12 @@ concat_arg() {
   echo $_v
 }
 
+# Return value of the named pair from the variable that hold all them
+get_value() {
+  echo "$1"|awk -F= "{if(\$1==\"$2\" && \$2!=\"\") print \$2}" && return 0
+  [ "$3" != "" ] && echo $3
+}
+
 # Global options that are used thoughout the script
 export BKJS_DEBUG=$(get_arg -debug $BKJS_DEBUG)
 export BKJS_HOME=$(get_arg -home $BKJS_HOME)
@@ -561,18 +567,25 @@ case "$ARG" in
     # Sync code from the master, only inside backend home, must be explicitely configured
     [ "$BKJS_SYNC" = "" ] && exit
     cd $BKJS_HOME
-    log=/dev/null
-    name=$($NODE_BIN -e "try{console.log(JSON.parse(require('fs').readFileSync('package.json')).name)}catch(e){}")
-    network=$(ip -4 -o addr show eth0|awk '{split($4,a,".");printf "%s.%s\n",a[1],a[2]}')
-    subnet=$(ip -4 -o addr show eth0|awk '{split($4,a,".");printf "%s.%s.%s\n",a[1],a[2],a[3]}')
-    version=$($NODE_BIN -e "try{console.log(JSON.parse(require('fs').readFileSync('package.json')).version)}catch(e){}")
-    update=$(echo $version|awk '{split($0,a,".");printf "%s.%s\n",a[1],a[2]}')
-    name=${name-app}/${update-0.0}
-    dirs=$BKJS_SYNC:sync/$name/
-    [ "$network" != "" ] && dirs="$dirs $BKJS_SYNC:sync/$name-$network/"
-    [ "$subnet" != "" ] && dirs="$dirs $BKJS_SYNC:sync/$name-$subnet/"
-    [ "$BKJS_DEBUG" != "" ] && log=/dev/tty
-    rsync -aqFF $BKJS_DEBUG -e "ssh -l $BKJS_USER -y -o StrictHostKeyChecking=no -o ConnectTimeout=5 $BKJS_SSH_ARGS" $dirs $BKJS_HOME 2>$log
+    info=$($0 run-shell -log none -show-info)
+    mode=$(get_value "$info" mode)
+    name=$(get_value "$info" name)
+    version=$(get_value "$info" version)
+    network=$(get_value "$info" network)
+    subnet=$(get_value "$info" subnet)
+    major=$(get_value "$info" major)
+    minor=$(get_value "$info" minor)
+    dirs=$BKJS_SYNC/$name/
+    dirs="$dirs $BKJS_SYNC/$name/$mode/"
+    dirs="$dirs $BKJS_SYNC/$name/$mode/$major/"
+    dirs="$dirs $BKJS_SYNC/$name/$mode/$major/$minor/"
+    [ "$network" != "" ] && dirs="$dirs $BKJS_SYNC/$name/$network/"
+    [ "$subnet" != "" ] && dirs="$dirs $BKJS_SYNC/$name/$subnet/"
+    if [[ $BKJS_SYNC =~ ^s3:// ]]; then
+       for dir in $dirs; do echo aws s3 sync $dir $BKJS_HOME ${BKJS_DEBUG:--quiet} --recursive; done
+    else
+        rsync -aFF ${BKJS_DEBUG:-q} -e "ssh -l $BKJS_USER -y -o StrictHostKeyChecking=no -o ConnectTimeout=5 $BKJS_SSH_ARGS" $dirs $BKJS_HOME
+    fi
     # Check for version change and run the restart command
     nversion=$($NODE_BIN -e "try{console.log(JSON.parse(require('fs').readFileSync('package.json')).version)}catch(e){}")
     [ "$BKJS_DEBUG" != "" ] && echo "old version: $version, new version: $nversion"
@@ -1235,6 +1248,7 @@ EOF
     echo "  show-help - show all backend command line and config parameters"
     echo ""
     echo "bksh subcommands:"
+    echo "  -show-info - show app and version information"
     echo "  -account-add [-scramble] login LOGIN secret SECRET [name NAME] [email EMAIL] [type TYPE] ... - add a new user for API access, any property from bk_account can be passed in the form: name value, if -scramble is given, store HMAC for login/secret, not real values "
     echo "  -account-update [-scramble] [login LOGIN|id ID] [name NAME] [email EMAIL] [type TYPE] ... - update existing user properties, any property from bk_account can be passed in the form: name value "
     echo "  -account-del [login LOGIN|id ID] [-keep message] [-keep location]... - delete a new user, 'keep TABLE' tells which records to keep the TABLE being account tables without bk_ prefix, one of auth,counter,account,location,connection,message,icon"

@@ -585,7 +585,7 @@ accounts.fetchAccount = function(query, options, callback)
                 if (!query.icon) return next();
                 core.httpGet(query.icon, { binary: 1 }, function(err, params) {
                     if (err || !params.data.length) return next();
-                    api.storeIcon(params.data, auth.id, { prefix: "account", type: "0", width: options.width }, function(err) {
+                    api.saveIcon(params.data, auth.id, { prefix: "account", type: "0", width: options.width }, function(err) {
                         if (err) return next();
                         db.put("bk_icon", { id: auth.id, prefix: "account", type:"account:0" }, options, function(err, rows) { next() });
                     });

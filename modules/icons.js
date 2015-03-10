@@ -84,7 +84,6 @@ icons.configureIconsAPI = function()
             break;
 
         case "upload":
-            options.force = true;
             options.type = req.query.type;
             options.prefix = req.query.prefix;
             self.putIcon(req, req.account.id, options, function(err, icon) {
@@ -117,7 +116,6 @@ icons.handleIconRequest = function(req, res, options, callback)
     var self = this;
     var op = options.op || "put";
 
-    options.force = true;
     options.type = req.query.type || "";
     options.prefix = req.query.prefix || "account";
     if (!req.query.id) req.query.id = req.account.id;

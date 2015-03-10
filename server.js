@@ -348,7 +348,7 @@ server.startWeb = function(options)
 
             // Restart if any worker dies, keep the worker pool alive
             cluster.on("exit", function(worker, code, signal) {
-                logger.log('web worker: died:', worker.id, 'pid:', worker.process.pid || "", "code:", code || "", 'signal:', signal || "");
+                logger.log('startWeb:', core.role, 'process terminated:', worker.id, 'pid:', worker.process.pid || "", "code:", code || "", 'signal:', signal || "");
                 self.respawn(function() { self.clusterFork(); });
                 // Exit when all workers are terminated
                 if (self.exiting && !Object.keys(cluster.workers).length) process.exit(0);
@@ -362,7 +362,7 @@ server.startWeb = function(options)
                 for (var p in cluster.workers) try { process.kill(cluster.workers[p].process.pid); } catch(e) {}
             }
             self.writePidfile();
-            logger.log('startServer:', core.role, 'version:', core.version, 'home:', core.home, 'port:', core.port, 'uid:', process.getuid(), 'gid:', process.getgid(), 'pid:', process.pid)
+            logger.log('startWeb:', core.role, 'version:', core.version, 'home:', core.home, 'port:', core.port, 'uid:', process.getuid(), 'gid:', process.getgid(), 'pid:', process.pid)
         });
     } else {
         core.role = 'web';
@@ -554,6 +554,22 @@ server.startShell = function(options)
 
     core.runMethods("configureShell", options, function(err, opts) {
         if (opts.done) exit();
+
+        // App version
+        if (core.isArg("-show-info")) {
+            var ver = core.appVersion.split(".");
+            console.log('mode=' + core.runMode);
+            console.log('name=' + core.appName);
+            console.log('version=' + core.appVersion);
+            console.log('major=' + (ver[0] || 0));
+            console.log('minor=' + (ver[1] || 0));
+            console.log('patch=' + (ver[2] || 0));
+            console.log('ipaddr=' + core.ipaddr);
+            console.log('network=' + core.network);
+            console.log('subnet=' + core.subnet);
+            console.log('domain=' + core.domain);
+            exit();
+        } else
 
         // Add a user
         if (core.isArg("-account-add")) {

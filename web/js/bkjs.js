@@ -259,7 +259,7 @@ var Bkjs = {
 
     // Send a file as multi-part upload
     sendFile: function(options, callback) {
-        if (!options || !options.file || !options.file.files.length) return callback ? callback() : null;
+        if (!options || !options.file || !options.file.files || !options.file.files.length) return typeof callback == "function" ? callback() : null;
         var form = new FormData();
         for (var p in options.data) form.append(p, options.data[p])
         form.append("data", options.file.files[0]);
