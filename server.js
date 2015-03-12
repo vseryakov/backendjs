@@ -36,10 +36,9 @@ var server = {
            { name: "restart-delay", type: "number", max: 30000, descr: "Delay between respawning the server after changes" },
            { name: "log-errors" ,type: "bool", descr: "If true, log crash errors from child processes by the logger, otherwise write to the daemon err-file. The reason for this is that the logger puts everything into one line thus breaking formatting for stack traces." },
            { name: "job", type: "callback", callback: function(v) { this.queueJob(corelib.base64ToJson(v)) }, descr: "Job specification, JSON encoded as base64 of the job object" },
-           { name: "proxy-url", type: "regexpobj", descr: "URL regexp to be passed to other web server running behind, it uses the proxy-host config parameters where to forward matched requests" },
-           { name: "proxy-reverse", type: "bool", descr: "Reverse the proxy logic, proxy all that do not match the proxy-url pattern" },
-           { name: "proxy-target", type: "url", key: "proxyHost", descr: "A Web server where to proxy requests by matching request URL, in the form: http://host[:port]" },
-           { name: "proxy-target-(.+)", type: "regexpobj", reverse: 1, obj: 'proxy-target', lcase: ".+", descr: "Virtual host mapping, to match any Host: header, each parameter defines a host name and the destination in the value in the form http://host[:port], example: -server-proxy-target-www.myhost.com=http://127.0.0.1:8080" },
+           { name: "proxy-reverse", type: "url", descr: "A Web server where to proxy requests not macthed by the url patterns or host header, in the form: http://host[:port]" },
+           { name: "proxy-url-(.+)", type: "regexpobj", reverse: 1, obj: 'proxy-url', lcase: ".+", descr: "URL regexp to be passed to other web server running behind, each parameter defines an url regexp and the destination in the value in the form http://host[:port], example: -server-proxy-url-^/api=http://127.0.0.1:8080" },
+           { name: "proxy-host-(.+)", type: "regexpobj", reverse: 1, obj: 'proxy-host', lcase: ".+", descr: "Virtual host mapping, to match any Host: header, each parameter defines a host name and the destination in the value in the form http://host[:port], example: -server-proxy-host-www.myhost.com=http://127.0.0.1:8080" },
            { name: "process-name", descr: "Path to the command to spawn by the monitor instead of node, for external processes guarded by this monitor" },
            { name: "process-args", type: "list", descr: "Arguments for spawned processes, for passing v8 options or other flags in case of external processes" },
            { name: "worker-args", type: "list", descr: "Node arguments for workers, job and web processes, for passing v8 options" },
@@ -99,7 +98,6 @@ var server = {
     // Proxy target
     proxyUrl: {},
     proxyHost: null,
-    proxyTarget: {},
     proxyWorkers: [],
 };
 
@@ -853,15 +851,18 @@ server.getProxyTarget = function(req)
     // Virtual host proxy
     var host = (req.headers.host || "").toLowerCase().trim();
     if (host) {
-        for (var p in this.proxyTarget) {
-            if (this.proxyTarget[p].rx && host.match(this.proxyTarget[p].rx)) return { target: p };
+        for (var p in this.proxyHost) {
+            if (this.proxyHost[p].rx && host.match(this.proxyHost[p].rx)) return { target: p };
         }
     }
-    // Proxy to the global Web server running behind us by url patterns
-    if (this.proxyHost && this.proxyUrl.rx) {
-        var d = req.url.match(this.proxyUrl.rx);
-        if ((this.proxyReverse && !d) || (!this.proxyReverse && d)) return { target: this.proxyHost };
+    // Proxy by url patterns
+    var url = req.url;
+    for (var p in this.proxyUrl) {
+        if (this.proxyUrl[p].rx && url.match(this.proxyUrl[p].rx)) return { target: p };
     }
+    // In reverse mode proxy all not matched to the host
+    if (this.proxyReverse) return { target: this.proxyReverse };
+
     // Forward api requests to the workers
     for (var i = 0; i < this.proxyWorkers.length; i++) {
         var target = this.proxyWorkers.shift();

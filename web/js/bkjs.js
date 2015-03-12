@@ -436,6 +436,25 @@ var Bkjs = {
         return fmt;
     },
 
+    // Apply an iterator function to each item in an array serially. Execute a callback when all items
+    // have been completed or immediately if there is is an error provided.
+    forEachSeries: function(list, iterator, callback) {
+        callback = typeof callback == "function" ? callback : this.noop;
+        if (!list || !list.length) return callback();
+        function iterate(i) {
+            if (i >= list.length) return callback();
+            iterator(list[i], function(err) {
+                if (err) {
+                    callback(err);
+                    callback = function() {}
+                } else {
+                    iterate(++i);
+                }
+            });
+        }
+        iterate(0);
+    },
+
     // Simple debugging function that outputs arguments in the error console
     log: function() {
         if (!console || !console.log) return;

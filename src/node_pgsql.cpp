@@ -207,6 +207,7 @@ static Handle<Value> listBatons(const Arguments& args)
 void PgSQLInit(Handle<Object> target)
 {
     HandleScope scope;
+    PQinitOpenSSL(0, 0);
     PgSQLDatabase::Init(target);
     NODE_SET_METHOD(target, "pgsqlStats", listBatons);
 }
@@ -230,7 +231,6 @@ void PgSQLDatabase::Init(Handle<Object> target)
     NODE_SET_PROTOTYPE_METHOD(t, "querySync", QuerySync);
     NODE_SET_PROTOTYPE_METHOD(t, "close", Close);
     target->Set(String::NewSymbol("PgSQLDatabase"), constructor_template->GetFunction());
-    PQinitOpenSSL(0, 0);
 }
 
 Handle<Value> PgSQLDatabase::OpenGetter(Local<String> str, const AccessorInfo& accessor)
@@ -459,6 +459,7 @@ Handle<Value> PgSQLDatabase::Close(const Arguments& args)
 void PgSQLDatabase::Work_Close(uv_work_t* req)
 {
     PgSQLDatabase* db = static_cast<PgSQLDatabase*>(req->data);
+    PQsetnonblocking(db->handle, 0);
     db->Finish();
 }
 
