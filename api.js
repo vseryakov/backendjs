@@ -1041,8 +1041,8 @@ api.handleSessionSignature = function(req, options)
 {
     logger.debug("handleSessionSignature:", options);
 
-    if (typeof options.accessToken != "undefined" && req.session) {
-        if (options.accessToken && req.account && req.account.login && req.account.secret && req.headers) {
+    if (typeof options.accesstoken != "undefined" && req.session) {
+        if (options.accesstoken && req.account && req.account.login && req.account.secret && req.headers) {
             var sig = this.createSignature(req.account.login, req.account.secret + ":" + (req.account.token_secret || ""), "", req.headers.host, "", { version: 3, expires: options.sessionAge || this.accessTokenAge });
             req.account[this.accessTokenName] = corelib.encrypt(this.accessTokenSecret, sig[this.signatureName], "", "hex");
             req.account[this.accessTokenName + '-age'] = options.sessionAge || this.accessTokenAge;

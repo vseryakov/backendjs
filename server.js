@@ -342,7 +342,7 @@ server.startWeb = function(options)
                 // Make sure we have all workers running
                 var workers = Object.keys(cluster.workers);
                 for (var i = 0; i < self.maxProcesses - workers.length; i++) self.clusterFork();
-            }, 5000);
+            }, 30000);
 
             // Restart if any worker dies, keep the worker pool alive
             cluster.on("exit", function(worker, code, signal) {

@@ -114,9 +114,9 @@ public:
 
     void Close() {
         LogDev("%p: %p, fd=%d, batons=%d", this, handle, fd, batons.size());
-        Clear();
         StopPoll();
         Finish();
+        Clear();
         if (!notify.IsEmpty()) notify.Dispose();
         notify.Clear();
     }
@@ -459,7 +459,6 @@ Handle<Value> PgSQLDatabase::Close(const Arguments& args)
 void PgSQLDatabase::Work_Close(uv_work_t* req)
 {
     PgSQLDatabase* db = static_cast<PgSQLDatabase*>(req->data);
-    PQsetnonblocking(db->handle, 0);
     db->Finish();
 }
 

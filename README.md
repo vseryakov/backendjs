@@ -498,7 +498,7 @@ This is implemented by the `accounts` module from the core. To disable accounts 
 
   Parameters:
     - secret - new secret for the account
-    - token_secret - set to 1 to reset access token secret to a new vakue thus revoking access from existing access tokens
+    - token_secret - set to 1 to reset access token secret to a new value thus revoking access from existing access tokens
 
   Example:
 

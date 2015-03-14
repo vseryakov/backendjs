@@ -47,6 +47,8 @@ var metrics = require(__dirname + "/metrics");
 //
 // All database methods can use default db pool or any other available db pool by using `pool: name` in the options. If not specified,
 // then default db pool is used, sqlite is default if no -db-pool config parameter specified in the command line or the config file.
+// Even if the specified pool does not exist, the default pool will be returned, this allows to pre-confgure the app with different pools
+// in the code and enable or disable any particular pool at any time.
 //
 //  Example, use PostgreSQL db pool to get a record and update the current pool
 //
@@ -247,8 +249,9 @@ db.init = function(options, callback)
     if (!options) options = {};
 
     // Config pool can be set to default which means use the current default pool
-    if (this.config == "default") this.config = this.pool;
-    if (typeof options.localMode != "undefined") this.localMode = options.localMode;
+    ["localMode"].forEach(function(x) {
+        if (typeof options[x] != "undefined") self[x] = options[x];
+    });
 
     logger.debug("db.init:", core.role, Object.keys(this.poolNames), Object.keys(this.pools));
 
@@ -342,8 +345,6 @@ db.initConfig = function(options, callback)
     if (typeof options == "function") callback = options, options = null
     if (!options) options = {};
     if (typeof callback != "function") callback = corelib.noop;
-
-    if (!self.config || !db.getPoolByName(self.config)) return callback(null, []);
 
     // The order of the types here defines the priority of the parameters, most specific at the end always wins
     var types = [], argv = [];
@@ -1542,7 +1543,6 @@ db.cacheColumns = function(options, callback)
 {
     var self = this;
     if (typeof options == "function") callback = options, options = null;
-    if (typeof callback != "function") callback = corelib.noop;
     if (!options) options = {};
 
     var pool = this.getPool('', options);
@@ -1558,7 +1558,7 @@ db.cacheColumns = function(options, callback)
                     if (typeof x == "function") x.call(pool, options);
                 });
             }
-            callback(err);
+            if (typeof callback == "function") callback(err);
         });
     });
 }
@@ -1875,6 +1875,17 @@ db.setProcessRow = function(type, table, options, callback)
     this.processRows[type][table].push(callback);
 }
 
+// Return database pool by table name or default pool, options may contain { pool: name } to return
+// the pool by given name. This call always return valid pool object, in case no requiested pool found it returns
+// default pool. A special pool `none` always return empty result and no errors.
+db.getPool = function(table, options)
+{
+    var pool = options && options.pool ? this.pools[options.pool] : null;
+    if (!pool && this.poolTables[table]) pool = this.pools[this.poolTables[table]];
+    if (!pool) pool = this.pools[this.pool];
+    return pool || this.nopool;
+}
+
 // Return all tables know to the given pool, returned tables are in the object with
 // column information merged from cached columns from the database with description columns
 // given by the application. Property fake: 1 in any column signifies not a real column but
@@ -1895,21 +1906,6 @@ db.getPools = function()
     var rc = [];
     for (var p in this.pools) rc.push({ name: this.pools[p].name, type: this.pools[p].type });
     return rc;
-}
-
-// Return database pool by table name or default pool, options may contain { pool: name } to return
-// the pool by given name. This call always return valid pool object, in case no requiested pool found it returns
-// special empty pool which provides same interface but returns errors instesd of results.
-db.getPool = function(table, options)
-{
-    return this.pools[(options || {})["pool"] || this.poolTables[table] || this.pool] || this.nopool;
-}
-
-// Returns given pool if it exists and initialized otherwise returns null
-db.getPoolByName = function(name)
-{
-    var pool = this.getPool("", { pool: name });
-    return pool == this.nopool ? null : pool;
 }
 
 // Return combined options for the pool including global pool options
@@ -2288,16 +2284,5 @@ db.createPool = function(options)
     return pool;
 }
 
-// Make sure the empty pool is created to properly report init issues
+// Make sure the empty pool is created for dummy database operations
 db.nopool = db.createPool({ pool: "none", type: "none" });
-db.nopool.prepare = function(op, table, obj, options)
-{
-    switch (op) {
-    case "create":
-    case "upgrade":
-        break;
-    default:
-        logger.error("db.none: core.init must be called before using the backend DB functions:", op, table, obj);
-    }
-    return {};
-}

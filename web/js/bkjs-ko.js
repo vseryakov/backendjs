@@ -37,7 +37,7 @@ Bkjs.koInit = function()
     ko.applyBindings(Bkjs);
     Bkjs.login(function(err, data, xhr) {
         Bkjs.koAuth(Bkjs.loggedIn);
-        Bkjs.koAdmin(Bkjs.loggedIn && Bkjs.account.type.split(",").indexOf("admin") > -1);
+        Bkjs.koAdmin(Bkjs.loggedIn && (Bkjs.account.type || "").split(",").indexOf("admin") > -1);
         $(Bkjs).trigger(Bkjs.loggedIn ? "login" : "nologin", [err, xhr.status]);
         if (err) return;
         if (Bkjs.koShow) Bkjs.koShow();
