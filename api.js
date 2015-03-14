@@ -1047,7 +1047,8 @@ api.handleSessionSignature = function(req, options)
             req.account[this.accessTokenName] = corelib.encrypt(this.accessTokenSecret, sig[this.signatureName], "", "hex");
             req.account[this.accessTokenName + '-age'] = options.sessionAge || this.accessTokenAge;
         } else {
-            delete req.account.accessToken;
+            delete req.account[this.accessTokenName];
+            req.account[this.accessTokenName + '-age'];
         }
     }
     if (typeof options.session != "undefined" && req.session) {

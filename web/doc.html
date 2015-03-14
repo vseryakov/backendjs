@@ -520,7 +520,7 @@ large tables. Supports special query parameters <code>_select,_ops</code>, see d
 <p>Parameters:</p>
 <ul>
 <li>secret - new secret for the account</li>
-<li>token_secret - set to 1 to reset access token secret to a new vakue thus revoking access from existing access tokens</li>
+<li>token_secret - set to 1 to reset access token secret to a new value thus revoking access from existing access tokens</li>
 </ul>
 <p>Example:</p>
 <pre><code>      /account/put/secret?secret=blahblahblah
@@ -4399,7 +4399,9 @@ modify or delete existing properties, so the same options object can be reused i
         ...
     });
 </code></pre><p>All database methods can use default db pool or any other available db pool by using <code>pool: name</code> in the options. If not specified,
-then default db pool is used, sqlite is default if no -db-pool config parameter specified in the command line or the config file.</p>
+then default db pool is used, sqlite is default if no -db-pool config parameter specified in the command line or the config file.
+Even if the specified pool does not exist, the default pool will be returned, this allows to pre-confgure the app with different pools
+in the code and enable or disable any particular pool at any time.</p>
 <p>Example, use PostgreSQL db pool to get a record and update the current pool</p>
 <pre><code>    db.get(&quot;bk_account&quot;, { id: &quot;123&quot; }, { pool: &quot;pgsql&quot; }, function(err, row) {
         if (row) db.update(&quot;bk_account&quot;, row);
@@ -5207,6 +5209,14 @@ callbacks to keep the record consistent.</p>
   });
 </code></pre>
 <ul>
+<li><p><code>db.getPool(table, options)</code></p>
+<p> Return database pool by table name or default pool, options may contain { pool: name } to return
+the pool by given name. This call always return valid pool object, in case no requiested pool found it returns
+default pool. A special pool <code>none</code> always return empty result and no errors.</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>db.getPoolTables(name, options)</code></p>
 <p> Return all tables know to the given pool, returned tables are in the object with
 column information merged from cached columns from the database with description columns
@@ -5220,20 +5230,6 @@ If <code>options.names</code> is 1 then return just table names as a list</p>
 <ul>
 <li><p><code>db.getPools()</code></p>
 <p> Return a list of all active database pools, returns list of objects with name: and type: properties</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.getPool(table, options)</code></p>
-<p> Return database pool by table name or default pool, options may contain { pool: name } to return
-the pool by given name. This call always return valid pool object, in case no requiested pool found it returns
-special empty pool which provides same interface but returns errors instesd of results.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.getPoolByName(name)</code></p>
-<p> Returns given pool if it exists and initialized otherwise returns null</p>
 </li>
 </ul>
 
