@@ -137,6 +137,7 @@
            "src/libpq/md5.c",
            "src/libpq/pqexpbuffer.c",
            "src/libpq/thread.c",
+           "src/libpq/strlcpy.c"
         ],
         "conditions": [
            [ 'OS=="mac"', {
@@ -149,7 +150,10 @@
                    "$(shell mysql_config --cflags)",
                    "$(shell PKG_CONFIG_PATH=$$(pwd)/lib/pkgconfig pkg-config --silence-errors --cflags Wand)"
                 ],
-             }
+             },
+             "sources!": [
+                 "src/libpq/strlcpy.c"
+             ]
            }],
            [ 'OS=="linux"', {
              "defines": [
@@ -159,7 +163,7 @@
                 "-g -fPIC -rdynamic",
                 "$(shell mysql_config --cflags)",
                 "$(shell PKG_CONFIG_PATH=$$(pwd)/lib/pkgconfig pkg-config --silence-errors --cflags Wand)",
-             ]
+             ],
            }]
         ]
     }]
