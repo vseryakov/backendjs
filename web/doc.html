@@ -143,16 +143,15 @@ on the system before installing the backendjs. Not everything is required, if no
 <ul>
 <li>nanomsg - messaging, caching and pub/sub services</li>
 <li>ImageMagick - image manipulation</li>
-<li>libpq - PostgreSQL database driver</li>
 <li>libmysql - MySQL database driver</li>
 </ul>
 <p>Installing dependencies on CentOS:</p>
-<pre><code>    yum -y install libpng-devel libjpeg-turbo-devel postgresql-devel mysql-devel
+<pre><code>    yum -y install libpng-devel libjpeg-turbo-devel mysql-devel
 </code></pre><p>Installing dependencies on Mac OS X using macports:</p>
-<pre><code>    port install libpng jpeg mysql56 postgresql93
+<pre><code>    port install libpng jpeg mysql56
 </code></pre><h1 id="installation">Installation</h1>
 <p>To install the module with all optional dependencies if they are available in the system</p>
-<p>Note: if for example ImageMagick is not istalled it will be skipped, same goes to all database drivers(PostgreSQL, MySQL) and nanomsg.</p>
+<p>Note: if for example ImageMagick is not istalled it will be skipped, same goes to all database drivers(MySQL) and nanomsg.</p>
 <pre><code>    npm install backendjs
 </code></pre><p>To force internal nanomsg and ImageMagick to be compiled in the module the following command must be used:</p>
 <pre><code>    npm install backendjs --backendjs_nanomsg --backendjs_imagemagick
