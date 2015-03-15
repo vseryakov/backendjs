@@ -750,7 +750,7 @@ db.updateAll = function(table, query, obj, options, callback)
 
     // Custom handler for the operation
     var pool = this.getPool(table, options);
-    if (pool.updateAll && !options.process) return pool.updateAll(table, query, obj, options, callback);
+    if (typeof pool.updateAll == "function" && typeof options.process != "function") return pool.updateAll(table, query, obj, options, callback);
 
     self.select(table, query, options, function(err, rows) {
         if (err) return callback(err);
@@ -758,7 +758,7 @@ db.updateAll = function(table, query, obj, options, callback)
         options.ops = {};
         corelib.forEachLimit(rows, options.concurrency || 1, function(row, next) {
             for (var p in obj) row[p] = obj[p];
-            if (options && options.process) options.process(row, options);
+            if (options && typeof options.process == "function") options.process(row, options);
             self.update(table, row, options, next);
         }, function(err) {
             callback(err, rows);
@@ -822,7 +822,7 @@ db.delAll = function(table, query, options, callback)
 
     // Custom handler for the operation
     var pool = this.getPool(table, options);
-    if (pool.delAll && !options.process) return pool.delAll(table, query, options, callback);
+    if (typeof pool.delAll == "function" && typeof options.process != "function") return pool.delAll(table, query, options, callback);
 
     // Options without ops for delete
     var opts = corelib.cloneObj(options, 'ops', {});
@@ -830,7 +830,7 @@ db.delAll = function(table, query, options, callback)
         if (err) return callback(err);
 
         corelib.forEachLimit(rows, options.concurrency || 1, function(row, next) {
-            if (options && options.process) options.process(row, opts);
+            if (options && typeof options.process == "function") options.process(row, opts);
             self.del(table, row, opts, next);
         }, function(err) {
             callback(err, rows);
