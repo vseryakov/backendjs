@@ -45,22 +45,21 @@ on the system before installing the backendjs. Not everything is required, if no
 The optional packages that the backendjs uses if available(resolving packages is done with *pkg-config*):
 - nanomsg - messaging, caching and pub/sub services
 - ImageMagick - image manipulation
-- libpq - PostgreSQL database driver
 - libmysql - MySQL database driver
 
 Installing dependencies on CentOS:
 
-        yum -y install libpng-devel libjpeg-turbo-devel postgresql-devel mysql-devel
+        yum -y install libpng-devel libjpeg-turbo-devel mysql-devel
 
 Installing dependencies on Mac OS X using macports:
 
-        port install libpng jpeg mysql56 postgresql93
+        port install libpng jpeg mysql56
 
 # Installation
 
 To install the module with all optional dependencies if they are available in the system
 
-Note: if for example ImageMagick is not istalled it will be skipped, same goes to all database drivers(PostgreSQL, MySQL) and nanomsg.
+Note: if for example ImageMagick is not istalled it will be skipped, same goes to all database drivers(MySQL) and nanomsg.
 
         npm install backendjs
 

@@ -20,6 +20,12 @@
            "LEVELDB_PLATFORM_POSIX",
            "SNAPPY=1",
            "NDEBUG",
+           "FRONTEND",
+           "_REENTRANT",
+           "_THREAD_SAFE",
+           "_POSIX_PTHREAD_SEMANTICS",
+           "UNSAFE_STAT_OK",
+           "USE_PGSQL"
         ],
         "include_dirs": [
            ".",
@@ -29,8 +35,10 @@
            "src/sqlite",
            "src/leveldb/include",
            "src/leveldb",
+           "src/libpq",
            "include",
            "build/include",
+           "<(node_root_dir)/deps/openssl/openssl/include",
            "/opt/local/include"
         ]
     },
@@ -39,17 +47,12 @@
         "target_name": "backend",
         "defines": [
            "<!@(if which mysql_config 2>/dev/null 1>&2; then echo USE_MYSQL; fi)",
-           "<!@(if which pkg-config 2>/dev/null 1>&2 && pkg-config --exists libpq; then echo USE_PGSQL; fi)",
-           "<!@(if test -f /usr/include/libpq-fe.h -o -f /usr/include/pgsql/libpq-fe.h; then echo USE_PGSQL; fi)",
            "<!@(export PKG_CONFIG_PATH=`pwd`/build/lib/pkgconfig; if which pkg-config 2>/dev/null 1>&2 && pkg-config --exists Wand; then echo USE_WAND; fi)",
            "<!@(export PKG_CONFIG_PATH=`pwd`/build/lib/pkgconfig; if which pkg-config 2>/dev/null 1>&2 && pkg-config --exists libnanomsg; then echo USE_NANOMSG; fi)",
         ],
         "libraries": [
            "-L/opt/local/lib",
            "$(shell mysql_config --libs_r 2>/dev/null)",
-           "<!@(if test -f /usr/include/libpq-fe.h; then echo -lpq; fi)",
-           "<!@(if test -f /usr/include/pgsql/libpq-fe.h; then echo -lpq; fi)",
-           "$(shell pkg-config --silence-errors --static --libs libpq)",
            "$(shell PKG_CONFIG_PATH=$$(pwd)/lib/pkgconfig pkg-config --silence-errors --static --libs libnanomsg)",
            "$(shell PKG_CONFIG_PATH=$$(pwd)/lib/pkgconfig pkg-config --silence-errors --static --libs Wand)"
         ],
@@ -113,6 +116,27 @@
            "src/leveldb/util/options.cc",
            "src/leveldb/util/status.cc",
            "src/leveldb/port/port_posix.cc",
+           "src/libpq/chklocale.c",
+           "src/libpq/fe-connect.c",
+           "src/libpq/fe-misc.c",
+           "src/libpq/fe-protocol3.c",
+           "src/libpq/ip.c",
+           "src/libpq/noblock.c",
+           "src/libpq/pqsignal.c",
+           "src/libpq/wchar.c",
+           "src/libpq/encnames.c",
+           "src/libpq/fe-exec.c",
+           "src/libpq/fe-print.c",
+           "src/libpq/fe-secure.c",
+           "src/libpq/libpq-events.c",
+           "src/libpq/pgstrcasecmp.c",
+           "src/libpq/fe-auth.c",
+           "src/libpq/fe-lobj.c",
+           "src/libpq/fe-protocol2.c",
+           "src/libpq/inet_aton.c",
+           "src/libpq/md5.c",
+           "src/libpq/pqexpbuffer.c",
+           "src/libpq/thread.c",
         ],
         "conditions": [
            [ 'OS=="mac"', {
@@ -123,7 +147,6 @@
                 "OTHER_CFLAGS": [
                    "-g -fPIC",
                    "$(shell mysql_config --cflags)",
-                   "$(shell pkg-config --silence-errors --cflags libpq)",
                    "$(shell PKG_CONFIG_PATH=$$(pwd)/lib/pkgconfig pkg-config --silence-errors --cflags Wand)"
                 ],
              }
@@ -135,8 +158,6 @@
              "cflags_cc+": [
                 "-g -fPIC -rdynamic",
                 "$(shell mysql_config --cflags)",
-                "$(shell pkg-config --silence-errors --cflags libpq)",
-                "$(shell if test -f /usr/include/pgsql/libpq-fe.h; then echo -I/usr/include/pgsql; fi)",
                 "$(shell PKG_CONFIG_PATH=$$(pwd)/lib/pkgconfig pkg-config --silence-errors --cflags Wand)",
              ]
            }]
