@@ -415,8 +415,10 @@ db.initTables = function(options, callback)
 
 
 // Init the pool, create tables and columns:
-// - name - db pool to create the tables in
-// - tables - an object with list of tables to create or upgrade
+//  - name - db pool to create the tables in
+//  - tables - an object with list of tables to create or upgrade
+//  - noInitTables - a regexp that defines which tables should not be created/upgraded, overrides global parameter
+//  - noCacheColumns - if 1 tells to skip caching database columns, overrides the global parameter
 db.initPoolTables = function(name, tables, options, callback)
 {
     var self = this;
@@ -445,9 +447,6 @@ db.initPoolTables = function(name, tables, options, callback)
         return callback();
     }
     self.cacheColumns(options, function() {
-        // Workers do not manage tables, only master process
-        if (cluster.isWorker || core.worker) return callback();
-
         var changes = 0;
         corelib.forEachSeries(Object.keys(options.tables || {}), function(table, next) {
             // Skip tables not supposed to be created
@@ -460,7 +459,7 @@ db.initPoolTables = function(name, tables, options, callback)
                 self.upgrade(table, options.tables[table], options, function(err, rows) { if (rows) changes++; next() });
             }
         }, function() {
-            logger.debug('db.initPoolTables:', name, 'changes:', changes);
+            logger.debug('initPoolTables:', name, 'changes:', changes);
             if (!changes) return callback();
             self.cacheColumns(options, callback);
         });

@@ -35,7 +35,8 @@ var server = {
            { name: "crash-delay", type: "number", max: 30000, descr: "Delay between respawing the crashed process" },
            { name: "restart-delay", type: "number", max: 30000, descr: "Delay between respawning the server after changes" },
            { name: "log-errors" ,type: "bool", descr: "If true, log crash errors from child processes by the logger, otherwise write to the daemon err-file. The reason for this is that the logger puts everything into one line thus breaking formatting for stack traces." },
-           { name: "job", type: "callback", callback: function(v) { this.queueJob(corelib.base64ToJson(v)) }, descr: "Job specification, JSON encoded as base64 of the job object" },
+           { name: "job", type: "callback", callback: function(v) { if (core.role == "master") this.queueJob(corelib.base64ToJson(v)) }, descr: "Job specification, JSON encoded as base64 of the job object" },
+           { name: "job-name", type: "callback", callback: function(v) { if (core.role == "master") this.queueJob(v) }, descr: "Job specification, a simple case when just a job name is used without any properties" },
            { name: "proxy-reverse", type: "url", descr: "A Web server where to proxy requests not macthed by the url patterns or host header, in the form: http://host[:port]" },
            { name: "proxy-url-(.+)", type: "regexpobj", reverse: 1, obj: 'proxy-url', lcase: ".+", descr: "URL regexp to be passed to other web server running behind, each parameter defines an url regexp and the destination in the value in the form http://host[:port], example: -server-proxy-url-^/api=http://127.0.0.1:8080" },
            { name: "proxy-host-(.+)", type: "regexpobj", reverse: 1, obj: 'proxy-host', lcase: ".+", descr: "Virtual host mapping, to match any Host: header, each parameter defines a host name and the destination in the value in the form http://host[:port], example: -server-proxy-host-www.myhost.com=http://127.0.0.1:8080" },
@@ -139,12 +140,12 @@ server.start = function()
 
     // Master server, always create tables in the masters processes
     if (core.isArg("-master")) {
-        return core.init({ role: "master", localMode: true }, function(err, opts) { self.startMaster(opts); });
+        return core.init({ role: "master", localMode: cluster.isMaster }, function(err, opts) { self.startMaster(opts); });
     }
 
     // Backend Web server
     if (core.isArg("-web")) {
-        return core.init({ role: "web" }, function(err, opts) { self.startWeb(opts); });
+        return core.init({ role: "web", noInitTables: cluster.isWorker ? /.+/ : null }, function(err, opts) { self.startWeb(opts); });
     }
 }
 
@@ -203,11 +204,13 @@ server.startMaster = function(options)
                     self.shutdown();
                 }
             }, 30000);
+            // Execute the jobs passed via command line
+            setTimeout(function() { self.execJobQueue() }, 1000);
 
             // API related initialization
             core.runMethods("configureMaster");
             self.writePidfile();
-            logger.log('startMaster:', 'version:', core.version, 'home:', core.home, 'port:', core.port, 'uid:', process.getuid(), 'gid:', process.getgid(), 'pid:', process.pid)
+            logger.log('startMaster:', 'version:', core.version, 'home:', core.home, 'port:', core.port, 'uid:', process.getuid(), 'gid:', process.getgid(), 'pid:', process.pid);
         });
     } else {
         core.dropPrivileges();

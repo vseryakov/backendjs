@@ -76,18 +76,22 @@ tests.check = function()
 //
 // Example:
 //
-//          var bk = require("backendjs"), core = bk.core, db = bk.db;
-//          var tests = {
-//              test1: function(next) {
-//                  db.get("bk_account", { id: "123" }, function(err, row) {
-//                      tests.check(next, err, row && row.id == "123", "Record not found", row)
-//                  });
-//              },
-//              ...
+//          var bkjs = require("backendjs"), db = bkjs.db, tests = bkjs.tests;
+//          tests.test_mytest = function(next) {
+//             db.get("bk_account", { id: "123" }, function(err, row) {
+//                 tests.check(next, err, row && row.id == "123", "Record not found", row)
+//             });
 //          }
-//          bk.run(function() { core.runTest(); });
+//          tests.run();
 //
-//          # node tests.test_js -test-cmd test1
+//          # node tests.test_js -test-cmd mytest
+//
+//
+// To perform server API testing tests can be run with the app server and executed in the job worker,
+// just pass a job name to be executed by the master. This can be run along the primary application but
+// requires credentials to be set with `backend-login/secret` config parameter.
+//
+//         node app.js -master -test-cmd account -server-job-name tests.run
 //
 tests.run = function(options, callback)
 {
@@ -95,7 +99,10 @@ tests.run = function(options, callback)
     if (!options) options = {};
 
     core.init(options, function(err) {
-        if (err) return callback(err);
+        if (err) {
+            if (cluster.isMaster && typeof callback == "function") return callback(err);
+            process.exit(1);
+        }
         self.test = { role: cluster.isMaster ? "master" : "worker", iterations: 0, stime: Date.now() };
         self.test.delay = options.delay || core.getArgInt("-test-delay", 500);
         self.test.countdown = options.iterations || core.getArgInt("-test-iterations", 1);
@@ -105,10 +112,10 @@ tests.run = function(options, callback)
         self.test.workers = options.workers || core.getArgInt("-test-workers", 0);
         self.test.cmd = options.cmd || core.getArg("-test-cmd");
         if (!self['test_' + self.test.cmd]) {
-            console.log("usage: ", process.argv[0], process.argv[1], "-test-cmd", "command");
-            console.log("      where command is one of: ", Object.keys(self).filter(function(x) { return x.substr(0, 5) == "test_" && typeof self[x] == "function" }).join(", "));
-            if (cluster.isMaster && callback) return callback("invalid arguments");
-            process.exit(0);
+            var cmds = Object.keys(self).filter(function(x) { return x.substr(0, 5) == "test_" && typeof self[x] == "function" }).map(function(x) { return x.substr(5) }).join(", ");
+            logger.log(self.name, "usage: ", process.argv[0], process.argv[1], "-test-cmd", "CMD", "where CMD is one of: ", cmds);
+            if (cluster.isMaster && typeof callback == "function") return callback("invalid arguments");
+            process.exit(1);
         }
 
         if (cluster.isMaster) {
@@ -118,7 +125,7 @@ tests.run = function(options, callback)
             });
         }
 
-        logger.log("test started:", cluster.isMaster ? "master" : "worker", 'name:', self.test.cmd, 'db-pool:', core.modules.db.pool);
+        logger.log(self.name, "started:", cluster.isMaster ? "master" : "worker", 'name:', self.test.cmd, 'db-pool:', core.modules.db.pool);
 
         corelib.whilst(
             function () { return self.test.countdown > 0 || self.test.forever || options.running; },
@@ -133,12 +140,12 @@ tests.run = function(options, callback)
             function(err) {
                 self.test.etime = Date.now();
                 if (err) {
-                    logger.error("test failed:", self.test.role, 'name:', self.test.cmd, err);
-                    if (cluster.isMaster && callback) return callback(err);
+                    logger.error(self.name, "failed:", self.test.role, 'name:', self.test.cmd, err);
+                    if (cluster.isMaster && typeof callback == "function") return callback(err);
                     process.exit(1);
                 }
-                logger.log("test stopped:", self.test.role, 'name:', self.test.cmd, 'db-pool:', core.modules.db.pool, 'time:', self.test.etime - self.test.stime, "ms");
-                if (cluster.isMaster && callback) return callback();
+                logger.log(self.name, "stopped:", self.test.role, 'name:', self.test.cmd, 'db-pool:', core.modules.db.pool, 'time:', self.test.etime - self.test.stime, "ms");
+                if (cluster.isMaster && typeof callback == "function") return callback();
                 process.exit(0);
             });
     });
@@ -182,8 +189,7 @@ tests.startTestServer = function(options)
                             options.callback(options);
                         } else
                         if (options.test) {
-                            var name = options.test.split(".");
-                            core.runTest(core.modules[name[0]], name[1], options);
+                            self.run(options);
                         }
                         break;
 
@@ -315,6 +321,7 @@ tests.startTestServer = function(options)
     logger.log('startTestMaster: started', options || "");
 }
 
+// Below are test routines, each routine must start with `test_` to be used in -test-cmd
 tests.test_account = function(callback)
 {
     var myid, otherid;
@@ -1086,18 +1093,17 @@ tests.test_cookie = function(callback)
 tests.test_busy = function(callback)
 {
     var work = 524288;
-    function worky() {
-      var howBusy = utils.isBusy();
-      if (howBusy) {
-        work /= 4;
-        console.log("I can't work! I'm too busy:", howBusy + "ms behind");
-      }
-      work *= 2;
-      for (var i = 0; i < work;) i++;
-      console.log("worked:",  work);
-    };
     utils.initBusy(core.getArgInt("-busy", 100));
-    var interval = setInterval(worky, 100);
+    var interval = setInterval(function worky() {
+        var howBusy = utils.isBusy();
+        if (howBusy) {
+          work /= 4;
+          console.log("I can't work! I'm too busy:", howBusy + "ms behind");
+        }
+        work *= 2;
+        for (var i = 0; i < work;) i++;
+        console.log("worked:",  work);
+      }, 100);
 }
 
 tests.test_msg = function(callback)
