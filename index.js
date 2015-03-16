@@ -15,6 +15,7 @@ exports.server = require(__dirname + '/server');
 exports.api = require(__dirname + '/api');
 exports.metrics = require(__dirname + '/metrics');
 exports.app = require(__dirname + '/app');
+exports.tests = require(__dirname + '/tests');
 exports.run = function(callback) { this.core.run(callback); }
 
 exports.core.addModule('logger', exports.logger,
@@ -26,6 +27,7 @@ exports.core.addModule('logger', exports.logger,
                        'api', exports.api,
                        'server', exports.server,
                        'utils', exports.utils,
+                       'tests', exports.tests,
                        'app', exports.app);
 
 // Load all submodules after we have all singletons ready
