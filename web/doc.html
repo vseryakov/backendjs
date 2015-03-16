@@ -2104,6 +2104,7 @@ node can find global modules, replace $BKJS_PREFIX with the actual path unless t
 <li><code>server-restart-delay</code> - Delay between respawning the server after changes</li>
 <li><code>server-log-errors</code> - If true, log crash errors from child processes by the logger, otherwise write to the daemon err-file. The reason for this is that the logger puts everything into one line thus breaking formatting for stack traces.</li>
 <li><code>server-job</code> - Job specification, JSON encoded as base64 of the job object</li>
+<li><code>server-job-name</code> - Job specification, a simple case when just a job name is used without any properties</li>
 <li><code>server-proxy-reverse</code> - A Web server where to proxy requests not macthed by the url patterns or host header, in the form: <a href="http://host[:port">http://host[:port</a>]</li>
 <li><code>server-proxy-url-(.+)</code> - URL regexp to be passed to other web server running behind, each parameter defines an url regexp and the destination in the value in the form <a href="http://host[:port">http://host[:port</a>], example: -server-proxy-url-^/api=<a href="http://127.0.0.1:8080">http://127.0.0.1:8080</a></li>
 <li><code>server-proxy-host-(.+)</code> - Virtual host mapping, to match any Host: header, each parameter defines a host name and the destination in the value in the form <a href="http://host[:port">http://host[:port</a>], example: -server-proxy-host-www.myhost.com=<a href="http://127.0.0.1:8080">http://127.0.0.1:8080</a></li>
@@ -4575,6 +4576,8 @@ types <code>myapp</code> and <code>prod-myapp</code>, then the last value will b
 <ul>
 <li>name - db pool to create the tables in</li>
 <li>tables - an object with list of tables to create or upgrade</li>
+<li>noInitTables - a regexp that defines which tables should not be created/upgraded, overrides global parameter</li>
+<li>noCacheColumns - if 1 tells to skip caching database columns, overrides the global parameter</li>
 </ul>
 </li>
 </ul>
