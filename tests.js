@@ -60,7 +60,9 @@ tests.check = function()
     next(err);
 }
 
-// Run the test function which is defined in the object, all arguments will be taken from the command line.
+// Run the test function which is defined in the tests module, all arguments will be taken from the options or the command line. Options
+// use the same names as command line arguments without preceeding test- part.
+//
 // The common command line arguments that supported:
 // - -test-cmd - name of the function to run
 // - -test-workers - number of workers to run the test at the same time
@@ -69,14 +71,14 @@ tests.check = function()
 // - -test-iterations - how many times to run this test function, default is 1
 // - -test-forever - run forever without reporting any errors, for performance testing
 //
-// All common command line arguments can be used, like -db-pool to specify which db to use.
+// All other common command line arguments are used normally, like -db-pool to specify which db to use.
 //
-// After finish or in case of error the process exits, so this is not supposded tobe run inside the
-// production backend, only as standalone utility for running unit tests
+// After finish or in case of error the process exits if no callback is given.
 //
 // Example:
 //
 //          var bkjs = require("backendjs"), db = bkjs.db, tests = bkjs.tests;
+//
 //          tests.test_mytest = function(next) {
 //             db.get("bk_account", { id: "123" }, function(err, row) {
 //                 tests.check(next, err, row && row.id == "123", "Record not found", row)
@@ -84,14 +86,25 @@ tests.check = function()
 //          }
 //          tests.run();
 //
-//          # node tests.test_js -test-cmd mytest
+//          # node tests.js -test-cmd mytest
 //
 //
-// To perform server API testing tests can be run with the app server and executed in the job worker,
+// To perform server API testing, tests can be run with the app server and executed in the job worker,
 // just pass a job name to be executed by the master. This can be run along the primary application but
-// requires credentials to be set with `backend-login/secret` config parameter.
+// requires some configuration to be performed first:
 //
-//         node app.js -master -test-cmd account -server-job-name tests.run
+// - create a user for backend testing, if the API does not require authentiction skip this step:
+//
+//           ./app.sh -shell -account-add login testuser secret testpw
+//
+// - configure global backend credentials
+//
+//           echo "backend-login=testuser" >> etc/config.local
+//           echo "backend-secret=testpw" >> etc/config.local
+//
+// - now start the application with -test-cmd to tell which test command to run in a worker process after startup
+//
+//         ./app.sh -master -server-job-name tests.run -test-cmd account
 //
 tests.run = function(options, callback)
 {

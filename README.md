@@ -33,6 +33,7 @@ Features:
 * Supports HTTP(S) reverse proxy mode where multiple Web workers are load-balanced by the proxy
   server running in the master process instead of relying on the OS scheduling between processes listening on the same port.
 * Can be used with any MVC, MVVC or other types of frameworks that work on top or with the Express server.
+* Intergated very light unit testing facility which can be used to test modules and API requests
 * Hosted on [github](https://github.com/vseryakov/backendjs), BSD licensed.
 
 Check out the [Documentation](http://bkjs.io) for more details.

@@ -8,7 +8,8 @@ var path = require("path");
 var marked = require("marked");
 var bkjs = require('backendjs');
 
-var files = fs.readdirSync(".").filter(function(x) { return fs.statSync(x).isFile() && ["index.js", "tests.js", "doc.js"].indexOf(x) == -1 && x.match(/\.js$/); });
+var skip = /tests.test_/;
+var files = fs.readdirSync(".").filter(function(x) { return fs.statSync(x).isFile() && ["index.js", "doc.js"].indexOf(x) == -1 && x.match(/\.js$/); });
 files = files.concat(fs.readdirSync("lib/").filter(function(x) { return fs.statSync("lib/" + x).isFile() && x.match(/\.js$/); }).map(function(x) { return "lib/" + x }));
 files = files.concat(fs.readdirSync("modules/").filter(function(x) { return fs.statSync("modules/" + x).isFile() && x.match(/\.js$/); }).map(function(x) { return "modules/" + x }));
 
@@ -91,6 +92,7 @@ files.forEach(function(file) {
         // Function
         d = line.match(/([^ =]+)[= ]+function([^{]+)/);
         if (d && doc) {
+            if (d[1].match(skip)) continue;
             text += marked("* `" + d[1] + d[2] + "`\n\n  " + doc, { renderer: renderer }) + "\n";
             doc = "";
             continue;
@@ -98,6 +100,7 @@ files.forEach(function(file) {
         // Object
         d = line.match(/^var ([^ ]+)[ =]+{$/);
         if (d && doc) {
+            if (d[1].match(skip)) continue;
             text += marked("* `" + d[1] + "`\n\n  " + doc, { renderer: renderer }) + "\n";
             doc = "";
             continue;

@@ -37,6 +37,7 @@ var server = {
            { name: "log-errors" ,type: "bool", descr: "If true, log crash errors from child processes by the logger, otherwise write to the daemon err-file. The reason for this is that the logger puts everything into one line thus breaking formatting for stack traces." },
            { name: "job", type: "callback", callback: function(v) { if (core.role == "master") this.queueJob(corelib.base64ToJson(v)) }, descr: "Job specification, JSON encoded as base64 of the job object" },
            { name: "job-name", type: "callback", callback: function(v) { if (core.role == "master") this.queueJob(v) }, descr: "Job specification, a simple case when just a job name is used without any properties" },
+           { name: "job-delay", type: "int", min: 0, descr: "Delay in milliseconds before starting the jobs passed via command line after the master process started" },
            { name: "proxy-reverse", type: "url", descr: "A Web server where to proxy requests not macthed by the url patterns or host header, in the form: http://host[:port]" },
            { name: "proxy-url-(.+)", type: "regexpobj", reverse: 1, obj: 'proxy-url', lcase: ".+", descr: "URL regexp to be passed to other web server running behind, each parameter defines an url regexp and the destination in the value in the form http://host[:port], example: -server-proxy-url-^/api=http://127.0.0.1:8080" },
            { name: "proxy-host-(.+)", type: "regexpobj", reverse: 1, obj: 'proxy-host', lcase: ".+", descr: "Virtual host mapping, to match any Host: header, each parameter defines a host name and the destination in the value in the form http://host[:port], example: -server-proxy-host-www.myhost.com=http://127.0.0.1:8080" },
@@ -81,6 +82,8 @@ var server = {
     jobsCount: 1,
     // Tag for jobs to process
     jobsTag: '',
+    // Delay before job start
+    jobDelay: 1000,
 
     // Schedules cron jobs
     crontab: [],
@@ -205,7 +208,7 @@ server.startMaster = function(options)
                 }
             }, 30000);
             // Execute the jobs passed via command line
-            setTimeout(function() { self.execJobQueue() }, 1000);
+            setTimeout(function() { self.execJobQueue() }, self.jobDelay);
 
             // API related initialization
             core.runMethods("configureMaster");

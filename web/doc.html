@@ -73,6 +73,7 @@
 <li><a href="#module-metrics">metrics</a></li>
 <li><a href="#module-msg">msg</a></li>
 <li><a href="#module-server">server</a></li>
+<li><a href="#module-tests">tests</a></li>
 <li><a href="#module-api_accounts">api_accounts</a></li>
 <li><a href="#module-api_files">api_files</a></li>
 <li><a href="#module-api_icons">api_icons</a></li>
@@ -133,6 +134,7 @@ same way allowing to switch databases without changing the code.</li>
 <li>Supports HTTP(S) reverse proxy mode where multiple Web workers are load-balanced by the proxy
 server running in the master process instead of relying on the OS scheduling between processes listening on the same port.</li>
 <li>Can be used with any MVC, MVVC or other types of frameworks that work on top or with the Express server.</li>
+<li>Intergated very light unit testing facility which can be used to test modules and API requests</li>
 <li>Hosted on <a href="https://github.com/vseryakov/backendjs">github</a>, BSD licensed.</li>
 </ul>
 <p>Check out the <a href="http://bkjs.io">Documentation</a> for more details.</p>
@@ -2105,6 +2107,7 @@ node can find global modules, replace $BKJS_PREFIX with the actual path unless t
 <li><code>server-log-errors</code> - If true, log crash errors from child processes by the logger, otherwise write to the daemon err-file. The reason for this is that the logger puts everything into one line thus breaking formatting for stack traces.</li>
 <li><code>server-job</code> - Job specification, JSON encoded as base64 of the job object</li>
 <li><code>server-job-name</code> - Job specification, a simple case when just a job name is used without any properties</li>
+<li><code>server-job-delay</code> - Delay in milliseconds before starting the jobs passed via command line after the master process started</li>
 <li><code>server-proxy-reverse</code> - A Web server where to proxy requests not macthed by the url patterns or host header, in the form: <a href="http://host[:port">http://host[:port</a>]</li>
 <li><code>server-proxy-url-(.+)</code> - URL regexp to be passed to other web server running behind, each parameter defines an url regexp and the destination in the value in the form <a href="http://host[:port">http://host[:port</a>], example: -server-proxy-url-^/api=<a href="http://127.0.0.1:8080">http://127.0.0.1:8080</a></li>
 <li><code>server-proxy-host-(.+)</code> - Virtual host mapping, to match any Host: header, each parameter defines a host name and the destination in the value in the form <a href="http://host[:port">http://host[:port</a>], example: -server-proxy-host-www.myhost.com=<a href="http://127.0.0.1:8080">http://127.0.0.1:8080</a></li>
@@ -5994,6 +5997,77 @@ cron jobs manually</p>
 Requires connection to the PG database, how jobs appear in the table and the order of execution is not concern of this function,
 the higher level management tool must take care when and what to run and in what order.</p>
 </li>
+</ul>
+
+<h2 id="module-tests">Module: TESTS</h2>
+<ul>
+<li><p><code>tests</code></p>
+<p> Test object with functions for different areas to be tested</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>tests.check()</code></p>
+<p> To be used in the tests, this function takes the following arguments:</p>
+<p>check(next, err, failure, ....)</p>
+<ul>
+<li>next is a callback to be called after printing error condition if any, it takes err as its argument</li>
+<li>err - is the error object passed by the most recent operation</li>
+<li>failure - must be true for failed test, the condition is evaluated by the caller and this is the result of it</li>
+<li>all other arguments are printed in case of error or result being false</li>
+</ul>
+<p>NOTE: In forever mode (-test-forever) any error is ignored and not reported</p>
+<p>Example</p>
+<pre><code>    function(next) {
+        db.get(&quot;bk_account&quot;, { id: &quot;123&quot; }, function(err, row) {
+            tests.check(next, err, row &amp;&amp; row.id == &quot;123&quot;, &quot;Record not found&quot;, row)
+        });
+    }
+</code></pre></li>
+</ul>
+
+<ul>
+<li><p><code>tests.run(options, callback)</code></p>
+<p> Run the test function which is defined in the tests module, all arguments will be taken from the options or the command line. Options
+use the same names as command line arguments without preceeding test- part.</p>
+<p>The common command line arguments that supported:</p>
+<ul>
+<li>-test-cmd - name of the function to run</li>
+<li>-test-workers - number of workers to run the test at the same time</li>
+<li>-test-delay - number of milliseconds before starting worker processes, default is 500ms</li>
+<li>-test-timeout - number of milliseconds between test steps, i.e. between invokations of the check</li>
+<li>-test-iterations - how many times to run this test function, default is 1</li>
+<li>-test-forever - run forever without reporting any errors, for performance testing</li>
+</ul>
+<p>All other common command line arguments are used normally, like -db-pool to specify which db to use.</p>
+<p>After finish or in case of error the process exits if no callback is given.</p>
+<p>Example:</p>
+<pre><code>    var bkjs = require(&quot;backendjs&quot;), db = bkjs.db, tests = bkjs.tests;
+
+    tests.test_mytest = function(next) {
+       db.get(&quot;bk_account&quot;, { id: &quot;123&quot; }, function(err, row) {
+           tests.check(next, err, row &amp;&amp; row.id == &quot;123&quot;, &quot;Record not found&quot;, row)
+       });
+    }
+    tests.run();
+
+    # node tests.js -test-cmd mytest
+</code></pre></li>
+</ul>
+<p> To perform server API testing, tests can be run with the app server and executed in the job worker,
+ just pass a job name to be executed by the master. This can be run along the primary application but
+ requires some configuration to be performed first:</p>
+<ul>
+<li><p>create a user for backend testing, if the API does not require authentiction skip this step:</p>
+<pre><code>    ./app.sh -shell -account-add login testuser secret testpw
+</code></pre></li>
+<li><p>configure global backend credentials</p>
+<pre><code>    echo &quot;backend-login=testuser&quot; &gt;&gt; etc/config.local
+    echo &quot;backend-secret=testpw&quot; &gt;&gt; etc/config.local
+</code></pre></li>
+<li><p>now start the application with -test-cmd to tell which test command to run in a worker process after startup</p>
+<pre><code>  ./app.sh -master -server-job-name tests.run -test-cmd account
+</code></pre></li>
 </ul>
 
 <h2 id="module-api_accounts">Module: API_ACCOUNTS</h2>
