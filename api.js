@@ -52,6 +52,7 @@ var api = {
            { name: "files-s3", descr: "S3 bucket name where to store files uploaded with the File API" },
            { name: "busy-latency", type: "number", min: 11, descr: "Max time in ms for a request to wait in the queue, if exceeds this value server returns too busy error" },
            { name: "access-log", descr: "File for access logging" },
+           { name: "max-age", type: "int", descr: "Static content max age in milliseconds" },
            { name: "salt", descr: "Salt to be used for scrambling credentials or other hashing activities" },
            { name: "notifications", type: "bool", descr: "Initialize notifications in the API Web worker process to allow sending push notifications from the API handlers" },
            { name: "no-access-log", type: "bool", descr: "Disable access logging in both file or syslog" },
@@ -150,6 +151,9 @@ var api = {
 
     // Collect body MIME types as binary blobs
     mimeBody: [],
+
+    // Static content cache age
+    maxAge: 86400000,
 
     // Web session age
     sessionAge: 86400 * 14 * 1000,
@@ -423,8 +427,8 @@ api.init = function(options, callback)
 
         // Serve from default web location in the package or from application specific location
         if (!self.noStatic) {
-            self.app.use(serveStatic(core.path.web));
-            self.app.use(serveStatic(__dirname + "/web"));
+            self.app.use(serveStatic(core.path.web, { maxAge: self.staticAge }));
+            self.app.use(serveStatic(__dirname + "/web", { maxAge: self.staticAge }));
         }
 
         // Default error handler to show errors in the log
@@ -652,9 +656,6 @@ api.checkRequest = function(req, res, callback)
 
         // Verify account access for signature
         self.checkSignature(req, function(rc2) {
-            res.header("cache-control", "no-cache");
-            res.header("pragma", "no-cache");
-
             // Determine what to do with the request even if the status is not success, a hook may deal with it differently,
             // the most obvious case is for a Web app to perform redirection on authentication failure
             self.checkAuthorization(req, rc2, function(rc3) {
@@ -1425,6 +1426,12 @@ api.sendJSON = function(req, err, rows)
 {
     var self = this;
     if (err) return this.sendReply(req.res, err);
+
+    // Do not cache API results by default, routes that send directly have to handle cache explicitely
+    if (!req.res.get("cache-control")) {
+        req.res.header("cache-control", "max-age=0, no-cache, no-store");
+        req.res.header("pragma", "no-cache");
+    }
 
     if (!rows) rows = [];
     var sent = 0;

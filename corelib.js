@@ -104,7 +104,7 @@ corelib.toDate = function(val, dflt)
 {
     var d = null;
     // String that looks like a number
-    if (/^[0-9\.]+$/.test(val)) val = this.toNumber(val);
+    if (typeof val == "string" && /^[0-9\.]+$/.test(val)) val = this.toNumber(val);
     // Assume it is seconds which we use for most mtime columns, convert to milliseconds
     if (typeof val == "number" && val < 2147483647) val *= 1000;
     try { d = new Date(val); } catch(e) {}

@@ -337,6 +337,7 @@ server.startWeb = function(options)
             db.initTables(options, function(err) {
                 for (var i = 0; i < self.maxProcesses; i++) self.clusterFork();
             });
+            self.ftime = Date();
 
             // Web server related initialization, not much functionality is expected in this process
             // regardless if it is a proxy or not, it supposed to pass messages between the web workers
@@ -345,17 +346,23 @@ server.startWeb = function(options)
 
             // Frontend server tasks
             setInterval(function() {
+                // Give some time for warming up if we just forked a worker
+                if (Date.now() - self.ftime < 30000) return;
                 // Make sure we have all workers running
-                var workers = Object.keys(cluster.workers);
-                for (var i = 0; i < self.maxProcesses - workers.length; i++) self.clusterFork();
+                var nworkers = Object.keys(cluster.workers).length;
+                for (var i = 0; i < self.maxProcesses - nworkers; i++) self.clusterFork();
             }, 30000);
 
             // Restart if any worker dies, keep the worker pool alive
             cluster.on("exit", function(worker, code, signal) {
                 logger.log('startWeb:', core.role, 'process terminated:', worker.id, 'pid:', worker.process.pid || "", "code:", code || "", 'signal:', signal || "");
-                self.respawn(function() { self.clusterFork(); });
+                var nworkers = Object.keys(cluster.workers).length;
                 // Exit when all workers are terminated
-                if (self.exiting && !Object.keys(cluster.workers).length) process.exit(0);
+                if (self.exiting && !nworkers) process.exit(0);
+                self.respawn(function() {
+                    self.ftime = Date.now();
+                    for (var i = 0; i < self.maxProcesses - nworkers; i++) self.clusterFork();
+                });
             });
 
             // Graceful shutdown if the server needs restart

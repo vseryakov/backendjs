@@ -146,7 +146,7 @@ var db = {
     localMode: false,
 
     // Refresh config from the db
-    configInterval: 1800,
+    configInterval: 3600 * 3,
 
     processRows: {},
     processColumns: [],
