@@ -67,7 +67,8 @@ tests.check = function()
 // - -test-cmd - name of the function to run
 // - -test-workers - number of workers to run the test at the same time
 // - -test-delay - number of milliseconds before starting worker processes, default is 500ms
-// - -test-timeout - number of milliseconds between test steps, i.e. between invokations of the check
+// - -test-timeout - number of milliseconds between test steps, i.e. between invocations of the check
+// - -test-interval - number of milliseconds between iterations
 // - -test-iterations - how many times to run this test function, default is 1
 // - -test-forever - run forever without reporting any errors, for performance testing
 //
@@ -120,7 +121,8 @@ tests.run = function(options, callback)
         self.test.delay = options.delay || core.getArgInt("-test-delay", 500);
         self.test.countdown = options.iterations || core.getArgInt("-test-iterations", 1);
         self.test.forever = options.forever || core.getArgInt("-test-forever", 0);
-        self.test.timeout = options.forever || core.getArgInt("-test-timeout", 0);
+        self.test.timeout = options.timeout || core.getArgInt("-test-timeout", 0);
+        self.test.interval = options.interval || core.getArgInt("-test-interval", 0);
         self.test.keepmaster = options.keepmaster || core.getArgInt("-test-keepmaster", 0);
         self.test.workers = options.workers || core.getArgInt("-test-workers", 0);
         self.test.cmd = options.cmd || core.getArg("-test-cmd");
@@ -147,7 +149,7 @@ tests.run = function(options, callback)
                 self["test_" + self.test.cmd](function(err) {
                     self.test.iterations++;
                     if (self.test.forever) err = null;
-                    setImmediate(function() { next(err) });
+                    setTimeout(function() { next(err) }, self.test.interval);
                 });
             },
             function(err) {

@@ -4,9 +4,9 @@
 //
 
 #include "node_backend.h"
-
-#ifdef USE_PGSQL
 #include "libpq-fe.h"
+
+#define DISPOSE(cb) if (!cb.IsEmpty()) { cb.Dispose(); cb.Clear(); }
 
 #define EXCEPTION(name, result) \
         Local<Value> name = Local<Value>::New(Null()); \
@@ -28,108 +28,150 @@
 
 static const char *errnames[] = { "severity", "code", "detail", "hint", "position", "internalPosition", "internalQuery", "where", "file", "line", "routine", NULL };
 static const char errcodes[] = { PG_DIAG_SEVERITY, PG_DIAG_SQLSTATE, PG_DIAG_MESSAGE_DETAIL, PG_DIAG_MESSAGE_HINT, PG_DIAG_STATEMENT_POSITION, PG_DIAG_INTERNAL_POSITION, PG_DIAG_INTERNAL_QUERY, PG_DIAG_CONTEXT, PG_DIAG_SOURCE_FILE, PG_DIAG_SOURCE_LINE, PG_DIAG_SOURCE_FUNCTION, 0 };
-static map<void *,bool> _batons;
 
 class PgSQLDatabase: public ObjectWrap {
 public:
 
     static Persistent<FunctionTemplate> constructor_template;
 
-    class Baton {
+    struct Params {
+        Params(): count(0), data(0) {}
+        Params(Handle<Array> list): count(0), data(0) { Set(list); }
+        ~Params() { Clear(); }
+        void Clear() {
+            if (data) {
+                for (int i = 0; i < count; i++) if (data[i]) free(data[i]);
+                free(data);
+            }
+            data = 0;
+            count = 0;
+        }
+        void Set(Handle<Array> list) {
+            HandleScope scope;
+            if (list.IsEmpty()) return;
+            count = list->Length();
+            data = (char**)calloc(1, sizeof(char*) * count);
+            for (int i = 0; i < count; i++) {
+                Local<Value> val = list->Get(i);
+                if (!val->IsNull()) {
+                    Local<String> str = val->ToString();
+                    data[i] = (char*)malloc(str->Utf8Length() + 1);
+                    str->WriteUtf8(data[i]);
+                }
+            }
+        }
+
+        int count;
+        char **data;
+    };
+
+    class Callback {
     public:
         PgSQLDatabase* db;
         Persistent<Function> callback;
+        Params params;
+        PGresult *result;
         string text;
+        string error;
 
-        Baton(PgSQLDatabase* db_, Handle<Function> cb_, string text_): db(db_), text(text_)  {
-            db->Ref();
-            if (!cb_.IsEmpty()) callback = Persistent < Function > ::New(cb_);
+        Callback(PgSQLDatabase* db_, Handle<Function> cb_, string text_ = string()): db(db_), result(0), text(text_) {
+            if (!cb_.IsEmpty() && cb_->IsFunction()) callback = Persistent < Function > ::New(cb_);
             LogDev("%p: %p, cb=%d, %s", this, db, !callback.IsEmpty(), text.c_str());
-            _batons[this] = 0;
         }
         void Call(const char *err = 0, PGresult* result = 0) {
             HandleScope scope;
             LogDev("%p: %p, err=%s, res=%p, cb=%d, %s", this, db, err, result, !callback.IsEmpty(), text.c_str());
-            if (callback.IsEmpty() || !callback->IsFunction()) return;
+            if (callback.IsEmpty()) return;
             EXCEPTION(exp, result);
-            Local < Value > argv[2] = { err ? Exception::Error(Local<String>::New(String::New(err))) : exp,
-                                        result ? db->getResult(result) : Local<Array>::New(Array::New(0))  };
+            Local < Value > argv[2] = { err && err[0] ? Exception::Error(Local<String>::New(String::New(err))) : exp,
+                                        result ? db->Handle_Result(result) : Local<Array>::New(Array::New(0))  };
             TRY_CATCH_CALL(db->handle_, callback, 2, argv);
-            callback.Dispose();
-            callback.Clear();
+            DISPOSE(callback);
         }
-        virtual ~Baton() {
+        virtual ~Callback() {
             LogDev("%p: %p, cb=%d, %s", this, db, !callback.IsEmpty(), text.c_str());
-            if (!callback.IsEmpty()) callback.Dispose();
-            db->Unref();
-            _batons.erase(this);
+            DISPOSE(callback);
+            PQclear(result);
         }
     };
 
-    PgSQLDatabase(const char *info = 0): ObjectWrap(), fd(-1), events(-1), handle(NULL), inserted_oid(0) {
+    PgSQLDatabase(const char *info = 0): ObjectWrap(), fd(-1), events(-1), destroyed(0), handle(NULL), inserted_oid(0) {
         if (info) conninfo = info;
         poll.data = NULL;
         LogDev("%p: %s", this, info);
     }
 
-    virtual ~PgSQLDatabase() {
-        LogDev("%p: %p, fd=%d", this, handle, fd);
-        Close();
+    ~PgSQLDatabase() {
+        LogDev("%p: %p, fd=%d, destroyed=%d, cbs=%d", this, handle, fd, destroyed, callbacks.size());
     }
 
     void StopPoll() {
-        if (!poll.data) return;
-        LogTest("%p: %p, fd=%d, batons=%d", this, handle, fd, batons.size());
-        uv_poll_stop(&poll);
+        LogTest("%p: %p, fd=%d, poll=%p, cbs=%d", this, handle, fd, poll.data, callbacks.size());
+        if (poll.data) uv_poll_stop(&poll);
         poll.data = NULL;
         events = -1;
     }
 
-    void StartPoll(int mode, uv_poll_cb cb, Handle<Function> callback, string text) {
-        Baton *baton = new Baton(this, callback, text);
-        batons.push_back(baton);
-        events = mode;
+    void StartPoll(int mode, uv_poll_cb cb, Handle<Function> callback = Handle<Function>(), string text = string()) {
+        LogTest("%p: %p, fd=%d, mode=%d, cb=%d, cbs=%d", this, handle, fd, mode, !callback.IsEmpty(), callbacks.size());
+        if (!callback.IsEmpty()) callbacks.push_back(new Callback(this, callback, text));
         uv_poll_start(&poll, mode, cb);
         poll.data = this;
-        LogTest("%p: %p, fd=%d, batons=%d", this, handle, fd, batons.size());
-    }
-
-    void StartPoll(int mode, uv_poll_cb cb) {
         events = mode;
-        uv_poll_start(&poll, mode, cb);
-        poll.data = this;
-        LogTest("%p: fd=%d, batons=%d", this, fd, batons.size());
     }
 
-    void Queue(uv_work_cb work, uv_after_work_cb after, Handle<Function> callback) {
-        Baton *baton = new Baton(this, callback, "");
-        batons.push_back(baton);
+    void Queue(uv_work_cb work, uv_after_work_cb after, Handle<Function> callback, string text = string()) {
+        if (!callback.IsEmpty()) callbacks.push_back(new Callback(this, callback, text));
         uv_work_t *req = new uv_work_t;
         req->data = this;
         uv_queue_work(uv_default_loop(), req, work, after);
     }
 
-    void Emit(const char *err = 0, PGresult* result = 0) {
-        LogDev("%p: %p, %s, res=%p, batons=%d", this, handle, err, result, batons.size());
-        if (!batons.size()) return;
-        Baton *b = batons.front();
-        batons.pop_front();
-        b->Call(err, result);
-        delete b;
+    void Emit(const char *err = 0) {
+        LogDev("%p: %p, %s, res=%p, cbs=%d", this, handle, err, results.size(), callbacks.size());
+        HandleScope scope;
+        if (!callbacks.size()) return;
+        Callback *cb = callbacks.front();
+        callbacks.pop_front();
+        cb->Call(err ? err : cb->error.c_str(), cb->result ? cb->result: results.size() ? results.front() : 0);
+        delete cb;
+    }
+
+    void Query() {
+        if (!callbacks.size()) return;
+        Callback *cb = callbacks.front();
+        if (cb->params.count) {
+            cb->result = PQexecParams(handle, cb->text.c_str(), cb->params.count, NULL, cb->params.data, NULL, NULL, 0);
+        } else {
+            cb->result = PQexec(handle, cb->text.c_str());
+        }
+        if (!cb->result) cb->error = Error();
+        LogDev("%p: %p, %s, nparams=%d, cbs=%d", this, handle, cb->text.c_str(), cb->params.count, callbacks.size());
     }
 
     void Close() {
-        LogDev("%p: %p, fd=%d, batons=%d", this, handle, fd, batons.size());
+        LogDev("%p: %p, fd=%d, destroyed=%d, cbs=%d", this, handle, fd, destroyed, callbacks.size());
+        DISPOSE(notify);
         StopPoll();
         Finish();
         Clear();
-        if (!notify.IsEmpty()) notify.Dispose();
-        notify.Clear();
+    }
+
+    void Destroy(const char *err = 0) {
+        LogDev("%p: %p, fd=%d, cbs=%d", this, handle, fd, callbacks.size());
+        Close();
+        Emit(err);
+        while (callbacks.size()) {
+            delete callbacks.front();
+            callbacks.pop_front();
+        }
+        if (!destroyed) Unref();
+        destroyed = 1;
     }
 
     void Finish() {
-        LogDev("%p: %p, fd=%d, batons=%d", this, handle, fd, batons.size());
-        if (handle) PQfinish(handle);
+        LogDev("%p: %p, fd=%d, cbs=%d", this, handle, fd, callbacks.size());
+        PQfinish(handle);
         handle = NULL;
         fd = -1;
     }
@@ -146,7 +188,7 @@ public:
         return msg ? msg : errmsg ? errmsg : "Unknown error";
     }
 
-    Local<Array> getResult(PGresult* result);
+    Local<Array> Handle_Result(PGresult* result);
 
     static void Init(Handle<Object> target);
     static Handle<Value> New(const Arguments& args);
@@ -168,11 +210,14 @@ public:
     static Handle<Value> Close(const Arguments& args);
     static void Work_Connect(uv_work_t* req);
     static void Work_AfterConnect(uv_work_t* req, int status);
+    static void Work_Query(uv_work_t* req);
+    static void Work_AfterQuery(uv_work_t* req, int status);
     static void Work_Close(uv_work_t* req);
     static void Work_AfterClose(uv_work_t* req, int status);
 
     int fd;
     int events;
+    int destroyed;
     PGconn *handle;
     uv_poll_t poll;
     string conninfo;
@@ -180,33 +225,16 @@ public:
     string affected_rows;
     Persistent<Function> notify;
     vector<PGresult*> results;
-    list<Baton*> batons;
+    list<Callback*> callbacks;
 };
 
 Persistent<FunctionTemplate> PgSQLDatabase::constructor_template;
-
-static Handle<Value> listBatons(const Arguments& args)
-{
-    HandleScope scope;
-
-    Local<Array> keys = Array::New();
-    map<void*,bool>::const_iterator it = _batons.begin();
-    int i = 0;
-    while (it != _batons.end()) {
-        PgSQLDatabase::Baton *baton = (PgSQLDatabase::Baton*)it->first;
-        keys->Set(Integer::New(i), Local<String>::New(String::New(baton->text.c_str())));
-        it++;
-        i++;
-    }
-    return scope.Close(keys);
-}
 
 void PgSQLInit(Handle<Object> target)
 {
     HandleScope scope;
     PQinitOpenSSL(0, 0);
     PgSQLDatabase::Init(target);
-    NODE_SET_METHOD(target, "pgsqlStats", listBatons);
 }
 
 void PgSQLDatabase::Init(Handle<Object> target)
@@ -234,28 +262,28 @@ Handle<Value> PgSQLDatabase::OpenGetter(Local<String> str, const AccessorInfo& a
 {
     HandleScope scope;
     PgSQLDatabase* db = ObjectWrap::Unwrap < PgSQLDatabase > (accessor.This());
-    return Boolean::New(db->handle != NULL);
+    return scope.Close(Local<Boolean>::New(Boolean::New(db->handle != NULL)));
 }
 
 Handle<Value> PgSQLDatabase::NameGetter(Local<String> str, const AccessorInfo& accessor)
 {
     HandleScope scope;
     PgSQLDatabase* db = ObjectWrap::Unwrap < PgSQLDatabase > (accessor.This());
-    return String::New(db->handle != NULL ? PQdb(db->handle) : "");
+    return scope.Close(Local<String>::New(String::New(db->handle != NULL ? PQdb(db->handle) : "")));
 }
 
 Handle<Value> PgSQLDatabase::InsertedOidGetter(Local<String> str, const AccessorInfo& accessor)
 {
     HandleScope scope;
     PgSQLDatabase* db = ObjectWrap::Unwrap < PgSQLDatabase > (accessor.This());
-    return Integer::New(db->inserted_oid);
+    return scope.Close(Local<Integer>::New(Integer::New(db->inserted_oid)));
 }
 
 Handle<Value> PgSQLDatabase::AffectedRowsGetter(Local<String> str, const AccessorInfo& accessor)
 {
     HandleScope scope;
     PgSQLDatabase* db = ObjectWrap::Unwrap < PgSQLDatabase > (accessor.This());
-    return Integer::New(atoi(db->affected_rows.c_str()));
+    return scope.Close(Local<Integer>::New(Integer::New(atoi(db->affected_rows.c_str()))));
 }
 
 Handle<Value> PgSQLDatabase::SetNotify(const Arguments& args)
@@ -264,8 +292,7 @@ Handle<Value> PgSQLDatabase::SetNotify(const Arguments& args)
     PgSQLDatabase *db = ObjectWrap::Unwrap<PgSQLDatabase>(args.This());
 
     EXPECT_ARGUMENT_FUNCTION(0, cb);
-    if (!db->notify.IsEmpty()) db->notify.Dispose();
-    db->notify.Clear();
+    DISPOSE(db->notify);
     if (!cb.IsEmpty()) db->notify = Persistent < Function > ::New(cb);
     return args.This();
 }
@@ -290,19 +317,134 @@ Handle<Value> PgSQLDatabase::New(const Arguments& args)
 
     PgSQLDatabase* db = new PgSQLDatabase(*info);
     db->Wrap(args.This());
+    db->Ref();
     return args.This();
+}
+
+Handle<Value> PgSQLDatabase::Connect(const Arguments& args)
+{
+    HandleScope scope;
+    PgSQLDatabase *db = ObjectWrap::Unwrap<PgSQLDatabase>(args.This());
+
+    OPTIONAL_ARGUMENT_FUNCTION(0, cb);
+    if (cb.IsEmpty()) {
+        db->handle = PQconnectdb(db->conninfo.c_str());
+        if (!db->handle || PQstatus(db->handle) == CONNECTION_BAD || (db->fd = PQsocket(db->handle)) < 0) {
+            string err = db->Error("connect error");
+            db->Destroy();
+            return ThrowException(Exception::Error(String::New(err.c_str())));
+        }
+        PQsetNoticeProcessor(db->handle, Handle_Notice, db);
+        uv_poll_init(uv_default_loop(), &db->poll, db->fd);
+    } else {
+        db->StopPoll();
+        db->Queue(Work_Connect, Work_AfterConnect, cb);
+    }
+    return args.This();
+}
+
+Handle<Value> PgSQLDatabase::Close(const Arguments& args)
+{
+    HandleScope scope;
+    PgSQLDatabase *db = ObjectWrap::Unwrap<PgSQLDatabase>(args.This());
+
+    OPTIONAL_ARGUMENT_FUNCTION(-1, cb);
+    if (cb.IsEmpty()) {
+        db->Destroy();
+    } else {
+        db->StopPoll();
+        db->Queue(Work_Close, Work_AfterClose, cb);
+    }
+    return args.This();
+}
+
+Handle<Value> PgSQLDatabase::Query(const Arguments& args)
+{
+    HandleScope scope;
+    PgSQLDatabase *db = ObjectWrap::Unwrap<PgSQLDatabase>(args.This());
+    REQUIRE_ARGUMENT_STRING(0, sql);
+    OPTIONAL_ARGUMENT_ARRAY(1, list);
+    OPTIONAL_ARGUMENT_FUNCTION(-1, cb);
+    if (!db->handle)  {
+        ERROR(db, cb, "not connected");
+        return args.This();
+    }
+
+    db->Clear();
+    db->StopPoll();
+    if (PQisnonblocking(db->handle)) {
+        int rc;
+        Params params(list);
+        if (params.count) {
+            rc = PQsendQueryParams(db->handle, *sql, params.count, NULL, params.data, NULL, NULL, 0);
+        } else {
+            rc = PQsendQuery(db->handle, *sql);
+        }
+        if (rc) {
+            db->StartPoll(UV_WRITABLE, Handle_Poll, cb, *sql);
+        } else {
+            ERROR(db, cb, db->Error());
+        }
+    } else {
+        Callback *pcb = new Callback(db, cb, *sql);
+        pcb->params.Set(list);
+        db->callbacks.push_back(pcb);
+        uv_work_t *req = new uv_work_t;
+        req->data = db;
+        uv_queue_work(uv_default_loop(), req, Work_Query, Work_AfterQuery);
+    }
+    return args.This();
+
+}
+
+Handle<Value> PgSQLDatabase::QuerySync(const Arguments& args)
+{
+    HandleScope scope;
+    PgSQLDatabase *db = ObjectWrap::Unwrap<PgSQLDatabase>(args.This());
+    if (!db->handle) return ThrowException(Exception::Error(String::New("not connected")));
+
+    REQUIRE_ARGUMENT_STRING(0, sql);
+    OPTIONAL_ARGUMENT_ARRAY(1, list);
+
+    db->Clear();
+    db->StopPoll();
+    PQsetnonblocking(db->handle, 0);
+
+    PGresult *rc;
+    Params params(list);
+
+    if (params.count) {
+        rc = PQexecParams(db->handle, *sql, params.count, NULL, params.data, NULL, NULL, 0);
+    } else {
+        rc = PQexec(db->handle, *sql);
+    }
+    if (!rc) return ThrowException(Exception::Error(String::New(db->Error())));
+
+    EXCEPTION(err, rc);
+    if (!err->IsNull()) {
+        PQclear(rc);
+        return ThrowException(err);
+    }
+
+    Local<Array> rows = db->Handle_Result(rc);
+    PQclear(rc);
+
+    return scope.Close(rows);
 }
 
 void PgSQLDatabase::Handle_Notice(void *arg, const char *msg)
 {
+    HandleScope scope;
     PgSQLDatabase *db = (PgSQLDatabase *)arg;
     if (!msg || db->notify.IsEmpty() || !db->notify->IsFunction()) return;
+    LogDev("%p: %s", db, msg);
     Local<Value> argv[1] = { Local<String>::New(String::New(msg)) };
     TRY_CATCH_CALL(db->handle_, db->notify, 1, argv);
 }
 
 void PgSQLDatabase::Handle_Connect(uv_poll_t* w, int status, int revents)
 {
+    HandleScope scope;
     if (status == -1) return;
     PgSQLDatabase *db = static_cast<PgSQLDatabase*>(w->data);
     PostgresPollingStatusType rc = PQconnectPoll(db->handle);
@@ -326,8 +468,7 @@ void PgSQLDatabase::Handle_Connect(uv_poll_t* w, int status, int revents)
 
     case PGRES_POLLING_FAILED: {
         string err = db->Error();
-        db->Close();
-        db->Emit(err.c_str());
+        db->Destroy(err.c_str());
         break;
     }
 
@@ -338,10 +479,11 @@ void PgSQLDatabase::Handle_Connect(uv_poll_t* w, int status, int revents)
 
 void PgSQLDatabase::Handle_Poll(uv_poll_t* w, int status, int revents)
 {
+    HandleScope scope;
     if (status == -1) return;
     PgSQLDatabase *db = static_cast<PgSQLDatabase*>(w->data);
+    LogTest("%p: %p, fd=%d, status=%d, revents=%d, cbs=%d", db, db ? db->handle : 0, db ? db->fd : 0, status, revents, db ? db->callbacks.size() : 0);
     if (!db || !db->handle) return;
-    LogTest("%p: %p, fd=%d, status=%d, revents=%d, batons=%d", db, db->handle, db->fd, status, revents, db->batons.size());
 
     if (revents & UV_READABLE) {
         if (!PQconsumeInput(db->handle)) {
@@ -378,7 +520,7 @@ void PgSQLDatabase::Handle_Poll(uv_poll_t* w, int status, int revents)
                     break;
                 }
             }
-            db->Emit(0, db->results.size() ? db->results[0] : 0);
+            db->Emit();
             db->Clear();
         }
 
@@ -386,7 +528,7 @@ void PgSQLDatabase::Handle_Poll(uv_poll_t* w, int status, int revents)
             PGnotify *notify;
             while ((notify = PQnotifies(db->handle))) {
                 if (!db->notify.IsEmpty()) {
-                    db->Handle_Notice(db, vFmtStr("%s: %s", notify->relname, notify->extra).c_str());
+                    Handle_Notice(db, vFmtStr("%s: %s", notify->relname, notify->extra).c_str());
                 }
                 PQfreemem(notify);
             }
@@ -402,28 +544,6 @@ void PgSQLDatabase::Handle_Poll(uv_poll_t* w, int status, int revents)
     }
 }
 
-Handle<Value> PgSQLDatabase::Connect(const Arguments& args)
-{
-    HandleScope scope;
-    PgSQLDatabase *db = ObjectWrap::Unwrap<PgSQLDatabase>(args.This());
-
-    OPTIONAL_ARGUMENT_FUNCTION(0, cb);
-    if (cb.IsEmpty()) {
-        db->handle = PQconnectdb(db->conninfo.c_str());
-        if (!db->handle || PQstatus(db->handle) == CONNECTION_BAD || (db->fd = PQsocket(db->handle)) < 0) {
-            string err = db->Error("connect error");
-            db->Close();
-            return ThrowException(Exception::Error(String::New(err.c_str())));
-        }
-        PQsetNoticeProcessor(db->handle, Handle_Notice, db);
-        uv_poll_init(uv_default_loop(), &db->poll, db->fd);
-    } else {
-        db->StopPoll();
-        db->Queue(Work_Connect, Work_AfterConnect, cb);
-    }
-    return args.This();
-}
-
 void PgSQLDatabase::Work_Connect(uv_work_t* req)
 {
     PgSQLDatabase* db = static_cast<PgSQLDatabase*>(req->data);
@@ -432,12 +552,12 @@ void PgSQLDatabase::Work_Connect(uv_work_t* req)
 
 void PgSQLDatabase::Work_AfterConnect(uv_work_t* req, int status)
 {
+    HandleScope scope;
     PgSQLDatabase* db = static_cast<PgSQLDatabase*>(req->data);
 
     if (!db->handle || PQstatus(db->handle) == CONNECTION_BAD || (db->fd = PQsocket(db->handle)) < 0) {
         string err = db->Error("connect error");
-        db->Close();
-        db->Emit(err.c_str());
+        db->Destroy(err.c_str());
     } else {
         PQsetnonblocking(db->handle, 1);
         PQsetNoticeProcessor(db->handle, Handle_Notice, db);
@@ -447,21 +567,19 @@ void PgSQLDatabase::Work_AfterConnect(uv_work_t* req, int status)
     delete req;
 }
 
-Handle<Value> PgSQLDatabase::Close(const Arguments& args)
+void PgSQLDatabase::Work_Query(uv_work_t* req)
+{
+    PgSQLDatabase* db = static_cast<PgSQLDatabase*>(req->data);
+    db->Query();
+    db->Clear();
+}
+
+void PgSQLDatabase::Work_AfterQuery(uv_work_t* req, int status)
 {
     HandleScope scope;
-    PgSQLDatabase *db = ObjectWrap::Unwrap<PgSQLDatabase>(args.This());
-
-    OPTIONAL_ARGUMENT_FUNCTION(-1, cb);
-    if (cb.IsEmpty()) {
-        db->Close();
-        db->Emit();
-    } else {
-        db->StopPoll();
-        db->Queue(Work_Close, Work_AfterClose, cb);
-
-    }
-    return args.This();
+    PgSQLDatabase* db = static_cast<PgSQLDatabase*>(req->data);
+    db->Emit();
+    delete req;
 }
 
 void PgSQLDatabase::Work_Close(uv_work_t* req)
@@ -472,99 +590,13 @@ void PgSQLDatabase::Work_Close(uv_work_t* req)
 
 void PgSQLDatabase::Work_AfterClose(uv_work_t* req, int status)
 {
+    HandleScope scope;
     PgSQLDatabase* db = static_cast<PgSQLDatabase*>(req->data);
-    db->Close();
-    db->Emit();
+    db->Destroy();
     delete req;
 }
 
-Handle<Value> PgSQLDatabase::Query(const Arguments& args)
-{
-    HandleScope scope;
-    PgSQLDatabase *db = ObjectWrap::Unwrap<PgSQLDatabase>(args.This());
-    int rc, nparams = 0;
-    REQUIRE_ARGUMENT_STRING(0, sql);
-    OPTIONAL_ARGUMENT_ARRAY(1, params);
-    OPTIONAL_ARGUMENT_FUNCTION(-1, cb);
-    if (!db->handle)  {
-        ERROR(db, cb, "not connected");
-        return args.This();
-    }
-
-    db->StopPoll();
-    db->Clear();
-    PQsetnonblocking(db->handle, 1);
-
-    if (!params.IsEmpty()) nparams = params->Length();
-    if (nparams) {
-        int nvalues = nparams;
-        char* values[nvalues];
-        for (int i = 0; i < nparams; i++) {
-            Local<Value> val = params->Get(i);
-            if (!val->IsNull()) {
-                String::Utf8Value str(val->ToString());
-                values[i] = strdup(*str);
-            } else {
-                values[i] = NULL;
-            }
-        }
-        rc = PQsendQueryParams(db->handle, *sql, nvalues, NULL, values, NULL, NULL, 0);
-        for (int i = 0; i < nvalues; i++) free(values[i]);
-    } else {
-        rc = PQsendQuery(db->handle, *sql);
-    }
-    if (rc) {
-        db->StartPoll(UV_WRITABLE, Handle_Poll, cb, *sql);
-    } else {
-        ERROR(db, cb, db->Error());
-    }
-    return args.This();
-}
-
-Handle<Value> PgSQLDatabase::QuerySync(const Arguments& args)
-{
-    HandleScope scope;
-    PgSQLDatabase *db = ObjectWrap::Unwrap<PgSQLDatabase>(args.This());
-    int nparams = 0;
-    PGresult *rc;
-
-    if (!db->handle) return ThrowException(Exception::Error(String::New("not connected")));
-
-    REQUIRE_ARGUMENT_STRING(0, sql);
-    OPTIONAL_ARGUMENT_ARRAY(1, params);
-    if (!params.IsEmpty()) nparams = params->Length();
-
-    db->Clear();
-    db->StopPoll();
-    PQsetnonblocking(db->handle, 0);
-
-    if (nparams) {
-        int nvalues = 0;
-        char* values[nvalues];
-        for (int i = 0; i < nvalues; i++) {
-            String::Utf8Value str(params->Get(i)->ToString());
-            values[i] = strdup(*str);
-        }
-        rc = PQexecParams(db->handle, *sql, nvalues, NULL, values, NULL, NULL, 0);
-        for (int i = 0; i < nvalues; i++) free(values[i]);
-    } else {
-        rc = PQexec(db->handle, *sql);
-    }
-    if (!rc) return ThrowException(Exception::Error(String::New(db->Error())));
-
-    EXCEPTION(err, rc);
-    if (!err->IsNull()) {
-        PQclear(rc);
-        return ThrowException(err);
-    }
-
-    Local<Array> rows = db->getResult(rc);
-    PQclear(rc);
-
-    return scope.Close(rows);
-}
-
-Local<Array> PgSQLDatabase::getResult(PGresult* result)
+Local<Array> PgSQLDatabase::Handle_Result(PGresult* result)
 {
 	HandleScope scope;
 	inserted_oid = PQoidValue(result);
@@ -652,4 +684,3 @@ Local<Array> PgSQLDatabase::getResult(PGresult* result)
     return scope.Close(rc);
 }
 
-#endif

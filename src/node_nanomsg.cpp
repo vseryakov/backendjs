@@ -208,7 +208,7 @@ public:
         char *buf;
         HandleScope scope;
         int n = nn_recv(s->sock, (void*)&buf, NN_MSG, NN_DONTWAIT);
-        LogDev("sock=%d, size=%d, peer=%d, errno=%d", s->sock, n, s->peer, n == -1 ? nn_errno() : 0);
+        LogDev("sock=%d, fd=%d, size=%d, peer=%d, errno=%d", s->sock, s->rfd, n, s->peer, n == -1 ? nn_errno() : 0);
 
         // Send it out before calling the callback
         if (s->peer > -1 && n != -1) {
@@ -250,7 +250,7 @@ public:
         hdr.msg_control = &control;
         hdr.msg_controllen = NN_MSG;
         int n = nn_recvmsg(s->sock, &hdr, NN_DONTWAIT);
-        LogDev("sock=%d, size=%d, peer=%d, errno=%d", s->sock, n, s->peer, n == -1 ? nn_errno() : 0);
+        LogDev("sock=%d, fd=%d, size=%d, peer=%d, errno=%d", s->sock, s->rfd, n, s->peer, n == -1 ? nn_errno() : 0);
 
         if (n == -1) {
             s->err = nn_errno();

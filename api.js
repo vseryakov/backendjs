@@ -270,7 +270,7 @@ api.init = function(options, callback)
         res.header('Access-Control-Allow-Origin', self.corsOrigin);
         res.header('Access-Control-Allow-Headers', 'content-type, bk-app, bk-version, ' + self.signatureName);
         res.header('Access-Control-Allow-Methods', 'OPTIONS, HEAD, GET, POST, PUT, DELETE');
-        if (logger.level >= 1) logger.debug('handleServerRequest:', req.ip || "", req.method, req.path, req.get('content-type') || "", req.get('bk-app') || "", req.get(self.signatureName) || "");
+        if (logger.level >= 1) logger.debug('handleServerRequest:', core.port, req.ip || "", req.method, req.path, req.get('content-type') || "", req.get('bk-app') || "", req.get(self.signatureName) || "");
         next();
     });
 
@@ -528,6 +528,7 @@ api.configureShell = function(options, callback)
 // Start Express middleware processing wrapped in the node domain
 api.handleServerRequest = function(req, res)
 {
+    logger.dev("handleServerRequest:", core.port, req.url);
     var api = core.modules.api;
     var d = domain.create();
     d.on('error', function(err) {

@@ -925,7 +925,7 @@ server.handleProxyRequest = function(req, res, ssl)
                 }
             }
             req.target = self.getProxyTarget(req);
-            logger.dev("handleProxyRequest:", req.headers.host, req.url, req.target);
+            logger.debug("handleProxyRequest:", req.headers.host, req.url, req.target);
             if (req.target) return self.proxyServer.web(req, res, req.target);
             res.writeHead(500, "Not ready yet");
             res.end();
