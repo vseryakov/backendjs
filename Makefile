@@ -11,8 +11,10 @@ all:
 full:
 	npm build . --backendjs_nanomsg --backendjs_imagemagick
 
-dev:
-	npm build . --backendjs_nanomsg --backendjs_nanomsg_dev --backendjs_imagemagick
+debug:
+	npm run-script debug --backendjs_nanomsg --backendjs_imagemagick
+	rm -rf build/Release
+	(cd build && ln -s Debug Release)
 
 run:
 	./bkjs run-backend

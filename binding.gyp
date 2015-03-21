@@ -25,7 +25,6 @@
            "_THREAD_SAFE",
            "_POSIX_PTHREAD_SEMANTICS",
            "UNSAFE_STAT_OK",
-           "USE_PGSQL"
         ],
         "include_dirs": [
            ".",

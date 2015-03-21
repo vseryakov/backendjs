@@ -73,6 +73,7 @@
   "scripts": {
     "preinstall": "./bkjs build-deps",
     "install": "node-gyp configure build",
+    "debug": "node-gyp --debug configure build",
     "start": "./bkjs run-backend",
     "stop": "./bkjs stop"
   }

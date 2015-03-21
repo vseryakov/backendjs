@@ -580,7 +580,13 @@ server.startShell = function(options)
             console.log('subnet=' + core.subnet);
             console.log('domain=' + core.domain);
             exit();
-        } else
+        }
+
+        // Run API server inside the shell
+        if (core.isArg("-run-api")) {
+            api.init();
+            return;
+        }
 
         // Add a user
         if (core.isArg("-account-add")) {
@@ -591,7 +597,8 @@ server.startShell = function(options)
             core.modules.accounts.addAccount({ query: query, account: { type: 'admin' } }, opts, function(err, data) {
                 exit(err, data);
             });
-        } else
+            return;
+        }
 
         // Delete a user and all its history according to the options
         if (core.isArg("-account-update")) {
@@ -603,7 +610,8 @@ server.startShell = function(options)
                     exit(err, data);
                 });
             });
-        } else
+            return;
+        }
 
         // Delete a user and all its history according to the options
         if (core.isArg("-account-del")) {
@@ -618,7 +626,8 @@ server.startShell = function(options)
                     exit(err, data);
                 });
             });
-        } else
+            return;
+        }
 
         // Update location
         if (core.isArg("-location-put")) {
@@ -629,14 +638,16 @@ server.startShell = function(options)
                     exit(err, data);
                 });
             });
-        } else
+            return;
+        }
 
         // Update location
         if (core.isArg("-log-watch")) {
             core.watchLogs(function(err) {
                 exit(err);
             });
-        } else
+            return;
+        }
 
         // Get file
         if (core.isArg("-s3-get")) {
@@ -645,7 +656,8 @@ server.startShell = function(options)
             aws.s3GetFile(uri, query, function(err, data) {
                 exit(err, data);
             });
-        } else
+            return;
+        }
 
         // Put file
         if (core.isArg("-s3-put")) {
@@ -653,7 +665,8 @@ server.startShell = function(options)
             aws.s3PutFile(uri, file, query, function(err, data) {
                 exit(err, data);
             });
-        } else
+            return;
+        }
 
         // Show all config parameters
         if (core.isArg("-db-get-config")) {
@@ -666,7 +679,8 @@ server.startShell = function(options)
                 }
                 exit(err);
             });
-        } else
+            return;
+        }
 
         // Show all records
         if (core.isArg("-db-select")) {
@@ -682,7 +696,8 @@ server.startShell = function(options)
                 }
                 exit(err);
             });
-        } else
+            return;
+        }
 
         // Show all records
         if (core.isArg("-db-scan")) {
@@ -698,7 +713,8 @@ server.startShell = function(options)
             }, function(err) {
                 exit(err);
             });
-        } else
+            return;
+        }
 
         // Import records from previous scan/select, the format MUST be json, one record per line
         if (core.isArg("-db-import")) {
@@ -710,7 +726,8 @@ server.startShell = function(options)
             }, function(err) {
                 exit(err);
             });
-        } else
+            return;
+        }
 
         // Put config entry
         if (core.isArg("-db-get")) {
@@ -726,7 +743,8 @@ server.startShell = function(options)
                 }
                 exit(err);
             });
-        } else
+            return;
+        }
 
         // Put config entry
         if (core.isArg("-db-put")) {
@@ -734,7 +752,8 @@ server.startShell = function(options)
             db.put(table, query, opts, function(err, data) {
                 exit(err);
             });
-        } else
+            return;
+        }
 
         // Delete config entry
         if (core.isArg("-db-del")) {
@@ -742,7 +761,8 @@ server.startShell = function(options)
             db.del(table, query, opts, function(err, data) {
                 exit(err);
             });
-        } else
+            return;
+        }
 
         // Send API request
         if (core.isArg("-send-request")) {
@@ -752,10 +772,10 @@ server.startShell = function(options)
                     exit(err, params.obj);
                 });
             });
-        } else {
-            ipc.initClient();
-            core.createRepl();
+            return;
         }
+        ipc.initClient();
+        core.createRepl();
     });
 }
 

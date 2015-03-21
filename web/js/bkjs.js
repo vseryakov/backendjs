@@ -455,6 +455,28 @@ var Bkjs = {
         iterate(0);
     },
 
+    // Convert a string to a number, on invalid input returns 0
+    toNumber: function(str, options) {
+        var n = 0;
+        if (!options)options = {}
+        if (typeof str == "number") {
+            n = str;
+        } else {
+            if (typeof options.dflt == "undefined") options.dflt = 0;
+            if (typeof str != "string") {
+                n = options.dflt;
+            } else {
+                // Autodetect floating number
+                if (typeof options.float == "undefined" || options.float == null) options.float = /^[0-9-]+\.[0-9]+$/.test(str);
+                n = str[0] == 't' ? 1 : str[0] == 'f' ? 0 : str == "infinity" ? Infinity : (options.float ? parseFloat(str,10) : parseInt(str,10));
+                n = isNaN(n) ? options.dflt : n;
+            }
+        }
+        if (typeof options.min == "number" && n < options.min) n = options.min;
+        if (typeof options.max == "number" && n > options.max) n = options.max;
+        return n;
+    },
+
     // Simple debugging function that outputs arguments in the error console
     log: function() {
         if (!console || !console.log) return;

@@ -523,6 +523,7 @@ void backend_init(Handle<Object> target)
     CacheInit(target);
     SyslogInit(target);
     SQLiteInit(target);
+    PgSQLInit(target);
 #ifdef USE_LEVELDB
     LevelDBInit(target);
 #endif
@@ -531,9 +532,6 @@ void backend_init(Handle<Object> target)
 #endif
 #ifdef USE_WAND
     WandInit(target);
-#endif
-#ifdef USE_PGSQL
-    PgSQLInit(target);
 #endif
 #ifdef USE_MYSQL
     MysqlInit(target);

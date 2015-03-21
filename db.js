@@ -392,8 +392,10 @@ db.initConfig = function(options, callback)
         core.parseArgs(argv);
 
         // Refresh from time to time with new or modified parameters, randomize a little to spread across all servers
-        if (self.configInterval > 0 && !self.configTimer) {
-            self.configTimer = setInterval(function() { self.initConfig(); }, self.configInterval * 1000 + corelib.randomShort());
+        if (self.configInterval > 0 && self.configInterval != self._configInterval) {
+            if (self._configTimer) clearInterval(self._configTimer);
+            self._configTimer = setInterval(function() { self.initConfig(); }, self.configInterval * 1000 + corelib.randomShort());
+            self._configInterval = self.configInterval;
         }
         // Init more db pools
         self.init(options, function(err) {
@@ -2174,15 +2176,18 @@ db.createPool = function(options)
                 }
             },
             validate: function(client) {
-                return self.pools[this.name].serialNum == client.pool_serial;
+                return self.pools[this.name].serialNum == client.poolSerial;
             },
-            destroy: function(client) {
+            destroy: function(client, callback) {
                 var me = this;
-                logger.debug('pool.destroy', this.name, "#", client.pool_serial);
+                logger.debug('pool.destroy', this.name, "#", client.poolSerial);
                 try {
-                    this.close(client, function(err) { if (err) logger.error("db.close:", me.name, err) });
+                    this.close(client, function(err) {
+                        if (err) logger.error("db.close:", me.name, err);
+                        if (typeof callback == "function") callback(err);
+                    });
                 } catch(e) {
-                    logger.error("pool.destroy:", thus.name, e);
+                    logger.error("pool.destroy:", this.name, e);
                 }
             },
         });
@@ -2196,7 +2201,7 @@ db.createPool = function(options)
         }
         // Release or destroy a client depending on the database watch counter
         pool.free = function(client) {
-            if (this.serialNum != client.pool_serial) {
+            if (this.serialNum != client.poolSerial) {
                 this.destroy(client);
             } else {
                 this.release(client);
@@ -2229,8 +2234,8 @@ db.createPool = function(options)
         }
         // Mark the client with the current db pool serial number, if on release this number differs we
         // need to destroy the client, not return to the pool
-        client.pool_serial = this.serialNum;
-        client.pool_name = this.name;
+        client.poolSerial = this.serialNum;
+        client.poolName = this.name;
         logger.debug('pool:', 'open', this.name, "#", this.serialNum);
     }
 

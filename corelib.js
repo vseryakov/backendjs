@@ -1699,189 +1699,189 @@ corelib.createPool = function(options)
 {
     var self = this;
 
-    var pool = { _pmin: this.toNumber(options.min, { float: 0, flt: 0, min: 0 }),
-                 _pmax: this.toNumber(options.max, { float: 0, dflt: 10, min: 0 }),
-                 _pmax_queue: this.toNumber(options.interval, { float: 0, dflt: 100, min: 0 }),
-                 _ptimeout: this.toNumber(options.timeout, { float: 0, dflt: 5000, min: 1 }),
-                 _pidle: this.toNumber(options.idle, { float: 0, dflt: 300000, min: 0 }),
-                 _pcreate: options.create || function(cb) { cb(null, {}) },
-                 _pdestroy: options.destroy || function() {},
-                 _pvalidate: options.validate || function() { return true },
-                 _pqueue_count: 0,
-                 _pnum: 1,
-                 _pqueue_count: 0,
-                 _pqueue: {},
-                 _pavail: [],
-                 _pmtime: [],
-                 _pbusy: [] };
+    var pool = { _min: this.toNumber(options.min, { float: 0, flt: 0, min: 0 }),
+                 _max: this.toNumber(options.max, { float: 0, dflt: 10, min: 0 }),
+                 _max_queue: this.toNumber(options.interval, { float: 0, dflt: 100, min: 0 }),
+                 _timeout: this.toNumber(options.timeout, { float: 0, dflt: 5000, min: 1 }),
+                 _idle: this.toNumber(options.idle, { float: 0, dflt: 300000, min: 0 }),
+                 _create: options.create || function(cb) { cb(null, {}) },
+                 _destroy: options.destroy || function() {},
+                 _validate: options.validate || function() { return true },
+                 _queue_count: 0,
+                 _num: 1,
+                 _queue_count: 0,
+                 _queue: {},
+                 _avail: [],
+                 _mtime: [],
+                 _busy: [] };
 
     // Return next available resource item, if not available immediately wait for defined amount of time before calling the
     // callback with an error. The callback second argument is active resource item.
     pool.acquire = function(callback) {
         if (typeof callback != "function") return;
 
-        // We have idle clients
-        if (this._pavail.length) {
-            var mtime = this._pmtime.shift();
-            var client = this._pavail.shift();
-            this._pbusy.push(client);
-            return callback.call(this, null, client);
+        // We have idle items
+        if (this._avail.length) {
+            var mtime = this._mtime.shift();
+            var item = this._avail.shift();
+            this._busy.push(item);
+            return callback.call(this, null, item);
         }
         // Put into waiting queue
-        if (this._pbusy.length >= this._pmax) {
-            if (this._pqueue_count >= this._pmax_queue) return callback(new Error("no more resources"));
+        if (this._busy.length >= this._max) {
+            if (this._queue_count >= this._max_queue) return callback(new Error("no more resources"));
 
-            this._pqueue_count++;
-            return self.deferCallback(this._pqueue, { id: this._pnum++ }, function(m) {
-                callback(m.client ? null : new Error("timeout waiting for the resource"), m.client);
-            }, this._ptimeout);
+            this._queue_count++;
+            return self.deferCallback(this._queue, { id: this._num++ }, function(m) {
+                callback(m.item ? null : new Error("timeout waiting for the resource"), m.item);
+            }, this._timeout);
         }
         // New item
         var me = this;
-        this._palloc(function(err, client) {
-            if (!err) me._pbusy.push(client);
-            callback(err, client);
+        this._alloc(function(err, item) {
+            if (!err) me._busy.push(item);
+            callback(err, item);
         });
     }
 
     // Destroy the resource item calling the provided close callback
-    pool.destroy = function(client) {
-        if (!client) return;
+    pool.destroy = function(item) {
+        if (!item) return;
 
-        var idx = this._pbusy.indexOf(client);
+        var idx = this._busy.indexOf(item);
         if (idx > -1) {
-            this._pclose(client);
-            this._pbusy.splice(idx, 1);
+            this._free(item);
+            this._busy.splice(idx, 1);
             return;
         }
-        idx = this._pavail.indexOf(client);
+        idx = this._avail.indexOf(item);
         if (idx > -1) {
-            this._pclose(client);
-            this._pavail.splice(idx, 1);
-            this._pmtime.splice(idx, 1);
+            this._free(item);
+            this._avail.splice(idx, 1);
+            this._mtime.splice(idx, 1);
             return;
         }
     }
 
     // Return the resource item back to the list of available resources.
-    pool.release = function(client) {
-        if (!client) return;
+    pool.release = function(item) {
+        if (!item) return;
 
-        var idx = this._pbusy.indexOf(client);
+        var idx = this._busy.indexOf(item);
         if (idx == -1) {
-            logger.error('pool.release:', 'not known', client);
+            logger.error('pool.release:', 'not known', item);
             return;
         }
 
-        // Pass it to the next waiting client
-        for (var id in this._pqueue) {
-            this._pqueue_count--;
-            this._pqueue[id].id = id;
-            this._pqueue[id].client = client;
-            return self.runCallback(this._pqueue, this._pqueue[id]);
+        // Pass it to the next waiting item
+        for (var id in this._queue) {
+            this._queue_count--;
+            this._queue[id].id = id;
+            this._queue[id].item = item;
+            return self.runCallback(this._queue, this._queue[id]);
         }
 
         // Destroy if above the limit or invalid
-        if (this._pavail.length > this._pmax || !this._pcheck(client)) {
-            this._pclose(client);
+        if (this._avail.length > this._max || !this._check(item)) {
+            this._free(item);
         } else {
             // Add to the available list
-            this._pavail.unshift(client);
-            this._pmtime.unshift(Date.now());
+            this._avail.unshift(item);
+            this._mtime.unshift(Date.now());
         }
         // Remove from the busy list at the end to keep the object referenced all the time
-        this._pbusy.splice(idx, 1);
+        this._busy.splice(idx, 1);
     }
 
     pool.stats = function() {
-        return { avail: this._pavail.length, busy: this._pbusy.length, queue: this._pqueue_count, min: this._pmin, max: this._pmax, max_queue: this._pmax_queue };
+        return { avail: this._avail.length, busy: this._busy.length, queue: this._queue_count, min: this._min, max: this._max, max_queue: this._max_queue };
     }
 
-    // Close all active clients
+    // Close all active items
     pool.closeAll = function() {
-        while (this._pavail.length > 0) this.destroy(this._pavail[0]);
+        while (this._avail.length > 0) this.destroy(this._avail[0]);
     }
 
-    // Close all connections and shutdown the pool, no more clients will be open and the pool cannot be used without re-initialization,
+    // Close all connections and shutdown the pool, no more items will be open and the pool cannot be used without re-initialization,
     // if callback is provided then wait until all items are released and call it, optional maxtime can be used to retsrict how long to wait for
     // all items to be released, when expired the callback will be called
     pool.shutdown = function(callback, maxtime) {
-        logger.debug('pool.close:', this.name, 'shutdown:', 'avail:', this._pavail.length, 'busy:', this._pbusy.length);
+        logger.debug('pool.close:', this.name, 'shutdown:', 'avail:', this._avail.length, 'busy:', this._busy.length);
         var self = this;
-        this._pmax = -1;
+        this._max = -1;
         this.closeAll();
-        this._pqueue = {};
-        clearInterval(this._pinterval);
+        this._queue = {};
+        clearInterval(this._interval);
         if (typeof callback != "function") return;
-        this._ptime = Date.now();
-        this._pinterval = setInterval(function() {
-            if (self._pbusy.length && (!maxtime || Date.now() - self._ptime < maxtime)) return;
-            clearInterval(this._pinterval);
+        this._time = Date.now();
+        this._interval = setInterval(function() {
+            if (self._busy.length && (!maxtime || Date.now() - self._time < maxtime)) return;
+            clearInterval(this._interval);
             callback();
         }, 500);
     }
 
-    // Allocate a new client
-    pool._palloc = function(callback) {
+    // Allocate a new item
+    pool._alloc = function(callback) {
         try {
-            this._pcreate.call(this, callback);
-            logger.dev('pool.alloc:', this.name, 'avail:', this._pavail.length, 'busy:', this._pbusy.length);
+            this._create.call(this, callback);
+            logger.dev('pool.alloc:', this.name, 'avail:', this._avail.length, 'busy:', this._busy.length);
         } catch(e) {
             logger.error('pool.alloc:', this.name, e);
             callback(e);
         }
     }
 
-    // Destroy the resource item calling the provided close callback
-    pool._pclose = function(client) {
+    // Free the item
+    pool._free = function(item) {
         try {
-            this._pdestroy.call(this, client);
-            logger.dev('pool.close:', this.name, 'destroy:', this._pavail.length, 'busy:', this._pbusy.length);
+            this._destroy.call(this, item);
+            logger.dev('pool.close:', this.name, 'destroy:', this._avail.length, 'busy:', this._busy.length);
         } catch(e) {
             logger.error('pool.close:', this.name, e);
         }
     }
 
-    // Verify if the resource item is valid
-    pool._pcheck = function(client) {
+    // Verify if the item is valid
+    pool._check = function(item) {
         try {
-            return this._pvalidate.call(this, client);
+            return this._validate.call(this, item);
         } catch(e) {
             logger.error('pool.check:', this.name, e);
             return false;
         }
     }
     // Timer to ensure pool integrity
-    pool._ptimer = function() {
+    pool._timer = function() {
         var me = this;
         var now = Date.now();
 
         // Expire idle items
-        if (this._pidle > 0) {
-            for (var i = 0; i < this._pavail.length; i++) {
-                if (now - this._pmtime[i] > this._pidle && this._pavail.length + this._pbusy.length > this._pmin) {
-                    logger.dev('pool.timer:', pool.name || "", 'idle', i, 'avail:', this._pavail.length, 'busy:', this._pbusy.length);
-                    this.destroy(this._pavail[i]);
+        if (this._idle > 0) {
+            for (var i = 0; i < this._avail.length; i++) {
+                if (now - this._mtime[i] > this._idle && this._avail.length + this._busy.length > this._min) {
+                    logger.dev('pool.timer:', pool.name || "", 'idle', i, 'avail:', this._avail.length, 'busy:', this._busy.length);
+                    this.destroy(this._avail[i]);
                     i--;
                 }
             }
         }
 
         // Ensure min number of items
-        var min = this._pmin - this._pavail.length - this._pbusy.length;
+        var min = this._min - this._avail.length - this._busy.length;
         for (var i = 0; i < min; i++) {
-            this._palloc(function(err, client) {
+            this._alloc(function(err, item) {
                 if (err) return;
-                me._pavail.push(client);
-                me._pmtime.push(now);
+                me._avail.push(item);
+                me._mtime.push(now);
             });
         }
     }
 
     // Periodic housekeeping if interval is set
-    if (pool._pidle > 0) {
-        this._pinterval = setInterval(function() { pool._ptimer() }, Math.max(1000, pool._pidle/3));
-        setImmediate(function() { pool._ptimer(); });
+    if (pool._idle > 0) {
+        this._interval = setInterval(function() { pool._timer() }, Math.max(1000, pool._idle/3));
+        setImmediate(function() { pool._timer(); });
     }
 
     return pool;

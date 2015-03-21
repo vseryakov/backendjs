@@ -7,7 +7,6 @@ var util = require('util');
 var fs = require('fs');
 var repl = require('repl');
 var path = require('path');
-var backend = require(__dirname + '/build/Release/backend');
 var logger = require(__dirname + '/logger');
 var core = require(__dirname + '/core');
 var corelib = require(__dirname + '/corelib');

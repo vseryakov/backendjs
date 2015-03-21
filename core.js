@@ -152,6 +152,7 @@ var core = {
             { name: "debug-run-segv", type: "callback", callback: function(v) { if(v) utils.runSEGV(v); }, descr: "On SEGV crash keep the process spinning so attaching with gdb is possible" },
             { name: "debug-set-segv", type: "callback", callback: function(v) { if(v) utils.setSEGV(); }, descr: "Set default SEGV handler which shows backtrace of calls if debug info is available" },
             { name: "debug-set-backtrace", type: "callback", callback: function(v) { if(v) utils.setBacktrace() }, descr: "Set alternative backtrace on SEGV crashes, including backtrace of V8 calls as well" },
+            { name: "debug-logging", type: "callback", callback: function(v) { if(v) utils.logging(v) }, descr: "Set logging level only for the internal addons" },
             { name: "log", type: "callback", callback: function(v) { logger.setDebug(v); }, descr: "Set debugging level: none, log, debug, dev", pass: 1 },
             { name: "log-file", type: "callback", callback: function(v) { if(v) this.logFile=v;logger.setFile(this.logFile); }, descr: "Log to a file, if not specified used default logfile, disables syslog", pass: 1 },
             { name: "syslog", type: "callback", callback: function(v) { logger.setSyslog(v ? corelib.toBool(v) : true); }, descr: "Write all logging messages to syslog, connect to the local syslog server over Unix domain socket", pass: 1 },
