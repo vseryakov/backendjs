@@ -1911,6 +1911,7 @@ node can find global modules, replace $BKJS_PREFIX with the actual path unless t
 <li><code>debug-run-segv</code> - On SEGV crash keep the process spinning so attaching with gdb is possible</li>
 <li><code>debug-set-segv</code> - Set default SEGV handler which shows backtrace of calls if debug info is available</li>
 <li><code>debug-set-backtrace</code> - Set alternative backtrace on SEGV crashes, including backtrace of V8 calls as well</li>
+<li><code>debug-logging</code> - Set logging level only for the internal addons</li>
 <li><code>log</code> - Set debugging level: none, log, debug, dev</li>
 <li><code>log-file</code> - Log to a file, if not specified used default logfile, disables syslog</li>
 <li><code>syslog</code> - Write all logging messages to syslog, connect to the local syslog server over Unix domain socket</li>
@@ -6036,7 +6037,8 @@ use the same names as command line arguments without preceeding test- part.</p>
 <li>-test-cmd - name of the function to run</li>
 <li>-test-workers - number of workers to run the test at the same time</li>
 <li>-test-delay - number of milliseconds before starting worker processes, default is 500ms</li>
-<li>-test-timeout - number of milliseconds between test steps, i.e. between invokations of the check</li>
+<li>-test-timeout - number of milliseconds between test steps, i.e. between invocations of the check</li>
+<li>-test-interval - number of milliseconds between iterations</li>
 <li>-test-iterations - how many times to run this test function, default is 1</li>
 <li>-test-forever - run forever without reporting any errors, for performance testing</li>
 </ul>
