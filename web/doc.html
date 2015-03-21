@@ -2463,16 +2463,18 @@ of registration. At this time the reslt has been sent so connection is not valid
 <ul>
 <li><p><code>api.registerOAuthStrategy(strategy, options, callback)</code></p>
 <p> Given passport strategy setup OAuth callbacks and handle the login process by creating a mapping account for each
-OAUTH authenticated account. The callback will be called as function(req,res) with <code>req.user</code> signifies the successful
-login and hold the account properties.</p>
+OAUTH authenticated account.
+The callback if specified will be called as function(req, options, info) with <code>req.user</code> signifies the successful
+login and hold the account properties. If given it is up to the callback to perform any redirects reqauired for
+completion of the login process.</p>
 <p>The following options properties are accepted:</p>
 <ul>
 <li>cliendID,</li>
 <li>clientSecret,</li>
 <li>callbackURL - passport OAUTH properties</li>
 <li>session - setup cookie session on success</li>
-<li>successUrl - redirect url on success</li>
-<li>failureUrl - redirect url on failure</li>
+<li>successUrl - redirect url on success if no callback is specified</li>
+<li>failureUrl - redirect url on failure if no callback is specified</li>
 <li>fetchAccount - a new function to be used instead of api.fetchAccount for new account creation or mapping
  for the given authenticated profile. This is for processing or customizing new account properties and doing
  some post processing work after the account has been created.

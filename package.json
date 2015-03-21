@@ -2,7 +2,7 @@
   "version": "0.12.0",
   "author": "Vlad Seryakov",
   "name": "backendjs",
-  "description": "Framework for building backends",
+  "description": "A platform for building backends",
   "main": "index",
   "homepage": "https://github.com/vseryakov/backendjs",
   "repository": {

@@ -1339,16 +1339,18 @@ api.registerCleanup = function(method, path, callback)
 }
 
 // Given passport strategy setup OAuth callbacks and handle the login process by creating a mapping account for each
-// OAUTH authenticated account. The callback will be called as function(req,res) with `req.user` signifies the successful
-// login and hold the account properties.
+// OAUTH authenticated account.
+// The callback if specified will be called as function(req, options, info) with `req.user` signifies the successful
+// login and hold the account properties. If given it is up to the callback to perform any redirects reqauired for
+// completion of the login process.
 //
 // The following options properties are accepted:
 //  - cliendID,
 //  - clientSecret,
 //  - callbackURL - passport OAUTH properties
 //  - session - setup cookie session on success
-//  - successUrl - redirect url on success
-//  - failureUrl - redirect url on failure
+//  - successUrl - redirect url on success if no callback is specified
+//  - failureUrl - redirect url on failure if no callback is specified
 //  - fetchAccount - a new function to be used instead of api.fetchAccount for new account creation or mapping
 //     for the given authenticated profile. This is for processing or customizing new account properties and doing
 //     some post processing work after the account has been created.
