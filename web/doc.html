@@ -40,6 +40,7 @@
 <li><a href="#nanomsg"> nanomsg</a></li>
 <li><a href="#redis"> Redis</a></li>
 <li><a href="#rabbitmq"> RabbitMQ</a></li>
+<li><a href="#server-worker-messaging"> Server/worker messaging</a></li>
 </ul>
 </li>
 <li><a href="#security-configurations"> Security configurations</a><ul>
@@ -1643,7 +1644,16 @@ better reliability of delivering messages, publishing will be load-balanced betw
 <p>To configure the backend to use Redis for messaging set <code>queue-type=redis</code> and <code>redis-host=HOST</code> where HOST is IP address or hostname of the single Redis server.</p>
 <h2 id="rabbitmq">RabbitMQ</h2>
 <p>To configure the backend to use RabbitMQ for messaging set <code>queue-type=amqp</code> and <code>amqp-host=HOST</code> and optionally <code>amqp-options=JSON</code> with options to the amqp module.</p>
-<h1 id="security-configurations">Security configurations</h1>
+<h2 id="server-worker-messaging">Server/worker messaging</h2>
+<p>When any of the supported queue systems is initialized there are 2 special subscriptions created for servers and workers. Every server and worker process
+subscribed to the corresponding queue (<code>ipc.serverQueue</code> and <code>ipc.workerQueue</code>) and listens for incoming messages.</p>
+<p>This is supposed to be used for distributing special messages to all workers or servers independently
+with special messages like configuration, setup, restart or any other action a running backend process should take.</p>
+<p>For example, to send all workers in a cluster a message to refresh config:</p>
+<pre><code>ipc.publish(ipc.workerQueue, { op: &quot;init:config&quot; })
+</code></pre><p>To update all master server caches:</p>
+<pre><code>ipc.publish(ipc.serverQueue, { op: &quot;put&quot;, name: &quot;counter&quot;, value: &quot;123&quot; })
+</code></pre><h1 id="security-configurations">Security configurations</h1>
 <h2 id="api-only">API only</h2>
 <p>This is default setup of the backend when all API requests except <code>/account/add</code> must provide valid signature and all HTML, Javascript, CSS and image files
 are available to everyone. This mode assumes that Web developmnt will be based on &#39;single-page&#39; design when only data is requested from the Web server and all
@@ -4077,6 +4087,13 @@ that data is not chnaged and was signed with the same secret</p>
 </ul>
 
 <ul>
+<li><p><code>corelib.newError(options)</code></p>
+<p> Return a new Error object, options can be a string which will create an error with a message only
+or an object with message, code, status, and name properties to build full error</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>corelib.exists(obj, name)</code></p>
 <p> Return true if a variable or property in the object exists,</p>
 <ul>
@@ -4101,13 +4118,6 @@ that data is not chnaged and was signed with the same secret</p>
 Example:<pre><code>  corelib.cloneObj({ 1: 2 }, &quot;3&quot;, 3, &quot;4&quot;, 4)
 </code></pre></li>
 </ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>corelib.newError(options)</code></p>
-<p> Return a new Error object, options can be a string which will create an error with a message only
-or an object with message, code, status, and name properties to build full error</p>
 </li>
 </ul>
 
@@ -4219,6 +4229,12 @@ options can specify the output in case of an error:</p>
 <li>error - report all errors</li>
 <li>debug - report errors in debug level</li>
 </ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>corelib.checkResult(err, obj, options)</code></p>
+<p> Perform validation of the result type, make sure we return what is expected, this is a helper that is used by other conversion routines</p>
 </li>
 </ul>
 
@@ -4506,7 +4522,6 @@ database like DynamoDB for real-time requests and slower SQL database running on
                      api_que_rmean: { type: &quot;real&quot; },
                      api_que_hmean: { type: &quot;real&quot; },
                      pool_req_rmean: { type: &quot;real&quot; },
-                     pool_req_hmean: { type: &quot;real&quot; },
                      pool_req_hmean: { type: &quot;real&quot; },
                      pool_req_0: { type: &quot;real&quot; },
                      pool_errors_0: { type: &quot;real&quot; },
@@ -5445,7 +5460,7 @@ use <code>this.send()</code>.</p>
 </ul>
 
 <ul>
-<li><p><code>ipc.initClient()</code></p>
+<li><p><code>ipc.initWorker()</code></p>
 <p> This function is called by Web worker process to setup IPC channels and support for cache and messaging</p>
 </li>
 </ul>
@@ -5457,13 +5472,19 @@ use <code>this.send()</code>.</p>
 </ul>
 
 <ul>
+<li><p><code>ipc.handleServerMessages(worker, msg)</code></p>
+<p> To be used in messages processing that came from the clients or other way</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>ipc.initServerCaching()</code></p>
 <p> Initialize caching system for the configured cache type, can be called many time to re-initialize if the environment has changed</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>ipc.initClientCaching()</code></p>
+<li><p><code>ipc.initWorkerCaching()</code></p>
 <p> Initialize web worker caching system, can be called anytime the environment has changed</p>
 </li>
 </ul>
@@ -5475,7 +5496,7 @@ use <code>this.send()</code>.</p>
 </ul>
 
 <ul>
-<li><p><code>ipc.initClientQueueing()</code></p>
+<li><p><code>ipc.initWorkerQueueing()</code></p>
 <p> Initialize web worker queue system, client part, sends all publish messages to this socket which will be broadcasted into the
 publish socket by the receiving end. Can be called anytime to reconfigure if the environment has changed.</p>
 </li>
@@ -5527,7 +5548,7 @@ publish socket by the receiving end. Can be called anytime to reconfigure if the
 <li><p><code>ipc.subscribe(key, callback, data)</code></p>
 <p> Subscribe to the publishing server for messages starting with the given key, the callback will be called only on new data received, the data
 is passed to the callback as first argument, if not specified then &quot;undefined&quot; will still be passed, the actual key will be passed as the second
-argument, the mesages received as the third argument</p>
+argument, the message received as the third argument</p>
 <p>Example:</p>
 <pre><code>    ipc.subscribe(&quot;alert:&quot;, function(req, key, data) {
         req.res.json(data);
