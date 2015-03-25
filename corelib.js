@@ -228,7 +228,7 @@ corelib.toAge = function(mtime)
     var str = "";
     mtime = typeof mtime == "number" ? mtime : this.toNumber(mtime);
     if (mtime > 0) {
-        var seconds = (Date.now() - mtime)/1000;
+        var seconds = Math.floor((Date.now() - mtime)/1000);
         var d = Math.floor(seconds / 86400);
         var mm = Math.floor(d / 30);
         var w = Math.floor(d / 7);
@@ -930,6 +930,21 @@ corelib.isEmpty = function(val)
     }
 }
 
+// Return a new Error object, options can be a string which will create an error with a message only
+// or an object with message, code, status, and name properties to build full error
+corelib.newError = function(options)
+{
+    if (typeof options == "string") options = { message: options };
+    if (!options) options = {};
+    var err = new Error(options.message || "Unknown error");
+    if (options.name) err.name = options.name;
+    if (options.code) err.code = options.code;
+    if (options.status) err.status = options.status;
+    if (err.code && !err.status) err.status = err.code;
+    if (err.status && !err.code) err.code = err.status;
+    return err;
+}
+
 // Return true if a variable or property in the object exists,
 // - if obj is null or undefined return false
 // - if obj is an object, return true if the property is not undefined
@@ -981,21 +996,6 @@ corelib.cloneObj = function()
     }
     for (var i = 1; i < arguments.length - 1; i += 2) rc[arguments[i]] = arguments[i + 1];
     return rc;
-}
-
-// Return a new Error object, options can be a string which will create an error with a message only
-// or an object with message, code, status, and name properties to build full error
-corelib.newError = function(options)
-{
-    if (typeof options == "string") options = { message: options };
-    if (!options) options = {};
-    var err = new Error(options.message || "Unknown error");
-    if (options.name) err.name = options.name;
-    if (options.code) err.code = options.code;
-    if (options.status) err.status = options.status;
-    if (err.code && !err.status) err.status = err.code;
-    if (err.status && !err.code) err.code = err.status;
-    return err;
 }
 
 // Return new object using arguments as name value pairs for new object properties
@@ -1200,26 +1200,29 @@ corelib.stringify = function(obj, filter)
 //  - debug - report errors in debug level
 corelib.jsonParse = function(obj, options)
 {
-    function onerror(e) {
-        if (options) {
-            if (options.error) logger.error('jsonParse:', e, obj);
-            if (options.debug) logger.debug('jsonParse:', e, obj);
-            if (options.obj) return {};
-            if (options.list) return [];
-            if (options.str) return "";
-        }
-        return null;
-    }
-    if (!obj) return onerror("empty");
+    if (!obj) return this.checkResult("empty json");
     try {
         obj = typeof obj == "string" ? JSON.parse(obj) : obj;
         if (options && options.obj && this.typeName(obj) != "object") obj = {};
         if (options && options.list && this.typeName(obj) != "array") obj = [];
         if (options && options.str && this.typeName(obj) != "string") obj = "";
-    } catch(e) {
-        obj = onerror(e);
+    } catch(err) {
+        obj = this.checkResult(err, obj, options);
     }
     return obj;
+}
+
+// Perform validation of the result type, make sure we return what is expected, this is a helper that is used by other conversion routines
+corelib.checkResult = function(err, obj, options)
+{
+    if (options) {
+        if (options.error) logger.error('checkResult:', err, obj);
+        if (options.debug) logger.debug('checkResult:', err, obj);
+        if (options.obj) return {};
+        if (options.list) return [];
+        if (options.str) return "";
+    }
+    return null;
 }
 
 // Copy file and then remove the source, do not overwrite existing file

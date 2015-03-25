@@ -219,7 +219,6 @@ var db = {
                        api_que_hmean: { type: "real" },
                        pool_req_rmean: { type: "real" },
                        pool_req_hmean: { type: "real" },
-                       pool_req_hmean: { type: "real" },
                        pool_req_0: { type: "real" },
                        pool_errors_0: { type: "real" },
                        pool_que_rmean: { type: "real" },

@@ -1268,7 +1268,7 @@ tests.test_cache = function(callback)
                 core.cacheBind = core.ipaddrs[0];
                 core.cachePort = 20000;
                 ipc.initServer();
-                ipc.initClient();
+                ipc.initWorker();
                 break;
 
             case "run2":
@@ -1287,7 +1287,7 @@ tests.test_cache = function(callback)
             }
         }
         if (!core.test.iterations) {
-            ipc.initClient();
+            ipc.initWorker();
         }
         ipc.send("ready");
     }

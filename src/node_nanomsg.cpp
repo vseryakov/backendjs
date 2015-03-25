@@ -600,7 +600,7 @@ public:
 
         NNSocket* sock = ObjectWrap::Unwrap < NNSocket > (args.This());
         OPTIONAL_ARGUMENT_AS_STRING(0, str);
-        int rc = str.length() ? sock->Send(*str, str.length() + 1) : 0;
+        int rc = str.length() ? sock->Send(*str, str.length()) : 0;
         return scope.Close(Local<Integer>::New(Integer::New(rc)));
     }
 

@@ -26,6 +26,8 @@ var ipc = {
     redis: {},
     memcache: {},
     amqp: {},
+    serverQueue: core.name + ":server",
+    workerQueue: core.name + ":worker",
 };
 
 module.exports = ipc;
@@ -35,53 +37,61 @@ module.exports = ipc;
 ipc.onMessage = function(msg) {}
 
 // This function is called by Web worker process to setup IPC channels and support for cache and messaging
-ipc.initClient = function()
+ipc.initWorker = function()
 {
-    var self = this;
-
-    this.initClientCaching();
-    this.initClientQueueing();
+    var self = this
+    this.initWorkerCaching();
+    this.initWorkerQueueing();
 
     // Event handler for the worker to process response and fire callback
-    process.on("message", function(msg) {
-        logger.dev('msg:worker:', msg)
-        corelib.runCallback(self.msgs, msg);
+    process.on("message", function(msg) { self.handleWorkerMessages(msg) });
 
-        try {
-            switch (msg.op || "") {
-            case "api:restart":
-                core.modules.api.shutdown(function() { process.exit(0); });
-                break;
-
-            case "init:cache":
-                self.initClientCaching();
-                break;
-
-            case "init:msg":
-                self.initClientMessaging();
-                break;
-
-            case "init:dns":
-                core.loadDnsConfig();
-                break;
-
-            case "init:db":
-                db.initConfig();
-                break;
-
-            case "profiler":
-                core.profiler("cpu", msg.value ? "start" : "stop");
-                break;
-
-            case "heapsnapshot":
-                core.profiler("heap", "save");
-                break;
-            }
-            self.onMessage(msg);
-        } catch(e) {
-            logger.error('msg:worker:', e, msg);
-        }
+    // Listen for system messages
+    this.subscribe(this.workerQueue, function(ctx, key, data) {
+        self.handleWorkerMessages(corelib.jsonParse(data, { obj: 1, error: 1 }));
     });
+}
+
+ipc.handleWorkerMessages = function(msg)
+{
+    if (!msg) return;
+    logger.dev('handleWorkerMessages:', msg)
+    corelib.runCallback(this.msgs, msg);
+
+    try {
+        switch (msg.op || "") {
+        case "api:restart":
+            core.modules.api.shutdown(function() { process.exit(0); });
+            break;
+
+        case "init:cache":
+            this.initWorkerCaching();
+            break;
+
+        case "init:msg":
+            this.initWorkerMessaging();
+            break;
+
+        case "init:dns":
+            core.loadDnsConfig();
+            break;
+
+        case "init:config":
+            db.initConfig();
+            break;
+
+        case "profiler":
+            core.profiler("cpu", msg.value ? "start" : "stop");
+            break;
+
+        case "heapsnapshot":
+            core.profiler("heap", "save");
+            break;
+        }
+        this.onMessage(msg);
+    } catch(e) {
+        logger.error('handleWorkerMessages:', e, msg);
+    }
 }
 
 // This function is called by the Web master server process to setup IPC channels and support for cache and messaging
@@ -91,6 +101,7 @@ ipc.initServer = function()
 
     this.initServerCaching();
     this.initServerQueueing();
+    this.initWorkerQueueing();
 
     cluster.on("exit", function(worker, code, signal) {
         self.onMessage.call(worker, { op: "cluster:exit" });
@@ -98,102 +109,111 @@ ipc.initServer = function()
 
     cluster.on('fork', function(worker) {
         // Handle cache request from a worker, send back cached value if exists, this method is called inside worker context
-        worker.on('message', function(msg) {
-            if (!msg) return false;
-            logger.dev('msg:master:', msg);
-            try {
-                switch (msg.op) {
-                case "api:restart":
-                    // Start gracefull restart of all api workers, wait till a new worker starts and then send a signal to another in the list.
-                    // This way we keep active processes responding to the requests while restarting
-                    if (self.workers.length) break;
-                    for (var p in cluster.workers) self.workers.push(cluster.workers[p].pid);
-
-                case "api:ready":
-                    // Restart the next worker from the list
-                    if (!self.workers.length) break;
-                    for (var p in cluster.workers) {
-                        var idx = self.workers.indexOf(cluster.workers[p].pid);
-                        if (idx == -1) continue;
-                        self.workers.splice(idx, 1);
-                        cluster.workers[p].send({ op: "api:restart" });
-                        return;
-                    }
-                    break;
-
-                case "init:cache":
-                    self.initServerCaching();
-                    for (var p in cluster.workers) cluster.workers[p].send(msg);
-                    break;
-
-                case "init:msg":
-                    self.initServerMessaging();
-                    for (var p in cluster.workers) cluster.workers[p].send(msg);
-                    break;
-
-                case "init:db":
-                    db.initConfig();
-                    for (var p in cluster.workers) cluster.workers[p].send(msg);
-                    break;
-
-                case "init:dns":
-                    core.loadDnsConfig();
-                    for (var p in cluster.workers) cluster.workers[p].send(msg);
-                    break;
-
-                case 'stats':
-                    msg.value = utils.lruStats();
-                    worker.send(msg);
-                    break;
-
-                case 'keys':
-                    msg.value = utils.lruKeys();
-                    worker.send(msg);
-                    break;
-
-                case 'get':
-                    if (Array.isArray(msg.name)) {
-                        msg.value = {};
-                        msg.name.forEach(function(x) { msg.value[x] = utils.lruGet(x); });
-                    } else
-                    if (msg.name) {
-                        msg.value = utils.lruGet(msg.name);
-                    }
-                    worker.send(msg);
-                    break;
-
-                case 'exists':
-                    if (msg.name) msg.value = utils.lruExists(msg.name);
-                    worker.send(msg);
-                    break;
-
-                case 'put':
-                    if (msg.name && msg.value) utils.lruPut(msg.name, msg.value);
-                    if (msg.reply) worker.send(msg);
-                    break;
-
-                case 'incr':
-                    if (msg.name && msg.value) msg.value = utils.lruIncr(msg.name, msg.value);
-                    if (msg.reply) worker.send(msg);
-                    break;
-
-                case 'del':
-                    if (msg.name) utils.lruDel(msg.name);
-                    if (msg.reply) worker.send(msg);
-                    break;
-
-                case 'clear':
-                    utils.lruClear();
-                    if (msg.reply) worker.send({});
-                    break;
-                }
-                self.onMessage.call(worker, msg);
-
-            } catch(e) {
-                logger.error('msg:', e, msg);
-            }
-        });
+        worker.on('message', function(msg) { self.handleServerMessages(worker, msg) });
     });
+
+    // Listen for system messages
+    this.subscribe(this.serverQueue, function(ctx, key, data) {
+        self.handleServerMessages({ send: corelib.noop }, corelib.jsonParse(data, { obj: 1, error: 1 }));
+    });
+}
+
+// To be used in messages processing that came from the clients or other way
+ipc.handleServerMessages = function(worker, msg)
+{
+    if (!msg) return false;
+    logger.dev('handleServerMessages:', msg);
+    try {
+        switch (msg.op) {
+        case "api:restart":
+            // Start gracefull restart of all api workers, wait till a new worker starts and then send a signal to another in the list.
+            // This way we keep active processes responding to the requests while restarting
+            if (this.workers.length) break;
+            for (var p in cluster.workers) this.workers.push(cluster.workers[p].pid);
+
+        case "api:ready":
+            // Restart the next worker from the list
+            if (!this.workers.length) break;
+            for (var p in cluster.workers) {
+                var idx = this.workers.indexOf(cluster.workers[p].pid);
+                if (idx == -1) continue;
+                this.workers.splice(idx, 1);
+                cluster.workers[p].send({ op: "api:restart" });
+                return;
+            }
+            break;
+
+        case "init:cache":
+            this.initServerCaching();
+            for (var p in cluster.workers) cluster.workers[p].send(msg);
+            break;
+
+        case "init:msg":
+            this.initServerMessaging();
+            for (var p in cluster.workers) cluster.workers[p].send(msg);
+            break;
+
+        case "init:config":
+            db.initConfig();
+            for (var p in cluster.workers) cluster.workers[p].send(msg);
+            break;
+
+        case "init:dns":
+            core.loadDnsConfig();
+            for (var p in cluster.workers) cluster.workers[p].send(msg);
+            break;
+
+        case 'stats':
+            msg.value = utils.lruStats();
+            worker.send(msg);
+            break;
+
+        case 'keys':
+            msg.value = utils.lruKeys();
+            worker.send(msg);
+            break;
+
+        case 'get':
+            if (Array.isArray(msg.name)) {
+                msg.value = {};
+                msg.name.forEach(function(x) { msg.value[x] = utils.lruGet(x); });
+            } else
+            if (msg.name) {
+                msg.value = utils.lruGet(msg.name);
+            }
+            worker.send(msg);
+            break;
+
+        case 'exists':
+            if (msg.name) msg.value = utils.lruExists(msg.name);
+            worker.send(msg);
+            break;
+
+        case 'put':
+            if (msg.name && msg.value) utils.lruPut(msg.name, msg.value);
+            if (msg.reply) worker.send(msg);
+            break;
+
+        case 'incr':
+            if (msg.name && msg.value) msg.value = utils.lruIncr(msg.name, msg.value);
+            if (msg.reply) worker.send(msg);
+            break;
+
+        case 'del':
+            if (msg.name) utils.lruDel(msg.name);
+            if (msg.reply) worker.send(msg);
+            break;
+
+        case 'clear':
+            utils.lruClear();
+            if (msg.reply) worker.send({});
+            break;
+        }
+        this.onMessage.call(worker, msg);
+
+    } catch(e) {
+        logger.error('handleServerMessages:', e, msg);
+    }
 }
 
 // Initialize caching system for the configured cache type, can be called many time to re-initialize if the environment has changed
@@ -247,7 +267,7 @@ ipc.initServerCaching = function()
 }
 
 // Initialize web worker caching system, can be called anytime the environment has changed
-ipc.initClientCaching = function()
+ipc.initWorkerCaching = function()
 {
     var self = this;
     switch (core.cacheType) {
@@ -268,6 +288,7 @@ ipc.initClientCaching = function()
 // Initialize queue system for the server process, can be called multiple times in case environment has changed
 ipc.initServerQueueing = function()
 {
+    var self = this;
     switch (core.queueType) {
     case "redis":
         break;
@@ -289,7 +310,7 @@ ipc.initServerQueueing = function()
 
 // Initialize web worker queue system, client part, sends all publish messages to this socket which will be broadcasted into the
 // publish socket by the receiving end. Can be called anytime to reconfigure if the environment has changed.
-ipc.initClientQueueing = function()
+ipc.initWorkerQueueing = function()
 {
     var self = this;
 
@@ -336,7 +357,6 @@ ipc.initClientQueueing = function()
 // Close all caching and messaging clients, can be called by a server or a worker
 ipc.shutdown = function()
 {
-    var self = this;
     ["nanomsg","redis","memcache","amqp"].forEach(function(type) { for (var name in this[type]) { this.close(type, name); } });
 }
 
@@ -688,7 +708,7 @@ ipc.incr = function(key, val, options)
 
 // Subscribe to the publishing server for messages starting with the given key, the callback will be called only on new data received, the data
 // is passed to the callback as first argument, if not specified then "undefined" will still be passed, the actual key will be passed as the second
-// argument, the mesages received as the third argument
+// argument, the message received as the third argument
 //
 //  Example:
 //
@@ -698,7 +718,7 @@ ipc.incr = function(key, val, options)
 //
 ipc.subscribe = function(key, callback, data)
 {
-    var self = this;
+    if (typeof callback != "function") return;
     try {
         switch (core.queueType) {
         case "redis":
@@ -727,7 +747,6 @@ ipc.subscribe = function(key, callback, data)
 // Close subscription
 ipc.unsubscribe = function(key)
 {
-    var self = this;
     try {
         delete this.subCallbacks[key];
         switch (core.queueType) {
@@ -754,7 +773,6 @@ ipc.unsubscribe = function(key)
 // Publish an event to be sent to the subscribed clients
 ipc.publish = function(key, data)
 {
-    var self = this;
     try {
         switch (core.queueType) {
         case "redis":

@@ -62,6 +62,10 @@ system.configureSystemAPI = function()
             }
             break;
 
+        case "publish":
+            ipc.publish(req.query.key, req.query.value);
+            break;
+
         case "stats":
             switch (req.params[1]) {
             case 'get':
@@ -137,6 +141,7 @@ system.configureSystemAPI = function()
         case "log":
             logger.log(req.query);
             res.json({});
+            break;
 
         case "cache":
             switch (req.params[1]) {

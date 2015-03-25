@@ -1689,6 +1689,22 @@ To configure the backend to use Redis for messaging set `queue-type=redis` and `
 ## RabbitMQ
 To configure the backend to use RabbitMQ for messaging set `queue-type=amqp` and `amqp-host=HOST` and optionally `amqp-options=JSON` with options to the amqp module.
 
+## Server/worker messaging
+
+When any of the supported queue systems is initialized there are 2 special subscriptions created for servers and workers. Every server and worker process
+subscribed to the corresponding queue (`ipc.serverQueue` and `ipc.workerQueue`) and listens for incoming messages.
+
+This is supposed to be used for distributing special messages to all workers or servers independently
+with special messages like configuration, setup, restart or any other action a running backend process should take.
+
+For example, to send all workers in a cluster a message to refresh config:
+
+    ipc.publish(ipc.workerQueue, { op: "init:config" })
+
+To update all master server caches:
+
+    ipc.publish(ipc.serverQueue, { op: "put", name: "counter", value: "123" })
+
 # Security configurations
 
 ## API only

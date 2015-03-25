@@ -391,7 +391,7 @@ server.startWeb = function(options)
         if (core.replPortWeb) self.startRepl(core.replPortWeb + 1 + corelib.toNumber(cluster.worker.id), core.replBindWeb);
 
         // Setup IPC communication
-        ipc.initClient();
+        ipc.initWorker();
 
         // Init API environment
         api.init(options, function(err) {
@@ -774,7 +774,7 @@ server.startShell = function(options)
             });
             return;
         }
-        ipc.initClient();
+        ipc.initWorker();
         core.createRepl();
     });
 }
