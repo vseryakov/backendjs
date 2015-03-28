@@ -1984,6 +1984,46 @@ See web/js/bkjs.js for function Bkjs.sign or function core.signRequest in the co
             '2013.10.20.0'
             > logger.setDebug(2)
 
+# Design considerations
+
+While creating Backendjs there were many questions and issues to be considered, some i was able to implement, some still not. Below are the thoughts that
+might be useful when desining, developing or choosing the API platform:
+
+- purpose of the API:
+  - to expose some parts of the existing system to external apps, users...
+  - to make it the only way to access services
+  - to complement another system
+- scalability considerations:
+  - unlimited/uncontrolled access like mobile, web, more users the better
+  - enterprise level, controlled growth
+  - not to be horizontally scalable, just vertically
+- security:
+  - support authentication, users, accounts, profiles...
+  - just for robots, limited by api key only
+  - signed requests only
+  - support all access, web, mobile, desktop
+  - user access controls, how to distinguish users, grant access to only parts of the API
+  - ability to run custom/specific filters during processing API requests, independently and ability to extend the app without rewriting/rebuilding the whole system
+  - third party authentication, OAUTH, user mapping
+- platform/framework:
+  - one for all, same language/SDK/framework to cover all aspects
+  - multiple languages/frameworks for different tasks, then how to integrate, how to communicate, share code
+  - availability of the third party modules, libraries
+  - support, forums, docs, how easy to learn for new developers
+  - modularity, ability to develop by multiple developers, teams
+  - flexibility in extending, how simple/easy to add custom stuff
+  - maintenance, support,how easy to scale, change, replace parts
+- database layer:
+  - one central database for everything
+  - multiple database for different parts of the system according to scalability/other requirements
+  - switch databases behind the scene in order to scale, adding to features, easier to maintain
+  - caching, needs to be independent from other parts and easily enabled/disabled for different components preferably via config
+  - to have or not ORM
+- process management, easy to deploy, monitor
+- logging, metrics, profiling
+- agnostic to the frontends or to be included with some kind of MVC/server based tools
+- ability to support simple Web development for simple web pages without installing/supporting general purpose tools like Apache/PHP/nginx
+
 # Author
   Vlad Seryakov
 

@@ -160,6 +160,7 @@ var db = {
                    status: {},                                         // Status of the account
                    type: { admin: 1 },                                 // Account type: admin, ....
                    secret: { secure: 1 },                              // Account password
+                   auth_secret: { admin: 1, secure: 1 },               // Code for 2-factor authentication
                    token_secret: { admin: 1, secure: 1 },              // Secret for access tokens
                    acl_deny: { admin: 1, secure: 1 },                  // Deny access to matched url, a regexp
                    acl_allow: { admin: 1, secure: 1 },                 // Only grant access if path matches this regexp

@@ -60,6 +60,7 @@
 </li>
 <li><a href="#security"> Security</a></li>
 <li><a href="#backend-framework-development-mac-os-x-developers-"> Backend framework development (Mac OS X, developers)</a></li>
+<li><a href="#design-considerations"> Design considerations</a></li>
 <li><a href="#author"> Author</a></li>
 <li><a href="#configuration-parameters">Configuration parameters</a></li>
 <li>Javascript API functions<ul>
@@ -1909,6 +1910,55 @@ node can find global modules, replace $BKJS_PREFIX with the actual path unless t
       &#39;2013.10.20.0&#39;
       &gt; logger.setDebug(2)
 </code></pre></li>
+</ul>
+<h1 id="design-considerations">Design considerations</h1>
+<p>While creating Backendjs there were many questions and issues to be considered, some i was able to implement, some still not. Below are the thoughts that
+might be useful when desining, developing or choosing the API platform:</p>
+<ul>
+<li>purpose of the API:<ul>
+<li>to expose some parts of the existing system to external apps, users...</li>
+<li>to make it the only way to access services</li>
+<li>to complement another system</li>
+</ul>
+</li>
+<li>scalability considerations:<ul>
+<li>unlimited/uncontrolled access like mobile, web, more users the better</li>
+<li>enterprise level, controlled growth</li>
+<li>not to be horizontally scalable, just vertically</li>
+</ul>
+</li>
+<li>security:<ul>
+<li>support authentication, users, accounts, profiles...</li>
+<li>just for robots, limited by api key only</li>
+<li>signed requests only</li>
+<li>support all access, web, mobile, desktop</li>
+<li>user access controls, how to distinguish users, grant access to only parts of the API</li>
+<li>ability to run custom/specific filters during processing API requests, independently and ability to extend the app without rewriting/rebuilding the whole system</li>
+<li>third party authentication, OAUTH, user mapping</li>
+</ul>
+</li>
+<li>platform/framework:<ul>
+<li>one for all, same language/SDK/framework to cover all aspects</li>
+<li>multiple languages/frameworks for different tasks, then how to integrate, how to communicate, share code</li>
+<li>availability of the third party modules, libraries</li>
+<li>support, forums, docs, how easy to learn for new developers</li>
+<li>modularity, ability to develop by multiple developers, teams</li>
+<li>flexibility in extending, how simple/easy to add custom stuff</li>
+<li>maintenance, support,how easy to scale, change, replace parts</li>
+</ul>
+</li>
+<li>database layer:<ul>
+<li>one central database for everything</li>
+<li>multiple database for different parts of the system according to scalability/other requirements</li>
+<li>switch databases behind the scene in order to scale, adding to features, easier to maintain</li>
+<li>caching, needs to be independent from other parts and easily enabled/disabled for different components preferably via config</li>
+<li>to have or not ORM</li>
+</ul>
+</li>
+<li>process management, easy to deploy, monitor</li>
+<li>logging, metrics, profiling</li>
+<li>agnostic to the frontends or to be included with some kind of MVC/server based tools</li>
+<li>ability to support simple Web development for simple web pages without installing/supporting general purpose tools like Apache/PHP/nginx</li>
 </ul>
 <h1 id="author">Author</h1>
 <p>  Vlad Seryakov</p>
@@ -4464,6 +4514,7 @@ database like DynamoDB for real-time requests and slower SQL database running on
                  status: {},                                         // Status of the account
                  type: { admin: 1 },                                 // Account type: admin, ....
                  secret: { secure: 1 },                              // Account password
+                 auth_secret: { admin: 1, secure: 1 },               // Code for 2-factor authentication
                  token_secret: { admin: 1, secure: 1 },              // Secret for access tokens
                  acl_deny: { admin: 1, secure: 1 },                  // Deny access to matched url, a regexp
                  acl_allow: { admin: 1, secure: 1 },                 // Only grant access if path matches this regexp

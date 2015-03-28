@@ -914,6 +914,7 @@ api.checkSignature = function(req, callback)
             break;
 
         case 4:
+            if (account.auth_secret) secret += ":" + account.auth_secret;
         default:
             sig.str = sig.version + "\n" + (sig.tag || "") + "\n" + sig.login + "\n" + sig.method + "\n" + sig.host + "\n" + sig.path + "\n" + query + "\n" + sig.expires + "\n" + sig.type + "\n" + sig.checksum + "\n";
             sig.hash = corelib.sign(secret, sig.str, "sha256");

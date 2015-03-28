@@ -150,7 +150,6 @@ case "$ARG" in
     name=${ARG:5}
     [ "$name" = "" ] && exit 0
     $KILLALL $1 "$BKJS_MOD: $name"
-    $KILLALL $1 "$BKJS_MOD: $name"
     exit 0
     ;;
 
