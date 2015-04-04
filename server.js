@@ -767,6 +767,8 @@ server.startShell = function(options)
             }, function(err) {
                 exit(err);
             });
+            return;
+        }
 
         // Import records from previous scan/select, the format MUST be json, one record per line
         if (core.isArg("-db-import")) {
