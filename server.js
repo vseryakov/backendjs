@@ -558,9 +558,27 @@ server.startShell = function(options)
         var query = {};
         for (var i = process.argv.length - 1; i > 1; i -= 2) {
             var a = process.argv[i - 1][0], b = process.argv[i][0];
-            if (a == '_' && b != '_' && b != '-') query[process.argv[i - 1]] = process.argv[i];
+            if (a == '-' || a == '_') query[process.argv[i - 1]] =  b != '_' && b != '-' ? process.argv[i] : 1;
         }
         return api.getOptions({ query: query, options: { path: ["", "", ""], ops: {} } });
+    }
+    function dbImport(file, table, opts, callback) {
+        corelib.series([
+            function(next) {
+                if (!opts.drop) return next();
+                db.drop(table, opts, next);
+            },
+            function(next) {
+                if (!opts.drop) return next();
+                db.create(table, db.getTableProperties(table, opts), opts, next);
+            },
+            function(next) {
+                corelib.forEachLine(file, opts, function(line, next2) {
+                    var row = corelib.jsonParse(line, { error: 1 });
+                    if (!row) return next2(nostop ? null : "ERROR: parse error, line: " + opts.lines);
+                    db.put(table, row, opts, function() { next2(nostop ? null : err) });
+                }, next);
+            }], callback);
     }
 
     core.runMethods("configureShell", options, function(err, opts) {
@@ -682,6 +700,14 @@ server.startShell = function(options)
             return;
         }
 
+        // Show all tables
+        if (core.isArg("-db-tables")) {
+            var sep = core.getArg("-separator", "\n");
+            var tables = db.getPoolTables(db.pool, { names: 1 });
+            console.log(tables.join(sep));
+            exit(err);
+        }
+
         // Show all records
         if (core.isArg("-db-select")) {
             var query = getQuery(), opts = getOptions(), table = core.getArg("-table"), sep = core.getArg("-separator", "!"), fmt = core.getArg("-format");
@@ -716,14 +742,36 @@ server.startShell = function(options)
             return;
         }
 
+        // Save all tables
+        if (core.isArg("-db-backup")) {
+            var opts = getOptions(), path = core.getArg("-path"), tables = db.getPoolTables(db.pool, { names: 1 });
+            corelib.forEachSeries(tables, function(table, next) {
+                file = (path ? path + "/" : "") + table +  ".json";
+                fs.writeFileSync(file, "");
+                db.scan(table, query, opts, function(row, next2) {
+                    fs.appendFileSync(file, JSON.stringify(row) + "\n");
+                    next2();
+                }, next);
+            }, function(err) {
+                exit(err);
+            });
+            return;
+        }
+
+        // Restore tables
+        if (core.isArg("-db-restore")) {
+            var opts = getOptions(), path = core.getArg("-path"), tables = db.getPoolTables(db.pool, { names: 1 });
+            corelib.forEachSeries(corelib.findFileSync(path, { depth: 1, types: "f", include: /\.json$/ }), function(file, next) {
+                var table = file.split("/").pop();
+                dbImport(file, table, opts, next);
+            }, function(err) {
+                exit(err);
+            });
+
         // Import records from previous scan/select, the format MUST be json, one record per line
         if (core.isArg("-db-import")) {
-            var query = getQuery(), opts = getOptions(), table = core.getArg("-table"), file = core.getArg("-file"), nostop = core.getArgInt("-nostop");
-            corelib.forEachLine(file, opts, function(line, next) {
-                var row = corelib.jsonParse(line, { error: 1 });
-                if (!row) return next(nostop ? null : "ERROR: parse error, line: " + opts.lines);
-                db.put(table, row, opts, function(err) { next(nostop ? null : err) });
-            }, function(err) {
+            var query = getQuery(), opts = getOptions(), table = core.getArg("-table"), file = core.getArg("-file");
+            dbImport(file, table, opts, function(err) {
                 exit(err);
             });
             return;
@@ -755,10 +803,28 @@ server.startShell = function(options)
             return;
         }
 
-        // Delete config entry
+        // Delete a recprd
         if (core.isArg("-db-del")) {
             var query = getQuery(), opts = getOptions(), table = core.getArg("-table");
             db.del(table, query, opts, function(err, data) {
+                exit(err);
+            });
+            return;
+        }
+
+        // Delete all records
+        if (core.isArg("-db-del-all")) {
+            var query = getQuery(), opts = getOptions(), table = core.getArg("-table");
+            db.delAll(table, query, opts, function(err, data) {
+                exit(err);
+            });
+            return;
+        }
+
+        // Drop a table
+        if (core.isArg("-db-drop")) {
+            var opts = getOptions(), table = core.getArg("-table");
+            db.drop(table, opts, function(err, data) {
                 exit(err);
             });
             return;

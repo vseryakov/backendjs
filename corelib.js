@@ -1494,6 +1494,11 @@ corelib.findFilter = function(file, stat, options)
 //   - depth - if a number it specifies max depth to go into the subfolders, starts with 1
 //   - types - a string with types of files to include: d - a dir, f - a file, l - a symlink, c - char dev, b - block dev, s - socket, p - a FIFO
 //   - base - if set only keep base file name in the result, not full path
+//
+//  Example:
+//
+//        corelib.findFileSync("modules/", { depth: 1, types: "f", include: /\.js$/ }).sort()
+//
 corelib.findFileSync = function(file, options)
 {
     var list = [];

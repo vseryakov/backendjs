@@ -1931,11 +1931,17 @@ db.getColumn = function(table, name, options)
     return this.getColumns(table, options)[name];
 }
 
-// Return a value for the given property from the column definition, return empty string if no column or attribute found
-db.getColumnProperty = function(table, name, attr, options)
+// Return a table definition which was used to create the table. This is different from cached table columns
+// and only contains the original properties which are merged with the cached properties of existing table.
+db.getTableProperties = function(table, options)
 {
-    var col = this.getColumns(table, options)[name];
-    return col ? col[attr] : "";
+    return this.getPool(table, options).dbtables[(table || "").toLowerCase()] || {};
+}
+
+// Return columns for a table or null, columns is an object with column names and objects for definition
+db.getColumns = function(table, options)
+{
+    return this.getPool(table, options).dbcolumns[(table || "").toLowerCase()] || {};
 }
 
 // Return an object with capacity property which is the max write capacity for the table, for DynamoDB only. It check writeCapacity property

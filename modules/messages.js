@@ -325,7 +325,7 @@ messages.delMessage = function(req, options, callback)
     if (req.query.mtime && req.query[sender]) {
         return db.del(table, { id: req.account.id, mtime: req.query.mtime, sender: req.query[sender] }, options, function(err) {
             if (err || !req.query.icon) return callback(err, []);
-            api.delIcon(req.account.id, { prefix: "message", type: req.query.mtime + ":" + req.query[sender] }, callback);
+            api.delIcon(req.account.id, { prefix: "message", type: req.query.mtime + ":" + req.query[sender] }, function() { callback() });
         });
     }
 
@@ -338,7 +338,7 @@ messages.delMessage = function(req, options, callback)
             if (req.query[sender] && row[sender] != req.query[sender]) return next();
             db.del(table, row, function(err) {
                 if (err || !row.icon) return next(err);
-                api.delIcon(req.account.id, { prefix: "message", type: row.mtime + ":" + row[sender] }, next);
+                api.delIcon(req.account.id, { prefix: "message", type: row.mtime + ":" + row[sender] }, function() { next() });
             });
         }, callback);
     });

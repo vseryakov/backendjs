@@ -161,11 +161,11 @@ These features can be run standalone or under the guard of the monitor which tra
 
 This is the typical output from the ps command on Linux server:
 
-            root       891  0.0  0.6 1071632 49504 ?       Ssl  14:33   0:01 backendjs: monitor
-            backend    899  0.0  0.6 1073844 52892 ?       Sl   14:33   0:01 backendjs: master
-            root       908  0.0  0.8 1081020 68780 ?       Sl   14:33   0:02 backendjs: server
-            backend    917  0.0  0.7 1072820 59008 ?       Sl   14:33   0:01 backendjs: web
-            backend    919  0.0  0.7 1072820 60792 ?       Sl   14:33   0:02 backendjs: web
+    ec2-user    891  0.0  0.6 1071632 49504 ?  Ssl  14:33   0:01 backendjs: monitor
+    ec2-user    899  0.0  0.6 1073844 52892 ?  Sl   14:33   0:01 backendjs: master
+    ec2-user    908  0.0  0.8 1081020 68780 ?  Sl   14:33   0:02 backendjs: server
+    ec2-user    917  0.0  0.7 1072820 59008 ?  Sl   14:33   0:01 backendjs: web
+    ec2-user    919  0.0  0.7 1072820 60792 ?  Sl   14:33   0:02 backendjs: web
 
 
 To enable any task a command line parameter must be provided, it cannot be specified in the config file. The `bkjs` utility supports several
@@ -253,7 +253,7 @@ Once loaded they have the same access to the backend as the rest of the code, th
 can be shipped regardless of the npm, node nodules and other env setup. These modules are exposed in the `core.modules` the same way as all other core submodules
 methods.
 
-Let's assuming the modules/ contains file facebook.js which implements custom FB logic:
+Let's assume the modules/ contains file facebook.js which implements custom FB logic:
 
             var bkjs = require("backendjs");
             var fb = {}
@@ -357,7 +357,7 @@ All API endpoints are optional and can be disabled or replaced easily. By defaul
 
 Any HTTP methods can be used because its the command in the URL that defines the operation. The payload can be urlencoded query
 parameters or JSON or any other format supported by any particular endpoint. This makes the backend universal and usable with any
-environment, not just a Web browser. Event signature can be passed in the query so it does not require HTTP headers at all.
+environment, not just a Web browser. Request signature can be passed in the query so it does not require HTTP headers at all.
 
 ## Authentication and sessions
 
@@ -1879,7 +1879,7 @@ how the environment is setup it is ultimatley 2 ways to specify the port for HTT
 - config database
 
   If `-db-config` is specified in the command line or `db-config=` in the local config file, this will trigger loading additional
-  config parameters from the specified databae pool, it will load all records from tbe bk_config table on that db pool. `db-config-type` defines the
+  config parameters from the specified database pool, it will load all records from tbe bk_config table on that db pool. `db-config-type` defines the
   configuration group or type to load, by default all records will be use for config parameters if not specified. Using the database to store
   configuration make it easier to maintain dynamic environment for example in case of auto scaling or lanching on demand, this way
   a new instance will query current config from the database and this eliminates supporting text files and distributing them to all instances.

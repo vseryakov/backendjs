@@ -1514,7 +1514,7 @@ aws.ddbCreateTable = function(name, attrs, keys, options, callback)
     });
 
     this.queryDDB('CreateTable', params, options, function(err, item) {
-        if (err) return callback(err, item);
+        if (err || options.nowait) return callback(err, item);
 
         // Wait because DynamoDB cannot create multiple tables at once especially with indexes
         options.waitStatus = "CREATING";
@@ -1604,13 +1604,14 @@ aws.ddbUpdateTable = function(options, callback)
     this.queryDDB('UpdateTable', params, options, callback);
 }
 
-// Remove a table from the database
+// Remove a table from the database.
+// By default the callback will ba callled only after the table is deleted, specifying `options.nowait` will return immediately
 aws.ddbDeleteTable = function(name, options, callback)
 {
     var self = this;
     var params = { TableName: name };
     this.queryDDB('DeleteTable', params, options, function(err, item) {
-        if (err) return callback(err, item);
+        if (err || options.nowait) return callback(err, item);
         options.waitStatus = "DELETING";
         self.ddbWaitForTable(name, item, options, callback);
     });
