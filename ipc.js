@@ -16,7 +16,8 @@ var memcached = require('memcached');
 var redis = require("redis");
 var amqp = require('amqp');
 
-// IPC communications between processes and support for caching and messaging
+// IPC communications between processes and support for caching and messaging.
+// Local cache is implemented as LRU cached configued with `-lru-max` parameter defining how many items to keep in the cache.
 var ipc = {
     subCallbacks: {},
     msgs: {},
@@ -180,6 +181,11 @@ ipc.handleServerMessages = function(worker, msg)
             } else
             if (msg.name) {
                 msg.value = utils.lruGet(msg.name);
+                // Set initial value if does not exist or empty
+                if (!msg.value && msg.set) {
+                    utils.lruPut(msg.name, msg.value = msg.set);
+                    delete msg.set;
+                }
             }
             worker.send(msg);
             break;
@@ -245,19 +251,19 @@ ipc.initServerCaching = function()
             // \2key\2val - set key with val
             // \3key\3val - incr key by val
             // \4 - clear cache
-            switch (data[0]) {
-            case "\1":
+            switch (data.charCodeAt(0)) {
+            case 1:
                 utils.lruDel(data.substr(1));
                 break;
-            case "\2":
-                data = data.substr(1).split("\2");
+            case 2:
+                data = data.substr(1).split("\u0002");
                 utils.lruPut(data[0], data[1]);
                 break;
-            case "\3":
-                data = data.substr(1).split("\3");
+            case 3:
+                data = data.substr(1).split("\u0003");
                 utils.lruIncr(data[0], data[1]);
                 break;
-            case "\4":
+            case 4:
                 utils.lruClear();
                 break;
             }
@@ -346,7 +352,7 @@ ipc.initWorkerQueueing = function()
         // Socket where we receive messages for us
         this.connect('sub', "nanomsg", core.queueHost, core.queuePort + 1, { type: utils.NN_SUB }, function(err, data) {
             if (err) return logger.error('subscribe:', err);
-            data = data.split("\1");
+            data = data.split("\u0001");
             var cb = self.subCallbacks[data[0]];
             if (cb) cb[0](cb[1], data[0], data[1]);
         });
@@ -380,7 +386,6 @@ ipc.send = function(op, name, value, options, callback)
     var msg = { op: op };
     if (name) msg.name = name;
     if (value) msg.value = typeof value == "object" ? corelib.stringify(value) : value;
-    if (options && options.local) msg.local = true;
     this.command(msg, callback, options ? options.timeout : 0);
 }
 
@@ -499,6 +504,7 @@ ipc.close = function(name, type)
     delete this[type][name];
 }
 
+// Returns the cache statistics, the format depends on the cache type used
 ipc.stats = function(callback)
 {
     try {
@@ -524,6 +530,7 @@ ipc.stats = function(callback)
     }
 }
 
+// Returns in the callback all cached keys
 ipc.keys = function(callback)
 {
     if (typeof callback != "function") callback = corelib.noop;
@@ -563,6 +570,7 @@ ipc.keys = function(callback)
     }
 }
 
+// Clear all cached items
 ipc.clear = function()
 {
     try {
@@ -579,7 +587,7 @@ ipc.clear = function()
 
         case "nanomsg":
             if (!this.nanomsg.lpush) break;
-            this.nanomsg.lpush.send("\4");
+            this.nanomsg.lpush.send("\u0004");
             break;
 
         case "local":
@@ -591,6 +599,14 @@ ipc.clear = function()
     }
 }
 
+// Retrive an item from the cache by key.
+// If `options.set` is given and no value exists in the cache it will be set as the initial value.
+//
+// Example
+//
+//    ipc.get("my:key", function(data) { console.log(data) });
+//    ipc.get("my:counter", { init: 10 }, function(data) { console.log(data) });
+//
 ipc.get = function(key, options, callback)
 {
     if (typeof options == "function") callback = options, options = null;
@@ -613,7 +629,7 @@ ipc.get = function(key, options, callback)
 
         case "nanomsg":
         case "local":
-            this.send("get", key, "", options, callback);
+            this.send("get", key, options.set, options, callback);
             break;
         }
     } catch(e) {
@@ -622,6 +638,7 @@ ipc.get = function(key, options, callback)
     }
 }
 
+// Delete an item by key
 ipc.del = function(key, options)
 {
     try {
@@ -638,7 +655,7 @@ ipc.del = function(key, options)
 
         case "nanomsg":
             if (!this.nanomsg.lpush) break;
-            this.nanomsg.lpush.send("\1" + key);
+            this.nanomsg.lpush.send("\u0001" + key);
             break;
 
         case "local":
@@ -650,6 +667,7 @@ ipc.del = function(key, options)
     }
 }
 
+// Replace or put a new item in the cache
 ipc.put = function(key, val, options)
 {
     try {
@@ -666,7 +684,7 @@ ipc.put = function(key, val, options)
 
         case "nanomsg":
             if (!this.nanomsg.lpush) break;
-            this.nanomsg.lpush.send("\2" + key + "\2" + val);
+            this.nanomsg.lpush.send("\u0002" + key + "\u0002" + val);
             break;
 
         case "local":
@@ -678,6 +696,7 @@ ipc.put = function(key, val, options)
     }
 }
 
+// Increase/decrease a counter in the cache, non existent items are treated as 0
 ipc.incr = function(key, val, options)
 {
     try {
@@ -694,7 +713,7 @@ ipc.incr = function(key, val, options)
 
         case "nanomsg":
             if (!this.nanomsg.lpush) break;
-            this.nanomsg.lpush.send("\3" + key + "\3" + val);
+            this.nanomsg.lpush.send("\u0003" + key + "\u0003" + val);
             break;
 
         case "local":
@@ -744,7 +763,7 @@ ipc.subscribe = function(key, callback, data)
     }
 }
 
-// Close subscription
+// Close a subscription
 ipc.unsubscribe = function(key)
 {
     try {
@@ -787,7 +806,7 @@ ipc.publish = function(key, data)
 
         case "nanomsg":
             if (!this.nanomsg.pub) break;
-            this.nanomsg.pub.send(key + "\1" + JSON.stringify(data));
+            this.nanomsg.pub.send(key + "\u0001" + JSON.stringify(data));
             break;
         }
     } catch(e) {

@@ -89,6 +89,8 @@ var api = {
            { name: "collect-send-interval", type: "number", min: 60, descr: "How often to send collected statistics to the master server in seconds" },
            { name: "secret-policy", type: "regexpmap", descr : "An JSON object with list of regexps to validate account password, each regexp comes with an error message to be returned if such regexp fails, `api.checkAccountSecret` performs the validation, example: { '[a-z]+': 'At least one lowercase letter', '[A-Z]+': 'At least one upper case letter' }" },
            { name: "cors-origin", descr: "Origin header for CORS requests" },
+           { name: "rlimit-max-([a-z]+)", type: "int", obj: "rlimit", descr: "Set max/burst rate limit by the given property, it is used by the request rate limiter using Token Bucket algorithm. Valid suffixes: ip, id, login" },
+           { name: "rlimit-fill-([a-z]+)", type: "int", obj: "rlimit", descr: "Set fill/normal rate limit by the given property, it is used by the request rate limiter using Token Bucket algorithm. Valid suffixes: ip, id, login" },
            { name: "exit-on-error", type: "bool", descr: "Exit on uncaught exception" },
            { name: "signature-age", type: "int", descr: "Max age for request signature in milliseconds, how old the API signature can be to be considered valid, the 'expires' field in the signature must be less than current time plus this age, this is to support time drifts" },
            { name: "upload-limit", type: "number", min: 1024*1024, max: 1024*1024*10, descr: "Max size for uploads, bytes"  },
@@ -122,7 +124,8 @@ var api = {
     redirectSsl: {},
     // Refuse access to these urls
     deny: {},
-
+    // Rate limits
+    rlimit: {},
     // Global redirect rules, each rule must match host/path to be redirected
     redirectUrl: [],
 
@@ -264,6 +267,16 @@ api.init = function(options, callback)
         next();
     });
 
+    // Rate limits by IP address
+    if (self.rlimit.maxIp && self.rlimit.fillIp) {
+        self.app.use(function(req, res, next) {
+            self.checklimits(req, { type: "ip", max: self.rlimit.maxIp, fill: self.rlimit.fillIp }, function(err) {
+                if (err) return self.sendReply(res, 429, err);
+                next();
+            });
+        });
+    }
+
     // Allow cross site requests
     self.app.use(function(req, res, next) {
         res.header('Server', core.name + '/' + core.version + " " + core.appName + "/" + core.appVersion);
@@ -391,6 +404,16 @@ api.init = function(options, callback)
         req._noRouter = 1;
         next();
     });
+
+    // Rate limit for accounts
+    if (self.rlimit.maxLogin && self.rlimit.fillLogin) {
+        self.app.use(function(req, res, next) {
+            self.checklimits(req, { type: "login", max: self.rlimit.maxLogin, fill: self.rlimit.fillLogin }, function(err) {
+                if (err) return self.sendReply(res, 429, err);
+                next();
+            });
+        });
+    }
 
     // Config options for Express
     self.expressEnable.forEach(function(x) {
@@ -1068,6 +1091,42 @@ api.handleSessionSignature = function(req, options)
 api.checkAccountType = function(row, type)
 {
     return corelib.typeName(row) == "object" && typeof row.type == "string" && corelib.strSplit(row.type).indexOf(type) > -1;
+}
+
+// Perform rate limiting by specified property, if not given no limiting is done.
+// The following options properties can be used:
+//  - type - one of `ip, login, id`, determines by which property to perform limiting, when using account properties
+//     the rate limiter should be called after the request signature has been parsed
+//  - max - max capacity to be used by default
+//  - rate - fill rate to be used by default
+//
+// When used for accounts, it is possible to override rate limits for each account in the `bk_auth` table by setting `rlimit_max` and `rlimit_fill`
+// columns. To enable account rate limits the global defaults still must be set with the config paramaters `-api-rlimit-max-login` and `-api-rlimit-fill-login`
+// for example.
+api.checklimits = function(req, options, callback)
+{
+    var key = '', max = options.max || 0, rate = options.rate || 0;
+    switch (options.type) {
+    case "ip":
+        key = 'TBip:' + req.ip;
+        break;
+
+    case "id":
+    case "login":
+        if (!req.account[options.type]) break;
+        key = 'TB' + options.type + ":" + req.account[options.type];
+        max = req.account.rlimit_max || max;
+        rate = req.account.rlimit_rate || rate;
+        break;
+    }
+    if (!key || !max || !rate) return callback();
+
+    ipc.get(key, function(bucket) {
+        if (!bucket) bucket = corelib.createTokenBucket(max, rate);
+        var consumed = corelib.tokenBucketConsume(bucket, 1);
+        ipc.put(key, bucket);
+        callback(!consumed ? "Request limit exceeded " + rate + "reqs/sec" : null);
+    });
 }
 
 // Convert query options into internal options, such options are prepended with the underscore to

@@ -1693,6 +1693,42 @@ corelib.mkdirSync = function()
     }
 }
 
+// Create a Token Bucket object for rate limiting as per http://en.wikipedia.org/wiki/Token_bucket
+//  - capacity - the maximum burst capacity
+//  - fillRate - the rate to refill tokens.
+//
+// Based on https://github.com/thisandagain/micron-throttle
+//
+corelib.createTokenBucket = function(capacity, fillRate)
+{
+    var bucket = { max: this.toNumber(capacity), rate: this.toNumber(fillRate), time: Date.now() };
+    bucket.count = bucket.max;
+    return bucket;
+}
+
+// Consume N tokens from the bucket, if no capacity, the tokens are not pulled from the bucket.
+corelib.tokenBucketConsume = function(bucket, tokens)
+{
+    if (tokens <= this.tokenBucketFill(bucket)) {
+        bucket.count -= tokens;
+        return true;
+    }
+    return false;
+}
+
+// Refill the bucket by tracking elapsed time from the last time we touched it.
+//
+//      min(totalTokens, current + (fillRate * elapsed time)).
+//
+corelib.tokenBucketFill = function(bucket)
+{
+    var now = Date.now();
+    if (now < bucket.time) bucket.time = now - 1000;
+    if (bucket.count < bucket.max) bucket.count = Math.min(bucket.max, bucket.count + bucket.rate * ((now - bucket.time) / 1000));
+    bucket.time = now;
+    return bucket.count;
+}
+
 // Create a resource pool, create and close callbacks must be given which perform allocation and deallocation of the resources like db connections.
 // Options defines the following properties:
 // - create - method to be called to return a new resource item, takes 1 argument, a callback as function(err, item)
