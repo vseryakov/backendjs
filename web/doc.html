@@ -2157,8 +2157,9 @@ might be useful when desining, developing or choosing the API platform:</p>
 <li><code>api-collect-send-interval</code> - How often to send collected statistics to the master server in seconds</li>
 <li><code>api-secret-policy</code> - An JSON object with list of regexps to validate account password, each regexp comes with an error message to be returned if such regexp fails, <code>api.checkAccountSecret</code> performs the validation, example: { &#39;[a-z]+&#39;: &#39;At least one lowercase letter&#39;, &#39;[A-Z]+&#39;: &#39;At least one upper case letter&#39; }</li>
 <li><code>api-cors-origin</code> - Origin header for CORS requests</li>
-<li><code>api-rlimit-max-([a-z]+)</code> - Set max/burst rate limit by the given property, it is used by the request rate limiter using Token Bucket algorithm. Valid suffixes: ip, id, login</li>
-<li><code>api-rlimit-fill-([a-z]+)</code> - Set fill/normal rate limit by the given property, it is used by the request rate limiter using Token Bucket algorithm. Valid suffixes: ip, id, login</li>
+<li><code>api-rlimit-([a-z]+)-max</code> - Set max/burst rate limit by the given property, it is used by the request rate limiter using Token Bucket algorithm. Valid suffixes: ip, id, login</li>
+<li><code>api-rlimit-([a-z]+)-rate</code> - Set fill/normal rate limit by the given property, it is used by the request rate limiter using Token Bucket algorithm. Valid suffixes: ip, id, login</li>
+<li><code>api-rlimit-total</code> - Total number of servers used in the rate limiter behind a load balancer, rates will be divided by this number so each server handles only a portion of the total rate limit</li>
 <li><code>api-exit-on-error</code> - Exit on uncaught exception</li>
 <li><code>api-signature-age</code> - Max age for request signature in milliseconds, how old the API signature can be to be considered valid, the &#39;expires&#39; field in the signature must be less than current time plus this age, this is to support time drifts</li>
 <li><code>api-upload-limit</code> - Max size for uploads, bytes</li>
@@ -2363,7 +2364,7 @@ properties after successful authorization.</p>
 </ul>
 
 <ul>
-<li><p><code>api.checklimits(req, options, callback)</code></p>
+<li><p><code>api.checklimits(options, req, res, next)</code></p>
 <p> Perform rate limiting by specified property, if not given no limiting is done.
 The following options properties can be used:</p>
 <ul>
@@ -2371,9 +2372,11 @@ The following options properties can be used:</p>
  the rate limiter should be called after the request signature has been parsed</li>
 <li>max - max capacity to be used by default</li>
 <li>rate - fill rate to be used by default</li>
+<li>total - apply this factor to the rate, it is used in case of multiple servers behind a loadbalancer, so for
+ total 3 servers in the cluster the factor will be 3, i.e. each individual server checks for a third of the total request rate</li>
 </ul>
-<p>When used for accounts, it is possible to override rate limits for each account in the <code>bk_auth</code> table by setting <code>rlimit_max</code> and <code>rlimit_fill</code>
-columns. To enable account rate limits the global defaults still must be set with the config paramaters <code>-api-rlimit-max-login</code> and <code>-api-rlimit-fill-login</code>
+<p>When used for accounts, it is possible to override rate limits for each account in the <code>bk_auth</code> table by setting <code>rlimit_max</code> and <code>rlimit_rate</code>
+columns. To enable account rate limits the global defaults still must be set with the config paramaters <code>-api-rlimit-login-max</code> and <code>-api-rlimit-login-rate</code>
 for example.</p>
 </li>
 </ul>
@@ -4453,11 +4456,11 @@ for this function to work and it is called by the root only, all the rest of the
 </ul>
 
 <ul>
-<li><p><code>corelib.createTokenBucket(capacity, fillRate)</code></p>
+<li><p><code>corelib.createTokenBucket(options)</code></p>
 <p> Create a Token Bucket object for rate limiting as per <a href="http://en.wikipedia.org/wiki/Token_bucket">http://en.wikipedia.org/wiki/Token_bucket</a></p>
 <ul>
-<li>capacity - the maximum burst capacity</li>
-<li>fillRate - the rate to refill tokens.</li>
+<li>max - the maximum burst capacity</li>
+<li>rate - the rate to refill tokens.</li>
 </ul>
 <p>Based on <a href="https://github.com/thisandagain/micron-throttle">https://github.com/thisandagain/micron-throttle</a></p>
 </li>
