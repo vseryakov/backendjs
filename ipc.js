@@ -629,7 +629,7 @@ ipc.get = function(key, options, callback)
 
         case "nanomsg":
         case "local":
-            this.send("get", key, options.set, options, callback);
+            this.send("get", key, options && options.set, options, callback);
             break;
         }
     } catch(e) {
@@ -670,6 +670,7 @@ ipc.del = function(key, options)
 // Replace or put a new item in the cache
 ipc.put = function(key, val, options)
 {
+    logger.debug("ipc.put", key, val)
     try {
         switch (core.cacheType) {
         case "memcache":
@@ -684,6 +685,7 @@ ipc.put = function(key, val, options)
 
         case "nanomsg":
             if (!this.nanomsg.lpush) break;
+            val = typeof val == "object" ? corelib.stringify(val) : val;
             this.nanomsg.lpush.send("\u0002" + key + "\u0002" + val);
             break;
 
@@ -806,7 +808,7 @@ ipc.publish = function(key, data)
 
         case "nanomsg":
             if (!this.nanomsg.pub) break;
-            this.nanomsg.pub.send(key + "\u0001" + JSON.stringify(data));
+            this.nanomsg.pub.send(key + "\u0001" + corelib.stringify(data));
             break;
         }
     } catch(e) {

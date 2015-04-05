@@ -553,3 +553,57 @@ Metrics.prototype.Histogram = function(name, properties)
     return this[name];
 }
 
+// Create a Token Bucket object for rate limiting as per http://en.wikipedia.org/wiki/Token_bucket
+//  - max - the maximum burst capacity
+//  - rate - the rate to refill tokens.
+//
+// Store as an array for easier serialization into JSON when keep it in the shared cache.
+//
+// Based on https://github.com/thisandagain/micron-throttle
+//
+exports.TokenBucket = TokenBucket;
+function TokenBucket(rate, max)
+{
+    // Restore existing token from the JSON
+    if (typeof rate == "object" && rate.rate) {
+        this._rate = corelib.toNumber(rate.rate , { min: 0 });
+        this._max = corelib.toNumber(rate.max || this._rate, { min: 0 });
+        this._count = corelib.toNumber(rate.count || this._max);
+        this._time = corelib.toNumber(rate.time || Date.now());
+    } else {
+        this._rate = corelib.toNumber(rate, { min: 0 });
+        this._max = corelib.toNumber(max || this._rate, { min: 0 });
+        this._count = this._max;
+        this._time = Date.now();
+    }
+}
+
+TokenBucket.prototype.toJSON = function()
+{
+    return { rate: this._rate, max: this._max, count: this._count, time: this._time };
+}
+
+// Return true this bucket uses the same rates
+TokenBucket.prototype.equal = function(rate, max)
+{
+    rate = corelib.toNumber(rate, { min: 0 });
+    max = corelib.toNumber(max || rate, { min: 0 });
+    return this._rate === rate && this._max === max;
+}
+
+// Consume N tokens from the bucket, if no capacity, the tokens are not pulled from the bucket.
+//
+// Refill the bucket by tracking elapsed time from the last time we touched it.
+//
+//      min(totalTokens, current + (fillRate * elapsedTime))
+//
+TokenBucket.prototype.consume = function(tokens)
+{
+    var now = Date.now();
+    if (now < this._time) this._time = now - 1000;
+    if (this._count < this._max) this._count = Math.min(this._max, this._count + this._rate * ((now - this._time) / 1000));
+    this._time = now;
+    if (tokens > this._count) return false;
+    this._count -= tokens;
+    return true;
+}

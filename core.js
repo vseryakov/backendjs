@@ -125,7 +125,6 @@ var core = {
     userAgent: [],
 
     // Inter-process messages
-    deferTimeout: 50,
     lruMax: 100000,
 
     // REPL port for server

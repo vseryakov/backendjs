@@ -159,9 +159,9 @@ messages.configureMessagesAPI = function()
         if (row.icon) row.icon = '/message/image?sender=' + row.recipient + '&mtime=' + row.mtime; else delete row.icon;
     }
 
-    db.setProcessRow("post", "bk_sent", options, onPostSentRow);
-    db.setProcessRow("post", "bk_message", options, onPostMessageRow);
-    db.setProcessRow("post", "bk_archive", options, onPostMessageRow);
+    db.setProcessRow("post", "bk_sent", onPostSentRow);
+    db.setProcessRow("post", "bk_message", onPostMessageRow);
+    db.setProcessRow("post", "bk_archive", onPostMessageRow);
 
 }
 

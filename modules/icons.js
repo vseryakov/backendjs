@@ -105,7 +105,7 @@ icons.configureIconsAPI = function()
         }
     });
 
-    db.setProcessRow("post", "bk_icon", options, api.checkIcon);
+    db.setProcessRow("post", "bk_icon", api.checkIcon);
 
 }
 

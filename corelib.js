@@ -22,6 +22,7 @@ var uuid = require('uuid');
 // Common utilities and useful functions
 var corelib = {
     name: 'corelib',
+    deferTimeout: 50,
 }
 
 module.exports = corelib;
@@ -63,17 +64,23 @@ corelib.toUncamel = function(str)
     return String(str).replace(/([A-Z])/g, function(letter) { return '-' + letter.toLowerCase(); });
 }
 
-// Safe version, use 0 instead of NaN, handle booleans, if float specified, returns as float.
+// Safe version, uses 0 instead of NaN, handle booleans, if float specified, returns as float.
+//
+// Options:
+//  - dflt - default value
+//  - float - treat as floating number
+//  - min - minimal value, clip
+//  - max - maximum value, clip
 //
 // Example:
 //
 //               corelib.toNumber("123")
 //               corelib.toNumber("1.23", { float: 1, dflt: 0, min: 0, max: 2 })
 //
-corelib.toNumber = function(str, float, dflt, min, max)
+corelib.toNumber = function(str, options)
 {
     var n = 0;
-    options = this.typeName(float) == "object" ? float : { float: float, dflt: dflt, min: min, max: max };
+    if (!options) options = {};
     if (typeof str == "number") {
         n = str;
     } else {
@@ -1691,43 +1698,6 @@ corelib.mkdirSync = function()
             try { fs.mkdirSync(dir) } catch(e) { logger.error('mkdirSync:', dir, e); }
         }
     }
-}
-
-// Create a Token Bucket object for rate limiting as per http://en.wikipedia.org/wiki/Token_bucket
-//  - max - the maximum burst capacity
-//  - rate - the rate to refill tokens.
-//
-// Based on https://github.com/thisandagain/micron-throttle
-//
-corelib.createTokenBucket = function(options)
-{
-    var max = this.toNumber(options.max || options.rate);
-    var bucket = { max: max, rate: this.toNumber(options.rate), count: max, time: Date.now() };
-    for (var p in options) bucket[p] = options[p];
-    return bucket;
-}
-
-// Consume N tokens from the bucket, if no capacity, the tokens are not pulled from the bucket.
-corelib.tokenBucketConsume = function(bucket, tokens)
-{
-    if (tokens <= this.tokenBucketFill(bucket)) {
-        bucket.count -= tokens;
-        return true;
-    }
-    return false;
-}
-
-// Refill the bucket by tracking elapsed time from the last time we touched it.
-//
-//      min(totalTokens, current + (fillRate * elapsed time)).
-//
-corelib.tokenBucketFill = function(bucket)
-{
-    var now = Date.now();
-    if (now < bucket.time) bucket.time = now - 1000;
-    if (bucket.count < bucket.max) bucket.count = Math.min(bucket.max, bucket.count + bucket.rate * ((now - bucket.time) / 1000));
-    bucket.time = now;
-    return bucket.count;
 }
 
 // Create a resource pool, create and close callbacks must be given which perform allocation and deallocation of the resources like db connections.

@@ -237,8 +237,8 @@ var Bkjs = {
         options.error = function(xhr, status, error) {
             self.loading("hide");
             var msg = "";
-            try { msg = JSON.parse(xhr.responseText).message; } catch(e) { msg = status; }
-            self.log('send: error:', status, msg, error, options);
+            try { msg = JSON.parse(xhr.responseText).message; } catch(e) { msg = xhr.responseText; }
+            self.log('send: error:', xhr.status, status, msg, error, options);
             if (typeof onerror == "function") onerror(msg || error || status, xhr, status, error);
         }
         if (!options.nosignature) {

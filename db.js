@@ -165,8 +165,8 @@ var db = {
                    acl_deny: { admin: 1, secure: 1 },                  // Deny access to matched url, a regexp
                    acl_allow: { admin: 1, secure: 1 },                 // Only grant access if path matches this regexp
                    query_deny: { admin: 1, secure: 1 },                // Ignore these query params, a regexp
-                   rlimit_max: { type: "int" },                        // Burst/max reqs/sec rate allowed for this account, 0 to disable
-                   rlimit_fill: { type: "int" },                       // Fill/normal reqs/sec rate for this account, 0 to disable
+                   rlimits_max: { type: "int" },                       // Burst/max reqs/sec rate allowed for this account, 0 to disable
+                   rlimits_rate: { type: "int" },                      // Fill/normal reqs/sec rate for this account, 0 to disable
                    expires: { type: "bigint", admin: 1, secure: 1 },   // Deny access to the account if this value is before current date, milliseconds
                    mtime: { type: "bigint", now: 1 } },
 

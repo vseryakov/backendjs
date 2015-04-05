@@ -26,6 +26,7 @@ exports.core.addModule('logger', exports.logger,
                        'msg', exports.msg,
                        'api', exports.api,
                        'server', exports.server,
+                       'metrics', exports.metrics,
                        'utils', exports.utils,
                        'tests', exports.tests,
                        'app', exports.app);

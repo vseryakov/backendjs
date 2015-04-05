@@ -215,7 +215,7 @@ accounts.configureAccountsAPI = function()
             row.age = Math.floor((Date.now() - corelib.toDate(row.birthday))/(86400000*365));
         }
     }
-    db.setProcessRow("post", "bk_account", options, onPostAccountRow);
+    db.setProcessRow("post", "bk_account", onPostAccountRow);
 
 }
 

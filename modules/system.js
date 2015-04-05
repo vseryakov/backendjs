@@ -149,10 +149,10 @@ system.configureSystemAPI = function()
                 ipc.send('init:cache');
                 break;
             case 'stats':
-                ipc.stats(function(data) { res.json(data) });
+                ipc.stats(function(data) { res.json(data || {}) });
                 break;
             case "keys":
-                ipc.keys(function(data) { res.json(data) });
+                ipc.keys(function(data) { res.json(data || {}) });
                 break;
             case "get":
                 ipc.get(req.query.name, function(data) { res.json({ value: data }); });
