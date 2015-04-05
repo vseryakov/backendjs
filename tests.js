@@ -1159,11 +1159,11 @@ tests.test_msg = function(callback)
 
 tests.test_cache = function(callback)
 {
+    var self = this;
     core.msgType = "none";
     core.cacheBind = "127.0.0.1";
     core.cacheHost = "127.0.0.1";
     var nworkers = core.getArgInt("-test-workers");
-    if (!nworkers) logger.error("need -test-workers 1 argument");
 
     function run1(cb) {
         corelib.series([
@@ -1204,6 +1204,16 @@ tests.test_cache = function(callback)
            function(next) {
                ipc.incr("a", 1);
                setTimeout(next, 10);
+           },
+           function(next) {
+               ipc.put("c", {a:1});
+               setTimeout(next, 10);
+           },
+           function(next) {
+               ipc.get("c", function(val) {
+                   val = corelib.jsonParse(val)
+                   tests.check(next, null, !val||val.a!=1, "value must be {a:1}, got", val)
+               });
            },
            function(next) {
                ipc.del("b");
@@ -1256,7 +1266,7 @@ tests.test_cache = function(callback)
                 break;
             }
         }
-        if (!core.test.iterations) {
+        if (!self.test.iterations) {
             ipc.initServer();
             setInterval(function() { logger.log('keys:', bkjs.utils.lruKeys()); }, 1000);
         }
@@ -1264,7 +1274,7 @@ tests.test_cache = function(callback)
         ipc.onMessage = function(msg) {
             switch (msg.op) {
             case "init":
-                if (core.test.iterations) break;
+                if (self.test.iterations) break;
                 core.cacheBind = core.ipaddrs[0];
                 core.cachePort = 20000;
                 ipc.initServer();
@@ -1286,7 +1296,7 @@ tests.test_cache = function(callback)
                 break;
             }
         }
-        if (!core.test.iterations) {
+        if (!self.test.iterations) {
             ipc.initWorker();
         }
         ipc.send("ready");
