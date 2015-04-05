@@ -89,8 +89,9 @@ var api = {
            { name: "collect-send-interval", type: "number", min: 60, descr: "How often to send collected statistics to the master server in seconds" },
            { name: "secret-policy", type: "regexpmap", descr : "An JSON object with list of regexps to validate account password, each regexp comes with an error message to be returned if such regexp fails, `api.checkAccountSecret` performs the validation, example: { '[a-z]+': 'At least one lowercase letter', '[A-Z]+': 'At least one upper case letter' }" },
            { name: "cors-origin", descr: "Origin header for CORS requests" },
-           { name: "rlimit-max-([a-z]+)", type: "int", obj: "rlimit", descr: "Set max/burst rate limit by the given property, it is used by the request rate limiter using Token Bucket algorithm. Valid suffixes: ip, id, login" },
-           { name: "rlimit-fill-([a-z]+)", type: "int", obj: "rlimit", descr: "Set fill/normal rate limit by the given property, it is used by the request rate limiter using Token Bucket algorithm. Valid suffixes: ip, id, login" },
+           { name: "rlimit-([a-z]+)-max", type: "int", obj: "rlimit", descr: "Set max/burst rate limit by the given property, it is used by the request rate limiter using Token Bucket algorithm. Valid suffixes: ip, id, login" },
+           { name: "rlimit-([a-z]+)-rate", type: "int", obj: "rlimit", descr: "Set fill/normal rate limit by the given property, it is used by the request rate limiter using Token Bucket algorithm. Valid suffixes: ip, id, login" },
+           { name: "rlimit-total", type:" int", obj: "rlimit", descr: "Total number of servers used in the rate limiter behind a load balancer, rates will be divided by this number so each server handles only a portion of the total rate limit" },
            { name: "exit-on-error", type: "bool", descr: "Exit on uncaught exception" },
            { name: "signature-age", type: "int", descr: "Max age for request signature in milliseconds, how old the API signature can be to be considered valid, the 'expires' field in the signature must be less than current time plus this age, this is to support time drifts" },
            { name: "upload-limit", type: "number", min: 1024*1024, max: 1024*1024*10, descr: "Max size for uploads, bytes"  },
@@ -264,18 +265,10 @@ api.init = function(options, callback)
             self.metrics.Counter('busy_0').inc();
             return self.sendReply(res, 503, "Server is unavailable");
         }
-        next();
+        // Rate limits by IP address, early before all other filters
+        if (!self.rlimit.ipRate) return next();
+        self.checklimits({ type: "ip", max: self.rlimit.ipMax, rate: self.rlimit.ipRate, total: self.rlimit.total }, req, res, next);
     });
-
-    // Rate limits by IP address
-    if (self.rlimit.maxIp && self.rlimit.fillIp) {
-        self.app.use(function(req, res, next) {
-            self.checklimits(req, { type: "ip", max: self.rlimit.maxIp, fill: self.rlimit.fillIp }, function(err) {
-                if (err) return self.sendReply(res, 429, err);
-                next();
-            });
-        });
-    }
 
     // Allow cross site requests
     self.app.use(function(req, res, next) {
@@ -405,15 +398,15 @@ api.init = function(options, callback)
         next();
     });
 
-    // Rate limit for accounts
-    if (self.rlimit.maxLogin && self.rlimit.fillLogin) {
-        self.app.use(function(req, res, next) {
-            self.checklimits(req, { type: "login", max: self.rlimit.maxLogin, fill: self.rlimit.fillLogin }, function(err) {
-                if (err) return self.sendReply(res, 429, err);
-                next();
-            });
-        });
-    }
+    // Rate limits for accounts
+    self.app.use(function(req, res, next) {
+        if (!self.rlimit.loginRate) return next();
+        self.checklimits({ type: x, max: self.rlimit.loginMax, rate: self.rlimit.loginRate, total: self.rlimit.total }, req, res, next);
+    });
+    self.app.use(function(req, res, next) {
+        if (!self.rlimit.idRate) return next();
+        self.checklimits({ type: x, max: self.rlimit.idMax, rate: self.rlimit.idRate, total: self.rlimit.total }, req, res, next);
+    });
 
     // Config options for Express
     self.expressEnable.forEach(function(x) {
@@ -425,7 +418,7 @@ api.init = function(options, callback)
     // Assign custom middleware just after the security handler
     core.runMethods("configureMiddleware", options, function() {
 
-        // Custom routes, if host defined only server API calls for matched domains
+        // Custom routes, handle only routes defined for our domains
         var router = self.app.router;
         self.app.use(function(req, res, next) {
             if (req._noRouter) return next();
@@ -1074,7 +1067,7 @@ api.handleSessionSignature = function(req, options)
             req.account[this.accessTokenName + '-age'] = options.sessionAge || this.accessTokenAge;
         } else {
             delete req.account[this.accessTokenName];
-            req.account[this.accessTokenName + '-age'];
+            delete req.account[this.accessTokenName + '-age'];
         }
     }
     if (typeof options.session != "undefined" && req.session) {
@@ -1099,13 +1092,16 @@ api.checkAccountType = function(row, type)
 //     the rate limiter should be called after the request signature has been parsed
 //  - max - max capacity to be used by default
 //  - rate - fill rate to be used by default
+//  - total - apply this factor to the rate, it is used in case of multiple servers behind a loadbalancer, so for
+//     total 3 servers in the cluster the factor will be 3, i.e. each individual server checks for a third of the total request rate
 //
-// When used for accounts, it is possible to override rate limits for each account in the `bk_auth` table by setting `rlimit_max` and `rlimit_fill`
-// columns. To enable account rate limits the global defaults still must be set with the config paramaters `-api-rlimit-max-login` and `-api-rlimit-fill-login`
+// When used for accounts, it is possible to override rate limits for each account in the `bk_auth` table by setting `rlimit_max` and `rlimit_rate`
+// columns. To enable account rate limits the global defaults still must be set with the config paramaters `-api-rlimit-login-max` and `-api-rlimit-login-rate`
 // for example.
-api.checklimits = function(req, options, callback)
+api.checklimits = function(options, req, res, next)
 {
-    var key = '', max = options.max || 0, rate = options.rate || 0;
+    var self = this;
+    var key = '', rate = options.rate || 0, max = options.max || rate, total = options.total || 1;
     switch (options.type) {
     case "ip":
         key = 'TBip:' + req.ip;
@@ -1119,13 +1115,16 @@ api.checklimits = function(req, options, callback)
         rate = req.account.rlimit_rate || rate;
         break;
     }
-    if (!key || !max || !rate) return callback();
+    if (!key || !max || !rate) return next();
 
     ipc.get(key, function(bucket) {
-        if (!bucket) bucket = corelib.createTokenBucket(max, rate);
+        if (!bucket) bucket = corelib.createTokenBucket({ rate: rate/total, max: max/total, total: total });
+        // Reset the bucket if total number of servers has changed, now we have a new rate to check
+        if (total && bucket.total != total) bucket = corelib.createTokenBucket({ rate: rate/total, max: max/total, total: total });
         var consumed = corelib.tokenBucketConsume(bucket, 1);
         ipc.put(key, bucket);
-        callback(!consumed ? "Request limit exceeded " + rate + "reqs/sec" : null);
+        if (consumed) return next();
+        self.sendReply(res, 429, "Request limit exceeded " + rate + "reqs/sec");
     });
 }
 

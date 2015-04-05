@@ -1694,15 +1694,16 @@ corelib.mkdirSync = function()
 }
 
 // Create a Token Bucket object for rate limiting as per http://en.wikipedia.org/wiki/Token_bucket
-//  - capacity - the maximum burst capacity
-//  - fillRate - the rate to refill tokens.
+//  - max - the maximum burst capacity
+//  - rate - the rate to refill tokens.
 //
 // Based on https://github.com/thisandagain/micron-throttle
 //
-corelib.createTokenBucket = function(capacity, fillRate)
+corelib.createTokenBucket = function(options)
 {
-    var bucket = { max: this.toNumber(capacity), rate: this.toNumber(fillRate), time: Date.now() };
-    bucket.count = bucket.max;
+    var max = this.toNumber(options.max || options.rate);
+    var bucket = { max: max, rate: this.toNumber(options.rate), count: max, time: Date.now() };
+    for (var p in options) bucket[p] = options[p];
     return bucket;
 }
 
