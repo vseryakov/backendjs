@@ -20,6 +20,8 @@ var db = require(__dirname + '/db');
 var aws = require(__dirname + '/aws');
 var ipc = require(__dirname + '/ipc');
 var api = require(__dirname + '/api');
+var jobs = require(__dirname + '/jobs');
+var shell = require(__dirname + '/shell');
 var os = require('os');
 var express = require('express');
 var stream = require('stream');
@@ -29,25 +31,18 @@ var proxy = require('http-proxy');
 var server = {
     // Config parameters
     args: [{ name: "max-processes", type: "callback", callback: function(v) { this.maxProcesses=corelib.toNumber(v,{float:0,dflt:0,min:0,max:core.maxCPUs}); if(this.maxProcesses<=0) this.maxProcesses=Math.max(1,core.maxCPUs-1); this._name="maxProcesses" }, descr: "Max number of processes to launch for Web servers, 0 means NumberofCPUs-2" },
-           { name: "max-workers", type: "number", min: 1, max: 32, descr: "Max number of worker processes to launch for jobs" },
+           { name: "max-workers", type: "number", min: 1, max: 32, descr: "Max number of worker processes to launch" },
            { name: "idle-time", type: "number", descr: "If set and no jobs are submitted the backend will be shutdown, for instance mode only" },
-           { name: "job-max-time", type: "number", min: 300, descr: "Max number of seconds a job can run before being killed, for instance mode only" },
            { name: "crash-delay", type: "number", max: 30000, descr: "Delay between respawing the crashed process" },
            { name: "restart-delay", type: "number", max: 30000, descr: "Delay between respawning the server after changes" },
            { name: "log-errors" ,type: "bool", descr: "If true, log crash errors from child processes by the logger, otherwise write to the daemon err-file. The reason for this is that the logger puts everything into one line thus breaking formatting for stack traces." },
-           { name: "job", type: "callback", callback: function(v) { if (core.role == "master") this.queueJob(corelib.base64ToJson(v)) }, descr: "Job specification, JSON encoded as base64 of the job object" },
-           { name: "job-name", type: "callback", callback: function(v) { if (core.role == "master") this.queueJob(v) }, descr: "Job specification, a simple case when just a job name is used without any properties" },
-           { name: "job-delay", type: "int", min: 0, descr: "Delay in milliseconds before starting the jobs passed via command line after the master process started" },
            { name: "proxy-reverse", type: "url", descr: "A Web server where to proxy requests not macthed by the url patterns or host header, in the form: http://host[:port]" },
            { name: "proxy-url-(.+)", type: "regexpobj", reverse: 1, obj: 'proxy-url', lcase: ".+", descr: "URL regexp to be passed to other web server running behind, each parameter defines an url regexp and the destination in the value in the form http://host[:port], example: -server-proxy-url-^/api=http://127.0.0.1:8080" },
            { name: "proxy-host-(.+)", type: "regexpobj", reverse: 1, obj: 'proxy-host', lcase: ".+", descr: "Virtual host mapping, to match any Host: header, each parameter defines a host name and the destination in the value in the form http://host[:port], example: -server-proxy-host-www.myhost.com=http://127.0.0.1:8080" },
            { name: "process-name", descr: "Path to the command to spawn by the monitor instead of node, for external processes guarded by this monitor" },
            { name: "process-args", type: "list", descr: "Arguments for spawned processes, for passing v8 options or other flags in case of external processes" },
            { name: "worker-args", type: "list", descr: "Node arguments for workers, job and web processes, for passing v8 options" },
-           { name: "jobs-tag", descr: "This server executes jobs that match this tag, if empty then execute all jobs, if not empty execute all that match current IP address and this tag" },
-           { name: "job-queue", descr: "Name of the queue to process, this is a generic queue name that can be used by any queue provider" },
-           { name: "jobs-count", descr: "How many jobs to execute at any iteration, this relates to the bk_queue queue processing only" },
-           { name: "jobs-interval", type: "number", min: 0, descr: "Interval between executing job queue, must be set to enable jobs, 0 disables job processing, in seconds, min interval is 60 secs" } ],
+    ],
 
     // Watcher process status
     child: null,
@@ -67,26 +62,6 @@ var server = {
     crashCount: 4,
     crashTime: null,
     crashEvents: 0,
-
-    // Job waiting for the next avaialble worker
-    queue: [],
-    // List of jobs a worker is running or all jobs running
-    jobs: [],
-    // Time of the last update on jobs and workers
-    jobTime: 0,
-    // Max number of seconds since the jobTime before killing the job instance, for long running jobs it must update jobTime periodically
-    jobMaxTime: 3600,
-    // Interval between jobs scheduler
-    jobsInterval: 0,
-    // Batch size
-    jobsCount: 1,
-    // Tag for jobs to process
-    jobsTag: '',
-    // Delay before job start
-    jobDelay: 1000,
-
-    // Schedules cron jobs
-    crontab: [],
 
     // Number of workers or web servers to launch
     maxWorkers: 1,
@@ -113,13 +88,13 @@ server.start = function()
     var self = this;
 
     // Mark the time we started for calculating idle times properly
-    self.jobTime = Date.now();
+    jobs.time = Date.now();
     process.title = core.name + ": process";
     logger.debug("start:", process.argv);
 
     // REPL shell
     if (core.isArg("-shell")) {
-        return core.init({ role: "shell" }, function(err, opts) { self.startShell(opts); });
+        return core.init({ role: "shell" }, function(err, opts) { shell.run(opts); });
     }
 
     // Go to background
@@ -183,14 +158,14 @@ server.startMaster = function(options)
             if (core.replPort) self.startRepl(core.replPort, core.replBind);
 
             // Setup background tasks
-            self.loadSchedules();
+            jobs.loadCronjobs();
 
             // Log watcher job, always runs even if no email configured, if enabled it will
             // start sending only new errors and not from the past
             self.watchInterval = setInterval(function() { core.watchLogs(); }, core.logwatcherInterval * 60000);
 
             // Primary cron jobs
-            if (self.jobsInterval > 0) setInterval(function() { self.processQueue(); }, self.jobsInterval * 1000);
+            if (jobs.interval > 0) setInterval(function() { jobs.processDb(); }, jobs.interval * 1000);
 
             // Watch temp files
             setInterval(function() { core.watchTmp("tmp", { seconds: 86400 }) }, 43200000);
@@ -199,16 +174,16 @@ server.startMaster = function(options)
             // Maintenance tasks
             setInterval(function() {
                 // Submit pending jobs
-                self.execJobQueue();
+                jobs.execQueue();
 
                 // Check idle time, if no jobs running for a long time shutdown the server, this is for instance mode mostly
-                if (core.instance.job && self.idleTime > 0 && !Object.keys(cluster.workers).length && Date.now() - self.jobTime > self.idleTime) {
+                if (core.instance.job && self.idleTime > 0 && !Object.keys(cluster.workers).length && Date.now() - jobs.time > self.idleTime) {
                     logger.log('startMaster:', 'idle:', self.idleTime);
                     self.shutdown();
                 }
             }, 30000);
             // Execute the jobs passed via command line
-            setTimeout(function() { self.execJobQueue() }, self.jobDelay);
+            setTimeout(function() { jobs.execQueue() }, jobs.delay);
 
             // API related initialization
             core.runMethods("configureMaster");
@@ -230,20 +205,20 @@ server.startWorker = function(options)
 
     process.on("message", function(job) {
         logger.debug('startWorker:', 'job:', job);
-        self.runJob(job);
+        jobs.run(job);
     });
 
     // Maintenance tasks
     setInterval(function() {
         var now = Date.now()
         // Check idle time, exit worker if no jobs submitted
-        if (self.idleTime > 0 && !self.jobs.length && now - self.jobTime > self.idleTime) {
+        if (self.idleTime > 0 && !jobs.jobs.length && now - jobs.time > self.idleTime) {
             logger.log('startWorker:', 'idle: no more jobs to run', self.idleTime);
             process.exit(0);
         }
         // Check how long we run and force kill if exceeded
-        if (now - self.jobTime > self.jobMaxTime*1000) {
-            logger.log('startWorker:', 'time: exceeded max run time', self.jobMaxTime);
+        if (now - jobs.time > jobs.maxTime*1000) {
+            logger.log('startWorker:', 'time: exceeded max run time', jobs.maxTime);
             process.exit(0);
         }
     }, 30000);
@@ -523,329 +498,6 @@ server.startDaemon = function()
     process.exit(0);
 }
 
-// Start REPL shell or execute any subcommand if specified
-server.startShell = function(options)
-{
-    var self = this;
-    process.title = core.name + ": shell";
-
-    logger.debug('startShell:', process.argv);
-
-    function exit(err, msg) {
-        if (err) console.log(err);
-        if (msg) console.log(msg);
-        process.exit(err ? 1 : 0);
-    }
-    function getUser(obj, callback) {
-        db.get("bk_account", { id: obj.id }, function(err, row) {
-            if (err) exit(err);
-
-            db.get("bk_auth", { login: row ? row.login : obj.login }, function(err, row) {
-                if (err || !row) exit(err, "ERROR: no user found with this id: " + util.inspect(obj));
-                callback(row);
-            });
-        });
-    }
-    function getQuery() {
-        var query = {};
-        for (var i = process.argv.length - 1; i > 1; i -= 2) {
-            var a = process.argv[i - 1][0], b = process.argv[i][0];
-            if (a != '_' && a != '-' && b != '_' && b != '-') query[process.argv[i - 1]] = process.argv[i];
-        }
-        return query;
-    }
-    function getOptions() {
-        var query = {};
-        for (var i = process.argv.length - 1; i > 1; i -= 2) {
-            var a = process.argv[i - 1][0], b = process.argv[i][0];
-            if (a == '-' || a == '_') query[process.argv[i - 1]] =  b != '_' && b != '-' ? process.argv[i] : 1;
-        }
-        return api.getOptions({ query: query, options: { path: ["", "", ""], ops: {} } });
-    }
-    function dbImport(file, table, opts, callback) {
-        corelib.series([
-            function(next) {
-                if (!opts.drop) return next();
-                db.drop(table, opts, next);
-            },
-            function(next) {
-                if (!opts.drop) return next();
-                db.create(table, db.getTableProperties(table, opts), opts, next);
-            },
-            function(next) {
-                corelib.forEachLine(file, opts, function(line, next2) {
-                    var row = corelib.jsonParse(line, { error: 1 });
-                    if (!row) return next2(nostop ? null : "ERROR: parse error, line: " + opts.lines);
-                    db.put(table, row, opts, function() { next2(nostop ? null : err) });
-                }, next);
-            }], callback);
-    }
-
-    core.runMethods("configureShell", options, function(err, opts) {
-        if (opts.done) exit();
-
-        // App version
-        if (core.isArg("-show-info")) {
-            var ver = core.appVersion.split(".");
-            console.log('mode=' + core.runMode);
-            console.log('name=' + core.appName);
-            console.log('version=' + core.appVersion);
-            console.log('major=' + (ver[0] || 0));
-            console.log('minor=' + (ver[1] || 0));
-            console.log('patch=' + (ver[2] || 0));
-            console.log('ipaddr=' + core.ipaddr);
-            console.log('network=' + core.network);
-            console.log('subnet=' + core.subnet);
-            console.log('domain=' + core.domain);
-            exit();
-        }
-
-        // Run API server inside the shell
-        if (core.isArg("-run-api")) {
-            api.init();
-            return;
-        }
-
-        // Add a user
-        if (core.isArg("-account-add")) {
-            if (!core.modules.accounts) exit("accounts module not loaded");
-            var query = getQuery(), opts = getOptions();
-            if (core.isArg("-scramble")) opts.scramble = 1;
-            if (query.login && !query.name) query.name = query.login;
-            core.modules.accounts.addAccount({ query: query, account: { type: 'admin' } }, opts, function(err, data) {
-                exit(err, data);
-            });
-            return;
-        }
-
-        // Delete a user and all its history according to the options
-        if (core.isArg("-account-update")) {
-            if (!core.modules.accounts) exit("accounts module not loaded");
-            var query = getQuery(), opts = getOptions();
-            if (core.isArg("-scramble")) opts.scramble = 1;
-            getUser(query, function(row) {
-                core.modules.accounts.updateAccount({ account: row, query: query }, opts, function(err, data) {
-                    exit(err, data);
-                });
-            });
-            return;
-        }
-
-        // Delete a user and all its history according to the options
-        if (core.isArg("-account-del")) {
-            if (!core.modules.accounts) exit("accounts module not loaded");
-            var query = getQuery();
-            var options = {};
-            for (var i = 1; i < process.argv.length - 1; i += 2) {
-                if (process.argv[i] == "-keep") options[process.argv[i + 1]] = 1;
-            }
-            getUser(query, function(row) {
-                core.modules.accounts.deleteAccount(row.id, options, function(err, data) {
-                    exit(err, data);
-                });
-            });
-            return;
-        }
-
-        // Update location
-        if (core.isArg("-location-put")) {
-            if (!core.modules.locations) exit("locations module not loaded");
-            var query = getQuery();
-            getUser(query, function(row) {
-                core.modules.locations.putLocation({ account: row, query: query }, {}, function(err, data) {
-                    exit(err, data);
-                });
-            });
-            return;
-        }
-
-        // Update location
-        if (core.isArg("-log-watch")) {
-            core.watchLogs(function(err) {
-                exit(err);
-            });
-            return;
-        }
-
-        // Get file
-        if (core.isArg("-s3-get")) {
-            var query = getQuery(), file = core.getArg("-file"), uri = core.getArg("-path");
-            query.file = file || uri.split("?")[0].split("/").pop();
-            aws.s3GetFile(uri, query, function(err, data) {
-                exit(err, data);
-            });
-            return;
-        }
-
-        // Put file
-        if (core.isArg("-s3-put")) {
-            var query = getQuery(), path = core.getArg("-path"), uri = core.getArg("-file");
-            aws.s3PutFile(uri, file, query, function(err, data) {
-                exit(err, data);
-            });
-            return;
-        }
-
-        // Show all config parameters
-        if (core.isArg("-db-get-config")) {
-            var opts = getQuery(), sep = core.getArg("-separator", "="), fmt = core.getArg("-format");
-            db.initConfig(opts, function(err, data) {
-                if (fmt == "text") {
-                    for (var i = 0; i < data.length; i += 2) console.log(data[i].substr(1) + (sep) + data[ i + 1]);
-                } else {
-                    console.log(JSON.stringify(data));
-                }
-                exit(err);
-            });
-            return;
-        }
-
-        // Show all tables
-        if (core.isArg("-db-tables")) {
-            var sep = core.getArg("-separator", "\n");
-            var tables = db.getPoolTables(db.pool, { names: 1 });
-            console.log(tables.join(sep));
-            exit(err);
-        }
-
-        // Show all records
-        if (core.isArg("-db-select")) {
-            var query = getQuery(), opts = getOptions(), table = core.getArg("-table"), sep = core.getArg("-separator", "!"), fmt = core.getArg("-format");
-            var cols = Object.keys(db.getColumns(table))
-            db.select(table, query, opts, function(err, data) {
-                if (data && data.length) {
-                    if (fmt == "text") {
-                        data.forEach(function(x) { console.log((cols || Object.keys(x)).map(function(y) { return x[y] }).join(sep)) });
-                    } else {
-                        data.forEach(function(x) { console.log(JSON.stringify(x)) });
-                    }
-                }
-                exit(err);
-            });
-            return;
-        }
-
-        // Show all records
-        if (core.isArg("-db-scan")) {
-            var query = getQuery(), opts = getOptions(), table = core.getArg("-table"), sep = core.getArg("-separator", "!"), fmt = core.getArg("-format");
-            var cols = Object.keys(db.getColumns(table));
-            db.scan(table, query, opts, function(row, next) {
-                if (fmt == "text") {
-                    console.log((cols || Object.keys(row)).map(function(y) { return row[y] }).join(sep));
-                } else {
-                    console.log(JSON.stringify(row));
-                }
-                next();
-            }, function(err) {
-                exit(err);
-            });
-            return;
-        }
-
-        // Save all tables
-        if (core.isArg("-db-backup")) {
-            var opts = getOptions(), path = core.getArg("-path"), tables = db.getPoolTables(db.pool, { names: 1 });
-            corelib.forEachSeries(tables, function(table, next) {
-                file = (path ? path + "/" : "") + table +  ".json";
-                fs.writeFileSync(file, "");
-                db.scan(table, query, opts, function(row, next2) {
-                    fs.appendFileSync(file, JSON.stringify(row) + "\n");
-                    next2();
-                }, next);
-            }, function(err) {
-                exit(err);
-            });
-            return;
-        }
-
-        // Restore tables
-        if (core.isArg("-db-restore")) {
-            var opts = getOptions(), path = core.getArg("-path"), tables = db.getPoolTables(db.pool, { names: 1 });
-            corelib.forEachSeries(corelib.findFileSync(path, { depth: 1, types: "f", include: /\.json$/ }), function(file, next) {
-                var table = file.split("/").pop();
-                dbImport(file, table, opts, next);
-            }, function(err) {
-                exit(err);
-            });
-            return;
-        }
-
-        // Import records from previous scan/select, the format MUST be json, one record per line
-        if (core.isArg("-db-import")) {
-            var query = getQuery(), opts = getOptions(), table = core.getArg("-table"), file = core.getArg("-file");
-            dbImport(file, table, opts, function(err) {
-                exit(err);
-            });
-            return;
-        }
-
-        // Put config entry
-        if (core.isArg("-db-get")) {
-            var query = getQuery(), opts = getOptions(), table = core.getArg("-table"), sep = core.getArg("-separator", "!"), fmt = core.getArg("-format");
-            var cols = Object.keys(db.getColumns(table))
-            db.get(table, query, opts, function(err, data) {
-                if (data) {
-                    if (fmt == "text") {
-                        console.log((cols || Object.keys(data)).map(function(y) { return x[y] }).join(sep))
-                    } else {
-                        console.log(JSON.stringify(data));
-                    }
-                }
-                exit(err);
-            });
-            return;
-        }
-
-        // Put config entry
-        if (core.isArg("-db-put")) {
-            var query = getQuery(), opts = getOptions(), table = core.getArg("-table");
-            db.put(table, query, opts, function(err, data) {
-                exit(err);
-            });
-            return;
-        }
-
-        // Delete a recprd
-        if (core.isArg("-db-del")) {
-            var query = getQuery(), opts = getOptions(), table = core.getArg("-table");
-            db.del(table, query, opts, function(err, data) {
-                exit(err);
-            });
-            return;
-        }
-
-        // Delete all records
-        if (core.isArg("-db-del-all")) {
-            var query = getQuery(), opts = getOptions(), table = core.getArg("-table");
-            db.delAll(table, query, opts, function(err, data) {
-                exit(err);
-            });
-            return;
-        }
-
-        // Drop a table
-        if (core.isArg("-db-drop")) {
-            var opts = getOptions(), table = core.getArg("-table");
-            db.drop(table, opts, function(err, data) {
-                exit(err);
-            });
-            return;
-        }
-
-        // Send API request
-        if (core.isArg("-send-request")) {
-            var query = getQuery(), url = core.getArg("-url"), id = core.getArg("-id"), login = core.getArg("-login");
-            getUser({ id: id, login: login }, function(row) {
-                core.sendRequest({ url: url, login: row.login, secret: row.secret, query: query }, function(err, params) {
-                    exit(err, params.obj);
-                });
-            });
-            return;
-        }
-        ipc.initWorker();
-        core.createRepl();
-    });
-}
 
 
 // Kill all child processes on exit
@@ -1020,463 +672,3 @@ server.handleProxyRequest = function(req, res, ssl)
         });
     });
 }
-
-// Run all jobs from the job spec at the same time, when the last job finishes and it is running in the worker process, the process terminates.
-server.runJob = function(job)
-{
-    var self = this;
-
-    function finish(err, name) {
-        logger.debug('runJob:', 'finished', name, err || "");
-        if (!self.jobs.length && cluster.isWorker) {
-            core.runMethods("shutdownWorker", function() {
-                logger.debug('runJob:', 'exit', name, err || "");
-                process.exit(0);
-            });
-        }
-    }
-
-    for (var name in job) {
-        // Skip special objects
-        if (job[name] instanceof domain.Domain) continue;
-
-        // Make report about unknown job, leading $ are used for same method miltiple times in the same job because property names are unique in the objects
-        var spec = name.replace(/^[\$]+/g, "").split('.');
-        var obj = spec[0] == "core" ? core : core.modules[spec[0]];
-        if (!obj || !obj[spec[1]]) {
-            logger.error('runJob:', "unknown method", name, 'job:', job);
-            continue;
-        }
-
-        // Pass as first argument the options object, then callback
-        var args = [ corelib.typeName(job[name]) == "object" ? job[name] : {} ];
-
-        // The callback to finalize job execution
-        (function (jname) {
-            args.push(function(err) {
-                self.jobTime = Date.now();
-                // Update process title with current job list
-                var idx = self.jobs.indexOf(jname);
-                if (idx > -1) self.jobs.splice(idx, 1);
-                if (cluster.isWorker) process.title = core.name + ': worker ' + self.jobs.join(',');
-                finish(err, jname);
-            });
-        })(name);
-
-        var d = domain.create();
-        d.on("error", args[1]);
-        d.run(function() {
-            obj[spec[1]].apply(obj, args);
-            self.jobTime = Date.now();
-            self.jobs.push(name);
-            if (cluster.isWorker) process.title = core.name + ': worker ' + self.jobs.join(',');
-            logger.debug('runJob:', 'started', name, job[name] || "");
-        });
-    }
-    // No jobs started or errors, just exit
-    if (!self.jobs.length && cluster.isWorker) finish(null, "no jobs");
-}
-
-// Execute job in the background by one of the workers, object must be known exported module
-// and method must be existing method of the given object. The method function must take options
-// object as its first argument and callback as its second argument.
-// More than one job can be specified, property of the object defines name for the job to run:
-//
-// Example:
-//
-//          { 'scraper.run': {}, 'server.shutdown': {} }
-//
-// If the same object.method must be executed several times, prepend subsequent jobs with $
-//
-// Example:
-//
-//          { 'scraper.run': { "arg": 1 }, '$scraper.run': { "arg": 2 }, '$$scraper.run': { "arg": 3 } }
-//
-// Supported options by the server:
-//  - skipqueue - in case of a duplicate or other condition when this job cannot be executed it is put back to
-//      the waiting queue, this options if set to 1 makes the job to be ignored on error
-//  - runalways - no checks for existing job wth the same name should be done
-//  - runone - only run the job if there is no same running job, this options serializes similar jobs
-//  - runlast - run when no more pending or running jobs
-//  - runafter - specifies another job in canoncal form obj.method which must finish and not be pending in
-//    order for this job to start, this implements chaining of jobs to be executed one after another
-//    but submitted at the same time
-//
-//  Exampe: submit 3 jobs to run sequentially:
-//
-//          'scraper.import'
-//          { 'scraper.sync': { runafter: 'scraper.import' } }
-//          { 'server.shutdown': { runafter: 'scraper.sync' } }
-server.execJob = function(job)
-{
-    var self = this;
-
-    if (cluster.isWorker) return logger.error('exec: can be called from the master only', job);
-
-    try {
-        // Build job object with canonical name
-        if (typeof job == "string") job = corelib.newObj(job, null);
-        if (typeof job != "object") return logger.error('exec:', 'invalid job', job);
-
-        // Do not exceed max number of running workers
-        var workers = Object.keys(cluster.workers);
-        if (workers.length >= self.maxWorkers) {
-            self.queue.push(job);
-            return logger.debug('execJob:', 'max number of workers running:', self.maxWorkers, 'job:', job);
-        }
-
-        // Perform conditions check, any failed condition will reject the whole job
-        for (var p in job) {
-            var opts = job[p] || {};
-            // Do not execute if we already have this job running
-            if (self.jobs.indexOf(p) > -1 && !opts.runalways) {
-                if (!opts.skipqueue) self.queue.push(job);
-                return logger.debug('execJob: already running', job);
-            }
-
-            // Condition for job, should not be any pending or running jobs
-            if (opts.runlast) {
-                if (self.jobs.length || self.queue.length) {
-                    if (!opts.skipqueue) self.queue.push(job);
-                    return logger.debug('execJob:', 'other jobs still exist', job);
-                }
-            }
-
-            // Check dependencies, only run when there is no dependent job in the running list
-            if (opts.runone) {
-                if (self.jobs.filter(function(x) { return x.match(opts.runone) }).length) {
-                    if (!opts.skipqueue) self.queue.push(job);
-                    return logger.debug('execJob:', 'depending job still exists:', job);
-                }
-            }
-
-            // Check dependencies, only run when there is no dependent job in the running or pending lists
-            if (opts.runafter) {
-                if (self.jobs.some(function(x) { return x.match(opts.runafter) }) ||
-                    self.queue.some(function(x) { return Object.keys(x).some(function(y) { return y.match(opts.runafter); }); })) {
-                    if (!opts.skipqueue) self.queue.push(job);
-                    return logger.debug('execJob:', 'depending job still exists:', job);
-                }
-            }
-        }
-    } catch(e) {
-        logger.error('execJob:', e, job);
-        return false;
-    }
-
-    // Setup node args passed for each worker
-    if (self.workerArgs) process.execArgv = self.workerArgs;
-
-    self.jobTime = Date.now();
-    logger.debug('execJob:', 'workers:', workers.length, 'job:', job);
-
-    // Start a worker, send the job and wait when it finished
-    var worker = cluster.fork();
-    worker.on("error", function(e) {
-        logger.error('execJob:', e, job);
-        worker = null;
-    })
-    worker.on('message', function(msg) {
-        if (msg != "ready") return;
-        worker.send(job);
-        // Make sure we add new jobs after we successfully created a new worker
-        self.jobs = self.jobs.concat(Object.keys(job));
-    });
-    worker.on("exit", function(code, signal) {
-        logger.log('execJob: finished:', worker.id, 'pid:', worker.process.pid, 'code:', code || 0, '/', signal || 0, 'job:',job);
-        for (var p in job) {
-            var idx = self.jobs.indexOf(p);
-            if (idx > -1) self.jobs.splice(idx, 1);
-        }
-        worker = null;
-    });
-    return true;
-}
-
-// Remote mode, launch remote instance to perform scraping or other tasks
-// By default, shutdown the instance after job finishes unless noshutdown:1 is specified in the options
-server.launchJob = function(job, options, callback)
-{
-    var self = this;
-    if (!job) return;
-    if (typeof options == "function") callback = options, options = null;
-    if (!options) options = {};
-
-    if (typeof job == "string") job = corelib.newObj(job, null);
-    if (!Object.keys(job).length) return logger.error('launchJob:', 'no valid jobs:', job);
-
-    job = corelib.cloneObj(job);
-    self.jobTime = Date.now();
-    logger.log('launchJob:', job, 'options:', options);
-
-    // Common arguments for remote workers
-    var args = ["-master", "-instance-job",
-                "-backend-host", core.backendHost || "",
-                "-backend-key", core.backendKey || "",
-                "-backend-secret", core.backendSecret || "",
-                "-server-jobname", Object.keys(job).join(","),
-                "-server-job", corelib.jsonToBase64(job) ];
-
-    if (!options.noshutdown) {
-        args.push("-server-job", corelib.jsonToBase64({ 'server.shutdown': { runlast: 1 } }));
-    }
-
-    // Command line arguments for the instance, must begin with -
-    for (var p in options) {
-        if (p[0] != '-') continue;
-        args.push(p, options[p])
-    }
-    options.UserData = args.map(function(x) { return String(x).replace(/ /g, '%20') }).join(" ");
-    // Update tag name with current job
-    var d = args.match(/\-jobname ([^ ]+)/i);
-    if (d) options.instanceName = d[1];
-
-    // Terminate after the job is done
-    if (!options.InstanceInitiatedShutdownBehavior && !options.termnate && !options.stop) options.terminate = 1;
-
-    aws.ec2RunInstances(options, callback);
-    return true;
-}
-
-// Run a job, the string is in the format:
-// object/method/name/value/name/value....
-// All spaces must be are replaced with %20 to be used in command line parameterrs
-server.queueJob = function(job)
-{
-    var self = this;
-    switch (corelib.typeName(job)) {
-    case "object":
-        if (Object.keys(job).length) return this.queue.push(job);
-        break;
-
-    case "string":
-        job = job.trim();
-        if (job) return this.queue.push(corelib.newObj(job, null));
-        break;
-    }
-    logger.error("queueJob:", "invalid job: ", job);
-}
-
-// Process pending jobs, submit to idle workers
-server.execJobQueue = function()
-{
-    var self = this;
-    if (!this.queue.length) return;
-    var job = this.queue.shift();
-    if (job) this.execJob(job);
-}
-
-// Create a new cron job, for remote jobs additional property args can be used in the object to define
-// arguments for the instance backend process, properties must start with -
-//
-// If a job object contains the `tag` property, it will be submitted into the bk_queue for execution by that worker
-//
-// Example:
-//
-//          { "type": "server", "cron": "0 */10 * * * *", "job": "server.processQueue" },
-//          { "type": "local", "cron": "0 10 7 * * *", "id": "processQueue", "job": "api.processQueue" }
-//          { "type": "remote", "cron": "0 5 * * * *", "args": { "-workers": 2 }, "job": { "scraper.run": { "url": "host1" }, "$scraper.run": { "url": "host2" } } }
-//          { "type": "local", "cron": "0 */10 * * * *", "tag": "host-12", "job": "server.processQueue" },
-//
-server.scheduleCronjob = function(spec, obj)
-{
-    var self = this;
-    if (!spec || !obj || !obj.job) return;
-    logger.debug('scheduleCronjob:', spec, obj);
-    var cj = new cron.CronJob(spec, function() {
-        // Submit a job via cron to a worker for execution
-        if (this.job.tag) {
-            self.submitJob(this.job);
-        } else {
-            self.scheduleJob(this.job);
-        }
-    }, null, true);
-    cj.job = obj;
-    this.crontab.push(cj);
-}
-
-// Execute a cronjob by id now, it must have been scheduled already and id property must be specified in the crontab
-// When REPL is activated on the master server with -repl-port then connecting to the running master server via telnet it is possible to execute
-// cron jobs manually
-//
-//  Example:
-//
-//      // Start the backend with repl-port like `bkjs run-backend -repl-port 2080`
-//
-//      # telnet localhost 2080
-//      > server.runCronjob("processQueue")
-//
-server.runCronjob = function(id)
-{
-    var self = this;
-    this.crontab.forEach(function(x) {
-       if (x.job && x.job.id == id) x._callback();
-    });
-}
-
-// Perform execution according to type
-server.scheduleJob = function(options, callback)
-{
-    var self = this;
-    if (typeof callback != "function") callback = corelib.noop;
-    if (corelib.typeName(options) != "object" || !options.job) options = { type: "error" };
-
-    switch (options.type || "") {
-    case "error":
-        callback("Invalid job", true);
-        break;
-
-    case "request":
-        core.sendRequest(options, function() { callback() });
-        break;
-
-    case 'remote':
-        setImmediate(function() { self.launchJob(options.job, options.args); });
-        callback(null, true);
-        break;
-
-    case "server":
-        setImmediate(function() {
-            var d = domain.create();
-            d.on('error', function(err) { logger.error('scheduleJob:', options, err.stack); });
-            d.add(options.job);
-            d.run(function() { self.runJob(options.job); });
-        });
-        callback(null, true);
-        break;
-
-    default:
-        setImmediate(function() { self.queueJob(options.job); });
-        callback(null, true);
-        break;
-    }
-}
-
-// Load crontab from JSON file as list of job specs:
-// - type - local, remote, server
-//      - local means spawn a worker to run the job function
-//      - remote means launch an AWS instance
-//      - server means run inside the master process, do not spawn a worker
-// - cron - cron time interval spec: 'second' 'minute' 'hour' 'dayOfMonth' 'month' 'dayOfWeek'
-// - job - a string as obj.method or an object with job name as property name and the value is an object with
-//         additional options for the job passed as first argument, a job callback always takes options and callback as 2 arguments
-// - args - additional arguments to be passed to the backend in the command line for the remote jobs
-//
-// Example:
-//
-//          [ { "type": "local", cron: "0 0 * * * *", job: "scraper.run" }, ..]
-server.loadSchedules = function()
-{
-    var self = this;
-
-    var list = [];
-    fs.readFile(core.path.etc + "/crontab", function(err, data) {
-        if (data && data.length) list = corelib.jsonParse(data.toString(), { list: 1 });
-
-        fs.readFile(core.path.etc + "/crontab.local", function(err, data) {
-            if (data && data.length) list = list.concat(corelib.jsonParse(data.toString(), { list: 1 }));
-
-            if (!list.length) return;
-            self.crontab.forEach(function(x) { x.stop(); delete x; });
-            self.crontab = [];
-            list.forEach(function(x) {
-                if (!x.type || !x.cron || !x.job || x.disabled) return;
-                self.scheduleCronjob(x.cron, x);
-            });
-            logger.log("loadSchedules:", self.crontab.length, "schedules");
-        });
-    });
-
-    // Watch config directory for changes
-    if (this.cronWatcher) return;
-    this.cronWatcher = fs.watch(core.path.etc, function (event, filename) {
-        if (filename == "crontab") core.setTimeout(filename, function() { self.loadSchedules(); }, 5000);
-    });
-}
-
-// Submit job for execution, it will be saved in the server queue and the master or matched job server will pick it up later.
-//
-// The options can specify:
-//  - tag - job name for execution, this can be used to run on specified servers by IP address or other tag asigned
-//  - type - job type: local, remote, server
-//  - stime - start time ofr the job, it will wait until this time is current to be processed
-//  - etime - expiration time, after this this job is ignored
-//  - job - an object with a job spec, for name-only job the object can look like { job: null }
-//  - args - additional arguments for remote job to pass in the command line via user-data
-server.submitJob = function(options, callback)
-{
-    var self = this;
-    if (!options || corelib.typeName(options) != "object" || !options.job) {
-        logger.error('submitJob:', 'invalid job spec, must be an object:', options);
-        return callback ? callback("invalid job") : null;
-    }
-    logger.debug('submitJob:', options);
-    db.put("bk_queue", options, callback);
-}
-
-// Process AWS SQS queue for any messages and execute jobs, a job object must be in the same format as for the cron jobs.
-//
-// The options can specify:
-//  - queue - SQS queue ARN, if not specified the `-server-job-queue` will be used
-//  - timeout - how long to wait for messages, seconds, default is 5
-//  - count - how many jobs to receive, if not specified use `-api-max-jobs` config parameter
-//  - visibilityTimeout - The duration in seconds that the received messages are hidden from subsequent retrieve requests
-//     after being retrieved by a ReceiveMessage request.
-//
-server.processSQS = function(options, callback)
-{
-    var self = this;
-    if (typeof options == "function") callback = options, options = {};
-    if (!options) options = {};
-    var queue = options.queue || self.jobQueue;
-    if (!queue) return callback ? callback() : null;
-
-    aws.sqsReceiveMessage(queue, options, function(err, rows) {
-        if (err) return callback ? callback(err) : null;
-        corelib.forEachSeries(rows || [], function(item, next) {
-            var job = corelib.jsonParse(item.Body, { obj: 1, error: 1 });
-            if (job && row.job) self.scheduleJob(row.type, row.job, row.args);
-
-            aws.querySQS("DeleteMessage", { QueueUrl: queue, ReceiptHandle: item.ReceiptHandle }, function(err) {
-                if (err) logger.error('processSQS:', err);
-                next();
-            });
-        }, function() {
-            if (callback) callback();
-        });
-    });
-}
-
-// Load submitted jobs for execution, it is run by the master process every `-server-jobs-interval` seconds.
-// Requires connection to the PG database, how jobs appear in the table and the order of execution is not concern of this function,
-// the higher level management tool must take care when and what to run and in what order.
-//
-server.processQueue = function(options, callback)
-{
-    var self = this;
-    if (typeof options == "function") callback = options, options = {};
-    if (!options) options = {};
-
-    var now = Date.now()
-    db.select("bk_queue", {}, { count: self.jobCount }, function(err, rows) {
-        rows = rows.filter(function(x) {
-            if (x.stime && x.stime < now) return 0;
-            return !x.tag || x.tag == core.ipaddr || x.tag == self.jobsTag;
-        }).sort(function(a,b) { return a.mtime - b.mtime });
-
-        corelib.forEachSeries(rows, function(row, next) {
-            // Cleanup expired records
-            if (row.etime && row.etime < now) {
-                return db.del('bk_queue', row, function() { next() });
-            }
-            self.scheduleJob(row, function(err, del) {
-                if (del) return db.del('bk_queue', row, function() { next() });
-                next();
-            });
-        }, function() {
-            if (rows.length) logger.log('processQueue:', rows.length, 'jobs');
-            if (callback) callback();
-        });
-    });
-}
-

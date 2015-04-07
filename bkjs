@@ -146,7 +146,7 @@ case "$ARG" in
     exit 0
     ;;
 
-  stop-*)
+  stop-web|stop-server|stop-master)
     name=${ARG:5}
     [ "$name" = "" ] && exit 0
     $KILLALL $1 "$BKJS_MOD: $name"
@@ -1260,14 +1260,13 @@ EOF
     echo "  -db-tables [-separator nl] - list all table names for the current db pool"
     echo "  -db-select -table TABLE [-separator !] [-format text] [name VALUE ...] - return all records from the table or only that match given column values, all supported by db.select options are supported by prefixing with underscore like _count 10, the format is the same as for API query parameters"
     echo "  -db-scan -table TABLE [name VALUE ...] - return all records from the table using scan operation, same arg as for db-select"
-    echo "  -db-import -table TABLE -file FILE [-drop] [name VALUE ...] - import records from the JSON file saved by db-scan or db-select commands"
     echo "  -db-get -table TABLE [name VALUE ...] - return a record from the table for given primary key"
     echo "  -db-put -table TABLE name VALUE ... - add or replace a record in the config table, name value pairs are column name and value to be set for the record to be added"
     echo "  -db-del -table TABLE name VALUE ... - delete a record from the table, name value pairs must define a primary key for the table"
     echo "  -db-del-all -table TABLE name VALUE ... - delete all records from the table that match the search criteria, name value pairs must define a primary key for the table"
     echo "  -db-drop -table TABLE name [-nowait] - drop a table"
-    echo "  -db-backup [-path PATH] - save all tables into json files in the home or specified path"
-    echo "  -db-restore [-path PATH] [-drop] - restore all tables from json files located the home or specified path"
+    echo "  -db-backup [-path PATH] [-tables LIST] - save tables into json files in the home or specified path"
+    echo "  -db-restore [-path PATH] [-tables LIST] [-drop] [-nostop] - restore tables from json files located the home or specified path"
     echo ""
     echo "Common options:"
     echo "  -root path - path to the backend home directory, default is $BKJS_HOME"

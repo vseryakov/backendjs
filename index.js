@@ -13,8 +13,10 @@ exports.db = require(__dirname + '/db');
 exports.msg = require(__dirname + '/msg');
 exports.server = require(__dirname + '/server');
 exports.api = require(__dirname + '/api');
+exports.jobs = require(__dirname + '/jobs');
 exports.metrics = require(__dirname + '/metrics');
 exports.app = require(__dirname + '/app');
+exports.shell = require(__dirname + '/shell');
 exports.tests = require(__dirname + '/tests');
 exports.run = function(callback) { this.core.run(callback); }
 
@@ -25,6 +27,8 @@ exports.core.addModule('logger', exports.logger,
                        'aws', exports.aws,
                        'msg', exports.msg,
                        'api', exports.api,
+                       'jobs', exports.jobs,
+                       'shell', exports.shell,
                        'server', exports.server,
                        'metrics', exports.metrics,
                        'utils', exports.utils,
