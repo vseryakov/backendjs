@@ -17,6 +17,15 @@ var logger = {
     levels: { test: 3, dev: 2, debug: 1, warn: 0, info: 0, error: -1, none: -1 },
     filters: null,
 
+    // Level symbols
+    TEST: 3,
+    DEV: 2,
+    DEBUG: 1,
+    WARN: 0,
+    INFO: 0,
+    ERROR: -1,
+    NONE: -1,
+
     // syslog facilities
     LOG_KERN: (0<<3),
     LOG_USER: (1<<3),
@@ -232,7 +241,7 @@ logger.dump = function()
 logger.format = function(args)
 {
     var str = "";
-    for (var p in args) str += util.inspect(args[p], { depth: 5 }) + " ";
+    for (var p in args) str += util.inspect(args[p], { depth: 3 }) + " ";
     return str.replace(/\\n/g,' ').replace(/[ \\\r\n\t]+/g, " ");
 }
 

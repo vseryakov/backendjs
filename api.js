@@ -38,6 +38,17 @@ var utils = require(__dirname + '/build/Release/backend');
 // HTTP API to the server from the clients, this module implements the basic HTTP(S) API functionality with some common features. The API module
 // incorporates the Express server which is exposed as api.app object, the master server spawns Web workers which perform actual operations and monitors
 // the worker processes if they die and restart them automatically. How many processes to spawn can be configured via `-server-max-workers` config parameter.
+//
+// When a HTTP request arrives it goes over Express middleware, but before processing any registsred route there are several steps performed:
+// - the `req` object which is by convention a Request, assigned with common backend properties to be used later:
+//   - account - an empty object which will be filled ater by signature verification method, if successful, properties form the `bk_auth` table will be set
+//   - options - this is a global object with internal state and control parameters. Also some request properties are cached like `path`, `ip`, `op` - the path split by /
+// - access verification, can the request be satisfied without proper signature, i.e. is this a public request
+// - autherization, check the signature and other global or account specific checks
+// - when a route found matching the request url, it is called as any regular Connect middlware
+// - if there are registered pre processing callback they will be called during access or autherization phases
+// - if inside the route a response was returned using `api.sendJSON` method, registered post process callbacks will be called for such response
+//
 var api = {
 
     // Tables required by the API endpoints
@@ -63,7 +74,10 @@ var api = {
            { name: "session-age", type: "int", descr: "Session age in milliseconds, for cookie based authentication" },
            { name: "session-secret", descr: "Secret for session cookies, session support enabled only if it is not empty" },
            { name: "query-token-secret", descr: "Name of the property to be used for encrypting tokens for pagination..., any property from bk_auth can be used, if empty no secret is used, if not a valid property then it is used as the secret" },
-           { name: "signature-name", descr: "Name for the access signature query parameter or header" },
+           { name: "app-header-name", descr: "Name for the app name/version query parameter or header, it is can be used to tell the server about the application version" },
+           { name: "version-header-name", descr: "Name for the access version query parameter or header, this is the core protocol version that can be sent to specify which core functionality a client expects" },
+           { name: "signature-header-name", descr: "Name for the access signature query parameter or header" },
+           { name: "signature-age", type: "int", descr: "Max age for request signature in milliseconds, how old the API signature can be to be considered valid, the 'expires' field in the signature must be less than current time plus this age, this is to support time drifts" },
            { name: "access-token-name", descr: "Name for the access token query parameter or header" },
            { name: "access-token-secret", descr: "A secret to be used for access token signatures, additional enryption on top of the signature to use for API access without signing requests, it is required for access tokens to be used" },
            { name: "access-token-age", type: "int", descr: "Access tokens age in milliseconds, for API requests with access tokens only" },
@@ -93,7 +107,6 @@ var api = {
            { name: "rlimits-([a-z]+)-rate", type: "int", obj: "rlimits", descr: "Set fill/normal rate limit by the given property, it is used by the request rate limiter using Token Bucket algorithm. Valid suffixes: ip, id, login" },
            { name: "rlimits-total", type:" int", obj: "rlimits", descr: "Total number of servers used in the rate limiter behind a load balancer, rates will be divided by this number so each server handles only a portion of the total rate limit" },
            { name: "exit-on-error", type: "bool", descr: "Exit on uncaught exception" },
-           { name: "signature-age", type: "int", descr: "Max age for request signature in milliseconds, how old the API signature can be to be considered valid, the 'expires' field in the signature must be less than current time plus this age, this is to support time drifts" },
            { name: "upload-limit", type: "number", min: 1024*1024, max: 1024*1024*10, descr: "Max size for uploads, bytes"  },
     ],
 
@@ -163,7 +176,9 @@ var api = {
     sessionAge: 86400 * 14 * 1000,
     // How old can a signtature be to consider it valid, for clock drifts
     signatureAge: 0,
-    signatureName: "bk-signature",
+    signatureHeaderName: "bk-signature",
+    appHeaderName: "bk-app",
+    versionHeaderName: "bk-vesion",
     corsOrigin: "*",
 
     // Separate age for access token
@@ -259,12 +274,17 @@ api.init = function(options, callback)
     // Setup busy timer to detect when our requests waiting in the queue for too long
     if (this.busyLatency) utils.initBusy(this.busyLatency);
 
-    // Latency watcher
+    // Early request setup and checks
     self.app.use(function(req, res, next) {
+        // Latency watcher
         if (self.busyLatency && utils.isBusy()) {
             self.metrics.Counter('busy_0').inc();
             return self.sendReply(res, 503, "Server is unavailable");
         }
+
+        // Setup request common/required properties
+        self.prepareRequest(req);
+
         // Rate limits by IP address, early before all other filters
         self.checkLimits("ip", req, res, next);
     });
@@ -273,48 +293,9 @@ api.init = function(options, callback)
     self.app.use(function(req, res, next) {
         res.header('Server', core.name + '/' + core.version + " " + core.appName + "/" + core.appVersion);
         res.header('Access-Control-Allow-Origin', self.corsOrigin);
-        res.header('Access-Control-Allow-Headers', 'content-type, bk-app, bk-version, ' + self.signatureName);
+        res.header('Access-Control-Allow-Headers', 'content-type, ' + self.signatureHeaderName + ', ' + self.appHeaderName + ', ' + self.versionHeaderName);
         res.header('Access-Control-Allow-Methods', 'OPTIONS, HEAD, GET, POST, PUT, DELETE');
-        if (logger.level >= 1) logger.debug('handleServerRequest:', core.port, req.ip || "", req.method, req.path, req.get('content-type') || "", req.get('bk-app') || "", req.get(self.signatureName) || "");
-        next();
-    });
-
-    // Metrics starts early
-    self.app.use(function(req, res, next) {
-        var paths = req.path.substr(1).split("/");
-        var path = "url_" + paths.slice(0, self.urlMetrics[paths[0]] || 2).join("_");
-        self.metrics.Histogram('api_que').update(self.metrics.Counter('api_nreq').inc());
-        req.metric1 = self.metrics.Timer('api_req').start();
-        req.metric2 = self.metrics.Timer(path).start();
-        self.metrics.Counter(path +'_0').inc();
-        var end = res.end;
-        res.end = function(chunk, encoding) {
-            res.end = end;
-            res.end(chunk, encoding);
-            self.metrics.Counter('api_nreq').dec();
-            self.metrics.Counter("api_req_0").inc();
-            if (res.statusCode >= 400 && res.statusCode < 500) self.metrics.Counter("api_bad_0").inc();
-            if (res.statusCode >= 500) self.metrics.Counter("api_errors_0").inc();
-            req.metric1.end();
-            req.metric2.end();
-            // Ignore external or not handled urls
-            if (req._noEndpoint || req._noSignature) {
-                delete self.metrics[path];
-                delete self.metrics[path + '_0'];
-            }
-            // Call cleanup hooks
-            var hooks = self.findHook('cleanup', req.method, req.path);
-            corelib.forEachSeries(hooks, function(hook, next) {
-                logger.debug('cleanup:', req.method, req.path, hook.path);
-                hook.callbacks.call(self, req, function() { next() });
-            }, function() {
-                // Cleanup request explicitely
-                for (var p in req.options) delete req.options[p];
-                delete req.options;
-                for (var p in req.account) delete req.account[p];
-                delete req.account;
-            });
-        }
+        if (logger.level >= logger.DEBUG) logger.debug('handleServerRequest:', core.port, req.ip || "", req.method, req.options.path, req.get('content-type') || "", req.get(self.appHeaderName) || "", req.get(self.signatureHeaderName) || "");
         next();
     });
 
@@ -340,17 +321,16 @@ api.init = function(options, callback)
             res.end = end;
             res.end(chunk, encoding);
             var now = new Date();
-            var line = (req.ip || (req.socket.socket ? req.socket.socket.remoteAddress : "-")) + " - " +
+            var line = req.options.ip + " - " +
                        (logger.syslog ? "-" : '[' +  now.toUTCString() + ']') + " " +
                        req.method + " " +
-                       (req.logUrl || req.originalUrl || req.url) + " " +
+                       (req.accessLogUrl || req.originalUrl || req.url) + " " +
                        (req.httpProtocol || "HTTP") + "/" + req.httpVersionMajor + "/" + req.httpVersionMinor + " " +
                        res.statusCode + " " +
                        (res.get("Content-Length") || '-') + " - " +
                        (now - req._startTime) + " ms - " +
                        (req.headers['user-agent'] || "-") + " " +
-                       (req.headers['bk-version'] || "-") + " " +
-                       (req.account ? (req.account.id || "-") : "-") + "\n";
+                       (req.account.id || "-" ) + "\n";
             self.accesslog.write(line);
         }
         next();
@@ -360,22 +340,58 @@ api.init = function(options, callback)
     self.app.use(function(req, res, next) {
         // Auto redirect to SSL
         if (self.redirectSsl.rx) {
-            if (!req.secure && req.path.match(self.redirectSsl.rx)) return res.redirect("https://" + req.headers.host + req.url);
+            if (!req.secure && req.options.path.match(self.redirectSsl.rx)) return res.redirect("https://" + req.headers.host + req.url);
         }
         // SSL only access, deny access without redirect
         if (self.allowSsl.rx) {
-            if (req.socket.server != self.sslserver && req.path.match(self.allowSsl.rx)) return res.json(400, { status: 400, message: "SSL only access" });
+            if (req.socket.server != self.sslserver && req.options.path.match(self.allowSsl.rx)) return res.json(400, { status: 400, message: "SSL only access" });
         }
         // Simple redirect rules
-        var location = req.host + req.url;
+        var location = req.options.host + req.url;
         for (var i = 0; i < self.redirectUrl.length; i++) {
             if (self.redirectUrl[i].rx.test(location)) {
                 var url = self.redirectUrl[i].value.replace(/@(HOST|PATH|URL)@/g, function(m) {
-                    return m == "HOST" ? req.host : m == "PATH" ? req.path : m == "URL" ? req.url : "";
+                    return m == "HOST" ? req.options.host : m == "PATH" ? req.options.path : m == "URL" ? req.url : "";
                 });
                 logger.debug("redirect:", location, "=>", url, self.redirectUrl[i]);
                 return res.redirect(url);
             }
+        }
+        next();
+    });
+
+    // Metrics starts early
+    self.app.use(function(req, res, next) {
+        var path = "url_" + req.options.op.slice(0, self.urlMetrics[req.options.op[0]] || 2).join("_");
+        self.metrics.Histogram('api_que').update(self.metrics.Counter('api_nreq').inc());
+        req.metric1 = self.metrics.Timer('api_req').start();
+        req.metric2 = self.metrics.Timer(path).start();
+        self.metrics.Counter(path +'_0').inc();
+        var end = res.end;
+        res.end = function(chunk, encoding) {
+            res.end = end;
+            res.end(chunk, encoding);
+            self.metrics.Counter('api_nreq').dec();
+            self.metrics.Counter("api_req_0").inc();
+            if (res.statusCode >= 400 && res.statusCode < 500) self.metrics.Counter("api_bad_0").inc();
+            if (res.statusCode >= 500) self.metrics.Counter("api_errors_0").inc();
+            req.metric1.end();
+            req.metric2.end();
+            // Ignore external or not handled urls
+            if (req._noEndpoint || req._noSignature) {
+                delete self.metrics[path];
+                delete self.metrics[path + '_0'];
+            }
+            // Call cleanup hooks
+            var hooks = self.findHook('cleanup', req.method, req.options.path);
+            corelib.forEachSeries(hooks, function(hook, next) {
+                logger.debug('cleanup:', req.method, req.options.path, hook.path);
+                hook.callbacks.call(self, req, function() { next() });
+            }, function() {
+                // Cleanup request explicitely
+                for (var p in req.options) delete req.options[p];
+                for (var p in req.account) delete req.account[p];
+            });
         }
         next();
     });
@@ -392,7 +408,7 @@ api.init = function(options, callback)
 
     // Check the signature, for virtual hosting, supports only the simple case when running the API and static web sites on the same server
     self.app.use(function(req, res, next) {
-        if (!self.domain || req.host.match(self.domain)) return self.checkRequest(req, res, next);
+        if (!self.domain || req.options.host.match(self.domain)) return self.checkRequest(req, res, next);
         req._noRouter = 1;
         next();
     });
@@ -446,7 +462,7 @@ api.init = function(options, callback)
 
         // Default error handler to show errors in the log
         self.app.use(function(err, req, res, next) {
-            logger.error('app:', req.path, err, err.stack);
+            logger.error('app:', req.options.path, err, err.stack);
             self.sendReply(res, err);
         });
 
@@ -609,7 +625,7 @@ api.createWebSocketRequest = function(socket, url, reply)
     req.httpProtocol = "WS";
     req.method = "GET";
     req.url = String(url);
-    req.logUrl = req.url.split("?")[0];
+    req.accessLogUrl = req.url.split("?")[0];
     req._body = true;
     if (socket.upgradeReq) {
         if (socket.upgradeReq.headers) req.headers = socket.upgradeReq.headers;
@@ -643,22 +659,31 @@ api.closeWebSocketRequest = function(socket)
     }
 }
 
+// Prepare request options that the API routes will merge with, can be used by pre process hooks, initialize
+// required properties for subsequent use
+api.prepareRequest = function(req)
+{
+    // Cache the path so we do not need reparse it every time
+    var path = req.path || "/";
+    var op = path.substr(1).split("/");
+    var ip = req.ip || (req.socket.socket ? req.socket.socket.remoteAddress : "");
+    req.options = { ops: {}, noscan: 1, ip: ip, host: req.host, path: path, op: op, cleanup: "bk_" + op[0] };
+    req.account = {};
+}
+
 // Perform authorization of the incoming request for access and permissions
 api.checkRequest = function(req, res, callback)
 {
     var self = this;
 
-    // Request options that the API routes will merge with, can be used by pre process hooks
-    var path = req.path.split("/");
-    req.options = { ops: {}, noscan: 1, path: [ path[1] || "", path[2] || "", path[3] || "" ], cleanup: "bk_" + path[1] };
-    req.account = {};
-
-    // Parse user agent application version, extract first product and version only
-    var d = (req.headers['bk-app'] || req.headers['user-agent'] || "").match(/^([^\/]+)\/([0-9a-zA-Z_\.\-]+)/);
-    if (d) {
-        req.options.appName = d[1];
-        req.options.appVersion = d[2];
+    // Parse application version, extract first product and version only
+    var v = req.query[this.appHeaderName] || req.headers[this.appHeaderName] || req.headers['user-agent'];
+    if (v && (v = v.match(/^([^\/]+)\/([0-9a-zA-Z_\.\-]+)/))) {
+        req.options.appName = v[1];
+        req.options.appVersion = v[2];
     }
+    // Core protocol version to be used in the request if supported
+    if ((v = req.query[this.versionHeaderName] || req.headers[this.versionHeaderName])) req.options.coreVersion = v;
 
     self.checkAccess(req, function(rc1) {
         // Status is given, return an error or proceed to the next module
@@ -800,14 +825,14 @@ api.checkBody = function(req, res, next)
 api.checkAccess = function(req, callback)
 {
     var self = this;
-    if (this.deny.rx && req.path.match(this.deny.rx)) return callback({ status: 403, message: "Access denied" });
-    if (this.allow.rx && req.path.match(this.allow.rx)) return callback({ status: 200, message: "" });
+    if (this.deny.rx && req.options.path.match(this.deny.rx)) return callback({ status: 403, message: "Access denied" });
+    if (this.allow.rx && req.options.path.match(this.allow.rx)) return callback({ status: 200, message: "" });
 
     // Call custom access handler for the endpoint
-    var hooks = this.findHook('access', req.method, req.path);
+    var hooks = this.findHook('access', req.method, req.options.path);
     if (hooks.length) {
         corelib.forEachSeries(hooks, function(hook, next) {
-            logger.debug('checkAccess:', req.method, req.path, hook.path);
+            logger.debug('checkAccess:', req.method, req.options.path, hook.path);
             hook.callbacks.call(self, req, next);
         }, callback);
         return;
@@ -824,27 +849,27 @@ api.checkAuthorization = function(req, status, callback)
     var self = this;
 
     // Ignore no login error if allowed
-    if (status && status.status == 417 && this.allowAnonymous.rx && req.path.match(this.allowAnonymous.rx)) status = null;
+    if (status && status.status == 417 && this.allowAnonymous.rx && req.options.path.match(this.allowAnonymous.rx)) status = null;
     // Status for hooks is never null
     if (!status) status = { status: 200, message: "ok" };
 
     // Disable access to endpoints if session exists, meaning Web app
     if (self.disableSession.rx) {
-        if (req.session && req.session[self.signatureName] && req.path.match(self.disableSession.rx)) return callback({ status: 401, message: "Not authorized" });
+        if (req.session && req.session[self.signatureHeaderName] && req.options.path.match(self.disableSession.rx)) return callback({ status: 401, message: "Not authorized" });
     }
     // Admin only access
     if (self.allowAdmin.rx) {
-        if (!self.checkAccountType(req.account, "admin") && req.path.match(self.allowAdmin.rx)) return callback({ status: 401, message: "Restricted access" });
+        if (!self.checkAccountType(req.account, "admin") && req.options.path.match(self.allowAdmin.rx)) return callback({ status: 401, message: "Restricted access" });
     }
     // Verify access by account type
     if (self.allowAccount[req.account.type] && self.allowAccount[req.account.type].rx) {
-        if (!req.path.match(self.allowAccount[req.account.type].rx)) return callback({ status: 401, message: "Access is not allowed" });
+        if (!req.options.path.match(self.allowAccount[req.account.type].rx)) return callback({ status: 401, message: "Access is not allowed" });
     }
 
-    var hooks = this.findHook('auth', req.method, req.path);
+    var hooks = this.findHook('auth', req.method, req.options.path);
     if (hooks.length) {
         corelib.forEachSeries(hooks, function(hook, next) {
-            logger.debug('checkAuthorization:', req.method, req.path, hook.path, req.account.id);
+            logger.debug('checkAuthorization:', req.method, req.options.path, hook.path, req.account.id);
             hook.callbacks.call(self, req, status, function(err) {
                 if (err && err.status != 200) return next(err);
                 next();
@@ -867,7 +892,7 @@ api.checkSignature = function(req, callback)
     // Extract all signature components from the request
     var sig = self.parseSignature(req);
 
-    logger.debug('checkSignature:', sig, 'hdrs:', req.headers, 'session:', JSON.stringify(req.session));
+    if (logger.level >= logger.DEBUG) logger.debug('checkSignature:', sig, 'hdrs:', req.headers, 'session:', JSON.stringify(req.session));
 
     // Sanity checks, required headers must be present and not empty
     if (!sig.method || !sig.host) {
@@ -911,7 +936,7 @@ api.checkSignature = function(req, callback)
 
         // Verify the signature
         var secret = account.secret;
-        var query = (sig.query).split("&").sort().filter(function(x) { return x != "" && x.substr(0, 12) != self.signatureName }).join("&");
+        var query = (sig.query).split("&").sort().filter(function(x) { return x != "" && x.substr(0, 12) != self.signatureHeaderName }).join("&");
         switch (sig.version) {
         case 1:
             sig.str = "";
@@ -975,13 +1000,13 @@ api.parseSignature = function(req)
     rc.method = req.method || "";
     rc.host = (req.headers.host || "").split(':').shift().toLowerCase();
     rc.type = (req.headers['content-type'] || "").toLowerCase();
-    rc.signature = req.query[this.signatureName] || req.headers[this.signatureName] || "";
+    rc.signature = req.query[this.signatureHeaderName] || req.headers[this.signatureHeaderName] || "";
     if (!rc.signature) {
         rc.signature = req.query[this.accesTokenName] || req.headers[this.accessTokenName];
         if (rc.signature) rc.signature = corelib.decrypt(this.accessTokenSecret, rc.signature, "", "hex");
     }
     if (!rc.signature) {
-        rc.signature = req.session ? req.session[this.signatureName] : "";
+        rc.signature = req.session ? req.session[this.signatureHeaderName] : "";
     }
     var d = String(rc.signature).match(/([^\|]+)\|([^\|]*)\|([^\|]+)\|([^\|]+)\|([^\|]+)\|([^\|]*)\|([^\|]*)/);
     if (!d) return rc;
@@ -1046,7 +1071,7 @@ api.createSignature = function(login, secret, method, host, uri, options)
         str = ver + '\n' + tag + '\n' + String(login) + "\n" + String(method) + "\n" + String(hostname) + "\n" + String(path) + "\n" + String(query) + "\n" + String(expires) + "\n" + ctype + "\n" + checksum + "\n";
         hmac = corelib.sign(String(secret), str, "sha256")
     }
-    rc[this.signatureName] = ver + '|' + tag + '|' + String(login) + '|' + hmac + '|' + expires + '|' + checksum + '|';
+    rc[this.signatureHeaderName] = ver + '|' + tag + '|' + String(login) + '|' + hmac + '|' + expires + '|' + checksum + '|';
     if (logger.level > 1) logger.log('createSignature:', rc);
     return rc;
 }
@@ -1060,7 +1085,7 @@ api.handleSessionSignature = function(req, options)
     if (typeof options.accesstoken != "undefined" && req.session) {
         if (options.accesstoken && req.account && req.account.login && req.account.secret && req.headers) {
             var sig = this.createSignature(req.account.login, req.account.secret + ":" + (req.account.token_secret || ""), "", req.headers.host, "", { version: 3, expires: options.sessionAge || this.accessTokenAge });
-            req.account[this.accessTokenName] = corelib.encrypt(this.accessTokenSecret, sig[this.signatureName], "", "hex");
+            req.account[this.accessTokenName] = corelib.encrypt(this.accessTokenSecret, sig[this.signatureHeaderName], "", "hex");
             req.account[this.accessTokenName + '-age'] = options.sessionAge || this.accessTokenAge;
         } else {
             delete req.account[this.accessTokenName];
@@ -1070,9 +1095,9 @@ api.handleSessionSignature = function(req, options)
     if (typeof options.session != "undefined" && req.session) {
         if (options.session && req.account && req.account.login && req.account.secret && req.headers) {
             var sig = this.createSignature(req.account.login, req.account.secret, "", req.headers.host, "", { version: 2, expires: options.sessionAge || this.sessionAge });
-            req.session[this.signatureName] = sig[this.signatureName];
+            req.session[this.signatureHeaderName] = sig[this.signatureHeaderName];
         } else {
-            delete req.session[this.signatureName];
+            delete req.session[this.signatureHeaderName];
         }
     }
 }
@@ -1503,10 +1528,10 @@ api.sendJSON = function(req, err, rows)
 
     if (!rows) rows = [];
     var sent = 0;
-    var hooks = this.findHook('post', req.method, req.path);
+    var hooks = this.findHook('post', req.method, req.options.path);
     corelib.forEachSeries(hooks, function(hook, next) {
-        try { sent = hook.callbacks.call(self, req, req.res, rows); } catch(e) { logger.error('sendJSON:', req.path, e.stack); }
-        logger.debug('sendJSON:', req.method, req.path, hook.path, 'sent:', sent || req.res.headersSent, 'cleanup:', req.options.cleanup);
+        try { sent = hook.callbacks.call(self, req, req.res, rows); } catch(e) { logger.error('sendJSON:', req.options.path, e.stack); }
+        logger.debug('sendJSON:', req.method, req.options.path, hook.path, 'sent:', sent || req.res.headersSent, 'cleanup:', req.options.cleanup);
         next(sent || req.res.headersSent);
     }, function(err) {
         if (sent || req.res.headersSent) return;
@@ -1595,7 +1620,7 @@ api.sendStatus = function(res, options)
             }
         }
     } catch(e) {
-        logger.error('sendStatus:', res.req.path, e.stack);
+        logger.error('sendStatus:', res.req.url, e.stack);
     }
     return false;
 }
