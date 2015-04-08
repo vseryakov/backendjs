@@ -241,7 +241,7 @@ logger.dump = function()
 logger.format = function(args)
 {
     var str = "";
-    for (var p in args) str += util.inspect(args[p], { depth: 3 }) + " ";
+    for (var p in args) str += util.inspect(args[p], { depth: 5 }) + " ";
     return str.replace(/\\n/g,' ').replace(/[ \\\r\n\t]+/g, " ");
 }
 

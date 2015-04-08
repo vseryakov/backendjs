@@ -30,7 +30,20 @@ module.exports = corelib;
 // Empty function to be used when callback was no provided
 corelib.noop = function() {}
 
-// Returns a floating number from the version string
+// Returns a floating number from the version string, it assumes common semver format as major.minor.patch, all non-digits will
+// be removed, underscores will be treated as dots. Returns a floating number which can be used in comparing versions.
+//
+// Example
+//      > corelib.toVersion("1.0.3")
+//      1.000003
+//      > corelib.toVersion("1.0.3.4")
+//      1.000003004
+//      > corelib.toVersion("1.0.3.4") > corelib.toVersion("1.0.3")
+//      true
+//      > corelib.toVersion("1.0.3.4") > corelib.toVersion("1.0.0")
+//      true
+//      > corelib.toVersion("1.0.3.4") > corelib.toVersion("1.1.0")
+//      false
 corelib.toVersion = function(str)
 {
     return String(str).replace("_", ".").replace(/[^0-9.]/g, "").split(".").reduce(function(x,y,i) { return x + Number(y) / Math.pow(10, i * 3) }, 0);

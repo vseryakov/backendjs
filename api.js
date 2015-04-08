@@ -39,15 +39,15 @@ var utils = require(__dirname + '/build/Release/backend');
 // incorporates the Express server which is exposed as api.app object, the master server spawns Web workers which perform actual operations and monitors
 // the worker processes if they die and restart them automatically. How many processes to spawn can be configured via `-server-max-workers` config parameter.
 //
-// When a HTTP request arrives it goes over Express middleware, but before processing any registsred route there are several steps performed:
-// - the `req` object which is by convention a Request, assigned with common backend properties to be used later:
+// When an HTTP request arrives it goes over Express middleware, but before processing any registered routes there are several steps performed:
+// - the `req` object which is by convention a Request object, assigned with common backend properties to be used later:
 //   - account - an empty object which will be filled ater by signature verification method, if successful, properties form the `bk_auth` table will be set
-//   - options - this is a global object with internal state and control parameters. Also some request properties are cached like `path`, `ip`, `op` - the path split by /
+//   - options - this is a global object with internal state and control parameters. Also some request properties are cached like `path`, `ip`, `apath`(the path split by /)
 // - access verification, can the request be satisfied without proper signature, i.e. is this a public request
 // - autherization, check the signature and other global or account specific checks
-// - when a route found matching the request url, it is called as any regular Connect middlware
-// - if there are registered pre processing callback they will be called during access or autherization phases
-// - if inside the route a response was returned using `api.sendJSON` method, registered post process callbacks will be called for such response
+// - when a API route found by the request url, it is called as any regular Connect middlware
+//   - if there are registered pre processing callback they will be called during access or autherization phases
+//   - if inside the route a response was returned using `api.sendJSON` method, registered post process callbacks will be called for such response
 //
 var api = {
 
@@ -362,7 +362,7 @@ api.init = function(options, callback)
 
     // Metrics starts early
     self.app.use(function(req, res, next) {
-        var path = "url_" + req.options.op.slice(0, self.urlMetrics[req.options.op[0]] || 2).join("_");
+        var path = "url_" + req.options.apath.slice(0, self.urlMetrics[req.options.apath[0]] || 2).join("_");
         self.metrics.Histogram('api_que').update(self.metrics.Counter('api_nreq').inc());
         req.metric1 = self.metrics.Timer('api_req').start();
         req.metric2 = self.metrics.Timer(path).start();
@@ -665,9 +665,9 @@ api.prepareRequest = function(req)
 {
     // Cache the path so we do not need reparse it every time
     var path = req.path || "/";
-    var op = path.substr(1).split("/");
+    var apath = path.substr(1).split("/");
     var ip = req.ip || (req.socket.socket ? req.socket.socket.remoteAddress : "");
-    req.options = { ops: {}, noscan: 1, ip: ip, host: req.host, path: path, op: op, cleanup: "bk_" + op[0] };
+    req.options = { ops: {}, noscan: 1, ip: ip, host: req.host, path: path, apath: apath, cleanup: "bk_" + apath[0] };
     req.account = {};
 }
 
