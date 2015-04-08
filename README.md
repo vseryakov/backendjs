@@ -1725,6 +1725,7 @@ To disable open registration in this mode just add config parameter `api-disallo
         }
 
 ## Secure Web site, client verification
+
 This is a mode when the whole Web site is secure by default, even access to the HTML files must be authenticated. In this mode the pages must defined 'Backend.session = true'
 during the initialization on every html page, it will enable Web sessions for the site and then no need to sign every API reauest.
 
@@ -1788,6 +1789,67 @@ Example:
             "message": "Invalid request: no host provided"
           }
         >
+
+# Versioning
+
+There is no ready to use support for different versions of API at the same because there is no just one solution that satifies all applications. But there are
+tools ready to use that will allow to implement such versioning system in the backend. Some examples are provided below:
+
+- Fixed versions
+  This is similar to AWS version system when versions are fixed and changed not very often. For such cases the backend exposes `core.version` which is
+  supposed to be a core backend version. This version is returned with every backend reponse in the Verison: header. A client also can specify the core version
+  using `bk-version` query parameter or a header. When a request is parsed and the version is provided it will be set in the request options object.
+
+  All API routes are defined using Express middleware and one of the possible ways of dealing with different versions can look like this, by
+  appending version to the command it is very simple to call only changed API code.
+
+          api.all(/\/domain\/(get|put|del)/, function(req, res) {
+              var options = api.getOptions(req);
+              var cmd = req.params[0];
+              if (options.coreVersion) cmd += "/" + options.coreVersion;
+              switch (cmd) {
+              case "get":
+                  break;
+
+              case "get/2015-01-01":
+                  break;
+
+              case "put":
+                  break;
+
+              case "put/2015-02-01":
+                  break;
+
+              case "del"
+                  break;
+              }
+          });
+
+- Application semver support
+  For cases when applications support Semver kind of versioning and it may be too many releases the method above still can be used while the number of versions is
+  small, once too many different versions with different minor/patch numbers, it is easier to support greater/less comparisons.
+
+  The application version `bk-app` can be supplied in the query or as a header  or in the user-agent HTTP header which is the easiest case for mobile apps.
+  In the middlware, the code can look like this:
+
+        var options = api.getOptions(req);
+        var version = corelib.toVersion(options.appVersion);
+        switch (req.params[0]) {
+        case "get":
+            if (version < corelib.toVersion("1.2.5")) {
+                res.json({ id: 1, name: "name", description: "descr" });
+                break;
+            }
+            if (version < corelib.toVersion("1.1")) {
+                res.json([id, name]);
+                break;
+            }
+            res.json({ id: 1, name: "name", descr: "descr" });
+            break;
+        }
+
+The actual implementation can be modularized, split into functions, controllers.... there are no restrictions how to build the working backend code,
+the backend just provides all necessary information for the middleware modules.
 
 # The backend provisioning utility: bkjs
 

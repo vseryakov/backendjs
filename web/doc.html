@@ -50,6 +50,7 @@
 </ul>
 </li>
 <li><a href="#websockets-connections"> WebSockets connections</a></li>
+<li><a href="#versioning"> Versioning</a></li>
 <li><a href="#the-backend-provisioning-utility-bkjs"> The backend provisioning utility: bkjs</a></li>
 <li><a href="#deployment-use-cases"> Deployment use cases</a><ul>
 <li><a href="#aws-instance-setup-with-node-and-backendjs"> AWS instance setup with node and backendjs</a></li>
@@ -1727,7 +1728,63 @@ All requests must be properly signed with all parameters encoded as for GET requ
         &quot;message&quot;: &quot;Invalid request: no host provided&quot;
       }
     &gt;
-</code></pre><h1 id="the-backend-provisioning-utility-bkjs">The backend provisioning utility: bkjs</h1>
+</code></pre><h1 id="versioning">Versioning</h1>
+<p>There is no ready to use support for different versions of API at the same because there is no just one solution that satifies all applications. But there are
+tools ready to use that will allow to implement such versioning system in the backend. Some examples are provided below:</p>
+<ul>
+<li><p>Fixed versions
+This is similar to AWS version system when versions are fixed and changed not very often. For such cases the backend exposes <code>core.version</code> which is
+supposed to be a core backend version. This version is returned with every backend reponse in the Verison: header. A client also can specify the core version
+using <code>bk-version</code> query parameter or a header. When a request is parsed and the version is provided it will be set in the request options object.</p>
+<p>All API routes are defined using Express middleware and one of the possible ways of dealing with different versions can look like this, by
+appending version to the command it is very simple to call only changed API code.</p>
+<pre><code>    api.all(/\/domain\/(get|put|del)/, function(req, res) {
+        var options = api.getOptions(req);
+        var cmd = req.params[0];
+        if (options.coreVersion) cmd += &quot;/&quot; + options.coreVersion;
+        switch (cmd) {
+        case &quot;get&quot;:
+            break;
+
+        case &quot;get/2015-01-01&quot;:
+            break;
+
+        case &quot;put&quot;:
+            break;
+
+        case &quot;put/2015-02-01&quot;:
+            break;
+
+        case &quot;del&quot;
+            break;
+        }
+    });
+</code></pre></li>
+<li><p>Application semver support
+For cases when applications support Semver kind of versioning and it may be too many releases the method above still can be used while the number of versions is
+small, once too many different versions with different minor/patch numbers, it is easier to support greater/less comparisons.</p>
+<p>The application version <code>bk-app</code> can be supplied in the query or as a header  or in the user-agent HTTP header which is the easiest case for mobile apps.
+In the middlware, the code can look like this:</p>
+<pre><code>  var options = api.getOptions(req);
+  var version = corelib.toVersion(options.appVersion);
+  switch (req.params[0]) {
+  case &quot;get&quot;:
+      if (version &lt; corelib.toVersion(&quot;1.2.5&quot;)) {
+          res.json({ id: 1, name: &quot;name&quot;, description: &quot;descr&quot; });
+          break;
+      }
+      if (version &lt; corelib.toVersion(&quot;1.1&quot;)) {
+          res.json([id, name]);
+          break;
+      }
+      res.json({ id: 1, name: &quot;name&quot;, descr: &quot;descr&quot; });
+      break;
+  }
+</code></pre></li>
+</ul>
+<p>The actual implementation can be modularized, split into functions, controllers.... there are no restrictions how to build the working backend code,
+the backend just provides all necessary information for the middleware modules.</p>
+<h1 id="the-backend-provisioning-utility-bkjs">The backend provisioning utility: bkjs</h1>
 <p>The purpose of the <code>bkjs</code> shell script is to act as a helper tool in configuring and managing the backend environment
 and as well to be used in operations on production systems. It is not required for the backend operations and provided as a convenience tool
 which is used in the backend development and can be useful for others running or testing the backend.</p>
