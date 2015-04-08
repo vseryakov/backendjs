@@ -329,7 +329,7 @@ api.init = function(options, callback)
                        res.statusCode + " " +
                        (res.get("Content-Length") || '-') + " - " +
                        (now - req._startTime) + " ms - " +
-                       (req.headers['user-agent'] || "-") + " " +
+                       (req.headers[self.appHeaderName] || req.headers['user-agent'] || "-") + " " +
                        (req.account.id || "-" ) + "\n";
             self.accesslog.write(line);
         }
