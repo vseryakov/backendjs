@@ -106,7 +106,7 @@ msg.shutdownWeb = function(options, callback)
 
 // Deliver a notification using the specified service, apple is default.
 // Options may contain the following properties:
-//  - device_id - device where to send the message to
+//  - device_id - device(s) where to send the message to, can be multiple ids separated by , or |
 //  - service - which service to use for delivery: aws, apns, gcm, ads, mpns, wns
 //  - msg - text message to send
 //  - badge - badge number to show if supported by the service
@@ -116,7 +116,7 @@ msg.send = function(options, callback)
 {
     var self = this;
     if (typeof callback != "function") callback = corelib.noop;
-    if (!options || typeof options.device_id != "string") return callback ? callback("invalid device or options") : null;
+    if (!options || !options.device_id) return callback ? callback("invalid device or options") : null;
 
     // Queue to the publish server
     if (this.notificationQueue) {
@@ -126,23 +126,36 @@ msg.send = function(options, callback)
 
     // Determine the service to use from the device token
     var service = options.service || "";
-    var device_id = String(options.device_id);
-    if (device_id.match(/^arn\:aws\:/)) {
-        service = "aws";
-    } else {
-        var d = device_id.match(/^([^:]+)\:\/\/(.+)$/);
-        if (d) service = d[1], device_id = d[2];
-    }
-    switch (service) {
-    case "gcm":
-        return this.sendGCM(device_id, options, callback);
+    var devices = corelib.strSplit(options.device_id, null, "string");
+    corelib.forEachSeries(devices, function(device_id, next) {
+        if (device_id.match(/^arn\:aws\:/)) {
+            service = "aws";
+        } else {
+            var d = device_id.match(/^([^:]+)\:\/\/(.+)$/);
+            if (d) service = d[1], device_id = d[2];
+        }
+        switch (service) {
+        case "gcm":
+            this.sendGCM(device_id, options, function(err) {
+                if (err) logger.error("send:", device_id, err);
+                next();
+            });
+            break;
 
-    case "aws":
-        return this.sendAWS(device_id, options, callback);
+        case "aws":
+            this.sendAWS(device_id, options, function(err) {
+                if (err) logger.error("send:", device_id, err);
+                next();
+            });
+            break;
 
-    default:
-        return this.sendAPN(device_id, options, callback);
-    }
+        default:
+            this.sendAPN(device_id, options, function(err) {
+                if (err) logger.error("send:", device_id, err);
+                next();
+            });
+        }
+    }, callback);
 }
 
 // Initiaize Apple Push Notification service in the current process, Apple supports multiple connections to the APN gateway but

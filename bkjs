@@ -59,7 +59,7 @@ get_arg() {
   for ((i = 0;i < ${#ARGS[@]}; ++i)); do
     [ "$1" = "${ARGS[i]}" ] && echo "${ARGS[i+1]}" && return 0
   done
-  [ "$2" != "" ] && echo $2
+  echo $2
 }
 
 # Concatenate args
@@ -72,8 +72,8 @@ concat_arg() {
 
 # Return value of the named pair from the variable that hold all them
 get_value() {
-  echo "$1"|awk -F= "{if(\$1==\"$2\" && \$2!=\"\") print \$2}" && return 0
-  [ "$3" != "" ] && echo $3
+  v=$(echo "$1"|awk -F= "{if(\$1==\"$2\" && \$2!=\"\") print \$2}")
+  echo ${v:-$3}
 }
 
 # Global options that are used thoughout the script

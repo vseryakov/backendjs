@@ -988,6 +988,8 @@ db.batch = function(table, op, objs, options, callback)
 //  - options - same as in `db.select`, with the following additions:
 //    - count - size of every batch, default is 100
 //    - batch - if true rowCallback will be called with all rows from the batch, not every row individually, batch size is defined by the count property
+//    - noscan - if 1 no scan will be performed if no prmary keys are specified
+//    - fullscan - if 1 force to scan full table without using any primary key conditons, use all query properties for all records (DynamoDB)
 //  - rowCallback - process records when called like this `callback(rows, next)
 //  - endCallback - end of scan when called like this: `callback(err)
 //

@@ -90,20 +90,21 @@ corelib.toUncamel = function(str)
 //               corelib.toNumber("123")
 //               corelib.toNumber("1.23", { float: 1, dflt: 0, min: 0, max: 2 })
 //
-corelib.toNumber = function(str, options)
+corelib.toNumber = function(val, options)
 {
     var n = 0;
-    if (!options) options = {};
-    if (typeof str == "number") {
-        n = str;
+    if (typeof val == "number") {
+        if (!options) return val;
+        n = val;
     } else {
+        if (!options) options = {};
         if (typeof options.dflt == "undefined") options.dflt = 0;
-        if (typeof str != "string") {
+        if (typeof val != "string") {
             n = options.dflt;
         } else {
             // Autodetect floating number
-            if (typeof options.float == "undefined" || options.float == null) options.float = /^[0-9-]+\.[0-9]+$/.test(str);
-            n = str[0] == 't' ? 1 : str[0] == 'f' ? 0 : str == "infinity" ? Infinity : (options.float ? parseFloat(str,10) : parseInt(str,10));
+            if (typeof options.float == "undefined" || options.float == null) options.float = /^[0-9-]+\.[0-9]+$/.test(val);
+            n = val[0] == 't' ? 1 : val[0] == 'f' ? 0 : val == "infinity" ? Infinity : (options.float ? parseFloat(val, 10) : parseInt(val, 10));
             n = isNaN(n) ? options.dflt : n;
         }
     }
@@ -115,6 +116,7 @@ corelib.toNumber = function(str, options)
 // Return true if value represents true condition
 corelib.toBool = function(val, dflt)
 {
+    if (typeof val == "boolean") return val;
     if (typeof val == "undefined") val = dflt;
     return !val || val == "false" || val == "FALSE" || val == "f" || val == "F" || val == "0" ? false : true;
 }
@@ -122,6 +124,7 @@ corelib.toBool = function(val, dflt)
 // Return Date object for given text or numeric date representation, for invalid date returns 1969
 corelib.toDate = function(val, dflt)
 {
+    if (val instanceof Date) return val;
     var d = null;
     // String that looks like a number
     if (typeof val == "string" && /^[0-9\.]+$/.test(val)) val = this.toNumber(val);
@@ -145,7 +148,7 @@ corelib.toValue = function(val, type)
     case "real":
     case "float":
     case "double":
-        return this.toNumber(val, true);
+        return this.toNumber(val, { float: 1 });
 
     case "int":
     case "smallint":
@@ -165,12 +168,13 @@ corelib.toValue = function(val, type)
         return this.toDate(val);
 
     case "mtime":
-        return /^[0-9\.]+$/.test(value) ? this.toNumber(val) : (new Date(val));
+        return /^[0-9\.]+$/.test(String(val)) ? this.toNumber(val) : (new Date(val));
 
     case "json":
         return JSON.stringify(val);
 
     default:
+        if (typeof val == "string") return val;
         return String(val);
     }
 }
@@ -885,21 +889,26 @@ corelib.formatJSON = function(obj, indent)
     return text;
 }
 
-// Split string into array, ignore empty items, `sep` is an RegExp to use as a separator instead of default  pattern `[,\|]`, if num is 1, then convert all items into numbers
-corelib.strSplit = function(str, sep, num)
+// Split string into array, ignore empty items,
+// - `sep` is an RegExp to use as a separator instead of default  pattern `[,\|]`,
+// - `type` then convert all items into the type using `toValue`
+//
+// If `str` is an array and type is not specified then all non-string items will be returned as is.
+corelib.strSplit = function(str, sep, type)
 {
     var self = this;
     if (!str) return [];
+    var typed = typeof type != "undefined";
     return (Array.isArray(str) ? str : String(str).split(sep || /[,\|]/)).
-            map(function(x) { return num ? self.toNumber(x) : typeof x == "string" ? x.trim() : x }).
+            map(function(x) { return typed ? self.toValue(x, type) : typeof x == "string" ? x.trim() : x }).
             filter(function(x) { return typeof x == "string" ? x : 1 });
 }
 
 // Split as above but keep only unique items
-corelib.strSplitUnique = function(str, sep, num)
+corelib.strSplitUnique = function(str, sep, type)
 {
     var rc = [];
-    this.strSplit(str, sep, num).forEach(function(x) { if (!rc.some(function(y) { return x.toLowerCase() == y.toLowerCase() })) rc.push(x)});
+    this.strSplit(str, sep, type).forEach(function(x) { if (!rc.some(function(y) { return x.toLowerCase() == y.toLowerCase() })) rc.push(x)});
     return rc;
 }
 
