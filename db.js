@@ -183,12 +183,10 @@ var db = {
                        mtime: { type: "bigint", now: 1 } },
 
         // Pending jobs or other requests to be processed
-        bk_queue: { id: { type: "uuid", primary: 1 },
-                    tag: {},
+        bk_queue: { id: { primary: 1 },
                     type: {},
                     job: { type: "json" },
                     args: { type: "json" },
-                    stime: { type: "bigint" },                        // time when valid for processing
                     etime: { type: "bigint" },                        // expiration time
                     ctime: { type: "bigint", readonly: 1, now: 1 },   // creation time
                     mtime: { type: "bigint", now: 1 } },

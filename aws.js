@@ -1660,6 +1660,7 @@ aws.ddbWaitForTable = function(name, item, options, callback)
 //          for ExpressionAttributeValues parameters
 //    - names - an object with a map to be used for attribute names in condition and update expressions, to be used
 //          for ExpressionAttributeNames parameter
+//    - returning - values to be returned on success, * means ALL_NEW
 //
 // Example:
 //
@@ -1691,7 +1692,7 @@ aws.ddbPutItem = function(name, item, options, callback)
         params.ExpressionAttributeValues = self.toDynamoDB(options.values);
     }
     if (options.returning) {
-        params.ReturnValues = options.returning;
+        params.ReturnValues = options.returning == "*" ? "ALL_NEW" : options.returning;
     }
     this.queryDDB('PutItem', params, options, function(err, rc) {
         rc.Item = rc.Attributes ? self.fromDynamoDB(rc.Attributes) : {};
@@ -1715,6 +1716,7 @@ aws.ddbPutItem = function(name, item, options, callback)
 //      - expected - an object with column names to be used in Expected clause and value as null to set condition to { Exists: false } or
 //          any other exact value to be checked against which corresponds to { Exists: true, Value: value }. If it is an object then it is treated as
 //          { op: value } and options.ops is ignored otherwise the conditional comparison operator is taken from options.ops the same way as for queries.
+//      - returning - values to be returned on success, * means ALL_NEW
 //
 // Example:
 //
@@ -1744,6 +1746,9 @@ aws.ddbUpdateItem = function(name, keys, item, options, callback)
     }
     if (options.values) {
         params.ExpressionAttributeValues = self.toDynamoDB(options.values);
+    }
+    if (options.returning) {
+        params.ReturnValues = options.returning == "*" ? "ALL_NEW" : options.returning;
     }
     if (typeof item == "string") {
         params.UpdateExpression = item;
@@ -1791,6 +1796,7 @@ aws.ddbUpdateItem = function(name, keys, item, options, callback)
 //          for ExpressionAttributeValues parameters
 //      - names - an object with a map to be used for attribute names in condition and update expressions, to be used
 //          for ExpressionAttributeNames parameter
+//      - returning - values to be returned on success, * means ALL_OLD
 //
 // Example:
 //
@@ -1814,6 +1820,9 @@ aws.ddbDeleteItem = function(name, keys, options, callback)
     }
     if (options.values) {
         params.ExpressionAttributeValues = self.toDynamoDB(options.values);
+    }
+    if (options.returning) {
+        params.ReturnValues = options.returning == "*" ? "ALL_OLD" : options.returning;
     }
     this.queryDDB('DeleteItem', params, options, function(err, rc) {
         rc.Item = rc.Attributes ? self.fromDynamoDB(rc.Attributes) : {};

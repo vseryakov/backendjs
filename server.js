@@ -174,7 +174,7 @@ server.startMaster = function(options)
             // Maintenance tasks
             setInterval(function() {
                 // Submit pending jobs
-                jobs.execQueue();
+                jobs.checkQueue();
 
                 // Check idle time, if no jobs running for a long time shutdown the server, this is for instance mode mostly
                 if (core.instance.job && self.idleTime > 0 && !Object.keys(cluster.workers).length && Date.now() - jobs.time > self.idleTime) {
@@ -183,7 +183,7 @@ server.startMaster = function(options)
                 }
             }, 30000);
             // Execute the jobs passed via command line
-            setTimeout(function() { jobs.execQueue() }, jobs.delay);
+            setTimeout(function() { jobs.checkQueue() }, jobs.delay);
 
             // API related initialization
             core.runMethods("configureMaster");

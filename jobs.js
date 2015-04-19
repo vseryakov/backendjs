@@ -29,7 +29,6 @@ var jobs = {
            { name: "submit", type: "callback", callback: function(v) { if (core.role == "master") this.updateQueue(corelib.base64ToJson(v)) }, descr: "Job specification, JSON encoded as base64 of the job object" },
            { name: "name", type: "callback", callback: function(v) { if (core.role == "master") this.updateQueue(v) }, descr: "Job specification, a simple case when just a job name is used without any properties" },
            { name: "delay", type: "int", min: 0, descr: "Delay in milliseconds before starting the jobs passed via command line after the master process started" },
-           { name: "tag", descr: "This server executes jobs that match this tag, if empty then execute all jobs, if not empty execute all that match current IP address and this tag" },
            { name: "queue", descr: "Name of the queue to process, this is a generic queue name that can be used by any queue provider" },
            { name: "count", descr: "How many jobs to execute at any iteration, this relates to the bk_queue queue processing only" },
            { name: "interval", type: "number", min: 0, descr: "Interval between executing job queue, must be set to enable jobs, 0 disables job processing, in seconds, min interval is 60 secs" } ],
@@ -46,8 +45,6 @@ var jobs = {
     interval: 0,
     // Batch size
     count: 1,
-    // Tag for jobs to process
-    tag: '',
     // Delay before job start
     delay: 1000,
     // Max simultaneous jobs
@@ -275,6 +272,64 @@ jobs.launch = function(job, options, callback)
     return true;
 }
 
+// Perform job execution according to the type
+jobs.schedule = function(options, callback)
+{
+    var self = this;
+    if (typeof callback != "function") callback = corelib.noop;
+    if (corelib.typeName(options) != "object" || !options.job) return callback(new Error("invalid job"));
+
+    // Ignore expired jobs
+    if (options.etime && options.etime < Date.now()) return callback(new Error("expired job"));
+
+    switch (options.type || "") {
+    case "queue":
+        // Submit the job to a worker for execution later
+        options.type = "local";
+        self.updateDb(options);
+        break;
+
+    case "request":
+        core.sendRequest(options);
+        break;
+
+    case 'remote':
+        setImmediate(function() { self.launch(options.job, options.args); });
+        break;
+
+    case "server":
+        setImmediate(function() {
+            var d = domain.create();
+            d.on('error', function(err) { logger.error('schedule:', options, err.stack); });
+            d.add(options.job);
+            d.run(function() { self.run(options.job); });
+        });
+        break;
+
+    default:
+        setImmediate(function() { self.updateQueue(options.job); });
+        break;
+    }
+    callback();
+}
+
+// Finish and mark or delete a job after the successfull execution, this is supposed to be called by
+// the jobs that handle completion, by default new job pulled from te database is deleted on successful schedule.
+// The options is the same job object that was passed to the `jobs.schedule`.
+jobs.finish = function(options, callback)
+{
+    if (typeof callback != "function") callback = corelib.noop;
+    if (corelib.typeName(options) != "object" || !options.job) return callback(new Error('invalid job'));
+
+    logger.debug('finish:', options);
+    if (options.sqsQueue && options.sqsReceiptHandle) {
+        aws.querySQS("DeleteMessage", { QueueUrl: options.sqsQueue, ReceiptHandle: options.sqsReceiptHandle }, callback);
+    } else
+    if (options.id) {
+        db.del("bk_queue", options, callback);
+    }
+}
+
 // Update the job queue with a job, can be an object or a string is in the format object/method/name/value/name/value....
 // All spaces must be are replaced with %20 to be used in command line parameterrs
 jobs.updateQueue = function(job)
@@ -293,38 +348,31 @@ jobs.updateQueue = function(job)
 }
 
 // Process pending jobs, submit to idle workers
-jobs.execQueue = function()
+jobs.checkQueue = function()
 {
     if (!this.queue.length) return;
     var job = this.queue.shift();
     if (job) this.exec(job);
 }
 
+
 // Create a new cron job, for remote jobs additional property args can be used in the object to define
 // arguments for the instance backend process, properties must start with -
-//
-// If a job object contains the `tag` property, it will be submitted into the bk_queue for execution by that worker
 //
 // Example:
 //
 //          { "type": "server", "cron": "0 */10 * * * *", "job": "server.processQueue" },
 //          { "type": "local", "cron": "0 10 7 * * *", "id": "processQueue", "job": "api.processQueue" }
 //          { "type": "remote", "cron": "0 5 * * * *", "args": { "-workers": 2 }, "job": { "scraper.run": { "url": "host1" }, "$scraper.run": { "url": "host2" } } }
-//          { "type": "local", "cron": "0 */10 * * * *", "tag": "host-12", "job": "server.processQueue" },
+//          { "type": "local", "cron": "0 */10 * * * *", "job": "server.processQueue" },
+//          { "type": "queue", "cron": "0 */30 * * * *", "job": "server.processSQS" },
 //
 jobs.scheduleCronjob = function(spec, obj)
 {
     var self = this;
     if (!spec || !obj || !obj.job) return;
     logger.debug('scheduleCronjob:', spec, obj);
-    var cj = new cron.CronJob(spec, function() {
-        // Submit a job via cron to a worker for execution
-        if (this.job.tag) {
-            self.updateDb(this.job);
-        } else {
-            self.execCronjob(this.job);
-        }
-    }, null, true);
+    var cj = new cron.CronJob(spec, function() { self.schedule(this.job); }, null, true);
     cj.job = obj;
     this.crontab.push(cj);
 }
@@ -338,58 +386,21 @@ jobs.scheduleCronjob = function(spec, obj)
 //      // Start the backend with repl-port like `bkjs run-backend -repl-port 2080`
 //
 //      # telnet localhost 2080
-//      > server.runCronjob("processQueue")
+//      > server.execCronjob("processQueue")
 //
-jobs.runCronjob = function(id)
+jobs.execCronjob = function(id)
 {
     this.crontab.forEach(function(x) {
        if (x.job && x.job.id == id) x._callback();
     });
 }
 
-// Perform execution according to the type
-jobs.execCronjob = function(options, callback)
-{
-    var self = this;
-    if (typeof callback != "function") callback = corelib.noop;
-    if (corelib.typeName(options) != "object" || !options.job) options = { type: "error" };
-
-    switch (options.type || "") {
-    case "error":
-        callback("Invalid job", true);
-        break;
-
-    case "request":
-        core.sendRequest(options, function() { callback() });
-        break;
-
-    case 'remote':
-        setImmediate(function() { self.launch(options.job, options.args); });
-        callback(null, true);
-        break;
-
-    case "server":
-        setImmediate(function() {
-            var d = domain.create();
-            d.on('error', function(err) { logger.error('scheduleJob:', options, err.stack); });
-            d.add(options.job);
-            d.run(function() { self.run(options.job); });
-        });
-        callback(null, true);
-        break;
-
-    default:
-        setImmediate(function() { self.updateQueue(options.job); });
-        callback(null, true);
-        break;
-    }
-}
-
 // Load crontab from JSON file as list of job specs:
-// - type - local, remote, server
+// - type - local, remote, server, queue
 //      - local means spawn a worker to run the job function
 //      - remote means launch an AWS instance
 //      - server means run inside the master process, do not spawn a worker
+//      - queue means put this job object into the database tobe processed by a worker
 // - cron - cron time interval spec: 'second' 'minute' 'hour' 'dayOfMonth' 'month' 'dayOfWeek'
 // - job - a string as obj.method or an object with job name as property name and the value is an object with
 //         additional options for the job passed as first argument, a job callback always takes options and callback as 2 arguments
@@ -430,24 +441,24 @@ jobs.loadCronjobs = function()
 // Submit job for execution, it will be saved in the server queue and the master or matched job server will pick it up later.
 //
 // The options can specify:
-//  - tag - job name for execution, this can be used to run on specified servers by IP address or other tag asigned
+//  - id - unique job id or UUID will be generated
 //  - type - job type: local, remote, server
-//  - stime - start time ofr the job, it will wait until this time is current to be processed
-//  - etime - expiration time, after this this job is ignored
+//  - etime - expiration time for the job, ms
 //  - job - an object with a job spec, for name-only job the object can look like { job: null }
-//  - args - additional arguments for remote job to pass in the command line via user-data
+//  - args - additional arguments for remote job to pass in the command line (starts with -) via user-data or additional properties
 jobs.updateDb = function(options, callback)
 {
-    if (!options || corelib.typeName(options) != "object" || !options.job) {
+    if (corelib.typeName(options) != "object" || !options.job) {
         logger.error('submitJob:', 'invalid job spec, must be an object:', options);
         return callback ? callback("invalid job") : null;
     }
-    logger.debug('submitJob:', options);
+    if (!options.id) options.id = corelib.uuid();
+    logger.debug('updateDb:', options);
     db.put("bk_queue", options, callback);
 }
 
 // Load submitted jobs for execution, it is run by the master process every `-server-jobs-interval` seconds.
-// Requires connection to the PG database, how jobs appear in the table and the order of execution is not concern of this function,
+// Requires connection to the database, how jobs appear in the table and the order of execution is not concern of this function,
 // the higher level management tool must take care when and what to run and in what order.
 //
 jobs.processDb = function(options, callback)
@@ -457,24 +468,17 @@ jobs.processDb = function(options, callback)
     if (!options) options = {};
 
     var now = Date.now()
-    db.select("bk_queue", {}, { count: self.count }, function(err, rows) {
-        rows = rows.filter(function(x) {
-            if (x.stime && x.stime < now) return 0;
-            return !x.tag || x.tag == core.ipaddr || x.tag == self.tag;
-        }).sort(function(a,b) { return a.mtime - b.mtime });
-
+    db.select("bk_queue", {}, { count: options.count || self.count }, function(err, rows) {
         corelib.forEachSeries(rows, function(row, next) {
-            // Cleanup expired records
-            if (row.etime && row.etime < now) {
-                return db.del('bk_queue', row, function() { next() });
-            }
-            self.schedule(row, function(err, del) {
-                if (del) return db.del('bk_queue', row, function() { next() });
+            self.schedule(row, function(err) {
+                if (err) logger.error("processQueue:", err, row)
+                self.finish(options);
                 next();
             });
-        }, function() {
+        }, function(err) {
+            if (err) logger.error("processQueue:", err);
             if (rows.length) logger.log('processQueue:', rows.length, 'jobs');
-            if (callback) callback();
+            if (typeof callback == "function") callback(err);
         });
     });
 }
@@ -495,19 +499,24 @@ jobs.processSQS = function(options, callback)
     if (!options) options = {};
     var queue = options.queue || self.jobQueue;
     if (!queue) return callback ? callback() : null;
+    if (!options.count) options.count = self.count || 1;
 
     aws.sqsReceiveMessage(queue, options, function(err, rows) {
         if (err) return callback ? callback(err) : null;
         corelib.forEachSeries(rows || [], function(item, next) {
-            var job = corelib.jsonParse(item.Body, { obj: 1, error: 1 });
-            if (job && row.job) self.schedule(row.type, row.job, row.args);
-
-            aws.querySQS("DeleteMessage", { QueueUrl: queue, ReceiptHandle: item.ReceiptHandle }, function(err) {
-                if (err) logger.error('processSQS:', err);
+            var row = corelib.jsonParse(item.Body, { obj: 1, error: 1 });
+            row.sqsQueue = queue;
+            row.sqsReceiptHandle = item.ReceiptHandle;
+            self.schedule(row, function(err) {
+                if (err) logger.error("processSQS:", err, row)
+                self.finish(options);
                 next();
             });
-        }, function() {
-            if (callback) callback();
+        }, function(err) {
+            if (err) logger.error("processSQS:", err);
+            if (rows.length) logger.log('processSQS:', rows.length, 'jobs');
+            if (typeof callback == "function") callback(err);
         });
     });
 }
+

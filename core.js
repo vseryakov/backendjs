@@ -1076,8 +1076,6 @@ core.httpGet = function(uri, params, callback)
 // - checksum - calculate checksum from the data
 // - anystatus - keep any HTTP status, dont treat as error if not 200
 // - obj - return just result object, not the whole params
-// - queue - perform queue management, save in the bk_queue if cannot send right now, delete from bk_queue if sent
-// - etime - when this request expires, for queue management
 core.sendRequest = function(options, callback)
 {
     var self = this;
@@ -1096,15 +1094,6 @@ core.sendRequest = function(options, callback)
     var db = self.modules.db;
 
     this.httpGet(options.url, corelib.cloneObj(options), function(err, params, res) {
-        if (options.queue) {
-            if (params.status == 200) {
-                if (options.id) db.del("bk_queue", { id: options.id }, { pool: db.local });
-            } else {
-                options.tag = core.ipaddr;
-                db.put("bk_queue", options, { pool: db.local });
-            }
-        }
-
         // If the contents are encrypted, decrypt before processing content type
         if ((options.headers || {})['content-encoding'] == "encrypted") {
             params.data = corelib.decrypt(options.secret, params.data);
