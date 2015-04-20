@@ -254,7 +254,7 @@ accounts.getAccount = function(req, options, callback)
 // system will pick the right delivery service depending on the device id, the default service is apple.
 accounts.notifyAccount = function(id, options, callback)
 {
-    if (!id || !options) return callback({ status: 500, message: "invalid arguments, id, and options.handler must be provided" }, {});
+    if (!id || !options) return callback({ status: 500, message: "invalid arguments" }, {});
 
     options = corelib.cloneObj(options);
     // Skip this account
@@ -272,7 +272,7 @@ accounts.notifyAccount = function(id, options, callback)
 
         db.get("bk_account", { id: id }, function(err, account) {
             if (err || !account) return callback(err || { status: 404, message: "account not found" }, status);
-            if (!accounts.device_id && !options.device_id) return callback({ status: 404, message: "device not found" }, status);
+            if (!account.device_id && !options.device_id) return callback({ status: 404, message: "device not found" }, status);
 
             switch (corelib.typeName(options.allow)) {
             case "array":
@@ -291,7 +291,7 @@ accounts.notifyAccount = function(id, options, callback)
             // Ready to send now, set additional properties, if if the options will be reused we overwrite the same properties for each account
             options.status = status;
             options.account = account;
-            if (!options.device_id) options.device_id = accounts.device_id;
+            if (!options.device_id) options.device_id = account.device_id;
             if (options.prefix) options.msg = options.prefix + " " + (options.msg || "");
             msg.send(options, function(err) {
                 status.device_id = accounts.device_id;

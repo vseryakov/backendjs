@@ -165,7 +165,7 @@ server.startMaster = function(options)
             self.watchInterval = setInterval(function() { core.watchLogs(); }, core.logwatcherInterval * 60000);
 
             // Primary cron jobs
-            if (jobs.interval > 0) setInterval(function() { jobs.processDb(); }, jobs.interval * 1000);
+            if (jobs.interval > 0) setInterval(function() { jobs.processQueue(); }, jobs.interval * 1000);
 
             // Watch temp files
             setInterval(function() { core.watchTmp("tmp", { seconds: 86400 }) }, 43200000);

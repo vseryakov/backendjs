@@ -975,6 +975,12 @@ corelib.typeName = function(v)
     return "object";
 }
 
+// Returns true of the argument is a generic object, not a null, Buffer, Date, RegExp or Array
+corelib.isObject = function(v)
+{
+    return this.typeName(v) == "object";
+}
+
 // Return true of the given value considered empty
 corelib.isEmpty = function(val)
 {

@@ -134,23 +134,24 @@ msg.send = function(options, callback)
             var d = device_id.match(/^([^:]+)\:\/\/(.+)$/);
             if (d) service = d[1], device_id = d[2];
         }
+        logger.dev("send:", service, device_id, options.id || "");
         switch (service) {
         case "gcm":
-            this.sendGCM(device_id, options, function(err) {
+            self.sendGCM(device_id, options, function(err) {
                 if (err) logger.error("send:", device_id, err);
                 next();
             });
             break;
 
         case "aws":
-            this.sendAWS(device_id, options, function(err) {
+            self.sendAWS(device_id, options, function(err) {
                 if (err) logger.error("send:", device_id, err);
                 next();
             });
             break;
 
         default:
-            this.sendAPN(device_id, options, function(err) {
+            self.sendAPN(device_id, options, function(err) {
                 if (err) logger.error("send:", device_id, err);
                 next();
             });
@@ -271,7 +272,7 @@ msg.sendGCM = function(device_id, options, callback)
     if (options.id) pkt.addData('id', options.id);
     if (options.type) pkt.addData("type", options.type);
     if (options.badge) pkt.addData('badge', options.badge);
-    this.gcmAgent.send(pkg, [device_id], 2, function() {
+    this.gcmAgent.send(pkt, [device_id], 2, function() {
         self.gcmQueue--;
         self.gcmSent++;
         if (typeof callback == "function") process.nextTick(callback);

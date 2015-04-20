@@ -184,9 +184,9 @@ var db = {
 
         // Pending jobs or other requests to be processed
         bk_queue: { id: { primary: 1 },
-                    type: {},
-                    job: { type: "json" },
-                    args: { type: "json" },
+                    tag: {},                                          // a worker tag
+                    status: {},                                       // job status: running, done
+                    data: { type: "json" },                           // job definition object
                     etime: { type: "bigint" },                        // expiration time
                     ctime: { type: "bigint", readonly: 1, now: 1 },   // creation time
                     mtime: { type: "bigint", now: 1 } },
