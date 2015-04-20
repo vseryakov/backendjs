@@ -652,16 +652,20 @@ server.handleProxyRequest = function(req, res, ssl)
                 return res.end(err.message);
             }
             if (!ssl) {
-                var proto = req.headers["x-forwarded-proto"] || "";
-                var pathname = url.parse(req.url).pathname || "";
-                if (api.redirectSsl.rx && !proto.match(/https/) && pathname.match(api.redirectSsl.rx)) {
-                    res.writeHead(302, { "Location": "https://" + req.headers.host + req.url });
-                    return res.end();
-                }
-                if (api.allowSsl.rx && pathname.match(api.allowSsl.rx) && !proto.match(/https/)) {
-                    var body = JSON.stringify({ status: 400, message: "SSL only access" });
-                    res.writeHead(400, { 'Content-Type': 'application/json', "Content-Length": body.length });
-                    return res.end(body);
+                var uri = url.parse(req.url);
+                var proto = (req.headers["x-forwarded-proto"] || uri.protocol || "").split(/\s*,\s*/)[0];
+                var host = (req.headers["x-forwarded-host"] || req.headers.host || "").split(":");
+                var rc = api.checkRedirect(req, { secure: req.connection.encrypted || proto == "https", host: host[0], port: host[1], path: uri.pathname || "/" });
+                if (rc) {
+                    if (rc.status == 302) {
+                        res.writeHead(302, { "Location": rc.url });
+                        return res.end();
+                    }
+                    if (rc.status) {
+                        var body = JSON.stringify(rc);
+                        res.writeHead(rc.status, { 'Content-Type': 'application/json', "Content-Length": body.length });
+                        return res.end(body);
+                    }
                 }
             }
             req.target = self.getProxyTarget(req);

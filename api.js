@@ -338,25 +338,7 @@ api.init = function(options, callback)
 
     // Early path checks not related to account or session
     self.app.use(function(req, res, next) {
-        // Auto redirect to SSL
-        if (self.redirectSsl.rx) {
-            if (!req.secure && req.options.path.match(self.redirectSsl.rx)) return res.redirect("https://" + req.headers.host + req.url);
-        }
-        // SSL only access, deny access without redirect
-        if (self.allowSsl.rx) {
-            if (req.socket.server != self.sslserver && req.options.path.match(self.allowSsl.rx)) return res.json(400, { status: 400, message: "SSL only access" });
-        }
-        // Simple redirect rules
-        var location = req.options.host + req.url;
-        for (var i = 0; i < self.redirectUrl.length; i++) {
-            if (self.redirectUrl[i].rx.test(location)) {
-                var url = self.redirectUrl[i].value.replace(/@(HOST|PATH|URL)@/g, function(m) {
-                    return m == "HOST" ? req.options.host : m == "PATH" ? req.options.path : m == "URL" ? req.url : "";
-                });
-                logger.debug("redirect:", location, "=>", url, self.redirectUrl[i]);
-                return res.redirect(url);
-            }
-        }
+        var location = self.checkRedirect(req, req.options);
         next();
     });
 
@@ -667,7 +649,8 @@ api.prepareRequest = function(req)
     var path = req.path || "/";
     var apath = path.substr(1).split("/");
     var ip = req.ip || (req.socket.socket ? req.socket.socket.remoteAddress : "");
-    req.options = { ops: {}, noscan: 1, ip: ip, host: req.host, path: path, apath: apath, cleanup: "bk_" + apath[0] };
+    var host = (req.get('X-Forwarded-Host') || req.get('Host') || "").split(":");
+    req.options = { ops: {}, noscan: 1, ip: ip, host: host[0], port: host[1] || null, path: path, apath: apath, secure: req.secure, cleanup: "bk_" + apath[0] };
     req.account = {};
 }
 
@@ -879,6 +862,39 @@ api.checkAuthorization = function(req, status, callback)
     }
     // Pass the status back to the checkRequest
     callback(status);
+}
+
+// Check a request for possible redirection condition based on the configuration, this can be SSL checks or
+// defined redirect rules. This is used by API servers and proxy servers for early redirections. It returns null
+// if no redirects or errors happend, otherwise an object with status that is expected by the `api.sendStatus` method.
+// The options is expected to contain the following cached request properties:
+// - path - from req.path or the request pathname only
+// - host - from req.host or the hostname part only
+// - port - port from the host: header if specified
+// - secure - if the protocol is https
+api.checkRedirect = function(req, options)
+{
+    var self = this;
+    // Auto redirect to SSL
+    if (this.redirectSsl.rx) {
+        if (!options.secure && options.path.match(this.redirectSsl.rx)) return { status: 302, url: "https://" + options.host + (options.port ? ":" + options.port : "") + req.url };
+    }
+    // SSL only access, deny access without redirect
+    if (this.allowSsl.rx) {
+        if (!options.secure && options.path.match(this.allowSsl.rx)) return { status: 400, message: "SSL only access" };
+    }
+    // Simple redirect rules
+    var location = options.host + req.url;
+    for (var i = 0; i < self.redirectUrl.length; i++) {
+        if (this.redirectUrl[i].rx.test(location)) {
+            var url = this.redirectUrl[i].value.replace(/@(HOST|PATH|URL)@/g, function(m) {
+                return m[0] == "H" ? options.host : m[0] == "P" ? options.path : m[0] == "U" ? req.url : "";
+            });
+            logger.debug("redirect:", location, "=>", url, this.redirectUrl[i]);
+            return { status: 302, url: url };
+        }
+    }
+    return null;
 }
 
 // Verify request signature from the request object, uses properties: .host, .method, .url or .originalUrl, .headers
