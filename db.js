@@ -697,6 +697,7 @@ db.put = function(table, obj, options, callback)
 //      - ops - object for comparison operators for primary key, default is equal operator
 //      - opsMap - operator mapping into supported by the database
 //      - typesMap - type mapping for properties to be used in the condition
+//      - expected - an object with the condition for the update, it is used in addition to the primary keys condition from the `obj`
 //
 // Example
 //
@@ -1716,7 +1717,7 @@ db.prepareRow = function(pool, op, table, obj, options)
             case "between":
                 if (obj[p] && !Array.isArray(obj[p])) {
                     var type = cols[p] ? cols[p].type : "";
-                    obj[p] = corelib.strSplit(obj[p], null, corelib.isNumeric(type));
+                    obj[p] = corelib.strSplit(obj[p], null, type);
                 }
                 break;
             }

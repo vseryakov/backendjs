@@ -1450,5 +1450,64 @@ tests.test_logwatcher = function(callback)
     });
 }
 
+tests.test_dblock = function(callback)
+{
+    var self = this;
+    var tables = {
+        dbtest: { id: { primary: 1, pub: 1 },
+                  mtime: { type: "bigint" },
+                  status: {}, },
+    };
+
+    var id = "ID";
+    var interval = core.getArgInt("-interval", 500);
+    var count = core.getArgInt("-count", 0);
+
+    function queueJob(name, callback) {
+        var now = Date.now(), mtime;
+        db.get("dbtest", { id: id }, function(err, rc) {
+            if (rc) {
+                mtime = rc.mtime;
+                // Ignore if the period is not expired yet
+                if (now - mtime < interval) return callback();
+                // Try to update the record using the time we just retrieved, this must be atomic/consistent in the database
+                db.update("dbtest", { id: id, mtime: now, status: "running" }, { silence_error: 1, expected: { id: id, mtime: mtime } }, function(err, rc, info) {
+                    if (err) return callback(err);
+                    if (!info.affected_rows) return callback();
+                    // We updated the record, we can start the job now
+                    logger.log(name, "U: START A JOB", mtime, now);
+                    return callback();
+                });
+            } else {
+                db.add("dbtest", { id: id, mtime: now, status: "running" }, { silence_error: 1 }, function(err) {
+                    // Cannot create means somebody was ahead of us, ingore
+                    if (err) return callback(err);
+                    // We created a new record, now we can start the job now
+                    logger.log(name, "A: START A JOB", now, now);
+                    return callback();
+                });
+            }
+        });
+    }
+
+    corelib.series([
+        function(next) {
+            if (cluster.isWorker) return next();
+            self.resetTables(tables, next);
+        },
+        function(next) {
+            for (var i = 0; i < count; i++) queueJob(i, corelib.noop);
+            queueJob(100, function() { next() });
+        },
+        function(next) {
+            queueJob(200, function() { setTimeout(next, interval - 1) });
+        },
+        function(next) {
+            for (var i = 0; i < count; i++) queueJob(i + 300, corelib.noop);
+            queueJob(400, function() { next() });
+        },
+    ], callback);
+}
+
 // Run main server if we execute this as standalone program
 if (!module.parent) tests.run();

@@ -1392,7 +1392,7 @@ aws.queryFilter = function(obj, options)
         case 'GE':
         case 'GT':
         case 'BEGINS_WITH':
-            if (!val && ["string","object","undefined"].indexOf(typeof val) > -1) continue;
+            if (!val && ["string","object","number","undefined"].indexOf(typeof val) > -1) continue;
             cond.AttributeValueList = [ this.toDynamoDB(val) ];
             break;
         }
@@ -1712,10 +1712,10 @@ aws.ddbPutItem = function(name, item, options, callback)
 //          for ExpressionAttributeValues parameters
 //      - names - an object with a map to be used for attribute names in condition and update expressions, to be used
 //          for ExpressionAttributeNames parameter
-//      - ops - an object with operators to be used for properties if other than PUT
+//      - op - an object with operators to be used for properties if other than PUT
 //      - expected - an object with column names to be used in Expected clause and value as null to set condition to { Exists: false } or
 //          any other exact value to be checked against which corresponds to { Exists: true, Value: value }. If it is an object then it is treated as
-//          { op: value } and options.ops is ignored otherwise the conditional comparison operator is taken from options.ops the same way as for queries.
+//          { op: value } and options.ops is ignored otherwise the conditional comparison operator is taken from `options.ops` the same way as for queries.
 //      - returning - values to be returned on success, * means ALL_NEW
 //
 // Example:
@@ -1776,7 +1776,7 @@ aws.ddbUpdateItem = function(name, keys, item, options, callback)
                     }
 
                 default:
-                    params.AttributeUpdates[p] = { Action: (options.ops || {})[p] || 'PUT' };
+                    params.AttributeUpdates[p] = { Action: (options.op && options.op[p]) || 'PUT' };
                     params.AttributeUpdates[p].Value = self.toDynamoDB(item[p], 1);
                     break;
             }
@@ -1811,6 +1811,9 @@ aws.ddbDeleteItem = function(name, keys, options, callback)
     var params = { TableName: name, Key: {} };
     for (var p in keys) {
         params.Key[p] = self.toDynamoDB(keys[p]);
+    }
+    if (options.expected) {
+        params.Expected = this.queryFilter(options.expected, options);
     }
     if (options.expr) {
         params.ConditionExpression = options.expr;
