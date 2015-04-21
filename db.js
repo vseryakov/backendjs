@@ -699,6 +699,10 @@ db.put = function(table, obj, options, callback)
 //      - typesMap - type mapping for properties to be used in the condition
 //      - expected - an object with the condition for the update, it is used in addition to the primary keys condition from the `obj`
 //
+//
+// Note: not all database drivers support atomic update with conditions, all SQL databases, DynamoDB, MongoDB fully atomic, Redis, Riak,CouchDB not and
+// perform get before put
+//
 // Example
 //
 //          db.update("bk_account", { id: '123', gender: 'm' }, function(err, rows, info) {
@@ -706,6 +710,10 @@ db.put = function(table, obj, options, callback)
 //          });
 //
 //          db.update("bk_account", { id: '123', gender: 'm', prefix: 'Mr' }, { pool: pgsql' }, function(err, rows, info) {
+//              console.log('updated:', info.affected_rows);
+//          });
+//
+//          db.update("bk_account", { id: '123', gender: 'm', prefix: 'Mr' }, { expected: { gender: "f" } }, function(err, rows, info) {
 //              console.log('updated:', info.affected_rows);
 //          });
 //

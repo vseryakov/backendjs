@@ -1712,7 +1712,7 @@ aws.ddbPutItem = function(name, item, options, callback)
 //          for ExpressionAttributeValues parameters
 //      - names - an object with a map to be used for attribute names in condition and update expressions, to be used
 //          for ExpressionAttributeNames parameter
-//      - op - an object with operators to be used for properties if other than PUT
+//      - action - an object with operators to be used for properties if other than PUT
 //      - expected - an object with column names to be used in Expected clause and value as null to set condition to { Exists: false } or
 //          any other exact value to be checked against which corresponds to { Exists: true, Value: value }. If it is an object then it is treated as
 //          { op: value } and options.ops is ignored otherwise the conditional comparison operator is taken from `options.ops` the same way as for queries.
@@ -1720,9 +1720,9 @@ aws.ddbPutItem = function(name, item, options, callback)
 //
 // Example:
 //
-//          ddbUpdateItem("users", { id: 1, name: "john" }, { gender: 'male', icons: '1.png' }, { op: { icons: 'ADD' }, expected: { id: 1 }, ReturnValues: "ALL_NEW" })
-//          ddbUpdateItem("users", { id: 1, name: "john" }, { gender: 'male', icons: '1.png' }, { op: { icons: 'ADD' }, expected: { id: null } })
-//          ddbUpdateItem("users", { id: 1, name: "john" }, { gender: 'male', icons: '1.png', num: 1 }, { op: { num: 'ADD', icons: 'ADD' }, expected: { id: null, num: { gt: 0 } } })
+//          ddbUpdateItem("users", { id: 1, name: "john" }, { gender: 'male', icons: '1.png' }, { action: { icons: 'ADD' }, expected: { id: 1 }, ReturnValues: "ALL_NEW" })
+//          ddbUpdateItem("users", { id: 1, name: "john" }, { gender: 'male', icons: '1.png' }, { action: { icons: 'ADD' }, expected: { id: null } })
+//          ddbUpdateItem("users", { id: 1, name: "john" }, { gender: 'male', icons: '1.png', num: 1 }, { action: { num: 'ADD', icons: 'ADD' }, expected: { id: null, num: { gt: 0 } } })
 //
 aws.ddbUpdateItem = function(name, keys, item, options, callback)
 {
@@ -1776,7 +1776,7 @@ aws.ddbUpdateItem = function(name, keys, item, options, callback)
                     }
 
                 default:
-                    params.AttributeUpdates[p] = { Action: (options.op && options.op[p]) || 'PUT' };
+                    params.AttributeUpdates[p] = { Action: (options.action && options.action[p]) || 'PUT' };
                     params.AttributeUpdates[p].Value = self.toDynamoDB(item[p], 1);
                     break;
             }

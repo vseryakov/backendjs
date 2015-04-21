@@ -170,7 +170,7 @@ msg.initAPN = function()
     this.apnAgent = new apnagent.Agent();
     this.apnAgent.set('pfx file', this.apnCert);
     this.apnAgent.enable(this.apnProduction || this.apnCert.indexOf("production") > -1 ? 'production' : 'sandbox');
-    this.apnAgent.on('message:error', function(err) { logger[err && err.code != 10 && err.code != 8 ? "error" : "log"]('apn:message:', err) });
+    this.apnAgent.on('message:error', function(err, msg) { logger[err && err.code != 10 && err.code != 8 ? "error" : "log"]('apn:message:', err, msg) });
     this.apnAgent.on('gateway:error', function(err) { logger[err && err.code != 10 && err.code != 8 ? "error" : "log"]('apn:gateway:', err) });
     this.apnAgent.on('gateway:close', function(err) { logger.log('apn: closed') });
     this.apnAgent.connect(function(err) { logger[err ? "error" : "log"]('apn:', err || "connected"); });

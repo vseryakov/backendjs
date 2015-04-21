@@ -1072,6 +1072,26 @@ tests.test_db = function(callback)
                 tests.check(next, err, !row, "err22:", row);
             });
         },
+        function(next) {
+            db.put("test1", { id: id, email: id }, function(err) {
+                tests.check(next, err, 0, "err23:");
+            });
+        },
+        function(next) {
+            db.update("test1", { id: id, email: "test" }, { expected: { id: id, email: id } }, function(err, rc, info) {
+                tests.check(next, err, info.affected_rows!=1, "err24:", info);
+            });
+        },
+        function(next) {
+            db.update("test1", { id: id, email: "test" }, { expected: { id: id, email: "test" } }, function(err, rc, info) {
+                tests.check(next, err, info.affected_rows!=1, "err25:", info);
+            });
+        },
+        function(next) {
+            db.update("test1", { id: id, email: "test" }, { expected: { id: id, email: id } }, function(err, rc, info) {
+                tests.check(next, err, info.affected_rows, "err26:", info);
+            });
+        },
     ],
     function(err) {
         callback(err);

@@ -409,7 +409,7 @@ jobs.scheduleCronjob = function(options)
     if (!corelib.isObject(options) || !options.cron || !options.job || !options.type || options.disabled) return;
     logger.debug('scheduleCronjob:', options);
     var cj = new cron.CronJob(options.cron, function() { self.submit(this.job); }, null, true);
-    cj.job = obj;
+    cj.job = options;
     this.crontab.push(cj);
 }
 
