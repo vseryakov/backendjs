@@ -2230,8 +2230,10 @@ might be useful when desining, developing or choosing the API platform:</p>
 <li><code>jobs-submit</code> - Job specification, JSON encoded as base64 of the job object</li>
 <li><code>jobs-name</code> - Job specification, a simple case when just a job name is used without any properties</li>
 <li><code>jobs-delay</code> - Delay in milliseconds before starting the jobs passed via command line after the master process started</li>
+<li><code>jobs-tag</code> - This server executes jobs that match this tag, if empty then execute all jobs, if not empty execute all that match current IP address and this tag</li>
+<li><code>jobs-count</code> - How many jobs to execute at any iteration</li>
 <li><code>jobs-queue</code> - Name of the queue to process, this is a generic queue name that can be used by any queue provider</li>
-<li><code>jobs-count</code> - How many jobs to execute at any iteration, this relates to the bk_queue queue processing only</li>
+<li><code>jobs-type</code> - Queueing system to use for job processing, available options: db, sqs</li>
 <li><code>jobs-interval</code> - Interval between executing job queue, must be set to enable jobs, 0 disables job processing, in seconds, min interval is 60 secs</li>
 <li><code>server-max-processes</code> - Max number of processes to launch for Web servers, 0 means NumberofCPUs-2</li>
 <li><code>server-max-workers</code> - Max number of worker processes to launch</li>
@@ -2396,6 +2398,21 @@ for statuses 301,302 there should be url property in the object returned</li>
 <li>req is Express request object</li>
 <li>status contains the signature verification status, an object with status: and message: properties, can be null</li>
 <li>callback is a function(status) to be called with the resulted status where status must be an object with status and message properties as well</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.checkRedirect(req, options)</code></p>
+<p> Check a request for possible redirection condition based on the configuration, this can be SSL checks or
+defined redirect rules. This is used by API servers and proxy servers for early redirections. It returns null
+if no redirects or errors happend, otherwise an object with status that is expected by the <code>api.sendStatus</code> method.
+The options is expected to contain the following cached request properties:</p>
+<ul>
+<li>path - from req.path or the request pathname only</li>
+<li>host - from req.host or the hostname part only</li>
+<li>port - port from the host: header if specified</li>
+<li>secure - if the protocol is https</li>
 </ul>
 </li>
 </ul>
@@ -3392,10 +3409,10 @@ while the status is equal to it. options.waitDelay can be specified how often to
   for ExpressionAttributeValues parameters</li>
 <li>names - an object with a map to be used for attribute names in condition and update expressions, to be used
   for ExpressionAttributeNames parameter</li>
-<li>ops - an object with operators to be used for properties if other than PUT</li>
+<li>op - an object with operators to be used for properties if other than PUT</li>
 <li>expected - an object with column names to be used in Expected clause and value as null to set condition to { Exists: false } or
   any other exact value to be checked against which corresponds to { Exists: true, Value: value }. If it is an object then it is treated as
-  { op: value } and options.ops is ignored otherwise the conditional comparison operator is taken from options.ops the same way as for queries.</li>
+  { op: value } and options.ops is ignored otherwise the conditional comparison operator is taken from <code>options.ops</code> the same way as for queries.</li>
 <li>returning - values to be returned on success, * means ALL_NEW</li>
 </ul>
 </li>
@@ -4269,6 +4286,12 @@ that data is not chnaged and was signed with the same secret</p>
 </ul>
 
 <ul>
+<li><p><code>corelib.isObject(v)</code></p>
+<p> Returns true of the argument is a generic object, not a null, Buffer, Date, RegExp or Array</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>corelib.isEmpty(val)</code></p>
 <p> Return true of the given value considered empty</p>
 </li>
@@ -4678,9 +4701,9 @@ database like DynamoDB for real-time requests and slower SQL database running on
 
       // Pending jobs or other requests to be processed
       bk_queue: { id: { primary: 1 },
-                  type: {},
-                  job: { type: &quot;json&quot; },
-                  args: { type: &quot;json&quot; },
+                  tag: {},                                          // a worker tag
+                  status: {},                                       // job status: running, done
+                  data: { type: &quot;json&quot; },                           // job definition object
                   etime: { type: &quot;bigint&quot; },                        // expiration time
                   ctime: { type: &quot;bigint&quot;, readonly: 1, now: 1 },   // creation time
                   mtime: { type: &quot;bigint&quot;, now: 1 } },
@@ -4901,6 +4924,7 @@ string then it is used as a name of the column instead of default mtime name</li
 <li>ops - object for comparison operators for primary key, default is equal operator</li>
 <li>opsMap - operator mapping into supported by the database</li>
 <li>typesMap - type mapping for properties to be used in the condition</li>
+<li>expected - an object with the condition for the update, it is used in addition to the primary keys condition from the <code>obj</code></li>
 </ul>
 </li>
 </ul>
@@ -5823,22 +5847,28 @@ argument, the message received as the third argument</p>
 </ul>
 
 <ul>
-<li><p><code>jobs.run(job)</code></p>
+<li><p><code>jobs.verify(options)</code></p>
+<p> Make sure the job is valid and has all required fields, returns the job object or an error</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>jobs.run(options)</code></p>
 <p> Run all jobs from the job spec at the same time, when the last job finishes and it is running in the worker process, the process terminates.</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>jobs.exec(job)</code></p>
+<li><p><code>jobs.runWorker(options)</code></p>
 <p> Execute job in the background by one of the workers, object must be known exported module
 and method must be existing method of the given object. The method function must take options
 object as its first argument and callback as its second argument.
 More than one job can be specified, property of the object defines name for the job to run:</p>
 <p>Example:</p>
-<pre><code>    { &#39;scraper.run&#39;: {}, &#39;server.shutdown&#39;: {} }
+<pre><code>    { job: { &#39;scraper.run&#39;: {}, &#39;server.shutdown&#39;: {} } }
 </code></pre><p>If the same object.method must be executed several times, prepend subsequent jobs with $</p>
 <p>Example:</p>
-<pre><code>    { &#39;scraper.run&#39;: { &quot;arg&quot;: 1 }, &#39;$scraper.run&#39;: { &quot;arg&quot;: 2 }, &#39;$$scraper.run&#39;: { &quot;arg&quot;: 3 } }
+<pre><code>    { job: { &#39;scraper.run&#39;: { &quot;arg&quot;: 1 }, &#39;$scraper.run&#39;: { &quot;arg&quot;: 2 }, &#39;$$scraper.run&#39;: { &quot;arg&quot;: 3 } } }
 </code></pre><p>Supported options by the server:</p>
 <ul>
 <li>skipqueue - in case of a duplicate or other condition when this job cannot be executed it is put back to
@@ -5852,21 +5882,21 @@ but submitted at the same time</li>
 </ul>
 <p>Exampe: submit 3 jobs to run sequentially:</p>
 <pre><code>    &#39;scraper.import&#39;
-    { &#39;scraper.sync&#39;: { runafter: &#39;scraper.import&#39; } }
-    { &#39;server.shutdown&#39;: { runafter: &#39;scraper.sync&#39; } }
+    { job: &#39;scraper.sync&#39;, runafter: &#39;scraper.import&#39; }
+    { job: &#39;server.shutdown&#39;, runafter: &#39;scraper.sync&#39; }
 </code></pre></li>
 </ul>
 
 <ul>
-<li><p><code>jobs.launch(job, options, callback)</code></p>
+<li><p><code>jobs.runRemote(options, callback)</code></p>
 <p> Remote mode, launch remote instance to perform scraping or other tasks
 By default, shutdown the instance after job finishes unless noshutdown:1 is specified in the options</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>jobs.schedule(options, callback)</code></p>
-<p> Perform job execution according to the type</p>
+<li><p><code>jobs.submit(options, callback)</code></p>
+<p> Submit a job for execution according to the type</p>
 </li>
 </ul>
 
@@ -5874,14 +5904,22 @@ By default, shutdown the instance after job finishes unless noshutdown:1 is spec
 <li><p><code>jobs.finish(options, callback)</code></p>
 <p> Finish and mark or delete a job after the successfull execution, this is supposed to be called by
 the jobs that handle completion, by default new job pulled from te database is deleted on successful schedule.
-The options is the same job object that was passed to the <code>jobs.schedule</code>.</p>
+The options is the same job object that was passed to the <code>jobs.submit</code>.</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>jobs.updateQueue(job)</code></p>
-<p> Update the job queue with a job, can be an object or a string is in the format object/method/name/value/name/value....
+<li><p><code>jobs.updateQueue(options)</code></p>
+<p> Update the job queue with a job, can be an object or a string in the format object.method
 All spaces must be are replaced with %20 to be used in command line parameterrs</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>jobs.processQueue(options, callback)</code></p>
+<p> Periodically pull submitted jobs from the Db or other queue system and send it to execution. The primary goal for this
+job system is to execute cron jobs, o.e. jobs to be executed periodically based on time or other condition but NOT to
+be used for demand jobs from a web process for example.</p>
 </li>
 </ul>
 
@@ -5892,20 +5930,20 @@ All spaces must be are replaced with %20 to be used in command line parameterrs<
 </ul>
 
 <ul>
-<li><p><code>jobs.scheduleCronjob(spec, obj)</code></p>
+<li><p><code>jobs.scheduleCronjob(options)</code></p>
 <p> Create a new cron job, for remote jobs additional property args can be used in the object to define
 arguments for the instance backend process, properties must start with -</p>
 <p>Example:</p>
 <pre><code>    { &quot;type&quot;: &quot;server&quot;, &quot;cron&quot;: &quot;0 */10 * * * *&quot;, &quot;job&quot;: &quot;server.processQueue&quot; },
-    { &quot;type&quot;: &quot;local&quot;, &quot;cron&quot;: &quot;0 10 7 * * *&quot;, &quot;id&quot;: &quot;processQueue&quot;, &quot;job&quot;: &quot;api.processQueue&quot; }
+    { &quot;type&quot;: &quot;worker&quot;, &quot;cron&quot;: &quot;0 10 7 * * *&quot;, &quot;id&quot;: &quot;processQueue&quot;, &quot;job&quot;: &quot;api.processQueue&quot; }
     { &quot;type&quot;: &quot;remote&quot;, &quot;cron&quot;: &quot;0 5 * * * *&quot;, &quot;args&quot;: { &quot;-workers&quot;: 2 }, &quot;job&quot;: { &quot;scraper.run&quot;: { &quot;url&quot;: &quot;host1&quot; }, &quot;$scraper.run&quot;: { &quot;url&quot;: &quot;host2&quot; } } }
-    { &quot;type&quot;: &quot;local&quot;, &quot;cron&quot;: &quot;0 */10 * * * *&quot;, &quot;job&quot;: &quot;server.processQueue&quot; },
+    { &quot;type&quot;: &quot;worker&quot;, &quot;cron&quot;: &quot;0 */10 * * * *&quot;, &quot;job&quot;: &quot;server.processQueue&quot; },
     { &quot;type&quot;: &quot;queue&quot;, &quot;cron&quot;: &quot;0 */30 * * * *&quot;, &quot;job&quot;: &quot;server.processSQS&quot; },
 </code></pre></li>
 </ul>
 
 <ul>
-<li><p><code>jobs.execCronjob(id)</code></p>
+<li><p><code>jobs.runCronjob(id)</code></p>
 <p> Execute a cronjob by id now, it must have been scheduled already and id property must be specified in the crontab
 When REPL is activated on the master server with -repl-port then connecting to the running master server via telnet it is possible to execute
 cron jobs manually</p>
@@ -5913,7 +5951,7 @@ cron jobs manually</p>
 <pre><code>// Start the backend with repl-port like `bkjs run-backend -repl-port 2080`
 
 # telnet localhost 2080
-&gt; server.execCronjob(&quot;processQueue&quot;)
+&gt; server.runCronjob(&quot;processQueue&quot;)
 </code></pre></li>
 </ul>
 
@@ -5921,8 +5959,8 @@ cron jobs manually</p>
 <li><p><code>jobs.loadCronjobs()</code></p>
 <p> Load crontab from JSON file as list of job specs:</p>
 <ul>
-<li>type - local, remote, server, queue<ul>
-<li>local means spawn a worker to run the job function</li>
+<li>type - worker, remote, server, queue<ul>
+<li>worker means spawn a worker to run the job function</li>
 <li>remote means launch an AWS instance</li>
 <li>server means run inside the master process, do not spawn a worker</li>
 <li>queue means put this job object into the database tobe processed by a worker</li>
@@ -5932,6 +5970,7 @@ cron jobs manually</p>
 <li>job - a string as obj.method or an object with job name as property name and the value is an object with<pre><code> additional options for the job passed as first argument, a job callback always takes options and callback as 2 arguments
 </code></pre></li>
 <li>args - additional arguments to be passed to the backend in the command line for the remote jobs</li>
+<li>disabled - disable the job but keep in the cron file, it will be ignored</li>
 </ul>
 <p>Example:</p>
 <pre><code>    [ { &quot;type&quot;: &quot;local&quot;, cron: &quot;0 0 * * * *&quot;, job: &quot;scraper.run&quot; }, ..]
@@ -5940,14 +5979,12 @@ cron jobs manually</p>
 
 <ul>
 <li><p><code>jobs.updateDb(options, callback)</code></p>
-<p> Submit job for execution, it will be saved in the server queue and the master or matched job server will pick it up later.</p>
-<p>The options can specify:</p>
+<p> Submit job for execution, it will be saved in the server queue and the master or job worker will pick it up later.</p>
+<p>The options properties:</p>
 <ul>
 <li>id - unique job id or UUID will be generated</li>
-<li>type - job type: local, remote, server</li>
-<li>etime - expiration time for the job, ms</li>
-<li>job - an object with a job spec, for name-only job the object can look like { job: null }</li>
-<li>args - additional arguments for remote job to pass in the command line (starts with -) via user-data or additional properties</li>
+<li>tag - if there are multiple known workers this tag will dedicate this job to such worker</li>
+<li>data - a full job object, cannot be empty</li>
 </ul>
 </li>
 </ul>
@@ -5956,7 +5993,10 @@ cron jobs manually</p>
 <li><p><code>jobs.processDb(options, callback)</code></p>
 <p> Load submitted jobs for execution, it is run by the master process every <code>-server-jobs-interval</code> seconds.
 Requires connection to the database, how jobs appear in the table and the order of execution is not concern of this function,
-the higher level management tool must take care when and what to run and in what order.</p>
+the higher level management tool must take care when and what to run and in what order.
+If <code>tag</code> has been set then only jobs with such tag will be pulled by this instance.</p>
+<p>If a job object contain sa property <code>finish</code> then it is responsibility of a worker to call <code>jobs.finish</code> so the job
+will be deleted from the queue. By default all jobs pulled from the db are deleted just after submition for execution.</p>
 </li>
 </ul>
 
