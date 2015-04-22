@@ -2142,7 +2142,7 @@ might be useful when desining, developing or choosing the API platform:</p>
 <li><code>db-elasticsearch-pool(-[0-9]+)?</code> - ElasticSearch url to the host in the format: <a href="http://hostname[:port">http://hostname[:port</a>]</li>
 <li><code>db-couchdb-pool(-[0-9]+)?</code> - CouchDB url to the host in the format: <a href="http://hostname[:port]/dbname">http://hostname[:port]/dbname</a></li>
 <li><code>db-riak-pool(-[0-9]+)?</code> - Riak url to the host in the format: <a href="http://hostname[:port">http://hostname[:port</a>]</li>
-<li><code>db-(.+)-pool-max(-[0-9]+)?</code> - Max number of open connections for a pool</li>
+<li><code>db-(.+)-pool-max(-[0-9]+)?</code> - Max number of open connections for a pool, default is Infinity</li>
 <li><code>db-(.+)-pool-min(-[0-9]+)?</code> - Min number of open connections for a pool</li>
 <li><code>db-(.+)-pool-idle(-[0-9]+)?</code> - Number of ms for a db pool connection to be idle before being destroyed</li>
 <li><code>db-(.+)-pool-tables(-[0-9]+)?</code> - A DB pool tables, list of tables that belong to this pool only</li>
@@ -3409,7 +3409,7 @@ while the status is equal to it. options.waitDelay can be specified how often to
   for ExpressionAttributeValues parameters</li>
 <li>names - an object with a map to be used for attribute names in condition and update expressions, to be used
   for ExpressionAttributeNames parameter</li>
-<li>op - an object with operators to be used for properties if other than PUT</li>
+<li>action - an object with operators to be used for properties if other than PUT</li>
 <li>expected - an object with column names to be used in Expected clause and value as null to set condition to { Exists: false } or
   any other exact value to be checked against which corresponds to { Exists: true, Value: value }. If it is an object then it is treated as
   { op: value } and options.ops is ignored otherwise the conditional comparison operator is taken from <code>options.ops</code> the same way as for queries.</li>
@@ -3418,9 +3418,9 @@ while the status is equal to it. options.waitDelay can be specified how often to
 </li>
 </ul>
 <p>Example:</p>
-<pre><code>    ddbUpdateItem(&quot;users&quot;, { id: 1, name: &quot;john&quot; }, { gender: &#39;male&#39;, icons: &#39;1.png&#39; }, { op: { icons: &#39;ADD&#39; }, expected: { id: 1 }, ReturnValues: &quot;ALL_NEW&quot; })
-    ddbUpdateItem(&quot;users&quot;, { id: 1, name: &quot;john&quot; }, { gender: &#39;male&#39;, icons: &#39;1.png&#39; }, { op: { icons: &#39;ADD&#39; }, expected: { id: null } })
-    ddbUpdateItem(&quot;users&quot;, { id: 1, name: &quot;john&quot; }, { gender: &#39;male&#39;, icons: &#39;1.png&#39;, num: 1 }, { op: { num: &#39;ADD&#39;, icons: &#39;ADD&#39; }, expected: { id: null, num: { gt: 0 } } })
+<pre><code>    ddbUpdateItem(&quot;users&quot;, { id: 1, name: &quot;john&quot; }, { gender: &#39;male&#39;, icons: &#39;1.png&#39; }, { action: { icons: &#39;ADD&#39; }, expected: { id: 1 }, ReturnValues: &quot;ALL_NEW&quot; })
+    ddbUpdateItem(&quot;users&quot;, { id: 1, name: &quot;john&quot; }, { gender: &#39;male&#39;, icons: &#39;1.png&#39; }, { action: { icons: &#39;ADD&#39; }, expected: { id: null } })
+    ddbUpdateItem(&quot;users&quot;, { id: 1, name: &quot;john&quot; }, { gender: &#39;male&#39;, icons: &#39;1.png&#39;, num: 1 }, { action: { num: &#39;ADD&#39;, icons: &#39;ADD&#39; }, expected: { id: null, num: { gt: 0 } } })
 </code></pre></li>
 </ul>
 
@@ -4896,6 +4896,7 @@ string then it is used as a name of the column instead of default mtime name</li
 </li>
 </ul>
 <p>On return the <code>obj</code> will contain all new columns generated before adding the record</p>
+<p>Note: SQL, DynamoDB, MongoDB, Redis drivers are fully atomic but other drivers may be subject to race conditions</p>
 <p>Example</p>
 <pre><code> db.add(&quot;bk_account&quot;, { id: &#39;123&#39;, name: &#39;test&#39;, gender: &#39;m&#39; }, function(err, rows, info) {
  });
@@ -4928,17 +4929,23 @@ string then it is used as a name of the column instead of default mtime name</li
 </ul>
 </li>
 </ul>
-<p>Example</p>
-<pre><code>    db.update(&quot;bk_account&quot;, { id: &#39;123&#39;, gender: &#39;m&#39; }, function(err, rows, info) {
-        console.log(&#39;updated:&#39;, info.affected_rows);
-    });
-
-    db.update(&quot;bk_account&quot;, { id: &#39;123&#39;, gender: &#39;m&#39;, prefix: &#39;Mr&#39; }, { pool: pgsql&#39; }, function(err, rows, info) {
-        console.log(&#39;updated:&#39;, info.affected_rows);
-    });
-</code></pre></li>
+</li>
 </ul>
+<p> Note: not all database drivers support atomic update with conditions, all drivers for SQL, DynamoDB, MongoDB, Redis fully atomic, but other drivers
+ perform get before put and so subject to race conditions</p>
+<p> Example</p>
+<pre><code>      db.update(&quot;bk_account&quot;, { id: &#39;123&#39;, gender: &#39;m&#39; }, function(err, rows, info) {
+          console.log(&#39;updated:&#39;, info.affected_rows);
+      });
 
+      db.update(&quot;bk_account&quot;, { id: &#39;123&#39;, gender: &#39;m&#39;, prefix: &#39;Mr&#39; }, { pool: pgsql&#39; }, function(err, rows, info) {
+          console.log(&#39;updated:&#39;, info.affected_rows);
+      });
+
+      db.update(&quot;bk_account&quot;, { id: &#39;123&#39;, gender: &#39;m&#39;, prefix: &#39;Mr&#39; }, { expected: { gender: &quot;f&quot; } }, function(err, rows, info) {
+          console.log(&#39;updated:&#39;, info.affected_rows);
+      });
+</code></pre>
 <ul>
 <li><p><code>db.updateAll(table, query, obj, options, callback)</code></p>
 <p> Update all records that match given condition in the <code>query</code>, one by one, the input is the same as for <code>db.select</code> and every record
