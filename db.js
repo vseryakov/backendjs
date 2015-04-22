@@ -114,7 +114,7 @@ var db = {
            { name: "elasticsearch-pool(-[0-9]+)?", obj: 'poolNames', strip: "Pool", novalue: "127.0.0.1:9200", descr: "ElasticSearch url to the host in the format: http://hostname[:port]" },
            { name: "couchdb-pool(-[0-9]+)?", obj: 'poolNames', strip: "Pool", novalue: "http://127.0.0.1/backend", descr: "CouchDB url to the host in the format: http://hostname[:port]/dbname" },
            { name: "riak-pool(-[0-9]+)?", obj: 'poolNames', strip: "Pool", novalue: "http://127.0.0.1", descr: "Riak url to the host in the format: http://hostname[:port]" },
-           { name: "(.+)-pool-max(-[0-9]+)?", obj: 'poolParams', strip: "Pool", type: "number", min: 1, descr: "Max number of open connections for a pool" },
+           { name: "(.+)-pool-max(-[0-9]+)?", obj: 'poolParams', strip: "Pool", type: "number", min: 1, descr: "Max number of open connections for a pool, default is Infinity" },
            { name: "(.+)-pool-min(-[0-9]+)?", obj: 'poolParams', strip: "Pool", type: "number", min: 1, descr: "Min number of open connections for a pool" },
            { name: "(.+)-pool-idle(-[0-9]+)?", obj: 'poolParams', strip: "Pool", type: "number", min: 1000, descr: "Number of ms for a db pool connection to be idle before being destroyed" },
            { name: "(.+)-pool-tables(-[0-9]+)?", obj: 'poolParams', strip: "Pool", type: "list", array: 1, descr: "A DB pool tables, list of tables that belong to this pool only" },
@@ -656,7 +656,7 @@ db.query = function(req, options, callback)
 //
 // On return the `obj` will contain all new columns generated before adding the record
 //
-// Note: SQL, DynamoDB, MongoDB drivers are fully atomic but other drivers may be subject to race conditions
+// Note: SQL, DynamoDB, MongoDB, Redis drivers are fully atomic but other drivers may be subject to race conditions
 //
 // Example
 //
@@ -702,7 +702,7 @@ db.put = function(table, obj, options, callback)
 //      - expected - an object with the condition for the update, it is used in addition to the primary keys condition from the `obj`
 //
 //
-// Note: not all database drivers support atomic update with conditions, all SQL databases, DynamoDB, MongoDB fully atomic, but Redis, Riak, CouchDB drivers
+// Note: not all database drivers support atomic update with conditions, all drivers for SQL, DynamoDB, MongoDB, Redis fully atomic, but other drivers
 // perform get before put and so subject to race conditions
 //
 // Example

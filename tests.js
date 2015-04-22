@@ -1526,6 +1526,9 @@ tests.test_dblock = function(callback)
             for (var i = 0; i < count; i++) queueJob(i + 300, corelib.noop);
             queueJob(400, function() { next() });
         },
+        function(next) {
+            setTimeout(next, 1000)
+        },
     ], callback);
 }
 
