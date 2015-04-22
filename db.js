@@ -656,6 +656,8 @@ db.query = function(req, options, callback)
 //
 // On return the `obj` will contain all new columns generated before adding the record
 //
+// Note: SQL, DynamoDB, MongoDB drivers are fully atomic but other drivers may be subject to race conditions
+//
 // Example
 //
 //       db.add("bk_account", { id: '123', name: 'test', gender: 'm' }, function(err, rows, info) {
@@ -700,8 +702,8 @@ db.put = function(table, obj, options, callback)
 //      - expected - an object with the condition for the update, it is used in addition to the primary keys condition from the `obj`
 //
 //
-// Note: not all database drivers support atomic update with conditions, all SQL databases, DynamoDB, MongoDB fully atomic, Redis, Riak,CouchDB not and
-// perform get before put
+// Note: not all database drivers support atomic update with conditions, all SQL databases, DynamoDB, MongoDB fully atomic, but Redis, Riak, CouchDB drivers
+// perform get before put and so subject to race conditions
 //
 // Example
 //
