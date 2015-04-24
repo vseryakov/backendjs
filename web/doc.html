@@ -2219,9 +2219,10 @@ might be useful when desining, developing or choosing the API platform:</p>
 <li><code>api-collect-send-interval</code> - How often to send collected statistics to the master server in seconds</li>
 <li><code>api-secret-policy</code> - An JSON object with list of regexps to validate account password, each regexp comes with an error message to be returned if such regexp fails, <code>api.checkAccountSecret</code> performs the validation, example: { &#39;[a-z]+&#39;: &#39;At least one lowercase letter&#39;, &#39;[A-Z]+&#39;: &#39;At least one upper case letter&#39; }</li>
 <li><code>api-cors-origin</code> - Origin header for CORS requests</li>
-<li><code>api-rlimits-([a-z]+)-max</code> - Set max/burst rate limit by the given property, it is used by the request rate limiter using Token Bucket algorithm. Valid suffixes: ip, id, login</li>
-<li><code>api-rlimits-([a-z]+)-rate</code> - Set fill/normal rate limit by the given property, it is used by the request rate limiter using Token Bucket algorithm. Valid suffixes: ip, id, login</li>
+<li><code>api-rlimits-([a-z]+)-max</code> - Set max/burst rate limit by the given property, it is used by the request rate limiter using Token Bucket algorithm. Predefined types: ip, id, login</li>
+<li><code>api-rlimits-([a-z]+)-rate</code> - Set fill/normal rate limit by the given property, it is used by the request rate limiter using Token Bucket algorithm. Predefined types: ip, id, login</li>
 <li><code>api-rlimits-total</code> - Total number of servers used in the rate limiter behind a load balancer, rates will be divided by this number so each server handles only a portion of the total rate limit</li>
+<li><code>api-rlimits-interval</code> - Interval in ms for the rate limer, defines the time unit, default is 1000 ms</li>
 <li><code>api-exit-on-error</code> - Exit on uncaught exception</li>
 <li><code>api-upload-limit</code> - Max size for uploads, bytes</li>
 <li><code>jobs-max-workers</code> - Max number of worker processes to launch for jobs</li>
@@ -2465,14 +2466,17 @@ properties after successful authorization.</p>
 </ul>
 
 <ul>
-<li><p><code>api.checkLimits(type, req, res, next)</code></p>
+<li><p><code>api.checkLimits(type, req, options, callback)</code></p>
 <p> Perform rate limiting by specified property, if not given no limiting is done.
 The following options properties can be used:</p>
 <ul>
-<li>type - one of <code>ip, login, id</code>, determines by which property to perform limiting, when using account properties
- the rate limiter should be called after the request signature has been parsed</li>
+<li>type - predefined: <code>ip, login, id</code>, determines by which property to perform limiting, when using account properties
+ the rate limiter should be called after the request signature has been parsed. Any other value is treated as
+ custom type and used as it is.</li>
 <li>max - max capacity to be used by default</li>
 <li>rate - fill rate to be used by default</li>
+<li>interval - interval in ms for bucket refill</li>
+<li>name - more descriptive name to be used in the error message for the type, if not specified type is used</li>
 <li>total - apply this factor to the rate, it is used in case of multiple servers behind a loadbalancer, so for
  total 3 servers in the cluster the factor will be 3, i.e. each individual server checks for a third of the total request rate</li>
 </ul>
@@ -3286,6 +3290,12 @@ The options specify the following:</p>
 </ul>
 
 <ul>
+<li><p><code>aws.queryExpression(obj, options)</code></p>
+<p> Build a condition expression for the given object, all properties in the obj are used</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>aws.ddbListTables(options, callback)</code></p>
 <p> Return list of tables in .TableNames property of the result</p>
 <p>Example:</p>
@@ -3409,10 +3419,10 @@ while the status is equal to it. options.waitDelay can be specified how often to
   for ExpressionAttributeValues parameters</li>
 <li>names - an object with a map to be used for attribute names in condition and update expressions, to be used
   for ExpressionAttributeNames parameter</li>
-<li>action - an object with operators to be used for properties if other than PUT</li>
-<li>expected - an object with column names to be used in Expected clause and value as null to set condition to { Exists: false } or
-  any other exact value to be checked against which corresponds to { Exists: true, Value: value }. If it is an object then it is treated as
-  { op: value } and options.ops is ignored otherwise the conditional comparison operator is taken from <code>options.ops</code> the same way as for queries.</li>
+<li>action - an object with operators to be used for properties if other than SET, one of REMOVE, ADD</li>
+<li>expected - an object with column to be used in ConditionExpression, value null means an attrobute does not exists,
+  any other value to be checked against using regular compare rules. The conditional comparison operator is taken
+  from <code>options.ops</code> the same way as for queries.</li>
 <li>returning - values to be returned on success, * means ALL_NEW</li>
 </ul>
 </li>
@@ -3420,7 +3430,7 @@ while the status is equal to it. options.waitDelay can be specified how often to
 <p>Example:</p>
 <pre><code>    ddbUpdateItem(&quot;users&quot;, { id: 1, name: &quot;john&quot; }, { gender: &#39;male&#39;, icons: &#39;1.png&#39; }, { action: { icons: &#39;ADD&#39; }, expected: { id: 1 }, ReturnValues: &quot;ALL_NEW&quot; })
     ddbUpdateItem(&quot;users&quot;, { id: 1, name: &quot;john&quot; }, { gender: &#39;male&#39;, icons: &#39;1.png&#39; }, { action: { icons: &#39;ADD&#39; }, expected: { id: null } })
-    ddbUpdateItem(&quot;users&quot;, { id: 1, name: &quot;john&quot; }, { gender: &#39;male&#39;, icons: &#39;1.png&#39;, num: 1 }, { action: { num: &#39;ADD&#39;, icons: &#39;ADD&#39; }, expected: { id: null, num: { gt: 0 } } })
+    ddbUpdateItem(&quot;users&quot;, { id: 1, name: &quot;john&quot; }, { gender: &#39;male&#39;, icons: &#39;1.png&#39;, num: 1 }, { action: { num: &#39;ADD&#39;, icons: &#39;ADD&#39; }, expected: { id: null, num: 0 }, ops: { num: &quot;gt&quot; } })
 </code></pre></li>
 </ul>
 
@@ -4925,7 +4935,10 @@ string then it is used as a name of the column instead of default mtime name</li
 <li>ops - object for comparison operators for primary key, default is equal operator</li>
 <li>opsMap - operator mapping into supported by the database</li>
 <li>typesMap - type mapping for properties to be used in the condition</li>
-<li>expected - an object with the condition for the update, it is used in addition to the primary keys condition from the <code>obj</code></li>
+<li>expected - an object with the condition for the update, it is used in addition to the primary keys condition from the <code>obj</code><ul>
+<li>join - how to join all expressions, default is AND</li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -5198,6 +5211,7 @@ the next_token returned by the previous call and query will be ignored</p>
 <li>select - a list of columns or expressions to return or all columns if not specified</li>
 <li>start - start records with this primary key, this is the next_token passed by the previous query</li>
 <li>count - how many records to return</li>
+<li>join - how to join condition expressions, default is AND</li>
 <li>sort - sort by this column. <em>NOTE: for DynamoDB this may affect the results if columns requsted are not projected in the index, with sort
    <code>select</code> property might be used to get all required properties.</em></li>
 <li>desc - if sorting, do in descending order</li>
@@ -6090,7 +6104,7 @@ will be deleted from the queue. By default all jobs pulled from the db are delet
 
 <h2 id="module-metrics">Module: METRICS</h2>
 <ul>
-<li><p><code>TokenBucket.prototype.equal(rate, max)</code></p>
+<li><p><code>TokenBucket.prototype.equal(rate, max, interval)</code></p>
 <p> Return true this bucket uses the same rates</p>
 </li>
 </ul>
@@ -6970,29 +6984,6 @@ options may contain the following properties:</p>
 </ul>
 
 <ul>
-<li><p><code>db.sqlFilter(columns, values, params)</code></p>
-<p> Given columns definition object, build SQL query using values from the values object, all conditions are joined using AND,</p>
-<ul>
-<li>columns is a list of objects with the following properties:<ul>
-<li>name - column name, also this is the key to use in the values object to get value by</li>
-<li>col - actual column name to use in the SQL</li>
-<li>alias - optional table prefix if multiple tables involved</li>
-<li>value - default value</li>
-<li>type - type of the value, this is used for proper formatting: boolean, number, float, date, time, string, expr</li>
-<li>op - any valid SQL operation: =,&gt;,&lt;, between, like, not like, in, not in, ~*,.....</li>
-<li>group - for grouping multiple columns with OR condition, all columns with the same group will be in the same ( .. OR ..)</li>
-<li>always - only use default value if true</li>
-<li>required - value default or supplied must be in the query, otherwise return empty SQL</li>
-<li>search - additional name for a value, for cases when generic field is used for search but we search specific column</li>
-</ul>
-</li>
-<li>values - actual values for the condition as an object, usually req.query</li>
-<li>params - if given will contain values for binding parameters</li>
-</ul>
-</li>
-</ul>
-
-<ul>
 <li><p><code>db.sqlLimit(options)</code></p>
 <p> Build SQL orderby/limit/offset conditions, config can define defaults for sorting and paging</p>
 </li>
@@ -7009,6 +7000,7 @@ options may contain the following properties:</p>
 <li>ops - object for comparison operators for primary key, default is equal operator</li>
 <li>opsMap - operator mapping into supported by the database</li>
 <li>typesMap - type mapping for properties to be used in the condition</li>
+<li>join - how to join all expressions, default is AND</li>
 </ul>
 </li>
 </ul>
