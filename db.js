@@ -703,6 +703,7 @@ db.put = function(table, obj, options, callback)
 //      - opsMap - operator mapping into supported by the database
 //      - typesMap - type mapping for properties to be used in the condition
 //      - expected - an object with the condition for the update, it is used in addition to the primary keys condition from the `obj`
+//     - join - how to join all expressions, default is AND
 //
 //
 // Note: not all database drivers support atomic update with conditions, all drivers for SQL, DynamoDB, MongoDB, Redis fully atomic, but other drivers
@@ -1327,6 +1328,7 @@ db.getLocations = function(table, query, options, callback)
 //    - select - a list of columns or expressions to return or all columns if not specified
 //    - start - start records with this primary key, this is the next_token passed by the previous query
 //    - count - how many records to return
+//    - join - how to join condition expressions, default is AND
 //    - sort - sort by this column. _NOTE: for DynamoDB this may affect the results if columns requsted are not projected in the index, with sort
 //         `select` property might be used to get all required properties._
 //    - desc - if sorting, do in descending order

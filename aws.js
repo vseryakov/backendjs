@@ -1445,7 +1445,7 @@ aws.queryExpression = function(obj, options)
         if (opsMap[op]) op = opsMap[op];
         if (val == null) op = "null";
         if (this.ddbReserved[name.toUpperCase()]) {
-            names["#" + n] = name;
+            names["#n" + n] = name;
             name = "#n" + n++;
         }
 
@@ -1882,7 +1882,7 @@ aws.ddbUpdateItem = function(name, keys, item, options, callback)
             if (params.Key[p]) continue;
             var val = item[p];
             if (this.ddbReserved[p]) {
-                names["#" + c] = p;
+                names["#c" + c] = p;
                 p = "#c" + c++;
             }
             switch (corelib.typeName(val)) {
