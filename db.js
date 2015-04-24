@@ -151,6 +151,9 @@ var db = {
     processRows: {},
     processColumns: [],
 
+    // Separator to combined columns
+    separator: "|",
+
     // Default tables
     tables: {
         // Authentication by login, only keeps id and secret to check the siganture
@@ -1149,7 +1152,7 @@ db.join = function(table, rows, options, callback)
     var rkeys = options.keysMap ? Object.keys(options.keysMap).reduce(function(x,y) { x[options.keysMap[y]] = y; return x }, {}) : null;
     rows.forEach(function(x) {
         var key = self.getQueryForKeys(mkeys, x, { keysMap: rkeys });
-        var k = Object.keys(key).map(function(y) { return key[y]}).join("|");
+        var k = Object.keys(key).map(function(y) { return key[y]}).join(self.separator);
         if (!map[k]) map[k] = [];
         map[k].push(x);
         ids.push(key);
@@ -1159,7 +1162,7 @@ db.join = function(table, rows, options, callback)
 
         list.forEach(function(x) {
             var key = self.getQueryForKeys(keys, x);
-            var k = Object.keys(key).map(function(y) { return key[y]}).join("|");
+            var k = Object.keys(key).map(function(y) { return key[y]}).join(self.separator);
             map[k].forEach(function(row) {
                 for (var p in x) if (options.override || !row[p]) row[p] = x[p];
                 if (options.existing) row.__1 = 1;
@@ -1699,7 +1702,7 @@ db.prepareRow = function(pool, op, table, obj, options)
             // Current timestamps, for primary keys only support add
             if (cols[p].now && !obj[p] && (!cols[p].primary || op == "add")) obj[p] = now;
             // The field is combined from several values contatenated for complex primary keys
-            if (Array.isArray(cols[p].join) && (typeof obj[p] != "string" || obj[p].indexOf("|") == -1)) obj[p] = cols[p].join.map(function(x) { return obj[x] || "" }).join("|");
+            if (Array.isArray(cols[p].join) && (typeof obj[p] != "string" || obj[p].indexOf(this.separator) == -1)) obj[p] = cols[p].join.map(function(x) { return obj[x] || "" }).join(this.separator);
         }
         break;
 
@@ -1714,7 +1717,7 @@ db.prepareRow = function(pool, op, table, obj, options)
         obj = o;
         for (var p in cols) {
             // The field is combined from several values contatenated for complex primary keys
-            if (Array.isArray(cols[p].join) && (typeof obj[p] != "string" || obj[p].indexOf("|") == -1)) obj[p] = cols[p].join.map(function(x) { return obj[x] || "" }).join("|");
+            if (Array.isArray(cols[p].join) && (typeof obj[p] != "string" || obj[p].indexOf(this.separator) == -1)) obj[p] = cols[p].join.map(function(x) { return obj[x] || "" }).join(this.separator);
         }
         break;
 
@@ -1746,9 +1749,9 @@ db.prepareRow = function(pool, op, table, obj, options)
             // Default search op, for primary key cases
             if (!options.ops[p] && corelib.typeName(cols[p].ops) == "object" && cols[p].ops[op]) options.ops[p] = cols[p].ops[op];
             // Joined values for queries, if nothing joined or only one field is present keep the original value
-            if (Array.isArray(cols[p].join) && (typeof obj[p] != "string" || obj[p].indexOf("|") == -1)) {
-                var v = cols[p].join.map(function(x) { return obj[x] || "" }).join("|");
-                if (v[0] != "|") obj[p] = v;
+            if (Array.isArray(cols[p].join) && (typeof obj[p] != "string" || obj[p].indexOf(this.separator) == -1)) {
+                var v = cols[p].join.map(function(x) { return obj[x] || "" }).join(this.separator);
+                if (v[0] != this.separator) obj[p] = v;
             }
         }
         break;
@@ -1771,6 +1774,7 @@ db.prepareRow = function(pool, op, table, obj, options)
 //
 db.convertRows = function(pool, op, table, rows, options)
 {
+    var self = this;
     if (!pool) pool = this.getPool(table, options);
     var cols = pool.dbcolumns[table.toLowerCase()] || {};
     for (var p in cols) {
@@ -1790,8 +1794,8 @@ db.convertRows = function(pool, op, table, rows, options)
         // Extract joined values and place into separate columns
         if (Array.isArray(col.join)) {
             rows.forEach(function(row) {
-                if (typeof row[p] == "string" && row[p].indexOf("|") > -1) {
-                    var v = row[p].split("|");
+                if (typeof row[p] == "string" && row[p].indexOf(self.separator) > -1) {
+                    var v = row[p].split(self.separator);
                     if (v.length == col.join.length) col.join.forEach(function(x, i) { row[x] = v[i]; });
                 }
             });
@@ -2118,8 +2122,8 @@ db.delCache = function(table, query, options)
 // Returns concatenated values for the primary keys, this is used for caching records by primary key
 db.getCacheKey = function(table, query, options)
 {
-    var keys = this.getKeys(table, options).filter(function(x) { return query[x] }).map(function(x) { return query[x] }).join("|");
-    if (keys) keys = (options && options.cachePrefix ? options.cachePrefix : table) + "|" + keys;
+    var keys = this.getKeys(table, options).filter(function(x) { return query[x] }).map(function(x) { return query[x] }).join(this.separator);
+    if (keys) keys = (options && options.cachePrefix ? options.cachePrefix : table) + this.separator + keys;
     return keys;
 }
 

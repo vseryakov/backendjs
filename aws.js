@@ -41,8 +41,46 @@ var aws = {
     amiProfile: "",
     tags: [],
 
-    // Translation map for operators
-    opsMap: { 'like%': 'begins_with', '=': 'eq', '<=': 'le', '<': 'lt', '>=': 'ge', '>': 'gt' },
+    // DynamoDB reserved keywords
+    ddbReserved: {
+        ABORT: 1, ABSOLUTE: 1, ACTION: 1, ADD: 1, AFTER: 1, AGENT: 1, AGGREGATE: 1, ALL: 1, ALLOCATE: 1, ALTER: 1, ANALYZE: 1, AND: 1, ANY: 1, ARCHIVE: 1, ARE: 1, ARRAY: 1, AS: 1, ASC: 1,
+        ASCII: 1, ASENSITIVE: 1, ASSERTION: 1, ASYMMETRIC: 1, AT: 1, ATOMIC: 1, ATTACH: 1, ATTRIBUTE: 1, ATTRIBUTE: 1, AUTH: 1, AUTHORIZATION: 1, AUTHORIZE: 1, AUTO: 1, AVG: 1, BACK: 1,
+        BACKUP: 1, BASE: 1, BATCH: 1, BEFORE: 1, BEGIN: 1, BEGIN: 1, BETWEEN: 1, BIGINT: 1, BIGINT: 1, BINARY: 1, BIT: 1, BLOB: 1, BLOB: 1, BLOCK: 1, BOOLEAN: 1, BOOLEAN: 1, BOTH: 1, BREADTH: 1,
+        BUCKET: 1, BULK: 1, BY: 1, BY: 1, BYTE: 1, CALL: 1, CALLED: 1, CALLING: 1, CAPACITY: 1, CASCADE: 1, CASCADED: 1, CASE: 1, CAST: 1, CATALOG: 1, CHAR: 1, CHARACTER: 1, CHECK: 1,
+        CLASS: 1, CLOB: 1, CLOSE: 1, CLUSTER: 1, CLUSTERED: 1, CLUSTERING: 1, CLUSTERS: 1, COALESCE: 1, COLLATE: 1, COLLATION: 1, COLLECTION: 1, COLUMN: 1, COLUMNS: 1, COMBINE: 1,
+        COMMENT: 1, COMMIT: 1, COMPACT: 1, COMPILE: 1, COMPRESS: 1, CONDITION: 1, CONFLICT: 1, CONNECT: 1, CONNECTION: 1, CONSISTENCY: 1, CONSISTENT: 1, CONSTRAINT: 1,
+        CONSTRAINTS: 1, CONSTRUCTOR: 1, CONSUMED: 1, CONTINUE: 1, CONVERT: 1, COPY: 1, CORRESPONDING: 1, COUNT: 1, COUNTER: 1, CREATE: 1, CROSS: 1, CUBE: 1, CURRENT: 1, CURSOR: 1, CYCLE: 1,
+        DATA: 1, DATABASE: 1, DATE: 1, DATETIME: 1, DAY: 1, DEALLOCATE: 1, DEC: 1, DECIMAL: 1, DECLARE: 1, DEFAULT: 1, DEFERRABLE: 1, DEFERRED: 1, DEFINE: 1, DEFINED: 1, DEFINITION: 1,
+        DELETE: 1, DELIMITED: 1, DEPTH: 1, DEREF: 1, DESC: 1, DESCRIBE: 1, DESCRIPTOR: 1, DETACH: 1, DETERMINISTIC: 1, DIAGNOSTICS: 1, DIRECTORIES: 1, DISABLE: 1, DISCONNECT: 1,
+        DISTINCT: 1, DISTRIBUTE: 1, DO: 1, DOMAIN: 1, DOUBLE: 1, DROP: 1, DUMP: 1, DURATION: 1, DYNAMIC: 1, EACH: 1, ELEMENT: 1, ELSE: 1, ELSEIF: 1, EMPTY: 1, ENABLE: 1, END: 1, EQUAL: 1,
+        EQUALS: 1, ERROR: 1, ESCAPE: 1, ESCAPED: 1, EVAL: 1, EVALUATE: 1, EXCEEDED: 1, EXCEPT: 1, EXCEPTION: 1, EXCEPTIONS: 1, EXCLUSIVE: 1, EXEC: 1, EXECUTE: 1, EXISTS: 1, EXIT: 1, EXPLAIN: 1,
+        EXPLODE: 1, EXPORT: 1, EXPRESSION: 1, EXTENDED: 1, EXTERNAL: 1, EXTRACT: 1, FAIL: 1, FALSE: 1, FAMILY: 1, FETCH: 1, FIELDS: 1, FILE: 1, FILTER: 1, FILTERING: 1, FINAL: 1,
+        FINISH: 1, FIRST: 1, FIXED: 1, FLATTERN: 1, FLOAT: 1, FOR: 1, FOR: 1, FORCE: 1, FOREIGN: 1, FORMAT: 1, FORWARD: 1, FOUND: 1, FREE: 1, FROM: 1, FULL: 1, FUNCTION: 1, FUNCTIONS: 1,
+        GENERAL: 1, GENERATE: 1, GET: 1, GLOB: 1, GLOBAL: 1, GO: 1, GOTO: 1, GRANT: 1, GREATER: 1, GROUP: 1, GROUPING: 1, HANDLER: 1, HASH: 1, HAVE: 1, HAVING: 1, HEAP: 1, HIDDEN: 1, HOLD: 1,
+        HOUR: 1, IDENTIFIED: 1, IDENTITY: 1, IF: 1, IGNORE: 1, IMMEDIATE: 1, IMPORT: 1, IN: 1, INCLUDING: 1, INCLUSIVE: 1, INCREMENT: 1, INCREMENTAL: 1, INDEX: 1, INDEXED: 1,
+        INDEXES: 1, INDICATOR: 1, INFINITE: 1, INITIALLY: 1, INLINE: 1, INNER: 1, INNTER: 1, INOUT: 1, INPUT: 1, INSENSITIVE: 1, INSERT: 1, INSTEAD: 1, INT: 1, INTEGER: 1, INTERSECT: 1,
+        INTERVAL: 1, INTO: 1, INTO: 1, INVALIDATE: 1, IS: 1, ISOLATION: 1, ITEM: 1, ITEMS: 1, ITERATE: 1, JOIN: 1, KEY: 1, KEYS: 1, LAG: 1, LANGUAGE: 1, LARGE: 1, LAST: 1, LATERAL: 1, LEAD: 1,
+        LEADING: 1, LEAVE: 1, LEFT: 1, LENGTH: 1, LESS: 1, LEVEL: 1, LEVEL: 1, LIKE: 1, LIMIT: 1, LIMITED: 1, LINES: 1, LIST: 1, LIST: 1, LOAD: 1, LOCAL: 1, LOCALTIME: 1, LOCALTIMESTAMP: 1,
+        LOCATION: 1, LOCATOR: 1, LOCK: 1, LOCKS: 1, LOG: 1, LOGED: 1, LONG: 1, LOOP: 1, LOWER: 1, MAP: 1, MATCH: 1, MATERIALIZED: 1, MAX: 1, MAXLEN: 1, MEMBER: 1, MERGE: 1, METHOD: 1,
+        METRICS: 1, MIN: 1, MINUS: 1, MINUTE: 1, MISSING: 1, MOD: 1, MODE: 1, MODIFIES: 1, MODIFY: 1, MODULE: 1, MONTH: 1, MULTI: 1, MULTISET: 1, NAME: 1, NAME: 1, NAMES: 1, NATIONAL: 1, NATURAL: 1,
+        NCHAR: 1, NCLOB: 1, NEW: 1, NEXT: 1, NO: 1, NONE: 1, NOT: 1, NULL: 1, NULLIF: 1, NUMBER: 1, NUMERIC: 1, OBJECT: 1, OF: 1, OFFLINE: 1, OFFSET: 1, OLD: 1, ON: 1, ONLINE: 1, ONLY: 1,
+        OPAQUE: 1, OPEN: 1, OPERATOR: 1, OPTION: 1, OR: 1, ORDER: 1, ORDER: 1, ORDINALITY: 1, OTHER: 1, OTHERS: 1, OUT: 1, OUTER: 1, OUTPUT: 1, OVER: 1, OVERLAPS: 1, OVERRIDE: 1, OWNER: 1,
+        PAD: 1, PARALLEL: 1, PARAMETER: 1, PARAMETERS: 1, PARTIAL: 1, PARTITION: 1, PARTITIONED: 1, PARTITIONS: 1, PATH: 1, PERCENT: 1, PERCENTILE: 1, PERMISSION: 1,
+        PERMISSIONS: 1, PIPE: 1, PIPELINED: 1, PLAN: 1, POOL: 1, POSITION: 1, PRECISION: 1, PREPARE: 1, PRESERVE: 1, PRIMARY: 1, PRIMARY: 1, PRIOR: 1, PRIVATE: 1, PRIVILEGES: 1, PROCEDURE: 1,
+        PROCESSED: 1, PROJECT: 1, PROJECTION: 1, PROPERTY: 1, PROVISIONING: 1, PUBLIC: 1, PUT: 1, QUERY: 1, QUIT: 1, QUORUM: 1, RAISE: 1, RANDOM: 1, RANGE: 1, RANK: 1, RAW: 1, READ: 1,
+        READS: 1, REAL: 1, REBUILD: 1, RECORD: 1, RECURSIVE: 1, REDUCE: 1, REF: 1, REFERENCE: 1, REFERENCES: 1, REFERENCING: 1, REGEXP: 1, REGION: 1, REINDEX: 1, RELATIVE: 1, RELEASE: 1,
+        REMAINDER: 1, RENAME: 1, RENAME: 1, REPEAT: 1, REPLACE: 1, REQUEST: 1, RESET: 1, RESIGNAL: 1, RESOURCE: 1, RESPONSE: 1, RESTORE: 1, RESTRICT: 1, RESULT: 1, RETURN: 1, RETURNING: 1,
+        RETURNS: 1, REVERSE: 1, REVOKE: 1, REVOKE: 1, RIGHT: 1, ROLE: 1, ROLES: 1, ROLLBACK: 1, ROLLUP: 1, ROUTINE: 1, ROW: 1, ROWS: 1, RULE: 1, RULES: 1, SAMPLE: 1, SATISFIES: 1,
+        SAVE: 1, SAVEPOINT: 1, SCAN: 1, SCHEMA: 1, SCOPE: 1, SCROLL: 1, SEARCH: 1, SECOND: 1, SECTION: 1, SEGMENT: 1, SEGMENTS: 1, SELECT: 1, SELF: 1, SEMI: 1, SENSITIVE: 1, SEPARATE: 1,
+        SEQUENCE: 1, SERIALIZABLE: 1, SESSION: 1, SET: 1, SETS: 1, SHARD: 1, SHARE: 1, SHARED: 1, SHORT: 1, SHOW: 1, SIGNAL: 1, SIMILAR: 1, SIZE: 1, SKEWED: 1, SMALLINT: 1, SNAPSHOT: 1,
+        SOME: 1, SOURCE: 1, SPACE: 1, SPACES: 1, SPARSE: 1, SPECIFIC: 1, SPECIFICTYPE: 1, SPLIT: 1, SQL: 1, SQLCODE: 1, SQLERROR: 1, SQLEXCEPTION: 1, SQLSTATE: 1, SQLWARNING: 1, START: 1,
+        STATE: 1, STATIC: 1, STATUS: 1, STORAGE: 1, STORE: 1, STORED: 1, STREAM: 1, STRING: 1, STRUCT: 1, STYLE: 1, SUB: 1, SUBMULTISET: 1, SUBPARTITION: 1, SUBSTRING: 1, SUBTYPE: 1,
+        SUM: 1, SUPER: 1, SYMMETRIC: 1, SYNONYM: 1, SYSTEM: 1, TABLE: 1, TABLESAMPLE: 1, TEMP: 1, TEMPORARY: 1, TERMINATED: 1, TEXT: 1, THAN: 1, THEN: 1, THROUGHPUT: 1, TIME: 1,
+        TIMESTAMP: 1, TIMEZONE: 1, TINYINT: 1, TO: 1, TOKEN: 1, TOTAL: 1, TOUCH: 1, TRAILING: 1, TRANSACTION: 1, TRANSFORM: 1, TRANSLATE: 1, TRANSLATION: 1, TREAT: 1, TRIGGER: 1, TRIM: 1,
+        TRUE: 1, TRUNCATE: 1, TTL: 1, TUPLE: 1, TYPE: 1, UNDER: 1, UNDO: 1, UNION: 1, UNIQUE: 1, UNIT: 1, UNKNOWN: 1, UNLOGGED: 1, UNNEST: 1, UNPROCESSED: 1, UNSIGNED: 1, UNTIL: 1, UPDATE: 1,
+        UPPER: 1, URL: 1, USAGE: 1, USE: 1, USER: 1, USERS: 1, USING: 1, UUID: 1, VACUUM: 1, VALUE: 1, VALUED: 1, VALUES: 1, VARCHAR: 1, VARIABLE: 1, VARIANCE: 1, VARINT: 1, VARYING: 1, VIEW: 1,
+        VIEWS: 1, VIRTUAL: 1, VOID: 1, WAIT: 1, WHEN: 1, WHENEVER: 1, WHERE: 1, WHILE: 1, WINDOW: 1, WITH: 1, WITHIN: 1, WITHOUT: 1, WORK: 1, WRAPPED: 1, WRITE: 1, YEAR: 1, ZONE: 1,
+    },
 }
 
 module.exports = aws;
@@ -1344,21 +1382,14 @@ aws.queryFilter = function(obj, options)
 {
     var self = this;
     var filter = {};
-    var ops = ["between","null","not_null", "not null","in","contains","not_contains", "not contains","ne","eq","le","lt","ge","gt"];
+    var opsMap = { 'like%': 'begins_with', '=': 'eq', '<=': 'le', '<': 'lt', '>=': 'ge', '>': 'gt' };
+    if (!options.ops) options.ops = {};
 
     for (var name in obj) {
         var val = obj[name];
-        var op = (options.ops || {})[name] || "eq";
-        if (this.opsMap[op]) op = this.opsMap[op];
+        var op = options.ops[name] || "eq";
+        if (opsMap[op]) op = opsMap[op];
         if (val == null) op = "null";
-        // A value with its own operator
-        if (corelib.typeName(val) == "object") {
-            var keys = Object.keys(val);
-            if (keys.length == 1 && ops.indexOf(keys[0].toLowerCase()) > -1) {
-                op = keys[0];
-                val = val[op];
-            }
-        }
 
         var cond = { ComparisonOperator: op.toUpperCase().replace(' ', '_') }
         switch (cond.ComparisonOperator) {
@@ -1399,6 +1430,95 @@ aws.queryFilter = function(obj, options)
         filter[name] = cond;
     }
     return filter;
+}
+
+// Build a condition expression for the given object, all properties in the obj are used
+aws.queryExpression = function(obj, options)
+{
+    var opsMap = { "!=": "<>", eq: "=", ne: "<>", lt: "<", le: ",=", gt: ">", ge: ">=" };
+    if (!options.ops) options.ops = {};
+    var v = 0, n = 0, values = {}, expr = [], names = {};
+
+    for (var name in obj) {
+        var val = obj[name];
+        var op = options.ops[name] || "eq";
+        if (opsMap[op]) op = opsMap[op];
+        if (val == null) op = "null";
+        if (this.ddbReserved[name.toUpperCase()]) {
+            names["#" + n] = name;
+            name = "#n" + n++;
+        }
+
+        switch (op) {
+        case 'not_between':
+        case 'not between':
+        case 'between':
+            if (val.length < 2) continue;
+            expr.push((op[0] == 'n' ? "not " : "") + name + " between " + " :v" + v + " and :v" + (v + 1));
+            values[":v" + v++] = val[0];
+            values[":v" + v++] = val[1];
+            break;
+
+        case 'not_null':
+        case 'not null':
+            expr.push("attribute_exists(" + name + ")");
+            break;
+
+        case 'null':
+            expr.push("attribute_not_exists(" + name + ")");
+            break;
+
+        case 'not in':
+        case 'not_in':
+        case 'in':
+            if (Array.isArray(val)) {
+                if (!val.length) break;
+                var vals = [];
+                for (var i = 0; i < val.length; i++) {
+                    vals.push(":v" + v);
+                    values["v" + v++] = val[i];
+                }
+                expr.push((op[0] == 'n' ? "not " : "") + name + " in (" + vals + ")");
+            } else {
+                expr.push(name + " " + (op[0] == 'n' ? "<>" : "=") + " :v" + n);
+                values["v" + v++] = val;
+            }
+            break;
+
+        case 'not_contains':
+        case 'not contains':
+            expr.push("not contains(" + name + "," + " :v" + v + ")");
+            values[":v" + v++] = val;
+            break;
+
+        case 'contains':
+            expr.push("contains(" + name + "," + " :v" + v + ")");
+            values[":v" + v++] = val;
+            break;
+
+        case '=':
+        case '<>':
+        case '>':
+        case '>=':
+        case '<':
+        case '<=':
+            expr.push(name + " " + op + " :v" + v);
+            values[":v" + v++] = val;
+            break;
+
+        case 'like%':
+        case 'begins_with':
+            if (!val && ["string","object","number","undefined"].indexOf(typeof val) > -1) continue;
+            expr.push("begins_with(" + name + "," + " :v" + v + ")");
+            values[":v" + v++] = val;
+            break;
+        }
+    }
+    if (!expr.length) return null;
+    var rc = { expr: expr.join(" " + (options.join || "and") + " ") };
+    if (n) rc.names = names;
+    if (v) rc.values = values;
+    return rc;
 }
 
 // Return list of tables in .TableNames property of the result
@@ -1673,13 +1793,12 @@ aws.ddbPutItem = function(name, item, options, callback)
     if (typeof callback != "function") callback = corelib.noop;
     if (!options) options = {};
     var params = { TableName: name, Item: self.toDynamoDB(item) };
-    // Sugar-candy syntax for expected values
-    for (var p in options.expected) {
-        if (!params.Expected) params.Expected = {};
-        if (options.expected[p] == null) {
-            params.Expected[p] = { Exists: false };
-        } else {
-            params.Expected[p] = { Value: self.toDynamoDB(options.expected[p]) };
+    if (options.expected) {
+        var expected = this.queryExpression(options.expected, options);
+        if (expected) {
+            params.ConditionExpression = expected.expr;
+            if (expected.names) params.ExpressionAttributeNames = expected.names;
+            if (expected.values) params.ExpressionAttributeValues = self.toDynamoDB(expected.values);
         }
     }
     if (options.expr) {
@@ -1712,17 +1831,17 @@ aws.ddbPutItem = function(name, item, options, callback)
 //          for ExpressionAttributeValues parameters
 //      - names - an object with a map to be used for attribute names in condition and update expressions, to be used
 //          for ExpressionAttributeNames parameter
-//      - action - an object with operators to be used for properties if other than PUT
-//      - expected - an object with column names to be used in Expected clause and value as null to set condition to { Exists: false } or
-//          any other exact value to be checked against which corresponds to { Exists: true, Value: value }. If it is an object then it is treated as
-//          { op: value } and options.ops is ignored otherwise the conditional comparison operator is taken from `options.ops` the same way as for queries.
+//      - action - an object with operators to be used for properties if other than SET, one of REMOVE, ADD
+//      - expected - an object with column to be used in ConditionExpression, value null means an attrobute does not exists,
+//          any other value to be checked against using regular compare rules. The conditional comparison operator is taken
+//          from `options.ops` the same way as for queries.
 //      - returning - values to be returned on success, * means ALL_NEW
 //
 // Example:
 //
 //          ddbUpdateItem("users", { id: 1, name: "john" }, { gender: 'male', icons: '1.png' }, { action: { icons: 'ADD' }, expected: { id: 1 }, ReturnValues: "ALL_NEW" })
 //          ddbUpdateItem("users", { id: 1, name: "john" }, { gender: 'male', icons: '1.png' }, { action: { icons: 'ADD' }, expected: { id: null } })
-//          ddbUpdateItem("users", { id: 1, name: "john" }, { gender: 'male', icons: '1.png', num: 1 }, { action: { num: 'ADD', icons: 'ADD' }, expected: { id: null, num: { gt: 0 } } })
+//          ddbUpdateItem("users", { id: 1, name: "john" }, { gender: 'male', icons: '1.png', num: 1 }, { action: { num: 'ADD', icons: 'ADD' }, expected: { id: null, num: 0 }, ops: { num: "gt" } })
 //
 aws.ddbUpdateItem = function(name, keys, item, options, callback)
 {
@@ -1734,9 +1853,13 @@ aws.ddbUpdateItem = function(name, keys, item, options, callback)
     for (var p in keys) {
         params.Key[p] = self.toDynamoDB(keys[p]);
     }
-    // Sugar-candy syntax for expected values
     if (options.expected) {
-        params.Expected = this.queryFilter(options.expected, options);
+        var expected = this.queryExpression(options.expected, options);
+        if (expected) {
+            params.ConditionExpression = expected.expr;
+            if (expected.names) params.ExpressionAttributeNames = expected.names;
+            if (expected.values) params.ExpressionAttributeValues = self.toDynamoDB(expected.values);
+        }
     }
     if (options.expr) {
         params.ConditionExpression = options.expr;
@@ -1754,31 +1877,64 @@ aws.ddbUpdateItem = function(name, keys, item, options, callback)
         params.UpdateExpression = item;
     } else
     if (typeof item == "object") {
-        params.AttributeUpdates = {};
+        var c = 0, d = 0, names = {}, values = {}, actions = { SET: [], REMOVE: [], ADD: [], DELETE: [] };
         for (var p in item) {
             if (params.Key[p]) continue;
-            switch (corelib.typeName(item[p])) {
+            var val = item[p];
+            if (this.ddbReserved[p]) {
+                names["#" + c] = p;
+                p = "#c" + c++;
+            }
+            switch (corelib.typeName(val)) {
                 case 'null':
                 case 'undefined':
-                    params.AttributeUpdates[p] = { Action: 'DELETE' };
+                    actions.REMOVE.push(p);
                     break;
 
                 case 'array':
-                    if (!item[p].length) {
-                        params.AttributeUpdates[p] = { Action: 'DELETE' };
+                    if (!val.length) {
+                        actions.REMOVE.push(p)
                         break;
                     }
 
                 case "string":
-                    if (!item[p]) {
-                        params.AttributeUpdates[p] = { Action: 'DELETE' };
+                    if (!val) {
+                        actions.REMOVE.push(p);
                         break;
                     }
 
                 default:
-                    params.AttributeUpdates[p] = { Action: (options.action && options.action[p]) || 'PUT' };
-                    params.AttributeUpdates[p].Value = self.toDynamoDB(item[p], 1);
+                    var op = (options.action && options.action[p]) || 'SET';
+                    if (!actions[op]) break;
+                    switch (op) {
+                    case "ADD":
+                    case "DELETE":
+                        actions[op].push(p + " " + ":d" + d);
+                        values[":d" + d++] = val;
+                        break;
+
+                    case "REMOVE":
+                        actions.REMOVE.push(p);
+                        break;
+
+                    default:
+                        actions[op].push(p + "= :d" + d);
+                        values[":d" + d++] = val;
+                    }
                     break;
+            }
+            params.UpdateExpression = "";
+            for (var p in actions) {
+                var expr = actions[p].join(",");
+                if (expr) params.UpdateExpression += " " + p + " " + expr;
+            }
+            if (c) {
+                if (!params.ExpressionAttributeNames) params.ExpressionAttributeNames = {};
+                for (var p in names) params.ExpressionAttributeNames[p] = names[p];
+            }
+            if (d) {
+                if (!params.ExpressionAttributeValues) params.ExpressionAttributeValues = {};
+                for (var p in values) params.ExpressionAttributeValues[p] = this.toDynamoDB(values[p]);
             }
         }
     }
@@ -1813,7 +1969,12 @@ aws.ddbDeleteItem = function(name, keys, options, callback)
         params.Key[p] = self.toDynamoDB(keys[p]);
     }
     if (options.expected) {
-        params.Expected = this.queryFilter(options.expected, options);
+        var expected = this.queryExpression(options.expected, options);
+        if (expected) {
+            params.ConditionExpression = expected.expr;
+            if (expected.names) params.ExpressionAttributeNames = expected.names;
+            if (expected.values) params.ExpressionAttributeValues = self.toDynamoDB(expected.values);
+        }
     }
     if (options.expr) {
         params.ConditionExpression = options.expr;

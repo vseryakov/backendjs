@@ -793,7 +793,6 @@ tests.test_db = function(callback)
     var next_token = null;
 
     db.setProcessRow("post", "test4", function(op, row, options, cols) {
-        logger.log(row, options, cols)
         var type = (row.type || "").split(":");
         row.type = type[0];
         row.mtime = type[1];
@@ -1073,23 +1072,28 @@ tests.test_db = function(callback)
             });
         },
         function(next) {
-            db.put("test1", { id: id, email: id }, function(err) {
+            db.put("test1", { id: id, email: id, num: 1 }, function(err) {
                 tests.check(next, err, 0, "err23:");
             });
         },
         function(next) {
-            db.update("test1", { id: id, email: "test" }, { expected: { id: id, email: id } }, function(err, rc, info) {
+            db.update("test1", { id: id, email: "test", num: 1 }, { expected: { id: id, email: id }, counter: ["num"] }, function(err, rc, info) {
                 tests.check(next, err, info.affected_rows!=1, "err24:", info);
             });
         },
         function(next) {
-            db.update("test1", { id: id, email: "test" }, { expected: { id: id, email: "test" } }, function(err, rc, info) {
+            db.update("test1", { id: id, email: "test", num: 1 }, { expected: { id: id, email: "test" }, counter: ["num"] }, function(err, rc, info) {
                 tests.check(next, err, info.affected_rows!=1, "err25:", info);
             });
         },
         function(next) {
             db.update("test1", { id: id, email: "test" }, { expected: { id: id, email: id } }, function(err, rc, info) {
                 tests.check(next, err, info.affected_rows, "err26:", info);
+            });
+        },
+        function(next) {
+            db.update("test1", { id: id, email: "test" }, { expected: { id: id, num: 1 }, ops: { num: "gt" } }, function(err, rc, info) {
+                tests.check(next, err, !info.affected_rows, "err26:", info);
             });
         },
     ],
