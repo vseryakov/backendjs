@@ -103,9 +103,10 @@ var api = {
            { name: "collect-send-interval", type: "number", min: 60, descr: "How often to send collected statistics to the master server in seconds" },
            { name: "secret-policy", type: "regexpmap", descr : "An JSON object with list of regexps to validate account password, each regexp comes with an error message to be returned if such regexp fails, `api.checkAccountSecret` performs the validation, example: { '[a-z]+': 'At least one lowercase letter', '[A-Z]+': 'At least one upper case letter' }" },
            { name: "cors-origin", descr: "Origin header for CORS requests" },
-           { name: "rlimits-([a-z]+)-max", type: "int", obj: "rlimits", descr: "Set max/burst rate limit by the given property, it is used by the request rate limiter using Token Bucket algorithm. Valid suffixes: ip, id, login" },
-           { name: "rlimits-([a-z]+)-rate", type: "int", obj: "rlimits", descr: "Set fill/normal rate limit by the given property, it is used by the request rate limiter using Token Bucket algorithm. Valid suffixes: ip, id, login" },
+           { name: "rlimits-([a-z]+)-max", type: "int", obj: "rlimits", descr: "Set max/burst rate limit by the given property, it is used by the request rate limiter using Token Bucket algorithm. Predefined types: ip, id, login" },
+           { name: "rlimits-([a-z]+)-rate", type: "int", obj: "rlimits", descr: "Set fill/normal rate limit by the given property, it is used by the request rate limiter using Token Bucket algorithm. Predefined types: ip, id, login" },
            { name: "rlimits-total", type:" int", obj: "rlimits", descr: "Total number of servers used in the rate limiter behind a load balancer, rates will be divided by this number so each server handles only a portion of the total rate limit" },
+           { name: "rlimits-interval", type:" int", obj: "rlimits", descr: "Interval in ms for the rate limer, defines the time unit, default is 1000 ms" },
            { name: "exit-on-error", type: "bool", descr: "Exit on uncaught exception" },
            { name: "upload-limit", type: "number", min: 1024*1024, max: 1024*1024*10, descr: "Max size for uploads, bytes"  },
     ],
@@ -286,7 +287,10 @@ api.init = function(options, callback)
         self.prepareRequest(req);
 
         // Rate limits by IP address, early before all other filters
-        self.checkLimits("ip", req, res, next);
+        self.checkLimits("ip", req, function(err) {
+            if (err) return self.sendReply(res, err);
+            next();
+        });
     });
 
     // Allow cross site requests
@@ -397,10 +401,14 @@ api.init = function(options, callback)
 
     // Rate limits for accounts
     self.app.use(function(req, res, next) {
-        self.checkLimits("login", req, res, next);
-    });
-    self.app.use(function(req, res, next) {
-        self.checkLimits("id", req, res, next);
+        self.checkLimits("login", req, function(err) {
+            if (err) return self.sendReply(res, err);
+
+            self.checkLimits("id", req, function(err) {
+                if (err) return self.sendReply(res, err);
+                next();
+            });
+        });
     });
 
     // Config options for Express
@@ -1126,23 +1134,37 @@ api.checkAccountType = function(row, type)
 
 // Perform rate limiting by specified property, if not given no limiting is done.
 // The following options properties can be used:
-//  - type - one of `ip, login, id`, determines by which property to perform limiting, when using account properties
-//     the rate limiter should be called after the request signature has been parsed
+//  - type - predefined: `ip, login, id`, determines by which property to perform limiting, when using account properties
+//     the rate limiter should be called after the request signature has been parsed. Any other value is treated as
+//     custom type and used as it is.
 //  - max - max capacity to be used by default
 //  - rate - fill rate to be used by default
+//  - interval - interval in ms for bucket refill
+//  - name - more descriptive name to be used in the error message for the type, if not specified type is used
 //  - total - apply this factor to the rate, it is used in case of multiple servers behind a loadbalancer, so for
 //     total 3 servers in the cluster the factor will be 3, i.e. each individual server checks for a third of the total request rate
 //
 // When used for accounts, it is possible to override rate limits for each account in the `bk_auth` table by setting `rlimit_max` and `rlimit_rate`
 // columns. To enable account rate limits the global defaults still must be set with the config paramaters `-api-rlimit-login-max` and `-api-rlimit-login-rate`
 // for example.
-api.checkLimits = function(type, req, res, next)
+api.checkLimits = function(type, req, options, callback)
 {
     var self = this;
-    var key, rate = this.rlimits[type + 'Rate'], max = this.rlimits[type + 'Max'], total = this.rlimits.total || 1;
+    if (typeof options == "function") callback = options, options = {};
+    if (!options) options = {};
+
+    var key;
+    var name = options.name || type;
+    var consume = options.consume || 1;
+    var rate = options.rate || this.rlimits[type + 'Rate'];
+    var max = options.max || this.rlimits[type + 'Max'];
+    var total = options.total || this.rlimits.total || 1;
+    var interval = options.interval || this.rlimits.interval || 1000;
+
     switch (type) {
     case "ip":
         key = 'TBip:' + req.ip;
+        if (!name) name = "IP access";
         break;
 
     case "id":
@@ -1151,9 +1173,13 @@ api.checkLimits = function(type, req, res, next)
         key = 'TB' + type + ":" + req.account[type];
         max = req.account.rlimits_max || max;
         rate = req.account.rlimits_rate || rate;
+        interval = req.account.rlimits_interval || interval;
+        if (!name) name = "Account access";
         break;
+    default:
+        key = 'TB' + type;
     }
-    if (!key || !rate) return next();
+    if (!key || !rate) return callback();
 
     // Divide by total servers in the cluster, because a load balancer distributes the load equally each server can only
     // check for a portion of the total request rate
@@ -1163,15 +1189,15 @@ api.checkLimits = function(type, req, res, next)
     }
 
     ipc.get(key, function(data) {
-        var bucket = new metrics.TokenBucket(corelib.jsonParse(data) || { rate: rate, max: max });
+        var bucket = new metrics.TokenBucket(corelib.jsonParse(data) || { rate: rate, max: max, interval: interval });
         // Reset the bucket if any number has changed, now we have a new rate to check
-        if (!bucket.equal(rate, max)) bucket = new metrics.TokenBucket(rate, max);
+        if (!bucket.equal(rate, max)) bucket = new metrics.TokenBucket(rate, max, interval);
         logger.debug("checkLimits:", key, bucket);
-        var consumed = bucket.consume(1);
+        var consumed = bucket.consume(consume || 1);
         ipc.put(key, bucket.toJSON());
         logger.debug("checkLimits:", key, consumed, bucket);
-        if (consumed) return next();
-        self.sendReply(res, 429, "Request limit exceeded " + rate + "reqs/sec");
+        if (consumed) return callback();
+        callback({ status: 429, message: name + " limit reached, please try again later" });
     });
 }
 

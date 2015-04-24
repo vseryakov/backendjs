@@ -555,14 +555,15 @@ Metrics.prototype.Histogram = function(name, properties)
 
 // Create a Token Bucket object for rate limiting as per http://en.wikipedia.org/wiki/Token_bucket
 //  - max - the maximum burst capacity
-//  - rate - the rate to refill tokens.
+//  - rate - the rate to refill tokens
+//  - interval - interval for the bucket refills, default 1000 ms
 //
 // Store as an array for easier serialization into JSON when keep it in the shared cache.
 //
 // Based on https://github.com/thisandagain/micron-throttle
 //
 exports.TokenBucket = TokenBucket;
-function TokenBucket(rate, max)
+function TokenBucket(rate, max, interval)
 {
     // Restore existing token from the JSON
     if (typeof rate == "object" && rate.rate) {
@@ -570,25 +571,28 @@ function TokenBucket(rate, max)
         this._max = corelib.toNumber(rate.max || this._rate, { min: 0 });
         this._count = corelib.toNumber(rate.count || this._max);
         this._time = corelib.toNumber(rate.time || Date.now());
+        this._interval = corelib.toNumber(rate.interval || 1000, { min: 1 });
     } else {
         this._rate = corelib.toNumber(rate, { min: 0 });
         this._max = corelib.toNumber(max || this._rate, { min: 0 });
         this._count = this._max;
         this._time = Date.now();
+        this._interval = interval || 1000;
     }
 }
 
 TokenBucket.prototype.toJSON = function()
 {
-    return { rate: this._rate, max: this._max, count: this._count, time: this._time };
+    return { rate: this._rate, max: this._max, count: this._count, time: this._time, interval: this._interval };
 }
 
 // Return true this bucket uses the same rates
-TokenBucket.prototype.equal = function(rate, max)
+TokenBucket.prototype.equal = function(rate, max, interval)
 {
     rate = corelib.toNumber(rate, { min: 0 });
     max = corelib.toNumber(max || rate, { min: 0 });
-    return this._rate === rate && this._max === max;
+    interval = corelib.toNumber(interval || 1000, { min: 1 });
+    return this._rate === rate && this._max === max && this._interval == interval;
 }
 
 // Consume N tokens from the bucket, if no capacity, the tokens are not pulled from the bucket.
@@ -600,8 +604,8 @@ TokenBucket.prototype.equal = function(rate, max)
 TokenBucket.prototype.consume = function(tokens)
 {
     var now = Date.now();
-    if (now < this._time) this._time = now - 1000;
-    if (this._count < this._max) this._count = Math.min(this._max, this._count + this._rate * ((now - this._time) / 1000));
+    if (now < this._time) this._time = now - this._interval;
+    if (this._count < this._max) this._count = Math.min(this._max, this._count + this._rate * ((now - this._time) / this._interval));
     this._time = now;
     if (tokens > this._count) return false;
     this._count -= tokens;
