@@ -1146,7 +1146,7 @@ api.checkAccountType = function(row, type)
 //  - total - apply this factor to the rate, it is used in case of multiple servers behind a loadbalancer, so for
 //     total 3 servers in the cluster the factor will be 3, i.e. each individual server checks for a third of the total request rate
 //
-// The metrics are kept in the cache.
+// The metrics are kept in the LRU cache in the master process.
 //
 // When used for accounts, it is possible to override rate limits for each account in the `bk_auth` table by setting `rlimit_max` and `rlimit_rate`
 // columns. To enable account rate limits the global defaults still must be set with the config paramaters `-api-rlimit-login-max` and `-api-rlimit-login-rate`
@@ -1195,16 +1195,9 @@ api.checkLimits = function(req, options, callback)
         rate /= total;
         max = (max || rate)/total;
     }
-
-    ipc.get(key, function(data) {
-        var bucket = new metrics.TokenBucket(corelib.jsonParse(data) || { rate: rate, max: max, interval: interval });
-        // Reset the bucket if any number has changed, now we have a new rate to check
-        if (!bucket.equal(rate, max)) bucket = new metrics.TokenBucket(rate, max, interval);
-        var consumed = bucket.consume(options.consume || 1);
-        ipc.put(key, bucket.toJSON());
-        logger.debug("checkLimits:", key, consumed, bucket);
-        if (consumed) return callback();
-        callback({ status: 429, message: options.message || "access limit reached, please try again later" });
+    // Use process shared cache to eliminate race condition for the same cache item from multiple processes on the same instance
+    ipc.command({ op: "limits", name: key, rate: rate, max: max, interval: interval }, function(consumed) {
+        callback(consumed ? null : { status: 429, message: options.message || "access limit reached, please try again later" });
     });
 }
 

@@ -11,6 +11,7 @@ var utils = require(__dirname + '/build/Release/backend');
 var logger = require(__dirname + '/logger');
 var core = require(__dirname + '/core');
 var corelib = require(__dirname + '/corelib');
+var metrics = require(__dirname + '/metrics');
 var cluster = require('cluster');
 var memcached = require('memcached');
 var redis = require("redis");
@@ -29,6 +30,7 @@ var ipc = {
     amqp: {},
     serverQueue: core.name + ":server",
     workerQueue: core.name + ":worker",
+    tokenBucket: new metrics.TokenBucket(),
 };
 
 module.exports = ipc;
@@ -78,7 +80,7 @@ ipc.handleWorkerMessages = function(msg)
             break;
 
         case "init:config":
-            db.initConfig();
+            core.modules.db.initConfig();
             break;
 
         case "profiler":
@@ -155,13 +157,26 @@ ipc.handleServerMessages = function(worker, msg)
             break;
 
         case "init:config":
-            db.initConfig();
+            core.modules.db.initConfig();
             for (var p in cluster.workers) cluster.workers[p].send(msg);
             break;
 
         case "init:dns":
             core.loadDnsConfig();
             for (var p in cluster.workers) cluster.workers[p].send(msg);
+            break;
+
+        case "limits":
+            // Use shared token buckets inside the server process, reuse the same object so we do not generate
+            // a lot of short lived objects, the whole operation including serialization from/to the cache is atomic.
+            var data = utils.lruGet(msg.name);
+            this.tokenBucket.create(data ? corelib.strSplit(data) : msg);
+            // Reset the bucket if any number has changed, now we have a new rate to check
+            if (!this.tokenBucket.equal(msg.rate, msg.max, msg.interval)) this.tokenBucket.create(msg);
+            msg.value = this.tokenBucket.consume(msg.consume || 1);
+            utils.lruPut(msg.name, this.tokenBucket.toString());
+            logger.debug("checkLimits:", msg.name, msg.value, this.tokenBucket);
+            worker.send(msg);
             break;
 
         case 'stats':

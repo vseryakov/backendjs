@@ -5,6 +5,8 @@
 // Based on https://github.com/felixge/node-measured
 //
 
+var corelib = require(__dirname + '/corelib');
+
 exports.Counter = Counter;
 function Counter(properties)
 {
@@ -565,7 +567,19 @@ Metrics.prototype.Histogram = function(name, properties)
 exports.TokenBucket = TokenBucket;
 function TokenBucket(rate, max, interval)
 {
-    // Restore existing token from the JSON
+    this.create(rate, max, interval);
+}
+
+// Initialize existing token with numbers for rate calculations
+TokenBucket.prototype.create = function(rate, max, interval)
+{
+    if (Array.isArray(rate)) {
+        this._rate = corelib.toNumber(rate[0], { min: 0 });
+        this._max = corelib.toNumber(rate[1] || this._rate, { min: 0 });
+        this._count = corelib.toNumber(rate[2] || this._max);
+        this._time = corelib.toNumber(rate[3] || Date.now());
+        this._interval = corelib.toNumber(rate[4] || 1000, { min: 1 });
+    } else
     if (typeof rate == "object" && rate.rate) {
         this._rate = corelib.toNumber(rate.rate , { min: 0 });
         this._max = corelib.toNumber(rate.max || this._rate, { min: 0 });
@@ -581,9 +595,16 @@ function TokenBucket(rate, max, interval)
     }
 }
 
+// Return a JSON object to be serialized/saved
 TokenBucket.prototype.toJSON = function()
 {
     return { rate: this._rate, max: this._max, count: this._count, time: this._time, interval: this._interval };
+}
+
+// Return an array object to be serialized/saved
+TokenBucket.prototype.toString = function()
+{
+    return this._rate + "," + this._max + "," + this._count + "," + this._time + "," + this._interval;
 }
 
 // Return true this bucket uses the same rates

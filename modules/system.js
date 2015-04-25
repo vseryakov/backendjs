@@ -173,6 +173,14 @@ system.configureSystemAPI = function()
                 ipc.put(req.query.name, req.query.value);
                 res.json({});
                 break;
+            case "command":
+                if (!req.query.reply) {
+                    ipc.command(req.query);
+                    res.json({});
+                } else {
+                    ipc.command(req.query, function(data) { res.json({ value: data }); });
+                }
+                break;
             default:
                 api.sendReply(res, 400, "Invalid command:" + req.params[1]);
             }

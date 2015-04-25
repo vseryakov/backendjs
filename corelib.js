@@ -23,6 +23,7 @@ var uuid = require('uuid');
 var corelib = {
     name: 'corelib',
     deferTimeout: 50,
+    geoHashRange: [ [12, 0], [8, 0.019], [7, 0.076], [6, 0.61], [5, 2.4], [4, 20.0], [3, 78.0], [2, 630.0], [1, 2500.0], [1, 99999] ],
 }
 
 module.exports = corelib;
@@ -547,42 +548,35 @@ corelib.doWhilst = function(iterator, test, callback)
 // anyways with the original message.
 // The callback passed will be called with only one argument which is the message, what is inside the message this function does not care. If
 // any errors must be passed, use the message object for it, no other arguments are expected.
-corelib.deferCallback = function(obj, msg, callback, timeout)
+corelib.deferCallback = function(parent, msg, callback, timeout)
 {
     var self = this;
     if (!msg || !msg.id || !callback) return;
 
-    obj[msg.id] = {
-         timeout: setTimeout(function() {
-             delete obj[msg.id];
-             try { callback(msg); } catch(e) { logger.error('callback:', e, msg, e.stack); }
-         }, timeout || this.deferTimeout),
-
-         callback: function(data) {
-             clearTimeout(this.timeout);
-             try { callback(data); } catch(e) { logger.error('callback:', e, data, e.stack); }
-         }
+    parent[msg.id] = {
+        callback: callback,
+        timeout: setTimeout(this.onDeferCallback.bind(parent, msg), timeout || this.deferTimeout)
     };
+}
+
+// To be called on timeout or when explicitely called by the `runCallback`, it is called in the context of the message.
+corelib.onDeferCallback = function(msg)
+{
+    var item = this[msg.id];
+    if (!item) return;
+    delete this[msg.id];
+    clearTimeout(item.timeout);
+    logger.dev("onDeferCallback:", msg);
+    try { item.callback(msg); } catch(e) { logger.error('onDeferCallback:', e, msg, e.stack); }
 }
 
 // Run delayed callback for the message previously registered with the `deferCallback` method.
 // The message must have id property which is used to find the corresponding callback, if msg is a JSON string it will be converted into the object.
-corelib.runCallback = function(obj, msg)
+corelib.runCallback = function(parent, msg)
 {
-    var self = this;
-    if (!msg) return;
-    if (typeof msg == "string") msg = this.jsonParse(msg, { error: 1 });
-    if (!msg.id || !obj[msg.id]) return;
-    // Only keep reference for the callback
-    var item = obj[msg.id];
-    delete obj[msg.id];
-
-    // Make sure the timeout will not fire before the immediate call
-    clearTimeout(item.timeout);
-    // Call in the next loop cycle
-    setImmediate(function() {
-        try { item.callback(msg); } catch(e) { logger.error('runCallback:', msg, e.stack); }
-    });
+    if (msg && typeof msg == "string") msg = this.jsonParse(msg, { error: 1 });
+    if (!msg || !msg.id || !parent[msg.id]) return;
+    setImmediate(this.onDeferCallback.bind(parent, msg));
 }
 
 // Return object with geohash for given coordinates to be used for location search
@@ -598,11 +592,7 @@ corelib.geoHash = function(latitude, longitude, options)
     if (options.distance && options.distance < minDistance) options.distance = minDistance;
 
     // Geohash ranges for different lengths in km, take the first greater than our min distance
-    var range = [ [12, 0], [8, 0.019], [7, 0.076],
-                  [6, 0.61], [5, 2.4], [4, 20.0],
-                  [3, 78.0], [2, 630.0], [1, 2500.0],
-                  [1, 99999]
-                ].filter(function(x) { return x[1] > minDistance })[0];
+    var range = this.geoHashRange.filter(function(x) { return x[1] > minDistance })[0];
 
     var geohash = utils.geoHashEncode(latitude, longitude);
     return { geohash: geohash.substr(0, range[0]),
@@ -1272,7 +1262,7 @@ corelib.stringify = function(obj, filter)
 //  - debug - report errors in debug level
 corelib.jsonParse = function(obj, options)
 {
-    if (!obj) return this.checkResult("empty json");
+    if (!obj) return this.checkResult("empty json", obj, options);
     try {
         obj = typeof obj == "string" ? JSON.parse(obj) : obj;
         if (options && options.obj && this.typeName(obj) != "object") obj = {};
