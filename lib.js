@@ -1755,9 +1755,10 @@ lib.mkdirSync = function()
     }
 }
 
-// Create a resource pool, create and close callbacks must be given which perform allocation and deallocation of the resources like db connections.
+// Create a resource pool, `create` and `close` callbacks must be given which perform allocation and deallocation of the resources like db connections.
+//
 // Options defines the following properties:
-// - create - method to be called to return a new resource item, takes 1 argument, a callback as function(err, item)
+// - create - method to be called to return a new resource item, takes 1 argument, a callback as `function(err, item)`
 // - destroy - method to be called to destroy a resource item
 // - validate - method to verify actibe resource item, return false if it needs to be destroyed
 // - min - min number of active resource items

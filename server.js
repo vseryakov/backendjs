@@ -33,7 +33,7 @@ var server = {
     args: [{ name: "max-processes", type: "callback", callback: function(v) { this.maxProcesses=lib.toNumber(v,{float:0,dflt:0,min:0,max:core.maxCPUs}); if(this.maxProcesses<=0) this.maxProcesses=Math.max(1,core.maxCPUs-1); this._name="maxProcesses" }, descr: "Max number of processes to launch for Web servers, 0 means NumberofCPUs-2" },
            { name: "max-workers", type: "number", min: 1, max: 32, descr: "Max number of worker processes to launch" },
            { name: "idle-time", type: "number", descr: "If set and no jobs are submitted the backend will be shutdown, for instance mode only" },
-           { name: "crash-delay", type: "number", max: 30000, descr: "Delay between respawing the crashed process" },
+           { name: "crash-delay", type: "number", max: 30000, obj: "crash", descr: "Delay between respawing the crashed process" },
            { name: "restart-delay", type: "number", max: 30000, descr: "Delay between respawning the server after changes" },
            { name: "log-errors" ,type: "bool", descr: "If true, log crash errors from child processes by the logger, otherwise write to the daemon err-file. The reason for this is that the logger puts everything into one line thus breaking formatting for stack traces." },
            { name: "proxy-reverse", type: "url", descr: "A Web server where to proxy requests not macthed by the url patterns or host header, in the form: http://host[:port]" },
@@ -56,12 +56,7 @@ var server = {
     stderr: null,
 
     // Crash throttling
-    crashInterval: 3000,
-    crashTimeout: 2000,
-    crashDelay: 30000,
-    crashCount: 4,
-    crashTime: null,
-    crashEvents: 0,
+    crash: { interval: 3000, timeout: 2000, delay: 30000, count: 4, time: null, events: 0 },
 
     // Number of workers or web servers to launch
     maxWorkers: 1,
@@ -553,20 +548,20 @@ server.respawn = function(callback)
     var self = this;
     if (this.exiting) return;
     var now = Date.now();
-    logger.debug('respawn:', 'time:', self.crashTime, now - self.crashTime, 'events:', self.crashEvents, 'interval:', self.crashInterval, 'count:', self.crashCount);
-    if (self.crashTime && now - self.crashTime < self.crashInterval) {
-        if (self.crashCount && self.crashEvents >= self.crashCount) {
-            logger.log('respawn:', 'throttling for', self.crashDelay, 'after', self.crashEvents, 'crashes');
-            self.crashEvents = 0;
-            self.crashTime = now;
-            return setTimeout(callback, self.crashDelay);
+    logger.debug('respawn:', this.crash, now - this.crash.time);
+    if (self.crash.time && now - self.crash.time < self.crash.interval) {
+        if (self.crash.count && self.crash.events >= self.crash.count) {
+            logger.log('respawn:', 'throttling for', self.crash.delay, 'after', self.crash.events, 'crashes');
+            self.crash.events = 0;
+            self.crash.time = now;
+            return setTimeout(callback, self.crash.delay);
         }
-        self.crashEvents++;
+        self.crash.events++;
     } else {
-        self.crashEvents = 0;
+        self.crash.events = 0;
     }
-    self.crashTime = now;
-    setTimeout(callback, self.crashTimeout);
+    self.crash.time = now;
+    setTimeout(callback, self.crash.timeout);
 }
 
 // Start new process reusing global process arguments, args will be added and args in the skip list will be removed
