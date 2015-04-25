@@ -59,7 +59,7 @@ var api = {
            { name: "images-s3", descr: "S3 bucket name where to store and retrieve images" },
            { name: "images-raw", type: "bool", descr: "Return raw urls for the images, requires images-url to be configured. The path will reflect the actual 2 level structure and account id in the image name" },
            { name: "images-s3-options", type:" json", descr: "S3 options to sign images urls, may have expires:, key:, secret: properties" },
-           { name: "domain", type: "regexp", descr: "Regexp of the domains or hostnames to be served by the API, if not matched the requests will be only served by the other middleware configured in the Express" },
+           { name: "domain", type: "regexp", descr: "Regexp of the domains or hostnames to be served by the API, if not matched the requests will be only served by the other middleware configured in the Express and will bypass all registered routes" },
            { name: "files-s3", descr: "S3 bucket name where to store files uploaded with the File API" },
            { name: "busy-latency", type: "number", min: 11, descr: "Max time in ms for a request to wait in the queue, if exceeds this value server returns too busy error" },
            { name: "access-log", descr: "File for access logging" },
@@ -76,6 +76,7 @@ var api = {
            { name: "query-token-secret", descr: "Name of the property to be used for encrypting tokens for pagination..., any property from bk_auth can be used, if empty no secret is used, if not a valid property then it is used as the secret" },
            { name: "app-header-name", descr: "Name for the app name/version query parameter or header, it is can be used to tell the server about the application version" },
            { name: "version-header-name", descr: "Name for the access version query parameter or header, this is the core protocol version that can be sent to specify which core functionality a client expects" },
+           { name: "no-signature", type: "bool", descr: "Disable signature verification for requests" },
            { name: "signature-header-name", descr: "Name for the access signature query parameter or header" },
            { name: "signature-age", type: "int", descr: "Max age for request signature in milliseconds, how old the API signature can be to be considered valid, the 'expires' field in the signature must be less than current time plus this age, this is to support time drifts" },
            { name: "access-token-name", descr: "Name for the access token query parameter or header" },
@@ -346,7 +347,7 @@ api.init = function(options, callback)
         next();
     });
 
-    // Metrics starts early
+    // Metrics starts early, always enabled
     self.app.use(function(req, res, next) {
         var path = "url_" + req.options.apath.slice(0, self.urlMetrics[req.options.apath[0]] || 2).join("_");
         self.metrics.Histogram('api_que').update(self.metrics.Counter('api_nreq').inc());
@@ -364,7 +365,7 @@ api.init = function(options, callback)
             req.metric1.end();
             req.metric2.end();
             // Ignore external or not handled urls
-            if (req._noEndpoint || req._noSignature) {
+            if (req._noRoute || req._noSignature) {
                 delete self.metrics[path];
                 delete self.metrics[path + '_0'];
             }
@@ -393,24 +394,13 @@ api.init = function(options, callback)
     }
 
     // Check the signature, for virtual hosting, supports only the simple case when running the API and static web sites on the same server
-    self.app.use(function(req, res, next) {
-        if (!self.domain || req.options.host.match(self.domain)) return self.checkRequest(req, res, next);
-        req._noRouter = 1;
-        next();
-    });
-
-    // Rate limits for an account, multiple logins may belong to the same account so we have
-    // 2 checks here, individual and for the whole account
-    self.app.use(function(req, res, next) {
-        self.checkLimits(req, "login", function(err) {
-            if (err) return self.sendReply(res, err);
-
-            self.checkLimits(req, "id", function(err) {
-                if (err) return self.sendReply(res, err);
-                next();
-            });
+    if (!self.noSignature) {
+        self.app.use(function(req, res, next) {
+            if (!self.domain || req.options.host.match(self.domain)) return self.checkRequest(req, res, next);
+            req._noRouter = 1;
+            next();
         });
-    });
+    }
 
     // Config options for Express
     self.expressEnable.forEach(function(x) {
@@ -419,10 +409,24 @@ api.init = function(options, callback)
         if (x.length == 2 ) self.app.set(x[0], x[1]);
     });
 
-    // Assign custom middleware just after the security handler
+    // Assign custom middleware just after the security handler, if the signature is disabled then the middleware
+    // handler may install some other authentication module and in such case must setup `req.account` with the current user record
     core.runMethods("configureMiddleware", options, function() {
 
-        // Custom routes, handle only routes defined for our domains
+        // Rate limits for an account, multiple logins may belong to the same account so we have
+        // 2 checks here, individual and for the whole account
+        self.app.use(function(req, res, next) {
+            self.checkLimits(req, "login", function(err) {
+                if (err) return self.sendReply(res, err);
+
+                self.checkLimits(req, "id", function(err) {
+                    if (err) return self.sendReply(res, err);
+                    next();
+                });
+            });
+        });
+
+        // Custom routes, process routes only if allowed in the current request session
         var router = self.app.router;
         self.app.use(function(req, res, next) {
             if (req._noRouter) return next();
@@ -431,7 +435,7 @@ api.init = function(options, callback)
 
         // No API routes matched, cleanup stats
         self.app.use(function(req, res, next) {
-            req._noEndpoint = 1;
+            req._noRoute = 1;
             next();
         });
 
