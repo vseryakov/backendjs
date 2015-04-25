@@ -21,13 +21,13 @@ Counter.prototype.toJSON = function()
 
 Counter.prototype.inc = function(n)
 {
-    this._count += (n || 1);
+    this._count += lib.toNumber(n || 1);
     return this._count;
 }
 
 Counter.prototype.dec = function(n)
 {
-    this._count -= (n || 1);
+    this._count -= lib.toNumber(n || 1);
     return this._count;
 }
 
@@ -81,7 +81,7 @@ function Meter(properties)
 Meter.prototype.mark = function(n)
 {
     if (!this._interval) this.start();
-    n = n || 1;
+    n = lib.toNumber(n || 1);
     this._count += n;
     this._currentSum += n;
     this._m1Rate.update(n);
@@ -352,6 +352,7 @@ function Histogram(properties)
 
 Histogram.prototype.update = function(value)
 {
+    value = lib.toNumber(value);
     this._count++;
     this._sum += value;
     this._sample.update(value);
