@@ -26,7 +26,7 @@ var passport = require('passport');
 var consolidate = require('consolidate');
 var domain = require('domain');
 var core = require(__dirname + '/core');
-var corelib = require(__dirname + '/corelib');
+var lib = require(__dirname + '/lib');
 var ipc = require(__dirname + '/ipc');
 var msg = require(__dirname + '/msg');
 var db = require(__dirname + '/db');
@@ -118,7 +118,7 @@ var api = {
     hooks: {},
 
     // No authentication for these urls
-    allow: corelib.toRegexpObj(null, ["^/$",
+    allow: lib.toRegexpObj(null, ["^/$",
                                       "\\.html$",
                                       "\\.ico$", "\\.gif$", "\\.png$", "\\.jpg$", "\\.svg$",
                                       "\\.ttf$", "\\.eof$", "\\.woff$",
@@ -146,7 +146,7 @@ var api = {
     redirectUrl: [],
 
     // A list of regexp expresions for account pasword verification
-    secretPolicy: corelib.toRegexpMap(null, { '[a-z]+': 'requires at least one lower case letter',
+    secretPolicy: lib.toRegexpMap(null, { '[a-z]+': 'requires at least one lower case letter',
                                               '[A-Z]+': 'requires at least one upper case letter',
                                               '[0-9]+': 'requires at least one digit',
                                               '.{6,}': 'requires at least 6 characters'  }),
@@ -228,7 +228,7 @@ var api = {
         string: [
             "name","alias","format","separator","pool","cleanup","sort","ext","encoding",
         ],
-        // Numeric parameters to be passed to corelib.toNumber
+        // Numeric parameters to be passed to lib.toNumber
         number: [
             "width", "height", "quality", "round", "interval",
             { count: { float: 0, dflt: 50, min: 0 } },
@@ -238,7 +238,7 @@ var api = {
         token: [
             "start", "token",
         ],
-        // Split by using corelib.strSplit
+        // Split by using lib.strSplit
         list: [
             "select",
         ],
@@ -263,7 +263,7 @@ api.init = function(options, callback)
 {
     var self = this;
     if (typeof options == "function") callback = options, options = null;
-    if (typeof callback != "function") callback = corelib.noop;
+    if (typeof callback != "function") callback = lib.noop;
     if (!options) options = {};
 
     // Performance statistics
@@ -371,7 +371,7 @@ api.init = function(options, callback)
             }
             // Call cleanup hooks
             var hooks = self.findHook('cleanup', req.method, req.options.path);
-            corelib.forEachSeries(hooks, function(hook, next) {
+            lib.forEachSeries(hooks, function(hook, next) {
                 logger.debug('cleanup:', req.method, req.options.path, hook.path);
                 hook.callbacks.call(self, req, function() { next() });
             }, function() {
@@ -514,11 +514,11 @@ api.shutdown = function(callback)
 {
     var self = this;
     if (this.exiting) return;
-    if (typeof callback != "function") callback = corelib.noop;
+    if (typeof callback != "function") callback = lib.noop;
     this.exiting = true;
     logger.log('api.shutdown: started');
     var timeout = callback ? setTimeout(callback, self.shutdownTimeout || 30000) : null;
-    corelib.parallel([
+    lib.parallel([
         function(next) {
             if (!self.wsServer) return next();
             try { self.wsServer.close(); next(); } catch(e) { logger.error("api.shutdown:", e.stack); next() }
@@ -734,7 +734,7 @@ api.checkQuery = function(req, res, next)
     req.on('end', function() {
         try {
             // Verify data checksum before parsing
-            if (sig && sig.checksum && corelib.hash(buf) != sig.checksum) {
+            if (sig && sig.checksum && lib.hash(buf) != sig.checksum) {
                 var err = new Error("invalid data checksum");
                 err.status = 400;
                 return next(err);
@@ -742,7 +742,7 @@ api.checkQuery = function(req, res, next)
             switch (type) {
             case 'application/json':
                 if (req.method != "POST") break;
-                req.body = corelib.jsonParse(buf, { obj: 1, debug: 1 });
+                req.body = lib.jsonParse(buf, { obj: 1, debug: 1 });
                 req.query = req.body;
                 break;
 
@@ -827,7 +827,7 @@ api.checkAccess = function(req, callback)
     // Call custom access handler for the endpoint
     var hooks = this.findHook('access', req.method, req.options.path);
     if (hooks.length) {
-        corelib.forEachSeries(hooks, function(hook, next) {
+        lib.forEachSeries(hooks, function(hook, next) {
             logger.debug('checkAccess:', req.method, req.options.path, hook.path);
             hook.callbacks.call(self, req, next);
         }, callback);
@@ -864,7 +864,7 @@ api.checkAuthorization = function(req, status, callback)
 
     var hooks = this.findHook('auth', req.method, req.options.path);
     if (hooks.length) {
-        corelib.forEachSeries(hooks, function(hook, next) {
+        lib.forEachSeries(hooks, function(hook, next) {
             logger.debug('checkAuthorization:', req.method, req.options.path, hook.path, req.account.id);
             hook.callbacks.call(self, req, status, function(err) {
                 if (err && err.status != 200) return next(err);
@@ -960,7 +960,7 @@ api.checkSignature = function(req, callback)
         // Deal with encrypted body, use our account secret to decrypt, this is for raw data requests
         // if it is JSON or query it needs to be reparsed in the application
         if (req.body && req.get("content-encoding") == "encrypted") {
-            req.body = corelib.decrypt(account.secret, req.body);
+            req.body = lib.decrypt(account.secret, req.body);
         }
 
         // Verify the signature
@@ -970,21 +970,21 @@ api.checkSignature = function(req, callback)
         case 1:
             sig.str = "";
             sig.str = sig.method + "\n" + sig.host + "\n" + sig.path + "\n" + query + "\n" + sig.expires + "\n" + sig.type + "\n" + sig.checksum + "\n";
-            sig.hash = corelib.sign(secret, sig.str, "sha1");
+            sig.hash = lib.sign(secret, sig.str, "sha1");
             break;
 
         case 3:
             secret += ":" + (account.token_secret || "");
         case 2:
-            sig.str = sig.version + "\n" + (sig.tag || "") + "\n" + sig.login + "\n" + "*" + "\n" + corelib.domainName(sig.host) + "\n" + "/" + "\n" + "*" + "\n" + sig.expires + "\n*\n*\n";
-            sig.hash = corelib.sign(secret, sig.str, "sha256");
+            sig.str = sig.version + "\n" + (sig.tag || "") + "\n" + sig.login + "\n" + "*" + "\n" + lib.domainName(sig.host) + "\n" + "/" + "\n" + "*" + "\n" + sig.expires + "\n*\n*\n";
+            sig.hash = lib.sign(secret, sig.str, "sha256");
             break;
 
         case 4:
             if (account.auth_secret) secret += ":" + account.auth_secret;
         default:
             sig.str = sig.version + "\n" + (sig.tag || "") + "\n" + sig.login + "\n" + sig.method + "\n" + sig.host + "\n" + sig.path + "\n" + query + "\n" + sig.expires + "\n" + sig.type + "\n" + sig.checksum + "\n";
-            sig.hash = corelib.sign(secret, sig.str, "sha256");
+            sig.hash = lib.sign(secret, sig.str, "sha256");
         }
         if (sig.signature != sig.hash) {
             logger.debug('checkSignature:', 'failed', sig, account);
@@ -1032,18 +1032,18 @@ api.parseSignature = function(req)
     rc.signature = req.query[this.signatureHeaderName] || req.headers[this.signatureHeaderName] || "";
     if (!rc.signature) {
         rc.signature = req.query[this.accesTokenName] || req.headers[this.accessTokenName];
-        if (rc.signature) rc.signature = corelib.decrypt(this.accessTokenSecret, rc.signature, "", "hex");
+        if (rc.signature) rc.signature = lib.decrypt(this.accessTokenSecret, rc.signature, "", "hex");
     }
     if (!rc.signature) {
         rc.signature = req.session ? req.session[this.signatureHeaderName] : "";
     }
     var d = String(rc.signature).match(/([^\|]+)\|([^\|]*)\|([^\|]+)\|([^\|]+)\|([^\|]+)\|([^\|]*)\|([^\|]*)/);
     if (!d) return rc;
-    rc.version = corelib.toNumber(d[1]);
+    rc.version = lib.toNumber(d[1]);
     if (d[2]) rc.tag = d[2];
     if (d[3]) rc.login = d[3].trim();
     if (d[4]) rc.signature = d[4];
-    rc.expires = corelib.toNumber(d[5]);
+    rc.expires = lib.toNumber(d[5]);
     rc.checksum = d[6] || "";
     req.signature = rc;
     return rc;
@@ -1080,25 +1080,25 @@ api.createSignature = function(login, secret, method, host, uri, options)
     switch (ver) {
     case 1:
         str = String(method) + "\n" + String(hostname) + "\n" + String(path) + "\n" + String(query) + "\n" + String(expires) + "\n" + ctype + "\n" + checksum + "\n";
-        hmac = corelib.sign(String(secret), str, "sha1")
+        hmac = lib.sign(String(secret), str, "sha1")
         break;
 
     case 2:
     case 3:
         path = "/";
         method = query = "*";
-        rc['bk-domain'] = hostname = corelib.domainName(hostname);
+        rc['bk-domain'] = hostname = lib.domainName(hostname);
         rc['bk-max-age'] = Math.floor((expires - now)/1000);
         rc['bk-expires'] = expires;
         rc['bk-path'] = path;
         str = ver + '\n' + tag + '\n' + String(login) + "\n" + String(method) + "\n" + String(hostname) + "\n" + String(path) + "\n" + String(query) + "\n" + String(expires) + "\n*\n*\n";
-        hmac = corelib.sign(String(secret), str, "sha256")
+        hmac = lib.sign(String(secret), str, "sha256")
         break;
 
     case 4:
     default:
         str = ver + '\n' + tag + '\n' + String(login) + "\n" + String(method) + "\n" + String(hostname) + "\n" + String(path) + "\n" + String(query) + "\n" + String(expires) + "\n" + ctype + "\n" + checksum + "\n";
-        hmac = corelib.sign(String(secret), str, "sha256")
+        hmac = lib.sign(String(secret), str, "sha256")
     }
     rc[this.signatureHeaderName] = ver + '|' + tag + '|' + String(login) + '|' + hmac + '|' + expires + '|' + checksum + '|';
     if (logger.level > 1) logger.log('createSignature:', rc);
@@ -1114,7 +1114,7 @@ api.handleSessionSignature = function(req, options)
     if (typeof options.accesstoken != "undefined" && req.session) {
         if (options.accesstoken && req.account && req.account.login && req.account.secret && req.headers) {
             var sig = this.createSignature(req.account.login, req.account.secret + ":" + (req.account.token_secret || ""), "", req.headers.host, "", { version: 3, expires: options.sessionAge || this.accessTokenAge });
-            req.account[this.accessTokenName] = corelib.encrypt(this.accessTokenSecret, sig[this.signatureHeaderName], "", "hex");
+            req.account[this.accessTokenName] = lib.encrypt(this.accessTokenSecret, sig[this.signatureHeaderName], "", "hex");
             req.account[this.accessTokenName + '-age'] = options.sessionAge || this.accessTokenAge;
         } else {
             delete req.account[this.accessTokenName];
@@ -1134,7 +1134,7 @@ api.handleSessionSignature = function(req, options)
 // Return true if the current user belong to the specified type, account type may contain more than one type
 api.checkAccountType = function(row, type)
 {
-    return corelib.typeName(row) == "object" && typeof row.type == "string" && corelib.strSplit(row.type).indexOf(type) > -1;
+    return lib.typeName(row) == "object" && typeof row.type == "string" && lib.strSplit(row.type).indexOf(type) > -1;
 }
 
 // Perform rate limiting by specified property, if not given no limiting is done.
@@ -1166,7 +1166,7 @@ api.checkAccountType = function(row, type)
 api.checkLimits = function(req, options, callback)
 {
     var self = this;
-    if (typeof callback != "function") callback = corelib.noop;
+    if (typeof callback != "function") callback = lib.noop;
     if (typeof options == "string") options = { type: options };
 
     var type = options && options.type, rate = 0;
@@ -1226,16 +1226,16 @@ api.getOptions = function(req)
             p = "_" + x;
             switch (type) {
             case "boolean":
-                if (typeof req.query[p] != "undefined") req.options[x] = corelib.toBool(req.query[p]);
+                if (typeof req.query[p] != "undefined") req.options[x] = lib.toBool(req.query[p]);
                 break;
             case "number":
-                if (typeof req.query[p] != "undefined") req.options[x] = corelib.toNumber(req.query[p], o);
+                if (typeof req.query[p] != "undefined") req.options[x] = lib.toNumber(req.query[p], o);
                 break;
             case "list":
-                if (req.query[p]) req.options[x] = corelib.strSplit(req.query[p]);
+                if (req.query[p]) req.options[x] = lib.strSplit(req.query[p]);
                 break;
             case "token":
-                if (req.query[p]) req.options[x] = corelib.base64ToJson(req.query[p], self.getTokenSecret(req));
+                if (req.query[p]) req.options[x] = lib.base64ToJson(req.query[p], self.getTokenSecret(req));
                 break;
             case "string":
                 if (req.query[p]) req.options[x] = req.query[p];
@@ -1244,9 +1244,9 @@ api.getOptions = function(req)
         });
     }
     // Other special parameters
-    if (req.query._tm) req.options.tm = corelib.strftime(Date.now(), "%Y-%m-%d-%H:%M:%S.%L");
+    if (req.query._tm) req.options.tm = lib.strftime(Date.now(), "%Y-%m-%d-%H:%M:%S.%L");
     if (req.query._ops) {
-        var ops = corelib.strSplit(req.query._ops);
+        var ops = lib.strSplit(req.query._ops);
         for (var i = 0; i < ops.length -1; i+= 2) req.options.ops[ops[i]] = ops[i+1];
     }
     return req.options;
@@ -1265,7 +1265,7 @@ api.getResultPage = function(req, options, rows, info)
 {
     if (options.total) return { count: rows.length && rows[0].count ? rows[0].count : 0 };
     var token = { count: rows.length, data: rows };
-    if (info && info.next_token) token.next_token = corelib.jsonToBase64(info.next_token, this.getTokenSecret(req));
+    if (info && info.next_token) token.next_token = lib.jsonToBase64(info.next_token, this.getTokenSecret(req));
     return token;
 }
 
@@ -1311,7 +1311,7 @@ api.checkResultColumns = function(table, rows, options)
     if (!options) options = {};
     var cols = {};
     var admin = this.checkAccountType(options, "admin");
-    corelib.strSplit(table).forEach(function(x) {
+    lib.strSplit(table).forEach(function(x) {
         var c = db.getColumns(x, options);
         for (var p in c) cols[p] = c[p].pub ? 1 : c[p].secure ? -1 : c[p].admin ? admin : 0;
     });
@@ -1515,7 +1515,7 @@ api.registerOAuthStrategy = function(strategy, options, callback)
         if (typeof cb != "function") return done(new Error("OAuth login is not configured"));
         var query = {};
         query.login = profile.provider + ":" + profile.id;
-        query.secret = corelib.uuid();
+        query.secret = lib.uuid();
         query.name = query.alias = profile.displayName;
         query.gender = profile.gender;
         query.email = profile.email;
@@ -1575,7 +1575,7 @@ api.sendJSON = function(req, err, rows)
     if (!rows) rows = [];
     var sent = 0;
     var hooks = this.findHook('post', req.method, req.options.path);
-    corelib.forEachSeries(hooks, function(hook, next) {
+    lib.forEachSeries(hooks, function(hook, next) {
         try { sent = hook.callbacks.call(self, req, req.res, rows); } catch(e) { logger.error('sendJSON:', req.options.path, e.stack); }
         logger.debug('sendJSON:', req.method, req.options.path, hook.path, 'sent:', sent || req.res.headersSent, 'cleanup:', req.options.cleanup);
         next(sent || req.res.headersSent);

@@ -16,7 +16,7 @@ var app = bkjs.app;
 var ipc = bkjs.ipc;
 var msg = bkjs.msg;
 var core = bkjs.core;
-var corelib = bkjs.corelib;
+var lib = bkjs.lib;
 var logger = bkjs.logger;
 
 // Icons management
@@ -124,7 +124,7 @@ icons.handleIconRequest = function(req, res, options, callback)
     var limit = self.limit[options.type] || self.limit['*'];
     var icons = [];
 
-    corelib.series([
+    lib.series([
        function(next) {
            options.ops = { type: "begins_with" };
            db.select("bk_icon", { id: req.query.id, type: options.prefix + ":" }, options, function(err, rows) {
@@ -146,7 +146,7 @@ icons.handleIconRequest = function(req, res, options, callback)
            options.ops = {};
            req.query.type = options.prefix + ":" + options.type;
            if (options.ext) req.query.ext = options.ext;
-           if (req.query.latitude && req.query.longitude) req.query.geohash = corelib.geoHash(req.query.latitude, req.query.longitude);
+           if (req.query.latitude && req.query.longitude) req.query.geohash = lib.geoHash(req.query.latitude, req.query.longitude);
 
            db[op]("bk_icon", req.query, options, function(err, rows) {
                if (err) return next(err);

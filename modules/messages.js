@@ -15,7 +15,7 @@ var app = bkjs.app;
 var ipc = bkjs.ipc;
 var msg = bkjs.msg;
 var core = bkjs.core;
-var corelib = bkjs.corelib;
+var lib = bkjs.lib;
 var logger = bkjs.logger;
 
 // Messages management
@@ -185,12 +185,12 @@ messages.getMessage = function(req, options, callback)
     req.query.id = req.account.id;
 
     // If asked for a total with _archive/_trash we have to retrieve all messages but return only the count
-    var total = corelib.toBool(options.total);
-    if (total && corelib.toBool(options.archive) || corelib.toBool(options.trash)) {
+    var total = lib.toBool(options.total);
+    if (total && lib.toBool(options.archive) || lib.toBool(options.trash)) {
         options.total = 0;
     }
     function del(rows, next) {
-        corelib.forEachLimit(rows, options.concurrency || 1, function(row, next2) {
+        lib.forEachLimit(rows, options.concurrency || 1, function(row, next2) {
             db.del("bk_message", row, options, function() { next2() });
         }, next);
     }
@@ -198,7 +198,7 @@ messages.getMessage = function(req, options, callback)
     function details(rows, info, next) {
         if (options.total) return next(null, rows, info);
         if (total) return next(null, [{ count: rows.count }], info);
-        if (!corelib.toNumber(options.accounts) || !core.modules.accounts) return next(null, rows, info);
+        if (!lib.toNumber(options.accounts) || !core.modules.accounts) return next(null, rows, info);
         core.modules.accounts.listAccount(rows, options.extendObj(options, "account_key", 'sender'), function(err, rows) { next(err, rows, info); });
     }
 
@@ -207,8 +207,8 @@ messages.getMessage = function(req, options, callback)
 
         options.ops = null;
         // Move to archive
-        if (corelib.toBool(options.archive)) {
-            corelib.forEachSeries(rows, function(row, next) {
+        if (lib.toBool(options.archive)) {
+            lib.forEachSeries(rows, function(row, next) {
                 db.put("bk_archive", row, options, next);
             }, function(err) {
                 if (err) return callback(err, []);
@@ -221,7 +221,7 @@ messages.getMessage = function(req, options, callback)
         } else
 
         // Delete after read, if we crash now new messages will never be delivered
-        if (corelib.toBool(options.trash)) {
+        if (lib.toBool(options.trash)) {
             del(rows, function() {
                 details(rows, info, callback);
             });
@@ -258,13 +258,13 @@ messages.addMessage = function(req, options, callback)
     var now = Date.now();
     var info = {};
     var op = options.op || "add";
-    var sent = corelib.cloneObj(req.query);
-    var obj = corelib.cloneObj(req.query);
+    var sent = lib.cloneObj(req.query);
+    var obj = lib.cloneObj(req.query);
 
     if (!req.query.id) return callback({ status: 400, message: "recipient id is required" });
     if (!req.query.msg && !req.query.icon) return callback({ status: 400, message: "msg or icon is required" });
 
-    corelib.series([
+    lib.series([
         function(next) {
             obj.sender = req.account.id;
             obj.alias = req.account.alias;
@@ -334,7 +334,7 @@ messages.delMessage = function(req, options, callback)
         if (err) return callback(err, []);
 
         options.ops = null;
-        corelib.forEachSeries(rows, function(row, next) {
+        lib.forEachSeries(rows, function(row, next) {
             if (req.query[sender] && row[sender] != req.query[sender]) return next();
             db.del(table, row, function(err) {
                 if (err || !row.icon) return next(err);

@@ -20,32 +20,32 @@ var os = require('os');
 var uuid = require('uuid');
 
 // Common utilities and useful functions
-var corelib = {
-    name: 'corelib',
+var lib = {
+    name: 'lib',
     deferTimeout: 50,
     geoHashRange: [ [12, 0], [8, 0.019], [7, 0.076], [6, 0.61], [5, 2.4], [4, 20.0], [3, 78.0], [2, 630.0], [1, 2500.0], [1, 99999] ],
 }
 
-module.exports = corelib;
+module.exports = lib;
 
 // Empty function to be used when callback was no provided
-corelib.noop = function() {}
+lib.noop = function() {}
 
 // Returns a floating number from the version string, it assumes common semver format as major.minor.patch, all non-digits will
 // be removed, underscores will be treated as dots. Returns a floating number which can be used in comparing versions.
 //
 // Example
-//      > corelib.toVersion("1.0.3")
+//      > lib.toVersion("1.0.3")
 //      1.000003
-//      > corelib.toVersion("1.0.3.4")
+//      > lib.toVersion("1.0.3.4")
 //      1.000003004
-//      > corelib.toVersion("1.0.3.4") > corelib.toVersion("1.0.3")
+//      > lib.toVersion("1.0.3.4") > lib.toVersion("1.0.3")
 //      true
-//      > corelib.toVersion("1.0.3.4") > corelib.toVersion("1.0.0")
+//      > lib.toVersion("1.0.3.4") > lib.toVersion("1.0.0")
 //      true
-//      > corelib.toVersion("1.0.3.4") > corelib.toVersion("1.1.0")
+//      > lib.toVersion("1.0.3.4") > lib.toVersion("1.1.0")
 //      false
-corelib.toVersion = function(str)
+lib.toVersion = function(str)
 {
     return String(str).replace("_", ".").replace(/[^0-9.]/g, "").split(".").reduce(function(x,y,i) { return x + Number(y) / Math.pow(10, i * 3) }, 0);
 }
@@ -53,7 +53,7 @@ corelib.toVersion = function(str)
 // Encode with additional symbols, convert these into percent encoded:
 //
 //          ! -> %21, * -> %2A, ' -> %27, ( -> %28, ) -> %29
-corelib.encodeURIComponent = function(str)
+lib.encodeURIComponent = function(str)
 {
     return encodeURIComponent(str).replace(/[!'()*]/g, function(m) {
         return m == '!' ? '%21' : m == "'" ? '%27' : m == '(' ? '%28' : m == ')' ? '%29' : m == '*' ? '%2A' : m;
@@ -61,19 +61,19 @@ corelib.encodeURIComponent = function(str)
 }
 
 // Convert text into capitalized words
-corelib.toTitle = function(name)
+lib.toTitle = function(name)
 {
     return String(name || "").replace(/_/g, " ").split(/[ ]+/).reduce(function(x,y) { return x + (y ? (y[0].toUpperCase() + y.substr(1) + " ") : "") }, "").trim();
 }
 
 // Convert into camelized form
-corelib.toCamel = function(name)
+lib.toCamel = function(name)
 {
     return String(name || "").replace(/(?:[\-\_\.])(\w)/g, function (_, c) { return c ? c.toUpperCase () : ''; });
 }
 
 // Convert Camel names into names with dashes
-corelib.toUncamel = function(str)
+lib.toUncamel = function(str)
 {
     return String(str).replace(/([A-Z])/g, function(letter) { return '-' + letter.toLowerCase(); });
 }
@@ -88,10 +88,10 @@ corelib.toUncamel = function(str)
 //
 // Example:
 //
-//               corelib.toNumber("123")
-//               corelib.toNumber("1.23", { float: 1, dflt: 0, min: 0, max: 2 })
+//               lib.toNumber("123")
+//               lib.toNumber("1.23", { float: 1, dflt: 0, min: 0, max: 2 })
 //
-corelib.toNumber = function(val, options)
+lib.toNumber = function(val, options)
 {
     var n = 0;
     if (typeof val == "number") {
@@ -115,7 +115,7 @@ corelib.toNumber = function(val, options)
 }
 
 // Return true if value represents true condition
-corelib.toBool = function(val, dflt)
+lib.toBool = function(val, dflt)
 {
     if (typeof val == "boolean") return val;
     if (typeof val == "undefined") val = dflt;
@@ -123,7 +123,7 @@ corelib.toBool = function(val, dflt)
 }
 
 // Return Date object for given text or numeric date representation, for invalid date returns 1969
-corelib.toDate = function(val, dflt)
+lib.toDate = function(val, dflt)
 {
     if (val instanceof Date) return val;
     var d = null;
@@ -136,7 +136,7 @@ corelib.toDate = function(val, dflt)
 }
 
 // Convert value to the proper type
-corelib.toValue = function(val, type)
+lib.toValue = function(val, type)
 {
     switch ((type || "").trim()) {
     case 'array':
@@ -181,7 +181,7 @@ corelib.toValue = function(val, type)
 }
 
 // Add a regexp to the list of regexp objects, this is used in the config type `regexpmap`.
-corelib.toRegexpMap = function(obj, val)
+lib.toRegexpMap = function(obj, val)
 {
     if (val == null) return [];
     if (this.typeName(obj) != "array") obj = [];
@@ -196,7 +196,7 @@ corelib.toRegexpMap = function(obj, val)
 }
 
 // Add a regexp to the object that consist of list of patterns and compiled regexp, this is used in the config type `regexpobj`
-corelib.toRegexpObj = function(obj, val, del)
+lib.toRegexpObj = function(obj, val, del)
 {
     if (val == null) obj = null;
     if (this.typeName(obj) != "object") obj = {};
@@ -220,7 +220,7 @@ corelib.toRegexpObj = function(obj, val, del)
 }
 
 // Return duration in human format, mtime is msecs
-corelib.toDuration = function(mtime)
+lib.toDuration = function(mtime)
 {
     var str = "";
     mtime = typeof mtime == "number" ? mtime : this.toNumber(mtime);
@@ -248,7 +248,7 @@ corelib.toDuration = function(mtime)
 }
 
 // Given time in msecs, return how long ago it happened
-corelib.toAge = function(mtime)
+lib.toAge = function(mtime)
 {
     var str = "";
     mtime = typeof mtime == "number" ? mtime : this.toNumber(mtime);
@@ -281,13 +281,13 @@ corelib.toAge = function(mtime)
 }
 
 // Returns true if the given type belongs to the numeric family
-corelib.isNumeric = function(type)
+lib.isNumeric = function(type)
 {
     return ["int","bigint","counter","real","float","double","numeric","number"].indexOf(String(type).trim()) > -1;
 }
 
 // Evaluate expr, compare 2 values with optional type and operation
-corelib.isTrue = function(val1, val2, op, type)
+lib.isTrue = function(val1, val2, op, type)
 {
     if (typeof val1 == "undefined" || typeof val2 == "undefined") return false;
 
@@ -385,13 +385,13 @@ corelib.isTrue = function(val1, val2, op, type)
 // Apply an iterator function to each item in an array in parallel. Execute a callback when all items
 // have been completed or immediately if there is an error provided.
 //
-//          corelib.forEach([ 1, 2, 3 ], function (i, next) {
+//          lib.forEach([ 1, 2, 3 ], function (i, next) {
 //              console.log(i);
 //              next();
 //          }, function (err) {
 //              console.log('done');
 //          });
-corelib.forEach = function(list, iterator, callback)
+lib.forEach = function(list, iterator, callback)
 {
     var self = this;
     callback = typeof callback == "function" ? callback : this.noop;
@@ -413,13 +413,13 @@ corelib.forEach = function(list, iterator, callback)
 // Apply an iterator function to each item in an array serially. Execute a callback when all items
 // have been completed or immediately if there is is an error provided.
 //
-//          corelib.forEachSeries([ 1, 2, 3 ], function (i, next) {
+//          lib.forEachSeries([ 1, 2, 3 ], function (i, next) {
 //            console.log(i);
 //            next();
 //          }, function (err) {
 //            console.log('done');
 //          });
-corelib.forEachSeries = function(list, iterator, callback)
+lib.forEachSeries = function(list, iterator, callback)
 {
     var self = this;
     callback = typeof callback == "function" ? callback : this.noop;
@@ -440,7 +440,7 @@ corelib.forEachSeries = function(list, iterator, callback)
 
 // Apply an iterator function to each item in an array in parallel as many as specified in `limit` at a time. Execute a callback when all items
 // have been completed or immediately if there is is an error provided.
-corelib.forEachLimit = function(list, limit, iterator, callback)
+lib.forEachLimit = function(list, limit, iterator, callback)
 {
     var self = this;
     callback = typeof callback == "function" ? callback : this.noop;
@@ -474,7 +474,7 @@ corelib.forEachLimit = function(list, limit, iterator, callback)
 // Execute a list of functions in parellel and execute a callback upon completion or occurance of an error. Each function will be passed
 // a callback to signal completion. The callback accepts an error for the first argument. The iterator and callback will be
 // called via setImmediate function to allow the main loop to process I/O.
-corelib.parallel = function(tasks, callback)
+lib.parallel = function(tasks, callback)
 {
     this.forEach(tasks, function(task, next) {
         task(function(err) {
@@ -489,7 +489,7 @@ corelib.parallel = function(tasks, callback)
 // a callback to signal completion. The callback accepts either an error for the first argument. The iterator and callback will be
 // called via setImmediate function to allow the main loop to process I/O.
 //
-//          corelib.series([
+//          lib.series([
 //             function(next) {
 //                setTimeout(function () { next(); }, 100);
 //             },
@@ -499,7 +499,7 @@ corelib.parallel = function(tasks, callback)
 //          ], function(err) {
 //              console.log(err);
 //          });
-corelib.series = function(tasks, callback)
+lib.series = function(tasks, callback)
 {
     this.forEachSeries(tasks, function(task, next) {
         task(function(err) {
@@ -513,14 +513,14 @@ corelib.series = function(tasks, callback)
 // While the test function returns true keep running the iterator, call the callback at the end if specified. All functions are called via setImmediate.
 //
 //          var count = 0;
-//          corelib.whilst(function() { return count < 5; },
+//          lib.whilst(function() { return count < 5; },
 //                      function (callback) {
 //                          count++;
 //                          setTimeout(callback, 1000);
 //                      }, function (err) {
 //                          console.log(count);
 //                      });
-corelib.whilst = function(test, iterator, callback)
+lib.whilst = function(test, iterator, callback)
 {
     var self = this;
     callback = typeof callback == "function" ? callback : this.noop;
@@ -532,7 +532,7 @@ corelib.whilst = function(test, iterator, callback)
 };
 
 // Keep running iterator while the test function returns true, call the callback at the end if specified. All functions are called via setImmediate.
-corelib.doWhilst = function(iterator, test, callback)
+lib.doWhilst = function(iterator, test, callback)
 {
     var self = this;
     callback = typeof callback == "function" ? callback : this.noop;
@@ -548,7 +548,7 @@ corelib.doWhilst = function(iterator, test, callback)
 // anyways with the original message.
 // The callback passed will be called with only one argument which is the message, what is inside the message this function does not care. If
 // any errors must be passed, use the message object for it, no other arguments are expected.
-corelib.deferCallback = function(parent, msg, callback, timeout)
+lib.deferCallback = function(parent, msg, callback, timeout)
 {
     var self = this;
     if (!msg || !msg.id || !callback) return;
@@ -560,7 +560,7 @@ corelib.deferCallback = function(parent, msg, callback, timeout)
 }
 
 // To be called on timeout or when explicitely called by the `runCallback`, it is called in the context of the message.
-corelib.onDeferCallback = function(msg)
+lib.onDeferCallback = function(msg)
 {
     var item = this[msg.id];
     if (!item) return;
@@ -572,7 +572,7 @@ corelib.onDeferCallback = function(msg)
 
 // Run delayed callback for the message previously registered with the `deferCallback` method.
 // The message must have id property which is used to find the corresponding callback, if msg is a JSON string it will be converted into the object.
-corelib.runCallback = function(parent, msg)
+lib.runCallback = function(parent, msg)
 {
     if (msg && typeof msg == "string") msg = this.jsonParse(msg, { error: 1 });
     if (!msg || !msg.id || !parent[msg.id]) return;
@@ -585,7 +585,7 @@ corelib.runCallback = function(parent, msg)
 //   - minDistance - radius for the smallest bounding box in km containing single location, radius searches will combine neighboring boxes of
 //      this size to cover the whole area with the given distance request, also this affects the length of geohash keys stored in the bk_location table
 //      if not specified default `min-distance` value will be used.
-corelib.geoHash = function(latitude, longitude, options)
+lib.geoHash = function(latitude, longitude, options)
 {
     if (!options) options = {};
     var minDistance = options.minDistance || 1;
@@ -610,9 +610,9 @@ corelib.geoHash = function(latitude, longitude, options)
 //
 //  Example: round to the nearest full 5 km and use only 1 decimal point, if the distance is 13, it will be 15.0
 //
-//      corelib.geoDistance(34, -188, 34.4, -119, { round: 5.1 })
+//      lib.geoDistance(34, -188, 34.4, -119, { round: 5.1 })
 //
-corelib.geoDistance = function(latitude1, longitude1, latitude2, longitude2, options)
+lib.geoDistance = function(latitude1, longitude1, latitude2, longitude2, options)
 {
     var distance = utils.geoDistance(latitude1, longitude1, latitude2, longitude2);
     if (isNaN(distance) || distance === null) return null;
@@ -627,7 +627,7 @@ corelib.geoDistance = function(latitude1, longitude1, latitude2, longitude2, opt
 }
 
 // Same as geoDistance but operates on 2 geohashes instead of coordinates.
-corelib.geoHashDistance = function(geohash1, geohash2, options)
+lib.geoHashDistance = function(geohash1, geohash2, options)
 {
     var coords1 = utils.geoHashDecode(geohash1);
     var coords2 = utils.geoHashDecode(geohash2);
@@ -635,7 +635,7 @@ corelib.geoHashDistance = function(geohash1, geohash2, options)
 }
 
 // Encrypt data with the given key code
-corelib.encrypt = function(key, data, algorithm, encoding)
+lib.encrypt = function(key, data, algorithm, encoding)
 {
     if (!key || !data) return '';
     try {
@@ -650,7 +650,7 @@ corelib.encrypt = function(key, data, algorithm, encoding)
 }
 
 // Decrypt data with the given key code
-corelib.decrypt = function(key, data, algorithm, encoding)
+lib.decrypt = function(key, data, algorithm, encoding)
 {
     if (!key || !data) return '';
     try {
@@ -665,7 +665,7 @@ corelib.decrypt = function(key, data, algorithm, encoding)
 }
 
 // HMAC signing and base64 encoded, default algorithm is sha1
-corelib.sign = function (key, data, algorithm, encode)
+lib.sign = function (key, data, algorithm, encode)
 {
     try {
         return crypto.createHmac(algorithm || "sha1", String(key)).update(String(data), "utf8").digest(encode || "base64");
@@ -676,7 +676,7 @@ corelib.sign = function (key, data, algorithm, encode)
 }
 
 // Hash and base64 encoded, default algorithm is sha1
-corelib.hash = function (data, algorithm, encode)
+lib.hash = function (data, algorithm, encode)
 {
     try {
         return crypto.createHash(algorithm || "sha1").update(String(data), "utf8").digest(encode || "base64");
@@ -687,37 +687,37 @@ corelib.hash = function (data, algorithm, encode)
 }
 
 // Return unique Id without any special characters and in lower case
-corelib.uuid = function()
+lib.uuid = function()
 {
     return uuid.v4().replace(/[-]/g, '').toLowerCase();
 }
 
 // Generate random key, size if specified defines how many random bits to generate
-corelib.random = function(size)
+lib.random = function(size)
 {
     return this.sign(crypto.randomBytes(64), crypto.randomBytes(size || 256), 'sha256').replace(/[=+%]/g, '');
 }
 
 // Return random number between 0 and USHORT_MAX
-corelib.randomUShort = function()
+lib.randomUShort = function()
 {
     return crypto.randomBytes(2).readUInt16LE(0);
 }
 
 // Return random number between 0 and SHORT_MAX
-corelib.randomShort = function()
+lib.randomShort = function()
 {
     return Math.abs(crypto.randomBytes(2).readInt16LE(0));
 }
 
 // Return rando number between 0 and UINT_MAX
-corelib.randomUInt = function()
+lib.randomUInt = function()
 {
     return crypto.randomBytes(4).readUInt32LE(0);
 }
 
 // Return random integer between min and max inclusive
-corelib.randomInt = function(min, max)
+lib.randomInt = function(min, max)
 {
     return min + (0 | Math.random() * (max - min + 1));
 }
@@ -726,20 +726,20 @@ corelib.randomInt = function(min, max)
 // Optional third parameter indicates the number of decimal points to return:
 //   - If it is not given or is NaN, random number is unmodified
 //   - If >0, then that many decimal points are returned (e.g., "2" -> 12.52
-corelib.randomNum = function(min, max, decs)
+lib.randomNum = function(min, max, decs)
 {
     var num = min + (Math.random() * (max - min));
     return (typeof decs !== 'number' || decs <= 0) ? num : parseFloat(num.toFixed(decs));
 }
 
 // Return number of seconds for current time
-corelib.now = function()
+lib.now = function()
 {
     return Math.round(Date.now()/1000);
 }
 
 // Format date object
-corelib.strftime = function(date, fmt, utc)
+lib.strftime = function(date, fmt, utc)
 {
     if (typeof date == "string" || typeof date == "number") try { date = new Date(date); } catch(e) {}
     if (!date || isNaN(date)) return "";
@@ -774,7 +774,7 @@ corelib.strftime = function(date, fmt, utc)
 
 // C-sprintf alike
 // based on http://stackoverflow.com/a/13439711
-corelib.sprintf = function(str)
+lib.sprintf = function(str)
 {
     var i = 0, arr = arguments;
     function format(sym, p0, p1, p2, p3, p4) {
@@ -810,7 +810,7 @@ corelib.sprintf = function(str)
 }
 
 // Return RFC3339 formatted timestamp for a date or current time
-corelib.toRFC3339 = function (date)
+lib.toRFC3339 = function (date)
 {
     date = date ? date : new Date();
     var offset = date.getTimezoneOffset();
@@ -827,7 +827,7 @@ corelib.toRFC3339 = function (date)
 }
 
 // Return a string with leading zeros
-corelib.zeropad = function(n, width)
+lib.zeropad = function(n, width)
 {
     var pad = "";
     while (pad.length < width - 1 && n < Math.pow(10, width - pad.length - 1)) pad += "0";
@@ -835,7 +835,7 @@ corelib.zeropad = function(n, width)
 }
 
 // Nicely format an object with indentations
-corelib.formatJSON = function(obj, indent)
+lib.formatJSON = function(obj, indent)
 {
     var self = this;
     // Shortcut to parse and format json from the string
@@ -884,7 +884,7 @@ corelib.formatJSON = function(obj, indent)
 // - `type` then convert all items into the type using `toValue`
 //
 // If `str` is an array and type is not specified then all non-string items will be returned as is.
-corelib.strSplit = function(str, sep, type)
+lib.strSplit = function(str, sep, type)
 {
     var self = this;
     if (!str) return [];
@@ -895,7 +895,7 @@ corelib.strSplit = function(str, sep, type)
 }
 
 // Split as above but keep only unique items
-corelib.strSplitUnique = function(str, sep, type)
+lib.strSplitUnique = function(str, sep, type)
 {
     var rc = [];
     this.strSplit(str, sep, type).forEach(function(x) { if (!rc.some(function(y) { return x.toLowerCase() == y.toLowerCase() })) rc.push(x)});
@@ -903,7 +903,7 @@ corelib.strSplitUnique = function(str, sep, type)
 }
 
 // Returns only unique items in the array, optional `key` specified the name of the column to use when determining uniqueness if items are objects.
-corelib.arrayUnique = function(list, key)
+lib.arrayUnique = function(list, key)
 {
     if (!Array.isArray(list)) return this.strSplitUnique(list);
     var rc = [], keys = {};
@@ -919,7 +919,7 @@ corelib.arrayUnique = function(list, key)
 }
 
 // Stringify JSON into base64 string, if secret is given, sign the data with it
-corelib.jsonToBase64 = function(data, secret)
+lib.jsonToBase64 = function(data, secret)
 {
     data = JSON.stringify(data);
     if (secret) return this.encrypt(secret, data);
@@ -928,7 +928,7 @@ corelib.jsonToBase64 = function(data, secret)
 
 // Parse base64 JSON into JavaScript object, in some cases this can be just a number then it is passed as it is, if secret is given verify
 // that data is not chnaged and was signed with the same secret
-corelib.base64ToJson = function(data, secret)
+lib.base64ToJson = function(data, secret)
 {
     var rc = "";
     if (secret) data = this.decrypt(secret, data);
@@ -946,14 +946,14 @@ corelib.base64ToJson = function(data, secret)
 }
 
 // Extract domain from the host name, takes all host parts except the first one
-corelib.domainName = function(host)
+lib.domainName = function(host)
 {
     var name = String(host || "").split('.');
     return (name.length > 2 ? name.slice(1).join('.') : host).toLowerCase();
 }
 
 // Return object type, try to detect any distinguished type
-corelib.typeName = function(v)
+lib.typeName = function(v)
 {
     var t = typeof(v);
     if (v === null) return "null";
@@ -966,13 +966,13 @@ corelib.typeName = function(v)
 }
 
 // Returns true of the argument is a generic object, not a null, Buffer, Date, RegExp or Array
-corelib.isObject = function(v)
+lib.isObject = function(v)
 {
     return this.typeName(v) == "object";
 }
 
 // Return true of the given value considered empty
-corelib.isEmpty = function(val)
+lib.isEmpty = function(val)
 {
     switch (this.typeName(val)) {
     case "null":
@@ -994,7 +994,7 @@ corelib.isEmpty = function(val)
 
 // Return a new Error object, options can be a string which will create an error with a message only
 // or an object with message, code, status, and name properties to build full error
-corelib.newError = function(options)
+lib.newError = function(options)
 {
     if (typeof options == "string") options = { message: options };
     if (!options) options = {};
@@ -1015,10 +1015,10 @@ corelib.newError = function(options)
 //
 // Example:
 //
-//         corelib.exists({ 1: 1 }, "1")
-//         corelib.exists([ 1, 2, 3 ], 1)
-//         corelib.exists([ 1, 2, 3 ], [ 1, 5 ])
-corelib.exists = function(obj, name)
+//         lib.exists({ 1: 1 }, "1")
+//         lib.exists([ 1, 2, 3 ], 1)
+//         lib.exists([ 1, 2, 3 ], [ 1, 5 ])
+lib.exists = function(obj, name)
 {
     switch (this.typeName(obj)) {
     case "null":
@@ -1037,8 +1037,8 @@ corelib.exists = function(obj, name)
 // - first argument is the object to clone, can be null
 // - all additional arguments are treated as name value pairs and added to the cloned object as additional properties
 // Example:
-//          corelib.cloneObj({ 1: 2 }, "3", 3, "4", 4)
-corelib.cloneObj = function()
+//          lib.cloneObj({ 1: 2 }, "3", 3, "4", 4)
+lib.cloneObj = function()
 {
     var obj = arguments[0];
     var rc = {};
@@ -1061,7 +1061,7 @@ corelib.cloneObj = function()
 }
 
 // Return new object using arguments as name value pairs for new object properties
-corelib.newObj = function()
+lib.newObj = function()
 {
     var obj = {};
     for (var i = 0; i < arguments.length - 1; i += 2) obj[arguments[i]] = arguments[i + 1];
@@ -1073,15 +1073,15 @@ corelib.newObj = function()
 //
 //  Example
 //
-//       var o = corelib.mergeObject({ a:1, b:2, c:3 }, { c:5, d:1 })
+//       var o = lib.mergeObject({ a:1, b:2, c:3 }, { c:5, d:1 })
 //       o = { a:1, b:2, c:5, d:1 }
-corelib.mergeObj = function(obj, options)
+lib.mergeObj = function(obj, options)
 {
     var rc = {};
     for (var p in options) rc[p] = options[p];
     for (var p in obj) {
         var val = obj[p];
-        switch (corelib.typeName(val)) {
+        switch (lib.typeName(val)) {
         case "object":
             if (!rc[p]) rc[p] = {};
             for (var c in val) {
@@ -1102,9 +1102,9 @@ corelib.mergeObj = function(obj, options)
 //
 // Example
 //
-//          > corelib.flattenObj({ a: { c: 1 }, b: { d: 1 } } )
+//          > lib.flattenObj({ a: { c: 1 }, b: { d: 1 } } )
 //          { 'a.c': 1, 'b.d': 1 }
-corelib.flattenObj = function(obj, options)
+lib.flattenObj = function(obj, options)
 {
     var rc = {};
 
@@ -1124,10 +1124,10 @@ corelib.flattenObj = function(obj, options)
 // Add properties to existing object, first arg is the object, the rest are pairs: name, value,....
 // If the second argument is an object then add all properties from this object only.
 //
-//         corelib.extendObj({ a: 1 }, 'b', 2, 'c' 3 )
-//         corelib.extendObj({ a: 1 }, { b: 2, c: 3 })
+//         lib.extendObj({ a: 1 }, 'b', 2, 'c' 3 )
+//         lib.extendObj({ a: 1 }, { b: 2, c: 3 })
 //
-corelib.extendObj = function()
+lib.extendObj = function()
 {
     if (this.typeName(arguments[0]) != "object") arguments[0] = {};
     if (this.typeName(arguments[1]) == "object") {
@@ -1139,7 +1139,7 @@ corelib.extendObj = function()
 }
 
 // Delete properties from the object, first arg is an object, the rest are properties to be deleted
-corelib.delObj = function()
+lib.delObj = function()
 {
     if (this.typeName(arguments[0]) != "object") return;
     for (var i = 1; i < arguments.length; i++) delete arguments[0][arguments[i]];
@@ -1156,10 +1156,10 @@ corelib.delObj = function()
 //
 // Example
 //
-//          corelib.searchObj({id:{index:1},name:{index:3},type:{index:2},descr:{}}, { name: 'index', sort: 1 });
+//          lib.searchObj({id:{index:1},name:{index:3},type:{index:2},descr:{}}, { name: 'index', sort: 1 });
 //          { id: { index: 1 }, type: { index: 2 }, name: { index: 3 } }
 //
-corelib.searchObj = function(obj, options)
+lib.searchObj = function(obj, options)
 {
     if (!options) options = {};
     var name = options.name;
@@ -1192,11 +1192,11 @@ corelib.searchObj = function(obj, options)
 //
 // Example:
 //
-//          > corelib.objGet({ response: { item : { id: 123, name: "Test" } } }, "response.item.name")
+//          > lib.objGet({ response: { item : { id: 123, name: "Test" } } }, "response.item.name")
 //          "Test"
-//          > corelib.objGet({ response: { item : { id: 123, name: "Test" } } }, "response.item.name", { list: 1 })
+//          > lib.objGet({ response: { item : { id: 123, name: "Test" } } }, "response.item.name", { list: 1 })
 //          [ "Test" ]
-corelib.objGet = function(obj, name, options)
+lib.objGet = function(obj, name, options)
 {
     if (!obj) return options ? (options.list ? [] : options.obj ? {} : options.str ? "" : options.num ? 0 : null) : null;
     var path = !Array.isArray(name) ? String(name).split(".") : name;
@@ -1221,10 +1221,10 @@ corelib.objGet = function(obj, name, options)
 //
 // Example
 //
-//          var a = corelib.objSet({}, "response.item.count", 1)
-//          corelib.objSet(a, "response.item.count", 1, { incr: 1 })
+//          var a = lib.objSet({}, "response.item.count", 1)
+//          lib.objSet(a, "response.item.count", 1, { incr: 1 })
 //
-corelib.objSet = function(obj, name, value, options)
+lib.objSet = function(obj, name, value, options)
 {
     if (this.typeName(obj) != "object") obj = {};
     if (!Array.isArray(name)) name = String(name).split(".");
@@ -1248,7 +1248,7 @@ corelib.objSet = function(obj, name, value, options)
 }
 
 // JSON stringify without exceptions, on error just returns an empty string and logs the error
-corelib.stringify = function(obj, filter)
+lib.stringify = function(obj, filter)
 {
     try { return JSON.stringify(obj, filter); } catch(e) { logger.error("stringify:", e); return "" }
 }
@@ -1260,7 +1260,7 @@ corelib.stringify = function(obj, filter)
 //  - str - return empty string
 //  - error - report all errors
 //  - debug - report errors in debug level
-corelib.jsonParse = function(obj, options)
+lib.jsonParse = function(obj, options)
 {
     if (!obj) return this.checkResult("empty json", obj, options);
     try {
@@ -1275,7 +1275,7 @@ corelib.jsonParse = function(obj, options)
 }
 
 // Perform validation of the result type, make sure we return what is expected, this is a helper that is used by other conversion routines
-corelib.checkResult = function(err, obj, options)
+lib.checkResult = function(err, obj, options)
 {
     if (options) {
         if (options.error) logger.error('checkResult:', err, obj);
@@ -1288,7 +1288,7 @@ corelib.checkResult = function(err, obj, options)
 }
 
 // Copy file and then remove the source, do not overwrite existing file
-corelib.moveFile = function(src, dst, overwrite, callback)
+lib.moveFile = function(src, dst, overwrite, callback)
 {
     var self = this;
     if (typeof overwrite == "function") callback = overwrite, overwrite = false;
@@ -1312,7 +1312,7 @@ corelib.moveFile = function(src, dst, overwrite, callback)
 }
 
 // Copy file, overwrite is optional flag, by default do not overwrite
-corelib.copyFile = function(src, dst, overwrite, callback)
+lib.copyFile = function(src, dst, overwrite, callback)
 {
     if (typeof overwrite == "function") callback = overwrite, overwrite = false;
 
@@ -1338,7 +1338,7 @@ corelib.copyFile = function(src, dst, overwrite, callback)
 // - limit - number of lines to process and exit
 // - progress - if > 0 report how many lines processed so far every specified lines
 // - until - skip lines until this regexp matches
-corelib.forEachLine = function(file, options, lineCallback, endCallback)
+lib.forEachLine = function(file, options, lineCallback, endCallback)
 {
     var self = this;
     if (!options) options = {};
@@ -1407,9 +1407,9 @@ corelib.forEachLine = function(file, options, lineCallback, endCallback)
     });
 }
 
-// Run the process and return all output to the callback, this a simply wrapper around child_processes.exec so the corelib.runProcess
+// Run the process and return all output to the callback, this a simply wrapper around child_processes.exec so the lib.runProcess
 // can be used without importing the child_processes module. All fatal errors are logged.
-corelib.execProcess = function(cmd, callback)
+lib.execProcess = function(cmd, callback)
 {
     var self = this;
     child.exec(cmd, function (err, stdout, stderr) {
@@ -1422,9 +1422,9 @@ corelib.execProcess = function(cmd, callback)
 //
 //  Example
 //
-//          corelib.spawProcess("ls", "-ls", { cwd: "/tmp" }, db.showResult)
+//          lib.spawProcess("ls", "-ls", { cwd: "/tmp" }, db.showResult)
 //
-corelib.spawnProcess = function(cmd, args, options, callback)
+lib.spawnProcess = function(cmd, args, options, callback)
 {
     var self = this;
     if (typeof options == "function") callback = options, options = null;
@@ -1448,13 +1448,13 @@ corelib.spawnProcess = function(cmd, args, options, callback)
 //
 //  Example:
 //
-//          corelib.spawnSeries({"ls": "-la",
+//          lib.spawnSeries({"ls": "-la",
 //                            "ps": "augx",
 //                            "du": { argv: "-sh", stdio: "inherit", cwd: "/tmp" },
 //                            "uname": ["-a"] },
 //                           db.showResult)
 //
-corelib.spawnSeries = function(cmds, options, callback)
+lib.spawnSeries = function(cmds, options, callback)
 {
     var self = this;
     if (typeof options == "function") callback = options, options = null;
@@ -1490,7 +1490,7 @@ corelib.spawnSeries = function(cmds, options, callback)
 // Non-exception version, returns empty object,
 // mtime is 0 in case file does not exist or number of seconds of last modified time
 // mdate is a Date object with last modified time
-corelib.statSync = function(file)
+lib.statSync = function(file)
 {
     var stat = { size: 0, mtime: 0, mdate: "", isFile: function() {return false}, isDirectory: function() {return false} }
     try {
@@ -1509,7 +1509,7 @@ corelib.statSync = function(file)
 // - list - split contents with the given separator
 // - encoding - file encoding when converting to string
 // - logger - if 1 log all errors
-corelib.readFileSync = function(file, options)
+lib.readFileSync = function(file, options)
 {
     if (!file) return "";
     try {
@@ -1530,7 +1530,7 @@ corelib.readFileSync = function(file, options)
 }
 
 // Filter function to be used in findFile methods
-corelib.findFilter = function(file, stat, options)
+lib.findFilter = function(file, stat, options)
 {
     if (!options) return 1;
     if (options.filter) return options.filter(file, stat);
@@ -1559,9 +1559,9 @@ corelib.findFilter = function(file, stat, options)
 //
 //  Example:
 //
-//        corelib.findFileSync("modules/", { depth: 1, types: "f", include: /\.js$/ }).sort()
+//        lib.findFileSync("modules/", { depth: 1, types: "f", include: /\.js$/ }).sort()
 //
-corelib.findFileSync = function(file, options)
+lib.findFileSync = function(file, options)
 {
     var list = [];
     var level = arguments[2];
@@ -1593,7 +1593,7 @@ corelib.findFileSync = function(file, options)
 }
 
 // Async version of find file, same options as in the sync version
-corelib.findFile = function(dir, options, callback)
+lib.findFile = function(dir, options, callback)
 {
     var self = this;
     if (typeof options == "function") callback = options, options = {};
@@ -1637,7 +1637,7 @@ corelib.findFile = function(dir, options, callback)
 }
 
 // Recursively create all directories, return 1 if created or 0 on error or if exists, no exceptions are raised, error is logged only
-corelib.makePathSync = function(dir)
+lib.makePathSync = function(dir)
 {
     var rc = 0;
     var list = path.normalize(dir).split("/");
@@ -1657,7 +1657,7 @@ corelib.makePathSync = function(dir)
 }
 
 // Async version of makePath, stops on first error
-corelib.makePath = function(dir, callback)
+lib.makePath = function(dir, callback)
 {
     var self = this;
     var list = path.normalize(dir).split("/");
@@ -1677,7 +1677,7 @@ corelib.makePath = function(dir, callback)
 }
 
 // Recursively remove all files and folders in the given path, returns an error to the callback if any
-corelib.unlinkPath = function(dir, callback)
+lib.unlinkPath = function(dir, callback)
 {
     var self = this;
     fs.stat(dir, function(err, stat) {
@@ -1699,7 +1699,7 @@ corelib.unlinkPath = function(dir, callback)
 }
 
 // Recursively remove all files and folders in the given path, stops on first error
-corelib.unlinkPathSync = function(dir)
+lib.unlinkPathSync = function(dir)
 {
     var files = this.findFileSync(dir);
     // Start from the end to delete files first, then folders
@@ -1724,8 +1724,8 @@ corelib.unlinkPathSync = function(dir)
 //
 // Example:
 //
-//           corelib.chownSync(1, 1, "/path/file1", "/path/file2")
-corelib.chownSync = function(uid, gid)
+//           lib.chownSync(1, 1, "/path/file1", "/path/file2")
+lib.chownSync = function(uid, gid)
 {
     if (process.getuid() || !uid) return;
     for (var i = 2; i < arguments.length; i++) {
@@ -1743,8 +1743,8 @@ corelib.chownSync = function(uid, gid)
 //
 // Example:
 //
-//             corelib.mkdirSync("dir1", "dir2")
-corelib.mkdirSync = function()
+//             lib.mkdirSync("dir1", "dir2")
+lib.mkdirSync = function()
 {
     for (var i = 0; i < arguments.length; i++) {
         var dir = arguments[i];
@@ -1765,7 +1765,7 @@ corelib.mkdirSync = function()
 // - max_queue - how big the waiting queue can be, above this all requests will be rejected immediately
 // - timeout - number of milliseconds to wait for the next available resource item, cannot be 0
 // - idle - number of milliseconds before starting to destroy all active resources above the minimum, 0 to disable.
-corelib.createPool = function(options)
+lib.createPool = function(options)
 {
     var self = this;
 

@@ -10,7 +10,7 @@ var path = require('path');
 var utils = require(__dirname + '/build/Release/backend');
 var logger = require(__dirname + '/logger');
 var core = require(__dirname + '/core');
-var corelib = require(__dirname + '/corelib');
+var lib = require(__dirname + '/lib');
 var metrics = require(__dirname + '/metrics');
 var cluster = require('cluster');
 var memcached = require('memcached');
@@ -51,7 +51,7 @@ ipc.initWorker = function()
 
     // Listen for system messages
     this.subscribe(this.workerQueue, function(ctx, key, data) {
-        self.handleWorkerMessages(corelib.jsonParse(data, { obj: 1, error: 1 }));
+        self.handleWorkerMessages(lib.jsonParse(data, { obj: 1, error: 1 }));
     });
 }
 
@@ -59,7 +59,7 @@ ipc.handleWorkerMessages = function(msg)
 {
     if (!msg) return;
     logger.dev('handleWorkerMessages:', msg)
-    corelib.runCallback(this.msgs, msg);
+    lib.runCallback(this.msgs, msg);
 
     try {
         switch (msg.op || "") {
@@ -117,7 +117,7 @@ ipc.initServer = function()
 
     // Listen for system messages
     this.subscribe(this.serverQueue, function(ctx, key, data) {
-        self.handleServerMessages({ send: corelib.noop }, corelib.jsonParse(data, { obj: 1, error: 1 }));
+        self.handleServerMessages({ send: lib.noop }, lib.jsonParse(data, { obj: 1, error: 1 }));
     });
 }
 
@@ -170,7 +170,7 @@ ipc.handleServerMessages = function(worker, msg)
             // Use shared token buckets inside the server process, reuse the same object so we do not generate
             // a lot of short lived objects, the whole operation including serialization from/to the cache is atomic.
             var data = utils.lruGet(msg.name);
-            this.tokenBucket.create(data ? corelib.strSplit(data) : msg);
+            this.tokenBucket.create(data ? lib.strSplit(data) : msg);
             // Reset the bucket if any number has changed, now we have a new rate to check
             if (!this.tokenBucket.equal(msg.rate, msg.max, msg.interval)) this.tokenBucket.create(msg);
             msg.value = this.tokenBucket.consume(msg.consume || 1);
@@ -389,7 +389,7 @@ ipc.command = function(msg, callback, timeout)
     if (typeof callback == "function") {
         msg.reply = true;
         msg.id = this.msgId++;
-        corelib.deferCallback(this.msgs, msg, function(m) { callback(m.value); }, timeout);
+        lib.deferCallback(this.msgs, msg, function(m) { callback(m.value); }, timeout);
     }
     try { process.send(msg); } catch(e) { logger.error('send:', e, msg.op, msg.name); }
 }
@@ -400,7 +400,7 @@ ipc.send = function(op, name, value, options, callback)
     if (typeof options == "function") callback = options, options = null;
     var msg = { op: op };
     if (name) msg.name = name;
-    if (value) msg.value = typeof value == "object" ? corelib.stringify(value) : value;
+    if (value) msg.value = typeof value == "object" ? lib.stringify(value) : value;
     this.command(msg, callback, options ? options.timeout : 0);
 }
 
@@ -446,7 +446,7 @@ ipc.connect = function(name, type, host, port, options, callback)
         try {
             switch (type) {
             case "amqp":
-                this[type][name] = amqp.createConnection(corelib.cloneObj(options, "host", host));
+                this[type][name] = amqp.createConnection(lib.cloneObj(options, "host", host));
                 break;
             case "redis":
                 this[type][name] = redis.createClient(port, host, options || {});
@@ -467,7 +467,7 @@ ipc.connect = function(name, type, host, port, options, callback)
         if (!utils.NNSocket) break;
         if (!this[type][name]) this[type][name] = new utils.NNSocket(utils.AF_SP, options.type);
         if (this[type][name] instanceof utils.NNSocket) {
-            host = corelib.strSplit(host).map(function(x) { x = x.split(":"); return "tcp://" + x[0] + ":" + (x[1] || port); }).join(',');
+            host = lib.strSplit(host).map(function(x) { x = x.split(":"); return "tcp://" + x[0] + ":" + (x[1] || port); }).join(',');
             var err = this[type][name].connect(host);
             if (!err) err = this.setup(name, type, options, callback);
             if (err) logger.error('ipc.connect:', host, this[type][name]);
@@ -548,7 +548,7 @@ ipc.stats = function(callback)
 // Returns in the callback all cached keys
 ipc.keys = function(callback)
 {
-    if (typeof callback != "function") callback = corelib.noop;
+    if (typeof callback != "function") callback = lib.noop;
     try {
         switch (core.cacheType) {
         case "memcache":
@@ -558,7 +558,7 @@ ipc.keys = function(callback)
                 var item = items[0], keys = [];
                 var keys = Object.keys(item);
                 keys.pop();
-                corelib.forEachSeries(keys, function(stats, next) {
+                lib.forEachSeries(keys, function(stats, next) {
                     memcached.cachedump(item.server, stats, item[stats].number, function(err, response) {
                         if (response) keys.push(response.key);
                         next(err);
@@ -625,7 +625,7 @@ ipc.clear = function()
 ipc.get = function(key, options, callback)
 {
     if (typeof options == "function") callback = options, options = null;
-    if (typeof callback != "function") callback = corelib.noop;
+    if (typeof callback != "function") callback = lib.noop;
 
     try {
         switch (core.cacheType) {
@@ -700,7 +700,7 @@ ipc.put = function(key, val, options)
 
         case "nanomsg":
             if (!this.nanomsg.lpush) break;
-            val = typeof val == "object" ? corelib.stringify(val) : val;
+            val = typeof val == "object" ? lib.stringify(val) : val;
             this.nanomsg.lpush.send("\u0002" + key + "\u0002" + val);
             break;
 
@@ -823,7 +823,7 @@ ipc.publish = function(key, data)
 
         case "nanomsg":
             if (!this.nanomsg.pub) break;
-            this.nanomsg.pub.send(key + "\u0001" + corelib.stringify(data));
+            this.nanomsg.pub.send(key + "\u0001" + lib.stringify(data));
             break;
         }
     } catch(e) {

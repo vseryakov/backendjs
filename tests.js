@@ -13,7 +13,7 @@ var path = require('path');
 var child_process = require('child_process');
 var bkjs = require('backendjs')
 core = bkjs.core;
-corelib = bkjs.corelib;
+lib = bkjs.lib;
 ipc = bkjs.ipc;
 api = bkjs.api;
 db = bkjs.db;
@@ -142,7 +142,7 @@ tests.run = function(options, callback)
 
         logger.log(self.name, "started:", cluster.isMaster ? "master" : "worker", 'name:', self.test.cmd, 'db-pool:', core.modules.db.pool);
 
-        corelib.whilst(
+        lib.whilst(
             function () { return self.test.countdown > 0 || self.test.forever || options.running; },
             function (next) {
                 self.test.countdown--;
@@ -258,7 +258,7 @@ tests.startTestServer = function(options)
             obj.cmd = node.state;
         } else {
             obj.cmd = 'register';
-            obj.id = corelib.uuid();
+            obj.id = lib.uuid();
             nodes[obj.id] = { state: 'stop', ip: req.connection.remoteAddress, mtime: now, stime: now };
         }
         logger.debug(obj);
@@ -340,20 +340,20 @@ tests.startTestServer = function(options)
 tests.test_account = function(callback)
 {
     var myid, otherid;
-    var login = corelib.random();
+    var login = lib.random();
     var secret = login;
-    var gender = ['m','f'][corelib.randomInt(0,1)];
-    var bday = new Date(corelib.randomInt(Date.now() - 50*365*86400000, Date.now() - 20*365*86400000));
-    var latitude = corelib.randomNum(this.bbox[0], this.bbox[2]);
-    var longitude = corelib.randomNum(this.bbox[1], this.bbox[3]);
-    var name = "Name" + corelib.randomInt(0, 1000);
+    var gender = ['m','f'][lib.randomInt(0,1)];
+    var bday = new Date(lib.randomInt(Date.now() - 50*365*86400000, Date.now() - 20*365*86400000));
+    var latitude = lib.randomNum(this.bbox[0], this.bbox[2]);
+    var longitude = lib.randomNum(this.bbox[1], this.bbox[3]);
+    var name = "Name" + lib.randomInt(0, 1000);
     var email = "test@test.com"
     var icon = "iVBORw0KGgoAAAANSUhEUgAAAAcAAAAJCAYAAAD+WDajAAAABGdBTUEAALGPC/xhBQAAAAlwSFlzAAAOwgAADsIBFShKgAAAABp0RVh0U29mdHdhcmUAUGFpbnQuTkVUIHYzLjUuMTAw9HKhAAAAPElEQVQoU2NggIL6+npjIN4NxIIwMTANFFAC4rtA/B+kAC6JJgGSRCgAcs5ABWASMHoVw////3HigZAEACKmlTwMfriZAAAAAElFTkSuQmCC";
     var msgs = null, icons = [];
 
-    corelib.series([
+    lib.series([
         function(next) {
-            var query = { login: login, secret: secret, name: name, gender: gender, birthday: corelib.strftime(bday, "%Y-%m-%d") }
+            var query = { login: login, secret: secret, name: name, gender: gender, birthday: lib.strftime(bday, "%Y-%m-%d") }
             core.sendRequest({ url: "/account/add", sign: false, query: query }, function(err, params) {
                 next(err);
             });
@@ -365,14 +365,14 @@ tests.test_account = function(callback)
             });
         },
         function(next) {
-            var query = { login: login + 'other', secret: secret, name: name + ' Other', gender: gender, birthday: corelib.strftime(bday, "%Y-%m-%d") }
+            var query = { login: login + 'other', secret: secret, name: name + ' Other', gender: gender, birthday: lib.strftime(bday, "%Y-%m-%d") }
             core.sendRequest({ url: "/account/add", sign: false, query: query }, function(err, params) {
                 otherid = params.obj.id;
                 next(err);
             });
         },
         function(next) {
-            var query = { login: login, secret: secret, name: name, gender: gender, email: email, birthday: corelib.strftime(bday, "%Y-%m-%d") }
+            var query = { login: login, secret: secret, name: name, gender: gender, email: email, birthday: lib.strftime(bday, "%Y-%m-%d") }
             for (var i = 1; i < process.argv.length - 1; i++) {
                 var d = process.argv[i].match(/^\-account\-(.+)$/);
                 if (!d) continue;
@@ -391,8 +391,8 @@ tests.test_account = function(callback)
             if (!icons.length) return next();
             // Add all icons from the files
             var type = 0;
-            corelib.forEachSeries(icons, function(icon, next2) {
-                icon = corelib.readFileSync(icon, { encoding : "base64" });
+            lib.forEachSeries(icons, function(icon, next2) {
+                icon = lib.readFileSync(icon, { encoding : "base64" });
                 var options = { url: "/account/put/icon", login: login, secret: secret, method: "POST", postdata: { icon: icon, type: type++, acl_allow: "allow" }  }
                 core.sendRequest(options, function(err, params) {
                     next2(err);
@@ -628,8 +628,8 @@ tests.test_location = function(callback)
     var distance = core.getArgInt("-distance", 25);
     var round = core.getArgInt("-round", 0);
     var reset = core.getArgInt("-reset", 1);
-    var latitude = core.getArgInt("-lat", corelib.randomNum(bbox[0], bbox[2]))
-    var longitude = core.getArgInt("-lon", corelib.randomNum(bbox[1], bbox[3]))
+    var latitude = core.getArgInt("-lat", lib.randomNum(bbox[0], bbox[2]))
+    var longitude = core.getArgInt("-lon", lib.randomNum(bbox[1], bbox[3]))
 
     var rc = [], top = {}, bad = 0, good = 0, error = 0, count = rows/2;
     var ghash, gcount = Math.floor(count/2);
@@ -637,22 +637,22 @@ tests.test_location = function(callback)
     bbox = bkjs.utils.geoBoundingBox(latitude, longitude, distance);
     // To get all neighbors, we can only guarantee searches in the neighboring areas, even if the distance is within it
     // still can be in the box outside of the immediate neighbors, minDistance is an approximation
-    var geo = corelib.geoHash(latitude, longitude, { distance: distance });
+    var geo = lib.geoHash(latitude, longitude, { distance: distance });
 
-    corelib.series([
+    lib.series([
         function(next) {
             if (!cluster.isMaster && !reset) return next();
             self.resetTables(tables, next);
         },
         function(next) {
             if (!reset) return next();
-            corelib.whilst(
+            lib.whilst(
                 function () { return good < rows + count; },
                 function (next2) {
-                    var lat = corelib.randomNum(bbox[0], bbox[2]);
-                    var lon = corelib.randomNum(bbox[1], bbox[3]);
-                    var obj = corelib.geoHash(lat, lon);
-                    obj.distance = corelib.geoDistance(latitude, longitude, lat, lon, { round: round });
+                    var lat = lib.randomNum(bbox[0], bbox[2]);
+                    var lon = lib.randomNum(bbox[1], bbox[3]);
+                    var obj = lib.geoHash(lat, lon);
+                    obj.distance = lib.geoDistance(latitude, longitude, lat, lon, { round: round });
                     if (obj.distance == null || obj.distance > distance) return next2();
                     // Make sure its in the neighbors
                     if (geo.neighbors.indexOf(obj.geohash) == -1) return next2();
@@ -682,13 +682,13 @@ tests.test_location = function(callback)
             if (!reset) return next();
             // Records beyond our distance
             bad = good;
-            corelib.whilst(
+            lib.whilst(
                 function () { return bad < good + count; },
                 function (next2) {
-                    var lat = corelib.randomNum(bbox[0], bbox[2]);
-                    var lon = corelib.randomNum(bbox[1], bbox[3]);
-                    var obj = corelib.geoHash(lat, lon);
-                    obj.distance = corelib.geoDistance(latitude, longitude, lat, lon, { round: round });
+                    var lat = lib.randomNum(bbox[0], bbox[2]);
+                    var lon = lib.randomNum(bbox[1], bbox[3]);
+                    var obj = lib.geoHash(lat, lon);
+                    obj.distance = lib.geoDistance(latitude, longitude, lat, lon, { round: round });
                     if (obj.distance == null || obj.distance <= distance || obj.distance > distance*2) return next2();
                     bad++;
                     obj.id = String(bad);
@@ -710,7 +710,7 @@ tests.test_location = function(callback)
             // Scan all locations, do it in small chunks to verify we can continue within the same geohash area
             var query = { latitude: latitude, longitude: longitude, distance: distance };
             var options = { count: gcount, round: round };
-            corelib.doWhilst(
+            lib.doWhilst(
                 function(next2) {
                     db.getLocations("geo", query, options, function(err, rows, info) {
                         options = info.next_token;
@@ -787,9 +787,9 @@ tests.test_db = function(callback)
                      peer: { pub: 1 } },
     };
     var now = Date.now();
-    var id = corelib.random(64);
-    var id2 = corelib.random(128);
-    var num2 = corelib.randomNum(1, 1000);
+    var id = lib.random(64);
+    var id2 = lib.random(128);
+    var num2 = lib.randomNum(1, 1000);
     var next_token = null;
 
     db.setProcessRow("post", "test4", function(op, row, options, cols) {
@@ -799,7 +799,7 @@ tests.test_db = function(callback)
         return row;
     });
 
-    corelib.series([
+    lib.series([
         function(next) {
              self.resetTables(tables, next);
         },
@@ -933,7 +933,7 @@ tests.test_db = function(callback)
         },
         function(next) {
             db.get("test2", { id: id, id2: '1' }, { skip_columns: ['alias'], consistent: true }, function(err, row) {
-                tests.check(next, err, !row || row.id != id || row.alias || row.email != id+"@test" || row.num!=9 || corelib.typeName(row.json)!="object" || row.json.a!=1, "err9-1:", row);
+                tests.check(next, err, !row || row.id != id || row.alias || row.email != id+"@test" || row.num!=9 || lib.typeName(row.json)!="object" || row.json.a!=1, "err9-1:", row);
             });
         },
         function(next) {
@@ -953,14 +953,14 @@ tests.test_db = function(callback)
             });
         },
         function(next) {
-            corelib.forEachSeries([1,2,3,4,5,6,7,8,9], function(i, next2) {
+            lib.forEachSeries([1,2,3,4,5,6,7,8,9], function(i, next2) {
                 db.put("test2", { id: id2, id2: String(i), email: id, alias: id, birthday: id, num: i, num2: i, mtime: now }, next2);
             }, function(err) {
                 next(err);
             });
         },
         function(next) {
-            corelib.forEachSeries([1,2,3], function(i, next2) {
+            lib.forEachSeries([1,2,3], function(i, next2) {
                 db.put("test5", { id: id, type: "like", peer: i }, next2);
             }, function(err) {
                 next(err);
@@ -970,7 +970,7 @@ tests.test_db = function(callback)
             // Check pagination
             next_token = null;
             var rc = [];
-            corelib.forEachSeries([2, 3], function(n, next2) {
+            lib.forEachSeries([2, 3], function(n, next2) {
                 db.select("test2", { id: id2 }, { sort: "id2", start: next_token, count: n, select: 'id,id2' }, function(err, rows, info) {
                     next_token = info.next_token;
                     rc.push.apply(rc, rows);
@@ -985,7 +985,7 @@ tests.test_db = function(callback)
         function(next) {
             // Check pagination with small page size with condition on the range key
             next_token = null;
-            corelib.forEachSeries([2, 3], function(n, next2) {
+            lib.forEachSeries([2, 3], function(n, next2) {
                 db.select("test2", { id: id2, id2: '0' }, { sort: "id2", ops: { id2: 'gt' }, start: next_token, count: n, select: 'id,id2' }, function(err, rows, info) {
                     next_token = info.next_token;
                     var isok = db.pool == "redis" ? rows.length>=n : rows.length==n;
@@ -1108,7 +1108,7 @@ tests.test_s3icon = function(callback)
     api.saveIcon("../web/img/loading.gif", id, { prefix: "account", images: api.imagesS3 }, function(err) {
         var icon = api.iconPath(id, { prefix: "account" });
         aws.queryS3(api.imagesS3, icon, { file: "tmp/" + path.basename(icon) }, function(err, params) {
-            console.log('icon:', corelib.statSync(params.file));
+            console.log('icon:', lib.statSync(params.file));
             callback(err);
         });
     });
@@ -1165,13 +1165,13 @@ tests.test_msg = function(callback)
         var sock = new utils.NNSocket(utils.AF_SP, utils.NN_PUB);
         sock.bind(addr);
 
-        corelib.whilst(
+        lib.whilst(
            function () { return count > 0; },
            function (next) {
                count--;
-               sock.send(addr + ':' + corelib.random());
+               sock.send(addr + ':' + lib.random());
                logger.log('publish:', sock, addr, count);
-               setTimeout(next, corelib.randomInt(1000));
+               setTimeout(next, lib.randomInt(1000));
            },
            function(err) {
                sock.send("exit");
@@ -1190,7 +1190,7 @@ tests.test_cache = function(callback)
     var nworkers = core.getArgInt("-test-workers");
 
     function run1(cb) {
-        corelib.series([
+        lib.series([
            function(next) {
                ipc.put("a", "1");
                ipc.put("b", "1");
@@ -1235,7 +1235,7 @@ tests.test_cache = function(callback)
            },
            function(next) {
                ipc.get("c", function(val) {
-                   val = corelib.jsonParse(val)
+                   val = lib.jsonParse(val)
                    tests.check(next, null, !val||val.a!=1, "value must be {a:1}, got", val)
                });
            },
@@ -1253,7 +1253,7 @@ tests.test_cache = function(callback)
                 if (!err) return cb();
                 ipc.keys(function(keys) {
                     var vals = {};
-                    corelib.forEachSeries(keys || [], function(key, next) {
+                    lib.forEachSeries(keys || [], function(key, next) {
                         ipc.get(key, function(val) { vals[key] = val; next(); })
                     }, function() {
                         logger.log("keys:", vals);
@@ -1264,7 +1264,7 @@ tests.test_cache = function(callback)
     }
 
     function run2(cb) {
-        corelib.series([
+        lib.series([
            function(next) {
                ipc.get("a", function(val) {
                    tests.check(next, null, val!="4", "value must be 4, got", val)
@@ -1341,7 +1341,7 @@ tests.test_nndb = function(callback)
 
     } else {
         pool = db.nndbInitPool({ db: bind, socket: socket == "NN_REP" ? "NN_REQ" : "NN_PUSH" });
-        corelib.series([
+        lib.series([
            function(next) {
                db.put("", { name: "1", value: 1 }, { pool: pool.name }, next);
            },
@@ -1371,8 +1371,8 @@ tests.test_pool = function(callback)
                     create: function(cb) { cb(null,{ id:Date.now()}) }
     }
     var list = [];
-    var pool = corelib.createPool(options)
-    corelib.series([
+    var pool = lib.createPool(options)
+    lib.series([
        function(next) {
            console.log('pool0:', pool.stats(), 'list:', list.length);
            for (var i = 0; i < 5; i++) {
@@ -1514,20 +1514,20 @@ tests.test_dblock = function(callback)
         });
     }
 
-    corelib.series([
+    lib.series([
         function(next) {
             if (cluster.isWorker) return next();
             self.resetTables(tables, next);
         },
         function(next) {
-            for (var i = 0; i < count; i++) queueJob(i, corelib.noop);
+            for (var i = 0; i < count; i++) queueJob(i, lib.noop);
             queueJob(100, function() { next() });
         },
         function(next) {
             queueJob(200, function() { setTimeout(next, interval - 1) });
         },
         function(next) {
-            for (var i = 0; i < count; i++) queueJob(i + 300, corelib.noop);
+            for (var i = 0; i < count; i++) queueJob(i + 300, lib.noop);
             queueJob(400, function() { next() });
         },
         function(next) {

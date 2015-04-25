@@ -9,7 +9,7 @@ var repl = require('repl');
 var path = require('path');
 var logger = require(__dirname + '/logger');
 var core = require(__dirname + '/core');
-var corelib = require(__dirname + '/corelib');
+var lib = require(__dirname + '/lib');
 var aws = require(__dirname + '/aws');
 var ipc = require(__dirname + '/ipc');
 var cluster = require('cluster');
@@ -49,20 +49,20 @@ msg.init = function(callback)
     // Explicitely configured notification server queue
     if (this.serverQueue) {
         ipc.subscribe(this.serverQueue, function(arg, key, data) {
-            self.send(corelib.jsonParse(data, { obj: 1 }));
+            self.send(lib.jsonParse(data, { obj: 1 }));
         });
     } else
 
     // Connect to notification gateways only on the hosts configured to be the notification servers
     if (this.host) {
         var queue = "bk.notification.queue";
-        if (!corelib.strSplit(this.host).some(function(x) { return core.hostName == x || core.ipaddrs.indexOf(x) > -1 })) {
+        if (!lib.strSplit(this.host).some(function(x) { return core.hostName == x || core.ipaddrs.indexOf(x) > -1 })) {
             self.notificationQueue = queue;
             return callback ? callback() : null;
         }
         // Listen for published messages and forward them to the notification gateways
         ipc.subscribe(queue, function(arg, key, data) {
-            self.send(corelib.jsonParse(data, { obj: 1 }));
+            self.send(lib.jsonParse(data, { obj: 1 }));
         });
     }
 
@@ -81,7 +81,7 @@ msg.shutdown = function(options, callback)
 
     // Wait a little just in case for some left over tasks
     setTimeout(function() {
-        corelib.parallel([
+        lib.parallel([
            function(next) {
                self.closeAPN(next);
            },
@@ -115,7 +115,7 @@ msg.shutdownWeb = function(options, callback)
 msg.send = function(options, callback)
 {
     var self = this;
-    if (typeof callback != "function") callback = corelib.noop;
+    if (typeof callback != "function") callback = lib.noop;
     if (!options || !options.device_id) return callback ? callback("invalid device or options") : null;
 
     // Queue to the publish server
@@ -126,8 +126,8 @@ msg.send = function(options, callback)
 
     // Determine the service to use from the device token
     var service = options.service || "";
-    var devices = corelib.strSplit(options.device_id, null, "string");
-    corelib.forEachSeries(devices, function(device_id, next) {
+    var devices = lib.strSplit(options.device_id, null, "string");
+    lib.forEachSeries(devices, function(device_id, next) {
         if (device_id.match(/^arn\:aws\:/)) {
             service = "aws";
         } else {

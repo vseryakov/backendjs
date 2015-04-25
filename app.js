@@ -9,7 +9,7 @@ var repl = require('repl');
 var path = require('path');
 var logger = require(__dirname + '/logger');
 var core = require(__dirname + '/core');
-var corelib = require(__dirname + '/corelib');
+var lib = require(__dirname + '/lib');
 var cluster = require('cluster');
 
 // This is a skeleton module to be extended by the specific application logic. It provides all callback and hooks that are called by the core backend modules

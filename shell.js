@@ -14,7 +14,7 @@ var fs = require('fs');
 var spawn = require('child_process').spawn;
 var exec = require('child_process').exec;
 var core = require(__dirname + '/core');
-var corelib = require(__dirname + '/corelib');
+var lib = require(__dirname + '/lib');
 var logger = require(__dirname + '/logger');
 var db = require(__dirname + '/db');
 var aws = require(__dirname + '/aws');
@@ -89,7 +89,7 @@ shell.run = function(options)
 
         for (var i = 1; i < process.argv.length; i++) {
             if (process.argv[i][0] != '-') continue;
-            var name = corelib.toCamel("cmd" + process.argv[i]);
+            var name = lib.toCamel("cmd" + process.argv[i]);
             if (typeof self[name] != "function") continue;
             var rc = self[name](opts);
             if (rc == "stop") break;
@@ -295,10 +295,10 @@ shell.cmdDbBackup = function(options)
     var opts = this.getOptions();
     var root = core.getArg("-path");
     var filter = core.getArg("-filter");
-    var tables = corelib.strSplit(core.getArg("-tables"));
+    var tables = lib.strSplit(core.getArg("-tables"));
     if (!tables.length) tables = db.getPoolTables(db.pool, { names: 1 });
     logger.debug("dbBackup:", root, tables);
-    corelib.forEachSeries(tables, function(table, next) {
+    lib.forEachSeries(tables, function(table, next) {
         file = path.join(root, table +  ".json");
         fs.writeFileSync(file, "");
         db.scan(table, query, opts, function(row, next2) {
@@ -318,13 +318,13 @@ shell.cmdDbRestore = function(options)
     var opts = this.getOptions();
     var root = core.getArg("-path");
     var filter = core.getArg("-filter");
-    var tables = corelib.strSplit(core.getArg("-tables"));
-    var files = corelib.findFileSync(root, { depth: 1, types: "f", include: /\.json$/ });
+    var tables = lib.strSplit(core.getArg("-tables"));
+    var files = lib.findFileSync(root, { depth: 1, types: "f", include: /\.json$/ });
     logger.debug("dbRestore:", root, files);
-    corelib.forEachSeries(files, function(file, next3) {
+    lib.forEachSeries(files, function(file, next3) {
         var table = path.basename(file, ".json");
         if (tables.length && tables.indexOf(table) == -1) return next3();
-        corelib.series([
+        lib.series([
             function(next) {
                 if (!opts.drop) return next();
                 db.drop(table, opts, next);
@@ -334,8 +334,8 @@ shell.cmdDbRestore = function(options)
                 db.create(table, db.getTableProperties(table, opts), opts, next);
             },
             function(next) {
-                corelib.forEachLine(file, opts, function(line, next2) {
-                    var row = corelib.jsonParse(line, { error: 1 });
+                lib.forEachLine(file, opts, function(line, next2) {
+                    var row = lib.jsonParse(line, { error: 1 });
                     if (!row) return next2(opts.nostop ? null : "ERROR: parse error, line: " + opts.lines);
                     if (filter && app[filter]) app[filter](table, row);
                     db.put(table, row, opts, function(err) { next2(opts.nostop ? null : err) });

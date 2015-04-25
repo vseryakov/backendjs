@@ -14,7 +14,7 @@ var fs = require('fs');
 var spawn = require('child_process').spawn;
 var exec = require('child_process').exec;
 var core = require(__dirname + '/core');
-var corelib = require(__dirname + '/corelib');
+var lib = require(__dirname + '/lib');
 var logger = require(__dirname + '/logger');
 var db = require(__dirname + '/db');
 var aws = require(__dirname + '/aws');
@@ -30,7 +30,7 @@ var proxy = require('http-proxy');
 // The main server class that starts various processes
 var server = {
     // Config parameters
-    args: [{ name: "max-processes", type: "callback", callback: function(v) { this.maxProcesses=corelib.toNumber(v,{float:0,dflt:0,min:0,max:core.maxCPUs}); if(this.maxProcesses<=0) this.maxProcesses=Math.max(1,core.maxCPUs-1); this._name="maxProcesses" }, descr: "Max number of processes to launch for Web servers, 0 means NumberofCPUs-2" },
+    args: [{ name: "max-processes", type: "callback", callback: function(v) { this.maxProcesses=lib.toNumber(v,{float:0,dflt:0,min:0,max:core.maxCPUs}); if(this.maxProcesses<=0) this.maxProcesses=Math.max(1,core.maxCPUs-1); this._name="maxProcesses" }, descr: "Max number of processes to launch for Web servers, 0 means NumberofCPUs-2" },
            { name: "max-workers", type: "number", min: 1, max: 32, descr: "Max number of worker processes to launch" },
            { name: "idle-time", type: "number", descr: "If set and no jobs are submitted the backend will be shutdown, for instance mode only" },
            { name: "crash-delay", type: "number", max: 30000, descr: "Delay between respawing the crashed process" },
@@ -357,13 +357,13 @@ server.startWeb = function(options)
         // Port to listen in case of reverse proxy configuration, all other ports become offsets from the base
         if (core.proxy.port) {
             core.bind = process.env.BKJS_BIND || core.proxy.bind;
-            core.port = corelib.toNumber(process.env.BKJS_PORT || core.proxy.port);
+            core.port = lib.toNumber(process.env.BKJS_PORT || core.proxy.port);
             if (core.ssl.port) core.ssl.port = core.port + 100;
             if (core.ws.port) core.ws.port = core.port + 200;
         }
 
         // REPL command prompt over TCP
-        if (core.replPortWeb) self.startRepl(core.replPortWeb + 1 + corelib.toNumber(cluster.worker.id), core.replBindWeb);
+        if (core.replPortWeb) self.startRepl(core.replPortWeb + 1 + lib.toNumber(cluster.worker.id), core.replBindWeb);
 
         // Setup IPC communication
         ipc.initWorker();
@@ -485,14 +485,14 @@ server.startDaemon = function()
     var log = "ignore";
 
     // Rotate if the file is too big, keep 2 files but big enough to be analyzed in case the logwatcher is not used
-    var st = corelib.statSync(core.errFile);
+    var st = lib.statSync(core.errFile);
     if (st.size > 1024*1024*100) {
         fs.rename(core.errFile, core.errFile + ".old", function(err) { logger.error('rotate:', err) });
     }
     try { log = fs.openSync(core.errFile, 'a'); } catch(e) { logger.error('startDaemon:', e); }
 
     // Allow clients to write to it otherwise there will be no messages written if no permissions
-    corelib.chownSync(core.uid, core.gid, core.errFile);
+    lib.chownSync(core.uid, core.gid, core.errFile);
 
     spawn(process.argv[0], argv, { stdio: [ 'ignore', log, log ], detached: true });
     process.exit(0);

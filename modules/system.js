@@ -16,7 +16,7 @@ var app = bkjs.app;
 var ipc = bkjs.ipc;
 var msg = bkjs.msg;
 var core = bkjs.core;
-var corelib = bkjs.corelib;
+var lib = bkjs.lib;
 var logger = bkjs.logger;
 
 // System management
@@ -130,7 +130,7 @@ system.configureSystemAPI = function()
             args.forEach(function(x) {
                 x[1].forEach(function(y) {
                     if (!y._name) return;
-                    var val = corelib.objGet(x[0] ? core.modules[x[0]] : core, y._name);
+                    var val = lib.objGet(x[0] ? core.modules[x[0]] : core, y._name);
                     if (val == null) return;
                     data[y._key] = val;
                 });
@@ -166,7 +166,7 @@ system.configureSystemAPI = function()
                 res.json({});
                 break;
             case "incr":
-                ipc.incr(req.query.name, corelib.toNumber(req.query.value));
+                ipc.incr(req.query.name, lib.toNumber(req.query.value));
                 res.json({});
                 break;
             case "put":

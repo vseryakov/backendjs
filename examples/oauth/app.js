@@ -9,7 +9,7 @@ var db = bkjs.db;
 var api = bkjs.api;
 var app = bkjs.app;
 var core = bkjs.core;
-var corelib = bkjs.corelib;
+var lib = bkjs.lib;
 var logger = bkjs.logger;
 var googleStrategy = require('passport-google-oauth').OAuth2Strategy;
 var githubStrategy = require('passport-github').Strategy;
@@ -71,7 +71,7 @@ app.fetchAccount = function(query, options, callback)
     api.fetchAccount(query, options, function(err, row) {
         if (err) return callback(err);
         // Save new access tokens in the account record
-        req = corelib.newObj('id', row.id, req.profile.provider + "_access_token", req.accessToken, req.profile.provider + "_refresh_token", req.refreshToken);
+        req = lib.newObj('id', row.id, req.profile.provider + "_access_token", req.accessToken, req.profile.provider + "_refresh_token", req.refreshToken);
         db.update("bk_auth", req, function(err) {
             callback(err, row);
         });
@@ -80,11 +80,11 @@ app.fetchAccount = function(query, options, callback)
 
 app.configureMiddleware = function(options, callback)
 {
-    api.registerOAuthStrategy(githubStrategy, corelib.extendObj(app.github, { fetchAccount: app.fetchAccount }));
-    api.registerOAuthStrategy(googleStrategy, corelib.extendObj(app.google, { fetchAccount: app.fetchAccount }));
-    api.registerOAuthStrategy(facebookStrategy, corelib.extendObj(app.facebook, { fetchAccount: app.fetchAccount }));
-    api.registerOAuthStrategy(linkedinStrategy, corelib.extendObj(app.linkedin, { fetchAccount: app.fetchAccount }));
-    api.registerOAuthStrategy(twitterStrategy, corelib.extendObj(app.twitter, { fetchAccount: app.fetchAccount }));
+    api.registerOAuthStrategy(githubStrategy, lib.extendObj(app.github, { fetchAccount: app.fetchAccount }));
+    api.registerOAuthStrategy(googleStrategy, lib.extendObj(app.google, { fetchAccount: app.fetchAccount }));
+    api.registerOAuthStrategy(facebookStrategy, lib.extendObj(app.facebook, { fetchAccount: app.fetchAccount }));
+    api.registerOAuthStrategy(linkedinStrategy, lib.extendObj(app.linkedin, { fetchAccount: app.fetchAccount }));
+    api.registerOAuthStrategy(twitterStrategy, lib.extendObj(app.twitter, { fetchAccount: app.fetchAccount }));
 
     callback()
 };

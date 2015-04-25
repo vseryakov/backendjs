@@ -15,7 +15,7 @@ var app = bkjs.app;
 var ipc = bkjs.ipc;
 var msg = bkjs.msg;
 var core = bkjs.core;
-var corelib = bkjs.corelib;
+var lib = bkjs.lib;
 var logger = bkjs.logger;
 
 // Connections management
@@ -172,16 +172,16 @@ connections.delConnection = function(req, options, callback)
 // Return all connections for the account id with optional query properties
 connections.queryConnection = function(id, obj, options, callback)
 {
-    obj = corelib.cloneObj(obj, 'id', id);
+    obj = lib.cloneObj(obj, 'id', id);
 
     db.select("bk_" + (options.op || "connection"), obj, options, function(err, rows, info) {
         if (err) return callback(err, []);
 
         // Just return connections
-        if (!corelib.toNumber(options.accounts) || !core.modules.accounts) return callback(null, rows, info);
+        if (!lib.toNumber(options.accounts) || !core.modules.accounts) return callback(null, rows, info);
 
         // Get all account records for the id list
-        core.modules.accounts.listAccount(rows, corelib.extendObj(options, "account_key", "peer"), callback);
+        core.modules.accounts.listAccount(rows, lib.extendObj(options, "account_key", "peer"), callback);
     });
 }
 
@@ -194,10 +194,10 @@ connections.readConnection = function(id, obj, options, callback)
         if (!row) return callback({ status: 404, message: "no connection" }, {});
 
         // Just return connections
-        if (!corelib.toNumber(options.accounts) || !core.modules.accounts) return callback(err, row);
+        if (!lib.toNumber(options.accounts) || !core.modules.accounts) return callback(err, row);
 
         // Get account details for connection
-        core.modules.accounts.listAccount(row, corelib.extendObj(options, "account_key", "peer"), function(err, rows) {
+        core.modules.accounts.listAccount(row, lib.extendObj(options, "account_key", "peer"), function(err, rows) {
             callback(null, row);
         });
     });
@@ -222,10 +222,10 @@ connections.makeConnection = function(id, obj, options, callback)
     var self = this;
     var now = Date.now();
     var op = options.op || 'put';
-    var query = corelib.cloneObj(obj);
+    var query = lib.cloneObj(obj);
     var result = {};
 
-    corelib.series([
+    lib.series([
         function(next) {
             // Primary connection
             if (options.noconnection) return next();
@@ -291,7 +291,7 @@ connections.deleteConnection = function(id, obj, options, callback)
     function del(row, cb) {
         api.metrics.Counter('del_' + row.type + '_0').inc();
 
-        corelib.series([
+        lib.series([
            function(next) {
                db.del("bk_connection", { id: id, type: row.type, peer: row.peer }, options, next);
            },
@@ -325,7 +325,7 @@ connections.deleteConnection = function(id, obj, options, callback)
     db.select("bk_connection", { id: id, type: obj.type, peer: obj.peer }, options, function(err, rows) {
         if (err) return callback(err, []);
 
-        corelib.forEachSeries(rows, function(row, next) {
+        lib.forEachSeries(rows, function(row, next) {
             if (obj.peer && row.peer != obj.peer) return next();
             if (obj.type && row.type != obj.type) return next();
             // Silently skip connections we cannot delete

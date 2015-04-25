@@ -15,7 +15,7 @@ var app = bkjs.app;
 var ipc = bkjs.ipc;
 var msg = bkjs.msg;
 var core = bkjs.core;
-var corelib = bkjs.corelib;
+var lib = bkjs.lib;
 var logger = bkjs.logger;
 
 // Account management
@@ -186,7 +186,7 @@ accounts.configureAccountsAPI = function()
             break;
 
         case "get/status":
-            self.getStatus(!req.query.id ? req.account.id : corelib.strSplit(req.query.id), options, function(err, rows) {
+            self.getStatus(!req.query.id ? req.account.id : lib.strSplit(req.query.id), options, function(err, rows) {
                 api.sendJSON(req, err, rows);
             });
             break;
@@ -212,7 +212,7 @@ accounts.configureAccountsAPI = function()
 
     function onPostAccountRow(op, row, options, cols) {
         if (row.birthday) {
-            row.age = Math.floor((Date.now() - corelib.toDate(row.birthday))/(86400000*365));
+            row.age = Math.floor((Date.now() - lib.toDate(row.birthday))/(86400000*365));
         }
     }
     db.setProcessRow("post", "bk_account", onPostAccountRow);
@@ -256,9 +256,9 @@ accounts.notifyAccount = function(id, options, callback)
 {
     if (!id || !options) return callback({ status: 500, message: "invalid arguments" }, {});
 
-    options = corelib.cloneObj(options);
+    options = lib.cloneObj(options);
     // Skip this account
-    switch (corelib.typeName(options.skip)) {
+    switch (lib.typeName(options.skip)) {
     case "array":
         if (options.skip.indexOf(id) > -1) return callback({ status: 400, message: "skipped" }, {});
         break;
@@ -274,7 +274,7 @@ accounts.notifyAccount = function(id, options, callback)
             if (err || !account) return callback(err || { status: 404, message: "account not found" }, status);
             if (!account.device_id && !options.device_id) return callback({ status: 404, message: "device not found" }, status);
 
-            switch (corelib.typeName(options.allow)) {
+            switch (lib.typeName(options.allow)) {
             case "array":
                 if (options.allow.some(function(x) { return !account[x] })) return callback({ status: 401, message: "not allowed" }, status);
                 break;
@@ -345,16 +345,16 @@ accounts.addAccount = function(req, options, callback)
     if (!req.query.name && !req.query.alias) return callback({ status: 400, message: "name is required"});
     if (!req.query.alias && req.query.name) req.query.alias = req.query.name;
     if (!req.query.name && req.query.alias) req.query.name = req.query.alias;
-    req.query.id = corelib.uuid();
+    req.query.id = lib.uuid();
     req.query.mtime = req.query.ctime = Date.now();
 
-    corelib.series([
+    lib.series([
        function(next) {
            if (options.noauth) return next();
            if (!req.query.secret) return next({ status: 400, message: "secret is required"});
            if (!req.query.login) return next({ status: 400, message: "login is required"});
            // Copy for the auth table in case we have different properties that needs to be cleared
-           var query = corelib.cloneObj(req.query);
+           var query = lib.cloneObj(req.query);
            query.token_secret = true;
            api.prepareAccountSecret(query, options);
            // Put the secret back to return to the client, if generated or scrambled the client needs to know it for the API access
@@ -363,7 +363,7 @@ accounts.addAccount = function(req, options, callback)
            db.add("bk_auth", query, options, next);
        },
        function(next) {
-           var query = corelib.cloneObj(req.query);
+           var query = lib.cloneObj(req.query);
            // Only admin can add accounts with admin properties
            if (!req.account || !api.checkAccountType(req.account, "admin")) api.clearQuery(query, options, "bk_account", "admin");
 
@@ -397,11 +397,11 @@ accounts.updateAccount = function(req, options, callback)
     // Cannot have account alias empty
     if (!req.query.alias) delete req.query.alias;
 
-    corelib.series([
+    lib.series([
        function(next) {
            if (options.noauth) return next();
            // Copy for the auth table in case we have different properties that needs to be cleared
-           var query = corelib.cloneObj(req.query);
+           var query = lib.cloneObj(req.query);
            api.prepareAccountSecret(query, options);
            // Skip admin properties if any
            if (!api.checkAccountType(req.account, "admin")) api.clearQuery(query, options, "bk_auth", "admin");
@@ -435,7 +435,7 @@ accounts.deleteAccount = function(id, options, callback)
         if (err) return callback(err);
         if (!obj) return callback({ status: 404, message: "No account found" });
 
-        corelib.series([
+        lib.series([
            function(next) {
                if (options.keep.auth || !obj.login) return next();
                db.del("bk_auth", { login: obj.login }, options, next);
@@ -452,7 +452,7 @@ accounts.deleteAccount = function(id, options, callback)
                if (options.keep.connection || !core.modules.connections) return next();
                db.select("bk_connection", { id: obj.id }, options, function(err, rows) {
                    if (err) return next(err)
-                   corelib.forEachSeries(rows, function(row, next2) {
+                   lib.forEachSeries(rows, function(row, next2) {
                        db.del("bk_reference", { id: row.id, type: row.type + ":" + obj.id }, options, function(err) {
                            db.del("bk_connection", { id: obj.id, type: row.type + ":" + row.id }, options, next2);
                        });
@@ -480,7 +480,7 @@ accounts.deleteAccount = function(id, options, callback)
                db.delAll("bk_icon", { id: obj.id }, options, function(err, rows) {
                    if (options.keep.images) return next();
                    // Delete all image files
-                   corelib.forEachSeries(rows, function(row, next2) {
+                   lib.forEachSeries(rows, function(row, next2) {
                        api.formatIcon(row);
                        api.delIcon(obj.id, row, next2);
                    }, function() { next() });
@@ -573,7 +573,7 @@ accounts.fetchAccount = function(query, options, callback)
             return;
         }
 
-        corelib.series([
+        lib.series([
             function(next) {
                 // Pretend to be an admin
                 self.addAccount({ query: query, account: { type: "admin" } }, options, function(err, row) {

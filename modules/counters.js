@@ -15,7 +15,7 @@ var app = bkjs.app;
 var ipc = bkjs.ipc;
 var msg = bkjs.msg;
 var core = bkjs.core;
-var corelib = bkjs.corelib;
+var lib = bkjs.lib;
 var logger = bkjs.logger;
 
 // Counters management
@@ -122,6 +122,6 @@ counters.incrAutoCounter = function(id, type, num, options, callback)
     if (!id || !type || !num) return callback(null, []);
     var col = db.getColumn("bk_counter", type, options);
     if (!col || !col.autoincr) return callback(null, []);
-    db.incr("bk_counter", corelib.newObj('id', id, type, num), options, callback);
+    db.incr("bk_counter", lib.newObj('id', id, type, num), options, callback);
 }
 

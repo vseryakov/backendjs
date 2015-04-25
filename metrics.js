@@ -5,7 +5,7 @@
 // Based on https://github.com/felixge/node-measured
 //
 
-var corelib = require(__dirname + '/corelib');
+var lib = require(__dirname + '/lib');
 
 exports.Counter = Counter;
 function Counter(properties)
@@ -574,21 +574,21 @@ function TokenBucket(rate, max, interval)
 TokenBucket.prototype.create = function(rate, max, interval)
 {
     if (Array.isArray(rate)) {
-        this._rate = corelib.toNumber(rate[0], { min: 0 });
-        this._max = corelib.toNumber(rate[1] || this._rate, { min: 0 });
-        this._count = corelib.toNumber(rate[2] || this._max);
-        this._time = corelib.toNumber(rate[3] || Date.now());
-        this._interval = corelib.toNumber(rate[4] || 1000, { min: 1 });
+        this._rate = lib.toNumber(rate[0], { min: 0 });
+        this._max = lib.toNumber(rate[1] || this._rate, { min: 0 });
+        this._count = lib.toNumber(rate[2] || this._max);
+        this._time = lib.toNumber(rate[3] || Date.now());
+        this._interval = lib.toNumber(rate[4] || 1000, { min: 1 });
     } else
     if (typeof rate == "object" && rate.rate) {
-        this._rate = corelib.toNumber(rate.rate , { min: 0 });
-        this._max = corelib.toNumber(rate.max || this._rate, { min: 0 });
-        this._count = corelib.toNumber(rate.count || this._max);
-        this._time = corelib.toNumber(rate.time || Date.now());
-        this._interval = corelib.toNumber(rate.interval || 1000, { min: 1 });
+        this._rate = lib.toNumber(rate.rate , { min: 0 });
+        this._max = lib.toNumber(rate.max || this._rate, { min: 0 });
+        this._count = lib.toNumber(rate.count || this._max);
+        this._time = lib.toNumber(rate.time || Date.now());
+        this._interval = lib.toNumber(rate.interval || 1000, { min: 1 });
     } else {
-        this._rate = corelib.toNumber(rate, { min: 0 });
-        this._max = corelib.toNumber(max || this._rate, { min: 0 });
+        this._rate = lib.toNumber(rate, { min: 0 });
+        this._max = lib.toNumber(max || this._rate, { min: 0 });
         this._count = this._max;
         this._time = Date.now();
         this._interval = interval || 1000;
@@ -610,9 +610,9 @@ TokenBucket.prototype.toString = function()
 // Return true this bucket uses the same rates
 TokenBucket.prototype.equal = function(rate, max, interval)
 {
-    rate = corelib.toNumber(rate, { min: 0 });
-    max = corelib.toNumber(max || rate, { min: 0 });
-    interval = corelib.toNumber(interval || 1000, { min: 1 });
+    rate = lib.toNumber(rate, { min: 0 });
+    max = lib.toNumber(max || rate, { min: 0 });
+    interval = lib.toNumber(interval || 1000, { min: 1 });
     return this._rate === rate && this._max === max && this._interval == interval;
 }
 

@@ -15,7 +15,7 @@ var https = require('https');
 var child = require('child_process');
 var utils = require(__dirname + '/build/Release/backend');
 var logger = require(__dirname + '/logger');
-var corelib = require(__dirname + '/corelib');
+var lib = require(__dirname + '/lib');
 var cluster = require('cluster');
 var os = require('os');
 var emailjs = require('emailjs');
@@ -154,7 +154,7 @@ var core = {
             { name: "debug-logging", type: "callback", callback: function(v) { if(v) utils.logging(v) }, descr: "Set logging level only for the internal addons" },
             { name: "log", type: "callback", callback: function(v) { logger.setDebug(v); }, descr: "Set debugging level: none, log, debug, dev", pass: 1 },
             { name: "log-file", type: "callback", callback: function(v) { if(v) this.logFile=v;logger.setFile(this.logFile); }, descr: "Log to a file, if not specified used default logfile, disables syslog", pass: 1 },
-            { name: "syslog", type: "callback", callback: function(v) { logger.setSyslog(v ? corelib.toBool(v) : true); }, descr: "Write all logging messages to syslog, connect to the local syslog server over Unix domain socket", pass: 1 },
+            { name: "syslog", type: "callback", callback: function(v) { logger.setSyslog(v ? lib.toBool(v) : true); }, descr: "Write all logging messages to syslog, connect to the local syslog server over Unix domain socket", pass: 1 },
             { name: "console", type: "callback", callback: function() { logger.setFile(null);}, descr: "All logging goes to the console resetting all previous log related settings, this is used in the development mode mostly", pass: 1 },
             { name: "home", type: "callback", callback: "setHome", descr: "Specify home directory for the server, the server will try to chdir there or exit if it is not possible, the directory must exist", pass: 1 },
             { name: "conf-file", descr: "Name of the config file to be loaded instead of the default etc/config, can be relative or absolute path", pass: 1 },
@@ -242,7 +242,7 @@ var core = {
             { name: "backend-host", descr: "Host of the master backend, can be used for backend nodes communications using core.sendRequest function calls with relative URLs, also used in tests." },
             { name: "backend-login", descr: "Credentials login for the master backend access when using core.sendRequest" },
             { name: "backend-secret", descr: "Credentials secret for the master backend access when using core.sendRequest" },
-            { name: "host-name", type: "callback", callback: function(v) { if(v)this.hostName=v;this.domain = corelib.domainName(this.hostName);this._name = "hostName" }, descr: "Hostname/domain to use for communications, default is current domain of the host machine" },
+            { name: "host-name", type: "callback", callback: function(v) { if(v)this.hostName=v;this.domain = lib.domainName(this.hostName);this._name = "hostName" }, descr: "Hostname/domain to use for communications, default is current domain of the host machine" },
             { name: "config-domain", descr: "Domain to query for configuration TXT records, must be specified to enable DNS configuration" },
             { name: "watch", type: "callback", callback: function(v) { this.watch = true; this.watchdirs.push(v ? v : __dirname); }, descr: "Watch sources directory for file changes to restart the server, for development only, the backend module files will be added to the watch list automatically, so only app specific directores should be added. In the production -monitor must be used." }
     ],
@@ -302,18 +302,18 @@ core.init = function(options, callback)
     self.subnet = self.ipaddr.split(".").slice(0, 3).join(".");
     self.network = self.ipaddr.split(".").slice(0, 2).join(".");
     self.hostName = os.hostname().toLowerCase();
-    self.domain = corelib.domainName(self.hostName);
+    self.domain = lib.domainName(self.hostName);
     self.location = "http://" + self.hostName + ":" + core.port;
     // Pre load config files into memory to perform 2 passes
     var config = "";
 
     // Serialize initialization procedure, run each function one after another
-    corelib.series([
+    lib.series([
         function(next) {
             // Default config files, locate in the etc if just name is given
             if (self.confFile.indexOf("/") == -1) self.confFile = path.join(self.path.etc, self.confFile);
             self.confFile = path.resolve(self.confFile);
-            corelib.forEachSeries([self.confFile, self.confFile + ".local"], function(file, next2) {
+            lib.forEachSeries([self.confFile, self.confFile + ".local"], function(file, next2) {
                 logger.debug('loadConfig:', file);
                 fs.readFile(file, function(err, data) {
                     if (data) config += data.toString() + "\n";
@@ -350,9 +350,9 @@ core.init = function(options, callback)
         // Application version from the package.json
         function(next) {
             if (!self.appName) {
-                var pkg = corelib.readFileSync("package.json", { json: 1 });
-                if (!pkg.version) pkg = corelib.readFileSync(self.cwd + "/package.json", { json: 1 });
-                if (!pkg.version) pkg = corelib.readFileSync(self.path.etc + "/../package.json", { json: 1 });
+                var pkg = lib.readFileSync("package.json", { json: 1 });
+                if (!pkg.version) pkg = lib.readFileSync(self.cwd + "/package.json", { json: 1 });
+                if (!pkg.version) pkg = lib.readFileSync(self.path.etc + "/../package.json", { json: 1 });
                 if (pkg.name) self.appName = pkg.name;
                 if (pkg.version) self.appVersion = pkg.version;
                 if (pkg.description) self.appDescr = pkg.description;
@@ -377,8 +377,8 @@ core.init = function(options, callback)
             // Create all subfolders with permissions, run it before initializing db which may create files in the spool folder
             if (!cluster.isWorker && !self.worker) {
                 Object.keys(self.path).forEach(function(p) {
-                    corelib.mkdirSync(self.path[p]);
-                    corelib.chownSync(this.uid, this.gid, self.path[p]);
+                    lib.mkdirSync(self.path[p]);
+                    lib.chownSync(this.uid, this.gid, self.path[p]);
                 });
             }
             next();
@@ -405,7 +405,7 @@ core.init = function(options, callback)
         // Make sure spool and db files are owned by regular user, not the root
         function(next) {
             if (!cluster.isWorker && !self.worker && process.getuid() == 0) {
-                corelib.findFileSync(self.path.spool).forEach(function(p) { corelib.chownSync(self.uid, self.gid, p); });
+                lib.findFileSync(self.path.spool).forEach(function(p) { lib.chownSync(self.uid, self.gid, p); });
             }
             next();
         },
@@ -413,7 +413,7 @@ core.init = function(options, callback)
         function(next) {
             if (options.noWatch) return next();
             // Can only watch existing files
-            corelib.forEach([self.confFile, self.confFile + ".local"], function(file, next2) {
+            lib.forEach([self.confFile, self.confFile + ".local"], function(file, next2) {
                 fs.exists(file, function(exists) {
                     if (exists) fs.watch(file, function (event, filename) {
                         self.setTimeout(file, function() { self.loadConfig(file); }, 5000);
@@ -474,7 +474,7 @@ core.setHome = function(home)
     if ((home || this.home) && cluster.isMaster) {
         if (home) this.home = path.resolve(home);
         // On create set permissions
-        if (corelib.makePathSync(this.home)) corelib.chownSync(this.uid, this.gid, this.home);
+        if (lib.makePathSync(this.home)) lib.chownSync(this.uid, this.gid, this.home);
         try {
             process.chdir(this.home);
         } catch(e) {
@@ -573,13 +573,13 @@ core.processArgs = function(ctx, argv, pass)
             try {
                 // Place inside the object
                 if (x.obj) {
-                    oname = corelib.toCamel(x.obj);
+                    oname = lib.toCamel(x.obj);
                     if (!ctx[oname]) ctx[oname] = {};
                     obj = ctx[oname];
                     // Strip the prefix if starts with the same name
                     name = name.replace(new RegExp("^" + x.obj + "-"), "");
                 }
-                name = corelib.toCamel(name);
+                name = lib.toCamel(name);
                 // Update case according to the pattern(s)
                 if (x.ucase) name = name.replace(new RegExp(x.ucase, 'g'), function(v) { return v.toUpperCase(); });
                 if (x.lcase) name = name.replace(new RegExp(x.lcase, 'g'), function(v) { return v.toLowerCase(); });
@@ -611,36 +611,36 @@ core.processArgs = function(ctx, argv, pass)
                 case "none":
                     break;
                 case "bool":
-                    put(obj, name, !val ? true : corelib.toBool(val), x);
+                    put(obj, name, !val ? true : lib.toBool(val), x);
                     break;
                 case "int":
                 case "real":
                 case "number":
-                    put(obj, name, corelib.toNumber(val, x.decimals, x.value, x.min, x.max), x);
+                    put(obj, name, lib.toNumber(val, x.decimals, x.value, x.min, x.max), x);
                     break;
                 case "map":
-                    put(obj, name, corelib.strSplit(val).map(function(x) { return x.split(":") }).reduce(function(x,y) { if (!x[y[0]]) x[y[0]] = {}; x[y[0]][y[1]] = 1; return x }, {}), x);
+                    put(obj, name, lib.strSplit(val).map(function(x) { return x.split(":") }).reduce(function(x,y) { if (!x[y[0]]) x[y[0]] = {}; x[y[0]][y[1]] = 1; return x }, {}), x);
                     break;
                 case "intmap":
-                    put(obj, name, corelib.strSplit(val).map(function(x) { return x.split(":") }).reduce(function(x,y) { x[y[0]] = corelib.toNumber(y[1]); return x }, {}), x);
+                    put(obj, name, lib.strSplit(val).map(function(x) { return x.split(":") }).reduce(function(x,y) { x[y[0]] = lib.toNumber(y[1]); return x }, {}), x);
                 break;
                 case "list":
-                    put(obj, name, corelib.strSplitUnique(val, x.separator), x);
+                    put(obj, name, lib.strSplitUnique(val, x.separator), x);
                     break;
                 case "regexp":
                     put(obj, name, val ? new RegExp(val) : val, x);
                     break;
                 case "regexpobj":
-                    obj[name] = corelib.toRegexpObj(x.set ? null : obj[name], val, x.del);
+                    obj[name] = lib.toRegexpObj(x.set ? null : obj[name], val, x.del);
                     break;
                 case "regexpmap":
-                    obj[name] = corelib.toRegexpMap(x.set ? null : obj[name], val);
+                    obj[name] = lib.toRegexpMap(x.set ? null : obj[name], val);
                     break;
                 case "url":
                     put(obj, name, val ? url.parse(val) : val, x);
                     break;
                 case "json":
-                    put(obj, name, val ? corelib.jsonParse(val) : val, x);
+                    put(obj, name, val ? lib.jsonParse(val) : val, x);
                     break;
                 case "path":
                     // Check if it starts with local path, use the actual path not the current dir for such cases
@@ -728,7 +728,7 @@ core.showHelp = function(options)
     args.forEach(function(x) {
         x[1].forEach(function(y) {
             if (!y.name || !y.descr) return;
-            var dflt = y._name ? corelib.objGet(x[0] ? self.modules[x[0]] : self, y._name) : "";
+            var dflt = y._name ? lib.objGet(x[0] ? self.modules[x[0]] : self, y._name) : "";
             var line = (x[0] ? x[0] + '-' : '') + (y.match ? 'NAME-' : '') + y.name + (options.markdown ? "`" : "") + " - " + y.descr + (dflt ? ". Default: " + JSON.stringify(dflt) : "");
             if (y.dns) line += ". DNS TXT configurable.";
             if (y.match) line += ". Where NAME is the actual " + y.match + " name.";
@@ -748,7 +748,7 @@ core.showHelp = function(options)
 core.loadConfig = function(file, callback)
 {
     var self = this;
-    if (typeof callback != "function") callback = corelib.noop;
+    if (typeof callback != "function") callback = lib.noop;
 
     logger.debug('loadConfig:', file);
 
@@ -764,7 +764,7 @@ core.loadDnsConfig = function(options, callback)
     var self = this;
     if (typeof options == "function") callback = options, options = null
     if (!options) options = {};
-    if (typeof callback != "function") callback = corelib.noop;
+    if (typeof callback != "function") callback = lib.noop;
 
     if (!self.configDomain) return callback();
 
@@ -773,7 +773,7 @@ core.loadDnsConfig = function(options, callback)
     for (var p in this.modules) {
         if (Array.isArray(this.modules[p].args)) this.modules[p].args.forEach(function(x) { if (x.name && x.dns) push([p + "-", x]); });
     }
-    corelib.forEachLimit(args, options.concurrency || 5, function(x, next) {
+    lib.forEachLimit(args, options.concurrency || 5, function(x, next) {
         var cname = x[0] + x[1].name;
         dns.resolveTxt(cname + "." + self.configDomain, function(err, list) {
             if (!err && list && list.length) {
@@ -852,11 +852,11 @@ core.httpGet = function(uri, params, callback)
     var self = this;
     if (typeof params == "function") callback = params, params = null;
     if (!params) params = {};
-    if (typeof callback != "function") callback = corelib.noop;
+    if (typeof callback != "function") callback = lib.noop;
 
     // Additional query parameters as an object
-    var qtype = corelib.typeName(params.query);
-    switch (corelib.typeName(uri)) {
+    var qtype = lib.typeName(params.query);
+    switch (lib.typeName(uri)) {
     case "object":
         uri = url.format(uri);
         break;
@@ -909,7 +909,7 @@ core.httpGet = function(uri, params, callback)
 
     // Data to be sent over in the body
     if (params.postdata) {
-        switch (corelib.typeName(params.postdata)) {
+        switch (lib.typeName(params.postdata)) {
         case "string":
             if (!options.headers['content-length']) options.headers['content-length'] = Buffer.byteLength(params.postdata, 'utf8');
             break;
@@ -934,7 +934,7 @@ core.httpGet = function(uri, params, callback)
     }
 
     // Make sure our data is not corrupted
-    if (params.checksum) options.checksum = params.postdata ? corelib.hash(params.postdata) : null;
+    if (params.checksum) options.checksum = params.postdata ? lib.hash(params.postdata) : null;
 
     // Sign request using internal backend credentials
     if (params.sign) {
@@ -1001,8 +1001,8 @@ core.httpGet = function(uri, params, callback)
           params.headers = res.headers;
           params.status = res.statusCode;
           params.type = (res.headers['content-type'] || '').split(';')[0];
-          params.mtime = res.headers.date ? corelib.toDate(res.headers.date) : null;
-          if (!params.size) params.size = corelib.toNumber(res.headers['content-length'] || 0);
+          params.mtime = res.headers.date ? lib.toDate(res.headers.date) : null;
+          if (!params.size) params.size = lib.toNumber(res.headers['content-length'] || 0);
           if (params.fd) try { fs.closeSync(params.fd); } catch(e) {}
           if (params.stream) try { params.stream.end(params.onfinish); } catch(e) {}
           params.fd = 0;
@@ -1093,10 +1093,10 @@ core.sendRequest = function(options, callback)
     }
     var db = self.modules.db;
 
-    this.httpGet(options.url, corelib.cloneObj(options), function(err, params, res) {
+    this.httpGet(options.url, lib.cloneObj(options), function(err, params, res) {
         // If the contents are encrypted, decrypt before processing content type
         if ((options.headers || {})['content-encoding'] == "encrypted") {
-            params.data = corelib.decrypt(options.secret, params.data);
+            params.data = lib.decrypt(options.secret, params.data);
         }
         // Parse JSON and store in the params, set error if cannot be parsed, the caller will deal with it
         if (params.data) {
@@ -1113,7 +1113,7 @@ core.sendRequest = function(options, callback)
         }
         if (!params.obj) params.obj = {};
         if (params.status != 200 && !err && !options.anystatus) {
-            err = corelib.newError({ message: util.format("ResponseError: %d: %j", params.status, params.obj), name: "HTTP", status: params.status });
+            err = lib.newError({ message: util.format("ResponseError: %d: %j", params.status, params.obj), name: "HTTP", status: params.status });
         }
         if (typeof callback == "function") callback(err, options.obj ? params.obj : params, options.obj ? null : res);
     });
@@ -1131,10 +1131,10 @@ core.runMethods = function(name, options, callback)
 {
     var self = this;
     if (typeof options == "function") callback = options, options = {};
-    if (typeof callback != "function") callback = corelib.noop;
+    if (typeof callback != "function") callback = lib.noop;
     if (!options) options = {};
 
-    corelib.forEachSeries(Object.keys(self.modules), function(mod, next) {
+    lib.forEachSeries(Object.keys(self.modules), function(mod, next) {
         if (options.denyModules instanceof RegExp && options.denyModules.test(mod)) return next();
         if (options.allowModules instanceof RegExp && !options.allowModules.test(mod)) return next();
         var ctx = self.modules[mod];
@@ -1207,7 +1207,7 @@ core.loadModules = function(dir, options, callback)
     if (typeof options == "function") callback = options, options = null;
     if (!options) options = {};
 
-    corelib.findFileSync(path.resolve(dir), { depth: 1, types: "f", include: /\.js$/ }).sort().forEach(function(file) {
+    lib.findFileSync(path.resolve(dir), { depth: 1, types: "f", include: /\.js$/ }).sort().forEach(function(file) {
         try {
             var base = path.basename(file, ".js");
             if (options.denyModules instanceof RegExp && options.denyModules.test(base)) return;
@@ -1241,7 +1241,7 @@ core.getArg = function(name, dflt)
 // Return commandline argument value as a number
 core.getArgInt = function(name, dflt)
 {
-    return corelib.toNumber(this.getArg(name, dflt));
+    return lib.toNumber(this.getArg(name, dflt));
 }
 
 // Returns true of given arg(s) are present in the command line, name can be a string or an array of strings.
@@ -1278,7 +1278,7 @@ core.sendmail = function(options, callback)
 core.parseLocalAddress = function(str)
 {
     var url = "", ips = this.ipaddrs, host = os.hostname().toLowerCase();
-    corelib.strSplit(str).forEach(function(x) {
+    lib.strSplit(str).forEach(function(x) {
         var u = url.parse(x);
         if (ips.indexOf(u.hostname) > -1 || u.hostname.toLowerCase() == host) url = u.protocol + "//*:" + u.port;
     });
@@ -1292,10 +1292,10 @@ core.killBackend = function(name, signal, callback)
     if (typeof signal == "function") callback = signal, signal = '';
     if (!signal) signal = 'SIGTERM';
 
-    corelib.execProcess("/bin/ps agx", function(stderr, stdout) {
+    lib.execProcess("/bin/ps agx", function(stderr, stdout) {
         stdout.split("\n").
                filter(function(x) { return x.match(core.name + ":") && (!name || x.match(name)); }).
-               map(function(x) { return corelib.toNumber(x) }).
+               map(function(x) { return lib.toNumber(x) }).
                filter(function(x) { return x != process.pid }).
                forEach(function(x) { try { process.kill(x, signal); } catch(e) { logger.error('killBackend:', name, x, e); } });
         if (typeof callback == "function") callback();
@@ -1336,7 +1336,7 @@ core.cookieGet = function(domain, callback)
     var cookies = [];
     db.scan("bk_property", {}, { pool: db.local }, function(row, next) {
         if (!row.name.match(/^bk:cookie:/)) return next();
-        var cookie = corelib.jsonParse(row.value, { obj: 1 })
+        var cookie = lib.jsonParse(row.value, { obj: 1 })
         if (cookie.expires <= Date.now()) return next();
         if (cookie.domain == domain) {
             cookies.push(cookie);
@@ -1371,7 +1371,7 @@ core.cookieSave = function(cookiejar, setcookies, hostname, callback)
             var value = pair[2];
             switch(key) {
             case "expires":
-                obj.expires = value ? Number(corelib.toDate(value)) : Infinity;
+                obj.expires = value ? Number(lib.toDate(value)) : Infinity;
                 break;
 
             case "path":
@@ -1401,9 +1401,9 @@ core.cookieSave = function(cookiejar, setcookies, hostname, callback)
         });
         if (!found) cookiejar.push(obj);
     });
-    corelib.forEachSeries(cookiejar, function(rec, next) {
+    lib.forEachSeries(cookiejar, function(rec, next) {
         if (!rec) return next();
-        if (!rec.id) rec.id = corelib.hash(rec.name + ':' + rec.domain + ':' + rec.path);
+        if (!rec.id) rec.id = lib.hash(rec.name + ':' + rec.domain + ':' + rec.path);
         db.put("bk_property", { name: "bk:cookie:" + rec.id, value: rec }, { pool: db.local }, function() { next() });
     }, function() {
         if (callback) callback();
@@ -1460,7 +1460,7 @@ core.createRepl = function(options)
 
     // Support history
     if (this.replFile) {
-        r.rli.history = corelib.readFileSync(this.replFile, { list: '\n' }).reverse();
+        r.rli.history = lib.readFileSync(this.replFile, { list: '\n' }).reverse();
         r.rli.addListener('line', function(code) {
             if (code) {
                 fs.appendFile(self.replFile, code + '\n', function() {});
@@ -1490,7 +1490,7 @@ core.watchTmp = function(dir, options, callback)
     fs.readdir(dir, function(err, files) {
         if (err) return callback ? callback(err) : null;
 
-        corelib.forEachSeries(files, function(file, next) {
+        lib.forEachSeries(files, function(file, next) {
             if (file == "." || file == "..") return next();
             if (options.match && !file.match(options.match)) return next();
             if (options.ignore && file.match(options.ignore)) return next();
@@ -1502,7 +1502,7 @@ core.watchTmp = function(dir, options, callback)
                 if (now - st.mtime < options.seconds*1000) return next();
                 logger.log('watchTmp: delete', dir, file, (now - st.mtime)/1000, 'sec old');
                 if (st.isDirectory()) {
-                    corelib.unlinkPath(file, function(err) {
+                    lib.unlinkPath(file, function(err) {
                         if (err) logger.error('watchTmp:', file, err);
                         next();
                     });
@@ -1525,7 +1525,7 @@ core.watchFiles = function(dir, pattern, callback)
 
     function watcher(event, file) {
         // Check stat if no file name, Mac OS X does not provide it
-        var stat = corelib.statSync(file.name);
+        var stat = lib.statSync(file.name);
         if (stat.size == file.stat.size && stat.mtime == file.stat.mtime) return;
         logger.log('watchFiles:', event, file.name, file.ino, stat.size);
         if (event == "rename") {
@@ -1542,7 +1542,7 @@ core.watchFiles = function(dir, pattern, callback)
             return file.match(pattern);
         }).map(function(file) {
             file = path.join(dir, file);
-            return ({ name: file, stat: corelib.statSync(file) });
+            return ({ name: file, stat: lib.statSync(file) });
         }).forEach(function(file) {
             logger.debug('watchFiles:', file.name, file.stat.ino, file.stat.size);
             file.watcher = fs.watch(file.name, function(event) { watcher(event, file); });
@@ -1598,7 +1598,7 @@ core.watchLogs = function(options, callback)
         var errors = {}, echan = "", eline = 0;
 
         // For every log file
-        corelib.forEachSeries(self.logwatcherFile, function(log, next) {
+        lib.forEachSeries(self.logwatcherFile, function(log, next) {
             var file = log.file;
             if (!file && self[log.name]) file = self[log.name];
             if (!file) return next();
@@ -1606,7 +1606,7 @@ core.watchLogs = function(options, callback)
             fs.stat(file, function(err, st) {
                if (err) return next();
                // Last saved position, start from the end if the log file is too big or got rotated
-               var pos = corelib.toNumber(lastpos['logwatcher:' + file] || 0);
+               var pos = lib.toNumber(lastpos['logwatcher:' + file] || 0);
                if (st.size - pos > self.logwatcherMax || pos > st.size) pos = st.size - self.logwatcherMax;
 
                fs.open(file, "r", function(err, fd) {
@@ -1646,7 +1646,7 @@ core.watchLogs = function(options, callback)
                });
             });
         }, function(err) {
-            corelib.forEach(Object.keys(errors), function(type, next) {
+            lib.forEach(Object.keys(errors), function(type, next) {
                 if (!errors[type].length) return next();
                 logger.log('logwatcher:', type, 'found matches, sending to', self.logwatcherEmail[type] || "", self.logwatcherUrl[type] || "");
 

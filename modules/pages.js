@@ -16,7 +16,7 @@ var app = bkjs.app;
 var ipc = bkjs.ipc;
 var msg = bkjs.msg;
 var core = bkjs.core;
-var corelib = bkjs.corelib;
+var lib = bkjs.lib;
 var logger = bkjs.logger;
 
 // Wiki pages management
@@ -106,7 +106,7 @@ pages.configurePagesAPI = function()
                 if (!row && req.params[1] == "1") row = page0;
                 if (!row) return api.sendReply(res, 404, "no page found");
                 if (!req.account.id && !row.pub) return api.sendReply(res, 400, "Access to page denied");
-                row.render = corelib.toBool(req.query._render);
+                row.render = lib.toBool(req.query._render);
                 api.sendJSON(req, err, self.preparePages(row));
             });
             break;
@@ -114,7 +114,7 @@ pages.configurePagesAPI = function()
         case "put":
             if (!req.query.title) return api.sendReply(res, 400, "title is required");
             if (!req.query.content && !req.query.link) return api.sendReply(res, 400, "link or content is required");
-            req.query.id = req.params[1] || corelib.uuid();
+            req.query.id = req.params[1] || lib.uuid();
             req.query.userid = req.account.id;
             db.put("bk_pages", req.query, options, function(err, data) {
                 api.sendJSON(req, err, data);
@@ -173,5 +173,5 @@ pages.preparePages = function(options)
 // Send rendered markdown to the client response
 pages.sendPages = function(req, options)
 {
-    req.res.render(this.view, { pages: this.preparePages(corelib.extendObj(options, 'render', 1)) });
+    req.res.render(this.view, { pages: this.preparePages(lib.extendObj(options, 'render', 1)) });
 }

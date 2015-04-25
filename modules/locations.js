@@ -15,7 +15,7 @@ var app = bkjs.app;
 var ipc = bkjs.ipc;
 var msg = bkjs.msg;
 var core = bkjs.core;
-var corelib = bkjs.corelib;
+var lib = bkjs.lib;
 var logger = bkjs.logger;
 var utils = bkjs.utils;
 
@@ -133,12 +133,12 @@ locations.getLocation = function(req, options, callback)
     if (typeof options.minDistance == "undefined") options.minDistance = self.minDistance;
 
     // Limit the distance within our configured range
-    req.query.distance = corelib.toNumber(req.query.distance, { float: 0, dflt: options.minDistance, min: options.minDistance, max: options.maxDistance || self.maxDistance });
+    req.query.distance = lib.toNumber(req.query.distance, { float: 0, dflt: options.minDistance, min: options.minDistance, max: options.maxDistance || self.maxDistance });
 
     db.getLocations(table, req.query, options, function(err, rows, info) {
         logger.debug("getLocations:", req.account.id, 'GEO:', req.query.latitude, req.query.longitude, req.query.distance, options.geohash || "", 'NEXT:', info || '', 'ROWS:', rows.length);
         // Return accounts with locations
-        if (corelib.toNumber(options.accounts) && rows.length && table != "bk_account" && core.modules.accounts) {
+        if (lib.toNumber(options.accounts) && rows.length && table != "bk_account" && core.modules.accounts) {
             core.modules.accounts.listAccount(rows, options, function(err, rows) {
                 if (err) return callback(err);
                 callback(null, api.getResultPage(req, options, rows, info));
@@ -164,7 +164,7 @@ locations.putLocation = function(req, options, callback)
         if (err || !old) return callback(err ? err : { status: 404, mesage: "account not found"});
 
         // Build new location record
-        var geo = corelib.geoHash(latitude, longitude, { minDistance: self.minDistance });
+        var geo = lib.geoHash(latitude, longitude, { minDistance: self.minDistance });
 
         // Skip if within minimal distance
         if (old.latitude || old.longitude) {

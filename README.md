@@ -1834,14 +1834,14 @@ tools ready to use that will allow to implement such versioning system in the ba
   In the middlware, the code can look like this:
 
         var options = api.getOptions(req);
-        var version = corelib.toVersion(options.appVersion);
+        var version = lib.toVersion(options.appVersion);
         switch (req.params[0]) {
         case "get":
-            if (version < corelib.toVersion("1.2.5")) {
+            if (version < lib.toVersion("1.2.5")) {
                 res.json({ id: 1, name: "name", description: "descr" });
                 break;
             }
-            if (version < corelib.toVersion("1.1")) {
+            if (version < lib.toVersion("1.1")) {
                 res.json([id, name]);
                 break;
             }
