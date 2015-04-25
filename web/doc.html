@@ -140,6 +140,7 @@ same way allowing to switch databases without changing the code.</li>
 server running in the master process instead of relying on the OS scheduling between processes listening on the same port.</li>
 <li>Can be used with any MVC, MVVC or other types of frameworks that work on top or with the Express server.</li>
 <li>Intergated very light unit testing facility which can be used to test modules and API requests</li>
+<li>Support runtime metrics about the timing on database, requests, cache, memory and request rate limit control</li>
 <li>Hosted on <a href="https://github.com/vseryakov/backendjs">github</a>, BSD licensed.</li>
 </ul>
 <p>Check out the <a href="http://bkjs.io">Documentation</a> for more details.</p>
@@ -2466,24 +2467,30 @@ properties after successful authorization.</p>
 </ul>
 
 <ul>
-<li><p><code>api.checkLimits(type, req, options, callback)</code></p>
-<p> Perform rate limiting by specified property, if not given no limiting is done.
-The following options properties can be used:</p>
+<li><p><code>api.checkLimits(req, options, callback)</code></p>
+<p> Perform rate limiting by specified property, if not given no limiting is done.</p>
+<p>The following options properties can be used:</p>
 <ul>
-<li>type - predefined: <code>ip, login, id</code>, determines by which property to perform limiting, when using account properties
+<li>type - predefined: <code>ip, login, id</code>, determines by which property to perform rate limiting, when using account properties
  the rate limiter should be called after the request signature has been parsed. Any other value is treated as
- custom type and used as it is.</li>
+ custom type and used as is. <strong>This property is required.</strong></li>
 <li>max - max capacity to be used by default</li>
 <li>rate - fill rate to be used by default</li>
-<li>interval - interval in ms for bucket refill</li>
-<li>name - more descriptive name to be used in the error message for the type, if not specified type is used</li>
+<li>interval - interval in ms within which the rate is measured, default 1000 ms</li>
+<li>message - more descriptive name to be used in the error message for the type, if not specified a generic error message is used</li>
 <li>total - apply this factor to the rate, it is used in case of multiple servers behind a loadbalancer, so for
  total 3 servers in the cluster the factor will be 3, i.e. each individual server checks for a third of the total request rate</li>
 </ul>
+<p>The metrics are kept in the LRU cache in the master process.</p>
 <p>When used for accounts, it is possible to override rate limits for each account in the <code>bk_auth</code> table by setting <code>rlimit_max</code> and <code>rlimit_rate</code>
 columns. To enable account rate limits the global defaults still must be set with the config paramaters <code>-api-rlimit-login-max</code> and <code>-api-rlimit-login-rate</code>
 for example.</p>
-</li>
+<p>Example:</p>
+<pre><code> api.checkLimit(req, { type: &quot;ip&quot;, rate: 100, interval: 60000 }, function(err) {
+    if (err) return api.sendReply(err);
+    ...
+ });
+</code></pre></li>
 </ul>
 
 <ul>
@@ -4093,7 +4100,7 @@ called via setImmediate function to allow the main loop to process I/O.</p>
 </ul>
 
 <ul>
-<li><p><code>corelib.deferCallback(obj, msg, callback, timeout)</code></p>
+<li><p><code>corelib.deferCallback(parent, msg, callback, timeout)</code></p>
 <p> Register the callback to be run later for the given message, the message must have id property which will be used for keeping track of the replies.
 A timeout is created for this message, if runCallback for this message will not be called in time the timeout handler will call the callback
 anyways with the original message.
@@ -4103,7 +4110,13 @@ any errors must be passed, use the message object for it, no other arguments are
 </ul>
 
 <ul>
-<li><p><code>corelib.runCallback(obj, msg)</code></p>
+<li><p><code>corelib.onDeferCallback(msg)</code></p>
+<p> To be called on timeout or when explicitely called by the <code>runCallback</code>, it is called in the context of the message.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>corelib.runCallback(parent, msg)</code></p>
 <p> Run delayed callback for the message previously registered with the <code>deferCallback</code> method.
 The message must have id property which is used to find the corresponding callback, if msg is a JSON string it will be converted into the object.</p>
 </li>
@@ -6103,6 +6116,24 @@ will be deleted from the queue. By default all jobs pulled from the db are delet
 </ul>
 
 <h2 id="module-metrics">Module: METRICS</h2>
+<ul>
+<li><p><code>TokenBucket.prototype.create(rate, max, interval)</code></p>
+<p> Initialize existing token with numbers for rate calculations</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>TokenBucket.prototype.toJSON()</code></p>
+<p> Return a JSON object to be serialized/saved</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>TokenBucket.prototype.toString()</code></p>
+<p> Return an array object to be serialized/saved</p>
+</li>
+</ul>
+
 <ul>
 <li><p><code>TokenBucket.prototype.equal(rate, max, interval)</code></p>
 <p> Return true this bucket uses the same rates</p>
