@@ -280,6 +280,74 @@ lib.toAge = function(mtime)
     return str;
 }
 
+// Process incoming query and convert parameters according to the type definition, the schema contains the definition of the paramaters against which to
+// validate incoming data. It is an object where the properties are known types and propetrty value are names and type of the know parameters,
+// all unknown parameters will be ignored. In the options it is possible to pass realtime or other custom options for the validation or convertion
+// utilities as the first argument if not defined in the definition.
+//
+// Example:
+//
+//        var account = lib.toParams(req.query, { number: [ "id", count: { min: 1, max: 10, dflt: 5 } ],
+//                                                string: [ "name", "descr" ],
+//                                                token: [ "secret" ],
+//                                                list: [ "phone", "email" ] }, { secret: req.account.secret })
+//
+lib.toParams = function(query, schema, options)
+{
+    var self = this;
+    var rc = {};
+    for (var type in schema) {
+        var params = schema[type], a = null, b = null, p;
+        if (!Array.isArray(params)) continue;
+        params.forEach(function(x) {
+            a = b = null;
+            if (Array.isArray(x)) {
+                if (x.length > 2) b = x[2];
+                if (x.length > 1) a = x[1];
+                if (x.length > 0) x = x[0];
+            } else
+            if (typeof x == "object") {
+                for (var i in x) {
+                    a = x[i];
+                    x = i;
+                }
+            }
+            if (!a && options) a = options[x] || options[type];
+            p = "_" + x;
+            switch (type) {
+            case "boolean":
+                if (!a || typeof query[p] != "undefined") rc[x] = self.toBool(query[p], a);
+                break;
+            case "number":
+                if (!a || typeof query[p] != "undefined") rc[x] = self.toNumber(query[p], a);
+                break;
+            case "list":
+                if (query[p]) rc[x] = self.strSplit(query[p], a, b);
+                break;
+            case "pair":
+                var list = self.strSplit(query[p], a, b);
+                if (!list.length) break;
+                if (!rc[x]) rc[x] = {};
+                for (var i = 0; i < list.length -1; i += 2) rc[x][list[i]] = list[i+1];
+                break;
+            case "token":
+                if (query[p]) rc[x] = self.base64ToJson(rc[p], a);
+                break;
+            case "date":
+                if (query[p]) rc[x] = self.toDate(query[p], a);
+                break;
+            case "timestamp":
+                if (query[p]) rc[x] = self.strftime(Date.now(), a || "%Y-%m-%d-%H:%M:%S.%L");
+                break;
+            case "string":
+                if (query[p]) rc[x] = query[p];
+                break;
+            }
+        });
+    }
+    return rc;
+}
+
 // Returns true if the given type belongs to the numeric family
 lib.isNumeric = function(type)
 {

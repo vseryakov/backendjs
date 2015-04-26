@@ -234,6 +234,14 @@ var api = {
             { count: { float: 0, dflt: 50, min: 0 } },
             { page: { float: 0, dflt: 0, min: 0 } },
         ],
+        // Timestamps
+        timestamp: [
+            "tm",
+        ],
+        // Pairs
+        pair: [
+            "ops",
+        ],
         // Decrypted with api.getTokenSecret
         token: [
             "start", "token",
@@ -1210,45 +1218,9 @@ api.checkLimits = function(req, options, callback)
 // For security purposes this is the only place that translates special control query parameters into the options properties.
 api.getOptions = function(req)
 {
-    var self = this;
+    var params = lib.toParams(req.query, this.controls, { token: this.getTokenSecret(req) })
     if (!req.options) req.options = {};
-    for (var type in this.controls) {
-        var params = this.controls[type], o = null, p;
-        if (!Array.isArray(params)) continue;
-        params.forEach(function(x) {
-            o = null;
-            if (typeof x == "object") {
-                for (var i in x) {
-                    o = x[i];
-                    x = i;
-                }
-            }
-            p = "_" + x;
-            switch (type) {
-            case "boolean":
-                if (typeof req.query[p] != "undefined") req.options[x] = lib.toBool(req.query[p]);
-                break;
-            case "number":
-                if (typeof req.query[p] != "undefined") req.options[x] = lib.toNumber(req.query[p], o);
-                break;
-            case "list":
-                if (req.query[p]) req.options[x] = lib.strSplit(req.query[p]);
-                break;
-            case "token":
-                if (req.query[p]) req.options[x] = lib.base64ToJson(req.query[p], self.getTokenSecret(req));
-                break;
-            case "string":
-                if (req.query[p]) req.options[x] = req.query[p];
-                break;
-            }
-        });
-    }
-    // Other special parameters
-    if (req.query._tm) req.options.tm = lib.strftime(Date.now(), "%Y-%m-%d-%H:%M:%S.%L");
-    if (req.query._ops) {
-        var ops = lib.strSplit(req.query._ops);
-        for (var i = 0; i < ops.length -1; i+= 2) req.options.ops[ops[i]] = ops[i+1];
-    }
+    for (var p in params) req.options[p] = params[p];
     return req.options;
 }
 

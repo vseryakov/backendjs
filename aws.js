@@ -1881,7 +1881,7 @@ aws.ddbUpdateItem = function(name, keys, item, options, callback)
         for (var p in item) {
             if (params.Key[p]) continue;
             var val = item[p];
-            if (this.ddbReserved[p]) {
+            if (this.ddbReserved[p.toUpperCase()]) {
                 names["#c" + c] = p;
                 p = "#c" + c++;
             }
