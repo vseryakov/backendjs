@@ -611,9 +611,12 @@ lib.doWhilst = function(iterator, test, callback)
     });
 }
 
-// Register the callback to be run later for the given message, the message must have id property which will be used for keeping track of the replies.
-// A timeout is created for this message, if runCallback for this message will not be called in time the timeout handler will call the callback
-// anyways with the original message.
+// Register the callback to be run later for the given message, the message must have the `id` property which will be used for keeping track of the responses. The `parent`
+// can be any object and is used to register the timer and keep reference to it.
+//
+// A timeout is created for this message, if `runCallback` for this message will not be called in time the timeout handler will call the callback
+// anyway with the original message.
+//
 // The callback passed will be called with only one argument which is the message, what is inside the message this function does not care. If
 // any errors must be passed, use the message object for it, no other arguments are expected.
 lib.deferCallback = function(parent, msg, callback, timeout)
@@ -639,7 +642,9 @@ lib.onDeferCallback = function(msg)
 }
 
 // Run delayed callback for the message previously registered with the `deferCallback` method.
-// The message must have id property which is used to find the corresponding callback, if msg is a JSON string it will be converted into the object.
+// The message must have `id` property which is used to find the corresponding callback, if the msg is a JSON string it will be converted into the object.
+//
+// Same parent object must be used for `deferCallback` and this method.
 lib.runCallback = function(parent, msg)
 {
     if (msg && typeof msg == "string") msg = this.jsonParse(msg, { error: 1 });
@@ -648,7 +653,8 @@ lib.runCallback = function(parent, msg)
 }
 
 // Return object with geohash for given coordinates to be used for location search
-// options may contain the following properties:
+//
+// The options may contain the following properties:
 //   - distance - limit the range key with the closest range smaller than then distance, required for search but for updates may be omitted
 //   - minDistance - radius for the smallest bounding box in km containing single location, radius searches will combine neighboring boxes of
 //      this size to cover the whole area with the given distance request, also this affects the length of geohash keys stored in the bk_location table
@@ -673,7 +679,9 @@ lib.geoHash = function(latitude, longitude, options)
              distance: options.distance || 0 };
 }
 
-// Return distance between two locations, options can specify the following properties:
+// Return distance between two locations
+//
+// The options can specify the following properties:
 // - round - a number how to round the distance
 //
 //  Example: round to the nearest full 5 km and use only 1 decimal point, if the distance is 13, it will be 15.0
@@ -962,7 +970,7 @@ lib.strSplit = function(str, sep, type)
             filter(function(x) { return typeof x == "string" ? x : 1 });
 }
 
-// Split as above but keep only unique items
+// Split as above but keep only unique items, case-insensitive
 lib.strSplitUnique = function(str, sep, type)
 {
     var rc = [];
@@ -1572,6 +1580,7 @@ lib.statSync = function(file)
 }
 
 // Return contents of a file, empty if not exist or on error.
+//
 // Options can specify the format:
 // - json - parse file as JSON, return an object, in case of error an empty object
 // - list - split contents with the given separator
@@ -1617,6 +1626,7 @@ lib.findFilter = function(file, stat, options)
 }
 
 // Return list of files than match filter recursively starting with given path, file is the starting path.
+//
 // The options may contain the following:
 //   - include - a regexp with file pattern to include
 //   - exclude - a regexp with file pattern to exclude
@@ -1834,6 +1844,24 @@ lib.mkdirSync = function()
 // - max_queue - how big the waiting queue can be, above this all requests will be rejected immediately
 // - timeout - number of milliseconds to wait for the next available resource item, cannot be 0
 // - idle - number of milliseconds before starting to destroy all active resources above the minimum, 0 to disable.
+//
+// Example:
+//        var pool = lib.createPool({ min: 1, max: 5,
+//                                  create: function(cb) {
+//                                     someDb.connect(function(err) { cb(err, this) }
+//                                  },
+//                                  destroy: function(client) {
+//                                     client.close() }
+//                                  })
+//
+//        pool.aquire(function(err, client) {
+//           ...
+//           client.findItem....
+//           ...
+//           pool.release(client);
+//
+//        });
+//
 lib.createPool = function(options)
 {
     var self = this;
