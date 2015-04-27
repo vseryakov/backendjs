@@ -61,7 +61,10 @@ var api = {
            { name: "images-s3-options", type:" json", descr: "S3 options to sign images urls, may have expires:, key:, secret: properties" },
            { name: "domain", type: "regexp", descr: "Regexp of the domains or hostnames to be served by the API, if not matched the requests will be only served by the other middleware configured in the Express and will bypass all registered routes" },
            { name: "files-s3", descr: "S3 bucket name where to store files uploaded with the File API" },
-           { name: "busy-latency", type: "number", min: 11, descr: "Max time in ms for a request to wait in the queue, if exceeds this value server returns too busy error" },
+           { name: "max-latency", type: "number", min: 11, descr: "Max time in ms for a request to wait in the queue, if exceeds this value server returns too busy error" },
+           { name: "max-cpu-util", type: "number", min: 0, descr: "Max CPU utilization allowed, if exceeds this value server returns too busy error" },
+           { name: "max-memory-heap", type: "number", min: 0, descr: "Max number of bytes of V8 heap allowed, if exceeds this value server returns too busy error" },
+           { name: "max-memory-rss", type: "number", min: 0, descr: "Max number of bytes in RSS memory allowed, if exceeds this value server returns too busy error" },
            { name: "access-log", descr: "File for access logging" },
            { name: "max-age", type: "int", descr: "Static content max age in milliseconds" },
            { name: "salt", descr: "Salt to be used for scrambling credentials or other hashing activities" },
@@ -189,7 +192,14 @@ var api = {
     accessTokenName: 'bk-access-token',
 
     // Default busy latency 1 sec
-    busyLatency: 1000,
+    maxLatency: 1000,
+    maxMemoryHeap: 0,
+    maxMemoryRss: 0,
+    maxCpuUtil: 0,
+    // Cached process stats, updated every sample interval in the getStatistics
+    cpuItil: 0,
+    loadAvge: os.loadavg(),
+    memoryUsage: process.memoryUsage(),
 
     // Metrics and stats
     metrics: new metrics.Metrics('id', '',
@@ -282,13 +292,27 @@ api.init = function(options, callback)
     options.app = self.app;
 
     // Setup busy timer to detect when our requests waiting in the queue for too long
-    if (this.busyLatency) utils.initBusy(this.busyLatency);
+    if (this.maxLatency) utils.initBusy(this.maxLatency);
 
     // Early request setup and checks
     self.app.use(function(req, res, next) {
         // Latency watcher
-        if (self.busyLatency && utils.isBusy()) {
+        if (self.maxLatency && utils.isBusy()) {
             self.metrics.Counter('busy_0').inc();
+            return self.sendReply(res, 503, "Server is unavailable");
+        }
+        // CPU utilization
+        if (self.maxCpuUtil && self.cpuItil > self.maxUtil) {
+            self.metrics.Counter('util_0').inc();
+            return self.sendReply(res, 503, "Server is unavailable");
+        }
+        // Memory watcher
+        if (self.maxMemoryHeap && self.memoryUsage.heapUsed > self.maxMemoryHeap) {
+            self.metrics.Counter('heap_0').inc();
+            return self.sendReply(res, 503, "Server is unavailable");
+        }
+        if (self.maxMemoryRss && self.memoryUsage.rss > self.maxMemoryRss) {
+            self.metrics.Counter('rss_0').inc();
             return self.sendReply(res, 503, "Server is unavailable");
         }
 
@@ -370,6 +394,7 @@ api.init = function(options, callback)
             self.metrics.Counter("api_req_0").inc();
             if (res.statusCode >= 400 && res.statusCode < 500) self.metrics.Counter("api_bad_0").inc();
             if (res.statusCode >= 500) self.metrics.Counter("api_errors_0").inc();
+            self.metrics.Counter("api_" + res.statusCode + "_0").inc();
             req.metric1.end();
             req.metric2.end();
             // Ignore external or not handled urls
