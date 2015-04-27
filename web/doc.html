@@ -163,7 +163,7 @@ on the system before installing the backendjs. Not everything is required, if no
 <pre><code>    npm install backendjs
 </code></pre><p>To force internal nanomsg and ImageMagick to be compiled in the module the following command must be used:</p>
 <pre><code>    npm install backendjs --backendjs_nanomsg --backendjs_imagemagick
-</code></pre><p>This may take some time because of compiling required dependencies like ImageMagick, nanomsg. They are not required in all
+</code></pre><p>This may take some time because of downloading and compiling required dependencies like ImageMagick, nanomsg. They are not required in all
 applications but still part of the core of the system to be available once needed.</p>
 <p>To install from the git</p>
 <pre><code>    npm install git+https://github.com/vseryakov/backendjs.git
@@ -187,7 +187,7 @@ applications but still part of the core of the system to be available once neede
 </code></pre></li>
 <li><p>All commands above will behave exactly the same, all required tables will be automatically created</p>
 </li>
-<li><p>While the local backendjs is runnning the documentation is always available when the backend Web server is running at <a href="http://localhost:8000/doc.html">http://localhost:8000/doc.html</a></p>
+<li><p>While the local backendjs is runnning, the documentation is always available at <a href="http://localhost:8000/doc.html">http://localhost:8000/doc.html</a> (or whatever port is the server using)</p>
 </li>
 <li><p>Go to <a href="http://localhost:8000/api.html">http://localhost:8000/api.html</a> for the Web console to test API requests.
 For this example let&#39;s create an account, type and execute the following URLs in the Web console:</p>
@@ -241,7 +241,7 @@ is only enabled by default in development mode, check app.sh for parameters befo
 <li>a Web server (server) with Web workers (web)</li>
 <li>a job scheduler (master)</li>
 </ul>
-<p>These features can be run standalone or under the guard of the monitor which tracks all running processes and restarted any failed one.</p>
+<p>These features can be run standalone or under the guard of the monitor which tracks all running processes and restarted any failed ones.</p>
 <p>This is the typical output from the ps command on Linux server:</p>
 <pre><code>ec2-user    891  0.0  0.6 1071632 49504 ?  Ssl  14:33   0:01 backendjs: monitor
 ec2-user    899  0.0  0.6 1073844 52892 ?  Sl   14:33   0:01 backendjs: master
@@ -256,7 +256,7 @@ commands that simplify running the backend in different modes.</p>
 <li><code>bkjs run-server</code> - this command is supposed to be run at the server startup, it runs in the backgroud and the monitors all tasks,
  the command line parameters are: <code>-daemon -monitor -master -syslog</code></li>
 <li><code>bkjs run</code> - this command runs the Web server and the job scheduler without any other parameters, all aditional parameters can be added in the command line, this command
- is a barebone elper to be used with any other custom settings.</li>
+ is a barebone helper to be used with any other custom settings.</li>
 <li><code>bkjs run-shell</code> or <code>bksh</code> - start backendjs shell, no API or Web server is initialized, only the database pools</li>
 </ul>
 <h1 id="application-structure">Application structure</h1>
@@ -268,7 +268,7 @@ may return data in whatever format is required.</p>
 the user without the backend involved. It does not mean this is simple gateway between the database, in many cases it is but if special
 processing of the data is needed before sending it to the user, it is possible to do and backendjs provides many convenient helpers and tools for it.</p>
 <p>When the API layer is initialized, the api module contains <code>app</code> object which is an Express server.</p>
-<p>Special module <code>app</code> or namespace is designated to be used fpr application developent. This module is available the same way as api or core
+<p>Special module/namespace <code>app</code> is designated to be used for application development/extension. This module is available the same way as the <code>api</code> or <code>core</code>
 which makes it easy to refer and extend with additional methods and structures.</p>
 <p>The typical structure of a backendjs application is the following (created by the bkjs init-app command):</p>
 <pre><code>        var bkjs = require(&#39;backendjs&#39;);
@@ -2190,7 +2190,7 @@ might be useful when desining, developing or choosing the API platform:</p>
 <li><code>api-no-session</code> - Disable cookie session support, all requests must be signed for Web clients</li>
 <li><code>api-session-age</code> - Session age in milliseconds, for cookie based authentication</li>
 <li><code>api-session-secret</code> - Secret for session cookies, session support enabled only if it is not empty</li>
-<li><code>api-query-token-secret</code> - Name of the property to be used for encrypting tokens for pagination..., any property from bk_auth can be used, if empty no secret is used, if not a valid property then it is used as the secret</li>
+<li><code>api-query-token-secret</code> - Name of the property to be used for encrypting tokens for pagination or other sensitive data, any property from bk_auth can be used, if empty no secret is used, if not a valid property then it is used as the secret</li>
 <li><code>api-app-header-name</code> - Name for the app name/version query parameter or header, it is can be used to tell the server about the application version</li>
 <li><code>api-version-header-name</code> - Name for the access version query parameter or header, this is the core protocol version that can be sent to specify which core functionality a client expects</li>
 <li><code>api-no-signature</code> - Disable signature verification for requests</li>
@@ -2504,7 +2504,9 @@ For security purposes this is the only place that translates special control que
 
 <ul>
 <li><p><code>api.getTokenSecret(req)</code></p>
-<p> Return a secret to be used for enrypting tokens</p>
+<p> Return a secret to be used for enrypting tokens, it uses the account property if configured or the global API token
+to be used to encrypt data and pass it to the clients. <code>-api-query-token-secret</code> can be configured and if a column in the <code>bk_auth</code>
+with such name exists it is used as a secret, otherwise the value of this property is used as a secret.</p>
 </li>
 </ul>
 
@@ -3570,8 +3572,8 @@ Example:</p>
 
 <ul>
 <li><p><code>core.init(options, callback)</code></p>
-<p> Main initialization, must be called prior to perform any actions.
-If options are given they may contain the following properties:</p>
+<p> Main initialization, must be called prior to perform any actions.</p>
+<p>If options are given they may contain the following properties:</p>
 <ul>
 <li>noDb - if true do not initialize database</li>
 <li>noConfigure - do not run all configure methods</li>
@@ -3672,8 +3674,8 @@ making it usable for repeating environments or storage solutions.</p>
 
 <ul>
 <li><p><code>core.createServer(options, callback)</code></p>
-<p> Create a Web server with options and request handler, returns a server object.
-Options can have the following properties:</p>
+<p> Create a Web server with options and request handler, returns a server object.</p>
+<p>Options can have the following properties:</p>
 <ul>
 <li>port - port number is required</li>
 <li>bind - address to bind</li>
@@ -3717,12 +3719,12 @@ Note: SIDE EFFECT: params object is modified in place so many options will be ch
 
 <ul>
 <li><p><code>core.sendRequest(options, callback)</code></p>
-<p> Make a request to the backend endpoint, save data in the queue in case of error, if data specified,
-POST request is made, if data is an object, it is converted into string.
-Returns params as in httpGet with .json property assigned with an object from parsed JSON response.
-<em>When used with API endpoints, the <code>backend-host</code> parameter must be set in the config or command line to the base URL of the backend,
-like <a href="http://localhost:8000">http://localhost:8000</a>, this is when <code>uri</code> is relative URL. Absolute URLs do not need this parameter.</em>
-Special parameters for options:</p>
+<p> Make a HTTP request using <code>httpGet</code> with ability to sign requests and returne parsed JSON payload as objects.</p>
+<p>The POST request is made, if data is an object, it is converted into string.</p>
+<p>Returns params as in <code>httpGet</code> with .json property assigned with an object from parsed JSON response.</p>
+<p><em>When used with API endpoints, the <code>backend-host</code> parameter must be set in the config or command line to the base URL of the backend,
+like <a href="http://localhost:8000">http://localhost:8000</a>, this is when <code>uri</code> is relative URL. Absolute URLs do not need this parameter.</em></p>
+<p>Special parameters for options:</p>
 <ul>
 <li>url - url if options is first argument</li>
 <li>login - login to use for access credentials instead of global credentials</li>
@@ -3775,7 +3777,8 @@ modules with the core it makes the module a first class citizen in the backendjs
 </code></pre>
 <ul>
 <li><p><code>core.loadModules(dir, options, callback)</code></p>
-<p> Dynamically load services from the specified directory. The modules are loaded using <code>require</code> as a normal nodejs module but in addition if the module exports
+<p> Dynamically load services from the specified directory.</p>
+<p>The modules are loaded using <code>require</code> as a normal nodejs module but in addition if the module exports
 <code>init</code> method it is called immediately with options passed as an argument. This is a synchronous function so it is supposed to be
 called on startup, not dynamically during a request processing. Only top level .js files are loaded, not subdirectories. <code>core.addModule</code> is called
 automatically.</p>
@@ -5421,6 +5424,20 @@ false
 <li><p><code>lib.toAge(mtime)</code></p>
 <p> Given time in msecs, return how long ago it happened</p>
 </li>
+</ul>
+
+<ul>
+<li><p><code>lib.toParams(query, schema, options)</code></p>
+<p> Process incoming query and convert parameters according to the type definition, the schema contains the definition of the paramaters against which to
+validate incoming data. It is an object where the properties are known types and propetrty value are names and type of the know parameters,
+all unknown parameters will be ignored. In the options it is possible to pass realtime or other custom options for the validation or convertion
+utilities as the first argument if not defined in the definition.</p>
+<p>Example:</p>
+<pre><code>  var account = lib.toParams(req.query, { number: [ &quot;id&quot;, count: { min: 1, max: 10, dflt: 5 } ],
+                                          string: [ &quot;name&quot;, &quot;descr&quot; ],
+                                          token: [ &quot;secret&quot; ],
+                                          list: [ &quot;phone&quot;, &quot;email&quot; ] }, { secret: req.account.secret })
+</code></pre></li>
 </ul>
 
 <ul>

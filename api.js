@@ -73,7 +73,7 @@ var api = {
            { name: "no-session", type: "bool", descr: "Disable cookie session support, all requests must be signed for Web clients" },
            { name: "session-age", type: "int", descr: "Session age in milliseconds, for cookie based authentication" },
            { name: "session-secret", descr: "Secret for session cookies, session support enabled only if it is not empty" },
-           { name: "query-token-secret", descr: "Name of the property to be used for encrypting tokens for pagination..., any property from bk_auth can be used, if empty no secret is used, if not a valid property then it is used as the secret" },
+           { name: "query-token-secret", descr: "Name of the property to be used for encrypting tokens for pagination or other sensitive data, any property from bk_auth can be used, if empty no secret is used, if not a valid property then it is used as the secret" },
            { name: "app-header-name", descr: "Name for the app name/version query parameter or header, it is can be used to tell the server about the application version" },
            { name: "version-header-name", descr: "Name for the access version query parameter or header, this is the core protocol version that can be sent to specify which core functionality a client expects" },
            { name: "no-signature", type: "bool", descr: "Disable signature verification for requests" },
@@ -1224,7 +1224,9 @@ api.getOptions = function(req)
     return req.options;
 }
 
-// Return a secret to be used for enrypting tokens
+// Return a secret to be used for enrypting tokens, it uses the account property if configured or the global API token
+// to be used to encrypt data and pass it to the clients. `-api-query-token-secret` can be configured and if a column in the `bk_auth`
+// with such name exists it is used as a secret, otherwise the value of this property is used as a secret.
 api.getTokenSecret = function(req)
 {
     if (!this.queryTokenSecret) return "";

@@ -251,6 +251,7 @@ var core = {
 module.exports = core;
 
 // Main initialization, must be called prior to perform any actions.
+//
 // If options are given they may contain the following properties:
 // - noDb - if true do not initialize database
 // - noConfigure - do not run all configure methods
@@ -796,6 +797,7 @@ core.processName = function()
 }
 
 // Create a Web server with options and request handler, returns a server object.
+//
 // Options can have the following properties:
 // - port - port number is required
 // - bind - address to bind
@@ -827,6 +829,7 @@ core.createServer = function(options, callback)
 }
 
 // Downloads file using HTTP and pass it to the callback if provided
+//
 // - uri can be full URL or an object with parts of the url, same format as in url.format
 // - params can contain the following options:
 //   - method - GET, POST
@@ -1063,11 +1066,15 @@ core.httpGet = function(uri, params, callback)
     return req;
 }
 
-// Make a request to the backend endpoint, save data in the queue in case of error, if data specified,
-// POST request is made, if data is an object, it is converted into string.
-// Returns params as in httpGet with .json property assigned with an object from parsed JSON response.
+// Make a HTTP request using `httpGet` with ability to sign requests and returne parsed JSON payload as objects.
+//
+// The POST request is made, if data is an object, it is converted into string.
+//
+// Returns params as in `httpGet` with .json property assigned with an object from parsed JSON response.
+//
 // *When used with API endpoints, the `backend-host` parameter must be set in the config or command line to the base URL of the backend,
 // like http://localhost:8000, this is when `uri` is relative URL. Absolute URLs do not need this parameter.*
+//
 // Special parameters for options:
 // - url - url if options is first argument
 // - login - login to use for access credentials instead of global credentials
@@ -1186,7 +1193,9 @@ core.addModule = function()
     }
 }
 
-// Dynamically load services from the specified directory. The modules are loaded using `require` as a normal nodejs module but in addition if the module exports
+// Dynamically load services from the specified directory.
+//
+// The modules are loaded using `require` as a normal nodejs module but in addition if the module exports
 // `init` method it is called immediately with options passed as an argument. This is a synchronous function so it is supposed to be
 // called on startup, not dynamically during a request processing. Only top level .js files are loaded, not subdirectories. `core.addModule` is called
 // automatically.

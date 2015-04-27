@@ -69,7 +69,7 @@ To force internal nanomsg and ImageMagick to be compiled in the module the follo
 
         npm install backendjs --backendjs_nanomsg --backendjs_imagemagick
 
-This may take some time because of compiling required dependencies like ImageMagick, nanomsg. They are not required in all
+This may take some time because of downloading and compiling required dependencies like ImageMagick, nanomsg. They are not required in all
 applications but still part of the core of the system to be available once needed.
 
 To install from the git
@@ -102,7 +102,7 @@ or simply
 
 * All commands above will behave exactly the same, all required tables will be automatically created
 
-* While the local backendjs is runnning the documentation is always available when the backend Web server is running at http://localhost:8000/doc.html
+* While the local backendjs is runnning, the documentation is always available at http://localhost:8000/doc.html (or whatever port is the server using)
 
 * Go to http://localhost:8000/api.html for the Web console to test API requests.
   For this example let's create an account, type and execute the following URLs in the Web console:
@@ -152,13 +152,14 @@ or simply
 * To see charts about accumulated metrics go to http://localhost:8000/metrics.html
 
 # Backend runtime
+
 When the backendjs server starts it spawns several processes the perform different tasks.
 
 There are 2 major tasks of the backend that can be run at the same time or in any combination:
 - a Web server (server) with Web workers (web)
 - a job scheduler (master)
 
-These features can be run standalone or under the guard of the monitor which tracks all running processes and restarted any failed one.
+These features can be run standalone or under the guard of the monitor which tracks all running processes and restarted any failed ones.
 
 This is the typical output from the ps command on Linux server:
 
@@ -168,7 +169,6 @@ This is the typical output from the ps command on Linux server:
     ec2-user    917  0.0  0.7 1072820 59008 ?  Sl   14:33   0:01 backendjs: web
     ec2-user    919  0.0  0.7 1072820 60792 ?  Sl   14:33   0:02 backendjs: web
 
-
 To enable any task a command line parameter must be provided, it cannot be specified in the config file. The `bkjs` utility supports several
 commands that simplify running the backend in different modes.
 
@@ -177,11 +177,12 @@ commands that simplify running the backend in different modes.
 - `bkjs run-server` - this command is supposed to be run at the server startup, it runs in the backgroud and the monitors all tasks,
    the command line parameters are: `-daemon -monitor -master -syslog`
 - `bkjs run` - this command runs the Web server and the job scheduler without any other parameters, all aditional parameters can be added in the command line, this command
-   is a barebone elper to be used with any other custom settings.
+   is a barebone helper to be used with any other custom settings.
 - `bkjs run-shell` or `bksh` - start backendjs shell, no API or Web server is initialized, only the database pools
 
 
 # Application structure
+
 The main puspose of the backendjs is to provide API to access the data, the data can be stored in the database or some other way
 but the access to that data will be over HTTP and returned back as JSON. This is default functionality but any custom application
 may return data in whatever format is required.
@@ -194,7 +195,7 @@ processing of the data is needed before sending it to the user, it is possible t
 
 When the API layer is initialized, the api module contains `app` object which is an Express server.
 
-Special module `app` or namespace is designated to be used fpr application developent. This module is available the same way as api or core
+Special module/namespace `app` is designated to be used for application development/extension. This module is available the same way as the `api` or `core`
 which makes it easy to refer and extend with additional methods and structures.
 
 The typical structure of a backendjs application is the following (created by the bkjs init-app command):
