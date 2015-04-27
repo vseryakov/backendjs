@@ -87,7 +87,7 @@ var api = {
            { name: "access-token-age", type: "int", descr: "Access tokens age in milliseconds, for API requests with access tokens only" },
            { name: "disable-session", type: "regexpobj", descr: "Disable access to API endpoints for Web sessions, must be signed properly" },
            { name: "allow-admin", type: "regexpobj", descr: "URLs which can be accessed by admin accounts only, can be partial urls or Regexp, this is a convenient option which registers `AuthCheck` callback for the given endpoints" },
-           { name: "allow-account-", type: "regexpobj", obj: "allow-account", descr: "URLs which can be accessed by specific account type only, can be partial urls or Regexp, this is a convenient option which registers AuthCheck callback for the given endpoints and only allow access to the specified account types" },
+           { name: "allow-account-([a-z]+)", type: "regexpobj", obj: "allow-account", descr: "URLs which can be accessed by specific account type only, can be partial urls or Regexp, this is a convenient option which registers AuthCheck callback for the given endpoints and only allow access to the specified account types" },
            { name: "express-enable", type: "list", descr: "Enable/set Express config option(s), can be a list of options separated by comma or pipe |, to set value user name=val,... to just enable use name,...." },
            { name: "allow", type: "regexpobj", set: 1, descr: "Regexp for URLs that dont need credentials, replace the whole access list" },
            { name: "allow-path", type: "regexpobj", key: "allow", descr: "Add to the list of allowed URL paths without authentication, return result before even checking for the signature" },
@@ -1534,6 +1534,11 @@ api.registerOAuthStrategy = function(strategy, options, callback)
     // Accessing internal properties is not good but this will save us an extra name to be passed arround
     if (!strategy._callbackURL) strategy._callbackURL = 'http://localhost:' + core.port + '/oauth/callback/' + strategy.name;
     passport.use(strategy);
+
+    // Make sure we allow oauth paths without authentication
+    if (!this.allow.rx.test("/oauth/")) {
+        this.allow = lib.toRegexpObj(this.allow, "^/oauth/");
+    }
 
     this.app.get('/oauth/' + strategy.name, passport.authenticate(strategy.name, options));
     this.app.get('/oauth/callback/' + strategy.name, function(req, res, next) {
