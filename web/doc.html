@@ -2178,7 +2178,10 @@ might be useful when desining, developing or choosing the API platform:</p>
 <li><code>api-images-s3-options</code> - S3 options to sign images urls, may have expires:, key:, secret: properties</li>
 <li><code>api-domain</code> - Regexp of the domains or hostnames to be served by the API, if not matched the requests will be only served by the other middleware configured in the Express and will bypass all registered routes</li>
 <li><code>api-files-s3</code> - S3 bucket name where to store files uploaded with the File API</li>
-<li><code>api-busy-latency</code> - Max time in ms for a request to wait in the queue, if exceeds this value server returns too busy error</li>
+<li><code>api-max-latency</code> - Max time in ms for a request to wait in the queue, if exceeds this value server returns too busy error</li>
+<li><code>api-max-cpu-util</code> - Max CPU utilization allowed, if exceeds this value server returns too busy error</li>
+<li><code>api-max-memory-heap</code> - Max number of bytes of V8 heap allowed, if exceeds this value server returns too busy error</li>
+<li><code>api-max-memory-rss</code> - Max number of bytes in RSS memory allowed, if exceeds this value server returns too busy error</li>
 <li><code>api-access-log</code> - File for access logging</li>
 <li><code>api-max-age</code> - Static content max age in milliseconds</li>
 <li><code>api-salt</code> - Salt to be used for scrambling credentials or other hashing activities</li>
