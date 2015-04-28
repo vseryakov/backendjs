@@ -96,24 +96,14 @@ var db = {
 
     // Config parameters
     args: [{ name: "pool", dns: 1, descr: "Default pool to be used for db access without explicit pool specified" },
+           { name: "name", key: "db-name", descr: "Default database name to be used for default connections in cases when no db is specified in the connection url" },
            { name: "no-cache-columns", type: "bool", descr: "Do not load column definitions from the database tables on startup, keep using in-app Javascript definitions only, in most cases caching columns is not required if tables are in sync between the app and the database" },
            { name: "no-init-tables", type: "regexp", novalue: ".+", descr: "Do not create tables in the database on startup and do not perform table upgrades for new columns, all tables are assumed to be created beforehand, this regexp will be applied to all pools if no pool-specific parameer defined" },
            { name: "cache-tables", array: 1, type: "list", descr: "List of tables that can be cached: bk_auth, bk_counter. This list defines which DB calls will cache data with currently configured cache. This is global for all db pools." },
            { name: "local", descr: "Local database pool for properties, cookies and other local instance only specific stuff" },
            { name: "config", descr: "Configuration database pool to be used to retrieve config parameters from the database, must be defined to use remote db for config parameters, set to `default` to use current default pool" },
            { name: "config-interval", type: "number", min: 0, descr: "Interval between loading configuration from the database configured with -db-config-type, in seconds, 0 disables refreshing config from the db" },
-           { name: "sqlite-pool(-[0-9]+)?", obj: 'poolNames', strip: "Pool", descr: "SQLite pool db name, absolute path or just a name for the db file created in var/" },
-           { name: "pgsql-pool(-[0-9]+)?", obj: 'poolNames', strip: "Pool", novalue: "postgresql://postgres@127.0.0.1/backend", descr: "PostgreSQL pool access url in the format: postgresql://[user:password@]hostname[:port]/db" },
-           { name: "mysql-pool(-[0-9]+)?", obj: 'poolNames', strip: "Pool", novalue: "mysql:///backend", descr: "MySQL pool access url in the format: mysql://[user:password@]hostname/db" },
-           { name: "dynamodb-pool(-[0-9]+)?", obj: 'poolNames', strip: "Pool", novalue: "default", descr: "DynamoDB endpoint url, a region or 'default' to use AWS account default region" },
-           { name: "mongodb-pool(-[0-9]+)?", obj: 'poolNames', strip: "Pool", novalue: "mongodb://127.0.0.1", descr: "MongoDB endpoint url in the format: mongodb://hostname[:port]/dbname" },
-           { name: "cassandra-pool(-[0-9]+)?", obj: 'poolNames', strip: "Pool", novalue: "cassandra://cassandra:cassandra@127.0.0.1/backend", descr: "Casandra endpoint url in the format: cql://[user:password@]hostname[:port]/dbname" },
-           { name: "lmdb-pool(-[0-9]+)?", obj: 'poolNames', strip: "Pool", descr: "Path to the local LMDB database" },
-           { name: "leveldb-pool(-[0-9]+)?", obj: 'poolNames', strip: "Pool", descr: "Path to the local LevelDB database" },
-           { name: "redis-pool(-[0-9]+)?", obj: 'poolNames', strip: "Pool", novalue: "127.0.0.1", descr: "Redis host" },
-           { name: "elasticsearch-pool(-[0-9]+)?", obj: 'poolNames', strip: "Pool", novalue: "127.0.0.1:9200", descr: "ElasticSearch url to the host in the format: http://hostname[:port]" },
-           { name: "couchdb-pool(-[0-9]+)?", obj: 'poolNames', strip: "Pool", novalue: "http://127.0.0.1/backend", descr: "CouchDB url to the host in the format: http://hostname[:port]/dbname" },
-           { name: "riak-pool(-[0-9]+)?", obj: 'poolNames', strip: "Pool", novalue: "http://127.0.0.1", descr: "Riak url to the host in the format: http://hostname[:port]" },
+           { name: "([a-z0-9]+)-pool(-[0-9]+)?", obj: 'poolNames', strip: "Pool", novalue: "default", descr: "A database pool name, depending on the driver it can be an URL, name or pathname, examples of db pools: ```-db-pgsql-pool, -db-dynamodb-pool```, examples of urls: ```postgresql://[user:password@]hostname[:port]/db, mysql://[user:password@]hostname/db, mongodb://hostname[:port]/dbname, cql://[user:password@]hostname[:port]/dbname```" },
            { name: "(.+)-pool-max(-[0-9]+)?", obj: 'poolParams', strip: "Pool", type: "number", min: 1, descr: "Max number of open connections for a pool, default is Infinity" },
            { name: "(.+)-pool-min(-[0-9]+)?", obj: 'poolParams', strip: "Pool", type: "number", min: 1, descr: "Min number of open connections for a pool" },
            { name: "(.+)-pool-idle(-[0-9]+)?", obj: 'poolParams', strip: "Pool", type: "number", min: 1000, descr: "Number of ms for a db pool connection to be idle before being destroyed" },
@@ -130,6 +120,9 @@ var db = {
     // Configuration parameters
     poolNames: { sqlite: "" },
     poolParams: { sqliteIdle: 900000 },
+
+    // Default database name
+    dbName: "backend",
 
     // Pools by table name
     poolTables: {},
