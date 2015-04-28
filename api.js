@@ -51,25 +51,21 @@ var utils = require(__dirname + '/build/Release/backend');
 //
 var api = {
 
-    // Tables required by the API endpoints
-    tables: {},
-
     // Config parameters
     args: [{ name: "images-url", descr: "URL where images are stored, for cases of central image server(s), must be full URL with optional path and trailing slash at the end" },
            { name: "images-s3", descr: "S3 bucket name where to store and retrieve images" },
            { name: "images-raw", type: "bool", descr: "Return raw urls for the images, requires images-url to be configured. The path will reflect the actual 2 level structure and account id in the image name" },
            { name: "images-s3-options", type:" json", descr: "S3 options to sign images urls, may have expires:, key:, secret: properties" },
-           { name: "domain", type: "regexp", descr: "Regexp of the domains or hostnames to be served by the API, if not matched the requests will be only served by the other middleware configured in the Express and will bypass all registered routes" },
            { name: "files-s3", descr: "S3 bucket name where to store files uploaded with the File API" },
            { name: "max-latency", type: "number", min: 11, descr: "Max time in ms for a request to wait in the queue, if exceeds this value server returns too busy error" },
            { name: "max-cpu-util", type: "number", min: 0, descr: "Max CPU utilization allowed, if exceeds this value server returns too busy error" },
            { name: "max-memory-heap", type: "number", min: 0, descr: "Max number of bytes of V8 heap allowed, if exceeds this value server returns too busy error" },
            { name: "max-memory-rss", type: "number", min: 0, descr: "Max number of bytes in RSS memory allowed, if exceeds this value server returns too busy error" },
-           { name: "access-log", descr: "File for access logging" },
+           { name: "no-access-log", type: "bool", descr: "Disable access logging in both file or syslog" },
+           { name: "access-log-file", descr: "File for access logging" },
            { name: "max-age", type: "int", descr: "Static content max age in milliseconds" },
            { name: "salt", descr: "Salt to be used for scrambling credentials or other hashing activities" },
            { name: "notifications", type: "bool", descr: "Initialize notifications in the API Web worker process to allow sending push notifications from the API handlers" },
-           { name: "no-access-log", type: "bool", descr: "Disable access logging in both file or syslog" },
            { name: "no-static", type: "bool", descr: "Disable static files from /web folder, no .js or .html files will be served by the server" },
            { name: "no-templating", type: "bool", descr: "Disable templating engine completely" },
            { name: "templating", descr: "Templating engne to use, see consolidate.js for supported engines, default is ejs" },
@@ -149,10 +145,13 @@ var api = {
     redirectUrl: [],
 
     // A list of regexp expresions for account pasword verification
-    secretPolicy: lib.toRegexpMap(null, { '[a-z]+': 'requires at least one lower case letter',
-                                              '[A-Z]+': 'requires at least one upper case letter',
-                                              '[0-9]+': 'requires at least one digit',
-                                              '.{6,}': 'requires at least 6 characters'  }),
+    secretPolicy: lib.toRegexpMap(null,
+                                  {
+                                      '[a-z]+': 'requires at least one lower case letter',
+                                      '[A-Z]+': 'requires at least one upper case letter',
+                                      '[0-9]+': 'requires at least one digit',
+                                      '.{6,}': 'requires at least 6 characters'
+                                  }),
 
     // Where images/file are kept
     imagesUrl: '',
@@ -336,85 +335,43 @@ api.init = function(options, callback)
         next();
     });
 
-    // Access log via file or syslog
-    if (logger.syslog) {
-        self.accesslog = new stream.Stream();
-        self.accesslog.writable = true;
-        self.accesslog.write = function(data) { logger.printSyslog('info:local5', data); return true; };
-    } else
-    if (self.accessLog) {
-        self.accesslog = fs.createWriteStream(path.join(core.path.log, self.accessLog), { flags: 'a' });
-        self.accesslog.on('error', function(err) { logger.error('accesslog:', err); self.accesslog = logger; })
-    } else {
-        self.accesslog = logger;
+    // Acccess logging, always goes into api.accessLog, it must be a stream
+    if (!self.noAccessLog) {
+        self.configureAccessLog();
+
+        self.app.use(function(req, res, next) {
+            req._startTime = new Date;
+            var end = res.end;
+            res.end = function(chunk, encoding) {
+                res.end = end;
+                res.end(chunk, encoding);
+                if (!self.accessLog) return;
+                var now = new Date();
+                var line = req.options.ip + " - " +
+                        (logger.syslog ? "-" : '[' +  now.toUTCString() + ']') + " " +
+                        req.method + " " +
+                        (req.accessLogUrl || req.originalUrl || req.url) + " " +
+                        (req.httpProtocol || "HTTP") + "/" + req.httpVersionMajor + "/" + req.httpVersionMinor + " " +
+                        res.statusCode + " " +
+                        (res.get("Content-Length") || '-') + " - " +
+                        (now - req._startTime) + " ms - " +
+                        (req.headers[self.appHeaderName] || req.headers['user-agent'] || "-") + " " +
+                        (req.account.id || "-" ) + "\n";
+                self.accessLog.write(line);
+            }
+            next();
+        });
     }
 
-    self.app.use(function(req, res, next) {
-        if (self.noAccessLog || req._accessLog) return next();
-        req._accessLog = true;
-        req._startTime = new Date;
-        var end = res.end;
-        res.end = function(chunk, encoding) {
-            res.end = end;
-            res.end(chunk, encoding);
-            var now = new Date();
-            var line = req.options.ip + " - " +
-                       (logger.syslog ? "-" : '[' +  now.toUTCString() + ']') + " " +
-                       req.method + " " +
-                       (req.accessLogUrl || req.originalUrl || req.url) + " " +
-                       (req.httpProtocol || "HTTP") + "/" + req.httpVersionMajor + "/" + req.httpVersionMinor + " " +
-                       res.statusCode + " " +
-                       (res.get("Content-Length") || '-') + " - " +
-                       (now - req._startTime) + " ms - " +
-                       (req.headers[self.appHeaderName] || req.headers['user-agent'] || "-") + " " +
-                       (req.account.id || "-" ) + "\n";
-            self.accesslog.write(line);
-        }
-        next();
-    });
-
-    // Early path checks not related to account or session
+    // Redirect before processing the request
     self.app.use(function(req, res, next) {
         var location = self.checkRedirect(req, req.options);
+        if (location) return self.sendStatus(res, location);
         next();
     });
 
     // Metrics starts early, always enabled
-    self.app.use(function(req, res, next) {
-        var path = "url_" + req.options.apath.slice(0, self.urlMetrics[req.options.apath[0]] || 2).join("_");
-        self.metrics.Histogram('api_que').update(self.metrics.Counter('api_nreq').inc());
-        req.metric1 = self.metrics.Timer('api_req').start();
-        req.metric2 = self.metrics.Timer(path).start();
-        self.metrics.Counter(path +'_0').inc();
-        var end = res.end;
-        res.end = function(chunk, encoding) {
-            res.end = end;
-            res.end(chunk, encoding);
-            self.metrics.Counter('api_nreq').dec();
-            self.metrics.Counter("api_req_0").inc();
-            if (res.statusCode >= 400 && res.statusCode < 500) self.metrics.Counter("api_bad_0").inc();
-            if (res.statusCode >= 500) self.metrics.Counter("api_errors_0").inc();
-            self.metrics.Counter("api_" + res.statusCode + "_0").inc();
-            req.metric1.end();
-            req.metric2.end();
-            // Ignore external or not handled urls
-            if (req._noRoute || req._noSignature) {
-                delete self.metrics[path];
-                delete self.metrics[path + '_0'];
-            }
-            // Call cleanup hooks
-            var hooks = self.findHook('cleanup', req.method, req.options.path);
-            lib.forEachSeries(hooks, function(hook, next) {
-                logger.debug('cleanup:', req.method, req.options.path, hook.path);
-                hook.callback.call(self, req, function() { next() });
-            }, function() {
-                // Cleanup request explicitely
-                for (var p in req.options) delete req.options[p];
-                for (var p in req.account) delete req.account[p];
-            });
-        }
-        next();
-    });
+    self.app.use(function(req, res, next) { return self.handleMetrics(req, res, next); });
 
     // Request parsers
     self.app.use(cookieParser());
@@ -428,11 +385,7 @@ api.init = function(options, callback)
 
     // Check the signature, for virtual hosting, supports only the simple case when running the API and static web sites on the same server
     if (!self.noSignature) {
-        self.app.use(function(req, res, next) {
-            if (!self.domain || req.options.host.match(self.domain)) return self.checkRequest(req, res, next);
-            req._noRouter = 1;
-            next();
-        });
+        self.app.use(function(req, res, next) { return self.checkRequest(req, res, next); });
     }
 
     // Config options for Express
@@ -459,47 +412,40 @@ api.init = function(options, callback)
             });
         });
 
-        // Custom routes, process routes only if allowed in the current request session
-        var router = self.app.router;
-        self.app.use(function(req, res, next) {
-            if (req._noRouter) return next();
-            return router(req, res, next);
-        });
-
-        // No API routes matched, cleanup stats
-        self.app.use(function(req, res, next) {
-            req._noRoute = 1;
-            next();
-        });
-
-        // Templating engine setup
-        if (!self.noTemplating) {
-            self.app.engine('html', consolidate[self.templating || 'ejs']);
-            self.app.set('view engine', 'html');
-            // Use app specific views path if created even if it is empty
-            self.app.set('views', core.path.views ||
-                         (fs.existsSync(core.home + "/views") ? core.home + "/views" :
-                          fs.existsSync(core.path.web + "/../views") ? core.path.web + "/../views" : __dirname + '/views'));
-        }
-
-        // Serve from default web location in the package or from application specific location
-        if (!self.noStatic) {
-            self.app.use(serveStatic(core.path.web, { maxAge: self.staticAge }));
-            self.app.use(serveStatic(__dirname + "/web", { maxAge: self.staticAge }));
-        }
-
-        // Default error handler to show errors in the log
-        self.app.use(function(err, req, res, next) {
-            logger.error('app:', req.options.path, err, err.stack);
-            self.sendReply(res, err);
-        });
-
         // Default API calls
         self.configureDefaultAPI();
 
         // Setup routes from the loaded modules
         core.runMethods("configureWeb", options, function(err) {
             if (err) return callback.call(self, err);
+
+            // No API routes matched, cleanup stats
+            self.app.use(function(req, res, next) {
+                req._noRoute = 1;
+                next();
+            });
+
+            // Templating engine setup
+            if (!self.noTemplating) {
+                self.app.engine('html', consolidate[self.templating || 'ejs']);
+                self.app.set('view engine', 'html');
+                // Use app specific views path if created even if it is empty
+                self.app.set('views', core.path.views ||
+                             (fs.existsSync(core.home + "/views") ? core.home + "/views" :
+                              fs.existsSync(core.path.web + "/../views") ? core.path.web + "/../views" : __dirname + '/views'));
+            }
+
+            // Serve from default web location in the package or from application specific location
+            if (!self.noStatic) {
+                self.app.use(serveStatic(core.path.web, { maxAge: self.staticAge }));
+                self.app.use(serveStatic(__dirname + "/web", { maxAge: self.staticAge }));
+            }
+
+            // Default error handler to show errors in the log
+            self.app.use(function(err, req, res, next) {
+                logger.error('app:', req.options.path, err, err.stack);
+                self.sendReply(res, err);
+            });
 
             // Start http server
             if (core.port) {
@@ -580,6 +526,23 @@ api.configureWorker = function(options, callback)
 api.configureShell = function(options, callback)
 {
     db.initTables(options, callback);
+}
+
+// Setup access log stream
+api.configureAccessLog = function()
+{
+    var self = this;
+    if (logger.syslog) {
+        this.accessLog = new stream.Stream();
+        this.accessLog.writable = true;
+        this.accessLog.write = function(data) { logger.printSyslog('info:local5', data); return true; };
+    } else
+    if (this.accessLogFile) {
+        this.accessLog = fs.createWriteStream(path.join(core.path.log, this.accessLogFile), { flags: 'a' });
+        this.accessLog.on('error', function(err) { logger.error('accessLog:', err); self.accessLog = null; });
+    } else {
+        this.accessLog = logger;
+    }
 }
 
 // Start Express middleware processing wrapped in the node domain
@@ -698,6 +661,48 @@ api.prepareRequest = function(req)
     var host = (req.get('X-Forwarded-Host') || req.get('Host') || "").split(":");
     req.options = { ops: {}, noscan: 1, ip: ip, host: host[0], port: host[1] || null, path: path, apath: apath, secure: req.secure, cleanup: "bk_" + apath[0] };
     req.account = {};
+}
+
+// This is supposed to be called at beginning of the request processing to start metrics and install the handler which
+// will be called at the end to finalize the metrics and call cleanup handlers
+api.handleMetrics = function(req, res, next)
+{
+    var self = this;
+    var path = "url_" + req.options.apath.slice(0, this.urlMetrics[req.options.apath[0]] || 2).join("_");
+    this.metrics.Histogram('api_que').update(this.metrics.Counter('api_nreq').inc());
+    req.metric1 = self.metrics.Timer('api_req').start();
+    req.metric2 = self.metrics.Timer(path).start();
+    this.metrics.Counter(path +'_0').inc();
+    var end = res.end;
+    res.end = function(chunk, encoding) {
+        res.end = end;
+        res.end(chunk, encoding);
+        self.metrics.Counter('api_nreq').dec();
+        self.metrics.Counter("api_req_0").inc();
+        if (res.statusCode >= 400 && res.statusCode < 500) self.metrics.Counter("api_bad_0").inc();
+        if (res.statusCode >= 500) self.metrics.Counter("api_errors_0").inc();
+        self.metrics.Counter("api_" + res.statusCode + "_0").inc();
+        req.metric1.end();
+        req.metric2.end();
+
+        // Ignore external or not handled urls
+        if (req._noRoute || req._noSignature) {
+            delete self.metrics[path];
+            delete self.metrics[path + '_0'];
+        }
+
+        // Call cleanup hooks
+        var hooks = self.findHook('cleanup', req.method, req.options.path);
+        lib.forEachSeries(hooks, function(hook, next) {
+            logger.debug('cleanup:', req.method, req.options.path, hook.path);
+            hook.callback.call(self, req, function() { next() });
+        }, function() {
+            // Cleanup request explicitely
+            for (var p in req.options) delete req.options[p];
+            for (var p in req.account) delete req.account[p];
+        });
+    }
+    next();
 }
 
 // Perform authorization of the incoming request for access and permissions

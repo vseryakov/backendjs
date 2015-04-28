@@ -316,10 +316,10 @@ lib.toParams = function(query, schema, options)
             p = "_" + x;
             switch (type) {
             case "boolean":
-                if (!a || typeof query[p] != "undefined") rc[x] = self.toBool(query[p], a);
+                if (a || typeof query[p] != "undefined") rc[x] = self.toBool(query[p], a);
                 break;
             case "number":
-                if (!a || typeof query[p] != "undefined") rc[x] = self.toNumber(query[p], a);
+                if (a || typeof query[p] != "undefined") rc[x] = self.toNumber(query[p], a);
                 break;
             case "list":
                 if (query[p]) rc[x] = self.strSplit(query[p], a, b);
