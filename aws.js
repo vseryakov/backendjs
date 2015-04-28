@@ -2160,11 +2160,17 @@ aws.ddbQueryTable = function(name, condition, options, callback)
     if (options.total) {
         params.Select = "COUNT";
     }
+    if (typeof condition == "string") {
+        params.KeyConditionExpression = condition;
+    } else
     if (Array.isArray(options.keys)) {
         var keys = Object.keys(condition).filter(function(x) { return options.keys.indexOf(x) > -1}).reduce(function(x,y) {x[y] = condition[y]; return x; }, {});
         var filter = Object.keys(condition).filter(function(x) { return options.keys.indexOf(x) == -1}).reduce(function(x,y) {x[y] = condition[y]; return x; }, {});
         params.KeyConditions = this.queryFilter(keys, options);
         params.QueryFilter = this.queryFilter(filter, options);
+    } else
+    if (lib.isObject(options.keys)) {
+        params.KeyConditionExpression = this.queryExpression(options.keys, options);
     } else {
         params.KeyConditions = this.queryFilter(condition, options);
     }

@@ -406,7 +406,7 @@ api.init = function(options, callback)
             var hooks = self.findHook('cleanup', req.method, req.options.path);
             lib.forEachSeries(hooks, function(hook, next) {
                 logger.debug('cleanup:', req.method, req.options.path, hook.path);
-                hook.callbacks.call(self, req, function() { next() });
+                hook.callback.call(self, req, function() { next() });
             }, function() {
                 // Cleanup request explicitely
                 for (var p in req.options) delete req.options[p];
@@ -862,7 +862,7 @@ api.checkAccess = function(req, callback)
     if (hooks.length) {
         lib.forEachSeries(hooks, function(hook, next) {
             logger.debug('checkAccess:', req.method, req.options.path, hook.path);
-            hook.callbacks.call(self, req, next);
+            hook.callback.call(self, req, next);
         }, callback);
         return;
     }
@@ -899,7 +899,7 @@ api.checkAuthorization = function(req, status, callback)
     if (hooks.length) {
         lib.forEachSeries(hooks, function(hook, next) {
             logger.debug('checkAuthorization:', req.method, req.options.path, hook.path, req.account.id);
-            hook.callbacks.call(self, req, status, function(err) {
+            hook.callback.call(self, req, status, function(err) {
                 if (err && err.status != 200) return next(err);
                 next();
             });
@@ -1357,10 +1357,12 @@ api.clearQuery = function(query, options, table, name)
 api.findHook = function(type, method, path)
 {
     var hooks = [];
-    var routes = this.hooks[type];
+    var bucket = type;
+    var routes = this.hooks[bucket];
     if (!routes) return hooks;
+    method = method.toLowerCase();
     for (var i = 0; i < routes.length; ++i) {
-        if ((!routes[i].method || routes[i].method == method) && routes[i].match(path)) {
+        if ((!routes[i].method || routes[i].method == method) && routes[i].path.test(path)) {
             hooks.push(routes[i]);
         }
     }
@@ -1370,10 +1372,13 @@ api.findHook = function(type, method, path)
 // Register a hook callback for the type and method and request url, if already exists does nothing.
 api.addHook = function(type, method, path, callback)
 {
+    var bucket = type;
     var hooks = this.findHook(type, method, path);
-    if (hooks.some(function(x) { return x.method == method && x.path == path })) return false;
-    if (!this.hooks[type]) this.hooks[type] = [];
-    this.hooks[type].push(new express.Route(method, path, callback));
+    if (hooks.some(function(x) { return x.method == method && String(x.path) === String(path) })) return false;
+    var rx = util.isRegExp(path) ? path : new RegExp("^" + path + "$");
+    if (!this.hooks[bucket]) this.hooks[bucket] = [];
+    this.hooks[bucket].push({ method: method.toLowerCase(), path: rx, callback: callback });
+    logger.debug("addHook:", type, method, path);
     return true;
 }
 
@@ -1580,7 +1585,7 @@ api.sendJSON = function(req, err, rows)
     var sent = 0;
     var hooks = this.findHook('post', req.method, req.options.path);
     lib.forEachSeries(hooks, function(hook, next) {
-        try { sent = hook.callbacks.call(self, req, req.res, rows); } catch(e) { logger.error('sendJSON:', req.options.path, e.stack); }
+        try { sent = hook.callback.call(self, req, req.res, rows); } catch(e) { logger.error('sendJSON:', req.options.path, e.stack); }
         logger.debug('sendJSON:', req.method, req.options.path, hook.path, 'sent:', sent || req.res.headersSent, 'cleanup:', req.options.cleanup);
         next(sent || req.res.headersSent);
     }, function(err) {
