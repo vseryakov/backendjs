@@ -63,10 +63,10 @@ var api = {
            { name: "max-memory-rss", type: "number", min: 0, descr: "Max number of bytes in RSS memory allowed, if exceeds this value server returns too busy error" },
            { name: "no-access-log", type: "bool", descr: "Disable access logging in both file or syslog" },
            { name: "access-log-file", descr: "File for access logging" },
-           { name: "max-age", type: "int", descr: "Static content max age in milliseconds" },
            { name: "salt", descr: "Salt to be used for scrambling credentials or other hashing activities" },
            { name: "notifications", type: "bool", descr: "Initialize notifications in the API Web worker process to allow sending push notifications from the API handlers" },
            { name: "no-static", type: "bool", descr: "Disable static files from /web folder, no .js or .html files will be served by the server" },
+           { name: "static-options", type: "json", descr: "Options to be passed to the serve-static module for static content handling" },
            { name: "no-templating", type: "bool", descr: "Disable templating engine completely" },
            { name: "templating", descr: "Templating engne to use, see consolidate.js for supported engines, default is ejs" },
            { name: "no-session", type: "bool", descr: "Disable cookie session support, all requests must be signed for Web clients" },
@@ -173,8 +173,8 @@ var api = {
     // Collect body MIME types as binary blobs
     mimeBody: [],
 
-    // Static content cache age
-    maxAge: 86400000,
+    // Static content options
+    staticOptions: { maxAge: 86400000 },
 
     // Web session age
     sessionAge: 86400 * 14 * 1000,
@@ -437,8 +437,8 @@ api.init = function(options, callback)
 
             // Serve from default web location in the package or from application specific location
             if (!self.noStatic) {
-                self.app.use(serveStatic(core.path.web, { maxAge: self.staticAge }));
-                self.app.use(serveStatic(__dirname + "/web", { maxAge: self.staticAge }));
+                self.app.use(serveStatic(core.path.web, self.staticOptions));
+                self.app.use(serveStatic(__dirname + "/web", self.staticOptions));
             }
 
             // Default error handler to show errors in the log
