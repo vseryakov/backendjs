@@ -192,7 +192,9 @@ ipc.handleServerMessages = function(worker, msg)
         case 'get':
             if (Array.isArray(msg.name)) {
                 msg.value = {};
-                msg.name.forEach(function(x) { msg.value[x] = utils.lruGet(x); });
+                for (var i = 0; i < msg.name.length; i++) {
+                    msg.value[msg.name[i]] = utils.lruGet(msg.name[i]);
+                }
             } else
             if (msg.name) {
                 msg.value = utils.lruGet(msg.name);

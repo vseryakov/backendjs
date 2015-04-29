@@ -240,7 +240,7 @@ var api = {
         // Numeric parameters to be passed to lib.toNumber
         number: [
             "width", "height", "quality", "round", "interval",
-            { count: { float: 0, dflt: 50, min: 0 } },
+            { count: { float: 0, dflt: 25, min: 0 } },
             { page: { float: 0, dflt: 0, min: 0 } },
         ],
         // Timestamps
@@ -1313,16 +1313,18 @@ api.checkResultColumns = function(table, rows, options)
 {
     if (!table || !rows) return;
     if (!options) options = {};
-    var cols = {};
+    var cols = {}, row;
     var admin = this.checkAccountType(options, "admin");
-    lib.strSplit(table).forEach(function(x) {
-        var c = db.getColumns(x, options);
+    var tables = lib.strSplit(table);
+    for (var i = 0; i < tables.length; i++) {
+        var c = db.getColumns(tables[i], options);
         for (var p in c) cols[p] = c[p].pub ? 1 : c[p].secure ? -1 : c[p].admin ? admin : 0;
-    });
+    }
     if (!Array.isArray(rows)) rows = [ rows ];
     logger.debug("checkResultColumns:", table, cols, rows.length, options);
-    rows.forEach(function(row) {
+    for (var i = 0; i < rows.length; i++) {
         // For personal records, skip only special columns
+        row = rows[i];
         var owner = options.account && options.account.id == row[options.account_key || 'id'];
         for (var p in row) {
             if (typeof cols[p] == "undefined") {
@@ -1333,7 +1335,7 @@ api.checkResultColumns = function(table, rows, options)
             if (owner && cols[p] < 0) delete row[p];
             if (!owner && cols[p] <= 0) delete row[p];
         }
-    });
+    }
 }
 
 // Clear request query properties specified in the table definition, if any columns for the table contains the property `name` nonempty, then
@@ -1630,11 +1632,11 @@ api.sendFormatted = function(req, err, data, options)
         var xml = "<data>\n";
         if (data.next_token) xml += "<next_token>" + data.next_token + "</next_token>\n";
         var rows = Array.isArray(data) ? data : (data.data || []);
-        rows.forEach(function(x) {
+        for (var i = 0; i < rows.length; i++) {
             xml += "<row>\n";
-            for (var y in x) xml += "<" + y + ">" + String(x[y]).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/'/g, '&apos;').replace(/"/g, '&quot;') + "</" + y + ">\n";
+            for (var y in rows[i]) xml += "<" + y + ">" + String(x[y]).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/'/g, '&apos;').replace(/"/g, '&quot;') + "</" + y + ">\n";
             xml += "</row>\n";
-        });
+        }
         xml += "</data>";
         req.res.set('Content-Type', 'application/xml');
         req.res.send(200, xml);
@@ -1644,7 +1646,9 @@ api.sendFormatted = function(req, err, data, options)
         if (req.options.cleanup) this.checkResultColumns(req.options.cleanup, data.count && data.data ? data.data : data, req.options);
         var rows = Array.isArray(data) ? data : (data.data || []);
         var csv = Object.keys(rows[0]).join(options.separator || "|") + "\n";
-        rows.forEach(function(x) { csv += Object.keys(x).map(function(y) { return x[y]} ).join(options.separator || "|") + "\n"; });
+        for (var i = 0; i < rows.length; i++) {
+            csv += Object.keys(rows[i]).map(function(y) { return rows[i][y]} ).join(options.separator || "|") + "\n";
+        }
         req.res.set('Content-Type', 'text/plain');
         req.res.send(200, csv);
         break;

@@ -1773,27 +1773,29 @@ db.convertRows = function(pool, op, table, rows, options)
     if (!pool) pool = this.getPool(table, options);
     var cols = pool.dbcolumns[table.toLowerCase()] || {};
     for (var p in cols) {
-        var col = cols[p];
+        var col = cols[p], row;
         // Convert from JSON type
         if (options.noJson && col.type == "json") {
-            rows.forEach(function(row) {
+            for (var i = 0; i < rows.length; i++) {
+                row = rows[i];
                 if (typeof row[p] == "string" && row[p]) row[p] = lib.jsonParse(row[p], { logging : 1 });
-            });
+            }
         }
         // Split into a list
         if (col.list) {
-            rows.forEach(function(row) {
-                row[p] = lib.strSplit(row[p]);
-            });
+            for (var i = 0; i < rows.length; i++) {
+                rows[i][p] = lib.strSplit(rows[i][p]);
+            }
         }
         // Extract joined values and place into separate columns
         if (Array.isArray(col.join)) {
-            rows.forEach(function(row) {
+            for (var i = 0; i < rows.length; i++) {
+                row = rows[i];
                 if (typeof row[p] == "string" && row[p].indexOf(self.separator) > -1) {
                     var v = row[p].split(self.separator);
                     if (v.length == col.join.length) col.join.forEach(function(x, i) { row[x] = v[i]; });
                 }
-            });
+            }
         }
     }
     return rows;
