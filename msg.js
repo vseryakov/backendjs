@@ -116,7 +116,7 @@ msg.send = function(options, callback)
 {
     var self = this;
     if (typeof callback != "function") callback = lib.noop;
-    if (!options || !options.device_id) return callback ? callback("invalid device or options") : null;
+    if (!options || !options.device_id) return callback ? callback(new Error("invalid device or options")) : null;
 
     // Queue to the publish server
     if (this.notificationQueue) {
@@ -134,6 +134,7 @@ msg.send = function(options, callback)
             var d = device_id.match(/^([^:]+)\:\/\/(.+)$/);
             if (d) service = d[1], device_id = d[2];
         }
+        if (!device_id) return next();
         logger.dev("send:", service, device_id, options.id || "");
         switch (service) {
         case "gcm":
@@ -170,10 +171,12 @@ msg.initAPN = function()
     this.apnAgent = new apnagent.Agent();
     this.apnAgent.set('pfx file', this.apnCert);
     this.apnAgent.enable(this.apnProduction || this.apnCert.indexOf("production") > -1 ? 'production' : 'sandbox');
-    this.apnAgent.on('message:error', function(err, msg) { logger[err && err.code != 10 && err.code != 8 ? "error" : "log"]('apn:message:', err, msg) });
+    this.apnAgent.on('message:error', function(err, msg) { logger[err && err.code != 10 && err.code != 8 ? "error" : "log"]('apn:message:', err, util.inspect(msg, {depth: 6})) });
     this.apnAgent.on('gateway:error', function(err) { logger[err && err.code != 10 && err.code != 8 ? "error" : "log"]('apn:gateway:', err) });
     this.apnAgent.on('gateway:close', function(err) { logger.log('apn: closed') });
     this.apnAgent.connect(function(err) { logger[err ? "error" : "log"]('apn:', err || "connected"); });
+    this.apnAgent.decoder.on("error", function(err) { logger.error('apn:decoder:', err); });
+
     // A posible workaround for the queue being stuck and not sending anything
     this.apnTimeout = setInterval(function() { self.apnAgent.queue.process() }, 3000);
     this.apnSent = 0;

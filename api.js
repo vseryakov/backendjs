@@ -1680,7 +1680,7 @@ api.sendStatus = function(res, options)
                 res.type(type);
                 res.send(options.status, options.message || "");
             } else {
-                res.json(options.status, options);
+                res.status(options.status).json(options);
             }
         }
     } catch(e) {

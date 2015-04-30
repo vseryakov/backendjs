@@ -1070,11 +1070,11 @@ lib.isEmpty = function(val)
 
 // Return a new Error object, options can be a string which will create an error with a message only
 // or an object with message, code, status, and name properties to build full error
-lib.newError = function(options)
+lib.newError = function(options, status)
 {
-    if (typeof options == "string") options = { message: options };
+    if (typeof options == "string") options = { status: status || 400, message: options };
     if (!options) options = {};
-    var err = new Error(options.message || "Unknown error");
+    var err = new Error(options.message || "Internal error");
     if (options.name) err.name = options.name;
     if (options.code) err.code = options.code;
     if (options.status) err.status = options.status;
