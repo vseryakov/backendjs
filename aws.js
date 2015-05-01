@@ -1880,7 +1880,7 @@ aws.ddbUpdateItem = function(name, keys, item, options, callback)
         var c = 0, d = 0, names = {}, values = {}, actions = { SET: [], REMOVE: [], ADD: [], DELETE: [] };
         for (var p in item) {
             if (params.Key[p]) continue;
-            var val = item[p];
+            var val = item[p], colname = p;
             if (this.ddbReserved[p.toUpperCase()]) {
                 names["#c" + c] = p;
                 p = "#c" + c++;
@@ -1904,7 +1904,7 @@ aws.ddbUpdateItem = function(name, keys, item, options, callback)
                     }
 
                 default:
-                    var op = (options.action && options.action[p]) || 'SET';
+                    var op = (options.action && options.action[colname]) || 'SET';
                     if (!actions[op]) break;
                     switch (op) {
                     case "ADD":
