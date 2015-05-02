@@ -257,14 +257,17 @@ methods.
 
 Let's assume the modules/ contains file facebook.js which implements custom FB logic:
 
+```javascript
      var bkjs = require("backendjs");
      var fb = {}
      module.exports = fb;
      fb.configureWeb = function(options, callback) {
      }
+```
 
 This is the main app code:
 
+```javascript
     var bkjs = require("backendjs");
     var core = bkjs.core;
     var fb;
@@ -279,6 +282,7 @@ This is the main app code:
     });
 
     bkj.server.start()
+```
 
 # Database schema definition
 
@@ -292,6 +296,7 @@ Before the tables can be queried the schema must be defined and created, the bac
 - first the table needs to be described, this is achieved by creating a Javascript object with properties describing each column, multiple tables can be described
   at the same time, for example lets define album table and make sure it exists when we run our application:
 
+```javascript
         db.describeTables({
            album: {
                id: { primary: 1 },                         // Primary key for an album
@@ -305,6 +310,7 @@ Before the tables can be queried the schema must be defined and created, the bac
                mtime: { type: "bigint" }
            }
         });
+```
 
 - the system will automatically create the album and photos tables, this definition must remain in the app source code
   and be called on every app startup. This allows 1) to see the db schema while working with the app and 2) easily maintain it by adding new columns if
@@ -328,6 +334,7 @@ and all properties not defined and configured are passed as is.
 The cleanup of the public columns is done by the `api.sendJSON` which is used by all API routes when ready to send data back to the client. If any postprocess
 hooks are registered and return data itself then it is the hook responsibility to cleanup non-public columns.
 
+```javascript
     db.describeTables({
         bk_account: {
             gender: { pub: 1 },
@@ -349,6 +356,7 @@ hooks are registered and return data itself then it is the hook responsibility t
     {
        if (row.birthday) row.age = Math.floor((Date.now() - core.toDate(row.birthday))/(86400000*365));
     }
+```
 
 # Example of TODO application
 
@@ -357,6 +365,7 @@ operations like add/update/delete a record, show all records.
 
 Create a file named `app.js` with the code below.
 
+```javascript
     var bkjs = require('backendjs');
     var api = bkjs.api;
     var lib = bkjs.lib;
@@ -407,7 +416,7 @@ Create a file named `app.js` with the code below.
         callback();
      }
      bkjs.server.start();
-
+```
 
 Now run it with an option to allow API access without an account:
 
@@ -1799,6 +1808,7 @@ during the initialization on every html page, it will enable Web sessions for th
 The typical client Javascript verification for the html page may look like this, it will redirect to login page if needed,
 this assumes the default path '/public' still allowed without the signature:
 
+```javascript
         <script src="/js/jquery.js"></script>
         <link href="/css/bootstrap.css" rel="stylesheet">
         <script src="/js/bootstrap.js"></script>
@@ -1814,6 +1824,7 @@ this assumes the default path '/public' still allowed without the signature:
             Bkjs.koInit();
         });
         </script>
+```
 
 ## Secure Web site, backend verification
 On the backend side in your application app.js it needs more secure settings defined i.e. no html except /public will be accessible and
@@ -1822,17 +1833,19 @@ html pages to work after login without singing every API request.
 
 1. We disable all allowed paths to the html and registration:
 
+```javascript
         app.configureMiddleware = function(options, callback) {
             self.allow.splice(self.allow.indexOf('^/$'), 1);
             self.allow.splice(self.allow.indexOf('\\.html$'), 1);
             self.allow.splice(self.allow.indexOf('^/account/add$'), 1);
             callback();
         }
-
+```
 
 2. We define an auth callback in the app and redirect to login if the reauest has no valid signature, we check all html pages, all allowed html pages from the /public
 will never end up in this callback because it is called after the signature check but allowed pages are served before that:
 
+```javascript
         api.registerPreProcess('', /^\/$|\.html$/, function(req, status, callback) {
             if (status.status != 200) {
                 status.status = 302;
@@ -1840,6 +1853,7 @@ will never end up in this callback because it is called after the signature chec
             }
             callback(status);
         });
+```
 
 # WebSockets connections
 
@@ -1870,6 +1884,7 @@ tools ready to use that will allow to implement such versioning system in the ba
   All API routes are defined using Express middleware and one of the possible ways of dealing with different versions can look like this, by
   appending version to the command it is very simple to call only changed API code.
 
+```javascript
           api.all(/\/domain\/(get|put|del)/, function(req, res) {
               var options = api.getOptions(req);
               var cmd = req.params[0];
@@ -1891,6 +1906,7 @@ tools ready to use that will allow to implement such versioning system in the ba
                   break;
               }
           });
+```
 
 - Application semver support
   For cases when applications support Semver kind of versioning and it may be too many releases the method above still can be used while the number of versions is
@@ -1899,6 +1915,7 @@ tools ready to use that will allow to implement such versioning system in the ba
   The application version `bk-app` can be supplied in the query or as a header  or in the user-agent HTTP header which is the easiest case for mobile apps.
   In the middlware, the code can look like this:
 
+```javascript
         var options = api.getOptions(req);
         var version = lib.toVersion(options.appVersion);
         switch (req.params[0]) {
@@ -1914,6 +1931,7 @@ tools ready to use that will allow to implement such versioning system in the ba
             res.json({ id: 1, name: "name", descr: "descr" });
             break;
         }
+```
 
 The actual implementation can be modularized, split into functions, controllers.... there are no restrictions how to build the working backend code,
 the backend just provides all necessary information for the middleware modules.

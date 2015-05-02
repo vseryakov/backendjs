@@ -321,54 +321,57 @@ modules to load or to ignore see command line parameters <code>-deny-modules</co
 can be shipped regardless of the npm, node nodules and other env setup. These modules are exposed in the <code>core.modules</code> the same way as all other core submodules
 methods.</p>
 <p>Let&#39;s assume the modules/ contains file facebook.js which implements custom FB logic:</p>
-<pre><code> var bkjs = require(&quot;backendjs&quot;);
- var fb = {}
- module.exports = fb;
- fb.configureWeb = function(options, callback) {
- }
-</code></pre><p>This is the main app code:</p>
-<pre><code>var bkjs = require(&quot;backendjs&quot;);
-var core = bkjs.core;
-var fb;
+<pre><code class="lang-javascript">     var bkjs = require(&quot;backendjs&quot;);
+     var fb = {}
+     module.exports = fb;
+     fb.configureWeb = function(options, callback) {
+     }
+</code></pre>
+<p>This is the main app code:</p>
+<pre><code class="lang-javascript">    var bkjs = require(&quot;backendjs&quot;);
+    var core = bkjs.core;
+    var fb;
 
-// Using facebook module in the main app
-api.app.get(&quot;some url&quot;, function(req, res) {
+    // Using facebook module in the main app
+    api.app.get(&quot;some url&quot;, function(req, res) {
 
-   fb = core.modules.facebook;
-   fb.makeRequest(function(err, data) {
-      ...
-   });
-});
+       fb = core.modules.facebook;
+       fb.makeRequest(function(err, data) {
+          ...
+       });
+    });
 
-bkj.server.start()
-</code></pre><h1 id="database-schema-definition">Database schema definition</h1>
+    bkj.server.start()
+</code></pre>
+<h1 id="database-schema-definition">Database schema definition</h1>
 <p>The backend support multiple databases and provides the same db layer for access. Common operations are supported and all other specific usage can be achieved by
 using SQL directly or other query language supported by any particular database.
 The database operations supported in the unified way provide simple actions like <code>db.get, db.put, db.update, db.del, db.select</code>. The <code>db.query</code> method provides generic
 access to the database driver and executes given query directly by the db driver, it can be SQL or other driver specific query request.</p>
 <p>Before the tables can be queried the schema must be defined and created, the backend db layer provides simple functions to do it:</p>
 <ul>
-<li><p>first the table needs to be described, this is achieved by creating a Javascript object with properties describing each column, multiple tables can be described
-at the same time, for example lets define album table and make sure it exists when we run our application:</p>
-<pre><code>  db.describeTables({
-     album: {
-         id: { primary: 1 },                         // Primary key for an album
-         name: { pub: 1 },                           // Album name, public column
-         mtime: { type: &quot;bigint&quot; },                  // Modification timestamp
-     },
-     photo: {
-         album_id: { primary: 1 },                   // Combined primary key
-         id: { primary: 1 },                         // consiting of album and photo id
-         name: { pub: 1, index: 1 },                 // Photo name or description, public column with the index for faster search
-         mtime: { type: &quot;bigint&quot; }
-     }
-  });
-</code></pre></li>
-<li><p>the system will automatically create the album and photos tables, this definition must remain in the app source code
+<li>first the table needs to be described, this is achieved by creating a Javascript object with properties describing each column, multiple tables can be described
+at the same time, for example lets define album table and make sure it exists when we run our application:</li>
+</ul>
+<pre><code class="lang-javascript">        db.describeTables({
+           album: {
+               id: { primary: 1 },                         // Primary key for an album
+               name: { pub: 1 },                           // Album name, public column
+               mtime: { type: &quot;bigint&quot; },                  // Modification timestamp
+           },
+           photo: {
+               album_id: { primary: 1 },                   // Combined primary key
+               id: { primary: 1 },                         // consiting of album and photo id
+               name: { pub: 1, index: 1 },                 // Photo name or description, public column with the index for faster search
+               mtime: { type: &quot;bigint&quot; }
+           }
+        });
+</code></pre>
+<ul>
+<li>the system will automatically create the album and photos tables, this definition must remain in the app source code
 and be called on every app startup. This allows 1) to see the db schema while working with the app and 2) easily maintain it by adding new columns if
 necessary, all new columns will be detected and the database tables updated accordingly. And it is all Javascript, no need to learn one more language or syntax
-to maintain database tables.</p>
-</li>
+to maintain database tables.</li>
 </ul>
 <p>Each database may restrict how the schema is defined and used, the db layer does not provide an artificial layer hiding all specifics, it just provides the same
 API and syntax, for example, DynamoDB tables must have only hash primary key or combined hash and range key, so when creating table to be used with DynamoDB, only
@@ -383,82 +386,84 @@ is registered as post process callback for the bk_account table. The computed pr
 and all properties not defined and configured are passed as is.</p>
 <p>The cleanup of the public columns is done by the <code>api.sendJSON</code> which is used by all API routes when ready to send data back to the client. If any postprocess
 hooks are registered and return data itself then it is the hook responsibility to cleanup non-public columns.</p>
-<pre><code>db.describeTables({
-    bk_account: {
-        gender: { pub: 1 },
-        birthday: {},
-        ssn: {},
-        salary: { type: &quot;int&quot; },
-        occupation: {},
-        home_phone: {},
-        work_phone: {},
-    });
+<pre><code class="lang-javascript">    db.describeTables({
+        bk_account: {
+            gender: { pub: 1 },
+            birthday: {},
+            ssn: {},
+            salary: { type: &quot;int&quot; },
+            occupation: {},
+            home_phone: {},
+            work_phone: {},
+        });
 
-app.configureWeb = function(options, callback)
-{
-   db.setProcessRow(&quot;post&quot;, &quot;bk_account&quot;, this.processAccountRow);
-   ...
-   callback();
-}
-app.processAccountRow = function(op, row, options, cols)
-{
-   if (row.birthday) row.age = Math.floor((Date.now() - core.toDate(row.birthday))/(86400000*365));
-}
-</code></pre><h1 id="example-of-todo-application">Example of TODO application</h1>
+    app.configureWeb = function(options, callback)
+    {
+       db.setProcessRow(&quot;post&quot;, &quot;bk_account&quot;, this.processAccountRow);
+       ...
+       callback();
+    }
+    app.processAccountRow = function(op, row, options, cols)
+    {
+       if (row.birthday) row.age = Math.floor((Date.now() - core.toDate(row.birthday))/(86400000*365));
+    }
+</code></pre>
+<h1 id="example-of-todo-application">Example of TODO application</h1>
 <p>Here is an example how to create simple TODO application using any database supported by the backend. It supports basic
 operations like add/update/delete a record, show all records.</p>
 <p>Create a file named <code>app.js</code> with the code below.</p>
-<pre><code>var bkjs = require(&#39;backendjs&#39;);
-var api = bkjs.api;
-var lib = bkjs.lib;
-var app = bkjs.app;
-var db = bkjs.db;
+<pre><code class="lang-javascript">    var bkjs = require(&#39;backendjs&#39;);
+    var api = bkjs.api;
+    var lib = bkjs.lib;
+    var app = bkjs.app;
+    var db = bkjs.db;
 
-// Describe the table to store todo records
-db.describeTables({
-   todo: {
-       id: { type: &quot;uuid&quot;, primary: 1 },  // Store unique task id
-       due: {},                           // Due date
-       name: {},                          // Short task name
-       descr: {},                         // Full description
-       mtime: { type: &quot;bigint&quot;, now: 1 }  // Last update time in ms
-   }
-});
-
-// API routes
-app.configureWeb = function(options, callback)
-{
-    api.app.get(/^\/todo\/([a-z]+)$/, function(req, res) {
-       var options = api.getOptions(req);
-       switch (req.params[0]) {
-         case &quot;get&quot;:
-            if (!req.query.id) return api.sendReply(res, 400, &quot;id is required&quot;);
-            db.get(&quot;todo&quot;, { id: req.query.id }, options, function(err, rows) { api.sendJSON(req, err, rows); });
-            break;
-         case &quot;select&quot;:
-            options.noscan = 0; // Allow empty scan of the whole table if not query is given, disabled by default
-            db.select(&quot;todo&quot;, req.query, options, function(err, rows) { api.sendJSON(req, err, rows); });
-            break;
-        case &quot;add&quot;:
-            if (!req.query.name) return api.sendReply(res, 400, &quot;name is required&quot;);
-            // By default due date is tomorrow
-            if (req.query.due) req.query.due = lib.toDate(req.query.due, Date.now() + 86400000).toISOString();
-            db.add(&quot;todo&quot;, req.query, options, function(err, rows) { api.sendJSON(req, err, rows); });
-            break;
-        case &quot;update&quot;:
-            if (!req.query.id) return api.sendReply(res, 400, &quot;id is required&quot;);
-            db.update(&quot;todo&quot;, req.query, options, function(err, rows) { api.sendJSON(req, err, rows); });
-            break;
-        case &quot;del&quot;:
-            if (!req.query.id) return api.sendReply(res, 400, &quot;id is required&quot;);
-            db.del(&quot;todo&quot;, { id: req.query.id }, options, function(err, rows) { api.sendJSON(req, err, rows); });
-            break;
-        }
+    // Describe the table to store todo records
+    db.describeTables({
+       todo: {
+           id: { type: &quot;uuid&quot;, primary: 1 },  // Store unique task id
+           due: {},                           // Due date
+           name: {},                          // Short task name
+           descr: {},                         // Full description
+           mtime: { type: &quot;bigint&quot;, now: 1 }  // Last update time in ms
+       }
     });
-    callback();
- }
- bkjs.server.start();
-</code></pre><p>Now run it with an option to allow API access without an account:</p>
+
+    // API routes
+    app.configureWeb = function(options, callback)
+    {
+        api.app.get(/^\/todo\/([a-z]+)$/, function(req, res) {
+           var options = api.getOptions(req);
+           switch (req.params[0]) {
+             case &quot;get&quot;:
+                if (!req.query.id) return api.sendReply(res, 400, &quot;id is required&quot;);
+                db.get(&quot;todo&quot;, { id: req.query.id }, options, function(err, rows) { api.sendJSON(req, err, rows); });
+                break;
+             case &quot;select&quot;:
+                options.noscan = 0; // Allow empty scan of the whole table if not query is given, disabled by default
+                db.select(&quot;todo&quot;, req.query, options, function(err, rows) { api.sendJSON(req, err, rows); });
+                break;
+            case &quot;add&quot;:
+                if (!req.query.name) return api.sendReply(res, 400, &quot;name is required&quot;);
+                // By default due date is tomorrow
+                if (req.query.due) req.query.due = lib.toDate(req.query.due, Date.now() + 86400000).toISOString();
+                db.add(&quot;todo&quot;, req.query, options, function(err, rows) { api.sendJSON(req, err, rows); });
+                break;
+            case &quot;update&quot;:
+                if (!req.query.id) return api.sendReply(res, 400, &quot;id is required&quot;);
+                db.update(&quot;todo&quot;, req.query, options, function(err, rows) { api.sendJSON(req, err, rows); });
+                break;
+            case &quot;del&quot;:
+                if (!req.query.id) return api.sendReply(res, 400, &quot;id is required&quot;);
+                db.del(&quot;todo&quot;, { id: req.query.id }, options, function(err, rows) { api.sendJSON(req, err, rows); });
+                break;
+            }
+        });
+        callback();
+     }
+     bkjs.server.start();
+</code></pre>
+<p>Now run it with an option to allow API access without an account:</p>
 <pre><code>node app.js -debug -web -api-allow-path /todo
 </code></pre><p>API commands can be executed in the browser or using <code>curl</code>:</p>
 <pre><code>curl &#39;http://localhost:8000/todo?name=TestTask1&amp;descr=Descr1&amp;due=2015-01-01`
@@ -1731,47 +1736,48 @@ rendering is done using Javascript. This is how the <code>api.html</code> develp
 during the initialization on every html page, it will enable Web sessions for the site and then no need to sign every API reauest.</p>
 <p>The typical client Javascript verification for the html page may look like this, it will redirect to login page if needed,
 this assumes the default path &#39;/public&#39; still allowed without the signature:</p>
-<pre><code>    &lt;script src=&quot;/js/jquery.js&quot;&gt;&lt;/script&gt;
-    &lt;link href=&quot;/css/bootstrap.css&quot; rel=&quot;stylesheet&quot;&gt;
-    &lt;script src=&quot;/js/bootstrap.js&quot;&gt;&lt;/script&gt;
-    &lt;script src=&quot;/js/knockout.js&quot; type=&quot;text/javascript&quot;&gt;&lt;/script&gt;
-    &lt;script src=&quot;/js/crypto.js&quot; type=&quot;text/javascript&quot;&gt;&lt;/script&gt;
-    &lt;script src=&quot;/js/bkjs.js&quot; type=&quot;text/javascript&quot;&gt;&lt;/script&gt;
-    &lt;script src=&quot;/js/bkjs-bootstrap.js&quot; type=&quot;text/javascript&quot;&gt;&lt;/script&gt;
-    &lt;script src=&quot;/js/bkjs-ko.js&quot; type=&quot;text/javascript&quot;&gt;&lt;/script&gt;
-    &lt;script&gt;
-    $(function () {
-        Bkjs.session = true;
-        $(Bkjs).on(&quot;nologin&quot;, function() { window.location=&#39;/public/index.html&#39;; });
-        Bkjs.koInit();
-    });
-    &lt;/script&gt;
-</code></pre><h2 id="secure-web-site-backend-verification">Secure Web site, backend verification</h2>
+<pre><code class="lang-javascript">        &lt;script src=&quot;/js/jquery.js&quot;&gt;&lt;/script&gt;
+        &lt;link href=&quot;/css/bootstrap.css&quot; rel=&quot;stylesheet&quot;&gt;
+        &lt;script src=&quot;/js/bootstrap.js&quot;&gt;&lt;/script&gt;
+        &lt;script src=&quot;/js/knockout.js&quot; type=&quot;text/javascript&quot;&gt;&lt;/script&gt;
+        &lt;script src=&quot;/js/crypto.js&quot; type=&quot;text/javascript&quot;&gt;&lt;/script&gt;
+        &lt;script src=&quot;/js/bkjs.js&quot; type=&quot;text/javascript&quot;&gt;&lt;/script&gt;
+        &lt;script src=&quot;/js/bkjs-bootstrap.js&quot; type=&quot;text/javascript&quot;&gt;&lt;/script&gt;
+        &lt;script src=&quot;/js/bkjs-ko.js&quot; type=&quot;text/javascript&quot;&gt;&lt;/script&gt;
+        &lt;script&gt;
+        $(function () {
+            Bkjs.session = true;
+            $(Bkjs).on(&quot;nologin&quot;, function() { window.location=&#39;/public/index.html&#39;; });
+            Bkjs.koInit();
+        });
+        &lt;/script&gt;
+</code></pre>
+<h2 id="secure-web-site-backend-verification">Secure Web site, backend verification</h2>
 <p>On the backend side in your application app.js it needs more secure settings defined i.e. no html except /public will be accessible and
 in case of error will be redirected to the login page by the server. Note, in the login page <code>Bkjs.session</code> must be set to true for all
 html pages to work after login without singing every API request.</p>
 <ol>
-<li><p>We disable all allowed paths to the html and registration:</p>
-<pre><code> app.configureMiddleware = function(options, callback) {
-     self.allow.splice(self.allow.indexOf(&#39;^/$&#39;), 1);
-     self.allow.splice(self.allow.indexOf(&#39;\\.html$&#39;), 1);
-     self.allow.splice(self.allow.indexOf(&#39;^/account/add$&#39;), 1);
-     callback();
- }
-</code></pre></li>
+<li>We disable all allowed paths to the html and registration:</li>
 </ol>
+<pre><code class="lang-javascript">        app.configureMiddleware = function(options, callback) {
+            self.allow.splice(self.allow.indexOf(&#39;^/$&#39;), 1);
+            self.allow.splice(self.allow.indexOf(&#39;\\.html$&#39;), 1);
+            self.allow.splice(self.allow.indexOf(&#39;^/account/add$&#39;), 1);
+            callback();
+        }
+</code></pre>
 <ol>
-<li><p>We define an auth callback in the app and redirect to login if the reauest has no valid signature, we check all html pages, all allowed html pages from the /public
-will never end up in this callback because it is called after the signature check but allowed pages are served before that:</p>
-<pre><code> api.registerPreProcess(&#39;&#39;, /^\/$|\.html$/, function(req, status, callback) {
-     if (status.status != 200) {
-         status.status = 302;
-         status.url = &#39;/public/index.html&#39;;
-     }
-     callback(status);
- });
-</code></pre></li>
+<li>We define an auth callback in the app and redirect to login if the reauest has no valid signature, we check all html pages, all allowed html pages from the /public
+will never end up in this callback because it is called after the signature check but allowed pages are served before that:</li>
 </ol>
+<pre><code class="lang-javascript">        api.registerPreProcess(&#39;&#39;, /^\/$|\.html$/, function(req, status, callback) {
+            if (status.status != 200) {
+                status.status = 302;
+                status.url = &#39;/public/index.html&#39;;
+            }
+            callback(status);
+        });
+</code></pre>
 <h1 id="websockets-connections">WebSockets connections</h1>
 <p>The simplest way is to configure <code>ws-port</code> to the same value as the HTTP port. This will run WebSockets server along the regular Web server.
 All requests must be properly signed with all parameters encoded as for GET requests.</p>
@@ -1794,50 +1800,54 @@ supposed to be a core backend version. This version is returned with every backe
 using <code>bk-version</code> query parameter or a header. When a request is parsed and the version is provided it will be set in the request options object.</p>
 <p>All API routes are defined using Express middleware and one of the possible ways of dealing with different versions can look like this, by
 appending version to the command it is very simple to call only changed API code.</p>
-<pre><code>    api.all(/\/domain\/(get|put|del)/, function(req, res) {
-        var options = api.getOptions(req);
-        var cmd = req.params[0];
-        if (options.coreVersion) cmd += &quot;/&quot; + options.coreVersion;
-        switch (cmd) {
-        case &quot;get&quot;:
-            break;
+</li>
+</ul>
+<pre><code class="lang-javascript">          api.all(/\/domain\/(get|put|del)/, function(req, res) {
+              var options = api.getOptions(req);
+              var cmd = req.params[0];
+              if (options.coreVersion) cmd += &quot;/&quot; + options.coreVersion;
+              switch (cmd) {
+              case &quot;get&quot;:
+                  break;
 
-        case &quot;get/2015-01-01&quot;:
-            break;
+              case &quot;get/2015-01-01&quot;:
+                  break;
 
-        case &quot;put&quot;:
-            break;
+              case &quot;put&quot;:
+                  break;
 
-        case &quot;put/2015-02-01&quot;:
-            break;
+              case &quot;put/2015-02-01&quot;:
+                  break;
 
-        case &quot;del&quot;
-            break;
-        }
-    });
-</code></pre></li>
+              case &quot;del&quot;
+                  break;
+              }
+          });
+</code></pre>
+<ul>
 <li><p>Application semver support
 For cases when applications support Semver kind of versioning and it may be too many releases the method above still can be used while the number of versions is
 small, once too many different versions with different minor/patch numbers, it is easier to support greater/less comparisons.</p>
 <p>The application version <code>bk-app</code> can be supplied in the query or as a header  or in the user-agent HTTP header which is the easiest case for mobile apps.
 In the middlware, the code can look like this:</p>
-<pre><code>  var options = api.getOptions(req);
-  var version = lib.toVersion(options.appVersion);
-  switch (req.params[0]) {
-  case &quot;get&quot;:
-      if (version &lt; lib.toVersion(&quot;1.2.5&quot;)) {
-          res.json({ id: 1, name: &quot;name&quot;, description: &quot;descr&quot; });
-          break;
-      }
-      if (version &lt; lib.toVersion(&quot;1.1&quot;)) {
-          res.json([id, name]);
-          break;
-      }
-      res.json({ id: 1, name: &quot;name&quot;, descr: &quot;descr&quot; });
-      break;
-  }
-</code></pre></li>
+</li>
 </ul>
+<pre><code class="lang-javascript">        var options = api.getOptions(req);
+        var version = lib.toVersion(options.appVersion);
+        switch (req.params[0]) {
+        case &quot;get&quot;:
+            if (version &lt; lib.toVersion(&quot;1.2.5&quot;)) {
+                res.json({ id: 1, name: &quot;name&quot;, description: &quot;descr&quot; });
+                break;
+            }
+            if (version &lt; lib.toVersion(&quot;1.1&quot;)) {
+                res.json([id, name]);
+                break;
+            }
+            res.json({ id: 1, name: &quot;name&quot;, descr: &quot;descr&quot; });
+            break;
+        }
+</code></pre>
 <p>The actual implementation can be modularized, split into functions, controllers.... there are no restrictions how to build the working backend code,
 the backend just provides all necessary information for the middleware modules.</p>
 <h1 id="the-backend-provisioning-utility-bkjs">The backend provisioning utility: bkjs</h1>
