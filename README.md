@@ -84,7 +84,7 @@ or simply
 
 * Simplest way of using the backendjs, it will start the server listening on port 8000
 
-    # node
+    $ node
     > var bkjs = require('backendjs')
     > bkjs.server.start()
 
