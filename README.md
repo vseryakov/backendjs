@@ -67,38 +67,38 @@ Note: if for example ImageMagick is not istalled it will be skipped, same goes t
 
 To force internal nanomsg and ImageMagick to be compiled in the module the following command must be used:
 
-    npm install backendjs --backendjs_nanomsg --backendjs_imagemagick
+     npm install backendjs --backendjs_nanomsg --backendjs_imagemagick
 
 This may take some time because of downloading and compiling required dependencies like ImageMagick, nanomsg. They are not required in all
 applications but still part of the core of the system to be available once needed.
 
 To install from the git
 
-    npm install git+https://github.com/vseryakov/backendjs.git
+     npm install git+https://github.com/vseryakov/backendjs.git
 
 or simply
 
-    npm install vseryakov/backendjs
+     npm install vseryakov/backendjs
 
 # Quick start
 
 * Simplest way of using the backendjs, it will start the server listening on port 8000
 
-    $ node
-    > var bkjs = require('backendjs')
-    > bkjs.server.start()
+     $ node
+     > var bkjs = require('backendjs')
+     > bkjs.server.start()
 
 * Same but using the helper tool, by default it will use embedded Sqlite database and listen on port 8000
 
-    bkjs run-backend
+     bkjs run-backend
 
 * To start the server and connect to the DynamoDB (command line parameters can be saved in the etc/config file, see below about config files)
 
-    bkjs run-backend -db-pool dynamodb -db-dynamodb-pool default -aws-key XXXX -aws-secret XXXX
+     bkjs run-backend -db-pool dynamodb -db-dynamodb-pool default -aws-key XXXX -aws-secret XXXX
 
 * or to the PostgreSQL server, database backend
 
-    bkjs run-backend -db-pool pgsql -db-pgsql-pool postgresql://postgres@127.0.0.1/backend
+     bkjs run-backend -db-pool pgsql -db-pgsql-pool postgresql://postgres@127.0.0.1/backend
 
 * All commands above will behave exactly the same, all required tables will be automatically created
 
@@ -107,7 +107,7 @@ or simply
 * Go to http://localhost:8000/api.html for the Web console to test API requests.
   For this example let's create an account, type and execute the following URLs in the Web console:
 
-    /account/add?name=test1&secret=test1&login=test1@test.com
+     /account/add?name=test1&secret=test1&login=test1@test.com
 
 
 * Now login with any of the accounts above, click on *Login* at the top-right corner and enter 'test1' as login and 'test1' as secret in the login popup dialog.

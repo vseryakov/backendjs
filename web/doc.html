@@ -163,30 +163,30 @@ on the system before installing the backendjs. Not everything is required, if no
 <p>Note: if for example ImageMagick is not istalled it will be skipped, same goes to all database drivers(MySQL) and nanomsg.</p>
 <pre><code>npm install backendjs
 </code></pre><p>To force internal nanomsg and ImageMagick to be compiled in the module the following command must be used:</p>
-<pre><code>npm install backendjs --backendjs_nanomsg --backendjs_imagemagick
+<pre><code> npm install backendjs --backendjs_nanomsg --backendjs_imagemagick
 </code></pre><p>This may take some time because of downloading and compiling required dependencies like ImageMagick, nanomsg. They are not required in all
 applications but still part of the core of the system to be available once needed.</p>
 <p>To install from the git</p>
-<pre><code>npm install git+https://github.com/vseryakov/backendjs.git
+<pre><code> npm install git+https://github.com/vseryakov/backendjs.git
 </code></pre><p>or simply</p>
-<pre><code>npm install vseryakov/backendjs
+<pre><code> npm install vseryakov/backendjs
 </code></pre><h1 id="quick-start">Quick start</h1>
 <ul>
 <li><p>Simplest way of using the backendjs, it will start the server listening on port 8000</p>
-<p>  $ node</p>
+<p>   $ node</p>
 <blockquote>
 <p>var bkjs = require(&#39;backendjs&#39;)
 bkjs.server.start()</p>
 </blockquote>
 </li>
 <li><p>Same but using the helper tool, by default it will use embedded Sqlite database and listen on port 8000</p>
-<p>  bkjs run-backend</p>
+<p>   bkjs run-backend</p>
 </li>
 <li><p>To start the server and connect to the DynamoDB (command line parameters can be saved in the etc/config file, see below about config files)</p>
-<p>  bkjs run-backend -db-pool dynamodb -db-dynamodb-pool default -aws-key XXXX -aws-secret XXXX</p>
+<p>   bkjs run-backend -db-pool dynamodb -db-dynamodb-pool default -aws-key XXXX -aws-secret XXXX</p>
 </li>
 <li><p>or to the PostgreSQL server, database backend</p>
-<p>  bkjs run-backend -db-pool pgsql -db-pgsql-pool postgresql://postgres@127.0.0.1/backend</p>
+<p>   bkjs run-backend -db-pool pgsql -db-pgsql-pool postgresql://postgres@127.0.0.1/backend</p>
 </li>
 <li><p>All commands above will behave exactly the same, all required tables will be automatically created</p>
 </li>
@@ -194,7 +194,7 @@ bkjs.server.start()</p>
 </li>
 <li><p>Go to <a href="http://localhost:8000/api.html">http://localhost:8000/api.html</a> for the Web console to test API requests.
 For this example let&#39;s create an account, type and execute the following URLs in the Web console:</p>
-<p>  /account/add?name=test1&amp;secret=test1&amp;login=test1@test.com</p>
+<p>   /account/add?name=test1&amp;secret=test1&amp;login=test1@test.com</p>
 </li>
 </ul>
 <ul>
