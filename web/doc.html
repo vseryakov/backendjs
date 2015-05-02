@@ -173,18 +173,18 @@ applications but still part of the core of the system to be available once neede
 </code></pre><h1 id="quick-start">Quick start</h1>
 <ul>
 <li><p>Simplest way of using the backendjs, it will start the server listening on port 8000</p>
-<pre><code>$ node
-&gt; var bkjs = require(&#39;backendjs&#39;)
-&gt; bkjs.server.start()
+<pre><code>  $ node
+  &gt; var bkjs = require(&#39;backendjs&#39;)
+  &gt; bkjs.server.start()
 </code></pre></li>
 <li><p>Same but using the helper tool, by default it will use embedded Sqlite database and listen on port 8000</p>
-<pre><code>bkjs run-backend
+<pre><code>  bkjs run-backend
 </code></pre></li>
 <li><p>To start the server and connect to the DynamoDB (command line parameters can be saved in the etc/config file, see below about config files)</p>
-<pre><code>bkjs run-backend -db-pool dynamodb -db-dynamodb-pool default -aws-key XXXX -aws-secret XXXX
+<pre><code>  bkjs run-backend -db-pool dynamodb -db-dynamodb-pool default -aws-key XXXX -aws-secret XXXX
 </code></pre></li>
 <li><p>or to the PostgreSQL server, database backend</p>
-<pre><code>bkjs run-backend -db-pool pgsql -db-pgsql-pool postgresql://postgres@127.0.0.1/backend
+<pre><code>  bkjs run-backend -db-pool pgsql -db-pgsql-pool postgresql://postgres@127.0.0.1/backend
 </code></pre></li>
 <li><p>All commands above will behave exactly the same, all required tables will be automatically created</p>
 </li>
@@ -192,25 +192,25 @@ applications but still part of the core of the system to be available once neede
 </li>
 <li><p>Go to <a href="http://localhost:8000/api.html">http://localhost:8000/api.html</a> for the Web console to test API requests.
 For this example let&#39;s create an account, type and execute the following URLs in the Web console:</p>
-<pre><code>/account/add?name=test1&amp;secret=test1&amp;login=test1@test.com
+<pre><code>  /account/add?name=test1&amp;secret=test1&amp;login=test1@test.com
 </code></pre></li>
 </ul>
 <ul>
 <li>Now login with any of the accounts above, click on <em>Login</em> at the top-right corner and enter &#39;test1&#39; as login and &#39;test1&#39; as secret in the login popup dialog.</li>
 <li><p>If no error message appeared after the login, try to get your current account details:</p>
-<pre><code>/account/get
+<pre><code>  /account/get
 </code></pre></li>
 <li><p>Shutdown the backend by pressing Ctrl-C</p>
 </li>
 <li><p>To make your own custom Web app, create a new directory (somewhere else) to store your project and run the following command from that directory:</p>
-<pre><code>bkjs init-app
+<pre><code>  bkjs init-app
 </code></pre></li>
 <li><p>The app.js file is created in your project directory with 2 additional API endpoints <code>/test/add</code> and <code>/test/[0-9]</code> to show the simplest way
 of adding new tables and API commands.</p>
 </li>
 <li>The app.sh script is created for convenience in the development process, it specifies common arguments and can be customized as needed.</li>
 <li><p>Run new application now, it will start the Web server on port 8000:</p>
-<pre><code>./app.sh
+<pre><code>  ./app.sh
 </code></pre></li>
 <li><p>Go to <a href="http://localhost:8000/api.html">http://localhost:8000/api.html</a> and issue command <code>/test/add?id=1&amp;name=1</code> and then <code>/test/1</code> commands in the console to see it in action</p>
 </li>
@@ -218,16 +218,16 @@ of adding new tables and API commands.</p>
 is only enabled by default in development mode, check app.sh for parameters before running it in the production.</p>
 </li>
 <li><p>To start node.js shell with backendjs loaded and initialized, all command line parameters apply to the shell as well</p>
-<pre><code>./app.sh -shell
+<pre><code>  ./app.sh -shell
 </code></pre></li>
 <li><p>To access the database while in the shell</p>
-<pre><code>&gt; db.select(&quot;bk_account&quot;, {}, function(err, rows) { console.log(rows) });
-&gt; db.select(&quot;bk_account&quot;, {}, db.showResult);
-&gt; db.add(&quot;bk_account&quot;, { login: &#39;test2&#39;, secret: &#39;test2&#39;, name&#39; Test 2 name&#39;, gender: &#39;f&#39; }, db.showResult);
-&gt; db.select(&quot;bk_account&quot;, { gender: &#39;m&#39; }, db.showResult);
+<pre><code>  &gt; db.select(&quot;bk_account&quot;, {}, function(err, rows) { console.log(rows) });
+  &gt; db.select(&quot;bk_account&quot;, {}, db.showResult);
+  &gt; db.add(&quot;bk_account&quot;, { login: &#39;test2&#39;, secret: &#39;test2&#39;, name&#39; Test 2 name&#39;, gender: &#39;f&#39; }, db.showResult);
+  &gt; db.select(&quot;bk_account&quot;, { gender: &#39;m&#39; }, db.showResult);
 </code></pre></li>
 <li><p>To add users from the command line</p>
-<pre><code>bksh -add-user login test sectet test name TestUser email test@test.com
+<pre><code>  bksh -add-user login test sectet test name TestUser email test@test.com
 </code></pre></li>
 <li><p>To see current metrics run the command in the console &#39;/system/stats/get&#39;</p>
 </li>
