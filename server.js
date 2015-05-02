@@ -120,6 +120,7 @@ server.start = function()
     if (core.isArg("-web")) {
         return core.init({ role: "web", noInitTables: cluster.isWorker ? /.+/ : null }, function(err, opts) { self.startWeb(opts); });
     }
+    logger.error("start:", "no server mode specified, need one of the -web, -master, -shell");
 }
 
 // Start process monitor, running as root

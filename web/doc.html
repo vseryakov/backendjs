@@ -1,5 +1,5 @@
 <head><title>Backendjs Documentation</title><link rel="shortcut icon" href="img/logo.png" type="image/png" /><link rel="icon" href="img/logo.png" type="image/png" /><link href="css/font-awesome.css" rel="stylesheet"><script src="js/jquery.js"></script><link href="css/bootstrap.css" rel="stylesheet"><script src="js/bootstrap.js"></script><link rel="stylesheet" href="css/doc.css"></head><body class="pages">
-<div class="container"><nav class="navbar"><div class="container-fluid"><div class="navbar-header"><button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar" aria-expanded="false" aria-controls="navbar"><span class="sr-only">Toggle navigation</span><span class="icon-bar"></span><span class="icon-bar"></span><span class="icon-bar"></span></button><a href="/"><img class="logo" src="img/logo.png"></a><span>Backendjs Documentation</span></div><div id="navbar" class="navbar-collapse collapse"><ul class="nav navbar-nav navbar-right"><li><a href="/"><span class="fa fa-gears fa-fw"></span> Home</a></li><li><a href="http://github.com/vseryakov/backendjs"><span class="fa fa-github fa-fw"></span> Github</a><li></ul></div></div></nav><h1 id="backendjs-documentation">Backendjs Documentation</h1>
+<div class="container"><nav class="navbar"><div class="container-fluid"><div class="navbar-header"><button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar" aria-expanded="false" aria-controls="navbar"><span class="sr-only">Toggle navigation</span><span class="icon-bar"></span><span class="icon-bar"></span><span class="icon-bar"></span></button><a href="/"><img class="logo" style="max-height:30px;" src="img/logo.png"></a><span>Backendjs Documentation</span></div><div id="navbar" class="navbar-collapse collapse"><ul class="nav navbar-nav navbar-right"><li><a href="/"><span class="fa fa-gears fa-fw"></span> Home</a></li><li><a href="http://github.com/vseryakov/backendjs"><span class="fa fa-github fa-fw"></span> Github</a><li></ul></div></div></nav><h1 id="backendjs-documentation">Backendjs Documentation</h1>
 <h2 id="table-of-contents">Table of contents</h2>
 <ul>
 <li><a href="#backend-platform-for-node-js"> Backend platform for node.js</a></li>
@@ -12,6 +12,7 @@
 </ul>
 </li>
 <li><a href="#database-schema-definition"> Database schema definition</a></li>
+<li><a href="#example-of-todo-application"> Example of TODO application</a></li>
 <li><a href="#api-endpoints-provided-by-the-backend"> API endpoints provided by the backend</a><ul>
 <li><a href="#authentication-and-sessions"> Authentication and sessions</a></li>
 <li><a href="#accounts"> Accounts</a></li>
@@ -154,63 +155,65 @@ on the system before installing the backendjs. Not everything is required, if no
 <li>libmysql - MySQL database driver</li>
 </ul>
 <p>Installing dependencies on CentOS:</p>
-<pre><code>    yum -y install libpng-devel libjpeg-turbo-devel mysql-devel
+<pre><code>yum -y install libpng-devel libjpeg-turbo-devel mysql-devel
 </code></pre><p>Installing dependencies on Mac OS X using macports:</p>
-<pre><code>    port install libpng jpeg mysql56
+<pre><code>port install libpng jpeg mysql56
 </code></pre><h1 id="installation">Installation</h1>
 <p>To install the module with all optional dependencies if they are available in the system</p>
 <p>Note: if for example ImageMagick is not istalled it will be skipped, same goes to all database drivers(MySQL) and nanomsg.</p>
-<pre><code>    npm install backendjs
+<pre><code>npm install backendjs
 </code></pre><p>To force internal nanomsg and ImageMagick to be compiled in the module the following command must be used:</p>
-<pre><code>    npm install backendjs --backendjs_nanomsg --backendjs_imagemagick
+<pre><code>npm install backendjs --backendjs_nanomsg --backendjs_imagemagick
 </code></pre><p>This may take some time because of downloading and compiling required dependencies like ImageMagick, nanomsg. They are not required in all
 applications but still part of the core of the system to be available once needed.</p>
 <p>To install from the git</p>
-<pre><code>    npm install git+https://github.com/vseryakov/backendjs.git
+<pre><code>npm install git+https://github.com/vseryakov/backendjs.git
 </code></pre><p>or simply</p>
-<pre><code>    npm install vseryakov/backendjs
+<pre><code>npm install vseryakov/backendjs
 </code></pre><h1 id="quick-start">Quick start</h1>
 <ul>
 <li><p>Simplest way of using the backendjs, it will start the server listening on port 8000</p>
-<pre><code>  # node
-  &gt; var bkjs = require(&#39;backendjs&#39;)
-  &gt; bkjs.server.start()
-</code></pre></li>
+<h1 id="node">node</h1>
+<blockquote>
+<p>var bkjs = require(&#39;backendjs&#39;)
+bkjs.server.start()</p>
+</blockquote>
+</li>
 <li><p>Same but using the helper tool, by default it will use embedded Sqlite database and listen on port 8000</p>
-<pre><code>  bkjs run-backend
-</code></pre></li>
+<p>  bkjs run-backend</p>
+</li>
 <li><p>To start the server and connect to the DynamoDB (command line parameters can be saved in the etc/config file, see below about config files)</p>
-<pre><code>  bkjs run-backend -db-pool dynamodb -db-dynamodb-pool default -aws-key XXXX -aws-secret XXXX
-</code></pre></li>
+<p>  bkjs run-backend -db-pool dynamodb -db-dynamodb-pool default -aws-key XXXX -aws-secret XXXX</p>
+</li>
 <li><p>or to the PostgreSQL server, database backend</p>
-<pre><code>  bkjs run-backend -db-pool pgsql -db-pgsql-pool postgresql://postgres@127.0.0.1/backend
-</code></pre></li>
+<p>  bkjs run-backend -db-pool pgsql -db-pgsql-pool postgresql://postgres@127.0.0.1/backend</p>
+</li>
 <li><p>All commands above will behave exactly the same, all required tables will be automatically created</p>
 </li>
 <li><p>While the local backendjs is runnning, the documentation is always available at <a href="http://localhost:8000/doc.html">http://localhost:8000/doc.html</a> (or whatever port is the server using)</p>
 </li>
 <li><p>Go to <a href="http://localhost:8000/api.html">http://localhost:8000/api.html</a> for the Web console to test API requests.
 For this example let&#39;s create an account, type and execute the following URLs in the Web console:</p>
-<pre><code>  /account/add?name=test1&amp;secret=test1&amp;login=test1@test.com
-</code></pre></li>
+<p>  /account/add?name=test1&amp;secret=test1&amp;login=test1@test.com</p>
+</li>
 </ul>
 <ul>
 <li>Now login with any of the accounts above, click on <em>Login</em> at the top-right corner and enter &#39;test1&#39; as login and &#39;test1&#39; as secret in the login popup dialog.</li>
 <li><p>If no error message appeared after the login, try to get your current account details:</p>
-<pre><code>  /account/get
-</code></pre></li>
+<p>  /account/get</p>
+</li>
 <li><p>Shutdown the backend by pressing Ctrl-C</p>
 </li>
 <li><p>To make your own custom Web app, create a new directory (somewhere else) to store your project and run the following command from that directory:</p>
-<pre><code>  bkjs init-app
-</code></pre></li>
+<p>  bkjs init-app</p>
+</li>
 <li><p>The app.js file is created in your project directory with 2 additional API endpoints <code>/test/add</code> and <code>/test/[0-9]</code> to show the simplest way
 of adding new tables and API commands.</p>
 </li>
 <li>The app.sh script is created for convenience in the development process, it specifies common arguments and can be customized as needed.</li>
 <li><p>Run new application now, it will start the Web server on port 8000:</p>
-<pre><code>  ./app.sh
-</code></pre></li>
+<p>  ./app.sh</p>
+</li>
 </ul>
 <ul>
 <li>Go to <a href="http://localhost:8000/api.html">http://localhost:8000/api.html</a> and issue command <code>/test/add?id=1&amp;name=1</code> and then <code>/test/1</code> commands in the console to see it in action</li>
@@ -218,17 +221,19 @@ of adding new tables and API commands.</p>
 is only enabled by default in development mode, check app.sh for parameters before running it in the production.</p>
 </li>
 <li><p>To start node.js shell with backendjs loaded and initialized, all command line parameters apply to the shell as well</p>
-<pre><code>  ./app.sh -shell
-</code></pre></li>
+<p>  ./app.sh -shell</p>
+</li>
 <li><p>To access the database while in the shell</p>
-<pre><code>  &gt; db.select(&quot;bk_account&quot;, {}, function(err, rows) { console.log(rows) });
-  &gt; db.select(&quot;bk_account&quot;, {}, db.showResult);
-  &gt; db.add(&quot;bk_account&quot;, { login: &#39;test2&#39;, secret: &#39;test2&#39;, name&#39; Test 2 name&#39;, gender: &#39;f&#39; }, db.showResult);
-  &gt; db.select(&quot;bk_account&quot;, { gender: &#39;m&#39; }, db.showResult);
-</code></pre></li>
+<blockquote>
+<p>db.select(&quot;bk_account&quot;, {}, function(err, rows) { console.log(rows) });
+db.select(&quot;bk_account&quot;, {}, db.showResult);
+db.add(&quot;bk_account&quot;, { login: &#39;test2&#39;, secret: &#39;test2&#39;, name&#39; Test 2 name&#39;, gender: &#39;f&#39; }, db.showResult);
+db.select(&quot;bk_account&quot;, { gender: &#39;m&#39; }, db.showResult);</p>
+</blockquote>
+</li>
 <li><p>To add users from the command line</p>
-<pre><code>  bksh -add-user login test sectet test name TestUser email test@test.com
-</code></pre></li>
+<p>  bksh -add-user login test sectet test name TestUser email test@test.com</p>
+</li>
 <li><p>To see current metrics run the command in the console &#39;/system/stats/get&#39;</p>
 </li>
 <li><p>To see charts about accumulated metrics go to <a href="http://localhost:8000/metrics.html">http://localhost:8000/metrics.html</a></p>
@@ -271,41 +276,40 @@ processing of the data is needed before sending it to the user, it is possible t
 <p>Special module/namespace <code>app</code> is designated to be used for application development/extension. This module is available the same way as the <code>api</code> or <code>core</code>
 which makes it easy to refer and extend with additional methods and structures.</p>
 <p>The typical structure of a backendjs application is the following (created by the bkjs init-app command):</p>
-<pre><code>        var bkjs = require(&#39;backendjs&#39;);
-        var api = bkjs.api;
-        var app = bkjs.app;
-        var db = bkjs.db;
+<pre><code>var bkjs = require(&#39;backendjs&#39;);
+var api = bkjs.api;
+var app = bkjs.app;
+var db = bkjs.db;
 
-        // Describe the tables or data model
-        db.describeTables({
-            ...
-        });
+// Describe the tables or data model
+db.describeTables({
+     ...
+});
 
-        // Optionally customize the Express environment, setup MVC routes or else, options.app is the Express server
-        app.configureMiddleware = function(options, callback)
-        {
-            ...
-            callback()
-        }
+ // Optionally customize the Express environment, setup MVC routes or else, options.app is the Express server
+app.configureMiddleware = function(options, callback)
+{
+   ...
+   callback()
+}
 
-        // Register API endpoints, i.e. url callbacks
-        app.configureWeb = function(options, callback)
-        {
-            api.app.get(&#39;/some/api/endpoint&#39;, function(req, res) { ... });
-            ...
-            callback();
-        }
+// Register API endpoints, i.e. url callbacks
+app.configureWeb = function(options, callback)
+{
+     api.app.get(&#39;/some/api/endpoint&#39;, function(req, res) { ... });
+     ...
+     callback();
+}
 
-        // Optionally register post processing of the returned data from the default calls
-        api.registerPostProcess(&#39;&#39;, /^\/account\/([a-z\/]+)$/, function(req, res, rows) { ... });
-        ...
+// Optionally register post processing of the returned data from the default calls
+api.registerPostProcess(&#39;&#39;, /^\/account\/([a-z\/]+)$/, function(req, res, rows) { ... });
+ ...
 
-        // Optionally register access permissions callbacks
-        api.registerAccessCheck(&#39;&#39;, /^\/test\/list$/, function(req, status, callback) { ...  });
-        api.registerPreProcess(&#39;&#39;, /^\/test\/list$/, function(req, status, callback) { ...  });
-        ...
-
-        bkjs.server.start();
+// Optionally register access permissions callbacks
+api.registerAccessCheck(&#39;&#39;, /^\/test\/list$/, function(req, status, callback) { ...  });
+api.registerPreProcess(&#39;&#39;, /^\/test\/list$/, function(req, status, callback) { ...  });
+ ...
+bkjs.server.start();
 </code></pre><p>Except the <code>app.configureWeb</code> and <code>server.start()</code> all other functions are optional, they are here for the sake of completness of the example. Also
 because running the backend involves more than just running web server many things can be setup using the configuration options like common access permissions,
 configuration of the cron jobs so the amount of code to be written to have fully functionaning production API server is not that much, basically only
@@ -321,26 +325,26 @@ modules to load or to ignore see command line parameters <code>-deny-modules</co
 can be shipped regardless of the npm, node nodules and other env setup. These modules are exposed in the <code>core.modules</code> the same way as all other core submodules
 methods.</p>
 <p>Let&#39;s assume the modules/ contains file facebook.js which implements custom FB logic:</p>
-<pre><code>        var bkjs = require(&quot;backendjs&quot;);
-        var fb = {}
-        module.exports = fb;
-        fb.configureWeb = function(options, callback) {
-        }
+<pre><code>var bkjs = require(&quot;backendjs&quot;);
+var fb = {}
+module.exports = fb;
+fb.configureWeb = function(options, callback) {
+}
 </code></pre><p>This is the main app code:</p>
-<pre><code>        var bkjs = require(&quot;backendjs&quot;);
-        var core = bkjs.core;
-        var fb;
+<pre><code>var bkjs = require(&quot;backendjs&quot;);
+var core = bkjs.core;
+var fb;
 
-        // Using facebook module in the main app
-        api.app.get(&quot;some url&quot;, function(req, res) {
+// Using facebook module in the main app
+api.app.get(&quot;some url&quot;, function(req, res) {
 
-            fb = core.modules.facebook;
-            fb.makeRequest(function(err, data) {
-                ...
-            });
-        });
+   fb = core.modules.facebook;
+   fb.makeRequest(function(err, data) {
+      ...
+   });
+});
 
-        bkj.server.start()
+bkj.server.start()
 </code></pre><h1 id="database-schema-definition">Database schema definition</h1>
 <p>The backend support multiple databases and provides the same db layer for access. Common operations are supported and all other specific usage can be achieved by
 using SQL directly or other query language supported by any particular database.
@@ -350,20 +354,20 @@ access to the database driver and executes given query directly by the db driver
 <ul>
 <li><p>first the table needs to be described, this is achieved by creating a Javascript object with properties describing each column, multiple tables can be described
 at the same time, for example lets define album table and make sure it exists when we run our application:</p>
-<pre><code>      db.describeTables({
-          album: {
-              id: { primary: 1 },                         // Primary key for an album
-              name: { pub: 1 },                           // Album name, public column
-              mtime: { type: &quot;bigint&quot; },                  // Modification timestamp
-          },
-          photo: {
-              album_id: { primary: 1 },                   // Combined primary key
-              id: { primary: 1 },                         // consiting of album and photo id
-              name: { pub: 1, index: 1 },                 // Photo name or description, public column with the index for faster search
-              mtime: { type: &quot;bigint&quot; }
-          }
-       });
-</code></pre></li>
+<p>  db.describeTables({</p>
+<pre><code>  album: {
+      id: { primary: 1 },                         // Primary key for an album
+      name: { pub: 1 },                           // Album name, public column
+      mtime: { type: &quot;bigint&quot; },                  // Modification timestamp
+  },
+  photo: {
+      album_id: { primary: 1 },                   // Combined primary key
+      id: { primary: 1 },                         // consiting of album and photo id
+      name: { pub: 1, index: 1 },                 // Photo name or description, public column with the index for faster search
+      mtime: { type: &quot;bigint&quot; }
+  }
+</code></pre><p>  });</p>
+</li>
 <li><p>the system will automatically create the album and photos tables, this definition must remain in the app source code
 and be called on every app startup. This allows 1) to see the db schema while working with the app and 2) easily maintain it by adding new columns if
 necessary, all new columns will be detected and the database tables updated accordingly. And it is all Javascript, no need to learn one more language or syntax
@@ -381,29 +385,88 @@ done in the <code>api.initApplication</code> method. It will extend the bk_accou
 Using the birthday column we make &#39;age&#39; property automatically calculated and visible in the result, this is done by the internal method <code>api.processAccountRow</code> which
 is registered as post process callback for the bk_account table. The computed property <code>age</code> will be returned because it is not present in the table definition
 and all properties not defined and configured are passed as is.</p>
-<p>The cleanup of the public columns is done by the <code>api.sendJSON</code> which is used by all API routes when redy to send data back to the client. If any postprocess
+<p>The cleanup of the public columns is done by the <code>api.sendJSON</code> which is used by all API routes when ready to send data back to the client. If any postprocess
 hooks are registered and return data itself then it is the hook responsibility to cleanup non-public columns.</p>
-<pre><code>        db.describeTables({
-                bk_account: {
-                       gender: { pub: 1 },
-                       birthday: {},
-                       ssn: {},
-                       salary: { type: &quot;int&quot; },
-                       occupation: {},
-                       home_phone: {},
-                       work_phone: {},
-        });
+<pre><code>db.describeTables({
+    bk_account: {
+        gender: { pub: 1 },
+        birthday: {},
+        ssn: {},
+        salary: { type: &quot;int&quot; },
+        occupation: {},
+        home_phone: {},
+        work_phone: {},
+    });
 
-        app.configureWeb = function(options, callback)
-        {
-            db.setProcessRow(&quot;post&quot;, &quot;bk_account&quot;, this.processAccountRow);
-            ...
-            callback();
+app.configureWeb = function(options, callback)
+{
+   db.setProcessRow(&quot;post&quot;, &quot;bk_account&quot;, this.processAccountRow);
+   ...
+   callback();
+}
+app.processAccountRow = function(op, row, options, cols)
+{
+   if (row.birthday) row.age = Math.floor((Date.now() - core.toDate(row.birthday))/(86400000*365));
+}
+</code></pre><h1 id="example-of-todo-application">Example of TODO application</h1>
+<p>Here is an example how to create simple TODO application using any database supported by the backend. It supports basic
+operations like add/update/delete a record, show all records.</p>
+<p>Create a file named <code>app.js</code> with the code below.</p>
+<pre><code>var bkjs = require(&#39;backendjs&#39;);
+var api = bkjs.api;
+var lib = bkjs.lib;
+var app = bkjs.app;
+var db = bkjs.db;
+
+// Describe the table to store todo records
+db.describeTables({
+   todo: {
+       id: { type: &quot;uuid&quot;, primary: 1 },  // Store unique task id
+       due: {},                           // Due date
+       name: {},                          // Short task name
+       descr: {},                         // Full description
+       mtime: { type: &quot;bigint&quot;, now: 1 }  // Last update time in ms
+   }
+});
+
+// API routes
+app.configureWeb = function(options, callback)
+{
+    api.app.get(/^\/todo\/([a-z]+)$/, function(req, res) {
+       var options = api.getOptions(req);
+       switch (req.params[0]) {
+         case &quot;get&quot;:
+            if (!req.query.id) return api.sendReply(res, 400, &quot;id is required&quot;);
+            db.get(&quot;todo&quot;, { id: req.query.id }, options, function(err, rows) { api.sendJSON(req, err, rows); });
+            break;
+         case &quot;select&quot;:
+            options.noscan = 0; // Allow empty scan of the whole table if not query is given, disabled by default
+            db.select(&quot;todo&quot;, req.query, options, function(err, rows) { api.sendJSON(req, err, rows); });
+            break;
+        case &quot;add&quot;:
+            if (!req.query.name) return api.sendReply(res, 400, &quot;name is required&quot;);
+            // By default due date is tomorrow
+            if (req.query.due) req.query.due = lib.toDate(req.query.due, Date.now() + 86400000).toISOString();
+            db.add(&quot;todo&quot;, req.query, options, function(err, rows) { api.sendJSON(req, err, rows); });
+            break;
+        case &quot;update&quot;:
+            if (!req.query.id) return api.sendReply(res, 400, &quot;id is required&quot;);
+            db.update(&quot;todo&quot;, req.query, options, function(err, rows) { api.sendJSON(req, err, rows); });
+            break;
+        case &quot;del&quot;:
+            if (!req.query.id) return api.sendReply(res, 400, &quot;id is required&quot;);
+            db.del(&quot;todo&quot;, { id: req.query.id }, options, function(err, rows) { api.sendJSON(req, err, rows); });
+            break;
         }
-        app.processAccountRow = function(op, row, options, cols)
-        {
-            if (row.birthday) row.age = Math.floor((Date.now() - core.toDate(row.birthday))/(86400000*365));
-        }
+    });
+    callback();
+ }
+ bkjs.server.start();
+</code></pre><p>Now run it with an option to allow API access without an account:</p>
+<pre><code>node app.js -debug -web -api-allow-path /todo
+</code></pre><p>API commands can be executed in the browser or using <code>curl</code>:</p>
+<pre><code>curl &#39;http://localhost:8000/todo?name=TestTask1&amp;descr=Descr1&amp;due=2015-01-01`
+curl &#39;http://localhost:8000/todo/select&#39;
 </code></pre><h1 id="api-endpoints-provided-by-the-backend">API endpoints provided by the backend</h1>
 <p>All API endpoints are optional and can be disabled or replaced easily. By default the naming convention is:</p>
 <pre><code> /namespace/command[/subname[/subcommand]]
@@ -447,15 +510,15 @@ verifying if the given login and secret are valid, there is no special login API
 <p>Note: When retrieving current account, all properties will be present including the location, for other accounts only the properties marked as <code>pub</code> in the
 <code>bk_account</code> table will be returned.</p>
 <p>Response:</p>
-<pre><code>      { &quot;id&quot;: &quot;57d07a4e28fc4f33bdca9f6c8e04d6c3&quot;,
-        &quot;alias&quot;: &quot;Test User&quot;,
-        &quot;name&quot;: &quot;Real Name&quot;,
-        &quot;mtime&quot;: 1391824028,
-        &quot;latitude&quot;: 34,
-        &quot;longitude&quot;: -118,
-        &quot;geohash&quot;: &quot;9qh1&quot;,
-        &quot;login&quot;: &quot;testuser&quot;,
-      }
+<pre><code>    { &quot;id&quot;: &quot;57d07a4e28fc4f33bdca9f6c8e04d6c3&quot;,
+      &quot;alias&quot;: &quot;Test User&quot;,
+      &quot;name&quot;: &quot;Real Name&quot;,
+      &quot;mtime&quot;: 1391824028,
+      &quot;latitude&quot;: 34,
+      &quot;longitude&quot;: -118,
+      &quot;geohash&quot;: &quot;9qh1&quot;,
+      &quot;login&quot;: &quot;testuser&quot;,
+    }
 </code></pre></li>
 </ul>
 <ul>
@@ -477,15 +540,13 @@ Web client if Bkjs.scramble is set to 1 then the secret is replaced by the HMAC 
 are ever saved, only used in the login form</em>.</p>
 <p>Example:</p>
 <pre><code>      /account/add?name=test&amp;login=test@test.com&amp;secret=test123&amp;gender=f&amp;phone=1234567
-</code></pre></li>
-</ul>
-<p>  How to make an account as admin</p>
-<pre><code>        # Run backend shell
-        bkjs run-shell
+</code></pre><p>How to make an account as admin</p>
+<pre><code>      # Run backend shell
+      bkjs run-shell
 
-        # Update record by login
-        &gt; db.update(&quot;bk_auth&quot;, { login: &#39;login@name&#39;, type: &#39;admin&#39; });
-</code></pre><ul>
+      # Update record by login
+      &gt; db.update(&quot;bk_auth&quot;, { login: &#39;login@name&#39;, type: &#39;admin&#39; });
+</code></pre></li>
 <li><p><code>/account/select</code></p>
 <p>Return list of accounts by the given condition, calls <code>db.select</code> for bk_account table. Parameters are the column values to be matched and
 all parameters starting with underscore are control parameters that goes into options of the <code>db.select</code> call with underscore removed. This will work for SQL
@@ -494,26 +555,24 @@ large tables. Supports special query parameters <code>_select,_ops</code>, see d
 <p>Example:</p>
 <pre><code>      /account/search?email=test&amp;_ops=email,begins_with
       /account/search?name=test
+</code></pre><p>Response:</p>
+<pre><code>      {  &quot;data&quot;: [{
+                    &quot;id&quot;: &quot;57d07a4e28fc4f33bdca9f6c8e04d6c3&quot;,
+                    &quot;alias&quot;: &quot;Test User1&quot;,
+                    &quot;name&quot;: &quot;User1&quot;,
+                    &quot;mtime&quot;: 1391824028,
+                    &quot;login&quot;: &quot;test1&quot;,
+                  },
+                  {
+                    &quot;id&quot;: &quot;57d07a4e2824fc43bd669f6c8e04d6c3&quot;,
+                    &quot;alias&quot;: &quot;Test User2&quot;,
+                    &quot;name&quot;: &quot;User2&quot;,
+                    &quot;mtime&quot;: 1391824028,
+                    &quot;login&quot;: &quot;test2&quot;,
+                  }],
+          &quot;next_token&quot;: &quot;&quot;
+      }
 </code></pre></li>
-</ul>
-<p>  Response:</p>
-<pre><code>        {  &quot;data&quot;: [{
-                      &quot;id&quot;: &quot;57d07a4e28fc4f33bdca9f6c8e04d6c3&quot;,
-                      &quot;alias&quot;: &quot;Test User1&quot;,
-                      &quot;name&quot;: &quot;User1&quot;,
-                      &quot;mtime&quot;: 1391824028,
-                      &quot;login&quot;: &quot;test1&quot;,
-                    },
-                    {
-                      &quot;id&quot;: &quot;57d07a4e2824fc43bd669f6c8e04d6c3&quot;,
-                      &quot;alias&quot;: &quot;Test User2&quot;,
-                      &quot;name&quot;: &quot;User2&quot;,
-                      &quot;mtime&quot;: 1391824028,
-                      &quot;login&quot;: &quot;test2&quot;,
-                    }],
-            &quot;next_token&quot;: &quot;&quot;
-        }
-</code></pre><ul>
 <li><p><code>/account/del</code></p>
 <p>Delete current account, after this call no more requests will be authenticated with the current credentials</p>
 </li>
@@ -2125,24 +2184,14 @@ might be useful when desining, developing or choosing the API platform:</p>
 <li><code>config-domain</code> - Domain to query for configuration TXT records, must be specified to enable DNS configuration</li>
 <li><code>watch</code> - Watch sources directory for file changes to restart the server, for development only, the backend module files will be added to the watch list automatically, so only app specific directores should be added. In the production -monitor must be used.</li>
 <li><code>db-pool</code> - Default pool to be used for db access without explicit pool specified. DNS TXT configurable.</li>
+<li><code>db-name</code> - Default database name to be used for default connections in cases when no db is specified in the connection url</li>
 <li><code>db-no-cache-columns</code> - Do not load column definitions from the database tables on startup, keep using in-app Javascript definitions only, in most cases caching columns is not required if tables are in sync between the app and the database</li>
 <li><code>db-no-init-tables</code> - Do not create tables in the database on startup and do not perform table upgrades for new columns, all tables are assumed to be created beforehand, this regexp will be applied to all pools if no pool-specific parameer defined</li>
 <li><code>db-cache-tables</code> - List of tables that can be cached: bk_auth, bk_counter. This list defines which DB calls will cache data with currently configured cache. This is global for all db pools.</li>
 <li><code>db-local</code> - Local database pool for properties, cookies and other local instance only specific stuff</li>
 <li><code>db-config</code> - Configuration database pool to be used to retrieve config parameters from the database, must be defined to use remote db for config parameters, set to <code>default</code> to use current default pool</li>
 <li><code>db-config-interval</code> - Interval between loading configuration from the database configured with -db-config-type, in seconds, 0 disables refreshing config from the db</li>
-<li><code>db-sqlite-pool(-[0-9]+)?</code> - SQLite pool db name, absolute path or just a name for the db file created in var/</li>
-<li><code>db-pgsql-pool(-[0-9]+)?</code> - PostgreSQL pool access url in the format: postgresql://[user:password@]hostname[:port]/db</li>
-<li><code>db-mysql-pool(-[0-9]+)?</code> - MySQL pool access url in the format: mysql://[user:password@]hostname/db</li>
-<li><code>db-dynamodb-pool(-[0-9]+)?</code> - DynamoDB endpoint url, a region or &#39;default&#39; to use AWS account default region</li>
-<li><code>db-mongodb-pool(-[0-9]+)?</code> - MongoDB endpoint url in the format: mongodb://hostname[:port]/dbname</li>
-<li><code>db-cassandra-pool(-[0-9]+)?</code> - Casandra endpoint url in the format: cql://[user:password@]hostname[:port]/dbname</li>
-<li><code>db-lmdb-pool(-[0-9]+)?</code> - Path to the local LMDB database</li>
-<li><code>db-leveldb-pool(-[0-9]+)?</code> - Path to the local LevelDB database</li>
-<li><code>db-redis-pool(-[0-9]+)?</code> - Redis host</li>
-<li><code>db-elasticsearch-pool(-[0-9]+)?</code> - ElasticSearch url to the host in the format: <a href="http://hostname[:port">http://hostname[:port</a>]</li>
-<li><code>db-couchdb-pool(-[0-9]+)?</code> - CouchDB url to the host in the format: <a href="http://hostname[:port]/dbname">http://hostname[:port]/dbname</a></li>
-<li><code>db-riak-pool(-[0-9]+)?</code> - Riak url to the host in the format: <a href="http://hostname[:port">http://hostname[:port</a>]</li>
+<li><code>db-([a-z0-9]+)-pool(-[0-9]+)?</code> - A database pool name, depending on the driver it can be an URL, name or pathname, examples of db pools: <code>-db-pgsql-pool, -db-dynamodb-pool</code>, examples of urls: <code>postgresql://[user:password@]hostname[:port]/db, mysql://[user:password@]hostname/db, mongodb://hostname[:port]/dbname, cql://[user:password@]hostname[:port]/dbname</code></li>
 <li><code>db-(.+)-pool-max(-[0-9]+)?</code> - Max number of open connections for a pool, default is Infinity</li>
 <li><code>db-(.+)-pool-min(-[0-9]+)?</code> - Min number of open connections for a pool</li>
 <li><code>db-(.+)-pool-idle(-[0-9]+)?</code> - Number of ms for a db pool connection to be idle before being destroyed</li>
@@ -2176,18 +2225,17 @@ might be useful when desining, developing or choosing the API platform:</p>
 <li><code>api-images-s3</code> - S3 bucket name where to store and retrieve images</li>
 <li><code>api-images-raw</code> - Return raw urls for the images, requires images-url to be configured. The path will reflect the actual 2 level structure and account id in the image name</li>
 <li><code>api-images-s3-options</code> - S3 options to sign images urls, may have expires:, key:, secret: properties</li>
-<li><code>api-domain</code> - Regexp of the domains or hostnames to be served by the API, if not matched the requests will be only served by the other middleware configured in the Express and will bypass all registered routes</li>
 <li><code>api-files-s3</code> - S3 bucket name where to store files uploaded with the File API</li>
 <li><code>api-max-latency</code> - Max time in ms for a request to wait in the queue, if exceeds this value server returns too busy error</li>
 <li><code>api-max-cpu-util</code> - Max CPU utilization allowed, if exceeds this value server returns too busy error</li>
 <li><code>api-max-memory-heap</code> - Max number of bytes of V8 heap allowed, if exceeds this value server returns too busy error</li>
 <li><code>api-max-memory-rss</code> - Max number of bytes in RSS memory allowed, if exceeds this value server returns too busy error</li>
-<li><code>api-access-log</code> - File for access logging</li>
-<li><code>api-max-age</code> - Static content max age in milliseconds</li>
+<li><code>api-no-access-log</code> - Disable access logging in both file or syslog</li>
+<li><code>api-access-log-file</code> - File for access logging</li>
 <li><code>api-salt</code> - Salt to be used for scrambling credentials or other hashing activities</li>
 <li><code>api-notifications</code> - Initialize notifications in the API Web worker process to allow sending push notifications from the API handlers</li>
-<li><code>api-no-access-log</code> - Disable access logging in both file or syslog</li>
 <li><code>api-no-static</code> - Disable static files from /web folder, no .js or .html files will be served by the server</li>
+<li><code>api-static-options</code> - Options to be passed to the serve-static module for static content handling</li>
 <li><code>api-no-templating</code> - Disable templating engine completely</li>
 <li><code>api-templating</code> - Templating engne to use, see consolidate.js for supported engines, default is ejs</li>
 <li><code>api-no-session</code> - Disable cookie session support, all requests must be signed for Web clients</li>
@@ -2309,6 +2357,12 @@ also, this will needed only for Express handlers <code>.all</code>, when registe
 </ul>
 
 <ul>
+<li><p><code>api.configureAccessLog()</code></p>
+<p> Setup access log stream</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>api.handleServerRequest(req, res)</code></p>
 <p> Start Express middleware processing wrapped in the node domain</p>
 </li>
@@ -2362,6 +2416,13 @@ then the request will be aborted and will not be forwarded to the web processes<
 <li><p><code>api.prepareRequest(req)</code></p>
 <p> Prepare request options that the API routes will merge with, can be used by pre process hooks, initialize
 required properties for subsequent use</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.handleMetrics(req, res, next)</code></p>
+<p> This is supposed to be called at beginning of the request processing to start metrics and install the handler which
+will be called at the end to finalize the metrics and call cleanup handlers</p>
 </li>
 </ul>
 
@@ -5759,7 +5820,7 @@ that data is not chnaged and was signed with the same secret</p>
 </ul>
 
 <ul>
-<li><p><code>lib.newError(options)</code></p>
+<li><p><code>lib.newError(options, status)</code></p>
 <p> Return a new Error object, options can be a string which will create an error with a message only
 or an object with message, code, status, and name properties to build full error</p>
 </li>

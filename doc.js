@@ -37,7 +37,7 @@ var header = '<head><title>Backendjs Documentation</title>' +
         '<span class="icon-bar"></span>' +
         '<span class="icon-bar"></span>' +
         '</button>' +
-        '<a href="/"><img class="logo" src="img/logo.png"></a>' +
+        '<a href="/"><img class="logo" style="max-height:30px;" src="img/logo.png"></a>' +
         '<span>Backendjs Documentation</span>' +
         '</div>' +
         '<div id="navbar" class="navbar-collapse collapse">' +

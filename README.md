@@ -51,11 +51,11 @@ The optional packages that the backendjs uses if available(resolving packages is
 
 Installing dependencies on CentOS:
 
-        yum -y install libpng-devel libjpeg-turbo-devel mysql-devel
+    yum -y install libpng-devel libjpeg-turbo-devel mysql-devel
 
 Installing dependencies on Mac OS X using macports:
 
-        port install libpng jpeg mysql56
+    port install libpng jpeg mysql56
 
 # Installation
 
@@ -63,42 +63,42 @@ To install the module with all optional dependencies if they are available in th
 
 Note: if for example ImageMagick is not istalled it will be skipped, same goes to all database drivers(MySQL) and nanomsg.
 
-        npm install backendjs
+    npm install backendjs
 
 To force internal nanomsg and ImageMagick to be compiled in the module the following command must be used:
 
-        npm install backendjs --backendjs_nanomsg --backendjs_imagemagick
+    npm install backendjs --backendjs_nanomsg --backendjs_imagemagick
 
 This may take some time because of downloading and compiling required dependencies like ImageMagick, nanomsg. They are not required in all
 applications but still part of the core of the system to be available once needed.
 
 To install from the git
 
-        npm install git+https://github.com/vseryakov/backendjs.git
+    npm install git+https://github.com/vseryakov/backendjs.git
 
 or simply
 
-        npm install vseryakov/backendjs
+    npm install vseryakov/backendjs
 
 # Quick start
 
 * Simplest way of using the backendjs, it will start the server listening on port 8000
 
-        # node
-        > var bkjs = require('backendjs')
-        > bkjs.server.start()
+    # node
+    > var bkjs = require('backendjs')
+    > bkjs.server.start()
 
 * Same but using the helper tool, by default it will use embedded Sqlite database and listen on port 8000
 
-        bkjs run-backend
+    bkjs run-backend
 
 * To start the server and connect to the DynamoDB (command line parameters can be saved in the etc/config file, see below about config files)
 
-        bkjs run-backend -db-pool dynamodb -db-dynamodb-pool default -aws-key XXXX -aws-secret XXXX
+    bkjs run-backend -db-pool dynamodb -db-dynamodb-pool default -aws-key XXXX -aws-secret XXXX
 
 * or to the PostgreSQL server, database backend
 
-        bkjs run-backend -db-pool pgsql -db-pgsql-pool postgresql://postgres@127.0.0.1/backend
+    bkjs run-backend -db-pool pgsql -db-pgsql-pool postgresql://postgres@127.0.0.1/backend
 
 * All commands above will behave exactly the same, all required tables will be automatically created
 
@@ -107,25 +107,25 @@ or simply
 * Go to http://localhost:8000/api.html for the Web console to test API requests.
   For this example let's create an account, type and execute the following URLs in the Web console:
 
-        /account/add?name=test1&secret=test1&login=test1@test.com
+    /account/add?name=test1&secret=test1&login=test1@test.com
 
 
 * Now login with any of the accounts above, click on *Login* at the top-right corner and enter 'test1' as login and 'test1' as secret in the login popup dialog.
 * If no error message appeared after the login, try to get your current account details:
 
-        /account/get
+    /account/get
 
 * Shutdown the backend by pressing Ctrl-C
 * To make your own custom Web app, create a new directory (somewhere else) to store your project and run the following command from that directory:
 
-        bkjs init-app
+    bkjs init-app
 
 * The app.js file is created in your project directory with 2 additional API endpoints `/test/add` and `/test/[0-9]` to show the simplest way
   of adding new tables and API commands.
 * The app.sh script is created for convenience in the development process, it specifies common arguments and can be customized as needed.
 * Run new application now, it will start the Web server on port 8000:
 
-        ./app.sh
+    ./app.sh
 
 
 * Go to http://localhost:8000/api.html and issue command `/test/add?id=1&name=1` and then `/test/1` commands in the console to see it in action
@@ -134,18 +134,18 @@ or simply
 
 * To start node.js shell with backendjs loaded and initialized, all command line parameters apply to the shell as well
 
-        ./app.sh -shell
+    ./app.sh -shell
 
 * To access the database while in the shell
 
-        > db.select("bk_account", {}, function(err, rows) { console.log(rows) });
-        > db.select("bk_account", {}, db.showResult);
-        > db.add("bk_account", { login: 'test2', secret: 'test2', name' Test 2 name', gender: 'f' }, db.showResult);
-        > db.select("bk_account", { gender: 'm' }, db.showResult);
+    > db.select("bk_account", {}, function(err, rows) { console.log(rows) });
+    > db.select("bk_account", {}, db.showResult);
+    > db.add("bk_account", { login: 'test2', secret: 'test2', name' Test 2 name', gender: 'f' }, db.showResult);
+    > db.select("bk_account", { gender: 'm' }, db.showResult);
 
 * To add users from the command line
 
-        bksh -add-user login test sectet test name TestUser email test@test.com
+    bksh -add-user login test sectet test name TestUser email test@test.com
 
 * To see current metrics run the command in the console '/system/stats/get'
 
@@ -200,41 +200,40 @@ which makes it easy to refer and extend with additional methods and structures.
 
 The typical structure of a backendjs application is the following (created by the bkjs init-app command):
 
-            var bkjs = require('backendjs');
-            var api = bkjs.api;
-            var app = bkjs.app;
-            var db = bkjs.db;
+    var bkjs = require('backendjs');
+    var api = bkjs.api;
+    var app = bkjs.app;
+    var db = bkjs.db;
 
-            // Describe the tables or data model
-            db.describeTables({
-                ...
-            });
+    // Describe the tables or data model
+    db.describeTables({
+         ...
+    });
 
-            // Optionally customize the Express environment, setup MVC routes or else, options.app is the Express server
-            app.configureMiddleware = function(options, callback)
-            {
-                ...
-                callback()
-            }
+     // Optionally customize the Express environment, setup MVC routes or else, options.app is the Express server
+    app.configureMiddleware = function(options, callback)
+    {
+       ...
+       callback()
+    }
 
-            // Register API endpoints, i.e. url callbacks
-            app.configureWeb = function(options, callback)
-            {
-                api.app.get('/some/api/endpoint', function(req, res) { ... });
-                ...
-                callback();
-            }
+    // Register API endpoints, i.e. url callbacks
+    app.configureWeb = function(options, callback)
+    {
+         api.app.get('/some/api/endpoint', function(req, res) { ... });
+         ...
+         callback();
+    }
 
-            // Optionally register post processing of the returned data from the default calls
-            api.registerPostProcess('', /^\/account\/([a-z\/]+)$/, function(req, res, rows) { ... });
-            ...
+    // Optionally register post processing of the returned data from the default calls
+    api.registerPostProcess('', /^\/account\/([a-z\/]+)$/, function(req, res, rows) { ... });
+     ...
 
-            // Optionally register access permissions callbacks
-            api.registerAccessCheck('', /^\/test\/list$/, function(req, status, callback) { ...  });
-            api.registerPreProcess('', /^\/test\/list$/, function(req, status, callback) { ...  });
-            ...
-
-            bkjs.server.start();
+    // Optionally register access permissions callbacks
+    api.registerAccessCheck('', /^\/test\/list$/, function(req, status, callback) { ...  });
+    api.registerPreProcess('', /^\/test\/list$/, function(req, status, callback) { ...  });
+     ...
+    bkjs.server.start();
 
 Except the `app.configureWeb` and `server.start()` all other functions are optional, they are here for the sake of completness of the example. Also
 because running the backend involves more than just running web server many things can be setup using the configuration options like common access permissions,
@@ -257,28 +256,28 @@ methods.
 
 Let's assume the modules/ contains file facebook.js which implements custom FB logic:
 
-            var bkjs = require("backendjs");
-            var fb = {}
-            module.exports = fb;
-            fb.configureWeb = function(options, callback) {
-            }
+    var bkjs = require("backendjs");
+    var fb = {}
+    module.exports = fb;
+    fb.configureWeb = function(options, callback) {
+    }
 
 This is the main app code:
 
-            var bkjs = require("backendjs");
-            var core = bkjs.core;
-            var fb;
+    var bkjs = require("backendjs");
+    var core = bkjs.core;
+    var fb;
 
-            // Using facebook module in the main app
-            api.app.get("some url", function(req, res) {
+    // Using facebook module in the main app
+    api.app.get("some url", function(req, res) {
 
-                fb = core.modules.facebook;
-                fb.makeRequest(function(err, data) {
-                    ...
-                });
-            });
+       fb = core.modules.facebook;
+       fb.makeRequest(function(err, data) {
+          ...
+       });
+    });
 
-            bkj.server.start()
+    bkj.server.start()
 
 # Database schema definition
 
@@ -292,19 +291,19 @@ Before the tables can be queried the schema must be defined and created, the bac
 - first the table needs to be described, this is achieved by creating a Javascript object with properties describing each column, multiple tables can be described
   at the same time, for example lets define album table and make sure it exists when we run our application:
 
-            db.describeTables({
-                album: {
-                    id: { primary: 1 },                         // Primary key for an album
-                    name: { pub: 1 },                           // Album name, public column
-                    mtime: { type: "bigint" },                  // Modification timestamp
-                },
-                photo: {
-                    album_id: { primary: 1 },                   // Combined primary key
-                    id: { primary: 1 },                         // consiting of album and photo id
-                    name: { pub: 1, index: 1 },                 // Photo name or description, public column with the index for faster search
-                    mtime: { type: "bigint" }
-                }
-             });
+    db.describeTables({
+        album: {
+            id: { primary: 1 },                         // Primary key for an album
+            name: { pub: 1 },                           // Album name, public column
+            mtime: { type: "bigint" },                  // Modification timestamp
+        },
+        photo: {
+            album_id: { primary: 1 },                   // Combined primary key
+            id: { primary: 1 },                         // consiting of album and photo id
+            name: { pub: 1, index: 1 },                 // Photo name or description, public column with the index for faster search
+            mtime: { type: "bigint" }
+        }
+    });
 
 - the system will automatically create the album and photos tables, this definition must remain in the app source code
   and be called on every app startup. This allows 1) to see the db schema while working with the app and 2) easily maintain it by adding new columns if
@@ -325,31 +324,98 @@ Using the birthday column we make 'age' property automatically calculated and vi
 is registered as post process callback for the bk_account table. The computed property `age` will be returned because it is not present in the table definition
 and all properties not defined and configured are passed as is.
 
-The cleanup of the public columns is done by the `api.sendJSON` which is used by all API routes when redy to send data back to the client. If any postprocess
+The cleanup of the public columns is done by the `api.sendJSON` which is used by all API routes when ready to send data back to the client. If any postprocess
 hooks are registered and return data itself then it is the hook responsibility to cleanup non-public columns.
 
-            db.describeTables({
-                    bk_account: {
-                           gender: { pub: 1 },
-                           birthday: {},
-                           ssn: {},
-                           salary: { type: "int" },
-                           occupation: {},
-                           home_phone: {},
-                           work_phone: {},
-            });
+    db.describeTables({
+        bk_account: {
+            gender: { pub: 1 },
+            birthday: {},
+            ssn: {},
+            salary: { type: "int" },
+            occupation: {},
+            home_phone: {},
+            work_phone: {},
+        });
 
-            app.configureWeb = function(options, callback)
-            {
-                db.setProcessRow("post", "bk_account", this.processAccountRow);
-                ...
-                callback();
-            }
-            app.processAccountRow = function(op, row, options, cols)
-            {
-                if (row.birthday) row.age = Math.floor((Date.now() - core.toDate(row.birthday))/(86400000*365));
-            }
+    app.configureWeb = function(options, callback)
+    {
+       db.setProcessRow("post", "bk_account", this.processAccountRow);
+       ...
+       callback();
+    }
+    app.processAccountRow = function(op, row, options, cols)
+    {
+       if (row.birthday) row.age = Math.floor((Date.now() - core.toDate(row.birthday))/(86400000*365));
+    }
 
+# Example of TODO application
+
+Here is an example how to create simple TODO application using any database supported by the backend. It supports basic
+operations like add/update/delete a record, show all records.
+
+Create a file named `app.js` with the code below.
+
+    var bkjs = require('backendjs');
+    var api = bkjs.api;
+    var lib = bkjs.lib;
+    var app = bkjs.app;
+    var db = bkjs.db;
+
+    // Describe the table to store todo records
+    db.describeTables({
+       todo: {
+           id: { type: "uuid", primary: 1 },  // Store unique task id
+           due: {},                           // Due date
+           name: {},                          // Short task name
+           descr: {},                         // Full description
+           mtime: { type: "bigint", now: 1 }  // Last update time in ms
+       }
+    });
+
+    // API routes
+    app.configureWeb = function(options, callback)
+    {
+        api.app.get(/^\/todo\/([a-z]+)$/, function(req, res) {
+           var options = api.getOptions(req);
+           switch (req.params[0]) {
+             case "get":
+                if (!req.query.id) return api.sendReply(res, 400, "id is required");
+                db.get("todo", { id: req.query.id }, options, function(err, rows) { api.sendJSON(req, err, rows); });
+                break;
+             case "select":
+                options.noscan = 0; // Allow empty scan of the whole table if not query is given, disabled by default
+                db.select("todo", req.query, options, function(err, rows) { api.sendJSON(req, err, rows); });
+                break;
+            case "add":
+                if (!req.query.name) return api.sendReply(res, 400, "name is required");
+                // By default due date is tomorrow
+                if (req.query.due) req.query.due = lib.toDate(req.query.due, Date.now() + 86400000).toISOString();
+                db.add("todo", req.query, options, function(err, rows) { api.sendJSON(req, err, rows); });
+                break;
+            case "update":
+                if (!req.query.id) return api.sendReply(res, 400, "id is required");
+                db.update("todo", req.query, options, function(err, rows) { api.sendJSON(req, err, rows); });
+                break;
+            case "del":
+                if (!req.query.id) return api.sendReply(res, 400, "id is required");
+                db.del("todo", { id: req.query.id }, options, function(err, rows) { api.sendJSON(req, err, rows); });
+                break;
+            }
+        });
+        callback();
+     }
+     bkjs.server.start();
+
+
+Now run it with an option to allow API access without an account:
+
+    node app.js -debug -web -api-allow-path /todo
+
+API commands can be executed in the browser or using `curl`:
+
+    curl 'http://localhost:8000/todo?name=TestTask1&descr=Descr1&due=2015-01-01`
+    curl 'http://localhost:8000/todo/select'
 
 # API endpoints provided by the backend
 
@@ -404,15 +470,15 @@ This is implemented by the `accounts` module from the core. To disable accounts 
 
   Response:
 
-            { "id": "57d07a4e28fc4f33bdca9f6c8e04d6c3",
-              "alias": "Test User",
-              "name": "Real Name",
-              "mtime": 1391824028,
-              "latitude": 34,
-              "longitude": -118,
-              "geohash": "9qh1",
-              "login": "testuser",
-            }
+          { "id": "57d07a4e28fc4f33bdca9f6c8e04d6c3",
+            "alias": "Test User",
+            "name": "Real Name",
+            "mtime": 1391824028,
+            "latitude": 34,
+            "longitude": -118,
+            "geohash": "9qh1",
+            "login": "testuser",
+          }
 
 
 - `/account/logout`
@@ -441,7 +507,6 @@ This is implemented by the `accounts` module from the core. To disable accounts 
 
             /account/add?name=test&login=test@test.com&secret=test123&gender=f&phone=1234567
 
-
   How to make an account as admin
 
             # Run backend shell
@@ -461,7 +526,6 @@ This is implemented by the `accounts` module from the core. To disable accounts 
 
             /account/search?email=test&_ops=email,begins_with
             /account/search?name=test
-
 
   Response:
 

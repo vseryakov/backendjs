@@ -46,18 +46,28 @@ system.configureSystemAPI = function()
         switch (req.params[0]) {
         case "restart":
             ipc.send("api:restart");
-            res.json({});
             break;
 
         case "config":
-            ipc.send('init:' + req.params[1]);
-            res.json({});
+            switch (req.params[1]) {
+            case 'init':
+                ipc.send('init:' + req.params[0]);
+                break;
+            }
             break;
 
         case "msg":
             switch (req.params[1]) {
             case 'init':
-                ipc.send('init:msg');
+                ipc.send('init:' + req.params[0]);
+                break;
+            }
+            break;
+
+        case "columns":
+            switch (req.params[1]) {
+            case 'init':
+                ipc.send('init:' + req.params[0]);
                 break;
             }
             break;
@@ -106,7 +116,6 @@ system.configureSystemAPI = function()
             case 'start':
             case 'stop':
                 core.profiler("cpu", req.params[1]);
-                res.json({});
                 break;
 
             case 'get':
@@ -114,8 +123,6 @@ system.configureSystemAPI = function()
                 if (core.cpuProfile) {
                     res.json(core.cpuProfile);
                     core.cpuProfile = null;
-                } else {
-                    res.json({});
                 }
                 break;
             }
@@ -140,7 +147,6 @@ system.configureSystemAPI = function()
 
         case "log":
             logger.log(req.query);
-            res.json({});
             break;
 
         case "cache":
@@ -163,15 +169,12 @@ system.configureSystemAPI = function()
                 break;
             case "del":
                 ipc.del(req.query.name);
-                res.json({});
                 break;
             case "incr":
                 ipc.incr(req.query.name, lib.toNumber(req.query.value));
-                res.json({});
                 break;
             case "put":
                 ipc.put(req.query.name, req.query.value);
-                res.json({});
                 break;
             case "command":
                 if (!req.query.reply) {
@@ -189,6 +192,8 @@ system.configureSystemAPI = function()
         default:
             api.sendReply(res, 400, "Invalid command:" + req.params[0]);
         }
+        // Return empty response if not send already
+        if (!res.headersSent) res.json({});
     });
 }
 

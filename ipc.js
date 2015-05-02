@@ -83,6 +83,10 @@ ipc.handleWorkerMessages = function(msg)
             core.modules.db.initConfig();
             break;
 
+        case "init:columns":
+            core.modules.db.cacheColumns();
+            break;
+
         case "profiler":
             core.profiler("cpu", msg.value ? "start" : "stop");
             break;
@@ -158,6 +162,11 @@ ipc.handleServerMessages = function(worker, msg)
 
         case "init:config":
             core.modules.db.initConfig();
+            for (var p in cluster.workers) cluster.workers[p].send(msg);
+            break;
+
+        case "init:columns":
+            core.modules.db.cacheColumns();
             for (var p in cluster.workers) cluster.workers[p].send(msg);
             break;
 
