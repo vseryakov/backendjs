@@ -84,21 +84,21 @@ or simply
 
 * Simplest way of using the backendjs, it will start the server listening on port 8000
 
-     $ node
-     > var bkjs = require('backendjs')
-     > bkjs.server.start()
+      $ node
+      > var bkjs = require('backendjs')
+      > bkjs.server.start()
 
 * Same but using the helper tool, by default it will use embedded Sqlite database and listen on port 8000
 
-     bkjs run-backend
+      bkjs run-backend
 
 * To start the server and connect to the DynamoDB (command line parameters can be saved in the etc/config file, see below about config files)
 
-     bkjs run-backend -db-pool dynamodb -db-dynamodb-pool default -aws-key XXXX -aws-secret XXXX
+      bkjs run-backend -db-pool dynamodb -db-dynamodb-pool default -aws-key XXXX -aws-secret XXXX
 
 * or to the PostgreSQL server, database backend
 
-     bkjs run-backend -db-pool pgsql -db-pgsql-pool postgresql://postgres@127.0.0.1/backend
+      bkjs run-backend -db-pool pgsql -db-pgsql-pool postgresql://postgres@127.0.0.1/backend
 
 * All commands above will behave exactly the same, all required tables will be automatically created
 
@@ -107,26 +107,25 @@ or simply
 * Go to http://localhost:8000/api.html for the Web console to test API requests.
   For this example let's create an account, type and execute the following URLs in the Web console:
 
-     /account/add?name=test1&secret=test1&login=test1@test.com
+      /account/add?name=test1&secret=test1&login=test1@test.com
 
 
 * Now login with any of the accounts above, click on *Login* at the top-right corner and enter 'test1' as login and 'test1' as secret in the login popup dialog.
 * If no error message appeared after the login, try to get your current account details:
 
-    /account/get
+      /account/get
 
 * Shutdown the backend by pressing Ctrl-C
 * To make your own custom Web app, create a new directory (somewhere else) to store your project and run the following command from that directory:
 
-    bkjs init-app
+      bkjs init-app
 
 * The app.js file is created in your project directory with 2 additional API endpoints `/test/add` and `/test/[0-9]` to show the simplest way
   of adding new tables and API commands.
 * The app.sh script is created for convenience in the development process, it specifies common arguments and can be customized as needed.
 * Run new application now, it will start the Web server on port 8000:
 
-    ./app.sh
-
+      ./app.sh
 
 * Go to http://localhost:8000/api.html and issue command `/test/add?id=1&name=1` and then `/test/1` commands in the console to see it in action
 * Change in any of the source files will make the server restart automatically letting you focus on the source code and not server management, this mode
@@ -134,18 +133,18 @@ or simply
 
 * To start node.js shell with backendjs loaded and initialized, all command line parameters apply to the shell as well
 
-    ./app.sh -shell
+      ./app.sh -shell
 
 * To access the database while in the shell
 
-    > db.select("bk_account", {}, function(err, rows) { console.log(rows) });
-    > db.select("bk_account", {}, db.showResult);
-    > db.add("bk_account", { login: 'test2', secret: 'test2', name' Test 2 name', gender: 'f' }, db.showResult);
-    > db.select("bk_account", { gender: 'm' }, db.showResult);
+      > db.select("bk_account", {}, function(err, rows) { console.log(rows) });
+      > db.select("bk_account", {}, db.showResult);
+      > db.add("bk_account", { login: 'test2', secret: 'test2', name' Test 2 name', gender: 'f' }, db.showResult);
+      > db.select("bk_account", { gender: 'm' }, db.showResult);
 
 * To add users from the command line
 
-    bksh -add-user login test sectet test name TestUser email test@test.com
+      bksh -add-user login test sectet test name TestUser email test@test.com
 
 * To see current metrics run the command in the console '/system/stats/get'
 
@@ -256,11 +255,11 @@ methods.
 
 Let's assume the modules/ contains file facebook.js which implements custom FB logic:
 
-    var bkjs = require("backendjs");
-    var fb = {}
-    module.exports = fb;
-    fb.configureWeb = function(options, callback) {
-    }
+     var bkjs = require("backendjs");
+     var fb = {}
+     module.exports = fb;
+     fb.configureWeb = function(options, callback) {
+     }
 
 This is the main app code:
 
@@ -291,19 +290,19 @@ Before the tables can be queried the schema must be defined and created, the bac
 - first the table needs to be described, this is achieved by creating a Javascript object with properties describing each column, multiple tables can be described
   at the same time, for example lets define album table and make sure it exists when we run our application:
 
-    db.describeTables({
-        album: {
-            id: { primary: 1 },                         // Primary key for an album
-            name: { pub: 1 },                           // Album name, public column
-            mtime: { type: "bigint" },                  // Modification timestamp
-        },
-        photo: {
-            album_id: { primary: 1 },                   // Combined primary key
-            id: { primary: 1 },                         // consiting of album and photo id
-            name: { pub: 1, index: 1 },                 // Photo name or description, public column with the index for faster search
-            mtime: { type: "bigint" }
-        }
-    });
+        db.describeTables({
+           album: {
+               id: { primary: 1 },                         // Primary key for an album
+               name: { pub: 1 },                           // Album name, public column
+               mtime: { type: "bigint" },                  // Modification timestamp
+           },
+           photo: {
+               album_id: { primary: 1 },                   // Combined primary key
+               id: { primary: 1 },                         // consiting of album and photo id
+               name: { pub: 1, index: 1 },                 // Photo name or description, public column with the index for faster search
+               mtime: { type: "bigint" }
+           }
+        });
 
 - the system will automatically create the album and photos tables, this definition must remain in the app source code
   and be called on every app startup. This allows 1) to see the db schema while working with the app and 2) easily maintain it by adding new columns if

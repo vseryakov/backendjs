@@ -173,67 +173,62 @@ applications but still part of the core of the system to be available once neede
 </code></pre><h1 id="quick-start">Quick start</h1>
 <ul>
 <li><p>Simplest way of using the backendjs, it will start the server listening on port 8000</p>
-<p>   $ node</p>
-<blockquote>
-<p>var bkjs = require(&#39;backendjs&#39;)
-bkjs.server.start()</p>
-</blockquote>
-</li>
+<pre><code>$ node
+&gt; var bkjs = require(&#39;backendjs&#39;)
+&gt; bkjs.server.start()
+</code></pre></li>
 <li><p>Same but using the helper tool, by default it will use embedded Sqlite database and listen on port 8000</p>
-<p>   bkjs run-backend</p>
-</li>
+<pre><code>bkjs run-backend
+</code></pre></li>
 <li><p>To start the server and connect to the DynamoDB (command line parameters can be saved in the etc/config file, see below about config files)</p>
-<p>   bkjs run-backend -db-pool dynamodb -db-dynamodb-pool default -aws-key XXXX -aws-secret XXXX</p>
-</li>
+<pre><code>bkjs run-backend -db-pool dynamodb -db-dynamodb-pool default -aws-key XXXX -aws-secret XXXX
+</code></pre></li>
 <li><p>or to the PostgreSQL server, database backend</p>
-<p>   bkjs run-backend -db-pool pgsql -db-pgsql-pool postgresql://postgres@127.0.0.1/backend</p>
-</li>
+<pre><code>bkjs run-backend -db-pool pgsql -db-pgsql-pool postgresql://postgres@127.0.0.1/backend
+</code></pre></li>
 <li><p>All commands above will behave exactly the same, all required tables will be automatically created</p>
 </li>
 <li><p>While the local backendjs is runnning, the documentation is always available at <a href="http://localhost:8000/doc.html">http://localhost:8000/doc.html</a> (or whatever port is the server using)</p>
 </li>
 <li><p>Go to <a href="http://localhost:8000/api.html">http://localhost:8000/api.html</a> for the Web console to test API requests.
 For this example let&#39;s create an account, type and execute the following URLs in the Web console:</p>
-<p>   /account/add?name=test1&amp;secret=test1&amp;login=test1@test.com</p>
-</li>
+<pre><code>/account/add?name=test1&amp;secret=test1&amp;login=test1@test.com
+</code></pre></li>
 </ul>
 <ul>
 <li>Now login with any of the accounts above, click on <em>Login</em> at the top-right corner and enter &#39;test1&#39; as login and &#39;test1&#39; as secret in the login popup dialog.</li>
 <li><p>If no error message appeared after the login, try to get your current account details:</p>
-<p>  /account/get</p>
-</li>
+<pre><code>/account/get
+</code></pre></li>
 <li><p>Shutdown the backend by pressing Ctrl-C</p>
 </li>
 <li><p>To make your own custom Web app, create a new directory (somewhere else) to store your project and run the following command from that directory:</p>
-<p>  bkjs init-app</p>
-</li>
+<pre><code>bkjs init-app
+</code></pre></li>
 <li><p>The app.js file is created in your project directory with 2 additional API endpoints <code>/test/add</code> and <code>/test/[0-9]</code> to show the simplest way
 of adding new tables and API commands.</p>
 </li>
 <li>The app.sh script is created for convenience in the development process, it specifies common arguments and can be customized as needed.</li>
 <li><p>Run new application now, it will start the Web server on port 8000:</p>
-<p>  ./app.sh</p>
+<pre><code>./app.sh
+</code></pre></li>
+<li><p>Go to <a href="http://localhost:8000/api.html">http://localhost:8000/api.html</a> and issue command <code>/test/add?id=1&amp;name=1</code> and then <code>/test/1</code> commands in the console to see it in action</p>
 </li>
-</ul>
-<ul>
-<li>Go to <a href="http://localhost:8000/api.html">http://localhost:8000/api.html</a> and issue command <code>/test/add?id=1&amp;name=1</code> and then <code>/test/1</code> commands in the console to see it in action</li>
 <li><p>Change in any of the source files will make the server restart automatically letting you focus on the source code and not server management, this mode
 is only enabled by default in development mode, check app.sh for parameters before running it in the production.</p>
 </li>
 <li><p>To start node.js shell with backendjs loaded and initialized, all command line parameters apply to the shell as well</p>
-<p>  ./app.sh -shell</p>
-</li>
+<pre><code>./app.sh -shell
+</code></pre></li>
 <li><p>To access the database while in the shell</p>
-<blockquote>
-<p>db.select(&quot;bk_account&quot;, {}, function(err, rows) { console.log(rows) });
-db.select(&quot;bk_account&quot;, {}, db.showResult);
-db.add(&quot;bk_account&quot;, { login: &#39;test2&#39;, secret: &#39;test2&#39;, name&#39; Test 2 name&#39;, gender: &#39;f&#39; }, db.showResult);
-db.select(&quot;bk_account&quot;, { gender: &#39;m&#39; }, db.showResult);</p>
-</blockquote>
-</li>
+<pre><code>&gt; db.select(&quot;bk_account&quot;, {}, function(err, rows) { console.log(rows) });
+&gt; db.select(&quot;bk_account&quot;, {}, db.showResult);
+&gt; db.add(&quot;bk_account&quot;, { login: &#39;test2&#39;, secret: &#39;test2&#39;, name&#39; Test 2 name&#39;, gender: &#39;f&#39; }, db.showResult);
+&gt; db.select(&quot;bk_account&quot;, { gender: &#39;m&#39; }, db.showResult);
+</code></pre></li>
 <li><p>To add users from the command line</p>
-<p>  bksh -add-user login test sectet test name TestUser email test@test.com</p>
-</li>
+<pre><code>bksh -add-user login test sectet test name TestUser email test@test.com
+</code></pre></li>
 <li><p>To see current metrics run the command in the console &#39;/system/stats/get&#39;</p>
 </li>
 <li><p>To see charts about accumulated metrics go to <a href="http://localhost:8000/metrics.html">http://localhost:8000/metrics.html</a></p>
@@ -325,11 +320,11 @@ modules to load or to ignore see command line parameters <code>-deny-modules</co
 can be shipped regardless of the npm, node nodules and other env setup. These modules are exposed in the <code>core.modules</code> the same way as all other core submodules
 methods.</p>
 <p>Let&#39;s assume the modules/ contains file facebook.js which implements custom FB logic:</p>
-<pre><code>var bkjs = require(&quot;backendjs&quot;);
-var fb = {}
-module.exports = fb;
-fb.configureWeb = function(options, callback) {
-}
+<pre><code> var bkjs = require(&quot;backendjs&quot;);
+ var fb = {}
+ module.exports = fb;
+ fb.configureWeb = function(options, callback) {
+ }
 </code></pre><p>This is the main app code:</p>
 <pre><code>var bkjs = require(&quot;backendjs&quot;);
 var core = bkjs.core;
@@ -354,20 +349,20 @@ access to the database driver and executes given query directly by the db driver
 <ul>
 <li><p>first the table needs to be described, this is achieved by creating a Javascript object with properties describing each column, multiple tables can be described
 at the same time, for example lets define album table and make sure it exists when we run our application:</p>
-<p>  db.describeTables({</p>
-<pre><code>  album: {
-      id: { primary: 1 },                         // Primary key for an album
-      name: { pub: 1 },                           // Album name, public column
-      mtime: { type: &quot;bigint&quot; },                  // Modification timestamp
-  },
-  photo: {
-      album_id: { primary: 1 },                   // Combined primary key
-      id: { primary: 1 },                         // consiting of album and photo id
-      name: { pub: 1, index: 1 },                 // Photo name or description, public column with the index for faster search
-      mtime: { type: &quot;bigint&quot; }
-  }
-</code></pre><p>  });</p>
-</li>
+<pre><code>  db.describeTables({
+     album: {
+         id: { primary: 1 },                         // Primary key for an album
+         name: { pub: 1 },                           // Album name, public column
+         mtime: { type: &quot;bigint&quot; },                  // Modification timestamp
+     },
+     photo: {
+         album_id: { primary: 1 },                   // Combined primary key
+         id: { primary: 1 },                         // consiting of album and photo id
+         name: { pub: 1, index: 1 },                 // Photo name or description, public column with the index for faster search
+         mtime: { type: &quot;bigint&quot; }
+     }
+  });
+</code></pre></li>
 <li><p>the system will automatically create the album and photos tables, this definition must remain in the app source code
 and be called on every app startup. This allows 1) to see the db schema while working with the app and 2) easily maintain it by adding new columns if
 necessary, all new columns will be detected and the database tables updated accordingly. And it is all Javascript, no need to learn one more language or syntax
