@@ -199,6 +199,7 @@ which makes it easy to refer and extend with additional methods and structures.
 
 The typical structure of a backendjs application is the following (created by the bkjs init-app command):
 
+```javascript
     var bkjs = require('backendjs');
     var api = bkjs.api;
     var app = bkjs.app;
@@ -233,6 +234,7 @@ The typical structure of a backendjs application is the following (created by th
     api.registerPreProcess('', /^\/test\/list$/, function(req, status, callback) { ...  });
      ...
     bkjs.server.start();
+```
 
 Except the `app.configureWeb` and `server.start()` all other functions are optional, they are here for the sake of completness of the example. Also
 because running the backend involves more than just running web server many things can be setup using the configuration options like common access permissions,

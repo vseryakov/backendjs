@@ -271,41 +271,42 @@ processing of the data is needed before sending it to the user, it is possible t
 <p>Special module/namespace <code>app</code> is designated to be used for application development/extension. This module is available the same way as the <code>api</code> or <code>core</code>
 which makes it easy to refer and extend with additional methods and structures.</p>
 <p>The typical structure of a backendjs application is the following (created by the bkjs init-app command):</p>
-<pre><code>var bkjs = require(&#39;backendjs&#39;);
-var api = bkjs.api;
-var app = bkjs.app;
-var db = bkjs.db;
+<pre><code class="lang-javascript">    var bkjs = require(&#39;backendjs&#39;);
+    var api = bkjs.api;
+    var app = bkjs.app;
+    var db = bkjs.db;
 
-// Describe the tables or data model
-db.describeTables({
+    // Describe the tables or data model
+    db.describeTables({
+         ...
+    });
+
+     // Optionally customize the Express environment, setup MVC routes or else, options.app is the Express server
+    app.configureMiddleware = function(options, callback)
+    {
+       ...
+       callback()
+    }
+
+    // Register API endpoints, i.e. url callbacks
+    app.configureWeb = function(options, callback)
+    {
+         api.app.get(&#39;/some/api/endpoint&#39;, function(req, res) { ... });
+         ...
+         callback();
+    }
+
+    // Optionally register post processing of the returned data from the default calls
+    api.registerPostProcess(&#39;&#39;, /^\/account\/([a-z\/]+)$/, function(req, res, rows) { ... });
      ...
-});
 
- // Optionally customize the Express environment, setup MVC routes or else, options.app is the Express server
-app.configureMiddleware = function(options, callback)
-{
-   ...
-   callback()
-}
-
-// Register API endpoints, i.e. url callbacks
-app.configureWeb = function(options, callback)
-{
-     api.app.get(&#39;/some/api/endpoint&#39;, function(req, res) { ... });
+    // Optionally register access permissions callbacks
+    api.registerAccessCheck(&#39;&#39;, /^\/test\/list$/, function(req, status, callback) { ...  });
+    api.registerPreProcess(&#39;&#39;, /^\/test\/list$/, function(req, status, callback) { ...  });
      ...
-     callback();
-}
-
-// Optionally register post processing of the returned data from the default calls
-api.registerPostProcess(&#39;&#39;, /^\/account\/([a-z\/]+)$/, function(req, res, rows) { ... });
- ...
-
-// Optionally register access permissions callbacks
-api.registerAccessCheck(&#39;&#39;, /^\/test\/list$/, function(req, status, callback) { ...  });
-api.registerPreProcess(&#39;&#39;, /^\/test\/list$/, function(req, status, callback) { ...  });
- ...
-bkjs.server.start();
-</code></pre><p>Except the <code>app.configureWeb</code> and <code>server.start()</code> all other functions are optional, they are here for the sake of completness of the example. Also
+    bkjs.server.start();
+</code></pre>
+<p>Except the <code>app.configureWeb</code> and <code>server.start()</code> all other functions are optional, they are here for the sake of completness of the example. Also
 because running the backend involves more than just running web server many things can be setup using the configuration options like common access permissions,
 configuration of the cron jobs so the amount of code to be written to have fully functionaning production API server is not that much, basically only
 request endpoint callbacks must be provided in the application.</p>
