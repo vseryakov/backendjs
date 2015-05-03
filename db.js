@@ -140,7 +140,7 @@ var db = {
     localMode: false,
 
     // Refresh config from the db
-    configInterval: 3600 * 3,
+    configInterval: 86400,
 
     processRows: {},
     processColumns: [],
@@ -190,8 +190,12 @@ var db = {
 
         // Collected metrics per worker process, basic columns are defined in the table to be collected like
         // api and db request rates(.rmean), response times(.hmean) and total number of requests(_0).
-        // Counters ending with _0 are snapshots, i.e. they must be summed up for any given interval.
-        // All other counters are averages.
+        // Counters ending with `_0` are snapshots, i.e. they must be summed up for any given interval.
+        // All other counters are averages. Only subset of all available API endpoints is defined here
+        // for example purposes, for SQL databases all columns must be defined but for NoSQL this is not required,
+        // depending on the database that is used for collection the metrics must be added to the table. All `url_` columns
+        // are the API requests, not the DB calls made by the app, the length of URL path to be stored is defined in the API module
+        // by the `api-url-metrics-` config parameter.
         bk_collect: { id: { primary: 1 },
                        mtime: { type: "bigint", primary: 1 },
                        app: {},
@@ -211,14 +215,19 @@ var db = {
                        api_req_rmean: { type: "real" },
                        api_req_hmean: { type: "real" },
                        api_req_0: { type: "real" },
-                       api_errors_0: { type: "real" },
+                       api_err_0: { type: "real" },
                        api_bad_0: { type: "real" },
+                       api_400_0: { type: "real" },
+                       api_401_0: { type: "real" },
+                       api_403_0: { type: "real" },
+                       api_417_0: { type: "real" },
+                       api_429_0: { type: "real" },
                        api_que_rmean: { type: "real" },
                        api_que_hmean: { type: "real" },
                        pool_req_rmean: { type: "real" },
                        pool_req_hmean: { type: "real" },
                        pool_req_0: { type: "real" },
-                       pool_errors_0: { type: "real" },
+                       pool_err_0: { type: "real" },
                        pool_que_rmean: { type: "real" },
                        pool_que_hmean: { type: "real" },
                        ctime: { type: "bigint" } },
@@ -544,7 +553,7 @@ db.query = function(req, options, callback)
         pool.metrics.Counter('count').dec();
 
         if (err && !options.silence_error) {
-            pool.metrics.Counter("errors_0").inc();
+            pool.metrics.Counter("err_0").inc();
             logger.error("db.query:", pool.name, err, 'REQ:', req, 'OPTS:', options, err.stack);
         } else {
             logger.debug("db.query:", pool.name, Date.now() - t1, 'ms', rows.length, 'rows', 'REQ:', req, 'INFO:', info, 'OPTS:', options);

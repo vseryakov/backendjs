@@ -1008,9 +1008,10 @@ lib.jsonToBase64 = function(data, secret)
 lib.base64ToJson = function(data, secret)
 {
     var rc = "";
+    if (typeof data  == "undefined" || data == null) return rc;
     if (secret) data = this.decrypt(secret, data);
     try {
-        if (data.match(/^[0-9]+$/)) {
+        if (typeof data == "number" || (typeof data == "string" && data.match(/^[0-9]+$/))) {
             rc = this.toNumber(data);
         } else {
             if (!secret) data = new Buffer(data, "base64").toString();

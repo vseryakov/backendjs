@@ -40,7 +40,8 @@ counters.init = function(options)
                           url_counter_incr_rmean: { type: "real" },
                           url_counter_incr_hmean: { type: "real" },
                           url_counter_incr_0: { type: "real" },
-
+                          url_counter_incr_bad_0: { type: "real" },
+                          url_counter_incr_err_0: { type: "real" },
                       },
 
     });

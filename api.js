@@ -103,6 +103,7 @@ var api = {
            { name: "collect-send-interval", type: "number", min: 60, descr: "How often to send collected statistics to the master server in seconds" },
            { name: "secret-policy", type: "regexpmap", descr : "An JSON object with list of regexps to validate account password, each regexp comes with an error message to be returned if such regexp fails, `api.checkAccountSecret` performs the validation, example: { '[a-z]+': 'At least one lowercase letter', '[A-Z]+': 'At least one upper case letter' }" },
            { name: "cors-origin", descr: "Origin header for CORS requests" },
+           { name: "url-metrics-([a-z]+)", type: "int", obj: "url-metrics", descr: "Defines the length of an API request path to be stored in the statistics, set by the first component of endpoint URL, example: -api-url-metrics-image 2 -api-url-metrics-account 3" },
            { name: "rlimits-([a-z]+)-max", type: "int", obj: "rlimits", descr: "Set max/burst rate limit by the given property, it is used by the request rate limiter using Token Bucket algorithm. Predefined types: ip, id, login" },
            { name: "rlimits-([a-z]+)-rate", type: "int", obj: "rlimits", descr: "Set fill/normal rate limit by the given property, it is used by the request rate limiter using Token Bucket algorithm. Predefined types: ip, id, login" },
            { name: "rlimits-total", type:" int", obj: "rlimits", descr: "Total number of servers used in the rate limiter behind a load balancer, rates will be divided by this number so each server handles only a portion of the total rate limit" },
@@ -214,9 +215,7 @@ var api = {
                                  'cpus', 0,
                                  'mem', 0),
 
-    // URL metrics, how long the metric path should be for an API endpoint URL, by default only first 2 components of the URL path are used.
-    // This object tells how long the metric name should be using the leading component of the url. The usual place to set this will be in the
-    // overridden api.initMiddleware() method in the application.
+    // This object tells how long the metric name should be using the leading component of the url.
     urlMetrics: { image: 2 },
 
     // Collector of statistics, seconds
@@ -663,8 +662,8 @@ api.prepareRequest = function(req)
     req.account = {};
 }
 
-// This is supposed to be called at beginning of the request processing to start metrics and install the handler which
-// will be called at the end to finalize the metrics and call cleanup handlers
+// This is supposed to be called at the beginning of request processing to start metrics and install the handler which
+// will be called at the end to finalize the metrics and call the cleanup handlers
 api.handleMetrics = function(req, res, next)
 {
     var self = this;
@@ -672,7 +671,10 @@ api.handleMetrics = function(req, res, next)
     this.metrics.Histogram('api_que').update(this.metrics.Counter('api_nreq').inc());
     req.metric1 = self.metrics.Timer('api_req').start();
     req.metric2 = self.metrics.Timer(path).start();
+    // Path counters, total and errors
     this.metrics.Counter(path +'_0').inc();
+    if (res.statusCode >= 400 && res.statusCode < 500) this.metrics.Counter(path +'_bad_0').inc();
+    if (res.statusCode >= 500) self.metrics.Counter(path + "_err_0").inc();
     var end = res.end;
     res.end = function(chunk, encoding) {
         res.end = end;
@@ -680,7 +682,7 @@ api.handleMetrics = function(req, res, next)
         self.metrics.Counter('api_nreq').dec();
         self.metrics.Counter("api_req_0").inc();
         if (res.statusCode >= 400 && res.statusCode < 500) self.metrics.Counter("api_bad_0").inc();
-        if (res.statusCode >= 500) self.metrics.Counter("api_errors_0").inc();
+        if (res.statusCode >= 500) self.metrics.Counter("api_err_0").inc();
         self.metrics.Counter("api_" + res.statusCode + "_0").inc();
         req.metric1.end();
         req.metric2.end();

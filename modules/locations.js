@@ -52,9 +52,13 @@ locations.init = function(options)
                           url_location_get_rmean: { type: "real" },
                           url_location_get_hmean: { type: "real" },
                           url_location_get_0: { type: "real" },
+                          url_location_get_err_0: { type: "real" },
+                          url_location_get_bad_0: { type: "real" },
                           url_location_put_rmean: { type: "real" },
                           url_location_put_hmean: { type: "real" },
                           url_location_put_0: { type: "real" },
+                          url_location_put_bad_0: { type: "real" },
+                          url_location_put_err_0: { type: "real" },
                       },
 
     });

@@ -64,12 +64,18 @@ messages.init = function(options)
                           url_image_message_rmean: { type: "real" },
                           url_image_message_hmean: { type: "real" },
                           url_image_message_0: { type: "real" },
+                          url_image_message_bad_0: { type: "real" },
+                          url_image_message_err_0: { type: "real" },
                           url_message_get_rmean: { type: "real" },
                           url_message_get_hmean: { type: "real" },
                           url_message_get_0: { type: "real" },
+                          url_message_get_bad_0: { type: "real" },
+                          url_message_get_err_0: { type: "real" },
                           url_message_add_rmean: { type: "real" },
                           url_message_add_hmean: { type: "real" },
                           url_message_add_0: { type: "real" },
+                          url_message_add_bad_0: { type: "real" },
+                          url_message_add_err_0: { type: "real" },
                       },
     });
 }
