@@ -2206,6 +2206,7 @@ might be useful when desining, developing or choosing the API platform:</p>
 <li><code>db-(.+)-pool-options(-[0-9]+)?</code> - A DB pool driver options passed to every request</li>
 <li><code>db-(.+)-pool-no-cache-columns(-[0-9]+)?</code> - disable caching table columns for this pool only</li>
 <li><code>db-(.+)-pool-no-init-tables(-[0-9]+)?</code> - Do not create tables for this pool only, a regexp of tables to skip</li>
+<li><code>db-describe-tables</code> - A JSON object with table descriptions to be merged with the existing definitions</li>
 <li><code>aws-key</code> - AWS access key</li>
 <li><code>aws-secret</code> - AWS access secret</li>
 <li><code>aws-region</code> - AWS region</li>
@@ -4153,6 +4154,12 @@ types <code>myapp</code> and <code>prod-myapp</code>, then the last value will b
 <li>current instance tag or a custom tag for ad-hoc queries: <code>nat</code></li>
 <li>current instance IP address: <code>192.168.1.1</code></li>
 </ul>
+<p>The options takes the following properties:</p>
+<ul>
+<li>force - if true then force to refresh and reopen all db pools</li>
+<li>refresh - if true then pull all config options, otherwise pull only records updated since the time the last config pull, it uses the max mtime
+ from all received records.</li>
+</ul>
 <p>On return, the callback second argument will receive all parameters received form the database as a list: -name value ...</p>
 </li>
 </ul>
@@ -4173,19 +4180,6 @@ types <code>myapp</code> and <code>prod-myapp</code>, then the last value will b
 <li>noCacheColumns - if 1 tells to skip caching database columns, overrides the global parameter</li>
 </ul>
 </li>
-</ul>
-
-<ul>
-<li><p><code>db.describeTables(tables)</code></p>
-<p> Define new tables or extend/customize existing tables. Table definitions are used with every database operation,
-on startup, the backend read all existing table columns from the database and cache them in the memory but some properties
-like public columns are only specific to the backend so to mark such columns the table with such properties must be described
-using this method. Only columns with changed properties need to be specified, other columns will be left as it is.</p>
-<p>Example</p>
-<pre><code>    db.describeTables({ bk_account: { name: { pub: 1 } },
-                        test: { id: { primary: 1, type: &quot;int&quot; },
-                                name: { pub: 1, index: 1 } });
-</code></pre></li>
 </ul>
 
 <ul>
@@ -4705,6 +4699,25 @@ so the callback is called as soon as the table is active or after the timeout wh
 <ul>
 <li><p><code>db.convertError(table, op, err, options)</code></p>
 <p> Convert native database error in some generic human readable string</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.describeTables(tables)</code></p>
+<p> Define new tables or extend/customize existing tables. Table definitions are used with every database operation,
+on startup, the backend read all existing table columns from the database and cache them in the memory but some properties
+like public columns are only specific to the backend so to mark such columns the table with such properties must be described
+using this method. Only columns with changed properties need to be specified, other columns will be left as it is.</p>
+<p>Example</p>
+<pre><code>    db.describeTables({ bk_account: { name: { pub: 1 } },
+                        test: { id: { primary: 1, type: &quot;int&quot; },
+                                name: { pub: 1, index: 1 } });
+</code></pre></li>
+</ul>
+
+<ul>
+<li><p><code>db.mergeTables(callback)</code></p>
+<p> Merge columns for all table in all pools tables with the global list of tables</p>
 </li>
 </ul>
 
@@ -7062,7 +7075,7 @@ db.query({ op: &quot;POST&quot;, text: &quot;/buckets/bucket/counter/name&quot;,
 <p> Create a database pool for SQL like databases</p>
 <ul>
 <li>options - an object defining the pool, the following properties define the pool:<ul>
-<li>pool - pool name/type, of not specified SQLite is used</li>
+<li>pool - pool name/type, if not specified the SQLite is used</li>
 <li>max - max number of clients to be allocated in the pool</li>
 <li>idle - after how many milliseconds an idle client will be destroyed</li>
 </ul>
