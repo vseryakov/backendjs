@@ -4157,8 +4157,7 @@ types <code>myapp</code> and <code>prod-myapp</code>, then the last value will b
 <p>The options takes the following properties:</p>
 <ul>
 <li>force - if true then force to refresh and reopen all db pools</li>
-<li>refresh - if true then pull all config options, otherwise pull only records updated since the time the last config pull, it uses the max mtime
- from all received records.</li>
+<li>delta - if true then pull only records updated since the last config pull using the max mtime from received records.</li>
 </ul>
 <p>On return, the callback second argument will receive all parameters received form the database as a list: -name value ...</p>
 </li>
