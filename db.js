@@ -341,8 +341,7 @@ db.initPool = function(name, options, callback)
 //
 // The options takes the following properties:
 //  - force - if true then force to refresh and reopen all db pools
-//  - refresh - if true then pull all config options, otherwise pull only records updated since the time the last config pull, it uses the max mtime
-//     from all received records.
+//  - delta - if true then pull only records updated since the last config pull using the max mtime from received records.
 //
 // On return, the callback second argument will receive all parameters received form the database as a list: -name value ...
 db.initConfig = function(options, callback)
@@ -377,11 +376,10 @@ db.initConfig = function(options, callback)
     });
     // Make sure we have only unique items in the list, skip empty or incomplete items
     types = lib.strSplitUnique(types);
-    if (!this._configMtime || options.force || options.refresh) this._configMtime = 0;
 
     logger.debug("intConfig:", core.role, this.config, types, this._configMtime);
 
-    self.select(options.table || "bk_config", { type: types, mtime: this._configMtime }, { ops: { type: "in", mtime: "gt" }, pool: this.config }, function(err, rows) {
+    self.select(options.table || "bk_config", { type: types, mtime: options.delta ? this._configMtime : 0 }, { ops: { type: "in", mtime: "gt" }, pool: this.config }, function(err, rows) {
         if (err) return callback(err, []);
 
         // Sort inside to be persistent across databases
@@ -391,11 +389,11 @@ db.initConfig = function(options, callback)
         // Only keep the most specific value, it is sorted in descendent order most specific at the top
         var args = {};
         rows.forEach(function(x) {
+            self._configMtime = Math.max(self._configMtime || 0, x.mtime);
             if (args[x.name]) return;
             args[x.name] = 1;
             argv.push('-' + x.name);
             if (x.value) argv.push(x.value);
-            self._configMtime = Math.max(self._configMtime, x.mtime);
         });
         core.parseArgs(argv);
 
