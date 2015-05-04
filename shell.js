@@ -67,7 +67,7 @@ shell.getOptions = function()
     var query = {};
     for (var i = process.argv.length - 1; i > 1; i -= 2) {
         var a = process.argv[i - 1][0], b = process.argv[i][0];
-        if (a == '-') query[process.argv[i - 1]] =  b != '-' ? process.argv[i] : 1;
+        if (a == '-') query[process.argv[i - 1]] = b != '-' ? process.argv[i] : 1;
     }
     return api.getOptions({ query: query, options: { path: ["", "", ""], ops: {} } });
 }

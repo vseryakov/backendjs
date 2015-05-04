@@ -332,7 +332,7 @@ lib.toParams = function(query, schema, options)
                 for (var i = 0; i < list.length -1; i += 2) rc[x][list[i]] = list[i+1];
                 break;
             case "token":
-                if (query[p]) rc[x] = self.base64ToJson(rc[p], a);
+                if (query[p]) rc[x] = self.base64ToJson(query[p], a);
                 break;
             case "date":
                 if (query[p]) rc[x] = self.toDate(query[p], a);
@@ -1008,7 +1008,7 @@ lib.jsonToBase64 = function(data, secret)
 lib.base64ToJson = function(data, secret)
 {
     var rc = "";
-    if (typeof data  == "undefined" || data == null) return rc;
+    if (typeof data == "undefined" || data == null) return rc;
     if (secret) data = this.decrypt(secret, data);
     try {
         if (typeof data == "number" || (typeof data == "string" && data.match(/^[0-9]+$/))) {
