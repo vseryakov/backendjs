@@ -125,6 +125,7 @@ var api = {
                                       "\\.js$", "\\.css$",
                                       "^/js/",
                                       "^/css/",
+                                      "^/fonts/",
                                       "^/public/",
                                       "^/account/logout$",
                                       "^/account/add$",
@@ -227,37 +228,46 @@ var api = {
     // Query options, special parameters that start with the underscore, separated by type, it can be a simple
     // list or an object with option name and value to be passed to the conversion utility.
     controls: {
-        boolean: [
-            "details", "accounts", "consistent", "desc", "total", "connected", "check",
-            "noscan", "noprocessrows", "noconvertrows", "noreference", "nocounter",
-            "publish", "archive", "trash", "session", "accesstoken", "force",
-        ],
-        // String parameters
-        string: [
-            "name","alias","format","separator","pool","cleanup","sort","ext","encoding",
-        ],
-        // Numeric parameters to be passed to lib.toNumber
-        number: [
-            "width", "height", "quality", "round", "interval",
-            { count: { float: 0, dflt: 25, min: 0 } },
-            { page: { float: 0, dflt: 0, min: 0 } },
-        ],
-        // Timestamps
-        timestamp: [
-            "tm",
-        ],
-        // Pairs
-        pair: [
-            "ops",
-        ],
-        // Decrypted with api.getTokenSecret
-        token: [
-            "start", "token",
-        ],
-        // Split by using lib.strSplit
-        list: [
-            "select",
-        ],
+        accounts: { type: "bool" },
+        consistent: { type: "bool" },
+        desc: { type: "bool" },
+        total: { type: "bool" },
+        connected: { type: "bool" },
+        check: { type: "bool" },
+        noscan: { type: "bool" },
+        noprocessrows: { type: "bool" },
+        noconvertrows: { type: "bool" },
+        noreference: { type: "bool" },
+        nocounter: { type: "bool" },
+        publish: { type: "bool" },
+        archive: { type: "bool" },
+        trash: { type: "bool" },
+        session: { type: "bool" },
+        accesstoken: { type: "bool" },
+        force: { type: "bool" },
+        continue: { type: "bool" },
+        name: { type: "string" },
+        alias: { type: "string" },
+        format: { type: "string" },
+        separator: { type: "string" },
+        pool: { type: "string" },
+        cleanup: { type: "string" },
+        sort: { type: "string" },
+        ext: { type: "string" },
+        encoding: { type: "string" },
+        width: { type: "number" },
+        height: { type: "number" },
+        quality: { type: "number" },
+        round: { type: "number" },
+        interval: { type: "number" },
+        timeout: { type: "number" },
+        count: { type: "number", float: 0, dflt: 25, min: 0 },
+        page: { type: "number", float: 0, dflt: 0, min: 0 },
+        tm: { type: "timestamp" },
+        ops: { type: "map" },
+        start: { type: "token" },
+        token: { type: "token" },
+        select: { type: "list" },
     },
 }
 
@@ -1250,7 +1260,7 @@ api.checkLimits = function(req, options, callback)
 // For security purposes this is the only place that translates special control query parameters into the options properties.
 api.getOptions = function(req)
 {
-    var params = lib.toParams(req.query, this.controls, { token: this.getTokenSecret(req) })
+    var params = lib.toParams(req.query, this.controls, { prefix: "_", data: { token: { secret: this.getTokenSecret(req) } } });
     if (!req.options) req.options = {};
     for (var p in params) req.options[p] = params[p];
     return req.options;

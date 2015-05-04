@@ -1672,8 +1672,14 @@ db.prepareRow = function(pool, op, table, obj, options)
     if (!pool) pool = this.getPool(table, options);
 
     // Keep an object in the format we support
-    if (["object","string","array"].indexOf(lib.typeName(obj)) == -1) obj = {};
-
+    switch (lib.typeName(obj)) {
+    case "object":
+    case "string":
+    case "array":
+        break;
+    default:
+        obj = {};
+    }
     // Pre-process input properties before sending it to the database, make a shallow copy of the
     // object to preserve the original properties in the parent
     if (!options.noprocessrows) {

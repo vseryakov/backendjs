@@ -1266,7 +1266,7 @@ EOF
     echo "  -db-del-all -table TABLE name VALUE ... - delete all records from the table that match the search criteria, name value pairs must define a primary key for the table"
     echo "  -db-drop -table TABLE name [-nowait] - drop a table"
     echo "  -db-backup [-path PATH] [-tables LIST] - save tables into json files in the home or specified path"
-    echo "  -db-restore [-path PATH] [-tables LIST] [-drop] [-nostop] - restore tables from json files located the home or specified path"
+    echo "  -db-restore [-path PATH] [-tables LIST] [-drop] [-continue] - restore tables from json files located the home or specified path"
     echo ""
     echo "Common options:"
     echo "  -root path - path to the backend home directory, default is $BKJS_HOME"

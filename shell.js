@@ -61,7 +61,8 @@ shell.getQuery = function()
     return query;
 }
 
-// Returns an object with all command line params starting with dash set with the value if the next param does not start with dash or 1
+// Returns an object with all command line params starting with dash set with the value if the next param does not start with dash or 1,
+// this is API query emulaton and only known API parameters will be set, all other config options must be handkled by each command separately
 shell.getOptions = function()
 {
     var query = {};
@@ -297,7 +298,6 @@ shell.cmdDbBackup = function(options)
     var filter = core.getArg("-filter");
     var tables = lib.strSplit(core.getArg("-tables"));
     if (!tables.length) tables = db.getPoolTables(db.pool, { names: 1 });
-    logger.debug("dbBackup:", root, tables);
     lib.forEachSeries(tables, function(table, next) {
         file = path.join(root, table +  ".json");
         fs.writeFileSync(file, "");
@@ -307,6 +307,7 @@ shell.cmdDbBackup = function(options)
             next2();
         }, next);
     }, function(err) {
+        logger.debug("dbBackup:", root, tables, opts);
         self.exit(err);
     });
 }
@@ -320,7 +321,7 @@ shell.cmdDbRestore = function(options)
     var filter = core.getArg("-filter");
     var tables = lib.strSplit(core.getArg("-tables"));
     var files = lib.findFileSync(root, { depth: 1, types: "f", include: /\.json$/ });
-    logger.debug("dbRestore:", root, files);
+    if (core.isArg("-drop")) opts.drop = 1;
     lib.forEachSeries(files, function(file, next3) {
         var table = path.basename(file, ".json");
         if (tables.length && tables.indexOf(table) == -1) return next3();
@@ -331,17 +332,30 @@ shell.cmdDbRestore = function(options)
             },
             function(next) {
                 if (!opts.drop) return next();
+                setTimeout(next, opts.timeout || 500);
+            },
+            function(next) {
+                if (!opts.drop) return next();
                 db.create(table, db.getTableProperties(table, opts), opts, next);
+            },
+            function(next) {
+                if (!opts.drop) return next();
+                setTimeout(next, options.timeout || 500);
+            },
+            function(next) {
+                if (!opts.drop) return next();
+                db.cacheColumns(opts, next);
             },
             function(next) {
                 lib.forEachLine(file, opts, function(line, next2) {
                     var row = lib.jsonParse(line, { error: 1 });
-                    if (!row) return next2(opts.nostop ? null : "ERROR: parse error, line: " + opts.lines);
+                    if (!row) return next2(opts.continue ? null : "ERROR: parse error, line: " + opts.lines);
                     if (filter && app[filter]) app[filter](table, row);
-                    db.put(table, row, opts, function(err) { next2(opts.nostop ? null : err) });
+                    db.put(table, row, opts, function(err) { next2(opts.continue ? null : err) });
                 }, next);
             }], next3);
     }, function(err) {
+        logger.debug("dbRestore:", root, tables || files, opts);
         self.exit(err);
     });
 }

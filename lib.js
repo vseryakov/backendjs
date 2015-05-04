@@ -126,7 +126,7 @@ lib.toBool = function(val, dflt)
 // Return Date object for given text or numeric date representation, for invalid date returns 1969
 lib.toDate = function(val, dflt)
 {
-    if (val instanceof Date) return val;
+    if (util.isDate(val)) return val;
     var d = null;
     // String that looks like a number
     if (typeof val == "string" && /^[0-9\.]+$/.test(val)) val = this.toNumber(val);
@@ -140,6 +140,7 @@ lib.toDate = function(val, dflt)
 lib.toValue = function(val, type)
 {
     switch ((type || "").trim()) {
+    case "list":
     case 'array':
         return Array.isArray(val) ? val : String(val).split(/[,\|]/);
 
@@ -282,69 +283,85 @@ lib.toAge = function(mtime)
 }
 
 // Process incoming query and convert parameters according to the type definition, the schema contains the definition of the paramaters against which to
-// validate incoming data. It is an object where the properties are known types and propetrty value are names and type of the know parameters,
-// all unknown parameters will be ignored. In the options it is possible to pass realtime or other custom options for the validation or convertion
-// utilities as the first argument if not defined in the definition.
+// validate incoming data. It is an object with property names and definitoons that at lrast must specify the type, all other options are type specific.
+//
+// The options can define the follwoing propetties:
+//  - data - to pass realtime or other custom options for the validation or convertion utilities as the first argument if not defined in the definition.
+//  - prefix - prefix to be used when searching for the parameters in the query, only properties with this prefix will be processed. The resulting
+//     object will not have this prefix in the properties.
 //
 // Example:
 //
-//        var account = lib.toParams(req.query, { number: [ "id", count: { min: 1, max: 10, dflt: 5 } ],
-//                                                string: [ "name", "descr" ],
-//                                                token: [ "secret" ],
-//                                                list: [ "phone", "email" ] }, { secret: req.account.secret })
+//        var account = lib.toParams(req.query, { id: { type: "int" },
+//                                                count: { min: 1, max: 10, dflt: 5 },
+//                                                name: { type: "string" },
+//                                                pair: { type: "map", separator: "|" },
+//                                                code: { type: "string", regexp: /^[a-z]-[0-9]+$/ },
+//                                                start: { type: "token" },
+//                                                data: { type: "json", obj: 1 },
+//                                                email: { type: "list", datatype: "string } },
+//                                                phone: { type: "list", datatype: "number } },
+//                                              { data: { start: { secret: req.account.secret },
+//                                                        name: { dflt: "test" }
+//                                              })
 //
 lib.toParams = function(query, schema, options)
 {
-    var self = this;
-    var rc = {};
-    for (var type in schema) {
-        var params = schema[type], a = null, b = null, p;
-        if (!Array.isArray(params)) continue;
-        params.forEach(function(x) {
-            a = b = null;
-            if (Array.isArray(x)) {
-                if (x.length > 2) b = x[2];
-                if (x.length > 1) a = x[1];
-                if (x.length > 0) x = x[0];
-            } else
-            if (typeof x == "object") {
-                for (var i in x) {
-                    a = x[i];
-                    x = i;
-                }
-            }
-            if (!a && options) a = options[x] || options[type];
-            p = "_" + x;
-            switch (type) {
-            case "boolean":
-                if (a || typeof query[p] != "undefined") rc[x] = self.toBool(query[p], a);
-                break;
-            case "number":
-                if (a || typeof query[p] != "undefined") rc[x] = self.toNumber(query[p], a);
-                break;
-            case "list":
-                if (query[p]) rc[x] = self.strSplit(query[p], a, b);
-                break;
-            case "pair":
-                var list = self.strSplit(query[p], a, b);
-                if (!list.length) break;
-                if (!rc[x]) rc[x] = {};
-                for (var i = 0; i < list.length -1; i += 2) rc[x][list[i]] = list[i+1];
-                break;
-            case "token":
-                if (query[p]) rc[x] = self.base64ToJson(query[p], a);
-                break;
-            case "date":
-                if (query[p]) rc[x] = self.toDate(query[p], a);
-                break;
-            case "timestamp":
-                if (query[p]) rc[x] = self.strftime(Date.now(), a || "%Y-%m-%d-%H:%M:%S.%L");
-                break;
-            case "string":
-                if (query[p]) rc[x] = query[p];
-                break;
-            }
-        });
+    var rc = {}, opts;
+    for (var name in schema) {
+        opts = {};
+        for (var p in schema[name]) opts[p] = schema[name][p];
+        var dflt = options && options.data && options.data[name];
+        for (var p in dflt) opts[p] = dflt[p];
+        var v = query[((options && options.prefix)  || "") + name] || opts.dflt;
+        logger.dev("toParams", name, v, ":", opts);
+        switch (opts.type) {
+        case "boolean":
+        case "bool":
+            if (typeof v != "undefined") rc[name] = this.toBool(v, opts.dflt);
+            break;
+        case "real":
+        case "float":
+        case "double":
+            opts.float = 1;
+        case "number":
+        case "bigint":
+        case "counter":
+        case "int":
+            if (typeof v != "undefined") rc[name] = this.toNumber(v, opts);
+            break;
+        case "list":
+            if (v) rc[name] = this.strSplit(v, opts.separator, opts.datatype);
+            break;
+        case "map":
+            if (!v) break;
+            var list = this.strSplit(v, opts.separator, opts.datatype);
+            if (!list.length) break;
+            if (!rc[name]) rc[name] = {};
+            for (var i = 0; i < list.length -1; i += 2) rc[name][list[i]] = list[i+1];
+            break;
+        case "token":
+            if (v) rc[name] = this.base64ToJson(v, opts.secret);
+            break;
+        case "date":
+        case "time":
+            if (v) rc[name] = this.toDate(v);
+            break;
+        case "timestamp":
+            if (!v || this.toBool(v)) v = Date.now();
+            rc[name] = this.strftime(this.toDate(v), opts.format || "%Y-%m-%d-%H:%M:%S.%L");
+            break;
+        case "json":
+            if (!v) break;
+            rc[name] = this.jsonParse(v, opts);
+            break;
+        default:
+            if (!v) break;
+            v = String(v);
+            if (util.isRegExp(opts.regexp) && !opts.regexp.test(v)) break;
+            rc[name] = v;
+            break;
+        }
     }
     return rc;
 }
@@ -352,7 +369,7 @@ lib.toParams = function(query, schema, options)
 // Returns true if the given type belongs to the numeric family
 lib.isNumeric = function(type)
 {
-    return ["int","bigint","counter","real","float","double","numeric","number"].indexOf(String(type).trim()) > -1;
+    return ["int","smallint","bigint","counter","real","float","double","numeric","number"].indexOf(String(type).trim()) > -1;
 }
 
 // Evaluate expr, compare 2 values with optional type and operation
@@ -1038,8 +1055,8 @@ lib.typeName = function(v)
     if (t !== "object") return t;
     if (Array.isArray(v)) return "array";
     if (Buffer.isBuffer(v)) return "buffer";
-    if (v instanceof Date) return "date";
-    if (v instanceof RegExp) return "regexp";
+    if (util.isDate(v)) return "date";
+    if (util.isRegExp(v)) return "regexp";
     return "object";
 }
 
@@ -1613,8 +1630,8 @@ lib.findFilter = function(file, stat, options)
 {
     if (!options) return 1;
     if (options.filter) return options.filter(file, stat);
-    if (options.exclude instanceof RegExp && options.exclude.test(file)) return 0;
-    if (options.include instanceof RegExp && !options.include.test(file)) return 0;
+    if (util.isRegExp(options.exclude) && options.exclude.test(file)) return 0;
+    if (util.isRegExp(options.include) && !options.include.test(file)) return 0;
     if (options.types) {
         if (stat.isFile() && options.types.indexOf("f") == -1) return 0;
         if (stat.isDirectory() && options.types.indexOf("d") == -1) return 0;
