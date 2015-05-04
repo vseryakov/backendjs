@@ -2279,6 +2279,7 @@ might be useful when desining, developing or choosing the API platform:</p>
 <li><code>api-collect-send-interval</code> - How often to send collected statistics to the master server in seconds</li>
 <li><code>api-secret-policy</code> - An JSON object with list of regexps to validate account password, each regexp comes with an error message to be returned if such regexp fails, <code>api.checkAccountSecret</code> performs the validation, example: { &#39;[a-z]+&#39;: &#39;At least one lowercase letter&#39;, &#39;[A-Z]+&#39;: &#39;At least one upper case letter&#39; }</li>
 <li><code>api-cors-origin</code> - Origin header for CORS requests</li>
+<li><code>api-url-metrics-([a-z]+)</code> - Defines the length of an API request path to be stored in the statistics, set by the first component of endpoint URL, example: -api-url-metrics-image 2 -api-url-metrics-account 3</li>
 <li><code>api-rlimits-([a-z]+)-max</code> - Set max/burst rate limit by the given property, it is used by the request rate limiter using Token Bucket algorithm. Predefined types: ip, id, login</li>
 <li><code>api-rlimits-([a-z]+)-rate</code> - Set fill/normal rate limit by the given property, it is used by the request rate limiter using Token Bucket algorithm. Predefined types: ip, id, login</li>
 <li><code>api-rlimits-total</code> - Total number of servers used in the rate limiter behind a load balancer, rates will be divided by this number so each server handles only a portion of the total rate limit</li>
@@ -2428,8 +2429,8 @@ required properties for subsequent use</p>
 
 <ul>
 <li><p><code>api.handleMetrics(req, res, next)</code></p>
-<p> This is supposed to be called at beginning of the request processing to start metrics and install the handler which
-will be called at the end to finalize the metrics and call cleanup handlers</p>
+<p> This is supposed to be called at the beginning of request processing to start metrics and install the handler which
+will be called at the end to finalize the metrics and call the cleanup handlers</p>
 </li>
 </ul>
 
@@ -4068,8 +4069,12 @@ database like DynamoDB for real-time requests and slower SQL database running on
 
       // Collected metrics per worker process, basic columns are defined in the table to be collected like
       // api and db request rates(.rmean), response times(.hmean) and total number of requests(_0).
-      // Counters ending with _0 are snapshots, i.e. they must be summed up for any given interval.
-      // All other counters are averages.
+      // Counters ending with `_0` are snapshots, i.e. they must be summed up for any given interval.
+      // All other counters are averages. Only subset of all available API endpoints is defined here
+      // for example purposes, for SQL databases all columns must be defined but for NoSQL this is not required,
+      // depending on the database that is used for collection the metrics must be added to the table. All `url_` columns
+      // are the API requests, not the DB calls made by the app, the length of URL path to be stored is defined in the API module
+      // by the `api-url-metrics-` config parameter.
       bk_collect: { id: { primary: 1 },
                      mtime: { type: &quot;bigint&quot;, primary: 1 },
                      app: {},
@@ -4089,14 +4094,19 @@ database like DynamoDB for real-time requests and slower SQL database running on
                      api_req_rmean: { type: &quot;real&quot; },
                      api_req_hmean: { type: &quot;real&quot; },
                      api_req_0: { type: &quot;real&quot; },
-                     api_errors_0: { type: &quot;real&quot; },
+                     api_err_0: { type: &quot;real&quot; },
                      api_bad_0: { type: &quot;real&quot; },
+                     api_400_0: { type: &quot;real&quot; },
+                     api_401_0: { type: &quot;real&quot; },
+                     api_403_0: { type: &quot;real&quot; },
+                     api_417_0: { type: &quot;real&quot; },
+                     api_429_0: { type: &quot;real&quot; },
                      api_que_rmean: { type: &quot;real&quot; },
                      api_que_hmean: { type: &quot;real&quot; },
                      pool_req_rmean: { type: &quot;real&quot; },
                      pool_req_hmean: { type: &quot;real&quot; },
                      pool_req_0: { type: &quot;real&quot; },
-                     pool_errors_0: { type: &quot;real&quot; },
+                     pool_err_0: { type: &quot;real&quot; },
                      pool_que_rmean: { type: &quot;real&quot; },
                      pool_que_hmean: { type: &quot;real&quot; },
                      ctime: { type: &quot;bigint&quot; } },
@@ -5511,14 +5521,26 @@ false
 <ul>
 <li><p><code>lib.toParams(query, schema, options)</code></p>
 <p> Process incoming query and convert parameters according to the type definition, the schema contains the definition of the paramaters against which to
-validate incoming data. It is an object where the properties are known types and propetrty value are names and type of the know parameters,
-all unknown parameters will be ignored. In the options it is possible to pass realtime or other custom options for the validation or convertion
-utilities as the first argument if not defined in the definition.</p>
+validate incoming data. It is an object with property names and definitoons that at lrast must specify the type, all other options are type specific.</p>
+<p>The options can define the follwoing propetties:</p>
+<ul>
+<li>data - to pass realtime or other custom options for the validation or convertion utilities as the first argument if not defined in the definition.</li>
+<li>prefix - prefix to be used when searching for the parameters in the query, only properties with this prefix will be processed. The resulting
+ object will not have this prefix in the properties.</li>
+</ul>
 <p>Example:</p>
-<pre><code>  var account = lib.toParams(req.query, { number: [ &quot;id&quot;, count: { min: 1, max: 10, dflt: 5 } ],
-                                          string: [ &quot;name&quot;, &quot;descr&quot; ],
-                                          token: [ &quot;secret&quot; ],
-                                          list: [ &quot;phone&quot;, &quot;email&quot; ] }, { secret: req.account.secret })
+<pre><code>  var account = lib.toParams(req.query, { id: { type: &quot;int&quot; },
+                                          count: { min: 1, max: 10, dflt: 5 },
+                                          name: { type: &quot;string&quot; },
+                                          pair: { type: &quot;map&quot;, separator: &quot;|&quot; },
+                                          code: { type: &quot;string&quot;, regexp: /^[a-z]-[0-9]+$/ },
+                                          start: { type: &quot;token&quot; },
+                                          data: { type: &quot;json&quot;, obj: 1 },
+                                          email: { type: &quot;list&quot;, datatype: &quot;string } },
+                                          phone: { type: &quot;list&quot;, datatype: &quot;number } },
+                                        { data: { start: { secret: req.account.secret },
+                                                  name: { dflt: &quot;test&quot; }
+                                        })
 </code></pre></li>
 </ul>
 
@@ -6525,7 +6547,8 @@ connection to APN gateway.</p>
 
 <ul>
 <li><p><code>shell.getOptions()</code></p>
-<p> Returns an object with all command line params starting with dash set with the value if the next param does not start with dash or 1</p>
+<p> Returns an object with all command line params starting with dash set with the value if the next param does not start with dash or 1,
+this is API query emulaton and only known API parameters will be set, all other config options must be handkled by each command separately</p>
 </li>
 </ul>
 
@@ -7296,20 +7319,26 @@ with error as first argument and database object as second</p>
                        atime: { type: &quot;bigint&quot;, now: 1 },                // last access time
                        mtime: { type: &quot;bigint&quot; }},                       // last status save to db time
 
-          // Account metrics
+          // Account metrics, must correspond to `-api-url-metrics` settings, for images the default is first 2 path components
           bk_collect: {
                         url_image_account_rmean: { type: &quot;real&quot; },
                         url_image_account_hmean: { type: &quot;real&quot; },
                         url_image_account_0: { type: &quot;real&quot; },
+                        url_image_account_bad_0: { type: &quot;real&quot; },
+                        url_image_account_err_0: { type: &quot;real&quot; },
                         url_account_get_rmean: { type: &quot;real&quot; },
                         url_account_get_hmean: { type: &quot;real&quot; },
                         url_account_get_0: { type: &quot;real&quot; },
+                        url_account_get_bad_0: { type: &quot;real&quot; },
+                        url_account_get_err_0: { type: &quot;real&quot; },
                         url_account_select_rmean: { type: &quot;real&quot; },
                         url_account_select_hmean: { type: &quot;real&quot; },
                         url_account_select_0: { type: &quot;real&quot; },
                         url_account_update_rmean: { type: &quot;real&quot; },
                         url_account_update_hmean: { type: &quot;real&quot; },
                         url_account_update_0: { type: &quot;real&quot; },
+                        url_account_update_bad_0: { type: &quot;real&quot; },
+                        url_account_update_err_0: { type: &quot;real&quot; },
                     },
 </code></pre></li>
 </ul>
@@ -7457,18 +7486,26 @@ On return the row will have a property <code>saved</code> if it was flushed to d
           bk_collect: { url_connection_get_rmean: { type: &quot;real&quot; },
                         url_connection_get_hmean: { type: &quot;real&quot; },
                         url_connection_get_0: { type: &quot;real&quot; },
+                        url_connection_get_bad_0: { type: &quot;real&quot; },
                         url_connection_select_rmean: { type: &quot;real&quot; },
                         url_connection_select_hmean: { type: &quot;real&quot; },
                         url_connection_select_0: { type: &quot;real&quot; },
+                        url_connection_select_bad_0: { type: &quot;real&quot; },
                         url_connection_add_rmean: { type: &quot;real&quot; },
                         url_connection_add_hmean: { type: &quot;real&quot; },
                         url_connection_add_0: { type: &quot;real&quot; },
+                        url_connection_add_bad_0: { type: &quot;real&quot; },
+                        url_connection_add_err_0: { type: &quot;real&quot; },
                         url_connection_incr_rmean: { type: &quot;real&quot; },
                         url_connection_incr_hmean: { type: &quot;real&quot; },
                         url_connection_incr_0: { type: &quot;real&quot; },
+                        url_connection_incr_bad_0: { type: &quot;real&quot; },
+                        url_connection_incr_err_0: { type: &quot;real&quot; },
                         url_connection_del_rmean: { type: &quot;real&quot; },
                         url_connection_del_hmean: { type: &quot;real&quot; },
                         url_connection_del_0: { type: &quot;real&quot; },
+                        url_connection_del_bad_0: { type: &quot;real&quot; },
+                        url_connection_del_err_0: { type: &quot;real&quot; },
                     },
 </code></pre></li>
 </ul>
@@ -7575,7 +7612,8 @@ connections. If any of obj.id or obj.type are not specified then perform a query
                         url_counter_incr_rmean: { type: &quot;real&quot; },
                         url_counter_incr_hmean: { type: &quot;real&quot; },
                         url_counter_incr_0: { type: &quot;real&quot; },
-
+                        url_counter_incr_bad_0: { type: &quot;real&quot; },
+                        url_counter_incr_err_0: { type: &quot;real&quot; },
                     },
 </code></pre></li>
 </ul>
@@ -7643,6 +7681,33 @@ connections. If any of obj.id or obj.type are not specified then perform a query
 </ul>
 
 <ul>
+<li><p><code>Database tables</code></p>
+<pre><code>          // Metrics
+          bk_collect: { url_file_get_rmean: { type: &quot;real&quot; },
+                        url_file_get_hmean: { type: &quot;real&quot; },
+                        url_file_get_0: { type: &quot;real&quot; },
+                        url_file_get_bad_0: { type: &quot;real&quot; },
+                        url_file_get_err_0: { type: &quot;real&quot; },
+                        url_file_put_rmean: { type: &quot;real&quot; },
+                        url_file_put_hmean: { type: &quot;real&quot; },
+                        url_file_put_0: { type: &quot;real&quot; },
+                        url_file_put_bad_0: { type: &quot;real&quot; },
+                        url_file_put_err_0: { type: &quot;real&quot; },
+                        url_file_add_rmean: { type: &quot;real&quot; },
+                        url_file_add_hmean: { type: &quot;real&quot; },
+                        url_file_add_0: { type: &quot;real&quot; },
+                        url_file_add_bad_0: { type: &quot;real&quot; },
+                        url_file_add_err_0: { type: &quot;real&quot; },
+                        url_file_del_rmean: { type: &quot;real&quot; },
+                        url_file_del_hmean: { type: &quot;real&quot; },
+                        url_file_del_0: { type: &quot;real&quot; },
+                        url_file_del_bad_0: { type: &quot;real&quot; },
+                        url_file_del_err_0: { type: &quot;real&quot; },
+                    }
+</code></pre></li>
+</ul>
+
+<ul>
 <li><p><code>files.configureWeb(options, callback)</code></p>
 <p> Create API endpoints and routes</p>
 </li>
@@ -7684,6 +7749,8 @@ connections. If any of obj.id or obj.type are not specified then perform a query
           bk_collect: { url_icon_get_rmean: { type: &quot;real&quot; },
                         url_icon_get_hmean: { type: &quot;real&quot; },
                         url_icon_get_0: { type: &quot;real&quot; },
+                        url_icon_get_bad_0: { type: &quot;real&quot; },
+                        url_icon_get_err_0: { type: &quot;real&quot; },
                     }
 </code></pre></li>
 </ul>
@@ -7746,9 +7813,13 @@ Verify icon limits before adding new icons</p>
                         url_location_get_rmean: { type: &quot;real&quot; },
                         url_location_get_hmean: { type: &quot;real&quot; },
                         url_location_get_0: { type: &quot;real&quot; },
+                        url_location_get_err_0: { type: &quot;real&quot; },
+                        url_location_get_bad_0: { type: &quot;real&quot; },
                         url_location_put_rmean: { type: &quot;real&quot; },
                         url_location_put_hmean: { type: &quot;real&quot; },
                         url_location_put_0: { type: &quot;real&quot; },
+                        url_location_put_bad_0: { type: &quot;real&quot; },
+                        url_location_put_err_0: { type: &quot;real&quot; },
                     },
 </code></pre></li>
 </ul>
@@ -7840,12 +7911,18 @@ is used in <code>/location/get</code> request. It can be used in the application
                         url_image_message_rmean: { type: &quot;real&quot; },
                         url_image_message_hmean: { type: &quot;real&quot; },
                         url_image_message_0: { type: &quot;real&quot; },
+                        url_image_message_bad_0: { type: &quot;real&quot; },
+                        url_image_message_err_0: { type: &quot;real&quot; },
                         url_message_get_rmean: { type: &quot;real&quot; },
                         url_message_get_hmean: { type: &quot;real&quot; },
                         url_message_get_0: { type: &quot;real&quot; },
+                        url_message_get_bad_0: { type: &quot;real&quot; },
+                        url_message_get_err_0: { type: &quot;real&quot; },
                         url_message_add_rmean: { type: &quot;real&quot; },
                         url_message_add_hmean: { type: &quot;real&quot; },
                         url_message_add_0: { type: &quot;real&quot; },
+                        url_message_add_bad_0: { type: &quot;real&quot; },
+                        url_message_add_err_0: { type: &quot;real&quot; },
                     },
 </code></pre></li>
 </ul>
