@@ -2210,6 +2210,9 @@ aws.ddbScanTable = function(name, condition, options, callback)
     if (options.names) {
         params.ExpressionAttributeNames = self.toDynamoDB(options.names);
     }
+    if (options.sort) {
+        params.IndexName = (options.sort.length > 2 ? '' : '_') + options.sort;
+    }
     if (options.values) {
         params.ExpressionAttributeValues = self.toDynamoDB(options.values);
     }

@@ -1465,12 +1465,12 @@ db.getCached = function(op, table, query, options, callback)
 // - `autoincr` - for counter tables, mark the column to be auto-incremented by the connection API if the connection type has the same name as the column name
 //
 // *Some properties may be defined multiple times with number suffixes like: unique1, unique2, index1, index2 to create more than one index for the table, same
-// properties define a composite key in the order of definition or sorted by the property value, for example: `{ a: {index:2 }, b: { index:1 } }` will create index (b,a)
-// because of the index: property value being not the same.*
+// properties define a composite key in the order of definition or sorted by the property value, for example: `{ a: { index:2 }, b: { index:1 } }` will create index (b,a)
+// because of the `index:` property value being not the same. If all index properties are set to 1 then a composite index will use the order of the properties.*
 //
 // NOTE: Index creation is not required and all index properties can be omitted, it can be done more effectively using native tools for any specific database,
 // this format is for simple and common use cases without using any other tools but it does not cover all possible variations for every database. But all indexes and
-// primary keys created outside of the backend application still be be detected properly by `db.cacheColumns` method for every database.
+// primary keys created outside of the backend application will be detected properly by `db.cacheColumns` and by each pool `cacheIndexes` methods.
 //
 // Each database pool also can support native options that are passed directly to the driver in the options, these properties are
 // defined in the object with the same name as the db driver, all properties are combined, for example to define provisioned throughput for the DynamoDB index:
@@ -1480,9 +1480,11 @@ db.getCached = function(op, table, query, options, callback)
 //                                    name: { index: 1, pub: 1 } }
 //                                  });
 //
-// Create DynamoDB table with global secondary index, first index property if not the same as primary key hash defines global index, if it is the same then local,
-// below we create global secondary index on property 'name' only, in the example above it was local secondary index for id and name. also local secondary index is
+// Create DynamoDB table with global secondary index, the first index property if not the same as primary key hash defines global index, if it is the same then local,
+// below we create global secondary index on property 'name' only, in the example above it was local secondary index for id and name. Also a local secondary index is
 // created on id,title.
+//
+// DynamoDB projection is defined by a `projection` property, it can be suffixed with a number to signofy which index it must belong to.
 //
 //          db.create("test_table", { id: { primary: 1, type: "int", index1: 1 },
 //                                    type: { primary: 1, projection: 1 },

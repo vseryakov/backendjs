@@ -126,7 +126,7 @@
  *
  *	@author	Howard Chu, Symas Corporation.
  *
- *	@copyright Copyright 2011-2014 Howard Chu, Symas Corp. All rights reserved.
+ *	@copyright Copyright 2011-2015 Howard Chu, Symas Corp. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted only as authorized by the OpenLDAP
@@ -932,6 +932,8 @@ int  mdb_env_set_assert(MDB_env *env, MDB_assert_func *func);
 	 *		This transaction will not perform any write operations.
 	 *	<li>#MDB_NOSYNC
 	 *		Don't flush system buffers to disk when committing this transaction.
+	 *	<li>#MDB_NOMETASYNC
+	 *		Flush system buffers but omit metadata flush when committing this transaction.
 	 * </ul>
 	 * @param[out] txn Address where the new #MDB_txn handle will be stored
 	 * @return A non-zero error value on failure and 0 on success. Some possible
@@ -1041,14 +1043,16 @@ int  mdb_txn_renew(MDB_txn *txn);
 	 * The database handle may be discarded by calling #mdb_dbi_close().
 	 * The old database handle is returned if the database was already open.
 	 * The handle may only be closed once.
+	 *
 	 * The database handle will be private to the current transaction until
 	 * the transaction is successfully committed. If the transaction is
 	 * aborted the handle will be closed automatically.
-	 * After a successful commit the
-	 * handle will reside in the shared environment, and may be used
-	 * by other transactions. This function must not be called from
-	 * multiple concurrent transactions in the same process. A transaction
-	 * that uses this function must finish (either commit or abort) before
+	 * After a successful commit the handle will reside in the shared
+	 * environment, and may be used by other transactions.
+	 *
+	 * This function must not be called from multiple concurrent
+	 * transactions in the same process. A transaction that uses
+	 * this function must finish (either commit or abort) before
 	 * any other transaction in the process may use this function.
 	 *
 	 * To use named databases (with name != NULL), #mdb_env_set_maxdbs()

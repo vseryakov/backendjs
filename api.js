@@ -1057,7 +1057,7 @@ api.checkSignature = function(req, callback)
         // Save account and signature in the request, it will be used later
         req.signature = sig;
         req.account = account;
-        req.options.account = { id: req.account.id, login: req.account.login, alias: req.account.alias };
+        req.options.account = { id: req.account.id, login: req.account.login, alias: req.account.alias, type: req.account.type };
         return callback({ status: 200, message: "Ok" });
     });
 }
@@ -1184,7 +1184,7 @@ api.handleSessionSignature = function(req, options)
 // Return true if the current user belong to the specified type, account type may contain more than one type
 api.checkAccountType = function(row, type)
 {
-    return lib.typeName(row) == "object" && typeof row.type == "string" && lib.strSplit(row.type).indexOf(type) > -1;
+    return lib.isObject(row) && lib.strSplit(row.type).indexOf(type) > -1;
 }
 
 // Perform rate limiting by specified property, if not given no limiting is done.
@@ -1326,7 +1326,7 @@ api.checkResultColumns = function(table, rows, options)
     if (!table || !rows) return;
     if (!options) options = {};
     var cols = {}, row;
-    var admin = this.checkAccountType(options, "admin");
+    var admin = this.checkAccountType(options.account, "admin");
     var tables = lib.strSplit(table);
     for (var i = 0; i < tables.length; i++) {
         var c = db.getColumns(tables[i], options);
