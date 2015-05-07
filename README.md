@@ -1096,6 +1096,17 @@ This is implemented by the `messages` module from the core. To disable this func
 
         /message/read?sender=12345&mtime=12366676434
 
+- `/message/update`
+  Update a message, can be used to keep track of read/unread status, etc...
+
+  Example:
+
+        /message/update?sender=12345&mtime=124345656567676&status=R
+
+- `/message/update/archive`
+  Update a message in the archive.
+
+
 - `/message/del`
   Delete new message(s) by `sender` and/or `mtime` which must be passed as query parameters. If no mtime is given, all messages from the given sender will be deleted.
 

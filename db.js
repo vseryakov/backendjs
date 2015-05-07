@@ -98,6 +98,7 @@ var db = {
     args: [{ name: "pool", dns: 1, descr: "Default pool to be used for db access without explicit pool specified" },
            { name: "name", key: "db-name", descr: "Default database name to be used for default connections in cases when no db is specified in the connection url" },
            { name: "no-cache-columns", type: "bool", descr: "Do not load column definitions from the database tables on startup, keep using in-app Javascript definitions only, in most cases caching columns is not required if tables are in sync between the app and the database" },
+           { name: "cache-columns-interval", type: "int", descr: "How often in minutes to refresh tables columns from the database, it calls cacheColumns for each pool" },
            { name: "no-init-tables", type: "regexp", novalue: ".+", descr: "Do not create tables in the database on startup and do not perform table upgrades for new columns, all tables are assumed to be created beforehand, this regexp will be applied to all pools if no pool-specific parameer defined" },
            { name: "cache-tables", array: 1, type: "list", descr: "List of tables that can be cached: bk_auth, bk_counter. This list defines which DB calls will cache data with currently configured cache. This is global for all db pools." },
            { name: "local", descr: "Local database pool for properties, cookies and other local instance only specific stuff" },
@@ -141,6 +142,9 @@ var db = {
 
     // Refresh config from the db
     configInterval: 86400,
+
+    // Refresh columns from time to time to have the actual table columns
+    cacheColumnsInterval: 1440,
 
     processRows: {},
     processColumns: [],
@@ -445,35 +449,38 @@ db.initPoolTables = function(name, tables, options, callback)
     if (name == "none") return callback();
 
     // Add tables to the list of all tables this pool supports
-    var pool = self.getPool('', { pool: name });
+    var pool = this.getPool('', { pool: name });
     if (!pool.dbtables) pool.dbtables = {};
     // Collect all tables in the pool to be merged with the actual tables later
     for (var p in tables) pool.dbtables[p] = tables[p];
     options.pool = name;
-    options.tables = tables;
 
     // These options can redefine behaviour of the initialization sequence
-    var noCacheColumns = options.noCacheColumns || pool.noCacheColumns || self.noCacheColumns;
-    var noInitTables = options.noInitTables || pool.noInitTables || self.noInitTables;
+    var noCacheColumns = options.noCacheColumns || pool.noCacheColumns || this.noCacheColumns;
+    var noInitTables = options.noInitTables || pool.noInitTables || this.noInitTables;
     logger.debug('initPoolTables:', core.role, name, noCacheColumns || 0, '/', noInitTables || 0, Object.keys(tables));
 
     // Skip loading column definitions from the database, keep working with the javascript models only
     if (noCacheColumns) {
-        self.mergeColumns(pool);
-        self.mergeKeys(pool);
+        this.mergeColumns(pool);
+        this.mergeKeys(pool);
         return callback();
     }
-    self.cacheColumns(options, function() {
+    // Periodic columns refresh
+    if (this.cacheColumnsInterval > 0 && !pool._columnsTimer) {
+        pool._columnsTimer = setInterval(function() { self.initPoolTables(name, {}, options); }, this.cacheColumnsInterval * 60000);
+    }
+    this.cacheColumns(options, function() {
         var changes = 0;
-        lib.forEachSeries(Object.keys(options.tables || {}), function(table, next) {
+        lib.forEachSeries(Object.keys(pool.dbtables), function(table, next) {
             // Skip tables not supposed to be created
             if (lib.typeName(noInitTables) == "regexp" && noInitTables.test(table)) return next()
             // We if have columns, SQL table must be checked for missing columns and indexes
             var cols = self.getColumns(table, options);
             if (!cols || Object.keys(cols).every(function(x) { return cols[x].fake })) {
-                self.create(table, options.tables[table], options, function(err, rows) { changes++; next() });
+                self.create(table, pool.dbtables[table], options, function(err, rows) { changes++; next() });
             } else {
-                self.upgrade(table, options.tables[table], options, function(err, rows) { if (rows) changes++; next() });
+                self.upgrade(table, pool.dbtables[table], options, function(err, rows) { if (rows) changes++; next() });
             }
         }, function() {
             logger.debug('initPoolTables:', name, 'changes:', changes);
@@ -1102,9 +1109,8 @@ db.migrate = function(table, options, callback)
 
 // Perform full text search on the given table, the database implementation may ignore table name completely
 // in case of global text index.
-// Query is in general a text string with the format that is supported by the underlying driver, bkjs does not parse the query at all.
-// Options make take the same properties as in the select method. Without full text support
-// this works the same way as the `select` method.
+// Query in general is a text string with the format that is supported by the underlying driver, the db module does not parse the query at all.
+// Options make take the same properties as in the select method. Without full text support this works the same way as the `select` method.
 db.search = function(table, query, options, callback)
 {
     if (typeof options == "function") callback = options,options = null;
@@ -1446,7 +1452,7 @@ db.getCached = function(op, table, query, options, callback)
 // Create a table using column definitions represented as a list of objects. Each column definition can
 // contain the following properties:
 // - `name` - column name
-// - `type` - column type, one of: int, real, string, counter or other supported type
+// - `type` - column type: int, bigint, real, string, counter or other supported type
 // - `primary` - column is part of the primary key
 // - `unique` - column is part of an unique key
 // - `index` - column is part of an index
@@ -1763,7 +1769,8 @@ db.prepareRow = function(pool, op, table, obj, options)
 
     case "get":
     case "select":
-        if (lib.typeName(options.ops) != "object") options.ops = {};
+    case "search":
+        if (!lib.isObject(options.ops)) options.ops = {};
         for (var p in options.ops) {
             switch (options.ops[p]) {
             case "in":
@@ -1787,7 +1794,8 @@ db.prepareRow = function(pool, op, table, obj, options)
                 }
             }
             // Default search op, for primary key cases
-            if (!options.ops[p] && lib.typeName(cols[p].ops) == "object" && cols[p].ops[op]) options.ops[p] = cols[p].ops[op];
+            if (!options.ops[p] && lib.isObject(cols[p].ops) && cols[p].ops[op]) options.ops[p] = cols[p].ops[op];
+
             // Joined values for queries, if nothing joined or only one field is present keep the original value
             if (Array.isArray(cols[p].join) && (typeof obj[p] != "string" || obj[p].indexOf(this.separator) == -1)) {
                 var v = cols[p].join.map(function(x) { return obj[x] || "" }).join(this.separator);

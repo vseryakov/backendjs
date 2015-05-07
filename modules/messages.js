@@ -134,6 +134,18 @@ messages.configureMessagesAPI = function()
             });
             break;
 
+        case "update":
+            self.updateMessage(req, options, function(err, data) {
+                api.sendJSON(req, err, data);
+            });
+            break;
+
+        case "update/archive":
+            self.updateArchiveMessage(req, options, function(err, data) {
+                api.sendJSON(req, err, data);
+            });
+            break;
+
         case "del":
             self.delMessage(req, options, function(err, data) {
                 api.sendJSON(req, err, data);
@@ -366,3 +378,19 @@ messages.delSentMessage = function(req, options, callback)
     this.delMessage(req, options, callback);
 }
 
+// Update a message or all messages for the given account from the given sender, used in /message/del` API call
+messages.updateMessage = function(req, options, callback)
+{
+    var table = options.table || "bk_message";
+    var sender = options.sender || "sender";
+    req.query.id = req.account.id;
+    db.update(table, req.query, options, callback);
+}
+
+// Update a messages in the archive, used in /message/update/archive` API call
+messages.updateArchiveMessage = function(req, options, callback)
+{
+    options.table = "bk_archive";
+    options.sender = "sender";
+    this.updateMessage(req, options, callback);
+}

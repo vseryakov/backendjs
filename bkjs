@@ -845,7 +845,7 @@ case "$ARG" in
 
   get-elasticsearch)
     if [ ! -d $ELASTICSEARCH_PREFIX ]; then
-        file=elasticsearch-1.4.1.tar.gz
+        file=elasticsearch-1.5.2.tar.gz
         mkdir -p $ELASTICSEARCH_PREFIX
         curl -OL https://download.elasticsearch.org/elasticsearch/elasticsearch/$file
         tar -C $ELASTICSEARCH_PREFIX --strip-components=1 -xzf $file
@@ -1115,7 +1115,7 @@ app.configureWeb = function(options, callback)
     api.app.all(/^\/test\/([0-9]+)/, function(req, res) {
         var options = api.getOptions(req);
         db.get('test', { id: req.params[0] }, options, function(err, rows) {
-            res.json(rows);
+            api.sendJSON(req, err, rows);
         });
     });
     callback()
