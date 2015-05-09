@@ -290,6 +290,9 @@ lib.toAge = function(mtime)
 //  - prefix - prefix to be used when searching for the parameters in the query, only properties with this prefix will be processed. The resulting
 //     object will not have this prefix in the properties.
 //
+// If any of the properties have `required:1` and the value will not be resolved then the function returns an Error object with the `error` message
+// or default message, this is useful for detectin invalid or missing input data.
+//
 // Example:
 //
 //        var account = lib.toParams(req.query, { id: { type: "int" },
@@ -300,6 +303,7 @@ lib.toAge = function(mtime)
 //                                                start: { type: "token" },
 //                                                data: { type: "json", obj: 1 },
 //                                                email: { type: "list", datatype: "string } },
+//                                                ssn: { type: "string", regexp: /^[0-9]{3}-[0-9]{3}-[0-9]{4}$/, required: 1, error: "SSN is required" } },
 //                                                phone: { type: "list", datatype: "number } },
 //                                              { data: { start: { secret: req.account.secret },
 //                                                        name: { dflt: "test" }
@@ -358,9 +362,15 @@ lib.toParams = function(query, schema, options)
         default:
             if (!v) break;
             v = String(v);
+            if (opts.max && v.length > opts.max) break;
+            if (opts.min && v.length < opts.min) break;
             if (util.isRegExp(opts.regexp) && !opts.regexp.test(v)) break;
             rc[name] = v;
             break;
+        }
+        // Return and error object
+        if (typeof rc[name] == "undefined" && opts.required) {
+            return new Error(opts.error || (name + " is required"));
         }
     }
     return rc;
@@ -1077,11 +1087,13 @@ lib.isEmpty = function(val)
     case "array":
         return val.length == 0;
     case "number":
+    case "date":
+        return isNaN(val);
     case "regexp":
     case "boolean":
         return false;
-    case "date":
-        return isNaN(val);
+    case "string":
+        return val.match(/^\s*$/) ? true : false;
     default:
         return val ? false: true;
     }
