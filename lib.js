@@ -1467,9 +1467,9 @@ lib.forEachLine = function(file, options, lineCallback, endCallback)
                     return next();
                 }
                 lineCallback(line.trim(), next);
-            }, function(err2) {
+            }, function(err) {
                 // Stop on reaching limit or end of file
-                if (options.abort || (options.limit && options.lines >= options.limit) || nread < buffer.length) return finish(err2);
+                if (options.abort || err || (options.limit && options.lines >= options.limit) || nread < buffer.length) return finish(err);
                 setImmediate(function() { readData(fd, null, finish); });
             });
         });

@@ -10,21 +10,13 @@ var utils = require(__dirname + '/build/Release/backend');
 
 // Simple logger utility for debugging
 var logger = {
-    level: 0,
+    level: 1,
     file: null,
     stream: process.stdout,
     writable: true,
-    levels: { test: 3, dev: 2, debug: 1, warn: 0, info: 0, error: -1, none: -1 },
     filters: null,
 
-    // Level symbols
-    TEST: 3,
-    DEV: 2,
-    DEBUG: 1,
-    WARN: 0,
-    INFO: 0,
-    ERROR: -1,
-    NONE: -1,
+    levels: { test: 5, dev: 4, debug: 3, info: 2, notice: 1, warn: 0, error: -1, none: -1 },
 
     // syslog facilities
     LOG_KERN: (0<<3),
@@ -77,6 +69,8 @@ module.exports = logger;
 // Default options, can be set directly only so thi smodule does not have any dependencies
 logger.options = logger.LOG_PID | logger.LOG_CONS | (os.type() == "Linux" ? logger.LOG_RFC3339 : 0);
 logger.facility = logger.LOG_LOCAL0;
+// Logger labels
+for (var p in logger.levels) logger[p.toUpperCase()] = logger.levels[p];
 
 logger.pad = function(n)
 {
@@ -157,7 +151,7 @@ logger.setDebug = function(level)
 {
     var self = this;
     self.level = typeof this.levels[level] != "undefined" ? this.levels[level] : isNaN(parseInt(level)) ? 0 : parseInt(level);
-    utils.logging(self.level + 2);
+    utils.logging(self.level);
 }
 
 // Enable debugging level for this label, if used with the same debugging level it will be printed regardless of the global level
@@ -190,7 +184,7 @@ logger.setChannel = function(name)
 logger.printSyslog = function(level, msg)
 {
     var code = this.syslogMap[level];
-    utils.syslogSend(code || this.LOG_INFO, (code ? "" : level + ": ") + msg);
+    utils.syslogSend(code || this.LOG_NOTICE, (code ? "" : level + ": ") + msg);
 }
 
 logger.printStream = function(level, msg)
@@ -205,27 +199,33 @@ logger.printError = function()
 
 logger.log = function()
 {
-    if (this.level < 0) return;
-    this.print('INFO', this.format(arguments));
+    if (this.level < this.NOTICE) return;
+    this.print('NOTICE', this.format(arguments));
 }
+logger.notice = logger.log;
 
-// Make it one line to preserve space, syslog cannot output very long lines
-logger.debug = function()
+logger.info = function()
 {
-    if (this.level < 1 && (!this.filters || !this.filters[arguments[0]])) return;
-    this.print('DEBUG', this.format(arguments));
+    if (this.level < this.INFO) return;
+    this.print('INFO', this.format(arguments));
 }
 
 logger.dev = function()
 {
-    if (this.level < 2) return;
+    if (this.level < this.DEV) return;
     this.print('DEV', this.format(arguments));
 }
 
 logger.warn = function()
 {
-    if (this.level < 0) return;
+    if (this.level < this.WARN) return;
     this.print('WARN', this.format(arguments));
+}
+
+logger.debug = function()
+{
+    if (this.level < this.DEBUG && (!this.filters || !this.filters[arguments[0]])) return;
+    this.print('DEBUG', this.format(arguments));
 }
 
 logger.error = function()
@@ -257,7 +257,7 @@ logger.trace = function()
 // A generic logger method, safe, first arg is supposed to be a logging level, if not valid the call is ignored
 logger.logger = function()
 {
-    if (["error","log","warn","debug","test","trace"].indexOf(arguments[0] || "") == -1) return;
+    if (typeof this.levels[arguments[0]] == "undefined") return;
     this[arguments[0]].apply(this, (Array.prototype.slice.apply(arguments).slice(1)));
 }
 

@@ -10,33 +10,25 @@
 #include "bksystem.h"
 
 // Printing messages with time and line info
-#ifdef PG_EXTENSION
-#define LogError(fmt...)               elog(ERROR, fmt);
-#define LogNotice(fmt...)              elog(NOTICE, fmt);
-#define LogDebug(fmt...)               elog(INFO, fmt);
-#define LogDev(fmt...)                 elog(DEBUG5, fmt);
-#define LogTest(fmt...)                elog(DEBUG1, fmt);
-#else
-#define LogError(fmt...)               if (VLog::test(VLog::Log_Error)) VLog::print(VLog::Log_Error, __PRETTY_FUNCTION__, fmt);
-#define LogNotice(fmt...)              if (VLog::test(VLog::Log_Notice)) VLog::print(VLog::Log_Notice, __FUNCTION__, fmt);
-#define LogDebug(fmt...)               if (VLog::test(VLog::Log_Debug)) VLog::print(VLog::Log_Debug, __PRETTY_FUNCTION__, fmt);
-#define LogDev(fmt...)                 if (VLog::test(VLog::Log_Dev)) VLog::print(VLog::Log_Dev, __PRETTY_FUNCTION__, fmt);
-#define LogTest(fmt...)                if (VLog::test(VLog::Log_Test)) VLog::print(VLog::Log_Test, __PRETTY_FUNCTION__, fmt);
-#endif
+#define LogError(fmt...)               if (VLog::test(Log_Error)) VLog::print(Log_Error, __PRETTY_FUNCTION__, fmt);
+#define LogWarn(fmt...)                if (VLog::test(Log_Warn)) VLog::print(Log_Warn, __FUNCTION__, fmt);
+#define LogNotice(fmt...)              if (VLog::test(Log_Notice)) VLog::print(Log_Notice, __FUNCTION__, fmt);
+#define LogInfo(fmt...)                if (VLog::test(Log_Info)) VLog::print(Log_Info, __FUNCTION__, fmt);
+#define LogDebug(fmt...)               if (VLog::test(Log_Debug)) VLog::print(Log_Debug, __PRETTY_FUNCTION__, fmt);
+#define LogDev(fmt...)                 if (VLog::test(Log_Dev)) VLog::print(Log_Dev, __PRETTY_FUNCTION__, fmt);
+#define LogTest(fmt...)                if (VLog::test(Log_Test)) VLog::print(Log_Test, __PRETTY_FUNCTION__, fmt);
+
+#define Log_None                       -1
+#define Log_Error                      -1
+#define Log_Warn                        0
+#define Log_Notice                      1
+#define Log_Info                        2
+#define Log_Debug                       3
+#define Log_Dev                         4
+#define Log_Test                        5
 
 class VLog {
 public:
-    // Log levels
-    typedef enum {
-        Log_None = 0,
-        Log_Error,
-        Log_Notice,
-        Log_Debug,
-        Log_Dev,
-        Log_Test,
-        Log_Max
-    } Level;
-
     // Returns true if log level is enabled
     static bool test(int level);
 

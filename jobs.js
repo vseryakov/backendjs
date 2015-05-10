@@ -33,7 +33,8 @@ var jobs = {
            { name: "count", descr: "How many jobs to execute at any iteration" },
            { name: "queue", descr: "Name of the queue to process, this is a generic queue name that can be used by any queue provider" },
            { name: "type", descr: "Queueing system to use for job processing, available options: db, sqs" },
-           { name: "interval", type: "number", min: 0, descr: "Interval between executing job queue, must be set to enable jobs, 0 disables job processing, in seconds, min interval is 60 secs" } ],
+           { name: "interval", type: "number", min: 0, descr: "Interval between executing job queue, must be set to enable jobs, 0 disables job processing, in seconds, min interval is 60 secs" },
+    ],
 
     // Job waiting for the next avaialble worker
     queue: [],
@@ -406,11 +407,34 @@ jobs.checkQueue = function()
 jobs.scheduleCronjob = function(options)
 {
     var self = this;
-    if (!lib.isObject(options) || !options.cron || !options.job || !options.type || options.disabled) return;
+    if (!lib.isObject(options) || !options.cron || !options.job || !options.type || options.disabled) return false;
     logger.debug('scheduleCronjob:', options);
     var cj = new cron.CronJob(options.cron, function() { self.submit(this.job); }, null, true);
     cj.job = options;
     this.crontab.push(cj);
+    return true;
+}
+
+// Schedule a list of cron jobs, types is used to cleanup previous jobs for the same type for cases when
+// a new list needs to replace the existing jobs. Empty list does nothing, to eset the jobs for the partivular type and
+// empty invalid jobs must be passed, like: ```[ {} ]```
+//
+// Returns number of cron jobs actually scheduled.
+jobs.scheduleCronjobs = function(type, list)
+{
+    var self = this;
+    if (!list.length) return 0;
+    self.crontab.forEach(function(x) {
+        if (x.job._type != type) return;
+        x.stop();
+        delete x;
+    });
+    var n = 0;
+    list.forEach(function(x) {
+        x._type = type;
+        n += self.scheduleCronjob(x);
+    });
+    return n;
 }
 
 // Execute a cronjob by id now, it must have been scheduled already and id property must be specified in the crontab
@@ -452,18 +476,10 @@ jobs.loadCronjobs = function()
 
     var list = [];
     fs.readFile(core.path.etc + "/crontab", function(err, data) {
-        if (data && data.length) list = lib.jsonParse(data.toString(), { list: 1 });
+        self.parseCronjobs("crontab", data);
 
         fs.readFile(core.path.etc + "/crontab.local", function(err, data) {
-            if (data && data.length) list = list.concat(lib.jsonParse(data.toString(), { list: 1 }));
-
-            if (!list.length) return;
-            self.crontab.forEach(function(x) { x.stop(); delete x; });
-            self.crontab = [];
-            list.forEach(function(x) {
-                self.scheduleCronjob(x);
-            });
-            logger.log("loadCronjobs:", self.crontab.length, "schedules");
+            self.parseCronjobs("crontab.local", data);
         });
     });
 
@@ -472,6 +488,19 @@ jobs.loadCronjobs = function()
     this.cronWatcher = fs.watch(core.path.etc, function (event, filename) {
         if (filename == "crontab") core.setTimeout(filename, function() { self.loadCronjobs(); }, 5000);
     });
+}
+
+// Parse a JSON data with cron jobs and schedule for the given type, this can be used to handle configuration properties
+jobs.parseCronjobs = function(type, data)
+{
+    if (Buffer.isBuffer(data)) data = data.toString();
+    if (typeof data != "string" || !data.length) return;
+    var hash = lib.hash(data);
+    if (!this._hash) this._hash = {};
+    if (this._hash[type] == hash) return;
+    this._hash[type] = hash;
+    var n = this.scheduleCronjobs(type, lib.jsonParse(data, { list: 1, error: 1 }));
+    logger.info("parseCronjobs:", type, n, "jobs");
 }
 
 // Submit job for execution, it will be saved in the server queue and the master or job worker will pick it up later.

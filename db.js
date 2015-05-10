@@ -1050,6 +1050,9 @@ db.migrate = function(table, options, callback)
     var cols = db.getColumns(table, options);
     var tmptable = table + "_tmp";
     var obj = pool.dbtables[table];
+    var cap = db.getCapacity(table);
+    options.readCapacity = cap.readCapacity;
+    options.writeCapacity = cap.writeCapacity;
 
     lib.series([
         function(next) {
@@ -1071,7 +1074,9 @@ db.migrate = function(table, options, callback)
             db.scan(table, {}, options, function(row, next2) {
                 options.preprocess(row, options, function(err) {
                     if (err) return next2(err);
-                    db.add(tmptable, row, { pool: options.tmppool }, next2);
+                    db.add(tmptable, row, { pool: options.tmppool }, function() {
+                        db.checkCapacity(cap, next2);
+                    });
                 });
             }, next);
         },
@@ -1094,7 +1099,9 @@ db.migrate = function(table, options, callback)
             db.scan(tmptable, {}, { pool: options.tmppool }, function(row, next2) {
                 options.postprocess(row, options, function(err) {
                     if (err) return next2(err);
-                    db.add(table, row, options, next2);
+                    db.add(table, row, options, function() {
+                        db.checkCapacity(cap, next2);
+                    });
                 });
             }, next);
         },
@@ -2017,10 +2024,11 @@ db.getColumns = function(table, options)
 // of all table columns.
 db.getCapacity = function(table)
 {
-    var obj = { table: table, capacity: 0, count: 0, total: 0, mtime: Date.now(), ctime: Date.now() };
+    var obj = { table: table, writeCapacity: 0, readCapacity: 0, capCount: 0, capTotal: 0, capMtime: Date.now(), capCtime: Date.now() };
     var cols = this.getColumns(table);
     for (var p in cols) {
-        if (cols[p].writeCapacity) obj.capacity = Math.max(cols[p].writeCapacity, obj.capacity);
+        if (cols[p].readCapacity) obj.readCapacity = Math.max(cols[p].readCapacity, obj.readCapacity);
+        if (cols[p].writeCapacity) obj.writeCapacity = Math.max(cols[p].writeCapacity, obj.writeCapacity);
     }
     return obj;
 }
@@ -2030,11 +2038,11 @@ db.getCapacity = function(table)
 db.checkCapacity = function(obj, callback)
 {
     var now = Date.now();
-    obj.total++;
-    if (obj.capacity > 0 && ++obj.count >= obj.capacity && now - obj.mtime < 1000) {
-        setTimeout(callback, 1000 - (now - obj.mtime));
-        obj.count = 0;
-        obj.mtime = now;
+    obj.capTotal++;
+    if (obj.writeCapacity > 0 && ++obj.capCount >= obj.writeCapacity*0.9 && now - obj.capMtime < 1000) {
+        setTimeout(callback, 1000 - (now - obj.capMtime));
+        obj.capCount = 0;
+        obj.capMtime = now;
     } else {
         callback();
     }

@@ -5,6 +5,7 @@
 // Based on https://github.com/felixge/node-measured
 //
 
+var util = require("util");
 var lib = require(__dirname + '/lib');
 
 exports.Counter = Counter;
@@ -511,7 +512,7 @@ Metrics.prototype.find = function(filter, list)
 
 Metrics.prototype.call = function(name, filter)
 {
-    if (filter instanceof RegExp) {
+    if (util.isRegExp(filter)) {
         this.find(filter).forEach(function(x) {
             if (typeof x[name] == "function") x[name]();
         });

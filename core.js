@@ -171,6 +171,7 @@ var core = {
             { name: "uid", type: "callback", callback: function(v) { if (!v)return;v = utils.getUser(v);if (v.name) this.uid = v.uid, this.gid = v.gid,this._name = "uid" }, descr: "User id or name to switch after startup if running as root, used by Web servers and job workers", pass: 1 },
             { name: "gid", type: "callback", callback: function(v) { if (!v)return;v = utils.getGroup(v);if (v.name) this.gid = v.gid,this._name = "gid" }, descr: "Group id or name to switch after startup if running to root", pass: 1 },
             { name: "email", descr: "Email address to be used when sending emails from the backend" },
+            { name: "role", descr: "Override servers roles, this may have very strange side effects and should only be used for testing purposes" },
             { name: "force-uid", type: "callback", callback: "dropPrivileges", descr: "Drop privileges if running as root by all processes as early as possibly, this reqiures uid being set to non-root user. A convenient switch to start the backend without using any other tools like su or sudo.", pass: 1 },
             { name: "umask", descr: "Permissions mask for new files, calls system umask on startup, if not specified the current umask is used", pass: 1 },
             { name: "port", type: "number", min: 0, descr: "port to listen for the HTTP server, this is global default" },
@@ -1142,8 +1143,8 @@ core.runMethods = function(name, options, callback)
     if (!options) options = {};
 
     lib.forEachSeries(Object.keys(self.modules), function(mod, next) {
-        if (options.denyModules instanceof RegExp && options.denyModules.test(mod)) return next();
-        if (options.allowModules instanceof RegExp && !options.allowModules.test(mod)) return next();
+        if (util.isRegExp(options.denyModules) && options.denyModules.test(mod)) return next();
+        if (util.isRegExp(options.allowModules) && !options.allowModules.test(mod)) return next();
         var ctx = self.modules[mod];
         if (typeof ctx[name] != "function") return next();
         logger.debug("runMethods:", name, mod);
@@ -1219,8 +1220,8 @@ core.loadModules = function(dir, options, callback)
     lib.findFileSync(path.resolve(dir), { depth: 1, types: "f", include: /\.js$/ }).sort().forEach(function(file) {
         try {
             var base = path.basename(file, ".js");
-            if (options.denyModules instanceof RegExp && options.denyModules.test(base)) return;
-            if (options.allowModules instanceof RegExp && !options.allowModules.test(base)) return;
+            if (util.isRegExp(options.denyModules) && options.denyModules.test(base)) return;
+            if (util.isRegExp(options.allowModules) && !options.allowModules.test(base)) return;
 
             var mod = require(file);
             self.addModule(mod.name || base, mod);
@@ -1228,7 +1229,7 @@ core.loadModules = function(dir, options, callback)
             if (typeof mod.init == "function") {
                 mod.init(options);
             }
-            logger.log("loadModules:", file, "loaded");
+            logger.info("loadModules:", file, "loaded");
         } catch (e) {
             logger.error("loadModules:", file, e.stack);
         }

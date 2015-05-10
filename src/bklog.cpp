@@ -6,23 +6,14 @@
 
 #include "bklog.h"
 
-static const char *_names[] = {
-    "NONE",
-    "ERROR",
-    "NOTICE",
-    "DEBUG",
-    "DEV",
-    "TEST",
-};
-
 static int _size(0);
-static int _level(VLog::Log_Notice);
+static int _level(Log_Notice);
 static char *_file(NULL);
 static FILE *_out;
 
 bool VLog::test(int level)
 {
-    return level > 0 && VLog::level() >= level;
+    return VLog::level() >= level;
 }
 
 int VLog::level(void)
@@ -52,25 +43,28 @@ const char *VLog::file()
 
 const char *VLog::toString(int level)
 {
-    return level > 0 && level < VLog::Log_Max ? _names[level] : NULL;
+    return level == Log_Error ? "ERROR" : level == Log_Warn ? "WARN" : level == Log_Notice ? "NOTICE" :
+           level == Log_Info ? "INFO" : level == Log_Debug ? "DEBUG" : level == Log_Dev ? "DEV" :
+           level == Log_Test ? "TEST" : "NONE";
 }
 
 int VLog::fromString(const char *str)
 {
-    int i;
     if (!str) return 0;
 
     if (isdigit(str[0])) {
-        i = atoi(str);
-        return i >= 0 && i < VLog::Log_Max ? i : 0;
+        int i = atoi(str);
+        return i >= Log_None && i <= Log_Test ? i : -1;
     }
 
-    for (i = 0; i < VLog::Log_Max; i++) {
-        if (!strcasecmp(str, _names[i])) {
-            return i;
-        }
-    }
-    return 0;
+    if (!strcasecmp(str, "ERROR")) return Log_Error;
+    if (!strcasecmp(str, "WARN")) return Log_Warn;
+    if (!strcasecmp(str, "NOTICE")) return Log_Notice;
+    if (!strcasecmp(str, "INFO")) return Log_Info;
+    if (!strcasecmp(str, "DEBUG")) return Log_Debug;
+    if (!strcasecmp(str, "DEV")) return Log_Dev;
+    if (!strcasecmp(str, "TEST")) return Log_Test;
+    return -1;
 }
 
 int VLog::setChannel(FILE *fp)
@@ -141,7 +135,7 @@ void VLog::vprint(int level, const char *prefix, const char *fmt, va_list ap)
         gettimeofday(&tv, NULL);
         localtime_r(&tv.tv_sec, &ltm);
         strftime(tbuf, 64, "%Y-%m-%d %H:%M:%S", &ltm);
-        fprintf(fp, "[%s.%ld][%d.%p][%s] %s: ", tbuf, (long int)tv.tv_usec/1000, getpid(), (void*)pthread_self(), prefix ? prefix : "N/A", _names[level]);
+        fprintf(fp, "[%s.%ld][%d.%p][%s] %s: ", tbuf, (long int)tv.tv_usec/1000, getpid(), (void*)pthread_self(), prefix ? prefix : "N/A", toString(level));
         vfprintf(fp, fmt, ap);
         fprintf(fp, "\n");
     }

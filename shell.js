@@ -307,7 +307,7 @@ shell.cmdDbBackup = function(options)
             next2();
         }, next);
     }, function(err) {
-        logger.debug("dbBackup:", root, tables, opts);
+        logger.log("dbBackup:", root, tables, opts);
         self.exit(err);
     });
 }
@@ -322,9 +322,14 @@ shell.cmdDbRestore = function(options)
     var tables = lib.strSplit(core.getArg("-tables"));
     var files = lib.findFileSync(root, { depth: 1, types: "f", include: /\.json$/ });
     if (core.isArg("-drop")) opts.drop = 1;
+    if (core.isArg("-continue")) opts.continue = 1;
+    opts.errors = 0;
     lib.forEachSeries(files, function(file, next3) {
         var table = path.basename(file, ".json");
         if (tables.length && tables.indexOf(table) == -1) return next3();
+        var cap = db.getCapacity(table);
+        opts.readCapacity = cap.readCapacity;
+        opts.writeCapacity = cap.writeCapacity;
         lib.series([
             function(next) {
                 if (!opts.drop) return next();
@@ -351,11 +356,15 @@ shell.cmdDbRestore = function(options)
                     var row = lib.jsonParse(line, { error: 1 });
                     if (!row) return next2(opts.continue ? null : "ERROR: parse error, line: " + opts.lines);
                     if (filter && app[filter]) app[filter](table, row);
-                    db.put(table, row, opts, function(err) { next2(opts.continue ? null : err) });
+                    db.put(table, row, opts, function(err) {
+                        if (err && !opts.continue) return next2(err);
+                        if (err) opts.errors++;
+                        db.checkCapacity(cap, next2);
+                    });
                 }, next);
             }], next3);
     }, function(err) {
-        logger.debug("dbRestore:", root, tables || files, opts);
+        logger.log("dbRestore:", root, tables || files, opts);
         self.exit(err);
     });
 }

@@ -42,6 +42,7 @@ var server = {
            { name: "process-name", descr: "Path to the command to spawn by the monitor instead of node, for external processes guarded by this monitor" },
            { name: "process-args", type: "list", descr: "Arguments for spawned processes, for passing v8 options or other flags in case of external processes" },
            { name: "worker-args", type: "list", descr: "Node arguments for workers, job and web processes, for passing v8 options" },
+           { name: "cron-jobs", type: "callback", callback: function(v) { if (core.role == "master") jobs.parseCronjobs("config", v) }, descr: "An array with crontab objects, similar to etc/crontab but loaded from the config" },
     ],
 
     // Watcher process status
@@ -153,14 +154,14 @@ server.startMaster = function(options)
             // REPL command prompt over TCP
             if (core.replPort) self.startRepl(core.replPort, core.replBind);
 
-            // Setup background tasks
+            // Setup background tasks from the crontab
             jobs.loadCronjobs();
 
             // Log watcher job, always runs even if no email configured, if enabled it will
             // start sending only new errors and not from the past
             self.watchInterval = setInterval(function() { core.watchLogs(); }, core.logwatcherInterval * 60000);
 
-            // Primary cron jobs
+            // Jobs from the queue
             if (jobs.interval > 0) setInterval(function() { jobs.processQueue(); }, jobs.interval * 1000);
 
             // Watch temp files

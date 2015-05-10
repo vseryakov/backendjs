@@ -440,7 +440,8 @@ aws.queryDDB = function (action, obj, options, callback)
             // Try several times
             if (options.retries > 0 && (params.status == 500 || params.data.match(/(ProvisionedThroughputExceededException|ThrottlingException)/))) {
                 options.retries--;
-                logger.error('queryDDB:', action, obj, err || params.data);
+                options.timeout *= 2;
+                logger.debug('queryDDB:', action, obj, err || params.data, 'retrying:', options.timeout, options.retries);
                 return setTimeout(function() { self.queryDDB(action, obj, options, callback); }, options.timeout);
             }
             // Report about the error
@@ -1748,6 +1749,8 @@ aws.ddbWaitForTable = function(name, item, options, callback)
 
     var expires = Date.now() + options.waitTimeout;
     var status = item.TableDescription.TableStatus;
+    options = lib.cloneObj(options);
+    options.silence_error = 1;
     lib.whilst(
       function() {
           return status == options.waitStatus && Date.now() < expires;

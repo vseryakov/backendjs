@@ -652,7 +652,7 @@ case "$ARG" in
     DAY=$(date +%d|sed 's/^0*//g')
     FILE=backup
     # Make backup file names distinguished
-    [ "$BACKUP_MOD" != "" -a $(($DAY % $BACKUP_MOD)) -eq 0 ] && FILE="${FILE}$BACKUP_MOD"
+    [ "$BACKUP_MOD" != "" ] && [ $(($DAY % $BACKUP_MOD)) eq 0 ] && FILE="${FILE}$BACKUP_MOD"
     [ "$BACKUP_HOURLY" != "" ] && FILE="$FILE$HOUR"
     [ "$BACKUP_DAILY" != "" ] && FILE="$FILE$DAY"
     [ "$BACKUP_WEEKLY" != "" ] && FILE="$FILE$DOW"
