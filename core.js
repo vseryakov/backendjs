@@ -1510,7 +1510,7 @@ core.watchTmp = function(dir, options, callback)
                 if (err) return next();
                 if (options.nodirs && st.isDirectory()) return next();
                 if (now - st.mtime < options.seconds*1000) return next();
-                logger.log('watchTmp: delete', dir, file, (now - st.mtime)/1000, 'sec old');
+                logger.info('watchTmp: delete', dir, file, (now - st.mtime)/1000, 'sec old');
                 if (st.isDirectory()) {
                     lib.unlinkPath(file, function(err) {
                         if (err) logger.error('watchTmp:', file, err);

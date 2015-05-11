@@ -237,7 +237,7 @@ jobs.runWorker = function(options)
         self.jobs = self.jobs.concat(Object.keys(options.job));
     });
     worker.on("exit", function(code, signal) {
-        logger.log('jobs.exec: finished:', worker.id, 'pid:', worker.process.pid, 'code:', code || 0, '/', signal || 0, 'job:', options);
+        logger.info('jobs.exec: finished:', worker.id, 'pid:', worker.process.pid, 'code:', code || 0, '/', signal || 0, 'job:', options);
         for (var p in options.job) {
             var idx = self.jobs.indexOf(p);
             if (idx > -1) self.jobs.splice(idx, 1);
@@ -257,7 +257,7 @@ jobs.runRemote = function(options, callback)
 
     this.time = Date.now();
     job = lib.cloneObj(job);
-    logger.log('jobs.runRemote:', options);
+    logger.info('jobs.runRemote:', options);
 
     // Common arguments for remote workers
     var args = ["-master", "-instance-job",
@@ -549,7 +549,7 @@ jobs.processDb = function(options, callback)
             });
         }, function(err) {
             if (err) logger.error("processDb:", err);
-            if (rows.length) logger.log('processQueue:', rows.length, 'jobs');
+            if (rows.length) logger.info('processQueue:', rows.length, 'jobs');
             callback(err);
         });
     });
@@ -589,7 +589,7 @@ jobs.processSQS = function(options, callback)
             });
         }, function(err) {
             if (err) logger.error("processSQS:", err);
-            if (rows.length) logger.log('processSQS:', rows.length, 'jobs');
+            if (rows.length) logger.info('processSQS:', rows.length, 'jobs');
             callback(err);
         });
     });

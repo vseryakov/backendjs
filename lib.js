@@ -1460,7 +1460,7 @@ lib.forEachLine = function(file, options, lineCallback, endCallback)
             data = lines.pop();
             self.forEachSeries(lines, function(line, next) {
                 options.lines++;
-                if (options.progress && options.lines % options.progress == 0) logger.log('forEachLine:', file, 'lines:', options.lines);
+                if (options.progress && options.lines % options.progress == 0) logger.info('forEachLine:', file, 'lines:', options.lines);
                 // Skip lines until we see our pattern
                 if (options.until && !options.until_seen) {
                     options.until_seen = line.match(options.until);
@@ -1490,7 +1490,7 @@ lib.forEachLine = function(file, options, lineCallback, endCallback)
                 data = lines.pop();
                 for (var i = 0; i < lines.length; i++) {
                     options.lines++;
-                    if (options.progress && options.lines % options.progress == 0) logger.log('forEachLine:', file, 'lines:', options.lines);
+                    if (options.progress && options.lines % options.progress == 0) logger.info('forEachLine:', file, 'lines:', options.lines);
                     // Skip lines until we see our pattern
                     if (options.until && !options.until_seen) {
                         options.until_seen = lines[i].match(options.until);

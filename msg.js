@@ -123,6 +123,7 @@ msg.send = function(options, callback)
         if (callback) setImmediate(callback);
         return ipc.publish(this.notificationQueue, options);
     }
+    logger.info("send:", options);
 
     // Determine the service to use from the device token
     var service = options.service || "";
@@ -171,11 +172,11 @@ msg.initAPN = function()
     this.apnAgent = new apnagent.Agent();
     this.apnAgent.set('pfx file', this.apnCert);
     this.apnAgent.enable(this.apnProduction || this.apnCert.indexOf("production") > -1 ? 'production' : 'sandbox');
-    this.apnAgent.on('message:error', function(err, msg) { logger[err && err.code != 10 && err.code != 8 ? "error" : "log"]('apn:message:', err, util.inspect(msg, {depth: 6})) });
-    this.apnAgent.on('gateway:error', function(err) { logger[err && err.code != 10 && err.code != 8 ? "error" : "log"]('apn:gateway:', err) });
-    this.apnAgent.on('gateway:close', function(err) { logger.log('apn: closed') });
+    this.apnAgent.on('message:error', function(err, msg) { logger[err && err.code != 10 && err.code != 8 ? "error" : "log"]('apn:message:', err.stack) });
+    this.apnAgent.on('gateway:error', function(err) { logger[err && err.code != 10 && err.code != 8 ? "error" : "log"]('apn:gateway:', err.stack) });
+    this.apnAgent.on('gateway:close', function(err) { logger.info('apn: closed') });
     this.apnAgent.connect(function(err) { logger[err ? "error" : "log"]('apn:', err || "connected"); });
-    this.apnAgent.decoder.on("error", function(err) { logger.error('apn:decoder:', err); });
+    this.apnAgent.decoder.on("error", function(err) { logger.error('apn:decoder:', err.stack); });
 
     // A posible workaround for the queue being stuck and not sending anything
     this.apnTimeout = setInterval(function() { self.apnAgent.queue.process() }, 3000);
@@ -198,14 +199,14 @@ msg.closeAPN = function(callback)
     var self = this;
     if (!this.apnAgent) return typeof callback == "function" ? callback() : null;
 
-    logger.debug('closeAPN:', this.apnAgent.settings, 'connected:', this.apnAgent.connected, 'queue:', this.apnAgent.queue.length, 'sent:', this.apnSent);
+    logger.info('closeAPN:', this.apnAgent.settings, 'connected:', this.apnAgent.connected, 'queue:', this.apnAgent.queue.length, 'sent:', this.apnSent);
 
     clearInterval(this.apnTimeout);
     this.apnAgent.close(function() {
         self.apnFeedback.close();
         self.apnAgent = null;
         self.apnFeedback = null;
-        logger.log('closeAPN: done');
+        logger.info('closeAPN: done');
         if (typeof callback == "function") callback();
     });
 }
@@ -221,6 +222,13 @@ msg.sendAPN = function(device_id, options, callback)
 {
     var self = this;
     if (!this.apnAgent) return typeof callback == "function" ? callback("APN is not initialized") : false;
+
+    // Catch invalid devices before they go into the queue where is it impossible to get the exact source of the error
+    try {
+        device_id = new Buffer(device_id, "hex");
+    } catch(e) {
+        return typeof callback == "function" ? callback(e) : false;
+    }
 
     var pkt = this.apnAgent.createMessage().device(device_id);
     if (options.msg) pkt.alert(options.msg);
@@ -247,14 +255,14 @@ msg.closeGCM = function(callback)
     var self = this;
     if (!self.gcmAgent || !self.gcmQueue) return typeof callback == "function" ? callback() : null;
 
-    logger.debug('closeGCM:', 'queue:', self.gcmQueue, 'sent:', this.gcmSent);
+    logger.info('closeGCM:', 'queue:', self.gcmQueue, 'sent:', this.gcmSent);
 
     var n = 0;
     function check() {
         if (!self.gcmQueue || ++n > 30) {
             self.gcmAgent = null;
             self.gcmSent = 0;
-            logger.log('closeGCM: done');
+            logger.info('closeGCM: done');
             next();
         } else {
             setTimeout(check, 1000);

@@ -2350,7 +2350,7 @@ db.createPool = function(options)
         if (this.watchfile && !this.serialNum) {
             this.serialNum = 1;
             fs.watch(this.watchfile, function(event, filename) {
-                logger.log('db.watch:', me.name, event, filename, me.watchfile, "#", me.serialNum);
+                logger.info('db.watch:', me.name, event, filename, me.watchfile, "#", me.serialNum);
                 me.serialNum++;
                 me.closeAll();
             });

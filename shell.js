@@ -307,7 +307,7 @@ shell.cmdDbBackup = function(options)
             next2();
         }, next);
     }, function(err) {
-        logger.log("dbBackup:", root, tables, opts);
+        logger.info("dbBackup:", root, tables, opts);
         self.exit(err);
     });
 }
@@ -364,7 +364,7 @@ shell.cmdDbRestore = function(options)
                 }, next);
             }], next3);
     }, function(err) {
-        logger.log("dbRestore:", root, tables || files, opts);
+        logger.info("dbRestore:", root, tables || files, opts);
         self.exit(err);
     });
 }

@@ -470,7 +470,7 @@ server.startRepl = function(port, bind)
        logger.error('startRepl:', core.role, port, bind, err);
     });
     try { repl.listen(port, bind || '0.0.0.0'); } catch(e) { logger.error('startRepl:', port, bind, e) }
-    logger.log('startRepl:', core.role, 'port:', port, 'bind:', bind || '0.0.0.0');
+    logger.info('startRepl:', core.role, 'port:', port, 'bind:', bind || '0.0.0.0');
 }
 
 // Create daemon from the current process, restart node with -daemon removed in the background

@@ -76,7 +76,7 @@ var api = {
            { name: "app-header-name", descr: "Name for the app name/version query parameter or header, it is can be used to tell the server about the application version" },
            { name: "version-header-name", descr: "Name for the access version query parameter or header, this is the core protocol version that can be sent to specify which core functionality a client expects" },
            { name: "no-signature", type: "bool", descr: "Disable signature verification for requests" },
-           { name: "signature-header-name", descr: "Name for the access signature query parameter or header" },
+           { name: "signature-header-name", descr: "Name for the access signature query parameter, header and session cookie" },
            { name: "signature-age", type: "int", descr: "Max age for request signature in milliseconds, how old the API signature can be to be considered valid, the 'expires' field in the signature must be less than current time plus this age, this is to support time drifts" },
            { name: "access-token-name", descr: "Name for the access token query parameter or header" },
            { name: "access-token-secret", descr: "A secret to be used for access token signatures, additional enryption on top of the signature to use for API access without signing requests, it is required for access tokens to be used" },
@@ -1037,7 +1037,7 @@ api.checkSignature = function(req, callback)
             sig.hash = lib.sign(secret, sig.str, "sha256");
         }
         if (sig.signature != sig.hash) {
-            logger.debug('checkSignature:', 'failed', sig, account);
+            logger.info('checkSignature:', 'failed', sig, account);
             return callback({ status: 401, message: "Not authenticated" });
         }
 
@@ -1151,7 +1151,7 @@ api.createSignature = function(login, secret, method, host, uri, options)
         hmac = lib.sign(String(secret), str, "sha256")
     }
     rc[this.signatureHeaderName] = ver + '|' + tag + '|' + String(login) + '|' + hmac + '|' + expires + '|' + checksum + '|';
-    if (logger.level > 1) logger.log('createSignature:', rc);
+    logger.debug('createSignature:', rc);
     return rc;
 }
 
