@@ -79,7 +79,7 @@ get_value() {
 # Global options that are used thoughout the script
 export BKJS_DEBUG=$(get_arg -debug $BKJS_DEBUG)
 export BKJS_HOME=$(get_arg -home $BKJS_HOME)
-export BKJS_PREFIX=$(get_arg -prefix $BKJSPREFIX)
+export BKJS_PREFIX=$(get_arg -prefix $BKJS_PREFIX)
 export BKJS_USER=$(get_arg -user $BKJS_USER)
 export BKJS_DOMAIN=$(get_arg -domain $BKJS_DOMAIN)
 export BKJS_HOST=$(get_arg -host $BKJS_HOST)
@@ -140,16 +140,16 @@ case "$ARG" in
     ;;
 
   stop)
-    $KILLALL $1 "$BKJS_MOD:"
+    $KILLALL $1 "$BKJS:"
     sleep 1
-    $KILLALL $1 "$BKJS_MOD:"
+    $KILLALL $1 "$BKJS:"
     exit 0
     ;;
 
   stop-web|stop-server|stop-master)
     name=${ARG:5}
     [ "$name" = "" ] && exit 0
-    $KILLALL $1 "$BKJS_MOD: $name"
+    $KILLALL $1 "$BKJS: $name"
     exit 0
     ;;
 
@@ -854,7 +854,7 @@ case "$ARG" in
     ;;
 
   run-elasticsearch)
-    $ELASTICSEARCH_PREFIX/bin/elasticsearch >>$BKJS_HOME/log/message.log 2>&1
+    $ELASTICSEARCH_PREFIX/bin/elasticsearch -d >>$BKJS_HOME/log/message.log 2>&1
     ;;
 
   stop-elasticsearch)

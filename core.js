@@ -25,10 +25,10 @@ var dns = require('dns');
 // The primary object containing all config options and common functions
 var core = {
     // Backend process name
-    name: 'backendjs',
+    name: 'bkjs',
 
     // Protocol version
-    version: '2015.02.20',
+    version: '2015.05.01',
 
     // Application version, read from package.json if exists
     appName: '',

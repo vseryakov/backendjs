@@ -407,12 +407,17 @@ jobs.checkQueue = function()
 jobs.scheduleCronjob = function(options)
 {
     var self = this;
-    if (!lib.isObject(options) || !options.cron || !options.job || !options.type || options.disabled) return false;
+    if (!lib.isObject(options) || !options.cron || !options.job || options.disabled) return false;
     logger.debug('scheduleCronjob:', options);
-    var cj = new cron.CronJob(options.cron, function() { self.submit(this.job); }, null, true);
-    cj.job = options;
-    this.crontab.push(cj);
-    return true;
+    try {
+        var cj = new cron.CronJob(options.cron, function() { self.submit(this.job); }, null, true);
+        cj.job = options;
+        this.crontab.push(cj);
+        return true;
+    } catch(e) {
+        logger.error("scheduleCronjob:", e, options);
+        return false;
+    }
 }
 
 // Schedule a list of cron jobs, types is used to cleanup previous jobs for the same type for cases when

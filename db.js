@@ -1468,7 +1468,7 @@ db.getCached = function(op, table, query, options, callback)
 // - `pub` - columns is public, *this is very important property because it allows anybody to see it when used in the default API functions, i.e. anybody with valid
 //    credentials can retrieve all public columns from all other tables, and if one of the other tables is account table this may expose some personal infoamtion,
 //    so by default only a few columns are marked as public in the bk_account table*
-// - `secure` - an opposite for the pub property, if defined this proprty should never be returned to the client by the API handlers
+// - `secure` - an opposite for the pub property, if defined this property should never be returned to the client by the API handlers
 // - `admin` - if defined this property can only be visible and mamaged by an admin account
 // - `hidden` - completely ignored by all update operations but could be used by the public columns cleaning procedure, if it is computed and not stored in the db
 //    it can contain pub property to be returned to the client

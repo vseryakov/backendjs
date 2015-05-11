@@ -162,11 +162,11 @@ These features can be run standalone or under the guard of the monitor which tra
 
 This is the typical output from the ps command on Linux server:
 
-    ec2-user    891  0.0  0.6 1071632 49504 ?  Ssl  14:33   0:01 backendjs: monitor
-    ec2-user    899  0.0  0.6 1073844 52892 ?  Sl   14:33   0:01 backendjs: master
-    ec2-user    908  0.0  0.8 1081020 68780 ?  Sl   14:33   0:02 backendjs: server
-    ec2-user    917  0.0  0.7 1072820 59008 ?  Sl   14:33   0:01 backendjs: web
-    ec2-user    919  0.0  0.7 1072820 60792 ?  Sl   14:33   0:02 backendjs: web
+    ec2-user    891  0.0  0.6 1071632 49504 ?  Ssl  14:33   0:01 bkjs: monitor
+    ec2-user    899  0.0  0.6 1073844 52892 ?  Sl   14:33   0:01 bkjs: master
+    ec2-user    908  0.0  0.8 1081020 68780 ?  Sl   14:33   0:02 bkjs: server
+    ec2-user    917  0.0  0.7 1072820 59008 ?  Sl   14:33   0:01 bkjs: web
+    ec2-user    919  0.0  0.7 1072820 60792 ?  Sl   14:33   0:02 bkjs: web
 
 To enable any task a command line parameter must be provided, it cannot be specified in the config file. The `bkjs` utility supports several
 commands that simplify running the backend in different modes.
