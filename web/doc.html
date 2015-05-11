@@ -243,11 +243,11 @@ is only enabled by default in development mode, check app.sh for parameters befo
 </ul>
 <p>These features can be run standalone or under the guard of the monitor which tracks all running processes and restarted any failed ones.</p>
 <p>This is the typical output from the ps command on Linux server:</p>
-<pre><code>ec2-user    891  0.0  0.6 1071632 49504 ?  Ssl  14:33   0:01 backendjs: monitor
-ec2-user    899  0.0  0.6 1073844 52892 ?  Sl   14:33   0:01 backendjs: master
-ec2-user    908  0.0  0.8 1081020 68780 ?  Sl   14:33   0:02 backendjs: server
-ec2-user    917  0.0  0.7 1072820 59008 ?  Sl   14:33   0:01 backendjs: web
-ec2-user    919  0.0  0.7 1072820 60792 ?  Sl   14:33   0:02 backendjs: web
+<pre><code>ec2-user    891  0.0  0.6 1071632 49504 ?  Ssl  14:33   0:01 bkjs: monitor
+ec2-user    899  0.0  0.6 1073844 52892 ?  Sl   14:33   0:01 bkjs: master
+ec2-user    908  0.0  0.8 1081020 68780 ?  Sl   14:33   0:02 bkjs: server
+ec2-user    917  0.0  0.7 1072820 59008 ?  Sl   14:33   0:01 bkjs: web
+ec2-user    919  0.0  0.7 1072820 60792 ?  Sl   14:33   0:02 bkjs: web
 </code></pre><p>To enable any task a command line parameter must be provided, it cannot be specified in the config file. The <code>bkjs</code> utility supports several
 commands that simplify running the backend in different modes.</p>
 <ul>
@@ -4666,7 +4666,7 @@ contain the following properties:</p>
 <li><code>pub</code> - columns is public, <em>this is very important property because it allows anybody to see it when used in the default API functions, i.e. anybody with valid
 credentials can retrieve all public columns from all other tables, and if one of the other tables is account table this may expose some personal infoamtion,
 so by default only a few columns are marked as public in the bk_account table</em></li>
-<li><code>secure</code> - an opposite for the pub property, if defined this proprty should never be returned to the client by the API handlers</li>
+<li><code>secure</code> - an opposite for the pub property, if defined this property should never be returned to the client by the API handlers</li>
 <li><code>admin</code> - if defined this property can only be visible and mamaged by an admin account</li>
 <li><code>hidden</code> - completely ignored by all update operations but could be used by the public columns cleaning procedure, if it is computed and not stored in the db
 it can contain pub property to be returned to the client</li>
