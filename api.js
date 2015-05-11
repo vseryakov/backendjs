@@ -389,7 +389,7 @@ api.init = function(options, callback)
 
     // Keep session in the cookies
     if (!self.noSession) {
-        self.app.use(session({ key: 'bk_sid', secret: self.sessionSecret || core.name, cookie: { path: '/', httpOnly: false, maxAge: self.sessionAge || null } }));
+        self.app.use(session({ key: self.signatureHeaderName, secret: self.sessionSecret || core.name, cookie: { path: '/', httpOnly: false, maxAge: self.sessionAge || null } }));
     }
 
     // Check the signature, for virtual hosting, supports only the simple case when running the API and static web sites on the same server
