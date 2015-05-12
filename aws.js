@@ -1553,10 +1553,10 @@ aws.ddbDescribeTable = function(name, options, callback)
 
 // Create a table
 // - attrs can be an array in native DDB JSON format or an object with name:type properties, type is one of S, N, NN, NS, BS
-// - keys can be an array in native DDB JSON format or an object with name:keytype properties, keytype is one of HASH or RANGE value in the same format as for primary keys
 // - options may contain any valid native property if it starts with capital letter and the following:
 //   - waitTimeout - number of milliseconds to wait for ACTIVE status
 //   - waitDelay - how often to pool for table status, default is 250ms
+//   - keys is an array of column ids used for the primary key or a string with the hash key. if omitted, the first attribute will be used for the primary key
 //   - local - an object with each property for a local secondary index name defining key format the same way as for primary keys, all Uppercase properties are added to the top index object
 //   - global - an object for global secondary indexes, same format as for local indexes
 //   - projection - an object with index name and list of projected properties to be included in the index or "ALL" for all properties, if omitted then default KEYS_ONLY is assumed
@@ -1566,15 +1566,15 @@ aws.ddbDescribeTable = function(name, options, callback)
 //
 // Example:
 //
-//          ddbCreateTable('users', { id:'S',mtime:'N',name:'S'},
-//                                  { id:'HASH',name:'RANGE'},
-//                                  { local: { mtime: { mtime: "HASH" } },
+//          ddbCreateTable('users', { id: 'S', mtime: 'N', name: 'S'},
+//                                  { keys: ["id", "name"],
+//                                    local: { mtime: { mtime: "HASH" } },
 //                                    global: { name: { name: 'HASH', ProvisionedThroughput: { ReadCapacityUnits: 50 } } },
 //                                    projection: { mtime: ['gender','age'],
 //                                                  name: ['name','gender'] },
 //                                    readCapacity: 10,
 //                                    writeCapacity: 10 });
-aws.ddbCreateTable = function(name, attrs, keys, options, callback)
+aws.ddbCreateTable = function(name, attrs, options, callback)
 {
     var self = this;
     if (typeof options == "function") callback = options, options = {};
@@ -1590,16 +1590,21 @@ aws.ddbCreateTable = function(name, attrs, keys, options, callback)
         params.AttributeDefinitions = attrs;
     } else {
         for (var p in attrs) {
-            params.AttributeDefinitions.push({ AttributeName: p, AttributeType: String(attrs[p]).toUpperCase() })
+            params.AttributeDefinitions.push({ AttributeName: p, AttributeType: String(attrs[p]).toUpperCase() });
         }
     }
-    if (Array.isArray(keys) && keys.length) {
-        params.KeySchema = attrs;
-    } else {
-        for (var p in keys) {
-            params.KeySchema.push({ AttributeName: p, KeyType: String(keys[p]).toUpperCase() })
-        }
+    if (Array.isArray(options.keys)) {
+        options.keys.forEach(function(x, i) {
+            params.KeySchema.push({ AttributeName: x, KeyType: !i ? "HASH" : "RANGE" });
+        });
+    } else
+    if (typeof options.keys == "string" && options.keys) {
+        params.KeySchema.push({ AttributeName: options.keys, KeyType: "HASH" });
     }
+    if (!params.KeySchema.length) {
+        params.KeySchema.push({ AttributeName: params.AttributeDefinitions[0].AttributeName, KeyType: "HASH" });
+    }
+
     ["local","global"].forEach(function(t) {
         for (var n in options[t]) {
             var idx = options[t][n];
@@ -1655,9 +1660,10 @@ aws.ddbCreateTable = function(name, attrs, keys, options, callback)
 //
 //  Example
 //
-//              aws.ddbUpdateTable({ name: "users", add: { name_idx: { name: { type: "S", hash: 1 }, id: { type: 'N', range: 1 }, readCapacity: 20, writeCapacity: 20, projection: ["mtime","email"] } })
-//              aws.ddbUpdateTable({ name: "users", del: "name_idx" })
-//              aws.ddbUpdateTable({ name: "users", update: { name_idx: { readCapacity: 10, writeCapacity: 10 } })
+//              aws.ddbUpdateTable({ name: "users", add: { name_id: { name: "S", id: 'N', readCapacity: 20, writeCapacity: 20, projection: ["mtime","email"] } })
+//              aws.ddbUpdateTable({ name: "users", add: { name: { name: "S", readCapacity: 20, writeCapacity: 20, projection: ["mtime","email"] } })
+//              aws.ddbUpdateTable({ name: "users", del: "name" })
+//              aws.ddbUpdateTable({ name: "users", update: { name: { readCapacity: 10, writeCapacity: 10 } })
 //
 // Example of crontab job in etc/crontab:
 //
@@ -1682,23 +1688,28 @@ aws.ddbUpdateTable = function(options, callback)
         for (var name in options.add) {
             var obj = options.add[name];
             if (name.length <= 2) name = "i_" + name;
-            var index = { IndexName: name, KeySchema: [], ProvisionedThroughput: {}, Projection: { ProjectionType: "KEYS_ONLY" } };
+            var index = { IndexName: name,
+                          KeySchema: [],
+                          Projection: { ProjectionType: "KEYS_ONLY" },
+                          ProvisionedThroughput: { ReadCapacityUnits: options.readCapacity || self.ddbReadCapacity || 10,
+                                                   WriteCapacityUnits: options.writeCapacity || self.ddbWriteCapacity || 5 }
+            };
             for (var p in obj) {
-                if (!obj[p]) continue;
+                if (lib.isEmpty(obj[p])) continue;
                 switch (p) {
                 case "readCapacity":
-                    index.ProvisionedThroughput.ReadCapacityUnits = options.readCapacity;
+                    index.ProvisionedThroughput.ReadCapacityUnits = obj[p];
                     break;
                 case "writeCapacity":
-                    index.ProvisionedThroughput.WriteCapacityUnits = options.writeCapacity;
+                    index.ProvisionedThroughput.WriteCapacityUnits = obj[p];
                     break;
                 case "projection":
-                    index.Projection = { ProjectionType: Array.isArray(obj.projection) ? "INCLUDE" : String(obj.projection).toUpperCase() };
-                    if (index.Projection.ProjectionType == "INCLUDE") index.Projection.NonKeyAttributes = obj.projection;
+                    index.Projection = { ProjectionType: Array.isArray(obj[p]) ? "INCLUDE" : String(obj[p]).toUpperCase() };
+                    if (index.Projection.ProjectionType == "INCLUDE") index.Projection.NonKeyAttributes = obj[p];
                     break;
                 default:
-                    index.KeySchema.push({ AttributeName: p, KeyType: obj[p].range ? "RANGE" : "HASH" })
-                    params.AttributeDefinitions.push({ AttributeName: p, AttributeType: obj[p].type || "S" });
+                    index.KeySchema.push({ AttributeName: p, KeyType: index.KeySchema.length ? "RANGE" : "HASH" })
+                    params.AttributeDefinitions.push({ AttributeName: p, AttributeType: obj[p] || "S" });
                 }
             }
             params.GlobalSecondaryIndexUpdates.push({ Create: index });

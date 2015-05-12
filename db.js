@@ -450,14 +450,13 @@ db.initPoolTables = function(name, tables, options, callback)
 
     // Add tables to the list of all tables this pool supports
     var pool = this.getPool('', { pool: name });
-    if (!pool.dbtables) pool.dbtables = {};
     // Collect all tables in the pool to be merged with the actual tables later
     for (var p in tables) pool.dbtables[p] = tables[p];
     options.pool = name;
 
     // These options can redefine behaviour of the initialization sequence
-    var noCacheColumns = options.noCacheColumns || pool.noCacheColumns || this.noCacheColumns;
-    var noInitTables = options.noInitTables || pool.noInitTables || this.noInitTables;
+    var noCacheColumns = options.noCacheColumns || pool.noCacheColumns || pool.dboptions.noCacheColumns || this.noCacheColumns;
+    var noInitTables = options.noInitTables || pool.noInitTables || pool.dboptions.noInitTables || this.noInitTables;
     logger.debug('initPoolTables:', core.role, name, noCacheColumns || 0, '/', noInitTables || 0, Object.keys(tables));
 
     // Skip loading column definitions from the database, keep working with the javascript models only
@@ -478,13 +477,22 @@ db.initPoolTables = function(name, tables, options, callback)
             // We if have columns, SQL table must be checked for missing columns and indexes
             var cols = self.getColumns(table, options);
             if (!cols || Object.keys(cols).every(function(x) { return cols[x].fake })) {
-                self.create(table, pool.dbtables[table], options, function(err, rows) { changes++; next() });
+                self.create(table, pool.dbtables[table], options, function(err, rows, info) {
+                    if (info.affected_rows) changes++;
+                    next();
+                });
             } else {
-                self.upgrade(table, pool.dbtables[table], options, function(err, rows) { if (rows) changes++; next() });
+                // Refreshing columns after an upgrade is only required by the driver which depends on
+                // the actual db schema, in any case all columns are merged so no need to re-read just the columns,
+                // the case can be to read new indexes used in searches, this is true for DynamoDB.
+                self.upgrade(table, pool.dbtables[table], options, function(err, rows, info) {
+                    if (info.affected_rows) changes++;
+                    next();
+                });
             }
         }, function() {
-            logger.debug('initPoolTables:', name, 'changes:', changes);
             if (!changes) return callback();
+            logger.info('initPoolTables:', name, 'changes:', changes);
             self.cacheColumns(options, callback);
         });
     });
@@ -541,8 +549,9 @@ db.query = function(req, options, callback)
 {
     var self = this;
     if (typeof options == "function") callback = options, options = null;
-    if (!options) options = {};
     if (typeof callback != "function") callback = lib.noop;
+    if (!lib.isObject(req)) return callback(new Error("invalid request"));
+    if (!options) options = {};
 
     var table = req.table || "";
     var pool = this.getPool(table, options);
@@ -1521,13 +1530,13 @@ db.create = function(table, columns, options, callback)
     this.query(req, options, callback);
 }
 
-// Upgrade a table with missing columns from the definition list
+// Upgrade a table with missing columns from the definition list, if after the upgrade new columns must be re-read from the database
+// then `info.affected_rows` must be non zero.
 db.upgrade = function(table, columns, options, callback)
 {
     if (typeof options == "function") callback = options,options = {};
     options = this.getOptions(table, options);
     var req = this.prepare("upgrade", table, columns, options);
-    if (!req.text) return callback ? callback() : null;
     this.query(req, options, callback);
 }
 
@@ -1541,7 +1550,7 @@ db.drop = function(table, options, callback)
     var req = this.prepare("drop", table, {}, options);
     if (!req.text) return callback();
     this.query(req, options, function(err, rows, info) {
-        // Clear table cache
+        // Clear the table cache
         if (!err) {
             var pool = self.getPool(table, options);
             delete pool.dbcolumns[table];
@@ -1672,12 +1681,6 @@ db.prepare = function(op, table, obj, options)
 
     // Prepare row properties
     obj = this.prepareRow(pool, op, table, obj, options);
-    switch (op) {
-    case "upgrade":
-        if (options.noUpgrade) return {};
-        break;
-    }
-
     return pool.prepare(op, table, obj, options);
 }
 
@@ -2248,7 +2251,6 @@ db.createPool = function(options)
                 try {
                     me.connect.call(self, me, function(err, client) {
                         if (err) return callback(err, client);
-                        me.watch(client);
                         me.setup(client, callback);
                     });
                 } catch(e) {
@@ -2342,24 +2344,6 @@ db.createPool = function(options)
         this.noCacheColumns = opts.noCacheColumns;
         this.noInitTables = opts.noInitTables;
         logger.debug("configure.db:", this.name, opts);
-    }
-
-    // Watch for changes or syncs and reopen the database file
-    pool.watch = function(client) {
-        var me = this;
-        if (this.watchfile && !this.serialNum) {
-            this.serialNum = 1;
-            fs.watch(this.watchfile, function(event, filename) {
-                logger.info('db.watch:', me.name, event, filename, me.watchfile, "#", me.serialNum);
-                me.serialNum++;
-                me.closeAll();
-            });
-        }
-        // Mark the client with the current db pool serial number, if on release this number differs we
-        // need to destroy the client, not return to the pool
-        client.poolSerial = this.serialNum;
-        client.poolName = this.name;
-        logger.debug('pool:', 'open', this.name, "#", this.serialNum);
     }
 
     // Save existing options and return as new object, first arg is options, then list of properties to save
