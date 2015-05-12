@@ -2264,7 +2264,7 @@ might be useful when desining, developing or choosing the API platform:</p>
 <li><code>api-app-header-name</code> - Name for the app name/version query parameter or header, it is can be used to tell the server about the application version</li>
 <li><code>api-version-header-name</code> - Name for the access version query parameter or header, this is the core protocol version that can be sent to specify which core functionality a client expects</li>
 <li><code>api-no-signature</code> - Disable signature verification for requests</li>
-<li><code>api-signature-header-name</code> - Name for the access signature query parameter or header</li>
+<li><code>api-signature-header-name</code> - Name for the access signature query parameter, header and session cookie</li>
 <li><code>api-signature-age</code> - Max age for request signature in milliseconds, how old the API signature can be to be considered valid, the &#39;expires&#39; field in the signature must be less than current time plus this age, this is to support time drifts</li>
 <li><code>api-access-token-name</code> - Name for the access token query parameter or header</li>
 <li><code>api-access-token-secret</code> - A secret to be used for access token signatures, additional enryption on top of the signature to use for API access without signing requests, it is required for access tokens to be used</li>
@@ -3407,14 +3407,14 @@ The options specify the following:</p>
 </ul>
 
 <ul>
-<li><p><code>aws.ddbCreateTable(name, attrs, keys, options, callback)</code></p>
+<li><p><code>aws.ddbCreateTable(name, attrs, options, callback)</code></p>
 <p> Create a table</p>
 <ul>
 <li>attrs can be an array in native DDB JSON format or an object with name:type properties, type is one of S, N, NN, NS, BS</li>
-<li>keys can be an array in native DDB JSON format or an object with name:keytype properties, keytype is one of HASH or RANGE value in the same format as for primary keys</li>
 <li>options may contain any valid native property if it starts with capital letter and the following:<ul>
 <li>waitTimeout - number of milliseconds to wait for ACTIVE status</li>
 <li>waitDelay - how often to pool for table status, default is 250ms</li>
+<li>keys is an array of column ids used for the primary key or a string with the hash key. if omitted, the first attribute will be used for the primary key</li>
 <li>local - an object with each property for a local secondary index name defining key format the same way as for primary keys, all Uppercase properties are added to the top index object</li>
 <li>global - an object for global secondary indexes, same format as for local indexes</li>
 <li>projection - an object with index name and list of projected properties to be included in the index or &quot;ALL&quot; for all properties, if omitted then default KEYS_ONLY is assumed</li>
@@ -3426,9 +3426,9 @@ The options specify the following:</p>
 </li>
 </ul>
 <p> Example:</p>
-<pre><code>      ddbCreateTable(&#39;users&#39;, { id:&#39;S&#39;,mtime:&#39;N&#39;,name:&#39;S&#39;},
-                              { id:&#39;HASH&#39;,name:&#39;RANGE&#39;},
-                              { local: { mtime: { mtime: &quot;HASH&quot; } },
+<pre><code>      ddbCreateTable(&#39;users&#39;, { id: &#39;S&#39;, mtime: &#39;N&#39;, name: &#39;S&#39;},
+                              { keys: [&quot;id&quot;, &quot;name&quot;],
+                                local: { mtime: { mtime: &quot;HASH&quot; } },
                                 global: { name: { name: &#39;HASH&#39;, ProvisionedThroughput: { ReadCapacityUnits: 50 } } },
                                 projection: { mtime: [&#39;gender&#39;,&#39;age&#39;],
                                               name: [&#39;name&#39;,&#39;gender&#39;] },
@@ -3449,9 +3449,10 @@ Options must provide the following properties:</p>
 <li>update - an object with indexes to update</li>
 </ul>
 <p>Example</p>
-<pre><code>        aws.ddbUpdateTable({ name: &quot;users&quot;, add: { name_idx: { name: { type: &quot;S&quot;, hash: 1 }, id: { type: &#39;N&#39;, range: 1 }, readCapacity: 20, writeCapacity: 20, projection: [&quot;mtime&quot;,&quot;email&quot;] } })
-        aws.ddbUpdateTable({ name: &quot;users&quot;, del: &quot;name_idx&quot; })
-        aws.ddbUpdateTable({ name: &quot;users&quot;, update: { name_idx: { readCapacity: 10, writeCapacity: 10 } })
+<pre><code>        aws.ddbUpdateTable({ name: &quot;users&quot;, add: { name_id: { name: &quot;S&quot;, id: &#39;N&#39;, readCapacity: 20, writeCapacity: 20, projection: [&quot;mtime&quot;,&quot;email&quot;] } })
+        aws.ddbUpdateTable({ name: &quot;users&quot;, add: { name: { name: &quot;S&quot;, readCapacity: 20, writeCapacity: 20, projection: [&quot;mtime&quot;,&quot;email&quot;] } })
+        aws.ddbUpdateTable({ name: &quot;users&quot;, del: &quot;name&quot; })
+        aws.ddbUpdateTable({ name: &quot;users&quot;, update: { name: { readCapacity: 10, writeCapacity: 10 } })
 </code></pre><p>Example of crontab job in etc/crontab:</p>
 <pre><code>        [
         { &quot;type&quot;: &quot;server&quot;, &quot;cron&quot;: &quot;0 0 1 * * *&quot;, &quot;job&quot;: { &quot;aws.ddbUpdateTable&quot;: { &quot;name&quot;: &quot;bk_account&quot;, &quot;readCapacity&quot;: 1000, &quot;writeCapacity&quot;: 1000 } } },
@@ -4708,7 +4709,8 @@ so the callback is called as soon as the table is active or after the timeout wh
 
 <ul>
 <li><p><code>db.upgrade(table, columns, options, callback)</code></p>
-<p> Upgrade a table with missing columns from the definition list</p>
+<p> Upgrade a table with missing columns from the definition list, if after the upgrade new columns must be re-read from the database
+then <code>info.affected_rows</code> must be non zero.</p>
 </li>
 </ul>
 
@@ -7132,6 +7134,12 @@ db.query({ op: &quot;POST&quot;, text: &quot;/buckets/bucket/counter/name&quot;,
 </ul>
 
 <ul>
+<li><p><code>db.sqlQuery(client, req, opts, callback)</code></p>
+<p> Execute one or more SQL statements</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>db.sqlCacheColumns(options, callback)</code></p>
 <p> Cache columns using the information_schema</p>
 </li>
@@ -7291,6 +7299,12 @@ options may define the following properties:</p>
 <li><p><code>db.sqliteConnect(options, callback)</code></p>
 <p> Common code to open or create local SQLite databases, execute all required initialization statements, calls callback
 with error as first argument and database object as second</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.sqliteSetup(client, callback)</code></p>
+<p> Watch for changes or syncs and reopen the database file</p>
 </li>
 </ul>
 
