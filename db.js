@@ -109,8 +109,8 @@ var db = {
            { name: "(.+)-pool-min(-[0-9]+)?", obj: 'poolParams', strip: "Pool", type: "number", min: 1, descr: "Min number of open connections for a pool" },
            { name: "(.+)-pool-idle(-[0-9]+)?", obj: 'poolParams', strip: "Pool", type: "number", min: 1000, descr: "Number of ms for a db pool connection to be idle before being destroyed" },
            { name: "(.+)-pool-tables(-[0-9]+)?", obj: 'poolParams', strip: "Pool", type: "list", array: 1, descr: "A DB pool tables, list of tables that belong to this pool only" },
-           { name: "(.+)-pool-init-options(-[0-9]+)?", obj: 'poolParams', strip: "Pool", type: "json", descr: "Options for a DB pool driver passed during creation of a pool" },
-           { name: "(.+)-pool-options(-[0-9]+)?", obj: 'poolParams', strip: "Pool", type: "json", descr: "A DB pool driver options passed to every request" },
+           { name: "(.+)-pool-connect(-[0-9]+)?", obj: 'poolParams', strip: "Pool", type: "json", descr: "Options for a DB pool driver passed during connection or creation of the pool" },
+           { name: "(.+)-pool-settings(-[0-9]+)?", obj: 'poolParams', strip: "Pool", type: "json", descr: "A DB pool driver settings passed to every request, contains pool-wide options and features upported by the driver" },
            { name: "(.+)-pool-no-cache-columns(-[0-9]+)?", obj: 'poolParams', strip: "Pool", type: "bool", descr: "disable caching table columns for this pool only" },
            { name: "(.+)-pool-no-init-tables(-[0-9]+)?", type: "regexp", obj: 'poolParams', strip: "Pool", novalue: ".+", descr: "Do not create tables for this pool only, a regexp of tables to skip" },
            { name: "describe-tables", type: "callback", callback: function(v) { this.describeTables(lib.jsonParse(v, {obj:1,error:1})) }, descr: "A JSON object with table descriptions to be merged with the existing definitions" },
@@ -288,8 +288,8 @@ db.initPool = function(name, options, callback)
     if (typeof callback != "function") callback = lib.noop;
 
     // Pool db connection parameter must exists even if empty
-    var db = this.poolNames[name];
-    if (typeof db == "undefined") return callback();
+    var url = this.poolNames[name];
+    if (typeof url == "undefined") return callback();
 
     var d = name.match(/^([a-z]+)([0-9]+)?$/);
     if (!d) return callback(new Error("invalid pool " + name));
@@ -303,14 +303,14 @@ db.initPool = function(name, options, callback)
     // All pool specific parameters
     var opts = { pool: name,
                  type: type,
-                 db: db || "",
+                 url: url || "",
                  min: this.poolParams[type + 'Min' + n] || 0,
                  max: this.poolParams[type + 'Max' + n] || Infinity,
                  idle: this.poolParams[type + 'Idle' + n] || 300000,
-                 noCacheColumns: this.poolParams[type + 'NoCacheColumns' + n] || 0,
-                 noInitTables: this.poolParams[type + 'NoInitTables' + n] || 0,
-                 dbinit: this.poolParams[type + 'InitOptions' + n],
-                 dboptions: this.poolParams[type + 'Options' + n] };
+                 noCacheColumns: this.poolParams[type + 'NoCacheColumns' + n],
+                 noInitTables: this.poolParams[type + 'NoInitTables' + n],
+                 connect: this.poolParams[type + 'Connect' + n],
+                 settings: this.poolParams[type + 'Settings' + n] };
 
     // Do not re-create the pool if not forced, just update the properties
     if (this.pools[name]) {
@@ -455,8 +455,8 @@ db.initPoolTables = function(name, tables, options, callback)
     options.pool = name;
 
     // These options can redefine behaviour of the initialization sequence
-    var noCacheColumns = options.noCacheColumns || pool.noCacheColumns || pool.dboptions.noCacheColumns || this.noCacheColumns;
-    var noInitTables = options.noInitTables || pool.noInitTables || pool.dboptions.noInitTables || this.noInitTables;
+    var noCacheColumns = options.noCacheColumns || pool.noCacheColumns || pool.settings.noCacheColumns || this.noCacheColumns;
+    var noInitTables = options.noInitTables || pool.noInitTables || pool.settings.noInitTables || this.noInitTables;
     logger.debug('initPoolTables:', core.role, name, noCacheColumns || 0, '/', noInitTables || 0, Object.keys(tables));
 
     // Skip loading column definitions from the database, keep working with the javascript models only
@@ -563,7 +563,7 @@ db.query = function(req, options, callback)
     pool.metrics.Counter('req_0').inc();
 
     function onEnd(err, client, rows, info) {
-        if (client) pool.free(client);
+        if (client) pool.release(client);
 
         m1.end();
         pool.metrics.Counter('count').dec();
@@ -585,7 +585,7 @@ db.query = function(req, options, callback)
         }
     }
 
-    pool.get(function(err, client) {
+    pool.acquire(function(err, client) {
         if (err) return onEnd(err, null, [], {});
 
         try {
@@ -596,10 +596,10 @@ db.query = function(req, options, callback)
                     if (!rows) rows = [];
                     if (!info) info = {};
                     if (!info.affected_rows) info.affected_rows = client.affected_rows || 0;
-                    if (!info.inserted_id) info.inserted_oid = client.inserted_oid || null;
+                    if (!info.inserted_oid) info.inserted_oid = client.inserted_oid || null;
                     if (!info.next_token) info.next_token = pool.nextToken(client, req, rows, options);
 
-                    pool.free(client);
+                    pool.release(client);
                     client = null;
 
                     // Cache notification in case of updates, we must have the request prepared by the db.prepare
@@ -1993,7 +1993,7 @@ db.getOptions = function(table, options)
 {
     if (options && options._merged) return options;
     var pool = this.getPool(table, options);
-    options = lib.mergeObj(pool.dboptions, options);
+    options = lib.mergeObj(pool.settings, options);
     options._merged = 1;
     return options;
 }
@@ -2224,13 +2224,13 @@ db.showResult = function(err, rows, info)
 //   and if exist it must return the same or new table name for the given query parameters.
 //
 // The db methods cover most use cases but in case native driver needs to be used this is how to get the client and use it with its native API,
-// it is required to call `pool.free` at the end to return the connection back to the connection pool.
+// it is required to call `pool.release` at the end to return the connection back to the connection pool.
 //
 //          var pool = db.getPool("", { pool: "mongodb" });
 //          pool.get(function(err, client) {
 //              var collection = client.collection('bk_account');
 //              collection.findOne({ id: '123' }, function() {
-//                  pool.free(client);
+//                  pool.release(client);
 //              });
 //          });
 //
@@ -2247,54 +2247,35 @@ db.createPool = function(options)
 
             create: function(callback) {
                 var me = this;
-                if (typeof callback != "function") callback = lib.noop;
                 try {
-                    me.connect.call(self, me, function(err, client) {
-                        if (err) return callback(err, client);
-                        me.setup(client, callback);
+                    this.open.call(self, this, function(err, client) {
+                        if (err) return typeof callback == "function" && callback(err, client);
+                        me.setup.call(me, client, function(err) {
+                           if (typeof callback == "function") callback(err, client);
+                        });
                     });
                 } catch(e) {
                     logger.error('pool.create:', this.name, e);
-                    callback(e);
+                    if (typeof callback == "function") callback(e);
                 }
             },
-            validate: function(client) {
-                return self.pools[this.name].serialNum == client.poolSerial;
+            reset: function(client) {
+                if (typeof client.reset == "function") client.reset();
             },
             destroy: function(client, callback) {
-                var me = this;
-                logger.debug('pool.destroy', this.name, "#", client.poolSerial);
                 try {
-                    this.close(client, function(err) {
-                        if (err) logger.error("db.close:", me.name, err);
-                        if (typeof callback == "function") callback(err);
-                    });
+                    this.close.call(this, client, callback);
                 } catch(e) {
                     logger.error("pool.destroy:", this.name, e);
                 }
             },
         });
 
-        // Acquire a connection with error reporting
-        pool.get = function(callback) {
-            this.acquire(function(err, client) {
-                if (err) logger.error('pool.get:', pool.name, err);
-                if (typeof callback == "function") callback(err, client);
-            });
-        }
-        // Release or destroy a client depending on the database watch counter
-        pool.free = function(client) {
-            if (this.serialNum != client.poolSerial) {
-                this.destroy(client);
-            } else {
-                this.release(client);
-            }
-        }
     } else {
         var pool = {};
-        pool.get = function(cb) { if (typeof cb == "function" ) cb(null, {}); else logger.error("pool.get:", this.name, "invalid callback", cb, Error().stack); };
-        pool.free = lib.noop;
-        pool.closeAll = lib.noop;
+        pool.acquire = function(cb) { if (typeof cb != "function" ) throw new Error("callback is required"); cb(null, {}); };
+        pool.release = lib.noop;
+        pool.destroyAll = lib.noop;
         pool.stats = lib.noop;
         pool.shutdown = lib.nocb;
     }
@@ -2307,12 +2288,11 @@ db.createPool = function(options)
             if (p[0] != "_" && !this[p] && typeof opts[p] != "undefined") this[p] = opts[p];
         }
         // Default methods if not setup from the options
-        if (typeof this.connect != "function") this.connect = function(pool, cb) { if (typeof cb == "function" ) cb(null, {}); };
-        if (typeof this.close != "function") this.close = function(client, cb) { if (typeof cb == "function" ) cb() }
-        if (typeof this.setup != "function") this.setup = function(client, cb) { if (typeof cb == "function" ) cb(null, client); };
-        if (typeof this.query != "function") this.query = function(client, req, opts, cb) { if (typeof cb == "function" ) cb(null, []); };
-        if (typeof this.cacheColumns != "function") this.cacheColumns = function(opts, cb) { if (typeof cb == "function" ) cb(); }
-        if (typeof this.cacheIndexes != "function") this.cacheIndexes = function(opts, cb) { if (typeof cb == "function" ) cb(); };
+        if (typeof this.open != "function") this.open = function(pool, cb) { cb(null, {}); };
+        if (typeof this.setup != "function") this.setup = function(client, cb) { cb(null, client); };
+        if (typeof this.query != "function") this.query = function(client, req, opts, cb) { cb(null, []); };
+        if (typeof this.cacheColumns != "function") this.cacheColumns = function(opts, cb) { cb(); }
+        if (typeof this.cacheIndexes != "function") this.cacheIndexes = function(opts, cb) { cb(); };
         if (typeof this.nextToken != "function") this.nextToken = function(client, req, rows, opts) { return client.next_token || null };
         // Pass all request in an object with predefined properties
         if (typeof this.prepare != "function") {
@@ -2322,27 +2302,26 @@ db.createPool = function(options)
         }
         if (!this.type) this.type = "unknown";
         this.name = this.pool;
-        this.serialNum = 0;
         this.dbtables = {};
         this.dbcolumns = {};
         this.dbkeys = {};
         this.dbindexes = {};
         this.dbcache = {};
         this.metrics = new metrics.Metrics('name', this.name);
-        if (!lib.isObject(this.dbinit)) this.dbinit = {};
-        if (!lib.isObject(this.dboptions)) this.dboptions = {};
-        [ 'ops', 'typesMap', 'opsMap', 'namesMap', 'skipNull' ].forEach(function(x) { if (!me.dboptions[x]) me.dboptions[x] = {} });
+        if (!lib.isObject(this.connect)) this.connect = {};
+        if (!lib.isObject(this.settings)) this.settings = {};
+        [ 'ops', 'typesMap', 'opsMap', 'namesMap', 'skipNull' ].forEach(function(x) { if (!lib.isObject(me.settings[x])) me.settings[x] = {} });
     }
 
     // Reconfigure properties, only subset of properties are allowed here so it is safe to apply all of them directly,
     // this is called during realtime config update
     pool.configure = function(opts) {
-        if (this.pooling) this.init(opts);
-        if (opts.db) this.db = opts.db;
-        if (opts.dbinit) this.dbinit = lib.mergeObj(this.dbinit, opts.dbinit);
-        if (opts.dboptions) this.dboptions = lib.mergeObj(this.dboptions, opts.dboptions);
-        this.noCacheColumns = opts.noCacheColumns;
-        this.noInitTables = opts.noInitTables;
+        if (typeof this._configure == "function") this._configure(opts);
+        if (opts.url) this.url = opts.url;
+        if (lib.isObject(opts.connect)) this.connect = lib.mergeObj(this.connect, opts.connect);
+        if (lib.isObject(opts.settings)) this.settings = lib.mergeObj(this.settings, opts.settings);
+        if (!lib.isEmpty(opts.noCacheColumns)) this.noCacheColumns = opts.noCacheColumns;
+        if (!lib.isEmpty(opts.noInitTables)) this.noInitTables = opts.noInitTables;
         logger.debug("configure.db:", this.name, opts);
     }
 

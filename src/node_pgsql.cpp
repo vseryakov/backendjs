@@ -196,6 +196,8 @@ public:
             PQclear(results[i]);
         }
         results.clear();
+        affected_rows = "";
+        inserted_oid = 0;
     }
 
     const char *Error(const char *errmsg = 0) {
@@ -224,6 +226,7 @@ public:
     static Handle<Value> SetNotify(const Arguments& args);
     static Handle<Value> SetNonblocking(const Arguments& args);
     static Handle<Value> Close(const Arguments& args);
+    static Handle<Value> Reset(const Arguments& args);
     static Handle<Value> Destroy(const Arguments& args);
     static void Work_Connect(uv_work_t* req);
     static void Work_AfterConnect(uv_work_t* req, int status);
@@ -273,6 +276,7 @@ void PgSQLDatabase::Init(Handle<Object> target)
     NODE_SET_PROTOTYPE_METHOD(t, "query", Query);
     NODE_SET_PROTOTYPE_METHOD(t, "querySync", QuerySync);
     NODE_SET_PROTOTYPE_METHOD(t, "close", Close);
+    NODE_SET_PROTOTYPE_METHOD(t, "reset", Reset);
     NODE_SET_PROTOTYPE_METHOD(t, "destroy", Destroy);
     target->Set(String::NewSymbol("PgSQLDatabase"), constructor_template->GetFunction());
 }
@@ -370,6 +374,14 @@ Handle<Value> PgSQLDatabase::Connect(const Arguments& args)
     } else {
         db->Queue(Work_Connect, Work_AfterConnect, cb);
     }
+    return args.This();
+}
+
+Handle<Value> PgSQLDatabase::Reset(const Arguments& args)
+{
+    HandleScope scope;
+    PgSQLDatabase *db = ObjectWrap::Unwrap<PgSQLDatabase>(args.This());
+    db->Clear();
     return args.This();
 }
 

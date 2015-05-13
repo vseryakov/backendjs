@@ -415,8 +415,8 @@ aws.queryDDB = function (action, obj, options, callback)
     if (!options) options = {};
     var start = Date.now();
     var region = options.region || this.region  || 'us-east-1';
-    if (options.db && options.db.match(/[a-z][a-z]-[a-z]+-[1-9]/)) region = options.db;
-    var uri = options.db && options.db.match(/^https?:\/\//) ? options.db : ((self.proto || options.proto || 'http://') + 'dynamodb.' + region + '.amazonaws.com/');
+    if (options.endpoint && options.endpoint.match(/[a-z][a-z]-[a-z]+-[1-9]/)) region = options.endpoint;
+    var uri = options.endpoint && options.endpoint.match(/^https?:\/\//) ? options.endpoint : ((self.proto || options.proto || 'http://') + 'dynamodb.' + region + '.amazonaws.com/');
     var version = '2012-08-10';
     var target = 'DynamoDB_' + version.replace(/\-/g,'') + '.' + action;
     var headers = { 'content-type': 'application/x-amz-json-1.0; charset=utf-8', 'x-amz-target': target };

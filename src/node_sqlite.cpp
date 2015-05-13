@@ -652,7 +652,6 @@ Handle<Value> SQLiteDatabase::CloseSync(const Arguments& args)
     return args.This();
 }
 
-
 Handle<Value> SQLiteDatabase::Close(const Arguments& args)
 {
     HandleScope scope;

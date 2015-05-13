@@ -84,6 +84,7 @@ public:
 
     static Handle<Value> CloseSync(const Arguments& args);
     static Handle<Value> Close(const Arguments& args);
+    static Handle<Value> Reset(const Arguments& args);
     static void Work_Close(uv_work_t* req);
     static void Work_AfterClose(uv_work_t* req);
 
@@ -369,6 +370,7 @@ err:
         }
         return true;
     }
+
     Handle<Value> querySync(const Arguments& args, int idx = 0);
 
     static Handle<Value> Finalize(const Arguments& args);
@@ -504,6 +506,7 @@ void MysqlDatabase::Init(Handle<Object> target)
     constructor_template->InstanceTemplate()->SetAccessor(String::NewSymbol("affected_rows"), AffectedRowsGetter);
     constructor_template->SetClassName(String::NewSymbol("MysqlDatabase"));
 
+    NODE_SET_PROTOTYPE_METHOD(constructor_template, "reset", Reset);
     NODE_SET_PROTOTYPE_METHOD(constructor_template, "close", Close);
     NODE_SET_PROTOTYPE_METHOD(constructor_template, "closeSync", CloseSync);
     NODE_SET_PROTOTYPE_METHOD(constructor_template, "exec", Exec);
@@ -703,6 +706,16 @@ void MysqlDatabase::Work_AfterOpen(uv_work_t* req)
         LogError("%s", baton->message.c_str());
     }
     delete baton;
+}
+
+Handle<Value> MysqlDatabase::Reset(const Arguments& args)
+{
+    HandleScope scope;
+    MysqlDatabase* db = ObjectWrap::Unwrap < MysqlDatabase > (args.This());
+    db->inserted_id = 0;
+    db->affected_rows = 0;
+
+    return args.This();
 }
 
 Handle<Value> MysqlDatabase::CloseSync(const Arguments& args)
