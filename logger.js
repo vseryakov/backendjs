@@ -16,7 +16,7 @@ var logger = {
     writable: true,
     filters: null,
 
-    levels: { test: 5, dev: 4, debug: 3, info: 2, notice: 1, warn: 0, error: -1, none: -1 },
+    levels: { test: 5, dev: 4, debug: 3, info: 2, notice: 1, log: 1, warn: 0, error: -1, none: -1 },
 
     // syslog facilities
     LOG_KERN: (0<<3),

@@ -376,6 +376,47 @@ lib.toParams = function(query, schema, options)
     return rc;
 }
 
+// Returns true of the argument is a generic object, not a null, Buffer, Date, RegExp or Array
+lib.isObject = function(v)
+{
+    return this.typeName(v) == "object";
+}
+
+// Return true if the value is a number
+lib.isNumber = function(val)
+{
+    return typeof val == "number" && !isNaN(val);
+}
+
+// Returns true if a number is positive, i.e. greater than zero
+lib.isPositive = function(val)
+{
+    return this.isNumber(val) && val > 0;
+}
+
+// Return true of the given value considered empty
+lib.isEmpty = function(val)
+{
+    switch (this.typeName(val)) {
+    case "null":
+    case "undefined":
+        return true;
+    case "buffer":
+    case "array":
+        return val.length == 0;
+    case "number":
+    case "date":
+        return isNaN(val);
+    case "regexp":
+    case "boolean":
+        return false;
+    case "string":
+        return val.match(/^\s*$/) ? true : false;
+    default:
+        return val ? false: true;
+    }
+}
+
 // Returns true if the given type belongs to the numeric family
 lib.isNumeric = function(type)
 {
@@ -1068,41 +1109,6 @@ lib.typeName = function(v)
     if (util.isDate(v)) return "date";
     if (util.isRegExp(v)) return "regexp";
     return "object";
-}
-
-// Returns true of the argument is a generic object, not a null, Buffer, Date, RegExp or Array
-lib.isObject = function(v)
-{
-    return this.typeName(v) == "object";
-}
-
-// Return true if the value is a number
-lib.isNumber = function(val)
-{
-    return typeof val == "number" && !isNaN(val);
-}
-
-// Return true of the given value considered empty
-lib.isEmpty = function(val)
-{
-    switch (this.typeName(val)) {
-    case "null":
-    case "undefined":
-        return true;
-    case "buffer":
-    case "array":
-        return val.length == 0;
-    case "number":
-    case "date":
-        return isNaN(val);
-    case "regexp":
-    case "boolean":
-        return false;
-    case "string":
-        return val.match(/^\s*$/) ? true : false;
-    default:
-        return val ? false: true;
-    }
 }
 
 // Return a new Error object, options can be a string which will create an error with a message only
@@ -1904,21 +1910,22 @@ lib.createPool = function(options)
 {
     var self = this;
 
-    var pool = { _min: 0,
-                 _max: 10,
-                 _max_queue: 100,
-                 _timeout: 5000,
-                 _idle: 300000,
-                 _createClient: null,
-                 _validateClient: null,
-                 _destroyClient: null,
-                 _queue_count: 0,
-                 _num: 1,
-                 _queue_count: 0,
-                 _queue: {},
-                 _avail: [],
-                 _mtime: [],
-                 _busy: [] };
+    var pool = {
+        _pool: {
+            min: 0,
+            max: 10,
+            max_queue: 100,
+            timeout: 5000,
+            idle: 300000,
+            queue_count: 0,
+            num: 1,
+            queue_count: 0,
+            queue: {},
+            avail: [],
+            mtime: [],
+            busy: []
+        }
+    };
 
     // Return next available resource item, if not available immediately wait for defined amount of time before calling the
     // callback with an error. The callback second argument is active resource item.
@@ -1926,26 +1933,31 @@ lib.createPool = function(options)
         if (typeof callback != "function") throw new Error("callback is required");
 
         // We have idle items
-        if (this._avail.length) {
-            var mtime = this._mtime.shift();
-            var item = this._avail.shift();
-            this._busy.push(item);
+        if (this._pool.avail.length) {
+            var mtime = this._pool.mtime.shift();
+            var item = this._pool.avail.shift();
+            this._pool.busy.push(item);
             return callback.call(this, null, item);
         }
         // Put into waiting queue
-        if (this._busy.length >= this._max) {
-            if (this._queue_count >= this._max_queue) return callback(new Error("no more resources"));
+        if (this._pool.busy.length >= this._pool.max) {
+            if (this._pool.queue_count >= this._pool.max_queue) return callback(new Error("no more resources"));
 
-            this._queue_count++;
-            return self.deferCallback(this._queue, { id: this._num++ }, function(m) {
+            this._pool.queue_count++;
+            return self.deferCallback(this._pool.queue, { id: this._pool.num++ }, function(m) {
                 callback(m.item ? null : new Error("timeout waiting for the resource"), m.item);
-            }, this._timeout);
+            }, this._pool.timeout);
         }
         // New item
         var me = this;
-        this._create(function(err, item) {
-            if (err) logger.error("aquire:", this.name, err.stack);
-            if (!err) me._busy.push(item);
+        this._call("_create", function(err, item) {
+            if (err) {
+                logger.error("aquire:", this.name, err.stack);
+            } else {
+                if (!item) item = {};
+                me._pool.busy.push(item);
+                logger.dev('pool: create', me.name, 'avail:', me._pool.avail.length, 'busy:', me._pool.busy.length);
+            }
             callback(err, item);
         });
     }
@@ -1954,17 +1966,17 @@ lib.createPool = function(options)
     pool.destroy = function(item, callback) {
         if (!item) return;
 
-        var idx = this._busy.indexOf(item);
+        var idx = this._pool.busy.indexOf(item);
         if (idx > -1) {
-            this._destroy(item, callback);
-            this._busy.splice(idx, 1);
+            this._call("_destroy", item, callback);
+            this._pool.busy.splice(idx, 1);
             return;
         }
-        idx = this._avail.indexOf(item);
+        idx = this._pool.avail.indexOf(item);
         if (idx > -1) {
-            this._destroy(item, callback);
-            this._avail.splice(idx, 1);
-            this._mtime.splice(idx, 1);
+            this._call("_destroy", item, callback);
+            this._pool.avail.splice(idx, 1);
+            this._pool.mtime.splice(idx, 1);
             return;
         }
     }
@@ -1973,57 +1985,57 @@ lib.createPool = function(options)
     pool.release = function(item) {
         if (!item) return;
 
-        var idx = this._busy.indexOf(item);
+        var idx = this._pool.busy.indexOf(item);
         if (idx == -1) {
             logger.error('pool.release:', 'not known', item);
             return;
         }
 
         // Pass it to the next waiting item
-        for (var id in this._queue) {
-            this._queue_count--;
-            this._queue[id].id = id;
-            this._queue[id].item = item;
-            return self.runCallback(this._queue, this._queue[id]);
+        for (var id in this._pool.queue) {
+            this._pool.queue_count--;
+            this._pool.queue[id].id = id;
+            this._pool.queue[id].item = item;
+            return self.runCallback(this._pool.queue, this._pool.queue[id]);
         }
 
         // Destroy if above the limit or invalid
-        if (this._avail.length > this._max || !this._validate(item)) {
-            this._destroy(item);
+        if (this._pool.avail.length > this._pool.max || this._call("_validate", item) === false) {
+            this._call("_destroy", item);
         } else {
             // Add to the available list
-            this._avail.unshift(item);
-            this._mtime.unshift(Date.now());
-            this._reset(item);
+            this._pool.avail.unshift(item);
+            this._pool.mtime.unshift(Date.now());
+            this._call("_reset", item);
         }
         // Remove from the busy list at the end to keep the object referenced all the time
-        this._busy.splice(idx, 1);
+        this._pool.busy.splice(idx, 1);
     }
 
     // Close all active items
     pool.destroyAll = function() {
-        while (this._avail.length > 0) this.destroy(this._avail[0]);
+        while (this._pool.avail.length > 0) this.destroy(this._pool.avail[0]);
     }
 
     pool.stats = function() {
-        return { avail: this._avail.length, busy: this._busy.length, queue: this._queue_count, min: this._min, max: this._max, max_queue: this._max_queue };
+        return { avail: this._pool.avail.length, busy: this._pool.busy.length, queue: this._pool.queue_count, min: this._pool.min, max: this._pool.max, max_queue: this._pool.max_queue };
     }
 
     // Close all connections and shutdown the pool, no more items will be open and the pool cannot be used without re-initialization,
     // if callback is provided then wait until all items are released and call it, optional maxtime can be used to retsrict how long to wait for
     // all items to be released, when expired the callback will be called
     pool.shutdown = function(callback, maxtime) {
-        logger.debug('pool.close:', this.name, 'shutdown:', 'avail:', this._avail.length, 'busy:', this._busy.length);
+        logger.debug('pool.close:', this.name, 'shutdown:', 'avail:', this._pool.avail.length, 'busy:', this._pool.busy.length);
         var self = this;
-        this._max = -1;
+        this._pool.max = -1;
         this.destroyAll();
-        this._queue = {};
-        clearInterval(this._interval);
+        this._pool.queue = {};
+        clearInterval(this._pool.interval);
         if (typeof callback != "function") return;
-        this._time = Date.now();
-        this._interval = setInterval(function() {
-            if (self._busy.length && (!maxtime || Date.now() - self._time < maxtime)) return;
-            clearInterval(this._interval);
+        this._pool.time = Date.now();
+        this._pool.interval = setInterval(function() {
+            if (self._pool.busy.length && (!maxtime || Date.now() - self._pool.time < maxtime)) return;
+            clearInterval(self._pool.interval);
             callback();
         }, 500);
     }
@@ -2031,95 +2043,64 @@ lib.createPool = function(options)
     // Initialize pool properties
     pool._configure = function(opts) {
         if (!opts) return;
-        var idle = this._idle;
+        var idle = this._pool.idle;
 
-        if (typeof opts.min != "undefined") this._min = self.toNumber(opts.min, { float: 0, flt: 0, min: 0 });
-        if (typeof opts.max != "undefined") this._max = self.toNumber(opts.max, { float: 0, dflt: 10, min: 0 });
-        if (typeof opts.interval != "undefined") this._max_queue = self.toNumber(opts.interval, { float: 0, dflt: 100, min: 0 });
-        if (typeof opts.timeout != "undefined") this._timeout = self.toNumber(opts.timeout, { float: 0, dflt: 5000, min: 1 });
-        if (typeof opts.idle != "undefined") this._idle = self.toNumber(opts.idle, { float: 0, dflt: 300000, min: 0 });
-        if (typeof opts.create == "function") this._createClient = opts.create;
-        if (typeof opts.destroy == "function") this._destroyClient = opts.destroy;
-        if (typeof opts.reset == "function") this._resetClient = opts.reset;
-        if (typeof opts.validate == "function") this._validateClint = opts.validate;
+        if (typeof opts.min != "undefined") this._pool.min = self.toNumber(opts.min, { float: 0, flt: 0, min: 0 });
+        if (typeof opts.max != "undefined") this._pool.max = self.toNumber(opts.max, { float: 0, dflt: 10, min: 0, max: 999 });
+        if (typeof opts.interval != "undefined") this._pool.max_queue = self.toNumber(opts.interval, { float: 0, dflt: 100, min: 0 });
+        if (typeof opts.timeout != "undefined") this._pool.timeout = self.toNumber(opts.timeout, { float: 0, dflt: 5000, min: 1 });
+        if (typeof opts.idle != "undefined") this._pool.idle = self.toNumber(opts.idle, { float: 0, dflt: 300000, min: 0 });
+
+        if (typeof opts.create == "function") this._create = opts.create;
+        if (typeof opts.destroy == "function") this._destroy = opts.destroy;
+        if (typeof opts.reset == "function") this._reset = opts.reset;
+        if (typeof opts.validate == "function") this._validate = opts.validate;
 
         // Periodic housekeeping if interval is set
-        if (this._idle > 0 && (idle != this._idle || !this._interval)) {
-            clearInterval(this._interval);
-            this._interval = setInterval(function() { pool._timer() }, Math.max(1000, pool._idle/3));
+        if (this._pool.idle > 0 && (idle != this._pool.idle || !this._pool.interval)) {
+            clearInterval(this._pool.interval);
+            this._pool.interval = setInterval(function() { pool._timer() }, Math.max(30000, pool._idle/3));
             setImmediate(function() { pool._timer(); });
         }
-        if (this._idle == 0) clearInterval(this._interval);
+        if (this._pool.idle == 0) clearInterval(this._pool.interval);
 
         return this;
     }
 
-    // Allocate a new item
-    pool._create = function(callback) {
-        if (!this._createClient) return callback(null, {});
+    // Call registered method and catch exceptions, pass it to the callback if given
+    pool._call = function(name, callback) {
+        if (typeof this[name] != "function") return typeof callback == "function" && callback();
         try {
-            this._createClient.call(this, callback);
-            logger.dev('pool.alloc:', this.name, 'avail:', this._avail.length, 'busy:', this._busy.length);
+            return this[name].call(this, callback);
         } catch(e) {
-            logger.error('pool.alloc:', this.name, e);
-            callback(e);
+            logger.error('pool:', name, this.name, e);
+            if (typeof callback == "function") callback(e);
         }
     }
 
-    // Free the item
-    pool._destroy = function(item) {
-        if (!this._destroyClient) return;
-        try {
-            this._destroyClient.call(this, item);
-            logger.dev('pool.close:', this.name, 'destroy:', this._avail.length, 'busy:', this._busy.length);
-        } catch(e) {
-            logger.error('pool.close:', this.name, e);
-        }
-    }
-
-    // Reset the item
-    pool._reset = function(item) {
-        if (!this._resetClient) return;
-        try {
-            this._resetClient.call(this, item);
-        } catch(e) {
-            logger.error('pool.reset:', this.name, e);
-        }
-    }
-
-    // Verify if the item is valid
-    pool._validate = function(item) {
-        if (!this._validateClient) return true;
-        try {
-            return this._validateClient.call(this, item);
-        } catch(e) {
-            logger.error('pool.check:', this.name, e);
-            return false;
-        }
-    }
     // Timer to ensure pool integrity
     pool._timer = function() {
         var me = this;
         var now = Date.now();
 
         // Expire idle items
-        if (this._idle > 0) {
-            for (var i = 0; i < this._avail.length; i++) {
-                if (now - this._mtime[i] > this._idle && this._avail.length + this._busy.length > this._min) {
-                    logger.dev('pool.timer:', pool.name || "", 'idle', i, 'avail:', this._avail.length, 'busy:', this._busy.length);
-                    this.destroy(this._avail[i]);
+        if (this._pool.idle > 0) {
+            for (var i = 0; i < this._pool.avail.length; i++) {
+                if (now - this._pool.mtime[i] > this._pool.idle && this._pool.avail.length + this._pool.busy.length > this._pool.min) {
+                    logger.dev('pool.timer:', pool.name || "", 'idle', i, 'avail:', this._pool.avail.length, 'busy:', this._pool.busy.length);
+                    this.destroy(this._pool.avail[i]);
                     i--;
                 }
             }
         }
 
         // Ensure min number of items
-        var min = this._min - this._avail.length - this._busy.length;
+        var min = this._pool.min - this._pool.avail.length - this._pool.busy.length;
         for (var i = 0; i < min; i++) {
-            this._create(function(err, item) {
+            this._call("_create", function(err, item) {
                 if (err) return;
-                me._avail.push(item);
-                me._mtime.push(now);
+                me._pool.avail.push(item);
+                me._pool.mtime.push(now);
             });
         }
     }

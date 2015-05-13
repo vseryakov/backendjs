@@ -304,8 +304,8 @@ db.initPool = function(name, options, callback)
     var opts = { pool: name,
                  type: type,
                  url: url || "",
-                 min: this.poolParams[type + 'Min' + n] || 0,
-                 max: this.poolParams[type + 'Max' + n] || Infinity,
+                 min: this.poolParams[type + 'Min' + n],
+                 max: this.poolParams[type + 'Max' + n],
                  idle: this.poolParams[type + 'Idle' + n] || 300000,
                  noCacheColumns: this.poolParams[type + 'NoCacheColumns' + n],
                  noInitTables: this.poolParams[type + 'NoInitTables' + n],
@@ -1750,7 +1750,7 @@ db.prepareRow = function(pool, op, table, obj, options)
                 if (cols[p].maxlength && typeof v == "string" && !cols[p].type && v.length > cols[p].maxlength) v = v.substr(0, cols[p].maxlength);
             }
             if (this.skipColumn(p, v, options, cols)) continue;
-            if ((v == null || v === "") && options.skipNull[op]) continue;
+            if ((v == null || v === "") && options.skipNull && options.skipNull[op]) continue;
             o[p] = v;
         }
         obj = o;
@@ -2206,11 +2206,10 @@ db.showResult = function(err, rows, info)
 // - options - an object with default pool properties
 //    - type - pool type, this is the db driver name
 //    - pool or name - pool name
-//    - pooling - create generic pool for connection caching
 //    - watchfile - file path to be watched for changes, all clients will be destroyed gracefully
 //    - min - min number of open database connections
-//    - max - max number of open database connections, all attempts to run more will result in clients waiting for the next available db connection, if set to Infinity no
-//            pooling will be enabled and result in unlimited connections, this is default for DynamoDB
+//    - max - max number of open database connections, all attempts to run more will result in clients waiting for the next available db connection, if set to 0 no
+//            pooling will be enabled and will result in the unlimited connections, this is default for DynamoDB
 //    - max_queue - how many db requests can be in the waiting queue, above that all requests will be denied instead of putting in the waiting queue
 // The following pool callback can be assigned to the pool object:
 // - connect - a callback to be called when actual database client needs to be created, the callback signature is
@@ -2239,7 +2238,7 @@ db.createPool = function(options)
     var self = this;
     if (!options || !options.pool) throw "Options with pool: must be provided";
 
-    if (options.pooling || (options.max > 0 && options.max != Infinity)) {
+    if (lib.isPositive(options.max)) {
         var pool = lib.createPool({
             min: options.min,
             max: options.max,
@@ -2248,15 +2247,13 @@ db.createPool = function(options)
             create: function(callback) {
                 var me = this;
                 try {
-                    this.open.call(self, this, function(err, client) {
-                        if (err) return typeof callback == "function" && callback(err, client);
-                        me.setup.call(me, client, function(err) {
-                           if (typeof callback == "function") callback(err, client);
-                        });
+                    this.open.call(this, function(err, client) {
+                        if (err) return callback(err, client);
+                        me.setup.call(me, client, callback);
                     });
                 } catch(e) {
                     logger.error('pool.create:', this.name, e);
-                    if (typeof callback == "function") callback(e);
+                    callback(e);
                 }
             },
             reset: function(client) {
@@ -2283,10 +2280,20 @@ db.createPool = function(options)
     // First time initialization
     pool.initialize = function(opts) {
         var me = this;
-        // Set all new properties and methods
-        for (var p in opts) {
-            if (p[0] != "_" && !this[p] && typeof opts[p] != "undefined") this[p] = opts[p];
-        }
+
+        this.name = options.pool || options.name;
+        this.type = options.type || "none";
+        this.url = options.url || "default";
+        this.metrics = new metrics.Metrics('name', this.name);
+        this.dbtables = {};
+        this.dbcolumns = {};
+        this.dbkeys = {};
+        this.dbindexes = {};
+        this.dbcache = {};
+        this.connect = {};
+        this.settings = {};
+        this.configure(opts);
+
         // Default methods if not setup from the options
         if (typeof this.open != "function") this.open = function(pool, cb) { cb(null, {}); };
         if (typeof this.setup != "function") this.setup = function(client, cb) { cb(null, client); };
@@ -2294,23 +2301,7 @@ db.createPool = function(options)
         if (typeof this.cacheColumns != "function") this.cacheColumns = function(opts, cb) { cb(); }
         if (typeof this.cacheIndexes != "function") this.cacheIndexes = function(opts, cb) { cb(); };
         if (typeof this.nextToken != "function") this.nextToken = function(client, req, rows, opts) { return client.next_token || null };
-        // Pass all request in an object with predefined properties
-        if (typeof this.prepare != "function") {
-            this.prepare = function(op, table, obj, opts) {
-                return { text: table, op: op, table: (table || "").toLowerCase(), obj: obj };
-            }
-        }
-        if (!this.type) this.type = "unknown";
-        this.name = this.pool;
-        this.dbtables = {};
-        this.dbcolumns = {};
-        this.dbkeys = {};
-        this.dbindexes = {};
-        this.dbcache = {};
-        this.metrics = new metrics.Metrics('name', this.name);
-        if (!lib.isObject(this.connect)) this.connect = {};
-        if (!lib.isObject(this.settings)) this.settings = {};
-        [ 'ops', 'typesMap', 'opsMap', 'namesMap', 'skipNull' ].forEach(function(x) { if (!lib.isObject(me.settings[x])) me.settings[x] = {} });
+        if (typeof this.prepare != "function") this.prepare = function(op, table, obj, opts) { return { text: table, op: op, table: (table || "").toLowerCase(), obj: obj }; }
     }
 
     // Reconfigure properties, only subset of properties are allowed here so it is safe to apply all of them directly,
@@ -2320,9 +2311,9 @@ db.createPool = function(options)
         if (opts.url) this.url = opts.url;
         if (lib.isObject(opts.connect)) this.connect = lib.mergeObj(this.connect, opts.connect);
         if (lib.isObject(opts.settings)) this.settings = lib.mergeObj(this.settings, opts.settings);
-        if (!lib.isEmpty(opts.noCacheColumns)) this.noCacheColumns = opts.noCacheColumns;
-        if (!lib.isEmpty(opts.noInitTables)) this.noInitTables = opts.noInitTables;
-        logger.debug("configure.db:", this.name, opts);
+        if (!lib.isEmpty(opts.noCacheColumns)) this.settings.noCacheColumns = opts.noCacheColumns;
+        if (!lib.isEmpty(opts.noInitTables)) this.settings.noInitTables = opts.noInitTables;
+        logger.debug("configure:", this.name, this.type, opts);
     }
 
     // Save existing options and return as new object, first arg is options, then list of properties to save
