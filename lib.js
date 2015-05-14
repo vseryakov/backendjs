@@ -2046,7 +2046,7 @@ lib.createPool = function(options)
         var idle = this._pool.idle;
 
         if (typeof opts.min != "undefined") this._pool.min = self.toNumber(opts.min, { float: 0, flt: 0, min: 0 });
-        if (typeof opts.max != "undefined") this._pool.max = self.toNumber(opts.max, { float: 0, dflt: 10, min: 0, max: 999 });
+        if (typeof opts.max != "undefined") this._pool.max = self.toNumber(opts.max, { float: 0, dflt: 10, min: 0, max: 9999 });
         if (typeof opts.interval != "undefined") this._pool.max_queue = self.toNumber(opts.interval, { float: 0, dflt: 100, min: 0 });
         if (typeof opts.timeout != "undefined") this._pool.timeout = self.toNumber(opts.timeout, { float: 0, dflt: 5000, min: 1 });
         if (typeof opts.idle != "undefined") this._pool.idle = self.toNumber(opts.idle, { float: 0, dflt: 300000, min: 0 });

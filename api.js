@@ -85,7 +85,9 @@ var api = {
            { name: "allow-admin", type: "regexpobj", descr: "URLs which can be accessed by admin accounts only, can be partial urls or Regexp, this is a convenient option which registers `AuthCheck` callback for the given endpoints" },
            { name: "allow-account-([a-z]+)", type: "regexpobj", obj: "allow-account", descr: "URLs which can be accessed by specific account type only, can be partial urls or Regexp, this is a convenient option which registers AuthCheck callback for the given endpoints and only allow access to the specified account types" },
            { name: "express-enable", type: "list", descr: "Enable/set Express config option(s), can be a list of options separated by comma or pipe |, to set value user name=val,... to just enable use name,...." },
-           { name: "allow", type: "regexpobj", set: 1, descr: "Regexp for URLs that dont need credentials, replace the whole access list" },
+           { name: "allow-ip", type: "regexpobj", set: 1, descr: "Regexp for IPs that dont need credentials, replaces the whole access list. It is checked before endpoint access list" },
+           { name: "deny-ip", type: "regexpobj", set: 1, descr: "Regexp for IPs that will be denied access, replaces the whole access list. It is checked before endpoint access list." },
+           { name: "allow", type: "regexpobj", set: 1, descr: "Regexp for URLs that dont need credentials, replaces the whole access list" },
            { name: "allow-path", type: "regexpobj", key: "allow", descr: "Add to the list of allowed URL paths without authentication, return result before even checking for the signature" },
            { name: "disallow-path", type: "regexpobj", key: "allow", del: 1, descr: "Remove from the list of allowed URL paths that dont need authentication, most common case is to to remove `^/account/add$` to disable open registration" },
            { name: "allow-anonymous", type: "regexpobj", descr: "Add to the list of allowed URL paths that can be served with or without valid account, the difference with `allow-path` is that it will check for signature and an account but will continue if no login is provided, return error in case of wrong account or not account found" },
@@ -141,6 +143,9 @@ var api = {
     redirectSsl: {},
     // Refuse access to these urls
     deny: {},
+    // IP access lists
+    allowIp: {},
+    denyIp: {},
     // Rate limits
     rlimits: {},
     // Global redirect rules, each rule must match host/path to be redirected
@@ -871,7 +876,9 @@ api.checkBody = function(req, res, next)
 api.checkAccess = function(req, callback)
 {
     var self = this;
+    if (this.denyIp.rx && req.options.ip.match(this.denyIp.rx)) return callback({ status: 403, message: "Access denied" });
     if (this.deny.rx && req.options.path.match(this.deny.rx)) return callback({ status: 403, message: "Access denied" });
+    if (this.allowIp.rx && req.options.ip.match(this.allowIp.rx)) return callback({ status: 200, message: "" });
     if (this.allow.rx && req.options.path.match(this.allow.rx)) return callback({ status: 200, message: "" });
 
     // Call custom access handler for the endpoint
