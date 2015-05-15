@@ -2010,6 +2010,9 @@ To make an API appliance by using the backendjs on the AWS instance as user ec2-
 - run `ps agx`, it should show several backend processes running
 - try to access the instance via HTTP port for the API console or documentation
 
+NOTE: if running behind a Load balancer and actual IP address is needed set Express option in the command line `-api-express-options {"trust%20proxy":1}`. In the config file
+replacing spaces with %20 is not needed.
+
 ## AWS Beanstalk deployment
 
 As with any node.js module, the backendjs app can be packaged into zip file according to AWS docs and deployed the same way as any other node.js app.

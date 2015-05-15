@@ -269,7 +269,7 @@ server.startWeb = function(options)
                         break;
                     }
                 }
-                self.proxyServer = proxy.createServer({ xfwd : true });
+                self.proxyServer = proxy.createServer();
                 self.proxyServer.on("error", function(err, req) { if (err.code != "ECONNRESET") logger.error("proxy:", req.target || '', req.url, err.stack) })
                 self.server = core.createServer({ name: "http", port: core.port, bind: core.bind, restart: "web" }, function(req, res) {
                     self.handleProxyRequest(req, res, 0);
@@ -369,10 +369,6 @@ server.startWeb = function(options)
         api.init(options, function(err) {
             core.dropPrivileges();
 
-            // Use proxy headers in the Express
-            if (core.proxy.port) {
-                this.app.set('trust proxy', true);
-            }
             // Gracefull termination of the process
             self.onkill = function() {
                 self.exiting = true;
@@ -602,16 +598,16 @@ server.getProxyTarget = function(req)
     var host = (req.headers.host || "").toLowerCase().trim();
     if (host) {
         for (var p in this.proxyHost) {
-            if (this.proxyHost[p].rx && host.match(this.proxyHost[p].rx)) return { target: p };
+            if (this.proxyHost[p].rx && host.match(this.proxyHost[p].rx)) return { target: p, xfwd: true };
         }
     }
     // Proxy by url patterns
     var url = req.url;
     for (var p in this.proxyUrl) {
-        if (this.proxyUrl[p].rx && url.match(this.proxyUrl[p].rx)) return { target: p };
+        if (this.proxyUrl[p].rx && url.match(this.proxyUrl[p].rx)) return { target: p, xfwd: true };
     }
     // In reverse mode proxy all not matched to the host
-    if (this.proxyReverse) return { target: this.proxyReverse };
+    if (this.proxyReverse) return { target: this.proxyReverse, xfwd: true };
 
     // Forward api requests to the workers
     for (var i = 0; i < this.proxyWorkers.length; i++) {

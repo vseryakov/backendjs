@@ -84,7 +84,7 @@ var api = {
            { name: "disable-session", type: "regexpobj", descr: "Disable access to API endpoints for Web sessions, must be signed properly" },
            { name: "allow-admin", type: "regexpobj", descr: "URLs which can be accessed by admin accounts only, can be partial urls or Regexp, this is a convenient option which registers `AuthCheck` callback for the given endpoints" },
            { name: "allow-account-([a-z]+)", type: "regexpobj", obj: "allow-account", descr: "URLs which can be accessed by specific account type only, can be partial urls or Regexp, this is a convenient option which registers AuthCheck callback for the given endpoints and only allow access to the specified account types" },
-           { name: "express-enable", type: "list", descr: "Enable/set Express config option(s), can be a list of options separated by comma or pipe |, to set value user name=val,... to just enable use name,...." },
+           { name: "express-options", type: "json", descr: "Set Express config options during initialization,example: `-api-express-options { \"trust proxy\": 1, \"strict routing\": true }`" },
            { name: "allow-ip", type: "regexpobj", set: 1, descr: "Regexp for IPs that dont need credentials, replaces the whole access list. It is checked before endpoint access list" },
            { name: "deny-ip", type: "regexpobj", set: 1, descr: "Regexp for IPs that will be denied access, replaces the whole access list. It is checked before endpoint access list." },
            { name: "allow", type: "regexpobj", set: 1, descr: "Regexp for URLs that dont need credentials, replaces the whole access list" },
@@ -167,7 +167,7 @@ var api = {
 
     disableSession: {},
     templating: "ejs",
-    expressEnable: [],
+    expressOptions: {},
 
     // All listening servers
     servers: [],
@@ -345,7 +345,7 @@ api.init = function(options, callback)
         res.header('Access-Control-Allow-Origin', self.corsOrigin);
         res.header('Access-Control-Allow-Headers', 'content-type, ' + self.signatureHeaderName + ', ' + self.appHeaderName + ', ' + self.versionHeaderName);
         res.header('Access-Control-Allow-Methods', 'OPTIONS, HEAD, GET, POST, PUT, DELETE');
-        if (logger.level >= logger.DEBUG) logger.debug('handleServerRequest:', core.port, req.ip || "", req.method, req.options.path, req.get('content-type') || "", req.get(self.appHeaderName) || "", req.get(self.signatureHeaderName) || "");
+        if (logger.level >= logger.DEBUG) logger.debug('handleServerRequest:', core.port, req.options.ip || "", req.method, req.options.path, req.get('content-type') || "", req.get(self.appHeaderName) || "", req.get(self.signatureHeaderName) || "");
         next();
     });
 
@@ -403,11 +403,9 @@ api.init = function(options, callback)
     }
 
     // Config options for Express
-    self.expressEnable.forEach(function(x) {
-        x = x.split("=");
-        if (x.length == 1) self.app.enable(x);
-        if (x.length == 2 ) self.app.set(x[0], x[1]);
-    });
+    for (var p in self.expressOptions) {
+        self.app.set(p, self.expressOptions[p]);
+    }
 
     // Assign custom middleware just after the security handler, if the signature is disabled then the middleware
     // handler may install some other authentication module and in such case must setup `req.account` with the current user record
@@ -623,6 +621,8 @@ api.createWebSocketRequest = function(socket, url, reply)
     logger.debug("socketRequest:", url);
 
     var req = new http.IncomingMessage();
+    req.get = req.header = function(name) { return this.headers[name.toLowerCase()]; }
+    req.__defineGetter__('ip', function() { return this.socket.ip; });
     req.socket = new net.Socket();
     req.socket.__defineGetter__('remoteAddress', function() { return this.ip; });
     req.connection = req.socket;
@@ -630,6 +630,7 @@ api.createWebSocketRequest = function(socket, url, reply)
     req.httpProtocol = "WS";
     req.method = "GET";
     req.url = String(url);
+    req.path = url.parse(req.url).pathname;
     req.accessLogUrl = req.url.split("?")[0];
     req._body = true;
     if (socket.upgradeReq) {
@@ -671,7 +672,7 @@ api.prepareRequest = function(req)
     // Cache the path so we do not need reparse it every time
     var path = req.path || "/";
     var apath = path.substr(1).split("/");
-    var ip = req.ip || (req.socket.socket ? req.socket.socket.remoteAddress : "");
+    var ip = req.ip;
     var host = (req.get('X-Forwarded-Host') || req.get('Host') || "").split(":");
     req.options = { ops: {}, noscan: 1, ip: ip, host: host[0], port: host[1] || null, path: path, apath: apath, secure: req.secure, cleanup: "bk_" + apath[0] };
     req.account = {};
@@ -1237,7 +1238,7 @@ api.checkLimits = function(req, options, callback)
 
     switch (type) {
     case "ip":
-        key = 'TBip:' + req.ip;
+        key = 'TBip:' + req.options.ip;
         break;
 
     case "id":
