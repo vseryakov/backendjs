@@ -179,7 +179,7 @@ ipc.handleServerMessages = function(worker, msg)
             // Use shared token buckets inside the server process, reuse the same object so we do not generate
             // a lot of short lived objects, the whole operation including serialization from/to the cache is atomic.
             var data = utils.lruGet(msg.name);
-            this.tokenBucket.create(data ? lib.strSplit(data) : msg);
+            this.tokenBucket.configure(data ? lib.strSplit(data) : msg);
             // Reset the bucket if any number has changed, now we have a new rate to check
             if (!this.tokenBucket.equal(msg.rate, msg.max, msg.interval)) this.tokenBucket.create(msg);
             msg.value = this.tokenBucket.consume(msg.consume || 1);

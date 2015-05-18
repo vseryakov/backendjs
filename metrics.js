@@ -569,11 +569,11 @@ Metrics.prototype.Histogram = function(name, properties)
 exports.TokenBucket = TokenBucket;
 function TokenBucket(rate, max, interval)
 {
-    this.create(rate, max, interval);
+    this.configure(rate, max, interval);
 }
 
 // Initialize existing token with numbers for rate calculations
-TokenBucket.prototype.create = function(rate, max, interval)
+TokenBucket.prototype.configure = function(rate, max, interval)
 {
     if (Array.isArray(rate)) {
         this._rate = lib.toNumber(rate[0], { min: 0 });
@@ -603,10 +603,22 @@ TokenBucket.prototype.toJSON = function()
     return { rate: this._rate, max: this._max, count: this._count, time: this._time, interval: this._interval };
 }
 
-// Return an array object to be serialized/saved
+// Return a string to be serialized/saved
 TokenBucket.prototype.toString = function()
 {
     return this._rate + "," + this._max + "," + this._count + "," + this._time + "," + this._interval;
+}
+
+// Return an array object to be serialized/saved
+TokenBucket.prototype.toArray = function()
+{
+    return [this._rate, this._max, this._count, this._time, this._interval];
+}
+
+// Returns number of milliseconds till the end of the current interval
+TokenBucket.prototype.delay = function()
+{
+    return this._interval - (Date.now() - this._time);
 }
 
 // Return true if this bucket uses the same rates in arguments

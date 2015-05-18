@@ -2023,37 +2023,35 @@ db.getColumns = function(table, options)
     return this.getPool(table, options).dbcolumns[(table || "").toLowerCase()] || {};
 }
 
-// Return an object with capacity property which is the max write capacity for the table, for DynamoDB only. It check writeCapacity property
-// of all table columns.
+// Return an object with capacity property which is the max write capacity for the table, for DynamoDB only.
+// It checks `writeCapacity` property of all table columns and picks the max.
+//
+// The options can specify the capacity explicitely:
+// - rateCapacity - if set it will be used for rate capacity limit
+// - maxCapacity - if set it will be used as max burst capacity limit
 db.getCapacity = function(table, options)
 {
-    var obj = { table: table, writeCapacity: 0, readCapacity: 0, capCount: 0, capRate: 0, capMax: 0, capTotal: 0, capMtime: Date.now(), capCtime: Date.now(), capInterval: 1000 };
+    var cap = { table: table, writeCapacity: 0, readCapacity: 0 };
     var cols = this.getColumns(table);
     for (var p in cols) {
-        if (cols[p].readCapacity) obj.readCapacity = Math.max(cols[p].readCapacity, obj.readCapacity);
-        if (cols[p].writeCapacity) obj.capMax = obj.writeCapacity = Math.max(cols[p].writeCapacity, obj.writeCapacity);
+        if (cols[p].readCapacity) cap.readCapacity = Math.max(cols[p].readCapacity, cap.readCapacity);
+        if (cols[p].writeCapacity) cap.writeCapacity = Math.max(cols[p].writeCapacity, cap.writeCapacity);
     }
-    obj.capCount = obj.capMax;
-    obj.capRate = obj.capMax * 0.9;
-    for (var p in options) obj[p] = options[p];
-    return obj;
+    cap.rateCapacity = cap.maxCapacity = cap.writeCapacity;
+    for (var p in options) cap[p] = options[p];
+    if (cap.rateCapacity > 0) cap._tokenBucket = new metrics.TokenBucket(cap.rateCapacity, cap.maxCapacity);
+    return cap;
 }
 
 // Check if number of write requests exceeds the capacity per second, delay if necessary, for DynamoDB only but can be used for pacing
 // write requests with any database or can be used generically. The `obj` must be initialized with `db.getCapacity` call.
 db.checkCapacity = function(cap, callback)
 {
-    cap.capTotal++;
-    if (cap.capMax > 0) {
-        var now = Date.now();
-        if (now < cap.capMtime) cap.capMtime = now - cap.capInterval;
-        if (cap.capCount < cap.capMax) cap.capCount = Math.min(cap.capMax, cap.capCount + cap.capRate * ((now - cap.capMtime) / cap.capInterval));
-        cap.capMtime = now;
-        if (cap.capCount < 1) {
-            setTimeout(callback, cap.capInterval - (now - cap.capMtime));
+    if (cap._tokenBucket) {
+        if (!cap._tokenBucket.consume(1)) {
+            setTimeout(callback, cap._tokenBucket.delay());
             return false;
         }
-        cap.capCount--;
     }
     callback();
     return true;
