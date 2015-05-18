@@ -609,7 +609,7 @@ TokenBucket.prototype.toString = function()
     return this._rate + "," + this._max + "," + this._count + "," + this._time + "," + this._interval;
 }
 
-// Return true this bucket uses the same rates
+// Return true if this bucket uses the same rates in arguments
 TokenBucket.prototype.equal = function(rate, max, interval)
 {
     rate = lib.toNumber(rate, { min: 0 });

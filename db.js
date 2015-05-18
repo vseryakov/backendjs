@@ -2025,30 +2025,38 @@ db.getColumns = function(table, options)
 
 // Return an object with capacity property which is the max write capacity for the table, for DynamoDB only. It check writeCapacity property
 // of all table columns.
-db.getCapacity = function(table)
+db.getCapacity = function(table, options)
 {
-    var obj = { table: table, writeCapacity: 0, readCapacity: 0, capCount: 0, capTotal: 0, capMtime: Date.now(), capCtime: Date.now() };
+    var obj = { table: table, writeCapacity: 0, readCapacity: 0, capCount: 0, capRate: 0, capMax: 0, capTotal: 0, capMtime: Date.now(), capCtime: Date.now(), capInterval: 1000 };
     var cols = this.getColumns(table);
     for (var p in cols) {
         if (cols[p].readCapacity) obj.readCapacity = Math.max(cols[p].readCapacity, obj.readCapacity);
-        if (cols[p].writeCapacity) obj.writeCapacity = Math.max(cols[p].writeCapacity, obj.writeCapacity);
+        if (cols[p].writeCapacity) obj.capMax = obj.writeCapacity = Math.max(cols[p].writeCapacity, obj.writeCapacity);
     }
+    obj.capCount = obj.capMax;
+    obj.capRate = obj.capMax * 0.9;
+    for (var p in options) obj[p] = options[p];
     return obj;
 }
 
 // Check if number of write requests exceeds the capacity per second, delay if necessary, for DynamoDB only but can be used for pacing
 // write requests with any database or can be used generically. The `obj` must be initialized with `db.getCapacity` call.
-db.checkCapacity = function(obj, callback)
+db.checkCapacity = function(cap, callback)
 {
-    var now = Date.now();
-    obj.capTotal++;
-    if (obj.writeCapacity > 0 && ++obj.capCount >= obj.writeCapacity*0.9 && now - obj.capMtime < 1000) {
-        setTimeout(callback, 1000 - (now - obj.capMtime));
-        obj.capCount = 0;
-        obj.capMtime = now;
-    } else {
-        callback();
+    cap.capTotal++;
+    if (cap.capMax > 0) {
+        var now = Date.now();
+        if (now < cap.capMtime) cap.capMtime = now - cap.capInterval;
+        if (cap.capCount < cap.capMax) cap.capCount = Math.min(cap.capMax, cap.capCount + cap.capRate * ((now - cap.capMtime) / cap.capInterval));
+        cap.capMtime = now;
+        if (cap.capCount < 1) {
+            setTimeout(callback, cap.capInterval - (now - cap.capMtime));
+            return false;
+        }
+        cap.capCount--;
     }
+    callback();
+    return true;
 }
 
 // Return list of selected or allowed only columns, empty list if no options.select is specified
