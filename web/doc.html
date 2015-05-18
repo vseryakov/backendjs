@@ -227,7 +227,7 @@ is only enabled by default in development mode, check app.sh for parameters befo
   &gt; db.select(&quot;bk_account&quot;, { gender: &#39;m&#39; }, db.showResult);
 </code></pre></li>
 <li><p>To add users from the command line</p>
-<pre><code>  bksh -add-user login test sectet test name TestUser email test@test.com
+<pre><code>  bksh -add-user login test secret test name TestUser email test@test.com
 </code></pre></li>
 <li><p>To see current metrics run the command in the console &#39;/system/stats/get&#39;</p>
 </li>
@@ -4915,14 +4915,19 @@ and only contains the original properties which are merged with the cached prope
 </ul>
 
 <ul>
-<li><p><code>db.getCapacity(table)</code></p>
-<p> Return an object with capacity property which is the max write capacity for the table, for DynamoDB only. It check writeCapacity property
-of all table columns.</p>
+<li><p><code>db.getCapacity(table, options)</code></p>
+<p> Return an object with capacity property which is the max write capacity for the table, for DynamoDB only.
+It checks <code>writeCapacity</code> property of all table columns and picks the max.</p>
+<p>The options can specify the capacity explicitely:</p>
+<ul>
+<li>rateCapacity - if set it will be used for rate capacity limit</li>
+<li>maxCapacity - if set it will be used as max burst capacity limit</li>
+</ul>
 </li>
 </ul>
 
 <ul>
-<li><p><code>db.checkCapacity(obj, callback)</code></p>
+<li><p><code>db.checkCapacity(cap, callback)</code></p>
 <p> Check if number of write requests exceeds the capacity per second, delay if necessary, for DynamoDB only but can be used for pacing
 write requests with any database or can be used generically. The <code>obj</code> must be initialized with <code>db.getCapacity</code> call.</p>
 </li>
@@ -6301,7 +6306,7 @@ for this function to work and it is called by the root only, all the rest of the
 
 <h2 id="module-metrics">Module: METRICS</h2>
 <ul>
-<li><p><code>TokenBucket.prototype.create(rate, max, interval)</code></p>
+<li><p><code>TokenBucket.prototype.configure(rate, max, interval)</code></p>
 <p> Initialize existing token with numbers for rate calculations</p>
 </li>
 </ul>
@@ -6314,13 +6319,25 @@ for this function to work and it is called by the root only, all the rest of the
 
 <ul>
 <li><p><code>TokenBucket.prototype.toString()</code></p>
+<p> Return a string to be serialized/saved</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>TokenBucket.prototype.toArray()</code></p>
 <p> Return an array object to be serialized/saved</p>
 </li>
 </ul>
 
 <ul>
+<li><p><code>TokenBucket.prototype.delay()</code></p>
+<p> Returns number of milliseconds till the end of the current interval</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>TokenBucket.prototype.equal(rate, max, interval)</code></p>
-<p> Return true this bucket uses the same rates</p>
+<p> Return true if this bucket uses the same rates in arguments</p>
 </li>
 </ul>
 
