@@ -491,8 +491,6 @@ server.startDaemon = function()
     process.exit(0);
 }
 
-
-
 // Kill all child processes on exit
 server.onexit = function()
 {
@@ -621,30 +619,6 @@ server.getProxyTarget = function(req)
     return null;
 }
 
-// Perform SSL redirection if required for the request, returns true if redirected
-server.checkProxyRedirect = function(req, res, ssl)
-{
-    if (ssl) return false;
-    var uri = url.parse(req.url);
-    var proto = (req.headers["x-forwarded-proto"] || uri.protocol || "").split(/\s*,\s*/)[0];
-    var host = (req.headers["x-forwarded-host"] || req.headers.host || "").split(":");
-    var rc = api.checkRedirect(req, { secure: req.connection.encrypted || proto == "https", host: host[0], port: host[1], path: uri.pathname || "/" });
-    if (rc) {
-        if (rc.status == 302) {
-            res.writeHead(302, { "Location": rc.url });
-            res.end();
-            return true;
-        }
-        if (rc.status) {
-            var body = JSON.stringify(rc);
-            res.writeHead(rc.status, { 'Content-Type': 'application/json', "Content-Length": body.length });
-            res.end(body);
-            return true;
-        }
-    }
-    return false;
-}
-
 // Process a proxy request, perform all filtering or redirects
 server.handleProxyRequest = function(req, res, ssl)
 {
@@ -669,35 +643,11 @@ server.handleProxyRequest = function(req, res, ssl)
                 res.writeHead(500, "Internal Error");
                 return res.end(err.message);
             }
-            lib.series([
-               function(next) {
-                   // Check IP rate limit
-                   if (!core.proxy.port || !api.rlimits.server) return next();
-                   // Only support the case when we use the latest IP address in the forwarded header, i.e. behind AWS load balancer
-                   var ip = (api.expressOptions['trust proxy'] ? (req.headers["x-forwarded-for"] || "").split(/\s*,\s*/).pop() : "") || req.connection.remoteAddress;
-                   api.checkLimits(req, { type: "ip", ip: ip }, function(err) {
-                       if (!err) return next();
-                       var body = JSON.stringify(err);
-                       res.writeHead(err.status, { 'Content-Type': 'application/json', "Content-Length": body.length });
-                       res.end(body);
-                       next(1);
-                   });
-               },
-               function(next) {
-                    next(self.checkProxyRedirect(req, res, ssl));
-               },
-               function(next) {
-                   req.target = self.getProxyTarget(req);
-                   if (!req.target) return next();
-                   logger.debug("handleProxyRequest:", req.headers.host, req.url, req.target);
-                   self.proxyServer.web(req, res, req.target);
-                   next(1);
-               }
-               ], function(sent) {
-                   if (sent) return;
-                   res.writeHead(500, "Not ready yet");
-                   res.end();
-               });
+            req.target = self.getProxyTarget(req);
+            logger.debug("handleProxyRequest:", req.headers.host, req.url, req.target);
+            if (req.target) return self.proxyServer.web(req, res, req.target);
+            res.writeHead(500, "Not ready yet");
+            res.end();
         });
     });
 }

@@ -110,7 +110,6 @@ var api = {
            { name: "rlimits-([a-z]+)-rate", type: "int", obj: "rlimits", descr: "Set fill/normal rate limit by the given property, it is used by the request rate limiter using Token Bucket algorithm. Predefined types: ip, id, login" },
            { name: "rlimits-total", type:" int", obj: "rlimits", descr: "Total number of servers used in the rate limiter behind a load balancer, rates will be divided by this number so each server handles only a portion of the total rate limit" },
            { name: "rlimits-interval", type:" int", obj: "rlimits", descr: "Interval in ms for the rate limer, defines the time unit, default is 1000 ms" },
-           { name: "rlimits-server", type: "bool", obj: "rlimits", descr: "Perform IP limit checks in the master server process in proxy mode. It will only use the last IP address if X-Forwarded-For header is present, otherwise will use the connection IP address." },
            { name: "exit-on-error", type: "bool", descr: "Exit on uncaught exception" },
            { name: "upload-limit", type: "number", min: 1024*1024, max: 1024*1024*10, descr: "Max size for uploads, bytes"  },
     ],
@@ -334,7 +333,6 @@ api.init = function(options, callback)
         self.prepareRequest(req);
 
         // Rate limits by IP address, early before all other filters
-        if (core.proxy.port && self.rlimits.server) return next();
         self.checkLimits(req, "ip", function(err) {
             if (!err) return next();
             self.metrics.Counter('ip_0').inc();
@@ -418,9 +416,11 @@ api.init = function(options, callback)
         // 2 checks here, individual and for the whole account
         self.app.use(function(req, res, next) {
             self.checkLimits(req, "login", function(err) {
+                if (err) self.metrics.Counter('login_0').inc();
                 if (err) return self.sendReply(res, err);
 
                 self.checkLimits(req, "id", function(err) {
+                    if (err) self.metrics.Counter('id_0').inc();
                     if (err) return self.sendReply(res, err);
                     next();
                 });
