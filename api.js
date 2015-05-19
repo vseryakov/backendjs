@@ -345,7 +345,7 @@ api.init = function(options, callback)
         res.header('Access-Control-Allow-Origin', self.corsOrigin);
         res.header('Access-Control-Allow-Headers', 'content-type, ' + self.signatureHeaderName + ', ' + self.appHeaderName + ', ' + self.versionHeaderName);
         res.header('Access-Control-Allow-Methods', 'OPTIONS, HEAD, GET, POST, PUT, DELETE');
-        if (logger.level >= logger.DEBUG) logger.debug('handleServerRequest:', core.port, req.options.ip || "", req.method, req.options.path, req.get('content-type') || "", req.get(self.appHeaderName) || "", req.get(self.signatureHeaderName) || "");
+        if (logger.level >= logger.DEBUG) logger.debug('handleServerRequest:', core.port, req.options.ip, req.connection.remoteAddress, req.method, req.options.path, req.get('content-type') || "", req.get(self.appHeaderName) || "", req.get(self.signatureHeaderName) || "", req.get("x-forwarded-for") || "");
         next();
     });
 

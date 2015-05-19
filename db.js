@@ -390,7 +390,7 @@ db.initConfig = function(options, callback)
     // Make sure we have only unique items in the list, skip empty or incomplete items
     types = lib.strSplitUnique(types);
 
-    logger.debug("intConfig:", core.role, this.config, types, this._configMtime);
+    logger.debug("initConfig:", core.role, this.config, types, this._configMtime);
 
     self.select(options.table || "bk_config", { type: types, mtime: options.delta ? this._configMtime : 0 }, { ops: { type: "in", mtime: "gt" }, pool: this.config }, function(err, rows) {
         if (err) return callback(err, []);

@@ -333,7 +333,7 @@ server.startWeb = function(options)
                 if (self.exiting && !nworkers) process.exit(0);
                 self.respawn(function() {
                     self.ftime = Date.now();
-                    for (var i = 0; i < self.maxProcesses - nworkers; i++) self.clusterFork();
+                    self.clusterFork();
                 });
             });
 
@@ -615,7 +615,8 @@ server.getProxyTarget = function(req)
         if (!target) break;
         this.proxyWorkers.push(target);
         if (!target.ready) continue;
-        return { target: { host: core.proxy.bind, port: target.port } };
+        // In case when the request is originated by the load balancer we send its address
+        return { target: { host: core.proxy.bind, port: target.port }, xfwd: req.headers['x-forwarded-for'] ? false: true };
     }
     return null;
 }
