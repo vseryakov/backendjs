@@ -110,6 +110,7 @@ var api = {
            { name: "rlimits-([a-z]+)-rate", type: "int", obj: "rlimits", descr: "Set fill/normal rate limit by the given property, it is used by the request rate limiter using Token Bucket algorithm. Predefined types: ip, id, login" },
            { name: "rlimits-total", type:" int", obj: "rlimits", descr: "Total number of servers used in the rate limiter behind a load balancer, rates will be divided by this number so each server handles only a portion of the total rate limit" },
            { name: "rlimits-interval", type:" int", obj: "rlimits", descr: "Interval in ms for the rate limer, defines the time unit, default is 1000 ms" },
+           { name: "rlimits-server", type: "bool", obj: "rlimits", descr: "Perform IP limit checks in the master server process in proxy mode. It will only use the last IP address if X-Forwarded-For header is present, otherwise will use the connection IP address." },
            { name: "exit-on-error", type: "bool", descr: "Exit on uncaught exception" },
            { name: "upload-limit", type: "number", min: 1024*1024, max: 1024*1024*10, descr: "Max size for uploads, bytes"  },
     ],
@@ -333,9 +334,11 @@ api.init = function(options, callback)
         self.prepareRequest(req);
 
         // Rate limits by IP address, early before all other filters
+        if (core.proxy.port && self.rlimits.server) return next();
         self.checkLimits(req, "ip", function(err) {
-            if (err) return self.sendReply(res, err);
-            next();
+            if (!err) return next();
+            self.metrics.Counter('ip_0').inc();
+            self.sendReply(res, err);
         });
     });
 
@@ -1201,6 +1204,7 @@ api.checkAccountType = function(row, type)
 //  - type - predefined: `ip, login, id`, determines by which property to perform rate limiting, when using account properties
 //     the rate limiter should be called after the request signature has been parsed. Any other value is treated as
 //     custom type and used as is. **This property is required.**
+//  - ip - to use the specified IP address for type=ip
 //  - max - max capacity to be used by default
 //  - rate - fill rate to be used by default
 //  - interval - interval in ms within which the rate is measured, default 1000 ms
@@ -1238,7 +1242,7 @@ api.checkLimits = function(req, options, callback)
 
     switch (type) {
     case "ip":
-        key = 'TBip:' + req.options.ip;
+        key = 'TBip:' + (options.ip || req.options.ip);
         break;
 
     case "id":
@@ -1251,14 +1255,16 @@ api.checkLimits = function(req, options, callback)
         break;
     }
 
-    // Divide by total servers in the cluster, because a load balancer distributes the load equally each server can only
+    // Divide by total number of servers in the cluster, because a load balancer distributes the load equally each server can only
     // check for a portion of the total request rate
     if (total < rate) {
         rate /= total;
         max = (max || rate)/total;
     }
-    // Use process shared cache to eliminate race condition for the same cache item from multiple processes on the same instance
-    ipc.command({ op: "limits", name: key, rate: rate, max: max, interval: interval }, function(consumed) {
+    // Use process shared cache to eliminate race condition for the same cache item from multiple processes on the same instance,
+    // in master mode use direct access to the LRU cache
+    var msg = { op: "limits", name: key, rate: rate, max: max, interval: interval };
+    ipc[cluster.isMaster ? "checkLimits" : "command"](msg, function(consumed) {
         callback(consumed ? null : { status: 429, message: options.message || "access limit reached, please try again later" });
     });
 }

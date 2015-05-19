@@ -30,6 +30,8 @@ var ipc = {
     amqp: {},
     serverQueue: core.name + ":server",
     workerQueue: core.name + ":worker",
+    // Use shared token buckets inside the server process, reuse the same object so we do not generate
+    // a lot of short lived objects, the whole operation including serialization from/to the cache is atomic.
     tokenBucket: new metrics.TokenBucket(),
 };
 
@@ -176,15 +178,7 @@ ipc.handleServerMessages = function(worker, msg)
             break;
 
         case "limits":
-            // Use shared token buckets inside the server process, reuse the same object so we do not generate
-            // a lot of short lived objects, the whole operation including serialization from/to the cache is atomic.
-            var data = utils.lruGet(msg.name);
-            this.tokenBucket.configure(data ? lib.strSplit(data) : msg);
-            // Reset the bucket if any number has changed, now we have a new rate to check
-            if (!this.tokenBucket.equal(msg.rate, msg.max, msg.interval)) this.tokenBucket.create(msg);
-            msg.value = this.tokenBucket.consume(msg.consume || 1);
-            utils.lruPut(msg.name, this.tokenBucket.toString());
-            logger.debug("checkLimits:", msg.name, msg.value, this.tokenBucket);
+            msg.value = this.checkLimits(msg);
             worker.send(msg);
             break;
 
@@ -554,6 +548,27 @@ ipc.stats = function(callback)
         logger.error('ipc.stats:', e);
         callback({});
     }
+}
+
+// A Javascript object `msg` must have the following properties:
+// - name - unique id, can be IP address, account id, etc...
+// - rate, max, interval - same as for `metrics.TokenBucket` rate limiter.
+//
+// Returns true if consumed or false otherwise, if callback
+// is given, call it with the consumed flag as first argument.
+//
+// Keeps the token bucket in the LRU local cache by name.
+ipc.checkLimits = function(msg, callback)
+{
+    var data = utils.lruGet(msg.name);
+    this.tokenBucket.configure(data ? lib.strSplit(data) : msg);
+    // Reset the bucket if any number has been changed, now we have a new rate to check
+    if (!this.tokenBucket.equal(msg.rate, msg.max, msg.interval)) this.tokenBucket.configure(msg);
+    var consumed = this.tokenBucket.consume(msg.consume || 1);
+    utils.lruPut(msg.name, this.tokenBucket.toString());
+    logger.debug("checkLimits:", msg.name, consumed, this.tokenBucket);
+    if (typeof callback == "function") callback(consumed);
+    return consumed;
 }
 
 // Returns in the callback all cached keys
