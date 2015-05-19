@@ -2564,6 +2564,7 @@ properties after successful authorization.</p>
 <li>type - predefined: <code>ip, login, id</code>, determines by which property to perform rate limiting, when using account properties
  the rate limiter should be called after the request signature has been parsed. Any other value is treated as
  custom type and used as is. <strong>This property is required.</strong></li>
+<li>ip - to use the specified IP address for type=ip</li>
 <li>max - max capacity to be used by default</li>
 <li>rate - fill rate to be used by default</li>
 <li>interval - interval in ms within which the rate is measured, default 1000 ms</li>
@@ -5185,6 +5186,19 @@ publish socket by the receiving end. Can be called anytime to reconfigure if the
 <ul>
 <li><p><code>ipc.stats(callback)</code></p>
 <p> Returns the cache statistics, the format depends on the cache type used</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>ipc.checkLimits(msg, callback)</code></p>
+<p> A Javascript object <code>msg</code> must have the following properties:</p>
+<ul>
+<li>name - unique id, can be IP address, account id, etc...</li>
+<li>rate, max, interval - same as for <code>metrics.TokenBucket</code> rate limiter.</li>
+</ul>
+<p>Returns true if consumed or false otherwise, if callback
+is given, call it with the consumed flag as first argument.</p>
+<p>Keeps the token bucket in the LRU local cache by name.</p>
 </li>
 </ul>
 
