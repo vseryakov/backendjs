@@ -675,9 +675,7 @@ api.prepareRequest = function(req)
     // Cache the path so we do not need reparse it every time
     var path = req.path || "/";
     var apath = path.substr(1).split("/");
-    var ip = req.ip;
-    var host = (req.get('X-Forwarded-Host') || req.get('Host') || "").split(":");
-    req.options = { ops: {}, noscan: 1, ip: ip, host: host[0], port: host[1] || null, path: path, apath: apath, secure: req.secure, cleanup: "bk_" + apath[0] };
+    req.options = { ops: {}, noscan: 1, ip: req.ip, host: req.hostname, path: path, apath: apath, secure: req.secure, cleanup: "bk_" + apath[0] };
     req.account = {};
 }
 
@@ -951,7 +949,7 @@ api.checkRedirect = function(req, options)
     var self = this;
     // Auto redirect to SSL
     if (this.redirectSsl.rx) {
-        if (!options.secure && options.path.match(this.redirectSsl.rx)) return { status: 302, url: "https://" + options.host + (options.port ? ":" + options.port : "") + req.url };
+        if (!options.secure && options.path.match(this.redirectSsl.rx)) return { status: 302, url: "https://" + options.host + req.url };
     }
     // SSL only access, deny access without redirect
     if (this.allowSsl.rx) {
