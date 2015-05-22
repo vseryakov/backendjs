@@ -2045,7 +2045,7 @@ node can find global modules, replace $BKJS_PREFIX with the actual path unless t
 <pre><code>      $ ./bkjs run-shell
       &gt; core.version
       &#39;2013.10.20.0&#39;
-      &gt; logger.setDebug(2)
+      &gt; logger.setLevel(&#39;info&#39;)
 </code></pre></li>
 </ul>
 <h1 id="design-considerations">Design considerations</h1>
@@ -6277,8 +6277,16 @@ for this function to work and it is called by the root only, all the rest of the
 </ul>
 
 <ul>
+<li><p><code>logger.setLevel(level)</code></p>
+<p> Set the output level, it can be a number or one of the supported level names</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>logger.setDebugFilter(str)</code></p>
-<p> Enable debugging level for this label, if used with the same debugging level it will be printed regardless of the global level</p>
+<p> Enable debugging level for this label, if used with the same debugging level it will be printed regardless of the global level,
+a label is first argument to the <code>logger.debug</code> methods, it is used as is, usually the fist argument is
+the current function name with comma, like <code>logger.debug(&quot;select:&quot;, name, args)</code></p>
 </li>
 </ul>
 
