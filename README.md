@@ -2143,7 +2143,7 @@ See web/js/bkjs.js for function Bkjs.sign or function core.signRequest in the co
             $ ./bkjs run-shell
             > core.version
             '2013.10.20.0'
-            > logger.setDebug(2)
+            > logger.setLevel('info')
 
 # Design considerations
 

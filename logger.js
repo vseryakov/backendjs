@@ -147,14 +147,17 @@ logger.setFile = function(file)
     this.setSyslog(0);
 }
 
-logger.setDebug = function(level)
+// Set the output level, it can be a number or one of the supported level names
+logger.setLevel = function(level)
 {
     var self = this;
     self.level = typeof this.levels[level] != "undefined" ? this.levels[level] : isNaN(parseInt(level)) ? 0 : parseInt(level);
     utils.logging(self.level);
 }
 
-// Enable debugging level for this label, if used with the same debugging level it will be printed regardless of the global level
+// Enable debugging level for this label, if used with the same debugging level it will be printed regardless of the global level,
+// a label is first argument to the `logger.debug` methods, it is used as is, usually the fist argument is
+// the current function name with comma, like `logger.debug("select:", name, args)`
 logger.setDebugFilter = function(str)
 {
     var self = this;
