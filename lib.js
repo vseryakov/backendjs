@@ -290,20 +290,21 @@ lib.toAge = function(mtime)
 //  - prefix - prefix to be used when searching for the parameters in the query, only properties with this prefix will be processed. The resulting
 //     object will not have this prefix in the properties.
 //
-// If any of the properties have `required:1` and the value will not be resolved then the function returns an Error object with the `error` message
-// or default message, this is useful for detectin invalid or missing input data.
+// If any of the properties have `required:1` and the value will not be resolved then the function returns an Error object with the `errmsg` message
+// or default message, this is useful for detection of invalid or missing input data.
 //
 // Example:
 //
 //        var account = lib.toParams(req.query, { id: { type: "int" },
-//                                                count: { min: 1, max: 10, dflt: 5 },
+//                                                count: { type: "int", min: 1, max: 10, dflt: 5 },
+//                                                page: { type: "int", min: 1, max: 10, dflt: NaN, required: 1, errmsg: "Page number is required" },
 //                                                name: { type: "string" },
 //                                                pair: { type: "map", separator: "|" },
-//                                                code: { type: "string", regexp: /^[a-z]-[0-9]+$/ },
-//                                                start: { type: "token" },
+//                                                code: { type: "string", regexp: /^[a-z]-[0-9]+$/, errmsg: "Valid code is required" },
+//                                                start: { type: "token", required: 1 },
 //                                                data: { type: "json", obj: 1 },
 //                                                email: { type: "list", datatype: "string } },
-//                                                ssn: { type: "string", regexp: /^[0-9]{3}-[0-9]{3}-[0-9]{4}$/, required: 1, error: "SSN is required" } },
+//                                                ssn: { type: "string", regexp: /^[0-9]{3}-[0-9]{3}-[0-9]{4}$/, errmsg: "SSN is required" } },
 //                                                phone: { type: "list", datatype: "number } },
 //                                              { data: { start: { secret: req.account.secret },
 //                                                        name: { dflt: "test" }
@@ -328,10 +329,10 @@ lib.toParams = function(query, schema, options)
         case "float":
         case "double":
             opts.float = 1;
+        case "int":
         case "number":
         case "bigint":
         case "counter":
-        case "int":
             if (typeof v != "undefined") rc[name] = this.toNumber(v, opts);
             break;
         case "list":
@@ -349,7 +350,7 @@ lib.toParams = function(query, schema, options)
             break;
         case "date":
         case "time":
-            if (v) rc[name] = this.toDate(v);
+            if (v) rc[name] = this.toDate(v, opts.dflt);
             break;
         case "timestamp":
             if (!v || this.toBool(v)) v = Date.now();
@@ -362,15 +363,17 @@ lib.toParams = function(query, schema, options)
         default:
             if (!v) break;
             v = String(v);
-            if (opts.max && v.length > opts.max) break;
-            if (opts.min && v.length < opts.min) break;
-            if (util.isRegExp(opts.regexp) && !opts.regexp.test(v)) break;
+            if ((opts.max && v.length > opts.max) ||
+                (opts.min && v.length < opts.min) ||
+                (util.isRegExp(opts.regexp) && !opts.regexp.test(v))) {
+                break;
+            }
             rc[name] = v;
             break;
         }
         // Return and error object
-        if (typeof rc[name] == "undefined" && opts.required) {
-            return new Error(opts.error || (name + " is required"));
+        if (opts.required && this.isEmpty(rc[name])) {
+            return this.newError(opts.errmsg || (name + " is required"), opts.errcode);
         }
     }
     return rc;
@@ -1118,9 +1121,7 @@ lib.newError = function(options, status)
     if (typeof options == "string") options = { status: status || 400, message: options };
     if (!options) options = {};
     var err = new Error(options.message || "Internal error");
-    if (options.name) err.name = options.name;
-    if (options.code) err.code = options.code;
-    if (options.status) err.status = options.status;
+    for (var p in options) err[p] = options[p];
     if (err.code && !err.status) err.status = err.code;
     if (err.status && !err.code) err.code = err.status;
     return err;
