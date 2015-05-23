@@ -5580,18 +5580,19 @@ validate incoming data. It is an object with property names and definitoons that
 <li>prefix - prefix to be used when searching for the parameters in the query, only properties with this prefix will be processed. The resulting
  object will not have this prefix in the properties.</li>
 </ul>
-<p>If any of the properties have <code>required:1</code> and the value will not be resolved then the function returns an Error object with the <code>error</code> message
-or default message, this is useful for detectin invalid or missing input data.</p>
+<p>If any of the properties have <code>required:1</code> and the value will not be resolved then the function returns an Error object with the <code>errmsg</code> message
+or default message, this is useful for detection of invalid or missing input data.</p>
 <p>Example:</p>
 <pre><code>  var account = lib.toParams(req.query, { id: { type: &quot;int&quot; },
-                                          count: { min: 1, max: 10, dflt: 5 },
+                                          count: { type: &quot;int&quot;, min: 1, max: 10, dflt: 5 },
+                                          page: { type: &quot;int&quot;, min: 1, max: 10, dflt: NaN, required: 1, errmsg: &quot;Page number is required&quot; },
                                           name: { type: &quot;string&quot; },
                                           pair: { type: &quot;map&quot;, separator: &quot;|&quot; },
-                                          code: { type: &quot;string&quot;, regexp: /^[a-z]-[0-9]+$/ },
-                                          start: { type: &quot;token&quot; },
+                                          code: { type: &quot;string&quot;, regexp: /^[a-z]-[0-9]+$/, errmsg: &quot;Valid code is required&quot; },
+                                          start: { type: &quot;token&quot;, required: 1 },
                                           data: { type: &quot;json&quot;, obj: 1 },
                                           email: { type: &quot;list&quot;, datatype: &quot;string } },
-                                          ssn: { type: &quot;string&quot;, regexp: /^[0-9]{3}-[0-9]{3}-[0-9]{4}$/, required: 1, error: &quot;SSN is required&quot; } },
+                                          ssn: { type: &quot;string&quot;, regexp: /^[0-9]{3}-[0-9]{3}-[0-9]{4}$/, errmsg: &quot;SSN is required&quot; } },
                                           phone: { type: &quot;list&quot;, datatype: &quot;number } },
                                         { data: { start: { secret: req.account.secret },
                                                   name: { dflt: &quot;test&quot; }
