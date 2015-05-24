@@ -35,7 +35,7 @@ var Bkjs = {
         '[a-z]+': 'requires at least one lower case letter',
         '[A-Z]+': 'requires at least one upper case letter',
         '[0-9]+': 'requires at least one digit',
-        '.{6,}': 'requires at least 6 characters',
+        '.{8,}': 'requires at least 8 characters',
     },
 
     // Return current credentials

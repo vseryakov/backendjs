@@ -157,7 +157,7 @@ var api = {
                                       '[a-z]+': 'requires at least one lower case letter',
                                       '[A-Z]+': 'requires at least one upper case letter',
                                       '[0-9]+': 'requires at least one digit',
-                                      '.{6,}': 'requires at least 6 characters'
+                                      '.{8,}': 'requires at least 8 characters'
                                   }),
 
     // Where images/file are kept
@@ -230,8 +230,8 @@ var api = {
     collectErrors: 0,
     collectQuiet: false,
 
-    // Query options, special parameters that start with the underscore, separated by type, it can be a simple
-    // list or an object with option name and value to be passed to the conversion utility.
+    // Query options, special parameters that start with the underscore in the req.query, shared between all routes and
+    // can perform special actions or to influence the results, in most cases these are used in the db queries.
     controls: {
         accounts: { type: "bool" },
         consistent: { type: "bool" },

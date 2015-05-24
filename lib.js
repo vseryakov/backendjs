@@ -297,18 +297,19 @@ lib.toAge = function(mtime)
 //
 //        var account = lib.toParams(req.query, { id: { type: "int" },
 //                                                count: { type: "int", min: 1, max: 10, dflt: 5 },
-//                                                page: { type: "int", min: 1, max: 10, dflt: NaN, required: 1, errmsg: "Page number is required" },
+//                                                page: { type: "int", min: 1, max: 10, dflt: NaN, required: 1, errmsg: "Page number between 1 and 10 is required" },
 //                                                name: { type: "string" },
 //                                                pair: { type: "map", separator: "|" },
 //                                                code: { type: "string", regexp: /^[a-z]-[0-9]+$/, errmsg: "Valid code is required" },
 //                                                start: { type: "token", required: 1 },
 //                                                data: { type: "json", obj: 1 },
 //                                                email: { type: "list", datatype: "string } },
-//                                                ssn: { type: "string", regexp: /^[0-9]{3}-[0-9]{3}-[0-9]{4}$/, errmsg: "SSN is required" } },
+//                                                ssn: { type: "string", regexp: /^[0-9]{3}-[0-9]{3}-[0-9]{4}$/, errmsg: "Valid SSN is required" } },
 //                                                phone: { type: "list", datatype: "number } },
 //                                              { data: { start: { secret: req.account.secret },
 //                                                        name: { dflt: "test" }
 //                                              })
+//        if (util.isError(account)) return api.sendReply(res, account);
 //
 lib.toParams = function(query, schema, options)
 {
@@ -1110,6 +1111,7 @@ lib.typeName = function(v)
     if (Array.isArray(v)) return "array";
     if (Buffer.isBuffer(v)) return "buffer";
     if (util.isDate(v)) return "date";
+    if (util.isError(v)) return "error";
     if (util.isRegExp(v)) return "regexp";
     return "object";
 }
