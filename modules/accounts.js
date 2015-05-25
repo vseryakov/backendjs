@@ -248,7 +248,7 @@ accounts.getAccount = function(req, options, callback)
 //  - msg - message text to send
 //  - badge - a badge number to be sent
 //  - prefix - prepend the message with this prefix
-//  - check - check the account status, if not specified the message will be sent unconditionally otherwise only if idle
+//  - check - check the account status, if not specified the message will be sent unconditionally otherwise only if status is online
 //  - allow - the account property to check if notifications are enabled, must be a boolean true or number > 0 to flag it is enabled, if it is an Array then
 //      all properties in the array are checked against the account properties and all must allow notifications. If it is an object then only the object properties and values are checked.
 //  - skip - Array or an object with account ids which should be skipped, this is for mass sending in order to reuse the same options
@@ -273,7 +273,7 @@ accounts.notifyAccount = function(id, options, callback)
         break;
     }
 
-    this.getStatus(id, {}, function(err, status) {
+    this.getStatus(id, { nostatus: !options.check }, function(err, status) {
         if (err || (options.check && status.online)) return callback(err, status);
 
         db.get("bk_account", { id: id }, function(err, account) {
@@ -381,7 +381,7 @@ accounts.addAccount = function(req, options, callback)
        },
        function(next) {
            api.metrics.Counter('auth_add_0').inc();
-           db.runProcessRows("post", "get", "bk_account", req.query, options);
+           db.runProcessRows("post", { op: "get", table: "bk_account", obj: req.query }, req.query, options);
            // Set all default values because we return in-memory record, not from the database
            var cols = db.getColumns("bk_account", options);
            for (var p in cols) if (typeof cols[p].value != "undefined") req.query[p] = cols[p].value;
@@ -509,9 +509,10 @@ accounts.deleteAccount = function(id, options, callback)
 //
 // If id is an array, then return all status records for specified list of account ids.
 //
-// If status was explicitely set to `offline` then it is considered offline until changed to to other value,
+// If status was explicitely set to `offline` then it is considered offline until changed to other value,
 // for other cases `status` property is not used, it is supposed for the application extention.
 //
+// `options.nostatus` can be set to 1 in order to skip the actual status record retrieval, returns immediately online status record
 accounts.getStatus = function(id, options, callback)
 {
     var self = this;
@@ -526,6 +527,9 @@ accounts.getStatus = function(id, options, callback)
             callback(err, rows);
         });
     } else {
+        // Status feature is disabled, return immediately
+        if (options.nostatus) return callback(null, { id: id, status: "", online: true, mtime: 0 });
+
         db.get("bk_status", { id: id }, options, function(err, row) {
             if (err) return callback(err);
             if (!row) row = { id: id, status: "", online: false, mtime: 0 };
@@ -542,6 +546,10 @@ accounts.putStatus = function(obj, options, callback)
 {
     var self = this;
     var now = Date.now();
+
+    // Fake status or no status support but still can use the methods in order to enable/disable
+    // on the fly without restarts
+    if (options.nostatus) return callback(null, obj);
 
     // Read the current record, check is handled differently in put
     self.getStatus(obj.id, options, function(err, row) {

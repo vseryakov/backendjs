@@ -1955,11 +1955,11 @@ lib.createPool = function(options)
         var me = this;
         this._call("_create", function(err, item) {
             if (err) {
-                logger.error("aquire:", this.name, err.stack);
+                logger.error("pool: acquire:", this.name, err.stack);
             } else {
                 if (!item) item = {};
                 me._pool.busy.push(item);
-                logger.dev('pool: create', me.name, 'avail:', me._pool.avail.length, 'busy:', me._pool.busy.length);
+                logger.dev('pool: acquire', me.name, 'avail:', me._pool.avail.length, 'busy:', me._pool.busy.length);
             }
             callback(err, item);
         });
@@ -1990,7 +1990,7 @@ lib.createPool = function(options)
 
         var idx = this._pool.busy.indexOf(item);
         if (idx == -1) {
-            logger.error('pool.release:', 'not known', item);
+            logger.error('pool: release:', 'not known', item);
             return;
         }
 
@@ -2090,7 +2090,7 @@ lib.createPool = function(options)
         if (this._pool.idle > 0) {
             for (var i = 0; i < this._pool.avail.length; i++) {
                 if (now - this._pool.mtime[i] > this._pool.idle && this._pool.avail.length + this._pool.busy.length > this._pool.min) {
-                    logger.dev('pool.timer:', pool.name || "", 'idle', i, 'avail:', this._pool.avail.length, 'busy:', this._pool.busy.length);
+                    logger.dev('pool: timer:', pool.name || "", 'idle', i, 'avail:', this._pool.avail.length, 'busy:', this._pool.busy.length);
                     this.destroy(this._pool.avail[i]);
                     i--;
                 }

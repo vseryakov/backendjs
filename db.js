@@ -513,7 +513,7 @@ db.dropPoolTables = function(name, tables, options, callback)
     }, callback);
 }
 
-// Execute query using native database driver, the query is passed directly to the driver.
+// Execute query using native database driver, the query is passed directly to the driver.  
 // - req - can be a string or an object with the following properties:
 //   - text - SQL statement or other query in the format of the native driver, can be a list of statements
 //   - values - parameter values for SQL bindings or other driver specific data
@@ -526,8 +526,8 @@ db.dropPoolTables = function(name, tables, options, callback)
 //       explicitely if it is different from the default. Other functions can resolve
 //       the pool by table name if some tables are assigned to any specific pool by configuration parameters `db-pool-tables`.
 //     - unique - perform sorting the result and eliminate any duplicate rows by the column name specified in the `unique` property
-//     - filter - function to filter rows not to be included in the result, return false to skip row, args are: function(row, options)
-//     - async_filter - perform filtering of the result but with possible I/O so it can delay returning results: function(rows, options, callback),
+//     - filter - function to filter rows not to be included in the result, return false to skip row, args are: function(req, row, options)
+//     - async_filter - perform filtering of the result but with possible I/O so it can delay returning results: function(req, rows, options, callback),
 //          the calback on result will return err and rows as any other regular database callbacks. This filter can be used to perform
 //          filtering based on the ata in the other table for example.
 //     - silence_error - do not report about the error in the log, still the error is retirned to the caller
@@ -550,7 +550,7 @@ db.query = function(req, options, callback)
     var self = this;
     if (typeof options == "function") callback = options, options = null;
     if (typeof callback != "function") callback = lib.noop;
-    if (!lib.isObject(req)) return callback(new Error("invalid request"));
+    if (!lib.isObject(req)) return callback(lib.newError("invalid request"));
     if (!options) options = {};
 
     var table = req.table || "";
@@ -620,22 +620,22 @@ db.query = function(req, options, callback)
 
                     // Convert from db types into javascript, deal with json and joined columns
                     if (rows.length && !options.noconvertrows) {
-                        self.convertRows(pool, req.op, table, rows, options);
+                        self.convertRows(pool, req, rows, options);
                     }
 
                     // Convert values if we have custom column callback
                     if (!options.noprocessrows) {
-                        rows = self.runProcessRows("post", req.op, table, rows, options);
+                        rows = self.runProcessRows("post", req, rows, options);
                     }
 
                     // Custom filter to return the final result set
                     if (typeof options.filter == "function"  && rows.length) {
-                        rows = rows.filter(function(row) { return options.filter(row, options); })
+                        rows = rows.filter(function(row) { return options.filter(req, row, options); })
                     }
 
                     // Async filter, can perform I/O for filtering
                     if (typeof options.async_filter == "function" && rows.length) {
-                        return options.async_filter(rows, options, function(err, rows) { onEnd(err, client, rows, info); });
+                        return options.async_filter(req, rows, options, function(err, rows) { onEnd(err, client, rows, info); });
                     }
 
                 } catch(e) {
@@ -1620,7 +1620,7 @@ db.cacheColumns = function(options, callback)
 
     var pool = this.getPool('', options);
     pool.cacheColumns.call(pool, options, function(err) {
-        if (err) logger.error('cacheColumns:', pool.name, err);
+        if (err) logger.error('cacheColumns:', pool.name, err.stack);
         self.mergeColumns(pool);
         pool.cacheIndexes.call(pool, options, function(err) {
             if (err) logger.error('cacheIndexes:', pool.name, err);
@@ -1702,7 +1702,7 @@ db.prepareRow = function(pool, op, table, obj, options)
     // object to preserve the original properties in the parent
     if (!options.noprocessrows) {
         if (this.getProcessRows('pre', table, options)) obj = lib.cloneObj(obj);
-        this.runProcessRows("pre", op, table, obj, options);
+        this.runProcessRows("pre", { op: op, table: table, obj: obj }, obj, options);
     }
 
     // Process special columns
@@ -1818,7 +1818,8 @@ db.prepareRow = function(pool, op, table, obj, options)
 }
 
 // Convert rows returned by the database into the Javascript format or into the format
-// defined by the table columns. The following special properties in the column definition chnage the format:
+// defined by the table columns.  
+// The following special properties in the column definition chnage the format:
 //  - type = json - if a column type is json and the value is a string returned will be converted into a Javascript object
 //  - list - split the value into array
 //  - join - a list of names, it produces new properties by splitting the value by | and assigning pieces to
@@ -1830,11 +1831,11 @@ db.prepareRow = function(pool, op, table, obj, options)
 //              db.put("test", { id: "1", type: "user", name: "Test", left: "123", right: "000" })
 //              db.select("test", {}, db.showResult)
 //
-db.convertRows = function(pool, op, table, rows, options)
+db.convertRows = function(pool, req, rows, options)
 {
     var self = this;
-    if (!pool) pool = this.getPool(table, options);
-    var cols = pool.dbcolumns[table.toLowerCase()] || {};
+    if (!pool) pool = this.getPool(req.table, options);
+    var cols = pool.dbcolumns[req.table.toLowerCase()] || {};
     for (var p in cols) {
         var col = cols[p], row;
         // Convert from JSON type
@@ -1886,7 +1887,7 @@ db.setProcessColumns = function(callback)
     this.processColumns.push(callback);
 }
 
-// Returns a list of hook to be used for processing rows for the given table
+// Returns a list of hooks to be used for processing rows for the given table
 db.getProcessRows = function(type, table, options)
 {
     if (!this.processRows[type]) return null;
@@ -1895,16 +1896,21 @@ db.getProcessRows = function(type, table, options)
 }
 
 // Run registered pre- or post- process callbacks.
-db.runProcessRows = function(type, op, table, rows, options)
+// - `type` is on eof the `pre` or 'post`
+// - `req` is the db request object with the following required properties: `op, table, obj`,
+// - `rows` is the result rows for post callbacks and the same request object for pre callbacks.
+// - `options` is the same object passed to a db operation
+db.runProcessRows = function(type, req, rows, options)
 {
-    var hooks = this.getProcessRows(type, table, options);
+    if (!req || !req.table) return rows;
+    var hooks = this.getProcessRows(type, req.table, options);
     if (!hooks) return rows;
-    var cols = this.getColumns(table, options);
+    var cols = this.getColumns(req.table, options);
 
     // Stop on the first hook returning true to remove this row from the list
     function processRow(row) {
         for (var i = 0; i < hooks.length; i++) {
-            if (hooks[i].call(row, op, row, options, cols) === true) return false;
+            if (hooks[i].call(row, req, row, options, cols) === true) return false;
         }
         return true;
     }
@@ -1925,8 +1931,12 @@ db.runProcessRows = function(type, op, table, rows, options)
 //
 // All assigned callback to this table will be called in the order of the assignment.
 //
-// The callback accepts 4 arguments: function(op, row, options, columns)
-//   where - op is a db operation, row is a row from the table, options are the obj passed to the db called and columns is an object with table's columns
+// The callback accepts 4 arguments: function(req, row, options, columns)
+//   where:
+//  - `req` is the original request for a db operation, it must contain `op, table and obj` properties
+//  - `row` is a row from the table
+//  - `options` are the obj passed to the db called
+//  - `columns` is an object with table's columns
 //
 // When producing complex properties by combining other properties it needs to be synchronized using both pre and post
 // callbacks to keep the record consistent.
@@ -1936,11 +1946,11 @@ db.runProcessRows = function(type, op, table, rows, options)
 //
 //  Example
 //
-//      db.setProcessRow("post", "bk_account", function(op, row, opts, cols) {
+//      db.setProcessRow("post", "bk_account", function(req, row, opts, cols) {
 //          if (row.birthday) row.age = Math.floor((Date.now() - lib.toDate(row.birthday))/(86400000*365));
 //      });
 //
-//      db.setProcessRow("post", "bk_icon", function(op, row, opts, cols) {
+//      db.setProcessRow("post", "bk_icon", function(req, row, opts, cols) {
 //          if (row.type == "private" && row.id != opts.account.id) return true;
 //      });
 //
@@ -2024,9 +2034,10 @@ db.getColumns = function(table, options)
 }
 
 // Return an object with capacity property which is the max write capacity for the table, for DynamoDB only.
-// It checks `writeCapacity` property of all table columns and picks the max.
+// By default it checks `writeCapacity` property of all table columns and picks the max.
 //
 // The options can specify the capacity explicitely:
+// - useCapacity - what property to use for capacity rating, can be `write` or `read`
 // - rateCapacity - if set it will be used for rate capacity limit
 // - maxCapacity - if set it will be used as max burst capacity limit
 db.getCapacity = function(table, options)
@@ -2037,7 +2048,7 @@ db.getCapacity = function(table, options)
         if (cols[p].readCapacity) cap.readCapacity = Math.max(cols[p].readCapacity, cap.readCapacity);
         if (cols[p].writeCapacity) cap.writeCapacity = Math.max(cols[p].writeCapacity, cap.writeCapacity);
     }
-    cap.rateCapacity = cap.maxCapacity = cap.writeCapacity;
+    cap.rateCapacity = cap.maxCapacity = cap[((options && options.useCapacity) || 'write') + 'Capacity'];
     for (var p in options) cap[p] = options[p];
     if (cap.rateCapacity > 0) cap._tokenBucket = new metrics.TokenBucket(cap.rateCapacity, cap.maxCapacity);
     return cap;
@@ -2319,7 +2330,7 @@ db.createPool = function(options)
         if (lib.isObject(opts.settings)) this.settings = lib.mergeObj(this.settings, opts.settings);
         if (!lib.isEmpty(opts.noCacheColumns)) this.settings.noCacheColumns = opts.noCacheColumns;
         if (!lib.isEmpty(opts.noInitTables)) this.settings.noInitTables = opts.noInitTables;
-        logger.debug("configure:", this.name, this.type, opts);
+        logger.debug("pool.configure:", this.name, this.type, opts);
     }
 
     // Save existing options and return as new object, first arg is options, then list of properties to save
@@ -2341,7 +2352,7 @@ db.createPool = function(options)
 
     pool.initialize(options);
     this.pools[pool.name] = pool;
-    logger.debug('db.createPool:', pool.type, pool.name, options);
+    logger.debug('createPool:', pool.type, pool.name, options);
     return pool;
 }
 
