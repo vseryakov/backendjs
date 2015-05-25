@@ -4219,7 +4219,7 @@ properties, same table definition format as for create table method</p>
 
 <ul>
 <li><p><code>db.query(req, options, callback)</code></p>
-<p> Execute query using native database driver, the query is passed directly to the driver.</p>
+<p> Execute query using native database driver, the query is passed directly to the driver.  </p>
 <ul>
 <li>req - can be a string or an object with the following properties:<ul>
 <li>text - SQL statement or other query in the format of the native driver, can be a list of statements</li>
@@ -4235,8 +4235,8 @@ The difference with the high level functions that take a table name as their fir
 explicitely if it is different from the default. Other functions can resolve
 the pool by table name if some tables are assigned to any specific pool by configuration parameters <code>db-pool-tables</code>.</li>
 <li>unique - perform sorting the result and eliminate any duplicate rows by the column name specified in the <code>unique</code> property</li>
-<li>filter - function to filter rows not to be included in the result, return false to skip row, args are: function(row, options)</li>
-<li>async_filter - perform filtering of the result but with possible I/O so it can delay returning results: function(rows, options, callback),
+<li>filter - function to filter rows not to be included in the result, return false to skip row, args are: function(req, row, options)</li>
+<li>async_filter - perform filtering of the result but with possible I/O so it can delay returning results: function(req, rows, options, callback),
    the calback on result will return err and rows as any other regular database callbacks. This filter can be used to perform
    filtering based on the ata in the other table for example.</li>
 <li>silence_error - do not report about the error in the log, still the error is retirned to the caller</li>
@@ -4785,9 +4785,9 @@ helpers and is not used directly in the applications.</p>
 </ul>
 
 <ul>
-<li><p><code>db.convertRows(pool, op, table, rows, options)</code></p>
+<li><p><code>db.convertRows(pool, req, rows, options)</code></p>
 <p> Convert rows returned by the database into the Javascript format or into the format
-defined by the table columns. The following special properties in the column definition chnage the format:</p>
+defined by the table columns.<br>The following special properties in the column definition chnage the format:</p>
 <ul>
 <li>type = json - if a column type is json and the value is a string returned will be converted into a Javascript object</li>
 <li>list - split the value into array</li>
@@ -4823,13 +4823,19 @@ allow to handle such situations and can be used to set necessary propeties to th
 
 <ul>
 <li><p><code>db.getProcessRows(type, table, options)</code></p>
-<p> Returns a list of hook to be used for processing rows for the given table</p>
+<p> Returns a list of hooks to be used for processing rows for the given table</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>db.runProcessRows(type, op, table, rows, options)</code></p>
+<li><p><code>db.runProcessRows(type, req, rows, options)</code></p>
 <p> Run registered pre- or post- process callbacks.</p>
+<ul>
+<li><code>type</code> is on eof the <code>pre</code> or &#39;post`</li>
+<li><code>req</code> is the db request object with the following required properties: <code>op, table, obj</code>,</li>
+<li><code>rows</code> is the result rows for post callbacks and the same request object for pre callbacks.</li>
+<li><code>options</code> is the same object passed to a db operation</li>
+</ul>
 </li>
 </ul>
 
@@ -4843,19 +4849,25 @@ specified table thus providing an opportunity to customize the result.</p>
 <li><code>post</code> - after the request finished to be called on the result rows</li>
 </ul>
 <p>All assigned callback to this table will be called in the order of the assignment.</p>
-<p>The callback accepts 4 arguments: function(op, row, options, columns)
- where - op is a db operation, row is a row from the table, options are the obj passed to the db called and columns is an object with table&#39;s columns</p>
+<p>The callback accepts 4 arguments: function(req, row, options, columns)
+ where:</p>
+<ul>
+<li><code>req</code> is the original request for a db operation, it must contain <code>op, table and obj</code> properties</li>
+<li><code>row</code> is a row from the table</li>
+<li><code>options</code> are the obj passed to the db called</li>
+<li><code>columns</code> is an object with table&#39;s columns</li>
+</ul>
 <p>When producing complex properties by combining other properties it needs to be synchronized using both pre and post
 callbacks to keep the record consistent.</p>
 <p><strong>For queries returning rows, if the callback returns true for a row it will be filtered out and not included in the final result set.</strong></p>
 </li>
 </ul>
 <p>  Example</p>
-<pre><code>  db.setProcessRow(&quot;post&quot;, &quot;bk_account&quot;, function(op, row, opts, cols) {
+<pre><code>  db.setProcessRow(&quot;post&quot;, &quot;bk_account&quot;, function(req, row, opts, cols) {
       if (row.birthday) row.age = Math.floor((Date.now() - lib.toDate(row.birthday))/(86400000*365));
   });
 
-  db.setProcessRow(&quot;post&quot;, &quot;bk_icon&quot;, function(op, row, opts, cols) {
+  db.setProcessRow(&quot;post&quot;, &quot;bk_icon&quot;, function(req, row, opts, cols) {
       if (row.type == &quot;private&quot; &amp;&amp; row.id != opts.account.id) return true;
   });
 </code></pre>
@@ -4918,9 +4930,10 @@ and only contains the original properties which are merged with the cached prope
 <ul>
 <li><p><code>db.getCapacity(table, options)</code></p>
 <p> Return an object with capacity property which is the max write capacity for the table, for DynamoDB only.
-It checks <code>writeCapacity</code> property of all table columns and picks the max.</p>
+By default it checks <code>writeCapacity</code> property of all table columns and picks the max.</p>
 <p>The options can specify the capacity explicitely:</p>
 <ul>
+<li>useCapacity - what property to use for capacity rating, can be <code>write</code> or <code>read</code></li>
 <li>rateCapacity - if set it will be used for rate capacity limit</li>
 <li>maxCapacity - if set it will be used as max burst capacity limit</li>
 </ul>
@@ -5585,18 +5598,19 @@ or default message, this is useful for detection of invalid or missing input dat
 <p>Example:</p>
 <pre><code>  var account = lib.toParams(req.query, { id: { type: &quot;int&quot; },
                                           count: { type: &quot;int&quot;, min: 1, max: 10, dflt: 5 },
-                                          page: { type: &quot;int&quot;, min: 1, max: 10, dflt: NaN, required: 1, errmsg: &quot;Page number is required&quot; },
+                                          page: { type: &quot;int&quot;, min: 1, max: 10, dflt: NaN, required: 1, errmsg: &quot;Page number between 1 and 10 is required&quot; },
                                           name: { type: &quot;string&quot; },
                                           pair: { type: &quot;map&quot;, separator: &quot;|&quot; },
                                           code: { type: &quot;string&quot;, regexp: /^[a-z]-[0-9]+$/, errmsg: &quot;Valid code is required&quot; },
                                           start: { type: &quot;token&quot;, required: 1 },
                                           data: { type: &quot;json&quot;, obj: 1 },
                                           email: { type: &quot;list&quot;, datatype: &quot;string } },
-                                          ssn: { type: &quot;string&quot;, regexp: /^[0-9]{3}-[0-9]{3}-[0-9]{4}$/, errmsg: &quot;SSN is required&quot; } },
+                                          ssn: { type: &quot;string&quot;, regexp: /^[0-9]{3}-[0-9]{3}-[0-9]{4}$/, errmsg: &quot;Valid SSN is required&quot; } },
                                           phone: { type: &quot;list&quot;, datatype: &quot;number } },
                                         { data: { start: { secret: req.account.secret },
                                                   name: { dflt: &quot;test&quot; }
                                         })
+  if (util.isError(account)) return api.sendReply(res, account);
 </code></pre></li>
 </ul>
 
@@ -7466,7 +7480,7 @@ The options may contain the following:</p>
 <li>msg - message text to send</li>
 <li>badge - a badge number to be sent</li>
 <li>prefix - prepend the message with this prefix</li>
-<li>check - check the account status, if not specified the message will be sent unconditionally otherwise only if idle</li>
+<li>check - check the account status, if not specified the message will be sent unconditionally otherwise only if status is online</li>
 <li>allow - the account property to check if notifications are enabled, must be a boolean true or number &gt; 0 to flag it is enabled, if it is an Array then
   all properties in the array are checked against the account properties and all must allow notifications. If it is an object then only the object properties and values are checked.</li>
 <li>skip - Array or an object with account ids which should be skipped, this is for mass sending in order to reuse the same options</li>
@@ -7519,8 +7533,9 @@ delete an account but keep all messages and location: keep: { message: 1, locati
 It always returns status object even if it was never set before, on return the record contains
 a property <code>online</code> set to true of false according to the idle period and actual status.</p>
 <p>If id is an array, then return all status records for specified list of account ids.</p>
-<p>If status was explicitely set to <code>offline</code> then it is considered offline until changed to to other value,
+<p>If status was explicitely set to <code>offline</code> then it is considered offline until changed to other value,
 for other cases <code>status</code> property is not used, it is supposed for the application extention.</p>
+<p><code>options.nostatus</code> can be set to 1 in order to skip the actual status record retrieval, returns immediately online status record</p>
 </li>
 </ul>
 
