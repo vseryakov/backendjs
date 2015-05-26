@@ -456,7 +456,13 @@ function Timer(properties)
 Timer.prototype.start = function()
 {
     var self = this;
-    return { start: Date.now(), end: function() { self.update(Date.now() - this.start); } }
+    return { 
+        start: Date.now(), 
+        end: function() { 
+            this.elapsed = Date.now() - this.start;
+            self.update(this.elapsed); 
+        }
+    }
 }
 
 Timer.prototype.update = function(value)

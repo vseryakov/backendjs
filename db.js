@@ -557,7 +557,6 @@ db.query = function(req, options, callback)
     var pool = this.getPool(table, options);
 
     // Metrics collection
-    var t1 = Date.now();
     var m1 = pool.metrics.Timer('que').start();
     pool.metrics.Histogram('req').update(pool.metrics.Counter('count').inc());
     pool.metrics.Counter('req_0').inc();
@@ -572,7 +571,7 @@ db.query = function(req, options, callback)
             pool.metrics.Counter("err_0").inc();
             logger.error("db.query:", pool.name, err, 'REQ:', req, 'OPTS:', options, err.stack);
         } else {
-            logger.debug("db.query:", pool.name, Date.now() - t1, 'ms', rows.length, 'rows', 'REQ:', req, 'INFO:', info, 'OPTS:', options);
+            logger.debug("db.query:", pool.name, m1.elapsed, 'ms', rows.length, 'rows', 'REQ:', req, 'INFO:', info, 'OPTS:', options);
         }
         if (typeof callback == "function") {
             try {
@@ -1451,7 +1450,7 @@ db.getCached = function(op, table, query, options, callback)
         if (rc) rc = lib.jsonParse(rc);
         // Parse errors treated as miss
         if (rc) {
-            logger.debug("getCached:", options.cacheKey);
+            logger.debug("getCached:", options.cacheKey, m.elapsed, "ms");
             pool.metrics.Counter("hits").inc();
             return callback(null, rc, {});
         }
@@ -1897,7 +1896,7 @@ db.getProcessRows = function(type, table, options)
 
 // Run registered pre- or post- process callbacks.
 // - `type` is on eof the `pre` or 'post`
-// - `req` is the db request object with the following required properties: `op, table, obj`,
+// - `req` is the original db request object with the following required properties: `op, table, obj`,
 // - `rows` is the result rows for post callbacks and the same request object for pre callbacks.
 // - `options` is the same object passed to a db operation
 db.runProcessRows = function(type, req, rows, options)

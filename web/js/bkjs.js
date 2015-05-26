@@ -48,7 +48,7 @@ var Bkjs = {
     checkCredentials: function(login, secret) {
         login = login ? String(login) : "";
         secret = secret ? String(secret) : "";
-        if (this.scramble && login && secret) secret = b64_hmac_sha256(login, secret);
+        if (this.scramble && login && secret) secret = b64_hmac_sha256(secret, login);
         return { login: login, secret: secret };
     },
 

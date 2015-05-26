@@ -248,6 +248,7 @@ var api = {
         archive: { type: "bool" },
         trash: { type: "bool" },
         session: { type: "bool" },
+        scramble: { type: "bool" },
         accesstoken: { type: "bool" },
         force: { type: "bool" },
         continue: { type: "bool" },
