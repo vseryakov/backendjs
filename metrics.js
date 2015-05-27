@@ -648,6 +648,7 @@ TokenBucket.prototype.consume = function(tokens)
     if (now < this._time) this._time = now - this._interval;
     if (this._count < this._max) this._count = Math.min(this._max, this._count + this._rate * ((now - this._time) / this._interval));
     this._time = now;
+    if (typeof tokens != "number" || tokens < 0) tokens = 0;
     if (tokens > this._count) return false;
     this._count -= tokens;
     return true;

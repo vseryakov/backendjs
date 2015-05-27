@@ -628,7 +628,7 @@ db.query = function(req, options, callback)
                     }
 
                     // Custom filter to return the final result set
-                    if (typeof options.filter == "function"  && rows.length) {
+                    if (typeof options.filter == "function" && rows.length) {
                         rows = rows.filter(function(row) { return options.filter(req, row, options); })
                     }
 
@@ -2036,9 +2036,10 @@ db.getColumns = function(table, options)
 // By default it checks `writeCapacity` property of all table columns and picks the max.
 //
 // The options can specify the capacity explicitely:
-// - useCapacity - what property to use for capacity rating, can be `write` or `read`
+// - useCapacity - what to use for capacity rating, can be `write`, `read` or a number with max capacity to use
+// - factorCapacity - a number between 0 and 1 to multiple the used capacity, only used when useCapacity is read or write.
 // - rateCapacity - if set it will be used for rate capacity limit
-// - maxCapacity - if set it will be used as max burst capacity limit
+// - maxCapacity - if set it will be used as the max burst capacity limit
 db.getCapacity = function(table, options)
 {
     var cap = { table: table, writeCapacity: 0, readCapacity: 0 };
@@ -2047,7 +2048,9 @@ db.getCapacity = function(table, options)
         if (cols[p].readCapacity) cap.readCapacity = Math.max(cols[p].readCapacity, cap.readCapacity);
         if (cols[p].writeCapacity) cap.writeCapacity = Math.max(cols[p].writeCapacity, cap.writeCapacity);
     }
-    cap.rateCapacity = cap.maxCapacity = cap[((options && options.useCapacity) || 'write') + 'Capacity'];
+    var use = options && options.useCapacity;
+    var factor = options && options.factorCapacity > 0 && options.factorCapacity <= 1 ? options.factorCapacity : 1;
+    cap.rateCapacity = cap.maxCapacity = typeof use == "number" ? use : use == "read" ? cap.readCapacity*factor : cap.writeCapacity*factor;
     for (var p in options) cap[p] = options[p];
     if (cap.rateCapacity > 0) cap._tokenBucket = new metrics.TokenBucket(cap.rateCapacity, cap.maxCapacity);
     return cap;
@@ -2055,10 +2058,11 @@ db.getCapacity = function(table, options)
 
 // Check if number of write requests exceeds the capacity per second, delay if necessary, for DynamoDB only but can be used for pacing
 // write requests with any database or can be used generically. The `obj` must be initialized with `db.getCapacity` call.
-db.checkCapacity = function(cap, callback)
+db.checkCapacity = function(cap, consumed, callback)
 {
+    if (typeof consumed == "function") callback = consumed, consumed = 1;
     if (cap._tokenBucket) {
-        if (!cap._tokenBucket.consume(1)) {
+        if (!cap._tokenBucket.consume(consumed)) {
             setTimeout(callback, cap._tokenBucket.delay());
             return false;
         }
