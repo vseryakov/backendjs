@@ -1681,7 +1681,6 @@ aws.ddbUpdateTable = function(options, callback)
     if (options.readCapacity && options.writeCapacity) {
         params.ProvisionedThroughput = { ReadCapacityUnits: options.readCapacity, WriteCapacityUnits: options.writeCapacity };
     }
-
     if (options.add) {
         if (!params.AttributeDefinitions) params.AttributeDefinitions = [];
         if (!params.GlobalSecondaryIndexUpdates) params.GlobalSecondaryIndexUpdates = [];

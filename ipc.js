@@ -662,10 +662,7 @@ ipc.get = function(key, options, callback)
 
         case "redis":
             if (!this.redis.client) return callback();
-            this.redis.client.get(key, function(e, v) {
-                if (Array.isArray(key)) v = key.map(function(x) { return {} });
-                callback(v);
-            });
+            this.redis.client.get(key, function(e, v) { callback(v); });
             break;
 
         case "nanomsg":
@@ -691,7 +688,7 @@ ipc.del = function(key, options)
 
         case "redis":
             if (!this.redis.client) break;
-            this.redis.client.del(key, function() {});
+            this.redis.client.del(key, lib.noop);
             break;
 
         case "nanomsg":
@@ -721,7 +718,7 @@ ipc.put = function(key, val, options)
 
         case "redis":
             if (!this.redis.client) break;
-            this.redis.client.set(key, val, function() {});
+            this.redis.client.set(key, val, lib.noop);
             break;
 
         case "nanomsg":
@@ -751,7 +748,7 @@ ipc.incr = function(key, val, options)
 
         case "redis":
             if (!this.redis.client) break;
-            this.redis.client.incr(key, val, function() {});
+            this.redis.client.incr(key, val, lib.noop);
             break;
 
         case "nanomsg":

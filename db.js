@@ -1481,8 +1481,10 @@ db.getCached = function(op, table, query, options, callback)
 // - `hidden` - completely ignored by all update operations but could be used by the public columns cleaning procedure, if it is computed and not stored in the db
 //    it can contain pub property to be returned to the client
 // - `readonly` - only add/put operations will use the value, incr/update will not affect the value
-// - `writeonly` - only incr/update can chnage this value, add/put will ignore it
+// - `writeonly` - only incr/update can change this value, add/put will ignore it
 // - `now` - means on every add/put/update set this column with current time as Date.now()
+// - `lower' - make string value lowercase
+// - `upper' - make string value uppercase
 // - `autoincr` - for counter tables, mark the column to be auto-incremented by the connection API if the connection type has the same name as the column name
 //
 // *Some properties may be defined multiple times with number suffixes like: unique1, unique2, index1, index2 to create more than one index for the table, same
@@ -1732,9 +1734,9 @@ db.prepareRow = function(pool, op, table, obj, options)
         // Keep only columns from the table definition if we have it
         // Go over all properties in the object and makes sure the types of the values correspond to the column definition types,
         // this is for those databases which are very sensitive on the types like DynamoDB. This function updates the object in-place.
-        var o = {};
+        var o = {}, v;
         for (var p in obj) {
-            var v = obj[p];
+            v = obj[p];
             if (cols[p]) {
                 if (cols[p].hidden) continue;
                 if (cols[p].readonly && (op == "incr" || op == "update")) continue;
@@ -1747,6 +1749,8 @@ db.prepareRow = function(pool, op, table, obj, options)
                 if (Array.isArray(cols[p].values) && cols[p].values.indexOf(String(v)) == -1) continue;
                 // Max length limit for text fields
                 if (cols[p].maxlength && typeof v == "string" && !cols[p].type && v.length > cols[p].maxlength) v = v.substr(0, cols[p].maxlength);
+                // Current timestamps, for primary keys only support add
+                if (cols[p].now && !v && (!cols[p].primary || op == "add")) v = now;
             }
             if (this.skipColumn(p, v, options, cols)) continue;
             if ((v == null || v === "") && options.skipNull && options.skipNull[op]) continue;
@@ -1754,10 +1758,12 @@ db.prepareRow = function(pool, op, table, obj, options)
         }
         obj = o;
         for (var p in cols) {
-            // Current timestamps, for primary keys only support add
-            if (cols[p].now && !obj[p] && (!cols[p].primary || op == "add")) obj[p] = now;
+            v = obj[p];
             // The field is combined from several values contatenated for complex primary keys
-            if (Array.isArray(cols[p].join) && (typeof obj[p] != "string" || obj[p].indexOf(this.separator) == -1)) obj[p] = cols[p].join.map(function(x) { return obj[x] || "" }).join(this.separator);
+            if (Array.isArray(cols[p].join) && (typeof v != "string" || v.indexOf(this.separator) == -1)) obj[p] = cols[p].join.map(function(x) { return obj[x] || "" }).join(this.separator);
+            // Case conversion
+            if (cols[p].lower && typeof v == "string") v = v.toLoweCase();
+            if (cols[p].upper && typeof v == "string") v = v.toUpperCase();
         }
         break;
 
