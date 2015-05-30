@@ -1738,9 +1738,6 @@ db.prepareRow = function(pool, op, table, obj, options)
         for (var p in obj) {
             v = obj[p];
             if (cols[p]) {
-                if (cols[p].hidden) continue;
-                if (cols[p].readonly && (op == "incr" || op == "update")) continue;
-                if (cols[p].writeonly && (op == "add" || op == "put")) continue;
                 // Handle json separately in sync with processRows
                 if (options.noJson && !options.strictTypes && cols[p].type == "json" && typeof obj[p] != "undefined") v = JSON.stringify(v);
                 // Convert into native data type
@@ -1764,6 +1761,10 @@ db.prepareRow = function(pool, op, table, obj, options)
             // Case conversion
             if (cols[p].lower && typeof v == "string") v = v.toLoweCase();
             if (cols[p].upper && typeof v == "string") v = v.toUpperCase();
+            // Final restrictions
+            if (cols[p].hidden) delete obj[p];
+            if (cols[p].readonly && (op == "incr" || op == "update")) delete obj[p];
+            if (cols[p].writeonly && (op == "add" || op == "put")) delete obj[p];
         }
         break;
 
