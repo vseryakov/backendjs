@@ -56,14 +56,6 @@ system.configureSystemAPI = function()
             }
             break;
 
-        case "msg":
-            switch (req.params[1]) {
-            case 'init':
-                ipc.send('init:' + req.params[0]);
-                break;
-            }
-            break;
-
         case "columns":
             switch (req.params[1]) {
             case 'init':
@@ -151,9 +143,6 @@ system.configureSystemAPI = function()
 
         case "cache":
             switch (req.params[1]) {
-            case 'init':
-                ipc.send('init:cache');
-                break;
             case 'stats':
                 ipc.stats(function(data) { res.json(data || {}) });
                 break;

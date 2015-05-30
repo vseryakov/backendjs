@@ -4,30 +4,24 @@
 //
 
 var util = require('util');
+var url = require('url');
 var fs = require('fs');
-var repl = require('repl');
 var path = require('path');
+var cluster = require('cluster');
 var utils = require(__dirname + '/build/Release/backend');
 var logger = require(__dirname + '/logger');
 var core = require(__dirname + '/core');
 var lib = require(__dirname + '/lib');
 var metrics = require(__dirname + '/metrics');
-var cluster = require('cluster');
-var memcached = require('memcached');
-var redis = require("redis");
-var amqp = require('amqp');
+var Client = require(__dirname + "/lib/ipc_client");
 
 // IPC communications between processes and support for caching and messaging.
 // Local cache is implemented as LRU cached configued with `-lru-max` parameter defining how many items to keep in the cache.
 var ipc = {
-    subCallbacks: {},
     msgs: {},
     msgId: 1,
     workers: [],
-    nanomsg: {},
-    redis: {},
-    memcache: {},
-    amqp: {},
+    drivers: [],
     serverQueue: core.name + ":server",
     workerQueue: core.name + ":worker",
     // Use shared token buckets inside the server process, reuse the same object so we do not generate
@@ -41,22 +35,6 @@ module.exports = ipc;
 // use `this.send()`.
 ipc.onMessage = function(msg) {}
 
-// This function is called by Web worker process to setup IPC channels and support for cache and messaging
-ipc.initWorker = function()
-{
-    var self = this
-    this.initWorkerCaching();
-    this.initWorkerQueueing();
-
-    // Event handler for the worker to process response and fire callback
-    process.on("message", function(msg) { self.handleWorkerMessages(msg) });
-
-    // Listen for system messages
-    this.subscribe(this.workerQueue, function(ctx, key, data) {
-        self.handleWorkerMessages(lib.jsonParse(data, { obj: 1, error: 1 }));
-    });
-}
-
 ipc.handleWorkerMessages = function(msg)
 {
     if (!msg) return;
@@ -67,14 +45,6 @@ ipc.handleWorkerMessages = function(msg)
         switch (msg.op || "") {
         case "api:restart":
             core.modules.api.shutdown(function() { process.exit(0); });
-            break;
-
-        case "init:cache":
-            this.initWorkerCaching();
-            break;
-
-        case "init:msg":
-            this.initWorkerMessaging();
             break;
 
         case "init:dns":
@@ -103,30 +73,6 @@ ipc.handleWorkerMessages = function(msg)
     }
 }
 
-// This function is called by the Web master server process to setup IPC channels and support for cache and messaging
-ipc.initServer = function()
-{
-    var self = this;
-
-    this.initServerCaching();
-    this.initServerQueueing();
-    this.initWorkerQueueing();
-
-    cluster.on("exit", function(worker, code, signal) {
-        self.onMessage.call(worker, { op: "cluster:exit" });
-    });
-
-    cluster.on('fork', function(worker) {
-        // Handle cache request from a worker, send back cached value if exists, this method is called inside worker context
-        worker.on('message', function(msg) { self.handleServerMessages(worker, msg) });
-    });
-
-    // Listen for system messages
-    this.subscribe(this.serverQueue, function(ctx, key, data) {
-        self.handleServerMessages({ send: lib.noop }, lib.jsonParse(data, { obj: 1, error: 1 }));
-    });
-}
-
 // To be used in messages processing that came from the clients or other way
 ipc.handleServerMessages = function(worker, msg)
 {
@@ -152,16 +98,6 @@ ipc.handleServerMessages = function(worker, msg)
             }
             break;
 
-        case "init:cache":
-            this.initServerCaching();
-            for (var p in cluster.workers) cluster.workers[p].send(msg);
-            break;
-
-        case "init:msg":
-            this.initServerMessaging();
-            for (var p in cluster.workers) cluster.workers[p].send(msg);
-            break;
-
         case "init:config":
             core.modules.db.initConfig();
             for (var p in cluster.workers) cluster.workers[p].send(msg);
@@ -177,7 +113,7 @@ ipc.handleServerMessages = function(worker, msg)
             for (var p in cluster.workers) cluster.workers[p].send(msg);
             break;
 
-        case "limits":
+        case "check:limits":
             msg.value = this.checkLimits(msg);
             worker.send(msg);
             break;
@@ -242,148 +178,75 @@ ipc.handleServerMessages = function(worker, msg)
     }
 }
 
-// Initialize caching system for the configured cache type, can be called many time to re-initialize if the environment has changed
-ipc.initServerCaching = function()
-{
-    var self = this;
-    utils.lruInit(core.lruMax);
-
-    switch (core.cacheType) {
-    case "memcache":
-        break;
-
-    case "redis":
-        break;
-
-    case "nanomsg":
-        if (!utils.NNSocket) break;
-        core.cacheBind = core.cacheBind || (core.cacheHost == "127.0.0.1" || core.cacheHost == "localhost" ? "127.0.0.1" : "*");
-
-        // Socket to publish cache update to all connected subscribers
-        this.bind('lpub', "nanomsg", core.cacheBind, core.cachePort + 1, { type: utils.NN_PUB });
-        // Socket to read a cache update and forward it to the subcribers
-        this.bind('lpull', "nanomsg", core.cacheBind, core.cachePort, { type: utils.NN_PULL, forward: this.nanomsg.lpub });
-
-        // Socket to subscribe for updates and actually update the cache
-        this.connect('lsub', "nanomsg", core.cacheHost, core.cachePort + 1, { type: utils.NN_SUB, subscribe: [""] }, function(err, data) {
-            if (err) return logger.error('lsub:', err);
-            // \1key - del key
-            // \2key\2val - set key with val
-            // \3key\3val - incr key by val
-            // \4 - clear cache
-            switch (data.charCodeAt(0)) {
-            case 1:
-                utils.lruDel(data.substr(1));
-                break;
-            case 2:
-                data = data.substr(1).split("\u0002");
-                utils.lruPut(data[0], data[1]);
-                break;
-            case 3:
-                data = data.substr(1).split("\u0003");
-                utils.lruIncr(data[0], data[1]);
-                break;
-            case 4:
-                utils.lruClear();
-                break;
-            }
-        });
-        break;
-    }
-}
-
-// Initialize web worker caching system, can be called anytime the environment has changed
-ipc.initWorkerCaching = function()
-{
-    var self = this;
-    switch (core.cacheType) {
-    case "memcache":
-        this.connect("client", "memcache", core.memcacheHost, core.memcachePort, core.memcacheOptions);
-        break;
-
-    case "redis":
-        this.connect("client", "redis", core.redisHost, core.redisPort, core.redisOptions);
-        break;
-
-    case "nanomsg":
-        this.connect('lpush', "nanomsg", core.cacheHost, core.cachePort, { type: utils.NN_PUSH });
-        break;
-    }
-}
-
-// Initialize queue system for the server process, can be called multiple times in case environment has changed
-ipc.initServerQueueing = function()
-{
-    var self = this;
-    switch (core.queueType) {
-    case "redis":
-        break;
-
-    case "nanomsg":
-        if (!utils.NNSocket || core.noMsg) break;
-        core.queueBind = core.queueBind || (core.queueHost == "127.0.0.1" || core.queueHost == "localhost" ? "127.0.0.1" : "*");
-
-        // Subscription server, clients connects to it, subscribes and listens for events published to it, every Web worker process connects to this socket.
-        this.bind('msub', "nanomsg", core.queueBind, core.queuePort + 1, { type: utils.NN_PUB });
-
-        // Publish server(s), it is where the clients send events to, it will forward them to the sub socket
-        // which will distribute to all subscribed clients. The publishing is load-balanced between multiple PUSH servers
-        // and automatically uses next live server in case of failure.
-        this.bind('mpub', "nanomsg", core.queueBind, core.queuePort, { type: utils.NN_PULL , forward: this.nanomsg.msub });
-        break;
-    }
-}
-
-// Initialize web worker queue system, client part, sends all publish messages to this socket which will be broadcasted into the
-// publish socket by the receiving end. Can be called anytime to reconfigure if the environment has changed.
-ipc.initWorkerQueueing = function()
+// This function is called by the Web master server process to setup IPC channels and support for cache and messaging
+ipc.initServer = function()
 {
     var self = this;
 
-    switch (core.queueType) {
-    case "amqp":
-        this.connect("client", "amqp", core.amqpHost, core.amqpPort, core.amqpOptions, function() {
-            this.queue(core.amqpQueueName || '', core.amqpQueueOptions | {}, function(q) {
-                self.amqp.queue = q;
-                q.subscribe(function(message, headers, info) {
-                    var cb = self.subCallbacks[info.routingKey];
-                    if (!cb) cb[0](cb[1], info.routingKey, message);
-                });
-            });
+    this.initClient("queue");
+
+    cluster.on("exit", function(worker, code, signal) {
+        self.onMessage.call(worker, { op: "cluster:exit" });
+    });
+
+    cluster.on('fork', function(worker) {
+        // Handle cache request from a worker, send back cached value if exists, this method is called inside worker context
+        worker.on('message', function(msg) { self.handleServerMessages(worker, msg) });
+    });
+
+    // Listen for system messages
+    this.queueClient.on("ready", function() {
+        self.subscribe(self.serverQueue, function(ctx, key, data) {
+            self.handleServerMessages({ send: lib.noop }, lib.jsonParse(data, { obj: 1, error: 1 }));
         });
-        break;
-
-    case "redis":
-        this.connect("pub", "redis", core.redisHost, core.redisPort, core.redisOptions);
-        this.connect("sub", "redis", core.redisHost, core.redisPort, core.redisOptions, function() {
-            this.on("pmessage", function(channel, message) {
-                var cb = self.subCallbacks[channel];
-                if (!cb) cb[0](cb[1], channel, message);
-            });
-        });
-        break;
-
-    case "nanomsg":
-        if (!utils.NNSocket || core.noQueue || !core.queueHost) break;
-
-        // Socket where we publish our messages
-        this.connect('pub', "nanomsg", core.queueHost, core.queuePort, { type: utils.NN_PUSH });
-
-        // Socket where we receive messages for us
-        this.connect('sub', "nanomsg", core.queueHost, core.queuePort + 1, { type: utils.NN_SUB }, function(err, data) {
-            if (err) return logger.error('subscribe:', err);
-            data = data.split("\u0001");
-            var cb = self.subCallbacks[data[0]];
-            if (cb) cb[0](cb[1], data[0], data[1]);
-        });
-        break;
-    }
+    });
 }
 
-// Close all caching and messaging clients, can be called by a server or a worker
-ipc.shutdown = function()
+// This function is called by Web worker process to setup IPC channels and support for cache and messaging
+ipc.initWorker = function()
 {
-    ["nanomsg","redis","memcache","amqp"].forEach(function(type) { for (var name in this[type]) { this.close(type, name); } });
+    var self = this;
+    this.initClient("cache");
+    this.initClient("queue");
+
+    // Event handler for the worker to process response and fire callback
+    process.on("message", function(msg) { 
+        self.handleWorkerMessages(msg);
+    });
+
+    // Listen for system messages
+    this.queueClient.on("ready", function() {
+        self.subscribe(self.workerQueue, function(ctx, key, data) {
+            self.handleWorkerMessages(lib.jsonParse(data, { obj: 1, error: 1 }));
+        });
+    });
+}
+
+// Initialize a client for cache or queue purposes.
+ipc.initClient = function(type)
+{
+    var client = null, host = core[type + 'Host'] || "", options = core[type + 'Options'] || {};
+    try {
+        for (var i in this.drivers) {
+            client = this.drivers[i].createClient(host, options);
+            if (client) break;
+        }
+    } catch(e) {
+        logger.error("ipc.init:", type, e.stack);
+    }
+    if (!client) client = new Client();
+    this[type + 'Client'] = client;
+}
+
+// Close a client by type, cache or qurue. Make a new empty client so the object is always valid
+ipc.closeClient = function(type)
+{
+    try { 
+        this[type + 'Client'].close();
+    } catch(e) { 
+        logger.error("ipc.close:", type, e.stack);
+    }
+    this[type + 'Client'] = new Client();
 }
 
 // Send a command to the master process via IPC messages, callback is used for commands that return value back
@@ -409,147 +272,6 @@ ipc.send = function(op, name, value, options, callback)
     this.command(msg, callback, options ? options.timeout : 0);
 }
 
-// Bind a socket to the address and port i.e. initialize the server socket
-ipc.bind = function(name, type, host, port, options, callback)
-{
-    if (!host || !this[type]) return;
-
-    logger.debug("ipc.bind:", type, name, host, port, options);
-
-    switch (type) {
-    case "redis":
-    case "memcache":
-    case "amqp":
-        break;
-
-    case "nanomsg":
-        if (!utils.NNSocket) break;
-        if (!this[type][name]) this[type][name] = new utils.NNSocket(utils.AF_SP, options.type);
-        if (this[type][name] instanceof utils.NNSocket) {
-            var h = host.split(":");
-            host = "tcp://" + h[0] + ":" + (h[1] || port)
-            var err = this[type][name].bind(host);
-            if (!err) err = this.setup(name, type, options, callback);
-            if (err) logger.error('ipc.bind:', host, this[type][name]);
-        }
-        break;
-    }
-    return this[type][name];
-}
-
-// Connect to the host(s)
-ipc.connect = function(name, type, host, port, options, callback)
-{
-    logger.debug("ipc.connect:", type, name, host, port, options);
-    if (!host || !this[type]) return;
-
-    switch (type) {
-    case "amqp":
-    case "redis":
-    case "memcache":
-        if (this[type][name]) break;
-        try {
-            switch (type) {
-            case "amqp":
-                this[type][name] = amqp.createConnection(lib.cloneObj(options, "host", host));
-                break;
-            case "redis":
-                this[type][name] = redis.createClient(port, host, options || {});
-                break;
-            case "memcache":
-                this[type][name] = new memcached(host, options || {});
-                break;
-            }
-            this[type][name].on("error", function(err) { logger.error(type, name, host, err) });
-            if (callback) this[type][name].on("ready", function() { callback.call(this) });
-        } catch(e) {
-            delete this[type][name];
-            logger.error('ipc.connect:', name, type, host, e);
-        }
-        break;
-
-    case "nanomsg":
-        if (!utils.NNSocket) break;
-        if (!this[type][name]) this[type][name] = new utils.NNSocket(utils.AF_SP, options.type);
-        if (this[type][name] instanceof utils.NNSocket) {
-            host = lib.strSplit(host).map(function(x) { x = x.split(":"); return "tcp://" + x[0] + ":" + (x[1] || port); }).join(',');
-            var err = this[type][name].connect(host);
-            if (!err) err = this.setup(name, type, options, callback);
-            if (err) logger.error('ipc.connect:', host, this[type][name]);
-        }
-        break;
-    }
-    return this[type][name];
-}
-
-// Setup a socket or client, return depends on the client type
-ipc.setup = function(name, type, options, callback)
-{
-    var self = this;
-    switch (type) {
-    case "nanomsg":
-        var err = 0;
-        if (!err && typeof options.peer != "undefined") err = this[type][name].setPeer(options.peer);
-        if (!err && typeof options.forward != "undefined") err = this[type][name].setForward(options.forward);
-        if (!err && Array.isArray(options.subscribe)) options.subscribe.forEach(function(x) { if (!err) err = self[type][name].subscribe(x); });
-        if (!err && Array.isArray(options.opts)) options.opts.forEach(function(x) { if (!err) err = self[type][name].setOption(x[0], x[1]); });
-        if (!err && typeof callback == "function") err = this[type][name].setCallback(callback);
-        return err;
-    }
-}
-
-// Close a socket or a client
-ipc.close = function(name, type)
-{
-    if (!this[type] || !this[type][name]) return;
-
-    switch (type) {
-    case "amqp":
-        try { this[type][name].disconnect(); } catch(e) { logger.error('ipc.close:', type, name, e); }
-        break;
-
-    case "memcache":
-        try { this[type][name].end(); } catch(e) { logger.error('ipc.close:', type, name, e); }
-        break;
-
-    case "redis":
-        try { this[type][name].quit(); } catch(e) { logger.error('ipc.close:', type, name, e); }
-        break;
-
-    case "nanomsg":
-        if (!utils.NNSocket) break;
-        try { this[type][name].close(); } catch(e) { logger.error('ipc.close:', type, name, e); }
-        break;
-    }
-    delete this[type][name];
-}
-
-// Returns the cache statistics, the format depends on the cache type used
-ipc.stats = function(callback)
-{
-    try {
-        switch (core.cacheType) {
-        case "memcache":
-            if (!this.memcache.client) return callback({});
-            this.memcache.client.stats(function(e,v) { callback(v) });
-            break;
-
-        case "redis":
-            if (!this.redis.client) return callback({});
-            this.redis.client.info(function(e,v) { callback(v) });
-            break;
-
-        case "nanomsg":
-        case "local":
-            this.send("stats", "", "", callback);
-            break;
-        }
-    } catch(e) {
-        logger.error('ipc.stats:', e);
-        callback({});
-    }
-}
-
 // A Javascript object `msg` must have the following properties:
 // - name - unique id, can be IP address, account id, etc...
 // - rate, max, interval - same as for `metrics.TokenBucket` rate limiter.
@@ -564,49 +286,37 @@ ipc.checkLimits = function(msg, callback)
     this.tokenBucket.configure(data ? lib.strSplit(data) : msg);
     // Reset the bucket if any number has been changed, now we have a new rate to check
     if (!this.tokenBucket.equal(msg.rate, msg.max, msg.interval)) this.tokenBucket.configure(msg);
+    
     var consumed = this.tokenBucket.consume(msg.consume || 1);
     utils.lruPut(msg.name, this.tokenBucket.toString());
+    
     logger.debug("checkLimits:", msg.name, consumed, this.tokenBucket);
     if (typeof callback == "function") callback(consumed);
     return consumed;
 }
 
+// Returns the cache statistics, the format depends on the cache type used
+ipc.stats = function(callback)
+{
+    logger.dev("ipc.stats");
+    if (typeof callback != "function") return;
+    try {
+        this.cacheClient.stats(callback);
+    } catch(e) {
+        logger.error('ipc.stats:', e.stack);
+        callback({});
+    }
+}
+
 // Returns in the callback all cached keys
 ipc.keys = function(callback)
 {
-    if (typeof callback != "function") callback = lib.noop;
+    logger.dev("ipc.keys");
+    if (typeof callback != "function") return;
     try {
-        switch (core.cacheType) {
-        case "memcache":
-            if (!this.memcache.client) return callback([]);
-            this.memcache.client.items(function(err, items) {
-                if (err || !items || !items.length) return cb([]);
-                var item = items[0], keys = [];
-                var keys = Object.keys(item);
-                keys.pop();
-                lib.forEachSeries(keys, function(stats, next) {
-                    memcached.cachedump(item.server, stats, item[stats].number, function(err, response) {
-                        if (response) keys.push(response.key);
-                        next(err);
-                    });
-                }, function() {
-                    callback(keys);
-                });
-            });
-            break;
-
-        case "redis":
-            if (!this.redis.client) return callback([]);
-            this.redis.client.keys("*", function(e,v) { cb(v) });
-            break;
-
-        case "nanomsg":
-        case "local":
-            this.send("keys", "", "", callback);
-            break;
-        }
+        this.cacheClient.keys(callback);
     } catch(e) {
-        logger.error('ipcKeys:', e);
+        logger.error('ipc.keys:', e.stack);
         callback({});
     }
 }
@@ -614,29 +324,11 @@ ipc.keys = function(callback)
 // Clear all cached items
 ipc.clear = function()
 {
+    logger.dev("ipc.clear");
     try {
-        switch (core.cacheType) {
-        case "memcache":
-            if (!this.memcache.client) break;
-            this.memcache.client.flush();
-            break;
-
-        case "redis":
-            if (!this.redis.client) break;
-            this.redis.client.flushall();
-            break;
-
-        case "nanomsg":
-            if (!this.nanomsg.lpush) break;
-            this.nanomsg.lpush.send("\u0004");
-            break;
-
-        case "local":
-            this.send("clear");
-            break;
-        }
+        this.cacheClient.clear();
     } catch(e) {
-        logger.error('ipc.clear:', e);
+        logger.error('ipc.clear:', e.stack);
     }
 }
 
@@ -650,28 +342,12 @@ ipc.clear = function()
 //
 ipc.get = function(key, options, callback)
 {
+    logger.dev("ipc.get", key);
     if (typeof options == "function") callback = options, options = null;
-    if (typeof callback != "function") callback = lib.noop;
-
     try {
-        switch (core.cacheType) {
-        case "memcache":
-            if (!this.memcache.client) return callback({});
-            this.memcache.client.get(key, function(e, v) { callback(v) });
-            break;
-
-        case "redis":
-            if (!this.redis.client) return callback();
-            this.redis.client.get(key, function(e, v) { callback(v); });
-            break;
-
-        case "nanomsg":
-        case "local":
-            this.send("get", key, options && options.set, options, callback);
-            break;
-        }
+        this.cacheClient.get(key, options, callback);
     } catch(e) {
-        logger.error('ipc.get:', e);
+        logger.error('ipc.get:', e.stack);
         callback();
     }
 }
@@ -679,89 +355,33 @@ ipc.get = function(key, options, callback)
 // Delete an item by key
 ipc.del = function(key, options)
 {
+    logger.dev("ipc.del", key, options);
     try {
-        switch (core.cacheType) {
-        case "memcache":
-            if (!this.memcache.client) break;
-            this.memcache.client.del(key);
-            break;
-
-        case "redis":
-            if (!this.redis.client) break;
-            this.redis.client.del(key, lib.noop);
-            break;
-
-        case "nanomsg":
-            if (!this.nanomsg.lpush) break;
-            this.nanomsg.lpush.send("\u0001" + key);
-            break;
-
-        case "local":
-            this.send("del", key, "", options);
-            break;
-        }
+        this.cacheClient.del(key, options);
     } catch(e) {
-        logger.error('ipc.del:', e);
+        logger.error('ipc.del:', e.stack);
     }
 }
 
 // Replace or put a new item in the cache
 ipc.put = function(key, val, options)
 {
-    logger.debug("ipc.put", key, val)
+    logger.dev("ipc.put", key, val, options);
     try {
-        switch (core.cacheType) {
-        case "memcache":
-            if (!this.memcache.client) break;
-            this.memcache.client.set(key, val, 0);
-            break;
-
-        case "redis":
-            if (!this.redis.client) break;
-            this.redis.client.set(key, val, lib.noop);
-            break;
-
-        case "nanomsg":
-            if (!this.nanomsg.lpush) break;
-            val = typeof val == "object" ? lib.stringify(val) : val;
-            this.nanomsg.lpush.send("\u0002" + key + "\u0002" + val);
-            break;
-
-        case "local":
-            this.send("put", key, val, options);
-            break;
-        }
+        this.cacheClient.put(key, val, options);
     } catch(e) {
-        logger.error('ipc.put:', e);
+        logger.error('ipc.put:', e.stack);
     }
 }
 
 // Increase/decrease a counter in the cache, non existent items are treated as 0
 ipc.incr = function(key, val, options)
 {
+    logger.dev("ipc.incr", key, val, options);
     try {
-        switch (core.cacheType) {
-        case "memcache":
-            if (!this.memcache.client) break;
-            this.memcache.client.incr(key, val, 0);
-            break;
-
-        case "redis":
-            if (!this.redis.client) break;
-            this.redis.client.incr(key, val, lib.noop);
-            break;
-
-        case "nanomsg":
-            if (!this.nanomsg.lpush) break;
-            this.nanomsg.lpush.send("\u0003" + key + "\u0003" + val);
-            break;
-
-        case "local":
-            this.send("incr", key, val, options);
-            break;
-        }
+        this.cacheClient.incr(key, val, options);
     } catch(e) {
-        logger.error('ipc.incr:', e);
+        logger.error('ipc.incr:', e.stack);
     }
 }
 
@@ -777,79 +397,33 @@ ipc.incr = function(key, val, options)
 //
 ipc.subscribe = function(key, callback, data)
 {
-    if (typeof callback != "function") return;
+    logger.dev("ipc.subscribe", key);
     try {
-        switch (core.queueType) {
-        case "redis":
-            if (!this.redis.sub) break;
-            this.subCallbacks[key] = [ callback, data ];
-            this.redis.sub.psubscribe(key);
-            break;
-
-        case "amqp":
-            if (!this.amqp.queue) break;
-            this.subCallbacks[key] = [ callback, data ];
-            this.amqp.queue.bind(key);
-            break;
-
-        case "nanomsg":
-            if (!this.nanomsg.sub) break;
-            this.subCallbacks[key] = [ callback, data ];
-            this.nanomsg.sub.subscribe(key);
-            break;
-        }
+        this.queueClient.subscribe(key, callback, data);
     } catch(e) {
-        logger.error('ipc.subscribe:', this.subHost, key, e);
+        logger.error('ipc.subscribe:', key, e.stack);
     }
 }
 
 // Close a subscription
 ipc.unsubscribe = function(key)
 {
+    logger.dev("ipc.unsubscribe", key);
     try {
-        delete this.subCallbacks[key];
-        switch (core.queueType) {
-        case "redis":
-            if (!this.redis.sub) break;
-            this.redis.sub.punsubscribe(key);
-            break;
-
-        case "amqp":
-            if (!this.amqp.queue) break;
-            this.amqp.queue.unbind(key);
-            break;
-
-        case "nanomsg":
-            if (!this.nanomsg.sub) break;
-            this.nanomsg.sub.unsubscribe(key);
-            break;
-        }
+        this.queueClient.unsubscribe(key);
     } catch(e) {
-        logger.error('ipc.unsubscribe:', e);
+        logger.error('ipc.unsubscribe:', key, e.stack);
     }
 }
 
 // Publish an event to be sent to the subscribed clients
 ipc.publish = function(key, data)
 {
+    logger.dev("ipc.publish", key, data);
     try {
-        switch (core.queueType) {
-        case "redis":
-            if (!this.redis.pub) break;
-            this.redis.pub.publish(key, data);
-            break;
-
-        case "amqp":
-            if (!this.amqp.client) break;
-            this.amqp.client.publish(key, data);
-            break;
-
-        case "nanomsg":
-            if (!this.nanomsg.pub) break;
-            this.nanomsg.pub.send(key + "\u0001" + lib.stringify(data));
-            break;
-        }
+        return this.queueClient.publish(key, data);
     } catch(e) {
-        logger.error('ipc.publish:', e, key);
+        logger.error('ipc.publish:', key, e.stack);
     }
 }
+

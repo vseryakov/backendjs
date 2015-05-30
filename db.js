@@ -1749,8 +1749,6 @@ db.prepareRow = function(pool, op, table, obj, options)
                 if (Array.isArray(cols[p].values) && cols[p].values.indexOf(String(v)) == -1) continue;
                 // Max length limit for text fields
                 if (cols[p].maxlength && typeof v == "string" && !cols[p].type && v.length > cols[p].maxlength) v = v.substr(0, cols[p].maxlength);
-                // Current timestamps, for primary keys only support add
-                if (cols[p].now && !v && (!cols[p].primary || op == "add")) v = now;
             }
             if (this.skipColumn(p, v, options, cols)) continue;
             if ((v == null || v === "") && options.skipNull && options.skipNull[op]) continue;
@@ -1759,6 +1757,8 @@ db.prepareRow = function(pool, op, table, obj, options)
         obj = o;
         for (var p in cols) {
             v = obj[p];
+            // Current timestamps, for primary keys only support add
+            if (cols[p].now && !v && (!cols[p].primary || op == "add")) obj[p] = now;
             // The field is combined from several values contatenated for complex primary keys
             if (Array.isArray(cols[p].join) && (typeof v != "string" || v.indexOf(this.separator) == -1)) obj[p] = cols[p].join.map(function(x) { return obj[x] || "" }).join(this.separator);
             // Case conversion

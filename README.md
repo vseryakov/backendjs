@@ -23,10 +23,9 @@ Features:
 * Local jobs are executed by spawned processes
 * Supports WebSockets connections and process them with the same Express routes as HTTP requests
 * Supports several cache modes(Redis, memcached, LRU) for the database operations.
-* Supports several PUB/SUB modes of operations using nanomsg, Redis, RabbitMQ.
+* Supports several PUB/SUB modes of operations using Redis, RabbitMQ.
 * Supports common database operations (Get, Put, Del, Update, Select) for all databases using the same DB API.
 * ImageMagick is compiled as C++ module for in-process image scaling.
-* nanomsg interface for messaging between processes and servers.
 * REPL(command line) interface for debugging and looking into server internals.
 * Geohash based location searches supported by all databases drivers.
 * Supports push notifications for mobile devices, APN and GCM
@@ -45,7 +44,6 @@ The module supports several databases and includes ImageMagick interface. In ord
 on the system before installing the backendjs. Not everything is required, if not available the interface will be skipped.
 
 The optional packages that the backendjs uses if available(resolving packages is done with *pkg-config*):
-- nanomsg - messaging, caching and pub/sub services
 - ImageMagick - image manipulation
 - libmysql - MySQL database driver
 
@@ -61,15 +59,15 @@ Installing dependencies on Mac OS X using macports:
 
 To install the module with all optional dependencies if they are available in the system
 
-Note: if for example ImageMagick is not istalled it will be skipped, same goes to all database drivers(MySQL) and nanomsg.
+Note: if for example ImageMagick is not istalled it will be skipped, same goes to all database drivers(MySQL)
 
     npm install backendjs
 
-To force internal nanomsg and ImageMagick to be compiled in the module the following command must be used:
+To force internal ImageMagick to be compiled in the module the following command must be used:
 
-     npm install backendjs --backendjs_nanomsg --backendjs_imagemagick
+     npm install backendjs --backendjs_imagemagick
 
-This may take some time because of downloading and compiling required dependencies like ImageMagick, nanomsg. They are not required in all
+This may take some time because of downloading and compiling required dependencies like ImageMagick. They are not required in all
 applications but still part of the core of the system to be available once needed.
 
 To install from the git
@@ -681,7 +679,7 @@ This is implemented by the `accounts` module from the core. To disable accounts 
   Return status for the account by id, if no id is psecified return status for the current account.
 
   The system maintains account status with the timestamp to be used for presence or any other purposes. The bk_status table can be cached with any available
-  caching system like Redis, memcache, nanomsg to be very fast presence state system.
+  caching system like Redis, memcache to be very fast presence state system.
 
   Example:
 
@@ -1698,18 +1696,6 @@ List of available functions:
    - `syslogInit(name, priority, facility)` - initialize syslog client, used by the logger module
    - `syslogSend(level, text)`
    - `syslogClose()`
- - NNSocket() - nanomsg socket object with the methods:
-    - `subscribe`
-    - `bind`
-    - `close`
-    - `setOption`
-    - `connect`
-    - `unsubscribe`
-    - `send`
-    - `recv`
-    - `setCallback`
-    - `setProxy`
-    - `setForward`
 
 # Cache configurations
 Database layer support caching of the responses using `db.getCached` call, it retrieves exactly one record from the configured cache, if no record exists it
@@ -1719,33 +1705,13 @@ and refresh the cache, that is `{ cached: true }` can be passed in the options p
 it is required to clear cache manually there is `db.clearCache` method for that.
 Also there is a configuration option `-db-caching` to make any table automatically cached for all requests.
 
-## nanomsg
-
-For cache management signaling, all servers maintain local cache per machine, it is called `LRU` cache. This cache is maintained in the master Web process and
-serves all local Web worker processes via IPC channel. Every Web master process if compiled with nanomsg library can accept cache messages on a TCP port (`cache-port=20194/20195`)
-from other backend nodes. Every time any Web worker updates the local cache, its master process re-broadcasts the same request to other connected Web master
-processes on other nodes thus keeping in sync caches on all nodes.
-
-In case of a single machine even with multiple CPUs there is nothing to configure, it is enabled by default. In case of multiple servers in the cluster
-it requires one or multiple cache coordinators to be configured. It can be any node(s) in the cluster. The coordinator's role is to broadcast
-cache requests to all nodes in the cluster.
-
-For very frequent items there is no point using local cache but for items reasonable static with not so often changes this cache model will work reliably and similar to
-what `memcached` or `Redis` servers would do as well.
-
-The benefits of this approach is not to run any separate servers and dealing with its own configuration and support, using nanomsg
-internal backend cache system is self contained and does not need additional external resources, any node can be LRU server whose only role is to make sure all other
-nodes flush their caches if needed. Using redundant coordinators servers makes sure cache requests reach all nodes in the cluster and there is no single point of failure.
-
-Essentually, setting `cache-host` to the list of any node(s) in the network is what needs to be done to support distributed cache with nanomsg sockets.
-
 ## memcached
-Setting `cache-type=memcache` and pointing `memcache-host` to one or more hosts running memcached servers is what needs to be done only, the rest of the
-system works similar to the internal nanomsg caching but using memcache client instead. The great benefit using memcache is to configure more than one
-server in `memcache-host` separated by comma which makes it more reliable and eliminates single point of failure if one of the memcache servers goes down.
+Set `cache-host=memcache://HOST[,HOST]` that points to one or more hosts running memcached servers is what needs to be done only. 
+The great benefit using memcache is to configure more than one server in `cache-host` separated by comma which makes it more reliable and 
+eliminates single point of failure if one of the memcache servers goes down.
 
 ## Redis
-Set `cache-type=redis` and point `redis-host` to the server running Redis server. Only single Redis server can be specified.
+Set `cache-host=redis://HOST[:PORT]` that points to the server running Redis server. Only single Redis server can be specified.
 
 # PUB/SUB configurations
 
@@ -1762,19 +1728,11 @@ The flow of the pub/sub operations is the following:
   message being a JSON object with the request API path and mtime, other properties depend on the call made.
 - the connection that initiated `/account/subscribe` receives an event
 
-## nanomsg
-To use publish/subcribe with nanomsg, first nanomsg must be compiled in the backend module. Usually this is done when explicitely installed with `--backendjs_nanomsg`
-options to the npm install, see above how to install the package.
-
-All nodes must have the same configuration, similar to the LRU cache otherwise some unexpected behaviour may happen.
-The config parameter `queue-host` defines where to publish messages and from where messages can be retrieved. Having more than one hosts listed will ensure
-better reliability of delivering messages, publishing will be load-balanced between all configured hosts.
-
 ## Redis
-To configure the backend to use Redis for messaging set `queue-type=redis` and `redis-host=HOST` where HOST is IP address or hostname of the single Redis server.
+To configure the backend to use Redis for messaging set `queue-host=redis://HOST` where HOST is IP address or hostname of the single Redis server.
 
 ## RabbitMQ
-To configure the backend to use RabbitMQ for messaging set `queue-type=amqp` and `amqp-host=HOST` and optionally `amqp-options=JSON` with options to the amqp module.
+To configure the backend to use RabbitMQ for messaging set `queue-host=amqp://HOST` and optionally `amqp-options=JSON` with options to the amqp module.
 
 ## Server/worker messaging
 
@@ -1988,7 +1946,7 @@ new image configuration.
 
         yum-config-manager --enable epel
         sudo yum install npm
-        npm install backendjs --backendjs_nanomsg --backendjs_imagemagick
+        npm install backendjs --backendjs_imagemagick
         sudo bkjs init-service
         bkjs restart
 
@@ -2124,7 +2082,7 @@ See web/js/bkjs.js for function Bkjs.sign or function core.signRequest in the co
 
             make V=1
 
-    * to compile with internal nanomsg and ImageMagick use:
+    * to compile with internal ImageMagick use:
 
             make force V=1
 

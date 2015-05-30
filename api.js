@@ -1262,7 +1262,7 @@ api.checkLimits = function(req, options, callback)
     }
     // Use process shared cache to eliminate race condition for the same cache item from multiple processes on the same instance,
     // in master mode use direct access to the LRU cache
-    var msg = { op: "limits", name: key, rate: rate, max: max, interval: interval };
+    var msg = { op: "check:limits", name: key, rate: rate, max: max, interval: interval };
     ipc[cluster.isMaster ? "checkLimits" : "command"](msg, function(consumed) {
         callback(consumed ? null : { status: 429, message: options.message || "access limit reached, please try again later" });
     });

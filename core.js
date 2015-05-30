@@ -136,13 +136,8 @@ var core = {
     modules: {},
 
     // Cache and messaging properties
-    cacheType: 'nanomsg',
-    cachePort: 20100,
-    cacheHost: "127.0.0.1",
-    queueType: 'nanomsg',
-    queuePort: 20110,
-    queueHost: "127.0.0.1",
-    subCallbacks: {},
+    cacheHost: '',
+    queueHost: '',
 
     // Config parameters
     args: [ { name: "help", type: "callback", callback: function() { this.showHelp() }, descr: "Print help and exit" },
@@ -212,22 +207,10 @@ var core = {
             { name: "repl-bind", descr: "Listen only on specified address for REPL server in the master process" },
             { name: "repl-file", descr: "User specified file for REPL history" },
             { name: "lru-max", type: "number", descr: "Max number of items in the LRU cache, this cache is managed by the master Web server process and available to all Web processes maintaining only one copy per machine, Web proceses communicate with LRU cache via IPC mechanism between node processes" },
-            { name: "no-queue", type: "bool", descr: "Disable nanomsg queue sockets" },
-            { name: "queue-port", type: "int", descr: "Ports to use for nanomsg sockets for publish/subscribe queues, 2 ports will be used, this one and the next" },
-            { name: "queue-type", descr: "One of the redis, amqp or nanomsg to use for PUB/SUB queues, default is nanomsg sockets" },
-            { name: "queue-host", dns: 1, descr: "Server(s) where clients publish and subscribe with nanomsg sockets, IPs or hosts separated by comma, TCP port is optional, msg-port is used" },
-            { name: "queue-bind", descr: "Listen only on specified address for queue sockets in the master process" },
-            { name: "memcache-host", dns: 1, type: "list", descr: "List of memcached servers for cache messages: IP[:port],host[:port].." },
-            { name: "memcache-options", type: "json", descr: "JSON object with options to the Memcached client, see npm doc memcached" },
-            { name: "redis-port", dns: 1, descr: "Port to Redis server for cache and messaging" },
-            { name: "redis-host", dns: 1, descr: "Address to Redis server for cache and messaging" },
-            { name: "redis-options", type: "json", descr: "JSON object with options to the Redis client, see npm doc redis" },
-            { name: "amqp-host", type: "json", descr: "Host running RabbitMQ" },
-            { name: "amqp-options", type: "json", descr: "JSON object with options to the AMQP client, see npm doc amqp" },
-            { name: "cache-type", descr: "One of the local, redis, memcache or nanomsg to use for caching in API requests" },
-            { name: "cache-host", dns: 1, descr: "Address of nanomsg cache servers, IPs or hosts separated by comma: IP:[port],host[:[port], if TCP port is not specified, cache-port is used" },
-            { name: "cache-port", type: "int", descr: "Port to use for nanomsg sockets for cache requests" },
-            { name: "cache-bind", descr: "Listen only on specified address for cache sockets server in the master process" },
+            { name: "cache-host", descr: "An URL that points to the cache server in the format `redis://HOST[:PORT]`, `memcache://HOST` to use for caching in API requests" },
+            { name: "cache-options", type: "json", descr: "JSON object with options to the cache client, specific to each implementation" },
+            { name: "queue-host", descr: "An URL that points to the queue server in the format `redis://HOST[:PORT]`, `amqp://HOST` to use for PUB/SUB queues, default is no subscription service" },
+            { name: "queue-options", type: "json", descr: "JSON object with options to the queue client, specific to each implementation" },
             { name: "worker", type:"bool", descr: "Set this process as a worker even it is actually a master, this skips some initializations" },
             { name: "deny-modules", type: "regexp", descr: "A regexp with modules names to be excluded from loading on startup", pass: 1 },
             { name: "allow-modules", type: "regexp", descr: "A regexp with modules name to be loaded on startup, only matched modules will be loaded", pass: 1 },
@@ -290,7 +273,8 @@ core.init = function(options, callback)
     // No restriction on the client http clients
     http.globalAgent.maxSockets = http.Agent.defaultMaxSockets = Infinity;
     https.globalAgent.maxSockets = Infinity;
-
+    utils.lruInit(this.lruMax);
+    
     // Find our IP address
     var intf = os.networkInterfaces();
     Object.keys(intf).forEach(function(x) {

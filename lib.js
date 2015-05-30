@@ -1155,6 +1155,15 @@ lib.exists = function(obj, name)
     return !!obj;
 }
 
+// Returns first valid function object from the arguments, if no function found a placeholder is returned
+lib.callback = function()
+{
+    for (var i = 0; i < arguments.length; i++) {
+        if (typeof arguments[i] == "function") return arguments[i];
+    }
+    return this.noop;
+}
+
 // A copy of an object, this is a shallow copy, only arrays and objects are created but all other types are just referenced in the new object
 // - first argument is the object to clone, can be null
 // - all additional arguments are treated as name value pairs and added to the cloned object as additional properties
