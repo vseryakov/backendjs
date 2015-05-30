@@ -55,7 +55,6 @@
     "instance",
     "jobs",
     "cron",
-    "nanomsg",
     "geohash"
   ],
   "engines": {

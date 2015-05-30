@@ -21,7 +21,9 @@ var ipc = {
     msgs: {},
     msgId: 1,
     workers: [],
-    drivers: [],
+    modules: [],
+    cacheClient: new Client(),
+    queueClient: new Client(),
     serverQueue: core.name + ":server",
     workerQueue: core.name + ":worker",
     // Use shared token buckets inside the server process, reuse the same object so we do not generate
@@ -47,6 +49,16 @@ ipc.handleWorkerMessages = function(msg)
             core.modules.api.shutdown(function() { process.exit(0); });
             break;
 
+        case "init:cache":
+            this.closeClient("cache");
+            this.initClient("cache");
+            break;
+            
+        case "init:queue":
+            this.closeClient("queue");
+            this.initWorkerQueue();
+            break;
+            
         case "init:dns":
             core.loadDnsConfig();
             break;
@@ -69,7 +81,7 @@ ipc.handleWorkerMessages = function(msg)
         }
         this.onMessage(msg);
     } catch(e) {
-        logger.error('handleWorkerMessages:', e, msg);
+        logger.error('handleWorkerMessages:', e.stack, msg);
     }
 }
 
@@ -98,6 +110,16 @@ ipc.handleServerMessages = function(worker, msg)
             }
             break;
 
+        case "init:cache":
+            for (var p in cluster.workers) cluster.workers[p].send(msg);
+            break;
+            
+        case "init:queue":
+            this.closeClient("queue");
+            this.initServerQueue("queue");
+            for (var p in cluster.workers) cluster.workers[p].send(msg);
+            break;
+            
         case "init:config":
             core.modules.db.initConfig();
             for (var p in cluster.workers) cluster.workers[p].send(msg);
@@ -174,7 +196,7 @@ ipc.handleServerMessages = function(worker, msg)
         this.onMessage.call(worker, msg);
 
     } catch(e) {
-        logger.error('handleServerMessages:', e, msg);
+        logger.error('handleServerMessages:', e.stack, msg);
     }
 }
 
@@ -183,8 +205,8 @@ ipc.initServer = function()
 {
     var self = this;
 
-    this.initClient("queue");
-
+    this.initServerQueue();
+    
     cluster.on("exit", function(worker, code, signal) {
         self.onMessage.call(worker, { op: "cluster:exit" });
     });
@@ -193,7 +215,13 @@ ipc.initServer = function()
         // Handle cache request from a worker, send back cached value if exists, this method is called inside worker context
         worker.on('message', function(msg) { self.handleServerMessages(worker, msg) });
     });
+}
 
+// Setup a queue service to be used inside a server process
+ipc.initServerQueue = function()
+{
+    var self = this;
+    this.initClient("queue");
     // Listen for system messages
     this.queueClient.on("ready", function() {
         self.subscribe(self.serverQueue, function(ctx, key, data) {
@@ -207,13 +235,19 @@ ipc.initWorker = function()
 {
     var self = this;
     this.initClient("cache");
-    this.initClient("queue");
-
+    this.initWorkerQueue();
+    
     // Event handler for the worker to process response and fire callback
     process.on("message", function(msg) { 
         self.handleWorkerMessages(msg);
     });
+}
 
+// Setup a queue service to be used inside a worjker process
+ipc.initWorkerQueue = function()
+{
+    var self = this;
+    this.initClient("queue");
     // Listen for system messages
     this.queueClient.on("ready", function() {
         self.subscribe(self.workerQueue, function(ctx, key, data) {
@@ -227,15 +261,14 @@ ipc.initClient = function(type)
 {
     var client = null, host = core[type + 'Host'] || "", options = core[type + 'Options'] || {};
     try {
-        for (var i in this.drivers) {
-            client = this.drivers[i].createClient(host, options);
+        for (var i in this.modules) {
+            client = this.modules[i].createClient(host, options);
             if (client) break;
         }
     } catch(e) {
         logger.error("ipc.init:", type, e.stack);
     }
-    if (!client) client = new Client();
-    this[type + 'Client'] = client;
+    if (client) this[type + 'Client'] = client;
 }
 
 // Close a client by type, cache or qurue. Make a new empty client so the object is always valid

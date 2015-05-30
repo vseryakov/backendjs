@@ -1266,19 +1266,6 @@ core.sendmail = function(options, callback)
     }
 }
 
-
-// Given a string with list of urls try to find if any points to our local server using IP address or host name, returns the url
-// in format: protocol://*:port, mostly to be used with nanomsg sockets
-core.parseLocalAddress = function(str)
-{
-    var url = "", ips = this.ipaddrs, host = os.hostname().toLowerCase();
-    lib.strSplit(str).forEach(function(x) {
-        var u = url.parse(x);
-        if (ips.indexOf(u.hostname) > -1 || u.hostname.toLowerCase() == host) url = u.protocol + "//*:" + u.port;
-    });
-    return url;
-}
-
 // Kill all backend processes that match name and not the current process
 core.killBackend = function(name, signal, callback)
 {

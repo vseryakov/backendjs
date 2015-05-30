@@ -64,10 +64,14 @@ system.configureSystemAPI = function()
             }
             break;
 
-        case "publish":
-            ipc.publish(req.query.key, req.query.value);
+        case "queue":
+            switch (req.params[1]) {
+            case 'init':
+                ipc.send('init:' + req.params[0]);
+                break;
+            }
             break;
-
+            
         case "stats":
             switch (req.params[1]) {
             case 'get':
@@ -137,12 +141,19 @@ system.configureSystemAPI = function()
             res.json(data);
             break;
 
+        case "publish":
+            ipc.publish(req.query.key, req.query.value);
+            break;
+
         case "log":
             logger.log(req.query);
             break;
 
         case "cache":
             switch (req.params[1]) {
+            case 'init':
+                ipc.send('init:cache');
+                break;
             case 'stats':
                 ipc.stats(function(data) { res.json(data || {}) });
                 break;
