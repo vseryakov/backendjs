@@ -256,19 +256,27 @@ ipc.initWorkerQueue = function()
     });
 }
 
-// Initialize a client for cache or queue purposes.
-ipc.initClient = function(type)
+// Return a new client for the given host or null if not supported
+ipc.createClient = function(host, options)
 {
-    var client = null, host = core[type + 'Host'] || "", options = core[type + 'Options'] || {};
+    var client = null;
     try {
         for (var i in this.modules) {
             client = this.modules[i].createClient(host, options);
             if (client) break;
         }
     } catch(e) {
-        logger.error("ipc.init:", type, e.stack);
+        logger.error("ipc.create:", host, e.stack);
     }
+    return client;
+}
+
+// Initialize a client for cache or queue purposes.
+ipc.initClient = function(type)
+{
+    var client = this.createClient(core[type + 'Host'] || "", core[type + 'Options'] || {});
     if (client) this[type + 'Client'] = client;
+    return client;
 }
 
 // Close a client by type, cache or qurue. Make a new empty client so the object is always valid

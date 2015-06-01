@@ -1057,7 +1057,7 @@ aws.snsDeleteTopic = function(arn, options, callback)
 }
 
 // Creates a topic to which notifications can be published. The callback returns topic ARN on success, if the topic requires
-// confirmation the arn returned will bt null and a token will be sent to the endpoint for confirmation.
+// confirmation the arn returned will be null and a token will be sent to the endpoint for confirmation.
 aws.snsSubscribe = function(arn, endpoint, options, callback)
 {
     var self = this;

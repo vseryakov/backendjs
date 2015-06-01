@@ -791,6 +791,7 @@ tests.test_db = function(callback)
     var id2 = lib.random(128);
     var num2 = lib.randomNum(1, 1000);
     var next_token = null;
+    var ids = [];
 
     db.setProcessRow("post", "test4", function(op, row, options, cols) {
         var type = (row.type || "").split(":");
@@ -1064,36 +1065,42 @@ tests.test_db = function(callback)
         function(next) {
             db.select("test5", { id: id, type: "like" }, {}, function(err, rows) {
                 tests.check(next, err, rows.length!=3 , "err21:", rows);
+                ids = rows.map(function(x) { delete x.hkey; return x });
+            });
+        },
+        function(next) {
+            db.list("test5", ids, {}, function(err, rows) {
+                tests.check(next, err, rows.length!=3 , "err22:", rows);
             });
         },
         function(next) {
             db.get("test5", { id: id, type: "like", peer: 2 }, {}, function(err, row) {
-                tests.check(next, err, !row, "err22:", row);
+                tests.check(next, err, !row, "err23:", row);
             });
         },
         function(next) {
             db.put("test1", { id: id, email: id, num: 1 }, function(err) {
-                tests.check(next, err, 0, "err23:");
+                tests.check(next, err, 0, "err24:");
             });
         },
         function(next) {
             db.update("test1", { id: id, email: "test", num: 1 }, { expected: { id: id, email: id }, counter: ["num"] }, function(err, rc, info) {
-                tests.check(next, err, info.affected_rows!=1, "err24:", info);
-            });
-        },
-        function(next) {
-            db.update("test1", { id: id, email: "test", num: 1 }, { expected: { id: id, email: "test" }, counter: ["num"] }, function(err, rc, info) {
                 tests.check(next, err, info.affected_rows!=1, "err25:", info);
             });
         },
         function(next) {
+            db.update("test1", { id: id, email: "test", num: 1 }, { expected: { id: id, email: "test" }, counter: ["num"] }, function(err, rc, info) {
+                tests.check(next, err, info.affected_rows!=1, "err26:", info);
+            });
+        },
+        function(next) {
             db.update("test1", { id: id, email: "test" }, { expected: { id: id, email: id } }, function(err, rc, info) {
-                tests.check(next, err, info.affected_rows, "err26:", info);
+                tests.check(next, err, info.affected_rows, "err27:", info);
             });
         },
         function(next) {
             db.update("test1", { id: id, email: "test" }, { expected: { id: id, num: 1 }, ops: { num: "gt" } }, function(err, rc, info) {
-                tests.check(next, err, !info.affected_rows, "err26:", info);
+                tests.check(next, err, !info.affected_rows, "err28:", info);
             });
         },
     ],

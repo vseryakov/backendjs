@@ -1046,7 +1046,8 @@ db.scan = function(table, query, options, rowCallback, endCallback)
 // - preprocess - a callback function(row, options, next) that is called for every row on the original table, next must be called to move to the next row, if err is returned as first arg then the processing will stop
 // - postprocess - a callback function(row, options, next) that is called for every row on the destination table, same rules as for preprocess
 // - tmppool - the db pool to be used for temporary table
-// - tpmdrop - if 1 then the temporary table willbe dropped at the end in case of success, by default it is kept
+// - tpmdrop - if 1 then the temporary table will be dropped at the end in case of success, by default it is kept
+// - delay - number of milliseconds to wait between the steps
 db.migrate = function(table, options, callback)
 {
     if (typeof callback != "function") callback = lib.noop;
@@ -1816,6 +1817,26 @@ db.prepareRow = function(pool, op, table, obj, options)
             if (Array.isArray(cols[p].join) && (typeof obj[p] != "string" || obj[p].indexOf(this.separator) == -1)) {
                 var v = cols[p].join.map(function(x) { return obj[x] || "" }).join(this.separator);
                 if (v[0] != this.separator) obj[p] = v;
+            }
+        }
+        break;
+        
+    case "list":
+        for (var i = 0; i < obj.length; i++) {
+            for (var p in cols) {
+                if (options.strictTypes) {
+                    if (lib.isNumeric(cols[p].type)) {
+                        if (typeof obj[i][p] == "string") obj[i][p] = lib.toNumber(obj[i][p]);
+                    } else {
+                        if (typeof obj[i][p] == "number") obj[i][p] = String(obj[i][p]);
+                    }
+                }
+                // Joined values for queries, if nothing joined or only one field is present keep the original value
+                if (Array.isArray(cols[p].join) && (typeof obj[i][p] != "string" || obj[i][p].indexOf(this.separator) == -1)) {
+                    var v = cols[p].join.map(function(x) { return obj[i][x] || "" }).join(this.separator);
+                    if (v[0] != this.separator) obj[i][p] = v;
+                }
+                if (!cols[p].primary) delete obj[i][p];
             }
         }
         break;

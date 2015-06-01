@@ -219,7 +219,7 @@ connections.readConnection = function(id, obj, options, callback)
 //
 // The following properties can alter the actions:
 // - publish - send notification via pub/sub system if present
-// - nocounter - do not update auto increment counters
+// - autocounter - if a number and not zero it will be used to update auto increment counters
 // - noreference - do not create reference part of the connection
 // - connected - return existing connection record for the same type from the other account
 // - alias - an alias for the reference record for cases wen connecting 2 different accounts, it has preference over options.account.
@@ -263,12 +263,12 @@ connections.makeConnection = function(id, obj, options, callback)
         },
         function(next) {
             // Keep track of all connection counters
-            if (options.nocounter || !core.modules.counters || (op != "add" && op != "put")) return next();
-            core.modules.counters.incrAutoCounter(id, obj.type + '0', 1, options, function(err) { next() });
+            if (!options.autocounter || !core.modules.counters) return next();
+            core.modules.counters.incrAutoCounter(id, obj.type + '0', options.autocounter, options, function(err) { next() });
         },
         function(next) {
-            if (options.nocounter || !core.modules.counters || (op != "add" && op != "put")) return next();
-            core.modules.counters.incrAutoCounter(obj.peer || obj.id, obj.type + '1', 1, options, function(err) { next(); });
+            if (!options.autocounter || !core.modules.counters) return next();
+            core.modules.counters.incrAutoCounter(obj.peer || obj.id, obj.type + '1', options.autocounter, options, function(err) { next(); });
         },
         function(next) {
             // Notify about connection the other side
@@ -304,7 +304,7 @@ connections.deleteConnection = function(id, obj, options, callback)
                db.del("bk_connection", { id: id, type: row.type, peer: row.peer }, options, next);
            },
            function(next) {
-               if (options.nocounter || !core.modules.counters) return next();
+               if (!options.autocounter || !core.modules.counters) return next();
                core.modules.counters.incrAutoCounter(id, row.type + '0', -1, options, function() { next(); });
            },
            function(next) {
@@ -312,8 +312,8 @@ connections.deleteConnection = function(id, obj, options, callback)
                db.del("bk_reference", { id: row.peer, type: row.type, peer: id }, options, next);
            },
            function(next) {
-               if (options.nocounter || !core.modules.counters) return next();
                if (options.noreference) return next();
+               if (!options.autocounter || !core.modules.counters) return next();
                core.modules.counters.incrAutoCounter(row.peer, row.type + '1', -1, options, function() { next() });
            }
            ], function(err) {

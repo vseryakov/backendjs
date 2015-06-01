@@ -1370,7 +1370,7 @@ api.checkResultColumns = function(table, rows, options)
 // The options can have a property in the form `keep_{name}` which will prevent from clearing the query for the name, this is for dynamic enabling/disabling
 // this functionality without clearing table column definitions.
 //
-// The `options.reverse` will make the logic oppsote, clear all properties that do not have the property `name` in the object.
+// The `options.reverse` will make the logic opposite: clear all properties that do not have the property `name` in the object.
 //
 api.clearQuery = function(query, options, table, name)
 {
@@ -1719,7 +1719,7 @@ api.sendFile = function(req, res, file, redirect)
 {
     fs.exists(file, function(yes) {
         if (req.method == 'HEAD') return res.send(yes ? 200 : 404);
-        if (yes) return res.sendfile(file);
+        if (yes) return res.sendFile(file, { root: core.home });
         if (redirect) return res.redirect(redirect);
         res.send(404);
     });

@@ -162,7 +162,7 @@ server.startMaster = function(options)
             self.watchInterval = setInterval(function() { core.watchLogs(); }, core.logwatcherInterval * 60000);
 
             // Jobs from the queue
-            if (jobs.interval > 0) setInterval(function() { jobs.processQueue(); }, jobs.interval * 1000);
+            if (jobs.interval > 0) setInterval(function() { jobs.processJob(); }, jobs.interval * 1000);
 
             // Watch temp files
             setInterval(function() { core.watchTmp("tmp", { seconds: 86400 }) }, 43200000);
@@ -170,8 +170,8 @@ server.startMaster = function(options)
 
             // Maintenance tasks
             setInterval(function() {
-                // Submit pending jobs
-                jobs.checkQueue();
+                // Execute pending tasks
+                jobs.processTask();
 
                 // Check idle time, if no jobs running for a long time shutdown the server, this is for instance mode mostly
                 if (core.instance.job && self.idleTime > 0 && !Object.keys(cluster.workers).length && Date.now() - jobs.time > self.idleTime) {
@@ -179,8 +179,8 @@ server.startMaster = function(options)
                     self.shutdown();
                 }
             }, 30000);
-            // Execute the jobs passed via command line
-            setTimeout(function() { jobs.checkQueue() }, jobs.delay);
+            // Execute the tasks passed via command line
+            setTimeout(function() { jobs.processTask() }, jobs.delay);
 
             // API related initialization
             core.runMethods("configureMaster");

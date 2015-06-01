@@ -21,9 +21,11 @@ var msg = {
     args: [ { name: "apn-cert", type: "path", descr: "Certificate for APN service, pfx format, .p12 ext" },
             { name: "apn-production", type: "bool", descr: "Enable APN production mode of operations, if not specified the mode is derived from the certificate name, presence of the word 'production' in the cert file name will enable production mode" },
             { name: "gcm-key", descr: "Google Cloud Messaging API key" },
-            { name: "server-queue", descr: "Name for push notification queue to initialize for receiving messages from the clients to forward to the actual gateways, it uses PUB/SUB messaging subsystem" },
-            { name: "client-queue", descr: "Name for push notification queue, set to make current backend send all messages to this queue, any name can be used as long as it unqiue and does not interfere with other PUB/SUB prefixes" },
-            { name: "host", dns: 1, descr: "List of hosts/IP addresses to be used for actual delivery of push notifications, all other hosts will queue notifications to these servers" },
+            { name: "queue-key", descr: "A queue key to subscribe for clients and listen for servers so messages can be exchanged in the queue environment where multiple queue exist" },
+            { name: "server-queue-host", descr: "A queue to create for receiving messages from the clients and forwarding to the actual gateways" },
+            { name: "server-queue-options", type: "json", descr: "JSON object with options to the queue server" },
+            { name: "client-queue-host", descr: "A queue to create where to send all messages instead of actual gateways" },
+            { name: "client-queue-options", type: "json", descr: "JSON object with options to the queue client" },
             { name: "shutdown-timeout", type:" int", min: 500, descr: "How long to wait for messages draining out in ms on shutting down before exiting" },],
     apnSent: 0,
     gcmSent: 0,
@@ -37,31 +39,18 @@ module.exports = msg;
 msg.init = function(callback)
 {
     var self = this;
-
-    this.notificationQueue = null;
-
+    if (typeof callback != "function") callback = lib.noop;
+    
     // Explicitly configured notification client queue, send all messages there
     if (this.clientQueue) {
-        this.notificationQueue = this.clientQueue;
-        return callback ? callback() : null;
-    } else
+        this.clientQueue = ipc.createClient(this.clientQueue, this.clientQueueOptions);
+        if (this.clientQueue) return callback();
+    }
 
     // Explicitely configured notification server queue
     if (this.serverQueue) {
-        ipc.subscribe(this.serverQueue, function(arg, key, data) {
-            self.send(lib.jsonParse(data, { obj: 1 }));
-        });
-    } else
-
-    // Connect to notification gateways only on the hosts configured to be the notification servers
-    if (this.host) {
-        var queue = "bk.notification.queue";
-        if (!lib.strSplit(this.host).some(function(x) { return core.hostName == x || core.ipaddrs.indexOf(x) > -1 })) {
-            self.notificationQueue = queue;
-            return callback ? callback() : null;
-        }
-        // Listen for published messages and forward them to the notification gateways
-        ipc.subscribe(queue, function(arg, key, data) {
+        this.serverQueue = ipc.createClient(this.serverQueue, this.serverQueueOptions);
+        this.serverQueue.subscribe(this.queueKey || "", function(arg, key, data) {
             self.send(lib.jsonParse(data, { obj: 1 }));
         });
     }
@@ -69,7 +58,7 @@ msg.init = function(callback)
     // Direct access to the gateways
     this.initAPN();
     this.initGCM();
-    if (callback) callback();
+    callback();
 }
 
 // Shutdown notification services, wait till all pending messages are sent before calling the callback
@@ -118,11 +107,9 @@ msg.send = function(options, callback)
     if (typeof callback != "function") callback = lib.noop;
     if (!options || !options.device_id) return callback ? callback(new Error("invalid device or options")) : null;
 
-    // Queue to the publish server
-    if (this.notificationQueue) {
-        if (callback) setImmediate(callback);
-        return ipc.publish(this.notificationQueue, options);
-    }
+    // Queue to the server instead of sending directly
+    if (this.clientQueue) return this.clientQueue.publish(this.queueKey || "", options, callback);
+    
     logger.info("send:", options);
 
     // Determine the service to use from the device token

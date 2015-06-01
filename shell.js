@@ -294,6 +294,7 @@ shell.cmdDbBackup = function(options)
 {
     var self = this;
     var opts = this.getOptions();
+    var query = this.getQuery();
     var root = core.getArg("-path");
     var filter = core.getArg("-filter");
     var tables = lib.strSplit(core.getArg("-tables"));

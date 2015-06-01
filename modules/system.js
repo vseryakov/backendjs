@@ -8,7 +8,6 @@ var util = require('util');
 var fs = require('fs');
 var http = require('http');
 var url = require('url');
-var core = require(__dirname + '/../core');
 var bkjs = require('backendjs');
 var db = bkjs.db;
 var api = bkjs.api;
@@ -17,6 +16,7 @@ var ipc = bkjs.ipc;
 var msg = bkjs.msg;
 var core = bkjs.core;
 var lib = bkjs.lib;
+var jobs = bkjs.jobs;
 var logger = bkjs.logger;
 
 // System management
@@ -46,12 +46,14 @@ system.configureSystemAPI = function()
         switch (req.params[0]) {
         case "restart":
             ipc.send("api:restart");
+            res.json({});
             break;
 
         case "config":
             switch (req.params[1]) {
             case 'init':
                 ipc.send('init:' + req.params[0]);
+                res.json({});
                 break;
             }
             break;
@@ -60,6 +62,7 @@ system.configureSystemAPI = function()
             switch (req.params[1]) {
             case 'init':
                 ipc.send('init:' + req.params[0]);
+                res.json({});
                 break;
             }
             break;
@@ -68,6 +71,27 @@ system.configureSystemAPI = function()
             switch (req.params[1]) {
             case 'init':
                 ipc.send('init:' + req.params[0]);
+                res.json({});
+                break;
+                
+            case "publish":
+                ipc.publish(req.query.key, req.query.value, function(err) { api.sendReply(res, err) });
+                break;
+            }
+            break;
+            
+        case "jobs":
+            switch (req.params[1]) {
+            case 'submit':
+                jobs.submitJob(req.query, function(err) { api.sendReply(res, err) });
+                break;
+            }
+            break;
+
+        case "msg":
+            switch (req.params[1]) {
+            case 'send':
+                msg.send(req.query, function(err) { api.sendReply(res, err) });
                 break;
             }
             break;
@@ -112,6 +136,7 @@ system.configureSystemAPI = function()
             case 'start':
             case 'stop':
                 core.profiler("cpu", req.params[1]);
+                res.json({});
                 break;
 
             case 'get':
@@ -119,6 +144,8 @@ system.configureSystemAPI = function()
                 if (core.cpuProfile) {
                     res.json(core.cpuProfile);
                     core.cpuProfile = null;
+                } else {
+                    res.json({});
                 }
                 break;
             }
@@ -141,18 +168,16 @@ system.configureSystemAPI = function()
             res.json(data);
             break;
 
-        case "publish":
-            ipc.publish(req.query.key, req.query.value);
-            break;
-
         case "log":
             logger.log(req.query);
+            res.json({});
             break;
 
         case "cache":
             switch (req.params[1]) {
             case 'init':
                 ipc.send('init:cache');
+                res.json({});
                 break;
             case 'stats':
                 ipc.stats(function(data) { res.json(data || {}) });
@@ -169,9 +194,11 @@ system.configureSystemAPI = function()
                 break;
             case "del":
                 ipc.del(req.query.name);
+                res.json({});
                 break;
             case "incr":
                 ipc.incr(req.query.name, lib.toNumber(req.query.value));
+                res.json({});
                 break;
             case "put":
                 ipc.put(req.query.name, req.query.value);
@@ -192,8 +219,6 @@ system.configureSystemAPI = function()
         default:
             api.sendReply(res, 400, "Invalid command:" + req.params[0]);
         }
-        // Return empty response if not send already
-        if (!res.headersSent) res.json({});
     });
 }
 

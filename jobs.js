@@ -26,8 +26,8 @@ var jobs = {
     args: [{ name: "max-workers", type: "number", min: 1, max: 32, descr: "Max number of worker processes to launch for jobs" },
            { name: "worker-args", type: "list", descr: "Node arguments for workers, for passing v8 options" },
            { name: "max-time", type: "number", min: 300, descr: "Max number of seconds a job can run before being killed, for instance mode only" },
-           { name: "submit", type: "callback", callback: function(v) { if (core.role == "master") this.updateQueue(lib.base64ToJson(v)) }, descr: "Job specification, JSON encoded as base64 of the job object" },
-           { name: "name", type: "callback", callback: function(v) { if (core.role == "master") this.updateQueue(v) }, descr: "Job specification, a simple case when just a job name is used without any properties" },
+           { name: "submit", type: "callback", callback: function(v) { if (core.role == "master") this.submitTask(lib.base64ToJson(v)) }, descr: "Job specification, JSON encoded as base64 of the job object" },
+           { name: "name", type: "callback", callback: function(v) { if (core.role == "master") this.submitTask(v) }, descr: "Job specification, a simple case when just a job name is used without any properties" },
            { name: "delay", type: "int", min: 0, descr: "Delay in milliseconds before starting the jobs passed via command line after the master process started" },
            { name: "tag", descr: "This server executes jobs that match this tag, if empty then execute all jobs, if not empty execute all that match current IP address and this tag" },
            { name: "count", descr: "How many jobs to execute at any iteration" },
@@ -36,8 +36,9 @@ var jobs = {
            { name: "interval", type: "number", min: 0, descr: "Interval between executing job queue, must be set to enable jobs, 0 disables job processing, in seconds, min interval is 60 secs" },
     ],
 
-    // Job waiting for the next avaialble worker
-    queue: [],
+    type: "none",
+    // Tasks waiting for the next avaialble worker
+    tasks: [],
     // List of jobs a worker is running or all jobs running
     jobs: [],
     // Time of the last update on jobs and workers
@@ -175,7 +176,7 @@ jobs.runWorker = function(options)
         // Do not exceed max number of running workers
         var workers = Object.keys(cluster.workers);
         if (workers.length >= self.maxWorkers) {
-            self.queue.push(options);
+            self.tasks.push(options);
             return logger.debug('jobs.runWorker:', 'max number of workers running:', self.maxWorkers, 'job:', options);
         }
 
@@ -184,14 +185,14 @@ jobs.runWorker = function(options)
             var opts = options[p] || {};
             // Do not execute if we already have this job running
             if (self.jobs.indexOf(p) > -1 && !opts.runalways) {
-                if (!opts.skipqueue) self.queue.push(options);
+                if (!opts.skipqueue) self.tasks.push(options);
                 return logger.debug('jobs.runLocal: already running', options);
             }
 
             // Condition for job, should not be any pending or running jobs
             if (opts.runlast) {
-                if (self.jobs.length || self.queue.length) {
-                    if (!opts.skipqueue) self.queue.push(options);
+                if (self.jobs.length || self.tasks.length) {
+                    if (!opts.skipqueue) self.tasks.push(options);
                     return logger.debug('jobs.runWorker:', 'other jobs still exist', options);
                 }
             }
@@ -199,7 +200,7 @@ jobs.runWorker = function(options)
             // Check dependencies, only run when there is no dependent job in the running list
             if (opts.runone) {
                 if (self.jobs.filter(function(x) { return x.match(opts.runone) }).length) {
-                    if (!opts.skipqueue) self.queue.push(options);
+                    if (!opts.skipqueue) self.tasks.push(options);
                     return logger.debug('jobs.runWorker:', 'depending job still exists:', options);
                 }
             }
@@ -207,8 +208,8 @@ jobs.runWorker = function(options)
             // Check dependencies, only run when there is no dependent job in the running or pending lists
             if (opts.runafter) {
                 if (self.jobs.some(function(x) { return x.match(opts.runafter) }) ||
-                    self.queue.some(function(x) { return Object.keys(x).some(function(y) { return y.match(opts.runafter); }); })) {
-                    if (!opts.skipqueue) self.queue.push(options);
+                    self.tasks.some(function(x) { return Object.keys(x).some(function(y) { return y.match(opts.runafter); }); })) {
+                    if (!opts.skipqueue) self.tasks.push(options);
                     return logger.debug('jobs.runWorker:', 'depending job still exists:', options);
                 }
             }
@@ -285,8 +286,8 @@ jobs.runRemote = function(options, callback)
     aws.ec2RunInstances(options, callback);
 }
 
-// Submit a job for execution according to the type
-jobs.submit = function(options, callback)
+// Process a job for execution according to the type
+jobs.runTask = function(options, callback)
 {
     var self = this;
     if (typeof callback != "function") callback = lib.noop;
@@ -304,7 +305,7 @@ jobs.submit = function(options, callback)
     case "queue":
         // Submit the job to a worker for execution later
         options.type = "worker";
-        self.updateDb(options);
+        self.submitJob(options);
         break;
 
     case "request":
@@ -325,73 +326,34 @@ jobs.submit = function(options, callback)
         break;
 
     default:
-        setImmediate(function() { self.updateQueue(options); });
+        setImmediate(function() { self.submitTask(options); });
         break;
-    }
-    callback();
-}
-
-// Finish and mark or delete a job after the successfull execution, this is supposed to be called by
-// the jobs that handle completion, by default new job pulled from te database is deleted on successful schedule.
-// The options is the same job object that was passed to the `jobs.submit`.
-jobs.finish = function(options, callback)
-{
-    if (typeof callback != "function") callback = lib.noop;
-    if (!lib.isObject(options)) return callback(new Error('invalid job'));
-
-    logger.debug('finish:', options);
-    switch (options.queueType) {
-    case "sqs":
-        if (options.sqsQueue && options.sqsReceiptHandle) {
-            return aws.querySQS("DeleteMessage", { QueueUrl: options.sqsQueue, ReceiptHandle: options.sqsReceiptHandle }, callback);
-        }
-        break;
-
-    default:
-        if (options.id) {
-            return db.del("bk_queue", options, callback);
-        }
     }
     callback();
 }
 
 // Update the job queue with a job, can be an object or a string in the format object.method
 // All spaces must be are replaced with %20 to be used in command line parameterrs
-jobs.updateQueue = function(options)
+jobs.submitTask = function(options)
 {
     switch (lib.typeName(options)) {
     case "string":
         options = { job: lib.newObj(options, null) };
 
     case "object":
-        if (options.job) return this.queue.push(options);
+        if (options.job) return this.tasks.push(options);
         break;
     }
-    logger.error("jobs.updateQueue:", "invalid job: ", options);
-}
-
-// Periodically pull submitted jobs from the Db or other queue system and send it to execution. The primary goal for this
-// job system is to execute cron jobs, o.e. jobs to be executed periodically based on time or other condition but NOT to
-// be used for demand jobs from a web process for example.
-jobs.processQueue = function(options, callback)
-{
-    switch (this.type) {
-    case "sqs":
-        this.processSQS(options, callback);
-        break;
-    default:
-        this.processDb(options, callback);
-    }
+    logger.error("jobs.updateTasks:", "invalid task: ", options);
 }
 
 // Process pending jobs, submit to idle workers
-jobs.checkQueue = function()
+jobs.processTask = function()
 {
-    if (!this.queue.length) return;
-    var job = this.queue.shift();
+    if (!this.tasks.length) return;
+    var job = this.tasks.shift();
     if (job) this.runWorker(job);
 }
-
 
 // Create a new cron job, for remote jobs additional property args can be used in the object to define
 // arguments for the instance backend process, properties must start with -
@@ -410,7 +372,7 @@ jobs.scheduleCronjob = function(options)
     if (!lib.isObject(options) || !options.cron || !options.job || options.disabled) return false;
     logger.debug('scheduleCronjob:', options);
     try {
-        var cj = new cron.CronJob(options.cron, function() { self.submit(this.job); }, null, true);
+        var cj = new cron.CronJob(options.cron, function() { self.runTask(this.job); }, null, true);
         cj.job = options;
         this.crontab.push(cj);
         return true;
@@ -508,90 +470,129 @@ jobs.parseCronjobs = function(type, data)
     logger.info("parseCronjobs:", type, n, "jobs");
 }
 
+// Periodically pull submitted jobs from the Db or other queue system and send it to execution. The primary goal for this
+// job system is to execute cron jobs, i.e. jobs to be executed periodically based on time or other condition but NOT to
+// be used for on-demand jobs from a web process for example.
+//
+// It is run by the master process every `-server-jobs-interval` seconds.
+//
+// For `db` type, it requires connection to the database, how jobs appear in the table and the order of execution is not concern of this function,
+// the higher level management tool must take care when and what to run and in what order.
+// If `tag` has been set then only jobs with such tag will be pulled by this instance.
+//
+// If a job object contains a property `finish` then it is responsibility of a worker to call `jobs.finishJob` so the job
+// will be deleted from the queue. By default all jobs pulled from the db are deleted just after submition for execution.
+//
+// The options can specify:
+//  - queue - SQS queue ARN, if not specified the `-server-job-queue` will be used
+//  - timeout - how long to wait for messages, seconds, default is 5
+//  - count - how many jobs to receive, if not specified then uses `-jobs-count` config parameter
+//  - visibilityTimeout - The duration in seconds that the received messages are hidden from subsequent retrieve requests
+//     after being retrieved by a ReceiveMessage request.
+//
+jobs.processJob = function(options, callback)
+{
+    var self = this;
+    if (typeof options == "function") callback = options, options = {};
+    if (!options) options = {};
+    if (typeof callback != "function") callback = lib.noop;
+    
+    switch (this.type) {
+    case "sqs":
+        var queue = options.queue || self.jobQueue;
+        if (!queue) return callback();
+        if (!options.count) options.count = self.count || 1;
+    
+        aws.sqsReceiveMessage(queue, options, function(err, rows) {
+            if (err) return callback(err);
+            lib.forEachSeries(rows || [], function(item, next) {
+                var job = lib.jsonParse(item.Body, { obj: 1, error: 1 });
+                job.queueType = "sqs";
+                job.sqsQueue = queue;
+                job.sqsReceiptHandle = item.ReceiptHandle;
+                self.runTask(job, function(err) {
+                    if (err) logger.error("processSQS:", err, job)
+                    if (err || !job.finish) self.finishJob(job);
+                    next();
+                });
+            }, function(err) {
+                if (err) logger.error("processSQS:", err);
+                if (rows.length) logger.info('processSQS:', rows.length, 'jobs');
+                callback(err);
+            });
+        });
+        break;
+        
+    case "db":
+        db.select("bk_queue", { tag: this.tag, status: null }, { ops: { status: "null" }, count: options.count || self.count }, function(err, rows) {
+            lib.forEachSeries(rows, function(row, next) {
+                var job = row.data;
+                job.id = row.id;
+                self.runTask(job, function(err) {
+                    if (err) logger.error("processDb:", err, job)
+                    if (err || !job.finish) self.finishJob(job); else db.update("bk_queue", { id: job.id, status: "running" });
+                    next();
+                });
+            }, function(err) {
+                if (err) logger.error("processDb:", err);
+                if (rows.length) logger.info('processQueue:', rows.length, 'jobs');
+                callback(err);
+            });
+        });
+        break;
+    }
+}
+
 // Submit job for execution, it will be saved in the server queue and the master or job worker will pick it up later.
 //
 // The options properties:
 //  - id - unique job id or UUID will be generated
 //  - tag - if there are multiple known workers this tag will dedicate this job to such worker
 //  - data - a full job object, cannot be empty
-jobs.updateDb = function(options, callback)
+jobs.submitJob = function(options, callback)
 {
-    if (!lib.isObject(options) || !lib.isObject(options.data)) return typeof callback == "function" && callback(new Error("invalid job"));
-    if (!options.id) options.id = lib.uuid();
-    logger.debug('updateDb:', options);
-    db.put("bk_queue", options, callback);
-}
-
-// Load submitted jobs for execution, it is run by the master process every `-server-jobs-interval` seconds.
-// Requires connection to the database, how jobs appear in the table and the order of execution is not concern of this function,
-// the higher level management tool must take care when and what to run and in what order.
-// If `tag` has been set then only jobs with such tag will be pulled by this instance.
-//
-// If a job object contain sa property `finish` then it is responsibility of a worker to call `jobs.finish` so the job
-// will be deleted from the queue. By default all jobs pulled from the db are deleted just after submition for execution.
-//
-jobs.processDb = function(options, callback)
-{
-    var self = this;
-    if (typeof options == "function") callback = options, options = {};
-    if (!options) options = {};
     if (typeof callback != "function") callback = lib.noop;
-
-    var now = Date.now()
-    db.select("bk_queue", { tag: this.tag, status: null }, { ops: { status: "null" }, count: options.count || self.count }, function(err, rows) {
-        lib.forEachSeries(rows, function(row, next) {
-            var job = row.data;
-            job.id = row.id;
-            self.submit(job, function(err) {
-                if (err) logger.error("processDb:", err, job)
-                if (err || !job.finish) self.finish(job); else db.update("bk_queue", { id: job.id, status: "running" });
-                next();
-            });
-        }, function(err) {
-            if (err) logger.error("processDb:", err);
-            if (rows.length) logger.info('processQueue:', rows.length, 'jobs');
-            callback(err);
-        });
-    });
+    if (!lib.isObject(options) || !lib.isObject(options.data)) return callback(new Error("invalid job"));
+    
+    logger.debug('submitJob:', this.type, options);
+    switch (this.type) {
+    case "sqs":
+        var queue = options.queue || this.jobQueue;
+        if (!queue) return callback(new Error("jobs queue is not configured"));
+        aws.sqsSendMessage(queue, JSON.stringify(options.data), options, callback);
+        break;
+        
+    case "db":
+        if (!options.id) options.id = lib.uuid();
+        db.put("bk_queue", options, callback);
+        break;
+        
+    default:
+        callback(new Error("jobs queue is not configured"));
+    }
 }
 
-// Process AWS SQS queue for any messages and execute jobs, a job object must be in the same format as for the cron jobs.
-//
-// The options can specify:
-//  - queue - SQS queue ARN, if not specified the `-server-job-queue` will be used
-//  - timeout - how long to wait for messages, seconds, default is 5
-//  - count - how many jobs to receive, if not specified use `-api-max-jobs` config parameter
-//  - visibilityTimeout - The duration in seconds that the received messages are hidden from subsequent retrieve requests
-//     after being retrieved by a ReceiveMessage request.
-//
-jobs.processSQS = function(options, callback)
+// Finish and mark or delete a job after the successfull execution, this is supposed to be called by
+// the jobs that handle completion, by default a job pulled from the queue is deleted on successful schedule.
+// The options is the same job object that was passed to the `jobs.submit`.
+jobs.finishJob = function(options, callback)
 {
-    var self = this;
-    if (typeof options == "function") callback = options, options = {};
-    if (!options) options = {};
     if (typeof callback != "function") callback = lib.noop;
+    if (!lib.isObject(options)) return callback(new Error('invalid job'));
 
-    var queue = options.queue || self.jobQueue;
-    if (!queue) return callback();
-    if (!options.count) options.count = self.count || 1;
+    logger.debug('finishJob:', options);
+    switch (options.queueType) {
+    case "sqs":
+        if (options.sqsQueue && options.sqsReceiptHandle) {
+            return aws.querySQS("DeleteMessage", { QueueUrl: options.sqsQueue, ReceiptHandle: options.sqsReceiptHandle }, callback);
+        }
+        break;
 
-    aws.sqsReceiveMessage(queue, options, function(err, rows) {
-        if (err) return callback ? callback(err) : null;
-        lib.forEachSeries(rows || [], function(item, next) {
-            var job = lib.jsonParse(item.Body, { obj: 1, error: 1 });
-            job.queueType = "sqs";
-            job.sqsQueue = queue;
-            job.sqsReceiptHandle = item.ReceiptHandle;
-            self.submit(job, function(err) {
-                if (err) logger.error("processSQS:", err, job)
-                if (err || !job.finish) self.finish(job);
-                next();
-            });
-        }, function(err) {
-            if (err) logger.error("processSQS:", err);
-            if (rows.length) logger.info('processSQS:', rows.length, 'jobs');
-            callback(err);
-        });
-    });
+    case "db":
+        if (options.id) {
+            return db.del("bk_queue", options, callback);
+        }
+        break;
+    }
+    callback();
 }
-
