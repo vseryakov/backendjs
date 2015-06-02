@@ -85,22 +85,25 @@ var Bkjs = {
     // Register new account record, call the callback with the object or error
     addAccount: function(obj, callback) {
         var self = this;
+        // Replace the actual credentials from the storage in case of scrambling in the client
+        if (!obj._scramble) {
+            var creds = this.checkCredentials(obj.login, obj.secret);
+            obj.login = creds.login;
+            obj.secret = creds.secret;
+        }
         delete obj.secret2;
-        var creds = this.checkCredentials(obj.login, obj.secret);
-        // Replace the actual credentials from the storage in case of scrambling
-        obj.login = creds.login;
-        obj.secret = creds.secret;
         self.sendRequest({ type: "POST", url: "/account/add", data: obj, jsonType: "obj", nosignature: 1 }, callback);
     },
 
     // Update current account
     updateAccount: function(obj, callback) {
         var self = this;
-        if (obj.secret) {
-            delete obj.secret2;
+        if (obj.secret && !obj._scramble) {
             var creds = this.checkCredentials(obj.login || this.account.login, obj.secret);
+            obj.login = creds.login;
             obj.secret = creds.secret;
         }
+        delete obj.secret2;
         self.sendRequest({ url: '/account/update', data: obj, type: "POST", jsonType: "obj" }, callback);
     },
 
