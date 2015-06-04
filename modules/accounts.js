@@ -151,8 +151,8 @@ accounts.configureAccountsAPI = function()
         case "put/secret":
             req.query.id = req.account.id;
             req.query.login = req.account.login;
-            api.setAccountSecret(req.query, options, function(err) {
-                api.sendJSON(req, err, {});
+            api.setAccountSecret(req.query, options, function(err, data) {
+                api.sendJSON(req, err, data);
             });
             break;
 
@@ -359,8 +359,8 @@ accounts.addAccount = function(req, options, callback)
     lib.series([
        function(next) {
            if (options.noauth) return next();
-           if (!req.query.secret) return next({ status: 400, message: "secret is required"});
            if (!req.query.login) return next({ status: 400, message: "login is required"});
+           if (!req.query.secret && !req.query.password) return next({ status: 400, message: "secret is required"});
            // Copy for the auth table in case we have different properties that needs to be cleared
            var query = lib.cloneObj(req.query);
            query.token_secret = true;

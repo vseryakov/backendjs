@@ -160,9 +160,11 @@ var db = {
                    alias: {},                                          // Account alias
                    status: {},                                         // Status of the account
                    type: { admin: 1 },                                 // Account type: admin, ....
-                   secret: { secure: 1 },                              // Account password
+                   secret: { secure: 1 },                              // Signature secret, not a password
                    auth_secret: { admin: 1, secure: 1 },               // Code for 2-factor authentication
                    token_secret: { admin: 1, secure: 1 },              // Secret for access tokens
+                   salt: { secure: 1 },                                // Salt for passwords
+                   password: { secure: 1},                             // Hashed with salt
                    acl_deny: { admin: 1, secure: 1 },                  // Deny access to matched url, a regexp
                    acl_allow: { admin: 1, secure: 1 },                 // Only grant access if path matches this regexp
                    query_deny: { admin: 1, secure: 1 },                // Ignore these query params, a regexp

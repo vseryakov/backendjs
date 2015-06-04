@@ -131,6 +131,7 @@ var api = {
                                       "^/public/",
                                       "^/account/logout$",
                                       "^/account/add$",
+                                      "^/login$",
                                       "^/ping" ]),
     // Only for admins
     allowAdmin: {},
@@ -401,7 +402,7 @@ api.init = function(options, callback)
 
     // Check the signature, for virtual hosting, supports only the simple case when running the API and static web sites on the same server
     if (!self.noSignature) {
-        self.app.use(function(req, res, next) { return self.checkRequest(req, res, next); });
+        self.app.use(function(req, res, next) { return self.handleSignature(req, res, next); });
     }
 
     // Config options for Express
@@ -678,6 +679,15 @@ api.prepareRequest = function(req)
     var apath = path.substr(1).split("/");
     req.options = { ops: {}, noscan: 1, ip: req.ip, host: req.hostname, path: path, apath: apath, secure: req.secure, cleanup: "bk_" + apath[0] };
     req.account = {};
+    
+    // Parse application version, extract first product and version only
+    var v = req.query[this.appHeaderName] || req.headers[this.appHeaderName] || req.headers['user-agent'];
+    if (v && (v = v.match(/^([^\/]+)\/([0-9a-zA-Z_\.\-]+)/))) {
+        req.options.appName = v[1];
+        req.options.appVersion = v[2];
+    }
+    // Core protocol version to be used in the request if supported
+    if ((v = req.query[this.versionHeaderName] || req.headers[this.versionHeaderName])) req.options.coreVersion = v;    
 }
 
 // This is supposed to be called at the beginning of request processing to start metrics and install the handler which
@@ -726,34 +736,25 @@ api.handleMetrics = function(req, res, next)
 }
 
 // Perform authorization of the incoming request for access and permissions
-api.checkRequest = function(req, res, callback)
+api.handleSignature = function(req, res, next)
 {
     var self = this;
 
-    // Parse application version, extract first product and version only
-    var v = req.query[this.appHeaderName] || req.headers[this.appHeaderName] || req.headers['user-agent'];
-    if (v && (v = v.match(/^([^\/]+)\/([0-9a-zA-Z_\.\-]+)/))) {
-        req.options.appName = v[1];
-        req.options.appVersion = v[2];
-    }
-    // Core protocol version to be used in the request if supported
-    if ((v = req.query[this.versionHeaderName] || req.headers[this.versionHeaderName])) req.options.coreVersion = v;
-
-    self.checkAccess(req, function(rc1) {
+    self.checkAccess(req, function(status) {
         // Status is given, return an error or proceed to the next module
-        if (rc1) {
-            if (rc1.status == 200) return callback();
-            if (rc1.status) self.sendStatus(res, rc1);
+        if (status) {
+            if (status.status == 200) return next();
+            if (status.status) self.sendStatus(res, status);
             return;
         }
-
-        // Verify account access for signature
-        self.checkSignature(req, function(rc2) {
+        
+        // Verify account signature
+        self.checkSignature(req, function(status) {
             // Determine what to do with the request even if the status is not success, a hook may deal with it differently,
             // the most obvious case is for a Web app to perform redirection on authentication failure
-            self.checkAuthorization(req, rc2, function(rc3) {
-                if (rc3 && rc3.status != 200) return self.sendStatus(res, rc3);
-                callback();
+            self.checkAuthorization(req, status, function(status) {
+                if (status && status.status != 200) return self.sendStatus(res, status);
+                next();
             });
         });
     });
@@ -896,7 +897,10 @@ api.checkAccess = function(req, callback)
     callback();
 }
 
-// Perform authorization checks after the account been checked for valid signature, this is called even if the signature verification failed
+// Perform authorization checks after the account been checked for valid signature, this is called even if the signature verification failed, 
+// in case of a custom authentication middlware this must be called at the end and use the status object returned in the callback to
+// return an error or proceed with the request. In any case the result of this function is the final.  
+//
 // - req is Express request object
 // - status contains the signature verification status, an object with status: and message: properties, can be null
 // - callback is a function(status) to be called with the resulted status where status must be an object with status and message properties as well
@@ -1040,6 +1044,11 @@ api.checkSignature = function(req, callback)
             sig.hash = lib.sign(secret, sig.str, "sha256");
             break;
 
+        case 5:
+            sig.hash = lib.sign(account.salt, sig.signature, "sha256");
+            sig.signature = account.password;
+            break;
+            
         case 4:
             if (account.auth_secret) secret += ":" + account.auth_secret;
         default:
@@ -1070,6 +1079,27 @@ api.checkSignature = function(req, callback)
         req.options.account = { id: req.account.id, login: req.account.login, alias: req.account.alias, type: req.account.type };
         return callback({ status: 200, message: "Ok" });
     });
+}
+
+// Check login and cleatext password from a client
+api.checkLogin = function(req, callback)
+{
+    // Make sure we will not crash on wrong object
+    if (!req || !req.query) req = { query: {} };
+
+    // Required values must be present and not empty
+    if (!req.query.login || !req.query.password) {
+        req._noSignature = 1;
+        return callback({ status: 417, message: "No login provided" });
+    }
+    // Create a signature from the login data
+    req.signature = this.parseSignature(req);
+    req.signature.version = 5;
+    req.signature.expires = Date.now() + this.signatureAge + 1000;
+    req.signature.login = req.query.login;
+    req.signature.signature = req.query.password;
+    req.query.login = req.query.password = "";
+    this.checkSignature(req, callback);
 }
 
 // Parse incoming request for signature and return all pieces wrapped in an object, this object

@@ -182,6 +182,9 @@ var Bkjs = {
             str = String(method || "GET") + "\n" + String(host).toLowerCase() + "\n" + String(url) + "\n" + String(query) + "\n" + String(expires) + "\n" + String(ctype).toLowerCase() + "\n" + (options.checksum || "") + "\n";
             hmac = b64_hmac_sha1(creds.secret, str);
             break;
+        case 5:
+            hmac = creds.secret;
+            break;
 
         default:
             str = this.signatureVersion + "\n" + String(options.tag || "") + "\n" + creds.login + "\n" + String(method || "GET") + "\n" + String(host).toLowerCase() + "\n" + String(url) + "\n" + String(query) + "\n" + String(expires) + "\n" + String(ctype).toLowerCase() + "\n" + (options.checksum || "") + "\n";
