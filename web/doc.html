@@ -99,6 +99,7 @@
 <li><a href="#module-ipc_local">ipc_local</a></li>
 <li><a href="#module-ipc_memcache">ipc_memcache</a></li>
 <li><a href="#module-ipc_redis">ipc_redis</a></li>
+<li><a href="#module-ipc_sqs">ipc_sqs</a></li>
 <li><a href="#module-accounts">accounts</a></li>
 <li><a href="#module-connections">connections</a></li>
 <li><a href="#module-counters">counters</a></li>
@@ -2193,9 +2194,11 @@ might be useful when desining, developing or choosing the API platform:</p>
 <li><code>msg-apn-cert</code> - Certificate for APN service, pfx format, .p12 ext</li>
 <li><code>msg-apn-production</code> - Enable APN production mode of operations, if not specified the mode is derived from the certificate name, presence of the word &#39;production&#39; in the cert file name will enable production mode</li>
 <li><code>msg-gcm-key</code> - Google Cloud Messaging API key</li>
-<li><code>msg-server-queue</code> - Name for push notification queue to initialize for receiving messages from the clients to forward to the actual gateways, it uses PUB/SUB messaging subsystem</li>
-<li><code>msg-client-queue</code> - Name for push notification queue, set to make current backend send all messages to this queue, any name can be used as long as it unqiue and does not interfere with other PUB/SUB prefixes</li>
-<li><code>msg-host</code> - List of hosts/IP addresses to be used for actual delivery of push notifications, all other hosts will queue notifications to these servers. DNS TXT configurable.</li>
+<li><code>msg-queue-key</code> - A queue key to subscribe for clients and listen for servers so messages can be exchanged in the queue environment where multiple queue exist</li>
+<li><code>msg-server-queue-host</code> - A queue to create for receiving messages from the clients and forwarding to the actual gateways</li>
+<li><code>msg-server-queue-options</code> - JSON object with options to the queue server</li>
+<li><code>msg-client-queue-host</code> - A queue to create where to send all messages instead of actual gateways</li>
+<li><code>msg-client-queue-options</code> - JSON object with options to the queue client</li>
 <li><code>msg-shutdown-timeout</code> - How long to wait for messages draining out in ms on shutting down before exiting</li>
 <li><code>api-images-url</code> - URL where images are stored, for cases of central image server(s), must be full URL with optional path and trailing slash at the end</li>
 <li><code>api-images-s3</code> - S3 bucket name where to store and retrieve images</li>
@@ -2407,7 +2410,7 @@ will be called at the end to finalize the metrics and call the cleanup handlers<
 </ul>
 
 <ul>
-<li><p><code>api.checkRequest(req, res, callback)</code></p>
+<li><p><code>api.handleSignature(req, res, next)</code></p>
 <p> Perform authorization of the incoming request for access and permissions</p>
 </li>
 </ul>
@@ -2440,7 +2443,9 @@ for statuses 301,302 there should be url property in the object returned</li>
 
 <ul>
 <li><p><code>api.checkAuthorization(req, status, callback)</code></p>
-<p> Perform authorization checks after the account been checked for valid signature, this is called even if the signature verification failed</p>
+<p> Perform authorization checks after the account been checked for valid signature, this is called even if the signature verification failed, 
+in case of a custom authentication middlware this must be called at the end and use the status object returned in the callback to
+return an error or proceed with the request. In any case the result of this function is the final.  </p>
 <ul>
 <li>req is Express request object</li>
 <li>status contains the signature verification status, an object with status: and message: properties, can be null</li>
@@ -2467,6 +2472,12 @@ The options is expected to contain the following cached request properties:</p>
 <ul>
 <li><p><code>api.checkSignature(req, callback)</code></p>
 <p> Verify request signature from the request object, uses properties: .host, .method, .url or .originalUrl, .headers</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.checkLogin(req, callback)</code></p>
+<p> Check login and cleatext password from a client</p>
 </li>
 </ul>
 
@@ -2602,7 +2613,7 @@ all request properties with the same name as this column name will be removed fr
 table to disable updating location related columns because speial location API maintains location data and updates the accounts table.</p>
 <p>The options can have a property in the form <code>keep_{name}</code> which will prevent from clearing the query for the name, this is for dynamic enabling/disabling
 this functionality without clearing table column definitions.</p>
-<p>The <code>options.reverse</code> will make the logic oppsote, clear all properties that do not have the property <code>name</code> in the object.</p>
+<p>The <code>options.reverse</code> will make the logic opposite: clear all properties that do not have the property <code>name</code> in the object.</p>
 </li>
 </ul>
 
@@ -3227,7 +3238,7 @@ The following options can be used:</p>
 <ul>
 <li><p><code>aws.snsSubscribe(arn, endpoint, options, callback)</code></p>
 <p> Creates a topic to which notifications can be published. The callback returns topic ARN on success, if the topic requires
-confirmation the arn returned will bt null and a token will be sent to the endpoint for confirmation.</p>
+confirmation the arn returned will be null and a token will be sent to the endpoint for confirmation.</p>
 </li>
 </ul>
 
@@ -3864,13 +3875,6 @@ automatically.</p>
 </ul>
 
 <ul>
-<li><p><code>core.parseLocalAddress(str)</code></p>
-<p> Given a string with list of urls try to find if any points to our local server using IP address or host name, returns the url
-in format: protocol://*:port, mostly to be used with nanomsg sockets</p>
-</li>
-</ul>
-
-<ul>
 <li><p><code>core.killBackend(name, signal, callback)</code></p>
 <p> Kill all backend processes that match name and not the current process</p>
 </li>
@@ -4009,9 +4013,11 @@ database like DynamoDB for real-time requests and slower SQL database running on
                  alias: {},                                          // Account alias
                  status: {},                                         // Status of the account
                  type: { admin: 1 },                                 // Account type: admin, ....
-                 secret: { secure: 1 },                              // Account password
+                 secret: { secure: 1 },                              // Signature secret, not a password
                  auth_secret: { admin: 1, secure: 1 },               // Code for 2-factor authentication
                  token_secret: { admin: 1, secure: 1 },              // Secret for access tokens
+                 salt: { secure: 1 },                                // Salt for passwords
+                 password: { secure: 1},                             // Hashed with salt
                  acl_deny: { admin: 1, secure: 1 },                  // Deny access to matched url, a regexp
                  acl_allow: { admin: 1, secure: 1 },                 // Only grant access if path matches this regexp
                  query_deny: { admin: 1, secure: 1 },                // Ignore these query params, a regexp
@@ -4434,7 +4440,8 @@ The following options can be used:</p>
 <li>preprocess - a callback function(row, options, next) that is called for every row on the original table, next must be called to move to the next row, if err is returned as first arg then the processing will stop</li>
 <li>postprocess - a callback function(row, options, next) that is called for every row on the destination table, same rules as for preprocess</li>
 <li>tmppool - the db pool to be used for temporary table</li>
-<li>tpmdrop - if 1 then the temporary table willbe dropped at the end in case of success, by default it is kept</li>
+<li>tpmdrop - if 1 then the temporary table will be dropped at the end in case of success, by default it is kept</li>
+<li>delay - number of milliseconds to wait between the steps</li>
 </ul>
 </li>
 </ul>
@@ -5082,8 +5089,26 @@ use <code>this.send()</code>.</p>
 </ul>
 
 <ul>
+<li><p><code>ipc.initServerQueue()</code></p>
+<p> Setup a queue service to be used inside a server process</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>ipc.initWorker()</code></p>
 <p> This function is called by Web worker process to setup IPC channels and support for cache and messaging</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>ipc.initWorkerQueue()</code></p>
+<p> Setup a queue service to be used inside a worjker process</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>ipc.createClient(host, options)</code></p>
+<p> Return a new client for the given host or null if not supported</p>
 </li>
 </ul>
 
@@ -5250,36 +5275,20 @@ By default, shutdown the instance after job finishes unless noshutdown:1 is spec
 </ul>
 
 <ul>
-<li><p><code>jobs.submit(options, callback)</code></p>
-<p> Submit a job for execution according to the type</p>
+<li><p><code>jobs.runTask(options, callback)</code></p>
+<p> Process a job for execution according to the type</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>jobs.finish(options, callback)</code></p>
-<p> Finish and mark or delete a job after the successfull execution, this is supposed to be called by
-the jobs that handle completion, by default new job pulled from te database is deleted on successful schedule.
-The options is the same job object that was passed to the <code>jobs.submit</code>.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>jobs.updateQueue(options)</code></p>
+<li><p><code>jobs.submitTask(options)</code></p>
 <p> Update the job queue with a job, can be an object or a string in the format object.method
 All spaces must be are replaced with %20 to be used in command line parameterrs</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>jobs.processQueue(options, callback)</code></p>
-<p> Periodically pull submitted jobs from the Db or other queue system and send it to execution. The primary goal for this
-job system is to execute cron jobs, o.e. jobs to be executed periodically based on time or other condition but NOT to
-be used for demand jobs from a web process for example.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>jobs.checkQueue()</code></p>
+<li><p><code>jobs.processTask()</code></p>
 <p> Process pending jobs, submit to idle workers</p>
 </li>
 </ul>
@@ -5348,7 +5357,29 @@ cron jobs manually</p>
 </ul>
 
 <ul>
-<li><p><code>jobs.updateDb(options, callback)</code></p>
+<li><p><code>jobs.processJob(options, callback)</code></p>
+<p> Periodically pull submitted jobs from the Db or other queue system and send it to execution. The primary goal for this
+job system is to execute cron jobs, i.e. jobs to be executed periodically based on time or other condition but NOT to
+be used for on-demand jobs from a web process for example.</p>
+<p>It is run by the master process every <code>-server-jobs-interval</code> seconds.</p>
+<p>For <code>db</code> type, it requires connection to the database, how jobs appear in the table and the order of execution is not concern of this function,
+the higher level management tool must take care when and what to run and in what order.
+If <code>tag</code> has been set then only jobs with such tag will be pulled by this instance.</p>
+<p>If a job object contains a property <code>finish</code> then it is responsibility of a worker to call <code>jobs.finishJob</code> so the job
+will be deleted from the queue. By default all jobs pulled from the db are deleted just after submition for execution.</p>
+<p>The options can specify:</p>
+<ul>
+<li>queue - SQS queue ARN, if not specified the <code>-server-job-queue</code> will be used</li>
+<li>timeout - how long to wait for messages, seconds, default is 5</li>
+<li>count - how many jobs to receive, if not specified then uses <code>-jobs-count</code> config parameter</li>
+<li>visibilityTimeout - The duration in seconds that the received messages are hidden from subsequent retrieve requests
+ after being retrieved by a ReceiveMessage request.</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>jobs.submitJob(options, callback)</code></p>
 <p> Submit job for execution, it will be saved in the server queue and the master or job worker will pick it up later.</p>
 <p>The options properties:</p>
 <ul>
@@ -5360,27 +5391,10 @@ cron jobs manually</p>
 </ul>
 
 <ul>
-<li><p><code>jobs.processDb(options, callback)</code></p>
-<p> Load submitted jobs for execution, it is run by the master process every <code>-server-jobs-interval</code> seconds.
-Requires connection to the database, how jobs appear in the table and the order of execution is not concern of this function,
-the higher level management tool must take care when and what to run and in what order.
-If <code>tag</code> has been set then only jobs with such tag will be pulled by this instance.</p>
-<p>If a job object contain sa property <code>finish</code> then it is responsibility of a worker to call <code>jobs.finish</code> so the job
-will be deleted from the queue. By default all jobs pulled from the db are deleted just after submition for execution.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>jobs.processSQS(options, callback)</code></p>
-<p> Process AWS SQS queue for any messages and execute jobs, a job object must be in the same format as for the cron jobs.</p>
-<p>The options can specify:</p>
-<ul>
-<li>queue - SQS queue ARN, if not specified the <code>-server-job-queue</code> will be used</li>
-<li>timeout - how long to wait for messages, seconds, default is 5</li>
-<li>count - how many jobs to receive, if not specified use <code>-api-max-jobs</code> config parameter</li>
-<li>visibilityTimeout - The duration in seconds that the received messages are hidden from subsequent retrieve requests
- after being retrieved by a ReceiveMessage request.</li>
-</ul>
+<li><p><code>jobs.finishJob(options, callback)</code></p>
+<p> Finish and mark or delete a job after the successfull execution, this is supposed to be called by
+the jobs that handle completion, by default a job pulled from the queue is deleted on successful schedule.
+The options is the same job object that was passed to the <code>jobs.submit</code>.</p>
 </li>
 </ul>
 
@@ -7362,7 +7376,7 @@ with error as first argument and database object as second</p>
 </ul>
 
 <ul>
-<li><p><code>IpcClient.prototype.publish(key, data)</code></p>
+<li><p><code>IpcClient.prototype.publish(key, data, callback)</code></p>
 <p> Publish an event</p>
 </li>
 </ul>
@@ -7370,6 +7384,7 @@ with error as first argument and database object as second</p>
 <h2 id="module-ipc_local">Module: IPC_LOCAL</h2>
 <h2 id="module-ipc_memcache">Module: IPC_MEMCACHE</h2>
 <h2 id="module-ipc_redis">Module: IPC_REDIS</h2>
+<h2 id="module-ipc_sqs">Module: IPC_SQS</h2>
 <h2 id="module-accounts">Module: ACCOUNTS</h2>
 <ul>
 <li><p><code>accounts</code></p>
@@ -7414,11 +7429,11 @@ with error as first argument and database object as second</p>
                         ctime: { type: &quot;bigint&quot;, readonly: 1, now: 1 },   // Create time
                         mtime: { type: &quot;bigint&quot;, now: 1 } },              // Last update time
 
-          bk_status: { id: { primary: 1 },                               // account id
-                       status: {},                                       // status, online, offline, away
-                       alias: {},
-                       atime: { type: &quot;bigint&quot;, now: 1 },                // last access time
-                       mtime: { type: &quot;bigint&quot; }},                       // last status save to db time
+          bk_status: { id: { primary: 1, pub: 1 },                        // account id
+                       status: { pub: 1 },                                // status, online, offline, away
+                       alias: { pub: 1 },
+                       atime: { type: &quot;bigint&quot;, now: 1, pub: 1 },         // last access time
+                       mtime: { type: &quot;bigint&quot; }, pub: 1 },               // last status save to db time
 
           // Account metrics, must correspond to `-api-url-metrics` settings, for images the default is first 2 path components
           bk_collect: {
@@ -7670,7 +7685,7 @@ with other properties to be added. <code>obj</code> is left untouched.</p>
 <p>The following properties can alter the actions:</p>
 <ul>
 <li>publish - send notification via pub/sub system if present</li>
-<li>nocounter - do not update auto increment counters</li>
+<li>autocounter - if a number and not zero it will be used to update auto increment counters</li>
 <li>noreference - do not create reference part of the connection</li>
 <li>connected - return existing connection record for the same type from the other account</li>
 <li>alias - an alias for the reference record for cases wen connecting 2 different accounts, it has preference over options.account.</li>
