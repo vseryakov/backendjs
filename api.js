@@ -1184,6 +1184,10 @@ api.createSignature = function(login, secret, method, host, uri, options)
         str = ver + '\n' + tag + '\n' + String(login) + "\n" + String(method) + "\n" + String(hostname) + "\n" + String(path) + "\n" + String(query) + "\n" + String(expires) + "\n*\n*\n";
         hmac = lib.sign(String(secret), str, "sha256")
         break;
+        
+    case 5:
+        hmac = secret;
+        break;
 
     case 4:
     default:
