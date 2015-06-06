@@ -78,7 +78,7 @@ jobs.run = function(options)
     var self = this;
 
     function done(err, name) {
-        logger[err ? "error" : "debug"]('jobs.run:', 'finished', name || "", err || "");
+        logger[err ? "error" : "debug"]('jobs.run:', 'finished', name || "", util.isError(err) ? err.stack : (err || ""));
         if (!self.jobs.length && cluster.isWorker) {
             core.runMethods("shutdownWorker", function() {
                 logger.debug('jobs.run:', 'exit', name || "", err || "");

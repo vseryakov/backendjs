@@ -302,29 +302,6 @@ server.startWeb = function(options)
                 self.clusterFork = function() { return cluster.fork(); }
             }
 
-            // Arguments passed to the v8 engine
-            if (self.workerArgs.length) process.execArgv = self.workerArgs;
-
-            // Create tables and spawn Web workers
-            db.initTables(options, function(err) {
-                for (var i = 0; i < self.maxProcesses; i++) self.clusterFork();
-            });
-            self.ftime = Date();
-
-            // Web server related initialization, not much functionality is expected in this process
-            // regardless if it is a proxy or not, it supposed to pass messages between the web workers
-            // and keep the cache
-            core.runMethods("configureServer", options);
-
-            // Frontend server tasks
-            setInterval(function() {
-                // Give some time for warming up if we just forked a worker
-                if (Date.now() - self.ftime < 30000) return;
-                // Make sure we have all workers running
-                var nworkers = Object.keys(cluster.workers).length;
-                for (var i = 0; i < self.maxProcesses - nworkers; i++) self.clusterFork();
-            }, 30000);
-
             // Restart if any worker dies, keep the worker pool alive
             cluster.on("exit", function(worker, code, signal) {
                 logger.log('startWeb:', core.role, 'process terminated:', worker.id, 'pid:', worker.process.pid || "", "code:", code || "", 'signal:', signal || "");
@@ -332,7 +309,6 @@ server.startWeb = function(options)
                 // Exit when all workers are terminated
                 if (self.exiting && !nworkers) process.exit(0);
                 self.respawn(function() {
-                    self.ftime = Date.now();
                     self.clusterFork();
                 });
             });
@@ -344,6 +320,20 @@ server.startWeb = function(options)
                 logger.log('web server: shutdown started');
                 for (var p in cluster.workers) try { process.kill(cluster.workers[p].process.pid); } catch(e) {}
             }
+
+            // Arguments passed to the v8 engine
+            if (self.workerArgs.length) process.execArgv = self.workerArgs;
+
+            // Create tables and spawn Web workers
+            db.initTables(options, function(err) {
+                for (var i = 0; i < self.maxProcesses; i++) self.clusterFork();
+            });
+
+            // Web server related initialization, not much functionality is expected in this process
+            // regardless if it is a proxy or not, it supposed to pass messages between the web workers
+            // and keep the cache
+            core.runMethods("configureServer", options);
+
             self.writePidfile();
             logger.log('startWeb:', core.role, 'version:', core.version, 'home:', core.home, 'port:', core.port, 'uid:', process.getuid(), 'gid:', process.getgid(), 'pid:', process.pid)
         });

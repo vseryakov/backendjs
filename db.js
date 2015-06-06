@@ -772,14 +772,18 @@ db.updateAll = function(table, query, obj, options, callback)
     var pool = this.getPool(table, options);
     if (typeof pool.updateAll == "function" && typeof options.process != "function") return pool.updateAll(table, query, obj, options, callback);
 
+    var cap = db.getCapacity(table);
     self.select(table, query, options, function(err, rows) {
         if (err) return callback(err);
 
-        options.ops = {};
+        var opts = lib.cloneObj(options, 'ops', {});
         lib.forEachLimit(rows, options.concurrency || 1, function(row, next) {
             for (var p in obj) row[p] = obj[p];
-            if (options && typeof options.process == "function") options.process(row, options);
-            self.update(table, row, options, next);
+            if (options.process == "function") options.process(row, opts);
+            self.update(table, row, opts, function(err) {
+                if (err) return next(err);
+                db.checkCapacity(cap, next);      
+            })
         }, function(err) {
             callback(err, rows);
         });
@@ -844,14 +848,19 @@ db.delAll = function(table, query, options, callback)
     var pool = this.getPool(table, options);
     if (typeof pool.delAll == "function" && typeof options.process != "function") return pool.delAll(table, query, options, callback);
 
+    var cap = db.getCapacity(table);
+    
     // Options without ops for delete
     var opts = lib.cloneObj(options, 'ops', {});
     self.select(table, query, options, function(err, rows) {
         if (err) return callback(err);
 
         lib.forEachLimit(rows, options.concurrency || 1, function(row, next) {
-            if (options && typeof options.process == "function") options.process(row, opts);
-            self.del(table, row, opts, next);
+            if (typeof options.process == "function") options.process(row, opts);
+            self.del(table, row, opts, function(err) {
+                if (err) return next(err);
+                db.checkCapacity(cap, next);
+            });
         }, function(err) {
             callback(err, rows);
         });
