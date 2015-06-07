@@ -1361,7 +1361,7 @@ api.getPublicColumns = function(table, options)
 //
 // If any column is marked with `secure` property this means never return that column in the result even for the owner of the record
 //
-// If any column is marked with `admin` property and the current account is an admin this property will be returned as well.
+// If any column is marked with `admin` or `admins` property and the current account is an admin this property will be returned as well.
 //
 // The `options.strict` will enforce that all columns not present in the table definition will be skipped as well, by default all
 // new columns or columns created on the fly are returned to the client.
@@ -1377,10 +1377,10 @@ api.checkResultColumns = function(table, rows, options)
     var tables = lib.strSplit(table);
     for (var i = 0; i < tables.length; i++) {
         var c = db.getColumns(tables[i], options);
-        for (var p in c) cols[p] = c[p].pub ? 1 : c[p].secure ? -1 : c[p].admin ? admin : 0;
+        for (var p in c) cols[p] = c[p].pub ? 1 : c[p].secure ? -1 : c[p].admin || c[p].admins ? admin : 0;
     }
     if (!Array.isArray(rows)) rows = [ rows ];
-    logger.debug("checkResultColumns:", table, cols, rows.length, options);
+    logger.debug("checkResultColumns:", table, cols, rows.length, admin, options);
     for (var i = 0; i < rows.length; i++) {
         // For personal records, skip only special columns
         row = rows[i];
