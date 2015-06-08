@@ -2209,6 +2209,7 @@ might be useful when desining, developing or choosing the API platform:</p>
 <li><code>api-max-cpu-util</code> - Max CPU utilization allowed, if exceeds this value server returns too busy error</li>
 <li><code>api-max-memory-heap</code> - Max number of bytes of V8 heap allowed, if exceeds this value server returns too busy error</li>
 <li><code>api-max-memory-rss</code> - Max number of bytes in RSS memory allowed, if exceeds this value server returns too busy error</li>
+<li><code>api-max-request-queue</code> - Max number of requests in the processing queue, if exceeds this value server returns too busy error</li>
 <li><code>api-no-access-log</code> - Disable access logging in both file or syslog</li>
 <li><code>api-access-log-file</code> - File for access logging</li>
 <li><code>api-salt</code> - Salt to be used for scrambling credentials or other hashing activities</li>
@@ -2598,7 +2599,7 @@ is kept in the <code>req.options.cleanup</code> which by default is a table name
 property is used to detect current account but can be specified by the <code>options.account_key</code> property.</p>
 <p>By default primary keys are not kept and must be marked with <code>pub</code> property in the table definition to be returned.</p>
 <p>If any column is marked with <code>secure</code> property this means never return that column in the result even for the owner of the record</p>
-<p>If any column is marked with <code>admin</code> property and the current account is an admin this property will be returned as well.</p>
+<p>If any column is marked with <code>admin</code> or <code>admins</code> property and the current account is an admin this property will be returned as well.</p>
 <p>The <code>options.strict</code> will enforce that all columns not present in the table definition will be skipped as well, by default all
 new columns or columns created on the fly are returned to the client.</p>
 <p>The <code>options.pool</code> property must match the actual rowset to be applied properly, in case the records have been retrieved for the different
@@ -4635,7 +4636,8 @@ contain the following properties:</p>
 credentials can retrieve all public columns from all other tables, and if one of the other tables is account table this may expose some personal infoamtion,
 so by default only a few columns are marked as public in the bk_account table</em></li>
 <li><code>secure</code> - an opposite for the pub property, if defined this property should never be returned to the client by the API handlers</li>
-<li><code>admin</code> - if defined this property can only be visible and mamaged by an admin account</li>
+<li><code>admin</code> - if defined this property can only be updated an admin account</li>
+<li><code>admins</code> - if defined this property can be visible by the owner and an admin if result is returned by <code>api.sendJSON</code></li>
 <li><code>hidden</code> - completely ignored by all update operations but could be used by the public columns cleaning procedure, if it is computed and not stored in the db
 it can contain pub property to be returned to the client</li>
 <li><code>readonly</code> - only add/put operations will use the value, incr/update will not affect the value</li>
