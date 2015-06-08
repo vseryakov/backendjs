@@ -61,6 +61,7 @@ var api = {
            { name: "max-cpu-util", type: "number", min: 0, descr: "Max CPU utilization allowed, if exceeds this value server returns too busy error" },
            { name: "max-memory-heap", type: "number", min: 0, descr: "Max number of bytes of V8 heap allowed, if exceeds this value server returns too busy error" },
            { name: "max-memory-rss", type: "number", min: 0, descr: "Max number of bytes in RSS memory allowed, if exceeds this value server returns too busy error" },
+           { name: "max-request-queue", type: "number", min: 0, descr: "Max number of requests in the processing queue, if exceeds this value server returns too busy error" },
            { name: "no-access-log", type: "bool", descr: "Disable access logging in both file or syslog" },
            { name: "access-log-file", descr: "File for access logging" },
            { name: "salt", descr: "Salt to be used for scrambling credentials or other hashing activities" },
@@ -330,7 +331,11 @@ api.init = function(options, callback)
             self.metrics.Counter('rss_0').inc();
             return self.sendReply(res, 503, "Server is unavailable");
         }
-
+        // Request queue size
+        if (self.maxRequestQueue && self.metrics.Counter("api_nreq").toJSON() >= self.maxRequestQueue) {
+            self.metrics.Counter('full_0').inc();
+            return self.sendReply(res, 503, "Server is unavailable");
+        }
         // Setup request common/required properties
         self.prepareRequest(req);
 
