@@ -56,6 +56,7 @@ var api = {
            { name: "images-s3", descr: "S3 bucket name where to store and retrieve images" },
            { name: "images-raw", type: "bool", descr: "Return raw urls for the images, requires images-url to be configured. The path will reflect the actual 2 level structure and account id in the image name" },
            { name: "images-s3-options", type:" json", descr: "S3 options to sign images urls, may have expires:, key:, secret: properties" },
+           { name: "images-ext", descr: "Default image extension to use when saving images" },
            { name: "files-s3", descr: "S3 bucket name where to store files uploaded with the File API" },
            { name: "max-latency", type: "number", min: 11, descr: "Max time in ms for a request to wait in the queue, if exceeds this value server returns too busy error" },
            { name: "max-cpu-util", type: "number", min: 0, descr: "Max CPU utilization allowed, if exceeds this value server returns too busy error" },
@@ -69,7 +70,7 @@ var api = {
            { name: "no-static", type: "bool", descr: "Disable static files from /web folder, no .js or .html files will be served by the server" },
            { name: "static-options", type: "json", descr: "Options to be passed to the serve-static module for static content handling" },
            { name: "no-templating", type: "bool", descr: "Disable templating engine completely" },
-           { name: "templating", descr: "Templating engne to use, see consolidate.js for supported engines, default is ejs" },
+           { name: "templating", descr: "Templating engne to use, see consolidate.js for supported engines" },
            { name: "no-session", type: "bool", descr: "Disable cookie session support, all requests must be signed for Web clients" },
            { name: "session-age", type: "int", descr: "Session age in milliseconds, for cookie based authentication" },
            { name: "session-secret", descr: "Secret for session cookies, session support enabled only if it is not empty" },
@@ -166,6 +167,7 @@ var api = {
     imagesUrl: '',
     imagesS3: '',
     filesS3: '',
+    imagesExt: "jpg",
 
     disableSession: {},
     templating: "ejs",
@@ -449,18 +451,20 @@ api.init = function(options, callback)
 
             // Templating engine setup
             if (!self.noTemplating) {
-                self.app.engine('html', consolidate[self.templating || 'ejs']);
+                self.app.engine('html', consolidate[self.templating]);
                 self.app.set('view engine', 'html');
                 // Use app specific views path if created even if it is empty
                 self.app.set('views', core.path.views ||
                              (fs.existsSync(core.home + "/views") ? core.home + "/views" :
                               fs.existsSync(core.path.web + "/../views") ? core.path.web + "/../views" : __dirname + '/views'));
+                logger.debug("templating:", self.templating, "views:", self.app.get("views"));
             }
 
             // Serve from default web location in the package or from application specific location
             if (!self.noStatic) {
                 self.app.use(serveStatic(core.path.web, self.staticOptions));
                 self.app.use(serveStatic(__dirname + "/web", self.staticOptions));
+                logger.debug("static:", core.path.web, __dirname + "/web");
             }
 
             // Default error handler to show errors in the log
