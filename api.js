@@ -688,7 +688,7 @@ api.prepareRequest = function(req)
     var apath = path.substr(1).split("/");
     req.options = { ops: {}, noscan: 1, ip: req.ip, host: req.hostname, path: path, apath: apath, secure: req.secure, cleanup: "bk_" + apath[0] };
     req.account = {};
-    
+
     // Parse application version, extract first product and version only
     var v = req.query[this.appHeaderName] || req.headers[this.appHeaderName] || req.headers['user-agent'];
     if (v && (v = v.match(/^([^\/]+)\/([0-9a-zA-Z_\.\-]+)/))) {
@@ -696,7 +696,7 @@ api.prepareRequest = function(req)
         req.options.appVersion = v[2];
     }
     // Core protocol version to be used in the request if supported
-    if ((v = req.query[this.versionHeaderName] || req.headers[this.versionHeaderName])) req.options.coreVersion = v;    
+    if ((v = req.query[this.versionHeaderName] || req.headers[this.versionHeaderName])) req.options.coreVersion = v;
 }
 
 // This is supposed to be called at the beginning of request processing to start metrics and install the handler which
@@ -756,7 +756,7 @@ api.handleSignature = function(req, res, next)
             if (status.status) self.sendStatus(res, status);
             return;
         }
-        
+
         // Verify account signature
         self.checkSignature(req, function(status) {
             // Determine what to do with the request even if the status is not success, a hook may deal with it differently,
@@ -906,12 +906,14 @@ api.checkAccess = function(req, callback)
     callback();
 }
 
-// Perform authorization checks after the account been checked for valid signature, this is called even if the signature verification failed, 
+// Perform authorization checks after the account been checked for valid signature, this is called even if the signature verification failed,
 // in case of a custom authentication middlware this must be called at the end and use the status object returned in the callback to
-// return an error or proceed with the request. In any case the result of this function is the final.  
+// return an error or proceed with the request. In any case the result of this function is the final.
 //
 // - req is Express request object
-// - status contains the signature verification status, an object with status: and message: properties, can be null
+// - status contains the signature verification status, an object with status: and message: properties, can be null.
+//    if status property is not 200 it will be returned immeditately to the client stopping the middlware chain. For stopping without an error
+//    return a status in the range 200-299.
 // - callback is a function(status) to be called with the resulted status where status must be an object with status and message properties as well
 api.checkAuthorization = function(req, status, callback)
 {
@@ -1057,7 +1059,7 @@ api.checkSignature = function(req, callback)
             sig.hash = lib.sign(account.salt, sig.signature, "sha256");
             sig.signature = account.password;
             break;
-            
+
         case 4:
             if (account.auth_secret) secret += ":" + account.auth_secret;
         default:
@@ -1193,7 +1195,7 @@ api.createSignature = function(login, secret, method, host, uri, options)
         str = ver + '\n' + tag + '\n' + String(login) + "\n" + String(method) + "\n" + String(hostname) + "\n" + String(path) + "\n" + String(query) + "\n" + String(expires) + "\n*\n*\n";
         hmac = lib.sign(String(secret), str, "sha256")
         break;
-        
+
     case 5:
         hmac = secret;
         break;

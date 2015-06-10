@@ -168,7 +168,8 @@ connections.putConnection = function(req, options, callback)
     // Check for allowed connection types
     if (this.allow[req.query.type] && !this.allow[req.query.type][op]) return callback({ status: 400, message: "invalid connection type"});
 
-    this.makeConnection(req.account.id, req.query, options, callback)
+    req.query.id = req.query.peer;
+    this.makeConnection(req.account, req.query, options, callback)
 }
 
 // Delete a connection, this function is called by the `/connection/del` API call
@@ -212,36 +213,37 @@ connections.readConnection = function(id, obj, options, callback)
 }
 
 // Lower level connection creation with all counters support, can be used outside of the current account scope for
-// any two accounts and arbitrary properties, `id` is the primary account id, `obj` contains id or peer and type for other account
-// with other properties to be added. `obj` is left untouched.
+// any two accounts and arbitrary properties, `obj` is the primary account, `peer` contains id and type for other account
+// with other properties to be added. Both objects are left untouched.
 //
-// To maintain aliases for both sides of the connection, set alias in the obj for the bk_connection and options.alias for bk_reference.
+// Both objects must have at least the `id` properties.
 //
-// The following properties can alter the actions:
+// Connection `type` will be taken from the `peer` object only.
+//
+// To maintain aliases for both sides of the connection, set `alias` property in the both objects.
+//
+// The following options properties can be used:
 // - publish - send notification via pub/sub system if present
 // - autocounter - if a number and not zero it will be used to update auto increment counters
 // - noreference - do not create reference part of the connection
-// - connected - return existing connection record for the same type from the other account
-// - alias - an alias for the reference record for cases wen connecting 2 different accounts, it has preference over options.account.
-// - account - an object with account properties like id, alias to be used in the connection/reference records, specifically options.account.alias will
-//   be used for the reference record to show the alias of the other account, for the primary connection obj.alias is used if defined.
-connections.makeConnection = function(id, obj, options, callback)
+// - connected - return existing connection record for the same type from the peer account
+connections.makeConnection = function(obj, peer, options, callback)
 {
     var self = this;
     var now = Date.now();
     var op = options.op || 'put';
-    var query = lib.cloneObj(obj);
+    obj = lib.cloneObj(obj);
+    peer = lib.cloneObj(peer);
     var result = {};
 
     lib.series([
         function(next) {
             // Primary connection
             if (options.noconnection) return next();
-            query.id = id;
-            query.type = obj.type;
-            query.peer = obj.peer || obj.id;
-            query.mtime = now;
-            db[op]("bk_connection", query, options, function(err) {
+            obj.type = peer.type;
+            obj.peer = peer.id;
+            obj.mtime = now;
+            db[op]("bk_connection", obj, options, function(err) {
                 if (err) return next(err);
                 api.metrics.Counter(op + "_" + obj.type + '_0').inc();
                 next();
@@ -250,14 +252,11 @@ connections.makeConnection = function(id, obj, options, callback)
         function(next) {
             // Reverse connection, a reference
             if (options.noreference) return next();
-            query.id = obj.peer || obj.id;
-            query.type = obj.type;
-            query.peer = id;
-            query.mtime = now;
-            if (options.alias) query.alias = options.alias;
-            db[op]("bk_reference", query, options, function(err) {
+            peer.peer = obj.id;
+            peer.mtime = now;
+            db[op]("bk_reference", peer, options, function(err) {
                 // Remove on error
-                if (err && (op == "add" || op == "put")) return db.del("bk_connection", { id: id, type: obj.type, peer: obj.peer || obj.id }, function() { next(err); });
+                if (err && (op == "add" || op == "put")) return db.del("bk_connection", { id: obj.id, type: obj.type, peer: obj.peer }, function() { next(err); });
                 next(err);
             });
         },
@@ -268,18 +267,18 @@ connections.makeConnection = function(id, obj, options, callback)
         },
         function(next) {
             if (!options.autocounter || !core.modules.counters) return next();
-            core.modules.counters.incrAutoCounter(obj.peer || obj.id, obj.type + '1', options.autocounter, options, function(err) { next(); });
+            core.modules.counters.incrAutoCounter(peer.id, peer.type + '1', options.autocounter, options, function(err) { next(); });
         },
         function(next) {
             // Notify about connection the other side
             if (!options.publish) return next();
-            api.publish(obj.peer || obj.id, { path: "/connection/" + op, mtime: now, alias: options.alias || obj.alias, type: obj.type }, options);
+            api.publish(peer.id, { path: "/connection/" + op, mtime: now, alias: obj.alias, type: obj.type }, options);
             next();
         },
         function(next) {
             // We need to know if the other side is connected too, this will save one extra API call later
             if (!options.connected) return next();
-            db.get("bk_connection", { id: obj.peer, type: obj.type || obj.id, peer: id }, options, function(err, row) {
+            db.get("bk_connection", { id: peer.id, type: peer.type, peer: peer.peer }, options, function(err, row) {
                 if (row) result = row;
                 next(err);
             });

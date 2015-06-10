@@ -42,6 +42,7 @@ var server = {
            { name: "process-name", descr: "Path to the command to spawn by the monitor instead of node, for external processes guarded by this monitor" },
            { name: "process-args", type: "list", descr: "Arguments for spawned processes, for passing v8 options or other flags in case of external processes" },
            { name: "worker-args", type: "list", descr: "Node arguments for workers, job and web processes, for passing v8 options" },
+           { name: "no-cron-jobs", type: "bool", descr: "Disable cron jobs in the master process" },
            { name: "cron-jobs", type: "callback", callback: function(v) { if (core.role == "master") jobs.parseCronjobs("config", v) }, descr: "An array with crontab objects, similar to etc/crontab but loaded from the config" },
     ],
 
@@ -155,7 +156,7 @@ server.startMaster = function(options)
             if (core.replPort) self.startRepl(core.replPort, core.replBind);
 
             // Setup background tasks from the crontab
-            jobs.loadCronjobs();
+            if (!self.noCronJobs) jobs.loadCronjobs();
 
             // Log watcher job, always runs even if no email configured, if enabled it will
             // start sending only new errors and not from the past
@@ -304,8 +305,8 @@ server.startWeb = function(options)
 
             // Restart if any worker dies, keep the worker pool alive
             cluster.on("exit", function(worker, code, signal) {
-                logger.log('startWeb:', core.role, 'process terminated:', worker.id, 'pid:', worker.process.pid || "", "code:", code || "", 'signal:', signal || "");
                 var nworkers = Object.keys(cluster.workers).length;
+                logger.log('startWeb:', core.role, 'process terminated:', worker.id, 'pid:', worker.process.pid || "", "code:", code || "", 'signal:', signal || "", "workers:", nworkers);
                 // Exit when all workers are terminated
                 if (self.exiting && !nworkers) process.exit(0);
                 self.respawn(function() {
