@@ -108,7 +108,6 @@
 <li><a href="#module-icons">icons</a></li>
 <li><a href="#module-locations">locations</a></li>
 <li><a href="#module-messages">messages</a></li>
-<li><a href="#module-pages">pages</a></li>
 <li><a href="#module-system">system</a></li>
 </ul>
 </li>
@@ -2204,6 +2203,7 @@ might be useful when desining, developing or choosing the API platform:</p>
 <li><code>api-images-s3</code> - S3 bucket name where to store and retrieve images</li>
 <li><code>api-images-raw</code> - Return raw urls for the images, requires images-url to be configured. The path will reflect the actual 2 level structure and account id in the image name</li>
 <li><code>api-images-s3-options</code> - S3 options to sign images urls, may have expires:, key:, secret: properties</li>
+<li><code>api-images-ext</code> - Default image extension to use when saving images</li>
 <li><code>api-files-s3</code> - S3 bucket name where to store files uploaded with the File API</li>
 <li><code>api-max-latency</code> - Max time in ms for a request to wait in the queue, if exceeds this value server returns too busy error</li>
 <li><code>api-max-cpu-util</code> - Max CPU utilization allowed, if exceeds this value server returns too busy error</li>
@@ -2217,7 +2217,7 @@ might be useful when desining, developing or choosing the API platform:</p>
 <li><code>api-no-static</code> - Disable static files from /web folder, no .js or .html files will be served by the server</li>
 <li><code>api-static-options</code> - Options to be passed to the serve-static module for static content handling</li>
 <li><code>api-no-templating</code> - Disable templating engine completely</li>
-<li><code>api-templating</code> - Templating engne to use, see consolidate.js for supported engines, default is ejs</li>
+<li><code>api-templating</code> - Templating engne to use, see consolidate.js for supported engines</li>
 <li><code>api-no-session</code> - Disable cookie session support, all requests must be signed for Web clients</li>
 <li><code>api-session-age</code> - Session age in milliseconds, for cookie based authentication</li>
 <li><code>api-session-secret</code> - Secret for session cookies, session support enabled only if it is not empty</li>
@@ -2284,6 +2284,7 @@ might be useful when desining, developing or choosing the API platform:</p>
 <li><code>server-process-name</code> - Path to the command to spawn by the monitor instead of node, for external processes guarded by this monitor</li>
 <li><code>server-process-args</code> - Arguments for spawned processes, for passing v8 options or other flags in case of external processes</li>
 <li><code>server-worker-args</code> - Node arguments for workers, job and web processes, for passing v8 options</li>
+<li><code>server-no-cron-jobs</code> - Disable cron jobs in the master process</li>
 <li><code>server-cron-jobs</code> - An array with crontab objects, similar to etc/crontab but loaded from the config</li>
 </ul>
 <h2 id="module-api">Module: API</h2>
@@ -2444,12 +2445,14 @@ for statuses 301,302 there should be url property in the object returned</li>
 
 <ul>
 <li><p><code>api.checkAuthorization(req, status, callback)</code></p>
-<p> Perform authorization checks after the account been checked for valid signature, this is called even if the signature verification failed, 
+<p> Perform authorization checks after the account been checked for valid signature, this is called even if the signature verification failed,
 in case of a custom authentication middlware this must be called at the end and use the status object returned in the callback to
-return an error or proceed with the request. In any case the result of this function is the final.  </p>
+return an error or proceed with the request. In any case the result of this function is the final.</p>
 <ul>
 <li>req is Express request object</li>
-<li>status contains the signature verification status, an object with status: and message: properties, can be null</li>
+<li>status contains the signature verification status, an object with status: and message: properties, can be null.
+if status property is not 200 it will be returned immeditately to the client stopping the middlware chain. For stopping without an error
+return a status in the range 200-299.</li>
 <li>callback is a function(status) to be called with the resulted status where status must be an object with status and message properties as well</li>
 </ul>
 </li>
@@ -6909,7 +6912,7 @@ Output file name is built according to the following options properties:</li>
 </li>
 <li>filter - ImageMagick image filters, default is lanczos</li>
 <li>quality - 0-99 percent, image scaling quality</li>
-<li>ext - image format: png, gif, jpg, jp2</li>
+<li>ext - image format: png, gif, jpg, jp2, svg</li>
 <li>flip - flip horizontally</li>
 <li>flop - flip vertically</li>
 <li>blue_radius, blur_sigma - perform adaptive blur on the image</li>
@@ -7679,20 +7682,19 @@ if options.accounts is 1 then combine with account record.</p>
 </ul>
 
 <ul>
-<li><p><code>connections.makeConnection(id, obj, options, callback)</code></p>
+<li><p><code>connections.makeConnection(obj, peer, options, callback)</code></p>
 <p> Lower level connection creation with all counters support, can be used outside of the current account scope for
-any two accounts and arbitrary properties, <code>id</code> is the primary account id, <code>obj</code> contains id or peer and type for other account
-with other properties to be added. <code>obj</code> is left untouched.</p>
-<p>To maintain aliases for both sides of the connection, set alias in the obj for the bk_connection and options.alias for bk_reference.</p>
-<p>The following properties can alter the actions:</p>
+any two accounts and arbitrary properties, <code>obj</code> is the primary account, <code>peer</code> contains id and type for other account
+with other properties to be added. Both objects are left untouched.</p>
+<p>Both objects must have at least the <code>id</code> properties.</p>
+<p>Connection <code>type</code> will be taken from the <code>peer</code> object only.</p>
+<p>To maintain aliases for both sides of the connection, set <code>alias</code> property in the both objects.</p>
+<p>The following options properties can be used:</p>
 <ul>
 <li>publish - send notification via pub/sub system if present</li>
 <li>autocounter - if a number and not zero it will be used to update auto increment counters</li>
 <li>noreference - do not create reference part of the connection</li>
-<li>connected - return existing connection record for the same type from the other account</li>
-<li>alias - an alias for the reference record for cases wen connecting 2 different accounts, it has preference over options.account.</li>
-<li>account - an object with account properties like id, alias to be used in the connection/reference records, specifically options.account.alias will
-be used for the reference record to show the alias of the other account, for the primary connection obj.alias is used if defined.</li>
+<li>connected - return existing connection record for the same type from the peer account</li>
 </ul>
 </li>
 </ul>
@@ -8115,67 +8117,6 @@ is used in <code>/location/get</code> request. It can be used in the application
 <ul>
 <li><p><code>messages.updateArchiveMessage(req, options, callback)</code></p>
 <p> Update a messages in the archive, used in /message/update/archive` API call</p>
-</li>
-</ul>
-
-<h2 id="module-pages">Module: PAGES</h2>
-<ul>
-<li><p><code>pages</code></p>
-<p> Wiki pages management</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>pages.init(options)</code></p>
-<p> Initialize the module</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>Database tables</code></p>
-<pre><code>          // Wiki pages
-          bk_pages: { id: { primary: 1, pub: 1 },
-                      title: { pub: 1 },
-                      subtitle: { pub: 1 },
-                      icon: { pub: 1 },                            // icon class, glyphicon, fa....
-                      link: { pub: 1 },                            // external link to the content
-                      content: { pub: 1 },                         // the page content
-                      toc: { type:&quot; bool&quot;, pub: 1 },               // produce table of content
-                      pub: { type: &quot;bool&quot;, pub: 1 },               // no account to see thos page
-                      userid: { pub: 1 },                          // id of the last user
-                      mtime: { type: &quot;bigint&quot;, now: 1, pub: 1 }},
-</code></pre></li>
-</ul>
-
-<ul>
-<li><p><code>pages.configureWeb(options, callback)</code></p>
-<p> Create API endpoints and routes</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>pages.configurePagesAPI()</code></p>
-<p> API for wiki pages support</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>pages.preparePages(options)</code></p>
-<p> Prepare a markdown page, the following properties can be used in the options:</p>
-<ul>
-<li>content - the markdown contents</li>
-<li>title - tile to be rendered, this will be discovered by taking first # heading if not set</li>
-<li>subtitle - subtitle or short description</li>
-<li>toc - if not empty, then it is replaced with the table of contents by collecting all heading tags, i.e #</li>
-<li>id - id or file name, if no title is specified or discovered it will be used as a title</li>
-<li>render - if true render into html, otherwise return just markdown</li>
-</ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>pages.sendPages(req, options)</code></p>
-<p> Send rendered markdown to the client response</p>
 </li>
 </ul>
 
