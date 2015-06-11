@@ -222,6 +222,8 @@ connections.readConnection = function(id, obj, options, callback)
 //
 // To maintain aliases for both sides of the connection, set `alias` property in the both objects.
 //
+// Note: All other properties for both tables are treated separately, to make them appear in both they must be copied into the both objects.
+//
 // The following options properties can be used:
 // - publish - send notification via pub/sub system if present
 // - autocounter - if a number and not zero it will be used to update auto increment counters
@@ -235,6 +237,7 @@ connections.makeConnection = function(obj, peer, options, callback)
     var obj1 = lib.cloneObj(obj);
     var obj2 = lib.cloneObj(peer);
     var result = {};
+    // Primary keys pointing to each other
     obj1.type = peer.type;
     obj1.peer = peer.id;
     obj1.alias = peer.alias;
