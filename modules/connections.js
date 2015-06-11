@@ -232,53 +232,55 @@ connections.makeConnection = function(obj, peer, options, callback)
     var self = this;
     var now = Date.now();
     var op = options.op || 'put';
-    obj = lib.cloneObj(obj);
-    peer = lib.cloneObj(peer);
+    var obj1 = lib.cloneObj(obj);
+    var obj2 = lib.cloneObj(peer);
     var result = {};
+    obj1.type = peer.type;
+    obj1.peer = peer.id;
+    obj1.alias = peer.alias;
+    obj1.mtime = now;
+    obj2.peer = obj.id;
+    obj2.alias = obj.alias;
+    obj2.mtime = now;
 
     lib.series([
         function(next) {
             // Primary connection
             if (options.noconnection) return next();
-            obj.type = peer.type;
-            obj.peer = peer.id;
-            obj.mtime = now;
-            db[op]("bk_connection", obj, options, function(err) {
+            db[op]("bk_connection", obj1, options, function(err) {
                 if (err) return next(err);
-                api.metrics.Counter(op + "_" + obj.type + '_0').inc();
+                api.metrics.Counter(op + "_" + obj1.type + '_0').inc();
                 next();
             });
         },
         function(next) {
             // Reverse connection, a reference
             if (options.noreference) return next();
-            peer.peer = obj.id;
-            peer.mtime = now;
-            db[op]("bk_reference", peer, options, function(err) {
+            db[op]("bk_reference", obj2, options, function(err) {
                 // Remove on error
-                if (err && (op == "add" || op == "put")) return db.del("bk_connection", { id: obj.id, type: obj.type, peer: obj.peer }, function() { next(err); });
+                if (err && (op == "add" || op == "put")) return db.del("bk_connection", { id: obj1.id, type: obj1.type, peer: obj1.peer }, function() { next(err); });
                 next(err);
             });
         },
         function(next) {
             // Keep track of all connection counters
             if (!options.autocounter || !core.modules.counters) return next();
-            core.modules.counters.incrAutoCounter(id, obj.type + '0', options.autocounter, options, function(err) { next() });
+            core.modules.counters.incrAutoCounter(id, obj1.type + '0', options.autocounter, options, function(err) { next() });
         },
         function(next) {
             if (!options.autocounter || !core.modules.counters) return next();
-            core.modules.counters.incrAutoCounter(peer.id, peer.type + '1', options.autocounter, options, function(err) { next(); });
+            core.modules.counters.incrAutoCounter(obj2.id, obj2.type + '1', options.autocounter, options, function(err) { next(); });
         },
         function(next) {
             // Notify about connection the other side
             if (!options.publish) return next();
-            api.publish(peer.id, { path: "/connection/" + op, mtime: now, alias: obj.alias, type: obj.type }, options);
+            api.publish(obj2.id, { path: "/connection/" + op, mtime: now, alias: obj1.alias, type: obj1.type }, options);
             next();
         },
         function(next) {
             // We need to know if the other side is connected too, this will save one extra API call later
             if (!options.connected) return next();
-            db.get("bk_connection", { id: peer.id, type: peer.type, peer: peer.peer }, options, function(err, row) {
+            db.get("bk_connection", { id: obj2.id, type: obj2.type, peer: obj2.peer }, options, function(err, row) {
                 if (row) result = row;
                 next(err);
             });
