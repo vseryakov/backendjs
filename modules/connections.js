@@ -268,7 +268,7 @@ connections.makeConnection = function(obj, peer, options, callback)
         function(next) {
             // Keep track of all connection counters
             if (!options.autocounter || !core.modules.counters) return next();
-            core.modules.counters.incrAutoCounter(id, obj1.type + '0', options.autocounter, options, function(err) { next() });
+            core.modules.counters.incrAutoCounter(obj1.id, obj1.type + '0', options.autocounter, options, function(err) { next() });
         },
         function(next) {
             if (!options.autocounter || !core.modules.counters) return next();

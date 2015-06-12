@@ -459,10 +459,10 @@ accounts.deleteAccount = function(id, options, callback)
            function(next) {
                if (options.keep.connection || !core.modules.connections) return next();
                db.select("bk_connection", { id: obj.id }, options, function(err, rows) {
-                   if (err) return next(err)
+                   if (err) return next()
                    lib.forEachSeries(rows, function(row, next2) {
-                       db.del("bk_reference", { id: row.id, type: row.type + ":" + obj.id }, options, function(err) {
-                           db.del("bk_connection", { id: obj.id, type: row.type + ":" + row.id }, options, next2);
+                       db.del("bk_reference", { id: row.peer, type: row.type, peer: row.id }, options, function(err) {
+                           db.del("bk_connection", { id: row.id, type: row.type, peer: row.peer }, options, next2);
                        });
                    }, function() { next() });
                });

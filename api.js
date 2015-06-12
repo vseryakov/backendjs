@@ -1517,8 +1517,10 @@ api.registerPreProcess = function(method, path, callback)
 // - method can be '' in such case all mathods will be matched
 // - path is a string or regexp of the request URL similar to registering Express routes
 // - callback is a function with the following parameters: function(req, res, rows) where rows is the result returned by the API handler,
-//   the callback may not return data back to the client, in this next post process hook will be called and eventually the result will be sent back to the client.
+//   the callback may not return data back to the client, in this case next post-process hook will be called and eventually the result will be sent back to the client.
 //   **To indicate that this hook will send the result eventually it must return true, otherwise the rows will be sent afer all hooks are called**
+//
+// Note: the `req.account` object may become empty if any callback decided to do some async action, in such cases make a copy of the account object if it will needed
 //
 // Example, just update the rows, it will be sent at the end of processing all post hooks
 //
@@ -1542,7 +1544,7 @@ api.registerPostProcess = function(method, path, callback)
 }
 
 // Register a cleanup callback that will be called at the end of a request, all registered cleanup callbacks will be called in the order
-// of registration. At this time the reslt has been sent so connection is not valid anymore but the request object is still available.
+// of registration. At this time the result has been sent so connection is not valid anymore but the request and account objects are still available.
 //
 // Example, do custom logging of all requests
 //

@@ -40,7 +40,7 @@ msg.init = function(callback)
 {
     var self = this;
     if (typeof callback != "function") callback = lib.noop;
-    
+
     // Explicitly configured notification client queue, send all messages there
     if (this.clientQueue) {
         this.clientQueue = ipc.createClient(this.clientQueue, this.clientQueueOptions);
@@ -109,7 +109,7 @@ msg.send = function(options, callback)
 
     // Queue to the server instead of sending directly
     if (this.clientQueue) return this.clientQueue.publish(this.queueKey || "", options, callback);
-    
+
     logger.info("send:", options);
 
     // Determine the service to use from the device token
@@ -120,9 +120,9 @@ msg.send = function(options, callback)
             service = "aws";
         } else {
             var d = device_id.match(/^([^:]+)\:\/\/(.+)$/);
-            if (d) service = d[1], device_id = d[2];
+            if (d) service = d[1], device_id = d[2]; else service = "";
         }
-        if (!device_id) return next();
+        if (!device_id || device_id == "undefined" || device_id == "null") return next();
         logger.dev("send:", service, device_id, options.id || "");
         switch (service) {
         case "gcm":

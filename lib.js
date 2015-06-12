@@ -1040,7 +1040,7 @@ lib.strSplit = function(str, sep, type)
     var typed = typeof type != "undefined";
     return (Array.isArray(str) ? str : String(str).split(sep || /[,\|]/)).
             map(function(x) { return typed ? self.toValue(x, type) : typeof x == "string" ? x.trim() : x }).
-            filter(function(x) { return typeof x == "string" ? x : 1 });
+            filter(function(x) { return typeof x == "string" ? x.length : 1 });
 }
 
 // Split as above but keep only unique items, case-insensitive

@@ -2687,9 +2687,10 @@ results using <code>api.sendJSON</code> or <code>api.sendFormatted</code> method
 <li>method can be &#39;&#39; in such case all mathods will be matched</li>
 <li>path is a string or regexp of the request URL similar to registering Express routes</li>
 <li>callback is a function with the following parameters: function(req, res, rows) where rows is the result returned by the API handler,
-the callback may not return data back to the client, in this next post process hook will be called and eventually the result will be sent back to the client.
+the callback may not return data back to the client, in this case next post-process hook will be called and eventually the result will be sent back to the client.
 <strong>To indicate that this hook will send the result eventually it must return true, otherwise the rows will be sent afer all hooks are called</strong></li>
 </ul>
+<p>Note: the <code>req.account</code> object may become empty if any callback decided to do some async action, in such cases make a copy of the account object if it will needed</p>
 <p>Example, just update the rows, it will be sent at the end of processing all post hooks</p>
 <pre><code>    api.registerPostProcess(&#39;&#39;, &#39;/data/&#39;, function(req, res, rows) {
         rows.forEach(function(row) { ...});
@@ -2708,7 +2709,7 @@ the callback may not return data back to the client, in this next post process h
 <ul>
 <li><p><code>api.registerCleanup(method, path, callback)</code></p>
 <p> Register a cleanup callback that will be called at the end of a request, all registered cleanup callbacks will be called in the order
-of registration. At this time the reslt has been sent so connection is not valid anymore but the request object is still available.</p>
+of registration. At this time the result has been sent so connection is not valid anymore but the request and account objects are still available.</p>
 <p>Example, do custom logging of all requests</p>
 <pre><code>    api.registerCleanup(&#39;&#39;, &#39;/data/&#39;, function(req, next) {
         db.add(&quot;log&quot;, req.query, next);
