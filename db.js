@@ -515,7 +515,7 @@ db.dropPoolTables = function(name, tables, options, callback)
     }, callback);
 }
 
-// Execute query using native database driver, the query is passed directly to the driver.  
+// Execute query using native database driver, the query is passed directly to the driver.
 // - req - can be a string or an object with the following properties:
 //   - text - SQL statement or other query in the format of the native driver, can be a list of statements
 //   - values - parameter values for SQL bindings or other driver specific data
@@ -782,7 +782,7 @@ db.updateAll = function(table, query, obj, options, callback)
             if (options.process == "function") options.process(row, opts);
             self.update(table, row, opts, function(err) {
                 if (err) return next(err);
-                db.checkCapacity(cap, next);      
+                db.checkCapacity(cap, next);
             })
         }, function(err) {
             callback(err, rows);
@@ -849,7 +849,7 @@ db.delAll = function(table, query, options, callback)
     if (typeof pool.delAll == "function" && typeof options.process != "function") return pool.delAll(table, query, options, callback);
 
     var cap = db.getCapacity(table);
-    
+
     // Options without ops for delete
     var opts = lib.cloneObj(options, 'ops', {});
     self.select(table, query, options, function(err, rows) {
@@ -1754,7 +1754,7 @@ db.prepareRow = function(pool, op, table, obj, options)
                 // Handle json separately in sync with processRows
                 if (options.noJson && !options.strictTypes && cols[p].type == "json" && typeof obj[p] != "undefined") v = JSON.stringify(v);
                 // Convert into native data type
-                if (options.strictTypes && (cols[p].primary || cols[p].type) && typeof obj[p] != "undefined") v = lib.toValue(v, cols[p].type);
+                if (options.strictTypes && (cols[p].primary || cols[p].index || cols[p].type) && typeof obj[p] != "undefined") v = lib.toValue(v, cols[p].type);
                 // Verify against allowed values
                 if (Array.isArray(cols[p].values) && cols[p].values.indexOf(String(v)) == -1) continue;
                 // Max length limit for text fields
@@ -1832,7 +1832,7 @@ db.prepareRow = function(pool, op, table, obj, options)
             }
         }
         break;
-        
+
     case "list":
         for (var i = 0; i < obj.length; i++) {
             for (var p in cols) {
@@ -1857,7 +1857,7 @@ db.prepareRow = function(pool, op, table, obj, options)
 }
 
 // Convert rows returned by the database into the Javascript format or into the format
-// defined by the table columns.  
+// defined by the table columns.
 // The following special properties in the column definition chnage the format:
 //  - type = json - if a column type is json and the value is a string returned will be converted into a Javascript object
 //  - list - split the value into array

@@ -252,7 +252,6 @@ var api = {
         archive: { type: "bool" },
         trash: { type: "bool" },
         session: { type: "bool" },
-        scramble: { type: "bool" },
         accesstoken: { type: "bool" },
         force: { type: "bool" },
         continue: { type: "bool" },
@@ -928,13 +927,20 @@ api.checkAuthorization = function(req, status, callback)
     if (self.disableSession.rx) {
         if (req.session && req.session[self.signatureHeaderName] && req.options.path.match(self.disableSession.rx)) return callback({ status: 401, message: "Not authorized" });
     }
-    // Admin only access
-    if (self.allowAdmin.rx) {
-        if (!self.checkAccountType(req.account, "admin") && req.options.path.match(self.allowAdmin.rx)) return callback({ status: 401, message: "Restricted access" });
-    }
     // Verify access by account type
-    if (self.allowAccount[req.account.type] && self.allowAccount[req.account.type].rx) {
-        if (!req.options.path.match(self.allowAccount[req.account.type].rx)) return callback({ status: 401, message: "Access is not allowed" });
+    if (!self.checkAccountType(req.account, "admin")) {
+        // Admin only
+        if (self.allowAdmin.rx) {
+            if (req.options.path.match(self.allowAdmin.rx)) return callback({ status: 401, message: "Restricted access" });
+        }
+        // Specific account type only
+        for (var p in self.allowAccount) {
+            if (self.allowAccount[p].rx) {
+                if (!self.checkAccountType(req.account, p) && req.options.path.match(self.allowAccount[p].rx)) {
+                    return callback({ status: 401, message: "Access is not allowed" });
+                }
+            }
+        }
     }
 
     var hooks = this.findHook('auth', req.method, req.options.path);
@@ -1038,36 +1044,8 @@ api.checkSignature = function(req, callback)
             req.body = lib.decrypt(account.secret, req.body);
         }
 
-        // Verify the signature
-        var secret = account.secret;
-        var query = (sig.query).split("&").sort().filter(function(x) { return x != "" && x.substr(0, 12) != self.signatureHeaderName }).join("&");
-        switch (sig.version) {
-        case 1:
-            sig.str = "";
-            sig.str = sig.method + "\n" + sig.host + "\n" + sig.path + "\n" + query + "\n" + sig.expires + "\n" + sig.type + "\n" + sig.checksum + "\n";
-            sig.hash = lib.sign(secret, sig.str, "sha1");
-            break;
-
-        case 3:
-            secret += ":" + (account.token_secret || "");
-        case 2:
-            sig.str = sig.version + "\n" + (sig.tag || "") + "\n" + sig.login + "\n" + "*" + "\n" + lib.domainName(sig.host) + "\n" + "/" + "\n" + "*" + "\n" + sig.expires + "\n*\n*\n";
-            sig.hash = lib.sign(secret, sig.str, "sha256");
-            break;
-
-        case 5:
-            sig.hash = lib.sign(account.salt, sig.signature, "sha256");
-            sig.signature = account.password;
-            break;
-
-        case 4:
-            if (account.auth_secret) secret += ":" + account.auth_secret;
-        default:
-            sig.str = sig.version + "\n" + (sig.tag || "") + "\n" + sig.login + "\n" + sig.method + "\n" + sig.host + "\n" + sig.path + "\n" + query + "\n" + sig.expires + "\n" + sig.type + "\n" + sig.checksum + "\n";
-            sig.hash = lib.sign(secret, sig.str, "sha256");
-        }
-        if (sig.signature != sig.hash) {
-            logger.info('checkSignature:', 'failed', sig, account);
+        // Now we can proceed with signature verification, all other conditions are met
+        if (!self.verifySignature(sig, account)) {
             return callback({ status: 401, message: "Not authenticated" });
         }
 
@@ -1104,7 +1082,7 @@ api.checkLogin = function(req, callback)
         return callback({ status: 417, message: "No login provided" });
     }
     // Create a signature from the login data
-    req.signature = this.parseSignature(req);
+    req.signature = this.newSignature(req);
     req.signature.version = 5;
     req.signature.expires = Date.now() + this.signatureAge + 1000;
     req.signature.login = req.query.login;
@@ -1113,23 +1091,26 @@ api.checkLogin = function(req, callback)
     this.checkSignature(req, callback);
 }
 
-// Parse incoming request for signature and return all pieces wrapped in an object, this object
-// will be used by verifySignature function for verification against an account
-// signature version:
-//  - 1 regular signature signed with secret for specific requests
-//  - 2 to be sent in cookies and uses wild support for host and path
-// If the signature successfully recognized it is saved in the request for subsequent use as req.signature
-api.parseSignature = function(req)
+// Returns a new signature object with all required properties filled form the request object
+api.newSignature = function(req)
 {
-    if (req.signature) return req.signature;
     var rc = { version: 1, expires: 0, now: Date.now() };
-    // Input parameters, convert to empty string if not present
     var url = (req.url || req.originalUrl || "/").split("?");
     rc.path = url[0];
     rc.query = url[1] || "";
     rc.method = req.method || "";
     rc.host = (req.headers.host || "").split(':').shift().toLowerCase();
     rc.type = (req.headers['content-type'] || "").toLowerCase();
+    return rc;
+}
+
+// Parse incoming request for signature and return all pieces wrapped in an object, this object will be used by `verifySignature` function.
+//
+// If the signature successfully recognized it is saved in the request as `req.signature`
+api.parseSignature = function(req)
+{
+    if (req.signature) return req.signature;
+    var rc = this.newSignature(req);
     rc.signature = req.query[this.signatureHeaderName] || req.headers[this.signatureHeaderName] || "";
     if (!rc.signature) {
         rc.signature = req.query[this.accesTokenName] || req.headers[this.accessTokenName];
@@ -1148,6 +1129,44 @@ api.parseSignature = function(req)
     rc.checksum = d[6] || "";
     req.signature = rc;
     return rc;
+}
+
+// Returns true if the signature `sig` matches given account secret or password. `account` object must be a `bk_auth` record.
+api.verifySignature = function(sig, account)
+{
+    // Verify the signature
+    var secret = account.secret;
+    var query = (sig.query).split("&").sort().filter(function(x) { return x != "" && x.substr(0, 12) != this.signatureHeaderName }).join("&");
+    switch (sig.version) {
+    case 1:
+        sig.str = "";
+        sig.str = sig.method + "\n" + sig.host + "\n" + sig.path + "\n" + query + "\n" + sig.expires + "\n" + sig.type + "\n" + sig.checksum + "\n";
+        sig.hash = lib.sign(secret, sig.str, "sha1");
+        break;
+
+    case 3:
+        secret += ":" + (account.token_secret || "");
+    case 2:
+        sig.str = sig.version + "\n" + (sig.tag || "") + "\n" + sig.login + "\n" + "*" + "\n" + lib.domainName(sig.host) + "\n" + "/" + "\n" + "*" + "\n" + sig.expires + "\n*\n*\n";
+        sig.hash = lib.sign(secret, sig.str, "sha256");
+        break;
+
+    case 5:
+        sig.hash = lib.sign(account.salt, sig.signature, "sha256");
+        sig.signature = account.password;
+        break;
+
+    case 4:
+        if (account.auth_secret) secret += ":" + account.auth_secret;
+    default:
+        sig.str = sig.version + "\n" + (sig.tag || "") + "\n" + sig.login + "\n" + sig.method + "\n" + sig.host + "\n" + sig.path + "\n" + query + "\n" + sig.expires + "\n" + sig.type + "\n" + sig.checksum + "\n";
+        sig.hash = lib.sign(secret, sig.str, "sha256");
+    }
+    if (sig.signature != sig.hash) {
+        logger.info('verifySignature:', 'failed', sig, account);
+        return false;
+    }
+    return true;
 }
 
 // Create secure signature for an HTTP request. Returns an object with HTTP headers to be sent in the response.
@@ -1239,7 +1258,9 @@ api.handleSessionSignature = function(req, options)
 // Return true if the current user belong to the specified type, account type may contain more than one type
 api.checkAccountType = function(row, type)
 {
-    return lib.isObject(row) && lib.strSplit(row.type).indexOf(type) > -1;
+    if (!lib.isObject(row)) return false;
+    row._types = lib.strSplit(row._types || row.type);
+    return row._types.indexOf(type) > -1;
 }
 
 // Perform rate limiting by specified property, if not given no limiting is done.
@@ -1372,7 +1393,8 @@ api.getPublicColumns = function(table, options)
 //
 // If any column is marked with `secure` property this means never return that column in the result even for the owner of the record
 //
-// If any column is marked with `admin` or `admins` property and the current account is an admin this property will be returned as well.
+// If any column is marked with `admin` or `admins` property and the current account is an admin this property will be returned as well. the `options.admin`
+// can be used to make it an artificial admin.
 //
 // The `options.strict` will enforce that all columns not present in the table definition will be skipped as well, by default all
 // new columns or columns created on the fly are returned to the client.
@@ -1384,7 +1406,7 @@ api.checkResultColumns = function(table, rows, options)
     if (!table || !rows) return;
     if (!options) options = {};
     var cols = {}, row;
-    var admin = this.checkAccountType(options.account, "admin");
+    var admin = options.admin || this.checkAccountType(options.account, "admin");
     var tables = lib.strSplit(table);
     for (var i = 0; i < tables.length; i++) {
         var c = db.getColumns(tables[i], options);
