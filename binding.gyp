@@ -47,12 +47,10 @@
         "defines": [
            "<!@(if which mysql_config 2>/dev/null 1>&2; then echo USE_MYSQL; fi)",
            "<!@(export PKG_CONFIG_PATH=`pwd`/build/lib/pkgconfig; if which pkg-config 2>/dev/null 1>&2 && pkg-config --exists Wand; then echo USE_WAND; fi)",
-           "<!@(export PKG_CONFIG_PATH=`pwd`/build/lib/pkgconfig; if which pkg-config 2>/dev/null 1>&2 && pkg-config --exists libnanomsg; then echo USE_NANOMSG; fi)",
         ],
         "libraries": [
            "-L/opt/local/lib",
            "$(shell mysql_config --libs_r 2>/dev/null)",
-           "$(shell PKG_CONFIG_PATH=$$(pwd)/lib/pkgconfig pkg-config --silence-errors --static --libs libnanomsg)",
            "$(shell PKG_CONFIG_PATH=$$(pwd)/lib/pkgconfig pkg-config --silence-errors --static --libs Wand)"
         ],
         "sources": [
@@ -61,7 +59,6 @@
            "src/node_image.cpp",
            "src/node_sqlite.cpp",
            "src/node_syslog.cpp",
-           "src/node_nanomsg.cpp",
            "src/node_pgsql.cpp",
            "src/node_mysql.cpp",
            "src/node_leveldb.cpp",

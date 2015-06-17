@@ -779,7 +779,7 @@ db.updateAll = function(table, query, obj, options, callback)
         var opts = lib.cloneObj(options, 'ops', {});
         lib.forEachLimit(rows, options.concurrency || 1, function(row, next) {
             for (var p in obj) row[p] = obj[p];
-            if (options.process == "function") options.process(row, opts);
+            if (typeof options.process == "function") options.process(row, opts);
             self.update(table, row, opts, function(err) {
                 if (err) return next(err);
                 db.checkCapacity(cap, next);

@@ -925,7 +925,7 @@ api.checkAuthorization = function(req, status, callback)
 
     // Disable access to endpoints if session exists, meaning Web app
     if (self.disableSession.rx) {
-        if (req.session && req.session[self.signatureHeaderName] && req.options.path.match(self.disableSession.rx)) return callback({ status: 401, message: "Not authorized" });
+        if (req.signature.source == "s" && req.options.path.match(self.disableSession.rx)) return callback({ status: 401, message: "Not authorized" });
     }
     // Verify access by account type
     if (!self.checkAccountType(req.account, "admin")) {
@@ -1018,6 +1018,18 @@ api.checkSignature = function(req, callback)
     // Make sure the request is not expired, it must be in milliseconds
     if (sig.expires < Date.now() - this.signatureAge) {
         return callback({ status: 406, message: "Expired request" });
+    }
+
+    // Check the signature version consistency, do not accept wrong signatures in the unexpected places
+    switch (sig.version) {
+    case 2:
+        if (sig.source != "s") return callback({ status: 416, message: "Invalid request" });
+        break;
+    case 3:
+        if (sig.source != "t") return callback({ status: 416, message: "Invalid request" });
+        break;
+    default:
+        if (sig.source == "t" || sig.source == "s") return callback({ status: 416, message: "Invalid request" });
     }
 
     // Verify if the access key is valid, they all are cached so a bad cache may result in rejects
@@ -1114,10 +1126,14 @@ api.parseSignature = function(req)
     rc.signature = req.query[this.signatureHeaderName] || req.headers[this.signatureHeaderName] || "";
     if (!rc.signature) {
         rc.signature = req.query[this.accesTokenName] || req.headers[this.accessTokenName];
-        if (rc.signature) rc.signature = lib.decrypt(this.accessTokenSecret, rc.signature, "", "hex");
+        if (rc.signature) {
+            rc.signature = lib.decrypt(this.accessTokenSecret, rc.signature, "", "hex");
+            rc.source = "t";
+        }
     }
     if (!rc.signature) {
         rc.signature = req.session ? req.session[this.signatureHeaderName] : "";
+        if (rc.signature) rc.source = "s";
     }
     var d = String(rc.signature).match(/([^\|]+)\|([^\|]*)\|([^\|]+)\|([^\|]+)\|([^\|]+)\|([^\|]*)\|([^\|]*)/);
     if (!d) return rc;
@@ -1158,9 +1174,13 @@ api.verifySignature = function(sig, account)
 
     case 4:
         if (account.auth_secret) secret += ":" + account.auth_secret;
-    default:
+    case 5:
         sig.str = sig.version + "\n" + (sig.tag || "") + "\n" + sig.login + "\n" + sig.method + "\n" + sig.host + "\n" + sig.path + "\n" + query + "\n" + sig.expires + "\n" + sig.type + "\n" + sig.checksum + "\n";
         sig.hash = lib.sign(secret, sig.str, "sha256");
+        break;
+
+    default:
+        sig.hash = NaN;
     }
     if (sig.signature != sig.hash) {
         logger.info('verifySignature:', 'failed', sig, account);
@@ -1790,7 +1810,7 @@ api.sendFile = function(req, res, file, redirect)
         if (req.method == 'HEAD') return res.send(yes ? 200 : 404);
         if (yes) return res.sendFile(file, { root: core.home });
         if (redirect) return res.redirect(redirect);
-        res.send(404);
+        res.sendStatus(404);
     });
 }
 
