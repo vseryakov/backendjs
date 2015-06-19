@@ -18,6 +18,7 @@ var Client = require(__dirname + "/lib/ipc_client");
 // IPC communications between processes and support for caching and messaging.
 // Local cache is implemented as LRU cached configued with `-lru-max` parameter defining how many items to keep in the cache.
 var ipc = {
+    role: "",
     msgs: {},
     msgId: 1,
     workers: [],
@@ -53,12 +54,12 @@ ipc.handleWorkerMessages = function(msg)
             this.closeClient("cache");
             this.initClient("cache");
             break;
-            
+
         case "init:queue":
             this.closeClient("queue");
             this.initWorkerQueue();
             break;
-            
+
         case "init:dns":
             core.loadDnsConfig();
             break;
@@ -113,13 +114,13 @@ ipc.handleServerMessages = function(worker, msg)
         case "init:cache":
             for (var p in cluster.workers) cluster.workers[p].send(msg);
             break;
-            
+
         case "init:queue":
             this.closeClient("queue");
             this.initServerQueue("queue");
             for (var p in cluster.workers) cluster.workers[p].send(msg);
             break;
-            
+
         case "init:config":
             core.modules.db.initConfig();
             for (var p in cluster.workers) cluster.workers[p].send(msg);
@@ -204,9 +205,9 @@ ipc.handleServerMessages = function(worker, msg)
 ipc.initServer = function()
 {
     var self = this;
-
+    this.role = "server";
     this.initServerQueue();
-    
+
     cluster.on("exit", function(worker, code, signal) {
         self.onMessage.call(worker, { op: "cluster:exit" });
     });
@@ -234,11 +235,12 @@ ipc.initServerQueue = function()
 ipc.initWorker = function()
 {
     var self = this;
+    this.role = "worker";
     this.initClient("cache");
     this.initWorkerQueue();
-    
+
     // Event handler for the worker to process response and fire callback
-    process.on("message", function(msg) { 
+    process.on("message", function(msg) {
         self.handleWorkerMessages(msg);
     });
 }
@@ -282,9 +284,9 @@ ipc.initClient = function(type)
 // Close a client by type, cache or qurue. Make a new empty client so the object is always valid
 ipc.closeClient = function(type)
 {
-    try { 
+    try {
         this[type + 'Client'].close();
-    } catch(e) { 
+    } catch(e) {
         logger.error("ipc.close:", type, e.stack);
     }
     this[type + 'Client'] = new Client();
@@ -293,7 +295,11 @@ ipc.closeClient = function(type)
 // Send a command to the master process via IPC messages, callback is used for commands that return value back
 ipc.command = function(msg, callback, timeout)
 {
-    if (!cluster.isWorker) return callback ? callback() : null;
+    if (!cluster.isWorker) {
+        // Handle a message directly by the server
+        if (this.role == "server") return this.handleServerMessages({ send: lib.noop }, msg);
+        return callback ? callback() : null;
+    }
 
     if (typeof callback == "function") {
         msg.reply = true;
@@ -327,10 +333,10 @@ ipc.checkLimits = function(msg, callback)
     this.tokenBucket.configure(data ? lib.strSplit(data) : msg);
     // Reset the bucket if any number has been changed, now we have a new rate to check
     if (!this.tokenBucket.equal(msg.rate, msg.max, msg.interval)) this.tokenBucket.configure(msg);
-    
+
     var consumed = this.tokenBucket.consume(msg.consume || 1);
     utils.lruPut(msg.name, this.tokenBucket.toString());
-    
+
     logger.debug("checkLimits:", msg.name, consumed, this.tokenBucket);
     if (typeof callback == "function") callback(consumed);
     return consumed;

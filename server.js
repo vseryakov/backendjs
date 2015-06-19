@@ -322,6 +322,9 @@ server.startWeb = function(options)
                 for (var p in cluster.workers) try { process.kill(cluster.workers[p].process.pid); } catch(e) {}
             }
 
+            // Graceful restart of all web workers
+            process.on('SIGUSR2', function() { ipc.send("api:restart") });
+
             // Arguments passed to the v8 engine
             if (self.workerArgs.length) process.execArgv = self.workerArgs;
 

@@ -148,6 +148,11 @@ case "$ARG" in
     $0 start
     ;;
 
+  restart-api)
+    $KILLALL -USR2 "$BKJS: server"
+    exit 0
+    ;;
+
   stop)
     $KILLALL $1 "$BKJS:"
     sleep 1
@@ -496,7 +501,7 @@ case "$ARG" in
 
   init-packages)
     # Install required runtime packages
-    packages="ntp rsync wget socat mc nano man telnet daemonize"
+    packages="ntp rsync wget socat mc nano man telnet daemonize monit redis"
 
     yum -y -q update
 
@@ -508,12 +513,12 @@ case "$ARG" in
             echo "Setting up PostgreSQL repo..."
             rpm -i http://yum.postgresql.org/9.3/redhat/rhel-6-x86_64/pgdg-centos93-9.3-1.noarch.rpm
          fi
-         packages="$packages postgresql93-server redis monit"
+         packages="$packages postgresql93-server"
          ;;
 
       amazon)
          yum-config-manager --enable epel
-         packages="$packages postgresql9-server nodejs-devel npm redis monit"
+         packages="$packages postgresql9-server nodejs-devel npm"
          ;;
     esac
     sleep 10
@@ -558,7 +563,7 @@ case "$ARG" in
         ;;
 
      run-backend)
-        $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME -debug -master -watch `pwd` $@
+        $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME -log debug -master -watch `pwd` $@
         ;;
 
      run-shell|bksh)
@@ -583,6 +588,7 @@ case "$ARG" in
     subnet=$(get_value "$info" subnet)
     major=$(get_value "$info" major)
     minor=$(get_value "$info" minor)
+    patch=$(get_value "$info" patch)
     dirs=$BKJS_SYNC/$name/
     dirs="$dirs $BKJS_SYNC/$name/$mode/"
     dirs="$dirs $BKJS_SYNC/$name/$mode/$major/"
@@ -595,9 +601,18 @@ case "$ARG" in
         rsync -aFF ${BKJS_DEBUG:-q} -e "ssh -l $BKJS_USER -y -o StrictHostKeyChecking=no -o ConnectTimeout=5 $BKJS_SSH_ARGS" $dirs $BKJS_HOME
     fi
     # Check for version change and run the restart command
-    nversion=$($NODE_BIN -e "try{console.log(JSON.parse(require('fs').readFileSync('package.json')).version)}catch(e){}")
-    [ "$BKJS_DEBUG" != "" ] && echo "old version: $version, new version: $nversion"
-    [ "$nversion" != "" -a "$version" != "$nversion" ] && npm restart
+    info2=$($0 run-shell -log none -no-db -no-dns -no-configure -show-info)
+    [ "$BKJS_DEBUG" != "" ] && $ECHO "old:\n$info\n, new:\n$info2"
+    version2=$(get_value "$info2" version)
+    major2=$(get_value "$info2" major)
+    minor2=$(get_value "$info2" minor)
+    patch2=$(get_value "$info2" patch)
+    [ "$version" = "$version2" ] && exit
+    if [ "$major2" != "" -a "$major" != "$major2" ]; then
+       npm restart
+    else
+       $0 restart-api
+    fi
     ;;
 
   run-update)
@@ -1056,7 +1071,7 @@ $(whoami)
 EOF
     fi
 
-    [ ! -e $NAME.sh ] && $ECHO "#!/bin/bash\n\nexec node $NAME.js -watch \$(pwd) -watch \$(pwd)/modules -web -debug -etc-dir \$(pwd)/etc -web-dir \$(pwd)/web -views-dir \$(pwd)/views -modules-dir \$(pwd)/modules \$@\n" > $NAME.sh && chmod 755 $NAME.sh
+    [ ! -e $NAME.sh ] && $ECHO "#!/bin/bash\n\nexec node $NAME.js -watch \$(pwd) -watch \$(pwd)/modules -web -log debug -etc-dir \$(pwd)/etc -web-dir \$(pwd)/web -views-dir \$(pwd)/views -modules-dir \$(pwd)/modules \$@\n" > $NAME.sh && chmod 755 $NAME.sh
     [ ! -e .gitignore ] && $ECHO "*~\n.*\n*.local\nbin/\ndocs/\nbuild/\ndeps/\nvar/\nfiles/\nimages/\ntmp/\nlog/\nnode_modules/\n" >> .gitignore
 
     if [ ! -e etc/config ]; then
@@ -1203,7 +1218,7 @@ EOF
   run-app)
     NAME=app
     [ "$1" != "" -a "${1:0:1}" != "-" ] && NAME=$1 && shift
-    $NODE_BIN $NAME.js -debug -watch `pwd` -web $@
+    $NODE_BIN $NAME.js -log debug -watch `pwd` -web $@
     ;;
 
   show-env)
@@ -1218,6 +1233,7 @@ EOF
     echo ""
     echo "  start - start the backend service"
     echo "  restart - restart the backend service"
+    echo "  restart-api - graceful API servers restart, drain all connections and restart one at a time"
     echo "  stop - stop the backend service"
     echo "  stop-web - kill Web worker processes so they will restart with possibly new node modules synced from the master host"
     echo "  install - [-user USER] [-home HOME] [-prefix $PREFIX] [-doman DOMAIN] [-host HOST] - make server setup and install all pakages including node and the $BKJS_MOD"

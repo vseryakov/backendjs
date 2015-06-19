@@ -170,7 +170,7 @@ To enable any task a command line parameter must be provided, it cannot be speci
 commands that simplify running the backend in different modes.
 
 - `bkjs run-backend` - runs the Web server and the jobs scheduler in debug mode with watching source files for changes, this is the common command to be used
-   in development, it passes the command line switches: `-debug -watch -web -master`
+   in development, it passes the command line switches: `-log debug -watch -web -master`
 - `bkjs run-server` - this command is supposed to be run at the server startup, it runs in the backgroud and the monitors all tasks,
    the command line parameters are: `-daemon -monitor -master -syslog`
 - `bkjs run` - this command runs the Web server and the job scheduler without any other parameters, all aditional parameters can be added in the command line, this command
@@ -418,7 +418,7 @@ Create a file named `app.js` with the code below.
 
 Now run it with an option to allow API access without an account:
 
-    node app.js -debug -web -api-allow-path /todo
+    node app.js -log debug -web -api-allow-path /todo
 
 API commands can be executed in the browser or using `curl`:
 
@@ -1706,8 +1706,8 @@ it is required to clear cache manually there is `db.clearCache` method for that.
 Also there is a configuration option `-db-caching` to make any table automatically cached for all requests.
 
 ## memcached
-Set `cache-host=memcache://HOST[,HOST]` that points to one or more hosts running memcached servers is what needs to be done only. 
-The great benefit using memcache is to configure more than one server in `cache-host` separated by comma which makes it more reliable and 
+Set `cache-host=memcache://HOST[,HOST]` that points to one or more hosts running memcached servers is what needs to be done only.
+The great benefit using memcache is to configure more than one server in `cache-host` separated by comma which makes it more reliable and
 eliminates single point of failure if one of the memcache servers goes down.
 
 ## Redis

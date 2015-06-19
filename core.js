@@ -141,13 +141,12 @@ var core = {
 
     // Config parameters
     args: [ { name: "help", type: "callback", callback: function() { this.showHelp() }, descr: "Print help and exit" },
-            { name: "debug", type: "callback", callback: function(v) { logger.setLevel(v == "0" ? 'log' : 'debug'); }, descr: "Enable debugging messages, short of -log debug, -debug 0 will disable debugging, otherwise enable", pass: 1 },
-            { name: "debug-filter", type: "callback", callback: function(v) { logger.setDebugFilter(v); }, descr: "Enable debug filters, format is: +label,... to enable, and -label,... to disable. Only first argument is used for label in logger.debug", pass: 1 },
+            { name: "debug-filter", type: "callback", callback: function(v) { logger.setDebugFilter(v); }, descr: "Enable debug filters, format is: +label,... to enable, and -label,... to disable. Only first argument is used for label in logger.debug", cmdline: 1, pass: 1 },
             { name: "debug-run-segv", type: "callback", callback: function(v) { if(v) utils.runSEGV(v); }, descr: "On SEGV crash keep the process spinning so attaching with gdb is possible" },
             { name: "debug-set-segv", type: "callback", callback: function(v) { if(v) utils.setSEGV(); }, descr: "Set default SEGV handler which shows backtrace of calls if debug info is available" },
             { name: "debug-set-backtrace", type: "callback", callback: function(v) { if(v) utils.setBacktrace() }, descr: "Set alternative backtrace on SEGV crashes, including backtrace of V8 calls as well" },
             { name: "debug-logging", type: "callback", callback: function(v) { if(v) utils.logging(v) }, descr: "Set logging level only for the internal addons" },
-            { name: "log", type: "callback", callback: function(v) { logger.setLevel(v); }, descr: "Set debugging level: none, log, debug, dev", pass: 1 },
+            { name: "log", type: "callback", callback: function(v) { logger.setLevel(v); }, descr: "Set debugging level to any of " + Object.keys(logger.levels), cmdline: 1, pass: 1 },
             { name: "log-file", type: "callback", callback: function(v) { if(v) this.logFile=v;logger.setFile(this.logFile); }, descr: "Log to a file, if not specified used default logfile, disables syslog", pass: 1 },
             { name: "syslog", type: "callback", callback: function(v) { logger.setSyslog(v ? lib.toBool(v) : true); }, descr: "Write all logging messages to syslog, connect to the local syslog server over Unix domain socket", pass: 1 },
             { name: "console", type: "callback", callback: function() { logger.setFile(null);}, descr: "All logging goes to the console resetting all previous log related settings, this is used in the development mode mostly", pass: 1 },
@@ -201,6 +200,9 @@ var core = {
             { name: "run-mode", dns: 1, descr: "Running mode for the app, used to separate different running environment and configurations" },
             { name: "web", type: "none", descr: "Start Web server processes, spawn workers that listen on the same port, for use without master process which starts Web servers automatically" },
             { name: "no-web", type: "bool", descr: "Disable Web server processes, without this flag Web servers start by default" },
+            { name: "no-db", type: "bool", descr: "Do not initialize DB drivers" },
+            { name: "no-dns", type: "bool", descr: "Do not use DNS configuration during the initialization" },
+            { name: "no-configure", type: "bool", descr: "Do not run configure hooks during the initialization" },
             { name: "repl-port-web", type: "number", min: 1001, descr: "Web server REPL port, if specified it initializes REPL in the Web server processes, in workers port is port+workerid+1" },
             { name: "repl-bind-web", descr: "Web server REPL listen address" },
             { name: "repl-port", type: "number", min: 1001, descr: "Port for REPL interface in the master, if specified it initializes REPL in the master server process" },
@@ -274,7 +276,7 @@ core.init = function(options, callback)
     http.globalAgent.maxSockets = http.Agent.defaultMaxSockets = Infinity;
     https.globalAgent.maxSockets = Infinity;
     utils.lruInit(this.lruMax);
-    
+
     // Find our IP address
     var intf = os.networkInterfaces();
     Object.keys(intf).forEach(function(x) {
@@ -310,7 +312,7 @@ core.init = function(options, callback)
 
         // Process first pass parameters, this is important for modules to be loaded
         function(next) {
-            self.parseConfig(config, 1);
+            self.parseConfig(config, 2);
             next();
         },
 
@@ -349,7 +351,7 @@ core.init = function(options, callback)
 
         // Load config params from the DNS TXT records, only the ones marked as dns
         function(next) {
-            if (options.noDns) return next();
+            if (options.noDns || self.noDns) return next();
             self.loadDnsConfig(options, next);
         },
 
@@ -372,19 +374,19 @@ core.init = function(options, callback)
 
         // Run all configure methods for every module
         function(next) {
-            if (options.noConfigure) return next();
+            if (options.noConfigure || self.noConfigure) return next();
             self.runMethods("configure", options, next);
         },
 
         // Initialize all database pools
         function(next) {
-            if (options.noDb) return next();
+            if (options.noDb || self.noDb) return next();
             db.init(options, next);
         },
 
         // Load all available config parameters from the config database for the specified config type
         function(next) {
-            if (options.noDb) return next();
+            if (options.noDb || self.noDb) return next();
             db.initConfig(options, next);
         },
 
@@ -410,7 +412,7 @@ core.init = function(options, callback)
         },
         // Initialize all modules after core is done
         function(next) {
-            if (options.noConfigure) return next();
+            if (options.noConfigure || self.noConfigure) return next();
             self.runMethods("configureModule", options, next);
         },
         function(next) {
@@ -548,13 +550,16 @@ core.processArgs = function(ctx, argv, pass)
         ctx.args.forEach(function(x) {
             if (!x.name) return;
             // Process only equal to the given pass phase
-            if (pass && x.pass != pass) return;
+            if (pass && !x.pass) return;
+
             var obj = ctx;
             // Module prefix and name of the key variable in the contenxt, key. property specifies alternative name for the value
             var prefix = ctx == self ? "-" : "-" + ctx.name + "-";
             // Name can be a regexp
             if (!key.match("^" + prefix + x.name + "$")) return;
             var name = x.key || key.substr(prefix.length), oname = "";
+            // Command line priority, ignore all subsequent values
+            if (x.cmdline && pass != 1 && self.isArg(key)) return;
 
             try {
                 // Place inside the object
@@ -570,6 +575,7 @@ core.processArgs = function(ctx, argv, pass)
                 if (x.ucase) name = name.replace(new RegExp(x.ucase, 'g'), function(v) { return v.toUpperCase(); });
                 if (x.lcase) name = name.replace(new RegExp(x.lcase, 'g'), function(v) { return v.toLowerCase(); });
                 if (x.strip) name = name.replace(new RegExp(x.strip, 'g'), "");
+
                 // Use defaults only for the first time
                 if (val == null && typeof obj[name] == "undefined") {
                     if (typeof x.novalue != "undefined") val = x.novalue;
@@ -579,6 +585,13 @@ core.processArgs = function(ctx, argv, pass)
                 // Only some types allow no value case
                 var type = (x.type || "").trim();
                 if (val == null && type != "bool" && type != "callback" && type != "none") return false;
+
+                // Can be set only once
+                if (x.once) {
+                    if (!self._once) self._once = {};
+                    if (self._once[name]) return;
+                    self._once[name] = 1;
+                }
 
                 // Set the actual config variable name for further reference and easy access to the value
                 if (val != null) {
@@ -645,10 +658,10 @@ core.processArgs = function(ctx, argv, pass)
                 case "callback":
                     if (!x.callback) break;
                     if (typeof x.callback == "string") {
-                        obj[x.callback](val, name);
+                        obj[x.callback](val, name, pass);
                     } else
                         if (typeof x.callback == "function") {
-                            x.callback.call(obj, val, name);
+                            x.callback.call(obj, val, name, pass);
                         }
                     break;
                 default:
