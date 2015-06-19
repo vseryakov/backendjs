@@ -19,6 +19,7 @@ case "$PLATFORM" in
     # In multi-OS environment have to sync by OS type due to different dependencies in each distro
     [ "$PG_PREFIX" = "" ] && PG_PREFIX=$(find /usr -maxdepth 1 -name 'pgsql*' -type d -print|sort -r|head -1)
     [ -f /etc/sysconfig/$BKJS ] && . /etc/sysconfig/$BKJS
+    [ "$REDIS_CONF" = "" -a -f /etc/redis.conf ] && REDIS_CONF=/etc/redis.conf
     KILLALL="killall -qr"
     ECHO="echo -e"
     SED="sed -i"
@@ -53,13 +54,20 @@ case "$NAME" in
     ;;
 esac
 
-# Return argument value by name, format is -name value
+# Returns an argument value by name, format is -name value
 ARGS=("$@")
 get_arg() {
   for ((i = 0;i < ${#ARGS[@]}; ++i)); do
     [ "$1" = "${ARGS[i]}" ] && echo "${ARGS[i+1]}" && return 0
   done
   echo $2
+}
+
+# Returns 1 if an argument exists
+get_flag() {
+  for ((i = 0;i < ${#ARGS[@]}; ++i)); do
+    [ "$1" = "${ARGS[i]}" ] && echo "1" && return 0
+  done
 }
 
 # Concatenate args
@@ -110,6 +118,7 @@ export BKJS_RSYNC_ARGS=$(concat_arg -rsync $BKJS_RSYNC_ARGS)
 [ "$MONGO_DIR" = "" ] && export MONGO_DIR=$BKJS_HOME/mongo
 [ "$BKJS_IDLETIME" = "" ] && export BKJS_IDLETIME=900
 [ "$BKJS_UPTIME" = "" ] && export BKJS_UPTIME=43200
+[ "$REDIS_CONF" = "" ] && export REDIS_CONF=$PG_PREFIX/etc/redis.conf
 
 # Setup paths
 export PATH=$BKJS_HOME/bin:$BKJS_HOME/node_modules/.bin:$BKJS_PREFIX/bin:$PG_PREFIX/bin:$CASSANDRA_PREFIX/bin:/sbin:/usr/sbin:/usr/local/bin:/opt/local/bin:$PATH
@@ -760,6 +769,23 @@ case "$ARG" in
     killall postgres
     ;;
 
+  init-redis)
+    echo 1 > /proc/sys/vm/overcommit_memory
+    echo never > /sys/kernel/mm/transparent_hugepage/enabled
+    chkconfig redis on
+    service redis restart
+    echo 'check process redis-server with pidfile "/var/run/redis.pid" start program = "/etc/init.d/redis start" stop program = "/etc/init.d/redis stop"' > /etc/monit.d/redis.conf
+    monit reload
+    ;;
+
+  run-redis)
+    redis-server $REDIS_CONF
+    ;;
+
+  stop-redis)
+    killall redis-server
+    ;;
+
   init-mysql)
     if [ ! -d $MYSQL_DIR/mysql ]; then
        db=$(get_arg -db backend)
@@ -889,6 +915,14 @@ case "$ARG" in
 
   stop-mongodb)
     kill $(ps agx|grep mongod|grep -v grep|awk '{print $1}')
+    ;;
+
+  show-instances)
+    name=$(get_arg -name)
+    region=$(get_arg -region us-east-1)
+    instances=$(aws ec2 describe-instances --region $region --filter "Name=instance-state-name,Values=running" "Name=tag:Name,Values=${name:-*}" --query 'Reservations[*].Instances[*].[InstanceId,PrivateIpAddress,Tags[?Key==`Name`]]' --output text|awk '{printf "%s ",$0;if($1=="Name")print "";}')
+    [ "$(get_flag -ip)" != "" ] && instances=$(echo "$instances"|awk '{print $2}')
+    echo "$instances"
     ;;
 
   show-help)
@@ -1218,6 +1252,9 @@ EOF
     echo "  init-pgsql [-db NAME] - setup and run the PostgreSQL server, install in $PG_PREFIX, data files in $PG_DIR, create initial database"
     echo "  run-pgsql - run local PostgreSQL server"
     echo "  stop-pgsql - stop local PostgreSQL server"
+    echo "  init-redis - setup Redis server to be run on start and to be monitored (Linux only)"
+    echo "  run-redis - run local Redis server, uses config file $REDIS_CONF"
+    echo "  stop-redis - stop local Redis server"
     echo "  init-dynamodb - download and install local DynamoDB, start the server"
     echo "  get-dynamodb - install local DynamoDB server in $BKJS_PREFIX/dynamodb"
     echo "  run-dynamodb - run local DynamoDB server installed in $BKJS_PREFIX/dynamodb, data files in $BKJS_HOME/var"
@@ -1244,6 +1281,7 @@ EOF
     echo "  build-backend - compile all required modules and libraries for the backend development(node.js, libs)"
     echo "  clean-backend - clean the source directory"
     echo "  clean-deps - clean dependencies binary and object files"
+    echo "  show-instances [-ip] [-region region] [-name name] - show running instances in region, optional tag pattern can be used for filter, -ip will show only IP addresses of instances"
     echo "  show-help - show all backend command line and config parameters"
     echo ""
     echo "bksh subcommands:"
