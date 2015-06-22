@@ -118,7 +118,7 @@ export BKJS_RSYNC_ARGS=$(concat_arg -rsync $BKJS_RSYNC_ARGS)
 [ "$MONGO_DIR" = "" ] && export MONGO_DIR=$BKJS_HOME/mongo
 [ "$BKJS_IDLETIME" = "" ] && export BKJS_IDLETIME=900
 [ "$BKJS_UPTIME" = "" ] && export BKJS_UPTIME=43200
-[ "$REDIS_CONF" = "" ] && export REDIS_CONF=$PG_PREFIX/etc/redis.conf
+[ "$REDIS_CONF" = "" ] && export REDIS_CONF=$BKJS_PREFIX/etc/redis.conf
 
 # Setup paths
 export PATH=$BKJS_HOME/bin:$BKJS_HOME/node_modules/.bin:$BKJS_PREFIX/bin:$PG_PREFIX/bin:$CASSANDRA_PREFIX/bin:/sbin:/usr/sbin:/usr/local/bin:/opt/local/bin:$PATH

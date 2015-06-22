@@ -302,9 +302,9 @@ accounts.notifyAccount = function(id, options, callback)
             if (!options.device_id) options.device_id = account.device_id;
             if (options.prefix) options.msg = options.prefix + " " + (options.msg || "");
             msg.send(options, function(err) {
-                status.device_id = accounts.device_id;
+                status.device_id = options.device_id;
                 status.sent = err ? false : true;
-                logger.logger(err ? "error" : (options.logging || "debug"), "notifyAccount:", id, accounts.alias, accounts.device_id, status, err || "");
+                logger.logger(err ? "error" : (options.logging || "debug"), "notifyAccount:", id, account.alias, options.device_id, status, err || "");
                 callback(err, status);
             });
         });
