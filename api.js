@@ -703,7 +703,7 @@ api.prepareRequest = function(req)
 api.handleMetrics = function(req, res, next)
 {
     var self = this;
-    var path = "url_" + req.options.apath.slice(0, this.urlMetrics[req.options.apath[0]] || 2).join("_");
+    var path = "url_" + req.options.apath.slice(0, this.urlMetrics[req.options.apath[0]] || 2).map(function(x) { return x.replace("_", "__")}).join("_");
     this.metrics.Histogram('api_que').update(this.metrics.Counter('api_nreq').inc());
     req.metric1 = self.metrics.Timer('api_req').start();
     req.metric2 = self.metrics.Timer(path).start();
