@@ -2192,9 +2192,8 @@ might be useful when desining, developing or choosing the API platform:</p>
 <li><code>aws-subnet-id</code> - AWS subnet id to be used for instances</li>
 <li><code>aws-group-id</code> - AWS security group(s) to be used for instances</li>
 <li><code>aws-instance-type</code> - AWS instance type for remote jobs launched on demand</li>
-<li><code>msg-apn-cert</code> - Certificate for APN service, pfx format, .p12 ext</li>
-<li><code>msg-apn-production</code> - Enable APN production mode of operations, if not specified the mode is derived from the certificate name, presence of the word &#39;production&#39; in the cert file name will enable production mode</li>
-<li><code>msg-gcm-key</code> - Google Cloud Messaging API key</li>
+<li><code>msg-apn-cert</code> - Path to a certificate(s) for APN service, pfx format, .p12 ext, the mode is derived from the certificate name, presence of the word &#39;production&#39; in the cert file name will enable production mode, the file name can be appended with @app to separate different applications, app is a bundle identifier of the app</li>
+<li><code>msg-gcm-key</code> - Google Cloud Messaging API key(s), a key can be appended with @app for different applications similar to APN certificate file names</li>
 <li><code>msg-queue-key</code> - A queue key to subscribe for clients and listen for servers so messages can be exchanged in the queue environment where multiple queue exist</li>
 <li><code>msg-server-queue-host</code> - A queue to create for receiving messages from the clients and forwarding to the actual gateways</li>
 <li><code>msg-server-queue-options</code> - JSON object with options to the queue server</li>
@@ -6374,11 +6373,22 @@ the current function name with comma, like <code>logger.debug(&quot;select:&quot
 Options may contain the following properties:</p>
 <ul>
 <li>device_id - device(s) where to send the message to, can be multiple ids separated by , or |</li>
-<li>service - which service to use for delivery: aws, apns, gcm, ads, mpns, wns</li>
+<li>service - which service to use for delivery: sns, apn, gcm</li>
 <li>msg - text message to send</li>
 <li>badge - badge number to show if supported by the service</li>
 <li>type - set type of the message, service specific</li>
 <li>id - send id with the notification, this is application specific data, sent as is</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>msg.parseDevice(device)</code></p>
+<p> Parse device URN and returns an object with all parts into separate properties. A device URN can be in the following format:
+  [service://]device_token[@app]</p>
+<ul>
+<li>service is optional and defaults to <code>apn</code>, other options are <code>gcm</code>, <code>aws</code></li>
+<li>app is optional and can define an application id which is used by APN for routing to the devices with corresponding APS certificate.</li>
 </ul>
 </li>
 </ul>
@@ -6429,8 +6439,8 @@ connection to APN gateway.</p>
 </ul>
 
 <ul>
-<li><p><code>msg.sendAWS(device_id, options, callback)</code></p>
-<p> Send push notification to a device using AWS SNS service, device_d must be a valid SNS endpoint ARN.</p>
+<li><p><code>msg.sendSNS(device_id, options, callback)</code></p>
+<p> Send push notification to a device using AWS SNS service, device_id must be a valid SNS endpoint ARN.</p>
 <p>The options may contain the following properties:</p>
 <ul>
 <li>msg - message text</li>
@@ -7436,7 +7446,7 @@ with error as first argument and database object as second</p>
                         state: {},
                         zipcode: {},
                         country: {},
-                        device_id: {},                                    // Device for notifications
+                        device_id: {},                                    // Device(s) for notifications the format is: [service://]token[@appname]
                         geohash: { location: 1 },                         // To prevent regular account updates
                         latitude: { type: &quot;real&quot;, location: 1 },          // overriding location columns
                         longitude: { type: &quot;real&quot;, location: 1 },

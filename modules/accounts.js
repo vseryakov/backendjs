@@ -54,7 +54,7 @@ accounts.init = function(options)
                           state: {},
                           zipcode: {},
                           country: {},
-                          device_id: {},                                    // Device for notifications
+                          device_id: {},                                    // Device(s) for notifications the format is: [service://]token[@appname]
                           geohash: { location: 1 },                         // To prevent regular account updates
                           latitude: { type: "real", location: 1 },          // overriding location columns
                           longitude: { type: "real", location: 1 },

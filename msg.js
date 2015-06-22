@@ -18,8 +18,8 @@ var gcm = require('node-gcm');
 
 // Messaging and push notifications for mobile and other clients, supports Apple, Google and AWS/SNS push notifications.
 var msg = {
-    args: [ { name: "apn-cert", type: "list", descr: "Path to a certificate(s) for APN service, pfx format, .p12 ext, the mode is derived from the certificate name, presence of the word 'production' in the cert file name will enable production mode, the file name can be appended by @app to separate different applications" },
-            { name: "gcm-key", type:"list", descr: "Google Cloud Messaging API key(s), a key can be appended with @app for different applications" },
+    args: [ { name: "apn-cert", type: "list", descr: "Path to a certificate(s) for APN service, pfx format, .p12 ext, the mode is derived from the certificate name, presence of the word 'production' in the cert file name will enable production mode, the file name can be appended with @app to separate different applications, app is a bundle identifier of the app" },
+            { name: "gcm-key", type:"list", descr: "Google Cloud Messaging API key(s), a key can be appended with @app for different applications similar to APN certificate file names" },
             { name: "queue-key", descr: "A queue key to subscribe for clients and listen for servers so messages can be exchanged in the queue environment where multiple queue exist" },
             { name: "server-queue-host", descr: "A queue to create for receiving messages from the clients and forwarding to the actual gateways" },
             { name: "server-queue-options", type: "json", descr: "JSON object with options to the queue server" },
