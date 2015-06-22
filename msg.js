@@ -241,7 +241,7 @@ msg.sendAPN = function(device_id, options, callback)
         return typeof callback == "function" && callback(e);
     }
 
-    var agent = this.apnAgents[dev.app];
+    var agent = this.apnAgents[dev.app] || this.apnAgents.default;
     if (!agent) return typeof callback == "function" && callback("APN is not initialized for " + device_id);
 
     var pkt = agent.createMessage().device(device_id);
@@ -303,7 +303,7 @@ msg.sendGCM = function(device_id, options, callback)
     var dev = this.parseDevice(device_id);
     if (!dev.id) return typeof callback == "function" && callback("invalid device:" + device_id);
 
-    var agent = this.gcmAgents[dev.app];
+    var agent = this.gcmAgents[dev.app] || this.gcmAgents.default;
     if (!agent) return typeof callback == "function" && callback("GCM is not initialized for " + device_id);
 
     agent._queue++;
