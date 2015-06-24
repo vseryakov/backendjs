@@ -34,6 +34,8 @@ var jobs = {
            { name: "queue", descr: "Name of the queue to process, this is a generic queue name that can be used by any queue provider" },
            { name: "type", descr: "Queueing system to use for job processing, available options: db, sqs" },
            { name: "interval", type: "number", min: 0, descr: "Interval between executing job queue, must be set to enable jobs, 0 disables job processing, in seconds, min interval is 60 secs" },
+           { name: "waitTimeout", type: "number", min: 0, descr: "How long in seconds to wait for new jobs from a queue" },
+           { name: "visibilityTimeout", type: "number", min: 0, descr: "How long in seconds to keep retrieved jobs hidden, if not deleted it will be available again for subsequent retrieve requests" },
     ],
 
     type: "none",
@@ -485,10 +487,11 @@ jobs.parseCronjobs = function(type, data)
 //
 // The options can specify:
 //  - queue - SQS queue ARN, if not specified the `-server-job-queue` will be used
-//  - timeout - how long to wait for messages, seconds, default is 5
+//  - timeout - how long to wait for job messages, seconds, if not specified then used `-jobs-wait-timeout` config parameter
 //  - count - how many jobs to receive, if not specified then uses `-jobs-count` config parameter
 //  - visibilityTimeout - The duration in seconds that the received messages are hidden from subsequent retrieve requests
-//     after being retrieved by a ReceiveMessage request.
+//     after being retrieved by a ReceiveMessage request, if not specified then uses `-jobs-visibility-timeout` cofig parameter.
+//  - tag - retrieve jobs with this tag only from the queue
 //
 jobs.processJob = function(options, callback)
 {
@@ -496,13 +499,15 @@ jobs.processJob = function(options, callback)
     if (typeof options == "function") callback = options, options = {};
     if (!options) options = {};
     if (typeof callback != "function") callback = lib.noop;
-    
+
     switch (this.type) {
     case "sqs":
         var queue = options.queue || self.jobQueue;
         if (!queue) return callback();
         if (!options.count) options.count = self.count || 1;
-    
+        if (!options.timeout) options.timeout = self.waitTimeout || 5;
+        if (!options.visibilityTimeout) options.visibilityTimeout = self.visibilityTimeout || 0;
+
         aws.sqsReceiveMessage(queue, options, function(err, rows) {
             if (err) return callback(err);
             lib.forEachSeries(rows || [], function(item, next) {
@@ -522,7 +527,7 @@ jobs.processJob = function(options, callback)
             });
         });
         break;
-        
+
     case "db":
         db.select("bk_queue", { tag: this.tag, status: null }, { ops: { status: "null" }, count: options.count || self.count }, function(err, rows) {
             lib.forEachSeries(rows, function(row, next) {
@@ -553,7 +558,7 @@ jobs.submitJob = function(options, callback)
 {
     if (typeof callback != "function") callback = lib.noop;
     if (!lib.isObject(options) || !lib.isObject(options.data)) return callback(new Error("invalid job"));
-    
+
     logger.debug('submitJob:', this.type, options);
     switch (this.type) {
     case "sqs":
@@ -561,12 +566,12 @@ jobs.submitJob = function(options, callback)
         if (!queue) return callback(new Error("jobs queue is not configured"));
         aws.sqsSendMessage(queue, JSON.stringify(options.data), options, callback);
         break;
-        
+
     case "db":
         if (!options.id) options.id = lib.uuid();
         db.put("bk_queue", options, callback);
         break;
-        
+
     default:
         callback(new Error("jobs queue is not configured"));
     }
