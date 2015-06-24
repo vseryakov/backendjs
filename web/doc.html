@@ -2273,6 +2273,8 @@ might be useful when desining, developing or choosing the API platform:</p>
 <li><code>jobs-queue</code> - Name of the queue to process, this is a generic queue name that can be used by any queue provider</li>
 <li><code>jobs-type</code> - Queueing system to use for job processing, available options: db, sqs</li>
 <li><code>jobs-interval</code> - Interval between executing job queue, must be set to enable jobs, 0 disables job processing, in seconds, min interval is 60 secs</li>
+<li><code>jobs-waitTimeout</code> - How long in seconds to wait for new jobs from a queue</li>
+<li><code>jobs-visibilityTimeout</code> - How long in seconds to keep retrieved jobs hidden, if not deleted it will be available again for subsequent retrieve requests</li>
 <li><code>server-max-processes</code> - Max number of processes to launch for Web servers, 0 means NumberofCPUs-2</li>
 <li><code>server-max-workers</code> - Max number of worker processes to launch</li>
 <li><code>server-idle-time</code> - If set and no jobs are submitted the backend will be shutdown, for instance mode only</li>
@@ -5385,10 +5387,11 @@ will be deleted from the queue. By default all jobs pulled from the db are delet
 <p>The options can specify:</p>
 <ul>
 <li>queue - SQS queue ARN, if not specified the <code>-server-job-queue</code> will be used</li>
-<li>timeout - how long to wait for messages, seconds, default is 5</li>
+<li>timeout - how long to wait for job messages, seconds, if not specified then used <code>-jobs-wait-timeout</code> config parameter</li>
 <li>count - how many jobs to receive, if not specified then uses <code>-jobs-count</code> config parameter</li>
 <li>visibilityTimeout - The duration in seconds that the received messages are hidden from subsequent retrieve requests
- after being retrieved by a ReceiveMessage request.</li>
+ after being retrieved by a ReceiveMessage request, if not specified then uses <code>-jobs-visibility-timeout</code> cofig parameter.</li>
+<li>tag - retrieve jobs with this tag only from the queue</li>
 </ul>
 </li>
 </ul>
