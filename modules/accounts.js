@@ -262,7 +262,8 @@ accounts.getAccount = function(req, options, callback)
 // system will pick the right delivery service depending on the device id, the default service is apple.
 accounts.notifyAccount = function(id, options, callback)
 {
-    if (!id || !options) return callback({ status: 500, message: "invalid arguments" }, {});
+    if (typeof callback != "function") callback = lib.noop;
+    if (!id || !lib.isObject(options)) return callback({ status: 500, message: "invalid arguments" }, {});
 
     options = lib.cloneObj(options);
     // Skip this account

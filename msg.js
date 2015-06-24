@@ -262,7 +262,7 @@ msg.initGCM = function()
     for (var i = 0; i < this.gcmKey.length; i++) {
         var key = this.gcmKey[i], app = "default";
         if (key.indexOf("@") > -1) {
-            var d = file.split("@");
+            var d = key.split("@");
             key = d[0];
             app = d[1];
         }
