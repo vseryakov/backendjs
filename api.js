@@ -1859,15 +1859,18 @@ api.publish = function(key, event, options)
 }
 
 // Process a message received from subscription server or other even notifier, it is used by `api.subscribe` method for delivery events to the clients
-api.sendEvent = function(req, key, data)
+api.sendEvent = function(req, key, data, next)
 {
     logger.debug('subscribe:', key, data, 'sent:', req.res.headersSent, 'match:', req.msgMatch, 'timeout:', req.msgTimeout);
     // If for any reasons the response has been sent we just bail out
-    if (req.res.headersSent) return ipc.unsubscribe(key);
+    if (req.res.headersSent) {
+        ipc.unsubscribe(key);
+        return next && next();
+    }
 
     if (typeof data != "string") data = JSON.stringify(data);
     // Filter by matching the whole message text
-    if (req.msgMatch && !data.match(req.mgMatch)) return;
+    if (req.msgMatch && !data.match(req.mgMatch)) return next && next();
     if (!req.msgData) req.msgData = [];
     req.msgData.push(data);
     if (req.msgTimeout) clearTimeout(req.msgTimeout);
@@ -1880,4 +1883,5 @@ api.sendEvent = function(req, key, data)
             if (!req.httpProtocol) ipc.unsubscribe(key);
         }, req.msgInterval);
     }
+    if (next) next();
 }

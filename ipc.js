@@ -225,8 +225,9 @@ ipc.initServerQueue = function()
     this.initClient("queue");
     // Listen for system messages
     this.queueClient.on("ready", function() {
-        self.subscribe(self.serverQueue, function(ctx, key, data) {
+        self.subscribe(self.serverQueue, function(ctx, key, data, next) {
             self.handleServerMessages({ send: lib.noop }, lib.jsonParse(data, { obj: 1, error: 1 }));
+            if (next) next();
         });
     });
 }
@@ -252,8 +253,9 @@ ipc.initWorkerQueue = function()
     this.initClient("queue");
     // Listen for system messages
     this.queueClient.on("ready", function() {
-        self.subscribe(self.workerQueue, function(ctx, key, data) {
+        self.subscribe(self.workerQueue, function(ctx, key, data, next) {
             self.handleWorkerMessages(lib.jsonParse(data, { obj: 1, error: 1 }));
+            if (next) next();
         });
     });
 }
@@ -432,14 +434,21 @@ ipc.incr = function(key, val, options)
     }
 }
 
-// Subscribe to the publishing server for messages starting with the given key, the callback will be called only on new data received, the data
+// Subscribe to the publishing server for messages starting with the given key, the callback will be called only on new data received, the `data`
 // is passed to the callback as first argument, if not specified then "undefined" will still be passed, the actual key will be passed as the second
-// argument, the message received as the third argument
+// argument, the message received as the third argument.
+//
+// If `next` callback is provided it must be called at the end, not all queue drivers will provide it.
+//
+// For cases when the `next` callback is provided this means the queue implementation reqires acknowledgement of successful processing,
+// returnign an error with .status >= 500 will keep the message in the queue to be procrssed later.
+
 //
 //  Example:
 //
-//          ipc.subscribe("alert:", function(req, key, data) {
+//          ipc.subscribe("alert:", function(req, key, data, next) {
 //              req.res.json(data);
+//              if (next) next();
 //          }, req);
 //
 ipc.subscribe = function(key, callback, data)

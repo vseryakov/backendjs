@@ -81,15 +81,29 @@ jobs.run = function(options)
 
     function done(err, name) {
         logger[err ? "error" : "debug"]('jobs.run:', 'finished', name || "", util.isError(err) ? err.stack : (err || ""));
-        if (!self.jobs.length && cluster.isWorker) {
-            core.runMethods("shutdownWorker", function() {
-                logger.debug('jobs.run:', 'exit', name || "", err || "");
-                process.exit(0);
-            });
-        }
+        if (self.jobs.length) return;
+        lib.series([
+           function(next) {
+               if (!options.queueHideInterval) return next();
+               clearInterval(options._hideInterval);
+               self.finishJob(options, function() { next() });
+           },
+           function(next) {
+               if (!cluster.isWorker) return next();
+               core.runMethods("shutdownWorker", function() { next() });
+           },
+           ], function() {
+               logger.debug('jobs.run:', 'exit', name || "", err || "");
+               process.exit(0);
+           });
     }
 
     if (!lib.isObject(options) || !lib.isObject(options.job)) return done('invalid job', options);
+
+    // Keep the job hidden while processing
+    if (options.queueHideInterval) {
+        options._hideInterval = setInterval(function() { self.hideJob(options); }, lib.toNumber(options.queueHideInterval, { dflt: 30, min: 30 }));
+    }
 
     for (var name in options.job) {
         var job = options[name];
@@ -263,11 +277,7 @@ jobs.runRemote = function(options, callback)
     logger.info('jobs.runRemote:', options);
 
     // Common arguments for remote workers
-    var args = ["-master", "-instance-job",
-                "-backend-host", core.backendHost || "",
-                "-backend-key", core.backendKey || "",
-                "-backend-secret", core.backendSecret || "",
-                "-jobs-submit", lib.jsonToBase64(job) ];
+    var args = ["-master", "-instance-job", "-jobs-submit", lib.jsonToBase64(job) ];
 
     if (!options.noshutdown) {
         args.push("-jobs-submit", lib.jsonToBase64({ 'server.shutdown': { runlast: 1 } }));
@@ -283,7 +293,7 @@ jobs.runRemote = function(options, callback)
     if (d) options.instanceName = d[1];
 
     // Terminate after the job is done
-    if (!options.InstanceInitiatedShutdownBehavior && !options.termnate && !options.stop) options.terminate = 1;
+    if (!options.InstanceInitiatedShutdownBehavior && !options.terminate && !options.stop) options.terminate = 1;
 
     aws.ec2RunInstances(options, callback);
 }
@@ -321,7 +331,7 @@ jobs.runTask = function(options, callback)
     case "server":
         setImmediate(function() {
             var d = domain.create();
-            d.on('error', function(err) { logger.error('schedule:', options, err.stack); });
+            d.on('error', function(err) { logger.error('runTask:', options, err.stack); });
             d.add(options);
             d.run(function() { self.run(options); });
         });
@@ -343,8 +353,9 @@ jobs.submitTask = function(options)
         options = { job: lib.newObj(options, null) };
 
     case "object":
-        if (options.job) return this.tasks.push(options);
-        break;
+        if (!options.job) break;
+        this.tasks.push(options);
+        return;
     }
     logger.error("jobs.updateTasks:", "invalid task: ", options);
 }
@@ -482,15 +493,17 @@ jobs.parseCronjobs = function(type, data)
 // the higher level management tool must take care when and what to run and in what order.
 // If `tag` has been set then only jobs with such tag will be pulled by this instance.
 //
-// If a job object contains a property `finish` then it is responsibility of a worker to call `jobs.finishJob` so the job
-// will be deleted from the queue. By default all jobs pulled from the db are deleted just after submition for execution.
+// A job object may contains a property `queueHideInterval` which defines an interval in seconds how often to call `hideJob` while it is being procesed by a worker.
+// On exit a worker will call `finishJob` automatically to delete a job message form the queue if no errors occured.
+//
+// Note: By default all jobs pulled from the db are deleted just after submition for execution.
 //
 // The options can specify:
 //  - queue - SQS queue ARN, if not specified the `-server-job-queue` will be used
 //  - timeout - how long to wait for job messages, seconds, if not specified then used `-jobs-wait-timeout` config parameter
-//  - count - how many jobs to receive, if not specified then uses `-jobs-count` config parameter
+//  - count - how many jobs to receive, if not specified then it uses `-jobs-count` config parameter
 //  - visibilityTimeout - The duration in seconds that the received messages are hidden from subsequent retrieve requests
-//     after being retrieved by a ReceiveMessage request, if not specified then uses `-jobs-visibility-timeout` cofig parameter.
+//     after being retrieved by a ReceiveMessage request, if not specified then it uses `-jobs-visibility-timeout` cofig parameter.
 //  - tag - retrieve jobs with this tag only from the queue
 //
 jobs.processJob = function(options, callback)
@@ -517,7 +530,7 @@ jobs.processJob = function(options, callback)
                 job.sqsReceiptHandle = item.ReceiptHandle;
                 self.runTask(job, function(err) {
                     if (err) logger.error("processSQS:", err, job)
-                    if (err || !job.finish) self.finishJob(job);
+                    if (err || !job.queueHideInterval) self.finishJob(job);
                     next();
                 });
             }, function(err) {
@@ -532,10 +545,11 @@ jobs.processJob = function(options, callback)
         db.select("bk_queue", { tag: this.tag, status: null }, { ops: { status: "null" }, count: options.count || self.count }, function(err, rows) {
             lib.forEachSeries(rows, function(row, next) {
                 var job = row.data;
-                job.id = row.id;
+                job.dbId = row.id;
+                job.queueType = "db";
                 self.runTask(job, function(err) {
                     if (err) logger.error("processDb:", err, job)
-                    if (err || !job.finish) self.finishJob(job); else db.update("bk_queue", { id: job.id, status: "running" });
+                    if (err || !job.queueHideInterval) self.finishJob(job); else self.hideJob(job);
                     next();
                 });
             }, function(err) {
@@ -573,7 +587,7 @@ jobs.submitJob = function(options, callback)
         break;
 
     default:
-        callback(new Error("jobs queue is not configured"));
+        callback(new Error('invalid queue type ' + options.queueType));
     }
 }
 
@@ -594,8 +608,41 @@ jobs.finishJob = function(options, callback)
         break;
 
     case "db":
-        if (options.id) {
-            return db.del("bk_queue", options, callback);
+        if (options.dbId) {
+            return db.del("bk_queue", { id: options.dbId }, callback);
+        }
+        break;
+    }
+    callback();
+}
+
+// To keep a job from receiveing by other job processors this is used to hide it while it is being run.
+// Depending on the queue type different properties can be used:
+//  - visibilityTimeout - how long in seconds the message must be hidden in the SQS queue type, if not specified 30 seconds will be set
+//  - status - set status to this value for the DB queue type, if not specified `hidden` status would be set
+//
+// It is safe to call this from any task, if no special properties are detected that can be used to communicate with a queue it will be silently ignored.
+jobs.hideJob = function(options, callback)
+{
+    if (typeof callback != "function") callback = lib.noop;
+    if (!lib.isObject(options)) return callback(new Error('invalid job'));
+
+    logger.debug('hideJob:', options);
+    switch (options.queueType) {
+    case "sqs":
+        if (options.sqsQueue && options.sqsReceiptHandle) {
+            var query = {
+                QueueUrl: options.sqsQueue,
+                ReceiptHandle: options.sqsReceiptHandle,
+                VisibilityTimeout: lib.toNumber(options.visibilityTimeout, { dflt: 30, min: 0, max: 43200 })
+            };
+            return aws.querySQS("ChangeMessageVisibility", query, callback);
+        }
+        break;
+
+    case "db":
+        if (options.dbId) {
+            return db.update("bk_queue", { id: options.dbId, status: options.status || "hidden" }, callback);
         }
         break;
     }

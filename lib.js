@@ -1117,10 +1117,10 @@ lib.typeName = function(v)
 }
 
 // Return a new Error object, options can be a string which will create an error with a message only
-// or an object with message, code, status, and name properties to build full error
+// or an object with message, code, status, and name properties to build full error. The default error status is 400 if not specified.
 lib.newError = function(options, status)
 {
-    if (typeof options == "string") options = { status: status || 400, message: options };
+    if (typeof options == "string") options = { status: typeof status == "number" ? status : 400, message: options };
     if (!options) options = {};
     var err = new Error(options.message || "Internal error");
     for (var p in options) err[p] = options[p];

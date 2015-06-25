@@ -1152,42 +1152,6 @@ tests.test_busy = function(callback)
       }, 100);
 }
 
-tests.test_msg = function(callback)
-{
-    if (!self.getArgInt("-test-workers")) logger.error("need -test-worker 1 argument");
-
-    if (cluster.isMaster) {
-        var count = 0;
-        var addr = "tcp://127.0.0.1:1234 tcp://127.0.0.1:1235";
-        var sock = new utils.NNSocket(utils.AF_SP, utils.NN_SUB);
-        sock.connect(addr);
-        sock.subscribe("");
-        sock.setCallback(function(err, data) {
-            logger.log('subscribe:', err, this.socket, data, 'count:', count++);
-            if (data == "exit") process.exit(0);
-        });
-    } else {
-        var count = core.getArgInt("-count", 10);
-        var addr = "tcp://127.0.0.1:" + (cluster.worker.id % 2 == 0 ? 1234 : 1235);
-        var sock = new utils.NNSocket(utils.AF_SP, utils.NN_PUB);
-        sock.bind(addr);
-
-        lib.whilst(
-           function () { return count > 0; },
-           function (next) {
-               count--;
-               sock.send(addr + ':' + lib.random());
-               logger.log('publish:', sock, addr, count);
-               setTimeout(next, lib.randomInt(1000));
-           },
-           function(err) {
-               sock.send("exit");
-               sock = null;
-               callback(err);
-           });
-    }
-}
-
 tests.test_cache = function(callback)
 {
     var self = this;
@@ -1331,42 +1295,6 @@ tests.test_cache = function(callback)
             ipc.initWorker();
         }
         ipc.send("ready");
-    }
-}
-
-tests.test_nndb = function(callback)
-{
-    var bind = core.getArg("-bind", "ipc://var/nndb.sock");
-    var socket = core.getArg("-socket", "NN_PULL");
-    var type = core.getArg("-type", "lmdb"), pool;
-
-    if (cluster.isMaster) {
-        pool = db.lmdbInitPool({ db: "stats", type: type });
-        db.query({ op: "server" }, { pool: type, bind: bind, socket: socket }, function(err) {
-            if (err) logger.error(err);
-        });
-
-    } else {
-        pool = db.nndbInitPool({ db: bind, socket: socket == "NN_REP" ? "NN_REQ" : "NN_PUSH" });
-        lib.series([
-           function(next) {
-               db.put("", { name: "1", value: 1 }, { pool: pool.name }, next);
-           },
-           function(next) {
-               db.get("", "1", { pool: pool.name }, function(err, row) {
-                   logger.log("get ", row);
-                   next(err);
-               });
-           },
-           function(next) {
-               db.incr("", { name: "1", value: 2 }, { pool: pool.name }, next);
-           },
-           function(next) {
-               db.get("", { name: "1" }, { pool: pool.name }, function(err, row) {
-                   logger.log("get ", row);
-                   next(err);
-               });
-           }],callback);
     }
 }
 

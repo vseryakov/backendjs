@@ -48,8 +48,10 @@ msg.init = function(callback)
     // Explicitely configured notification server queue
     if (this.serverQueue) {
         this.serverQueue = ipc.createClient(this.serverQueue, this.serverQueueOptions);
-        this.serverQueue.subscribe(this.queueKey || "", function(arg, key, data) {
-            self.send(lib.jsonParse(data, { obj: 1 }));
+        this.serverQueue.subscribe(this.queueKey || "", function(arg, key, data, next) {
+            self.send(lib.jsonParse(data, { obj: 1 }), function(err) {
+                if (next) next(err);
+            });
         });
     }
 
@@ -103,7 +105,7 @@ msg.send = function(options, callback)
 {
     var self = this;
     if (typeof callback != "function") callback = lib.noop;
-    if (!options || !options.device_id) return callback ? callback(new Error("invalid device or options")) : null;
+    if (!options || !options.device_id) return callback(lib.newError("invalid device or options"));
 
     // Queue to the server instead of sending directly
     if (this.clientQueue) return this.clientQueue.publish(this.queueKey || "", options, callback);
@@ -122,21 +124,22 @@ msg.send = function(options, callback)
         case "gcm":
             self.sendGCM(device_id, options, function(err) {
                 if (err) logger.error("send:", device_id, err);
-                next();
+                // Stop on explicit fatal errors only
+                next(err.status >= 500 ? err : null);
             });
             break;
 
         case "sns":
             self.sendSNS(device_id, options, function(err) {
                 if (err) logger.error("send:", device_id, err);
-                next();
+                next(err.status >= 500 ? err : null);
             });
             break;
 
         case "apn":
             self.sendAPN(device_id, options, function(err) {
                 if (err) logger.error("send:", device_id, err);
-                next();
+                next(err.status >= 500 ? err : null);
             });
             break;
 
@@ -160,6 +163,8 @@ msg.parseDevice = function(device)
         if (d[1]) dev.service = d[1].replace("://", "");
         if (d[3]) dev.app = d[3];
     }
+    // Special cases
+    if (dev.id.match(/^arn:aws:sns/)) dev.service = "sns";
     return dev;
 }
 
@@ -232,17 +237,17 @@ msg.closeAPN = function(callback)
 msg.sendAPN = function(device_id, options, callback)
 {
     var dev = this.parseDevice(device_id);
-    if (!dev.id) return typeof callback == "function" && callback("invalid device:" + device_id);
+    if (!dev.id) return typeof callback == "function" && callback(lib.newError("invalid device:" + device_id));
 
     // Catch invalid devices before they go into the queue where is it impossible to get the exact source of the error
     try {
         device_id = new Buffer(dev.id, "hex");
     } catch(e) {
-        return typeof callback == "function" && callback(e);
+        return typeof callback == "function" && callback(lib.newError(e.message));
     }
 
     var agent = this.apnAgents[dev.app] || this.apnAgents.default;
-    if (!agent) return typeof callback == "function" && callback("APN is not initialized for " + device_id);
+    if (!agent) return typeof callback == "function" && callback(lib.newError("APN is not initialized for " + device_id, 500));
 
     var pkt = agent.createMessage().device(device_id);
     if (options.msg) pkt.alert(options.msg);
@@ -301,10 +306,10 @@ msg.sendGCM = function(device_id, options, callback)
     var self = this;
 
     var dev = this.parseDevice(device_id);
-    if (!dev.id) return typeof callback == "function" && callback("invalid device:" + device_id);
+    if (!dev.id) return typeof callback == "function" && callback(lib.newError("invalid device:" + device_id));
 
     var agent = this.gcmAgents[dev.app] || this.gcmAgents.default;
-    if (!agent) return typeof callback == "function" && callback("GCM is not initialized for " + device_id);
+    if (!agent) return typeof callback == "function" && callback(lib.newError("GCM is not initialized for " + device_id, 500));
 
     agent._queue++;
     var pkt = new gcm.Message();
@@ -312,10 +317,10 @@ msg.sendGCM = function(device_id, options, callback)
     if (options.id) pkt.addData('id', options.id);
     if (options.type) pkt.addData("type", options.type);
     if (options.badge) pkt.addData('badge', options.badge);
-    agent.send(pkt, [dev.id], 2, function() {
+    agent.send(pkt, [dev.id], 2, function(err) {
         agent._queue--;
         agent._sent++;
-        if (typeof callback == "function") process.nextTick(callback);
+        if (typeof callback == "function") callback(err);
     });
     return true;
 }
@@ -332,7 +337,7 @@ msg.sendSNS = function(device_id, options, callback)
     var self = this;
     var pkt = {};
     var dev = this.parseDevice(device_id);
-    if (!dev.id) return typeof callback == "function" && callback("invalid device:" + device_id);
+    if (!dev.id) return typeof callback == "function" && callback(lib.newError("invalid device:" + device_id, 400));
 
     // Format according to the rules per platform
     if (dev.id.match("/APNS/")) {
