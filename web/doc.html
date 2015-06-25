@@ -2823,7 +2823,7 @@ events using account id as a key.</p>
 </ul>
 
 <ul>
-<li><p><code>api.sendEvent(req, key, data)</code></p>
+<li><p><code>api.sendEvent(req, key, data, next)</code></p>
 <p> Process a message received from subscription server or other even notifier, it is used by <code>api.subscribe</code> method for delivery events to the clients</p>
 </li>
 </ul>
@@ -5214,12 +5214,16 @@ If <code>options.set</code> is given and no value exists in the cache it will be
 
 <ul>
 <li><p><code>ipc.subscribe(key, callback, data)</code></p>
-<p> Subscribe to the publishing server for messages starting with the given key, the callback will be called only on new data received, the data
+<p> Subscribe to the publishing server for messages starting with the given key, the callback will be called only on new data received, the <code>data</code>
 is passed to the callback as first argument, if not specified then &quot;undefined&quot; will still be passed, the actual key will be passed as the second
-argument, the message received as the third argument</p>
+argument, the message received as the third argument.</p>
+<p>If <code>next</code> callback is provided it must be called at the end, not all queue drivers will provide it.</p>
+<p>For cases when the <code>next</code> callback is provided this means the queue implementation reqires acknowledgement of successful processing,
+returnign an error with .status &gt;= 500 will keep the message in the queue to be procrssed later.</p>
 <p>Example:</p>
-<pre><code>    ipc.subscribe(&quot;alert:&quot;, function(req, key, data) {
+<pre><code>    ipc.subscribe(&quot;alert:&quot;, function(req, key, data, next) {
         req.res.json(data);
+        if (next) next();
     }, req);
 </code></pre></li>
 </ul>
@@ -5382,15 +5386,16 @@ be used for on-demand jobs from a web process for example.</p>
 <p>For <code>db</code> type, it requires connection to the database, how jobs appear in the table and the order of execution is not concern of this function,
 the higher level management tool must take care when and what to run and in what order.
 If <code>tag</code> has been set then only jobs with such tag will be pulled by this instance.</p>
-<p>If a job object contains a property <code>finish</code> then it is responsibility of a worker to call <code>jobs.finishJob</code> so the job
-will be deleted from the queue. By default all jobs pulled from the db are deleted just after submition for execution.</p>
+<p>A job object may contains a property <code>queueHideInterval</code> which defines an interval in seconds how often to call <code>hideJob</code> while it is being procesed by a worker.
+On exit a worker will call <code>finishJob</code> automatically to delete a job message form the queue if no errors occured.</p>
+<p>Note: By default all jobs pulled from the db are deleted just after submition for execution.</p>
 <p>The options can specify:</p>
 <ul>
 <li>queue - SQS queue ARN, if not specified the <code>-server-job-queue</code> will be used</li>
 <li>timeout - how long to wait for job messages, seconds, if not specified then used <code>-jobs-wait-timeout</code> config parameter</li>
-<li>count - how many jobs to receive, if not specified then uses <code>-jobs-count</code> config parameter</li>
+<li>count - how many jobs to receive, if not specified then it uses <code>-jobs-count</code> config parameter</li>
 <li>visibilityTimeout - The duration in seconds that the received messages are hidden from subsequent retrieve requests
- after being retrieved by a ReceiveMessage request, if not specified then uses <code>-jobs-visibility-timeout</code> cofig parameter.</li>
+ after being retrieved by a ReceiveMessage request, if not specified then it uses <code>-jobs-visibility-timeout</code> cofig parameter.</li>
 <li>tag - retrieve jobs with this tag only from the queue</li>
 </ul>
 </li>
@@ -5413,6 +5418,18 @@ will be deleted from the queue. By default all jobs pulled from the db are delet
 <p> Finish and mark or delete a job after the successfull execution, this is supposed to be called by
 the jobs that handle completion, by default a job pulled from the queue is deleted on successful schedule.
 The options is the same job object that was passed to the <code>jobs.submit</code>.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>jobs.hideJob(options, callback)</code></p>
+<p> To keep a job from receiveing by other job processors this is used to hide it while it is being run.
+Depending on the queue type different properties can be used:</p>
+<ul>
+<li>visibilityTimeout - how long in seconds the message must be hidden in the SQS queue type, if not specified 30 seconds will be set</li>
+<li>status - set status to this value for the DB queue type, if not specified <code>hidden</code> status would be set</li>
+</ul>
+<p>It is safe to call this from any task, if no special properties are detected that can be used to communicate with a queue it will be silently ignored.</p>
 </li>
 </ul>
 
@@ -5891,7 +5908,7 @@ that data is not chnaged and was signed with the same secret</p>
 <ul>
 <li><p><code>lib.newError(options, status)</code></p>
 <p> Return a new Error object, options can be a string which will create an error with a message only
-or an object with message, code, status, and name properties to build full error</p>
+or an object with message, code, status, and name properties to build full error. The default error status is 400 if not specified.</p>
 </li>
 </ul>
 
@@ -7081,20 +7098,6 @@ table parameter is ignored, the object only supports the properties name and val
 <p>Options are passed to the LMDB low level driver as MDB_ flags according to <a href="http://symas.com/mdb/doc/">http://symas.com/mdb/doc/</a> and
 as properties for LevelDB as described in <a href="http://leveldb.googlecode.com/svn/trunk/doc/index.html">http://leveldb.googlecode.com/svn/trunk/doc/index.html</a></p>
 <p>The LevelDB database can only be shared by one process so if no unique options.url is given, it will create a unique database using core.processId()</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.nndbInitPool(options)</code></p>
-<p> Create a database pool that works with nanomsg server, all requests will be forwarded to the nanomsg socket,
-the server can be on the same machine or on the remote, 2 nanomsg socket types are supported: NN_PUSH or NN_REQ.
-In push mode no replies are expected, only sending db updates, in Req mode the server will reply on &#39;get&#39; command only,
-all other commands work as in push mode. Only &#39;get,put,del,incr&#39; comamnd are supported, add,update will be sent as put, LevelDB or LMDB
-on the other side only support simple key-value operations.
-Options can define the following:</p>
-<ul>
-<li>socket - nanomsg socket type, default is utils.NN_PUSH, can be utils.NN_REQ</li>
-</ul>
 </li>
 </ul>
 
