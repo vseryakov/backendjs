@@ -423,14 +423,16 @@ ipc.put = function(key, val, options)
     }
 }
 
-// Increase/decrease a counter in the cache, non existent items are treated as 0
-ipc.incr = function(key, val, options)
+// Increase/decrease a counter in the cache by `val`, non existent items are treated as 0, if a callback is given new value will be returned
+ipc.incr = function(key, val, options, callback)
 {
+    if (typeof options == "function") callback = options, options = null;
     logger.dev("ipc.incr", key, val, options);
     try {
-        this.cacheClient.incr(key, val, options);
+        this.cacheClient.incr(key, lib.toNumber(val), options, callback);
     } catch(e) {
         logger.error('ipc.incr:', e.stack);
+        if (typeof callback == "function") callback(0);
     }
 }
 

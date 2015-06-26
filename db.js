@@ -1769,11 +1769,11 @@ db.prepareRow = function(pool, op, table, obj, options)
             v = obj[p];
             // Current timestamps, for primary keys only support add
             if (cols[p].now && !v && (!cols[p].primary || op == "add")) obj[p] = now;
-            // The field is combined from several values contatenated for complex primary keys
-            if (Array.isArray(cols[p].join) && (typeof v != "string" || v.indexOf(this.separator) == -1)) obj[p] = cols[p].join.map(function(x) { return obj[x] || "" }).join(this.separator);
             // Case conversion
             if (cols[p].lower && typeof v == "string") v = v.toLoweCase();
             if (cols[p].upper && typeof v == "string") v = v.toUpperCase();
+            // The field is combined from several values contatenated for complex primary keys
+            if (Array.isArray(cols[p].join) && (typeof v != "string" || v.indexOf(this.separator) == -1)) obj[p] = cols[p].join.map(function(x) { return obj[x] || "" }).join(this.separator);
             // Final restrictions
             if (cols[p].hidden) delete obj[p];
             if (cols[p].readonly && (op == "incr" || op == "update")) delete obj[p];
@@ -1896,7 +1896,7 @@ db.convertRows = function(pool, req, rows, options)
                 row = rows[i];
                 if (typeof row[p] == "string" && row[p].indexOf(self.separator) > -1) {
                     var v = row[p].split(self.separator);
-                    if (v.length == col.join.length) col.join.forEach(function(x, i) { row[x] = v[i]; });
+                    if (v.length == col.join.length) col.join.forEach(function(x, j) { row[x] = v[j]; });
                 }
             }
         }
