@@ -243,7 +243,7 @@ var db = {
 module.exports = db;
 
 // Gracefully close all database pools when the shutdown is initiated by a Web process
-db.shutdownWeb = function(optios, callback)
+db.shutdownWeb = function(options, callback)
 {
     var pools = this.getPools();
     lib.forEachLimit(pools, pools.length, function(pool, next) {
@@ -252,7 +252,7 @@ db.shutdownWeb = function(optios, callback)
 }
 
 // Initialize all database pools. the options may containt the following properties:
-// - localMode - only initialize local and config db pool, other pools are ignored, if not given
+// - localMode - only initialize default, local and config db pools, other pools are ignored, if not given
 //    global value is used. Currently it can be set globally from the app only, no config parameter.
 db.init = function(options, callback)
 {
@@ -269,7 +269,7 @@ db.init = function(options, callback)
 
     // Configured pools for supported databases
     lib.forEachSeries(Object.keys(this.poolNames), function(pool, next) {
-        if (self.localMode && pool != self.local && pool != self.config) return next();
+        if (self.localMode && pool != self.pool && pool != self.local && pool != self.config) return next();
         self.initPool(pool, options, function(err) {
             if (err) logger.error("init: db:", pool, err);
             next();

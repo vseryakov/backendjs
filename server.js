@@ -113,7 +113,7 @@ server.start = function()
         return core.init({ role: "monitor", noDb: 1, noDns: 1, noConfigure: 1 }, function(err, opts) { self.startMonitor(opts); });
     }
 
-    // Master server, always create tables in the masters processes
+    // Master server, always create tables in the masters processes but only for primary db pools
     if (core.isArg("-master")) {
         return core.init({ role: "master", localMode: cluster.isMaster }, function(err, opts) { self.startMaster(opts); });
     }
