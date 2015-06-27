@@ -125,21 +125,21 @@ msg.send = function(options, callback)
             self.sendGCM(device_id, options, function(err) {
                 if (err) logger.error("send:", device_id, err);
                 // Stop on explicit fatal errors only
-                next(err.status >= 500 ? err : null);
+                next(err && err.status >= 500 ? err : null);
             });
             break;
 
         case "sns":
             self.sendSNS(device_id, options, function(err) {
                 if (err) logger.error("send:", device_id, err);
-                next(err.status >= 500 ? err : null);
+                next(err && err.status >= 500 ? err : null);
             });
             break;
 
         case "apn":
             self.sendAPN(device_id, options, function(err) {
                 if (err) logger.error("send:", device_id, err);
-                next(err.status >= 500 ? err : null);
+                next(err && err.status >= 500 ? err : null);
             });
             break;
 
