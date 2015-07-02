@@ -802,7 +802,7 @@ api.checkQuery = function(req, res, next)
         try {
             // Verify data checksum before parsing
             if (sig && sig.checksum && lib.hash(buf) != sig.checksum) {
-                var err = new Error("invalid data checksum");
+                var err = lib.newError("invalid data checksum");
                 err.status = 400;
                 return next(err);
             }
@@ -1637,7 +1637,7 @@ api.registerOAuthStrategy = function(strategy, options, callback)
     strategy = new strategy(options, function(accessToken, refreshToken, profile, done) {
         // Refuse to login if no account method exists
         var cb = options.fetchAccount || self.fetchAccount;
-        if (typeof cb != "function") return done(new Error("OAuth login is not configured"));
+        if (typeof cb != "function") return done(lib.newError("OAuth login is not configured"));
         var query = {};
         query.login = profile.provider + ":" + profile.id;
         query.secret = lib.uuid();

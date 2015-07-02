@@ -443,7 +443,7 @@ ipc.incr = function(key, val, options, callback)
 // If `next` callback is provided it must be called at the end, not all queue drivers will provide it.
 //
 // For cases when the `next` callback is provided this means the queue implementation reqires acknowledgement of successful processing,
-// returnign an error with .status >= 500 will keep the message in the queue to be procrssed later.
+// returning an error with .status >= 500 will keep the message in the queue to be processed later.
 
 //
 //  Example:

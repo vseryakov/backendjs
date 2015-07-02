@@ -868,7 +868,7 @@ core.httpGet = function(uri, params, callback)
         break;
 
     default:
-        return callback(new Error("invalid url: " + uri));
+        return callback(lib.newError("invalid url: " + uri));
     }
 
     var options = url.parse(uri);

@@ -310,7 +310,7 @@ aws.queryPrepare = function(action, version, obj, options)
 }
 
 // Make AWS request, return parsed response as Javascript object or null in case of error
-aws.queryAWS = function(region, endpoint, proto, path, obj, callback)
+aws.queryAWS = function(region, endpoint, proto, host, path, obj, callback)
 {
     var self = this;
 
@@ -322,10 +322,9 @@ aws.queryAWS = function(region, endpoint, proto, path, obj, callback)
     for (var i = 0; i < params.length; i++) {
         query += (i ? "&" : "") + params[i][0] + "=" + lib.encodeURIComponent(params[i][1]);
     }
-    var host = endpoint + '.' + region + '.amazonaws.com';
     this.querySign(region, endpoint, host, "POST", path, query, headers);
 
-    core.httpGet(proto + host + path, { method: "POST", postdata: query, headers: headers }, function(err, params) {
+    core.httpGet(url.format({ protocol: proto, host: host, pathname: path }), { method: "POST", postdata: query, headers: headers }, function(err, params) {
         if (obj.Action) params.Action = obj.Action;
         self.parseXMLResponse(err, params, callback);
     });
@@ -337,8 +336,12 @@ aws.queryEndpoint = function(endpoint, version, action, obj, options, callback)
     if (typeof options == "function") callback = options, options = {};
     if (!options) options = {};
     var region = options.region || this.region  || 'us-east-1';
+    var e = options.endpoint ? url.parse(options.endpoint) : null;
+    var proto = options.endpoint_protocol || (e && e.protocol) || 'https';
+    var host = options.endpoint_host || (e && e.host) || (endpoint + '.' + region + '.amazonaws.com');
+    var path = options.endpoint_path || (e && e.hostname) || '/';
     var req = this.queryPrepare(action, version, obj, options);
-    this.queryAWS(region, endpoint, this.proto || options.proto || 'https://', '/', req, callback);
+    this.queryAWS(region, endpoint, proto, host, path, req, callback);
 }
 
 // AWS EC2 API request
@@ -356,6 +359,8 @@ aws.queryELB = function(action, obj, options, callback)
 // AWS SQS API request
 aws.querySQS = function(action, queue, obj, options, callback)
 {
+    // Use the queue url as the endpoint
+    if (queue.match(/^https?:/)) options = lib.cloneObj(options, "endpoint", queue);
     this.queryEndpoint("sqs", '2012-11-05', action, obj, options, callback);
 }
 
@@ -416,7 +421,7 @@ aws.queryDDB = function (action, obj, options, callback)
     var start = Date.now();
     var region = options.region || this.region  || 'us-east-1';
     if (options.endpoint && options.endpoint.match(/[a-z][a-z]-[a-z]+-[1-9]/)) region = options.endpoint;
-    var uri = options.endpoint && options.endpoint.match(/^https?:\/\//) ? options.endpoint : ((self.proto || options.proto || 'http://') + 'dynamodb.' + region + '.amazonaws.com/');
+    var uri = options.endpoint && options.endpoint.match(/^https?:\/\//) ? options.endpoint : ((options.endpoint_protocol || 'http://') + 'dynamodb.' + region + '.amazonaws.com/');
     var version = '2012-08-10';
     var target = 'DynamoDB_' + version.replace(/\-/g,'') + '.' + action;
     var headers = { 'content-type': 'application/x-amz-json-1.0; charset=utf-8', 'x-amz-target': target };
@@ -446,7 +451,7 @@ aws.queryDDB = function (action, obj, options, callback)
             }
             // Report about the error
             if (!err) {
-                err = new Error(params.json.message || params.json.Message || (action + " Error"));
+                err = lib.newError(params.json.message || params.json.Message || (action + " Error"));
                 err.code = (params.json.__type || params.json.code).split('#').pop();
             }
             logger[options.silence_error || err.code == "ConditionalCheckFailedException" ? "debug" : "error"]('queryDDB:', action, obj, err || params.data);
@@ -506,7 +511,7 @@ aws.signS3 = function(method, bucket, path, options)
     // DNS compatible or not, use path-style if not for access otherwise virtual host style
     var dns = bucket.match(/[a-z0-9][a-z0-9\-]*[a-z0-9]/) ? true : false;
 
-    var uri = (self.proto || options.proto || 'http://');
+    var uri = options.endpoint_protocol || 'http://';
     uri += dns ? bucket + "." : "";
     uri += "s3" + (region != "us-east-1" ? "-" + region : "") + ".amazonaws.com";
     uri += dns ? "" : "/" + bucket;
@@ -865,11 +870,11 @@ aws.sqsReceiveMessage = function(url, options, callback)
     if (typeof callback != "function") callback = lib.noop;
     if (!options) options = {};
 
-    var params = { QueueUrl: url };
+    var params = {};
     if (options.count) params.MaxNumberOfMessages = options.count;
     if (options.visibilityTimeout) params.VisibilityTimeout = options.visibilityTimeout;
     if (options.timeout) params.WaitTimeSeconds = options.timeout;
-    this.querySQS("ReceiveMessage", params, options, function(err, obj) {
+    this.querySQS("ReceiveMessage", url, params, options, function(err, obj) {
         var rows = [];
         if (!err) rows = lib.objGet(obj, "ReceiveMessageResponse.ReceiveMessageResult.Message", { list: 1 });
         callback(err, rows);
@@ -887,7 +892,7 @@ aws.sqsSendMessage = function(url, body, options, callback)
     if (typeof callback != "function") callback = lib.noop;
     if (!options) options = {};
 
-    var params = { QueueUrl: url, MessageBody: body };
+    var params = { MessageBody: body };
     if (options.delay) params.DelaySeconds = options.delay;
     if (options.attrs) {
         var n = 1;
@@ -899,7 +904,7 @@ aws.sqsSendMessage = function(url, body, options, callback)
             n++;
         }
     }
-    this.querySQS("SendMessage", params, options, function(err, obj) {
+    this.querySQS("SendMessage", url, params, options, function(err, obj) {
         var rows = [];
         if (!err) rows = lib.objGet(obj, "ReceiveMessageResponse.ReceiveMessageResult.Message", { list: 1 });
         callback(err, rows);

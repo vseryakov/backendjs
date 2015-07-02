@@ -6,7 +6,6 @@
 var net = require('net');
 var cluster = require('cluster');
 var domain = require('domain');
-var cron = require('cron');
 var path = require('path');
 var util = require('util');
 var url = require('url');
@@ -32,7 +31,6 @@ var server = {
     // Config parameters
     args: [{ name: "max-processes", type: "callback", callback: function(v) { this.maxProcesses=lib.toNumber(v,{float:0,dflt:0,min:0,max:core.maxCPUs}); if(this.maxProcesses<=0) this.maxProcesses=Math.max(1,core.maxCPUs-1); this._name="maxProcesses" }, descr: "Max number of processes to launch for Web servers, 0 means NumberofCPUs-2" },
            { name: "max-workers", type: "number", min: 1, max: 32, descr: "Max number of worker processes to launch" },
-           { name: "idle-time", type: "number", descr: "If set and no jobs are submitted the backend will be shutdown, for instance mode only" },
            { name: "crash-delay", type: "number", max: 30000, obj: "crash", descr: "Delay between respawing the crashed process" },
            { name: "restart-delay", type: "number", max: 30000, descr: "Delay between respawning the server after changes" },
            { name: "log-errors" ,type: "bool", descr: "If true, log crash errors from child processes by the logger, otherwise write to the daemon err-file. The reason for this is that the logger puts everything into one line thus breaking formatting for stack traces." },
@@ -42,8 +40,6 @@ var server = {
            { name: "process-name", descr: "Path to the command to spawn by the monitor instead of node, for external processes guarded by this monitor" },
            { name: "process-args", type: "list", descr: "Arguments for spawned processes, for passing v8 options or other flags in case of external processes" },
            { name: "worker-args", type: "list", descr: "Node arguments for workers, job and web processes, for passing v8 options" },
-           { name: "no-cron-jobs", type: "bool", descr: "Disable cron jobs in the master process" },
-           { name: "cron-jobs", type: "callback", callback: function(v) { if (core.role == "master") jobs.parseCronjobs("config", v) }, descr: "An array with crontab objects, similar to etc/crontab but loaded from the config" },
     ],
 
     // Watcher process status
@@ -67,9 +63,6 @@ var server = {
     // Options for v8
     processArgs: [],
     workerArgs: [],
-
-    // How long to be in idle state and shutdown, for use in instances
-    idleTime: 120000,
 
     // Proxy target
     proxyUrl: {},
@@ -151,41 +144,22 @@ server.startMaster = function(options)
         var d = domain.create();
         d.on('error', function(err) { logger.error('master:', err.stack); });
         d.run(function() {
+            self.writePidfile();
 
             // REPL command prompt over TCP
             if (core.replPort) self.startRepl(core.replPort, core.replBind);
-
-            // Setup background tasks from the crontab
-            if (!self.noCronJobs) jobs.loadCronjobs();
 
             // Log watcher job, always runs even if no email configured, if enabled it will
             // start sending only new errors and not from the past
             self.watchInterval = setInterval(function() { core.watchLogs(); }, core.logwatcherInterval * 60000);
 
-            // Jobs from the queue
-            if (jobs.interval > 0) setInterval(function() { jobs.processJob(); }, jobs.interval * 1000);
-
             // Watch temp files
             setInterval(function() { core.watchTmp("tmp", { seconds: 86400 }) }, 43200000);
             setInterval(function() { core.watchTmp("log", { seconds: 86400*7, ignore: path.basename(core.errFile) + "|" + path.basename(core.logFile) }); }, 86400000);
 
-            // Maintenance tasks
-            setInterval(function() {
-                // Execute pending tasks
-                jobs.processTask();
-
-                // Check idle time, if no jobs running for a long time shutdown the server, this is for instance mode mostly
-                if (core.instance.job && self.idleTime > 0 && !Object.keys(cluster.workers).length && Date.now() - jobs.time > self.idleTime) {
-                    logger.log('startMaster:', 'idle:', self.idleTime);
-                    self.shutdown();
-                }
-            }, 30000);
-            // Execute the tasks passed via command line
-            setTimeout(function() { jobs.processTask() }, jobs.delay);
-
-            // API related initialization
+            // Let modules that need to run in the master to inititalize
             core.runMethods("configureMaster");
-            self.writePidfile();
+
             logger.log('startMaster:', 'version:', core.version, 'home:', core.home, 'port:', core.port, 'uid:', process.getuid(), 'gid:', process.getgid(), 'pid:', process.pid);
         });
     } else {
@@ -202,26 +176,11 @@ server.startWorker = function(options)
     process.title = core.name + ': worker';
 
     process.on("message", function(job) {
-        logger.debug('startWorker:', 'job:', job);
+        logger.debug('startWorker:', job);
         jobs.run(job);
     });
 
-    // Maintenance tasks
-    setInterval(function() {
-        var now = Date.now()
-        // Check idle time, exit worker if no jobs submitted
-        if (self.idleTime > 0 && !jobs.jobs.length && now - jobs.time > self.idleTime) {
-            logger.log('startWorker:', 'idle: no more jobs to run', self.idleTime);
-            process.exit(0);
-        }
-        // Check how long we run and force kill if exceeded
-        if (now - jobs.time > jobs.maxTime*1000) {
-            logger.log('startWorker:', 'time: exceeded max run time', jobs.maxTime);
-            process.exit(0);
-        }
-    }, 30000);
-
-    // At least API tables are needed for normal operations
+    // Let modules prepare for a worker operations
     core.runMethods("configureWorker", function() {
         process.send('ready');
     });

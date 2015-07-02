@@ -1393,7 +1393,7 @@ lib.stringify = function(obj, filter)
 //  - debug - report errors in debug level
 lib.jsonParse = function(obj, options)
 {
-    if (!obj) return this.checkResult(new Error("empty json"), obj, options);
+    if (!obj) return this.checkResult(this.newError("empty json"), obj, options);
     try {
         obj = typeof obj == "string" ? JSON.parse(obj) : obj;
         if (options && options.obj && this.typeName(obj) != "object") obj = {};
@@ -1437,7 +1437,7 @@ lib.moveFile = function(src, dst, overwrite, callback)
 
     logger.debug('moveFile:', src, dst, overwrite);
     fs.stat(dst, function (err) {
-        if (!err && !overwrite) return callback(new Error("File " + dst + " exists."));
+        if (!err && !overwrite) return callback(self.newError("File " + dst + " exists."));
         fs.rename(src, dst, copyIfFailed);
     });
 }
@@ -1445,11 +1445,12 @@ lib.moveFile = function(src, dst, overwrite, callback)
 // Copy file, overwrite is optional flag, by default do not overwrite
 lib.copyFile = function(src, dst, overwrite, callback)
 {
+    var self = this;
     if (typeof overwrite == "function") callback = overwrite, overwrite = false;
 
     function copy(err) {
         var ist, ost;
-        if (!err && !overwrite) return callback ? callback(new Error("File " + dst + " exists.")) : null;
+        if (!err && !overwrite) return callback ? callback(self.newError("File " + dst + " exists.")) : null;
         fs.stat(src, function (err2) {
             if (err2) return callback ? callback(err2) : null;
             ist = fs.createReadStream(src);
@@ -1942,7 +1943,7 @@ lib.createPool = function(options)
     // Return next available resource item, if not available immediately wait for defined amount of time before calling the
     // callback with an error. The callback second argument is active resource item.
     pool.acquire = function(callback) {
-        if (typeof callback != "function") throw new Error("callback is required");
+        if (typeof callback != "function") throw self.newError("callback is required");
 
         // We have idle items
         if (this._pool.avail.length) {
@@ -1953,11 +1954,11 @@ lib.createPool = function(options)
         }
         // Put into waiting queue
         if (this._pool.busy.length >= this._pool.max) {
-            if (this._pool.queue_count >= this._pool.max_queue) return callback(new Error("no more resources"));
+            if (this._pool.queue_count >= this._pool.max_queue) return callback(self.newError("no more resources"));
 
             this._pool.queue_count++;
             return self.deferCallback(this._pool.queue, { id: this._pool.num++ }, function(m) {
-                callback(m.item ? null : new Error("timeout waiting for the resource"), m.item);
+                callback(m.item ? null : self.newError("timeout waiting for the resource"), m.item);
             }, this._pool.timeout);
         }
         // New item

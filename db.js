@@ -294,10 +294,10 @@ db.initPool = function(name, options, callback)
     if (typeof url == "undefined") return callback();
 
     var d = name.match(/^([a-z]+)([0-9]+)?$/);
-    if (!d) return callback(new Error("invalid pool " + name));
+    if (!d) return callback(lib.newError("invalid pool " + name));
     var type = d[1];
     var n = d[2] || "";
-    if (!self[type + "InitPool"]) return callback(new Error("invalid pool type " + name));
+    if (!self[type + "InitPool"]) return callback(lib.newError("invalid pool type " + name));
 
     // Pool specific tables
     (this.poolParams[type + 'Tables' + n] || []).forEach(function(y) { self.poolTables[y] = name; });
@@ -953,13 +953,13 @@ db.list = function(table, query, options, callback)
         query = lib.strSplit(query);
         if (typeof query[0] == "string") {
             var keys = this.getKeys(table, options);
-            if (!keys.length) return callback(new Error("invalid keys"), []);
+            if (!keys.length) return callback(lib.newError("invalid keys"), []);
             query = query.map(function(x) { return lib.newObj(keys[0], x) });
         }
         break;
 
     default:
-        return callback(new Error("invalid list"), []);
+        return callback(lib.newError("invalid list"), []);
     }
     if (!query.length) return callback(null, []);
     this.select(table, query, options, callback);
@@ -2330,7 +2330,7 @@ db.createPool = function(options)
 
     } else {
         var pool = {};
-        pool.acquire = function(cb) { if (typeof cb != "function" ) throw new Error("callback is required"); cb(null, {}); };
+        pool.acquire = function(cb) { if (typeof cb != "function" ) throw lib.newError("callback is required"); cb(null, {}); };
         pool.release = lib.noop;
         pool.destroyAll = lib.noop;
         pool.stats = lib.noop;
