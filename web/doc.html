@@ -2315,6 +2315,73 @@ the worker processes if they die and restart them automatically. How many proces
 </ul>
 
 <ul>
+<li><p><code>Database tables</code></p>
+<pre><code>      // Authentication by login, only keeps id and secret to check the siganture
+      bk_auth: { login: { primary: 1 },                              // Account login
+                 id: {},                                             // Auto generated UUID to be linked with other records
+                 alias: {},                                          // Account alias
+                 status: {},                                         // Status of the account
+                 type: { admin: 1 },                                 // Account type: admin, ....
+                 secret: { secure: 1 },                              // Signature secret, not a password
+                 auth_secret: { admin: 1, secure: 1 },               // Code for 2-factor authentication
+                 token_secret: { admin: 1, secure: 1 },              // Secret for access tokens
+                 salt: { secure: 1 },                                // Salt for passwords
+                 password: { secure: 1},                             // Hashed with salt
+                 acl_deny: { admin: 1, secure: 1 },                  // Deny access to matched url, a regexp
+                 acl_allow: { admin: 1, secure: 1 },                 // Only grant access if path matches this regexp
+                 query_deny: { admin: 1, secure: 1 },                // Ignore these query params, a regexp
+                 rlimits_max: { type: &quot;int&quot; },                       // Burst/max reqs/sec rate allowed for this account, 0 to disable
+                 rlimits_rate: { type: &quot;int&quot; },                      // Fill/normal reqs/sec rate for this account, 0 to disable
+                 expires: { type: &quot;bigint&quot;, admin: 1, secure: 1 },   // Deny access to the account if this value is before current date, milliseconds
+                 mtime: { type: &quot;bigint&quot;, now: 1 } },
+
+      // Collected metrics per worker process, basic columns are defined in the table to be collected like
+      // api and db request rates(.rmean), response times(.hmean) and total number of requests(_0).
+      // Counters ending with `_0` are snapshots, i.e. they must be summed up for any given interval.
+      // All other counters are averages. Only subset of all available API endpoints is defined here
+      // for example purposes, for SQL databases all columns must be defined but for NoSQL this is not required,
+      // depending on the database that is used for collection the metrics must be added to the table. All `url_` columns
+      // are the API requests, not the DB calls made by the app, the length of URL path to be stored is defined in the API module
+      // by the `api-url-metrics-` config parameter.
+      bk_collect: { id: { primary: 1 },
+                     mtime: { type: &quot;bigint&quot;, primary: 1 },
+                     app: {},
+                     ip: {},
+                     type: {},
+                     instance: {},
+                     worker: {},
+                     pid: { type: &quot;int&quot; },
+                     latency: { type: &quot;int&quot; },
+                     cpus: { type: &quot;int&quot; },
+                     mem: { type: &quot;bigint&quot; },
+                     rss_hmean: { type: &quot;real&quot; },
+                     heap_hmean: { type: &quot;real&quot; },
+                     avg_hmean: { type: &quot;real&quot; },
+                     free_hmean: { type: &quot;real&quot; },
+                     util_hmean: { type: &quot;real&quot; },
+                     api_req_rmean: { type: &quot;real&quot; },
+                     api_req_hmean: { type: &quot;real&quot; },
+                     api_req_0: { type: &quot;real&quot; },
+                     api_err_0: { type: &quot;real&quot; },
+                     api_bad_0: { type: &quot;real&quot; },
+                     api_400_0: { type: &quot;real&quot; },
+                     api_401_0: { type: &quot;real&quot; },
+                     api_403_0: { type: &quot;real&quot; },
+                     api_417_0: { type: &quot;real&quot; },
+                     api_429_0: { type: &quot;real&quot; },
+                     api_que_rmean: { type: &quot;real&quot; },
+                     api_que_hmean: { type: &quot;real&quot; },
+                     pool_req_rmean: { type: &quot;real&quot; },
+                     pool_req_hmean: { type: &quot;real&quot; },
+                     pool_req_0: { type: &quot;real&quot; },
+                     pool_err_0: { type: &quot;real&quot; },
+                     pool_que_rmean: { type: &quot;real&quot; },
+                     pool_que_hmean: { type: &quot;real&quot; },
+                     ctime: { type: &quot;bigint&quot; } },
+</code></pre></li>
+</ul>
+
+<ul>
 <li><p><code>api.init(options, callback)</code></p>
 <p> Initialize API layer, this must be called before the <code>api</code> module can be used but it is called by the server module automatically so <code>api.init</code> is
 rearely need to called directly, only for new server implementation or if using in the shell for testing.</p>
@@ -4022,26 +4089,7 @@ database like DynamoDB for real-time requests and slower SQL database running on
 </code></pre>
 <ul>
 <li><p><code>Database tables</code></p>
-<pre><code>      // Authentication by login, only keeps id and secret to check the siganture
-      bk_auth: { login: { primary: 1 },                              // Account login
-                 id: {},                                             // Auto generated UUID to be linked with other records
-                 alias: {},                                          // Account alias
-                 status: {},                                         // Status of the account
-                 type: { admin: 1 },                                 // Account type: admin, ....
-                 secret: { secure: 1 },                              // Signature secret, not a password
-                 auth_secret: { admin: 1, secure: 1 },               // Code for 2-factor authentication
-                 token_secret: { admin: 1, secure: 1 },              // Secret for access tokens
-                 salt: { secure: 1 },                                // Salt for passwords
-                 password: { secure: 1},                             // Hashed with salt
-                 acl_deny: { admin: 1, secure: 1 },                  // Deny access to matched url, a regexp
-                 acl_allow: { admin: 1, secure: 1 },                 // Only grant access if path matches this regexp
-                 query_deny: { admin: 1, secure: 1 },                // Ignore these query params, a regexp
-                 rlimits_max: { type: &quot;int&quot; },                       // Burst/max reqs/sec rate allowed for this account, 0 to disable
-                 rlimits_rate: { type: &quot;int&quot; },                      // Fill/normal reqs/sec rate for this account, 0 to disable
-                 expires: { type: &quot;bigint&quot;, admin: 1, secure: 1 },   // Deny access to the account if this value is before current date, milliseconds
-                 mtime: { type: &quot;bigint&quot;, now: 1 } },
-
-      // Configuration store, same parameters as in the commandline or config file, can be placed in separate config groups
+<pre><code>      // Configuration store, same parameters as in the commandline or config file, can be placed in separate config groups
       // to be used by different backends or workers, &#39;core&#39; is default global group
       bk_config: { name: { primary: 1 },                      // name of the parameter
                    type: { primary: 1 },                      // config type
@@ -4052,59 +4100,6 @@ database like DynamoDB for real-time requests and slower SQL database running on
       bk_property: { name: { primary: 1 },
                      value: {},
                      mtime: { type: &quot;bigint&quot;, now: 1 } },
-
-      // Pending jobs or other requests to be processed
-      bk_queue: { id: { primary: 1 },
-                  tag: {},                                          // a worker tag
-                  status: {},                                       // job status: running, done
-                  data: { type: &quot;json&quot; },                           // job definition object
-                  etime: { type: &quot;bigint&quot; },                        // expiration time
-                  ctime: { type: &quot;bigint&quot;, readonly: 1, now: 1 },   // creation time
-                  mtime: { type: &quot;bigint&quot;, now: 1 } },
-
-      // Collected metrics per worker process, basic columns are defined in the table to be collected like
-      // api and db request rates(.rmean), response times(.hmean) and total number of requests(_0).
-      // Counters ending with `_0` are snapshots, i.e. they must be summed up for any given interval.
-      // All other counters are averages. Only subset of all available API endpoints is defined here
-      // for example purposes, for SQL databases all columns must be defined but for NoSQL this is not required,
-      // depending on the database that is used for collection the metrics must be added to the table. All `url_` columns
-      // are the API requests, not the DB calls made by the app, the length of URL path to be stored is defined in the API module
-      // by the `api-url-metrics-` config parameter.
-      bk_collect: { id: { primary: 1 },
-                     mtime: { type: &quot;bigint&quot;, primary: 1 },
-                     app: {},
-                     ip: {},
-                     type: {},
-                     instance: {},
-                     worker: {},
-                     pid: { type: &quot;int&quot; },
-                     latency: { type: &quot;int&quot; },
-                     cpus: { type: &quot;int&quot; },
-                     mem: { type: &quot;bigint&quot; },
-                     rss_hmean: { type: &quot;real&quot; },
-                     heap_hmean: { type: &quot;real&quot; },
-                     avg_hmean: { type: &quot;real&quot; },
-                     free_hmean: { type: &quot;real&quot; },
-                     util_hmean: { type: &quot;real&quot; },
-                     api_req_rmean: { type: &quot;real&quot; },
-                     api_req_hmean: { type: &quot;real&quot; },
-                     api_req_0: { type: &quot;real&quot; },
-                     api_err_0: { type: &quot;real&quot; },
-                     api_bad_0: { type: &quot;real&quot; },
-                     api_400_0: { type: &quot;real&quot; },
-                     api_401_0: { type: &quot;real&quot; },
-                     api_403_0: { type: &quot;real&quot; },
-                     api_417_0: { type: &quot;real&quot; },
-                     api_429_0: { type: &quot;real&quot; },
-                     api_que_rmean: { type: &quot;real&quot; },
-                     api_que_hmean: { type: &quot;real&quot; },
-                     pool_req_rmean: { type: &quot;real&quot; },
-                     pool_req_hmean: { type: &quot;real&quot; },
-                     pool_req_0: { type: &quot;real&quot; },
-                     pool_err_0: { type: &quot;real&quot; },
-                     pool_que_rmean: { type: &quot;real&quot; },
-                     pool_que_hmean: { type: &quot;real&quot; },
-                     ctime: { type: &quot;bigint&quot; } },
 </code></pre></li>
 </ul>
 
@@ -5245,6 +5240,19 @@ returning an error with .status &gt;= 500 will keep the message in the queue to 
 <li><p><code>jobs</code></p>
 <p> Job launcher and scheduler</p>
 </li>
+</ul>
+
+<ul>
+<li><p><code>Database tables</code></p>
+<pre><code>      // Pending jobs or other requests to be processed
+      bk_job: { id: { primary: 1 },
+                tag: {},                                          // a worker tag
+                status: {},                                       // job status: running, done
+                data: { type: &quot;json&quot; },                           // job definition object
+                etime: { type: &quot;bigint&quot; },                        // expiration time
+                ctime: { type: &quot;bigint&quot;, readonly: 1, now: 1 },   // creation time
+                mtime: { type: &quot;bigint&quot;, now: 1 } },
+</code></pre></li>
 </ul>
 
 <ul>
