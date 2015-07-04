@@ -194,9 +194,9 @@ db.init = function(options, callback)
         if (typeof options[x] != "undefined") self[x] = options[x];
     });
 
-    // Merge all tables
+    // Merge all tables from all modules
     for (var p in core.modules) {
-        if (lib.isObject(core.modules[p])) this.describeTables(core.modules[p].tables);
+        if (p != this.name && lib.isObject(core.modules[p].tables)) this.describeTables(core.modules[p].tables);
     }
 
     logger.debug("db.init:", core.role, Object.keys(this.poolNames), Object.keys(this.pools));
