@@ -321,29 +321,6 @@ ipc.send = function(op, name, value, options, callback)
     this.command(msg, callback, options ? options.timeout : 0);
 }
 
-// A Javascript object `msg` must have the following properties:
-// - name - unique id, can be IP address, account id, etc...
-// - rate, max, interval - same as for `metrics.TokenBucket` rate limiter.
-//
-// Returns true if consumed or false otherwise, if callback
-// is given, call it with the consumed flag as first argument.
-//
-// Keeps the token bucket in the LRU local cache by name.
-ipc.checkLimits = function(msg, callback)
-{
-    var data = utils.lruGet(msg.name);
-    this.tokenBucket.configure(data ? lib.strSplit(data) : msg);
-    // Reset the bucket if any number has been changed, now we have a new rate to check
-    if (!this.tokenBucket.equal(msg.rate, msg.max, msg.interval)) this.tokenBucket.configure(msg);
-
-    var consumed = this.tokenBucket.consume(msg.consume || 1);
-    utils.lruPut(msg.name, this.tokenBucket.toString());
-
-    logger.debug("checkLimits:", msg.name, consumed, this.tokenBucket);
-    if (typeof callback == "function") callback(consumed);
-    return consumed;
-}
-
 // Returns the cache statistics, the format depends on the cache type used
 ipc.stats = function(callback)
 {
@@ -485,3 +462,65 @@ ipc.publish = function(key, data)
     }
 }
 
+// A Javascript object `msg` must have the following properties:
+// - name - unique id, can be IP address, account id, etc...
+// - rate, max, interval - same as for `metrics.TokenBucket` rate limiter.
+//
+// Returns true if consumed or false otherwise, if callback
+// is given, call it with the consumed flag as first argument.
+//
+// Keeps the token bucket in the LRU local cache by name, this is supposed to be used on the server, not concurrently by several clients.
+ipc.checkLimits = function(msg, callback)
+{
+    var data = utils.lruGet(msg.name);
+    this.tokenBucket.configure(data ? lib.strSplit(data) : msg);
+    // Reset the bucket if any number has been changed, now we have a new rate to check
+    if (!this.tokenBucket.equal(msg.rate, msg.max, msg.interval)) this.tokenBucket.configure(msg);
+
+    var consumed = this.tokenBucket.consume(msg.consume || 1);
+    utils.lruPut(msg.name, this.tokenBucket.toString());
+
+    logger.debug("checkLimits:", msg.name, consumed, this.tokenBucket);
+    if (typeof callback == "function") callback(consumed);
+    return consumed;
+}
+
+// Implementation of a timer with the lock, only one instance can lock something for some period of time(interval) and will expire after timeout, all other
+// attempts to lock the timer will fail. A timer is named and optional properties in the options can specify the `interval` and `timeout` in milliseconds, the
+// defaults are 1 min and 1 hour accordingly.
+//
+// This is intended to be used for background job processing or something similar when
+// only on instrance is needed to run. At the end of the processing `clearTimer` must be called to enable another instance immediately,
+// otherwise it will be available sfter the timeout only.
+//
+// The callback must be passed which will take one boolean argument, if true is retuned the timer has been locked by the caller, otherwise it is already locked by other
+// instance.
+//
+// Note: The implementaton uses the currently configured cache system.
+ipc.checkTimer = function(name, options, callback)
+{
+    if (typeof options == "function") callback = options, options = {};
+    if (!options) options = {};
+
+    var now = Date.now();
+    var interval = options.interval || 60000;
+    var timeout = options.timeout || 3600000;
+
+    ipc.get(name + ":t", function(t) {
+        t = now - lib.toNumber(t);
+        if (!options.force && t < interval) return callback(false);
+
+        ipc.incr(name + ":n", 1, function(n) {
+            if (!options.force && n > 1 && t < timeout) return callback(false);
+            ipc.put(name + ":t", now);
+            callback(true);
+        })
+    });
+}
+
+// Reset the timer so it can be locked immediately.
+ipc.resetTimer = function(name)
+{
+    ipc.put(name + ":t", Date.now());
+    ipc.put(name + ":n", "0");
+}

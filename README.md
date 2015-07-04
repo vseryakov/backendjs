@@ -108,7 +108,7 @@ or simply
         /account/add?name=test1&secret=test1&login=test1@test.com
 
 
-* Now login with any of the accounts above, click on *Login* at the top-right corner and enter 'test1' as login and 'test1' as secret in the login popup dialog.
+* Now login with the new account, click on *Login* at the top-right corner and enter 'test1' as login and 'test1' as secret in the login popup dialog.
 * If no error message appeared after the login, try to get your current account details:
 
         /account/get
@@ -246,11 +246,11 @@ the application is structured.
 
 Another way to add functionality to the backend is via external modules specific to the backend, these modules are loaded on startup from the backend
 home subdirectory `modules/` and from the backendjs package directory for core modules. The format is the same as for regular node.js modules and
-only top level .js files are loaded on the backend startup. By default all present in the module/ directories will be loaded, to restrict which
+only top level .js files are loaded on the backend startup. By default all .js files present in the `modules/` directory will be loaded, to restrict which
 modules to load or to ignore see command line parameters `-deny-modules` and `-allow-modules`.
 
 Once loaded they have the same access to the backend as the rest of the code, the only difference is that they reside in the backend home and
-can be shipped regardless of the npm, node nodules and other env setup. These modules are exposed in the `core.modules` the same way as all other core submodules
+can be shipped regardless of the npm, node modules and other env setup. These modules are exposed in the `core.modules` the same way as all other core submodules
 methods.
 
 Let's assume the modules/ contains file facebook.js which implements custom FB logic:
@@ -317,7 +317,7 @@ Before the tables can be queried the schema must be defined and created, the bac
 
 Each database may restrict how the schema is defined and used, the db layer does not provide an artificial layer hiding all specifics, it just provides the same
 API and syntax, for example, DynamoDB tables must have only hash primary key or combined hash and range key, so when creating table to be used with DynamoDB, only
-one or two columns can be marked with primary property while for SQL databases the composite primary key can conisit of more than 2 columns.
+one or two columns can be marked with primary property while for SQL databases the composite primary key can consist of more than 2 columns.
 
 The backendjs always creates several tables in the configured database pools by default, these tables are required to support default API functionality and some
 are required for backend opertions. Refer below for the Javascript modules documenttion that described which tables are created by default. In the custom applications
