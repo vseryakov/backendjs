@@ -64,6 +64,18 @@ var jobs = {
     crontab: [],
     // Worker process arguments
     workerArgs: [],
+
+    tables: {
+        // Pending jobs or other requests to be processed
+        bk_job: { id: { primary: 1 },
+                  tag: {},                                          // a worker tag
+                  status: {},                                       // job status: running, done
+                  data: { type: "json" },                           // job definition object
+                  etime: { type: "bigint" },                        // expiration time
+                  ctime: { type: "bigint", readonly: 1, now: 1 },   // creation time
+                  mtime: { type: "bigint", now: 1 } },
+
+    }, // tables
 };
 
 module.exports = jobs;
@@ -605,7 +617,7 @@ jobs.processJob = function(options, callback)
 
     case "db":
         this._processJob = 1;
-        db.select("bk_queue", { tag: this.tag, status: null }, { ops: { status: "null" }, count: options.count || self.count }, function(err, rows) {
+        db.select("bk_job", { tag: this.tag, status: null }, { ops: { status: "null" }, count: options.count || self.count }, function(err, rows) {
             lib.forEachSeries(rows, function(row, next) {
                 var jobspec = row.data;
                 jobspec.dbId = row.id;
@@ -648,7 +660,7 @@ jobs.submitJob = function(jobspec, options, callback)
         break;
 
     case "db":
-        db.put("bk_queue", { id: options.id || lib.uuid(), tag: options.tag, data: jobspec }, callback);
+        db.put("bk_job", { id: options.id || lib.uuid(), tag: options.tag, data: jobspec }, callback);
         break;
 
     default:
@@ -673,7 +685,7 @@ jobs.finishJob = function(jobspec, callback)
 
     case "db":
         if (jobspec.dbId) {
-            return db.del("bk_queue", { id: jobspec.dbId }, callback);
+            return db.del("bk_job", { id: jobspec.dbId }, callback);
         }
         break;
     }
@@ -704,7 +716,7 @@ jobs.hideJob = function(jobspec, callback)
 
     case "db":
         if (jobspec.dbId) {
-            return db.update("bk_queue", { id: jobspec.dbId, status: jobspec.status || "hidden" }, callback);
+            return db.update("bk_job", { id: jobspec.dbId, status: jobspec.status || "hidden" }, callback);
         }
         break;
     }

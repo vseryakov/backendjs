@@ -278,6 +278,72 @@ var api = {
         token: { type: "token" },
         select: { type: "list" },
     },
+
+    tables: {
+        // Authentication by login, only keeps id and secret to check the siganture
+        bk_auth: { login: { primary: 1 },                              // Account login
+                   id: {},                                             // Auto generated UUID to be linked with other records
+                   alias: {},                                          // Account alias
+                   status: {},                                         // Status of the account
+                   type: { admin: 1 },                                 // Account type: admin, ....
+                   secret: { secure: 1 },                              // Signature secret, not a password
+                   auth_secret: { admin: 1, secure: 1 },               // Code for 2-factor authentication
+                   token_secret: { admin: 1, secure: 1 },              // Secret for access tokens
+                   salt: { secure: 1 },                                // Salt for passwords
+                   password: { secure: 1},                             // Hashed with salt
+                   acl_deny: { admin: 1, secure: 1 },                  // Deny access to matched url, a regexp
+                   acl_allow: { admin: 1, secure: 1 },                 // Only grant access if path matches this regexp
+                   query_deny: { admin: 1, secure: 1 },                // Ignore these query params, a regexp
+                   rlimits_max: { type: "int" },                       // Burst/max reqs/sec rate allowed for this account, 0 to disable
+                   rlimits_rate: { type: "int" },                      // Fill/normal reqs/sec rate for this account, 0 to disable
+                   expires: { type: "bigint", admin: 1, secure: 1 },   // Deny access to the account if this value is before current date, milliseconds
+                   mtime: { type: "bigint", now: 1 } },
+
+        // Collected metrics per worker process, basic columns are defined in the table to be collected like
+        // api and db request rates(.rmean), response times(.hmean) and total number of requests(_0).
+        // Counters ending with `_0` are snapshots, i.e. they must be summed up for any given interval.
+        // All other counters are averages. Only subset of all available API endpoints is defined here
+        // for example purposes, for SQL databases all columns must be defined but for NoSQL this is not required,
+        // depending on the database that is used for collection the metrics must be added to the table. All `url_` columns
+        // are the API requests, not the DB calls made by the app, the length of URL path to be stored is defined in the API module
+        // by the `api-url-metrics-` config parameter.
+        bk_collect: { id: { primary: 1 },
+                       mtime: { type: "bigint", primary: 1 },
+                       app: {},
+                       ip: {},
+                       type: {},
+                       instance: {},
+                       worker: {},
+                       pid: { type: "int" },
+                       latency: { type: "int" },
+                       cpus: { type: "int" },
+                       mem: { type: "bigint" },
+                       rss_hmean: { type: "real" },
+                       heap_hmean: { type: "real" },
+                       avg_hmean: { type: "real" },
+                       free_hmean: { type: "real" },
+                       util_hmean: { type: "real" },
+                       api_req_rmean: { type: "real" },
+                       api_req_hmean: { type: "real" },
+                       api_req_0: { type: "real" },
+                       api_err_0: { type: "real" },
+                       api_bad_0: { type: "real" },
+                       api_400_0: { type: "real" },
+                       api_401_0: { type: "real" },
+                       api_403_0: { type: "real" },
+                       api_417_0: { type: "real" },
+                       api_429_0: { type: "real" },
+                       api_que_rmean: { type: "real" },
+                       api_que_hmean: { type: "real" },
+                       pool_req_rmean: { type: "real" },
+                       pool_req_hmean: { type: "real" },
+                       pool_req_0: { type: "real" },
+                       pool_err_0: { type: "real" },
+                       pool_que_rmean: { type: "real" },
+                       pool_que_hmean: { type: "real" },
+                       ctime: { type: "bigint" } },
+
+    }, // tables
 }
 
 module.exports = api;
