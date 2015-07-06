@@ -612,7 +612,7 @@ lib.forEachLimit = function(list, limit, iterator, callback)
     iterate();
 }
 
-// Execute a list of functions in parellel and execute a callback upon completion or occurance of an error. Each function will be passed
+// Execute a list of functions in parallel and execute a callback upon completion or occurance of an error. Each function will be passed
 // a callback to signal completion. The callback accepts an error for the first argument. The iterator and callback will be
 // called via setImmediate function to allow the main loop to process I/O.
 lib.parallel = function(tasks, callback)

@@ -18,7 +18,8 @@ var gcm = require('node-gcm');
 
 // Messaging and push notifications for mobile and other clients, supports Apple, Google and AWS/SNS push notifications.
 var msg = {
-    args: [ { name: "apn-cert", type: "list", descr: "Path to a certificate(s) for APN service, pfx format, .p12 ext, the mode is derived from the certificate name, presence of the word 'production' in the cert file name will enable production mode, the file name can be appended with @app to separate different applications, app is a bundle identifier of the app" },
+    args: [ { name: "apn-cert", type: "list", descr: "List of certificates for APN service in pfx format, can be a file name with .p12 extension or a string with certificate contents encoded with base64, the certificate can be appended with @app to separate different applications where `app` is a bundle identifier of the app" },
+            { name: "apn-sandbox", type: "bool", descr: "Enable sandbox mode for testing APN notifications, default is production mode" },
             { name: "gcm-key", type:"list", descr: "Google Cloud Messaging API key(s), a key can be appended with @app for different applications similar to APN certificate file names" },
             { name: "queue-key", descr: "A queue key to subscribe for clients and listen for servers so messages can be exchanged in the queue environment where multiple queue exist" },
             { name: "server-queue-host", descr: "A queue to create for receiving messages from the clients and forwarding to the actual gateways" },
@@ -32,6 +33,10 @@ var msg = {
 };
 
 module.exports = msg;
+
+// A callback to be called for APN devide uninstalls, it is called by te feedback service,
+// the function must be defined as `function(device, timestamp, next)`, the next callback must be called at the end.
+msg.onDeviceUninstall = null;
 
 // Initialize supported notification services, this must be called before sending any push notifications
 msg.init = function(callback)
@@ -184,8 +189,12 @@ msg.initAPN = function()
             app = d[1];
         }
         var agent = new apnagent.Agent();
-        agent.set('pfx file', file);
-        agent.enable(file.indexOf("production") > -1 ? 'production' : 'sandbox');
+        if (file.match(/\.p12$/)) {
+            agent.set('pfx file', file);
+        } else {
+            agent.set("pfx", new Buffer(file, "base64"));
+        }
+        agent.enable(this.apnSandbox ? "sandbox" : "production");
         agent.on('message:error', function(err, msg) { logger[err && err.code != 10 && err.code != 8 ? "error" : "log"]('apn:message:', err.stack) });
         agent.on('gateway:error', function(err) { logger[err && err.code != 10 && err.code != 8 ? "error" : "log"]('apn:gateway:', err.stack) });
         agent.on('gateway:close', function(err) { logger.info('apn: closed') });
@@ -195,16 +204,24 @@ msg.initAPN = function()
         // A posible workaround for the queue being stuck and not sending anything
         agent._timeout = setInterval(function() { agent.queue.process() }, 3000);
         agent._sent = 0;
-        logger.debug("initAPN:", agent.settings);
+        logger.debug("initAPN:", app, agent.settings);
 
-        agent.feedback = new apnagent.Feedback();
-        agent.feedback.set('interval', '1h');
-        agent.feedback.set('pfx file', file);
-        agent.feedback.connect(function(err) { if (err) logger.error('apn: feedback:', err);  });
-        agent.feedback.use(function(device, timestamp, next) {
-            logger.log('apn: feedback:', device, timestamp);
-            next();
-        });
+        // Only run if we need to handle uninstalls
+        if (this.onDeviceUninstall) {
+            agent.feedback = new apnagent.Feedback();
+            if (file.match(/\.p12$/)) {
+                agent.feedback.set('pfx file', file);
+            } else {
+                agent.feedback.set("pfx", new Buffer(file, "base64"));
+            }
+            agent.feedback.set('interval', '1h');
+            agent.feedback.connect(function(err) { if (err) logger.error('apn: feedback:', err);  });
+            agent.feedback.use(function(device, timestamp, next) {
+                logger.log('apn: feedback:', device, timestamp);
+                self.onDeviceUninstall(device, timestamp, next);
+            });
+        }
+
         this.apnAgents[app] = agent;
     }
 }

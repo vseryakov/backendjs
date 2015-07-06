@@ -633,6 +633,7 @@ jobs.processJob = function(options, callback)
 // The jobspec can specify the following properties:
 //  - id - unique job id or UUID will be generated
 //  - tag - if there are multiple known workers this tag will dedicate this job to such worker
+//  - queue - SQS queue url to use for this job or the default one if not specified
 jobs.submitJob = function(jobspec, options, callback)
 {
     if (typeof options == "function") callback = options, options = {};
@@ -643,7 +644,7 @@ jobs.submitJob = function(jobspec, options, callback)
     logger.debug('submitJob:', this.type, jobspec);
     switch (this.type) {
     case "sqs":
-        var queue = jobspec.queue || this.jobQueue;
+        var queue = options.queue || jobspec.queue || this.jobQueue;
         if (!queue) return callback(lib.newError("jobs queue is not configured"));
         aws.sqsSendMessage(queue, JSON.stringify(jobspec), options, callback);
         break;

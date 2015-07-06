@@ -1240,7 +1240,6 @@ api.verifySignature = function(sig, account)
 
     case 4:
         if (account.auth_secret) secret += ":" + account.auth_secret;
-    case 5:
         sig.str = sig.version + "\n" + (sig.tag || "") + "\n" + sig.login + "\n" + sig.method + "\n" + sig.host + "\n" + sig.path + "\n" + query + "\n" + sig.expires + "\n" + sig.type + "\n" + sig.checksum + "\n";
         sig.hash = lib.sign(secret, sig.str, "sha256");
         break;
