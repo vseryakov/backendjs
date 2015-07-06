@@ -175,14 +175,8 @@ server.startWorker = function(options)
     core.role = 'worker';
     process.title = core.name + ': worker';
 
-    process.on("message", function(job) {
-        logger.debug('startWorker:', job);
-        jobs.run(job);
-    });
-
     // Let modules prepare for a worker operations
     core.runMethods("configureWorker", function() {
-        process.send('ready');
     });
 
     logger.log('startWorker:', 'id:', cluster.worker.id, 'version:', core.version, 'home:', core.home, 'uid:', process.getuid(), 'gid:', process.getgid(), 'pid:', process.pid);
@@ -214,21 +208,16 @@ server.startWeb = function(options)
             // In proxy mode we maintain continious sequence of ports for each worker starting with core.proxy.port
             if (core.proxy.port) {
 
-                ipc.onMessage = function(msg) {
-                    switch (msg.op) {
-                    case "api:ready":
-                        for (var i = 0; i < self.proxyWorkers.length; i++) {
-                            if (self.proxyWorkers[i].id == this.id) return self.proxyWorkers[i] = msg.value;
-                        }
-                        break;
-
-                    case "cluster:exit":
-                        for (var i = 0; i < self.proxyWorkers.length; i++) {
-                            if (self.proxyWorkers[i].id == this.id) return self.proxyWorkers.splice(i, 1);
-                        }
-                        break;
+                ipc.on('api:ready', function(msg) {
+                    for (var i = 0; i < self.proxyWorkers.length; i++) {
+                        if (self.proxyWorkers[i].id == msg.value.id) return self.proxyWorkers[i] = msg.value;
                     }
-                }
+                });
+                ipc.on("cluster:exit", function(msg) {
+                    for (var i = 0; i < self.proxyWorkers.length; i++) {
+                        if (self.proxyWorkers[i].id == msg.value.id) return self.proxyWorkers.splice(i, 1);
+                    }
+                });
                 self.proxyServer = proxy.createServer();
                 self.proxyServer.on("error", function(err, req) { if (err.code != "ECONNRESET") logger.error("proxy:", req.target || '', req.url, err.stack) })
                 self.server = core.createServer({ name: "http", port: core.port, bind: core.bind, restart: "web" }, function(req, res) {

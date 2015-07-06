@@ -1248,19 +1248,15 @@ tests.test_cache = function(callback)
     }
 
     if (cluster.isMaster) {
-        ipc.onMessage = function(msg) {
-            switch(msg.op) {
-            case "ready":
-                if (nworkers == 1) return this.send({ op: "run1" });
-                if (this.id == 1) return this.send({ op: "init" });
-                if (this.id > 1) return this.send({ op: "run1" });
-                break;
-            case "done":
-                if (nworkers == 1) break;
-                if (this.id > 1) cluster.workers[1].send({ op: "run2" });
-                break;
-            }
-        }
+        ipc.on("ready", function(msg) {
+            if (nworkers == 1) return this.send({ op: "run1" });
+            if (this.id == 1) return this.send({ op: "init" });
+            if (this.id > 1) return this.send({ op: "run1" });
+        });
+        ipc.on("done", function(msg) {
+            if (nworkers == 1) return;
+            if (this.id > 1) cluster.workers[1].send({ op: "run2" });
+        });
         if (!self.test.iterations) {
             ipc.initServer();
             setInterval(function() { logger.log('keys:', bkjs.utils.lruKeys()); }, 1000);

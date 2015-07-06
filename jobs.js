@@ -19,6 +19,7 @@ var lib = require(__dirname + '/lib');
 var logger = require(__dirname + '/logger');
 var db = require(__dirname + '/db');
 var aws = require(__dirname + '/aws');
+var ipc = require(__dirname + '/ipc');
 
 // Job launcher and scheduler
 var jobs = {
@@ -34,6 +35,7 @@ var jobs = {
            { name: "queue", descr: "Name of the queue to process, this is a generic queue name that can be used by any queue provider" },
            { name: "type", descr: "Queueing system to use for job processing, available jobspec: db, sqs" },
            { name: "interval", type: "number", min: 5, dflt: 60, descr: "Interval between processing the job queue, in seconds, i.e. how often to check an external queue for pending jobs" },
+           { name: "worker-delay", type: "number", min: 500, dflt: 500, descr: "Delay in milliseconds before sending a job to just started worker, useful when a worker needs to initialize or connect to services" },
            { name: "pending-interval", type: "number", min: 1, dflt: 5, descr: "Interval between processing the local pending queue, in seconds, i.e. how often to submit jobs for execution to workers from the pending list, this list is kept in memory in the master process" },
            { name: "waitTimeout", type: "number", min: 0, dflt: 5, descr: "How long in seconds to wait for new jobs from a queue" },
            { name: "visibilityTimeout", type: "number", min: 0, descr: "How long in seconds to keep retrieved jobs hidden, if not deleted it will be available again for subsequent retrieve requests" },
@@ -49,13 +51,15 @@ var jobs = {
     // Time of the last update on jobs and tasks
     runTime: 0,
     // How long to be in idle state and shutdown, for use in instances
-    idleTime: 60,
+    idleTime: 30,
     // Max number of seconds since the last job time before killing this job instance, for long running jobs it must update jobs.runTime periodically
     maxTime: 3600,
     // Interval for queue processing
     interval: 60,
     // Interval for pending list processing
     pendingInterval: 5,
+    // Delay before starting a job in the worker
+    workerDelay: 500,
     // Batch size
     count: 1,
     // Max simultaneous jobs
@@ -110,7 +114,7 @@ jobs.configureWorker = function(options, callback)
     setInterval(function() {
         var now = Date.now()
         // Check idle time, exit worker if no jobs submitted
-        if (self.idleTime > 0 && !self.jobs.length && now - self.runTime > self.idleTime*1000) {
+        if (self.idleTime > 0 && !self.running.length && now - self.runTime > self.idleTime*1000) {
             logger.log('configureWorker:', 'jobs: idle: no more jobs to run', self.idleTime);
             process.exit(0);
         }
@@ -121,17 +125,52 @@ jobs.configureWorker = function(options, callback)
         }
     }, 30000);
 
+    process.on("message", function(msg) {
+        if (msg.op == "job:run") jobs.run(msg);
+    });
+
+    // Notify parent about the worker
+    ipc.send('worker:ready');
+
     callback();
 }
 
-// Make sure the job is valid and has all required fields, returns the job object or an error, the jobspec
-// must be in the for format: { job: { "module.method": {}, .... } } or a simple case as a string "module.method"
-jobs.verify = function(jobspec)
+// Make sure the job is valid and has all required fields, returns a normalized job object or an error, the jobspec
+// must be in the following formats:
+//
+//        "module.method"
+//        { job: "module.method" }
+//        { job: { "module.method": {}, .... } }
+//        { job: [ "module.method", { "module.method": {} ... } ...] }
+//
+// any task in string format "module.method" will be converted into { "module.method: {} } automatically
+//
+jobs.isValid = function(jobspec)
 {
-    // Build job object with canonical name
-    if (typeof jobspec == "string") jobspec = { job: lib.newObj(jobspec, null) };
-    if (!lib.isObject(jobspec) || !lib.isObject(jobspec.job)) return lib.newError('invalid job: ' + jobspec);
-    if (!Object.keys(jobspec.job).length) return lib.newError('empty job:' + jobspec);
+    var rx = /^[a-z0-9_]+\.[a-z0-9_]+$/i;
+
+    if (typeof jobspec == "string" && jobspec.match(rx)) jobspec = { job: lib.newObj(jobspec, null) };
+    if (!lib.isObject(jobspec)) return lib.newError("invalid job:" + JSON.stringify(jobspec), 500);
+
+    if (typeof jobspec.job == "string") jobspec.job = lib.newObj(jobspec.job, null);
+
+    if (lib.isObject(jobspec.job)) {
+        if (!Object.keys(jobspec.job).every(function(y) { return y.match(rx) })) return lib.newError('invalid job: ' + JSON.stringify(jobspec), 500);
+    } else
+
+    if (Array.isArray(jobspec.job)) {
+        var job = jobspec.job.filter(function(x) {
+            if (typeof x == "string" && x.match(rx)) return true;
+            if (lib.isObject(x) && Object.keys(x).every(function(y) { return y.match(rx) })) return true;
+            return false;
+        }).map(function(x) {
+            return typeof x == "string" ? lib.newObj(x, null) : x;
+        });
+        if (!job.length) return lib.newError('invalid job: ' + JSON.stringify(jobspec), 500);
+        jobspec.job = job;
+    } else {
+        return lib.newError('invalid job: ' + JSON.stringify(jobspec), 500);
+    }
     return jobspec;
 }
 
@@ -141,14 +180,12 @@ jobs.isReady = function()
     return Object.keys(cluster.workers).length < this.maxWorkers;
 }
 
-// Run all jobs from the job spec at the same time, when the last job finishes and it is running in the worker process, the process terminates.
+// Run all tasks in the job, when the last task finishes and it is running in the worker process, the process terminates.
 jobs.run = function(jobspec)
 {
     var self = this;
 
-    function done(err, name) {
-        logger[err ? "error" : "debug"]('jobs.run:', 'finished', name || "", util.isError(err) ? err.stack : (err || ""));
-        if (self.running.length) return;
+    function done(err) {
         lib.series([
            function(next) {
                if (!jobspec.finishJob) return next();
@@ -160,58 +197,63 @@ jobs.run = function(jobspec)
                core.runMethods("shutdownWorker", function() { next() });
            },
            ], function() {
-               logger.debug('run:', 'jobs; exit', name || "", err || "");
+               if (!cluster.isWorker) return;
+               logger.debug('run:', 'jobs exit', err || "");
                process.exit(0);
            });
     }
 
-    if (!lib.isObject(jobspec) || !lib.isObject(jobspec.job)) return done(lib.newError('invalid job', 500), jobspec);
+    jobspec = this.isValid(jobspec);
+    if (util.isError(jobspec)) return done(jobspec);
 
     // Keep the job hidden while processing
     if (jobspec.hideJobInterval >= 1000) {
         jobspec._hideJobInterval = setInterval(function() { self.hideJob(jobspec); }, jobspec.hideJobInterval);
     }
 
-    for (var name in jobspec.job) {
-        var task = jobspec.job[name];
-        // Skip special objects
-        if (task instanceof domain.Domain) continue;
+    var tasks = Array.isArray(jobspec.job) ? jobspec.job : [ jobspec.job ];
 
-        // Make report about unknown job, leading $ are used for same method miltiple times in the same job because property names are unique in the objects
-        var spec = name.replace(/^[\$]+/g, "").split('.');
-        var module = spec[0] == "core" ? core : core.modules[spec[0]];
-        if (!module || !module[spec[1]]) {
-            logger.error('run:', "jobs: unknown method", name, 'job:', job);
-            continue;
-        }
+    // Sequentially execute all tasks in the list, run all subtasks in parallel
+    lib.forEachSeries(tasks, function(task, next) {
+        if (!lib.isObject(task)) return next();
 
-        // Pass as first argument the jobspec object, then callback
-        var args = [ lib.isObject(task) ? task : {} ];
+        lib.forEach(Object.keys(task), function(name, next2) {
+            self.runTask(name, task[name], next2);
+        }, next);
+    }, done);
+}
 
-        // The callback to finalize job execution
-        (function (jname) {
-            args.push(function(err) {
-                self.runTime = Date.now();
-                // Update process title with current job list
-                var idx = self.running.indexOf(jname);
-                if (idx > -1) self.running.splice(idx, 1);
-                if (cluster.isWorker) process.title = core.name + ': worker ' + self.running.join(',');
-                done(err, jname);
-            });
-        })(name);
-
-        var d = domain.create();
-        d.on("error", args[1]);
-        d.run(function() {
-            module[spec[1]].apply(module, args);
-            self.runTime = Date.now();
-            self.running.push(name);
-            if (cluster.isWorker) process.title = core.name + ': worker ' + self.running.join(',');
-            logger.debug('run:', 'jobs: started', name, task || "");
-        });
+// Execute a task, calls the callback on finish or error
+jobs.runTask = function(name, options, callback)
+{
+    var self = this;
+    var method = name.split('.');
+    var module = method[0] == "core" ? core : core.modules[method[0]];
+    if (!module || typeof module[method[1]] != "function") {
+        logger.error("runTask:", "unknown method", name, options);
+        return callback();
     }
-    // No jobs started or errors, just exit
-    if (!this.running.length && cluster.isWorker) done(lib.newError("no jobs specified", 500), jobspec);
+    if (!lib.isObject(options)) options = {};
+
+    function done(err) {
+        logger[err ? "error" : "debug"]('runTask:', 'finished', name, util.isError(err) ? err.stack : (err || ""));
+        self.runTime = Date.now();
+        // Update process title with current job list
+        var idx = self.running.indexOf(name);
+        if (idx > -1) self.running.splice(idx, 1);
+        if (cluster.isWorker) process.title = core.name + ': worker ' + self.running.join(',');
+        callback(err);
+    }
+
+    var d = domain.create();
+    d.on("error", done);
+    d.run(function() {
+        module[method[1]](options, done);
+        self.runTime = Date.now();
+        self.running.push(name);
+        if (cluster.isWorker) process.title = core.name + ': worker ' + self.running.join(',');
+        logger.debug('runTask:', 'started', name, options);
+    });
 }
 
 // Execute a job in the background by one of the workers, a job to run is specified with the following spec: `module.method`.
@@ -225,80 +267,25 @@ jobs.run = function(jobspec)
 //
 //          { job: { 'scraper.run': {}, 'server.shutdown': {} } }
 //
-// If the same object.method must be executed several times, prepend subsequent jobs with $
+// If the same module.method must be executed several times one by one put tasks in the list:
 //
 // Example:
 //
-//          { job: { 'scraper.run': { "arg": 1 }, '$scraper.run': { "arg": 2 }, '$$scraper.run': { "arg": 3 } } }
+//          { job: [ { 'scraper.run': { "arg": 1 }, 'scraper.run': { "arg": 2 }, 'scraper.run': { "arg": 3 } } ] }
 //
-// Supported properties by the server:
-//  - skipqueue - in case of a duplicate or other condition when this job cannot be executed it will be put back to
-//      the waiting queue, if set to 1 it makes the job to be ignored on error
-//  - runalways - no checks for existing job with the same name should be done
-//  - runone - only run the job if there is no same running job, this property serializes jobs with the same name
-//  - runlast - run when no more pending or running jobs
-//  - runafter - specifies another job in canoncal form `obj.method` which must finish and not be pending in
-//    order for this job to start, this implements chaining of jobs to be executed one after another
-//    but submitted at the same time
-//
-//  Exampe: submit 3 jobs to run sequentially:
-//
-//          'scraper.import'
-//          { job: 'scraper.sync', runafter: 'scraper.import' }
-//          { job: 'server.shutdown', runafter: 'scraper.sync' }
 jobs.runWorker = function(jobspec)
 {
     var self = this;
 
     if (cluster.isWorker) return logger.error('exec: can be called from the master only', jobspec);
 
-    try {
-        jobspec = this.verify(jobspec);
-        if (util.isError(jobspec)) return logger.error("runWorker:", jobspec);
+    jobspec = this.isValid(jobspec);
+    if (util.isError(jobspec)) return logger.error("runWorker:", jobspec);
 
-        // Do not exceed max number of running workers
-        if (!this.isReady()) {
-            this.pending.push(jobspec);
-            return logger.debug('jobs.runWorker:', 'max number of workers running:', this.maxWorkers, 'job:', jobspec);
-        }
-
-        // Perform conditions check, any failed condition will reject the whole job
-        for (var p in jobspec) {
-            var opts = jobspec[p] || {};
-            // Do not execute if we already have this job running
-            if (this.running.indexOf(p) > -1 && !opts.runalways) {
-                if (!opts.skipqueue) this.pending.push(jobspec);
-                return logger.debug('runWorker: already running', jobspec);
-            }
-
-            // Condition for job, should not be any pending or running jobs
-            if (opts.runlast) {
-                if (this.running.length || this.pending.length) {
-                    if (!opts.skipqueue) this.pending.push(jobspec);
-                    return logger.debug('runWorker:', 'other jobs still exist', jobspec);
-                }
-            }
-
-            // Check dependencies, only run when there is no dependent job in the running list
-            if (opts.runone) {
-                if (this.running.filter(function(x) { return x.match(opts.runone) }).length) {
-                    if (!opts.skipqueue) this.pending.push(jobspec);
-                    return logger.debug('runWorker:', 'depending job still exists:', jobspec);
-                }
-            }
-
-            // Check dependencies, only run when there is no dependent job in the running or pending lists
-            if (opts.runafter) {
-                if (this.running.some(function(x) { return x.match(opts.runafter) }) ||
-                    this.pending.some(function(x) { return Object.keys(x).some(function(y) { return y.match(opts.runafter); }); })) {
-                    if (!opts.skipqueue) this.pending.push(jobspec);
-                    return logger.debug('runWorker:', 'depending job still exists:', jobspec);
-                }
-            }
-        }
-    } catch(e) {
-        logger.error('runWorker:', e, jobspec);
-        return false;
+    // Do not exceed max number of running workers
+    if (!this.isReady()) {
+        this.pending.push(jobspec);
+        return logger.debug('jobs.runWorker:', 'max number of workers running:', this.maxWorkers, 'job:', jobspec);
     }
 
     // Setup node args passed for each worker
@@ -314,10 +301,17 @@ jobs.runWorker = function(jobspec)
         worker = null;
     })
     worker.on('message', function(msg) {
-        if (msg != "ready") return;
-        worker.send(jobspec);
-        // Make sure we add new jobs after we successfully created a new worker
-        self.running = self.running.concat(Object.keys(jobspec.job));
+        logger.debug("runWorker:", msg);
+        switch (msg.op) {
+        case "worker:ready":
+            setTimeout(function() {
+                jobspec.op = "job:run";
+                worker.send(jobspec);
+                // Make sure we add new jobs after we successfully created a new worker
+                self.running = self.running.concat(Object.keys(jobspec.job));
+            }, self.workerDelay);
+            break;
+        }
     });
     worker.on("exit", function(code, signal) {
         logger.info('runWorker:', 'finished:', worker.id, 'pid:', worker.process.pid, 'code:', code || 0, '/', signal || 0, 'job:', jobspec);
@@ -334,19 +328,21 @@ jobs.runWorker = function(jobspec)
 // By default, shutdown the instance after job finishes unless noshutdown:1 is specified in the jobspec
 jobs.runRemote = function(jobspec, callback)
 {
-    jobspec = this.verify(jobspec);
+    jobspec = this.isValid(jobspec);
     if (util.isError(jobspec)) return typeof callback == "function" && callback(jobspec);
 
     this.runTime = Date.now();
     jobspec = lib.cloneObj(jobspec);
     logger.info('runRemote:', jobspec);
 
+    // Terminate the instance on finish
+    if (!jobspec.noshutdown) {
+        if (!Array.isArray(jobspec.job)) jobspec.job = [ jobspec.job ];
+        jobspec.job.push('server.shutdown');
+    }
+
     // Common arguments for remote workers
     var args = ["-master", "-instance-job", "-jobs-submit", lib.jsonToBase64(jobspec) ];
-
-    if (!jobspec.noshutdown) {
-        args.push("-jobs-submit", lib.jsonToBase64({ 'server.shutdown': { runlast: 1 } }));
-    }
 
     // Command line arguments for the instance, must begin with -
     for (var p in jobspec.args) {
@@ -365,16 +361,9 @@ jobs.runRemote = function(jobspec, callback)
 // Place a job in the local pending queue to be processed later.
 jobs.submitPending = function(jobspec)
 {
-    switch (lib.typeName(jobspec)) {
-    case "string":
-        jobspec = { job: lib.newObj(jobspec, null) };
-
-    case "object":
-        if (!lib.isObject(jobspec.job)) break;
-        this.pending.push(jobspec);
-        return;
-    }
-    logger.error("submitPending:", "invalid task: ", jobspec);
+    jobspec = this.isValid(jobspec);
+    if (util.isError(jobspec)) return logger.error("submitPending:", jobspec);
+    this.pending.push(jobspec);
 }
 
 // Process pending jobs, submit to idle workers
@@ -503,7 +492,7 @@ jobs.parseCronjobs = function(type, data)
 // Run or schedule a job according to the type
 jobs.runJob = function(jobspec, callback)
 {
-    jobspec = this.verify(jobspec);
+    jobspec = this.isValid(jobspec);
     if (util.isError(jobspec)) return typeof callback == "function" && callback(jobspec);
 
     // Ignore expired jobs
@@ -648,7 +637,7 @@ jobs.submitJob = function(jobspec, options, callback)
 {
     if (typeof options == "function") callback = options, options = {};
     if (!options) options = {};
-    jobspec = this.verify(jobspec);
+    jobspec = this.isValid(jobspec);
     if (util.isError(jobspec)) return typeof callback == "function" && callback(jobspec);
 
     logger.debug('submitJob:', this.type, jobspec);
