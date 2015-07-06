@@ -2192,7 +2192,8 @@ might be useful when desining, developing or choosing the API platform:</p>
 <li><code>aws-subnet-id</code> - AWS subnet id to be used for instances</li>
 <li><code>aws-group-id</code> - AWS security group(s) to be used for instances</li>
 <li><code>aws-instance-type</code> - AWS instance type for remote jobs launched on demand</li>
-<li><code>msg-apn-cert</code> - Path to a certificate(s) for APN service, pfx format, .p12 ext, the mode is derived from the certificate name, presence of the word &#39;production&#39; in the cert file name will enable production mode, the file name can be appended with @app to separate different applications, app is a bundle identifier of the app</li>
+<li><code>msg-apn-cert</code> - List of certificates for APN service in pfx format, can be a file name with .p12 extension or a string with certificate contents encoded with base64, the certificate can be appended with @app to separate different applications where <code>app</code> is a bundle identifier of the app</li>
+<li><code>msg-apn-sandbox</code> - Enable sandbox mode for testing APN notifications, default is production mode</li>
 <li><code>msg-gcm-key</code> - Google Cloud Messaging API key(s), a key can be appended with @app for different applications similar to APN certificate file names</li>
 <li><code>msg-queue-key</code> - A queue key to subscribe for clients and listen for servers so messages can be exchanged in the queue environment where multiple queue exist</li>
 <li><code>msg-server-queue-host</code> - A queue to create for receiving messages from the clients and forwarding to the actual gateways</li>
@@ -2273,6 +2274,7 @@ might be useful when desining, developing or choosing the API platform:</p>
 <li><code>jobs-queue</code> - Name of the queue to process, this is a generic queue name that can be used by any queue provider</li>
 <li><code>jobs-type</code> - Queueing system to use for job processing, available jobspec: db, sqs</li>
 <li><code>jobs-interval</code> - Interval between processing the job queue, in seconds, i.e. how often to check an external queue for pending jobs</li>
+<li><code>jobs-worker-delay</code> - Delay in milliseconds before sending a job to just started worker, useful when a worker needs to initialize or connect to services</li>
 <li><code>jobs-pending-interval</code> - Interval between processing the local pending queue, in seconds, i.e. how often to submit jobs for execution to workers from the pending list, this list is kept in memory in the master process</li>
 <li><code>jobs-waitTimeout</code> - How long in seconds to wait for new jobs from a queue</li>
 <li><code>jobs-visibilityTimeout</code> - How long in seconds to keep retrieved jobs hidden, if not deleted it will be available again for subsequent retrieve requests</li>
@@ -5075,99 +5077,91 @@ it is required to call <code>pool.release</code> at the end to return the connec
 
 <h2 id="module-ipc">Module: IPC</h2>
 <ul>
-<li><p><code>ipc</code></p>
-<p> IPC communications between processes and support for caching and messaging.
-Local cache is implemented as LRU cached configued with <code>-lru-max</code> parameter defining how many items to keep in the cache.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>ipc.onMessage(msg)</code></p>
-<p> A handler for unhandled messages, it is called by the server and client. In case of the server, <code>this</code> is a worker object, so to send a message back to the worker
-use <code>this.send()</code>.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>ipc.handleServerMessages(worker, msg)</code></p>
+<li><p><code>ipc.prototype.handleServerMessages(worker, msg)</code></p>
 <p> To be used in messages processing that came from the clients or other way</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>ipc.initServer()</code></p>
+<li><p><code>ipc.prototype.initServer()</code></p>
 <p> This function is called by the Web master server process to setup IPC channels and support for cache and messaging</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>ipc.initServerQueue()</code></p>
+<li><p><code>ipc.prototype.initServerQueue()</code></p>
 <p> Setup a queue service to be used inside a server process</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>ipc.initWorker()</code></p>
+<li><p><code>ipc.prototype.initWorker()</code></p>
 <p> This function is called by Web worker process to setup IPC channels and support for cache and messaging</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>ipc.initWorkerQueue()</code></p>
+<li><p><code>ipc.prototype.initWorkerQueue()</code></p>
 <p> Setup a queue service to be used inside a worjker process</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>ipc.createClient(host, options)</code></p>
+<li><p><code>ipc.prototype.createClient(host, options)</code></p>
 <p> Return a new client for the given host or null if not supported</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>ipc.initClient(type)</code></p>
+<li><p><code>ipc.prototype.initClient(type)</code></p>
 <p> Initialize a client for cache or queue purposes.</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>ipc.closeClient(type)</code></p>
+<li><p><code>ipc.prototype.closeClient(type)</code></p>
 <p> Close a client by type, cache or qurue. Make a new empty client so the object is always valid</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>ipc.command(msg, callback, timeout)</code></p>
+<li><p><code>ipc.prototype.command(msg, callback)</code></p>
 <p> Send a command to the master process via IPC messages, callback is used for commands that return value back</p>
+<ul>
+<li>the msg object must have <code>op</code> property which defines what kind of operation to perform.</li>
+<li>the <code>timeout</code> property can be used to specify a timeout for how long to wait the reply, if not given the default is used</li>
+<li>the rest properties are optional and depend on the operation.</li>
+</ul>
+<p>If called inside the server, it process the message directly, reply is passed in the callback if given.</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>ipc.send(op, name, value, options, callback)</code></p>
+<li><p><code>ipc.prototype.send(op, name, value, options, callback)</code></p>
 <p> Always send text to the master, convert objects into JSON, value and callback are optional</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>ipc.stats(callback)</code></p>
+<li><p><code>ipc.prototype.stats(callback)</code></p>
 <p> Returns the cache statistics, the format depends on the cache type used</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>ipc.keys(callback)</code></p>
+<li><p><code>ipc.prototype.keys(callback)</code></p>
 <p> Returns in the callback all cached keys</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>ipc.clear()</code></p>
+<li><p><code>ipc.prototype.clear()</code></p>
 <p> Clear all cached items</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>ipc.get(key, options, callback)</code></p>
+<li><p><code>ipc.prototype.get(key, options, callback)</code></p>
 <p> Retrive an item from the cache by key.
 If <code>options.set</code> is given and no value exists in the cache it will be set as the initial value.</p>
 <p>Example</p>
@@ -5177,25 +5171,25 @@ If <code>options.set</code> is given and no value exists in the cache it will be
 </ul>
 
 <ul>
-<li><p><code>ipc.del(key, options)</code></p>
+<li><p><code>ipc.prototype.del(key, options)</code></p>
 <p> Delete an item by key</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>ipc.put(key, val, options)</code></p>
+<li><p><code>ipc.prototype.put(key, val, options)</code></p>
 <p> Replace or put a new item in the cache</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>ipc.incr(key, val, options, callback)</code></p>
+<li><p><code>ipc.prototype.incr(key, val, options, callback)</code></p>
 <p> Increase/decrease a counter in the cache by <code>val</code>, non existent items are treated as 0, if a callback is given new value will be returned</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>ipc.subscribe(key, callback, data)</code></p>
+<li><p><code>ipc.prototype.subscribe(key, callback, data)</code></p>
 <p> Subscribe to the publishing server for messages starting with the given key, the callback will be called only on new data received, the <code>data</code>
 is passed to the callback as first argument, if not specified then &quot;undefined&quot; will still be passed, the actual key will be passed as the second
 argument, the message received as the third argument.</p>
@@ -5211,7 +5205,7 @@ returning an error with .status &gt;= 500 will keep the message in the queue to 
 </ul>
 
 <ul>
-<li><p><code>ipc.unsubscribe(key)</code></p>
+<li><p><code>ipc.prototype.unsubscribe(key)</code></p>
 <p> Close a subscription</p>
 </li>
 </ul>
@@ -5223,7 +5217,7 @@ returning an error with .status &gt;= 500 will keep the message in the queue to 
 </ul>
 
 <ul>
-<li><p><code>ipc.checkLimits(msg, callback)</code></p>
+<li><p><code>ipc.prototype.checkLimits(msg, callback)</code></p>
 <p> A Javascript object <code>msg</code> must have the following properties:</p>
 <ul>
 <li>name - unique id, can be IP address, account id, etc...</li>
@@ -5236,7 +5230,7 @@ is given, call it with the consumed flag as first argument.</p>
 </ul>
 
 <ul>
-<li><p><code>ipc.checkTimer(name, options, callback)</code></p>
+<li><p><code>ipc.prototype.checkTimer(name, options, callback)</code></p>
 <p> Implementation of a timer with the lock, only one instance can lock something for some period of time(interval) and will expire after timeout, all other
 attempts to lock the timer will fail. A timer is named and optional properties in the options can specify the <code>interval</code> and <code>timeout</code> in milliseconds, the
 defaults are 1 min and 1 hour accordingly.</p>
@@ -5250,7 +5244,7 @@ instance.</p>
 </ul>
 
 <ul>
-<li><p><code>ipc.resetTimer(name)</code></p>
+<li><p><code>ipc.prototype.resetTimer(name)</code></p>
 <p> Reset the timer so it can be locked immediately.</p>
 </li>
 </ul>
@@ -5288,9 +5282,14 @@ instance.</p>
 </ul>
 
 <ul>
-<li><p><code>jobs.verify(jobspec)</code></p>
-<p> Make sure the job is valid and has all required fields, returns the job object or an error, the jobspec
-must be in the for format: { job: { &quot;module.method&quot;: {}, .... } } or a simple case as a string &quot;module.method&quot;</p>
+<li><p><code>jobs.isValid(jobspec)</code></p>
+<p> Make sure the job is valid and has all required fields, returns a normalized job object or an error, the jobspec
+must be in the following formats:</p>
+<pre><code>  &quot;module.method&quot;
+  { job: &quot;module.method&quot; }
+  { job: { &quot;module.method&quot;: {}, .... } }
+  { job: [ &quot;module.method&quot;, { &quot;module.method&quot;: {} ... } ...] }
+</code></pre><p>any task in string format &quot;module.method&quot; will be converted into { &quot;module.method: {} } automatically</p>
 </li>
 </ul>
 
@@ -5302,7 +5301,13 @@ must be in the for format: { job: { &quot;module.method&quot;: {}, .... } } or a
 
 <ul>
 <li><p><code>jobs.run(jobspec)</code></p>
-<p> Run all jobs from the job spec at the same time, when the last job finishes and it is running in the worker process, the process terminates.</p>
+<p> Run all tasks in the job, when the last task finishes and it is running in the worker process, the process terminates.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>jobs.runTask(name, options, callback)</code></p>
+<p> Execute a task, calls the callback on finish or error</p>
 </li>
 </ul>
 
@@ -5314,24 +5319,9 @@ object as its first argument and callback as its second argument.</p>
 <p>More than one job can be specified, property of the object defines name for the job to run:</p>
 <p>Example:</p>
 <pre><code>    { job: { &#39;scraper.run&#39;: {}, &#39;server.shutdown&#39;: {} } }
-</code></pre><p>If the same object.method must be executed several times, prepend subsequent jobs with $</p>
+</code></pre><p>If the same module.method must be executed several times one by one put tasks in the list:</p>
 <p>Example:</p>
-<pre><code>    { job: { &#39;scraper.run&#39;: { &quot;arg&quot;: 1 }, &#39;$scraper.run&#39;: { &quot;arg&quot;: 2 }, &#39;$$scraper.run&#39;: { &quot;arg&quot;: 3 } } }
-</code></pre><p>Supported properties by the server:</p>
-<ul>
-<li>skipqueue - in case of a duplicate or other condition when this job cannot be executed it will be put back to
-  the waiting queue, if set to 1 it makes the job to be ignored on error</li>
-<li>runalways - no checks for existing job with the same name should be done</li>
-<li>runone - only run the job if there is no same running job, this property serializes jobs with the same name</li>
-<li>runlast - run when no more pending or running jobs</li>
-<li>runafter - specifies another job in canoncal form <code>obj.method</code> which must finish and not be pending in
-order for this job to start, this implements chaining of jobs to be executed one after another
-but submitted at the same time</li>
-</ul>
-<p>Exampe: submit 3 jobs to run sequentially:</p>
-<pre><code>    &#39;scraper.import&#39;
-    { job: &#39;scraper.sync&#39;, runafter: &#39;scraper.import&#39; }
-    { job: &#39;server.shutdown&#39;, runafter: &#39;scraper.sync&#39; }
+<pre><code>    { job: [ { &#39;scraper.run&#39;: { &quot;arg&quot;: 1 }, &#39;scraper.run&#39;: { &quot;arg&quot;: 2 }, &#39;scraper.run&#39;: { &quot;arg&quot;: 3 } } ] }
 </code></pre></li>
 </ul>
 
@@ -5459,6 +5449,7 @@ configured queue.</p>
 <ul>
 <li>id - unique job id or UUID will be generated</li>
 <li>tag - if there are multiple known workers this tag will dedicate this job to such worker</li>
+<li>queue - SQS queue url to use for this job or the default one if not specified</li>
 </ul>
 </li>
 </ul>
@@ -5699,7 +5690,7 @@ have been completed or immediately if there is is an error provided.</p>
 
 <ul>
 <li><p><code>lib.parallel(tasks, callback)</code></p>
-<p> Execute a list of functions in parellel and execute a callback upon completion or occurance of an error. Each function will be passed
+<p> Execute a list of functions in parallel and execute a callback upon completion or occurance of an error. Each function will be passed
 a callback to signal completion. The callback accepts an error for the first argument. The iterator and callback will be
 called via setImmediate function to allow the main loop to process I/O.</p>
 </li>
