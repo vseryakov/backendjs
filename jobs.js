@@ -33,6 +33,7 @@ var jobs = {
            { name: "tag", descr: "This server executes jobs that match this tag, if empty then execute all jobs, if not empty execute all that match current IP address and this tag" },
            { name: "count", descr: "How many jobs to execute at any iteration" },
            { name: "queue", descr: "Name of the queue to process, this is a generic queue name that can be used by any queue provider" },
+           { name: "master", type: "bool", descr: "Set this instance as the jobs master which will be processing pending jobs from the configured queue" },
            { name: "type", descr: "Queueing system to use for job processing, available jobspec: db, sqs" },
            { name: "interval", type: "number", min: 5, dflt: 60, descr: "Interval between processing the job queue, in seconds, i.e. how often to check an external queue for pending jobs" },
            { name: "worker-delay", type: "number", min: 500, dflt: 500, descr: "Delay in milliseconds before sending a job to just started worker, useful when a worker needs to initialize or connect to services" },
@@ -55,7 +56,7 @@ var jobs = {
     // Max number of seconds since the last job time before killing this job instance, for long running jobs it must update jobs.runTime periodically
     maxTime: 3600,
     // Interval for queue processing
-    interval: 60,
+    interval: 30,
     // Interval for pending list processing
     pendingInterval: 5,
     // Delay before starting a job in the worker
@@ -89,24 +90,20 @@ jobs.configureMaster = function(options, callback)
 {
     var self = this;
 
-    // Setup background tasks from the crontab
-    if (!this.noCron) this.loadCronjobs();
-
-    this._jobsTimer = setInterval(this.processJob.bind(this), this.interval * 1000);
-    this._pendingTimer = setInterval(this.processPending.bind(this), this.pendingInterval * 1000);
+    if (!this.master) return callback();
 
     // Check idle time, if no jobs running for a long time shutdown the server, this is for instance mode mostly
     setInterval(function() {
         if (core.instance.job && self.idleTime > 0 && !Object.keys(cluster.workers).length && Date.now() - self.runTime > self.idleTime*1000) {
             logger.log('configureMaster:', 'jobs: idle:', self.idleTime);
-            self.shutdown();
+            core.shutdown();
         }
     }, 30000);
 
-    callback();
+    this.init(options, callback)
 }
 
-// Make sure a job worker does not run indefinitely
+// Initialize a worker to be ready for jobs to execute, in instance mode setup timers to exit on no activity.
 jobs.configureWorker = function(options, callback)
 {
     var self = this;
@@ -125,12 +122,29 @@ jobs.configureWorker = function(options, callback)
         }
     }, 30000);
 
+    // Process messages from the master process
     process.on("message", function(msg) {
         if (msg.op == "job:run") jobs.run(msg);
     });
 
-    // Notify parent about the worker
-    ipc.send('worker:ready');
+    // Notify parent about the worker readiness after some delay so some subsystems have enough time to init or connect
+    setTimeout(function() { ipc.send('worker:ready'); }, this.workerDelay);
+
+    callback();
+}
+
+// Initialize jobs processing, this call sets up the matser that will read jobs from a queue and submit to the local or remote workers
+jobs.init = function(options, callback)
+{
+    var self = this;
+
+    // Setup background tasks from the crontab
+    if (!this.noCron) this.loadCronjobs();
+
+    this._jobsTimer = setInterval(this.processJob.bind(this), this.interval * 1000);
+    this._pendingTimer = setInterval(this.processPending.bind(this), this.pendingInterval * 1000);
+
+    logger.log("jobs:", "started", this.interval, "/", this.pendingInterval, "seconds");
 
     callback();
 }
@@ -248,11 +262,11 @@ jobs.runTask = function(name, options, callback)
     var d = domain.create();
     d.on("error", done);
     d.run(function() {
+        logger.debug('runTask:', 'started', name, options);
         module[method[1]](options, done);
         self.runTime = Date.now();
         self.running.push(name);
         if (cluster.isWorker) process.title = core.name + ': worker ' + self.running.join(',');
-        logger.debug('runTask:', 'started', name, options);
     });
 }
 
@@ -261,17 +275,20 @@ jobs.runTask = function(name, options, callback)
 // The module must refer to a known exported module and method must be existing method of the given object. The method function must take a job
 // object as its first argument and callback as its second argument.
 //
-// More than one job can be specified, property of the object defines name for the job to run:
+// More than one job can be specified, property of the object defines name for the job to run, all jobs are executed in parallel:
 //
 // Example:
 //
-//          { job: { 'scraper.run': {}, 'server.shutdown': {} } }
+//          { job: { 'app.scanFeeds': {}, 'app.checkEvents': {} } }
 //
-// If the same module.method must be executed several times one by one put tasks in the list:
+// If more than one task is needed to run one after another, use a list of tasks, the list is serializied but tasks defined
+// within one object are still executed in parallel:
 //
 // Example:
 //
-//          { job: [ { 'scraper.run': { "arg": 1 }, 'scraper.run': { "arg": 2 }, 'scraper.run': { "arg": 3 } } ] }
+//          { job: [ "msg.init", { 'app.sendNotifications': { "id": 2 } } ] }
+//
+// Note: In the example above, `msg.init` is called first to setup push notification services so other tasks can send notifications.
 //
 jobs.runWorker = function(jobspec)
 {
@@ -304,12 +321,10 @@ jobs.runWorker = function(jobspec)
         logger.debug("runWorker:", msg);
         switch (msg.op) {
         case "worker:ready":
-            setTimeout(function() {
-                jobspec.op = "job:run";
-                worker.send(jobspec);
-                // Make sure we add new jobs after we successfully created a new worker
-                self.running = self.running.concat(Object.keys(jobspec.job));
-            }, self.workerDelay);
+            jobspec.op = "job:run";
+            worker.send(jobspec);
+            // Make sure we add new jobs after we successfully created a new worker
+            self.running = self.running.concat(Object.keys(jobspec.job));
             break;
         }
     });

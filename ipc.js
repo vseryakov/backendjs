@@ -246,6 +246,13 @@ ipc.prototype.initWorker = function()
     });
 }
 
+// Always setup cache/queue for workers
+ipc.configureWorker = function(options, callback)
+{
+    this.initWorker();
+    callback();
+}
+
 // Setup a queue service to be used inside a worjker process
 ipc.prototype.initWorkerQueue = function()
 {

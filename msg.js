@@ -26,22 +26,24 @@ var msg = {
             { name: "server-queue-options", type: "json", descr: "JSON object with options to the queue server" },
             { name: "client-queue-host", descr: "A queue to create where to send all messages instead of actual gateways" },
             { name: "client-queue-options", type: "json", descr: "JSON object with options to the queue client" },
-            { name: "shutdown-timeout", type:" int", min: 500, descr: "How long to wait for messages draining out in ms on shutting down before exiting" },],
+            { name: "shutdown-timeout", type:" int", min: 0, descr: "How long to wait for messages draining out in ms on shutdown before exiting" },],
     apnAgents: {},
     gcmAgents: {},
-    shutdownTimeout: 2000,
+    shutdownTimeout: 1000,
 };
 
 module.exports = msg;
 
-// A callback to be called for APN devide uninstalls, it is called by te feedback service,
+// A callback to be called for APN device uninstalls, it is called by te feedback service,
 // the function must be defined as `function(device, timestamp, next)`, the next callback must be called at the end.
 msg.onDeviceUninstall = null;
 
-// Initialize supported notification services, this must be called before sending any push notifications
-msg.init = function(callback)
+// Initialize supported notification services, it supports jobs agrument convention so can be used in the jobs that
+// need to send push notifications in the worker process
+msg.init = function(options, callback)
 {
     var self = this;
+    if (typeof options == "function") callback = options, options = null;
     if (typeof callback != "function") callback = lib.noop;
 
     // Explicitly configured notification client queue, send all messages there
@@ -61,8 +63,9 @@ msg.init = function(callback)
     }
 
     // Direct access to the gateways
-    this.initAPN();
-    this.initGCM();
+    this.initAPN(options);
+    this.initGCM(options);
+    logger.debug("msg:", "init");
     callback();
 }
 
@@ -73,6 +76,7 @@ msg.shutdown = function(options, callback)
     if (typeof options == "function") callback = options, options = null;
     if (!options) options = {};
 
+    logger.debug("msg:", "shutdown");
     // Wait a little just in case for some left over tasks
     setTimeout(function() {
         lib.parallel([
@@ -176,7 +180,7 @@ msg.parseDevice = function(device)
 // Initiaize Apple Push Notification service in the current process, Apple supports multiple connections to the APN gateway but
 // not too many so this should be called on the dedicated backend hosts, on multi-core servers every spawn web process will initialize a
 // connection to APN gateway.
-msg.initAPN = function()
+msg.initAPN = function(options)
 {
     var self = this;
 
@@ -230,13 +234,13 @@ msg.initAPN = function()
 msg.closeAPN = function(callback)
 {
     var self = this;
-    lib.forEachSeries(Object.keys(this.apnAgents), function(key, next) {
+    lib.forEach(Object.keys(this.apnAgents), function(key, next) {
         var agent = self.apnAgents[key];
         delete self.apnAgents[key];
         logger.info('closeAPN:', key, agent.settings, 'connected:', agent.connected, 'queue:', agent.queue.length, 'sent:', agent._sent);
         clearInterval(agent._timeout);
         agent.close(function() {
-            agent.feedback.close();
+            if (agent.feedback) agent.feedback.close();
             agent.feedback = null;
             logger.info('closeAPN: done', key);
             next();
@@ -264,7 +268,7 @@ msg.sendAPN = function(device_id, options, callback)
     }
 
     var agent = this.apnAgents[dev.app] || this.apnAgents.default;
-    if (!agent) return typeof callback == "function" && callback(lib.newError("APN is not initialized for " + device_id, 500));
+    if (!agent) return typeof callback == "function" && callback(lib.newError("APN is not initialized for " + dev.id, 500));
 
     var pkt = agent.createMessage().device(device_id);
     if (options.msg) pkt.alert(options.msg);
@@ -277,7 +281,7 @@ msg.sendAPN = function(device_id, options, callback)
 }
 
 // Initialize Google Cloud Messaginh servie to send push notifications to mobile devices
-msg.initGCM = function()
+msg.initGCM = function(options)
 {
     var self = this;
     if (!this.gcmKey || !this.gcmKey.length) return;
@@ -299,18 +303,18 @@ msg.initGCM = function()
 msg.closeGCM = function(callback)
 {
     var self = this;
-    lib.forEachSeries(Object.keys(this.gcmAgents), function(key, next) {
+    lib.forEach(Object.keys(this.gcmAgents), function(key, next) {
         var agent = self.gcmAgents[key];
         delete self.gcmAgents[key];
         logger.info('closeGCM:', key, 'queue:', agent._queue, 'sent:', agent._sent);
 
         var n = 0;
         function check() {
-            if (!agent._queue || ++n > 30) {
+            if (!agent._queue || ++n > 600) {
                 logger.info('closeGCM: done', key);
                 next();
             } else {
-                setTimeout(check, 1000);
+                setTimeout(check, 50);
             }
         }
         check();
@@ -326,7 +330,7 @@ msg.sendGCM = function(device_id, options, callback)
     if (!dev.id) return typeof callback == "function" && callback(lib.newError("invalid device:" + device_id));
 
     var agent = this.gcmAgents[dev.app] || this.gcmAgents.default;
-    if (!agent) return typeof callback == "function" && callback(lib.newError("GCM is not initialized for " + device_id, 500));
+    if (!agent) return typeof callback == "function" && callback(lib.newError("GCM is not initialized for " + dev.id, 500));
 
     agent._queue++;
     var pkt = new gcm.Message();

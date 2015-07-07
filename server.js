@@ -175,11 +175,9 @@ server.startWorker = function(options)
     core.role = 'worker';
     process.title = core.name + ': worker';
 
-    // Let modules prepare for a worker operations
     core.runMethods("configureWorker", function() {
+        logger.log('startWorker:', 'id:', cluster.worker.id, 'version:', core.version, 'home:', core.home, 'uid:', process.getuid(), 'gid:', process.getgid(), 'pid:', process.pid);
     });
-
-    logger.log('startWorker:', 'id:', cluster.worker.id, 'version:', core.version, 'home:', core.home, 'uid:', process.getuid(), 'gid:', process.getgid(), 'pid:', process.pid);
 }
 
 // Create Express server, setup worker environment, call supplied callback to set initial environment
