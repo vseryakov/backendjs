@@ -46,7 +46,7 @@ msg.init = function(options, callback)
     if (typeof options == "function") callback = options, options = null;
     if (typeof callback != "function") callback = lib.noop;
 
-    // Explicitly configured notification client queue, send all messages there
+    // Explicitely configured notification client queue, send all messages there
     if (this.clientQueue) {
         this.clientQueue = ipc.createClient(this.clientQueue, this.clientQueueOptions);
         if (this.clientQueue) return callback();
@@ -110,6 +110,7 @@ msg.shutdownWeb = function(options, callback)
 //  - badge - badge number to show if supported by the service
 //  - type - set type of the message, service specific
 //  - id - send id with the notification, this is application specific data, sent as is
+//  - queueKey - key where to publish in case of queue existence, i fnot given global key is used or empty key
 msg.send = function(options, callback)
 {
     var self = this;
@@ -117,7 +118,7 @@ msg.send = function(options, callback)
     if (!options || !options.device_id) return callback(lib.newError("invalid device or options"));
 
     // Queue to the server instead of sending directly
-    if (this.clientQueue) return this.clientQueue.publish(this.queueKey || "", options, callback);
+    if (this.clientQueue) return this.clientQueue.publish(options.queueKey || this.queueKey || "", options, callback);
 
     logger.info("send:", options.id, options.device_id, options.msg);
 
