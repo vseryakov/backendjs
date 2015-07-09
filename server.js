@@ -121,12 +121,15 @@ server.start = function()
 // Start process monitor, running as root
 server.startMonitor = function(options)
 {
+    var self = this;
+
     process.title = core.name + ': monitor';
     core.role = 'monitor';
-    // Be careful about adding functionality to the monitor, it is supposed to just watch the process and restart it
-    core.runMethods("configureMonitor");
     this.writePidfile();
-    this.startProcess();
+    // Be careful about adding functionality to the monitor, it is supposed to just watch the process and restart it
+    core.runMethods("configureMonitor", options, function() {
+        self.startProcess();
+    });
 }
 
 // Setup worker environment
@@ -157,10 +160,10 @@ server.startMaster = function(options)
             setInterval(function() { core.watchTmp("tmp", { seconds: 86400 }) }, 43200000);
             setInterval(function() { core.watchTmp("log", { seconds: 86400*7, ignore: path.basename(core.errFile) + "|" + path.basename(core.logFile) }); }, 86400000);
 
-            // Let modules that need to run in the master to inititalize
-            core.runMethods("configureMaster");
-
-            logger.log('startMaster:', 'version:', core.version, 'home:', core.home, 'port:', core.port, 'uid:', process.getuid(), 'gid:', process.getgid(), 'pid:', process.pid);
+            // Initialize modules that need to run in the master
+            core.runMethods("configureMaster", options, function() {
+                logger.log('startMaster:', 'version:', core.version, 'home:', core.home, 'port:', core.port, 'uid:', process.getuid(), 'gid:', process.getgid(), 'pid:', process.pid);
+            });
         });
     } else {
         core.dropPrivileges();
@@ -175,7 +178,7 @@ server.startWorker = function(options)
     core.role = 'worker';
     process.title = core.name + ': worker';
 
-    core.runMethods("configureWorker", function() {
+    core.runMethods("configureWorker", options, function() {
         logger.log('startWorker:', 'id:', cluster.worker.id, 'version:', core.version, 'home:', core.home, 'uid:', process.getuid(), 'gid:', process.getgid(), 'pid:', process.pid);
     });
 }
@@ -279,13 +282,14 @@ server.startWeb = function(options)
                 for (var i = 0; i < self.maxProcesses; i++) self.clusterFork();
             });
 
+            self.writePidfile();
+
             // Web server related initialization, not much functionality is expected in this process
             // regardless if it is a proxy or not, it supposed to pass messages between the web workers
             // and keep the cache
-            core.runMethods("configureServer", options);
-
-            self.writePidfile();
-            logger.log('startWeb:', core.role, 'version:', core.version, 'home:', core.home, 'port:', core.port, 'uid:', process.getuid(), 'gid:', process.getgid(), 'pid:', process.pid)
+            core.runMethods("configureServer", options, function() {
+                logger.log('startWeb:', core.role, 'version:', core.version, 'home:', core.home, 'port:', core.port, 'uid:', process.getuid(), 'gid:', process.getgid(), 'pid:', process.pid)
+            });
         });
     } else {
         core.role = 'web';

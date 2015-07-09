@@ -443,33 +443,35 @@ ipc.prototype.incr = function(key, val, options, callback)
 //              if (next) next();
 //          }, req);
 //
-ipc.prototype.subscribe = function(key, callback, data)
+ipc.prototype.subscribe = function(key, options, callback, data)
 {
+    if (typeof options == "function") callback = options, data = callback, options = null;
     logger.dev("ipc.subscribe", key);
     try {
-        this.queueClient.subscribe(key, callback, data);
+        this.queueClient.subscribe(key, options, callback, data);
     } catch(e) {
         logger.error('ipc.subscribe:', key, e.stack);
     }
 }
 
 // Close a subscription
-ipc.prototype.unsubscribe = function(key)
+ipc.prototype.unsubscribe = function(key, options)
 {
     logger.dev("ipc.unsubscribe", key);
     try {
-        this.queueClient.unsubscribe(key);
+        this.queueClient.unsubscribe(key, options);
     } catch(e) {
         logger.error('ipc.unsubscribe:', key, e.stack);
     }
 }
 
 // Publish an event to be sent to the subscribed clients
-ipc.publish = function(key, data)
+ipc.publish = function(key, data, options, callback)
 {
+    if (typeof options == "function") callback = options, options = null;
     logger.dev("ipc.publish", key, data);
     try {
-        return this.queueClient.publish(key, data);
+        return this.queueClient.publish(key, data, options, callback);
     } catch(e) {
         logger.error('ipc.publish:', key, e.stack);
     }
