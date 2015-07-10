@@ -16,14 +16,15 @@ var lib = require(__dirname + '/lib');
 var metrics = require(__dirname + '/metrics');
 var Client = require(__dirname + "/lib/ipc_client");
 
-// IPC communications between processes and support for caching and messaging.
+// IPC communications between processes and support for caching and subscriptions via queues.
+// The module is EventEmitter and emits messages received.
+//
 // Local cache is implemented as LRU cached configued with `-lru-max` parameter defining how many items to keep in the cache.
 function ipc()
 {
     events.EventEmitter.call(this);
     this.role = ""
     this.msgs = {}
-    this.msgId = 1
     this.workers = []
     this.modules = []
     this.cacheClient = new Client()
@@ -193,7 +194,7 @@ ipc.prototype.handleServerMessages = function(worker, msg)
 
         case 'cache:clear':
             utils.lruClear();
-            if (msg.reply) worker.send({});
+            if (msg._res) worker.send({});
             break;
         }
         this.emit(msg.__op, msg);

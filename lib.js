@@ -1939,7 +1939,6 @@ lib.createPool = function(options)
             timeout: 5000,
             idle: 300000,
             queue_count: 0,
-            num: 1,
             queue_count: 0,
             queue: {},
             avail: [],
@@ -2015,7 +2014,6 @@ lib.createPool = function(options)
         // Pass it to the next waiting item
         for (var id in this._pool.queue) {
             this._pool.queue_count--;
-            this._pool.queue[id].id = id;
             this._pool.queue[id].item = item;
             return self.runCallback(this._pool.queue, this._pool.queue[id]);
         }

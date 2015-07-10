@@ -128,7 +128,7 @@ jobs.configureWorker = function(options, callback)
     });
 
     // Notify parent about the worker readiness after some delay so some subsystems have enough time to init or connect
-    setTimeout(function() { ipc.sendMsg('worker:ready'); }, this.workerDelay);
+    setTimeout(function() { process.send('worker:ready'); }, this.workerDelay);
 
     callback();
 }
@@ -319,13 +319,11 @@ jobs.runWorker = function(jobspec)
     })
     worker.on('message', function(msg) {
         logger.debug("runWorker:", msg);
-        switch (msg.op) {
-        case "worker:ready":
+        if (msg == "worker:ready") {
             jobspec.op = "job:run";
             worker.send(jobspec);
             // Make sure we add new jobs after we successfully created a new worker
             self.running = self.running.concat(Object.keys(jobspec.job));
-            break;
         }
     });
     worker.on("exit", function(code, signal) {
@@ -487,7 +485,7 @@ jobs.loadCronjobs = function()
     // Watch config directory for changes
     if (this.cronWatcher) return;
     this.cronWatcher = fs.watch(core.path.etc, function (event, filename) {
-        if (filename == "crontab") core.setTimeout(filename, function() { self.loadCronjobs(); }, 5000);
+        if (filename && filename.match(/crontab/)) core.setTimeout(filename, function() { self.loadCronjobs(); }, 5000);
     });
 }
 
