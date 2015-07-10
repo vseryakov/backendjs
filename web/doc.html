@@ -96,6 +96,7 @@
 <li><a href="#module-db_sqlite">db_sqlite</a></li>
 <li><a href="#module-ipc_amqp">ipc_amqp</a></li>
 <li><a href="#module-ipc_client">ipc_client</a></li>
+<li><a href="#module-ipc_db">ipc_db</a></li>
 <li><a href="#module-ipc_local">ipc_local</a></li>
 <li><a href="#module-ipc_memcache">ipc_memcache</a></li>
 <li><a href="#module-ipc_redis">ipc_redis</a></li>
@@ -5084,6 +5085,35 @@ it is required to call <code>pool.release</code> at the end to return the connec
 </ul>
 
 <ul>
+<li><p><code>ipc.prototype.newMsg(op, msg, options)</code></p>
+<p> Returns an IPC message object, <code>msg</code> must be an object if given</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>ipc.prototype.emitMsg(op, msg, options)</code></p>
+<p> Wrapper around EventEmitter <code>emit</code> call to send unified IPC messages in the same format</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>ipc.prototype.sendMsg(op, msg, options, callback)</code></p>
+<p> Send a message to the master process via IPC messages, callback is used for commands that return value back</p>
+<ul>
+<li>the msg object must have <code>op</code> property which defines what kind of operation to perform.</li>
+<li>the <code>timeout</code> property can be used to specify a timeout for how long to wait the reply, if not given the default is used</li>
+<li>the rest properties are optional and depend on the operation.</li>
+</ul>
+<p>If called inside the server, it process the message directly, reply is passed in the callback if given.</p>
+<p>Examples:</p>
+<pre><code>  ipc.sendMsg(&quot;op1&quot;, { data: &quot;data&quot; }, { timeout: 100 })
+  ipc.sendMsg(&quot;op1&quot;, { name: &quot;name&quot;, value: &quot;data&quot; }, function(data) { console.log(data); })
+  ipc.sendMsg(&quot;op1&quot;, { 1: 1, 2: 2 }, { timeout: 100 })
+  ipc.sendMsg(&quot;op1&quot;, { 1: 1, 2: 2 }, function(data) { console.log(data); })
+</code></pre></li>
+</ul>
+
+<ul>
 <li><p><code>ipc.prototype.initServer()</code></p>
 <p> This function is called by the Web master server process to setup IPC channels and support for cache and messaging</p>
 </li>
@@ -5132,24 +5162,6 @@ it is required to call <code>pool.release</code> at the end to return the connec
 </ul>
 
 <ul>
-<li><p><code>ipc.prototype.command(msg, callback)</code></p>
-<p> Send a command to the master process via IPC messages, callback is used for commands that return value back</p>
-<ul>
-<li>the msg object must have <code>op</code> property which defines what kind of operation to perform.</li>
-<li>the <code>timeout</code> property can be used to specify a timeout for how long to wait the reply, if not given the default is used</li>
-<li>the rest properties are optional and depend on the operation.</li>
-</ul>
-<p>If called inside the server, it process the message directly, reply is passed in the callback if given.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>ipc.prototype.send(op, name, value, options, callback)</code></p>
-<p> Always send text to the master, convert objects into JSON, value and callback are optional</p>
-</li>
-</ul>
-
-<ul>
 <li><p><code>ipc.prototype.stats(callback)</code></p>
 <p> Returns the cache statistics, the format depends on the cache type used</p>
 </li>
@@ -5169,7 +5181,7 @@ it is required to call <code>pool.release</code> at the end to return the connec
 
 <ul>
 <li><p><code>ipc.prototype.get(key, options, callback)</code></p>
-<p> Retrive an item from the cache by key.
+<p> Retrieve an item from the cache by key.
 If <code>options.set</code> is given and no value exists in the cache it will be set as the initial value.</p>
 <p>Example</p>
 <p>  ipc.get(&quot;my:key&quot;, function(data) { console.log(data) });
@@ -5196,7 +5208,7 @@ If <code>options.set</code> is given and no value exists in the cache it will be
 </ul>
 
 <ul>
-<li><p><code>ipc.prototype.subscribe(key, callback, data)</code></p>
+<li><p><code>ipc.prototype.subscribe(key, options, callback, data)</code></p>
 <p> Subscribe to the publishing server for messages starting with the given key, the callback will be called only on new data received, the <code>data</code>
 is passed to the callback as first argument, if not specified then &quot;undefined&quot; will still be passed, the actual key will be passed as the second
 argument, the message received as the third argument.</p>
@@ -5212,13 +5224,13 @@ returning an error with .status &gt;= 500 will keep the message in the queue to 
 </ul>
 
 <ul>
-<li><p><code>ipc.prototype.unsubscribe(key)</code></p>
+<li><p><code>ipc.prototype.unsubscribe(key, options)</code></p>
 <p> Close a subscription</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>ipc.publish(key, data)</code></p>
+<li><p><code>ipc.publish(key, data, options, callback)</code></p>
 <p> Publish an event to be sent to the subscribed clients</p>
 </li>
 </ul>
@@ -5751,8 +5763,8 @@ called via setImmediate function to allow the main loop to process I/O.</p>
 
 <ul>
 <li><p><code>lib.deferCallback(parent, msg, callback, timeout)</code></p>
-<p> Register the callback to be run later for the given message, the message must have the <code>id</code> property which will be used for keeping track of the responses. The <code>parent</code>
-can be any object and is used to register the timer and keep reference to it.</p>
+<p> Register the callback to be run later for the given message, the message may have the <code>__id</code> property which will be used for keeping track of the responses or it will be generated.
+The <code>parent</code> can be any object and is used to register the timer and keep reference to it.</p>
 <p>A timeout is created for this message, if <code>runCallback</code> for this message will not be called in time the timeout handler will call the callback
 anyway with the original message.</p>
 <p>The callback passed will be called with only one argument which is the message, what is inside the message this function does not care. If
@@ -6455,6 +6467,7 @@ Options may contain the following properties:</p>
 <li>badge - badge number to show if supported by the service</li>
 <li>type - set type of the message, service specific</li>
 <li>id - send id with the notification, this is application specific data, sent as is</li>
+<li>queueKey - key where to publish in case of queue existence, i fnot given global key is used or empty key</li>
 </ul>
 </li>
 </ul>
@@ -7453,23 +7466,68 @@ with error as first argument and database object as second</p>
 </ul>
 
 <ul>
-<li><p><code>IpcClient.prototype.subscribe(key, callback, data)</code></p>
-<p> Subscribe to receive notification for events sarting with the specified key, <code>data</code> will be passed to the callback as the forst argument</p>
+<li><p><code>IpcClient.prototype.subscribe(key, options, callback, data)</code></p>
+<p> Subscribe to receive notification for events sarting with the specified key, <code>data</code> will be passed to the callback as the first argument</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>IpcClient.prototype.unsubscribe(key)</code></p>
+<li><p><code>IpcClient.prototype.unsubscribe(key, options)</code></p>
 <p> Stop receiving notifictions for th give key</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>IpcClient.prototype.publish(key, data, callback)</code></p>
+<li><p><code>IpcClient.prototype.publish(key, data, options, callback)</code></p>
 <p> Publish an event</p>
 </li>
 </ul>
 
+<h2 id="module-ipc_db">Module: IPC_DB</h2>
+<ul>
+<li><p><code>Database tables</code></p>
+<pre><code> bk_queue: { id: { primary: 1 },
+             tag: {},
+             status: {},                                       // job status
+             key: {},                                          // subscription key
+             data: { type: &quot;json&quot; },                           // job definition object
+             mtime: { type: &quot;bigint&quot;, now: 1 } },
+</code></pre><p>  });</p>
+<p>  client.createClient = function(host, options)
+  {</p>
+<pre><code>  if (host.match(/^db:/)) return new IpcDbClient(host, options);
+</code></pre><p>  }</p>
+<p>  function IpcDbClient(host, options)
+  {</p>
+<pre><code>  Client.call(this);
+  if (!this.options.timeout) this.options.timeout = 30000;
+  this.emit(&quot;ready&quot;);
+  this.processQueue();
+</code></pre><p>  }
+  util.inherits(IpcDbClient, Client);</p>
+</li>
+</ul>
+<pre><code>IpcDbClient.prototype.processQueue = function(callback)
+{
+    var self = this;
+    db.select(&quot;bk_queue&quot;, { tag: this.options.tag, status: null }, { ops: { status: &quot;null&quot; }, count: this.options.count || 1 }, function(err, rows) {
+        if (!self.host) return;
+        (rows || []).forEach(function(row) {
+            var cb = self.callbacks[row.key || self.options.key || &quot;&quot;];
+            // Keep the message in case of no callback for the given key, this is persistent queue by explicit keys
+            if (!cb) return;
+            db.update(&quot;bk_queue&quot;, { id: row.id, status: &quot;running&quot; }, function(err) {
+                if (err) return;
+
+                cb[0](cb[1], row.key, row.data, function(err) {
+                    // Retain the message only in case of known fatal errors, otherwise delete it after processing, any other error
+                    // is considered as undeliverable due to corruption or invalid message format...
+                    if (err &amp;&amp; err.status &gt;= 500) {
+                        db.update(&quot;bk_queue&quot;, { id: row.id, status: null });
+                    } else {
+                        db.del(&quot;bk_queue&quot;, { id: row.id }, callback);
+                    }
+</code></pre>
 <h2 id="module-ipc_local">Module: IPC_LOCAL</h2>
 <h2 id="module-ipc_memcache">Module: IPC_MEMCACHE</h2>
 <h2 id="module-ipc_redis">Module: IPC_REDIS</h2>
