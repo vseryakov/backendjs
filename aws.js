@@ -434,7 +434,8 @@ aws.queryDDB = function (action, obj, options, callback)
 
     this.querySign(region, "dynamodb", req.hostname, "POST", req.path, json, headers);
     core.httpGet(uri, { method: "POST", postdata: json, headers: headers }, function(err, params) {
-        if (err) {
+        // Some errors should be retried
+        if (err && err.code != "ECONNRESET") {
             logger.error("queryDDB:", self.key, action, obj, err);
             return callback(err, {});
         }
@@ -442,8 +443,8 @@ aws.queryDDB = function (action, obj, options, callback)
         // Reply is always JSON but we dont take any chances
         try { params.json = JSON.parse(params.data); } catch(e) { err = e; params.status += 1000; }
         if (params.status != 200) {
-            // Try several times
-            if (options.retries > 0 && (params.status == 500 || params.data.match(/(ProvisionedThroughputExceededException|ThrottlingException)/))) {
+            // Try several times, special cases or if err is not empty
+            if (options.retries > 0 && (err || params.status == 500 || params.data.match(/(ProvisionedThroughputExceededException|ThrottlingException)/))) {
                 options.retries--;
                 options.timeout *= 2;
                 logger.debug('queryDDB:', action, obj, err || params.data, 'retrying:', options.timeout, options.retries);

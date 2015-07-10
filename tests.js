@@ -1274,14 +1274,14 @@ tests.test_cache = function(callback)
 
             case "run2":
                 run2(function(err) {
-                    if (!err) ipc.send("done");
+                    if (!err) ipc.sendMsg("done");
                     callback(err);
                 });
                 break;
 
             case "run1":
                 run1(function(err) {
-                    if (!err) ipc.send("done");
+                    if (!err) ipc.sendMsg("done");
                     callback(err);
                 });
                 break;
@@ -1290,7 +1290,7 @@ tests.test_cache = function(callback)
         if (!self.test.iterations) {
             ipc.initWorker();
         }
-        ipc.send("ready");
+        ipc.sendMsg("ready");
     }
 }
 

@@ -185,7 +185,7 @@ var api = {
     mimeBody: [],
 
     // Static content options
-    staticOptions: { maxAge: 86400000 },
+    staticOptions: { maxAge: 3600 * 1000 },
 
     // Web session age
     sessionAge: 86400 * 14 * 1000,
@@ -564,7 +564,7 @@ api.init = function(options, callback)
             }
 
             // Notify the master about new worker server
-            ipc.command({ op: "api:ready", value: { id: cluster.isWorker ? cluster.worker.id : process.pid, pid: process.pid, port: core.port, ready: true } });
+            ipc.sendMsg("api:ready", { id: cluster.isWorker ? cluster.worker.id : process.pid, pid: process.pid, port: core.port, ready: true });
 
             // Allow push notifications in the API handlers
             if (self.notifications) {
@@ -1413,9 +1413,9 @@ api.checkLimits = function(req, options, callback)
     }
     // Use process shared cache to eliminate race condition for the same cache item from multiple processes on the same instance,
     // in master mode use direct access to the LRU cache
-    var msg = { op: "check:limits", name: key, rate: rate, max: max, interval: interval };
-    ipc[cluster.isMaster ? "checkLimits" : "command"](msg, function(consumed) {
-        callback(consumed ? null : { status: 429, message: options.message || "access limit reached, please try again later" });
+    var msg = { name: key, rate: rate, max: max, interval: interval };
+    ipc.sendMsg("limits:check", msg, function(m) {
+        callback(m.consumed ? null : { status: 429, message: options.message || "access limit reached, please try again later" });
     });
 }
 

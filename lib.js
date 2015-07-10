@@ -23,6 +23,7 @@ var uuid = require('uuid');
 var lib = {
     name: 'lib',
     deferTimeout: 50,
+    deferId: 1,
     geoHashRange: [ [12, 0], [8, 0.019], [7, 0.076], [6, 0.61], [5, 2.4], [4, 20.0], [3, 78.0], [2, 630.0], [1, 2500.0], [1, 99999] ],
 }
 
@@ -684,8 +685,8 @@ lib.doWhilst = function(iterator, test, callback)
     });
 }
 
-// Register the callback to be run later for the given message, the message must have the `id` property which will be used for keeping track of the responses. The `parent`
-// can be any object and is used to register the timer and keep reference to it.
+// Register the callback to be run later for the given message, the message may have the `__id` property which will be used for keeping track of the responses or it will be generated.
+// The `parent` can be any object and is used to register the timer and keep reference to it.
 //
 // A timeout is created for this message, if `runCallback` for this message will not be called in time the timeout handler will call the callback
 // anyway with the original message.
@@ -694,22 +695,22 @@ lib.doWhilst = function(iterator, test, callback)
 // any errors must be passed, use the message object for it, no other arguments are expected.
 lib.deferCallback = function(parent, msg, callback, timeout)
 {
-    var self = this;
-    if (!msg || !msg.id || !callback) return;
+    if (!this.isObject(msg) || !callback) return;
 
-    parent[msg.id] = {
+    if (!msg.__deferId) msg.__deferId = this.deferId++;
+    parent[msg.__deferId] = {
         callback: callback,
-        timeout: setTimeout(this.onDeferCallback.bind(parent, msg), timeout || this.deferTimeout)
+        timer: setTimeout(this.onDeferCallback.bind(parent, msg), timeout || this.deferTimeout)
     };
 }
 
 // To be called on timeout or when explicitely called by the `runCallback`, it is called in the context of the message.
 lib.onDeferCallback = function(msg)
 {
-    var item = this[msg.id];
+    var item = this[msg.__deferId];
     if (!item) return;
-    delete this[msg.id];
-    clearTimeout(item.timeout);
+    delete this[msg.__deferId];
+    clearTimeout(item.timer);
     logger.dev("onDeferCallback:", msg);
     try { item.callback(msg); } catch(e) { logger.error('onDeferCallback:', e, msg, e.stack); }
 }
@@ -721,7 +722,7 @@ lib.onDeferCallback = function(msg)
 lib.runCallback = function(parent, msg)
 {
     if (msg && typeof msg == "string") msg = this.jsonParse(msg, { error: 1 });
-    if (!msg || !msg.id || !parent[msg.id]) return;
+    if (!msg || !msg.__deferId || !parent[msg.__deferId]) return;
     setImmediate(this.onDeferCallback.bind(parent, msg));
 }
 
@@ -1964,7 +1965,7 @@ lib.createPool = function(options)
             if (this._pool.queue_count >= this._pool.max_queue) return callback(self.newError("no more resources"));
 
             this._pool.queue_count++;
-            return self.deferCallback(this._pool.queue, { id: this._pool.num++ }, function(m) {
+            return self.deferCallback(this._pool.queue, {}, function(m) {
                 callback(m.item ? null : self.newError("timeout waiting for the resource"), m.item);
             }, this._pool.timeout);
         }

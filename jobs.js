@@ -128,7 +128,7 @@ jobs.configureWorker = function(options, callback)
     });
 
     // Notify parent about the worker readiness after some delay so some subsystems have enough time to init or connect
-    setTimeout(function() { ipc.send('worker:ready'); }, this.workerDelay);
+    setTimeout(function() { ipc.sendMsg('worker:ready'); }, this.workerDelay);
 
     callback();
 }

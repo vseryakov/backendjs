@@ -210,14 +210,18 @@ server.startWeb = function(options)
             if (core.proxy.port) {
 
                 ipc.on('api:ready', function(msg) {
+                    logger.debug("api:ready:", msg, self.proxyWorkers);
                     for (var i = 0; i < self.proxyWorkers.length; i++) {
-                        if (self.proxyWorkers[i].id == msg.value.id) return self.proxyWorkers[i] = msg.value;
+                        if (self.proxyWorkers[i].id == msg.id) return self.proxyWorkers[i] = msg;
                     }
+                    logger.error("api:ready:", msg, self.proxyWorkers);
                 });
                 ipc.on("cluster:exit", function(msg) {
+                    logger.debug("cluster:exit:", msg, self.proxyWorkers);
                     for (var i = 0; i < self.proxyWorkers.length; i++) {
-                        if (self.proxyWorkers[i].id == msg.value.id) return self.proxyWorkers.splice(i, 1);
+                        if (self.proxyWorkers[i].id == msg.id) return self.proxyWorkers.splice(i, 1);
                     }
+                    logger.error("cluster:exit:", msg, self.proxyWorkers);
                 });
                 self.proxyServer = proxy.createServer();
                 self.proxyServer.on("error", function(err, req) { if (err.code != "ECONNRESET") logger.error("proxy:", req.target || '', req.url, err.stack) })
@@ -272,7 +276,7 @@ server.startWeb = function(options)
             }
 
             // Graceful restart of all web workers
-            process.on('SIGUSR2', function() { ipc.send("api:restart") });
+            process.on('SIGUSR2', function() { ipc.sendMsg("api:restart") });
 
             // Arguments passed to the v8 engine
             if (self.workerArgs.length) process.execArgv = self.workerArgs;

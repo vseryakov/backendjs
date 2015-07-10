@@ -45,14 +45,14 @@ system.configureSystemAPI = function()
         var options = api.getOptions(req);
         switch (req.params[0]) {
         case "restart":
-            ipc.send("api:restart");
+            ipc.sendMsg("api:restart");
             res.json({});
             break;
 
         case "config":
             switch (req.params[1]) {
             case 'init':
-                ipc.send('init:' + req.params[0]);
+                ipc.sendMsg(req.params[0] + ":init");
                 res.json({});
                 break;
             }
@@ -61,7 +61,7 @@ system.configureSystemAPI = function()
         case "columns":
             switch (req.params[1]) {
             case 'init':
-                ipc.send('init:' + req.params[0]);
+                ipc.sendMsg(req.params[0] + ":init");
                 res.json({});
                 break;
             }
@@ -70,16 +70,16 @@ system.configureSystemAPI = function()
         case "queue":
             switch (req.params[1]) {
             case 'init':
-                ipc.send('init:' + req.params[0]);
+                ipc.sendMsg(req.params[0] + ":init");
                 res.json({});
                 break;
-                
+
             case "publish":
                 ipc.publish(req.query.key, req.query.value, function(err) { api.sendReply(res, err) });
                 break;
             }
             break;
-            
+
         case "jobs":
             switch (req.params[1]) {
             case 'submit':
@@ -95,7 +95,7 @@ system.configureSystemAPI = function()
                 break;
             }
             break;
-            
+
         case "stats":
             switch (req.params[1]) {
             case 'get':
@@ -176,7 +176,7 @@ system.configureSystemAPI = function()
         case "cache":
             switch (req.params[1]) {
             case 'init':
-                ipc.send('init:cache');
+                ipc.sendMsg('cache:init');
                 res.json({});
                 break;
             case 'stats':
@@ -205,10 +205,10 @@ system.configureSystemAPI = function()
                 break;
             case "command":
                 if (!req.query.reply) {
-                    ipc.command(req.query);
+                    ipc.sendMsg(req.query.op, req.query);
                     res.json({});
                 } else {
-                    ipc.command(req.query, function(data) { res.json({ value: data }); });
+                    ipc.sendMsg(req.query.op, req.query, function(m) { res.json(m); });
                 }
                 break;
             default:

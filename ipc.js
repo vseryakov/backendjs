@@ -46,42 +46,43 @@ ipc.prototype.handleWorkerMessages = function(msg)
     lib.runCallback(this.msgs, msg);
 
     try {
-        switch (msg.op || "") {
+        switch (msg.__op || "") {
         case "api:restart":
             core.modules.api.shutdown(function() { process.exit(0); });
             break;
 
-        case "init:cache":
+        case "cache:init":
             this.closeClient("cache");
             this.initClient("cache");
             break;
 
-        case "init:queue":
+        case "queue:init":
             this.closeClient("queue");
             this.initWorkerQueue();
             break;
 
-        case "init:dns":
+        case "dns:init":
             core.loadDnsConfig();
             break;
 
-        case "init:config":
+        case "config:init":
             core.modules.db.initConfig();
             break;
 
-        case "init:columns":
+        case "columns:init":
             core.modules.db.cacheColumns();
             break;
 
-        case "profiler":
-            core.profiler("cpu", msg.value ? "start" : "stop");
+        case "profiler:start":
+        case "profiler:stop":
+            core.profiler("cpu", msg.__op.split(":").pop());
             break;
 
         case "heapsnapshot":
             core.profiler("heap", "save");
             break;
         }
-        this.emit(msg.op, msg);
+        this.emit(msg.__op, msg);
     } catch(e) {
         logger.error('handleWorkerMessages:', e.stack, msg);
     }
@@ -93,7 +94,7 @@ ipc.prototype.handleServerMessages = function(worker, msg)
     if (!msg) return false;
     logger.dev('handleServerMessages:', msg);
     try {
-        switch (msg.op) {
+        switch (msg.__op) {
         case "api:restart":
             // Start gracefull restart of all api workers, wait till a new worker starts and then send a signal to another in the list.
             // This way we keep active processes responding to the requests while restarting
@@ -112,47 +113,47 @@ ipc.prototype.handleServerMessages = function(worker, msg)
             }
             break;
 
-        case "init:cache":
-            for (var p in cluster.workers) cluster.workers[p].send(msg);
-            break;
-
-        case "init:queue":
+        case "queue:init":
             this.closeClient("queue");
             this.initServerQueue("queue");
             for (var p in cluster.workers) cluster.workers[p].send(msg);
             break;
 
-        case "init:config":
+        case "config:init":
             core.modules.db.initConfig();
             for (var p in cluster.workers) cluster.workers[p].send(msg);
             break;
 
-        case "init:columns":
+        case "columns:init":
             core.modules.db.cacheColumns();
             for (var p in cluster.workers) cluster.workers[p].send(msg);
             break;
 
-        case "init:dns":
+        case "dns:init":
             core.loadDnsConfig();
             for (var p in cluster.workers) cluster.workers[p].send(msg);
             break;
 
-        case "check:limits":
-            msg.value = this.checkLimits(msg);
+        case "limits:check":
+            msg.consumed = this.checkLimits(msg);
             worker.send(msg);
             break;
 
-        case 'stats':
+        case "cache:init":
+            for (var p in cluster.workers) cluster.workers[p].send(msg);
+            break;
+
+        case 'cache:stats':
             msg.value = utils.lruStats();
             worker.send(msg);
             break;
 
-        case 'keys':
+        case 'cache:keys':
             msg.value = utils.lruKeys();
             worker.send(msg);
             break;
 
-        case 'get':
+        case 'cache:get':
             if (Array.isArray(msg.name)) {
                 msg.value = {};
                 for (var i = 0; i < msg.name.length; i++) {
@@ -170,35 +171,81 @@ ipc.prototype.handleServerMessages = function(worker, msg)
             worker.send(msg);
             break;
 
-        case 'exists':
+        case 'cache:exists':
             if (msg.name) msg.value = utils.lruExists(msg.name);
             worker.send(msg);
             break;
 
-        case 'put':
+        case 'cache:put':
             if (msg.name && msg.value) utils.lruPut(msg.name, msg.value);
-            if (msg.reply) worker.send(msg);
+            if (msg.__res) worker.send(msg);
             break;
 
-        case 'incr':
+        case 'cache:incr':
             if (msg.name && msg.value) msg.value = utils.lruIncr(msg.name, msg.value);
-            if (msg.reply) worker.send(msg);
+            if (msg.__res) worker.send(msg);
             break;
 
-        case 'del':
+        case 'cache:del':
             if (msg.name) utils.lruDel(msg.name);
-            if (msg.reply) worker.send(msg);
+            if (msg.__res) worker.send(msg);
             break;
 
-        case 'clear':
+        case 'cache:clear':
             utils.lruClear();
             if (msg.reply) worker.send({});
             break;
         }
-        this.emit(msg.op, msg);
+        this.emit(msg.__op, msg);
     } catch(e) {
         logger.error('handleServerMessages:', e.stack, msg);
     }
+}
+
+// Returns an IPC message object, `msg` must be an object if given
+ipc.prototype.newMsg = function(op, msg, options)
+{
+    return lib.extendObj(msg, "__op", op);
+}
+
+// Wrapper around EventEmitter `emit` call to send unified IPC messages in the same format
+ipc.prototype.emitMsg = function(op, msg, options)
+{
+    if (!op) return;
+    this.emit(op, this.newMsg(op, msg, options));
+}
+
+// Send a message to the master process via IPC messages, callback is used for commands that return value back
+//
+// - the msg object must have `op` property which defines what kind of operation to perform.
+// - the `timeout` property can be used to specify a timeout for how long to wait the reply, if not given the default is used
+// - the rest properties are optional and depend on the operation.
+//
+// If called inside the server, it process the message directly, reply is passed in the callback if given.
+//
+// Examples:
+//
+//        ipc.sendMsg("op1", { data: "data" }, { timeout: 100 })
+//        ipc.sendMsg("op1", { name: "name", value: "data" }, function(data) { console.log(data); })
+//        ipc.sendMsg("op1", { 1: 1, 2: 2 }, { timeout: 100 })
+//        ipc.sendMsg("op1", { 1: 1, 2: 2 }, function(data) { console.log(data); })
+//
+ipc.prototype.sendMsg = function(op, msg, options, callback)
+{
+    if (typeof options == "function") callback = options, options = null;
+
+    msg = this.newMsg(op, msg, options);
+
+    if (!cluster.isWorker) {
+        if (this.role == "server") this.handleServerMessages({ send: lib.noop }, msg);
+        return typeof callback == "function" ? callback(msg) : null;
+    }
+
+    if (typeof callback == "function") {
+        msg.__res = true;
+        lib.deferCallback(this.msgs, msg, function(m) { callback(m); }, options && options.timeout);
+    }
+    try { process.send(msg); } catch(e) { logger.error('send:', e, msg); }
 }
 
 // This function is called by the Web master server process to setup IPC channels and support for cache and messaging
@@ -209,7 +256,7 @@ ipc.prototype.initServer = function()
     this.initServerQueue();
 
     cluster.on("exit", function(worker, code, signal) {
-        self.emit("cluster:exit", { op: "cluster:exit", id: worker.id, pid: worker.pid });
+        self.emitMsg("cluster:exit", { id: worker.id, pid: worker.pid });
     });
 
     cluster.on('fork', function(worker) {
@@ -301,39 +348,6 @@ ipc.prototype.closeClient = function(type)
     this[type + 'Client'] = new Client();
 }
 
-// Send a command to the master process via IPC messages, callback is used for commands that return value back
-//
-// - the msg object must have `op` property which defines what kind of operation to perform.
-// - the `timeout` property can be used to specify a timeout for how long to wait the reply, if not given the default is used
-// - the rest properties are optional and depend on the operation.
-//
-// If called inside the server, it process the message directly, reply is passed in the callback if given.
-ipc.prototype.command = function(msg, callback)
-{
-    if (!cluster.isWorker) {
-        if (this.role == "server") this.handleServerMessages({ send: lib.noop }, msg);
-        return callback ? callback(msg.reply ? msg.value : null) : null;
-    }
-
-    if (typeof callback == "function") {
-        msg.reply = true;
-        msg.id = this.msgId++;
-        lib.deferCallback(this.msgs, msg, function(m) { callback(m.value); }, msg.timeout);
-    }
-    try { process.send(msg); } catch(e) { logger.error('send:', e, msg.op, msg.name); }
-}
-
-// Always send text to the master, convert objects into JSON, value and callback are optional
-ipc.prototype.send = function(op, name, value, options, callback)
-{
-    if (typeof options == "function") callback = options, options = null;
-    var msg = { op: op };
-    if (name) msg.name = name;
-    if (value) msg.value = typeof value == "object" ? lib.stringify(value) : value;
-    if (options && options.timeout) msg.timeout = options.timeout;
-    this.command(msg, callback);
-}
-
 // Returns the cache statistics, the format depends on the cache type used
 ipc.prototype.stats = function(callback)
 {
@@ -371,7 +385,7 @@ ipc.prototype.clear = function()
     }
 }
 
-// Retrive an item from the cache by key.
+// Retrieve an item from the cache by key.
 // If `options.set` is given and no value exists in the cache it will be set as the initial value.
 //
 // Example
