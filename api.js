@@ -52,7 +52,7 @@ var utils = require(__dirname + '/build/Release/backend');
 var api = {
 
     // Config parameters
-    args: [{ name: "images-url", descr: "URL where images are stored, for cases of central image server(s), must be full URL with optional path and trailing slash at the end" },
+    args: [{ name: "images-url", descr: "URL where images are stored, for cases of central image server(s), must be full URL with optional path" },
            { name: "images-s3", descr: "S3 bucket name where to store and retrieve images" },
            { name: "images-raw", type: "bool", descr: "Return raw urls for the images, requires images-url to be configured. The path will reflect the actual 2 level structure and account id in the image name" },
            { name: "images-s3-options", type:" json", descr: "S3 options to sign images urls, may have expires:, key:, secret: properties" },
@@ -1083,7 +1083,7 @@ api.checkSignature = function(req, callback)
 
     // Make sure the request is not expired, it must be in milliseconds
     if (sig.expires < Date.now() - this.signatureAge) {
-        return callback({ status: 406, message: "Expired request" });
+        return callback({ status: 406, message: "Expired request, datetime provided is in the past" });
     }
 
     // Check the signature version consistency, do not accept wrong signatures in the unexpected places

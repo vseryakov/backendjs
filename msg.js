@@ -120,7 +120,7 @@ msg.send = function(options, callback)
     // Queue to the server instead of sending directly
     if (this.clientQueue) return this.clientQueue.publish(options.queueKey || this.queueKey || "", options, callback);
 
-    logger.info("send:", options.id, options.device_id, options.msg);
+    logger.info("send:", options.id, options.device_id, options.type, options.msg);
 
     // Determine the service to use from the device token
     var service = options.service || "";

@@ -1707,7 +1707,10 @@ db.prepareRow = function(pool, op, table, obj, options)
             if (cols[p].lower && typeof v == "string") v = v.toLoweCase();
             if (cols[p].upper && typeof v == "string") v = v.toUpperCase();
             // The field is combined from several values contatenated for complex primary keys
-            if (Array.isArray(cols[p].join) && (typeof v != "string" || v.indexOf(this.separator) == -1)) obj[p] = cols[p].join.map(function(x) { return obj[x] || "" }).join(this.separator);
+            if (Array.isArray(cols[p].join)) {
+                var separator = cols[p].separator || this.separator;
+                if (typeof v != "string" || v.indexOf(separator) == -1) obj[p] = cols[p].join.map(function(x) { return obj[x] || "" }).join(separator);
+            }
             // Final restrictions
             if (cols[p].hidden) delete obj[p];
             if (cols[p].readonly && (op == "incr" || op == "update")) delete obj[p];
@@ -1726,7 +1729,10 @@ db.prepareRow = function(pool, op, table, obj, options)
         obj = o;
         for (var p in cols) {
             // The field is combined from several values contatenated for complex primary keys
-            if (Array.isArray(cols[p].join) && (typeof obj[p] != "string" || obj[p].indexOf(this.separator) == -1)) obj[p] = cols[p].join.map(function(x) { return obj[x] || "" }).join(this.separator);
+            if (Array.isArray(cols[p].join)) {
+                var separator = cols[p].separator || this.separator;
+                if (typeof obj[p] != "string" || obj[p].indexOf(separator) == -1) obj[p] = cols[p].join.map(function(x) { return obj[x] || "" }).join(separator);
+            }
         }
         break;
 
@@ -1760,9 +1766,12 @@ db.prepareRow = function(pool, op, table, obj, options)
             if (!options.ops[p] && lib.isObject(cols[p].ops) && cols[p].ops[op]) options.ops[p] = cols[p].ops[op];
 
             // Joined values for queries, if nothing joined or only one field is present keep the original value
-            if (Array.isArray(cols[p].join) && (typeof obj[p] != "string" || obj[p].indexOf(this.separator) == -1)) {
-                var v = cols[p].join.map(function(x) { return obj[x] || "" }).join(this.separator);
-                if (v[0] != this.separator) obj[p] = v;
+            if (Array.isArray(cols[p].join)) {
+                var separator = cols[p].separator || this.separator;
+                if (typeof obj[p] != "string" || obj[p].indexOf(separator) == -1) {
+                    var v = cols[p].join.map(function(x) { return obj[x] || "" }).join(separator);
+                    if (v[0] != separator) obj[p] = v;
+                }
             }
         }
         break;
@@ -1778,9 +1787,12 @@ db.prepareRow = function(pool, op, table, obj, options)
                     }
                 }
                 // Joined values for queries, if nothing joined or only one field is present keep the original value
-                if (Array.isArray(cols[p].join) && (typeof obj[i][p] != "string" || obj[i][p].indexOf(this.separator) == -1)) {
-                    var v = cols[p].join.map(function(x) { return obj[i][x] || "" }).join(this.separator);
-                    if (v[0] != this.separator) obj[i][p] = v;
+                if (Array.isArray(cols[p].join)) {
+                    var separator = cols[p].separator || this.separator;
+                    if (typeof obj[i][p] != "string" || obj[i][p].indexOf(separator) == -1) {
+                        var v = cols[p].join.map(function(x) { return obj[i][x] || "" }).join(separator);
+                        if (v[0] != separator) obj[i][p] = v;
+                    }
                 }
                 if (!cols[p].primary) delete obj[i][p];
             }
@@ -1826,10 +1838,11 @@ db.convertRows = function(pool, req, rows, options)
         }
         // Extract joined values and place into separate columns
         if (Array.isArray(col.join)) {
+            var separator = col.separator || this.separator;
             for (var i = 0; i < rows.length; i++) {
                 row = rows[i];
-                if (typeof row[p] == "string" && row[p].indexOf(self.separator) > -1) {
-                    var v = row[p].split(self.separator);
+                if (typeof row[p] == "string" && row[p].indexOf(separator) > -1) {
+                    var v = row[p].split(separator);
                     if (v.length == col.join.length) col.join.forEach(function(x, j) { row[x] = v[j]; });
                 }
             }

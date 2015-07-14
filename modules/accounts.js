@@ -490,7 +490,6 @@ accounts.deleteAccount = function(id, options, callback)
                    if (options.keep.images) return next();
                    // Delete all image files
                    lib.forEachSeries(rows, function(row, next2) {
-                       api.formatIcon(row);
                        api.delIcon(obj.id, row, next2);
                    }, function() { next() });
                });
