@@ -2202,7 +2202,7 @@ might be useful when desining, developing or choosing the API platform:</p>
 <li><code>msg-client-queue-host</code> - A queue to create where to send all messages instead of actual gateways</li>
 <li><code>msg-client-queue-options</code> - JSON object with options to the queue client</li>
 <li><code>msg-shutdown-timeout</code> - How long to wait for messages draining out in ms on shutdown before exiting</li>
-<li><code>api-images-url</code> - URL where images are stored, for cases of central image server(s), must be full URL with optional path and trailing slash at the end</li>
+<li><code>api-images-url</code> - URL where images are stored, for cases of central image server(s), must be full URL with optional path</li>
 <li><code>api-images-s3</code> - S3 bucket name where to store and retrieve images</li>
 <li><code>api-images-raw</code> - Return raw urls for the images, requires images-url to be configured. The path will reflect the actual 2 level structure and account id in the image name</li>
 <li><code>api-images-s3-options</code> - S3 options to sign images urls, may have expires:, key:, secret: properties</li>
@@ -7004,12 +7004,6 @@ Output file name is built according to the following options properties:</li>
 
 <h2 id="module-api_icons">Module: API_ICONS</h2>
 <ul>
-<li><p><code>api.iconPath(id, options)</code></p>
-<p> Full path to the icon, perform necessary hashing and sharding, id can be a number or any string</p>
-</li>
-</ul>
-
-<ul>
 <li><p><code>api.scaleIcon(infile, options, callback)</code></p>
 <p> Scale image using ImageMagick, return err if failed</p>
 <ul>
@@ -7046,8 +7040,14 @@ Output file name is built according to the following options properties:</li>
 </ul>
 
 <ul>
-<li><p><code>api.formatIcon(row, options)</code></p>
-<p> Return formatted icon URL for the given account, verify permissions</p>
+<li><p><code>api.iconPath(id, options)</code></p>
+<p> Full path to the icon, perform necessary hashing and sharding, id can be a number or any string</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.iconUrl(row, options)</code></p>
+<p> Returns constructed icon url from the icon record</p>
 </li>
 </ul>
 
@@ -7999,7 +7999,11 @@ connections. If any of obj.id or obj.type are not specified then perform a query
 <ul>
 <li><p><code>Database tables</code></p>
 <pre><code>          bk_icon: { id: { primary: 1 },                         // Account id
-                     type: { primary: 1, pub: 1 },               // prefix:type
+                     type: { primary: 1,                         // prefix:type
+                             pub: 1,
+                             join: [ &quot;prefix&quot;, &quot;type&quot; ],
+                             separator: &quot;:&quot;,
+                             ops: { select: &quot;begins_with&quot; } },
                      prefix: {},                                 // icon prefix/namespace
                      acl_allow: {},                              // Who can see it: all, auth, id:id...
                      ext: {},                                    // Saved image extension
