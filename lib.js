@@ -860,7 +860,7 @@ lib.randomShort = function()
     return Math.abs(crypto.randomBytes(2).readInt16LE(0));
 }
 
-// Return rando number between 0 and UINT_MAX
+// Return random number between 0 and UINT_MAX
 lib.randomUInt = function()
 {
     return crypto.randomBytes(4).readUInt32LE(0);
@@ -1076,20 +1076,20 @@ lib.arrayUnique = function(list, key)
 }
 
 // Stringify JSON into base64 string, if secret is given, sign the data with it
-lib.jsonToBase64 = function(data, secret)
+lib.jsonToBase64 = function(data, secret, algorithm)
 {
     data = JSON.stringify(data);
-    if (secret) return this.encrypt(secret, data);
+    if (secret) return this.encrypt(secret, data, algorithm);
     return new Buffer(data).toString("base64");
 }
 
 // Parse base64 JSON into JavaScript object, in some cases this can be just a number then it is passed as it is, if secret is given verify
 // that data is not chnaged and was signed with the same secret
-lib.base64ToJson = function(data, secret)
+lib.base64ToJson = function(data, secret, algorithm)
 {
     var rc = "";
     if (typeof data == "undefined" || data == null) return rc;
-    if (secret) data = this.decrypt(secret, data);
+    if (secret) data = this.decrypt(secret, data, algorithm);
     try {
         if (typeof data == "number" || (typeof data == "string" && data.match(/^[0-9]+$/))) {
             rc = this.toNumber(data);

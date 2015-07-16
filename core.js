@@ -838,6 +838,8 @@ core.createServer = function(options, callback)
 //   - postfile - file to be uploaded in the POST body, not as multipart
 //   - query - additional query parameters to be added to the url as an object or as encoded string
 //   - sign - sign request with provided email/secret properties
+//   - mtime - a Date or timestamp to be used in conditional requests
+//   - conditional - add If-Modified-Since header using `params.mtime` if present or if `file` is given use file last modified timestamp, mtime
 // - callback will be called with the arguments:
 //     first argument is error object if any
 //     second is params object itself with updated fields
@@ -876,6 +878,7 @@ core.httpGet = function(uri, params, callback)
     options.headers = params.headers || {};
     options.agent = params.agent || null;
     options.rejectUnauthorized = false;
+    if (!options.hostname) options.hostname = "localhost", options.port = core.port, options.protocol = "http:";
 
     // Make sure required headers are set
     if (!options.headers['user-agent'] && this.userAgent.length) {
@@ -945,6 +948,22 @@ core.httpGet = function(uri, params, callback)
 
     // Use file name form the url
     if (params.file && params.file[params.file.length - 1] == "/") params.file += path.basename(options.pathname);
+
+    // Conditional, time related
+    if (params.conditional) {
+        if (params.mtime) {
+            delete params.conditional;
+            options.headers["if-modified-since"] = lib.toDate(params.mtime).toUTCString();
+        } else
+
+        if (params.file) {
+            fs.stat(params.file, function(err, stat) {
+                if (!err && stat.size > 0) params.mtime = stat.mtime.getTime();
+                self.httpGet(uri, params, callback);
+            });
+            return;
+        }
+    }
 
     // Runtime properties
     if (!params.retries) params.retries = 0;
@@ -1017,7 +1036,12 @@ core.httpGet = function(uri, params, callback)
               return;
           }
           // Redirection
-          if (res.statusCode >= 301 && res.statusCode <= 307 && !params.noredirects) {
+          switch (res.statusCode) {
+          case 301:
+          case 302:
+          case 303:
+          case 307:
+              if (params.noredirects) break;
               params.redirects += 1;
               if (params.redirects < 10) {
                   var uri2 = res.headers.location || "";
@@ -1031,6 +1055,7 @@ core.httpGet = function(uri, params, callback)
                       return self.httpGet(uri2, params, callback);
                   }
               }
+              break;
           }
           logger.debug("httpGet: done", options.method, "url:", uri, "size:", params.size, "status:", res.statusCode, 'type:', params.type, 'location:', res.headers.location || '');
 

@@ -1320,7 +1320,7 @@ api.handleSessionSignature = function(req, options)
 {
     logger.debug("handleSessionSignature:", options);
 
-    if (typeof options.accesstoken != "undefined" && req.session) {
+    if (typeof options.accesstoken != "undefined") {
         if (options.accesstoken && req.account && req.account.login && req.account.secret && req.headers) {
             var sig = this.createSignature(req.account.login, req.account.secret + ":" + (req.account.token_secret || ""), "", req.headers.host, "", { version: 3, expires: options.sessionAge || this.accessTokenAge });
             req.account[this.accessTokenName] = lib.encrypt(this.accessTokenSecret, sig[this.signatureHeaderName], "", "hex");
