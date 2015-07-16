@@ -3844,6 +3844,8 @@ making it usable for repeating environments or storage solutions.</p>
 <li>postfile - file to be uploaded in the POST body, not as multipart</li>
 <li>query - additional query parameters to be added to the url as an object or as encoded string</li>
 <li>sign - sign request with provided email/secret properties</li>
+<li>mtime - a Date or timestamp to be used in conditional requests</li>
+<li>conditional - add If-Modified-Since header using <code>params.mtime</code> if present or if <code>file</code> is given use file last modified timestamp, mtime</li>
 </ul>
 </li>
 <li>callback will be called with the arguments:
@@ -5867,7 +5869,7 @@ The message must have <code>id</code> property which is used to find the corresp
 
 <ul>
 <li><p><code>lib.randomUInt()</code></p>
-<p> Return rando number between 0 and UINT_MAX</p>
+<p> Return random number between 0 and UINT_MAX</p>
 </li>
 </ul>
 
@@ -5949,13 +5951,13 @@ based on <a href="http://stackoverflow.com/a/13439711">http://stackoverflow.com/
 </ul>
 
 <ul>
-<li><p><code>lib.jsonToBase64(data, secret)</code></p>
+<li><p><code>lib.jsonToBase64(data, secret, algorithm)</code></p>
 <p> Stringify JSON into base64 string, if secret is given, sign the data with it</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>lib.base64ToJson(data, secret)</code></p>
+<li><p><code>lib.base64ToJson(data, secret, algorithm)</code></p>
 <p> Parse base64 JSON into JavaScript object, in some cases this can be just a number then it is passed as it is, if secret is given verify
 that data is not chnaged and was signed with the same secret</p>
 </li>
