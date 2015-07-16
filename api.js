@@ -408,13 +408,13 @@ api.init = function(options, callback)
         self.prepareRequest(req);
 
         // Rate limits by IP address and path, early before all other filters
-        self.checkLimits(req, { type: "ip" }, function(err) {
+        self.checkRateLimits(req, { type: "ip" }, function(err) {
             if (err) {
                 self.metrics.Counter('ip_0').inc();
                 return self.sendReply(res, err);
             }
 
-            self.checkLimits(req, { type: "path" }, function(err) {
+            self.checkRateLimits(req, { type: "path" }, function(err) {
                 if (!err) return next();
                 self.metrics.Counter('path_0').inc();
                 self.sendReply(res, err);
@@ -484,7 +484,7 @@ api.init = function(options, callback)
     if (!self.noSignature) {
         self.app.use(function(req, res, next) {
             // Verify limits using the login from the signature before going into full signature verification
-            self.checkLimits(req, { type: "login" }, function(err) {
+            self.checkRateLimits(req, { type: "login" }, function(err) {
                 if (!err) return self.handleSignature(req, res, next);
                 self.metrics.Counter('login_0').inc();
                 return self.sendReply(res, err);
@@ -503,7 +503,7 @@ api.init = function(options, callback)
 
         // Rate limits for an account, at this point we have verified account record
         self.app.use(function(req, res, next) {
-            self.checkLimits(req, { type: "id" }, function(err) {
+            self.checkRateLimits(req, { type: "id" }, function(err) {
                 if (err) self.metrics.Counter('id_0').inc();
                 if (err) return self.sendReply(res, err);
                 next();
@@ -1393,7 +1393,7 @@ api.checkAccountType = function(row, type)
 //          ...
 //       });
 //
-api.checkLimits = function(req, options, callback)
+api.checkRateLimits = function(req, options, callback)
 {
     var self = this;
     if (typeof callback != "function") callback = lib.noop;
@@ -1456,7 +1456,7 @@ api.checkLimits = function(req, options, callback)
     // Use process shared cache to eliminate race condition for the same cache item from multiple processes on the same instance,
     // in master mode use direct access to the LRU cache
     var msg = { name: key, rate: rate, max: max, interval: interval };
-    ipc.sendMsg("limits:check", msg, function(m) {
+    ipc.sendMsg("rlimits:check", msg, function(m) {
         callback(m.consumed ? null : { status: 429, message: options.message || "access limit reached, please try again later" });
     });
 }

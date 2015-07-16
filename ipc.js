@@ -135,8 +135,8 @@ ipc.prototype.handleServerMessages = function(worker, msg)
             for (var p in cluster.workers) cluster.workers[p].send(msg);
             break;
 
-        case "limits:check":
-            msg.consumed = this.checkLimits(msg);
+        case "rlimits:check":
+            msg.consumed = this.checkRateLimits(msg);
             worker.send(msg);
             break;
 
@@ -500,7 +500,7 @@ ipc.publish = function(key, data, options, callback)
 // is given, call it with the consumed flag as first argument.
 //
 // Keeps the token bucket in the LRU local cache by name, this is supposed to be used on the server, not concurrently by several clients.
-ipc.prototype.checkLimits = function(msg, callback)
+ipc.prototype.checkRateLimits = function(msg, callback)
 {
     var data = utils.lruGet(msg.name);
     this.tokenBucket.configure(data ? lib.strSplit(data) : msg);
@@ -510,7 +510,7 @@ ipc.prototype.checkLimits = function(msg, callback)
     var consumed = this.tokenBucket.consume(msg.consume || 1);
     utils.lruPut(msg.name, this.tokenBucket.toString());
 
-    logger.debug("checkLimits:", msg.name, consumed, this.tokenBucket);
+    logger.debug("checkRateLimits:", msg.name, consumed, this.tokenBucket);
     if (typeof callback == "function") callback(consumed);
     return consumed;
 }
