@@ -2258,10 +2258,11 @@ might be useful when desining, developing or choosing the API platform:</p>
 <li><code>api-secret-policy</code> - An JSON object with list of regexps to validate account password, each regexp comes with an error message to be returned if such regexp fails, <code>api.checkAccountSecret</code> performs the validation, example: { &#39;[a-z]+&#39;: &#39;At least one lowercase letter&#39;, &#39;[A-Z]+&#39;: &#39;At least one upper case letter&#39; }</li>
 <li><code>api-cors-origin</code> - Origin header for CORS requests</li>
 <li><code>api-url-metrics-([a-z]+)</code> - Defines the length of an API request path to be stored in the statistics, set by the first component of endpoint URL, example: -api-url-metrics-image 2 -api-url-metrics-account 3</li>
-<li><code>api-rlimits-([a-z]+)-max</code> - Set max/burst rate limit by the given property, it is used by the request rate limiter using Token Bucket algorithm. Predefined types: ip, id, login</li>
-<li><code>api-rlimits-([a-z]+)-rate</code> - Set fill/normal rate limit by the given property, it is used by the request rate limiter using Token Bucket algorithm. Predefined types: ip, id, login</li>
+<li><code>api-rlimits-([a-zA-Z0-9/_]+)-max</code> - Set max/burst rate limit by the given property, it is used by the request rate limiter using Token Bucket algorithm. Predefined types: ip, path, id, login</li>
+<li><code>api-rlimits-([a-zA-Z0-9/_]+)-rate</code> - Set fill/normal rate limit by the given property, it is used by the request rate limiter using Token Bucket algorithm. Predefined types: ip, path, id, login</li>
+<li><code>api-rlimits-([a-zA-Z0-9/_]+)-interval</code> - Set rate interval in ms by the given property, it is used by the request rate limiter using Token Bucket algorithm. Predefined types: ip, path, id, login</li>
 <li><code>api-rlimits-total</code> - Total number of servers used in the rate limiter behind a load balancer, rates will be divided by this number so each server handles only a portion of the total rate limit</li>
-<li><code>api-rlimits-interval</code> - Interval in ms for the rate limer, defines the time unit, default is 1000 ms</li>
+<li><code>api-rlimits-interval</code> - Interval in ms for all rate limiters, defines the time unit, default is 1000 ms</li>
 <li><code>api-exit-on-error</code> - Exit on uncaught exception</li>
 <li><code>api-upload-limit</code> - Max size for uploads, bytes</li>
 <li><code>jobs-max-workers</code> - Max number of worker processes to launch for jobs</li>
@@ -2611,14 +2612,25 @@ properties after successful authorization.</p>
 <p> Perform rate limiting by specified property, if not given no limiting is done.</p>
 <p>The following options properties can be used:</p>
 <ul>
-<li>type - predefined: <code>ip, login, id</code>, determines by which property to perform rate limiting, when using account properties
+<li><p>type - predefined: <code>ip,  path, login, id</code>, determines by which property to perform rate limiting, when using account properties
  the rate limiter should be called after the request signature has been parsed. Any other value is treated as
- custom type and used as is. <strong>This property is required.</strong></li>
-<li>ip - to use the specified IP address for type=ip</li>
+ custom type and used as is.
+ <strong>This property is required.</strong></p>
+<p> The predefined types:</p>
+<ul>
+<li>ip - limit number of requests per configured interval for an IP address</li>
+<li>path - limit number of requests per configured interval for an API path and IP address, must be configured like: <code>-api-rlimits-/api/path-rate=2</code></li>
+<li>id - limit number of requests per configured interval for an account id</li>
+<li>login - limit number of requests per configured interval for a login from the signature, this is called
+  before the account record is pulled from the DB</li>
+</ul>
+</li>
+<li><p>ip - to use the specified IP address for type=ip</p>
+</li>
 <li>max - max capacity to be used by default</li>
 <li>rate - fill rate to be used by default</li>
 <li>interval - interval in ms within which the rate is measured, default 1000 ms</li>
-<li>message - more descriptive name to be used in the error message for the type, if not specified a generic error message is used</li>
+<li>message - more descriptive text to be used in the error message for the type, if not specified a generic error message is used</li>
 <li>total - apply this factor to the rate, it is used in case of multiple servers behind a loadbalancer, so for
  total 3 servers in the cluster the factor will be 3, i.e. each individual server checks for a third of the total request rate</li>
 </ul>
