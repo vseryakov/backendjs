@@ -108,10 +108,11 @@ var api = {
            { name: "secret-policy", type: "regexpmap", descr : "An JSON object with list of regexps to validate account password, each regexp comes with an error message to be returned if such regexp fails, `api.checkAccountSecret` performs the validation, example: { '[a-z]+': 'At least one lowercase letter', '[A-Z]+': 'At least one upper case letter' }" },
            { name: "cors-origin", descr: "Origin header for CORS requests" },
            { name: "url-metrics-([a-z]+)", type: "int", obj: "url-metrics", descr: "Defines the length of an API request path to be stored in the statistics, set by the first component of endpoint URL, example: -api-url-metrics-image 2 -api-url-metrics-account 3" },
-           { name: "rlimits-([a-z]+)-max", type: "int", obj: "rlimits", descr: "Set max/burst rate limit by the given property, it is used by the request rate limiter using Token Bucket algorithm. Predefined types: ip, id, login" },
-           { name: "rlimits-([a-z]+)-rate", type: "int", obj: "rlimits", descr: "Set fill/normal rate limit by the given property, it is used by the request rate limiter using Token Bucket algorithm. Predefined types: ip, id, login" },
+           { name: "rlimits-([a-zA-Z0-9/_]+)-max", type: "int", obj: "rlimits", descr: "Set max/burst rate limit by the given property, it is used by the request rate limiter using Token Bucket algorithm. Predefined types: ip, path, id, login" },
+           { name: "rlimits-([a-zA-Z0-9/_]+)-rate", type: "int", obj: "rlimits", descr: "Set fill/normal rate limit by the given property, it is used by the request rate limiter using Token Bucket algorithm. Predefined types: ip, path, id, login" },
+           { name: "rlimits-([a-zA-Z0-9/_]+)-interval", type: "int", obj: "rlimits", descr: "Set rate interval in ms by the given property, it is used by the request rate limiter using Token Bucket algorithm. Predefined types: ip, path, id, login" },
            { name: "rlimits-total", type:" int", obj: "rlimits", descr: "Total number of servers used in the rate limiter behind a load balancer, rates will be divided by this number so each server handles only a portion of the total rate limit" },
-           { name: "rlimits-interval", type:" int", obj: "rlimits", descr: "Interval in ms for the rate limer, defines the time unit, default is 1000 ms" },
+           { name: "rlimits-interval", type:" int", obj: "rlimits", descr: "Interval in ms for all rate limiters, defines the time unit, default is 1000 ms" },
            { name: "exit-on-error", type: "bool", descr: "Exit on uncaught exception" },
            { name: "upload-limit", type: "number", min: 1024*1024, max: 1024*1024*10, descr: "Max size for uploads, bytes"  },
     ],
@@ -406,11 +407,18 @@ api.init = function(options, callback)
         // Setup request common/required properties
         self.prepareRequest(req);
 
-        // Rate limits by IP address, early before all other filters
-        self.checkLimits(req, "ip", function(err) {
-            if (!err) return next();
-            self.metrics.Counter('ip_0').inc();
-            self.sendReply(res, err);
+        // Rate limits by IP address and path, early before all other filters
+        self.checkLimits(req, { type: "ip" }, function(err) {
+            if (err) {
+                self.metrics.Counter('ip_0').inc();
+                return self.sendReply(res, err);
+            }
+
+            self.checkLimits(req, { type: "path" }, function(err) {
+                if (!err) return next();
+                self.metrics.Counter('path_0').inc();
+                self.sendReply(res, err);
+            });
         });
     });
 
@@ -474,7 +482,14 @@ api.init = function(options, callback)
 
     // Check the signature, for virtual hosting, supports only the simple case when running the API and static web sites on the same server
     if (!self.noSignature) {
-        self.app.use(function(req, res, next) { return self.handleSignature(req, res, next); });
+        self.app.use(function(req, res, next) {
+            // Verify limits using the login from the signature before going into full signature verification
+            self.checkLimits(req, { type: "login" }, function(err) {
+                if (!err) return self.handleSignature(req, res, next);
+                self.metrics.Counter('login_0').inc();
+                return self.sendReply(res, err);
+            });
+        });
     }
 
     // Config options for Express
@@ -486,18 +501,12 @@ api.init = function(options, callback)
     // handler may install some other authentication module and in such case must setup `req.account` with the current user record
     core.runMethods("configureMiddleware", options, function() {
 
-        // Rate limits for an account, multiple logins may belong to the same account so we have
-        // 2 checks here, individual and for the whole account
+        // Rate limits for an account, at this point we have verified account record
         self.app.use(function(req, res, next) {
-            self.checkLimits(req, "login", function(err) {
-                if (err) self.metrics.Counter('login_0').inc();
+            self.checkLimits(req, { type: "id" }, function(err) {
+                if (err) self.metrics.Counter('id_0').inc();
                 if (err) return self.sendReply(res, err);
-
-                self.checkLimits(req, "id", function(err) {
-                    if (err) self.metrics.Counter('id_0').inc();
-                    if (err) return self.sendReply(res, err);
-                    next();
-                });
+                next();
             });
         });
 
@@ -1351,14 +1360,23 @@ api.checkAccountType = function(row, type)
 // Perform rate limiting by specified property, if not given no limiting is done.
 //
 // The following options properties can be used:
-//  - type - predefined: `ip, login, id`, determines by which property to perform rate limiting, when using account properties
+//  - type - predefined: `ip,  path, login, id`, determines by which property to perform rate limiting, when using account properties
 //     the rate limiter should be called after the request signature has been parsed. Any other value is treated as
-//     custom type and used as is. **This property is required.**
+//     custom type and used as is.
+//     **This property is required.**
+//
+//     The predefined types:
+//     - ip - limit number of requests per configured interval for an IP address
+//     - path - limit number of requests per configured interval for an API path and IP address, must be configured like: `-api-rlimits-/api/path-rate=2`
+//     - id - limit number of requests per configured interval for an account id
+//     - login - limit number of requests per configured interval for a login from the signature, this is called
+//         before the account record is pulled from the DB
+//
 //  - ip - to use the specified IP address for type=ip
 //  - max - max capacity to be used by default
 //  - rate - fill rate to be used by default
 //  - interval - interval in ms within which the rate is measured, default 1000 ms
-//  - message - more descriptive name to be used in the error message for the type, if not specified a generic error message is used
+//  - message - more descriptive text to be used in the error message for the type, if not specified a generic error message is used
 //  - total - apply this factor to the rate, it is used in case of multiple servers behind a loadbalancer, so for
 //     total 3 servers in the cluster the factor will be 3, i.e. each individual server checks for a third of the total request rate
 //
@@ -1379,38 +1397,62 @@ api.checkLimits = function(req, options, callback)
 {
     var self = this;
     if (typeof callback != "function") callback = lib.noop;
-    if (typeof options == "string") options = { type: options };
+    if (!options || !options.type) return callback();
 
-    var type = options && options.type, rate = 0;
-    if (type) rate = options.rate || this.rlimits[type + 'Rate'];
-    if (!type || !rate) return callback();
-
-    var max = options.max || this.rlimits[type + 'Max'] || rate;
-    var total = options.total || this.rlimits.total || 1;
-    var interval = options.interval || this.rlimits.interval || 1000;
-    var key = 'TB' + type;
-
-    switch (type) {
+    switch (options.type) {
     case "ip":
-        key = 'TBip:' + (options.ip || req.options.ip);
+        var rate = options.rate || this.rlimits['ipRate'] || 0;
+        if (!rate) return callback();
+        var max = options.max || this.rlimits['ipMax'] || rate;
+        var interval = options.interval || this.rlimits['ipInterval'] || this.rlimits.interval || 1000;
+        var key = 'TBip:' + (options.ip || req.options.ip);
+        break;
+
+    case 'path':
+        var path = options.path || req.options.path;
+        var rate = options.rate || this.rlimits[path + 'Rate'] || 0;
+        if (!rate) return callback();
+        var max = options.max || this.rlimits[path + 'Max'] || rate;
+        var interval = options.interval || this.rlimits[path + 'Interval'] || 1000;
+        var key = 'TBreq:' + (options.ip || req.options.ip) + path;
+        break;
+
+    case "login":
+        var rate = options.rate || this.rlimits['loginRate'] || 0;
+        if (!rate) return callback();
+        var sig = self.parseSignature(req);
+        if (!sig || !sig.login) return callback();
+        var max = options.max || this.rlimits['loginMax'] || rate;
+        var interval = options.interval || this.rlimits['loginInterval'] || this.rlimits.interval || 1000;
+        var key = 'TBlogin:' + sig.login;
         break;
 
     case "id":
-    case "login":
-        if (!req.account || !req.account[type]) return callback();
-        key = 'TB' + type + ":" + req.account[type];
-        max = req.account.rlimits_max || max;
-        rate = req.account.rlimits_rate || rate;
-        interval = req.account.rlimits_interval || interval;
+        if (!req.account || !req.account.id) return callback();
+        var rate = options.rate || req.account.rlimits_rate || this.rlimits['idRate'] || 0;
+        if (!rate) return callback();
+        var max = options.max || req.account.rlimits_max || this.rlimits['idMax'] || rate;
+        var interval = options.interval || req.account.rlimits_interval || this.rlimits['idInterval'] || 1000;
+        var key = 'TBid:' + req.account.id;
         break;
+
+    default:
+        var rate = options.rate || this.rlimits[options.type + 'Rate'] || 0;
+        if (!rate) return callback();
+        var max = options.max || this.rlimits[options.type + 'Max'] || rate;
+        var interval = options.interval || this.rlimits[options.type + 'Interval'] || this.rlimits.interval || 1000;
+        var key = 'TB' + type;
     }
 
     // Divide by total number of servers in the cluster, because a load balancer distributes the load equally each server can only
     // check for a portion of the total request rate
-    if (total < rate) {
+    var total = options.total || this.rlimits.total || 0;
+    if (total > 1 && total < rate) {
+        max /= total;
         rate /= total;
-        max = (max || rate)/total;
+        if (!rate) return callback();
     }
+
     // Use process shared cache to eliminate race condition for the same cache item from multiple processes on the same instance,
     // in master mode use direct access to the LRU cache
     var msg = { name: key, rate: rate, max: max, interval: interval };
