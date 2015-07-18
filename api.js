@@ -1933,13 +1933,14 @@ api.sendFile = function(req, res, file, redirect)
 //    - match - a regexp that matched the message text, if not matched these events will be dropped
 api.subscribe = function(req, options)
 {
+    var self = this;
     if (!options) options = {};
     req.msgKey = options.key || req.account.id;
     // Ignore not matching events, the whole string is checked
     req.msgMatch = options.match ? new RegExp(options.match) : null;
     req.msgInterval = options.subscribeInterval || this.subscribeInterval;
     req.msgTimeout = options.timeoput || this.subscribeTimeout;
-    ipc.subscribe(req.msgKey, this.sendEvent, req);
+    ipc.subscribe(req.msgKey, function(k, d, n) { self.sendEvent(req, k, d, n); });
 
     // Listen for timeout and ignore it, this way the socket will be alive forever until we close it
     req.res.on("timeout", function() {

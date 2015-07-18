@@ -870,7 +870,7 @@ core.httpGet = function(uri, params, callback)
         break;
 
     default:
-        return callback(lib.newError("invalid url: " + uri));
+        return callback(lib.newError("invalid url: " + uri), params);
     }
 
     var options = url.parse(uri);
@@ -951,14 +951,17 @@ core.httpGet = function(uri, params, callback)
 
     // Conditional, time related
     if (params.conditional) {
+        delete params.conditional;
         if (params.mtime) {
-            delete params.conditional;
             options.headers["if-modified-since"] = lib.toDate(params.mtime).toUTCString();
         } else
 
         if (params.file) {
-            fs.stat(params.file, function(err, stat) {
-                if (!err && stat.size > 0) params.mtime = stat.mtime.getTime();
+            fs.stat(params.file, function(err, stats) {
+                if (!err && stats.size > 0) {
+                    params.mtime = stats.mtime.getTime();
+                    options.headers["if-modified-since"] = lib.toDate(params.mtime).toUTCString();
+                }
                 self.httpGet(uri, params, callback);
             });
             return;

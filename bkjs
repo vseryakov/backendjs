@@ -136,7 +136,6 @@ case "$ARG" in
   start)
     # Perform setup and possibly get newest source code if sync master is configured
     ($0 run-sync)
-    [ "$BKJS_UPDATE" != "" ] && ($0 run-update)
 
     echo "Starting $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME $BKJS_ARGS $@"
     $0 run-server
@@ -616,13 +615,8 @@ case "$ARG" in
     ;;
 
   run-update)
-    # Update npm dependencies
-    cd $BKJS_HOME
-    if [ -f package.json ]; then
-       npm install
-    else
-       npm update backendjs
-    fi
+    [ -f package.json ] && modules=$(node -e 'console.log(Object.keys(JSON.parse(require("fs").readFileSync("package.json")).dependencies).join(" "))' | sed "s/$BKJS_MOD//g")
+    [ "$modules" != "" ] && npm install $modules $@
     ;;
 
   put-backend)
@@ -1261,7 +1255,7 @@ EOF
     echo "  run-backend - run local backend server or the app.js if present, all command line params will be passed to the backend.js"
     echo "  put-backend [-host HOST] [-path PATH] [-user USER] [-ssh-key pem] [-ssh OPTS] [-exclude PATTERN] [-delete] - push the backend code to the master server, uses env BKJS_HOST or host parameter from the command line, replaces all files and removes non-existing on the dest except in web/ directory, default path is ~/node_modules/$BKJS_MOD"
     echo "  run-sync - synchronize other directories from the master host, runs on the start, must use BKJS_SYNC in the profile set to the host name where to get files"
-    echo "  run-update - update the app frpm npm using package.json, runs on the start, must set BKJS_UPDATE in the profile to enable the update"
+    echo "  run-update [-g] - update all dependencies except the backend module from the package.json"
     echo "  run-check - to be run on instances, check for idleness,if no jobs running then shutdown the host"
     echo "  init-backup - creates a crontab file in /etc/cron.d to periodically run the backup, -args can be used to specify the full cron time spec"
     echo "  run-backup - run the backup script, store in \$BKJS_BACKUP, can be used in crontabs with symlink"

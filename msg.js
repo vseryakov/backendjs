@@ -55,7 +55,7 @@ msg.init = function(options, callback)
     // Explicitely configured notification server queue
     if (this.serverQueue) {
         this.serverQueue = ipc.createClient(this.serverQueue, this.serverQueueOptions);
-        this.serverQueue.subscribe(this.queueKey || "", function(arg, key, data, next) {
+        this.serverQueue.subscribe(this.queueKey || "", function(key, data, next) {
             self.send(lib.jsonParse(data, { obj: 1 }), function(err) {
                 if (next) next(err);
             });

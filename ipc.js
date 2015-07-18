@@ -150,7 +150,7 @@ ipc.prototype.handleServerMessages = function(worker, msg)
             break;
 
         case 'cache:keys':
-            msg.value = utils.lruKeys();
+            msg.value = utils.lruKeys(msg.name);
             worker.send(msg);
             break;
 
@@ -273,7 +273,7 @@ ipc.prototype.initServerQueue = function()
     this.initClient("queue");
     // Listen for system messages
     this.queueClient.on("ready", function() {
-        self.subscribe(self.serverQueue, function(ctx, key, data, next) {
+        self.subscribe(self.serverQueue, function(key, data, next) {
             self.handleServerMessages({ send: lib.noop }, lib.jsonParse(data, { obj: 1, error: 1 }));
             if (next) next();
         });
@@ -308,7 +308,7 @@ ipc.prototype.initWorkerQueue = function()
     this.initClient("queue");
     // Listen for system messages
     this.queueClient.on("ready", function() {
-        self.subscribe(self.workerQueue, function(ctx, key, data, next) {
+        self.subscribe(self.workerQueue, function(key, data, next) {
             self.handleWorkerMessages(lib.jsonParse(data, { obj: 1, error: 1 }));
             if (next) next();
         });
@@ -350,25 +350,28 @@ ipc.prototype.closeClient = function(type)
 }
 
 // Returns the cache statistics, the format depends on the cache type used
-ipc.prototype.stats = function(callback)
+ipc.prototype.stats = function(options, callback)
 {
-    logger.dev("ipc.stats");
+    if (typeof options == "function") callback = options, options = null;
     if (typeof callback != "function") return;
+    logger.dev("ipc.stats", options);
     try {
-        this.cacheClient.stats(callback);
+        this.cacheClient.stats(options, callback);
     } catch(e) {
         logger.error('ipc.stats:', e.stack);
         callback({});
     }
 }
 
-// Returns in the callback all cached keys
-ipc.prototype.keys = function(callback)
+// Returns in the callback all cached keys or if options is given can return only matched keys according to the
+// cache implementation, options is an object passed down to the driver as is
+ipc.prototype.keys = function(options, callback)
 {
-    logger.dev("ipc.keys");
+    if (typeof options == "function") callback = options, options = null;
     if (typeof callback != "function") return;
+    logger.dev("ipc.keys", options);
     try {
-        this.cacheClient.keys(callback);
+        this.cacheClient.keys(options, callback);
     } catch(e) {
         logger.error('ipc.keys:', e.stack);
         callback({});
@@ -376,11 +379,11 @@ ipc.prototype.keys = function(callback)
 }
 
 // Clear all cached items
-ipc.prototype.clear = function()
+ipc.prototype.clear = function(options)
 {
-    logger.dev("ipc.clear");
+    logger.dev("ipc.clear", options);
     try {
-        this.cacheClient.clear();
+        this.cacheClient.clear(options);
     } catch(e) {
         logger.error('ipc.clear:', e.stack);
     }
@@ -396,8 +399,8 @@ ipc.prototype.clear = function()
 //
 ipc.prototype.get = function(key, options, callback)
 {
-    logger.dev("ipc.get", key);
     if (typeof options == "function") callback = options, options = null;
+    logger.dev("ipc.get", key, options);
     try {
         this.cacheClient.get(key, options, callback);
     } catch(e) {
@@ -441,54 +444,58 @@ ipc.prototype.incr = function(key, val, options, callback)
     }
 }
 
-// Subscribe to the publishing server for messages starting with the given key, the callback will be called only on new data received, the `data`
-// is passed to the callback as first argument, if not specified then "undefined" will still be passed, the actual key will be passed as the second
-// argument, the message received as the third argument.
+// Subscribe to a publish or queue server for messages for the given channel, the callback will be called only on new message received.
 //
-// If `next` callback is provided it must be called at the end, not all queue drivers will provide it.
+// The callback accepts 2 arguments, a message and optional next callback, if it is provided it must be called at the end to confirm or reject the message processing.
+// Only errors with code>=500 will result in rejection, not ll drivers support the next callback if the underlying queue does not support message acknowledgement.
 //
-// For cases when the `next` callback is provided this means the queue implementation reqires acknowledgement of successful processing,
+// Depending on the implementation, the subscription can work as fan-out, delivering messages to all subscribed to the same channel or
+// can implement job queue model where only one subscriber receives a message.
+//
+// For cases when the `next` callback is provided this means the queue implementation requires an acknowledgement of successful processing,
 // returning an error with .status >= 500 will keep the message in the queue to be processed later.
 
 //
 //  Example:
 //
-//          ipc.subscribe("alert:", function(req, key, data, next) {
+//          ipc.subscribe("alerts", function(msg, next) {
 //              req.res.json(data);
 //              if (next) next();
 //          }, req);
 //
-ipc.prototype.subscribe = function(key, options, callback, data)
-{
-    if (typeof options == "function") callback = options, data = callback, options = null;
-    logger.dev("ipc.subscribe", key);
-    try {
-        this.queueClient.subscribe(key, options, callback, data);
-    } catch(e) {
-        logger.error('ipc.subscribe:', key, e.stack);
-    }
-}
-
-// Close a subscription
-ipc.prototype.unsubscribe = function(key, options)
-{
-    logger.dev("ipc.unsubscribe", key);
-    try {
-        this.queueClient.unsubscribe(key, options);
-    } catch(e) {
-        logger.error('ipc.unsubscribe:', key, e.stack);
-    }
-}
-
-// Publish an event to be sent to the subscribed clients
-ipc.publish = function(key, data, options, callback)
+ipc.prototype.subscribe = function(channel, options, callback)
 {
     if (typeof options == "function") callback = options, options = null;
-    logger.dev("ipc.publish", key, data);
+    logger.dev("ipc.subscribe", channel);
     try {
-        return this.queueClient.publish(key, data, options, callback);
+        this.queueClient.subscribe(channel, options, callback);
     } catch(e) {
-        logger.error('ipc.publish:', key, e.stack);
+        logger.error('ipc.subscribe:', channel, e.stack);
+    }
+}
+
+// Close a subscription, if no calback is provided all listeners for the key will be unsubscribed, otherwise only the specified listener.
+// The callback will not be called.
+ipc.prototype.unsubscribe = function(channel, options, callback)
+{
+    if (typeof options == "function") callback = options, options = null;
+    logger.dev("ipc.unsubscribe", channel);
+    try {
+        this.queueClient.unsubscribe(channel, options, callback);
+    } catch(e) {
+        logger.error('ipc.unsubscribe:', channel, e.stack);
+    }
+}
+
+// Publish an event to the channel to be sent to the subscribed clients
+ipc.prototype.publish = function(channel, msg, options, callback)
+{
+    if (typeof options == "function") callback = options, options = null;
+    logger.dev("ipc.publish", channel);
+    try {
+        return this.queueClient.publish(channel, msg, options, callback);
+    } catch(e) {
+        logger.error('ipc.publish:', channel, e.stack);
     }
 }
 
