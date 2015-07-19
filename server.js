@@ -150,7 +150,7 @@ server.startMaster = function(options)
             self.writePidfile();
 
             // REPL command prompt over TCP
-            if (core.replPort) self.startRepl(core.replPort, core.replBind);
+            if (core.repl.port) self.startRepl(core.repl.port, core.repl.bind);
 
             // Log watcher job, always runs even if no email configured, if enabled it will
             // start sending only new errors and not from the past
@@ -178,6 +178,9 @@ server.startWorker = function(options)
     core.role = 'worker';
     process.title = core.name + ': worker';
 
+    // REPL command prompt over TCP
+    if (core.repl.portWorker) self.startRepl(core.repl.portWorker + lib.toNumber(cluster.worker.id), core.repl.bindWorker);
+
     core.runMethods("configureWorker", options, function() {
         logger.log('startWorker:', 'id:', cluster.worker.id, 'version:', core.version, 'home:', core.home, 'uid:', process.getuid(), 'gid:', process.getgid(), 'pid:', process.pid);
     });
@@ -204,7 +207,7 @@ server.startWeb = function(options)
             ipc.initServer();
 
             // REPL command prompt over TCP
-            if (core.replPortWeb) self.startRepl(core.replPortWeb, core.replBindWeb);
+            if (core.repl.portWeb) self.startRepl(core.repl.portWeb, core.repl.bindWeb);
 
             // In proxy mode we maintain continious sequence of ports for each worker starting with core.proxy.port
             if (core.proxy.port) {
@@ -276,7 +279,9 @@ server.startWeb = function(options)
             }
 
             // Graceful restart of all web workers
-            process.on('SIGUSR2', function() { ipc.sendMsg("api:restart") });
+            process.on('SIGUSR2', function() {
+                ipc.sendMsg("api:restart");
+            });
 
             // Arguments passed to the v8 engine
             if (self.workerArgs.length) process.execArgv = self.workerArgs;
@@ -308,7 +313,7 @@ server.startWeb = function(options)
         }
 
         // REPL command prompt over TCP
-        if (core.replPortWeb) self.startRepl(core.replPortWeb + 1 + lib.toNumber(cluster.worker.id), core.replBindWeb);
+        if (core.repl.portWeb) self.startRepl(core.repl.portWeb + 1 + lib.toNumber(cluster.worker.id), core.repl.bindWeb);
 
         // Setup IPC communication
         ipc.initWorker();
@@ -320,11 +325,13 @@ server.startWeb = function(options)
             // Gracefull termination of the process
             self.onkill = function() {
                 self.exiting = true;
-                api.shutdown(function() { process.exit(0); } );
+                api.shutdown(function() {
+                    process.exit(0);
+                });
             }
         });
 
-        logger.log('startWeb:', core.role, 'id:', cluster.worker.id, 'version:', core.version, 'home:', core.home, 'port:', core.port, core.bind, 'repl:', core.replPortWeb, 'uid:', process.getuid(), 'gid:', process.getgid(), 'pid:', process.pid);
+        logger.log('startWeb:', core.role, 'id:', cluster.worker.id, 'version:', core.version, 'home:', core.home, 'port:', core.port, core.bind, 'repl:', core.repl.portWeb, 'uid:', process.getuid(), 'gid:', process.getgid(), 'pid:', process.pid);
     }
 }
 
@@ -385,7 +392,7 @@ server.startWatcher = function()
     process.title = core.name + ": watcher";
 
     // REPL command prompt over TCP instead of the master process
-    if (core.replPort && !core.isArg("-master")) self.startRepl(core.replPort, core.replBind);
+    if (core.repl.port && !core.isArg("-master")) self.startRepl(core.repl.port, core.repl.bind);
 
     if (core.watchdirs.indexOf(__dirname) == -1) core.watchdirs.push(__dirname, __dirname + "/lib", __dirname + "/modules");
     logger.debug('startWatcher:', core.watchdirs);

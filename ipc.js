@@ -25,12 +25,11 @@ function ipc()
     events.EventEmitter.call(this);
     this.role = ""
     this.msgs = {}
+    this.queue = [];
     this.workers = []
     this.modules = []
     this.cacheClient = new Client()
     this.queueClient = new Client()
-    this.serverQueue = core.name + ":server"
-    this.workerQueue = core.name + ":worker"
     // Use shared token buckets inside the server process, reuse the same object so we do not generate
     // a lot of short lived objects, the whole operation including serialization from/to the cache is atomic.
     this.tokenBucket = new metrics.TokenBucket()
@@ -53,12 +52,10 @@ ipc.prototype.handleWorkerMessages = function(msg)
             break;
 
         case "cache:init":
-            this.closeClient("cache");
             this.initClient("cache");
             break;
 
         case "queue:init":
-            this.closeClient("queue");
             this.initWorkerQueue();
             break;
 
@@ -115,7 +112,6 @@ ipc.prototype.handleServerMessages = function(worker, msg)
             break;
 
         case "queue:init":
-            this.closeClient("queue");
             this.initServerQueue("queue");
             for (var p in cluster.workers) cluster.workers[p].send(msg);
             break;
@@ -196,6 +192,15 @@ ipc.prototype.handleServerMessages = function(worker, msg)
             utils.lruClear();
             if (msg._res) worker.send({});
             break;
+
+        case 'queue:push':
+            this.queue.push(msg.value);
+            break;
+
+        case 'queue:pop':
+            msg.value = this.queue.pop();
+            worker.send(msg);
+            break;
         }
         this.emit(msg.__op, msg);
     } catch(e) {
@@ -254,28 +259,16 @@ ipc.prototype.initServer = function()
 {
     var self = this;
     this.role = "server";
-    this.initServerQueue();
+    this.initClient("queue");
 
     cluster.on("exit", function(worker, code, signal) {
         self.emitMsg("cluster:exit", { id: worker.id, pid: worker.pid });
     });
 
+    // Handle messages from the workers
     cluster.on('fork', function(worker) {
-        // Handle cache request from a worker, send back cached value if exists, this method is called inside worker context
-        worker.on('message', function(msg) { self.handleServerMessages(worker, msg) });
-    });
-}
-
-// Setup a queue service to be used inside a server process
-ipc.prototype.initServerQueue = function()
-{
-    var self = this;
-    this.initClient("queue");
-    // Listen for system messages
-    this.queueClient.on("ready", function() {
-        self.subscribe(self.serverQueue, function(key, data, next) {
-            self.handleServerMessages({ send: lib.noop }, lib.jsonParse(data, { obj: 1, error: 1 }));
-            if (next) next();
+        worker.on('message', function(msg) {
+            self.handleServerMessages(worker, msg);
         });
     });
 }
@@ -286,32 +279,11 @@ ipc.prototype.initWorker = function()
     var self = this;
     this.role = "worker";
     this.initClient("cache");
-    this.initWorkerQueue();
+    this.initClient("queue");
 
-    // Event handler for the worker to process response and fire callback
+    // Handle messages from the master
     process.on("message", function(msg) {
         self.handleWorkerMessages(msg);
-    });
-}
-
-// Always setup cache/queue for workers
-ipc.configureWorker = function(options, callback)
-{
-    this.initWorker();
-    callback();
-}
-
-// Setup a queue service to be used inside a worjker process
-ipc.prototype.initWorkerQueue = function()
-{
-    var self = this;
-    this.initClient("queue");
-    // Listen for system messages
-    this.queueClient.on("ready", function() {
-        self.subscribe(self.workerQueue, function(key, data, next) {
-            self.handleWorkerMessages(lib.jsonParse(data, { obj: 1, error: 1 }));
-            if (next) next();
-        });
     });
 }
 
@@ -322,7 +294,10 @@ ipc.prototype.createClient = function(host, options)
     try {
         for (var i in this.modules) {
             client = this.modules[i].createClient(host, options);
-            if (client) break;
+            if (client) {
+                if (!client.name) client.name = this.modules[i].name;
+                break;
+            }
         }
     } catch(e) {
         logger.error("ipc.create:", host, e.stack);
@@ -330,23 +305,19 @@ ipc.prototype.createClient = function(host, options)
     return client;
 }
 
-// Initialize a client for cache or queue purposes.
+// Initialize a client for cache or queue purposes, previous client will be closed.
 ipc.prototype.initClient = function(type)
 {
     var client = this.createClient(core[type + 'Host'] || "", core[type + 'Options'] || {});
-    if (client) this[type + 'Client'] = client;
-    return client;
-}
-
-// Close a client by type, cache or qurue. Make a new empty client so the object is always valid
-ipc.prototype.closeClient = function(type)
-{
-    try {
-        this[type + 'Client'].close();
-    } catch(e) {
-        logger.error("ipc.close:", type, e.stack);
+    if (client) {
+        try {
+            this[type + 'Client'].close();
+        } catch(e) {
+            logger.error("ipc.init:", type, e.stack);
+        }
+        this[type + 'Client'] = client;
     }
-    this[type + 'Client'] = new Client();
+    return client;
 }
 
 // Returns the cache statistics, the format depends on the cache type used

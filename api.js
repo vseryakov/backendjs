@@ -1070,6 +1070,7 @@ api.checkRedirect = function(req, options)
 api.checkSignature = function(req, callback)
 {
     var self = this;
+    var now = Date.now();
     // Make sure we will not crash on wrong object
     if (!req || !req.headers) req = { headers: {} };
     if (!callback) callback = function(x) { return x; }
@@ -1091,8 +1092,8 @@ api.checkSignature = function(req, callback)
     }
 
     // Make sure the request is not expired, it must be in milliseconds
-    if (sig.expires < Date.now() - this.signatureAge) {
-        return callback({ status: 406, message: "Expired request, datetime provided is in the past" });
+    if (sig.expires < now - this.signatureAge) {
+        return callback({ status: 406, message: "Expired request, check your clock, server time is " + lib.strftime(now, "%m/%d/%Y %H:%M:%S GMT", 1) });
     }
 
     // Check the signature version consistency, do not accept wrong signatures in the unexpected places
@@ -1113,7 +1114,7 @@ api.checkSignature = function(req, callback)
         if (!account) return callback({ status: 404, message: "No account record found" });
 
         // Account expiration time
-        if (account.expires && account.expires < Date.now()) {
+        if (account.expires && account.expires < now) {
             return callback({ status: 412, message: "This account has expired" });
         }
 

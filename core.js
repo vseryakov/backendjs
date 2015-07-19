@@ -127,10 +127,13 @@ var core = {
     // Inter-process messages
     lruMax: 100000,
 
-    // REPL port for server
-    replBindWeb: '127.0.0.1',
-    replBind: '127.0.0.1',
-    replFile: '.history',
+    // REPL pors
+    repl: {
+        bindWeb: '127.0.0.1',
+        bindWorker: '127.0.0.1',
+        bind: '127.0.0.1',
+        file: '.history',
+    },
 
     // All internal and loaded modules
     modules: {},
@@ -190,6 +193,7 @@ var core = {
             { name: "shell", type: "none", descr: "Run command line shell, load the backend into the memory and prompt for the commands, can be specified only in the command line" },
             { name: "monitor", type: "none", descr: "For production use, monitors the master and Web server processes and restarts if crashed or exited, can be specified only in the command line" },
             { name: "master", type: "none", descr: "Start the master server, can be specified only in the command line, this process handles job schedules and starts Web server, keeps track of failed processes and restarts them" },
+            { name: "web", type: "none", descr: "Start Web server processes, spawn workers that listen on the same port, for use without master process which starts Web servers automatically" },
             { name: "proxy-port", type: "number", min: 0, obj: 'proxy', descr: "Start the HTTP reverse proxy server, all Web workers will listen on different ports and will be load-balanced by the proxy, the proxy server will listen on global HTTP port and all workers will listen on ports starting with the proxy-port" },
             { name: "proxy-ssl", type: "bool", obj: "proxy", descr: "Start HTTPS reverse proxy to accept incoming SSL requests, ssl-key/cert must be defined" },
             { name: "app-name", type: "callback", callback: function(v) { if (!v) return;v = v.split(/[\/-]/);this.appName=v[0].trim();if(v[1]) this.appVersion=v[1].trim();}, descr: "Set appName and version explicitely an skip reading it from package.json, it can be just a name or name-version", pass: 1 },
@@ -198,16 +202,17 @@ var core = {
             { name: "instance-zone", obj: 'instance', descr: "Set instance zone explicitely, skip all meta data checks for it", pass: 1 },
             { name: "instance-job", obj: 'instance', type: "bool", descr: "Enables remote job mode, it means the backendjs is running in the cloud to execute a job or other task and can be terminated during the idle timeout" },
             { name: "run-mode", dns: 1, descr: "Running mode for the app, used to separate different running environment and configurations" },
-            { name: "web", type: "none", descr: "Start Web server processes, spawn workers that listen on the same port, for use without master process which starts Web servers automatically" },
             { name: "no-web", type: "bool", descr: "Disable Web server processes, without this flag Web servers start by default" },
             { name: "no-db", type: "bool", descr: "Do not initialize DB drivers" },
             { name: "no-dns", type: "bool", descr: "Do not use DNS configuration during the initialization" },
             { name: "no-configure", type: "bool", descr: "Do not run configure hooks during the initialization" },
-            { name: "repl-port-web", type: "number", min: 1001, descr: "Web server REPL port, if specified it initializes REPL in the Web server processes, in workers port is port+workerid+1" },
-            { name: "repl-bind-web", descr: "Web server REPL listen address" },
-            { name: "repl-port", type: "number", min: 1001, descr: "Port for REPL interface in the master, if specified it initializes REPL in the master server process" },
-            { name: "repl-bind", descr: "Listen only on specified address for REPL server in the master process" },
-            { name: "repl-file", descr: "User specified file for REPL history" },
+            { name: "repl-port-worker", type: "number", obj: "repl", min: 1001, descr: "Worker base REPL port, if specified it initializes REPL in a worker processes as port+worker_id" },
+            { name: "repl-bind-worker", obj: "repl", descr: "Worker REPL listen address" },
+            { name: "repl-port-web", type: "number", obj: "repl", min: 1001, descr: "Web server base REPL port, if specified it initializes REPL in the Web server processes, in workers port is port+worker_id+1" },
+            { name: "repl-bind-web", obj: "repl", descr: "Web server REPL listen address" },
+            { name: "repl-port", type: "number", obj: "repl", min: 1001, descr: "Port for REPL interface in the master, if specified it initializes REPL in the master server process" },
+            { name: "repl-bind", obj: "repl", descr: "Listen only on specified address for REPL server in the master process" },
+            { name: "repl-file", obj: "repl", descr: "User specified file for REPL history" },
             { name: "lru-max", type: "number", descr: "Max number of items in the LRU cache, this cache is managed by the master Web server process and available to all Web processes maintaining only one copy per machine, Web proceses communicate with LRU cache via IPC mechanism between node processes" },
             { name: "cache-host", descr: "An URL that points to the cache server in the format `redis://HOST[:PORT]`, `memcache://HOST` to use for caching in API requests" },
             { name: "cache-options", type: "json", descr: "JSON object with options to the cache client, specific to each implementation" },
@@ -1481,11 +1486,11 @@ core.createRepl = function(options)
     for (var p in this.modules) r.context[p] = this.modules[p];
 
     // Support history
-    if (this.replFile) {
-        r.rli.history = lib.readFileSync(this.replFile, { list: '\n' }).reverse();
+    if (this.repl.file) {
+        r.rli.history = lib.readFileSync(this.repl.file, { list: '\n' }).reverse();
         r.rli.addListener('line', function(code) {
             if (code) {
-                fs.appendFile(self.replFile, code + '\n', function() {});
+                fs.appendFile(self.repl.file, code + '\n', function() {});
             } else {
                 r.rli.historyIndex++;
                 r.rli.history.pop();
