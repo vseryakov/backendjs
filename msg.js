@@ -21,11 +21,6 @@ var msg = {
     args: [ { name: "apn-cert", type: "list", descr: "List of certificates for APN service in pfx format, can be a file name with .p12 extension or a string with certificate contents encoded with base64, the certificate can be appended with @app to separate different applications where `app` is a bundle identifier of the app" },
             { name: "apn-sandbox", type: "bool", descr: "Enable sandbox mode for testing APN notifications, default is production mode" },
             { name: "gcm-key", type:"list", descr: "Google Cloud Messaging API key(s), a key can be appended with @app for different applications similar to APN certificate file names" },
-            { name: "queue-key", descr: "A queue key to subscribe for clients and listen for servers so messages can be exchanged in the queue environment where multiple queue exist" },
-            { name: "server-queue-host", descr: "A queue to create for receiving messages from the clients and forwarding to the actual gateways" },
-            { name: "server-queue-options", type: "json", descr: "JSON object with options to the queue server" },
-            { name: "client-queue-host", descr: "A queue to create where to send all messages instead of actual gateways" },
-            { name: "client-queue-options", type: "json", descr: "JSON object with options to the queue client" },
             { name: "shutdown-timeout", type:" int", min: 0, descr: "How long to wait for messages draining out in ms on shutdown before exiting" },],
     apnAgents: {},
     gcmAgents: {},
@@ -38,35 +33,28 @@ module.exports = msg;
 // the function must be defined as `function(device, timestamp, next)`, the next callback must be called at the end.
 msg.onDeviceUninstall = null;
 
+// Gracefully drain all message queues on worker exit
+msg.shutdownWorker = function(options, callback)
+{
+    this.shutdown(options, callback);
+}
+
+// Gracefully drain all message queues on web process exit
+msg.shutdownWeb = function(options, callback)
+{
+    this.shutdown(options, callback);
+}
+
 // Initialize supported notification services, it supports jobs agrument convention so can be used in the jobs that
 // need to send push notifications in the worker process
 msg.init = function(options, callback)
 {
-    var self = this;
     if (typeof options == "function") callback = options, options = null;
-    if (typeof callback != "function") callback = lib.noop;
 
-    // Explicitely configured notification client queue, send all messages there
-    if (this.clientQueue) {
-        this.clientQueue = ipc.createClient(this.clientQueue, this.clientQueueOptions);
-        if (this.clientQueue) return callback();
-    }
-
-    // Explicitely configured notification server queue
-    if (this.serverQueue) {
-        this.serverQueue = ipc.createClient(this.serverQueue, this.serverQueueOptions);
-        this.serverQueue.subscribe(this.queueKey || "", function(key, data, next) {
-            self.send(lib.jsonParse(data, { obj: 1 }), function(err) {
-                if (next) next(err);
-            });
-        });
-    }
-
-    // Direct access to the gateways
     this.initAPN(options);
     this.initGCM(options);
     logger.debug("msg:", "init");
-    callback();
+    if (typeof callback == "function") callback();
 }
 
 // Shutdown notification services, wait till all pending messages are sent before calling the callback
@@ -90,18 +78,6 @@ msg.shutdown = function(options, callback)
     }, options.timeout || self.shutdownTimeout);
 }
 
-// Gracefully drain all message queues on worker exit
-msg.shutdownWorker = function(options, callback)
-{
-    this.shutdown(options, callback);
-}
-
-// Gracefully drain all message queues on web process exit
-msg.shutdownWeb = function(options, callback)
-{
-    this.shutdown(options, callback);
-}
-
 // Deliver a notification using the specified service, apple is default.
 // Options may contain the following properties:
 //  - device_id - device(s) where to send the message to, can be multiple ids separated by , or |
@@ -116,9 +92,6 @@ msg.send = function(options, callback)
     var self = this;
     if (typeof callback != "function") callback = lib.noop;
     if (!options || !options.device_id) return callback(lib.newError("invalid device or options"));
-
-    // Queue to the server instead of sending directly
-    if (this.clientQueue) return this.clientQueue.publish(options.queueKey || this.queueKey || "", options, callback);
 
     logger.info("send:", options.id, options.device_id, options.type, options.msg);
 
