@@ -27,7 +27,7 @@ var jobs = {
     // Config parameters
     args: [{ name: "workers", type: "number", min: 0, max: 32, descr: "How many worker processes to launch to process the job queue, 0 disables jobs" },
            { name: "worker-args", type: "list", descr: "Node arguments for workers, for passing v8 jobspec" },
-           { name: "max-run-time", type: "number", min: 300, descr: "Max number of seconds a job can run before being killed" },
+           { name: "max-time", type: "number", min: 300, descr: "Max number of seconds a job can run before being killed" },
            { name: "queue", descr: "Name of the queue where to publish jobs" },
            { name: "cron", type: "bool", descr: "Load cron jobs from the local etc/crontab file, requires -jobs flag" },
     ],
@@ -39,7 +39,7 @@ var jobs = {
     // Queue where to publush jobs
     queue: "jobs",
     // Max number of seconds since the last job time before killing this job instance, for long running jobs it must update jobs.runTime periodically
-    maxRunTime: 3600,
+    maxTime: 900,
     // Number of worker processes
     workers: 0,
     // Schedules cron jobs
@@ -83,7 +83,7 @@ jobs.initServer = function(options, callback)
     // Launch the workers
     for (var i = 0; i < self.workers; i++) cluster.fork();
 
-    logger.log("jobs:", core.role, "started");
+    logger.log("jobs:", core.role, "started", "workers:", this.workers, "cron:", this.cron);
     if (typeof callback == "function") callback();
 }
 
@@ -96,20 +96,20 @@ jobs.initWorker = function(options, callback)
 
     setInterval(function() {
         // Check how long we run and force kill if exceeded
-        if (self.running.length && Date.now() - self.runTime > self.maxRunTime*1000) {
-            logger.log('initWorker:', 'jobs: time: exceeded max run time', self.maxRunTime);
+        if (self.running.length && Date.now() - self.runTime > self.maxTime*1000) {
+            logger.log('initWorker:', 'jobs: time: exceeded max run time', self.maxTime);
             process.exit(0);
         }
     }, 30000);
 
     ipc.subscribe(this.queue, function(msg, next) {
         self.runJob(msg, function(err) {
-            logger[err ? "error" : "info"]("runJob:", "finished", err.stack || err || "", msg);
+            logger[err ? "error" : "info"]("runJob:", "finished", (err && err.stack) || err || "", msg);
             if (typeof next == "function") next(err);
         });
     });
 
-    logger.log("jobs:", core.role, "started");
+    logger.log("jobs:", core.role, "started", "maxTime:", this.maxTime, "queue:", this.queue);
     if (typeof callback == "function") callback();
 }
 
@@ -150,12 +150,6 @@ jobs.isValid = function(jobspec)
         return lib.newError('invalid job: ' + JSON.stringify(jobspec), 500);
     }
     return jobspec;
-}
-
-// Do not exceed max number of running workers
-jobs.isReady = function()
-{
-    return Object.keys(cluster.workers).length < this.maxWorkers;
 }
 
 // Execute a task, calls the callback on finish or error

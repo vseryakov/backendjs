@@ -258,7 +258,7 @@ case "$ARG" in
        echo 'alias ps="ps augx"' >> $LHOME/.bashrc
        echo 'alias mc="mc -b"' >> $LHOME/.bashrc
        echo 'alias df="df -h"' >> $LHOME/.bashrc
-       echo 'bcp() { socat readline,history=~/.socat tcp4:localhost:208${1-0}; }' >> $LHOME/.bashrc
+       echo 'bcp() { socat readline,history=$HOME/.socat tcp4:localhost:$((2080+${1-0})); }' >> $LHOME/.bashrc
     fi
     ;;
 
