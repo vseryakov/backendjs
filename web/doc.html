@@ -317,8 +317,8 @@ the application is structured.</p>
 <h2 id="modules">Modules</h2>
 <p>Another way to add functionality to the backend is via external modules specific to the backend, these modules are loaded on startup from the backend
 home subdirectory <code>modules/</code> and from the backendjs package directory for core modules. The format is the same as for regular node.js modules and
-only top level .js files are loaded on the backend startup. By default all .js files present in the <code>modules/</code> directory will be loaded, to restrict which
-modules to load or to ignore see command line parameters <code>-deny-modules</code> and <code>-allow-modules</code>.</p>
+only top level .js files are loaded on the backend startup.</p>
+<p><em>By default no modules are loaded, it must be configured by the <code>-allow-modules</code> config parameter.</em></p>
 <p>Once loaded they have the same access to the backend as the rest of the code, the only difference is that they reside in the backend home and
 can be shipped regardless of the npm, node modules and other env setup. These modules are exposed in the <code>core.modules</code> the same way as all other core submodules
 methods.</p>
@@ -2119,6 +2119,7 @@ might be useful when desining, developing or choosing the API platform:</p>
 <li><code>shell</code> - Run command line shell, load the backend into the memory and prompt for the commands, can be specified only in the command line</li>
 <li><code>monitor</code> - For production use, monitors the master and Web server processes and restarts if crashed or exited, can be specified only in the command line</li>
 <li><code>master</code> - Start the master server, can be specified only in the command line, this process handles job schedules and starts Web server, keeps track of failed processes and restarts them</li>
+<li><code>web</code> - Start Web server processes, spawn workers that listen on the same port, for use without master process which starts Web servers automatically</li>
 <li><code>proxy-port</code> - Start the HTTP reverse proxy server, all Web workers will listen on different ports and will be load-balanced by the proxy, the proxy server will listen on global HTTP port and all workers will listen on ports starting with the proxy-port</li>
 <li><code>proxy-ssl</code> - Start HTTPS reverse proxy to accept incoming SSL requests, ssl-key/cert must be defined</li>
 <li><code>app-name</code> - Set appName and version explicitely an skip reading it from package.json, it can be just a name or name-version</li>
@@ -2127,24 +2128,25 @@ might be useful when desining, developing or choosing the API platform:</p>
 <li><code>instance-zone</code> - Set instance zone explicitely, skip all meta data checks for it</li>
 <li><code>instance-job</code> - Enables remote job mode, it means the backendjs is running in the cloud to execute a job or other task and can be terminated during the idle timeout</li>
 <li><code>run-mode</code> - Running mode for the app, used to separate different running environment and configurations. DNS TXT configurable.</li>
-<li><code>web</code> - Start Web server processes, spawn workers that listen on the same port, for use without master process which starts Web servers automatically</li>
 <li><code>no-web</code> - Disable Web server processes, without this flag Web servers start by default</li>
 <li><code>no-db</code> - Do not initialize DB drivers</li>
 <li><code>no-dns</code> - Do not use DNS configuration during the initialization</li>
 <li><code>no-configure</code> - Do not run configure hooks during the initialization</li>
-<li><code>repl-port-web</code> - Web server REPL port, if specified it initializes REPL in the Web server processes, in workers port is port+workerid+1</li>
+<li><code>repl-port-worker</code> - Worker base REPL port, if specified it initializes REPL in a worker processes as port+worker_id</li>
+<li><code>repl-bind-worker</code> - Worker REPL listen address</li>
+<li><code>repl-port-web</code> - Web server base REPL port, if specified it initializes REPL in the Web server processes, in workers port is port+worker_id+1</li>
 <li><code>repl-bind-web</code> - Web server REPL listen address</li>
 <li><code>repl-port</code> - Port for REPL interface in the master, if specified it initializes REPL in the master server process</li>
 <li><code>repl-bind</code> - Listen only on specified address for REPL server in the master process</li>
 <li><code>repl-file</code> - User specified file for REPL history</li>
 <li><code>lru-max</code> - Max number of items in the LRU cache, this cache is managed by the master Web server process and available to all Web processes maintaining only one copy per machine, Web proceses communicate with LRU cache via IPC mechanism between node processes</li>
-<li><code>cache-host</code> - An URL that points to the cache server in the format <code>redis://HOST[:PORT]</code>, <code>memcache://HOST</code> to use for caching in API requests</li>
+<li><code>cache-host</code> - An URL that points to the cache server in the format <code>PROTO://HOST[:PORT]?PARAMS</code>, to use for caching in API requests, default is local LRU cache</li>
 <li><code>cache-options</code> - JSON object with options to the cache client, specific to each implementation</li>
-<li><code>queue-host</code> - An URL that points to the queue server in the format <code>redis://HOST[:PORT]</code>, <code>amqp://HOST</code> to use for PUB/SUB queues, default is no subscription service</li>
+<li><code>queue-host</code> - An URL that points to the queue server in the format <code>PROTO://HOST[:PORT]?PARAMS</code>, to use for PUB/SUB or job queues, default is no local queue</li>
 <li><code>queue-options</code> - JSON object with options to the queue client, specific to each implementation</li>
 <li><code>worker</code> - Set this process as a worker even it is actually a master, this skips some initializations</li>
-<li><code>deny-modules</code> - A regexp with modules names to be excluded from loading on startup</li>
-<li><code>allow-modules</code> - A regexp with modules name to be loaded on startup, only matched modules will be loaded</li>
+<li><code>allow-modules</code> - A regexp with modules name to be loaded on startup, only matched modules will be loaded, basename of the file is matched only, no path or extension</li>
+<li><code>deny-modules</code> - A regexp with modules names that will never be loaded even if allowed, this is for blacklisted modules</li>
 <li><code>logwatcher-from</code> - Email address to send logwatcher notifications from, for cases with strict mail servers accepting only from known addresses</li>
 <li><code>logwatcher-interval</code> - How often to check for errors in the log files in minutes</li>
 <li><code>logwatcher-any-range</code> - Number of lines for matched channel <code>any</code> to be attached to the previous matched channel, if more than this number use the channel <code>any</code> on its own</li>
@@ -2196,11 +2198,6 @@ might be useful when desining, developing or choosing the API platform:</p>
 <li><code>msg-apn-cert</code> - List of certificates for APN service in pfx format, can be a file name with .p12 extension or a string with certificate contents encoded with base64, the certificate can be appended with @app to separate different applications where <code>app</code> is a bundle identifier of the app</li>
 <li><code>msg-apn-sandbox</code> - Enable sandbox mode for testing APN notifications, default is production mode</li>
 <li><code>msg-gcm-key</code> - Google Cloud Messaging API key(s), a key can be appended with @app for different applications similar to APN certificate file names</li>
-<li><code>msg-queue-key</code> - A queue key to subscribe for clients and listen for servers so messages can be exchanged in the queue environment where multiple queue exist</li>
-<li><code>msg-server-queue-host</code> - A queue to create for receiving messages from the clients and forwarding to the actual gateways</li>
-<li><code>msg-server-queue-options</code> - JSON object with options to the queue server</li>
-<li><code>msg-client-queue-host</code> - A queue to create where to send all messages instead of actual gateways</li>
-<li><code>msg-client-queue-options</code> - JSON object with options to the queue client</li>
 <li><code>msg-shutdown-timeout</code> - How long to wait for messages draining out in ms on shutdown before exiting</li>
 <li><code>api-images-url</code> - URL where images are stored, for cases of central image server(s), must be full URL with optional path</li>
 <li><code>api-images-s3</code> - S3 bucket name where to store and retrieve images</li>
@@ -2265,24 +2262,13 @@ might be useful when desining, developing or choosing the API platform:</p>
 <li><code>api-rlimits-interval</code> - Interval in ms for all rate limiters, defines the time unit, default is 1000 ms</li>
 <li><code>api-exit-on-error</code> - Exit on uncaught exception</li>
 <li><code>api-upload-limit</code> - Max size for uploads, bytes</li>
-<li><code>jobs-max-workers</code> - Max number of worker processes to launch for jobs</li>
-<li><code>jobs-worker-args</code> - Node arguments for workers, for passing v8 jobspec</li>
-<li><code>jobs-max-time</code> - Max number of seconds a job can run before being killed, for instance mode only</li>
-<li><code>jobs-idle-time</code> - If set and no jobs are submitted during this period in seconds of time the instance will be shutdown, for instance mode only</li>
-<li><code>jobs-submit</code> - Job specification, JSON encoded as base64 of the job object</li>
-<li><code>jobs-name</code> - Job specification, a simple case when just a job name is used without any properties</li>
-<li><code>jobs-tag</code> - This server executes jobs that match this tag, if empty then execute all jobs, if not empty execute all that match current IP address and this tag</li>
-<li><code>jobs-count</code> - How many jobs to execute at any iteration</li>
-<li><code>jobs-queue</code> - Name of the queue to process, this is a generic queue name that can be used by any queue provider</li>
-<li><code>jobs-master</code> - Set this instance as the jobs master which will be processing pending jobs from the configured queue</li>
-<li><code>jobs-type</code> - Queueing system to use for job processing, available jobspec: db, sqs</li>
-<li><code>jobs-interval</code> - Interval between processing the job queue, in seconds, i.e. how often to check an external queue for pending jobs</li>
-<li><code>jobs-worker-delay</code> - Delay in milliseconds before sending a job to just started worker, useful when a worker needs to initialize or connect to services</li>
-<li><code>jobs-pending-interval</code> - Interval between processing the local pending queue, in seconds, i.e. how often to submit jobs for execution to workers from the pending list, this list is kept in memory in the master process</li>
-<li><code>jobs-waitTimeout</code> - How long in seconds to wait for new jobs from a queue</li>
-<li><code>jobs-visibilityTimeout</code> - How long in seconds to keep retrieved jobs hidden, if not deleted it will be available again for subsequent retrieve requests</li>
-<li><code>jobs-no-cron</code> - Disable cron jobs, crontab will be ignored</li>
-<li><code>jobs-cron</code> - An array with crontab objects, similar to etc/crontab but loaded from the config</li>
+<li><code>jobs-workers</code> - How many worker processes to launch to process the job queue, 0 disables jobs</li>
+<li><code>jobs-worker-args</code> - Node arguments for workers, for passing v8 jobspec, see <code>process</code></li>
+<li><code>jobs-worker-env</code> - Environment to be passed to the worker via fork, see <code>cluster.fork</code></li>
+<li><code>jobs-max-runtime</code> - Max number of seconds a job can run before being killed</li>
+<li><code>jobs-max-lifetime</code> - Max number of seconds a worker can live, after that amount of time it will exit once all the jobs are finished, 0 means indefinitely</li>
+<li><code>jobs-queue</code> - Name of the queue where to publish jobs</li>
+<li><code>jobs-cron</code> - Load cron jobs from the local etc/crontab file, requires -jobs flag</li>
 <li><code>server-max-processes</code> - Max number of processes to launch for Web servers, 0 means NumberofCPUs-2</li>
 <li><code>server-max-workers</code> - Max number of worker processes to launch</li>
 <li><code>server-crash-delay</code> - Delay between respawing the crashed process</li>
@@ -2608,7 +2594,7 @@ properties after successful authorization.</p>
 </ul>
 
 <ul>
-<li><p><code>api.checkLimits(req, options, callback)</code></p>
+<li><p><code>api.checkRateLimits(req, options, callback)</code></p>
 <p> Perform rate limiting by specified property, if not given no limiting is done.</p>
 <p>The following options properties can be used:</p>
 <ul>
@@ -5134,26 +5120,8 @@ it is required to call <code>pool.release</code> at the end to return the connec
 </ul>
 
 <ul>
-<li><p><code>ipc.prototype.initServerQueue()</code></p>
-<p> Setup a queue service to be used inside a server process</p>
-</li>
-</ul>
-
-<ul>
 <li><p><code>ipc.prototype.initWorker()</code></p>
 <p> This function is called by Web worker process to setup IPC channels and support for cache and messaging</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>ipc.configureWorker(options, callback)</code></p>
-<p> Always setup cache/queue for workers</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>ipc.prototype.initWorkerQueue()</code></p>
-<p> Setup a queue service to be used inside a worjker process</p>
 </li>
 </ul>
 
@@ -5165,31 +5133,26 @@ it is required to call <code>pool.release</code> at the end to return the connec
 
 <ul>
 <li><p><code>ipc.prototype.initClient(type)</code></p>
-<p> Initialize a client for cache or queue purposes.</p>
+<p> Initialize a client for cache or queue purposes, previous client will be closed.</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>ipc.prototype.closeClient(type)</code></p>
-<p> Close a client by type, cache or qurue. Make a new empty client so the object is always valid</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>ipc.prototype.stats(callback)</code></p>
+<li><p><code>ipc.prototype.stats(options, callback)</code></p>
 <p> Returns the cache statistics, the format depends on the cache type used</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>ipc.prototype.keys(callback)</code></p>
-<p> Returns in the callback all cached keys</p>
+<li><p><code>ipc.prototype.keys(pattern, callback)</code></p>
+<p> Returns in the callback all cached keys or if pattern is given can return only matched keys according to the
+cache implementation, options is an object passed down to the driver as is</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>ipc.prototype.clear()</code></p>
-<p> Clear all cached items</p>
+<li><p><code>ipc.prototype.clear(pattern)</code></p>
+<p> Clear all or only items that match the given pattern</p>
 </li>
 </ul>
 
@@ -5211,7 +5174,7 @@ If <code>options.set</code> is given and no value exists in the cache it will be
 
 <ul>
 <li><p><code>ipc.prototype.put(key, val, options)</code></p>
-<p> Replace or put a new item in the cache</p>
+<p> Replace or put a new item in the cache, options.ttl can be passed if the driver supprts it.</p>
 </li>
 </ul>
 
@@ -5222,15 +5185,16 @@ If <code>options.set</code> is given and no value exists in the cache it will be
 </ul>
 
 <ul>
-<li><p><code>ipc.prototype.subscribe(key, options, callback, data)</code></p>
-<p> Subscribe to the publishing server for messages starting with the given key, the callback will be called only on new data received, the <code>data</code>
-is passed to the callback as first argument, if not specified then &quot;undefined&quot; will still be passed, the actual key will be passed as the second
-argument, the message received as the third argument.</p>
-<p>If <code>next</code> callback is provided it must be called at the end, not all queue drivers will provide it.</p>
-<p>For cases when the <code>next</code> callback is provided this means the queue implementation reqires acknowledgement of successful processing,
+<li><p><code>ipc.prototype.subscribe(channel, options, callback)</code></p>
+<p> Subscribe to a publish or queue server for messages for the given channel, the callback will be called only on new message received.</p>
+<p>The callback accepts 2 arguments, a message and optional next callback, if it is provided it must be called at the end to confirm or reject the message processing.
+Only errors with code&gt;=500 will result in rejection, not ll drivers support the next callback if the underlying queue does not support message acknowledgement.</p>
+<p>Depending on the implementation, the subscription can work as fan-out, delivering messages to all subscribed to the same channel or
+can implement job queue model where only one subscriber receives a message.</p>
+<p>For cases when the <code>next</code> callback is provided this means the queue implementation requires an acknowledgement of successful processing,
 returning an error with .status &gt;= 500 will keep the message in the queue to be processed later.</p>
 <p>Example:</p>
-<pre><code>    ipc.subscribe(&quot;alert:&quot;, function(req, key, data, next) {
+<pre><code>    ipc.subscribe(&quot;alerts&quot;, function(msg, next) {
         req.res.json(data);
         if (next) next();
     }, req);
@@ -5238,19 +5202,20 @@ returning an error with .status &gt;= 500 will keep the message in the queue to 
 </ul>
 
 <ul>
-<li><p><code>ipc.prototype.unsubscribe(key, options)</code></p>
-<p> Close a subscription</p>
+<li><p><code>ipc.prototype.unsubscribe(channel, options, callback)</code></p>
+<p> Close a subscription, if no calback is provided all listeners for the key will be unsubscribed, otherwise only the specified listener.
+The callback will not be called.</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>ipc.publish(key, data, options, callback)</code></p>
-<p> Publish an event to be sent to the subscribed clients</p>
+<li><p><code>ipc.prototype.publish(channel, msg, options, callback)</code></p>
+<p> Publish an event to the channel to be sent to the subscribed clients</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>ipc.prototype.checkLimits(msg, callback)</code></p>
+<li><p><code>ipc.prototype.checkRateLimits(msg, callback)</code></p>
 <p> A Javascript object <code>msg</code> must have the following properties:</p>
 <ul>
 <li>name - unique id, can be IP address, account id, etc...</li>
@@ -5290,19 +5255,6 @@ instance.</p>
 </ul>
 
 <ul>
-<li><p><code>Database tables</code></p>
-<pre><code>      // Pending jobs or other requests to be processed
-      bk_job: { id: { primary: 1 },
-                tag: {},                                          // a worker tag
-                status: {},                                       // job status: running, done
-                data: { type: &quot;json&quot; },                           // job definition object
-                etime: { type: &quot;bigint&quot; },                        // expiration time
-                ctime: { type: &quot;bigint&quot;, readonly: 1, now: 1 },   // creation time
-                mtime: { type: &quot;bigint&quot;, now: 1 } },
-</code></pre></li>
-</ul>
-
-<ul>
 <li><p><code>jobs.configureMaster(options, callback)</code></p>
 <p> Initialize jobs processing in the master process</p>
 </li>
@@ -5315,8 +5267,14 @@ instance.</p>
 </ul>
 
 <ul>
-<li><p><code>jobs.init(options, callback)</code></p>
-<p> Initialize jobs processing, this call sets up the matser that will read jobs from a queue and submit to the local or remote workers</p>
+<li><p><code>jobs.initServer(options, callback)</code></p>
+<p> Initialize a master that will manage jobs workers</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>jobs.initWorker(options, callback)</code></p>
+<p> Initialize a worker for processing jobs</p>
 </li>
 </ul>
 
@@ -5333,55 +5291,8 @@ must be in the following formats:</p>
 </ul>
 
 <ul>
-<li><p><code>jobs.isReady()</code></p>
-<p> Do not exceed max number of running workers</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>jobs.run(jobspec)</code></p>
-<p> Run all tasks in the job, when the last task finishes and it is running in the worker process, the process terminates.</p>
-</li>
-</ul>
-
-<ul>
 <li><p><code>jobs.runTask(name, options, callback)</code></p>
 <p> Execute a task, calls the callback on finish or error</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>jobs.runWorker(jobspec)</code></p>
-<p> Execute a job in the background by one of the workers, a job to run is specified with the following spec: <code>module.method</code>.</p>
-<p>The module must refer to a known exported module and method must be existing method of the given object. The method function must take a job
-object as its first argument and callback as its second argument.</p>
-<p>More than one job can be specified, property of the object defines name for the job to run, all jobs are executed in parallel:</p>
-<p>Example:</p>
-<pre><code>    { job: { &#39;app.scanFeeds&#39;: {}, &#39;app.checkEvents&#39;: {} } }
-</code></pre><p>If more than one task is needed to run one after another, use a list of tasks, the list is serializied but tasks defined
-within one object are still executed in parallel:</p>
-<p>Example:</p>
-<pre><code>    { job: [ &quot;msg.init&quot;, { &#39;app.sendNotifications&#39;: { &quot;id&quot;: 2 } } ] }
-</code></pre><p>Note: In the example above, <code>msg.init</code> is called first to setup push notification services so other tasks can send notifications.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>jobs.runRemote(jobspec, callback)</code></p>
-<p> Remote mode, launch remote instance to perform scraping or other tasks
-By default, shutdown the instance after job finishes unless noshutdown:1 is specified in the jobspec</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>jobs.submitPending(jobspec)</code></p>
-<p> Place a job in the local pending queue to be processed later.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>jobs.processPending()</code></p>
-<p> Process pending jobs, submit to idle workers</p>
 </li>
 </ul>
 
@@ -5390,11 +5301,11 @@ By default, shutdown the instance after job finishes unless noshutdown:1 is spec
 <p> Create a new cron job, for remote jobs additional property args can be used in the object to define
 arguments for the instance backend process, properties must start with -</p>
 <p>Example:</p>
-<pre><code>    { &quot;type&quot;: &quot;server&quot;, &quot;cron&quot;: &quot;0 */10 * * * *&quot;, &quot;job&quot;: &quot;server.processQueue&quot; },
-    { &quot;type&quot;: &quot;worker&quot;, &quot;cron&quot;: &quot;0 10 7 * * *&quot;, &quot;id&quot;: &quot;processQueue&quot;, &quot;job&quot;: &quot;api.processQueue&quot; }
-    { &quot;type&quot;: &quot;remote&quot;, &quot;cron&quot;: &quot;0 5 * * * *&quot;, &quot;args&quot;: { &quot;-workers&quot;: 2 }, &quot;job&quot;: { &quot;scraper.run&quot;: { &quot;url&quot;: &quot;host1&quot; }, &quot;$scraper.run&quot;: { &quot;url&quot;: &quot;host2&quot; } } }
-    { &quot;type&quot;: &quot;worker&quot;, &quot;cron&quot;: &quot;0 */10 * * * *&quot;, &quot;job&quot;: &quot;server.processQueue&quot; },
-    { &quot;type&quot;: &quot;queue&quot;, &quot;cron&quot;: &quot;0 */30 * * * *&quot;, &quot;job&quot;: &quot;server.processSQS&quot; },
+<pre><code>    { &quot;cron&quot;: &quot;0 */10 * * * *&quot;, &quot;job&quot;: &quot;server.processQueue&quot; },
+    { &quot;cron&quot;: &quot;0 10 7 * * *&quot;, &quot;job&quot;: &quot;api.processQueue&quot; }
+    { &quot;cron&quot;: &quot;0 5 * * * *&quot;, &quot;job&quot;: { &quot;scraper.run&quot;: { &quot;url&quot;: &quot;host1&quot; }, &quot;$scraper.run&quot;: { &quot;url&quot;: &quot;host2&quot; } } }
+    { &quot;cron&quot;: &quot;0 */10 * * * *&quot;, &quot;job&quot;: &quot;server.processQueue&quot; },
+    { &quot;cron&quot;: &quot;0 */30 * * * *&quot;, &quot;job&quot;: &quot;server.processSQS&quot; },
 </code></pre></li>
 </ul>
 
@@ -5408,37 +5319,16 @@ empty invalid jobs must be passed, like: <code>[ {} ]</code></p>
 </ul>
 
 <ul>
-<li><p><code>jobs.runCronjob(id)</code></p>
-<p> Execute a cronjob by id now, it must have been scheduled already and id property must be specified in the crontab
-When REPL is activated on the master server with -repl-port then connecting to the running master server via telnet it is possible to execute
-cron jobs manually</p>
-<p>Example:</p>
-<pre><code>// Start the backend with repl-port like `bkjs run-backend -repl-port 2080`
-
-# telnet localhost 2080
-&gt; server.runCronjob(&quot;processQueue&quot;)
-</code></pre></li>
-</ul>
-
-<ul>
 <li><p><code>jobs.loadCronjobs()</code></p>
 <p> Load crontab from JSON file as list of job specs:</p>
 <ul>
-<li>type - worker, remote, server, queue<ul>
-<li>worker means spawn a worker to run the job function</li>
-<li>remote means launch an AWS instance</li>
-<li>server means run inside the master process, do not spawn a worker</li>
-<li>queue means put this job object into the database tobe processed by a worker</li>
-</ul>
-</li>
 <li>cron - cron time interval spec: &#39;second&#39; &#39;minute&#39; &#39;hour&#39; &#39;dayOfMonth&#39; &#39;month&#39; &#39;dayOfWeek&#39;</li>
 <li>job - a string as obj.method or an object with job name as property name and the value is an object with<pre><code> additional jobspec for the job passed as first argument, a job callback always takes jobspec and callback as 2 arguments
 </code></pre></li>
-<li>args - additional arguments to be passed to the backend in the command line for the remote jobs</li>
 <li>disabled - disable the job but keep in the cron file, it will be ignored</li>
 </ul>
 <p>Example:</p>
-<pre><code>    [ { &quot;type&quot;: &quot;local&quot;, cron: &quot;0 0 * * * *&quot;, job: &quot;scraper.run&quot; }, ..]
+<pre><code>    [ { cron: &quot;0 0 * * * *&quot;, job: &quot;scraper.run&quot; }, ..]
 </code></pre></li>
 </ul>
 
@@ -5450,68 +5340,14 @@ cron jobs manually</p>
 
 <ul>
 <li><p><code>jobs.runJob(jobspec, callback)</code></p>
-<p> Run or schedule a job according to the type</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>jobs.processJob(options, callback)</code></p>
-<p> Periodically pull submitted jobs from the Db or other queue system and send it to execution. The primary goal for this
-job system is to execute cron jobs, i.e. jobs to be executed periodically based on time or other condition but NOT to
-be used for on-demand jobs from a web process for example.</p>
-<p>It is run by the master process every <code>-server-jobs-interval</code> seconds.</p>
-<p>For <code>db</code> type, it requires connection to the database, how jobs appear in the table and the order of execution is not concern of this function,
-the higher level management tool must take care when and what to run and in what order.
-If <code>tag</code> has been set then only jobs with such tag will be pulled by this master.</p>
-<p>By default a job pulled from any queue is deleted as soon as it is scheduled for execution. To disable this a property <code>finishJob</code> can be set in the job spec object
-to keep the job message in the queue until the worker is finished.</p>
-<p>On exit the worker will call <code>finishJob</code> automatically which will delete the job from the queue if no errors occurred. In case of an error the job will be
-deleted only if the error status is &gt;= 500, all other errors are considered runtime and will keep the job in the queue for possible troubleshooting or repeating
-the processing.</p>
-<p>For SQS queues if <code>finishJob</code> is specified a worker will periodically call <code>hideJob</code> to keep the message hidden while processing, the interval is derived from
-the <code>visibilityTimeout</code>.</p>
-<p>The options can specify:</p>
-<ul>
-<li>queue - SQS queue ARN, if not specified the <code>-server-job-queue</code> will be used</li>
-<li>timeout - how long to wait for job messages, seconds, if not specified then used <code>-jobs-wait-timeout</code> config parameter</li>
-<li>count - how many jobs to receive, if not specified then it uses <code>-jobs-count</code> config parameter</li>
-<li>visibilityTimeout - The duration in seconds that the received messages are hidden from subsequent retrieve requests
- after being retrieved by a ReceiveMessage request, if not specified then it uses <code>-jobs-visibility-timeout</code> config parameter.</li>
-<li>tag - retrieve jobs with this tag only from the queue</li>
-</ul>
+<p> Run all tasks in the job object</p>
 </li>
 </ul>
 
 <ul>
 <li><p><code>jobs.submitJob(jobspec, options, callback)</code></p>
-<p> Submit a job for execution, it will be saved in a queue and will be picked up later and executed. The queue and the way how it will be executed depends on the
-configured queue.</p>
-<p>The jobspec can specify the following properties:</p>
-<ul>
-<li>id - unique job id or UUID will be generated</li>
-<li>tag - if there are multiple known workers this tag will dedicate this job to such worker</li>
-<li>queue - SQS queue url to use for this job or the default one if not specified</li>
-</ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>jobs.finishJob(jobspec, callback)</code></p>
-<p> Finish and mark or delete a job after the successfull execution, this is supposed to be called by
-the jobs that handle completion, by default a job pulled from the queue is deleted on successful schedule.
-The jobspec is the same job object that was passed to the <code>jobs.submit</code>.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>jobs.hideJob(jobspec, callback)</code></p>
-<p> To keep a job from receiveing by other job processors this is used to hide it while it is being run.
-Depending on the queue type different properties can be used:</p>
-<ul>
-<li>visibilityTimeout - how long in seconds the message must be hidden in the SQS queue type, if not specified 30 seconds will be set</li>
-<li>status - set status to this value for the DB queue type, if not specified <code>hidden</code> status would be set</li>
-</ul>
-<p>It is safe to call this from any task, if no special properties are detected that can be used to communicate with a queue it will be silently ignored.</p>
+<p> Submit a job for execution, it will be saved in a queue and will be picked up later and executed.
+The queue and the way how it will be executed depends on the configured queue.</p>
 </li>
 </ul>
 
@@ -5633,7 +5469,7 @@ false
 <li><p><code>lib.toParams(query, schema, options)</code></p>
 <p> Process incoming query and convert parameters according to the type definition, the schema contains the definition of the paramaters against which to
 validate incoming data. It is an object with property names and definitoons that at lrast must specify the type, all other options are type specific.</p>
-<p>The options can define the follwoing propetties:</p>
+<p>The options can define the following properties:</p>
 <ul>
 <li>data - to pass realtime or other custom options for the validation or convertion utilities as the first argument if not defined in the definition.</li>
 <li>prefix - prefix to be used when searching for the parameters in the query, only properties with this prefix will be processed. The resulting
@@ -6446,6 +6282,18 @@ the current function name with comma, like <code>logger.debug(&quot;select:&quot
 </ul>
 
 <ul>
+<li><p><code>msg.shutdownWorker(options, callback)</code></p>
+<p> Gracefully drain all message queues on worker exit</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>msg.shutdownWeb(options, callback)</code></p>
+<p> Gracefully drain all message queues on web process exit</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>msg.init(options, callback)</code></p>
 <p> Initialize supported notification services, it supports jobs agrument convention so can be used in the jobs that
 need to send push notifications in the worker process</p>
@@ -6455,18 +6303,6 @@ need to send push notifications in the worker process</p>
 <ul>
 <li><p><code>msg.shutdown(options, callback)</code></p>
 <p> Shutdown notification services, wait till all pending messages are sent before calling the callback</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>msg.shutdownWorker(options, callback)</code></p>
-<p> Gracefully drain all message queues on worker exit</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>msg.shutdownWeb(options, callback)</code></p>
-<p> Gracefully drain all message queues on web process exit</p>
 </li>
 </ul>
 
@@ -6637,12 +6473,6 @@ connection to APN gateway.</p>
 <ul>
 <li><p><code>server.onkill()</code></p>
 <p> Terminates the server process</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>server.sleep(options, callback)</code></p>
-<p> Sleep and keep a worker busy</p>
 </li>
 </ul>
 
@@ -7438,26 +7268,27 @@ with error as first argument and database object as second</p>
 </ul>
 
 <ul>
-<li><p><code>IpcClient.prototype.stats(callback)</code></p>
+<li><p><code>IpcClient.prototype.stats(options, callback)</code></p>
 <p> Returns the cache statistics to the callback as the forst argument, the object tructure is specific to each cache implementstion</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>IpcClient.prototype.clear()</code></p>
-<p> Clear all cache items</p>
+<li><p><code>IpcClient.prototype.clear(pattern)</code></p>
+<p> Clear all or only matched keys from the cache</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>IpcClient.prototype.keys(callback)</code></p>
-<p> Retuns all cached keys, this is for debugging purposes mostly</p>
+<li><p><code>IpcClient.prototype.keys(pattern, callback)</code></p>
+<p> Retun all or matched keys from the cache, this is for debugging purposes mostly</p>
 </li>
 </ul>
 
 <ul>
 <li><p><code>IpcClient.prototype.get(key, options, callback)</code></p>
-<p> Returns an item from the cache</p>
+<p> Returns an item from the cache by a key, callback is required and it acceptes only the item,
+on any error null or undefined will be returned</p>
 </li>
 </ul>
 
@@ -7469,30 +7300,38 @@ with error as first argument and database object as second</p>
 
 <ul>
 <li><p><code>IpcClient.prototype.incr(key, val, options, callback)</code></p>
-<p> Add/substract a number from the an item</p>
+<p> Add/substract a number from the an item, returns new number in the callback if provided, in case of an error null/indefined should be returned</p>
 </li>
 </ul>
 
 <ul>
 <li><p><code>IpcClient.prototype.del(key, options)</code></p>
-<p> Delete an item form the cache</p>
+<p> Delete an item from the cache</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>IpcClient.prototype.subscribe(key, options, callback, data)</code></p>
-<p> Subscribe to receive notification for events sarting with the specified key, <code>data</code> will be passed to the callback as the first argument</p>
+<li><p><code>IpcClient.prototype.startListening()</code></p>
+<p> This is called to configure and setup event processing from the queue on first subscription, if nobody subscribes this
+will never be called and thus no initialization for event processing either, for clients that only publish this may save
+lots of processing and memory.</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>IpcClient.prototype.unsubscribe(key, options)</code></p>
+<li><p><code>IpcClient.prototype.subscribe(channel, options, callback)</code></p>
+<p> Subscribe to receive notification from the given channel</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>IpcClient.prototype.unsubscribe(channel, options, callback)</code></p>
 <p> Stop receiving notifictions for th give key</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>IpcClient.prototype.publish(key, data, options, callback)</code></p>
+<li><p><code>IpcClient.prototype.publish(channel, msg, options, callback)</code></p>
 <p> Publish an event</p>
 </li>
 </ul>
@@ -7500,12 +7339,11 @@ with error as first argument and database object as second</p>
 <h2 id="module-ipc_db">Module: IPC_DB</h2>
 <ul>
 <li><p><code>Database tables</code></p>
-<pre><code> bk_queue: { id: { primary: 1 },
-             tag: {},
-             status: {},                                       // job status
-             key: {},                                          // subscription key
-             data: { type: &quot;json&quot; },                           // job definition object
-             mtime: { type: &quot;bigint&quot;, now: 1 } },
+<pre><code>   bk_queue: { id: { primary: 1 },
+               status: {},                                       // job status
+               channel: { value: &quot;jobs&quot; },                       // subscription key
+               data: { type: &quot;json&quot; },                           // job definition object
+               mtime: { type: &quot;bigint&quot;, now: 1 } },
 </code></pre><p>  });</p>
 <p>  client.createClient = function(host, options)
   {</p>
@@ -7513,35 +7351,40 @@ with error as first argument and database object as second</p>
 </code></pre><p>  }</p>
 <p>  function IpcDbClient(host, options)
   {</p>
-<pre><code>  Client.call(this);
-  if (!this.options.timeout) this.options.timeout = 30000;
+<pre><code>  Client.call(this, host, options);
+  lib.extendObj(this.options, url.parse(this.host, true).query);
+  this.options.interval = lib.toNumber(this.options.interval, { dflt: 30, min: 1 });
+  this.options.count = lib.toNumber(this.options.count, { dflt: 1, min: 1 });
   this.emit(&quot;ready&quot;);
-  this.processQueue();
 </code></pre><p>  }
   util.inherits(IpcDbClient, Client);</p>
-</li>
+<p>  IpcDbClient.prototype.startListening = function()
+  {</p>
+<pre><code>  var self = this;
+  db.select(&quot;bk_queue&quot;, { status: null }, { ops: { status: &quot;null&quot; }, count: this.options.count }, function(err, rows) {
+      var now = Date.now(), jobs = 0;
+      if (!rows) rows = [];
+      lib.forEach(rows, function(row, next) {
+          // If we failed to update it means some other worker just did it before us so we just ignore this message
+          db.update(&quot;bk_queue&quot;, { id: row.id, status: &quot;hidden&quot; }, { expected: { status: null } }, function(err, data, info) {
+              if (err || !info.affected_rows) return next();
+              jobs++;
+              if (!self.emit(row.channel || &quot;message&quot;, row.data, function(err) {
+                  // Retain the message only in case of known fatal errors, otherwise delete it after processing, any other error
+                  // is considered as undeliverable due to corruption or invalid message format...
+                  if (err &amp;&amp; err.status &gt;= 500) {
+                      db.update(&quot;bk_queue&quot;, { id: row.id, status: null });
+                  } else {
+                      db.del(&quot;bk_queue&quot;, { id: row.id });
+                  }
+                  next();
+              })) {
+                  // Keep messages in the queue until deleted or processed
+                  db.update(&quot;bk_queue&quot;, { id: row.id, status: null }, function() { next() });
+              }
+</code></pre></li>
 </ul>
-<pre><code>IpcDbClient.prototype.processQueue = function(callback)
-{
-    var self = this;
-    db.select(&quot;bk_queue&quot;, { tag: this.options.tag, status: null }, { ops: { status: &quot;null&quot; }, count: this.options.count || 1 }, function(err, rows) {
-        if (!self.host) return;
-        (rows || []).forEach(function(row) {
-            var cb = self.callbacks[row.key || self.options.key || &quot;&quot;];
-            // Keep the message in case of no callback for the given key, this is persistent queue by explicit keys
-            if (!cb) return;
-            db.update(&quot;bk_queue&quot;, { id: row.id, status: &quot;running&quot; }, function(err) {
-                if (err) return;
 
-                cb[0](cb[1], row.key, row.data, function(err) {
-                    // Retain the message only in case of known fatal errors, otherwise delete it after processing, any other error
-                    // is considered as undeliverable due to corruption or invalid message format...
-                    if (err &amp;&amp; err.status &gt;= 500) {
-                        db.update(&quot;bk_queue&quot;, { id: row.id, status: null });
-                    } else {
-                        db.del(&quot;bk_queue&quot;, { id: row.id }, callback);
-                    }
-</code></pre>
 <h2 id="module-ipc_local">Module: IPC_LOCAL</h2>
 <h2 id="module-ipc_memcache">Module: IPC_MEMCACHE</h2>
 <h2 id="module-ipc_redis">Module: IPC_REDIS</h2>
