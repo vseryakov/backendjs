@@ -286,7 +286,7 @@ lib.toAge = function(mtime)
 // Process incoming query and convert parameters according to the type definition, the schema contains the definition of the paramaters against which to
 // validate incoming data. It is an object with property names and definitoons that at lrast must specify the type, all other options are type specific.
 //
-// The options can define the follwoing propetties:
+// The options can define the following properties:
 //  - data - to pass realtime or other custom options for the validation or convertion utilities as the first argument if not defined in the definition.
 //  - prefix - prefix to be used when searching for the parameters in the query, only properties with this prefix will be processed. The resulting
 //     object will not have this prefix in the properties.

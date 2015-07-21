@@ -246,8 +246,9 @@ the application is structured.
 
 Another way to add functionality to the backend is via external modules specific to the backend, these modules are loaded on startup from the backend
 home subdirectory `modules/` and from the backendjs package directory for core modules. The format is the same as for regular node.js modules and
-only top level .js files are loaded on the backend startup. By default all .js files present in the `modules/` directory will be loaded, to restrict which
-modules to load or to ignore see command line parameters `-deny-modules` and `-allow-modules`.
+only top level .js files are loaded on the backend startup.
+
+*By default no modules are loaded, it must be configured by the `-allow-modules` config parameter.*
 
 Once loaded they have the same access to the backend as the rest of the code, the only difference is that they reside in the backend home and
 can be shipped regardless of the npm, node modules and other env setup. These modules are exposed in the `core.modules` the same way as all other core submodules

@@ -20,6 +20,9 @@ var Client = require(__dirname + "/lib/ipc_client");
 // The module is EventEmitter and emits messages received.
 //
 // Local cache is implemented as LRU cached configued with `-lru-max` parameter defining how many items to keep in the cache.
+//
+// Some drivers may support TTL so global `options.ttl` or local `options.ttl` can be used for `put/incr` operqtions and it will honored if it is suported.
+//
 function ipc()
 {
     events.EventEmitter.call(this);
@@ -189,7 +192,11 @@ ipc.prototype.handleServerMessages = function(worker, msg)
             break;
 
         case 'cache:clear':
-            utils.lruClear();
+            if (msg.name) {
+                utils.lruKeys(msg.name).forEach(function(x) { utils.lruDel(x) });
+            } else {
+                utils.lruClear();
+            }
             if (msg._res) worker.send({});
             break;
 
@@ -334,29 +341,29 @@ ipc.prototype.stats = function(options, callback)
     }
 }
 
-// Returns in the callback all cached keys or if options is given can return only matched keys according to the
+// Returns in the callback all cached keys or if pattern is given can return only matched keys according to the
 // cache implementation, options is an object passed down to the driver as is
-ipc.prototype.keys = function(options, callback)
+ipc.prototype.keys = function(pattern, callback)
 {
     if (typeof options == "function") callback = options, options = null;
     if (typeof callback != "function") return;
-    logger.dev("ipc.keys", options);
+    logger.dev("ipc.keys", pattern);
     try {
-        this.cacheClient.keys(options, callback);
+        this.cacheClient.keys(typeof pattern == "string" && pattern, callback);
     } catch(e) {
-        logger.error('ipc.keys:', e.stack);
+        logger.error('ipc.keys:', pattern, e.stack);
         callback({});
     }
 }
 
-// Clear all cached items
-ipc.prototype.clear = function(options)
+// Clear all or only items that match the given pattern
+ipc.prototype.clear = function(pattern)
 {
-    logger.dev("ipc.clear", options);
+    logger.dev("ipc.clear", pattern);
     try {
-        this.cacheClient.clear(options);
+        this.cacheClient.clear(typeof pattern == "string" && pattern);
     } catch(e) {
-        logger.error('ipc.clear:', e.stack);
+        logger.error('ipc.clear:', pattern, e.stack);
     }
 }
 
@@ -391,7 +398,7 @@ ipc.prototype.del = function(key, options)
     }
 }
 
-// Replace or put a new item in the cache
+// Replace or put a new item in the cache, options.ttl can be passed if the driver supprts it.
 ipc.prototype.put = function(key, val, options)
 {
     logger.dev("ipc.put", key, val, options);

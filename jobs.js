@@ -26,8 +26,10 @@ var server = require(__dirname + '/server');
 var jobs = {
     // Config parameters
     args: [{ name: "workers", type: "number", min: 0, max: 32, descr: "How many worker processes to launch to process the job queue, 0 disables jobs" },
-           { name: "worker-args", type: "list", descr: "Node arguments for workers, for passing v8 jobspec" },
-           { name: "max-time", type: "number", min: 300, descr: "Max number of seconds a job can run before being killed" },
+           { name: "worker-args", type: "list", descr: "Node arguments for workers, for passing v8 jobspec, see `process`" },
+           { name: "worker-env", type: "json", descr: "Environment to be passed to the worker via fork, see `cluster.fork`" },
+           { name: "max-runtime", type: "number", min: 300, descr: "Max number of seconds a job can run before being killed" },
+           { name: "max-lifetime", type: "number", min: 0, descr: "Max number of seconds a worker can live, after that amount of time it will exit once all the jobs are finished, 0 means indefinitely" },
            { name: "queue", descr: "Name of the queue where to publish jobs" },
            { name: "cron", type: "bool", descr: "Load cron jobs from the local etc/crontab file, requires -jobs flag" },
     ],
@@ -36,16 +38,14 @@ var jobs = {
     running: [],
     // Time of the last update on jobs and tasks
     runTime: 0,
-    // Queue where to publush jobs
-    queue: "jobs",
-    // Max number of seconds since the last job time before killing this job instance, for long running jobs it must update jobs.runTime periodically
-    maxTime: 900,
-    // Number of worker processes
-    workers: 0,
     // Schedules cron jobs
     crontab: [],
-    // Worker process arguments
+    queue: "jobs",
+    maxRuntime: 900,
+    maxLifetime: 86400,
+    workers: 0,
     workerArgs: [],
+    workerEnv: {},
 };
 
 module.exports = jobs;
@@ -80,8 +80,11 @@ jobs.initServer = function(options, callback)
         if (!server.exiting) cluster.fork();
     });
 
+    // Arguments passed to the v8 engine
+    if (this.workerArgs.length) process.execArgv = this.workerArgs;
+
     // Launch the workers
-    for (var i = 0; i < self.workers; i++) cluster.fork();
+    for (var i = 0; i < self.workers; i++) cluster.fork(this.workerEnv);
 
     logger.log("jobs:", core.role, "started", "workers:", this.workers, "cron:", this.cron);
     if (typeof callback == "function") callback();
@@ -96,8 +99,12 @@ jobs.initWorker = function(options, callback)
 
     setInterval(function() {
         // Check how long we run and force kill if exceeded
-        if (self.running.length && Date.now() - self.runTime > self.maxTime*1000) {
-            logger.log('initWorker:', 'jobs: time: exceeded max run time', self.maxTime);
+        if (self.running.length && Date.now() - self.runTime > self.maxRuntime * 1000) {
+            logger.log('initWorker:', 'jobs: exceeded max run time', self.maxRuntime);
+            process.exit(0);
+        }
+        if (!self.running.length && self.maxLifetime > 0 && Date.now() - core.ctime > self.maxLifetime * 1000) {
+            logger.log('initWorker:', 'jobs: exceeded max life time', self.maxLifetime);
             process.exit(0);
         }
     }, 30000);

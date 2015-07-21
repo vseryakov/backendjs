@@ -137,6 +137,8 @@ var core = {
 
     // All internal and loaded modules
     modules: {},
+    // By default do not allow any modules, must be allowed in the config
+    allowModules: /core/,
 
     // Cache and messaging properties
     cacheHost: '',
@@ -214,13 +216,13 @@ var core = {
             { name: "repl-bind", obj: "repl", descr: "Listen only on specified address for REPL server in the master process" },
             { name: "repl-file", obj: "repl", descr: "User specified file for REPL history" },
             { name: "lru-max", type: "number", descr: "Max number of items in the LRU cache, this cache is managed by the master Web server process and available to all Web processes maintaining only one copy per machine, Web proceses communicate with LRU cache via IPC mechanism between node processes" },
-            { name: "cache-host", descr: "An URL that points to the cache server in the format `redis://HOST[:PORT]`, `memcache://HOST` to use for caching in API requests" },
+            { name: "cache-host", descr: "An URL that points to the cache server in the format `PROTO://HOST[:PORT]?PARAMS`, to use for caching in API requests, default is local LRU cache" },
             { name: "cache-options", type: "json", descr: "JSON object with options to the cache client, specific to each implementation" },
-            { name: "queue-host", descr: "An URL that points to the queue server in the format `redis://HOST[:PORT]`, `amqp://HOST` to use for PUB/SUB queues, default is no subscription service" },
+            { name: "queue-host", descr: "An URL that points to the queue server in the format `PROTO://HOST[:PORT]?PARAMS`, to use for PUB/SUB or job queues, default is no local queue" },
             { name: "queue-options", type: "json", descr: "JSON object with options to the queue client, specific to each implementation" },
             { name: "worker", type:"bool", descr: "Set this process as a worker even it is actually a master, this skips some initializations" },
-            { name: "deny-modules", type: "regexp", descr: "A regexp with modules names to be excluded from loading on startup", pass: 1 },
-            { name: "allow-modules", type: "regexp", descr: "A regexp with modules name to be loaded on startup, only matched modules will be loaded", pass: 1 },
+            { name: "allow-modules", type: "regexp", descr: "A regexp with modules name to be loaded on startup, only matched modules will be loaded, basename of the file is matched only, no path or extension", pass: 1 },
+            { name: "deny-modules", type: "regexp", descr: "A regexp with modules names that will never be loaded even if allowed, this is for blacklisted modules", pass: 1 },
             { name: "logwatcher-from", descr: "Email address to send logwatcher notifications from, for cases with strict mail servers accepting only from known addresses" },
             { name: "logwatcher-interval", type: "number", min: 1, descr: "How often to check for errors in the log files in minutes" },
             { name: "logwatcher-any-range", type: "number", min: 1, descr: "Number of lines for matched channel `any` to be attached to the previous matched channel, if more than this number use the channel `any` on its own" },

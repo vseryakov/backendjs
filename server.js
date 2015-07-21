@@ -461,19 +461,6 @@ server.onkill = function()
     process.exit(0);
 }
 
-// Sleep and keep a worker busy
-server.sleep = function(options, callback)
-{
-    var self = this;
-    if (typeof options == "function") callback = options, options = null;
-    if (!options) options = {};
-
-    setTimeout(function() {
-        logger.log('sleep:', options);
-        if (typeof callback == "function") callback();
-    }, options.timeout || 30000);
-}
-
 // Create a pid file for the current process
 server.writePidfile = function()
 {

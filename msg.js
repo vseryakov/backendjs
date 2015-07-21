@@ -235,11 +235,8 @@ msg.sendAPN = function(device_id, options, callback)
     if (!dev.id) return typeof callback == "function" && callback(lib.newError("invalid device:" + device_id));
 
     // Catch invalid devices before they go into the queue where is it impossible to get the exact source of the error
-    try {
-        device_id = new Buffer(dev.id, "hex");
-    } catch(e) {
-        return typeof callback == "function" && callback(lib.newError(e.message));
-    }
+    try { device_id = new Buffer(dev.id, "hex"); } catch(e) { device_id = ""; }
+    if (!device_id) return typeof callback == "function" && callback(lib.newError("invalid device token"));
 
     var agent = this.apnAgents[dev.app] || this.apnAgents.default;
     if (!agent) return typeof callback == "function" && callback(lib.newError("APN is not initialized for " + dev.id, 500));
