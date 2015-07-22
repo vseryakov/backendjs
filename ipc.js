@@ -23,19 +23,32 @@ var Client = require(__dirname + "/lib/ipc_client");
 //
 // Some drivers may support TTL so global `options.ttl` or local `options.ttl` can be used for `put/incr` operqtions and it will honored if it is suported.
 //
+// Cache methods accept `options.cacheName` property which may specify non-default cache to use by name, this is for cases when multiple cache
+// providers are configured.
+//
+// Queue methods use `options.queueName` for non-default queue.
+//
 function ipc()
 {
     events.EventEmitter.call(this);
     this.role = ""
     this.msgs = {}
-    this.queue = [];
+    this._queue = [];
     this.workers = []
     this.modules = []
-    this.cacheClient = new Client()
-    this.queueClient = new Client()
+    this.clients = { cache: new Client(), queue: new Client() };
     // Use shared token buckets inside the server process, reuse the same object so we do not generate
     // a lot of short lived objects, the whole operation including serialization from/to the cache is atomic.
     this.tokenBucket = new metrics.TokenBucket()
+
+    // Config params
+    this.configParams = {};
+    this.args = [ { name: "lru-max", type: "callback", callback: function(v) {utils.lruInit(lib.toNumber(v,{min:10000}))}, descr: "Max number of items in the LRU cache, this cache is managed by the master Web server process and available to all Web processes maintaining only one copy per machine, Web proceses communicate with LRU cache via IPC mechanism between node processes" },
+                 { name: "cache-?([a-z0-1]+)?", obj: "configParams", descr: "An URL that points to the cache server in the format `PROTO://HOST[:PORT]?PARAMS`, to use for caching in the API/DB requests, default is local LRU cache, multiple caches can be defined with unique names" },
+                 { name: "cache-?([a-z0-1]+)-options", obj: "configParams", type: "json", descr: "JSON object with options to the cache client, specific to each implementation" },
+                 { name: "queue-?([a-z0-1]+)?", obj: "configParams", descr: "An URL that points to the queue server in the format `PROTO://HOST[:PORT]?PARAMS`, to use for PUB/SUB or job queues, default is no local queue, multiple queues can be defined with unique names" },
+                 { name: "queue-?([a-z0-1]+)?-options", obj: "configParams", type: "json", descr: "JSON object with options to the queue client, specific to each implementation" },
+         ];
 }
 
 util.inherits(ipc, events.EventEmitter);
@@ -54,12 +67,16 @@ ipc.prototype.handleWorkerMessages = function(msg)
             core.modules.api.shutdown(function() { process.exit(0); });
             break;
 
+        case "worker:restart":
+            core.runMethods("shutdownWorker", function() { process.exit(0); });
+            break;
+
         case "cache:init":
-            this.initClient("cache");
+            this.initClients("cache");
             break;
 
         case "queue:init":
-            this.initWorkerQueue();
+            this.initClients("queue");
             break;
 
         case "dns:init":
@@ -114,8 +131,12 @@ ipc.prototype.handleServerMessages = function(worker, msg)
             }
             break;
 
+        case "worker:restart":
+            for (var p in cluster.workers) cluster.workers[p].send(msg);
+            break;
+
         case "queue:init":
-            this.initServerQueue("queue");
+            this.initClients("queue");
             for (var p in cluster.workers) cluster.workers[p].send(msg);
             break;
 
@@ -140,6 +161,7 @@ ipc.prototype.handleServerMessages = function(worker, msg)
             break;
 
         case "cache:init":
+            this.initClients("cache");
             for (var p in cluster.workers) cluster.workers[p].send(msg);
             break;
 
@@ -201,11 +223,11 @@ ipc.prototype.handleServerMessages = function(worker, msg)
             break;
 
         case 'queue:push':
-            this.queue.push(msg.value);
+            this._queue.push(msg.value);
             break;
 
         case 'queue:pop':
-            msg.value = this.queue.pop();
+            msg.value = this._queue.pop();
             worker.send(msg);
             break;
         }
@@ -266,7 +288,8 @@ ipc.prototype.initServer = function()
 {
     var self = this;
     this.role = "server";
-    this.initClient("queue");
+    this.initClients("cache");
+    this.initClients("queue");
 
     cluster.on("exit", function(worker, code, signal) {
         self.emitMsg("cluster:exit", { id: worker.id, pid: worker.pid });
@@ -285,8 +308,8 @@ ipc.prototype.initWorker = function()
 {
     var self = this;
     this.role = "worker";
-    this.initClient("cache");
-    this.initClient("queue");
+    this.initClients("cache");
+    this.initClients("queue");
 
     // Handle messages from the master
     process.on("message", function(msg) {
@@ -307,64 +330,75 @@ ipc.prototype.createClient = function(host, options)
             }
         }
     } catch(e) {
-        logger.error("ipc.create:", host, e.stack);
+        logger.error("ipc.createClient:", host, e.stack);
     }
     return client;
 }
 
-// Initialize a client for cache or queue purposes, previous client will be closed.
-ipc.prototype.initClient = function(type)
+// Return a cache or queue client by name if specifie din the options or use default client for the prefix
+ipc.prototype.getClient = function(prefix, options)
 {
-    var client = this.createClient(core[type + 'Host'] || "", core[type + 'Options'] || {});
-    if (client) {
-        try {
-            this[type + 'Client'].close();
-        } catch(e) {
-            logger.error("ipc.init:", type, e.stack);
+    return options && options[prefix + 'Name'] ? this.clients[options[prefix + 'Name']] : this.clients[prefix];
+}
+
+// Initialize a client for cache or queue purposes, previous client will be closed.
+ipc.prototype.initClients = function(prefix)
+{
+    for (var name in this.configParams) {
+        if (!name.match("^" + prefix) || name.match(/Options$/)) continue;
+        var client = this.createClient(this.configParams[name] || "", this.configParams[name + 'Options'] || {});
+        if (client) {
+            try {
+                if (this.clients[name]) this.clients[name].close();
+            } catch(e) {
+                logger.error("ipc.initClient:", name, e.stack);
+            }
+            this.clients[name] = client;
         }
-        this[type + 'Client'] = client;
     }
-    return client;
 }
 
 // Returns the cache statistics, the format depends on the cache type used
 ipc.prototype.stats = function(options, callback)
 {
     if (typeof options == "function") callback = options, options = null;
-    if (typeof callback != "function") return;
+    if (typeof callback != "function") return this;
     logger.dev("ipc.stats", options);
     try {
-        this.cacheClient.stats(options, callback);
+        this.getClient("cache", options).stats(options, callback);
     } catch(e) {
         logger.error('ipc.stats:', e.stack);
         callback({});
     }
+    return this;
 }
 
 // Returns in the callback all cached keys or if pattern is given can return only matched keys according to the
 // cache implementation, options is an object passed down to the driver as is
-ipc.prototype.keys = function(pattern, callback)
+ipc.prototype.keys = function(pattern, options, callback)
 {
     if (typeof options == "function") callback = options, options = null;
-    if (typeof callback != "function") return;
-    logger.dev("ipc.keys", pattern);
+    if (typeof callback != "function") return this;
+    logger.dev("ipc.keys", pattern, options);
     try {
-        this.cacheClient.keys(typeof pattern == "string" && pattern, callback);
+        this.getClient("cache", options).keys(typeof pattern == "string" && pattern, callback);
     } catch(e) {
         logger.error('ipc.keys:', pattern, e.stack);
         callback({});
     }
+    return this;
 }
 
 // Clear all or only items that match the given pattern
-ipc.prototype.clear = function(pattern)
+ipc.prototype.clear = function(pattern, options)
 {
-    logger.dev("ipc.clear", pattern);
+    logger.dev("ipc.clear", pattern, options);
     try {
-        this.cacheClient.clear(typeof pattern == "string" && pattern);
+        this.getClient("cache", options).clear(typeof pattern == "string" && pattern);
     } catch(e) {
         logger.error('ipc.clear:', pattern, e.stack);
     }
+    return this;
 }
 
 // Retrieve an item from the cache by key.
@@ -380,11 +414,13 @@ ipc.prototype.get = function(key, options, callback)
     if (typeof options == "function") callback = options, options = null;
     logger.dev("ipc.get", key, options);
     try {
-        this.cacheClient.get(key, options, callback);
+        var client = options && options.cacheName ? this.clients[options.cacheName] : this.clients.cache;
+        client.get(key, options, callback);
     } catch(e) {
         logger.error('ipc.get:', e.stack);
         callback();
     }
+    return this;
 }
 
 // Delete an item by key
@@ -392,10 +428,11 @@ ipc.prototype.del = function(key, options)
 {
     logger.dev("ipc.del", key, options);
     try {
-        this.cacheClient.del(key, options);
+        this.getClient("cache", options).del(key, options);
     } catch(e) {
         logger.error('ipc.del:', e.stack);
     }
+    return this;
 }
 
 // Replace or put a new item in the cache, options.ttl can be passed if the driver supprts it.
@@ -403,10 +440,11 @@ ipc.prototype.put = function(key, val, options)
 {
     logger.dev("ipc.put", key, val, options);
     try {
-        this.cacheClient.put(key, val, options);
+        this.getClient("cache", options).put(key, val, options);
     } catch(e) {
         logger.error('ipc.put:', e.stack);
     }
+    return this;
 }
 
 // Increase/decrease a counter in the cache by `val`, non existent items are treated as 0, if a callback is given new value will be returned
@@ -415,11 +453,12 @@ ipc.prototype.incr = function(key, val, options, callback)
     if (typeof options == "function") callback = options, options = null;
     logger.dev("ipc.incr", key, val, options);
     try {
-        this.cacheClient.incr(key, lib.toNumber(val), options, callback);
+        this.getClient("cache", options).incr(key, lib.toNumber(val), options, callback);
     } catch(e) {
         logger.error('ipc.incr:', e.stack);
         if (typeof callback == "function") callback(0);
     }
+    return this;
 }
 
 // Subscribe to a publish or queue server for messages for the given channel, the callback will be called only on new message received.
@@ -444,37 +483,42 @@ ipc.prototype.incr = function(key, val, options, callback)
 ipc.prototype.subscribe = function(channel, options, callback)
 {
     if (typeof options == "function") callback = options, options = null;
-    logger.dev("ipc.subscribe", channel);
+    logger.dev("ipc.subscribe", channel, options);
     try {
-        this.queueClient.subscribe(channel, options, callback);
+        this.getClient("queue", options).subscribe(channel, options, callback);
     } catch(e) {
         logger.error('ipc.subscribe:', channel, e.stack);
     }
+    return this;
 }
 
-// Close a subscription, if no calback is provided all listeners for the key will be unsubscribed, otherwise only the specified listener.
+// Close a subscription, if no callback is provided all listeners for the key will be unsubscribed, otherwise only the specified listener.
 // The callback will not be called.
+// It keeps a count how many subscribe/unsubscribe calls been made and stops any internal listeners once nobody is
+// subscribed. This is specific to a queue which relies on polling.
 ipc.prototype.unsubscribe = function(channel, options, callback)
 {
     if (typeof options == "function") callback = options, options = null;
-    logger.dev("ipc.unsubscribe", channel);
+    logger.dev("ipc.unsubscribe", channel, options);
     try {
-        this.queueClient.unsubscribe(channel, options, callback);
+        this.getClient("queue", options).unsubscribe(channel, options, callback);
     } catch(e) {
         logger.error('ipc.unsubscribe:', channel, e.stack);
     }
+    return this;
 }
 
-// Publish an event to the channel to be sent to the subscribed clients
+// Publish an event to the channel, if no `options.queueName` is specified then it is sent to the default queue
 ipc.prototype.publish = function(channel, msg, options, callback)
 {
     if (typeof options == "function") callback = options, options = null;
-    logger.dev("ipc.publish", channel);
+    logger.dev("ipc.publish", channel, options);
     try {
-        return this.queueClient.publish(channel, msg, options, callback);
+        this.getClient("queue", options).publish(channel, msg, options, callback);
     } catch(e) {
         logger.error('ipc.publish:', channel, e.stack);
     }
+    return this;
 }
 
 // A Javascript object `msg` must have the following properties:
@@ -522,18 +566,19 @@ ipc.prototype.checkTimer = function(name, options, callback)
     var interval = options.interval || 60000;
     var timeout = options.timeout || 3600000;
 
-    this.get(name + ":t", function(t) {
+    this.get(name + ":t", options, function(t) {
         var d = now - lib.toNumber(t);
         logger.debug("checkTimer:", name, "interval:", interval, "time:", d, t);
         if (!options.force && t < interval) return callback(false);
 
-        self.incr(name + ":n", 1, function(n) {
+        self.incr(name + ":n", 1, options, function(n) {
             logger.debug("checkTimer:", name, "timeout:", timeout, "time:", d, "counter:", n);
             if (!options.force && n > 1 && t < timeout) return callback(false);
-            self.put(name + ":t", now);
+            self.put(name + ":t", now, options);
             callback(true);
         })
     });
+    return this;
 }
 
 // Reset the timer so it can be locked immediately.
@@ -541,5 +586,6 @@ ipc.prototype.resetTimer = function(name)
 {
     this.put(name + ":t", Date.now());
     this.put(name + ":n", "0");
+    return this;
 }
 

@@ -29,31 +29,19 @@ var msg = {
 
 module.exports = msg;
 
-// A callback to be called for APN device uninstalls, it is called by te feedback service,
+// A callback to be called for APN device uninstalls, it is called by the feedback service,
 // the function must be defined as `function(device, timestamp, next)`, the next callback must be called at the end.
 msg.onDeviceUninstall = null;
 
-// Gracefully drain all message queues on worker exit
-msg.shutdownWorker = function(options, callback)
-{
-    this.shutdown(options, callback);
-}
-
-// Gracefully drain all message queues on web process exit
-msg.shutdownWeb = function(options, callback)
-{
-    this.shutdown(options, callback);
-}
-
 // Initialize supported notification services, it supports jobs agrument convention so can be used in the jobs that
-// need to send push notifications in the worker process
+// need to send push notifications in the worker process.
 msg.init = function(options, callback)
 {
     if (typeof options == "function") callback = options, options = null;
+    logger.info("msg:", "init");
 
     this.initAPN(options);
     this.initGCM(options);
-    logger.debug("msg:", "init");
     if (typeof callback == "function") callback();
 }
 
@@ -62,9 +50,8 @@ msg.shutdown = function(options, callback)
 {
     var self = this;
     if (typeof options == "function") callback = options, options = null;
-    if (!options) options = {};
+    logger.info("msg:", "shutdown");
 
-    logger.debug("msg:", "shutdown");
     // Wait a little just in case for some left over tasks
     setTimeout(function() {
         lib.parallel([
@@ -75,53 +62,51 @@ msg.shutdown = function(options, callback)
                self.closeGCM(next);
            },
         ], callback);
-    }, options.timeout || self.shutdownTimeout);
+    }, lib.toNumber((options && options.timeout) || this.shutdownTimeout));
 }
 
 // Deliver a notification using the specified service, apple is default.
-// Options may contain the following properties:
+// Options should contain the following properties:
 //  - device_id - device(s) where to send the message to, can be multiple ids separated by , or |
-//  - service - which service to use for delivery: sns, apn, gcm
+//  - service - which service to use for delivery only: sns, apn, gcm
 //  - msg - text message to send
 //  - badge - badge number to show if supported by the service
 //  - type - set type of the message, service specific
 //  - id - send id with the notification, this is application specific data, sent as is
-//  - queueKey - key where to publish in case of queue existence, i fnot given global key is used or empty key
 msg.send = function(options, callback)
 {
     var self = this;
     if (typeof callback != "function") callback = lib.noop;
-    if (!options || !options.device_id) return callback(lib.newError("invalid device or options"));
+    if (!lib.isObject(options) || !options.device_id) return callback(lib.newError("invalid device or options"));
 
     logger.info("send:", options.id, options.device_id, options.type, options.msg);
 
     // Determine the service to use from the device token
-    var service = options.service || "";
     var devices = lib.strSplit(options.device_id, null, "string");
     lib.forEachSeries(devices, function(device, next) {
-        var device_id = device;
-        var dev = self.parseDevice(device_id);
+        var dev = self.parseDevice(device);
         if (!dev.id) return next();
-        logger.dev("send:", dev, options.id || "");
+        if (options.service && options.service != dev.service) return next();
+        logger.dev("send:", dev, options.id, options.type);
         switch (dev.service) {
         case "gcm":
-            self.sendGCM(device_id, options, function(err) {
-                if (err) logger.error("send:", device_id, err);
+            self.sendGCM(dev.id, options, function(err) {
+                if (err) logger.error("send:", dev.id, err);
                 // Stop on explicit fatal errors only
                 next(err && err.status >= 500 ? err : null);
             });
             break;
 
         case "sns":
-            self.sendSNS(device_id, options, function(err) {
-                if (err) logger.error("send:", device_id, err);
+            self.sendSNS(dev.id, options, function(err) {
+                if (err) logger.error("send:", dev.id, err);
                 next(err && err.status >= 500 ? err : null);
             });
             break;
 
         case "apn":
-            self.sendAPN(device_id, options, function(err) {
-                if (err) logger.error("send:", device_id, err);
+            self.sendAPN(dev.id, options, function(err) {
+                if (err) logger.error("send:", dev.id, err);
                 next(err && err.status >= 500 ? err : null);
             });
             break;

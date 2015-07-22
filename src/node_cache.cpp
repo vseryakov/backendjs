@@ -16,7 +16,7 @@ struct LRUStringCache {
     // stats
     size_t hits, misses, cleans, ins, dels;
 
-    LRUStringCache(int m = 1000): max(m) { clear(); }
+    LRUStringCache(int m = 100000): max(m) { clear(); }
     ~LRUStringCache() { clear(); }
 
     const string& get(const string& k) {
@@ -438,7 +438,7 @@ static Handle<Value> lruInit(const Arguments& args)
 {
     HandleScope scope;
     REQUIRE_ARGUMENT_INT(0, max);
-    _lru.max = max;
+    if (max > 0) _lru.max = max;
     return scope.Close(Undefined());
 }
 

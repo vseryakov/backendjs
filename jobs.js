@@ -30,7 +30,8 @@ var jobs = {
            { name: "worker-env", type: "json", descr: "Environment to be passed to the worker via fork, see `cluster.fork`" },
            { name: "max-runtime", type: "number", min: 300, descr: "Max number of seconds a job can run before being killed" },
            { name: "max-lifetime", type: "number", min: 0, descr: "Max number of seconds a worker can live, after that amount of time it will exit once all the jobs are finished, 0 means indefinitely" },
-           { name: "queue", descr: "Name of the queue where to publish jobs" },
+           { name: "queue", descr: "Default queue to use for jobs" },
+           { name: "channel", descr: "Name of the channel where to publish/receive jobs" },
            { name: "cron", type: "bool", descr: "Load cron jobs from the local etc/crontab file, requires -jobs flag" },
     ],
 
@@ -40,7 +41,8 @@ var jobs = {
     runTime: 0,
     // Schedules cron jobs
     crontab: [],
-    queue: "jobs",
+    channel: "jobs",
+    queue: "",
     maxRuntime: 900,
     maxLifetime: 86400,
     workers: 0,
@@ -62,6 +64,20 @@ jobs.configureWorker = function(options, callback)
 {
     if (!this.workers) return callback();
     this.initWorker(options, callback);
+}
+
+// Perform graceful worker shutdown, to be used for workers restart
+jobs.shutdownWorker = function(options, callback)
+{
+    var self = this;
+    logger.log("shutdownWorker:", "queue:", this.queue, this.channel, "maxRuntime:", this.maxRuntime, "maxLifetime:", this.maxLifetime);
+
+    // Stop accepting messages from the queue
+    ipc.unsubscribe(this.channel, { queueName: this.queue });
+    // Wait until the current job is processed and confirmed
+    setInterval(function() {
+        if (!self.running.length && Date.now() - self.runTime > 50) callback();
+    }, 50);
 }
 
 // Initialize a master that will manage jobs workers
@@ -109,14 +125,19 @@ jobs.initWorker = function(options, callback)
         }
     }, 30000);
 
-    ipc.subscribe(this.queue, function(msg, next) {
-        self.runJob(msg, function(err) {
-            logger[err ? "error" : "info"]("runJob:", "finished", (err && err.stack) || err || "", msg);
-            if (typeof next == "function") next(err);
+    // Randomize subscription when multiple workers start at the same time, some queue drivers use polling
+    setTimeout(function() {
+        ipc.subscribe(self.channel, { queueName: self.queue }, function(msg, next) {
+            self.runJob(msg, function(err) {
+                logger[err ? "error" : "info"]("runJob:", "finished", (err && err.stack) || err || "", msg);
+                if (typeof next == "function") next(err);
+                // Mark end of last message processed
+                self.runTime = Date.now();
+            });
         });
-    });
+        logger.log("initWorker:", "started", "queue:", self.queue, self.channel, "maxRuntime:", self.maxRuntime, "maxLifetime:", self.maxLifetime);
+    }, lib.randomShort()/100);
 
-    logger.log("jobs:", core.role, "started", "maxTime:", this.maxTime, "queue:", this.queue);
     if (typeof callback == "function") callback();
 }
 
@@ -130,7 +151,7 @@ jobs.initWorker = function(options, callback)
 //
 // any task in string format "module.method" will be converted into { "module.method: {} } automatically
 //
-jobs.isValid = function(jobspec)
+jobs.isJob = function(jobspec)
 {
     var rx = /^[a-z0-9_]+\.[a-z0-9_]+$/i;
 
@@ -159,7 +180,45 @@ jobs.isValid = function(jobspec)
     return jobspec;
 }
 
-// Execute a task, calls the callback on finish or error
+// Submit a job for execution, it will be saved in a queue and will be picked up later and executed.
+// The queue and the way how it will be executed depends on the configured queue.
+jobs.submitJob = function(jobspec, options, callback)
+{
+    if (typeof options == "function") callback = options, options = {};
+    if (!options) options = {};
+    jobspec = this.isJob(jobspec);
+    if (util.isError(jobspec)) return typeof callback == "function" && callback(jobspec);
+    if (this.queue) options = lib.cloneObj(options, "queueName", this.queue);
+
+    logger.debug("submitJob:", jobspec, options);
+    ipc.publish(this.channel, jobspec, options, callback);
+}
+
+// Run all tasks in the job object, all errors will be just logged, but if `noerrors` is defined in the top
+// level job object then the whole job will stop on first error returned by any task.
+jobs.runJob = function(jobspec, callback)
+{
+    var self = this;
+    logger.info("runJob:", "started", jobspec);
+
+    jobspec = this.isJob(jobspec);
+    if (util.isError(jobspec)) return typeof callback == "function" && callback(jobspec);
+
+    var tasks = Array.isArray(jobspec.job) ? jobspec.job : [ jobspec.job ];
+
+    // Sequentially execute all tasks in the list, run all subtasks in parallel
+    lib.forEachSeries(tasks, function(task, next) {
+        if (!lib.isObject(task)) return next();
+
+        lib.forEach(Object.keys(task), function(name, next2) {
+            self.runTask(name, task[name], function(err) {
+                next2(err && jobspec.noerrors ? err : null);
+            });
+        }, next);
+    }, callback);
+}
+
+// Execute a task by name, the `options` will be passed to the function as the first argument, calls the callback on finish or error
 jobs.runTask = function(name, options, callback)
 {
     var self = this;
@@ -167,7 +226,7 @@ jobs.runTask = function(name, options, callback)
     var module = method[0] == "core" ? core : core.modules[method[0]];
     if (!module || typeof module[method[1]] != "function") {
         logger.error("runTask:", "unknown method", name, options);
-        return callback();
+        return callback(lib.newError("unknown method: " + name, 500));
     }
     if (!lib.isObject(options)) options = {};
 
@@ -198,10 +257,8 @@ jobs.runTask = function(name, options, callback)
 // Example:
 //
 //          { "cron": "0 */10 * * * *", "job": "server.processQueue" },
-//          { "cron": "0 10 7 * * *", "job": "api.processQueue" }
-//          { "cron": "0 5 * * * *", "job": { "scraper.run": { "url": "host1" }, "$scraper.run": { "url": "host2" } } }
-//          { "cron": "0 */10 * * * *", "job": "server.processQueue" },
-//          { "cron": "0 */30 * * * *", "job": "server.processSQS" },
+//          { "cron": "0 */30 * * * *", "job": { "server.processQueue": { name: "queue1" } } },
+//          { "cron": "0 5 * * * *", "job": [ { "scraper.run": { "url": "host1" } }, { "scraper.run": { "url": "host2" } } ] }
 //
 jobs.scheduleCronjob = function(jobspec)
 {
@@ -220,7 +277,7 @@ jobs.scheduleCronjob = function(jobspec)
 }
 
 // Schedule a list of cron jobs, types is used to cleanup previous jobs for the same type for cases when
-// a new list needs to replace the existing jobs. Empty list does nothing, to eset the jobs for the partivular type and
+// a new list needs to replace the existing jobs. Empty list does nothing, to reset the jobs for the particular type and
 // empty invalid jobs must be passed, like: ```[ {} ]```
 //
 // Returns number of cron jobs actually scheduled.
@@ -281,39 +338,4 @@ jobs.parseCronjobs = function(type, data)
     this._hash[type] = hash;
     var n = this.scheduleCronjobs(type, lib.jsonParse(data, { list: 1, error: 1 }));
     logger.info("parseCronjobs:", type, n, "jobs");
-}
-
-// Run all tasks in the job object
-jobs.runJob = function(jobspec, callback)
-{
-    var self = this;
-
-    logger.info("runJob:", "started", jobspec);
-
-    jobspec = this.isValid(jobspec);
-    if (util.isError(jobspec)) return typeof callback == "function" && callback(jobspec);
-
-    var tasks = Array.isArray(jobspec.job) ? jobspec.job : [ jobspec.job ];
-
-    // Sequentially execute all tasks in the list, run all subtasks in parallel
-    lib.forEachSeries(tasks, function(task, next) {
-        if (!lib.isObject(task)) return next();
-
-        lib.forEach(Object.keys(task), function(name, next2) {
-            self.runTask(name, task[name], next2);
-        }, next);
-    }, callback);
-}
-
-// Submit a job for execution, it will be saved in a queue and will be picked up later and executed.
-// The queue and the way how it will be executed depends on the configured queue.
-jobs.submitJob = function(jobspec, options, callback)
-{
-    if (typeof options == "function") callback = options, options = {};
-    if (!options) options = {};
-    jobspec = this.isValid(jobspec);
-    if (util.isError(jobspec)) return typeof callback == "function" && callback(jobspec);
-
-    logger.debug("submitJob:", jobspec, options);
-    ipc.publish(this.queue, jobspec, options, callback);
 }

@@ -140,10 +140,6 @@ var core = {
     // By default do not allow any modules, must be allowed in the config
     allowModules: /core/,
 
-    // Cache and messaging properties
-    cacheHost: '',
-    queueHost: '',
-
     // Config parameters
     args: [ { name: "help", type: "callback", callback: function() { this.showHelp() }, descr: "Print help and exit" },
             { name: "debug-filter", type: "callback", callback: function(v) { logger.setDebugFilter(v); }, descr: "Enable debug filters, format is: +label,... to enable, and -label,... to disable. Only first argument is used for label in logger.debug", cmdline: 1, pass: 1 },
@@ -208,19 +204,12 @@ var core = {
             { name: "no-db", type: "bool", descr: "Do not initialize DB drivers" },
             { name: "no-dns", type: "bool", descr: "Do not use DNS configuration during the initialization" },
             { name: "no-configure", type: "bool", descr: "Do not run configure hooks during the initialization" },
-            { name: "repl-port-worker", type: "number", obj: "repl", min: 1001, descr: "Worker base REPL port, if specified it initializes REPL in a worker processes as port+worker_id" },
-            { name: "repl-bind-worker", obj: "repl", descr: "Worker REPL listen address" },
-            { name: "repl-port-web", type: "number", obj: "repl", min: 1001, descr: "Web server base REPL port, if specified it initializes REPL in the Web server processes, in workers port is port+worker_id+1" },
-            { name: "repl-bind-web", obj: "repl", descr: "Web server REPL listen address" },
+            { name: "repl-bind-([a-z]+)", obj: "repl", descr: "Worker REPL listen address, supported suffixes: web, worker" },
+            { name: "repl-port-([a-z]+)", type: "number", obj: "repl", min: 1001, descr: "Worker base REPL port, if specified it initializes REPL in the worker processes, in workers port is port+worker_id+1, supported suffixes: web, worker" },
             { name: "repl-port", type: "number", obj: "repl", min: 1001, descr: "Port for REPL interface in the master, if specified it initializes REPL in the master server process" },
             { name: "repl-bind", obj: "repl", descr: "Listen only on specified address for REPL server in the master process" },
             { name: "repl-file", obj: "repl", descr: "User specified file for REPL history" },
-            { name: "lru-max", type: "number", descr: "Max number of items in the LRU cache, this cache is managed by the master Web server process and available to all Web processes maintaining only one copy per machine, Web proceses communicate with LRU cache via IPC mechanism between node processes" },
-            { name: "cache-host", descr: "An URL that points to the cache server in the format `PROTO://HOST[:PORT]?PARAMS`, to use for caching in API requests, default is local LRU cache" },
-            { name: "cache-options", type: "json", descr: "JSON object with options to the cache client, specific to each implementation" },
-            { name: "queue-host", descr: "An URL that points to the queue server in the format `PROTO://HOST[:PORT]?PARAMS`, to use for PUB/SUB or job queues, default is no local queue" },
-            { name: "queue-options", type: "json", descr: "JSON object with options to the queue client, specific to each implementation" },
-            { name: "worker", type:"bool", descr: "Set this process as a worker even it is actually a master, this skips some initializations" },
+            { name: "worker", type: "bool", descr: "Set this process as a worker even it is actually a master, this skips some initializations" },
             { name: "allow-modules", type: "regexp", descr: "A regexp with modules name to be loaded on startup, only matched modules will be loaded, basename of the file is matched only, no path or extension", pass: 1 },
             { name: "deny-modules", type: "regexp", descr: "A regexp with modules names that will never be loaded even if allowed, this is for blacklisted modules", pass: 1 },
             { name: "logwatcher-from", descr: "Email address to send logwatcher notifications from, for cases with strict mail servers accepting only from known addresses" },
@@ -282,7 +271,6 @@ core.init = function(options, callback)
     // No restriction on the client http clients
     http.globalAgent.maxSockets = http.Agent.defaultMaxSockets = Infinity;
     https.globalAgent.maxSockets = Infinity;
-    utils.lruInit(this.lruMax);
 
     // Find our IP address
     var intf = os.networkInterfaces();

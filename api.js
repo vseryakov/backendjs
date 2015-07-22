@@ -66,7 +66,6 @@ var api = {
            { name: "no-access-log", type: "bool", descr: "Disable access logging in both file or syslog" },
            { name: "access-log-file", descr: "File for access logging" },
            { name: "salt", descr: "Salt to be used for scrambling credentials or other hashing activities" },
-           { name: "notifications", type: "bool", descr: "Initialize notifications in the API Web worker process to allow sending push notifications from the API handlers" },
            { name: "no-static", type: "bool", descr: "Disable static files from /web folder, no .js or .html files will be served by the server" },
            { name: "static-options", type: "json", descr: "Options to be passed to the serve-static module for static content handling" },
            { name: "no-templating", type: "bool", descr: "Disable templating engine completely" },
@@ -575,14 +574,7 @@ api.init = function(options, callback)
             // Notify the master about new worker server
             ipc.sendMsg("api:ready", { id: cluster.isWorker ? cluster.worker.id : process.pid, pid: process.pid, port: core.port, ready: true });
 
-            // Allow push notifications in the API handlers
-            if (self.notifications) {
-                msg.init(function() {
-                    callback.call(self, err);
-                });
-            } else {
-                callback.call(self, err);
-            }
+            callback.call(self);
         });
         self.exiting = false;
     });

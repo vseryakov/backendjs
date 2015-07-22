@@ -247,6 +247,7 @@ accounts.getAccount = function(req, options, callback)
 // as handler: property which accepts the same arguments as this function. The delivery is not guaranteed, only will be sent if the account is considered
 // "offline" according to the status and/or idle time. If the messages was queued for delivery, the row returned will contain the property sent:.
 // The options may contain the following:
+//  - account_id - REQUIRED, the account to who to send the notification
 //  - msg - message text to send
 //  - badge - a badge number to be sent
 //  - prefix - prepend the message with this prefix
@@ -260,10 +261,10 @@ accounts.getAccount = function(req, options, callback)
 //
 // In addition the device_id can be saved in the format service://id where the service is one of the supported delivery services, this way the notification
 // system will pick the right delivery service depending on the device id, the default service is apple.
-accounts.notifyAccount = function(id, options, callback)
+accounts.notifyAccount = function(options, callback)
 {
     if (typeof callback != "function") callback = lib.noop;
-    if (!id || !lib.isObject(options)) return callback({ status: 500, message: "invalid arguments" }, {});
+    if (!lib.isObject(options) || !options.account_id) return callback({ status: 500, message: "invalid arguments" }, {});
 
     options = lib.cloneObj(options);
     // Skip this account
@@ -276,10 +277,10 @@ accounts.notifyAccount = function(id, options, callback)
         break;
     }
 
-    this.getStatus(id, { nostatus: !options.check }, function(err, status) {
+    this.getStatus(options.account_id, { nostatus: !options.check }, function(err, status) {
         if (err || (options.check && status.online)) return callback(err, status);
 
-        db.get("bk_account", { id: id }, function(err, account) {
+        db.get("bk_account", { id: options.account_id }, function(err, account) {
             if (err || !account) return callback(err || { status: 404, message: "account not found" }, status);
             if (!account.device_id && !options.device_id) return callback({ status: 404, message: "device not found" }, status);
 
@@ -305,7 +306,7 @@ accounts.notifyAccount = function(id, options, callback)
             msg.send(options, function(err) {
                 status.device_id = options.device_id;
                 status.sent = err ? false : true;
-                logger.logger(err ? "error" : (options.logging || "debug"), "notifyAccount:", id, account.alias, options.device_id, status, err || "");
+                logger.logger(err ? "error" : (options.logging || "debug"), "notifyAccount:", account.id, account.alias, options.device_id, status, err || "");
                 callback(err, status);
             });
         });
