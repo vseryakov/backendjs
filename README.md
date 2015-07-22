@@ -17,7 +17,7 @@ Features:
 * Database driver for LevelDB, LMDB, CouchDB, Riak, ElasticSearch support only a subset of all database operations
 * Easily extendable to support any kind of database, provides a database driver on top of Redis with all supported methods.
 * Provides accounts, connections, locations, messaging and icons APIs with basic functionality for a qucik start.
-* Supports crontab-like and on-demand scheduling for local and remote(AWS) jobs.
+* Supports crontab and queue job processing by seperate workers.
 * Authentication is based on signed requests using API key and secret, similar to Amazon AWS signing requests.
 * Runs web server as separate processes to utilize multiple CPU cores.
 * Local jobs are executed by spawned processes
@@ -420,6 +420,12 @@ Create a file named `app.js` with the code below.
 Now run it with an option to allow API access without an account:
 
     node app.js -log debug -web -api-allow-path /todo
+
+To use a different databse, for example PostgresSQL(running localy) or DynamoDB(assuming EC2 instance),
+all config parametetrs can be stored in the etc/config as well
+
+    node app.js -log debug -web -api-allow-path /todo -db-pool dynamodb -db-dynamodb-pool default
+    node app.js -log debug -web -api-allow-path /todo -db-pool pgsql -db-pgsql-pool default
 
 API commands can be executed in the browser or using `curl`:
 
@@ -1706,15 +1712,19 @@ and refresh the cache, that is `{ cached: true }` can be passed in the options p
 it is required to clear cache manually there is `db.clearCache` method for that.
 Also there is a configuration option `-db-caching` to make any table automatically cached for all requests.
 
+## Local
+If no cache is configured the local driver is used, it keeps the cache on the master process in the LRU pool and any wroker or Web process
+communicate with it via internal messaging provided by the `cluster` module. This works only for a single server.
+
 ## memcached
-Set `cache-host=memcache://HOST[,HOST]` that points to one or more hosts running memcached servers is what needs to be done only.
+Set `ipc-cache=memcache://HOST[,HOST]` that points to one or more hosts running memcached servers is what needs to be done only.
 The great benefit using memcache is to configure more than one server in `cache-host` separated by comma which makes it more reliable and
 eliminates single point of failure if one of the memcache servers goes down.
 
 ## Redis
-Set `cache-host=redis://HOST[:PORT]` that points to the server running Redis server. Only single Redis server can be specified.
+Set `ipc-cache=redis://HOST[:PORT]` that points to the server running Redis server. Only single Redis server can be specified.
 
-# PUB/SUB configurations
+# PUB/SUB or Queue configurations
 
 Publish/subscribe functionality allows clients to receive notifications without constantly polling for new events. A client can be anything but
 the backend provides some partially implemented subscription notifications for Web clients using the Long Poll.
@@ -1730,26 +1740,22 @@ The flow of the pub/sub operations is the following:
 - the connection that initiated `/account/subscribe` receives an event
 
 ## Redis
-To configure the backend to use Redis for messaging set `queue-host=redis://HOST` where HOST is IP address or hostname of the single Redis server.
+To configure the backend to use Redis for messaging set `ipc-queue=redis://HOST` where HOST is IP address or hostname of the single Redis server.
 
 ## RabbitMQ
-To configure the backend to use RabbitMQ for messaging set `queue-host=amqp://HOST` and optionally `amqp-options=JSON` with options to the amqp module.
+To configure the backend to use RabbitMQ for messaging set `ipc-queue=amqp://HOST` and optionally `amqp-options=JSON` with options to the amqp module.
 
-## Server/worker messaging
+## DB
+This is a simple queue implementation using the atomic UPDATE, it polls for new jobs in the table and updates the status, only who succeeds
+with the update takes the job and executes it. It is not effective but can be used for simple and not busy systems for more or less long jobs.
 
-When any of the supported queue systems is initialized there are 2 special subscriptions created for servers and workers. Every server and worker process
-subscribed to the corresponding queue (`ipc.serverQueue` and `ipc.workerQueue`) and listens for incoming messages.
+## SQS
+To use AWS SQS for job processing set `ipc-queue=https://sqs.amazonaws.com....`, this queue system will poll SQS for new messges on a worker
+and after succsesful execution will delete the message. For long running jobs it will automatically extend visibility timeout if it is configured.
 
-This is supposed to be used for distributing special messages to all workers or servers independently
-with special messages like configuration, setup, restart or any other action a running backend process should take.
-
-For example, to send all workers in a cluster a message to refresh config:
-
-    ipc.publish(ipc.workerQueue, { op: "init:config" })
-
-To update all master server caches:
-
-    ipc.publish(ipc.serverQueue, { op: "put", name: "counter", value: "123" })
+## Local
+The local queue is implemented on the master process as a list, communication is done via local sockets between the master and workers.
+This is intended for a single server or development pusposes only.
 
 # Security configurations
 
