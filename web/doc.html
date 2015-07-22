@@ -2132,18 +2132,11 @@ might be useful when desining, developing or choosing the API platform:</p>
 <li><code>no-db</code> - Do not initialize DB drivers</li>
 <li><code>no-dns</code> - Do not use DNS configuration during the initialization</li>
 <li><code>no-configure</code> - Do not run configure hooks during the initialization</li>
-<li><code>repl-port-worker</code> - Worker base REPL port, if specified it initializes REPL in a worker processes as port+worker_id</li>
-<li><code>repl-bind-worker</code> - Worker REPL listen address</li>
-<li><code>repl-port-web</code> - Web server base REPL port, if specified it initializes REPL in the Web server processes, in workers port is port+worker_id+1</li>
-<li><code>repl-bind-web</code> - Web server REPL listen address</li>
+<li><code>repl-bind-([a-z]+)</code> - Worker REPL listen address, supported suffixes: web, worker</li>
+<li><code>repl-port-([a-z]+)</code> - Worker base REPL port, if specified it initializes REPL in the worker processes, in workers port is port+worker_id+1, supported suffixes: web, worker</li>
 <li><code>repl-port</code> - Port for REPL interface in the master, if specified it initializes REPL in the master server process</li>
 <li><code>repl-bind</code> - Listen only on specified address for REPL server in the master process</li>
 <li><code>repl-file</code> - User specified file for REPL history</li>
-<li><code>lru-max</code> - Max number of items in the LRU cache, this cache is managed by the master Web server process and available to all Web processes maintaining only one copy per machine, Web proceses communicate with LRU cache via IPC mechanism between node processes</li>
-<li><code>cache-host</code> - An URL that points to the cache server in the format <code>PROTO://HOST[:PORT]?PARAMS</code>, to use for caching in API requests, default is local LRU cache</li>
-<li><code>cache-options</code> - JSON object with options to the cache client, specific to each implementation</li>
-<li><code>queue-host</code> - An URL that points to the queue server in the format <code>PROTO://HOST[:PORT]?PARAMS</code>, to use for PUB/SUB or job queues, default is no local queue</li>
-<li><code>queue-options</code> - JSON object with options to the queue client, specific to each implementation</li>
 <li><code>worker</code> - Set this process as a worker even it is actually a master, this skips some initializations</li>
 <li><code>allow-modules</code> - A regexp with modules name to be loaded on startup, only matched modules will be loaded, basename of the file is matched only, no path or extension</li>
 <li><code>deny-modules</code> - A regexp with modules names that will never be loaded even if allowed, this is for blacklisted modules</li>
@@ -2162,6 +2155,11 @@ might be useful when desining, developing or choosing the API platform:</p>
 <li><code>host-name</code> - Hostname/domain to use for communications, default is current domain of the host machine</li>
 <li><code>config-domain</code> - Domain to query for configuration TXT records, must be specified to enable DNS configuration</li>
 <li><code>watch</code> - Watch sources directory for file changes to restart the server, for development only, the backend module files will be added to the watch list automatically, so only app specific directores should be added. In the production -monitor must be used.</li>
+<li><code>ipc-lru-max</code> - Max number of items in the LRU cache, this cache is managed by the master Web server process and available to all Web processes maintaining only one copy per machine, Web proceses communicate with LRU cache via IPC mechanism between node processes</li>
+<li><code>ipc-cache-?([a-z0-1]+)?</code> - An URL that points to the cache server in the format <code>PROTO://HOST[:PORT]?PARAMS</code>, to use for caching in the API/DB requests, default is local LRU cache, multiple caches can be defined with unique names</li>
+<li><code>ipc-cache-?([a-z0-1]+)-options</code> - JSON object with options to the cache client, specific to each implementation</li>
+<li><code>ipc-queue-?([a-z0-1]+)?</code> - An URL that points to the queue server in the format <code>PROTO://HOST[:PORT]?PARAMS</code>, to use for PUB/SUB or job queues, default is no local queue, multiple queues can be defined with unique names</li>
+<li><code>ipc-queue-?([a-z0-1]+)?-options</code> - JSON object with options to the queue client, specific to each implementation</li>
 <li><code>db-pool</code> - Default pool to be used for db access without explicit pool specified. DNS TXT configurable.</li>
 <li><code>db-name</code> - Default database name to be used for default connections in cases when no db is specified in the connection url</li>
 <li><code>db-no-cache-columns</code> - Do not load column definitions from the database tables on startup, keep using in-app Javascript definitions only, in most cases caching columns is not required if tables are in sync between the app and the database</li>
@@ -2213,7 +2211,6 @@ might be useful when desining, developing or choosing the API platform:</p>
 <li><code>api-no-access-log</code> - Disable access logging in both file or syslog</li>
 <li><code>api-access-log-file</code> - File for access logging</li>
 <li><code>api-salt</code> - Salt to be used for scrambling credentials or other hashing activities</li>
-<li><code>api-notifications</code> - Initialize notifications in the API Web worker process to allow sending push notifications from the API handlers</li>
 <li><code>api-no-static</code> - Disable static files from /web folder, no .js or .html files will be served by the server</li>
 <li><code>api-static-options</code> - Options to be passed to the serve-static module for static content handling</li>
 <li><code>api-no-templating</code> - Disable templating engine completely</li>
@@ -2267,7 +2264,8 @@ might be useful when desining, developing or choosing the API platform:</p>
 <li><code>jobs-worker-env</code> - Environment to be passed to the worker via fork, see <code>cluster.fork</code></li>
 <li><code>jobs-max-runtime</code> - Max number of seconds a job can run before being killed</li>
 <li><code>jobs-max-lifetime</code> - Max number of seconds a worker can live, after that amount of time it will exit once all the jobs are finished, 0 means indefinitely</li>
-<li><code>jobs-queue</code> - Name of the queue where to publish jobs</li>
+<li><code>jobs-queue</code> - Default queue to use for jobs</li>
+<li><code>jobs-channel</code> - Name of the channel where to publish/receive jobs</li>
 <li><code>jobs-cron</code> - Load cron jobs from the local etc/crontab file, requires -jobs flag</li>
 <li><code>server-max-processes</code> - Max number of processes to launch for Web servers, 0 means NumberofCPUs-2</li>
 <li><code>server-max-workers</code> - Max number of worker processes to launch</li>
@@ -5132,7 +5130,13 @@ it is required to call <code>pool.release</code> at the end to return the connec
 </ul>
 
 <ul>
-<li><p><code>ipc.prototype.initClient(type)</code></p>
+<li><p><code>ipc.prototype.getClient(prefix, options)</code></p>
+<p> Return a cache or queue client by name if specifie din the options or use default client for the prefix</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>ipc.prototype.initClients(prefix)</code></p>
 <p> Initialize a client for cache or queue purposes, previous client will be closed.</p>
 </li>
 </ul>
@@ -5144,14 +5148,14 @@ it is required to call <code>pool.release</code> at the end to return the connec
 </ul>
 
 <ul>
-<li><p><code>ipc.prototype.keys(pattern, callback)</code></p>
+<li><p><code>ipc.prototype.keys(pattern, options, callback)</code></p>
 <p> Returns in the callback all cached keys or if pattern is given can return only matched keys according to the
 cache implementation, options is an object passed down to the driver as is</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>ipc.prototype.clear(pattern)</code></p>
+<li><p><code>ipc.prototype.clear(pattern, options)</code></p>
 <p> Clear all or only items that match the given pattern</p>
 </li>
 </ul>
@@ -5203,14 +5207,16 @@ returning an error with .status &gt;= 500 will keep the message in the queue to 
 
 <ul>
 <li><p><code>ipc.prototype.unsubscribe(channel, options, callback)</code></p>
-<p> Close a subscription, if no calback is provided all listeners for the key will be unsubscribed, otherwise only the specified listener.
-The callback will not be called.</p>
+<p> Close a subscription, if no callback is provided all listeners for the key will be unsubscribed, otherwise only the specified listener.
+The callback will not be called.
+It keeps a count how many subscribe/unsubscribe calls been made and stops any internal listeners once nobody is
+subscribed. This is specific to a queue which relies on polling.</p>
 </li>
 </ul>
 
 <ul>
 <li><p><code>ipc.prototype.publish(channel, msg, options, callback)</code></p>
-<p> Publish an event to the channel to be sent to the subscribed clients</p>
+<p> Publish an event to the channel, if no <code>options.queueName</code> is specified then it is sent to the default queue</p>
 </li>
 </ul>
 
@@ -5267,6 +5273,12 @@ instance.</p>
 </ul>
 
 <ul>
+<li><p><code>jobs.shutdownWorker(options, callback)</code></p>
+<p> Perform graceful worker shutdown, to be used for workers restart</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>jobs.initServer(options, callback)</code></p>
 <p> Initialize a master that will manage jobs workers</p>
 </li>
@@ -5279,7 +5291,7 @@ instance.</p>
 </ul>
 
 <ul>
-<li><p><code>jobs.isValid(jobspec)</code></p>
+<li><p><code>jobs.isJob(jobspec)</code></p>
 <p> Make sure the job is valid and has all required fields, returns a normalized job object or an error, the jobspec
 must be in the following formats:</p>
 <pre><code>  &quot;module.method&quot;
@@ -5291,8 +5303,22 @@ must be in the following formats:</p>
 </ul>
 
 <ul>
+<li><p><code>jobs.submitJob(jobspec, options, callback)</code></p>
+<p> Submit a job for execution, it will be saved in a queue and will be picked up later and executed.
+The queue and the way how it will be executed depends on the configured queue.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>jobs.runJob(jobspec, callback)</code></p>
+<p> Run all tasks in the job object, all errors will be just logged, but if <code>noerrors</code> is defined in the top
+level job object then the whole job will stop on first error returned by any task.</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>jobs.runTask(name, options, callback)</code></p>
-<p> Execute a task, calls the callback on finish or error</p>
+<p> Execute a task by name, the <code>options</code> will be passed to the function as the first argument, calls the callback on finish or error</p>
 </li>
 </ul>
 
@@ -5302,17 +5328,15 @@ must be in the following formats:</p>
 arguments for the instance backend process, properties must start with -</p>
 <p>Example:</p>
 <pre><code>    { &quot;cron&quot;: &quot;0 */10 * * * *&quot;, &quot;job&quot;: &quot;server.processQueue&quot; },
-    { &quot;cron&quot;: &quot;0 10 7 * * *&quot;, &quot;job&quot;: &quot;api.processQueue&quot; }
-    { &quot;cron&quot;: &quot;0 5 * * * *&quot;, &quot;job&quot;: { &quot;scraper.run&quot;: { &quot;url&quot;: &quot;host1&quot; }, &quot;$scraper.run&quot;: { &quot;url&quot;: &quot;host2&quot; } } }
-    { &quot;cron&quot;: &quot;0 */10 * * * *&quot;, &quot;job&quot;: &quot;server.processQueue&quot; },
-    { &quot;cron&quot;: &quot;0 */30 * * * *&quot;, &quot;job&quot;: &quot;server.processSQS&quot; },
+    { &quot;cron&quot;: &quot;0 */30 * * * *&quot;, &quot;job&quot;: { &quot;server.processQueue&quot;: { name: &quot;queue1&quot; } } },
+    { &quot;cron&quot;: &quot;0 5 * * * *&quot;, &quot;job&quot;: [ { &quot;scraper.run&quot;: { &quot;url&quot;: &quot;host1&quot; } }, { &quot;scraper.run&quot;: { &quot;url&quot;: &quot;host2&quot; } } ] }
 </code></pre></li>
 </ul>
 
 <ul>
 <li><p><code>jobs.scheduleCronjobs(type, list)</code></p>
 <p> Schedule a list of cron jobs, types is used to cleanup previous jobs for the same type for cases when
-a new list needs to replace the existing jobs. Empty list does nothing, to eset the jobs for the partivular type and
+a new list needs to replace the existing jobs. Empty list does nothing, to reset the jobs for the particular type and
 empty invalid jobs must be passed, like: <code>[ {} ]</code></p>
 <p>Returns number of cron jobs actually scheduled.</p>
 </li>
@@ -5335,19 +5359,6 @@ empty invalid jobs must be passed, like: <code>[ {} ]</code></p>
 <ul>
 <li><p><code>jobs.parseCronjobs(type, data)</code></p>
 <p> Parse a JSON data with cron jobs and schedule for the given type, this can be used to handle configuration properties</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>jobs.runJob(jobspec, callback)</code></p>
-<p> Run all tasks in the job object</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>jobs.submitJob(jobspec, options, callback)</code></p>
-<p> Submit a job for execution, it will be saved in a queue and will be picked up later and executed.
-The queue and the way how it will be executed depends on the configured queue.</p>
 </li>
 </ul>
 
@@ -6282,21 +6293,9 @@ the current function name with comma, like <code>logger.debug(&quot;select:&quot
 </ul>
 
 <ul>
-<li><p><code>msg.shutdownWorker(options, callback)</code></p>
-<p> Gracefully drain all message queues on worker exit</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>msg.shutdownWeb(options, callback)</code></p>
-<p> Gracefully drain all message queues on web process exit</p>
-</li>
-</ul>
-
-<ul>
 <li><p><code>msg.init(options, callback)</code></p>
 <p> Initialize supported notification services, it supports jobs agrument convention so can be used in the jobs that
-need to send push notifications in the worker process</p>
+need to send push notifications in the worker process.</p>
 </li>
 </ul>
 
@@ -6309,15 +6308,14 @@ need to send push notifications in the worker process</p>
 <ul>
 <li><p><code>msg.send(options, callback)</code></p>
 <p> Deliver a notification using the specified service, apple is default.
-Options may contain the following properties:</p>
+Options should contain the following properties:</p>
 <ul>
 <li>device_id - device(s) where to send the message to, can be multiple ids separated by , or |</li>
-<li>service - which service to use for delivery: sns, apn, gcm</li>
+<li>service - which service to use for delivery only: sns, apn, gcm</li>
 <li>msg - text message to send</li>
 <li>badge - badge number to show if supported by the service</li>
 <li>type - set type of the message, service specific</li>
 <li>id - send id with the notification, this is application specific data, sent as is</li>
-<li>queueKey - key where to publish in case of queue existence, i fnot given global key is used or empty key</li>
 </ul>
 </li>
 </ul>
@@ -7319,6 +7317,13 @@ lots of processing and memory.</p>
 </ul>
 
 <ul>
+<li><p><code>IpcClient.prototype.stopListening()</code></p>
+<p> Once the umber of unsubscribe calls is equal to the number of previously subscribe calls this is called to stop
+to stop listening for the events.</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>IpcClient.prototype.subscribe(channel, options, callback)</code></p>
 <p> Subscribe to receive notification from the given channel</p>
 </li>
@@ -7326,7 +7331,7 @@ lots of processing and memory.</p>
 
 <ul>
 <li><p><code>IpcClient.prototype.unsubscribe(channel, options, callback)</code></p>
-<p> Stop receiving notifictions for th give key</p>
+<p> Stop receiving notifications on the given channel</p>
 </li>
 </ul>
 
@@ -7340,10 +7345,10 @@ lots of processing and memory.</p>
 <ul>
 <li><p><code>Database tables</code></p>
 <pre><code>   bk_queue: { id: { primary: 1 },
-               status: {},                                       // job status
-               channel: { value: &quot;jobs&quot; },                       // subscription key
-               data: { type: &quot;json&quot; },                           // job definition object
-               mtime: { type: &quot;bigint&quot;, now: 1 } },
+               active: { type: &quot;int&quot;, index: 1, value: 0 },      // job status, new, running
+               channel: { value: &quot;jobs&quot;, projection: 1 },        // subscription key
+               data: { type: &quot;json&quot;, projection: 1 },            // job definition object
+               mtime: { type: &quot;bigint&quot;, now: 1, index: 1 } },
 </code></pre><p>  });</p>
 <p>  client.createClient = function(host, options)
   {</p>
@@ -7361,26 +7366,25 @@ lots of processing and memory.</p>
 <p>  IpcDbClient.prototype.startListening = function()
   {</p>
 <pre><code>  var self = this;
-  db.select(&quot;bk_queue&quot;, { status: null }, { ops: { status: &quot;null&quot; }, count: this.options.count }, function(err, rows) {
+  db.select(&quot;bk_queue&quot;, { active: 0 }, { sort: &quot;active_mtime&quot;, count: this.options.count }, function(err, rows) {
       var now = Date.now(), jobs = 0;
       if (!rows) rows = [];
       lib.forEach(rows, function(row, next) {
           // If we failed to update it means some other worker just did it before us so we just ignore this message
-          db.update(&quot;bk_queue&quot;, { id: row.id, status: &quot;hidden&quot; }, { expected: { status: null } }, function(err, data, info) {
+          db.update(&quot;bk_queue&quot;, { id: row.id, active: 1 }, { expected: { active: 0 } }, function(err, data, info) {
               if (err || !info.affected_rows) return next();
               jobs++;
               if (!self.emit(row.channel || &quot;message&quot;, row.data, function(err) {
                   // Retain the message only in case of known fatal errors, otherwise delete it after processing, any other error
                   // is considered as undeliverable due to corruption or invalid message format...
                   if (err &amp;&amp; err.status &gt;= 500) {
-                      db.update(&quot;bk_queue&quot;, { id: row.id, status: null });
+                      db.update(&quot;bk_queue&quot;, { id: row.id, active: 0 });
                   } else {
                       db.del(&quot;bk_queue&quot;, { id: row.id });
                   }
                   next();
               })) {
-                  // Keep messages in the queue until deleted or processed
-                  db.update(&quot;bk_queue&quot;, { id: row.id, status: null }, function() { next() });
+                  db.update(&quot;bk_queue&quot;, { id: row.id, active: 0 }, function() { next(); });
               }
 </code></pre></li>
 </ul>
@@ -7482,12 +7486,13 @@ lots of processing and memory.</p>
 </ul>
 
 <ul>
-<li><p><code>accounts.notifyAccount(id, options, callback)</code></p>
+<li><p><code>accounts.notifyAccount(options, callback)</code></p>
 <p> Send Push notification to the account, the actual transport delivery must be setup before calling this and passed in the options
 as handler: property which accepts the same arguments as this function. The delivery is not guaranteed, only will be sent if the account is considered
 &quot;offline&quot; according to the status and/or idle time. If the messages was queued for delivery, the row returned will contain the property sent:.
 The options may contain the following:</p>
 <ul>
+<li>account_id - REQUIRED, the account to who to send the notification</li>
 <li>msg - message text to send</li>
 <li>badge - a badge number to be sent</li>
 <li>prefix - prepend the message with this prefix</li>
