@@ -1386,6 +1386,39 @@ lib.objSet = function(obj, name, value, options)
     return v;
 }
 
+// Return an object structure as a string object by showing primitive properties only, for arrays it shows the length,
+// strings are limited by optins.length or 16 bytes,
+// the object depth is limited by options.depth or 3 levels deep, the number of properties are limited by options.count or 5
+lib.objDescr = function(obj, options)
+{
+    if (!obj) return "";
+    if (!options) options = {};
+    if (!options._depth) options._depth = 0;
+    var rc = "", n = 0;
+    for (var p in obj) {
+        if (rc) rc += ", ";
+        if (Array.isArray(obj[p])) {
+            rc += p + ":[" + obj[p].length + "]";
+        } else
+        if (this.isObject(obj[p])) {
+            if (options._depth >= (options.depth || 3)) {
+                rc += p + ": {...}";
+            } else {
+                options._depth++;
+                rc += p + ":{ " + this.objDescr(obj[p], options) + " }";
+                options._depth--;
+            }
+        } else
+        if (typeof obj[p] == "string") {
+            rc += p + ":" + obj[p].slice(0, options.length || 16);
+        } else {
+            rc += p + ":" + obj[p];
+        }
+        if (++n > (options.count || 5)) break;
+    }
+    return rc;
+}
+
 // JSON stringify without exceptions, on error just returns an empty string and logs the error
 lib.stringify = function(obj, filter)
 {

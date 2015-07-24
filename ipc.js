@@ -521,6 +521,19 @@ ipc.prototype.publish = function(channel, msg, options, callback)
     return this;
 }
 
+// Queue specific monitor services that must be run in the master process, this is intended to perform
+// queue cleanup or dealing with stuck messages
+ipc.prototype.monitor = function(options)
+{
+    logger.dev("ipc.monitor", options);
+    try {
+        this.getClient("queue", options).monitor(options);
+    } catch(e) {
+        logger.error('ipc.monitor:', e.stack);
+    }
+    return this;
+}
+
 // A Javascript object `msg` must have the following properties:
 // - name - unique id, can be IP address, account id, etc...
 // - rate, max, interval - same as for `metrics.TokenBucket` rate limiter.

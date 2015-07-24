@@ -18,9 +18,9 @@ var gcm = require('node-gcm');
 
 // Messaging and push notifications for mobile and other clients, supports Apple, Google and AWS/SNS push notifications.
 var msg = {
-    args: [ { name: "apn-cert", type: "list", descr: "List of certificates for APN service in pfx format, can be a file name with .p12 extension or a string with certificate contents encoded with base64, the certificate can be appended with @app to separate different applications where `app` is a bundle identifier of the app" },
+    args: [ { name: "apn-cert@?(.+)?", strip: "@", descr: "A certificate for the particular app for APN service in pfx format, can be a file name with .p12 extension or a string with certificate contents encoded with base64, if the suffix is specified in the config parameter name will be used as the app name, otherwise it is global" },
             { name: "apn-sandbox", type: "bool", descr: "Enable sandbox mode for testing APN notifications, default is production mode" },
-            { name: "gcm-key", type:"list", descr: "Google Cloud Messaging API key(s), a key can be appended with @app for different applications similar to APN certificate file names" },
+            { name: "gcm-key@?(.+)?", strip: "@", descr: "Google Cloud Messaging API key, if the suffix is specified in the config parameter will be used as the app name, without the suffix it is global" },
             { name: "shutdown-timeout", type:" int", min: 0, descr: "How long to wait for messages draining out in ms on shutdown before exiting" },],
     apnAgents: {},
     gcmAgents: {},
@@ -66,8 +66,8 @@ msg.shutdown = function(options, callback)
 }
 
 // Deliver a notification using the specified service, apple is default.
-// Options should contain the following properties:
-//  - device_id - device(s) where to send the message to, can be multiple ids separated by , or |
+// Options with the following properties:
+//  - device_id - device(s) where to send the message to, can be multiple ids separated by , or |, REQUIRED
 //  - service - which service to use for delivery only: sns, apn, gcm
 //  - msg - text message to send
 //  - badge - badge number to show if supported by the service
@@ -143,14 +143,10 @@ msg.initAPN = function(options)
 {
     var self = this;
 
-    if (!this.apnCert || !this.apnCert.length) return;
-    for (var i = 0; i < this.apnCert.length; i++) {
-        var file = this.apnCert[i], app = "default";
-        if (file.indexOf("@") > -1) {
-            var d = file.split("@");
-            file = d[0];
-            app = d[1];
-        }
+    for (var p in this) {
+        var d = p.match(/^apnCert(.*)/);
+        if (!d || !this[p] || typeof this[p] != "string") continue;
+        var file = this[p], app = d[1] || "default";
         var agent = new apnagent.Agent();
         if (file.match(/\.p12$/)) {
             agent.set('pfx file', file);
@@ -161,8 +157,14 @@ msg.initAPN = function(options)
         agent.on('message:error', function(err, msg) { logger[err && err.code != 10 && err.code != 8 ? "error" : "log"]('apn:message:', err.stack) });
         agent.on('gateway:error', function(err) { logger[err && err.code != 10 && err.code != 8 ? "error" : "log"]('apn:gateway:', err.stack) });
         agent.on('gateway:close', function(err) { logger.info('apn: closed') });
-        agent.connect(function(err) { logger[err ? "error" : "log"]('apn:', err || "connected"); });
         agent.decoder.on("error", function(err) { logger.error('apn:decoder:', err.stack); });
+        try {
+            agent.connect(function(err) { logger[err ? "error" : "log"]('apn:', err || "connected"); });
+        } catch(e) {
+            logger.error("initAPN:", app, file, e.stack);
+            continue;
+        }
+
 
         // A posible workaround for the queue being stuck and not sending anything
         agent._timeout = setInterval(function() { agent.queue.process() }, 3000);
@@ -240,14 +242,10 @@ msg.sendAPN = function(device_id, options, callback)
 msg.initGCM = function(options)
 {
     var self = this;
-    if (!this.gcmKey || !this.gcmKey.length) return;
-    for (var i = 0; i < this.gcmKey.length; i++) {
-        var key = this.gcmKey[i], app = "default";
-        if (key.indexOf("@") > -1) {
-            var d = key.split("@");
-            key = d[0];
-            app = d[1];
-        }
+    for (var p in this) {
+        var d = p.match(/^gcmKey(.*)/);
+        if (!d || !this[p] || typeof this[p] != "string") continue;
+        var key = this[p], app = d[1] || "default";
         var agent = new gcm.Sender(key);
         agent._sent = 0;
         agent._queue = 0;

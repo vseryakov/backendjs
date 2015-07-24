@@ -156,7 +156,7 @@ aws.getInstanceMeta = function(path, callback)
 {
     var self = this;
     if (typeof callback != "function") callback = lib.noop;
-    core.httpGet("http://169.254.169.254" + path, { httpTimeout: 100, quiet: true }, function(err, params) {
+    core.httpGet("http://169.254.169.254" + path, { httpTimeout: 100, quiet: true, retries: 2, retryTimeout: 100 }, function(err, params) {
         logger.debug('getInstanceMeta:', path, params.status, params.data, err || "");
         callback(err, params.status == 200 ? params.data : "");
     });
@@ -165,8 +165,7 @@ aws.getInstanceMeta = function(path, callback)
 // Retrieve instance credentials using EC2 instance profile and setup for AWS access
 aws.getInstanceCredentials = function(callback)
 {
-    if (typeof callback != "function") callback = lib.noop;
-    if (!this.amiProfile) return callback();
+    if (!this.amiProfile) return typeof callback == "function" && callback();
 
     var self = this;
     self.getInstanceMeta("/latest/meta-data/iam/security-credentials/" + self.amiProfile, function(err, data) {
@@ -179,11 +178,14 @@ aws.getInstanceCredentials = function(callback)
                 self.tokenExpiration = lib.toDate(obj.Expiration).getTime();
             }
         }
-        // Poll every ~5mins
-        if (!self.tokenTimer) {
-            self.tokenTimer = setInterval(function() { self.getInstanceCredentials() }, 258 * 1000);
-        }
-        callback(err);
+
+        // Refresh if not set or expire soon
+        var timeout = Math.min(self.tokenExpiration - Date.now(), 3600000);
+        if (timeout <= 15000) timeout = 500; else timeout -= 15000;
+        logger.info("getInstanceCredentials:", self.key, lib.strftime(self.tokenExpiration), "interval:", self.tokenExpiration - Date.now(), "timeout:", timeout);
+        setTimeout(self.getInstanceCredentials.bind(self), timeout);
+
+        if (typeof callback == "function") callback(err);
     });
 }
 
