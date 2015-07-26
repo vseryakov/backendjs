@@ -39,6 +39,7 @@
 </li>
 <li><a href="#pub-sub-or-queue-configurations"> PUB/SUB or Queue configurations</a><ul>
 <li><a href="#redis"> Redis</a></li>
+<li><a href="#redis-queue"> Redis Queue</a></li>
 <li><a href="#rabbitmq"> RabbitMQ</a></li>
 <li><a href="#db"> DB</a></li>
 <li><a href="#sqs"> SQS</a></li>
@@ -103,6 +104,7 @@
 <li><a href="#module-ipc_local">ipc_local</a></li>
 <li><a href="#module-ipc_memcache">ipc_memcache</a></li>
 <li><a href="#module-ipc_redis">ipc_redis</a></li>
+<li><a href="#module-ipc_redisq">ipc_redisq</a></li>
 <li><a href="#module-ipc_sqs">ipc_sqs</a></li>
 <li><a href="#module-accounts">accounts</a></li>
 <li><a href="#module-connections">connections</a></li>
@@ -134,10 +136,10 @@ same way allowing to switch databases without changing the code.</li>
 <li>Supports crontab and queue job processing by seperate workers.</li>
 <li>Authentication is based on signed requests using API key and secret, similar to Amazon AWS signing requests.</li>
 <li>Runs web server as separate processes to utilize multiple CPU cores.</li>
-<li>Local jobs are executed by spawned processes</li>
 <li>Supports WebSockets connections and process them with the same Express routes as HTTP requests</li>
 <li>Supports several cache modes(Redis, memcached, LRU) for the database operations.</li>
 <li>Supports several PUB/SUB modes of operations using Redis, RabbitMQ.</li>
+<li>Supports jobs processing using several work queue implementations on top of RabbitMQ, Redis, DB</li>
 <li>Supports common database operations (Get, Put, Del, Update, Select) for all databases using the same DB API.</li>
 <li>ImageMagick is compiled as C++ module for in-process image scaling.</li>
 <li>REPL(command line) interface for debugging and looking into server internals.</li>
@@ -1694,7 +1696,11 @@ message being a JSON object with the request API path and mtime, other propertie
 <li>the connection that initiated <code>/account/subscribe</code> receives an event</li>
 </ul>
 <h2 id="redis">Redis</h2>
-<p>To configure the backend to use Redis for messaging set <code>ipc-queue=redis://HOST</code> where HOST is IP address or hostname of the single Redis server.</p>
+<p>To configure the backend to use Redis for messaging set <code>ipc-queue=redis://HOST</code> where HOST is IP address or hostname of the single Redis server.
+This will use native PUB/SUB Redis feature.</p>
+<h2 id="redis-queue">Redis Queue</h2>
+<p>To configure the backend to use Redis for job processing set <code>ipc-queue=rediss://HOST</code> where HOST is IP address or hostname of the single Redis server.
+This driver implements reliable Redis queue, if <code>visibilityTimeout</code> config option is provided it can work similar to QWS SQS.</p>
 <h2 id="rabbitmq">RabbitMQ</h2>
 <p>To configure the backend to use RabbitMQ for messaging set <code>ipc-queue=amqp://HOST</code> and optionally <code>amqp-options=JSON</code> with options to the amqp module.</p>
 <h2 id="db">DB</h2>
@@ -5308,6 +5314,12 @@ instance.</p>
 </ul>
 
 <ul>
+<li><p><code>jobs.checkTimes()</code></p>
+<p> Check how long we run a job and force kill if exceeded, check if total life time is exceeded</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>jobs.isJob(jobspec)</code></p>
 <p> Make sure the job is valid and has all required fields, returns a normalized job object or an error, the jobspec
 must be in the following formats:</p>
@@ -7334,17 +7346,18 @@ on any error null or undefined will be returned</p>
 </ul>
 
 <ul>
-<li><p><code>IpcClient.prototype.startListening()</code></p>
-<p> This is called to configure and setup event processing from the queue on first subscription, if nobody subscribes this
+<li><p><code>IpcClient.prototype.poller()</code></p>
+<p> This is called to configure and setup event processing on first subscribe call, if nobody subscribes this
 will never be called and thus no initialization for event processing either, for clients that only publish this may save
 lots of processing and memory.</p>
+<p>This method must take care how to keep the poller running via interval or timeout as long as the <code>this._polling=1</code>.</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>IpcClient.prototype.stopListening()</code></p>
-<p> Once the umber of unsubscribe calls is equal to the number of previously subscribe calls this is called to stop
-to stop listening for the events.</p>
+<li><p><code>IpcClient.prototype.monitor()</code></p>
+<p> Queue monitor or cleanup service, when poller is involved this will be started and can be used for cleaning up stale messages or other
+maintainence work the requires.</p>
 </li>
 </ul>
 
@@ -7363,12 +7376,6 @@ to stop listening for the events.</p>
 <ul>
 <li><p><code>IpcClient.prototype.publish(channel, msg, options, callback)</code></p>
 <p> Publish an event</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>IpcClient.prototype.monitor()</code></p>
-<p> Queue monitor or cleanup service</p>
 </li>
 </ul>
 
@@ -7391,7 +7398,7 @@ to stop listening for the events.</p>
   lib.extendObj(this.options, url.parse(this.host, true).query);
   this.options.interval = lib.toNumber(this.options.interval, { dflt: 30, min: 1 });
   this.options.count = lib.toNumber(this.options.count, { dflt: 1, min: 1 });
-  this.options.visibilityTimeout = lib.toNumber(this.options.visibilityTimeout, { min: this.options.interval });
+  this.options.visibilityTimeout = lib.toNumber(this.options.visibilityTimeout, { min: 0, dflt: this.options.interval });
   this.emit(&quot;ready&quot;);
 </code></pre><p>  }
   util.inherits(IpcDbClient, Client);</p>
@@ -7408,6 +7415,7 @@ to stop listening for the events.</p>
 <h2 id="module-ipc_local">Module: IPC_LOCAL</h2>
 <h2 id="module-ipc_memcache">Module: IPC_MEMCACHE</h2>
 <h2 id="module-ipc_redis">Module: IPC_REDIS</h2>
+<h2 id="module-ipc_redisq">Module: IPC_REDISQ</h2>
 <h2 id="module-ipc_sqs">Module: IPC_SQS</h2>
 <h2 id="module-accounts">Module: ACCOUNTS</h2>
 <ul>
