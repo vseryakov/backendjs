@@ -20,10 +20,10 @@ Features:
 * Supports crontab and queue job processing by seperate workers.
 * Authentication is based on signed requests using API key and secret, similar to Amazon AWS signing requests.
 * Runs web server as separate processes to utilize multiple CPU cores.
-* Local jobs are executed by spawned processes
 * Supports WebSockets connections and process them with the same Express routes as HTTP requests
 * Supports several cache modes(Redis, memcached, LRU) for the database operations.
 * Supports several PUB/SUB modes of operations using Redis, RabbitMQ.
+* Supports jobs processing using several work queue implementations on top of RabbitMQ, Redis, DB
 * Supports common database operations (Get, Put, Del, Update, Select) for all databases using the same DB API.
 * ImageMagick is compiled as C++ module for in-process image scaling.
 * REPL(command line) interface for debugging and looking into server internals.
@@ -1741,6 +1741,11 @@ The flow of the pub/sub operations is the following:
 
 ## Redis
 To configure the backend to use Redis for messaging set `ipc-queue=redis://HOST` where HOST is IP address or hostname of the single Redis server.
+This will use native PUB/SUB Redis feature.
+
+## Redis Queue
+To configure the backend to use Redis for job processing set `ipc-queue=rediss://HOST` where HOST is IP address or hostname of the single Redis server.
+This driver implements reliable Redis queue, if `visibilityTimeout` config option is provided it can work similar to QWS SQS.
 
 ## RabbitMQ
 To configure the backend to use RabbitMQ for messaging set `ipc-queue=amqp://HOST` and optionally `amqp-options=JSON` with options to the amqp module.

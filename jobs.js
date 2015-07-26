@@ -116,17 +116,7 @@ jobs.initWorker = function(options, callback)
 
     ipc.initWorker();
 
-    setInterval(function() {
-        // Check how long we run and force kill if exceeded
-        if (self.running.length && Date.now() - self.runTime > self.maxRuntime * 1000) {
-            logger.log('initWorker:', 'jobs: exceeded max run time', self.maxRuntime);
-            process.exit(0);
-        }
-        if (!self.running.length && self.maxLifetime > 0 && Date.now() - core.ctime > self.maxLifetime * 1000) {
-            logger.log('initWorker:', 'jobs: exceeded max life time', self.maxLifetime);
-            process.exit(0);
-        }
-    }, 30000);
+    setInterval(this.checkTimes.bind(this), 30000);
 
     // Randomize subscription when multiple workers start at the same time, some queue drivers use polling
     setTimeout(function() {
@@ -136,12 +126,26 @@ jobs.initWorker = function(options, callback)
                 if (typeof next == "function") next(err);
                 // Mark end of last message processed
                 self.runTime = Date.now();
+                self.checkTimes();
             });
         });
         logger.log("initWorker:", "started", "queue:", self.queue, self.channel, "maxRuntime:", self.maxRuntime, "maxLifetime:", self.maxLifetime);
     }, lib.randomShort()/100);
 
     if (typeof callback == "function") callback();
+}
+
+// Check how long we run a job and force kill if exceeded, check if total life time is exceeded
+jobs.checkTimes = function()
+{
+    if (this.running.length && Date.now() - this.runTime > this.maxRuntime * 1000) {
+        logger.log('checkLifetime:', 'jobs: exceeded max run time', this.maxRuntime);
+        process.exit(0);
+    }
+    if (!this.running.length && this.maxLifetime > 0 && Date.now() - core.ctime > this.maxLifetime * 1000) {
+        logger.log('checkLifetime:', 'jobs: exceeded max life time', this.maxLifetime);
+        process.exit(0);
+    }
 }
 
 // Make sure the job is valid and has all required fields, returns a normalized job object or an error, the jobspec

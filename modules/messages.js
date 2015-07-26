@@ -259,6 +259,9 @@ messages.archiveMessage = function(req, options, callback)
         if (err) return callback(err, []);
         if (!row) return callback({ status: 404, message: "not found" }, []);
 
+        // Merge properties for the archive record
+        for (var p in req.query) row[p] = req.query[p];
+
         options.ops = null;
         db.put("bk_archive", row, options, function(err) {
             if (err) return callback(err, []);

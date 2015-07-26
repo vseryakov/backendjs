@@ -3,7 +3,7 @@
 //
 
 Bkjs.configRows = [];
-Bkjs.configRow0 = { type: "", name: "", value: "" };
+Bkjs.configRow0 = { type: "", name: "", value: "", old: "" };
 Bkjs.configRow = ko.mapping.fromJS(Bkjs.configRow0);
 Bkjs.configNodes = {};
 
