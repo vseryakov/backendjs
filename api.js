@@ -527,9 +527,10 @@ api.init = function(options, callback)
                 self.app.engine('html', consolidate[self.templating]);
                 self.app.set('view engine', 'html');
                 // Use app specific views path if created even if it is empty
-                self.app.set('views', core.path.views ||
-                             (fs.existsSync(core.home + "/views") ? core.home + "/views" :
-                              fs.existsSync(core.path.web + "/../views") ? core.path.web + "/../views" : __dirname + '/views'));
+                self.app.set('views', core.path.views && core.path.views[0] == "/" ? core.path.views :
+                                      core.path.views && fs.existsSync(core.path.views) ? core.path.views :
+                                      fs.existsSync(core.home + "/views") ? core.home + "/views" :
+                                      fs.existsSync(core.path.web + "/../views") ? core.path.web + "/../views" : __dirname + '/views');
                 logger.debug("templating:", self.templating, "views:", self.app.get("views"));
             }
 
@@ -1551,21 +1552,28 @@ api.checkResultColumns = function(table, rows, options)
 }
 
 // Clear request query properties specified in the table definition, if any columns for the table contains the property `name` nonempty, then
-// all request properties with the same name as this column name will be removed from the query. This for example is used for the `bk_account`
-// table to disable updating location related columns because speial location API maintains location data and updates the accounts table.
+// all request properties with the same name as this column name will be removed from the query. This for example is used for the `bk_auth`
+// table to disable updating properties by the user which can only be set by an admin.
 //
 // The options can have a property in the form `keep_{name}` which will prevent from clearing the query for the name, this is for dynamic enabling/disabling
 // this functionality without clearing table column definitions.
 //
 // The `options.reverse` will make the logic opposite: clear all properties that do not have the property `name` in the object.
 //
+// There can be more than one name specified
+//
+//  Example:
+//
+//        api.clearQuery(req.query, {}, "bk_account", "admin")
+//        api.clearQuery(req.query, {}, "bk_auth", "admin", "secure")
+//
 api.clearQuery = function(query, options, table, name)
 {
     var reverse = options && options.reverse ? 1 : 0;
+    var cols = db.getColumns(table, options);
     for (var i = 3; i < arguments.length; i++) {
         var name = arguments[i];
         if (options && options['keep_' + name]) continue;
-        var cols = db.getColumns(table, options);
         for (var p in cols) {
             if ((!reverse && cols[p][name]) || (reverse && !cols[p][name])) delete query[p];
         }

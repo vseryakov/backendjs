@@ -1087,7 +1087,8 @@ db.search = function(table, query, options, callback)
 // - options.keysMap - an object that defines which property should be used for a key in the given rows, this is
 //   for cases when actual primary keys in the table are different from the rows properties.
 // - options.existing is 1 then return only joined records.
-// - options.override - joined table properties will replace existing ones
+// - options.override - joined table properties will replace the original table existing properties
+// - options.attach - specifies a property name which will be used to attache joined record to the original record, no mergin will occur
 //
 // Example:
 //
@@ -1119,7 +1120,11 @@ db.join = function(table, rows, options, callback)
             var key = self.getQueryForKeys(keys, x);
             var k = Object.keys(key).map(function(y) { return key[y]}).join(self.separator);
             map[k].forEach(function(row) {
-                for (var p in x) if (options.override || !row[p]) row[p] = x[p];
+                if (options.attach) {
+                    row[options.attach] = x;
+                } else {
+                    for (var p in x) if (options.override || !row[p]) row[p] = x[p];
+                }
                 if (options.existing) row.__1 = 1;
             });
         });

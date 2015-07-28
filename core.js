@@ -53,7 +53,7 @@ var core = {
     cwd: process.cwd(),
 
     // Various folders, by default relative paths are used
-    path: { etc: "etc", spool: "var", images: "images", tmp: "tmp", web: "web", views: "", files: "files", log: "log", modules: "modules" },
+    path: { etc: "etc", spool: "var", images: "images", tmp: "tmp", web: "web", views: "views", files: "files", log: "log", modules: "modules" },
 
     // Log file for debug and other output from the modules, error or info messages, default is stdout
     logFile: "log/message.log",

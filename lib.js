@@ -97,22 +97,21 @@ lib.toNumber = function(val, options)
 {
     var n = 0;
     if (typeof val == "number") {
-        if (!options) return val;
         n = val;
     } else {
-        if (!options) options = {};
-        if (typeof options.dflt == "undefined") options.dflt = 0;
         if (typeof val != "string") {
-            n = options.dflt;
+            n = (options && options.dflt) || 0;
         } else {
             // Autodetect floating number
-            if (typeof options.float == "undefined" || options.float == null) options.float = /^[0-9-]+\.[0-9]+$/.test(val);
-            n = val[0] == 't' ? 1 : val[0] == 'f' ? 0 : val == "infinity" ? Infinity : (options.float ? parseFloat(val, 10) : parseInt(val, 10));
-            n = isNaN(n) ? options.dflt : n;
+            var f = !options || typeof options.float == "undefined" || options.float == null ? /^[0-9-]+\.[0-9]+$/.test(val) : options.float;
+            n = val[0] == 't' ? 1 : val[0] == 'f' ? 0 : val == "infinity" ? Infinity : (f ? parseFloat(val, 10) : parseInt(val, 10));
         }
     }
-    if (typeof options.min == "number" && n < options.min) n = options.min;
-    if (typeof options.max == "number" && n > options.max) n = options.max;
+    n = isNaN(n) ? ((options && options.dflt) || 0) : n;
+    if (options) {
+        if (typeof options.min == "number" && n < options.min) n = options.min;
+        if (typeof options.max == "number" && n > options.max) n = options.max;
+    }
     return n;
 }
 
@@ -121,7 +120,7 @@ lib.toBool = function(val, dflt)
 {
     if (typeof val == "boolean") return val;
     if (typeof val == "undefined") val = dflt;
-    return !val || val == "false" || val == "FALSE" || val == "f" || val == "F" || val == "0" ? false : true;
+    return !val || val.match(/^(false|off|f|0$)/i) ? false : true;
 }
 
 // Return Date object for given text or numeric date representation, for invalid date returns 1969

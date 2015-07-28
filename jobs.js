@@ -75,8 +75,10 @@ jobs.shutdownWorker = function(options, callback)
     // Stop accepting messages from the queue
     ipc.unsubscribe(this.channel, { queueName: this.queue });
     // Wait until the current job is processed and confirmed
-    setInterval(function() {
-        if (!self.running.length && Date.now() - self.runTime > 50) callback();
+    var timer = setInterval(function() {
+        if (self.running.length || Date.now() - self.runTime < 50) return;
+        clearInterval(timer);
+        callback();
     }, 50);
 }
 
