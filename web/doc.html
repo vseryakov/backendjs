@@ -2280,6 +2280,7 @@ might be useful when desining, developing or choosing the API platform:</p>
 <li><code>jobs-worker-env</code> - Environment to be passed to the worker via fork, see <code>cluster.fork</code></li>
 <li><code>jobs-max-runtime</code> - Max number of seconds a job can run before being killed</li>
 <li><code>jobs-max-lifetime</code> - Max number of seconds a worker can live, after that amount of time it will exit once all the jobs are finished, 0 means indefinitely</li>
+<li><code>jobs-shutdown-timeout</code> - Max number of milliseconds to wait for the graceful shutdown sequence to finish, after this timeout the process just exits</li>
 <li><code>jobs-queue</code> - Default queue to use for jobs</li>
 <li><code>jobs-channel</code> - Name of the channel where to publish/receive jobs</li>
 <li><code>jobs-cron</code> - Load cron jobs from the local etc/crontab file, requires -jobs flag</li>
@@ -2706,12 +2707,16 @@ database pool.</p>
 <ul>
 <li><p><code>api.clearQuery(query, options, table, name)</code></p>
 <p> Clear request query properties specified in the table definition, if any columns for the table contains the property <code>name</code> nonempty, then
-all request properties with the same name as this column name will be removed from the query. This for example is used for the <code>bk_account</code>
-table to disable updating location related columns because speial location API maintains location data and updates the accounts table.</p>
+all request properties with the same name as this column name will be removed from the query. This for example is used for the <code>bk_auth</code>
+table to disable updating properties by the user which can only be set by an admin.</p>
 <p>The options can have a property in the form <code>keep_{name}</code> which will prevent from clearing the query for the name, this is for dynamic enabling/disabling
 this functionality without clearing table column definitions.</p>
 <p>The <code>options.reverse</code> will make the logic opposite: clear all properties that do not have the property <code>name</code> in the object.</p>
-</li>
+<p>There can be more than one name specified</p>
+<p>Example:</p>
+<pre><code>  api.clearQuery(req.query, {}, &quot;bk_account&quot;, &quot;admin&quot;)
+  api.clearQuery(req.query, {}, &quot;bk_auth&quot;, &quot;admin&quot;, &quot;secure&quot;)
+</code></pre></li>
 </ul>
 
 <ul>
@@ -4492,7 +4497,8 @@ The properties from the joined table will be merged with the original rows prese
 <li>options.keysMap - an object that defines which property should be used for a key in the given rows, this is
 for cases when actual primary keys in the table are different from the rows properties.</li>
 <li>options.existing is 1 then return only joined records.</li>
-<li>options.override - joined table properties will replace existing ones</li>
+<li>options.override - joined table properties will replace the original table existing properties</li>
+<li>options.attach - specifies a property name which will be used to attache joined record to the original record, no mergin will occur</li>
 </ul>
 <p>Example:</p>
 <pre><code>    db.join(&quot;bk_account&quot;, [{id:&quot;123&quot;,key1:1},{id:&quot;234&quot;,key1:2}], db.showResult)
@@ -5310,6 +5316,12 @@ instance.</p>
 <ul>
 <li><p><code>jobs.initWorker(options, callback)</code></p>
 <p> Initialize a worker for processing jobs</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>jobs.shutdownWorker(options)</code></p>
+<p> Perform gracefulworker shutdown and then exit the process</p>
 </li>
 </ul>
 
@@ -6370,7 +6382,7 @@ Options with the following properties:</p>
 
 <ul>
 <li><p><code>msg.initAPN(options)</code></p>
-<p> Initiaize Apple Push Notification service in the current process, Apple supports multiple connections to the APN gateway but
+<p> Initialize Apple Push Notification service in the current process, Apple supports multiple connections to the APN gateway but
 not too many so this should be called on the dedicated backend hosts, on multi-core servers every spawn web process will initialize a
 connection to APN gateway.</p>
 </li>
