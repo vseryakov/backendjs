@@ -38,7 +38,7 @@ msg.onDeviceUninstall = null;
 msg.init = function(options, callback)
 {
     if (typeof options == "function") callback = options, options = null;
-    logger.info("msg:", "init");
+    logger.debug("msg:", "init");
 
     this.initAPN(options);
     this.initGCM(options);
@@ -50,9 +50,11 @@ msg.shutdown = function(options, callback)
 {
     var self = this;
     if (typeof options == "function") callback = options, options = null;
-    logger.info("msg:", "shutdown");
 
     // Wait a little just in case for some left over tasks
+    var timeout = lib.toNumber((options && options.timeout) || this.shutdownTimeout);
+    logger.debug("msg:", "shutdown", timeout);
+
     setTimeout(function() {
         lib.parallel([
            function(next) {
@@ -62,7 +64,7 @@ msg.shutdown = function(options, callback)
                self.closeGCM(next);
            },
         ], callback);
-    }, lib.toNumber((options && options.timeout) || this.shutdownTimeout));
+    }, timeout);
 }
 
 // Deliver a notification using the specified service, apple is default.
@@ -136,7 +138,7 @@ msg.parseDevice = function(device)
     return dev;
 }
 
-// Initiaize Apple Push Notification service in the current process, Apple supports multiple connections to the APN gateway but
+// Initialize Apple Push Notification service in the current process, Apple supports multiple connections to the APN gateway but
 // not too many so this should be called on the dedicated backend hosts, on multi-core servers every spawn web process will initialize a
 // connection to APN gateway.
 msg.initAPN = function(options)
@@ -147,6 +149,8 @@ msg.initAPN = function(options)
         var d = p.match(/^apnCert(.*)/);
         if (!d || !this[p] || typeof this[p] != "string") continue;
         var file = this[p], app = d[1] || "default";
+        if (this.apnAgents[app]) continue;
+
         var agent = new apnagent.Agent();
         if (file.match(/\.p12$/)) {
             agent.set('pfx file', file);
@@ -169,7 +173,6 @@ msg.initAPN = function(options)
         // A posible workaround for the queue being stuck and not sending anything
         agent._timeout = setInterval(function() { agent.queue.process() }, 3000);
         agent._sent = 0;
-        logger.debug("initAPN:", app, agent.settings);
 
         // Only run if we need to handle uninstalls
         if (this.onDeviceUninstall) {
@@ -186,8 +189,8 @@ msg.initAPN = function(options)
                 self.onDeviceUninstall(device, timestamp, next);
             });
         }
-
         this.apnAgents[app] = agent;
+        logger.info("initAPN:", app, agent.settings);
     }
 }
 
@@ -246,10 +249,13 @@ msg.initGCM = function(options)
         var d = p.match(/^gcmKey(.*)/);
         if (!d || !this[p] || typeof this[p] != "string") continue;
         var key = this[p], app = d[1] || "default";
+        if (this.gcmAgents[app]) continue;
+
         var agent = new gcm.Sender(key);
         agent._sent = 0;
         agent._queue = 0;
         this.gcmAgents[app] = agent;
+        logger.info("initGCM:", app, key);
     }
 }
 

@@ -28,8 +28,9 @@ var jobs = {
     args: [{ name: "workers", type: "number", min: 0, max: 32, descr: "How many worker processes to launch to process the job queue, 0 disables jobs" },
            { name: "worker-args", type: "list", descr: "Node arguments for workers, for passing v8 jobspec, see `process`" },
            { name: "worker-env", type: "json", descr: "Environment to be passed to the worker via fork, see `cluster.fork`" },
-           { name: "max-runtime", type: "number", min: 300, descr: "Max number of seconds a job can run before being killed" },
-           { name: "max-lifetime", type: "number", min: 0, descr: "Max number of seconds a worker can live, after that amount of time it will exit once all the jobs are finished, 0 means indefinitely" },
+           { name: "max-runtime", type: "int", min: 300, descr: "Max number of seconds a job can run before being killed" },
+           { name: "max-lifetime", type: "int", min: 0, descr: "Max number of seconds a worker can live, after that amount of time it will exit once all the jobs are finished, 0 means indefinitely" },
+           { name: "shutdown-timeout", type: "int", min: 0, descr: "Max number of milliseconds to wait for the graceful shutdown sequence to finish, after this timeout the process just exits" },
            { name: "queue", descr: "Default queue to use for jobs" },
            { name: "channel", descr: "Name of the channel where to publish/receive jobs" },
            { name: "cron", type: "bool", descr: "Load cron jobs from the local etc/crontab file, requires -jobs flag" },
@@ -37,6 +38,7 @@ var jobs = {
 
     // List of running jobs for a worker
     running: [],
+    exiting: 0,
     // Time of the last update on jobs and tasks
     runTime: 0,
     // Schedules cron jobs
@@ -45,6 +47,7 @@ var jobs = {
     queue: "",
     maxRuntime: 900,
     maxLifetime: 86400,
+    shutdownTimeout: 1000,
     workers: 0,
     workerArgs: [],
     workerEnv: {},
@@ -137,16 +140,28 @@ jobs.initWorker = function(options, callback)
     if (typeof callback == "function") callback();
 }
 
+// Perform gracefulworker shutdown and then exit the process
+jobs.shutdownWorker = function(options)
+{
+    if (this.exiting++) return;
+    var timeout = setTimeout(function() { process.exit(99) }, this.shutdownTimeout);
+    core.runMethods("shutdownWorker", function() {
+        clearTimeout(timeout);
+        process.exit(0);
+    });
+}
+
 // Check how long we run a job and force kill if exceeded, check if total life time is exceeded
 jobs.checkTimes = function()
 {
     if (this.running.length && Date.now() - this.runTime > this.maxRuntime * 1000) {
-        logger.log('checkLifetime:', 'jobs: exceeded max run time', this.maxRuntime);
-        process.exit(0);
-    }
+        logger.warn('checkLifetime:', 'jobs: exceeded max run time', this.maxRuntime);
+        this.shutdownWorker();
+    } else
+
     if (!this.running.length && this.maxLifetime > 0 && Date.now() - core.ctime > this.maxLifetime * 1000) {
         logger.log('checkLifetime:', 'jobs: exceeded max life time', this.maxLifetime);
-        process.exit(0);
+        this.shutdownWorker();
     }
 }
 

@@ -604,8 +604,10 @@ api.shutdown = function(callback)
             try { self.server.close(function() { next() }); } catch(e) { logger.error("api.shutdown:", e.stack); next() }
         },
         ], function(err) {
-            clearTimeout(timeout);
-            core.runMethods("shutdownWeb", callback);
+            core.runMethods("shutdownWeb", function() {
+                clearTimeout(timeout);
+                callback(err);
+            })
         });
 }
 
