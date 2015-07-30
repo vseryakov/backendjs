@@ -490,20 +490,26 @@ environment, not just a Web browser. Request signature can be passed in the quer
 <li><p><code>/auth</code></p>
 <p> This API request returns the current user record from the <code>bk_auth</code> table if the request is verified and the signature provided
  is valid. If no signature or it is invalid the result will be an error with the corresponding error code and message.</p>
-<p> By default this endpoint is secired, i.e. requires valid signature. It can be used in anonymous mode as well thus
+<p> By default this endpoint is secured, i.e. requires valid signature. It can be used in anonymous mode as well thus
  allowing to clear cookies uncodnitionally, set config <code>api-allow-anonymous=/auth</code>.</p>
 <p> Parameters:</p>
 <ul>
 <li><code>_session=1</code> - if the call is authenticated a cookie with the session signature is returned, from now on
  all requests with such cookie will be authenticated, the primary use for this is Web apps</li>
 <li><code>_session=0</code> - clears all sessions cookies, if no session or no cookies provided returns an error for not authenticated request</li>
-<li><code>_accesstoken=1</code> - returns new access token to be used for subsequent requests without a signature for the current account,
- the token is short lived with expirtion date returned as well. This access token can be used instead of a signature and
- is passed in the query as <code>bk-access-token=TOKEN</code>.</li>
+<li><p><code>_accesstoken=1</code> - returns new access token to be used for subsequent requests without a signature for the current account,
+ the token is short lived with expiration date returned as well. This access token can be used instead of a signature and
+ is passed in the query as <code>bk-access-token=TOKEN</code>.</p>
+<p> Example:</p>
+</li>
 </ul>
 </li>
 </ul>
-<h2 id="accounts">Accounts</h2>
+<pre><code>          /auth?_accesstoken=1
+            { id: &quot;NNNNN...&quot;, alias: &quot;Test User&quot;, &quot;bk-access-token&quot;: &quot;XXXXX....&quot;, &quot;bk-access-token-age&quot;: 604800000 }
+
+          /message/get?bk-access-token=XXXXXX...
+</code></pre><h2 id="accounts">Accounts</h2>
 <p>The accounts API manages accounts and authentication, it provides basic user account features with common fields like email, name, address.</p>
 <p>This is implemented by the <code>accounts</code> module from the core. To disable accounts functionality specify <code>-deny-modules=accounts</code>.</p>
 <ul>
@@ -4354,6 +4360,7 @@ Special properties that can be in the options for this call:</p>
 <li><p><code>db.incr(table, obj, options, callback)</code></p>
 <p> Counter operation, increase or decrease column values, similar to update but all specified columns except primary
 key will be incremented, use negative value to decrease the value.</p>
+<p>If no <code>options.counter</code> list with column names is provided all columns with type &#39;counter&#39; will be used</p>
 <p><em>Note: The record must exist already for SQL databases, for DynamoDB and Cassandra a new record will be created
 if does not exist yet.</em></p>
 <p>Example</p>
@@ -5035,7 +5042,7 @@ is used for SQL parametrized statements</p>
 </ul>
 
 <ul>
-<li><p><code>db.putCache(table, obj, options)</code></p>
+<li><p><code>db.putCache(table, query, options)</code></p>
 <p> Store a record in the cache</p>
 </li>
 </ul>
@@ -5320,7 +5327,7 @@ instance.</p>
 </ul>
 
 <ul>
-<li><p><code>jobs.shutdownWorker(options)</code></p>
+<li><p><code>jobs.exitWorker(options)</code></p>
 <p> Perform gracefulworker shutdown and then exit the process</p>
 </li>
 </ul>
@@ -5520,7 +5527,7 @@ false
 <ul>
 <li><p><code>lib.toParams(query, schema, options)</code></p>
 <p> Process incoming query and convert parameters according to the type definition, the schema contains the definition of the paramaters against which to
-validate incoming data. It is an object with property names and definitoons that at lrast must specify the type, all other options are type specific.</p>
+validate incoming data. It is an object with property names and definitoons that at least must specify the type, all other options are type specific.</p>
 <p>The options can define the following properties:</p>
 <ul>
 <li>data - to pass realtime or other custom options for the validation or convertion utilities as the first argument if not defined in the definition.</li>
@@ -6343,7 +6350,7 @@ the current function name with comma, like <code>logger.debug(&quot;select:&quot
 
 <ul>
 <li><p><code>msg.init(options, callback)</code></p>
-<p> Initialize supported notification services, it supports jobs agrument convention so can be used in the jobs that
+<p> Initialize supported notification services, it supports jobs arguments convention so can be used in the jobs that
 need to send push notifications in the worker process.</p>
 </li>
 </ul>
@@ -7476,6 +7483,7 @@ maintainence work the requires.</p>
           bk_status: { id: { primary: 1, pub: 1 },                        // account id
                        status: { pub: 1 },                                // status, online, offline, away
                        alias: { pub: 1 },
+                       version: {},                                       // app name/version
                        atime: { type: &quot;bigint&quot;, now: 1, pub: 1 },         // last access time
                        mtime: { type: &quot;bigint&quot; }, pub: 1 },               // last status save to db time
 
