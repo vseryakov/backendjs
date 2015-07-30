@@ -268,10 +268,10 @@ jobs.runTask = function(name, options, callback)
     d.on("error", done);
     d.run(function() {
         logger.info('runTask:', 'started', name, options);
-        module[method[1]](options, done);
         self.runTime = Date.now();
         self.running.push(name);
         if (cluster.isWorker) process.title = core.name + ': worker ' + self.running.join(',');
+        module[method[1]](options, done);
     });
 }
 
