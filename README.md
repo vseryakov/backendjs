@@ -449,7 +449,7 @@ environment, not just a Web browser. Request signature can be passed in the quer
    This API request returns the current user record from the `bk_auth` table if the request is verified and the signature provided
    is valid. If no signature or it is invalid the result will be an error with the corresponding error code and message.
 
-   By default this endpoint is secired, i.e. requires valid signature. It can be used in anonymous mode as well thus
+   By default this endpoint is secured, i.e. requires valid signature. It can be used in anonymous mode as well thus
    allowing to clear cookies uncodnitionally, set config `api-allow-anonymous=/auth`.
 
    Parameters:
@@ -458,8 +458,16 @@ environment, not just a Web browser. Request signature can be passed in the quer
       all requests with such cookie will be authenticated, the primary use for this is Web apps
    - `_session=0` - clears all sessions cookies, if no session or no cookies provided returns an error for not authenticated request
    - `_accesstoken=1` - returns new access token to be used for subsequent requests without a signature for the current account,
-      the token is short lived with expirtion date returned as well. This access token can be used instead of a signature and
+      the token is short lived with expiration date returned as well. This access token can be used instead of a signature and
       is passed in the query as `bk-access-token=TOKEN`.
+
+      Example:
+
+
+              /auth?_accesstoken=1
+                { id: "NNNNN...", alias: "Test User", "bk-access-token": "XXXXX....", "bk-access-token-age": 604800000 }
+
+              /message/get?bk-access-token=XXXXXX...
 
 ## Accounts
 The accounts API manages accounts and authentication, it provides basic user account features with common fields like email, name, address.

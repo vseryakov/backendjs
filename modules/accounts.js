@@ -66,6 +66,7 @@ accounts.init = function(options)
             bk_status: { id: { primary: 1, pub: 1 },                        // account id
                          status: { pub: 1 },                                // status, online, offline, away
                          alias: { pub: 1 },
+                         version: {},                                       // app name/version
                          atime: { type: "bigint", now: 1, pub: 1 },         // last access time
                          mtime: { type: "bigint" }, pub: 1 },               // last status save to db time
 

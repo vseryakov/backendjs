@@ -141,7 +141,7 @@ jobs.initWorker = function(options, callback)
 }
 
 // Perform gracefulworker shutdown and then exit the process
-jobs.shutdownWorker = function(options)
+jobs.exitWorker = function(options)
 {
     if (this.exiting++) return;
     var timeout = setTimeout(function() { process.exit(99) }, this.shutdownTimeout);
@@ -156,12 +156,12 @@ jobs.checkTimes = function()
 {
     if (this.running.length && Date.now() - this.runTime > this.maxRuntime * 1000) {
         logger.warn('checkLifetime:', 'jobs: exceeded max run time', this.maxRuntime);
-        this.shutdownWorker();
+        this.exitWorker();
     } else
 
     if (!this.running.length && this.maxLifetime > 0 && Date.now() - core.ctime > this.maxLifetime * 1000) {
         logger.log('checkLifetime:', 'jobs: exceeded max life time', this.maxLifetime);
-        this.shutdownWorker();
+        this.exitWorker();
     }
 }
 
@@ -255,7 +255,7 @@ jobs.runTask = function(name, options, callback)
     if (!lib.isObject(options)) options = {};
 
     function done(err) {
-        logger[err ? "error" : "debug"]('runTask:', 'finished', name, util.isError(err) ? err.stack : (err || ""));
+        logger[err ? "error" : "info"]('runTask:', 'finished', name, util.isError(err) ? err.stack : (err || ""));
         self.runTime = Date.now();
         // Update process title with current job list
         var idx = self.running.indexOf(name);
@@ -267,7 +267,7 @@ jobs.runTask = function(name, options, callback)
     var d = domain.create();
     d.on("error", done);
     d.run(function() {
-        logger.debug('runTask:', 'started', name, options);
+        logger.info('runTask:', 'started', name, options);
         module[method[1]](options, done);
         self.runTime = Date.now();
         self.running.push(name);

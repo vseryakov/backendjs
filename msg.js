@@ -33,7 +33,7 @@ module.exports = msg;
 // the function must be defined as `function(device, timestamp, next)`, the next callback must be called at the end.
 msg.onDeviceUninstall = null;
 
-// Initialize supported notification services, it supports jobs agrument convention so can be used in the jobs that
+// Initialize supported notification services, it supports jobs arguments convention so can be used in the jobs that
 // need to send push notifications in the worker process.
 msg.init = function(options, callback)
 {

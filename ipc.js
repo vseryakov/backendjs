@@ -68,7 +68,7 @@ ipc.prototype.handleWorkerMessages = function(msg)
             break;
 
         case "worker:restart":
-            core.runMethods("shutdownWorker", function() { process.exit(0); });
+            if (cluster.isWorker) core.runMethods("shutdownWorker", function() { process.exit(0); });
             break;
 
         case "cache:init":
@@ -126,7 +126,7 @@ ipc.prototype.handleServerMessages = function(worker, msg)
                 var idx = this.workers.indexOf(cluster.workers[p].pid);
                 if (idx == -1) continue;
                 this.workers.splice(idx, 1);
-                cluster.workers[p].send({ op: "api:restart" });
+                cluster.workers[p].send({ __op: "api:restart" });
                 return;
             }
             break;

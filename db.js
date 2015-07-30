@@ -727,6 +727,8 @@ db.updateAll = function(table, query, obj, options, callback)
 // Counter operation, increase or decrease column values, similar to update but all specified columns except primary
 // key will be incremented, use negative value to decrease the value.
 //
+// If no `options.counter` list with column names is provided all columns with type 'counter' will be used
+//
 // *Note: The record must exist already for SQL databases, for DynamoDB and Cassandra a new record will be created
 // if does not exist yet.*
 //
@@ -2179,12 +2181,12 @@ db.getCache = function(table, query, options, callback)
 }
 
 // Store a record in the cache
-db.putCache = function(table, obj, options)
+db.putCache = function(table, query, options)
 {
-    var key = options && options.cacheKey ? options.cacheKey : this.getCacheKey(table, obj, options);
+    var key = options && options.cacheKey ? options.cacheKey : this.getCacheKey(table, query, options);
     if (!key) return;
     logger.debug("putCache:", key);
-    ipc.put(key, lib.stringify(obj), options);
+    ipc.put(key, lib.stringify(query), options);
 }
 
 // Notify or clear cached record, this is called after del/update operation to clear cached version by primary keys

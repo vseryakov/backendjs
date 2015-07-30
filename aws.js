@@ -182,7 +182,7 @@ aws.getInstanceCredentials = function(callback)
         // Refresh if not set or expire soon
         var timeout = Math.min(self.tokenExpiration - Date.now(), 3600000);
         if (timeout <= 15000) timeout = 500; else timeout -= 15000;
-        logger.info("getInstanceCredentials:", self.key, lib.strftime(self.tokenExpiration), "interval:", self.tokenExpiration - Date.now(), "timeout:", timeout);
+        logger.info("getInstanceCredentials:", self.key, lib.strftime(self.tokenExpiration), "interval:", lib.toDuration(self.tokenExpiration - Date.now()), "timeout:", timeout);
         setTimeout(self.getInstanceCredentials.bind(self), timeout);
 
         if (typeof callback == "function") callback(err);

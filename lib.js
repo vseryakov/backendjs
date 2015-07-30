@@ -119,8 +119,9 @@ lib.toNumber = function(val, options)
 lib.toBool = function(val, dflt)
 {
     if (typeof val == "boolean") return val;
+    if (typeof val == "number") return !!val;
     if (typeof val == "undefined") val = dflt;
-    return !val || val.match(/^(false|off|f|0$)/i) ? false : true;
+    return !val || String(val).match(/^(false|off|f|0$)/i) ? false : true;
 }
 
 // Return Date object for given text or numeric date representation, for invalid date returns 1969
@@ -283,7 +284,7 @@ lib.toAge = function(mtime)
 }
 
 // Process incoming query and convert parameters according to the type definition, the schema contains the definition of the paramaters against which to
-// validate incoming data. It is an object with property names and definitoons that at lrast must specify the type, all other options are type specific.
+// validate incoming data. It is an object with property names and definitoons that at least must specify the type, all other options are type specific.
 //
 // The options can define the following properties:
 //  - data - to pass realtime or other custom options for the validation or convertion utilities as the first argument if not defined in the definition.
