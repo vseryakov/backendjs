@@ -1763,19 +1763,22 @@ The flow of the pub/sub operations is the following:
 - the connection that initiated `/account/subscribe` receives an event
 
 ## Redis
-To configure the backend to use Redis for messaging set `ipc-queue=redis://HOST` where HOST is IP address or hostname of the single Redis server.
+To configure the backend to use Redis for PUB/SUB messaging set `ipc-queue=redis://HOST` where HOST is IP address or hostname of the single Redis server.
 This will use native PUB/SUB Redis feature.
 
 ## Redis Queue
-To configure the backend to use Redis for job processing set `ipc-queue=rediss://HOST` where HOST is IP address or hostname of the single Redis server.
-This driver implements reliable Redis queue, if `visibilityTimeout` config option is provided it can work similar to QWS SQS.
+To configure the backend to use Redis for job processing set `ipc-queue=redisq://HOST` where HOST is IP address or hostname of the single Redis server.
+This driver implements reliable Redis queue, with `visibilityTimeout` config option works similar to AWS SQS.
 
 ## RabbitMQ
 To configure the backend to use RabbitMQ for messaging set `ipc-queue=amqp://HOST` and optionally `amqp-options=JSON` with options to the amqp module.
+Additional objects from the config JSON are used for specific AMQP functions: { queueParams: {}, subscribeParams: {}, publishParams: {} }. These
+will be passed to the corresponding AMQP methods: `amqp.queue, amqp.queue.sibcribe, amqp.publish`. See AMQP node.js module for more info.
 
 ## DB
 This is a simple queue implementation using the atomic UPDATE, it polls for new jobs in the table and updates the status, only who succeeds
 with the update takes the job and executes it. It is not effective but can be used for simple and not busy systems for more or less long jobs.
+The advantage is that it uses the same database and does not quire additional servers.
 
 ## SQS
 To use AWS SQS for job processing set `ipc-queue=https://sqs.amazonaws.com....`, this queue system will poll SQS for new messges on a worker
@@ -1783,7 +1786,7 @@ and after succsesful execution will delete the message. For long running jobs it
 
 ## Local
 The local queue is implemented on the master process as a list, communication is done via local sockets between the master and workers.
-This is intended for a single server or development pusposes only.
+This is intended for a single server development pusposes only.
 
 # Security configurations
 
