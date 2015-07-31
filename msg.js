@@ -82,7 +82,7 @@ msg.send = function(options, callback)
     if (typeof callback != "function") callback = lib.noop;
     if (!lib.isObject(options) || !options.device_id) return callback(lib.newError("invalid device or options"));
 
-    logger.info("send:", options.id, options.device_id, options.type, options.msg);
+    logger.info("send:", options.device_id, "id:", options.id, "type:", options.type, "msg:", options.msg);
 
     // Determine the service to use from the device token
     var devices = lib.strSplit(options.device_id, null, "string");
@@ -93,23 +93,23 @@ msg.send = function(options, callback)
         logger.dev("send:", dev, options.id, options.type);
         switch (dev.service) {
         case "gcm":
-            self.sendGCM(dev.id, options, function(err) {
-                if (err) logger.error("send:", dev.id, err);
+            self.sendGCM(device, options, function(err) {
+                if (err) logger.error("send:", device, err);
                 // Stop on explicit fatal errors only
                 next(err && err.status >= 500 ? err : null);
             });
             break;
 
         case "sns":
-            self.sendSNS(dev.id, options, function(err) {
-                if (err) logger.error("send:", dev.id, err);
+            self.sendSNS(device, options, function(err) {
+                if (err) logger.error("send:", device, err);
                 next(err && err.status >= 500 ? err : null);
             });
             break;
 
         case "apn":
-            self.sendAPN(dev.id, options, function(err) {
-                if (err) logger.error("send:", dev.id, err);
+            self.sendAPN(device, options, function(err) {
+                if (err) logger.error("send:", device, err);
                 next(err && err.status >= 500 ? err : null);
             });
             break;
@@ -174,6 +174,7 @@ msg.initAPN = function(options)
         // A posible workaround for the queue being stuck and not sending anything
         agent._timeout = setInterval(function() { agent.queue.process() }, 3000);
         agent._sent = 0;
+        agent._app = app;
 
         // Only run if we need to handle uninstalls
         if (this.onDeviceUninstall) {
@@ -232,6 +233,7 @@ msg.sendAPN = function(device_id, options, callback)
     var agent = this.apnAgents[dev.app] || this.apnAgents.default;
     if (!agent) return typeof callback == "function" && callback(lib.newError("APN is not initialized for " + dev.id, 500));
 
+    logger.debug("sendAPN:", agent._app, dev);
     var pkt = agent.createMessage().device(device_id);
     if (options.msg) pkt.alert(options.msg);
     if (options.badge) pkt.badge(options.badge);
@@ -253,6 +255,7 @@ msg.initGCM = function(options)
         if (this.gcmAgents[app]) continue;
 
         var agent = new gcm.Sender(key);
+        agent._app = app;
         agent._sent = 0;
         agent._queue = 0;
         this.gcmAgents[app] = agent;
@@ -294,6 +297,8 @@ msg.sendGCM = function(device_id, options, callback)
     if (!agent) return typeof callback == "function" && callback(lib.newError("GCM is not initialized for " + dev.id, 500));
 
     agent._queue++;
+
+    logger.debug("sendGCM:", agent._app, dev);
     var pkt = new gcm.Message();
     if (options.msg) pkt.addData('msg', options.msg);
     if (options.id) pkt.addData('id', options.id);

@@ -112,7 +112,7 @@ var api = {
            { name: "rlimits-([a-zA-Z0-9/_]+)-interval", type: "int", obj: "rlimits", descr: "Set rate interval in ms by the given property, it is used by the request rate limiter using Token Bucket algorithm. Predefined types: ip, path, id, login" },
            { name: "rlimits-total", type:" int", obj: "rlimits", descr: "Total number of servers used in the rate limiter behind a load balancer, rates will be divided by this number so each server handles only a portion of the total rate limit" },
            { name: "rlimits-interval", type:" int", obj: "rlimits", descr: "Interval in ms for all rate limiters, defines the time unit, default is 1000 ms" },
-           { name: "exit-on-error", type: "bool", descr: "Exit on uncaught exception" },
+           { name: "exit-on-error", type: "bool", descr: "Exit on uncaught exception in the route handler" },
            { name: "upload-limit", type: "number", min: 1024*1024, max: 1024*1024*10, descr: "Max size for uploads, bytes"  },
     ],
 
@@ -649,8 +649,7 @@ api.handleServerRequest = function(req, res)
     d.on('error', function(err) {
         logger.error('handleServerRequest:', core.port, req.path, err.stack);
         if (!res.headersSent) api.sendReply(res, err);
-        if (!api.exitOnError) return;
-        api.shutdown(function() { process.exit(0); });
+        if (api.exitOnError) api.shutdown(function() { process.exit(0); });
     });
     d.add(req);
     d.add(res);
