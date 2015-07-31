@@ -68,10 +68,11 @@ lib.toTitle = function(name)
     return String(name || "").replace(/_/g, " ").split(/[ ]+/).reduce(function(x,y) { return x + (y ? (y[0].toUpperCase() + y.substr(1) + " ") : "") }, "").trim();
 }
 
-// Convert into camelized form
-lib.toCamel = function(name)
+// Convert into camelized form, optional chars can define the separators, default is -, _ and .
+lib.toCamel = function(name, chars)
 {
-    return String(name || "").replace(/(?:[\-\_\.])(\w)/g, function (_, c) { return c ? c.toUpperCase () : ''; });
+    var rx = new RegExp("(?:[" + (chars || "-_\\.") + "])(\\w)", "g");
+    return String(name || "").replace(rx, function (_, c) { return c ? c.toUpperCase () : ''; });
 }
 
 // Convert Camel names into names with dashes

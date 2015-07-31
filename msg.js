@@ -18,12 +18,13 @@ var gcm = require('node-gcm');
 
 // Messaging and push notifications for mobile and other clients, supports Apple, Google and AWS/SNS push notifications.
 var msg = {
-    args: [ { name: "apn-cert@?(.+)?", strip: "@", descr: "A certificate for the particular app for APN service in pfx format, can be a file name with .p12 extension or a string with certificate contents encoded with base64, if the suffix is specified in the config parameter name will be used as the app name, otherwise it is global" },
+    args: [ { name: "apn-cert@?(.+)?", obj: "config", camel: "-", strip: "@", descr: "A certificate for the particular app for APN service in pfx format, can be a file name with .p12 extension or a string with certificate contents encoded with base64, if the suffix is specified in the config parameter name will be used as the app name, otherwise it is global" },
             { name: "apn-sandbox", type: "bool", descr: "Enable sandbox mode for testing APN notifications, default is production mode" },
-            { name: "gcm-key@?(.+)?", strip: "@", descr: "Google Cloud Messaging API key, if the suffix is specified in the config parameter will be used as the app name, without the suffix it is global" },
+            { name: "gcm-key@?(.+)?", obj: "config", camel: "-", strip: "@", descr: "Google Cloud Messaging API key, if the suffix is specified in the config parameter will be used as the app name, without the suffix it is global" },
             { name: "shutdown-timeout", type:" int", min: 0, descr: "How long to wait for messages draining out in ms on shutdown before exiting" },],
     apnAgents: {},
     gcmAgents: {},
+    config: {},
     shutdownTimeout: 1000,
 };
 
@@ -145,10 +146,10 @@ msg.initAPN = function(options)
 {
     var self = this;
 
-    for (var p in this) {
+    for (var p in this.config) {
         var d = p.match(/^apnCert(.*)/);
-        if (!d || !this[p] || typeof this[p] != "string") continue;
-        var file = this[p], app = d[1] || "default";
+        if (!d || !this.config[p] || typeof this.config[p] != "string") continue;
+        var file = this.config[p], app = d[1] || "default";
         if (this.apnAgents[app]) continue;
 
         var agent = new apnagent.Agent();
@@ -245,10 +246,10 @@ msg.sendAPN = function(device_id, options, callback)
 msg.initGCM = function(options)
 {
     var self = this;
-    for (var p in this) {
+    for (var p in this.config) {
         var d = p.match(/^gcmKey(.*)/);
-        if (!d || !this[p] || typeof this[p] != "string") continue;
-        var key = this[p], app = d[1] || "default";
+        if (!d || !this.config[p] || typeof this.config[p] != "string") continue;
+        var key = this.config[p], app = d[1] || "default";
         if (this.gcmAgents[app]) continue;
 
         var agent = new gcm.Sender(key);

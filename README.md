@@ -94,6 +94,10 @@ or simply
 
         bkjs run-backend -db-pool dynamodb -db-dynamodb-pool default -aws-key XXXX -aws-secret XXXX
 
+* If running on EC2 instance with IAM profile then no need to specify AWS credentials:
+
+        bkjs run-backend -db-pool dynamodb -db-dynamodb-pool default
+
 * or to the PostgreSQL server, database backend
 
         bkjs run-backend -db-pool pgsql -db-pgsql-pool postgresql://postgres@127.0.0.1/backend
@@ -203,7 +207,8 @@ The typical structure of a backendjs application is the following (created by th
     var app = bkjs.app;
     var db = bkjs.db;
 
-    // Describe the tables or data model
+    // Describe the tables or data models, all DB pools will use it, the master or shell
+    // process only creates new tables, workers just use existing tables
     db.describeTables({
          ...
     });
@@ -218,7 +223,17 @@ The typical structure of a backendjs application is the following (created by th
     // Register API endpoints, i.e. url callbacks
     app.configureWeb = function(options, callback)
     {
-         api.app.get('/some/api/endpoint', function(req, res) { ... });
+         api.app.get('/some/api/endpoint', function(req, res) {
+            // to return an error
+            api.sendReply(res, err);
+            // or with custom status and message
+            api.sendReply(res, 404, "not found")
+
+            // to send data back
+            api.sendJSON(req, err, data);
+            // or simply
+            res.json(data)
+         });
          ...
          callback();
     }

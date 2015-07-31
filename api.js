@@ -543,7 +543,7 @@ api.init = function(options, callback)
 
             // Default error handler to show errors in the log
             self.app.use(function(err, req, res, next) {
-                logger.error('app:', req.options.path, err, err.stack);
+                logger.error('api:', req.options.path, err.stack);
                 self.sendReply(res, err);
             });
 

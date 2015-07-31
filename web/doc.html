@@ -190,6 +190,9 @@ applications but still part of the core of the system to be available once neede
 <li><p>To start the server and connect to the DynamoDB (command line parameters can be saved in the etc/config file, see below about config files)</p>
 <pre><code>  bkjs run-backend -db-pool dynamodb -db-dynamodb-pool default -aws-key XXXX -aws-secret XXXX
 </code></pre></li>
+<li><p>If running on EC2 instance with IAM profile then no need to specify AWS credentials:</p>
+<pre><code>  bkjs run-backend -db-pool dynamodb -db-dynamodb-pool default
+</code></pre></li>
 <li><p>or to the PostgreSQL server, database backend</p>
 <pre><code>  bkjs run-backend -db-pool pgsql -db-pgsql-pool postgresql://postgres@127.0.0.1/backend
 </code></pre></li>
@@ -283,7 +286,8 @@ which makes it easy to refer and extend with additional methods and structures.<
     var app = bkjs.app;
     var db = bkjs.db;
 
-    // Describe the tables or data model
+    // Describe the tables or data models, all DB pools will use it, the master or shell
+    // process only creates new tables, workers just use existing tables
     db.describeTables({
          ...
     });
@@ -298,7 +302,17 @@ which makes it easy to refer and extend with additional methods and structures.<
     // Register API endpoints, i.e. url callbacks
     app.configureWeb = function(options, callback)
     {
-         api.app.get(&#39;/some/api/endpoint&#39;, function(req, res) { ... });
+         api.app.get(&#39;/some/api/endpoint&#39;, function(req, res) {
+            // to return an error
+            api.sendReply(res, err);
+            // or with custom status and message
+            api.sendReply(res, 404, &quot;not found&quot;)
+
+            // to send data back
+            api.sendJSON(req, err, data);
+            // or simply
+            res.json(data)
+         });
          ...
          callback();
     }
@@ -5160,7 +5174,8 @@ it is required to call <code>pool.release</code> at the end to return the connec
 
 <ul>
 <li><p><code>ipc.prototype.getClient(prefix, options)</code></p>
-<p> Return a cache or queue client by name if specifie din the options or use default client for the prefix</p>
+<p> Return a cache or queue client by name if specified in the options or use default client for the prefix which always exists,
+supported prefixes are: queue, cache</p>
 </li>
 </ul>
 
@@ -5455,8 +5470,8 @@ false
 </ul>
 
 <ul>
-<li><p><code>lib.toCamel(name)</code></p>
-<p> Convert into camelized form</p>
+<li><p><code>lib.toCamel(name, chars)</code></p>
+<p> Convert into camelized form, optional chars can define the separators, default is -, _ and .</p>
 </li>
 </ul>
 
