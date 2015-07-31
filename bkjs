@@ -159,7 +159,7 @@ case "$ARG" in
     exit 0
     ;;
 
-  stop-web|stop-server|stop-master)
+  stop-web|stop-server|stop-master|stop-worker)
     name=${ARG:5}
     [ "$name" = "" ] && exit 0
     $KILLALL $1 "$BKJS: $name"

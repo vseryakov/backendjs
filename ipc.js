@@ -335,10 +335,11 @@ ipc.prototype.createClient = function(host, options)
     return client;
 }
 
-// Return a cache or queue client by name if specifie din the options or use default client for the prefix
+// Return a cache or queue client by name if specified in the options or use default client for the prefix which always exists,
+// supported prefixes are: queue, cache
 ipc.prototype.getClient = function(prefix, options)
 {
-    return options && options[prefix + 'Name'] ? this.clients[options[prefix + 'Name']] : this.clients[prefix];
+    return (options && options[prefix + 'Name'] ? this.clients[options[prefix + 'Name']] : null) || this.clients[prefix];
 }
 
 // Initialize a client for cache or queue purposes, previous client will be closed.
