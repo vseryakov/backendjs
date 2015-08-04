@@ -153,6 +153,8 @@ msg.initAPN = function(options)
         if (this.apnAgents[app]) continue;
 
         var agent = new apnagent.Agent();
+        agent._app = app;
+        agent._sent = 0;
         if (file.match(/\.p12$/)) {
             agent.set('pfx file', file);
         } else {
@@ -164,17 +166,14 @@ msg.initAPN = function(options)
         agent.on('gateway:close', function(err) { logger.info('apn: closed') });
         agent.decoder.on("error", function(err) { logger.error('apn:decoder:', err.stack); });
         try {
-            agent.connect(function(err) { logger[err ? "error" : "log"]('apn:', err || "connected"); });
+            agent.connect(function(err) { logger[err ? "error" : "log"]('apn:', err || "connected", this._app); });
         } catch(e) {
             logger.error("initAPN:", app, file, e.stack);
             continue;
         }
 
-
         // A posible workaround for the queue being stuck and not sending anything
         agent._timeout = setInterval(function() { agent.queue.process() }, 3000);
-        agent._sent = 0;
-        agent._app = app;
 
         // Only run if we need to handle uninstalls
         if (this.onDeviceUninstall) {

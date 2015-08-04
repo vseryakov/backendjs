@@ -19,7 +19,6 @@ case "$PLATFORM" in
     # In multi-OS environment have to sync by OS type due to different dependencies in each distro
     [ "$PG_PREFIX" = "" ] && PG_PREFIX=$(find /usr -maxdepth 1 -name 'pgsql*' -type d -print|sort -r|head -1)
     [ -f /etc/sysconfig/$BKJS ] && . /etc/sysconfig/$BKJS
-    [ "$REDIS_CONF" = "" -a -f /etc/redis.conf ] && REDIS_CONF=/etc/redis.conf
     KILLALL="killall -qr"
     ECHO="echo -e"
     SED="sed -i"
@@ -31,6 +30,7 @@ case "$PLATFORM" in
     [ "$BKJS_PREFIX" = "" ] && export BKJS_PREFIX=/opt/local
     [ "$PG_PREFIX" = "" ] && export PG_PREFIX=$(find $BKJS_PREFIX/lib -maxdepth 1 -name 'postgresql*' -type d -print|sort -r|head -1) && PG_LIBDIR=$PG_PREFIX
     [ "$MYSQL_PREFIX" = "" ] && export MYSQL_PREFIX=$(find $BKJS_PREFIX/lib -maxdepth 1 -name 'mysql*' -type d -print|sort -r|head -1)
+    [ "$REDIS_PREFIX" = "" ] && REDIS_PREFIX=/opt/local
     KILLALL="killall -m"
     ECHO=echo
     SED="sed -i .orig"
@@ -118,7 +118,7 @@ export BKJS_RSYNC_ARGS=$(concat_arg -rsync $BKJS_RSYNC_ARGS)
 [ "$MONGO_DIR" = "" ] && export MONGO_DIR=$BKJS_HOME/mongo
 [ "$BKJS_IDLETIME" = "" ] && export BKJS_IDLETIME=900
 [ "$BKJS_UPTIME" = "" ] && export BKJS_UPTIME=43200
-[ "$REDIS_CONF" = "" ] && export REDIS_CONF=$BKJS_PREFIX/etc/redis.conf
+[ "$REDIS_PREFIX" = "" ] && export REDIS_PREFIX=$BKJS_HOME
 
 # Setup paths
 export PATH=$BKJS_HOME/bin:$BKJS_HOME/node_modules/.bin:$BKJS_PREFIX/bin:$PG_PREFIX/bin:$CASSANDRA_PREFIX/bin:/sbin:/usr/sbin:/usr/local/bin:/opt/local/bin:$PATH
@@ -777,7 +777,67 @@ case "$ARG" in
     killall postgres
     ;;
 
+  install-redis)
+    # Install redis server
+    [ "$(whoami)" != "root" ] && echo "Run as root please" && exit 1
+    yum remove -y redis
+    yum install -y jemalloc
+
+    ver=$(get_arg -version 2.8.21)
+    curl -L -o redis.tgz http://download.redis.io/releases/redis-$ver.tar.gz
+
+    mkdir -p redis
+    tar -C redis --strip-components=1 -xzf redis.tgz
+    make -C redis install PREFIX=$REDIS_PREFIX
+    sed -e 's|^# syslog-enabled no|syslog-enabled yes|' \
+        -e "s|^dir ./|dir $REDIS_PREFIX/var/|" \
+        -e "s|^logfile \"\"|logfile $REDIS_PREFIX/log/redis.log|" \
+        -e 's|^daemonize no|daemonize yes|' redis/redis.conf > $REDIS_PREFIX/etc/redis.conf
+    rm -rf redis redis.tgz
+
+    cat > /etc/init.d/redis << EOF
+#!/bin/sh
+#
+# redis        init file for starting up the redis daemon
+#
+# chkconfig:   - 20 80
+# description: Starts and stops the redis daemon.
+
+case "\$1" in
+ start)
+    echo "Starting redis: "
+    $REDIS_PREFIX/bin/redis-server $REDIS_PREFIX/etc/redis.conf
+    ;;
+  stop)
+    echo "Stopping redis: "
+    killall -q redis-server
+    ;;
+  restart)
+    \$0 stop
+    \$0 start
+    ;;
+  *)
+    echo $"Usage: \$0 {start|stop|restart}"
+    exit 2
+esac
+EOF
+
+    cat > /etc/logrotate.d/redis <<EOF
+$REDIS_PREFIX/log/redis.log {
+  weekly
+  rotate 10
+  copytruncate
+  delaycompress
+  compress
+  notifempty
+  missingok
+}
+EOF
+    chmod 755 /etc/init.d/redis
+    ;;
+
   init-redis)
+    [ "$(whoami)" != "root" ] && echo "Run as root please" && exit 1
     echo 1 > /proc/sys/vm/overcommit_memory
     echo never > /sys/kernel/mm/transparent_hugepage/enabled
     chkconfig redis on
@@ -787,7 +847,7 @@ case "$ARG" in
     ;;
 
   run-redis)
-    redis-server $REDIS_CONF
+    redis-server $REDIS_PREFIX/etc/redis.conf
     ;;
 
   stop-redis)
@@ -1086,7 +1146,7 @@ EOF
 #logwatcher-email=logwatcher@dot.com
 #api-allow-path=^/open/url$
 #api-allow-admin=^/(system|data)
-#cache-host=redis://10.1.1.1
+#api-cache=redis://10.1.1.1
 EOF
     fi
 
@@ -1253,6 +1313,7 @@ EOF
     echo "  init-pgsql [-db NAME] - setup and run the PostgreSQL server, install in $PG_PREFIX, data files in $PG_DIR, create initial database"
     echo "  run-pgsql - run local PostgreSQL server"
     echo "  stop-pgsql - stop local PostgreSQL server"
+    echo "  install-redis - install Redis server into $REDIS_PREFIX, removes current redis package if installed (Linux only)"
     echo "  init-redis - setup Redis server to be run on start and to be monitored (Linux only)"
     echo "  run-redis - run local Redis server, uses config file $REDIS_CONF"
     echo "  stop-redis - stop local Redis server"
@@ -1293,8 +1354,6 @@ EOF
     echo "  -location-put [login LOGIN|id ID] latitude LAT longitude LON ... - update location for an account"
     echo "  -send-request -url URL [-id ID|-login LOGIN] param value param value ... - send API request to the server specified in the url as user specified by login or account id, resolving the user is done directly from the current db pool, param values should not be url-encoded"
     echo "  -log-watch - run logwatcher and exit, send emails in case any errors found"
-    echo "  -s3-get -path PATH - retrieve a file from S3"
-    echo "  -s3-put -path PATH -fle FILE - store a file to S3"
     echo "  -db-get-config [-separator =] [-format text] [-run-mode MODE] [-app-name NAME] [name VALUE ...] - show all config parameters retrieved from the remote database bk_config table for the current environment, to simulate another environment pass the following arguments as name value pairs: network, subnet, ipaddr"
     echo "  -db-tables [-separator nl] - list all table names for the current db pool"
     echo "  -db-select -table TABLE [-separator !] [-format text] [name VALUE ...] - return all records from the table or only that match given column values, all supported by db.select options are supported by prefixing with underscore like _count 10, the format is the same as for API query parameters"
@@ -1306,6 +1365,19 @@ EOF
     echo "  -db-drop -table TABLE name [-nowait] - drop a table"
     echo "  -db-backup [-path PATH] [-tables LIST] - save tables into json files in the home or specified path"
     echo "  -db-restore [-path PATH] [-tables LIST] [-drop] [-continue] - restore tables from json files located the home or specified path"
+    echo "  -aws-s3-get -path PATH - retrieve a file from S3"
+    echo "  -aws-s3-put -path PATH -file FILE - store a file to S3"
+    echo "  -aws-delete-ami [-ami-name NAME] [-ami-version VER] [-ami-id ID] [-dry-run]"
+    echo "  -aws-launch-instances [-version VERSION] [-mode MODE] [-app-name NAME] [-ami-name NAME] [-count NUM] [-all-subnets] [-spread-subnets] [-user-data TEXT] [-wait] [-dry-run]"
+    echo "  -aws-reboot-instances -version VERSION -app-name NAME [-mode MODE ] [-dry-run]"
+    echo "  -aws-terminate-instances -version VERSION -app-name NAME [-count NUM] [-mode MODE] [-dry-run]"
+    echo "  -aws-show-instances [-version VERSION] [-app-name NAME] [-mode MODE]"
+    echo "  -aws-check-elb [-version VERSION] [-dry-run]"
+    echo "  -aws-reboot-elb [-timeout SECS] [-interval SECS] [-dry-run]"
+    echo "  -aws-replace-elb [-timeout SECS] [-interval SECS] [-dry-run]"
+    echo "  -aws-setup-ssh -group-name NAME [-close] [-dry-run]"
+    echo "  -aws-setup-instance [-mode MODE] [-install CMD] [-count NUM] [-wait] [-dry-run]"
+    echo "  -aws-show-images"
     echo ""
     echo "Common options:"
     echo "  -root path - path to the backend home directory, default is $BKJS_HOME"

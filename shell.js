@@ -194,31 +194,6 @@ shell.cmdLogWatch = function(options)
     });
 }
 
-// Get file
-shell.cmdS3Get = function(options)
-{
-    var self = this;
-    var query = this.getQuery();
-    var file = core.getArg("-file");
-    var uri = core.getArg("-path");
-    query.file = file || uri.split("?")[0].split("/").pop();
-    aws.s3GetFile(uri, query, function(err, data) {
-        self.exit(err, data);
-    });
-}
-
-// Put file
-shell.cmdS3Put = function(options)
-{
-    var self = this;
-    var query = this.getQuery();
-    var path = core.getArg("-path");
-    var uri = core.getArg("-file");
-    aws.s3PutFile(uri, file, query, function(err, data) {
-        self.exit(err, data);
-    });
-}
-
 // Show all config parameters
 shell.cmdDbGetConfig = function(options)
 {
@@ -453,3 +428,572 @@ shell.cmdSendRequest = function(options)
         });
     });
 }
+
+// Check all arguments starting with the second for matching tags
+function checkTags(obj)
+{
+    var tags = lib.objGet(obj, "tagSet.item", { list: 1 });
+    for (var i = 1; i < arguments.length; i++) {
+        var name = arguments[i].toLowerCase();
+        if (tags.some(function(t) { return t.key == "Name" && t.value.toLowerCase().split("-")[0] == name.toLowerCase(); })) return true;
+    }
+    return false;
+}
+
+// Auto detect subnets by name or mode
+function getSubnets(subnets, zone)
+{
+    return subnets.filter(function(x) {
+        if (zone && zone != x.availabilityZone.split("-").pop()) return 0;
+        return checkTags(x, subnetName, mode);
+    }).map(function(x) {
+        return x.subnetId;
+    });
+}
+
+function getInstances(rc)
+{
+    var list = lib.objGet(rc, "DescribeInstancesResponse.reservationSet.item", { obj: 1 });
+    list = lib.objGet(list, "instancesSet.item", { list: 1 });
+    list.forEach(function(x) {
+        x.name = lib.objGet(x, "tagSet.item", { list: 1 }).filter(function(x) { return x.key == "Name" }).map(function(x) { return x.value }).pop();
+    });
+    return list;
+}
+
+// Find group ids from the given group name(s)
+function getGroups(name, next)
+{
+    var req = aws.vpcId ? { "Filter.1.Name": "vpc-id", "Filter.1.Value": aws.vpcId } : {};
+    aws.queryEC2("DescribeSecurityGroups", req, function(err, rc) {
+        if (err) return next(err);
+        var groups = lib.objGet(rc, "DescribeSecurityGroupsResponse.securityGroupInfo.item", { list: 1 });
+        // Find a groups by run name
+        groups.forEach(function(x) {
+            if (name.some(function(y) { return x.groupName.toLowerCase() == y || checkTags(x, y); })) groupId.push(x.groupId);
+        });
+        next(null, groups);
+    });
+}
+
+// Retrieve all AMIs for the current name
+function getImages(name, next)
+{
+    aws.queryEC2("DescribeImages", { 'Owner.0': 'self', 'Filter.1.Name': 'name', 'Filter.1.Value': name }, function(err, rc) {
+        if (err) return next(err);
+        var images = lib.objGet(rc, "DescribeImagesResponse.imagesSet.item", { list: 1 });
+        // Sort by version in descending order
+        images.sort(function(a, b) { return a.name > b.name ? -1 : a.name < b.name ? 1 : 0; });
+        next(null, images);
+    });
+}
+
+// Return amazon amis for the current region, HVM type
+function getAmazonAmis(next)
+{
+    aws.queryEC2("DescribeImages",
+                 { 'Owner.0': 'amazon',
+                   'Filter.1.Name': 'name', 'Filter.1.Value': 'amzn-ami-hvm-*',
+                   'Filter.2.Name': 'architecture', 'Filter.2.Value': 'x86_64',
+                   'Filter.3.Name': 'root-device-type', 'Filter.3.Value': 'ebs',
+                 }, function(err, rc) {
+        if (err) return next(err);
+        var images = lib.objGet(rc, "DescribeImagesResponse.imagesSet.item", { list: 1 });
+        images.sort(function(a, b) { return a.name < b.name ? 1 : a.name > b.name ? -1 : 0 });
+        next(null, images);
+    });
+}
+
+// Wait until instance count
+function getElbCount(name, equal, total, next)
+{
+    var running = 1, count = 0, expires = Date.now() + timeout * 1000
+
+    lib.doWhilst(
+        function(next2) {
+            aws.queryELB("DescribeInstanceHealth", { LoadBalancerName: name }, function(err, rc) {
+                if (err) return next2(err);
+                count = lib.objGet(rc, "DescribeInstanceHealthResponse.DescribeInstanceHealthResult.InstanceStates.member", { list: 1 }).filter(function(x) { return x.State == "InService"}).length;
+                logger.log("getElbCount:", name, "checking(" + (equal ? "=" : "<>") + "):", "in-service", count, "out of", total);
+                if (equal) {
+                    running = total == count && Date.now() < expires;
+                } else {
+                    running = total != count && Date.now() < expires;
+                }
+                setTimeout(next2, running ? interval*1000 : 0);
+            });
+        },
+        function() {
+            return running;
+        },
+        function(err) {
+            next(err, total, count);
+        });
+}
+
+// Delete an AMI with the snapshot
+shell.deleteAmi = function(callback)
+{
+    core.init(function() {
+        lib.series([
+           function(next) {
+               if (imageId) return next();
+               getImages(amiName + '*', next);
+           },
+           function(next) {
+               if (imageId) return next();
+               // Exact image by name and version
+               imageId = images.filter(function(x) { return x.name == amiName + '-' + amiVersion }).map(function(x) { return x.imageId }).pop();
+               // Take the latest image and set actual version
+               if (!imageId && images.length) {
+                   imageId = images[0].imageId;
+                   amiName = images[0].name.split("-")[0];
+                   amiVersion = images[0].name.split("-").slice(1).join("-");
+               }
+               next();
+           },
+           // Deregister existing image with the same name in the destination region
+           function(next) {
+               logger.log("DeregisterImage:", aws.region, amiName, amiVersion, imageId);
+               if (core.isArg("-dry-run")) return next();
+               aws.ec2DeregisterImage(imageId, { snapshots: 1 }, next);
+           },
+           ], callback);
+    });
+}
+
+// Launch instances by run mode and/or other criteria
+shell.launchInstances = function(callback)
+{
+    core.init(function() {
+        // Replace current region to be consistent with the rest of the commands, this is the same as -aws-region
+        if (region) aws.region = region;
+        if (count <= 0) count = 1;
+        var alarms = [];
+
+        lib.series([
+           function(next) {
+               if (imageId) return next();
+               getImages(amiName + '*', next);
+           },
+           function(next) {
+               if (imageId) return next();
+               // Exact name or the latest version
+               imageId = images.filter(function(x) { return x.name == amiName + '-' + amiVersion }).map(function(x) { return x.imageId }).pop();
+               if (!imageId && images.length) imageId = images[0].imageId;
+               next();
+           },
+           function(next) {
+               if (subnetId) return next();
+               var req = vpcId ? { "Filter.1.Name": "vpc-id", "Filter.1.Value": vpcId } : {};
+               aws.queryEC2("DescribeSubnets", req, function(err, rc) {
+                   subnets = lib.objGet(rc, "DescribeSubnetsResponse.subnetSet.item", { list: 1 });
+                   next(err);
+               });
+           },
+           function(next) {
+               if (groupId.length) return next();
+               getGroups(next);
+           },
+           function(next) {
+               // Verify load balancer name
+               if (!elbName) return next();
+               aws.queryELB("DescribeLoadBalancers", {}, function(err, rc) {
+                   if (err) return next(err);
+                   elbs = lib.objGet(rc, "DescribeLoadBalancersResponse.DescribeLoadBalancersResult.LoadBalancerDescriptions.member", { list: 1 });
+                   if (!elbs.some(function(x) { return x.LoadBalancerName == mode })) elbName = "";
+                   next();
+               });
+           },
+           function(next) {
+               // Create CloudWatch alarms, production must have alerts setup
+               if (!core.isArg("-alerts") && mode != "production") return next();
+               aws.snsListTopics(function(err, topics) {
+                   var topic = new RegExp(core.getArg("-alerts", "alerts"), "i");
+                   topic = topics.filter(function(x) { return x.match(topic); }).pop();
+                   if (!topic) return next(err);
+                   alarms.push({ metric:"CPUUtilization", threshold:cpuThreshold, evaluationPeriods:period, alarm:topic });
+                   alarms.push({ metric:"NetworkOut", threshold:netThreshold, evaluationPeriods:period, alarm:topic });
+                   alarms.push({ metric:"StatusCheckFailed", threshold:1, evaluationPeriods:5, statistic: "Maximum", alarm:topic });
+                   next(err);
+               });
+           },
+           function(next) {
+               // No data, assume webapp image which accepts Java properties and need the run mode
+               userData = userData.replace(/^['"]+|['"]+$/g, "");
+               if (userData[0] != "#") {
+                   userData += " -Drun.mode=" + mode;
+                   lib.strSplit(appName).forEach(function(x) {
+                       if (x) userData += " -jar " + x + (version ? "-" + version : "") + ".jar";
+                   });
+               }
+               if (subnetId) {
+                   subnets.push(subnetId);
+               } else
+               // All subnets will have same amount of instances
+               if (core.isArg("-all-subnets")) {
+                   subnets = getSubnets();
+               } else
+               // Spread all instances between all subnets
+               if (core.isArg("-spread-subnets")) {
+                   subnets = getSubnets();
+                   if (count <= subnets.length) {
+                       subnets = subnets.slice(0, count);
+                   } else {
+                       var n = subnets.length;
+                       for (var i = count - n; i > 0; i--) subnets.push(subnets[i % n]);
+                   }
+                   count = 1;
+               } else {
+                   // Random subnet
+                   subnets = getSubnets();
+                   subnets = [ subnets[lib.randomInt(0, subnets.length - 1)] ];
+               }
+
+               if (!imageId || !subnets.length) return next2("ERROR: AMI and subnet must be specified or discovered by run mode");
+
+               lib.forEachLimit(subnets, subnets.length, function(subnet, next2) {
+                   var req = { count: count, instanceType: instanceType, imageId: imageId, subnetId: subnet,
+                               keyName: keyName, elbName: elbName, groupId: groupId, iamProfile: iamProfile,
+                               data: userData, terminate: 1, name: tagName, alarms: alarms };
+                   logger.log("RunInstances:", req);
+                   if (core.isArg("-dry-run")) return next2();
+
+                   aws.ec2RunInstances(req, function(err, rc) {
+                       if (err) return next2(err);
+                       instances = instances.concat(lib.objGet(rc, "RunInstancesResponse.instancesSet.item", { list: 1 }));
+                       next2();
+                   });
+               }, next);
+           },
+           function(next) {
+               if (instances.length) logger.log(instances.map(function(x) { return [ x.instanceId, x.privateIpAddress || "" ] }));
+               if (!core.isArg("-wait")) return next();
+               if (instances.length != 1) return next();
+               aws.ec2WaitForInstance(instances[0].instanceId, "running", { waitTimeout: timeout*1000, waitDelay: interval*1000 }, next);
+           },
+           ], callback);
+    });
+}
+
+// Reboot instances by run mode and/or other criteria
+shell.cmdAwsRebootInstances = function(callback)
+{
+    var instances = [];
+    var count = core.getArgInt("-count");
+    var filter = core.getArg("-filter");
+    if (!filter) shell.exit("-filter is required");
+
+    lib.series([
+       function(next) {
+           var req = { "Filter.1.Name": "instance-state-name", "Filter.1.Value.1": "running", "Filter.2.Name": "tag:Name", "Filter.2.Value.1": filter };
+           logger.debug("RebootInstances:", req)
+           aws.queryEC2("DescribeInstances", req, function(err, rc) {
+               instances = getInstances(rc).map(function(x) { return x.instanceId });
+               next(err);
+           });
+       },
+       function(next) {
+           if (!instances.length) exit("No instances found");
+           var req = {};
+           instances.forEach(function(x, i) { req["InstanceId." + (i + 1)] = x });
+           logger.log("RebootInstances:", req)
+           if (core.isArg("-dry-run")) return next();
+           aws.queryEC2("RebootInstances", req, next);
+       },
+       ], callback);
+}
+
+// Terminate instances by run mode and/or other criteria
+shell.cmdAwsTerminateInstances = function(callback)
+{
+    var instances = [];
+    var count = core.getArgInt("-count");
+    var filter = core.getArg("-filter");
+    if (!filter) shell.exit("-filter is required");
+
+    lib.series([
+       function(next) {
+           var req = { "Filter.1.Name": "instance-state-name", "Filter.1.Value.1": "running", "Filter.2.Name": "tag:Name", "Filter.2.Value.1": filter };
+           logger.debug("terminateInstances:", req)
+           aws.queryEC2("DescribeInstances", req, function(err, rc) {
+               instances = getInstances(rc).map(function(x) { return x.instanceId });
+               if (count) instances = instances.slice(0, count);
+               next(err);
+           });
+       },
+       function(next) {
+           if (!instances.length) exit("No instances found");
+           var req = {};
+           instances.forEach(function(x, i) { req["InstanceId." + (i + 1)] = x });
+           logger.log("TerminateInstances:", req)
+           if (core.isArg("-dry-run")) return next();
+           aws.queryEC2("TerminateInstances", req, next);
+       },
+       ], callback);
+}
+
+// Show running instances by run mode and/or other criteria
+shell.cmdAwsShowInstances = function(callback)
+{
+    var instances = [];
+    var ip = core.isArg("-ip");
+    var filter = core.getArg("-filter");
+
+    lib.series([
+       function(next) {
+           var req = { "Filter.1.Name": "tag:Name", "Filter.1.Value.1": filter || "*",
+                       "Filter.2.Name": "instance-state-name", "Filter.2.Value.1": "running", }
+           logger.debug("showInstances:", req);
+           aws.queryEC2("DescribeInstances", req, function(err, rc) {
+               instances = getInstances(rc);
+               next(err);
+           });
+       },
+       function(next) {
+           if (ip) {
+               console.log(instances.map(function(x) { return x.privateIpAddress }).join(" "));
+           } else {
+               instances.forEach(function(x) { console.log(x.instanceId, x.privateIpAddress, x.name); });
+           }
+           next();
+       },
+       ], callback);
+}
+
+// Check ELB for running instances
+shell.checkElb = function(callback)
+{
+    core.init(function() {
+        if (region) aws.region = region;
+
+        lib.series([
+           function(next) {
+               aws.queryELB("DescribeInstanceHealth", { LoadBalancerName: elbName }, function(err, rc) {
+                   if (err) return next(err);
+                   instances = lib.objGet(rc, "DescribeInstanceHealthResponse.DescribeInstanceHealthResult.InstanceStates.member", { list: 1 });
+                   next();
+               });
+           },
+           function(next) {
+               var req = {};
+               instances.forEach(function(x, i) { req["InstanceId." + (i + 1)] = x.InstanceId });
+               aws.queryEC2("DescribeInstances", req, function(err, rc) {
+                   var list = getInstances(rc);
+                   list.forEach(function(row) {
+                       instances.forEach(function(x) {
+                           if (x.InstanceId == row.instanceId) x.name = row.name;
+                       });
+                   });
+                   next(err);
+               });
+           },
+           function(next) {
+               if (core.isArg("-dry-run")) logger.log(instances);
+               // Show all instances or only for the specified version
+               instances = instances.filter(function(x) {
+                   return (x.name && x.State == 'InService' && (!version || x.name.match("-" + version + "$")));
+               });
+               instances.forEach(function(x) { logger.log(Object.keys(x).map(function(y) { return x[y] }).join(" | ")) });
+               next();
+           },
+           ], callback);
+    });
+}
+
+// Reboot instances in the ELB, one by one
+shell.rebootElb = function(callback)
+{
+    var total = 0;
+    if (!elbName) exit("ERROR: -elb-name must be specified")
+
+    core.init(function() {
+        if (region) aws.region = region;
+
+        lib.series([
+           function(next) {
+               aws.queryELB("DescribeInstanceHealth", { LoadBalancerName: elbName }, function(err, rc) {
+                   if (err) return next(err);
+                   instances = lib.objGet(rc, "DescribeInstanceHealthResponse.DescribeInstanceHealthResult.InstanceStates.member", { list: 1 }).filter(function(x) { return x.State == "InService" });
+                   total = instances.length;
+                   next();
+               });
+           },
+           function(next) {
+               // Reboot first instance
+               if (!instances.length) return next();
+               var req = { "InstanceId.1": instances[0].InstanceId };
+               instances.shift();
+               logger.log("RebootELB:", elbName, "restarting:", req)
+               if (core.isArg("-dry-run")) return next();
+               aws.queryEC2("RebootInstances", req, next);
+           },
+           function(next) {
+               // Wait until one instance is out of service
+               getElbCount(1, total, next);
+           },
+           function(next) {
+               // Wait until all instances in service again
+               getElbCount(0, total, next);
+           },
+           function(next) {
+               // Reboot the rest
+               if (!instances.length) return next();
+               var req = {};
+               instances.forEach(function(x, i) { req["InstanceId." + (i + 1)] = x.InstanceId });
+               logger.log("RebootELB:", elbName, 'restarting:', req)
+               if (core.isArg("-dry-run")) return next();
+               aws.queryEC2("RebootInstances", req, next);
+           },
+           ], callback);
+    });
+}
+
+// Deploy new version in the ELB, terminate the old version
+shell.replaceElb = function(callback)
+{
+    var total = 0, oldInstances = [], newInstances = [], oldInService = [];
+    if (!elbName) exit("ERROR: -elb-name must be specified")
+
+    core.init(function() {
+        if (region) aws.region = region;
+
+        lib.series([
+           function(next) {
+               aws.queryELB("DescribeInstanceHealth", { LoadBalancerName: elbName }, function(err, rc) {
+                   if (err) return next(err);
+                   oldInstances = lib.objGet(rc, "DescribeInstanceHealthResponse.DescribeInstanceHealthResult.InstanceStates.member", { list: 1 });
+                   oldInService = oldInstances.filter(function(x) { return x.State == "InService" });
+                   next();
+               });
+           },
+           function(next) {
+               logger.log("ReplaceELB:", elbName, 'running:', oldInstances)
+               // Launch new instances
+               shell.launchInstances(next);
+           },
+           function(next) {
+               newInstances = instances;
+               if (core.isArg("-dry-run")) return next();
+               // Wait until all instances are online
+               getElbCount(0, oldInService.length + newInstances.length, function(err, total, count) {
+                   if (!err && count != total) err = "Timeout waiting for instances";
+                   next(err);
+               })
+           },
+           function(next) {
+               // Terminate old instances
+               if (!oldInstances.length) return next();
+               var req = {};
+               oldInstances.forEach(function(x, i) { req["InstanceId." + (i + 1)] = x.InstanceId });
+               logger.log("ReplaceELB:", elbName, 'terminating:', req)
+               if (core.isArg("-dry-run")) return next();
+               aws.queryEC2("TerminateInstances", req, next);
+           },
+           ], callback);
+    });
+}
+
+// Open/close SSH access to the specified group for the current external IP address
+shell.cmdAwsSetupSsh = function(callback)
+{
+    core.init(function() {
+        var ip = "";
+
+        lib.series([
+           function(next) {
+               getGroups(next);
+           },
+           function(next) {
+               if (!groupId.length) return next("No group is found for", groupName);
+               core.httpGet("http://checkip.amazonaws.com", function(err, params) {
+                   if (err || params.status != 200) return next(err || params.data || "Cannot determine IP address");
+                   ip = params.data.trim();
+                   next();
+               });
+           },
+           function(next) {
+               var req = { GroupId: groupId[0],
+                           "IpPermissions.1.IpProtocol": "tcp",
+                           "IpPermissions.1.FromPort": 22,
+                           "IpPermissions.1.ToPort": 22,
+                           "IpPermissions.1.IpRanges.1.CidrIp": ip + "/32" };
+               logger.log(req);
+               if (core.isArg("-dry-run")) return next();
+               aws.queryEC2(core.isArg("-close") ? "RevokeSecurityGroupIngress" : "AuthorizeSecurityGroupIngress", req, next);
+           },
+           ], callback);
+    });
+}
+
+// Launch an instance and setup it with provisioning script
+shell.AwsSetupInstance = function(callback)
+{
+    var images = [];
+
+    var file = core.getArg("-file");
+
+    lib.series([
+       function(next) {
+           if (aws.imageId) return next();
+           getAmazonAmis(function(err, list) {
+               if (list) images = list;
+               next(err);
+           });
+       },
+       function(next) {
+           if (aws.imageId) return next();
+           if (images.length) aws.imageId = images[0].imageId;
+           next(aws.imageId ? null : "Cannot find Amazon AMI to launch");
+       },
+       function(next) {
+           if (!file) return next();
+           userData = "#cloud-config\n" +
+                       "write_files:\n" +
+                       "  - encoding: b64\n" +
+                       "    content: " + Buffer(lib.readFileSync(file)).toString("base64") + "\n" +
+                       "    path: /tmp/app.sh\n" +
+                       "    owner: ec2-user:root\n" +
+                       "    permissions: '0755'\n" +
+                       "runcmd:\n" +
+                       "  - /tmp/app.sh\n";
+           shell.launchInstances(next);
+       },
+       ], callback);
+}
+
+shell.cmdAwsShowImages = function(name, callback)
+{
+    getImages(name + "*", function(err) {
+        images.forEach(function(x) {
+            console.log(x.imageId, x.name);
+        });
+        callback(err);
+    });
+}
+
+// Get file
+shell.cmdAwsS3Get = function(options)
+{
+    var self = this;
+    var query = this.getQuery();
+    var file = core.getArg("-file");
+    var uri = core.getArg("-path");
+    query.file = file || uri.split("?")[0].split("/").pop();
+    aws.s3GetFile(uri, query, function(err, data) {
+        self.exit(err, data);
+    });
+}
+
+// Put file
+shell.cmdAwsS3Put = function(options)
+{
+    var self = this;
+    var query = this.getQuery();
+    var path = core.getArg("-path");
+    var uri = core.getArg("-file");
+    aws.s3PutFile(uri, file, query, function(err, data) {
+        self.exit(err, data);
+    });
+}
+

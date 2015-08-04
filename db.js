@@ -335,6 +335,9 @@ db.initConfig = function(options, callback)
         rows.sort(function(a,b) { return types.indexOf(b.type) - types.indexOf(a.type); });
         logger.dev("initConfig:", core.role, rows);
 
+        // Testing mode just return all retrieved sorted rows
+        if (options.test) return callback(null, rows)
+
         // Only keep the most specific value, it is sorted in descendent order most specific at the top
         var args = {};
         rows.forEach(function(x) {

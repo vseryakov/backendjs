@@ -25,13 +25,15 @@ var server = require(__dirname + '/server');
 // Job launcher and scheduler
 var jobs = {
     // Config parameters
-    args: [{ name: "workers", type: "number", min: 0, max: 32, descr: "How many worker processes to launch to process the job queue, 0 disables jobs" },
+    args: [{ name: "workers", type: "number", min: -1, max: 32, descr: "How many worker processes to launch to process the job queue, -1 disables jobs, 0 means launch as many as CPUs available" },
+           { name: "worker-cpu-factor", type: "real", min: 0, descr: "A number to multiply the number of CPUs available to make the total number of workers to launch, only used if `workers` is 0" },
            { name: "worker-args", type: "list", descr: "Node arguments for workers, for passing v8 jobspec, see `process`" },
            { name: "worker-env", type: "json", descr: "Environment to be passed to the worker via fork, see `cluster.fork`" },
            { name: "max-runtime", type: "int", min: 300, descr: "Max number of seconds a job can run before being killed" },
            { name: "max-lifetime", type: "int", min: 0, descr: "Max number of seconds a worker can live, after that amount of time it will exit once all the jobs are finished, 0 means indefinitely" },
            { name: "shutdown-timeout", type: "int", min: 0, descr: "Max number of milliseconds to wait for the graceful shutdown sequence to finish, after this timeout the process just exits" },
            { name: "queue", descr: "Default queue to use for jobs" },
+           { name: "cron-queue", descr: "Default queue to use for cron jobs" },
            { name: "channel", descr: "Name of the channel where to publish/receive jobs" },
            { name: "cron", type: "bool", descr: "Load cron jobs from the local etc/crontab file, requires -jobs flag" },
     ],
@@ -45,10 +47,12 @@ var jobs = {
     crontab: [],
     channel: "jobs",
     queue: "",
+    cronQueue: "",
     maxRuntime: 900,
     maxLifetime: 86400,
     shutdownTimeout: 1000,
-    workers: 0,
+    workers: -1,
+    workerCpuFactor: 0,
     workerArgs: [],
     workerEnv: {},
 };
@@ -58,14 +62,14 @@ module.exports = jobs;
 // Initialize jobs processing in the master process
 jobs.configureMaster = function(options, callback)
 {
-    if (!this.workers) return callback();
+    if (this.workers < 0) return callback();
     this.initServer(options, callback);
 }
 
 // Initialize a worker to be ready for jobs to execute, in instance mode setup timers to exit on no activity.
 jobs.configureWorker = function(options, callback)
 {
-    if (!this.workers) return callback();
+    if (this.workers < 0) return callback();
     this.initWorker(options, callback);
 }
 
@@ -92,6 +96,9 @@ jobs.initServer = function(options, callback)
 
     ipc.initServer();
 
+    // Start queue monitor if needed
+    ipc.monitor(options);
+
     // Setup background tasks from the crontab
     if (this.cron) this.loadCronjobs();
 
@@ -105,12 +112,10 @@ jobs.initServer = function(options, callback)
     if (this.workerArgs.length) process.execArgv = this.workerArgs;
 
     // Launch the workers
-    for (var i = 0; i < self.workers; i++) cluster.fork(this.workerEnv);
+    var workers = this.workers || (core.maxCPUs * (this.workerCpuFactor || 1));
+    for (var i = 0; i < workers; i++) cluster.fork(this.workerEnv);
 
-    // Start queue monitor if needed
-    ipc.monitor(options);
-
-    logger.log("jobs:", core.role, "started", "workers:", this.workers, "cron:", this.cron);
+    logger.log("jobs:", core.role, "started", "workers:", workers, "cron:", this.cron);
     if (typeof callback == "function") callback();
 }
 
@@ -290,7 +295,7 @@ jobs.scheduleCronjob = function(jobspec)
     if (!lib.isObject(jobspec) || !jobspec.cron || !jobspec.job || jobspec.disabled) return false;
     logger.debug('scheduleCronjob:', jobspec);
     try {
-        var cj = new cron.CronJob(jobspec.cron, function() { self.submitJob(this.job); }, null, true);
+        var cj = new cron.CronJob(jobspec.cron, function() { self.submitJob(this.job, { queueName: self.cronQueue }); }, null, true);
         cj.job = jobspec;
         this.crontab.push(cj);
         return true;

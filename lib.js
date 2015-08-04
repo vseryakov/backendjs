@@ -122,7 +122,7 @@ lib.toBool = function(val, dflt)
     if (typeof val == "boolean") return val;
     if (typeof val == "number") return !!val;
     if (typeof val == "undefined") val = dflt;
-    return !val || String(val).match(/^(false|off|f|0$)/i) ? false : true;
+    return !val || String(val).trim().match(/^(false|off|f|0$)/i) ? false : true;
 }
 
 // Return Date object for given text or numeric date representation, for invalid date returns 1969
