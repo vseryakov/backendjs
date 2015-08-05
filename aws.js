@@ -437,7 +437,7 @@ aws.queryDDB = function (action, obj, options, callback)
     logger.debug('queryDDB:', action, uri, 'obj:', obj, 'options:', options, 'item:', obj);
 
     this.querySign(region, "dynamodb", req.hostname, "POST", req.path, json, headers);
-    core.httpGet(uri, { method: "POST", postdata: json, headers: headers }, function(err, params) {
+    core.httpGet(uri, { method: "POST", postdata: json, headers: headers, retries: options.retries, timeout: options.timeout, httpTimeout: options.httpTimeout }, function(err, params) {
         // Some errors should be retried
         if (err && err.code != "ECONNRESET") {
             logger.error("queryDDB:", self.key, action, obj, err);

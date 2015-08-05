@@ -1577,6 +1577,7 @@ db.cacheColumns = function(options, callback)
     if (!options) options = {};
 
     var pool = this.getPool('', options);
+    options = this.getOptions('', options);
     pool.cacheColumns.call(pool, options, function(err) {
         if (err) logger.error('cacheColumns:', pool.name, err.stack);
         self.mergeColumns(pool);
