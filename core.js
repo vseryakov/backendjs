@@ -45,7 +45,7 @@ var core = {
     runMode: 'development',
 
     // Current instance attributes gathered by other modules
-    instance: { id: process.pid, index: 0, tag: '', image: '', region: '', zone: '' },
+    instance: { id: process.pid, type: "", index: 0, tag: '', image: '', region: '', zone: '' },
     workerId: '',
 
     // Home directory, current by default, must be absolute path
@@ -252,7 +252,7 @@ core.init = function(options, callback)
     // can be used as standalone node programs
     if (this._initialized) {
         logger.debug("init:", "already initialized");
-        return callback ? callback.call(self, null, options) : true;
+        return typeof callback == "function" ? callback.call(self, null, options) : true;
     }
 
     // Process role
@@ -420,7 +420,7 @@ core.init = function(options, callback)
         function(err) {
             logger.debug("init:", err || "");
             if (!err) self._initialized = true;
-            if (callback) callback.call(self, err, options);
+            if (typeof callback == "function") callback.call(self, err, options);
     });
 }
 

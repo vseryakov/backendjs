@@ -22,6 +22,7 @@ var aws = {
     args: [ { name: "key", descr: "AWS access key" },
             { name: "secret", descr: "AWS access secret" },
             { name: "region", descr: "AWS region" },
+            { name: "zone", descr: "AWS availability zone" },
             { name: "sdk-profile", descr: "AWS SDK profile to use when reading credentials file" },
             { name: "ddb-read-capacity", type: "int", min: 1, descr: "Default DynamoDB read capacity for all tables" },
             { name: "ddb-write-capacity", type: "int", min: 1, descr: "Default DynamoDB write capacity for all tables" },
@@ -33,7 +34,6 @@ var aws = {
             { name: "subnet-id", descr: "AWS subnet id to be used for instances or commands" },
             { name: "vpc-id", descr: "AWS VPC id to be used for instances or commands" },
             { name: "group-id", array: 1, descr: "AWS security group(s) to be used for instances or commands" },
-            { name: "group-name", array: 1, descr: "AWS security group name(s) to be used for instances or commands" },
             { name: "instance-type", descr: "AWS instance type to launch on demand" },
     ],
     key: process.env.AWS_ACCESS_KEY_ID,
@@ -200,7 +200,7 @@ aws.getInstanceInfo = function(callback)
     lib.series([
         function(next) {
             self.getInstanceMeta("/latest/meta-data/instance-id", function(err, data) {
-                if (!err && data) core.instance.id = data;
+                if (!err && data) core.instance.id = data, core.instance.type = "aws";
                 next(err);
             });
         },
@@ -438,14 +438,10 @@ aws.queryDDB = function (action, obj, options, callback)
 
     this.querySign(region, "dynamodb", req.hostname, "POST", req.path, json, headers);
     core.httpGet(uri, { method: "POST", postdata: json, headers: headers, retries: options.retries, timeout: options.timeout, httpTimeout: options.httpTimeout }, function(err, params) {
-        // Some errors should be retried
-        if (err && err.code != "ECONNRESET") {
-            logger.error("queryDDB:", self.key, action, obj, err);
-            return callback(err, {});
-        }
-
         // Reply is always JSON but we dont take any chances
-        try { params.json = JSON.parse(params.data); } catch(e) { err = e; params.status += 1000; }
+        if (params.data) {
+            try { params.json = JSON.parse(params.data); } catch(e) { err = e; params.status += 1000; }
+        }
         if (params.status != 200) {
             // Try several times, special cases or if err is not empty
             if (options.retries > 0 && (err || params.status == 500 || params.data.match(/(ProvisionedThroughputExceededException|ThrottlingException)/))) {
@@ -756,6 +752,33 @@ aws.ec2WaitForInstance = function(instanceId, status, options, callback)
       callback);
 }
 
+// Describe securty groups, optionally if `options.filter` regexp is provided then limit the result to the matched groups only,
+// return list of groups to the callback
+aws.ec2DescribeSecurityGroups = function(options, callback)
+{
+    if (typeof options == "function") callback = options, options = {};
+    if (!options) options = {};
+
+    var req = this.vpcId ? { "Filter.1.Name": "vpc-id", "Filter.1.Value": this.vpcId } : {};
+    if (options.name) {
+        lib.strSplit(options.name).forEach(function(x, i) {
+            req["Filter." + (i + 2) + ".Name"] = "group-name";
+            req["Filter." + (i + 2) + ".Value"] = x;
+        });
+    }
+
+    this.queryEC2("DescribeSecurityGroups", req, options, function(err, rc) {
+        if (err) return typeof callback == "function" && callback(err);
+
+        var groups = lib.objGet(rc, "DescribeSecurityGroupsResponse.securityGroupInfo.item", { list: 1 });
+        // Filter by name regexp
+        if (options.filter) {
+            groups = groups.filter(function(x) { return x.groupName.match(options.filter) });
+        }
+        if (typeof callback == "function") callback(err, groups);
+    });
+}
+
 // Create tags for a resource. Options may contain tags property which is an object with tag key and value
 //
 // Example
@@ -806,6 +829,23 @@ aws.ec2AssociateAddress = function(instanceId, elasticIp, options, callback)
     } else {
         self.queryEC2("AssociateAddress", params, options, callback);
     }
+}
+
+// Create an EBS image from the instance given or the current instance running
+aws.ec2CreateImage = function(options, callback)
+{
+    if (typeof options == "function") callback = options, options = {};
+    if (!options) options = {};
+
+    var req = { InstanceId: options.instanceId, Name: options.name || (core.appName + "-" + core.appVersion) };
+    if (options.noreboot) req.NoReboot = true;
+    if (options.reboot) req.NoReboot = false;
+    if (options.descr) req.Description = options.descr;
+
+    // If creating image from the current inddtance then no reboot
+    if (!req.InstanceId && core.instance.type == "aws") req.InstanceId = core.instance.id, req.NoReboot = true;
+
+    this.queryEC2("CreateImage", req, options, callback);
 }
 
 // Deregister an AMI by id. If `options.snapshots` is set, then delete all snapshots for this image as well
