@@ -565,7 +565,8 @@ core.processArgs = function(ctx, argv, pass)
                     // Strip the prefix if starts with the same name
                     name = name.replace(new RegExp("^" + x.obj + "-"), "");
                 }
-                name = lib.toCamel(name, x.camel);
+
+                if (!x.nocamel) name = lib.toCamel(name, x.camel);
                 // Update case according to the pattern(s)
                 if (x.ucase) name = name.replace(new RegExp(x.ucase, 'g'), function(v) { return v.toUpperCase(); });
                 if (x.lcase) name = name.replace(new RegExp(x.lcase, 'g'), function(v) { return v.toLowerCase(); });

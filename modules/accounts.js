@@ -544,8 +544,9 @@ accounts.getStatus = function(id, options, callback)
 }
 
 // Maintain online status, update to db every status-interval seconds, if `options.check` is given only update db if last update happened
-// after `status-interval` milliseconds ago, keep atime up-to-date in the cache on every status update.
+// longer than `status-interval` milliseconds ago, keep atime up-to-date in the cache on every status update.
 // On return the row will have a property `saved` if it was flushed to db.
+// `oatime` and `omtime` will be set to the previous values of the corresponding time properties.
 accounts.putStatus = function(obj, options, callback)
 {
     var self = this;
@@ -558,14 +559,18 @@ accounts.putStatus = function(obj, options, callback)
     // Read the current record, check is handled differently in put
     self.getStatus(obj.id, options, function(err, row) {
         if (err) return callback(err);
-        // Force db flush if last update was long time ago, otherwise just update the cache with the latest access time
-        // to keep the number of db updates to a minimum
-        if (options.check && row.online && now - row.mtime < self.statusInterval * 1.5) {
+
+        // Do not update if we are within the interval since the last update
+        if (options.check && row.online && now - row.mtime < self.statusInterval) {
+            row.oatime = row.atime;
             row.atime = now;
             db.putCache("bk_status", row, options);
             return callback(err, row);
         }
+        // Update the db with current times
         for (var p in obj) row[p] = obj[p];
+        row.oatime = row.atime;
+        row.omtime = row.mtime;
         row.atime = row.mtime = now;
         row.saved = true;
         db.put("bk_status", row, function(err) {

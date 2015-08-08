@@ -101,6 +101,8 @@ var db = {
            { name: "cache-columns-interval", type: "int", descr: "How often in minutes to refresh tables columns from the database, it calls cacheColumns for each pool" },
            { name: "no-init-tables", type: "regexp", novalue: ".+", descr: "Do not create tables in the database on startup and do not perform table upgrades for new columns, all tables are assumed to be created beforehand, this regexp will be applied to all pools if no pool-specific parameer defined" },
            { name: "cache-tables", array: 1, type: "list", descr: "List of tables that can be cached: bk_auth, bk_counter. This list defines which DB calls will cache data with currently configured cache. This is global for all db pools." },
+           { name: "cache-ttl", type: "int", obj: "cacheTtl", key: "default", descr: "Default global TTL for cached tables", },
+           { name: "cache-ttl-(.+)", type: "int", obj: "cacheTtl", nocamel: 1, strip: "cache-ttl-", descr: "TTL in milliseconds for each individual table being cached", },
            { name: "local", descr: "Local database pool for properties, cookies and other local instance only specific stuff" },
            { name: "config", descr: "Configuration database pool to be used to retrieve config parameters from the database, must be defined to use remote db for config parameters, set to `default` to use current default pool" },
            { name: "config-interval", type: "number", min: 0, descr: "Interval between loading configuration from the database configured with -db-config-type, in seconds, 0 disables refreshing config from the db" },
@@ -131,6 +133,7 @@ var db = {
 
     // Tables to be cached
     cacheTables: [],
+    cacheTtl: {},
 
     // Default database pool for the backend
     pool: 'sqlite',
@@ -2189,7 +2192,11 @@ db.putCache = function(table, query, options)
 {
     var key = options && options.cacheKey ? options.cacheKey : this.getCacheKey(table, query, options);
     if (!key) return;
-    logger.debug("putCache:", key);
+    var ttl = this.cacheTtl[table] || this.cacheTtl.default || 0;
+    if (ttl) {
+        if (!options) options = { ttl: ttl }; else options.ttl = ttl;
+    }
+    logger.debug("putCache:", key, ttl);
     ipc.put(key, lib.stringify(query), options);
 }
 
