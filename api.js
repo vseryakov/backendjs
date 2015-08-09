@@ -77,6 +77,7 @@ var api = {
            { name: "app-header-name", descr: "Name for the app name/version query parameter or header, it is can be used to tell the server about the application version" },
            { name: "version-header-name", descr: "Name for the access version query parameter or header, this is the core protocol version that can be sent to specify which core functionality a client expects" },
            { name: "no-signature", type: "bool", descr: "Disable signature verification for requests" },
+           { name: "tz-header-name", descr: "Name for the timezone offset header a client can send for time sensitive requests, the backend decides how to treat this offset" },
            { name: "signature-header-name", descr: "Name for the access signature query parameter, header and session cookie" },
            { name: "signature-age", type: "int", descr: "Max age for request signature in milliseconds, how old the API signature can be to be considered valid, the 'expires' field in the signature must be less than current time plus this age, this is to support time drifts" },
            { name: "access-token-name", descr: "Name for the access token query parameter or header" },
@@ -194,6 +195,7 @@ var api = {
     signatureHeaderName: "bk-signature",
     appHeaderName: "bk-app",
     versionHeaderName: "bk-vesion",
+    tzHeaderName: "bk-tz",
     corsOrigin: "*",
 
     // Separate age for access token
@@ -765,6 +767,8 @@ api.prepareRequest = function(req)
     }
     // Core protocol version to be used in the request if supported
     if ((v = req.query[this.versionHeaderName] || req.headers[this.versionHeaderName])) req.options.coreVersion = v;
+    // Timezone offset from UTC passed by the client, we just keep it, how to use it is up to the application
+    req.options.timezoneOffset = lib.toNumber(req.query[this.tzHeaderName] || req.headers[this.tzHeaderName], { dflt: 0, min: -720, max: 720 }) * 60000;
 }
 
 // This is supposed to be called at the beginning of request processing to start metrics and install the handler which

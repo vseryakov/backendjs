@@ -250,6 +250,8 @@ var Bkjs = {
         }
         if (!options.nosignature) {
             options.headers = this.sign(options.type, options.url, options.data, { expires: options.expires, checksum: options.checksum });
+            // Optional timezone offset for ptoper datetime related operations
+            options.headers["bk-tz"] = new Date().getTimezoneOffset();
         }
         this.loading("show");
         $.ajax(options);

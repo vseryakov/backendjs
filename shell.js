@@ -76,12 +76,17 @@ shell.getOptions = function()
 // Return first available value for the given name, options first, then command arg and then default
 shell.getArg = function(name, options, dflt)
 {
-    return options[lib.toCamel(name.substr(1))] || core.getArgInt(name, dflt);
+    return options[lib.toCamel(name.substr(1))] || core.getArg(name, dflt);
 }
 
 shell.getArgInt = function(name, options, dflt)
 {
     return lib.toNumber(this.getArg(name, options, dflt));
+}
+
+shell.isArg = function(name, options)
+{
+    return typeof options[lib.toCamel(name.substr(1))] != "undefined" || core.isArg(name);
 }
 
 // Start REPL shell or execute any subcommand if specified in the command line.
@@ -456,9 +461,10 @@ shell.awsCheckTags = function(obj, name)
 // Return matched subnet ids by availability zone and/or name pattern
 shell.awsFilterSubnets = function(subnets, zone, name)
 {
+    var self = this;
     return subnets.filter(function(x) {
         if (zone && zone != x.availabilityZone.split("-").pop()) return 0;
-        return name ? checkTags(x, name) : 1;
+        return name ? self.awsCheckTags(x, name) : 1;
     }).map(function(x) {
         return x.subnetId;
     });
@@ -517,16 +523,16 @@ shell.getAmazonImages = function(options, callback)
 }
 
 // Wait ELB to have instance count equal or not to the expected total
-shell.getElbCount = function(equal, total, options, callback)
+shell.getElbCount = function(name, equal, total, options, callback)
 {
     var running = 1, count = 0, expires = Date.now() + (options.timeout || 180000);
 
     lib.doWhilst(
         function(next) {
-            aws.queryELB("DescribeInstanceHealth", { LoadBalancerName: aws.elbName }, function(err, rc) {
+            aws.queryELB("DescribeInstanceHealth", { LoadBalancerName: name }, function(err, rc) {
                 if (err) return next(err);
                 count = lib.objGet(rc, "DescribeInstanceHealthResponse.DescribeInstanceHealthResult.InstanceStates.member", { list: 1 }).filter(function(x) { return x.State == "InService"}).length;
-                logger.log("getElbCount:", aws.elbName, "checking(" + (equal ? "=" : "<>") + "):", "in-service", count, "out of", total);
+                logger.log("getElbCount:", name, "checking(" + (equal ? "=" : "<>") + "):", "in-service", count, "out of", total);
                 if (equal) {
                     running = total == count && Date.now() < expires;
                 } else {
@@ -547,66 +553,86 @@ shell.getElbCount = function(equal, total, options, callback)
 shell.launchInstances = function(options, callback)
 {
     var self = this;
-    var alarms = [], subnets = [], instances = [];
+    var subnets = [], instances = [];
     var appName = self.getArg("-app-name", options, core.appName);
     var appVersion = self.getArg("-app-version", options, core.appVersion);
 
+    var req = {
+        count: self.getArgInt("-count", options, 1),
+        vpcId: self.getArg("-vpc-id", options, aws.vpcId),
+        instanceType: self.getArg("-instance-type", options, aws.instanceType),
+        imageId: self.getArg("-image-id", options, aws.imageId),
+        subnetId: self.getArg("-subnet-id", options, aws.subnetId),
+        keyName: self.getArg("-key-name", options, aws.keyName) || appName,
+        elbName: self.getArg("-elb-name", options, aws.elbName),
+        groupId: self.getArg("-group-id", options, aws.groupId),
+        iamProfile: self.getArg("-ami-profile", options, aws.iamProfile) || appName,
+        data: self.getArg("-user-data", options),
+        terminate: self.isArg("-no-terminate", options) ? 0 : 1,
+        name: self.getArg("-tag-name", options, appName + "-" + appVersion),
+        alarmName: self.getArg("-alarm-name", options),
+        alarms: [],
+    };
+    logger.debug("launchInstances:", req);
+
     lib.series([
        function(next) {
-           if (aws.imageId) return next();
+           if (req.imageId) return next();
            var imageName = self.getArg("-image-name", options, '*');
            self.getSelfImages(imageName, function(err, rc) {
+               if (err) return next(err);
+
                // Give preference to the images with the same app name
-               if (!err && rc.length) {
+               if (rc.length) {
                    var rx = new RegExp("^" + appName, "i");
-                   for (var i = 0; i < rc.length && !aws.imageId; i++) {
-                       if (rc[i].name.match(rx)) aws.imageId = rc[i].imageId;
+                   for (var i = 0; i < rc.length && !req.imageId; i++) {
+                       if (rc[i].name.match(rx)) req.imageId = rc[i].imageId;
                    }
-                   if (!aws.imageId) aws.imageId = rc[0].imageId;
+                   if (!req.imageId) req.imageId = rc[0].imageId;
                }
+               if (!req.imageId) return next("ERROR: AMI must be specified or discovered by filters");
                next(err);
            });
        },
        function(next) {
-           if (aws.subnetId) return next();
-           var req = aws.vpcId ? { "Filter.1.Name": "vpc-id", "Filter.1.Value": aws.vpcId } : {};
-           aws.queryEC2("DescribeSubnets", req, function(err, rc) {
-               subnets = lib.objGet(rc, "DescribeSubnetsResponse.subnetSet.item", { list: 1 });
-               next(err);
-           });
-       },
-       function(next) {
-           if (aws.groupId) return next();
+           if (req.groupId) return next();
            var filter = self.getArg("-group-name", options, appName + "|^default$");
            aws.ec2DescribeSecurityGroups({ filter: filter }, function(err, rc) {
-               if (!err) aws.groupId = rc.map(function(x) { return x.groupId });
+               if (!err) req.groupId = rc.map(function(x) { return x.groupId });
                next(err);
            });
        },
        function(next) {
            // Verify load balancer name
-           if (!aws.elbName) return next();
-           aws.queryELB("DescribeInstanceHealth", { LoadBalancerName: aws.elbName }, function(err, rc) {
-               next(err);
+           if (self.isArg("-no-elb", options)) return next();
+           aws.queryELB("DescribeLoadBalancers", {}, function(err, rc) {
+               if (err) return next(err);
+
+               var list = lib.objGet(rc, "DescribeLoadBalancersResponse.DescribeLoadBalancersResult.LoadBalancerDescriptions.member", { list: 1 });
+               if (req.elbName) {
+                   if (!list.filter(function(x) { return x.LoadBalancerName == req.elbName }).length) return next("ERROR: Invalid load balancer " + aws.elbName);
+               } else {
+                   req.elbName = list.filter(function(x) { return x.LoadBalancerName.match("^" + appName) }).map(function(x) { return x.LoadBalancerName }).pop();
+               }
+               next();
            });
        },
        function(next) {
            // Create CloudWatch alarms, find SNS topic by name
-           var alarmName = self.getArg("-alarm-name", options);
-           if (!alarmName) return next();
+           if (!req.alarmName) return next();
            aws.snsListTopics(function(err, topics) {
                var topic = new RegExp(alarmName, "i");
                topic = topics.filter(function(x) { return x.match(topic); }).pop();
                if (!topic) return next(err);
-               alarms.push({ metric:"CPUUtilization",
+               req.alarms.push({ metric:"CPUUtilization",
                                threshold:self.getArgInt("-cpu-threshold", options, 80),
                                evaluationPeriods:self.getArgInt("-periods", options, 3),
                                alarm:topic });
-               alarms.push({ metric:"NetworkOut",
+               req.alarms.push({ metric:"NetworkOut",
                                threshold:self.getArgInt("-net-threshold", options, 8000000),
                                evaluationPeriods:self.getArgInt("-periods", options, 3),
                                alarm:topic });
-               alarms.push({ metric:"StatusCheckFailed",
+               req.alarms.push({ metric:"StatusCheckFailed",
                                threshold: 1,
                                evaluationPeriods: 2,
                                statistic: "Maximum",
@@ -615,16 +641,24 @@ shell.launchInstances = function(options, callback)
            });
        },
        function(next) {
-           if (aws.subnetId || options.subnetId) {
-               subnets.push(options.subnetId || aws.subnetId);
+           if (req.subnetId) return next();
+           var params = req.vpcId ? { "Filter.1.Name": "vpc-id", "Filter.1.Value": req.vpcId } : {};
+           aws.queryEC2("DescribeSubnets", params, function(err, rc) {
+               subnets = lib.objGet(rc, "DescribeSubnetsResponse.subnetSet.item", { list: 1 });
+               next(err);
+           });
+       },
+       function(next) {
+           if (req.subnetId) {
+               subnets.push(req.subnetId);
            } else
            // Same amount of instances in each subnet
-           if (options.subnetEach || core.isArg("-subnet-each")) {
-               subnets = getSubnets(subnets, options.zone || aws.zone, options.subnetName || core.getArg("-subnet-name"));
+           if (self.isArg("-subnet-each", options)) {
+               subnets = self.awsFilterSubnets(subnets, options.zone || aws.zone, self.getArg("-subnet-name", options, appName));
            } else
            // Split between all subnets
-           if (options.subnetSplit || core.isArg("-subnet-split")) {
-               subnets = getSubnets(subnets, options.zone || aws.zone, options.subnetName || core.getArg("-subnet-name"));
+           if (self.isArg("-subnet-split", options)) {
+               subnets = self.awsFilterSubnets(subnets, options.zone || aws.zone, self.getArg("-subnet-name", options, appName));
                if (count <= subnets.length) {
                    subnets = subnets.slice(0, count);
                } else {
@@ -634,27 +668,15 @@ shell.launchInstances = function(options, callback)
                options.count = 1;
            } else {
                // Random subnet
-               subnets = getSubnets(subnets, options.zone || aws.zone, options.subnetName || core.getArg("-subnet-name"));
+               subnets = self.awsFilterSubnets(subnets, options.zone || aws.zone, self.getArg("-subnet-name", options, appName));
                subnets = [ subnets[lib.randomInt(0, subnets.length - 1)] ];
            }
 
-           if (!aws.imageId || !subnets.length) return next2("ERROR: AMI and subnet must be specified or discovered by filters");
+           if (!subnets.length) return next("ERROR: subnet must be specified or discovered by filters");
 
            lib.forEachLimit(subnets, subnets.length, function(subnet, next2) {
-               var req = {
-                   count: options.count || core.getArgInt("-count", 1),
-                   instanceType: options.instanceType || aws.instanceType,
-                   imageId: options.imageId || aws.imageId,
-                   subnetId: subnet,
-                   keyName: options.keyName || aws.keyName || appName,
-                   elbName: options.elbName | aws.elbName,
-                   groupId: options.groupId || aws.groupId,
-                   iamProfile: options.amiProfile || aws.iamProfile || appName,
-                   data: options.userData || core.getArg("-user-data"),
-                   terminate: options.noterminate ? 0 : core.isArg("-no-terminate") ? 0 : 1,
-                   name: options.tagName || core.getArg("-tag-name") || (appName + "-" + appVersion),
-                   alarms: alarms };
-               logger.log("RunInstances:", req);
+               req.subnetId = subnet;
+               logger.log("launchInstances:", req);
                if (core.isArg("-dry-run")) return next2();
 
                aws.ec2RunInstances(req, function(err, rc) {
@@ -666,11 +688,11 @@ shell.launchInstances = function(options, callback)
        },
        function(next) {
            if (instances.length) logger.log(instances.map(function(x) { return [ x.instanceId, x.privateIpAddress || "" ] }));
-           if (!options.wait && !core.isArg("-wait")) return next();
+           if (!self.isArg("-wait", options)) return next();
            if (instances.length != 1) return next();
            aws.ec2WaitForInstance(instances[0].instanceId, "running",
-                                  { waitTimeout: options.waitTimeout || core.getArgInt("-wait-timeout", 600000),
-                                    waitDelay: options.waitDelay || core.getArgInt("-wait-delay", 30000) },
+                                  { waitTimeout: self.getArgInt("-wait-timeout", options, 600000),
+                                    waitDelay: self.getArgInt("-wait-delay", options, 30000) },
                                   next);
        },
        ], callback);
@@ -679,7 +701,7 @@ shell.launchInstances = function(options, callback)
 // Delete an AMI with the snapshot
 shell.cmdAwsLaunchInstances = function(options)
 {
-    launchInstances(options, function(err) {
+    this.launchInstances(options, function(err) {
         shell.exit(err);
     });
 }
@@ -688,7 +710,7 @@ shell.cmdAwsShowImages = function(options)
 {
     var filter = core.getArg("-filter");
 
-    getSelfImages(filter || "*", function(err, images) {
+    this.getSelfImages(filter || "*", function(err, images) {
         images.forEach(function(x) {
             console.log(x.imageId, x.name, x.imageState, x.description);
         });
@@ -702,7 +724,7 @@ shell.cmdAwsShowAmazonImages = function(options)
     options.rootdev = core.getArg("-rootdev");
     options.arch = core.getArg("-arch");
 
-    getAmazonImages(options, function(err, images) {
+    this.getAmazonImages(options, function(err, images) {
         images.forEach(function(x) {
             console.log(x.imageId, x.name, x.imageState, x.description);
         });
@@ -726,13 +748,14 @@ shell.cmdAwsShowGroups = function(options)
 // Delete an AMI with the snapshot
 shell.cmdAwsDeleteImage = function(options)
 {
+    var self = this;
     var filter = core.getArg("-filter");
     if (!filter) shell.exit("-filter is required");
     var images = [];
 
     lib.series([
        function(next) {
-           getSelfImages(filter, function(err, list) {
+           self.getSelfImages(filter, function(err, list) {
                if (!err) images = list;
                next(err);
            });
@@ -767,6 +790,7 @@ shell.cmdAwsCreateImage = function(options)
 // Reboot instances by run mode and/or other criteria
 shell.cmdAwsRebootInstances = function(options)
 {
+    var self = this;
     var instances = [];
     var filter = core.getArg("-filter");
     if (!filter) shell.exit("-filter is required");
@@ -776,7 +800,7 @@ shell.cmdAwsRebootInstances = function(options)
            var req = { "Filter.1.Name": "instance-state-name", "Filter.1.Value.1": "running", "Filter.2.Name": "tag:Name", "Filter.2.Value.1": filter };
            logger.debug("RebootInstances:", req)
            aws.queryEC2("DescribeInstances", req, function(err, rc) {
-               instances = getInstances(rc).map(function(x) { return x.instanceId });
+               instances = self.awsGetInstances(rc).map(function(x) { return x.instanceId });
                next(err);
            });
        },
@@ -789,13 +813,14 @@ shell.cmdAwsRebootInstances = function(options)
            aws.queryEC2("RebootInstances", req, next);
        },
        ], function(err) {
-           shell.exit(err);
+           self.exit(err);
        });
 }
 
 // Terminate instances by run mode and/or other criteria
 shell.cmdAwsTerminateInstances = function(options)
 {
+    var self = this;
     var instances = [];
     var filter = core.getArg("-filter");
     if (!filter) shell.exit("-filter is required");
@@ -805,7 +830,7 @@ shell.cmdAwsTerminateInstances = function(options)
            var req = { "Filter.1.Name": "instance-state-name", "Filter.1.Value.1": "running", "Filter.2.Name": "tag:Name", "Filter.2.Value.1": filter };
            logger.debug("terminateInstances:", req)
            aws.queryEC2("DescribeInstances", req, function(err, rc) {
-               instances = getInstances(rc).map(function(x) { return x.instanceId });
+               instances = self.awsGetInstances(rc).map(function(x) { return x.instanceId });
                next(err);
            });
        },
@@ -818,13 +843,14 @@ shell.cmdAwsTerminateInstances = function(options)
            aws.queryEC2("TerminateInstances", req, next);
        },
        ], function(err) {
-           shell.exit(err);
+           self.exit(err);
        });
 }
 
 // Show running instances by run mode and/or other criteria
 shell.cmdAwsShowInstances = function(options)
 {
+    var self = this;
     var instances = [];
     var filter = core.getArg("-filter");
 
@@ -834,12 +860,12 @@ shell.cmdAwsShowInstances = function(options)
                        "Filter.2.Name": "instance-state-name", "Filter.2.Value.1": "running", }
            logger.debug("showInstances:", req);
            aws.queryEC2("DescribeInstances", req, function(err, rc) {
-               instances = getInstances(rc);
+               instances = self.awsGetInstances(rc);
                next(err);
            });
        },
        function(next) {
-           if (core.isArg("-showip")) {
+           if (core.isArg("-show-ip")) {
                console.log(instances.map(function(x) { return x.privateIpAddress }).join(" "));
            } else {
                instances.forEach(function(x) { console.log(x.instanceId, x.privateIpAddress, x.publicIpAddress, x.name); });
@@ -847,20 +873,22 @@ shell.cmdAwsShowInstances = function(options)
            next();
        },
        ], function(err) {
-           shell.exit(err);
+           self.exit(err);
        });
 }
 
 // Show ELB running instances
 shell.cmdAwsShowElb = function(options)
 {
-    if (!aws.elbName) shell.exit("ERROR: -aws-elb-name must be specified")
+    var self = this;
+    var elbName = this.getArg("-elb-name", options, aws.elbName);
+    if (!elbName) shell.exit("ERROR: -aws-elb-name or -elb-name must be specified")
     var instances = [];
     var filter = core.getArg("-filter");
 
     lib.series([
        function(next) {
-           aws.queryELB("DescribeInstanceHealth", { LoadBalancerName: aws.elbName }, function(err, rc) {
+           aws.queryELB("DescribeInstanceHealth", { LoadBalancerName: elbName }, function(err, rc) {
                if (err) return next(err);
                instances = lib.objGet(rc, "DescribeInstanceHealthResponse.DescribeInstanceHealthResult.InstanceStates.member", { list: 1 });
                next();
@@ -870,7 +898,7 @@ shell.cmdAwsShowElb = function(options)
            var req = {};
            instances.forEach(function(x, i) { req["InstanceId." + (i + 1)] = x.InstanceId });
            aws.queryEC2("DescribeInstances", req, function(err, rc) {
-               var list = awsGetInstances(rc);
+               var list = self.awsGetInstances(rc);
                list.forEach(function(row) {
                    instances.forEach(function(x) {
                        if (x.InstanceId == row.instanceId) x.name = row.name;
@@ -890,21 +918,23 @@ shell.cmdAwsShowElb = function(options)
            next();
        },
        ], function(err) {
-           shell.exit(err);
+           self.exit(err);
        });
 }
 
 // Reboot instances in the ELB, one by one
 shell.cmdAwsRebootElb = function(options)
 {
-    if (!aws.elbName) shell.exit("ERROR: -aws-elb-name must be specified")
+    var self = this;
+    var elbName = this.getArg("-elb-name", options, aws.elbName);
+    if (!elbName) shell.exit("ERROR: -aws-elb-name or -elb-name must be specified")
     var total = 0, instances = [];
     options.timeout = core.getArgInt("-timeout");
     options.interval = core.getArgInt("-interval");
 
     lib.series([
        function(next) {
-           aws.queryELB("DescribeInstanceHealth", { LoadBalancerName: aws.elbName }, function(err, rc) {
+           aws.queryELB("DescribeInstanceHealth", { LoadBalancerName: elbName }, function(err, rc) {
                if (err) return next(err);
                instances = lib.objGet(rc, "DescribeInstanceHealthResponse.DescribeInstanceHealthResult.InstanceStates.member", { list: 1 }).filter(function(x) { return x.State == "InService" });
                total = instances.length;
@@ -912,47 +942,53 @@ shell.cmdAwsRebootElb = function(options)
            });
        },
        function(next) {
-           // Reboot first instance
+           // Reboot first half
            if (!instances.length) return next();
-           var req = { "InstanceId.1": instances[0].InstanceId };
-           instances.shift();
-           logger.log("RebootELB:", aws.elbName, "restarting:", req)
+           var req = {};
+           instances.splice(0, Math.floor(instances.length/2)).forEach(function(x, i) {
+               req["InstanceId." + (i + 1)] = x.InstanceId;
+           });
+           logger.log("RebootELB:", elbName, "restarting:", req)
            if (core.isArg("-dry-run")) return next();
            aws.queryEC2("RebootInstances", req, next);
        },
        function(next) {
+           if (core.isArg("-dry-run")) return next();
            // Wait until one instance is out of service
-           getElbCount(1, total, options, next);
+           self.getElbCount(elbName, 1, total, options, next);
        },
        function(next) {
+           if (core.isArg("-dry-run")) return next();
            // Wait until all instances in service again
-           getElbCount(0, total, options, next);
+           self.getElbCount(elbName, 0, total, options, next);
        },
        function(next) {
            // Reboot the rest
            if (!instances.length) return next();
            var req = {};
            instances.forEach(function(x, i) { req["InstanceId." + (i + 1)] = x.InstanceId });
-           logger.log("RebootELB:", aws.elbName, 'restarting:', req)
+           logger.log("RebootELB:", elbName, 'restarting:', req)
            if (core.isArg("-dry-run")) return next();
            aws.queryEC2("RebootInstances", req, next);
        },
        ], function(err) {
-           shell.exit(err);
+           self.exit(err);
        });
 }
 
 // Deploy new version in the ELB, terminate the old version
 shell.cmdAwsReplaceElb = function(options)
 {
-    if (!aws.elbName) shell.exit("ERROR: -aws-elb-name must be specified")
+    var self = this;
+    var elbName = this.getArg("-elb-name", options, aws.elbName);
+    if (!elbName) shell.exit("ERROR: -aws-elb-name or -elb-name must be specified")
     var total = 0, oldInstances = [], newInstances = [], oldInService = [];
     options.timeout = core.getArgInt("-timeout");
     options.interval = core.getArgInt("-interval");
 
     lib.series([
        function(next) {
-           aws.queryELB("DescribeInstanceHealth", { LoadBalancerName: aws.elbName }, function(err, rc) {
+           aws.queryELB("DescribeInstanceHealth", { LoadBalancerName: elbName }, function(err, rc) {
                if (err) return next(err);
                oldInstances = lib.objGet(rc, "DescribeInstanceHealthResponse.DescribeInstanceHealthResult.InstanceStates.member", { list: 1 });
                oldInService = oldInstances.filter(function(x) { return x.State == "InService" });
@@ -960,15 +996,15 @@ shell.cmdAwsReplaceElb = function(options)
            });
        },
        function(next) {
-           logger.log("ReplaceELB:", aws.elbName, 'running:', oldInstances)
+           logger.log("ReplaceELB:", elbName, 'running:', oldInstances)
            // Launch new instances
-           shell.launchInstances(options, next);
+           self.launchInstances(options, next);
        },
        function(next) {
            newInstances = instances;
            if (core.isArg("-dry-run")) return next();
            // Wait until all instances are online
-           getElbCount(0, oldInService.length + newInstances.length, options, function(err, total, count) {
+           self.getElbCount(elbName, 0, oldInService.length + newInstances.length, options, function(err, total, count) {
                if (!err && count != total) err = "Timeout waiting for instances";
                next(err);
            })
@@ -978,12 +1014,12 @@ shell.cmdAwsReplaceElb = function(options)
            if (!oldInstances.length) return next();
            var req = {};
            oldInstances.forEach(function(x, i) { req["InstanceId." + (i + 1)] = x.InstanceId });
-           logger.log("ReplaceELB:", aws.elbName, 'terminating:', req)
+           logger.log("ReplaceELB:", elbName, 'terminating:', req)
            if (core.isArg("-dry-run")) return next();
            aws.queryEC2("TerminateInstances", req, next);
        },
        ], function(err) {
-           shell.exit(err);
+           self.exit(err);
        });
 }
 
@@ -991,7 +1027,7 @@ shell.cmdAwsReplaceElb = function(options)
 shell.cmdAwsSetupSsh = function(options)
 {
     var ip = "", groupId;
-    var groupName = getArg("-group-name");
+    var groupName = this.getArg("-group-name", options);
     if (!groupName) shell.exit("-group-name is required");
 
     lib.series([
