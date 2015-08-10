@@ -1096,7 +1096,8 @@ db.search = function(table, query, options, callback)
 //   for cases when actual primary keys in the table are different from the rows properties.
 // - options.existing is 1 then return only joined records.
 // - options.override - joined table properties will replace the original table existing properties
-// - options.attach - specifies a property name which will be used to attache joined record to the original record, no mergin will occur
+// - options.attach - specifies a property name which will be used to attach joined record to the original record, no merging will occur
+// - options.incr can be a list of property names that need to be summed up with each other, not overriden
 //
 // Example:
 //
@@ -1131,7 +1132,12 @@ db.join = function(table, rows, options, callback)
                 if (options.attach) {
                     row[options.attach] = x;
                 } else {
-                    for (var p in x) if (options.override || !row[p]) row[p] = x[p];
+                    for (var p in x) {
+                        if (Array.isArray(options.incr) && options.incr.indexOf(p) > -1) {
+                            row[p] = (row[p] || 0) + x[p];
+                        } else
+                        if (options.override || !row[p]) row[p] = x[p];
+                    }
                 }
                 if (options.existing) row.__1 = 1;
             });

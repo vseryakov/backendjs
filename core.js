@@ -1062,7 +1062,7 @@ core.httpGet = function(uri, params, callback)
       });
 
     }).on('error', function(err) {
-        if (!params.quiet) logger.error("httpGet:", "onerror:", uri, 'file:', params.file || "", 'retries:', params.retries, 'timeout:', params.httpTimeout, 'size;', params.size, err);
+        if (!params.quiet && !params.retries) logger.error("httpGet:", "onerror:", uri, 'file:', params.file || "", 'retries:', params.retries, 'timeout:', params.httpTimeout, 'size;', params.size, err);
         // Keep trying if asked for it
         if (params.retries) {
             params.retries--;

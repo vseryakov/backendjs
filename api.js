@@ -1858,12 +1858,7 @@ api.sendFormatted = function(req, err, data, options)
         if (req.options.cleanup) this.checkResultColumns(req.options.cleanup, data.count && data.data ? data.data : data, req.options);
         var xml = "<data>\n";
         if (data.next_token) xml += "<next_token>" + data.next_token + "</next_token>\n";
-        var rows = Array.isArray(data) ? data : (data.data || []);
-        for (var i = 0; i < rows.length; i++) {
-            xml += "<row>\n";
-            for (var y in rows[i]) xml += "<" + y + ">" + String(x[y]).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/'/g, '&apos;').replace(/"/g, '&quot;') + "</" + y + ">\n";
-            xml += "</row>\n";
-        }
+        xml += lib.toFormat(options.format, data, options);
         xml += "</data>";
         req.res.set('Content-Type', 'application/xml');
         req.res.send(200, xml);
@@ -1873,9 +1868,14 @@ api.sendFormatted = function(req, err, data, options)
         if (req.options.cleanup) this.checkResultColumns(req.options.cleanup, data.count && data.data ? data.data : data, req.options);
         var rows = Array.isArray(data) ? data : (data.data || []);
         var csv = Object.keys(rows[0]).join(options.separator || "|") + "\n";
-        for (var i = 0; i < rows.length; i++) {
-            csv += Object.keys(rows[i]).map(function(y) { return rows[i][y]} ).join(options.separator || "|") + "\n";
-        }
+        csv += lib.toFormat(options.format, rows, options);
+        req.res.set('Content-Type', 'text/csv');
+        req.res.send(200, csv);
+        break;
+
+    case "json":
+        if (req.options.cleanup) this.checkResultColumns(req.options.cleanup, data.count && data.data ? data.data : data, req.options);
+        csv += lib.toFormat(options.format, data, options);
         req.res.set('Content-Type', 'text/plain');
         req.res.send(200, csv);
         break;

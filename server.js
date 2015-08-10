@@ -95,6 +95,8 @@ server.start = function()
     // Graceful shutdown, kill all children processes
     process.once('exit', function() { self.onexit()  });
     process.once('SIGTERM', function() { self.onkill(); });
+    // Reserved for restarting purposes
+    process.on('SIGUSR2', function() {});
 
     // Watch monitor for modified source files, for development mode only, in production -monitor is used
     if (core.isArg("-watch")) {

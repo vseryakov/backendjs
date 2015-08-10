@@ -382,6 +382,51 @@ lib.toParams = function(query, schema, options)
     return rc;
 }
 
+// Convert a list of records into the specified format, supported formats are: `xml, csv, json`.
+// - For `csv` the default separator is `tab` but can be specified with `options.separator`. To produce columns header specify `options.header`.
+// - For `json` format puts each record as a separate JSON object on each line, so to read it back
+//   it will require to read every line and parse it and add to the list.
+// - For `xml` format the name of the row tag is `<row>` but can be
+//   specified with `options.tag`.
+//
+// All formats support the property `options.allow` which is a list of property names that are allowed only in the output for each record, non-existent
+// properties will be replaced by empty strings
+lib.toFormat = function(format, data, options)
+{
+    var rows = Array.isArray(data) ? data : Array.isArray(data.data) ? data.data :[];
+    var allow = options && Array.isArray(options.allow) ? options.allow : null;
+
+    switch (format) {
+    case "xml":
+        var xml = "";
+        var tag = ((options && options.tag) || "row");
+        for (var i = 0; i < rows.length; i++) {
+            xml += "<" + tag + ">\n";
+            xml += (allow || Object.keys(rows[i])).map(function(y) {
+                return "<" + y + ">" + String(rows[i][y]).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/'/g, '&apos;').replace(/"/g, '&quot;') + "</" + y + ">\n";
+            });
+            xml += "</" + tag + ">\n";
+        }
+        return xml;
+
+    case "csv":
+        var csv = "";
+        var sep = (options && options.separator) || "\t";
+        if (options && options.header) csv += (allow || Object.keys(rows[0])).join(sep) + "\n";
+        for (var i = 0; i < rows.length; i++) {
+            csv += (allow || Object.keys(rows[i])).map(function(y) { return rows[i][y]} ).join(sep) + "\n";
+        }
+        return csv;
+
+    default:
+        var json = "";
+        for (var i = 0; i < rows.length; i++) {
+            json += JSON.stringify(allow ? allow.reduce(function(x,y) { x[y] = rows[i][y] || ""; return x }, {}) : rows[i]) + "\n";
+        }
+        return json;
+    }
+}
+
 // Returns true of the argument is a generic object, not a null, Buffer, Date, RegExp or Array
 lib.isObject = function(v)
 {

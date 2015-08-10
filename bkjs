@@ -149,6 +149,7 @@ case "$ARG" in
 
   restart-api)
     $KILLALL -USR2 "$BKJS: server"
+    $KILLALL -USR2 "$BKJS: master"
     exit 0
     ;;
 
@@ -588,24 +589,25 @@ case "$ARG" in
     major=$(get_value "$info" major)
     minor=$(get_value "$info" minor)
     patch=$(get_value "$info" patch)
+    tag=$(echo $(get_value "$info" tag)|awk -F- '{print $1}')
     dirs=$BKJS_SYNC/$name/
-    dirs="$dirs $BKJS_SYNC/$name/$mode/"
-    dirs="$dirs $BKJS_SYNC/$name/$mode/$major/"
-    dirs="$dirs $BKJS_SYNC/$name/$mode/$major/$minor/"
-    [ "$network" != "" ] && dirs="$dirs $BKJS_SYNC/$name/$network/"
-    [ "$subnet" != "" ] && dirs="$dirs $BKJS_SYNC/$name/$subnet/"
+    dirs="$dirs $BKJS_SYNC/$mode/"
+    dirs="$dirs $BKJS_SYNC/$name/$major.$minor/"
+    [ "$network" != "" ] && dirs="$dirs $BKJS_SYNC/$network/"
+    [ "$subnet" != "" ] && dirs="$dirs $BKJS_SYNC/$subnet/"
+    [ "$tag" != "" -a "$tag" != "$name" ] && dirs="$dirs $BKJS_SYNC/$tag/"
     if [[ $BKJS_SYNC =~ ^s3:// ]]; then
-       for dir in $dirs; do echo aws s3 sync $dir $BKJS_HOME ${BKJS_DEBUG:--quiet} --recursive; done
+       region=$(get_value "$info" region)
+       for dir in $dirs; do echo aws s3 sync $dir $BKJS_HOME ${BKJS_DEBUG:--quiet} --recursive --region $region; done
     else
         rsync -aFF ${BKJS_DEBUG:-q} -e "ssh -l $BKJS_USER -y -o StrictHostKeyChecking=no -o ConnectTimeout=5 $BKJS_SSH_ARGS" $dirs $BKJS_HOME
     fi
     # Check for version change and run the restart command
     info2=$($0 run-shell -log none -no-db -no-dns -no-configure -show-info)
-    [ "$BKJS_DEBUG" != "" ] && $ECHO "old:\n$info\n, new:\n$info2"
+    [ "$BKJS_DEBUG" != "" ] && $ECHO "OLD:\n$info\nNEW:\n$info2"
     version2=$(get_value "$info2" version)
     major2=$(get_value "$info2" major)
     minor2=$(get_value "$info2" minor)
-    patch2=$(get_value "$info2" patch)
     [ "$version" = "$version2" ] && exit
     if [ "$major2" != "" -a "$major" != "$major2" ]; then
        npm restart

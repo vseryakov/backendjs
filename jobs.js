@@ -108,6 +108,11 @@ jobs.initServer = function(options, callback)
         if (!server.exiting) cluster.fork();
     });
 
+    // Graceful restart of all workers
+    process.on('SIGUSR2', function() {
+        ipc.sendMsg("worker:restart");
+    });
+
     // Arguments passed to the v8 engine
     if (this.workerArgs.length) process.execArgv = this.workerArgs;
 
@@ -145,7 +150,7 @@ jobs.initWorker = function(options, callback)
     if (typeof callback == "function") callback();
 }
 
-// Perform gracefulworker shutdown and then exit the process
+// Perform graceful worker shutdown and then exit the process
 jobs.exitWorker = function(options)
 {
     if (this.exiting++) return;
