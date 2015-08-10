@@ -965,9 +965,10 @@ core.httpGet = function(uri, params, callback)
     }
 
     // Runtime properties
-    if (!params.retries) params.retries = 0;
-    if (!params.redirects) params.redirects = 0;
-    if (!params.httpTimeout) params.httpTimeout = 300000;
+    params.redirects = lib.toNumber(params.redirects, { min: 0 });
+    params.retryCount = lib.toNumber(params.retryCount, { min: 0 });
+    params.retryTimeout = lib.toNumber(params.retryTimeout, { min: 0, dflt: 250 });
+    params.httpTimeout = lib.toNumber(params.httpTimeout, { min: 0, dflt: 300000 });
     if (!params.ignoreredirect) params.ignoreredirect = {};
     params.data = params.binary ? new Buffer(0) : '';
     params.size = 0, params.err = null, params.fd = 0, params.status = 0, params.poststream = null;
@@ -1026,12 +1027,11 @@ core.httpGet = function(uri, params, callback)
           if (params.stream) try { params.stream.end(params.onfinish); } catch(e) {}
           params.fd = 0;
 
-          logger.dev("httpGet: end", options.method, "url:", uri, "size:", params.size, "status:", params.status, 'type:', params.type, 'location:', res.headers.location || '');
+          logger.dev("httpGet: end", options.method, "url:", uri, "size:", params.size, "status:", params.status, 'type:', params.type, 'location:', res.headers.location || '', 'retry:', params.retryCount, params.retryTimeout);
 
           // Retry the same request
-          if (params.retries && (res.statusCode < 200 || res.statusCode >= 400)) {
-              params.retries--;
-              setTimeout(function() { self.httpGet(uri, params, callback); }, params.retryTimeout || 500);
+          if ((res.statusCode < 200 || res.statusCode >= 400) && params.retryCount-- > 0) {
+              setTimeout(function() { self.httpGet(uri, params, callback); }, params.retryTimeout *=2 );
               return;
           }
           // Redirection
@@ -1062,18 +1062,17 @@ core.httpGet = function(uri, params, callback)
       });
 
     }).on('error', function(err) {
-        if (!params.quiet && !params.retries) logger.error("httpGet:", "onerror:", uri, 'file:', params.file || "", 'retries:', params.retries, 'timeout:', params.httpTimeout, 'size;', params.size, err);
+        if (!params.quiet) logger[params.retryCount ? "debug" : "error"]("httpGet:", "onerror:", uri, 'file:', params.file || "", 'retry:', params.retryCount, params.retryTimeout, 'timeout:', params.httpTimeout, 'size;', params.size, err);
         // Keep trying if asked for it
-        if (params.retries) {
-            params.retries--;
-            setTimeout(function() { self.httpGet(uri, params, callback); }, params.retryTimeout || 500);
+        if (params.retryCount-- > 0) {
+            setTimeout(function() { self.httpGet(uri, params, callback); }, params.retryTimeout *= 2);
             return;
         }
         callback(err, params, {});
     });
     if (params.httpTimeout) {
         req.setTimeout(params.httpTimeout, function() {
-            if (!params.quiet) logger.error("httpGet:", "timeout:", uri, 'file:', params.file || "", 'retries:', params.retries, 'timeout:', params.httpTimeout);
+            if (!params.quiet) logger[params.retryCount ? "debug" : "error"]("httpGet:", "timeout:", uri, 'file:', params.file || "", 'retry:', params.retryCount, params.retryTimeout, 'timeout:', params.httpTimeout);
             req.abort();
         });
     }

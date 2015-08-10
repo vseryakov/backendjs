@@ -158,7 +158,7 @@ aws.getInstanceMeta = function(path, callback)
 {
     var self = this;
     if (typeof callback != "function") callback = lib.noop;
-    core.httpGet("http://169.254.169.254" + path, { httpTimeout: 100, quiet: true, retries: 2, retryTimeout: 100 }, function(err, params) {
+    core.httpGet("http://169.254.169.254" + path, { httpTimeout: 100, quiet: true, retryCount: 2, retryTimeout: 100 }, function(err, params) {
         logger.debug('getInstanceMeta:', path, params.status, params.data, err || "");
         callback(err, params.status == 200 ? params.data : "");
     });
@@ -437,18 +437,17 @@ aws.queryDDB = function (action, obj, options, callback)
     logger.debug('queryDDB:', action, uri, 'obj:', obj, 'options:', options, 'item:', obj);
 
     this.querySign(region, "dynamodb", req.hostname, "POST", req.path, json, headers);
-    core.httpGet(uri, { method: "POST", postdata: json, headers: headers, retries: options.retries, timeout: options.timeout, httpTimeout: options.httpTimeout }, function(err, params) {
+    core.httpGet(uri, { method: "POST", postdata: json, headers: headers, retryCount: options.retryCount, retryTimeout: options.retryTimeout, httpTimeout: options.httpTimeout }, function(err, params) {
         // Reply is always JSON but we dont take any chances
         if (params.data) {
             try { params.json = JSON.parse(params.data); } catch(e) { err = e; params.status += 1000; }
         }
         if (params.status != 200) {
             // Try several times, special cases or if err is not empty
-            if (options.retries > 0 && (err || params.status == 500 || params.data.match(/(ProvisionedThroughputExceededException|ThrottlingException)/))) {
-                options.retries--;
-                options.timeout *= 2;
-                logger.debug('queryDDB:', action, obj, err || params.data, 'retrying:', options.timeout, options.retries);
-                return setTimeout(function() { self.queryDDB(action, obj, options, callback); }, options.timeout);
+            if ((err || params.status == 500 || params.data.match(/(ProvisionedThroughputExceededException|ThrottlingException)/)) && options.retryCount-- > 0) {
+                options.retryTimeout *= 2;
+                logger.debug('queryDDB:', action, obj, err || params.data, 'retrying:', options.retryCount, options.retryTimeout);
+                return setTimeout(function() { self.queryDDB(action, obj, options, callback); }, options.retryTimeout);
             }
             // Report about the error
             if (!err) {
