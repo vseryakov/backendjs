@@ -3906,6 +3906,9 @@ making it usable for repeating environments or storage solutions.</p>
 <li>sign - sign request with provided email/secret properties</li>
 <li>mtime - a Date or timestamp to be used in conditional requests</li>
 <li>conditional - add If-Modified-Since header using <code>params.mtime</code> if present or if <code>file</code> is given use file last modified timestamp, mtime</li>
+<li>httpTimeout - timeout in milliseconds afte which the request is borted if no data received</li>
+<li>retryCount - how many time to retry the request</li>
+<li>retryTimeout - timeout in milliseconds for retries, with every subsequent timeout it will be multiplied by 2</li>
 </ul>
 </li>
 <li>callback will be called with the arguments:

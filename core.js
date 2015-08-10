@@ -836,6 +836,9 @@ core.createServer = function(options, callback)
 //   - sign - sign request with provided email/secret properties
 //   - mtime - a Date or timestamp to be used in conditional requests
 //   - conditional - add If-Modified-Since header using `params.mtime` if present or if `file` is given use file last modified timestamp, mtime
+//   - httpTimeout - timeout in milliseconds afte which the request is borted if no data received
+//   - retryCount - how many time to retry the request
+//   - retryTimeout - timeout in milliseconds for retries, with every subsequent timeout it will be multiplied by 2
 // - callback will be called with the arguments:
 //     first argument is error object if any
 //     second is params object itself with updated fields
