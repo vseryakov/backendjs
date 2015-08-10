@@ -2205,6 +2205,8 @@ might be useful when desining, developing or choosing the API platform:</p>
 <li><code>db-cache-columns-interval</code> - How often in minutes to refresh tables columns from the database, it calls cacheColumns for each pool</li>
 <li><code>db-no-init-tables</code> - Do not create tables in the database on startup and do not perform table upgrades for new columns, all tables are assumed to be created beforehand, this regexp will be applied to all pools if no pool-specific parameer defined</li>
 <li><code>db-cache-tables</code> - List of tables that can be cached: bk_auth, bk_counter. This list defines which DB calls will cache data with currently configured cache. This is global for all db pools.</li>
+<li><code>db-cache-ttl</code> - Default global TTL for cached tables</li>
+<li><code>db-cache-ttl-(.+)</code> - TTL in milliseconds for each individual table being cached</li>
 <li><code>db-local</code> - Local database pool for properties, cookies and other local instance only specific stuff</li>
 <li><code>db-config</code> - Configuration database pool to be used to retrieve config parameters from the database, must be defined to use remote db for config parameters, set to <code>default</code> to use current default pool</li>
 <li><code>db-config-interval</code> - Interval between loading configuration from the database configured with -db-config-type, in seconds, 0 disables refreshing config from the db</li>
@@ -2221,17 +2223,19 @@ might be useful when desining, developing or choosing the API platform:</p>
 <li><code>aws-key</code> - AWS access key</li>
 <li><code>aws-secret</code> - AWS access secret</li>
 <li><code>aws-region</code> - AWS region</li>
+<li><code>aws-zone</code> - AWS availability zone</li>
 <li><code>aws-sdk-profile</code> - AWS SDK profile to use when reading credentials file</li>
 <li><code>aws-ddb-read-capacity</code> - Default DynamoDB read capacity for all tables</li>
 <li><code>aws-ddb-write-capacity</code> - Default DynamoDB write capacity for all tables</li>
 <li><code>aws-sns-app-arn</code> - SNS Platform application ARN to be used for push notifications</li>
-<li><code>aws-key-name</code> - AWS instance keypair name for remote job instances</li>
-<li><code>aws-elb-name</code> - AWS ELB name to be registered with on start up</li>
-<li><code>aws-iam-profile</code> - IAM instance profile name</li>
-<li><code>aws-image-id</code> - AWS image id to be used for instances</li>
-<li><code>aws-subnet-id</code> - AWS subnet id to be used for instances</li>
-<li><code>aws-group-id</code> - AWS security group(s) to be used for instances</li>
-<li><code>aws-instance-type</code> - AWS instance type for remote jobs launched on demand</li>
+<li><code>aws-key-name</code> - AWS instance keypair name for remote job instances or other AWS commands</li>
+<li><code>aws-elb-name</code> - AWS ELB name to be registered with on start up or other AWS commands</li>
+<li><code>aws-iam-profile</code> - IAM instance profile name for instances or commands</li>
+<li><code>aws-image-id</code> - AWS image id to be used for instances or commands</li>
+<li><code>aws-subnet-id</code> - AWS subnet id to be used for instances or commands</li>
+<li><code>aws-vpc-id</code> - AWS VPC id to be used for instances or commands</li>
+<li><code>aws-group-id</code> - AWS security group(s) to be used for instances or commands</li>
+<li><code>aws-instance-type</code> - AWS instance type to launch on demand</li>
 <li><code>msg-apn-cert@?(.+)?</code> - A certificate for the particular app for APN service in pfx format, can be a file name with .p12 extension or a string with certificate contents encoded with base64, if the suffix is specified in the config parameter name will be used as the app name, otherwise it is global</li>
 <li><code>msg-apn-sandbox</code> - Enable sandbox mode for testing APN notifications, default is production mode</li>
 <li><code>msg-gcm-key@?(.+)?</code> - Google Cloud Messaging API key, if the suffix is specified in the config parameter will be used as the app name, without the suffix it is global</li>
@@ -2261,6 +2265,7 @@ might be useful when desining, developing or choosing the API platform:</p>
 <li><code>api-app-header-name</code> - Name for the app name/version query parameter or header, it is can be used to tell the server about the application version</li>
 <li><code>api-version-header-name</code> - Name for the access version query parameter or header, this is the core protocol version that can be sent to specify which core functionality a client expects</li>
 <li><code>api-no-signature</code> - Disable signature verification for requests</li>
+<li><code>api-tz-header-name</code> - Name for the timezone offset header a client can send for time sensitive requests, the backend decides how to treat this offset</li>
 <li><code>api-signature-header-name</code> - Name for the access signature query parameter, header and session cookie</li>
 <li><code>api-signature-age</code> - Max age for request signature in milliseconds, how old the API signature can be to be considered valid, the &#39;expires&#39; field in the signature must be less than current time plus this age, this is to support time drifts</li>
 <li><code>api-access-token-name</code> - Name for the access token query parameter or header</li>
@@ -2296,15 +2301,17 @@ might be useful when desining, developing or choosing the API platform:</p>
 <li><code>api-rlimits-([a-zA-Z0-9/_]+)-interval</code> - Set rate interval in ms by the given property, it is used by the request rate limiter using Token Bucket algorithm. Predefined types: ip, path, id, login</li>
 <li><code>api-rlimits-total</code> - Total number of servers used in the rate limiter behind a load balancer, rates will be divided by this number so each server handles only a portion of the total rate limit</li>
 <li><code>api-rlimits-interval</code> - Interval in ms for all rate limiters, defines the time unit, default is 1000 ms</li>
-<li><code>api-exit-on-error</code> - Exit on uncaught exception</li>
+<li><code>api-exit-on-error</code> - Exit on uncaught exception in the route handler</li>
 <li><code>api-upload-limit</code> - Max size for uploads, bytes</li>
-<li><code>jobs-workers</code> - How many worker processes to launch to process the job queue, 0 disables jobs</li>
+<li><code>jobs-workers</code> - How many worker processes to launch to process the job queue, -1 disables jobs, 0 means launch as many as CPUs available</li>
+<li><code>jobs-worker-cpu-factor</code> - A number to multiply the number of CPUs available to make the total number of workers to launch, only used if <code>workers</code> is 0</li>
 <li><code>jobs-worker-args</code> - Node arguments for workers, for passing v8 jobspec, see <code>process</code></li>
 <li><code>jobs-worker-env</code> - Environment to be passed to the worker via fork, see <code>cluster.fork</code></li>
 <li><code>jobs-max-runtime</code> - Max number of seconds a job can run before being killed</li>
 <li><code>jobs-max-lifetime</code> - Max number of seconds a worker can live, after that amount of time it will exit once all the jobs are finished, 0 means indefinitely</li>
 <li><code>jobs-shutdown-timeout</code> - Max number of milliseconds to wait for the graceful shutdown sequence to finish, after this timeout the process just exits</li>
 <li><code>jobs-queue</code> - Default queue to use for jobs</li>
+<li><code>jobs-cron-queue</code> - Default queue to use for cron jobs</li>
 <li><code>jobs-channel</code> - Name of the channel where to publish/receive jobs</li>
 <li><code>jobs-cron</code> - Load cron jobs from the local etc/crontab file, requires -jobs flag</li>
 <li><code>server-max-processes</code> - Max number of processes to launch for Web servers, 0 means NumberofCPUs-2</li>
@@ -3238,6 +3245,13 @@ The options can specify the following:</p>
 </ul>
 
 <ul>
+<li><p><code>aws.ec2DescribeSecurityGroups(options, callback)</code></p>
+<p> Describe securty groups, optionally if <code>options.filter</code> regexp is provided then limit the result to the matched groups only,
+return list of groups to the callback</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>aws.ec2CreateTags(id, name, options, callback)</code></p>
 <p> Create tags for a resource. Options may contain tags property which is an object with tag key and value</p>
 <p>Example</p>
@@ -3252,6 +3266,12 @@ The options can specify the following:</p>
 <ul>
 <li>subnetId - required for instances in VPC, allocation id will be retrieved for the given ip address automatically</li>
 </ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.ec2CreateImage(options, callback)</code></p>
+<p> Create an EBS image from the instance given or the current instance running</p>
 </li>
 </ul>
 
@@ -4522,7 +4542,8 @@ The properties from the joined table will be merged with the original rows prese
 for cases when actual primary keys in the table are different from the rows properties.</li>
 <li>options.existing is 1 then return only joined records.</li>
 <li>options.override - joined table properties will replace the original table existing properties</li>
-<li>options.attach - specifies a property name which will be used to attache joined record to the original record, no mergin will occur</li>
+<li>options.attach - specifies a property name which will be used to attach joined record to the original record, no merging will occur</li>
+<li>options.incr can be a list of property names that need to be summed up with each other, not overriden</li>
 </ul>
 <p>Example:</p>
 <pre><code>    db.join(&quot;bk_account&quot;, [{id:&quot;123&quot;,key1:1},{id:&quot;234&quot;,key1:2}], db.showResult)
@@ -5346,7 +5367,7 @@ instance.</p>
 
 <ul>
 <li><p><code>jobs.exitWorker(options)</code></p>
-<p> Perform gracefulworker shutdown and then exit the process</p>
+<p> Perform graceful worker shutdown and then exit the process</p>
 </li>
 </ul>
 
@@ -5571,6 +5592,21 @@ or default message, this is useful for detection of invalid or missing input dat
                                         })
   if (util.isError(account)) return api.sendReply(res, account);
 </code></pre></li>
+</ul>
+
+<ul>
+<li><p><code>lib.toFormat(format, data, options)</code></p>
+<p> Convert a list of records into the specified format, supported formats are: <code>xml, csv, json</code>.</p>
+<ul>
+<li>For <code>csv</code> the default separator is <code>tab</code> but can be specified with <code>options.separator</code>. To produce columns header specify <code>options.header</code>.</li>
+<li>For <code>json</code> format puts each record as a separate JSON object on each line, so to read it back
+it will require to read every line and parse it and add to the list.</li>
+<li>For <code>xml</code> format the name of the row tag is <code>&lt;row&gt;</code> but can be
+specified with <code>options.tag</code>.</li>
+</ul>
+<p>All formats support the property <code>options.allow</code> which is a list of property names that are allowed only in the output for each record, non-existent
+properties will be replaced by empty strings</p>
+</li>
 </ul>
 
 <ul>
@@ -6612,7 +6648,13 @@ connection to APN gateway.</p>
 <ul>
 <li><p><code>shell.getOptions()</code></p>
 <p> Returns an object with all command line params starting with dash set with the value if the next param does not start with dash or 1,
-this is API query emulaton and only known API parameters will be set, all other config options must be handkled by each command separately</p>
+this is API query emulaton and only known API parameters will be set, all other config options must be handled by each command separately</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.getArg(name, options, dflt)</code></p>
+<p> Return first available value for the given name, options first, then command arg and then default</p>
 </li>
 </ul>
 
@@ -6671,18 +6713,6 @@ A subcommand may return special string to indicate how to treat the flow:</p>
 </ul>
 
 <ul>
-<li><p><code>shell.cmdS3Get(options)</code></p>
-<p> Get file</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.cmdS3Put(options)</code></p>
-<p> Put file</p>
-</li>
-</ul>
-
-<ul>
 <li><p><code>shell.cmdDbGetConfig(options)</code></p>
 <p> Show all config parameters</p>
 </li>
@@ -6726,13 +6756,13 @@ A subcommand may return special string to indicate how to treat the flow:</p>
 
 <ul>
 <li><p><code>shell.cmdDbPut(options)</code></p>
-<p> Put config entry</p>
+<p> Put a record</p>
 </li>
 </ul>
 
 <ul>
 <li><p><code>shell.cmdDbDel(options)</code></p>
-<p> Delete a recprd</p>
+<p> Delete a record</p>
 </li>
 </ul>
 
@@ -6751,6 +6781,126 @@ A subcommand may return special string to indicate how to treat the flow:</p>
 <ul>
 <li><p><code>shell.cmdSendRequest(options)</code></p>
 <p> Send API request</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.awsCheckTags(obj, name)</code></p>
+<p> Check all names in the tag set for given name pattern(s), all arguments after 0 are checked</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.awsFilterSubnets(subnets, zone, name)</code></p>
+<p> Return matched subnet ids by availability zone and/or name pattern</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.awsGetInstances(rc)</code></p>
+<p> Return instances from the response object</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.getSelfImages(name, callback)</code></p>
+<p> Retrieve my AMIs for the given name pattern</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.getAmazonImages(options, callback)</code></p>
+<p> Return Amazon AMIs for the current region, HVM type only</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.getElbCount(name, equal, total, options, callback)</code></p>
+<p> Wait ELB to have instance count equal or not to the expected total</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.launchInstances(options, callback)</code></p>
+<p> Launch instances by run mode and/or other criteria</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.cmdAwsLaunchInstances(options)</code></p>
+<p> Delete an AMI with the snapshot</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.cmdAwsDeleteImage(options)</code></p>
+<p> Delete an AMI with the snapshot</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.cmdAwsCreateImage(options)</code></p>
+<p> Create an AMI from the current instance of the instance by id</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.cmdAwsRebootInstances(options)</code></p>
+<p> Reboot instances by run mode and/or other criteria</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.cmdAwsTerminateInstances(options)</code></p>
+<p> Terminate instances by run mode and/or other criteria</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.cmdAwsShowInstances(options)</code></p>
+<p> Show running instances by run mode and/or other criteria</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.cmdAwsShowElb(options)</code></p>
+<p> Show ELB running instances</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.cmdAwsRebootElb(options)</code></p>
+<p> Reboot instances in the ELB, one by one</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.cmdAwsReplaceElb(options)</code></p>
+<p> Deploy new version in the ELB, terminate the old version</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.cmdAwsSetupSsh(options)</code></p>
+<p> Open/close SSH access to the specified group for the current external IP address</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.AwsSetupInstance(options)</code></p>
+<p> Launch an instance and setup it with provisioning script</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.cmdAwsS3Get(options)</code></p>
+<p> Get file</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.cmdAwsS3Put(options)</code></p>
+<p> Put file</p>
 </li>
 </ul>
 
@@ -7432,7 +7582,6 @@ maintainence work the requires.</p>
 <p>  function IpcDbClient(host, options)
   {</p>
 <pre><code>  Client.call(this, host, options);
-  lib.extendObj(this.options, url.parse(this.host, true).query);
   this.options.interval = lib.toNumber(this.options.interval, { dflt: 30, min: 1 });
   this.options.count = lib.toNumber(this.options.count, { dflt: 1, min: 1 });
   this.options.visibilityTimeout = lib.toNumber(this.options.visibilityTimeout, { min: 0, dflt: this.options.interval });
@@ -7619,9 +7768,10 @@ for other cases <code>status</code> property is not used, it is supposed for the
 
 <ul>
 <li><p><code>accounts.putStatus(obj, options, callback)</code></p>
-<p> Maintain online status, update to db every status-interval seconds, if options.check is given only update db if last update happened
-longer than status-interval seconds ago, keep atime up-to-date in the cache on every status update.
-On return the row will have a property <code>saved</code> if it was flushed to db.</p>
+<p> Maintain online status, update to db every status-interval seconds, if <code>options.check</code> is given only update db if last update happened
+longer than <code>status-interval</code> milliseconds ago, keep atime up-to-date in the cache on every status update.
+On return the row will have a property <code>saved</code> if it was flushed to db.
+<code>oatime</code> and <code>omtime</code> will be set to the previous values of the corresponding time properties.</p>
 </li>
 </ul>
 
