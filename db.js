@@ -643,12 +643,16 @@ db.put = function(table, obj, options, callback)
 // Update existing object in the database.
 // - obj - is an actual record to be updated, primary key properties must be specified
 // - options - same properties as for `db.add` method with the following additional properties:
-//      - ops - object for comparison operators for primary key, default is equal operator
-//      - opsMap - operator mapping into supported by the database
-//      - typesMap - type mapping for properties to be used in the condition
-//      - expected - an object with the condition for the update, it is used in addition to the primary keys condition from the `obj`
+//     - ops - object for comparison operators for primary key, default is equal operator
+//     - opsMap - operator mapping into supported by the database
+//     - typesMap - type mapping for properties to be used in the condition
+//     - expected - an object with the condition for the update, it is used in addition to the primary keys condition from the `obj`
 //     - join - how to join all expressions, default is AND
-//
+//     - updateOps - an object with column names and operations to be performed on the named column
+//        - incr - increment by given value
+//        - concat - concatenate given value, for strings if the database supports it
+//        - append - appended to the list of values, only for lists if the database supports it
+//        - not_exists - only update if not exists or null
 //
 // Note: not all database drivers support atomic update with conditions, all drivers for SQL, DynamoDB, MongoDB, Redis fully atomic, but other drivers
 // perform get before put and so subject to race conditions
@@ -733,7 +737,8 @@ db.updateAll = function(table, query, obj, options, callback)
 // Counter operation, increase or decrease column values, similar to update but all specified columns except primary
 // key will be incremented, use negative value to decrease the value.
 //
-// If no `options.counter` list with column names is provided all columns with type 'counter' will be used
+// If no `options.updateOps` object specified or no 'incr' operations are provided then
+// all columns with type 'counter' will be used for the action `incr`
 //
 // *Note: The record must exist already for SQL databases, for DynamoDB and Cassandra a new record will be created
 // if does not exist yet.*
@@ -747,8 +752,13 @@ db.incr = function(table, obj, options, callback)
 {
     if (typeof options == "function") callback = options,options = null;
     options = this.getOptions(table, options);
-    var cols = this.getColumns(table, options);
-    if (!options.counter) options.counter = Object.keys(cols).filter(function(x) { return cols[x].type == "counter" });
+    if (!lib.searchObj(options.updateOps, { value: "incr", count: 1 })) {
+        if (!lib.isObject(options.updateOps)) options.updateOps = {};
+        var cols = this.getColumns(table, options);
+        for (var p in cols) {
+            if (cols[p].type == "counter") options.updateOps[p] = "incr";
+        }
+    }
 
     var req = this.prepare("incr", table, obj, options);
     this.query(req, options, callback);
@@ -1364,7 +1374,7 @@ db.select = function(table, query, options, callback)
 // Retrieve one record from the database by primary key, returns found record or null if not found
 // Options can use the following special properties:
 //  - select - a list of columns or expressions to return, default is to return all columns
-//  - op - operators to use for comparison for properties, see `db.select`
+//  - ops - operators to use for comparison for properties, see `db.select`
 //  - cached - if specified it runs getCached version
 //
 // Example

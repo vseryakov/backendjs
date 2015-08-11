@@ -144,7 +144,7 @@ lib.toValue = function(val, type)
     switch ((type || "").trim()) {
     case "list":
     case 'array':
-        return Array.isArray(val) ? val : String(val).split(/[,\|]/);
+        return this.strSplit(val);
 
     case "expr":
     case "buffer":
@@ -1270,14 +1270,14 @@ lib.mergeObj = function(obj, options)
         case "object":
             if (!rc[p]) rc[p] = {};
             for (var c in val) {
-                if (!rc[p][c]) rc[p][c] = val[c];
+                if (typeof rc[p][c] == "undefined") rc[p][c] = val[c];
             }
             break;
         case "null":
         case "undefined":
             break;
         default:
-            if (!rc[p]) rc[p] = val;
+            if (typeof rc[p] == "undefined") rc[p] = val;
         }
     }
     return rc;
@@ -1331,37 +1331,50 @@ lib.delObj = function()
     return arguments[0];
 }
 
-// Return an object consisting of properties that matched given criteria in the given object.
-// optins can define the following properties:
+// Return an object consisting of properties that matched given criteria in the given object or object of objects.
+// options can define the following properties:
+//
 // - name - search by property name, return all objects that contain given property
 // - value - search by value, return all objects that have a property with given value
-// - sort if true then sort found columns by the property value.
+// - sort - if set then sort found columns by the property `name` or if it is a string by the given property
 // - names - if true just return list of column names
 // - flag - if true, return object with all properties set to flag value
+// - count - if true return just number of found properties
 //
 // Example
 //
 //          lib.searchObj({id:{index:1},name:{index:3},type:{index:2},descr:{}}, { name: 'index', sort: 1 });
 //          { id: { index: 1 }, type: { index: 2 }, name: { index: 3 } }
+//          lib.searchObj({id:1,name:"test",type:"test",descr:"descr"}, { value: 'test', count: 1});
+//          2
 //
 lib.searchObj = function(obj, options)
 {
-    if (!options) options = {};
-    var name = options.name;
-    var val = options.value;
-    var rc = Object.keys(obj).
-                    filter(function(x) {
-                        if (typeof obj[x] != "object") return 0;
-                        if (typeof name != "undefined" && typeof obj[x][name] == "undefined") return 0;
-                        if (typeof val != "undefined" && !Object.keys(obj[x]).some(function(y) { return obj[x][y] == val })) return 0;
-                        return 1;
-                    }).
-                    sort(function(a, b) {
-                        if (options.sort) return obj[a][name] - obj[b][name];
-                        return 0;
-                    }).
-                    reduce(function(x,y) { x[y] = options.flag || obj[y]; return x; }, {});
+    if (!this.isObject(obj) || !options) return options && options.names ? [] : options && options.count ? 0 : {};
 
+    var rc = Object.keys(obj).filter(function(x) {
+        if (obj[x] && typeof obj[x] == "object") {
+            if (options.name && typeof obj[x][options.name] == "undefined") return 0;
+            if (typeof options.value != "undefined" && !Object.keys(obj[x]).some(function(y) { return obj[x][y] == options.value })) return 0;
+        } else {
+            if (options.name && x != options.name) return 0;
+            if (typeof options.value != "undefined" && obj[x] != options.value) return 0;
+        }
+        return 1;
+    });
+    if (options.count) return rc.length;
+    if (options.sort) {
+        var sort = typeof options.sort == "string" ? options.sort : options.name;
+        rc = rc.sort(function(a, b) {
+            // One level object can only be sorted by property names because the search for more than one item can be done only by value
+            if (typeof obj[a] != "object") return a - b;
+            return obj[a][sort] - obj[b][sort];
+        });
+    }
+    rc = rc.reduce(function(x,y) {
+        x[y] = options.flag || obj[y];
+        return x;
+    }, {});
     if (options.names) return Object.keys(rc);
     return rc;
 }

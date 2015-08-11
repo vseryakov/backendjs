@@ -1569,10 +1569,10 @@ api.checkResultColumns = function(table, rows, options)
 //
 //  Example:
 //
-//        api.clearQuery(req.query, {}, "bk_account", "admin")
-//        api.clearQuery(req.query, {}, "bk_auth", "admin", "secure")
+//        api.clearQuery(req.query, "bk_account", "admin")
+//        api.clearQuery(req.query, "bk_auth", "admin", "secure")
 //
-api.clearQuery = function(query, options, table, name)
+api.clearQuery = function(query, table, name, options)
 {
     var reverse = options && options.reverse ? 1 : 0;
     var cols = db.getColumns(table, options);

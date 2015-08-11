@@ -124,7 +124,8 @@ aws.configureServer = function(options, callback)
        ], callback);
 }
 
-// Read key and secret from the AWS SDK credentials file
+// Read key and secret from the AWS SDK credentials file, if no profile is given in the config or command line only tge default peofile
+// will be loaded.
 aws.readCredentials = function(profile, callback)
 {
     var self = this;
@@ -137,7 +138,8 @@ aws.readCredentials = function(profile, callback)
             for (var i = 0; i < lines.length; i++) {
                 var x = lines[i].split("=");
                 if (state == 0) {
-                    if (x[0][0] == '[' && (!profile || profile == x[0].substr(1, x[0].length - 2))) state = 1;
+                    if (!profile) profile = "default";
+                    if (x[0][0] == '[' && profile == x[0].substr(1, x[0].length - 2)) state = 1;
                 } else
 
                 if (state == 1) {
@@ -1332,7 +1334,6 @@ aws.cwListMetrics = function(options, callback)
 // Convert a Javascript object into DynamoDB object
 aws.toDynamoDB = function(value, level)
 {
-    var self = this;
     switch (lib.typeName(value)) {
     case 'null':
         return { "NULL": 'true' };
@@ -1350,21 +1351,23 @@ aws.toDynamoDB = function(value, level)
         return { "N": Math.round(value.getTime()/1000) };
 
     case 'array':
+        if (!value.length) return level ? { "L": value } : value;
         var types = { number: 0, string: 0 };
         for (var i = 0; i < value.length; i++) types[typeof value[i]]++;
-        if (types["number"] == value.length) return { "NS": value };
-        if (types["string"] == value.length) return { "SS": value };
-        return { "L": value };
+        if (types.number == value.length) return { "NS": value };
+        if (types.string == value.length) return { "SS": value };
+        var res = [];
+        for (var i in value) {
+            if (typeof value[i] != 'undefined') res.push(this.toDynamoDB(value[i], 1));
+        }
+        return level ? { "L": res } : res;
 
     case 'object':
-        if (level) return { "M" : value };
-        var obj = {};
+        var res = {};
         for (var p in value) {
-            if (typeof value[p] == 'undefined') continue;
-            if (Array.isArray(value[p]) && !value[p].length) continue;
-            obj[p] = self.toDynamoDB(value[p], 1);
+            if (typeof value[p] != 'undefined') res[p] = this.toDynamoDB(value[p], 1);
         }
-        return obj;
+        return level ? { "M" : res } : res;
 
     default:
         return { "S": String(value) };
@@ -1372,55 +1375,58 @@ aws.toDynamoDB = function(value, level)
 }
 
 // Convert a DynamoDB object into Javascript object
-aws.fromDynamoDB = function(value)
+aws.fromDynamoDB = function(value, level)
 {
-    var self = this;
     switch (lib.typeName(value)) {
     case 'array':
-        return value.map(function(x) { return self.fromDynamoDB(x) });
-
-    case 'object':
-        var res = {};
+        var res = [];
         for (var i in value) {
-            if (!value.hasOwnProperty(i)) continue;
-            if (value[i]['BOOL'])
-                res[i] = lib.toBool(value[i]['BOOL']);
-            else
-            if (value[i]['NULL'])
-                res[i] = null;
-            else
-            if (value[i]['L'])
-                res[i] = value[i]['L'];
-            else
-            if (value[i]['M'])
-                res[i] = value[i]['M'];
-            else
-            if (value[i]['S'])
-                res[i] = value[i]['S'];
-            else
-            if (value[i]['SS'])
-                res[i] = value[i]['SS'];
-            else
-            if (value[i]['B'])
-                res[i] = new Buffer(value[i]['B'], "base64");
-            else
-            if (value[i]['BS']) {
-                res[i] = [];
-                for (var j = 0; j < value[i]['BS'].length; j ++) {
-                    res[i][j] = new Buffer(value[i]['BS'][j], "base64");
-                }
-            } else
-            if (value[i]['N'])
-                res[i] = parseFloat(value[i]['N']);
-            else
-            if (value[i]['NS']) {
-                res[i] = [];
-                for (var j = 0; j < value[i]['NS'].length; j ++) {
-                    res[i][j] = parseFloat(value[i]['NS'][j]);
-                }
-            }
+            res.push(this.fromDynamoDB(value[i], level));
         }
         return res;
+
+    case 'object':
+        if (level) {
+            for (var p in value) {
+                switch(p) {
+                case 'NULL':
+                    return null;
+                case 'BOOL':
+                    return lib.toBool(value[p]);
+                case 'L':
+                    return this.fromDynamoDB(value[p], 1);
+                case 'M':
+                    return this.fromDynamoDB(value[p]);
+                case 'S':
+                case 'SS':
+                    return value[p];
+                case 'B':
+                    return new Buffer(value[i]['B'], "base64");
+                case 'BS':
+                    var res = [];
+                    for (var j = 0; j < value[p].length; j ++) {
+                        res[j] = new Buffer(value[p][j], "base64");
+                    }
+                    return res;
+                case 'N':
+                    return lib.toNumber(value[p]);
+                case 'NS':
+                    var res = [];
+                    for (var j = 0; j < value[p].length; j ++) {
+                        res[j] = lib.toNumber(value[p][j]);
+                    }
+                    return res;
+                }
+            }
+            return null;
+        } else {
+            var res = {};
+            for (var p in value) {
+                if (!value.hasOwnProperty(p)) continue;
+                res[p] = this.fromDynamoDB(value[p], 1);
+            }
+            return res;
+        }
 
     default:
         return value;
@@ -1893,7 +1899,7 @@ aws.ddbPutItem = function(name, item, options, callback)
 //          for ExpressionAttributeValues parameters
 //      - names - an object with a map to be used for attribute names in condition and update expressions, to be used
 //          for ExpressionAttributeNames parameter
-//      - action - an object with operators to be used for properties if other than SET, one of REMOVE, ADD
+//      - action - an object with operators to be used for properties, one of the: SET, REMOVE, DELETE, ADD, APPEND, PREPEND, NOT_EXISTS
 //      - expected - an object with column to be used in ConditionExpression, value null means an attrobute does not exists,
 //          any other value to be checked against using regular compare rules. The conditional comparison operator is taken
 //          from `options.ops` the same way as for queries.
@@ -1967,7 +1973,6 @@ aws.ddbUpdateItem = function(name, keys, item, options, callback)
 
                 default:
                     var op = (options.action && options.action[colname]) || 'SET';
-                    if (!actions[op]) break;
                     switch (op) {
                     case "ADD":
                     case "DELETE":
@@ -1979,7 +1984,23 @@ aws.ddbUpdateItem = function(name, keys, item, options, callback)
                         actions.REMOVE.push(p);
                         break;
 
+                    case "APPEND":
+                        actions.SET.push(p + "=list_append(" + p + ",:d" + d + ")");
+                        values[":d" + d++] = val;
+                        break;
+
+                    case "PREPEND":
+                        actions.SET.push(p + "=list_append(:d" + d + "," + p + ")");
+                        values[":d" + d++] = val;
+                        break;
+
+                    case "NOT_EXISTS":
+                        actions.SET.push(p + "=if_not_exists(" + p + ",:d" + d + ")");
+                        values[":d" + d++] = val;
+                        break;
+
                     default:
+                        if (!actions[op]) break;
                         actions[op].push(p + "= :d" + d);
                         values[":d" + d++] = val;
                     }
@@ -1996,7 +2017,7 @@ aws.ddbUpdateItem = function(name, keys, item, options, callback)
             }
             if (d) {
                 if (!params.ExpressionAttributeValues) params.ExpressionAttributeValues = {};
-                for (var p in values) params.ExpressionAttributeValues[p] = this.toDynamoDB(values[p]);
+                for (var p in values) params.ExpressionAttributeValues[p] = this.toDynamoDB(values[p], 1);
             }
         }
     }

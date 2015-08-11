@@ -767,7 +767,8 @@ tests.test_db = function(callback)
                      num: { type: "int" },
                      num2: {},
                      num3: { join: ["id","num"] },
-                     email: {} },
+                     email: {},
+                     alist: { value: [] } },
             test2: { id: { primary: 1, pub: 1, index: 1 },
                      id2: { primary: 1, projection: 1 },
                      email: { projection: 1 },
@@ -1084,12 +1085,12 @@ tests.test_db = function(callback)
             });
         },
         function(next) {
-            db.update("test1", { id: id, email: "test", num: 1 }, { expected: { id: id, email: id }, counter: ["num"] }, function(err, rc, info) {
+            db.update("test1", { id: id, email: "test", num: 1 }, { expected: { id: id, email: id }, updateOps: { num: "incr" } }, function(err, rc, info) {
                 tests.check(next, err, info.affected_rows!=1, "err25:", info);
             });
         },
         function(next) {
-            db.update("test1", { id: id, email: "test", num: 1 }, { expected: { id: id, email: "test" }, counter: ["num"] }, function(err, rc, info) {
+            db.update("test1", { id: id, email: "test", num: 1 }, { expected: { id: id, email: "test" }, updateOps: { num: "incr" } }, function(err, rc, info) {
                 tests.check(next, err, info.affected_rows!=1, "err26:", info);
             });
         },
@@ -1465,6 +1466,18 @@ tests.test_dblock = function(callback)
             setTimeout(next, 1000)
         },
     ], callback);
+}
+
+tests.test_dynamodb = function(callback)
+{
+    var a = {a:1,b:2,c:"3",d:{1:1,2:2},e:[1,2],f:[{1:1},{2:2}],g:true,h:null,i:["a","b"]};
+    var b = aws.toDynamoDB(a);
+    var c = aws.fromDynamoDB(b);
+    logger.debug("dynamodb: from", a)
+    logger.debug("dynamodb: to", b)
+    logger.debug("dynamodb: to", c)
+    if (JSON.stringify(a) != JSON.stringify(c)) return callback("Invalid convertion from " + JSON.stringify(c) + "to" + JSON.stringify(a));
+    callback();
 }
 
 // Run main server if we execute this as standalone program

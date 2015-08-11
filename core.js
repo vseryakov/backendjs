@@ -837,8 +837,9 @@ core.createServer = function(options, callback)
 //   - mtime - a Date or timestamp to be used in conditional requests
 //   - conditional - add If-Modified-Since header using `params.mtime` if present or if `file` is given use file last modified timestamp, mtime
 //   - httpTimeout - timeout in milliseconds afte which the request is borted if no data received
-//   - retryCount - how many time to retry the request
+//   - retryCount - how many time to retry the request on error or timeout
 //   - retryTimeout - timeout in milliseconds for retries, with every subsequent timeout it will be multiplied by 2
+//   - retryOnErrorStatus - also retry request if received non 200 response status
 // - callback will be called with the arguments:
 //     first argument is error object if any
 //     second is params object itself with updated fields
@@ -1032,8 +1033,8 @@ core.httpGet = function(uri, params, callback)
 
           logger.dev("httpGet: end", options.method, "url:", uri, "size:", params.size, "status:", params.status, 'type:', params.type, 'location:', res.headers.location || '', 'retry:', params.retryCount, params.retryTimeout);
 
-          // Retry the same request
-          if ((res.statusCode < 200 || res.statusCode >= 400) && params.retryCount-- > 0) {
+          // Retry the same request on status codes configured explicitely
+          if ((res.statusCode < 200 || res.statusCode >= 400) && params.retryOnErrorStatus && params.retryCount-- > 0) {
               setTimeout(function() { self.httpGet(uri, params, callback); }, params.retryTimeout *=2 );
               return;
           }
