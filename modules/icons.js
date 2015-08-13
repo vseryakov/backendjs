@@ -39,6 +39,7 @@ icons.init = function(options)
                        type: { primary: 1,                         // prefix:type
                                pub: 1,
                                join: [ "prefix", "type" ],
+                               unjoin: [ "prefix", "type" ]
                                separator: ":",
                                ops: { select: "begins_with" } },
                        prefix: {},                                 // icon prefix/namespace

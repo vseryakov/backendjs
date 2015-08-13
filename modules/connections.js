@@ -38,6 +38,7 @@ connections.init = function(options)
                              type: { primary: 1,                            // connection type:peer
                                      pub: 1,
                                      join: ["type","peer"],
+                                     unjoin: ["type","peer"],
                                      ops: { select: "begins_with" } },
                              peer: { pub: 1 },                              // other id of the connection
                              alias: { pub: 1 },
@@ -50,6 +51,7 @@ connections.init = function(options)
                             type: { primary: 1,                            // reference type:peer
                                     pub: 1,
                                     join: ["type","peer"],
+                                    unjoin: ["type","peer"],
                                     ops: { select: "begins_with" } },
                             peer: { pub: 1 },                              // other id of the connection
                             alias: { pub: 1 },

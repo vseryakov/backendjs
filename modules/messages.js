@@ -32,6 +32,7 @@ messages.init = function(options)
             bk_message: { id: { primary: 1 },                            // my account_id
                           mtime: { primary: 1,                           // mtime:sender
                                    join: ["mtime","sender"],
+                                   unjoin: ["mtime","sender"],
                                    ops: { select: "ge" } },
                           sender: { type: "text", index: 1 },            // Sender id
                           alias: {},                                     // Sender alias
@@ -43,6 +44,7 @@ messages.init = function(options)
             bk_archive: { id: { primary: 1, index: 1 },                  // my account_id
                           mtime: { primary: 1,                           // mtime:sender
                                    join: ["mtime","sender"],
+                                   unjoin: ["mtime","sender"],
                                    ops: { select: "ge" } },
                           sender: { type: "text", index: 1 },            // Sender id
                           alias: {},                                     // Sender alias
@@ -53,6 +55,7 @@ messages.init = function(options)
             bk_sent: { id: { primary: 1, index: 1 },                      // my account
                        mtime: { primary: 1,                               // mtime:recipient
                                 join: ["mtime","recipient"],
+                                unjoin: ["mtime","recipient"],
                                 ops: { select: "ge" } },
                        recipient: { type: "text", index: 1 },             // Recipient id
                        alias: {},                                         // Recipient alias
@@ -169,11 +172,11 @@ messages.configureMessagesAPI = function()
         }
     });
 
-    function onPostMessageRow(op, row, options, cols) {
+    function onPostMessageRow(req, row, options, cols) {
         if (row.icon) row.icon = '/message/image?sender=' + row.sender + '&mtime=' + row.mtime; else delete row.icon;
     }
 
-    function onPostSentRow(op, row, options, cols) {
+    function onPostSentRow(req, row, options, cols) {
         if (row.icon) row.icon = '/message/image?sender=' + row.recipient + '&mtime=' + row.mtime; else delete row.icon;
     }
 

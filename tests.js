@@ -768,7 +768,7 @@ tests.test_db = function(callback)
                      num2: {},
                      num3: { join: ["id","num"] },
                      email: {},
-                     alist: { value: [] } },
+                     anum: { join: ["anum","num"], unjoin: ["anum","num"] } },
             test2: { id: { primary: 1, pub: 1, index: 1 },
                      id2: { primary: 1, projection: 1 },
                      email: { projection: 1 },
@@ -806,17 +806,17 @@ tests.test_db = function(callback)
              self.resetTables(tables, next);
         },
         function(next) {
-            db.add("test1", { id: id, email: id, num: '1', num2: null, num3: 1, num4: 1 }, function(err) {
+            db.add("test1", { id: id, email: id, num: '1', num2: null, num3: 1, num4: 1, anum: 1 }, function(err) {
                 if (err) return next(err);
-                db.put("test1", { id: id2, email: id2, num: '2', num2: null, num3: 1 }, function(err) {
+                db.put("test1", { id: id2, email: id2, num: '2', num2: null, num3: 1, anum: 1 }, function(err) {
                     if (err) return next(err);
-                    db.put("test3", { id: id, num: 0, email: id }, next);
+                    db.put("test3", { id: id, num: 0, email: id, anum: 1 }, next);
                 });
             });
         },
         function(next) {
             db.get("test1", { id: id }, function(err, row) {
-                tests.check(next, err, !row || row.id != id || row.num != 1 || row.num3 != row.id+"|"+row.num, "err1:", row);
+                tests.check(next, err, !row || row.id != id || row.num != 1 || row.num3 != row.id+"|"+row.num || row.anum != "1", "err1:", row);
             });
         },
         function(next) {
@@ -1066,6 +1066,7 @@ tests.test_db = function(callback)
         function(next) {
             db.select("test5", { id: id, type: "like" }, {}, function(err, rows) {
                 tests.check(next, err, rows.length!=3 , "err21:", rows);
+                // New hkey must be created in the list
                 ids = rows.map(function(x) { delete x.hkey; return x });
             });
         },
