@@ -424,7 +424,7 @@ hooks are registered and return data itself then it is the hook responsibility t
        ...
        callback();
     }
-    app.processAccountRow = function(op, row, options, cols)
+    app.processAccountRow = function(req, row, options, cols)
     {
        if (row.birthday) row.age = Math.floor((Date.now() - core.toDate(row.birthday))/(86400000*365));
     }
@@ -4735,6 +4735,10 @@ it can contain pub property to be returned to the client</li>
 <li>`lower&#39; - make string value lowercase</li>
 <li>`upper&#39; - make string value uppercase</li>
 <li><code>autoincr</code> - for counter tables, mark the column to be auto-incremented by the connection API if the connection type has the same name as the column name</li>
+<li><code>join</code> - a list with porperty names that must be joined together before performing a db operation, it will use the given record to produce new property,
+ this will work both ways, to the db and when reading a record from the db it will split joined property and assign individual
+ properties the value from the joined value.</li>
+<li><code>joinOps</code> - an array with operations for which perform join only, if not specified applies for all operation, allowed values: add, put, incr, update, del, get, select</li>
 </ul>
 <p><em>Some properties may be defined multiple times with number suffixes like: unique1, unique2, index1, index2 to create more than one index for the table, same
 properties define a composite key in the order of definition or sorted by the property value, for example: <code>{ a: { index:2 }, b: { index:1 } }</code> will create index (b,a)
@@ -4847,8 +4851,9 @@ The following special properties in the column definition chnage the format:</p>
 <ul>
 <li>type = json - if a column type is json and the value is a string returned will be converted into a Javascript object</li>
 <li>list - split the value into array</li>
-<li><p>join - a list of names, it produces new properties by splitting the value by | and assigning pieces to
-  separate properties using names from the join list</p>
+<li><p>unjoin - a list of names, it produces new properties by splitting the value by a separator and assigning pieces to
+  separate properties using names from the list, this is the opposite of the <code>join</code> property and is used separately if
+  splitting is required, if joined properties already in the record then no need to split it</p>
 <p>  Example:</p>
 <pre><code>      db.describeTables([ { user: { id: {}, name: {}, pair: { join: [&quot;left&quot;,&quot;right&quot;], split: [&quot;left&quot;, &quot;right&quot;] } } ]);
 
@@ -4887,7 +4892,7 @@ allow to handle such situations and can be used to set necessary propeties to th
 <li><p><code>db.runProcessRows(type, req, rows, options)</code></p>
 <p> Run registered pre- or post- process callbacks.</p>
 <ul>
-<li><code>type</code> is on eof the <code>pre</code> or &#39;post`</li>
+<li><code>type</code> is one of the <code>pre</code> or &#39;post`</li>
 <li><code>req</code> is the original db request object with the following required properties: <code>op, table, obj</code>,</li>
 <li><code>rows</code> is the result rows for post callbacks and the same request object for pre callbacks.</li>
 <li><code>options</code> is the same object passed to a db operation</li>
@@ -5006,7 +5011,17 @@ write requests with any database or can be used generically. The <code>obj</code
 
 <ul>
 <li><p><code>db.getSelectedColumns(table, options)</code></p>
-<p> Return list of selected or allowed only columns, empty list if no options.select is specified</p>
+<p> Return list of selected or allowed only columns, empty list if no <code>options.select</code> is specified</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.joinColumn(op, obj, name, col, options, old)</code></p>
+<p> Join several columns to produce a combined property if configured, given a column description and an object record
+it replaces the column value with joined value if needed. Empty properties will be still joined as empty strings.
+It always uses the original value even if one of the properties has been joined already.</p>
+<p>Checks for <code>join</code> and <code>joinOps</code> properties in the column definition.</p>
+<p>The <code>options.skip_join</code> can be used to restrict joins, it is a list with columns that should not perform join</p>
 </li>
 </ul>
 
@@ -5017,15 +5032,16 @@ write requests with any database or can be used generically. The <code>obj</code
 <li>to enable all properties to be saved in the record without column definition set <code>options.all_columns=1</code></li>
 <li>to skip all null values set <code>options.skip_null=1</code></li>
 <li>to skip specific columns define <code>options.skip_columns=[&quot;a&quot;,&quot;b&quot;]</code></li>
+<li>to restrict to specific columns only define <code>options.allow_columns=[&quot;a&quot;,&quot;b&quot;]</code></li>
 </ul>
 </li>
 </ul>
 
 <ul>
-<li><p><code>db.filterColumns(obj, rows, options)</code></p>
+<li><p><code>db.filterRows(obj, rows, options)</code></p>
 <p> Given object with data and list of keys perform comparison in memory for all rows, return only rows that match all keys. This method is used
 by custom filters in <code>db.select</code> by the drivers which cannot perform comparisons with non-indexes columns like DynamoDb, Cassandra.
-The rows that satisfy primary key conditions are retunred and then called this function to eliminate the records that do not satisfy non-indexed column conditions.</p>
+The rows that satisfy primary key conditions are returned and then called this function to eliminate the records that do not satisfy non-indexed column conditions.</p>
 <p>Options support the following propertis:</p>
 <ul>
 <li>keys - list of columns to check, these may or may not be the primary keys, any columns to be compared</li>
@@ -7815,6 +7831,7 @@ On return the row will have a property <code>saved</code> if it was flushed to d
                            type: { primary: 1,                            // connection type:peer
                                    pub: 1,
                                    join: [&quot;type&quot;,&quot;peer&quot;],
+                                   unjoin: [&quot;type&quot;,&quot;peer&quot;],
                                    ops: { select: &quot;begins_with&quot; } },
                            peer: { pub: 1 },                              // other id of the connection
                            alias: { pub: 1 },
@@ -7827,6 +7844,7 @@ On return the row will have a property <code>saved</code> if it was flushed to d
                           type: { primary: 1,                            // reference type:peer
                                   pub: 1,
                                   join: [&quot;type&quot;,&quot;peer&quot;],
+                                  unjoin: [&quot;type&quot;,&quot;peer&quot;],
                                   ops: { select: &quot;begins_with&quot; } },
                           peer: { pub: 1 },                              // other id of the connection
                           alias: { pub: 1 },
@@ -8090,6 +8108,7 @@ connections. If any of obj.id or obj.type are not specified then perform a query
                      type: { primary: 1,                         // prefix:type
                              pub: 1,
                              join: [ &quot;prefix&quot;, &quot;type&quot; ],
+                             unjoin: [ &quot;prefix&quot;, &quot;type&quot; ]
                              separator: &quot;:&quot;,
                              ops: { select: &quot;begins_with&quot; } },
                      prefix: {},                                 // icon prefix/namespace
@@ -8235,6 +8254,7 @@ is used in <code>/location/get</code> request. It can be used in the application
           bk_message: { id: { primary: 1 },                            // my account_id
                         mtime: { primary: 1,                           // mtime:sender
                                  join: [&quot;mtime&quot;,&quot;sender&quot;],
+                                 unjoin: [&quot;mtime&quot;,&quot;sender&quot;],
                                  ops: { select: &quot;ge&quot; } },
                         sender: { type: &quot;text&quot;, index: 1 },            // Sender id
                         alias: {},                                     // Sender alias
@@ -8246,6 +8266,7 @@ is used in <code>/location/get</code> request. It can be used in the application
           bk_archive: { id: { primary: 1, index: 1 },                  // my account_id
                         mtime: { primary: 1,                           // mtime:sender
                                  join: [&quot;mtime&quot;,&quot;sender&quot;],
+                                 unjoin: [&quot;mtime&quot;,&quot;sender&quot;],
                                  ops: { select: &quot;ge&quot; } },
                         sender: { type: &quot;text&quot;, index: 1 },            // Sender id
                         alias: {},                                     // Sender alias
@@ -8256,6 +8277,7 @@ is used in <code>/location/get</code> request. It can be used in the application
           bk_sent: { id: { primary: 1, index: 1 },                      // my account
                      mtime: { primary: 1,                               // mtime:recipient
                               join: [&quot;mtime&quot;,&quot;recipient&quot;],
+                              unjoin: [&quot;mtime&quot;,&quot;recipient&quot;],
                               ops: { select: &quot;ge&quot; } },
                      recipient: { type: &quot;text&quot;, index: 1 },             // Recipient id
                      alias: {},                                         // Recipient alias
