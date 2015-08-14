@@ -55,11 +55,11 @@ accounts.init = function(options)
                           zipcode: {},
                           country: {},
                           device_id: {},                                    // Device(s) for notifications the format is: [service://]token[@appname]
-                          geohash: { location: 1 },                         // To prevent regular account updates
-                          latitude: { type: "real", location: 1 },          // overriding location columns
-                          longitude: { type: "real", location: 1 },
-                          location: { location: 1 },
-                          ltime: { type: "bigint", location: 1 },           // Last location update time
+                          geohash: {},
+                          latitude: { type: "real" },
+                          longitude: { type: "real" },
+                          location: {},
+                          ltime: { type: "bigint" },                        // Last location update time
                           ctime: { type: "bigint", readonly: 1, now: 1 },   // Create time
                           mtime: { type: "bigint", now: 1 } },              // Last update time
 

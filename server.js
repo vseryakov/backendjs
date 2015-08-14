@@ -110,7 +110,7 @@ server.start = function()
 
     // Master server, always create tables in the masters processes but only for primary db pools
     if (core.isArg("-master")) {
-        return core.init({ role: "master", localMode: cluster.isMaster }, function(err, opts) { self.startMaster(opts); });
+        return core.init({ role: "master", localMode: cluster.isMaster, noInitTables: cluster.isWorker ? /.+/ : null }, function(err, opts) { self.startMaster(opts); });
     }
 
     // Backend Web server

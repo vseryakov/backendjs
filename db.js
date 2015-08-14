@@ -246,8 +246,8 @@ db.initPool = function(name, options, callback)
                  min: this.poolParams[type + 'Min' + n],
                  max: this.poolParams[type + 'Max' + n],
                  idle: this.poolParams[type + 'Idle' + n] || 300000,
-                 noCacheColumns: this.poolParams[type + 'NoCacheColumns' + n],
-                 noInitTables: this.poolParams[type + 'NoInitTables' + n],
+                 noCacheColumns: options.noCacehColumns || this.poolParams[type + 'NoCacheColumns' + n],
+                 noInitTables: options.noInitTables || this.poolParams[type + 'NoInitTables' + n],
                  connect: this.poolParams[type + 'Connect' + n],
                  settings: this.poolParams[type + 'Settings' + n] };
 
@@ -415,7 +415,7 @@ db.initPoolTables = function(name, tables, options, callback)
         var changes = 0;
         lib.forEachSeries(Object.keys(pool.dbtables), function(table, next) {
             // Skip tables not supposed to be created
-            if (lib.typeName(noInitTables) == "regexp" && noInitTables.test(table)) return next()
+            if (lib.typeName(noInitTables) == "regexp" && noInitTables.test(table)) return next();
             // We if have columns, SQL table must be checked for missing columns and indexes
             var cols = self.getColumns(table, options);
             if (!cols || Object.keys(cols).every(function(x) { return cols[x].fake })) {
@@ -1458,6 +1458,7 @@ db.getCached = function(op, table, query, options, callback)
 //    it can contain pub property to be returned to the client
 // - `readonly` - only add/put operations will use the value, incr/update will not affect the value
 // - `writeonly` - only incr/update can change this value, add/put will ignore it
+// - `noresult` - delete this property from the result, mostly for joined artificial columns which used for indexes only
 // - `now` - means on every add/put/update set this column with current time as Date.now()
 // - `lower' - make string value lowercase
 // - `upper' - make string value uppercase
@@ -1866,10 +1867,16 @@ db.convertRows = function(pool, req, rows, options)
                 row = rows[i];
                 if (typeof row[p] == "string" && row[p].indexOf(separator) > -1) {
                     var v = row[p].split(separator);
-                    if (v.length == col.unjoin.length) {
+                    if (v.length >= col.unjoin.length) {
                         for (var j = 0; j < col.unjoin.length; j++) row[col.unjoin[j]] = v[j];
                     }
                 }
+            }
+        }
+        // Do not return
+        if (col.noresult) {
+            for (var i = 0; i < rows.length; i++) {
+                delete row[p];
             }
         }
     }

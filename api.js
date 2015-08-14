@@ -194,7 +194,7 @@ var api = {
     signatureAge: 0,
     signatureHeaderName: "bk-signature",
     appHeaderName: "bk-app",
-    versionHeaderName: "bk-vesion",
+    versionHeaderName: "bk-version",
     tzHeaderName: "bk-tz",
     corsOrigin: "*",
 
@@ -766,7 +766,7 @@ api.prepareRequest = function(req)
         req.options.appVersion = v[2];
     }
     // Core protocol version to be used in the request if supported
-    if ((v = req.query[this.versionHeaderName] || req.headers[this.versionHeaderName])) req.options.coreVersion = v;
+    req.options.coreVersion = req.query[this.versionHeaderName] || req.headers[this.versionHeaderName] || "";
     // Timezone offset from UTC passed by the client, we just keep it, how to use it is up to the application
     req.options.timezoneOffset = lib.toNumber(req.query[this.tzHeaderName] || req.headers[this.tzHeaderName], { dflt: 0, min: -720, max: 720 }) * 60000;
 }
