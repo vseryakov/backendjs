@@ -2375,9 +2375,22 @@ incorporates the Express server which is exposed as api.app object, the master s
 the worker processes if they die and restart them automatically. How many processes to spawn can be configured via <code>-server-max-workers</code> config parameter.</p>
 <p>When an HTTP request arrives it goes over Express middleware, but before processing any registered routes there are several steps performed:</p>
 <ul>
-<li>the <code>req</code> object which is by convention a Request object, assigned with common backend properties to be used later:<ul>
+<li>the <code>req</code> object which is by convention is a Request object, assigned with common backend properties to be used later:<ul>
 <li>account - an empty object which will be filled ater by signature verification method, if successful, properties form the <code>bk_auth</code> table will be set</li>
-<li>options - this is a global object with internal state and control parameters. Also some request properties are cached like <code>path</code>, <code>ip</code>, <code>apath</code>(the path split by /)</li>
+<li>options - an object with internal state and control parameters. Every request always has an options object attached very
+early with some properties always present:<ul>
+<li>ip - cached IP address</li>
+<li>host - cached host header from the request</li>
+<li>path - parsed request url path</li>
+<li>apath - an array with the path split by /</li>
+<li>secure - if the request is encrypted, like https</li>
+<li>userAgent - combined app name and version in the form name/version</li>
+<li>appName - parsed app version provided in the header or user agent</li>
+<li>appVersion - parsed app version from the header or uer agent</li>
+<li>coreVersion - special core version provided in the header</li>
+<li>timezoneOffset - milliseconds offset from the UTC provided in the header by the app</li>
+</ul>
+</li>
 </ul>
 </li>
 <li>access verification, can the request be satisfied without proper signature, i.e. is this a public request</li>
@@ -2722,7 +2735,8 @@ for example.</p>
 <li><p><code>api.getOptions(req)</code></p>
 <p> Convert query options into internal options, such options are prepended with the underscore to
 distinguish control parameters from query parameters.
-For security purposes this is the only place that translates special control query parameters into the options properties.</p>
+For security purposes this is the only place that translates special control query parameters into the options properties,
+all the supported options are defined in the <code>api.controls</code> and can be used by the apps freely.</p>
 </li>
 </ul>
 

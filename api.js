@@ -40,9 +40,20 @@ var utils = require(__dirname + '/build/Release/backend');
 // the worker processes if they die and restart them automatically. How many processes to spawn can be configured via `-server-max-workers` config parameter.
 //
 // When an HTTP request arrives it goes over Express middleware, but before processing any registered routes there are several steps performed:
-// - the `req` object which is by convention a Request object, assigned with common backend properties to be used later:
+// - the `req` object which is by convention is a Request object, assigned with common backend properties to be used later:
 //   - account - an empty object which will be filled ater by signature verification method, if successful, properties form the `bk_auth` table will be set
-//   - options - this is a global object with internal state and control parameters. Also some request properties are cached like `path`, `ip`, `apath`(the path split by /)
+//   - options - an object with internal state and control parameters. Every request always has an options object attached very
+//     early with some properties always present:
+//      - ip - cached IP address
+//      - host - cached host header from the request
+//      - path - parsed request url path
+//      - apath - an array with the path split by /
+//      - secure - if the request is encrypted, like https
+//      - userAgent - combined app name and version in the form name/version
+//      - appName - parsed app version provided in the header or user agent
+//      - appVersion - parsed app version from the header or uer agent
+//      - coreVersion - special core version provided in the header
+//      - timezoneOffset - milliseconds offset from the UTC provided in the header by the app
 // - access verification, can the request be satisfied without proper signature, i.e. is this a public request
 // - autherization, check the signature and other global or account specific checks
 // - when a API route found by the request url, it is called as any regular Connect middlware
@@ -756,12 +767,17 @@ api.prepareRequest = function(req)
     // Cache the path so we do not need reparse it every time
     var path = req.path || "/";
     var apath = path.substr(1).split("/");
-    req.options = { ops: {}, noscan: 1, ip: req.ip, host: req.hostname, path: path, apath: apath, secure: req.secure, cleanup: "bk_" + apath[0] };
     req.account = {};
+    req.options = { ops: {}, noscan: 1,
+        ip: req.ip, host: req.hostname, path: path, apath: apath, secure: req.secure,
+        cleanup: "bk_" + apath[0],
+        userAgent: "", appName: "", appVersion: "",
+    };
 
     // Parse application version, extract first product and version only
     var v = req.query[this.appHeaderName] || req.headers[this.appHeaderName] || req.headers['user-agent'];
     if (v && (v = v.match(/^([^\/]+)\/([0-9a-zA-Z_\.\-]+)/))) {
+        req.options.userAgent = v[1] + "/" + v[2];
         req.options.appName = v[1];
         req.options.appVersion = v[2];
     }
@@ -1462,7 +1478,8 @@ api.checkRateLimits = function(req, options, callback)
 
 // Convert query options into internal options, such options are prepended with the underscore to
 // distinguish control parameters from query parameters.
-// For security purposes this is the only place that translates special control query parameters into the options properties.
+// For security purposes this is the only place that translates special control query parameters into the options properties,
+// all the supported options are defined in the `api.controls` and can be used by the apps freely.
 api.getOptions = function(req)
 {
     var params = lib.toParams(req.query, this.controls, { prefix: "_", data: { token: { secret: this.getTokenSecret(req) } } });
