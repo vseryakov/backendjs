@@ -15,9 +15,9 @@ var Bkjs = {
     // Save credentials in the local storage, by default keep only in memory
     persistent: false,
 
-    // Scramble login, save HMAC for the secret instead of the actual value, a user still
-    // need to enter the real values but the browser will never store them, only hashes.
-    // The value is: 0 - no scramble, 1 - scramble secret as HMAC
+    // Scramble the secet, use HMAC for the secret instead of the actual value, a user still
+    // needs to enter the real values but the browser will never store them, only hashes.
+    // The value is: 0 - no scramble, 1 - scramble secret as HMAC_SHA256(secret, login)
     scramble: 0,
 
     // Signature header name and version
@@ -126,7 +126,7 @@ var Bkjs = {
         var self = this;
         self.loggedIn = false;
         self.account = {};
-        self.sendRequest("/auth?_session=0&_accesstoken=0", function(err, data, xhr) {
+        self.sendRequest("/logout", function(err, data, xhr) {
             self.setCredentials();
             if (typeof callback == "function") callback(err, data, xhr);
         });

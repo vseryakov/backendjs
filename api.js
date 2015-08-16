@@ -132,9 +132,9 @@ var api = {
                                       "^/css/",
                                       "^/fonts/",
                                       "^/public/",
-                                      "^/account/logout$",
                                       "^/account/add$",
                                       "^/login$",
+                                      "^/logout$",
                                       "^/ping" ]),
     // Only for admins
     allowAdmin: {},
@@ -1241,15 +1241,15 @@ api.verifySignature = function(sig, account)
         sig.hash = lib.sign(secret, sig.str, "sha256");
         break;
 
-    case 5:
-        sig.hash = lib.sign(account.salt, sig.signature, "sha256");
-        sig.signature = account.password;
-        break;
-
     case 4:
         if (account.auth_secret) secret += ":" + account.auth_secret;
         sig.str = sig.version + "\n" + (sig.tag || "") + "\n" + sig.login + "\n" + sig.method + "\n" + sig.host + "\n" + sig.path + "\n" + query + "\n" + sig.expires + "\n" + sig.type + "\n" + sig.checksum + "\n";
         sig.hash = lib.sign(secret, sig.str, "sha256");
+        break;
+
+    case 5:
+        sig.hash = lib.sign(account.salt, sig.signature, "sha256");
+        sig.signature = account.password;
         break;
 
     default:
@@ -1292,7 +1292,7 @@ api.createSignature = function(login, secret, method, host, uri, options)
     var rc = {}, str, hmac;
     switch (ver) {
     case 1:
-        str = String(method) + "\n" + String(hostname) + "\n" + String(path) + "\n" + String(query) + "\n" + String(expires) + "\n" + ctype + "\n" + checksum + "\n";
+        str = String(method) + "\n" + hostname + "\n" + path + "\n" + query + "\n" + String(expires) + "\n" + ctype + "\n" + checksum + "\n";
         hmac = lib.sign(String(secret), str, "sha1")
         break;
 
@@ -1304,7 +1304,7 @@ api.createSignature = function(login, secret, method, host, uri, options)
         rc['bk-max-age'] = Math.floor((expires - now)/1000);
         rc['bk-expires'] = expires;
         rc['bk-path'] = path;
-        str = ver + '\n' + tag + '\n' + String(login) + "\n" + String(method) + "\n" + String(hostname) + "\n" + String(path) + "\n" + String(query) + "\n" + String(expires) + "\n*\n*\n";
+        str = ver + '\n' + tag + '\n' + String(login) + "\n" + String(method) + "\n" + hostname + "\n" + path + "\n" + query + "\n" + String(expires) + "\n*\n*\n";
         hmac = lib.sign(String(secret), str, "sha256")
         break;
 
@@ -1314,7 +1314,7 @@ api.createSignature = function(login, secret, method, host, uri, options)
 
     case 4:
     default:
-        str = ver + '\n' + tag + '\n' + String(login) + "\n" + String(method) + "\n" + String(hostname) + "\n" + String(path) + "\n" + String(query) + "\n" + String(expires) + "\n" + ctype + "\n" + checksum + "\n";
+        str = ver + '\n' + tag + '\n' + String(login) + "\n" + String(method) + "\n" + hostname + "\n" + path + "\n" + query + "\n" + String(expires) + "\n" + ctype + "\n" + checksum + "\n";
         hmac = lib.sign(String(secret), str, "sha256")
     }
     rc[this.signatureHeaderName] = ver + '|' + tag + '|' + String(login) + '|' + hmac + '|' + expires + '|' + checksum + '|';

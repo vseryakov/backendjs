@@ -15,6 +15,8 @@
 <li><a href="#example-of-todo-application"> Example of TODO application</a></li>
 <li><a href="#api-endpoints-provided-by-the-backend"> API endpoints provided by the backend</a><ul>
 <li><a href="#authentication-and-sessions"> Authentication and sessions</a></li>
+<li><a href="#signature"> Signature</a></li>
+<li><a href="#authentication-api"> Authentication API</a></li>
 <li><a href="#accounts"> Accounts</a></li>
 <li><a href="#health-enquiry"> Health enquiry</a></li>
 <li><a href="#public-images-endpoint"> Public Images endpoint</a></li>
@@ -62,7 +64,6 @@
 <li><a href="#configure-http-port"> Configure HTTP port</a></li>
 </ul>
 </li>
-<li><a href="#security"> Security</a></li>
 <li><a href="#backend-framework-development-mac-os-x-developers-"> Backend framework development (Mac OS X, developers)</a></li>
 <li><a href="#design-considerations"> Design considerations</a></li>
 <li><a href="#author"> Author</a></li>
@@ -500,17 +501,93 @@ curl &#39;http://localhost:8000/todo/select&#39;
 parameters or JSON or any other format supported by any particular endpoint. This makes the backend universal and usable with any
 environment, not just a Web browser. Request signature can be passed in the query so it does not require HTTP headers at all.</p>
 <h2 id="authentication-and-sessions">Authentication and sessions</h2>
+<h3 id="signature">Signature</h3>
+<p>All requests to the API server must be signed with account login/secret pair.</p>
+<ul>
+<li>The algorithm how to sign HTTP requests (Version 1, 2):<ul>
+<li>Split url to path and query parameters with &quot;?&quot;</li>
+<li>Split query parameters with &quot;&amp;&quot;</li>
+<li>&#39;&#39;&#39;ignore parameters with empty names&#39;&#39;&#39;</li>
+<li>&#39;&#39;&#39;Sort&#39;&#39;&#39; list of parameters alphabetically</li>
+<li>Join sorted list of parameters with &quot;&amp;&quot;<ul>
+<li>Make sure all + are encoded as %2B</li>
+</ul>
+</li>
+<li>Form canonical string to be signed as the following:<ul>
+<li>Line1: The signature version</li>
+<li>Line2: The application tag or other opaque data</li>
+<li>Line3: The login name</li>
+<li>Line4: The HTTP method(GET), followed by a newline.</li>
+<li>Line5: The host name, lowercase, followed by a newline.</li>
+<li>Line6: The request URI (/), followed by a newline.</li>
+<li>Line7: The sorted and joined query parameters as one string, followed by a newline.</li>
+<li>Line8: The expiration value in milliseconds, required, followed by a newline</li>
+<li>Line9: The Content-Type HTTP header, lowercase, optional, followed by a newline</li>
+<li>Line10: The SHA1 checksum of the body content, optional, for JSON and other forms of requests not supported by query paremeters</li>
+</ul>
+</li>
+<li>Computed HMAC-SHA1 digest from the canonical string and encode it as BASE64 string, preserve trailing = if any</li>
+<li>Form the signature HTTP header as the following:<ul>
+<li>The header string consist of multiple fields separated by pipe |<ul>
+<li>Field1: Signature version:<ul>
+<li>version 1, obsolete, do not use first 3 lines in the canonical string</li>
+<li>version 2,3 to be used in session cookies only</li>
+<li>version 4</li>
+</ul>
+</li>
+<li>Field2: Application tag or other app specific data</li>
+<li>Field3: account login or whatever it might be in the login column</li>
+<li>Field4: HMAC-SHA digest from the canonical string, version 1 uses SHA1, other SHA256</li>
+<li>Field5: expiration value in milliseconds, same as in the canonical string</li>
+<li>Field6: SHA1 checksum of the body content, optional, for JSON and other forms of requests not supported by query paremeters</li>
+<li>Field7: empty, reserved for future use</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<p>The resulting signature is sent as HTTP header <code>bk-signature</code> or in the header specified by the <code>api-signature-name</code> config parameter.</p>
+<p>For JSON content type, the method must be POST and no query parameters specified, instead everything should be inside the JSON object
+which is placed in the body of the request. For additional safety, SHA1 checksum of the JSON paylod can be calculated and passed in the signature,
+this is the only way to ensure the body is not modified when not using query parameters.</p>
+<p>See <code>web/js/bkjs.js</code> for function <code>Bkjs.sign</code> or function <code>api.createSignature</code> in the core.js for the Javascript implementation.</p>
+<p>Below is the simplest Javascript implementation for node.js:</p>
+<pre><code class="lang-javascript">    function createSignature(login, secret, method, host, path, query, options)
+    {
+        var rc = {};
+        if (!login || !secret) return rc;
+        var ctype = String(options.headers[&#39;content-type&#39;] || &quot;&quot;).toLowerCase();
+        if (!ctype &amp;&amp; method == &quot;POST&quot;) ctype = &quot;application/x-www-form-urlencoded; charset=utf-8&quot;;
+        var checksum = options.checksum || &quot;&quot;;
+        var now = Date.now();
+        var expires = options.expires || 0;
+        if (!expires || typeof expires != &quot;number&quot;) expires = now + 60000;
+        query = query.split(&quot;&amp;&quot;).sort().filter(function(x) { return x != &quot;&quot; }).join(&quot;&amp;&quot;);
+        var str = 4 + &quot;\n&quot; + &quot;\n&quot; + login + &quot;\n&quot; + method + &quot;\n&quot; + host.toLowerCase() + &quot;\n&quot; + url + &quot;\n&quot; + query + &quot;\n&quot; + expires + &quot;\n&quot; + ctype + &quot;\n&quot; + checksum + &quot;\n&quot;;
+        var hmac = crypto.createHmac(&quot;sha256&quot;, secret).update(str, &quot;utf8&quot;).digest(&quot;base64&quot;);
+        rc[&#39;bk-signature&#39;] = 4 + &#39;|&#39; + &#39;|&#39; + login + &#39;|&#39; + hmac + &#39;|&#39; + String(expires) + &#39;|&#39; + checksum + &#39;|&#39;;
+        return rc;
+    }
+    var opts = url.parse(&quot;https://localhost:8000/auth?_session=1&quot;);
+    opts.headers = createSignature(&quot;test123&quot;, &quot;secret123&quot;, &quot;GET&quot;, opts.hostname, opts.pathname, opts.query, {});
+    var req = https.request(opts, function(res) {
+       res.on(&quot;data&quot;, function(chunk) { });
+       res.on(&quot;end&quot;, function(chunk) { });
+    });
+    req.end();
+</code></pre>
+<h3 id="authentication-api">Authentication API</h3>
 <ul>
 <li><p><code>/auth</code></p>
 <p> This API request returns the current user record from the <code>bk_auth</code> table if the request is verified and the signature provided
  is valid. If no signature or it is invalid the result will be an error with the corresponding error code and message.</p>
-<p> By default this endpoint is secured, i.e. requires valid signature. It can be used in anonymous mode as well thus
- allowing to clear cookies uncodnitionally, set config <code>api-allow-anonymous=/auth</code>.</p>
+<p> By default this endpoint is secured, i.e. requires a valid signature.</p>
 <p> Parameters:</p>
 <ul>
 <li><code>_session=1</code> - if the call is authenticated a cookie with the session signature is returned, from now on
  all requests with such cookie will be authenticated, the primary use for this is Web apps</li>
-<li><code>_session=0</code> - clears all sessions cookies, if no session or no cookies provided returns an error for not authenticated request</li>
 <li><p><code>_accesstoken=1</code> - returns new access token to be used for subsequent requests without a signature for the current account,
  the token is short lived with expiration date returned as well. This access token can be used instead of a signature and
  is passed in the query as <code>bk-access-token=TOKEN</code>.</p>
@@ -523,7 +600,31 @@ environment, not just a Web browser. Request signature can be passed in the quer
             { id: &quot;NNNNN...&quot;, alias: &quot;Test User&quot;, &quot;bk-access-token&quot;: &quot;XXXXX....&quot;, &quot;bk-access-token-age&quot;: 604800000 }
 
           /message/get?bk-access-token=XXXXXX...
-</code></pre><h2 id="accounts">Accounts</h2>
+</code></pre><ul>
+<li><p><code>/login</code></p>
+<p> Same as the /auth but it uses cleartext password for user authentication, this request does not need a signature, just simple
+ login and password query parameters to be sent to the backend. The intened usage is for Web sessions which would require
+ to pass _session=1 or _accesstoken=1 to be able to make subsequent requests.</p>
+<p> Parameters:</p>
+<ul>
+<li><code>login</code> - account login</li>
+<li><code>password</code> - cleartext password</li>
+<li><code>_session=1</code> - same as in /auth request</li>
+<li><p><code>_accesstoken=1</code> - same as in /auth reuest</p>
+<p>On successful login, the result contains full account record including the secret, this is the only time when the secret is returned back</p>
+<p>Example:</p>
+<pre><code>   $.ajax({ url: &quot;/login?login=test123&amp;password=test123&amp;_session=1&quot;, success = function(json, status, xhr) {
+       console.log(json)
+   });
+   { id: &quot;NNN...&quot;, alias: &quot;Test User&quot;, login: &quot;test123&quot;, ...}
+</code></pre></li>
+</ul>
+</li>
+<li><p><code>/logout</code></p>
+<p> Logout the current user, clear session cookies if exist. For pure API access with the signature this will not do anything on the backend side.</p>
+</li>
+</ul>
+<h2 id="accounts">Accounts</h2>
 <p>The accounts API manages accounts and authentication, it provides basic user account features with common fields like email, name, address.</p>
 <p>This is implemented by the <code>accounts</code> module from the core. To disable accounts functionality specify <code>-deny-modules=accounts</code>.</p>
 <ul>
@@ -554,24 +655,29 @@ verifying if the given login and secret are valid, there is no special login API
 </code></pre></li>
 </ul>
 <ul>
-<li><p><code>/account/logout</code></p>
-<p> Logout the current user, clear session cookies if exist. For pure API access with the signature this will not do anything on the backend side.</p>
-</li>
 <li><p><code>/account/add</code></p>
-<p>Add new account, all parameters are the columns from the <code>bk_account</code> table, required columns are: <strong>name, secret, login</strong>.</p>
+<p>Add new account, all parameters are the columns from the <code>bk_account</code> table, required columns are: <strong>name, secret or password, login</strong>.</p>
 <p>By default, this URL is in the list of allowed paths that do not need authentication, this means that anybody can add an account. For the real
 application this may not be a good choice so the simplest way to disable it to add api-disallow-path=^/account/add$ to the config file or
 specify in the command line. More complex ways to perform registration will require adding pre and.or post callbacks to handle account registration
 for example with invitation codes....</p>
-<p>In the table <code>bk_auth</code>, the column type is used to distinguish between account roles, by default only account with type <code>admin</code> can
+<p>In the table <code>bk_auth</code>, the column <code>type</code> is used to distinguish between account roles, by default only account with type <code>admin</code> can
 add other accounts with this type specified, this column can also be used in account permissions implementations. Because it is in the bk_auth table,
-all columns of this table are available as <code>req.account</code> object after the successful authentication where req is Express request object used in the middleware
+all columns of this table are available as <code>req.account</code> object after the successful authentication where <code>req</code> is an Express request object used in the middleware
 parameters.</p>
-<p><em>Note: secret and login can be anything, the backend does not require any specific formats and does not process the contents of the login/sectet fields. In the
-Web client if Bkjs.scramble is set to 1 then the secret is replaced by the HMAC value derived from the login and sent to the server, no actual login/secret
-are ever saved, only used in the login form</em>.</p>
+<p>Secret and login can be anything, the backend does not require any specific formats and does not process the contents of the login/secret fields.</p>
+<p>There are several ways to create authenticated account:</p>
+<ul>
+<li>API only access with signed signature, supply a login and secret which will be stord in the database as is, when making requests use the same login and secret to produce the signature.
+<em>In the Web client <code>web/js/bkjs.js</code>, if <code>Bkjs.scramble</code> is set to 1 then the secret is replaced by the BASE64_HMAC_SHA256(secret, login) automatically,
+no actual secret is ever saved or sent, only used in the login form. This is intended for Web apps not to store the actual secret anywhere in the memory or localStorage,
+for the backend this is still just a secret.</em></li>
+<li>password based authentication, send cleartext <code>password</code> instead of the <code>secret</code>, make sure to use https, the backend will store a salt and SHA256 hash of the password. This method is
+inteded for Web app and will require sessions or access tokens for subsequent requests, the account signature secret is never returned by the backend.</li>
+</ul>
 <p>Example:</p>
-<pre><code>      /account/add?name=test&amp;login=test@test.com&amp;secret=test123&amp;gender=f&amp;phone=1234567
+<pre><code>      /account/add?name=test&amp;login=test@test.com&amp;secret=fc4f33bd07a4e6c8e&amp;gender=f&amp;phone=1234567
+      /account/add?name=test&amp;login=test@test.com&amp;password=test123&amp;gender=f&amp;phone=1234567
 </code></pre><p>How to make an account as admin</p>
 <pre><code>      # Run backend shell
       bkjs run-shell
@@ -618,7 +724,7 @@ large tables. Supports special query parameters <code>_select,_ops</code>, see d
 <p>Parameters:</p>
 <ul>
 <li>secret - new secret for the account</li>
-<li>token_secret - set to 1 to reset access token secret to a new value thus revoking access from existing access tokens</li>
+<li>token_secret - set to 1 to reset access token secret to a new value thus revoking access from all existing access tokens</li>
 </ul>
 <p>Example:</p>
 <pre><code>      /account/put/secret?secret=blahblahblah
@@ -1953,57 +2059,6 @@ Some config options may be kept in the DNS TXT records and every time a instance
 all config parameters support DNS store. To see which parmeteres can be stored in the DNS run <code>bkjs show-help</code> and look for &#39;DNS TXT configurable&#39;.</p>
 </li>
 </ul>
-<h1 id="security">Security</h1>
-<p>All requests to the API server must be signed with account login/secret pair.</p>
-<ul>
-<li>The algorithm how to sign HTTP requests (Version 1, 2):<ul>
-<li>Split url to path and query parameters with &quot;?&quot;</li>
-<li>Split query parameters with &quot;&amp;&quot;</li>
-<li>&#39;&#39;&#39;ignore parameters with empty names&#39;&#39;&#39;</li>
-<li>&#39;&#39;&#39;Sort&#39;&#39;&#39; list of parameters alphabetically</li>
-<li>Join sorted list of parameters with &quot;&amp;&quot;<ul>
-<li>Make sure all + are encoded as %2B</li>
-</ul>
-</li>
-<li>Form canonical string to be signed as the following:<ul>
-<li>Line1: The signature version</li>
-<li>Line2: The application tag or other opaque data</li>
-<li>Line3: The login name</li>
-<li>Line4: The HTTP method(GET), followed by a newline.</li>
-<li>Line5: the host, lowercase, followed by a newline.</li>
-<li>Line6: The request URI (/), followed by a newline.</li>
-<li>Line7: The sorted and joined query parameters as one string, followed by a newline.</li>
-<li>Line8: The expiration value in milliseconds, required, followed by a newline</li>
-<li>Line9: The Content-Type HTTP header, lowercase, followed by a newline</li>
-</ul>
-</li>
-<li>Computed HMAC-SHA1 digest from the canonical string and encode it as BASE64 string, preserve trailing = if any</li>
-<li>Form the signature HTTP header as the following:<ul>
-<li>The header string consist of multiple fields separated by pipe |<ul>
-<li>Field1: Signature version:<ul>
-<li>version 1, obsolete, do not use first 3 lines in the canonical string</li>
-<li>version 2,3 to be used in session cookies only</li>
-<li>version 4</li>
-</ul>
-</li>
-<li>Field2: Application tag or other app specific data</li>
-<li>Field3: account login or whatever it might be in the login column</li>
-<li>Field4: HMAC-SHA digest from the canonical string, version 1 uses SHA1, other SHA256</li>
-<li>Field5: expiration value in milliseconds, same as in the canonical string</li>
-<li>Field6: SHA1 checksum of the body content, optional, for JSON and other forms of requests not supported by query paremeters</li>
-<li>Field7: empty, reserved for future use</li>
-</ul>
-</li>
-</ul>
-</li>
-</ul>
-</li>
-</ul>
-<p>The resulting signature is sent as HTTP header bk-signature: or in the header specified by the <code>api-signature-name</code> config parameter</p>
-<p>For JSON content type, the method must be POST and no query parameters specified, instead everything should be inside the JSON object
-which is placed in the body of the request. For additional safety, SHA1 checksum of the JSON paylod can be calculated and passed in the signature,
-this is the only way to ensure the body is not modified when not using query parameters.</p>
-<p>See web/js/bkjs.js for function Bkjs.sign or function core.signRequest in the core.js for the Javascript implementation.</p>
 <h1 id="backend-framework-development-mac-os-x-developers-">Backend framework development (Mac OS X, developers)</h1>
 <ul>
 <li><p>for DB drivers and ImageMagick to work propely it needs some dependencies to be installed:</p>
@@ -7019,9 +7074,10 @@ use the same names as command line arguments without preceeding test- part.</p>
 
 <ul>
 <li><p><code>api.prepareAccountSecret(query, options)</code></p>
-<p> If specified in the options, prepare credentials to be stored in the db, returns null if no error or an error object</p>
+<p> If specified in the options, prepare credentials to be stored in the db, if no error occured return null, otherwise an error object</p>
 <ul>
-<li>scramble can be used to sign the secret with login so the db never stores cleartext credentials</li>
+<li>scramble can be used to encrypt the secret with login as HMAC_SHA256 so the db never stores cleartext credentials, this is an alternative to the
+cleartext password login when the password is hashed with SHA256 salt</li>
 </ul>
 </li>
 </ul>
