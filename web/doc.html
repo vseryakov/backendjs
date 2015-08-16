@@ -603,7 +603,7 @@ this is the only way to ensure the body is not modified when not using query par
 </ul>
 <h2 id="accounts">Accounts</h2>
 <p>The accounts API manages accounts and authentication, it provides basic user account features with common fields like email, name, address.</p>
-<p>This is implemented by the <code>accounts</code> module from the core. To disable accounts functionality specify <code>-deny-modules=accounts</code>.</p>
+<p>This is implemented by the <code>accounts</code> module from the core. To enable accounts functionality specify <code>-allow-modules=accounts</code>.</p>
 <ul>
 <li><p><code>/account/get</code></p>
 <p>Returns information about current account or other accounts, all account columns are returned for the current account and only public columns
@@ -840,7 +840,7 @@ a special mapping between prefix/type and album titles for example needs to be c
 <p>The supposed usage for type is to concatenate common identifiers first with more specific to form unique icon type which later can be queried
 by prefix or exactly by icon type. For example album id can be prefixed first, then sequential con number like album1:icon1, album1:icon2....
 then retrieving all icons for an album would be only query with album1: prefix.</p>
-<p>The is implemented by the <code>icons</code> module from the core. To disable this functionality specify <code>-deny-modules=icons</code>.</p>
+<p>The is implemented by the <code>icons</code> module from the core. To enable this functionality specify <code>-allow-modules=icons</code>.</p>
 <ul>
 <li><p><code>/icon/get</code></p>
 <p> Return icon for the current account in the given prefix, icons are kept on the local disk in the directory
@@ -891,7 +891,7 @@ the <code>url</code> property will provide full URL to retrieve the icon content
 </ul>
 <h2 id="file-api">File API</h2>
 <p>The file API provides ability to store and retrieve files. The operations are similar to the Icon API.</p>
-<p>This is implemented by the <code>files</code> module from the core. To disable this functionality specify <code>-deny-modules=files</code>.</p>
+<p>This is implemented by the <code>files</code> module from the core. To enable this functionality specify <code>-allow-modules=files</code>.</p>
 <ul>
 <li><p><code>/file/get</code></p>
 <p>  Return a file with given prefix and name, the contents are returned in the response body.</p>
@@ -920,7 +920,7 @@ the <code>url</code> property will provide full URL to retrieve the icon content
 <p>The connections API maintains two tables <code>bk_connection</code> and <code>bk_reference</code> for links between accounts of any type. bk_connection table maintains my
 links, i.e. when i make explicit connection to other account, and bk_reference table is automatically updated with reference for that other account that i made
 a connection with it. No direct operations on bk_reference is allowed.</p>
-<p>This is implemented by the <code>connections</code> module from the core. To disable this functionality specify <code>-deny-modules=connections</code>.</p>
+<p>This is implemented by the <code>connections</code> module from the core. To enable this functionality specify <code>-allow-modules=connections</code>.</p>
 <ul>
 <li><code>/connection/add</code></li>
 <li><p><code>/connection/put</code>
@@ -1030,7 +1030,7 @@ When request comes for all matches for the location for example 37.7, -122.4, th
 <li>continue untill we visit all neighbors or received required number of macthed records</li>
 <li>on return the next_token opaque value will be provided if we want to continue the search for more matched for the same location</li>
 </ul>
-<p>This is implemented by the <code>locations</code> module from the core. To disable this functionality specify <code>-deny-modules=locations</code>.</p>
+<p>This is implemented by the <code>locations</code> module from the core. To enable this functionality specify <code>allow-modules=locations</code>.</p>
 <ul>
 <li><p><code>/location/put</code>
 Store currenct location for current account, latitude and longitude parameters must be given, this call will update the bk_account table as well with
@@ -1068,7 +1068,7 @@ it must be passed as is as <code>_token=</code> parameter with all original quer
 <h2 id="messages">Messages</h2>
 <p>The messaging API allows sending and recieving messages between accounts, it supports text and images. All new messages arrive into the bk_messsage table, the inbox. The client
 may keep messages there as new, delete or archive them. Archiving means transfering messages into the bk_archive table. All sent messages are kept in the bk_sent table.</p>
-<p>This is implemented by the <code>messages</code> module from the core. To disable this functionality specify <code>-deny-modules=messages</code>.</p>
+<p>This is implemented by the <code>messages</code> module from the core. To enable this functionality specify <code>-allow-modules=messages</code>.</p>
 <ul>
 <li><p><code>/message/get</code>
 Read all new messages, i.e. the messages that never been read or issued <code>/message/archive</code> call.</p>
@@ -1197,7 +1197,7 @@ Return the image data for the given message, the required parameters are:</p>
 <p>The counters API maintains realtime counters for every account records, the counters record may contain many different counter columns for different purposes and
 is always cached with whatever cache service is used, by default it is cached by the Web server process on every machine. Web worker processes ask the master Web server
 process for the cached records thus only one copy of the cache per machine even in the case of multiple CPU cores.</p>
-<p>This is implemented by the <code>counters</code> module from the core. To disable this functionality specify <code>-deny-modules=counters|accounts</code>.</p>
+<p>This is implemented by the <code>counters</code> module from the core. To enable this functionality specify <code>-allow-modules=counters|accounts</code>.</p>
 <ul>
 <li><p><code>/counter/get</code>
 Return counter record for current account with all available columns of if <code>id</code> is given return public columns for given account, it works with <code>bk_counter</code> table
@@ -1264,7 +1264,7 @@ exposes an API to manage and render pages.</p>
 <p>The pages support public mode, all pages with <code>pub</code> set to true will be returning without an account, this must be enabled with <code>api-allow-path=^/pages/(get|select|show)</code>
 to work.</p>
 <p>All .md files will be rendered into html automatically if there is not _raw=1 query parameter and pages view exists (api-pages-view=pages.html by default).</p>
-<p>This is implemented by the <code>pages</code> module from the core. To disable this functionality specify <code>-deny-modules=accounts</code>.</p>
+<p>This is implemented by the <code>pages</code> module from the core. To enable this functionality specify <code>-allow-modules=accounts</code>.</p>
 <ul>
 <li><p><code>/pages/get/ID</code>
 Return a page with given id or the main page if id is empty. If the query parameter <code>_render=1</code> is given, the content will be rendered into html from markdown, otherwie
@@ -1288,7 +1288,7 @@ is provided to simply wrap the markdown in the page layout.</p>
 <h2 id="system-api">System API</h2>
 <p>The system API returns information about the backend statistics, allows provisioning and configuration commands and other internal maintenance functions. By
 default is is open for access to all users but same security considerations apply here as for the Data API.</p>
-<p>This is implemented by the <code>system</code> module from the core. To disable this functionality specify <code>-deny-modules=accounts</code>.</p>
+<p>This is implemented by the <code>system</code> module from the core. To enable this functionality specify <code>-allow-modules=accounts</code>.</p>
 <ul>
 <li><p><code>/system/restart</code>
   Perform restart of the Web processes, this will be done gracefully, only one Web worker process will be restarting while the other processes will keep
@@ -1297,8 +1297,17 @@ default is is open for access to all users but same security considerations appl
 <li><p><code>/system/cache/(init|stats|keys|get|set|put|incr|del|clear)</code>
   Access to the caching functions</p>
 </li>
-<li><p><code>/system/msg/(msg)</code>
+<li><p><code>/system/config/(init)</code>
+  Access to the config functions</p>
+</li>
+<li><p><code>/system/msg/(init|send)</code>
   Access to the messaging functions</p>
+</li>
+<li><p><code>/system/jobs/(send)</code>
+  Access to the jobs functions</p>
+</li>
+<li><p><code>/system/queue/(init|publish)</code>
+  Access to the queue functions</p>
 </li>
 <li><p><code>/system/params</code>
   Return all config parameters applied from the config file(s) or remote database.</p>
@@ -1652,11 +1661,11 @@ Database pool statistics and other diagnostics</p>
 All params that  marked with DNS TXT can be configured in the DNS server for the domain where the backend is running, the config parameter name is
 concatenated with the domain and queried for the TXT record, for example: <code>cache-host</code> parameter will be queried for cache-host.domain.name for TXT record type.</p>
 </li>
-<li><p><code>etc/crontab</code> - jobs to be run with intervals, local or remote, JSON file with a list of cron jobs objects:</p>
+<li><p><code>etc/crontab</code> - jobs to be run with intervals, JSON file with a list of cron jobs objects:</p>
 <p>  Example:</p>
 <ol>
 <li><p>Create file in ~/.backend/etc/crontab with the following contents:</p>
-<pre><code> [ { &quot;type&quot;: &quot;local&quot;, &quot;cron&quot;: &quot;0 1 1 * * 1,3&quot;, &quot;job&quot;: { &quot;app.cleanSessions&quot;: { &quot;interval&quot;: 3600000 } } } ]
+<pre><code> [ { &quot;cron&quot;: &quot;0 1 1 * * 1,3&quot;, &quot;job&quot;: { &quot;app.cleanSessions&quot;: { &quot;interval&quot;: 3600000 } } } ]
 </code></pre></li>
 <li><p>Define the function that the cron will call with the options specified, callback must be called at the end, create this app.js file</p>
 <pre><code> var bkjs = require(&quot;backendjs&quot;);
@@ -1665,8 +1674,8 @@ concatenated with the domain and queried for the TXT record, for example: <code>
  }
  bkjs.server.start()
 </code></pre></li>
-<li><p>Start the scheduler and the web server at once</p>
-<pre><code> bkjs run-backend -master -web
+<li><p>Start the jobs queue and the web server at once</p>
+<pre><code> bkjs run-backend -master -web -jobs-workers 1
 </code></pre></li>
 </ol>
 </li>
@@ -1731,7 +1740,7 @@ all functions for example run the below:</p>
 <li><code>geoHashRow()</code></li>
 </ul>
 </li>
-<li>Generic cache outside of V8 memory pool<ul>
+<li>Generic cache outside of V8 heap<ul>
 <li><code>cacheSave()</code> - general purpose caching functions that have no memory limits and do not use V8 heap</li>
 <li><code>cachePut()</code></li>
 <li><code>cacheGet()</code></li>
@@ -1747,7 +1756,7 @@ all functions for example run the below:</p>
 <li><code>cacheNext()</code></li>
 </ul>
 </li>
-<li>LRU internal cache<ul>
+<li>LRU internal cache outside of V8 heap<ul>
 <li><code>lruInit(max)</code> - init LRU cache with max number of keys, this is in-memory cache which evicts older keys</li>
 <li><code>lruStats()</code> - return statistics about the LRU cache</li>
 <li><code>lruSize()</code> - return size of the current LRU cache</li>
@@ -1821,7 +1830,7 @@ This is intended for a single server development pusposes only.</p>
 <h1 id="security-configurations">Security configurations</h1>
 <h2 id="api-only">API only</h2>
 <p>This is default setup of the backend when all API requests except <code>/account/add</code> must provide valid signature and all HTML, Javascript, CSS and image files
-are available to everyone. This mode assumes that Web developmnt will be based on &#39;single-page&#39; design when only data is requested from the Web server and all
+are available to everyone. This mode assumes that Web development will be based on &#39;single-page&#39; design when only data is requested from the Web server and all
 rendering is done using Javascript. This is how the <code>api.html</code> develpers console is implemented, using JQuery-UI and Knockout.js.</p>
 <p>To see current default config parameters run any of the following commands:</p>
 <pre><code>    bkjs run-backend -help | grep api-allow
@@ -1928,7 +1937,7 @@ appending version to the command it is very simple to call only changed API code
 <li><p>Application semver support
 For cases when applications support Semver kind of versioning and it may be too many releases the method above still can be used while the number of versions is
 small, once too many different versions with different minor/patch numbers, it is easier to support greater/less comparisons.</p>
-<p>The application version <code>bk-app</code> can be supplied in the query or as a header  or in the user-agent HTTP header which is the easiest case for mobile apps.
+<p>The application version <code>bk-app</code> can be supplied in the query or as a header or in the user-agent HTTP header which is the easiest case for mobile apps.
 In the middlware, the code can look like this:</p>
 </li>
 </ul>
@@ -2006,7 +2015,7 @@ new image configuration.</p>
 <li>try to access the instance via HTTP port for the API console or documentation</li>
 </ul>
 <p>NOTE: if running behind a Load balancer and actual IP address is needed set Express option in the command line <code>-api-express-options {&quot;trust%20proxy&quot;:1}</code>. In the config file
-replacing spaces with %20 is not needed.</p>
+replacing spaces with %20 is not required.</p>
 <h2 id="aws-beanstalk-deployment">AWS Beanstalk deployment</h2>
 <p>As with any node.js module, the backendjs app can be packaged into zip file according to AWS docs and deployed the same way as any other node.js app.
 Inside the app package etc/config file can be setup for any external connections.</p>

@@ -87,6 +87,10 @@ ipc.prototype.handleWorkerMessages = function(msg)
             core.modules.db.initConfig();
             break;
 
+        case "msg:init":
+            core.modules.msg.init();
+            break;
+
         case "columns:init":
             core.modules.db.cacheColumns();
             break;
@@ -162,6 +166,10 @@ ipc.prototype.handleServerMessages = function(worker, msg)
 
         case "cache:init":
             this.initClients("cache");
+            for (var p in cluster.workers) cluster.workers[p].send(msg);
+            break;
+
+        case "msg:init":
             for (var p in cluster.workers) cluster.workers[p].send(msg);
             break;
 

@@ -561,7 +561,7 @@ See [web/js/bkjs.js](https://github.com/vseryakov/backendjs/blob/master/web/js/b
 ## Accounts
 The accounts API manages accounts and authentication, it provides basic user account features with common fields like email, name, address.
 
-This is implemented by the `accounts` module from the core. To disable accounts functionality specify `-deny-modules=accounts`.
+This is implemented by the `accounts` module from the core. To enable accounts functionality specify `-allow-modules=accounts`.
 
 - `/account/get`
 
@@ -842,7 +842,7 @@ The supposed usage for type is to concatenate common identifiers first with more
 by prefix or exactly by icon type. For example album id can be prefixed first, then sequential con number like album1:icon1, album1:icon2....
 then retrieving all icons for an album would be only query with album1: prefix.
 
-The is implemented by the `icons` module from the core. To disable this functionality specify `-deny-modules=icons`.
+The is implemented by the `icons` module from the core. To enable this functionality specify `-allow-modules=icons`.
 
 - `/icon/get`
 
@@ -901,7 +901,7 @@ The is implemented by the `icons` module from the core. To disable this function
 
 The file API provides ability to store and retrieve files. The operations are similar to the Icon API.
 
-This is implemented by the `files` module from the core. To disable this functionality specify `-deny-modules=files`.
+This is implemented by the `files` module from the core. To enable this functionality specify `-allow-modules=files`.
 
 - `/file/get`
 
@@ -932,7 +932,7 @@ The connections API maintains two tables `bk_connection` and `bk_reference` for 
 links, i.e. when i make explicit connection to other account, and bk_reference table is automatically updated with reference for that other account that i made
 a connection with it. No direct operations on bk_reference is allowed.
 
-This is implemented by the `connections` module from the core. To disable this functionality specify `-deny-modules=connections`.
+This is implemented by the `connections` module from the core. To enable this functionality specify `-allow-modules=connections`.
 
 - `/connection/add`
 - `/connection/put`
@@ -1057,7 +1057,7 @@ When request comes for all matches for the location for example 37.7, -122.4, th
 - continue untill we visit all neighbors or received required number of macthed records
 - on return the next_token opaque value will be provided if we want to continue the search for more matched for the same location
 
-This is implemented by the `locations` module from the core. To disable this functionality specify `-deny-modules=locations`.
+This is implemented by the `locations` module from the core. To enable this functionality specify `allow-modules=locations`.
 
 - `/location/put`
   Store currenct location for current account, latitude and longitude parameters must be given, this call will update the bk_account table as well with
@@ -1103,7 +1103,7 @@ This is implemented by the `locations` module from the core. To disable this fun
 The messaging API allows sending and recieving messages between accounts, it supports text and images. All new messages arrive into the bk_messsage table, the inbox. The client
 may keep messages there as new, delete or archive them. Archiving means transfering messages into the bk_archive table. All sent messages are kept in the bk_sent table.
 
-This is implemented by the `messages` module from the core. To disable this functionality specify `-deny-modules=messages`.
+This is implemented by the `messages` module from the core. To enable this functionality specify `-allow-modules=messages`.
 
 - `/message/get`
   Read all new messages, i.e. the messages that never been read or issued `/message/archive` call.
@@ -1244,7 +1244,7 @@ The counters API maintains realtime counters for every account records, the coun
 is always cached with whatever cache service is used, by default it is cached by the Web server process on every machine. Web worker processes ask the master Web server
 process for the cached records thus only one copy of the cache per machine even in the case of multiple CPU cores.
 
-This is implemented by the `counters` module from the core. To disable this functionality specify `-deny-modules=counters|accounts`.
+This is implemented by the `counters` module from the core. To enable this functionality specify `-allow-modules=counters|accounts`.
 
 - `/counter/get`
   Return counter record for current account with all available columns of if `id` is given return public columns for given account, it works with `bk_counter` table
@@ -1317,7 +1317,7 @@ to work.
 
 All .md files will be rendered into html automatically if there is not _raw=1 query parameter and pages view exists (api-pages-view=pages.html by default).
 
-This is implemented by the `pages` module from the core. To disable this functionality specify `-deny-modules=accounts`.
+This is implemented by the `pages` module from the core. To enable this functionality specify `-allow-modules=accounts`.
 
 - `/pages/get/ID`
   Return a page with given id or the main page if id is empty. If the query parameter `_render=1` is given, the content will be rendered into html from markdown, otherwie
@@ -1341,7 +1341,7 @@ This is implemented by the `pages` module from the core. To disable this functio
 The system API returns information about the backend statistics, allows provisioning and configuration commands and other internal maintenance functions. By
 default is is open for access to all users but same security considerations apply here as for the Data API.
 
-This is implemented by the `system` module from the core. To disable this functionality specify `-deny-modules=accounts`.
+This is implemented by the `system` module from the core. To enable this functionality specify `-allow-modules=accounts`.
 
 - `/system/restart`
     Perform restart of the Web processes, this will be done gracefully, only one Web worker process will be restarting while the other processes will keep
@@ -1350,8 +1350,17 @@ This is implemented by the `system` module from the core. To disable this functi
 - `/system/cache/(init|stats|keys|get|set|put|incr|del|clear)`
     Access to the caching functions
 
-- `/system/msg/(msg)`
+- `/system/config/(init)`
+    Access to the config functions
+
+- `/system/msg/(init|send)`
     Access to the messaging functions
+
+- `/system/jobs/(send)`
+    Access to the jobs functions
+
+- `/system/queue/(init|publish)`
+    Access to the queue functions
 
 - `/system/params`
     Return all config parameters applied from the config file(s) or remote database.
@@ -1699,13 +1708,13 @@ The backend directory structure is the following:
       All params that  marked with DNS TXT can be configured in the DNS server for the domain where the backend is running, the config parameter name is
       concatenated with the domain and queried for the TXT record, for example: `cache-host` parameter will be queried for cache-host.domain.name for TXT record type.
 
-    * `etc/crontab` - jobs to be run with intervals, local or remote, JSON file with a list of cron jobs objects:
+    * `etc/crontab` - jobs to be run with intervals, JSON file with a list of cron jobs objects:
 
         Example:
 
         1. Create file in ~/.backend/etc/crontab with the following contents:
 
-                [ { "type": "local", "cron": "0 1 1 * * 1,3", "job": { "app.cleanSessions": { "interval": 3600000 } } } ]
+                [ { "cron": "0 1 1 * * 1,3", "job": { "app.cleanSessions": { "interval": 3600000 } } } ]
 
         2. Define the function that the cron will call with the options specified, callback must be called at the end, create this app.js file
 
@@ -1715,9 +1724,9 @@ The backend directory structure is the following:
                 }
                 bkjs.server.start()
 
-        3. Start the scheduler and the web server at once
+        3. Start the jobs queue and the web server at once
 
-                bkjs run-backend -master -web
+                bkjs run-backend -master -web -jobs-workers 1
 
     * etc/crontab.local - additional local crontab that is read after the main one, for local or dev environment
 
@@ -1773,7 +1782,7 @@ List of available functions:
    - `geoHashAdjacent()`
    - `geoHashGrid()`
    - `geoHashRow()`
- - Generic cache outside of V8 memory pool
+ - Generic cache outside of V8 heap
    - `cacheSave()` - general purpose caching functions that have no memory limits and do not use V8 heap
    - `cachePut()`
    - `cacheGet()`
@@ -1787,7 +1796,7 @@ List of available functions:
    - `cacheForEachNext()`
    - `cacheBegin()`
    - `cacheNext()`
- - LRU internal cache
+ - LRU internal cache outside of V8 heap
    - `lruInit(max)` - init LRU cache with max number of keys, this is in-memory cache which evicts older keys
    - `lruStats()` - return statistics about the LRU cache
    - `lruSize()` - return size of the current LRU cache
@@ -1869,7 +1878,7 @@ This is intended for a single server development pusposes only.
 
 ## API only
 This is default setup of the backend when all API requests except `/account/add` must provide valid signature and all HTML, Javascript, CSS and image files
-are available to everyone. This mode assumes that Web developmnt will be based on 'single-page' design when only data is requested from the Web server and all
+are available to everyone. This mode assumes that Web development will be based on 'single-page' design when only data is requested from the Web server and all
 rendering is done using Javascript. This is how the `api.html` develpers console is implemented, using JQuery-UI and Knockout.js.
 
 To see current default config parameters run any of the following commands:
@@ -1996,7 +2005,7 @@ tools ready to use that will allow to implement such versioning system in the ba
   For cases when applications support Semver kind of versioning and it may be too many releases the method above still can be used while the number of versions is
   small, once too many different versions with different minor/patch numbers, it is easier to support greater/less comparisons.
 
-  The application version `bk-app` can be supplied in the query or as a header  or in the user-agent HTTP header which is the easiest case for mobile apps.
+  The application version `bk-app` can be supplied in the query or as a header or in the user-agent HTTP header which is the easiest case for mobile apps.
   In the middlware, the code can look like this:
 
 ```javascript
@@ -2084,7 +2093,7 @@ To make an API appliance by using the backendjs on the AWS instance as user ec2-
 - try to access the instance via HTTP port for the API console or documentation
 
 NOTE: if running behind a Load balancer and actual IP address is needed set Express option in the command line `-api-express-options {"trust%20proxy":1}`. In the config file
-replacing spaces with %20 is not needed.
+replacing spaces with %20 is not required.
 
 ## AWS Beanstalk deployment
 

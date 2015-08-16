@@ -90,6 +90,11 @@ system.configureSystemAPI = function()
 
         case "msg":
             switch (req.params[1]) {
+            case 'init':
+                ipc.sendMsg(req.params[0] + ":init");
+                res.json({});
+                break;
+
             case 'send':
                 msg.send(req.query, function(err) { api.sendReply(res, err) });
                 break;
