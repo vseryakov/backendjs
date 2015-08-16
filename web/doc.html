@@ -4731,6 +4731,7 @@ so by default only a few columns are marked as public in the bk_account table</e
 it can contain pub property to be returned to the client</li>
 <li><code>readonly</code> - only add/put operations will use the value, incr/update will not affect the value</li>
 <li><code>writeonly</code> - only incr/update can change this value, add/put will ignore it</li>
+<li><code>noresult</code> - delete this property from the result, mostly for joined artificial columns which used for indexes only</li>
 <li><code>now</code> - means on every add/put/update set this column with current time as Date.now()</li>
 <li>`lower&#39; - make string value lowercase</li>
 <li>`upper&#39; - make string value uppercase</li>
@@ -4755,10 +4756,11 @@ defined in the object with the same name as the db driver, all properties are co
 </code></pre><p>Create DynamoDB table with global secondary index, the first index property if not the same as primary key hash defines global index, if it is the same then local,
 below we create global secondary index on property &#39;name&#39; only, in the example above it was local secondary index for id and name. Also a local secondary index is
 created on id,title.</p>
-<p>DynamoDB projection is defined by a <code>projection</code> property, it can be suffixed with a number to signofy which index it must belong to.</p>
+<p>DynamoDB projection is defined by a <code>projection</code> property, it can be suffixed with a number to signify which index it must belong to or if it must belong to
+all indexes it can be specified as <code>projections</code></p>
 <pre><code>    db.create(&quot;test_table&quot;, { id: { primary: 1, type: &quot;int&quot;, index1: 1 },
                               type: { primary: 1, projection: 1 },
-                              name: { index: 1 }
+                              name: { index: 1, projections: 1 }
                               title: { index1: 1, projection1: 1 } }
                             });
 </code></pre><p>When using real DynamoDB creating a table may take some time, for such cases if options.waitTimeout is not specified it defaults to 1min,
@@ -5021,7 +5023,9 @@ write requests with any database or can be used generically. The <code>obj</code
 it replaces the column value with joined value if needed. Empty properties will be still joined as empty strings.
 It always uses the original value even if one of the properties has been joined already.</p>
 <p>Checks for <code>join</code> and <code>joinOps</code> properties in the column definition.</p>
-<p>The <code>options.skip_join</code> can be used to restrict joins, it is a list with columns that should not perform join</p>
+<p>The <code>options.skip_join</code> can be used to restrict joins, it is a list with columns that should not be joined</p>
+<p>The <code>options.strict_join</code> can be used to perform join only if all columns in the list are not empty, so the join
+is for all columns or none</p>
 </li>
 </ul>
 
@@ -7669,11 +7673,11 @@ maintainence work the requires.</p>
                         zipcode: {},
                         country: {},
                         device_id: {},                                    // Device(s) for notifications the format is: [service://]token[@appname]
-                        geohash: { location: 1 },                         // To prevent regular account updates
-                        latitude: { type: &quot;real&quot;, location: 1 },          // overriding location columns
-                        longitude: { type: &quot;real&quot;, location: 1 },
-                        location: { location: 1 },
-                        ltime: { type: &quot;bigint&quot;, location: 1 },           // Last location update time
+                        geohash: {},
+                        latitude: { type: &quot;real&quot; },
+                        longitude: { type: &quot;real&quot; },
+                        location: {},
+                        ltime: { type: &quot;bigint&quot; },                        // Last location update time
                         ctime: { type: &quot;bigint&quot;, readonly: 1, now: 1 },   // Create time
                         mtime: { type: &quot;bigint&quot;, now: 1 } },              // Last update time
 
@@ -8108,7 +8112,7 @@ connections. If any of obj.id or obj.type are not specified then perform a query
                      type: { primary: 1,                         // prefix:type
                              pub: 1,
                              join: [ &quot;prefix&quot;, &quot;type&quot; ],
-                             unjoin: [ &quot;prefix&quot;, &quot;type&quot; ]
+                             unjoin: [ &quot;prefix&quot;, &quot;type&quot; ],
                              separator: &quot;:&quot;,
                              ops: { select: &quot;begins_with&quot; } },
                      prefix: {},                                 // icon prefix/namespace
