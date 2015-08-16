@@ -504,8 +504,6 @@ this is the only way to ensure the body is not modified when not using query par
 See [web/js/bkjs.js](https://github.com/vseryakov/backendjs/blob/master/web/js/bkjs.js) function `Bkjs.createSignature` or
 [api.js](https://github.com/vseryakov/backendjs/blob/master/api.js) function `api.createSignature` for the Javascript implementations.
 
-```
-
 ### Authentication API
 
 - `/auth`
