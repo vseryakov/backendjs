@@ -100,22 +100,30 @@ server.start = function()
 
     // Watch monitor for modified source files, for development mode only, in production -monitor is used
     if (core.isArg("-watch")) {
-        return core.init({ role: "watcher", noDb: 1, noDns: 1, noConfigure: 1 }, function(err, opts) { self.startWatcher(opts); });
+        return core.init({ role: "watcher", noDb: 1, noDns: 1, noConfigure: 1 }, function(err, opts) {
+            self.startWatcher(opts);
+        });
     }
 
     // Start server monitor, it will watch the process and restart automatically
     if (core.isArg("-monitor")) {
-        return core.init({ role: "monitor", noDb: 1, noDns: 1, noConfigure: 1 }, function(err, opts) { self.startMonitor(opts); });
+        return core.init({ role: "monitor", noDb: 1, noDns: 1, noConfigure: 1 }, function(err, opts) {
+            self.startMonitor(opts);
+        });
     }
 
-    // Master server, always create tables in the masters processes but only for primary db pools
+    // Master server, always create tables in the masters processes but only for the primary db pools
     if (core.isArg("-master")) {
-        return core.init({ role: "master", localMode: cluster.isMaster, noInitTables: cluster.isWorker ? /.+/ : null }, function(err, opts) { self.startMaster(opts); });
+        return core.init({ role: "master", localMode: cluster.isMaster, noInitTables: cluster.isWorker ? /.+/ : null }, function(err, opts) {
+            self.startMaster(opts);
+        });
     }
 
-    // Backend Web server
+    // Backend Web server, the server makes table for all configured pools
     if (core.isArg("-web")) {
-        return core.init({ role: "web", noInitTables: cluster.isWorker ? /.+/ : null }, function(err, opts) { self.startWeb(opts); });
+        return core.init({ role: "web", noInitTables: cluster.isWorker ? /.+/ : null }, function(err, opts) {
+            self.startWeb(opts);
+        });
     }
     logger.error("start:", "no server mode specified, need one of the -web, -master, -shell");
 }

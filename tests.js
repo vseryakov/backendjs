@@ -768,7 +768,10 @@ tests.test_db = function(callback)
                      num2: {},
                      num3: { join: ["id","num"] },
                      email: {},
-                     anum: { join: ["anum","num"], unjoin: ["anum","num"] } },
+                     anum: { join: ["anum","num"], unjoin: ["anum","num"] },
+                     jnum: { join: ["num2","num4"], unjoin: ["num2","num4"], strict_join: 1 },
+                     num4: { hidden: 1 },
+            },
             test2: { id: { primary: 1, pub: 1, index: 1 },
                      id2: { primary: 1, projection: 1 },
                      email: { projection: 1 },
@@ -808,7 +811,7 @@ tests.test_db = function(callback)
         function(next) {
             db.add("test1", { id: id, email: id, num: '1', num2: null, num3: 1, num4: 1, anum: 1 }, function(err) {
                 if (err) return next(err);
-                db.put("test1", { id: id2, email: id2, num: '2', num2: null, num3: 1, anum: 1 }, function(err) {
+                db.put("test1", { id: id2, email: id2, num: '2', num2: "2", num3: 1, num4: "4", anum: 1 }, function(err) {
                     if (err) return next(err);
                     db.put("test3", { id: id, num: 0, email: id, anum: 1 }, next);
                 });
@@ -816,12 +819,17 @@ tests.test_db = function(callback)
         },
         function(next) {
             db.get("test1", { id: id }, function(err, row) {
-                tests.check(next, err, !row || row.id != id || row.num != 1 || row.num3 != row.id+"|"+row.num || row.anum != "1", "err1:", row);
+                tests.check(next, err, !row || row.id != id || row.num != 1 || row.num3 != row.id+"|"+row.num || row.anum != "1" || row.jnum, "err1:", row);
+            });
+        },
+        function(next) {
+            db.get("test1", { id: id2 }, function(err, row) {
+                tests.check(next, err, !row || row.num4 != "4" || row.jnum != row.num2 + "|" + row.num4, "err1-1:", row);
             });
         },
         function(next) {
             db.get("test3", { id: id }, function(err, row) {
-                tests.check(next, err, !row || row.id != id, "err1-1:", row);
+                tests.check(next, err, !row || row.id != id, "err1-2:", row);
             });
         },
         function(next) {

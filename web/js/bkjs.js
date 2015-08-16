@@ -470,26 +470,94 @@ var Bkjs = {
         iterate(0);
     },
 
+    // Parse the input and convert into a Date object
+    toDate: function(val, dflt) {
+        if (isDate(val)) return val;
+        var d = null;
+        // String that looks like a number
+        if (typeof val == "string" && /^[0-9\.]+$/.test(val)) val = toNumber(val);
+        // Assume it is seconds which we use for most mtime columns, convert to milliseconds
+        if (typeof val == "number" && val < 2147483647) val *= 1000;
+        try { d = new Date(val); } catch(e) {}
+        return !isNaN(d) ? d : new Date(dflt || 0);
+    },
+
+    // Returns a human representation of an age for the given timestamp in milliseconds
+    toAge: function(mtime) {
+        var str = "";
+        mtime = typeof mtime == "number" ? mtime : parseInt(mtime, 10);
+        if (mtime > 0) {
+            var seconds = Math.floor((Date.now() - mtime)/1000);
+            var d = Math.floor(seconds / 86400);
+            var mm = Math.floor(d / 30);
+            var w = Math.floor(d / 7);
+            var h = Math.floor((seconds - d * 86400) / 3600);
+            var m = Math.floor((seconds - d * 86400 - h * 3600) / 60);
+            if (mm > 0) {
+                str = mm + " month" + (mm > 1 ? "s" : "");
+            } else
+            if (w > 0) {
+                str = w + " week" + (w > 1 ? "s" : "");
+            } else
+            if (d > 0) {
+                str = d + " day" + (d > 1 ? "s" : "");
+            } else
+            if (h > 0) {
+                str = h + " hour" + (h > 1 ? "s" : "");
+            } else
+            if (m > 0) {
+                str = m + " minute" + (m > 1 ? "s" : "");
+            } else {
+                str = seconds + " second" + (seconds > 1 ? "s" : "");
+            }
+            if (str) str += " ago";
+        }
+        return str;
+    },
+
+    // Capitalize words
+    toTitle: function(name) {
+        return (name || "").replace(/_/g, " ").split(/[ ]+/).reduce(function(x,y) { return x + y[0].toUpperCase() + y.substr(1) + " "; }, "").trim();
+    },
+
+    // Interpret the value as a boolean
+    toBool:function(val, dflt) {
+        if (typeof val == "boolean") return val;
+        if (typeof val == "number") return !!val;
+        if (typeof val == "undefined") val = dflt;
+        return !val || String(val).trim().match(/^(false|off|f|0$)/i) ? false : true;
+    },
+
     // Convert a string to a number, on invalid input returns 0
-    toNumber: function(str, options) {
+    toNumber: function(val, options) {
         var n = 0;
-        if (!options)options = {}
-        if (typeof str == "number") {
-            n = str;
+        if (typeof val == "number") {
+            n = val;
         } else {
-            if (typeof options.dflt == "undefined") options.dflt = 0;
-            if (typeof str != "string") {
-                n = options.dflt;
+            if (typeof val != "string") {
+                n = (options && options.dflt) || 0;
             } else {
                 // Autodetect floating number
-                if (typeof options.float == "undefined" || options.float == null) options.float = /^[0-9-]+\.[0-9]+$/.test(str);
-                n = str[0] == 't' ? 1 : str[0] == 'f' ? 0 : str == "infinity" ? Infinity : (options.float ? parseFloat(str,10) : parseInt(str,10));
-                n = isNaN(n) ? options.dflt : n;
+                var f = !options || typeof options.float == "undefined" || options.float == null ? /^[0-9-]+\.[0-9]+$/.test(val) : options.float;
+                n = val[0] == 't' ? 1 : val[0] == 'f' ? 0 : val == "infinity" ? Infinity : (f ? parseFloat(val, 10) : parseInt(val, 10));
             }
         }
-        if (typeof options.min == "number" && n < options.min) n = options.min;
-        if (typeof options.max == "number" && n > options.max) n = options.max;
+        n = isNaN(n) ? ((options && options.dflt) || 0) : n;
+        if (options) {
+            if (typeof options.min == "number" && n < options.min) n = options.min;
+            if (typeof options.max == "number" && n > options.max) n = options.max;
+        }
         return n;
+    },
+
+    // Return a test representation of a number according to the money formatting rules(US)
+    toMoneyNumber: function(num) {
+        var parts = String(typeof num != "number" || isNaN(num) ? 0 : num < 0 ? -num : num).split(".");
+        var p1 = parts[0], i = p1.length, str = '';
+        while (i--) {
+            str = (i == 0 ? '' : ((p1.length - i) % 3 ? '' : ',')) + p1.charAt(i) + str;
+        }
+        return (num < 0 ? '-' : '') + str + (parts[1] ? '.' + parts[1] : '');
     },
 
     // Simple debugging function that outputs arguments in the error console

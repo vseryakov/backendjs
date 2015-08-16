@@ -1488,11 +1488,12 @@ db.getCached = function(op, table, query, options, callback)
 // below we create global secondary index on property 'name' only, in the example above it was local secondary index for id and name. Also a local secondary index is
 // created on id,title.
 //
-// DynamoDB projection is defined by a `projection` property, it can be suffixed with a number to signofy which index it must belong to.
+// DynamoDB projection is defined by a `projection` property, it can be suffixed with a number to signify which index it must belong to or if it must belong to
+// all indexes it can be specified as `projections`
 //
 //          db.create("test_table", { id: { primary: 1, type: "int", index1: 1 },
 //                                    type: { primary: 1, projection: 1 },
-//                                    name: { index: 1 }
+//                                    name: { index: 1, projections: 1 }
 //                                    title: { index1: 1, projection1: 1 } }
 //                                  });
 //  When using real DynamoDB creating a table may take some time, for such cases if options.waitTimeout is not specified it defaults to 1min,
@@ -2113,7 +2114,10 @@ db.getSelectedColumns = function(table, options)
 //
 // Checks for `join` and `joinOps` properties in the column definition.
 //
-// The `options.skip_join` can be used to restrict joins, it is a list with columns that should not perform join
+// The `options.skip_join` can be used to restrict joins, it is a list with columns that should not be joined
+//
+// The `options.strict_join` can be used to perform join only if all columns in the list are not empty, so the join
+// is for all columns or none
 //
 db.joinColumn = function(op, obj, name, col, options, old)
 {
@@ -2123,14 +2127,20 @@ db.joinColumn = function(op, obj, name, col, options, old)
         (!options || !Array.isArray(options.skip_join) || options.skip_join.indexOf(name) == -1)) {
         var separator = col.separator || this.separator;
         if (typeof obj[name] != "string" || obj[name].indexOf(separator) == -1) {
-            var v = "", c;
+            var c, d, v = "", n = 0;
             for (var i = 0; i < col.join.length; i++) {
                 c = col.join[i];
-                v += (i ? separator : "") + ((old && old[c]) || obj[c] || "");
+                d = ((old && old[c]) || obj[c] || "");
+                if (d) {
+                    n++;
+                } else {
+                    if (col.strict_join || options.strict_join) return;
+                }
+                v += (i ? separator : "") + d;
             }
             // Keep the original value before updating
             if (old && typeof old[name] == "undefined") old[name] = obj[name];
-            if (v != separator) obj[name] = v;
+            if (v && n) obj[name] = v;
         }
     }
 }
