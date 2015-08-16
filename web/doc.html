@@ -552,1314 +552,1399 @@ environment, not just a Web browser. Request signature can be passed in the quer
 <p>For JSON content type, the method must be POST and no query parameters specified, instead everything should be inside the JSON object
 which is placed in the body of the request. For additional safety, SHA1 checksum of the JSON paylod can be calculated and passed in the signature,
 this is the only way to ensure the body is not modified when not using query parameters.</p>
-<p>See <code>web/js/bkjs.js</code> for function <code>Bkjs.sign</code> or function <code>api.createSignature</code> in the core.js for the Javascript implementation.</p>
-<p>Below is the simplest Javascript implementation for node.js:</p>
-<pre><code class="lang-javascript">    function createSignature(login, secret, method, host, path, query, options)
-    {
-        var rc = {};
-        if (!login || !secret) return rc;
-        var ctype = String(options.headers[&#39;content-type&#39;] || &quot;&quot;).toLowerCase();
-        if (!ctype &amp;&amp; method == &quot;POST&quot;) ctype = &quot;application/x-www-form-urlencoded; charset=utf-8&quot;;
-        var checksum = options.checksum || &quot;&quot;;
-        var now = Date.now();
-        var expires = options.expires || 0;
-        if (!expires || typeof expires != &quot;number&quot;) expires = now + 60000;
-        query = query.split(&quot;&amp;&quot;).sort().filter(function(x) { return x != &quot;&quot; }).join(&quot;&amp;&quot;);
-        var str = 4 + &quot;\n&quot; + &quot;\n&quot; + login + &quot;\n&quot; + method + &quot;\n&quot; + host.toLowerCase() + &quot;\n&quot; + url + &quot;\n&quot; + query + &quot;\n&quot; + expires + &quot;\n&quot; + ctype + &quot;\n&quot; + checksum + &quot;\n&quot;;
-        var hmac = crypto.createHmac(&quot;sha256&quot;, secret).update(str, &quot;utf8&quot;).digest(&quot;base64&quot;);
-        rc[&#39;bk-signature&#39;] = 4 + &#39;|&#39; + &#39;|&#39; + login + &#39;|&#39; + hmac + &#39;|&#39; + String(expires) + &#39;|&#39; + checksum + &#39;|&#39;;
-        return rc;
-    }
-    var opts = url.parse(&quot;https://localhost:8000/auth?_session=1&quot;);
-    opts.headers = createSignature(&quot;test123&quot;, &quot;secret123&quot;, &quot;GET&quot;, opts.hostname, opts.pathname, opts.query, {});
-    var req = https.request(opts, function(res) {
-       res.on(&quot;data&quot;, function(chunk) { });
-       res.on(&quot;end&quot;, function(chunk) { });
-    });
-    req.end();
-</code></pre>
-<h3 id="authentication-api">Authentication API</h3>
-<ul>
-<li><p><code>/auth</code></p>
-<p> This API request returns the current user record from the <code>bk_auth</code> table if the request is verified and the signature provided
- is valid. If no signature or it is invalid the result will be an error with the corresponding error code and message.</p>
-<p> By default this endpoint is secured, i.e. requires a valid signature.</p>
-<p> Parameters:</p>
-<ul>
-<li><code>_session=1</code> - if the call is authenticated a cookie with the session signature is returned, from now on
- all requests with such cookie will be authenticated, the primary use for this is Web apps</li>
-<li><p><code>_accesstoken=1</code> - returns new access token to be used for subsequent requests without a signature for the current account,
- the token is short lived with expiration date returned as well. This access token can be used instead of a signature and
- is passed in the query as <code>bk-access-token=TOKEN</code>.</p>
-<p> Example:</p>
-</li>
-</ul>
-</li>
-</ul>
-<pre><code>          /auth?_accesstoken=1
-            { id: &quot;NNNNN...&quot;, alias: &quot;Test User&quot;, &quot;bk-access-token&quot;: &quot;XXXXX....&quot;, &quot;bk-access-token-age&quot;: 604800000 }
+<p>See <a href="https://github.com/vseryakov/backendjs/blob/master/web/js/bkjs.js">web/js/bkjs.js</a> function <code>Bkjs.createSignature</code> or
+<a href="https://github.com/vseryakov/backendjs/blob/master/api.js">api.js</a> function <code>api.createSignature</code> for the Javascript implementations.</p>
+<pre><code>
+### Authentication API
 
-          /message/get?bk-access-token=XXXXXX...
-</code></pre><ul>
-<li><p><code>/login</code></p>
-<p> Same as the /auth but it uses cleartext password for user authentication, this request does not need a signature, just simple
- login and password query parameters to be sent to the backend. The intened usage is for Web sessions which would require
- to pass _session=1 or _accesstoken=1 to be able to make subsequent requests.</p>
-<p> Parameters:</p>
-<ul>
-<li><code>login</code> - account login</li>
-<li><code>password</code> - cleartext password</li>
-<li><code>_session=1</code> - same as in /auth request</li>
-<li><p><code>_accesstoken=1</code> - same as in /auth reuest</p>
-<p>On successful login, the result contains full account record including the secret, this is the only time when the secret is returned back</p>
-<p>Example:</p>
-<pre><code>   $.ajax({ url: &quot;/login?login=test123&amp;password=test123&amp;_session=1&quot;, success = function(json, status, xhr) {
-       console.log(json)
-   });
-   { id: &quot;NNN...&quot;, alias: &quot;Test User&quot;, login: &quot;test123&quot;, ...}
-</code></pre></li>
-</ul>
-</li>
-<li><p><code>/logout</code></p>
-<p> Logout the current user, clear session cookies if exist. For pure API access with the signature this will not do anything on the backend side.</p>
-</li>
-</ul>
-<h2 id="accounts">Accounts</h2>
-<p>The accounts API manages accounts and authentication, it provides basic user account features with common fields like email, name, address.</p>
-<p>This is implemented by the <code>accounts</code> module from the core. To disable accounts functionality specify <code>-deny-modules=accounts</code>.</p>
-<ul>
-<li><p><code>/account/get</code></p>
-<p>Returns information about current account or other accounts, all account columns are returned for the current account and only public columns
-returned for other accounts. This ensures that no private fields ever be exposed to other API clients. This call also can used to login into the service or
-verifying if the given login and secret are valid, there is no special login API call because each call must be signed and all calls are stateless and independent.</p>
-<p>Parameters:</p>
-<ul>
-<li>no id is given, return only one current account record as JSON</li>
-<li>id=id,id,... - return information about given account(s), the id parameter can be a single account id or list of ids separated by comma</li>
-<li>_session=1 - after successful login setup a session with cookies so the Web app can perform requests without signing every request anymore</li>
-<li>_accesstoken=1 - after successful login, return new access token that ca be used to make requests without signing every request, it can be
- passed in the query or headers with the name <code>bk-access-token</code></li>
-</ul>
-<p>Note: When retrieving current account, all properties will be present including the location, for other accounts only the properties marked as <code>pub</code> in the
-<code>bk_account</code> table will be returned.</p>
-<p>Response:</p>
-<pre><code>    { &quot;id&quot;: &quot;57d07a4e28fc4f33bdca9f6c8e04d6c3&quot;,
-      &quot;alias&quot;: &quot;Test User&quot;,
-      &quot;name&quot;: &quot;Real Name&quot;,
-      &quot;mtime&quot;: 1391824028,
-      &quot;latitude&quot;: 34,
-      &quot;longitude&quot;: -118,
-      &quot;geohash&quot;: &quot;9qh1&quot;,
-      &quot;login&quot;: &quot;testuser&quot;,
-    }
-</code></pre></li>
-</ul>
-<ul>
-<li><p><code>/account/add</code></p>
-<p>Add new account, all parameters are the columns from the <code>bk_account</code> table, required columns are: <strong>name, secret or password, login</strong>.</p>
-<p>By default, this URL is in the list of allowed paths that do not need authentication, this means that anybody can add an account. For the real
-application this may not be a good choice so the simplest way to disable it to add api-disallow-path=^/account/add$ to the config file or
-specify in the command line. More complex ways to perform registration will require adding pre and.or post callbacks to handle account registration
-for example with invitation codes....</p>
-<p>In the table <code>bk_auth</code>, the column <code>type</code> is used to distinguish between account roles, by default only account with type <code>admin</code> can
-add other accounts with this type specified, this column can also be used in account permissions implementations. Because it is in the bk_auth table,
-all columns of this table are available as <code>req.account</code> object after the successful authentication where <code>req</code> is an Express request object used in the middleware
-parameters.</p>
-<p>Secret and login can be anything, the backend does not require any specific formats and does not process the contents of the login/secret fields.</p>
-<p>There are several ways to create authenticated account:</p>
-<ul>
-<li>API only access with signed signature, supply a login and secret which will be stord in the database as is, when making requests use the same login and secret to produce the signature.
-<em>In the Web client <code>web/js/bkjs.js</code>, if <code>Bkjs.scramble</code> is set to 1 then the secret is replaced by the BASE64_HMAC_SHA256(secret, login) automatically,
-no actual secret is ever saved or sent, only used in the login form. This is intended for Web apps not to store the actual secret anywhere in the memory or localStorage,
-for the backend this is still just a secret.</em></li>
-<li>password based authentication, send cleartext <code>password</code> instead of the <code>secret</code>, make sure to use https, the backend will store a salt and SHA256 hash of the password. This method is
-inteded for Web app and will require sessions or access tokens for subsequent requests, the account signature secret is never returned by the backend.</li>
-</ul>
-<p>Example:</p>
-<pre><code>      /account/add?name=test&amp;login=test@test.com&amp;secret=fc4f33bd07a4e6c8e&amp;gender=f&amp;phone=1234567
-      /account/add?name=test&amp;login=test@test.com&amp;password=test123&amp;gender=f&amp;phone=1234567
-</code></pre><p>How to make an account as admin</p>
-<pre><code>      # Run backend shell
-      bkjs run-shell
+- `/auth`
 
-      # Update record by login
-      &gt; db.update(&quot;bk_auth&quot;, { login: &#39;login@name&#39;, type: &#39;admin&#39; });
-</code></pre></li>
-<li><p><code>/account/select</code></p>
-<p>Return list of accounts by the given condition, calls <code>db.select</code> for bk_account table. Parameters are the column values to be matched and
-all parameters starting with underscore are control parameters that goes into options of the <code>db.select</code> call with underscore removed. This will work for SQL
-databases only because DynamoDB or Cassandra will not search by non primary keys. In the DynamoDB case this will run ScanTable action which will be very expensive for
-large tables. Supports special query parameters <code>_select,_ops</code>, see docs about <code>db.select</code> for more info.</p>
-<p>Example:</p>
-<pre><code>      /account/search?email=test&amp;_ops=email,begins_with
-      /account/search?name=test
-</code></pre><p>Response:</p>
-<pre><code>      {  &quot;data&quot;: [{
-                    &quot;id&quot;: &quot;57d07a4e28fc4f33bdca9f6c8e04d6c3&quot;,
-                    &quot;alias&quot;: &quot;Test User1&quot;,
-                    &quot;name&quot;: &quot;User1&quot;,
-                    &quot;mtime&quot;: 1391824028,
-                    &quot;login&quot;: &quot;test1&quot;,
-                  },
-                  {
-                    &quot;id&quot;: &quot;57d07a4e2824fc43bd669f6c8e04d6c3&quot;,
-                    &quot;alias&quot;: &quot;Test User2&quot;,
-                    &quot;name&quot;: &quot;User2&quot;,
-                    &quot;mtime&quot;: 1391824028,
-                    &quot;login&quot;: &quot;test2&quot;,
+   This API request returns the current user record from the `bk_auth` table if the request is verified and the signature provided
+   is valid. If no signature or it is invalid the result will be an error with the corresponding error code and message.
+
+   By default this endpoint is secured, i.e. requires a valid signature.
+
+   Parameters:
+
+   - `_session=1` - if the call is authenticated a cookie with the session signature is returned, from now on
+      all requests with such cookie will be authenticated, the primary use for this is Web apps
+   - `_accesstoken=1` - returns new access token to be used for subsequent requests without a signature for the current account,
+      the token is short lived with expiration date returned as well. This access token can be used instead of a signature and
+      is passed in the query as `bk-access-token=TOKEN`.
+
+      Example:
+
+              /auth?_accesstoken=1
+              &gt; { id: &quot;XXXX...&quot;, alias: &quot;Test User&quot;, &quot;bk-access-token&quot;: &quot;XXXXX....&quot;, &quot;bk-access-token-age&quot;: 604800000 }
+
+              /account/get?bk-access-token=XXXXXX...
+              &gt; { id: &quot;XXXX...&quot;, alias: &quot;Test User&quot;, ... }
+
+- `/login`
+
+   Same as the /auth but it uses cleartext password for user authentication, this request does not need a signature, just simple
+   login and password query parameters to be sent to the backend.
+
+   The intened usage is for Web sessions which use sessions cookies when sent with `_session=1` or to be used with access tokens when
+   sent with `_accesstoken=1`.
+
+   Parameters:
+
+     - `login` - account login
+     - `password` - cleartext password
+     - `_session=1` - same as in /auth request
+     - `_accesstoken=1` - same as in /auth reuest
+
+   On successful login, the result contains full account record including the secret, this is the only time when the secret is returned back
+
+   Example:
+
+              $.ajax({ url: &quot;/login?login=test123&amp;password=test123&amp;_session=1&quot;,
+                       success: function(json, status, xhr) { console.log(json) }
+              });
+
+              &gt; { id: &quot;XXXX...&quot;, alias: &quot;Test User&quot;, login: &quot;test123&quot;, ...}
+
+- `/logout`
+
+   Logout the current user, clear session cookies if exist. For pure API access with the signature this will not do anything on the backend side.
+
+## Accounts
+The accounts API manages accounts and authentication, it provides basic user account features with common fields like email, name, address.
+
+This is implemented by the `accounts` module from the core. To disable accounts functionality specify `-deny-modules=accounts`.
+
+- `/account/get`
+
+  Returns information about current account or other accounts, all account columns are returned for the current account and only public columns
+  returned for other accounts. This ensures that no private fields ever be exposed to other API clients. This call also can used to login into the service or
+  verifying if the given login and secret are valid, there is no special login API call because each call must be signed and all calls are stateless and independent.
+
+  Parameters:
+
+    - no id is given, return only one current account record as JSON
+    - id=id,id,... - return information about given account(s), the id parameter can be a single account id or list of ids separated by comma
+    - _session=1 - after successful login setup a session with cookies so the Web app can perform requests without signing every request anymore
+    - _accesstoken=1 - after successful login, return new access token that ca be used to make requests without signing every request, it can be
+       passed in the query or headers with the name `bk-access-token`
+
+  Note: When retrieving current account, all properties will be present including the location, for other accounts only the properties marked as `pub` in the
+  `bk_account` table will be returned.
+
+  Response:
+
+          { &quot;id&quot;: &quot;57d07a4e28fc4f33bdca9f6c8e04d6c3&quot;,
+            &quot;alias&quot;: &quot;Test User&quot;,
+            &quot;name&quot;: &quot;Real Name&quot;,
+            &quot;mtime&quot;: 1391824028,
+            &quot;latitude&quot;: 34,
+            &quot;longitude&quot;: -118,
+            &quot;geohash&quot;: &quot;9qh1&quot;,
+            &quot;login&quot;: &quot;testuser&quot;,
+          }
+
+
+- `/account/add`
+
+  Add new account, all parameters are the columns from the `bk_account` table, required columns are: **name, secret or password, login**.
+
+  By default, this URL is in the list of allowed paths that do not need authentication, this means that anybody can add an account. For the real
+  application this may not be a good choice so the simplest way to disable it to add api-disallow-path=^/account/add$ to the config file or
+  specify in the command line. More complex ways to perform registration will require adding pre and.or post callbacks to handle account registration
+  for example with invitation codes....
+
+  In the table `bk_auth`, the column `type` is used to distinguish between account roles, by default only account with type `admin` can
+  add other accounts with this type specified, this column can also be used in account permissions implementations. Because it is in the bk_auth table,
+  all columns of this table are available as `req.account` object after the successful authentication where `req` is an Express request object used in the middleware
+  parameters.
+
+  Secret and login can be anything, the backend does not require any specific formats and does not process the contents of the login/secret fields.
+
+  There are several ways to create authenticated account:
+    - API only access with signed signature, supply a login and secret which will be stord in the database as is, when making requests use the same login and secret to produce the signature.
+      *In the Web client `web/js/bkjs.js`, if `Bkjs.scramble` is set to 1 then the secret is replaced by the BASE64_HMAC_SHA256(secret, login) automatically,
+      no actual secret is ever saved or sent, only used in the login form. This is intended for Web apps not to store the actual secret anywhere in the memory or localStorage,
+      for the backend this is still just a secret.*
+    - password based authentication, send cleartext `password` instead of the `secret`, make sure to use https, the backend will store a salt and SHA256 hash of the password. This method is
+      inteded for Web app and will require sessions or access tokens for subsequent requests, the account signature secret is never returned by the backend.
+
+  Example:
+
+            /account/add?name=test&amp;login=test@test.com&amp;secret=fc4f33bd07a4e6c8e&amp;gender=f&amp;phone=1234567
+            /account/add?name=test&amp;login=test@test.com&amp;password=test123&amp;gender=f&amp;phone=1234567
+
+  How to make an account as admin
+
+            # Run backend shell
+            bkjs run-shell
+
+            # Update record by login
+            &gt; db.update(&quot;bk_auth&quot;, { login: &#39;login@name&#39;, type: &#39;admin&#39; });
+
+- `/account/select`
+
+  Return list of accounts by the given condition, calls `db.select` for bk_account table. Parameters are the column values to be matched and
+  all parameters starting with underscore are control parameters that goes into options of the `db.select` call with underscore removed. This will work for SQL
+  databases only because DynamoDB or Cassandra will not search by non primary keys. In the DynamoDB case this will run ScanTable action which will be very expensive for
+  large tables. Supports special query parameters `_select,_ops`, see docs about `db.select` for more info.
+
+  Example:
+
+            /account/search?email=test&amp;_ops=email,begins_with
+            /account/search?name=test
+
+  Response:
+
+            {  &quot;data&quot;: [{
+                          &quot;id&quot;: &quot;57d07a4e28fc4f33bdca9f6c8e04d6c3&quot;,
+                          &quot;alias&quot;: &quot;Test User1&quot;,
+                          &quot;name&quot;: &quot;User1&quot;,
+                          &quot;mtime&quot;: 1391824028,
+                          &quot;login&quot;: &quot;test1&quot;,
+                        },
+                        {
+                          &quot;id&quot;: &quot;57d07a4e2824fc43bd669f6c8e04d6c3&quot;,
+                          &quot;alias&quot;: &quot;Test User2&quot;,
+                          &quot;name&quot;: &quot;User2&quot;,
+                          &quot;mtime&quot;: 1391824028,
+                          &quot;login&quot;: &quot;test2&quot;,
+                        }],
+                &quot;next_token&quot;: &quot;&quot;
+            }
+
+- `/account/del`
+
+  Delete current account, after this call no more requests will be authenticated with the current credentials
+
+- `/account/update`
+
+  Update current account with new values, the parameters are columns of the table `bk_account`, only columns with non empty values will be updated.
+
+  Example:
+
+            /account/update?name=New%2BName&amp;alias=Hidden%2BName&amp;gender=m
+
+- `/account/put/secret`
+
+  Change account secret for the current account, no columns except the secret will be updated and expected.
+
+  Parameters:
+    - secret - new secret for the account
+    - token_secret - set to 1 to reset access token secret to a new value thus revoking access from all existing access tokens
+
+  Example:
+
+            /account/put/secret?secret=blahblahblah
+
+
+- `/account/subcribe`
+
+  Subscribe to account events delivered via HTTP Long Poll, a client makes the connection and waits for events to come, whenever
+  somebody updates the account&#39;s counter or send a message or creates a connection to this account the event about it will be sent to this HTTP
+  connection and delivered as JSON object. This is not a persistent queue so if not listening, all events will just be ignored, only events published
+  since the connect will be delivered. To specify what kind of events needs to be delivered, `match` query parameter can be specified which is a
+  RegExp of the whole event body string.
+
+  *Note: On the server side there is a config parameter `api-subscribe-interval` which defines how often to deliver notifications, by default it is 5 seconds which means
+  only every 5 seconds new events will be delivered to the Web client, if more than one event happened, they all accumulate and will be sent as a JSON list.*
+
+  Example:
+
+        /account/subscribe
+        /account/subscribe?match=connection/add.*type:*like
+
+        // To run in the browser:
+        (function poll() {
+            Bkjs.send({ url: &quot;/account/subscribe&quot;, complete: poll }, function(data) {
+                console.log(&quot;received event:&quot;, data);
+             });
+         })();
+
+  Response:
+
+        [ { &quot;path&quot;: &quot;/message/add&quot;, &quot;mtime:&quot; 1234566566, &quot;type&quot;: &quot;1&quot; },
+          { &quot;path&quot;: &quot;/counter/incr&quot;, &quot;mtime:&quot; 1234566566, &quot;type&quot;: &quot;like,invite&quot; } },
+          { &quot;path&quot;: &quot;/connection/add&quot;, &quot;mtime&quot;: 1223345545, &quot;type&quot;: &quot;like&quot; } ]
+
+- `/account/select/icon`
+
+  Return a list of available account icons, icons that have been uploaded previously with /account/put/icon calls. The `url` property is an URL to retrieve this particular icon.
+
+  Parameters:
+    - id - if specified then icons for the given account will be returned
+
+  Example:
+
+        /account/select/icon?id=12345
+
+  Response:
+
+        [ { id: &#39;12345&#39;, type: &#39;1&#39;, url: &#39;/account/get/icon?id=12345&amp;type=1&#39; },
+          { id: &#39;12345&#39;, type: &#39;2&#39;, url: &#39;/account/get/icon?id=12345&amp;type=2&#39; } ]
+
+- `/account/get/icon`
+
+  Return an account icon, *the icon is returned in the body as binary BLOB*, if no icon with specified type exists, i.e. never been uploaded then 404 is returned.
+
+  Parameters:
+    - type - a number from 0 to 9 or any single letter a..z which defines which icon to return, if not specified 0 is used
+
+  Example:
+
+        /account/get/icon?type=2
+
+
+- `/account/put/icon`
+
+  Upload an account icon, once uploaded, the next `/account/get` call will return propertis in the format `iconN` wheer N is any of the
+  type query parameters specified here, for example if we uploaded an icon with type 5, then /account/get will return property icon5 with the URL
+  to retrieve this icon.
+  *By default all icons uploaded only accessible for the account which uploaded them.*
+
+  Parameters:
+
+    - type - icon type, a number between 0 and 9 or any single letter a..z, if not specified 0 is used
+    - icon - can be passed as base64 encoded image in the query,
+        - can be passed as base64 encoded string in the body as JSON, like: { type: 0, icon: &#39;iVBORw0KGgoA...&#39; },
+          for JSON the Content-Type HTTP headers must be set to `application/json` and data should be sent with POST request
+        - can be uploaded from the browser using regular multi-part form
+    - acl_allow - icon access permissions:
+      - &quot;&quot; (empty) - only own account can access
+      - all - public, everybody can see this icon
+      - auth - only authenticated users can see this icon
+      - id,id.. - list of account ids that can see this account
+    - _width - desired width of the stored icon, if negative this means do not upscale, if th eimage width is less than given keep it as is
+    - _height - height of the icon, same rules apply as for the width above
+    - _ext - image file format, default is jpg, supports: gif, png, jpg, jp2
+
+  Example:
+
+        /account/put/icon?type=1&amp;icon=iVBORw0KGgoAAAANSUhEUgAAAAcAAAAJCAYAAAD+WDajAAAABGdBTUEAALGPC/xhBQAAAAlwSFlzAAAOwgAADs....
+
+- `/account/del/icon`
+
+  Delete account icon
+
+  Parameters:
+
+    - type - what icon to delete, if not specified 0 is used
+
+  Example:
+
+        /account/icon/del?type=1
+
+- `/account/get/status
+  Return status for the account by id, if no id is psecified return status for the current account.
+
+  The system maintains account status with the timestamp to be used for presence or any other purposes. The bk_status table can be cached with any available
+  caching system like Redis, memcache to be very fast presence state system.
+
+  Example:
+
+        /account/get/status?id=12345
+
+- `/account/put/status`
+  Set the status of the current account, requires status parameter, automatically updates the timestamp
+
+  Example:
+
+        /account/put/status?status=online
+
+- `/account/del/status`
+  Delete current account status, mostly for clearing the cache or marking offline status
+
+
+### Health enquiry
+When running with AWS load balancer there should be a url that a load balancer polls all the time and this must be very quick and lightweight request. For this
+purpose there is an API endpoint `/ping` that just responds with status 200. It is not open by default, the `allow-path` or other way to allow non-authenticted access
+needs to be configured. This is to be able to control how pinging can be perform in the apps in cae it is not simple open access.
+
+## Public Images endpoint
+This endpoint can server any icon uploaded to the server for any account, it is supposed to be a non-secure method, i.e. no authentication will be performed and no signagture
+will be needed once it is confgiured which prefix can be public using `api-allow` or `api-allow-path` config parameters.
+
+The format of the endpoint is:
+
+- `/image/prefix/id/type`
+
+    Example:
+
+        # Configure accounts icons to be public in the etc/config
+        api-allow-path=/image/account/
+
+        # Or pass in the command line
+        ./app.sh -api-allow-path /image/account/
+
+        # Make requests
+        /image/account/12345/0
+        /image/account/12345/1
+
+        #Return icons for account 12345 for types 0 and 1
+
+## Icons
+The icons API provides ability for an account to store icons of different types. Each account keeps its own icons separate form other
+accounts, within the account icons can be separated by `prefix` which is just a namespace assigned to the icons set, for example to keep messages
+icons separate from albums, or use prefix for each separate album. Within the prefix icons can be assigned with unique type which can be any string.
+
+Prefix and type can consist from alphabetical characters and numbers, dots, underscores and dashes: [a-z0-9._-]. This means, they are identificators, not real titles or names,
+a special mapping between prefix/type and album titles for example needs to be created separately.
+
+The supposed usage for type is to concatenate common identifiers first with more specific to form unique icon type which later can be queried
+by prefix or exactly by icon type. For example album id can be prefixed first, then sequential con number like album1:icon1, album1:icon2....
+then retrieving all icons for an album would be only query with album1: prefix.
+
+The is implemented by the `icons` module from the core. To disable this functionality specify `-deny-modules=icons`.
+
+- `/icon/get`
+
+   Return icon for the current account in the given prefix, icons are kept on the local disk in the directory
+   configured by `-api-images-dir` parameter(default is images/ in the backend directory). Current account id is used to keep icons
+   separate from other accounts. Icon presense is checked in the bk_icon table before returning it and if any permissions are set in
+   the `acl_allow` column it will be checked if this icon can be returned.
+
+  The following parameters can be used:
+  - `prefix` - must be specified, this defines the icons namespace
+  - `type` is used to specify unique icon created with such type which can be any string.
+
+- `/icon/put`
+
+  Upload new icon for the given account in the folder prefix, if type is specified it creates an icons for this type to separate
+  multiple icons for the same prefix. `type` can be any string consisting from alpha and digits characters. It creates a record in the bk_icon
+  table with all the paramaters passed.
+
+  The following parameters can be used:
+    - prefix - prefix for the icons, requried
+    - descr - optional description of the icon
+    - latitude, longitude - optional coordinates for the icon
+    - acl_allow - allow access permissions, see `/account/put/icon` for the format and usage
+    - _width - desired width of the stored icon, if negative this means do not upscale, if th eimage width is less than given keep it as is
+    - _height - height of the icon, same rules apply as for the width above
+    - _ext - image file format, default is jpg, supports: gif, png, jpg
+
+- `/icon/upload`
+
+   Upload a new image and store on the server, no record is created in bk_icon table, just simple image upload,
+   but all the same query parameters as for /icon/put are accepted. Returns an JSON object with url property being the full path
+   to the uploaded image.
+
+- `/icon/del`
+
+   Delete the default icon for the current account in the folder prefix or by type
+
+- `/icon/select`
+
+  Return list of available icons for the given prefix adn type, all icons starting with prefix/type will be returned,
+  the `url` property will provide full URL to retrieve the icon contents
+
+  Example:
+
+        /icon/select?prefix=album&amp;type=me
+        /icon/select?prefix=album&amp;type=12345
+
+  Responses:
+
+        [ { id: &#39;b3dcfd1e63394e769658973f0deaa81a&#39;, type: &#39;me-1&#39;, icon: &#39;/icon/get?prefix=album&amp;type=me1&#39; },
+          { id: &#39;b3dcfd1e63394e769658973f0deaa81a&#39;, type: &#39;me-2&#39;, icon: &#39;/icon/get?prefix=album&amp;type=me2&#39; } ]
+
+        [ { id: &#39;b3dcfd1e63394e769658973f0deaa81a&#39;, type: &#39;12345-f0deaa81a&#39;, icon: &#39;/icon/get?prefix=album&amp;type=12345-f0deaa81a&#39; } ]
+
+## File API
+
+The file API provides ability to store and retrieve files. The operations are similar to the Icon API.
+
+This is implemented by the `files` module from the core. To disable this functionality specify `-deny-modules=files`.
+
+- `/file/get`
+
+    Return a file with given prefix and name, the contents are returned in the response body.
+
+    The following parameters can be used:
+    - `prefix` - must be provided, defines the namescape where the file is stored
+    - `name` - name of the file, required
+
+- `/file/put`
+
+    Store a file on the backend, the file can be sent using form multipart upload or as JSON
+
+    The following parameters can be used:
+    - `prefix` - must be provided, defines the namescape where the file is stored
+    - `name` - name of the file, required
+    - `_name` - name of the property that contaibs the file contents, for use with JSON or defines the name of the file attribute for multipart upload
+    - `_tm` - append the current timestamp to the file name
+    - `_ext` - extention to be assign to the file, otherwise the actual extension from the file name is used
+
+- `/file/del`
+
+    Delete file, prefix and name must be given
+
+## Connections
+
+The connections API maintains two tables `bk_connection` and `bk_reference` for links between accounts of any type. bk_connection table maintains my
+links, i.e. when i make explicit connection to other account, and bk_reference table is automatically updated with reference for that other account that i made
+a connection with it. No direct operations on bk_reference is allowed.
+
+This is implemented by the `connections` module from the core. To disable this functionality specify `-deny-modules=connections`.
+
+- `/connection/add`
+- `/connection/put`
+  Create or replace a connection between two accounts, required parameters are:
+    - `peer` - id of account to connect to
+    - `type` - type of connection, like,dislike,....
+    - _connected - the reply will contain a connection record if the other side of our connection is connected to us as well
+    - _publish - notify another account about this via pub/sub messaging system if it is active
+    - _noreference - do not create the reference record for this connection
+    - _nocounter - do not auto increment any counters
+
+  This call automatically creates a record in the bk_reference table which is reversed connection for easy access to information like
+  &#39;&#39;who is connected to me&#39;&#39; and auto-increment like0, like1 counters for both accounts in the bk_counter table.
+
+  Also, this call updates the counters in the `bk_counter` table for my account which match the connection type, for example if the type of
+  connection is &#39;invite&#39; and the `bk_counter` table contain 2 columns `invite0` and `invite1`, then both counters will be increased.
+
+  Example:
+
+        /connection/add?peer=12345&amp;type=invite&amp;state=sent
+
+- `/connection/update`
+- `/connection/incr`
+  Update other properties of the existing connection, for connections that may take more than i step or if a connection has other data associated with it beside
+  the type of the connection.
+
+  Example:
+
+        /connection/update?peer=12345&amp;type=invite&amp;state=accepted
+
+- `/connection/del`
+  Delete existing connection(s), `id` and/or `type` may be be specified, if not all existing connections will be deleted.
+
+  Example:
+
+        /connection/del?type=invite&amp;peer=12345
+
+- `/connection/get`
+  Return a single connection for given id
+
+  Parameters:
+  - peer - account id of the connection, required
+  - type - connection type, required
+
+  Example:
+
+        /connection/get?peer=12345&amp;type=like
+
+  Response:
+
+        { &quot;id&quot;: &quot;1111&quot;,
+          &quot;type: &quot;like&quot;,
+          &quot;peer&quot;: &quot;12345&quot;,
+          &quot;mtime&quot;: &quot;2434343543543&quot; }
+
+- `/reference/get`
+  Return a single reference record for given account id, works the same way as `/connection/get`
+
+
+- `/connection/select`
+  Receive all my connections of the given type, i.e. connection(s) i made, if `id` is given only one record for the specified connection will be returned. Supports special
+  query parameters `_select,_ops,_desc`, see docs about `db.select` for more info. All `db.select` options can be passed in the query with prepended underscore.
+
+  By default only connection columns will be returned, specifying `_accounts=1` will return public account columns as well.
+
+  Example:
+
+        # Return all accounts who i invited
+        /connection/select?type=invite
+        # Return connection for specific type and account id
+        /connection/select?type=invite&amp;peer=12345
+        # Return accounts who i invited me after specified mtime
+        /connection/select?type=invite&amp;_ops=mtime,gt&amp;mtime=12334312543
+        # Return accounts who i invited before specified mtime
+        /connection/select?type=invite&amp;_ops=mtime,le&amp;_desc=1&amp;mtime=12334312543
+
+  Response:
+
+        { &quot;data&quot;: [ { &quot;id&quot;: &quot;111&quot;,
+                      &quot;type&quot;: &quot;invite&quot;,
+                      &quot;peer&quot;: &quot;12345&quot;,
+                      &quot;status&quot;: &quot;&quot;,
+                      &quot;mtime&quot;: &quot;12334312543&quot;
                   }],
           &quot;next_token&quot;: &quot;&quot;
-      }
-</code></pre></li>
-<li><p><code>/account/del</code></p>
-<p>Delete current account, after this call no more requests will be authenticated with the current credentials</p>
-</li>
-<li><p><code>/account/update</code></p>
-<p>Update current account with new values, the parameters are columns of the table <code>bk_account</code>, only columns with non empty values will be updated.</p>
-<p>Example:</p>
-<pre><code>      /account/update?name=New%2BName&amp;alias=Hidden%2BName&amp;gender=m
-</code></pre></li>
-<li><p><code>/account/put/secret</code></p>
-<p>Change account secret for the current account, no columns except the secret will be updated and expected.</p>
-<p>Parameters:</p>
-<ul>
-<li>secret - new secret for the account</li>
-<li>token_secret - set to 1 to reset access token secret to a new value thus revoking access from all existing access tokens</li>
-</ul>
-<p>Example:</p>
-<pre><code>      /account/put/secret?secret=blahblahblah
-</code></pre></li>
-</ul>
-<ul>
-<li><p><code>/account/subcribe</code></p>
-<p>Subscribe to account events delivered via HTTP Long Poll, a client makes the connection and waits for events to come, whenever
-somebody updates the account&#39;s counter or send a message or creates a connection to this account the event about it will be sent to this HTTP
-connection and delivered as JSON object. This is not a persistent queue so if not listening, all events will just be ignored, only events published
-since the connect will be delivered. To specify what kind of events needs to be delivered, <code>match</code> query parameter can be specified which is a
-RegExp of the whole event body string.</p>
-<p><em>Note: On the server side there is a config parameter <code>api-subscribe-interval</code> which defines how often to deliver notifications, by default it is 5 seconds which means
-only every 5 seconds new events will be delivered to the Web client, if more than one event happened, they all accumulate and will be sent as a JSON list.</em></p>
-<p>Example:</p>
-<pre><code>  /account/subscribe
-  /account/subscribe?match=connection/add.*type:*like
-
-  // To run in the browser:
-  (function poll() {
-      Bkjs.send({ url: &quot;/account/subscribe&quot;, complete: poll }, function(data) {
-          console.log(&quot;received event:&quot;, data);
-       });
-   })();
-</code></pre><p>Response:</p>
-<pre><code>  [ { &quot;path&quot;: &quot;/message/add&quot;, &quot;mtime:&quot; 1234566566, &quot;type&quot;: &quot;1&quot; },
-    { &quot;path&quot;: &quot;/counter/incr&quot;, &quot;mtime:&quot; 1234566566, &quot;type&quot;: &quot;like,invite&quot; } },
-    { &quot;path&quot;: &quot;/connection/add&quot;, &quot;mtime&quot;: 1223345545, &quot;type&quot;: &quot;like&quot; } ]
-</code></pre></li>
-<li><p><code>/account/select/icon</code></p>
-<p>Return a list of available account icons, icons that have been uploaded previously with /account/put/icon calls. The <code>url</code> property is an URL to retrieve this particular icon.</p>
-<p>Parameters:</p>
-<ul>
-<li>id - if specified then icons for the given account will be returned</li>
-</ul>
-<p>Example:</p>
-<pre><code>  /account/select/icon?id=12345
-</code></pre><p>Response:</p>
-<pre><code>  [ { id: &#39;12345&#39;, type: &#39;1&#39;, url: &#39;/account/get/icon?id=12345&amp;type=1&#39; },
-    { id: &#39;12345&#39;, type: &#39;2&#39;, url: &#39;/account/get/icon?id=12345&amp;type=2&#39; } ]
-</code></pre></li>
-<li><p><code>/account/get/icon</code></p>
-<p>Return an account icon, <em>the icon is returned in the body as binary BLOB</em>, if no icon with specified type exists, i.e. never been uploaded then 404 is returned.</p>
-<p>Parameters:</p>
-<ul>
-<li>type - a number from 0 to 9 or any single letter a..z which defines which icon to return, if not specified 0 is used</li>
-</ul>
-<p>Example:</p>
-<pre><code>  /account/get/icon?type=2
-</code></pre></li>
-</ul>
-<ul>
-<li><p><code>/account/put/icon</code></p>
-<p>Upload an account icon, once uploaded, the next <code>/account/get</code> call will return propertis in the format <code>iconN</code> wheer N is any of the
-type query parameters specified here, for example if we uploaded an icon with type 5, then /account/get will return property icon5 with the URL
-to retrieve this icon.
-<em>By default all icons uploaded only accessible for the account which uploaded them.</em></p>
-<p>Parameters:</p>
-<ul>
-<li>type - icon type, a number between 0 and 9 or any single letter a..z, if not specified 0 is used</li>
-<li>icon - can be passed as base64 encoded image in the query,<ul>
-<li>can be passed as base64 encoded string in the body as JSON, like: { type: 0, icon: &#39;iVBORw0KGgoA...&#39; },
-for JSON the Content-Type HTTP headers must be set to <code>application/json</code> and data should be sent with POST request</li>
-<li>can be uploaded from the browser using regular multi-part form</li>
-</ul>
-</li>
-<li>acl_allow - icon access permissions:<ul>
-<li>&quot;&quot; (empty) - only own account can access</li>
-<li>all - public, everybody can see this icon</li>
-<li>auth - only authenticated users can see this icon</li>
-<li>id,id.. - list of account ids that can see this account</li>
-</ul>
-</li>
-<li>_width - desired width of the stored icon, if negative this means do not upscale, if th eimage width is less than given keep it as is</li>
-<li>_height - height of the icon, same rules apply as for the width above</li>
-<li>_ext - image file format, default is jpg, supports: gif, png, jpg, jp2</li>
-</ul>
-<p>Example:</p>
-<pre><code>  /account/put/icon?type=1&amp;icon=iVBORw0KGgoAAAANSUhEUgAAAAcAAAAJCAYAAAD+WDajAAAABGdBTUEAALGPC/xhBQAAAAlwSFlzAAAOwgAADs....
-</code></pre></li>
-<li><p><code>/account/del/icon</code></p>
-<p>Delete account icon</p>
-<p>Parameters:</p>
-<ul>
-<li>type - what icon to delete, if not specified 0 is used</li>
-</ul>
-<p>Example:</p>
-<pre><code>  /account/icon/del?type=1
-</code></pre></li>
-<li><p>`/account/get/status
-Return status for the account by id, if no id is psecified return status for the current account.</p>
-<p>The system maintains account status with the timestamp to be used for presence or any other purposes. The bk_status table can be cached with any available
-caching system like Redis, memcache to be very fast presence state system.</p>
-<p>Example:</p>
-<pre><code>  /account/get/status?id=12345
-</code></pre></li>
-<li><p><code>/account/put/status</code>
-Set the status of the current account, requires status parameter, automatically updates the timestamp</p>
-<p>Example:</p>
-<pre><code>  /account/put/status?status=online
-</code></pre></li>
-<li><p><code>/account/del/status</code>
-Delete current account status, mostly for clearing the cache or marking offline status</p>
-</li>
-</ul>
-<h3 id="health-enquiry">Health enquiry</h3>
-<p>When running with AWS load balancer there should be a url that a load balancer polls all the time and this must be very quick and lightweight request. For this
-purpose there is an API endpoint <code>/ping</code> that just responds with status 200. It is not open by default, the <code>allow-path</code> or other way to allow non-authenticted access
-needs to be configured. This is to be able to control how pinging can be perform in the apps in cae it is not simple open access.</p>
-<h2 id="public-images-endpoint">Public Images endpoint</h2>
-<p>This endpoint can server any icon uploaded to the server for any account, it is supposed to be a non-secure method, i.e. no authentication will be performed and no signagture
-will be needed once it is confgiured which prefix can be public using <code>api-allow</code> or <code>api-allow-path</code> config parameters.</p>
-<p>The format of the endpoint is:</p>
-<ul>
-<li><p><code>/image/prefix/id/type</code></p>
-<p>  Example:</p>
-<pre><code>  # Configure accounts icons to be public in the etc/config
-  api-allow-path=/image/account/
-
-  # Or pass in the command line
-  ./app.sh -api-allow-path /image/account/
-
-  # Make requests
-  /image/account/12345/0
-  /image/account/12345/1
-
-  #Return icons for account 12345 for types 0 and 1
-</code></pre></li>
-</ul>
-<h2 id="icons">Icons</h2>
-<p>The icons API provides ability for an account to store icons of different types. Each account keeps its own icons separate form other
-accounts, within the account icons can be separated by <code>prefix</code> which is just a namespace assigned to the icons set, for example to keep messages
-icons separate from albums, or use prefix for each separate album. Within the prefix icons can be assigned with unique type which can be any string.</p>
-<p>Prefix and type can consist from alphabetical characters and numbers, dots, underscores and dashes: [a-z0-9._-]. This means, they are identificators, not real titles or names,
-a special mapping between prefix/type and album titles for example needs to be created separately.</p>
-<p>The supposed usage for type is to concatenate common identifiers first with more specific to form unique icon type which later can be queried
-by prefix or exactly by icon type. For example album id can be prefixed first, then sequential con number like album1:icon1, album1:icon2....
-then retrieving all icons for an album would be only query with album1: prefix.</p>
-<p>The is implemented by the <code>icons</code> module from the core. To disable this functionality specify <code>-deny-modules=icons</code>.</p>
-<ul>
-<li><p><code>/icon/get</code></p>
-<p> Return icon for the current account in the given prefix, icons are kept on the local disk in the directory
- configured by <code>-api-images-dir</code> parameter(default is images/ in the backend directory). Current account id is used to keep icons
- separate from other accounts. Icon presense is checked in the bk_icon table before returning it and if any permissions are set in
- the <code>acl_allow</code> column it will be checked if this icon can be returned.</p>
-<p>The following parameters can be used:</p>
-<ul>
-<li><code>prefix</code> - must be specified, this defines the icons namespace</li>
-<li><code>type</code> is used to specify unique icon created with such type which can be any string.</li>
-</ul>
-</li>
-<li><p><code>/icon/put</code></p>
-<p>Upload new icon for the given account in the folder prefix, if type is specified it creates an icons for this type to separate
-multiple icons for the same prefix. <code>type</code> can be any string consisting from alpha and digits characters. It creates a record in the bk_icon
-table with all the paramaters passed.</p>
-<p>The following parameters can be used:</p>
-<ul>
-<li>prefix - prefix for the icons, requried</li>
-<li>descr - optional description of the icon</li>
-<li>latitude, longitude - optional coordinates for the icon</li>
-<li>acl_allow - allow access permissions, see <code>/account/put/icon</code> for the format and usage</li>
-<li>_width - desired width of the stored icon, if negative this means do not upscale, if th eimage width is less than given keep it as is</li>
-<li>_height - height of the icon, same rules apply as for the width above</li>
-<li>_ext - image file format, default is jpg, supports: gif, png, jpg</li>
-</ul>
-</li>
-<li><p><code>/icon/upload</code></p>
-<p> Upload a new image and store on the server, no record is created in bk_icon table, just simple image upload,
- but all the same query parameters as for /icon/put are accepted. Returns an JSON object with url property being the full path
- to the uploaded image.</p>
-</li>
-<li><p><code>/icon/del</code></p>
-<p> Delete the default icon for the current account in the folder prefix or by type</p>
-</li>
-<li><p><code>/icon/select</code></p>
-<p>Return list of available icons for the given prefix adn type, all icons starting with prefix/type will be returned,
-the <code>url</code> property will provide full URL to retrieve the icon contents</p>
-<p>Example:</p>
-<pre><code>  /icon/select?prefix=album&amp;type=me
-  /icon/select?prefix=album&amp;type=12345
-</code></pre><p>Responses:</p>
-<pre><code>  [ { id: &#39;b3dcfd1e63394e769658973f0deaa81a&#39;, type: &#39;me-1&#39;, icon: &#39;/icon/get?prefix=album&amp;type=me1&#39; },
-    { id: &#39;b3dcfd1e63394e769658973f0deaa81a&#39;, type: &#39;me-2&#39;, icon: &#39;/icon/get?prefix=album&amp;type=me2&#39; } ]
-
-  [ { id: &#39;b3dcfd1e63394e769658973f0deaa81a&#39;, type: &#39;12345-f0deaa81a&#39;, icon: &#39;/icon/get?prefix=album&amp;type=12345-f0deaa81a&#39; } ]
-</code></pre></li>
-</ul>
-<h2 id="file-api">File API</h2>
-<p>The file API provides ability to store and retrieve files. The operations are similar to the Icon API.</p>
-<p>This is implemented by the <code>files</code> module from the core. To disable this functionality specify <code>-deny-modules=files</code>.</p>
-<ul>
-<li><p><code>/file/get</code></p>
-<p>  Return a file with given prefix and name, the contents are returned in the response body.</p>
-<p>  The following parameters can be used:</p>
-<ul>
-<li><code>prefix</code> - must be provided, defines the namescape where the file is stored</li>
-<li><code>name</code> - name of the file, required</li>
-</ul>
-</li>
-<li><p><code>/file/put</code></p>
-<p>  Store a file on the backend, the file can be sent using form multipart upload or as JSON</p>
-<p>  The following parameters can be used:</p>
-<ul>
-<li><code>prefix</code> - must be provided, defines the namescape where the file is stored</li>
-<li><code>name</code> - name of the file, required</li>
-<li><code>_name</code> - name of the property that contaibs the file contents, for use with JSON or defines the name of the file attribute for multipart upload</li>
-<li><code>_tm</code> - append the current timestamp to the file name</li>
-<li><code>_ext</code> - extention to be assign to the file, otherwise the actual extension from the file name is used</li>
-</ul>
-</li>
-<li><p><code>/file/del</code></p>
-<p>  Delete file, prefix and name must be given</p>
-</li>
-</ul>
-<h2 id="connections">Connections</h2>
-<p>The connections API maintains two tables <code>bk_connection</code> and <code>bk_reference</code> for links between accounts of any type. bk_connection table maintains my
-links, i.e. when i make explicit connection to other account, and bk_reference table is automatically updated with reference for that other account that i made
-a connection with it. No direct operations on bk_reference is allowed.</p>
-<p>This is implemented by the <code>connections</code> module from the core. To disable this functionality specify <code>-deny-modules=connections</code>.</p>
-<ul>
-<li><code>/connection/add</code></li>
-<li><p><code>/connection/put</code>
-Create or replace a connection between two accounts, required parameters are:</p>
-<ul>
-<li><code>peer</code> - id of account to connect to</li>
-<li><code>type</code> - type of connection, like,dislike,....</li>
-<li>_connected - the reply will contain a connection record if the other side of our connection is connected to us as well</li>
-<li>_publish - notify another account about this via pub/sub messaging system if it is active</li>
-<li>_noreference - do not create the reference record for this connection</li>
-<li>_nocounter - do not auto increment any counters</li>
-</ul>
-<p>This call automatically creates a record in the bk_reference table which is reversed connection for easy access to information like
-&#39;&#39;who is connected to me&#39;&#39; and auto-increment like0, like1 counters for both accounts in the bk_counter table.</p>
-<p>Also, this call updates the counters in the <code>bk_counter</code> table for my account which match the connection type, for example if the type of
-connection is &#39;invite&#39; and the <code>bk_counter</code> table contain 2 columns <code>invite0</code> and <code>invite1</code>, then both counters will be increased.</p>
-<p>Example:</p>
-<pre><code>  /connection/add?peer=12345&amp;type=invite&amp;state=sent
-</code></pre></li>
-<li><p><code>/connection/update</code></p>
-</li>
-<li><p><code>/connection/incr</code>
-Update other properties of the existing connection, for connections that may take more than i step or if a connection has other data associated with it beside
-the type of the connection.</p>
-<p>Example:</p>
-<pre><code>  /connection/update?peer=12345&amp;type=invite&amp;state=accepted
-</code></pre></li>
-<li><p><code>/connection/del</code>
-Delete existing connection(s), <code>id</code> and/or <code>type</code> may be be specified, if not all existing connections will be deleted.</p>
-<p>Example:</p>
-<pre><code>  /connection/del?type=invite&amp;peer=12345
-</code></pre></li>
-<li><p><code>/connection/get</code>
-Return a single connection for given id</p>
-<p>Parameters:</p>
-<ul>
-<li>peer - account id of the connection, required</li>
-<li>type - connection type, required</li>
-</ul>
-<p>Example:</p>
-<pre><code>  /connection/get?peer=12345&amp;type=like
-</code></pre><p>Response:</p>
-<pre><code>  { &quot;id&quot;: &quot;1111&quot;,
-    &quot;type: &quot;like&quot;,
-    &quot;peer&quot;: &quot;12345&quot;,
-    &quot;mtime&quot;: &quot;2434343543543&quot; }
-</code></pre></li>
-<li><p><code>/reference/get</code>
-Return a single reference record for given account id, works the same way as <code>/connection/get</code></p>
-</li>
-</ul>
-<ul>
-<li><p><code>/connection/select</code>
-Receive all my connections of the given type, i.e. connection(s) i made, if <code>id</code> is given only one record for the specified connection will be returned. Supports special
-query parameters <code>_select,_ops,_desc</code>, see docs about <code>db.select</code> for more info. All <code>db.select</code> options can be passed in the query with prepended underscore.</p>
-<p>By default only connection columns will be returned, specifying <code>_accounts=1</code> will return public account columns as well.</p>
-<p>Example:</p>
-<pre><code>  # Return all accounts who i invited
-  /connection/select?type=invite
-  # Return connection for specific type and account id
-  /connection/select?type=invite&amp;peer=12345
-  # Return accounts who i invited me after specified mtime
-  /connection/select?type=invite&amp;_ops=mtime,gt&amp;mtime=12334312543
-  # Return accounts who i invited before specified mtime
-  /connection/select?type=invite&amp;_ops=mtime,le&amp;_desc=1&amp;mtime=12334312543
-</code></pre><p>Response:</p>
-<pre><code>  { &quot;data&quot;: [ { &quot;id&quot;: &quot;111&quot;,
-                &quot;type&quot;: &quot;invite&quot;,
-                &quot;peer&quot;: &quot;12345&quot;,
-                &quot;status&quot;: &quot;&quot;,
-                &quot;mtime&quot;: &quot;12334312543&quot;
-            }],
-    &quot;next_token&quot;: &quot;&quot;
-  }
-</code></pre></li>
-<li><p><code>/reference/select</code>
-Receive all references that connected with my account, i.e. connections made by somebody else with me, works the same way as for connection query call</p>
-<p>Example:</p>
-<pre><code>  # Return all accounts who invited me
-  /reference/select?type=invite
-  # Return accounts who invited me after specified mtime
-  /reference/select?type=invite&amp;_ops=mtime,gt&amp;mtime=12334312543
-</code></pre><p>Response:</p>
-<pre><code>  { &quot;data&quot;: [ { &quot;id&quot;: &quot;111&quot;,
-                &quot;type&quot;: &quot;invite&quot;,
-                &quot;peer&quot;: &quot;12345&quot;,
-                &quot;status&quot;: &quot;&quot;,
-                &quot;mtime&quot;: &quot;12334312543&quot;
-            }],
-    &quot;next_token&quot;: &quot;&quot;
-  }
-</code></pre></li>
-</ul>
-<h2 id="locations">Locations</h2>
-<p>The location API maintains a table <code>bk_location</code> with geolocation coordinates for accounts and allows searching it by distance. The configuration parameter
-<code>min-distance</code> defines the radius for the smallest bounding box in km containing single location, radius searches will combine neighboring boxes of
-this size to cover the whole area with the given distance request, also this affects the length of geohash keys stored in the bk_location table. By default min-distance is 5 km
-which means all geohashes in bk_location table will have geohash of size 4. Once min-distance is set it cannot be changed without rebuilding the bk_location table with new geohash size.</p>
-<p>The location search is implemented by using geohash as a primary key in the bk_location table with the account id as the second part of the primary key, for DynamoDB this is the range key.
-When request comes for all matches for the location for example 37.7, -122.4, the search that is executed looks like this:</p>
-<ul>
-<li>geohash for latitude 37.7 and longitude -122.4 and radius 10 km will be <code>9q8y</code></li>
-<li>all neoghboring ares around this point within 10 km radius will be &#39;9q8z&#39;, &#39;9q8v&#39;, &#39;9q8w&#39;, &#39;9q8x&#39;, &#39;9q8t&#39;, &#39;9q9n&#39;, &#39;9q9p&#39;, &#39;9q9j&#39;</li>
-<li>we start the search on the bk_location table by the primary key geohash with the value 9q8y</li>
-<li>filter out all records beyond our radius by calculating the difference between our point and the candidate record</li>
-<li>if total number of results expcted is still less than required, continue to the next neighbor area</li>
-<li>continue untill we visit all neighbors or received required number of macthed records</li>
-<li>on return the next_token opaque value will be provided if we want to continue the search for more matched for the same location</li>
-</ul>
-<p>This is implemented by the <code>locations</code> module from the core. To disable this functionality specify <code>-deny-modules=locations</code>.</p>
-<ul>
-<li><p><code>/location/put</code>
-Store currenct location for current account, latitude and longitude parameters must be given, this call will update the bk_account table as well with
-these coordinates</p>
-<p>Example:</p>
-<pre><code>  /location/put?latitude=-188.23232&amp;longitude=23.4545454
-</code></pre></li>
-<li><p><code>/location/get</code>
-Return matched accounts within the distance(radius) specified by <code>distance=</code> parameter in kilometers and current position specified by latitude/longitude paraemeters. This
-call returns results in chunks and requires navigation through all pages to receive all matched records. Records returned will start with the closest to the current
-point. If there are more matched records than specified by the <code>_count</code>, the <code>next_token</code> property is set with the token to be used in the subsequent call,
-it must be passed as is as <code>_token=</code> parameter with all original query parameters.</p>
-<p>By default only locations with account ids will be returned, specifying <code>_accounts=1</code> will return public account columns as well.</p>
-<p>Note: The current account will not be present in the results  even if it is within the range, to know my own location use <code>/account/get</code> call.</p>
-<p>Example:</p>
-<pre><code>      /location/get?distance=10&amp;latitude=-118.23434&amp;longitude=23.45665656&amp;_count=25
-      /location/get?distance=10&amp;latitude=-118.23434&amp;longitude=23.45665656&amp;_count=25&amp;_token=FGTHTRHRTHRTHTTR.....
-</code></pre><p>Response:</p>
-<pre><code>     { &quot;data&quot;: [ { &quot;id&quot;: &quot;12345&quot;,
-                   &quot;distance&quot;: 5,
-                   &quot;latitude&quot;: -118.123,
-                   &quot;longitude&quot;: 23.45
-                   &quot;mtime&quot;: &quot;12334312543&quot;
-                 },
-                 { &quot;id&quot;: &quot;45678&quot;,
-                   &quot;distance&quot;: 5,
-                   &quot;latitude&quot;: -118.133,
-                   &quot;longitude&quot;: 23.5
-                   &quot;mtime&quot;: &quot;12334312543&quot;
-                 }],
-       &quot;next_token&quot;: &quot;&quot;
-     }
-</code></pre></li>
-</ul>
-<h2 id="messages">Messages</h2>
-<p>The messaging API allows sending and recieving messages between accounts, it supports text and images. All new messages arrive into the bk_messsage table, the inbox. The client
-may keep messages there as new, delete or archive them. Archiving means transfering messages into the bk_archive table. All sent messages are kept in the bk_sent table.</p>
-<p>This is implemented by the <code>messages</code> module from the core. To disable this functionality specify <code>-deny-modules=messages</code>.</p>
-<ul>
-<li><p><code>/message/get</code>
-Read all new messages, i.e. the messages that never been read or issued <code>/message/archive</code> call.</p>
-<p>Parameters:</p>
-<ul>
-<li><code>_archive</code> - if set to 1, all returned messages will be archived automatically, so no individual /message/read call needed</li>
-<li><code>_trash</code> - if set to 1, all returned messages will be deleted, not archived</li>
-<li><code>_accounts</code> - if set to 1, return associated account details for the sender</li>
-</ul>
-<p>Example:</p>
-<pre><code>  # Get all new messages
-  /message/get
-
-  # Get all new messages and archive them
-  /message/get?_archive=1
-
-  # Get all new messages from the specific sender
-  /message/get?sender=12345
-</code></pre></li>
-<li><p><code>/message/get/archive</code>
-Receive archived messages. The images are not returned, only link to the image in <code>icon</code> property of reach record,
-the actual image data must be retrieved separately.</p>
-<p>Parameters:</p>
-<ul>
-<li><code>mtime</code> - if specified then only messages received since that time will be retirned, it must be in milliseconds since midnight GMT on January 1, 1970, this is what
-Date.now() return in Javascript.<ul>
-<li><code>sender</code> - if specified then all messages from the given sender will be returned.</li>
-</ul>
-</li>
-</ul>
-<p>NOTE: The <code>mtime</code> is when the backend server received the message, if client and the server clocks are off this may return wrong data or not return anything at all,
-also because the arrival order of the messages cannot be guaranteed, sending fast multiple messages may be received in different order by the backend and this will
-result in mtimes that do not correspond to actual times when the message has been sent.</p>
-<p>Example:</p>
-<pre><code>  # Get all messages
-  /message/get/archive
-
-  # Get all messages received after given mtime
-  /message/get/archive?mtime=123475658690
-
-  # Get all messages received before given mtime
-  /message/get/archive?mtime=123475658690&amp;_ops=mtime,lt
-
-  # Get all messages with custom filter: if msg text contains Hi
-  /message/get/archive?_ops=msg,iregexp&amp;msg=Hi
-
-  # Get all messages from the specific sender
-  /message/get/archive?sender=12345
-</code></pre><p>Response:</p>
-<pre><code>  { &quot;data&quot;: [ { &quot;sender&quot;: &quot;12345&quot;,
-                &quot;msg&quot;: &quot;Hi, how r u?&quot;,
-                &quot;mtime&quot;: &quot;12334312543&quot;
-              },
-              { &quot;sender&quot;: &quot;45678&quot;,
-                &quot;msg&quot;: &quot;check this out!&quot;,
-                &quot;icon&quot;: &quot;/message/image?sender=45678&amp;mtime=12334312543&quot;,
-                &quot;mtime&quot;: &quot;12334312543&quot;
-              }],
-       &quot;next_token&quot;: &quot;&quot;
-     }
-</code></pre></li>
-<li><p><code>/message/get/sent</code>
- Return all messages i sent out. All the same query rules apply as for the archived messages API call.</p>
-<p>Parameters:</p>
-<ul>
-<li><code>recipient</code> - id of the recipient where i have sent messages</li>
-<li><code>mtime</code> - time before or after messages sent, defined by _ops parametrs</li>
-</ul>
-<p>Example:</p>
-<pre><code>  /message/get/sent?recipient=123
-  /message/get/sent?recipient=123&amp;mtime=123475658690&amp;_ops=mtime,le
-</code></pre></li>
-<li><p><code>/message/add</code>
-Send a message to an account, the following parameters must be specified:</p>
-<ul>
-<li><code>id</code> - recipient account id</li>
-<li><code>msg</code> - text of the message, can be empty if <code>icon</code> property exists</li>
-<li><code>icon</code> - icon of the message, it can be base64 encoded image in the query or JSON string if the whole message is posted as JSON or
-can be a multipart file upload if submitted via browser, can be omitted if <code>msg/connection/get?type=invite&amp;id=12345</code> property exists.</li>
-<li>_nosent - do not save this message in my sent messages</li>
-<li>_publish - notify another account about this via pub/sub messaging system if it is active</li>
-</ul>
-<p>Example:</p>
-<pre><code>  /message/add?id=12345&amp;msg=Hello
-  /message/add?id=12345&amp;msg=this%2Bis%2Bthe%2Bpic&amp;icon=KHFHTDDKH7676758JFGHFDRDEDET....TGJNK%2D
-</code></pre></li>
-<li><p><code>/message/archive</code>
-Move a new message to the archive. The required query parameters are <code>sender</code> and <code>mtime</code>.</p>
-<p>Example:</p>
-<pre><code>  /message/read?sender=12345&amp;mtime=12366676434
-</code></pre></li>
-<li><p><code>/message/update</code>
-Update a message, can be used to keep track of read/unread status, etc...</p>
-<p>Example:</p>
-<pre><code>  /message/update?sender=12345&amp;mtime=124345656567676&amp;status=R
-</code></pre></li>
-<li><p><code>/message/update/archive</code>
-Update a message in the archive.</p>
-</li>
-</ul>
-<ul>
-<li><p><code>/message/del</code>
-Delete new message(s) by <code>sender</code> and/or <code>mtime</code> which must be passed as query parameters. If no mtime is given, all messages from the given sender will be deleted.</p>
-<p>Example:</p>
-<pre><code>  /message/del?sender=12345&amp;mtime=124345656567676
-</code></pre></li>
-<li><p><code>/message/del/archive</code>
-Delete archived message(s) by <code>sender</code> and/or <code>mtime</code> which must be passed as query parameters. If no mtime is given, all messages from the given sender will be deleted.</p>
-<p>Example:</p>
-<pre><code>  /message/del/archive?sender=12345&amp;mtime=124345656567676
-</code></pre></li>
-<li><p><code>/message/del/sent</code>
-Delete the message(s) by <code>recipient</code> and/or <code>mtime</code> which must be passed as query parameters. If no mtime is given, all messages to the given recipient will be deleted.</p>
-<p>Example:</p>
-<pre><code>  /message/del/sent?recipient=12345&amp;mtime=124345656567676
-</code></pre></li>
-<li><p><code>/message/image</code>
-Return the image data for the given message, the required parameters are:</p>
-<ul>
-<li>sender - id of the sender returned in the by <code>/message/get</code> reply results for every message</li>
-<li>mtime - exact timestamp of the message</li>
-</ul>
-</li>
-</ul>
-<h2 id="counters">Counters</h2>
-<p>The counters API maintains realtime counters for every account records, the counters record may contain many different counter columns for different purposes and
-is always cached with whatever cache service is used, by default it is cached by the Web server process on every machine. Web worker processes ask the master Web server
-process for the cached records thus only one copy of the cache per machine even in the case of multiple CPU cores.</p>
-<p>This is implemented by the <code>counters</code> module from the core. To disable this functionality specify <code>-deny-modules=counters|accounts</code>.</p>
-<ul>
-<li><p><code>/counter/get</code>
-Return counter record for current account with all available columns of if <code>id</code> is given return public columns for given account, it works with <code>bk_counter</code> table
-which by default defines some common columns:</p>
-<ul>
-<li>ping - a counter for general use, can be used to send a notification event to any acount by increasing this counter for an account</li>
-<li>like0 - how many i liked, how many time i liked someone, i.e. made a new record in bk_connection table with type &#39;like&#39;</li>
-<li>like1 - how many liked me, reverse counter, who connected to me with type &#39;like&#39;
-More columns can be added to the bk_counter table.</li>
-</ul>
-<p>NOTE: The columns with suffixes 0 and 1 are special columns that support the Connections API, every time a new connection is created, the type of new connection
-is checked against any columns in the bk_counter table, if a property type0 exists and marked in the table descriptnio as <code>autoincr</code> then the corresponding
-counter property is increased, this is how every time new connectio like/dislike/invite/follow is added, the counters in the bk_counter table are increased.</p>
-</li>
-<li><p><code>/counter/put</code>
-Replace my counters record, all values if not specified will be set to 0</p>
-</li>
-<li><p><code>/counter/incr</code>
-Increase one or more counter fields, each column can provide a numeric value and it will be added to the existing value, negative values will be substracted.
-if <code>id</code> parameter is specified, only public columns will be increased for other account.</p>
-<p>Example:</p>
-<pre><code>  /counter/incr?msg_read=5&amp;
-  /counter/incr?id=12345&amp;ping=1
-</code></pre></li>
-</ul>
-<h2 id="data">Data</h2>
-<p>The data API is a generic way to access any table in the database with common operations, as oppose to the any specific APIs above this API only deals with
-one table and one record without maintaining any other features like auto counters, cache...</p>
-<p><em>Because it exposes the whole database to anybody who has a login it is a good idea to disable this endpoint in the production or provide access callback that verifies
-who can access it.</em></p>
-<ul>
-<li>To disable this endpoint completely in the config: <code>deny-modules=data</code></li>
-<li>To allow admins to access it only in the config: <code>api-allow-admin=^/data</code></li>
-<li><p>To allow admins to access it only:</p>
-<pre><code>api.registerPreProcess(&#39;GET&#39;, &#39;/data&#39;, function(req, status, cb) { if (req.account.type != &quot;admin&quot;) return cb({ status: 401, message: &#39;access denied&#39; }; cb(status)); });
-</code></pre></li>
-</ul>
-<p>This is implemented by the <code>data</code> module from the core.</p>
-<ul>
-<li><code>/data/columns</code></li>
-<li><p><code>/data/columns/TABLE</code>
-Return columns for all tables or the specific TABLE</p>
-</li>
-<li><p><code>/data/keys/TABLE</code>
-Return primary keys for the given TABLE</p>
-</li>
-<li><p><code>/data/(select|search|list|get|add|put|update|del|incr|replace)/TABLE</code>
-Perform database operation on the given TABLE, all options for the <code>db</code> functiobns are passed as query parametrrs prepended with underscore,
-regular parameters are the table columns.</p>
-<p>By default the API does not allow table scans without a condition to avoid expensive and long queries, to enable a scan pass <code>_noscan=0</code>.
-For this to work the Data API must be configured as unsecure in the config file using the parameter <code>api-unsecure=data</code>.</p>
-<p>Some tables like messages and connections perform data convertion before returning the results, mostly splitting combined columns like type into
-separate fields. To return raw data pass the parameter <code>_noprocessrows=1</code>.</p>
-<p>Example:</p>
-<pre><code>  /data/get/bk_account?id=12345
-  /data/put/bk_counter?id=12345&amp;like0=1
-  /data/select/bk_account?name=john&amp;_ops=name,gt&amp;_select=name,alias,email
-  /data/select/bk_connection?_noscan=0&amp;_noprocessrows=1
-</code></pre></li>
-</ul>
-<h2 id="pages">Pages</h2>
-<p>The pages API provides a simple Wiki like system with Markdown formatting. It keeps all pages in the database table <code>bk_pages</code> and
-exposes an API to manage and render pages.</p>
-<p>The pages support public mode, all pages with <code>pub</code> set to true will be returning without an account, this must be enabled with <code>api-allow-path=^/pages/(get|select|show)</code>
-to work.</p>
-<p>All .md files will be rendered into html automatically if there is not _raw=1 query parameter and pages view exists (api-pages-view=pages.html by default).</p>
-<p>This is implemented by the <code>pages</code> module from the core. To disable this functionality specify <code>-deny-modules=accounts</code>.</p>
-<ul>
-<li><p><code>/pages/get/ID</code>
-Return a page with given id or the main page if id is empty. If the query parameter <code>_render=1</code> is given, the content will be rendered into html from markdown, otherwie
-returns all data as is.</p>
-</li>
-<li><p><code>/pages/select</code>
-Return all pages or only ones which match the query criteria. This potentially scans the whole table to return all pages and
-is used to show pages index.</p>
-</li>
-<li><p><code>/pages/put</code>
-Replace or add a new page.</p>
-</li>
-<li><p><code>/pages/del</code>
-Delete a page from the database</p>
-</li>
-<li><p><code>/pages/show/ID</code>
-Render a page with given id, markdown is converted into html using <code>marked</code>. A view must be condfigured in order to render to work, by default pages.html view
-is provided to simply wrap the markdown in the page layout.</p>
-</li>
-</ul>
-<h2 id="system-api">System API</h2>
-<p>The system API returns information about the backend statistics, allows provisioning and configuration commands and other internal maintenance functions. By
-default is is open for access to all users but same security considerations apply here as for the Data API.</p>
-<p>This is implemented by the <code>system</code> module from the core. To disable this functionality specify <code>-deny-modules=accounts</code>.</p>
-<ul>
-<li><p><code>/system/restart</code>
-  Perform restart of the Web processes, this will be done gracefully, only one Web worker process will be restarting while the other processes will keep
-  serving requests. The intention is to allow code updates on live systems without service interruption.</p>
-</li>
-<li><p><code>/system/cache/(init|stats|keys|get|set|put|incr|del|clear)</code>
-  Access to the caching functions</p>
-</li>
-<li><p><code>/system/msg/(msg)</code>
-  Access to the messaging functions</p>
-</li>
-<li><p><code>/system/params</code>
-  Return all config parameters applied from the config file(s) or remote database.</p>
-</li>
-<li><p><code>/system/stats/get</code>
-Database pool statistics and other diagnostics</p>
-<ul>
-<li>latency - how long a pending request waits in queue at this moment</li>
-<li>busy - how many busy error responses have been returned so far</li>
-<li>pool - database metrics<ul>
-<li>response - stats about how long it takes between issuing the db request and till the final moment all records are ready to be sent to the client</li>
-<li>queue - stats about db requests at any given moment queued for the execution</li>
-<li>cache - db cache response time and metrics</li>
-</ul>
-</li>
-<li>api - Web requests metrics, same structure as for the db pool metrics</li>
-<li>url - metrics per url endpoints</li>
-</ul>
-<p>Individual sub-objects:</p>
-<ul>
-<li>meter - Things that are measured as events / interval.<ul>
-<li>rmean: The average rate since the meter was started.</li>
-<li>rcnt: The total of all values added to the meter.</li>
-<li>rate: The rate of the meter since the last toJSON() call.</li>
-<li>r1m: The rate of the meter biased towards the last 1 minute.</li>
-<li>r5m: The rate of the meter biased towards the last 5 minutes.</li>
-<li>r15m: The rate of the meter biased towards the last 15 minutes.</li>
-</ul>
-</li>
-<li>queue or histogram - Keeps a resevoir of statistically relevant values biased towards the last 5 minutes to explore their distribution<ul>
-<li>hmin: The lowest observed value.</li>
-<li>mmax: The highest observed value.</li>
-<li>hsum: The sum of all observed values.</li>
-<li>hvar: The variance of all observed values.</li>
-<li>hmean: The average of all observed values.</li>
-<li>hdev: The standard deviation of all observed values.</li>
-<li>hcnt: The number of observed values.</li>
-<li>hmed: median, 50% of all values in the resevoir are at or below this value.</li>
-<li>hp75: See median, 75% percentile.</li>
-<li>hp95: See median, 95% percentile.</li>
-<li>hp99: See median, 99% percentile.</li>
-<li>hp999: See median, 99.9% percentile.</li>
-</ul>
-</li>
-</ul>
-<p>Response:</p>
-<pre><code>       {
-            &quot;id&quot;: &quot;172.31.31.85-25170&quot;,
-            &quot;ip&quot;: &quot;172.31.31.85&quot;,
-            &quot;mtime&quot;: 1417500027321,
-            &quot;ctime&quot;: 1416941754760,
-            &quot;type&quot;: &quot;&quot;,
-            &quot;host&quot;: &quot;&quot;,
-            &quot;pid&quot;: 25170,
-            &quot;instance&quot;: &quot;i-d4c89eff&quot;,
-            &quot;worker&quot;: 27,
-            &quot;latency&quot;: 0,
-            &quot;cpus&quot;: 4,
-            &quot;mem&quot;: 15774367744,
-            &quot;rss_hmin&quot;: 66879488,
-            &quot;rss_hmax&quot;: 151891968,
-            &quot;rss_hsum&quot;: 2451506479104,
-            &quot;rss_hvar&quot;: 254812067010902.66,
-            &quot;rss_hmean&quot;: 118895507.98312236,
-            &quot;rss_hdev&quot;: 15962833.92793719,
-            &quot;rss_hcnt&quot;: 20619,
-            &quot;rss_hmed&quot;: 147644416,
-            &quot;rss_h75p&quot;: 149262336,
-            &quot;rss_h95p&quot;: 150834585.6,
-            &quot;rss_h99p&quot;: 151550033.92000002,
-            &quot;rss_h999p&quot;: 151886266.368,
-            &quot;heap_hmin&quot;: 25790920,
-            &quot;heap_hmax&quot;: 72316184,
-            &quot;heap_hsum&quot;: 1029889929504,
-            &quot;heap_hvar&quot;: 54374337037311.65,
-            &quot;heap_hmean&quot;: 49948587.68630874,
-            &quot;heap_hdev&quot;: 7373895.648658967,
-            &quot;heap_hcnt&quot;: 20619,
-            &quot;heap_hmed&quot;: 57480704,
-            &quot;heap_h75p&quot;: 61934254,
-            &quot;heap_h95p&quot;: 67752391.2,
-            &quot;heap_h99p&quot;: 70544797.92,
-            &quot;heap_h999p&quot;: 72315029.104,
-            &quot;avg_hmin&quot;: 0.04541015625,
-            &quot;avg_hmax&quot;: 0.06005859375,
-            &quot;avg_hsum&quot;: 938.234375,
-            &quot;avg_hvar&quot;: 4.491222722966496e-7,
-            &quot;avg_hmean&quot;: 0.04550338886463941,
-            &quot;avg_hdev&quot;: 0.0006701658543201448,
-            &quot;avg_hcnt&quot;: 20619,
-            &quot;avg_hmed&quot;: 0.04541015625,
-            &quot;avg_h75p&quot;: 0.04541015625,
-            &quot;avg_h95p&quot;: 0.04541015625,
-            &quot;avg_h99p&quot;: 0.05078125,
-            &quot;avg_h999p&quot;: 0.05997363281250001,
-            &quot;free_hmin&quot;: 12879872000,
-            &quot;free_hmax&quot;: 13228994560,
-            &quot;free_hsum&quot;: 268429937405952,
-            &quot;free_hvar&quot;: 5839592954606286,
-            &quot;free_hmean&quot;: 13018572064.889277,
-            &quot;free_hdev&quot;: 76417229.43555522,
-            &quot;free_hcnt&quot;: 20619,
-            &quot;free_hmed&quot;: 12908707840,
-            &quot;free_h75p&quot;: 12915716096,
-            &quot;free_h95p&quot;: 12919331430.4,
-            &quot;free_h99p&quot;: 12922073088,
-            &quot;free_h999p&quot;: 12922164563.968,
-            &quot;util_hmin&quot;: 0.05905642141342145,
-            &quot;util_hmax&quot;: 0.0607655708794173,
-            &quot;util_hsum&quot;: 1230.6298386264643,
-            &quot;util_hvar&quot;: 2.1530671850148948e-7,
-            &quot;util_hmean&quot;: 0.059684263961708346,
-            &quot;util_hdev&quot;: 0.0004640115499656118,
-            &quot;util_hcnt&quot;: 20619,
-            &quot;util_hmed&quot;: 0.05920415878947068,
-            &quot;util_h75p&quot;: 0.059217278415661254,
-            &quot;util_h95p&quot;: 0.05934395790869296,
-            &quot;util_h99p&quot;: 0.059361851867105964,
-            &quot;util_h999p&quot;: 0.0593659827984017,
-            &quot;pool_name&quot;: &quot;dynamodb&quot;,
-            &quot;pool_que_rate&quot;: 0,
-            &quot;pool_que_rcnt&quot;: 1989,
-            &quot;pool_que_rmean&quot;: 0.0035627883554577716,
-            &quot;pool_que_r1m&quot;: 0,
-            &quot;pool_que_r5m&quot;: 0,
-            &quot;pool_que_r15m&quot;: 0,
-            &quot;pool_que_hmin&quot;: 0,
-            &quot;pool_que_hmax&quot;: 230,
-            &quot;pool_que_hsum&quot;: 45843,
-            &quot;pool_que_hvar&quot;: 366.86587852909315,
-            &quot;pool_que_hmean&quot;: 23.048265460030166,
-            &quot;pool_que_hdev&quot;: 19.15374319889178,
-            &quot;pool_que_hcnt&quot;: 1989,
-            &quot;pool_que_hmed&quot;: 21,
-            &quot;pool_que_h75p&quot;: 23,
-            &quot;pool_que_h95p&quot;: 33,
-            &quot;pool_que_h99p&quot;: 126.42000000000007,
-            &quot;pool_que_h999p&quot;: 225.971,
-            &quot;pool_req_hmin&quot;: 1,
-            &quot;pool_req_hmax&quot;: 2,
-            &quot;pool_req_hsum&quot;: 1991,
-            &quot;pool_req_hvar&quot;: 0.001005024617286425,
-            &quot;pool_req_hmean&quot;: 1.0010055304172951,
-            &quot;pool_req_hdev&quot;: 0.03170212322994195,
-            &quot;pool_req_hcnt&quot;: 1989,
-            &quot;pool_req_hmed&quot;: 1,
-            &quot;pool_req_h75p&quot;: 1,
-            &quot;pool_req_h95p&quot;: 1,
-            &quot;pool_req_h99p&quot;: 1,
-            &quot;pool_req_h999p&quot;: 1.9710000000000036,
-            &quot;pool_count&quot;: 0,
-            &quot;pool_req_0&quot;: 2,
-            &quot;pool_cache_rate&quot;: 0.1303780964797914,
-            &quot;pool_cache_rcnt&quot;: 284,
-            &quot;pool_cache_rmean&quot;: 0.0005087436344326025,
-            &quot;pool_cache_r1m&quot;: 0,
-            &quot;pool_cache_r5m&quot;: 0,
-            &quot;pool_cache_r15m&quot;: 0,
-            &quot;pool_cache_hmin&quot;: 0,
-            &quot;pool_cache_hmax&quot;: 2,
-            &quot;pool_cache_hsum&quot;: 70,
-            &quot;pool_cache_hvar&quot;: 0.19345045538247163,
-            &quot;pool_cache_hmean&quot;: 0.24647887323943662,
-            &quot;pool_cache_hdev&quot;: 0.4398300301053483,
-            &quot;pool_cache_hcnt&quot;: 284,
-            &quot;pool_cache_hmed&quot;: 0,
-            &quot;pool_cache_h75p&quot;: 0,
-            &quot;pool_cache_h95p&quot;: 1,
-            &quot;pool_cache_h99p&quot;: 1,
-            &quot;pool_cache_h999p&quot;: 2,
-            &quot;pool_hits&quot;: 239,
-            &quot;pool_misses&quot;: 45,
-            &quot;cache_inserted&quot;: 484,
-            &quot;cache_deleted&quot;: 310,
-            &quot;cache_cleanups&quot;: 0,
-            &quot;cache_hits&quot;: 7642,
-            &quot;cache_misses&quot;: 1411,
-            &quot;cache_max&quot;: 1000000,
-            &quot;cache_size&quot;: 61586,
-            &quot;cache_count&quot;: 174,
-            &quot;api_que_hmin&quot;: 1,
-            &quot;api_que_hmax&quot;: 6,
-            &quot;api_que_hsum&quot;: 13237,
-            &quot;api_que_hvar&quot;: 0.005674280465987009,
-            &quot;api_que_hmean&quot;: 1.0024992426537414,
-            &quot;api_que_hdev&quot;: 0.07532782000022972,
-            &quot;api_que_hcnt&quot;: 13204,
-            &quot;api_que_hmed&quot;: 1,
-            &quot;api_que_h75p&quot;: 1,
-            &quot;api_que_h95p&quot;: 1,
-            &quot;api_que_h99p&quot;: 1,
-            &quot;api_que_h999p&quot;: 2,
-            &quot;api_nreq&quot;: 1,
-            &quot;api_req_rate&quot;: 0,
-            &quot;api_req_rcnt&quot;: 13203,
-            &quot;api_req_rmean&quot;: 0.02365120609256502,
-            &quot;api_req_r1m&quot;: 0,
-            &quot;api_req_r5m&quot;: 0,
-            &quot;api_req_r15m&quot;: 0,
-            &quot;api_req_hmin&quot;: 0,
-            &quot;api_req_hmax&quot;: 536,
-            &quot;api_req_hsum&quot;: 20115,
-            &quot;api_req_hvar&quot;: 89.12554520926801,
-            &quot;api_req_hmean&quot;: 1.5235173824130879,
-            &quot;api_req_hdev&quot;: 9.440632669968046,
-            &quot;api_req_hcnt&quot;: 13203,
-            &quot;api_req_hmed&quot;: 1,
-            &quot;api_req_h75p&quot;: 1,
-            &quot;api_req_h95p&quot;: 1,
-            &quot;api_req_h99p&quot;: 33.13000000000011,
-            &quot;api_req_h999p&quot;: 99.36200000000008,
-            &quot;url_message_get_rate&quot;: 0,
-            &quot;url_message_get_rcnt&quot;: 24,
-            &quot;url_message_get_rmean&quot;: 0.00004299242196761214,
-            &quot;url_message_get_r1m&quot;: 0,
-            &quot;url_message_get_r5m&quot;: 0,
-            &quot;url_message_get_r15m&quot;: 0,
-            &quot;url_message_get_hmin&quot;: 16,
-            &quot;url_message_get_hmax&quot;: 71,
-            &quot;url_message_get_hsum&quot;: 792,
-            &quot;url_message_get_hvar&quot;: 208.34782608695653,
-            &quot;url_message_get_hmean&quot;: 33,
-            &quot;url_message_get_hdev&quot;: 14.434258764722092,
-            &quot;url_message_get_hcnt&quot;: 24,
-            &quot;url_message_get_hmed&quot;: 30.5,
-            &quot;url_message_get_h75p&quot;: 40.75,
-            &quot;url_message_get_h95p&quot;: 68,
-            &quot;url_message_get_h99p&quot;: 71,
-            &quot;url_message_get_h999p&quot;: 71,
-            &quot;url_message_get_0&quot;: 0,
-            &quot;api_req_0&quot;: 20,
-            &quot;url_ping_rate&quot;: 0,
-            &quot;url_ping_rcnt&quot;: 12407,
-            &quot;url_ping_rmean&quot;: 0.022226981327796796,
-            &quot;url_ping_r1m&quot;: 0,
-            &quot;url_ping_r5m&quot;: 0,
-            &quot;url_ping_r15m&quot;: 0,
-            &quot;url_ping_hmin&quot;: 0,
-            &quot;url_ping_hmax&quot;: 4,
-            &quot;url_ping_hsum&quot;: 6915,
-            &quot;url_ping_hvar&quot;: 0.25785489698686204,
-            &quot;url_ping_hmean&quot;: 0.5573466591440316,
-            &quot;url_ping_hdev&quot;: 0.5077941482400737,
-            &quot;url_ping_hcnt&quot;: 12407,
-            &quot;url_ping_hmed&quot;: 1,
-            &quot;url_ping_h75p&quot;: 1,
-            &quot;url_ping_h95p&quot;: 1,
-            &quot;url_ping_h99p&quot;: 1,
-            &quot;url_ping_h999p&quot;: 2,
-            &quot;url_ping_0&quot;: 5,
-            &quot;url_image_account_rate&quot;: 0,
-            &quot;url_image_account_rcnt&quot;: 95,
-            &quot;url_image_account_rmean&quot;: 0.00017084907295404685,
-            &quot;url_image_account_r1m&quot;: 0,
-            &quot;url_image_account_r5m&quot;: 0,
-            &quot;url_image_account_r15m&quot;: 0,
-            &quot;url_image_account_hmin&quot;: 17,
-            &quot;url_image_account_hmax&quot;: 121,
-            &quot;url_image_account_hsum&quot;: 4295,
-            &quot;url_image_account_hvar&quot;: 372.42329227323637,
-            &quot;url_image_account_hmean&quot;: 45.21052631578947,
-            &quot;url_image_account_hdev&quot;: 19.29827174317007,
-            &quot;url_image_account_hcnt&quot;: 95,
-            &quot;url_image_account_hmed&quot;: 42,
-            &quot;url_image_account_h75p&quot;: 51,
-            &quot;url_image_account_h95p&quot;: 89.59999999999991,
-            &quot;url_image_account_h99p&quot;: 121,
-            &quot;url_image_account_h999p&quot;: 121,
-            &quot;url_image_account_0&quot;: 0,
-            &quot;incr_follow_0&quot;: 0,
-            &quot;api_bad_0&quot;: 3,
-            &quot;url_account_update_rate&quot;: 0,
-            &quot;url_account_update_rcnt&quot;: 6,
-            &quot;url_account_update_rmean&quot;: 0.000010813705805470248,
-            &quot;url_account_update_r1m&quot;: 0,
-            &quot;url_account_update_r5m&quot;: 0,
-            &quot;url_account_update_r15m&quot;: 0,
-            &quot;url_account_update_hmin&quot;: 53,
-            &quot;url_account_update_hmax&quot;: 182,
-            &quot;url_account_update_hsum&quot;: 573,
-            &quot;url_account_update_hvar&quot;: 2041.5,
-            &quot;url_account_update_hmean&quot;: 95.5,
-            &quot;url_account_update_hdev&quot;: 45.18296139032943,
-            &quot;url_account_update_hcnt&quot;: 6,
-            &quot;url_account_update_hmed&quot;: 82,
-            &quot;url_account_update_h75p&quot;: 120.5,
-            &quot;url_account_update_h95p&quot;: 182,
-            &quot;url_account_update_h99p&quot;: 182,
-            &quot;url_account_update_h999p&quot;: 182,
-            &quot;url_account_update_0&quot;: 0,
-            &quot;auth_add_0&quot;: 0,
-            &quot;url_account_get_rate&quot;: 0,
-            &quot;url_account_get_rcnt&quot;: 9,
-            &quot;url_account_get_rmean&quot;: 0.0001993511695335063,
-            &quot;url_account_get_r1m&quot;: 0,
-            &quot;url_account_get_r5m&quot;: 0,
-            &quot;url_account_get_r15m&quot;: 0,
-            &quot;url_account_get_hmin&quot;: 2,
-            &quot;url_account_get_hmax&quot;: 100,
-            &quot;url_account_get_hsum&quot;: 435,
-            &quot;url_account_get_hvar&quot;: 844.0000000000001,
-            &quot;url_account_get_hmean&quot;: 48.333333333333336,
-            &quot;url_account_get_hdev&quot;: 29.051678092667903,
-            &quot;url_account_get_hcnt&quot;: 9,
-            &quot;url_account_get_hmed&quot;: 46,
-            &quot;url_account_get_h75p&quot;: 67,
-            &quot;url_account_get_h95p&quot;: 100,
-            &quot;url_account_get_h99p&quot;: 100,
-            &quot;url_account_get_h999p&quot;: 100,
-            &quot;url_account_get_0&quot;: 1,
-            &quot;url_system_stats_rate&quot;: 0,
-            &quot;url_system_stats_rcnt&quot;: 1,
-            &quot;url_system_stats_rmean&quot;: 0.04501665616278023,
-            &quot;url_system_stats_r1m&quot;: 0,
-            &quot;url_system_stats_r5m&quot;: 0,
-            &quot;url_system_stats_r15m&quot;: 0,
-            &quot;url_system_stats_hmin&quot;: 3,
-            &quot;url_system_stats_hmax&quot;: 3,
-            &quot;url_system_stats_hsum&quot;: 3,
-            &quot;url_system_stats_hmean&quot;: 3,
-            &quot;url_system_stats_hdev&quot;: 0,
-            &quot;url_system_stats_hcnt&quot;: 1,
-            &quot;url_system_stats_hmed&quot;: 3,
-            &quot;url_system_stats_h75p&quot;: 3,
-            &quot;url_system_stats_h95p&quot;: 3,
-            &quot;url_system_stats_h99p&quot;: 3,
-            &quot;url_system_stats_h999p&quot;: 3,
-            &quot;url_system_stats_0&quot;: 2
         }
-</code></pre></li>
-</ul>
-<h1 id="backend-directory-structure">Backend directory structure</h1>
-<p>When the backend server starts and no -home argument passed in the command line the backend makes its home environment in the ~/.backend directory.</p>
-<p>The backend directory structure is the following:</p>
-<ul>
-<li><p><code>etc</code> - configuration directory, all config files are there</p>
-<ul>
-<li><code>etc/profile</code> - shell script loaded by the bkjs utility to customize env variables</li>
-<li><p><code>etc/config</code> - config parameters, same as specified in the command line but without leading -, each config parameter per line:</p>
-<p>  Example:</p>
-<pre><code>  debug=1
-  db-pool=dynamodb
-  db-dynamodb-pool=http://localhost:9000
-  db-pgsql-pool=postgresql://postgres@127.0.0.1/backend
 
-  To specify other config file: bkjs run-backend -config-file file
-</code></pre></li>
-<li><p>etc/config.local - same as the config but for the cases when local environment is different than the production or for dev specific parameters</p>
-</li>
-<li><p>some config parameters can be condigured in DNS as TXT records, the backend on startup will try to resolve such records and use the value if not empty.
-All params that  marked with DNS TXT can be configured in the DNS server for the domain where the backend is running, the config parameter name is
-concatenated with the domain and queried for the TXT record, for example: <code>cache-host</code> parameter will be queried for cache-host.domain.name for TXT record type.</p>
-</li>
-<li><p><code>etc/crontab</code> - jobs to be run with intervals, local or remote, JSON file with a list of cron jobs objects:</p>
-<p>  Example:</p>
-<ol>
-<li><p>Create file in ~/.backend/etc/crontab with the following contents:</p>
-<pre><code> [ { &quot;type&quot;: &quot;local&quot;, &quot;cron&quot;: &quot;0 1 1 * * 1,3&quot;, &quot;job&quot;: { &quot;app.cleanSessions&quot;: { &quot;interval&quot;: 3600000 } } } ]
-</code></pre></li>
-<li><p>Define the function that the cron will call with the options specified, callback must be called at the end, create this app.js file</p>
-<pre><code> var bkjs = require(&quot;backendjs&quot;);
- bkjs.app.cleanSessions = function(options, callback) {
-      bkjs.db.delAll(&quot;session&quot;, { mtime: options.interval + Date.now() }, { ops: &quot;le&quot; }, callback);
- }
- bkjs.server.start()
-</code></pre></li>
-<li><p>Start the scheduler and the web server at once</p>
-<pre><code> bkjs run-backend -master -web
-</code></pre></li>
-</ol>
-</li>
-<li><p>etc/crontab.local - additional local crontab that is read after the main one, for local or dev environment</p>
-</li>
-</ul>
-</li>
-<li><p><code>modules</code> - loadable modules with specific functionality</p>
-</li>
-<li><code>images</code> - all images to be served by the API server, every subfolder represent naming space with lots of subfolders for images</li>
-<li><code>var</code> - database files created by the server</li>
-<li><code>tmp</code> - temporary files</li>
-<li><code>web</code> - Web pages served by the static Express middleware</li>
-</ul>
-<h1 id="internal-backend-functions">Internal backend functions</h1>
-<p>The backend includes internal C++ module which provide some useful functions available in the Javascript. The module is exposed as <code>utils</code> submodule, to see
-all functions for example run the below:</p>
-<pre><code>    var bkjs = require(&#39;backendjs&#39;);
-    console.log(bkjs.utils)
-</code></pre><p>List of available functions:</p>
-<ul>
-<li><code>rungc()</code> - run V8 garbage collector on demand</li>
-<li><code>setsegv()</code> - install SEGV signal handler to show crash backtrace</li>
-<li><code>setbacktrace()</code> - install special V8-aware backtrace handler</li>
-<li><code>backtrace()</code> - show V8 backtrace from current position</li>
-<li><code>heapSnapshot(file)</code> - dump current memory heap snapshot into a file</li>
-<li><code>splitArray(str)</code> - split a string into an array separated by commas, supports double quotes</li>
-<li><code>logging([level])</code> - set or return logging level, this is internal C++ logging facility</li>
-<li><code>loggingChannel(channelname)</code> - redirect logging into stdout or stderr, this is internal C++ logging</li>
-<li><code>countWords(word, text)</code> - return how many time word appers in the text, uses Knuth-Morris-Pratt algorithm</li>
-<li><code>countAllWords(list, text)</code> - return an object with counters for each word from the list, i.e. how many times each word appears in the text, uses Aho-Corasick algorithm</li>
-<li><code>countWordsInit()</code> - clears word counting cache</li>
-<li><code>resizeImage(source, options, callback)</code> - resize image using ImageMagick,<ul>
-<li>source can be a Buffer or file name</li>
-<li>options can have the following properties:<ul>
-<li>width - output image width, if negative and the original image width is smaller than the specified, nothing happens</li>
-<li>height - output image height, if negative and the original image height is smaller this the specified, nothing happens</li>
-<li>quality - 0 -99</li>
-<li>out - output file name</li>
-<li>ext - image extention</li>
-</ul>
-</li>
-</ul>
-</li>
-<li><code>resizeImageSync(name,width,height,format,filter,quality,outfile)</code> - resize an image synchronically</li>
-<li><code>snappyCompress(str)</code> - compress a string</li>
-<li><code>snappyUncompress(str)</code> - decompress a string</li>
-<li><code>zlibCompress(str)</code> - compress a string</li>
-<li><code>zlibUncompress(str)</code> - decompress a string</li>
-<li><code>unzip(zipfile, outdir)</code> - extract a zip archive into directory</li>
-<li><code>unzipFile(zipfile, file [, outfile])</code> - extract a file from zip archive, return contents if no outfile s specified</li>
-<li><code>run(command, callback)</code> - run shell command and return all output to the callback</li>
-<li><code>getUser([user])</code> - return an object with user info from the /etc/passwd file, user can be uid or name</li>
-<li><code>getGroup([group])</code> - return an object with specified group info for the current user of for the given group id or name</li>
-<li>Geohash support<ul>
-<li><code>geoDistance(lat1, lon1, lat2, lon2)</code> - return distance between 2 coordinates in km</li>
-<li><code>geoBoundingBox(lat, lon, distance)</code> - return bounding box geohash for given point around distance</li>
-<li><code>geoHashEncode(lat, lon, len)</code> - return geohash for given coordinate, len defines number of bytesin geohash</li>
-<li><code>geoHashDecode(hash)</code> - return coordinates for given geohash</li>
-<li><code>geoHashAdjacent()</code></li>
-<li><code>geoHashGrid()</code></li>
-<li><code>geoHashRow()</code></li>
-</ul>
-</li>
-<li>Generic cache outside of V8 memory pool<ul>
-<li><code>cacheSave()</code> - general purpose caching functions that have no memory limits and do not use V8 heap</li>
-<li><code>cachePut()</code></li>
-<li><code>cacheGet()</code></li>
-<li><code>cacheDel()</code></li>
-<li><code>cacheKeys()</code></li>
-<li><code>cacheClear()</code></li>
-<li><code>cacheNames()</code></li>
-<li><code>cacheSize()</code></li>
-<li><code>cacheEach()</code></li>
-<li><code>cacheForEach()</code></li>
-<li><code>cacheForEachNext()</code></li>
-<li><code>cacheBegin()</code></li>
-<li><code>cacheNext()</code></li>
-</ul>
-</li>
-<li>LRU internal cache<ul>
-<li><code>lruInit(max)</code> - init LRU cache with max number of keys, this is in-memory cache which evicts older keys</li>
-<li><code>lruStats()</code> - return statistics about the LRU cache</li>
-<li><code>lruSize()</code> - return size of the current LRU cache</li>
-<li><code>lruCount()</code> - number of keys in the LRU cache</li>
-<li><code>lruPut(name, val)</code> - set/replace value by name</li>
-<li><code>lruGet(name)</code> - return value by name</li>
-<li><code>lruIncr(name, val)</code> - increase value by given number, non existent items assumed to be 0</li>
-<li><code>lruDel(name)</code> - delete by name</li>
-<li><code>lruKeys()</code> - return all cache key names</li>
-<li><code>lruClear()</code> - clear LRU cache</li>
-<li><code>lruServer()</code></li>
-</ul>
-</li>
-<li>Syslog support<ul>
-<li><code>syslogInit(name, priority, facility)</code> - initialize syslog client, used by the logger module</li>
-<li><code>syslogSend(level, text)</code></li>
-<li><code>syslogClose()</code></li>
-</ul>
-</li>
-</ul>
-<h1 id="cache-configurations">Cache configurations</h1>
-<p>Database layer support caching of the responses using <code>db.getCached</code> call, it retrieves exactly one record from the configured cache, if no record exists it
+- `/reference/select`
+  Receive all references that connected with my account, i.e. connections made by somebody else with me, works the same way as for connection query call
+
+  Example:
+
+        # Return all accounts who invited me
+        /reference/select?type=invite
+        # Return accounts who invited me after specified mtime
+        /reference/select?type=invite&amp;_ops=mtime,gt&amp;mtime=12334312543
+
+  Response:
+
+        { &quot;data&quot;: [ { &quot;id&quot;: &quot;111&quot;,
+                      &quot;type&quot;: &quot;invite&quot;,
+                      &quot;peer&quot;: &quot;12345&quot;,
+                      &quot;status&quot;: &quot;&quot;,
+                      &quot;mtime&quot;: &quot;12334312543&quot;
+                  }],
+          &quot;next_token&quot;: &quot;&quot;
+        }
+
+## Locations
+The location API maintains a table `bk_location` with geolocation coordinates for accounts and allows searching it by distance. The configuration parameter
+`min-distance` defines the radius for the smallest bounding box in km containing single location, radius searches will combine neighboring boxes of
+this size to cover the whole area with the given distance request, also this affects the length of geohash keys stored in the bk_location table. By default min-distance is 5 km
+which means all geohashes in bk_location table will have geohash of size 4. Once min-distance is set it cannot be changed without rebuilding the bk_location table with new geohash size.
+
+The location search is implemented by using geohash as a primary key in the bk_location table with the account id as the second part of the primary key, for DynamoDB this is the range key.
+When request comes for all matches for the location for example 37.7, -122.4, the search that is executed looks like this:
+- geohash for latitude 37.7 and longitude -122.4 and radius 10 km will be `9q8y`
+- all neoghboring ares around this point within 10 km radius will be &#39;9q8z&#39;, &#39;9q8v&#39;, &#39;9q8w&#39;, &#39;9q8x&#39;, &#39;9q8t&#39;, &#39;9q9n&#39;, &#39;9q9p&#39;, &#39;9q9j&#39;
+- we start the search on the bk_location table by the primary key geohash with the value 9q8y
+- filter out all records beyond our radius by calculating the difference between our point and the candidate record
+- if total number of results expcted is still less than required, continue to the next neighbor area
+- continue untill we visit all neighbors or received required number of macthed records
+- on return the next_token opaque value will be provided if we want to continue the search for more matched for the same location
+
+This is implemented by the `locations` module from the core. To disable this functionality specify `-deny-modules=locations`.
+
+- `/location/put`
+  Store currenct location for current account, latitude and longitude parameters must be given, this call will update the bk_account table as well with
+  these coordinates
+
+  Example:
+
+        /location/put?latitude=-188.23232&amp;longitude=23.4545454
+
+- `/location/get`
+  Return matched accounts within the distance(radius) specified by `distance=` parameter in kilometers and current position specified by latitude/longitude paraemeters. This
+  call returns results in chunks and requires navigation through all pages to receive all matched records. Records returned will start with the closest to the current
+  point. If there are more matched records than specified by the `_count`, the `next_token` property is set with the token to be used in the subsequent call,
+  it must be passed as is as `_token=` parameter with all original query parameters.
+
+  By default only locations with account ids will be returned, specifying `_accounts=1` will return public account columns as well.
+
+  Note: The current account will not be present in the results  even if it is within the range, to know my own location use `/account/get` call.
+
+  Example:
+
+            /location/get?distance=10&amp;latitude=-118.23434&amp;longitude=23.45665656&amp;_count=25
+            /location/get?distance=10&amp;latitude=-118.23434&amp;longitude=23.45665656&amp;_count=25&amp;_token=FGTHTRHRTHRTHTTR.....
+
+  Response:
+
+           { &quot;data&quot;: [ { &quot;id&quot;: &quot;12345&quot;,
+                         &quot;distance&quot;: 5,
+                         &quot;latitude&quot;: -118.123,
+                         &quot;longitude&quot;: 23.45
+                         &quot;mtime&quot;: &quot;12334312543&quot;
+                       },
+                       { &quot;id&quot;: &quot;45678&quot;,
+                         &quot;distance&quot;: 5,
+                         &quot;latitude&quot;: -118.133,
+                         &quot;longitude&quot;: 23.5
+                         &quot;mtime&quot;: &quot;12334312543&quot;
+                       }],
+             &quot;next_token&quot;: &quot;&quot;
+           }
+
+## Messages
+The messaging API allows sending and recieving messages between accounts, it supports text and images. All new messages arrive into the bk_messsage table, the inbox. The client
+may keep messages there as new, delete or archive them. Archiving means transfering messages into the bk_archive table. All sent messages are kept in the bk_sent table.
+
+This is implemented by the `messages` module from the core. To disable this functionality specify `-deny-modules=messages`.
+
+- `/message/get`
+  Read all new messages, i.e. the messages that never been read or issued `/message/archive` call.
+
+  Parameters:
+   - `_archive` - if set to 1, all returned messages will be archived automatically, so no individual /message/read call needed
+   - `_trash` - if set to 1, all returned messages will be deleted, not archived
+   - `_accounts` - if set to 1, return associated account details for the sender
+
+  Example:
+
+        # Get all new messages
+        /message/get
+
+        # Get all new messages and archive them
+        /message/get?_archive=1
+
+        # Get all new messages from the specific sender
+        /message/get?sender=12345
+
+- `/message/get/archive`
+  Receive archived messages. The images are not returned, only link to the image in `icon` property of reach record,
+  the actual image data must be retrieved separately.
+
+  Parameters:
+   - `mtime` - if specified then only messages received since that time will be retirned, it must be in milliseconds since midnight GMT on January 1, 1970, this is what
+     Date.now() return in Javascript.
+  - `sender` - if specified then all messages from the given sender will be returned.
+
+  NOTE: The `mtime` is when the backend server received the message, if client and the server clocks are off this may return wrong data or not return anything at all,
+  also because the arrival order of the messages cannot be guaranteed, sending fast multiple messages may be received in different order by the backend and this will
+  result in mtimes that do not correspond to actual times when the message has been sent.
+
+  Example:
+
+        # Get all messages
+        /message/get/archive
+
+        # Get all messages received after given mtime
+        /message/get/archive?mtime=123475658690
+
+        # Get all messages received before given mtime
+        /message/get/archive?mtime=123475658690&amp;_ops=mtime,lt
+
+        # Get all messages with custom filter: if msg text contains Hi
+        /message/get/archive?_ops=msg,iregexp&amp;msg=Hi
+
+        # Get all messages from the specific sender
+        /message/get/archive?sender=12345
+
+  Response:
+
+        { &quot;data&quot;: [ { &quot;sender&quot;: &quot;12345&quot;,
+                      &quot;msg&quot;: &quot;Hi, how r u?&quot;,
+                      &quot;mtime&quot;: &quot;12334312543&quot;
+                    },
+                    { &quot;sender&quot;: &quot;45678&quot;,
+                      &quot;msg&quot;: &quot;check this out!&quot;,
+                      &quot;icon&quot;: &quot;/message/image?sender=45678&amp;mtime=12334312543&quot;,
+                      &quot;mtime&quot;: &quot;12334312543&quot;
+                    }],
+             &quot;next_token&quot;: &quot;&quot;
+           }
+
+- `/message/get/sent`
+   Return all messages i sent out. All the same query rules apply as for the archived messages API call.
+
+  Parameters:
+   - `recipient` - id of the recipient where i have sent messages
+   - `mtime` - time before or after messages sent, defined by _ops parametrs
+
+  Example:
+
+        /message/get/sent?recipient=123
+        /message/get/sent?recipient=123&amp;mtime=123475658690&amp;_ops=mtime,le
+
+- `/message/add`
+  Send a message to an account, the following parameters must be specified:
+    - `id` - recipient account id
+    - `msg` - text of the message, can be empty if `icon` property exists
+    - `icon` - icon of the message, it can be base64 encoded image in the query or JSON string if the whole message is posted as JSON or
+      can be a multipart file upload if submitted via browser, can be omitted if `msg/connection/get?type=invite&amp;id=12345` property exists.
+    - _nosent - do not save this message in my sent messages
+    - _publish - notify another account about this via pub/sub messaging system if it is active
+
+  Example:
+
+        /message/add?id=12345&amp;msg=Hello
+        /message/add?id=12345&amp;msg=this%2Bis%2Bthe%2Bpic&amp;icon=KHFHTDDKH7676758JFGHFDRDEDET....TGJNK%2D
+
+- `/message/archive`
+  Move a new message to the archive. The required query parameters are `sender` and `mtime`.
+
+  Example:
+
+        /message/read?sender=12345&amp;mtime=12366676434
+
+- `/message/update`
+  Update a message, can be used to keep track of read/unread status, etc...
+
+  Example:
+
+        /message/update?sender=12345&amp;mtime=124345656567676&amp;status=R
+
+- `/message/update/archive`
+  Update a message in the archive.
+
+
+- `/message/del`
+  Delete new message(s) by `sender` and/or `mtime` which must be passed as query parameters. If no mtime is given, all messages from the given sender will be deleted.
+
+  Example:
+
+        /message/del?sender=12345&amp;mtime=124345656567676
+
+- `/message/del/archive`
+  Delete archived message(s) by `sender` and/or `mtime` which must be passed as query parameters. If no mtime is given, all messages from the given sender will be deleted.
+
+  Example:
+
+        /message/del/archive?sender=12345&amp;mtime=124345656567676
+
+- `/message/del/sent`
+  Delete the message(s) by `recipient` and/or `mtime` which must be passed as query parameters. If no mtime is given, all messages to the given recipient will be deleted.
+
+  Example:
+
+        /message/del/sent?recipient=12345&amp;mtime=124345656567676
+
+- `/message/image`
+  Return the image data for the given message, the required parameters are:
+    - sender - id of the sender returned in the by `/message/get` reply results for every message
+    - mtime - exact timestamp of the message
+
+
+## Counters
+The counters API maintains realtime counters for every account records, the counters record may contain many different counter columns for different purposes and
+is always cached with whatever cache service is used, by default it is cached by the Web server process on every machine. Web worker processes ask the master Web server
+process for the cached records thus only one copy of the cache per machine even in the case of multiple CPU cores.
+
+This is implemented by the `counters` module from the core. To disable this functionality specify `-deny-modules=counters|accounts`.
+
+- `/counter/get`
+  Return counter record for current account with all available columns of if `id` is given return public columns for given account, it works with `bk_counter` table
+  which by default defines some common columns:
+    - ping - a counter for general use, can be used to send a notification event to any acount by increasing this counter for an account
+    - like0 - how many i liked, how many time i liked someone, i.e. made a new record in bk_connection table with type &#39;like&#39;
+    - like1 - how many liked me, reverse counter, who connected to me with type &#39;like&#39;
+  More columns can be added to the bk_counter table.
+
+  NOTE: The columns with suffixes 0 and 1 are special columns that support the Connections API, every time a new connection is created, the type of new connection
+  is checked against any columns in the bk_counter table, if a property type0 exists and marked in the table descriptnio as `autoincr` then the corresponding
+  counter property is increased, this is how every time new connectio like/dislike/invite/follow is added, the counters in the bk_counter table are increased.
+
+- `/counter/put`
+  Replace my counters record, all values if not specified will be set to 0
+
+- `/counter/incr`
+  Increase one or more counter fields, each column can provide a numeric value and it will be added to the existing value, negative values will be substracted.
+  if `id` parameter is specified, only public columns will be increased for other account.
+
+  Example:
+
+        /counter/incr?msg_read=5&amp;
+        /counter/incr?id=12345&amp;ping=1
+
+## Data
+The data API is a generic way to access any table in the database with common operations, as oppose to the any specific APIs above this API only deals with
+one table and one record without maintaining any other features like auto counters, cache...
+
+*Because it exposes the whole database to anybody who has a login it is a good idea to disable this endpoint in the production or provide access callback that verifies
+who can access it.*
+  - To disable this endpoint completely in the config: `deny-modules=data`
+  - To allow admins to access it only in the config: `api-allow-admin=^/data`
+  - To allow admins to access it only:
+
+        api.registerPreProcess(&#39;GET&#39;, &#39;/data&#39;, function(req, status, cb) { if (req.account.type != &quot;admin&quot;) return cb({ status: 401, message: &#39;access denied&#39; }; cb(status)); });
+
+This is implemented by the `data` module from the core.
+
+- `/data/columns`
+- `/data/columns/TABLE`
+  Return columns for all tables or the specific TABLE
+
+- `/data/keys/TABLE`
+  Return primary keys for the given TABLE
+
+- `/data/(select|search|list|get|add|put|update|del|incr|replace)/TABLE`
+  Perform database operation on the given TABLE, all options for the `db` functiobns are passed as query parametrrs prepended with underscore,
+  regular parameters are the table columns.
+
+  By default the API does not allow table scans without a condition to avoid expensive and long queries, to enable a scan pass `_noscan=0`.
+  For this to work the Data API must be configured as unsecure in the config file using the parameter `api-unsecure=data`.
+
+  Some tables like messages and connections perform data convertion before returning the results, mostly splitting combined columns like type into
+  separate fields. To return raw data pass the parameter `_noprocessrows=1`.
+
+  Example:
+
+        /data/get/bk_account?id=12345
+        /data/put/bk_counter?id=12345&amp;like0=1
+        /data/select/bk_account?name=john&amp;_ops=name,gt&amp;_select=name,alias,email
+        /data/select/bk_connection?_noscan=0&amp;_noprocessrows=1
+
+## Pages
+The pages API provides a simple Wiki like system with Markdown formatting. It keeps all pages in the database table `bk_pages` and
+exposes an API to manage and render pages.
+
+The pages support public mode, all pages with `pub` set to true will be returning without an account, this must be enabled with `api-allow-path=^/pages/(get|select|show)`
+to work.
+
+All .md files will be rendered into html automatically if there is not _raw=1 query parameter and pages view exists (api-pages-view=pages.html by default).
+
+This is implemented by the `pages` module from the core. To disable this functionality specify `-deny-modules=accounts`.
+
+- `/pages/get/ID`
+  Return a page with given id or the main page if id is empty. If the query parameter `_render=1` is given, the content will be rendered into html from markdown, otherwie
+  returns all data as is.
+
+- `/pages/select`
+  Return all pages or only ones which match the query criteria. This potentially scans the whole table to return all pages and
+  is used to show pages index.
+
+- `/pages/put`
+  Replace or add a new page.
+
+- `/pages/del`
+  Delete a page from the database
+
+- `/pages/show/ID`
+  Render a page with given id, markdown is converted into html using `marked`. A view must be condfigured in order to render to work, by default pages.html view
+  is provided to simply wrap the markdown in the page layout.
+
+## System API
+The system API returns information about the backend statistics, allows provisioning and configuration commands and other internal maintenance functions. By
+default is is open for access to all users but same security considerations apply here as for the Data API.
+
+This is implemented by the `system` module from the core. To disable this functionality specify `-deny-modules=accounts`.
+
+- `/system/restart`
+    Perform restart of the Web processes, this will be done gracefully, only one Web worker process will be restarting while the other processes will keep
+    serving requests. The intention is to allow code updates on live systems without service interruption.
+
+- `/system/cache/(init|stats|keys|get|set|put|incr|del|clear)`
+    Access to the caching functions
+
+- `/system/msg/(msg)`
+    Access to the messaging functions
+
+- `/system/params`
+    Return all config parameters applied from the config file(s) or remote database.
+
+- `/system/stats/get`
+  Database pool statistics and other diagnostics
+  - latency - how long a pending request waits in queue at this moment
+  - busy - how many busy error responses have been returned so far
+  - pool - database metrics
+    - response - stats about how long it takes between issuing the db request and till the final moment all records are ready to be sent to the client
+    - queue - stats about db requests at any given moment queued for the execution
+    - cache - db cache response time and metrics
+  - api - Web requests metrics, same structure as for the db pool metrics
+  - url - metrics per url endpoints
+
+  Individual sub-objects:
+  - meter - Things that are measured as events / interval.
+     - rmean: The average rate since the meter was started.
+     - rcnt: The total of all values added to the meter.
+     - rate: The rate of the meter since the last toJSON() call.
+     - r1m: The rate of the meter biased towards the last 1 minute.
+     - r5m: The rate of the meter biased towards the last 5 minutes.
+     - r15m: The rate of the meter biased towards the last 15 minutes.
+  - queue or histogram - Keeps a resevoir of statistically relevant values biased towards the last 5 minutes to explore their distribution
+      - hmin: The lowest observed value.
+      - mmax: The highest observed value.
+      - hsum: The sum of all observed values.
+      - hvar: The variance of all observed values.
+      - hmean: The average of all observed values.
+      - hdev: The standard deviation of all observed values.
+      - hcnt: The number of observed values.
+      - hmed: median, 50% of all values in the resevoir are at or below this value.
+      - hp75: See median, 75% percentile.
+      - hp95: See median, 95% percentile.
+      - hp99: See median, 99% percentile.
+      - hp999: See median, 99.9% percentile.
+
+  Response:
+
+             {
+                  &quot;id&quot;: &quot;172.31.31.85-25170&quot;,
+                  &quot;ip&quot;: &quot;172.31.31.85&quot;,
+                  &quot;mtime&quot;: 1417500027321,
+                  &quot;ctime&quot;: 1416941754760,
+                  &quot;type&quot;: &quot;&quot;,
+                  &quot;host&quot;: &quot;&quot;,
+                  &quot;pid&quot;: 25170,
+                  &quot;instance&quot;: &quot;i-d4c89eff&quot;,
+                  &quot;worker&quot;: 27,
+                  &quot;latency&quot;: 0,
+                  &quot;cpus&quot;: 4,
+                  &quot;mem&quot;: 15774367744,
+                  &quot;rss_hmin&quot;: 66879488,
+                  &quot;rss_hmax&quot;: 151891968,
+                  &quot;rss_hsum&quot;: 2451506479104,
+                  &quot;rss_hvar&quot;: 254812067010902.66,
+                  &quot;rss_hmean&quot;: 118895507.98312236,
+                  &quot;rss_hdev&quot;: 15962833.92793719,
+                  &quot;rss_hcnt&quot;: 20619,
+                  &quot;rss_hmed&quot;: 147644416,
+                  &quot;rss_h75p&quot;: 149262336,
+                  &quot;rss_h95p&quot;: 150834585.6,
+                  &quot;rss_h99p&quot;: 151550033.92000002,
+                  &quot;rss_h999p&quot;: 151886266.368,
+                  &quot;heap_hmin&quot;: 25790920,
+                  &quot;heap_hmax&quot;: 72316184,
+                  &quot;heap_hsum&quot;: 1029889929504,
+                  &quot;heap_hvar&quot;: 54374337037311.65,
+                  &quot;heap_hmean&quot;: 49948587.68630874,
+                  &quot;heap_hdev&quot;: 7373895.648658967,
+                  &quot;heap_hcnt&quot;: 20619,
+                  &quot;heap_hmed&quot;: 57480704,
+                  &quot;heap_h75p&quot;: 61934254,
+                  &quot;heap_h95p&quot;: 67752391.2,
+                  &quot;heap_h99p&quot;: 70544797.92,
+                  &quot;heap_h999p&quot;: 72315029.104,
+                  &quot;avg_hmin&quot;: 0.04541015625,
+                  &quot;avg_hmax&quot;: 0.06005859375,
+                  &quot;avg_hsum&quot;: 938.234375,
+                  &quot;avg_hvar&quot;: 4.491222722966496e-7,
+                  &quot;avg_hmean&quot;: 0.04550338886463941,
+                  &quot;avg_hdev&quot;: 0.0006701658543201448,
+                  &quot;avg_hcnt&quot;: 20619,
+                  &quot;avg_hmed&quot;: 0.04541015625,
+                  &quot;avg_h75p&quot;: 0.04541015625,
+                  &quot;avg_h95p&quot;: 0.04541015625,
+                  &quot;avg_h99p&quot;: 0.05078125,
+                  &quot;avg_h999p&quot;: 0.05997363281250001,
+                  &quot;free_hmin&quot;: 12879872000,
+                  &quot;free_hmax&quot;: 13228994560,
+                  &quot;free_hsum&quot;: 268429937405952,
+                  &quot;free_hvar&quot;: 5839592954606286,
+                  &quot;free_hmean&quot;: 13018572064.889277,
+                  &quot;free_hdev&quot;: 76417229.43555522,
+                  &quot;free_hcnt&quot;: 20619,
+                  &quot;free_hmed&quot;: 12908707840,
+                  &quot;free_h75p&quot;: 12915716096,
+                  &quot;free_h95p&quot;: 12919331430.4,
+                  &quot;free_h99p&quot;: 12922073088,
+                  &quot;free_h999p&quot;: 12922164563.968,
+                  &quot;util_hmin&quot;: 0.05905642141342145,
+                  &quot;util_hmax&quot;: 0.0607655708794173,
+                  &quot;util_hsum&quot;: 1230.6298386264643,
+                  &quot;util_hvar&quot;: 2.1530671850148948e-7,
+                  &quot;util_hmean&quot;: 0.059684263961708346,
+                  &quot;util_hdev&quot;: 0.0004640115499656118,
+                  &quot;util_hcnt&quot;: 20619,
+                  &quot;util_hmed&quot;: 0.05920415878947068,
+                  &quot;util_h75p&quot;: 0.059217278415661254,
+                  &quot;util_h95p&quot;: 0.05934395790869296,
+                  &quot;util_h99p&quot;: 0.059361851867105964,
+                  &quot;util_h999p&quot;: 0.0593659827984017,
+                  &quot;pool_name&quot;: &quot;dynamodb&quot;,
+                  &quot;pool_que_rate&quot;: 0,
+                  &quot;pool_que_rcnt&quot;: 1989,
+                  &quot;pool_que_rmean&quot;: 0.0035627883554577716,
+                  &quot;pool_que_r1m&quot;: 0,
+                  &quot;pool_que_r5m&quot;: 0,
+                  &quot;pool_que_r15m&quot;: 0,
+                  &quot;pool_que_hmin&quot;: 0,
+                  &quot;pool_que_hmax&quot;: 230,
+                  &quot;pool_que_hsum&quot;: 45843,
+                  &quot;pool_que_hvar&quot;: 366.86587852909315,
+                  &quot;pool_que_hmean&quot;: 23.048265460030166,
+                  &quot;pool_que_hdev&quot;: 19.15374319889178,
+                  &quot;pool_que_hcnt&quot;: 1989,
+                  &quot;pool_que_hmed&quot;: 21,
+                  &quot;pool_que_h75p&quot;: 23,
+                  &quot;pool_que_h95p&quot;: 33,
+                  &quot;pool_que_h99p&quot;: 126.42000000000007,
+                  &quot;pool_que_h999p&quot;: 225.971,
+                  &quot;pool_req_hmin&quot;: 1,
+                  &quot;pool_req_hmax&quot;: 2,
+                  &quot;pool_req_hsum&quot;: 1991,
+                  &quot;pool_req_hvar&quot;: 0.001005024617286425,
+                  &quot;pool_req_hmean&quot;: 1.0010055304172951,
+                  &quot;pool_req_hdev&quot;: 0.03170212322994195,
+                  &quot;pool_req_hcnt&quot;: 1989,
+                  &quot;pool_req_hmed&quot;: 1,
+                  &quot;pool_req_h75p&quot;: 1,
+                  &quot;pool_req_h95p&quot;: 1,
+                  &quot;pool_req_h99p&quot;: 1,
+                  &quot;pool_req_h999p&quot;: 1.9710000000000036,
+                  &quot;pool_count&quot;: 0,
+                  &quot;pool_req_0&quot;: 2,
+                  &quot;pool_cache_rate&quot;: 0.1303780964797914,
+                  &quot;pool_cache_rcnt&quot;: 284,
+                  &quot;pool_cache_rmean&quot;: 0.0005087436344326025,
+                  &quot;pool_cache_r1m&quot;: 0,
+                  &quot;pool_cache_r5m&quot;: 0,
+                  &quot;pool_cache_r15m&quot;: 0,
+                  &quot;pool_cache_hmin&quot;: 0,
+                  &quot;pool_cache_hmax&quot;: 2,
+                  &quot;pool_cache_hsum&quot;: 70,
+                  &quot;pool_cache_hvar&quot;: 0.19345045538247163,
+                  &quot;pool_cache_hmean&quot;: 0.24647887323943662,
+                  &quot;pool_cache_hdev&quot;: 0.4398300301053483,
+                  &quot;pool_cache_hcnt&quot;: 284,
+                  &quot;pool_cache_hmed&quot;: 0,
+                  &quot;pool_cache_h75p&quot;: 0,
+                  &quot;pool_cache_h95p&quot;: 1,
+                  &quot;pool_cache_h99p&quot;: 1,
+                  &quot;pool_cache_h999p&quot;: 2,
+                  &quot;pool_hits&quot;: 239,
+                  &quot;pool_misses&quot;: 45,
+                  &quot;cache_inserted&quot;: 484,
+                  &quot;cache_deleted&quot;: 310,
+                  &quot;cache_cleanups&quot;: 0,
+                  &quot;cache_hits&quot;: 7642,
+                  &quot;cache_misses&quot;: 1411,
+                  &quot;cache_max&quot;: 1000000,
+                  &quot;cache_size&quot;: 61586,
+                  &quot;cache_count&quot;: 174,
+                  &quot;api_que_hmin&quot;: 1,
+                  &quot;api_que_hmax&quot;: 6,
+                  &quot;api_que_hsum&quot;: 13237,
+                  &quot;api_que_hvar&quot;: 0.005674280465987009,
+                  &quot;api_que_hmean&quot;: 1.0024992426537414,
+                  &quot;api_que_hdev&quot;: 0.07532782000022972,
+                  &quot;api_que_hcnt&quot;: 13204,
+                  &quot;api_que_hmed&quot;: 1,
+                  &quot;api_que_h75p&quot;: 1,
+                  &quot;api_que_h95p&quot;: 1,
+                  &quot;api_que_h99p&quot;: 1,
+                  &quot;api_que_h999p&quot;: 2,
+                  &quot;api_nreq&quot;: 1,
+                  &quot;api_req_rate&quot;: 0,
+                  &quot;api_req_rcnt&quot;: 13203,
+                  &quot;api_req_rmean&quot;: 0.02365120609256502,
+                  &quot;api_req_r1m&quot;: 0,
+                  &quot;api_req_r5m&quot;: 0,
+                  &quot;api_req_r15m&quot;: 0,
+                  &quot;api_req_hmin&quot;: 0,
+                  &quot;api_req_hmax&quot;: 536,
+                  &quot;api_req_hsum&quot;: 20115,
+                  &quot;api_req_hvar&quot;: 89.12554520926801,
+                  &quot;api_req_hmean&quot;: 1.5235173824130879,
+                  &quot;api_req_hdev&quot;: 9.440632669968046,
+                  &quot;api_req_hcnt&quot;: 13203,
+                  &quot;api_req_hmed&quot;: 1,
+                  &quot;api_req_h75p&quot;: 1,
+                  &quot;api_req_h95p&quot;: 1,
+                  &quot;api_req_h99p&quot;: 33.13000000000011,
+                  &quot;api_req_h999p&quot;: 99.36200000000008,
+                  &quot;url_message_get_rate&quot;: 0,
+                  &quot;url_message_get_rcnt&quot;: 24,
+                  &quot;url_message_get_rmean&quot;: 0.00004299242196761214,
+                  &quot;url_message_get_r1m&quot;: 0,
+                  &quot;url_message_get_r5m&quot;: 0,
+                  &quot;url_message_get_r15m&quot;: 0,
+                  &quot;url_message_get_hmin&quot;: 16,
+                  &quot;url_message_get_hmax&quot;: 71,
+                  &quot;url_message_get_hsum&quot;: 792,
+                  &quot;url_message_get_hvar&quot;: 208.34782608695653,
+                  &quot;url_message_get_hmean&quot;: 33,
+                  &quot;url_message_get_hdev&quot;: 14.434258764722092,
+                  &quot;url_message_get_hcnt&quot;: 24,
+                  &quot;url_message_get_hmed&quot;: 30.5,
+                  &quot;url_message_get_h75p&quot;: 40.75,
+                  &quot;url_message_get_h95p&quot;: 68,
+                  &quot;url_message_get_h99p&quot;: 71,
+                  &quot;url_message_get_h999p&quot;: 71,
+                  &quot;url_message_get_0&quot;: 0,
+                  &quot;api_req_0&quot;: 20,
+                  &quot;url_ping_rate&quot;: 0,
+                  &quot;url_ping_rcnt&quot;: 12407,
+                  &quot;url_ping_rmean&quot;: 0.022226981327796796,
+                  &quot;url_ping_r1m&quot;: 0,
+                  &quot;url_ping_r5m&quot;: 0,
+                  &quot;url_ping_r15m&quot;: 0,
+                  &quot;url_ping_hmin&quot;: 0,
+                  &quot;url_ping_hmax&quot;: 4,
+                  &quot;url_ping_hsum&quot;: 6915,
+                  &quot;url_ping_hvar&quot;: 0.25785489698686204,
+                  &quot;url_ping_hmean&quot;: 0.5573466591440316,
+                  &quot;url_ping_hdev&quot;: 0.5077941482400737,
+                  &quot;url_ping_hcnt&quot;: 12407,
+                  &quot;url_ping_hmed&quot;: 1,
+                  &quot;url_ping_h75p&quot;: 1,
+                  &quot;url_ping_h95p&quot;: 1,
+                  &quot;url_ping_h99p&quot;: 1,
+                  &quot;url_ping_h999p&quot;: 2,
+                  &quot;url_ping_0&quot;: 5,
+                  &quot;url_image_account_rate&quot;: 0,
+                  &quot;url_image_account_rcnt&quot;: 95,
+                  &quot;url_image_account_rmean&quot;: 0.00017084907295404685,
+                  &quot;url_image_account_r1m&quot;: 0,
+                  &quot;url_image_account_r5m&quot;: 0,
+                  &quot;url_image_account_r15m&quot;: 0,
+                  &quot;url_image_account_hmin&quot;: 17,
+                  &quot;url_image_account_hmax&quot;: 121,
+                  &quot;url_image_account_hsum&quot;: 4295,
+                  &quot;url_image_account_hvar&quot;: 372.42329227323637,
+                  &quot;url_image_account_hmean&quot;: 45.21052631578947,
+                  &quot;url_image_account_hdev&quot;: 19.29827174317007,
+                  &quot;url_image_account_hcnt&quot;: 95,
+                  &quot;url_image_account_hmed&quot;: 42,
+                  &quot;url_image_account_h75p&quot;: 51,
+                  &quot;url_image_account_h95p&quot;: 89.59999999999991,
+                  &quot;url_image_account_h99p&quot;: 121,
+                  &quot;url_image_account_h999p&quot;: 121,
+                  &quot;url_image_account_0&quot;: 0,
+                  &quot;incr_follow_0&quot;: 0,
+                  &quot;api_bad_0&quot;: 3,
+                  &quot;url_account_update_rate&quot;: 0,
+                  &quot;url_account_update_rcnt&quot;: 6,
+                  &quot;url_account_update_rmean&quot;: 0.000010813705805470248,
+                  &quot;url_account_update_r1m&quot;: 0,
+                  &quot;url_account_update_r5m&quot;: 0,
+                  &quot;url_account_update_r15m&quot;: 0,
+                  &quot;url_account_update_hmin&quot;: 53,
+                  &quot;url_account_update_hmax&quot;: 182,
+                  &quot;url_account_update_hsum&quot;: 573,
+                  &quot;url_account_update_hvar&quot;: 2041.5,
+                  &quot;url_account_update_hmean&quot;: 95.5,
+                  &quot;url_account_update_hdev&quot;: 45.18296139032943,
+                  &quot;url_account_update_hcnt&quot;: 6,
+                  &quot;url_account_update_hmed&quot;: 82,
+                  &quot;url_account_update_h75p&quot;: 120.5,
+                  &quot;url_account_update_h95p&quot;: 182,
+                  &quot;url_account_update_h99p&quot;: 182,
+                  &quot;url_account_update_h999p&quot;: 182,
+                  &quot;url_account_update_0&quot;: 0,
+                  &quot;auth_add_0&quot;: 0,
+                  &quot;url_account_get_rate&quot;: 0,
+                  &quot;url_account_get_rcnt&quot;: 9,
+                  &quot;url_account_get_rmean&quot;: 0.0001993511695335063,
+                  &quot;url_account_get_r1m&quot;: 0,
+                  &quot;url_account_get_r5m&quot;: 0,
+                  &quot;url_account_get_r15m&quot;: 0,
+                  &quot;url_account_get_hmin&quot;: 2,
+                  &quot;url_account_get_hmax&quot;: 100,
+                  &quot;url_account_get_hsum&quot;: 435,
+                  &quot;url_account_get_hvar&quot;: 844.0000000000001,
+                  &quot;url_account_get_hmean&quot;: 48.333333333333336,
+                  &quot;url_account_get_hdev&quot;: 29.051678092667903,
+                  &quot;url_account_get_hcnt&quot;: 9,
+                  &quot;url_account_get_hmed&quot;: 46,
+                  &quot;url_account_get_h75p&quot;: 67,
+                  &quot;url_account_get_h95p&quot;: 100,
+                  &quot;url_account_get_h99p&quot;: 100,
+                  &quot;url_account_get_h999p&quot;: 100,
+                  &quot;url_account_get_0&quot;: 1,
+                  &quot;url_system_stats_rate&quot;: 0,
+                  &quot;url_system_stats_rcnt&quot;: 1,
+                  &quot;url_system_stats_rmean&quot;: 0.04501665616278023,
+                  &quot;url_system_stats_r1m&quot;: 0,
+                  &quot;url_system_stats_r5m&quot;: 0,
+                  &quot;url_system_stats_r15m&quot;: 0,
+                  &quot;url_system_stats_hmin&quot;: 3,
+                  &quot;url_system_stats_hmax&quot;: 3,
+                  &quot;url_system_stats_hsum&quot;: 3,
+                  &quot;url_system_stats_hmean&quot;: 3,
+                  &quot;url_system_stats_hdev&quot;: 0,
+                  &quot;url_system_stats_hcnt&quot;: 1,
+                  &quot;url_system_stats_hmed&quot;: 3,
+                  &quot;url_system_stats_h75p&quot;: 3,
+                  &quot;url_system_stats_h95p&quot;: 3,
+                  &quot;url_system_stats_h99p&quot;: 3,
+                  &quot;url_system_stats_h999p&quot;: 3,
+                  &quot;url_system_stats_0&quot;: 2
+              }
+
+# Backend directory structure
+
+When the backend server starts and no -home argument passed in the command line the backend makes its home environment in the ~/.backend directory.
+
+The backend directory structure is the following:
+
+* `etc` - configuration directory, all config files are there
+    * `etc/profile` - shell script loaded by the bkjs utility to customize env variables
+    * `etc/config` - config parameters, same as specified in the command line but without leading -, each config parameter per line:
+
+        Example:
+
+            debug=1
+            db-pool=dynamodb
+            db-dynamodb-pool=http://localhost:9000
+            db-pgsql-pool=postgresql://postgres@127.0.0.1/backend
+
+            To specify other config file: bkjs run-backend -config-file file
+
+    * etc/config.local - same as the config but for the cases when local environment is different than the production or for dev specific parameters
+    * some config parameters can be condigured in DNS as TXT records, the backend on startup will try to resolve such records and use the value if not empty.
+      All params that  marked with DNS TXT can be configured in the DNS server for the domain where the backend is running, the config parameter name is
+      concatenated with the domain and queried for the TXT record, for example: `cache-host` parameter will be queried for cache-host.domain.name for TXT record type.
+
+    * `etc/crontab` - jobs to be run with intervals, local or remote, JSON file with a list of cron jobs objects:
+
+        Example:
+
+        1. Create file in ~/.backend/etc/crontab with the following contents:
+
+                [ { &quot;type&quot;: &quot;local&quot;, &quot;cron&quot;: &quot;0 1 1 * * 1,3&quot;, &quot;job&quot;: { &quot;app.cleanSessions&quot;: { &quot;interval&quot;: 3600000 } } } ]
+
+        2. Define the function that the cron will call with the options specified, callback must be called at the end, create this app.js file
+
+                var bkjs = require(&quot;backendjs&quot;);
+                bkjs.app.cleanSessions = function(options, callback) {
+                     bkjs.db.delAll(&quot;session&quot;, { mtime: options.interval + Date.now() }, { ops: &quot;le&quot; }, callback);
+                }
+                bkjs.server.start()
+
+        3. Start the scheduler and the web server at once
+
+                bkjs run-backend -master -web
+
+    * etc/crontab.local - additional local crontab that is read after the main one, for local or dev environment
+
+* `modules` - loadable modules with specific functionality
+* `images` - all images to be served by the API server, every subfolder represent naming space with lots of subfolders for images
+* `var` - database files created by the server
+* `tmp` - temporary files
+* `web` - Web pages served by the static Express middleware
+
+# Internal backend functions
+
+The backend includes internal C++ module which provide some useful functions available in the Javascript. The module is exposed as `utils` submodule, to see
+all functions for example run the below:
+
+        var bkjs = require(&#39;backendjs&#39;);
+        console.log(bkjs.utils)
+
+List of available functions:
+ - `rungc()` - run V8 garbage collector on demand
+ - `setsegv()` - install SEGV signal handler to show crash backtrace
+ - `setbacktrace()` - install special V8-aware backtrace handler
+ - `backtrace()` - show V8 backtrace from current position
+ - `heapSnapshot(file)` - dump current memory heap snapshot into a file
+ - `splitArray(str)` - split a string into an array separated by commas, supports double quotes
+ - `logging([level])` - set or return logging level, this is internal C++ logging facility
+ - `loggingChannel(channelname)` - redirect logging into stdout or stderr, this is internal C++ logging
+ - `countWords(word, text)` - return how many time word appers in the text, uses Knuth-Morris-Pratt algorithm
+ - `countAllWords(list, text)` - return an object with counters for each word from the list, i.e. how many times each word appears in the text, uses Aho-Corasick algorithm
+ - `countWordsInit()` - clears word counting cache
+ - `resizeImage(source, options, callback)` - resize image using ImageMagick,
+   - source can be a Buffer or file name
+   - options can have the following properties:
+     - width - output image width, if negative and the original image width is smaller than the specified, nothing happens
+     - height - output image height, if negative and the original image height is smaller this the specified, nothing happens
+     - quality - 0 -99
+     - out - output file name
+     - ext - image extention
+ - `resizeImageSync(name,width,height,format,filter,quality,outfile)` - resize an image synchronically
+ - `snappyCompress(str)` - compress a string
+ - `snappyUncompress(str)` - decompress a string
+ - `zlibCompress(str)` - compress a string
+ - `zlibUncompress(str)` - decompress a string
+ - `unzip(zipfile, outdir)` - extract a zip archive into directory
+ - `unzipFile(zipfile, file [, outfile])` - extract a file from zip archive, return contents if no outfile s specified
+ - `run(command, callback)` - run shell command and return all output to the callback
+ - `getUser([user])` - return an object with user info from the /etc/passwd file, user can be uid or name
+ - `getGroup([group])` - return an object with specified group info for the current user of for the given group id or name
+ - Geohash support
+   - `geoDistance(lat1, lon1, lat2, lon2)` - return distance between 2 coordinates in km
+   - `geoBoundingBox(lat, lon, distance)` - return bounding box geohash for given point around distance
+   - `geoHashEncode(lat, lon, len)` - return geohash for given coordinate, len defines number of bytesin geohash
+   - `geoHashDecode(hash)` - return coordinates for given geohash
+   - `geoHashAdjacent()`
+   - `geoHashGrid()`
+   - `geoHashRow()`
+ - Generic cache outside of V8 memory pool
+   - `cacheSave()` - general purpose caching functions that have no memory limits and do not use V8 heap
+   - `cachePut()`
+   - `cacheGet()`
+   - `cacheDel()`
+   - `cacheKeys()`
+   - `cacheClear()`
+   - `cacheNames()`
+   - `cacheSize()`
+   - `cacheEach()`
+   - `cacheForEach()`
+   - `cacheForEachNext()`
+   - `cacheBegin()`
+   - `cacheNext()`
+ - LRU internal cache
+   - `lruInit(max)` - init LRU cache with max number of keys, this is in-memory cache which evicts older keys
+   - `lruStats()` - return statistics about the LRU cache
+   - `lruSize()` - return size of the current LRU cache
+   - `lruCount()` - number of keys in the LRU cache
+   - `lruPut(name, val)` - set/replace value by name
+   - `lruGet(name)` - return value by name
+   - `lruIncr(name, val)` - increase value by given number, non existent items assumed to be 0
+   - `lruDel(name)` - delete by name
+   - `lruKeys()` - return all cache key names
+   - `lruClear()` - clear LRU cache
+   - `lruServer()`
+ - Syslog support
+   - `syslogInit(name, priority, facility)` - initialize syslog client, used by the logger module
+   - `syslogSend(level, text)`
+   - `syslogClose()`
+
+# Cache configurations
+Database layer support caching of the responses using `db.getCached` call, it retrieves exactly one record from the configured cache, if no record exists it
 will pull it from the database and on success will store it in the cache before returning to the client. When dealing with cached records, there is a special option
 that must be passed to all put/update/del database methods in order to clear local cache, so next time the record will be retrieved with new changes from the database
-and refresh the cache, that is <code>{ cached: true }</code> can be passed in the options parameter for the db methods that may modify records with cached contents. In any case
-it is required to clear cache manually there is <code>db.clearCache</code> method for that.
-Also there is a configuration option <code>-db-caching</code> to make any table automatically cached for all requests.</p>
-<h2 id="local">Local</h2>
-<p>If no cache is configured the local driver is used, it keeps the cache on the master process in the LRU pool and any wroker or Web process
-communicate with it via internal messaging provided by the <code>cluster</code> module. This works only for a single server.</p>
-<h2 id="memcached">memcached</h2>
-<p>Set <code>ipc-cache=memcache://HOST[,HOST]</code> that points to one or more hosts running memcached servers is what needs to be done only.
-The great benefit using memcache is to configure more than one server in <code>cache-host</code> separated by comma which makes it more reliable and
-eliminates single point of failure if one of the memcache servers goes down.</p>
-<h2 id="redis">Redis</h2>
-<p>Set <code>ipc-cache=redis://HOST[:PORT]</code> that points to the server running Redis server. Only single Redis server can be specified.</p>
-<h1 id="pub-sub-or-queue-configurations">PUB/SUB or Queue configurations</h1>
-<p>Publish/subscribe functionality allows clients to receive notifications without constantly polling for new events. A client can be anything but
-the backend provides some partially implemented subscription notifications for Web clients using the Long Poll.
-The Account API call <code>/account/subscribe</code> can use any pub/sub mode.</p>
-<p>The flow of the pub/sub operations is the following:</p>
-<ul>
-<li>a HTTP client makes <code>/account/subscribe</code> API request, the connection is made and is kept open indefenitely or as long as configured using <code>api-subscribe-timeout</code>.</li>
-<li>the API backend receives this request, and runs the <code>api.subscribe</code> method with the key being the account id, this will subscribe to the events for the current
-account and registers a callback to be called if any events occured. The HTTP connection is kept open.</li>
-<li>some other client makes an API call that triggers an event like makes a connectiopn or sends a message, on such event the backend API handler
-always runs <code>ipc.publish</code> after the DB operation succedes. If the messaging is configured, it publishes the message for the account, the
-message being a JSON object with the request API path and mtime, other properties depend on the call made.</li>
-<li>the connection that initiated <code>/account/subscribe</code> receives an event</li>
-</ul>
-<h2 id="redis">Redis</h2>
-<p>To configure the backend to use Redis for PUB/SUB messaging set <code>ipc-queue=redis://HOST</code> where HOST is IP address or hostname of the single Redis server.
-This will use native PUB/SUB Redis feature.</p>
-<h2 id="redis-queue">Redis Queue</h2>
-<p>To configure the backend to use Redis for job processing set <code>ipc-queue=redisq://HOST</code> where HOST is IP address or hostname of the single Redis server.
-This driver implements reliable Redis queue, with <code>visibilityTimeout</code> config option works similar to AWS SQS.</p>
-<h2 id="rabbitmq">RabbitMQ</h2>
-<p>To configure the backend to use RabbitMQ for messaging set <code>ipc-queue=amqp://HOST</code> and optionally <code>amqp-options=JSON</code> with options to the amqp module.
-Additional objects from the config JSON are used for specific AMQP functions: { queueParams: {}, subscribeParams: {}, publishParams: {} }. These
-will be passed to the corresponding AMQP methods: <code>amqp.queue, amqp.queue.sibcribe, amqp.publish</code>. See AMQP node.js module for more info.</p>
-<h2 id="db">DB</h2>
-<p>This is a simple queue implementation using the atomic UPDATE, it polls for new jobs in the table and updates the status, only who succeeds
-with the update takes the job and executes it. It is not effective but can be used for simple and not busy systems for more or less long jobs.
-The advantage is that it uses the same database and does not quire additional servers.</p>
-<h2 id="sqs">SQS</h2>
-<p>To use AWS SQS for job processing set <code>ipc-queue=https://sqs.amazonaws.com....</code>, this queue system will poll SQS for new messges on a worker
-and after succsesful execution will delete the message. For long running jobs it will automatically extend visibility timeout if it is configured.</p>
-<h2 id="local">Local</h2>
-<p>The local queue is implemented on the master process as a list, communication is done via local sockets between the master and workers.
-This is intended for a single server development pusposes only.</p>
-<h1 id="security-configurations">Security configurations</h1>
-<h2 id="api-only">API only</h2>
-<p>This is default setup of the backend when all API requests except <code>/account/add</code> must provide valid signature and all HTML, Javascript, CSS and image files
-are available to everyone. This mode assumes that Web developmnt will be based on &#39;single-page&#39; design when only data is requested from the Web server and all
-rendering is done using Javascript. This is how the <code>api.html</code> develpers console is implemented, using JQuery-UI and Knockout.js.</p>
-<p>To see current default config parameters run any of the following commands:</p>
-<pre><code>    bkjs run-backend -help | grep api-allow
+and refresh the cache, that is `{ cached: true }` can be passed in the options parameter for the db methods that may modify records with cached contents. In any case
+it is required to clear cache manually there is `db.clearCache` method for that.
+Also there is a configuration option `-db-caching` to make any table automatically cached for all requests.
 
-    node -e &#39;require(&quot;backendjs&quot;).core.showHelp()&#39;
-</code></pre><p>To disable open registration in this mode just add config parameter <code>api-disallow-path=^/account/add$</code> or if developing an application add this in the initMiddleware</p>
-<pre><code>    api.initMiddleware = function(callback) {
-        this.allow.splice(this.allow.indexOf(&#39;^/account/add$&#39;), 1);
-    }
-</code></pre><h2 id="secure-web-site-client-verification">Secure Web site, client verification</h2>
-<p>This is a mode when the whole Web site is secure by default, even access to the HTML files must be authenticated. In this mode the pages must defined &#39;Backend.session = true&#39;
-during the initialization on every html page, it will enable Web sessions for the site and then no need to sign every API reauest.</p>
-<p>The typical client Javascript verification for the html page may look like this, it will redirect to login page if needed,
-this assumes the default path &#39;/public&#39; still allowed without the signature:</p>
-<pre><code class="lang-javascript">        &lt;script src=&quot;/js/jquery.js&quot;&gt;&lt;/script&gt;
+## Local
+If no cache is configured the local driver is used, it keeps the cache on the master process in the LRU pool and any wroker or Web process
+communicate with it via internal messaging provided by the `cluster` module. This works only for a single server.
+
+## memcached
+Set `ipc-cache=memcache://HOST[,HOST]` that points to one or more hosts running memcached servers is what needs to be done only.
+The great benefit using memcache is to configure more than one server in `cache-host` separated by comma which makes it more reliable and
+eliminates single point of failure if one of the memcache servers goes down.
+
+## Redis
+Set `ipc-cache=redis://HOST[:PORT]` that points to the server running Redis server. Only single Redis server can be specified.
+
+# PUB/SUB or Queue configurations
+
+Publish/subscribe functionality allows clients to receive notifications without constantly polling for new events. A client can be anything but
+the backend provides some partially implemented subscription notifications for Web clients using the Long Poll.
+The Account API call `/account/subscribe` can use any pub/sub mode.
+
+The flow of the pub/sub operations is the following:
+- a HTTP client makes `/account/subscribe` API request, the connection is made and is kept open indefenitely or as long as configured using `api-subscribe-timeout`.
+- the API backend receives this request, and runs the `api.subscribe` method with the key being the account id, this will subscribe to the events for the current
+  account and registers a callback to be called if any events occured. The HTTP connection is kept open.
+- some other client makes an API call that triggers an event like makes a connectiopn or sends a message, on such event the backend API handler
+  always runs `ipc.publish` after the DB operation succedes. If the messaging is configured, it publishes the message for the account, the
+  message being a JSON object with the request API path and mtime, other properties depend on the call made.
+- the connection that initiated `/account/subscribe` receives an event
+
+## Redis
+To configure the backend to use Redis for PUB/SUB messaging set `ipc-queue=redis://HOST` where HOST is IP address or hostname of the single Redis server.
+This will use native PUB/SUB Redis feature.
+
+## Redis Queue
+To configure the backend to use Redis for job processing set `ipc-queue=redisq://HOST` where HOST is IP address or hostname of the single Redis server.
+This driver implements reliable Redis queue, with `visibilityTimeout` config option works similar to AWS SQS.
+
+## RabbitMQ
+To configure the backend to use RabbitMQ for messaging set `ipc-queue=amqp://HOST` and optionally `amqp-options=JSON` with options to the amqp module.
+Additional objects from the config JSON are used for specific AMQP functions: { queueParams: {}, subscribeParams: {}, publishParams: {} }. These
+will be passed to the corresponding AMQP methods: `amqp.queue, amqp.queue.sibcribe, amqp.publish`. See AMQP node.js module for more info.
+
+## DB
+This is a simple queue implementation using the atomic UPDATE, it polls for new jobs in the table and updates the status, only who succeeds
+with the update takes the job and executes it. It is not effective but can be used for simple and not busy systems for more or less long jobs.
+The advantage is that it uses the same database and does not quire additional servers.
+
+## SQS
+To use AWS SQS for job processing set `ipc-queue=https://sqs.amazonaws.com....`, this queue system will poll SQS for new messges on a worker
+and after succsesful execution will delete the message. For long running jobs it will automatically extend visibility timeout if it is configured.
+
+## Local
+The local queue is implemented on the master process as a list, communication is done via local sockets between the master and workers.
+This is intended for a single server development pusposes only.
+
+# Security configurations
+
+## API only
+This is default setup of the backend when all API requests except `/account/add` must provide valid signature and all HTML, Javascript, CSS and image files
+are available to everyone. This mode assumes that Web developmnt will be based on &#39;single-page&#39; design when only data is requested from the Web server and all
+rendering is done using Javascript. This is how the `api.html` develpers console is implemented, using JQuery-UI and Knockout.js.
+
+To see current default config parameters run any of the following commands:
+
+        bkjs run-backend -help | grep api-allow
+
+        node -e &#39;require(&quot;backendjs&quot;).core.showHelp()&#39;
+
+To disable open registration in this mode just add config parameter `api-disallow-path=^/account/add$` or if developing an application add this in the initMiddleware
+
+        api.initMiddleware = function(callback) {
+            this.allow.splice(this.allow.indexOf(&#39;^/account/add$&#39;), 1);
+        }
+
+## Secure Web site, client verification
+
+This is a mode when the whole Web site is secure by default, even access to the HTML files must be authenticated. In this mode the pages must defined &#39;Backend.session = true&#39;
+during the initialization on every html page, it will enable Web sessions for the site and then no need to sign every API reauest.
+
+The typical client Javascript verification for the html page may look like this, it will redirect to login page if needed,
+this assumes the default path &#39;/public&#39; still allowed without the signature:
+
+```javascript
+        &lt;script src=&quot;/js/jquery.js&quot;&gt;&lt;/script&gt;
         &lt;link href=&quot;/css/bootstrap.css&quot; rel=&quot;stylesheet&quot;&gt;
         &lt;script src=&quot;/js/bootstrap.js&quot;&gt;&lt;/script&gt;
         &lt;script src=&quot;/js/knockout.js&quot; type=&quot;text/javascript&quot;&gt;&lt;/script&gt;
@@ -1874,8 +1959,7 @@ this assumes the default path &#39;/public&#39; still allowed without the signat
             Bkjs.koInit();
         });
         &lt;/script&gt;
-</code></pre>
-<h2 id="secure-web-site-backend-verification">Secure Web site, backend verification</h2>
+</code></pre><h2 id="secure-web-site-backend-verification">Secure Web site, backend verification</h2>
 <p>On the backend side in your application app.js it needs more secure settings defined i.e. no html except /public will be accessible and
 in case of error will be redirected to the login page by the server. Note, in the login page <code>Bkjs.session</code> must be set to true for all
 html pages to work after login without singing every API request.</p>

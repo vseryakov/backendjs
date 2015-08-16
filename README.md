@@ -501,34 +501,8 @@ For JSON content type, the method must be POST and no query parameters specified
 which is placed in the body of the request. For additional safety, SHA1 checksum of the JSON paylod can be calculated and passed in the signature,
 this is the only way to ensure the body is not modified when not using query parameters.
 
-See `web/js/bkjs.js` for function `Bkjs.sign` or function `api.createSignature` in the core.js for the Javascript implementation.
-
-Below is the simplest Javascript implementation for node.js:
-
-```javascript
-    function createSignature(login, secret, method, host, path, query, options)
-    {
-        var rc = {};
-        if (!login || !secret) return rc;
-        var ctype = String(options.headers['content-type'] || "").toLowerCase();
-        if (!ctype && method == "POST") ctype = "application/x-www-form-urlencoded; charset=utf-8";
-        var checksum = options.checksum || "";
-        var now = Date.now();
-        var expires = options.expires || 0;
-        if (!expires || typeof expires != "number") expires = now + 60000;
-        query = query.split("&").sort().filter(function(x) { return x != "" }).join("&");
-        var str = 4 + "\n" + "\n" + login + "\n" + method + "\n" + host.toLowerCase() + "\n" + url + "\n" + query + "\n" + expires + "\n" + ctype + "\n" + checksum + "\n";
-        var hmac = crypto.createHmac("sha256", secret).update(str, "utf8").digest("base64");
-        rc['bk-signature'] = 4 + '|' + '|' + login + '|' + hmac + '|' + String(expires) + '|' + checksum + '|';
-        return rc;
-    }
-    var opts = url.parse("https://localhost:8000/auth?_session=1");
-    opts.headers = createSignature("test123", "secret123", "GET", opts.hostname, opts.pathname, opts.query, {});
-    var req = https.request(opts, function(res) {
-       res.on("data", function(chunk) { });
-       res.on("end", function(chunk) { });
-    });
-    req.end();
+See [web/js/bkjs.js](https://github.com/vseryakov/backendjs/blob/master/web/js/bkjs.js) function `Bkjs.createSignature` or
+[api.js](https://github.com/vseryakov/backendjs/blob/master/api.js) function `api.createSignature` for the Javascript implementations.
 
 ```
 
@@ -551,17 +525,19 @@ Below is the simplest Javascript implementation for node.js:
 
       Example:
 
-
               /auth?_accesstoken=1
-                { id: "NNNNN...", alias: "Test User", "bk-access-token": "XXXXX....", "bk-access-token-age": 604800000 }
+              > { id: "XXXX...", alias: "Test User", "bk-access-token": "XXXXX....", "bk-access-token-age": 604800000 }
 
-              /message/get?bk-access-token=XXXXXX...
+              /account/get?bk-access-token=XXXXXX...
+              > { id: "XXXX...", alias: "Test User", ... }
 
 - `/login`
 
    Same as the /auth but it uses cleartext password for user authentication, this request does not need a signature, just simple
-   login and password query parameters to be sent to the backend. The intened usage is for Web sessions which would require
-   to pass _session=1 or _accesstoken=1 to be able to make subsequent requests.
+   login and password query parameters to be sent to the backend.
+
+   The intened usage is for Web sessions which use sessions cookies when sent with `_session=1` or to be used with access tokens when
+   sent with `_accesstoken=1`.
 
    Parameters:
 
@@ -574,10 +550,11 @@ Below is the simplest Javascript implementation for node.js:
 
    Example:
 
-              $.ajax({ url: "/login?login=test123&password=test123&_session=1", success = function(json, status, xhr) {
-                  console.log(json)
+              $.ajax({ url: "/login?login=test123&password=test123&_session=1",
+                       success: function(json, status, xhr) { console.log(json) }
               });
-              { id: "NNN...", alias: "Test User", login: "test123", ...}
+
+              > { id: "XXXX...", alias: "Test User", login: "test123", ...}
 
 - `/logout`
 

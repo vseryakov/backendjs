@@ -2,8 +2,10 @@
 //  Author: Vlad Seryakov vseryakov@gmail.com
 //  Sep 2013
 //
+// jQuery and crypto.js must be loaded before this class can be used.
+//
 
-// Core backend support
+// Backend.js client
 var Bkjs = {
 
     // True if current credentials are good
@@ -15,7 +17,7 @@ var Bkjs = {
     // Save credentials in the local storage, by default keep only in memory
     persistent: false,
 
-    // Scramble the secet, use HMAC for the secret instead of the actual value, a user still
+    // Scramble the secret, use HMAC for the secret instead of the actual value, a user still
     // needs to enter the real values but the browser will never store them, only hashes.
     // The value is: 0 - no scramble, 1 - scramble secret as HMAC_SHA256(secret, login)
     scramble: 0,
@@ -36,6 +38,93 @@ var Bkjs = {
         '[A-Z]+': 'requires at least one upper case letter',
         '[0-9]+': 'requires at least one digit',
         '.{8,}': 'requires at least 8 characters',
+    },
+
+    // Try to authenticate with the supplied credentials, it uses login and secret to sign the reauest, if not specified it uses
+    // already saved credentials
+    login: function(login, secret, callback) {
+        var self = this;
+        if (typeof login == "function") callback = login, login = secret = null;
+        if (typeof login =="string" && typeof secret == "string") this.setCredentials(login, secret);
+
+        self.send({ url: "/auth?" + (this.session ? "_session=1" : "_session=0"), jsonType: "obj" }, function(data, xhr) {
+            self.loggedIn = true;
+            self.account = data;
+            // Clear credentials from the memory if we use sessions
+            if (self.session) self.setCredentials();
+            if (typeof callback == "function") callback(null, data, xhr);
+        }, function(err, xhr) {
+            self.loggedIn = false;
+            self.account = {};
+            self.setCredentials();
+            if (typeof callback == "function") callback(err, null, xhr);
+        });
+    },
+
+    // Logout and clear all cookies and local credentials
+    logout: function(callback) {
+        var self = this;
+        self.loggedIn = false;
+        self.account = {};
+        self.sendRequest("/logout", function(err, data, xhr) {
+            self.setCredentials();
+            if (typeof callback == "function") callback(err, data, xhr);
+        });
+    },
+
+    // Create a signature for the request, the url can be an absolute url or just a path, query can be a form data, an object or a string with already
+    // encoded parameters, if not given the parameters in the url will be used.
+    // Returns an object with HTTP headers to be sent to the server with the request.
+    createSignature: function(method, url, query, options) {
+        var rc = {};
+        var creds = this.getCredentials();
+        if (!creds.login || !creds.secret) return rc;
+        var now = Date.now(), str, hmac;
+        var host = window.location.hostname.toLowerCase();
+        if (url.indexOf('://') > -1) {
+            var u = url.split('/');
+            host = (u[2] || "").split(":")[0].toLowerCase();
+            url = '/' + u.slice(3).join('/');
+        }
+        if (!options) options = {};
+        if (!method) method = "GET";
+        var tag = options.tag || "";
+        var checksum = options.checksum || "";
+        var expires = options.expires || 0;
+        if (!expires || typeof expires != "number") expires = now + 60000;
+        if (expires < now) expires += now;
+        var ctype = String(options.contentType || "").toLowerCase();
+        if (!ctype && method == "POST") ctype = "application/x-www-form-urlencoded; charset=utf-8";
+        var q = String(url || "/").split("?");
+        url = q[0];
+        if (url[0] != "/") url = "/" + url;
+        if (!query) query = q[1] || "";
+        if (query instanceof FormData) query = "";
+        if (typeof query == "object") query = jQuery.param(query);
+        query = query.split("&").sort().filter(function(x) { return x != ""; }).join("&");
+        switch (this.signatureVersion) {
+        case 1:
+            str = method + "\n" + host + "\n" + url + "\n" + query + "\n" + expires + "\n" + ctype + "\n" + checksum + "\n";
+            hmac = b64_hmac_sha1(creds.secret, str);
+            break;
+        case 5:
+            hmac = creds.secret;
+            break;
+
+        default:
+            str = this.signatureVersion + "\n" + tag + "\n" + creds.login + "\n" + method + "\n" + host + "\n" + url + "\n" + query + "\n" + expires + "\n" + ctype + "\n" + checksum + "\n";
+            hmac = b64_hmac_sha256(creds.secret, str);
+        }
+        rc[this.signatureName] = this.signatureVersion + '|' + tag  + '|' + creds.login + '|' + hmac + '|' + expires + '|' + checksum + '|';
+        if (this.debug) this.log('sign:', creds, str);
+        return rc;
+    },
+
+    // Produce signed URL to be used in embeded cases or with expiration so the url can be passed and be valid for longer time.
+    signUrl: function(url, expires) {
+        var hdrs = this.createSignature("GET", url, "", { expires: expires });
+        if (!hdrs[this.signatureName]) return url;
+        return url + (url.indexOf("?") == -1 ? "?" : "") + "&" + this.signatureName + "=" + encodeURIComponent(hdrs[this.signatureName]);
     },
 
     // Return current credentials
@@ -73,7 +162,7 @@ var Bkjs = {
         return "";
     },
 
-    // Retrieve account record, call the callback with the object or error
+    // Retrieve current account record, call the callback with the object or error
     getAccount: function(callback) {
         var self = this;
         self.sendRequest({ url: "/account/get", jsonType: "obj" }, function(err, data, xhr) {
@@ -121,88 +210,6 @@ var Bkjs = {
         })();
     },
 
-    // Logout and clear all local credentials
-    logout: function(callback) {
-        var self = this;
-        self.loggedIn = false;
-        self.account = {};
-        self.sendRequest("/logout", function(err, data, xhr) {
-            self.setCredentials();
-            if (typeof callback == "function") callback(err, data, xhr);
-        });
-    },
-
-    // Try to login with the supplied credentials
-    login: function(login, secret, callback) {
-        var self = this;
-        if (typeof login == "function") callback = login, login = secret = null;
-        if (typeof login =="string" && typeof secret == "string") this.setCredentials(login, secret);
-
-        self.send({ url: "/auth?" + (this.session ? "_session=1" : "_session=0"), jsonType: "obj" }, function(data, xhr) {
-            self.loggedIn = true;
-            self.account = data;
-            // Clear credentials from the memory if we use sessions
-            if (self.session) self.setCredentials();
-            if (typeof callback == "function") callback(null, data, xhr);
-        }, function(err, xhr) {
-            self.loggedIn = false;
-            self.account = {};
-            self.setCredentials();
-            if (typeof callback == "function") callback(err, null, xhr);
-        });
-    },
-
-    // Sign request with key and secret
-    sign: function(method, url, query, options) {
-        var rc = {};
-        var creds = this.getCredentials();
-        if (!creds.login || !creds.secret) return rc;
-        var now = Date.now(), str, hmac;
-        var host = window.location.hostname;
-        if (url.indexOf('://') > -1) {
-            var u = url.split('/');
-            host = u[2].split(":")[0];
-            url = '/' + u.slice(3).join('/');
-        }
-        if (!options) options = {};
-        if (!method) method = "GET";
-        var expires = options.expires || 0;
-        if (!expires || typeof expires != "number") expires = now + 60000;
-        if (expires < now) expires += now;
-        var ctype = options.contentType || "";
-        if (!ctype && method == "POST") ctype = "application/x-www-form-urlencoded; charset=UTF-8";
-        var q = String(url || "/").split("?");
-        url = q[0];
-        if (url[0] != "/") url = "/" + url;
-        if (!query) query = q[1] || "";
-        if (query instanceof FormData) query = "";
-        if (typeof query == "object") query = jQuery.param(query);
-        query = query.split("&").sort().filter(function(x) { return x != ""; }).join("&");
-        switch (this.signatureVersion) {
-        case 1:
-            str = String(method || "GET") + "\n" + String(host).toLowerCase() + "\n" + String(url) + "\n" + String(query) + "\n" + String(expires) + "\n" + String(ctype).toLowerCase() + "\n" + (options.checksum || "") + "\n";
-            hmac = b64_hmac_sha1(creds.secret, str);
-            break;
-        case 5:
-            hmac = creds.secret;
-            break;
-
-        default:
-            str = this.signatureVersion + "\n" + String(options.tag || "") + "\n" + creds.login + "\n" + String(method || "GET") + "\n" + String(host).toLowerCase() + "\n" + String(url) + "\n" + String(query) + "\n" + String(expires) + "\n" + String(ctype).toLowerCase() + "\n" + (options.checksum || "") + "\n";
-            hmac = b64_hmac_sha256(creds.secret, str);
-        }
-        rc[this.signatureName] = this.signatureVersion + '|' + String(options.tag || "") + '|' + creds.login + '|' + hmac + '|' + String(expires) + '|' + (options.checksum || "") + '|';
-        if (this.debug) this.log('sign:', creds, str);
-        return rc;
-    },
-
-    // Produce signed URL to be used in embeded cases or with expiration so the url can be passed and be valid for longer time.
-    signUrl: function(url, expires) {
-        var hdrs = this.sign("GET", url, "", { expires: expires });
-        if (!hdrs[this.signatureName]) return url;
-        return url + (url.indexOf("?") == -1 ? "?" : "") + "&" + this.signatureName + "=" + encodeURIComponent(hdrs[this.signatureName]);
-    },
-
     // Encode url query, provided full url with query parameters in human form, re-encode the query
     encodeUrl: function(url) {
         if (url && url.indexOf("?") > -1) {
@@ -218,8 +225,11 @@ var Bkjs = {
         return url;
     },
 
-    // Send signed AJAX request using jQuery, call callbacks onsuccess or onerror on successful or error response
-    // url can be string with url or an object with .url, .data and .type properties, for POST set .type to POST and provide .data
+    // Send signed AJAX request using jQuery, call callbacks onsuccess or onerror on successful or error response accordingly.
+    // - options can be a string with url or an object with options.url, options.data and options.type properties,
+    // - for POST set options.type to POST and provide options.data
+    //
+    // If options.nosignature is given the request is sent as is, no credentials and signature will be used.
     send: function(options, onsuccess, onerror) {
         var self = this;
         if (typeof options == "string") options = { url: options };
@@ -249,7 +259,7 @@ var Bkjs = {
             if (typeof onerror == "function") onerror(msg || error || status, xhr, status, error);
         }
         if (!options.nosignature) {
-            options.headers = this.sign(options.type, options.url, options.data, { expires: options.expires, checksum: options.checksum });
+            options.headers = this.createSignature(options.type, options.url, options.data, { expires: options.expires, checksum: options.checksum });
             // Optional timezone offset for ptoper datetime related operations
             options.headers["bk-tz"] = new Date().getTimezoneOffset();
         }
