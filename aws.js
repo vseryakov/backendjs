@@ -186,7 +186,7 @@ aws.getInstanceCredentials = function(callback)
         // Refresh if not set or expire soon
         var timeout = Math.min(self.tokenExpiration - Date.now(), 3600000);
         if (timeout <= 15000) timeout = 500; else timeout -= 15000;
-        logger.info("getInstanceCredentials:", self.key, lib.strftime(self.tokenExpiration), "interval:", lib.toDuration(self.tokenExpiration - Date.now()), "timeout:", timeout);
+        logger.debug("getInstanceCredentials:", self.key, lib.strftime(self.tokenExpiration), "interval:", lib.toDuration(self.tokenExpiration - Date.now()), "timeout:", timeout);
         setTimeout(self.getInstanceCredentials.bind(self), timeout);
 
         if (typeof callback == "function") callback(err);
@@ -447,7 +447,7 @@ aws.queryDDB = function (action, obj, options, callback)
         if (params.status != 200) {
             // Try several times, special cases or if err is not empty
             if ((err || params.status == 500 || params.data.match(/(ProvisionedThroughputExceededException|ThrottlingException)/)) && options.retryCount-- > 0) {
-                options.retryTimeout *= 2;
+                options.retryTimeout *= 3;
                 logger.debug('queryDDB:', action, obj, err || params.data, 'retrying:', options.retryCount, options.retryTimeout);
                 return setTimeout(function() { self.queryDDB(action, obj, options, callback); }, options.retryTimeout);
             }

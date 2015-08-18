@@ -1747,7 +1747,7 @@ db.prepareRow = function(pool, op, table, obj, options)
             // Current timestamps, for primary keys only support add
             if (col.now && !obj[p] && (!col.primary || op == "add")) obj[p] = now;
             // Case conversion
-            if (col.lower && typeof obj[p] == "string") obj[p] = v.toLoweCase();
+            if (col.lower && typeof obj[p] == "string") obj[p] = v.toLowerCase();
             if (col.upper && typeof obj[p] == "string") obj[p] = v.toUpperCase();
             // The field is combined from several values contatenated for complex primary keys
             this.joinColumn(op, obj, p, col, options, old);

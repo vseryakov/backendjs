@@ -889,7 +889,7 @@ EOF
   get-dynamodb)
     if [ ! -d $DYNAMODB_PREFIX ]; then
        mkdir -p $DYNAMODB_PREFIX
-       curl -L -o ddb.tar.gz http://dynamodb-local.s3-website-us-west-2.amazonaws.com/dynamodb_local_2014-10-07.tar.gz
+       curl -L -o ddb.tar.gz http://dynamodb-local.s3-website-us-west-2.amazonaws.com/dynamodb_local_latest.tar.gz
        tar -C $DYNAMODB_PREFIX -xzf ddb.tar.gz
        rm -rf ddb.tar.gz
     fi
@@ -897,7 +897,8 @@ EOF
 
   run-dynamodb)
     mkdir -p $BKJS_HOME/var $BKJS_HOME/log
-    (cd $BKJS_HOME/var && exec nohup java -Djava.library.path=$DYNAMODB_PREFIX/DynamoDBLocal_lib -jar $DYNAMODB_PREFIX/DynamoDBLocal.jar --port 8181 >>$BKJS_HOME/log/message.log 2>&1 &)
+    params="-Xmx$(get_arg -xmx 100M)"
+    exec nohup java $params -Djava.library.path=$DYNAMODB_PREFIX/DynamoDBLocal_lib -jar $DYNAMODB_PREFIX/DynamoDBLocal.jar -dbPath $BKJS_HOME/var -sharedDb -delayTransientStatuses -optimizeDbBeforeStartup -port 8181 >>$BKJS_HOME/log/message.log 2>&1 &
     ;;
 
   stop-dynamodb)
@@ -1367,8 +1368,8 @@ EOF
     echo "  -db-del -table TABLE name VALUE ... - delete a record from the table, name value pairs must define a primary key for the table"
     echo "  -db-del-all -table TABLE name VALUE ... - delete all records from the table that match the search criteria, name value pairs must define a primary key for the table"
     echo "  -db-drop -table TABLE name [-nowait] - drop a table"
-    echo "  -db-backup [-path PATH] [-tables LIST] - save tables into json files in the home or specified path"
-    echo "  -db-restore [-path PATH] [-tables LIST] [-drop] [-continue] - restore tables from json files located the home or specified path"
+    echo "  -db-backup [-path PATH] [-tables LIST] [-skip LIST] - save tables into json files in the home or specified path"
+    echo "  -db-restore [-path PATH] [-tables LIST] [-skip LIST] [-drop] [-continue] - restore tables from json files located in the home or specified path"
     echo "  -aws-s3-get -path PATH - retrieve a file from S3"
     echo "  -aws-s3-put -path PATH -file FILE - store a file to S3"
     echo "  -aws-show-amazon-images [-filter PATTERN] [-arch ARCH] [-rootdev DEV] - show Amazon Linux AMIs"

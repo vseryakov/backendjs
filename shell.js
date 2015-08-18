@@ -289,15 +289,20 @@ shell.cmdDbBackup = function(options)
     var root = core.getArg("-path");
     var filter = core.getArg("-filter");
     var tables = lib.strSplit(core.getArg("-tables"));
+    var skip = lib.strSplit(core.getArg("-skip"));
     if (!tables.length) tables = db.getPoolTables(db.pool, { names: 1 });
     lib.forEachSeries(tables, function(table, next) {
+        if (skip.indexOf(table) > -1) return next();
         file = path.join(root, table +  ".json");
         fs.writeFileSync(file, "");
+        if (!opts.useCapacity) options.useCapacity = db.getCapacity(table).readCapacity * 0.25;
         db.scan(table, query, opts, function(row, next2) {
             if (filter && app[filter]) app[filter](table, row);
             fs.appendFileSync(file, JSON.stringify(row) + "\n");
             next2();
-        }, next);
+        }, function() {
+            next();
+        });
     }, function(err) {
         logger.info("dbBackup:", root, tables, opts);
         self.exit(err);
@@ -312,6 +317,7 @@ shell.cmdDbRestore = function(options)
     var root = core.getArg("-path");
     var filter = core.getArg("-filter");
     var tables = lib.strSplit(core.getArg("-tables"));
+    var skip = lib.strSplit(core.getArg("-skip"));
     var files = lib.findFileSync(root, { depth: 1, types: "f", include: /\.json$/ });
     if (core.isArg("-drop")) opts.drop = 1;
     if (core.isArg("-continue")) opts.continue = 1;
@@ -319,6 +325,7 @@ shell.cmdDbRestore = function(options)
     lib.forEachSeries(files, function(file, next3) {
         var table = path.basename(file, ".json");
         if (tables.length && tables.indexOf(table) == -1) return next3();
+        if (skip.indexOf(table) > -1) return next3();
         var cap = db.getCapacity(table);
         opts.readCapacity = cap.readCapacity;
         opts.writeCapacity = cap.writeCapacity;
