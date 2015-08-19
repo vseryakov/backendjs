@@ -1,5 +1,5 @@
 //
-// Vlad Seryakov 20014
+// Vlad Seryakov 2014
 //
 
 Bkjs.configRows = [];

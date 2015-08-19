@@ -86,6 +86,7 @@ get_value() {
 
 # Global options that are used thoughout the script
 export BKJS_DEBUG=$(get_arg -debug $BKJS_DEBUG)
+export BKJS_DRY_RUN=$(get_flag -dry-run $BKJS_DRY_RUN)
 export BKJS_HOME=$(get_arg -home $BKJS_HOME)
 export BKJS_PREFIX=$(get_arg -prefix $BKJS_PREFIX)
 export BKJS_USER=$(get_arg -user $BKJS_USER)
@@ -633,9 +634,11 @@ case "$ARG" in
     [ "$BKJS_USER" != "$(whoami)" ] && BKJS_SSH_ARGS="$BKJS_SSH_ARGS -l $BKJS_USER"
     key=$(get_arg -ssh-key)
     [ "$key" != "" ] && BKJS_SSH_ARGS="$BKJS_SSH_ARGS -i $HOME/.ssh/$key.pem"
+    files=$(get_arg -files)
+    [ "$files" = "" ] && files=$(ls)
     for h in $BKJS_HOST; do
-        echo "Deploying the module to $BKJS_SSH_ARGS $BKJS_RSYNC_ARGS $h:$BKJS_PATH"
-        rsync -av $BKJS_DEBUG -e "ssh $BKJS_SSH_ARGS" $BKJS_RSYNC_ARGS `ls` $h:$BKJS_PATH
+        echo "Deploying the module $mod: -e 'ssh $BKJS_SSH_ARGS' $BKJS_RSYNC_ARGS $(echo $files) $h:$BKJS_PATH"
+        [ "$BKJS_DRY_RUN" = "" ] && rsync -av $BKJS_DEBUG -e "ssh $BKJS_SSH_ARGS" $BKJS_RSYNC_ARGS $files $h:$BKJS_PATH
     done
     ;;
 
@@ -897,7 +900,7 @@ EOF
 
   run-dynamodb)
     mkdir -p $BKJS_HOME/var $BKJS_HOME/log
-    params="-Xmx$(get_arg -xmx 100M)"
+    params="-Xmx$(get_arg -xmx 250M)"
     exec nohup java $params -Djava.library.path=$DYNAMODB_PREFIX/DynamoDBLocal_lib -jar $DYNAMODB_PREFIX/DynamoDBLocal.jar -dbPath $BKJS_HOME/var -sharedDb -delayTransientStatuses -optimizeDbBeforeStartup -port 8181 >>$BKJS_HOME/log/message.log 2>&1 &
     ;;
 
@@ -938,11 +941,15 @@ EOF
   init-elasticsearch)
     ($0 get-elasticsearch)
     ($0 run-elasticsearch)
+    if [ "$PLATFORM" = "Linux" ]; then
+       echo "check process java with pidfile \"$BKJS_HOME/var/elasticsearch.pid\" start program = \"$0 run-elasticsearch\" stop program = \"$0 stop-elasticsearch\"" > /etc/monit.d/elasticsearch.conf
+       monit reload
+    fi
     ;;
 
   get-elasticsearch)
     if [ ! -d $ELASTICSEARCH_PREFIX ]; then
-        file=elasticsearch-1.5.2.tar.gz
+        file=elasticsearch-1.7.1.tar.gz
         mkdir -p $ELASTICSEARCH_PREFIX
         curl -OL https://download.elasticsearch.org/elasticsearch/elasticsearch/$file
         tar -C $ELASTICSEARCH_PREFIX --strip-components=1 -xzf $file
@@ -951,11 +958,11 @@ EOF
     ;;
 
   run-elasticsearch)
-    $ELASTICSEARCH_PREFIX/bin/elasticsearch -d >>$BKJS_HOME/log/message.log 2>&1
+    $ELASTICSEARCH_PREFIX/bin/elasticsearch -p $BKJS_HOME/var/elasticsearch.pid -d >>$BKJS_HOME/log/message.log 2>&1
     ;;
 
   stop-elasticsearch)
-    kill $(ps agx|grep elasticsearch|grep -v grep|awk '{print $1}')
+    kill $(ps agx|grep org.elasticsearch|grep -v grep|awk '{print $1}')
     ;;
 
   get-mongodb)
