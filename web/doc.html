@@ -84,6 +84,7 @@
 <li><a href="#module-shell">shell</a></li>
 <li><a href="#module-tests">tests</a></li>
 <li><a href="#module-api_accounts">api_accounts</a></li>
+<li><a href="#module-api_auth">api_auth</a></li>
 <li><a href="#module-api_files">api_files</a></li>
 <li><a href="#module-api_icons">api_icons</a></li>
 <li><a href="#module-api_statistics">api_statistics</a></li>
@@ -2573,12 +2574,6 @@ will be called at the end to finalize the metrics and call the cleanup handlers<
 </ul>
 
 <ul>
-<li><p><code>api.handleSignature(req, res, next)</code></p>
-<p> Perform authorization of the incoming request for access and permissions</p>
-</li>
-</ul>
-
-<ul>
 <li><p><code>api.checkQuery(req, res, next)</code></p>
 <p> Parse incoming query parameters</p>
 </li>
@@ -2587,35 +2582,6 @@ will be called at the end to finalize the metrics and call the cleanup handlers<
 <ul>
 <li><p><code>api.checkBody(req, res, next)</code></p>
 <p> Parse multipart forms for uploaded files</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.checkAccess(req, callback)</code></p>
-<p> Perform URL based access checks, this is called before the signature verification, very early in the request processing step.</p>
-<p>Checks access permissions, calls the callback with the following argument:</p>
-<ul>
-<li>nothing if checkSignature needs to be called</li>
-<li>an object with status: 200 to skip authorization and proceed with other routes</li>
-<li>an object with status: 0 means response has been sent, just stop</li>
-<li>an object with status other than 0 or 200 to return the status and stop request processing,
-for statuses 301,302 there should be url property in the object returned</li>
-</ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.checkAuthorization(req, status, callback)</code></p>
-<p> Perform authorization checks after the account been checked for valid signature, this is called even if the signature verification failed,
-in case of a custom authentication middlware this must be called at the end and use the status object returned in the callback to
-return an error or proceed with the request. In any case the result of this function is the final.</p>
-<ul>
-<li>req is Express request object</li>
-<li>status contains the signature verification status, an object with status: and message: properties, can be null.
-if status property is not 200 it will be returned immeditately to the client stopping the middlware chain. For stopping without an error
-return a status in the range 200-299.</li>
-<li>callback is a function(status) to be called with the resulted status where status must be an object with status and message properties as well</li>
-</ul>
 </li>
 </ul>
 
@@ -2631,59 +2597,6 @@ The options is expected to contain the following cached request properties:</p>
 <li>port - port from the host: header if specified</li>
 <li>secure - if the protocol is https</li>
 </ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.checkSignature(req, callback)</code></p>
-<p> Verify request signature from the request object, uses properties: .host, .method, .url or .originalUrl, .headers</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.checkLogin(req, callback)</code></p>
-<p> Check login and cleatext password from a client</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.newSignature(req)</code></p>
-<p> Returns a new signature object with all required properties filled form the request object</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.parseSignature(req)</code></p>
-<p> Parse incoming request for signature and return all pieces wrapped in an object, this object will be used by <code>verifySignature</code> function.</p>
-<p>If the signature successfully recognized it is saved in the request as <code>req.signature</code></p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.verifySignature(sig, account)</code></p>
-<p> Returns true if the signature <code>sig</code> matches given account secret or password. <code>account</code> object must be a <code>bk_auth</code> record.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.createSignature(login, secret, method, host, uri, options)</code></p>
-<p> Create secure signature for an HTTP request. Returns an object with HTTP headers to be sent in the response.</p>
-<p>The options may contains the following:</p>
-<ul>
-<li>expires is absolute time in milliseconds when this request will expire, default is 30 seconds from now</li>
-<li>version a version number defining how the signature will be signed</li>
-<li>type - content-type header, may be omitted</li>
-<li>tag - a custom tag, vendor specific, opaque to the bkjs, can be used for passing additional account or session inforamtion</li>
-<li>checksum - SHA1 digest of the whole content body, may be omitted</li>
-<li>query - on object with query parameters to use instead of parameters in the uri</li>
-</ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.handleSessionSignature(req, options)</code></p>
-<p> Setup session cookies or access token for automatic authentication without signing, req must be complete with all required
-properties after successful authorization.</p>
 </li>
 </ul>
 
@@ -6736,6 +6649,12 @@ connection to APN gateway.</p>
 </ul>
 
 <ul>
+<li><p><code>shell.getArgs()</code></p>
+<p> Returns an object with all command line params starting with dash set with the value if the next param does not start with dash or 1</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>shell.getOptions()</code></p>
 <p> Returns an object with all command line params starting with dash set with the value if the next param does not start with dash or 1,
 this is API query emulaton and only known API parameters will be set, all other config options must be handled by each command separately</p>
@@ -6769,6 +6688,12 @@ A subcommand may return special string to indicate how to treat the flow:</p>
 <ul>
 <li><p><code>shell.cmdRunApi(options)</code></p>
 <p> Run API server inside the shell</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.cmdTestRun(options)</code></p>
+<p> Run a test command inside the shell</p>
 </li>
 </ul>
 
@@ -6994,6 +6919,12 @@ A subcommand may return special string to indicate how to treat the flow:</p>
 </li>
 </ul>
 
+<ul>
+<li><p><code>},(err, opts)</code></p>
+<p> If executed as standalone script directly in the node</p>
+</li>
+</ul>
+
 <h2 id="module-tests">Module: TESTS</h2>
 <ul>
 <li><p><code>tests</code></p>
@@ -7061,8 +6992,11 @@ use the same names as command line arguments without preceeding test- part.</p>
 <pre><code>    echo &quot;backend-login=testuser&quot; &gt;&gt; etc/config.local
     echo &quot;backend-secret=testpw&quot; &gt;&gt; etc/config.local
 </code></pre></li>
-<li><p>now start the application with -test-cmd to tell which test command to run in a worker process after startup</p>
-<pre><code>  ./app.sh -master -server-job-name tests.run -test-cmd account
+<li><p>now start a test command in the shell using local tests.js</p>
+<pre><code>  ./app.sh -shell -test-run -test-cmd account
+</code></pre></li>
+<li><p>now start a job in a worker process after startup</p>
+<pre><code>  ./app.sh -shell -test-submit -test-cmd account
 </code></pre></li>
 </ul>
 
@@ -7121,6 +7055,95 @@ otherwise admin properties will not be updated</p>
 <ul>
 <li><p><code>api.setAccountSecret(query, options, callback)</code></p>
 <p> Change account secret</p>
+</li>
+</ul>
+
+<h2 id="module-api_auth">Module: API_AUTH</h2>
+<ul>
+<li><p><code>api.handleSignature(req, res, next)</code></p>
+<p> Perform authorization of the incoming request for access and permissions</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.handleSessionSignature(req, options)</code></p>
+<p> Setup session cookies or access token for automatic authentication without signing, req must be complete with all required
+properties after successful authorization.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.newSignature(req)</code></p>
+<p> Returns a new signature object with all required properties filled form the request object</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.parseSignature(req)</code></p>
+<p> Parse incoming request for signature and return all pieces wrapped in an object, this object will be used by <code>verifySignature</code> function.</p>
+<p>If the signature successfully recognized it is saved in the request as <code>req.signature</code></p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.verifySignature(sig, account)</code></p>
+<p> Returns true if the signature <code>sig</code> matches given account secret or password. <code>account</code> object must be a <code>bk_auth</code> record.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.createSignature(login, secret, method, host, uri, options)</code></p>
+<p> Create secure signature for an HTTP request. Returns an object with HTTP headers to be sent in the response.</p>
+<p>The options may contains the following:</p>
+<ul>
+<li>expires is absolute time in milliseconds when this request will expire, default is 30 seconds from now</li>
+<li>version a version number defining how the signature will be signed</li>
+<li>type - content-type header, may be omitted</li>
+<li>tag - a custom tag, vendor specific, opaque to the bkjs, can be used for passing additional account or session inforamtion</li>
+<li>checksum - SHA1 digest of the whole content body, may be omitted</li>
+<li>query - on object with query parameters to use instead of parameters in the uri</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.checkSignature(req, callback)</code></p>
+<p> Verify request signature from the request object, uses properties: .host, .method, .url or .originalUrl, .headers</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.checkAccess(req, callback)</code></p>
+<p> Perform URL based access checks, this is called before the signature verification, very early in the request processing step.</p>
+<p>Checks access permissions, calls the callback with the following argument:</p>
+<ul>
+<li>nothing if checkSignature needs to be called</li>
+<li>an object with status: 200 to skip authorization and proceed with other routes</li>
+<li>an object with status: 0 means response has been sent, just stop</li>
+<li>an object with status other than 0 or 200 to return the status and stop request processing,
+for statuses 301,302 there should be url property in the object returned</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.checkAuthorization(req, status, callback)</code></p>
+<p> Perform authorization checks after the account been checked for valid signature, this is called even if the signature verification failed,
+in case of a custom authentication middlware this must be called at the end and use the status object returned in the callback to
+return an error or proceed with the request. In any case the result of this function is the final.</p>
+<ul>
+<li>req is Express request object</li>
+<li>status contains the signature verification status, an object with status: and message: properties, can be null.
+if status property is not 200 it will be returned immeditately to the client stopping the middlware chain. For stopping without an error
+return a status in the range 200-299.</li>
+<li>callback is a function(status) to be called with the resulted status where status must be an object with status and message properties as well</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.checkLogin(req, callback)</code></p>
+<p> Check login and cleatext password from a client</p>
 </li>
 </ul>
 
