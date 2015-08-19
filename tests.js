@@ -103,9 +103,13 @@ tests.check = function()
 //           echo "backend-login=testuser" >> etc/config.local
 //           echo "backend-secret=testpw" >> etc/config.local
 //
-// - now start the application with -test-cmd to tell which test command to run in a worker process after startup
+// - now start a test command in the shell using local tests.js
 //
-//         ./app.sh -master -server-job-name tests.run -test-cmd account
+//         ./app.sh -shell -test-run -test-cmd account
+//
+// - now start a job in a worker process after startup
+//
+//         ./app.sh -shell -test-submit -test-cmd account
 //
 tests.run = function(options, callback)
 {

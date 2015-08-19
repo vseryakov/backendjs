@@ -20,7 +20,6 @@ var aws = require(__dirname + '/aws');
 var ipc = require(__dirname + '/ipc');
 var api = require(__dirname + '/api');
 var jobs = require(__dirname + '/jobs');
-var shell = require(__dirname + '/shell');
 var os = require('os');
 var express = require('express');
 var stream = require('stream');
@@ -84,6 +83,8 @@ server.start = function()
 
     // REPL shell
     if (core.isArg("-shell")) {
+        var shell = require(__dirname + "/shell");
+        core.addModule("shell", shell);
         return core.init({ role: "shell" }, function(err, opts) { shell.run(opts); });
     }
 

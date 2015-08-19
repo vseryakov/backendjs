@@ -1366,6 +1366,7 @@ EOF
     echo "  -location-put [login LOGIN|id ID] latitude LAT longitude LON ... - update location for an account"
     echo "  -send-request -url URL [-id ID|-login LOGIN] param value param value ... - send API request to the server specified in the url as user specified by login or account id, resolving the user is done directly from the current db pool, param values should not be url-encoded"
     echo "  -log-watch - run logwatcher and exit, send emails in case any errors found"
+    echo "  -test-run -test-cmd CMD - run a test command in the shell, autoload tests.js"
     echo "  -db-get-config [-separator =] [-format text] [-run-mode MODE] [-app-name NAME] [name VALUE ...] - show all config parameters retrieved from the remote database bk_config table for the current environment, to simulate another environment pass the following arguments as name value pairs: network, subnet, ipaddr"
     echo "  -db-tables [-separator nl] - list all table names for the current db pool"
     echo "  -db-select -table TABLE [-separator !] [-format text] [name VALUE ...] - return all records from the table or only that match given column values, all supported by db.select options are supported by prefixing with underscore like _count 10, the format is the same as for API query parameters"

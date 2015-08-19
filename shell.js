@@ -21,6 +21,7 @@ var aws = require(__dirname + '/aws');
 var ipc = require(__dirname + '/ipc');
 var api = require(__dirname + '/api');
 var app = require(__dirname + '/app');
+var jobs = require(__dirname + '/jobs');
 var os = require('os');
 
 var shell = {
@@ -61,16 +62,22 @@ shell.getQuery = function()
     return query;
 }
 
-// Returns an object with all command line params starting with dash set with the value if the next param does not start with dash or 1,
-// this is API query emulaton and only known API parameters will be set, all other config options must be handled by each command separately
-shell.getOptions = function()
+// Returns an object with all command line params starting with dash set with the value if the next param does not start with dash or 1
+shell.getArgs = function()
 {
     var query = {};
     for (var i = process.argv.length - 1; i > 1; i -= 2) {
         var a = process.argv[i - 1][0], b = process.argv[i][0];
         if (a == '-') query[process.argv[i - 1]] = b != '-' ? process.argv[i] : 1;
     }
-    return api.getOptions({ query: query, options: { path: ["", "", ""], ops: {} } });
+    return query;
+}
+
+// Returns an object with all command line params starting with dash set with the value if the next param does not start with dash or 1,
+// this is API query emulaton and only known API parameters will be set, all other config options must be handled by each command separately
+shell.getOptions = function()
+{
+    return api.getOptions({ query: this.getArgs(), options: { path: ["", "", ""], ops: {} } });
 }
 
 // Return first available value for the given name, options first, then command arg and then default
@@ -104,6 +111,8 @@ shell.run = function(options)
     core.runMethods("configureShell", options, function(err, opts) {
         if (opts.done) exit();
 
+        ipc.initWorker();
+
         for (var i = 1; i < process.argv.length; i++) {
             if (process.argv[i][0] != '-') continue;
             var name = lib.toCamel("cmd" + process.argv[i]);
@@ -113,7 +122,6 @@ shell.run = function(options)
             if (rc == "continue") continue;
             return;
         }
-        ipc.initWorker();
         core.createRepl();
     });
 }
@@ -140,6 +148,15 @@ shell.cmdRunApi = function(options)
 {
     api.init();
     return "continue";
+}
+
+// Run a test command inside the shell
+shell.cmdTestRun = function(options)
+{
+    var tests = require(__dirname + "/tests");
+    core.addModule("tests", tests);
+    if (fs.existsSync(core.cwd + "/tests.js")) require(core.cwd + "/tests.js");
+    tests.run();
 }
 
 // Add a user
@@ -1126,3 +1143,5 @@ shell.cmdAwsS3Put = function(options)
     });
 }
 
+// If executed as standalone script directly in the node
+if (!module.parent) core.init({ role: "shell" }, function(err, opts) { shell.run(opts); });
