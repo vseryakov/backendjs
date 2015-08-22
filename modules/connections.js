@@ -40,8 +40,8 @@ connections.init = function(options)
                                      join: ["type","peer"],
                                      unjoin: ["type","peer"],
                                      ops: { select: "begins_with" } },
-                             peer: { pub: 1 },                              // other id of the connection
-                             alias: { pub: 1 },
+                             peer: { pub: 1 },                              // peer id
+                             alias: { pub: 1 },                             // peer alias
                              status: {},
                              mtime: { type: "bigint", now: 1, pub: 1 }
                           },
@@ -53,8 +53,8 @@ connections.init = function(options)
                                     join: ["type","peer"],
                                     unjoin: ["type","peer"],
                                     ops: { select: "begins_with" } },
-                            peer: { pub: 1 },                              // other id of the connection
-                            alias: { pub: 1 },
+                            peer: { pub: 1 },                              // peer id
+                            alias: { pub: 1 },                             // peer alias
                             status: {},
                             mtime: { type: "bigint", now: 1, pub: 1 }
                           },

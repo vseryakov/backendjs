@@ -687,6 +687,7 @@ db.update = function(table, obj, options, callback)
 // The callback will receive on completion the err and all rows found and updated. This is mostly for non-SQL databases and for very large range it may take a long time
 // to finish due to sequential update every record one by one.
 // Special properties that can be in the options for this call:
+//   - updateOptions - options to be passed to the db.update if needed, this is useful so select and update options will not be mixed up
 //   - concurrency - how many update queries to execute at the same time, default is 1, this is done by using lib.forEachLimit.
 //   - process - a function callback that will be called for each row before updating it, this is for some transformations of the record properties
 //      in case of complex columns that may contain concatenated values as in the case of using DynamoDB. The callback will be called
@@ -716,15 +717,14 @@ db.updateAll = function(table, query, obj, options, callback)
     var pool = this.getPool(table, options);
     if (typeof pool.updateAll == "function" && typeof options.process != "function") return pool.updateAll(table, query, obj, options, callback);
 
-    var cap = db.getCapacity(table);
+    var cap = db.getCapacity(table, { useCapacity: "write", factorCapacity: options.factorCapacity || 0.25 });
     self.select(table, query, options, function(err, rows) {
         if (err) return callback(err);
 
-        var opts = lib.cloneObj(options, 'ops', {});
         lib.forEachLimit(rows, options.concurrency || 1, function(row, next) {
+            if (typeof options.process == "function") options.process(row, options);
             for (var p in obj) row[p] = obj[p];
-            if (typeof options.process == "function") options.process(row, opts);
-            self.update(table, row, opts, function(err) {
+            self.update(table, row, options.updateOptions, function(err) {
                 if (err) return next(err);
                 db.checkCapacity(cap, next);
             })
@@ -1682,11 +1682,19 @@ db.prepareRow = function(pool, op, table, obj, options)
     default:
         obj = {};
     }
+
     // Pre-process input properties before sending it to the database, make a shallow copy of the
     // object to preserve the original properties in the parent
     if (!options.noprocessrows) {
-        if (this.getProcessRows('pre', table, options)) obj = lib.cloneObj(obj);
-        this.runProcessRows("pre", { op: op, table: table, obj: obj }, obj, options);
+        switch (op) {
+        case "create":
+        case "upgrade":
+            break;
+
+        default:
+            if (this.getProcessRows('pre', table, options)) obj = lib.cloneObj(obj);
+            this.runProcessRows("pre", { op: op, table: table, obj: obj }, obj, options);
+        }
     }
 
     // Process special columns
