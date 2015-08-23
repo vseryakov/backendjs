@@ -173,7 +173,7 @@ lib.toValue = function(val, type)
         return this.toDate(val);
 
     case "mtime":
-        return /^[0-9\.]+$/.test(String(val)) ? this.toNumber(val) : (new Date(val));
+        return this.toDate(val).getTime();
 
     case "json":
         return JSON.stringify(val);
@@ -583,7 +583,7 @@ lib.forEach = function(list, iterator, callback)
 {
     var self = this;
     callback = typeof callback == "function" ? callback : this.noop;
-    if (!list || !list.length) return callback();
+    if (!Array.isArray(list) || !list.length) return callback();
     var count = list.length;
     for (var i = 0; i < list.length; i++) {
         iterator(list[i], function(err) {
@@ -611,7 +611,7 @@ lib.forEachSeries = function(list, iterator, callback)
 {
     var self = this;
     callback = typeof callback == "function" ? callback : this.noop;
-    if (!list || !list.length) return callback();
+    if (!Array.isArray(list) || !list.length) return callback();
     function iterate(i) {
         if (i >= list.length) return callback();
         iterator(list[i], function(err) {
@@ -632,7 +632,7 @@ lib.forEachLimit = function(list, limit, iterator, callback)
 {
     var self = this;
     callback = typeof callback == "function" ? callback : this.noop;
-    if (!list || !list.length || typeof iterator != "function") return callback();
+    if (!Array.isArray(list) || !list.length || typeof iterator != "function") return callback();
     if (!limit) limit = 1;
     var idx = 0, done = 0, running = 0;
     function iterate() {
@@ -959,11 +959,11 @@ lib.strftime = function(date, fmt, utc)
         L: function(t) { return zeropad(utc ? t.getUTCMilliseconds() : t.getMilliseconds()) },
         m: function(t) { return zeropad((utc ? t.getUTCMonth() : t.getMonth()) + 1) }, // month-1
         M: function(t) { return zeropad(utc ? t.getUTCMinutes() : t.getMinutes()) },
-        p: function(t) { return this.H(t) < 12 ? 'AM' : 'PM'; },
+        p: function(t) { return (utc ? t.getUTCHours() : t.getHours()) < 12 ? 'AM' : 'PM'; },
         S: function(t) { return zeropad(utc ? t.getUTCSeconds() : t.getSeconds()) },
         w: function(t) { return utc ? t.getUTCDay() : t.getDay() }, // 0..6 == sun..sat
         W: function(t) { var d = new Date(t.getFullYear(), 0, 1); return zeropad(Math.ceil((((t - d) / 86400000) + (utc ? d.getUTCDay() : d.getDay()) + 1) / 7)); },
-        y: function(t) { return zeropad(this.Y(t) % 100); },
+        y: function(t) { return zeropad(t.getYear() % 100); },
         Y: function(t) { return utc ? t.getUTCFullYear() : t.getFullYear() },
         t: function(t) { return t.getTime() },
         u: function(t) { return Math.floor(t.getTime()/1000) },

@@ -25,6 +25,7 @@ var Bkjs = {
     // Signature header name and version
     signatureVersion: 4,
     signatureName: "bk-signature",
+    accessTokenName: "bk-access-token",
 
     // Current account record
     account: {},

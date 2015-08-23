@@ -121,9 +121,6 @@ var core = {
         { name: "errFile", match: /.+/, type: "error" }
     ],
 
-    // User agent
-    userAgent: [],
-
     // Inter-process messages
     lruMax: 100000,
 
@@ -880,10 +877,6 @@ core.httpGet = function(uri, params, callback)
     options.rejectUnauthorized = false;
     if (!options.hostname) options.hostname = "localhost", options.port = core.port, options.protocol = "http:";
 
-    // Make sure required headers are set
-    if (!options.headers['user-agent'] && this.userAgent.length) {
-        options.headers['user-agent'] = this.userAgent[this.randomInt(0, this.userAgent.length-1)];
-    }
     if (!options.headers['user-agent']) {
         options.headers['user-agent'] = this.name + "/" + this.version + " " + this.appVersion;
     }
@@ -981,10 +974,10 @@ core.httpGet = function(uri, params, callback)
     var mod = uri.indexOf("https://") == 0 ? https : http;
 
     req = mod.request(options, function(res) {
-      logger.dev("httpGet: started", options.method, 'headers:', options.headers, params)
+      logger.dev("httpGet:", "started", options.method, 'headers:', options.headers, params)
 
       res.on("data", function(chunk) {
-          logger.dev("httpGet: data", 'size:', chunk.length, '/', params.size, "status:", res.statusCode, 'file:', params.file || '');
+          logger.dev("httpGet:", "data", 'size:', chunk.length, '/', params.size, "status:", res.statusCode, 'file:', params.file || '');
 
           if (params.stream) {
               try {
@@ -1031,7 +1024,7 @@ core.httpGet = function(uri, params, callback)
           if (params.stream) try { params.stream.end(params.onfinish); } catch(e) {}
           params.fd = 0;
 
-          logger.dev("httpGet: end", options.method, "url:", uri, "size:", params.size, "status:", params.status, 'type:', params.type, 'location:', res.headers.location || '', 'retry:', params.retryCount, params.retryTimeout);
+          logger.dev("httpGet:", "end", options.method, "url:", uri, "size:", params.size, "status:", params.status, 'type:', params.type, 'location:', res.headers.location || '', 'retry:', params.retryCount, params.retryTimeout);
 
           // Retry the same request on status codes configured explicitely
           if ((res.statusCode < 200 || res.statusCode >= 400) && params.retryOnErrorStatus && params.retryCount-- > 0) {
@@ -1060,7 +1053,7 @@ core.httpGet = function(uri, params, callback)
               }
               break;
           }
-          logger.debug("httpGet: done", options.method, "url:", uri, "size:", params.size, "status:", res.statusCode, 'type:', params.type, 'location:', res.headers.location || '');
+          logger.debug("httpGet:", "done", options.method, "url:", uri, "size:", params.size, "status:", res.statusCode, 'type:', params.type, 'location:', res.headers.location || '');
 
           callback(params.err, params, res);
       });

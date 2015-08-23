@@ -901,7 +901,7 @@ EOF
   run-dynamodb)
     mkdir -p $BKJS_HOME/var $BKJS_HOME/log
     params="-Xmx$(get_arg -xmx 250M)"
-    exec nohup java $params -Djava.library.path=$DYNAMODB_PREFIX/DynamoDBLocal_lib -jar $DYNAMODB_PREFIX/DynamoDBLocal.jar -dbPath $BKJS_HOME/var -sharedDb -delayTransientStatuses -optimizeDbBeforeStartup -port 8181 >>$BKJS_HOME/log/message.log 2>&1 &
+    exec nohup java $params -Djava.library.path=$DYNAMODB_PREFIX/DynamoDBLocal_lib -jar $DYNAMODB_PREFIX/DynamoDBLocal.jar -dbPath $BKJS_HOME/var -port 8181 >>$BKJS_HOME/log/message.log 2>&1 &
     ;;
 
   stop-dynamodb)
