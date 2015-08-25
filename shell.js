@@ -307,12 +307,13 @@ shell.cmdDbBackup = function(options)
     var filter = core.getArg("-filter");
     var tables = lib.strSplit(core.getArg("-tables"));
     var skip = lib.strSplit(core.getArg("-skip"));
+    if (!opts.useCapacity) opts.useCapacity = "read";
+    if (!opts.factorCapacity) opts.factorCapacity = 0.25;
     if (!tables.length) tables = db.getPoolTables(db.pool, { names: 1 });
     lib.forEachSeries(tables, function(table, next) {
         if (skip.indexOf(table) > -1) return next();
         file = path.join(root, table +  ".json");
         fs.writeFileSync(file, "");
-        if (!opts.useCapacity) options.useCapacity = db.getCapacity(table).readCapacity * 0.25;
         db.scan(table, query, opts, function(row, next2) {
             if (filter && app[filter]) app[filter](table, row);
             fs.appendFileSync(file, JSON.stringify(row) + "\n");

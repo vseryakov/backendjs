@@ -444,7 +444,10 @@ accounts.deleteAccount = function(id, options, callback)
 
     db.get("bk_account", { id: id }, options, function(err, obj) {
         if (err) return callback(err);
-        if (!obj) return callback({ status: 404, message: "No account found" });
+        if (!obj) {
+            if (!options.force) return callback({ status: 404, message: "No account found" });
+            obj = { id: id };
+        }
 
         lib.series([
            function(next) {

@@ -39,6 +39,7 @@ var jobs = {
     ],
 
     // List of running jobs for a worker
+    jobs: [],
     running: [],
     exiting: 0,
     // Time of the last update on jobs and tasks
@@ -144,7 +145,7 @@ jobs.initWorker = function(options, callback)
                 self.checkTimes();
             });
         });
-        logger.log("initWorker:", "started", "queue:", self.queue, self.channel, "maxRuntime:", self.maxRuntime, "maxLifetime:", self.maxLifetime);
+        logger.log("initWorker:", "started", cluster.worker.id, "queue:", self.queue, self.channel, "maxRuntime:", self.maxRuntime, "maxLifetime:", self.maxLifetime);
     }, lib.randomShort()/100);
 
     if (typeof callback == "function") callback();
@@ -164,14 +165,20 @@ jobs.exitWorker = function(options)
 // Check how long we run a job and force kill if exceeded, check if total life time is exceeded
 jobs.checkTimes = function()
 {
-    if (this.running.length && Date.now() - this.runTime > this.maxRuntime * 1000) {
-        logger.warn('checkLifetime:', 'jobs: exceeded max run time', this.maxRuntime);
-        this.exitWorker();
-    } else
+    if (this.running.length) {
+        // Take the max runtime allowed
+        var maxRuntime = this.maxRuntime;
+        this.jobs.forEach(function(x) { if (x.maxRuntime > maxRuntime) maxRuntime = x.maxRuntime; });
 
-    if (!this.running.length && this.maxLifetime > 0 && Date.now() - core.ctime > this.maxLifetime * 1000) {
-        logger.log('checkLifetime:', 'jobs: exceeded max life time', this.maxLifetime);
-        this.exitWorker();
+        if (Date.now() - this.runTime > maxRuntime * 1000) {
+            logger.warn('checkLifetime:', 'jobs: exceeded max run time', maxRuntime, this.job);
+            return this.exitWorker();
+        }
+    } else {
+        if (this.maxLifetime > 0 && Date.now() - core.ctime > this.maxLifetime * 1000) {
+            logger.log('checkLifetime:', 'jobs: exceeded max life time', this.maxLifetime);
+            return this.exitWorker();
+        }
     }
 }
 
@@ -238,6 +245,9 @@ jobs.runJob = function(jobspec, callback)
     jobspec = this.isJob(jobspec);
     if (util.isError(jobspec)) return typeof callback == "function" && callback(jobspec);
 
+    // Current jobs running
+    this.jobs.push(jobspec);
+
     var tasks = Array.isArray(jobspec.job) ? jobspec.job : [ jobspec.job ];
 
     // Sequentially execute all tasks in the list, run all subtasks in parallel
@@ -249,7 +259,11 @@ jobs.runJob = function(jobspec, callback)
                 next2(err && jobspec.noerrors ? err : null);
             });
         }, next);
-    }, callback);
+    }, function(err) {
+        var idx = self.jobs.indexOf(jobspec);
+        if (idx > -1) self.jobs.splice(idx, 1);
+        if (typeof callback == "function") callback(err);
+    });
 }
 
 // Execute a task by name, the `options` will be passed to the function as the first argument, calls the callback on finish or error
