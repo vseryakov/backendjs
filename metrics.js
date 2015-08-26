@@ -456,11 +456,11 @@ function Timer(properties)
 Timer.prototype.start = function()
 {
     var self = this;
-    return { 
-        start: Date.now(), 
-        end: function() { 
+    return {
+        start: Date.now(),
+        end: function() {
             this.elapsed = Date.now() - this.start;
-            self.update(this.elapsed); 
+            self.update(this.elapsed);
         }
     }
 }
@@ -621,8 +621,8 @@ TokenBucket.prototype.toArray = function()
     return [this._rate, this._max, this._count, this._time, this._interval];
 }
 
-// Returns number of milliseconds till the end of the current interval
-TokenBucket.prototype.delay = function()
+// Returns number of milliseconds to wait till number of tokens can be available again
+TokenBucket.prototype.delay = function(tokens)
 {
     return this._interval - (Date.now() - this._time);
 }

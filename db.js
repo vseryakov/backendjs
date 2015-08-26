@@ -800,7 +800,7 @@ db.delAll = function(table, query, options, callback)
     var pool = this.getPool(table, options);
     if (typeof pool.delAll == "function" && typeof options.process != "function") return pool.delAll(table, query, options, callback);
 
-    var cap = db.getCapacity(table);
+    var cap = db.getCapacity(table, { useCapacity: "write", factorCapacity: options.factorCapacity || 0.2 });
 
     // Options without ops for delete
     var opts = lib.cloneObj(options, 'ops', {});
@@ -965,9 +965,13 @@ db.batch = function(table, op, objs, options, callback)
 //  - query - an object with query conditions, same as in `db.select`
 //  - options - same as in `db.select`, with the following additions:
 //    - count - size of every batch, default is 100
+//    - limit - total number of records to scan
 //    - batch - if true rowCallback will be called with all rows from the batch, not every row individually, batch size is defined by the count property
 //    - noscan - if 1 no scan will be performed if no prmary keys are specified
 //    - fullscan - if 1 force to scan full table without using any primary key conditons, use all query properties for all records (DynamoDB)
+//    - useCapacity - triggers to use specific capacity
+//    - factorCapacity - a factor to apply for the read capacity limit and triggers the capcity check usage
+//    - capacity - a full capacity object to pass to select calls
 //  - rowCallback - process records when called like this `callback(rows, next)
 //  - endCallback - end of scan when called like this: `callback(err)
 //
@@ -983,16 +987,23 @@ db.scan = function(table, query, options, rowCallback, endCallback)
     if (typeof options == "function") endCallback = rowCallback, rowCallback = options, options = null;
     options = this.getOptions(table, options);
     if (!options.count) options.count = 100;
+    if (options.useCapacity && options.factorCapacity) {
+        options.capacity = db.getCapacity(table, { useCapacity: options.useCapacity || "read", factorCapacity: options.factorCapacity });
+    }
     options.start = "";
+    options.nrows = 0;
 
     lib.whilst(
       function() {
+          if (options.limit > 0 && options.nrows >= options.limit) return false;
           return options.start != null;
       },
       function(next) {
+          if (options.limit > 0) options.count = Math.min(options.limit - options.nrows, options.count);
           db.select(table, query, options, function(err, rows, info) {
               if (err) return next(err);
               options.start = info.next_token;
+              options.nrows += rows.length;
               if (options.batch) {
                   rowCallback(rows, next);
               } else {
@@ -1068,7 +1079,7 @@ db.migrate = function(table, options, callback)
             db.cacheColumns(options, next);
         },
         function(next) {
-            db.scan(tmptable, {}, { pool: options.tmppool }, function(row, next2) {
+            db.scan(tmptable, {}, { pool: options.tmppool, capacity: cap }, function(row, next2) {
                 options.postprocess(row, options, function(err) {
                     if (err) return next2(err);
                     db.add(table, row, options, function() {
@@ -2078,25 +2089,31 @@ db.getCapacity = function(table, options)
     }
     var use = options && options.useCapacity;
     var factor = options && options.factorCapacity > 0 && options.factorCapacity <= 1 ? options.factorCapacity : 1;
-    cap.rateCapacity = cap.maxCapacity = typeof use == "number" ? use : use == "read" ? cap.readCapacity*factor : cap.writeCapacity*factor;
+    cap.rateCapacity = cap.maxCapacity = Math.max(1, typeof use == "number" ? use : use == "read" ? cap.readCapacity*factor : cap.writeCapacity*factor);
     for (var p in options) cap[p] = options[p];
     if (cap.rateCapacity > 0) cap._tokenBucket = new metrics.TokenBucket(cap.rateCapacity, cap.maxCapacity);
     return cap;
 }
 
-// Check if number of write requests exceeds the capacity per second, delay if necessary, for DynamoDB only but can be used for pacing
-// write requests with any database or can be used generically. The `obj` must be initialized with `db.getCapacity` call.
+// Check if number of requests exceeds the capacity per second, delay if necessary, for DynamoDB only but can be used for pacing
+// requests with any database or can be used generically. The `cap` must be initialized with `db.getCapacity` call.
 db.checkCapacity = function(cap, consumed, callback)
 {
     if (typeof consumed == "function") callback = consumed, consumed = 1;
-    if (cap._tokenBucket) {
-        if (!cap._tokenBucket.consume(consumed)) {
-            setTimeout(callback, cap._tokenBucket.delay());
-            return false;
-        }
-    }
-    callback();
-    return true;
+    if (!cap || !cap._tokenBucket || typeof cap._tokenBucket.consume != "function") return callback();
+
+    if (cap._tokenBucket.consume(consumed)) return callback();
+    logger.debug("checkCapacity:", consumed, cap);
+    // Keep trying one by one until consumed
+    lib.whilst(
+       function() {
+           if (cap._tokenBucket.consume(1)) consumed--;
+           return consumed > 0;
+       },
+       function(next) {
+           setTimeout(next, cap._tokenBucket.delay());
+       },
+       callback);
 }
 
 // Return list of selected or allowed only columns, empty list if no `options.select` is specified

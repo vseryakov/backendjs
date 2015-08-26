@@ -129,13 +129,13 @@ lib.toBool = function(val, dflt)
 lib.toDate = function(val, dflt)
 {
     if (util.isDate(val)) return val;
-    var d = null;
+    var d = NaN;
     // String that looks like a number
     if (typeof val == "string" && /^[0-9\.]+$/.test(val)) val = this.toNumber(val);
     // Assume it is seconds which we use for most mtime columns, convert to milliseconds
     if (typeof val == "number" && val < 2147483647) val *= 1000;
     try { d = new Date(val); } catch(e) {}
-    return !isNaN(d) ? d : new Date(dflt || 0);
+    return util.isDate(d) ? d : new Date(dflt || 0);
 }
 
 // Convert value to the proper type

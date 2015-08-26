@@ -68,7 +68,7 @@ shell.getArgs = function()
     var query = {};
     for (var i = process.argv.length - 1; i > 1; i -= 2) {
         var a = process.argv[i - 1][0], b = process.argv[i][0];
-        if (a == '-') query[process.argv[i - 1]] = b != '-' ? process.argv[i] : 1;
+        if (a == '-') query[process.argv[i - 1].substr(1)] = b != '-' ? process.argv[i] : 1;
     }
     return query;
 }
@@ -258,7 +258,7 @@ shell.cmdDbSelect = function(options)
 {
     var self = this;
     var query = this.getQuery();
-    var opts = this.getOptions();
+    var opts = this.getArgs();
     var table = core.getArg("-table");
     var sep = core.getArg("-separator", "!");
     var fmt = core.getArg("-format");
@@ -280,7 +280,7 @@ shell.cmdDbScan = function(options)
 {
     var self = this;
     var query = this.getQuery();
-    var opts = this.getOptions();
+    var opts = this.getArgs();
     var table = core.getArg("-table");
     var sep = core.getArg("-separator", "!");
     var fmt = core.getArg("-format");
@@ -301,7 +301,7 @@ shell.cmdDbScan = function(options)
 shell.cmdDbBackup = function(options)
 {
     var self = this;
-    var opts = this.getOptions();
+    var opts = this.getArgs();
     var query = this.getQuery();
     var root = core.getArg("-path");
     var filter = core.getArg("-filter");
@@ -331,7 +331,7 @@ shell.cmdDbBackup = function(options)
 shell.cmdDbRestore = function(options)
 {
     var self = this;
-    var opts = this.getOptions();
+    var opts = this.getArgs();
     var root = core.getArg("-path");
     var filter = core.getArg("-filter");
     var tables = lib.strSplit(core.getArg("-tables"));
@@ -391,7 +391,7 @@ shell.cmdDbGet = function(options)
 {
     var self = this;
     var query = this.getQuery();
-    var opts = this.getOptions();
+    var opts = this.getArgs();
     var table = core.getArg("-table");
     var sep = core.getArg("-separator", "!");
     var fmt = core.getArg("-format");
@@ -413,7 +413,7 @@ shell.cmdDbPut = function(options)
 {
     var self = this;
     var query = this.getQuery();
-    var opts = this.getOptions();
+    var opts = this.getArgs();
     var table = core.getArg("-table");
     db.put(table, query, opts, function(err, data) {
         self.exit(err);
@@ -425,7 +425,7 @@ shell.cmdDbDel = function(options)
 {
     var self = this;
     var query = this.getQuery();
-    var opts = this.getOptions();
+    var opts = this.getArgs();
     var table = core.getArg("-table");
     db.del(table, query, opts, function(err, data) {
         self.exit(err);
@@ -437,7 +437,7 @@ shell.cmdDbDelAll = function(options)
 {
     var self = this;
     var query = this.getQuery();
-    var opts = this.getOptions();
+    var opts = this.getArgs();
     var table = core.getArg("-table");
     db.delAll(table, query, opts, function(err, data) {
         self.exit(err);
@@ -448,7 +448,7 @@ shell.cmdDbDelAll = function(options)
 shell.cmdDbDrop = function(options)
 {
     var self = this;
-    var opts = this.getOptions();
+    var opts = this.getArgs();
     var table = core.getArg("-table");
     db.drop(table, opts, function(err, data) {
         self.exit(err);
