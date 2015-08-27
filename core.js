@@ -925,8 +925,21 @@ core.httpGet = function(uri, params, callback)
     } else
     if (params.postfile) {
         if (options.method == "GET") options.method = "POST";
-        options.headers['transfer-encoding'] = 'chunked';
-        params.poststream = fs.createReadableStream(params.postfile);
+        if (params.chunked) {
+            options.headers['transfer-encoding'] = 'chunked';
+        } else {
+            if (!params.postsize && !options.headers["content-length"]) {
+                fs.stat(params.postfile, function(err, stats) {
+                    if (err) return callback(err, params);
+                    params.mtime = stats.mtime.getTime();
+                    params.postsize = stats.size;
+                    self.httpGet(uri, params, callback);
+                });
+                return;
+            }
+            if (params.postsize) options.headers['content-length'] = params.postsize;
+        }
+        params.poststream = fs.createReadStream(params.postfile);
         params.poststream.on("error", function(err) { logger.error('httpGet: stream:', params.postfile, err) });
     }
 

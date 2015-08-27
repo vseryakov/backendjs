@@ -548,7 +548,7 @@ aws.queryS3 = function(bucket, path, options, callback)
 
     var uri = this.signS3(options.method, bucket, path, options);
     core.httpGet(uri, options, function(err, params) {
-        if (err || params.status != 200) return callback(err || lib.newError({ message: "Error: " + params.status, name: "S3", status : params.status}), params.data);
+        if (err || params.status != 200) return callback(err || lib.newError({ message: "Error: " + params.status, name: "S3", status : params.status }), params);
         if (options.json) return self.parseXMLResponse(err, params, callback);
         callback(err, params);
     });
