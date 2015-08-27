@@ -624,7 +624,7 @@ TokenBucket.prototype.toArray = function()
 // Returns number of milliseconds to wait till number of tokens can be available again
 TokenBucket.prototype.delay = function(tokens)
 {
-    return this._interval - (Date.now() - this._time);
+    return this._interval - (tokens >= this._max ? 0 : Date.now() - this._time);
 }
 
 // Return true if this bucket uses the same rates in arguments

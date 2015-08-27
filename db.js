@@ -479,7 +479,7 @@ db.dropPoolTables = function(name, tables, options, callback)
 //     - cached - if true perform cache invalidation for the operations that resulted in modification of the table record(s)
 //     - total - if true then it is supposed to return only one record with property `count`, skip all post processing and convertion
 // - callback(err, rows, info) where
-//    - info is an object with information about the last query: inserted_oid,affected_rows,next_token
+//    - info is an object with information about the last query: inserted_oid,affected_rows,next_token,consumed_capacity
 //    - rows is always returned as a list, even in case of error it is an empty list
 //
 //  Example with SQL driver
@@ -539,6 +539,7 @@ db.query = function(req, options, callback)
                     if (!info.affected_rows) info.affected_rows = client.affected_rows || 0;
                     if (!info.inserted_oid) info.inserted_oid = client.inserted_oid || null;
                     if (!info.next_token) info.next_token = pool.nextToken(client, req, rows, options);
+                    if (!info.consumed_capacity) info.consumed_capacity = client.consumed_capacity || 0;
 
                     pool.release(client);
                     client = null;
@@ -987,8 +988,8 @@ db.scan = function(table, query, options, rowCallback, endCallback)
     if (typeof options == "function") endCallback = rowCallback, rowCallback = options, options = null;
     options = this.getOptions(table, options);
     if (!options.count) options.count = 100;
-    if (options.useCapacity && options.factorCapacity) {
-        options.capacity = db.getCapacity(table, { useCapacity: options.useCapacity || "read", factorCapacity: options.factorCapacity });
+    if (options.useCapacity || options.factorCapacity) {
+        options.capacity = db.getCapacity(table, { useCapacity: options.useCapacity || "read", factorCapacity: options.factorCapacity || 0.9 });
     }
     options.start = "";
     options.nrows = 0;
@@ -2065,18 +2066,12 @@ db.getTableProperties = function(table, options)
     return this.getPool(table, options).dbtables[(table || "").toLowerCase()] || {};
 }
 
-// Return columns for a table or null, columns is an object with column names and objects for definition
-db.getColumns = function(table, options)
-{
-    return this.getPool(table, options).dbcolumns[(table || "").toLowerCase()] || {};
-}
-
 // Return an object with capacity property which is the max write capacity for the table, for DynamoDB only.
 // By default it checks `writeCapacity` property of all table columns and picks the max.
 //
 // The options can specify the capacity explicitely:
 // - useCapacity - what to use for capacity rating, can be `write`, `read` or a number with max capacity to use
-// - factorCapacity - a number between 0 and 1 to multiple the used capacity, only used when useCapacity is read or write.
+// - factorCapacity - a number between 0 and 1 to multiple the rate capacity
 // - rateCapacity - if set it will be used for rate capacity limit
 // - maxCapacity - if set it will be used as the max burst capacity limit
 db.getCapacity = function(table, options)
@@ -2089,7 +2084,8 @@ db.getCapacity = function(table, options)
     }
     var use = options && options.useCapacity;
     var factor = options && options.factorCapacity > 0 && options.factorCapacity <= 1 ? options.factorCapacity : 1;
-    cap.rateCapacity = cap.maxCapacity = Math.max(1, typeof use == "number" ? use : use == "read" ? cap.readCapacity*factor : cap.writeCapacity*factor);
+    cap.maxCapacity = Math.max(1, typeof use == "number" ? use : use == "read" ? cap.readCapacity : cap.writeCapacity);
+    cap.rateCapacity =  Math.max(1, cap.maxCapacity*factor);
     for (var p in options) cap[p] = options[p];
     if (cap.rateCapacity > 0) cap._tokenBucket = new metrics.TokenBucket(cap.rateCapacity, cap.maxCapacity);
     return cap;
@@ -2104,16 +2100,7 @@ db.checkCapacity = function(cap, consumed, callback)
 
     if (cap._tokenBucket.consume(consumed)) return callback();
     logger.debug("checkCapacity:", consumed, cap);
-    // Keep trying one by one until consumed
-    lib.whilst(
-       function() {
-           if (cap._tokenBucket.consume(1)) consumed--;
-           return consumed > 0;
-       },
-       function(next) {
-           setTimeout(next, cap._tokenBucket.delay());
-       },
-       callback);
+    setTimeout(callback, cap._tokenBucket.delay(consumed));
 }
 
 // Return list of selected or allowed only columns, empty list if no `options.select` is specified
