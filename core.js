@@ -829,6 +829,8 @@ core.createServer = function(options, callback)
 //   - file - file name where to save response, in case of error response the error body will be saved as well
 //   - postdata - data to be sent with the request in the body
 //   - postfile - file to be uploaded in the POST body, not as multipart
+//   - postsize - file size to be uploaded if obtained separately
+//   - chunked - post files using chunked encoding
 //   - query - additional query parameters to be added to the url as an object or as encoded string
 //   - sign - sign request with provided email/secret properties
 //   - mtime - a Date or timestamp to be used in conditional requests

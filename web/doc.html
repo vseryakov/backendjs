@@ -3872,6 +3872,8 @@ making it usable for repeating environments or storage solutions.</p>
 <li>file - file name where to save response, in case of error response the error body will be saved as well</li>
 <li>postdata - data to be sent with the request in the body</li>
 <li>postfile - file to be uploaded in the POST body, not as multipart</li>
+<li>postsize - file size to be uploaded if obtained separately</li>
+<li>chunked - post files using chunked encoding</li>
 <li>query - additional query parameters to be added to the url as an object or as encoded string</li>
 <li>sign - sign request with provided email/secret properties</li>
 <li>mtime - a Date or timestamp to be used in conditional requests</li>
@@ -4259,7 +4261,7 @@ for the table to convert values returned from the db into the the format defined
 </ul>
 </li>
 <li>callback(err, rows, info) where<ul>
-<li>info is an object with information about the last query: inserted_oid,affected_rows,next_token</li>
+<li>info is an object with information about the last query: inserted_oid,affected_rows,next_token,consumed_capacity</li>
 <li>rows is always returned as a list, even in case of error it is an empty list</li>
 </ul>
 </li>
@@ -4959,19 +4961,13 @@ and only contains the original properties which are merged with the cached prope
 </ul>
 
 <ul>
-<li><p><code>db.getColumns(table, options)</code></p>
-<p> Return columns for a table or null, columns is an object with column names and objects for definition</p>
-</li>
-</ul>
-
-<ul>
 <li><p><code>db.getCapacity(table, options)</code></p>
 <p> Return an object with capacity property which is the max write capacity for the table, for DynamoDB only.
 By default it checks <code>writeCapacity</code> property of all table columns and picks the max.</p>
 <p>The options can specify the capacity explicitely:</p>
 <ul>
 <li>useCapacity - what to use for capacity rating, can be <code>write</code>, <code>read</code> or a number with max capacity to use</li>
-<li>factorCapacity - a number between 0 and 1 to multiple the used capacity, only used when useCapacity is read or write.</li>
+<li>factorCapacity - a number between 0 and 1 to multiple the rate capacity</li>
 <li>rateCapacity - if set it will be used for rate capacity limit</li>
 <li>maxCapacity - if set it will be used as the max burst capacity limit</li>
 </ul>
@@ -5684,6 +5680,20 @@ have been completed or immediately if there is is an error provided.</p>
 </ul>
 
 <ul>
+<li><p><code>lib.forEachLine(file, options, lineCallback, endCallback)</code></p>
+<p> Call callback for each line in the file
+options may specify the following parameters:</p>
+<ul>
+<li>sync - read file synchronously and call callback for every line</li>
+<li>abort - signal to stop processing</li>
+<li>limit - number of lines to process and exit</li>
+<li>progress - if &gt; 0 report how many lines processed so far every specified lines</li>
+<li>until - skip lines until this regexp matches</li>
+</ul>
+</li>
+</ul>
+
+<ul>
 <li><p><code>lib.parallel(tasks, callback)</code></p>
 <p> Execute a list of functions in parallel and execute a callback upon completion or occurance of an error. Each function will be passed
 a callback to signal completion. The callback accepts an error for the first argument. The iterator and callback will be
@@ -6119,20 +6129,6 @@ options can specify the output in case of an error:</p>
 <ul>
 <li><p><code>lib.copyFile(src, dst, overwrite, callback)</code></p>
 <p> Copy file, overwrite is optional flag, by default do not overwrite</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.forEachLine(file, options, lineCallback, endCallback)</code></p>
-<p> Call callback for each line in the file
-options may specify the following parameters:</p>
-<ul>
-<li>sync - read file synchronously and call callback for every line</li>
-<li>abort - signal to stop processing</li>
-<li>limit - number of lines to process and exit</li>
-<li>progress - if &gt; 0 report how many lines processed so far every specified lines</li>
-<li>until - skip lines until this regexp matches</li>
-</ul>
 </li>
 </ul>
 
