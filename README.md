@@ -2106,6 +2106,17 @@ replacing spaces with %20 is not required.
 As with any node.js module, the backendjs app can be packaged into zip file according to AWS docs and deployed the same way as any other node.js app.
 Inside the app package etc/config file can be setup for any external connections.
 
+## Proxy mode
+
+By default the Web proceses spawned by the server are load balanced using default cluster module whihc relies on the OS to do scheduling. On Linux
+this is proven not to work properly due to the kernel keeping the context switches to a minimum thus resulting in one process to be very busy while the others
+idle.
+
+For such case the Backendjs implements the proxy mode by setting `proxy-port` config paremeter to any number above 1000, this will be the initial
+port for the web processes to listen for incoming requests, for example if use `-proxy-port 3000` and launch 2 web processes they will listen on ports
+3000 and 3001. The main server process will start internal HTTP proxy and will perform round-robin load balancing the incoming requests between the web proceses by forwarding
+them to the web processes over TCP and then returning the responses back to the clients.
+
 ## Configure HTTP port
 
 The first thing when deploying the backend into production is to change API HTTP port, by default is is 8000, but we would want port 80 so regardless
