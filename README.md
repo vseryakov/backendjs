@@ -107,7 +107,11 @@ or simply
 * While the local backendjs is runnning, the documentation is always available at http://localhost:8000/doc.html (or whatever port is the server using)
 
 * Go to http://localhost:8000/api.html for the Web console to test API requests.
-  For this example let's create an account, type and execute the following URLs in the Web console:
+  For this example let's create an account:
+
+  - by default no external module are loaded so it needs the accounts module
+  - restart the backend command from the above with additional parameter: `-allow-modules accounts`
+  - type and execute the following URLs in the Web console:
 
         /account/add?name=test1&secret=test1&login=test1@test.com
 
