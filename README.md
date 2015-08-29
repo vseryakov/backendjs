@@ -1862,6 +1862,9 @@ This will use native PUB/SUB Redis feature.
 To configure the backend to use Redis for job processing set `ipc-queue=redisq://HOST` where HOST is IP address or hostname of the single Redis server.
 This driver implements reliable Redis queue, with `visibilityTimeout` config option works similar to AWS SQS.
 
+Once configured, then all calls to `jobs.submitJob` will push jobs to be executed to the Redis queue, starting somewhere a backend master
+process with `-jobs-workers 2` will launch 2 worker processes which will start pulling jobs from the queue and execute.
+
 ## RabbitMQ
 To configure the backend to use RabbitMQ for messaging set `ipc-queue=amqp://HOST` and optionally `amqp-options=JSON` with options to the amqp module.
 Additional objects from the config JSON are used for specific AMQP functions: { queueParams: {}, subscribeParams: {}, publishParams: {} }. These
@@ -1873,7 +1876,7 @@ with the update takes the job and executes it. It is not effective but can be us
 The advantage is that it uses the same database and does not quire additional servers.
 
 ## SQS
-To use AWS SQS for job processing set `ipc-queue=https://sqs.amazonaws.com....`, this queue system will poll SQS for new messges on a worker
+To use AWS SQS for job processing set `ipc-queue=https://sqs.amazonaws.com....`, this queue system will poll SQS for new messeges on a worker
 and after succsesful execution will delete the message. For long running jobs it will automatically extend visibility timeout if it is configured.
 
 ## Local

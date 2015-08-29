@@ -222,7 +222,8 @@ jobs.isJob = function(jobspec)
 }
 
 // Submit a job for execution, it will be saved in a queue and will be picked up later and executed.
-// The queue and the way how it will be executed depends on the configured queue.
+// The queue and the way how it will be executed depends on the configured queue. See `isJob` for
+// the format of the job objects.
 jobs.submitJob = function(jobspec, options, callback)
 {
     if (typeof options == "function") callback = options, options = {};

@@ -1822,6 +1822,8 @@ This will use native PUB/SUB Redis feature.</p>
 <h2 id="redis-queue">Redis Queue</h2>
 <p>To configure the backend to use Redis for job processing set <code>ipc-queue=redisq://HOST</code> where HOST is IP address or hostname of the single Redis server.
 This driver implements reliable Redis queue, with <code>visibilityTimeout</code> config option works similar to AWS SQS.</p>
+<p>Once configured, then all calls to <code>jobs.submitJob</code> will push jobs to be executed to the Redis queue, starting somewhere a backend master
+process with <code>-jobs-workers 2</code> will launch 2 worker processes which will start pulling jobs from the queue and execute.</p>
 <h2 id="rabbitmq">RabbitMQ</h2>
 <p>To configure the backend to use RabbitMQ for messaging set <code>ipc-queue=amqp://HOST</code> and optionally <code>amqp-options=JSON</code> with options to the amqp module.
 Additional objects from the config JSON are used for specific AMQP functions: { queueParams: {}, subscribeParams: {}, publishParams: {} }. These
@@ -1831,7 +1833,7 @@ will be passed to the corresponding AMQP methods: <code>amqp.queue, amqp.queue.s
 with the update takes the job and executes it. It is not effective but can be used for simple and not busy systems for more or less long jobs.
 The advantage is that it uses the same database and does not quire additional servers.</p>
 <h2 id="sqs">SQS</h2>
-<p>To use AWS SQS for job processing set <code>ipc-queue=https://sqs.amazonaws.com....</code>, this queue system will poll SQS for new messges on a worker
+<p>To use AWS SQS for job processing set <code>ipc-queue=https://sqs.amazonaws.com....</code>, this queue system will poll SQS for new messeges on a worker
 and after succsesful execution will delete the message. For long running jobs it will automatically extend visibility timeout if it is configured.</p>
 <h2 id="local">Local</h2>
 <p>The local queue is implemented on the master process as a list, communication is done via local sockets between the master and workers.
@@ -5408,7 +5410,8 @@ must be in the following formats:</p>
 <ul>
 <li><p><code>jobs.submitJob(jobspec, options, callback)</code></p>
 <p> Submit a job for execution, it will be saved in a queue and will be picked up later and executed.
-The queue and the way how it will be executed depends on the configured queue.</p>
+The queue and the way how it will be executed depends on the configured queue. See <code>isJob</code> for
+the format of the job objects.</p>
 </li>
 </ul>
 
