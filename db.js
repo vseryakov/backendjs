@@ -719,7 +719,7 @@ db.updateAll = function(table, query, obj, options, callback)
     if (typeof pool.updateAll == "function" && typeof options.process != "function") return pool.updateAll(table, query, obj, options, callback);
 
     var cap = db.getCapacity(table, { useCapacity: "write", factorCapacity: options.factorCapacity || 0.25 });
-    self.select(table, query, options, function(err, rows) {
+    this.select(table, query, options, function(err, rows) {
         if (err) return callback(err);
 
         lib.forEachLimit(rows, options.concurrency || 1, function(row, next) {
@@ -805,7 +805,7 @@ db.delAll = function(table, query, options, callback)
 
     // Options without ops for delete
     var opts = lib.cloneObj(options, 'ops', {});
-    self.select(table, query, options, function(err, rows) {
+    this.select(table, query, options, function(err, rows) {
         if (err) return callback(err);
 
         lib.forEachLimit(rows, options.concurrency || 1, function(row, next) {
@@ -851,7 +851,7 @@ db.replace = function(table, obj, options, callback)
     } else
     // Check if values are different from existing value, skip if the records are the same by comparing every field
     if (options.check_data) {
-        var cols = self.getColumns(table, options);
+        var cols = this.getColumns(table, options);
         var list = Array.isArray(options.check_data) ? options.check_data : Object.keys(obj);
         select = list.filter(function(x) { return x[0] != "_"  && x != 'mtime' && keys.indexOf(x) == -1 && (x in cols); }).join(',');
         if (!select) select = keys[0];
@@ -860,13 +860,13 @@ db.replace = function(table, obj, options, callback)
     var req = this.prepare("get", table, obj, { select: select, pool: options.pool });
     if (!req) {
         if (options.put_only) return callback(null, []);
-        return self.add(table, obj, options, callback);
+        return this.add(table, obj, options, callback);
     }
 
     // Create deep copy of the object so we have it complete inside the callback
     obj = lib.cloneObj(obj);
 
-    self.query(req, options, function(err, rows) {
+    this.query(req, options, function(err, rows) {
         if (err) return callback(err, []);
 
         logger.debug('db.replace:', req, rows.length);
@@ -919,11 +919,12 @@ db.list = function(table, query, options, callback)
 }
 
 // Perform a batch of operations at the same time.
-// - op - is one of add, put, update, del
+// - op - is one of add, incr, put, update, del
 // - objs a list of objects to put/delete from the database
 // - options can have the follwoing:
 //   - concurrency - number of how many operations to run at the same time, 1 means sequential
 //   - ignore_error - will run all operations without stopping on error, the callback will have third argument which is an array of arrays with failed operations
+//   - factorCapacity - a capacity factor to apply to the write capacity if present, by default it is used write capacity at 100%
 //
 //  Example:
 //
@@ -942,13 +943,14 @@ db.batch = function(table, op, objs, options, callback)
     if (pool.batch) return pool.batch(table, op, objs, options, callback);
     var info = [];
 
+    var cap = db.getCapacity(table, options);
     lib.forEachLimit(objs, options.concurrency || 1, function(obj, next) {
         db[op](table, obj, options, function(err) {
-            if (err && options.ignore_error) {
+            if (err) {
+                if (!options.ignore_error) return next(err);
                 info.push([ err, obj ]);
-                return next();
             }
-            next(err);
+            db.checkCapacity(cap, next);
         });
     }, function(err) {
         callback(err, [], info);
@@ -2135,6 +2137,7 @@ db.joinColumn = function(op, obj, name, col, options, old)
 {
     if (col &&
         Array.isArray(col.join) &&
+        !(options && options.noJoinColumns) &&
         (!Array.isArray(col.joinOps) || col.joinOps.indexOf(op) > -1) &&
         (!options || !Array.isArray(options.skip_join) || options.skip_join.indexOf(name) == -1)) {
         var separator = col.separator || this.separator;

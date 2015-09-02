@@ -9,7 +9,7 @@ Bkjs.showAlert = function(obj, type, text, options)
 {
     if (typeof obj == "string") options = text, text = type, type = obj, obj = $("body");
     if (!options) options = {};
-    text = "<div class='alert alert-dissmisible alert-" + type + "' role='alert'>" + text
+    text = "<div class='alert alert-dissmisible alert-" + type + "' role='alert'>" + (typeof text == "string" ? text : JSON.stringify(text))
     if (options.dismiss) text += '<button type="button" class="close" data-dismiss="alert"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>';
     text += "</div>";
     $(obj).find(".alerts").empty().append(text);
