@@ -214,7 +214,7 @@ lib.toRegexpObj = function(obj, val, options)
             if (options && options.set) obj.list = [];
             if (!Array.isArray(val)) val = [ val ];
             for (var i in val) {
-                if (obj.list.indexOf(val) == -1) obj.list.push(val);
+                if (obj.list.indexOf(val[i]) == -1) obj.list.push(val[i]);
             }
         }
     }
