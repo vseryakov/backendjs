@@ -12,6 +12,7 @@
 </ul>
 </li>
 <li><a href="#database-schema-definition"> Database schema definition</a></li>
+<li><a href="#api-requests-handling"> API requests handling</a></li>
 <li><a href="#example-of-todo-application"> Example of TODO application</a></li>
 <li><a href="#api-endpoints-provided-by-the-backend"> API endpoints provided by the backend</a><ul>
 <li><a href="#authentication-and-sessions"> Authentication and sessions</a></li>
@@ -437,6 +438,23 @@ hooks are registered and return data itself then it is the hook responsibility t
     {
        if (row.birthday) row.age = Math.floor((Date.now() - core.toDate(row.birthday))/(86400000*365));
     }
+</code></pre>
+<h1 id="api-requests-handling">API requests handling</h1>
+<p>All methods will put input parameters in the <code>req.query</code>, GET or POST.</p>
+<p>One way to verify input values is to use <code>lib.toParams</code>, only specified parameters will be returned and converted according to
+the type or ignored.</p>
+<p>Example:</p>
+<pre><code class="lang-javascript">   var params = {
+      test1: { id: { type: &quot;text&quot; },
+               count: { type: &quot;int&quot; },
+               email: { regexp: /^[^@]+@[^@]+$/ }
+      }
+   };
+
+   api.app.all(&quot;/endpoint/test1&quot;, function(req, res) {
+      var query = lib.toParams(req.query, params.test1);
+      ...
+   });
 </code></pre>
 <h1 id="example-of-todo-application">Example of TODO application</h1>
 <p>Here is an example how to create simple TODO application using any database supported by the backend. It supports basic
@@ -1684,7 +1702,7 @@ concatenated with the domain and queried for the TXT record, for example: <code>
  bkjs.server.start()
 </code></pre></li>
 <li><p>Start the jobs queue and the web server at once</p>
-<pre><code> bkjs run-backend -master -web -jobs-workers 1
+<pre><code> bkjs run-backend -master -web -jobs-workers 1 -jobs-cron
 </code></pre></li>
 </ol>
 </li>
@@ -1824,6 +1842,20 @@ This will use native PUB/SUB Redis feature.</p>
 This driver implements reliable Redis queue, with <code>visibilityTimeout</code> config option works similar to AWS SQS.</p>
 <p>Once configured, then all calls to <code>jobs.submitJob</code> will push jobs to be executed to the Redis queue, starting somewhere a backend master
 process with <code>-jobs-workers 2</code> will launch 2 worker processes which will start pulling jobs from the queue and execute.</p>
+<p>An example of how to perform jobs in the API routes:</p>
+<pre><code class="lang-javascript">   app.processAccounts = function(options, callback) {
+       db.select(&quot;bk_account&quot;, { type: options.type || &quot;user&quot; }, function(err, rows) {
+          ...
+          callback();
+       });
+   }
+
+   api.all(&quot;/process/accounts&quot;, function(req, res) {
+       jobs.submitJob({ job: { &quot;app.processAccounts&quot;: { type: req.query.type } } }, function(err) {
+          api.sendReply(res, err);
+       });
+   });
+</code></pre>
 <h2 id="rabbitmq">RabbitMQ</h2>
 <p>To configure the backend to use RabbitMQ for messaging set <code>ipc-queue=amqp://HOST</code> and optionally <code>amqp-options=JSON</code> with options to the amqp module.
 Additional objects from the config JSON are used for specific AMQP functions: { queueParams: {}, subscribeParams: {}, publishParams: {} }. These
@@ -1856,21 +1888,21 @@ rendering is done using Javascript. This is how the <code>api.html</code> develp
 during the initialization on every html page, it will enable Web sessions for the site and then no need to sign every API reauest.</p>
 <p>The typical client Javascript verification for the html page may look like this, it will redirect to login page if needed,
 this assumes the default path &#39;/public&#39; still allowed without the signature:</p>
-<pre><code class="lang-javascript">        &lt;script src=&quot;/js/jquery.js&quot;&gt;&lt;/script&gt;
-        &lt;link href=&quot;/css/bootstrap.css&quot; rel=&quot;stylesheet&quot;&gt;
-        &lt;script src=&quot;/js/bootstrap.js&quot;&gt;&lt;/script&gt;
-        &lt;script src=&quot;/js/knockout.js&quot; type=&quot;text/javascript&quot;&gt;&lt;/script&gt;
-        &lt;script src=&quot;/js/crypto.js&quot; type=&quot;text/javascript&quot;&gt;&lt;/script&gt;
-        &lt;script src=&quot;/js/bkjs.js&quot; type=&quot;text/javascript&quot;&gt;&lt;/script&gt;
-        &lt;script src=&quot;/js/bkjs-bootstrap.js&quot; type=&quot;text/javascript&quot;&gt;&lt;/script&gt;
-        &lt;script src=&quot;/js/bkjs-ko.js&quot; type=&quot;text/javascript&quot;&gt;&lt;/script&gt;
-        &lt;script&gt;
-        $(function () {
-            Bkjs.session = true;
-            $(Bkjs).on(&quot;nologin&quot;, function() { window.location=&#39;/public/index.html&#39;; });
-            Bkjs.koInit();
-        });
-        &lt;/script&gt;
+<pre><code class="lang-javascript">   &lt;script src=&quot;/js/jquery.js&quot;&gt;&lt;/script&gt;
+   &lt;link href=&quot;/css/bootstrap.css&quot; rel=&quot;stylesheet&quot;&gt;
+   &lt;script src=&quot;/js/bootstrap.js&quot;&gt;&lt;/script&gt;
+   &lt;script src=&quot;/js/knockout.js&quot; type=&quot;text/javascript&quot;&gt;&lt;/script&gt;
+   &lt;script src=&quot;/js/crypto.js&quot; type=&quot;text/javascript&quot;&gt;&lt;/script&gt;
+   &lt;script src=&quot;/js/bkjs.js&quot; type=&quot;text/javascript&quot;&gt;&lt;/script&gt;
+   &lt;script src=&quot;/js/bkjs-bootstrap.js&quot; type=&quot;text/javascript&quot;&gt;&lt;/script&gt;
+   &lt;script src=&quot;/js/bkjs-ko.js&quot; type=&quot;text/javascript&quot;&gt;&lt;/script&gt;
+   &lt;script&gt;
+    $(function () {
+       Bkjs.session = true;
+       $(Bkjs).on(&quot;nologin&quot;, function() { window.location=&#39;/public/index.html&#39;; });
+       Bkjs.koInit();
+   });
+   &lt;/script&gt;
 </code></pre>
 <h2 id="secure-web-site-backend-verification">Secure Web site, backend verification</h2>
 <p>On the backend side in your application app.js it needs more secure settings defined i.e. no html except /public will be accessible and
@@ -1879,24 +1911,24 @@ html pages to work after login without singing every API request.</p>
 <ol>
 <li>We disable all allowed paths to the html and registration:</li>
 </ol>
-<pre><code class="lang-javascript">        app.configureMiddleware = function(options, callback) {
-            self.allow.splice(self.allow.indexOf(&#39;^/$&#39;), 1);
-            self.allow.splice(self.allow.indexOf(&#39;\\.html$&#39;), 1);
-            self.allow.splice(self.allow.indexOf(&#39;^/account/add$&#39;), 1);
-            callback();
-        }
+<pre><code class="lang-javascript">   app.configureMiddleware = function(options, callback) {
+      this.allow.splice(this.allow.indexOf(&#39;^/$&#39;), 1);
+      this.allow.splice(this.allow.indexOf(&#39;\\.html$&#39;), 1);
+      this.allow.splice(this.allow.indexOf(&#39;^/account/add$&#39;), 1);
+      callback();
+   }
 </code></pre>
 <ol>
 <li>We define an auth callback in the app and redirect to login if the reauest has no valid signature, we check all html pages, all allowed html pages from the /public
 will never end up in this callback because it is called after the signature check but allowed pages are served before that:</li>
 </ol>
-<pre><code class="lang-javascript">        api.registerPreProcess(&#39;&#39;, /^\/$|\.html$/, function(req, status, callback) {
-            if (status.status != 200) {
-                status.status = 302;
-                status.url = &#39;/public/index.html&#39;;
-            }
-            callback(status);
-        });
+<pre><code class="lang-javascript">   api.registerPreProcess(&#39;&#39;, /^\/$|\.html$/, function(req, status, callback) {
+      if (status.status != 200) {
+          status.status = 302;
+          status.url = &#39;/public/index.html&#39;;
+      }
+      callback(status);
+   });
 </code></pre>
 <h1 id="websockets-connections">WebSockets connections</h1>
 <p>The simplest way is to configure <code>ws-port</code> to the same value as the HTTP port. This will run WebSockets server along the regular Web server.
@@ -4467,11 +4499,12 @@ db.list(&quot;bk_account&quot;, &quot;id1,id2&quot;, function(err, rows) { conso
 <li><p><code>db.batch(table, op, objs, options, callback)</code></p>
 <p> Perform a batch of operations at the same time.</p>
 <ul>
-<li>op - is one of add, put, update, del</li>
+<li>op - is one of add, incr, put, update, del</li>
 <li>objs a list of objects to put/delete from the database</li>
 <li>options can have the follwoing:<ul>
 <li>concurrency - number of how many operations to run at the same time, 1 means sequential</li>
 <li>ignore_error - will run all operations without stopping on error, the callback will have third argument which is an array of arrays with failed operations</li>
+<li>factorCapacity - a capacity factor to apply to the write capacity if present, by default it is used write capacity at 100%</li>
 </ul>
 </li>
 </ul>
@@ -4786,7 +4819,7 @@ then <code>info.affected_rows</code> must be non zero.</p>
 </ul>
 
 <ul>
-<li><p><code>db.describeTables(tables)</code></p>
+<li><p><code>db.describeTables(tables, callback)</code></p>
 <p> Define new tables or extend/customize existing tables. Table definitions are used with every database operation,
 on startup, the backend read all existing table columns from the database and cache them in the memory but some properties
 like public columns are only specific to the backend so to mark such columns the table with such properties must be described
@@ -5603,6 +5636,7 @@ or default message, this is useful for detection of invalid or missing input dat
                                           code: { type: &quot;string&quot;, regexp: /^[a-z]-[0-9]+$/, errmsg: &quot;Valid code is required&quot; },
                                           start: { type: &quot;token&quot;, required: 1 },
                                           data: { type: &quot;json&quot;, obj: 1 },
+                                          mtime: { type: &quot;mtime&quot; },
                                           email: { type: &quot;list&quot;, datatype: &quot;string } },
                                           ssn: { type: &quot;string&quot;, regexp: /^[0-9]{3}-[0-9]{3}-[0-9]{4}$/, errmsg: &quot;Valid SSN is required&quot; } },
                                           phone: { type: &quot;list&quot;, datatype: &quot;number } },
@@ -7180,10 +7214,10 @@ return a status in the range 200-299.</li>
 <li>name is the name property to look for in the multipart body or in the request body or query</li>
 <li>callback will be called with err and actual filename saved
 Output file name is built according to the following options properties:</li>
-<li>name - defines the basename for the file, no extention, if not given same name as property will be used</li>
+<li>name - defines the output name for the file, if not given same name as property will be used</li>
 <li>prefix - the folder prefix where the file will be uploaded, all leading folders will be created automatically</li>
-<li>ext - what file extention to use, appended to name, if no ext is given the extension from the uploaded file will be used or no extention if could not determine one.</li>
-<li>extkeep - tells always to keep actual extention from the uploaded file</li>
+<li>ext - what file extention to use, appended to the name, if no ext is given the extension from the uploaded file will be used or no extention if could not determine one.</li>
+<li>extkeep - tells always to keep actual extention from the uploaded file, ignore the ext parameter</li>
 <li>encoding - encoding of the body, default is base64</li>
 </ul>
 </li>

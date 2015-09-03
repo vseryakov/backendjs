@@ -376,6 +376,29 @@ hooks are registered and return data itself then it is the hook responsibility t
     }
 ```
 
+# API requests handling
+
+All methods will put input parameters in the `req.query`, GET or POST.
+
+One way to verify input values is to use `lib.toParams`, only specified parameters will be returned and converted according to
+the type or ignored.
+
+Example:
+
+```javascript
+   var params = {
+      test1: { id: { type: "text" },
+               count: { type: "int" },
+               email: { regexp: /^[^@]+@[^@]+$/ }
+      }
+   };
+
+   api.app.all("/endpoint/test1", function(req, res) {
+      var query = lib.toParams(req.query, params.test1);
+      ...
+   });
+```
+
 # Example of TODO application
 
 Here is an example how to create simple TODO application using any database supported by the backend. It supports basic
@@ -1732,7 +1755,7 @@ The backend directory structure is the following:
 
         3. Start the jobs queue and the web server at once
 
-                bkjs run-backend -master -web -jobs-workers 1
+                bkjs run-backend -master -web -jobs-workers 1 -jobs-cron
 
     * etc/crontab.local - additional local crontab that is read after the main one, for local or dev environment
 
@@ -1865,6 +1888,24 @@ This driver implements reliable Redis queue, with `visibilityTimeout` config opt
 Once configured, then all calls to `jobs.submitJob` will push jobs to be executed to the Redis queue, starting somewhere a backend master
 process with `-jobs-workers 2` will launch 2 worker processes which will start pulling jobs from the queue and execute.
 
+An example of how to perform jobs in the API routes:
+
+```javascript
+   app.processAccounts = function(options, callback) {
+       db.select("bk_account", { type: options.type || "user" }, function(err, rows) {
+          ...
+          callback();
+       });
+   }
+
+   api.all("/process/accounts", function(req, res) {
+       jobs.submitJob({ job: { "app.processAccounts": { type: req.query.type } } }, function(err) {
+          api.sendReply(res, err);
+       });
+   });
+
+```
+
 ## RabbitMQ
 To configure the backend to use RabbitMQ for messaging set `ipc-queue=amqp://HOST` and optionally `amqp-options=JSON` with options to the amqp module.
 Additional objects from the config JSON are used for specific AMQP functions: { queueParams: {}, subscribeParams: {}, publishParams: {} }. These
@@ -1911,21 +1952,21 @@ The typical client Javascript verification for the html page may look like this,
 this assumes the default path '/public' still allowed without the signature:
 
 ```javascript
-        <script src="/js/jquery.js"></script>
-        <link href="/css/bootstrap.css" rel="stylesheet">
-        <script src="/js/bootstrap.js"></script>
-        <script src="/js/knockout.js" type="text/javascript"></script>
-        <script src="/js/crypto.js" type="text/javascript"></script>
-        <script src="/js/bkjs.js" type="text/javascript"></script>
-        <script src="/js/bkjs-bootstrap.js" type="text/javascript"></script>
-        <script src="/js/bkjs-ko.js" type="text/javascript"></script>
-        <script>
-        $(function () {
-            Bkjs.session = true;
-            $(Bkjs).on("nologin", function() { window.location='/public/index.html'; });
-            Bkjs.koInit();
-        });
-        </script>
+   <script src="/js/jquery.js"></script>
+   <link href="/css/bootstrap.css" rel="stylesheet">
+   <script src="/js/bootstrap.js"></script>
+   <script src="/js/knockout.js" type="text/javascript"></script>
+   <script src="/js/crypto.js" type="text/javascript"></script>
+   <script src="/js/bkjs.js" type="text/javascript"></script>
+   <script src="/js/bkjs-bootstrap.js" type="text/javascript"></script>
+   <script src="/js/bkjs-ko.js" type="text/javascript"></script>
+   <script>
+    $(function () {
+       Bkjs.session = true;
+       $(Bkjs).on("nologin", function() { window.location='/public/index.html'; });
+       Bkjs.koInit();
+   });
+   </script>
 ```
 
 ## Secure Web site, backend verification
@@ -1936,25 +1977,25 @@ html pages to work after login without singing every API request.
 1. We disable all allowed paths to the html and registration:
 
 ```javascript
-        app.configureMiddleware = function(options, callback) {
-            self.allow.splice(self.allow.indexOf('^/$'), 1);
-            self.allow.splice(self.allow.indexOf('\\.html$'), 1);
-            self.allow.splice(self.allow.indexOf('^/account/add$'), 1);
-            callback();
-        }
+   app.configureMiddleware = function(options, callback) {
+      this.allow.splice(this.allow.indexOf('^/$'), 1);
+      this.allow.splice(this.allow.indexOf('\\.html$'), 1);
+      this.allow.splice(this.allow.indexOf('^/account/add$'), 1);
+      callback();
+   }
 ```
 
 2. We define an auth callback in the app and redirect to login if the reauest has no valid signature, we check all html pages, all allowed html pages from the /public
 will never end up in this callback because it is called after the signature check but allowed pages are served before that:
 
 ```javascript
-        api.registerPreProcess('', /^\/$|\.html$/, function(req, status, callback) {
-            if (status.status != 200) {
-                status.status = 302;
-                status.url = '/public/index.html';
-            }
-            callback(status);
-        });
+   api.registerPreProcess('', /^\/$|\.html$/, function(req, status, callback) {
+      if (status.status != 200) {
+          status.status = 302;
+          status.url = '/public/index.html';
+      }
+      callback(status);
+   });
 ```
 
 # WebSockets connections
