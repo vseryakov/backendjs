@@ -623,10 +623,10 @@ core.processArgs = function(ctx, argv, pass)
                     put(obj, name, val ? new RegExp(val) : val, x);
                     break;
                 case "regexpobj":
-                    obj[name] = lib.toRegexpObj(x.set ? null : obj[name], val, x.del);
+                    obj[name] = lib.toRegexpObj(x.set ? null : obj[name], val, x);
                     break;
                 case "regexpmap":
-                    obj[name] = lib.toRegexpMap(x.set ? null : obj[name], val);
+                    obj[name] = lib.toRegexpMap(x.set ? null : obj[name], val, x);
                     break;
                 case "url":
                     put(obj, name, val ? url.parse(val) : val, x);

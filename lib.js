@@ -185,12 +185,14 @@ lib.toValue = function(val, type)
 }
 
 // Add a regexp to the list of regexp objects, this is used in the config type `regexpmap`.
-lib.toRegexpMap = function(obj, val)
+lib.toRegexpMap = function(obj, val, options)
 {
     if (val == null) return [];
     if (this.typeName(obj) != "array") obj = [];
+    if (options && options.set) obj = [];
     val = this.jsonParse(val, { obj: 1, error: 1 });
     for (var p in val) {
+        if (obj.some(function(x) { return x.list.indexOf(p) > -1 })) continue;
         var item = this.toRegexpObj(null, p);
         item.value = val[p];
         if (item.reset) obj = [];
@@ -200,16 +202,20 @@ lib.toRegexpMap = function(obj, val)
 }
 
 // Add a regexp to the object that consist of list of patterns and compiled regexp, this is used in the config type `regexpobj`
-lib.toRegexpObj = function(obj, val, del)
+lib.toRegexpObj = function(obj, val, options)
 {
     if (val == null) obj = null;
     if (this.typeName(obj) != "object") obj = {};
     if (!Array.isArray(obj.list)) obj.list = [];
     if (val) {
-        if (del) {
+        if (options && options.del) {
             obj.list.splice(obj.list.indexOf(val), 1);
         } else {
-            if (Array.isArray(val)) obj.list = obj.list.concat(val); else obj.list.push(val);
+            if (options && options.set) obj.list = [];
+            if (!Array.isArray(val)) val = [ val ];
+            for (var i in val) {
+                if (obj.list.indexOf(val) == -1) obj.list.push(val);
+            }
         }
     }
     obj.rx = null;
