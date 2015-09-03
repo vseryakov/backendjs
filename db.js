@@ -757,7 +757,7 @@ db.incr = function(table, obj, options, callback)
         if (!lib.isObject(options.updateOps)) options.updateOps = {};
         var cols = this.getColumns(table, options);
         for (var p in cols) {
-            if (cols[p].type == "counter") options.updateOps[p] = "incr";
+            if (cols[p].type == "counter" && obj[p]) options.updateOps[p] = "incr";
         }
     }
 
