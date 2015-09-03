@@ -305,6 +305,7 @@ lib.toAge = function(mtime)
 //                                                code: { type: "string", regexp: /^[a-z]-[0-9]+$/, errmsg: "Valid code is required" },
 //                                                start: { type: "token", required: 1 },
 //                                                data: { type: "json", obj: 1 },
+//                                                mtime: { type: "mtime" },
 //                                                email: { type: "list", datatype: "string } },
 //                                                ssn: { type: "string", regexp: /^[0-9]{3}-[0-9]{3}-[0-9]{4}$/, errmsg: "Valid SSN is required" } },
 //                                                phone: { type: "list", datatype: "number } },
@@ -350,6 +351,9 @@ lib.toParams = function(query, schema, options)
             break;
         case "token":
             if (v) rc[name] = this.base64ToJson(v, opts.secret);
+            break;
+        case "mtime":
+            if (v) rc[name] = this.toDate(v).getTime();
             break;
         case "date":
         case "time":

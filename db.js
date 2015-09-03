@@ -1576,7 +1576,7 @@ db.convertError = function(table, op, err, options)
 //                              test: { id: { primary: 1, type: "int" },
 //                                      name: { pub: 1, index: 1 } });
 //
-db.describeTables = function(tables)
+db.describeTables = function(tables, callback)
 {
     var changed = false;
     for (var p in tables) {
@@ -1590,7 +1590,11 @@ db.describeTables = function(tables)
         }
     }
     // If this is called after the db pools are created we have to merge it with the all active pools
-    if (changed && Object.keys(this.pools).length > 1) return setImmediate(this.mergeTables.bind(this));
+    if (changed && Object.keys(this.pools).length > 1) {
+        setImmediate(this.mergeTables.bind(this, callback));
+    } else {
+        if (typeof callback == "function") callback();
+    }
 }
 
 // Merge columns for all table in all pools tables with the global list of tables
@@ -1605,7 +1609,7 @@ db.mergeTables = function(callback)
             self.mergeColumns(pool);
             next();
         });
-    });
+    }, callback);
 }
 
 // Reload all columns into the cache for the pool
