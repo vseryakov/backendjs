@@ -1531,11 +1531,14 @@ aws.queryExpression = function(obj, options)
                 if (!val.length) break;
                 var vals = [];
                 for (var i = 0; i < val.length; i++) {
+                    if (!val[i]) continue;
                     vals.push(":v" + v);
                     values["v" + v++] = val[i];
                 }
+                if (!vals.length) break;
                 expr.push((op[0] == 'n' ? "not " : "") + name + " in (" + vals + ")");
-            } else {
+            } else
+            if (val) {
                 expr.push(name + " " + (op[0] == 'n' ? "<>" : "=") + " :v" + n);
                 values["v" + v++] = val;
             }

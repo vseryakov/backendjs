@@ -1331,7 +1331,7 @@ db.getLocations = function(table, query, options, callback)
 //         `select` property might be used to get all required properties._
 //    - desc - if sorting, do in descending order
 //    - page - starting page number for pagination, uses count to find actual record to start
-//    - unique - specified the column name to be used in determinint unique records, if for some reasons there are multiple record in the location
+//    - unique - specified the column name to be used in determining unique records, if for some reasons there are multiple records in the location
 //        table for the same id only one instance will be returned
 //
 // On return, the callback can check third argument which is an object with some predefined properties along with driver specific properties returned by the query:
@@ -1804,9 +1804,13 @@ db.prepareRow = function(pool, op, table, obj, options)
             switch (options.ops[p]) {
             case "in":
             case "between":
-                if (obj[p] && !Array.isArray(obj[p])) {
-                    var type = cols[p] ? cols[p].type : "";
-                    obj[p] = lib.strSplit(obj[p], null, type);
+                if (!Array.isArray(obj[p])) {
+                    if (obj[p]) {
+                        var type = cols[p] ? cols[p].type : "";
+                        obj[p] = lib.strSplit(obj[p], null, type);
+                    } else {
+                        delete obj[p];
+                    }
                 }
                 break;
             }
