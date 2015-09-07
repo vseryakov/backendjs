@@ -15,12 +15,6 @@
 #include <uv.h>
 #include "bksqlite.h"
 
-#ifdef USE_NANOMSG
-#include <nanomsg/nn.h>
-#include <nanomsg/pipeline.h>
-#include <nanomsg/reqrep.h>
-#endif
-
 using namespace node;
 using namespace v8;
 using namespace std;

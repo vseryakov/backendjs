@@ -536,9 +536,6 @@ void backend_init(Handle<Object> target)
 #ifdef USE_MYSQL
     MysqlInit(target);
 #endif
-#ifdef USE_NANOMSG
-    NanoMsgInit(target);
-#endif
 }
 
 NODE_MODULE(backend, backend_init);

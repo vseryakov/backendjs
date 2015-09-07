@@ -1064,18 +1064,6 @@ EOF
         (cd deps/openjpeg && make install)
     fi
 
-    pkg-config --silence-errors --exists libnanomsg
-    if [ "$?" = "1" -a "$npm_config_backendjs_nanomsg" != "" ]; then
-        if [ ! -d deps/nanomsg ]; then
-            nrepo=nanomsg
-            [ "$npm_config_backendjs_nanomsg_dev" != "" ] && nrepo=vseryakov
-            (cd deps && git clone https://github.com/$nrepo/nanomsg.git)
-        fi
-        (cd deps/nanomsg && git pull && [ ! -f configure ] && ./autogen.sh)
-        (cd deps/nanomsg && [ ! -f Makefile ] && ./configure --prefix=$BKJS_PREFIX --enable-static --disable-shared)
-        (cd deps/nanomsg && make install)
-    fi
-
     pkg-config --silence-errors --exists Wand
     if [ "$?" = "1" -a "$npm_config_backendjs_imagemagick" != "" ]; then
         if [ ! -d deps/ImageMagick ]; then
@@ -1092,7 +1080,6 @@ EOF
   clean-deps)
     [ -d deps/node ] && make -C deps/node clean distclean
     [ -d deps/ImageMagick ] && make -C deps/ImageMagick clean distclean
-    [ -d deps/nanomsg ] && make -C deps/nanomsg clean distclean
     ;;
 
   pack-app)

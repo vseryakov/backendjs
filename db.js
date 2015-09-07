@@ -80,7 +80,7 @@ var metrics = require(__dirname + "/metrics");
 //
 // All these drivers fully support all methods and operations, some natively, some with emulation in the user space except Redis driver cannot perform sorting
 // due to using Hash items for records, sorting can be done in memory but with pagination it is not possible so this part must be mentioned specifically. But the rest of the
-// opertions on top of Redis are fully supported which makes it a good candidate to use for in-memory tables like sessions with the same database API, later moving to
+// operations on top of Redis are fully supported which makes it a good candidate to use for in-memory tables like sessions with the same database API, later moving to
 // other database will not require any application code changes.
 //
 // Multiple connections of the same type can be opened, just add -n suffix to all database config parameters where n is 1 to 5, referer to such pools int he code as `pgsql1`.
@@ -689,6 +689,7 @@ db.update = function(table, obj, options, callback)
 // to finish due to sequential update every record one by one.
 // Special properties that can be in the options for this call:
 //   - updateOptions - options to be passed to the db.update if needed, this is useful so select and update options will not be mixed up
+//   - factorCapacity - write capcity factor for update operations, default is 0.25
 //   - concurrency - how many update queries to execute at the same time, default is 1, this is done by using lib.forEachLimit.
 //   - process - a function callback that will be called for each row before updating it, this is for some transformations of the record properties
 //      in case of complex columns that may contain concatenated values as in the case of using DynamoDB. The callback will be called
@@ -786,10 +787,12 @@ db.del = function(table, obj, options, callback)
 // Delete all records that match given condition, one by one, the input is the same as for `db.select` and every record
 // returned will be deleted using `db.del` call. The callback will receive on completion the err and all rows found and deleted.
 // Special properties that can be in the options for this call:
-// - concurrency - how many delete requests to execute at the same time by using lib.forEachLimit.
-// - process - a function callback that will be called for each row before deleting it, this is for some transformations of the record properties
-//   in case of complex columns that may contain concatenated values as in the case of using DynamoDB. The callback will be called
-//   as `options.process(row, options)`
+//  - delOptions - options to be passed to the db.del if needed, this is useful so select and del options will not be mixed up
+//  - factorCapacity - write capcity factor for delete operations, default is 0.35
+//  - concurrency - how many delete requests to execute at the same time by using lib.forEachLimit.
+//  - process - a function callback that will be called for each row before deleting it, this is for some transformations of the record properties
+//    in case of complex columns that may contain concatenated values as in the case of using DynamoDB. The callback will be called
+//    as `options.process(row, options)`
 db.delAll = function(table, query, options, callback)
 {
     var self = this;
@@ -801,16 +804,14 @@ db.delAll = function(table, query, options, callback)
     var pool = this.getPool(table, options);
     if (typeof pool.delAll == "function" && typeof options.process != "function") return pool.delAll(table, query, options, callback);
 
-    var cap = db.getCapacity(table, { useCapacity: "write", factorCapacity: options.factorCapacity || 0.2 });
+    var cap = db.getCapacity(table, { useCapacity: "write", factorCapacity: options.factorCapacity || 0.35 });
 
-    // Options without ops for delete
-    var opts = lib.cloneObj(options, 'ops', {});
     this.select(table, query, options, function(err, rows) {
         if (err) return callback(err);
 
         lib.forEachLimit(rows, options.concurrency || 1, function(row, next) {
-            if (typeof options.process == "function") options.process(row, opts);
-            self.del(table, row, opts, function(err) {
+            if (typeof options.process == "function") options.process(row, options);
+            self.del(table, row, options.delOptions, function(err) {
                 if (err) return next(err);
                 db.checkCapacity(cap, next);
             });
