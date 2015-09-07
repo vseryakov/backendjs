@@ -152,6 +152,8 @@ same way allowing to switch databases without changing the code.</li>
 <li>Supports HTTP(S) reverse proxy mode where multiple Web workers are load-balanced by the proxy
 server running in the master process instead of relying on the OS scheduling between processes listening on the same port.</li>
 <li>Can be used with any MVC, MVVC or other types of frameworks that work on top or with the Express server.</li>
+<li>AWS supports is very well integrated including EC2, S3, DynamoDB, SQS and more.</li>
+<li>Includes simple log watcher to monitor the log files including system errors.</li>
 <li>Intergated very light unit testing facility which can be used to test modules and API requests</li>
 <li>Support runtime metrics about the timing on database, requests, cache, memory and request rate limit control</li>
 <li>Hosted on <a href="https://github.com/vseryakov/backendjs">github</a>, BSD licensed.</li>
@@ -2364,11 +2366,11 @@ might be useful when desining, developing or choosing the API platform:</p>
 <li><code>api-access-token-secret</code> - A secret to be used for access token signatures, additional enryption on top of the signature to use for API access without signing requests, it is required for access tokens to be used</li>
 <li><code>api-access-token-age</code> - Access tokens age in milliseconds, for API requests with access tokens only</li>
 <li><code>api-disable-session</code> - Disable access to API endpoints for Web sessions, must be signed properly</li>
-<li><code>api-allow-admin</code> - URLs which can be accessed by admin accounts only, can be partial urls or Regexp, this is a convenient option which registers <code>AuthCheck</code> callback for the given endpoints</li>
-<li><code>api-allow-account-([a-z]+)</code> - URLs which can be accessed by specific account type only, can be partial urls or Regexp, this is a convenient option which registers AuthCheck callback for the given endpoints and only allow access to the specified account types</li>
+<li><code>api-allow-admin</code> - Add URLs which can be accessed by admin accounts only, can be partial urls or Regexp, this is a convenient option which registers <code>AuthCheck</code> callback for the given endpoints</li>
+<li><code>api-allow-account-([a-z]+)</code> - Add URLs which can be accessed by specific account type only, can be partial urls or Regexp, this is a convenient option which registers AuthCheck callback for the given endpoints and only allow access to the specified account types</li>
 <li><code>api-express-options</code> - Set Express config options during initialization,example: <code>-api-express-options { &quot;trust proxy&quot;: 1, &quot;strict routing&quot;: true }</code></li>
-<li><code>api-allow-ip</code> - Regexp for IPs that dont need credentials, replaces the whole access list. It is checked before endpoint access list</li>
-<li><code>api-deny-ip</code> - Regexp for IPs that will be denied access, replaces the whole access list. It is checked before endpoint access list.</li>
+<li><code>api-allow-ip</code> - Set regexp for IPs that dont need credentials, replaces the whole access list. It is checked before endpoint access list</li>
+<li><code>api-deny-ip</code> - Set regexp for IPs that will be denied access, replaces the whole access list. It is checked before endpoint access list.</li>
 <li><code>api-allow</code> - Regexp for URLs that dont need credentials, replaces the whole access list</li>
 <li><code>api-allow-path</code> - Add to the list of allowed URL paths without authentication, return result before even checking for the signature</li>
 <li><code>api-disallow-path</code> - Remove from the list of allowed URL paths that dont need authentication, most common case is to to remove <code>^/account/add$</code> to disable open registration</li>
@@ -4170,7 +4172,7 @@ database like DynamoDB for real-time requests and slower SQL database running on
 <p> The following databases are supported with the basic db API methods: Sqlite, PostgreSQL, MySQL, DynamoDB, MongoDB, Cassandra, Redis, LMDB, LevelDB</p>
 <p> All these drivers fully support all methods and operations, some natively, some with emulation in the user space except Redis driver cannot perform sorting
  due to using Hash items for records, sorting can be done in memory but with pagination it is not possible so this part must be mentioned specifically. But the rest of the
- opertions on top of Redis are fully supported which makes it a good candidate to use for in-memory tables like sessions with the same database API, later moving to
+ operations on top of Redis are fully supported which makes it a good candidate to use for in-memory tables like sessions with the same database API, later moving to
  other database will not require any application code changes.</p>
 <p> Multiple connections of the same type can be opened, just add -n suffix to all database config parameters where n is 1 to 5, referer to such pools int he code as <code>pgsql1</code>.</p>
 <p> Example:</p>
@@ -4405,6 +4407,7 @@ to finish due to sequential update every record one by one.
 Special properties that can be in the options for this call:</p>
 <ul>
 <li>updateOptions - options to be passed to the db.update if needed, this is useful so select and update options will not be mixed up</li>
+<li>factorCapacity - write capcity factor for update operations, default is 0.25</li>
 <li>concurrency - how many update queries to execute at the same time, default is 1, this is done by using lib.forEachLimit.</li>
 <li>process - a function callback that will be called for each row before updating it, this is for some transformations of the record properties
  in case of complex columns that may contain concatenated values as in the case of using DynamoDB. The callback will be called
@@ -4458,6 +4461,8 @@ if does not exist yet.</em></p>
 returned will be deleted using <code>db.del</code> call. The callback will receive on completion the err and all rows found and deleted.
 Special properties that can be in the options for this call:</p>
 <ul>
+<li>delOptions - options to be passed to the db.del if needed, this is useful so select and del options will not be mixed up</li>
+<li>factorCapacity - write capcity factor for delete operations, default is 0.35</li>
 <li>concurrency - how many delete requests to execute at the same time by using lib.forEachLimit.</li>
 <li>process - a function callback that will be called for each row before deleting it, this is for some transformations of the record properties
 in case of complex columns that may contain concatenated values as in the case of using DynamoDB. The callback will be called
@@ -4662,7 +4667,7 @@ the next_token returned by the previous call and query will be ignored</p>
    <code>select</code> property might be used to get all required properties.</em></li>
 <li>desc - if sorting, do in descending order</li>
 <li>page - starting page number for pagination, uses count to find actual record to start</li>
-<li>unique - specified the column name to be used in determinint unique records, if for some reasons there are multiple record in the location
+<li>unique - specified the column name to be used in determining unique records, if for some reasons there are multiple records in the location
   table for the same id only one instance will be returned</li>
 </ul>
 </li>
@@ -5592,13 +5597,13 @@ false
 </ul>
 
 <ul>
-<li><p><code>lib.toRegexpMap(obj, val)</code></p>
+<li><p><code>lib.toRegexpMap(obj, val, options)</code></p>
 <p> Add a regexp to the list of regexp objects, this is used in the config type <code>regexpmap</code>.</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>lib.toRegexpObj(obj, val, del)</code></p>
+<li><p><code>lib.toRegexpObj(obj, val, options)</code></p>
 <p> Add a regexp to the object that consist of list of patterns and compiled regexp, this is used in the config type <code>regexpobj</code></p>
 </li>
 </ul>

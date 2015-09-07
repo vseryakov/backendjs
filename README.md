@@ -32,6 +32,8 @@ Features:
 * Supports HTTP(S) reverse proxy mode where multiple Web workers are load-balanced by the proxy
   server running in the master process instead of relying on the OS scheduling between processes listening on the same port.
 * Can be used with any MVC, MVVC or other types of frameworks that work on top or with the Express server.
+* AWS supports is very well integrated including EC2, S3, DynamoDB, SQS and more.
+* Includes simple log watcher to monitor the log files including system errors.
 * Intergated very light unit testing facility which can be used to test modules and API requests
 * Support runtime metrics about the timing on database, requests, cache, memory and request rate limit control
 * Hosted on [github](https://github.com/vseryakov/backendjs), BSD licensed.
