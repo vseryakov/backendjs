@@ -69,6 +69,7 @@
     "preinstall": "./bkjs build-deps",
     "install": "node-gyp configure build",
     "debug": "node-gyp --debug configure build",
+    "slim": "node-gyp --debug configure build --use_lmdb=false --use_leveldb=false",
     "start": "./bkjs run-backend",
     "stop": "./bkjs stop"
   }
