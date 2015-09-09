@@ -796,6 +796,7 @@ case "$ARG" in
     make -C redis install PREFIX=$REDIS_PREFIX
     sed -e 's|^# syslog-enabled no|syslog-enabled yes|' \
         -e "s|^dir ./|dir $REDIS_PREFIX/var/|" \
+        -e "s|^timeout 0|timeout 3600|" \
         -e "s|^logfile \"\"|logfile $REDIS_PREFIX/log/redis.log|" \
         -e 's|^daemonize no|daemonize yes|' redis/redis.conf > $REDIS_PREFIX/etc/redis.conf
     rm -rf redis redis.tgz

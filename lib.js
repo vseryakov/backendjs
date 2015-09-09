@@ -688,7 +688,8 @@ lib.forEachLine = function(file, options, lineCallback, endCallback)
         fs.read(fd, buffer, 0, buffer.length, pos, function(err, nread, buf) {
             data += buffer.slice(0, nread).toString(options.encoding || 'utf8');
             var lines = data.split("\n");
-            data = lines.pop();
+            // Only if not the last part
+            if (nread == buffer.length) data = lines.pop();
             self.forEachSeries(lines, function(line, next) {
                 options.nlines++;
                 if (options.progress && options.nlines % options.progress == 0) logger.info('forEachLine:', file, 'lines:', options.nlines);
@@ -718,7 +719,7 @@ lib.forEachLine = function(file, options, lineCallback, endCallback)
                 var nread = fs.readSync(fd, buffer, 0, buffer.length, options.nlines == 0 ? options.start : null);
                 data += buffer.slice(0, nread).toString(options.encoding || 'utf8');
                 var lines = data.split("\n");
-                data = lines.pop();
+                if (nread == buffer.length) data = lines.pop();
                 for (var i = 0; i < lines.length; i++) {
                     options.nlines++;
                     if (options.progress && options.nlines % options.progress == 0) logger.info('forEachLine:', file, 'lines:', options.nlines);
