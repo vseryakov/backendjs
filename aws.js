@@ -266,7 +266,12 @@ aws.parseXMLResponse = function(err, params, callback)
     try { params.obj = xml2json.toJson(params.data, { object: true }); } catch(e) { err = e; params.status += 1000 };
     if (params.status != 200) {
         var errors = lib.objGet(params.obj, "Response.Errors.Error", { list: 1 });
-        if (errors.length && errors[0].Message) err = lib.newError({ message: errors[0].Message, code: errors[0].Code, status: params.status });
+        if (errors.length && errors[0].Message) {
+            err = lib.newError({ message: errors[0].Message, code: errors[0].Code, status: params.status });
+        } else
+        if (params.obj.Error && params.obj.Error.Message) {
+            err = lib.newError({ message: params.obj.Error.Message, code: params.obj.Error.Code, status: params.status });
+        }
         if (!err) err = lib.newError({ message: "Error: " + params.data, status: params.status });
         logger.error('queryAWS:', params.href, params.search, params.Action || "", err);
         return callback(err, params.obj);

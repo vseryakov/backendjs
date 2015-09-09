@@ -871,6 +871,12 @@ core.httpGet = function(uri, params, callback)
     default:
         return callback(lib.newError("invalid url: " + uri), params);
     }
+    // Reset output properties
+    params.size = 0;
+    params.err = null;
+    params.fd = 0;
+    params.status = 0;
+    params.poststream = null;
 
     var options = url.parse(uri);
     options.method = params.method || 'GET';
@@ -983,8 +989,10 @@ core.httpGet = function(uri, params, callback)
     params.httpTimeout = lib.toNumber(params.httpTimeout, { min: 0, dflt: 300000 });
     if (!params.ignoreredirect) params.ignoreredirect = {};
     params.data = params.binary ? new Buffer(0) : '';
-    params.size = 0, params.err = null, params.fd = 0, params.status = 0, params.poststream = null;
-    params.href = options.href, params.pathname = options.pathname, params.hostname = options.hostname, params.search = options.search;
+    params.href = options.href;
+    params.pathname = options.pathname;
+    params.hostname = options.hostname;
+    params.search = options.search;
     var req = null;
     var mod = uri.indexOf("https://") == 0 ? https : http;
 

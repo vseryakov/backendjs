@@ -12,9 +12,9 @@ var lib = require(__dirname + '/lib');
 
 // Messaging and push notifications for mobile and other clients, supports Apple, Google and AWS/SNS push notifications.
 var msg = {
-    args: [ { name: "(.+)-cert@?(.+)?", obj: "config", camel: "-", strip: "@", descr: "A certificate for APN or similar services in pfx format, can be a file name with .p12 extension or a string with certificate contents encoded with base64, if the suffix is specified in the config parameter name will be used as the app name, otherwise it is global" },
-            { name: "(.+)-key@?(.+)?", obj: "config", camel: "-", strip: "@", descr: "API key for GCM or similar services, if the suffix is specified in the config parameter will be used as the app name, without the suffix it is global" },
-            { name: "(.+)-secret@?(.+)?", obj: "config", camel: "-", strip: "@", descr: "API secret for services that require it, if the suffix is specified in the config parameter will be used as the app name, without the suffix it is global" },
+    args: [ { name: "(.+)-cert@?(.+)?", obj: "config", camel: "-", descr: "A certificate for APN or similar services in pfx format, can be a file name with .p12 extension or a string with certificate contents encoded with base64, if the suffix is specified in the config parameter name will be used as the app name, otherwise it is global" },
+            { name: "(.+)-key@?(.+)?", obj: "config", camel: "-", descr: "API key for GCM or similar services, if the suffix is specified in the config parameter will be used as the app name, without the suffix it is global" },
+            { name: "(.+)-secret@?(.+)?", obj: "config", camel: "-", strip: "", descr: "API secret for services that require it, if the suffix is specified in the config parameter will be used as the app name, without the suffix it is global" },
             { name: "(.+)-sandbox", type: "bool", descr: "Enable sandbox for a service, default is production mode" },
             { name: "(.+)-feedback", type: "bool", descr: "Enable feedback mode for a service, default is no feedback service" },
             { name: "shutdown-timeout", type:" int", min: 0, descr: "How long to wait for messages draining out in ms on shutdown before exiting" },],
@@ -120,6 +120,22 @@ msg.getClient = function(dev)
     return null;
 }
 
+// Return a list of all config cert/key parameters for the given name.
+// Each item in th list is an object with the following properties: key, secret, app
+msg.getConfig = function(name)
+{
+    var rc = [];
+    var rx = new RegExp("^" + name + "(Key|Cert)@?(.+)?");
+    for (var p in this.config) {
+        var d = p.match(rx);
+        if (!d || !this.config[p] || typeof this.config[p] != "string") continue;
+        var obj = { app: d[2] || "default" };
+        obj.key = this.config[p];
+        obj.secret = this.config[name + "Secret"] || this.config[name + "Secret@" + obj.app] || "";
+        rc.push(obj);
+    }
+    return rc;
+}
 
 // Perform device uninstall, the next callback must be called at the end.
 msg.uninstall = function(client, device, timestamp, next)
