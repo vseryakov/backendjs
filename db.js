@@ -963,6 +963,7 @@ db.batch = function(table, op, objs, options, callback)
 // The rowCallback must be present and is called for every row or batch retrieved and second parameter which is the function to be called
 // once the processing is complete. At the end, the callback will be called just with 1 argument, err, this indicates end of scan operation.
 // Basically, db.scan is the same as db.select but can be used to retrieve large number of records in batches and allows async processing of such records.
+// To hint a driver that scanning is in progress the `options.scanning` will be set to true.
 //
 // Parameters:
 //  - table - table to scan
@@ -996,6 +997,7 @@ db.scan = function(table, query, options, rowCallback, endCallback)
     }
     options.start = "";
     options.nrows = 0;
+    options.scanning = true;
 
     lib.whilst(
       function() {
@@ -1821,7 +1823,7 @@ db.prepareRow = function(pool, op, table, obj, options)
         for (var p in cols) {
             col = cols[p];
             if (options.strictTypes) {
-                if (lib.isNumeric(col.type)) {
+                if (lib.isNumericType(col.type)) {
                     if (typeof obj[p] == "string") obj[p] = lib.toNumber(obj[p]);
                 } else {
                     if (typeof obj[p] == "number") obj[p] = String(obj[p]);
@@ -1840,7 +1842,7 @@ db.prepareRow = function(pool, op, table, obj, options)
             for (var p in cols) {
                 col = cols[p];
                 if (options.strictTypes) {
-                    if (lib.isNumeric(col.type)) {
+                    if (lib.isNumericType(col.type)) {
                         if (typeof obj[i][p] == "string") obj[i][p] = lib.toNumber(obj[i][p]);
                     } else {
                         if (typeof obj[i][p] == "number") obj[i][p] = String(obj[i][p]);

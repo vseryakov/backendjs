@@ -25,6 +25,7 @@ var lib = {
     deferTimeout: 50,
     deferId: 1,
     geoHashRange: [ [12, 0], [8, 0.019], [7, 0.076], [6, 0.61], [5, 2.4], [4, 20.0], [3, 78.0], [2, 630.0], [1, 2500.0], [1, 99999] ],
+    rxNumber: /^((-|\+)?[0-9]+|[0-9]+\.[0-9]+)$/,
 }
 
 module.exports = lib;
@@ -104,7 +105,7 @@ lib.toNumber = function(val, options)
             n = (options && options.dflt) || 0;
         } else {
             // Autodetect floating number
-            var f = !options || typeof options.float == "undefined" || options.float == null ? /^[0-9-]+\.[0-9]+$/.test(val) : options.float;
+            var f = !options || typeof options.float == "undefined" || options.float == null ? this.rxNumber.test(val) : options.float;
             n = val[0] == 't' ? 1 : val[0] == 'f' ? 0 : val == "infinity" ? Infinity : (f ? parseFloat(val, 10) : parseInt(val, 10));
         }
     }
@@ -478,8 +479,16 @@ lib.isEmpty = function(val)
     }
 }
 
+// Returns true if the value is a number or string representing a number
+lib.isNumeric = function(val)
+{
+    if (typeof val == "number") return true;
+    if (typeof val != "string") return false;
+    return this.rxNumber.test(val);
+}
+
 // Returns true if the given type belongs to the numeric family
-lib.isNumeric = function(type)
+lib.isNumericType = function(type)
 {
     return ["int","smallint","bigint","counter","real","float","double","numeric","number"].indexOf(String(type).trim()) > -1;
 }
