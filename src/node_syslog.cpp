@@ -33,54 +33,29 @@ static void _syslogSendV(int severity, const char *fmt, va_list ap);
 static void _syslogFreeTls(void *arg);
 static SyslogTls *_syslogGetTls(void);
 
-static Handle<Value> syslogInit(const Arguments& args);
-static Handle<Value> syslogSend(const Arguments& args);
-static Handle<Value> syslogClose(const Arguments& args);
-
 static pthread_key_t key;
 
-void SyslogInit(Handle<Object> target)
+static NAN_METHOD(syslogInit)
 {
-    HandleScope scope;
-
-    pthread_key_create(&key, _syslogFreeTls);
-    NODE_SET_METHOD(target, "syslogInit", syslogInit);
-    NODE_SET_METHOD(target, "syslogSend", syslogSend);
-    NODE_SET_METHOD(target, "syslogClose", syslogClose);
-}
-
-static Handle<Value> syslogInit(const Arguments& args)
-{
-    HandleScope scope;
-
-    REQUIRE_ARGUMENT_STRING(0, name);
-    REQUIRE_ARGUMENT_INT(1, options);
-    REQUIRE_ARGUMENT_INT(2, facility);
+    NAN_REQUIRE_ARGUMENT_STRING(0, name);
+    NAN_REQUIRE_ARGUMENT_INT(1, options);
+    NAN_REQUIRE_ARGUMENT_INT(2, facility);
 
     _syslogClose();
     _syslogOpen("", *name, options, facility);
-
-    return scope.Close(Undefined());
 }
 
-static Handle<Value> syslogSend(const Arguments& args)
+static NAN_METHOD(syslogSend)
 {
-    HandleScope scope;
-
-    REQUIRE_ARGUMENT_INT(0, level);
-    REQUIRE_ARGUMENT_STRING(1, msg);
+    NAN_REQUIRE_ARGUMENT_INT(0, level);
+    NAN_REQUIRE_ARGUMENT_STRING(1, msg);
 
     _syslogSend(level, "%s", *msg);
-
-    return scope.Close(Undefined());
 }
 
-static Handle<Value> syslogClose(const Arguments& args)
+static NAN_METHOD(syslogClose)
 {
-    HandleScope scope;
-
     _syslogClose();
-    return scope.Close(Undefined());
 }
 
 static SyslogTls *_syslogGetTls(void)
@@ -250,3 +225,12 @@ static void _syslogSendV(int severity, const char *fmt, va_list ap)
     }
 }
 
+void SyslogInit(Handle<Object> target)
+{
+    HandleScope scope;
+
+    pthread_key_create(&key, _syslogFreeTls);
+    Nan::SetMethod(target, "syslogInit", syslogInit);
+    Nan::SetMethod(target, "syslogSend", syslogSend);
+    Nan::SetMethod(target, "syslogClose", syslogClose);
+}

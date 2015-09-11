@@ -13,11 +13,47 @@
 #include <v8.h>
 #include <v8-profiler.h>
 #include <uv.h>
+#include <nan.h>
 #include "bksqlite.h"
 
 using namespace node;
 using namespace v8;
 using namespace std;
+
+
+#define NAN_REQUIRE_ARGUMENT(i) if (info.Length() <= i || info[i]->IsUndefined()) Nan::ThrowError(String::New("Argument " #i " is required"));
+#define NAN_REQUIRE_ARGUMENT_STRING(i, var) if (info.Length() <= (i) || !info[i]->IsString()) Nan::ThrowError(String::New("Argument " #i " must be a string")); String::Utf8Value var(info[i]->ToString());
+#define NAN_REQUIRE_ARGUMENT_AS_STRING(i, var) if (info.Length() <= (i)) Nan::ThrowError(String::New("Argument " #i " must be a string")); String::Utf8Value var(info[i]->ToString());
+#define NAN_REQUIRE_ARGUMENT_OBJECT(i, var) if (info.Length() <= (i) || !info[i]->IsObject()) Nan::ThrowError(String::New("Argument " #i " must be an object")); Local<Object> var(info[i]->ToObject());
+#define NAN_REQUIRE_ARGUMENT_INT(i, var) if (info.Length() <= (i)) Nan::ThrowError(String::New("Argument " #i " must be an integer")); int var = info[i]->Int32Value();
+#define NAN_REQUIRE_ARGUMENT_INT64(i, var) if (info.Length() <= (i)) Nan::ThrowError(String::New("Argument " #i " must be an integer")); int64_t var = info[i]->NumberValue();
+#define NAN_REQUIRE_ARGUMENT_BOOL(i, var) if (info.Length() <= (i)) Nan::ThrowError(String::New("Argument " #i " must be a boolean")); int var = info[i]->Int32Value();
+#define NAN_REQUIRE_ARGUMENT_NUMBER(i, var) if (info.Length() <= (i)) Nan::ThrowError(String::New("Argument " #i " must be a number")); double var = info[i]->NumberValue();
+#define NAN_REQUIRE_ARGUMENT_ARRAY(i, var) if (info.Length() <= (i) || !info[i]->IsArray()) v(String::New("Argument " #i " must be an array")); Local<Array> var = Local<Array>::Cast(info[i]);
+#define NAN_REQUIRE_ARGUMENT_FUNCTION(i, var) if (info.Length() <= (i) || !info[i]->IsFunction()) Nan::ThrowError(String::New("Argument " #i " must be a function")); Local<Function> var = Local<Function>::Cast(info[i]);
+
+#define NAN_EXPECT_ARGUMENT_FUNCTION(i, var) Local<Function> var; \
+        if (info.Length() > 0 && args.Length() > (i) && !info[(i) >= 0 ? (i) : info.Length() - 1]->IsUndefined()) { \
+            if (!info[(i) >= 0 ? (i) : info.Length() - 1]->IsFunction()) Nan::ThrowError(String::New("Argument " #i " must be a function")); \
+            var = Local<Function>::Cast(info[(i) >= 0 ? (i) : info.Length() - 1]); }
+
+#define NAN_OPTIONAL_ARGUMENT_FUNCTION(i, var) Local<Function> var; \
+        if (info.Length() > 0 && info.Length() > (i) && info[(i) >= 0 ? (i) : info.Length() - 1]->IsFunction()) \
+        var = Local<Function>::Cast(info[(i) >= 0 ? (i) : info.Length() - 1]);
+
+#define NAN_OPTIONAL_ARGUMENT_INT(i, var) int var = (info.Length() > (i) && info[i]->IsInt32() ? info[i]->Int32Value() : 0);
+#define NAN_OPTIONAL_ARGUMENT_AS_INT(i, var) int var = (info.Length() > (i) ? info[i]->Int32Value() : 0);
+#define NAN_OPTIONAL_ARGUMENT_INT2(i, var, dflt) int var = (info.Length() > (i) && info[i]->IsInt32() ? info[i]->Int32Value() : dflt);
+#define NAN_OPTIONAL_ARGUMENT_NUMBER(i, var) float var = (info.Length() > (i) && info[i]->IsNumber() ? info[i]->NumberValue() : 0);
+#define NAN_OPTIONAL_ARGUMENT_STRING(i, var) String::Utf8Value var(info.Length() > (i) && info[i]->IsString() ? info[i]->ToString() : String::New(""));
+#define NAN_OPTIONAL_ARGUMENT_STRING2(i, var, dflt) String::Utf8Value var(info.Length() > (i) && info[i]->IsString() ? info[i]->ToString() : dflt);
+#define NAN_OPTIONAL_ARGUMENT_AS_STRING(i, var) String::Utf8Value var(info.Length() > (i) ? info[i]->ToString() : String::New(""));
+#define NAN_OPTIONAL_ARGUMENT_ARRAY(i, var) Local<Array> var(info.Length() > (i) && info[i]->IsArray() ? Local<Array>::Cast(info[i]) : Local<Array>::New(Array::New()));
+#define NAN_OPTIONAL_ARGUMENT_OBJECT(i, var) Local<Object> var(info.Length() > (i) && info[i]->IsObject() ? Local<Object>::Cast(info[i]) : Local<Object>::New(Object::New()));
+
+#define NAN_TRY_CATCH_CALL(context, callback, argc, argv) { Nan::TryCatch try_catch; (callback)->Call((context), (argc), (argv)); if (try_catch.HasCaught()) FatalException(try_catch); }
+#define NAN_TRY_CATCH_CALL_RETURN(context, callback, argc, argv, rc) { Nan::TryCatch try_catch; (callback)->Call((context), (argc), (argv)); if (try_catch.HasCaught()) { FatalException(try_catch); return rc; }}
+
 
 #define REQUIRE_ARGUMENT(i) if (args.Length() <= i || args[i]->IsUndefined()) return ThrowException(Exception::TypeError(String::New("Argument " #i " is required")));
 #define REQUIRE_ARGUMENT_STRING(i, var) if (args.Length() <= (i) || !args[i]->IsString()) return ThrowException(Exception::TypeError(String::New("Argument " #i " must be a string"))); String::Utf8Value var(args[i]->ToString());

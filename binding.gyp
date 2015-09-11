@@ -45,7 +45,8 @@
         "include",
         "build/include",
         "<(node_root_dir)/deps/openssl/openssl/include",
-        "/opt/local/include"
+        "/opt/local/include",
+        "<!(node -e \"require('nan')\")"
       ]
     },
     "targets": [
