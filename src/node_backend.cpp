@@ -7,187 +7,156 @@
 #include "snappy.h"
 #include "bkunzip.h"
 
-string exceptionString(TryCatch* try_catch)
+static NAN_METHOD(logging)
 {
-    HandleScope scope;
-    String::Utf8Value exception(try_catch->Exception());
-    Handle<Message> message = try_catch->Message();
-    if (message.IsEmpty()) return string(*exception);
-
-    string msg;
-    int linenum = message->GetLineNumber();
-    String::Utf8Value filename(message->GetScriptResourceName());
-    String::Utf8Value sourceline(message->GetSourceLine());
-    msg += vFmtStr("%s:%i: %s\n%s\n", *filename, linenum, *exception, *sourceline);
-    String::Utf8Value stack_trace(try_catch->StackTrace());
-    if (stack_trace.length() > 0) msg += *stack_trace;
-    return msg;
-}
-
-static Handle<Value> logging(const Arguments& args)
-{
-    HandleScope scope;
-
-    if (args.Length() > 0) {
-        String::Utf8Value level(args[0]);
+    if (info.Length() > 0) {
+        Nan::Utf8String level(info[0]);
         VLog::set(*level);
     }
 
-    return scope.Close(Integer::New(VLog::level()));
+    return info.GetReturnValue().Set(Nan::New(VLog::level()));
 }
 
-static Handle<Value> loggingChannel(const Arguments& args)
+static NAN_METHOD(loggingChannel)
 {
-    HandleScope scope;
-
-    if (args.Length() > 0) {
-        String::Utf8Value name(args[0]);
+    if (info.Length() > 0) {
+        Nan::Utf8String name(info[0]);
         VLog::setChannel(!strcmp(*name, "stderr") ? stderr : NULL);
     }
     FILE *fp = VLog::getChannel();
-    return scope.Close(String::NewSymbol(fp == stderr ? "stderr" : "stdout"));
+    return info.GetReturnValue().Set(Nan::New(fp == stderr ? "stderr" : "stdout").ToLocalChecked());
 }
 
 string stringifyJSON(Local<Value> obj)
 {
-    HandleScope scope;
-
+    Nan::EscapableHandleScope scope;
     Local<Value> argv[1] = { obj };
-    Handle<Object> JSON = Context::GetCurrent()->Global()->Get(String::NewSymbol("JSON"))->ToObject();
-    Handle<Function> JSON_stringify = Handle<Function>::Cast(JSON->Get(String::NewSymbol("stringify")));
+    Handle<Object> JSON = Context::GetCurrent()->Global()->Get(Nan::New("JSON").ToLocalChecked())->ToObject();
+    Handle<Function> JSON_stringify = Handle<Function>::Cast(JSON->Get(Nan::New("stringify").ToLocalChecked()));
     Local<Value> val = Local<Value>::New(JSON_stringify->Call(JSON, 1, argv));
-    String::Utf8Value json(val);
+    Nan::Utf8String json(val);
     return *json;
 }
 
 Handle<Value> parseJSON(const char* str)
 {
-    HandleScope scope;
-
-    Local<Value> argv[1] = { Local<String>::New(String::New(str)) };
-    Handle<Object> JSON = Context::GetCurrent()->Global()->Get(String::NewSymbol("JSON"))->ToObject();
-    Handle<Function> JSON_parse = Handle<Function>::Cast(JSON->Get(String::NewSymbol("parse")));
+    Nan::EscapableHandleScope scope;
+    Local<Value> argv[1] = { Nan::New(str).ToLocalChecked() };
+    Handle<Object> JSON = Context::GetCurrent()->Global()->Get(Nan::New("JSON").ToLocalChecked())->ToObject();
+    Handle<Function> JSON_parse = Handle<Function>::Cast(JSON->Get(Nan::New("parse").ToLocalChecked()));
     Local<Value> val;
     {
-        TryCatch try_catch;
+        Nan::TryCatch try_catch;
         val = Local<Value>::New(JSON_parse->Call(JSON, 1, argv));
         if (try_catch.HasCaught()) val = Local<Value>::New(Null());
     }
-    return scope.Close(val);
+    return scope.Escape(val);
 }
 
-Handle<Value> toArray(vector<string> &list, int numeric)
+Local<Value> toArray(vector<string> &list, int numeric)
 {
-    HandleScope scope;
+    Nan::EscapableHandleScope scope;
     Local<Array> rc = Local<Array>::New(Array::New(list.size()));
     for (uint i = 0; i < list.size(); i++) {
         switch (numeric) {
         case 1:
-            rc->Set(Local<Number>::New(Integer::New(i)), Local<Number>::New(Number::New(atol(list[i].c_str()))));
+            rc->Set(Nan::New(i), Nan::New(::atof(list[i].c_str())));
             break;
 
         case 2:
-            rc->Set(Local<Number>::New(Integer::New(i)), Local<Number>::New(Number::New(atof(list[i].c_str()))));
+            rc->Set(Nan::New(i), Nan::New(::atof(list[i].c_str())));
             break;
 
         default:
-            rc->Set(Local<Number>::New(Integer::New(i)), Local<String>::New(String::New(list[i].c_str())));
+            rc->Set(Nan::New(i), Nan::New(list[i].c_str()).ToLocalChecked());
         }
     }
-    return scope.Close(rc);
+    return scope.Escape(rc);
 }
 
-Handle<Value> toArray(vector<pair<string,string> > &list)
+Local<Value> toArray(vector<pair<string,string> > &list)
 {
-    HandleScope scope;
+    Nan::EscapableHandleScope scope;
     Local<Array> rc = Local<Array>::New(Array::New(list.size()));
     for (uint i = 0; i < list.size(); i++) {
         Local<Object> obj = Local<Object>::New(Object::New());
-        obj->Set(String::NewSymbol("name"), Local<String>::New(String::New(list[i].first.c_str())));
-        obj->Set(String::NewSymbol("value"), Local<String>::New(String::New(list[i].second.c_str())));
-        rc->Set(Integer::New(i), obj);
+        obj->Set(Nan::New("name").ToLocalChecked(), Nan::New(list[i].first.c_str()).ToLocalChecked());
+        obj->Set(Nan::New("value").ToLocalChecked(), Nan::New(list[i].second.c_str()).ToLocalChecked());
+        rc->Set(Nan::New(i), obj);
     }
-    return scope.Close(rc);
+    return scope.Escape(rc);
 }
 
-static Handle<Value> getUser(const Arguments& args)
+static NAN_METHOD(getUser)
 {
-   HandleScope scope;
    struct passwd *pw = NULL;
 
-   if (args.Length() > 0) {
-       String::Utf8Value name(args[0]->ToString());
+   if (info.Length() > 0) {
+       Nan::Utf8String name(info[0]->ToString());
        pw = getpwnam(*name);
-       if (!pw && strNumeric(*name)) pw = getpwuid(args[0]->ToInteger()->Int32Value());
+       if (!pw && strNumeric(*name)) pw = getpwuid(info[0]->ToInteger()->Int32Value());
    } else {
        pw = getpwnam(getlogin());
    }
    Local<Object> obj = Local<Object>::New(Object::New());
    if (pw) {
-       obj->Set(String::NewSymbol("uid"), Local<Integer>::New(Integer::New(pw->pw_uid)));
-       obj->Set(String::NewSymbol("gid"), Local<Integer>::New(Integer::New(pw->pw_gid)));
-       obj->Set(String::NewSymbol("name"), Local<String>::New(String::New(pw->pw_name)));
-       obj->Set(String::NewSymbol("dir"), Local<String>::New(String::New(pw->pw_dir)));
+       obj->Set(Nan::New("uid").ToLocalChecked(), Nan::New(pw->pw_uid));
+       obj->Set(Nan::New("gid").ToLocalChecked(), Nan::New(pw->pw_gid));
+       obj->Set(Nan::New("name").ToLocalChecked(), Nan::New(pw->pw_name).ToLocalChecked());
+       obj->Set(Nan::New("dir").ToLocalChecked(), Nan::New(pw->pw_dir).ToLocalChecked());
    }
-   return scope.Close(obj);
+   info.GetReturnValue().Set(obj);
 }
 
-static Handle<Value> getGroup(const Arguments& args)
+static NAN_METHOD(getGroup)
 {
-   HandleScope scope;
    struct group *g = NULL;
 
-   if (args.Length() > 0) {
-       String::Utf8Value name(args[0]->ToString());
+   if (info.Length() > 0) {
+       Nan::Utf8String name(info[0]->ToString());
        g = getgrnam(*name);
-       if (!g && strNumeric(*name)) g = getgrgid(args[0]->ToInteger()->Int32Value());
+       if (!g && strNumeric(*name)) g = getgrgid(info[0]->ToInteger()->Int32Value());
    } else {
        struct passwd *pw = getpwnam(getlogin());
        g = getgrgid(pw ? pw->pw_gid : 0);
    }
    Local<Object> obj = Local<Object>::New(Object::New());
    if (g) {
-       obj->Set(String::NewSymbol("gid"), Local<Integer>::New(Integer::New(g->gr_gid)));
-       obj->Set(String::NewSymbol("name"), Local<String>::New(String::New(g->gr_name)));
+       obj->Set(Nan::New("gid").ToLocalChecked(), Nan::New(g->gr_gid));
+       obj->Set(Nan::New("name").ToLocalChecked(), Nan::New(g->gr_name).ToLocalChecked());
    }
-   return scope.Close(obj);
+   info.GetReturnValue().Set(obj);
 }
 
-static Handle<Value> countWords(const Arguments& args)
+static NAN_METHOD(countWords)
 {
     HandleScope scope;
 
-    REQUIRE_ARGUMENT_AS_STRING(0, word);
-    REQUIRE_ARGUMENT_AS_STRING(1, text);
+    NAN_REQUIRE_ARGUMENT_AS_STRING(0, word);
+    NAN_REQUIRE_ARGUMENT_AS_STRING(1, text);
 
-    return scope.Close(Integer::New(vCountWords(*word, *text)));
+    return info.GetReturnValue().Set(Nan::New(vCountWords(*word, *text)));
 }
 
 static vector<CountWords*> _wc;
 
-static Handle<Value> countWordsInit(const Arguments& args)
+static NAN_METHOD(countWordsInit)
 {
-    HandleScope scope;
-
     for (uint i = 0; i < _wc.size(); i++) delete _wc[i];
     _wc.clear();
-
-    return scope.Close(Undefined());
 }
 
-static Handle<Value> countAllWords(const Arguments& args)
+static NAN_METHOD(countAllWords)
 {
-    HandleScope scope;
-
-    REQUIRE_ARGUMENT_ARRAY(0, list);
-    REQUIRE_ARGUMENT_AS_STRING(1, text);
+    NAN_REQUIRE_ARGUMENT_ARRAY(0, list);
+    NAN_REQUIRE_ARGUMENT_AS_STRING(1, text);
 
     CountWords w, *cw = &w;
 
     // Find cached class
-    if (args.Length() > 2 && !args[2]->IsNull()) {
+    if (info.Length() > 2 && !info[2]->IsNull()) {
         cw = NULL;
-        String::Utf8Value hash(args[2]);
+        Nan::Utf8String hash(info[2]);
         for (uint i = 0; i < _wc.size() && !cw; i++) {
             if (_wc[i]->name == *hash) cw = _wc[i];
         }
@@ -198,19 +167,19 @@ static Handle<Value> countAllWords(const Arguments& args)
     }
 
     // Additional delimiters
-    if (args.Length() > 3 && !args[3]->IsNull()) {
-        String::AsciiValue str(args[3]);
+    if (info.Length() > 3 && !info[3]->IsNull()) {
+        String::AsciiValue str(info[3]);
         cw->setAlphabet(*str, str.length(), true);
     }
     // Additional non-delimiters
-    if (args.Length() > 4 && !args[4]->IsNull()) {
-        String::AsciiValue str(args[4]);
+    if (info.Length() > 4 && !info[4]->IsNull()) {
+        String::AsciiValue str(info[4]);
         cw->setAlphabet(*str, str.length(), false);
     }
 
     // Op mode
-    if (args.Length() > 5 && !args[5]->IsNull()) {
-        String::AsciiValue str(args[5]);
+    if (info.Length() > 5 && !info[5]->IsNull()) {
+        String::AsciiValue str(info[5]);
         cw->setMode(*str);
     }
 
@@ -218,7 +187,7 @@ static Handle<Value> countAllWords(const Arguments& args)
         for (uint i = 0; i < list->Length(); i++) {
             Local<Value> val = list->Get(i);
             if (val->IsString()) {
-                String::Utf8Value str(val);
+                Nan::Utf8String str(val);
                 cw->add(*str);
             } else
             if (val->IsInt32()) {
@@ -235,235 +204,205 @@ static Handle<Value> countAllWords(const Arguments& args)
         if (cw->counters[i]) {
             string w = cw->list[i].word;
             if (cw->list[i].value) w += vFmtStr("/%d", cw->list[i].value);
-            list->Set(Integer::New(j), Local<String>::New(String::New(w.c_str())));
-            counters->Set(Integer::New(j), Local<Integer>::New(Integer::New(cw->counters[i])));
-            values->Set(Integer::New(j++), Local<Integer>::New(Integer::New(cw->list[i].value)));
+            list->Set(Nan::New(j), Nan::New(w.c_str()).ToLocalChecked());
+            counters->Set(Nan::New(j), Nan::New(cw->counters[i]));
+            values->Set(Nan::New(j++), Nan::New(cw->list[i].value));
         }
     }
     Local<Object> obj = Object::New();
-    obj->Set(String::NewSymbol("count"), Local<Integer>::New(Integer::New(cw->count)));
-    obj->Set(String::NewSymbol("value"), Local<Integer>::New(Integer::New(cw->value)));
-    obj->Set(String::NewSymbol("mode"), Local<String>::New(String::New(cw->modeName().c_str())));
-    obj->Set(String::NewSymbol("matches"), list);
-    obj->Set(String::NewSymbol("counters"), counters);
-    obj->Set(String::NewSymbol("values"), values);
+    obj->Set(Nan::New("count").ToLocalChecked(), Nan::New(cw->count));
+    obj->Set(Nan::New("value").ToLocalChecked(), Nan::New(cw->value));
+    obj->Set(Nan::New("mode").ToLocalChecked(), Nan::New(cw->modeName().c_str()).ToLocalChecked());
+    obj->Set(Nan::New("matches").ToLocalChecked(), list);
+    obj->Set(Nan::New("counters").ToLocalChecked(), counters);
+    obj->Set(Nan::New("values").ToLocalChecked(), values);
 
-    return scope.Close(obj);
+    info.GetReturnValue().Set(obj);
 }
 
-static Handle<Value> geoHashEncode(const Arguments& args)
+static NAN_METHOD(geoHashEncode)
 {
-   HandleScope scope;
-
-   REQUIRE_ARGUMENT_NUMBER(0, lat);
-   REQUIRE_ARGUMENT_NUMBER(1, lon);
-   OPTIONAL_ARGUMENT_INT(2, len);
+   NAN_REQUIRE_ARGUMENT_NUMBER(0, lat);
+   NAN_REQUIRE_ARGUMENT_NUMBER(1, lon);
+   NAN_OPTIONAL_ARGUMENT_INT(2, len);
 
    string hash = vGeoHashEncode(lat, lon, len);
-   Local<String> result = Local<String>::New(String::New(hash.c_str()));
-   return scope.Close(result);
+   return info.GetReturnValue().Set(Nan::New(hash.c_str()).ToLocalChecked());
 }
 
-static Handle<Value> geoHashDecode(const Arguments& args)
+static NAN_METHOD(geoHashDecode)
 {
-   HandleScope scope;
-
-   REQUIRE_ARGUMENT_AS_STRING(0, hash);
+   NAN_REQUIRE_ARGUMENT_AS_STRING(0, hash);
 
    vector<double> rc = vGeoHashDecode(*hash);
    Local<Array> result = Local<Array>::New(Array::New(rc.size()));
    for (uint i = 0; i < rc.size(); i++) {
-       result->Set(Integer::New(i), Local<Number>::New(Number::New(rc[i])));
+       result->Set(Nan::New(i), Nan::New(rc[i]));
    }
-   return scope.Close(result);
+   return info.GetReturnValue().Set(result);
 }
 
-static Handle<Value> geoHashAdjacent(const Arguments& args)
+static NAN_METHOD(geoHashAdjacent)
 {
-   HandleScope scope;
-
-   REQUIRE_ARGUMENT_STRING(0, base);
-   REQUIRE_ARGUMENT_STRING(1, dir);
+   NAN_REQUIRE_ARGUMENT_STRING(0, base);
+   NAN_REQUIRE_ARGUMENT_STRING(1, dir);
 
    string hash = vGeoHashAdjacent(*base, *dir);
-   Local<String> result = Local<String>::New(String::New(hash.c_str()));
-   return scope.Close(result);
+   return info.GetReturnValue().Set(Nan::New(hash.c_str()).ToLocalChecked());
 }
 
-static bool isNumber(Handle<Value> arg)
+static bool isNumber(Local<Value> arg)
 {
-    HandleScope scope;
-    String::Utf8Value str(arg);
+    Nan::HandleScope scope;
+    Nan::Utf8String str(arg);
     const char *p = *str;
     while (*p && (*p == ' ' || *p == '-' || *p == '+')) p++;
     if (!isdigit(*p)) return false;
     return true;
 }
 
-static Handle<Value> geoDistance(const Arguments& args)
+static NAN_METHOD(geoDistance)
 {
-   HandleScope scope;
+   if (info.Length() < 4) return;
+   double lat1 = info[0]->NumberValue();
+   double lon1 = info[1]->NumberValue();
+   double lat2 = info[2]->NumberValue();
+   double lon2 = info[3]->NumberValue();
+   if (isnan(lat1) || isnan(lon1) || isnan(lat2) || isnan(lon2)) return;
+   if (lat1 == 0 && !isNumber(info[0]->ToString())) return;
+   if (lon1 == 0 && !isNumber(info[1]->ToString())) return;
+   if (lat2 == 0 && !isNumber(info[2]->ToString())) return;
+   if (lon2 == 0 && !isNumber(info[3]->ToString())) return;
 
-   if (args.Length() < 4) return scope.Close(Null());
-   double lat1 = args[0]->NumberValue();
-   double lon1 = args[1]->NumberValue();
-   double lat2 = args[2]->NumberValue();
-   double lon2 = args[3]->NumberValue();
-   if (isnan(lat1) || isnan(lon1) || isnan(lat2) || isnan(lon2)) return scope.Close(Null());
-   if (lat1 == 0 && !isNumber(args[0]->ToString())) return scope.Close(Null());
-   if (lon1 == 0 && !isNumber(args[1]->ToString())) return scope.Close(Null());
-   if (lat2 == 0 && !isNumber(args[2]->ToString())) return scope.Close(Null());
-   if (lon2 == 0 && !isNumber(args[3]->ToString())) return scope.Close(Null());
-
-   return scope.Close(Local<Number>::New(Number::New(vDistance(lat1, lon1, lat2, lon2))));
+   info.GetReturnValue().Set(Nan::New(vDistance(lat1, lon1, lat2, lon2)));
 }
 
-static Handle<Value> geoBoundingBox(const Arguments& args)
+static NAN_METHOD(geoBoundingBox)
 {
-   HandleScope scope;
-
-   REQUIRE_ARGUMENT_NUMBER(0, lat1);
-   REQUIRE_ARGUMENT_NUMBER(1, lon1);
-   REQUIRE_ARGUMENT_NUMBER(2, distance);
+   NAN_REQUIRE_ARGUMENT_NUMBER(0, lat1);
+   NAN_REQUIRE_ARGUMENT_NUMBER(1, lon1);
+   NAN_REQUIRE_ARGUMENT_NUMBER(2, distance);
 
    vector<double> rc = vBoundingBox(lat1, lon1, distance);
    Local<Array> result = Local<Array>::New(Array::New(rc.size()));
    for (uint i = 0; i < rc.size(); i++) {
-       result->Set(Integer::New(i), Local<Number>::New(Number::New(rc[i])));
+       result->Set(Nan::New(i), Nan::New(rc[i]));
    }
-   return scope.Close(result);
+   return info.GetReturnValue().Set(result);
 }
 
-static Handle<Value> geoHashGrid(const Arguments& args)
+static NAN_METHOD(geoHashGrid)
 {
-   HandleScope scope;
-
-   REQUIRE_ARGUMENT_STRING(0, base);
-   OPTIONAL_ARGUMENT_NUMBER(1, steps);
+   NAN_REQUIRE_ARGUMENT_STRING(0, base);
+   NAN_OPTIONAL_ARGUMENT_NUMBER(1, steps);
    if (steps <= 0) steps = 1;
 
    vector< vector<string> > rc = vGeoHashGrid(*base, steps);
    Local<Array> result = Local<Array>::New(Array::New());
    for (uint j = 0, n = 0; j < rc[0].size(); j++) {
        for (uint i = 0; i < rc.size(); i++) {
-           result->Set(Integer::New(n++), Local<String>::New(String::New(rc[i][j].c_str())));
+           result->Set(Nan::New(n++), Nan::New(rc[i][j].c_str()).ToLocalChecked());
        }
    }
-   return scope.Close(result);
+   return info.GetReturnValue().Set(result);
 }
 
-static Handle<Value> geoHashRow(const Arguments& args)
+static NAN_METHOD(geoHashRow)
 {
-   HandleScope scope;
-
-   REQUIRE_ARGUMENT_STRING(0, base);
-   OPTIONAL_ARGUMENT_NUMBER(1, steps);
+   NAN_REQUIRE_ARGUMENT_STRING(0, base);
+   NAN_OPTIONAL_ARGUMENT_NUMBER(1, steps);
    if (steps <= 0) steps = 1;
 
    vector<string> rc = vGeoHashRow(*base, steps);
    Local<Array> result = Local<Array>::New(Array::New(rc.size()));
    for (uint i = 0; i < rc.size(); i++) {
-       result->Set(Integer::New(i), Local<String>::New(String::New(rc[i].c_str())));
+       result->Set(Nan::New(i), Nan::New(rc[i].c_str()).ToLocalChecked());
    }
-   return scope.Close(result);
+   return info.GetReturnValue().Set(result);
 }
 
-static Handle<Value> snappyCompress(const Arguments& args)
+static NAN_METHOD(snappyCompress)
 {
-   HandleScope scope;
-
-   REQUIRE_ARGUMENT_STRING(0, str);
+   NAN_REQUIRE_ARGUMENT_STRING(0, str);
 
    string out;
    snappy::Compress(*str, str.length(), &out);
-   return scope.Close(Local<String>::New(String::New(out.c_str(), out.size())));
+   info.GetReturnValue().Set(Nan::New(out.c_str(), out.size()).ToLocalChecked());
 }
 
-static Handle<Value> snappyUncompress(const Arguments& args)
+static NAN_METHOD(snappyUncompress)
 {
-   HandleScope scope;
-
-   REQUIRE_ARGUMENT_STRING(0, str);
+   NAN_REQUIRE_ARGUMENT_STRING(0, str);
 
    string out;
    snappy::Uncompress(*str, str.length(), &out);
-   return scope.Close(Local<String>::New(String::New(out.c_str(), out.size())));
+   info.GetReturnValue().Set(Nan::New(out.c_str(), out.size()).ToLocalChecked());
 }
 
-static Handle<Value> zlibCompress(const Arguments& args)
+static NAN_METHOD(zlibCompress)
 {
-   HandleScope scope;
-
-   REQUIRE_ARGUMENT_STRING(0, str);
-   OPTIONAL_ARGUMENT_INT(1, level);
+   NAN_REQUIRE_ARGUMENT_STRING(0, str);
+   NAN_OPTIONAL_ARGUMENT_INT(1, level);
 
    string out;
    z_stream strm;
    vDeflateInit(&strm, level ? level : Z_BEST_SPEED);
    vDeflate(&strm, *str, str.length(), &out);
    vDeflateEnd(&strm, &out);
-   return scope.Close(Local<String>::New(String::New(out.c_str(), out.size())));
+   info.GetReturnValue().Set(Nan::New(out.c_str(), out.size()).ToLocalChecked());
 }
 
-static Handle<Value> zlibUncompress(const Arguments& args)
+static NAN_METHOD(zlibUncompress)
 {
-   HandleScope scope;
-
-   REQUIRE_ARGUMENT_STRING(0, str);
+   NAN_REQUIRE_ARGUMENT_STRING(0, str);
 
    string out;
    z_stream strm;
    vInflateInit(&strm);
    vInflate(&strm, *str, str.length(), &out);
    vInflateEnd(&strm);
-   return scope.Close(Local<String>::New(String::New(out.c_str(), out.size())));
+   info.GetReturnValue().Set(Nan::New(out.c_str(), out.size()).ToLocalChecked());
 }
 
-static Handle<Value> unzipFile(const Arguments& args)
+static NAN_METHOD(unzipFile)
 {
    HandleScope scope;
 
-   REQUIRE_ARGUMENT_STRING(0, zip);
-   REQUIRE_ARGUMENT_STRING(1, file);
-   OPTIONAL_ARGUMENT_STRING(2, outfile);
+   NAN_REQUIRE_ARGUMENT_STRING(0, zip);
+   NAN_REQUIRE_ARGUMENT_STRING(1, file);
+   NAN_OPTIONAL_ARGUMENT_STRING(2, outfile);
 
-   if (args.Length() == 3) {
+   if (info.Length() == 3) {
        int rc = VUnzip::unzip(*zip, *file, *outfile);
-       return scope.Close(Local<Integer>::New(Integer::New(rc)));
+       return info.GetReturnValue().Set(Local<Integer>::New(Nan::New(rc)));
    }
 
    string out = VUnzip::toString(*zip, *file);
-   return scope.Close(Local<String>::New(String::New(out.c_str(), out.size())));
+   return info.GetReturnValue().Set(Local<String>::New(String::New(out.c_str(), out.size())));
 }
 
-static Handle<Value> unzip(const Arguments& args)
+static NAN_METHOD(unzip)
 {
-   HandleScope scope;
-
-   REQUIRE_ARGUMENT_STRING(0, zip);
-   REQUIRE_ARGUMENT_STRING(1, dir);
+   NAN_REQUIRE_ARGUMENT_STRING(0, zip);
+   NAN_REQUIRE_ARGUMENT_STRING(1, dir);
 
    int rc = VUnzip::unzip(*zip, *dir);
-   return scope.Close(Local<Integer>::New(Integer::New(rc)));
+   info.GetReturnValue().Set(Nan::New(rc));
 }
 
-static Handle<Value> strSplit(const Arguments& args)
+static NAN_METHOD(strSplit)
 {
-   HandleScope scope;
-
-   OPTIONAL_ARGUMENT_STRING(0, str);
-   OPTIONAL_ARGUMENT_STRING(1, delim);
-   OPTIONAL_ARGUMENT_STRING(2, quotes);
+   NAN_OPTIONAL_ARGUMENT_STRING(0, str);
+   NAN_OPTIONAL_ARGUMENT_STRING(1, delim);
+   NAN_OPTIONAL_ARGUMENT_STRING(2, quotes);
 
    vector<string> list = strSplit(*str, *delim, *quotes);
-   return scope.Close(toArray(list));
+   info.GetReturnValue().Set(toArray(list));
 }
 
-static Handle<Value> run(const Arguments& args)
+static NAN_METHOD(run)
 {
-   HandleScope scope;
-
-   OPTIONAL_ARGUMENT_STRING(0, cmd);
+   NAN_OPTIONAL_ARGUMENT_STRING(0, cmd);
    string out;
 
    FILE *fp = popen(*cmd, "r");
@@ -476,49 +415,49 @@ static Handle<Value> run(const Arguments& args)
        }
        pclose(fp);
    }
-   return scope.Close(Local<String>::New(String::New(out.c_str(), out.size())));
+   info.GetReturnValue().Set(Nan::New(out.c_str(), out.size()).ToLocalChecked());
 }
 
 
 void backend_init(Handle<Object> target)
 {
-    HandleScope scope;
+    Nan::HandleScope scope;
 
     vlib_init();
     vsqlite_init();
 
     DebugInit(target);
 
-    NODE_SET_METHOD(target, "run", run);
+    NAN_EXPORT(target, run);
 
-    NODE_SET_METHOD(target, "strSplit", strSplit);
+    NAN_EXPORT(target, strSplit);
 
-    NODE_SET_METHOD(target, "getUser", getUser);
-    NODE_SET_METHOD(target, "getGroup", getGroup);
+    NAN_EXPORT(target, getUser);
+    NAN_EXPORT(target, getGroup);
 
-    NODE_SET_METHOD(target, "logging", logging);
-    NODE_SET_METHOD(target, "loggingChannel", loggingChannel);
+    NAN_EXPORT(target, logging);
+    NAN_EXPORT(target, loggingChannel);
 
-    NODE_SET_METHOD(target, "countWordsInit", countWordsInit);
-    NODE_SET_METHOD(target, "countWords", countWords);
-    NODE_SET_METHOD(target, "countAllWords", countAllWords);
+    NAN_EXPORT(target, countWordsInit);
+    NAN_EXPORT(target, countWords);
+    NAN_EXPORT(target, countAllWords);
 
-    NODE_SET_METHOD(target, "snappyCompress", snappyCompress);
-    NODE_SET_METHOD(target, "snappyUncompress", snappyUncompress);
+    NAN_EXPORT(target, snappyCompress);
+    NAN_EXPORT(target, snappyUncompress);
 
-    NODE_SET_METHOD(target, "zlibCompress", zlibCompress);
-    NODE_SET_METHOD(target, "zlibUncompress", zlibUncompress);
+    NAN_EXPORT(target, zlibCompress);
+    NAN_EXPORT(target, zlibUncompress);
 
-    NODE_SET_METHOD(target, "geoDistance", geoDistance);
-    NODE_SET_METHOD(target, "geoBoundingBox", geoBoundingBox);
-    NODE_SET_METHOD(target, "geoHashEncode", geoHashEncode);
-    NODE_SET_METHOD(target, "geoHashDecode", geoHashDecode);
-    NODE_SET_METHOD(target, "geoHashAdjacent", geoHashAdjacent);
-    NODE_SET_METHOD(target, "geoHashGrid", geoHashGrid);
-    NODE_SET_METHOD(target, "geoHashRow", geoHashRow);
+    NAN_EXPORT(target, geoDistance);
+    NAN_EXPORT(target, geoBoundingBox);
+    NAN_EXPORT(target, geoHashEncode);
+    NAN_EXPORT(target, geoHashDecode);
+    NAN_EXPORT(target, geoHashAdjacent);
+    NAN_EXPORT(target, geoHashGrid);
+    NAN_EXPORT(target, geoHashRow);
 
-    NODE_SET_METHOD(target, "unzipFile", unzipFile);
-    NODE_SET_METHOD(target, "unzip", unzip);
+    NAN_EXPORT(target, unzipFile);
+    NAN_EXPORT(target, unzip);
 
     CacheInit(target);
     SyslogInit(target);

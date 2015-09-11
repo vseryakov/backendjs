@@ -907,7 +907,7 @@ lib.geoHash = function(latitude, longitude, options)
 lib.geoDistance = function(latitude1, longitude1, latitude2, longitude2, options)
 {
     var distance = utils.geoDistance(latitude1, longitude1, latitude2, longitude2);
-    if (isNaN(distance) || distance === null) return null;
+    if (isNaN(distance) || distance === null || typeof distance == "undefined") return null;
 
     // Round the distance to the closes edge and fixed number of decimals
     if (options && typeof options.round == "number" && options.round > 0) {

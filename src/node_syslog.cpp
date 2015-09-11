@@ -227,10 +227,9 @@ static void _syslogSendV(int severity, const char *fmt, va_list ap)
 
 void SyslogInit(Handle<Object> target)
 {
-    HandleScope scope;
-
+    Nan::HandleScope scope;
     pthread_key_create(&key, _syslogFreeTls);
-    Nan::SetMethod(target, "syslogInit", syslogInit);
-    Nan::SetMethod(target, "syslogSend", syslogSend);
-    Nan::SetMethod(target, "syslogClose", syslogClose);
+    NAN_EXPORT(target, syslogInit);
+    NAN_EXPORT(target, syslogSend);
+    NAN_EXPORT(target, syslogClose);
 }

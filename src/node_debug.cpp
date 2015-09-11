@@ -177,7 +177,7 @@ public:
     static Handle<Value> New(const CpuProfile* profile) {
         HandleScope scope;
         if (profile_template_.IsEmpty()) Profile::Initialize();
-        if (!profile) return Undefined();
+        if (!profile) return scope.Close(Undefined());
         Local<Object> obj = profile_template_->NewInstance();
         obj->SetPointerInInternalField(0, const_cast<CpuProfile*>(profile));
         return scope.Close(obj);
@@ -564,8 +564,11 @@ static Handle<Value> GetProfile(const Arguments& args)
 {
     HandleScope scope;
     REQUIRE_ARGUMENT_INT(0, index);
-    const CpuProfile* profile = v8::CpuProfiler::GetProfile(index);
-    return scope.Close(Profile::New(profile));
+    if (index < v8::CpuProfiler::GetProfilesCount()) {
+        const CpuProfile* profile = v8::CpuProfiler::GetProfile(index);
+        return scope.Close(Profile::New(profile));
+    }
+    return scope.Close(Undefined());
 }
 
 static Handle<Value> FindProfile(const Arguments& args)

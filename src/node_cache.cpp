@@ -35,14 +35,14 @@ struct LRUStringCache {
         if (it == items.end()) {
             list<string>::iterator it = lru.insert(lru.end(), k);
             pair<LRUStringItems::iterator,bool> p = items.insert(std::make_pair(k, std::make_pair(v, it)));
-            V8::AdjustAmountOfExternalAllocatedMemory(k.size() + v.size());
+            Nan::AdjustExternalMemory(k.size() + v.size());
             size += k.size() + v.size();
             ins++;
             return p.first->second.first;
         } else {
-            V8::AdjustAmountOfExternalAllocatedMemory(-it->second.first.size());
+            Nan::AdjustExternalMemory(-it->second.first.size());
             it->second.first = v;
-            V8::AdjustAmountOfExternalAllocatedMemory(v.size());
+            Nan::AdjustExternalMemory(v.size());
             lru.splice(lru.end(), lru, it->second.second);
             return it->second.first;
         }
@@ -61,7 +61,7 @@ struct LRUStringCache {
         const LRUStringItems::iterator it = items.find(k);
         if (it == items.end()) return;
         size -= k.size() + it->second.first.size();
-        V8::AdjustAmountOfExternalAllocatedMemory(-(k.size() + it->second.first.size()));
+        Nan::AdjustExternalMemory(-(k.size() + it->second.first.size()));
         lru.erase(it->second.second);
         items.erase(it);
         dels++;
@@ -77,7 +77,7 @@ struct LRUStringCache {
     void clear() {
         items.clear();
         lru.clear();
-        V8::AdjustAmountOfExternalAllocatedMemory(-size);
+        Nan::AdjustExternalMemory(-size);
         size = ins = dels = cleans = hits = misses = 0;
     }
 };
@@ -98,12 +98,12 @@ struct StringCache {
     void set(const string &key, const string &val) {
         string_map::iterator it = items.find(key);
         if (it != items.end()) {
-            V8::AdjustAmountOfExternalAllocatedMemory(-it->second.size());
+            Nan::AdjustExternalMemory(-it->second.size());
             it->second = val;
-            V8::AdjustAmountOfExternalAllocatedMemory(val.size());
+            Nan::AdjustExternalMemory(val.size());
         } else {
             items[key] = val;
-            V8::AdjustAmountOfExternalAllocatedMemory(key.size() + val.size());
+            Nan::AdjustExternalMemory(key.size() + val.size());
         }
     }
     bool exists(const string &k) {
@@ -120,7 +120,7 @@ struct StringCache {
     void del(const string &key) {
         string_map::iterator it = items.find(key);
         if (it != items.end()) {
-            V8::AdjustAmountOfExternalAllocatedMemory(-(it->first.size() + it->second.size()));
+            Nan::AdjustExternalMemory(-(it->first.size() + it->second.size()));
             items.erase(it);
         }
     }
@@ -132,7 +132,7 @@ struct StringCache {
         }
         items.clear();
         nextIt = items.end();
-        V8::AdjustAmountOfExternalAllocatedMemory(-n);
+        Nan::AdjustExternalMemory(-n);
         if (!nextCb.IsEmpty()) nextCb.Dispose();
         if (!completed.IsEmpty()) completed.Dispose();
         nextCb.Clear();
@@ -203,32 +203,27 @@ struct StringCache {
     }
 };
 
-typedef map<string, StringCache> Cache;
+typedef map<std::string, ::StringCache> Cache;
 
 static Cache _cache;
 static LRUStringCache _lru;
 
-static Handle<Value> cacheClear(const Arguments& args)
+static NAN_METHOD(cacheClear)
 {
-    HandleScope scope;
-
-    REQUIRE_ARGUMENT_AS_STRING(0, name);
+    NAN_REQUIRE_ARGUMENT_AS_STRING(0, name);
 
     Cache::iterator itc = _cache.find(*name);
     if (itc != _cache.end()) {
         itc->second.clear();
         _cache.erase(*name);
     }
-    return scope.Close(Undefined());
 }
 
-static Handle<Value> cacheSet(const Arguments& args)
+static NAN_METHOD(cachePut)
 {
-    HandleScope scope;
-
-    REQUIRE_ARGUMENT_AS_STRING(0, name);
-    REQUIRE_ARGUMENT_AS_STRING(1, key);
-    REQUIRE_ARGUMENT_AS_STRING(2, val);
+    NAN_REQUIRE_ARGUMENT_AS_STRING(0, name);
+    NAN_REQUIRE_ARGUMENT_AS_STRING(1, key);
+    NAN_REQUIRE_ARGUMENT_AS_STRING(2, val);
 
     Cache::iterator itc = _cache.find(*name);
     if (itc == _cache.end()) {
@@ -236,16 +231,13 @@ static Handle<Value> cacheSet(const Arguments& args)
         itc = _cache.find(*name);
     }
     itc->second.set(*key, *val);
-    return scope.Close(Undefined());
 }
 
-static Handle<Value> cacheIncr(const Arguments& args)
+static NAN_METHOD(cacheIncr)
 {
-    HandleScope scope;
-
-    REQUIRE_ARGUMENT_AS_STRING(0, name);
-    REQUIRE_ARGUMENT_AS_STRING(1, key);
-    REQUIRE_ARGUMENT_AS_STRING(2, val);
+    NAN_REQUIRE_ARGUMENT_AS_STRING(0, name);
+    NAN_REQUIRE_ARGUMENT_AS_STRING(1, key);
+    NAN_REQUIRE_ARGUMENT_AS_STRING(2, val);
 
     Cache::iterator itc = _cache.find(*name);
     if (itc == _cache.end()) {
@@ -253,57 +245,46 @@ static Handle<Value> cacheIncr(const Arguments& args)
         itc = _cache.find(*name);
     }
     string v = itc->second.incr(*key, *val);
-    return scope.Close(Local<String>::New(String::New(v.c_str())));
+    info.GetReturnValue().Set(Nan::New(v.c_str()).ToLocalChecked());
 }
 
-static Handle<Value> cacheDel(const Arguments& args)
+static NAN_METHOD(cacheDel)
 {
-    HandleScope scope;
-
-    REQUIRE_ARGUMENT_AS_STRING(0, name);
-    REQUIRE_ARGUMENT_AS_STRING(1, key);
+    NAN_REQUIRE_ARGUMENT_AS_STRING(0, name);
+    NAN_REQUIRE_ARGUMENT_AS_STRING(1, key);
 
     Cache::iterator itc = _cache.find(*name);
     if (itc != _cache.end()) itc->second.del(*key);
-
-    return scope.Close(Undefined());
 }
 
-static Handle<Value> cacheGet(const Arguments& args)
+static NAN_METHOD(cacheGet)
 {
-    HandleScope scope;
-
-    REQUIRE_ARGUMENT_AS_STRING(0, name);
-    REQUIRE_ARGUMENT_AS_STRING(1, key);
+    NAN_REQUIRE_ARGUMENT_AS_STRING(0, name);
+    NAN_REQUIRE_ARGUMENT_AS_STRING(1, key);
 
     Cache::iterator itc = _cache.find(*name);
     if (itc != _cache.end()) {
-        return scope.Close(Local<String>::New(String::New(itc->second.get(*key).c_str())));
+        info.GetReturnValue().Set(Nan::New(itc->second.get(*key).c_str()).ToLocalChecked());
+        return;
     }
-
-    return scope.Close(Undefined());
 }
 
-static Handle<Value> cacheExists(const Arguments& args)
+static NAN_METHOD(cacheExists)
 {
-    HandleScope scope;
-
-    REQUIRE_ARGUMENT_AS_STRING(0, name);
-    REQUIRE_ARGUMENT_AS_STRING(1, key);
+    NAN_REQUIRE_ARGUMENT_AS_STRING(0, name);
+    NAN_REQUIRE_ARGUMENT_AS_STRING(1, key);
 
     Cache::iterator itc = _cache.find(*name);
     if (itc != _cache.end()) {
-        return scope.Close(Local<Boolean>::New(Boolean::New(itc->second.exists(*key))));
+        info.GetReturnValue().Set(Nan::New(itc->second.exists(*key)));
+    } else {
+        info.GetReturnValue().Set(Nan::False());
     }
-
-    return scope.Close(Boolean::New(false));
 }
 
-static Handle<Value> cacheKeys(const Arguments& args)
+static NAN_METHOD(cacheKeys)
 {
-    HandleScope scope;
-
-    REQUIRE_ARGUMENT_AS_STRING(0, name);
+    NAN_REQUIRE_ARGUMENT_AS_STRING(0, name);
 
     Local<Array> keys = Array::New();
     Cache::iterator itc = _cache.find(*name);
@@ -316,13 +297,11 @@ static Handle<Value> cacheKeys(const Arguments& args)
             i++;
         }
     }
-    return scope.Close(keys);
+    info.GetReturnValue().Set(keys);
 }
 
-static Handle<Value> cacheNames(const Arguments& args)
+static NAN_METHOD(cacheNames)
 {
-    HandleScope scope;
-
     Local<Array> keys = Array::New();
     Cache::const_iterator it = _cache.begin();
     int i = 0;
@@ -332,92 +311,82 @@ static Handle<Value> cacheNames(const Arguments& args)
         it++;
         i++;
     }
-    return scope.Close(keys);
+    info.GetReturnValue().Set(keys);
 }
 
-static Handle<Value> cacheSize(const Arguments& args)
+static NAN_METHOD(cacheSize)
 {
-    HandleScope scope;
-    REQUIRE_ARGUMENT_AS_STRING(0, name);
+    NAN_REQUIRE_ARGUMENT_AS_STRING(0, name);
     int count = 0;
     Cache::iterator itc = _cache.find(*name);
     if (itc != _cache.end()) count = itc->second.items.size();
-
-    return scope.Close(Local<Integer>::New(Integer::New(count)));
+    info.GetReturnValue().Set(Nan::New(count));
 }
 
-static Handle<Value> cacheEach(const Arguments& args)
+static NAN_METHOD(cacheEach)
 {
-    HandleScope scope;
-
-    REQUIRE_ARGUMENT_AS_STRING(0, name);
-    REQUIRE_ARGUMENT_FUNCTION(1, cb);
+    NAN_REQUIRE_ARGUMENT_AS_STRING(0, name);
+    NAN_REQUIRE_ARGUMENT_FUNCTION(1, cb);
 
     Cache::iterator itc = _cache.find(*name);
     if (itc != _cache.end()) itc->second.each(cb);
-
-    return scope.Close(Undefined());
 }
 
-static Handle<Value> cacheBegin(const Arguments& args)
+static NAN_METHOD(cacheBegin)
 {
-    HandleScope scope;
-
-    REQUIRE_ARGUMENT_AS_STRING(0, name);
+    NAN_REQUIRE_ARGUMENT_AS_STRING(0, name);
     Cache::iterator itc = _cache.find(*name);
-    if (itc != _cache.end()) return scope.Close(Boolean::New(itc->second.begin()));
-    return scope.Close(Local<Boolean>::New(Boolean::New(false)));
+    if (itc != _cache.end()) {
+        info.GetReturnValue().Set(Nan::New(itc->second.begin()));
+    } else {
+        info.GetReturnValue().Set(Nan::False());
+    }
 }
 
-static Handle<Value> cacheNext(const Arguments& args)
+static NAN_METHOD(cacheNext)
 {
-    HandleScope scope;
-
-    REQUIRE_ARGUMENT_AS_STRING(0, name);
+    NAN_REQUIRE_ARGUMENT_AS_STRING(0, name);
     Cache::iterator itc = _cache.find(*name);
-    if (itc != _cache.end()) return scope.Close(itc->second.next());
-    return scope.Close(Undefined());
+    if (itc != _cache.end()) info.GetReturnValue().Set(Nan::New(itc->second.next()));
 }
 
-static Handle<Value> cacheForEachNext(const Arguments& args)
+static NAN_METHOD(cacheForEachNext)
 {
-    HandleScope scope;
-
-    REQUIRE_ARGUMENT_AS_STRING(0, name);
+    NAN_REQUIRE_ARGUMENT_AS_STRING(0, name);
     Cache::iterator itc = _cache.find(*name);
-    if (itc != _cache.end()) return scope.Close(Boolean::New(itc->second.timer()));
-    return scope.Close(Local<Boolean>::New(Boolean::New(false)));
+    if (itc != _cache.end()) {
+        info.GetReturnValue().Set(Nan::New(itc->second.timer()));
+    } else {
+        info.GetReturnValue().Set(Nan::False());
+    }
 }
 
-static Handle<Value> cacheForEach(const Arguments& args)
+static NAN_METHOD(cacheForEach)
 {
-    HandleScope scope;
-
-    REQUIRE_ARGUMENT_AS_STRING(0, name);
-    REQUIRE_ARGUMENT_FUNCTION(1, cb);
-    REQUIRE_ARGUMENT_FUNCTION(2, complete);
+    NAN_REQUIRE_ARGUMENT_AS_STRING(0, name);
+    NAN_REQUIRE_ARGUMENT_FUNCTION(1, cb);
+    NAN_REQUIRE_ARGUMENT_FUNCTION(2, complete);
 
     Cache::iterator itc = _cache.find(*name);
     if (itc != _cache.end()) {
         itc->second.begin(cb, complete);
-        return scope.Close(Boolean::New(itc->second.timer()));
+        info.GetReturnValue().Set(Nan::New(itc->second.timer()));
+        return;
     }
 
     Local<Value> argv[1];
-    TryCatch try_catch;
+    Nan::TryCatch try_catch;
     complete->Call(Context::GetCurrent()->Global(), 0, argv);
     if (try_catch.HasCaught()) FatalException(try_catch);
 
-    return scope.Close(Boolean::New(false));
+    info.GetReturnValue().Set(Nan::False());
 }
 
-static Handle<Value> cacheSave(const Arguments& args)
+static NAN_METHOD(cacheSave)
 {
-    HandleScope scope;
-
-    REQUIRE_ARGUMENT_AS_STRING(0, name);
-    REQUIRE_ARGUMENT_AS_STRING(1, file);
-    REQUIRE_ARGUMENT_AS_STRING(2, sep);
+    NAN_REQUIRE_ARGUMENT_AS_STRING(0, name);
+    NAN_REQUIRE_ARGUMENT_AS_STRING(1, file);
+    NAN_REQUIRE_ARGUMENT_AS_STRING(2, sep);
 
     FILE *fp = fopen(*file, "w");
     if (!fp) ThrowException(Exception::Error(String::New("Cannot create file")));
@@ -431,90 +400,68 @@ static Handle<Value> cacheSave(const Arguments& args)
         }
         fclose(fp);
     }
-    return scope.Close(Undefined());
 }
 
-static Handle<Value> lruInit(const Arguments& args)
+static NAN_METHOD(lruInit)
 {
-    HandleScope scope;
-    REQUIRE_ARGUMENT_INT(0, max);
+    NAN_REQUIRE_ARGUMENT_INT(0, max);
     if (max > 0) _lru.max = max;
-    return scope.Close(Undefined());
 }
 
-static Handle<Value> lruSize(const Arguments& args)
+static NAN_METHOD(lruSize)
 {
-    HandleScope scope;
-    return scope.Close(Local<Integer>::New(Integer::New(_lru.size)));
+    info.GetReturnValue().Set(Nan::New((double)_lru.size));
 }
 
-static Handle<Value> lruCount(const Arguments& args)
+static NAN_METHOD(lruCount)
 {
-    HandleScope scope;
-    return scope.Close(Local<Integer>::New(Integer::New(_lru.items.size())));
+    info.GetReturnValue().Set(Nan::New((double)_lru.items.size()));
 }
 
-static Handle<Value> lruClear(const Arguments& args)
+static NAN_METHOD(lruClear)
 {
-    HandleScope scope;
-
     _lru.clear();
-    return scope.Close(Undefined());
 }
 
-static Handle<Value> lruSet(const Arguments& args)
+static NAN_METHOD(lruSet)
 {
-    HandleScope scope;
-
-    REQUIRE_ARGUMENT_AS_STRING(0, key);
-    REQUIRE_ARGUMENT_AS_STRING(1, val);
+    NAN_REQUIRE_ARGUMENT_AS_STRING(0, key);
+    NAN_REQUIRE_ARGUMENT_AS_STRING(1, val);
 
     _lru.set(*key, *val);
-    return scope.Close(Undefined());
 }
 
-static Handle<Value> lruIncr(const Arguments& args)
+static NAN_METHOD(lruIncr)
 {
-    HandleScope scope;
-
-    REQUIRE_ARGUMENT_AS_STRING(0, key);
-    REQUIRE_ARGUMENT_AS_STRING(1, val);
+    NAN_REQUIRE_ARGUMENT_AS_STRING(0, key);
+    NAN_REQUIRE_ARGUMENT_AS_STRING(1, val);
 
     const string& str = _lru.incr(*key, *val);
-    return scope.Close(Local<String>::New(String::New(str.c_str())));
+    info.GetReturnValue().Set(Nan::New(str.c_str()).ToLocalChecked());
 }
 
-static Handle<Value> lruDel(const Arguments& args)
+static NAN_METHOD(lruDel)
 {
-    HandleScope scope;
-
-    REQUIRE_ARGUMENT_AS_STRING(0, key);
+    NAN_REQUIRE_ARGUMENT_AS_STRING(0, key);
     _lru.del(*key);
-    return scope.Close(Undefined());
 }
 
-static Handle<Value> lruGet(const Arguments& args)
+static NAN_METHOD(lruGet)
 {
-    HandleScope scope;
-
-    REQUIRE_ARGUMENT_AS_STRING(0, key);
+    NAN_REQUIRE_ARGUMENT_AS_STRING(0, key);
     const string& str = _lru.get(*key);
-    return scope.Close(Local<String>::New(String::New(str.c_str())));
+    info.GetReturnValue().Set(Nan::New(str.c_str()).ToLocalChecked());
 }
 
-static Handle<Value> lruExists(const Arguments& args)
+static NAN_METHOD(lruExists)
 {
-    HandleScope scope;
-
-    REQUIRE_ARGUMENT_AS_STRING(0, key);
-    return scope.Close(Local<Boolean>::New(Boolean::New(_lru.exists(*key))));
+    NAN_REQUIRE_ARGUMENT_AS_STRING(0, key);
+    info.GetReturnValue().Set(Nan::New(_lru.exists(*key)));
 }
 
-static Handle<Value> lruKeys(const Arguments& args)
+static NAN_METHOD(lruKeys)
 {
-    HandleScope scope;
-
-    OPTIONAL_ARGUMENT_AS_STRING(0, str);
+    NAN_OPTIONAL_ARGUMENT_AS_STRING(0, str);
     Local<Array> keys = Array::New();
     char *key = *str;
     int i = 0, n = strlen(key);
@@ -527,13 +474,11 @@ static Handle<Value> lruKeys(const Arguments& args)
         }
         it++;
     }
-    return scope.Close(keys);
+    info.GetReturnValue().Set(keys);
 }
 
-static Handle<Value> lruStats(const Arguments& args)
+static NAN_METHOD(lruStats)
 {
-    HandleScope scope;
-
     Local<Object> obj = Object::New();
     obj->Set(String::NewSymbol("inserted"), Integer::New(_lru.ins));
     obj->Set(String::NewSymbol("deleted"), Integer::New(_lru.dels));
@@ -543,39 +488,39 @@ static Handle<Value> lruStats(const Arguments& args)
     obj->Set(String::NewSymbol("max"), Integer::New(_lru.max));
     obj->Set(String::NewSymbol("size"), Integer::New(_lru.size));
     obj->Set(String::NewSymbol("count"), Integer::New(_lru.items.size()));
-    return scope.Close(obj);
+    info.GetReturnValue().Set(obj);
 }
 
 void CacheInit(Handle<Object> target)
 {
-    HandleScope scope;
+    Nan::HandleScope scope;
 
-    NODE_SET_METHOD(target, "cacheSave", cacheSave);
-    NODE_SET_METHOD(target, "cachePut", cacheSet);
-    NODE_SET_METHOD(target, "cacheIncr", cacheIncr);
-    NODE_SET_METHOD(target, "cacheGet", cacheGet);
-    NODE_SET_METHOD(target, "cacheExists", cacheExists);
-    NODE_SET_METHOD(target, "cacheDel", cacheDel);
-    NODE_SET_METHOD(target, "cacheKeys", cacheKeys);
-    NODE_SET_METHOD(target, "cacheClear", cacheClear);
-    NODE_SET_METHOD(target, "cacheNames", cacheNames);
-    NODE_SET_METHOD(target, "cacheSize", cacheSize);
-    NODE_SET_METHOD(target, "cacheEach", cacheEach);
-    NODE_SET_METHOD(target, "cacheForEach", cacheForEach);
-    NODE_SET_METHOD(target, "cacheForEachNext", cacheForEachNext);
-    NODE_SET_METHOD(target, "cacheBegin", cacheBegin);
-    NODE_SET_METHOD(target, "cacheNext", cacheNext);
+    NAN_EXPORT(target, cacheSave);
+    NAN_EXPORT(target, cachePut);
+    NAN_EXPORT(target, cacheIncr);
+    NAN_EXPORT(target, cacheGet);
+    NAN_EXPORT(target, cacheExists);
+    NAN_EXPORT(target, cacheDel);
+    NAN_EXPORT(target, cacheKeys);
+    NAN_EXPORT(target, cacheClear);
+    NAN_EXPORT(target, cacheNames);
+    NAN_EXPORT(target, cacheSize);
+    NAN_EXPORT(target, cacheEach);
+    NAN_EXPORT(target, cacheForEach);
+    NAN_EXPORT(target, cacheForEachNext);
+    NAN_EXPORT(target, cacheBegin);
+    NAN_EXPORT(target, cacheNext);
 
-    NODE_SET_METHOD(target, "lruInit", lruInit);
-    NODE_SET_METHOD(target, "lruStats", lruStats);
-    NODE_SET_METHOD(target, "lruSize", lruSize);
-    NODE_SET_METHOD(target, "lruCount", lruCount);
-    NODE_SET_METHOD(target, "lruPut", lruSet);
-    NODE_SET_METHOD(target, "lruGet", lruGet);
-    NODE_SET_METHOD(target, "lruExists", lruExists);
-    NODE_SET_METHOD(target, "lruIncr", lruIncr);
-    NODE_SET_METHOD(target, "lruDel", lruDel);
-    NODE_SET_METHOD(target, "lruKeys", lruKeys);
-    NODE_SET_METHOD(target, "lruClear", lruClear);
+    NAN_EXPORT(target, lruInit);
+    NAN_EXPORT(target, lruStats);
+    NAN_EXPORT(target, lruSize);
+    NAN_EXPORT(target, lruCount);
+    NAN_EXPORT(target, lruSet);
+    NAN_EXPORT(target, lruGet);
+    NAN_EXPORT(target, lruExists);
+    NAN_EXPORT(target, lruIncr);
+    NAN_EXPORT(target, lruDel);
+    NAN_EXPORT(target, lruKeys);
+    NAN_EXPORT(target, lruClear);
 }
 
