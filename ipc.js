@@ -166,8 +166,9 @@ Ipc.prototype.handleServerMessages = function(worker, msg)
             if (!this.tokenBucket.equal(msg.rate, msg.max, msg.interval)) this.tokenBucket.configure(msg);
             msg.consumed = this.tokenBucket.consume(msg.consume || 1);
             msg.delay = this.tokenBucket.delay(msg.consume || 1);
-            utils.lruPut(msg.name, this.tokenBucket.toString());
-            logger.debug("ipc:limiter:", msg);
+            var token = this.tokenBucket.toString();
+            utils.lruPut(msg.name, token);
+            logger.debug("ipc:limiter:", msg.name, msg.consumed, msg.delay, token);
             worker.send(msg);
             break;
 
@@ -556,7 +557,7 @@ Ipc.prototype.monitor = function(options)
 // used unless a queue client provides its own implementation.
 //
 // The options must have the following properties:
-// - name - unique id, can be IP address, account id, etc...
+//  - name - unique id, can be IP address, account id, etc...
 //  - max - the maximum burst capacity
 //  - rate - the rate to refill tokens
 //  - interval - interval for the bucket refills, default 1000 ms
@@ -566,6 +567,7 @@ Ipc.prototype.monitor = function(options)
 Ipc.prototype.limiter = function(options, callback)
 {
     logger.dev("ipc.limiter:", options);
+    if (!options && !options.rate) return callback(0);
     try {
         this.getClient("queue", options).limiter(options, callback);
     } catch(e) {

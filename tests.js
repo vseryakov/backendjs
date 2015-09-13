@@ -12,15 +12,15 @@ var util = require('util');
 var path = require('path');
 var child_process = require('child_process');
 var bkjs = require('backendjs')
-core = bkjs.core;
-lib = bkjs.lib;
-ipc = bkjs.ipc;
-api = bkjs.api;
-db = bkjs.db;
-aws = bkjs.aws;
-server = bkjs.server;
-logger = bkjs.logger;
-utils = bkjs.utils;
+var core = bkjs.core;
+var lib = bkjs.lib;
+var ipc = bkjs.ipc;
+var api = bkjs.api;
+var db = bkjs.db;
+var aws = bkjs.aws;
+var server = bkjs.server;
+var logger = bkjs.logger;
+var utils = bkjs.utils;
 
 // Test object with functions for different areas to be tested
 var tests = {
@@ -1140,6 +1140,31 @@ tests.test_icon = function(callback)
     api.putIcon({ body: {}, files: { 1: { path: __dirname + "/web/img/loading.gif" } } }, 1, { prefix: "account", width: 100, height: 100 }, function(err) {
         callback(err);
     });
+}
+
+tests.test_limiter = function(callback)
+{
+    var opts = { name: core.getArg("-name", "test"), rate: core.getArgInt("-rate", 10), max: core.getArgInt("-max", 10), interval: core.getArgInt("-interval", 1000), queueName: core.getArg("-queue") };
+    var list = [];
+    for (var i = 0; i < core.getArgInt("-count", 10); i++) list.push(i);
+
+    ipc.initServer();
+    setTimeout(function() {
+        lib.forEach(list, function(i, next) {
+            lib.doWhilst(
+              function(next2) {
+                  ipc.limiter(opts, function(delay) {
+                      opts.delay = delay;
+                      if (delay) logger.log("limiter:", opts);
+                      setTimeout(next2, delay);
+                  });
+              },
+              function() {
+                  return opts.delay;
+              },
+              next);
+        }, callback);
+    }, 1000);
 }
 
 tests.test_cookie = function(callback)
