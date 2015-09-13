@@ -179,7 +179,7 @@ static void _syslogSendV(int severity, const char *fmt, va_list ap)
     // build the message
     char tmp[128];
     if (log->options & LOG_RFC3339) {
-        snprintf(tmp, sizeof(tmp), "<%d>%s ", severity, vFmtTime3339(vClock()).c_str());
+        snprintf(tmp, sizeof(tmp), "<%d>%s ", severity, bkFmtTime3339(bkClock()).c_str());
         buf = tmp;
     } else {
         time_t now = time(NULL);

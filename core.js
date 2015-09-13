@@ -806,7 +806,7 @@ core.createServer = function(options, callback)
     var server = options.ssl ? https.createServer(options.ssl, callback) : http.createServer(callback);
     if (options.timeout) server.timeout = options.timeout;
     server.on('error', function(err) {
-        logger.error(this.role + ':', 'port:', options.port, err.stack);
+        logger.error(this.role + ':', 'port:', options.port, lib.traceError(err));
         // Restart backend processes on address in use
         if (err.code == 'EADDRINUSE' && options.restart) {
             self.killBackend(options.restart, "SIGKILL", function() { process.exit(0) });

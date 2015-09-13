@@ -5,17 +5,17 @@
  */
 
 
-#ifndef _V_UNZIP_H_
-#define _V_UNZIP_H_
+#ifndef _BK_UNZIP_H_
+#define _BK_UNZIP_H_
 
 #ifndef Z_U4
 #define z_crc_t unsigned long
 #endif
 
-class VUnzip {
+class bkUnzip {
 public:
-    VUnzip(string path): _name(path), _file(NULL) {}
-    ~VUnzip() { close(); }
+    bkUnzip(string path): _name(path), _file(NULL) {}
+    ~bkUnzip() { close(); }
 
     // Open zip archive, return true on success
     bool open();

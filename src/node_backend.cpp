@@ -11,19 +11,19 @@ static NAN_METHOD(logging)
 {
     if (info.Length() > 0) {
         Nan::Utf8String level(info[0]);
-        VLog::set(*level);
+        bkLog::set(*level);
     }
 
-    return info.GetReturnValue().Set(Nan::New(VLog::level()));
+    return info.GetReturnValue().Set(Nan::New(bkLog::level()));
 }
 
 static NAN_METHOD(loggingChannel)
 {
     if (info.Length() > 0) {
         Nan::Utf8String name(info[0]);
-        VLog::setChannel(!strcmp(*name, "stderr") ? stderr : NULL);
+        bkLog::setChannel(!strcmp(*name, "stderr") ? stderr : NULL);
     }
-    FILE *fp = VLog::getChannel();
+    FILE *fp = bkLog::getChannel();
     return info.GetReturnValue().Set(Nan::New(fp == stderr ? "stderr" : "stdout").ToLocalChecked());
 }
 
@@ -135,10 +135,10 @@ static NAN_METHOD(countWords)
     NAN_REQUIRE_ARGUMENT_AS_STRING(0, word);
     NAN_REQUIRE_ARGUMENT_AS_STRING(1, text);
 
-    return info.GetReturnValue().Set(Nan::New(vCountWords(*word, *text)));
+    return info.GetReturnValue().Set(Nan::New(bkCountWords(*word, *text)));
 }
 
-static vector<CountWords*> _wc;
+static vector<bkAhoCorasick*> _wc;
 
 static NAN_METHOD(countWordsInit)
 {
@@ -151,7 +151,7 @@ static NAN_METHOD(countAllWords)
     NAN_REQUIRE_ARGUMENT_ARRAY(0, list);
     NAN_REQUIRE_ARGUMENT_AS_STRING(1, text);
 
-    CountWords w, *cw = &w;
+    bkAhoCorasick w, *cw = &w;
 
     // Find cached class
     if (info.Length() > 2 && !info[2]->IsNull()) {
@@ -161,7 +161,7 @@ static NAN_METHOD(countAllWords)
             if (_wc[i]->name == *hash) cw = _wc[i];
         }
         if (!cw) {
-            cw = new CountWords(*hash);
+            cw = new bkAhoCorasick(*hash);
             _wc.push_back(cw);
         }
     }
@@ -203,7 +203,7 @@ static NAN_METHOD(countAllWords)
     for (uint i = 0, j = 0; i < cw->counters.size(); i++) {
         if (cw->counters[i]) {
             string w = cw->list[i].word;
-            if (cw->list[i].value) w += vFmtStr("/%d", cw->list[i].value);
+            if (cw->list[i].value) w += bkFmtStr("/%d", cw->list[i].value);
             list->Set(Nan::New(j), Nan::New(w.c_str()).ToLocalChecked());
             counters->Set(Nan::New(j), Nan::New(cw->counters[i]));
             values->Set(Nan::New(j++), Nan::New(cw->list[i].value));
@@ -226,7 +226,7 @@ static NAN_METHOD(geoHashEncode)
    NAN_REQUIRE_ARGUMENT_NUMBER(1, lon);
    NAN_OPTIONAL_ARGUMENT_INT(2, len);
 
-   string hash = vGeoHashEncode(lat, lon, len);
+   string hash = bkGeoHashEncode(lat, lon, len);
    return info.GetReturnValue().Set(Nan::New(hash.c_str()).ToLocalChecked());
 }
 
@@ -234,7 +234,7 @@ static NAN_METHOD(geoHashDecode)
 {
    NAN_REQUIRE_ARGUMENT_AS_STRING(0, hash);
 
-   vector<double> rc = vGeoHashDecode(*hash);
+   vector<double> rc = bkGeoHashDecode(*hash);
    Local<Array> result = Local<Array>::New(Array::New(rc.size()));
    for (uint i = 0; i < rc.size(); i++) {
        result->Set(Nan::New(i), Nan::New(rc[i]));
@@ -247,7 +247,7 @@ static NAN_METHOD(geoHashAdjacent)
    NAN_REQUIRE_ARGUMENT_STRING(0, base);
    NAN_REQUIRE_ARGUMENT_STRING(1, dir);
 
-   string hash = vGeoHashAdjacent(*base, *dir);
+   string hash = bkGeoHashAdjacent(*base, *dir);
    return info.GetReturnValue().Set(Nan::New(hash.c_str()).ToLocalChecked());
 }
 
@@ -274,7 +274,7 @@ static NAN_METHOD(geoDistance)
    if (lat2 == 0 && !isNumber(info[2]->ToString())) return;
    if (lon2 == 0 && !isNumber(info[3]->ToString())) return;
 
-   info.GetReturnValue().Set(Nan::New(vDistance(lat1, lon1, lat2, lon2)));
+   info.GetReturnValue().Set(Nan::New(bkDistance(lat1, lon1, lat2, lon2)));
 }
 
 static NAN_METHOD(geoBoundingBox)
@@ -283,7 +283,7 @@ static NAN_METHOD(geoBoundingBox)
    NAN_REQUIRE_ARGUMENT_NUMBER(1, lon1);
    NAN_REQUIRE_ARGUMENT_NUMBER(2, distance);
 
-   vector<double> rc = vBoundingBox(lat1, lon1, distance);
+   vector<double> rc = bkBoundingBox(lat1, lon1, distance);
    Local<Array> result = Local<Array>::New(Array::New(rc.size()));
    for (uint i = 0; i < rc.size(); i++) {
        result->Set(Nan::New(i), Nan::New(rc[i]));
@@ -297,7 +297,7 @@ static NAN_METHOD(geoHashGrid)
    NAN_OPTIONAL_ARGUMENT_NUMBER(1, steps);
    if (steps <= 0) steps = 1;
 
-   vector< vector<string> > rc = vGeoHashGrid(*base, steps);
+   vector< vector<string> > rc = bkGeoHashGrid(*base, steps);
    Local<Array> result = Local<Array>::New(Array::New());
    for (uint j = 0, n = 0; j < rc[0].size(); j++) {
        for (uint i = 0; i < rc.size(); i++) {
@@ -313,7 +313,7 @@ static NAN_METHOD(geoHashRow)
    NAN_OPTIONAL_ARGUMENT_NUMBER(1, steps);
    if (steps <= 0) steps = 1;
 
-   vector<string> rc = vGeoHashRow(*base, steps);
+   vector<string> rc = bkGeoHashRow(*base, steps);
    Local<Array> result = Local<Array>::New(Array::New(rc.size()));
    for (uint i = 0; i < rc.size(); i++) {
        result->Set(Nan::New(i), Nan::New(rc[i].c_str()).ToLocalChecked());
@@ -346,9 +346,9 @@ static NAN_METHOD(zlibCompress)
 
    string out;
    z_stream strm;
-   vDeflateInit(&strm, level ? level : Z_BEST_SPEED);
-   vDeflate(&strm, *str, str.length(), &out);
-   vDeflateEnd(&strm, &out);
+   bkDeflateInit(&strm, level ? level : Z_BEST_SPEED);
+   bkDeflate(&strm, *str, str.length(), &out);
+   bkDeflateEnd(&strm, &out);
    info.GetReturnValue().Set(Nan::New(out.c_str(), out.size()).ToLocalChecked());
 }
 
@@ -358,9 +358,9 @@ static NAN_METHOD(zlibUncompress)
 
    string out;
    z_stream strm;
-   vInflateInit(&strm);
-   vInflate(&strm, *str, str.length(), &out);
-   vInflateEnd(&strm);
+   bkInflateInit(&strm);
+   bkInflate(&strm, *str, str.length(), &out);
+   bkInflateEnd(&strm);
    info.GetReturnValue().Set(Nan::New(out.c_str(), out.size()).ToLocalChecked());
 }
 
@@ -373,11 +373,11 @@ static NAN_METHOD(unzipFile)
    NAN_OPTIONAL_ARGUMENT_STRING(2, outfile);
 
    if (info.Length() == 3) {
-       int rc = VUnzip::unzip(*zip, *file, *outfile);
+       int rc = bkUnzip::unzip(*zip, *file, *outfile);
        return info.GetReturnValue().Set(Local<Integer>::New(Nan::New(rc)));
    }
 
-   string out = VUnzip::toString(*zip, *file);
+   string out = bkUnzip::toString(*zip, *file);
    return info.GetReturnValue().Set(Local<String>::New(String::New(out.c_str(), out.size())));
 }
 
@@ -386,7 +386,7 @@ static NAN_METHOD(unzip)
    NAN_REQUIRE_ARGUMENT_STRING(0, zip);
    NAN_REQUIRE_ARGUMENT_STRING(1, dir);
 
-   int rc = VUnzip::unzip(*zip, *dir);
+   int rc = bkUnzip::unzip(*zip, *dir);
    info.GetReturnValue().Set(Nan::New(rc));
 }
 
@@ -423,8 +423,8 @@ void backend_init(Handle<Object> target)
 {
     Nan::HandleScope scope;
 
-    vlib_init();
-    vsqlite_init();
+    bkLibInit();
+    bkSqliteInit();
 
     DebugInit(target);
 

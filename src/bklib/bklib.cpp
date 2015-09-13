@@ -84,25 +84,25 @@ static const char _alphabet[] = {
 };
 #define isDelim(ch) (((ch) & 0x80) == 0 && ((ch) < 0x20 || !_alphabet[(ch) - 0x20]))
 
-void vlib_init()
+void bkLibInit()
 {
 }
 
 enum CW_MODE { CW_SUM, CW_SUMV, CW_MIN, CW_MINV, CW_MAX, CW_MAXV, CW_AVG, CW_AVGV, CW_MUL, CW_MULV, CW_ANY, CW_ANYV };
 const static char *_cwModes[] = { "SUM", "SUMV", "MIN", "MINV", "MAX", "MAXV", "AVG", "AVGV", "MUL", "MULV", "ANY", "ANYV", NULL };
 
-CountWords::CountWords(string id): name(id), count(0), value(0), mode(0), state(0), matches(NULL), failures(NULL), gotos(NULL)
+bkAhoCorasick::bkAhoCorasick(string id): name(id), count(0), value(0), mode(0), state(0), matches(NULL), failures(NULL), gotos(NULL)
 {
     memset(alphabet, 0, sizeof(alphabet));
     memcpy(&alphabet[32], _alphabet, sizeof(_alphabet));
 }
 
-CountWords::~CountWords()
+bkAhoCorasick::~bkAhoCorasick()
 {
     reset();
 }
 
-void CountWords::reset()
+void bkAhoCorasick::reset()
 {
     if (matches) free(matches);
     if (failures) free(failures);
@@ -113,7 +113,7 @@ void CountWords::reset()
     count = value = mode = 0;
 }
 
-void CountWords::setAlphabet(const char *symbols, int size, bool delimiter)
+void bkAhoCorasick::setAlphabet(const char *symbols, int size, bool delimiter)
 {
     if (!symbols) return;
     for (int i = 0; i < size; i++) {
@@ -121,7 +121,7 @@ void CountWords::setAlphabet(const char *symbols, int size, bool delimiter)
     }
 }
 
-void CountWords::prepare()
+void bkAhoCorasick::prepare()
 {
     uint wsize = list.size(), msize = 1;
     for (uint i = 0; i < wsize; i++) msize += list[i].word.size();
@@ -176,7 +176,7 @@ void CountWords::prepare()
     }
 }
 
-int CountWords::search(const char *text, int tsize)
+int bkAhoCorasick::search(const char *text, int tsize)
 {
     count = value = 0;
     counters.clear();
@@ -256,20 +256,20 @@ int CountWords::search(const char *text, int tsize)
     return count;
 }
 
-bool CountWords::addJson(const char *text, int tsize, string *errmsg)
+bool bkAhoCorasick::addJson(const char *text, int tsize, string *errmsg)
 {
     bool rc = false;
-    jsonValue *json = NULL, *words;
+    bkJsonValue *json = NULL, *words;
 
     reset();
     if (text && tsize) {
-        json = words = jsonParse(text, tsize, errmsg);
+        json = words = bkJsonParse(text, tsize, errmsg);
         if (json && json->type == JSON_OBJECT) {
             words = json->first;
             if (words) setMode(words->name);
         }
         if (words && words->type == JSON_ARRAY) {
-            for (jsonValue *j = words->first; j; j = j->next) {
+            for (bkJsonValue *j = words->first; j; j = j->next) {
                 if (j->type == JSON_STRING) {
                     add(j->value);
                 } else
@@ -280,11 +280,11 @@ bool CountWords::addJson(const char *text, int tsize, string *errmsg)
             rc = true;
         }
     }
-    jsonFree(json);
+    bkJsonFree(json);
     return rc;
 }
 
-void CountWords::setMode(string name)
+void bkAhoCorasick::setMode(string name)
 {
     if (!name.size()) return;
     for (mode = 0; _cwModes[mode]; mode++) {
@@ -292,22 +292,22 @@ void CountWords::setMode(string name)
     }
 }
 
-string CountWords::modeName()
+string bkAhoCorasick::modeName()
 {
     return mode >= 0 && (uint)mode < sizeof(_cwModes)/sizeof(_cwModes[0]) - 1 ? _cwModes[mode] : "SUM";
 }
 
-int vCountWords(const string &word, const string &text, bool all)
+int bkCountWords(const string &word, const string &text, bool all)
 {
-    return vCountWords(word.c_str(), word.size(), text.c_str(), text.size(), all);
+    return bkCountWords(word.c_str(), word.size(), text.c_str(), text.size(), all);
 }
 
-bool vFindWords(const char *word, int wlen, const char *text, int tlen)
+bool bkFindWords(const char *word, int wlen, const char *text, int tlen)
 {
-    return vCountWords(word, wlen, text, tlen, false);
+    return bkCountWords(word, wlen, text, tlen, false);
 }
 
-int vCountWords(const char *word, int wlen, const char *text, int tlen, bool all)
+int bkCountWords(const char *word, int wlen, const char *text, int tlen, bool all)
 {
     if (!word || !text || !wlen || !tlen || wlen > tlen) return 0;
 
@@ -344,7 +344,7 @@ int vCountWords(const char *word, int wlen, const char *text, int tlen, bool all
     return count;
 }
 
-uint32_t vCrc32(const void *data, int size)
+uint32_t bkCrc32(const void *data, int size)
 {
     uint32_t rc = 0xFFFFFFFF;
     uint8_t* ptr = (uint8_t*)data;
@@ -355,7 +355,7 @@ uint32_t vCrc32(const void *data, int size)
     return ~rc;
 }
 
-uint32_t vHash(const uint8_t *buf, int size)
+uint32_t bkHash(const uint8_t *buf, int size)
 {
 #undef get16bits
 #if defined(__GNUC__) && defined(__i386__)
@@ -403,7 +403,7 @@ uint32_t vHash(const uint8_t *buf, int size)
     return hash;
 }
 
-uint32_t vHash2(const uint8_t *buf, int size, uint32_t seed)
+uint32_t bkHash2(const uint8_t *buf, int size, uint32_t seed)
 {
     if (!buf || size <= 0) return 0;
     const int nblocks = size / 4;
@@ -440,14 +440,14 @@ uint32_t vHash2(const uint8_t *buf, int size, uint32_t seed)
     return h1;
 }
 
-long long vClock()
+long long bkClock()
 {
     struct timeval tv;
     gettimeofday(&tv, NULL);
     return (long long)((long long)(tv.tv_sec)*1000 + (tv.tv_usec/1000));
 }
 
-string vFmtTime(string fmt, int64_t sec)
+string bkFmtTime(string fmt, int64_t sec)
 {
     char buf[256];
     time_t now = sec;
@@ -460,7 +460,7 @@ string vFmtTime(string fmt, int64_t sec)
     return buf;
 }
 
-string vFmtTime3339(int64_t msec)
+string bkFmtTime3339(int64_t msec)
 {
     char buf[128];
     time_t sec = msec / 1000;
@@ -477,16 +477,16 @@ string vFmtTime3339(int64_t msec)
     return buf;
 }
 
-string vFmtStr(string fmt, ...)
+string bkFmtStr(string fmt, ...)
 {
     va_list ap;
     va_start(ap, fmt);
-    string str = vFmtStrV(fmt, ap);
+    string str = bkFmtStrV(fmt, ap);
     va_end(ap);
     return str;
 }
 
-string vFmtStrV(string fmt, va_list ap)
+string bkFmtStrV(string fmt, va_list ap)
 {
     string str;
     char *buf = NULL;
@@ -498,16 +498,16 @@ string vFmtStrV(string fmt, va_list ap)
     return str;
 }
 
-string vStrFmt(string &str, string fmt, ...)
+string bkStrFmt(string &str, string fmt, ...)
 {
     va_list ap;
     va_start(ap, fmt);
-    vStrFmtV(str, fmt, ap);
+    bkStrFmtV(str, fmt, ap);
     va_end(ap);
     return str;
 }
 
-string vStrFmtV(string &str, string fmt, va_list ap)
+string bkStrFmtV(string &str, string fmt, va_list ap)
 {
     char *buf = NULL;
     int n = vasprintf(&buf, fmt.c_str(), ap);
@@ -519,7 +519,7 @@ string vStrFmtV(string &str, string fmt, va_list ap)
     return str;
 }
 
-void vSetFileTime(string file, int64_t t)
+void bkSetFileTime(string file, int64_t t)
 {
     struct utimbuf tbuf;
     tbuf.actime = tbuf.modtime = t;
@@ -528,7 +528,7 @@ void vSetFileTime(string file, int64_t t)
     }
 }
 
-bool vMakePath(string path)
+bool bkMakePath(string path)
 {
     string dir;
     vector<string> list = strSplit(path, "/");
@@ -544,7 +544,7 @@ bool vMakePath(string path)
     return 1;
 }
 
-bool vWriteFile(const string file, const string data, int perms)
+bool bkWriteFile(const string file, const string data, int perms)
 {
     if (file.empty()) {
         return false;
@@ -563,7 +563,7 @@ bool vWriteFile(const string file, const string data, int perms)
 }
 
 
-vector<string> vShuffleList(const vector<string> list)
+vector<string> bkShuffleList(const vector<string> list)
 {
     vector<string> rc;
 
@@ -694,9 +694,9 @@ bool strRegexp(const char *pattern, const char *str, bool nocase)
     return false;
 }
 
-void vSetLogging(const char *level)
+void bkSetLogging(const char *level)
 {
-    VLog::set(level);
+    bkLog::set(level);
 }
 
 static const char *hatoui(const char *first, const char *last, unsigned int *out)
@@ -721,12 +721,12 @@ static const char *hatoui(const char *first, const char *last, unsigned int *out
     return first;
 }
 
-jsonValue *jsonParse(const char *source, int size, string *errmsg)
+bkJsonValue *bkJsonParse(const char *source, int size, string *errmsg)
 {
-    jsonValue *root = 0, *top = 0;
+    bkJsonValue *root = 0, *top = 0;
     const char *it = source;
     unsigned int codepoint;
-    jsonValue *object;
+    bkJsonValue *object;
     string name, val;
     int i = 0, line = 0;
 
@@ -735,7 +735,7 @@ jsonValue *jsonParse(const char *source, int size, string *errmsg)
         case '{':
         case '[':
             // create new value
-            object = new jsonValue((*it == '{') ? JSON_OBJECT : JSON_ARRAY, name);
+            object = new bkJsonValue((*it == '{') ? JSON_OBJECT : JSON_ARRAY, name);
             name.clear();
 
             // skip open character
@@ -744,13 +744,13 @@ jsonValue *jsonParse(const char *source, int size, string *errmsg)
 
             // set top and root
             if (top) {
-                jsonAppend(top, object);
+                bkJsonAppend(top, object);
             } else
             if (!root) {
                 root = object;
             } else {
-                if (errmsg) vStrFmt(*errmsg, "json: Only one root allowed: %d: %d: %s", it - source, size, it);
-                jsonFree(root);
+                if (errmsg) bkStrFmt(*errmsg, "json: Only one root allowed: %d: %d: %s", it - source, size, it);
+                bkJsonFree(root);
                 return 0;
             }
             top = object;
@@ -759,8 +759,8 @@ jsonValue *jsonParse(const char *source, int size, string *errmsg)
         case '}':
         case ']':
             if (!top || top->type != ((*it == '}') ? JSON_OBJECT : JSON_ARRAY)) {
-                if (errmsg) vStrFmt(*errmsg, "json: Mismatch closing brace/bracket: %d: %d: %s", it - source, size, it);
-                jsonFree(root);
+                if (errmsg) bkStrFmt(*errmsg, "json: Mismatch closing brace/bracket: %d: %d: %s", it - source, size, it);
+                bkJsonFree(root);
                 return 0;
             }
 
@@ -774,8 +774,8 @@ jsonValue *jsonParse(const char *source, int size, string *errmsg)
 
         case ':':
             if (!top || top->type != JSON_OBJECT) {
-                if (errmsg) vStrFmt(*errmsg, "json: Unexpected character: %d: :%s", it - source, it);
-                jsonFree(root);
+                if (errmsg) bkStrFmt(*errmsg, "json: Unexpected character: %d: :%s", it - source, it);
+                bkJsonFree(root);
                 return 0;
             }
             ++it;
@@ -784,8 +784,8 @@ jsonValue *jsonParse(const char *source, int size, string *errmsg)
 
         case ',':
             if (!top) {
-                if (errmsg) vStrFmt(*errmsg, "json: Unexpected character: %d: ,%s", it - source, it);
-                jsonFree(root);
+                if (errmsg) bkStrFmt(*errmsg, "json: Unexpected character: %d: ,%s", it - source, it);
+                bkJsonFree(root);
                 return 0;
             }
             ++it;
@@ -794,8 +794,8 @@ jsonValue *jsonParse(const char *source, int size, string *errmsg)
 
         case '"':
             if (!top) {
-                if (errmsg) vStrFmt(*errmsg, "json: Unexpected character: %d: %d: %s", it - source, size, it);
-                jsonFree(root);
+                if (errmsg) bkStrFmt(*errmsg, "json: Unexpected character: %d: %d: %s", it - source, size, it);
+                bkJsonFree(root);
                 return 0;
             }
 
@@ -805,8 +805,8 @@ jsonValue *jsonParse(const char *source, int size, string *errmsg)
             val.clear();
             while (*it) {
                 if ((unsigned char) *it < '\x20') {
-                    if (errmsg) vStrFmt(*errmsg, "json: Control characters not allowed in strings: %d: %d: %s", it - source, size, it);
-                    jsonFree(root);
+                    if (errmsg) bkStrFmt(*errmsg, "json: Control characters not allowed in strings: %d: %d: %s", it - source, size, it);
+                    bkJsonFree(root);
                     return 0;
                 }
                 if (*it == '\\') {
@@ -838,8 +838,8 @@ jsonValue *jsonParse(const char *source, int size, string *errmsg)
                         break;
                     case 'u':
                         if (hatoui(it + 2, it + 6, &codepoint) != it + 6) {
-                            if (errmsg) vStrFmt(*errmsg, "json: Bad unicode codepoint: %d: %d: %s", it - source, size, it);
-                            jsonFree(root);
+                            if (errmsg) bkStrFmt(*errmsg, "json: Bad unicode codepoint: %d: %d: %s", it - source, size, it);
+                            bkJsonFree(root);
                             return 0;
                         }
                         if (codepoint <= 0x7F) {
@@ -859,8 +859,8 @@ jsonValue *jsonParse(const char *source, int size, string *errmsg)
                         break;
 
                     default:
-                        if (errmsg) vStrFmt(*errmsg, "json: Unrecognized escape sequence: %d: %d: %s", it - source, size, it);
-                        jsonFree(root);
+                        if (errmsg) bkStrFmt(*errmsg, "json: Unrecognized escape sequence: %d: %d: %s", it - source, size, it);
+                        bkJsonFree(root);
                         return 0;
                     }
                     it += 2;
@@ -881,9 +881,9 @@ jsonValue *jsonParse(const char *source, int size, string *errmsg)
                 name = val;
             } else {
                 // new string value
-                object = new jsonValue(JSON_STRING, name, val);
+                object = new bkJsonValue(JSON_STRING, name, val);
                 name.clear();
-                jsonAppend(top, object);
+                bkJsonAppend(top, object);
             }
             break;
 
@@ -891,36 +891,36 @@ jsonValue *jsonParse(const char *source, int size, string *errmsg)
         case 't':
         case 'f':
             if (!top) {
-                if (errmsg) vStrFmt(*errmsg, "json: Unexpected character: %d: %d: %s", it - source, size, it);
-                jsonFree(root);
+                if (errmsg) bkStrFmt(*errmsg, "json: Unexpected character: %d: %d: %s", it - source, size, it);
+                bkJsonFree(root);
                 return 0;
             }
 
             // null
             if (it[0] == 'n' && it[1] == 'u' && it[2] == 'l' && it[3] == 'l') {
-                object = new jsonValue(JSON_NULL, name);
+                object = new bkJsonValue(JSON_NULL, name);
                 it += 4;
                 i += 4;
             } else
             // true
             if (it[0] == 't' && it[1] == 'r' && it[2] == 'u' && it[3] == 'e') {
-                object = new jsonValue(JSON_BOOL, name, "true");
+                object = new bkJsonValue(JSON_BOOL, name, "true");
                 it += 4;
                 i += 4;
             } else
             // false
             if (it[0] == 'f' && it[1] == 'a' && it[2] == 'l' && it[3] == 's' && it[4] == 'e') {
-                object = new jsonValue(JSON_BOOL, name, "false");
+                object = new bkJsonValue(JSON_BOOL, name, "false");
                 it += 5;
                 i += 5;
             } else {
-                if (errmsg) vStrFmt(*errmsg, "json: Unknown identifier: %d: %d: %s", it - source, size, it);
-                jsonFree(root);
+                if (errmsg) bkStrFmt(*errmsg, "json: Unknown identifier: %d: %d: %s", it - source, size, it);
+                bkJsonFree(root);
                 return 0;
             }
 
             name.clear();
-            jsonAppend(top, object);
+            bkJsonAppend(top, object);
             break;
 
         case '-':
@@ -935,12 +935,12 @@ jsonValue *jsonParse(const char *source, int size, string *errmsg)
         case '8':
         case '9':
             if (!top) {
-                if (errmsg) vStrFmt(*errmsg, "json: Unexpected character: %d: %d: %s", it - source, size, it);
-                jsonFree(root);
+                if (errmsg) bkStrFmt(*errmsg, "json: Unexpected character: %d: %d: %s", it - source, size, it);
+                bkJsonFree(root);
                 return 0;
             }
             // new number value
-            object = new jsonValue(JSON_INT, name);
+            object = new bkJsonValue(JSON_INT, name);
             while (*it != '\x20' && *it != '\x9' && *it != '\xD' && *it != '\xA' && *it != ',' && *it != ']' && *it != '}') {
                 if (*it == '.' || *it == 'e' || *it == 'E') {
                     object->type = JSON_FLOAT;
@@ -949,12 +949,12 @@ jsonValue *jsonParse(const char *source, int size, string *errmsg)
                 ++i;
             }
             name.clear();
-            jsonAppend(top, object);
+            bkJsonAppend(top, object);
             break;
 
         default:
-            if (errmsg) vStrFmt(*errmsg, "json: Unexpected character: %X, %d: %d: %s", *it, it - source, size, it);
-            jsonFree(root);
+            if (errmsg) bkStrFmt(*errmsg, "json: Unexpected character: %X, %d: %d: %s", *it, it - source, size, it);
+            bkJsonFree(root);
             return 0;
         }
 
@@ -966,27 +966,27 @@ jsonValue *jsonParse(const char *source, int size, string *errmsg)
     }
 
     if (top) {
-        if (errmsg) vStrFmt(*errmsg, "json: Not all objects/arrays have been properly closed: %d: %d: %s", it - source, size, it);
-        jsonFree(root);
+        if (errmsg) bkStrFmt(*errmsg, "json: Not all objects/arrays have been properly closed: %d: %d: %s", it - source, size, it);
+        bkJsonFree(root);
         return 0;
     }
     return root;
 }
 
-void jsonFree(jsonValue *root)
+void jsonFree(bkJsonValue *root)
 {
     if (!root) return;
     switch(root->type) {
     case JSON_OBJECT:
     case JSON_ARRAY:
-        for (jsonValue *it = root->first; it; it = it->next) jsonFree(it);
+        for (bkJsonValue *it = root->first; it; it = it->next) jsonFree(it);
 
     default:
         delete root;
     }
 }
 
-static string jsonEscape(string value)
+static string bkJsonEscape(string value)
 {
     string rc;
 
@@ -1015,7 +1015,7 @@ static string jsonEscape(string value)
             break;
         default:
             if ((unsigned char) *c < ' ')
-                rc += vFmtStr("\\u%04x", (int) *c);
+                rc += bkFmtStr("\\u%04x", (int) *c);
             else
                 rc.append(c, 1);
             break;
@@ -1024,7 +1024,7 @@ static string jsonEscape(string value)
     return rc;
 }
 
-string jsonStringify(jsonValue *value, string rc)
+string bkJsonStringify(bkJsonValue *value, string rc)
 {
     if (!value) return rc;
 
@@ -1040,14 +1040,14 @@ string jsonStringify(jsonValue *value, string rc)
     case JSON_OBJECT:
     case JSON_ARRAY:
             rc += value->type == JSON_OBJECT ? "{" : "[";
-            for (jsonValue *it = value->first; it; it = it->next) {
-                rc += jsonStringify(it);
+            for (bkJsonValue *it = value->first; it; it = it->next) {
+                rc += bkJsonStringify(it);
                 if (it->next) rc += ",";
             }
             rc += value->type == JSON_OBJECT ? "}" : "]";
             break;
     case JSON_STRING:
-            rc += "\"" + jsonEscape(value->value) + "\"";
+            rc += "\"" + bkJsonEscape(value->value) + "\"";
             break;
     case JSON_INT:
     case JSON_FLOAT:
@@ -1058,7 +1058,7 @@ string jsonStringify(jsonValue *value, string rc)
     return rc;
 }
 
-bool jsonAppend(jsonValue *root, jsonValue *val)
+bool bkJsonAppend(bkJsonValue *root, bkJsonValue *val)
 {
     if (!root || !val) return false;
     val->parent = root;
@@ -1069,24 +1069,24 @@ bool jsonAppend(jsonValue *root, jsonValue *val)
     }
     // Assign an index
     if (root->type == JSON_ARRAY && !val->name.size()) {
-        val->name = vFmtStr("%d", jsonLength(root) - 1);
+        val->name = bkFmtStr("%d", bkJsonLength(root) - 1);
     }
     return true;
 }
 
-int jsonLength(jsonValue *root)
+int bkJsonLength(bkJsonValue *root)
 {
     int n = 0;
-    for (jsonValue *it = root ? root->first : NULL; it; it = it->next, n++);
+    for (bkJsonValue *it = root ? root->first : NULL; it; it = it->next, n++);
     return n;
 }
 
-bool jsonDel(jsonValue *root, string name)
+bool bkJsonDel(bkJsonValue *root, string name)
 {
     if (!root) return false;
     if (root->type != JSON_OBJECT && root->type != JSON_ARRAY) return false;
 
-    for (jsonValue *it = root->first, *prev = 0; it; prev = it, it = it->next) {
+    for (bkJsonValue *it = root->first, *prev = 0; it; prev = it, it = it->next) {
         if (it->name == name) {
             if (it == root->first) {
                 root->first = it->next;
@@ -1094,21 +1094,21 @@ bool jsonDel(jsonValue *root, string name)
                 if (it == root->last) root->last = prev;
                 if (prev) prev->next = it->next;
             }
-            jsonFree(it);
+            bkJsonFree(it);
             return true;
         }
     }
     return false;
 }
 
-bool jsonSet(jsonValue *root, jsonValue *val)
+bool bkJsonSet(bkJsonValue *root, bkJsonValue *val)
 {
     if (!root || !val) return false;
     if (root->type != JSON_OBJECT && root->type != JSON_ARRAY) return false;
 
-    jsonValue *old = jsonGet(root, val->name);
+    bkJsonValue *old = bkJsonGet(root, val->name);
     if (!old) {
-        jsonAppend(root, val);
+        bkJsonAppend(root, val);
     } else {
         old->value = val->value;
         jsonFree(val);
@@ -1116,22 +1116,22 @@ bool jsonSet(jsonValue *root, jsonValue *val)
     return true;
 }
 
-bool jsonSet(jsonValue *root, jsonType type, string name, string val)
+bool bkJsonSet(bkJsonValue *root, bkJsonType type, string name, string val)
 {
-    jsonValue *v = new jsonValue(type, name, val);
-    if (!jsonSet(root, v)) {
-        jsonFree(v);
+    bkJsonValue *v = new bkJsonValue(type, name, val);
+    if (!bkJsonSet(root, v)) {
+        bkJsonFree(v);
         return false;
     }
     return true;
 }
 
-jsonValue *jsonGet(jsonValue *root, string name)
+bkJsonValue *bkJsonGet(bkJsonValue *root, string name)
 {
     switch(root ? root->type : 0) {
     case JSON_OBJECT:
     case JSON_ARRAY:
-        for (jsonValue *it = root->first; it; it = it->next) {
+        for (bkJsonValue *it = root->first; it; it = it->next) {
             if (it->name == name) return it;
         }
     default:
@@ -1140,27 +1140,27 @@ jsonValue *jsonGet(jsonValue *root, string name)
     return NULL;
 }
 
-string jsonGetStr(jsonValue *root, string name)
+string bkJsonGetStr(bkJsonValue *root, string name)
 {
-    jsonValue *v = jsonGet(root, name);
+    bkJsonValue *v = bkJsonGet(root, name);
     return v ? v->value : string();
 }
 
-int64_t jsonGetInt(jsonValue *root, string name)
+int64_t bkJsonGetInt(bkJsonValue *root, string name)
 {
-    jsonValue *v = jsonGet(root, name);
+    bkJsonValue *v = bkJsonGet(root, name);
     return v ? atoll(v->value.c_str()) : 0;
 }
 
-double jsonGetNum(jsonValue *root, string name)
+double bkJsonGetNum(bkJsonValue *root, string name)
 {
-    jsonValue *v = jsonGet(root, name);
+    bkJsonValue *v = bkJsonGet(root, name);
     return v ? atof(v->value.c_str()) : 0;
 }
 
 #define IDENT(n) for (int i = 0; i < n; ++i) printf("    ")
 
-void jsonPrint(jsonValue *value, int ident)
+void bkJsonPrint(bkJsonValue *value, int ident)
 {
     IDENT(ident);
     if (value->name.size()) printf("\"%s\" = ", value->name.c_str());
@@ -1171,7 +1171,7 @@ void jsonPrint(jsonValue *value, int ident)
     case JSON_OBJECT:
     case JSON_ARRAY:
             printf(value->type == JSON_OBJECT ? "{\n" : "[\n");
-            for (jsonValue *it = value->first; it; it = it->next) jsonPrint(it, ident + 1);
+            for (bkJsonValue *it = value->first; it; it = it->next) bkJsonPrint(it, ident + 1);
             IDENT(ident);
             printf(value->type == JSON_OBJECT ? "}\n" : "]\n");
             break;
@@ -1190,14 +1190,14 @@ void jsonPrint(jsonValue *value, int ident)
 #define DEG2RAD(degrees) (degrees * PI / 180)
 #define RAD2DEG(radians) (radians * 180 / PI)
 
-double vDistance(double lat1, double long1, double lat2, double long2)
+double bkDistance(double lat1, double long1, double lat2, double long2)
 {
 	double lat1rad = DEG2RAD(lat1);
 	double lat2rad = DEG2RAD(lat2);
 	return acos(sin(lat1rad) * sin(lat2rad) + cos(lat1rad) * cos(lat2rad) * cos(DEG2RAD(long2) - DEG2RAD(long1))) * 6378.1;
 }
 
-int vBearing(double lat1, double long1, double lat2, double long2)
+int bkBearing(double lat1, double long1, double lat2, double long2)
 {
 	static double d2r = PI / 180;
 	double dlong = (long2 - long1) * d2r;
@@ -1208,7 +1208,7 @@ int vBearing(double lat1, double long1, double lat2, double long2)
 	return (int)((b * 180 / PI) + 360) % 360;
 }
 
-vector<double> vBoundingBox(double lat, double lon, double distance)
+vector<double> bkBoundingBox(double lat, double lon, double distance)
 {
 	double rad_dist = distance / 6378.1;
 
@@ -1244,7 +1244,7 @@ vector<double> vBoundingBox(double lat, double lon, double distance)
 static int BITS[] = {16, 8, 4, 2, 1};
 static string BASE32 = "0123456789bcdefghjkmnpqrstuvwxyz";
 
-vector<double> vGeoHashDecode(string hash)
+vector<double> bkGeoHashDecode(string hash)
 {
     int is_even = 1;
     double lat[3] = {-90,90,0}, lon[3] = {-180,180,0}, lat_err = 90.0, lon_err = 180.0;
@@ -1272,7 +1272,7 @@ vector<double> vGeoHashDecode(string hash)
     return rc;
 }
 
-string vGeoHashEncode(double latitude, double longitude, uint precision)
+string bkGeoHashEncode(double latitude, double longitude, uint precision)
 {
 	int is_even=1,bit=0,ch=0;
 	double lat[2] = {-90,90}, lon[2] = {-180,180};
@@ -1311,7 +1311,7 @@ string vGeoHashEncode(double latitude, double longitude, uint precision)
 	return hash;
 }
 
-string vGeoHashAdjacent(string hash, string dir)
+string bkGeoHashAdjacent(string hash, string dir)
 {
 	static map<string,string> NEIGHBORS;
 	static map<string,string> BORDERS;
@@ -1340,44 +1340,44 @@ string vGeoHashAdjacent(string hash, string dir)
 	char lastChr = hash[hash.size() - 1];
 	string type = dir + (hash.size() % 2 ? ".odd" : ".even");
 	string base = hash.substr(0, hash.size()-1);
-	if (BORDERS[type].find(lastChr) != string::npos) base = vGeoHashAdjacent(base, dir);
+	if (BORDERS[type].find(lastChr) != string::npos) base = bkGeoHashAdjacent(base, dir);
 	string::size_type cd = NEIGHBORS[type].find(lastChr);
 	if (cd != string::npos) base += BASE32[cd];
 	return base;
 }
 
-vector<string> vGeoHashRow(string center, int steps)
+vector<string> bkGeoHashRow(string center, int steps)
 {
     vector<string> rc;
     rc.push_back(center);
 
     string left = center, right = center;
     for (int i = 0; i < steps; i++) {
-        string next = vGeoHashAdjacent(left, "left");
+        string next = bkGeoHashAdjacent(left, "left");
         rc.push_back(next);
         left = next;
-        next = vGeoHashAdjacent(right, "right");
+        next = bkGeoHashAdjacent(right, "right");
         rc.push_back(next);
         right = next;
     }
     return rc;
 }
 
-vector< vector<string> > vGeoHashGrid(string center, int steps)
+vector< vector<string> > bkGeoHashGrid(string center, int steps)
 {
     vector< vector<string> > rc;
 
-    vector<string> col = vGeoHashRow(center, steps);
+    vector<string> col = bkGeoHashRow(center, steps);
     rc.push_back(col);
     string top = center, bottom = center;
 
     for (int i = 0; i < steps; i++) {
-        string next = vGeoHashAdjacent(top, "top");
-        col = vGeoHashRow(next, steps);
+        string next = bkGeoHashAdjacent(top, "top");
+        col = bkGeoHashRow(next, steps);
         rc.push_back(col);
         top = next;
-        next = vGeoHashAdjacent(bottom, "bottom");
-        col = vGeoHashRow(next, steps);
+        next = bkGeoHashAdjacent(bottom, "bottom");
+        col = bkGeoHashRow(next, steps);
         rc.push_back(col);
         bottom = next;
     }
@@ -1386,7 +1386,7 @@ vector< vector<string> > vGeoHashGrid(string center, int steps)
 
 #define Z_CHUNK 16384
 
-int vDeflateInit(z_stream *strm, int level)
+int bkDeflateInit(z_stream *strm, int level)
 {
     strm->zalloc = Z_NULL;
     strm->zfree = Z_NULL;
@@ -1395,7 +1395,7 @@ int vDeflateInit(z_stream *strm, int level)
 }
 
 // Compress input and put into out string
-int vDeflate(z_stream *strm, const char *inbuf, int inlen, string *outbuf)
+int bkDeflate(z_stream *strm, const char *inbuf, int inlen, string *outbuf)
 {
     int ret = Z_OK;
     unsigned char tmp[Z_CHUNK];
@@ -1417,7 +1417,7 @@ int vDeflate(z_stream *strm, const char *inbuf, int inlen, string *outbuf)
     return ret;
 }
 
-int vDeflateEnd(z_stream *strm, string *outbuf)
+int bkDeflateEnd(z_stream *strm, string *outbuf)
 {
     int ret = Z_OK;
     unsigned char tmp[Z_CHUNK];
@@ -1435,7 +1435,7 @@ int vDeflateEnd(z_stream *strm, string *outbuf)
     return ret;
 }
 
-int vInflateInit(z_stream *strm)
+int bkInflateInit(z_stream *strm)
 {
     strm->zalloc = Z_NULL;
     strm->zfree = Z_NULL;
@@ -1446,7 +1446,7 @@ int vInflateInit(z_stream *strm)
     return inflateInit2(strm, 16 + MAX_WBITS);
 }
 
-int vInflate(z_stream *strm, const char* inbuf, int inlen, string *outbuf)
+int bkInflate(z_stream *strm, const char* inbuf, int inlen, string *outbuf)
 {
     int ret = Z_OK;
     unsigned char tmp[Z_CHUNK];
@@ -1477,7 +1477,7 @@ int vInflate(z_stream *strm, const char* inbuf, int inlen, string *outbuf)
     return ret;
 }
 
-void vInflateEnd(z_stream *strm)
+void bkInflateEnd(z_stream *strm)
 {
     inflateEnd(strm);
 }

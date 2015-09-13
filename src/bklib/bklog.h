@@ -4,19 +4,19 @@
  *
  */
 
-#ifndef _V_LOG_H_
-#define _V_LOG_H_
+#ifndef _BK_LOG_H_
+#define _BK_LOG_H_
 
 #include "bksystem.h"
 
 // Printing messages with time and line info
-#define LogError(fmt...)               if (VLog::test(Log_Error)) VLog::print(Log_Error, __PRETTY_FUNCTION__, fmt);
-#define LogWarn(fmt...)                if (VLog::test(Log_Warn)) VLog::print(Log_Warn, __FUNCTION__, fmt);
-#define LogNotice(fmt...)              if (VLog::test(Log_Notice)) VLog::print(Log_Notice, __FUNCTION__, fmt);
-#define LogInfo(fmt...)                if (VLog::test(Log_Info)) VLog::print(Log_Info, __FUNCTION__, fmt);
-#define LogDebug(fmt...)               if (VLog::test(Log_Debug)) VLog::print(Log_Debug, __PRETTY_FUNCTION__, fmt);
-#define LogDev(fmt...)                 if (VLog::test(Log_Dev)) VLog::print(Log_Dev, __PRETTY_FUNCTION__, fmt);
-#define LogTest(fmt...)                if (VLog::test(Log_Test)) VLog::print(Log_Test, __PRETTY_FUNCTION__, fmt);
+#define LogError(fmt...)               if (bkLog::test(Log_Error)) bkLog::print(Log_Error, __PRETTY_FUNCTION__, fmt);
+#define LogWarn(fmt...)                if (bkLog::test(Log_Warn)) bkLog::print(Log_Warn, __FUNCTION__, fmt);
+#define LogNotice(fmt...)              if (bkLog::test(Log_Notice)) bkLog::print(Log_Notice, __FUNCTION__, fmt);
+#define LogInfo(fmt...)                if (bkLog::test(Log_Info)) bkLog::print(Log_Info, __FUNCTION__, fmt);
+#define LogDebug(fmt...)               if (bkLog::test(Log_Debug)) bkLog::print(Log_Debug, __PRETTY_FUNCTION__, fmt);
+#define LogDev(fmt...)                 if (bkLog::test(Log_Dev)) bkLog::print(Log_Dev, __PRETTY_FUNCTION__, fmt);
+#define LogTest(fmt...)                if (bkLog::test(Log_Test)) bkLog::print(Log_Test, __PRETTY_FUNCTION__, fmt);
 
 #define Log_None                       -1
 #define Log_Error                      -1
@@ -27,7 +27,7 @@
 #define Log_Dev                         4
 #define Log_Test                        5
 
-class VLog {
+class bkLog {
 public:
     // Returns true if log level is enabled
     static bool test(int level);

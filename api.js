@@ -126,6 +126,7 @@ var api = {
            { name: "rlimits-interval", type:" int", obj: "rlimits", descr: "Interval in ms for all rate limiters, defines the time unit, default is 1000 ms" },
            { name: "exit-on-error", type: "bool", descr: "Exit on uncaught exception in the route handler" },
            { name: "upload-limit", type: "number", min: 1024*1024, max: 1024*1024*10, descr: "Max size for uploads, bytes"  },
+           { name: "limitQueue", descr: "Name of an ipc queue for API rate limiting" },
     ],
 
     // Access handlers to grant access to the endpoint before checking for signature.
@@ -240,6 +241,8 @@ var api = {
 
     // This object tells how long the metric name should be using the leading component of the url.
     urlMetrics: { image: 2 },
+
+    limitQueue: "local",
 
     // Collector of statistics, seconds
     collectInterval: 30,
@@ -556,7 +559,7 @@ api.init = function(options, callback)
 
             // Default error handler to show errors in the log
             self.app.use(function(err, req, res, next) {
-                logger.error('api:', req.options.path, err.stack);
+                logger.error('api:', req.options.path, lib.traceError(err));
                 self.sendReply(res, err);
             });
 
@@ -580,7 +583,7 @@ api.init = function(options, callback)
                     self.wsServer = new ws.Server(opts);
                     self.wsServer.serverName = "ws";
                     self.wsServer.serverPort = core.ws.port;
-                    self.wsServer.on("error", function(err) { logger.error("api.init: ws:", err.stack)});
+                    self.wsServer.on("error", function(err) { logger.error("api.init: ws:", lib.traceError(err))});
                     self.wsServer.on('connection', function(socket) { self.handleWebSocketConnect(socket); });
                 }
             }
@@ -660,7 +663,7 @@ api.handleServerRequest = function(req, res)
     var api = core.modules.api;
     var d = domain.create();
     d.on('error', function(err) {
-        logger.error('handleServerRequest:', core.port, req.path, err.stack);
+        logger.error('handleServerRequest:', core.port, req.path, lib.traceError(err));
         if (!res.headersSent) api.sendReply(res, err);
         if (api.exitOnError) api.shutdown(function() { process.exit(0); });
     });
@@ -1022,7 +1025,6 @@ api.checkAccountType = function(row, type)
 //
 api.checkRateLimits = function(req, options, callback)
 {
-    var self = this;
     if (typeof callback != "function") callback = lib.noop;
     if (!options || !options.type) return callback();
 
@@ -1047,7 +1049,7 @@ api.checkRateLimits = function(req, options, callback)
     case "login":
         var rate = options.rate || this.rlimits['loginRate'] || 0;
         if (!rate) return callback();
-        var sig = self.parseSignature(req);
+        var sig = this.parseSignature(req);
         if (!sig || !sig.login) return callback();
         var max = options.max || this.rlimits['loginMax'] || rate;
         var interval = options.interval || this.rlimits['loginInterval'] || this.rlimits.interval || 1000;
@@ -1082,9 +1084,8 @@ api.checkRateLimits = function(req, options, callback)
 
     // Use process shared cache to eliminate race condition for the same cache item from multiple processes on the same instance,
     // in master mode use direct access to the LRU cache
-    var msg = { name: key, rate: rate, max: max, interval: interval };
-    ipc.sendMsg("rlimits:check", msg, function(m) {
-        callback(m.consumed ? null : { status: 429, message: options.message || "access limit reached, please try again later" });
+    ipc.limiter({ name: key, rate: rate, max: max, interval: interval, queueName: this.limitQueue }, function(delay) {
+        callback(!delay ? null : { status: 429, message: options.message || "access limit reached, please try again later" });
     });
 }
 

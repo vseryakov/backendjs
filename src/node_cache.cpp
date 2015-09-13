@@ -29,7 +29,7 @@ struct LRUStringCache {
         lru.splice(lru.end(), lru, it->second.second);
         return it->second.first;
     }
-    const string& set(const string& k, const string& v) {
+    const string& put(const string& k, const string& v) {
         if (items.size() >= max) clean();
         const LRUStringItems::iterator it = items.find(k);
         if (it == items.end()) {
@@ -55,7 +55,7 @@ struct LRUStringCache {
         const string& o = get(k);
         char val[32];
         sprintf(val, "%lld", atoll(o.c_str()) + atoll(v.c_str()));
-        return set(k, val);
+        return put(k, val);
     }
     void del(const string &k) {
         const LRUStringItems::iterator it = items.find(k);
@@ -83,20 +83,20 @@ struct LRUStringCache {
 };
 
 struct StringCache {
-    string_map items;
-    string_map::const_iterator nextIt;
+    bkStringMap items;
+    bkStringMap::const_iterator nextIt;
     Persistent<Function> nextCb;
     Persistent<Function> completed;
 
     StringCache() { nextIt = items.end(); }
     ~StringCache() { clear(); }
     string get(const string &key) {
-        string_map::iterator it = items.find(key);
+        bkStringMap::iterator it = items.find(key);
         if (it != items.end()) return it->second;
         return string();
     }
-    void set(const string &key, const string &val) {
-        string_map::iterator it = items.find(key);
+    void put(const string &key, const string &val) {
+        bkStringMap::iterator it = items.find(key);
         if (it != items.end()) {
             Nan::AdjustExternalMemory(-it->second.size());
             it->second = val;
@@ -107,25 +107,25 @@ struct StringCache {
         }
     }
     bool exists(const string &k) {
-        string_map::iterator it = items.find(k);
+        bkStringMap::iterator it = items.find(k);
         return it != items.end();
     }
     string incr(const string& k, const string& v) {
         string o = get(k);
         char val[32];
         sprintf(val, "%lld", atoll(o.c_str()) + atoll(v.c_str()));
-        set(k, val);
+        put(k, val);
         return val;
     }
     void del(const string &key) {
-        string_map::iterator it = items.find(key);
+        bkStringMap::iterator it = items.find(key);
         if (it != items.end()) {
             Nan::AdjustExternalMemory(-(it->first.size() + it->second.size()));
             items.erase(it);
         }
     }
     void clear() {
-        string_map::iterator it;
+        bkStringMap::iterator it;
         int n = 0;
         for (it = items.begin(); it != items.end(); ++it) {
             n += it->first.size() + it->second.size();
@@ -157,7 +157,7 @@ struct StringCache {
         return scope.Close(obj);
     }
     void each(Handle<Function> cb) {
-        string_map::const_iterator it = items.begin();
+        bkStringMap::const_iterator it = items.begin();
         while (it != items.end()) {
             HandleScope scope;
             Local<Value> argv[2];
@@ -230,7 +230,7 @@ static NAN_METHOD(cachePut)
         _cache[*name] = StringCache();
         itc = _cache.find(*name);
     }
-    itc->second.set(*key, *val);
+    itc->second.put(*key, *val);
 }
 
 static NAN_METHOD(cacheIncr)
@@ -289,7 +289,7 @@ static NAN_METHOD(cacheKeys)
     Local<Array> keys = Array::New();
     Cache::iterator itc = _cache.find(*name);
     if (itc != _cache.end()) {
-        string_map::const_iterator it = itc->second.items.begin();
+        bkStringMap::const_iterator it = itc->second.items.begin();
         int i = 0;
         while (it != itc->second.items.end()) {
             keys->Set(Integer::New(i), String::New(it->first.c_str()));
@@ -393,7 +393,7 @@ static NAN_METHOD(cacheSave)
 
     Cache::iterator itc = _cache.find(*name);
     if (itc != _cache.end()) {
-        string_map::const_iterator it = itc->second.items.begin();
+        bkStringMap::const_iterator it = itc->second.items.begin();
         while (it != itc->second.items.end()) {
             fprintf(fp, "%s%s%s\n", it->first.c_str(), *sep, it->second.c_str());
             it++;
@@ -423,12 +423,12 @@ static NAN_METHOD(lruClear)
     _lru.clear();
 }
 
-static NAN_METHOD(lruSet)
+static NAN_METHOD(lruPut)
 {
     NAN_REQUIRE_ARGUMENT_AS_STRING(0, key);
     NAN_REQUIRE_ARGUMENT_AS_STRING(1, val);
 
-    _lru.set(*key, *val);
+    _lru.put(*key, *val);
 }
 
 static NAN_METHOD(lruIncr)
@@ -515,7 +515,7 @@ void CacheInit(Handle<Object> target)
     NAN_EXPORT(target, lruStats);
     NAN_EXPORT(target, lruSize);
     NAN_EXPORT(target, lruCount);
-    NAN_EXPORT(target, lruSet);
+    NAN_EXPORT(target, lruPut);
     NAN_EXPORT(target, lruGet);
     NAN_EXPORT(target, lruExists);
     NAN_EXPORT(target, lruIncr);

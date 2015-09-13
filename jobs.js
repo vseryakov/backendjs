@@ -82,6 +82,7 @@ jobs.shutdownWorker = function(options, callback)
 
     // Stop accepting messages from the queue
     ipc.unsubscribe(this.channel, { queueName: this.queue });
+
     // Wait until the current job is processed and confirmed
     var timer = setInterval(function() {
         if (self.running.length || Date.now() - self.runTime < 50) return;
@@ -103,15 +104,24 @@ jobs.initServer = function(options, callback)
     // Setup background tasks from the crontab
     if (this.cron) this.loadCronjobs();
 
+    // Graceful restart of all workers
+    process.on('SIGUSR2', function() {
+        ipc.sendMsg("worker:restart");
+    });
+
     // Restart if any worker dies, keep the worker pool alive
     cluster.on("exit", function(worker, code, signal) {
         logger.log('initServer:', core.role, 'worker terminated:', worker.id, 'pid:', worker.process.pid || "", "code:", code || "", 'signal:', signal || "");
         if (!server.exiting) cluster.fork();
     });
 
-    // Graceful restart of all workers
-    process.on('SIGUSR2', function() {
-        ipc.sendMsg("worker:restart");
+    // Listen for worker messages, keep track of tasks in the master
+    ipc.on('jobs:start', function(msg, worker) {
+        cluster.workers[worker.id].taskName = msg.name;
+        cluster.workers[worker.id].taskTime = Date.now();
+    });
+    ipc.on('jobs:stop', function(msg, worker) {
+        cluster.workers[worker.id].taskName = "";
     });
 
     // Arguments passed to the v8 engine
@@ -138,7 +148,7 @@ jobs.initWorker = function(options, callback)
     setTimeout(function() {
         ipc.subscribe(self.channel, { queueName: self.queue }, function(msg, next) {
             self.runJob(msg, function(err) {
-                logger[err ? "error" : "info"]("runJob:", "finished", (err && err.stack) || err || "", lib.objDescr(msg));
+                logger[err ? "error" : "info"]("runJob:", "finished", lib.traceError(err), lib.objDescr(msg));
                 if (typeof next == "function") next(err);
                 // Mark end of last message processed
                 self.runTime = Date.now();
@@ -280,12 +290,13 @@ jobs.runTask = function(name, options, callback)
     if (!lib.isObject(options)) options = {};
 
     function done(err) {
-        logger[err ? "error" : "info"]('runTask:', 'finished', name, util.isError(err) ? err.stack : (err || ""));
+        logger[err ? "error" : "info"]('runTask:', 'finished', name, util.isError(err) && lib.traceError(err) ? lib.traceError(err) : (err || ""));
         self.runTime = Date.now();
         // Update process title with current job list
         var idx = self.running.indexOf(name);
         if (idx > -1) self.running.splice(idx, 1);
         if (cluster.isWorker) process.title = core.name + ': worker ' + self.running.join(',');
+        ipc.sendMsg("jobs:stop", { name: name });
         callback(err);
     }
 
@@ -296,6 +307,7 @@ jobs.runTask = function(name, options, callback)
         self.runTime = Date.now();
         self.running.push(name);
         if (cluster.isWorker) process.title = core.name + ': worker ' + self.running.join(',');
+        ipc.sendMsg("jobs:start", { name: name });
         module[method[1]](options, done);
     });
 }
@@ -312,11 +324,33 @@ jobs.runTask = function(name, options, callback)
 jobs.scheduleCronjob = function(jobspec)
 {
     var self = this;
-    if (!lib.isObject(jobspec) || !jobspec.cron || !jobspec.job || jobspec.disabled) return false;
+    jobspec = this.isJob(jobspec);
+    if (util.isError(jobspec)) return logger.error("scheduleCronjob:", jobspec);
     logger.debug('scheduleCronjob:', jobspec);
     try {
-        var cj = new cron.CronJob(jobspec.cron, function() { self.submitJob(this.job, { queueName: self.cronQueue }); }, null, true);
-        cj.job = jobspec;
+        var cj = new cron.CronJob(jobspec.cron, function() {
+            // Check if there is a task with any name from our job, ignore if such task is currently running
+            if (this.jobspec.single_task) {
+                var names = [];
+                if (typeof this.jobspec.single_task == "string") {
+                    names.push(this.jobspec.single_task);
+                } else {
+                    (Array.isArray(this.jobspec.job) ? this.jobspec.job : [ this.jobspec.job ]).forEach(function(x) {
+                        names = names.concat(Object.keys(x));
+                    });
+                }
+                for (var p in cluster.workers) {
+                    if (names.indexOf(cluster.workers[p].taskName) > -1) {
+                        logger.debug("scheduleCronjob:", "still running", this.jobspec);
+                        //  If the running task is very old then continue with other checks or run this job
+                        if (this.jobspec.single_timeout > 0 && Date.now() - cluster.workers[p].taskTime > this.jobspec.single_timeout) continue;
+                        return;
+                    }
+                }
+            }
+            self.submitJob(this.jobspec, { queueName: self.cronQueue });
+        }, null, true);
+        cj.jobspec = jobspec;
         this.crontab.push(cj);
         return true;
     } catch(e) {
@@ -335,7 +369,7 @@ jobs.scheduleCronjobs = function(type, list)
     var self = this;
     if (!list.length) return 0;
     self.crontab.forEach(function(x) {
-        if (x.job._type != type) return;
+        if (x.jobspec._type != type) return;
         x.stop();
         delete x;
     });
@@ -352,6 +386,11 @@ jobs.scheduleCronjobs = function(type, list)
 // - job - a string as obj.method or an object with job name as property name and the value is an object with
 //         additional jobspec for the job passed as first argument, a job callback always takes jobspec and callback as 2 arguments
 // - disabled - disable the job but keep in the cron file, it will be ignored
+// - single_task - if set only one cron job can be run at a time with the same name, this works only within single master and is checked
+//    before submitting a new job. It can be a boolean meaning all tasks in the job must not run or a string with single task name
+//    which must not run. For repeating tasks that can be ignored.
+// - single_timeout - how long to wait for running job before submitting another one, for cases when unique job stuck or other condition
+//    prevented to clear up running list in the master, milliseconds
 //
 // Example:
 //

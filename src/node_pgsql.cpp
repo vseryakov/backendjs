@@ -580,7 +580,7 @@ void PgSQLDatabase::Handle_Poll(uv_poll_t* w, int status, int revents)
             PGnotify *notify;
             while ((notify = PQnotifies(db->handle))) {
                 if (!db->notify.IsEmpty()) {
-                    Handle_Notice(db, vFmtStr("%s: %s", notify->relname, notify->extra).c_str());
+                    Handle_Notice(db, bkFmtStr("%s: %s", notify->relname, notify->extra).c_str());
                 }
                 PQfreemem(notify);
             }

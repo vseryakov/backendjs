@@ -9,8 +9,8 @@
 // Convenience function to enable logging
 static void sqliteLogger(sqlite3_context *ctx, int argc, sqlite3_value **argv)
 {
-    if (argc > 0) VLog::set((const char*)sqlite3_value_text(argv[0]));
-    sqlite3_result_int(ctx, VLog::level());
+    if (argc > 0) bkLog::set((const char*)sqlite3_value_text(argv[0]));
+    sqlite3_result_int(ctx, bkLog::level());
 }
 
 // Implementaton of the REGEXP function
@@ -75,8 +75,8 @@ static void sqliteRegexp(sqlite3_context *ctx, int argc, sqlite3_value **argv)
 static void sqliteRankBM25(sqlite3_context *ctx, int argc, sqlite3_value **argv)
 {
     if (argc < 1) {
-    	sqlite3_result_double(ctx, 0);
-    	return;
+        sqlite3_result_double(ctx, 0);
+        return;
     }
     int ndocs = 0, ncols = 0, nphrases = 0;
     double weight = 0, score = 0.0, idf = 0.0, bm25 = 0.0;
@@ -126,7 +126,7 @@ static int sqliteBusyHandler(void *ptr, int code)
 // Set or reset busy timeout or handler, -1 set indefinite busy handler otherwise timeout is set
 static void sqliteTimeout(sqlite3_context *ctx, int argc, sqlite3_value **argv)
 {
-    vsqlite_set_timeout(sqlite3_context_db_handle(ctx), argc > 0 ? sqlite3_value_int(argv[0]) : -1);
+    bkSqliteSetTimeout(sqlite3_context_db_handle(ctx), argc > 0 ? sqlite3_value_int(argv[0]) : -1);
 }
 
 // Return current UNIX time in seconds
@@ -140,7 +140,7 @@ static void sqliteMNow(sqlite3_context *ctx, int argc, sqlite3_value **argv)
 {
 	struct timeval tv;
 	gettimeofday(&tv, NULL);
-    sqlite3_result_int64(ctx, ((int64_t)((int64_t)(tv.tv_sec)*1000 + tv.tv_usec/1000)));
+	sqlite3_result_int64(ctx, ((int64_t)((int64_t)(tv.tv_sec)*1000 + tv.tv_usec/1000)));
 }
 
 // Implementation of string concatenation function
@@ -204,29 +204,29 @@ static void sqliteArray(sqlite3_context *ctx, int argc, sqlite3_value **argv)
 
     vector<string> items = strSplit(data ? data : "", sep);
     if (!strcmp(op, "add") || !strcmp(op, "set")) {
-    	if (op[0] == 's') items.clear();
-    	for (int i = 3; i < argc; i++) {
-    		const char *val = (const char*) sqlite3_value_text(argv[i]);
-    		if (!val || !val[0]) continue;
-    		items.push_back(val);
-    	}
+        if (op[0] == 's') items.clear();
+        for (int i = 3; i < argc; i++) {
+            const char *val = (const char*) sqlite3_value_text(argv[i]);
+            if (!val || !val[0]) continue;
+            items.push_back(val);
+        }
     } else
     if (!strcmp(op, "del")) {
-    	for (int i = 3; i < argc; i++) {
-    		const char *val = (const char*) sqlite3_value_text(argv[i]);
-    		if (!val || !val[0]) continue;
-    		vector<string>::iterator it = std::find(items.begin(), items.end(), val);
-    		if (it != items.end()) items.erase(it);
-    	}
+        for (int i = 3; i < argc; i++) {
+            const char *val = (const char*) sqlite3_value_text(argv[i]);
+            if (!val || !val[0]) continue;
+            vector<string>::iterator it = std::find(items.begin(), items.end(), val);
+            if (it != items.end()) items.erase(it);
+        }
     } else
     if (!strcmp(op, "clear")) {
-    	items.clear();
+        items.clear();
     }
     sqlite3_result_text(ctx, toString(items, sep).c_str(), -1, SQLITE_TRANSIENT);
 }
 
 // Public interface to sqlite functions
-void vsqlite_init()
+void bkSqliteInit()
 {
     static bool init = false;
     if (init) return;
@@ -235,7 +235,7 @@ void vsqlite_init()
     sqlite3_enable_shared_cache(1);
 }
 
-bool vsqlite_init_db(sqlite3 *handle, int (*progress)(void *))
+bool bkSqliteInitDb(sqlite3 *handle, int (*progress)(void *))
 {
     if (!handle) return false;
     sqlite3_create_function(handle, "array", -1, SQLITE_UTF8, 0, sqliteArray, 0, 0);
@@ -251,13 +251,13 @@ bool vsqlite_init_db(sqlite3 *handle, int (*progress)(void *))
     return true;
 }
 
-void vsqlite_db_init(sqlite3 *handle)
+void bkSqliteDbInit(sqlite3 *handle)
 {
-    vsqlite_init();
-    vsqlite_init_db(handle, NULL);
+    bkSqliteInit();
+    bkSqliteInitDb(handle, NULL);
 }
 
-void vsqlite_set_timeout(sqlite3 *handle, int timeout)
+void bkSqliteSetTimeout(sqlite3 *handle, int timeout)
 {
     if (timeout >= 0) {
         sqlite3_busy_timeout(handle, timeout);
@@ -266,7 +266,7 @@ void vsqlite_set_timeout(sqlite3 *handle, int timeout)
     }
 }
 
-int vsqlite_prepare(sqlite3 *db, sqlite3_stmt **stmt, string sql, int count, int timeout)
+int bkSqlitePrepare(sqlite3 *db, sqlite3_stmt **stmt, string sql, int count, int timeout)
 {
     int n = 0, rc;
     do {
@@ -279,7 +279,7 @@ int vsqlite_prepare(sqlite3 *db, sqlite3_stmt **stmt, string sql, int count, int
     return rc;
 }
 
-int vsqlite_step(sqlite3_stmt *stmt, int count, int timeout)
+int bkSqliteStep(sqlite3_stmt *stmt, int count, int timeout)
 {
     int n = 0, rc;
     do {

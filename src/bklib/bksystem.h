@@ -4,8 +4,8 @@
  *
  */
 
-#ifndef _V_SYSTEM_H_
-#define _V_SYSTEM_H_
+#ifndef _BK_SYSTEM_H_
+#define _BK_SYSTEM_H_
 
 #if defined(__linux__) || defined(__APPLE__)
 #define __UNIX__

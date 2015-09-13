@@ -156,7 +156,7 @@ server.startMaster = function(options)
         if (!core.noWeb) this.startWebProcess();
 
         var d = domain.create();
-        d.on('error', function(err) { logger.error('master:', err.stack); });
+        d.on('error', function(err) { logger.error('master:', lib.traceError(err)); });
         d.run(function() {
             self.writePidfile();
 
@@ -203,7 +203,7 @@ server.startWeb = function(options)
     var self = this;
 
     process.on("uncaughtException", function(err) {
-        logger.error('fatal:', core.role, err.stack);
+        logger.error('fatal:', core.role, lib.traceError(err));
         self.onkill();
     });
 
@@ -212,7 +212,7 @@ server.startWeb = function(options)
         process.title = core.name + ': server';
 
         var d = domain.create();
-        d.on('error', function(err) { logger.error(core.role + ':', err.stack); });
+        d.on('error', function(err) { logger.error(core.role + ':', lib.traceError(err)); });
         d.run(function() {
             // Setup IPC communication
             ipc.initServer();
@@ -223,7 +223,7 @@ server.startWeb = function(options)
             // In proxy mode we maintain continious sequence of ports for each worker starting with core.proxy.port
             if (core.proxy.port) {
 
-                ipc.on('api:ready', function(msg) {
+                ipc.on('api:ready', function(msg, worker) {
                     logger.debug("api:ready:", msg, self.proxyWorkers);
                     for (var i = 0; i < self.proxyWorkers.length; i++) {
                         if (self.proxyWorkers[i].id == msg.id) return self.proxyWorkers[i] = msg;
@@ -238,7 +238,7 @@ server.startWeb = function(options)
                     logger.error("cluster:exit:", msg, self.proxyWorkers);
                 });
                 self.proxyServer = proxy.createServer();
-                self.proxyServer.on("error", function(err, req) { if (err.code != "ECONNRESET") logger.error("proxy:", req.target || '', req.url, err.stack) })
+                self.proxyServer.on("error", function(err, req) { if (err.code != "ECONNRESET") logger.error("proxy:", req.target || '', req.url, lib.traceError(err)) })
                 self.server = core.createServer({ name: "http", port: core.port, bind: core.bind, restart: "web" }, function(req, res) {
                     self.handleProxyRequest(req, res, 0);
                 });
@@ -578,7 +578,7 @@ server.handleProxyRequest = function(req, res, ssl)
     var self = this;
     var d = domain.create();
     d.on('error', function(err) {
-        logger.error('handleProxyRequest:', req.target || '', req.url, err.stack);
+        logger.error('handleProxyRequest:', req.target || '', req.url, lib.traceError(err));
         if (res.headersSent) return;
         try {
             res.writeHead(500, "Internal Error");

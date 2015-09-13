@@ -188,7 +188,7 @@ static void doResizeImage(uv_work_t *req)
     }
     if (baton->out.size()) {
         // Make sure all subdirs exist
-        if (vMakePath(baton->out)) {
+        if (bkMakePath(baton->out)) {
             status = MagickWriteImage(wand, baton->out.c_str());
             if (status == MagickFalse) goto err;
         } else {
@@ -207,7 +207,7 @@ err:
 
 static void afterResizeImage(uv_work_t *req)
 {
-    HandleScope scope;
+    Nan::HandleScope scope;
     MagickBaton *baton = (MagickBaton *)req->data;
 
     Local<Value> argv[4];
@@ -215,18 +215,18 @@ static void afterResizeImage(uv_work_t *req)
     if (!baton->cb.IsEmpty()) {
         if (baton->err || baton->exception) {
             argv[0] = Exception::Error(String::New(baton->err ? strerror(baton->err) : baton->exception));
-            TRY_CATCH_CALL(Context::GetCurrent()->Global(), baton->cb, 1, argv);
+            NAN_TRY_CATCH_CALL(Context::GetCurrent()->Global(), baton->cb, 1, argv);
         } else
         if (baton->image) {
             Buffer *buf = Buffer::New((const char*)baton->image, baton->length);
-            argv[0] = Local<Value>::New(Null());
+            argv[0] = Nan::New(Nan::Null());
             argv[1] = Local<Value>::New(buf->handle_);
-            argv[2] = Local<Value>::New(Integer::New(baton->d.width));
-            argv[3] = Local<Value>::New(Integer::New(baton->d.height));
-            TRY_CATCH_CALL(Context::GetCurrent()->Global(), baton->cb, 4, argv);
+            argv[2] = Nan::New(baton->d.width);
+            argv[3] = Nan::New(baton->d.height);
+            NAN_TRY_CATCH_CALL(Context::GetCurrent()->Global(), baton->cb, 4, argv);
         } else {
-            argv[0] = Local<Value>::New(Null());
-            TRY_CATCH_CALL(Context::GetCurrent()->Global(), baton->cb, 1, argv);
+            argv[0] = Nan::New(Nan::Null());
+            NAN_TRY_CATCH_CALL(Context::GetCurrent()->Global(), baton->cb, 1, argv);
         }
     }
     if (baton->image) MagickRelinquishMemory(baton->image);
@@ -235,13 +235,11 @@ static void afterResizeImage(uv_work_t *req)
     delete req;
 }
 
-static Handle<Value> resizeImage(const Arguments& args)
+static NAN_METHOD(resizeImage)
 {
-    HandleScope scope;
-
-    REQUIRE_ARGUMENT(0);
-    REQUIRE_ARGUMENT_OBJECT(1, opts);
-    EXPECT_ARGUMENT_FUNCTION(-1, cb);
+    NAN_REQUIRE_ARGUMENT(0);
+    NAN_REQUIRE_ARGUMENT_OBJECT(1, opts);
+    NAN_EXPECT_ARGUMENT_FUNCTION(-1, cb);
 
     uv_work_t *req = new uv_work_t;
     MagickBaton *baton = new MagickBaton;
@@ -281,32 +279,29 @@ static Handle<Value> resizeImage(const Arguments& args)
     }
 
     // If a Buffer passed we use it as a source for image
-    if (args[0]->IsObject()) {
-        Local<Object> buf = args[0]->ToObject();
+    if (info[0]->IsObject()) {
+        Local<Object> buf = info[0]->ToObject();
         baton->length = Buffer::Length(buf);
         baton->image = (unsigned char*)malloc(baton->length);
         memcpy(baton->image, Buffer::Data(buf), baton->length);
     } else {
         // Otherwise read form file
-        String::Utf8Value name(args[0]);
+        Nan::Utf8String name(info[0]);
         baton->path = *name;
     }
 
     uv_queue_work(uv_default_loop(), req, doResizeImage, (uv_after_work_cb)afterResizeImage);
-    return scope.Close(Undefined());
 }
 
-static Handle<Value> resizeImageSync(const Arguments& args)
+static NAN_METHOD(resizeImageSync)
 {
-    HandleScope scope;
-
-    REQUIRE_ARGUMENT_AS_STRING(0, name);
-    REQUIRE_ARGUMENT_INT(1, w);
-    REQUIRE_ARGUMENT_INT(2, h);
-    REQUIRE_ARGUMENT_AS_STRING(3, format);
-    REQUIRE_ARGUMENT_AS_STRING(4, filter);
-    REQUIRE_ARGUMENT_INT(5, quality);
-    REQUIRE_ARGUMENT_AS_STRING(6, out);
+    NAN_REQUIRE_ARGUMENT_AS_STRING(0, name);
+    NAN_REQUIRE_ARGUMENT_INT(1, w);
+    NAN_REQUIRE_ARGUMENT_INT(2, h);
+    NAN_REQUIRE_ARGUMENT_AS_STRING(3, format);
+    NAN_REQUIRE_ARGUMENT_AS_STRING(4, filter);
+    NAN_REQUIRE_ARGUMENT_INT(5, quality);
+    NAN_REQUIRE_ARGUMENT_AS_STRING(6, out);
 
     MagickWand *wand = NewMagickWand();
     MagickBooleanType status = MagickReadImage(wand, *name);
@@ -327,7 +322,7 @@ static Handle<Value> resizeImageSync(const Arguments& args)
     status = MagickWriteImage(wand, *out);
     if (status == MagickFalse) goto err;
     DestroyMagickWand(wand);
-    return scope.Close(Undefined());
+    return;
 
 err:
     ExceptionType severity;
@@ -336,16 +331,15 @@ err:
     MagickRelinquishMemory((char*)str);
     DestroyMagickWand(wand);
     ThrowException(Exception::Error(String::New(msg.c_str())));
-    return scope.Close(Undefined());
 }
 
 void WandInit(Handle<Object> target)
 {
-    HandleScope scope;
+    Nan:HandleScope scope;
 
     MagickWandGenesis();
-    NODE_SET_METHOD(target, "resizeImage", resizeImage);
-    NODE_SET_METHOD(target, "resizeImageSync", resizeImageSync);
+    NAN_EXPORT(target, resizeImage);
+    NAN_EXPORT(target, resizeImageSync);
 }
 
 #endif

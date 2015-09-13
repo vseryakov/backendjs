@@ -434,7 +434,7 @@ void LevelDB::Work_Incr(uv_work_t* req)
     baton->status = baton->db->handle->Get(baton->readOptions, baton->key, &baton->value);
     if (!baton->status.ok() && baton->status.IsNotFound()) baton->status = leveldb::Status::OK();
     if (baton->status.ok()) {
-        baton->value = vFmtStr("%lld", atoll(baton->value.c_str()) + baton->num);
+        baton->value = bkFmtStr("%lld", atoll(baton->value.c_str()) + baton->num);
         baton->status = baton->db->handle->Put(baton->writeOptions, baton->key, baton->value);
         if (baton->status.ok()) baton->num = atoll(baton->value.c_str());
     }

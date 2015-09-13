@@ -327,7 +327,7 @@ err:
             case MYSQL_TYPE_TIME2:
 #endif
                 tval = *((MYSQL_TIME *) bind[i].buffer);
-                sval = vFmtStr("%04d-%02d-%02d %02d:%02d:%02d GMT", tval.year, tval.month, tval.day, tval.hour, tval.minute, tval.second);
+                sval = bkFmtStr("%04d-%02d-%02d %02d:%02d:%02d GMT", tval.year, tval.month, tval.day, tval.hour, tval.minute, tval.second);
                 type = MYSQL_TYPE_STRING;
                 break;
             case MYSQL_TYPE_BLOB:
@@ -672,7 +672,7 @@ void MysqlDatabase::Work_Open(uv_work_t* req)
     }
     char *home = getenv("HOME");
     if (!home) home = (char*)".";
-    string conf = vFmtStr("%s/.my.cnf", home);
+    string conf = bkFmtStr("%s/.my.cnf", home);
     my_bool reconnect = true;
     if (db) baton->db->db = db;
     baton->db->handle = mysql_init(NULL);

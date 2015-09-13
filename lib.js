@@ -1279,6 +1279,13 @@ lib.newError = function(options, status)
     return err;
 }
 
+// Returns the error stack or the error itself, to be used in error messages
+lib.traceError = function(err)
+{
+    if (util.isError(err) && err.stack) return err.stack;
+    return err || "";
+}
+
 // Return true if a variable or property in the object exists,
 // - if obj is null or undefined return false
 // - if obj is an object, return true if the property is not undefined
@@ -1605,7 +1612,7 @@ lib.jsonParse = function(obj, options)
 lib.checkResult = function(err, obj, options)
 {
     if (options) {
-        if (options.error) logger.error('checkResult:', err.stack, obj);
+        if (options.error) logger.error('checkResult:', this.traceError(err), obj);
         if (options.debug) logger.debug('checkResult:', err, obj);
         if (options.obj) return {};
         if (options.list) return [];
@@ -2085,7 +2092,7 @@ lib.createPool = function(options)
         var me = this;
         this._call("_create", function(err, item) {
             if (err) {
-                logger.error("pool: acquire:", this.name, err.stack);
+                logger.error("pool: acquire:", this.name, self.traceError(err));
             } else {
                 if (!item) item = {};
                 me._pool.busy.push(item);

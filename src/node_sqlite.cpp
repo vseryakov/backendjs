@@ -147,7 +147,7 @@ public:
 
     bool Prepare() {
         handle = NULL;
-        status = vsqlite_prepare(db->handle, &handle, sql, db->retries, db->timeout);
+        status = bkSqlitePrepare(db->handle, &handle, sql, db->retries, db->timeout);
         if (status != SQLITE_OK) {
             message = string(sqlite3_errmsg(db->handle));
             if (handle) sqlite3_finalize(handle);
@@ -598,7 +598,7 @@ Handle<Value> SQLiteDatabase::New(const Arguments& args)
             db->handle = NULL;
             return ThrowException(Exception::Error(String::New(sqlite3_errmsg(db->handle))));
         }
-        vsqlite_init_db(db->handle, NULL);
+        bkSqliteInitDb(db->handle, NULL);
     }
     return args.This();
 }
@@ -613,7 +613,7 @@ void SQLiteDatabase::Work_Open(uv_work_t* req)
         sqlite3_close(baton->db->handle);
         baton->db->handle = NULL;
     } else {
-        vsqlite_init_db(baton->db->handle, NULL);
+        bkSqliteInitDb(baton->db->handle, NULL);
     }
 }
 
@@ -822,7 +822,7 @@ void SQLiteDatabase::Work_Exec(uv_work_t* req)
     char* message = NULL;
     baton->status = sqlite3_exec(baton->db->handle, baton->sparam.c_str(), NULL, NULL, &message);
     if (baton->status != SQLITE_OK) {
-        baton->message = vFmtStr("sqlite3 error %d: %s", baton->status, message ? message : sqlite3_errmsg(baton->db->handle));
+        baton->message = bkFmtStr("sqlite3 error %d: %s", baton->status, message ? message : sqlite3_errmsg(baton->db->handle));
         sqlite3_free(message);
     } else {
         baton->inserted_id = sqlite3_last_insert_rowid(baton->db->handle);
@@ -1045,7 +1045,7 @@ void SQLiteStatement::Work_Run(uv_work_t* req)
     Baton* baton = static_cast<Baton*>(req->data);
 
     if (BindParameters(baton->params, baton->stmt->handle)) {
-        baton->stmt->status = vsqlite_step(baton->stmt->handle, baton->stmt->db->retries, baton->stmt->db->timeout);
+        baton->stmt->status = bkSqliteStep(baton->stmt->handle, baton->stmt->db->retries, baton->stmt->db->timeout);
 
         if (!(baton->stmt->status == SQLITE_ROW || baton->stmt->status == SQLITE_DONE)) {
             baton->stmt->message = string(sqlite3_errmsg(baton->stmt->db->handle));
@@ -1066,7 +1066,7 @@ void SQLiteStatement::Work_RunPrepare(uv_work_t* req)
     if (!baton->stmt->Prepare()) return;
 
     if (BindParameters(baton->params, baton->stmt->handle)) {
-        baton->stmt->status = vsqlite_step(baton->stmt->handle, baton->stmt->db->retries, baton->stmt->db->timeout);
+        baton->stmt->status = bkSqliteStep(baton->stmt->handle, baton->stmt->db->retries, baton->stmt->db->timeout);
 
         if (!(baton->stmt->status == SQLITE_ROW || baton->stmt->status == SQLITE_DONE)) {
             baton->stmt->message = string(sqlite3_errmsg(baton->stmt->db->handle));
@@ -1153,7 +1153,7 @@ void SQLiteStatement::Work_Query(uv_work_t* req)
     Baton* baton = static_cast<Baton*>(req->data);
 
     if (BindParameters(baton->params, baton->stmt->handle)) {
-        while ((baton->stmt->status = vsqlite_step(baton->stmt->handle, baton->stmt->db->retries, baton->stmt->db->timeout)) == SQLITE_ROW) {
+        while ((baton->stmt->status = bkSqliteStep(baton->stmt->handle, baton->stmt->db->retries, baton->stmt->db->timeout)) == SQLITE_ROW) {
             Row row;
             GetRow(row, baton->stmt->handle);
             baton->rows.push_back(row);
@@ -1173,7 +1173,7 @@ void SQLiteStatement::Work_QueryPrepare(uv_work_t* req)
     if (!baton->stmt->Prepare()) return;
 
     if (BindParameters(baton->params, baton->stmt->handle)) {
-        while ((baton->stmt->status = vsqlite_step(baton->stmt->handle, baton->stmt->db->retries, baton->stmt->db->timeout)) == SQLITE_ROW) {
+        while ((baton->stmt->status = bkSqliteStep(baton->stmt->handle, baton->stmt->db->retries, baton->stmt->db->timeout)) == SQLITE_ROW) {
             Row row;
             GetRow(row, baton->stmt->handle);
             baton->rows.push_back(row);
@@ -1296,7 +1296,7 @@ void SQLiteStatement::Work_EachNext(uv_work_t* req)
 {
     Baton* baton = static_cast<Baton*>(req->data);
 
-    while ((baton->stmt->status = vsqlite_step(baton->stmt->handle, baton->stmt->db->retries, baton->stmt->db->timeout)) == SQLITE_ROW) {
+    while ((baton->stmt->status = bkSqliteStep(baton->stmt->handle, baton->stmt->db->retries, baton->stmt->db->timeout)) == SQLITE_ROW) {
         Row row;
         GetRow(row, baton->stmt->handle);
         baton->rows.push_back(row);

@@ -163,7 +163,7 @@ static uint32_t _get_central_dir(FILE *fp)
     return uPosFound;
 }
 
-int VUnzip::get_current_file_info(Info *pinfo)
+int bkUnzip::get_current_file_info(Info *pinfo)
 {
     Info file_info;
     uint32_t offset;
@@ -312,7 +312,7 @@ int VUnzip::get_current_file_info(Info *pinfo)
     return 1;
 }
 
-int VUnzip::check_header(unsigned int *piSizeVar, uint32_t *poffset_local_extrafield, unsigned int *psize_local_extrafield)
+int bkUnzip::check_header(unsigned int *piSizeVar, uint32_t *poffset_local_extrafield, unsigned int *psize_local_extrafield)
 {
     uint32_t uMagic, uData, uFlags;
     uint32_t size_filename;
@@ -396,7 +396,7 @@ int VUnzip::check_header(unsigned int *piSizeVar, uint32_t *poffset_local_extraf
     return 1;
 }
 
-int VUnzip::open_file(int *method, int *level, int raw, string password)
+int bkUnzip::open_file(int *method, int *level, int raw, string password)
 {
     unsigned int iSizeVar;
     uint32_t offset_local_extrafield;      /* offset of the static extra field */
@@ -504,7 +504,7 @@ int VUnzip::open_file(int *method, int *level, int raw, string password)
     return 1;
 }
 
-bool VUnzip::open()
+bool bkUnzip::open()
 {
     uint32_t number_disk;          /* number of the current dist, used for spaning ZIP, unsupported, always 0 */
     uint32_t central_pos, uL;
@@ -586,7 +586,7 @@ err:
     return 0;
 }
 
-void VUnzip::close()
+void bkUnzip::close()
 {
     close_file();
 
@@ -596,7 +596,7 @@ void VUnzip::close()
     }
 }
 
-void VUnzip::close_file()
+void bkUnzip::close_file()
 {
     if (_file == NULL) {
         return;
@@ -614,12 +614,12 @@ void VUnzip::close_file()
     _file = NULL;
 }
 
-int VUnzip::get_file_count()
+int bkUnzip::get_file_count()
 {
     return _unzip.number_entry;
 }
 
-int VUnzip::first_file()
+int bkUnzip::first_file()
 {
     int rc;
 
@@ -632,7 +632,7 @@ int VUnzip::first_file()
     return rc;
 }
 
-int VUnzip::next_file()
+int bkUnzip::next_file()
 {
     int rc;
 
@@ -656,7 +656,7 @@ int VUnzip::next_file()
     return rc;
 }
 
-int VUnzip::search_file(string fileName)
+int bkUnzip::search_file(string fileName)
 {
     int rc;
     Info cur_file_infoSaved;
@@ -696,12 +696,12 @@ int VUnzip::search_file(string fileName)
     return 0;
 }
 
-int VUnzip::open_file(string password)
+int bkUnzip::open_file(string password)
 {
     return open_file(NULL, NULL, 0, password);
 }
 
-int VUnzip::read_file(void *buf, uint len)
+int bkUnzip::read_file(void *buf, uint len)
 {
     int iRead = 0, rc = Z_OK;
 
@@ -815,7 +815,7 @@ int VUnzip::read_file(void *buf, uint len)
     return 0;
 }
 
-string VUnzip::get_file_name()
+string bkUnzip::get_file_name()
 {
     Info info;
 
@@ -823,7 +823,7 @@ string VUnzip::get_file_name()
     return info.file;
 }
 
-long long VUnzip::get_file_size()
+long long bkUnzip::get_file_size()
 {
     Info info;
 
@@ -833,7 +833,7 @@ long long VUnzip::get_file_size()
     return 0;
 }
 
-int VUnzip::get_file_mode()
+int bkUnzip::get_file_mode()
 {
     Info info;
 
@@ -843,7 +843,7 @@ int VUnzip::get_file_mode()
     return 0;
 }
 
-string VUnzip::get_file_extra()
+string bkUnzip::get_file_extra()
 {
     uint32_t size_to_read;
 
@@ -870,7 +870,7 @@ string VUnzip::get_file_extra()
     return string(buf);
 }
 
-string VUnzip::get_comment()
+string bkUnzip::get_comment()
 {
     if (_unzip.size_comment <= 0) {
         return string();
@@ -890,7 +890,7 @@ string VUnzip::get_comment()
     return string(buf);
 }
 
-int VUnzip::extract(string filename, string outfile)
+int bkUnzip::extract(string filename, string outfile)
 {
     char buffer[4096];
     string outname(!outfile.empty() ? outfile : filename);
@@ -936,9 +936,9 @@ int VUnzip::extract(string filename, string outfile)
     return 1;
 }
 
-int VUnzip::unzip(string zipfile, string filename, string outfile)
+int bkUnzip::unzip(string zipfile, string filename, string outfile)
 {
-    VUnzip unzip(zipfile);
+    bkUnzip unzip(zipfile);
 
     if (!unzip.open()) {
         LogError("Can not open file '%s'", zipfile.c_str());
@@ -957,9 +957,9 @@ int VUnzip::unzip(string zipfile, string filename, string outfile)
     return unzip.extract(filename, outfile);
 }
 
-int VUnzip::unzip(string zipfile, string dir)
+int bkUnzip::unzip(string zipfile, string dir)
 {
-    VUnzip unzip(zipfile);
+    bkUnzip unzip(zipfile);
 
     if (!unzip.open()) {
         LogError("Can not open file '%s'", zipfile.c_str());
@@ -985,7 +985,7 @@ int VUnzip::unzip(string zipfile, string dir)
 
             // Deal with broken zip files made by some tools like scala/sbt without storing proper file mode/type
             if (S_ISDIR(mode) || *(outname.end() - 1) == '/') {
-                if (!vMakePath(outdir)) {
+                if (!bkMakePath(outdir)) {
                     LogError("%s: mkdir error %s: %s", zipfile.c_str(), outname.c_str(), strerror(errno));
                 }
             } else
@@ -1006,7 +1006,7 @@ int VUnzip::unzip(string zipfile, string dir)
                     link.append(buffer, bytes);
                 }
                 if (link.size()) {
-                    if (!vMakePath(outdir)) {
+                    if (!bkMakePath(outdir)) {
                         LogError("%s: mkdir error %s: %s", zipfile.c_str(), outname.c_str(), strerror(errno));
                     }
                     unlink(outname.c_str());
@@ -1018,7 +1018,7 @@ int VUnzip::unzip(string zipfile, string dir)
             } else
 #endif
             if (!mode || S_ISREG(mode)) {
-                if (!vMakePath(outdir)) {
+                if (!bkMakePath(outdir)) {
                     LogError("%s: mkdir error %s: %s", zipfile.c_str(), outname.c_str(), strerror(errno));
                 }
                 unzip.extract(outname, outname);
@@ -1033,11 +1033,11 @@ int VUnzip::unzip(string zipfile, string dir)
     return 1;
 }
 
-string VUnzip::toString(string zipfile, string filename)
+string bkUnzip::toString(string zipfile, string filename)
 {
     char buffer[4096];
 
-    VUnzip unzip(zipfile);
+    bkUnzip unzip(zipfile);
 
     if (!unzip.open()) {
         LogError("Can not open file '%s'", zipfile.c_str());

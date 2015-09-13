@@ -11,44 +11,44 @@ static int _level(Log_Notice);
 static char *_file(NULL);
 static FILE *_out;
 
-bool VLog::test(int level)
+bool bkLog::test(int level)
 {
-    return VLog::level() >= level;
+    return bkLog::level() >= level;
 }
 
-int VLog::level(void)
+int bkLog::level(void)
 {
     return _level;
 }
 
-int VLog::set(int level)
+int bkLog::set(int level)
 {
     return _level = level;
 }
 
-int VLog::set(const char *level)
+int bkLog::set(const char *level)
 {
     return set(fromString(level));
 }
 
-int VLog::setSize(int size)
+int bkLog::setSize(int size)
 {
     return _size = size;
 }
 
-const char *VLog::file()
+const char *bkLog::file()
 {
     return _file;
 }
 
-const char *VLog::toString(int level)
+const char *bkLog::toString(int level)
 {
     return level == Log_Error ? "ERROR" : level == Log_Warn ? "WARN" : level == Log_Notice ? "NOTICE" :
            level == Log_Info ? "INFO" : level == Log_Debug ? "DEBUG" : level == Log_Dev ? "DEV" :
            level == Log_Test ? "TEST" : "NONE";
 }
 
-int VLog::fromString(const char *str)
+int bkLog::fromString(const char *str)
 {
     if (!str) return 0;
 
@@ -67,18 +67,18 @@ int VLog::fromString(const char *str)
     return -1;
 }
 
-int VLog::setChannel(FILE *fp)
+int bkLog::setChannel(FILE *fp)
 {
 	_out = fp;
 	return 1;
 }
 
-FILE *VLog::getChannel()
+FILE *bkLog::getChannel()
 {
 	return _out ? _out : stdout;
 }
 
-int VLog::setFile(const char *path)
+int bkLog::setFile(const char *path)
 {
     // Redirect all output into log file
     if (!path) return 0;
@@ -94,7 +94,7 @@ int VLog::setFile(const char *path)
     return 1;
 }
 
-void VLog::rotate(int nfiles)
+void bkLog::rotate(int nfiles)
 {
     // Rotate if reached the limit, keep up to 3 old files
     if (_size > 0 && _file) {
@@ -115,7 +115,7 @@ void VLog::rotate(int nfiles)
     }
 }
 
-void VLog::print(int level, const char *prefix, const char *fmt, ...)
+void bkLog::print(int level, const char *prefix, const char *fmt, ...)
 {
     va_list ap;
 
@@ -124,7 +124,7 @@ void VLog::print(int level, const char *prefix, const char *fmt, ...)
     va_end(ap);
 }
 
-void VLog::vprint(int level, const char *prefix, const char *fmt, va_list ap)
+void bkLog::vprint(int level, const char *prefix, const char *fmt, va_list ap)
 {
     if (test(level)) {
         struct tm ltm;

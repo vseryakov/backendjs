@@ -511,7 +511,7 @@ db.query = function(req, options, callback)
 
         if (err && !options.silence_error) {
             pool.metrics.Counter("err_0").inc();
-            logger.error("db.query:", pool.name, err, 'REQ:', req, 'OPTS:', options, err.stack);
+            logger.error("db.query:", pool.name, err, 'REQ:', req, 'OPTS:', options, lib.traceError(err));
         } else {
             logger.debug("db.query:", pool.name, m1.elapsed, 'ms', rows.length, 'rows', 'REQ:', req, 'INFO:', info, 'OPTS:', options);
         }
@@ -1625,7 +1625,7 @@ db.cacheColumns = function(options, callback)
     var pool = this.getPool('', options);
     options = this.getOptions('', options);
     pool.cacheColumns.call(pool, options, function(err) {
-        if (err) logger.error('cacheColumns:', pool.name, err.stack);
+        if (err) logger.error('cacheColumns:', pool.name, lib.traceError(err));
         self.mergeColumns(pool);
         pool.cacheIndexes.call(pool, options, function(err) {
             if (err) logger.error('cacheIndexes:', pool.name, err);
@@ -2015,6 +2015,12 @@ db.setProcessRow = function(type, table, options, callback)
     this.processRows[type][table].push(callback);
 }
 
+// Returns true if a pool exists
+db.existsPool = function(name)
+{
+    return !!this.pools[name];
+}
+
 // Return database pool by table name or default pool, options may contain { pool: name } to return
 // the pool by given name. This call always return valid pool object, in case no requiested pool found it returns
 // default pool. A special pool `none` always return empty result and no errors.
@@ -2307,7 +2313,7 @@ db.getCacheKey = function(table, query, options)
 //
 db.showResult = function(err, rows, info)
 {
-    if (err) return console.log(err.stack);
+    if (err) return console.log(lib.traceError(err));
     console.log(util.inspect(rows, { depth: 5 }), info);
 }
 

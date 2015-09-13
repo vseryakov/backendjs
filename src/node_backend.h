@@ -33,7 +33,7 @@ using namespace std;
 #define NAN_REQUIRE_ARGUMENT_FUNCTION(i, var) if (info.Length() <= (i) || !info[i]->IsFunction()) Nan::ThrowError("Argument " #i " must be a function"); Local<Function> var = Local<Function>::Cast(info[i]);
 
 #define NAN_EXPECT_ARGUMENT_FUNCTION(i, var) Local<Function> var; \
-        if (info.Length() > 0 && args.Length() > (i) && !info[(i) >= 0 ? (i) : info.Length() - 1]->IsUndefined()) { \
+        if (info.Length() > 0 && info.Length() > (i) && !info[(i) >= 0 ? (i) : info.Length() - 1]->IsUndefined()) { \
             if (!info[(i) >= 0 ? (i) : info.Length() - 1]->IsFunction()) Nan::ThrowError("Argument " #i " must be a function"); \
             var = Local<Function>::Cast(info[(i) >= 0 ? (i) : info.Length() - 1]); }
 
