@@ -28,6 +28,8 @@ var Client = require(__dirname + "/lib/ipc_client");
 //
 // Queue methods use `options.queueName` for non-default queue.
 //
+// Default local cache and queue created automatically, can be used as `cacheName: 'local'` and `queueName: 'local'`.
+//
 function Ipc()
 {
     events.EventEmitter.call(this);
@@ -239,7 +241,7 @@ Ipc.prototype.handleServerMessages = function(worker, msg)
             break;
 
         case 'queue:push':
-            this._queue.push(msg.value);
+            this._queue.push(msg);
             break;
 
         case 'queue:pop':
@@ -575,6 +577,19 @@ Ipc.prototype.limiter = function(options, callback)
         callback(options.interval || 1000);
     }
     return this;
+}
+
+// Keep checking the limiter until it is clear to proceed with the operation, if there is no available tokens in the bucket
+// it will wait and try again until the bucket is filled.
+Ipc.prototype.checkLimiter = function(options, callback)
+{
+    var self = this;
+
+    this.limiter(options, function(delay) {
+        logger.debug("checkLimiter:", options, delay);
+        if (!delay) return callback();
+        setTimeout(self.checkLimiter.bind(self, options, callback), delay);
+    });
 }
 
 // Implementation of a timer with the lock, only one instance can lock something for some period of time(interval) and will expire after timeout, all other

@@ -907,10 +907,7 @@ core.httpGet = function(uri, params, callback)
             logger.debug('httpGet:', uri, options.headers);
         }
     }
-    if (!options.headers['accept']) {
-        options.headers['accept'] = 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8';
-    }
-    options.headers['accept-language'] = 'en-US,en;q=0.5';
+    if (!options.headers['accept']) options.headers['accept'] = '*/*';
 
     // Data to be sent over in the body
     if (params.postdata) {
@@ -1122,7 +1119,7 @@ core.httpGet = function(uri, params, callback)
 // - secret - secret to use for access instead of global credentials
 // - proxy - used as a proxy to backend, handles all errors and returns .status and .json to be passed back to API client
 // - checksum - calculate checksum from the data
-// - anystatus - keep any HTTP status, dont treat as error if not 200
+// - anystatus - keep any HTTP status, dont treat as error if not between 200 and 299
 // - obj - return just result object, not the whole params
 core.sendRequest = function(options, callback)
 {
@@ -1160,7 +1157,7 @@ core.sendRequest = function(options, callback)
             }
         }
         if (!params.obj) params.obj = {};
-        if (params.status != 200 && !err && !options.anystatus) {
+        if ((params.status < 200 || params.status >= 300) && !err && !options.anystatus) {
             err = lib.newError({ message: util.format("ResponseError: %d: %j", params.status, params.obj), name: "HTTP", status: params.status });
         }
         if (typeof callback == "function") callback(err, options.obj ? params.obj : params, options.obj ? null : res);

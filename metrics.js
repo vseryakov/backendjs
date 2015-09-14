@@ -621,12 +621,6 @@ TokenBucket.prototype.toArray = function()
     return [this._rate, this._max, this._count, this._time, this._interval];
 }
 
-// Returns number of milliseconds to wait till number of tokens can be available again
-TokenBucket.prototype.delay = function(tokens)
-{
-    return this._interval - (tokens >= this._max ? 0 : Date.now() - this._time);
-}
-
 // Return true if this bucket uses the same rates in arguments
 TokenBucket.prototype.equal = function(rate, max, interval)
 {
@@ -646,10 +640,17 @@ TokenBucket.prototype.consume = function(tokens)
 {
     var now = Date.now();
     if (now < this._time) this._time = now - this._interval;
-    if (this._count < this._max) this._count = Math.min(this._max, this._count + this._rate * ((now - this._time) / this._interval));
+    this._elapsed = now - this._time;
+    if (this._count < this._max) this._count = Math.min(this._max, this._count + this._rate * (this._elapsed / this._interval));
     this._time = now;
     if (typeof tokens != "number" || tokens < 0) tokens = 0;
     if (tokens > this._count) return false;
     this._count -= tokens;
     return true;
+}
+
+// Returns number of milliseconds to wait till number of tokens can be available again
+TokenBucket.prototype.delay = function(tokens)
+{
+    return this._interval - (tokens >= this._max ? 0 : this._elapsed);
 }

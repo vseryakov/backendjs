@@ -1144,25 +1144,34 @@ tests.test_icon = function(callback)
 
 tests.test_limiter = function(callback)
 {
-    var opts = { name: core.getArg("-name", "test"), rate: core.getArgInt("-rate", 10), max: core.getArgInt("-max", 10), interval: core.getArgInt("-interval", 1000), queueName: core.getArg("-queue") };
+    var opts = {
+        name: core.getArg("-name", "test"),
+        rate: core.getArgInt("-rate", 10),
+        max: core.getArgInt("-max", 10),
+        interval: core.getArgInt("-interval", 1000),
+        queueName: core.getArg("-queue"),
+        pace: core.getArgInt("-pace", 5),
+    };
     var list = [];
     for (var i = 0; i < core.getArgInt("-count", 10); i++) list.push(i);
 
     ipc.initServer();
     setTimeout(function() {
-        lib.forEach(list, function(i, next) {
+        lib.forEachSeries(list, function(i, next) {
             lib.doWhilst(
               function(next2) {
                   ipc.limiter(opts, function(delay) {
                       opts.delay = delay;
-                      if (delay) logger.log("limiter:", opts);
+                      logger.log("limiter:", opts);
                       setTimeout(next2, delay);
                   });
               },
               function() {
                   return opts.delay;
               },
-              next);
+              function() {
+                  setTimeout(next, opts.pace);
+              });
         }, callback);
     }, 1000);
 }

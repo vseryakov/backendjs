@@ -32,7 +32,7 @@ var jobs = {
            { name: "max-runtime", type: "int", min: 300, descr: "Max number of seconds a job can run before being killed" },
            { name: "max-lifetime", type: "int", min: 0, descr: "Max number of seconds a worker can live, after that amount of time it will exit once all the jobs are finished, 0 means indefinitely" },
            { name: "shutdown-timeout", type: "int", min: 0, descr: "Max number of milliseconds to wait for the graceful shutdown sequence to finish, after this timeout the process just exits" },
-           { name: "queue", descr: "Default queue to use for jobs" },
+           { name: "queue", type: "list", array: 1, descr: "Queue(s) to subscribe for jobs, multiple queue can be processes, all jobs will be executed from any queue one by one" },
            { name: "cron-queue", descr: "Default queue to use for cron jobs" },
            { name: "channel", descr: "Name of the channel where to publish/receive jobs" },
            { name: "cron", type: "bool", descr: "Load cron jobs from the local etc/crontab file, requires -jobs flag" },
@@ -47,7 +47,7 @@ var jobs = {
     // Schedules cron jobs
     crontab: [],
     channel: "jobs",
-    queue: "",
+    queue: [],
     cronQueue: "",
     maxRuntime: 900,
     maxLifetime: 86400,
@@ -146,13 +146,18 @@ jobs.initWorker = function(options, callback)
 
     // Randomize subscription when multiple workers start at the same time, some queue drivers use polling
     setTimeout(function() {
-        ipc.subscribe(self.channel, { queueName: self.queue }, function(msg, next) {
-            self.runJob(msg, function(err) {
-                logger[err ? "error" : "info"]("runJob:", "finished", lib.traceError(err), lib.objDescr(msg));
-                if (typeof next == "function") next(err);
-                // Mark end of last message processed
-                self.runTime = Date.now();
-                self.checkTimes();
+        if (!self.queue.length) self.queue.push("");
+
+        self.queue.forEach(function(q) {
+            logger.debug("initWorker:", "processing queue", q);
+            ipc.subscribe(self.channel, { queueName: q }, function(msg, next) {
+                self.runJob(msg, { queueName: q }, function(err) {
+                    logger[err ? "error" : "info"]("runJob:", "finished", q, lib.traceError(err), lib.objDescr(msg));
+                    if (typeof next == "function") next(err);
+                    // Mark end of last message processed
+                    self.runTime = Date.now();
+                    self.checkTimes();
+                });
             });
         });
         logger.log("initWorker:", "started", cluster.worker.id, "queue:", self.queue, self.channel, "maxRuntime:", self.maxRuntime, "maxLifetime:", self.maxLifetime);
@@ -240,7 +245,6 @@ jobs.submitJob = function(jobspec, options, callback)
     if (!options) options = {};
     jobspec = this.isJob(jobspec);
     if (util.isError(jobspec)) return typeof callback == "function" && callback(jobspec);
-    if (this.queue) options = lib.cloneObj(options, "queueName", this.queue);
 
     logger.debug("submitJob:", jobspec, options);
     ipc.publish(this.channel, jobspec, options, callback);
@@ -248,10 +252,12 @@ jobs.submitJob = function(jobspec, options, callback)
 
 // Run all tasks in the job object, all errors will be just logged, but if `noerrors` is defined in the top
 // level job object then the whole job will stop on first error returned by any task.
-jobs.runJob = function(jobspec, callback)
+jobs.runJob = function(jobspec, options, callback)
 {
     var self = this;
-    logger.info("runJob:", "started", lib.objDescr(jobspec));
+    if (typeof options == "function") callback = options, options = {};
+    if (!options) options = {};
+    logger.info("runJob:", "started", options.queueName || "", lib.objDescr(jobspec));
 
     jobspec = this.isJob(jobspec);
     if (util.isError(jobspec)) return typeof callback == "function" && callback(jobspec);

@@ -126,7 +126,7 @@ var api = {
            { name: "rlimits-interval", type:" int", obj: "rlimits", descr: "Interval in ms for all rate limiters, defines the time unit, default is 1000 ms" },
            { name: "exit-on-error", type: "bool", descr: "Exit on uncaught exception in the route handler" },
            { name: "upload-limit", type: "number", min: 1024*1024, max: 1024*1024*10, descr: "Max size for uploads, bytes"  },
-           { name: "limitQueue", descr: "Name of an ipc queue for API rate limiting" },
+           { name: "limiter-queue", descr: "Name of an ipc queue for API rate limiting" },
     ],
 
     // Access handlers to grant access to the endpoint before checking for signature.
@@ -242,7 +242,7 @@ var api = {
     // This object tells how long the metric name should be using the leading component of the url.
     urlMetrics: { image: 2 },
 
-    limitQueue: "local",
+    limiterQueue: "local",
 
     // Collector of statistics, seconds
     collectInterval: 30,
@@ -1084,7 +1084,7 @@ api.checkRateLimits = function(req, options, callback)
 
     // Use process shared cache to eliminate race condition for the same cache item from multiple processes on the same instance,
     // in master mode use direct access to the LRU cache
-    ipc.limiter({ name: key, rate: rate, max: max, interval: interval, queueName: this.limitQueue }, function(delay) {
+    ipc.limiter({ name: key, rate: rate, max: max, interval: interval, queueName: this.limiterQueue }, function(delay) {
         callback(!delay ? null : { status: 429, message: options.message || "access limit reached, please try again later" });
     });
 }

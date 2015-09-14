@@ -111,7 +111,7 @@ shell.run = function(options)
     core.runMethods("configureShell", options, function(err, opts) {
         if (opts.done) exit();
 
-        ipc.initWorker();
+        ipc.initServer();
 
         for (var i = 1; i < process.argv.length; i++) {
             if (process.argv[i][0] != '-') continue;
