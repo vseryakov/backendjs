@@ -108,8 +108,12 @@
 <li><a href="#module-ipc_local">ipc_local</a></li>
 <li><a href="#module-ipc_memcache">ipc_memcache</a></li>
 <li><a href="#module-ipc_redis">ipc_redis</a></li>
+<li><a href="#module-ipc_redisclient">ipc_redisclient</a></li>
 <li><a href="#module-ipc_redisq">ipc_redisq</a></li>
 <li><a href="#module-ipc_sqs">ipc_sqs</a></li>
+<li><a href="#module-msg_apn">msg_apn</a></li>
+<li><a href="#module-msg_gcm">msg_gcm</a></li>
+<li><a href="#module-msg_sns">msg_sns</a></li>
 <li><a href="#module-accounts">accounts</a></li>
 <li><a href="#module-connections">connections</a></li>
 <li><a href="#module-counters">counters</a></li>
@@ -2330,9 +2334,11 @@ might be useful when desining, developing or choosing the API platform:</p>
 <li><code>aws-vpc-id</code> - AWS VPC id to be used for instances or commands</li>
 <li><code>aws-group-id</code> - AWS security group(s) to be used for instances or commands</li>
 <li><code>aws-instance-type</code> - AWS instance type to launch on demand</li>
-<li><code>msg-apn-cert@?(.+)?</code> - A certificate for the particular app for APN service in pfx format, can be a file name with .p12 extension or a string with certificate contents encoded with base64, if the suffix is specified in the config parameter name will be used as the app name, otherwise it is global</li>
-<li><code>msg-apn-sandbox</code> - Enable sandbox mode for testing APN notifications, default is production mode</li>
-<li><code>msg-gcm-key@?(.+)?</code> - Google Cloud Messaging API key, if the suffix is specified in the config parameter will be used as the app name, without the suffix it is global</li>
+<li><code>msg-(.+)-cert@?(.+)?</code> - A certificate for APN or similar services in pfx format, can be a file name with .p12 extension or a string with certificate contents encoded with base64, if the suffix is specified in the config parameter name will be used as the app name, otherwise it is global</li>
+<li><code>msg-(.+)-key@?(.+)?</code> - API key for GCM or similar services, if the suffix is specified in the config parameter will be used as the app name, without the suffix it is global</li>
+<li><code>msg-(.+)-secret@?(.+)?</code> - API secret for services that require it, if the suffix is specified in the config parameter will be used as the app name, without the suffix it is global</li>
+<li><code>msg-(.+)-sandbox</code> - Enable sandbox for a service, default is production mode</li>
+<li><code>msg-(.+)-feedback</code> - Enable feedback mode for a service, default is no feedback service</li>
 <li><code>msg-shutdown-timeout</code> - How long to wait for messages draining out in ms on shutdown before exiting</li>
 <li><code>api-images-url</code> - URL where images are stored, for cases of central image server(s), must be full URL with optional path</li>
 <li><code>api-images-s3</code> - S3 bucket name where to store and retrieve images</li>
@@ -2397,6 +2403,7 @@ might be useful when desining, developing or choosing the API platform:</p>
 <li><code>api-rlimits-interval</code> - Interval in ms for all rate limiters, defines the time unit, default is 1000 ms</li>
 <li><code>api-exit-on-error</code> - Exit on uncaught exception in the route handler</li>
 <li><code>api-upload-limit</code> - Max size for uploads, bytes</li>
+<li><code>api-limiter-queue</code> - Name of an ipc queue for API rate limiting</li>
 <li><code>jobs-workers</code> - How many worker processes to launch to process the job queue, -1 disables jobs, 0 means launch as many as CPUs available</li>
 <li><code>jobs-worker-cpu-factor</code> - A number to multiply the number of CPUs available to make the total number of workers to launch, only used if <code>workers</code> is 0</li>
 <li><code>jobs-worker-args</code> - Node arguments for workers, for passing v8 jobspec, see <code>process</code></li>
@@ -2404,7 +2411,7 @@ might be useful when desining, developing or choosing the API platform:</p>
 <li><code>jobs-max-runtime</code> - Max number of seconds a job can run before being killed</li>
 <li><code>jobs-max-lifetime</code> - Max number of seconds a worker can live, after that amount of time it will exit once all the jobs are finished, 0 means indefinitely</li>
 <li><code>jobs-shutdown-timeout</code> - Max number of milliseconds to wait for the graceful shutdown sequence to finish, after this timeout the process just exits</li>
-<li><code>jobs-queue</code> - Default queue to use for jobs</li>
+<li><code>jobs-queue</code> - Queue(s) to subscribe for jobs, multiple queue can be processes, all jobs will be executed from any queue one by one</li>
 <li><code>jobs-cron-queue</code> - Default queue to use for cron jobs</li>
 <li><code>jobs-channel</code> - Name of the channel where to publish/receive jobs</li>
 <li><code>jobs-cron</code> - Load cron jobs from the local etc/crontab file, requires -jobs flag</li>
@@ -3963,7 +3970,7 @@ like <a href="http://localhost:8000">http://localhost:8000</a>, this is when <co
 <li>secret - secret to use for access instead of global credentials</li>
 <li>proxy - used as a proxy to backend, handles all errors and returns .status and .json to be passed back to API client</li>
 <li>checksum - calculate checksum from the data</li>
-<li>anystatus - keep any HTTP status, dont treat as error if not 200</li>
+<li>anystatus - keep any HTTP status, dont treat as error if not between 200 and 299</li>
 <li>obj - return just result object, not the whole params</li>
 </ul>
 </li>
@@ -4524,7 +4531,8 @@ db.list(&quot;bk_account&quot;, &quot;id1,id2&quot;, function(err, rows) { conso
 records matching given criteria. The obj is the same as passed to the <code>db.select</code> method which defined a condition which records to get.
 The rowCallback must be present and is called for every row or batch retrieved and second parameter which is the function to be called
 once the processing is complete. At the end, the callback will be called just with 1 argument, err, this indicates end of scan operation.
-Basically, db.scan is the same as db.select but can be used to retrieve large number of records in batches and allows async processing of such records.</p>
+Basically, db.scan is the same as db.select but can be used to retrieve large number of records in batches and allows async processing of such records.
+To hint a driver that scanning is in progress the <code>options.scanning</code> will be set to true.</p>
 <p>Parameters:</p>
 <ul>
 <li>table - table to scan</li>
@@ -4966,6 +4974,12 @@ callbacks to keep the record consistent.</p>
   });
 </code></pre>
 <ul>
+<li><p><code>db.existsPool(name)</code></p>
+<p> Returns true if a pool exists</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>db.getPool(table, options)</code></p>
 <p> Return database pool by table name or default pool, options may contain { pool: name } to return
 the pool by given name. This call always return valid pool object, in case no requiested pool found it returns
@@ -5200,30 +5214,29 @@ it is required to call <code>pool.release</code> at the end to return the connec
 
 <h2 id="module-ipc">Module: IPC</h2>
 <ul>
-<li><p><code>ipc.prototype.handleServerMessages(worker, msg)</code></p>
+<li><p><code>Ipc.prototype.handleServerMessages(worker, msg)</code></p>
 <p> To be used in messages processing that came from the clients or other way</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>ipc.prototype.newMsg(op, msg, options)</code></p>
+<li><p><code>Ipc.prototype.newMsg(op, msg, options)</code></p>
 <p> Returns an IPC message object, <code>msg</code> must be an object if given</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>ipc.prototype.emitMsg(op, msg, options)</code></p>
+<li><p><code>Ipc.prototype.emitMsg(op, msg, options)</code></p>
 <p> Wrapper around EventEmitter <code>emit</code> call to send unified IPC messages in the same format</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>ipc.prototype.sendMsg(op, msg, options, callback)</code></p>
+<li><p><code>Ipc.prototype.sendMsg(op, msg, options, callback)</code></p>
 <p> Send a message to the master process via IPC messages, callback is used for commands that return value back</p>
 <ul>
-<li>the msg object must have <code>op</code> property which defines what kind of operation to perform.</li>
 <li>the <code>timeout</code> property can be used to specify a timeout for how long to wait the reply, if not given the default is used</li>
-<li>the rest properties are optional and depend on the operation.</li>
+<li>the rest of the properties are optional and depend on the operation.</li>
 </ul>
 <p>If called inside the server, it process the message directly, reply is passed in the callback if given.</p>
 <p>Examples:</p>
@@ -5235,57 +5248,57 @@ it is required to call <code>pool.release</code> at the end to return the connec
 </ul>
 
 <ul>
-<li><p><code>ipc.prototype.initServer()</code></p>
+<li><p><code>Ipc.prototype.initServer()</code></p>
 <p> This function is called by the Web master server process to setup IPC channels and support for cache and messaging</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>ipc.prototype.initWorker()</code></p>
+<li><p><code>Ipc.prototype.initWorker()</code></p>
 <p> This function is called by Web worker process to setup IPC channels and support for cache and messaging</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>ipc.prototype.createClient(host, options)</code></p>
+<li><p><code>Ipc.prototype.createClient(host, options)</code></p>
 <p> Return a new client for the given host or null if not supported</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>ipc.prototype.getClient(prefix, options)</code></p>
+<li><p><code>Ipc.prototype.getClient(prefix, options)</code></p>
 <p> Return a cache or queue client by name if specified in the options or use default client for the prefix which always exists,
 supported prefixes are: queue, cache</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>ipc.prototype.initClients(prefix)</code></p>
+<li><p><code>Ipc.prototype.initClients(prefix)</code></p>
 <p> Initialize a client for cache or queue purposes, previous client will be closed.</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>ipc.prototype.stats(options, callback)</code></p>
+<li><p><code>Ipc.prototype.stats(options, callback)</code></p>
 <p> Returns the cache statistics, the format depends on the cache type used</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>ipc.prototype.keys(pattern, options, callback)</code></p>
+<li><p><code>Ipc.prototype.keys(pattern, options, callback)</code></p>
 <p> Returns in the callback all cached keys or if pattern is given can return only matched keys according to the
 cache implementation, options is an object passed down to the driver as is</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>ipc.prototype.clear(pattern, options)</code></p>
+<li><p><code>Ipc.prototype.clear(pattern, options)</code></p>
 <p> Clear all or only items that match the given pattern</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>ipc.prototype.get(key, options, callback)</code></p>
+<li><p><code>Ipc.prototype.get(key, options, callback)</code></p>
 <p> Retrieve an item from the cache by key.
 If <code>options.set</code> is given and no value exists in the cache it will be set as the initial value.</p>
 <p>Example</p>
@@ -5295,25 +5308,25 @@ If <code>options.set</code> is given and no value exists in the cache it will be
 </ul>
 
 <ul>
-<li><p><code>ipc.prototype.del(key, options)</code></p>
+<li><p><code>Ipc.prototype.del(key, options)</code></p>
 <p> Delete an item by key</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>ipc.prototype.put(key, val, options)</code></p>
+<li><p><code>Ipc.prototype.put(key, val, options)</code></p>
 <p> Replace or put a new item in the cache, options.ttl can be passed if the driver supprts it.</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>ipc.prototype.incr(key, val, options, callback)</code></p>
+<li><p><code>Ipc.prototype.incr(key, val, options, callback)</code></p>
 <p> Increase/decrease a counter in the cache by <code>val</code>, non existent items are treated as 0, if a callback is given new value will be returned</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>ipc.prototype.subscribe(channel, options, callback)</code></p>
+<li><p><code>Ipc.prototype.subscribe(channel, options, callback)</code></p>
 <p> Subscribe to a publish or queue server for messages for the given channel, the callback will be called only on new message received.</p>
 <p>The callback accepts 2 arguments, a message and optional next callback, if it is provided it must be called at the end to confirm or reject the message processing.
 Only errors with code&gt;=500 will result in rejection, not ll drivers support the next callback if the underlying queue does not support message acknowledgement.</p>
@@ -5330,7 +5343,7 @@ returning an error with .status &gt;= 500 will keep the message in the queue to 
 </ul>
 
 <ul>
-<li><p><code>ipc.prototype.unsubscribe(channel, options, callback)</code></p>
+<li><p><code>Ipc.prototype.unsubscribe(channel, options, callback)</code></p>
 <p> Close a subscription, if no callback is provided all listeners for the key will be unsubscribed, otherwise only the specified listener.
 The callback will not be called.
 It keeps a count how many subscribe/unsubscribe calls been made and stops any internal listeners once nobody is
@@ -5339,38 +5352,47 @@ subscribed. This is specific to a queue which relies on polling.</p>
 </ul>
 
 <ul>
-<li><p><code>ipc.prototype.publish(channel, msg, options, callback)</code></p>
+<li><p><code>Ipc.prototype.publish(channel, msg, options, callback)</code></p>
 <p> Publish an event to the channel, if no <code>options.queueName</code> is specified then it is sent to the default queue</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>ipc.prototype.monitor(options)</code></p>
+<li><p><code>Ipc.prototype.monitor(options)</code></p>
 <p> Queue specific monitor services that must be run in the master process, this is intended to perform
 queue cleanup or dealing with stuck messages</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>ipc.prototype.checkRateLimits(msg, callback)</code></p>
-<p> A Javascript object <code>msg</code> must have the following properties:</p>
+<li><p><code>Ipc.prototype.limiter(options, callback)</code></p>
+<p> Check for rate limit using the default or specific queue, by default TokenBucket using local LRU cache is
+used unless a queue client provides its own implementation.</p>
+<p>The options must have the following properties:</p>
 <ul>
 <li>name - unique id, can be IP address, account id, etc...</li>
-<li>rate, max, interval - same as for <code>metrics.TokenBucket</code> rate limiter.</li>
+<li>max - the maximum burst capacity</li>
+<li>rate - the rate to refill tokens</li>
+<li>interval - interval for the bucket refills, default 1000 ms</li>
 </ul>
-<p>Returns true if consumed or false otherwise, if callback
-is given, call it with the consumed flag as first argument.</p>
-<p>Keeps the token bucket in the LRU local cache by name, this is supposed to be used on the server, not concurrently by several clients.</p>
+<p>The callback takes 1 argument, <code>delay</code> which is a number of milliseconds till the bucket can be used again if not consumed, i.e. 0 means consumed.</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>ipc.prototype.checkTimer(name, options, callback)</code></p>
+<li><p><code>Ipc.prototype.checkLimiter(options, callback)</code></p>
+<p> Keep checking the limiter until it is clear to proceed with the operation, if there is no available tokens in the bucket
+it will wait and try again until the bucket is filled.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>Ipc.prototype.checkTimer(name, options, callback)</code></p>
 <p> Implementation of a timer with the lock, only one instance can lock something for some period of time(interval) and will expire after timeout, all other
 attempts to lock the timer will fail. A timer is named and optional properties in the options can specify the <code>interval</code> and <code>timeout</code> in milliseconds, the
 defaults are 1 min and 1 hour accordingly.</p>
 <p>This is intended to be used for background job processing or something similar when
-only on instrance is needed to run. At the end of the processing <code>clearTimer</code> must be called to enable another instance immediately,
+only on instance is needed to run. At the end of the processing <code>clearTimer</code> must be called to enable another instance immediately,
 otherwise it will be available sfter the timeout only.</p>
 <p>The callback must be passed which will take one boolean argument, if true is retuned the timer has been locked by the caller, otherwise it is already locked by other
 instance.</p>
@@ -5379,7 +5401,7 @@ instance.</p>
 </ul>
 
 <ul>
-<li><p><code>ipc.prototype.resetTimer(name)</code></p>
+<li><p><code>Ipc.prototype.resetTimer(name)</code></p>
 <p> Reset the timer so it can be locked immediately.</p>
 </li>
 </ul>
@@ -5454,7 +5476,7 @@ the format of the job objects.</p>
 </ul>
 
 <ul>
-<li><p><code>jobs.runJob(jobspec, callback)</code></p>
+<li><p><code>jobs.runJob(jobspec, options, callback)</code></p>
 <p> Run all tasks in the job object, all errors will be just logged, but if <code>noerrors</code> is defined in the top
 level job object then the whole job will stop on first error returned by any task.</p>
 </li>
@@ -5494,6 +5516,11 @@ empty invalid jobs must be passed, like: <code>[ {} ]</code></p>
 <li>job - a string as obj.method or an object with job name as property name and the value is an object with<pre><code> additional jobspec for the job passed as first argument, a job callback always takes jobspec and callback as 2 arguments
 </code></pre></li>
 <li>disabled - disable the job but keep in the cron file, it will be ignored</li>
+<li>single_task - if set only one cron job can be run at a time with the same name, this works only within single master and is checked
+before submitting a new job. It can be a boolean meaning all tasks in the job must not run or a string with single task name
+which must not run. For repeating tasks that can be ignored.</li>
+<li>single_timeout - how long to wait for running job before submitting another one, for cases when unique job stuck or other condition
+prevented to clear up running list in the master, milliseconds</li>
 </ul>
 <p>Example:</p>
 <pre><code>    [ { cron: &quot;0 0 * * * *&quot;, job: &quot;scraper.run&quot; }, ..]
@@ -5692,7 +5719,13 @@ properties will be replaced by empty strings</p>
 </ul>
 
 <ul>
-<li><p><code>lib.isNumeric(type)</code></p>
+<li><p><code>lib.isNumeric(val)</code></p>
+<p> Returns true if the value is a number or string representing a number</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.isNumericType(type)</code></p>
 <p> Returns true if the given type belongs to the numeric family</p>
 </li>
 </ul>
@@ -6012,6 +6045,12 @@ that data is not chnaged and was signed with the same secret</p>
 <li><p><code>lib.newError(options, status)</code></p>
 <p> Return a new Error object, options can be a string which will create an error with a message only
 or an object with message, code, status, and name properties to build full error. The default error status is 400 if not specified.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.traceError(err)</code></p>
+<p> Returns the error stack or the error itself, to be used in error messages</p>
 </li>
 </ul>
 
@@ -6437,12 +6476,6 @@ the current function name with comma, like <code>logger.debug(&quot;select:&quot
 </ul>
 
 <ul>
-<li><p><code>TokenBucket.prototype.delay(tokens)</code></p>
-<p> Returns number of milliseconds to wait till number of tokens can be available again</p>
-</li>
-</ul>
-
-<ul>
 <li><p><code>TokenBucket.prototype.equal(rate, max, interval)</code></p>
 <p> Return true if this bucket uses the same rates in arguments</p>
 </li>
@@ -6454,6 +6487,12 @@ the current function name with comma, like <code>logger.debug(&quot;select:&quot
 <p>Refill the bucket by tracking elapsed time from the last time we touched it.</p>
 <pre><code>min(totalTokens, current + (fillRate * elapsedTime))
 </code></pre></li>
+</ul>
+
+<ul>
+<li><p><code>TokenBucket.prototype.delay(tokens)</code></p>
+<p> Returns number of milliseconds to wait till number of tokens can be available again</p>
+</li>
 </ul>
 
 <h2 id="module-msg">Module: MSG</h2>
@@ -6478,7 +6517,7 @@ need to send push notifications in the worker process.</p>
 
 <ul>
 <li><p><code>msg.send(options, callback)</code></p>
-<p> Deliver a notification using the specified service, apple is default.
+<p> Deliver a notification for the given device token(s).
 Options with the following properties:</p>
 <ul>
 <li>device_id - device(s) where to send the message to, can be multiple ids separated by , or |, REQUIRED</li>
@@ -6496,67 +6535,28 @@ Options with the following properties:</p>
 <p> Parse device URN and returns an object with all parts into separate properties. A device URN can be in the following format:
   [service://]device_token[@app]</p>
 <ul>
-<li>service is optional and defaults to <code>apn</code>, other options are <code>gcm</code>, <code>aws</code></li>
+<li>service is optional, supported types: <code>apn</code>, <code>gcm</code>, <code>sns</code></li>
 <li>app is optional and can define an application id which is used by APN for routing to the devices with corresponding APS certificate.</li>
 </ul>
 </li>
 </ul>
 
 <ul>
-<li><p><code>msg.initAPN(options)</code></p>
-<p> Initialize Apple Push Notification service in the current process, Apple supports multiple connections to the APN gateway but
-not too many so this should be called on the dedicated backend hosts, on multi-core servers every spawn web process will initialize a
-connection to APN gateway.</p>
+<li><p><code>msg.getClient(dev)</code></p>
+<p> Return a client module that supports the given device</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>msg.closeAPN(callback)</code></p>
-<p> Close APN agent, try to send all pending messages before closing the gateway connection</p>
+<li><p><code>msg.getConfig(name)</code></p>
+<p> Return a list of all config cert/key parameters for the given name.
+Each item in th list is an object with the following properties: key, secret, app</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>msg.sendAPN(device_id, options, callback)</code></p>
-<p> Send push notification to an Apple device, returns true if the message has been queued.</p>
-<p>The options may contain the following properties:</p>
-<ul>
-<li>msg - message text</li>
-<li>badge - badge number</li>
-<li>type - set type of the packet</li>
-<li>id - send id in the user properties</li>
-</ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>msg.initGCM(options)</code></p>
-<p> Initialize Google Cloud Messaginh servie to send push notifications to mobile devices</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>msg.closeGCM(callback)</code></p>
-<p> Close GCM connection, flush the queue</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>msg.sendGCM(device_id, options, callback)</code></p>
-<p> Send push notification to an Android device, return true if queued.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>msg.sendSNS(device_id, options, callback)</code></p>
-<p> Send push notification to a device using AWS SNS service, device_id must be a valid SNS endpoint ARN.</p>
-<p>The options may contain the following properties:</p>
-<ul>
-<li>msg - message text</li>
-<li>badge - badge number</li>
-<li>type - set type of the packet</li>
-<li>id - send id in the user properties</li>
-</ul>
+<li><p><code>msg.uninstall(client, device, timestamp, next)</code></p>
+<p> Perform device uninstall, the next callback must be called at the end.</p>
 </li>
 </ul>
 
@@ -7222,8 +7222,10 @@ Output file name is built according to the following options properties:</li>
 <li>name - defines the output name for the file, if not given same name as property will be used</li>
 <li>prefix - the folder prefix where the file will be uploaded, all leading folders will be created automatically</li>
 <li>ext - what file extention to use, appended to the name, if no ext is given the extension from the uploaded file will be used or no extention if could not determine one.</li>
-<li>extkeep - tells always to keep actual extention from the uploaded file, ignore the ext parameter</li>
+<li>extkeep - keep actual extention from the uploaded file, ignore the ext parameter</li>
+<li>namekeep - keep the name of the uploaded file if present in the multipart form</li>
 <li>encoding - encoding of the body, default is base64</li>
+<li>filesize - size of the file in bytes if available</li>
 </ul>
 </li>
 </ul>
@@ -7318,6 +7320,7 @@ Valid properties in the options:</p>
 <li>type - icon type, this will be prepended to the name of the icon</li>
 <li>prefix - top level subdirectory under images/</li>
 <li>width, height, filter, ext, quality for <code>utils.resizeImage</code> function</li>
+<li>filesize - file size if available</li>
 </ul>
 </li>
 </ul>
@@ -7721,6 +7724,19 @@ maintainence work the requires.</p>
 </ul>
 
 <ul>
+<li><p><code>IpcClient.prototype.limiter(options, callback)</code></p>
+<p> Rate limit check, by default it uses the master LRU cache meaning it works within one physical machine only.</p>
+<p>The options must have the following properties:</p>
+<ul>
+<li>name - unique id, can be IP address, account id, etc...</li>
+<li>rate, max, interval - same as for <code>metrics.TokenBucket</code> rate limiter.</li>
+</ul>
+<p>The callback argument will be called with an object where the property <code>consumed</code> set to true if consumed or false otherwise,
+and the property <code>delay</code> with number of milliseconds till the bucket can be used again.</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>IpcClient.prototype.subscribe(channel, options, callback)</code></p>
 <p> Subscribe to receive notification from the given channel</p>
 </li>
@@ -7773,8 +7789,76 @@ maintainence work the requires.</p>
 <h2 id="module-ipc_local">Module: IPC_LOCAL</h2>
 <h2 id="module-ipc_memcache">Module: IPC_MEMCACHE</h2>
 <h2 id="module-ipc_redis">Module: IPC_REDIS</h2>
+<h2 id="module-ipc_redisclient">Module: IPC_REDISCLIENT</h2>
 <h2 id="module-ipc_redisq">Module: IPC_REDISQ</h2>
 <h2 id="module-ipc_sqs">Module: IPC_SQS</h2>
+<h2 id="module-msg_apn">Module: MSG_APN</h2>
+<ul>
+<li><p><code>client.check(dev)</code></p>
+<p> Returns true if given device is supported by APN</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>client.init(options)</code></p>
+<p> Initialize Apple Push Notification service in the current process, Apple supports multiple connections to the APN gateway but
+not too many so this should be called on the dedicated backend hosts, on multi-core servers every spawn web process will initialize a
+connection to APN gateway.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>client.close(callback)</code></p>
+<p> Close APN agent, try to send all pending messages before closing the gateway connection</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>client.send(dev, options, callback)</code></p>
+<p> Send push notification to an Apple device, returns true if the message has been queued.</p>
+<p>The options may contain the following properties:</p>
+<ul>
+<li>msg - message text</li>
+<li>badge - badge number</li>
+<li>type - set type of the packet</li>
+<li>id - send id in the user properties</li>
+</ul>
+</li>
+</ul>
+
+<h2 id="module-msg_gcm">Module: MSG_GCM</h2>
+<ul>
+<li><p><code>client.init(options)</code></p>
+<p> Initialize Google Cloud Messaginh servie to send push notifications to mobile devices</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>client.close(callback)</code></p>
+<p> Close GCM connection, flush the queue</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>client.send(dev, options, callback)</code></p>
+<p> Send push notification to an Android device, return true if queued.</p>
+</li>
+</ul>
+
+<h2 id="module-msg_sns">Module: MSG_SNS</h2>
+<ul>
+<li><p><code>client.send(dev, options, callback)</code></p>
+<p> Send push notification to a device using AWS SNS service, device_id must be a valid SNS endpoint ARN.</p>
+<p>The options may contain the following properties:</p>
+<ul>
+<li>msg - message text</li>
+<li>badge - badge number</li>
+<li>type - set type of the packet</li>
+<li>id - send id in the user properties</li>
+</ul>
+</li>
+</ul>
+
 <h2 id="module-accounts">Module: ACCOUNTS</h2>
 <ul>
 <li><p><code>accounts</code></p>
