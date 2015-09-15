@@ -468,8 +468,8 @@ db.dropPoolTables = function(name, tables, options, callback)
 //       explicitely if it is different from the default. Other functions can resolve
 //       the pool by table name if some tables are assigned to any specific pool by configuration parameters `db-pool-tables`.
 //     - unique - perform sorting the result and eliminate any duplicate rows by the column name specified in the `unique` property
-//     - filter - function to filter rows not to be included in the result, return false to skip row, args are: function(req, row, options)
-//     - async_filter - perform filtering of the result but with possible I/O so it can delay returning results: function(req, rows, options, callback),
+//     - filter - function to filter rows not to be included in the result, return false to skip row, args are: function(req, row, options, info)
+//     - async_filter - perform filtering of the result but with possible I/O so it can delay returning results: function(req, rows, options, info, callback),
 //          the calback on result will return err and rows as any other regular database callbacks. This filter can be used to perform
 //          filtering based on the ata in the other table for example.
 //     - silence_error - do not report about the error in the log, still the error is retirned to the caller
@@ -562,22 +562,24 @@ db.query = function(req, options, callback)
 
                     // Convert from db types into javascript, deal with json and joined columns
                     if (rows.length && !options.noconvertrows) {
-                        self.convertRows(pool, req, rows, options);
+                        self.convertRows(pool, req, rows, options, info);
                     }
 
                     // Convert values if we have custom column callback
                     if (!options.noprocessrows) {
-                        rows = self.runProcessRows("post", req, rows, options);
+                        rows = self.runProcessRows("post", req, rows, options, info);
                     }
 
                     // Custom filter to return the final result set
                     if (typeof options.filter == "function" && rows.length) {
-                        rows = rows.filter(function(row) { return options.filter(req, row, options); })
+                        rows = rows.filter(function(row) { return options.filter(req, row, options, info); })
                     }
 
                     // Async filter, can perform I/O for filtering
                     if (typeof options.async_filter == "function" && rows.length) {
-                        return options.async_filter(req, rows, options, function(err, rows) { onEnd(err, client, rows, info); });
+                        return options.async_filter(req, rows, options, function(err, rows) {
+                            onEnd(err, client, rows, info);
+                        });
                     }
 
                 } catch(e) {
@@ -1874,7 +1876,7 @@ db.prepareRow = function(pool, op, table, obj, options)
 //              db.put("test", { id: "1", type: "user", name: "Test", left: "123", right: "000" })
 //              db.select("test", {}, db.showResult)
 //
-db.convertRows = function(pool, req, rows, options)
+db.convertRows = function(pool, req, rows, options, info)
 {
     var self = this;
     if (!pool) pool = this.getPool(req.table, options);
@@ -1952,7 +1954,8 @@ db.getProcessRows = function(type, table, options)
 // - `req` is the original db request object with the following required properties: `op, table, obj`,
 // - `rows` is the result rows for post callbacks and the same request object for pre callbacks.
 // - `options` is the same object passed to a db operation
-db.runProcessRows = function(type, req, rows, options)
+// - `info` - an object with special properties like affected_rows, next_token...
+db.runProcessRows = function(type, req, rows, options, info)
 {
     if (!req || !req.table) return rows;
     var hooks = this.getProcessRows(type, req.table, options);
@@ -1962,7 +1965,7 @@ db.runProcessRows = function(type, req, rows, options)
     // Stop on the first hook returning true to remove this row from the list
     function processRow(row) {
         for (var i = 0; i < hooks.length; i++) {
-            if (hooks[i].call(row, req, row, options, cols) === true) return false;
+            if (hooks[i].call(row, req, row, options, cols, info) === true) return false;
         }
         return true;
     }
@@ -1983,12 +1986,14 @@ db.runProcessRows = function(type, req, rows, options)
 //
 // All assigned callback to this table will be called in the order of the assignment.
 //
-// The callback accepts 4 arguments: function(req, row, options, columns)
+// The callback accepts 5 arguments: function(req, row, options, columns, info)
 //   where:
 //  - `req` is the original request for a db operation, it must contain `op, table and obj` properties
 //  - `row` is a row from the table
 //  - `options` are the obj passed to the db called
 //  - `columns` is an object with table's columns
+//  - `info` is an object returned with special properties like affected_rows, next_token,... Only passed to the `post` callbacks
+//      if called from the db.query, can be null.
 //
 // When producing complex properties by combining other properties it needs to be synchronized using both pre and post
 // callbacks to keep the record consistent.
@@ -1998,11 +2003,11 @@ db.runProcessRows = function(type, req, rows, options)
 //
 //  Example
 //
-//      db.setProcessRow("post", "bk_account", function(req, row, opts, cols) {
+//      db.setProcessRow("post", "bk_account", function(req, row, opts, cols, info) {
 //          if (row.birthday) row.age = Math.floor((Date.now() - lib.toDate(row.birthday))/(86400000*365));
 //      });
 //
-//      db.setProcessRow("post", "bk_icon", function(req, row, opts, cols) {
+//      db.setProcessRow("post", "bk_icon", function(req, row, opts, cols, info) {
 //          if (row.type == "private" && row.id != opts.account.id) return true;
 //      });
 //
