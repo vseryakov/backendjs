@@ -1224,7 +1224,7 @@ app.processTestJob = function(options, callback)
 }
 
 // Modify every row returned to the client, we can add/del properties
-app.processTestRow = function(req, row, options, cols)
+app.processTestRow = function(req, row, options)
 {
     row.url = '/test/list';
     return row;

@@ -372,7 +372,7 @@ hooks are registered and return data itself then it is the hook responsibility t
        ...
        callback();
     }
-    app.processAccountRow = function(req, row, options, cols)
+    app.processAccountRow = function(req, row, options)
     {
        if (row.birthday) row.age = Math.floor((Date.now() - core.toDate(row.birthday))/(86400000*365));
     }

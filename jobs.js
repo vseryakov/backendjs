@@ -32,7 +32,7 @@ var jobs = {
            { name: "max-runtime", type: "int", min: 300, descr: "Max number of seconds a job can run before being killed" },
            { name: "max-lifetime", type: "int", min: 0, descr: "Max number of seconds a worker can live, after that amount of time it will exit once all the jobs are finished, 0 means indefinitely" },
            { name: "shutdown-timeout", type: "int", min: 0, descr: "Max number of milliseconds to wait for the graceful shutdown sequence to finish, after this timeout the process just exits" },
-           { name: "queue", type: "list", array: 1, descr: "Queue(s) to subscribe for jobs, multiple queue can be processes, all jobs will be executed from any queue one by one" },
+           { name: "worker-queue", type: "list", array: 1, descr: "Queue(s) to subscribe for workers, multiple queues can be processes at the same time, i.e. more than one job can run from different queues" },
            { name: "cron-queue", descr: "Default queue to use for cron jobs" },
            { name: "channel", descr: "Name of the channel where to publish/receive jobs" },
            { name: "cron", type: "bool", descr: "Load cron jobs from the local etc/crontab file, requires -jobs flag" },
@@ -47,12 +47,12 @@ var jobs = {
     // Schedules cron jobs
     crontab: [],
     channel: "jobs",
-    queue: [],
     cronQueue: "",
     maxRuntime: 900,
     maxLifetime: 86400,
     shutdownTimeout: 1000,
     workers: -1,
+    workerQueue: [],
     workerCpuFactor: 0,
     workerArgs: [],
     workerEnv: {},
@@ -78,10 +78,12 @@ jobs.configureWorker = function(options, callback)
 jobs.shutdownWorker = function(options, callback)
 {
     var self = this;
-    logger.log("shutdownWorker:", "queue:", this.queue, this.channel, "maxRuntime:", this.maxRuntime, "maxLifetime:", this.maxLifetime);
+    logger.log("shutdownWorker:", "queue:", this.workerQueue, this.channel, "maxRuntime:", this.maxRuntime, "maxLifetime:", this.maxLifetime);
 
     // Stop accepting messages from the queue
-    ipc.unsubscribe(this.channel, { queueName: this.queue });
+    this.workerQueue.forEach(function(q) {
+        ipc.unsubscribe(this.channel, { queueName: q });
+    });
 
     // Wait until the current job is processed and confirmed
     var timer = setInterval(function() {
@@ -146,10 +148,10 @@ jobs.initWorker = function(options, callback)
 
     // Randomize subscription when multiple workers start at the same time, some queue drivers use polling
     setTimeout(function() {
-        if (!self.queue.length) self.queue.push("");
+        if (!self.workerQueue.length) self.workerQueue.push("");
 
-        self.queue.forEach(function(q) {
-            logger.debug("initWorker:", "processing queue", q);
+        self.workerQueue.forEach(function(q) {
+            logger.debug("initWorker:", "subscribe to queue", q);
             ipc.subscribe(self.channel, { queueName: q }, function(msg, next) {
                 self.runJob(msg, { queueName: q }, function(err) {
                     logger[err ? "error" : "info"]("runJob:", "finished", q, lib.traceError(err), lib.objDescr(msg));
@@ -160,7 +162,7 @@ jobs.initWorker = function(options, callback)
                 });
             });
         });
-        logger.log("initWorker:", "started", cluster.worker.id, "queue:", self.queue, self.channel, "maxRuntime:", self.maxRuntime, "maxLifetime:", self.maxLifetime);
+        logger.log("initWorker:", "started", cluster.worker.id, "queue:", self.workerQueue, self.channel, "maxRuntime:", self.maxRuntime, "maxLifetime:", self.maxLifetime);
     }, lib.randomShort()/100);
 
     if (typeof callback == "function") callback();

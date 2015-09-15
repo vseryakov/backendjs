@@ -46,9 +46,9 @@ function Ipc()
     // Config params
     this.configParams = { "cache-local": "local://", "queue-local": "local://"};
     this.args = [ { name: "lru-max", type: "callback", callback: function(v) {utils.lruInit(lib.toNumber(v,{min:10000}))}, descr: "Max number of items in the LRU cache, this cache is managed by the master Web server process and available to all Web processes maintaining only one copy per machine, Web proceses communicate with LRU cache via IPC mechanism between node processes" },
-                 { name: "cache-?([a-z0-1]+)?", obj: "configParams", nocamel: 1, descr: "An URL that points to the cache server in the format `PROTO://HOST[:PORT]?PARAMS`, to use for caching in the API/DB requests, default is local LRU cache, multiple caches can be defined with unique names" },
+                 { name: "cache-?([a-z0-1]+)?", obj: "configParams", nocamel: 1, descr: "An URL that points to the cache server in the format `PROTO://HOST[:PORT]?PARAMS`, to use for caching in the API/DB requests, default is local LRU cache, multiple caches can be defined with unique names, all params starting with `bk-` will be copied into the options without the prefix and removed from the url, the rest of paarms will be left in the url" },
                  { name: "cache-?([a-z0-1]+)-options", obj: "configParams", nocamel: 1, type: "json", descr: "JSON object with options to the cache client, specific to each implementation" },
-                 { name: "queue-?([a-z0-1]+)?", obj: "configParams", nocamel: 1, descr: "An URL that points to the queue server in the format `PROTO://HOST[:PORT]?PARAMS`, to use for PUB/SUB or job queues, default is no local queue, multiple queues can be defined with unique names" },
+                 { name: "queue-?([a-z0-1]+)?", obj: "configParams", nocamel: 1, descr: "An URL that points to the queue server in the format `PROTO://HOST[:PORT]?PARAMS`, to use for PUB/SUB or job queues, default is no local queue, multiple queues can be defined with unique names, params are handled the same way as for cache" },
                  { name: "queue-?([a-z0-1]+)?-options", obj: "configParams", nocamel: 1, type: "json", descr: "JSON object with options to the queue client, specific to each implementation" },
          ];
 }

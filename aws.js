@@ -368,10 +368,8 @@ aws.queryELB = function(action, obj, options, callback)
 }
 
 // AWS SQS API request
-aws.querySQS = function(action, queue, obj, options, callback)
+aws.querySQS = function(action, obj, options, callback)
 {
-    // Use the queue url as the endpoint
-    if (queue.match(/^https?:/)) options = lib.cloneObj(options, "endpoint", queue);
     this.queryEndpoint("sqs", '2012-11-05', action, obj, options, callback);
 }
 
@@ -921,11 +919,11 @@ aws.sqsReceiveMessage = function(url, options, callback)
     if (typeof callback != "function") callback = lib.noop;
     if (!options) options = {};
 
-    var params = {};
+    var params = { QueueUrl: url };
     if (options.count) params.MaxNumberOfMessages = options.count;
     if (options.visibilityTimeout) params.VisibilityTimeout = options.visibilityTimeout;
     if (options.timeout) params.WaitTimeSeconds = options.timeout;
-    this.querySQS("ReceiveMessage", url, params, options, function(err, obj) {
+    this.querySQS("ReceiveMessage", params, options, function(err, obj) {
         var rows = [];
         if (!err) rows = lib.objGet(obj, "ReceiveMessageResponse.ReceiveMessageResult.Message", { list: 1 });
         callback(err, rows);
@@ -943,7 +941,7 @@ aws.sqsSendMessage = function(url, body, options, callback)
     if (typeof callback != "function") callback = lib.noop;
     if (!options) options = {};
 
-    var params = { MessageBody: body };
+    var params = { QueueUrl: url, MessageBody: body };
     if (options.delay) params.DelaySeconds = options.delay;
     if (options.attrs) {
         var n = 1;
@@ -955,7 +953,7 @@ aws.sqsSendMessage = function(url, body, options, callback)
             n++;
         }
     }
-    this.querySQS("SendMessage", url, params, options, function(err, obj) {
+    this.querySQS("SendMessage", params, options, function(err, obj) {
         var rows = [];
         if (!err) rows = lib.objGet(obj, "ReceiveMessageResponse.ReceiveMessageResult.Message", { list: 1 });
         callback(err, rows);

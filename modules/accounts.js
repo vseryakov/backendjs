@@ -219,7 +219,7 @@ accounts.configureAccountsAPI = function()
         }
     });
 
-    function onPostAccountRow(req, row, options, cols) {
+    function onPostAccountRow(req, row, options) {
         if (row.birthday) {
             row.age = Math.floor((Date.now() - lib.toDate(row.birthday))/(86400000*365));
         }

@@ -172,11 +172,11 @@ messages.configureMessagesAPI = function()
         }
     });
 
-    function onPostMessageRow(req, row, options, cols) {
+    function onPostMessageRow(req, row, options) {
         if (row.icon) row.icon = '/message/image?sender=' + row.sender + '&mtime=' + row.mtime; else delete row.icon;
     }
 
-    function onPostSentRow(req, row, options, cols) {
+    function onPostSentRow(req, row, options) {
         if (row.icon) row.icon = '/message/image?sender=' + row.recipient + '&mtime=' + row.mtime; else delete row.icon;
     }
 
