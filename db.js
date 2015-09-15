@@ -103,6 +103,7 @@ var db = {
            { name: "cache-tables", array: 1, type: "list", descr: "List of tables that can be cached: bk_auth, bk_counter. This list defines which DB calls will cache data with currently configured cache. This is global for all db pools." },
            { name: "cache-ttl", type: "int", obj: "cacheTtl", key: "default", descr: "Default global TTL for cached tables", },
            { name: "cache-ttl-(.+)", type: "int", obj: "cacheTtl", nocamel: 1, strip: "cache-ttl-", descr: "TTL in milliseconds for each individual table being cached", },
+           { name: "cache-name-(.+)", obj: "cacheName", nocamel: 1, strip: "cache-name-", descr: "Cache client name to use for each table instead of the default in ordr to split cache usage for different tables, it can be just a table name or `pool.table`", },
            { name: "local", descr: "Local database pool for properties, cookies and other local instance only specific stuff" },
            { name: "config", descr: "Configuration database pool to be used to retrieve config parameters from the database, must be defined to use remote db for config parameters, set to `default` to use current default pool" },
            { name: "config-interval", type: "number", min: 0, descr: "Interval between loading configuration from the database configured with -db-config-type, in seconds, 0 disables refreshing config from the db" },
@@ -134,6 +135,7 @@ var db = {
     // Tables to be cached
     cacheTables: [],
     cacheTtl: {},
+    cacheName: {},
 
     // Default database pool for the backend
     pool: 'sqlite',
@@ -2279,6 +2281,7 @@ db.getCache = function(table, query, options, callback)
     var key = this.getCacheKey(table, query, options);
     if (!key) return callback();
     if (options) options.cacheKey = key;
+    options = this.getCacheOptions(table, options);
     ipc.get(key, options, callback);
 }
 
@@ -2287,11 +2290,8 @@ db.putCache = function(table, query, options)
 {
     var key = options && options.cacheKey ? options.cacheKey : this.getCacheKey(table, query, options);
     if (!key) return;
-    var ttl = this.cacheTtl[table] || this.cacheTtl.default || 0;
-    if (ttl) {
-        if (!options) options = { ttl: ttl }; else options.ttl = ttl;
-    }
-    logger.debug("putCache:", key, ttl);
+    options = this.getCacheOptions(table, options);
+    logger.debug("putCache:", key, options);
     ipc.put(key, lib.stringify(query), options);
 }
 
@@ -2299,6 +2299,7 @@ db.putCache = function(table, query, options)
 db.delCache = function(table, query, options)
 {
     var key = options && options.cacheKey ? options.cacheKey : this.getCacheKey(table, query, options);
+    options = this.getCacheOptions(table, options);
     if (key) ipc.del(key, options);
 }
 
@@ -2308,6 +2309,20 @@ db.getCacheKey = function(table, query, options)
     var keys = this.getKeys(table, options).filter(function(x) { return query[x] }).map(function(x) { return query[x] }).join(this.separator);
     if (keys) keys = (options && options.cachePrefix ? options.cachePrefix : table) + this.separator + keys;
     return keys;
+}
+
+// Setup common cache properties
+db.getCacheOptions = function(table, options)
+{
+    var ttl = this.cacheTtl[table] || this.cacheTtl.default || 0;
+    if (ttl) {
+        if (!options) options = { ttl: ttl }; else options.ttl = ttl;
+    }
+    var cacheName = (options && options.pool ? this.cacheName[options.pool + "." + table] : "") || this.cacheName[table];
+    if (cacheName) {
+        if (!options) options = { cacheName: cacheName }; else options.cacheName = cacheName;
+    }
+    return options;
 }
 
 // Convenient helper to show results from the database requests, can be used as the callback in all db method.

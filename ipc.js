@@ -432,8 +432,7 @@ Ipc.prototype.get = function(key, options, callback)
     if (typeof options == "function") callback = options, options = null;
     logger.dev("ipc.get:", key, options);
     try {
-        var client = options && options.cacheName ? this.clients[options.cacheName] : this.clients.cache;
-        client.get(key, options, callback);
+        this.getClient("cache", options).get(key, options, callback);
     } catch(e) {
         logger.error('ipc.get:', e.stack);
         callback();
