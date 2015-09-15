@@ -22,7 +22,15 @@ var aws = require(__dirname + '/aws');
 var ipc = require(__dirname + '/ipc');
 var server = require(__dirname + '/server');
 
-// Job launcher and scheduler
+// Job queue processor
+//
+// When launched with `jobs-workers` parameter equal or greater than 0, the master spawns a number of workers which subscribe to
+// configured job queues or the default queue and listen for messsges.
+// A job message is an object that defines what method from which module to run with the options as the first argument and a callback as the second.
+//
+// Multiple job queues can be defined and processed at the same time.
+//
+//
 var jobs = {
     // Config parameters
     args: [{ name: "workers", type: "number", min: -1, max: 32, descr: "How many worker processes to launch to process the job queue, -1 disables jobs, 0 means launch as many as CPUs available" },
