@@ -25,7 +25,8 @@ var lib = {
     deferTimeout: 50,
     deferId: 1,
     geoHashRange: [ [12, 0], [8, 0.019], [7, 0.076], [6, 0.61], [5, 2.4], [4, 20.0], [3, 78.0], [2, 630.0], [1, 2500.0], [1, 99999] ],
-    rxNumber: /^((-|\+)?[0-9]+|[0-9]+\.[0-9]+)$/,
+    rxNumber: /^(-|\+)?([0-9]+|[0-9]+\.[0-9]+)$/,
+    rxFloat: /^(-|\+)?[0-9]+\.[0-9]+$/,
 }
 
 module.exports = lib;
@@ -105,7 +106,7 @@ lib.toNumber = function(val, options)
             n = (options && options.dflt) || 0;
         } else {
             // Autodetect floating number
-            var f = !options || typeof options.float == "undefined" || options.float == null ? this.rxNumber.test(val) : options.float;
+            var f = !options || typeof options.float == "undefined" || options.float == null ? this.rxFloat.test(val) : options.float;
             n = val[0] == 't' ? 1 : val[0] == 'f' ? 0 : val == "infinity" ? Infinity : (f ? parseFloat(val, 10) : parseInt(val, 10));
         }
     }
@@ -436,6 +437,33 @@ lib.toFormat = function(format, data, options)
         }
         return json;
     }
+}
+
+// Convert all special symbols into html entities
+lib.textToEntity = function(str)
+{
+    return String(str)
+      .replace(!encode ? /&(?!#?\w+;)/g : /&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+}
+
+// Convert html entities into their original symbols
+lib.entityToText = function(str)
+{
+    return String(str).replace(/&(#?[a-zA-Z0-9]+);/g, function(_, n) {
+        if (n[0] === '#') return n.charAt(1) === 'x' ? String.fromCharCode(parseInt(n.substring(2), 16)) : String.fromCharCode(+n.substring(1));
+        n = n.toLowerCase();
+        if (n === 'colon') return ':';
+        if (n === 'amp') return '&';
+        if (n === 'lt') return '<';
+        if (n === 'gt') return '>';
+        if (n === 'quot') return '"';
+        if (n === 'apos') return '`';
+        return '';
+    });
 }
 
 // Returns true of the argument is a generic object, not a null, Buffer, Date, RegExp or Array

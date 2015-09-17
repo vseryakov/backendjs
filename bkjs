@@ -950,15 +950,22 @@ EOF
 
   get-elasticsearch)
     if [ ! -d $ELASTICSEARCH_PREFIX ]; then
-        file=elasticsearch-1.7.1.tar.gz
+        file=elasticsearch-1.7.2.tar.gz
         mkdir -p $ELASTICSEARCH_PREFIX
         curl -OL https://download.elasticsearch.org/elasticsearch/elasticsearch/$file
         tar -C $ELASTICSEARCH_PREFIX --strip-components=1 -xzf $file
         rm -rf $file
+        if [ "$OS_TYPE" = "amazon" ]; then
+           cd $ELASTICSEARCH_PREFIX
+           echo "discovery.type: ec2" >> config/elasticsearch.yml
+           bin/plugin install elasticsearch/elasticsearch-cloud-aws/2.7.1
+        fi
     fi
     ;;
 
   run-elasticsearch)
+    size=$(get_arg -heap-size)
+    [ "$size" != "" ] && export ES_HEAP_SIZE=$size
     $ELASTICSEARCH_PREFIX/bin/elasticsearch -p $BKJS_HOME/var/elasticsearch.pid -d >>$BKJS_HOME/log/message.log 2>&1
     ;;
 
@@ -976,7 +983,7 @@ EOF
        ;;
     esac
     if [ ! -f $BKJS_PREFIX/bin/mongod ]; then
-       curl -L -o mongo.tar.gz http://fastdl.mongodb.org/osx/mongodb-$OS-x86_64-2.6.0.tgz
+       curl -L -o mongo.tar.gz http://fastdl.mongodb.org/osx/mongodb-$OS-x86_64-3.0.6.tgz
        tar -C $BKJS_PREFIX/bin --strip-components=1 -xzf mongo.tar.gz '*/bin/*'
        rm -rf mongo.tar.gz
     fi
@@ -1368,7 +1375,7 @@ EOF
     echo "  -db-restore [-path PATH] [-tables LIST] [-skip LIST] [-drop] [-continue] - restore tables from json files located in the home or specified path"
     echo "  -aws-s3-get -path PATH - retrieve a file from S3"
     echo "  -aws-s3-put -path PATH -file FILE - store a file to S3"
-    echo "  -aws-show-amazon-images [-filter PATTERN] [-arch ARCH] [-rootdev DEV] - show Amazon Linux AMIs"
+    echo "  -aws-show-amazon-images [-filter PATTERN] [-arch ARCH] [-rootdev ebs|instance-store|*] [-devtype gp2|io1|standard|*] - show Amazon Linux AMIs (use %2A instead of *)"
     echo "  -aws-show-images [-filter PATTERN] - show my account AMIs by name pattern"
     echo "  -aws-delete-image -filter PATTERN [-dry-run] - delete all AMIs that match the given name filter"
     echo "  -aws-create-image [-name NAME] [-descr DESCR] [-no-reboot] [-reboot] [-instance-id ID] [-dry-run] - create a new AMI from the instance by id or the current instance"

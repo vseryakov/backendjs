@@ -83,7 +83,7 @@ shell.getOptions = function()
 // Return first available value for the given name, options first, then command arg and then default
 shell.getArg = function(name, options, dflt)
 {
-    return options[lib.toCamel(name.substr(1))] || core.getArg(name, dflt);
+    return decodeURIComponent(String((options && options[lib.toCamel(name.substr(1))]) || core.getArg(name, dflt))).trim();
 }
 
 shell.getArgInt = function(name, options, dflt)
@@ -531,15 +531,21 @@ shell.getSelfImages = function(name, callback)
 // Return Amazon AMIs for the current region, HVM type only
 shell.getAmazonImages = function(options, callback)
 {
-    aws.queryEC2("DescribeImages",
-                 { 'Owner.0': 'amazon',
-                   'Filter.1.Name': 'name',
-                   'Filter.1.Value': options.filter || 'amzn-ami-hvm-*',
-                   'Filter.2.Name': 'architecture',
-                   'Filter.2.Value': options.arch || 'x86_64',
-                   'Filter.3.Name': 'root-device-type',
-                   'Filter.3.Value': options.rootdev || 'ebs',
-                 }, function(err, rc) {
+    var query = { 'Owner.0': 'amazon',
+        'Filter.1.Name': 'name',
+        'Filter.1.Value': options.filter || 'amzn-ami-hvm-*',
+        'Filter.2.Name': 'architecture',
+        'Filter.2.Value': options.arch || 'x86_64',
+        'Filter.3.Name': 'root-device-type',
+        'Filter.3.Value': options.rootdev || 'ebs',
+        'Filter.4.Name': 'block-device-mapping.volume-type',
+        'Filter.4.Value': options.devtype || 'gp2',
+    };
+    if (core.isArg("-dry-run")) {
+        logger.log("getAmazonImages:", query);
+        return callback(null, []);
+    }
+    aws.queryEC2("DescribeImages", query, function(err, rc) {
         if (err) return callback(err);
         var images = lib.objGet(rc, "DescribeImagesResponse.imagesSet.item", { list: 1 });
         images.sort(function(a, b) { return a.name < b.name ? 1 : a.name > b.name ? -1 : 0 });
@@ -733,9 +739,10 @@ shell.cmdAwsLaunchInstances = function(options)
 
 shell.cmdAwsShowImages = function(options)
 {
-    var filter = core.getArg("-filter");
+    var filter = this.getArg("-filter");
 
     this.getSelfImages(filter || "*", function(err, images) {
+        if (err) shell.exit(err);
         images.forEach(function(x) {
             console.log(x.imageId, x.name, x.imageState, x.description);
         });
@@ -745,11 +752,13 @@ shell.cmdAwsShowImages = function(options)
 
 shell.cmdAwsShowAmazonImages = function(options)
 {
-    options.filter = core.getArg("-filter");
-    options.rootdev = core.getArg("-rootdev");
-    options.arch = core.getArg("-arch");
+    options.filter = this.getArg("-filter");
+    options.rootdev = this.getArg("-rootdev");
+    options.devtype = this.getArg("-devtype");
+    options.arch = this.getArg("-arch");
 
     this.getAmazonImages(options, function(err, images) {
+        if (err) shell.exit(err);
         images.forEach(function(x) {
             console.log(x.imageId, x.name, x.imageState, x.description);
         });
@@ -759,8 +768,8 @@ shell.cmdAwsShowAmazonImages = function(options)
 
 shell.cmdAwsShowGroups = function(options)
 {
-    options.filter = core.getArg("-filter");
-    options.name = core.getArg("-name");
+    options.filter = this.getArg("-filter");
+    options.name = this.getArg("-name");
 
     aws.ec2DescribeSecurityGroups(options, function(err, images) {
         images.forEach(function(x) {
@@ -774,7 +783,7 @@ shell.cmdAwsShowGroups = function(options)
 shell.cmdAwsDeleteImage = function(options)
 {
     var self = this;
-    var filter = core.getArg("-filter");
+    var filter = this.getArg("-filter");
     if (!filter) shell.exit("-filter is required");
     var images = [];
 
@@ -801,11 +810,11 @@ shell.cmdAwsDeleteImage = function(options)
 // Create an AMI from the current instance of the instance by id
 shell.cmdAwsCreateImage = function(options)
 {
-    options.name = core.getArg("-name");
-    options.descr = core.getArg("-descr");
-    options.instanceId = core.getArg("-instance-id");
-    options.noreboot = core.isArg("-no-reboot");
-    options.reboot = core.isArg("-reboot");
+    options.name = this.getArg("-name");
+    options.descr = this.getArg("-descr");
+    options.instanceId = this.getArg("-instance-id");
+    options.noreboot = this.isArg("-no-reboot");
+    options.reboot = this.isArg("-reboot");
     if (core.isArg("-dry-run")) return shell.exit(null, options);
     aws.ec2CreateImage(options, function(err) {
         shell.exit(err);
@@ -817,7 +826,7 @@ shell.cmdAwsRebootInstances = function(options)
 {
     var self = this;
     var instances = [];
-    var filter = core.getArg("-filter");
+    var filter = this.getArg("-filter");
     if (!filter) shell.exit("-filter is required");
 
     lib.series([
@@ -847,7 +856,7 @@ shell.cmdAwsTerminateInstances = function(options)
 {
     var self = this;
     var instances = [];
-    var filter = core.getArg("-filter");
+    var filter = this.getArg("-filter");
     if (!filter) shell.exit("-filter is required");
 
     lib.series([
@@ -877,7 +886,7 @@ shell.cmdAwsShowInstances = function(options)
 {
     var self = this;
     var instances = [];
-    var filter = core.getArg("-filter");
+    var filter = this.getArg("-filter");
 
     lib.series([
        function(next) {

@@ -1305,7 +1305,8 @@ api.registerPreProcess = function(method, path, callback)
 //   the callback may not return data back to the client, in this case next post-process hook will be called and eventually the result will be sent back to the client.
 //   **To indicate that this hook will send the result eventually it must return true, otherwise the rows will be sent afer all hooks are called**
 //
-// Note: the `req.account` object may become empty if any callback decided to do some async action, in such cases make a copy of the account object if it will needed
+// Note: the `req.account` and `req.options` objects may become empty if any callback decided to do some async action, they are explicitly emptied at the end of request,
+// in such cases make a copy of the account object if it will needed
 //
 // Example, just update the rows, it will be sent at the end of processing all post hooks
 //
@@ -1449,7 +1450,11 @@ api.sendJSON = function(req, err, rows)
     var sent = 0;
     var hooks = this.findHook('post', req.method, req.options.path);
     lib.forEachSeries(hooks, function(hook, next) {
-        try { sent = hook.callback.call(self, req, req.res, rows); } catch(e) { logger.error('sendJSON:', req.options.path, e.stack); }
+        try {
+            sent = hook.callback.call(self, req, req.res, rows);
+        } catch(e) {
+            logger.error('sendJSON:', req.options.path, e.stack);
+        }
         logger.debug('sendJSON:', req.method, req.options.path, hook.path, 'sent:', sent || req.res.headersSent, 'cleanup:', req.options.cleanup);
         next(sent || req.res.headersSent);
     }, function(err) {
@@ -1602,7 +1607,7 @@ api.publish = function(key, event, options)
     ipc.publish(key, event);
 }
 
-// Process a message received from subscription server or other even notifier, it is used by `api.subscribe` method for delivery events to the clients
+// Process a message received from subscription server or other event notifier, it is used by `api.subscribe` method for delivery events to the clients
 api.sendEvent = function(req, key, data, next)
 {
     logger.debug('subscribe:', key, data, 'sent:', req.res.headersSent, 'match:', req.msgMatch, 'timeout:', req.msgTimeout);

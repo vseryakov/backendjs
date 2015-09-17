@@ -1200,6 +1200,9 @@ db.join = function(table, rows, options, callback)
 //          });
 //  the rest of the columns can be defined as needed, no special requirements.
 //
+//  *`id` can be any property, it is used for sorting only. For DynamoDB if geohash is an index then lat/long properties must
+//   use projections: 1 in order to be included in the index projection.*
+//
 // `obj` must contain the following:
 //  - latitude
 //  - longitude
@@ -1277,7 +1280,6 @@ db.getLocations = function(table, query, options, callback)
               // Next page if any or go to the next neighbor
               options.start = info.next_token;
 
-              // If no coordinates but only geohash decode it
               items.forEach(function(row) {
                   row.distance = lib.geoDistance(options.latitude, options.longitude, row.latitude, row.longitude, options);
                   if (row.distance == null) return;
@@ -1760,6 +1762,8 @@ db.prepareRow = function(pool, op, table, obj, options)
             v = obj[p];
             col = cols[p];
             if (col) {
+                // Skip artificial join columns
+                if (options.noJoinColumns && Array.isArray(col.join) && col.join.indexOf(p) == -1) continue;
                 // Handle json separately in sync with processRows
                 if (options.noJson && !options.strictTypes && col.type == "json" && typeof obj[p] != "undefined") v = JSON.stringify(v);
                 // Convert into native data type
