@@ -2846,7 +2846,8 @@ results using <code>api.sendJSON</code> or <code>api.sendFormatted</code> method
 the callback may not return data back to the client, in this case next post-process hook will be called and eventually the result will be sent back to the client.
 <strong>To indicate that this hook will send the result eventually it must return true, otherwise the rows will be sent afer all hooks are called</strong></li>
 </ul>
-<p>Note: the <code>req.account</code> object may become empty if any callback decided to do some async action, in such cases make a copy of the account object if it will needed</p>
+<p>Note: the <code>req.account</code> and <code>req.options</code> objects may become empty if any callback decided to do some async action, they are explicitly emptied at the end of request,
+in such cases make a copy of the account object if it will needed</p>
 <p>Example, just update the rows, it will be sent at the end of processing all post hooks</p>
 <pre><code>    api.registerPostProcess(&#39;&#39;, &#39;/data/&#39;, function(req, res, rows) {
         rows.forEach(function(row) { ...});
@@ -2970,7 +2971,7 @@ events using account id as a key.</p>
 
 <ul>
 <li><p><code>api.sendEvent(req, key, data, next)</code></p>
-<p> Process a message received from subscription server or other even notifier, it is used by <code>api.subscribe</code> method for delivery events to the clients</p>
+<p> Process a message received from subscription server or other event notifier, it is used by <code>api.subscribe</code> method for delivery events to the clients</p>
 </li>
 </ul>
 
@@ -4177,16 +4178,21 @@ database like DynamoDB for real-time requests and slower SQL database running on
     db-dynamodb-pool-tables = bk_config
 </code></pre></li>
 </ul>
-<p> The following databases are supported with the basic db API methods: Sqlite, PostgreSQL, MySQL, DynamoDB, MongoDB, Cassandra, Redis, LMDB, LevelDB</p>
+<p> The following databases are supported with the basic db API methods:
+ Sqlite, PostgreSQL, MySQL, DynamoDB, MongoDB, Elasticsearch, Cassandra, Redis, LMDB, LevelDB, Riak, CouchDB</p>
 <p> All these drivers fully support all methods and operations, some natively, some with emulation in the user space except Redis driver cannot perform sorting
  due to using Hash items for records, sorting can be done in memory but with pagination it is not possible so this part must be mentioned specifically. But the rest of the
  operations on top of Redis are fully supported which makes it a good candidate to use for in-memory tables like sessions with the same database API, later moving to
  other database will not require any application code changes.</p>
-<p> Multiple connections of the same type can be opened, just add -n suffix to all database config parameters where n is 1 to 5, referer to such pools int he code as <code>pgsql1</code>.</p>
+<p> Multiple connections of the same type can be opened, just add -n suffix to all database config parameters where n is a number, referer to such pools in the code as <code>poolN</code>.</p>
 <p> Example:</p>
 <pre><code>      db-pgsql-pool = postgresql://locahost/backend
       db-pgsql-pool-1 = postgresql://localhost/billing
       db-pgsql-pool-max-1 = 100
+
+      in the Javascript:
+
+      db.select(&quot;bills&quot;, { status: &quot;ok&quot; }, { pool: &quot;pgsql1&quot; }, db.showResult)
 </code></pre>
 <ul>
 <li><p><code>Database tables</code></p>
@@ -4620,6 +4626,8 @@ table must be defined with the following required columns:</p>
             }
     });
 </code></pre><p>the rest of the columns can be defined as needed, no special requirements.</p>
+<p><em><code>id</code> can be any property, it is used for sorting only. For DynamoDB if geohash is an index then lat/long properties must
+ use projections: 1 in order to be included in the index projection.</em></p>
 <p><code>obj</code> must contain the following:</p>
 <ul>
 <li>latitude</li>
@@ -4661,8 +4669,8 @@ the next_token returned by the previous call and query will be ignored</p>
 <li><p><code>db.select(table, query, options, callback)</code></p>
 <p> Select objects from the database that match supplied conditions.</p>
 <ul>
-<li>query - can be an object with properties for the condition, all matching records will be returned</li>
-<li>query - can be a list where each item is an object with primary key condition. Only records specified in the list must be returned.</li>
+<li>query - can be an object with properties for the condition, all matching records will be returned,
+also can be a list where each item is an object with primary key condition. Only records specified in the list must be returned.</li>
 <li>options can use the following special properties:<ul>
 <li>ops - operators to use for comparison for properties, an object with column name and operator. The follwoing operators are available:
  <code>&gt;, gt, &lt;, lt, =, !=, &lt;&gt;, &gt;=, ge, &lt;=, le, in, between, regexp, iregexp, begins_with, like%, ilike%</code></li>
@@ -4672,16 +4680,20 @@ the next_token returned by the previous call and query will be ignored</p>
 <li>start - start records with this primary key, this is the next_token passed by the previous query</li>
 <li>count - how many records to return</li>
 <li>join - how to join condition expressions, default is AND</li>
-<li>sort - sort by this column. <em>NOTE: for DynamoDB this may affect the results if columns requsted are not projected in the index, with sort
-   <code>select</code> property might be used to get all required properties.</em></li>
+<li>sort - sort by this column. if null then no sorting must be done at all, records will be returned in the order they are kept in the DB.
+ <em>NOTE: For DynamoDB this may affect the results if columns requsted are not projected in the index, with sort
+  <code>select</code> property might be used to get all required properties. For Elasticsearch if sort is null then scrolling scan will be used,
+  if no <code>timeout</code> or <code>scroll</code> are given the default is 1m.</em></li>
+<li>sort_timeout - for pagination how long to keep internal state in millisecons, depends on the DB, for example for Elasticsearch it corresponds
+ to the scroll param and defaults to 60000 (1m)</li>
 <li>desc - if sorting, do in descending order</li>
-<li>page - starting page number for pagination, uses count to find actual record to start</li>
+<li>page - starting page number for pagination, uses count to find actual record to start, for SQL databases mostly</li>
 <li>unique - specified the column name to be used in determining unique records, if for some reasons there are multiple records in the location
-  table for the same id only one instance will be returned</li>
+ table for the same id only one instance will be returned</li>
 </ul>
 </li>
 </ul>
-<p>On return, the callback can check third argument which is an object with some predefined properties along with driver specific properties returned by the query:</p>
+<p>On return, the callback can check third argument which is an object with some predefined properties along with driver specific state returned by the query:</p>
 <ul>
 <li>affected_rows - how many records this operation affected, for add/put/update</li>
 <li>inserted_oid - last created auto generated id</li>
@@ -5708,6 +5720,18 @@ specified with <code>options.tag</code>.</li>
 </ul>
 <p>All formats support the property <code>options.allow</code> which is a list of property names that are allowed only in the output for each record, non-existent
 properties will be replaced by empty strings</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.textToEntity(str)</code></p>
+<p> Convert all special symbols into html entities</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.entityToText(str)</code></p>
+<p> Convert html entities into their original symbols</p>
 </li>
 </ul>
 
@@ -7370,7 +7394,7 @@ the system API is secured, the user can be any valid user registered in the bk_a
 </ul>
 
 <ul>
-<li><p><code>api.saveStatistics(obj, callback)</code></p>
+<li><p><code>api.saveStatistics(obj, options, callback)</code></p>
 <p> Save collected statistics in the bk_collect table, this can be called via API or directly by the backend, this wrapper
 is supposed to be overrriden by the application with additional logic how the statistics is saved. Columns in the bk_collect table
 must be defined for any metrics to be saved, use api.describeTable with additional columns from the api.metrics object in additional to the default ones.</p>
