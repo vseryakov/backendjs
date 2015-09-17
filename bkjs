@@ -964,7 +964,7 @@ EOF
     ;;
 
   run-elasticsearch)
-    size=$(get_arg -heap-size)
+    size=$(get_arg -es-heap-size)
     [ "$size" != "" ] && export ES_HEAP_SIZE=$size
     $ELASTICSEARCH_PREFIX/bin/elasticsearch -p $BKJS_HOME/var/elasticsearch.pid -d >>$BKJS_HOME/log/message.log 2>&1
     ;;

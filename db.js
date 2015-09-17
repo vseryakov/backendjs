@@ -76,20 +76,25 @@ var metrics = require(__dirname + "/metrics");
 //          db-dynamodb-pool-tables = bk_config
 //
 //
-// The following databases are supported with the basic db API methods: Sqlite, PostgreSQL, MySQL, DynamoDB, MongoDB, Cassandra, Redis, LMDB, LevelDB
+// The following databases are supported with the basic db API methods:
+// Sqlite, PostgreSQL, MySQL, DynamoDB, MongoDB, Elasticsearch, Cassandra, Redis, LMDB, LevelDB, Riak, CouchDB
 //
 // All these drivers fully support all methods and operations, some natively, some with emulation in the user space except Redis driver cannot perform sorting
 // due to using Hash items for records, sorting can be done in memory but with pagination it is not possible so this part must be mentioned specifically. But the rest of the
 // operations on top of Redis are fully supported which makes it a good candidate to use for in-memory tables like sessions with the same database API, later moving to
 // other database will not require any application code changes.
 //
-// Multiple connections of the same type can be opened, just add -n suffix to all database config parameters where n is 1 to 5, referer to such pools int he code as `pgsql1`.
+// Multiple connections of the same type can be opened, just add -n suffix to all database config parameters where n is a number, referer to such pools in the code as `poolN`.
 //
 // Example:
 //
 //          db-pgsql-pool = postgresql://locahost/backend
 //          db-pgsql-pool-1 = postgresql://localhost/billing
 //          db-pgsql-pool-max-1 = 100
+//
+//          in the Javascript:
+//
+//          db.select("bills", { status: "ok" }, { pool: "pgsql1" }, db.showResult)
 //
 var db = {
     name: 'db',
@@ -1328,8 +1333,8 @@ db.getLocations = function(table, query, options, callback)
 }
 
 // Select objects from the database that match supplied conditions.
-// - query - can be an object with properties for the condition, all matching records will be returned
-// - query - can be a list where each item is an object with primary key condition. Only records specified in the list must be returned.
+// - query - can be an object with properties for the condition, all matching records will be returned,
+//   also can be a list where each item is an object with primary key condition. Only records specified in the list must be returned.
 // - options can use the following special properties:
 //    - ops - operators to use for comparison for properties, an object with column name and operator. The follwoing operators are available:
 //       `>, gt, <, lt, =, !=, <>, >=, ge, <=, le, in, between, regexp, iregexp, begins_with, like%, ilike%`
@@ -1339,14 +1344,18 @@ db.getLocations = function(table, query, options, callback)
 //    - start - start records with this primary key, this is the next_token passed by the previous query
 //    - count - how many records to return
 //    - join - how to join condition expressions, default is AND
-//    - sort - sort by this column. _NOTE: for DynamoDB this may affect the results if columns requsted are not projected in the index, with sort
-//         `select` property might be used to get all required properties._
+//    - sort - sort by this column. if null then no sorting must be done at all, records will be returned in the order they are kept in the DB.
+//       _NOTE: For DynamoDB this may affect the results if columns requsted are not projected in the index, with sort
+//        `select` property might be used to get all required properties. For Elasticsearch if sort is null then scrolling scan will be used,
+//        if no `timeout` or `scroll` are given the default is 1m._
+//    - sort_timeout - for pagination how long to keep internal state in millisecons, depends on the DB, for example for Elasticsearch it corresponds
+//       to the scroll param and defaults to 60000 (1m)
 //    - desc - if sorting, do in descending order
-//    - page - starting page number for pagination, uses count to find actual record to start
+//    - page - starting page number for pagination, uses count to find actual record to start, for SQL databases mostly
 //    - unique - specified the column name to be used in determining unique records, if for some reasons there are multiple records in the location
-//        table for the same id only one instance will be returned
+//       table for the same id only one instance will be returned
 //
-// On return, the callback can check third argument which is an object with some predefined properties along with driver specific properties returned by the query:
+// On return, the callback can check third argument which is an object with some predefined properties along with driver specific state returned by the query:
 // - affected_rows - how many records this operation affected, for add/put/update
 // - inserted_oid - last created auto generated id
 // - next_token - next primary key or offset for pagination by passing it as .start property in the options, if null it means there are no more pages availabe for this query
