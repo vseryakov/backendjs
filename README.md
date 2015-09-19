@@ -378,6 +378,23 @@ hooks are registered and return data itself then it is the hook responsibility t
     }
 ```
 
+To define tables inside a module just provide a `tables` property in the module object, it will be picked up by database initialization automatically.
+
+```javascript
+var mod = {
+    name: "billing",
+    tables: {
+       invoices: {
+          id: { type: "int", primary: 1 },
+          name: {},
+          price: { type: "real" },
+          mtime: { type: "bigint", now: 1 }
+       }
+    }
+}
+module.exports = mod;
+```
+
 # API requests handling
 
 All methods will put input parameters in the `req.query`, GET or POST.

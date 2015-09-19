@@ -406,6 +406,7 @@ server.startWatcher = function()
     if (core.repl.port && !core.isArg("-master")) self.startRepl(core.repl.port, core.repl.bind);
 
     if (core.watchdirs.indexOf(__dirname) == -1) core.watchdirs.push(__dirname, __dirname + "/lib", __dirname + "/modules");
+    if (core.watchdirs.indexOf(core.path.modules) == -1) core.watchdirs.push(core.path.modules);
     logger.debug('startWatcher:', core.watchdirs);
     core.watchdirs.forEach(function(dir) {
         core.watchFiles(dir, /\.js$/, function(file) {

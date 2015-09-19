@@ -838,7 +838,7 @@ core.createServer = function(options, callback)
 //   - httpTimeout - timeout in milliseconds afte which the request is borted if no data received
 //   - retryCount - how many time to retry the request on error or timeout
 //   - retryTimeout - timeout in milliseconds for retries, with every subsequent timeout it will be multiplied by 2
-//   - retryOnErrorStatus - also retry request if received non 200 response status
+//   - retryOnErrorStatus - also retry request if received non 2xx response status
 // - callback will be called with the arguments:
 //     first argument is error object if any
 //     second is params object itself with updated fields

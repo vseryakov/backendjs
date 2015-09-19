@@ -137,7 +137,7 @@ var api = {
     // No authentication for these urls
     allow: lib.toRegexpObj(null, ["^/$",
                                       "\\.html$",
-                                      "\\.ico$", "\\.gif$", "\\.png$", "\\.jpg$", "\\.svg$",
+                                      "\\.ico$", "\\.gif$", "\\.png$", "\\.jpg$", "\\.jpeg$", "\\.svg$",
                                       "\\.ttf$", "\\.eof$", "\\.woff$",
                                       "\\.js$", "\\.css$",
                                       "^/js/",

@@ -17,6 +17,8 @@ var cluster = require('cluster');
 //
 // It should be used for custom functions and methods to be defined, the `app` module is always available.
 //
+// All app modules in the modules/ subdirectory use the same prototype, i.e. all hooks are available for custom app modules as well.
+//
 var app = {
     args: [],
 };
