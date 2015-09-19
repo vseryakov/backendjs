@@ -111,7 +111,7 @@ or simply
 * Go to http://localhost:8000/api.html for the Web console to test API requests.
   For this example let's create an account:
 
-  - by default no external module are loaded so it needs the accounts module
+  - by default no external modules are loaded so it needs the accounts module
   - restart the backend command from the above with additional parameter: `-allow-modules accounts`
   - type and execute the following URLs in the Web console:
 
@@ -157,6 +157,22 @@ or simply
 * To see current metrics run the command in the console '/system/stats/get'
 
 * To see charts about accumulated metrics go to http://localhost:8000/metrics.html
+
+# Configuration
+
+Almost everything in the backend is configurable using a config files, config database or DNS.
+The whole principle behind it that once deployed in production, even quick restart are impossible to do so
+there should be a way to push config changes to the processes without restarting.
+
+Every module defines a set of config parameters that define the behavior of the code, due to single threaded
+nature of the node.js, it is simple to update any config parameter to new value so the code can operate differently.
+To achieve this the code must be written in a special way, like driven by configuration which can be changed at
+any time. 
+
+All configuration goes through the configuration proces that checks all input and produces valid output which
+is applied to the module variables. Config file or databse table with configuration can be load on demand or 
+periodically, for ecample all ocal config files are watched for modification and reloaded automaticlaly, the 
+config database is loaded periodically which is defined by another config parameter.
 
 # Backend runtime
 
@@ -393,6 +409,16 @@ var mod = {
     }
 }
 module.exports = mod;
+
+// Run db setup once all the DB pools are configured, for example produce dynamic icon property
+// for each record retrieved
+mod.configureMdiule = function(options, callback)
+{
+    db.setProcessRows("post", "invoices", function(rq, row, opts) {
+       if (row.id) row.icon = "/images/" + row.id + ".png";
+    });
+    callback();
+}
 ```
 
 # API requests handling

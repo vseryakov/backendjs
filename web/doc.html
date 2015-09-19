@@ -6,6 +6,7 @@
 <li><a href="#requirements-and-dependencies"> Requirements and dependencies</a></li>
 <li><a href="#installation"> Installation</a></li>
 <li><a href="#quick-start"> Quick start</a></li>
+<li><a href="#configuration"> Configuration</a></li>
 <li><a href="#backend-runtime"> Backend runtime</a></li>
 <li><a href="#application-structure"> Application structure</a><ul>
 <li><a href="#modules"> Modules</a></li>
@@ -213,7 +214,7 @@ applications but still part of the core of the system to be available once neede
 <li><p>Go to <a href="http://localhost:8000/api.html">http://localhost:8000/api.html</a> for the Web console to test API requests.
 For this example let&#39;s create an account:</p>
 <ul>
-<li>by default no external module are loaded so it needs the accounts module</li>
+<li>by default no external modules are loaded so it needs the accounts module</li>
 <li>restart the backend command from the above with additional parameter: <code>-allow-modules accounts</code></li>
 <li><p>type and execute the following URLs in the Web console:</p>
 <pre><code>/account/add?name=test1&amp;secret=test1&amp;login=test1@test.com
@@ -260,6 +261,18 @@ is only enabled by default in development mode, check app.sh for parameters befo
 <li><p>To see charts about accumulated metrics go to <a href="http://localhost:8000/metrics.html">http://localhost:8000/metrics.html</a></p>
 </li>
 </ul>
+<h1 id="configuration">Configuration</h1>
+<p>Almost everything in the backend is configurable using a config files, config database or DNS.
+The whole principle behind it that once deployed in production, even quick restart are impossible to do so
+there should be a way to push config changes to the processes without restarting.</p>
+<p>Every module defines a set of config parameters that define the behavior of the code, due to single threaded
+nature of the node.js, it is simple to update any config parameter to new value so the code can operate differently.
+To achieve this the code must be written in a special way, like driven by configuration which can be changed at
+any time. </p>
+<p>All configuration goes through the configuration proces that checks all input and produces valid output which
+is applied to the module variables. Config file or databse table with configuration can be load on demand or 
+periodically, for ecample all ocal config files are watched for modification and reloaded automaticlaly, the 
+config database is loaded periodically which is defined by another config parameter.</p>
 <h1 id="backend-runtime">Backend runtime</h1>
 <p>When the backendjs server starts it spawns several processes the perform different tasks.</p>
 <p>There are 2 major tasks of the backend that can be run at the same time or in any combination:</p>
@@ -444,6 +457,30 @@ hooks are registered and return data itself then it is the hook responsibility t
     {
        if (row.birthday) row.age = Math.floor((Date.now() - core.toDate(row.birthday))/(86400000*365));
     }
+</code></pre>
+<p>To define tables inside a module just provide a <code>tables</code> property in the module object, it will be picked up by database initialization automatically.</p>
+<pre><code class="lang-javascript">var mod = {
+    name: &quot;billing&quot;,
+    tables: {
+       invoices: {
+          id: { type: &quot;int&quot;, primary: 1 },
+          name: {},
+          price: { type: &quot;real&quot; },
+          mtime: { type: &quot;bigint&quot;, now: 1 }
+       }
+    }
+}
+module.exports = mod;
+
+// Run db setup once all the DB pools are configured, for example produce dynamic icon property
+// for each record retrieved
+mod.configureMdiule = function(options, callback)
+{
+    db.setProcessRows(&quot;post&quot;, &quot;invoices&quot;, function(rq, row, opts) {
+       if (row.id) row.icon = &quot;/images/&quot; + row.id + &quot;.png&quot;;
+    });
+    callback();
+}
 </code></pre>
 <h1 id="api-requests-handling">API requests handling</h1>
 <p>All methods will put input parameters in the <code>req.query</code>, GET or POST.</p>
@@ -2981,6 +3018,7 @@ events using account id as a key.</p>
 <p> This is a skeleton module to be extended by the specific application logic. It provides all callback and hooks that are called by the core backend modules
 during different phases, like initialization, shutting down, etc...</p>
 <p>It should be used for custom functions and methods to be defined, the <code>app</code> module is always available.</p>
+<p>All app modules in the modules/ subdirectory use the same prototype, i.e. all hooks are available for custom app modules as well.</p>
 </li>
 </ul>
 
@@ -3941,7 +3979,7 @@ making it usable for repeating environments or storage solutions.</p>
 <li>httpTimeout - timeout in milliseconds afte which the request is borted if no data received</li>
 <li>retryCount - how many time to retry the request on error or timeout</li>
 <li>retryTimeout - timeout in milliseconds for retries, with every subsequent timeout it will be multiplied by 2</li>
-<li>retryOnErrorStatus - also retry request if received non 200 response status</li>
+<li>retryOnErrorStatus - also retry request if received non 2xx response status</li>
 </ul>
 </li>
 <li>callback will be called with the arguments:
@@ -7861,7 +7899,10 @@ connection to APN gateway.</p>
 <ul>
 <li>msg - message text</li>
 <li>badge - badge number</li>
+<li>sound - 1, true or a sound file to play</li>
 <li>type - set type of the packet</li>
+<li>category - a user notification category</li>
+<li>contentAvailable - to indicate about new content so fetchCompletionHandler is called</li>
 <li>id - send id in the user properties</li>
 </ul>
 </li>

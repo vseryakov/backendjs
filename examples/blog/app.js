@@ -11,12 +11,24 @@ var app = bkjs.app;
 var logger = bkjs.logger;
 var server = bkjs.server;
 
+// Add custom properties to the existing table
 db.describeTables({
         bk_message: {
             title: {},
             tags: {},
         },
 });
+
+// This is called after the database pools are initialized, produce
+// icon properties for each record on every read
+app.configureModule = function(options, callback)
+{
+    db.setProcessRows("post", "bk_message", function(req, row, options) {
+       if (!row.sender) return;
+       row.avatar = '/image/account/' + row.sender + "/0";
+       if (row.icon) row.icon = '/image/blog/' + row.id + '/' + row.mtime + ':' + row.sender;
+    });
+}
 
 app.configureWeb = function(options, callback)
 {
@@ -44,10 +56,6 @@ app.initBlogAPI = function()
 
             db.select("bk_message", req.query, options, function(err, rows, info) {
                 if (err) return api.sendReply(res, err);
-                rows.forEach(function(x) {
-                    x.avatar = '/image/account/' + x.sender + "/0";
-                    if (x.icon) x.icon = '/image/blog/' + req.query.id + '/' + x.mtime + ':' + x.sender;
-                });
                 res.json(api.getResultPage(req, options, rows, info));
             });
             break;

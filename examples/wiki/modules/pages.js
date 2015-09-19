@@ -23,6 +23,20 @@ var logger = bkjs.logger;
 var pages = {
     name: "pages",
     view: "pages.html",
+    tables: {
+       bk_pages: { 
+          id: { primary: 1, pub: 1 },
+          title: { pub: 1 },
+          subtitle: { pub: 1 },
+          icon: { pub: 1 },                            // icon class, glyphicon, fa....
+          link: { pub: 1 },                            // external link to the content
+          content: { pub: 1 },                         // the page content
+          toc: { type:" bool", pub: 1 },               // produce table of content
+          pub: { type: "bool", pub: 1 },               // no account to see thos page
+          userid: { pub: 1 },                          // id of the last user
+          mtime: { type: "bigint", now: 1, pub: 1 }
+       },
+    },
 };
 module.exports = pages;
 
@@ -33,20 +47,6 @@ pages.init = function(options)
          { name: "view", descr: "A view template to be used when rendering markdown pages using Express render engine, for /pages/show command and .md files" },
          { name: "main", descr: "A template for the main page to be created when starting the wiki engine for the first time, if not given a default simple welcome message will be used" },
     ]);
-
-    db.describeTables({
-            // Wiki pages
-            bk_pages: { id: { primary: 1, pub: 1 },
-                        title: { pub: 1 },
-                        subtitle: { pub: 1 },
-                        icon: { pub: 1 },                            // icon class, glyphicon, fa....
-                        link: { pub: 1 },                            // external link to the content
-                        content: { pub: 1 },                         // the page content
-                        toc: { type:" bool", pub: 1 },               // produce table of content
-                        pub: { type: "bool", pub: 1 },               // no account to see thos page
-                        userid: { pub: 1 },                          // id of the last user
-                        mtime: { type: "bigint", now: 1, pub: 1 }},
-    });
 }
 
 // Create API endpoints and routes
