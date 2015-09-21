@@ -116,7 +116,7 @@ var db = {
            { name: "(.+)-pool-max(-[0-9]+)?", obj: 'poolParams', strip: "Pool", type: "number", min: 1, descr: "Max number of open connections for a pool, default is Infinity" },
            { name: "(.+)-pool-min(-[0-9]+)?", obj: 'poolParams', strip: "Pool", type: "number", min: 1, descr: "Min number of open connections for a pool" },
            { name: "(.+)-pool-idle(-[0-9]+)?", obj: 'poolParams', strip: "Pool", type: "number", min: 1000, descr: "Number of ms for a db pool connection to be idle before being destroyed" },
-           { name: "(.+)-pool-tables(-[0-9]+)?", obj: 'poolParams', strip: "Pool", type: "list", array: 1, descr: "A DB pool tables, list of tables that belong to this pool only" },
+           { name: "(.+)-pool-tables(-[0-9]+)?", obj: 'poolTables', strip: "PoolTables", type: "list", reverse: 1, descr: "A DB pool tables, list of tables that belong to this pool only" },
            { name: "(.+)-pool-connect(-[0-9]+)?", obj: 'poolParams', strip: "Pool", type: "json", descr: "Options for a DB pool driver passed during connection or creation of the pool" },
            { name: "(.+)-pool-settings(-[0-9]+)?", obj: 'poolParams', strip: "Pool", type: "json", descr: "A DB pool driver settings passed to every request, contains pool-wide options and features upported by the driver" },
            { name: "(.+)-pool-no-cache-columns(-[0-9]+)?", obj: 'poolParams', strip: "Pool", type: "bool", descr: "disable caching table columns for this pool only" },
@@ -242,9 +242,6 @@ db.initPool = function(name, options, callback)
     var type = d[1];
     var n = d[2] || "";
     if (!self[type + "InitPool"]) return callback(lib.newError("invalid pool type " + name));
-
-    // Pool specific tables
-    (this.poolParams[type + 'Tables' + n] || []).forEach(function(y) { self.poolTables[y] = name; });
 
     // All pool specific parameters
     var opts = { pool: name,

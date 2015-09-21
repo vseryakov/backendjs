@@ -509,7 +509,16 @@ core.processArgs = function(ctx, argv, pass)
     var self = this;
     if (!ctx || !Array.isArray(ctx.args) || !Array.isArray(argv) || !argv.length) return;
 
-    function put(obj, key, val, x) {
+    function put(obj, key, val, x, reverse) {
+        if (reverse) {
+            var v = val;
+            val = key;
+            key = v;
+        }
+
+        if (Array.isArray(key)) {
+            for (var i in key) put(obj, key[i], val, x);
+        } else
         if (x.array) {
             if (val == null) {
                 obj[key] = [];
@@ -591,48 +600,50 @@ core.processArgs = function(ctx, argv, pass)
                     x._name = (oname ? oname + "." : "") + name;
                     x._key = key;
                 }
-                // Reverse mode, swap name and value
-                if (x.reverse) {
-                    var v = val;
-                    val = name;
-                    name = v;
-                }
                 if (val == "<null>") val = null;
                 logger.debug("processArgs:", x.type || "str", ctx.name + "." + x._name, "(" + key + ")", "=", val);
                 switch (type) {
                 case "none":
                     break;
                 case "bool":
-                    put(obj, name, !val ? true : lib.toBool(val), x);
+                    put(obj, name, !val ? true : lib.toBool(val), x, x.reverse);
                     break;
                 case "int":
                 case "real":
                 case "number":
-                    put(obj, name, lib.toNumber(val, x.decimals, x.value, x.min, x.max), x);
+                    put(obj, name, lib.toNumber(val, x.decimals, x.value, x.min, x.max), x, x.reverse);
                     break;
                 case "map":
-                    put(obj, name, lib.strSplit(val).map(function(x) { return x.split(":") }).reduce(function(x,y) { if (!x[y[0]]) x[y[0]] = {}; x[y[0]][y[1]] = 1; return x }, {}), x);
+                    put(obj, name, lib.strSplit(val).map(function(x) { return x.split(":") }).reduce(function(x,y) { if (!x[y[0]]) x[y[0]] = {}; x[y[0]][y[1]] = 1; return x }, {}), x, x.reverse);
                     break;
                 case "intmap":
-                    put(obj, name, lib.strSplit(val).map(function(x) { return x.split(":") }).reduce(function(x,y) { x[y[0]] = lib.toNumber(y[1]); return x }, {}), x);
+                    put(obj, name, lib.strSplit(val).map(function(x) { return x.split(":") }).reduce(function(x,y) { x[y[0]] = lib.toNumber(y[1]); return x }, {}), x, x.reverse);
                 break;
                 case "list":
-                    put(obj, name, lib.strSplitUnique(val, x.separator), x);
+                    put(obj, name, lib.strSplitUnique(val, x.separator), x, x.reverse);
                     break;
                 case "regexp":
-                    put(obj, name, val ? new RegExp(val) : val, x);
+                    put(obj, name, val ? new RegExp(val) : val, x, x.reverse);
                     break;
                 case "regexpobj":
-                    obj[name] = lib.toRegexpObj(obj[name], val, x);
+                    if (x.reverse) {
+                        obj[val] = lib.toRegexpObj(obj[val], name, x);
+                    } else {
+                        obj[name] = lib.toRegexpObj(obj[name], val, x);
+                    }
                     break;
                 case "regexpmap":
-                    obj[name] = lib.toRegexpMap(obj[name], val, x);
+                    if (x.reverse) {
+                        obj[val] = lib.toRegexpMap(obj[val], name, x);
+                    } else {
+                        obj[name] = lib.toRegexpMap(obj[name], val, x);
+                    }
                     break;
                 case "url":
-                    put(obj, name, val ? url.parse(val) : val, x);
+                    put(obj, name, val ? url.parse(val) : val, x, x.reverse);
                     break;
                 case "json":
-                    put(obj, name, val ? lib.jsonParse(val) : val, x);
+                    put(obj, name, val ? lib.jsonParse(val) : val, x, x.reverse);
                     break;
                 case "path":
                     // Check if it starts with local path, use the actual path not the current dir for such cases
@@ -642,7 +653,7 @@ core.processArgs = function(ctx, argv, pass)
                             break;
                         }
                     }
-                    put(obj, name, val ? path.resolve(val) : val, x);
+                    put(obj, name, val ? path.resolve(val) : val, x, x.reverse);
                     break;
                 case "file":
                     if (!val) break;
@@ -653,12 +664,12 @@ core.processArgs = function(ctx, argv, pass)
                     if (typeof x.callback == "string") {
                         obj[x.callback](val, name, pass);
                     } else
-                        if (typeof x.callback == "function") {
-                            x.callback.call(obj, val, name, pass);
-                        }
+                    if (typeof x.callback == "function") {
+                        x.callback.call(obj, val, name, pass);
+                    }
                     break;
                 default:
-                    put(obj, name, val, x);
+                    put(obj, name, val, x, x.reverse);
                 }
             } catch(e) {
                 logger.error("processArgs:", name, val, e.stack);
