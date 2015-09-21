@@ -57,7 +57,7 @@ var jobs = {
     channel: "jobs",
     cronQueue: "",
     maxRuntime: 900,
-    maxLifetime: 86400,
+    maxLifetime: 3600,
     shutdownTimeout: 1000,
     workers: -1,
     workerQueue: [],

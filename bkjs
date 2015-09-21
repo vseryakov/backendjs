@@ -90,6 +90,7 @@ export BKJS_DRY_RUN=$(get_flag -dry-run $BKJS_DRY_RUN)
 export BKJS_HOME=$(get_arg -home $BKJS_HOME)
 export BKJS_PREFIX=$(get_arg -prefix $BKJS_PREFIX)
 export BKJS_USER=$(get_arg -user $BKJS_USER)
+export BKJS_GROUP=$(get_arg -group $BKJS_GROUP)
 export BKJS_DOMAIN=$(get_arg -domain $BKJS_DOMAIN)
 export BKJS_HOST=$(get_arg -host $BKJS_HOST)
 export BKJS_SYNC=$(get_arg -sync $BKJS_SYNC)
@@ -105,6 +106,7 @@ export BKJS_RSYNC_ARGS=$(concat_arg -rsync $BKJS_RSYNC_ARGS)
 # Setup all variables with defaults
 [ "$BKJS_HOST" = "" ] && export BKJS_HOST=$(uname -n|awk -F. '{print $1}')
 [ "$BKJS_USER" = "" ] && export BKJS_USER=$(whoami)
+[ "$BKJS_GROUP" = "" ] && export BKJS_GROUP=$(id -gn)
 [ "$BKJS_PREFIX" = "" ] && export BKJS_PREFIX=/usr/local
 [ "$BKJS_BACKUP" = "" ] && export BKJS_BACKUP=$BKJS_HOME/backup
 [ "$CASSANDRA_PREFIX" = "" ] && export CASSANDRA_PREFIX=$BKJS_PREFIX/cassandra
@@ -782,13 +784,12 @@ case "$ARG" in
     killall postgres
     ;;
 
-  install-redis)
+  get-redis)
     # Install redis server
-    [ "$(whoami)" != "root" ] && echo "Run as root please" && exit 1
-    yum remove -y redis
-    yum install -y jemalloc
+    sudo yum remove -y redis
+    sudo yum install -y jemalloc
 
-    ver=$(get_arg -version 2.8.21)
+    ver=$(get_arg -version 2.8.22)
     curl -L -o redis.tgz http://download.redis.io/releases/redis-$ver.tar.gz
 
     mkdir -p redis
@@ -797,67 +798,26 @@ case "$ARG" in
     sed -e 's|^# syslog-enabled no|syslog-enabled yes|' \
         -e "s|^dir ./|dir $REDIS_PREFIX/var/|" \
         -e "s|^timeout 0|timeout 3600|" \
+        -e "s|^pidfile /var/run/redis.pid|pidfile $REDIS_PREFIX/var/redis.pid|" \
         -e "s|^logfile \"\"|logfile $REDIS_PREFIX/log/redis.log|" \
         -e 's|^daemonize no|daemonize yes|' redis/redis.conf > $REDIS_PREFIX/etc/redis.conf
     rm -rf redis redis.tgz
-
-    cat > /etc/init.d/redis << EOF
-#!/bin/sh
-#
-# redis        init file for starting up the redis daemon
-#
-# chkconfig:   - 20 80
-# description: Starts and stops the redis daemon.
-
-case "\$1" in
- start)
-    echo "Starting redis: "
-    $REDIS_PREFIX/bin/redis-server $REDIS_PREFIX/etc/redis.conf
-    ;;
-  stop)
-    echo "Stopping redis: "
-    killall -q redis-server
-    ;;
-  restart)
-    \$0 stop
-    \$0 start
-    ;;
-  *)
-    echo $"Usage: \$0 {start|stop|restart}"
-    exit 2
-esac
-EOF
-
-    cat > /etc/logrotate.d/redis <<EOF
-$REDIS_PREFIX/log/redis.log {
-  weekly
-  rotate 10
-  copytruncate
-  delaycompress
-  compress
-  notifempty
-  missingok
-}
-EOF
-    chmod 755 /etc/init.d/redis
     ;;
 
   init-redis)
     [ "$(whoami)" != "root" ] && echo "Run as root please" && exit 1
     echo 1 > /proc/sys/vm/overcommit_memory
     echo never > /sys/kernel/mm/transparent_hugepage/enabled
-    chkconfig redis on
-    service redis restart
-    echo 'check process redis-server with pidfile "/var/run/redis.pid" start program = "/etc/init.d/redis start" stop program = "/etc/init.d/redis stop"' > /etc/monit.d/redis.conf
+    echo "check process redis-server with pidfile \"$REDIS_PREFIX/var/redis.pid\" start program = \"$0 run-redis\" as uid $BKJS_USER and gid $BKJS_GROUP stop program = \"$0 stop-redis\"" > /etc/monit.d/redis.conf
     monit reload
     ;;
 
   run-redis)
-    redis-server $REDIS_PREFIX/etc/redis.conf
+    $REDIS_PREFIX/bin/redis-server $REDIS_PREFIX/etc/redis.conf
     ;;
 
   stop-redis)
-    killall redis-server
+    killall -q redis-server
     ;;
 
   init-mysql)
@@ -943,7 +903,7 @@ EOF
     ($0 get-elasticsearch)
     ($0 run-elasticsearch)
     if [ "$PLATFORM" = "Linux" ]; then
-       echo "check process java with pidfile \"$BKJS_HOME/var/elasticsearch.pid\" start program = \"$0 run-elasticsearch\" stop program = \"$0 stop-elasticsearch\"" > /etc/monit.d/elasticsearch.conf
+       echo "check process java with pidfile \"$BKJS_HOME/var/elasticsearch.pid\" start program = \"$0 run-elasticsearch\" as uid $BKJS_USER and gid $BKJS_GROUP stop program = \"$0 stop-elasticsearch\"" > /etc/monit.d/elasticsearch.conf
        monit reload
     fi
     ;;
@@ -1318,7 +1278,7 @@ EOF
     echo "  init-pgsql [-db NAME] - setup and run the PostgreSQL server, install in $PG_PREFIX, data files in $PG_DIR, create initial database"
     echo "  run-pgsql - run local PostgreSQL server"
     echo "  stop-pgsql - stop local PostgreSQL server"
-    echo "  install-redis - install Redis server into $REDIS_PREFIX, removes current redis package if installed (Linux only)"
+    echo "  get-redis - install Redis server into $REDIS_PREFIX, removes current redis package if installed (Linux only)"
     echo "  init-redis - setup Redis server to be run on start and to be monitored (Linux only)"
     echo "  run-redis - run local Redis server, uses config file $REDIS_CONF"
     echo "  stop-redis - stop local Redis server"
@@ -1330,7 +1290,7 @@ EOF
     echo "  init-cassandra [-db DB] - download and initialize Cassandra, create initial keyspace, run the server"
     echo "  run-cassandra - run local Cassandra server installed in $CASSANDRA_PREFIX, data files in $CASSANDRA_DIR"
     echo "  stop-cassandra - stop local Cassandra server"
-    echo "  init-elasticsearch - download and install local ElasticSearch, start the server"
+    echo "  init-elasticsearch - download and install local ElasticSearch, start the server, configure monit"
     echo "  get-elasticsearch - install local ElasticSearch server in $BKJS_PREFIX/elasticsearch"
     echo "  run-elasticsearch - run local ElasticSearch server installed in $BKJS_PREFIX/elasticsearch"
     echo "  stop-elasticsearch - stop local ElasticSearch server"

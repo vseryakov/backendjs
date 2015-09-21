@@ -2102,6 +2102,19 @@ db.getColumn = function(table, name, options)
     return this.getColumns(table, options)[name];
 }
 
+// Check if the given index name corresponds to a real table column, for compound indexes the convention is to
+// concatenate all columns with underscore, if the index is not a column name check the last part if it is a column name
+// that can be used in sorting the results. This is for databases that do not support compound indexes.
+db.getSortingColumn = function(table, options)
+{
+    if (!options || !options.sort) return "";
+    var cols = this.getColumns(table, options);
+    if (cols[options.sort]) return options.sort;
+    var sort = options.sort.split("_").pop();
+    if (cols[sort]) return sort;
+    return "";
+}
+
 // Return a table definition which was used to create the table. This is different from cached table columns
 // and only contains the original properties which are merged with the cached properties of existing table.
 db.getTableProperties = function(table, options)

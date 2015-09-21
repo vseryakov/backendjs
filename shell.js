@@ -499,7 +499,7 @@ shell.awsFilterSubnets = function(subnets, zone, name)
 shell.awsGetInstances = function(rc)
 {
     var list = lib.objGet(rc, "DescribeInstancesResponse.reservationSet.item", { obj: 1 });
-    list = lib.objGet(list, "instancesSet.item", { list: 1 });
+    list = list.map(function(x) { return lib.objGet(x, "instancesSet.item"); });
     list.forEach(function(x) {
         x.name = lib.objGet(x, "tagSet.item", { list: 1 }).filter(function(x) { return x.key == "Name" }).map(function(x) { return x.value }).pop();
     });
@@ -899,10 +899,11 @@ shell.cmdAwsShowInstances = function(options)
            });
        },
        function(next) {
+           logger.debug("showInstances:", instances);
            if (core.isArg("-show-ip")) {
                console.log(instances.map(function(x) { return x.privateIpAddress }).join(" "));
            } else {
-               instances.forEach(function(x) { console.log(x.instanceId, x.privateIpAddress, x.publicIpAddress, x.name); });
+               instances.forEach(function(x) { console.log(x.instanceId, x.subnetId, x.privateIpAddress, x.ipAddress, x.name, x.keyName); });
            }
            next();
        },
