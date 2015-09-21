@@ -33,7 +33,7 @@ var server = require(__dirname + '/server');
 //
 var jobs = {
     // Config parameters
-    args: [{ name: "workers", type: "number", min: -1, max: 32, descr: "How many worker processes to launch to process the job queue, -1 disables jobs, 0 means launch as many as CPUs available" },
+    args: [{ name: "workers", type: "number", min: -1, max: 32, descr: "How many worker processes to launch to process the job queue, -1 disables jobs, 0 means launch as many as the CPUs available" },
            { name: "worker-cpu-factor", type: "real", min: 0, descr: "A number to multiply the number of CPUs available to make the total number of workers to launch, only used if `workers` is 0" },
            { name: "worker-args", type: "list", descr: "Node arguments for workers, for passing v8 jobspec, see `process`" },
            { name: "worker-env", type: "json", descr: "Environment to be passed to the worker via fork, see `cluster.fork`" },
@@ -61,7 +61,7 @@ var jobs = {
     shutdownTimeout: 1000,
     workers: -1,
     workerQueue: [],
-    workerCpuFactor: 0,
+    workerCpuFactor: 2,
     workerArgs: [],
     workerEnv: {},
 };

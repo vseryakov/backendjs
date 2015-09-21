@@ -42,6 +42,7 @@ var aws = {
     tokenExpiration: 0,
     amiProfile: "",
     tags: [],
+    ddbDefaultCapacity: 25,
 
     // DynamoDB reserved keywords
     ddbReserved: {
@@ -1644,8 +1645,8 @@ aws.ddbCreateTable = function(name, attrs, options, callback)
     var params = { TableName: name,
                    AttributeDefinitions: [],
                    KeySchema: [],
-                   ProvisionedThroughput: { ReadCapacityUnits: options.readCapacity || self.ddbReadCapacity || 10,
-                                            WriteCapacityUnits: options.writeCapacity || self.ddbWriteCapacity || 5 }};
+                   ProvisionedThroughput: { ReadCapacityUnits: options.readCapacity || self.ddbReadCapacity || self.ddbDefaultCapacity,
+                                            WriteCapacityUnits: options.writeCapacity || self.ddbWriteCapacity || self.ddbDefaultCapacity }};
 
     if (Array.isArray(attrs) && attrs.length) {
         params.AttributeDefinitions = attrs;
