@@ -5080,6 +5080,14 @@ If <code>options.names</code> is 1 then return just table names as a list</p>
 </ul>
 
 <ul>
+<li><p><code>db.getSortingColumn(table, options)</code></p>
+<p> Check if the given index name corresponds to a real table column, for compound indexes the convention is to
+concatenate all columns with underscore, if the index is not a column name check the last part if it is a column name
+that can be used in sorting the results. This is for databases that do not support compound indexes.</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>db.getTableProperties(table, options)</code></p>
 <p> Return a table definition which was used to create the table. This is different from cached table columns
 and only contains the original properties which are merged with the cached properties of existing table.</p>
@@ -7475,7 +7483,8 @@ db.query({ op: &quot;PUT&quot;, text: &quot;/db/url&quot;, obj: { a: 1 b: 2 } },
 <h2 id="module-db_elasticsearch">Module: DB_ELASTICSEARCH</h2>
 <ul>
 <li><p><code>db.elasticsearchInitPool(options)</code></p>
-<p> Create a database pool that works with ElasticSearch server</p>
+<p> Create a database pool that works with ElasticSearch server, the db pool connection url must include the index for all tables, like <a href="http://127.0.0.1:9200/billing">http://127.0.0.1:9200/billing</a>,
+if not given the default database name will be used.</p>
 </li>
 </ul>
 
