@@ -200,7 +200,7 @@ jobs.checkTimes = function()
             return this.exitWorker();
         }
     } else {
-        if (this.maxLifetime > 0 && Date.now() - core.ctime > this.maxLifetime * 1000) {
+        if (!this.jobs.length && this.maxLifetime > 0 && Date.now() - core.ctime > this.maxLifetime * 1000) {
             logger.log('checkLifetime:', 'jobs: exceeded max life time', this.maxLifetime);
             return this.exitWorker();
         }

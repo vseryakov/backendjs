@@ -4,10 +4,11 @@
  *
  */
 
-#ifndef _V_SQLITE_H_
-#define _V_SQLITE_H_
+#ifndef _BK_SQLITE_H_
+#define _BK_SQLITE_H_
 
 #include "bklib.h"
+#include "sqlite3.h"
 
 // Database intitalization
 void bkSqliteInit();

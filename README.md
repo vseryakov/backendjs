@@ -167,11 +167,11 @@ there should be a way to push config changes to the processes without restarting
 Every module defines a set of config parameters that define the behavior of the code, due to single threaded
 nature of the node.js, it is simple to update any config parameter to new value so the code can operate differently.
 To achieve this the code must be written in a special way, like driven by configuration which can be changed at
-any time. 
+any time.
 
 All configuration goes through the configuration proces that checks all input and produces valid output which
-is applied to the module variables. Config file or databse table with configuration can be load on demand or 
-periodically, for ecample all ocal config files are watched for modification and reloaded automaticlaly, the 
+is applied to the module variables. Config file or databse table with configuration can be load on demand or
+periodically, for ecample all ocal config files are watched for modification and reloaded automaticlaly, the
 config database is loaded periodically which is defined by another config parameter.
 
 # Backend runtime
@@ -1809,83 +1809,6 @@ The backend directory structure is the following:
 * `var` - database files created by the server
 * `tmp` - temporary files
 * `web` - Web pages served by the static Express middleware
-
-# Internal backend functions
-
-The backend includes internal C++ module which provide some useful functions available in the Javascript. The module is exposed as `utils` submodule, to see
-all functions for example run the below:
-
-        var bkjs = require('backendjs');
-        console.log(bkjs.utils)
-
-List of available functions:
- - `rungc()` - run V8 garbage collector on demand
- - `setsegv()` - install SEGV signal handler to show crash backtrace
- - `setbacktrace()` - install special V8-aware backtrace handler
- - `backtrace()` - show V8 backtrace from current position
- - `heapSnapshot(file)` - dump current memory heap snapshot into a file
- - `splitArray(str)` - split a string into an array separated by commas, supports double quotes
- - `logging([level])` - set or return logging level, this is internal C++ logging facility
- - `loggingChannel(channelname)` - redirect logging into stdout or stderr, this is internal C++ logging
- - `countWords(word, text)` - return how many time word appers in the text, uses Knuth-Morris-Pratt algorithm
- - `countAllWords(list, text)` - return an object with counters for each word from the list, i.e. how many times each word appears in the text, uses Aho-Corasick algorithm
- - `countWordsInit()` - clears word counting cache
- - `resizeImage(source, options, callback)` - resize image using ImageMagick,
-   - source can be a Buffer or file name
-   - options can have the following properties:
-     - width - output image width, if negative and the original image width is smaller than the specified, nothing happens
-     - height - output image height, if negative and the original image height is smaller this the specified, nothing happens
-     - quality - 0 -99
-     - out - output file name
-     - ext - image extention
- - `resizeImageSync(name,width,height,format,filter,quality,outfile)` - resize an image synchronically
- - `snappyCompress(str)` - compress a string
- - `snappyUncompress(str)` - decompress a string
- - `zlibCompress(str)` - compress a string
- - `zlibUncompress(str)` - decompress a string
- - `unzip(zipfile, outdir)` - extract a zip archive into directory
- - `unzipFile(zipfile, file [, outfile])` - extract a file from zip archive, return contents if no outfile s specified
- - `run(command, callback)` - run shell command and return all output to the callback
- - `getUser([user])` - return an object with user info from the /etc/passwd file, user can be uid or name
- - `getGroup([group])` - return an object with specified group info for the current user of for the given group id or name
- - Geohash support
-   - `geoDistance(lat1, lon1, lat2, lon2)` - return distance between 2 coordinates in km
-   - `geoBoundingBox(lat, lon, distance)` - return bounding box geohash for given point around distance
-   - `geoHashEncode(lat, lon, len)` - return geohash for given coordinate, len defines number of bytesin geohash
-   - `geoHashDecode(hash)` - return coordinates for given geohash
-   - `geoHashAdjacent()`
-   - `geoHashGrid()`
-   - `geoHashRow()`
- - Generic cache outside of V8 heap
-   - `cacheSave()` - general purpose caching functions that have no memory limits and do not use V8 heap
-   - `cachePut()`
-   - `cacheGet()`
-   - `cacheDel()`
-   - `cacheKeys()`
-   - `cacheClear()`
-   - `cacheNames()`
-   - `cacheSize()`
-   - `cacheEach()`
-   - `cacheForEach()`
-   - `cacheForEachNext()`
-   - `cacheBegin()`
-   - `cacheNext()`
- - LRU internal cache outside of V8 heap
-   - `lruInit(max)` - init LRU cache with max number of keys, this is in-memory cache which evicts older keys
-   - `lruStats()` - return statistics about the LRU cache
-   - `lruSize()` - return size of the current LRU cache
-   - `lruCount()` - number of keys in the LRU cache
-   - `lruPut(name, val)` - set/replace value by name
-   - `lruGet(name)` - return value by name
-   - `lruIncr(name, val)` - increase value by given number, non existent items assumed to be 0
-   - `lruDel(name)` - delete by name
-   - `lruKeys()` - return all cache key names
-   - `lruClear()` - clear LRU cache
-   - `lruServer()`
- - Syslog support
-   - `syslogInit(name, priority, facility)` - initialize syslog client, used by the logger module
-   - `syslogSend(level, text)`
-   - `syslogClose()`
 
 # Cache configurations
 Database layer support caching of the responses using `db.getCached` call, it retrieves exactly one record from the configured cache, if no record exists it

@@ -7,6 +7,56 @@
 #include "snappy.h"
 #include "bkunzip.h"
 
+static const unsigned int POLL_PERIOD_MS = 500;
+static unsigned int HIGH_WATER_MARK_MS = 70;
+static const unsigned int AVG_DECAY_FACTOR = 3;
+static uv_timer_t _busyTimer;
+static uint32_t _currentLag;
+static uint64_t _lastMark;
+
+static void busy_timer(uv_timer_t* handle, int status)
+{
+    uint64_t now = uv_hrtime();
+
+    if (_lastMark > 0) {
+        // keep track of (dampened) average lag.
+        uint32_t lag = (uint32_t) ((now - _lastMark) / 1000000);
+        lag = (lag < POLL_PERIOD_MS) ? 0 : lag - POLL_PERIOD_MS;
+        _currentLag = (lag + (_currentLag * (AVG_DECAY_FACTOR-1))) / AVG_DECAY_FACTOR;
+    }
+    _lastMark = now;
+}
+
+static NAN_METHOD(initBusy)
+{
+    NAN_OPTIONAL_ARGUMENT_INT(0, ms);
+
+    if (ms > 10) HIGH_WATER_MARK_MS = ms;
+
+    if ((long long)_busyTimer.data != 1970) {
+        uv_timer_init(uv_default_loop(), &_busyTimer);
+        uv_timer_start(&_busyTimer, busy_timer, POLL_PERIOD_MS, POLL_PERIOD_MS);
+        _busyTimer.data = (void*)1970;
+    }
+    NAN_RETURN(HIGH_WATER_MARK_MS);
+}
+
+static NAN_METHOD(isBusy)
+{
+    if (_currentLag > HIGH_WATER_MARK_MS) {
+        // probabilistically block requests proportional to how far behind we are.
+        double pctToBlock = ((_currentLag - HIGH_WATER_MARK_MS) / (double) HIGH_WATER_MARK_MS) * 100.0;
+        double r = (rand() / (double) RAND_MAX) * 100.0;
+        if (r < pctToBlock) NAN_RETURN(Nan::True());
+    }
+    NAN_RETURN(Nan::False());
+}
+
+static NAN_METHOD(getBusy)
+{
+    NAN_RETURN(_currentLag);
+}
+
 static NAN_METHOD(logging)
 {
     if (info.Length() > 0) {
@@ -14,7 +64,7 @@ static NAN_METHOD(logging)
         bkLog::set(*level);
     }
 
-    return info.GetReturnValue().Set(Nan::New(bkLog::level()));
+    NAN_RETURN(Nan::New(bkLog::level()));
 }
 
 static NAN_METHOD(loggingChannel)
@@ -24,7 +74,7 @@ static NAN_METHOD(loggingChannel)
         bkLog::setChannel(!strcmp(*name, "stderr") ? stderr : NULL);
     }
     FILE *fp = bkLog::getChannel();
-    return info.GetReturnValue().Set(Nan::New(fp == stderr ? "stderr" : "stdout").ToLocalChecked());
+    NAN_RETURN(Nan::New(fp == stderr ? "stderr" : "stdout").ToLocalChecked());
 }
 
 string stringifyJSON(Local<Value> obj)
@@ -135,7 +185,7 @@ static NAN_METHOD(countWords)
     NAN_REQUIRE_ARGUMENT_AS_STRING(0, word);
     NAN_REQUIRE_ARGUMENT_AS_STRING(1, text);
 
-    return info.GetReturnValue().Set(Nan::New(bkCountWords(*word, *text)));
+    NAN_RETURN(Nan::New(bkCountWords(*word, *text)));
 }
 
 static vector<bkAhoCorasick*> _wc;
@@ -227,7 +277,7 @@ static NAN_METHOD(geoHashEncode)
    NAN_OPTIONAL_ARGUMENT_INT(2, len);
 
    string hash = bkGeoHashEncode(lat, lon, len);
-   return info.GetReturnValue().Set(Nan::New(hash.c_str()).ToLocalChecked());
+   NAN_RETURN(Nan::New(hash.c_str()).ToLocalChecked());
 }
 
 static NAN_METHOD(geoHashDecode)
@@ -239,7 +289,7 @@ static NAN_METHOD(geoHashDecode)
    for (uint i = 0; i < rc.size(); i++) {
        result->Set(Nan::New(i), Nan::New(rc[i]));
    }
-   return info.GetReturnValue().Set(result);
+   NAN_RETURN(result);
 }
 
 static NAN_METHOD(geoHashAdjacent)
@@ -248,7 +298,7 @@ static NAN_METHOD(geoHashAdjacent)
    NAN_REQUIRE_ARGUMENT_STRING(1, dir);
 
    string hash = bkGeoHashAdjacent(*base, *dir);
-   return info.GetReturnValue().Set(Nan::New(hash.c_str()).ToLocalChecked());
+   NAN_RETURN(Nan::New(hash.c_str()).ToLocalChecked());
 }
 
 static bool isNumber(Local<Value> arg)
@@ -288,7 +338,7 @@ static NAN_METHOD(geoBoundingBox)
    for (uint i = 0; i < rc.size(); i++) {
        result->Set(Nan::New(i), Nan::New(rc[i]));
    }
-   return info.GetReturnValue().Set(result);
+   NAN_RETURN(result);
 }
 
 static NAN_METHOD(geoHashGrid)
@@ -304,7 +354,7 @@ static NAN_METHOD(geoHashGrid)
            result->Set(Nan::New(n++), Nan::New(rc[i][j].c_str()).ToLocalChecked());
        }
    }
-   return info.GetReturnValue().Set(result);
+   NAN_RETURN(result);
 }
 
 static NAN_METHOD(geoHashRow)
@@ -318,7 +368,7 @@ static NAN_METHOD(geoHashRow)
    for (uint i = 0; i < rc.size(); i++) {
        result->Set(Nan::New(i), Nan::New(rc[i].c_str()).ToLocalChecked());
    }
-   return info.GetReturnValue().Set(result);
+   NAN_RETURN(result);
 }
 
 static NAN_METHOD(snappyCompress)
@@ -374,11 +424,11 @@ static NAN_METHOD(unzipFile)
 
    if (info.Length() == 3) {
        int rc = bkUnzip::unzip(*zip, *file, *outfile);
-       return info.GetReturnValue().Set(Local<Integer>::New(Nan::New(rc)));
+       NAN_RETURN(Local<Integer>::New(Nan::New(rc)));
    }
 
    string out = bkUnzip::toString(*zip, *file);
-   return info.GetReturnValue().Set(Local<String>::New(String::New(out.c_str(), out.size())));
+   info.GetReturnValue().Set(Local<String>::New(String::New(out.c_str(), out.size())));
 }
 
 static NAN_METHOD(unzip)
@@ -424,7 +474,6 @@ void backend_init(Handle<Object> target)
     Nan::HandleScope scope;
 
     bkLibInit();
-    bkSqliteInit();
 
     DebugInit(target);
 
@@ -458,6 +507,10 @@ void backend_init(Handle<Object> target)
 
     NAN_EXPORT(target, unzipFile);
     NAN_EXPORT(target, unzip);
+
+    NAN_EXPORT(target, initBusy);
+    NAN_EXPORT(target, isBusy);
+    NAN_EXPORT(target, getBusy);
 
     CacheInit(target);
     SyslogInit(target);

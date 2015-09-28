@@ -818,7 +818,7 @@ case "$ARG" in
     ;;
 
   stop-redis)
-    killall -q redis-server
+    killall redis-server
     ;;
 
   init-mysql)

@@ -15,6 +15,7 @@
 #include <signal.h>
 #include <stdlib.h>
 #include <stdarg.h>
+#include <stdint.h>
 #include <inttypes.h>
 #include <errno.h>
 #include <sys/stat.h>
@@ -33,12 +34,6 @@
 #include <zlib.h>
 #include <execinfo.h>
 #include <syslog.h>
-
-#ifdef SQLITE3_MODULE
-#include "sqlite3ext.h"
-#else
-#include "sqlite3.h"
-#endif
 
 #ifdef __UNIX__
 #include <sys/ioctl.h>

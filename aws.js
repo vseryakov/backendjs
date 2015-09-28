@@ -1702,7 +1702,7 @@ aws.ddbCreateTable = function(name, attrs, options, callback)
     });
 
     this.queryDDB('CreateTable', params, options, function(err, item) {
-        if (err || options.nowait) return callback(err, item);
+        if (err || options.nowait) return callback(err, err ? { TableDescription: params } : item);
 
         // Wait because DynamoDB cannot create multiple tables at once especially with indexes
         options.waitStatus = "CREATING";
@@ -1753,7 +1753,7 @@ aws.ddbUpdateTable = function(options, callback)
                           KeySchema: [],
                           Projection: { ProjectionType: "KEYS_ONLY" },
                           ProvisionedThroughput: { ReadCapacityUnits: options.readCapacity || self.ddbReadCapacity || 10,
-                                                   WriteCapacityUnits: options.writeCapacity || self.ddbWriteCapacity || 5 }
+                                                   WriteCapacityUnits: options.writeCapacity || self.ddbWriteCapacity/2 || 5 }
             };
             for (var p in obj) {
                 if (lib.isEmpty(obj[p])) continue;

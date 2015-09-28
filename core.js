@@ -590,9 +590,9 @@ core.processArgs = function(ctx, argv, pass)
 
                 // Can be set only once
                 if (x.once) {
-                    if (!self._once) self._once = {};
-                    if (self._once[name]) return;
-                    self._once[name] = 1;
+                    if (!x._once) x._once = {};
+                    if (x._once[name]) return;
+                    x._once[name] = 1;
                 }
 
                 // Set the actual config variable name for further reference and easy access to the value
@@ -600,6 +600,7 @@ core.processArgs = function(ctx, argv, pass)
                     x._name = (oname ? oname + "." : "") + name;
                     x._key = key;
                 }
+                // Explicit clear
                 if (val == "<null>") val = null;
                 logger.debug("processArgs:", x.type || "str", ctx.name + "." + x._name, "(" + key + ")", "=", val);
                 switch (type) {

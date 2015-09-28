@@ -4,7 +4,7 @@
 //
 
 #include "bksqlite.h"
-#include <stdint.h>
+#include "bkregexp.h"
 
 // Convenience function to enable logging
 static void sqliteLogger(sqlite3_context *ctx, int argc, sqlite3_value **argv)

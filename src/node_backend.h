@@ -3,8 +3,8 @@
 //  April 2007
 //
 
-#ifndef _node_backend_H
-#define _node_backend_H
+#ifndef _BK_JS_H
+#define _BK_JS_H
 
 #include <node.h>
 #include <node_object_wrap.h>
@@ -14,12 +14,16 @@
 #include <v8-profiler.h>
 #include <uv.h>
 #include <nan.h>
-#include "bksqlite.h"
+#include "bklib.h"
+#include "bkzip.h"
+#include "bkregexp.h"
 
 using namespace node;
 using namespace v8;
 using namespace std;
 
+
+#define NAN_RETURN(x) info.GetReturnValue().Set(x)
 
 #define NAN_REQUIRE_ARGUMENT(i) if (info.Length() <= i || info[i]->IsUndefined()) Nan::ThrowError("Argument " #i " is required");
 #define NAN_REQUIRE_ARGUMENT_STRING(i, var) if (info.Length() <= (i) || !info[i]->IsString()) Nan::ThrowError("Argument " #i " must be a string"); Nan::Utf8String var(info[i]->ToString());
@@ -51,9 +55,15 @@ using namespace std;
 #define NAN_OPTIONAL_ARGUMENT_ARRAY(i, var) Local<Array> var(info.Length() > (i) && info[i]->IsArray() ? Local<Array>::Cast(info[i]) : Local<Array>::New(Array::New()));
 #define NAN_OPTIONAL_ARGUMENT_OBJECT(i, var) Local<Object> var(info.Length() > (i) && info[i]->IsObject() ? Local<Object>::Cast(info[i]) : Local<Object>::New(Object::New()));
 
+#define NAN_GETOPTS_BOOL(obj,opts,name) if (!obj.IsEmpty()) { Local<String> name(String::New(#name)); if (obj->Has(name)) opts.name = obj->Get(name)->BooleanValue(); }
+#define NAN_GETOPTS_INT(obj,opts,name) if (!obj.IsEmpty()) { Local<String> name(String::New(#name)); if (obj->Has(name)) opts.name = obj->Get(name)->ToInt32()->Value(); }
+#define NAN_GETOPTS_INTVAL(obj,opts,name,expr) if (!obj.IsEmpty()) { Local<String> name(String::New(#name)); if (obj->Has(name)) { int val = obj->Get(name)->ToInt32()->Value(); opts.name = (expr); }}
+
 #define NAN_TRY_CATCH_CALL(context, callback, argc, argv) { Nan::TryCatch try_catch; (callback)->Call((context), (argc), (argv)); if (try_catch.HasCaught()) FatalException(try_catch); }
 #define NAN_TRY_CATCH_CALL_RETURN(context, callback, argc, argv, rc) { Nan::TryCatch try_catch; (callback)->Call((context), (argc), (argv)); if (try_catch.HasCaught()) { FatalException(try_catch); return rc; }}
 
+#define NAN_DEFINE_CONSTANT_INTEGER(target, constant, name) (target)->Set(Nan::New(#name).ToLocalChecked(),Nan::New(constant),static_cast<PropertyAttribute>(ReadOnly | DontDelete) );
+#define NAN_DEFINE_CONSTANT_STRING(target, constant, name) (target)->Set(Nan::New(#name).ToLocalChecked(),Nan::New(constant).ToLocalChecked(),static_cast<PropertyAttribute>(ReadOnly | DontDelete));
 
 #define REQUIRE_ARGUMENT(i) if (args.Length() <= i || args[i]->IsUndefined()) return ThrowException(Exception::TypeError(String::New("Argument " #i " is required")));
 #define REQUIRE_ARGUMENT_STRING(i, var) if (args.Length() <= (i) || !args[i]->IsString()) return ThrowException(Exception::TypeError(String::New("Argument " #i " must be a string"))); String::Utf8Value var(args[i]->ToString());

@@ -14,14 +14,13 @@
 #include "leveldb/write_batch.h"
 #include "leveldb/filter_policy.h"
 
-#define BATON_ERROR(baton) if (!baton->status.ok()) { string err(baton->status.ToString()); delete baton; return ThrowException(Exception::Error(String::New(err.c_str()))); }
+#define BATON_ERROR(baton) if (!baton->status.ok()) { string err(baton->status.ToString()); delete baton; Nan::ThrowError(err.c_str()); }
 
-class LevelDB: public ObjectWrap {
+class LevelDB: public Nan::ObjectWrap {
 public:
 
-    static Persistent<FunctionTemplate> constructor_template;
+    static Nan::Persistent<v8::Function> constructor;
     static void Init(Handle<Object> target);
-    static inline bool HasInstance(Handle<Value> val) { return constructor_template->HasInstance(val); }
 
     struct Options {
         Options(): count(0), desc(0), begins_with(0), select(0) {}
@@ -56,43 +55,43 @@ public:
             callback.Dispose();
         }
         void GetReadOptions(Handle<Object> obj) {
-            HandleScope scope;
-            readOptions.snapshot = db->snapshot;
-            GETOPTS_BOOL(obj, readOptions, fill_cache);
-            GETOPTS_BOOL(obj, readOptions, verify_checksums);
+            Nan::HandleScope scope;
+            readOptions.snapshot = db->_snapshot;
+            NAN_GETOPTS_BOOL(obj, readOptions, fill_cache);
+            NAN_GETOPTS_BOOL(obj, readOptions, verify_checksums);
         }
         void GetWriteOptions(Handle<Object> obj) {
             GETOPTS_BOOL(obj, writeOptions, sync);
         }
         void GetBatchOptions(Handle<Array> items) {
-            HandleScope scope;
+            Nan::HandleScope scope;
             for (uint i = 0; i < items->Length(); i++) {
                 Local<Value> item = items->Get(i);
                 if (item->IsString()) {
-                    String::Utf8Value del(item);
+                    Nan::Utf8String del(item);
                     list.push_back(pair<string,string>(*del, ""));
                 } else
                 if (item->IsArray()) {
                     Local<Array> put = Local<Array>::Cast(item);
                     if (put->Length() != 2) continue;
-                    String::Utf8Value key(put->Get(0));
-                    String::Utf8Value val(put->Get(1));
+                    Nan::Utf8String key(put->Get(0));
+                    Nan::Utf8String val(put->Get(1));
                     list.push_back(pair<string,string>(*key, *val));
                 }
             }
         }
     };
 
-    LevelDB(string file_) : ObjectWrap(), file(file_), handle(NULL), snapshot(NULL) {}
+    LevelDB(string file_) : Nan::ObjectWrap(), _file(file_), _handle(NULL), _snapshot(NULL) {}
     ~LevelDB() { Close(); }
 
     void Close() {
-        if (handle) delete handle;
-        handle = NULL;
+        if (_handle) delete _handle;
+        _handle = NULL;
     }
 
     static leveldb::Options GetOptions(Handle<Object> obj) {
-        HandleScope scope;
+        Nan::HandleScope scope;
 
         leveldb::Options options;
         GETOPTS_BOOL(obj, options, paranoid_checks);
@@ -107,37 +106,38 @@ public:
         return options;
     }
 
-    static Handle<Value> New(const Arguments& args);
+    static NAN_METHOD(New);
+    static NAN_GETTER(OpenGetter1);
     static Handle<Value> OpenGetter(Local<String> str, const AccessorInfo& accessor);
 
     static void Work_Open(uv_work_t* req);
     static void Work_After(uv_work_t* req);
 
-    static Handle<Value> Select(const Arguments& args);
+    static NAN_METHOD(Select);
     static void Work_Select(uv_work_t* req);
-    static Handle<Value> Get(const Arguments& args);
+    static NAN_METHOD(Get);
     static void Work_Get(uv_work_t* req);
-    static Handle<Value> Put(const Arguments& args);
+    static NAN_METHOD(Put);
     static void Work_Put(uv_work_t* req);
-    static Handle<Value> Close(const Arguments& args);
+    static NAN_METHOD(Close);
     static void Work_Close(uv_work_t* req);
-    static Handle<Value> Del(const Arguments& args);
+    static NAN_METHOD(Del);
     static void Work_Del(uv_work_t* req);
-    static Handle<Value> Batch(const Arguments& args);
+    static NAN_METHOD(Batch);
     static void Work_Batch(uv_work_t* req);
-    static Handle<Value> Incr(const Arguments& args);
+    static NAN_METHOD(Incr);
     static void Work_Incr(uv_work_t* req);
 
-    static Handle<Value> GetProperty(const Arguments& args);
-    static Handle<Value> GetSnapshot(const Arguments& args);
-    static Handle<Value> ReleaseSnapshot(const Arguments& args);
+    static NAN_METHOD(GetProperty);
+    static NAN_METHOD(GetSnapshot);
+    static NAN_METHOD(ReleaseSnapshot);
 
-    static Handle<Value> ServerStart(const Arguments& args);
-    static Handle<Value> ServerStop(const Arguments& args);
+    static NAN_METHOD(ServerStart);
+    static NAN_METHOD(ServerStop);
 
-    string file;
-    leveldb::DB *handle;
-    const leveldb::Snapshot *snapshot;
+    string _file;
+    leveldb::DB *_handle;
+    const leveldb::Snapshot *_snapshot;
 };
 
 struct LDBBaton {
@@ -157,59 +157,63 @@ struct LDBBaton {
     }
 };
 
-Persistent<FunctionTemplate> LevelDB::constructor_template;
+Nan::Persistent<v8::Function> LevelDB::constructor;
+
+NAN_GETTER(LevelDB::OpenGetter1)
+{
+    LevelDB* db = ObjectWrap::Unwrap < LevelDB > (info.Holder());
+    NAN_RETURN(Nan::New(db->_handle != NULL));
+}
 
 Handle<Value> LevelDB::OpenGetter(Local<String> str, const AccessorInfo& accessor)
 {
     HandleScope scope;
     LevelDB* db = ObjectWrap::Unwrap < LevelDB > (accessor.This());
-    return Boolean::New(db->handle != NULL);
+    return scope.Close(Boolean::New(db->_handle != NULL));
 }
 
-Handle<Value> LevelDB::GetProperty(const Arguments& args)
+NAN_METHOD(LevelDB::GetProperty)
 {
-    HandleScope scope;
-    LevelDB* db = ObjectWrap::Unwrap < LevelDB > (args.This());
+    Nan::HandleScope scope;
+    LevelDB* db = ObjectWrap::Unwrap < LevelDB > (info.Holder());
 
-    REQUIRE_ARGUMENT_STRING(0, name);
+    NAN_REQUIRE_ARGUMENT_STRING(0, name);
     string val;
-    db->handle->GetProperty(*name, &val);
-    return scope.Close(String::New(val.c_str()));
+    db->_handle->GetProperty(*name, &val);
+    NAN_RETURN(Nan::New(val.c_str()).ToLocalChecked());
 }
 
-Handle<Value> LevelDB::GetSnapshot(const Arguments& args)
+NAN_METHOD(LevelDB::GetSnapshot)
 {
-    HandleScope scope;
-    LevelDB* db = ObjectWrap::Unwrap < LevelDB > (args.This());
+    Nan::HandleScope scope;
+    LevelDB* db = ObjectWrap::Unwrap < LevelDB > (info.Holder());
 
-    if (db->snapshot) db->handle->ReleaseSnapshot(db->snapshot);
-    db->snapshot = db->handle->GetSnapshot();
-    return args.This();
+    if (db->_snapshot) db->_handle->ReleaseSnapshot(db->_snapshot);
+    db->_snapshot = db->_handle->GetSnapshot();
 }
 
-Handle<Value> LevelDB::ReleaseSnapshot(const Arguments& args)
+NAN_METHOD(LevelDB::ReleaseSnapshot)
 {
-    HandleScope scope;
-    LevelDB* db = ObjectWrap::Unwrap < LevelDB > (args.This());
+    Nan::HandleScope scope;
+    LevelDB* db = ObjectWrap::Unwrap < LevelDB > (info.Holder());
 
-    if (db->snapshot) db->handle->ReleaseSnapshot(db->snapshot);
-    db->snapshot = NULL;
-    return args.This();
+    if (db->_snapshot) db->_handle->ReleaseSnapshot(db->_snapshot);
+    db->_snapshot = NULL;
 }
 
-Handle<Value> LevelDB::New(const Arguments& args)
+NAN_METHOD(LevelDB::New)
 {
-    HandleScope scope;
+    Nan::HandleScope scope;
 
-    if (!args.IsConstructCall()) return ThrowException(Exception::TypeError(String::NewSymbol("Use the new operator to create new Database objects")));
+    if (!info.IsConstructCall()) return Nan::ThrowError("Use the new operator to create new Database objects");
 
-    REQUIRE_ARGUMENT_STRING(0, filename);
-    OPTIONAL_ARGUMENT_OBJECT(1, opts);
-    OPTIONAL_ARGUMENT_FUNCTION(-1, callback);
+    NAN_REQUIRE_ARGUMENT_STRING(0, filename);
+    NAN_OPTIONAL_ARGUMENT_OBJECT(1, opts);
+    NAN_OPTIONAL_ARGUMENT_FUNCTION(-1, callback);
 
     LevelDB* db = new LevelDB(*filename);
-    db->Wrap(args.This());
-    args.This()->Set(String::NewSymbol("filename"), args[0]->ToString(), ReadOnly);
+    db->Wrap(info.This());
+    info.This()->Set(Nan::New("filename").ToLocalChecked(), info[0]->ToString(), ReadOnly);
     leveldb::Options options = GetOptions(opts);
 
     if (!callback.IsEmpty()) {
@@ -217,40 +221,40 @@ Handle<Value> LevelDB::New(const Arguments& args)
         baton->options = options;
         uv_queue_work(uv_default_loop(), &baton->request, Work_Open, (uv_after_work_cb)Work_After);
     } else {
-        leveldb::Status status = leveldb::DB::Open(options, *filename, &db->handle);
+        leveldb::Status status = leveldb::DB::Open(options, *filename, &db->_handle);
         if (!status.ok()) {
             db->Close();
-            return ThrowException(Exception::Error(String::New(status.ToString().c_str())));
+            Nan::ThrowError(status.ToString().c_str());
         }
     }
-    return args.This();
+    NAN_RETURN(info.This());
 }
 
 void LevelDB::Work_Open(uv_work_t* req)
 {
     LDBBaton* baton = static_cast<LDBBaton*>(req->data);
 
-    baton->status = leveldb::DB::Open(baton->options, baton->db->file, &baton->db->handle);
+    baton->status = leveldb::DB::Open(baton->options, baton->db->_file, &baton->db->_handle);
     if (!baton->status.ok()) baton->db->Close();
 }
 
 void LevelDB::Work_After(uv_work_t* req)
 {
-    HandleScope scope;
+    Nan::HandleScope scope;
     LDBBaton* baton = static_cast<LDBBaton*>(req->data);
 
     if (!baton->callback.IsEmpty() && baton->callback->IsFunction()) {
         Local<Value> argv[2] = { Local<Value>::New(Null()), Local<Value>::New(Null()) };
-        if (!baton->status.ok()) argv[0] = Local<Value>::New(Exception::Error(String::New(baton->status.ToString().c_str())));
+        if (!baton->status.ok()) argv[0] = Nan::Error(baton->status.ToString().c_str());
         if (baton->value.size()) {
-            argv[1] = Local<Value>::New(String::New(baton->value.c_str()));
+            argv[1] = Nan::New(baton->value.c_str()).ToLocalChecked();
         } else
         if (baton->list.size() || baton->opts.select) {
             argv[1] = Local<Value>::New(toArray(baton->list));
         } else {
-            argv[1] = Local<Number>::New(Number::New(baton->num));
+            argv[1] = Nan::New((double)baton->num);
         }
-        TRY_CATCH_CALL(baton->db->handle_, baton->callback, 2, argv);
+        NAN_TRY_CATCH_CALL(baton->db->handle(), baton->callback, 2, argv);
     } else
     if (!baton->status.ok()) {
         LogError("%s", baton->status.ToString().c_str());
@@ -258,12 +262,12 @@ void LevelDB::Work_After(uv_work_t* req)
     delete baton;
 }
 
-Handle<Value> LevelDB::Close(const Arguments& args)
+NAN_METHOD(LevelDB::Close)
 {
-    HandleScope scope;
-    LevelDB* db = ObjectWrap::Unwrap < LevelDB > (args.This());
+    Nan::HandleScope scope;
+    LevelDB* db = ObjectWrap::Unwrap < LevelDB > (info.Holder());
 
-    EXPECT_ARGUMENT_FUNCTION(0, callback);
+    NAN_EXPECT_ARGUMENT_FUNCTION(0, callback);
 
     if (callback.IsEmpty()) {
         db->Close();
@@ -271,7 +275,6 @@ Handle<Value> LevelDB::Close(const Arguments& args)
         LDBBaton* baton = new LDBBaton(db, callback);
         uv_queue_work(uv_default_loop(), &baton->request, Work_Close, (uv_after_work_cb)Work_After);
     }
-    return args.This();
 }
 
 void LevelDB::Work_Close(uv_work_t* req)
@@ -281,14 +284,14 @@ void LevelDB::Work_Close(uv_work_t* req)
     baton->db->Close();
 }
 
-Handle<Value> LevelDB::Get(const Arguments& args)
+NAN_METHOD(LevelDB::Get)
 {
-    HandleScope scope;
-    LevelDB* db = ObjectWrap::Unwrap < LevelDB > (args.This());
+    Nan::HandleScope scope;
+    LevelDB* db = ObjectWrap::Unwrap < LevelDB > (info.Holder());
 
-    REQUIRE_ARGUMENT_STRING(0, key);
-    OPTIONAL_ARGUMENT_OBJECT(1, opts);
-    OPTIONAL_ARGUMENT_FUNCTION(-1, callback);
+    NAN_REQUIRE_ARGUMENT_STRING(0, key);
+    NAN_OPTIONAL_ARGUMENT_OBJECT(1, opts);
+    NAN_OPTIONAL_ARGUMENT_FUNCTION(-1, callback);
 
     LDBBaton* baton = new LDBBaton(db, callback);
     baton->GetReadOptions(opts);
@@ -298,57 +301,54 @@ Handle<Value> LevelDB::Get(const Arguments& args)
         BATON_ERROR(baton);
         string value = baton->value;
         delete baton;
-        return scope.Close(String::New(value.c_str()));
+        NAN_RETURN(Nan::New(value.c_str()).ToLocalChecked());
     } else {
         uv_queue_work(uv_default_loop(), &baton->request, Work_Get, (uv_after_work_cb)Work_After);
     }
-
-    return args.This();
 }
 
 void LevelDB::Work_Get(uv_work_t* req)
 {
     LDBBaton* baton = static_cast<LDBBaton*>(req->data);
 
-    baton->status = baton->db->handle->Get(baton->readOptions, baton->key, &baton->value);
+    baton->status = baton->db->_handle->Get(baton->readOptions, baton->key, &baton->value);
     if (!baton->status.ok() && baton->status.IsNotFound()) baton->status = leveldb::Status::OK();
 }
 
-Handle<Value> LevelDB::Select(const Arguments& args)
+NAN_METHOD(LevelDB::Select)
 {
-    HandleScope scope;
-    LevelDB* db = ObjectWrap::Unwrap < LevelDB > (args.This());
+    Nan::HandleScope scope;
+    LevelDB* db = ObjectWrap::Unwrap < LevelDB > (info.Holder());
 
-    REQUIRE_ARGUMENT_STRING(0, start);
-    REQUIRE_ARGUMENT_STRING(1, end);
-    OPTIONAL_ARGUMENT_OBJECT(2, opts);
-    OPTIONAL_ARGUMENT_FUNCTION(-1, callback);
+    NAN_REQUIRE_ARGUMENT_STRING(0, start);
+    NAN_REQUIRE_ARGUMENT_STRING(1, end);
+    NAN_OPTIONAL_ARGUMENT_OBJECT(2, opts);
+    NAN_OPTIONAL_ARGUMENT_FUNCTION(-1, callback);
 
     LDBBaton* baton = new LDBBaton(db, callback);
     baton->GetReadOptions(opts);
     baton->key = *start;
     baton->end = *end;
     baton->opts.select = 1;
-    GETOPTS_BOOL(opts, baton->opts, desc);
-    GETOPTS_BOOL(opts, baton->opts, begins_with);
-    GETOPTS_INT(opts, baton->opts, count);
+    NAN_GETOPTS_BOOL(opts, baton->opts, desc);
+    NAN_GETOPTS_BOOL(opts, baton->opts, begins_with);
+    NAN_GETOPTS_INT(opts, baton->opts, count);
     if (callback.IsEmpty()) {
         Work_Select(&baton->request);
         BATON_ERROR(baton);
-        Handle<Value> rc = toArray(baton->list);
+        Local<Value> rc = toArray(baton->list);
         delete baton;
-        return scope.Close(rc);
+        NAN_RETURN(rc);
     } else {
         uv_queue_work(uv_default_loop(), &baton->request, Work_Select, (uv_after_work_cb)Work_After);
     }
-    return args.This();
 }
 
 void LevelDB::Work_Select(uv_work_t* req)
 {
     LDBBaton* baton = static_cast<LDBBaton*>(req->data);
 
-    leveldb::Iterator* it = baton->db->handle->NewIterator(baton->readOptions);
+    leveldb::Iterator* it = baton->db->_handle->NewIterator(baton->readOptions);
     if (baton->key.size()) it->Seek(baton->key); else it->SeekToFirst();
     while (it->Valid()) {
         const string &key = it->key().ToString();
@@ -370,15 +370,15 @@ void LevelDB::Work_Select(uv_work_t* req)
     delete it;
 }
 
-Handle<Value> LevelDB::Put(const Arguments& args)
+NAN_METHOD(LevelDB::Put)
 {
-    HandleScope scope;
-    LevelDB* db = ObjectWrap::Unwrap < LevelDB > (args.This());
+    Nan::HandleScope scope;
+    LevelDB* db = ObjectWrap::Unwrap < LevelDB > (info.Holder());
 
-    REQUIRE_ARGUMENT_STRING(0, key);
-    REQUIRE_ARGUMENT_STRING(1, value);
-    OPTIONAL_ARGUMENT_OBJECT(2, opts);
-    OPTIONAL_ARGUMENT_FUNCTION(-1, callback);
+    NAN_REQUIRE_ARGUMENT_STRING(0, key);
+    NAN_REQUIRE_ARGUMENT_STRING(1, value);
+    NAN_OPTIONAL_ARGUMENT_OBJECT(2, opts);
+    NAN_OPTIONAL_ARGUMENT_FUNCTION(-1, callback);
 
     LDBBaton* baton = new LDBBaton(db, callback);
     baton->GetWriteOptions(opts);
@@ -392,25 +392,24 @@ Handle<Value> LevelDB::Put(const Arguments& args)
     } else {
         uv_queue_work(uv_default_loop(), &baton->request, Work_Put, (uv_after_work_cb)Work_After);
     }
-    return args.This();
 }
 
 void LevelDB::Work_Put(uv_work_t* req)
 {
     LDBBaton* baton = static_cast<LDBBaton*>(req->data);
 
-    baton->status = baton->db->handle->Put(baton->writeOptions, baton->key, baton->value);
+    baton->status = baton->db->_handle->Put(baton->writeOptions, baton->key, baton->value);
 }
 
-Handle<Value> LevelDB::Incr(const Arguments& args)
+NAN_METHOD(LevelDB::Incr)
 {
-    HandleScope scope;
-    LevelDB* db = ObjectWrap::Unwrap < LevelDB > (args.This());
+    Nan::HandleScope scope;
+    LevelDB* db = ObjectWrap::Unwrap < LevelDB > (info.Holder());
 
-    REQUIRE_ARGUMENT_STRING(0, key);
-    REQUIRE_ARGUMENT_NUMBER(1, n);
-    OPTIONAL_ARGUMENT_OBJECT(2, opts);
-    OPTIONAL_ARGUMENT_FUNCTION(-1, callback);
+    NAN_REQUIRE_ARGUMENT_STRING(0, key);
+    NAN_REQUIRE_ARGUMENT_NUMBER(1, n);
+    NAN_OPTIONAL_ARGUMENT_OBJECT(2, opts);
+    NAN_OPTIONAL_ARGUMENT_FUNCTION(-1, callback);
 
     LDBBaton* baton = new LDBBaton(db, callback);
     baton->GetWriteOptions(opts);
@@ -424,30 +423,29 @@ Handle<Value> LevelDB::Incr(const Arguments& args)
     } else {
         uv_queue_work(uv_default_loop(), &baton->request, Work_Incr, (uv_after_work_cb)Work_After);
     }
-    return args.This();
 }
 
 void LevelDB::Work_Incr(uv_work_t* req)
 {
     LDBBaton* baton = static_cast<LDBBaton*>(req->data);
 
-    baton->status = baton->db->handle->Get(baton->readOptions, baton->key, &baton->value);
+    baton->status = baton->db->_handle->Get(baton->readOptions, baton->key, &baton->value);
     if (!baton->status.ok() && baton->status.IsNotFound()) baton->status = leveldb::Status::OK();
     if (baton->status.ok()) {
         baton->value = bkFmtStr("%lld", atoll(baton->value.c_str()) + baton->num);
-        baton->status = baton->db->handle->Put(baton->writeOptions, baton->key, baton->value);
+        baton->status = baton->db->_handle->Put(baton->writeOptions, baton->key, baton->value);
         if (baton->status.ok()) baton->num = atoll(baton->value.c_str());
     }
 }
 
-Handle<Value> LevelDB::Del(const Arguments& args)
+NAN_METHOD(LevelDB::Del)
 {
-    HandleScope scope;
-    LevelDB* db = ObjectWrap::Unwrap < LevelDB > (args.This());
+    Nan::HandleScope scope;
+    LevelDB* db = ObjectWrap::Unwrap < LevelDB > (info.Holder());
 
-    REQUIRE_ARGUMENT_STRING(0, key);
-    OPTIONAL_ARGUMENT_OBJECT(2, opts);
-    OPTIONAL_ARGUMENT_FUNCTION(-1, callback);
+    NAN_REQUIRE_ARGUMENT_STRING(0, key);
+    NAN_OPTIONAL_ARGUMENT_OBJECT(2, opts);
+    NAN_OPTIONAL_ARGUMENT_FUNCTION(-1, callback);
 
     LDBBaton* baton = new LDBBaton(db, callback);
     baton->GetWriteOptions(opts);
@@ -460,24 +458,23 @@ Handle<Value> LevelDB::Del(const Arguments& args)
     } else {
         uv_queue_work(uv_default_loop(), &baton->request, Work_Del, (uv_after_work_cb)Work_After);
     }
-    return args.This();
 }
 
 void LevelDB::Work_Del(uv_work_t* req)
 {
     LDBBaton* baton = static_cast<LDBBaton*>(req->data);
 
-    baton->status = baton->db->handle->Delete(baton->writeOptions, baton->key);
+    baton->status = baton->db->_handle->Delete(baton->writeOptions, baton->key);
 }
 
-Handle<Value> LevelDB::Batch(const Arguments& args)
+NAN_METHOD(LevelDB::Batch)
 {
-    HandleScope scope;
-    LevelDB* db = ObjectWrap::Unwrap < LevelDB > (args.This());
+    Nan::HandleScope scope;
+    LevelDB* db = ObjectWrap::Unwrap < LevelDB > (info.Holder());
 
-    REQUIRE_ARGUMENT_ARRAY(0, list);
-    OPTIONAL_ARGUMENT_OBJECT(1, opts);
-    OPTIONAL_ARGUMENT_FUNCTION(-1, callback);
+    NAN_REQUIRE_ARGUMENT_ARRAY(0, list);
+    NAN_OPTIONAL_ARGUMENT_OBJECT(1, opts);
+    NAN_OPTIONAL_ARGUMENT_FUNCTION(-1, callback);
 
     LDBBaton* baton = new LDBBaton(db, callback);
     baton->GetWriteOptions(opts);
@@ -490,7 +487,6 @@ Handle<Value> LevelDB::Batch(const Arguments& args)
     } else {
         uv_queue_work(uv_default_loop(), &baton->request, Work_Put, (uv_after_work_cb)Work_After);
     }
-    return args.This();
 }
 
 void LevelDB::Work_Batch(uv_work_t* req)
@@ -506,17 +502,17 @@ void LevelDB::Work_Batch(uv_work_t* req)
         }
     }
     baton->list.clear();
-    baton->status = baton->db->handle->Write(baton->writeOptions, &batch);
+    baton->status = baton->db->_handle->Write(baton->writeOptions, &batch);
 }
 
 static void Work_After(uv_work_t* req)
 {
-    HandleScope scope;
+    Nan::HandleScope scope;
     LDBBaton* baton = static_cast<LDBBaton*>(req->data);
 
     if (!baton->callback.IsEmpty() && baton->callback->IsFunction()) {
-        Local <Value> argv[1] = { Local<Value>::New(Null()) };
-        if (!baton->status.ok()) argv[0] = Local<Value>::New(Exception::Error(String::New(baton->status.ToString().c_str())));
+        Local <Value> argv[1] = { Nan::Null() };
+        if (!baton->status.ok()) argv[0] = Nan::Error(baton->status.ToString().c_str());
         TRY_CATCH_CALL(Context::GetCurrent()->Global(), baton->callback, 1, argv);
     } else
     if (!baton->status.ok()) {
@@ -533,20 +529,18 @@ static void Work_Destroy(uv_work_t* req)
     leveldb::DestroyDB(baton->key, baton->options);
 }
 
-Handle<Value> DestroyDB(const Arguments& args)
+static NAN_METHOD(destroyDB)
 {
-    HandleScope scope;
+    Nan::HandleScope scope;
 
-    REQUIRE_ARGUMENT_STRING(0, name);
-    OPTIONAL_ARGUMENT_OBJECT(1, opts);
-    OPTIONAL_ARGUMENT_FUNCTION(-1, callback);
+    NAN_REQUIRE_ARGUMENT_STRING(0, name);
+    NAN_OPTIONAL_ARGUMENT_OBJECT(1, opts);
+    NAN_OPTIONAL_ARGUMENT_FUNCTION(-1, callback);
 
     LDBBaton* baton = new LDBBaton(callback);
     baton->options = LevelDB::GetOptions(opts);
 
     uv_queue_work(uv_default_loop(), &baton->request, Work_Destroy, (uv_after_work_cb)Work_After);
-
-    return args.This();
 }
 
 static void Work_Repair(uv_work_t* req)
@@ -556,55 +550,52 @@ static void Work_Repair(uv_work_t* req)
     leveldb::RepairDB(baton->key, baton->options);
 }
 
-Handle<Value> RepairDB(const Arguments& args)
+static NAN_METHOD(repairDB)
 {
-    HandleScope scope;
+    Nan::HandleScope scope;
 
-    REQUIRE_ARGUMENT_STRING(0, name);
-    OPTIONAL_ARGUMENT_OBJECT(1, opts);
-    OPTIONAL_ARGUMENT_FUNCTION(-1, callback);
+    NAN_REQUIRE_ARGUMENT_STRING(0, name);
+    NAN_OPTIONAL_ARGUMENT_OBJECT(1, opts);
+    NAN_OPTIONAL_ARGUMENT_FUNCTION(-1, callback);
 
     LDBBaton* baton = new LDBBaton(callback);
     baton->options = LevelDB::GetOptions(opts);
 
     uv_queue_work(uv_default_loop(), &baton->request, Work_Repair, (uv_after_work_cb)Work_After);
-
-    return args.This();
 }
 
 void LevelDB::Init(Handle<Object> target)
 {
-    HandleScope scope;
+    Nan::HandleScope scope;
 
-    Local < FunctionTemplate > t = FunctionTemplate::New(New);
-    constructor_template = Persistent < FunctionTemplate > ::New(t);
-    constructor_template->InstanceTemplate()->SetInternalFieldCount(1);
-    constructor_template->InstanceTemplate()->SetAccessor(String::NewSymbol("open"), OpenGetter);
-    constructor_template->SetClassName(String::NewSymbol("LevelDB"));
+    v8::Local<v8::FunctionTemplate> t = Nan::New<v8::FunctionTemplate>(New);
+    t->SetClassName(Nan::New("LevelDB").ToLocalChecked());
+    t->InstanceTemplate()->SetInternalFieldCount(1);
+    t->InstanceTemplate()->SetAccessor(Nan::New("open").ToLocalChecked(), OpenGetter);
 
-    NODE_SET_PROTOTYPE_METHOD(constructor_template, "close", Close);
-    NODE_SET_PROTOTYPE_METHOD(constructor_template, "get", Get);
-    NODE_SET_PROTOTYPE_METHOD(constructor_template, "put", Put);
-    NODE_SET_PROTOTYPE_METHOD(constructor_template, "incr", Incr);
-    NODE_SET_PROTOTYPE_METHOD(constructor_template, "del", Del);
-    NODE_SET_PROTOTYPE_METHOD(constructor_template, "select", Select);
-    NODE_SET_PROTOTYPE_METHOD(constructor_template, "batch", Batch);
+    Nan::SetPrototypeMethod(t, "close", Close);
+    Nan::SetPrototypeMethod(t, "get", Get);
+    Nan::SetPrototypeMethod(t, "put", Put);
+    Nan::SetPrototypeMethod(t, "incr", Incr);
+    Nan::SetPrototypeMethod(t, "del", Del);
+    Nan::SetPrototypeMethod(t, "select", Select);
+    Nan::SetPrototypeMethod(t, "batch", Batch);
+    Nan::SetPrototypeMethod(t, "getProperty", GetProperty);
+    Nan::SetPrototypeMethod(t, "getSnapshot", GetSnapshot);
+    Nan::SetPrototypeMethod(t, "releaseSnapshot", ReleaseSnapshot);
 
-    NODE_SET_PROTOTYPE_METHOD(constructor_template, "getProperty", GetProperty);
-    NODE_SET_PROTOTYPE_METHOD(constructor_template, "getSnapshot", GetSnapshot);
-    NODE_SET_PROTOTYPE_METHOD(constructor_template, "releaseSnapshot", ReleaseSnapshot);
-
-    target->Set(String::NewSymbol("LevelDB"), constructor_template->GetFunction());
+    constructor.Reset(t->GetFunction());
+    target->Set(Nan::New("LevelDB").ToLocalChecked(), t->GetFunction());
 }
 
 void LevelDBInit(Handle<Object> target)
 {
-    HandleScope scope;
+    Nan::HandleScope scope;
 
     LevelDB::Init(target);
 
-    NODE_SET_METHOD(target, "destroyDB", DestroyDB);
-    NODE_SET_METHOD(target, "repairDB", RepairDB);
+    NAN_EXPORT(target, destroyDB);
+    NAN_EXPORT(target, repairDB);
 }
 
 #endif

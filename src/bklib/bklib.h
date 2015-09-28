@@ -80,7 +80,6 @@ string toString(const vector<string> &list, const string delim = " ");
 string toString(vector<string> *list, const string delim = " ");
 bool strEqual(const string &a, const string &b);
 bool strNumeric(string str);
-bool strRegexp(const char *pattern, const char *str, bool nocase = true);
 
 // sprintf like
 string bkFmtStr(string, ...);

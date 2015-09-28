@@ -90,32 +90,33 @@ struct StringCache {
 
     StringCache() { nextIt = items.end(); }
     ~StringCache() { clear(); }
-    string get(const string &key) {
+    const string &get(const string &key) {
         bkStringMap::iterator it = items.find(key);
         if (it != items.end()) return it->second;
-        return string();
+        return empty;
     }
-    void put(const string &key, const string &val) {
+    string &put(const string &key, const string &val) {
         bkStringMap::iterator it = items.find(key);
         if (it != items.end()) {
             Nan::AdjustExternalMemory(-it->second.size());
             it->second = val;
             Nan::AdjustExternalMemory(val.size());
+            return it->second;
         } else {
-            items[key] = val;
+            it = items.insert(items.end(), std::pair<string,string>(key, val));
             Nan::AdjustExternalMemory(key.size() + val.size());
+            return it->second;
         }
     }
     bool exists(const string &k) {
         bkStringMap::iterator it = items.find(k);
         return it != items.end();
     }
-    string incr(const string& k, const string& v) {
+    const string &incr(const string& k, const string& v) {
         string o = get(k);
         char val[32];
         sprintf(val, "%lld", atoll(o.c_str()) + atoll(v.c_str()));
-        put(k, val);
-        return val;
+        return put(k, val);
     }
     void del(const string &key) {
         bkStringMap::iterator it = items.find(key);
@@ -148,22 +149,22 @@ struct StringCache {
         return true;
     }
     Handle<Value> next() {
-        HandleScope scope;
-        if (nextIt == items.end()) return scope.Close(Undefined());
+        Nan::EscapableHandleScope scope;
+        if (nextIt == items.end()) return scope.Escape(Nan::Undefined());
         Local<Array> obj(Array::New());
-        obj->Set(Integer::New(0), String::New(nextIt->first.c_str()));
-        obj->Set(Integer::New(1), String::New(nextIt->second.c_str()));
+        obj->Set(Nan::New(0), Nan::New(nextIt->first.c_str()).ToLocalChecked());
+        obj->Set(Nan::New(1), Nan::New(nextIt->second.c_str()).ToLocalChecked());
         nextIt++;
-        return scope.Close(obj);
+        return scope.Escape(obj);
     }
     void each(Handle<Function> cb) {
         bkStringMap::const_iterator it = items.begin();
         while (it != items.end()) {
-            HandleScope scope;
+            Nan::HandleScope scope;
             Local<Value> argv[2];
-            argv[0] = String::New(it->first.c_str());
-            argv[1] = String::New(it->second.c_str());
-            TRY_CATCH_CALL(Context::GetCurrent()->Global(), cb, 2, argv);
+            argv[0] = Nan::New(it->first.c_str()).ToLocalChecked();
+            argv[1] = Nan::New(it->second.c_str()).ToLocalChecked();
+            NAN_TRY_CATCH_CALL(Context::GetCurrent()->Global(), cb, 2, argv);
             it++;
         }
     }
@@ -183,22 +184,22 @@ struct StringCache {
     }
     static void WorkTimer(uv_work_t *req) {}
     static void AfterTimer(uv_work_t *req, int status) {
-        HandleScope scope;
+        Nan::HandleScope scope;
         StringCache *cache = (StringCache *)req->data;
         Local<Value> argv[2];
         if (cache->nextIt != cache->items.end()) {
-            argv[0] = String::New(cache->nextIt->first.c_str());
-            argv[1] = String::New(cache->nextIt->second.c_str());
+            argv[0] = Nan::New(cache->nextIt->first.c_str()).ToLocalChecked();
+            argv[1] = Nan::New(cache->nextIt->second.c_str()).ToLocalChecked();
             cache->nextIt++;
-            TRY_CATCH_CALL(Context::GetCurrent()->Global(), cache->nextCb, 2, argv);
+            NAN_TRY_CATCH_CALL(Context::GetCurrent()->Global(), cache->nextCb, 2, argv);
         }
         delete req;
     }
     static void CompletedTimer(uv_timer_t *req, int status) {
-        HandleScope scope;
+        Nan::HandleScope scope;
         StringCache *cache = (StringCache *)req->data;
         Local<Value> argv[1];
-        TRY_CATCH_CALL(Context::GetCurrent()->Global(), cache->completed, 0, argv);
+        NAN_TRY_CATCH_CALL(Context::GetCurrent()->Global(), cache->completed, 0, argv);
         delete req;
     }
 };
@@ -480,14 +481,14 @@ static NAN_METHOD(lruKeys)
 static NAN_METHOD(lruStats)
 {
     Local<Object> obj = Object::New();
-    obj->Set(String::NewSymbol("inserted"), Integer::New(_lru.ins));
-    obj->Set(String::NewSymbol("deleted"), Integer::New(_lru.dels));
-    obj->Set(String::NewSymbol("cleanups"), Integer::New(_lru.cleans));
-    obj->Set(String::NewSymbol("hits"), Integer::New(_lru.hits));
-    obj->Set(String::NewSymbol("misses"), Integer::New(_lru.misses));
-    obj->Set(String::NewSymbol("max"), Integer::New(_lru.max));
-    obj->Set(String::NewSymbol("size"), Integer::New(_lru.size));
-    obj->Set(String::NewSymbol("count"), Integer::New(_lru.items.size()));
+    obj->Set(Nan::New("inserted").ToLocalChecked(), Integer::New(_lru.ins));
+    obj->Set(Nan::New("deleted").ToLocalChecked(), Integer::New(_lru.dels));
+    obj->Set(Nan::New("cleanups").ToLocalChecked(), Integer::New(_lru.cleans));
+    obj->Set(Nan::New("hits").ToLocalChecked(), Integer::New(_lru.hits));
+    obj->Set(Nan::New("misses").ToLocalChecked(), Integer::New(_lru.misses));
+    obj->Set(Nan::New("max").ToLocalChecked(), Integer::New(_lru.max));
+    obj->Set(Nan::New("size").ToLocalChecked(), Integer::New(_lru.size));
+    obj->Set(Nan::New("count").ToLocalChecked(), Integer::New(_lru.items.size()));
     info.GetReturnValue().Set(obj);
 }
 

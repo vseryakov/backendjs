@@ -1519,7 +1519,7 @@ db.getCached = function(op, table, query, options, callback)
 //
 // Create DynamoDB table with global secondary index, the first index property if not the same as primary key hash defines global index, if it is the same then local,
 // below we create global secondary index on property 'name' only, in the example above it was local secondary index for id and name. Also a local secondary index is
-// created on id,title.
+// created on `id,title`.
 //
 // DynamoDB projection is defined by a `projection` property, it can be suffixed with a number to signify which index it must belong to or if it must belong to
 // all indexes it can be specified as `projections`
@@ -1529,7 +1529,7 @@ db.getCached = function(op, table, query, options, callback)
 //                                    name: { index: 1, projections: 1 }
 //                                    title: { index1: 1, projection1: 1 } }
 //                                  });
-//  When using real DynamoDB creating a table may take some time, for such cases if options.waitTimeout is not specified it defaults to 1min,
+//  When using real DynamoDB creating a table may take some time, for such cases if `options.waitTimeout` is not specified it defaults to 1min,
 //  so the callback is called as soon as the table is active or after the timeout whichever comes first.
 //
 //
@@ -1737,7 +1737,7 @@ db.prepareRow = function(pool, op, table, obj, options)
     // Process special columns
     var keys = pool.dbkeys[table.toLowerCase()] || [];
     var cols = pool.dbcolumns[table.toLowerCase()] || {};
-    var now = Date.now(), col, old = {};
+    var col, old = {};
 
     switch (op) {
     case "add":
@@ -1792,7 +1792,7 @@ db.prepareRow = function(pool, op, table, obj, options)
                 continue;
             }
             // Current timestamps, for primary keys only support add
-            if (col.now && !obj[p] && (!col.primary || op == "add")) obj[p] = now;
+            if (col.now && !obj[p] && (!col.primary || op == "add")) obj[p] = Date.now();
             // Case conversion
             if (col.lower && typeof obj[p] == "string") obj[p] = v.toLowerCase();
             if (col.upper && typeof obj[p] == "string") obj[p] = v.toUpperCase();
