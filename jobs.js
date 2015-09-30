@@ -187,20 +187,28 @@ jobs.exitWorker = function(options)
     });
 }
 
+// Find the max runtime allowed in seconds
+jobs.getMaxRuntime = function()
+{
+    var secs = this.maxRuntime;
+    this.jobs.forEach(function(x) { if (x.maxRuntime > secs) secs = x.maxRuntime; });
+    return secs;
+}
+
 // Check how long we run a job and force kill if exceeded, check if total life time is exceeded
 jobs.checkTimes = function()
 {
     if (this.running.length) {
-        // Take the max runtime allowed
-        var maxRuntime = this.maxRuntime;
-        this.jobs.forEach(function(x) { if (x.maxRuntime > maxRuntime) maxRuntime = x.maxRuntime; });
-
+        var maxRuntime = this.getMaxRuntime();
         if (Date.now() - this.runTime > maxRuntime * 1000) {
-            logger.warn('checkLifetime:', 'jobs: exceeded max run time', maxRuntime, this.job);
+            logger.warn('checkLifetime:', 'jobs: exceeded max run time', maxRuntime, this.jobs);
             return this.exitWorker();
         }
-    } else {
-        if (!this.jobs.length && this.maxLifetime > 0 && Date.now() - core.ctime > this.maxLifetime * 1000) {
+    } else
+
+    if (!this.jobs.length) {
+        // Idle mode, check max life time
+        if (this.maxLifetime > 0 && Date.now() - core.ctime > this.maxLifetime * 1000) {
             logger.log('checkLifetime:', 'jobs: exceeded max life time', this.maxLifetime);
             return this.exitWorker();
         }
