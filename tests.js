@@ -71,6 +71,7 @@ tests.check = function()
 // - -test-interval - number of milliseconds between iterations
 // - -test-iterations - how many times to run this test function, default is 1
 // - -test-forever - run forever without reporting any errors, for performance testing
+// - -test-file - a javascript file to be loaded with additional tests
 //
 // All other common command line arguments are used normally, like -db-pool to specify which db to use.
 //
@@ -103,13 +104,13 @@ tests.check = function()
 //           echo "backend-login=testuser" >> etc/config.local
 //           echo "backend-secret=testpw" >> etc/config.local
 //
-// - now start a test command in the shell using local tests.js
+// - to start a test command in the shell using local ./tests.js
 //
 //         ./app.sh -shell -test-run -test-cmd account
 //
-// - now start a job in a worker process after startup
+// - to start a test command in the shell using custom file with tests
 //
-//         ./app.sh -shell -test-submit -test-cmd account
+//         ./app.sh -shell -test-run -test-cmd apitest -test-file tests/api.js
 //
 tests.run = function(options, callback)
 {
@@ -130,6 +131,10 @@ tests.run = function(options, callback)
         self.test.keepmaster = options.keepmaster || core.getArgInt("-test-keepmaster", 0);
         self.test.workers = options.workers || core.getArgInt("-test-workers", 0);
         self.test.cmd = options.cmd || core.getArg("-test-cmd");
+        self.test.file = options.file || core.getArg("-test-file");
+        if (self.test.file && fs.existsSync(self.test.file)) require(self.test.file);
+        if (self.test.file && fs.existsSync(core.cwd + "/" + self.test.file)) require(core.cwd + "/" + self.test.file);
+
         if (!self['test_' + self.test.cmd]) {
             var cmds = Object.keys(self).filter(function(x) { return x.substr(0, 5) == "test_" && typeof self[x] == "function" }).map(function(x) { return x.substr(5) }).join(", ");
             logger.log(self.name, "usage: ", process.argv[0], process.argv[1], "-test-cmd", "CMD", "where CMD is one of: ", cmds);

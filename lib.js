@@ -315,6 +315,7 @@ lib.toAge = function(mtime)
 //                                                data: { type: "json", obj: 1 },
 //                                                mtime: { type: "mtime" },
 //                                                email: { type: "list", datatype: "string } },
+//                                                state: { type: "list", datatype: "string, values: ["VA","DC] } },
 //                                                ssn: { type: "string", regexp: /^[0-9]{3}-[0-9]{3}-[0-9]{4}$/, errmsg: "Valid SSN is required" } },
 //                                                phone: { type: "list", datatype: "number } },
 //                                              { data: { start: { secret: req.account.secret },
@@ -348,7 +349,9 @@ lib.toParams = function(query, schema, options)
             if (typeof v != "undefined") rc[name] = this.toNumber(v, opts);
             break;
         case "list":
-            if (v) rc[name] = this.strSplit(v, opts.separator, opts.datatype);
+            if (!v) break;
+            rc[name] = this.strSplit(v, opts.separator, opts.datatype).filter(function(x) { return !Array.isArray(opts.values) ? 1 : opts.values.indexOf(x) > -1 });
+            if (typeof opts.min == "number" && rc[name].length < opts.min) delete rc[name];
             break;
         case "map":
             if (!v) break;

@@ -1794,8 +1794,8 @@ db.prepareRow = function(pool, op, table, obj, options)
             // Current timestamps, for primary keys only support add
             if (col.now && !obj[p] && (!col.primary || op == "add")) obj[p] = Date.now();
             // Case conversion
-            if (col.lower && typeof obj[p] == "string") obj[p] = v.toLowerCase();
-            if (col.upper && typeof obj[p] == "string") obj[p] = v.toUpperCase();
+            if (col.lower && typeof obj[p] == "string") obj[p] = obj[p].toLowerCase();
+            if (col.upper && typeof obj[p] == "string") obj[p] = obj[p].toUpperCase();
             // The field is combined from several values contatenated for complex primary keys
             this.joinColumn(op, obj, p, col, options, old);
         }
@@ -1847,6 +1847,10 @@ db.prepareRow = function(pool, op, table, obj, options)
                     if (typeof obj[p] == "number") obj[p] = String(obj[p]);
                 }
             }
+            // Case conversion
+            if (col.lower && typeof obj[p] == "string") obj[p] = obj[p].toLowerCase();
+            if (col.upper && typeof obj[p] == "string") obj[p] = obj[p].toUpperCase();
+
             // Default search op, for primary key cases
             if (!options.ops[p] && lib.isObject(col.ops) && col.ops[op]) options.ops[p] = col.ops[op];
 
