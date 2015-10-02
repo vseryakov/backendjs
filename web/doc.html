@@ -34,7 +34,6 @@
 </ul>
 </li>
 <li><a href="#backend-directory-structure"> Backend directory structure</a></li>
-<li><a href="#internal-backend-functions"> Internal backend functions</a></li>
 <li><a href="#cache-configurations"> Cache configurations</a><ul>
 <li><a href="#local"> Local</a></li>
 <li><a href="#memcached"> memcached</a></li>
@@ -268,10 +267,10 @@ there should be a way to push config changes to the processes without restarting
 <p>Every module defines a set of config parameters that define the behavior of the code, due to single threaded
 nature of the node.js, it is simple to update any config parameter to new value so the code can operate differently.
 To achieve this the code must be written in a special way, like driven by configuration which can be changed at
-any time. </p>
+any time.</p>
 <p>All configuration goes through the configuration proces that checks all input and produces valid output which
-is applied to the module variables. Config file or databse table with configuration can be load on demand or 
-periodically, for ecample all ocal config files are watched for modification and reloaded automaticlaly, the 
+is applied to the module variables. Config file or databse table with configuration can be load on demand or
+periodically, for ecample all ocal config files are watched for modification and reloaded automaticlaly, the
 config database is loaded periodically which is defined by another config parameter.</p>
 <h1 id="backend-runtime">Backend runtime</h1>
 <p>When the backendjs server starts it spawns several processes the perform different tasks.</p>
@@ -1760,93 +1759,6 @@ concatenated with the domain and queried for the TXT record, for example: <code>
 <li><code>tmp</code> - temporary files</li>
 <li><code>web</code> - Web pages served by the static Express middleware</li>
 </ul>
-<h1 id="internal-backend-functions">Internal backend functions</h1>
-<p>The backend includes internal C++ module which provide some useful functions available in the Javascript. The module is exposed as <code>utils</code> submodule, to see
-all functions for example run the below:</p>
-<pre><code>    var bkjs = require(&#39;backendjs&#39;);
-    console.log(bkjs.utils)
-</code></pre><p>List of available functions:</p>
-<ul>
-<li><code>rungc()</code> - run V8 garbage collector on demand</li>
-<li><code>setsegv()</code> - install SEGV signal handler to show crash backtrace</li>
-<li><code>setbacktrace()</code> - install special V8-aware backtrace handler</li>
-<li><code>backtrace()</code> - show V8 backtrace from current position</li>
-<li><code>heapSnapshot(file)</code> - dump current memory heap snapshot into a file</li>
-<li><code>splitArray(str)</code> - split a string into an array separated by commas, supports double quotes</li>
-<li><code>logging([level])</code> - set or return logging level, this is internal C++ logging facility</li>
-<li><code>loggingChannel(channelname)</code> - redirect logging into stdout or stderr, this is internal C++ logging</li>
-<li><code>countWords(word, text)</code> - return how many time word appers in the text, uses Knuth-Morris-Pratt algorithm</li>
-<li><code>countAllWords(list, text)</code> - return an object with counters for each word from the list, i.e. how many times each word appears in the text, uses Aho-Corasick algorithm</li>
-<li><code>countWordsInit()</code> - clears word counting cache</li>
-<li><code>resizeImage(source, options, callback)</code> - resize image using ImageMagick,<ul>
-<li>source can be a Buffer or file name</li>
-<li>options can have the following properties:<ul>
-<li>width - output image width, if negative and the original image width is smaller than the specified, nothing happens</li>
-<li>height - output image height, if negative and the original image height is smaller this the specified, nothing happens</li>
-<li>quality - 0 -99</li>
-<li>out - output file name</li>
-<li>ext - image extention</li>
-</ul>
-</li>
-</ul>
-</li>
-<li><code>resizeImageSync(name,width,height,format,filter,quality,outfile)</code> - resize an image synchronically</li>
-<li><code>snappyCompress(str)</code> - compress a string</li>
-<li><code>snappyUncompress(str)</code> - decompress a string</li>
-<li><code>zlibCompress(str)</code> - compress a string</li>
-<li><code>zlibUncompress(str)</code> - decompress a string</li>
-<li><code>unzip(zipfile, outdir)</code> - extract a zip archive into directory</li>
-<li><code>unzipFile(zipfile, file [, outfile])</code> - extract a file from zip archive, return contents if no outfile s specified</li>
-<li><code>run(command, callback)</code> - run shell command and return all output to the callback</li>
-<li><code>getUser([user])</code> - return an object with user info from the /etc/passwd file, user can be uid or name</li>
-<li><code>getGroup([group])</code> - return an object with specified group info for the current user of for the given group id or name</li>
-<li>Geohash support<ul>
-<li><code>geoDistance(lat1, lon1, lat2, lon2)</code> - return distance between 2 coordinates in km</li>
-<li><code>geoBoundingBox(lat, lon, distance)</code> - return bounding box geohash for given point around distance</li>
-<li><code>geoHashEncode(lat, lon, len)</code> - return geohash for given coordinate, len defines number of bytesin geohash</li>
-<li><code>geoHashDecode(hash)</code> - return coordinates for given geohash</li>
-<li><code>geoHashAdjacent()</code></li>
-<li><code>geoHashGrid()</code></li>
-<li><code>geoHashRow()</code></li>
-</ul>
-</li>
-<li>Generic cache outside of V8 heap<ul>
-<li><code>cacheSave()</code> - general purpose caching functions that have no memory limits and do not use V8 heap</li>
-<li><code>cachePut()</code></li>
-<li><code>cacheGet()</code></li>
-<li><code>cacheDel()</code></li>
-<li><code>cacheKeys()</code></li>
-<li><code>cacheClear()</code></li>
-<li><code>cacheNames()</code></li>
-<li><code>cacheSize()</code></li>
-<li><code>cacheEach()</code></li>
-<li><code>cacheForEach()</code></li>
-<li><code>cacheForEachNext()</code></li>
-<li><code>cacheBegin()</code></li>
-<li><code>cacheNext()</code></li>
-</ul>
-</li>
-<li>LRU internal cache outside of V8 heap<ul>
-<li><code>lruInit(max)</code> - init LRU cache with max number of keys, this is in-memory cache which evicts older keys</li>
-<li><code>lruStats()</code> - return statistics about the LRU cache</li>
-<li><code>lruSize()</code> - return size of the current LRU cache</li>
-<li><code>lruCount()</code> - number of keys in the LRU cache</li>
-<li><code>lruPut(name, val)</code> - set/replace value by name</li>
-<li><code>lruGet(name)</code> - return value by name</li>
-<li><code>lruIncr(name, val)</code> - increase value by given number, non existent items assumed to be 0</li>
-<li><code>lruDel(name)</code> - delete by name</li>
-<li><code>lruKeys()</code> - return all cache key names</li>
-<li><code>lruClear()</code> - clear LRU cache</li>
-<li><code>lruServer()</code></li>
-</ul>
-</li>
-<li>Syslog support<ul>
-<li><code>syslogInit(name, priority, facility)</code> - initialize syslog client, used by the logger module</li>
-<li><code>syslogSend(level, text)</code></li>
-<li><code>syslogClose()</code></li>
-</ul>
-</li>
-</ul>
 <h1 id="cache-configurations">Cache configurations</h1>
 <p>Database layer support caching of the responses using <code>db.getCached</code> call, it retrieves exactly one record from the configured cache, if no record exists it
 will pull it from the database and on success will store it in the cache before returning to the client. When dealing with cached records, there is a special option
@@ -2442,7 +2354,7 @@ might be useful when desining, developing or choosing the API platform:</p>
 <li><code>api-exit-on-error</code> - Exit on uncaught exception in the route handler</li>
 <li><code>api-upload-limit</code> - Max size for uploads, bytes</li>
 <li><code>api-limiter-queue</code> - Name of an ipc queue for API rate limiting</li>
-<li><code>jobs-workers</code> - How many worker processes to launch to process the job queue, -1 disables jobs, 0 means launch as many as CPUs available</li>
+<li><code>jobs-workers</code> - How many worker processes to launch to process the job queue, -1 disables jobs, 0 means launch as many as the CPUs available</li>
 <li><code>jobs-worker-cpu-factor</code> - A number to multiply the number of CPUs available to make the total number of workers to launch, only used if <code>workers</code> is 0</li>
 <li><code>jobs-worker-args</code> - Node arguments for workers, for passing v8 jobspec, see <code>process</code></li>
 <li><code>jobs-worker-env</code> - Environment to be passed to the worker via fork, see <code>cluster.fork</code></li>
@@ -2459,8 +2371,8 @@ might be useful when desining, developing or choosing the API platform:</p>
 <li><code>server-restart-delay</code> - Delay between respawning the server after changes</li>
 <li><code>server-log-errors</code> - If true, log crash errors from child processes by the logger, otherwise write to the daemon err-file. The reason for this is that the logger puts everything into one line thus breaking formatting for stack traces.</li>
 <li><code>server-proxy-reverse</code> - A Web server where to proxy requests not macthed by the url patterns or host header, in the form: <a href="http://host[:port">http://host[:port</a>]</li>
-<li><code>server-proxy-url-(.+)</code> - URL regexp to be passed to other web server running behind, each parameter defines an url regexp and the destination in the value in the form <a href="http://host[:port">http://host[:port</a>], example: -server-proxy-url-^/api=<a href="http://127.0.0.1:8080">http://127.0.0.1:8080</a></li>
-<li><code>server-proxy-host-(.+)</code> - Virtual host mapping, to match any Host: header, each parameter defines a host name and the destination in the value in the form <a href="http://host[:port">http://host[:port</a>], example: -server-proxy-host-www.myhost.com=<a href="http://127.0.0.1:8080">http://127.0.0.1:8080</a></li>
+<li><code>server-proxy-url-(.+)</code> - URL regexp to be passed to other web server running behind, each parameter defines an url regexp and the destination in the value in the form <a href="http://host[:port">http://host[:port</a>], example: -server-proxy-url-^/api <a href="http://127.0.0.1:8080">http://127.0.0.1:8080</a></li>
+<li><code>server-proxy-host-(.+)</code> - Virtual host mapping, to match any Host: header, each parameter defines a host name and the destination in the value in the form <a href="http://host[:port">http://host[:port</a>], example: -server-proxy-host-www.myhost.com <a href="http://127.0.0.1:8080">http://127.0.0.1:8080</a></li>
 <li><code>server-process-name</code> - Path to the command to spawn by the monitor instead of node, for external processes guarded by this monitor</li>
 <li><code>server-process-args</code> - Arguments for spawned processes, for passing v8 options or other flags in case of external processes</li>
 <li><code>server-worker-args</code> - Node arguments for workers, job and web processes, for passing v8 options</li>
@@ -4845,7 +4757,7 @@ defined in the object with the same name as the db driver, all properties are co
                             });
 </code></pre><p>Create DynamoDB table with global secondary index, the first index property if not the same as primary key hash defines global index, if it is the same then local,
 below we create global secondary index on property &#39;name&#39; only, in the example above it was local secondary index for id and name. Also a local secondary index is
-created on id,title.</p>
+created on <code>id,title</code>.</p>
 <p>DynamoDB projection is defined by a <code>projection</code> property, it can be suffixed with a number to signify which index it must belong to or if it must belong to
 all indexes it can be specified as <code>projections</code></p>
 <pre><code>    db.create(&quot;test_table&quot;, { id: { primary: 1, type: &quot;int&quot;, index1: 1 },
@@ -4853,7 +4765,7 @@ all indexes it can be specified as <code>projections</code></p>
                               name: { index: 1, projections: 1 }
                               title: { index1: 1, projection1: 1 } }
                             });
-</code></pre><p>When using real DynamoDB creating a table may take some time, for such cases if options.waitTimeout is not specified it defaults to 1min,
+</code></pre><p>When using real DynamoDB creating a table may take some time, for such cases if <code>options.waitTimeout</code> is not specified it defaults to 1min,
 so the callback is called as soon as the table is active or after the timeout whichever comes first.</p>
 </li>
 </ul>
@@ -5525,6 +5437,12 @@ A job message is an object that defines what method from which module to run wit
 </ul>
 
 <ul>
+<li><p><code>jobs.getMaxRuntime()</code></p>
+<p> Find the max runtime allowed in seconds</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>jobs.checkTimes()</code></p>
 <p> Check how long we run a job and force kill if exceeded, check if total life time is exceeded</p>
 </li>
@@ -5745,6 +5663,7 @@ or default message, this is useful for detection of invalid or missing input dat
                                           data: { type: &quot;json&quot;, obj: 1 },
                                           mtime: { type: &quot;mtime&quot; },
                                           email: { type: &quot;list&quot;, datatype: &quot;string } },
+                                          state: { type: &quot;list&quot;, datatype: &quot;string, values: [&quot;VA&quot;,&quot;DC] } },
                                           ssn: { type: &quot;string&quot;, regexp: /^[0-9]{3}-[0-9]{3}-[0-9]{4}$/, errmsg: &quot;Valid SSN is required&quot; } },
                                           phone: { type: &quot;list&quot;, datatype: &quot;number } },
                                         { data: { start: { secret: req.account.secret },
@@ -7110,6 +7029,7 @@ use the same names as command line arguments without preceeding test- part.</p>
 <li>-test-interval - number of milliseconds between iterations</li>
 <li>-test-iterations - how many times to run this test function, default is 1</li>
 <li>-test-forever - run forever without reporting any errors, for performance testing</li>
+<li>-test-file - a javascript file to be loaded with additional tests</li>
 </ul>
 <p>All other common command line arguments are used normally, like -db-pool to specify which db to use.</p>
 <p>After finish or in case of error the process exits if no callback is given.</p>
@@ -7137,11 +7057,11 @@ use the same names as command line arguments without preceeding test- part.</p>
 <pre><code>    echo &quot;backend-login=testuser&quot; &gt;&gt; etc/config.local
     echo &quot;backend-secret=testpw&quot; &gt;&gt; etc/config.local
 </code></pre></li>
-<li><p>now start a test command in the shell using local tests.js</p>
+<li><p>to start a test command in the shell using local ./tests.js</p>
 <pre><code>  ./app.sh -shell -test-run -test-cmd account
 </code></pre></li>
-<li><p>now start a job in a worker process after startup</p>
-<pre><code>  ./app.sh -shell -test-submit -test-cmd account
+<li><p>to start a test command in the shell using custom file with tests</p>
+<pre><code>  ./app.sh -shell -test-run -test-cmd apitest -test-file tests/api.js
 </code></pre></li>
 </ul>
 
