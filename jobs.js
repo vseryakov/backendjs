@@ -195,6 +195,14 @@ jobs.getMaxRuntime = function()
     return secs;
 }
 
+// Returns 1 if any of the queues are processing or reading measages
+jobs.isWorking = function()
+{
+    return this.workerQueue.filter(function(q) {
+        return ipc.getClient("queue", { queueName: q }).isWorking();
+    }).length;
+}
+
 // Check how long we run a job and force kill if exceeded, check if total life time is exceeded
 jobs.checkTimes = function()
 {
@@ -206,7 +214,7 @@ jobs.checkTimes = function()
         }
     } else
 
-    if (!this.jobs.length) {
+    if (!this.jobs.length && !this.isWorking()) {
         // Idle mode, check max life time
         if (this.maxLifetime > 0 && Date.now() - core.ctime > this.maxLifetime * 1000) {
             logger.log('checkLifetime:', 'jobs: exceeded max life time', this.maxLifetime);
