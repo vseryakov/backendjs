@@ -1164,31 +1164,41 @@ lib.zeropad = function(n, width)
     return pad + String(n);
 }
 
-// Nicely format an object with indentations
-lib.formatJSON = function(obj, indent)
+// Nicely format an object with indentations, optional `indentlevel` can be used to control until which level deep
+// to use newlines for objects.
+lib.formatJSON = function(obj, options)
 {
     var self = this;
+    if (typeof options == "string") options = { indent: options };
+    if (!options) options = {};
     // Shortcut to parse and format json from the string
     if (typeof obj == "string" && obj != "") {
         if (obj[0] != "[" && obj[0] != "{") return obj;
         try { obj = JSON.parse(obj); } catch(e) { self.log(e) }
     }
-    if (!indent) indent = "";
+    if (!options.level) options.level = 0;
+    if (!options.indent) options.indent = "";
     var style = "    ";
     var type = this.typeName(obj);
     var count = 0;
     var text = type == "array" ? "[" : "{";
+    // Insert newlines only until specified level deep
+    var nline = !options.indentlevel || options.level < options.indentlevel;
 
     for (var p in obj) {
         var val = obj[p];
         if (count > 0) text += ",";
         if (type != "array") {
-            text += ("\n" + indent + style + "\"" + p + "\"" + ": ");
+            text += ((nline ? "\n" + options.indent + style : " " ) + "\"" + p + "\"" + ": ");
         }
         switch (this.typeName(val)) {
         case "array":
         case "object":
-            text += this.formatJSON(val, (indent + style));
+            options.indent += style;
+            options.level++;
+            text += this.formatJSON(val, options);
+            options.level--;
+            options.indent = options.indent.substr(0, options.indent.length - style.length);
             break;
         case "boolean":
         case "number":
@@ -1205,7 +1215,7 @@ lib.formatJSON = function(obj, indent)
         }
         count++;
     }
-    text += type == "array" ? "]" : ("\n" + indent + "}");
+    text += type == "array" ? "]" : ((nline ? "\n" + options.indent : " ") + "}");
     return text;
 }
 
