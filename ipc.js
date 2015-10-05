@@ -359,6 +359,18 @@ Ipc.prototype.getClient = function(prefix, options)
     return (options && options[prefix + 'Name'] ? this.clients[prefix + "-" + options[prefix + 'Name']] : null) || this.clients[prefix];
 }
 
+// Return queue object by name, if name is wrong the default queue us returned
+Ipc.prototype.getQueue = function(name)
+{
+    return this.getClient("queue", { queueName: name });
+}
+
+// Retirn cache object by name, if name is wrong the default cache is returned
+Ipc.prototype.getCache = function(name)
+{
+    return this.getClient("cache", { cacheName: name });
+}
+
 // Initialize a client for cache or queue purposes, previous client will be closed.
 Ipc.prototype.initClients = function(prefix)
 {

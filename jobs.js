@@ -156,13 +156,19 @@ jobs.initWorker = function(options, callback)
 
     // Randomize subscription when multiple workers start at the same time, some queue drivers use polling
     setTimeout(function() {
+        var subscribed = [];
         if (!self.workerQueue.length) self.workerQueue.push("");
 
-        self.workerQueue.forEach(function(q) {
-            logger.debug("initWorker:", "subscribe to queue", q);
-            ipc.subscribe(self.channel, { queueName: q }, function(msg, next) {
-                self.runJob(msg, { queueName: q }, function(err) {
-                    logger[err ? "error" : "info"]("runJob:", "finished", q, lib.traceError(err), lib.objDescr(msg));
+        self.workerQueue.forEach(function(name) {
+            // Prevent subscription more than once to the same queue in case of invalid or nonexistent queues
+            var q = ipc.getQueue(name);
+            if (subscribed.indexOf(q) > -1) return;
+            subscribed.push(q);
+
+            logger.info("initWorker:", "subscribe to queue", name);
+            ipc.subscribe(self.channel, { queueName: name }, function(msg, next) {
+                self.runJob(msg, { queueName: name }, function(err) {
+                    logger[err ? "error" : "info"]("runJob:", "finished", name, lib.traceError(err), lib.objDescr(msg));
                     if (typeof next == "function") next(err);
                     // Mark end of last message processed
                     self.runTime = Date.now();
