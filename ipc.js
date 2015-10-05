@@ -21,7 +21,7 @@ var Client = require(__dirname + "/lib/ipc_client");
 //
 // Local cache is implemented as LRU cached configued with `-lru-max` parameter defining how many items to keep in the cache.
 //
-// Some drivers may support TTL so global `options.ttl` or local `options.ttl` can be used for `put/incr` operqtions and it will honored if it is suported.
+// Some drivers may support TTL so global `options.ttl` or local `options.ttl` can be used for `put/incr` operations and it will honored if it is suported.
 //
 // Cache methods accept `options.cacheName` property which may specify non-default cache to use by name, this is for cases when multiple cache
 // providers are configured.
