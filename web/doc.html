@@ -5256,6 +5256,18 @@ supported prefixes are: queue, cache</p>
 </ul>
 
 <ul>
+<li><p><code>Ipc.prototype.getQueue(name)</code></p>
+<p> Return queue object by name, if name is wrong the default queue us returned</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>Ipc.prototype.getCache(name)</code></p>
+<p> Retirn cache object by name, if name is wrong the default cache is returned</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>Ipc.prototype.initClients(prefix)</code></p>
 <p> Initialize a client for cache or queue purposes, previous client will be closed.</p>
 </li>
@@ -5439,6 +5451,12 @@ A job message is an object that defines what method from which module to run wit
 <ul>
 <li><p><code>jobs.getMaxRuntime()</code></p>
 <p> Find the max runtime allowed in seconds</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>jobs.isWorking()</code></p>
+<p> Returns 1 if any of the queues are processing or reading measages</p>
 </li>
 </ul>
 
@@ -5994,8 +6012,9 @@ based on <a href="http://stackoverflow.com/a/13439711">http://stackoverflow.com/
 </ul>
 
 <ul>
-<li><p><code>lib.formatJSON(obj, indent)</code></p>
-<p> Nicely format an object with indentations</p>
+<li><p><code>lib.formatJSON(obj, options)</code></p>
+<p> Nicely format an object with indentations, optional <code>indentlevel</code> can be used to control until which level deep
+to use newlines for objects.</p>
 </li>
 </ul>
 
@@ -7728,6 +7747,18 @@ lots of processing and memory.</p>
 <li><p><code>IpcClient.prototype.monitor()</code></p>
 <p> Queue monitor or cleanup service, when poller is involved this will be started and can be used for cleaning up stale messages or other
 maintainence work the requires.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>IpcClient.prototype.isPolling()</code></p>
+<p> Returns 1 if the poller is active</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>IpcClient.prototype.isWorking()</code></p>
+<p> Returns 1 if currently a message is processing or being read</p>
 </li>
 </ul>
 
