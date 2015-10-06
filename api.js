@@ -117,6 +117,7 @@ var api = {
            { name: "collect-interval", type: "number", min: 30, descr: "How often to collect statistics and metrics in seconds" },
            { name: "collect-send-interval", type: "number", min: 60, descr: "How often to send collected statistics to the master server in seconds" },
            { name: "secret-policy", type: "regexpmap", descr : "An JSON object with list of regexps to validate account password, each regexp comes with an error message to be returned if such regexp fails, `api.checkAccountSecret` performs the validation, example: { '[a-z]+': 'At least one lowercase letter', '[A-Z]+': 'At least one upper case letter' }" },
+           { name: "platform-match", type: "regexpmap", regexp: "i", descr : "An JSON object with list of regexps to match user-agent header for platform detection, example: { 'ios|iphone|ipad': 'ios', 'android': 'android' }" },
            { name: "cors-origin", descr: "Origin header for CORS requests" },
            { name: "url-metrics-([a-z]+)", type: "int", obj: "url-metrics", descr: "Defines the length of an API request path to be stored in the statistics, set by the first component of endpoint URL, example: -api-url-metrics-image 2 -api-url-metrics-account 3" },
            { name: "rlimits-([a-zA-Z0-9/_]+)-max", type: "int", obj: "rlimits", descr: "Set max/burst rate limit by the given property, it is used by the request rate limiter using Token Bucket algorithm. Predefined types: ip, path, id, login" },
@@ -214,6 +215,13 @@ var api = {
     accessTokenAge: 86400 * 7 * 1000,
     accessTokenSecret: "",
     accessTokenName: 'bk-access-token',
+
+    // User agent patterns by platform
+    platformMatch: lib.toRegexpMap(null,
+                                {
+                                    "darwin|cfnetwork|iphone|ipad" : "ios",
+                                    "android": "android",
+                                }, { regexp: "i" }),
 
     // Default busy latency 1 sec
     maxLatency: 1000,
@@ -774,15 +782,25 @@ api.prepareRequest = function(req)
     req.options = { ops: {}, noscan: 1,
         ip: req.ip, host: req.hostname, path: path, apath: apath, secure: req.secure,
         cleanup: "bk_" + apath[0],
-        userAgent: "", appName: "", appVersion: "",
+        userAgent: "", appName: "", appVersion: "", appBuild: "", platform: "",
     };
 
     // Parse application version, extract first product and version only
-    var v = req.query[this.appHeaderName] || req.headers[this.appHeaderName] || req.headers['user-agent'];
+    var uagent = req.headers['user-agent'];
+    var v = req.query[this.appHeaderName] || req.headers[this.appHeaderName] || uagent;
     if (v && (v = v.match(/^([^\/]+)\/([0-9a-zA-Z_\.\-]+)/))) {
         req.options.userAgent = v[1] + "/" + v[2];
         req.options.appName = v[1];
         req.options.appVersion = v[2];
+    }
+    // Detect mobile platform
+    if (uagent) {
+        for (var i in this.platformMatch) {
+            if (this.platformMatch[i].rx.test(uagent)) {
+                req.options.platform = this.platformMatch[i].value;
+                break;
+            }
+        }
     }
     // Core protocol version to be used in the request if supported
     req.options.coreVersion = req.query[this.versionHeaderName] || req.headers[this.versionHeaderName] || "";

@@ -165,7 +165,7 @@ jobs.initWorker = function(options, callback)
             if (subscribed.indexOf(q) > -1) return;
             subscribed.push(q);
 
-            logger.info("initWorker:", "subscribe to queue", name);
+            logger.info("initWorker:", "subscribe to queue", name, q.host);
             ipc.subscribe(self.channel, { queueName: name }, function(msg, next) {
                 self.runJob(msg, { queueName: name }, function(err) {
                     logger[err ? "error" : "info"]("runJob:", "finished", name, lib.traceError(err), lib.objDescr(msg));

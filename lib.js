@@ -195,7 +195,7 @@ lib.toRegexpMap = function(obj, val, options)
     val = this.jsonParse(val, { obj: 1, error: 1 });
     for (var p in val) {
         if (obj.some(function(x) { return x.list.indexOf(p) > -1 })) continue;
-        var item = this.toRegexpObj(null, p);
+        var item = this.toRegexpObj(null, p, options);
         item.value = val[p];
         if (item.reset) obj = [];
         obj.push(item);
@@ -223,7 +223,7 @@ lib.toRegexpObj = function(obj, val, options)
     obj.rx = null;
     if (obj.list.length) {
         try {
-            obj.rx = new RegExp(obj.list.map(function(x) { return "(" + x + ")"}).join("|"));
+            obj.rx = new RegExp(obj.list.map(function(x) { return "(" + x + ")"}).join("|"), options && options.regexp);
         } catch(e) {
             logger.error('toRegexpMap:', val, e);
         }
