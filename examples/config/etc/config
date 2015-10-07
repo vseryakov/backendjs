@@ -1,1 +1,2 @@
 api-allow-admin=^/(system|data)
+allow-modules=bk_accounts|bk_data

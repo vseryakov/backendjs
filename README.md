@@ -112,7 +112,7 @@ or simply
   For this example let's create an account:
 
   - by default no external modules are loaded so it needs the accounts module
-  - restart the backend command from the above with additional parameter: `-allow-modules accounts`
+  - restart the backend command from the above with additional parameter: `-allow-modules bk_accounts`
   - type and execute the following URLs in the Web console:
 
         /account/add?name=test1&secret=test1&login=test1@test.com
@@ -635,7 +635,7 @@ There is also native iOS implementation [Bkjs.m](https://raw.githubusercontent.c
 ## Accounts
 The accounts API manages accounts and authentication, it provides basic user account features with common fields like email, name, address.
 
-This is implemented by the `accounts` module from the core. To enable accounts functionality specify `-allow-modules=accounts`.
+This is implemented by the `accounts` module from the core. To enable accounts functionality specify `-allow-modules=bk_accounts`.
 
 - `/account/get`
 
@@ -916,7 +916,7 @@ The supposed usage for type is to concatenate common identifiers first with more
 by prefix or exactly by icon type. For example album id can be prefixed first, then sequential con number like album1:icon1, album1:icon2....
 then retrieving all icons for an album would be only query with album1: prefix.
 
-The is implemented by the `icons` module from the core. To enable this functionality specify `-allow-modules=icons`.
+The is implemented by the `icons` module from the core. To enable this functionality specify `-allow-modules=bk_icons`.
 
 - `/icon/get`
 
@@ -975,7 +975,7 @@ The is implemented by the `icons` module from the core. To enable this functiona
 
 The file API provides ability to store and retrieve files. The operations are similar to the Icon API.
 
-This is implemented by the `files` module from the core. To enable this functionality specify `-allow-modules=files`.
+This is implemented by the `files` module from the core. To enable this functionality specify `-allow-modules=bk_files`.
 
 - `/file/get`
 
@@ -1006,7 +1006,7 @@ The connections API maintains two tables `bk_connection` and `bk_reference` for 
 links, i.e. when i make explicit connection to other account, and bk_reference table is automatically updated with reference for that other account that i made
 a connection with it. No direct operations on bk_reference is allowed.
 
-This is implemented by the `connections` module from the core. To enable this functionality specify `-allow-modules=connections`.
+This is implemented by the `connections` module from the core. To enable this functionality specify `-allow-modules=bk_connections`.
 
 - `/connection/add`
 - `/connection/put`
@@ -1131,7 +1131,7 @@ When request comes for all matches for the location for example 37.7, -122.4, th
 - continue untill we visit all neighbors or received required number of macthed records
 - on return the next_token opaque value will be provided if we want to continue the search for more matched for the same location
 
-This is implemented by the `locations` module from the core. To enable this functionality specify `allow-modules=locations`.
+This is implemented by the `locations` module from the core. To enable this functionality specify `allow-modules=bk_locations`.
 
 - `/location/put`
   Store currenct location for current account, latitude and longitude parameters must be given, this call will update the bk_account table as well with
@@ -1177,7 +1177,7 @@ This is implemented by the `locations` module from the core. To enable this func
 The messaging API allows sending and recieving messages between accounts, it supports text and images. All new messages arrive into the bk_messsage table, the inbox. The client
 may keep messages there as new, delete or archive them. Archiving means transfering messages into the bk_archive table. All sent messages are kept in the bk_sent table.
 
-This is implemented by the `messages` module from the core. To enable this functionality specify `-allow-modules=messages`.
+This is implemented by the `messages` module from the core. To enable this functionality specify `-allow-modules=bk_messages`.
 
 - `/message/get`
   Read all new messages, i.e. the messages that never been read or issued `/message/archive` call.
@@ -1318,7 +1318,7 @@ The counters API maintains realtime counters for every account records, the coun
 is always cached with whatever cache service is used, by default it is cached by the Web server process on every machine. Web worker processes ask the master Web server
 process for the cached records thus only one copy of the cache per machine even in the case of multiple CPU cores.
 
-This is implemented by the `counters` module from the core. To enable this functionality specify `-allow-modules=counters|accounts`.
+This is implemented by the `counters` module from the core. To enable this functionality specify `-allow-modules=bk_counters|bk_accounts`.
 
 - `/counter/get`
   Return counter record for current account with all available columns of if `id` is given return public columns for given account, it works with `bk_counter` table
@@ -1391,7 +1391,7 @@ to work.
 
 All .md files will be rendered into html automatically if there is not _raw=1 query parameter and pages view exists (api-pages-view=pages.html by default).
 
-This is implemented by the `pages` module from the core. To enable this functionality specify `-allow-modules=accounts`.
+This is implemented by the `pages` module from the core. To enable this functionality specify `-allow-modules=bk_accounts`.
 
 - `/pages/get/ID`
   Return a page with given id or the main page if id is empty. If the query parameter `_render=1` is given, the content will be rendered into html from markdown, otherwie

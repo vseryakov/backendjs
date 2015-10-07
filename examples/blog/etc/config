@@ -1,2 +1,2 @@
-allow-modules=messages
+allow-modules=bk_messages|bk_accounts
 
