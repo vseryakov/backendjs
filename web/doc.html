@@ -114,15 +114,15 @@
 <li><a href="#module-msg_apn">msg_apn</a></li>
 <li><a href="#module-msg_gcm">msg_gcm</a></li>
 <li><a href="#module-msg_sns">msg_sns</a></li>
-<li><a href="#module-accounts">accounts</a></li>
-<li><a href="#module-connections">connections</a></li>
-<li><a href="#module-counters">counters</a></li>
-<li><a href="#module-data">data</a></li>
-<li><a href="#module-files">files</a></li>
-<li><a href="#module-icons">icons</a></li>
-<li><a href="#module-locations">locations</a></li>
-<li><a href="#module-messages">messages</a></li>
-<li><a href="#module-system">system</a></li>
+<li><a href="#module-bk_accounts">bk_accounts</a></li>
+<li><a href="#module-bk_connections">bk_connections</a></li>
+<li><a href="#module-bk_counters">bk_counters</a></li>
+<li><a href="#module-bk_data">bk_data</a></li>
+<li><a href="#module-bk_files">bk_files</a></li>
+<li><a href="#module-bk_icons">bk_icons</a></li>
+<li><a href="#module-bk_locations">bk_locations</a></li>
+<li><a href="#module-bk_messages">bk_messages</a></li>
+<li><a href="#module-bk_system">bk_system</a></li>
 </ul>
 </li>
 </ul>
@@ -214,7 +214,7 @@ applications but still part of the core of the system to be available once neede
 For this example let&#39;s create an account:</p>
 <ul>
 <li>by default no external modules are loaded so it needs the accounts module</li>
-<li>restart the backend command from the above with additional parameter: <code>-allow-modules accounts</code></li>
+<li>restart the backend command from the above with additional parameter: <code>-allow-modules bk_accounts</code></li>
 <li><p>type and execute the following URLs in the Web console:</p>
 <pre><code>/account/add?name=test1&amp;secret=test1&amp;login=test1@test.com
 </code></pre></li>
@@ -672,7 +672,7 @@ this is the only way to ensure the body is not modified when not using query par
 </ul>
 <h2 id="accounts">Accounts</h2>
 <p>The accounts API manages accounts and authentication, it provides basic user account features with common fields like email, name, address.</p>
-<p>This is implemented by the <code>accounts</code> module from the core. To enable accounts functionality specify <code>-allow-modules=accounts</code>.</p>
+<p>This is implemented by the <code>accounts</code> module from the core. To enable accounts functionality specify <code>-allow-modules=bk_accounts</code>.</p>
 <ul>
 <li><p><code>/account/get</code></p>
 <p>Returns information about current account or other accounts, all account columns are returned for the current account and only public columns
@@ -909,7 +909,7 @@ a special mapping between prefix/type and album titles for example needs to be c
 <p>The supposed usage for type is to concatenate common identifiers first with more specific to form unique icon type which later can be queried
 by prefix or exactly by icon type. For example album id can be prefixed first, then sequential con number like album1:icon1, album1:icon2....
 then retrieving all icons for an album would be only query with album1: prefix.</p>
-<p>The is implemented by the <code>icons</code> module from the core. To enable this functionality specify <code>-allow-modules=icons</code>.</p>
+<p>The is implemented by the <code>icons</code> module from the core. To enable this functionality specify <code>-allow-modules=bk_icons</code>.</p>
 <ul>
 <li><p><code>/icon/get</code></p>
 <p> Return icon for the current account in the given prefix, icons are kept on the local disk in the directory
@@ -960,7 +960,7 @@ the <code>url</code> property will provide full URL to retrieve the icon content
 </ul>
 <h2 id="file-api">File API</h2>
 <p>The file API provides ability to store and retrieve files. The operations are similar to the Icon API.</p>
-<p>This is implemented by the <code>files</code> module from the core. To enable this functionality specify <code>-allow-modules=files</code>.</p>
+<p>This is implemented by the <code>files</code> module from the core. To enable this functionality specify <code>-allow-modules=bk_files</code>.</p>
 <ul>
 <li><p><code>/file/get</code></p>
 <p>  Return a file with given prefix and name, the contents are returned in the response body.</p>
@@ -989,7 +989,7 @@ the <code>url</code> property will provide full URL to retrieve the icon content
 <p>The connections API maintains two tables <code>bk_connection</code> and <code>bk_reference</code> for links between accounts of any type. bk_connection table maintains my
 links, i.e. when i make explicit connection to other account, and bk_reference table is automatically updated with reference for that other account that i made
 a connection with it. No direct operations on bk_reference is allowed.</p>
-<p>This is implemented by the <code>connections</code> module from the core. To enable this functionality specify <code>-allow-modules=connections</code>.</p>
+<p>This is implemented by the <code>connections</code> module from the core. To enable this functionality specify <code>-allow-modules=bk_connections</code>.</p>
 <ul>
 <li><code>/connection/add</code></li>
 <li><p><code>/connection/put</code>
@@ -1099,7 +1099,7 @@ When request comes for all matches for the location for example 37.7, -122.4, th
 <li>continue untill we visit all neighbors or received required number of macthed records</li>
 <li>on return the next_token opaque value will be provided if we want to continue the search for more matched for the same location</li>
 </ul>
-<p>This is implemented by the <code>locations</code> module from the core. To enable this functionality specify <code>allow-modules=locations</code>.</p>
+<p>This is implemented by the <code>locations</code> module from the core. To enable this functionality specify <code>allow-modules=bk_locations</code>.</p>
 <ul>
 <li><p><code>/location/put</code>
 Store currenct location for current account, latitude and longitude parameters must be given, this call will update the bk_account table as well with
@@ -1137,7 +1137,7 @@ it must be passed as is as <code>_token=</code> parameter with all original quer
 <h2 id="messages">Messages</h2>
 <p>The messaging API allows sending and recieving messages between accounts, it supports text and images. All new messages arrive into the bk_messsage table, the inbox. The client
 may keep messages there as new, delete or archive them. Archiving means transfering messages into the bk_archive table. All sent messages are kept in the bk_sent table.</p>
-<p>This is implemented by the <code>messages</code> module from the core. To enable this functionality specify <code>-allow-modules=messages</code>.</p>
+<p>This is implemented by the <code>messages</code> module from the core. To enable this functionality specify <code>-allow-modules=bk_messages</code>.</p>
 <ul>
 <li><p><code>/message/get</code>
 Read all new messages, i.e. the messages that never been read or issued <code>/message/archive</code> call.</p>
@@ -1266,7 +1266,7 @@ Return the image data for the given message, the required parameters are:</p>
 <p>The counters API maintains realtime counters for every account records, the counters record may contain many different counter columns for different purposes and
 is always cached with whatever cache service is used, by default it is cached by the Web server process on every machine. Web worker processes ask the master Web server
 process for the cached records thus only one copy of the cache per machine even in the case of multiple CPU cores.</p>
-<p>This is implemented by the <code>counters</code> module from the core. To enable this functionality specify <code>-allow-modules=counters|accounts</code>.</p>
+<p>This is implemented by the <code>counters</code> module from the core. To enable this functionality specify <code>-allow-modules=bk_counters|bk_accounts</code>.</p>
 <ul>
 <li><p><code>/counter/get</code>
 Return counter record for current account with all available columns of if <code>id</code> is given return public columns for given account, it works with <code>bk_counter</code> table
@@ -1333,7 +1333,7 @@ exposes an API to manage and render pages.</p>
 <p>The pages support public mode, all pages with <code>pub</code> set to true will be returning without an account, this must be enabled with <code>api-allow-path=^/pages/(get|select|show)</code>
 to work.</p>
 <p>All .md files will be rendered into html automatically if there is not _raw=1 query parameter and pages view exists (api-pages-view=pages.html by default).</p>
-<p>This is implemented by the <code>pages</code> module from the core. To enable this functionality specify <code>-allow-modules=accounts</code>.</p>
+<p>This is implemented by the <code>pages</code> module from the core. To enable this functionality specify <code>-allow-modules=bk_accounts</code>.</p>
 <ul>
 <li><p><code>/pages/get/ID</code>
 Return a page with given id or the main page if id is empty. If the query parameter <code>_render=1</code> is given, the content will be rendered into html from markdown, otherwie
@@ -7902,7 +7902,7 @@ connection to APN gateway.</p>
 </li>
 </ul>
 
-<h2 id="module-accounts">Module: ACCOUNTS</h2>
+<h2 id="module-bk_accounts">Module: BK_ACCOUNTS</h2>
 <ul>
 <li><p><code>accounts</code></p>
 <p> Account management</p>
@@ -8080,7 +8080,7 @@ On return the row will have a property <code>saved</code> if it was flushed to d
 </li>
 </ul>
 
-<h2 id="module-connections">Module: CONNECTIONS</h2>
+<h2 id="module-bk_connections">Module: BK_CONNECTIONS</h2>
 <ul>
 <li><p><code>connections</code></p>
 <p> Connections management</p>
@@ -8224,7 +8224,7 @@ connections. If any of obj.id or obj.type are not specified then perform a query
 </li>
 </ul>
 
-<h2 id="module-counters">Module: COUNTERS</h2>
+<h2 id="module-bk_counters">Module: BK_COUNTERS</h2>
 <ul>
 <li><p><code>counters</code></p>
 <p> Counters management</p>
@@ -8281,7 +8281,7 @@ connections. If any of obj.id or obj.type are not specified then perform a query
 </li>
 </ul>
 
-<h2 id="module-data">Module: DATA</h2>
+<h2 id="module-bk_data">Module: BK_DATA</h2>
 <ul>
 <li><p><code>data</code></p>
 <p> Account management</p>
@@ -8306,7 +8306,7 @@ connections. If any of obj.id or obj.type are not specified then perform a query
 </li>
 </ul>
 
-<h2 id="module-files">Module: FILES</h2>
+<h2 id="module-bk_files">Module: BK_FILES</h2>
 <ul>
 <li><p><code>files</code></p>
 <p> Account management</p>
@@ -8358,7 +8358,7 @@ connections. If any of obj.id or obj.type are not specified then perform a query
 </li>
 </ul>
 
-<h2 id="module-icons">Module: ICONS</h2>
+<h2 id="module-bk_icons">Module: BK_ICONS</h2>
 <ul>
 <li><p><code>icons</code></p>
 <p> Icons management</p>
@@ -8430,7 +8430,7 @@ Verify icon limits before adding new icons</p>
 </li>
 </ul>
 
-<h2 id="module-locations">Module: LOCATIONS</h2>
+<h2 id="module-bk_locations">Module: BK_LOCATIONS</h2>
 <ul>
 <li><p><code>locations</code></p>
 <p> Locations management</p>
@@ -8504,7 +8504,7 @@ is used in <code>/location/get</code> request. It can be used in the application
 </li>
 </ul>
 
-<h2 id="module-messages">Module: MESSAGES</h2>
+<h2 id="module-bk_messages">Module: BK_MESSAGES</h2>
 <ul>
 <li><p><code>messages</code></p>
 <p> Messages management</p>
@@ -8646,7 +8646,7 @@ is used in <code>/location/get</code> request. It can be used in the application
 </li>
 </ul>
 
-<h2 id="module-system">Module: SYSTEM</h2>
+<h2 id="module-bk_system">Module: BK_SYSTEM</h2>
 <ul>
 <li><p><code>system</code></p>
 <p> System management</p>
