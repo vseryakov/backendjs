@@ -253,7 +253,7 @@ lib.toDuration = function(mtime)
         if (m > 0) {
             str = m + " minute" + (m > 1 ? "s" : "");
         } else {
-            str = seconds + " second" + (seconds > 1 ? "s" : "");
+            str = Math.floor(seconds) + " second" + (seconds > 1 ? "s" : "");
         }
     }
     return str;
@@ -286,7 +286,7 @@ lib.toAge = function(mtime)
         if (m > 0) {
             str = m + " minute" + (m > 1 ? "s" : "");
         } else {
-            str = seconds + " second" + (seconds > 1 ? "s" : "");
+            str = Math.floor(seconds) + " second" + (seconds > 1 ? "s" : "");
         }
     }
     return str;
