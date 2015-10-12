@@ -2100,7 +2100,7 @@ db.getColumns = function(table, options)
 // Return the column definition for a table
 db.getColumn = function(table, name, options)
 {
-    return this.getColumns(table, options)[name];
+    return this.getColumns(table, options)[(name || "").toLowerCase()];
 }
 
 // Check if the given index name corresponds to a real table column, for compound indexes the convention is to

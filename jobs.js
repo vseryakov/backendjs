@@ -138,7 +138,7 @@ jobs.initServer = function(options, callback)
     if (this.workerArgs.length) process.execArgv = this.workerArgs;
 
     // Launch the workers
-    var workers = this.workers || (core.maxCPUs * (this.workerCpuFactor || 1));
+    var workers = this.workers || Math.round(core.maxCPUs * (this.workerCpuFactor || 1));
     for (var i = 0; i < workers; i++) cluster.fork(this.workerEnv);
 
     logger.log("jobs:", core.role, "started", "workers:", workers, "cron:", this.cron);

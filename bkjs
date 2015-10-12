@@ -78,16 +78,20 @@ concat_arg() {
   echo $_v
 }
 
-# Return value of the named pair from the variable that hold all them
+# Return value of the named pair from the variable that holds all them
 get_value() {
   v=$(echo "$1"|awk -F= "{if(\$1==\"$2\" && \$2!=\"\") print \$2}")
   echo ${v:-$3}
 }
 
+# Home must be specified for the script to work properly
+export BKJS_HOME=$(get_arg -home $BKJS_HOME)
+[ "$BKJS_HOME" = "" ] && export BKJS_HOME=$(sh -c "echo ~$BKJS_USER")
+[ -f $BKJS_HOME/etc/profile ] && . $BKJS_HOME/etc/profile
+
 # Global options that are used thoughout the script
 export BKJS_DEBUG=$(get_arg -debug $BKJS_DEBUG)
 export BKJS_DRY_RUN=$(get_flag -dry-run $BKJS_DRY_RUN)
-export BKJS_HOME=$(get_arg -home $BKJS_HOME)
 export BKJS_PREFIX=$(get_arg -prefix $BKJS_PREFIX)
 export BKJS_USER=$(get_arg -user $BKJS_USER)
 export BKJS_GROUP=$(get_arg -group $BKJS_GROUP)
@@ -99,11 +103,7 @@ export BKJS_ARGS=$(concat_arg -args $BKJS_ARGS)
 export BKJS_SSH_ARGS=$(concat_arg -ssh $BKJS_SSH_ARGS)
 export BKJS_RSYNC_ARGS=$(concat_arg -rsync $BKJS_RSYNC_ARGS)
 
-# Home must be specified for the script to work properly
-[ "$BKJS_HOME" = "" ] && export BKJS_HOME=$(sh -c "echo ~$BKJS_USER")
-[ -f $BKJS_HOME/etc/profile ] && . $BKJS_HOME/etc/profile
-
-# Setup all variables with defaults
+# Setup all variables with the defaults
 [ "$BKJS_HOST" = "" ] && export BKJS_HOST=$(uname -n|awk -F. '{print $1}')
 [ "$BKJS_USER" = "" ] && export BKJS_USER=$(whoami)
 [ "$BKJS_GROUP" = "" ] && export BKJS_GROUP=$(id -gn)
