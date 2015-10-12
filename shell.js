@@ -93,7 +93,7 @@ shell.getArgInt = function(name, options, dflt)
 
 shell.isArg = function(name, options)
 {
-    return typeof options[lib.toCamel(name.substr(1))] != "undefined" || core.isArg(name);
+    return (options && typeof options[lib.toCamel(name.substr(1))] != "undefined") || core.isArg(name);
 }
 
 // Start REPL shell or execute any subcommand if specified in the command line.

@@ -372,6 +372,7 @@ case "$ARG" in
     service iptables stop
 
     # Make sure monit is running all the time
+    sed -e 's|set daemon 60|set daemon 30|' /etc/monit.conf
     chkconfig monit on
     service monit restart
 
@@ -808,6 +809,8 @@ case "$ARG" in
     [ "$(whoami)" != "root" ] && echo "Run as root please" && exit 1
     echo 1 > /proc/sys/vm/overcommit_memory
     echo never > /sys/kernel/mm/transparent_hugepage/enabled
+    echo 'vm.overcommit_memory=1' >> /etc/sysctl.conf
+    echo 'echo never > /sys/kernel/mm/transparent_hugepage/enabled' >> /etc/rc.local
     $ECHO "/home/ec2-user/log/redis.log {\n  weekly\n  rotate 10\n  copytruncate\n  delaycompress\n  compress\n  notifempty\n  missingok\n}" > /etc/logrotate.d/redis
     $ECHO "check process redis-server with pidfile \"$REDIS_PREFIX/var/redis.pid\" start program = \"$0 run-redis\" as uid $BKJS_USER and gid $BKJS_GROUP stop program = \"$0 stop-redis\"" > /etc/monit.d/redis.conf
     monit reload
