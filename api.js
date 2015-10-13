@@ -128,6 +128,8 @@ var api = {
            { name: "exit-on-error", type: "bool", descr: "Exit on uncaught exception in the route handler" },
            { name: "upload-limit", type: "number", min: 1024*1024, max: 1024*1024*10, descr: "Max size for uploads, bytes"  },
            { name: "limiter-queue", descr: "Name of an ipc queue for API rate limiting" },
+           { name: "errlog-limiter-max", type: "int", descr: "How many error messages to put in the log before throttling kicks in" },
+           { name: "errlog-limiter-interval", type: "int", descr: "Interval for error log limiter, max errors per this interval" },
     ],
 
     // Access handlers to grant access to the endpoint before checking for signature.
@@ -251,6 +253,10 @@ var api = {
     urlMetrics: { image: 2 },
 
     limiterQueue: "local",
+
+    // Error reporter throttle
+    errlogLimiterMax: 100,
+    errlogLimiterInterval: 30000,
 
     // Collector of statistics, seconds
     collectInterval: 30,
@@ -565,9 +571,12 @@ api.init = function(options, callback)
                 logger.debug("static:", core.path.web, __dirname + "/web");
             }
 
-            // Default error handler to show errors in the log
+            // Default error handler to show errors in the log, throttle the output to keep the log from overflow
+            if (self.errlogLimiterMax && self.errlogLimiterInterval) {
+                self.errlogLimiterToken = new metrics.TokenBucket(self.errlogLimiterMax, 0, self.errlogLimiterInterval);
+            }
             self.app.use(function(err, req, res, next) {
-                logger.error('api:', req.options.path, lib.traceError(err));
+                if (!self.errlogLimiterToken || self.errlogLimiterToken.consume(1)) logger.error('api:', req.options.path, lib.traceError(err));
                 self.sendReply(res, err);
             });
 

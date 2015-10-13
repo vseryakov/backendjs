@@ -564,8 +564,8 @@ Metrics.prototype.Histogram = function(name, properties)
 }
 
 // Create a Token Bucket object for rate limiting as per http://en.wikipedia.org/wiki/Token_bucket
-//  - max - the maximum burst capacity
 //  - rate - the rate to refill tokens
+//  - max - the maximum burst capacity
 //  - interval - interval for the bucket refills, default 1000 ms
 //
 // Store as an array for easier serialization into JSON when keep it in the shared cache.
