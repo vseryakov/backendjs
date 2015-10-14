@@ -806,11 +806,16 @@ case "$ARG" in
     ;;
 
   init-redis)
+    # There is no startup script because we rely on the monit to handle processes
     [ "$(whoami)" != "root" ] && echo "Run as root please" && exit 1
     echo 1 > /proc/sys/vm/overcommit_memory
     echo never > /sys/kernel/mm/transparent_hugepage/enabled
-    echo 'vm.overcommit_memory=1' >> /etc/sysctl.conf
-    echo 'echo never > /sys/kernel/mm/transparent_hugepage/enabled' >> /etc/rc.local
+    if [ "$(grep -s 'overcommit_memory' /etc/sysctl.conf)" = "" ]; then
+       echo 'vm.overcommit_memory=1' >> /etc/sysctl.conf
+    fi
+    if [ "$(grep -s 'transparent_hugepage' /etc/rc.local)" = "" ]; then
+       echo 'echo never > /sys/kernel/mm/transparent_hugepage/enabled' >> /etc/rc.local
+    fi
     $ECHO "/home/ec2-user/log/redis.log {\n  weekly\n  rotate 10\n  copytruncate\n  delaycompress\n  compress\n  notifempty\n  missingok\n}" > /etc/logrotate.d/redis
     $ECHO "check process redis-server with pidfile \"$REDIS_PREFIX/var/redis.pid\" start program = \"$0 run-redis\" as uid $BKJS_USER and gid $BKJS_GROUP stop program = \"$0 stop-redis\"" > /etc/monit.d/redis.conf
     monit reload

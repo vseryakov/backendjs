@@ -130,6 +130,7 @@ var api = {
            { name: "limiter-queue", descr: "Name of an ipc queue for API rate limiting" },
            { name: "errlog-limiter-max", type: "int", descr: "How many error messages to put in the log before throttling kicks in" },
            { name: "errlog-limiter-interval", type: "int", descr: "Interval for error log limiter, max errors per this interval" },
+           { name: "errlog-limiter-ignore", type: "regexp", descr: "Do not show errors that match the regexp" },
     ],
 
     // Access handlers to grant access to the endpoint before checking for signature.
@@ -257,6 +258,7 @@ var api = {
     // Error reporter throttle
     errlogLimiterMax: 100,
     errlogLimiterInterval: 30000,
+    errlogLimiterIgnore: /Requested Range Not Satisfiable/,
 
     // Collector of statistics, seconds
     collectInterval: 30,
@@ -576,7 +578,10 @@ api.init = function(options, callback)
                 self.errlogLimiterToken = new metrics.TokenBucket(self.errlogLimiterMax, 0, self.errlogLimiterInterval);
             }
             self.app.use(function(err, req, res, next) {
-                if (!self.errlogLimiterToken || self.errlogLimiterToken.consume(1)) logger.error('api:', req.options.path, lib.traceError(err));
+                // Do not show runtime errors
+                if (err && !String(err).match(self.errlogLimiterIgnore)) {
+                    if (!self.errlogLimiterToken || self.errlogLimiterToken.consume(1)) logger.error('api:', req.options.path, lib.traceError(err));
+                }
                 self.sendReply(res, err);
             });
 
