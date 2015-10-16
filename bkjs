@@ -984,10 +984,6 @@ case "$ARG" in
     $NODE_BIN -e "require('$BKJS_MOD').core.showHelp()"
     ;;
 
-  clean-backend)
-    rm -rf *~ *.o *.a *.so *.dylib *.node *.log build
-    ;;
-
   install-bkjs)
     (cd $BKJS_HOME && npm install git+https://github.com/vseryakov/$BKJS_MOD.git $BKJS_ARGS)
     ;;
@@ -1000,18 +996,6 @@ case "$ARG" in
     (cd $BKJS_MOD && npm install $BKJS_ARGS)
     ;;
 
-  build-backend)
-    set -e
-    if [ ! -f build/Makefile -o binding.gyp -nt build/Makefile ]; then
-      $NPM_BIN build .
-    else
-      $NPM_BIN run-script preinstall
-      make -C build
-      $NPM_BIN run-script postinstall
-    fi
-    exit 0
-    ;;
-
   build-node)
     if [ ! -d deps/node ]; then
        mkdir -p deps
@@ -1020,43 +1004,6 @@ case "$ARG" in
     (cd deps/node && [ ! -f out/Makefile ] && CFLAGS="$CFLAGS" CXXFLAGS="$CXXFLAGS" LDFLAGS="$LDFLAGS" ./configure --prefix=$BKJS_PREFIX)
     (cd deps/node && git pull && make install clean)
     $NPM_BIN config set nodedir "$(pwd)/deps/node"
-    ;;
-
-  build-deps)
-    export BKJS_PREFIX=$(pwd)/build
-    export CFLAGS="$CFLAGS -fPIC -g -I$BKJS_PREFIX/include"
-    export CXXFLAGS="$CXXFLAGS -fPIC -g -I$BKJS_PREFIX/include"
-    export LDFLAGS="$LDFLAGS -L$BKJS_PREFIX/lib"
-    export PKG_CONFIG_PATH=$BKJS_PREFIX/lib/pkgconfig:$PKG_CONFIG_PATH
-    [ -d /opt/local/lib ] && export LDFLAGS="$LDFLAGS -L/opt/local/lib" && export CFLAGS="$CFLAGS -I/opt/local/include" && export PKG_CONFIG_PATH=/opt/local/lib/pkgconfig:$PKG_CONFIG_PATH
-    [ -d /usr/local/lib ] && export LDFLAGS="$LDFLAGS -L/usr/local/lib" && export CFLAGS="$CFLAGS -I/usr/local/include" && export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH
-    mkdir -p deps
-
-    pkg-config --silence-errors --exists libopenjp2
-    if [ "$?" = "1" -a "$npm_config_backendjs_openjpeg" != "" -a "$npm_config_backendjs_imagemagick" != "" ]; then
-        if [ ! -d deps/openjpeg ]; then
-           (cd deps && svn -r r2871 checkout http://openjpeg.googlecode.com/svn/trunk/ openjpeg)
-        fi
-        (cd deps/openjpeg && cmake -DCMAKE_C_FLAGS="$CFLAGS" -DCMAKE_INSTALL_PREFIX=$BKJS_PREFIX -DBUILD_SHARED_LIBS:bool=off -DBUILD_CODEC:bool=off . && make)
-        (cd deps/openjpeg && make install)
-    fi
-
-    pkg-config --silence-errors --exists Wand
-    if [ "$?" = "1" -a "$npm_config_backendjs_imagemagick" != "" ]; then
-        if [ ! -d deps/ImageMagick ]; then
-           mkdir -p deps/ImageMagick
-           curl -OL http://www.imagemagick.org/download/ImageMagick.tar.gz
-           tar -C deps/ImageMagick --strip-components=1 -xzf ImageMagick.tar.gz && rm -rf ImageMagick.tar.gz
-        fi
-        (cd deps/ImageMagick && [ ! -f Makefile ] && ./configure --prefix=$BKJS_PREFIX --disable-docs --disable-installed --disable-shared --disable-deprecated --enable-zero-configuration --without-x --without-magick-plus-plus --without-perl)
-        (cd deps/ImageMagick && make install)
-    fi
-    exit 0
-    ;;
-
-  clean-deps)
-    [ -d deps/node ] && make -C deps/node clean distclean
-    [ -d deps/ImageMagick ] && make -C deps/ImageMagick clean distclean
     ;;
 
   pack-app)
@@ -1312,11 +1259,7 @@ EOF
     echo "  stop-mongodb - stop local Mongo server"
     echo "  install-bkjs - install the $BKJS_MOD from the github using npm, build dependencies are passed in -args"
     echo "  build-bkjs - clone and build the $BKJS_MOD from the git in the current dir with dependencies specified in -args"
-    echo "  build-deps - build all required nad optional software for the backend binary module"
     echo "  build-node - build node and install in $BKJS_PREFIX or in [-prefix PATH], on Linux init-devel should be called before this command to install devel packages"
-    echo "  build-backend - compile all required modules and libraries for the backend development(node.js, libs)"
-    echo "  clean-backend - clean the source directory"
-    echo "  clean-deps - clean dependencies binary and object files"
     echo "  show-instances [-ip] [-region region] [-name name] - show running instances in region, optional tag pattern can be used for filter, -showip will show only IP addresses of instances"
     echo "  show-help - show all backend command line and config parameters"
     echo ""

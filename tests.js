@@ -12,6 +12,8 @@ var util = require('util');
 var path = require('path');
 var child_process = require('child_process');
 var bkjs = require('backendjs')
+var bkutils = require('bkjs-utils');
+var bkcache = require('bkjs-cache');
 var core = bkjs.core;
 var lib = bkjs.lib;
 var ipc = bkjs.ipc;
@@ -20,7 +22,6 @@ var db = bkjs.db;
 var aws = bkjs.aws;
 var server = bkjs.server;
 var logger = bkjs.logger;
-var utils = bkjs.utils;
 
 // Test object with functions for different areas to be tested
 var tests = {
@@ -643,7 +644,7 @@ tests.test_location = function(callback)
     var rc = [], top = {}, bad = 0, good = 0, error = 0, count = rows/2;
     var ghash, gcount = Math.floor(count/2);
     // New bounding box for the tests
-    bbox = bkjs.utils.geoBoundingBox(latitude, longitude, distance);
+    bbox = bkutils.geoBoundingBox(latitude, longitude, distance);
     // To get all neighbors, we can only guarantee searches in the neighboring areas, even if the distance is within it
     // still can be in the box outside of the immediate neighbors, minDistance is an approximation
     var geo = lib.geoHash(latitude, longitude, { distance: distance });
@@ -1192,9 +1193,9 @@ tests.test_cookie = function(callback)
 tests.test_busy = function(callback)
 {
     var work = 524288;
-    utils.initBusy(core.getArgInt("-busy", 100));
+    bkutils.initBusy(core.getArgInt("-busy", 100));
     var interval = setInterval(function worky() {
-        var howBusy = utils.isBusy();
+        var howBusy = bkutils.isBusy();
         if (howBusy) {
           work /= 4;
           console.log("I can't work! I'm too busy:", howBusy + "ms behind");
@@ -1312,7 +1313,7 @@ tests.test_cache = function(callback)
         });
         if (!self.test.iterations) {
             ipc.initServer();
-            setInterval(function() { logger.log('keys:', bkjs.utils.lruKeys()); }, 1000);
+            setInterval(function() { logger.log('keys:', bkcache.lruKeys()); }, 1000);
         }
     } else {
         ipc.onMessage = function(msg) {

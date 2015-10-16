@@ -9,7 +9,6 @@ var net = require('net');
 var fs = require('fs');
 var path = require('path');
 var domain = require('domain');
-var utils = require(__dirname + '/build/Release/backend');
 var logger = require(__dirname + '/logger');
 var core = require(__dirname + '/core');
 var lib = require(__dirname + '/lib');
@@ -290,10 +289,9 @@ db.initPool = function(name, options, callback)
 //  - the application version specified in the package.json: `1.0.0`
 //  - the network where the instance is running, first 2 octets from the current IP address: `192.168`
 //  - the region where the instance is running, AWS region or other name: `us-east-1`
-//  - the network where the instance is running, first 2 octets from the current IP address: `192.168.1`
+//  - the network where the instance is running, first 3 octets from the current IP address: `192.168.1`
 //  - the zone where the instance is running, AWS availability zone or other name: `us-east-1a`
 //  - current instance tag or a custom tag for ad-hoc queries: `nat`
-//  - current instance IP address: `192.168.1.1`
 //
 // The options takes the following properties:
 //  - force - if true then force to refresh and reopen all db pools
@@ -318,8 +316,7 @@ db.initConfig = function(options, callback)
                   options.region || core.instance.region,
                   options.subnet || core.subnet,
                   options.zone || core.instance.zone,
-                  options.tag || core.instance.tag,
-                  options.ipaddr || core.ipaddr ];
+                  options.tag || core.instance.tag ];
 
     items.forEach(function(x) {
         if (!x) return;
@@ -477,6 +474,7 @@ db.dropPoolTables = function(name, tables, options, callback)
 //          the calback on result will return err and rows as any other regular database callbacks. This filter can be used to perform
 //          filtering based on the ata in the other table for example.
 //     - silence_error - do not report about the error in the log, still the error is retirned to the caller
+//     - ignore_error - same as silence_error
 //     - noprocessrows - if true then skip post processing result rows, return the data as is, this will result in returning combined columns as it is
 //     - noconvertrows - if true skip converting the data from the database format into Javascript data types, it uses column definitions
 //       for the table to convert values returned from the db into the the format defined by the column
@@ -516,11 +514,11 @@ db.query = function(req, options, callback)
         pool.metrics.Counter('count').dec();
         delete req.info;
 
-        if (err && !options.silence_error) {
+        if (err && !options.silence_error && !options.ignore_error) {
             pool.metrics.Counter("err_0").inc();
             logger.error("db.query:", pool.name, err, 'REQ:', req, 'OPTS:', options, lib.traceError(err));
         } else {
-            logger.debug("db.query:", pool.name, m1.elapsed, 'ms', rows.length, 'rows', 'REQ:', req, 'INFO:', info, 'OPTS:', options);
+            logger.debug("db.query:", pool.name, m1.elapsed, 'ms', rows.length, 'rows', 'REQ:', req, 'INFO:', info, 'OPTS:', options, err);
         }
         if (typeof callback == "function") {
             try {
@@ -1440,7 +1438,7 @@ db.get = function(table, query, options, callback)
 //  Example:
 //
 //      db.getCached("get", "bk_account", { id: req.query.id }, { select: "latitude,longitude" }, function(err, row) {
-//          var distance = utils.geoDistance(req.query.latitude, req.query.longitude, row.latitude, row.longitudde);
+//          var distance = lib.geoDistance(req.query.latitude, req.query.longitude, row.latitude, row.longitudde);
 //      });
 //
 db.getCached = function(op, table, query, options, callback)

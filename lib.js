@@ -13,7 +13,7 @@ var url = require('url');
 var http = require('http');
 var https = require('https');
 var child = require('child_process');
-var utils = require(__dirname + '/build/Release/backend');
+var bkutils = require('bkjs-utils');
 var logger = require(__dirname + '/logger');
 var cluster = require('cluster');
 var os = require('os');
@@ -408,7 +408,8 @@ lib.toParams = function(query, schema, options)
 // properties will be replaced by empty strings
 lib.toFormat = function(format, data, options)
 {
-    var rows = Array.isArray(data) ? data : Array.isArray(data.data) ? data.data :[];
+    var rows = Array.isArray(data) ? data : Array.isArray(data.data) ? data.data : [];
+    if (!rows.length) return "";
     var allow = options && Array.isArray(options.allow) ? options.allow : null;
 
     switch (format) {
@@ -427,9 +428,13 @@ lib.toFormat = function(format, data, options)
     case "csv":
         var csv = "";
         var sep = (options && options.separator) || "\t";
-        if (options && options.header) csv += (allow || Object.keys(rows[0])).join(sep) + "\n";
+        if (options && options.header) {
+            var keys = allow || Object.keys(rows[0]);
+            csv += keys.join(sep) + "\n";
+        }
         for (var i = 0; i < rows.length; i++) {
-            csv += (allow || Object.keys(rows[i])).map(function(y) { return rows[i][y]} ).join(sep) + "\n";
+            keys = allow || Object.keys(rows[i]);
+            csv += keys.map(function(y) { return rows[i][y]} ).join(sep) + "\n";
         }
         return csv;
 
@@ -915,10 +920,10 @@ lib.geoHash = function(latitude, longitude, options)
     // Geohash ranges for different lengths in km, take the first greater than our min distance
     var range = this.geoHashRange.filter(function(x) { return x[1] > minDistance })[0];
 
-    var geohash = utils.geoHashEncode(latitude, longitude);
+    var geohash = bkutils.geoHashEncode(latitude, longitude);
     return { geohash: geohash.substr(0, range[0]),
              _geohash: geohash,
-             neighbors: options.distance ? utils.geoHashGrid(geohash.substr(0, range[0]), Math.ceil(options.distance / range[1])).slice(1) : [],
+             neighbors: options.distance ? bkutils.geoHashGrid(geohash.substr(0, range[0]), Math.ceil(options.distance / range[1])).slice(1) : [],
              latitude: latitude,
              longitude: longitude,
              minRange: range[1],
@@ -937,7 +942,7 @@ lib.geoHash = function(latitude, longitude, options)
 //
 lib.geoDistance = function(latitude1, longitude1, latitude2, longitude2, options)
 {
-    var distance = utils.geoDistance(latitude1, longitude1, latitude2, longitude2);
+    var distance = bkutils.geoDistance(latitude1, longitude1, latitude2, longitude2);
     if (isNaN(distance) || distance === null || typeof distance == "undefined") return null;
 
     // Round the distance to the closes edge and fixed number of decimals
@@ -952,8 +957,8 @@ lib.geoDistance = function(latitude1, longitude1, latitude2, longitude2, options
 // Same as geoDistance but operates on 2 geohashes instead of coordinates.
 lib.geoHashDistance = function(geohash1, geohash2, options)
 {
-    var coords1 = utils.geoHashDecode(geohash1);
-    var coords2 = utils.geoHashDecode(geohash2);
+    var coords1 = bkutils.geoHashDecode(geohash1);
+    var coords2 = bkutils.geoHashDecode(geohash2);
     return this.geoDistance(coords1[0], coords1[1], coords2[0], coords2[1], options);
 }
 
@@ -1289,6 +1294,7 @@ lib.base64ToJson = function(data, secret, algorithm)
 // Extract domain from the host name, takes all host parts except the first one
 lib.domainName = function(host)
 {
+    if (!host) return "";
     var name = String(host || "").split('.');
     return (name.length > 2 ? name.slice(1).join('.') : host).toLowerCase();
 }
@@ -1393,7 +1399,7 @@ lib.cloneObj = function()
 lib.newObj = function()
 {
     var obj = {};
-    for (var i = 0; i < arguments.length - 1; i += 2) obj[arguments[i]] = arguments[i + 1];
+    for (var i = 0; i < arguments.length - 1; i += 2) if (typeof arguments[i + 1] != "undefined") obj[arguments[i]] = arguments[i + 1];
     return obj;
 }
 

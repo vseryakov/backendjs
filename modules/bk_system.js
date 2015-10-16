@@ -136,26 +136,6 @@ system.configureSystemAPI = function()
             }
             break;
 
-        case "profiler":
-            switch(req.params[1]) {
-            case 'start':
-            case 'stop':
-                core.profiler("cpu", req.params[1]);
-                res.json({});
-                break;
-
-            case 'get':
-                // Sent profiler data to the master
-                if (core.cpuProfile) {
-                    res.json(core.cpuProfile);
-                    core.cpuProfile = null;
-                } else {
-                    res.json({});
-                }
-                break;
-            }
-            break;
-
         case "params":
             var args = [ [ '', core.args ] ];
             Object.keys(core.modules).forEach(function(n) {

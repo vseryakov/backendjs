@@ -9,7 +9,7 @@ var fs = require('fs');
 var path = require('path');
 var cluster = require('cluster');
 var events = require("events");
-var utils = require(__dirname + '/build/Release/backend');
+var bkcache = require('bkjs-cache');
 var logger = require(__dirname + '/logger');
 var core = require(__dirname + '/core');
 var lib = require(__dirname + '/lib');
@@ -45,7 +45,7 @@ function Ipc()
 
     // Config params
     this.configParams = { "cache-local": "local://", "queue-local": "local://"};
-    this.args = [ { name: "lru-max", type: "callback", callback: function(v) {utils.lruInit(lib.toNumber(v,{min:10000}))}, descr: "Max number of items in the LRU cache, this cache is managed by the master Web server process and available to all Web processes maintaining only one copy per machine, Web proceses communicate with LRU cache via IPC mechanism between node processes" },
+    this.args = [ { name: "lru-max", type: "callback", callback: function(v) {bkcache.lruInit(lib.toNumber(v,{min:10000}))}, descr: "Max number of items in the LRU cache, this cache is managed by the master Web server process and available to all Web processes maintaining only one copy per machine, Web proceses communicate with LRU cache via IPC mechanism between node processes" },
                  { name: "cache-?([a-z0-1]+)?", obj: "configParams", nocamel: 1, descr: "An URL that points to the cache server in the format `PROTO://HOST[:PORT]?PARAMS`, to use for caching in the API/DB requests, default is local LRU cache, multiple caches can be defined with unique names, all params starting with `bk-` will be copied into the options without the prefix and removed from the url, the rest of paarms will be left in the url" },
                  { name: "cache-?([a-z0-1]+)-options", obj: "configParams", nocamel: 1, type: "json", descr: "JSON object with options to the cache client, specific to each implementation" },
                  { name: "queue-?([a-z0-1]+)?", obj: "configParams", nocamel: 1, descr: "An URL that points to the queue server in the format `PROTO://HOST[:PORT]?PARAMS`, to use for PUB/SUB or job queues, default is no local queue, multiple queues can be defined with unique names, params are handled the same way as for cache" },
@@ -95,15 +95,6 @@ Ipc.prototype.handleWorkerMessages = function(msg)
 
         case "columns:init":
             core.modules.db.cacheColumns();
-            break;
-
-        case "profiler:start":
-        case "profiler:stop":
-            core.profiler("cpu", msg.__op.split(":").pop());
-            break;
-
-        case "heapsnapshot":
-            core.profiler("heap", "save");
             break;
         }
         this.emit(msg.__op, msg);
@@ -162,14 +153,14 @@ Ipc.prototype.handleServerMessages = function(worker, msg)
             break;
 
         case "ipc:limiter":
-            var data = utils.lruGet(msg.name);
+            var data = bkcache.lruGet(msg.name);
             this.tokenBucket.configure(data ? lib.strSplit(data) : msg);
             // Reset the bucket if any number has been changed, now we have a new rate to check
             if (!this.tokenBucket.equal(msg.rate, msg.max, msg.interval)) this.tokenBucket.configure(msg);
             msg.consumed = this.tokenBucket.consume(msg.consume || 1);
             msg.delay = this.tokenBucket.delay(msg.consume || 1);
             var token = this.tokenBucket.toString();
-            utils.lruPut(msg.name, token);
+            bkcache.lruPut(msg.name, token);
             logger.debug("ipc:limiter:", msg.name, msg.consumed, msg.delay, token);
             worker.send(msg);
             break;
@@ -184,12 +175,12 @@ Ipc.prototype.handleServerMessages = function(worker, msg)
             break;
 
         case 'cache:stats':
-            msg.value = utils.lruStats();
+            msg.value = bkcache.lruStats();
             worker.send(msg);
             break;
 
         case 'cache:keys':
-            msg.value = utils.lruKeys(msg.name);
+            msg.value = bkcache.lruKeys(msg.name);
             worker.send(msg);
             break;
 
@@ -197,14 +188,14 @@ Ipc.prototype.handleServerMessages = function(worker, msg)
             if (Array.isArray(msg.name)) {
                 msg.value = {};
                 for (var i = 0; i < msg.name.length; i++) {
-                    msg.value[msg.name[i]] = utils.lruGet(msg.name[i]);
+                    msg.value[msg.name[i]] = bkcache.lruGet(msg.name[i]);
                 }
             } else
             if (msg.name) {
-                msg.value = utils.lruGet(msg.name);
+                msg.value = bkcache.lruGet(msg.name);
                 // Set initial value if does not exist or empty
                 if (!msg.value && msg.set) {
-                    utils.lruPut(msg.name, msg.value = msg.set);
+                    bkcache.lruPut(msg.name, msg.value = msg.set);
                     delete msg.set;
                 }
             }
@@ -212,30 +203,30 @@ Ipc.prototype.handleServerMessages = function(worker, msg)
             break;
 
         case 'cache:exists':
-            if (msg.name) msg.value = utils.lruExists(msg.name);
+            if (msg.name) msg.value = bkcache.lruExists(msg.name);
             worker.send(msg);
             break;
 
         case 'cache:put':
-            if (msg.name && msg.value) utils.lruPut(msg.name, msg.value);
+            if (msg.name && msg.value) bkcache.lruPut(msg.name, msg.value);
             if (msg.__res) worker.send(msg);
             break;
 
         case 'cache:incr':
-            if (msg.name && msg.value) msg.value = utils.lruIncr(msg.name, msg.value);
+            if (msg.name && msg.value) msg.value = bkcache.lruIncr(msg.name, msg.value);
             if (msg.__res) worker.send(msg);
             break;
 
         case 'cache:del':
-            if (msg.name) utils.lruDel(msg.name);
+            if (msg.name) bkcache.lruDel(msg.name);
             if (msg.__res) worker.send(msg);
             break;
 
         case 'cache:clear':
             if (msg.name) {
-                utils.lruKeys(msg.name).forEach(function(x) { utils.lruDel(x) });
+                bkcache.lruKeys(msg.name).forEach(function(x) { bkcache.lruDel(x) });
             } else {
-                utils.lruClear();
+                bkcache.lruClear();
             }
             if (msg._res) worker.send({});
             break;

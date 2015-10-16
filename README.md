@@ -40,34 +40,11 @@ Features:
 
 Check out the [Documentation](http://bkjs.io) for more details.
 
-# Requirements and dependencies
-
-The module supports several databases and includes ImageMagick interface. In order for such interfaces to be compiled the software must be installed
-on the system before installing the backendjs. Not everything is required, if not available the interface will be skipped.
-
-The optional packages that the backendjs uses if available(resolving packages is done with *pkg-config*):
-- ImageMagick - image manipulation
-- libmysql - MySQL database driver
-
-Installing dependencies on CentOS:
-
-    yum -y install libpng-devel libjpeg-turbo-devel mysql-devel
-
-Installing dependencies on Mac OS X using macports:
-
-    port install libpng jpeg mysql56
-
 # Installation
 
 To install the module with all optional dependencies if they are available in the system
 
-Note: if for example ImageMagick is not istalled it will be skipped, same goes to all database drivers(MySQL)
-
     npm install backendjs
-
-To force internal ImageMagick to be compiled in the module the following command must be used:
-
-     npm install backendjs --backendjs_imagemagick
 
 This may take some time because of downloading and compiling required dependencies like ImageMagick. They are not required in all
 applications but still part of the core of the system to be available once needed.
@@ -2186,16 +2163,6 @@ how the environment is setup it is ultimatley 2 ways to specify the port for HTT
 
     * **Important**: Add NODE_PATH=$BKJS_PREFIX/lib/node_modules to your environment in .profile or .bash_profile so
       node can find global modules, replace $BKJS_PREFIX with the actual path unless this variable is also set in the .profile
-
-* to compile the binary module and all required dependencies just type `make` or `npm build .`
-
-    * to see the actual compiler settings during compilation the following helps:
-
-            make V=1
-
-    * to compile with internal ImageMagick use:
-
-            make force V=1
 
 * to install all dependencies and make backendjs module and bkjs globally available:
 

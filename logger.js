@@ -6,7 +6,7 @@
 var util = require('util');
 var fs = require('fs');
 var os = require("os");
-var utils = require(__dirname + '/build/Release/backend');
+var bksyslog = require("bkjs-syslog");
 
 // Simple logger utility for debugging
 var logger = {
@@ -97,7 +97,7 @@ logger.setSyslog = function (on)
 {
     var self = this;
     if (on) {
-        utils.syslogInit("backend", this.options, this.facility);
+        bksyslog.opent("backend", this.options, this.facility);
         self.print = this.printSyslog;
         // Initialize map for facilities
         self.syslogLevels = { test: this.LOG_DEBUG, dev: this.LOG_DEBUG, debug: this.LOG_DEBUG, warn: this.LOG_WARNING,
@@ -117,7 +117,7 @@ logger.setSyslog = function (on)
            });
         });
     } else {
-        utils.syslogClose();
+        bksyslog.close();
         self.print = this.printStream;
     }
     self.syslog = on;
@@ -152,7 +152,6 @@ logger.setLevel = function(level)
 {
     var self = this;
     self.level = typeof this.levels[level] != "undefined" ? this.levels[level] : isNaN(parseInt(level)) ? 0 : parseInt(level);
-    utils.logging(self.level);
 }
 
 // Enable debugging level for this label, if used with the same debugging level it will be printed regardless of the global level,
@@ -178,16 +177,11 @@ logger.setDebugFilter = function(str)
     });
 }
 
-// Assign output channel to system logger, default is stdout
-logger.setChannel = function(name)
-{
-    utils.loggingChannel(name);
-}
 // syslog allows facility to be specified after log level like info:local0 for LOG_LOCAL0
 logger.printSyslog = function(level, msg)
 {
     var code = this.syslogMap[level];
-    utils.syslogSend(code || this.LOG_NOTICE, (code ? "" : level + ": ") + msg);
+    bksyslog.send(code || this.LOG_NOTICE, (code ? "" : level + ": ") + msg);
 }
 
 logger.printStream = function(level, msg)

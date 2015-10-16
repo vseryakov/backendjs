@@ -5,28 +5,11 @@
 
 TEST=db
 
-all:
-	npm build .
-
-full:
-	npm build . --backendjs_imagemagick
-
-debug:
-	npm run-script debug --backendjs_imagemagick
-	rm -rf build/Release
-	(cd build && ln -s Debug Release)
-
 run:
 	./bkjs run-backend
 
 shell:
 	./bkjs run-shell
-
-clean:
-	./bkjs clean-backend
-
-distclean: clean
-	./bkjs clean-deps
 
 tests:
 	for d in sqlite pgsql mysql dynamodb mongodb cassandra redis lmdb leveldb; do (node tests.js -test-cmd $(TEST) -db-pool $$d -log log); done

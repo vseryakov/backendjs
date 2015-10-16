@@ -1,10 +1,10 @@
 {
-  "version": "0.17.0",
+  "version": "0.18.0",
   "author": "Vlad Seryakov",
   "name": "backendjs",
   "description": "A platform for building backends",
   "main": "index",
-  "homepage": "https://github.com/vseryakov/backendjs",
+  "homepage": "http://bkjs.io",
   "repository": {
     "type": "git",
     "url": "https://github.com/vseryakov/backendjs.git"
@@ -36,9 +36,17 @@
     "cookie-parser": ">= 1.0.1",
     "cookie-session": ">= 1.0.1",
     "serve-static": ">= 1.0.1",
-    "nan": ">= 2.0.9"
+    "bkjs-utils": ">= 0.1.0",
+    "bkjs-wand": ">= 0.1.0",
+    "bkjs-sqlite": ">= 0.1.0",
+    "bkjs-pgsql": ">= 0.1.0",
+    "bkjs-mysql": ">= 0.1.0",
+    "bkjs-cache": ">= 0.1.0",
+    "bkjs-syslog": ">= 0.1.0",
+    "bkjs-debug": ">= 0.1.0"
   },
   "keywords": [
+    "bkjs",
     "webservice",
     "aws",
     "database",
@@ -67,10 +75,6 @@
     "bksh": "./bkjs"
   },
   "scripts": {
-    "preinstall": "./bkjs build-deps",
-    "install": "node-gyp configure build",
-    "debug": "node-gyp --debug configure build",
-    "slim": "node-gyp --debug configure build --use_lmdb=false --use_leveldb=false",
     "start": "./bkjs run-backend",
     "stop": "./bkjs stop"
   }

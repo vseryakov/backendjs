@@ -14,7 +14,7 @@ var cluster = require('cluster');
 var logger = require(__dirname + '/logger');
 var core = require(__dirname + '/core');
 var lib = require(__dirname + '/lib');
-var utils = require(__dirname + '/build/Release/backend');
+var bkutils = require('bkjs-utils');
 var xml2json = require('xml2json');
 
 var aws = {
@@ -221,7 +221,7 @@ aws.getInstanceInfo = function(callback)
         },
         function(next) {
             self.getInstanceMeta("/latest/user-data", function(err, data) {
-                if (!err && data && data[0] != "#") core.parseArgs(utils.strSplit(data, " ", '"\''));
+                if (!err && data && data[0] != "#") core.parseArgs(bkutils.strSplit(data, " ", '"\''));
                 next(err);
             });
         },

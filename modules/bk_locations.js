@@ -9,6 +9,7 @@ var fs = require('fs');
 var http = require('http');
 var url = require('url');
 var bkjs = require('backendjs');
+var bkutils = require('bkjs-utils');
 var db = bkjs.db;
 var api = bkjs.api;
 var app = bkjs.app;
@@ -17,7 +18,6 @@ var msg = bkjs.msg;
 var core = bkjs.core;
 var lib = bkjs.lib;
 var logger = bkjs.logger;
-var utils = bkjs.utils;
 
 // Locations management
 var locations = {
@@ -172,7 +172,7 @@ locations.putLocation = function(req, options, callback)
 
         // Skip if within minimal distance
         if (old.latitude || old.longitude) {
-            var distance = utils.geoDistance(old.latitude, old.longitude, latitude, longitude);
+            var distance = bkutils.geoDistance(old.latitude, old.longitude, latitude, longitude);
             if (distance == null || distance <= self.minDistance) {
                 return callback({ status: 305, message: "ignored, min distance: " + self.minDistance});
             }

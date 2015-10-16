@@ -13,7 +13,7 @@ var url = require('url');
 var http = require('http');
 var https = require('https');
 var child = require('child_process');
-var utils = require(__dirname + '/build/Release/backend');
+var bkutils = require('bkjs-utils');
 var logger = require(__dirname + '/logger');
 var lib = require(__dirname + '/lib');
 var cluster = require('cluster');
@@ -28,7 +28,7 @@ var core = {
     name: 'bkjs',
 
     // Protocol version
-    version: '2015.05.01',
+    version: '2015.09.01',
 
     // Application version, read from package.json if exists
     appName: '',
@@ -139,12 +139,8 @@ var core = {
 
     // Config parameters
     args: [ { name: "help", type: "callback", callback: function() { this.showHelp() }, descr: "Print help and exit" },
-            { name: "debug-filter", type: "callback", callback: function(v) { logger.setDebugFilter(v); }, descr: "Enable debug filters, format is: +label,... to enable, and -label,... to disable. Only first argument is used for label in logger.debug", cmdline: 1, pass: 1 },
-            { name: "debug-run-segv", type: "callback", callback: function(v) { if(v) utils.runSEGV(v); }, descr: "On SEGV crash keep the process spinning so attaching with gdb is possible" },
-            { name: "debug-set-segv", type: "callback", callback: function(v) { if(v) utils.setSEGV(); }, descr: "Set default SEGV handler which shows backtrace of calls if debug info is available" },
-            { name: "debug-set-backtrace", type: "callback", callback: function(v) { if(v) utils.setBacktrace() }, descr: "Set alternative backtrace on SEGV crashes, including backtrace of V8 calls as well" },
-            { name: "debug-logging", type: "callback", callback: function(v) { if(v) utils.logging(v) }, descr: "Set logging level only for the internal addons" },
             { name: "log", type: "callback", callback: function(v) { logger.setLevel(v); }, descr: "Set debugging level to any of " + Object.keys(logger.levels), cmdline: 1, pass: 1 },
+            { name: "log-filter", type: "callback", callback: function(v) { logger.setDebugFilter(v); }, descr: "Enable debug filters, format is: +label,... to enable, and -label,... to disable. Only first argument is used for label in logger.debug", cmdline: 1, pass: 1 },
             { name: "log-file", type: "callback", callback: function(v) { if(v) this.logFile=v;logger.setFile(this.logFile); }, descr: "Log to a file, if not specified used default logfile, disables syslog", pass: 1 },
             { name: "syslog", type: "callback", callback: function(v) { logger.setSyslog(v ? lib.toBool(v) : true); }, descr: "Write all logging messages to syslog, connect to the local syslog server over Unix domain socket", pass: 1 },
             { name: "console", type: "callback", callback: function() { logger.setFile(null);}, descr: "All logging goes to the console resetting all previous log related settings, this is used in the development mode mostly", pass: 1 },
@@ -160,8 +156,8 @@ var core = {
             { name: "files-dir", type: "path", obj: "path", strip: "Dir", descr: "Path where to keep uploaded files" },
             { name: "images-dir", type: "path", obj: "path", strip: "Dir", descr: "Path where to keep images" },
             { name: "modules-dir", type: "path", obj: "path", strip: "Dir", descr: "Directory from where to load modules, these are the backendjs modules but in the same format and same conventions as regular node.js modules, the format of the files is NAME_{web,worker,shell}.js. The modules can load any other files or directories, this is just an entry point", pass: 1 },
-            { name: "uid", type: "callback", callback: function(v) { if (!v)return;v = utils.getUser(v);if (v.name) this.uid = v.uid, this.gid = v.gid,this._name = "uid" }, descr: "User id or name to switch after startup if running as root, used by Web servers and job workers", pass: 1 },
-            { name: "gid", type: "callback", callback: function(v) { if (!v)return;v = utils.getGroup(v);if (v.name) this.gid = v.gid,this._name = "gid" }, descr: "Group id or name to switch after startup if running to root", pass: 1 },
+            { name: "uid", type: "callback", callback: function(v) { if (!v)return;v = bkutils.getUser(v);if (v.name) this.uid = v.uid, this.gid = v.gid,this._name = "uid" }, descr: "User id or name to switch after startup if running as root, used by Web servers and job workers", pass: 1 },
+            { name: "gid", type: "callback", callback: function(v) { if (!v)return;v = bkutils.getGroup(v);if (v.name) this.gid = v.gid,this._name = "gid" }, descr: "Group id or name to switch after startup if running to root", pass: 1 },
             { name: "email", descr: "Email address to be used when sending emails from the backend" },
             { name: "role", descr: "Override servers roles, this may have very strange side effects and should only be used for testing purposes" },
             { name: "force-uid", type: "callback", callback: "dropPrivileges", descr: "Drop privileges if running as root by all processes as early as possibly, this reqiures uid being set to non-root user. A convenient switch to start the backend without using any other tools like su or sudo.", pass: 1 },
@@ -349,9 +345,6 @@ core.init = function(options, callback)
 
         // Create all directories, only master should do it once but we resolve absolute paths in any mode
         function(next) {
-            // Redirect system logging to stderr
-            logger.setChannel("stderr");
-
             try { process.umask(self.umask); } catch(e) { logger.error("umask:", self.umask, e) }
 
             // Create all subfolders with permissions, run it before initializing db which may create files in the spool folder
@@ -1322,11 +1315,11 @@ core.sendmail = function(options, callback)
         if (options.to) options.to += ",";
         var server = emailjs.server.connect();
         server.send(options, function(err, message) {
-            if (err) logger.error('sendmail:', err);
+            if (err) logger.error('sendmail:', err, options.from, options.to);
             if (typeof callback == "function") callback(err);
         });
     } catch(e) {
-        logger.error('sendmail:', e);
+        logger.error('sendmail:', e, options.from, options.to);
         if (typeof callback == "function") callback(e);
     }
 }
@@ -1454,40 +1447,6 @@ core.cookieSave = function(cookiejar, setcookies, hostname, callback)
     }, function() {
         if (callback) callback();
     });
-}
-
-// Start/stop CPU V8 profiler, on stop, core.cpuProfile will contain the profiler nodes
-core.profiler = function(type, cmd)
-{
-    switch(type + "." + cmd) {
-    case "cpu.start":
-        utils.startProfiling();
-        break;
-
-    case "cpu.stop":
-        this.cpuProfile = utils.stopProfiling();
-        break;
-
-    case "cpu.clear":
-        this.cpuProfile = null;
-        utils.deleteAllProfiles();
-        break;
-
-    case "heap.save":
-        var snapshot = utils.takeSnapshot();
-        snapshot.save("tmp/" + process.pid + ".heapsnapshot");
-        utils.deleteAllSnapshots();
-        break;
-
-    case "heap.take":
-        this.heapSnapshot = utils.takeSnapshot();
-        break;
-
-    case "heap.clear":
-        this.heapSnapshot = null;
-        utils.deleteAllSnapshots();
-        break;
-    }
 }
 
 // Create REPL interface with all modules available

@@ -3,6 +3,7 @@
 // Created by vlad on Mon Apr 28 18:13:47 EDT 2014
 //
 var bkjs = require('backendjs');
+var bkutils = require('bkjs-utils');
 var core = bkjs.core;
 var lib = bkjs.lib;
 var db = bkjs.db;
@@ -54,7 +55,7 @@ function updateTaxis()
 {
     var ids = [ "11", "22", "33" ];
     var statuses = [ "avail", "busy", "scheduled" ];
-    var bbox = bkjs.utils.geoBoundingBox(center[0], center[1], 2); // within 2 km from the center
+    var bbox = bkutils.geoBoundingBox(center[0], center[1], 2); // within 2 km from the center
     var latitude = lib.randomNum(bbox[0], bbox[2], 5);
     var longitude = lib.randomNum(bbox[1], bbox[3], 5);
     var id = ids[lib.randomInt(0, ids.length - 1)];

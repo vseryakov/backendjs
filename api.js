@@ -25,6 +25,7 @@ var mime = require('mime');
 var passport = require('passport');
 var consolidate = require('consolidate');
 var domain = require('domain');
+var bkutils = require('bkjs-utils');
 var core = require(__dirname + '/core');
 var lib = require(__dirname + '/lib');
 var ipc = require(__dirname + '/ipc');
@@ -33,7 +34,6 @@ var db = require(__dirname + '/db');
 var app = require(__dirname + '/app');
 var metrics = require(__dirname + '/metrics');
 var logger = require(__dirname + '/logger');
-var utils = require(__dirname + '/build/Release/backend');
 
 // HTTP API to the server from the clients, this module implements the basic HTTP(S) API functionality with some common features. The API module
 // incorporates the Express server which is exposed as api.app object, the master server spawns Web workers which perform actual operations and monitors
@@ -79,6 +79,7 @@ var api = {
            { name: "salt", descr: "Salt to be used for scrambling credentials or other hashing activities" },
            { name: "no-static", type: "bool", descr: "Disable static files from /web folder, no .js or .html files will be served by the server" },
            { name: "static-options", type: "json", descr: "Options to be passed to the serve-static module for static content handling" },
+           { name: "static-paths", type: "path", array: 1, descr: "List of additional paths to be used when serving static content" },
            { name: "no-templating", type: "bool", descr: "Disable templating engine completely" },
            { name: "templating", descr: "Templating engne to use, see consolidate.js for supported engines" },
            { name: "no-session", type: "bool", descr: "Disable cookie session support, all requests must be signed for Web clients" },
@@ -203,6 +204,7 @@ var api = {
 
     // Static content options
     staticOptions: { maxAge: 3600 * 1000 },
+    staticPaths: [],
 
     // Web session age
     sessionAge: 86400 * 14 * 1000,
@@ -407,12 +409,12 @@ api.init = function(options, callback)
     options.app = self.app;
 
     // Setup busy timer to detect when our requests waiting in the queue for too long
-    if (this.maxLatency) utils.initBusy(this.maxLatency);
+    if (this.maxLatency) bkutils.initBusy(this.maxLatency);
 
     // Early request setup and checks
     self.app.use(function(req, res, next) {
         // Latency watcher
-        if (self.maxLatency && utils.isBusy()) {
+        if (self.maxLatency && bkutils.isBusy()) {
             self.metrics.Counter('busy_0').inc();
             return self.sendReply(res, 503, "Server is unavailable");
         }
@@ -570,7 +572,10 @@ api.init = function(options, callback)
             if (!self.noStatic) {
                 self.app.use(serveStatic(core.path.web, self.staticOptions));
                 self.app.use(serveStatic(__dirname + "/web", self.staticOptions));
-                logger.debug("static:", core.path.web, __dirname + "/web");
+                for (var i = 0; i < self.staticPaths; i++) {
+                    self.app.use(serveStatic(self.staticPaths[i], self.staticOptions));
+                }
+                logger.debug("static:", core.path.web, __dirname + "/web", self.staticPaths);
             }
 
             // Default error handler to show errors in the log, throttle the output to keep the log from overflow

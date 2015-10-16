@@ -3,7 +3,6 @@
 //  Sep 2013
 //
 
-exports.utils = require(__dirname + '/build/Release/backend');
 exports.core = require(__dirname + '/core');
 exports.lib = require(__dirname + '/lib');
 exports.logger = require(__dirname + '/logger');
@@ -28,7 +27,6 @@ exports.core.addModule('logger', exports.logger,
                        'jobs', exports.jobs,
                        'server', exports.server,
                        'metrics', exports.metrics,
-                       'utils', exports.utils,
                        'app', exports.app);
 
 // Load all submodules after we have all singletons ready
