@@ -43,7 +43,8 @@
     "bkjs-mysql": ">= 0.1.0",
     "bkjs-cache": ">= 0.1.0",
     "bkjs-syslog": ">= 0.1.0",
-    "bkjs-debug": ">= 0.1.0"
+    "bkjs-debug": ">= 0.1.0",
+    "nan": ">= 2.0.9"
   },
   "keywords": [
     "bkjs",
