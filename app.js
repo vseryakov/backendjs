@@ -12,7 +12,8 @@ var core = require(__dirname + '/core');
 var lib = require(__dirname + '/lib');
 var cluster = require('cluster');
 
-// This is a skeleton module to be extended by the specific application logic. It provides all callback and hooks that are called by the core backend modules
+// This is a skeleton module to be extended by the specific application logic. It provides all 
+// callbacks and hooks that are called by the core backend modules
 // during different phases, like initialization, shutting down, etc...
 //
 // It should be used for custom functions and methods to be defined, the `app` module is always available.

@@ -3,7 +3,6 @@
 <h2 id="table-of-contents">Table of contents</h2>
 <ul>
 <li><a href="#backend-platform-for-node-js"> Backend platform for node.js</a></li>
-<li><a href="#requirements-and-dependencies"> Requirements and dependencies</a></li>
 <li><a href="#installation"> Installation</a></li>
 <li><a href="#quick-start"> Quick start</a></li>
 <li><a href="#configuration"> Configuration</a></li>
@@ -118,6 +117,7 @@
 <li><a href="#module-bk_connections">bk_connections</a></li>
 <li><a href="#module-bk_counters">bk_counters</a></li>
 <li><a href="#module-bk_data">bk_data</a></li>
+<li><a href="#module-bk_debug">bk_debug</a></li>
 <li><a href="#module-bk_files">bk_files</a></li>
 <li><a href="#module-bk_icons">bk_icons</a></li>
 <li><a href="#module-bk_locations">bk_locations</a></li>
@@ -163,24 +163,9 @@ server running in the master process instead of relying on the OS scheduling bet
 <li>Hosted on <a href="https://github.com/vseryakov/backendjs">github</a>, BSD licensed.</li>
 </ul>
 <p>Check out the <a href="http://bkjs.io">Documentation</a> for more details.</p>
-<h1 id="requirements-and-dependencies">Requirements and dependencies</h1>
-<p>The module supports several databases and includes ImageMagick interface. In order for such interfaces to be compiled the software must be installed
-on the system before installing the backendjs. Not everything is required, if not available the interface will be skipped.</p>
-<p>The optional packages that the backendjs uses if available(resolving packages is done with <em>pkg-config</em>):</p>
-<ul>
-<li>ImageMagick - image manipulation</li>
-<li>libmysql - MySQL database driver</li>
-</ul>
-<p>Installing dependencies on CentOS:</p>
-<pre><code>yum -y install libpng-devel libjpeg-turbo-devel mysql-devel
-</code></pre><p>Installing dependencies on Mac OS X using macports:</p>
-<pre><code>port install libpng jpeg mysql56
-</code></pre><h1 id="installation">Installation</h1>
+<h1 id="installation">Installation</h1>
 <p>To install the module with all optional dependencies if they are available in the system</p>
-<p>Note: if for example ImageMagick is not istalled it will be skipped, same goes to all database drivers(MySQL)</p>
 <pre><code>npm install backendjs
-</code></pre><p>To force internal ImageMagick to be compiled in the module the following command must be used:</p>
-<pre><code> npm install backendjs --backendjs_imagemagick
 </code></pre><p>This may take some time because of downloading and compiling required dependencies like ImageMagick. They are not required in all
 applications but still part of the core of the system to be available once needed.</p>
 <p>To install from the git</p>
@@ -240,7 +225,7 @@ of adding new tables and API commands.</p>
 </code></pre></li>
 <li><p>Go to <a href="http://localhost:8000/api.html">http://localhost:8000/api.html</a> and issue command <code>/test/add?id=1&amp;name=1</code> and then <code>/test/1</code> commands in the console to see it in action</p>
 </li>
-<li><p>Change in any of the source files will make the server restart automatically letting you focus on the source code and not server management, this mode
+<li><p>Any change in the source files will make the server restart automatically letting you focus on the source code and not server management, this mode
 is only enabled by default in development mode, check app.sh for parameters before running it in the production.</p>
 </li>
 <li><p>To start node.js shell with backendjs loaded and initialized, all command line parameters apply to the shell as well</p>
@@ -268,12 +253,12 @@ there should be a way to push config changes to the processes without restarting
 nature of the node.js, it is simple to update any config parameter to new value so the code can operate differently.
 To achieve this the code must be written in a special way, like driven by configuration which can be changed at
 any time.</p>
-<p>All configuration goes through the configuration proces that checks all input and produces valid output which
-is applied to the module variables. Config file or databse table with configuration can be load on demand or
-periodically, for ecample all ocal config files are watched for modification and reloaded automaticlaly, the
+<p>All configuration goes through the configuration process that checks all inputs and produces valid output which
+is applied to the module variables. Config file or database table with configuration can be loaded on demand or
+periodically, for example all local config files are watched for modification and reloaded automaticlaly, the
 config database is loaded periodically which is defined by another config parameter.</p>
 <h1 id="backend-runtime">Backend runtime</h1>
-<p>When the backendjs server starts it spawns several processes the perform different tasks.</p>
+<p>When the backendjs server starts it spawns several processes that perform different tasks.</p>
 <p>There are 2 major tasks of the backend that can be run at the same time or in any combination:</p>
 <ul>
 <li>a Web server (server) with Web workers (web)</li>
@@ -286,6 +271,7 @@ ec2-user    899  0.0  0.6 1073844 52892 ?  Sl   14:33   0:01 bkjs: master
 ec2-user    908  0.0  0.8 1081020 68780 ?  Sl   14:33   0:02 bkjs: server
 ec2-user    917  0.0  0.7 1072820 59008 ?  Sl   14:33   0:01 bkjs: web
 ec2-user    919  0.0  0.7 1072820 60792 ?  Sl   14:33   0:02 bkjs: web
+ec2-user    921  0.0  0.7 1072120 40721 ?  Sl   14:33   0:02 bkjs: worker
 </code></pre><p>To enable any task a command line parameter must be provided, it cannot be specified in the config file. The <code>bkjs</code> utility supports several
 commands that simplify running the backend in different modes.</p>
 <ul>
@@ -315,7 +301,7 @@ which makes it easy to refer and extend with additional methods and structures.<
     var db = bkjs.db;
 
     // Describe the tables or data models, all DB pools will use it, the master or shell
-    // process only creates new tables, workers just use existing tables
+    // process only creates new tables, workers just use the existing tables
     db.describeTables({
          ...
     });
@@ -330,19 +316,19 @@ which makes it easy to refer and extend with additional methods and structures.<
     // Register API endpoints, i.e. url callbacks
     app.configureWeb = function(options, callback)
     {
-         api.app.get(&#39;/some/api/endpoint&#39;, function(req, res) {
-            // to return an error
-            api.sendReply(res, err);
-            // or with custom status and message
-            api.sendReply(res, 404, &quot;not found&quot;)
+        api.app.get(&#39;/some/api/endpoint&#39;, function(req, res) {
+          // to return an error
+          api.sendReply(res, err);
+          // or with custom status and message
+          api.sendReply(res, 404, &quot;not found&quot;)
 
-            // to send data back
-            api.sendJSON(req, err, data);
-            // or simply
-            res.json(data)
-         });
-         ...
-         callback();
+          // to send data back
+          api.sendJSON(req, err, data);
+          // or simply
+          res.json(data)
+        });
+        ...
+        callback();
     }
 
     // Optionally register post processing of the returned data from the default calls
@@ -371,21 +357,26 @@ can be shipped regardless of the npm, node modules and other env setup. These mo
 methods.</p>
 <p>Let&#39;s assume the modules/ contains file facebook.js which implements custom FB logic:</p>
 <pre><code class="lang-javascript">     var bkjs = require(&quot;backendjs&quot;);
-     var fb = {}
+     var fb = {
+     }
      module.exports = fb;
+
      fb.configureWeb = function(options, callback) {
+       ...
+     }
+
+     fb.makeRequest = function(options, callback) {
+       ...
      }
 </code></pre>
 <p>This is the main app code:</p>
 <pre><code class="lang-javascript">    var bkjs = require(&quot;backendjs&quot;);
     var core = bkjs.core;
-    var fb;
 
     // Using facebook module in the main app
     api.app.get(&quot;some url&quot;, function(req, res) {
 
-       fb = core.modules.facebook;
-       fb.makeRequest(function(err, data) {
+       core.modules.facebook.makeRequest({}, function(err, data) {
           ...
        });
     });
@@ -2077,16 +2068,6 @@ node can find global modules, replace $BKJS_PREFIX with the actual path unless t
 </li>
 </ul>
 </li>
-<li><p>to compile the binary module and all required dependencies just type <code>make</code> or <code>npm build .</code></p>
-<ul>
-<li><p>to see the actual compiler settings during compilation the following helps:</p>
-<pre><code>  make V=1
-</code></pre></li>
-<li><p>to compile with internal ImageMagick use:</p>
-<pre><code>  make force V=1
-</code></pre></li>
-</ul>
-</li>
 <li><p>to install all dependencies and make backendjs module and bkjs globally available:</p>
 <pre><code>      npm link backendjs
 </code></pre></li>
@@ -2157,12 +2138,8 @@ might be useful when desining, developing or choosing the API platform:</p>
 <h2 id="configuration-parameters">Configuration parameters</h2>
 <ul>
 <li><code>help</code> - Print help and exit</li>
-<li><code>debug-filter</code> - Enable debug filters, format is: +label,... to enable, and -label,... to disable. Only first argument is used for label in logger.debug</li>
-<li><code>debug-run-segv</code> - On SEGV crash keep the process spinning so attaching with gdb is possible</li>
-<li><code>debug-set-segv</code> - Set default SEGV handler which shows backtrace of calls if debug info is available</li>
-<li><code>debug-set-backtrace</code> - Set alternative backtrace on SEGV crashes, including backtrace of V8 calls as well</li>
-<li><code>debug-logging</code> - Set logging level only for the internal addons</li>
 <li><code>log</code> - Set debugging level to any of test,dev,debug,info,notice,log,warn,error,none</li>
+<li><code>log-filter</code> - Enable debug filters, format is: +label,... to enable, and -label,... to disable. Only first argument is used for label in logger.debug</li>
 <li><code>log-file</code> - Log to a file, if not specified used default logfile, disables syslog</li>
 <li><code>syslog</code> - Write all logging messages to syslog, connect to the local syslog server over Unix domain socket</li>
 <li><code>console</code> - All logging goes to the console resetting all previous log related settings, this is used in the development mode mostly</li>
@@ -2306,6 +2283,7 @@ might be useful when desining, developing or choosing the API platform:</p>
 <li><code>api-salt</code> - Salt to be used for scrambling credentials or other hashing activities</li>
 <li><code>api-no-static</code> - Disable static files from /web folder, no .js or .html files will be served by the server</li>
 <li><code>api-static-options</code> - Options to be passed to the serve-static module for static content handling</li>
+<li><code>api-static-paths</code> - List of additional paths to be used when serving static content</li>
 <li><code>api-no-templating</code> - Disable templating engine completely</li>
 <li><code>api-templating</code> - Templating engne to use, see consolidate.js for supported engines</li>
 <li><code>api-no-session</code> - Disable cookie session support, all requests must be signed for Web clients</li>
@@ -2355,6 +2333,9 @@ might be useful when desining, developing or choosing the API platform:</p>
 <li><code>api-exit-on-error</code> - Exit on uncaught exception in the route handler</li>
 <li><code>api-upload-limit</code> - Max size for uploads, bytes</li>
 <li><code>api-limiter-queue</code> - Name of an ipc queue for API rate limiting</li>
+<li><code>api-errlog-limiter-max</code> - How many error messages to put in the log before throttling kicks in</li>
+<li><code>api-errlog-limiter-interval</code> - Interval for error log limiter, max errors per this interval</li>
+<li><code>api-errlog-limiter-ignore</code> - Do not show errors that match the regexp</li>
 <li><code>jobs-workers</code> - How many worker processes to launch to process the job queue, -1 disables jobs, 0 means launch as many as the CPUs available</li>
 <li><code>jobs-worker-cpu-factor</code> - A number to multiply the number of CPUs available to make the total number of workers to launch, only used if <code>workers</code> is 0</li>
 <li><code>jobs-worker-args</code> - Node arguments for workers, for passing v8 jobspec, see <code>process</code></li>
@@ -2928,7 +2909,8 @@ events using account id as a key.</p>
 <h2 id="module-app">Module: APP</h2>
 <ul>
 <li><p><code>app</code></p>
-<p> This is a skeleton module to be extended by the specific application logic. It provides all callback and hooks that are called by the core backend modules
+<p> This is a skeleton module to be extended by the specific application logic. It provides all 
+callbacks and hooks that are called by the core backend modules
 during different phases, like initialization, shutting down, etc...</p>
 <p>It should be used for custom functions and methods to be defined, the <code>app</code> module is always available.</p>
 <p>All app modules in the modules/ subdirectory use the same prototype, i.e. all hooks are available for custom app modules as well.</p>
@@ -4047,12 +4029,6 @@ merge with existing cookies from the jar which is a list of cookies before the r
 </ul>
 
 <ul>
-<li><p><code>core.profiler(type, cmd)</code></p>
-<p> Start/stop CPU V8 profiler, on stop, core.cpuProfile will contain the profiler nodes</p>
-</li>
-</ul>
-
-<ul>
 <li><p><code>core.createRepl(options)</code></p>
 <p> Create REPL interface with all modules available</p>
 </li>
@@ -4207,10 +4183,9 @@ types <code>myapp</code> and <code>prod-myapp</code>, then the last value will b
 <li>the application version specified in the package.json: <code>1.0.0</code></li>
 <li>the network where the instance is running, first 2 octets from the current IP address: <code>192.168</code></li>
 <li>the region where the instance is running, AWS region or other name: <code>us-east-1</code></li>
-<li>the network where the instance is running, first 2 octets from the current IP address: <code>192.168.1</code></li>
+<li>the network where the instance is running, first 3 octets from the current IP address: <code>192.168.1</code></li>
 <li>the zone where the instance is running, AWS availability zone or other name: <code>us-east-1a</code></li>
 <li>current instance tag or a custom tag for ad-hoc queries: <code>nat</code></li>
-<li>current instance IP address: <code>192.168.1.1</code></li>
 </ul>
 <p>The options takes the following properties:</p>
 <ul>
@@ -4269,6 +4244,7 @@ the pool by table name if some tables are assigned to any specific pool by confi
    the calback on result will return err and rows as any other regular database callbacks. This filter can be used to perform
    filtering based on the ata in the other table for example.</li>
 <li>silence_error - do not report about the error in the log, still the error is retirned to the caller</li>
+<li>ignore_error - same as silence_error</li>
 <li>noprocessrows - if true then skip post processing result rows, return the data as is, this will result in returning combined columns as it is</li>
 <li>noconvertrows - if true skip converting the data from the database format into Javascript data types, it uses column definitions
 for the table to convert values returned from the db into the the format defined by the column</li>
@@ -4707,7 +4683,7 @@ Additional options:</p>
 </ul>
 <p>Example:</p>
 <pre><code>db.getCached(&quot;get&quot;, &quot;bk_account&quot;, { id: req.query.id }, { select: &quot;latitude,longitude&quot; }, function(err, row) {
-    var distance = utils.geoDistance(req.query.latitude, req.query.longitude, row.latitude, row.longitudde);
+    var distance = lib.geoDistance(req.query.latitude, req.query.longitude, row.latitude, row.longitudde);
 });
 </code></pre></li>
 </ul>
@@ -6441,12 +6417,6 @@ the current function name with comma, like <code>logger.debug(&quot;select:&quot
 </ul>
 
 <ul>
-<li><p><code>logger.setChannel(name)</code></p>
-<p> Assign output channel to system logger, default is stdout</p>
-</li>
-</ul>
-
-<ul>
 <li><p><code>logger.printSyslog(level, msg)</code></p>
 <p> syslog allows facility to be specified after log level like info:local0 for LOG_LOCAL0</p>
 </li>
@@ -7346,7 +7316,7 @@ Valid properties in the options:</p>
 <ul>
 <li>type - icon type, this will be prepended to the name of the icon</li>
 <li>prefix - top level subdirectory under images/</li>
-<li>width, height, filter, ext, quality for <code>utils.resizeImage</code> function</li>
+<li>width, height, filter, ext, quality for <code>resizeImage</code> function</li>
 <li>filesize - file size if available</li>
 </ul>
 </li>
@@ -8303,6 +8273,37 @@ connections. If any of obj.id or obj.type are not specified then perform a query
 <ul>
 <li><p><code>data.configureDataAPI()</code></p>
 <p> API for full access to all tables</p>
+</li>
+</ul>
+
+<h2 id="module-bk_debug">Module: BK_DEBUG</h2>
+<ul>
+<li><p><code>debug</code></p>
+<p> System management</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>debug.init(options)</code></p>
+<p> Initialize the module</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>debug.configureWeb(options, callback)</code></p>
+<p> Create API endpoints and routes</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>debug.cpuProfiler(cmd)</code></p>
+<p> Start/stop CPU V8 profiler, on stop, core.cpuProfile will contain the profiler nodes</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>debug.configureDebugAPI()</code></p>
+<p> API for internal provisioning and configuration</p>
 </li>
 </ul>
 

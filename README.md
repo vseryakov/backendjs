@@ -113,7 +113,7 @@ or simply
         ./app.sh
 
 * Go to http://localhost:8000/api.html and issue command `/test/add?id=1&name=1` and then `/test/1` commands in the console to see it in action
-* Change in any of the source files will make the server restart automatically letting you focus on the source code and not server management, this mode
+* Any change in the source files will make the server restart automatically letting you focus on the source code and not server management, this mode
   is only enabled by default in development mode, check app.sh for parameters before running it in the production.
 
 * To start node.js shell with backendjs loaded and initialized, all command line parameters apply to the shell as well
@@ -146,14 +146,14 @@ nature of the node.js, it is simple to update any config parameter to new value 
 To achieve this the code must be written in a special way, like driven by configuration which can be changed at
 any time.
 
-All configuration goes through the configuration proces that checks all input and produces valid output which
-is applied to the module variables. Config file or databse table with configuration can be load on demand or
-periodically, for ecample all ocal config files are watched for modification and reloaded automaticlaly, the
+All configuration goes through the configuration process that checks all inputs and produces valid output which
+is applied to the module variables. Config file or database table with configuration can be loaded on demand or
+periodically, for example all local config files are watched for modification and reloaded automaticlaly, the
 config database is loaded periodically which is defined by another config parameter.
 
 # Backend runtime
 
-When the backendjs server starts it spawns several processes the perform different tasks.
+When the backendjs server starts it spawns several processes that perform different tasks.
 
 There are 2 major tasks of the backend that can be run at the same time or in any combination:
 - a Web server (server) with Web workers (web)
@@ -168,6 +168,7 @@ This is the typical output from the ps command on Linux server:
     ec2-user    908  0.0  0.8 1081020 68780 ?  Sl   14:33   0:02 bkjs: server
     ec2-user    917  0.0  0.7 1072820 59008 ?  Sl   14:33   0:01 bkjs: web
     ec2-user    919  0.0  0.7 1072820 60792 ?  Sl   14:33   0:02 bkjs: web
+    ec2-user    921  0.0  0.7 1072120 40721 ?  Sl   14:33   0:02 bkjs: worker
 
 To enable any task a command line parameter must be provided, it cannot be specified in the config file. The `bkjs` utility supports several
 commands that simplify running the backend in different modes.
@@ -207,7 +208,7 @@ The typical structure of a backendjs application is the following (created by th
     var db = bkjs.db;
 
     // Describe the tables or data models, all DB pools will use it, the master or shell
-    // process only creates new tables, workers just use existing tables
+    // process only creates new tables, workers just use the existing tables
     db.describeTables({
          ...
     });
@@ -222,19 +223,19 @@ The typical structure of a backendjs application is the following (created by th
     // Register API endpoints, i.e. url callbacks
     app.configureWeb = function(options, callback)
     {
-         api.app.get('/some/api/endpoint', function(req, res) {
-            // to return an error
-            api.sendReply(res, err);
-            // or with custom status and message
-            api.sendReply(res, 404, "not found")
+        api.app.get('/some/api/endpoint', function(req, res) {
+          // to return an error
+          api.sendReply(res, err);
+          // or with custom status and message
+          api.sendReply(res, 404, "not found")
 
-            // to send data back
-            api.sendJSON(req, err, data);
-            // or simply
-            res.json(data)
-         });
-         ...
-         callback();
+          // to send data back
+          api.sendJSON(req, err, data);
+          // or simply
+          res.json(data)
+        });
+        ...
+        callback();
     }
 
     // Optionally register post processing of the returned data from the default calls
@@ -272,9 +273,16 @@ Let's assume the modules/ contains file facebook.js which implements custom FB l
 
 ```javascript
      var bkjs = require("backendjs");
-     var fb = {}
+     var fb = {
+     }
      module.exports = fb;
+
      fb.configureWeb = function(options, callback) {
+       ...
+     }
+
+     fb.makeRequest = function(options, callback) {
+       ...
      }
 ```
 
@@ -283,13 +291,11 @@ This is the main app code:
 ```javascript
     var bkjs = require("backendjs");
     var core = bkjs.core;
-    var fb;
 
     // Using facebook module in the main app
     api.app.get("some url", function(req, res) {
 
-       fb = core.modules.facebook;
-       fb.makeRequest(function(err, data) {
+       core.modules.facebook.makeRequest({}, function(err, data) {
           ...
        });
     });
