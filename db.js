@@ -103,11 +103,11 @@ var db = {
            { name: "name", key: "db-name", descr: "Default database name to be used for default connections in cases when no db is specified in the connection url" },
            { name: "no-cache-columns", type: "bool", descr: "Do not load column definitions from the database tables on startup, keep using in-app Javascript definitions only, in most cases caching columns is not required if tables are in sync between the app and the database" },
            { name: "cache-columns-interval", type: "int", descr: "How often in minutes to refresh tables columns from the database, it calls cacheColumns for each pool" },
-           { name: "no-init-tables", type: "regexp", novalue: ".+", descr: "Do not create tables in the database on startup and do not perform table upgrades for new columns, all tables are assumed to be created beforehand, this regexp will be applied to all pools if no pool-specific parameer defined" },
+           { name: "no-init-tables", type: "regexp", novalue: ".+", descr: "Do not create tables in the database on startup and do not perform table upgrades for new columns, all tables are assumed to be created beforehand, this regexp will be applied to all pools if no pool-specific parameter is defined" },
            { name: "cache-tables", array: 1, type: "list", descr: "List of tables that can be cached: bk_auth, bk_counter. This list defines which DB calls will cache data with currently configured cache. This is global for all db pools." },
            { name: "cache-ttl", type: "int", obj: "cacheTtl", key: "default", descr: "Default global TTL for cached tables", },
            { name: "cache-ttl-(.+)", type: "int", obj: "cacheTtl", nocamel: 1, strip: "cache-ttl-", descr: "TTL in milliseconds for each individual table being cached", },
-           { name: "cache-name-(.+)", obj: "cacheName", nocamel: 1, strip: "cache-name-", descr: "Cache client name to use for each table instead of the default in ordr to split cache usage for different tables, it can be just a table name or `pool.table`", },
+           { name: "cache-name-(.+)", obj: "cacheName", nocamel: 1, strip: "cache-name-", descr: "Cache client name to use for each table instead of the default in order to split cache usage for different tables, it can be just a table name or `pool.table`", },
            { name: "local", descr: "Local database pool for properties, cookies and other local instance only specific stuff" },
            { name: "config", descr: "Configuration database pool to be used to retrieve config parameters from the database, must be defined to use remote db for config parameters, set to `default` to use current default pool" },
            { name: "config-interval", type: "number", min: 0, descr: "Interval between loading configuration from the database configured with -db-config-type, in seconds, 0 disables refreshing config from the db" },
@@ -122,6 +122,9 @@ var db = {
            { name: "(.+)-pool-no-init-tables(-[0-9]+)?", type: "regexp", obj: 'poolParams', strip: "Pool", novalue: ".+", descr: "Do not create tables for this pool only, a regexp of tables to skip" },
            { name: "describe-tables", type: "callback", callback: function(v) { this.describeTables(lib.jsonParse(v, {obj:1,error:1})) }, descr: "A JSON object with table descriptions to be merged with the existing definitions" },
     ],
+
+    // Database drivers
+    modules: [],
 
     // Database connection pools by pool name
     pools: {},
@@ -249,7 +252,7 @@ db.initPool = function(name, options, callback)
                  min: this.poolParams[type + 'Min' + n],
                  max: this.poolParams[type + 'Max' + n],
                  idle: this.poolParams[type + 'Idle' + n] || 300000,
-                 noCacheColumns: options.noCacehColumns || this.poolParams[type + 'NoCacheColumns' + n],
+                 noCacheColumns: options.noCacheColumns || this.poolParams[type + 'NoCacheColumns' + n],
                  noInitTables: options.noInitTables || this.poolParams[type + 'NoInitTables' + n],
                  connect: this.poolParams[type + 'Connect' + n],
                  settings: this.poolParams[type + 'Settings' + n] };
@@ -2402,12 +2405,9 @@ db.createPool = function(options)
     var self = this;
     if (!options || !options.pool) throw "Options with pool: must be provided";
 
+    // Methods for db client allocations and release
     if (lib.isPositive(options.max)) {
-        var pool = lib.createPool({
-            min: options.min,
-            max: options.max,
-            idle: options.idle,
-
+        var methods = {
             create: function(callback) {
                 var me = this;
                 try {
@@ -2428,23 +2428,20 @@ db.createPool = function(options)
                     this.close.call(this, client, callback);
                 } catch(e) {
                     logger.error("pool.destroy:", this.name, e);
+                    if (typeof callback == "function") callback(e);
                 }
             },
-        });
-
+        };
+        var pool = lib.createPool(methods);
     } else {
-        var pool = {};
-        pool.acquire = function(cb) { if (typeof cb != "function" ) throw lib.newError("callback is required"); cb(null, {}); };
-        pool.release = lib.noop;
-        pool.destroyAll = lib.noop;
-        pool.stats = lib.noop;
-        pool.shutdown = lib.nocb;
+        // Use the same resources pool class, without create it does nothing and just calls the
+        // callback with empty object for the new client
+        var pool = lib.createPool({});
     }
 
     // First time initialization
     pool.initialize = function(opts) {
         var me = this;
-
         this.name = options.pool || options.name;
         this.type = options.type || "none";
         this.url = options.url || "default";
@@ -2457,27 +2454,53 @@ db.createPool = function(options)
         this.connect = {};
         this.settings = {};
         this.configure(opts);
-
-        // Default methods if not setup from the options
-        if (typeof this.open != "function") this.open = function(pool, cb) { cb(null, {}); };
-        if (typeof this.setup != "function") this.setup = function(client, cb) { cb(null, client); };
-        if (typeof this.query != "function") this.query = function(client, req, opts, cb) { cb(null, []); };
-        if (typeof this.cacheColumns != "function") this.cacheColumns = function(opts, cb) { cb(); }
-        if (typeof this.cacheIndexes != "function") this.cacheIndexes = function(opts, cb) { cb(); };
-        if (typeof this.nextToken != "function") this.nextToken = function(client, req, rows, opts) { return client.next_token || null };
-        if (typeof this.prepare != "function") this.prepare = function(op, table, obj, opts) { return { text: table, op: op, table: (table || "").toLowerCase(), obj: obj }; }
     }
 
     // Reconfigure properties, only subset of properties are allowed here so it is safe to apply all of them directly,
     // this is called during realtime config update
     pool.configure = function(opts) {
-        if (typeof this._configure == "function") this._configure(opts);
+        this.init(opts);
         if (opts.url) this.url = opts.url;
         if (lib.isObject(opts.connect)) this.connect = lib.mergeObj(this.connect, opts.connect);
         if (lib.isObject(opts.settings)) this.settings = lib.mergeObj(this.settings, opts.settings);
         if (!lib.isEmpty(opts.noCacheColumns)) this.settings.noCacheColumns = opts.noCacheColumns;
         if (!lib.isEmpty(opts.noInitTables)) this.settings.noInitTables = opts.noInitTables;
         logger.debug("pool.configure:", this.name, this.type, opts);
+    }
+
+    // Empty open pool implementation
+    pool.open = function(pool, cb) {
+        if (typeof cb == "function") cb(null, {});
+    };
+
+    // Empty new client setup implementation
+    pool.setup = function(client, cb) {
+        if (typeof cb == "function") cb(null, client);
+    };
+
+    // Empty query implementation
+    pool.query = function(client, req, opts, cb) {
+        if (typeof cb == "function") cb(null, []);
+    };
+
+    // Empty cache columns implementation
+    pool.cacheColumns = function(opts, cb) {
+        if (typeof cb == "function") cb();
+    }
+
+    // Empty cache indexs implementation
+    pool.cacheIndexes = function(opts, cb) {
+        if (typeof cb == "function") cb();
+    };
+
+    // Return next token from the client object
+    pool.nextToken = function(client, req, rows, opts) {
+        return client.next_token || null;
+    };
+
+    // Default prepare is to return all parameters in an object
+    pool.prepare = function(op, table, obj, opts) {
+        return { text: table, op: op, table: (table || "").toLowerCase(), obj: obj };
     }
 
     // Save existing options and return as new object, first arg is options, then list of properties to save
@@ -2490,7 +2513,7 @@ db.createPool = function(options)
         return old;
     }
 
-    // Restore the properties we replaced
+    // Restore the properties we saved or replaced
     pool.restoreOptions = function(opts, old) {
         for (var p in old) {
             if (old[p]) opts[p] = old[p]; else delete opts[p];

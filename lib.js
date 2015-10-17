@@ -2069,13 +2069,15 @@ lib.mkdirSync = function()
 // Options defines the following properties:
 // - create - method to be called to return a new resource item, takes 1 argument, a callback as `function(err, item)`
 // - destroy - method to be called to destroy a resource item
-// - reset - method to becalled just before releasing an item back to the resource pool, this is a chance to reset the item to the initial state
+// - reset - method to bec alled just before releasing an item back to the resource pool, this is a chance to reset the item to the initial state
 // - validate - method to verify actibe resource item, return false if it needs to be destroyed
 // - min - min number of active resource items
 // - max - max number of active resource items
 // - max_queue - how big the waiting queue can be, above this all requests will be rejected immediately
 // - timeout - number of milliseconds to wait for the next available resource item, cannot be 0
 // - idle - number of milliseconds before starting to destroy all active resources above the minimum, 0 to disable.
+//
+// If no actual implementation callbacks are given then all operations are basically noop and always return no error.
 //
 // Example:
 //        var pool = lib.createPool({ min: 1, max: 5,
@@ -2114,10 +2116,38 @@ lib.createPool = function(options)
         }
     };
 
+    // Initialize pool properties, this can be run anytme even on the active pool to override some properties
+    pool.init = function(opts) {
+        if (!opts) return;
+        var idle = this._pool.idle;
+
+        if (typeof opts.min != "undefined") this._pool.min = self.toNumber(opts.min, { float: 0, flt: 0, min: 0 });
+        if (typeof opts.max != "undefined") this._pool.max = self.toNumber(opts.max, { float: 0, dflt: 10, min: 0, max: 9999 });
+        if (typeof opts.interval != "undefined") this._pool.max_queue = self.toNumber(opts.interval, { float: 0, dflt: 100, min: 0 });
+        if (typeof opts.timeout != "undefined") this._pool.timeout = self.toNumber(opts.timeout, { float: 0, dflt: 5000, min: 1 });
+        if (typeof opts.idle != "undefined") this._pool.idle = self.toNumber(opts.idle, { float: 0, dflt: 300000, min: 0 });
+
+        if (typeof opts.create == "function") this._create = opts.create;
+        if (typeof opts.destroy == "function") this._destroy = opts.destroy;
+        if (typeof opts.reset == "function") this._reset = opts.reset;
+        if (typeof opts.validate == "function") this._validate = opts.validate;
+
+        // Periodic housekeeping if interval is set
+        if (this._pool.idle > 0 && (idle != this._pool.idle || !this._pool.interval)) {
+            clearInterval(this._pool.interval);
+            this._pool.interval = setInterval(function() { pool._timer() }, Math.max(30000, pool._idle/3));
+            setImmediate(function() { pool._timer(); });
+        }
+        if (this._pool.idle == 0) clearInterval(this._pool.interval);
+
+        return this;
+    }
+
     // Return next available resource item, if not available immediately wait for defined amount of time before calling the
     // callback with an error. The callback second argument is active resource item.
     pool.acquire = function(callback) {
         if (typeof callback != "function") throw self.newError("callback is required");
+        if (!this._create) return callback(null, {});
 
         // We have idle items
         if (this._pool.avail.length) {
@@ -2152,6 +2182,7 @@ lib.createPool = function(options)
     // Destroy the resource item calling the provided close callback
     pool.destroy = function(item, callback) {
         if (!item) return;
+        if (!this._create) return typeof callback == "function" && callback();
 
         var idx = this._pool.busy.indexOf(item);
         if (idx > -1) {
@@ -2171,6 +2202,7 @@ lib.createPool = function(options)
     // Return the resource item back to the list of available resources.
     pool.release = function(item) {
         if (!item) return;
+        if (!this._create) return;
 
         var idx = this._pool.busy.indexOf(item);
         if (idx == -1) {
@@ -2226,33 +2258,6 @@ lib.createPool = function(options)
         }, 500);
     }
 
-    // Initialize pool properties
-    pool._configure = function(opts) {
-        if (!opts) return;
-        var idle = this._pool.idle;
-
-        if (typeof opts.min != "undefined") this._pool.min = self.toNumber(opts.min, { float: 0, flt: 0, min: 0 });
-        if (typeof opts.max != "undefined") this._pool.max = self.toNumber(opts.max, { float: 0, dflt: 10, min: 0, max: 9999 });
-        if (typeof opts.interval != "undefined") this._pool.max_queue = self.toNumber(opts.interval, { float: 0, dflt: 100, min: 0 });
-        if (typeof opts.timeout != "undefined") this._pool.timeout = self.toNumber(opts.timeout, { float: 0, dflt: 5000, min: 1 });
-        if (typeof opts.idle != "undefined") this._pool.idle = self.toNumber(opts.idle, { float: 0, dflt: 300000, min: 0 });
-
-        if (typeof opts.create == "function") this._create = opts.create;
-        if (typeof opts.destroy == "function") this._destroy = opts.destroy;
-        if (typeof opts.reset == "function") this._reset = opts.reset;
-        if (typeof opts.validate == "function") this._validate = opts.validate;
-
-        // Periodic housekeeping if interval is set
-        if (this._pool.idle > 0 && (idle != this._pool.idle || !this._pool.interval)) {
-            clearInterval(this._pool.interval);
-            this._pool.interval = setInterval(function() { pool._timer() }, Math.max(30000, pool._idle/3));
-            setImmediate(function() { pool._timer(); });
-        }
-        if (this._pool.idle == 0) clearInterval(this._pool.interval);
-
-        return this;
-    }
-
     // Call registered method and catch exceptions, pass it to the callback if given
     pool._call = function(name, callback) {
         if (typeof this[name] != "function") return typeof callback == "function" && callback();
@@ -2291,6 +2296,6 @@ lib.createPool = function(options)
         }
     }
 
-    return pool._configure(options);
+    return pool.init(options);
 }
 

@@ -33,11 +33,11 @@ var Client = require(__dirname + "/lib/ipc_client");
 function Ipc()
 {
     events.EventEmitter.call(this);
-    this.role = ""
-    this.msgs = {}
+    this.role = "";
+    this.msgs = {};
     this._queue = [];
-    this.workers = []
-    this.modules = []
+    this.workers = [];
+    this.modules = [];
     this.clients = { cache: new Client(), queue: new Client() };
     // Use shared token buckets inside the server process, reuse the same object so we do not generate
     // a lot of short lived objects, the whole operation including serialization from/to the cache is atomic.
