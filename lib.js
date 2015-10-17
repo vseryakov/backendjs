@@ -33,7 +33,7 @@ module.exports = lib;
 
 // Empty function to be used when callback was no provided
 lib.noop = function() {}
-lib.nocb = function(cb) { if (typeof cb == "function" ) cb(); };
+lib.noopcb = function(err, cb) { if (typeof cb == "function" ) cb(err); };
 
 // Returns a floating number from the version string, it assumes common semver format as major.minor.patch, all non-digits will
 // be removed, underscores will be treated as dots. Returns a floating number which can be used in comparing versions.
@@ -2077,10 +2077,10 @@ lib.mkdirSync = function()
 // - timeout - number of milliseconds to wait for the next available resource item, cannot be 0
 // - idle - number of milliseconds before starting to destroy all active resources above the minimum, 0 to disable.
 //
-// If no actual implementation callbacks are given then all operations are basically noop and always return no error.
+// If no create implementation callback is given then all operations are basically noop but still cals the callbacks.
 //
 // Example:
-//        var pool = lib.createPool({ min: 1, max: 5,
+//        var pool = new lib.Pool({ min: 1, max: 5,
 //                                  create: function(cb) {
 //                                     someDb.connect(function(err) { cb(err, this) }
 //                                  },
@@ -2096,206 +2096,212 @@ lib.mkdirSync = function()
 //
 //        });
 //
-lib.createPool = function(options)
+lib.Pool = function(options)
+{
+    this._pool = {
+        min: 0,
+        max: 10,
+        max_queue: 100,
+        timeout: 5000,
+        idle: 300000,
+        queue_count: 0,
+        queue_count: 0,
+        queue: {},
+        avail: [],
+        mtime: [],
+        busy: []
+    };
+    this.init(options);
+}
+
+// Initialize pool properties, this can be run anytme even on the active pool to override some properties
+lib.Pool.prototype.init = function(options)
 {
     var self = this;
+    if (!options) return;
+    var idle = this._pool.idle;
 
-    var pool = {
-        _pool: {
-            min: 0,
-            max: 10,
-            max_queue: 100,
-            timeout: 5000,
-            idle: 300000,
-            queue_count: 0,
-            queue_count: 0,
-            queue: {},
-            avail: [],
-            mtime: [],
-            busy: []
+    if (typeof options.min != "undefined") this._pool.min = lib.toNumber(options.min, { float: 0, flt: 0, min: 0 });
+    if (typeof options.max != "undefined") this._pool.max = lib.toNumber(options.max, { float: 0, dflt: 10, min: 0, max: 9999 });
+    if (typeof options.interval != "undefined") this._pool.max_queue = lib.toNumber(options.interval, { float: 0, dflt: 100, min: 0 });
+    if (typeof options.timeout != "undefined") this._pool.timeout = lib.toNumber(options.timeout, { float: 0, dflt: 5000, min: 1 });
+    if (typeof options.idle != "undefined") this._pool.idle = lib.toNumber(options.idle, { float: 0, dflt: 300000, min: 0 });
+
+    if (typeof options.create == "function") this._create = options.create;
+    if (typeof options.destroy == "function") this._destroy = options.destroy;
+    if (typeof options.reset == "function") this._reset = options.reset;
+    if (typeof options.validate == "function") this._validate = options.validate;
+
+    // Periodic housekeeping if interval is set
+    if (this._pool.idle > 0 && (idle != this._pool.idle || !this._pool.interval)) {
+        clearInterval(this._pool.interval);
+        this._pool.interval = setInterval(function() { self._timer() }, Math.max(30000, self._idle/3));
+        setImmediate(function() { self._timer(); });
+    }
+    if (this._pool.idle == 0) clearInterval(this._pool.interval);
+
+    return this;
+}
+
+// Return next available resource item, if not available immediately wait for defined amount of time before calling the
+// callback with an error. The callback second argument is active resource item.
+lib.Pool.prototype.acquire = function(callback)
+{
+    if (typeof callback != "function") throw lib.newError("callback is required");
+    if (!this._create) return callback(null, {});
+
+    // We have idle items
+    if (this._pool.avail.length) {
+        var mtime = this._pool.mtime.shift();
+        var item = this._pool.avail.shift();
+        this._pool.busy.push(item);
+        return callback.call(this, null, item);
+    }
+    // Put into waiting queue
+    if (this._pool.busy.length >= this._pool.max) {
+        if (this._pool.queue_count >= this._pool.max_queue) return callback(lib.newError("no more resources"));
+
+        this._pool.queue_count++;
+        return lib.deferCallback(this._pool.queue, {}, function(m) {
+            callback(m.item ? null : lib.newError("timeout waiting for the resource"), m.item);
+        }, this._pool.timeout);
+    }
+    // New item
+    var self = this;
+    this._call("_create", function(err, item) {
+        if (err) {
+            logger.error("pool: acquire:", self.name, lib.traceError(err));
+        } else {
+            if (!item) item = {};
+            self._pool.busy.push(item);
+            logger.dev('pool: acquire', self.name, 'avail:', self._pool.avail.length, 'busy:', self._pool.busy.length);
         }
-    };
+        callback(err, item);
+    });
+}
 
-    // Initialize pool properties, this can be run anytme even on the active pool to override some properties
-    pool.init = function(opts) {
-        if (!opts) return;
-        var idle = this._pool.idle;
+// Destroy the resource item calling the provided close callback
+lib.Pool.prototype.destroy = function(item, callback)
+{
+    if (!item) return;
+    if (!this._create) return typeof callback == "function" && callback();
 
-        if (typeof opts.min != "undefined") this._pool.min = self.toNumber(opts.min, { float: 0, flt: 0, min: 0 });
-        if (typeof opts.max != "undefined") this._pool.max = self.toNumber(opts.max, { float: 0, dflt: 10, min: 0, max: 9999 });
-        if (typeof opts.interval != "undefined") this._pool.max_queue = self.toNumber(opts.interval, { float: 0, dflt: 100, min: 0 });
-        if (typeof opts.timeout != "undefined") this._pool.timeout = self.toNumber(opts.timeout, { float: 0, dflt: 5000, min: 1 });
-        if (typeof opts.idle != "undefined") this._pool.idle = self.toNumber(opts.idle, { float: 0, dflt: 300000, min: 0 });
+    var idx = this._pool.busy.indexOf(item);
+    if (idx > -1) {
+        this._call("_destroy", item, callback);
+        this._pool.busy.splice(idx, 1);
+        return;
+    }
+    idx = this._pool.avail.indexOf(item);
+    if (idx > -1) {
+        this._call("_destroy", item, callback);
+        this._pool.avail.splice(idx, 1);
+        this._pool.mtime.splice(idx, 1);
+        return;
+    }
+}
 
-        if (typeof opts.create == "function") this._create = opts.create;
-        if (typeof opts.destroy == "function") this._destroy = opts.destroy;
-        if (typeof opts.reset == "function") this._reset = opts.reset;
-        if (typeof opts.validate == "function") this._validate = opts.validate;
+// Return the resource item back to the list of available resources.
+lib.Pool.prototype.release = function(item)
+{
+    if (!item) return;
+    if (!this._create) return;
 
-        // Periodic housekeeping if interval is set
-        if (this._pool.idle > 0 && (idle != this._pool.idle || !this._pool.interval)) {
-            clearInterval(this._pool.interval);
-            this._pool.interval = setInterval(function() { pool._timer() }, Math.max(30000, pool._idle/3));
-            setImmediate(function() { pool._timer(); });
-        }
-        if (this._pool.idle == 0) clearInterval(this._pool.interval);
-
-        return this;
+    var idx = this._pool.busy.indexOf(item);
+    if (idx == -1) {
+        logger.error('pool: release:', 'not known', item);
+        return;
     }
 
-    // Return next available resource item, if not available immediately wait for defined amount of time before calling the
-    // callback with an error. The callback second argument is active resource item.
-    pool.acquire = function(callback) {
-        if (typeof callback != "function") throw self.newError("callback is required");
-        if (!this._create) return callback(null, {});
+    // Pass it to the next waiting item
+    for (var id in this._pool.queue) {
+        this._pool.queue_count--;
+        this._pool.queue[id].item = item;
+        return lib.runCallback(this._pool.queue, this._pool.queue[id]);
+    }
 
-        // We have idle items
-        if (this._pool.avail.length) {
-            var mtime = this._pool.mtime.shift();
-            var item = this._pool.avail.shift();
-            this._pool.busy.push(item);
-            return callback.call(this, null, item);
-        }
-        // Put into waiting queue
-        if (this._pool.busy.length >= this._pool.max) {
-            if (this._pool.queue_count >= this._pool.max_queue) return callback(self.newError("no more resources"));
+    // Destroy if above the limit or invalid
+    if (this._pool.avail.length > this._pool.max || this._call("_validate", item) === false) {
+        this._call("_destroy", item);
+    } else {
+        // Add to the available list
+        this._pool.avail.unshift(item);
+        this._pool.mtime.unshift(Date.now());
+        this._call("_reset", item);
+    }
+    // Remove from the busy list at the end to keep the object referenced all the time
+    this._pool.busy.splice(idx, 1);
+}
 
-            this._pool.queue_count++;
-            return self.deferCallback(this._pool.queue, {}, function(m) {
-                callback(m.item ? null : self.newError("timeout waiting for the resource"), m.item);
-            }, this._pool.timeout);
-        }
-        // New item
-        var me = this;
-        this._call("_create", function(err, item) {
-            if (err) {
-                logger.error("pool: acquire:", this.name, self.traceError(err));
-            } else {
-                if (!item) item = {};
-                me._pool.busy.push(item);
-                logger.dev('pool: acquire', me.name, 'avail:', me._pool.avail.length, 'busy:', me._pool.busy.length);
+// Close all active items
+lib.Pool.prototype.destroyAll = function()
+{
+    while (this._pool.avail.length > 0) this.destroy(this._pool.avail[0]);
+}
+
+// Return an object with stats
+lib.Pool.prototype.stats = function()
+{
+    return { avail: this._pool.avail.length, busy: this._pool.busy.length, queue: this._pool.queue_count, min: this._pool.min, max: this._pool.max, max_queue: this._pool.max_queue };
+}
+
+// Close all connections and shutdown the pool, no more items will be open and the pool cannot be used without re-initialization,
+// if callback is provided then wait until all items are released and call it, optional maxtime can be used to retsrict how long to wait for
+// all items to be released, when expired the callback will be called
+lib.Pool.prototype.shutdown = function(callback, maxtime)
+{
+    logger.debug('pool.close:', this.name, 'shutdown:', 'avail:', this._pool.avail.length, 'busy:', this._pool.busy.length);
+    var self = this;
+    this._pool.max = -1;
+    this.destroyAll();
+    this._pool.queue = {};
+    clearInterval(this._pool.interval);
+    if (typeof callback != "function") return;
+    this._pool.time = Date.now();
+    this._pool.interval = setInterval(function() {
+        if (self._pool.busy.length && (!maxtime || Date.now() - self._pool.time < maxtime)) return;
+        clearInterval(self._pool.interval);
+        callback();
+    }, 500);
+}
+
+// Call registered method and catch exceptions, pass it to the callback if given
+lib.Pool.prototype._call = function(name, callback)
+{
+    if (typeof this[name] != "function") return typeof callback == "function" && callback();
+    try {
+        return this[name].call(this, callback);
+    } catch(e) {
+        logger.error('pool:', name, this.name, e);
+        if (typeof callback == "function") callback(e);
+    }
+}
+
+// Timer to ensure pool integrity
+lib.Pool.prototype._timer = function()
+{
+    var self = this;
+    var now = Date.now();
+
+    // Expire idle items
+    if (this._pool.idle > 0) {
+        for (var i = 0; i < this._pool.avail.length; i++) {
+            if (now - this._pool.mtime[i] > this._pool.idle && this._pool.avail.length + this._pool.busy.length > this._pool.min) {
+                logger.dev('pool: timer:', pool.name || "", 'idle', i, 'avail:', this._pool.avail.length, 'busy:', this._pool.busy.length);
+                this.destroy(this._pool.avail[i]);
+                i--;
             }
-            callback(err, item);
+        }
+    }
+
+    // Ensure min number of items
+    var min = this._pool.min - this._pool.avail.length - this._pool.busy.length;
+    for (var i = 0; i < min; i++) {
+        this._call("_create", function(err, item) {
+            if (err) return;
+            self._pool.avail.push(item);
+            self._pool.mtime.push(now);
         });
     }
-
-    // Destroy the resource item calling the provided close callback
-    pool.destroy = function(item, callback) {
-        if (!item) return;
-        if (!this._create) return typeof callback == "function" && callback();
-
-        var idx = this._pool.busy.indexOf(item);
-        if (idx > -1) {
-            this._call("_destroy", item, callback);
-            this._pool.busy.splice(idx, 1);
-            return;
-        }
-        idx = this._pool.avail.indexOf(item);
-        if (idx > -1) {
-            this._call("_destroy", item, callback);
-            this._pool.avail.splice(idx, 1);
-            this._pool.mtime.splice(idx, 1);
-            return;
-        }
-    }
-
-    // Return the resource item back to the list of available resources.
-    pool.release = function(item) {
-        if (!item) return;
-        if (!this._create) return;
-
-        var idx = this._pool.busy.indexOf(item);
-        if (idx == -1) {
-            logger.error('pool: release:', 'not known', item);
-            return;
-        }
-
-        // Pass it to the next waiting item
-        for (var id in this._pool.queue) {
-            this._pool.queue_count--;
-            this._pool.queue[id].item = item;
-            return self.runCallback(this._pool.queue, this._pool.queue[id]);
-        }
-
-        // Destroy if above the limit or invalid
-        if (this._pool.avail.length > this._pool.max || this._call("_validate", item) === false) {
-            this._call("_destroy", item);
-        } else {
-            // Add to the available list
-            this._pool.avail.unshift(item);
-            this._pool.mtime.unshift(Date.now());
-            this._call("_reset", item);
-        }
-        // Remove from the busy list at the end to keep the object referenced all the time
-        this._pool.busy.splice(idx, 1);
-    }
-
-    // Close all active items
-    pool.destroyAll = function() {
-        while (this._pool.avail.length > 0) this.destroy(this._pool.avail[0]);
-    }
-
-    pool.stats = function() {
-        return { avail: this._pool.avail.length, busy: this._pool.busy.length, queue: this._pool.queue_count, min: this._pool.min, max: this._pool.max, max_queue: this._pool.max_queue };
-    }
-
-    // Close all connections and shutdown the pool, no more items will be open and the pool cannot be used without re-initialization,
-    // if callback is provided then wait until all items are released and call it, optional maxtime can be used to retsrict how long to wait for
-    // all items to be released, when expired the callback will be called
-    pool.shutdown = function(callback, maxtime) {
-        logger.debug('pool.close:', this.name, 'shutdown:', 'avail:', this._pool.avail.length, 'busy:', this._pool.busy.length);
-        var self = this;
-        this._pool.max = -1;
-        this.destroyAll();
-        this._pool.queue = {};
-        clearInterval(this._pool.interval);
-        if (typeof callback != "function") return;
-        this._pool.time = Date.now();
-        this._pool.interval = setInterval(function() {
-            if (self._pool.busy.length && (!maxtime || Date.now() - self._pool.time < maxtime)) return;
-            clearInterval(self._pool.interval);
-            callback();
-        }, 500);
-    }
-
-    // Call registered method and catch exceptions, pass it to the callback if given
-    pool._call = function(name, callback) {
-        if (typeof this[name] != "function") return typeof callback == "function" && callback();
-        try {
-            return this[name].call(this, callback);
-        } catch(e) {
-            logger.error('pool:', name, this.name, e);
-            if (typeof callback == "function") callback(e);
-        }
-    }
-
-    // Timer to ensure pool integrity
-    pool._timer = function() {
-        var me = this;
-        var now = Date.now();
-
-        // Expire idle items
-        if (this._pool.idle > 0) {
-            for (var i = 0; i < this._pool.avail.length; i++) {
-                if (now - this._pool.mtime[i] > this._pool.idle && this._pool.avail.length + this._pool.busy.length > this._pool.min) {
-                    logger.dev('pool: timer:', pool.name || "", 'idle', i, 'avail:', this._pool.avail.length, 'busy:', this._pool.busy.length);
-                    this.destroy(this._pool.avail[i]);
-                    i--;
-                }
-            }
-        }
-
-        // Ensure min number of items
-        var min = this._pool.min - this._pool.avail.length - this._pool.busy.length;
-        for (var i = 0; i < min; i++) {
-            this._call("_create", function(err, item) {
-                if (err) return;
-                me._pool.avail.push(item);
-                me._pool.mtime.push(now);
-            });
-        }
-    }
-
-    return pool.init(options);
 }
 

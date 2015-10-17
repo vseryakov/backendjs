@@ -130,7 +130,7 @@ var db = {
     pools: {},
 
     // Configuration parameters
-    poolNames: { sqlite: "" },
+    poolNames: { sqlite: "", none: "" },
     poolParams: { sqliteIdle: 900000 },
 
     // Default database name
@@ -182,6 +182,9 @@ var db = {
 };
 
 module.exports = db;
+
+// None database driver
+db.modules.push({ name: "none", createPool: function(opts) { return new db.Pool(opts) } });
 
 // Gracefully close all database pools when the shutdown is initiated by a Web process
 db.shutdownWeb = function(options, callback)
@@ -243,7 +246,6 @@ db.initPool = function(name, options, callback)
     if (!d) return callback(lib.newError("invalid pool " + name));
     var type = d[1];
     var n = d[2] || "";
-    if (!self[type + "InitPool"]) return callback(lib.newError("invalid pool type " + name));
 
     // All pool specific parameters
     var opts = { pool: name,
@@ -264,13 +266,23 @@ db.initPool = function(name, options, callback)
             return callback();
         }
         this.pools[name].shutdown();
-        this.pools[name] = null;
+        delete this.pools[name];
     }
 
     logger.debug("initPool:", type, name);
 
-    this[type + 'InitPool'](opts);
-    this.initPoolTables(name, this.tables, options, callback);
+    // Create a new pool for the given database driver
+    for (var i in this.modules) {
+        if (this.modules[i].name == type) {
+            var pool = this.modules[i].createPool(opts);
+            if (!pool) continue;
+            this.pools[pool.name] = pool;
+            logger.debug('initPool:', pool.type, pool.name, opts);
+            this.initPoolTables(name, this.tables, options, callback);
+            return;
+        }
+    }
+    callback(lib.newError("invalid pool type " + name));
 }
 
 // Load configuration from the config database, must be configured with `db-config-type` pointing to the database pool where bk_config table contains
@@ -526,7 +538,7 @@ db.query = function(req, options, callback)
         if (typeof callback == "function") {
             try {
                 // Auto convert the error according to the rules
-                if (err && pool.convertError) err = pool.convertError(table, req.op || "", err, options);
+                if (err) err = pool.convertError(table, req.op || "", err, options);
                 callback(err, rows, info);
             } catch(e) {
                 logger.error("db.query:", pool.name, e, 'REQ:', req, 'OPTS:', options, e.stack);
@@ -1581,8 +1593,7 @@ db.drop = function(table, options, callback)
 db.convertError = function(table, op, err, options)
 {
     if (!err || !(err instanceof Error)) return err;
-    var cb = this.getPool(table, options).convertError;
-    return typeof cb == "function" ? cb(table, op, err, options) : err;
+    return this.getPool(table, options).convertError(table, op, err, options);
 }
 
 // Define new tables or extend/customize existing tables. Table definitions are used with every database operation,
@@ -1699,7 +1710,7 @@ db.prepare = function(op, table, obj, options)
     options = this.getOptions(table, options);
 
     // Check for table name, it can be determined in the real time
-    if (pool.resolveTable) table = pool.resolveTable(op, table, obj, options);
+    table = pool.resolveTable(op, table, obj, options);
 
     // Prepare row properties
     obj = this.prepareRow(pool, op, table, obj, options);
@@ -2055,7 +2066,7 @@ db.getPool = function(table, options)
     var pool = options && options.pool ? this.pools[options.pool] : null;
     if (!pool && this.poolTables[table]) pool = this.pools[this.poolTables[table]];
     if (!pool) pool = this.pools[this.pool];
-    return pool || this.nopool;
+    return pool || this.pools.none;
 }
 
 // Return all tables know to the given pool, returned tables are in the object with
@@ -2296,14 +2307,13 @@ db.getQueryForKeys = function(keys, obj, options)
 //  - info - column definition for the value from the cached columns
 db.getBindValue = function(table, options, val, info)
 {
-    var cb = this.getPool(table, options).bindValue;
-    return typeof cb == "function" ? cb(val, info) : val;
+    return this.getPool(table, options).bindValue(val, info);
 }
 
 // Return transformed value for the column value returned by the database, same parameters as for getBindValue
 db.getColumnValue = function(table, options, val, info)
 {
-    var cb = this.getPool(table, options).colValue;
+    var cb = this.getPool(table, options).columnValue;
     return typeof cb == "function" ? cb(val, info) : val;
 }
 
@@ -2378,16 +2388,6 @@ db.showResult = function(err, rows, info)
 //    - max - max number of open database connections, all attempts to run more will result in clients waiting for the next available db connection, if set to 0 no
 //            pooling will be enabled and will result in the unlimited connections, this is default for DynamoDB
 //    - max_queue - how many db requests can be in the waiting queue, above that all requests will be denied instead of putting in the waiting queue
-// The following pool callback can be assigned to the pool object:
-// - connect - a callback to be called when actual database client needs to be created, the callback signature is
-//    function(pool, callback) and will be called with first arg an error object and second arg is the database instance, required for pooling
-// - close - a callback to be called when a db connection needs to be closed, optional callback with error can be provided to this method
-// - bindValue - a callback function(val, info) that returns the value to be used in binding, mostly for SQL drivers, on input value and col info are passed, this callback
-//   may convert the val into something different depending on the DB driver requirements, like timestamp as string into milliseconds
-// - convertError - a callback function(table, op, err, options) that converts native DB driver error into other human readable format
-// - processColumns - a callback function(pool) taht is called after this pool cached columms from the database, it is called sychnroniously inside the `db.cacheColumns` method.
-// - resolveTable - a callback function(op, table, obj, options) that returns possible different table at the time of the query, it is called by the `db.prepare` method
-//   and if exist it must return the same or new table name for the given query parameters.
 //
 // The db methods cover most use cases but in case native driver needs to be used this is how to get the client and use it with its native API,
 // it is required to call `pool.release` at the end to return the connection back to the connection pool.
@@ -2400,21 +2400,14 @@ db.showResult = function(err, rows, info)
 //              });
 //          });
 //
-db.createPool = function(options)
+db.Pool = function(options)
 {
-    var self = this;
-    if (!options || !options.pool) throw "Options with pool: must be provided";
-
     // Methods for db client allocations and release
     if (lib.isPositive(options.max)) {
         var methods = {
             create: function(callback) {
-                var me = this;
                 try {
-                    this.open.call(this, function(err, client) {
-                        if (err) return callback(err, client);
-                        me.setup.call(me, client, callback);
-                    });
+                    this.open.call(this, callback);
                 } catch(e) {
                     logger.error('pool.create:', this.name, e);
                     callback(e);
@@ -2432,99 +2425,180 @@ db.createPool = function(options)
                 }
             },
         };
-        var pool = lib.createPool(methods);
+        lib.Pool.call(this, methods);
     } else {
-        // Use the same resources pool class, without create it does nothing and just calls the
-        // callback with empty object for the new client
-        var pool = lib.createPool({});
+        lib.Pool.call(this);
     }
-
-    // First time initialization
-    pool.initialize = function(opts) {
-        var me = this;
-        this.name = options.pool || options.name;
-        this.type = options.type || "none";
-        this.url = options.url || "default";
-        this.metrics = new metrics.Metrics('name', this.name);
-        this.dbtables = {};
-        this.dbcolumns = {};
-        this.dbkeys = {};
-        this.dbindexes = {};
-        this.dbcache = {};
-        this.connect = {};
-        this.settings = {};
-        this.configure(opts);
-    }
-
-    // Reconfigure properties, only subset of properties are allowed here so it is safe to apply all of them directly,
-    // this is called during realtime config update
-    pool.configure = function(opts) {
-        this.init(opts);
-        if (opts.url) this.url = opts.url;
-        if (lib.isObject(opts.connect)) this.connect = lib.mergeObj(this.connect, opts.connect);
-        if (lib.isObject(opts.settings)) this.settings = lib.mergeObj(this.settings, opts.settings);
-        if (!lib.isEmpty(opts.noCacheColumns)) this.settings.noCacheColumns = opts.noCacheColumns;
-        if (!lib.isEmpty(opts.noInitTables)) this.settings.noInitTables = opts.noInitTables;
-        logger.debug("pool.configure:", this.name, this.type, opts);
-    }
-
-    // Empty open pool implementation
-    pool.open = function(pool, cb) {
-        if (typeof cb == "function") cb(null, {});
-    };
-
-    // Empty new client setup implementation
-    pool.setup = function(client, cb) {
-        if (typeof cb == "function") cb(null, client);
-    };
-
-    // Empty query implementation
-    pool.query = function(client, req, opts, cb) {
-        if (typeof cb == "function") cb(null, []);
-    };
-
-    // Empty cache columns implementation
-    pool.cacheColumns = function(opts, cb) {
-        if (typeof cb == "function") cb();
-    }
-
-    // Empty cache indexs implementation
-    pool.cacheIndexes = function(opts, cb) {
-        if (typeof cb == "function") cb();
-    };
-
-    // Return next token from the client object
-    pool.nextToken = function(client, req, rows, opts) {
-        return client.next_token || null;
-    };
-
-    // Default prepare is to return all parameters in an object
-    pool.prepare = function(op, table, obj, opts) {
-        return { text: table, op: op, table: (table || "").toLowerCase(), obj: obj };
-    }
-
-    // Save existing options and return as new object, first arg is options, then list of properties to save
-    pool.saveOptions = function(opts) {
-        var old = {};
-        for (var i = 1; i < arguments.length; i++) {
-            var p = arguments[i];
-            old[p] = opts[p];
-        }
-        return old;
-    }
-
-    // Restore the properties we saved or replaced
-    pool.restoreOptions = function(opts, old) {
-        for (var p in old) {
-            if (old[p]) opts[p] = old[p]; else delete opts[p];
-        }
-    }
-
-    pool.initialize(options);
-    this.pools[pool.name] = pool;
-    logger.debug('createPool:', pool.type, pool.name, options);
-    return pool;
+    this.type = options.type || "none";
+    this.name = options.pool || options.name || options.type;
+    this.url = options.url || "default";
+    this.metrics = new metrics.Metrics('name', this.name);
+    this.dbtables = {};
+    this.dbcolumns = {};
+    this.dbkeys = {};
+    this.dbindexes = {};
+    this.dbcache = {};
+    this.connect = {};
+    this.settings = {};
+    this.configure(options);
 }
 
-// Make sure the empty pool is created for dummy database operations
-db.nopool = db.createPool({ pool: "none", type: "none" });
+util.inherits(db.Pool, lib.Pool);
+
+// Reconfigure properties, only subset of properties are allowed here so it is safe to apply all of them directly,
+// this is called during realtime config update
+db.Pool.prototype.configure = function(options)
+{
+    this.init(options);
+    if (options.url) this.url = options.url;
+    if (lib.isObject(options.connect)) this.connect = lib.mergeObj(this.connect, options.connect);
+    if (lib.isObject(options.settings)) this.settings = lib.mergeObj(this.settings, options.settings);
+    if (!lib.isEmpty(options.noCacheColumns)) this.settings.noCacheColumns = options.noCacheColumns;
+    if (!lib.isEmpty(options.noInitTables)) this.settings.noInitTables = options.noInitTables;
+    logger.debug("pool.configure:", this.name, this.type, options);
+}
+
+// Open a connection to the database, default is to return an empty object as a client
+db.Pool.prototype.open = function(callback)
+{
+    if (typeof cb == "function") callback(null, {});
+};
+
+// Close a connection, default is do nothing
+db.Pool.prototype.close = function(client, callback)
+{
+    if (typeof callback == "function") callback();
+}
+
+// Query the database, always return an array as a result (i.e. the second argument for the callback)
+db.Pool.prototype.query = function(client, req, options, callback)
+{
+    if (typeof callback == "function") callback(null, []);
+};
+
+// Cache columns for all tables
+db.Pool.prototype.cacheColumns = function(options, callback)
+{
+    if (typeof callback == "function") callback();
+}
+
+// Cache indexes for all tables
+db.Pool.prototype.cacheIndexes = function(options, callback)
+{
+    if (typeof callback == "function") callback();
+};
+
+// Return next token from the client object
+db.Pool.prototype.nextToken = function(client, req, rows, options)
+{
+    return client.next_token || null;
+};
+
+// Default prepare is to return all parameters in an object
+db.Pool.prototype.prepare = function(op, table, obj, options)
+{
+    return { text: table, op: op, table: (table || "").toLowerCase(), obj: obj };
+}
+
+// Return the value to be used in binding, mostly for SQL drivers, on input value and col info are passed, this callback
+// may convert the value into something different depending on the DB driver requirements, like timestamp as string into milliseconds
+db.Pool.prototype.bindValue = function(value, info)
+{
+    return value;
+}
+
+// Converts native DB driver error into other human readable format
+db.Pool.prototype.convertError = function(table, op, err, options)
+{
+    return err;
+}
+
+// that is called after this pool cached columms from the database, it is called sychnroniously inside the `db.cacheColumns` method.
+db.Pool.prototype.processColumns = function(pool)
+{
+}
+
+// Return possible different table at the time of the query, it is called by the `db.prepare` method
+// and if exist it must return the same or new table name for the given query parameters.
+db.Pool.prototype.resolveTable = function(op, table, obj, options)
+{
+    return table;
+}
+
+// Save existing options and return as new object, first arg is options, then list of properties to save
+db.Pool.prototype.saveOptions = function(options)
+{
+    var old = {};
+    for (var i = 1; i < arguments.length; i++) {
+        var p = arguments[i];
+        old[p] = options[p];
+    }
+    return old;
+}
+
+// Restore the properties we saved or replaced
+db.Pool.prototype.restoreOptions = function(options, old)
+{
+    for (var p in old) {
+        if (old[p]) options[p] = old[p]; else delete options[p];
+    }
+}
+
+// Create a database pool for SQL like databases
+// - options - an object defining the pool, the following properties define the pool:
+//    - pool - pool name/type, if not specified the SQLite is used
+//    - max - max number of clients to be allocated in the pool
+//    - idle - after how many milliseconds an idle client will be destroyed
+db.SqlPool = function(options)
+{
+    // SQL databases cannot support unlimited connections, keep reasonable default to keep it from overloading
+    if (!lib.isPositive(options.max)) options.max = 25;
+
+    // Translation map for similar operators from different database drivers, merge with the basic SQL mapping
+    var settings = {
+        sql: true,
+        schema: [],
+        noAppend: 1,
+        typesMap: { uuid: 'text', counter: "int", bigint: "int", smallint: "int" },
+        opsMap: { begins_with: 'like%', ne: "<>", eq: '=', le: '<=', lt: '<', ge: '>=', gt: '>' }
+    };
+    options.settings = lib.mergeObj(settings, options.settings);
+    db.Pool.call(this, options);
+}
+util.inherits(db.SqlPool, db.Pool);
+
+// Call column caching callback with our pool name
+db.SqlPool.prototype.cacheColumns = function(opts, callback)
+{
+    db.sqlCacheColumns(opts, callback);
+}
+
+// Prepare for execution, return an object with formatted or transformed SQL query for the database driver of this pool
+db.SqlPool.prototype.prepare = function(op, table, obj, opts)
+{
+    return db.sqlPrepare(op, table, obj, opts);
+}
+
+// Execute a query or if req.text is an Array then run all queries in sequence
+db.SqlPool.prototype.query = function(client, req, opts, callback)
+{
+    return db.sqlQuery(client, req,opts, callback);
+}
+
+// Support for pagination, for SQL this is the OFFSET for the next request
+db.SqlPool.prototype.nextToken = function(client, req, rows, opts)
+{
+    return opts.count && rows.length == opts.count ? lib.toNumber(opts.start) + lib.toNumber(opts.count) : null;
+}
+
+db.SqlPool.prototype.updateAll = function(table, query, obj, options, callback)
+{
+    var req = db.prepare("update", table, query, obj, lib.extendObj(options, "keys", Object.keys(obj)));
+    db.query(req, options, callback);
+}
+
+db.SqlPool.prototype.delAll = function(table, query, options, callback)
+{
+    var req = this.prepare("del", table, query, lib.extendObj(options, "keys", Object.keys(query)));
+    db.query(req, options, callback);
+}
