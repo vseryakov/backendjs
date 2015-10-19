@@ -1376,7 +1376,7 @@ lib.callback = function()
 lib.cloneObj = function()
 {
     var obj = arguments[0];
-    var rc = {};
+    var rc = Array.isArray(obj) ? [] : {};
     for (var p in obj) {
         switch (this.typeName(obj[p])) {
         case "object":

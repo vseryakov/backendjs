@@ -1710,7 +1710,7 @@ db.prepare = function(op, table, obj, options)
     options = this.getOptions(table, options);
 
     // Check for table name, it can be determined in the real time
-    table = pool.resolveTable(op, table, obj, options);
+    table = pool.resolveTable(op, table, obj, options).toLowerCase();
 
     // Prepare row properties
     obj = this.prepareRow(pool, op, table, obj, options);
@@ -1747,8 +1747,8 @@ db.prepareRow = function(pool, op, table, obj, options)
     }
 
     // Process special columns
-    var keys = pool.dbkeys[table.toLowerCase()] || [];
-    var cols = pool.dbcolumns[table.toLowerCase()] || {};
+    var keys = pool.dbkeys[table] || [];
+    var cols = pool.dbcolumns[table] || {};
     var col, old = {};
 
     switch (op) {
@@ -1912,7 +1912,7 @@ db.convertRows = function(pool, req, rows, options)
 {
     var self = this;
     if (!pool) pool = this.getPool(req.table, options);
-    var cols = pool.dbcolumns[req.table.toLowerCase()] || {};
+    var cols = pool.dbcolumns[req.table] || {};
     for (var p in cols) {
         var col = cols[p], row;
         // Convert from JSON type
@@ -2307,7 +2307,7 @@ db.getQueryForKeys = function(keys, obj, options)
 //  - info - column definition for the value from the cached columns
 db.getBindValue = function(table, options, val, info)
 {
-    return this.getPool(table, options).bindValue(val, info);
+    return this.getPool(table, options).bindValue(val, info, options);
 }
 
 // Return transformed value for the column value returned by the database, same parameters as for getBindValue
@@ -2502,7 +2502,7 @@ db.Pool.prototype.prepare = function(op, table, obj, options)
 
 // Return the value to be used in binding, mostly for SQL drivers, on input value and col info are passed, this callback
 // may convert the value into something different depending on the DB driver requirements, like timestamp as string into milliseconds
-db.Pool.prototype.bindValue = function(value, info)
+db.Pool.prototype.bindValue = function(value, info, options)
 {
     return value;
 }
@@ -2568,27 +2568,27 @@ db.SqlPool = function(options)
 util.inherits(db.SqlPool, db.Pool);
 
 // Call column caching callback with our pool name
-db.SqlPool.prototype.cacheColumns = function(opts, callback)
+db.SqlPool.prototype.cacheColumns = function(options, callback)
 {
-    db.sqlCacheColumns(opts, callback);
+    db.sqlCacheColumns(options, callback);
 }
 
 // Prepare for execution, return an object with formatted or transformed SQL query for the database driver of this pool
-db.SqlPool.prototype.prepare = function(op, table, obj, opts)
+db.SqlPool.prototype.prepare = function(op, table, obj, options)
 {
-    return db.sqlPrepare(op, table, obj, opts);
+    return db.sqlPrepare(op, table, obj, options);
 }
 
 // Execute a query or if req.text is an Array then run all queries in sequence
-db.SqlPool.prototype.query = function(client, req, opts, callback)
+db.SqlPool.prototype.query = function(client, req, options, callback)
 {
-    return db.sqlQuery(client, req,opts, callback);
+    return db.sqlQuery(client, req, options, callback);
 }
 
 // Support for pagination, for SQL this is the OFFSET for the next request
-db.SqlPool.prototype.nextToken = function(client, req, rows, opts)
+db.SqlPool.prototype.nextToken = function(client, req, rows, options)
 {
-    return opts.count && rows.length == opts.count ? lib.toNumber(opts.start) + lib.toNumber(opts.count) : null;
+    return options.count && rows.length == options.count ? lib.toNumber(options.start) + lib.toNumber(options.count) : null;
 }
 
 db.SqlPool.prototype.updateAll = function(table, query, obj, options, callback)

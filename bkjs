@@ -837,7 +837,7 @@ case "$ARG" in
        $ECHO "[mysqld]\nport=3306\nsocket=$MYSQL_DIR/mysql.sock\ndatadir=$MYSQL_DIR\nkey_buffer_size=16M\nmax_allowed_packet=500M\ngroup_concat_max_len=16000\n" >> ~/.my.cnf
        $MYSQL_PREFIX/bin/mysql_install_db --force --skip-name-resolve --datadir=$MYSQL_DIR --defaults-file=$HOME/.my.cnf
        ($0 run-mysql)
-       sleep 3
+       sleep 5
        $MYSQL_PREFIX/bin/mysql -u root -e "DELETE FROM user WHERE user=''" mysql
        $MYSQL_PREFIX/bin/mysql -u root -e "DROP DATABASE test" mysql
        $MYSQL_PREFIX/bin/mysql -u root -e "CREATE DATABASE $db" mysql
@@ -884,8 +884,13 @@ case "$ARG" in
         curl -OL http://downloads.datastax.com/community/dsc.tar.gz
         tar -C $CASSANDRA_PREFIX --strip-components=1 -xzf dsc.tar.gz
         rm -rf dsc.tar.gz
+        $SED "s|-Dcassandra.logdir=\$CASSANDRA_HOME/logs|-Dcassandra.logdir=$CASSANDRA_DIR/log|g" $CASSANDRA_PREFIX/bin/cassandra
         $SED "s|/var/lib/cassandra/|$CASSANDRA_DIR/var/|g" $CASSANDRA_PREFIX/conf/*.{yaml,properties,sh}
         $SED "s|/var/log/cassandra/|$CASSANDRA_DIR/log/|g" $CASSANDRA_PREFIX/conf/*.{yaml,properties,sh}
+        $SED "s|# commitlog_directory:|commitlog_directory:|" $CASSANDRA_PREFIX/conf/cassandra.yaml
+        $SED "s|# saved_caches_directory:|saved_caches_directory:|" $CASSANDRA_PREFIX/conf/cassandra.yaml
+        $SED "s|# data_file_directories:|data_file_directories:|" $CASSANDRA_PREFIX/conf/cassandra.yaml
+        $SED "s|#     - $CASSANDRA_DIR|    - $CASSANDRA_DIR|" $CASSANDRA_PREFIX/conf/cassandra.yaml
         chown -R $BKJS_USER $CASSANDRA_DIR $CASSANDRA_PREFIX
     fi
     ;;
@@ -893,7 +898,7 @@ case "$ARG" in
   init-cassandra)
     ($0 get-cassandra)
     ($0 run-cassandra)
-    sleep 5
+    sleep 15
     db=$(get_arg -db backend)
     echo "CREATE KEYSPACE $db WITH REPLICATION = {'class': 'SimpleStrategy' , 'replication_factor': 1 };" > /tmp/cql
     $CASSANDRA_PREFIX/bin/cqlsh -f /tmp/cql
