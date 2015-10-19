@@ -769,6 +769,96 @@ tests.test_location = function(callback)
     });
 }
 
+tests.test_db_basic = function(callback)
+{
+    var self = this;
+    var tables = {
+            test1: { id: { primary: 1, pub: 1 },
+                     num: { type: "int" },
+                     num2: { type: "int" },
+                     num3: { type: "text", join: ["id","num"], strict_join: 1 },
+                     email: {},
+                     anum: { join: ["anum","num"], unjoin: ["anum","num"] },
+                     jnum: { join: ["num2","num4"], unjoin: ["num2","num4"], strict_join: 1 },
+                     num4: { hidden: 1 },
+            },
+    };
+    var now = Date.now();
+    var id = lib.random(64);
+    var id2 = lib.random(64);
+    var next_token = null;
+    var ids = [];
+
+    lib.series([
+        function(next) {
+             self.resetTables(tables, next);
+        },
+        function(next) {
+            db.add("test1", { id: id, email: id, num: '1', num3: 1, num4: 1, anum: 1 }, function(err) {
+                if (err) return next(err);
+                db.put("test1", { id: id2, email: id2, num2: "2", num3: 2, num4: "2", anum: 2 }, next);
+            });
+        },
+        function(next) {
+            db.get("test1", { id: id }, function(err, row) {
+                tests.check(next, err, !row || row.id != id || row.num != 1 || row.num3 != row.id+"|"+row.num || row.anum != "1" || row.jnum, "err1:", row);
+            });
+        },
+        function(next) {
+            db.get("test1", { id: id2 }, function(err, row) {
+                tests.check(next, err, !row || row.num4 != "2" || row.jnum != row.num2 + "|" + row.num4, "err2:", row);
+            });
+        },
+        function(next) {
+            // Type conversion for strictTypes
+            db.get("test1", { id: id, num: '1' }, function(err, row) {
+                tests.check(next, err, !row || row.id != id || row.num!=1, "err4:", row);
+            });
+        },
+        function(next) {
+            db.list("test1", String([id,id2]),  {}, function(err, rows) {
+                tests.check(next, err, rows.length!=2, "err5:", rows.length, rows);
+            });
+        },
+        function(next) {
+            db.select("test1", { id: id }, function(err, rows) {
+                tests.check(next, err, rows.length!=1, "err6:", rows);
+            });
+        },
+        function(next) {
+            db.delAll("test1", { id: id }, next);
+        },
+        function(next) {
+            db.get("test1", { id: id }, function(err, row) {
+                tests.check(next, err, row, "err7:", row);
+            });
+        },
+        function(next) {
+            db.put("test1", { id: id, email: id, num: 1 }, function(err) {
+                tests.check(next, err, 0, "err8:");
+            });
+        },
+        function(next) {
+            db.update("test1", { id: id, email: "test", num: 2 }, function(err, rc, info) {
+                tests.check(next, err, info.affected_rows!=1, "err9:", info);
+            });
+        },
+        function(next) {
+            db.incr("test1", { id: id, num2: 2 }, function(err, rc, info) {
+                tests.check(next, err, info.affected_rows!=1, "err10:", info);
+            });
+        },
+        function(next) {
+            db.get("test1", { id: id }, function(err, row) {
+                tests.check(next, err, !row || row.email != "test" || row.num != 2 || row.num2 != 2, "err11:", row);
+            });
+        },
+    ],
+    function(err) {
+        callback(err);
+    });
+}
+
 tests.test_db = function(callback)
 {
     var self = this;
