@@ -19,11 +19,11 @@ exports.run = function(callback) { this.core.run(callback); }
 
 exports.core.addModule('logger', exports.logger,
                        'lib', exports.lib,
+                       'aws', exports.aws,
                        'ipc', exports.ipc,
                        'db', exports.db,
-                       'aws', exports.aws,
-                       'msg', exports.msg,
                        'api', exports.api,
+                       'msg', exports.msg,
                        'jobs', exports.jobs,
                        'server', exports.server,
                        'metrics', exports.metrics,
