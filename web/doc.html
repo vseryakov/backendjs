@@ -2300,6 +2300,7 @@ might be useful when desining, developing or choosing the API platform:</p>
 <li><code>api-access-token-secret</code> - A secret to be used for access token signatures, additional enryption on top of the signature to use for API access without signing requests, it is required for access tokens to be used</li>
 <li><code>api-access-token-age</code> - Access tokens age in milliseconds, for API requests with access tokens only</li>
 <li><code>api-disable-session</code> - Disable access to API endpoints for Web sessions, must be signed properly</li>
+<li><code>api-allow-authenticated</code> - Add URLs which can be accessed by any authenticated user account, can be partial urls or Regexp, this is a convenient option which registers <code>AuthCheck</code> callback for the given endpoints and is checked before any other account types, if matched no account specific paths will be checked anymore(any of the allow-account-...)</li>
 <li><code>api-allow-admin</code> - Add URLs which can be accessed by admin accounts only, can be partial urls or Regexp, this is a convenient option which registers <code>AuthCheck</code> callback for the given endpoints</li>
 <li><code>api-allow-account-([a-z]+)</code> - Add URLs which can be accessed by specific account type only, can be partial urls or Regexp, this is a convenient option which registers AuthCheck callback for the given endpoints and only allow access to the specified account types</li>
 <li><code>api-express-options</code> - Set Express config options during initialization,example: <code>-api-express-options { &quot;trust proxy&quot;: 1, &quot;strict routing&quot;: true }</code></li>
@@ -4532,7 +4533,8 @@ The properties from the joined table will be merged with the original rows prese
 for cases when actual primary keys in the table are different from the rows properties.</li>
 <li>options.existing is 1 then return only joined records.</li>
 <li>options.override - joined table properties will replace the original table existing properties</li>
-<li>options.attach - specifies a property name which will be used to attach joined record to the original record, no merging will occur</li>
+<li>options.attach - specifies a property name which will be used to attach joined record to the original record, no merging will occur, for
+non-existing records an empty object will be attached</li>
 <li>options.incr can be a list of property names that need to be summed up with each other, not overriden</li>
 </ul>
 <p>Example:</p>
@@ -8061,7 +8063,9 @@ connection to APN gateway.</p>
                        alias: { pub: 1 },
                        version: {},                                       // app name/version
                        atime: { type: &quot;bigint&quot;, now: 1, pub: 1 },         // last access time
-                       mtime: { type: &quot;bigint&quot; }, pub: 1 },               // last status save to db time
+                       awtime: { type: &quot;bigint&quot; },                        // last weekly access time
+                       amtime: { type: &quot;bigint&quot; },                        // last monthly access time
+                       mtime: { type: &quot;bigint&quot;, pub: 1 } },               // last status save to db time
 
           // Account metrics, must correspond to `-api-url-metrics` settings, for images the default is first 2 path components
           bk_collect: {
