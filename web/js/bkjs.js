@@ -537,7 +537,7 @@ var Bkjs = {
 
     // Capitalize words
     toTitle: function(name) {
-        return (name || "").replace(/_/g, " ").split(/[ ]+/).reduce(function(x,y) { return x + y[0].toUpperCase() + y.substr(1) + " "; }, "").trim();
+        return (name || "").replace(/_/g, " ").split(/[ ]+/).reduce(function(x,y) { return x + y.substr(0,1).toUpperCase() + y.substr(1) + " "; }, "").trim();
     },
 
     // Interpret the value as a boolean

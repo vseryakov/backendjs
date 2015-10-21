@@ -67,7 +67,7 @@ lib.encodeURIComponent = function(str)
 // Convert text into capitalized words
 lib.toTitle = function(name)
 {
-    return String(name || "").replace(/_/g, " ").split(/[ ]+/).reduce(function(x,y) { return x + (y ? (y[0].toUpperCase() + y.substr(1) + " ") : "") }, "").trim();
+    return String(name || "").replace(/_/g, " ").split(/[ ]+/).reduce(function(x,y) { return x + (y ? (y.substr(0,1).toUpperCase() + y.substr(1) + " ") : "") }, "").trim();
 }
 
 // Convert into camelized form, optional chars can define the separators, default is -, _ and .

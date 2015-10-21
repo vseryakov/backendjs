@@ -30,7 +30,7 @@ module.exports = accounts;
 accounts.init = function(options)
 {
     core.describeArgs("accounts", [
-         { name: "status-interval", type: "number", descr: "Number of milliseconds between status record updates, presence is considered offline if last access was more than this interval ago" },
+         { name: "status-interval", type: "number", min: 0, max: 86400000, descr: "Number of milliseconds between status record updates, presence is considered offline if last access was more than this interval ago" },
     ]);
 
     db.describeTables({
@@ -68,7 +68,9 @@ accounts.init = function(options)
                          alias: { pub: 1 },
                          version: {},                                       // app name/version
                          atime: { type: "bigint", now: 1, pub: 1 },         // last access time
-                         mtime: { type: "bigint" }, pub: 1 },               // last status save to db time
+                         awtime: { type: "bigint" },                        // last weekly access time
+                         amtime: { type: "bigint" },                        // last monthly access time
+                         mtime: { type: "bigint", pub: 1 } },               // last status save to db time
 
             // Account metrics, must correspond to `-api-url-metrics` settings, for images the default is first 2 path components
             bk_collect: {
@@ -575,6 +577,11 @@ accounts.putStatus = function(obj, options, callback)
         row.oatime = row.atime;
         row.omtime = row.mtime;
         row.atime = row.mtime = now;
+        row.oawtime = row.awtime;
+        row.oamtime = row.amtime;
+        // Update weekly and montly last access times
+        if (now - row.awtime > 86400000*7) row.awtime = now;
+        if (now - row.amtime > 86400000*30) row.amtime = now;
         row.saved = true;
         db.put("bk_status", row, function(err) {
             callback(err, row);

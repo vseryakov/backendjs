@@ -1146,7 +1146,8 @@ db.search = function(table, query, options, callback)
 //   for cases when actual primary keys in the table are different from the rows properties.
 // - options.existing is 1 then return only joined records.
 // - options.override - joined table properties will replace the original table existing properties
-// - options.attach - specifies a property name which will be used to attach joined record to the original record, no merging will occur
+// - options.attach - specifies a property name which will be used to attach joined record to the original record, no merging will occur, for
+//    non-existing records an empty object will be attached
 // - options.incr can be a list of property names that need to be summed up with each other, not overriden
 //
 // Example:
@@ -1189,11 +1190,20 @@ db.join = function(table, rows, options, callback)
                         if (options.override || !row[p]) row[p] = x[p];
                     }
                 }
-                if (options.existing) row.__1 = 1;
+                if (options.existing || options.attach) row.__1 = 1;
             });
         });
         // Remove not joined rows
-        if (options.existing) rows = rows.filter(function(x) { return x.__1; }).map(function(x) { delete x.__1; return x; });
+        if (options.existing) {
+            rows = rows.filter(function(x) { return x.__1; }).map(function(x) { delete x.__1; return x; });
+        } else
+        // Always attach even if empty
+        if (options.attach) {
+            for (var i in rows) {
+                if (!rows[i].__1) rows[i][options.attach] = {};
+                delete rows[i].__1;
+            }
+        }
         callback(null, rows, info);
     });
 }

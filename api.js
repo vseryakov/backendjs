@@ -96,6 +96,7 @@ var api = {
            { name: "access-token-secret", descr: "A secret to be used for access token signatures, additional enryption on top of the signature to use for API access without signing requests, it is required for access tokens to be used" },
            { name: "access-token-age", type: "int", descr: "Access tokens age in milliseconds, for API requests with access tokens only" },
            { name: "disable-session", type: "regexpobj", descr: "Disable access to API endpoints for Web sessions, must be signed properly" },
+           { name: "allow-authenticated", type: "regexpobj", descr: "Add URLs which can be accessed by any authenticated user account, can be partial urls or Regexp, this is a convenient option which registers `AuthCheck` callback for the given endpoints and is checked before any other account types, if matched no account specific paths will be checked anymore(any of the allow-account-...)" },
            { name: "allow-admin", type: "regexpobj", descr: "Add URLs which can be accessed by admin accounts only, can be partial urls or Regexp, this is a convenient option which registers `AuthCheck` callback for the given endpoints" },
            { name: "allow-account-([a-z]+)", type: "regexpobj", obj: "allow-account", descr: "Add URLs which can be accessed by specific account type only, can be partial urls or Regexp, this is a convenient option which registers AuthCheck callback for the given endpoints and only allow access to the specified account types" },
            { name: "express-options", type: "json", descr: "Set Express config options during initialization,example: `-api-express-options { \"trust proxy\": 1, \"strict routing\": true }`" },
@@ -159,6 +160,7 @@ var api = {
     allowAccount: {},
     // Allow accounts and anonymous users
     allowAnonymous: {},
+    allowAuthenticated: {},
     // Allow only HTTPS requests
     allowSsl: {},
     redirectSsl: {},
@@ -571,10 +573,10 @@ api.init = function(options, callback)
             // Serve from default web location in the package or from application specific location
             if (!self.noStatic) {
                 self.app.use(serveStatic(core.path.web, self.staticOptions));
-                self.app.use(serveStatic(__dirname + "/web", self.staticOptions));
-                for (var i = 0; i < self.staticPaths; i++) {
+                for (var i = 0; i < self.staticPaths.length; i++) {
                     self.app.use(serveStatic(self.staticPaths[i], self.staticOptions));
                 }
+                self.app.use(serveStatic(__dirname + "/web", self.staticOptions));
                 logger.debug("static:", core.path.web, __dirname + "/web", self.staticPaths);
             }
 
