@@ -502,6 +502,492 @@ API commands can be executed in the browser or using `curl`:
     curl 'http://localhost:8000/todo?name=TestTask1&descr=Descr1&due=2015-01-01`
     curl 'http://localhost:8000/todo/select'
 
+# Backend directory structure
+
+When the backend server starts and no -home argument passed in the command line the backend makes its home environment in the ~/.backend directory.
+
+The backend directory structure is the following:
+
+* `etc` - configuration directory, all config files are there
+    * `etc/profile` - shell script loaded by the bkjs utility to customize env variables
+    * `etc/config` - config parameters, same as specified in the command line but without leading -, each config parameter per line:
+
+        Example:
+
+            debug=1
+            db-pool=dynamodb
+            db-dynamodb-pool=http://localhost:9000
+            db-pgsql-pool=postgresql://postgres@127.0.0.1/backend
+
+            To specify other config file: bkjs run-backend -config-file file
+
+    * etc/config.local - same as the config but for the cases when local environment is different than the production or for dev specific parameters
+    * some config parameters can be condigured in DNS as TXT records, the backend on startup will try to resolve such records and use the value if not empty.
+      All params that  marked with DNS TXT can be configured in the DNS server for the domain where the backend is running, the config parameter name is
+      concatenated with the domain and queried for the TXT record, for example: `cache-host` parameter will be queried for cache-host.domain.name for TXT record type.
+
+    * `etc/crontab` - jobs to be run with intervals, JSON file with a list of cron jobs objects:
+
+        Example:
+
+        1. Create file in ~/.backend/etc/crontab with the following contents:
+
+                [ { "cron": "0 1 1 * * 1,3", "job": { "app.cleanSessions": { "interval": 3600000 } } } ]
+
+        2. Define the function that the cron will call with the options specified, callback must be called at the end, create this app.js file
+
+                var bkjs = require("backendjs");
+                bkjs.app.cleanSessions = function(options, callback) {
+                     bkjs.db.delAll("session", { mtime: options.interval + Date.now() }, { ops: "le" }, callback);
+                }
+                bkjs.server.start()
+
+        3. Start the jobs queue and the web server at once
+
+                bkjs run-backend -master -web -jobs-workers 1 -jobs-cron
+
+    * etc/crontab.local - additional local crontab that is read after the main one, for local or dev environment
+
+* `modules` - loadable modules with specific functionality
+* `images` - all images to be served by the API server, every subfolder represent naming space with lots of subfolders for images
+* `var` - database files created by the server
+* `tmp` - temporary files
+* `web` - Web pages served by the static Express middleware
+
+# Cache configurations
+Database layer support caching of the responses using `db.getCached` call, it retrieves exactly one record from the configured cache, if no record exists it
+will pull it from the database and on success will store it in the cache before returning to the client. When dealing with cached records, there is a special option
+that must be passed to all put/update/del database methods in order to clear local cache, so next time the record will be retrieved with new changes from the database
+and refresh the cache, that is `{ cached: true }` can be passed in the options parameter for the db methods that may modify records with cached contents. In any case
+it is required to clear cache manually there is `db.clearCache` method for that.
+Also there is a configuration option `-db-caching` to make any table automatically cached for all requests.
+
+## Local
+If no cache is configured the local driver is used, it keeps the cache on the master process in the LRU pool and any wroker or Web process
+communicate with it via internal messaging provided by the `cluster` module. This works only for a single server.
+
+## memcached
+Set `ipc-cache=memcache://HOST[,HOST]` that points to one or more hosts running memcached servers is what needs to be done only.
+The great benefit using memcache is to configure more than one server in `cache-host` separated by comma which makes it more reliable and
+eliminates single point of failure if one of the memcache servers goes down.
+
+## Redis
+Set `ipc-cache=redis://HOST[:PORT]` that points to the server running Redis server. Only single Redis server can be specified.
+
+# PUB/SUB or Queue configurations
+
+Publish/subscribe functionality allows clients to receive notifications without constantly polling for new events. A client can be anything but
+the backend provides some partially implemented subscription notifications for Web clients using the Long Poll.
+The Account API call `/account/subscribe` can use any pub/sub mode.
+
+The flow of the pub/sub operations is the following:
+- a HTTP client makes `/account/subscribe` API request, the connection is made and is kept open indefenitely or as long as configured using `api-subscribe-timeout`.
+- the API backend receives this request, and runs the `api.subscribe` method with the key being the account id, this will subscribe to the events for the current
+  account and registers a callback to be called if any events occured. The HTTP connection is kept open.
+- some other client makes an API call that triggers an event like makes a connectiopn or sends a message, on such event the backend API handler
+  always runs `ipc.publish` after the DB operation succedes. If the messaging is configured, it publishes the message for the account, the
+  message being a JSON object with the request API path and mtime, other properties depend on the call made.
+- the connection that initiated `/account/subscribe` receives an event
+
+## Redis
+To configure the backend to use Redis for PUB/SUB messaging set `ipc-queue=redis://HOST` where HOST is IP address or hostname of the single Redis server.
+This will use native PUB/SUB Redis feature.
+
+## Redis Queue
+To configure the backend to use Redis for job processing set `ipc-queue=redisq://HOST` where HOST is IP address or hostname of the single Redis server.
+This driver implements reliable Redis queue, with `visibilityTimeout` config option works similar to AWS SQS.
+
+Once configured, then all calls to `jobs.submitJob` will push jobs to be executed to the Redis queue, starting somewhere a backend master
+process with `-jobs-workers 2` will launch 2 worker processes which will start pulling jobs from the queue and execute.
+
+An example of how to perform jobs in the API routes:
+
+```javascript
+   app.processAccounts = function(options, callback) {
+       db.select("bk_account", { type: options.type || "user" }, function(err, rows) {
+          ...
+          callback();
+       });
+   }
+
+   api.all("/process/accounts", function(req, res) {
+       jobs.submitJob({ job: { "app.processAccounts": { type: req.query.type } } }, function(err) {
+          api.sendReply(res, err);
+       });
+   });
+
+```
+
+## RabbitMQ
+To configure the backend to use RabbitMQ for messaging set `ipc-queue=amqp://HOST` and optionally `amqp-options=JSON` with options to the amqp module.
+Additional objects from the config JSON are used for specific AMQP functions: { queueParams: {}, subscribeParams: {}, publishParams: {} }. These
+will be passed to the corresponding AMQP methods: `amqp.queue, amqp.queue.sibcribe, amqp.publish`. See AMQP node.js module for more info.
+
+## DB
+This is a simple queue implementation using the atomic UPDATE, it polls for new jobs in the table and updates the status, only who succeeds
+with the update takes the job and executes it. It is not effective but can be used for simple and not busy systems for more or less long jobs.
+The advantage is that it uses the same database and does not quire additional servers.
+
+## SQS
+To use AWS SQS for job processing set `ipc-queue=https://sqs.amazonaws.com....`, this queue system will poll SQS for new messeges on a worker
+and after succsesful execution will delete the message. For long running jobs it will automatically extend visibility timeout if it is configured.
+
+## Local
+The local queue is implemented on the master process as a list, communication is done via local sockets between the master and workers.
+This is intended for a single server development pusposes only.
+
+# Security configurations
+
+## API only
+This is default setup of the backend when all API requests except `/account/add` must provide valid signature and all HTML, Javascript, CSS and image files
+are available to everyone. This mode assumes that Web development will be based on 'single-page' design when only data is requested from the Web server and all
+rendering is done using Javascript. This is how the `api.html` develpers console is implemented, using JQuery-UI and Knockout.js.
+
+To see current default config parameters run any of the following commands:
+
+        bkjs run-backend -help | grep api-allow
+
+        node -e 'require("backendjs").core.showHelp()'
+
+To disable open registration in this mode just add config parameter `api-disallow-path=^/account/add$` or if developing an application add this in the initMiddleware
+
+        api.initMiddleware = function(callback) {
+            this.allow.splice(this.allow.indexOf('^/account/add$'), 1);
+        }
+
+## Secure Web site, client verification
+
+This is a mode when the whole Web site is secure by default, even access to the HTML files must be authenticated. In this mode the pages must defined 'Backend.session = true'
+during the initialization on every html page, it will enable Web sessions for the site and then no need to sign every API reauest.
+
+The typical client Javascript verification for the html page may look like this, it will redirect to login page if needed,
+this assumes the default path '/public' still allowed without the signature:
+
+```javascript
+   <script src="/js/jquery.js"></script>
+   <link href="/css/bootstrap.css" rel="stylesheet">
+   <script src="/js/bootstrap.js"></script>
+   <script src="/js/knockout.js" type="text/javascript"></script>
+   <script src="/js/crypto.js" type="text/javascript"></script>
+   <script src="/js/bkjs.js" type="text/javascript"></script>
+   <script src="/js/bkjs-bootstrap.js" type="text/javascript"></script>
+   <script src="/js/bkjs-ko.js" type="text/javascript"></script>
+   <script>
+    $(function () {
+       Bkjs.session = true;
+       $(Bkjs).on("nologin", function() { window.location='/public/index.html'; });
+       Bkjs.koInit();
+   });
+   </script>
+```
+
+## Secure Web site, backend verification
+On the backend side in your application app.js it needs more secure settings defined i.e. no html except /public will be accessible and
+in case of error will be redirected to the login page by the server. Note, in the login page `Bkjs.session` must be set to true for all
+html pages to work after login without singing every API request.
+
+1. We disable all allowed paths to the html and registration:
+
+```javascript
+   app.configureMiddleware = function(options, callback) {
+      this.allow.splice(this.allow.indexOf('^/$'), 1);
+      this.allow.splice(this.allow.indexOf('\\.html$'), 1);
+      this.allow.splice(this.allow.indexOf('^/account/add$'), 1);
+      callback();
+   }
+```
+
+2. We define an auth callback in the app and redirect to login if the reauest has no valid signature, we check all html pages, all allowed html pages from the /public
+will never end up in this callback because it is called after the signature check but allowed pages are served before that:
+
+```javascript
+   api.registerPreProcess('', /^\/$|\.html$/, function(req, status, callback) {
+      if (status.status != 200) {
+          status.status = 302;
+          status.url = '/public/index.html';
+      }
+      callback(status);
+   });
+```
+
+# WebSockets connections
+
+The simplest way is to configure `ws-port` to the same value as the HTTP port. This will run WebSockets server along the regular Web server.
+All requests must be properly signed with all parameters encoded as for GET requests.
+
+Example:
+
+        wscat --connect ws://localhost:8000
+        connected (press CTRL+C to quit)
+        > /account/get
+        < {
+            "status": 400,
+            "message": "Invalid request: no host provided"
+          }
+        >
+
+# Versioning
+
+There is no ready to use support for different versions of API at the same because there is no just one solution that satifies all applications. But there are
+tools ready to use that will allow to implement such versioning system in the backend. Some examples are provided below:
+
+- Fixed versions
+  This is similar to AWS version system when versions are fixed and changed not very often. For such cases the backend exposes `core.version` which is
+  supposed to be a core backend version. This version is returned with every backend reponse in the Verison: header. A client also can specify the core version
+  using `bk-version` query parameter or a header. When a request is parsed and the version is provided it will be set in the request options object.
+
+  All API routes are defined using Express middleware and one of the possible ways of dealing with different versions can look like this, by
+  appending version to the command it is very simple to call only changed API code.
+
+```javascript
+          api.all(/\/domain\/(get|put|del)/, function(req, res) {
+              var options = api.getOptions(req);
+              var cmd = req.params[0];
+              if (options.coreVersion) cmd += "/" + options.coreVersion;
+              switch (cmd) {
+              case "get":
+                  break;
+
+              case "get/2015-01-01":
+                  break;
+
+              case "put":
+                  break;
+
+              case "put/2015-02-01":
+                  break;
+
+              case "del"
+                  break;
+              }
+          });
+```
+
+- Application semver support
+  For cases when applications support Semver kind of versioning and it may be too many releases the method above still can be used while the number of versions is
+  small, once too many different versions with different minor/patch numbers, it is easier to support greater/less comparisons.
+
+  The application version `bk-app` can be supplied in the query or as a header or in the user-agent HTTP header which is the easiest case for mobile apps.
+  In the middlware, the code can look like this:
+
+```javascript
+        var options = api.getOptions(req);
+        var version = lib.toVersion(options.appVersion);
+        switch (req.params[0]) {
+        case "get":
+            if (version < lib.toVersion("1.2.5")) {
+                res.json({ id: 1, name: "name", description: "descr" });
+                break;
+            }
+            if (version < lib.toVersion("1.1")) {
+                res.json([id, name]);
+                break;
+            }
+            res.json({ id: 1, name: "name", descr: "descr" });
+            break;
+        }
+```
+
+The actual implementation can be modularized, split into functions, controllers.... there are no restrictions how to build the working backend code,
+the backend just provides all necessary information for the middleware modules.
+
+# The backend provisioning utility: bkjs
+
+The purpose of the `bkjs` shell script is to act as a helper tool in configuring and managing the backend environment
+and as well to be used in operations on production systems. It is not required for the backend operations and provided as a convenience tool
+which is used in the backend development and can be useful for others running or testing the backend.
+
+Running without arguments will bring help screen with description of all available commands.
+
+The tool is multi-command utility where the first argument is the command to be executed with optional additional arguments if needed.
+On Linux, when started the bkjs tries to load and source the following config files:
+
+        /etc/sysconfig/bkjs
+        $BKJS_HOME/etc/profile
+
+Any of the following config files can redefine any environmnt variable thus pointing to the correct backend environment directory or
+customize the running environment, these should be regular shell scripts using bash syntax.
+
+Most common used commands are:
+- bkjs run-backend - run the backend or the app for development purposes, uses local app.js if exists otherwise runs generic server
+- bkjs run-shell - start REPL shell with the backend module loaded and available for use, all submodules are availablein the shell as well like core, db, api
+- bkjs init-app - create the app skeleton
+- bkjs put-backend [-path path] [-host host] [-user user] - sync sources of the app with the remote site, uses BKJS_HOST env variable for host if not specified in the command line, this is for developent version of the backend only
+- bkjs init-server [-home path] [-user user] [-host name] [-domain name] - initialize Linux instance(Amazon,CentOS) for backend use, optional -home can be specified where the backend
+   home will be instead of ~/.bkjs, optional -user tells to use existing user instead of the current user.
+
+   **This command will create `/etc/sysconfig/bkjs` file with BKJS_HOME set to the home of the
+   backendjs app which was pased in the command line. This makes the bkjs or bksh run globally regardless of the current directory.**
+
+# Deployment use cases
+
+## AWS instance setup with node and backendjs
+
+Here is the example how to setup new custom AWS server, it is not required and completely optional but bkjs provies some helpful commands that may simplify
+new image configuration.
+
+- start new AWS instance via AWS console, use Amazon Linux
+- login as `ec2-user`
+- install commands
+
+        yum-config-manager --enable epel
+        sudo yum install npm
+        npm install backendjs --backendjs_imagemagick
+        sudo bkjs init-service
+        bkjs restart
+
+- try to access the instance via HTTP port 8000 for the API console or documentation
+- after reboot the server will be started automatically
+
+## AWS instance as an appliance
+
+To make an API appliance by using the backendjs on the AWS instance as user ec2-user with the backend in the user home
+
+- start new AWS instance via AWS console, use Amazon Linux or CentOS 6
+- login as `ec2-user`
+- install commands
+
+        curl -L -o /tmp/bkjs http://bkjs.io/bkjs && chmod 755 /tmp/bkjs
+        /tmp/bkjs install -user ec2-user -prefix ec2-user
+        bkjs restart
+
+- run `ps agx`, it should show several backend processes running
+- try to access the instance via HTTP port for the API console or documentation
+
+NOTE: if running behind a Load balancer and actual IP address is needed set Express option in the command line `-api-express-options {"trust%20proxy":1}`. In the config file
+replacing spaces with %20 is not required.
+
+## AWS Beanstalk deployment
+
+As with any node.js module, the backendjs app can be packaged into zip file according to AWS docs and deployed the same way as any other node.js app.
+Inside the app package etc/config file can be setup for any external connections.
+
+## Proxy mode
+
+By default the Web proceses spawned by the server are load balanced using default cluster module whihc relies on the OS to do scheduling. On Linux
+this is proven not to work properly due to the kernel keeping the context switches to a minimum thus resulting in one process to be very busy while the others
+idle.
+
+For such case the Backendjs implements the proxy mode by setting `proxy-port` config paremeter to any number above 1000, this will be the initial
+port for the web processes to listen for incoming requests, for example if use `-proxy-port 3000` and launch 2 web processes they will listen on ports
+3000 and 3001. The main server process will start internal HTTP proxy and will perform round-robin load balancing the incoming requests between the web proceses by forwarding
+them to the web processes over TCP and then returning the responses back to the clients.
+
+## Configure HTTP port
+
+The first thing when deploying the backend into production is to change API HTTP port, by default is is 8000, but we would want port 80 so regardless
+how the environment is setup it is ultimatley 2 ways to specify the port for HTTP server to use:
+
+- config file
+
+  The config file is always located in the etc/ folder in the backend home directory, how the home is specified depends on the system but basically it can be
+  defined via command line arguments as `-home` or via environment variables when using bkjs. See bkjs documentation but on AWS instances created with bkjs
+  `init-server` command, for non-standard home use `/etc/sysconfig/bkjs` profile, specify `BKJS_HOME=/home/backend` there and the rest will be taken care of
+
+- command line arguments
+
+  When running node scripts which use the backend, just specify `-home` command line argument with the directory where yor backend should be and the backend will use it
+
+  Example:
+
+        node app.js -home $HOME -port 80
+
+- config database
+
+  If `-db-config` is specified in the command line or `db-config=` in the local config file, this will trigger loading additional
+  config parameters from the specified database pool, it will load all records from tbe bk_config table on that db pool. `db-config-type` defines the
+  configuration group or type to load, by default all records will be use for config parameters if not specified. Using the database to store
+  configuration make it easier to maintain dynamic environment for example in case of auto scaling or lanching on demand, this way
+  a new instance will query current config from the database and this eliminates supporting text files and distributing them to all instances.
+
+- DNS records
+  Some config options may be kept in the DNS TXT records and every time a instance is started it will query the local DNS for such parameters. Only a small subset of
+  all config parameters support DNS store. To see which parmeteres can be stored in the DNS run `bkjs show-help` and look for 'DNS TXT configurable'.
+
+# Backend framework development (Mac OS X, developers)
+
+* for DB drivers and ImageMagick to work propely it needs some dependencies to be installed:
+
+        port install libpng jpeg tiff lcms2 mysql56 postgresql93
+
+* make sure there is no openjpeg15 installed, it will conflict with ImageMagick jp2 codec
+
+* `git clone https://github.com/vseryakov/backendjs.git` or `git clone git@github.com:vseryakov/backendjs.git`
+
+* cd backendjs
+
+* if node.js is already installed skip to the next section
+
+    * node.js can be compiled by the bkjs and installed into default location, on Darwin it is /opt/local
+
+    * to install node.js in $BKJS_PREFIX/bin run command:
+
+            ./bkjs build-node
+
+    * to specify a different install path for the node run
+
+            ./bksj build-node -prefix $HOME
+
+    * **Important**: Add NODE_PATH=$BKJS_PREFIX/lib/node_modules to your environment in .profile or .bash_profile so
+      node can find global modules, replace $BKJS_PREFIX with the actual path unless this variable is also set in the .profile
+
+* to install all dependencies and make backendjs module and bkjs globally available:
+
+            npm link backendjs
+
+* to run local server on port 8000 run command:
+
+            ./bkjs run-backend
+
+* to start the backend in command line mode, the backend environment is prepared and initialized including all database pools.
+   This command line access allows you to test and run all functions from all modules of the backend without running full server
+   similar to node.js REPL functionality. All modules are accessible from the command line.
+
+            $ ./bkjs run-shell
+            > core.version
+            '2013.10.20.0'
+            > logger.setLevel('info')
+
+# Design considerations
+
+While creating Backendjs there were many questions and issues to be considered, some i was able to implement, some still not. Below are the thoughts that
+might be useful when desining, developing or choosing the API platform:
+
+- purpose of the API:
+  - to expose some parts of the existing system to external apps, users...
+  - to make it the only way to access services
+  - to complement another system
+- scalability considerations:
+  - unlimited/uncontrolled access like mobile, web, more users the better
+  - enterprise level, controlled growth
+  - not to be horizontally scalable, just vertically
+- security:
+  - support authentication, users, accounts, profiles...
+  - just for robots, limited by api key only
+  - signed requests only
+  - support all access, web, mobile, desktop
+  - user access controls, how to distinguish users, grant access to only parts of the API
+  - ability to run custom/specific filters during processing API requests, independently and ability to extend the app without rewriting/rebuilding the whole system
+  - third party authentication, OAUTH, user mapping
+- platform/framework:
+  - one for all, same language/SDK/framework to cover all aspects
+  - multiple languages/frameworks for different tasks, then how to integrate, how to communicate, share code
+  - availability of the third party modules, libraries
+  - support, forums, docs, how easy to learn for new developers
+  - modularity, ability to develop by multiple developers, teams
+  - flexibility in extending, how simple/easy to add custom stuff
+  - maintenance, support,how easy to scale, change, replace parts
+- database layer:
+  - one central database for everything
+  - multiple database for different parts of the system according to scalability/other requirements
+  - switch databases behind the scene in order to scale, adding to features, easier to maintain
+  - caching, needs to be independent from other parts and easily enabled/disabled for different components preferably via config
+  - to have or not ORM
+- process management, easy to deploy, monitor
+- logging, metrics, profiling
+- agnostic to the frontends or to be included with some kind of MVC/server based tools
+- ability to support simple Web development for simple web pages without installing/supporting general purpose tools like Apache/PHP/nginx
+
 # API endpoints provided by the backend
 
 All API endpoints are optional and can be disabled or replaced easily. By default the naming convention is:
@@ -1740,492 +2226,6 @@ This is implemented by the `system` module from the core. To enable this functio
                   "url_system_stats_h999p": 3,
                   "url_system_stats_0": 2
               }
-
-# Backend directory structure
-
-When the backend server starts and no -home argument passed in the command line the backend makes its home environment in the ~/.backend directory.
-
-The backend directory structure is the following:
-
-* `etc` - configuration directory, all config files are there
-    * `etc/profile` - shell script loaded by the bkjs utility to customize env variables
-    * `etc/config` - config parameters, same as specified in the command line but without leading -, each config parameter per line:
-
-        Example:
-
-            debug=1
-            db-pool=dynamodb
-            db-dynamodb-pool=http://localhost:9000
-            db-pgsql-pool=postgresql://postgres@127.0.0.1/backend
-
-            To specify other config file: bkjs run-backend -config-file file
-
-    * etc/config.local - same as the config but for the cases when local environment is different than the production or for dev specific parameters
-    * some config parameters can be condigured in DNS as TXT records, the backend on startup will try to resolve such records and use the value if not empty.
-      All params that  marked with DNS TXT can be configured in the DNS server for the domain where the backend is running, the config parameter name is
-      concatenated with the domain and queried for the TXT record, for example: `cache-host` parameter will be queried for cache-host.domain.name for TXT record type.
-
-    * `etc/crontab` - jobs to be run with intervals, JSON file with a list of cron jobs objects:
-
-        Example:
-
-        1. Create file in ~/.backend/etc/crontab with the following contents:
-
-                [ { "cron": "0 1 1 * * 1,3", "job": { "app.cleanSessions": { "interval": 3600000 } } } ]
-
-        2. Define the function that the cron will call with the options specified, callback must be called at the end, create this app.js file
-
-                var bkjs = require("backendjs");
-                bkjs.app.cleanSessions = function(options, callback) {
-                     bkjs.db.delAll("session", { mtime: options.interval + Date.now() }, { ops: "le" }, callback);
-                }
-                bkjs.server.start()
-
-        3. Start the jobs queue and the web server at once
-
-                bkjs run-backend -master -web -jobs-workers 1 -jobs-cron
-
-    * etc/crontab.local - additional local crontab that is read after the main one, for local or dev environment
-
-* `modules` - loadable modules with specific functionality
-* `images` - all images to be served by the API server, every subfolder represent naming space with lots of subfolders for images
-* `var` - database files created by the server
-* `tmp` - temporary files
-* `web` - Web pages served by the static Express middleware
-
-# Cache configurations
-Database layer support caching of the responses using `db.getCached` call, it retrieves exactly one record from the configured cache, if no record exists it
-will pull it from the database and on success will store it in the cache before returning to the client. When dealing with cached records, there is a special option
-that must be passed to all put/update/del database methods in order to clear local cache, so next time the record will be retrieved with new changes from the database
-and refresh the cache, that is `{ cached: true }` can be passed in the options parameter for the db methods that may modify records with cached contents. In any case
-it is required to clear cache manually there is `db.clearCache` method for that.
-Also there is a configuration option `-db-caching` to make any table automatically cached for all requests.
-
-## Local
-If no cache is configured the local driver is used, it keeps the cache on the master process in the LRU pool and any wroker or Web process
-communicate with it via internal messaging provided by the `cluster` module. This works only for a single server.
-
-## memcached
-Set `ipc-cache=memcache://HOST[,HOST]` that points to one or more hosts running memcached servers is what needs to be done only.
-The great benefit using memcache is to configure more than one server in `cache-host` separated by comma which makes it more reliable and
-eliminates single point of failure if one of the memcache servers goes down.
-
-## Redis
-Set `ipc-cache=redis://HOST[:PORT]` that points to the server running Redis server. Only single Redis server can be specified.
-
-# PUB/SUB or Queue configurations
-
-Publish/subscribe functionality allows clients to receive notifications without constantly polling for new events. A client can be anything but
-the backend provides some partially implemented subscription notifications for Web clients using the Long Poll.
-The Account API call `/account/subscribe` can use any pub/sub mode.
-
-The flow of the pub/sub operations is the following:
-- a HTTP client makes `/account/subscribe` API request, the connection is made and is kept open indefenitely or as long as configured using `api-subscribe-timeout`.
-- the API backend receives this request, and runs the `api.subscribe` method with the key being the account id, this will subscribe to the events for the current
-  account and registers a callback to be called if any events occured. The HTTP connection is kept open.
-- some other client makes an API call that triggers an event like makes a connectiopn or sends a message, on such event the backend API handler
-  always runs `ipc.publish` after the DB operation succedes. If the messaging is configured, it publishes the message for the account, the
-  message being a JSON object with the request API path and mtime, other properties depend on the call made.
-- the connection that initiated `/account/subscribe` receives an event
-
-## Redis
-To configure the backend to use Redis for PUB/SUB messaging set `ipc-queue=redis://HOST` where HOST is IP address or hostname of the single Redis server.
-This will use native PUB/SUB Redis feature.
-
-## Redis Queue
-To configure the backend to use Redis for job processing set `ipc-queue=redisq://HOST` where HOST is IP address or hostname of the single Redis server.
-This driver implements reliable Redis queue, with `visibilityTimeout` config option works similar to AWS SQS.
-
-Once configured, then all calls to `jobs.submitJob` will push jobs to be executed to the Redis queue, starting somewhere a backend master
-process with `-jobs-workers 2` will launch 2 worker processes which will start pulling jobs from the queue and execute.
-
-An example of how to perform jobs in the API routes:
-
-```javascript
-   app.processAccounts = function(options, callback) {
-       db.select("bk_account", { type: options.type || "user" }, function(err, rows) {
-          ...
-          callback();
-       });
-   }
-
-   api.all("/process/accounts", function(req, res) {
-       jobs.submitJob({ job: { "app.processAccounts": { type: req.query.type } } }, function(err) {
-          api.sendReply(res, err);
-       });
-   });
-
-```
-
-## RabbitMQ
-To configure the backend to use RabbitMQ for messaging set `ipc-queue=amqp://HOST` and optionally `amqp-options=JSON` with options to the amqp module.
-Additional objects from the config JSON are used for specific AMQP functions: { queueParams: {}, subscribeParams: {}, publishParams: {} }. These
-will be passed to the corresponding AMQP methods: `amqp.queue, amqp.queue.sibcribe, amqp.publish`. See AMQP node.js module for more info.
-
-## DB
-This is a simple queue implementation using the atomic UPDATE, it polls for new jobs in the table and updates the status, only who succeeds
-with the update takes the job and executes it. It is not effective but can be used for simple and not busy systems for more or less long jobs.
-The advantage is that it uses the same database and does not quire additional servers.
-
-## SQS
-To use AWS SQS for job processing set `ipc-queue=https://sqs.amazonaws.com....`, this queue system will poll SQS for new messeges on a worker
-and after succsesful execution will delete the message. For long running jobs it will automatically extend visibility timeout if it is configured.
-
-## Local
-The local queue is implemented on the master process as a list, communication is done via local sockets between the master and workers.
-This is intended for a single server development pusposes only.
-
-# Security configurations
-
-## API only
-This is default setup of the backend when all API requests except `/account/add` must provide valid signature and all HTML, Javascript, CSS and image files
-are available to everyone. This mode assumes that Web development will be based on 'single-page' design when only data is requested from the Web server and all
-rendering is done using Javascript. This is how the `api.html` develpers console is implemented, using JQuery-UI and Knockout.js.
-
-To see current default config parameters run any of the following commands:
-
-        bkjs run-backend -help | grep api-allow
-
-        node -e 'require("backendjs").core.showHelp()'
-
-To disable open registration in this mode just add config parameter `api-disallow-path=^/account/add$` or if developing an application add this in the initMiddleware
-
-        api.initMiddleware = function(callback) {
-            this.allow.splice(this.allow.indexOf('^/account/add$'), 1);
-        }
-
-## Secure Web site, client verification
-
-This is a mode when the whole Web site is secure by default, even access to the HTML files must be authenticated. In this mode the pages must defined 'Backend.session = true'
-during the initialization on every html page, it will enable Web sessions for the site and then no need to sign every API reauest.
-
-The typical client Javascript verification for the html page may look like this, it will redirect to login page if needed,
-this assumes the default path '/public' still allowed without the signature:
-
-```javascript
-   <script src="/js/jquery.js"></script>
-   <link href="/css/bootstrap.css" rel="stylesheet">
-   <script src="/js/bootstrap.js"></script>
-   <script src="/js/knockout.js" type="text/javascript"></script>
-   <script src="/js/crypto.js" type="text/javascript"></script>
-   <script src="/js/bkjs.js" type="text/javascript"></script>
-   <script src="/js/bkjs-bootstrap.js" type="text/javascript"></script>
-   <script src="/js/bkjs-ko.js" type="text/javascript"></script>
-   <script>
-    $(function () {
-       Bkjs.session = true;
-       $(Bkjs).on("nologin", function() { window.location='/public/index.html'; });
-       Bkjs.koInit();
-   });
-   </script>
-```
-
-## Secure Web site, backend verification
-On the backend side in your application app.js it needs more secure settings defined i.e. no html except /public will be accessible and
-in case of error will be redirected to the login page by the server. Note, in the login page `Bkjs.session` must be set to true for all
-html pages to work after login without singing every API request.
-
-1. We disable all allowed paths to the html and registration:
-
-```javascript
-   app.configureMiddleware = function(options, callback) {
-      this.allow.splice(this.allow.indexOf('^/$'), 1);
-      this.allow.splice(this.allow.indexOf('\\.html$'), 1);
-      this.allow.splice(this.allow.indexOf('^/account/add$'), 1);
-      callback();
-   }
-```
-
-2. We define an auth callback in the app and redirect to login if the reauest has no valid signature, we check all html pages, all allowed html pages from the /public
-will never end up in this callback because it is called after the signature check but allowed pages are served before that:
-
-```javascript
-   api.registerPreProcess('', /^\/$|\.html$/, function(req, status, callback) {
-      if (status.status != 200) {
-          status.status = 302;
-          status.url = '/public/index.html';
-      }
-      callback(status);
-   });
-```
-
-# WebSockets connections
-
-The simplest way is to configure `ws-port` to the same value as the HTTP port. This will run WebSockets server along the regular Web server.
-All requests must be properly signed with all parameters encoded as for GET requests.
-
-Example:
-
-        wscat --connect ws://localhost:8000
-        connected (press CTRL+C to quit)
-        > /account/get
-        < {
-            "status": 400,
-            "message": "Invalid request: no host provided"
-          }
-        >
-
-# Versioning
-
-There is no ready to use support for different versions of API at the same because there is no just one solution that satifies all applications. But there are
-tools ready to use that will allow to implement such versioning system in the backend. Some examples are provided below:
-
-- Fixed versions
-  This is similar to AWS version system when versions are fixed and changed not very often. For such cases the backend exposes `core.version` which is
-  supposed to be a core backend version. This version is returned with every backend reponse in the Verison: header. A client also can specify the core version
-  using `bk-version` query parameter or a header. When a request is parsed and the version is provided it will be set in the request options object.
-
-  All API routes are defined using Express middleware and one of the possible ways of dealing with different versions can look like this, by
-  appending version to the command it is very simple to call only changed API code.
-
-```javascript
-          api.all(/\/domain\/(get|put|del)/, function(req, res) {
-              var options = api.getOptions(req);
-              var cmd = req.params[0];
-              if (options.coreVersion) cmd += "/" + options.coreVersion;
-              switch (cmd) {
-              case "get":
-                  break;
-
-              case "get/2015-01-01":
-                  break;
-
-              case "put":
-                  break;
-
-              case "put/2015-02-01":
-                  break;
-
-              case "del"
-                  break;
-              }
-          });
-```
-
-- Application semver support
-  For cases when applications support Semver kind of versioning and it may be too many releases the method above still can be used while the number of versions is
-  small, once too many different versions with different minor/patch numbers, it is easier to support greater/less comparisons.
-
-  The application version `bk-app` can be supplied in the query or as a header or in the user-agent HTTP header which is the easiest case for mobile apps.
-  In the middlware, the code can look like this:
-
-```javascript
-        var options = api.getOptions(req);
-        var version = lib.toVersion(options.appVersion);
-        switch (req.params[0]) {
-        case "get":
-            if (version < lib.toVersion("1.2.5")) {
-                res.json({ id: 1, name: "name", description: "descr" });
-                break;
-            }
-            if (version < lib.toVersion("1.1")) {
-                res.json([id, name]);
-                break;
-            }
-            res.json({ id: 1, name: "name", descr: "descr" });
-            break;
-        }
-```
-
-The actual implementation can be modularized, split into functions, controllers.... there are no restrictions how to build the working backend code,
-the backend just provides all necessary information for the middleware modules.
-
-# The backend provisioning utility: bkjs
-
-The purpose of the `bkjs` shell script is to act as a helper tool in configuring and managing the backend environment
-and as well to be used in operations on production systems. It is not required for the backend operations and provided as a convenience tool
-which is used in the backend development and can be useful for others running or testing the backend.
-
-Running without arguments will bring help screen with description of all available commands.
-
-The tool is multi-command utility where the first argument is the command to be executed with optional additional arguments if needed.
-On Linux, when started the bkjs tries to load and source the following config files:
-
-        /etc/sysconfig/bkjs
-        $BKJS_HOME/etc/profile
-
-Any of the following config files can redefine any environmnt variable thus pointing to the correct backend environment directory or
-customize the running environment, these should be regular shell scripts using bash syntax.
-
-Most common used commands are:
-- bkjs run-backend - run the backend or the app for development purposes, uses local app.js if exists otherwise runs generic server
-- bkjs run-shell - start REPL shell with the backend module loaded and available for use, all submodules are availablein the shell as well like core, db, api
-- bkjs init-app - create the app skeleton
-- bkjs put-backend [-path path] [-host host] [-user user] - sync sources of the app with the remote site, uses BKJS_HOST env variable for host if not specified in the command line, this is for developent version of the backend only
-- bkjs init-server [-home path] [-user user] [-host name] [-domain name] - initialize Linux instance(Amazon,CentOS) for backend use, optional -home can be specified where the backend
-   home will be instead of ~/.bkjs, optional -user tells to use existing user instead of the current user.
-
-   **This command will create `/etc/sysconfig/bkjs` file with BKJS_HOME set to the home of the
-   backendjs app which was pased in the command line. This makes the bkjs or bksh run globally regardless of the current directory.**
-
-# Deployment use cases
-
-## AWS instance setup with node and backendjs
-
-Here is the example how to setup new custom AWS server, it is not required and completely optional but bkjs provies some helpful commands that may simplify
-new image configuration.
-
-- start new AWS instance via AWS console, use Amazon Linux
-- login as `ec2-user`
-- install commands
-
-        yum-config-manager --enable epel
-        sudo yum install npm
-        npm install backendjs --backendjs_imagemagick
-        sudo bkjs init-service
-        bkjs restart
-
-- try to access the instance via HTTP port 8000 for the API console or documentation
-- after reboot the server will be started automatically
-
-## AWS instance as an appliance
-
-To make an API appliance by using the backendjs on the AWS instance as user ec2-user with the backend in the user home
-
-- start new AWS instance via AWS console, use Amazon Linux or CentOS 6
-- login as `ec2-user`
-- install commands
-
-        curl -L -o /tmp/bkjs http://bkjs.io/bkjs && chmod 755 /tmp/bkjs
-        /tmp/bkjs install -user ec2-user -prefix ec2-user
-        bkjs restart
-
-- run `ps agx`, it should show several backend processes running
-- try to access the instance via HTTP port for the API console or documentation
-
-NOTE: if running behind a Load balancer and actual IP address is needed set Express option in the command line `-api-express-options {"trust%20proxy":1}`. In the config file
-replacing spaces with %20 is not required.
-
-## AWS Beanstalk deployment
-
-As with any node.js module, the backendjs app can be packaged into zip file according to AWS docs and deployed the same way as any other node.js app.
-Inside the app package etc/config file can be setup for any external connections.
-
-## Proxy mode
-
-By default the Web proceses spawned by the server are load balanced using default cluster module whihc relies on the OS to do scheduling. On Linux
-this is proven not to work properly due to the kernel keeping the context switches to a minimum thus resulting in one process to be very busy while the others
-idle.
-
-For such case the Backendjs implements the proxy mode by setting `proxy-port` config paremeter to any number above 1000, this will be the initial
-port for the web processes to listen for incoming requests, for example if use `-proxy-port 3000` and launch 2 web processes they will listen on ports
-3000 and 3001. The main server process will start internal HTTP proxy and will perform round-robin load balancing the incoming requests between the web proceses by forwarding
-them to the web processes over TCP and then returning the responses back to the clients.
-
-## Configure HTTP port
-
-The first thing when deploying the backend into production is to change API HTTP port, by default is is 8000, but we would want port 80 so regardless
-how the environment is setup it is ultimatley 2 ways to specify the port for HTTP server to use:
-
-- config file
-
-  The config file is always located in the etc/ folder in the backend home directory, how the home is specified depends on the system but basically it can be
-  defined via command line arguments as `-home` or via environment variables when using bkjs. See bkjs documentation but on AWS instances created with bkjs
-  `init-server` command, for non-standard home use `/etc/sysconfig/bkjs` profile, specify `BKJS_HOME=/home/backend` there and the rest will be taken care of
-
-- command line arguments
-
-  When running node scripts which use the backend, just specify `-home` command line argument with the directory where yor backend should be and the backend will use it
-
-  Example:
-
-        node app.js -home $HOME -port 80
-
-- config database
-
-  If `-db-config` is specified in the command line or `db-config=` in the local config file, this will trigger loading additional
-  config parameters from the specified database pool, it will load all records from tbe bk_config table on that db pool. `db-config-type` defines the
-  configuration group or type to load, by default all records will be use for config parameters if not specified. Using the database to store
-  configuration make it easier to maintain dynamic environment for example in case of auto scaling or lanching on demand, this way
-  a new instance will query current config from the database and this eliminates supporting text files and distributing them to all instances.
-
-- DNS records
-  Some config options may be kept in the DNS TXT records and every time a instance is started it will query the local DNS for such parameters. Only a small subset of
-  all config parameters support DNS store. To see which parmeteres can be stored in the DNS run `bkjs show-help` and look for 'DNS TXT configurable'.
-
-# Backend framework development (Mac OS X, developers)
-
-* for DB drivers and ImageMagick to work propely it needs some dependencies to be installed:
-
-        port install libpng jpeg tiff lcms2 mysql56 postgresql93
-
-* make sure there is no openjpeg15 installed, it will conflict with ImageMagick jp2 codec
-
-* `git clone https://github.com/vseryakov/backendjs.git` or `git clone git@github.com:vseryakov/backendjs.git`
-
-* cd backendjs
-
-* if node.js is already installed skip to the next section
-
-    * node.js can be compiled by the bkjs and installed into default location, on Darwin it is /opt/local
-
-    * to install node.js in $BKJS_PREFIX/bin run command:
-
-            ./bkjs build-node
-
-    * to specify a different install path for the node run
-
-            ./bksj build-node -prefix $HOME
-
-    * **Important**: Add NODE_PATH=$BKJS_PREFIX/lib/node_modules to your environment in .profile or .bash_profile so
-      node can find global modules, replace $BKJS_PREFIX with the actual path unless this variable is also set in the .profile
-
-* to install all dependencies and make backendjs module and bkjs globally available:
-
-            npm link backendjs
-
-* to run local server on port 8000 run command:
-
-            ./bkjs run-backend
-
-* to start the backend in command line mode, the backend environment is prepared and initialized including all database pools.
-   This command line access allows you to test and run all functions from all modules of the backend without running full server
-   similar to node.js REPL functionality. All modules are accessible from the command line.
-
-            $ ./bkjs run-shell
-            > core.version
-            '2013.10.20.0'
-            > logger.setLevel('info')
-
-# Design considerations
-
-While creating Backendjs there were many questions and issues to be considered, some i was able to implement, some still not. Below are the thoughts that
-might be useful when desining, developing or choosing the API platform:
-
-- purpose of the API:
-  - to expose some parts of the existing system to external apps, users...
-  - to make it the only way to access services
-  - to complement another system
-- scalability considerations:
-  - unlimited/uncontrolled access like mobile, web, more users the better
-  - enterprise level, controlled growth
-  - not to be horizontally scalable, just vertically
-- security:
-  - support authentication, users, accounts, profiles...
-  - just for robots, limited by api key only
-  - signed requests only
-  - support all access, web, mobile, desktop
-  - user access controls, how to distinguish users, grant access to only parts of the API
-  - ability to run custom/specific filters during processing API requests, independently and ability to extend the app without rewriting/rebuilding the whole system
-  - third party authentication, OAUTH, user mapping
-- platform/framework:
-  - one for all, same language/SDK/framework to cover all aspects
-  - multiple languages/frameworks for different tasks, then how to integrate, how to communicate, share code
-  - availability of the third party modules, libraries
-  - support, forums, docs, how easy to learn for new developers
-  - modularity, ability to develop by multiple developers, teams
-  - flexibility in extending, how simple/easy to add custom stuff
-  - maintenance, support,how easy to scale, change, replace parts
-- database layer:
-  - one central database for everything
-  - multiple database for different parts of the system according to scalability/other requirements
-  - switch databases behind the scene in order to scale, adding to features, easier to maintain
-  - caching, needs to be independent from other parts and easily enabled/disabled for different components preferably via config
-  - to have or not ORM
-- process management, easy to deploy, monitor
-- logging, metrics, profiling
-- agnostic to the frontends or to be included with some kind of MVC/server based tools
-- ability to support simple Web development for simple web pages without installing/supporting general purpose tools like Apache/PHP/nginx
 
 # Author
   Vlad Seryakov
