@@ -260,7 +260,7 @@ aws.getInstanceInfo = function(callback)
 }
 
 // Parse AWS response and try to extract error code and message, convert XML into an object.
-aws.parseXMLResponse = function(err, params, callback)
+aws.parseXMLResponse = function(err, params, options, callback)
 {
     if (typeof callback != "function") callback = lib.noop;
     if (err || !params.data) return callback(err);
@@ -274,7 +274,7 @@ aws.parseXMLResponse = function(err, params, callback)
             err = lib.newError({ message: params.obj.Error.Message, code: params.obj.Error.Code, status: params.status });
         }
         if (!err) err = lib.newError({ message: "Error: " + params.data, status: params.status });
-        logger.error('queryAWS:', params.href, params.search, params.Action || "", err);
+        logger.logger((options && options.logger_error) || "error", 'queryAWS:', params.href, params.search, params.Action || "", err);
         return callback(err, params.obj);
     }
     logger.debug('queryAWS:', params.href, params.search, params.Action || "", params.obj);
@@ -322,7 +322,7 @@ aws.queryPrepare = function(action, version, obj, options)
 }
 
 // Make AWS request, return parsed response as Javascript object or null in case of error
-aws.queryAWS = function(region, endpoint, proto, host, path, obj, callback)
+aws.queryAWS = function(region, endpoint, proto, host, path, obj, options, callback)
 {
     var self = this;
 
@@ -337,8 +337,9 @@ aws.queryAWS = function(region, endpoint, proto, host, path, obj, callback)
     this.querySign(region, endpoint, host, "POST", path, query, headers);
 
     core.httpGet(url.format({ protocol: proto, host: host, pathname: path }), { method: "POST", postdata: query, headers: headers }, function(err, params) {
-        if (obj.Action) params.Action = obj.Action;
-        self.parseXMLResponse(err, params, callback);
+        // For error logging about the current request
+        params.Action = obj;
+        self.parseXMLResponse(err, params, options, callback);
     });
 }
 
@@ -353,7 +354,7 @@ aws.queryEndpoint = function(endpoint, version, action, obj, options, callback)
     var host = options.endpoint_host || (e && e.host) || (endpoint + '.' + region + '.amazonaws.com');
     var path = options.endpoint_path || (e && e.hostname) || '/';
     var req = this.queryPrepare(action, version, obj, options);
-    this.queryAWS(region, endpoint, proto, host, path, req, callback);
+    this.queryAWS(region, endpoint, proto, host, path, req, options, callback);
 }
 
 // AWS EC2 API request
@@ -417,7 +418,7 @@ aws.queryRoute53 = function(method, path, data, options, callback)
     headers["X-Amzn-Authorization"] = "AWS3-HTTPS AWSAccessKeyId=" + this.key + ",Algorithm=HmacSHA1,Signature=" + lib.sign(this.secret, curTime);
 
     core.httpGet(uri, { method: method, postdata: data, headers: headers }, function(err, params) {
-        self.parseXMLResponse(err, params, callback);
+        self.parseXMLResponse(err, params, options, callback);
     });
 }
 
@@ -553,7 +554,7 @@ aws.queryS3 = function(bucket, path, options, callback)
     var uri = this.signS3(options.method, bucket, path, options);
     core.httpGet(uri, options, function(err, params) {
         if (err || params.status != 200) return callback(err || lib.newError({ message: "Error: " + params.status, name: "S3", status : params.status }), params);
-        if (options.json) return self.parseXMLResponse(err, params, callback);
+        if (options.json) return self.parseXMLResponse(err, params, options, callback);
         callback(err, params);
     });
 }

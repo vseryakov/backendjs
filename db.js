@@ -999,6 +999,8 @@ db.batch = function(table, op, objs, options, callback)
 //    - fullscan - if 1 force to scan full table without using any primary key conditons, use all query properties for all records (DynamoDB)
 //    - useCapacity - triggers to use specific capacity
 //    - factorCapacity - a factor to apply for the read capacity limit and triggers the capcity check usage
+//    - tableCapacity - use a different table for capacity throttling instead of the `table`, useful for cases when the row callback performs
+//       writes into that other table and capacity is different
 //    - capacity - a full capacity object to pass to select calls
 //  - rowCallback - process records when called like this `callback(rows, next)
 //  - endCallback - end of scan when called like this: `callback(err)
@@ -1016,7 +1018,7 @@ db.scan = function(table, query, options, rowCallback, endCallback)
     options = this.getOptions(table, options);
     if (!options.count) options.count = 100;
     if (options.useCapacity || options.factorCapacity) {
-        options.capacity = db.getCapacity(table, { useCapacity: options.useCapacity || "read", factorCapacity: options.factorCapacity || 0.9 });
+        options.capacity = db.getCapacity(options.tableCapacity || table, { useCapacity: options.useCapacity || "read", factorCapacity: options.factorCapacity || 0.9 });
     }
     options.start = "";
     options.nrows = 0;
@@ -1472,6 +1474,8 @@ db.getCached = function(op, table, query, options, callback)
     if (typeof options == "function") callback = options,options = null;
     if (typeof callback != "function") callback = lib.noop;
     options = this.getOptions(table, options);
+    // Always get the full record
+    delete options.select;
     var pool = this.getPool(table, options);
     var m = pool.metrics.Timer('cache').start();
     var obj = this.prepareRow(pool, "get", table, query, options);
