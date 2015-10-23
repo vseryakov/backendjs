@@ -1023,6 +1023,7 @@ api.checkAccountType = function(row, type)
 {
     if (!lib.isObject(row)) return false;
     row._types = lib.strSplit(row._types || row.type);
+    if (Array.isArray(type)) return type.some(function(x) { return row._types.indexOf(x) > -1 });
     return row._types.indexOf(type) > -1;
 }
 
