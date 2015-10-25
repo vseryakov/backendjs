@@ -989,6 +989,11 @@ case "$ARG" in
     $NODE_BIN -e "require('$BKJS_MOD').core.showHelp()"
     ;;
 
+  npm-deps)
+    modules=$($NODE_BIN -e 'try{console.log(Object.keys(JSON.parse(require("fs").readFileSync("package.json")).dependencies).join(" "))}catch(e){}' | sed "s/$BKJS_MOD//g")
+    for m in $modules; do $NPM_BIN install $m; done
+    ;;
+
   install-bkjs)
     (cd $BKJS_HOME && npm install git+https://github.com/vseryakov/$BKJS_MOD.git $BKJS_ARGS)
     ;;
@@ -1262,6 +1267,7 @@ EOF
     echo "  get-mongodb - download Mongo server and install in $BKJS_PREFIX/bin"
     echo "  run-mongodb - run local Mongo server installed in $BKJS_PREFIX/bin, db path is $MONGO_DIR"
     echo "  stop-mongodb - stop local Mongo server"
+    echo "  npm-deps - install all npm packages from the dependencies list"
     echo "  install-bkjs - install the $BKJS_MOD from the github using npm, build dependencies are passed in -args"
     echo "  build-bkjs - clone and build the $BKJS_MOD from the git in the current dir with dependencies specified in -args"
     echo "  build-node - build node and install in $BKJS_PREFIX or in [-prefix PATH], on Linux init-devel should be called before this command to install devel packages"

@@ -101,6 +101,9 @@ lib.toNumber = function(val, options)
     var n = 0;
     if (typeof val == "number") {
         n = val;
+    } else
+    if (typeof val == "boolean") {
+        n = val ? 1 : 0;
     } else {
         if (typeof val != "string") {
             n = (options && options.dflt) || 0;
@@ -118,7 +121,7 @@ lib.toNumber = function(val, options)
     return n;
 }
 
-// Return true if value represents true condition
+// Return true if value represents true condition, i.e. non empty value
 lib.toBool = function(val, dflt)
 {
     if (typeof val == "boolean") return val;

@@ -97,7 +97,7 @@ logger.setSyslog = function (on)
 {
     var self = this;
     if (on) {
-        bksyslog.opent("backend", this.options, this.facility);
+        bksyslog.open("backend", this.options, this.facility);
         self.print = this.printSyslog;
         // Initialize map for facilities
         self.syslogLevels = { test: this.LOG_DEBUG, dev: this.LOG_DEBUG, debug: this.LOG_DEBUG, warn: this.LOG_WARNING,

@@ -843,7 +843,8 @@ core.createServer = function(options, callback)
 //   - httpTimeout - timeout in milliseconds afte which the request is borted if no data received
 //   - retryCount - how many time to retry the request on error or timeout
 //   - retryTimeout - timeout in milliseconds for retries, with every subsequent timeout it will be multiplied by 2
-//   - retryOnErrorStatus - also retry request if received non 2xx response status
+//   - retryOnErrorStatus - also retry request if received non 2xx response status, if this is an array it should contain a list of status codes
+//      on which to retry, otherwise retry on all non-2xx responses
 // - callback will be called with the arguments:
 //     first argument is error object if any
 //     second is params object itself with updated fields
@@ -988,7 +989,7 @@ core.httpGet = function(uri, params, callback)
     params.redirects = lib.toNumber(params.redirects, { min: 0 });
     params.retryCount = lib.toNumber(params.retryCount, { min: 0 });
     params.retryTimeout = lib.toNumber(params.retryTimeout, { min: 0, dflt: 250 });
-    params.httpTimeout = lib.toNumber(params.httpTimeout, { min: 0, dflt: 300000 });
+    params.httpTimeout = lib.toNumber(params.httpTimeout, { min: 0, dflt: 60000 });
     if (!params.ignoreredirect) params.ignoreredirect = {};
     params.data = params.binary ? new Buffer(0) : '';
     params.href = options.href;
@@ -1052,7 +1053,9 @@ core.httpGet = function(uri, params, callback)
           logger.dev("httpGet:", "end", options.method, "url:", uri, "size:", params.size, "status:", params.status, 'type:', params.type, 'location:', res.headers.location || '', 'retry:', params.retryCount, params.retryTimeout);
 
           // Retry the same request on status codes configured explicitely
-          if ((res.statusCode < 200 || res.statusCode >= 400) && params.retryOnErrorStatus && params.retryCount-- > 0) {
+          if ((res.statusCode < 200 || res.statusCode >= 400) &&
+              ((Array.isArray(params.retryOnErrorStatus) && params.retryOnErrorStatus.indexOf(res.statusCode) > -1) || lib.toNumber(params.retryOnErrorStatus)) &&
+              params.retryCount-- > 0) {
               setTimeout(function() { self.httpGet(uri, params, callback); }, params.retryTimeout *=2 );
               return;
           }

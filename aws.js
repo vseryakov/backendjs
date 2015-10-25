@@ -321,6 +321,20 @@ aws.queryPrepare = function(action, version, obj, options)
     return req;
 }
 
+aws.queryOptions = function(method, data, headers, options)
+{
+    return {
+        method: method || options.method || "POST",
+        postdata: data,
+        headers: headers,
+        quiet: options.quiet,
+        retryCount: options.retryCount,
+        retryTimeout: options.retryTimeout,
+        retryOnErrorStatus: options.retryOnErrorStatus,
+        httpTimeout: options.httpTimeout
+    };
+}
+
 // Make AWS request, return parsed response as Javascript object or null in case of error
 aws.queryAWS = function(region, endpoint, proto, host, path, obj, options, callback)
 {
@@ -336,7 +350,7 @@ aws.queryAWS = function(region, endpoint, proto, host, path, obj, options, callb
     }
     this.querySign(region, endpoint, host, "POST", path, query, headers);
 
-    core.httpGet(url.format({ protocol: proto, host: host, pathname: path }), { method: "POST", postdata: query, headers: headers }, function(err, params) {
+    core.httpGet(url.format({ protocol: proto, host: host, pathname: path }), this.queryOptions("POST", query, headers, options), function(err, params) {
         // For error logging about the current request
         params.Action = obj;
         self.parseXMLResponse(err, params, options, callback);
@@ -417,7 +431,7 @@ aws.queryRoute53 = function(method, path, data, options, callback)
     var headers = { "x-amz-date": curTime, "content-type": "text/xml; charset=UTF-8", "content-length": data.length };
     headers["X-Amzn-Authorization"] = "AWS3-HTTPS AWSAccessKeyId=" + this.key + ",Algorithm=HmacSHA1,Signature=" + lib.sign(this.secret, curTime);
 
-    core.httpGet(uri, { method: method, postdata: data, headers: headers }, function(err, params) {
+    core.httpGet(uri, this.query.options(method, data, headers, options), function(err, params) {
         self.parseXMLResponse(err, params, options, callback);
     });
 }
@@ -444,7 +458,7 @@ aws.queryDDB = function (action, obj, options, callback)
     logger.debug('queryDDB:', action, uri, 'obj:', obj, 'options:', options, 'item:', obj);
 
     this.querySign(region, "dynamodb", req.hostname, "POST", req.path, json, headers);
-    core.httpGet(uri, { method: "POST", postdata: json, headers: headers, retryCount: options.retryCount, retryTimeout: options.retryTimeout, httpTimeout: options.httpTimeout }, function(err, params) {
+    core.httpGet(uri, this.queryOptions("POST", json, headers, options), function(err, params) {
         // Reply is always JSON but we dont take any chances
         if (params.data) {
             try { params.json = JSON.parse(params.data); } catch(e) { err = e; params.status += 1000; }

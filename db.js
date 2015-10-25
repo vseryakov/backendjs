@@ -514,6 +514,7 @@ db.query = function(req, options, callback)
 
     var table = req.table || "";
     var pool = this.getPool(table, options);
+    var quiet = options.silence_error || options.ignore_error || options.quiet;
     // For postprocess callbacks
     req.pool = pool.name;
 
@@ -529,7 +530,7 @@ db.query = function(req, options, callback)
         pool.metrics.Counter('count').dec();
         delete req.info;
 
-        if (err && !options.silence_error && !options.ignore_error) {
+        if (err && !quiet) {
             pool.metrics.Counter("err_0").inc();
             logger.error("db.query:", pool.name, err, 'REQ:', req, 'OPTS:', options, lib.traceError(err));
         } else {
@@ -813,6 +814,7 @@ db.del = function(table, obj, options, callback)
 //  - delOptions - options to be passed to the db.del if needed, this is useful so select and del options will not be mixed up
 //  - factorCapacity - write capcity factor for delete operations, default is 0.35
 //  - concurrency - how many delete requests to execute at the same time by using lib.forEachLimit.
+//  - ignore_error - continue deleting records even after an error
 //  - process - a function callback that will be called for each row before deleting it, this is for some transformations of the record properties
 //    in case of complex columns that may contain concatenated values as in the case of using DynamoDB. The callback will be called
 //    as `options.process(row, options)`
@@ -835,7 +837,7 @@ db.delAll = function(table, query, options, callback)
         lib.forEachLimit(rows, options.concurrency || 1, function(row, next) {
             if (typeof options.process == "function") options.process(row, options);
             self.del(table, row, options.delOptions, function(err) {
-                if (err) return next(err);
+                if (err && !options.ignore_error) return next(err);
                 db.checkCapacity(cap, next);
             });
         }, function(err) {
