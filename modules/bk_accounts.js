@@ -225,12 +225,14 @@ accounts.configureAccountsAPI = function()
         if (row.birthday) {
             row.age = Math.floor((Date.now() - lib.toDate(row.birthday))/(86400000*365));
         }
+        var name = (row.alias || row.name || "").split(" ");
+        row.first_name = name[0];
+        row.last_name = name.slice(1).join(" ");
     }
     db.setProcessRow("post", "bk_account", onPostAccountRow);
-
 }
 
-// Return an account, used in /account/get API call
+// Return an account, used in /account/get API call, req.account will be filled with the properties from the db
 accounts.getAccount = function(req, options, callback)
 {
     if (!req.query.id) {

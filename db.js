@@ -1360,7 +1360,7 @@ db.getLocations = function(table, query, options, callback)
 // - query - can be an object with properties for the condition, all matching records will be returned,
 //   also can be a list where each item is an object with primary key condition. Only records specified in the list must be returned.
 // - options can use the following special properties:
-//    - ops - operators to use for comparison for properties, an object with column name and operator. The follwoing operators are available:
+//    - ops - operators to use for comparison for properties, an object with column name and operator. The following operators are available:
 //       `>, gt, <, lt, =, !=, <>, >=, ge, <=, le, in, between, regexp, iregexp, begins_with, like%, ilike%`
 //    - opsMap - operator mapping between supplied operators and actual operators supported by the db
 //    - typesMap - type mapping between supplied and actual column types, an object
@@ -1765,7 +1765,9 @@ db.prepareRow = function(pool, op, table, obj, options)
     // Process special columns
     var keys = pool.dbkeys[table] || [];
     var cols = pool.dbcolumns[table] || {};
-    var col, old = {};
+    var col, old = {}, orig = {};
+    // Original record before the prepare processing
+    for (var p in obj) orig[p] = obj[p];
 
     switch (op) {
     case "add":
@@ -1825,22 +1827,23 @@ db.prepareRow = function(pool, op, table, obj, options)
             if (col.lower && typeof obj[p] == "string") obj[p] = obj[p].toLowerCase();
             if (col.upper && typeof obj[p] == "string") obj[p] = obj[p].toUpperCase();
             // The field is combined from several values contatenated for complex primary keys
-            this.joinColumn(op, obj, p, col, options, old);
+            this.joinColumn(op, obj, p, col, options, old, orig);
         }
         break;
 
     case "del":
-        var o = {};
+        var o = {}, v;
         for (var p in obj) {
+            v = obj[p];
             col = cols[p];
-            if (!col) continue;
-            o[p] = obj[p];
+            if (this.skipColumn(p, v, options, cols)) continue;
             // Convert into native data type
-            if (options.strictTypes && (col.primary || col.type) && typeof o[p] != "undefined") o[p] = lib.toValue(o[p], col.type);
+            if (options.strictTypes && (col.primary || col.type) && typeof v != "undefined") v = lib.toValue(v, col.type);
+            o[p] = v;
         }
         obj = o;
         for (var p in cols) {
-            this.joinColumn(op, obj, p, cols[p], options, old);
+            this.joinColumn(op, obj, p, cols[p], options, old, orig);
         }
         break;
 
@@ -1863,6 +1866,12 @@ db.prepareRow = function(pool, op, table, obj, options)
                 break;
             }
         }
+        // Keep only columns, non existent properties cannot be used
+        var o = {};
+        for (var p in obj) {
+            if (!this.skipColumn(p, obj[p], options, cols)) o[p] = obj[p];
+        }
+        obj = o;
 
         // Convert simple types into the native according to the table definition, some query parameters are not
         // that strict and can be more arrays which we should not convert due to options.ops
@@ -1883,7 +1892,7 @@ db.prepareRow = function(pool, op, table, obj, options)
             if (!options.ops[p] && lib.isObject(col.ops) && col.ops[op]) options.ops[p] = col.ops[op];
 
             // Joined values for queries, if nothing joined or only one field is present keep the original value
-            this.joinColumn(op, obj, p, col, options, old);
+            this.joinColumn(op, obj, p, col, options, old, orig);
         }
         break;
 
@@ -2216,7 +2225,7 @@ db.getSelectedColumns = function(table, options)
 // The `options.strict_join` can be used to perform join only if all columns in the list are not empty, so the join
 // is for all columns or none
 //
-db.joinColumn = function(op, obj, name, col, options, old)
+db.joinColumn = function(op, obj, name, col, options, old, orig)
 {
     if (col &&
         Array.isArray(col.join) &&
@@ -2228,7 +2237,7 @@ db.joinColumn = function(op, obj, name, col, options, old)
             var c, d, v = "", n = 0;
             for (var i = 0; i < col.join.length; i++) {
                 c = col.join[i];
-                d = ((old && old[c]) || obj[c] || "");
+                d = ((old && old[c]) || (orig && orig[c]) || obj[c] || "");
                 if (d) {
                     n++;
                 } else {
@@ -2303,8 +2312,8 @@ db.getSearchQuery = function(table, obj, options)
     return this.getQueryForKeys(this.getSearchKeys(table, options), obj, options);
 }
 
-// Returns an object based on the list of keys, basically returns a subset of properties
-// `options.keysMap` defins an object to map record properties with the actual names to be returned.
+// Returns an object based on the list of keys, basically returns a subset of properties.
+// `options.keysMap` defines an object to map record properties with the actual names to be returned.
 db.getQueryForKeys = function(keys, obj, options)
 {
     var self = this;

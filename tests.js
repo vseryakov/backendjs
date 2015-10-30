@@ -821,7 +821,7 @@ tests.test_db_basic = function(callback)
             });
         },
         function(next) {
-            db.select("test1", { id: id }, function(err, rows) {
+            db.select("test1", { id: id, fake: 1 }, function(err, rows) {
                 tests.check(next, err, rows.length!=1, "err6:", rows);
             });
         },
