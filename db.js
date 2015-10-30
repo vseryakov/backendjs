@@ -547,6 +547,50 @@ db.query = function(req, options, callback)
         }
     }
 
+    function onResult(err, rows, info) {
+        // Cache notification in case of updates, we must have the request prepared by the db.prepare
+        var cached = options.cached || self.cacheTables.indexOf(table) > -1;
+        if (cached && table && req.obj && req.op && ['put','update','incr','del'].indexOf(req.op) > -1) {
+            self.delCache(table, req.obj, options);
+        }
+
+        // Make sure no duplicates
+        if (options.unique) {
+            rows = lib.arrayUnique(rows, options.unique);
+        }
+
+        // With total we only have one property 'count'
+        if (options.total) {
+            onEnd(err, null, rows, info);
+            return rows;
+        }
+
+        // Convert from db types into javascript, deal with json and joined columns
+        if (rows.length && !options.noconvertrows) {
+            self.convertRows(pool, req, rows, options);
+        }
+
+        // Convert values if we have custom column callback
+        if (!options.noprocessrows) {
+            req.info = info;
+            rows = self.runProcessRows("post", req, rows, options);
+        }
+
+        // Custom filter to return the final result set
+        if (typeof options.filter == "function" && rows.length) {
+            rows = rows.filter(function(row) { return options.filter(req, row, options); })
+        }
+
+        // Async filter, can perform I/O for filtering
+        if (typeof options.async_filter == "function" && rows.length) {
+            options.async_filter(req, rows, options, function(err, rows) {
+                onEnd(err, null, rows, info);
+            });
+            return null;
+        }
+        return rows;
+    }
+
     pool.acquire(function(err, client) {
         if (err) return onEnd(err, null, [], {});
 
@@ -564,45 +608,8 @@ db.query = function(req, options, callback)
 
                     pool.release(client);
                     client = null;
-
-                    // Cache notification in case of updates, we must have the request prepared by the db.prepare
-                    var cached = options.cached || self.cacheTables.indexOf(table) > -1;
-                    if (cached && table && req.obj && req.op && ['put','update','incr','del'].indexOf(req.op) > -1) {
-                        self.delCache(table, req.obj, options);
-                    }
-
-                    // Make sure no duplicates
-                    if (options.unique) {
-                        items = lib.arrayUnique(items, options.unique);
-                    }
-
-                    // With total we only have one property 'count'
-                    if (options.total) {
-                        return onEnd(err, client, rows, info);
-                    }
-
-                    // Convert from db types into javascript, deal with json and joined columns
-                    if (rows.length && !options.noconvertrows) {
-                        self.convertRows(pool, req, rows, options);
-                    }
-
-                    // Convert values if we have custom column callback
-                    if (!options.noprocessrows) {
-                        req.info = info;
-                        rows = self.runProcessRows("post", req, rows, options);
-                    }
-
-                    // Custom filter to return the final result set
-                    if (typeof options.filter == "function" && rows.length) {
-                        rows = rows.filter(function(row) { return options.filter(req, row, options); })
-                    }
-
-                    // Async filter, can perform I/O for filtering
-                    if (typeof options.async_filter == "function" && rows.length) {
-                        return options.async_filter(req, rows, options, function(err, rows) {
-                            onEnd(err, client, rows, info);
-                        });
-                    }
+                    rows = onResult(err, rows, info);
+                    if (!rows) return;
 
                 } catch(e) {
                     err = e;
@@ -1763,157 +1770,192 @@ db.prepareRow = function(pool, op, table, obj, options)
     }
 
     // Process special columns
-    var keys = pool.dbkeys[table] || [];
     var cols = pool.dbcolumns[table] || {};
-    var col, old = {}, orig = {};
+    var col, orig = {};
     // Original record before the prepare processing
     for (var p in obj) orig[p] = obj[p];
 
     switch (op) {
     case "add":
     case "put":
-        // Set all default values if any
-        for (var p in cols) {
-            col = cols[p];
-            if (typeof col.value != "undefined" && !obj[p]) obj[p] = col.value;
-            // Counters must have default value or use 0 is implied
-            if (typeof obj[p] == "undefined") {
-                if (col.type == "counter") obj[p] = 0;
-                if (col.type == "uuid") obj[p] = lib.uuid();
-            }
-        }
+        obj = this.prepareForPut(pool, op, table, obj, options, cols, orig);
 
     case "incr":
-        // All values must be numbers
-        for (var p in cols) {
-            if (typeof obj[p] != "undefined" && cols[p].type == "counter") obj[p] = lib.toNumber(obj[p]);
-        }
+        obj = this.prepareForIncr(pool, op, table, obj, options, cols, orig);
 
     case "update":
-        // Keep only columns from the table definition if we have it
-        // Go over all properties in the object and makes sure the types of the values correspond to the column definition types,
-        // this is for those databases which are very sensitive on the types like DynamoDB. This function updates the object in-place.
-        var o = {}, v;
-        for (var p in obj) {
-            v = obj[p];
-            col = cols[p];
-            if (col) {
-                // Skip artificial join columns
-                if (options.noJoinColumns && Array.isArray(col.join) && col.join.indexOf(p) == -1) continue;
-                // Handle json separately in sync with processRows
-                if (options.noJson && !options.strictTypes && col.type == "json" && typeof obj[p] != "undefined") v = JSON.stringify(v);
-                // Convert into native data type
-                if (options.strictTypes && (col.primary || col.index || col.type) && typeof obj[p] != "undefined") v = lib.toValue(v, col.type);
-                // Verify against allowed values
-                if (Array.isArray(col.values) && col.values.indexOf(String(v)) == -1) continue;
-                // Max length limit for text fields
-                if (col.maxlength && typeof v == "string" && !col.type && v.length > col.maxlength) v = v.substr(0, col.maxlength);
-            }
-            if (this.skipColumn(p, v, options, cols)) continue;
-            if ((v == null || v === "") && options.skipNull && options.skipNull[op]) continue;
-            o[p] = v;
-        }
-        obj = o;
-        for (var p in cols) {
-            col = cols[p];
-            // Restrictions
-            if (col.hidden || (col.readonly && (op == "incr" || op == "update")) || (col.writeonly && (op == "add" || op == "put"))) {
-                delete obj[p];
-                continue;
-            }
-            // Current timestamps, for primary keys only support add
-            if (col.now && !obj[p] && (!col.primary || op == "add")) obj[p] = Date.now();
-            // Case conversion
-            if (col.lower && typeof obj[p] == "string") obj[p] = obj[p].toLowerCase();
-            if (col.upper && typeof obj[p] == "string") obj[p] = obj[p].toUpperCase();
-            // The field is combined from several values contatenated for complex primary keys
-            this.joinColumn(op, obj, p, col, options, old, orig);
-        }
+        obj = this.prepareForUpdate(pool, op, table, obj, options, cols, orig);
         break;
 
     case "del":
-        var o = {}, v;
-        for (var p in obj) {
-            v = obj[p];
-            col = cols[p];
-            if (this.skipColumn(p, v, options, cols)) continue;
-            // Convert into native data type
-            if (options.strictTypes && (col.primary || col.type) && typeof v != "undefined") v = lib.toValue(v, col.type);
-            o[p] = v;
-        }
-        obj = o;
-        for (var p in cols) {
-            this.joinColumn(op, obj, p, cols[p], options, old, orig);
-        }
+        obj = this.prepareForDelete(pool, op, table, obj, options, cols, orig);
         break;
 
     case "get":
     case "select":
     case "search":
-        if (!lib.isObject(options.ops)) options.ops = {};
-        for (var p in options.ops) {
-            switch (options.ops[p]) {
-            case "in":
-            case "between":
-                if (!Array.isArray(obj[p])) {
-                    if (obj[p]) {
-                        var type = cols[p] ? cols[p].type : "";
-                        obj[p] = lib.strSplit(obj[p], null, type);
-                    } else {
-                        delete obj[p];
-                    }
+        obj = this.prepareForSelect(pool, op, table, obj, options, cols, orig);
+        break;
+
+    case "list":
+        obj = this.prepareForList(pool, op, table, obj, options, cols, orig);
+        break;
+    }
+    return obj;
+}
+
+// Keep only columns from the table definition if we have it
+// Go over all properties in the object and makes sure the types of the values correspond to the column definition types,
+// this is for those databases which are very sensitive on the types like DynamoDB.
+db.prepareForUpdate = function(pool, op, table, obj, options, cols, orig)
+{
+    var o = {}, v, col;
+    for (var p in obj) {
+        v = obj[p];
+        col = cols[p];
+        if (col) {
+            // Skip artificial join columns
+            if (options.noJoinColumns && Array.isArray(col.join) && col.join.indexOf(p) == -1) continue;
+            // Handle json separately in sync with processRows
+            if (options.noJson && !options.strictTypes && col.type == "json" && typeof obj[p] != "undefined") v = JSON.stringify(v);
+            // Convert into native data type
+            if (options.strictTypes && (col.primary || col.index || col.type) && typeof obj[p] != "undefined") v = lib.toValue(v, col.type);
+            // Verify against allowed values
+            if (Array.isArray(col.values) && col.values.indexOf(String(v)) == -1) continue;
+            // Max length limit for text fields
+            if (col.maxlength && typeof v == "string" && !col.type && v.length > col.maxlength) v = v.substr(0, col.maxlength);
+        }
+        if (this.skipColumn(p, v, options, cols)) continue;
+        if ((v == null || v === "") && options.skipNull && options.skipNull[op]) continue;
+        o[p] = v;
+    }
+    obj = o;
+    for (var p in cols) {
+        col = cols[p];
+        // Restrictions
+        if (col.hidden || (col.readonly && (op == "incr" || op == "update")) || (col.writeonly && (op == "add" || op == "put"))) {
+            delete obj[p];
+            continue;
+        }
+        // Current timestamps, for primary keys only support add
+        if (col.now && !obj[p] && (!col.primary || op == "add")) obj[p] = Date.now();
+        // Case conversion
+        if (col.lower && typeof obj[p] == "string") obj[p] = obj[p].toLowerCase();
+        if (col.upper && typeof obj[p] == "string") obj[p] = obj[p].toUpperCase();
+        // The field is combined from several values contatenated for complex primary keys
+        this.joinColumn(op, obj, p, col, options, orig);
+    }
+    return obj;
+}
+
+db.prepareForPut = function(pool, op, table, obj, options, cols, orig)
+{
+    // Set all default values if any
+    for (var p in cols) {
+        col = cols[p];
+        if (typeof col.value != "undefined" && !obj[p]) obj[p] = col.value;
+        // Counters must have default value or use 0 is implied
+        if (typeof obj[p] == "undefined") {
+            if (col.type == "counter") obj[p] = 0;
+            if (col.type == "uuid") obj[p] = lib.uuid();
+        }
+    }
+    return obj;
+}
+
+db.prepareForIncr = function(pool, op, table, obj, options, cols, orig)
+{
+    // All values must be numbers
+    for (var p in cols) {
+        if (typeof obj[p] != "undefined" && cols[p].type == "counter") obj[p] = lib.toNumber(obj[p]);
+    }
+    return obj;
+}
+
+db.prepareForDelete = function(pool, op, table, obj, options, cols, orig)
+{
+    var o = {}, v;
+    for (var p in obj) {
+        v = obj[p];
+        col = cols[p];
+        if (this.skipColumn(p, v, options, cols)) continue;
+        // Convert into native data type
+        if (options.strictTypes && (col.primary || col.type) && typeof v != "undefined") v = lib.toValue(v, col.type);
+        o[p] = v;
+    }
+    obj = o;
+    for (var p in cols) {
+        this.joinColumn(op, obj, p, cols[p], options, orig);
+    }
+    return obj;
+}
+
+db.prepareForSelect = function(pool, op, table, obj, options, cols, orig)
+{
+    if (!lib.isObject(options.ops)) options.ops = {};
+    for (var p in options.ops) {
+        switch (options.ops[p]) {
+        case "in":
+        case "between":
+            if (!Array.isArray(obj[p])) {
+                if (obj[p]) {
+                    var type = cols[p] ? cols[p].type : "";
+                    obj[p] = lib.strSplit(obj[p], null, type);
+                } else {
+                    delete obj[p];
                 }
-                break;
+            }
+            break;
+        }
+    }
+    // Keep only columns, non existent properties cannot be used
+    var o = {};
+    for (var p in obj) {
+        if (!this.skipColumn(p, obj[p], options, cols)) o[p] = obj[p];
+    }
+    obj = o;
+
+    // Convert simple types into the native according to the table definition, some query parameters are not
+    // that strict and can be more arrays which we should not convert due to options.ops
+    for (var p in cols) {
+        col = cols[p];
+        if (options.strictTypes) {
+            if (lib.isNumericType(col.type)) {
+                if (typeof obj[p] == "string") obj[p] = lib.toNumber(obj[p]);
+            } else {
+                if (typeof obj[p] == "number") obj[p] = String(obj[p]);
             }
         }
-        // Keep only columns, non existent properties cannot be used
-        var o = {};
-        for (var p in obj) {
-            if (!this.skipColumn(p, obj[p], options, cols)) o[p] = obj[p];
-        }
-        obj = o;
+        // Case conversion
+        if (col.lower && typeof obj[p] == "string") obj[p] = obj[p].toLowerCase();
+        if (col.upper && typeof obj[p] == "string") obj[p] = obj[p].toUpperCase();
 
-        // Convert simple types into the native according to the table definition, some query parameters are not
-        // that strict and can be more arrays which we should not convert due to options.ops
+        // Default search op, for primary key cases
+        if (!options.ops[p] && lib.isObject(col.ops) && col.ops[op]) options.ops[p] = col.ops[op];
+
+        // Joined values for queries, if nothing joined or only one field is present keep the original value
+        this.joinColumn(op, obj, p, col, options, orig);
+    }
+    return obj;
+}
+
+db.prepareForList = function(pool, op, table, obj, options, cols, orig)
+{
+    for (var i = 0; i < obj.length; i++) {
         for (var p in cols) {
             col = cols[p];
             if (options.strictTypes) {
                 if (lib.isNumericType(col.type)) {
-                    if (typeof obj[p] == "string") obj[p] = lib.toNumber(obj[p]);
+                    if (typeof obj[i][p] == "string") obj[i][p] = lib.toNumber(obj[i][p]);
                 } else {
-                    if (typeof obj[p] == "number") obj[p] = String(obj[p]);
+                    if (typeof obj[i][p] == "number") obj[i][p] = String(obj[i][p]);
                 }
             }
-            // Case conversion
-            if (col.lower && typeof obj[p] == "string") obj[p] = obj[p].toLowerCase();
-            if (col.upper && typeof obj[p] == "string") obj[p] = obj[p].toUpperCase();
-
-            // Default search op, for primary key cases
-            if (!options.ops[p] && lib.isObject(col.ops) && col.ops[op]) options.ops[p] = col.ops[op];
-
             // Joined values for queries, if nothing joined or only one field is present keep the original value
-            this.joinColumn(op, obj, p, col, options, old, orig);
+            this.joinColumn(op, obj[i], p, col, options, orig);
+            // Delete at the end to give a chance some joined columns to be created
+            if (!col.primary) delete obj[i][p];
         }
-        break;
-
-    case "list":
-        for (var i = 0; i < obj.length; i++) {
-            for (var p in cols) {
-                col = cols[p];
-                if (options.strictTypes) {
-                    if (lib.isNumericType(col.type)) {
-                        if (typeof obj[i][p] == "string") obj[i][p] = lib.toNumber(obj[i][p]);
-                    } else {
-                        if (typeof obj[i][p] == "number") obj[i][p] = String(obj[i][p]);
-                    }
-                }
-                // Joined values for queries, if nothing joined or only one field is present keep the original value
-                this.joinColumn(op, obj[i], p, col, options, old);
-                // Delete at the end to give a chance some joined columns to be created
-                if (!col.primary) delete obj[i][p];
-            }
-        }
-        break;
     }
     return obj;
 }
@@ -1939,12 +1981,11 @@ db.convertRows = function(pool, req, rows, options)
     if (!pool) pool = this.getPool(req.table, options);
     var cols = pool.dbcolumns[req.table] || {};
     for (var p in cols) {
-        var col = cols[p], row;
+        var col = cols[p];
         // Convert from JSON type
         if (options.noJson && col.type == "json") {
             for (var i = 0; i < rows.length; i++) {
-                row = rows[i];
-                if (typeof row[p] == "string" && row[p]) row[p] = lib.jsonParse(row[p], { logging : 1 });
+                if (typeof rows[i][p] == "string" && rows[i][p]) rows[i][p] = lib.jsonParse(rows[i][p], { logging : 1 });
             }
         }
         // Split into a list
@@ -1954,18 +1995,8 @@ db.convertRows = function(pool, req, rows, options)
             }
         }
         // Extract joined values and place into separate columns
-        if (Array.isArray(col.unjoin)) {
-            var separator = col.separator || this.separator;
-            for (var i = 0; i < rows.length; i++) {
-                row = rows[i];
-                if (typeof row[p] == "string" && row[p].indexOf(separator) > -1) {
-                    var v = row[p].split(separator);
-                    if (v.length >= col.unjoin.length) {
-                        for (var j = 0; j < col.unjoin.length; j++) row[col.unjoin[j]] = v[j];
-                    }
-                }
-            }
-        }
+        this.unjoinColumns(rows, p, col, options);
+
         // Do not return
         if (col.noresult) {
             for (var i = 0; i < rows.length; i++) {
@@ -2225,7 +2256,7 @@ db.getSelectedColumns = function(table, options)
 // The `options.strict_join` can be used to perform join only if all columns in the list are not empty, so the join
 // is for all columns or none
 //
-db.joinColumn = function(op, obj, name, col, options, old, orig)
+db.joinColumn = function(op, obj, name, col, options, orig)
 {
     if (col &&
         Array.isArray(col.join) &&
@@ -2237,7 +2268,7 @@ db.joinColumn = function(op, obj, name, col, options, old, orig)
             var c, d, v = "", n = 0;
             for (var i = 0; i < col.join.length; i++) {
                 c = col.join[i];
-                d = ((old && old[c]) || (orig && orig[c]) || obj[c] || "");
+                d = (orig && orig[c]) || obj[c] || "";
                 if (d) {
                     n++;
                 } else {
@@ -2245,9 +2276,24 @@ db.joinColumn = function(op, obj, name, col, options, old, orig)
                 }
                 v += (i ? separator : "") + d;
             }
-            // Keep the original value before updating
-            if (old && typeof old[name] == "undefined") old[name] = obj[name];
             if (v && n) obj[name] = v;
+        }
+    }
+}
+
+// Split joined columns for all rows
+db.unjoinColumns = function(rows, name, col, options)
+{
+    if (Array.isArray(col.unjoin)) {
+        var row, separator = col.separator || this.separator;
+        for (var i = 0; i < rows.length; i++) {
+            row = rows[i];
+            if (typeof row[name] == "string" && row[name].indexOf(separator) > -1) {
+                var v = row[name].split(separator);
+                if (v.length >= col.unjoin.length) {
+                    for (var j = 0; j < col.unjoin.length; j++) row[col.unjoin[j]] = v[j];
+                }
+            }
         }
     }
 }
