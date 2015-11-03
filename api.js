@@ -262,7 +262,7 @@ var api = {
     // Error reporter throttle
     errlogLimiterMax: 100,
     errlogLimiterInterval: 30000,
-    errlogLimiterIgnore: /Requested Range Not Satisfiable/,
+    errlogLimiterIgnore: /Range Not Satisfiable/,
 
     // Collector of statistics, seconds
     collectInterval: 30,

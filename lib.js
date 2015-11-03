@@ -724,6 +724,7 @@ lib.forEachLimit = function(list, limit, iterator, callback)
 // - limit - number of lines to process and exit
 // - progress - if > 0 report how many lines processed so far every specified lines
 // - until - skip lines until this regexp matches
+// - ignore - skip lines that match this regexp
 lib.forEachLine = function(file, options, lineCallback, endCallback)
 {
     var self = this;
@@ -740,12 +741,13 @@ lib.forEachLine = function(file, options, lineCallback, endCallback)
             if (nread == buffer.length) data = lines.pop();
             self.forEachSeries(lines, function(line, next) {
                 options.nlines++;
-                if (options.progress && options.nlines % options.progress == 0) logger.info('forEachLine:', file, 'lines:', options.nlines);
+                if (options.progress && options.nlines % options.progress == 0) logger.info('forEachLine:', file, options);
                 // Skip lines until we see our pattern
                 if (options.until && !options.until_seen) {
                     options.until_seen = line.match(options.until);
                     return next();
                 }
+                if (options.ignore && options.ignore.test(line)) return next();
                 lineCallback(line.trim(), next);
             }, function(err) {
                 // Stop on reaching limit or end of file
@@ -770,12 +772,13 @@ lib.forEachLine = function(file, options, lineCallback, endCallback)
                 if (nread == buffer.length) data = lines.pop();
                 for (var i = 0; i < lines.length; i++) {
                     options.nlines++;
-                    if (options.progress && options.nlines % options.progress == 0) logger.info('forEachLine:', file, 'lines:', options.nlines);
+                    if (options.progress && options.nlines % options.progress == 0) logger.info('forEachLine:', file, options);
                     // Skip lines until we see our pattern
                     if (options.until && !options.until_seen) {
                         options.until_seen = lines[i].match(options.until);
                         continue;
                     }
+                    if (options.ignore && options.ignore.test(line)) continue;
                     lineCallback(lines[i].trim());
                 }
                 // Stop on reaching limit or end of file
