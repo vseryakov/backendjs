@@ -862,9 +862,9 @@ case "$ARG" in
   get-dynamodb)
     if [ ! -d $DYNAMODB_PREFIX ]; then
        mkdir -p $DYNAMODB_PREFIX
-       curl -L -o ddb.tar.gz http://dynamodb-local.s3-website-us-west-2.amazonaws.com/dynamodb_local_latest.tar.gz
-       tar -C $DYNAMODB_PREFIX -xzf ddb.tar.gz
-       rm -rf ddb.tar.gz
+       curl -L -o ddb.tgz http://dynamodb-local.s3-website-us-west-2.amazonaws.com/dynamodb_local_latest.tar.gz
+       tar -C $DYNAMODB_PREFIX -xzf ddb.tgz
+       rm -rf ddb.tgz
     fi
     ;;
 
@@ -924,13 +924,13 @@ case "$ARG" in
 
   get-elasticsearch)
     if [ ! -d $ELASTICSEARCH_PREFIX ]; then
-        file=elasticsearch-1.7.2.tar.gz
         mkdir -p $ELASTICSEARCH_PREFIX
-        curl -OL https://download.elasticsearch.org/elasticsearch/elasticsearch/$file
-        tar -C $ELASTICSEARCH_PREFIX --strip-components=1 -xzf $file
-        rm -rf $file
+        curl -L -o es.tgz https://download.elasticsearch.org/elasticsearch/release/org/elasticsearch/distribution/tar/elasticsearch/2.0.0/elasticsearch-2.0.0.tar.gz
+        tar -C $ELASTICSEARCH_PREFIX --strip-components=1 -xzf es.tgz
+        rm -rf es.tgz
         if [ "$OS_TYPE" = "amazon" ]; then
            cd $ELASTICSEARCH_PREFIX
+           echo "network.host: _ec2_" >> config/elasticsearch.yml
            echo "discovery.type: ec2" >> config/elasticsearch.yml
            bin/plugin install elasticsearch/elasticsearch-cloud-aws/2.7.1
         fi
@@ -957,9 +957,9 @@ case "$ARG" in
        ;;
     esac
     if [ ! -f $BKJS_PREFIX/bin/mongod ]; then
-       curl -L -o mongo.tar.gz http://fastdl.mongodb.org/osx/mongodb-$OS-x86_64-3.0.6.tgz
-       tar -C $BKJS_PREFIX/bin --strip-components=1 -xzf mongo.tar.gz '*/bin/*'
-       rm -rf mongo.tar.gz
+       curl -L -o mongo.tgz http://fastdl.mongodb.org/osx/mongodb-$OS-x86_64-3.0.6.tgz
+       tar -C $BKJS_PREFIX/bin --strip-components=1 -xzf mongo.tgz '*/bin/*'
+       rm -rf mongo.tgz
     fi
     ;;
 

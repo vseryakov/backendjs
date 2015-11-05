@@ -594,6 +594,16 @@ var Bkjs = {
         return (name || "").replace(/_/g, " ").split(/[ ]+/).reduce(function(x,y) { return x + y.substr(0,1).toUpperCase() + y.substr(1) + " "; }, "").trim();
     },
 
+    toCamel: function(name, chars) {
+        var rx = new RegExp("(?:[" + (chars || "-_\\.") + "])(\\w)", "g");
+        return String(name || "").replace(rx, function (_, c) { return c ? c.toUpperCase () : ''; });
+    },
+
+    // Convert Camel names into names separated by the given separator or dash if not.
+    toUncamel: function(str, sep) {
+        return String(str).replace(/([A-Z])/g, function(letter) { return (sep || '-') + letter.toLowerCase(); });
+    },
+
     // Interpret the value as a boolean
     toBool:function(val, dflt) {
         if (typeof val == "boolean") return val;

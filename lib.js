@@ -77,10 +77,10 @@ lib.toCamel = function(name, chars)
     return String(name || "").replace(rx, function (_, c) { return c ? c.toUpperCase () : ''; });
 }
 
-// Convert Camel names into names with dashes
-lib.toUncamel = function(str)
+// Convert Camel names into names separated by the given separator or dash if not.
+lib.toUncamel = function(str, sep)
 {
-    return String(str).replace(/([A-Z])/g, function(letter) { return '-' + letter.toLowerCase(); });
+    return String(str).replace(/([A-Z])/g, function(letter) { return (sep || '-') + letter.toLowerCase(); });
 }
 
 // Safe version, uses 0 instead of NaN, handle booleans, if float specified, returns as float.
