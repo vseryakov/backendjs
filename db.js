@@ -1892,28 +1892,13 @@ db.prepareForDelete = function(pool, op, table, obj, options, cols, orig)
 
 db.prepareForSelect = function(pool, op, table, obj, options, cols, orig)
 {
-    if (!lib.isObject(options.ops)) options.ops = {};
-    for (var p in options.ops) {
-        switch (options.ops[p]) {
-        case "in":
-        case "between":
-            if (!Array.isArray(obj[p])) {
-                if (obj[p]) {
-                    var type = cols[p] ? cols[p].type : "";
-                    obj[p] = lib.strSplit(obj[p], null, type);
-                } else {
-                    delete obj[p];
-                }
-            }
-            break;
-        }
-    }
     // Keep only columns, non existent properties cannot be used
     var o = {};
     for (var p in obj) {
         if (!this.skipColumn(p, obj[p], options, cols)) o[p] = obj[p];
     }
     obj = o;
+    if (!lib.isObject(options.ops)) options.ops = {};
 
     // Convert simple types into the native according to the table definition, some query parameters are not
     // that strict and can be more arrays which we should not convert due to options.ops
@@ -1932,6 +1917,20 @@ db.prepareForSelect = function(pool, op, table, obj, options, cols, orig)
 
         // Default search op, for primary key cases
         if (!options.ops[p] && lib.isObject(col.ops) && col.ops[op]) options.ops[p] = col.ops[op];
+
+        switch (options.ops[p]) {
+        case "in":
+        case "between":
+            if (!Array.isArray(obj[p])) {
+                if (obj[p]) {
+                    var type = cols[p] ? cols[p].type : "";
+                    obj[p] = lib.strSplit(obj[p], null, type);
+                } else {
+                    delete obj[p];
+                }
+            }
+            break;
+        }
 
         // Joined values for queries, if nothing joined or only one field is present keep the original value
         this.joinColumn(op, obj, p, col, options, orig);
