@@ -572,10 +572,10 @@ api.init = function(options, callback)
 
             // Serve from default web location in the package or from application specific location
             if (!self.noStatic) {
-                self.app.use(serveStatic(core.path.web, self.staticOptions));
                 for (var i = 0; i < self.staticPaths.length; i++) {
                     self.app.use(serveStatic(self.staticPaths[i], self.staticOptions));
                 }
+                self.app.use(serveStatic(core.path.web, self.staticOptions));
                 self.app.use(serveStatic(__dirname + "/web", self.staticOptions));
                 logger.debug("static:", core.path.web, __dirname + "/web", self.staticPaths);
             }

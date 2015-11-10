@@ -1812,20 +1812,23 @@ db.prepareForUpdate = function(pool, op, table, obj, options, cols, orig)
     var o = {}, v, col;
     for (var p in obj) {
         v = obj[p];
+        if (this.skipColumn(p, v, options, cols)) continue;
         col = cols[p];
         if (col) {
             // Skip artificial join columns
             if (options.noJoinColumns && Array.isArray(col.join) && col.join.indexOf(p) == -1) continue;
-            // Handle json separately in sync with processRows
-            if (options.noJson && !options.strictTypes && col.type == "json" && typeof obj[p] != "undefined") v = JSON.stringify(v);
             // Convert into native data type
-            if (options.strictTypes && (col.primary || col.index || col.type) && typeof obj[p] != "undefined") v = lib.toValue(v, col.type);
+            if (options.strictTypes) {
+                if (col.primary || col.index || col.type) v = lib.toValue(v, col.type);
+            } else {
+                // Handle json separately in sync with convertRows
+                if (options.noJson && col.type == "json") v = JSON.stringify(v);
+            }
             // Verify against allowed values
             if (Array.isArray(col.values) && col.values.indexOf(String(v)) == -1) continue;
             // Max length limit for text fields
             if (col.maxlength && typeof v == "string" && !col.type && v.length > col.maxlength) v = v.substr(0, col.maxlength);
         }
-        if (this.skipColumn(p, v, options, cols)) continue;
         if ((v == null || v === "") && options.skipNull && options.skipNull[op]) continue;
         o[p] = v;
     }
@@ -1850,6 +1853,7 @@ db.prepareForUpdate = function(pool, op, table, obj, options, cols, orig)
 
 db.prepareForPut = function(pool, op, table, obj, options, cols, orig)
 {
+    var col;
     // Set all default values if any
     for (var p in cols) {
         col = cols[p];
@@ -1874,7 +1878,7 @@ db.prepareForIncr = function(pool, op, table, obj, options, cols, orig)
 
 db.prepareForDelete = function(pool, op, table, obj, options, cols, orig)
 {
-    var o = {}, v;
+    var o = {}, v, col;
     for (var p in obj) {
         v = obj[p];
         col = cols[p];
@@ -1893,7 +1897,7 @@ db.prepareForDelete = function(pool, op, table, obj, options, cols, orig)
 db.prepareForSelect = function(pool, op, table, obj, options, cols, orig)
 {
     // Keep only columns, non existent properties cannot be used
-    var o = {};
+    var o = {}, col;
     for (var p in obj) {
         if (!this.skipColumn(p, obj[p], options, cols)) o[p] = obj[p];
     }
@@ -1940,6 +1944,7 @@ db.prepareForSelect = function(pool, op, table, obj, options, cols, orig)
 
 db.prepareForList = function(pool, op, table, obj, options, cols, orig)
 {
+    var col;
     for (var i = 0; i < obj.length; i++) {
         for (var p in cols) {
             col = cols[p];
@@ -1978,9 +1983,9 @@ db.convertRows = function(pool, req, rows, options)
 {
     var self = this;
     if (!pool) pool = this.getPool(req.table, options);
-    var cols = pool.dbcolumns[req.table] || {};
+    var cols = pool.dbcolumns[req.table] || {}, col;
     for (var p in cols) {
-        var col = cols[p];
+        col = cols[p];
         // Convert from JSON type
         if (options.noJson && col.type == "json") {
             for (var i = 0; i < rows.length; i++) {
