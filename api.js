@@ -827,6 +827,7 @@ api.prepareRequest = function(req)
     req.options.coreVersion = req.query[this.versionHeaderName] || req.headers[this.versionHeaderName] || "";
     // Timezone offset from UTC passed by the client, we just keep it, how to use it is up to the application
     req.options.timezoneOffset = lib.toNumber(req.query[this.tzHeaderName] || req.headers[this.tzHeaderName], { dflt: 0, min: -720, max: 720 }) * 60000;
+    logger.debug("prepareRequest:", req.options);
 }
 
 // This is supposed to be called at the beginning of request processing to start metrics and install the handler which

@@ -26,6 +26,7 @@ var Bkjs = {
     signatureVersion: 4,
     signatureName: "bk-signature",
     accessTokenName: "bk-access-token",
+    tzName: "bk-tz",
 
     // Current account record
     account: {},
@@ -262,7 +263,7 @@ var Bkjs = {
         if (!options.nosignature) {
             options.headers = this.createSignature(options.type, options.url, options.data, { expires: options.expires, checksum: options.checksum });
             // Optional timezone offset for ptoper datetime related operations
-            options.headers["bk-tz"] = new Date().getTimezoneOffset();
+            options.headers[this.tzName] = (new Date()).getTimezoneOffset();
         }
         this.loading("show");
         $.ajax(options);
