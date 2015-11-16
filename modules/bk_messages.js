@@ -173,11 +173,11 @@ messages.configureMessagesAPI = function()
     });
 
     function onPostMessageRow(req, row, options) {
-        if (row.icon) row.icon = '/message/image?sender=' + row.sender + '&mtime=' + row.mtime; else delete row.icon;
+        if (row.icon) row.icon = api.iconUrl({ prefix: 'message', id: row.id, type: row.mtime + ":" + row.sender }); else delete row.icon;
     }
 
     function onPostSentRow(req, row, options) {
-        if (row.icon) row.icon = '/message/image?sender=' + row.recipient + '&mtime=' + row.mtime; else delete row.icon;
+        if (row.icon) row.icon = api.iconUrl({ prefix: 'message', id: row.sender, type: row.mtime + ":" + row.id }); else delete row.icon;
     }
 
     db.setProcessRow("post", "bk_sent", onPostSentRow);
@@ -277,6 +277,9 @@ messages.archiveMessage = function(req, options, callback)
 }
 
 // Add new message, used in /message/add API call
+//
+// The following options properties can be used:
+// - nosent - do not create a record in the bk_sent table
 messages.addMessage = function(req, options, callback)
 {
     var now = Date.now();
@@ -305,14 +308,6 @@ messages.addMessage = function(req, options, callback)
             });
         },
         function(next) {
-            if (options.nocounter || !core.modules.counters) return next();
-            core.modules.counters.incrAutoCounter(req.account.id, 'msg0', 1, options, function() { next(); });
-        },
-        function(next) {
-            if (options.nocounter || !core.modules.counters) return next();
-            core.modules.counters.incrAutoCounter(req.query.id, 'msg1', 1, options, function() { next(); });
-        },
-        function(next) {
             sent.id = req.account.id;
             sent.recipient = req.query.id;
             sent.mtime = now;
@@ -322,17 +317,14 @@ messages.addMessage = function(req, options, callback)
                 next();
             });
         },
-        function(next) {
-            if (!options.publish || req.query.id == req.account.id) return next();
-            api.publish(req.query.id, { path: req.path, mtime: now, alias: req.account.alias, msg: (req.query.msg || "").substr(0, 128) }, options);
-            next();
-        },
         ], function(err) {
             if (err) return callback(err);
             api.metrics.Counter('msg_add_0').inc();
             if (options.nosent) {
+                db.runProcessRows("post", { op: "get", table: "bk_message", obj: obj }, obj, options);
                 callback(null, obj, info);
             } else {
+                db.runProcessRows("post", { op: "get", table: "bk_sent", obj: sent }, sent, options);
                 callback(null, sent, info);
             }
     });

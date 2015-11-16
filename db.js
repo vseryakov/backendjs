@@ -1905,14 +1905,23 @@ db.prepareForSelect = function(pool, op, table, obj, options, cols, orig)
     if (!lib.isObject(options.ops)) options.ops = {};
 
     // Convert simple types into the native according to the table definition, some query parameters are not
-    // that strict and can be more arrays which we should not convert due to options.ops
+    // that strict and can be arrays which we should not convert due to options.ops
     for (var p in cols) {
         col = cols[p];
         if (options.strictTypes) {
+            var type = typeof obj[p];
             if (lib.isNumericType(col.type)) {
-                if (typeof obj[p] == "string") obj[p] = lib.toNumber(obj[p]);
+                if (type == "string") obj[p] = lib.toNumber(obj[p]);
             } else {
-                if (typeof obj[p] == "number") obj[p] = String(obj[p]);
+                switch (col.type) {
+                case "bool":
+                case "boolean":
+                    if (type == "number") obj[p] = lib.toBool(obj[p]); else
+                    if (obj[p] && type == "string") obj[p] = lib.toBool(obj[p]);
+                    break;
+                default:
+                    if (type == "number") obj[p] = String(obj[p]);
+                }
             }
         }
         // Case conversion

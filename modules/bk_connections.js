@@ -227,8 +227,6 @@ connections.readConnection = function(id, obj, options, callback)
 // Note: All other properties for both tables are treated separately, to make them appear in both they must be copied into the both objects.
 //
 // The following options properties can be used:
-// - publish - send notification via pub/sub system if present
-// - autocounter - if a number and not zero it will be used to update auto increment counters
 // - noreference - do not create reference part of the connection
 // - connected - return existing connection record for the same type from the peer account
 connections.makeConnection = function(obj, peer, options, callback)
@@ -268,21 +266,6 @@ connections.makeConnection = function(obj, peer, options, callback)
             });
         },
         function(next) {
-            // Keep track of all connection counters
-            if (!options.autocounter || !core.modules.counters) return next();
-            core.modules.counters.incrAutoCounter(obj1.id, obj1.type + '0', options.autocounter, options, function(err) { next() });
-        },
-        function(next) {
-            if (!options.autocounter || !core.modules.counters) return next();
-            core.modules.counters.incrAutoCounter(obj2.id, obj2.type + '1', options.autocounter, options, function(err) { next(); });
-        },
-        function(next) {
-            // Notify about connection the other side
-            if (!options.publish) return next();
-            api.publish(obj2.id, { path: "/connection/" + op, mtime: now, alias: obj1.alias, type: obj1.type }, options);
-            next();
-        },
-        function(next) {
             // We need to know if the other side is connected too, this will save one extra API call later
             if (!options.connected) return next();
             db.get("bk_connection", { id: obj2.id, type: obj2.type, peer: obj2.peer }, options, function(err, row) {
@@ -310,18 +293,9 @@ connections.deleteConnection = function(id, obj, options, callback)
                db.del("bk_connection", { id: id, type: row.type, peer: row.peer }, options, next);
            },
            function(next) {
-               if (!options.autocounter || !core.modules.counters) return next();
-               core.modules.counters.incrAutoCounter(id, row.type + '0', -1, options, function() { next(); });
-           },
-           function(next) {
                if (options.noreference) return next();
                db.del("bk_reference", { id: row.peer, type: row.type, peer: id }, options, next);
            },
-           function(next) {
-               if (options.noreference) return next();
-               if (!options.autocounter || !core.modules.counters) return next();
-               core.modules.counters.incrAutoCounter(row.peer, row.type + '1', -1, options, function() { next() });
-           }
            ], function(err) {
                cb(err, []);
         });

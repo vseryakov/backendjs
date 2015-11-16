@@ -302,6 +302,7 @@ var api = {
         encoding: { type: "string" },
         width: { type: "number" },
         height: { type: "number" },
+        rotate: { type: "number" },
         quality: { type: "number" },
         round: { type: "number" },
         interval: { type: "number" },
