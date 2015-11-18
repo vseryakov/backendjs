@@ -128,7 +128,7 @@ var api = {
            { name: "rlimits-total", type:" int", obj: "rlimits", descr: "Total number of servers used in the rate limiter behind a load balancer, rates will be divided by this number so each server handles only a portion of the total rate limit" },
            { name: "rlimits-interval", type:" int", obj: "rlimits", descr: "Interval in ms for all rate limiters, defines the time unit, default is 1000 ms" },
            { name: "exit-on-error", type: "bool", descr: "Exit on uncaught exception in the route handler" },
-           { name: "upload-limit", type: "number", min: 1024*1024, max: 1024*1024*10, descr: "Max size for uploads, bytes"  },
+           { name: "upload-limit", type: "number", min: 1024*1024, max: 1024*1024*100, descr: "Max size for uploads, bytes"  },
            { name: "limiter-queue", descr: "Name of an ipc queue for API rate limiting" },
            { name: "errlog-limiter-max", type: "int", descr: "How many error messages to put in the log before throttling kicks in" },
            { name: "errlog-limiter-interval", type: "int", descr: "Interval for error log limiter, max errors per this interval" },
@@ -290,6 +290,7 @@ var api = {
         session: { type: "bool" },
         accesstoken: { type: "bool" },
         force: { type: "bool" },
+        quiet: { type: "bool" },
         continue: { type: "bool" },
         name: { type: "string" },
         alias: { type: "string" },
@@ -897,21 +898,32 @@ api.checkQuery = function(req, res, next)
         req.setEncoding('binary');
     }
 
+    var clen = lib.toNumber(req.get("content-length"));
+    if (clen > 0 && clen > self.uploadLimit * 2) {
+        return next(lib.newError("unable to process the request, it is too large", 413));
+    }
+
     req._body = true;
     var buf = '', size = 0;
     var sig = self.parseSignature(req);
 
     req.on('data', function(chunk) {
         size += chunk.length;
-        if (size > self.uploadLimit) return req.destroy();
+        if (size > self.uploadLimit) {
+            if (size > self.uploadLimit * 2) {
+                return next(lib.newError("unable to process the request, it is too large", 413));
+            }
+            return buf = null;
+        }
         buf += chunk;
     });
     req.on('end', function() {
         try {
+            if (size > self.uploadLimit) return next(lib.newError("cannot process the request, it is too large", 413));
+
             // Verify data checksum before parsing
             if (sig && sig.checksum && lib.hash(buf) != sig.checksum) {
                 var err = lib.newError("invalid data checksum");
-                err.status = 400;
                 return next(err);
             }
             switch (type) {

@@ -35,6 +35,15 @@ module.exports = lib;
 lib.noop = function() {}
 lib.noopcb = function(err, cb) { if (typeof cb == "function" ) cb(err); };
 
+// Print all arguments into the console, for debugging purposes
+lib.console = function()
+{
+    if (util.isError(arguments[0])) return console.log(lib.traceError(arguments[0]));
+    for (var i = 0; i < arguments.length; i++) {
+        console.log(util.inspect(arguments[i], { depth: 5 }));
+    }
+}
+
 // Returns a floating number from the version string, it assumes common semver format as major.minor.patch, all non-digits will
 // be removed, underscores will be treated as dots. Returns a floating number which can be used in comparing versions.
 //
@@ -437,7 +446,7 @@ lib.toFormat = function(format, data, options)
         }
         for (var i = 0; i < rows.length; i++) {
             keys = allow || Object.keys(rows[i]);
-            csv += keys.map(function(y) { return rows[i][y]} ).join(sep) + "\n";
+            csv += keys.map(function(y) { return rows[i][y] || "" }).join(sep) + "\n";
         }
         return csv;
 
