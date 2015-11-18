@@ -3875,7 +3875,8 @@ making it usable for repeating environments or storage solutions.</p>
 <li>httpTimeout - timeout in milliseconds afte which the request is borted if no data received</li>
 <li>retryCount - how many time to retry the request on error or timeout</li>
 <li>retryTimeout - timeout in milliseconds for retries, with every subsequent timeout it will be multiplied by 2</li>
-<li>retryOnErrorStatus - also retry request if received non 2xx response status</li>
+<li>retryOnErrorStatus - also retry request if received non 2xx response status, if this is an array it should contain a list of status codes
+on which to retry, otherwise retry on all non-2xx responses</li>
 </ul>
 </li>
 <li>callback will be called with the arguments:
@@ -4412,6 +4413,7 @@ Special properties that can be in the options for this call:</p>
 <li>delOptions - options to be passed to the db.del if needed, this is useful so select and del options will not be mixed up</li>
 <li>factorCapacity - write capcity factor for delete operations, default is 0.35</li>
 <li>concurrency - how many delete requests to execute at the same time by using lib.forEachLimit.</li>
+<li>ignore_error - continue deleting records even after an error</li>
 <li>process - a function callback that will be called for each row before deleting it, this is for some transformations of the record properties
 in case of complex columns that may contain concatenated values as in the case of using DynamoDB. The callback will be called
 as <code>options.process(row, options)</code></li>
@@ -4609,7 +4611,7 @@ the next_token returned by the previous call and query will be ignored</p>
 <li>query - can be an object with properties for the condition, all matching records will be returned,
 also can be a list where each item is an object with primary key condition. Only records specified in the list must be returned.</li>
 <li>options can use the following special properties:<ul>
-<li>ops - operators to use for comparison for properties, an object with column name and operator. The follwoing operators are available:
+<li>ops - operators to use for comparison for properties, an object with column name and operator. The following operators are available:
  <code>&gt;, gt, &lt;, lt, =, !=, &lt;&gt;, &gt;=, ge, &lt;=, le, in, between, regexp, iregexp, begins_with, like%, ilike%</code></li>
 <li>opsMap - operator mapping between supplied operators and actual operators supported by the db</li>
 <li>typesMap - type mapping between supplied and actual column types, an object</li>
@@ -4835,6 +4837,14 @@ helpers and is not used directly in the applications.</p>
 </ul>
 
 <ul>
+<li><p><code>db.prepareForUpdate(pool, op, table, obj, options, cols, orig)</code></p>
+<p> Keep only columns from the table definition if we have it
+Go over all properties in the object and makes sure the types of the values correspond to the column definition types,
+this is for those databases which are very sensitive on the types like DynamoDB.</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>db.convertRows(pool, req, rows, options)</code></p>
 <p> Convert rows returned by the database into the Javascript format or into the format
 defined by the table columns.
@@ -5021,7 +5031,7 @@ requests with any database or can be used generically. The <code>cap</code> must
 </ul>
 
 <ul>
-<li><p><code>db.joinColumn(op, obj, name, col, options, old)</code></p>
+<li><p><code>db.joinColumn(op, obj, name, col, options, orig)</code></p>
 <p> Join several columns to produce a combined property if configured, given a column description and an object record
 it replaces the column value with joined value if needed. Empty properties will be still joined as empty strings.
 It always uses the original value even if one of the properties has been joined already.</p>
@@ -5029,6 +5039,12 @@ It always uses the original value even if one of the properties has been joined 
 <p>The <code>options.skip_join</code> can be used to restrict joins, it is a list with columns that should not be joined</p>
 <p>The <code>options.strict_join</code> can be used to perform join only if all columns in the list are not empty, so the join
 is for all columns or none</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.unjoinColumns(rows, name, col, options)</code></p>
+<p> Split joined columns for all rows</p>
 </li>
 </ul>
 
@@ -5083,8 +5099,8 @@ will be returned in the query object</p>
 
 <ul>
 <li><p><code>db.getQueryForKeys(keys, obj, options)</code></p>
-<p> Returns an object based on the list of keys, basically returns a subset of properties
-<code>options.keysMap</code> defins an object to map record properties with the actual names to be returned.</p>
+<p> Returns an object based on the list of keys, basically returns a subset of properties.
+<code>options.keysMap</code> defines an object to map record properties with the actual names to be returned.</p>
 </li>
 </ul>
 
@@ -5660,6 +5676,12 @@ prevented to clear up running list in the master, milliseconds</li>
 </ul>
 
 <ul>
+<li><p><code>lib.console()</code></p>
+<p> Print all arguments into the console, for debugging purposes</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>lib.toVersion(str)</code></p>
 <p> Returns a floating number from the version string, it assumes common semver format as major.minor.patch, all non-digits will
 be removed, underscores will be treated as dots. Returns a floating number which can be used in comparing versions.</p>
@@ -5697,8 +5719,8 @@ false
 </ul>
 
 <ul>
-<li><p><code>lib.toUncamel(str)</code></p>
-<p> Convert Camel names into names with dashes</p>
+<li><p><code>lib.toUncamel(str, sep)</code></p>
+<p> Convert Camel names into names separated by the given separator or dash if not.</p>
 </li>
 </ul>
 
@@ -5720,7 +5742,7 @@ false
 
 <ul>
 <li><p><code>lib.toBool(val, dflt)</code></p>
-<p> Return true if value represents true condition</p>
+<p> Return true if value represents true condition, i.e. non empty value</p>
 </li>
 </ul>
 
@@ -5905,6 +5927,7 @@ options may specify the following parameters:</p>
 <li>limit - number of lines to process and exit</li>
 <li>progress - if &gt; 0 report how many lines processed so far every specified lines</li>
 <li>until - skip lines until this regexp matches</li>
+<li>ignore - skip lines that match this regexp</li>
 </ul>
 </li>
 </ul>
@@ -8107,7 +8130,7 @@ connection to APN gateway.</p>
 
 <ul>
 <li><p><code>accounts.getAccount(req, options, callback)</code></p>
-<p> Return an account, used in /account/get API call</p>
+<p> Return an account, used in /account/get API call, req.account will be filled with the properties from the db</p>
 </li>
 </ul>
 
@@ -8325,8 +8348,6 @@ with other properties to be added. Both objects are left untouched.</p>
 <p>Note: All other properties for both tables are treated separately, to make them appear in both they must be copied into the both objects.</p>
 <p>The following options properties can be used:</p>
 <ul>
-<li>publish - send notification via pub/sub system if present</li>
-<li>autocounter - if a number and not zero it will be used to update auto increment counters</li>
 <li>noreference - do not create reference part of the connection</li>
 <li>connected - return existing connection record for the same type from the peer account</li>
 </ul>
@@ -8760,6 +8781,10 @@ is used in <code>/location/get</code> request. It can be used in the application
 <ul>
 <li><p><code>messages.addMessage(req, options, callback)</code></p>
 <p> Add new message, used in /message/add API call</p>
+<p>The following options properties can be used:</p>
+<ul>
+<li>nosent - do not create a record in the bk_sent table</li>
+</ul>
 </li>
 </ul>
 
