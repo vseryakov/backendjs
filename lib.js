@@ -36,7 +36,7 @@ lib.noop = function() {}
 lib.noopcb = function(err, cb) { if (typeof cb == "function" ) cb(err); };
 
 // Print all arguments into the console, for debugging purposes
-lib.console = function()
+lib.log = function()
 {
     if (util.isError(arguments[0])) return console.log(lib.traceError(arguments[0]));
     for (var i = 0; i < arguments.length; i++) {

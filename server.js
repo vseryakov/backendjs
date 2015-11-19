@@ -224,14 +224,20 @@ server.startWeb = function(options)
             if (core.proxy.port) {
 
                 ipc.on('api:ready', function(msg, worker) {
-                    logger.debug("api:ready:", msg, self.proxyWorkers);
+                    logger.info("api:ready:", msg, self.proxyWorkers);
                     for (var i = 0; i < self.proxyWorkers.length; i++) {
                         if (self.proxyWorkers[i].id == msg.id) return self.proxyWorkers[i] = msg;
                     }
                     logger.error("api:ready:", msg, self.proxyWorkers);
                 });
+                ipc.on('api:shutdown', function(msg, worker) {
+                    logger.info("api:shutdown:", msg, self.proxyWorkers);
+                    for (var i = 0; i < self.proxyWorkers.length; i++) {
+                        if (self.proxyWorkers[i].id == msg.id) self.proxyWorkers[i].ready = false;
+                    }
+                });
                 ipc.on("cluster:exit", function(msg) {
-                    logger.debug("cluster:exit:", msg, self.proxyWorkers);
+                    logger.info("cluster:exit:", msg, self.proxyWorkers);
                     for (var i = 0; i < self.proxyWorkers.length; i++) {
                         if (self.proxyWorkers[i].id == msg.id) return self.proxyWorkers.splice(i, 1);
                     }

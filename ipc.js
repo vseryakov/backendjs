@@ -124,7 +124,7 @@ Ipc.prototype.handleServerMessages = function(worker, msg)
                 if (idx == -1) continue;
                 this.workers.splice(idx, 1);
                 cluster.workers[p].send({ __op: "api:restart" });
-                return;
+                break;
             }
             break;
 

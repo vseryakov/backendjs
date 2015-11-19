@@ -637,6 +637,10 @@ api.shutdown = function(callback)
     this.exiting = true;
     logger.log('api.shutdown: started');
     var timeout = callback ? setTimeout(callback, self.shutdownTimeout || 30000) : null;
+
+    // Make the worker not ready during the shutdown
+    ipc.sendMsg("api:shutdown", { id: cluster.isWorker ? cluster.worker.id : process.pid, pid: process.pid, port: core.port });
+
     lib.parallel([
         function(next) {
             if (!self.wsServer) return next();
