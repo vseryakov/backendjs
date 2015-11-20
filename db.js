@@ -785,11 +785,12 @@ db.incr = function(table, obj, options, callback)
 {
     if (typeof options == "function") callback = options,options = null;
     options = this.getOptions(table, options);
+
     if (!lib.searchObj(options.updateOps, { value: "incr", count: 1 })) {
         if (!lib.isObject(options.updateOps)) options.updateOps = {};
         var cols = this.getColumns(table, options);
         for (var p in cols) {
-            if (cols[p].type == "counter" && obj[p]) options.updateOps[p] = "incr";
+            if (cols[p].type == "counter" && typeof obj[p] != "undefined") options.updateOps[p] = "incr";
         }
     }
 
@@ -978,7 +979,7 @@ db.batch = function(table, op, objs, options, callback)
 
     var cap = db.getCapacity(table, options);
     lib.forEachLimit(objs, options.concurrency || 1, function(obj, next) {
-        db[op](table, obj, options, function(err) {
+        db[op](table, obj, lib.cloneObj(options), function(err) {
             if (err) {
                 if (!options.ignore_error) return next(err);
                 info.push([ err, obj ]);
@@ -1818,11 +1819,13 @@ db.prepareForUpdate = function(pool, op, table, obj, options, cols, orig)
             // Skip artificial join columns
             if (options.noJoinColumns && Array.isArray(col.join) && col.join.indexOf(p) == -1) continue;
             // Convert into native data type
-            if (options.strictTypes) {
-                if (col.primary || col.index || col.type) v = lib.toValue(v, col.type);
-            } else {
-                // Handle json separately in sync with convertRows
-                if (options.noJson && col.type == "json") v = JSON.stringify(v);
+            if (v !== null) {
+                if (options.strictTypes) {
+                    if (col.primary || col.index || col.type) v = lib.toValue(v, col.type);
+                } else {
+                    // Handle json separately in sync with convertRows
+                    if (options.noJson && col.type == "json") v = JSON.stringify(v);
+                }
             }
             // Verify against allowed values
             if (Array.isArray(col.values) && col.values.indexOf(String(v)) == -1) continue;

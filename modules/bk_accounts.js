@@ -275,10 +275,10 @@ accounts.notifyAccount = function(options, callback)
     // Skip this account
     switch (lib.typeName(options.skip)) {
     case "array":
-        if (options.skip.indexOf(id) > -1) return callback({ status: 400, message: "skipped" }, {});
+        if (options.skip.indexOf(id) > -1) return callback({ status: 400, message: "skipped", id: options.account_id }, {});
         break;
     case "object":
-        if (options.skip[id]) return callback({ status: 400, message: "skipped" }, {});
+        if (options.skip[id]) return callback({ status: 400, message: "skipped", id: options.account_id }, {});
         break;
     }
 
@@ -286,20 +286,20 @@ accounts.notifyAccount = function(options, callback)
         if (err || (options.check && status.online)) return callback(err, status);
 
         db.get("bk_account", { id: options.account_id }, function(err, account) {
-            if (err || !account) return callback(err || { status: 404, message: "account not found" }, status);
-            if (!account.device_id && !options.device_id) return callback({ status: 404, message: "device not found" }, status);
+            if (err || !account) return callback(err || { status: 404, message: "account not found", id: options.account_id }, status);
+            if (!account.device_id && !options.device_id) return callback({ status: 404, message: "device not found", id: options.account_id }, status);
 
             switch (lib.typeName(options.allow)) {
             case "array":
-                if (options.allow.some(function(x) { return !account[x] })) return callback({ status: 401, message: "not allowed" }, status);
+                if (options.allow.some(function(x) { return !account[x] })) return callback({ status: 401, message: "not allowed", id: options.account_id }, status);
                 break;
 
             case "object":
-                for (var p in options.allow) if (!options.allow[x]) return callback({ status: 401, message: "not allowed" }, status);
+                for (var p in options.allow) if (!options.allow[x]) return callback({ status: 401, message: "not allowed", id: options.account_id }, status);
                 break;
 
             case "string":
-                if (!account[options.allow]) return callback({ status: 401, message: "not allowed" }, status);
+                if (!account[options.allow]) return callback({ status: 401, message: "not allowed", id: options.account_id }, status);
                 break;
             }
 

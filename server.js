@@ -222,7 +222,6 @@ server.startWeb = function(options)
 
             // In proxy mode we maintain continious sequence of ports for each worker starting with core.proxy.port
             if (core.proxy.port) {
-
                 ipc.on('api:ready', function(msg, worker) {
                     logger.info("api:ready:", msg, self.proxyWorkers);
                     for (var i = 0; i < self.proxyWorkers.length; i++) {

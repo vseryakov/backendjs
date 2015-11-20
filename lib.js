@@ -1317,8 +1317,8 @@ lib.domainName = function(host)
 // Return object type, try to detect any distinguished type
 lib.typeName = function(v)
 {
-    var t = typeof(v);
     if (v === null) return "null";
+    var t = typeof(v);
     if (t !== "object") return t;
     if (Array.isArray(v)) return "array";
     if (Buffer.isBuffer(v)) return "buffer";
