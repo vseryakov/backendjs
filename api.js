@@ -91,6 +91,7 @@ var api = {
            { name: "no-signature", type: "bool", descr: "Disable signature verification for requests" },
            { name: "tz-header-name", descr: "Name for the timezone offset header a client can send for time sensitive requests, the backend decides how to treat this offset" },
            { name: "signature-header-name", descr: "Name for the access signature query parameter, header and session cookie" },
+           { name: "lang-header-name", descr: "Name for the language query parameter, header and session cookie, primary language for a client" },
            { name: "signature-age", type: "int", descr: "Max age for request signature in milliseconds, how old the API signature can be to be considered valid, the 'expires' field in the signature must be less than current time plus this age, this is to support time drifts" },
            { name: "access-token-name", descr: "Name for the access token query parameter or header" },
            { name: "access-token-secret", descr: "A secret to be used for access token signatures, additional enryption on top of the signature to use for API access without signing requests, it is required for access tokens to be used" },
@@ -216,6 +217,7 @@ var api = {
     appHeaderName: "bk-app",
     versionHeaderName: "bk-version",
     tzHeaderName: "bk-tz",
+    langHeaderName: "bk-lang",
     corsOrigin: "*",
 
     // Separate age for access token
@@ -415,6 +417,12 @@ api.init = function(options, callback)
     // Setup busy timer to detect when our requests waiting in the queue for too long
     if (this.maxLatency) bkutils.initBusy(this.maxLatency);
 
+    // Fake i18n methods
+    self.app.use(function(req, res, next) {
+        req.__ = res.__ = res.locals.__ = lib.__;
+        next();
+    });
+
     // Early request setup and checks
     self.app.use(function(req, res, next) {
         // Latency watcher
@@ -463,7 +471,7 @@ api.init = function(options, callback)
     self.app.use(function(req, res, next) {
         res.header('Server', core.name + '/' + core.version + " " + core.appName + "/" + core.appVersion);
         res.header('Access-Control-Allow-Origin', self.corsOrigin);
-        res.header('Access-Control-Allow-Headers', 'content-type, ' + self.signatureHeaderName + ', ' + self.appHeaderName + ', ' + self.versionHeaderName);
+        res.header('Access-Control-Allow-Headers', 'content-type, ' + self.signatureHeaderName + ', ' + self.appHeaderName + ', ' + self.versionHeaderName + ', ' + self.langHeaderName);
         res.header('Access-Control-Allow-Methods', 'OPTIONS, HEAD, GET, POST, PUT, DELETE');
         if (logger.level >= logger.DEBUG) logger.debug('handleServerRequest:', core.port, req.options.ip, req.connection.remoteAddress, req.method, req.options.path, req.get('content-type') || "", req.get(self.appHeaderName) || "", req.get(self.signatureHeaderName) || "", req.get("x-forwarded-for") || "");
         next();
@@ -831,6 +839,7 @@ api.prepareRequest = function(req)
     }
     // Core protocol version to be used in the request if supported
     req.options.coreVersion = req.query[this.versionHeaderName] || req.headers[this.versionHeaderName] || "";
+    req.options.appLanguage = req.query[this.langHeaderName] || req.headers[this.langHeaderName] || (req.headers['accept-language'] || "").toLowerCase().split(/[,;-]/)[0] || "";
     // Timezone offset from UTC passed by the client, we just keep it, how to use it is up to the application
     req.options.timezoneOffset = lib.toNumber(req.query[this.tzHeaderName] || req.headers[this.tzHeaderName], { dflt: 0, min: -720, max: 720 }) * 60000;
     logger.debug("prepareRequest:", req.options);
@@ -1525,18 +1534,6 @@ api.sendJSON = function(req, err, rows)
     });
 }
 
-// Send formatted JSON reply to API client, if status is an instance of Error then error message with status 500 is sent back
-api.sendReply = function(res, status, text)
-{
-    if (status instanceof Error || status instanceof Object) {
-        text = status.message || "Error occured";
-        status = typeof status.status == "number" ? status.status : typeof status.code == "number" ? status.code : 500;
-    }
-    if (typeof status == "string" && status) text = status, status = 500;
-    if (!status) status = 200, text = "";
-    return this.sendStatus(res, { status: status, message: String(text || "") });
-}
-
 // Send result back formatting according to the options properties:
 //  - format - json, csv, xml, JSON is default
 //  - separator - a separator to use for CSV and other formats
@@ -1578,11 +1575,20 @@ api.sendFormatted = function(req, err, data, options)
     }
 }
 
-// Return reply to the client using the options object, it cantains the following properties:
+// Return reply to the client using the options object, it contains the following properties:
 // - status - defines the respone status code
 // - message  - property to be sent as status line and in the body
 // - type - defines Content-Type header, the message will be sent in the body
 // - url - for redirects when status is 301 or 302
+//
+// **i18n Note:**
+//
+// The API server attaches fake i18n functions `req.__` and `res.__` which are used automatically for the `message` property
+// before sending the response.
+//
+// With real i18n module these can/will be replaced performing actual translation without
+// using `i18n.__` method for messages explicitely in the application code for `sendStatus` or `sendReply` methods.
+//
 api.sendStatus = function(res, options)
 {
     if (res.headersSent) return;
@@ -1600,13 +1606,25 @@ api.sendStatus = function(res, options)
                 res.type(type);
                 res.send(options.status, options.message || "");
             } else {
-                res.status(options.status).json(options);
+                res.status(options.status).json({ status: options.status, message: res.__(options.message || "") });
             }
         }
     } catch(e) {
         logger.error('sendStatus:', res.req.url, e.stack);
     }
     return false;
+}
+
+// Send formatted JSON reply to API client, if status is an instance of Error then error message with status 500 is sent back
+api.sendReply = function(res, status, text)
+{
+    if (status instanceof Error || status instanceof Object) {
+        text = status.message || "Error occured";
+        status = typeof status.status == "number" ? status.status : typeof status.code == "number" ? status.code : 500;
+    }
+    if (typeof status == "string" && status) text = status, status = 500;
+    if (!status) status = 200, text = "";
+    return this.sendStatus(res, { status: status, message: String(text || "") });
 }
 
 // Send file back to the client, res is Express response object

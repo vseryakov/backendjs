@@ -1087,7 +1087,7 @@ core.httpGet = function(uri, params, callback)
       });
 
     }).on('error', function(err) {
-        if (!params.quiet) logger[params.retryCount ? "debug" : "error"]("httpGet:", "onerror:", uri, 'file:', params.file || "", 'retry:', params.retryCount, params.retryTimeout, 'timeout:', params.httpTimeout, 'size;', params.size, err);
+        if (!params.quiet) logger[params.retryCount ? "debug" : "error"]("httpGet:", "onerror:", uri, 'file:', params.file || "", 'retry:', params.retryCount, params.retryTimeout, 'timeout:', params.httpTimeout, 'size;', params.size, err, lib.objDescr(options), lib.objDescr(params, { length: 128 }));
         // Keep trying if asked for it
         if (params.retryCount-- > 0) {
             setTimeout(function() { self.httpGet(uri, params, callback); }, params.retryTimeout *= 2);
@@ -1097,7 +1097,7 @@ core.httpGet = function(uri, params, callback)
     });
     if (params.httpTimeout) {
         req.setTimeout(params.httpTimeout, function() {
-            if (!params.quiet) logger[params.retryCount ? "debug" : "error"]("httpGet:", "timeout:", uri, 'file:', params.file || "", 'retry:', params.retryCount, params.retryTimeout, 'timeout:', params.httpTimeout);
+            if (!params.quiet) logger[params.retryCount ? "debug" : "error"]("httpGet:", "timeout:", uri, 'file:', params.file || "", 'retry:', params.retryCount, params.retryTimeout, 'timeout:', params.httpTimeout, lib.objDescr(options));
             req.abort();
         });
     }

@@ -44,6 +44,17 @@ lib.log = function()
     }
 }
 
+// Fake i18n translation method compatible with other popular modules, supports the following usage:
+// - __(name)
+// - __(fmt, arg,...)
+//
+// When real i18n module is used this function can be replaced to support global reference.
+lib.__ = function()
+{
+    if (arguments.length > 1) return this.sprintf.apply(arguments);
+    return arguments[0];
+}
+
 // Returns a floating number from the version string, it assumes common semver format as major.minor.patch, all non-digits will
 // be removed, underscores will be treated as dots. Returns a floating number which can be used in comparing versions.
 //
@@ -1611,8 +1622,8 @@ lib.objSet = function(obj, name, value, options)
 }
 
 // Return an object structure as a string object by showing primitive properties only, for arrays it shows the length,
-// strings are limited by optins.length or 16 bytes,
-// the object depth is limited by options.depth or 3 levels deep, the number of properties are limited by options.count or 5
+// strings are limited by options.length or 16 bytes,
+// the object depth is limited by options.depth or 5 levels deep, the number of properties are limited by options.count or 5
 lib.objDescr = function(obj, options)
 {
     if (!obj) return "";
