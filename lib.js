@@ -323,8 +323,8 @@ lib.toAge = function(mtime)
 //  - prefix - prefix to be used when searching for the parameters in the query, only properties with this prefix will be processed. The resulting
 //     object will not have this prefix in the properties.
 //
-// If any of the properties have `required:1` and the value will not be resolved then the function returns an Error object with the `errmsg` message
-// or default message, this is useful for detection of invalid or missing input data.
+// If any of the properties have `required:1` and the value will not be resolved then the function returns a string with the `errmsg` message
+// or the default message, this is useful for detection of invalid or missing input data.
 //
 // Example:
 //
@@ -344,7 +344,7 @@ lib.toAge = function(mtime)
 //                                              { data: { start: { secret: req.account.secret },
 //                                                        name: { dflt: "test" }
 //                                              })
-//        if (util.isError(account)) return api.sendReply(res, account);
+//        if (typeof account == "string) return api.sendReply(res, 400, account);
 //
 lib.toParams = function(query, schema, options)
 {
@@ -414,9 +414,9 @@ lib.toParams = function(query, schema, options)
             rc[name] = v;
             break;
         }
-        // Return and error object
+        // Return an error message
         if (opts.required && this.isEmpty(rc[name])) {
-            return this.newError(opts.errmsg || (name + " is required"), opts.errcode);
+            return opts.errmsg || this.__("%s is required", name);
         }
     }
     return rc;
