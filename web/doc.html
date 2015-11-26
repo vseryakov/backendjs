@@ -158,7 +158,8 @@ server running in the master process instead of relying on the OS scheduling bet
 <li>Can be used with any MVC, MVVC or other types of frameworks that work on top or with the Express server.</li>
 <li>AWS supports is very well integrated including EC2, S3, DynamoDB, SQS and more.</li>
 <li>Includes simple log watcher to monitor the log files including system errors.</li>
-<li>Intergated very light unit testing facility which can be used to test modules and API requests</li>
+<li>Supports i18n hooks for request/response objects, easily overriden with any real i18n implementation.</li>
+<li>Integrated very light unit testing facility which can be used to test modules and API requests</li>
 <li>Support runtime metrics about the timing on database, requests, cache, memory and request rate limit control</li>
 <li>Hosted on <a href="https://github.com/vseryakov/backendjs">github</a>, BSD licensed.</li>
 </ul>
@@ -249,7 +250,7 @@ is only enabled by default in development mode, check app.sh for parameters befo
 <p>Almost everything in the backend is configurable using a config files, config database or DNS.
 The whole principle behind it that once deployed in production, even quick restart are impossible to do so
 there should be a way to push config changes to the processes without restarting.</p>
-<p>Every module defines a set of config parameters that define the behavior of the code, due to single threaded
+<p>Every module defines a set of config parameters that defines the behavior of the code, due to single threaded
 nature of the node.js, it is simple to update any config parameter to new value so the code can operate differently.
 To achieve this the code must be written in a special way, like driven by configuration which can be changed at
 any time.</p>
@@ -300,6 +301,14 @@ which makes it easy to refer and extend with additional methods and structures.<
     var app = bkjs.app;
     var db = bkjs.db;
 
+    app.listArg = [];
+
+    // Define the module config parameters
+    core.describeArgs(&#39;app&#39;, [
+      { name: &quot;list-arg&quot;, array: 1, type: &quot;list&quot;, descr: &quot;List of words&quot; },
+      { name: &quot;int-arg&quot;, type: &quot;int&quot;, descr: &quot;An integer parameter&quot; },
+     ]);
+
     // Describe the tables or data models, all DB pools will use it, the master or shell
     // process only creates new tables, workers just use the existing tables
     db.describeTables({
@@ -320,7 +329,11 @@ which makes it easy to refer and extend with additional methods and structures.<
           // to return an error
           api.sendReply(res, err);
           // or with custom status and message
-          api.sendReply(res, 404, &quot;not found&quot;)
+          api.sendReply(res, 404, res.__(&quot;not found&quot;))
+
+          // with config check
+          if (app.intArg &gt; 5) ...
+          if (app.listArg.indexOf(req.query.name) &gt; -1) ...
 
           // to send data back
           api.sendJSON(req, err, data);
@@ -2210,7 +2223,8 @@ Database pool statistics and other diagnostics</p>
 <li><code>logwatcher-email-[a-z]+</code> - Email address for the logwatcher notifications, the monitor process scans system and backend log files for errors and sends them to this email address, if not specified no log watching will happen, each channel must define an email separately, one of error, warning, info, all. Example: <code>-logwatcher-email-error=help@error.com</code></li>
 <li><code>logwatcher-ignore-[a-z]+</code> - Regexp with patterns that need to be ignored by the logwatcher process, it is added to the list of ignored patterns for each specified channel separately</li>
 <li><code>logwatcher-file(-[a-z]+)?</code> - Add a file to be watched by the logwatcher, it will use all configured match patterns</li>
-<li><code>logwatcher-url(-[a-z]+)?</code> - The backend URL(s) where logwatcher reports should be sent instead of sending over email</li>
+<li><code>logwatcher-url(-[a-z]+)?</code> - The backend URL(s) where logwatcher reports should be sent, the log is sent in a POST request, additional info is in the headers</li>
+<li><code>logwatcher-table(-[a-z]+)?</code> - The database table where logwatcher reports should be stored, the table must have the following columns: ipaddr, host, type, instance_id, instance_tag, run_mode, data, mtime</li>
 <li><code>user-agent</code> - Add HTTP user-agent header to be used in HTTP requests, for scrapers or other HTTP requests that need to be pretended coming from Web browsers</li>
 <li><code>backend-host</code> - Host of the master backend, can be used for backend nodes communications using core.sendRequest function calls with relative URLs, also used in tests.</li>
 <li><code>backend-login</code> - Credentials login for the master backend access when using core.sendRequest</li>
@@ -2289,6 +2303,7 @@ Database pool statistics and other diagnostics</p>
 <li><code>api-no-signature</code> - Disable signature verification for requests</li>
 <li><code>api-tz-header-name</code> - Name for the timezone offset header a client can send for time sensitive requests, the backend decides how to treat this offset</li>
 <li><code>api-signature-header-name</code> - Name for the access signature query parameter, header and session cookie</li>
+<li><code>api-lang-header-name</code> - Name for the language query parameter, header and session cookie, primary language for a client</li>
 <li><code>api-signature-age</code> - Max age for request signature in milliseconds, how old the API signature can be to be considered valid, the &#39;expires&#39; field in the signature must be less than current time plus this age, this is to support time drifts</li>
 <li><code>api-access-token-name</code> - Name for the access token query parameter or header</li>
 <li><code>api-access-token-secret</code> - A secret to be used for access token signatures, additional enryption on top of the signature to use for API access without signing requests, it is required for access tokens to be used</li>
@@ -2319,6 +2334,7 @@ Database pool statistics and other diagnostics</p>
 <li><code>api-secret-policy</code> - An JSON object with list of regexps to validate account password, each regexp comes with an error message to be returned if such regexp fails, <code>api.checkAccountSecret</code> performs the validation, example: { &#39;[a-z]+&#39;: &#39;At least one lowercase letter&#39;, &#39;[A-Z]+&#39;: &#39;At least one upper case letter&#39; }</li>
 <li><code>api-platform-match</code> - An JSON object with list of regexps to match user-agent header for platform detection, example: { &#39;ios|iphone|ipad&#39;: &#39;ios&#39;, &#39;android&#39;: &#39;android&#39; }</li>
 <li><code>api-cors-origin</code> - Origin header for CORS requests</li>
+<li><code>api-error-message</code> - Default erro rmessage to return in case of exceptions</li>
 <li><code>api-url-metrics-([a-z]+)</code> - Defines the length of an API request path to be stored in the statistics, set by the first component of endpoint URL, example: -api-url-metrics-image 2 -api-url-metrics-account 3</li>
 <li><code>api-rlimits-([a-zA-Z0-9/_]+)-max</code> - Set max/burst rate limit by the given property, it is used by the request rate limiter using Token Bucket algorithm. Predefined types: ip, path, id, login</li>
 <li><code>api-rlimits-([a-zA-Z0-9/_]+)-rate</code> - Set fill/normal rate limit by the given property, it is used by the request rate limiter using Token Bucket algorithm. Predefined types: ip, path, id, login</li>
@@ -2807,6 +2823,31 @@ of registration. At this time the result has been sent so connection is not vali
 </ul>
 
 <ul>
+<li><p><code>api.registerControlParams(options)</code></p>
+<p> Add special control parameters that will be recognized in the query and placed in the <code>req.options</code> for every request.</p>
+<p>Control params starts with the underscore and will be converted into the configured type according to the spec.
+The options is an object in the format that is used by <code>lib.toParams</code>, no default type is allowed, even for string
+it needs to be defined as { type: &quot;string&quot; }.</p>
+<p>Example:</p>
+<pre><code>mod.configureMiddleware = function(options, callback) {
+    api.registerControlParams({ notify: { type: &quot;bool&quot; }, level: { type: &quot;int&quot;, min: 1, max: 10 } });
+    callback();
+}
+
+Then if a request arrives for example as `_notify=true&amp;_level=5`, it will be parsed and placed in the `req.options`:
+
+mod.configureWeb = function(options, callback) {
+
+   api.app.all(&quot;/send&quot;, function(req, res) {
+       if (req.options.notify) { ... }
+       if (req.options.level &gt; 5) { ... }
+   });
+   callback()
+}
+</code></pre></li>
+</ul>
+
+<ul>
 <li><p><code>api.registerOAuthStrategy(strategy, options, callback)</code></p>
 <p> Given passport strategy setup OAuth callbacks and handle the login process by creating a mapping account for each
 OAUTH authenticated account.
@@ -2837,12 +2878,6 @@ If err is not null the error message is returned immediately.</p>
 </ul>
 
 <ul>
-<li><p><code>api.sendReply(res, status, text)</code></p>
-<p> Send formatted JSON reply to API client, if status is an instance of Error then error message with status 500 is sent back</p>
-</li>
-</ul>
-
-<ul>
 <li><p><code>api.sendFormatted(req, err, data, options)</code></p>
 <p> Send result back formatting according to the options properties:</p>
 <ul>
@@ -2854,13 +2889,26 @@ If err is not null the error message is returned immediately.</p>
 
 <ul>
 <li><p><code>api.sendStatus(res, options)</code></p>
-<p> Return reply to the client using the options object, it cantains the following properties:</p>
+<p> Return reply to the client using the options object, it contains the following properties:</p>
 <ul>
 <li>status - defines the respone status code</li>
 <li>message  - property to be sent as status line and in the body</li>
 <li>type - defines Content-Type header, the message will be sent in the body</li>
 <li>url - for redirects when status is 301 or 302</li>
 </ul>
+<p><strong>i18n Note:</strong></p>
+<p>The API server attaches fake i18n functions <code>req.__</code> and <code>res.__</code> which are used automatically for the <code>message</code> property
+before sending the response.</p>
+<p>With real i18n module these can/will be replaced performing actual translation without
+using <code>i18n.__</code> method for messages explicitely in the application code for <code>sendStatus</code> or <code>sendReply</code> methods.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.sendReply(res, status, text)</code></p>
+<p> Send formatted JSON reply to an API client, if status is an instance of Error then error message with status 500 is sent back.</p>
+<p>All Error objects will return a generic error message without exposing the real error message, it will log all error exceptions in the logger
+subject to log throttling configuration.</p>
 </li>
 </ul>
 
@@ -4778,7 +4826,7 @@ then <code>info.affected_rows</code> must be non zero.</p>
 </ul>
 
 <ul>
-<li><p><code>db.convertError(table, op, err, options)</code></p>
+<li><p><code>db.convertError(pool, table, op, err, options)</code></p>
 <p> Convert native database error in some generic human readable string</p>
 </li>
 </ul>
@@ -5676,8 +5724,19 @@ prevented to clear up running list in the master, milliseconds</li>
 </ul>
 
 <ul>
-<li><p><code>lib.console()</code></p>
+<li><p><code>lib.log()</code></p>
 <p> Print all arguments into the console, for debugging purposes</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.__()</code></p>
+<p> Fake i18n translation method compatible with other popular modules, supports the following usage:</p>
+<ul>
+<li>__(name)</li>
+<li>__(fmt, arg,...)</li>
+</ul>
+<p>When real i18n module is used this function can be replaced to support global reference.</p>
 </li>
 </ul>
 
@@ -6335,8 +6394,8 @@ objects will be create automatically. The options can have the folowing properti
 <ul>
 <li><p><code>lib.objDescr(obj, options)</code></p>
 <p> Return an object structure as a string object by showing primitive properties only, for arrays it shows the length,
-strings are limited by optins.length or 16 bytes,
-the object depth is limited by options.depth or 3 levels deep, the number of properties are limited by options.count or 5</p>
+strings are limited by options.length or 16 bytes,
+the object depth is limited by options.depth or 5 levels deep, the number of properties are limited by options.count or 5</p>
 </li>
 </ul>
 
@@ -7592,7 +7651,7 @@ db.query({ op: &quot;PUT&quot;, text: &quot;/db/url&quot;, obj: { a: 1 b: 2 } },
 <h2 id="module-db_dynamodb">Module: DB_DYNAMODB</h2>
 <ul>
 <li><p><code>Pool.prototype.convertError(table, op, err, options)</code></p>
-<p> Convert into human readable messages</p>
+<p> Convert into recognizable error codes</p>
 </li>
 </ul>
 

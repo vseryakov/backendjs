@@ -104,6 +104,7 @@ var core = {
     logwatcherAnyRange: 5,
     logwatcherEmail: {},
     logwatcherUrl: {},
+    logwatcherTable: {},
     logwatcherIgnore: {},
     logwatcherMatch: {
         error: [ ' (ERROR|ALERT|EMERG|CRIT): ', 'message":"ERROR:' ],
@@ -212,7 +213,8 @@ var core = {
             { name: "logwatcher-email-[a-z]+", obj: "logwatcher-email", descr: "Email address for the logwatcher notifications, the monitor process scans system and backend log files for errors and sends them to this email address, if not specified no log watching will happen, each channel must define an email separately, one of error, warning, info, all. Example: `-logwatcher-email-error=help@error.com`" },
             { name: "logwatcher-ignore-[a-z]+", obj: "logwatcher-ignore", array: 1, descr: "Regexp with patterns that need to be ignored by the logwatcher process, it is added to the list of ignored patterns for each specified channel separately" },
             { name: "logwatcher-file(-[a-z]+)?", obj: "logwatcher-file", type: "callback", callback: function(v,k) { if (v) this.push({file:v,type:k}) }, descr: "Add a file to be watched by the logwatcher, it will use all configured match patterns" },
-            { name: "logwatcher-url(-[a-z]+)?", obj: "logwatcher-url", descr: "The backend URL(s) where logwatcher reports should be sent instead of sending over email" },
+            { name: "logwatcher-url(-[a-z]+)?", obj: "logwatcher-url", descr: "The backend URL(s) where logwatcher reports should be sent, the log is sent in a POST request, additional info is in the headers" },
+            { name: "logwatcher-table(-[a-z]+)?", obj: "logwatcher-table", descr: "The database table where logwatcher reports should be stored, the table must have the following columns: ipaddr, host, type, instance_id, instance_tag, run_mode, data, mtime" },
             { name: "user-agent", array: 1, descr: "Add HTTP user-agent header to be used in HTTP requests, for scrapers or other HTTP requests that need to be pretended coming from Web browsers" },
             { name: "backend-host", descr: "Host of the master backend, can be used for backend nodes communications using core.sendRequest function calls with relative URLs, also used in tests." },
             { name: "backend-login", descr: "Credentials login for the master backend access when using core.sendRequest" },
@@ -1656,20 +1658,40 @@ core.watchLogs = function(options, callback)
         }, function(err) {
             lib.forEach(Object.keys(errors), function(type, next) {
                 if (!errors[type].length) return next();
-                logger.log('logwatcher:', type, 'found matches, sending to', self.logwatcherEmail[type] || "", self.logwatcherUrl[type] || "");
+                logger.log('logwatcher:', type, 'found matches, sending to', self.logwatcherEmail[type] || "", self.logwatcherUrl[type] || "", self.logwatcherTable[type] || "");
 
+                if (self.logwatcherTable[type]) {
+                    db.add(self.logwatcherTable[type], {
+                               mtime: Date.now(),
+                               type: type,
+                               ipaddr: self.ipaddr,
+                               host: os.hostname(),
+                               instance_id: self.instance.id,
+                               instance_tag: self.instance.tag,
+                               run_mode: self.runMode,
+                               data: errors[type] }, function() { next() });
+                    return;
+                }
                 if (self.logwatcherUrl[type]) {
                     self.sendRequest({ url: self.logwatcherUrl[type],
-                                       queue: true,
-                                       headers: { "content-type": "text/plain" },
-                                       method: "POST",
-                                       postdata: errors[type] }, function() { next() });
+                                         queue: true,
+                                         headers: {
+                                             "content-type": "text/plain",
+                                             "bk-type": type,
+                                             "bk-ipaddr": self.ipaddr,
+                                             "bk-host": os.hostname(),
+                                             "bk-instance-id": self.instance.id,
+                                             "bk-instance-tag": self.instance.tag,
+                                             "bk-run-mode": self.runMode,
+                                         },
+                                         method: "POST",
+                                         postdata: errors[type] }, function() { next() });
                     return;
                 }
                 if (self.logwatcherEmail[type]) {
                     self.sendmail({ from: self.logwatcherFrom,
                                     to: self.logwatcherEmail[type],
-                                    subject: "logwatcher: " + type + ": " + os.hostname() + "/" + self.ipaddr + "/" + self.instance.id + "/" + self.runMode,
+                                    subject: "logwatcher: " + type + ": " + os.hostname() + "/" + self.ipaddr + "/" + self.instance.id + "/" + self.instance.tag + "/" + self.runMode,
                                     text: errors[type] }, function() { next() });
                     return;
                 }

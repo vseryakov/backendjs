@@ -401,6 +401,8 @@ lib.toParams = function(query, schema, options)
             if (!v) break;
             rc[name] = this.jsonParse(v, opts);
             break;
+        case "string":
+        case "text":
         default:
             if (!v) break;
             v = String(v);
@@ -1345,10 +1347,9 @@ lib.newError = function(options, status)
 {
     if (typeof options == "string") options = { status: typeof status == "number" ? status : 400, message: options };
     if (!options) options = {};
-    var err = new Error(options.message || "Internal error");
+    var err = new Error(options.message || this.__("Internal error occured, please try later"));
     for (var p in options) err[p] = options[p];
-    if (err.code && !err.status) err.status = err.code;
-    if (err.status && !err.code) err.code = err.status;
+    if (!err.status) err.status = 400;
     return err;
 }
 

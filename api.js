@@ -122,6 +122,7 @@ var api = {
            { name: "secret-policy", type: "regexpmap", descr : "An JSON object with list of regexps to validate account password, each regexp comes with an error message to be returned if such regexp fails, `api.checkAccountSecret` performs the validation, example: { '[a-z]+': 'At least one lowercase letter', '[A-Z]+': 'At least one upper case letter' }" },
            { name: "platform-match", type: "regexpmap", regexp: "i", descr : "An JSON object with list of regexps to match user-agent header for platform detection, example: { 'ios|iphone|ipad': 'ios', 'android': 'android' }" },
            { name: "cors-origin", descr: "Origin header for CORS requests" },
+           { name: "error-message", descr: "Default erro rmessage to return in case of exceptions" },
            { name: "url-metrics-([a-z]+)", type: "int", obj: "url-metrics", descr: "Defines the length of an API request path to be stored in the statistics, set by the first component of endpoint URL, example: -api-url-metrics-image 2 -api-url-metrics-account 3" },
            { name: "rlimits-([a-zA-Z0-9/_]+)-max", type: "int", obj: "rlimits", descr: "Set max/burst rate limit by the given property, it is used by the request rate limiter using Token Bucket algorithm. Predefined types: ip, path, id, login" },
            { name: "rlimits-([a-zA-Z0-9/_]+)-rate", type: "int", obj: "rlimits", descr: "Set fill/normal rate limit by the given property, it is used by the request rate limiter using Token Bucket algorithm. Predefined types: ip, path, id, login" },
@@ -595,10 +596,6 @@ api.init = function(options, callback)
                 self.errlogLimiterToken = new metrics.TokenBucket(self.errlogLimiterMax, 0, self.errlogLimiterInterval);
             }
             self.app.use(function(err, req, res, next) {
-                // Do not show runtime errors
-                if (err && !String(err).match(self.errlogLimiterIgnore)) {
-                    if (!self.errlogLimiterToken || self.errlogLimiterToken.consume(1)) logger.error('api:', req.options.path, lib.traceError(err));
-                }
                 self.sendReply(res, err);
             });
 
@@ -1410,6 +1407,36 @@ api.registerCleanup = function(method, path, callback)
     this.addHook('cleanup', method, path, callback);
 }
 
+// Add special control parameters that will be recognized in the query and placed in the `req.options` for every request.
+//
+// Control params starts with the underscore and will be converted into the configured type according to the spec.
+// The options is an object in the format that is used by `lib.toParams`, no default type is allowed, even for string
+// it needs to be defined as { type: "string" }.
+//
+// Example:
+//
+//      mod.configureMiddleware = function(options, callback) {
+//          api.registerControlParams({ notify: { type: "bool" }, level: { type: "int", min: 1, max: 10 } });
+//          callback();
+//      }
+//
+//      Then if a request arrives for example as `_notify=true&_level=5`, it will be parsed and placed in the `req.options`:
+//
+//      mod.configureWeb = function(options, callback) {
+//
+//         api.app.all("/send", function(req, res) {
+//             if (req.options.notify) { ... }
+//             if (req.options.level > 5) { ... }
+//         });
+//         callback()
+//      }
+api.registerControlParams = function(options)
+{
+    for (var p in options) {
+        if (options[p] && options[p].type) this.controls[p] = options[p];
+    }
+}
+
 // Given passport strategy setup OAuth callbacks and handle the login process by creating a mapping account for each
 // OAUTH authenticated account.
 // The callback if specified will be called as function(req, options, info) with `req.user` signifies the successful
@@ -1615,16 +1642,27 @@ api.sendStatus = function(res, options)
     return false;
 }
 
-// Send formatted JSON reply to API client, if status is an instance of Error then error message with status 500 is sent back
+// Send formatted JSON reply to an API client, if status is an instance of Error then error message with status 500 is sent back.
+//
+// All Error objects will return a generic error message without exposing the real error message, it will log all error exceptions in the logger
+// subject to log throttling configuration.
 api.sendReply = function(res, status, text)
 {
-    if (status instanceof Error || status instanceof Object) {
-        text = status.message || "Error occured";
-        status = typeof status.status == "number" ? status.status : typeof status.code == "number" ? status.code : 500;
+    if (util.isError(status)) {
+        // Do not show runtime errors
+        if (status.message && !String(status.message).match(this.errlogLimiterIgnore)) {
+            if (!this.errlogLimiterToken || this.errlogLimiterToken.consume(1)) logger.error("sendReply:", res.req.url, lib.traceError(status));
+        }
+        text = this.errorMessage || res.__("Internal error occured, please try later");
+        status = status.status > 0 ? status.status : 500;
+    } else
+    if (status instanceof Object) {
+        text = status.message;
+        status = status.status > 0 ? status.status : 200;
     }
+
     if (typeof status == "string" && status) text = status, status = 500;
-    if (!status) status = 200, text = "";
-    return this.sendStatus(res, { status: status, message: String(text || "") });
+    return this.sendStatus(res, { status: status || 200, message: String(text || "") });
 }
 
 // Send file back to the client, res is Express response object

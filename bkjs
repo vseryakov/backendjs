@@ -224,9 +224,9 @@ case "$ARG" in
     hostname=$host
     [ "$domain" != "" ] && hostname="$host.$domain"
     if [ "$(grep -s $addr /etc/hosts)" = "" -o "$(grep -s $host /etc/hosts)" = "" ]; then
-       grep -v $addr /etc/hosts > /tmp/hosts
-       echo "$addr $hostname" >> /tmp/hosts
-       mv /tmp/hosts /etc
+       echo "127.0.0.1 localhost localhost.localdomain" > /etc/hosts
+       echo "$addr $hostname" >> /etc/hosts
+       echo "$addr localip" >> /etc/hosts
        $0 init-hostname -host $host -domain $domain
     fi
     ;;
@@ -917,22 +917,27 @@ case "$ARG" in
     ($0 get-elasticsearch)
     ($0 run-elasticsearch)
     if [ "$PLATFORM" = "Linux" ]; then
-       echo "check process java with pidfile \"$BKJS_HOME/var/elasticsearch.pid\" start program = \"$0 run-elasticsearch\" as uid $BKJS_USER and gid $BKJS_GROUP stop program = \"$0 stop-elasticsearch\"" > /etc/monit.d/elasticsearch.conf
-       monit reload
+       sudo $0 init-elasticsearch-monit
     fi
+    ;;
+
+  init-elasticsearch-monit)
+    echo "check process java with pidfile \"$BKJS_HOME/var/elasticsearch.pid\" start program = \"$0 run-elasticsearch\" as uid $BKJS_USER and gid $BKJS_GROUP stop program = \"$0 stop-elasticsearch\"" > /etc/monit.d/elasticsearch.conf
+    monit reload
     ;;
 
   get-elasticsearch)
     if [ ! -d $ELASTICSEARCH_PREFIX ]; then
         mkdir -p $ELASTICSEARCH_PREFIX
-        curl -L -o es.tgz https://download.elasticsearch.org/elasticsearch/release/org/elasticsearch/distribution/tar/elasticsearch/2.0.0/elasticsearch-2.0.0.tar.gz
+        curl -L -o es.tgz https://download.elasticsearch.org/elasticsearch/release/org/elasticsearch/distribution/tar/elasticsearch/2.1.0/elasticsearch-2.1.0.tar.gz
         tar -C $ELASTICSEARCH_PREFIX --strip-components=1 -xzf es.tgz
         rm -rf es.tgz
         if [ "$OS_TYPE" = "amazon" ]; then
            cd $ELASTICSEARCH_PREFIX
+           echo "script.inline: on" >> config/elasticsearch.yml
            echo "network.host: _ec2_" >> config/elasticsearch.yml
            echo "discovery.type: ec2" >> config/elasticsearch.yml
-           bin/plugin install elasticsearch/elasticsearch-cloud-aws/2.7.1
+           bin/plugin install cloud-aws
         fi
     fi
     ;;

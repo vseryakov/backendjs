@@ -27,6 +27,7 @@ var Bkjs = {
     signatureName: "bk-signature",
     accessTokenName: "bk-access-token",
     tzName: "bk-tz",
+    langName: "bk-lang",
 
     // Current account record
     account: {},
@@ -264,6 +265,7 @@ var Bkjs = {
             options.headers = this.createSignature(options.type, options.url, options.data, { expires: options.expires, checksum: options.checksum });
             // Optional timezone offset for ptoper datetime related operations
             options.headers[this.tzName] = (new Date()).getTimezoneOffset();
+            if (this.language) options.headers[this.langName] = this.language;
         }
         this.loading("show");
         $.ajax(options);

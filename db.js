@@ -539,7 +539,7 @@ db.query = function(req, options, callback)
         if (typeof callback == "function") {
             try {
                 // Auto convert the error according to the rules
-                if (err) err = pool.convertError(table, req.op || "", err, options);
+                if (err) err = self.convertError(pool, table, req.op || "", err, options);
                 callback(err, rows, info);
             } catch(e) {
                 logger.error("db.query:", pool.name, e, 'REQ:', req, 'OPTS:', options, e.stack);
@@ -1614,10 +1614,20 @@ db.drop = function(table, options, callback)
 }
 
 // Convert native database error in some generic human readable string
-db.convertError = function(table, op, err, options)
+db.convertError = function(pool, table, op, err, options)
 {
-    if (!err || !(err instanceof Error)) return err;
-    return this.getPool(table, options).convertError(table, op, err, options);
+    if (!err || !util.isError(err)) return err;
+    err = pool.convertError(table, op, err, options);
+    if (util.isError(err)) {
+        switch (err.code) {
+        case "AlreadyExists":
+            return { message: lib.__("Record already exists"), status: 409 };
+
+        case "NotFound":
+            return { message: lib.__("Record could not be found"), status: 404 };
+        }
+    }
+    return err;
 }
 
 // Define new tables or extend/customize existing tables. Table definitions are used with every database operation,

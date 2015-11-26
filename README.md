@@ -34,7 +34,8 @@ Features:
 * Can be used with any MVC, MVVC or other types of frameworks that work on top or with the Express server.
 * AWS supports is very well integrated including EC2, S3, DynamoDB, SQS and more.
 * Includes simple log watcher to monitor the log files including system errors.
-* Intergated very light unit testing facility which can be used to test modules and API requests
+* Supports i18n hooks for request/response objects, easily overriden with any real i18n implementation.
+* Integrated very light unit testing facility which can be used to test modules and API requests
 * Support runtime metrics about the timing on database, requests, cache, memory and request rate limit control
 * Hosted on [github](https://github.com/vseryakov/backendjs), BSD licensed.
 
@@ -141,7 +142,7 @@ Almost everything in the backend is configurable using a config files, config da
 The whole principle behind it that once deployed in production, even quick restart are impossible to do so
 there should be a way to push config changes to the processes without restarting.
 
-Every module defines a set of config parameters that define the behavior of the code, due to single threaded
+Every module defines a set of config parameters that defines the behavior of the code, due to single threaded
 nature of the node.js, it is simple to update any config parameter to new value so the code can operate differently.
 To achieve this the code must be written in a special way, like driven by configuration which can be changed at
 any time.
@@ -207,6 +208,14 @@ The typical structure of a backendjs application is the following (created by th
     var app = bkjs.app;
     var db = bkjs.db;
 
+    app.listArg = [];
+
+    // Define the module config parameters
+    core.describeArgs('app', [
+      { name: "list-arg", array: 1, type: "list", descr: "List of words" },
+      { name: "int-arg", type: "int", descr: "An integer parameter" },
+     ]);
+
     // Describe the tables or data models, all DB pools will use it, the master or shell
     // process only creates new tables, workers just use the existing tables
     db.describeTables({
@@ -227,7 +236,11 @@ The typical structure of a backendjs application is the following (created by th
           // to return an error
           api.sendReply(res, err);
           // or with custom status and message
-          api.sendReply(res, 404, "not found")
+          api.sendReply(res, 404, res.__("not found"))
+
+          // with config check
+          if (app.intArg > 5) ...
+          if (app.listArg.indexOf(req.query.name) > -1) ...
 
           // to send data back
           api.sendJSON(req, err, data);
