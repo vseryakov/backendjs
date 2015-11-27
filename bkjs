@@ -932,9 +932,10 @@ case "$ARG" in
         curl -L -o es.tgz https://download.elasticsearch.org/elasticsearch/release/org/elasticsearch/distribution/tar/elasticsearch/2.1.0/elasticsearch-2.1.0.tar.gz
         tar -C $ELASTICSEARCH_PREFIX --strip-components=1 -xzf es.tgz
         rm -rf es.tgz
+        cd $ELASTICSEARCH_PREFIX
+        echo "script.inline: on" >> config/elasticsearch.yml
+        echo "script.indexed: on" >> config/elasticsearch.yml
         if [ "$OS_TYPE" = "amazon" ]; then
-           cd $ELASTICSEARCH_PREFIX
-           echo "script.inline: on" >> config/elasticsearch.yml
            echo "network.host: _ec2_" >> config/elasticsearch.yml
            echo "discovery.type: ec2" >> config/elasticsearch.yml
            bin/plugin install cloud-aws
