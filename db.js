@@ -485,9 +485,6 @@ db.dropPoolTables = function(name, tables, options, callback)
 //       the pool by table name if some tables are assigned to any specific pool by configuration parameters `db-pool-tables`.
 //     - unique - perform sorting the result and eliminate any duplicate rows by the column name specified in the `unique` property
 //     - filter - function to filter rows not to be included in the result, return false to skip row, args are: function(req, row, options)
-//     - async_filter - perform filtering of the result but with possible I/O so it can delay returning results: function(req, rows, options, callback),
-//          the calback on result will return err and rows as any other regular database callbacks. This filter can be used to perform
-//          filtering based on the ata in the other table for example.
 //     - silence_error - do not report about the error in the log, still the error is retirned to the caller
 //     - ignore_error - same as silence_error
 //     - noprocessrows - if true then skip post processing result rows, return the data as is, this will result in returning combined columns as it is
@@ -508,119 +505,112 @@ db.query = function(req, options, callback)
 {
     var self = this;
     if (typeof options == "function") callback = options, options = null;
-    if (typeof callback != "function") callback = lib.noop;
-    if (!lib.isObject(req)) return callback(lib.newError("invalid request"));
+    if (!lib.isObject(req)) return typeof callback == "function" && callback(lib.newError("invalid request"));
     if (!options) options = {};
 
-    var table = req.table || "";
-    var pool = this.getPool(table, options);
-    var quiet = options.silence_error || options.ignore_error || options.quiet;
+    req.table = req.table || "";
+    var pool = this.getPool(req.table, options);
     // For postprocess callbacks
     req.pool = pool.name;
 
     // Metrics collection
-    var m1 = pool.metrics.Timer('que').start();
+    req.timer = pool.metrics.Timer('que').start();
     pool.metrics.Histogram('req').update(pool.metrics.Counter('count').inc());
     pool.metrics.Counter('req_0').inc();
 
-    function onEnd(err, client, rows, info) {
-        if (client) pool.release(client);
-
-        m1.end();
-        pool.metrics.Counter('count').dec();
-        delete req.info;
-
-        if (err && !quiet) {
-            pool.metrics.Counter("err_0").inc();
-            logger.error("db.query:", pool.name, err, 'REQ:', req, 'OPTS:', options, lib.traceError(err));
-        } else {
-            logger.debug("db.query:", pool.name, m1.elapsed, 'ms', rows.length, 'rows', 'REQ:', req, 'INFO:', info, 'OPTS:', options, err);
-        }
-        if (typeof callback == "function") {
-            try {
-                // Auto convert the error according to the rules
-                if (err) err = self.convertError(pool, table, req.op || "", err, options);
-                callback(err, rows, info);
-            } catch(e) {
-                logger.error("db.query:", pool.name, e, 'REQ:', req, 'OPTS:', options, e.stack);
-            }
-        }
-    }
-
-    function onResult(err, rows, info) {
-        // Cache notification in case of updates, we must have the request prepared by the db.prepare
-        var cached = options.cached || self.cacheTables.indexOf(table) > -1;
-        if (cached && table && req.obj && req.op && ['put','update','incr','del'].indexOf(req.op) > -1) {
-            self.delCache(table, req.obj, options);
-        }
-
-        // Make sure no duplicates
-        if (options.unique) {
-            rows = lib.arrayUnique(rows, options.unique);
-        }
-
-        // With total we only have one property 'count'
-        if (options.total) {
-            onEnd(err, null, rows, info);
-            return rows;
-        }
-
-        // Convert from db types into javascript, deal with json and joined columns
-        if (rows.length && !options.noconvertrows) {
-            self.convertRows(pool, req, rows, options);
-        }
-
-        // Convert values if we have custom column callback
-        if (!options.noprocessrows) {
-            req.info = info;
-            rows = self.runProcessRows("post", req, rows, options);
-        }
-
-        // Custom filter to return the final result set
-        if (typeof options.filter == "function" && rows.length) {
-            rows = rows.filter(function(row) { return options.filter(req, row, options); })
-        }
-
-        // Async filter, can perform I/O for filtering
-        if (typeof options.async_filter == "function" && rows.length) {
-            options.async_filter(req, rows, options, function(err, rows) {
-                onEnd(err, null, rows, info);
-            });
-            return null;
-        }
-        return rows;
-    }
-
     pool.acquire(function(err, client) {
-        if (err) return onEnd(err, null, [], {});
-
+        if (err) return self.queryEnd(err, req, null, options, callback);
         try {
-            pool.query(client, req, options, function(err, rows, info) {
-                if (err) return onEnd(err, client, [], {});
-
-                try {
-                    if (!rows) rows = [];
-                    if (!info) info = {};
-                    if (!info.affected_rows) info.affected_rows = client.affected_rows || 0;
-                    if (!info.inserted_oid) info.inserted_oid = client.inserted_oid || null;
-                    if (!info.next_token) info.next_token = pool.nextToken(client, req, rows, options);
-                    if (!info.consumed_capacity) info.consumed_capacity = client.consumed_capacity || 0;
-
-                    pool.release(client);
-                    client = null;
-                    rows = onResult(err, rows, info);
-                    if (!rows) return;
-
-                } catch(e) {
-                    err = e;
-                    rows = [];
-                }
-                onEnd(err, client, rows, info);
-            });
+            self.queryRun(pool, client, req, options, callback);
         } catch(e) {
-            onEnd(e, client, [], {});
+            self.queryEnd(e, req, null, options, callback);
         }
     });
+}
+
+db.queryRun = function(pool, client, req, options, callback)
+{
+    var self = this;
+    req.client = client;
+    pool.query(client, req, options, function(err, rows, info) {
+        req.info = info || {};
+        rows = rows || [];
+        if (!err) {
+            if (!req.info.affected_rows) req.info.affected_rows = client.affected_rows || 0;
+            if (!req.info.inserted_oid) req.info.inserted_oid = client.inserted_oid || null;
+            if (!req.info.next_token) req.info.next_token = pool.nextToken(client, req, rows, options);
+            if (!req.info.consumed_capacity) req.info.consumed_capacity = client.consumed_capacity || 0;
+
+            pool.release(client);
+            delete req.client;
+
+            rows = self.queryResult(err, req, rows, options);
+        }
+        self.queryEnd(err, req, rows, options, callback);
+    });
+}
+
+db.queryEnd = function(err, req, rows, options, callback)
+{
+    var pool = this.pools[req.pool];
+    pool.metrics.Counter('count').dec();
+    req.elapsed = req.timer.end();
+    delete req.timer;
+
+    if (req.client) {
+        pool.release(req.client);
+        delete req.client;
+    }
+    if (!Array.isArray(rows)) rows = [];
+
+    if (err && !(options.silence_error || options.ignore_error || options.quiet)) {
+        pool.metrics.Counter("err_0").inc();
+        logger.error("db.query:", req.pool, err, 'REQ:', req, 'OPTS:', options, lib.traceError(err));
+    } else {
+        logger.debug("db.query:", req.pool, req.elapsed, 'ms', rows.length, 'rows', 'REQ:', req, 'OPTS:', options, err);
+    }
+    if (err) err = this.convertError(pool, req.table, req.op || "", err, options);
+
+    if (typeof callback == "function") {
+        lib.tryCatch(callback, err, rows, req.info);
+    }
+}
+
+db.queryResult = function(err, req, rows, options)
+{
+    // With total we only have one property 'count'
+    if (options.total) return rows;
+
+    // Cache notification in case of updates, we must have the request prepared by the db.prepare
+    var cached = options.cached || this.cacheTables.indexOf(req.table) > -1;
+    if (cached && req.table && req.obj && req.op && ['put','update','incr','del'].indexOf(req.op) > -1) {
+        this.delCache(req.table, req.obj, options);
+    }
+
+    // Make sure no duplicates
+    if (options.unique) {
+        rows = lib.arrayUnique(rows, options.unique);
+    }
+
+    // Convert from db types into javascript, deal with json and joined columns
+    if (rows.length && !options.noconvertrows) {
+        this.convertRows(req.pool, req, rows, options);
+    }
+
+    // Convert values if we have custom column callback
+    if (!options.noprocessrows) {
+        rows = this.runProcessRows("post", req.table, req, rows, options);
+    }
+    // Always run global hooks
+    rows = this.runProcessRows("post", "*", req, rows, options);
+
+    // Custom filter to return the final result set
+    if (typeof options.filter == "function" && rows.length) {
+        rows = rows.filter(function(row) {
+            return options.filter(req, row, options);
+        });
+    }
+    return rows;
 }
 
 // Insert new object into the database
@@ -1618,6 +1608,7 @@ db.drop = function(table, options, callback)
 db.convertError = function(pool, table, op, err, options)
 {
     if (!err || !util.isError(err)) return err;
+    if (typeof pool == "string") pool = this.pools[pool];
     err = pool.convertError(table, op, err, options);
     if (util.isError(err)) {
         switch (err.code) {
@@ -1777,8 +1768,10 @@ db.prepareRow = function(pool, op, table, obj, options)
 
         default:
             if (this.getProcessRows('pre', table, options)) obj = lib.cloneObj(obj);
-            this.runProcessRows("pre", { op: op, table: table, obj: obj }, obj, options);
+            this.runProcessRows("pre", table, { op: op, table: table, obj: obj }, obj, options);
         }
+        // Always run the global hook, keep the original object
+        this.runProcessRows("pre", "*", { op: op, table: table, obj: obj }, obj, options);
     }
 
     // Process special columns
@@ -2005,6 +1998,7 @@ db.prepareForList = function(pool, op, table, obj, options, cols, orig)
 db.convertRows = function(pool, req, rows, options)
 {
     var self = this;
+    if (typeof pool == "string") pool = this.pools[pool];
     if (!pool) pool = this.getPool(req.table, options);
     var cols = pool.dbcolumns[req.table] || {}, col;
     for (var p in cols) {
@@ -2059,20 +2053,21 @@ db.setProcessColumns = function(callback)
 // Returns a list of hooks to be used for processing rows for the given table
 db.getProcessRows = function(type, table, options)
 {
-    if (!this.processRows[type]) return null;
+    if (!type || !table || !this.processRows[type]) return null;
     var hooks = this.processRows[type][table];
     return Array.isArray(hooks) && hooks.length ? hooks : null;
 }
 
 // Run registered pre- or post- process callbacks.
 // - `type` is one of the `pre` or 'post`
-// - `req` is the original db request object with the following required properties: `op, table, obj`,
+// - `table` - the table to run the hooks for, usually te same as req.table but can be '*' for global hooks
+// - `req` is the original db request object with the following required properties: `op, table, obj, info`,
 // - `rows` is the result rows for post callbacks and the same request object for pre callbacks.
 // - `options` is the same object passed to a db operation
-db.runProcessRows = function(type, req, rows, options, info)
+db.runProcessRows = function(type, table, req, rows, options)
 {
-    if (!req || !req.table) return rows;
-    var hooks = this.getProcessRows(type, req.table, options);
+    if (!req) return rows;
+    var hooks = this.getProcessRows(type, table, options);
     if (!hooks) return rows;
 
     // Stop on the first hook returning true to remove this row from the list

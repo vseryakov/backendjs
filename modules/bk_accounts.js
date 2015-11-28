@@ -390,8 +390,8 @@ accounts.addAccount = function(req, options, callback)
        },
        function(next) {
            api.metrics.Counter('auth_add_0').inc();
-           db.runProcessRows("post", { op: "get", table: "bk_account", obj: req.query }, req.query, options);
-           // Set all default values because we return in-memory record, not from the database
+           // Set all default and computed values because we return in-memory record, not from the database
+           db.runProcessRows("post", "bk_account", { op: "get", table: "bk_account", obj: req.query }, req.query, options);
            var cols = db.getColumns("bk_account", options);
            for (var p in cols) if (typeof cols[p].value != "undefined") req.query[p] = cols[p].value;
            // Link account record for other middleware

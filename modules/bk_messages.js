@@ -321,10 +321,10 @@ messages.addMessage = function(req, options, callback)
             if (err) return callback(err);
             api.metrics.Counter('msg_add_0').inc();
             if (options.nosent) {
-                db.runProcessRows("post", { op: "get", table: "bk_message", obj: obj }, obj, options);
+                db.runProcessRows("post", "bk_message", { op: "get", table: "bk_message", obj: obj }, obj, options);
                 callback(null, obj, info);
             } else {
-                db.runProcessRows("post", { op: "get", table: "bk_sent", obj: sent }, sent, options);
+                db.runProcessRows("post", "bk_sent", { op: "get", table: "bk_sent", obj: sent }, sent, options);
                 callback(null, sent, info);
             }
     });

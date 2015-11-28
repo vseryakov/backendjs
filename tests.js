@@ -980,14 +980,6 @@ tests.test_db = function(callback)
             });
         },
         function(next) {
-            db.select("test2", { id: id2 }, { async_filter: function(req, rows, opts, cb) {
-                    cb(null, rows.filter(function(r) { return r.id2 == '1' }));
-                }
-            }, function(err, rows) {
-                tests.check(next, err, rows.length!=1 || rows[0].id2 != '1' || rows[0].num2 != num2, "err5-2:", num2, rows);
-            });
-        },
-        function(next) {
             db.list("test3", String([id,id2]), function(err, rows) {
                 tests.check(next, err, rows.length!=2, "err6:", rows);
             });

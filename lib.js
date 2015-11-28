@@ -35,6 +35,20 @@ module.exports = lib;
 lib.noop = function() {}
 lib.noopcb = function(err, cb) { if (typeof cb == "function" ) cb(err); };
 
+// Run a callback inside try..catch block, all arguments after the callback will be passed as is, in case of error
+// all arguments will be printed in the log
+lib.tryCatch = function(callback)
+{
+    var args = Array.prototype.slice.call(arguments, 1);
+    try {
+        callback.apply(null, args);
+    } catch(e) {
+        args.unshift(e.stack);
+        args.unshift("tryCatch:");
+        logger.error.apply(logger, args);
+    }
+}
+
 // Print all arguments into the console, for debugging purposes
 lib.log = function()
 {
