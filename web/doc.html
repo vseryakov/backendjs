@@ -89,6 +89,7 @@
 <li><a href="#module-api_files">api_files</a></li>
 <li><a href="#module-api_icons">api_icons</a></li>
 <li><a href="#module-api_statistics">api_statistics</a></li>
+<li><a href="#module-core_http">core_http</a></li>
 <li><a href="#module-db_cassandra">db_cassandra</a></li>
 <li><a href="#module-db_couchdb">db_couchdb</a></li>
 <li><a href="#module-db_dynamodb">db_dynamodb</a></li>
@@ -3903,65 +3904,6 @@ making it usable for repeating environments or storage solutions.</p>
 </ul>
 
 <ul>
-<li><p><code>core.httpGet(uri, params, callback)</code></p>
-<p> Downloads file using HTTP and pass it to the callback if provided</p>
-<ul>
-<li>uri can be full URL or an object with parts of the url, same format as in url.format</li>
-<li>params can contain the following options:<ul>
-<li>method - GET, POST</li>
-<li>headers - object with headers to pass to HTTP request, properties must be all lower case</li>
-<li>cookies - a list with cookies or a boolean to load cookies from the db</li>
-<li>file - file name where to save response, in case of error response the error body will be saved as well</li>
-<li>postdata - data to be sent with the request in the body</li>
-<li>postfile - file to be uploaded in the POST body, not as multipart</li>
-<li>postsize - file size to be uploaded if obtained separately</li>
-<li>chunked - post files using chunked encoding</li>
-<li>query - additional query parameters to be added to the url as an object or as encoded string</li>
-<li>sign - sign request with provided email/secret properties</li>
-<li>mtime - a Date or timestamp to be used in conditional requests</li>
-<li>conditional - add If-Modified-Since header using <code>params.mtime</code> if present or if <code>file</code> is given use file last modified timestamp, mtime</li>
-<li>httpTimeout - timeout in milliseconds afte which the request is borted if no data received</li>
-<li>retryCount - how many time to retry the request on error or timeout</li>
-<li>retryTimeout - timeout in milliseconds for retries, with every subsequent timeout it will be multiplied by 2</li>
-<li>retryOnErrorStatus - also retry request if received non 2xx response status, if this is an array it should contain a list of status codes
-on which to retry, otherwise retry on all non-2xx responses</li>
-</ul>
-</li>
-<li>callback will be called with the arguments:
- first argument is error object if any
- second is params object itself with updated fields
- third is HTTP response object
-On end, the object params will contain the following updated properties:</li>
-<li>data if file was not specified, data will contain collected response body as string</li>
-<li>status - HTTP response status code</li>
-<li>mtime - Date object with the last modified time of the requested file</li>
-<li>size - size of the response body or file
-Note: SIDE EFFECT: params object is modified in place so many options will be changed/removed or added</li>
-</ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>core.sendRequest(options, callback)</code></p>
-<p> Make a HTTP request using <code>httpGet</code> with ability to sign requests and returne parsed JSON payload as objects.</p>
-<p>The POST request is made, if data is an object, it is converted into string.</p>
-<p>Returns params as in <code>httpGet</code> with .json property assigned with an object from parsed JSON response.</p>
-<p><em>When used with API endpoints, the <code>backend-host</code> parameter must be set in the config or command line to the base URL of the backend,
-like <a href="http://localhost:8000">http://localhost:8000</a>, this is when <code>uri</code> is relative URL. Absolute URLs do not need this parameter.</em></p>
-<p>Special parameters for options:</p>
-<ul>
-<li>url - url if options is first argument</li>
-<li>login - login to use for access credentials instead of global credentials</li>
-<li>secret - secret to use for access instead of global credentials</li>
-<li>proxy - used as a proxy to backend, handles all errors and returns .status and .json to be passed back to API client</li>
-<li>checksum - calculate checksum from the data</li>
-<li>anystatus - keep any HTTP status, dont treat as error if not between 200 and 299</li>
-<li>obj - return just result object, not the whole params</li>
-</ul>
-</li>
-</ul>
-
-<ul>
 <li><p><code>core.runMethods(name, options, callback)</code></p>
 <p> Run a method for every module, a method must conform to the following signature: <code>function(options, callback)</code> and
 call the callback when finished. The callback second argument will be the options, so it is possible to pass anything
@@ -4015,24 +3957,6 @@ automatically.</p>
 <p>Example, to load all modules from the local relative directory</p>
 <pre><code> core.loadModules(&quot;modules&quot;)
 </code></pre></li>
-</ul>
-
-<ul>
-<li><p><code>core.getArg(name, dflt)</code></p>
-<p> Return commandline argument value by name</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>core.getArgInt(name, dflt)</code></p>
-<p> Return commandline argument value as a number</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>core.isArg(name)</code></p>
-<p> Returns true of given arg(s) are present in the command line, name can be a string or an array of strings.</p>
-</li>
 </ul>
 
 <ul>
@@ -4296,9 +4220,6 @@ explicitely if it is different from the default. Other functions can resolve
 the pool by table name if some tables are assigned to any specific pool by configuration parameters <code>db-pool-tables</code>.</li>
 <li>unique - perform sorting the result and eliminate any duplicate rows by the column name specified in the <code>unique</code> property</li>
 <li>filter - function to filter rows not to be included in the result, return false to skip row, args are: function(req, row, options)</li>
-<li>async_filter - perform filtering of the result but with possible I/O so it can delay returning results: function(req, rows, options, callback),
-   the calback on result will return err and rows as any other regular database callbacks. This filter can be used to perform
-   filtering based on the ata in the other table for example.</li>
 <li>silence_error - do not report about the error in the log, still the error is retirned to the caller</li>
 <li>ignore_error - same as silence_error</li>
 <li>noprocessrows - if true then skip post processing result rows, return the data as is, this will result in returning combined columns as it is</li>
@@ -4367,6 +4288,7 @@ string then it is used as a name of the column instead of default mtime name</li
 <li>typesMap - type mapping for properties to be used in the condition</li>
 <li>expected - an object with the condition for the update, it is used in addition to the primary keys condition from the <code>obj</code></li>
 <li>join - how to join all expressions, default is AND</li>
+<li>upsert - create a new record if it does not exist</li>
 <li>updateOps - an object with column names and operations to be performed on the named column<ul>
 <li>incr - increment by given value</li>
 <li>concat - concatenate given value, for strings if the database supports it</li>
@@ -4938,11 +4860,12 @@ allow to handle such situations and can be used to set necessary propeties to th
 </ul>
 
 <ul>
-<li><p><code>db.runProcessRows(type, req, rows, options, info)</code></p>
+<li><p><code>db.runProcessRows(type, table, req, rows, options)</code></p>
 <p> Run registered pre- or post- process callbacks.</p>
 <ul>
 <li><code>type</code> is one of the <code>pre</code> or &#39;post`</li>
-<li><code>req</code> is the original db request object with the following required properties: <code>op, table, obj</code>,</li>
+<li><code>table</code> - the table to run the hooks for, usually te same as req.table but can be &#39;*&#39; for global hooks</li>
+<li><code>req</code> is the original db request object with the following required properties: <code>op, table, obj, info</code>,</li>
 <li><code>rows</code> is the result rows for post callbacks and the same request object for pre callbacks.</li>
 <li><code>options</code> is the same object passed to a db operation</li>
 </ul>
@@ -5724,6 +5647,13 @@ prevented to clear up running list in the master, milliseconds</li>
 </ul>
 
 <ul>
+<li><p><code>lib.tryCatch(callback)</code></p>
+<p> Run a callback inside try..catch block, all arguments after the callback will be passed as is, in case of error
+all arguments will be printed in the log</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>lib.log()</code></p>
 <p> Print all arguments into the console, for debugging purposes</p>
 </li>
@@ -5737,6 +5667,24 @@ prevented to clear up running list in the master, milliseconds</li>
 <li>__(fmt, arg,...)</li>
 </ul>
 <p>When real i18n module is used this function can be replaced to support global reference.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.getArg(name, dflt)</code></p>
+<p> Return commandline argument value by name</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.getArgInt(name, dflt)</code></p>
+<p> Return commandline argument value as a number</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.isArg(name)</code></p>
+<p> Returns true of given arg(s) are present in the command line, name can be a string or an array of strings.</p>
 </li>
 </ul>
 
@@ -7628,6 +7576,67 @@ must be defined for any metrics to be saved, use api.describeTable with addition
 <ul>
 <li><p><code>api.calcStatistics(query, options, callback)</code></p>
 <p> Calculate statistics for a period of time, query and options must confirm to the db.select conventions.</p>
+</li>
+</ul>
+
+<h2 id="module-core_http">Module: CORE_HTTP</h2>
+<ul>
+<li><p><code>core.httpGet(uri, params, callback)</code></p>
+<p> Downloads file using HTTP and pass it to the callback if provided</p>
+<ul>
+<li>uri can be full URL or an object with parts of the url, same format as in url.format</li>
+<li>params can contain the following options:<ul>
+<li>method - GET, POST</li>
+<li>headers - object with headers to pass to HTTP request, properties must be all lower case</li>
+<li>cookies - a list with cookies or a boolean to load cookies from the db</li>
+<li>file - file name where to save response, in case of error response the error body will be saved as well</li>
+<li>postdata - data to be sent with the request in the body</li>
+<li>postfile - file to be uploaded in the POST body, not as multipart</li>
+<li>postsize - file size to be uploaded if obtained separately</li>
+<li>chunked - post files using chunked encoding</li>
+<li>query - additional query parameters to be added to the url as an object or as encoded string</li>
+<li>sign - sign request with provided email/secret properties</li>
+<li>mtime - a Date or timestamp to be used in conditional requests</li>
+<li>conditional - add If-Modified-Since header using <code>params.mtime</code> if present or if <code>file</code> is given use file last modified timestamp, mtime</li>
+<li>httpTimeout - timeout in milliseconds afte which the request is borted if no data received</li>
+<li>retryCount - how many time to retry the request on error or timeout</li>
+<li>retryTimeout - timeout in milliseconds for retries, with every subsequent timeout it will be multiplied by 2</li>
+<li>retryOnError - also retry request if received non 2xx response status, if this is an array it should contain a list of status codes
+on which to retry, otherwise retry on all non-2xx responses</li>
+<li>noredirects - if true then do not follow redirect locations for 30-[1,2,3,7] statuses</li>
+</ul>
+</li>
+<li>callback will be called with the arguments:
+ first argument is error object if any
+ second is params object itself with updated fields
+ third is the HTTP response object
+On end, the object params will contain the following updated properties:</li>
+<li>data if file was not specified, data will contain collected response body as string</li>
+<li>status - HTTP response status code</li>
+<li>mtime - Date object with the last modified time of the requested file</li>
+<li>size - size of the response body or file
+Note: SIDE EFFECT: params object is modified in place so many options will be changed/removed or added</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.sendRequest(options, callback)</code></p>
+<p> Make a HTTP request using <code>httpGet</code> with ability to sign requests and returne parsed JSON payload as objects.</p>
+<p>The POST request is made, if data is an object, it is converted into string.</p>
+<p>Returns params as in <code>httpGet</code> with .json property assigned with an object from parsed JSON response.</p>
+<p><em>When used with API endpoints, the <code>backend-host</code> parameter must be set in the config or command line to the base URL of the backend,
+like <a href="http://localhost:8000">http://localhost:8000</a>, this is when <code>uri</code> is relative URL. Absolute URLs do not need this parameter.</em></p>
+<p>Special parameters for options:</p>
+<ul>
+<li>url - url if options is first argument</li>
+<li>login - login to use for access credentials instead of global credentials</li>
+<li>secret - secret to use for access instead of global credentials</li>
+<li>proxy - used as a proxy to backend, handles all errors and returns .status and .json to be passed back to API client</li>
+<li>checksum - calculate checksum from the data</li>
+<li>anystatus - keep any HTTP status, dont treat as error if not between 200 and 299</li>
+<li>obj - return just result object, not the whole params</li>
+</ul>
 </li>
 </ul>
 
