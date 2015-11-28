@@ -330,7 +330,7 @@ aws.queryOptions = function(method, data, headers, options)
         quiet: options.quiet,
         retryCount: options.retryCount,
         retryTimeout: options.retryTimeout,
-        retryOnErrorStatus: options.retryOnErrorStatus,
+        retryOnError: options.retryOnError,
         httpTimeout: options.httpTimeout
     };
 }

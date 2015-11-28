@@ -82,14 +82,14 @@ server.start = function()
     logger.debug("start:", process.argv);
 
     // REPL shell
-    if (core.isArg("-shell")) {
+    if (lib.isArg("-shell")) {
         var shell = require(__dirname + "/shell");
         core.addModule("shell", shell);
         return core.init({ role: "shell" }, function(err, opts) { shell.run(opts); });
     }
 
     // Go to background
-    if (core.isArg("-daemon")) {
+    if (lib.isArg("-daemon")) {
         return core.init({ role: "daemon", noWatch: 1, noDb: 1, noDns: 1, noConfigure: 1 }, function(err, opts) { self.startDaemon(opts); });
     }
 
@@ -100,28 +100,28 @@ server.start = function()
     process.on('SIGUSR2', function() {});
 
     // Watch monitor for modified source files, for development mode only, in production -monitor is used
-    if (core.isArg("-watch")) {
+    if (lib.isArg("-watch")) {
         return core.init({ role: "watcher", noDb: 1, noDns: 1, noConfigure: 1 }, function(err, opts) {
             self.startWatcher(opts);
         });
     }
 
     // Start server monitor, it will watch the process and restart automatically
-    if (core.isArg("-monitor")) {
+    if (lib.isArg("-monitor")) {
         return core.init({ role: "monitor", noDb: 1, noDns: 1, noConfigure: 1 }, function(err, opts) {
             self.startMonitor(opts);
         });
     }
 
     // Master server, always create tables in the masters processes but only for the primary db pools
-    if (core.isArg("-master")) {
+    if (lib.isArg("-master")) {
         return core.init({ role: "master", localMode: cluster.isMaster, noInitTables: cluster.isWorker ? /.+/ : null }, function(err, opts) {
             self.startMaster(opts);
         });
     }
 
     // Backend Web server, the server makes table for all configured pools
-    if (core.isArg("-web")) {
+    if (lib.isArg("-web")) {
         return core.init({ role: "web", noInitTables: cluster.isWorker ? /.+/ : null }, function(err, opts) {
             self.startWeb(opts);
         });
@@ -408,7 +408,7 @@ server.startWatcher = function()
     process.title = core.name + ": watcher";
 
     // REPL command prompt over TCP instead of the master process
-    if (core.repl.port && !core.isArg("-master")) self.startRepl(core.repl.port, core.repl.bind);
+    if (core.repl.port && !lib.isArg("-master")) self.startRepl(core.repl.port, core.repl.bind);
 
     if (core.watchdirs.indexOf(__dirname) == -1) core.watchdirs.push(__dirname, __dirname + "/lib", __dirname + "/modules");
     if (core.watchdirs.indexOf(core.path.modules) == -1) core.watchdirs.push(core.path.modules);

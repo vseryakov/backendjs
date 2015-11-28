@@ -124,15 +124,15 @@ tests.run = function(options, callback)
             process.exit(1);
         }
         self.test = { role: cluster.isMaster ? "master" : "worker", iterations: 0, stime: Date.now() };
-        self.test.delay = options.delay || core.getArgInt("-test-delay", 500);
-        self.test.countdown = options.iterations || core.getArgInt("-test-iterations", 1);
-        self.test.forever = options.forever || core.getArgInt("-test-forever", 0);
-        self.test.timeout = options.timeout || core.getArgInt("-test-timeout", 0);
-        self.test.interval = options.interval || core.getArgInt("-test-interval", 0);
-        self.test.keepmaster = options.keepmaster || core.getArgInt("-test-keepmaster", 0);
-        self.test.workers = options.workers || core.getArgInt("-test-workers", 0);
-        self.test.cmd = options.cmd || core.getArg("-test-cmd");
-        self.test.file = options.file || core.getArg("-test-file");
+        self.test.delay = options.delay || lib.getArgInt("-test-delay", 500);
+        self.test.countdown = options.iterations || lib.getArgInt("-test-iterations", 1);
+        self.test.forever = options.forever || lib.getArgInt("-test-forever", 0);
+        self.test.timeout = options.timeout || lib.getArgInt("-test-timeout", 0);
+        self.test.interval = options.interval || lib.getArgInt("-test-interval", 0);
+        self.test.keepmaster = options.keepmaster || lib.getArgInt("-test-keepmaster", 0);
+        self.test.workers = options.workers || lib.getArgInt("-test-workers", 0);
+        self.test.cmd = options.cmd || lib.getArg("-test-cmd");
+        self.test.file = options.file || lib.getArg("-test-file");
         if (self.test.file && fs.existsSync(self.test.file)) require(self.test.file);
         if (self.test.file && fs.existsSync(core.cwd + "/" + self.test.file)) require(core.cwd + "/" + self.test.file);
 
@@ -632,14 +632,14 @@ tests.test_location = function(callback)
                       DC: { name: "Washington", bbox: [ 30.10, -77.5, 38.60, -76.5 ], },
                       SD: { name: "San Diego", bbox: [ 32.26553975233155, -118.8279466261797, 33.163860247668445, -115.4840533738203 ], },
                       SF: { name: "San Francisco", bbox: [ 37.32833975233156, -122.86154379633437, 38.22666024766845, -121.96045620366564 ] }, };
-    var city = core.getArg("-city", "LA");
+    var city = lib.getArg("-city", "LA");
     var bbox = (locations[city] || locations.LA).bbox;
-    var rows = core.getArgInt("-rows", 10);
-    var distance = core.getArgInt("-distance", 25);
-    var round = core.getArgInt("-round", 0);
-    var reset = core.getArgInt("-reset", 1);
-    var latitude = core.getArgInt("-lat", lib.randomNum(bbox[0], bbox[2]))
-    var longitude = core.getArgInt("-lon", lib.randomNum(bbox[1], bbox[3]))
+    var rows = lib.getArgInt("-rows", 10);
+    var distance = lib.getArgInt("-distance", 25);
+    var round = lib.getArgInt("-round", 0);
+    var reset = lib.getArgInt("-reset", 1);
+    var latitude = lib.getArgInt("-lat", lib.randomNum(bbox[0], bbox[2]))
+    var longitude = lib.getArgInt("-lon", lib.randomNum(bbox[1], bbox[3]))
 
     var rc = [], top = {}, bad = 0, good = 0, error = 0, count = rows/2;
     var ghash, gcount = Math.floor(count/2);
@@ -1213,7 +1213,7 @@ tests.test_db = function(callback)
 
 tests.test_s3icon = function(callback)
 {
-    var id = core.getArg("-id", "1");
+    var id = lib.getArg("-id", "1");
     api.saveIcon("../web/img/loading.gif", id, { prefix: "account", images: api.imagesS3 }, function(err) {
         var icon = api.iconPath(id, { prefix: "account" });
         aws.queryS3(api.imagesS3, icon, { file: "tmp/" + path.basename(icon) }, function(err, params) {
@@ -1233,15 +1233,15 @@ tests.test_icon = function(callback)
 tests.test_limiter = function(callback)
 {
     var opts = {
-        name: core.getArg("-name", "test"),
-        rate: core.getArgInt("-rate", 10),
-        max: core.getArgInt("-max", 10),
-        interval: core.getArgInt("-interval", 1000),
-        queueName: core.getArg("-queue"),
-        pace: core.getArgInt("-pace", 5),
+        name: lib.getArg("-name", "test"),
+        rate: lib.getArgInt("-rate", 10),
+        max: lib.getArgInt("-max", 10),
+        interval: lib.getArgInt("-interval", 1000),
+        queueName: lib.getArg("-queue"),
+        pace: lib.getArgInt("-pace", 5),
     };
     var list = [];
-    for (var i = 0; i < core.getArgInt("-count", 10); i++) list.push(i);
+    for (var i = 0; i < lib.getArgInt("-count", 10); i++) list.push(i);
 
     ipc.initServer();
     setTimeout(function() {
@@ -1275,7 +1275,7 @@ tests.test_cookie = function(callback)
 tests.test_busy = function(callback)
 {
     var work = 524288;
-    bkutils.initBusy(core.getArgInt("-busy", 100));
+    bkutils.initBusy(lib.getArgInt("-busy", 100));
     var interval = setInterval(function worky() {
         var howBusy = bkutils.isBusy();
         if (howBusy) {
@@ -1294,7 +1294,7 @@ tests.test_cache = function(callback)
     core.msgType = "none";
     core.cacheBind = "127.0.0.1";
     core.cacheHost = "127.0.0.1";
-    var nworkers = core.getArgInt("-test-workers");
+    var nworkers = lib.getArgInt("-test-workers");
 
     function run1(cb) {
         lib.series([
@@ -1432,9 +1432,9 @@ tests.test_cache = function(callback)
 
 tests.test_pool = function(callback)
 {
-    var options = { min: core.getArgInt("-min", 1),
-                    max: core.getArgInt("-max", 5),
-                    idle: core.getArgInt("-idle", 0),
+    var options = { min: lib.getArgInt("-min", 1),
+                    max: lib.getArgInt("-max", 5),
+                    idle: lib.getArgInt("-idle", 0),
                     create: function(cb) { cb(null,{ id:Date.now()}) }
     }
     var list = [];
@@ -1508,7 +1508,7 @@ tests.test_config = function(callback)
 
 tests.test_logwatcher = function(callback)
 {
-    var email = core.getArg("-email");
+    var email = lib.getArg("-email");
     if (!email) return callback("-email is required")
 
     var argv = ["-logwatcher-email-error", email,
@@ -1551,8 +1551,8 @@ tests.test_dblock = function(callback)
     };
 
     var id = "ID";
-    var interval = core.getArgInt("-interval", 500);
-    var count = core.getArgInt("-count", 0);
+    var interval = lib.getArgInt("-interval", 500);
+    var count = lib.getArgInt("-count", 0);
 
     function queueJob(name, callback) {
         var now = Date.now(), mtime;

@@ -83,7 +83,7 @@ shell.getOptions = function()
 // Return first available value for the given name, options first, then command arg and then default
 shell.getArg = function(name, options, dflt)
 {
-    return decodeURIComponent(String((options && options[lib.toCamel(name.substr(1))]) || core.getArg(name, dflt))).trim();
+    return decodeURIComponent(String((options && options[lib.toCamel(name.substr(1))]) || lib.getArg(name, dflt))).trim();
 }
 
 shell.getArgInt = function(name, options, dflt)
@@ -93,7 +93,7 @@ shell.getArgInt = function(name, options, dflt)
 
 shell.isArg = function(name, options)
 {
-    return (options && typeof options[lib.toCamel(name.substr(1))] != "undefined") || core.isArg(name);
+    return (options && typeof options[lib.toCamel(name.substr(1))] != "undefined") || lib.isArg(name);
 }
 
 // Start REPL shell or execute any subcommand if specified in the command line.
@@ -166,7 +166,7 @@ shell.cmdAccountAdd = function(options)
     if (!core.modules.accounts) exit("accounts module not loaded");
     var query = this.getQuery();
     var opts = this.getOptions();
-    if (core.isArg("-scramble")) opts.scramble = 1;
+    if (lib.isArg("-scramble")) opts.scramble = 1;
     if (query.login && !query.name) query.name = query.login;
     core.modules.accounts.addAccount({ query: query, account: { type: 'admin' } }, opts, function(err, data) {
         self.exit(err, data);
@@ -180,7 +180,7 @@ shell.cmdAccountUpdate = function(options)
     if (!core.modules.accounts) this.exit("accounts module not loaded");
     var query = this.getQuery();
     var opts = this.getOptions();
-    if (core.isArg("-scramble")) opts.scramble = 1;
+    if (lib.isArg("-scramble")) opts.scramble = 1;
     this.getUser(query, function(row) {
         core.modules.accounts.updateAccount({ account: row, query: query }, opts, function(err, data) {
             self.exit(err, data);
@@ -232,8 +232,8 @@ shell.cmdDbGetConfig = function(options)
 {
     var self = this;
     var opts = this.getQuery();
-    var sep = core.getArg("-separator", "=");
-    var fmt = core.getArg("-format");
+    var sep = lib.getArg("-separator", "=");
+    var fmt = lib.getArg("-format");
     db.initConfig(opts, function(err, data) {
         if (fmt == "text") {
             for (var i = 0; i < data.length; i += 2) console.log(data[i].substr(1) + (sep) + data[ i + 1]);
@@ -247,7 +247,7 @@ shell.cmdDbGetConfig = function(options)
 // Show all tables
 shell.cmdDbTtables = function(options)
 {
-    var sep = core.getArg("-separator", "\n");
+    var sep = lib.getArg("-separator", "\n");
     var tables = db.getPoolTables(db.pool, { names: 1 });
     console.log(tables.join(sep));
     this.exit(err);
@@ -259,9 +259,9 @@ shell.cmdDbSelect = function(options)
     var self = this;
     var query = this.getQuery();
     var opts = this.getArgs();
-    var table = core.getArg("-table");
-    var sep = core.getArg("-separator", "!");
-    var fmt = core.getArg("-format");
+    var table = lib.getArg("-table");
+    var sep = lib.getArg("-separator", "!");
+    var fmt = lib.getArg("-format");
     var cols = Object.keys(db.getColumns(table))
     db.select(table, query, opts, function(err, data) {
         if (data && data.length) {
@@ -281,9 +281,9 @@ shell.cmdDbScan = function(options)
     var self = this;
     var query = this.getQuery();
     var opts = this.getArgs();
-    var table = core.getArg("-table");
-    var sep = core.getArg("-separator", "!");
-    var fmt = core.getArg("-format");
+    var table = lib.getArg("-table");
+    var sep = lib.getArg("-separator", "!");
+    var fmt = lib.getArg("-format");
     var cols = Object.keys(db.getColumns(table));
     db.scan(table, query, opts, function(row, next) {
         if (fmt == "text") {
@@ -303,10 +303,10 @@ shell.cmdDbBackup = function(options)
     var self = this;
     var opts = this.getArgs();
     var query = this.getQuery();
-    var root = core.getArg("-path");
-    var filter = core.getArg("-filter");
-    var tables = lib.strSplit(core.getArg("-tables"));
-    var skip = lib.strSplit(core.getArg("-skip"));
+    var root = lib.getArg("-path");
+    var filter = lib.getArg("-filter");
+    var tables = lib.strSplit(lib.getArg("-tables"));
+    var skip = lib.strSplit(lib.getArg("-skip"));
     if (!opts.useCapacity) opts.useCapacity = "read";
     if (!opts.factorCapacity) opts.factorCapacity = 0.25;
     if (!tables.length) tables = db.getPoolTables(db.pool, { names: 1 });
@@ -332,13 +332,13 @@ shell.cmdDbRestore = function(options)
 {
     var self = this;
     var opts = this.getArgs();
-    var root = core.getArg("-path");
-    var filter = core.getArg("-filter");
-    var tables = lib.strSplit(core.getArg("-tables"));
-    var skip = lib.strSplit(core.getArg("-skip"));
+    var root = lib.getArg("-path");
+    var filter = lib.getArg("-filter");
+    var tables = lib.strSplit(lib.getArg("-tables"));
+    var skip = lib.strSplit(lib.getArg("-skip"));
     var files = lib.findFileSync(root, { depth: 1, types: "f", include: /\.json$/ });
-    if (core.isArg("-drop")) opts.drop = 1;
-    if (core.isArg("-continue")) opts.continue = 1;
+    if (lib.isArg("-drop")) opts.drop = 1;
+    if (lib.isArg("-continue")) opts.continue = 1;
     opts.errors = 0;
     lib.forEachSeries(files, function(file, next3) {
         var table = path.basename(file, ".json");
@@ -393,9 +393,9 @@ shell.cmdDbGet = function(options)
     var self = this;
     var query = this.getQuery();
     var opts = this.getArgs();
-    var table = core.getArg("-table");
-    var sep = core.getArg("-separator", "!");
-    var fmt = core.getArg("-format");
+    var table = lib.getArg("-table");
+    var sep = lib.getArg("-separator", "!");
+    var fmt = lib.getArg("-format");
     var cols = Object.keys(db.getColumns(table))
     db.get(table, query, opts, function(err, data) {
         if (data) {
@@ -415,7 +415,7 @@ shell.cmdDbPut = function(options)
     var self = this;
     var query = this.getQuery();
     var opts = this.getArgs();
-    var table = core.getArg("-table");
+    var table = lib.getArg("-table");
     db.put(table, query, opts, function(err, data) {
         self.exit(err);
     });
@@ -427,7 +427,7 @@ shell.cmdDbDel = function(options)
     var self = this;
     var query = this.getQuery();
     var opts = this.getArgs();
-    var table = core.getArg("-table");
+    var table = lib.getArg("-table");
     db.del(table, query, opts, function(err, data) {
         self.exit(err);
     });
@@ -439,7 +439,7 @@ shell.cmdDbDelAll = function(options)
     var self = this;
     var query = this.getQuery();
     var opts = this.getArgs();
-    var table = core.getArg("-table");
+    var table = lib.getArg("-table");
     db.delAll(table, query, opts, function(err, data) {
         self.exit(err);
     });
@@ -450,7 +450,7 @@ shell.cmdDbDrop = function(options)
 {
     var self = this;
     var opts = this.getArgs();
-    var table = core.getArg("-table");
+    var table = lib.getArg("-table");
     db.drop(table, opts, function(err, data) {
         self.exit(err);
     });
@@ -461,9 +461,9 @@ shell.cmdSendRequest = function(options)
 {
     var self = this;
     var query = this.getQuery();
-    var url = core.getArg("-url");
-    var id = core.getArg("-id");
-    var login = core.getArg("-login");
+    var url = lib.getArg("-url");
+    var id = lib.getArg("-id");
+    var login = lib.getArg("-login");
     this.getUser({ id: id, login: login }, function(row) {
         core.sendRequest({ url: url, login: row.login, secret: row.secret, query: query }, function(err, params) {
             self.exit(err, params.obj);
@@ -542,7 +542,7 @@ shell.getAmazonImages = function(options, callback)
         'Filter.4.Name': 'block-device-mapping.volume-type',
         'Filter.4.Value': options.devtype || 'gp2',
     };
-    if (core.isArg("-dry-run")) {
+    if (lib.isArg("-dry-run")) {
         logger.log("getAmazonImages:", query);
         return callback(null, []);
     }
@@ -709,7 +709,7 @@ shell.launchInstances = function(options, callback)
            lib.forEachLimit(subnets, subnets.length, function(subnet, next2) {
                req.subnetId = subnet;
                logger.log("launchInstances:", req);
-               if (core.isArg("-dry-run")) return next2();
+               if (lib.isArg("-dry-run")) return next2();
 
                aws.ec2RunInstances(req, function(err, rc) {
                    if (err) return next2(err);
@@ -798,7 +798,7 @@ shell.cmdAwsDeleteImage = function(options)
        // Deregister existing image with the same name in the destination region
        function(next) {
            logger.log("DeregisterImage:", images);
-           if (core.isArg("-dry-run")) return next();
+           if (lib.isArg("-dry-run")) return next();
            lib.forEachSeries(images, function(img, next2) {
                aws.ec2DeregisterImage(img.imageId, { snapshots: 1 }, next2);
            }, next);
@@ -816,7 +816,7 @@ shell.cmdAwsCreateImage = function(options)
     options.instanceId = this.getArg("-instance-id");
     options.noreboot = this.isArg("-no-reboot");
     options.reboot = this.isArg("-reboot");
-    if (core.isArg("-dry-run")) return shell.exit(null, options);
+    if (lib.isArg("-dry-run")) return shell.exit(null, options);
     aws.ec2CreateImage(options, function(err) {
         shell.exit(err);
     });
@@ -844,7 +844,7 @@ shell.cmdAwsRebootInstances = function(options)
            var req = {};
            instances.forEach(function(x, i) { req["InstanceId." + (i + 1)] = x });
            logger.log("RebootInstances:", req)
-           if (core.isArg("-dry-run")) return next();
+           if (lib.isArg("-dry-run")) return next();
            aws.queryEC2("RebootInstances", req, next);
        },
        ], function(err) {
@@ -874,7 +874,7 @@ shell.cmdAwsTerminateInstances = function(options)
            var req = {};
            instances.forEach(function(x, i) { req["InstanceId." + (i + 1)] = x });
            logger.log("TerminateInstances:", req)
-           if (core.isArg("-dry-run")) return next();
+           if (lib.isArg("-dry-run")) return next();
            aws.queryEC2("TerminateInstances", req, next);
        },
        ], function(err) {
@@ -901,7 +901,7 @@ shell.cmdAwsShowInstances = function(options)
        },
        function(next) {
            logger.debug("showInstances:", instances);
-           if (core.isArg("-show-ip")) {
+           if (lib.isArg("-show-ip")) {
                console.log(instances.map(function(x) { return x.privateIpAddress }).join(" "));
            } else {
                instances.forEach(function(x) { console.log(x.instanceId, x.subnetId, x.privateIpAddress, x.ipAddress, x.name, x.keyName); });
@@ -920,7 +920,7 @@ shell.cmdAwsShowElb = function(options)
     var elbName = this.getArg("-elb-name", options, aws.elbName);
     if (!elbName) shell.exit("ERROR: -aws-elb-name or -elb-name must be specified")
     var instances = [];
-    var filter = core.getArg("-filter");
+    var filter = lib.getArg("-filter");
 
     lib.series([
        function(next) {
@@ -965,8 +965,8 @@ shell.cmdAwsRebootElb = function(options)
     var elbName = this.getArg("-elb-name", options, aws.elbName);
     if (!elbName) shell.exit("ERROR: -aws-elb-name or -elb-name must be specified")
     var total = 0, instances = [];
-    options.timeout = core.getArgInt("-timeout");
-    options.interval = core.getArgInt("-interval");
+    options.timeout = lib.getArgInt("-timeout");
+    options.interval = lib.getArgInt("-interval");
 
     lib.series([
        function(next) {
@@ -985,16 +985,16 @@ shell.cmdAwsRebootElb = function(options)
                req["InstanceId." + (i + 1)] = x.InstanceId;
            });
            logger.log("RebootELB:", elbName, "restarting:", req)
-           if (core.isArg("-dry-run")) return next();
+           if (lib.isArg("-dry-run")) return next();
            aws.queryEC2("RebootInstances", req, next);
        },
        function(next) {
-           if (core.isArg("-dry-run")) return next();
+           if (lib.isArg("-dry-run")) return next();
            // Wait until one instance is out of service
            self.getElbCount(elbName, 1, total, options, next);
        },
        function(next) {
-           if (core.isArg("-dry-run")) return next();
+           if (lib.isArg("-dry-run")) return next();
            // Wait until all instances in service again
            self.getElbCount(elbName, 0, total, options, next);
        },
@@ -1004,7 +1004,7 @@ shell.cmdAwsRebootElb = function(options)
            var req = {};
            instances.forEach(function(x, i) { req["InstanceId." + (i + 1)] = x.InstanceId });
            logger.log("RebootELB:", elbName, 'restarting:', req)
-           if (core.isArg("-dry-run")) return next();
+           if (lib.isArg("-dry-run")) return next();
            aws.queryEC2("RebootInstances", req, next);
        },
        ], function(err) {
@@ -1019,8 +1019,8 @@ shell.cmdAwsReplaceElb = function(options)
     var elbName = this.getArg("-elb-name", options, aws.elbName);
     if (!elbName) shell.exit("ERROR: -aws-elb-name or -elb-name must be specified")
     var total = 0, oldInstances = [], newInstances = [], oldInService = [];
-    options.timeout = core.getArgInt("-timeout");
-    options.interval = core.getArgInt("-interval");
+    options.timeout = lib.getArgInt("-timeout");
+    options.interval = lib.getArgInt("-interval");
 
     lib.series([
        function(next) {
@@ -1038,7 +1038,7 @@ shell.cmdAwsReplaceElb = function(options)
        },
        function(next) {
            newInstances = instances;
-           if (core.isArg("-dry-run")) return next();
+           if (lib.isArg("-dry-run")) return next();
            // Wait until all instances are online
            self.getElbCount(elbName, 0, oldInService.length + newInstances.length, options, function(err, total, count) {
                if (!err && count != total) err = "Timeout waiting for instances";
@@ -1051,7 +1051,7 @@ shell.cmdAwsReplaceElb = function(options)
            var req = {};
            oldInstances.forEach(function(x, i) { req["InstanceId." + (i + 1)] = x.InstanceId });
            logger.log("ReplaceELB:", elbName, 'terminating:', req)
-           if (core.isArg("-dry-run")) return next();
+           if (lib.isArg("-dry-run")) return next();
            aws.queryEC2("TerminateInstances", req, next);
        },
        ], function(err) {
@@ -1088,8 +1088,8 @@ shell.cmdAwsSetupSsh = function(options)
                "IpPermissions.1.ToPort": 22,
                "IpPermissions.1.IpRanges.1.CidrIp": ip + "/32" };
            logger.log(req);
-           if (core.isArg("-dry-run")) return next();
-           aws.queryEC2(core.isArg("-close") ? "RevokeSecurityGroupIngress" : "AuthorizeSecurityGroupIngress", req, next);
+           if (lib.isArg("-dry-run")) return next();
+           aws.queryEC2(lib.isArg("-close") ? "RevokeSecurityGroupIngress" : "AuthorizeSecurityGroupIngress", req, next);
        },
        ], function(err) {
            shell.exit(err);
@@ -1100,8 +1100,8 @@ shell.cmdAwsSetupSsh = function(options)
 shell.AwsSetupInstance = function(options)
 {
     var opts = {};
-    var file = core.getArg("-file");
-    var cmd = core.getArg("-cmd");
+    var file = lib.getArg("-file");
+    var cmd = lib.getArg("-cmd");
     if (!file && !cmd) shell.exit("-file or -cmd is required");
 
     lib.series([
@@ -1135,8 +1135,8 @@ shell.cmdAwsS3Get = function(options)
 {
     var self = this;
     var query = this.getQuery();
-    var file = core.getArg("-file");
-    var uri = core.getArg("-path");
+    var file = lib.getArg("-file");
+    var uri = lib.getArg("-path");
     query.file = file || uri.split("?")[0].split("/").pop();
     aws.s3GetFile(uri, query, function(err, data) {
         self.exit(err, data);
@@ -1148,8 +1148,8 @@ shell.cmdAwsS3Put = function(options)
 {
     var self = this;
     var query = this.getQuery();
-    var path = core.getArg("-path");
-    var uri = core.getArg("-file");
+    var path = lib.getArg("-path");
+    var uri = lib.getArg("-file");
     aws.s3PutFile(uri, file, query, function(err, data) {
         self.exit(err, data);
     });

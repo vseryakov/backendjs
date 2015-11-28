@@ -69,6 +69,29 @@ lib.__ = function()
     return arguments[0];
 }
 
+// Return commandline argument value by name
+lib.getArg = function(name, dflt)
+{
+    var idx = process.argv.lastIndexOf(name);
+    var val = idx > -1 && idx + 1 < process.argv.length ? process.argv[idx + 1] : "";
+    if (val[0] == "-") val = "";
+    if (!val && typeof dflt != "undefined") val = dflt;
+    return val;
+}
+
+// Return commandline argument value as a number
+lib.getArgInt = function(name, dflt)
+{
+    return this.toNumber(this.getArg(name, dflt));
+}
+
+// Returns true of given arg(s) are present in the command line, name can be a string or an array of strings.
+lib.isArg = function(name)
+{
+    if (!Array.isArray(name)) return process.argv.lastIndexOf(name) > 0;
+    return name.some(function(x) { return process.argv.lastIndexOf(x) > 0 });
+}
+
 // Returns a floating number from the version string, it assumes common semver format as major.minor.patch, all non-digits will
 // be removed, underscores will be treated as dots. Returns a floating number which can be used in comparing versions.
 //
