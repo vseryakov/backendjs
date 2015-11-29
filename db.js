@@ -1131,8 +1131,18 @@ db.migrate = function(table, options, callback)
 
 // Perform full text search on the given table, the database implementation may ignore table name completely
 // in case of global text index.
-// Query in general is a text string with the format that is supported by the underlying driver, the db module does not parse the query at all.
-// Options make take the same properties as in the select method. Without full text support this works the same way as the `select` method.
+//
+// Query in general is a text string with the format that is supported by the underlying driver, the db module DOES NOT PARSE the query at all.
+// Options make take the same properties as in the select method.
+//
+// A special query property `q` may be used for generic search in all fields.
+//
+// Without full text search support in the driver this may return nothing or an error.
+//
+//  Example
+//            db.search("bk_account", { type: "admin", q: "john*" }, { pool: "elasticsearch" }, lib.log);
+//            db.search("bk_account", "john*", { pool: "elasticsearch" }, lib.log);
+//
 db.search = function(table, query, options, callback)
 {
     if (typeof options == "function") callback = options,options = null;
@@ -1798,7 +1808,6 @@ db.prepareRow = function(pool, op, table, obj, options)
 
     case "get":
     case "select":
-    case "search":
         obj = this.prepareForSelect(pool, op, table, obj, options, cols, orig);
         break;
 

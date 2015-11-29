@@ -936,6 +936,70 @@ core.loadModules = function(dir, options, callback)
     if (typeof callback == "function") callback();
 }
 
+// Make a HTTP request using `httpGet` with ability to sign requests and returne parsed JSON payload as objects.
+//
+// The POST request is made, if data is an object, it is converted into string.
+//
+// Returns params as in `httpGet` with .json property assigned with an object from parsed JSON response.
+//
+// *When used with API endpoints, the `backend-host` parameter must be set in the config or command line to the base URL of the backend,
+// like http://localhost:8000, this is when `uri` is relative URL. Absolute URLs do not need this parameter.*
+//
+// Special parameters for options:
+// - url - url if options is first argument
+// - login - login to use for access credentials instead of global credentials
+// - secret - secret to use for access instead of global credentials
+// - proxy - used as a proxy to backend, handles all errors and returns .status and .json to be passed back to API client
+// - checksum - calculate checksum from the data
+// - anystatus - keep any HTTP status, dont treat as error if not between 200 and 299
+// - obj - return just result object, not the whole params
+core.sendRequest = function(options, callback)
+{
+    var self = this;
+    if (!options) options = {};
+    if (typeof options == "string") options = { url: options };
+    if (typeof options.sign == "undefined") options.sign = true;
+    // Sign request using internal backend credentials
+    if (options.sign) {
+        if (!options.login) options.login = self.backendLogin;
+        if (!options.secret) options.secret = self.backendSecret;
+        options.signer = function() {
+            var headers = self.modules.api.createSignature(this.login, this.secret, this.method, this.hostname, this.path, { type: this.headers['content-type'], checksum: opts.checksum });
+            for (var p in headers) this.headers[p] = headers[p];
+        }
+    }
+
+    // Relative urls resolve against global backend host
+    if (typeof options.url == "string" && options.url.indexOf("://") == -1) {
+        options.url = (self.backendHost || "http://localhost:" + this.port) + options.url;
+    }
+    var db = self.modules.db;
+
+    this.httpGet(options.url, lib.cloneObj(options), function(err, params) {
+        // If the contents are encrypted, decrypt before processing content type
+        if ((options.headers || {})['content-encoding'] == "encrypted") {
+            params.data = lib.decrypt(options.secret, params.data);
+        }
+        // Parse JSON and store in the params, set error if cannot be parsed, the caller will deal with it
+        if (params.data) {
+            switch (params.type) {
+            case "application/json":
+                try { params.obj = JSON.parse(params.data); } catch(e) { err = e; }
+                break;
+
+            case "text/xml":
+            case "application/xml":
+                try { params.obj = xml2json.toJson(params.data, { object: true }); } catch(e) { err = e }
+                break;
+            }
+        }
+        if (!params.obj) params.obj = {};
+        if ((params.status < 200 || params.status >= 300) && !err && !options.anystatus) {
+            err = lib.newError({ message: util.format("ResponseError: %d: %j", params.status, params.obj), name: "HTTP", status: params.status });
+        }
+        if (typeof callback == "function") callback(err, options.obj ? params.obj : params);
+    });
+}
 
 // Send email
 core.sendmail = function(options, callback)
