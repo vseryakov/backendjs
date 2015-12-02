@@ -485,8 +485,8 @@ db.dropPoolTables = function(name, tables, options, callback)
 //       the pool by table name if some tables are assigned to any specific pool by configuration parameters `db-pool-tables`.
 //     - unique - perform sorting the result and eliminate any duplicate rows by the column name specified in the `unique` property
 //     - filter - function to filter rows not to be included in the result, return false to skip row, args are: function(req, row, options)
-//     - silence_error - do not report about the error in the log, still the error is retirned to the caller
-//     - ignore_error - same as silence_error
+//     - silence_error - do not report about the error in the log, still the error is returned to the caller
+//     - ignore_error and quiet - same as silence_error
 //     - noprocessrows - if true then skip post processing result rows, return the data as is, this will result in returning combined columns as it is
 //     - noconvertrows - if true skip converting the data from the database format into Javascript data types, it uses column definitions
 //       for the table to convert values returned from the db into the the format defined by the column

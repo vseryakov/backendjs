@@ -470,7 +470,7 @@ lib.toParams = function(query, schema, options)
 // properties will be replaced by empty strings
 lib.toFormat = function(format, data, options)
 {
-    var rows = Array.isArray(data) ? data : Array.isArray(data.data) ? data.data : [];
+    var rows = Array.isArray(data) ? data : Array.isArray(data.data) ? data.data : this.isObject(data) ? [ data ] : [];
     if (!rows.length) return "";
     var allow = options && Array.isArray(options.allow) ? options.allow : null;
 

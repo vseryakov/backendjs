@@ -964,7 +964,7 @@ core.sendRequest = function(options, callback)
         if (!options.login) options.login = self.backendLogin;
         if (!options.secret) options.secret = self.backendSecret;
         options.signer = function() {
-            var headers = self.modules.api.createSignature(this.login, this.secret, this.method, this.hostname, this.path, { type: this.headers['content-type'], checksum: opts.checksum });
+            var headers = self.modules.api.createSignature(this.login, this.secret, this.method, this.hostname, this.path, { type: this.headers['content-type'], checksum: this.checksum });
             for (var p in headers) this.headers[p] = headers[p];
         }
     }
