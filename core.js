@@ -961,10 +961,13 @@ core.sendRequest = function(options, callback)
     if (typeof options.sign == "undefined") options.sign = true;
     // Sign request using internal backend credentials
     if (options.sign) {
-        if (!options.login) options.login = self.backendLogin;
-        if (!options.secret) options.secret = self.backendSecret;
         options.signer = function() {
-            var headers = self.modules.api.createSignature(this.login, this.secret, this.method, this.hostname, this.path, { type: this.headers['content-type'], checksum: this.checksum });
+            var headers = self.modules.api.createSignature(this.login || self.backendLogin,
+                                                           this.secret || self.backendSecret,
+                                                           this.method,
+                                                           this.hostname,
+                                                           this.path,
+                                                           { type: this.headers['content-type'], checksum: this.checksum });
             for (var p in headers) this.headers[p] = headers[p];
         }
     }

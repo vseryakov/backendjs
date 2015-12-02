@@ -3960,6 +3960,26 @@ automatically.</p>
 </ul>
 
 <ul>
+<li><p><code>core.sendRequest(options, callback)</code></p>
+<p> Make a HTTP request using <code>httpGet</code> with ability to sign requests and returne parsed JSON payload as objects.</p>
+<p>The POST request is made, if data is an object, it is converted into string.</p>
+<p>Returns params as in <code>httpGet</code> with .json property assigned with an object from parsed JSON response.</p>
+<p><em>When used with API endpoints, the <code>backend-host</code> parameter must be set in the config or command line to the base URL of the backend,
+like <a href="http://localhost:8000">http://localhost:8000</a>, this is when <code>uri</code> is relative URL. Absolute URLs do not need this parameter.</em></p>
+<p>Special parameters for options:</p>
+<ul>
+<li>url - url if options is first argument</li>
+<li>login - login to use for access credentials instead of global credentials</li>
+<li>secret - secret to use for access instead of global credentials</li>
+<li>proxy - used as a proxy to backend, handles all errors and returns .status and .json to be passed back to API client</li>
+<li>checksum - calculate checksum from the data</li>
+<li>anystatus - keep any HTTP status, dont treat as error if not between 200 and 299</li>
+<li>obj - return just result object, not the whole params</li>
+</ul>
+</li>
+</ul>
+
+<ul>
 <li><p><code>core.sendmail(options, callback)</code></p>
 <p> Send email</p>
 </li>
@@ -4220,8 +4240,8 @@ explicitely if it is different from the default. Other functions can resolve
 the pool by table name if some tables are assigned to any specific pool by configuration parameters <code>db-pool-tables</code>.</li>
 <li>unique - perform sorting the result and eliminate any duplicate rows by the column name specified in the <code>unique</code> property</li>
 <li>filter - function to filter rows not to be included in the result, return false to skip row, args are: function(req, row, options)</li>
-<li>silence_error - do not report about the error in the log, still the error is retirned to the caller</li>
-<li>ignore_error - same as silence_error</li>
+<li>silence_error - do not report about the error in the log, still the error is returned to the caller</li>
+<li>ignore_error and quiet - same as silence_error</li>
 <li>noprocessrows - if true then skip post processing result rows, return the data as is, this will result in returning combined columns as it is</li>
 <li>noconvertrows - if true skip converting the data from the database format into Javascript data types, it uses column definitions
 for the table to convert values returned from the db into the the format defined by the column</li>
@@ -4491,10 +4511,15 @@ The following options can be used:</p>
 <ul>
 <li><p><code>db.search(table, query, options, callback)</code></p>
 <p> Perform full text search on the given table, the database implementation may ignore table name completely
-in case of global text index.
-Query in general is a text string with the format that is supported by the underlying driver, the db module does not parse the query at all.
-Options make take the same properties as in the select method. Without full text support this works the same way as the <code>select</code> method.</p>
-</li>
+in case of global text index.</p>
+<p>Query in general is a text string with the format that is supported by the underlying driver, the db module DOES NOT PARSE the query at all.
+Options make take the same properties as in the select method.</p>
+<p>A special query property <code>q</code> may be used for generic search in all fields.</p>
+<p>Without full text search support in the driver this may return nothing or an error.</p>
+<p>Example</p>
+<pre><code>      db.search(&quot;bk_account&quot;, { type: &quot;admin&quot;, q: &quot;john*&quot; }, { pool: &quot;elasticsearch&quot; }, lib.log);
+      db.search(&quot;bk_account&quot;, &quot;john*&quot;, { pool: &quot;elasticsearch&quot; }, lib.log);
+</code></pre></li>
 </ul>
 
 <ul>
@@ -7589,13 +7614,15 @@ must be defined for any metrics to be saved, use api.describeTable with addition
 <li>method - GET, POST</li>
 <li>headers - object with headers to pass to HTTP request, properties must be all lower case</li>
 <li>cookies - a list with cookies or a boolean to load cookies from the db</li>
-<li>file - file name where to save response, in case of error response the error body will be saved as well</li>
+<li>file - file name where to save response, in case of error response the error body will be saved as well, it uses sync file operations</li>
+<li>stream - a writable stream where to save data</li>
 <li>postdata - data to be sent with the request in the body</li>
 <li>postfile - file to be uploaded in the POST body, not as multipart</li>
 <li>postsize - file size to be uploaded if obtained separately</li>
 <li>chunked - post files using chunked encoding</li>
 <li>query - additional query parameters to be added to the url as an object or as encoded string</li>
 <li>sign - sign request with provided email/secret properties</li>
+<li>checksum - 1 if the body needs a checksum in the signature</li>
 <li>mtime - a Date or timestamp to be used in conditional requests</li>
 <li>conditional - add If-Modified-Since header using <code>params.mtime</code> if present or if <code>file</code> is given use file last modified timestamp, mtime</li>
 <li>httpTimeout - timeout in milliseconds afte which the request is borted if no data received</li>
@@ -7608,35 +7635,17 @@ on which to retry, otherwise retry on all non-2xx responses</li>
 </li>
 <li>callback will be called with the arguments:
  first argument is error object if any
- second is params object itself with updated fields
- third is the HTTP response object
-On end, the object params will contain the following updated properties:</li>
+ second is the params object itself with updated fields</li>
+</ul>
+<p>On end, the object params will contain the following updated properties:</p>
+<ul>
 <li>data if file was not specified, data will contain collected response body as string</li>
 <li>status - HTTP response status code</li>
 <li>mtime - Date object with the last modified time of the requested file</li>
-<li>size - size of the response body or file
-Note: SIDE EFFECT: params object is modified in place so many options will be changed/removed or added</li>
+<li>size - size of the response body or file</li>
+<li>type - response content type</li>
 </ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>core.sendRequest(options, callback)</code></p>
-<p> Make a HTTP request using <code>httpGet</code> with ability to sign requests and returne parsed JSON payload as objects.</p>
-<p>The POST request is made, if data is an object, it is converted into string.</p>
-<p>Returns params as in <code>httpGet</code> with .json property assigned with an object from parsed JSON response.</p>
-<p><em>When used with API endpoints, the <code>backend-host</code> parameter must be set in the config or command line to the base URL of the backend,
-like <a href="http://localhost:8000">http://localhost:8000</a>, this is when <code>uri</code> is relative URL. Absolute URLs do not need this parameter.</em></p>
-<p>Special parameters for options:</p>
-<ul>
-<li>url - url if options is first argument</li>
-<li>login - login to use for access credentials instead of global credentials</li>
-<li>secret - secret to use for access instead of global credentials</li>
-<li>proxy - used as a proxy to backend, handles all errors and returns .status and .json to be passed back to API client</li>
-<li>checksum - calculate checksum from the data</li>
-<li>anystatus - keep any HTTP status, dont treat as error if not between 200 and 299</li>
-<li>obj - return just result object, not the whole params</li>
-</ul>
+<p>Note: SIDE EFFECT: the params object is modified in place so many options will be changed/removed or added</p>
 </li>
 </ul>
 
