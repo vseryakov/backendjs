@@ -955,28 +955,15 @@ core.loadModules = function(dir, options, callback)
 // - obj - return just result object, not the whole params
 core.sendRequest = function(options, callback)
 {
-    var self = this;
     if (!options) options = {};
     if (typeof options == "string") options = { url: options };
-    if (typeof options.sign == "undefined") options.sign = true;
     // Sign request using internal backend credentials
-    if (options.sign) {
-        options.signer = function() {
-            var headers = self.modules.api.createSignature(this.login || self.backendLogin,
-                                                           this.secret || self.backendSecret,
-                                                           this.method,
-                                                           this.hostname,
-                                                           this.path,
-                                                           { type: this.headers['content-type'], checksum: this.checksum });
-            for (var p in headers) this.headers[p] = headers[p];
-        }
-    }
+    if (options.sign || options.sign == "undefined") options.signer = this.signRequest;
 
     // Relative urls resolve against global backend host
     if (typeof options.url == "string" && options.url.indexOf("://") == -1) {
-        options.url = (self.backendHost || "http://localhost:" + this.port) + options.url;
+        options.url = (this.backendHost || "http://localhost:" + this.port) + options.url;
     }
-    var db = self.modules.db;
 
     this.httpGet(options.url, lib.cloneObj(options), function(err, params) {
         // If the contents are encrypted, decrypt before processing content type
@@ -1002,6 +989,20 @@ core.sendRequest = function(options, callback)
         }
         if (typeof callback == "function") callback(err, options.obj ? params.obj : params);
     });
+}
+
+core.signRequest = function()
+{
+    this.login = this.login || core.backendLogin || '';
+    this.secret = this.secret || core.backendSecret || '';
+    if (!this.login || !this.secret) return;
+    var headers = core.modules.api.createSignature(this.login,
+                                                   this.secret,
+                                                   this.method,
+                                                   this.hostname,
+                                                   this.path,
+                                                   { type: this.headers['content-type'], checksum: this.checksum });
+    for (var p in headers) this.headers[p] = headers[p];
 }
 
 // Send email

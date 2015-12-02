@@ -1149,8 +1149,18 @@ api.checkRateLimits = function(req, options, callback)
     // Use process shared cache to eliminate race condition for the same cache item from multiple processes on the same instance,
     // in master mode use direct access to the LRU cache
     ipc.limiter({ name: key, rate: rate, max: max, interval: interval, queueName: this.limiterQueue }, function(delay) {
-        callback(!delay ? null : { status: 429, message: options.message || "access limit reached, please try again later" });
+        callback(!delay ? null : { status: 429, message: options.message || lib.__("Access limit reached, please try again later.") });
     });
+}
+
+// Register access rate limit for a given name, all other rate limit properties will be applied as described in the `checkRateLimits`
+api.registerRateLimits = function(name, rate, max, interval)
+{
+    if (!name) return false;
+    if (rate > 0) this.rlimits[name + 'Rate'] = rate;
+    if (max > 0) this.rlimits[name + 'Max'] = max;
+    if (interval > 0) this.rlimits[name + 'Interval'] = interval;
+    return true;
 }
 
 // Convert query options into internal options, such options are prepended with the underscore to
