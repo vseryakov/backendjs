@@ -2654,6 +2654,12 @@ for example.</p>
 </ul>
 
 <ul>
+<li><p><code>api.registerRateLimits(name, rate, max, interval)</code></p>
+<p> Register access rate limit for a given name, all other rate limit properties will be applied as described in the <code>checkRateLimits</code></p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>api.getOptions(req)</code></p>
 <p> Convert query options into internal options, such options are prepended with the underscore to
 distinguish control parameters from query parameters.
