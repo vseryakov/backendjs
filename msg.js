@@ -67,24 +67,22 @@ msg.send = function(options, callback)
     if (typeof callback != "function") callback = lib.noop;
     if (!lib.isObject(options) || !options.device_id) return callback(lib.newError("invalid device or options"));
 
-    logger.info("send:", options.device_id, "id:", options.id, "type:", options.type, "msg:", options.msg);
+    logger.info("send:", options.device_id, "id:", options.id, "type:", options.type, "service:", options.service, "msg:", options.msg);
 
     // Determine the service to use from the device token
     var devices = lib.strSplit(options.device_id, null, "string");
-    lib.forEachSeries(devices, function(device, next) {
+    lib.forEach(devices, function(device, next) {
         var dev = self.parseDevice(device);
         if (!dev.id) return next();
         var client = self.getClient(dev);
         if (!client) {
-            logger.error("send:", "msg", "unsupported:", dev);
+            logger.error("send:", "unsupported:", dev);
             return next();
         }
         if (options.service && options.service != client.name) return next();
-        logger.dev("send:", client.name, dev, options.id, options.type);
         client.send(dev, options, function(err) {
             if (err) logger.error("send:", client.name, dev, err);
-            // Stop on explicit fatal errors only
-            next(err && err.status >= 500 ? err : null);
+            next();
         });
     }, callback);
 }
@@ -121,7 +119,7 @@ msg.getClient = function(dev)
 }
 
 // Return a list of all config cert/key parameters for the given name.
-// Each item in th list is an object with the following properties: key, secret, app
+// Each item in the list is an object with the following properties: key, secret, app
 msg.getConfig = function(name)
 {
     var rc = [];

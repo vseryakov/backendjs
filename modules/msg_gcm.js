@@ -11,7 +11,6 @@ var core = require(__dirname + '/../core');
 var lib = require(__dirname + '/../lib');
 var aws = require(__dirname + '/../aws');
 var msg = require(__dirname + '/../msg');
-var gcm = require('node-gcm');
 
 module.exports = client;
 
@@ -34,10 +33,7 @@ client.init = function(options)
     var config = msg.getConfig(this.name);
     for (var i in config) {
         if (this.agents[config[i].app]) continue;
-        var agent = new gcm.Sender(config[i].key);
-        agent._app = config[i].app;
-        agent._sent = 0;
-        agent._queue = 0;
+        var agent = { key: config[i].key, _app: config[i].app, _sent: 0, _queue: 0 };
         this.agents[config[i].app] = agent;
         logger.info("init:", "gcm", config);
     }
@@ -71,19 +67,28 @@ client.send = function(dev, options, callback)
     if (!dev || !dev.id) return typeof callback == "function" && callback(lib.newError("invalid device:" + dev.id));
 
     var agent = this.agents[dev.app] || this.agents.default;
-    if (!agent) return typeof callback == "function" && callback(lib.newError("GCM is not initialized for " + dev.id, 500));
+    if (!agent) return typeof callback == "function" && callback(lib.newError("GCM is not initialized for " + dev.id, 415));
 
     agent._queue++;
 
-    logger.debug("send:", "gcm", agent._app, dev);
-    var pkt = new gcm.Message();
-    if (options.msg) pkt.addData('msg', options.msg);
-    if (options.id) pkt.addData('id', options.id);
-    if (options.type) pkt.addData("type", options.type);
-    if (options.badge) pkt.addData('badge', options.badge);
-    if (options.sound) pkt.addData('sound', options.sound);
-    if (options.vibrate) pkt.addData('vibrate', options.vibrate);
-    agent.send(pkt, [dev.id], 2, function(err) {
+    var msg = { registration_ids: [dev.id], data: {} };
+    if (options.msg) msg.data.msg = String(options.msg);
+    if (options.id) msg.data.id = String(options.id);
+    if (options.type) msg.data.type = String(options.type);
+    if (options.badge) msg.data.badge = lib.toBool(options.badge);
+    if (options.sound) msg.data.sound = lib.toBool(options.sound);
+    if (options.vibrate) msg.data.vibrate = lib.toBool(options.vibrate);
+
+    var opts = {
+        method: 'POST',
+        headers: { 'Authorization': 'key=' + agent.key },
+        postdata: msg,
+        retryCount: this.retryCount || 3,
+        retryTimeout: this.retryTimeout || 500,
+    };
+    core.httpGet('https://android.googleapis.com/gcm/send', opts, function(err, params) {
+        if (!err && params.status >= 400) err = lib.newError(params.status + ": " + params.data, params.status);
+        if (err) logger.error("send:", "gcm", agent._app, dev, err, msg);
         agent._queue--;
         agent._sent++;
         if (typeof callback == "function") callback(err);

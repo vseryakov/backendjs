@@ -42,17 +42,17 @@ client.send = function(dev, options, callback)
 {
     var self = this;
     var pkt = {};
-    if (!dev.id) return typeof callback == "function" && callback(lib.newError("invalid device:" + dev, 400));
+    if (!dev.id) return typeof callback == "function" && callback(lib.newError("invalid device:" + dev));
 
     // Format according to the rules per platform
     if (dev.id.match("/APNS/")) {
         if (options.msg) pkt.alert = options.msg;
-        ["id","type","badge"].forEach(function(x) { if (options[x]) pkt[x] = options[x]; });
+        ["id","type","badge","sound","vibrate"].forEach(function(x) { if (options[x]) pkt[x] = options[x]; });
         pkt = { APNS: JSON.stringify({ aps: pkt }) };
     } else
     if (dev.id.match("/GCM/")) {
         if (options.msg) pkt.message = options.msg;
-        ["id","type","badge"].forEach(function(x) { if (options[x]) pkt[x] = options[x]; });
+        ["id","type","badge","sound","vibrate"].forEach(function(x) { if (options[x]) pkt[x] = options[x]; });
         pkt = { GCM: JSON.stringify({ data: pkt }) };
     }
     aws.snsPublish(dev.id, pkt, function(err) {

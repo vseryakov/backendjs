@@ -120,7 +120,7 @@ client.send = function(dev, options, callback)
     if (!hex) return typeof callback == "function" && callback(lib.newError("invalid device token:" + dev.id));
 
     var agent = this.agents[dev.app] || this.agents.default;
-    if (!agent) return typeof callback == "function" && callback(lib.newError("APN is not initialized for " + dev.id, 500));
+    if (!agent) return typeof callback == "function" && callback(lib.newError("APN is not initialized for " + dev.id, 415));
 
     logger.debug("sendAPN:", agent._app, dev);
     var pkt = agent.createMessage().device(dev.id);
