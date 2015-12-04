@@ -90,30 +90,18 @@
 <li><a href="#module-api_icons">api_icons</a></li>
 <li><a href="#module-api_statistics">api_statistics</a></li>
 <li><a href="#module-core_http">core_http</a></li>
-<li><a href="#module-db_cassandra">db_cassandra</a></li>
-<li><a href="#module-db_couchdb">db_couchdb</a></li>
 <li><a href="#module-db_dynamodb">db_dynamodb</a></li>
 <li><a href="#module-db_elasticsearch">db_elasticsearch</a></li>
-<li><a href="#module-db_lmdb">db_lmdb</a></li>
-<li><a href="#module-db_mongodb">db_mongodb</a></li>
-<li><a href="#module-db_mysql">db_mysql</a></li>
-<li><a href="#module-db_pgsql">db_pgsql</a></li>
 <li><a href="#module-db_redis">db_redis</a></li>
-<li><a href="#module-db_riak">db_riak</a></li>
 <li><a href="#module-db_sql">db_sql</a></li>
 <li><a href="#module-db_sqlite">db_sqlite</a></li>
-<li><a href="#module-ipc_amqp">ipc_amqp</a></li>
 <li><a href="#module-ipc_client">ipc_client</a></li>
 <li><a href="#module-ipc_db">ipc_db</a></li>
 <li><a href="#module-ipc_local">ipc_local</a></li>
-<li><a href="#module-ipc_memcache">ipc_memcache</a></li>
 <li><a href="#module-ipc_redis">ipc_redis</a></li>
 <li><a href="#module-ipc_redisclient">ipc_redisclient</a></li>
 <li><a href="#module-ipc_redisq">ipc_redisq</a></li>
 <li><a href="#module-ipc_sqs">ipc_sqs</a></li>
-<li><a href="#module-msg_apn">msg_apn</a></li>
-<li><a href="#module-msg_gcm">msg_gcm</a></li>
-<li><a href="#module-msg_sns">msg_sns</a></li>
 <li><a href="#module-bk_accounts">bk_accounts</a></li>
 <li><a href="#module-bk_connections">bk_connections</a></li>
 <li><a href="#module-bk_counters">bk_counters</a></li>
@@ -124,6 +112,18 @@
 <li><a href="#module-bk_locations">bk_locations</a></li>
 <li><a href="#module-bk_messages">bk_messages</a></li>
 <li><a href="#module-bk_system">bk_system</a></li>
+<li><a href="#module-db_cassandra">db_cassandra</a></li>
+<li><a href="#module-db_couchdb">db_couchdb</a></li>
+<li><a href="#module-db_lmdb">db_lmdb</a></li>
+<li><a href="#module-db_mongodb">db_mongodb</a></li>
+<li><a href="#module-db_mysql">db_mysql</a></li>
+<li><a href="#module-db_pgsql">db_pgsql</a></li>
+<li><a href="#module-db_riak">db_riak</a></li>
+<li><a href="#module-ipc_amqp">ipc_amqp</a></li>
+<li><a href="#module-ipc_memcache">ipc_memcache</a></li>
+<li><a href="#module-msg_apn">msg_apn</a></li>
+<li><a href="#module-msg_gcm">msg_gcm</a></li>
+<li><a href="#module-msg_sns">msg_sns</a></li>
 </ul>
 </li>
 </ul>
@@ -6790,7 +6790,7 @@ Options with the following properties:</p>
 <ul>
 <li><p><code>msg.getConfig(name)</code></p>
 <p> Return a list of all config cert/key parameters for the given name.
-Each item in th list is an object with the following properties: key, secret, app</p>
+Each item in the list is an object with the following properties: key, secret, app</p>
 </li>
 </ul>
 
@@ -7655,23 +7655,6 @@ on which to retry, otherwise retry on all non-2xx responses</li>
 </li>
 </ul>
 
-<h2 id="module-db_cassandra">Module: DB_CASSANDRA</h2>
-<ul>
-<li><p><code>Pool.prototype.put(table, obj, options, callback)</code></p>
-<p> No REPLACE INTO support but UPDATE creates new record if no primary key exists</p>
-</li>
-</ul>
-
-<h2 id="module-db_couchdb">Module: DB_COUCHDB</h2>
-<ul>
-<li><p><code>pool</code></p>
-<p> Create a database pool that works with CouchDB server.</p>
-<p>In addition to the standard commands it can execute any CouchDB HTTP API directly</p>
-<pre><code>db.query({ op: &quot;GET&quot;, text: &quot;/db/url&quot; }, { pool: &quot;couchdb&quot; }, db.showResult)
-db.query({ op: &quot;PUT&quot;, text: &quot;/db/url&quot;, obj: { a: 1 b: 2 } }, { pool: &quot;couchdb&quot; }, db.showResult)
-</code></pre></li>
-</ul>
-
 <h2 id="module-db_dynamodb">Module: DB_DYNAMODB</h2>
 <ul>
 <li><p><code>Pool.prototype.convertError(table, op, err, options)</code></p>
@@ -7693,58 +7676,11 @@ if not given the default database name will be used.</p>
 </li>
 </ul>
 
-<h2 id="module-db_lmdb">Module: DB_LMDB</h2>
-<ul>
-<li><p><code>pool</code></p>
-<p> Setup LMDB/LevelDB database driver, this is simplified driver which supports only basic key-value operations,
-table parameter is ignored, the object only supports the properties name and value in the record objects.</p>
-<p>Because this driver supports 2 databases it requires type to be specified, possible values are: <code>lmdb, leveldb</code></p>
-<p>Options are passed to the LMDB low level driver as MDB_ flags according to <a href="http://symas.com/mdb/doc/">http://symas.com/mdb/doc/</a> and
-as properties for LevelDB as described in <a href="http://leveldb.googlecode.com/svn/trunk/doc/index.html">http://leveldb.googlecode.com/svn/trunk/doc/index.html</a></p>
-<p>The LevelDB database can only be shared by one process so if no unique options.url is given, it will create a unique database using core.processId()</p>
-</li>
-</ul>
-
-<h2 id="module-db_mongodb">Module: DB_MONGODB</h2>
-<h2 id="module-db_mysql">Module: DB_MYSQL</h2>
-<h2 id="module-db_pgsql">Module: DB_PGSQL</h2>
-<ul>
-<li><p><code>Pool.prototype.put(table, obj, opts, callback)</code></p>
-<p> No REPLACE INTO support, do it manually</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>Pool.prototype.cacheIndexes(options, callback)</code></p>
-<p> Cache indexes using the information_schema</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>Pool.prototype.bindValue(val, info, options)</code></p>
-<p> Convert JS array into db PostgreSQL array format: {..}</p>
-</li>
-</ul>
-
 <h2 id="module-db_redis">Module: DB_REDIS</h2>
 <ul>
 <li><p><code>pool</code></p>
 <p> Redis database pool, uses Hash to store the records</p>
 </li>
-</ul>
-
-<h2 id="module-db_riak">Module: DB_RIAK</h2>
-<ul>
-<li><p><code>pool</code></p>
-<p> Create a database pool that works with the Riak database.</p>
-<p>By default the driver uses simple key-value mode of operations, to enable bucket-type mode
-pass bucketType in the <code>-db-riak-options</code>:</p>
-<p>To use maps for the object records set <code>useMaps</code> in the <code>-db-riak-options</code></p>
-<pre><code>-db-riak-options &#39;{ &quot;bucketType&quot;: &quot;bk&quot;, &quot;useMaps&quot;: 1 }&#39;
-</code></pre><p>In addition to the standard commands it can execute any Riak HTTP API directly</p>
-<pre><code>db.query({ op: &quot;GET&quot;, text: &quot;/buckets?buckets=true&quot; }, { pool: &quot;riak&quot; }, db.showResult)
-db.query({ op: &quot;POST&quot;, text: &quot;/buckets/bucket/counter/name&quot;, obj: 1 }, { pool: &quot;riak&quot; }, db.showResult)
-</code></pre></li>
 </ul>
 
 <h2 id="module-db_sql">Module: DB_SQL</h2>
@@ -7904,7 +7840,6 @@ options may define the following properties:</p>
 </ul>
 
 <h2 id="module-db_sqlite">Module: DB_SQLITE</h2>
-<h2 id="module-ipc_amqp">Module: IPC_AMQP</h2>
 <h2 id="module-ipc_client">Module: IPC_CLIENT</h2>
 <ul>
 <li><p><code>IpcClient.prototype.close()</code></p>
@@ -8047,81 +7982,10 @@ and the property <code>delay</code> with number of milliseconds till the bucket 
 </ul>
 
 <h2 id="module-ipc_local">Module: IPC_LOCAL</h2>
-<h2 id="module-ipc_memcache">Module: IPC_MEMCACHE</h2>
 <h2 id="module-ipc_redis">Module: IPC_REDIS</h2>
 <h2 id="module-ipc_redisclient">Module: IPC_REDISCLIENT</h2>
 <h2 id="module-ipc_redisq">Module: IPC_REDISQ</h2>
 <h2 id="module-ipc_sqs">Module: IPC_SQS</h2>
-<h2 id="module-msg_apn">Module: MSG_APN</h2>
-<ul>
-<li><p><code>client.check(dev)</code></p>
-<p> Returns true if given device is supported by APN</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>client.init(options)</code></p>
-<p> Initialize Apple Push Notification service in the current process, Apple supports multiple connections to the APN gateway but
-not too many so this should be called on the dedicated backend hosts, on multi-core servers every spawn web process will initialize a
-connection to APN gateway.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>client.close(callback)</code></p>
-<p> Close APN agent, try to send all pending messages before closing the gateway connection</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>client.send(dev, options, callback)</code></p>
-<p> Send push notification to an Apple device, returns true if the message has been queued.</p>
-<p>The options may contain the following properties:</p>
-<ul>
-<li>msg - message text</li>
-<li>badge - badge number</li>
-<li>sound - 1, true or a sound file to play</li>
-<li>type - set type of the packet</li>
-<li>category - a user notification category</li>
-<li>contentAvailable - to indicate about new content so fetchCompletionHandler is called</li>
-<li>id - send id in the user properties</li>
-</ul>
-</li>
-</ul>
-
-<h2 id="module-msg_gcm">Module: MSG_GCM</h2>
-<ul>
-<li><p><code>client.init(options)</code></p>
-<p> Initialize Google Cloud Messaginh servie to send push notifications to mobile devices</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>client.close(callback)</code></p>
-<p> Close GCM connection, flush the queue</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>client.send(dev, options, callback)</code></p>
-<p> Send push notification to an Android device, return true if queued.</p>
-</li>
-</ul>
-
-<h2 id="module-msg_sns">Module: MSG_SNS</h2>
-<ul>
-<li><p><code>client.send(dev, options, callback)</code></p>
-<p> Send push notification to a device using AWS SNS service, device_id must be a valid SNS endpoint ARN.</p>
-<p>The options may contain the following properties:</p>
-<ul>
-<li>msg - message text</li>
-<li>badge - badge number</li>
-<li>type - set type of the packet</li>
-<li>id - send id in the user properties</li>
-</ul>
-</li>
-</ul>
-
 <h2 id="module-bk_accounts">Module: BK_ACCOUNTS</h2>
 <ul>
 <li><p><code>accounts</code></p>
@@ -8923,6 +8787,142 @@ is used in <code>/location/get</code> request. It can be used in the application
 <ul>
 <li><p><code>system.configureSystemAPI()</code></p>
 <p> API for internal provisioning and configuration</p>
+</li>
+</ul>
+
+<h2 id="module-db_cassandra">Module: DB_CASSANDRA</h2>
+<ul>
+<li><p><code>Pool.prototype.put(table, obj, options, callback)</code></p>
+<p> No REPLACE INTO support but UPDATE creates new record if no primary key exists</p>
+</li>
+</ul>
+
+<h2 id="module-db_couchdb">Module: DB_COUCHDB</h2>
+<ul>
+<li><p><code>pool</code></p>
+<p> Create a database pool that works with CouchDB server.</p>
+<p>In addition to the standard commands it can execute any CouchDB HTTP API directly</p>
+<pre><code>db.query({ op: &quot;GET&quot;, text: &quot;/db/url&quot; }, { pool: &quot;couchdb&quot; }, db.showResult)
+db.query({ op: &quot;PUT&quot;, text: &quot;/db/url&quot;, obj: { a: 1 b: 2 } }, { pool: &quot;couchdb&quot; }, db.showResult)
+</code></pre></li>
+</ul>
+
+<h2 id="module-db_lmdb">Module: DB_LMDB</h2>
+<ul>
+<li><p><code>pool</code></p>
+<p> Setup LMDB/LevelDB database driver, this is simplified driver which supports only basic key-value operations,
+table parameter is ignored, the object only supports the properties name and value in the record objects.</p>
+<p>Because this driver supports 2 databases it requires type to be specified, possible values are: <code>lmdb, leveldb</code></p>
+<p>Options are passed to the LMDB low level driver as MDB_ flags according to <a href="http://symas.com/mdb/doc/">http://symas.com/mdb/doc/</a> and
+as properties for LevelDB as described in <a href="http://leveldb.googlecode.com/svn/trunk/doc/index.html">http://leveldb.googlecode.com/svn/trunk/doc/index.html</a></p>
+<p>The LevelDB database can only be shared by one process so if no unique options.url is given, it will create a unique database using core.processId()</p>
+</li>
+</ul>
+
+<h2 id="module-db_mongodb">Module: DB_MONGODB</h2>
+<h2 id="module-db_mysql">Module: DB_MYSQL</h2>
+<h2 id="module-db_pgsql">Module: DB_PGSQL</h2>
+<ul>
+<li><p><code>Pool.prototype.put(table, obj, opts, callback)</code></p>
+<p> No REPLACE INTO support, do it manually</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>Pool.prototype.cacheIndexes(options, callback)</code></p>
+<p> Cache indexes using the information_schema</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>Pool.prototype.bindValue(val, info, options)</code></p>
+<p> Convert JS array into db PostgreSQL array format: {..}</p>
+</li>
+</ul>
+
+<h2 id="module-db_riak">Module: DB_RIAK</h2>
+<ul>
+<li><p><code>pool</code></p>
+<p> Create a database pool that works with the Riak database.</p>
+<p>By default the driver uses simple key-value mode of operations, to enable bucket-type mode
+pass bucketType in the <code>-db-riak-options</code>:</p>
+<p>To use maps for the object records set <code>useMaps</code> in the <code>-db-riak-options</code></p>
+<pre><code>-db-riak-options &#39;{ &quot;bucketType&quot;: &quot;bk&quot;, &quot;useMaps&quot;: 1 }&#39;
+</code></pre><p>In addition to the standard commands it can execute any Riak HTTP API directly</p>
+<pre><code>db.query({ op: &quot;GET&quot;, text: &quot;/buckets?buckets=true&quot; }, { pool: &quot;riak&quot; }, db.showResult)
+db.query({ op: &quot;POST&quot;, text: &quot;/buckets/bucket/counter/name&quot;, obj: 1 }, { pool: &quot;riak&quot; }, db.showResult)
+</code></pre></li>
+</ul>
+
+<h2 id="module-ipc_amqp">Module: IPC_AMQP</h2>
+<h2 id="module-ipc_memcache">Module: IPC_MEMCACHE</h2>
+<h2 id="module-msg_apn">Module: MSG_APN</h2>
+<ul>
+<li><p><code>client.check(dev)</code></p>
+<p> Returns true if given device is supported by APN</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>client.init(options)</code></p>
+<p> Initialize Apple Push Notification service in the current process, Apple supports multiple connections to the APN gateway but
+not too many so this should be called on the dedicated backend hosts, on multi-core servers every spawn web process will initialize a
+connection to APN gateway.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>client.close(callback)</code></p>
+<p> Close APN agent, try to send all pending messages before closing the gateway connection</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>client.send(dev, options, callback)</code></p>
+<p> Send push notification to an Apple device, returns true if the message has been queued.</p>
+<p>The options may contain the following properties:</p>
+<ul>
+<li>msg - message text</li>
+<li>badge - badge number</li>
+<li>sound - 1, true or a sound file to play</li>
+<li>type - set type of the packet</li>
+<li>category - a user notification category</li>
+<li>contentAvailable - to indicate about new content so fetchCompletionHandler is called</li>
+<li>id - send id in the user properties</li>
+</ul>
+</li>
+</ul>
+
+<h2 id="module-msg_gcm">Module: MSG_GCM</h2>
+<ul>
+<li><p><code>client.init(options)</code></p>
+<p> Initialize Google Cloud Messaginh servie to send push notifications to mobile devices</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>client.close(callback)</code></p>
+<p> Close GCM connection, flush the queue</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>client.send(dev, options, callback)</code></p>
+<p> Send push notification to an Android device, return true if queued.</p>
+</li>
+</ul>
+
+<h2 id="module-msg_sns">Module: MSG_SNS</h2>
+<ul>
+<li><p><code>client.send(dev, options, callback)</code></p>
+<p> Send push notification to a device using AWS SNS service, device_id must be a valid SNS endpoint ARN.</p>
+<p>The options may contain the following properties:</p>
+<ul>
+<li>msg - message text</li>
+<li>badge - badge number</li>
+<li>type - set type of the packet</li>
+<li>id - send id in the user properties</li>
+</ul>
 </li>
 </ul>
 
