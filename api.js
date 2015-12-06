@@ -135,6 +135,7 @@ var api = {
            { name: "errlog-limiter-max", type: "int", descr: "How many error messages to put in the log before throttling kicks in" },
            { name: "errlog-limiter-interval", type: "int", descr: "Interval for error log limiter, max errors per this interval" },
            { name: "errlog-limiter-ignore", type: "regexp", descr: "Do not show errors that match the regexp" },
+           { name: "locales", array: 1, type: "list", descr: "A list of locales to load from the locales/ directory, only language name must be specified, example: en,es. It enables internal support for `res.__` and `req.__` methods that can be used for translations, for each request the internal language header will be honored forst, then HTTP Accept-Language" },
     ],
 
     // Access handlers to grant access to the endpoint before checking for signature.
@@ -209,6 +210,8 @@ var api = {
     // Static content options
     staticOptions: { maxAge: 3600 * 1000 },
     staticPaths: [],
+
+    locales: [],
 
     // Web session age
     sessionAge: 86400 * 14 * 1000,
@@ -541,6 +544,22 @@ api.init = function(options, callback)
     // Config options for Express
     for (var p in self.expressOptions) {
         self.app.set(p, self.expressOptions[p]);
+    }
+
+    // i18n support, enabled only if some locales specified
+    self.locales.forEach(function(x) {
+        lib.locales[x] = lib.readFileSync(__dirname + '/locales/' + x + '.json', { json: 1 });
+    });
+    if (self.locales.length) {
+        api.app.use(function(req, res, next) {
+            req.__ = lib.__.bind(req);
+            res.locals.__ = res.__ = lib.__.bind(res);
+            if (req.options && req.options.appLanguage) {
+                req.locale = req.options.appLanguage;
+                res.locale = req.options.appLanguage;
+            }
+            next();
+        });
     }
 
     // Assign custom middleware just after the security handler, if the signature is disabled then the middleware

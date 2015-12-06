@@ -65,7 +65,6 @@ lib.log = function()
 // - __(fmt, arg,...)
 // - __({ phrase: "", locale: "" }, arg...
 //
-// When real i18n module is used this function can be replaced to support global reference.
 lib.__ = function()
 {
     var lang = this.locale;
