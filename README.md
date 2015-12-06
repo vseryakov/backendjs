@@ -123,10 +123,10 @@ or simply
 
 * To access the database while in the shell
 
-        > db.select("bk_account", {}, function(err, rows) { console.log(rows) });
-        > db.select("bk_account", {}, db.showResult);
-        > db.add("bk_account", { login: 'test2', secret: 'test2', name' Test 2 name', gender: 'f' }, db.showResult);
-        > db.select("bk_account", { gender: 'm' }, db.showResult);
+        > db.select("bk_account", {}, function(err, rows) { console.log(err, rows) });
+        > db.select("bk_account", {}, lib.log);
+        > db.add("bk_account", { login: 'test2', secret: 'test2', name' Test 2 name', gender: 'f' }, lib.log);
+        > db.select("bk_account", { gender: 'm' }, lib.log);
 
 * To add users from the command line
 

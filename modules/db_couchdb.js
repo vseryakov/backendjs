@@ -13,8 +13,8 @@ var logger = require(__dirname + '/../logger');
 //
 // In addition to the standard commands it can execute any CouchDB HTTP API directly
 //
-//      db.query({ op: "GET", text: "/db/url" }, { pool: "couchdb" }, db.showResult)
-//      db.query({ op: "PUT", text: "/db/url", obj: { a: 1 b: 2 } }, { pool: "couchdb" }, db.showResult)
+//      db.query({ op: "GET", text: "/db/url" }, { pool: "couchdb" }, lib.log)
+//      db.query({ op: "PUT", text: "/db/url", obj: { a: 1 b: 2 } }, { pool: "couchdb" }, lib.log)
 //
 var pool = {
     name: "couchdb",

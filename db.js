@@ -93,7 +93,7 @@ var metrics = require(__dirname + "/metrics");
 //
 //          in the Javascript:
 //
-//          db.select("bills", { status: "ok" }, { pool: "pgsql1" }, db.showResult)
+//          db.select("bills", { status: "ok" }, { pool: "pgsql1" }, lib.log)
 //
 var db = {
     name: 'db',
@@ -953,7 +953,7 @@ db.list = function(table, query, options, callback)
 //
 //  Example:
 //
-//          db.batch("bc_counter", "add", [{id:1",like0:1}, {id:"2",like0:2}], db.showResult)
+//          db.batch("bc_counter", "add", [{id:1",like0:1}, {id:"2",like0:2}], lib.log)
 //
 //
 db.batch = function(table, op, objs, options, callback)
@@ -1165,8 +1165,8 @@ db.search = function(table, query, options, callback)
 //
 // Example:
 //
-//          db.join("bk_account", [{id:"123",key1:1},{id:"234",key1:2}], db.showResult)
-//          db.join("bk_account", [{aid:"123",key1:1},{aid:"234",key1:2}], { keysMap: { id: "aid" }}, db.showResult)
+//          db.join("bk_account", [{id:"123",key1:1},{id:"234",key1:2}], lib.log)
+//          db.join("bk_account", [{aid:"123",key1:1},{aid:"234",key1:2}], { keysMap: { id: "aid" }}, lib.log)
 //
 db.join = function(table, rows, options, callback)
 {
@@ -2002,7 +2002,7 @@ db.prepareForList = function(pool, op, table, obj, options, cols, orig)
 //              db.describeTables([ { user: { id: {}, name: {}, pair: { join: ["left","right"], split: ["left", "right"] } } ]);
 //
 //              db.put("test", { id: "1", type: "user", name: "Test", left: "123", right: "000" })
-//              db.select("test", {}, db.showResult)
+//              db.select("test", {}, lib.log)
 //
 db.convertRows = function(pool, req, rows, options)
 {
@@ -2467,18 +2467,6 @@ db.getCacheOptions = function(table, options)
         if (!options) options = { cacheName: cacheName }; else options.cacheName = cacheName;
     }
     return options;
-}
-
-// Convenient helper to show results from the database requests, can be used as the callback in all db method.
-//
-// Example:
-//
-//          db.select("bk_account", {}, db.showResult);
-//
-db.showResult = function(err, rows, info)
-{
-    if (err) return console.log(lib.traceError(err));
-    console.log(util.inspect(rows, { depth: 5 }), info);
 }
 
 // Create a new database pool with default methods and properties

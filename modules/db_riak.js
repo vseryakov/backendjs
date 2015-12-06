@@ -20,8 +20,8 @@ var logger = require(__dirname + '/../logger');
 //
 // In addition to the standard commands it can execute any Riak HTTP API directly
 //
-//      db.query({ op: "GET", text: "/buckets?buckets=true" }, { pool: "riak" }, db.showResult)
-//      db.query({ op: "POST", text: "/buckets/bucket/counter/name", obj: 1 }, { pool: "riak" }, db.showResult)
+//      db.query({ op: "GET", text: "/buckets?buckets=true" }, { pool: "riak" }, lib.log)
+//      db.query({ op: "POST", text: "/buckets/bucket/counter/name", obj: 1 }, { pool: "riak" }, lib.log)
 //
 var pool = {
     name: "riak",

@@ -27,6 +27,8 @@ var lib = {
     geoHashRange: [ [12, 0], [8, 0.019], [7, 0.076], [6, 0.61], [5, 2.4], [4, 20.0], [3, 78.0], [2, 630.0], [1, 2500.0], [1, 99999] ],
     rxNumber: /^(-|\+)?([0-9]+|[0-9]+\.[0-9]+)$/,
     rxFloat: /^(-|\+)?[0-9]+\.[0-9]+$/,
+    locales: {},
+    locale: "",
 }
 
 module.exports = lib;
@@ -58,7 +60,7 @@ lib.log = function()
     }
 }
 
-// Fake i18n translation method compatible with other popular modules, supports the following usage:
+// Simple i18n translation method compatible with other popular modules, supports the following usage:
 // - __(name)
 // - __(fmt, arg,...)
 // - __({ phrase: "", locale: "" }, arg...
@@ -66,13 +68,17 @@ lib.log = function()
 // When real i18n module is used this function can be replaced to support global reference.
 lib.__ = function()
 {
+    var lang = this.locale;
+    var msg = arguments[0];
+
     if (typeof arguments[0] === "object" && arguments[0].phrase) {
-        return this.sprintf(arguments[0].phrase, Array.prototype.slice.call(arguments, 1));
+        msg = arguments[0].phrase;
+        lang = arguments[0].locale || lang;
     }
-    if (arguments.length > 1) {
-        return this.sprintf.apply(this, arguments);
-    }
-    return arguments[0];
+    msg = (lib.locales[lang] && lib.locales[lang][msg]) || msg;
+
+    if (arguments.length == 1) return msg;
+    return lib.sprintf(msg, Array.prototype.slice.call(arguments, 1));
 }
 
 // Return commandline argument value by name
@@ -1806,7 +1812,7 @@ lib.execProcess = function(cmd, callback)
 //
 //  Example
 //
-//          lib.spawProcess("ls", "-ls", { cwd: "/tmp" }, db.showResult)
+//          lib.spawProcess("ls", "-ls", { cwd: "/tmp" }, lib.log)
 //
 lib.spawnProcess = function(cmd, args, options, callback)
 {
@@ -1836,7 +1842,7 @@ lib.spawnProcess = function(cmd, args, options, callback)
 //                            "ps": "augx",
 //                            "du": { argv: "-sh", stdio: "inherit", cwd: "/tmp" },
 //                            "uname": ["-a"] },
-//                           db.showResult)
+//                           lib.log)
 //
 lib.spawnSeries = function(cmds, options, callback)
 {
