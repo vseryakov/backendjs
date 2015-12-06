@@ -53,7 +53,7 @@ var core = {
     cwd: process.cwd(),
 
     // Various folders, by default relative paths are used
-    path: { etc: "etc", spool: "var", images: "images", tmp: "tmp", web: "web", views: "views", files: "files", log: "log", modules: "modules" },
+    path: { etc: "etc", spool: "var", images: "images", tmp: "tmp", web: "web", views: "views", files: "files", log: "log", modules: "modules", locales: "locales" },
 
     // Log file for debug and other output from the modules, error or info messages, default is stdout
     logFile: "log/message.log",
@@ -157,6 +157,7 @@ var core = {
             { name: "files-dir", type: "path", obj: "path", strip: "Dir", descr: "Path where to keep uploaded files" },
             { name: "images-dir", type: "path", obj: "path", strip: "Dir", descr: "Path where to keep images" },
             { name: "modules-dir", type: "path", obj: "path", strip: "Dir", descr: "Directory from where to load modules, these are the backendjs modules but in the same format and same conventions as regular node.js modules, the format of the files is NAME_{web,worker,shell}.js. The modules can load any other files or directories, this is just an entry point", pass: 1 },
+            { name: "locales-dir", type: "path", obj: "path", strip: "Dir", descr: "Path where to keep locale translations" },
             { name: "uid", type: "callback", callback: function(v) { if (!v)return;v = bkutils.getUser(v);if (v.name) this.uid = v.uid, this.gid = v.gid,this._name = "uid" }, descr: "User id or name to switch after startup if running as root, used by Web servers and job workers", pass: 1 },
             { name: "gid", type: "callback", callback: function(v) { if (!v)return;v = bkutils.getGroup(v);if (v.name) this.gid = v.gid,this._name = "gid" }, descr: "Group id or name to switch after startup if running to root", pass: 1 },
             { name: "email", descr: "Email address to be used when sending emails from the backend" },

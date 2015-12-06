@@ -548,16 +548,14 @@ api.init = function(options, callback)
 
     // i18n support, enabled only if some locales specified
     self.locales.forEach(function(x) {
-        lib.locales[x] = lib.readFileSync(__dirname + '/locales/' + x + '.json', { json: 1 });
+        lib.locales[x] = lib.readFileSync(core.path.locales + "/" + x + '.json', { json: 1 });
     });
     if (self.locales.length) {
-        api.app.use(function(req, res, next) {
+        self.app.use(function(req, res, next) {
             req.__ = lib.__.bind(req);
             res.locals.__ = res.__ = lib.__.bind(res);
-            if (req.options && req.options.appLanguage) {
-                req.locale = req.options.appLanguage;
-                res.locale = req.options.appLanguage;
-            }
+            req.locale = req.options.appLanguage;
+            res.locale = req.options.appLanguage;
             next();
         });
     }
