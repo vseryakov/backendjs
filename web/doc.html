@@ -5696,6 +5696,7 @@ all arguments will be printed in the log</p>
 <ul>
 <li>__(name)</li>
 <li>__(fmt, arg,...)</li>
+<li>__({ phrase: &quot;&quot;, locale: &quot;&quot; }, arg...</li>
 </ul>
 <p>When real i18n module is used this function can be replaced to support global reference.</p>
 </li>
@@ -6156,9 +6157,14 @@ Optional third parameter indicates the number of decimal points to return:</p>
 </ul>
 
 <ul>
-<li><p><code>lib.sprintf(str)</code></p>
+<li><p><code>lib.sprintf(fmt, args)</code></p>
 <p> C-sprintf alike
-based on <a href="http://stackoverflow.com/a/13439711">http://stackoverflow.com/a/13439711</a></p>
+based on <a href="http://stackoverflow.com/a/13439711">http://stackoverflow.com/a/13439711</a>
+Usage:</p>
+<ul>
+<li>sprintf(fmt, arg, ...)</li>
+<li>sprintf(fmt, [arg, ...]);</li>
+</ul>
 </li>
 </ul>
 
@@ -7634,8 +7640,9 @@ must be defined for any metrics to be saved, use api.describeTable with addition
 <li>httpTimeout - timeout in milliseconds afte which the request is borted if no data received</li>
 <li>retryCount - how many time to retry the request on error or timeout</li>
 <li>retryTimeout - timeout in milliseconds for retries, with every subsequent timeout it will be multiplied by 2</li>
-<li>retryOnError - also retry request if received non 2xx response status, if this is an array it should contain a list of status codes
-on which to retry, otherwise retry on all non-2xx responses</li>
+<li>retryOnError - retry request if received non 2xx response status,
+ if this is a function then it must return true in order to retry the request,
+ otherwise it is treated as a boolean value, if true then retry on all non-2xx responses</li>
 <li>noredirects - if true then do not follow redirect locations for 30-[1,2,3,7] statuses</li>
 </ul>
 </li>
@@ -8033,8 +8040,8 @@ and the property <code>delay</code> with number of milliseconds till the bucket 
           bk_status: { id: { primary: 1, pub: 1 },                        // account id
                        status: { pub: 1 },                                // status, online, offline, away
                        alias: { pub: 1 },
-                       version: {},                                       // app name/version
                        atime: { type: &quot;bigint&quot;, now: 1, pub: 1 },         // last access time
+                       adtime: { type: &quot;bigint&quot; },                        // last daily access time
                        awtime: { type: &quot;bigint&quot; },                        // last weekly access time
                        amtime: { type: &quot;bigint&quot; },                        // last monthly access time
                        mtime: { type: &quot;bigint&quot;, pub: 1 } },               // last status save to db time
@@ -8154,9 +8161,10 @@ for other cases <code>status</code> property is not used, it is supposed for the
 <ul>
 <li><p><code>accounts.putStatus(obj, options, callback)</code></p>
 <p> Maintain online status, update to db every status-interval seconds, if <code>options.check</code> is given only update db if last update happened
-longer than <code>status-interval</code> milliseconds ago, keep atime up-to-date in the cache on every status update.
-On return the row will have a property <code>saved</code> if it was flushed to db.
-<code>oatime</code> and <code>omtime</code> will be set to the previous values of the corresponding time properties.</p>
+longer than <code>status-interval</code> milliseconds ago, keep atime up-to-date in the cache on every status update.</p>
+<p>On return the row will have a property <code>saved</code> if it was flushed to db.</p>
+<p><code>oatime</code> and <code>omtime</code> will be set to the previous values of the corresponding time properties.</p>
+<p><em>NOTE: All properties from the <code>obj</code> will be saved in the bk_status record, existing properties will be overriden</em></p>
 </li>
 </ul>
 
@@ -8855,7 +8863,19 @@ db.query({ op: &quot;POST&quot;, text: &quot;/buckets/bucket/counter/name&quot;,
 </ul>
 
 <h2 id="module-ipc_amqp">Module: IPC_AMQP</h2>
+<ul>
+<li><p><code>client</code></p>
+<p> Queue client using RabbitMQ server</p>
+</li>
+</ul>
+
 <h2 id="module-ipc_memcache">Module: IPC_MEMCACHE</h2>
+<ul>
+<li><p><code>client</code></p>
+<p> Cache client using Memcached server</p>
+</li>
+</ul>
+
 <h2 id="module-msg_apn">Module: MSG_APN</h2>
 <ul>
 <li><p><code>client.check(dev)</code></p>
@@ -8909,6 +8929,12 @@ connection to APN gateway.</p>
 <ul>
 <li><p><code>client.send(dev, options, callback)</code></p>
 <p> Send push notification to an Android device, return true if queued.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>client.retryOnError()</code></p>
+<p> Retry on server error, honor Retry-After header if present, use it only on the first error</p>
 </li>
 </ul>
 
