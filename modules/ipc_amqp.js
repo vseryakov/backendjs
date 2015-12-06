@@ -13,11 +13,10 @@ var Client = require(__dirname + "/ipc_client");
 var amqp = require("amqp");
 
 // Queue client using RabbitMQ server
-module.exports = client;
-
 var client = {
     name: "amqp",
 };
+module.exports = client;
 
 ipc.modules.push(client);
 

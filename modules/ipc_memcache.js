@@ -13,11 +13,10 @@ var Client = require(__dirname + "/ipc_client");
 var Memcached = require("memcached");
 
 // Cache client using Memcached server
-module.exports = client;
-
 var client = {
     name: "memcache",
 };
+module.exports = client;
 
 ipc.modules.push(client);
 

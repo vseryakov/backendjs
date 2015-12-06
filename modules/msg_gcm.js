@@ -12,12 +12,11 @@ var lib = require(__dirname + '/../lib');
 var aws = require(__dirname + '/../aws');
 var msg = require(__dirname + '/../msg');
 
-module.exports = client;
-
 var client = {
     name: "gcm",
     agents: {},
 };
+module.exports = client;
 
 msg.modules.push(client);
 
@@ -85,6 +84,7 @@ client.send = function(dev, options, callback)
         postdata: msg,
         retryCount: this.retryCount || 3,
         retryTimeout: this.retryTimeout || 500,
+        retryOnError: client.retryOnError,
     };
     core.httpGet('https://android.googleapis.com/gcm/send', opts, function(err, params) {
         if (!err && params.status >= 400) err = lib.newError(params.status + ": " + params.data, params.status);
@@ -96,3 +96,13 @@ client.send = function(dev, options, callback)
     return true;
 }
 
+// Retry on server error, honor Retry-After header if present, use it only on the first error
+client.retryOnError = function()
+{
+    if (this.status < 500) return 0;
+    if (!this.retryAfter) {
+        this.retryAfter = lib.toNumber(this.headers['retry-after']) * 1000;
+        if (this.retryAfter > 0 && this.retryCount > 0) this.retryTimeout = this.retryAfter/2;
+    }
+    return 1;
+}

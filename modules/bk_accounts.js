@@ -66,8 +66,8 @@ accounts.init = function(options)
             bk_status: { id: { primary: 1, pub: 1 },                        // account id
                          status: { pub: 1 },                                // status, online, offline, away
                          alias: { pub: 1 },
-                         version: {},                                       // app name/version
                          atime: { type: "bigint", now: 1, pub: 1 },         // last access time
+                         adtime: { type: "bigint" },                        // last daily access time
                          awtime: { type: "bigint" },                        // last weekly access time
                          amtime: { type: "bigint" },                        // last monthly access time
                          mtime: { type: "bigint", pub: 1 } },               // last status save to db time
@@ -532,7 +532,7 @@ accounts.getStatus = function(id, options, callback)
     if (Array.isArray(id)) {
         db.list("bk_status", id, options, function(err, rows) {
             if (err) return callback(err);
-            rows = rows.filter(function(x) {
+            rows = rows.filter(function(row) {
                 row.online = now - row.atime < self.statusInterval && row.status != "offline" ? true : false;
             });
             callback(err, rows);
@@ -552,8 +552,12 @@ accounts.getStatus = function(id, options, callback)
 
 // Maintain online status, update to db every status-interval seconds, if `options.check` is given only update db if last update happened
 // longer than `status-interval` milliseconds ago, keep atime up-to-date in the cache on every status update.
+//
 // On return the row will have a property `saved` if it was flushed to db.
+//
 // `oatime` and `omtime` will be set to the previous values of the corresponding time properties.
+//
+// *NOTE: All properties from the `obj` will be saved in the bk_status record, existing properties will be overriden*
 accounts.putStatus = function(obj, options, callback)
 {
     var self = this;
@@ -567,24 +571,32 @@ accounts.putStatus = function(obj, options, callback)
     self.getStatus(obj.id, options, function(err, row) {
         if (err) return callback(err);
 
+        // Override properties except times
+        for (var p in obj) {
+            if (!p.match(/^(a[dwm]?|m)time$/)) row[p] = obj[p];
+        }
+
+        // Keep current times
+        row.oatime = row.atime;
+        row.omtime = row.mtime;
+        row.oadtime = row.adtime || 0;
+        row.oawtime = row.awtime || 0;
+        row.oamtime = row.amtime || 0;
+
+        // Assign new times if needed
+        row.atime = now;
+        if (now - row.oadtime > 86400000) row.adtime = now;
+        if (now - row.oawtime > 86400000*7) row.awtime = now;
+        if (now - row.oamtime > 86400000*30) row.amtime = now;
+
         // Do not update if we are within the interval since the last update
         if (options.check && row.online && now - row.mtime < self.statusInterval) {
-            row.oatime = row.atime;
-            row.atime = now;
             db.putCache("bk_status", row, options);
             return callback(err, row);
         }
-        // Update the db with current times
-        for (var p in obj) row[p] = obj[p];
-        row.oatime = row.atime;
-        row.omtime = row.mtime;
-        row.atime = row.mtime = now;
-        row.oawtime = row.awtime;
-        row.oamtime = row.amtime;
-        // Update weekly and montly last access times
-        if (now - row.awtime > 86400000*7) row.awtime = now;
-        if (now - row.amtime > 86400000*30) row.amtime = now;
+
         row.saved = true;
+        row.mtime = now;
         db.put("bk_status", row, function(err) {
             callback(err, row);
         });

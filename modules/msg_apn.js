@@ -13,12 +13,11 @@ var aws = require(__dirname + '/../aws');
 var msg = require(__dirname + '/../msg');
 var apnagent = require("apnagent");
 
-module.exports = client;
-
 var client = {
     name: "apn",
     agents: {},
 };
+module.exports = client;
 
 msg.modules.push(client);
 

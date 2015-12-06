@@ -61,11 +61,17 @@ lib.log = function()
 // Fake i18n translation method compatible with other popular modules, supports the following usage:
 // - __(name)
 // - __(fmt, arg,...)
+// - __({ phrase: "", locale: "" }, arg...
 //
 // When real i18n module is used this function can be replaced to support global reference.
 lib.__ = function()
 {
-    if (arguments.length > 1) return this.sprintf.apply(arguments);
+    if (typeof arguments[0] === "object" && arguments[0].phrase) {
+        return this.sprintf(arguments[0].phrase, Array.prototype.slice.call(arguments, 1));
+    }
+    if (arguments.length > 1) {
+        return this.sprintf.apply(this, arguments);
+    }
     return arguments[0];
 }
 
@@ -184,7 +190,8 @@ lib.toBool = function(val, dflt)
     if (typeof val == "boolean") return val;
     if (typeof val == "number") return !!val;
     if (typeof val == "undefined") val = dflt;
-    return !val || String(val).trim().match(/^(false|off|no|f|n|0$)/i) ? false : true;
+    if (typeof val == "function") val = dflt;
+    return !val || String(val).trim().match(/^(false|off|nil|null|no|f|n|0$)/i) ? false : true;
 }
 
 // Return Date object for given text or numeric date representation, for invalid date returns 1969
@@ -569,6 +576,7 @@ lib.isEmpty = function(val)
         return isNaN(val);
     case "regexp":
     case "boolean":
+    case "function":
         return false;
     case "string":
         return val.match(/^\s*$/) ? true : false;
@@ -1174,9 +1182,14 @@ lib.strftime = function(date, fmt, utc)
 
 // C-sprintf alike
 // based on http://stackoverflow.com/a/13439711
-lib.sprintf = function(str)
+// Usage:
+//  - sprintf(fmt, arg, ...)
+//  - sprintf(fmt, [arg, ...]);
+lib.sprintf = function(fmt, args)
 {
     var i = 0, arr = arguments;
+    if (arguments.length == 2 && Array.isArray(args)) i = -1, arr = args;
+
     function format(sym, p0, p1, p2, p3, p4) {
         if (sym == '%%') return '%';
         if (arr[++i] === undefined) return undefined;
@@ -1206,7 +1219,7 @@ lib.sprintf = function(str)
         return val;
     }
     var regex = /%(-)?(0?[0-9]+)?([.][0-9]+)?([#][0-9]+)?([scfpexd])/g;
-    return str.replace(regex, format);
+    return fmt.replace(regex, format);
 }
 
 // Return RFC3339 formatted timestamp for a date or current time

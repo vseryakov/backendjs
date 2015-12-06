@@ -9,11 +9,10 @@ var lib = require(__dirname + '/../lib');
 var aws = require(__dirname + '/../aws');
 var msg = require(__dirname + '/../msg');
 
-module.exports = client;
-
 var client = {
     name: "sns",
 };
+module.exports = client;
 
 msg.modules.push(client);
 
