@@ -1138,6 +1138,21 @@ lib.randomNum = function(min, max, decs)
     return (typeof decs !== 'number' || decs <= 0) ? num : parseFloat(num.toFixed(decs));
 }
 
+// Randomize the list items in place
+lib.shuffle = function shuffle(list)
+{
+    for (var i = 0; i < list.length; i++) {
+        var j = Math.round((list.length - 1) * Math.random());
+        if (i == j) {
+            continue;
+        }
+        var item = list[j];
+        list[j] = list[i];
+        list[i] = item;
+    }
+    return list;
+}
+
 // Return number of seconds for current time
 lib.now = function()
 {

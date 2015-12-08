@@ -548,7 +548,19 @@ api.init = function(options, callback)
 
     // i18n support, enabled only if some locales specified
     self.locales.forEach(function(x) {
-        lib.locales[x] = lib.readFileSync(core.path.locales + "/" + x + '.json', { json: 1 });
+        var file = core.path.locales + "/" + x + '.json';
+        lib.locales[x] = lib.readFileSync(file, { json: 1 });
+        fs.watch(file, function (event, filename) {
+            core.setTimeout(file, function() {
+                fs.readFile(file, function(err, data) {
+                    if (err) return logger.error("locale:", file, err);
+                    var d = lib.jsonParse(data.toString());
+                    if (!d) return;
+                    lib.locales[x] = d;
+                    logger.info("locale:", "loaded", file);
+                });
+            }, 5000);
+        });
     });
     if (self.locales.length) {
         self.app.use(function(req, res, next) {

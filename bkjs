@@ -636,12 +636,16 @@ case "$ARG" in
     [ -f $HOME/.gitignore_global ] && BKJS_RSYNC_ARGS="$BKJS_RSYNC_ARGS --exclude-from $HOME/.gitignore_global"
     [ "$BKJS_USER" != "$(whoami)" ] && BKJS_SSH_ARGS="$BKJS_SSH_ARGS -l $BKJS_USER"
     key=$(get_arg -ssh-key)
+    cleanup=$(get_flag -cleanup)
     [ "$key" != "" ] && BKJS_SSH_ARGS="$BKJS_SSH_ARGS -i $HOME/.ssh/$key.pem"
     files=$(get_arg -files)
     [ "$files" = "" ] && files=$(ls)
     for h in $BKJS_HOST; do
         echo "Deploying the module $mod: -e 'ssh $BKJS_SSH_ARGS' $BKJS_RSYNC_ARGS $(echo $files) $h:$BKJS_PATH"
-        [ "$BKJS_DRY_RUN" = "" ] && rsync -av $BKJS_DEBUG -e "ssh $BKJS_SSH_ARGS" $BKJS_RSYNC_ARGS $files $h:$BKJS_PATH
+        if [ "$BKJS_DRY_RUN" = "" ]; then
+           [ "$cleanup" != "" ] && ssh $BKJS_SSH_ARGS $h rm -f $BKJS_PATH/*.js $BKJS_PATH/lib/*.js $BKJS_PATH/modules/*.s
+           rsync -av $BKJS_DEBUG -e "ssh $BKJS_SSH_ARGS" $BKJS_RSYNC_ARGS $files $h:$BKJS_PATH
+        fi
     done
     ;;
 
