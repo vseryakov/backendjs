@@ -1341,7 +1341,10 @@ lib.strSplit = function(str, sep, type)
 lib.strSplitUnique = function(str, sep, type)
 {
     var rc = [];
-    this.strSplit(str, sep, type).forEach(function(x) { if (!rc.some(function(y) { return x.toLowerCase() == y.toLowerCase() })) rc.push(x)});
+    var typed = typeof type != "undefined";
+    this.strSplit(str, sep, type).forEach(function(x) {
+        if (!rc.some(function(y) { return typed ? x == y : x.toLowerCase() == y.toLowerCase() })) rc.push(x);
+    });
     return rc;
 }
 
