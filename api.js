@@ -550,18 +550,17 @@ api.init = function(options, callback)
     self.locales.forEach(function(x) {
         var file = core.path.locales + "/" + x + '.json';
         lib.locales[x] = lib.readFileSync(file, { json: 1 });
-        fs.watch(file, function (event, filename) {
-            core.setTimeout(file, function() {
-                fs.readFile(file, function(err, data) {
-                    if (err) return logger.error("locale:", file, err);
-                    var d = lib.jsonParse(data.toString());
-                    if (!d) return;
-                    lib.locales[x] = d;
-                    logger.info("locale:", "loaded", file);
-                });
-            }, 5000);
+    });
+    core.watchFiles(core.path.locales, /\.json$/, function(file) {
+        fs.readFile(file.name, function(err, data) {
+            if (err) return logger.error("locale:", file, err);
+            var d = lib.jsonParse(data.toString());
+            if (!d) return;
+            lib.locales[path.basename(file.name, ".json")] = d;
+            logger.info("locale:", "loaded", file);
         });
     });
+
     if (self.locales.length) {
         self.app.use(function(req, res, next) {
             req.__ = lib.__.bind(req);

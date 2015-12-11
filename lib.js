@@ -797,6 +797,7 @@ lib.forEachLimit = function(list, limit, iterator, callback)
 // - progress - if > 0 report how many lines processed so far every specified lines
 // - until - skip lines until this regexp matches
 // - ignore - skip lines that match this regexp
+// - header - skip first line because it is the CSV header line
 lib.forEachLine = function(file, options, lineCallback, endCallback)
 {
     var self = this;
@@ -812,6 +813,7 @@ lib.forEachLine = function(file, options, lineCallback, endCallback)
             // Only if not the last part
             if (nread == buffer.length) data = lines.pop();
             self.forEachSeries(lines, function(line, next) {
+                if (!options.nlines && options.header) return next();
                 options.nlines++;
                 if (options.progress && options.nlines % options.progress == 0) logger.info('forEachLine:', file, options);
                 // Skip lines until we see our pattern
@@ -843,6 +845,7 @@ lib.forEachLine = function(file, options, lineCallback, endCallback)
                 var lines = data.split("\n");
                 if (nread == buffer.length) data = lines.pop();
                 for (var i = 0; i < lines.length; i++) {
+                    if (!options.nlines && options.header) continue;
                     options.nlines++;
                     if (options.progress && options.nlines % options.progress == 0) logger.info('forEachLine:', file, options);
                     // Skip lines until we see our pattern
