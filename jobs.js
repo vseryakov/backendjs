@@ -462,6 +462,6 @@ jobs.parseCronjobs = function(type, data)
     if (!this._hash) this._hash = {};
     if (this._hash[type] == hash) return;
     this._hash[type] = hash;
-    var n = this.scheduleCronjobs(type, lib.jsonParse(data, { list: 1, error: 1 }));
+    var n = this.scheduleCronjobs(type, lib.jsonParse(data, { datatype: "list", logger: "error" }));
     logger.info("parseCronjobs:", type, n, "jobs");
 }

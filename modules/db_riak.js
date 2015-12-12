@@ -50,7 +50,7 @@ Pool.prototype.doQuery = function(op, method, path, obj, options, callback)
 {
     if (this.url == "default") this.url = "http://127.0.0.1:8098";
     var uri = this.url + path;
-    var params = { method: method, postdata: method != "GET" ? obj : "", query: {}, headers: { "content-type": "application/json" } };
+    var params = { method: method, postdata: method != "GET" ? obj : "", query: {}, datatype: "obj", headers: { "content-type": "application/json" } };
     if (pool.query[op]) pool.query[op].forEach(function(x) { if (options[x]) params.query[x] = options[x] });
     for (var p in options.headers) params.headers[p] = options.headers[p];
 
@@ -60,7 +60,7 @@ Pool.prototype.doQuery = function(op, method, path, obj, options, callback)
             return callback(err, {});
         }
         err = null;
-        obj = lib.jsonParse(params.data, { obj: 1 });
+        obj = params.obj;
         if (params.status >= 400) {
             err = lib.newError({ message: params.data || (method + " Error: " + params.status), code: obj.error, status: params.status });
         }

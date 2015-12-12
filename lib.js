@@ -18,6 +18,7 @@ var logger = require(__dirname + '/logger');
 var cluster = require('cluster');
 var os = require('os');
 var uuid = require('uuid');
+var xml2json = require('xml2json');
 
 // Common utilities and useful functions
 var lib = {
@@ -264,7 +265,7 @@ lib.toRegexpMap = function(obj, val, options)
     if (val == null) return [];
     if (this.typeName(obj) != "array") obj = [];
     if (options && options.set) obj = [];
-    val = this.jsonParse(val, { obj: 1, error: 1 });
+    val = this.jsonParse(val, { datatype: "obj", logger: "error" });
     for (var p in val) {
         if (obj.some(function(x) { return x.list.indexOf(p) > -1 })) continue;
         var item = this.toRegexpObj(null, p, options);
@@ -384,7 +385,7 @@ lib.toAge = function(mtime)
 //                                                pair: { type: "map", separator: "|" },
 //                                                code: { type: "string", regexp: /^[a-z]-[0-9]+$/, errmsg: "Valid code is required" },
 //                                                start: { type: "token", required: 1 },
-//                                                data: { type: "json", obj: 1 },
+//                                                data: { type: "json", datatype: "obj" },
 //                                                mtime: { type: "mtime" },
 //                                                email: { type: "list", datatype: "string } },
 //                                                state: { type: "list", datatype: "string, values: ["VA","DC] } },
@@ -794,6 +795,7 @@ lib.forEachLimit = function(list, limit, iterator, callback)
 // - sync - read file synchronously and call callback for every line
 // - abort - signal to stop processing
 // - limit - number of lines to process and exit
+// - skip - number of lines to skip from the start
 // - progress - if > 0 report how many lines processed so far every specified lines
 // - until - skip lines until this regexp matches
 // - ignore - skip lines that match this regexp
@@ -813,8 +815,9 @@ lib.forEachLine = function(file, options, lineCallback, endCallback)
             // Only if not the last part
             if (nread == buffer.length) data = lines.pop();
             self.forEachSeries(lines, function(line, next) {
-                if (!options.nlines && options.header) return next();
                 options.nlines++;
+                if (options.nlines == 1 && options.header) return next();
+                if (options.skip && options.nlines < options.skip) return next();
                 if (options.progress && options.nlines % options.progress == 0) logger.info('forEachLine:', file, options);
                 // Skip lines until we see our pattern
                 if (options.until && !options.until_seen) {
@@ -845,8 +848,9 @@ lib.forEachLine = function(file, options, lineCallback, endCallback)
                 var lines = data.split("\n");
                 if (nread == buffer.length) data = lines.pop();
                 for (var i = 0; i < lines.length; i++) {
-                    if (!options.nlines && options.header) continue;
                     options.nlines++;
+                    if (!options.nlines == 1 && options.header) continue;
+                    if (options.skip && options.nlines < options.skip) continue;
                     if (options.progress && options.nlines % options.progress == 0) logger.info('forEachLine:', file, options);
                     // Skip lines until we see our pattern
                     if (options.until && !options.until_seen) {
@@ -980,7 +984,7 @@ lib.onDeferCallback = function(msg)
 // Same parent object must be used for `deferCallback` and this method.
 lib.runCallback = function(parent, msg)
 {
-    if (msg && typeof msg == "string") msg = this.jsonParse(msg, { error: 1 });
+    if (msg && typeof msg == "string") msg = this.jsonParse(msg, { logger: "error" });
     if (!msg || !msg.__deferId || !parent[msg.__deferId]) return;
     setImmediate(this.onDeferCallback.bind(parent, msg));
 }
@@ -1268,61 +1272,6 @@ lib.zeropad = function(n, width)
     var pad = "";
     while (pad.length < width - 1 && n < Math.pow(10, width - pad.length - 1)) pad += "0";
     return pad + String(n);
-}
-
-// Nicely format an object with indentations, optional `indentlevel` can be used to control until which level deep
-// to use newlines for objects.
-lib.formatJSON = function(obj, options)
-{
-    var self = this;
-    if (typeof options == "string") options = { indent: options };
-    if (!options) options = {};
-    // Shortcut to parse and format json from the string
-    if (typeof obj == "string" && obj != "") {
-        if (obj[0] != "[" && obj[0] != "{") return obj;
-        try { obj = JSON.parse(obj); } catch(e) { self.log(e) }
-    }
-    if (!options.level) options.level = 0;
-    if (!options.indent) options.indent = "";
-    var style = "    ";
-    var type = this.typeName(obj);
-    var count = 0;
-    var text = type == "array" ? "[" : "{";
-    // Insert newlines only until specified level deep
-    var nline = !options.indentlevel || options.level < options.indentlevel;
-
-    for (var p in obj) {
-        var val = obj[p];
-        if (count > 0) text += ",";
-        if (type != "array") {
-            text += ((nline ? "\n" + options.indent + style : " " ) + "\"" + p + "\"" + ": ");
-        }
-        switch (this.typeName(val)) {
-        case "array":
-        case "object":
-            options.indent += style;
-            options.level++;
-            text += this.formatJSON(val, options);
-            options.level--;
-            options.indent = options.indent.substr(0, options.indent.length - style.length);
-            break;
-        case "boolean":
-        case "number":
-            text += val.toString();
-            break;
-        case "null":
-            text += "null";
-            break;
-        case "string":
-            text += ("\"" + val + "\"");
-            break;
-        default:
-            text += ("unknown: " + typeof(val));
-        }
-        count++;
-    }
-    text += type == "array" ? "]" : ((nline ? "\n" + options.indent : " ") + "}");
-    return text;
 }
 
 // Split string into array, ignore empty items,
@@ -1737,36 +1686,123 @@ lib.stringify = function(obj, filter)
     try { return JSON.stringify(obj, filter); } catch(e) { logger.error("stringify:", e); return "" }
 }
 
+// Nicely format an object with indentations, optional `indentlevel` can be used to control until which level deep
+// to use newlines for objects.
+lib.jsonFormat = function(obj, options)
+{
+    var self = this;
+    if (typeof options == "string") options = { indent: options };
+    if (!options) options = {};
+    // Shortcut to parse and format json from the string
+    if (typeof obj == "string" && obj != "") {
+        if (obj[0] != "[" && obj[0] != "{") return obj;
+        try { obj = JSON.parse(obj); } catch(e) { self.log(e) }
+    }
+    if (!options.level) options.level = 0;
+    if (!options.indent) options.indent = "";
+    var style = "    ";
+    var type = this.typeName(obj);
+    var count = 0;
+    var text = type == "array" ? "[" : "{";
+    // Insert newlines only until specified level deep
+    var nline = !options.indentlevel || options.level < options.indentlevel;
+
+    for (var p in obj) {
+        var val = obj[p];
+        if (count > 0) text += ",";
+        if (type != "array") {
+            text += ((nline ? "\n" + options.indent + style : " " ) + "\"" + p + "\"" + ": ");
+        }
+        switch (this.typeName(val)) {
+        case "array":
+        case "object":
+            options.indent += style;
+            options.level++;
+            text += this.jsonFormat(val, options);
+            options.level--;
+            options.indent = options.indent.substr(0, options.indent.length - style.length);
+            break;
+        case "boolean":
+        case "number":
+            text += val.toString();
+            break;
+        case "null":
+            text += "null";
+            break;
+        case "string":
+            text += ("\"" + val + "\"");
+            break;
+        default:
+            text += ("unknown: " + typeof(val));
+        }
+        count++;
+    }
+    text += type == "array" ? "]" : ((nline ? "\n" + options.indent : " ") + "}");
+    return text;
+}
+
 // Silent JSON parse, returns null on error, no exceptions raised.
-// options can specify the output in case of an error:
-//  - list - return empty list
-//  - obj - return empty obj
-//  - str - return empty string
-//  - error - report all errors
-//  - debug - report errors in debug level
+//
+// options can specify the following properties:
+//  - datatype - make sure the result is returned as type: obj, list, str
+//  - logger - report in the log with the specified level, log, debug, ...
 lib.jsonParse = function(obj, options)
 {
-    if (!obj) return this.checkResult(this.newError("empty json"), obj, options);
+    return _parse("json", obj, options);
+}
+
+// Same arguments as for `jsonParse`
+lib.xmlParse = function(obj, options)
+{
+    return _parse("xml", obj, options);
+}
+
+// Combined parser with type validation
+function _parse(type, obj, options)
+{
+    if (!obj) return _checkResult(lib.newError("empty " + type), obj, options);
     try {
-        obj = typeof obj == "string" ? JSON.parse(obj) : obj;
-        if (options && options.obj && this.typeName(obj) != "object") obj = {};
-        if (options && options.list && this.typeName(obj) != "array") obj = [];
-        if (options && options.str && this.typeName(obj) != "string") obj = "";
+        obj = _parseResult(type, obj);
     } catch(err) {
-        obj = this.checkResult(err, obj, options);
+        obj = _checkResult(type, err, obj, options);
+    }
+    return obj;
+}
+
+function _parseResult(type, obj, options)
+{
+    if (typeof obj == "string") {
+        switch (type) {
+        case "json":
+            obj = JSON.parse(obj);
+            break;
+        case "xml":
+            obj = xml2json.toJson(obj, { object: true });
+            break;
+        }
+    }
+    switch (options && options.datatype) {
+    case "obj":
+        if (lib.typeName(obj) != "object") return {};
+        break;
+    case "list":
+        if (lib.typeName(obj) != "array") return [];
+        break;
+    case "str":
+        if (lib.typeName(obj) != "string") return "";
+        break;
     }
     return obj;
 }
 
 // Perform validation of the result type, make sure we return what is expected, this is a helper that is used by other conversion routines
-lib.checkResult = function(err, obj, options)
+function _checkResult(type, err, obj, options)
 {
     if (options) {
-        if (options.error) logger.error('checkResult:', this.traceError(err), obj);
-        if (options.debug) logger.debug('checkResult:', err, obj);
-        if (options.obj) return {};
-        if (options.list) return [];
-        if (options.str) return "";
+        if (options.logger) logger.logger(options.logger, 'parse:', type, lib.traceError(err), obj);
+        if (options.datatype == "obj") return {};
+        if (options.datatype == "list") return [];
+        if (options.datatype == "str") return "";
     }
     return null;
 }

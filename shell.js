@@ -371,7 +371,7 @@ shell.cmdDbRestore = function(options)
             function(next) {
                 lib.forEachLine(file, opts, function(line, next2) {
                     if (!line) return next2();
-                    var row = lib.jsonParse(line, { error: 1 });
+                    var row = lib.jsonParse(line, { logger: "error" });
                     if (!row) return next2(opts.continue ? null : "ERROR: parse error, line: " + opts.nlines);
                     if (filter && app[filter]) app[filter](table, row);
                     db.put(table, row, opts, function(err) {

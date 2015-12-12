@@ -120,7 +120,7 @@ var db = {
            { name: "(.+)-pool-settings(-[0-9]+)?", obj: 'poolParams', strip: "Pool", type: "json", descr: "A DB pool driver settings passed to every request, contains pool-wide options and features upported by the driver" },
            { name: "(.+)-pool-no-cache-columns(-[0-9]+)?", obj: 'poolParams', strip: "Pool", type: "bool", descr: "disable caching table columns for this pool only" },
            { name: "(.+)-pool-no-init-tables(-[0-9]+)?", type: "regexp", obj: 'poolParams', strip: "Pool", novalue: ".+", descr: "Do not create tables for this pool only, a regexp of tables to skip" },
-           { name: "describe-tables", type: "callback", callback: function(v) { this.describeTables(lib.jsonParse(v, {obj:1,error:1})) }, descr: "A JSON object with table descriptions to be merged with the existing definitions" },
+           { name: "describe-tables", type: "callback", callback: function(v) { this.describeTables(lib.jsonParse(v, {datatype:"obj",logger:"error"})) }, descr: "A JSON object with table descriptions to be merged with the existing definitions" },
     ],
 
     // Database drivers
@@ -2015,7 +2015,7 @@ db.convertRows = function(pool, req, rows, options)
         // Convert from JSON type
         if (options.noJson && col.type == "json") {
             for (var i = 0; i < rows.length; i++) {
-                if (typeof rows[i][p] == "string" && rows[i][p]) rows[i][p] = lib.jsonParse(rows[i][p], { logging : 1 });
+                if (typeof rows[i][p] == "string" && rows[i][p]) rows[i][p] = lib.jsonParse(rows[i][p], { logger: "error" });
             }
         }
         // Split into a list

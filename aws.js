@@ -15,7 +15,6 @@ var logger = require(__dirname + '/logger');
 var core = require(__dirname + '/core');
 var lib = require(__dirname + '/lib');
 var bkutils = require('bkjs-utils');
-var xml2json = require('xml2json');
 
 var aws = {
     name: 'aws',
@@ -175,7 +174,7 @@ aws.getInstanceCredentials = function(callback)
     var self = this;
     self.getInstanceMeta("/latest/meta-data/iam/security-credentials/" + self.amiProfile, function(err, data) {
         if (!err && data) {
-            var obj = lib.jsonParse(data, { obj: 1 });
+            var obj = lib.jsonParse(data, { datatype: "obj" });
             if (obj.Code === 'Success') {
                 self.key = obj.AccessKeyId;
                 self.secret = obj.SecretAccessKey;
@@ -264,7 +263,8 @@ aws.parseXMLResponse = function(err, params, options, callback)
 {
     if (typeof callback != "function") callback = lib.noop;
     if (err || !params.data) return callback(err);
-    try { params.obj = xml2json.toJson(params.data, { object: true }); } catch(e) { err = e; params.status += 1000 };
+    params.obj = lib.xmlParse(params.data);
+    if (params.obj === null) params.status += 1000;
     if (params.status != 200) {
         var errors = lib.objGet(params.obj, "Response.Errors.Error", { list: 1 });
         if (errors.length && errors[0].Message) {

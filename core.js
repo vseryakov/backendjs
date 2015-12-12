@@ -19,7 +19,6 @@ var lib = require(__dirname + '/lib');
 var cluster = require('cluster');
 var os = require('os');
 var emailjs = require('emailjs');
-var xml2json = require('xml2json');
 var dns = require('dns');
 
 // The primary object containing all config options and common functions
@@ -640,7 +639,7 @@ core.processArgs = function(ctx, argv, pass)
                     put(obj, name, val ? url.parse(val) : val, x, x.reverse);
                     break;
                 case "json":
-                    put(obj, name, val ? lib.jsonParse(val) : val, x, x.reverse);
+                    put(obj, name, val ? lib.jsonParse(val, x) : val, x, x.reverse);
                     break;
                 case "path":
                     // Check if it starts with local path, use the actual path not the current dir for such cases
@@ -950,13 +949,10 @@ core.loadModules = function(dir, options, callback)
 // - url - url if options is first argument
 // - login - login to use for access credentials instead of global credentials
 // - secret - secret to use for access instead of global credentials
-// - proxy - used as a proxy to backend, handles all errors and returns .status and .json to be passed back to API client
 // - checksum - calculate checksum from the data
-// - anystatus - keep any HTTP status, dont treat as error if not between 200 and 299
-// - obj - return just result object, not the whole params
+// - obj - return just the result object, not the whole params
 core.sendRequest = function(options, callback)
 {
-    if (!options) options = {};
     if (typeof options == "string") options = { url: options };
     // Sign request using internal backend credentials
     if (options.sign || options.sign == "undefined") options.signer = this.signRequest;
@@ -967,26 +963,9 @@ core.sendRequest = function(options, callback)
     }
 
     this.httpGet(options.url, lib.cloneObj(options), function(err, params) {
-        // If the contents are encrypted, decrypt before processing content type
-        if ((options.headers || {})['content-encoding'] == "encrypted") {
-            params.data = lib.decrypt(options.secret, params.data);
-        }
-        // Parse JSON and store in the params, set error if cannot be parsed, the caller will deal with it
-        if (params.data) {
-            switch (params.type) {
-            case "application/json":
-                try { params.obj = JSON.parse(params.data); } catch(e) { err = e; }
-                break;
-
-            case "text/xml":
-            case "application/xml":
-                try { params.obj = xml2json.toJson(params.data, { object: true }); } catch(e) { err = e }
-                break;
-            }
-        }
         if (!params.obj) params.obj = {};
-        if ((params.status < 200 || params.status >= 300) && !err && !options.anystatus) {
-            err = lib.newError({ message: util.format("ResponseError: %d: %j", params.status, params.obj), name: "HTTP", status: params.status });
+        if ((params.status < 200 || params.status > 299) && !err) {
+            err = lib.newError({ message: "ResponseError-" + params.status + ": " + params.data, status: params.status });
         }
         if (typeof callback == "function") callback(err, options.obj ? params.obj : params);
     });
@@ -1078,7 +1057,7 @@ core.cookieGet = function(domain, callback)
     var cookies = [];
     db.scan("bk_property", {}, { pool: db.local }, function(row, next) {
         if (!row.name.match(/^bk:cookie:/)) return next();
-        var cookie = lib.jsonParse(row.value, { obj: 1 })
+        var cookie = lib.jsonParse(row.value, { datatype: "obj" })
         if (cookie.expires <= Date.now()) return next();
         if (cookie.domain == domain) {
             cookies.push(cookie);

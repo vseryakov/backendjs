@@ -43,7 +43,7 @@ Pool.prototype.doQuery = function(op, method, path, obj, options, callback)
 {
     if (this.url == "default") this.url = "http://127.0.0.1:5984/" + db.dbName;
     var uri = this.url + "/" + path;
-    var params = { method: method, postdata: method != "GET" ? obj : "", query: {} };
+    var params = { method: method, postdata: method != "GET" ? obj : "", query: {}, datatype: "obj" };
     if (pool.query[op]) pool.query[op].forEach(function(x) { if (options[x]) params.query[x] = options[x] });
 
     core.httpGet(uri, params, function(err, params) {
@@ -52,7 +52,7 @@ Pool.prototype.doQuery = function(op, method, path, obj, options, callback)
             return callback(err, {});
         }
         err = null;
-        obj = lib.jsonParse(params.data, { obj: 1 });
+        obj = params.obj;
         if (params.status >= 400) {
             err = lib.newError({ message: obj.reason || (method + " Error: " + params.status), code: obj.error, status: params.status });
         }

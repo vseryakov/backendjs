@@ -967,7 +967,7 @@ api.checkQuery = function(req, res, next)
             switch (type) {
             case 'application/json':
                 if (req.method != "POST") break;
-                req.body = lib.jsonParse(buf, { obj: 1, debug: 1 });
+                req.body = lib.jsonParse(buf, { datatype: "obj", logger: "debug" });
                 req.query = req.body;
                 break;
 
