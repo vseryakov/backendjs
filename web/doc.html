@@ -3979,10 +3979,8 @@ like <a href="http://localhost:8000">http://localhost:8000</a>, this is when <co
 <li>url - url if options is first argument</li>
 <li>login - login to use for access credentials instead of global credentials</li>
 <li>secret - secret to use for access instead of global credentials</li>
-<li>proxy - used as a proxy to backend, handles all errors and returns .status and .json to be passed back to API client</li>
 <li>checksum - calculate checksum from the data</li>
-<li>anystatus - keep any HTTP status, dont treat as error if not between 200 and 299</li>
-<li>obj - return just result object, not the whole params</li>
+<li>obj - return just the result object, not the whole params</li>
 </ul>
 </li>
 </ul>
@@ -5834,7 +5832,7 @@ or the default message, this is useful for detection of invalid or missing input
                                           pair: { type: &quot;map&quot;, separator: &quot;|&quot; },
                                           code: { type: &quot;string&quot;, regexp: /^[a-z]-[0-9]+$/, errmsg: &quot;Valid code is required&quot; },
                                           start: { type: &quot;token&quot;, required: 1 },
-                                          data: { type: &quot;json&quot;, obj: 1 },
+                                          data: { type: &quot;json&quot;, datatype: &quot;obj&quot; },
                                           mtime: { type: &quot;mtime&quot; },
                                           email: { type: &quot;list&quot;, datatype: &quot;string } },
                                           state: { type: &quot;list&quot;, datatype: &quot;string, values: [&quot;VA&quot;,&quot;DC] } },
@@ -5957,9 +5955,11 @@ options may specify the following parameters:</p>
 <li>sync - read file synchronously and call callback for every line</li>
 <li>abort - signal to stop processing</li>
 <li>limit - number of lines to process and exit</li>
+<li>skip - number of lines to skip from the start</li>
 <li>progress - if &gt; 0 report how many lines processed so far every specified lines</li>
 <li>until - skip lines until this regexp matches</li>
 <li>ignore - skip lines that match this regexp</li>
+<li>header - skip first line because it is the CSV header line</li>
 </ul>
 </li>
 </ul>
@@ -6138,6 +6138,12 @@ Optional third parameter indicates the number of decimal points to return:</p>
 </ul>
 
 <ul>
+<li><p><code>lib.shuffle shuffle(list)</code></p>
+<p> Randomize the list items in place</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>lib.now()</code></p>
 <p> Return number of seconds for current time</p>
 </li>
@@ -6170,13 +6176,6 @@ Usage:</p>
 <ul>
 <li><p><code>lib.zeropad(n, width)</code></p>
 <p> Return a string with leading zeros</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.formatJSON(obj, options)</code></p>
-<p> Nicely format an object with indentations, optional <code>indentlevel</code> can be used to control until which level deep
-to use newlines for objects.</p>
 </li>
 </ul>
 
@@ -6384,22 +6383,26 @@ the object depth is limited by options.depth or 5 levels deep, the number of pro
 </ul>
 
 <ul>
-<li><p><code>lib.jsonParse(obj, options)</code></p>
-<p> Silent JSON parse, returns null on error, no exceptions raised.
-options can specify the output in case of an error:</p>
+<li><p><code>lib.jsonFormat(obj, options)</code></p>
+<p> Nicely format an object with indentations, optional <code>indentlevel</code> can be used to control until which level deep
+to use newlines for objects.</p>
+</li>
+</ul>
+
 <ul>
-<li>list - return empty list</li>
-<li>obj - return empty obj</li>
-<li>str - return empty string</li>
-<li>error - report all errors</li>
-<li>debug - report errors in debug level</li>
+<li><p><code>lib.jsonParse(obj, options)</code></p>
+<p> Silent JSON parse, returns null on error, no exceptions raised.</p>
+<p>options can specify the following properties:</p>
+<ul>
+<li>datatype - make sure the result is returned as type: obj, list, str</li>
+<li>logger - report in the log with the specified level, log, debug, ...</li>
 </ul>
 </li>
 </ul>
 
 <ul>
-<li><p><code>lib.checkResult(err, obj, options)</code></p>
-<p> Perform validation of the result type, make sure we return what is expected, this is a helper that is used by other conversion routines</p>
+<li><p><code>lib.xmlParse(obj, options)</code></p>
+<p> Same arguments as for <code>jsonParse</code></p>
 </li>
 </ul>
 
@@ -7624,6 +7627,7 @@ must be defined for any metrics to be saved, use api.describeTable with addition
 <li>postdata - data to be sent with the request in the body</li>
 <li>postfile - file to be uploaded in the POST body, not as multipart</li>
 <li>postsize - file size to be uploaded if obtained separately</li>
+<li>noparse - do not parse known content types like json, xml</li>
 <li>chunked - post files using chunked encoding</li>
 <li>query - additional query parameters to be added to the url as an object or as encoded string</li>
 <li>sign - sign request with provided email/secret properties</li>
@@ -7646,6 +7650,7 @@ must be defined for any metrics to be saved, use api.describeTable with addition
 <p>On end, the object params will contain the following updated properties:</p>
 <ul>
 <li>data if file was not specified, data will contain collected response body as string</li>
+<li>obj - if the content type is a known type like json or xml this property will hold a reference to the parsed document or null in case or parse error</li>
 <li>status - HTTP response status code</li>
 <li>mtime - Date object with the last modified time of the requested file</li>
 <li>size - size of the response body or file</li>
