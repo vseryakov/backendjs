@@ -176,7 +176,7 @@ jobs.initWorker = function(options, callback)
                 });
             });
         });
-        logger.log("initWorker:", "started", cluster.worker.id, "queue:", self.workerQueue, self.channel, "maxRuntime:", self.maxRuntime, "maxLifetime:", self.maxLifetime);
+        logger.log("initWorker:", "started", cluster.isWorker ? cluster.worker.id : process.pid, "queue:", self.workerQueue, self.channel, "maxRuntime:", self.maxRuntime, "maxLifetime:", self.maxLifetime);
     }, lib.randomShort()/100);
 
     if (typeof callback == "function") callback();

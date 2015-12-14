@@ -599,8 +599,8 @@ Ipc.prototype.checkLimiter = function(options, callback)
 // defaults are 1 min and 1 hour accordingly.
 //
 // This is intended to be used for background job processing or something similar when
-// only on instance is needed to run. At the end of the processing `clearTimer` must be called to enable another instance immediately,
-// otherwise it will be available sfter the timeout only.
+// only one instance is needed to run. At the end of the processing `clearTimer` must be called to enable another instance immediately,
+// otherwise it will be available after the timeout only.
 //
 // The callback must be passed which will take one boolean argument, if true is retuned the timer has been locked by the caller, otherwise it is already locked by other
 // instance.
