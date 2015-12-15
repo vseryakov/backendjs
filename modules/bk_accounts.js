@@ -115,9 +115,16 @@ accounts.configureAccountsAPI = function()
         switch (req.params[0]) {
         case "get":
             options.cleanup = "bk_auth,bk_account";
-            self.getAccount(req, options, function(err, data, info) {
-                api.sendJSON(req, err, data);
-            });
+            if (!req.query.id) {
+                self.getAccount(req, options, function(err, data, info) {
+                    api.sendJSON(req, err, data);
+                });
+
+            } else {
+                db.list("bk_account", req.query.id, options, function(err, data) {
+                    api.sendJSON(req, err, data);
+                });
+            }
             break;
 
         case "add":
@@ -232,20 +239,15 @@ accounts.configureAccountsAPI = function()
     db.setProcessRow("post", "bk_account", onPostAccountRow);
 }
 
-// Return an account, used in /account/get API call, req.account will be filled with the properties from the db
+// Returns current account, used in /account/get API call, req.account will be filled with the properties from the db
 accounts.getAccount = function(req, options, callback)
 {
-    if (!req.query.id) {
-        if (!req.account || !req.account.id) return callback({ status: 400, message: "invalid account" });
-        db.get("bk_account", { id: req.account.id }, options, function(err, row, info) {
-            if (err) return callback(err);
-            if (!row) return callback({ status: 404, message: "account not found" });
-            for (var p in row) req.account[p] = row[p];
-            callback(null, req.account, info);
-        });
-    } else {
-        db.list("bk_account", req.query.id, options, callback);
-    }
+    if (!req.account || !req.account.id) return callback({ status: 400, message: "invalid account" });
+    db.get("bk_account", { id: req.account.id }, options, function(err, row, info) {
+        if (err || !row) return callback(err || { status: 404, message: "account not found" });
+        for (var p in row) req.account[p] = row[p];
+        callback(null, req.account, info);
+    });
 }
 
 // Send Push notification to the account, the actual transport delivery must be setup before calling this and passed in the options
