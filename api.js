@@ -602,10 +602,7 @@ api.init = function(options, callback)
                 self.app.engine('html', consolidate[self.templating]);
                 self.app.set('view engine', 'html');
                 // Use app specific views path if created even if it is empty
-                self.app.set('views', core.path.views && core.path.views[0] == "/" ? core.path.views :
-                                      core.path.views && fs.existsSync(core.path.views) ? core.path.views :
-                                      fs.existsSync(core.home + "/views") ? core.home + "/views" :
-                                      fs.existsSync(core.path.web + "/../views") ? core.path.web + "/../views" : __dirname + '/views');
+                self.app.set('views', [core.path.views, core.home + "/views", core.path.web + "/../views", __dirname + '/views' ]);
                 logger.debug("templating:", self.templating, "views:", self.app.get("views"));
             }
 
