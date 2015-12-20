@@ -74,7 +74,7 @@ shell.getArgs = function()
 }
 
 // Returns an object with all command line params starting with dash set with the value if the next param does not start with dash or 1,
-// this is API query emulaton and only known API parameters will be set, all other config options must be handled by each command separately
+// this is API query emulation and only known API parameters will be set, all other config options must be handled by each command separately
 shell.getOptions = function()
 {
     return api.getOptions({ query: this.getArgs(), options: { path: ["", "", ""], ops: {} } });
@@ -194,12 +194,13 @@ shell.cmdAccountDel = function(options)
     var self = this;
     if (!core.modules.accounts) this.exit("accounts module not loaded");
     var query = this.getQuery();
-    var opts = {};
+    var opts = this.getOptions();
     for (var i = 1; i < process.argv.length - 1; i += 2) {
         if (process.argv[i] == "-keep") opts[process.argv[i + 1]] = 1;
     }
     this.getUser(query, function(row) {
-        core.modules.accounts.deleteAccount(row.id, opts, function(err, data) {
+        opts.id = row.id;
+        core.modules.accounts.deleteAccount(opts, function(err, data) {
             self.exit(err, data);
         });
     });

@@ -1146,7 +1146,7 @@ lib.randomNum = function(min, max, decs)
 }
 
 // Randomize the list items in place
-lib.shuffle = function shuffle(list)
+lib.shuffle = function(list)
 {
     for (var i = 0; i < list.length; i++) {
         var j = Math.round((list.length - 1) * Math.random());
@@ -1762,7 +1762,7 @@ function _parse(type, obj, options)
 {
     if (!obj) return _checkResult(lib.newError("empty " + type), obj, options);
     try {
-        obj = _parseResult(type, obj);
+        obj = _parseResult(type, obj, options);
     } catch(err) {
         obj = _checkResult(type, err, obj, options);
     }
@@ -1777,7 +1777,11 @@ function _parseResult(type, obj, options)
             obj = JSON.parse(obj);
             break;
         case "xml":
-            obj = xml2json.toJson(obj, { object: true });
+            var opts = { object: true };
+            for (var p in options) {
+                if (["trim","coerce","sanitize","arrayNotation","reversible"].indexOf(p) > -1) opts[p] = options[p];
+            }
+            obj = xml2json.toJson(obj, opts);
             break;
         }
     }

@@ -20,14 +20,14 @@ var lib = bkjs.lib;
 var logger = bkjs.logger;
 
 // Icons management
-var icons = {
+var mod = {
     name: "icons",
     limit: { "*": 3 },
 };
-module.exports = icons;
+module.exports = mod;
 
 // Initialize the module
-icons.init = function(options)
+mod.init = function(options)
 {
     core.describeArgs("icons", [
          { name: "limit", type: "intmap", descr: "Set the limit of how many icons by type can be uploaded by an account, type:N,type:N..., type * means global limit for any icon type" },
@@ -62,14 +62,14 @@ icons.init = function(options)
 }
 
 // Create API endpoints and routes
-icons.configureWeb = function(options, callback)
+mod.configureWeb = function(options, callback)
 {
     this.configureIconsAPI();
     callback()
 }
 
 // Generic icon management
-icons.configureIconsAPI = function()
+mod.configureIconsAPI = function()
 {
     var self = this;
 
@@ -119,7 +119,7 @@ icons.configureIconsAPI = function()
 
 // Process icon request, put or del, update table and deal with the actual image data, always overwrite the icon file
 // Verify icon limits before adding new icons
-icons.handleIconRequest = function(req, res, options, callback)
+mod.handleIconRequest = function(req, res, options, callback)
 {
     var self = this;
     var op = options.op || "put";
@@ -189,7 +189,7 @@ icons.handleIconRequest = function(req, res, options, callback)
 }
 
 // Return list of icons for the account, used in /icon/get API call
-icons.selectIcon = function(req, options, callback)
+mod.selectIcon = function(req, options, callback)
 {
     db.select("bk_icon", { id: req.query.id, type: req.query.type, prefix: req.query.prefix }, options, function(err, rows) {
         callback(err, rows);
@@ -197,7 +197,7 @@ icons.selectIcon = function(req, options, callback)
 }
 
 // Return icon to the client, checks the bk_icon table for existence and permissions
-icons.getIcon = function(req, res, id, options)
+mod.getIcon = function(req, res, id, options)
 {
     db.get("bk_icon", { id: id, type: req.query.type, prefix: req.query.prefix }, options, function(err, row) {
         if (err) return api.sendReply(res, err);
@@ -206,5 +206,17 @@ icons.getIcon = function(req, res, id, options)
         options.prefix = req.query.prefix;
         options.type = req.query.type;
         api.sendIcon(req, res, id, options);
+    });
+}
+
+mod.deleteBkAccount  = function(options, callback)
+{
+    if (options.keep && options.keep) return callback();
+    db.delAll("bk_icon", { id: options.id }, options, function(err, rows) {
+        if (options.keep && options.keep.images) return callback();
+        // Delete all image files
+        lib.forEachSeries(rows, function(row, next) {
+            api.delIcon(options.id, row, next);
+        }, callback);
     });
 }

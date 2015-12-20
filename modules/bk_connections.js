@@ -19,14 +19,14 @@ var lib = bkjs.lib;
 var logger = bkjs.logger;
 
 // Connections management
-var connections = {
+var mod = {
     name: "connections",
     allow: {},
 };
-module.exports = connections;
+module.exports = mod;
 
 // Initialize the module
-connections.init = function(options)
+mod.init = function(options)
 {
     core.describeArgs("connections", [
          { name: "allow", type: "map", descr: "Map of connection type to operations to be allowed only, once a type is specified, all operations must be defined, the format is: type:op,type:op..." },
@@ -89,14 +89,14 @@ connections.init = function(options)
 }
 
 // Create API endpoints and routes
-connections.configureWeb = function(options, callback)
+mod.configureWeb = function(options, callback)
 {
     this.configureConnectionsAPI();
     callback()
 };
 
 // Connections management
-connections.configureConnectionsAPI = function()
+mod.configureConnectionsAPI = function()
 {
     var self = this;
 
@@ -143,7 +143,7 @@ connections.configureConnectionsAPI = function()
 }
 
 // Return one connection for the current account, this function is called by the `/connection/get` API call.
-connections.getConnection = function(req, options, callback)
+mod.getConnection = function(req, options, callback)
 {
     var self = this;
     if (!req.query.peer || !req.query.type) return callback({ status: 400, message: "peer and type are required"});
@@ -151,7 +151,7 @@ connections.getConnection = function(req, options, callback)
 }
 
 // Return all connections for the current account, this function is called by the `/connection/select` API call.
-connections.selectConnection = function(req, options, callback)
+mod.selectConnection = function(req, options, callback)
 {
     var self = this;
     this.queryConnection(req.account.id, req.query, options, function(err, rows, info) {
@@ -160,7 +160,7 @@ connections.selectConnection = function(req, options, callback)
 }
 
 // Create a connection between 2 accounts, this function is called by the `/connection/add` API call with query parameters coming from the Express request.
-connections.putConnection = function(req, options, callback)
+mod.putConnection = function(req, options, callback)
 {
     var op = options.op || 'put';
 
@@ -175,13 +175,13 @@ connections.putConnection = function(req, options, callback)
 }
 
 // Delete a connection, this function is called by the `/connection/del` API call
-connections.delConnection = function(req, options, callback)
+mod.delConnection = function(req, options, callback)
 {
     this.deleteConnection(req.account.id, req.query, options, callback);
 }
 
 // Return all connections for the account id with optional query properties
-connections.queryConnection = function(id, obj, options, callback)
+mod.queryConnection = function(id, obj, options, callback)
 {
     obj = lib.cloneObj(obj, 'id', id);
 
@@ -198,7 +198,7 @@ connections.queryConnection = function(id, obj, options, callback)
 
 // Return one connection for given id, obj must have .peer and .type properties defined,
 // if options.accounts is 1 then combine with account record.
-connections.readConnection = function(id, obj, options, callback)
+mod.readConnection = function(id, obj, options, callback)
 {
     db.get("bk_" + (options.op || "connection"), { id: id, type: obj.type, peer: obj.peer }, options, function(err, row) {
         if (err) return callback(err, {});
@@ -229,7 +229,7 @@ connections.readConnection = function(id, obj, options, callback)
 // The following options properties can be used:
 // - noreference - do not create reference part of the connection
 // - connected - return existing connection record for the same type from the peer account
-connections.makeConnection = function(obj, peer, options, callback)
+mod.makeConnection = function(obj, peer, options, callback)
 {
     var self = this;
     var now = Date.now();
@@ -278,9 +278,9 @@ connections.makeConnection = function(obj, peer, options, callback)
     });
 }
 
-// Lower level connection deletion, for given account `id`, the other id and type is in the `obj`, performs deletion of all
-// connections. If any of obj.id or obj.type are not specified then perform a query for matching connections and delete only matched connection.
-connections.deleteConnection = function(id, obj, options, callback)
+// Lower level connection deletion, for given account `id`, the other id and type is in the `obj`, performs deletion of all connections.
+// If any of obj.id or obj.type are not specified then perform a query for matching connections and delete only matched connection.
+mod.deleteConnection = function(id, obj, options, callback)
 {
     var self = this;
     var now = Date.now();
@@ -322,5 +322,18 @@ connections.deleteConnection = function(id, obj, options, callback)
         }, function(err) {
             callback(err, []);
         });
+    });
+}
+
+mod.deleteBkAccount = function(options, callback)
+{
+    if (options.keep && options.keep.connection) return callback();
+    db.select("bk_connection", { id: options.id }, options, function(err, rows) {
+        if (err) return next()
+        lib.forEachSeries(rows, function(row, next) {
+            db.del("bk_reference", { id: row.peer, type: row.type, peer: row.id }, options, function(err) {
+                db.del("bk_connection", { id: row.id, type: row.type, peer: row.peer }, options, next);
+            });
+        }, callback);
     });
 }

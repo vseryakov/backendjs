@@ -19,13 +19,13 @@ var lib = bkjs.lib;
 var logger = bkjs.logger;
 
 // Counters management
-var counters = {
+var mod = {
     name: "counters"
 };
-module.exports = counters;
+module.exports = mod;
 
 // Initialize the module
-counters.init = function(options)
+mod.init = function(options)
 {
     db.describeTables({
             // All accumulated counters for accounts
@@ -48,14 +48,14 @@ counters.init = function(options)
 }
 
 // Create API endpoints and routes
-counters.configureWeb = function(options, callback)
+mod.configureWeb = function(options, callback)
 {
     this.configureCountersAPI();
     callback()
 }
 
 // Counters management
-counters.configureCountersAPI = function()
+mod.configureCountersAPI = function()
 {
     var self = this;
 
@@ -88,7 +88,7 @@ counters.configureCountersAPI = function()
 }
 
 // Increase a counter, used in /counter/incr API call, options.op can be set to 'put'
-counters.incrCounter = function(req, options, callback)
+mod.incrCounter = function(req, options, callback)
 {
     var self = this;
     var now = Date.now();
@@ -116,7 +116,7 @@ counters.incrCounter = function(req, options, callback)
 }
 
 // Update auto counter for account and type
-counters.incrAutoCounter = function(id, type, num, options, callback)
+mod.incrAutoCounter = function(id, type, num, options, callback)
 {
     var self = this;
 
@@ -126,3 +126,8 @@ counters.incrAutoCounter = function(id, type, num, options, callback)
     db.incr("bk_counter", lib.newObj('id', id, type, num), options, callback);
 }
 
+mod.deleteBkAccount = function(options, callback)
+{
+    if (options.keep && options.keep.counter) return callback();
+    db.del("bk_counter", { id: options.id }, options, callback);
+}

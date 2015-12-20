@@ -19,13 +19,13 @@ var lib = bkjs.lib;
 var logger = bkjs.logger;
 
 // Messages management
-var messages = {
+var mod = {
     name: "messages"
 };
-module.exports = messages;
+module.exports = mod;
 
 // Initialize the module
-messages.init = function(options)
+mod.init = function(options)
 {
     db.describeTables({
             // New messages
@@ -84,14 +84,14 @@ messages.init = function(options)
 }
 
 // Create API endpoints and routes
-messages.configureWeb = function(options, callback)
+mod.configureWeb = function(options, callback)
 {
     this.configureMessagesAPI();
     callback()
 }
 
 // Messaging management
-messages.configureMessagesAPI = function()
+mod.configureMessagesAPI = function()
 {
     var self = this;
 
@@ -187,21 +187,21 @@ messages.configureMessagesAPI = function()
 }
 
 // Return archived messages, used in /message/get API call
-messages.getArchiveMessage = function(req, options, callback)
+mod.getArchiveMessage = function(req, options, callback)
 {
     req.query.id = req.account.id;
     db.select("bk_archive", req.query, options, callback);
 }
 
 // Return sent messages to the specified account, used in /message/get/sent API call
-messages.getSentMessage = function(req, options, callback)
+mod.getSentMessage = function(req, options, callback)
 {
     req.query.id = req.account.id;
     db.select("bk_sent", req.query, options, callback);
 }
 
 // Return new/unread messages, used in /message/get API call
-messages.getMessage = function(req, options, callback)
+mod.getMessage = function(req, options, callback)
 {
     req.query.id = req.account.id;
 
@@ -253,7 +253,7 @@ messages.getMessage = function(req, options, callback)
 }
 
 // Mark a message as archived, used in /message/archive API call
-messages.archiveMessage = function(req, options, callback)
+mod.archiveMessage = function(req, options, callback)
 {
     if (!req.query.sender || !req.query.mtime) return callback({ status: 400, message: "sender and mtime are required" });
 
@@ -280,7 +280,7 @@ messages.archiveMessage = function(req, options, callback)
 //
 // The following options properties can be used:
 // - nosent - do not create a record in the bk_sent table
-messages.addMessage = function(req, options, callback)
+mod.addMessage = function(req, options, callback)
 {
     var now = Date.now();
     var info = {};
@@ -331,7 +331,7 @@ messages.addMessage = function(req, options, callback)
 }
 
 // Delete a message or all messages for the given account from the given sender, used in /message/del` API call
-messages.delMessage = function(req, options, callback)
+mod.delMessage = function(req, options, callback)
 {
     var table = options.table || "bk_message";
     var sender = options.sender || "sender";
@@ -361,7 +361,7 @@ messages.delMessage = function(req, options, callback)
 }
 
 // Delete the messages in the archive, used in /message/del/archive` API call
-messages.delArchiveMessage = function(req, options, callback)
+mod.delArchiveMessage = function(req, options, callback)
 {
     options.table = "bk_archive";
     options.sender = "sender";
@@ -369,7 +369,7 @@ messages.delArchiveMessage = function(req, options, callback)
 }
 
 // Delete the messages i sent, used in /message/del/sent` API call
-messages.delSentMessage = function(req, options, callback)
+mod.delSentMessage = function(req, options, callback)
 {
     options.table = "bk_sent";
     options.sender = "recipient";
@@ -377,7 +377,7 @@ messages.delSentMessage = function(req, options, callback)
 }
 
 // Update a message or all messages for the given account from the given sender, used in /message/del` API call
-messages.updateMessage = function(req, options, callback)
+mod.updateMessage = function(req, options, callback)
 {
     var table = options.table || "bk_message";
     var sender = options.sender || "sender";
@@ -386,9 +386,27 @@ messages.updateMessage = function(req, options, callback)
 }
 
 // Update a messages in the archive, used in /message/update/archive` API call
-messages.updateArchiveMessage = function(req, options, callback)
+mod.updateArchiveMessage = function(req, options, callback)
 {
     options.table = "bk_archive";
     options.sender = "sender";
     this.updateMessage(req, options, callback);
+}
+
+mod.deleteBkAccount = function(options, callback)
+{
+    lib.series([
+     function(next) {
+         if (options.keep && options.keep.message) return next();
+         db.delAll("bk_message", { id: options.id }, options, function() { next() });
+     },
+     function(next) {
+         if (options.keep && options.keep.archive) return next();
+         db.delAll("bk_archive", { id: options.id }, options, function() { next() });
+     },
+     function(next) {
+         if (options.keep && options.keep.sent) return next();
+         db.delAll("bk_sent", { id: options.id }, options, function() { next() });
+     },
+    ], callback);
 }

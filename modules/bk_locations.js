@@ -20,7 +20,7 @@ var lib = bkjs.lib;
 var logger = bkjs.logger;
 
 // Locations management
-var locations = {
+var mod = {
     name: "locations",
 
     // Geo min distance for the hash key, km
@@ -28,10 +28,10 @@ var locations = {
     // Max searchable distance, km
     maxDistance: 50,
 };
-module.exports = locations;
+module.exports = mod;
 
 // Initialize the module
-locations.init = function(options)
+mod.init = function(options)
 {
     core.describeArgs("locations", [
          { name: "max-distance", type: "number", min: 0.1, max: 999, descr: "Max searchable distance(radius) in km, for location searches to limit the upper bound" },
@@ -65,14 +65,14 @@ locations.init = function(options)
 }
 
 // Create API endpoints and routes
-locations.configureWeb = function(options, callback)
+mod.configureWeb = function(options, callback)
 {
     this.configureLocationsAPI();
     callback()
 }
 
 // Geo locations management
-locations.configureLocationsAPI = function()
+mod.configureLocationsAPI = function()
 {
     var self = this;
 
@@ -114,7 +114,7 @@ locations.configureLocationsAPI = function()
 //              });
 //          });
 //
-locations.getLocation = function(req, options, callback)
+mod.getLocation = function(req, options, callback)
 {
     var self = this;
     var table = options.table || "bk_location";
@@ -154,7 +154,7 @@ locations.getLocation = function(req, options, callback)
 }
 
 // Save location coordinates for current account, this function is called by the `/location/put` API call
-locations.putLocation = function(req, options, callback)
+mod.putLocation = function(req, options, callback)
 {
     var self = this;
     var now = Date.now();
@@ -211,3 +211,8 @@ locations.putLocation = function(req, options, callback)
     });
 }
 
+mod.deleteBkAccount =  function(options, callback)
+{
+    if (options.keep && options.keep.location) return callback();
+    db.del("bk_location", { id: options.id }, options, callback);
+}

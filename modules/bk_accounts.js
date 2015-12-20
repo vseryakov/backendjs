@@ -49,8 +49,9 @@ accounts.init = function(options)
                           company: {},
                           birthday: {},
                           gender: {},
-                          address: {},
+                          street: {},
                           city: {},
+                          county: {},
                           state: {},
                           zipcode: {},
                           country: {},
@@ -143,7 +144,8 @@ accounts.configureAccountsAPI = function()
             break;
 
         case "del":
-            self.deleteAccount(req.account.id, options, function(err, data) {
+            options.id = req.account.id;
+            self.deleteAccount(options, function(err, data) {
                 api.sendJSON(req, err, data);
             });
             break;
@@ -439,79 +441,52 @@ accounts.updateAccount = function(req, options, callback)
 }
 
 // Delete account specified by the obj. Used in `/account/del` API call.
-// The options may contain keep: {} object with table names to be kept without the bk_ prefix, for example
+// The options may contain `keep` object with table names to be kept without the bk_ prefix, for example
 // delete an account but keep all messages and location: keep: { message: 1, location: 1 }
-accounts.deleteAccount = function(id, options, callback)
+//
+// This methods is suitable for background jobs
+accounts.deleteAccount = function(options, callback)
 {
-    if (!id) return callback({ status: 400, message: "id must be specified" });
+    if (!options.id) return callback({ status: 400, message: "id must be specified" });
 
     if (!options.keep) options.keep = {};
-    options.count = 1000000;
+    options.count = 0;
 
-    db.get("bk_account", { id: id }, options, function(err, obj) {
+    db.get("bk_account", { id: options.id }, options, function(err, obj) {
         if (err) return callback(err);
         if (!obj) {
             if (!options.force) return callback({ status: 404, message: "No account found" });
-            obj = { id: id };
+            obj = { id: options.id };
         }
 
         lib.series([
            function(next) {
-               if (options.keep.auth || !obj.login) return next();
-               db.del("bk_auth", { login: obj.login }, options, next);
+               if (!obj.login) return next();
+               if (options.keep.auth) {
+                   db.update("bk_auth", { login: obj.login, type: "deleted" }, options, function() { next() });
+               } else {
+                   db.del("bk_auth", { login: obj.login }, options, function() { next() });
+               }
+           },
+           function(next) {
+               db.update("bk_account", { id: obj.id, type: "deleted" }, function() { next() });
+           },
+           function(next) {
+               options.id = obj.id;
+               options.login = obj.login;
+               core.runMethods("deleteBkAccount", options, function() { next() });
            },
            function(next) {
                if (options.keep.account) return next();
                db.del("bk_account", { id: obj.id }, options, function() { next() });
            },
            function(next) {
-               if (options.keep.counter || !core.modules.counters) return next();
-               db.del("bk_counter", { id: obj.id }, options, function() { next() });
-           },
-           function(next) {
-               if (options.keep.connection || !core.modules.connections) return next();
-               db.select("bk_connection", { id: obj.id }, options, function(err, rows) {
-                   if (err) return next()
-                   lib.forEachSeries(rows, function(row, next2) {
-                       db.del("bk_reference", { id: row.peer, type: row.type, peer: row.id }, options, function(err) {
-                           db.del("bk_connection", { id: row.id, type: row.type, peer: row.peer }, options, next2);
-                       });
-                   }, function() { next() });
-               });
-           },
-           function(next) {
-               if (options.keep.message || !core.modules.messages) return next();
-               db.delAll("bk_message", { id: obj.id }, options, function() { next() });
-           },
-           function(next) {
-               if (options.keep.archive || !core.modules.messages) return next();
-               db.delAll("bk_archive", { id: obj.id }, options, function() { next() });
-           },
-           function(next) {
-               if (options.keep.sent || !core.modules.messages) return next();
-               db.delAll("bk_sent", { id: obj.id }, options, function() { next() });
-           },
-           function(next) {
                if (options.keep.status) return next();
                db.del("bk_status", { id: obj.id }, options, function() { next() });
            },
-           function(next) {
-               if (options.keep.icon || !core.modules.icons) return next();
-               db.delAll("bk_icon", { id: obj.id }, options, function(err, rows) {
-                   if (options.keep.images) return next();
-                   // Delete all image files
-                   lib.forEachSeries(rows, function(row, next2) {
-                       api.delIcon(obj.id, row, next2);
-                   }, function() { next() });
-               });
-           },
-           function(next) {
-               if (options.keep.location || !obj.geohash || !core.modules.locations) return next();
-               db.del("bk_location", obj, options, function() { next() });
-           }],
-           function(err) {
-                if (!err) api.metrics.Counter('auth_del_0').inc();
-                callback(err, obj);
+        ], function(err) {
+            if (!err) api.metrics.Counter('auth_del_0').inc();
+            callback(err, obj);
         });
     });
 }
