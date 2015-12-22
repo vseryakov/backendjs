@@ -1993,6 +1993,7 @@ db.prepareForList = function(pool, op, table, obj, options, cols, orig)
 // defined by the table columns.
 // The following special properties in the column definition chnage the format:
 //  - type = json - if a column type is json and the value is a string returned will be converted into a Javascript object
+//  - dflt property is defined for a json type and record does not have a value it will be set to specified default value
 //  - list - split the value into array
 //  - unjoin - a list of names, it produces new properties by splitting the value by a separator and assigning pieces to
 //      separate properties using names from the list, this is the opposite of the `join` property and is used separately if
@@ -2018,6 +2019,7 @@ db.convertRows = function(pool, req, rows, options)
                 if (typeof rows[i][p] == "string" && rows[i][p]) rows[i][p] = lib.jsonParse(rows[i][p], { logger: "error" });
             }
         }
+
         // Split into a list
         if (col.list) {
             for (var i = 0; i < rows.length; i++) {
@@ -2026,6 +2028,13 @@ db.convertRows = function(pool, req, rows, options)
         }
         // Extract joined values and place into separate columns
         this.unjoinColumns(rows, p, col, options);
+
+        // Default value on return
+        if (cols[p].dflt) {
+            for (var i = 0; i < rows.length; i++) {
+                if (!rows[i][p]) rows[i][p] = cols[p].dflt;
+            }
+        }
 
         // Do not return
         if (col.noresult) {

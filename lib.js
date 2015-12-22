@@ -369,6 +369,7 @@ lib.toAge = function(mtime)
 // validate incoming data. It is an object with property names and definitoons that at least must specify the type, all other options are type specific.
 //
 // The options can define the following properties:
+//  - null - always return null on any error
 //  - data - to pass realtime or other custom options for the validation or convertion utilities as the first argument if not defined in the definition.
 //  - prefix - prefix to be used when searching for the parameters in the query, only properties with this prefix will be processed. The resulting
 //     object will not have this prefix in the properties.
@@ -466,7 +467,7 @@ lib.toParams = function(query, schema, options)
         }
         // Return an error message
         if (opts.required && this.isEmpty(rc[name])) {
-            return opts.errmsg || this.__("%s is required", name);
+            return options && options.null ? null : opts.errmsg || this.__("%s is required", name);
         }
     }
     return rc;
@@ -1601,7 +1602,7 @@ lib.objGet = function(obj, name, options)
     if (!obj) return options ? (options.list ? [] : options.obj ? {} : options.str ? "" : options.num ? 0 : null) : null;
     var path = !Array.isArray(name) ? String(name).split(".") : name;
     for (var i = 0; i < path.length; i++) {
-        obj = obj[path[i]];
+        obj = obj ? obj[path[i]] : undefined;
         if (typeof obj == "undefined") return options ? (options.list ? [] : options.obj ? {} : options.str ? "" : options.num ? 0 : null) : null;
     }
     if (obj && options) {
