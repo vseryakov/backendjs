@@ -144,9 +144,8 @@ accounts.configureAccountsAPI = function()
             break;
 
         case "del":
-            options.id = req.account.id;
-            self.deleteAccount(options, function(err, data) {
-                api.sendJSON(req, err, data);
+            self.deleteAccount(req, function(err, data) {
+                api.sendJSON(req, err);
             });
             break;
 
@@ -393,19 +392,25 @@ accounts.addAccount = function(req, options, callback)
            });
        },
        function(next) {
+           // Some dbs require the record to exist, just make one with default values
+           db.put("bk_counter", req.query, function() { next(); });
+       },
+       function(next) {
            api.metrics.Counter('auth_add_0').inc();
            // Set all default and computed values because we return in-memory record, not from the database
            db.runProcessRows("post", "bk_account", { op: "get", table: "bk_account", obj: req.query }, req.query, options);
            var cols = db.getColumns("bk_account", options);
            for (var p in cols) if (typeof cols[p].value != "undefined") req.query[p] = cols[p].value;
+           req.query._added = true;
            // Link account record for other middleware
            req.account = req.query;
-           // Some dbs require the record to exist, just make one with default values
-           db.put("bk_counter", req.query, function() { next(); });
+           next();
        },
-       ], function(err) {
-           if (!err) req.query._added = true;
-           callback(err, req.query);
+       function(next) {
+           core.runMethods("bkAddAccount", req, function() { next() });
+       },
+    ], function(err) {
+        callback(err, req.query);
     });
 }
 
@@ -434,59 +439,56 @@ accounts.updateAccount = function(req, options, callback)
            if (!options.admin && !api.checkAccountType(req.account, "admin")) api.clearQuery(req.query, "bk_account", "admin", options);
            db.update("bk_account", req.query, next);
        },
-       ], function(err) {
-           if (!err) req.query._updated = true;
-           callback(err, []);
+       function(next) {
+           core.runMethods("bkUpdateAccount", req, function() { next() });
+       },
+    ], function(err) {
+        callback(err, req.query);
     });
 }
 
 // Delete account specified by the obj. Used in `/account/del` API call.
-// The options may contain `keep` object with table names to be kept without the bk_ prefix, for example
-// delete an account but keep all messages and location: keep: { message: 1, location: 1 }
+// The options may contain `keep_NAME` properties with NAME being a table name to be kept without the bk_ prefix, for example
+// delete an account but keep all messages and location: `keep_message: 1, keep_location: 1`
 //
 // This methods is suitable for background jobs
-accounts.deleteAccount = function(options, callback)
+accounts.deleteAccount = function(req, callback)
 {
-    if (!options.id) return callback({ status: 400, message: "id must be specified" });
+    if (!req.account || !req.account.id) return callback({ status: 400, message: "no id provided" });
+    if (!req.options) req.options = {};
+    req.options.count = 0;
 
-    if (!options.keep) options.keep = {};
-    options.count = 0;
-
-    db.get("bk_account", { id: options.id }, options, function(err, obj) {
+    db.get("bk_account", { id: req.account.id }, req.options, function(err, row) {
         if (err) return callback(err);
-        if (!obj) {
-            if (!options.force) return callback({ status: 404, message: "No account found" });
-            obj = { id: options.id };
-        }
+        if (!row && !req.options.force) return callback({ status: 404, message: "No account found" });
+        if (!req.account.login) req.account.login = row.login;
 
         lib.series([
            function(next) {
-               if (!obj.login) return next();
-               if (options.keep.auth) {
-                   db.update("bk_auth", { login: obj.login, type: "deleted" }, options, function() { next() });
+               if (!req.account.login) return next();
+               if (req.options.keep_auth) {
+                   db.update("bk_auth", { login: req.account.login, type: "deleted" }, req.options, function() { next() });
                } else {
-                   db.del("bk_auth", { login: obj.login }, options, function() { next() });
+                   db.del("bk_auth", { login: req.account.login }, req.options, function() { next() });
                }
            },
            function(next) {
-               db.update("bk_account", { id: obj.id, type: "deleted" }, function() { next() });
+               db.update("bk_account", { id: req.account.id, type: "deleted" }, function() { next() });
            },
            function(next) {
-               options.id = obj.id;
-               options.login = obj.login;
-               core.runMethods("deleteBkAccount", options, function() { next() });
+               core.runMethods("bkDeleteAccount", req, function() { next() });
            },
            function(next) {
-               if (options.keep.account) return next();
-               db.del("bk_account", { id: obj.id }, options, function() { next() });
+               if (req.options.keep_account) return next();
+               db.del("bk_account", { id: req.account.id }, req.options, function() { next() });
            },
            function(next) {
-               if (options.keep.status) return next();
-               db.del("bk_status", { id: obj.id }, options, function() { next() });
+               if (req.options.keep_status) return next();
+               db.del("bk_status", { id: req.account.id }, req.options, function() { next() });
            },
         ], function(err) {
             if (!err) api.metrics.Counter('auth_del_0').inc();
-            callback(err, obj);
+            callback(err);
         });
     });
 }

@@ -905,6 +905,7 @@ api.handleMetrics = function(req, res, next)
             hook.callback.call(self, req, function() { next() });
         }, function() {
             // Cleanup request explicitely
+            for (var p in req) if (p[0] == "_" && p[1] == "_") delete req[p];
             for (var p in req.options) delete req.options[p];
             for (var p in req.account) delete req.account[p];
         });

@@ -325,14 +325,14 @@ mod.deleteConnection = function(id, obj, options, callback)
     });
 }
 
-mod.deleteBkAccount = function(options, callback)
+mod.bkDeleteAccount = function(req, callback)
 {
-    if (options.keep && options.keep.connection) return callback();
-    db.select("bk_connection", { id: options.id }, options, function(err, rows) {
-        if (err) return next()
+    if (req.options.keep_connection) return callback();
+    db.select("bk_connection", { id: req.account.id }, function(err, rows) {
+        if (err) return callback();
         lib.forEachSeries(rows, function(row, next) {
-            db.del("bk_reference", { id: row.peer, type: row.type, peer: row.id }, options, function(err) {
-                db.del("bk_connection", { id: row.id, type: row.type, peer: row.peer }, options, next);
+            db.del("bk_reference", { id: row.peer, type: row.type, peer: row.id }, function(err) {
+                db.del("bk_connection", { id: row.id, type: row.type, peer: row.peer }, next);
             });
         }, callback);
     });

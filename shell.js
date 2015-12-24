@@ -200,8 +200,8 @@ shell.cmdAccountDel = function(options)
     }
     this.getUser(query, function(row) {
         opts.id = row.id;
-        core.modules.accounts.deleteAccount(opts, function(err, data) {
-            self.exit(err, data);
+        core.modules.accounts.deleteAccount({ account: opts }, function(err) {
+            self.exit(err);
         });
     });
 }

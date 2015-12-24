@@ -393,20 +393,20 @@ mod.updateArchiveMessage = function(req, options, callback)
     this.updateMessage(req, options, callback);
 }
 
-mod.deleteBkAccount = function(options, callback)
+mod.bkDeleteAccount = function(req, callback)
 {
     lib.series([
      function(next) {
-         if (options.keep && options.keep.message) return next();
-         db.delAll("bk_message", { id: options.id }, options, function() { next() });
+         if (req.options.keep_message) return next();
+         db.delAll("bk_message", { id: req.account.id }, function() { next() });
      },
      function(next) {
-         if (options.keep && options.keep.archive) return next();
-         db.delAll("bk_archive", { id: options.id }, options, function() { next() });
+         if (req.options.keep_archive) return next();
+         db.delAll("bk_archive", { id: req.account.id }, function() { next() });
      },
      function(next) {
-         if (options.keep && options.keep.sent) return next();
-         db.delAll("bk_sent", { id: options.id }, options, function() { next() });
+         if (req.options.keep_sent) return next();
+         db.delAll("bk_sent", { id: req.account.id }, function() { next() });
      },
     ], callback);
 }

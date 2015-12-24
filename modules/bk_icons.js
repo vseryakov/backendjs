@@ -209,14 +209,14 @@ mod.getIcon = function(req, res, id, options)
     });
 }
 
-mod.deleteBkAccount  = function(options, callback)
+mod.bkDeleteAccount  = function(req, callback)
 {
-    if (options.keep && options.keep) return callback();
-    db.delAll("bk_icon", { id: options.id }, options, function(err, rows) {
-        if (options.keep && options.keep.images) return callback();
+    if (req.options.keep_icon) return callback();
+    db.delAll("bk_icon", { id: req.account.id }, function(err, rows) {
+        if (req.options.keep_images) return callback();
         // Delete all image files
         lib.forEachSeries(rows, function(row, next) {
-            api.delIcon(options.id, row, next);
+            api.delIcon(req.account.id, row, next);
         }, callback);
     });
 }

@@ -211,8 +211,8 @@ mod.putLocation = function(req, options, callback)
     });
 }
 
-mod.deleteBkAccount =  function(options, callback)
+mod.bkDeleteAccount =  function(req, callback)
 {
-    if (options.keep && options.keep.location) return callback();
-    db.del("bk_location", { id: options.id }, options, callback);
+    if (req.options.keep_location) return callback();
+    db.del("bk_location", { id: req.account.id }, callback);
 }

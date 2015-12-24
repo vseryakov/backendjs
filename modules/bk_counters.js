@@ -126,8 +126,8 @@ mod.incrAutoCounter = function(id, type, num, options, callback)
     db.incr("bk_counter", lib.newObj('id', id, type, num), options, callback);
 }
 
-mod.deleteBkAccount = function(options, callback)
+mod.bkDeleteAccount = function(req, callback)
 {
-    if (options.keep && options.keep.counter) return callback();
-    db.del("bk_counter", { id: options.id }, options, callback);
+    if (req.options.keep_counter) return callback();
+    db.del("bk_counter", { id: req.account.id }, callback);
 }
