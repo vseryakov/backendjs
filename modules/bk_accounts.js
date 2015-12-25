@@ -461,19 +461,20 @@ accounts.deleteAccount = function(req, callback)
     db.get("bk_account", { id: req.account.id }, req.options, function(err, row) {
         if (err) return callback(err);
         if (!row && !req.options.force) return callback({ status: 404, message: "No account found" });
-        if (!req.account.login) req.account.login = row.login;
+        for (var p in row) if (!req.account[p]) req.account[p] = row[p];
+        req.account.type += (req.account.type ? "," : "") + "deleted";
 
         lib.series([
            function(next) {
                if (!req.account.login) return next();
                if (req.options.keep_auth) {
-                   db.update("bk_auth", { login: req.account.login, type: "deleted" }, req.options, function() { next() });
+                   db.update("bk_auth", { login: req.account.login, type: req.account.type }, req.options, function() { next() });
                } else {
                    db.del("bk_auth", { login: req.account.login }, req.options, function() { next() });
                }
            },
            function(next) {
-               db.update("bk_account", { id: req.account.id, type: "deleted" }, function() { next() });
+               db.update("bk_account", { id: req.account.id, type: req.account.type }, function() { next() });
            },
            function(next) {
                core.runMethods("bkDeleteAccount", req, function() { next() });
