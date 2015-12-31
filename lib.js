@@ -389,6 +389,7 @@ lib.toAge = function(mtime)
 //                                                data: { type: "json", datatype: "obj" },
 //                                                mtime: { type: "mtime" },
 //                                                email: { type: "list", datatype: "string } },
+//                                                internal: { ignore: 1 },
 //                                                state: { type: "list", datatype: "string, values: ["VA","DC] } },
 //                                                ssn: { type: "string", regexp: /^[0-9]{3}-[0-9]{3}-[0-9]{4}$/, errmsg: "Valid SSN is required" } },
 //                                                phone: { type: "list", datatype: "number } },
@@ -401,6 +402,7 @@ lib.toParams = function(query, schema, options)
 {
     var rc = {}, opts;
     for (var name in schema) {
+        if (schema[name].ignore) continue;
         opts = {};
         for (var p in schema[name]) opts[p] = schema[name][p];
         var dflt = options && options.data && options.data[name];

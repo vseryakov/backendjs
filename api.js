@@ -279,48 +279,38 @@ var api = {
     // Query options, special parameters that start with the underscore in the req.query, shared between all routes and
     // can perform special actions or to influence the results, in most cases these are used in the db queries.
     controls: {
-        accounts: { type: "bool" },
-        consistent: { type: "bool" },
-        desc: { type: "bool" },
+        ip: { ignore: 1 },
+        host: { ignore: 1 },
+        path: { ignore: 1 },
+        apath: { ignore: 1 },
+        secure: { ignore: 1 },
+        mtime: { ignore: 1 },
+        cleanup: { ignore: 1 },
+        userAgent: { ignore: 1 },
+        appName: { ignore: 1 },
+        appVersion: { ignore: 1 },
+        appBuild: { ignore: 1 },
+        appLanguage: { ignore: 1 },
+        coreVersion: { ignore: 1 },
+        timezoneOffset: { ignore: 1 },
+        platform: { ignore: 1 },
+        noscan: { ignore: 1 },
         total: { type: "bool" },
-        connected: { type: "bool" },
-        check: { type: "bool" },
-        noscan: { type: "bool" },
-        noprocessrows: { type: "bool" },
-        noconvertrows: { type: "bool" },
-        noreference: { type: "bool" },
-        nocounter: { type: "bool" },
-        publish: { type: "bool" },
-        archive: { type: "bool" },
-        trash: { type: "bool" },
         session: { type: "bool" },
         accesstoken: { type: "bool" },
-        force: { type: "bool" },
-        quiet: { type: "bool" },
-        continue: { type: "bool" },
-        name: { type: "string" },
-        alias: { type: "string" },
         format: { type: "string" },
         separator: { type: "string" },
-        pool: { type: "string" },
-        cleanup: { type: "string" },
-        sort: { type: "string" },
-        ext: { type: "string" },
         encoding: { type: "string" },
-        width: { type: "number" },
-        height: { type: "number" },
-        rotate: { type: "number" },
-        quality: { type: "number" },
-        round: { type: "number" },
-        interval: { type: "number" },
-        timeout: { type: "number" },
         count: { type: "number", float: 0, dflt: 25, min: 0 },
         page: { type: "number", float: 0, dflt: 0, min: 0 },
         tm: { type: "timestamp" },
+        ext: { type: "string" },
         ops: { type: "map" },
         start: { type: "token" },
         token: { type: "token" },
         select: { type: "list" },
+        desc: { type: "bool" },
+        sort: { type: "string" },
     },
 
     tables: {
@@ -836,10 +826,21 @@ api.prepareRequest = function(req)
     var path = req.path || "/";
     var apath = path.substr(1).split("/");
     req.account = {};
-    req.options = { ops: {}, noscan: 1,
-        ip: req.ip, host: req.hostname, path: path, apath: apath, secure: req.secure,
+    req.options = {
+        ops: {},
+        noscan: 1,
+        ip: req.ip,
+        host: req.hostname,
+        path: path,
+        apath: apath,
+        secure: req.secure,
+        mtime: Date.now(),
         cleanup: "bk_" + apath[0],
-        userAgent: "", appName: "", appVersion: "", appBuild: "", platform: "",
+        userAgent: "",
+        appName: "",
+        appVersion: "",
+        appBuild: "",
+        platform: "",
     };
 
     // Parse application version, extract first product and version only
@@ -1189,15 +1190,61 @@ api.registerRateLimits = function(name, rate, max, interval)
     return true;
 }
 
+// Add special control parameters that will be recognized in the query and placed in the `req.options` for every request.
+//
+// Control params start with underscore and will be converted into the configured type according to the spec.
+// The `options` is an object in the format that is used by `lib.toParams`, no default type is allowed, even for string
+// it needs to be defined as { type: "string" }.
+//
+// No existing control parameters will be overridden, also care must be taken when defining new control parameters so they do not
+// conflict with the existing ones.
+//
+// These are default common parameters that can be used by any module:
+//  - `_count, _page, _tm, _sort, _select, _ext, _start, _token, _session, _format, _total, _encoding, _ops`
+//
+// These are the reserved names that cannot be used for parameters, they are defined by the engine for every request:
+//   - `path, apath, ip, host, mtime, platform, cleanup, secure, appName, appVersion, appLanguage, coreVersion`
+//
+// Example:
+//
+//      mod.configureMiddleware = function(options, callback) {
+//          api.registerControlParams({ notify: { type: "bool" }, level: { type: "int", min: 1, max: 10 } });
+//          callback();
+//      }
+//
+//      Then if a request arrives for example as `_notify=true&_level=5`, it will be parsed and placed in the `req.options`:
+//
+//      mod.configureWeb = function(options, callback) {
+//
+//         api.app.all("/send", function(req, res) {
+//             if (req.options.notify) { ... }
+//             if (req.options.level > 5) { ... }
+//         });
+//         callback()
+//      }
+api.registerControlParams = function(options)
+{
+    for (var p in options) {
+        if (options[p] && options[p].type && typeof this.controls[p] == "undefined") this.controls[p] = options[p];
+    }
+}
+
 // Convert query options into internal options, such options are prepended with the underscore to
 // distinguish control parameters from query parameters.
+//
 // For security purposes this is the only place that translates special control query parameters into the options properties,
-// all the supported options are defined in the `api.controls` and can be used by the apps freely.
-api.getOptions = function(req)
+// all the supported options are defined in the `api.controls` and can be used by the apps freely but with caution. See `registerControlParams`.
+//
+// if `controls` is an object it will be used to define additional control parameters for this request only. Same rules as for
+// `registerControlParams` apply.
+api.getOptions = function(req, controls)
 {
-    var params = lib.toParams(req.query, this.controls, { prefix: "_", data: { token: { secret: this.getTokenSecret(req) } } });
+    var opts = { prefix: "_", data: { token: { secret: this.getTokenSecret(req) } } };
+    var params = lib.toParams(req.query, this.controls, opts);
     if (!req.options) req.options = {};
     for (var p in params) req.options[p] = params[p];
+    params = lib.toParams(req.query, controls, opts);
+    for (var p in params) if (typeof req.options[p] == "undefined") req.options[p] = params[p];
     return req.options;
 }
 
@@ -1441,36 +1488,6 @@ api.registerPostProcess = function(method, path, callback)
 api.registerCleanup = function(method, path, callback)
 {
     this.addHook('cleanup', method, path, callback);
-}
-
-// Add special control parameters that will be recognized in the query and placed in the `req.options` for every request.
-//
-// Control params starts with the underscore and will be converted into the configured type according to the spec.
-// The options is an object in the format that is used by `lib.toParams`, no default type is allowed, even for string
-// it needs to be defined as { type: "string" }.
-//
-// Example:
-//
-//      mod.configureMiddleware = function(options, callback) {
-//          api.registerControlParams({ notify: { type: "bool" }, level: { type: "int", min: 1, max: 10 } });
-//          callback();
-//      }
-//
-//      Then if a request arrives for example as `_notify=true&_level=5`, it will be parsed and placed in the `req.options`:
-//
-//      mod.configureWeb = function(options, callback) {
-//
-//         api.app.all("/send", function(req, res) {
-//             if (req.options.notify) { ... }
-//             if (req.options.level > 5) { ... }
-//         });
-//         callback()
-//      }
-api.registerControlParams = function(options)
-{
-    for (var p in options) {
-        if (options[p] && options[p].type) this.controls[p] = options[p];
-    }
 }
 
 // Given passport strategy setup OAuth callbacks and handle the login process by creating a mapping account for each

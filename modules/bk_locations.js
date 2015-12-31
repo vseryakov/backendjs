@@ -108,7 +108,6 @@ mod.configureLocationsAPI = function()
 //              var options = api.getOptions(req);
 //              options.keys = ["geohash","mtime"];
 //              options.ops = { mtime: 'gt' };
-//              options.accounts = true;
 //              api.getLocations(req, options, function(err, data) {
 //                  self.sendJSON(req, err, data);
 //              });
@@ -141,15 +140,7 @@ mod.getLocation = function(req, options, callback)
 
     db.getLocations(table, req.query, options, function(err, rows, info) {
         logger.debug("getLocations:", req.account.id, 'GEO:', req.query.latitude, req.query.longitude, req.query.distance, options.geohash || "", 'NEXT:', info || '', 'ROWS:', rows.length);
-        // Return accounts with locations
-        if (lib.toNumber(options.accounts) && rows.length && table != "bk_account" && core.modules.accounts) {
-            core.modules.accounts.listAccount(rows, options, function(err, rows) {
-                if (err) return callback(err);
-                callback(null, api.getResultPage(req, options, rows, info));
-            });
-        } else {
-            callback(null, api.getResultPage(req, options, rows, info));
-        }
+        callback(null, api.getResultPage(req, options, rows, info));
     });
 }
 

@@ -1474,7 +1474,7 @@ This is implemented by the `files` module from the core. To enable this function
     The following parameters can be used:
     - `prefix` - must be provided, defines the namescape where the file is stored
     - `name` - name of the file, required
-    - `_name` - name of the property that contaibs the file contents, for use with JSON or defines the name of the file attribute for multipart upload
+    - `_name` - name of the property that contains the file contents, for use with JSON or defines the name of the file attribute for multipart upload
     - `_tm` - append the current timestamp to the file name
     - `_ext` - extention to be assign to the file, otherwise the actual extension from the file name is used
 
@@ -1496,15 +1496,9 @@ This is implemented by the `connections` module from the core. To enable this fu
     - `peer` - id of account to connect to
     - `type` - type of connection, like,dislike,....
     - _connected - the reply will contain a connection record if the other side of our connection is connected to us as well
-    - _publish - notify another account about this via pub/sub messaging system if it is active
-    - _noreference - do not create the reference record for this connection
-    - _nocounter - do not auto increment any counters
 
   This call automatically creates a record in the bk_reference table which is reversed connection for easy access to information like
-  ''who is connected to me'' and auto-increment like0, like1 counters for both accounts in the bk_counter table.
-
-  Also, this call updates the counters in the `bk_counter` table for my account which match the connection type, for example if the type of
-  connection is 'invite' and the `bk_counter` table contain 2 columns `invite0` and `invite1`, then both counters will be increased.
+  ''who is connected to me''.
 
   Example:
 
@@ -1550,9 +1544,7 @@ This is implemented by the `connections` module from the core. To enable this fu
 
 - `/connection/select`
   Receive all my connections of the given type, i.e. connection(s) i made, if `id` is given only one record for the specified connection will be returned. Supports special
-  query parameters `_select,_ops,_desc`, see docs about `db.select` for more info. All `db.select` options can be passed in the query with prepended underscore.
-
-  By default only connection columns will be returned, specifying `_accounts=1` will return public account columns as well.
+  query parameters `_select,_ops,_desc`, see docs about `db.select` for more info.
 
   Example:
 
@@ -1628,8 +1620,6 @@ This is implemented by the `locations` module from the core. To enable this func
   call returns results in chunks and requires navigation through all pages to receive all matched records. Records returned will start with the closest to the current
   point. If there are more matched records than specified by the `_count`, the `next_token` property is set with the token to be used in the subsequent call,
   it must be passed as is as `_token=` parameter with all original query parameters.
-
-  By default only locations with account ids will be returned, specifying `_accounts=1` will return public account columns as well.
 
   Note: The current account will not be present in the results  even if it is within the range, to know my own location use `/account/get` call.
 
@@ -1743,7 +1733,6 @@ This is implemented by the `messages` module from the core. To enable this funct
     - `icon` - icon of the message, it can be base64 encoded image in the query or JSON string if the whole message is posted as JSON or
       can be a multipart file upload if submitted via browser, can be omitted if `msg/connection/get?type=invite&id=12345` property exists.
     - _nosent - do not save this message in my sent messages
-    - _publish - notify another account about this via pub/sub messaging system if it is active
 
   Example:
 

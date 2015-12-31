@@ -23,6 +23,12 @@ var logger = bkjs.logger;
 var mod = {
     name: "icons",
     limit: { "*": 3 },
+    controls: {
+        width: { type: "number" },
+        height: { type: "number" },
+        rotate: { type: "number" },
+        quality: { type: "number" },
+    }
 };
 module.exports = mod;
 
@@ -74,7 +80,7 @@ mod.configureIconsAPI = function()
     var self = this;
 
     api.app.all(/^\/icon\/([a-z]+)$/, function(req, res) {
-        var options = api.getOptions(req);
+        var options = api.getOptions(req, mod.controls);
 
         if (!req.query.prefix) return api.sendReply(res, 400, "prefix is required");
         if (!req.query.id) req.query.id = req.account.id;
@@ -216,7 +222,7 @@ mod.bkDeleteAccount  = function(req, callback)
         if (req.options.keep_images) return callback();
         // Delete all image files
         lib.forEachSeries(rows, function(row, next) {
-            api.delIcon(req.account.id, row, next);
+            api.delIcon(req.account.id, row, function() { next() });
         }, callback);
     });
 }

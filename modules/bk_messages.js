@@ -20,7 +20,11 @@ var logger = bkjs.logger;
 
 // Messages management
 var mod = {
-    name: "messages"
+    name: "messages",
+    controls: {
+        archive: { type: "bool" },
+        trash: { type: "bool" }
+    },
 };
 module.exports = mod;
 
@@ -58,7 +62,7 @@ mod.init = function(options)
                                 unjoin: ["mtime","recipient"],
                                 ops: { select: "ge" } },
                        recipient: { type: "text", index: 1 },             // Recipient id
-                       alias: {},                                         // Recipient alias
+                       alias: {},                                         // Recipient alias if known
                        msg: {},                                           // Text of the message
                        icon: { type: "int" }},                            // 1 - icon present, 0 - no icon
 
@@ -96,7 +100,7 @@ mod.configureMessagesAPI = function()
     var self = this;
 
     api.app.all(/^\/message\/([a-z\/]+)$/, function(req, res) {
-        var options = api.getOptions(req);
+        var options = api.getOptions(req, mod.controls);
 
         switch (req.params[0]) {
         case "image":
@@ -105,21 +109,18 @@ mod.configureMessagesAPI = function()
             break;
 
         case "get":
-            options.cleanup = "";
             self.getMessage(req, options, function(err, rows, info) {
                 api.sendJSON(req, err, api.getResultPage(req, options, rows, info));
             });
             break;
 
         case "get/sent":
-            options.cleanup = "";
             self.getSentMessage(req, options, function(err, rows, info) {
                 api.sendJSON(req, err, api.getResultPage(req, options, rows, info));
             });
             break;
 
         case "get/archive":
-            options.cleanup = "";
             self.getArchiveMessage(req, options, function(err, rows, info) {
                 api.sendJSON(req, err, api.getResultPage(req, options, rows, info));
             });
@@ -132,7 +133,9 @@ mod.configureMessagesAPI = function()
             break;
 
         case "add":
+            options.cleanup = "";
             self.addMessage(req, options, function(err, data) {
+                if (!err) api.metrics.Counter('msg_add_0').inc();
                 api.sendJSON(req, err, data);
             });
             break;
@@ -219,8 +222,7 @@ mod.getMessage = function(req, options, callback)
     function details(rows, info, next) {
         if (options.total) return next(null, rows, info);
         if (total) return next(null, [{ count: rows.count }], info);
-        if (!lib.toNumber(options.accounts) || !core.modules.accounts) return next(null, rows, info);
-        core.modules.accounts.listAccount(rows, options.extendObj(options, "account_key", 'sender'), function(err, rows) { next(err, rows, info); });
+        next(null, rows, info);
     }
 
     db.select("bk_message", req.query, options, function(err, rows, info) {
@@ -282,52 +284,54 @@ mod.archiveMessage = function(req, options, callback)
 // - nosent - do not create a record in the bk_sent table
 mod.addMessage = function(req, options, callback)
 {
-    var now = Date.now();
-    var info = {};
-    var op = options.op || "add";
-    var sent = lib.cloneObj(req.query);
-    var obj = lib.cloneObj(req.query);
-
     if (!req.query.id) return callback({ status: 400, message: "recipient id is required" });
     if (!req.query.msg && !req.query.icon) return callback({ status: 400, message: "msg or icon is required" });
 
-    lib.series([
-        function(next) {
-            obj.sender = req.account.id;
-            obj.alias = req.account.alias;
-            obj.mtime = now;
-            api.putIcon(req, obj.id, { prefix: 'message', type: obj.mtime + ":" + obj.sender }, function(err, icon) {
-                obj.icon = icon ? 1 : 0;
-                next(err);
-            });
-        },
-        function(next) {
-            db[op]("bk_message", obj, options, function(err, rows, info2) {
-                info = info2;
-                next(err);
-            });
-        },
-        function(next) {
-            sent.id = req.account.id;
-            sent.recipient = req.query.id;
-            sent.mtime = now;
-            if (options.nosent) return next();
-            db[op]("bk_sent", sent, options, function(err, rows) {
-                if (err) return db.del("bk_message", req.query, function() { next(err); });
-                next();
-            });
-        },
-        ], function(err) {
-            if (err) return callback(err);
-            api.metrics.Counter('msg_add_0').inc();
-            if (options.nosent) {
-                db.runProcessRows("post", "bk_message", { op: "get", table: "bk_message", obj: obj }, obj, options);
-                callback(null, obj, info);
-            } else {
-                db.runProcessRows("post", "bk_sent", { op: "get", table: "bk_sent", obj: sent }, sent, options);
-                callback(null, sent, info);
-            }
+    var ids = lib.strSplitUnique(req.query.id), rows = [];
+    options.mtime = Date.now();
+
+    lib.forEachSeries(ids, function(id, next) {
+        req.query.id = id;
+        mod.putMessage(req, options, function(err) {
+            if (err) return next(err);
+            rows.push({ id: req.query.id, mtime: req.query.mtime, sender: req.query.sender });
+            next();
+        });
+    }, function(err) {
+        callback(err, rows);
     });
+}
+
+mod.putMessage = function(req, options, callback)
+{
+    var op = options.op || "add";
+    var sent = options.nosent ? null : lib.cloneObj(req.query);
+
+    req.query.sender = req.account.id;
+    req.query.alias = req.account.alias;
+    req.query.mtime = options.mtime || Date.now();
+
+    lib.series([
+      function(next) {
+          api.putIcon(req, req.query.id, { prefix: 'message', type: req.query.mtime + ":" + req.query.sender }, function(err, icon) {
+              req.query.icon = icon ? 1 : 0;
+              next(err);
+          });
+      },
+      function(next) {
+          db[op]("bk_message", req.query, next);
+      },
+      function(next) {
+          if (options.nosent) return next();
+          sent.recipient = sent.id;
+          sent.id = req.account.id;
+          sent.mtime = req.query.mtime;
+          db[op]("bk_sent", sent, function(err, rows) {
+              if (err) return db.del("bk_message", req.query, function() { next(err); });
+              next();
+          });
+      },
+    ], callback);
 }
 
 // Delete a message or all messages for the given account from the given sender, used in /message/del` API call
@@ -339,7 +343,7 @@ mod.delMessage = function(req, options, callback)
 
     // Single deletion
     if (req.query.mtime && req.query[sender]) {
-        return db.del(table, { id: req.account.id, mtime: req.query.mtime, sender: req.query[sender] }, options, function(err) {
+        return db.del(table, { id: req.account.id, mtime: req.query.mtime, sender: req.query[sender] }, function(err) {
             if (err || !req.query.icon) return callback(err, []);
             api.delIcon(req.account.id, { prefix: "message", type: req.query.mtime + ":" + req.query[sender] }, function() { callback() });
         });

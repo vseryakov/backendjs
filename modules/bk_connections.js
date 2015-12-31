@@ -22,6 +22,9 @@ var logger = bkjs.logger;
 var mod = {
     name: "connections",
     allow: {},
+    controls: {
+        connected: { type: "bool" },
+    }
 };
 module.exports = mod;
 
@@ -101,7 +104,7 @@ mod.configureConnectionsAPI = function()
     var self = this;
 
     api.app.all(/^\/(connection|reference)\/([a-z]+)$/, function(req, res) {
-        var options = api.getOptions(req);
+        var options = api.getOptions(req, mod.controls);
 
         switch (req.params[1]) {
         case "add":
@@ -186,31 +189,17 @@ mod.queryConnection = function(id, obj, options, callback)
     obj = lib.cloneObj(obj, 'id', id);
 
     db.select("bk_" + (options.op || "connection"), obj, options, function(err, rows, info) {
-        if (err) return callback(err, []);
-
-        // Just return connections
-        if (!lib.toNumber(options.accounts) || !core.modules.accounts) return callback(null, rows, info);
-
-        // Get all account records for the id list
-        core.modules.accounts.listAccount(rows, lib.extendObj(options, "account_key", "peer"), callback);
+        callback(null, rows, info);
     });
 }
 
 // Return one connection for given id, obj must have .peer and .type properties defined,
-// if options.accounts is 1 then combine with account record.
 mod.readConnection = function(id, obj, options, callback)
 {
     db.get("bk_" + (options.op || "connection"), { id: id, type: obj.type, peer: obj.peer }, options, function(err, row) {
         if (err) return callback(err, {});
         if (!row) return callback({ status: 404, message: "no connection" }, {});
-
-        // Just return connections
-        if (!lib.toNumber(options.accounts) || !core.modules.accounts) return callback(err, row);
-
-        // Get account details for connection
-        core.modules.accounts.listAccount(row, lib.extendObj(options, "account_key", "peer"), function(err, rows) {
-            callback(null, row);
-        });
+        callback(err, row);
     });
 }
 
@@ -227,8 +216,8 @@ mod.readConnection = function(id, obj, options, callback)
 // Note: All other properties for both tables are treated separately, to make them appear in both they must be copied into the both objects.
 //
 // The following options properties can be used:
-// - noreference - do not create reference part of the connection
 // - connected - return existing connection record for the same type from the peer account
+// - noreference - do not create reference record for reverse connection
 mod.makeConnection = function(obj, peer, options, callback)
 {
     var self = this;
@@ -249,8 +238,7 @@ mod.makeConnection = function(obj, peer, options, callback)
     lib.series([
         function(next) {
             // Primary connection
-            if (options.noconnection) return next();
-            db[op]("bk_connection", obj1, options, function(err) {
+            db[op]("bk_connection", obj1, function(err) {
                 if (err) return next(err);
                 api.metrics.Counter(op + "_" + obj1.type + '_0').inc();
                 next();
@@ -259,7 +247,7 @@ mod.makeConnection = function(obj, peer, options, callback)
         function(next) {
             // Reverse connection, a reference
             if (options.noreference) return next();
-            db[op]("bk_reference", obj2, options, function(err) {
+            db[op]("bk_reference", obj2, function(err) {
                 // Remove on error
                 if (err && (op == "add" || op == "put")) return db.del("bk_connection", { id: obj1.id, type: obj1.type, peer: obj1.peer }, function() { next(err); });
                 next(err);
@@ -268,13 +256,13 @@ mod.makeConnection = function(obj, peer, options, callback)
         function(next) {
             // We need to know if the other side is connected too, this will save one extra API call later
             if (!options.connected) return next();
-            db.get("bk_connection", { id: obj2.id, type: obj2.type, peer: obj2.peer }, options, function(err, row) {
+            db.get("bk_connection", { id: obj2.id, type: obj2.type, peer: obj2.peer }, function(err, row) {
                 if (row) result = row;
                 next(err);
             });
         },
-        ], function(err) {
-            callback(err, result);
+    ], function(err) {
+        callback(err, result);
     });
 }
 
@@ -290,11 +278,11 @@ mod.deleteConnection = function(id, obj, options, callback)
 
         lib.series([
            function(next) {
-               db.del("bk_connection", { id: id, type: row.type, peer: row.peer }, options, next);
+               db.del("bk_connection", { id: id, type: row.type, peer: row.peer }, next);
            },
            function(next) {
                if (options.noreference) return next();
-               db.del("bk_reference", { id: row.peer, type: row.type, peer: id }, options, next);
+               db.del("bk_reference", { id: row.peer, type: row.type, peer: id }, next);
            },
            ], function(err) {
                cb(err, []);
