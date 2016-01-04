@@ -539,12 +539,12 @@ api.init = function(options, callback)
     // i18n support, enabled only if some locales specified
     self.locales.forEach(function(x) {
         var file = core.path.locales + "/" + x + '.json';
-        lib.locales[x] = lib.readFileSync(file, { json: 1 });
+        lib.locales[x] = lib.readFileSync(file, { json: 1, logger: "error" });
     });
     core.watchFiles(core.path.locales, /\.json$/, function(file) {
         fs.readFile(file.name, function(err, data) {
             if (err) return logger.error("locale:", file, err);
-            var d = lib.jsonParse(data.toString());
+            var d = lib.jsonParse(data.toString(), { logger: "error" });
             if (!d) return;
             lib.locales[path.basename(file.name, ".json")] = d;
             logger.info("locale:", "loaded", file);
@@ -898,20 +898,24 @@ api.handleMetrics = function(req, res, next)
             delete self.metrics[path];
             delete self.metrics[path + '_0'];
         }
-
-        // Call cleanup hooks
-        var hooks = self.findHook('cleanup', req.method, req.options.path);
-        lib.forEachSeries(hooks, function(hook, next) {
-            logger.debug('cleanup:', req.method, req.options.path, hook.path);
-            hook.callback.call(self, req, function() { next() });
-        }, function() {
-            // Cleanup request explicitely
-            for (var p in req) if (p[0] == "_" && p[1] == "_") delete req[p];
-            for (var p in req.options) delete req.options[p];
-            for (var p in req.account) delete req.account[p];
-        });
+        self.handleCleanup(req);
     }
     next();
+}
+
+// Call registered cleanup hooks and clear the request explicitly
+api.handleCleanup = function(req)
+{
+    var self = this;
+    var hooks = this.findHook('cleanup', req.method, req.options.path);
+    lib.forEachSeries(hooks, function(hook, next) {
+        logger.debug('cleanup:', req.method, req.options.path, hook.path);
+        hook.callback.call(self, req, function() { next() });
+    }, function() {
+        for (var p in req) if (p[0] == "_" && p[1] == "_") delete req[p];
+        for (var p in req.options) delete req.options[p];
+        for (var p in req.account) delete req.account[p];
+    });
 }
 
 // Parse incoming query parameters
@@ -1296,7 +1300,7 @@ api.getPublicColumns = function(table, options)
 //
 // If any column is marked with `secure` property this means never return that column in the result even for the owner of the record
 //
-// If any column is marked with `admin` or `admins` property and the current account is an admin this property will be returned as well. the `options.admin`
+// If any column is marked with `admin` or `admins` property and the current account is an admin this property will be returned as well. The `options.admin`
 // can be used to make it an artificial admin.
 //
 // The `options.strict` will enforce that all columns not present in the table definition will be skipped as well, by default all

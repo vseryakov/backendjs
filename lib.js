@@ -76,7 +76,6 @@ lib.__ = function()
         lang = arguments[0].locale || lang;
     }
     msg = (lib.locales[lang] && lib.locales[lang][msg]) || msg;
-
     if (arguments.length == 1) return msg;
     return lib.sprintf(msg, Array.prototype.slice.call(arguments, 1));
 }
@@ -1962,7 +1961,7 @@ lib.statSync = function(file)
 // - json - parse file as JSON, return an object, in case of error an empty object
 // - list - split contents with the given separator
 // - encoding - file encoding when converting to string
-// - logger - if 1 log all errors
+// - logger - log level for error messages
 lib.readFileSync = function(file, options)
 {
     if (!file) return "";
@@ -1975,7 +1974,7 @@ lib.readFileSync = function(file, options)
         return data;
     } catch(e) {
         if (options) {
-            if (options.logger) logger.error('readFileSync:', file, e);
+            if (options.logger) logger.logger(options.logger, 'readFileSync:', file, e.stack);
             if (options.json) return {};
             if (options.list) return [];
         }

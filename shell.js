@@ -108,8 +108,8 @@ shell.run = function(options)
 
     logger.debug('startShell:', process.argv);
 
-    core.runMethods("configureShell", options, function(err, opts) {
-        if (opts.done) exit();
+    core.runMethods("configureShell", options, function(err) {
+        if (options.done) exit();
 
         ipc.initServer();
 
@@ -117,7 +117,7 @@ shell.run = function(options)
             if (process.argv[i][0] != '-') continue;
             var name = lib.toCamel("cmd" + process.argv[i]);
             if (typeof self[name] != "function") continue;
-            var rc = self[name](opts);
+            var rc = self[name](options);
             if (rc == "stop") break;
             if (rc == "continue") continue;
             return;

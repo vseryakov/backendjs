@@ -837,8 +837,7 @@ core.createServer = function(options, callback)
 core.runMethods = function(name, options, callback)
 {
     var self = this;
-    if (typeof options == "function") callback = options, options = {};
-    if (typeof callback != "function") callback = lib.noop;
+    if (typeof options == "function") callback = options, options = null;
     if (!options) options = {};
 
     lib.forEachSeries(Object.keys(self.modules), function(mod, next) {
@@ -851,9 +850,7 @@ core.runMethods = function(name, options, callback)
             if (err) logger.error('runMethods:', name, mod, err);
             next();
         });
-    }, function(err) {
-        callback(err, options);
-    });
+    }, callback);
 }
 
 // Adds reference to the objects in the core for further access, specify module name, module reference pairs.
