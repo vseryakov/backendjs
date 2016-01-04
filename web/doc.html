@@ -2576,6 +2576,12 @@ will be called at the end to finalize the metrics and call the cleanup handlers<
 </ul>
 
 <ul>
+<li><p><code>api.handleCleanup(req)</code></p>
+<p> Call registered cleanup hooks and clear the request explicitly</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>api.checkQuery(req, res, next)</code></p>
 <p> Parse incoming query parameters</p>
 </li>
@@ -2739,7 +2745,7 @@ is kept in the <code>req.options.cleanup</code> which by default is a table name
 property is used to detect current account but can be specified by the <code>options.account_key</code> property.</p>
 <p>By default primary keys are not kept and must be marked with <code>pub</code> property in the table definition to be returned.</p>
 <p>If any column is marked with <code>secure</code> property this means never return that column in the result even for the owner of the record</p>
-<p>If any column is marked with <code>admin</code> or <code>admins</code> property and the current account is an admin this property will be returned as well. the <code>options.admin</code>
+<p>If any column is marked with <code>admin</code> or <code>admins</code> property and the current account is an admin this property will be returned as well. The <code>options.admin</code>
 can be used to make it an artificial admin.</p>
 <p>The <code>options.strict</code> will enforce that all columns not present in the table definition will be skipped as well, by default all
 new columns or columns created on the fly are returned to the client.</p>
@@ -6469,7 +6475,7 @@ mdate is a Date object with last modified time</p>
 <li>json - parse file as JSON, return an object, in case of error an empty object</li>
 <li>list - split contents with the given separator</li>
 <li>encoding - file encoding when converting to string</li>
-<li>logger - if 1 log all errors</li>
+<li>logger - log level for error messages</li>
 </ul>
 </li>
 </ul>
