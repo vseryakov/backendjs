@@ -38,30 +38,30 @@ mod.init = function(options)
                                    join: ["mtime","sender"],
                                    unjoin: ["mtime","sender"],
                                    ops: { select: "ge" } },
-                          sender: { type: "text", index: 1 },            // Sender id
+                          sender: { type: "text" },                      // Sender id
                           alias: {},                                     // Sender alias
                           acl_allow: {},                                 // Who has access: all, auth, id:id...
                           msg: {},                                       // Text of the message
                           icon: { type: "int" }},                        // 1 - icon present, 0 - no icon
 
             // Archived messages
-            bk_archive: { id: { primary: 1, index: 1 },                  // my account_id
+            bk_archive: { id: { primary: 1 },                            // my account_id
                           mtime: { primary: 1,                           // mtime:sender
                                    join: ["mtime","sender"],
                                    unjoin: ["mtime","sender"],
                                    ops: { select: "ge" } },
-                          sender: { type: "text", index: 1 },            // Sender id
+                          sender: { type: "text" },                      // Sender id
                           alias: {},                                     // Sender alias
                           msg: {},                                       // Text of the message
                           icon: { type: "int" }},                        // 1 - icon present, 0 - no icon
 
             // Messages sent
-            bk_sent: { id: { primary: 1, index: 1 },                      // my account
+            bk_sent: { id: { primary: 1 },                                // my account
                        mtime: { primary: 1,                               // mtime:recipient
                                 join: ["mtime","recipient"],
                                 unjoin: ["mtime","recipient"],
                                 ops: { select: "ge" } },
-                       recipient: { type: "text", index: 1 },             // Recipient id
+                       recipient: { type: "text" },                       // Recipient id
                        alias: {},                                         // Recipient alias if known
                        msg: {},                                           // Text of the message
                        icon: { type: "int" }},                            // 1 - icon present, 0 - no icon

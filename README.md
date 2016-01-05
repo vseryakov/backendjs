@@ -756,7 +756,7 @@ tools ready to use that will allow to implement such versioning system in the ba
           api.all(/\/domain\/(get|put|del)/, function(req, res) {
               var options = api.getOptions(req);
               var cmd = req.params[0];
-              if (options.coreVersion) cmd += "/" + options.coreVersion;
+              if (options.appBuild) cmd += "/" + options.appBuild;
               switch (cmd) {
               case "get":
                   break;

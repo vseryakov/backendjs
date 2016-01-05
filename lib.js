@@ -119,7 +119,7 @@ lib.isArg = function(name)
 //      false
 lib.toVersion = function(str)
 {
-    return String(str).replace("_", ".").replace(/[^0-9.]/g, "").split(".").reduce(function(x,y,i) { return x + Number(y) / Math.pow(10, i * 3) }, 0);
+    return str ? String(str).replace("_", ".").replace(/[^0-9.]/g, "").split(".").reduce(function(x,y,i) { return x + Number(y) / Math.pow(10, i * 3) }, 0) : 0;
 }
 
 // Encode with additional symbols, convert these into percent encoded:

@@ -49,11 +49,12 @@ var logger = require(__dirname + '/logger');
 //      - path - parsed request url path
 //      - apath - an array with the path split by /
 //      - secure - if the request is encrypted, like https
-//      - userAgent - combined app name and version in the form name/version
+//      - appAgent - combined app name and version in the form name/version
 //      - appName - parsed app version provided in the header or user agent
-//      - appVersion - parsed app version from the header or uer agent
-//      - coreVersion - special core version provided in the header
-//      - timezoneOffset - milliseconds offset from the UTC provided in the header by the app
+//      - appVersion - parsed app version from the header or user agent
+//      - appTimezone - milliseconds offset from the UTC provided in the header by the app
+//      - appLocale - a language provided in the header or query
+//      - appBuild - app version build provided in the header
 // - access verification, can the request be satisfied without proper signature, i.e. is this a public request
 // - autherization, check the signature and other global or account specific checks
 // - when a API route found by the request url, it is called as any regular Connect middlware
@@ -286,14 +287,13 @@ var api = {
         secure: { ignore: 1 },
         mtime: { ignore: 1 },
         cleanup: { ignore: 1 },
-        userAgent: { ignore: 1 },
+        appAgent: { ignore: 1 },
         appName: { ignore: 1 },
         appVersion: { ignore: 1 },
+        appLocale: { ignore: 1 },
+        appPlatform: { ignore: 1 },
+        appTimezone: { ignore: 1 },
         appBuild: { ignore: 1 },
-        appLanguage: { ignore: 1 },
-        coreVersion: { ignore: 1 },
-        timezoneOffset: { ignore: 1 },
-        platform: { ignore: 1 },
         noscan: { ignore: 1 },
         total: { type: "bool" },
         session: { type: "bool" },
@@ -555,8 +555,8 @@ api.init = function(options, callback)
         self.app.use(function(req, res, next) {
             req.__ = lib.__.bind(req);
             res.locals.__ = res.__ = lib.__.bind(res);
-            req.locale = req.options.appLanguage;
-            res.locale = req.options.appLanguage;
+            req.locale = req.options.appLocale;
+            res.locale = req.options.appLocale;
             next();
         });
     }
@@ -836,18 +836,13 @@ api.prepareRequest = function(req)
         secure: req.secure,
         mtime: Date.now(),
         cleanup: "bk_" + apath[0],
-        userAgent: "",
-        appName: "",
-        appVersion: "",
-        appBuild: "",
-        platform: "",
     };
 
     // Parse application version, extract first product and version only
     var uagent = req.headers['user-agent'];
     var v = req.query[this.appHeaderName] || req.headers[this.appHeaderName] || uagent;
     if (v && (v = v.match(/^([^\/]+)\/([0-9a-zA-Z_\.\-]+)/))) {
-        req.options.userAgent = v[1] + "/" + v[2];
+        req.options.appAgent = v[1] + "/" + v[2];
         req.options.appName = v[1];
         req.options.appVersion = v[2];
     }
@@ -855,16 +850,16 @@ api.prepareRequest = function(req)
     if (uagent) {
         for (var i in this.platformMatch) {
             if (this.platformMatch[i].rx.test(uagent)) {
-                req.options.platform = this.platformMatch[i].value;
+                req.options.appPlatform = this.platformMatch[i].value;
                 break;
             }
         }
     }
     // Core protocol version to be used in the request if supported
-    req.options.coreVersion = req.query[this.versionHeaderName] || req.headers[this.versionHeaderName] || "";
-    req.options.appLanguage = req.query[this.langHeaderName] || req.headers[this.langHeaderName] || (req.headers['accept-language'] || "").toLowerCase().split(/[,;-]/)[0] || "";
+    req.options.appBuild = req.query[this.versionHeaderName] || req.headers[this.versionHeaderName] || "";
+    req.options.appLocale = req.query[this.langHeaderName] || req.headers[this.langHeaderName] || (req.headers['accept-language'] || "").toLowerCase().split(/[,;-]/)[0] || "";
     // Timezone offset from UTC passed by the client, we just keep it, how to use it is up to the application
-    req.options.timezoneOffset = lib.toNumber(req.query[this.tzHeaderName] || req.headers[this.tzHeaderName], { dflt: 0, min: -720, max: 720 }) * 60000;
+    req.options.appTimezone = lib.toNumber(req.query[this.tzHeaderName] || req.headers[this.tzHeaderName], { dflt: 0, min: -720, max: 720 }) * 60000;
     logger.debug("prepareRequest:", req.options);
 }
 
@@ -1207,7 +1202,7 @@ api.registerRateLimits = function(name, rate, max, interval)
 //  - `_count, _page, _tm, _sort, _select, _ext, _start, _token, _session, _format, _total, _encoding, _ops`
 //
 // These are the reserved names that cannot be used for parameters, they are defined by the engine for every request:
-//   - `path, apath, ip, host, mtime, platform, cleanup, secure, appName, appVersion, appLanguage, coreVersion`
+//   - `path, apath, ip, host, mtime, platform, cleanup, secure, appAgent, appName, appVersion, appLocale, appTimezone, appBuild`
 //
 // Example:
 //
