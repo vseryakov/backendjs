@@ -771,7 +771,7 @@ appending version to the command it is very simple to call only changed API code
 <pre><code class="lang-javascript">          api.all(/\/domain\/(get|put|del)/, function(req, res) {
               var options = api.getOptions(req);
               var cmd = req.params[0];
-              if (options.coreVersion) cmd += &quot;/&quot; + options.coreVersion;
+              if (options.appBuild) cmd += &quot;/&quot; + options.appBuild;
               switch (cmd) {
               case &quot;get&quot;:
                   break;
@@ -2388,11 +2388,12 @@ early with some properties always present:<ul>
 <li>path - parsed request url path</li>
 <li>apath - an array with the path split by /</li>
 <li>secure - if the request is encrypted, like https</li>
-<li>userAgent - combined app name and version in the form name/version</li>
+<li>appAgent - combined app name and version in the form name/version</li>
 <li>appName - parsed app version provided in the header or user agent</li>
-<li>appVersion - parsed app version from the header or uer agent</li>
-<li>coreVersion - special core version provided in the header</li>
-<li>timezoneOffset - milliseconds offset from the UTC provided in the header by the app</li>
+<li>appVersion - parsed app version from the header or user agent</li>
+<li>appTimezone - milliseconds offset from the UTC provided in the header by the app</li>
+<li>appLocale - a language provided in the header or query</li>
+<li>appBuild - app version build provided in the header</li>
 </ul>
 </li>
 </ul>
@@ -2673,7 +2674,7 @@ conflict with the existing ones.</p>
 </ul>
 <p>These are the reserved names that cannot be used for parameters, they are defined by the engine for every request:</p>
 <ul>
-<li><code>path, apath, ip, host, mtime, platform, cleanup, secure, appName, appVersion, appLanguage, coreVersion</code></li>
+<li><code>path, apath, ip, host, mtime, platform, cleanup, secure, appAgent, appName, appVersion, appLocale, appTimezone, appBuild</code></li>
 </ul>
 <p>Example:</p>
 <pre><code>mod.configureMiddleware = function(options, callback) {
@@ -8666,30 +8667,30 @@ is used in <code>/location/get</code> request. It can be used in the application
                                  join: [&quot;mtime&quot;,&quot;sender&quot;],
                                  unjoin: [&quot;mtime&quot;,&quot;sender&quot;],
                                  ops: { select: &quot;ge&quot; } },
-                        sender: { type: &quot;text&quot;, index: 1 },            // Sender id
+                        sender: { type: &quot;text&quot; },                      // Sender id
                         alias: {},                                     // Sender alias
                         acl_allow: {},                                 // Who has access: all, auth, id:id...
                         msg: {},                                       // Text of the message
                         icon: { type: &quot;int&quot; }},                        // 1 - icon present, 0 - no icon
 
           // Archived messages
-          bk_archive: { id: { primary: 1, index: 1 },                  // my account_id
+          bk_archive: { id: { primary: 1 },                            // my account_id
                         mtime: { primary: 1,                           // mtime:sender
                                  join: [&quot;mtime&quot;,&quot;sender&quot;],
                                  unjoin: [&quot;mtime&quot;,&quot;sender&quot;],
                                  ops: { select: &quot;ge&quot; } },
-                        sender: { type: &quot;text&quot;, index: 1 },            // Sender id
+                        sender: { type: &quot;text&quot; },                      // Sender id
                         alias: {},                                     // Sender alias
                         msg: {},                                       // Text of the message
                         icon: { type: &quot;int&quot; }},                        // 1 - icon present, 0 - no icon
 
           // Messages sent
-          bk_sent: { id: { primary: 1, index: 1 },                      // my account
+          bk_sent: { id: { primary: 1 },                                // my account
                      mtime: { primary: 1,                               // mtime:recipient
                               join: [&quot;mtime&quot;,&quot;recipient&quot;],
                               unjoin: [&quot;mtime&quot;,&quot;recipient&quot;],
                               ops: { select: &quot;ge&quot; } },
-                     recipient: { type: &quot;text&quot;, index: 1 },             // Recipient id
+                     recipient: { type: &quot;text&quot; },                       // Recipient id
                      alias: {},                                         // Recipient alias if known
                      msg: {},                                           // Text of the message
                      icon: { type: &quot;int&quot; }},                            // 1 - icon present, 0 - no icon
