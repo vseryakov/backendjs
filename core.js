@@ -96,6 +96,7 @@ var core = {
     // Watched source files for changes, restarts the process if any file has changed
     watchdirs: [],
     timers: {},
+    locales: [],
 
     // Log watcher config, define different named channels for different patterns, email notification can be global or per channel
     logwatcherMax: 1000000,
@@ -221,7 +222,8 @@ var core = {
             { name: "backend-secret", descr: "Credentials secret for the master backend access when using core.sendRequest" },
             { name: "host-name", type: "callback", callback: function(v) { if(v)this.hostName=v;this.domain = lib.domainName(this.hostName);this._name = "hostName" }, descr: "Hostname/domain to use for communications, default is current domain of the host machine" },
             { name: "config-domain", descr: "Domain to query for configuration TXT records, must be specified to enable DNS configuration" },
-            { name: "watch", type: "callback", callback: function(v) { this.watch = true; this.watchdirs.push(v ? v : __dirname); }, descr: "Watch sources directory for file changes to restart the server, for development only, the backend module files will be added to the watch list automatically, so only app specific directores should be added. In the production -monitor must be used." }
+            { name: "watch", type: "callback", callback: function(v) { this.watch = true; this.watchdirs.push(v ? v : __dirname); }, descr: "Watch sources directory for file changes to restart the server, for development only, the backend module files will be added to the watch list automatically, so only app specific directores should be added. In the production -monitor must be used." },
+            { name: "locales", array: 1, type: "list", descr: "A list of locales to load from the locales/ directory, only language name must be specified, example: en,es. It enables internal support for `res.__` and `req.__` methods that can be used for translations, for each request the internal language header will be honored forst, then HTTP Accept-Language" },
     ],
 }
 
@@ -397,22 +399,26 @@ core.init = function(options, callback)
                 });
             }, next);
         },
+
         // Initialize all modules after core is done
         function(next) {
             if (options.noConfigure || self.noConfigure) return next();
             self.runMethods("configureModule", options, next);
         },
+
+        function(next) {
+            self.loadLocales(options, next);
+        },
+
         function(next) {
             // Default email address
             if (!self.email) self.email = (self.appName || self.name) + "@" + self.domain;
             next();
         },
-        ],
-        // Final callbacks
-        function(err) {
-            logger.debug("init:", err || "");
-            if (!err) self._initialized = true;
-            if (typeof callback == "function") callback.call(self, err, options);
+    ], function(err) {
+        logger.debug("init:", err || "");
+        if (!err) self._initialized = true;
+        if (typeof callback == "function") callback.call(self, err, options);
     });
 }
 
@@ -784,6 +790,31 @@ core.loadDnsConfig = function(options, callback)
     }, function() {
         self.parseArgs(argv);
         callback();
+    });
+}
+
+// Load configured locales
+core.loadLocales = function(options, callback)
+{
+    var self = this;
+    lib.forEach(this.locales, function(x, next) {
+        lib.loadLocale(self.path.locales + "/" + x + '.json', function() {
+            next();
+        });
+    }, function() {
+        if (self._localeFiles) {
+            self._localeFiles.forEach(function(x) {
+                if (x.watcher) x.watcher.close();
+            });
+            delete self._localeFiles;
+        }
+
+        self.watchFiles(self.path.locales, /\.json$/, function(file) {
+            lib.loadLocale(file.name);
+        }, function(err, files) {
+            self._localeFiles = files;
+            if (typeof callback == "function") callback(err);
+        });
     });
 }
 
@@ -1202,35 +1233,40 @@ core.watchTmp = function(dir, options, callback)
 }
 
 // Watch files in a dir for changes and call the callback
-core.watchFiles = function(dir, pattern, callback)
+core.watchFiles = function(dir, pattern, fileCallback, endCallback)
 {
     var self = this;
     logger.debug('watchFiles:', dir, pattern);
 
     function watcher(event, file) {
         // Check stat if no file name, Mac OS X does not provide it
-        var stat = lib.statSync(file.name);
-        if (stat.size == file.stat.size && stat.mtime == file.stat.mtime) return;
-        logger.log('watchFiles:', event, file.name, file.ino, stat.size);
-        if (event == "rename") {
-            file.watcher.close();
-            file.watcher = fs.watch(file.name, function(event) { watcher(event, file); });
-        }
-        file.stat = stat;
-        callback(file);
+        fs.stat(file.name, function(err, stat) {
+            if (err) return;
+            if (stat.size == file.stat.size && stat.mtime == file.stat.mtime) return;
+            logger.log('watchFiles:', event, file.name, file.ino, stat.size);
+            if (event == "rename") {
+                file.watcher.close();
+                file.watcher = fs.watch(file.name, function(event) { watcher(event, file); });
+            }
+            file.stat = stat;
+            fileCallback(file);
+        });
     }
 
     fs.readdir(dir, function(err, list) {
-        if (err) return callback(err);
-        list.filter(function(file) {
+        if (err) return typeof endCallback == "function" && endCallback(err);
+
+        list = list.filter(function(file) {
             return file.match(pattern);
         }).map(function(file) {
             file = path.join(dir, file);
             return ({ name: file, stat: lib.statSync(file) });
-        }).forEach(function(file) {
+        });
+        list.forEach(function(file) {
             logger.debug('watchFiles:', file.name, file.stat.ino, file.stat.size);
             file.watcher = fs.watch(file.name, function(event) { watcher(event, file); });
         });
+        if (typeof endCallback == "function") endCallback(err, list);
     });
 }
 

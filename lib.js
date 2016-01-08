@@ -80,6 +80,19 @@ lib.__ = function()
     return lib.sprintf(msg, Array.prototype.slice.call(arguments, 1));
 }
 
+// Load a file with locale translations into memory
+lib.loadLocale = function(file, callback)
+{
+    fs.readFile(file, function(err, data) {
+        if (!err) {
+            var d = lib.jsonParse(data.toString(), { logger: "error" });
+            if (d) lib.locales[path.basename(file, ".json")] = d;
+        }
+        logger.debug("loadLocale:", file, err);
+        if (typeof callback == "function") callback(err, d);
+    });
+}
+
 // Return commandline argument value by name
 lib.getArg = function(name, dflt)
 {
@@ -470,6 +483,8 @@ lib.toParams = function(query, schema, options)
         if (opts.required && this.isEmpty(rc[name])) {
             return options && options.null ? null : opts.errmsg || this.__("%s is required", name);
         }
+        // Delete if equal to a special value
+        if (opts.novalue === rc[name]) delete rc[name];
     }
     return rc;
 }

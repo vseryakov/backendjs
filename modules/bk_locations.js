@@ -22,7 +22,30 @@ var logger = bkjs.logger;
 // Locations management
 var mod = {
     name: "locations",
+    tables: {
+        bk_location: {
+            geohash: { primary: 1 },                    // geohash, api.minDistance defines the size
+            id: { primary: 1, pub: 1 },                 // my account id, part of the primary key for pagination
+            latitude: { type: "real" },
+            longitude: { type: "real" },
+            alias: { pub: 1 },
+            mtime: { type: "bigint", now: 1 }
+        },
 
+        // Metrics
+        bk_collect: {
+            url_location_get_rmean: { type: "real" },
+            url_location_get_hmean: { type: "real" },
+            url_location_get_0: { type: "real" },
+            url_location_get_err_0: { type: "real" },
+            url_location_get_bad_0: { type: "real" },
+            url_location_put_rmean: { type: "real" },
+            url_location_put_hmean: { type: "real" },
+            url_location_put_0: { type: "real" },
+            url_location_put_bad_0: { type: "real" },
+            url_location_put_err_0: { type: "real" },
+        },
+    },
     // Geo min distance for the hash key, km
     minDistance: 5,
     // Max searchable distance, km
@@ -37,31 +60,6 @@ mod.init = function(options)
          { name: "max-distance", type: "number", min: 0.1, max: 999, descr: "Max searchable distance(radius) in km, for location searches to limit the upper bound" },
          { name: "min-distance", type: "number", min: 0.1, max: 999, descr: "Radius for the smallest bounding box in km containing single location, radius searches will combine neighboring boxes of this size to cover the whole area with the given distance request, also this affects the length of geohash keys stored in the bk_location table" },
     ]);
-
-    // Locations for all accounts to support distance searches
-    db.describeTables({
-           bk_location: { geohash: { primary: 1 },                    // geohash, api.minDistance defines the size
-                          id: { primary: 1, pub: 1 },                 // my account id, part of the primary key for pagination
-                          latitude: { type: "real" },
-                          longitude: { type: "real" },
-                          alias: { pub: 1 },
-                          mtime: { type: "bigint", now: 1 }},
-
-           // Metrics
-           bk_collect: {
-                          url_location_get_rmean: { type: "real" },
-                          url_location_get_hmean: { type: "real" },
-                          url_location_get_0: { type: "real" },
-                          url_location_get_err_0: { type: "real" },
-                          url_location_get_bad_0: { type: "real" },
-                          url_location_put_rmean: { type: "real" },
-                          url_location_put_hmean: { type: "real" },
-                          url_location_put_0: { type: "real" },
-                          url_location_put_bad_0: { type: "real" },
-                          url_location_put_err_0: { type: "real" },
-                      },
-
-    });
 }
 
 // Create API endpoints and routes

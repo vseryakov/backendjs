@@ -54,20 +54,22 @@ msg.shutdown = function(options, callback)
 }
 
 // Deliver a notification for the given device token(s).
+//
 // Options with the following properties:
 //  - device_id - device(s) where to send the message to, can be multiple ids separated by , or |, REQUIRED
-//  - service - which service to use for delivery only: sns, apn, gcm
+//  - service_id - which service to use for delivery only: sns, apn, gcm
+//  - app_id - send to the devices for the given app only, if none matched send to the default device tokens only
 //  - msg - text message to send
 //  - badge - badge number to show if supported by the service
+//  - sound - set to 1 if a sound should be produced on message receive
 //  - type - set type of the message, service specific
 //  - id - send id with the notification, this is application specific data, sent as is
 msg.send = function(options, callback)
 {
     var self = this;
-    if (typeof callback != "function") callback = lib.noop;
-    if (!lib.isObject(options) || !options.device_id) return callback(lib.newError("invalid device or options"));
+    if (!lib.isObject(options)) options = {};
 
-    logger.info("send:", options.device_id, "id:", options.id, "type:", options.type, "service:", options.service, "msg:", options.msg);
+    logger.debug("send:", options);
 
     // Determine the service to use from the device token
     var devices = lib.strSplit(options.device_id, null, "string");
@@ -79,7 +81,9 @@ msg.send = function(options, callback)
             logger.error("send:", "unsupported:", dev);
             return next();
         }
-        if (options.service && options.service != client.name) return next();
+        if (options.service_id && options.service_id != client.name) return next();
+        // App specific notification, send to matched device tokens or the default ones
+        if (options.app_id && options.app_id != dev.app && dev.app != "default") return next();
         client.send(dev, options, function(err) {
             if (err) logger.error("send:", client.name, dev, err);
             next();

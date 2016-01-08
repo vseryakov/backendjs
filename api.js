@@ -49,7 +49,6 @@ var logger = require(__dirname + '/logger');
 //      - path - parsed request url path
 //      - apath - an array with the path split by /
 //      - secure - if the request is encrypted, like https
-//      - appAgent - combined app name and version in the form name/version
 //      - appName - parsed app version provided in the header or user agent
 //      - appVersion - parsed app version from the header or user agent
 //      - appTimezone - milliseconds offset from the UTC provided in the header by the app
@@ -136,7 +135,6 @@ var api = {
            { name: "errlog-limiter-max", type: "int", descr: "How many error messages to put in the log before throttling kicks in" },
            { name: "errlog-limiter-interval", type: "int", descr: "Interval for error log limiter, max errors per this interval" },
            { name: "errlog-limiter-ignore", type: "regexp", descr: "Do not show errors that match the regexp" },
-           { name: "locales", array: 1, type: "list", descr: "A list of locales to load from the locales/ directory, only language name must be specified, example: en,es. It enables internal support for `res.__` and `req.__` methods that can be used for translations, for each request the internal language header will be honored forst, then HTTP Accept-Language" },
     ],
 
     // Access handlers to grant access to the endpoint before checking for signature.
@@ -212,8 +210,6 @@ var api = {
     staticOptions: { maxAge: 3600 * 1000 },
     staticPaths: [],
 
-    locales: [],
-
     // Web session age
     sessionAge: 86400 * 14 * 1000,
     // How old can a signtature be to consider it valid, for clock drifts
@@ -287,7 +283,6 @@ var api = {
         secure: { ignore: 1 },
         mtime: { ignore: 1 },
         cleanup: { ignore: 1 },
-        appAgent: { ignore: 1 },
         appName: { ignore: 1 },
         appVersion: { ignore: 1 },
         appLocale: { ignore: 1 },
@@ -536,22 +531,7 @@ api.init = function(options, callback)
         self.app.set(p, self.expressOptions[p]);
     }
 
-    // i18n support, enabled only if some locales specified
-    self.locales.forEach(function(x) {
-        var file = core.path.locales + "/" + x + '.json';
-        lib.locales[x] = lib.readFileSync(file, { json: 1, logger: "error" });
-    });
-    core.watchFiles(core.path.locales, /\.json$/, function(file) {
-        fs.readFile(file.name, function(err, data) {
-            if (err) return logger.error("locale:", file, err);
-            var d = lib.jsonParse(data.toString(), { logger: "error" });
-            if (!d) return;
-            lib.locales[path.basename(file.name, ".json")] = d;
-            logger.info("locale:", "loaded", file);
-        });
-    });
-
-    if (self.locales.length) {
+    if (core.locales.length) {
         self.app.use(function(req, res, next) {
             req.__ = lib.__.bind(req);
             res.locals.__ = res.__ = lib.__.bind(res);
@@ -674,12 +654,12 @@ api.shutdown = function(callback)
             if (!self.server) return next();
             try { self.server.close(function() { next() }); } catch(e) { logger.error("api.shutdown:", e.stack); next() }
         },
-        ], function(err) {
-            core.runMethods("shutdownWeb", function() {
-                clearTimeout(timeout);
-                callback(err);
-            })
-        });
+    ], function(err) {
+        core.runMethods("shutdownWeb", function() {
+            clearTimeout(timeout);
+            callback(err);
+        })
+    });
 }
 
 // Allow access to API table in worker processes
@@ -842,7 +822,6 @@ api.prepareRequest = function(req)
     var uagent = req.headers['user-agent'];
     var v = req.query[this.appHeaderName] || req.headers[this.appHeaderName] || uagent;
     if (v && (v = v.match(/^([^\/]+)\/([0-9a-zA-Z_\.\-]+)/))) {
-        req.options.appAgent = v[1] + "/" + v[2];
         req.options.appName = v[1];
         req.options.appVersion = v[2];
     }
@@ -1202,7 +1181,7 @@ api.registerRateLimits = function(name, rate, max, interval)
 //  - `_count, _page, _tm, _sort, _select, _ext, _start, _token, _session, _format, _total, _encoding, _ops`
 //
 // These are the reserved names that cannot be used for parameters, they are defined by the engine for every request:
-//   - `path, apath, ip, host, mtime, platform, cleanup, secure, appAgent, appName, appVersion, appLocale, appTimezone, appBuild`
+//   - `path, apath, ip, host, mtime, platform, cleanup, secure, appName, appVersion, appLocale, appTimezone, appBuild`
 //
 // Example:
 //

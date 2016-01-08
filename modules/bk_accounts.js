@@ -21,6 +21,72 @@ var logger = bkjs.logger;
 // Account management
 var accounts = {
     name: "accounts",
+    tables: {
+        // Basic account information
+        bk_account: {
+            id: { primary: 1, pub: 1 },
+            login: {},
+            name: {},
+            first_name: {},
+            last_name: {},
+            alias: { pub: 1 },
+            status: {},
+            type: { admin: 1 },
+            email: {},
+            phone: {},
+            website: {},
+            company: {},
+            birthday: {},
+            gender: {},
+            street: {},
+            city: {},
+            county: {},
+            state: {},
+            zipcode: {},
+            country: {},
+            device_id: {},                                    // Device(s) for notifications the format is: [service://]token[@appname]
+            geohash: {},
+            latitude: { type: "real" },
+            longitude: { type: "real" },
+            location: {},
+            ltime: { type: "bigint" },                        // Last location update time
+            ctime: { type: "bigint", readonly: 1, now: 1 },   // Create time
+            mtime: { type: "bigint", now: 1 },                // Last update time
+        },
+
+        bk_status: {
+            id: { primary: 1, pub: 1 },                        // account id
+            status: { pub: 1 },                                // status, online, offline, away
+            alias: { pub: 1 },
+            atime: { type: "bigint", now: 1, pub: 1 },         // last access time
+            adtime: { type: "bigint" },                        // last daily access time
+            awtime: { type: "bigint" },                        // last weekly access time
+            amtime: { type: "bigint" },                        // last monthly access time
+            mtime: { type: "bigint", pub: 1 },                 // last status save to db time
+        },
+
+        // Account metrics, must correspond to `-api-url-metrics` settings, for images the default is first 2 path components
+        bk_collect: {
+            url_image_account_rmean: { type: "real" },
+            url_image_account_hmean: { type: "real" },
+            url_image_account_0: { type: "real" },
+            url_image_account_bad_0: { type: "real" },
+            url_image_account_err_0: { type: "real" },
+            url_account_get_rmean: { type: "real" },
+            url_account_get_hmean: { type: "real" },
+            url_account_get_0: { type: "real" },
+            url_account_get_bad_0: { type: "real" },
+            url_account_get_err_0: { type: "real" },
+            url_account_select_rmean: { type: "real" },
+            url_account_select_hmean: { type: "real" },
+            url_account_select_0: { type: "real" },
+            url_account_update_rmean: { type: "real" },
+            url_account_update_hmean: { type: "real" },
+            url_account_update_0: { type: "real" },
+            url_account_update_bad_0: { type: "real" },
+            url_account_update_err_0: { type: "real" },
+        },
+    },
     // Intervals between updating presence status table
     statusInterval: 1800000,
 };
@@ -33,69 +99,7 @@ accounts.init = function(options)
          { name: "status-interval", type: "number", min: 0, max: 86400000, descr: "Number of milliseconds between status record updates, presence is considered offline if last access was more than this interval ago" },
     ]);
 
-    db.describeTables({
-            // Basic account information
-            bk_account: { id: { primary: 1, pub: 1 },
-                          login: {},
-                          name: {},
-                          first_name: {},
-                          last_name: {},
-                          alias: { pub: 1 },
-                          status: {},
-                          type: { admin: 1 },
-                          email: {},
-                          phone: {},
-                          website: {},
-                          company: {},
-                          birthday: {},
-                          gender: {},
-                          street: {},
-                          city: {},
-                          county: {},
-                          state: {},
-                          zipcode: {},
-                          country: {},
-                          device_id: {},                                    // Device(s) for notifications the format is: [service://]token[@appname]
-                          geohash: {},
-                          latitude: { type: "real" },
-                          longitude: { type: "real" },
-                          location: {},
-                          ltime: { type: "bigint" },                        // Last location update time
-                          ctime: { type: "bigint", readonly: 1, now: 1 },   // Create time
-                          mtime: { type: "bigint", now: 1 } },              // Last update time
-
-            bk_status: { id: { primary: 1, pub: 1 },                        // account id
-                         status: { pub: 1 },                                // status, online, offline, away
-                         alias: { pub: 1 },
-                         atime: { type: "bigint", now: 1, pub: 1 },         // last access time
-                         adtime: { type: "bigint" },                        // last daily access time
-                         awtime: { type: "bigint" },                        // last weekly access time
-                         amtime: { type: "bigint" },                        // last monthly access time
-                         mtime: { type: "bigint", pub: 1 } },               // last status save to db time
-
-            // Account metrics, must correspond to `-api-url-metrics` settings, for images the default is first 2 path components
-            bk_collect: {
-                          url_image_account_rmean: { type: "real" },
-                          url_image_account_hmean: { type: "real" },
-                          url_image_account_0: { type: "real" },
-                          url_image_account_bad_0: { type: "real" },
-                          url_image_account_err_0: { type: "real" },
-                          url_account_get_rmean: { type: "real" },
-                          url_account_get_hmean: { type: "real" },
-                          url_account_get_0: { type: "real" },
-                          url_account_get_bad_0: { type: "real" },
-                          url_account_get_err_0: { type: "real" },
-                          url_account_select_rmean: { type: "real" },
-                          url_account_select_hmean: { type: "real" },
-                          url_account_select_0: { type: "real" },
-                          url_account_update_rmean: { type: "real" },
-                          url_account_update_hmean: { type: "real" },
-                          url_account_update_0: { type: "real" },
-                          url_account_update_bad_0: { type: "real" },
-                          url_account_update_err_0: { type: "real" },
-                      },
-
-            });
+    db.describeTables();
 }
 
 // Create API endpoints and routes
@@ -264,7 +268,8 @@ accounts.getAccount = function(req, options, callback)
 //      all properties in the array are checked against the account properties and all must allow notifications. If it is an object then only the object properties and values are checked.
 //  - skip - Array or an object with account ids which should be skipped, this is for mass sending in order to reuse the same options
 //  - logging - logging level about the notification send status, default is debug, can be any valid logger level, must be a string, not a number
-//  - service - name of the standard delivery service supported by the backend, it is be used instead of custom handler, one of the following: apple, google
+//  - service_id - name of the standard delivery service supported by the backend, it is be used instead of custom handler, one of the following: apple, google
+//  - app_id - the application specific device tokens should be used only or if none matched the default device tokens
 //  - device_id - the device to send the message to instesd of the device_id property fro the account record
 //
 // In addition the device_id can be saved in the format service://id where the service is one of the supported delivery services, this way the notification
@@ -390,10 +395,6 @@ accounts.addAccount = function(req, options, callback)
                if (err && !options.noauth) return db.del("bk_auth", { login: req.query.login }, function() { next(err); });
                next(err);
            });
-       },
-       function(next) {
-           // Some dbs require the record to exist, just make one with default values
-           db.put("bk_counter", req.query, function() { next(); });
        },
        function(next) {
            api.metrics.Counter('auth_add_0').inc();

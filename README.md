@@ -1651,13 +1651,27 @@ may keep messages there as new, delete or archive them. Archiving means transfer
 
 This is implemented by the `messages` module from the core. To enable this functionality specify `-allow-modules=bk_messages`.
 
+- `/message/get/unread`
+   Return how many unread messages in the inbox, this is just a flag to signal about new messages, the actual number may not be up to date,
+   it is cleared on messages read.
+
+   Example:
+
+       /message/get/unread
+
+   Response:
+
+      { count: 1 }
+
 - `/message/get`
   Read all new messages, i.e. the messages that never been read or issued `/message/archive` call.
 
   Parameters:
    - `_archive` - if set to 1, all returned messages will be archived automatically, so no individual /message/read call needed
    - `_trash` - if set to 1, all returned messages will be deleted, not archived
-   - `_accounts` - if set to 1, return associated account details for the sender
+   - `_unread` - if set to 1, return only messages with unread flag
+   - `_total` - if set to 1 then return how many messages in the inbox, when combined with `_unread` flag it will update
+     the unread flag with the actual number of unread messages.
 
   Example:
 
@@ -1669,6 +1683,9 @@ This is implemented by the `messages` module from the core. To enable this funct
 
         # Get all new messages from the specific sender
         /message/get?sender=12345
+
+        # How many new messages
+        /message/get?_total=1&_unread=1
 
 - `/message/get/archive`
   Receive archived messages. The images are not returned, only link to the image in `icon` property of reach record,
@@ -1751,7 +1768,7 @@ This is implemented by the `messages` module from the core. To enable this funct
 
   Example:
 
-        /message/update?sender=12345&mtime=124345656567676&status=R
+        /message/update?sender=12345&mtime=124345656567676&unread=0
 
 - `/message/update/archive`
   Update a message in the archive.

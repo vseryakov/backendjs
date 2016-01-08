@@ -1457,7 +1457,7 @@ db.get = function(table, query, options, callback)
     if (typeof options == "function") callback = options,options = null;
     if (typeof callback != "function") callback = lib.noop;
     options = this.getOptions(table, options);
-    if (!options._cached && (options.cached || this.cacheTables.indexOf(table) > -1)) {
+    if (!options._cached && !options.nocache && (options.cached || this.cacheTables.indexOf(table) > -1)) {
         options._cached = 1;
         return this.getCached("get", table, query, options, callback);
     }

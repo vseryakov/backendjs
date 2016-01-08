@@ -22,6 +22,34 @@ var logger = bkjs.logger;
 // Icons management
 var mod = {
     name: "icons",
+    tables: {
+        bk_icon: {
+            id: { primary: 1 },                         // Account id
+            type: { primary: 1,                         // prefix:type
+                pub: 1,
+                join: [ "prefix", "type" ],
+                unjoin: [ "prefix", "type" ],
+                separator: ":",
+                ops: { select: "begins_with" } },
+            prefix: {},                                 // icon prefix/namespace
+            acl_allow: {},                              // Who can see it: all, auth, id:id...
+            ext: {},                                    // Saved image extension
+            descr: {},
+            geohash: {},                                // Location associated with the icon
+            latitude: { type: "real" },
+            longitude: { type: "real" },
+            mtime: { type: "bigint", now: 1 },          // Last time added/updated
+        },
+
+        // Metrics
+        bk_collect: {
+            url_icon_get_rmean: { type: "real" },
+            url_icon_get_hmean: { type: "real" },
+            url_icon_get_0: { type: "real" },
+            url_icon_get_bad_0: { type: "real" },
+            url_icon_get_err_0: { type: "real" },
+        },
+    },
     limit: { "*": 3 },
     controls: {
         width: { type: "number" },
@@ -38,33 +66,6 @@ mod.init = function(options)
     core.describeArgs("icons", [
          { name: "limit", type: "intmap", descr: "Set the limit of how many icons by type can be uploaded by an account, type:N,type:N..., type * means global limit for any icon type" },
     ]);
-
-    // Keep track of icons uploaded
-    db.describeTables({
-            bk_icon: { id: { primary: 1 },                         // Account id
-                       type: { primary: 1,                         // prefix:type
-                               pub: 1,
-                               join: [ "prefix", "type" ],
-                               unjoin: [ "prefix", "type" ],
-                               separator: ":",
-                               ops: { select: "begins_with" } },
-                       prefix: {},                                 // icon prefix/namespace
-                       acl_allow: {},                              // Who can see it: all, auth, id:id...
-                       ext: {},                                    // Saved image extension
-                       descr: {},
-                       geohash: {},                                // Location associated with the icon
-                       latitude: { type: "real" },
-                       longitude: { type: "real" },
-                       mtime: { type: "bigint", now: 1 }},         // Last time added/updated
-
-            // Metrics
-            bk_collect: { url_icon_get_rmean: { type: "real" },
-                          url_icon_get_hmean: { type: "real" },
-                          url_icon_get_0: { type: "real" },
-                          url_icon_get_bad_0: { type: "real" },
-                          url_icon_get_err_0: { type: "real" },
-                      }
-    });
 }
 
 // Create API endpoints and routes

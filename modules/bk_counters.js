@@ -20,32 +20,28 @@ var logger = bkjs.logger;
 
 // Counters management
 var mod = {
-    name: "counters"
+    name: "counters",
+    tables: {
+        // All accumulated counters for accounts
+        bk_counter: {
+           id: { primary: 1, pub: 1 },                               // account id
+           ping: { type: "counter", value: 0, pub: 1 },              // public column to ping the buddy with notification
+           like0: { type: "counter", value: 0, autoincr: 1 },        // who i like
+           like1: { type: "counter", value: 0, autoincr: 1 },        // reversed, who likes me
+           follow0: { type: "counter", value: 0, autoincr: 1 },      // who i follow
+           follow1: { type: "counter", value: 0, autoincr: 1 },      // reversed, who follows me
+        },
+        // Metrics
+        bk_collect: {
+           url_counter_incr_rmean: { type: "real" },
+           url_counter_incr_hmean: { type: "real" },
+           url_counter_incr_0: { type: "real" },
+           url_counter_incr_bad_0: { type: "real" },
+           url_counter_incr_err_0: { type: "real" },
+        },
+    },
 };
 module.exports = mod;
-
-// Initialize the module
-mod.init = function(options)
-{
-    db.describeTables({
-            // All accumulated counters for accounts
-            bk_counter: { id: { primary: 1, pub: 1 },                               // account id
-                           ping: { type: "counter", value: 0, pub: 1 },              // public column to ping the buddy with notification
-                           like0: { type: "counter", value: 0, autoincr: 1 },        // who i like
-                           like1: { type: "counter", value: 0, autoincr: 1 },        // reversed, who likes me
-                           follow0: { type: "counter", value: 0, autoincr: 1 },      // who i follow
-                           follow1: { type: "counter", value: 0, autoincr: 1 }},     // reversed, who follows me
-            // Metrics
-            bk_collect: {
-                          url_counter_incr_rmean: { type: "real" },
-                          url_counter_incr_hmean: { type: "real" },
-                          url_counter_incr_0: { type: "real" },
-                          url_counter_incr_bad_0: { type: "real" },
-                          url_counter_incr_err_0: { type: "real" },
-                      },
-
-    });
-}
 
 // Create API endpoints and routes
 mod.configureWeb = function(options, callback)
@@ -124,6 +120,12 @@ mod.incrAutoCounter = function(id, type, num, options, callback)
     var col = db.getColumn("bk_counter", type, options);
     if (!col || !col.autoincr) return callback(null, []);
     db.incr("bk_counter", lib.newObj('id', id, type, num), options, callback);
+}
+
+mod.bkAddAccount = function(req, callback)
+{
+    // Some dbs require the record to exist, just make one with default values
+    db.put("bk_counter", { id: req.account.id }, callback);
 }
 
 mod.bkDeleteAccount = function(req, callback)

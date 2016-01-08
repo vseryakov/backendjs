@@ -21,6 +21,62 @@ var logger = bkjs.logger;
 // Connections management
 var mod = {
     name: "connections",
+    tables: {
+        // All connections between accounts: like,dislike,friend...
+        bk_connection: {
+            id: { primary: 1, pub: 1 },                    // my account_id
+            type: { primary: 1,                            // connection type:peer
+                pub: 1,
+                join: ["type","peer"],
+                unjoin: ["type","peer"],
+                ops: { select: "begins_with" } },
+            peer: { pub: 1 },                              // peer id
+            alias: { pub: 1 },                             // peer alias
+            status: {},
+            mtime: { type: "bigint", now: 1, pub: 1 }
+        },
+
+        // References from other accounts, likes,dislikes...
+        bk_reference: {
+            id: { primary: 1, pub: 1 },                    // account_id
+            type: { primary: 1,                            // reference type:peer
+                pub: 1,
+                join: ["type","peer"],
+                unjoin: ["type","peer"],
+                ops: { select: "begins_with" } },
+            peer: { pub: 1 },                              // peer id
+            alias: { pub: 1 },                             // peer alias
+            status: {},
+            mtime: { type: "bigint", now: 1, pub: 1 }
+        },
+
+        // Metrics
+        bk_collect: {
+            url_connection_get_rmean: { type: "real" },
+            url_connection_get_hmean: { type: "real" },
+            url_connection_get_0: { type: "real" },
+            url_connection_get_bad_0: { type: "real" },
+            url_connection_select_rmean: { type: "real" },
+            url_connection_select_hmean: { type: "real" },
+            url_connection_select_0: { type: "real" },
+            url_connection_select_bad_0: { type: "real" },
+            url_connection_add_rmean: { type: "real" },
+            url_connection_add_hmean: { type: "real" },
+            url_connection_add_0: { type: "real" },
+            url_connection_add_bad_0: { type: "real" },
+            url_connection_add_err_0: { type: "real" },
+            url_connection_incr_rmean: { type: "real" },
+            url_connection_incr_hmean: { type: "real" },
+            url_connection_incr_0: { type: "real" },
+            url_connection_incr_bad_0: { type: "real" },
+            url_connection_incr_err_0: { type: "real" },
+            url_connection_del_rmean: { type: "real" },
+            url_connection_del_hmean: { type: "real" },
+            url_connection_del_0: { type: "real" },
+            url_connection_del_bad_0: { type: "real" },
+            url_connection_del_err_0: { type: "real" },
+        },
+    },
     allow: {},
     controls: {
         connected: { type: "bool" },
@@ -34,61 +90,6 @@ mod.init = function(options)
     core.describeArgs("connections", [
          { name: "allow", type: "map", descr: "Map of connection type to operations to be allowed only, once a type is specified, all operations must be defined, the format is: type:op,type:op..." },
     ]);
-
-    db.describeTables({
-            // All connections between accounts: like,dislike,friend...
-            bk_connection: { id: { primary: 1, pub: 1 },                    // my account_id
-                             type: { primary: 1,                            // connection type:peer
-                                     pub: 1,
-                                     join: ["type","peer"],
-                                     unjoin: ["type","peer"],
-                                     ops: { select: "begins_with" } },
-                             peer: { pub: 1 },                              // peer id
-                             alias: { pub: 1 },                             // peer alias
-                             status: {},
-                             mtime: { type: "bigint", now: 1, pub: 1 }
-                          },
-
-            // References from other accounts, likes,dislikes...
-            bk_reference: { id: { primary: 1, pub: 1 },                    // account_id
-                            type: { primary: 1,                            // reference type:peer
-                                    pub: 1,
-                                    join: ["type","peer"],
-                                    unjoin: ["type","peer"],
-                                    ops: { select: "begins_with" } },
-                            peer: { pub: 1 },                              // peer id
-                            alias: { pub: 1 },                             // peer alias
-                            status: {},
-                            mtime: { type: "bigint", now: 1, pub: 1 }
-                          },
-
-            // Metrics
-            bk_collect: { url_connection_get_rmean: { type: "real" },
-                          url_connection_get_hmean: { type: "real" },
-                          url_connection_get_0: { type: "real" },
-                          url_connection_get_bad_0: { type: "real" },
-                          url_connection_select_rmean: { type: "real" },
-                          url_connection_select_hmean: { type: "real" },
-                          url_connection_select_0: { type: "real" },
-                          url_connection_select_bad_0: { type: "real" },
-                          url_connection_add_rmean: { type: "real" },
-                          url_connection_add_hmean: { type: "real" },
-                          url_connection_add_0: { type: "real" },
-                          url_connection_add_bad_0: { type: "real" },
-                          url_connection_add_err_0: { type: "real" },
-                          url_connection_incr_rmean: { type: "real" },
-                          url_connection_incr_hmean: { type: "real" },
-                          url_connection_incr_0: { type: "real" },
-                          url_connection_incr_bad_0: { type: "real" },
-                          url_connection_incr_err_0: { type: "real" },
-                          url_connection_del_rmean: { type: "real" },
-                          url_connection_del_hmean: { type: "real" },
-                          url_connection_del_0: { type: "real" },
-                          url_connection_del_bad_0: { type: "real" },
-                          url_connection_del_err_0: { type: "real" },
-                      },
-
-    });
 }
 
 // Create API endpoints and routes

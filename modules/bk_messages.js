@@ -21,70 +21,103 @@ var logger = bkjs.logger;
 // Messages management
 var mod = {
     name: "messages",
+    tables: {
+        // New messages
+        bk_message: {
+            id: { primary: 1 },                           // my account_id
+            mtime: {
+                primary: 1,                               // mtime:sender
+                join: ["mtime","sender"],
+                unjoin: ["mtime","sender"],
+                ops: { select: "ge" }
+            },
+            unread: { type: "int", value: 1, pub: 1 },     // unread flag
+            sender: { type: "text" },                      // sender id
+            alias: {},                                     // sender alias
+            msg: {},                                       // Text of the message
+            icon: { type: "int" },                         // 1 - icon present, 0 - no icon
+        },
+        // Archived messages
+        bk_archive: {
+            id: { primary: 1 },                            // my account_id
+            mtime: {
+                primary: 1,                                // mtime:sender
+                join: ["mtime","sender"],
+                unjoin: ["mtime","sender"],
+                ops: { select: "ge" }
+            },
+            sender: { type: "text" },                      // sender id
+            alias: {},                                     // sender alias
+            msg: {},                                       // text of the message
+            icon: { type: "int" },                         // 1 - icon present, 0 - no icon
+        },
+        // Messages sent
+        bk_sent: {
+            id: { primary: 1 },                            // my account
+            mtime: {
+                primary: 1,                                // mtime:recipient
+                join: ["mtime","recipient"],
+                unjoin: ["mtime","recipient"],
+                ops: { select: "ge" }
+            },
+            recipient: { type: "text" },                  // recipient id
+            alias: {},                                    // recipient alias if known
+            msg: {},                                      // text of the message
+            icon: { type: "int" },                        // 1 - icon present, 0 - no icon
+        },
+        // Metrics
+        bk_collect: {
+            url_image_message_rmean: { type: "real" },
+            url_image_message_hmean: { type: "real" },
+            url_image_message_0: { type: "real" },
+            url_image_message_bad_0: { type: "real" },
+            url_image_message_err_0: { type: "real" },
+            url_message_get_rmean: { type: "real" },
+            url_message_get_hmean: { type: "real" },
+            url_message_get_0: { type: "real" },
+            url_message_get_bad_0: { type: "real" },
+            url_message_get_err_0: { type: "real" },
+            url_message_add_rmean: { type: "real" },
+            url_message_add_hmean: { type: "real" },
+            url_message_add_0: { type: "real" },
+            url_message_add_bad_0: { type: "real" },
+            url_message_add_err_0: { type: "real" },
+        },
+    },
     controls: {
         archive: { type: "bool" },
-        trash: { type: "bool" }
+        trash: { type: "bool" },
+        unread: { type: "bool" },
+        nosent: { type: "bool" },
     },
+    cacheOptions: { cacheName: "", ttl: 0 },
 };
 module.exports = mod;
 
-// Initialize the module
 mod.init = function(options)
 {
-    db.describeTables({
-            // New messages
-            bk_message: { id: { primary: 1 },                            // my account_id
-                          mtime: { primary: 1,                           // mtime:sender
-                                   join: ["mtime","sender"],
-                                   unjoin: ["mtime","sender"],
-                                   ops: { select: "ge" } },
-                          sender: { type: "text" },                      // Sender id
-                          alias: {},                                     // Sender alias
-                          acl_allow: {},                                 // Who has access: all, auth, id:id...
-                          msg: {},                                       // Text of the message
-                          icon: { type: "int" }},                        // 1 - icon present, 0 - no icon
+    core.describeArgs("messages", [
+         { name: "cache-name", obj: "cacheOptions", descr: "Cache name for keeping unread messages counter" },
+         { name: "cache-ttl", type: "number", obj: "cacheOptions", nocamel: 1, strip: "cache-", min: 0, descr: "How long in ms to keep unread messages counter" },
+    ]);
+}
 
-            // Archived messages
-            bk_archive: { id: { primary: 1 },                            // my account_id
-                          mtime: { primary: 1,                           // mtime:sender
-                                   join: ["mtime","sender"],
-                                   unjoin: ["mtime","sender"],
-                                   ops: { select: "ge" } },
-                          sender: { type: "text" },                      // Sender id
-                          alias: {},                                     // Sender alias
-                          msg: {},                                       // Text of the message
-                          icon: { type: "int" }},                        // 1 - icon present, 0 - no icon
-
-            // Messages sent
-            bk_sent: { id: { primary: 1 },                                // my account
-                       mtime: { primary: 1,                               // mtime:recipient
-                                join: ["mtime","recipient"],
-                                unjoin: ["mtime","recipient"],
-                                ops: { select: "ge" } },
-                       recipient: { type: "text" },                       // Recipient id
-                       alias: {},                                         // Recipient alias if known
-                       msg: {},                                           // Text of the message
-                       icon: { type: "int" }},                            // 1 - icon present, 0 - no icon
-
-            // Metrics
-            bk_collect: {
-                          url_image_message_rmean: { type: "real" },
-                          url_image_message_hmean: { type: "real" },
-                          url_image_message_0: { type: "real" },
-                          url_image_message_bad_0: { type: "real" },
-                          url_image_message_err_0: { type: "real" },
-                          url_message_get_rmean: { type: "real" },
-                          url_message_get_hmean: { type: "real" },
-                          url_message_get_0: { type: "real" },
-                          url_message_get_bad_0: { type: "real" },
-                          url_message_get_err_0: { type: "real" },
-                          url_message_add_rmean: { type: "real" },
-                          url_message_add_hmean: { type: "real" },
-                          url_message_add_0: { type: "real" },
-                          url_message_add_bad_0: { type: "real" },
-                          url_message_add_err_0: { type: "real" },
-                      },
+mod.configureModule = function(options, callback)
+{
+    db.setProcessRow("post", "bk_message", function(req, row, options) {
+        if (row.icon) row.icon = api.iconUrl({ prefix: 'message', id: row.id, type: row.mtime + ":" + row.sender }); else delete row.icon;
+        if (req.op == "add" || (req.op == "put" && req.obj.unread)) ipc.incr("bk_message|unread|" + req.obj.id, 1, mod.cacheOptions);
     });
+
+    db.setProcessRow("post", "bk_archive", function(req, row, options) {
+        if (row.icon) row.icon = api.iconUrl({ prefix: 'message', id: row.id, type: row.mtime + ":" + row.sender }); else delete row.icon;
+    });
+
+    db.setProcessRow("post", "bk_sent", function(req, row, options) {
+        if (row.icon) row.icon = api.iconUrl({ prefix: 'message', id: row.sender, type: row.mtime + ":" + row.id }); else delete row.icon;
+    });
+
+    callback();
 }
 
 // Create API endpoints and routes
@@ -104,8 +137,14 @@ mod.configureMessagesAPI = function()
 
         switch (req.params[0]) {
         case "image":
-            if (!req.query.sender || !req.query.mtime) return api.sendReply(res, 400, "sender and mtime are required");
-            api.sendIcon(req, res, req.account.id, { prefix: 'message', type: req.query.mtime + ":" + req.query.sender});
+            mod.sendImage(req, options);
+            break;
+
+        case "get/unread":
+            options.cleanup = "";
+            self.getUnread(req, options, function(err, data) {
+                api.sendJSON(req, err, data);
+            });
             break;
 
         case "get":
@@ -174,19 +213,19 @@ mod.configureMessagesAPI = function()
             api.sendReply(res, 400, "Invalid command");
         }
     });
+}
 
-    function onPostMessageRow(req, row, options) {
-        if (row.icon) row.icon = api.iconUrl({ prefix: 'message', id: row.id, type: row.mtime + ":" + row.sender }); else delete row.icon;
-    }
+mod.sendImage = function(req, options)
+{
+    if (!req.query.sender || !req.query.mtime) return api.sendReply(res, 400, "sender and mtime are required");
+    api.sendIcon(req, res, req.account.id, { prefix: 'message', type: req.query.mtime + ":" + req.query.sender});
+}
 
-    function onPostSentRow(req, row, options) {
-        if (row.icon) row.icon = api.iconUrl({ prefix: 'message', id: row.sender, type: row.mtime + ":" + row.id }); else delete row.icon;
-    }
-
-    db.setProcessRow("post", "bk_sent", onPostSentRow);
-    db.setProcessRow("post", "bk_message", onPostMessageRow);
-    db.setProcessRow("post", "bk_archive", onPostMessageRow);
-
+mod.getUnread = function(req, options, callback)
+{
+    ipc.get("bk_message|unread|" + req.account.id, mod.cacheOptions, function(count) {
+        callback(null, { count: Math.max(lib.toNumber(count), 0) });
+    });
 }
 
 // Return archived messages, used in /message/get API call
@@ -210,47 +249,45 @@ mod.getMessage = function(req, options, callback)
 
     // If asked for a total with _archive/_trash we have to retrieve all messages but return only the count
     var total = lib.toBool(options.total);
-    if (total && lib.toBool(options.archive) || lib.toBool(options.trash)) {
-        options.total = 0;
-    }
-    function del(rows, next) {
-        lib.forEachLimit(rows, options.concurrency || 1, function(row, next2) {
-            db.del("bk_message", row, options, function() { next2() });
-        }, next);
-    }
+    var archive = lib.toBool(options.archive);
+    var trash = lib.toBool(options.trash);
+    if (total && (archive || trash)) options.total = 0;
 
-    function details(rows, info, next) {
-        if (options.total) return next(null, rows, info);
-        if (total) return next(null, [{ count: rows.count }], info);
-        next(null, rows, info);
-    }
+    var cap1 = db.getCapacity("bk_message", { useCapacity: "write", factorCapacity: options.factorCapacity || 0.25 });
+    var cap2 = db.getCapacity("bk_archive", { useCapacity: "write", factorCapacity: options.factorCapacity || 0.25 });
 
     db.select("bk_message", req.query, options, function(err, rows, info) {
-        if (err) return callback(err, []);
+        if (err) return callback(err);
 
-        options.ops = null;
-        // Move to archive
-        if (lib.toBool(options.archive)) {
-            lib.forEachSeries(rows, function(row, next) {
-                db.put("bk_archive", row, options, next);
-            }, function(err) {
-                if (err) return callback(err, []);
+        // Clear the unread flag if read all messages
+        if (!total) ipc.del("bk_message|unread|" + req.account.id, mod.cacheOptions);
 
-                // Delete from the new after we archived it
-                del(rows, function() {
-                    details(rows, info, callback);
-                });
-            });
-        } else
-
-        // Delete after read, if we crash now new messages will never be delivered
-        if (lib.toBool(options.trash)) {
-            del(rows, function() {
-                details(rows, info, callback);
-            });
-        } else {
-            details(rows, info, callback);
+        if (!archive && !trash) {
+            // Update with the actual unread messages count
+            if (total && options.unread) {
+                ipc.put("bk_message|unread|" + req.account.id, rows.length ? rows[0].count : 0, mod.cacheOptions);
+            }
+            return callback(err, rows, info);
         }
+
+        // Move to archive or delete
+        lib.forEachLimit(rows, options.concurrency || 1, function(row, next) {
+            lib.series([
+              function(next2) {
+                  if (!archive) return next2();
+                  db.put("bk_archive", row, next2);
+              },
+              function(next2) {
+                  db.del("bk_message", row, next2);
+              },
+            ], function() {
+                db.checkCapacity(archive ? cap2 : cap1, next);
+            });
+        }, function(err) {
+            if (total) rows = [{ count: rows.length }];
+            options.total = total;
+            callback(err, rows, info);
+        });
     });
 }
 
@@ -265,16 +302,17 @@ mod.archiveMessage = function(req, options, callback)
         if (!row) return callback({ status: 404, message: "not found" }, []);
 
         // Merge properties for the archive record
+        var unread = row.unread;
         for (var p in req.query) row[p] = req.query[p];
 
-        options.ops = null;
-        db.put("bk_archive", row, options, function(err) {
-            if (err) return callback(err, []);
-
-            db.del("bk_message", row, options, function(err) {
-                callback(err, row, info);
-            });
-        });
+        lib.series([
+          function(next) {
+              db.put("bk_archive", row, next);
+          },
+          function(next) {
+              db.del("bk_message", row, next);
+          },
+        ], callback);
     });
 }
 
@@ -287,6 +325,7 @@ mod.addMessage = function(req, options, callback)
     if (!req.query.id) return callback({ status: 400, message: "recipient id is required" });
     if (!req.query.msg && !req.query.icon) return callback({ status: 400, message: "msg or icon is required" });
 
+    var cap = db.getCapacity("bk_message", { useCapacity: "write", factorCapacity: options.factorCapacity || 0.25 });
     var ids = lib.strSplitUnique(req.query.id), rows = [];
     options.mtime = Date.now();
 
@@ -295,7 +334,7 @@ mod.addMessage = function(req, options, callback)
         mod.putMessage(req, options, function(err) {
             if (err) return next(err);
             rows.push({ id: req.query.id, mtime: req.query.mtime, sender: req.query.sender });
-            next();
+            db.checkCapacity(cap, next);
         });
     }, function(err) {
         callback(err, rows);
@@ -304,7 +343,6 @@ mod.addMessage = function(req, options, callback)
 
 mod.putMessage = function(req, options, callback)
 {
-    var op = options.op || "add";
     var sent = options.nosent ? null : lib.cloneObj(req.query);
 
     req.query.sender = req.account.id;
@@ -319,14 +357,14 @@ mod.putMessage = function(req, options, callback)
           });
       },
       function(next) {
-          db[op]("bk_message", req.query, next);
+          db.add("bk_message", req.query, next);
       },
       function(next) {
           if (options.nosent) return next();
           sent.recipient = sent.id;
           sent.id = req.account.id;
           sent.mtime = req.query.mtime;
-          db[op]("bk_sent", sent, function(err, rows) {
+          db.add("bk_sent", sent, function(err, rows) {
               if (err) return db.del("bk_message", req.query, function() { next(err); });
               next();
           });
@@ -341,24 +379,23 @@ mod.delMessage = function(req, options, callback)
     var sender = options.sender || "sender";
     req.query.id = req.account.id;
 
-    // Single deletion
-    if (req.query.mtime && req.query[sender]) {
-        return db.del(table, { id: req.account.id, mtime: req.query.mtime, sender: req.query[sender] }, function(err) {
-            if (err || !req.query.icon) return callback(err, []);
-            api.delIcon(req.account.id, { prefix: "message", type: req.query.mtime + ":" + req.query[sender] }, function() { callback() });
-        });
-    }
+    var cap = db.getCapacity(table, { useCapacity: "write", factorCapacity: options.factorCapacity || 0.25 });
 
-    // Delete by query
     db.select(table, { id: req.account.id, mtime: req.query.mtime, sender: req.query[sender] }, options, function(err, rows) {
-        if (err) return callback(err, []);
+        if (err) return callback(err);
 
-        options.ops = null;
         lib.forEachSeries(rows, function(row, next) {
             if (req.query[sender] && row[sender] != req.query[sender]) return next();
-            db.del(table, row, function(err) {
-                if (err || !row.icon) return next(err);
-                api.delIcon(req.account.id, { prefix: "message", type: row.mtime + ":" + row[sender] }, function() { next() });
+            lib.series([
+              function(next2) {
+                  db.del(table, row, next2);
+              },
+              function(next2) {
+                  if (!row.icon) return next2();
+                  api.delIcon(req.account.id, { prefix: "message", type: row.mtime + ":" + row[sender] }, next2);
+              },
+            ], function() {
+                db.checkCapacity(cap, next);
             });
         }, callback);
     });
@@ -412,5 +449,9 @@ mod.bkDeleteAccount = function(req, callback)
          if (req.options.keep_sent) return next();
          db.delAll("bk_sent", { id: req.account.id }, function() { next() });
      },
+     function(next) {
+         ipc.del("bk_message|unread" + req.account.id, mod.cacheOptions);
+         next();
+     }
     ], callback);
 }
