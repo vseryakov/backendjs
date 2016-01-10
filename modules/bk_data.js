@@ -19,25 +19,25 @@ var lib = bkjs.lib;
 var logger = bkjs.logger;
 
 // Account management
-var data = {
-    name: "data"
+var mod = {
+    name: "data",
 };
-module.exports = data;
+module.exports = mod;
 
 // Initialize the module
-data.init = function(options)
+mod.init = function(options)
 {
 }
 
 // Create API endpoints and routes
-data.configureWeb = function(options, callback)
+mod.configureWeb = function(options, callback)
 {
     this.configureDataAPI();
     callback()
 }
 
 // API for full access to all tables
-data.configureDataAPI = function()
+mod.configureDataAPI = function()
 {
     var self = this;
 
@@ -66,6 +66,7 @@ data.configureDataAPI = function()
         if (!dbcols) return api.sendReply(res, "Unknown table");
 
         var options = api.getOptions(req);
+        options.noscan = 0;
 
         switch (req.params[0]) {
         case "scan":

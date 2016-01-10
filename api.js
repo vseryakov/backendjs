@@ -1181,7 +1181,10 @@ api.registerRateLimits = function(name, rate, max, interval)
 //  - `_count, _page, _tm, _sort, _select, _ext, _start, _token, _session, _format, _total, _encoding, _ops`
 //
 // These are the reserved names that cannot be used for parameters, they are defined by the engine for every request:
-//   - `path, apath, ip, host, mtime, platform, cleanup, secure, appName, appVersion, appLocale, appTimezone, appBuild`
+//   - `path, apath, ip, host, mtime, platform, cleanup, secure, noscan, appName, appVersion, appLocale, appTimezone, appBuild`
+//
+// NOTE: `noscan` is set to 1 in every request to prevent accidental full scans, this means it cannot be enabled via the API but any module
+// can do it in the code if needed.
 //
 // Example:
 //

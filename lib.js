@@ -400,6 +400,8 @@ lib.toAge = function(mtime)
 //                                                start: { type: "token", required: 1 },
 //                                                data: { type: "json", datatype: "obj" },
 //                                                mtime: { type: "mtime" },
+//                                                flag: { type: "bool", novalue: false },
+//                                                descr: { novalue: { name: "name", value: "test" },
 //                                                email: { type: "list", datatype: "string } },
 //                                                internal: { ignore: 1 },
 //                                                state: { type: "list", datatype: "string, values: ["VA","DC] } },
@@ -484,7 +486,10 @@ lib.toParams = function(query, schema, options)
             return options && options.null ? null : opts.errmsg || this.__("%s is required", name);
         }
         // Delete if equal to a special value
-        if (opts.novalue === rc[name]) delete rc[name];
+        if (typeof opts.novalue == "object") {
+            if (rc[name] === rc[opts.novalue.name] || rc[name] === opts.novalue.value) delete rc[name];
+        } else
+        if (rc[name] === opts.novalue) delete rc[name];
     }
     return rc;
 }
@@ -1445,19 +1450,20 @@ lib.callback = function()
 lib.cloneObj = function()
 {
     var obj = arguments[0];
-    var rc = Array.isArray(obj) ? [] : {};
+    var rc = Array.isArray(obj) ? [] : {}, o1, o2;
     for (var p in obj) {
-        switch (this.typeName(obj[p])) {
+        if (!obj.hasOwnProperty(p)) continue;
+        o1 = obj[p];
+        switch (this.typeName(o1)) {
         case "object":
-            rc[p] = {};
-            for (var k in obj[p]) rc[p][k] = obj[p][k];
+            rc[p] = o2 = {};
+            for (var k in o1) o2[k] = o1[k];
             break;
         case "array":
-            rc[p] = [];
-            for (var k in obj[p]) rc[p][k] = obj[p][k];
+            rc[p] = o1.slice(0);
             break;
         default:
-            rc[p] = obj[p];
+            rc[p] = o1;
         }
     }
     for (var i = 1; i < arguments.length - 1; i += 2) rc[arguments[i]] = arguments[i + 1];

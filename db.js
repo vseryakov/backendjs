@@ -17,6 +17,7 @@ var aws = require(__dirname + '/aws');
 var cluster = require('cluster');
 var os = require('os');
 var metrics = require(__dirname + "/metrics");
+var bkcache = require('bkjs-cache');
 
 // The Database API, a thin abstraction layer on top of SQLite, PostgreSQL, DynamoDB and Cassandra.
 // The idea is not to introduce new abstraction layer on top of all databases but to make
@@ -108,6 +109,7 @@ var db = {
            { name: "cache-ttl", type: "int", obj: "cacheTtl", key: "default", descr: "Default global TTL for cached tables", },
            { name: "cache-ttl-(.+)", type: "int", obj: "cacheTtl", nocamel: 1, strip: "cache-ttl-", descr: "TTL in milliseconds for each individual table being cached", },
            { name: "cache-name-(.+)", obj: "cacheName", nocamel: 1, strip: "cache-name-", descr: "Cache client name to use for each table instead of the default in order to split cache usage for different tables, it can be just a table name or `pool.table`", },
+           { name: "cache2-(.+)", obj: "cache2", type: "int", nocamel: 1, strip: "cache2-", min: 50, descr: "Tables with TTL for level2 cache, i.e. in the local process LRU memory. It works before the primary cache and keeps records in the local LRU cache for the giben amount of time, the TTL is in ms and must be greater than zero for level 2 cache to work. Make sure `ipc-lru-max-` is properly configured for each process role" },
            { name: "local", descr: "Local database pool for properties, cookies and other local instance only specific stuff" },
            { name: "config", descr: "Configuration database pool to be used to retrieve config parameters from the database, must be defined to use remote db for config parameters, set to `default` to use current default pool" },
            { name: "config-interval", type: "number", min: 0, descr: "Interval between loading configuration from the database configured with -db-config-type, in seconds, 0 disables refreshing config from the db" },
@@ -120,6 +122,7 @@ var db = {
            { name: "(.+)-pool-settings(-[0-9]+)?", obj: 'poolParams', strip: "Pool", type: "json", descr: "A DB pool driver settings passed to every request, contains pool-wide options and features upported by the driver" },
            { name: "(.+)-pool-no-cache-columns(-[0-9]+)?", obj: 'poolParams', strip: "Pool", type: "bool", descr: "disable caching table columns for this pool only" },
            { name: "(.+)-pool-no-init-tables(-[0-9]+)?", type: "regexp", obj: 'poolParams', strip: "Pool", novalue: ".+", descr: "Do not create tables for this pool only, a regexp of tables to skip" },
+           { name: "(.+)-pool-cache2-(.+)", obj: 'cache2', nocamel: 1, strip: "pool-cache2-", type: "int", descr: "Level 2 cache TTL for the specified pool and table" },
            { name: "describe-tables", type: "callback", callback: function(v) { this.describeTables(lib.jsonParse(v, {datatype:"obj",logger:"error"})) }, descr: "A JSON object with table descriptions to be merged with the existing definitions" },
     ],
 
@@ -141,8 +144,9 @@ var db = {
 
     // Tables to be cached
     cacheTables: [],
-    cacheTtl: {},
     cacheName: {},
+    cacheTtl: {},
+    cache2: {},
 
     // Default database pool for the backend
     pool: 'sqlite',
@@ -1793,11 +1797,7 @@ db.prepareRow = function(pool, op, table, obj, options)
     switch (op) {
     case "add":
     case "put":
-        obj = this.prepareForPut(pool, op, table, obj, options, cols, orig);
-
     case "incr":
-        obj = this.prepareForIncr(pool, op, table, obj, options, cols, orig);
-
     case "update":
         obj = this.prepareForUpdate(pool, op, table, obj, options, cols, orig);
         break;
@@ -1856,38 +1856,18 @@ db.prepareForUpdate = function(pool, op, table, obj, options, cols, orig)
             delete obj[p];
             continue;
         }
-        // Current timestamps, for primary keys only support add
+        if (op == "add" || op == "put") {
+            if (typeof col.value != "undefined" && typeof obj[p] == "undefined") obj[p] = col.value;
+            if (typeof obj[p] == "undefined") {
+                if (col.type == "counter") obj[p] = 0;
+                if (col.type == "uuid") obj[p] = lib.uuid();
+            }
+        }
         if (col.now && !obj[p] && (!col.primary || op == "add")) obj[p] = Date.now();
-        // Case conversion
         if (col.lower && typeof obj[p] == "string") obj[p] = obj[p].toLowerCase();
         if (col.upper && typeof obj[p] == "string") obj[p] = obj[p].toUpperCase();
-        // The field is combined from several values contatenated for complex primary keys
-        this.joinColumn(op, obj, p, col, options, orig);
-    }
-    return obj;
-}
-
-db.prepareForPut = function(pool, op, table, obj, options, cols, orig)
-{
-    var col;
-    // Set all default values if any
-    for (var p in cols) {
-        col = cols[p];
-        if (typeof col.value != "undefined" && !obj[p]) obj[p] = col.value;
-        // Counters must have default value or use 0 is implied
-        if (typeof obj[p] == "undefined") {
-            if (col.type == "counter") obj[p] = 0;
-            if (col.type == "uuid") obj[p] = lib.uuid();
-        }
-    }
-    return obj;
-}
-
-db.prepareForIncr = function(pool, op, table, obj, options, cols, orig)
-{
-    // All values must be numbers
-    for (var p in cols) {
         if (typeof obj[p] != "undefined" && cols[p].type == "counter") obj[p] = lib.toNumber(obj[p]);
+        this.joinColumn(op, obj, p, col, options, orig);
     }
     return obj;
 }
@@ -2433,9 +2413,17 @@ db.getCache = function(table, query, options, callback)
 {
     var key = this.getCacheKey(table, query, options);
     if (!key) return callback();
+    var ttl = this.getCacheTtl(table, options);
+    if (ttl > 0) {
+        var val = bkcache.lruGet(key, Date.now());
+        if (val) return callback(val);
+    }
     if (options) options.cacheKey = key;
     options = this.getCacheOptions(table, options);
-    ipc.get(key, options, callback);
+    ipc.get(key, options, function(val) {
+        if (ttl > 0) bkcache.lruPut(key, val, Date.now() + ttl);
+        callback(val);
+    });
 }
 
 // Store a record in the cache
@@ -2445,15 +2433,21 @@ db.putCache = function(table, query, options)
     if (!key) return;
     options = this.getCacheOptions(table, options);
     logger.debug("putCache:", key, options);
-    ipc.put(key, lib.stringify(query), options);
+    var val = lib.stringify(query);
+    var ttl = this.getCacheTtl(table, options);
+    if (ttl > 0) bkcache.lruPut(key, val, Date.now() + ttl);
+    ipc.put(key, val, options);
 }
 
 // Notify or clear cached record, this is called after del/update operation to clear cached version by primary keys
 db.delCache = function(table, query, options)
 {
     var key = options && options.cacheKey ? options.cacheKey : this.getCacheKey(table, query, options);
+    if (!key) return;
     options = this.getCacheOptions(table, options);
-    if (key) ipc.del(key, options);
+    var ttl = this.getCacheTtl(table, options);
+    if (ttl > 0) bkcache.lruDel(key);
+    ipc.del(key, options);
 }
 
 // Returns concatenated values for the primary keys, this is used for caching records by primary key
@@ -2476,6 +2470,13 @@ db.getCacheOptions = function(table, options)
         if (!options) options = { cacheName: cacheName }; else options.cacheName = cacheName;
     }
     return options;
+}
+
+// Return TTL for level 2 cache
+db.getCacheTtl = function(table, options)
+{
+    var pool = this.getPool(table, options);
+    return this.cache2[pool.name + "-" + table] || this.cache2[table];
 }
 
 // Create a new database pool with default methods and properties
