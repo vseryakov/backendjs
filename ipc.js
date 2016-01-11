@@ -193,10 +193,10 @@ Ipc.prototype.handleServerMessages = function(worker, msg)
                 }
             } else
             if (msg.name) {
-                msg.value = bkcache.lruGet(msg.name);
+                msg.value = bkcache.lruGet(msg.name, Date.now());
                 // Set initial value if does not exist or empty
                 if (!msg.value && msg.set) {
-                    bkcache.lruPut(msg.name, msg.value = msg.set);
+                    bkcache.lruPut(msg.name, msg.value = msg.set, msg.expire);
                     delete msg.set;
                 }
             }
@@ -209,12 +209,12 @@ Ipc.prototype.handleServerMessages = function(worker, msg)
             break;
 
         case 'cache:put':
-            if (msg.name && msg.value) bkcache.lruPut(msg.name, msg.value);
+            if (msg.name && msg.value) bkcache.lruPut(msg.name, msg.value, msg.expire);
             if (msg.__res) worker.send(msg);
             break;
 
         case 'cache:incr':
-            if (msg.name && msg.value) msg.value = bkcache.lruIncr(msg.name, msg.value);
+            if (msg.name && msg.value) msg.value = bkcache.lruIncr(msg.name, msg.value, msg.expire);
             if (msg.__res) worker.send(msg);
             break;
 

@@ -296,7 +296,7 @@ db.initPool = function(name, options, callback)
 // for very flexible configuration policies defined by the app or place where instances running and separated by the run mode.
 //
 // The following list of properties will be queried from the config database and the sorting order is very important, the last values
-// will override values received for the eqrlier properties, for example, if two properties defined in the `bk_config` table with the
+// will override values received for the earlier properties, for example, if two properties defined in the `bk_config` table with the
 // types `myapp` and `prod-myapp`, then the last value will be used only.
 //
 // All attributes will be added multiple times in the following order, `name` being the attribute listed below:
@@ -305,16 +305,19 @@ db.initPool = function(name, options, callback)
 // The priority of the attributes is the following:
 //  - the run mode specified in the command line `-run-mode`: `prod`
 //  - the application name: `myapp`
-//  - the application version specified in the package.json: `1.0.0`
-//  - the network where the instance is running, first 2 octets from the current IP address: `192.168`
+//  - the application name and major version specified in the package.json: `-1`
+//  - the application name and version specified in the package.json: `-1.0`
+//  - the process role: `-worker`
+//  - the network where the instance is running, first 2 octets from the current IP address: `-192.168`
 //  - the region where the instance is running, AWS region or other name: `us-east-1`
-//  - the network where the instance is running, first 3 octets from the current IP address: `192.168.1`
-//  - the zone where the instance is running, AWS availability zone or other name: `us-east-1a`
-//  - current instance tag or a custom tag for ad-hoc queries: `nat`
+//  - the network where the instance is running, first 3 octets from the current IP address: `-192.168.1`
+//  - the zone where the instance is running, AWS availability zone or other name: `-us-east-1a`
+//  - current instance tag or a custom tag for ad-hoc queries: `-nat`
 //
 // The options takes the following properties:
 //  - force - if true then force to refresh and reopen all db pools
 //  - delta - if true then pull only records updated since the last config pull using the max mtime from received records.
+//  - table - a table where to read the config parameters, default is bk_config
 //
 // On return, the callback second argument will receive all parameters received form the database as a list: -name value ...
 db.initConfig = function(options, callback)
@@ -325,12 +328,14 @@ db.initConfig = function(options, callback)
     if (typeof callback != "function") callback = lib.noop;
 
     // The order of the types here defines the priority of the parameters, most specific at the end always wins
-    var types = [], argv = [];
+    var types = [], argv = [], ver = core.appVersion.split(".");
 
     // All other entries in order of priority with all common prefixes
     var items = [ core.runMode,
                   core.appName,
-                  core.appVersion,
+                  core.appName + "-" + ver[0] + "." + ver[1],
+                  core.appName + "-" + ver[0],
+                  core.role,
                   options.network || core.network,
                   options.region || core.instance.region,
                   options.subnet || core.subnet,
@@ -342,9 +347,11 @@ db.initConfig = function(options, callback)
         x = String(x).trim();
         if (!x) return;
         types.push(x);
-        if (x != core.runMode) types.push(core.runMode + "-" + x);
-        if (x != core.appName) types.push(core.appName + "-" + x);
-        if (x != core.runMode && x != core.appName) types.push(core.runMode + "-" + core.appName + "-" + x);
+        var m = x.substr(0, core.runMode.length);
+        var v = x.substr(0, core.appName.length);
+        if (m != core.runMode) types.push(core.runMode + "-" + x);
+        if (v != core.appName) types.push(core.appName + "-" + x);
+        if (m != core.runMode && v != core.appName) types.push(core.runMode + "-" + core.appName + "-" + x);
     });
     // Make sure we have only unique items in the list, skip empty or incomplete items
     types = lib.strSplitUnique(types);
@@ -1789,7 +1796,7 @@ db.prepareRow = function(pool, op, table, obj, options)
     }
 
     // Process special columns
-    var cols = pool.dbcolumns[table] || {};
+    var cols = this.getColumns(table, options);
     var col, orig = {};
     // Original record before the prepare processing
     for (var p in obj) orig[p] = obj[p];
@@ -2179,10 +2186,20 @@ db.getOptions = function(table, options)
     return options;
 }
 
-// Return columns for a table or null, columns is an object with column names and objects for definition
+// Return columns for a table or null, columns is an object with column names and objects for definition.
+//
+// For dynamic column definition the options may have `dbcolumns` object with new columns to be merged with the current schema,
+// new columns will stay permanently until the process restarts.
+// Only new columns will be added, the existing columns are never changed dynamically.
 db.getColumns = function(table, options)
 {
-    return this.getPool(table, options).dbcolumns[(table || "").toLowerCase()] || {};
+    var cols = this.getPool(table, options).dbcolumns[(table || "").toLowerCase()] || {};
+    if (options && options.dbcolumns) {
+        for (var p in options.dbcolumns) {
+            if (!cols[p]) cols[p] = options.dbcolumns[p];
+        }
+    }
+    return cols;
 }
 
 // Return the column definition for a table
@@ -2413,12 +2430,12 @@ db.getCache = function(table, query, options, callback)
 {
     var key = this.getCacheKey(table, query, options);
     if (!key) return callback();
+    if (options) options.cacheKey = key;
     var ttl = this.getCacheTtl(table, options);
     if (ttl > 0) {
         var val = bkcache.lruGet(key, Date.now());
         if (val) return callback(val);
     }
-    if (options) options.cacheKey = key;
     options = this.getCacheOptions(table, options);
     ipc.get(key, options, function(val) {
         if (ttl > 0) bkcache.lruPut(key, val, Date.now() + ttl);
