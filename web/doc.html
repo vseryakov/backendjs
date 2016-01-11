@@ -4212,7 +4212,7 @@ configuration parameters.</p>
 <p>The priority of the paramaters is fixed and goes form the most broad to the most specific, most specific always wins, this allows
 for very flexible configuration policies defined by the app or place where instances running and separated by the run mode.</p>
 <p>The following list of properties will be queried from the config database and the sorting order is very important, the last values
-will override values received for the eqrlier properties, for example, if two properties defined in the <code>bk_config</code> table with the
+will override values received for the earlier properties, for example, if two properties defined in the <code>bk_config</code> table with the
 types <code>myapp</code> and <code>prod-myapp</code>, then the last value will be used only.</p>
 <p>All attributes will be added multiple times in the following order, <code>name</code> being the attribute listed below:
   <code>name</code>, runMode-<code>name</code>, appName-<code>name</code>, runMode-appName-<code>name</code></p>
@@ -4220,17 +4220,20 @@ types <code>myapp</code> and <code>prod-myapp</code>, then the last value will b
 <ul>
 <li>the run mode specified in the command line <code>-run-mode</code>: <code>prod</code></li>
 <li>the application name: <code>myapp</code></li>
-<li>the application version specified in the package.json: <code>1.0.0</code></li>
-<li>the network where the instance is running, first 2 octets from the current IP address: <code>192.168</code></li>
+<li>the application name and major version specified in the package.json: <code>-1</code></li>
+<li>the application name and version specified in the package.json: <code>-1.0</code></li>
+<li>the process role: <code>-worker</code></li>
+<li>the network where the instance is running, first 2 octets from the current IP address: <code>-192.168</code></li>
 <li>the region where the instance is running, AWS region or other name: <code>us-east-1</code></li>
-<li>the network where the instance is running, first 3 octets from the current IP address: <code>192.168.1</code></li>
-<li>the zone where the instance is running, AWS availability zone or other name: <code>us-east-1a</code></li>
-<li>current instance tag or a custom tag for ad-hoc queries: <code>nat</code></li>
+<li>the network where the instance is running, first 3 octets from the current IP address: <code>-192.168.1</code></li>
+<li>the zone where the instance is running, AWS availability zone or other name: <code>-us-east-1a</code></li>
+<li>current instance tag or a custom tag for ad-hoc queries: <code>-nat</code></li>
 </ul>
 <p>The options takes the following properties:</p>
 <ul>
 <li>force - if true then force to refresh and reopen all db pools</li>
 <li>delta - if true then pull only records updated since the last config pull using the max mtime from received records.</li>
+<li>table - a table where to read the config parameters, default is bk_config</li>
 </ul>
 <p>On return, the callback second argument will receive all parameters received form the database as a list: -name value ...</p>
 </li>
@@ -5015,7 +5018,10 @@ If <code>options.names</code> is 1 then return just table names as a list</p>
 
 <ul>
 <li><p><code>db.getColumns(table, options)</code></p>
-<p> Return columns for a table or null, columns is an object with column names and objects for definition</p>
+<p> Return columns for a table or null, columns is an object with column names and objects for definition.</p>
+<p>For dynamic column definition the options may have <code>dbcolumns</code> object with new columns to be merged with the current schema,
+new columns will stay permanently until the process restarts.
+Only new columns will be added, the existing columns are never changed dynamically.</p>
 </li>
 </ul>
 
