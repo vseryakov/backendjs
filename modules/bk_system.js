@@ -18,6 +18,7 @@ var core = bkjs.core;
 var lib = bkjs.lib;
 var jobs = bkjs.jobs;
 var logger = bkjs.logger;
+var bkcache = require('bkjs-cache');
 
 // System management
 var system = {
@@ -158,6 +159,41 @@ system.configureSystemAPI = function()
             res.json({});
             break;
 
+        case "lru":
+            switch (req.params[1]) {
+            case 'init':
+                res.json({});
+                break;
+            case 'stats':
+                res.json(bkcache.lruStats());
+                break;
+            case "keys":
+                res.json(bkcache.lruKeys());
+                break;
+            case "get":
+                res.json({ value: bkcache.get(req.query.name, Date.now()) });
+                break;
+            case "clear":
+                bkcache.lruClear();
+                res.json({});
+                break;
+            case "del":
+                bkcache.lruDel(req.query.name);
+                res.json({});
+                break;
+            case "incr":
+                bkcache.lruIncr(req.query.name, lib.toNumber(req.query.value), lib.toNumber(req.query.expire));
+                res.json({});
+                break;
+            case "put":
+                bkcache.lruPut(req.query.name, lib.toNumber(req.query.value), lib.toNumber(req.query.expire));
+                res.json({});
+                break;
+            default:
+                api.sendReply(res, 400, "Invalid command:" + req.params[1]);
+            }
+            break;
+
         case "cache":
             switch (req.params[1]) {
             case 'init':
@@ -187,6 +223,7 @@ system.configureSystemAPI = function()
                 break;
             case "put":
                 ipc.put(req.query.name, req.query.value);
+                res.json({});
                 break;
             case "command":
                 if (!req.query.reply) {

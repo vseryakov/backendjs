@@ -2431,7 +2431,7 @@ db.getCache = function(table, query, options, callback)
     var key = this.getCacheKey(table, query, options);
     if (!key) return callback();
     if (options) options.cacheKey = key;
-    var ttl = this.getCacheTtl(table, options);
+    var ttl = this.getCache2Ttl(table, options);
     if (ttl > 0) {
         var val = bkcache.lruGet(key, Date.now());
         if (val) return callback(val);
@@ -2451,7 +2451,7 @@ db.putCache = function(table, query, options)
     options = this.getCacheOptions(table, options);
     logger.debug("putCache:", key, options);
     var val = lib.stringify(query);
-    var ttl = this.getCacheTtl(table, options);
+    var ttl = this.getCache2Ttl(table, options);
     if (ttl > 0) bkcache.lruPut(key, val, Date.now() + ttl);
     ipc.put(key, val, options);
 }
@@ -2462,7 +2462,7 @@ db.delCache = function(table, query, options)
     var key = options && options.cacheKey ? options.cacheKey : this.getCacheKey(table, query, options);
     if (!key) return;
     options = this.getCacheOptions(table, options);
-    var ttl = this.getCacheTtl(table, options);
+    var ttl = this.getCache2Ttl(table, options);
     if (ttl > 0) bkcache.lruDel(key);
     ipc.del(key, options);
 }
@@ -2490,10 +2490,10 @@ db.getCacheOptions = function(table, options)
 }
 
 // Return TTL for level 2 cache
-db.getCacheTtl = function(table, options)
+db.getCache2Ttl = function(table, options)
 {
     var pool = this.getPool(table, options);
-    return this.cache2[pool.name + "-" + table] || this.cache2[table];
+    return options.cache2Ttl || this.cache2[pool.name + "-" + table] || this.cache2[table];
 }
 
 // Create a new database pool with default methods and properties
