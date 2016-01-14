@@ -822,6 +822,7 @@ lib.forEachLimit = function(list, limit, iterator, callback)
 // - until - skip lines until this regexp matches
 // - ignore - skip lines that match this regexp
 // - header - skip first line because it is the CSV header line
+// - json - each line represent an JSON object, convert and pass it to the line callback if not null
 lib.forEachLine = function(file, options, lineCallback, endCallback)
 {
     var self = this;
@@ -847,7 +848,13 @@ lib.forEachLine = function(file, options, lineCallback, endCallback)
                     return next();
                 }
                 if (options.ignore && options.ignore.test(line)) return next();
-                lineCallback(line.trim(), next);
+                if (options.json) {
+                    line = lib.jsonParse(line, options);
+                    if (!line) return next();
+                    lineCallback(line, next);
+                } else {
+                    lineCallback(line.trim(), next);
+                }
             }, function(err) {
                 // Stop on reaching limit or end of file
                 if (options.abort || err || (options.limit && options.nlines >= options.limit) || nread < buffer.length) return finish(err);
@@ -880,7 +887,13 @@ lib.forEachLine = function(file, options, lineCallback, endCallback)
                         continue;
                     }
                     if (options.ignore && options.ignore.test(line)) continue;
-                    lineCallback(lines[i].trim());
+                    if (options.json) {
+                        var obj = lib.jsonParse(lines[i], options);
+                        if (!obj) continue;
+                        lineCallback(obj);
+                    } else {
+                        lineCallback(lines[i].trim());
+                    }
                 }
                 // Stop on reaching limit or end of file
                 if (nread < buffer.length) break;
@@ -1671,7 +1684,7 @@ lib.objSet = function(obj, name, value, options)
 }
 
 // Return an object structure as a string object by showing primitive properties only, for arrays it shows the length,
-// strings are limited by options.length or 16 bytes,
+// strings are limited by options.length or 32 bytes,
 // the object depth is limited by options.depth or 5 levels deep, the number of properties are limited by options.count or 5
 lib.objDescr = function(obj, options)
 {
@@ -1694,7 +1707,7 @@ lib.objDescr = function(obj, options)
             }
         } else
         if (typeof obj[p] == "string") {
-            rc += p + ":" + obj[p].slice(0, options.length || 16);
+            rc += p + ":" + obj[p].slice(0, options.length || 32);
         } else {
             rc += p + ":" + obj[p];
         }

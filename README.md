@@ -1669,8 +1669,7 @@ This is implemented by the `messages` module from the core. To enable this funct
   Parameters:
    - `_archive` - if set to 1, all returned messages will be archived automatically, so no individual /message/read call needed
    - `_trash` - if set to 1, all returned messages will be deleted, not archived
-   - `_unread` - if set to 1, return only messages with unread flag
-   - `_total` - if set to 1 then return how many messages in the inbox, when combined with `_unread` flag it will update
+   - `_total` - if set to 1 then return how many messages in the inbox
      the unread flag with the actual number of unread messages.
 
   Example:
@@ -1685,7 +1684,7 @@ This is implemented by the `messages` module from the core. To enable this funct
         /message/get?sender=12345
 
         # How many new messages
-        /message/get?_total=1&_unread=1
+        /message/get?_total=1
 
 - `/message/get/archive`
   Receive archived messages. The images are not returned, only link to the image in `icon` property of reach record,

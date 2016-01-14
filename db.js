@@ -2141,6 +2141,12 @@ db.existsPool = function(name)
     return !!this.pools[name];
 }
 
+// Returns true if a table exists
+db.existsTable = function(table, options)
+{
+    return this.getPool(table, options).dbcolumns[(table || "").toLowerCase()] ? true : false;
+}
+
 // Return database pool by table name or default pool, options may contain { pool: name } to return
 // the pool by given name. This call always return valid pool object, in case no requiested pool found it returns
 // default pool. A special pool `none` always return empty result and no errors.

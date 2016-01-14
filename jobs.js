@@ -328,7 +328,7 @@ jobs.runTask = function(name, options, callback)
     if (!lib.isObject(options)) options = {};
 
     function done(err) {
-        logger[err ? "error" : "info"]('runTask:', 'finished', name, util.isError(err) && lib.traceError(err) ? lib.traceError(err) : (err || ""));
+        logger[err ? "error" : "info"]('runTask:', 'finished', name, util.isError(err) && lib.traceError(err) ? lib.traceError(err) : (err || ""), lib.objDescr(options));
         self.runTime = Date.now();
         // Update process title with current job list
         var idx = self.running.indexOf(name);
@@ -341,7 +341,7 @@ jobs.runTask = function(name, options, callback)
     var d = domain.create();
     d.on("error", done);
     d.run(function() {
-        logger.info('runTask:', 'started', name, options);
+        logger.info('runTask:', 'started', name, lib.objDescr(options));
         self.runTime = Date.now();
         self.running.push(name);
         if (cluster.isWorker) process.title = core.name + ': worker ' + self.running.join(',');

@@ -31,7 +31,6 @@ var mod = {
                 unjoin: ["mtime","sender"],
                 ops: { select: "ge" }
             },
-            unread: { type: "int", value: 1, pub: 1 },     // unread flag
             sender: { type: "text" },                      // sender id
             alias: {},                                     // sender alias
             msg: {},                                       // Text of the message
@@ -87,7 +86,6 @@ var mod = {
     controls: {
         archive: { type: "bool" },
         trash: { type: "bool" },
-        unread: { type: "bool" },
         nosent: { type: "bool" },
     },
     cacheOptions: { cacheName: "", ttl: 0 },
@@ -106,7 +104,16 @@ mod.configureModule = function(options, callback)
 {
     db.setProcessRow("post", "bk_message", function(req, row, options) {
         if (row.icon) row.icon = api.iconUrl({ prefix: 'message', id: row.id, type: row.mtime + ":" + row.sender }); else delete row.icon;
-        if (req.op == "add" || (req.op == "put" && req.obj.unread)) ipc.incr("bk_message|unread|" + req.obj.id, 1, mod.cacheOptions);
+        switch (req.op) {
+        case "add":
+            ipc.incr("bk_message|unread|" + req.obj.id, 1, mod.cacheOptions);
+            break;
+        case "put":
+        case "del":
+        case "update":
+            ipc.del("bk_message|unread|" + req.obj.id, mod.cacheOptions);
+            break;
+        }
     });
 
     db.setProcessRow("post", "bk_archive", function(req, row, options) {
@@ -224,7 +231,14 @@ mod.sendImage = function(req, options)
 mod.getUnread = function(req, options, callback)
 {
     ipc.get("bk_message|unread|" + req.account.id, mod.cacheOptions, function(count) {
-        callback(null, { count: Math.max(lib.toNumber(count), 0) });
+        if (count) return callback(null, { count: Math.max(lib.toNumber(count), 0) });
+
+        db.select("bk_message", { id: req.account.id }, { total: 1 }, function(err, rows) {
+            if (err) return callback(err);
+
+            ipc.put("bk_message|unread|" + req.account.id, rows[0].count, mod.cacheOptions);
+            callback(null, { count: rows[0].count });
+        });
     });
 }
 
@@ -259,16 +273,7 @@ mod.getMessage = function(req, options, callback)
     db.select("bk_message", req.query, options, function(err, rows, info) {
         if (err) return callback(err);
 
-        // Clear the unread flag if read all messages
-        if (!total) ipc.del("bk_message|unread|" + req.account.id, mod.cacheOptions);
-
-        if (!archive && !trash) {
-            // Update with the actual unread messages count
-            if (total && options.unread) {
-                ipc.put("bk_message|unread|" + req.account.id, rows.length ? rows[0].count : 0, mod.cacheOptions);
-            }
-            return callback(err, rows, info);
-        }
+        if (!archive && !trash) return callback(err, rows, info);
 
         // Move to archive or delete
         lib.forEachLimit(rows, options.concurrency || 1, function(row, next) {
@@ -302,7 +307,6 @@ mod.archiveMessage = function(req, options, callback)
         if (!row) return callback({ status: 404, message: "not found" }, []);
 
         // Merge properties for the archive record
-        var unread = row.unread;
         for (var p in req.query) row[p] = req.query[p];
 
         lib.series([

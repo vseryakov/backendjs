@@ -1673,7 +1673,6 @@ api.sendStatus = function(res, options)
     } catch(e) {
         logger.error('sendStatus:', res.req.url, e.stack);
     }
-    return false;
 }
 
 // Send formatted JSON reply to an API client, if status is an instance of Error then error message with status 500 is sent back.
