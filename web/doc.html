@@ -4665,6 +4665,8 @@ also can be a list where each item is an object with primary key condition. Only
 <li>page - starting page number for pagination, uses count to find actual record to start, for SQL databases mostly</li>
 <li>unique - specified the column name to be used in determining unique records, if for some reasons there are multiple records in the location
  table for the same id only one instance will be returned</li>
+<li>cacheKey - exlicit key for caching, return from the cche or from the DB and then cache it with this key, works the same as <code>get</code></li>
+<li>nocache - do not use cache even if cche key is given</li>
 </ul>
 </li>
 </ul>
@@ -4712,6 +4714,7 @@ Options can use the following special properties:</p>
 <li>select - a list of columns or expressions to return, default is to return all columns</li>
 <li>ops - operators to use for comparison for properties, see <code>db.select</code></li>
 <li>cached - if specified it runs getCached version</li>
+<li>nocache - disable caching even if configured for the table</li>
 </ul>
 <p>Example</p>
 <pre><code>    db.get(&quot;bk_account&quot;, { id: &#39;12345&#39; }, function(err, row) {
@@ -8883,7 +8886,7 @@ is used in <code>/location/get</code> request. It can be used in the application
       trash: { type: &quot;bool&quot; },
       nosent: { type: &quot;bool&quot; },
   },
-  cacheOptions: { cacheName: &quot;&quot;, ttl: 0 },
+  cacheOptions: { cacheName: &quot;messages&quot;, ttl: 0 },
 </code></pre><p>  };
   module.exports = mod;</p>
 <p>  mod.init = function(options)

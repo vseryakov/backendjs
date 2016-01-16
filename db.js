@@ -1398,6 +1398,8 @@ db.getLocations = function(table, query, options, callback)
 //    - page - starting page number for pagination, uses count to find actual record to start, for SQL databases mostly
 //    - unique - specified the column name to be used in determining unique records, if for some reasons there are multiple records in the location
 //       table for the same id only one instance will be returned
+//    - cacheKey - exlicit key for caching, return from the cche or from the DB and then cache it with this key, works the same as `get`
+//    - nocache - do not use cache even if cche key is given
 //
 // On return, the callback can check third argument which is an object with some predefined properties along with driver specific state returned by the query:
 // - affected_rows - how many records this operation affected, for add/put/update
