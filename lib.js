@@ -405,6 +405,7 @@ lib.toAge = function(mtime)
 //                                                descr: { novalue: { name: "name", value: "test" },
 //                                                email: { type: "list", datatype: "string } },
 //                                                internal: { ignore: 1 },
+//                                                obj: { type: "obj", params: { id: { type: "int" }, name: {} } },
 //                                                state: { type: "list", datatype: "string, values: ["VA","DC] } },
 //                                                ssn: { type: "string", regexp: /^[0-9]{3}-[0-9]{3}-[0-9]{4}$/, errmsg: "Valid SSN is required" } },
 //                                                phone: { type: "list", datatype: "number } },
@@ -451,6 +452,11 @@ lib.toParams = function(query, schema, options)
             if (!list.length) break;
             if (!rc[name]) rc[name] = {};
             for (var i = 0; i < list.length -1; i += 2) rc[name][list[i]] = list[i+1];
+            break;
+        case "obj":
+            if (!v) break;
+            var o = this.toParams(v, opts.params);
+            if (Object.keys(o).length) rc[name] = o;
             break;
         case "token":
             if (v) rc[name] = this.base64ToJson(v, opts.secret);
@@ -1024,6 +1030,23 @@ lib.runCallback = function(parent, msg)
     if (msg && typeof msg == "string") msg = this.jsonParse(msg, { logger: "error" });
     if (!msg || !msg.__deferId || !parent[msg.__deferId]) return;
     setImmediate(this.onDeferCallback.bind(parent, msg));
+}
+
+// Assign or clear an interval timer, keep the reference in the given parent object
+lib.deferInterval = function(parent, interval, name, callback)
+{
+    var tname = "_" + name + "Timer";
+    var iname = "_" + name + "Interval";
+    if (interval != parent[iname]) {
+        if (parent[tname]) clearInterval(parent[tname]);
+        if (interval > 0) {
+            parent[tname] = setInterval(callback, interval);
+            parent[iname] = interval;
+        } else {
+            delete parent[iname];
+            delete parent[tname];
+        }
+    }
 }
 
 // Return object with geohash for given coordinates to be used for location search

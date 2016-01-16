@@ -112,7 +112,7 @@ var db = {
            { name: "cache2-(.+)", obj: "cache2", type: "int", nocamel: 1, strip: "cache2-", min: 50, descr: "Tables with TTL for level2 cache, i.e. in the local process LRU memory. It works before the primary cache and keeps records in the local LRU cache for the giben amount of time, the TTL is in ms and must be greater than zero for level 2 cache to work. Make sure `ipc-lru-max-` is properly configured for each process role" },
            { name: "local", descr: "Local database pool for properties, cookies and other local instance only specific stuff" },
            { name: "config", descr: "Configuration database pool to be used to retrieve config parameters from the database, must be defined to use remote db for config parameters, set to `default` to use current default pool" },
-           { name: "config-interval", type: "number", min: 0, descr: "Interval between loading configuration from the database configured with -db-config-type, in seconds, 0 disables refreshing config from the db" },
+           { name: "config-interval", type: "number", min: 0, descr: "Interval between loading configuration from the database configured with -db-config, in minutes, 0 disables refreshing config from the db" },
            { name: "([a-z0-9]+)-pool(-[0-9]+)?", obj: 'poolNames', strip: "Pool", novalue: "default", descr: "A database pool name, depending on the driver it can be an URL, name or pathname, examples of db pools: ```-db-pgsql-pool, -db-dynamodb-pool```, examples of urls: ```postgresql://[user:password@]hostname[:port]/db, mysql://[user:password@]hostname/db, mongodb://hostname[:port]/dbname, cql://[user:password@]hostname[:port]/dbname```" },
            { name: "(.+)-pool-max(-[0-9]+)?", obj: 'poolParams', strip: "Pool", type: "number", min: 1, descr: "Max number of open connections for a pool, default is Infinity" },
            { name: "(.+)-pool-min(-[0-9]+)?", obj: 'poolParams', strip: "Pool", type: "number", min: 1, descr: "Min number of open connections for a pool" },
@@ -157,7 +157,7 @@ var db = {
     localMode: false,
 
     // Refresh config from the db
-    configInterval: 86400,
+    configInterval: 1440,
 
     // Refresh columns from time to time to have the actual table columns
     cacheColumnsInterval: 1440,
@@ -171,9 +171,9 @@ var db = {
     // Default tables
     tables: {
         // Configuration store, same parameters as in the commandline or config file, can be placed in separate config groups
-        // to be used by different backends or workers, 'core' is default global group
+        // to be used by different backends or workers
         bk_config: { name: { primary: 1 },                      // name of the parameter
-                     type: { primary: 1 },                      // config type
+                     type: { primary: 1 },                      // config type or tag
                      value: {},                                 // the value
                      mtime: { type: "bigint", now: 1 } },
 
@@ -358,6 +358,14 @@ db.initConfig = function(options, callback)
 
     logger.info("initConfig:", core.role, this.config, types, this._configMtime || 0);
 
+    // Refresh from time to time with new or modified parameters, randomize a little to spread across all servers.
+    // Do not create/upgrade tables and indexes when reloading the config, this is to
+    // avoid situations when maintenance is being done and any process reloading the config may
+    // create indexes/columns which are not missing but being provisioned or changed.
+    var interval = self.configInterval ? self.configInterval * 60000 + lib.randomShort() : 0;
+    var opts = interval ? lib.cloneObj(options, "noInitTables", /.+/) : null;
+    lib.deferInterval(this, interval, "config", this.initConfig.bind(this, opts));
+
     self.select(options.table || "bk_config", { type: types, mtime: options.delta ? this._configMtime : 0 }, { ops: { type: "in", mtime: "gt" }, pool: this.config }, function(err, rows) {
         if (err) return callback(err, []);
 
@@ -379,12 +387,6 @@ db.initConfig = function(options, callback)
         });
         core.parseArgs(argv);
 
-        // Refresh from time to time with new or modified parameters, randomize a little to spread across all servers
-        if (self.configInterval > 0 && self.configInterval != self._configInterval) {
-            if (self._configTimer) clearInterval(self._configTimer);
-            self._configTimer = setInterval(function() { self.initConfig(); }, self.configInterval * 1000 + lib.randomShort());
-            self._configInterval = self.configInterval;
-        }
         // Init more db pools
         self.init(options, function(err) {
             callback(err, argv);
@@ -402,7 +404,6 @@ db.initTables = function(options, callback)
         self.initPoolTables(name, self.tables, options, next);
     }, callback);
 }
-
 
 // Init the pool, create tables and columns:
 //  - name - db pool to create the tables in
@@ -428,16 +429,17 @@ db.initPoolTables = function(name, tables, options, callback)
     var noInitTables = options.noInitTables || pool.noInitTables || pool.settings.noInitTables || this.noInitTables;
     logger.debug('initPoolTables:', core.role, name, noCacheColumns || 0, '/', noInitTables || 0, Object.keys(tables));
 
+    // Periodic columns refresh
+    var interval = this.cacheColumnsInterval ? this.cacheColumnsInterval * 60000 + lib.randomShort() : 0;
+    lib.deferInterval(pool, interval, "columns", this.cacheColumns.bind(this, options));
+
     // Skip loading column definitions from the database, keep working with the javascript models only
     if (noCacheColumns) {
         this.mergeColumns(pool);
         this.mergeKeys(pool);
         return callback();
     }
-    // Periodic columns refresh
-    if (this.cacheColumnsInterval > 0 && !pool._columnsTimer) {
-        pool._columnsTimer = setInterval(function() { self.initPoolTables(name, {}, options); }, this.cacheColumnsInterval * 60000);
-    }
+
     this.cacheColumns(options, function() {
         var changes = 0;
         lib.forEachSeries(Object.keys(pool.dbtables), function(table, next) {
