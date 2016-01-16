@@ -1447,6 +1447,10 @@ db.select = function(table, query, options, callback)
 {
     if (typeof options == "function") callback = options,options = null;
     options = this.getOptions(table, options);
+    if (!options._cached && !options.nocache && options.cacheKey) {
+        options._cached = 1;
+        return this.getCached("select", table, query, options, callback);
+    }
     var req = this.prepare(Array.isArray(query) ? "list" : "select", table, query, options);
     this.query(req, options, callback);
 }
@@ -1456,6 +1460,7 @@ db.select = function(table, query, options, callback)
 //  - select - a list of columns or expressions to return, default is to return all columns
 //  - ops - operators to use for comparison for properties, see `db.select`
 //  - cached - if specified it runs getCached version
+//  - nocache - disable caching even if configured for the table
 //
 // Example
 //
@@ -1499,24 +1504,25 @@ db.getCached = function(op, table, query, options, callback)
     // Always get the full record
     delete options.select;
     var pool = this.getPool(table, options);
+    table = pool.resolveTable(op, table, query, options).toLowerCase();
+    var obj = this.prepareRow(pool, op, table, query, options);
     var m = pool.metrics.Timer('cache').start();
-    var obj = this.prepareRow(pool, "get", table, query, options);
-    this.getCache(table, obj, options, function(rc) {
+    this.getCache(table, obj, options, function(data) {
         m.end();
         // Cached value retrieved
-        if (rc) rc = lib.jsonParse(rc);
+        if (data) data = lib.jsonParse(data);
         // Parse errors treated as miss
-        if (rc) {
+        if (data) {
             logger.debug("getCached:", options.cacheKey, m.elapsed, "ms");
             pool.metrics.Counter("hits").inc();
-            return callback(null, rc, {});
+            return callback(null, data, {});
         }
         pool.metrics.Counter("misses").inc();
         // Retrieve account from the database, use the parameters like in Select function
-        self[op](table, query, options, function(err, row, info) {
+        self[op](table, query, options, function(err, data, info) {
             // Store in cache if no error
-            if (row && !err) self.putCache(table, row, options);
-            callback(err, row, info);
+            if (data && !err) self.putCache(table, data, options);
+            callback(err, data, info);
         });
     });
 }
@@ -2468,6 +2474,7 @@ db.delCache = function(table, query, options)
     var key = options && options.cacheKey ? options.cacheKey : this.getCacheKey(table, query, options);
     if (!key) return;
     options = this.getCacheOptions(table, options);
+    logger.debug("delCache:", key, options);
     var ttl = this.getCache2Ttl(table, options);
     if (ttl > 0) bkcache.lruDel(key);
     ipc.del(key, options);

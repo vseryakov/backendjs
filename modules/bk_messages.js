@@ -88,7 +88,7 @@ var mod = {
         trash: { type: "bool" },
         nosent: { type: "bool" },
     },
-    cacheOptions: { cacheName: "", ttl: 0 },
+    cacheOptions: { cacheName: "messages", ttl: 0 },
 };
 module.exports = mod;
 
