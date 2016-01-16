@@ -41,7 +41,8 @@ var aws = {
     tokenExpiration: 0,
     amiProfile: "",
     tags: [],
-    ddbDefaultCapacity: 25,
+    ddbDefaultReadCapacity: 25,
+    ddbDefaultWriteCapacity: 5,
 
     // DynamoDB reserved keywords
     ddbReserved: {
@@ -1660,8 +1661,8 @@ aws.ddbCreateTable = function(name, attrs, options, callback)
     var params = { TableName: name,
                    AttributeDefinitions: [],
                    KeySchema: [],
-                   ProvisionedThroughput: { ReadCapacityUnits: options.readCapacity || self.ddbReadCapacity || self.ddbDefaultCapacity,
-                                            WriteCapacityUnits: options.writeCapacity || self.ddbWriteCapacity || self.ddbDefaultCapacity }};
+                   ProvisionedThroughput: { ReadCapacityUnits: options.readCapacity || self.ddbReadCapacity || self.ddbDefaultReadCapacity,
+                                            WriteCapacityUnits: options.writeCapacity || self.ddbWriteCapacity || self.ddbDefaultWriteCapacity }};
 
     if (Array.isArray(attrs) && attrs.length) {
         params.AttributeDefinitions = attrs;
@@ -1729,11 +1730,11 @@ aws.ddbCreateTable = function(name, attrs, options, callback)
 // provisionined throughput on demand.
 // Options must provide the following properties:
 //  - name - table name
-//  - readCapacity -
-//  - writeCapacity - new povisioned throughtput settings
+//  - readCapacity and writeCapacity - new povisioned throughtput settings, both must be specified
 //  - add - an object with indexes to create
 //  - del - delete a global secondary index by name, a string or a list with multiple indexes
 //  - update - an object with indexes to update
+//  - waitTimeout - how long to wait in ms until the table is active again
 //
 //  Example
 //
@@ -1809,7 +1810,11 @@ aws.ddbUpdateTable = function(options, callback)
         }
     }
 
-    this.queryDDB('UpdateTable', params, options, callback);
+    this.queryDDB('UpdateTable', params, options, function(err, item) {
+        if (err || options.nowait) return callback(err, item);
+        options.waitStatus = "UPDATING";
+        self.ddbWaitForTable(name, item, options, callback);
+    });
 }
 
 // Remove a table from the database.

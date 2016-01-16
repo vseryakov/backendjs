@@ -105,7 +105,6 @@ var api = {
            { name: "deny-ip", type: "regexpobj", set: 1, descr: "Set regexp for IPs that will be denied access, replaces the whole access list. It is checked before endpoint access list." },
            { name: "allow", type: "regexpobj", descr: "Regexp for URLs that dont need credentials, replaces the whole access list" },
            { name: "allow-path", type: "regexpobj", key: "allow", descr: "Add to the list of allowed URL paths without authentication, return result before even checking for the signature" },
-           { name: "disallow-path", type: "regexpobj", key: "allow", del: 1, descr: "Remove from the list of allowed URL paths that dont need authentication, most common case is to to remove `^/account/add$` to disable open registration" },
            { name: "allow-anonymous", type: "regexpobj", descr: "Add to the list of allowed URL paths that can be served with or without valid account, the difference with `allow-path` is that it will check for signature and an account but will continue if no login is provided, return error in case of wrong account or not account found" },
            { name: "allow-ssl", type: "regexpobj", descr: "Add to the list of allowed URL paths using HTTPs only, plain HTTP requests to these urls will be refused" },
            { name: "redirect-ssl", type: "regexpobj", descr: "Add to the list of the URL paths to be redirected to the same path but using HTTPS protocol, for proxy mode the proxy server will perform redirects" },
@@ -776,7 +775,8 @@ api.createWebSocketRequest = function(socket, url, reply)
     req.res.wsock = socket;
     req.res.end = function(body) {
         reply.call(this.wsock, body);
-        this.wsock._requests.splice(this.wsock._requests.indexOf(this.req), 1);
+        var idx = this.wsock._requests.indexOf(this.req);
+        if (idx > -1) this.wsock._requests.splice(idx, 1);
         this.req.res = null;
         this.req = null;
         this.wsock = null;

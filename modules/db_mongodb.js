@@ -52,7 +52,6 @@ Pool.prototype.cacheColumns = function(options, callback)
     var self = this;
     this.acquire(function(err, client) {
         if (err) return callback(err);
-        self.dbcolumns = {};
         client.listCollections({}).toArray(function(err, items) {
             for (var i = 0; i < items.length; i++) {
                 var x = items[i].name.split(".");

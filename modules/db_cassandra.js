@@ -175,9 +175,6 @@ Pool.prototype.cacheColumns = function(options, callback)
 
         client.query("SELECT * FROM system.schema_columns WHERE keyspace_name=?", [client.keyspace], options, function(err, rows) {
             rows.sort(function(a,b) { return a.component_index - b.component_index });
-            self.dbcolumns = {};
-            self.dbindexes = {};
-            self.dbkeys = {};
             for (var i = 0; i < rows.length; i++) {
                 if (!self.dbcolumns[rows[i].columnfamily_name]) self.dbcolumns[rows[i].columnfamily_name] = {};
                 var data_type = rows[i].validator.replace(/[\(\)]/g,".").split(".").pop().replace("Type", "").toLowerCase();

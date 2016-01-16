@@ -662,7 +662,7 @@ To see current default config parameters run any of the following commands:
 
         node -e 'require("backendjs").core.showHelp()'
 
-To disable open registration in this mode just add config parameter `api-disallow-path=^/account/add$` or if developing an application add this in the initMiddleware
+To disable open registration in this mode just add config parameter `api-deny-path=^/account/add$` or if developing an application add this in the initMiddleware
 
         api.initMiddleware = function(callback) {
             this.allow.splice(this.allow.indexOf('^/account/add$'), 1);
@@ -1154,7 +1154,7 @@ This is implemented by the `accounts` module from the core. To enable accounts f
   Add new account, all parameters are the columns from the `bk_account` table, required columns are: **name, secret or password, login**.
 
   By default, this URL is in the list of allowed paths that do not need authentication, this means that anybody can add an account. For the real
-  application this may not be a good choice so the simplest way to disable it to add api-disallow-path=^/account/add$ to the config file or
+  application this may not be a good choice so the simplest way to disable it to add api-deny-path=^/account/add$ to the config file or
   specify in the command line. More complex ways to perform registration will require adding pre and.or post callbacks to handle account registration
   for example with invitation codes....
 

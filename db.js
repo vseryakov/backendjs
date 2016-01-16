@@ -356,7 +356,7 @@ db.initConfig = function(options, callback)
     // Make sure we have only unique items in the list, skip empty or incomplete items
     types = lib.strSplitUnique(types);
 
-    logger.debug("initConfig:", core.role, this.config, types, this._configMtime);
+    logger.info("initConfig:", core.role, this.config, types, this._configMtime || 0);
 
     self.select(options.table || "bk_config", { type: types, mtime: options.delta ? this._configMtime : 0 }, { ops: { type: "in", mtime: "gt" }, pool: this.config }, function(err, rows) {
         if (err) return callback(err, []);
@@ -1009,8 +1009,8 @@ db.batch = function(table, op, objs, options, callback)
 //    - batch - if true rowCallback will be called with all rows from the batch, not every row individually, batch size is defined by the count property
 //    - noscan - if 1 no scan will be performed if no prmary keys are specified
 //    - fullscan - if 1 force to scan full table without using any primary key conditons, use all query properties for all records (DynamoDB)
-//    - useCapacity - triggers to use specific capacity
-//    - factorCapacity - a factor to apply for the read capacity limit and triggers the capcity check usage
+//    - useCapacity - triggers to use specific capacity, default is `read`
+//    - factorCapacity - a factor to apply for the read capacity limit and triggers the capacity check usage, default is `0.9`
 //    - tableCapacity - use a different table for capacity throttling instead of the `table`, useful for cases when the row callback performs
 //       writes into that other table and capacity is different
 //    - capacity - a full capacity object to pass to select calls

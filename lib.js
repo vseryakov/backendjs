@@ -296,7 +296,8 @@ lib.toRegexpObj = function(obj, val, options)
     if (!Array.isArray(obj.list)) obj.list = [];
     if (val) {
         if (options && options.del) {
-            obj.list.splice(obj.list.indexOf(val), 1);
+            var idx = obj.list.indexOf(val);
+            if (idx > -1) obj.list.splice(idx, 1);
         } else {
             if (options && options.set) obj.list = [];
             if (!Array.isArray(val)) val = [ val ];
@@ -440,7 +441,8 @@ lib.toParams = function(query, schema, options)
             break;
         case "list":
             if (!v) break;
-            rc[name] = this.strSplit(v, opts.separator, opts.datatype).filter(function(x) { return !Array.isArray(opts.values) ? 1 : opts.values.indexOf(x) > -1 });
+            rc[name] = this[opts.unique ? "strSplitUnique" : "strSplit"](v, opts.separator, opts.datatype);
+            if (Array.isArray(opts.values)) rc[name] = rc[name].filter(function(x) { return opts.values.indexOf(x) > -1 });
             if (typeof opts.min == "number" && rc[name].length < opts.min) delete rc[name];
             break;
         case "map":
