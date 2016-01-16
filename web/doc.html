@@ -693,7 +693,7 @@ rendering is done using Javascript. This is how the <code>api.html</code> develp
 <pre><code>    bkjs run-backend -help | grep api-allow
 
     node -e &#39;require(&quot;backendjs&quot;).core.showHelp()&#39;
-</code></pre><p>To disable open registration in this mode just add config parameter <code>api-disallow-path=^/account/add$</code> or if developing an application add this in the initMiddleware</p>
+</code></pre><p>To disable open registration in this mode just add config parameter <code>api-deny-path=^/account/add$</code> or if developing an application add this in the initMiddleware</p>
 <pre><code>    api.initMiddleware = function(callback) {
         this.allow.splice(this.allow.indexOf(&#39;^/account/add$&#39;), 1);
     }
@@ -1142,7 +1142,7 @@ verifying if the given login and secret are valid, there is no special login API
 <li><p><code>/account/add</code></p>
 <p>Add new account, all parameters are the columns from the <code>bk_account</code> table, required columns are: <strong>name, secret or password, login</strong>.</p>
 <p>By default, this URL is in the list of allowed paths that do not need authentication, this means that anybody can add an account. For the real
-application this may not be a good choice so the simplest way to disable it to add api-disallow-path=^/account/add$ to the config file or
+application this may not be a good choice so the simplest way to disable it to add api-deny-path=^/account/add$ to the config file or
 specify in the command line. More complex ways to perform registration will require adding pre and.or post callbacks to handle account registration
 for example with invitation codes....</p>
 <p>In the table <code>bk_auth</code>, the column <code>type</code> is used to distinguish between account roles, by default only account with type <code>admin</code> can
@@ -1584,8 +1584,7 @@ Read all new messages, i.e. the messages that never been read or issued <code>/m
 <ul>
 <li><code>_archive</code> - if set to 1, all returned messages will be archived automatically, so no individual /message/read call needed</li>
 <li><code>_trash</code> - if set to 1, all returned messages will be deleted, not archived</li>
-<li><code>_unread</code> - if set to 1, return only messages with unread flag</li>
-<li><code>_total</code> - if set to 1 then return how many messages in the inbox, when combined with <code>_unread</code> flag it will update
+<li><code>_total</code> - if set to 1 then return how many messages in the inbox
 the unread flag with the actual number of unread messages.</li>
 </ul>
 <p>Example:</p>
@@ -1599,7 +1598,7 @@ the unread flag with the actual number of unread messages.</li>
   /message/get?sender=12345
 
   # How many new messages
-  /message/get?_total=1&amp;_unread=1
+  /message/get?_total=1
 </code></pre></li>
 <li><p><code>/message/get/archive</code>
 Receive archived messages. The images are not returned, only link to the image in <code>icon</code> property of reach record,
@@ -2328,7 +2327,6 @@ Database pool statistics and other diagnostics</p>
 <li><code>api-deny-ip</code> - Set regexp for IPs that will be denied access, replaces the whole access list. It is checked before endpoint access list.</li>
 <li><code>api-allow</code> - Regexp for URLs that dont need credentials, replaces the whole access list</li>
 <li><code>api-allow-path</code> - Add to the list of allowed URL paths without authentication, return result before even checking for the signature</li>
-<li><code>api-disallow-path</code> - Remove from the list of allowed URL paths that dont need authentication, most common case is to to remove <code>^/account/add$</code> to disable open registration</li>
 <li><code>api-allow-anonymous</code> - Add to the list of allowed URL paths that can be served with or without valid account, the difference with <code>allow-path</code> is that it will check for signature and an account but will continue if no login is provided, return error in case of wrong account or not account found</li>
 <li><code>api-allow-ssl</code> - Add to the list of allowed URL paths using HTTPs only, plain HTTP requests to these urls will be refused</li>
 <li><code>api-redirect-ssl</code> - Add to the list of the URL paths to be redirected to the same path but using HTTPS protocol, for proxy mode the proxy server will perform redirects</li>
@@ -3608,11 +3606,11 @@ provisionined throughput on demand.
 Options must provide the following properties:</p>
 <ul>
 <li>name - table name</li>
-<li>readCapacity -</li>
-<li>writeCapacity - new povisioned throughtput settings</li>
+<li>readCapacity and writeCapacity - new povisioned throughtput settings, both must be specified</li>
 <li>add - an object with indexes to create</li>
 <li>del - delete a global secondary index by name, a string or a list with multiple indexes</li>
 <li>update - an object with indexes to update</li>
+<li>waitTimeout - how long to wait in ms until the table is active again</li>
 </ul>
 <p>Example</p>
 <pre><code>        aws.ddbUpdateTable({ name: &quot;users&quot;, add: { name_id: { name: &quot;S&quot;, id: &#39;N&#39;, readCapacity: 20, writeCapacity: 20, projection: [&quot;mtime&quot;,&quot;email&quot;] } })
@@ -4519,8 +4517,8 @@ To hint a driver that scanning is in progress the <code>options.scanning</code> 
 <li>batch - if true rowCallback will be called with all rows from the batch, not every row individually, batch size is defined by the count property</li>
 <li>noscan - if 1 no scan will be performed if no prmary keys are specified</li>
 <li>fullscan - if 1 force to scan full table without using any primary key conditons, use all query properties for all records (DynamoDB)</li>
-<li>useCapacity - triggers to use specific capacity</li>
-<li>factorCapacity - a factor to apply for the read capacity limit and triggers the capcity check usage</li>
+<li>useCapacity - triggers to use specific capacity, default is <code>read</code></li>
+<li>factorCapacity - a factor to apply for the read capacity limit and triggers the capacity check usage, default is <code>0.9</code></li>
 <li>tableCapacity - use a different table for capacity throttling instead of the <code>table</code>, useful for cases when the row callback performs
  writes into that other table and capacity is different</li>
 <li>capacity - a full capacity object to pass to select calls</li>
@@ -4986,6 +4984,12 @@ callbacks to keep the record consistent.</p>
 </ul>
 
 <ul>
+<li><p><code>db.existsTable(table, options)</code></p>
+<p> Returns true if a table exists</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>db.getPool(table, options)</code></p>
 <p> Return database pool by table name or default pool, options may contain { pool: name } to return
 the pool by given name. This call always return valid pool object, in case no requiested pool found it returns
@@ -5197,7 +5201,7 @@ is used for SQL parametrized statements</p>
 </ul>
 
 <ul>
-<li><p><code>db.getCacheTtl(table, options)</code></p>
+<li><p><code>db.getCache2Ttl(table, options)</code></p>
 <p> Return TTL for level 2 cache</p>
 </li>
 </ul>
@@ -6017,6 +6021,7 @@ options may specify the following parameters:</p>
 <li>until - skip lines until this regexp matches</li>
 <li>ignore - skip lines that match this regexp</li>
 <li>header - skip first line because it is the CSV header line</li>
+<li>json - each line represent an JSON object, convert and pass it to the line callback if not null</li>
 </ul>
 </li>
 </ul>
@@ -6428,7 +6433,7 @@ objects will be create automatically. The options can have the folowing properti
 <ul>
 <li><p><code>lib.objDescr(obj, options)</code></p>
 <p> Return an object structure as a string object by showing primitive properties only, for arrays it shows the length,
-strings are limited by options.length or 16 bytes,
+strings are limited by options.length or 32 bytes,
 the object depth is limited by options.depth or 5 levels deep, the number of properties are limited by options.count or 5</p>
 </li>
 </ul>
@@ -8821,7 +8826,6 @@ is used in <code>/location/get</code> request. It can be used in the application
               unjoin: [&quot;mtime&quot;,&quot;sender&quot;],
               ops: { select: &quot;ge&quot; }
           },
-          unread: { type: &quot;int&quot;, value: 1, pub: 1 },     // unread flag
           sender: { type: &quot;text&quot; },                      // sender id
           alias: {},                                     // sender alias
           msg: {},                                       // Text of the message
@@ -8877,7 +8881,6 @@ is used in <code>/location/get</code> request. It can be used in the application
   controls: {
       archive: { type: &quot;bool&quot; },
       trash: { type: &quot;bool&quot; },
-      unread: { type: &quot;bool&quot; },
       nosent: { type: &quot;bool&quot; },
   },
   cacheOptions: { cacheName: &quot;&quot;, ttl: 0 },
@@ -8894,7 +8897,16 @@ is used in <code>/location/get</code> request. It can be used in the application
   {</p>
 <pre><code>  db.setProcessRow(&quot;post&quot;, &quot;bk_message&quot;, function(req, row, options) {
       if (row.icon) row.icon = api.iconUrl({ prefix: &#39;message&#39;, id: row.id, type: row.mtime + &quot;:&quot; + row.sender }); else delete row.icon;
-      if (req.op == &quot;add&quot; || (req.op == &quot;put&quot; &amp;&amp; req.obj.unread)) ipc.incr(&quot;bk_message|unread|&quot; + req.obj.id, 1, mod.cacheOptions);
+      switch (req.op) {
+      case &quot;add&quot;:
+          ipc.incr(&quot;bk_message|unread|&quot; + req.obj.id, 1, mod.cacheOptions);
+          break;
+      case &quot;put&quot;:
+      case &quot;del&quot;:
+      case &quot;update&quot;:
+          ipc.del(&quot;bk_message|unread|&quot; + req.obj.id, mod.cacheOptions);
+          break;
+      }
 </code></pre></li>
 </ul>
 
