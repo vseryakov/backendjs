@@ -161,7 +161,7 @@ aws.getInstanceMeta = function(path, callback)
 {
     var self = this;
     if (typeof callback != "function") callback = lib.noop;
-    core.httpGet("http://169.254.169.254" + path, { httpTimeout: 100, quiet: true, retryCount: 2, retryTimeout: 100 }, function(err, params) {
+    core.httpGet("http://169.254.169.254" + path, { httpTimeout: 100, quiet: true, retryOnError: 1, retryCount: 2, retryTimeout: 100 }, function(err, params) {
         logger.debug('getInstanceMeta:', path, params.status, params.data, err || "");
         callback(err, params.status == 200 ? params.data : "");
     });
@@ -469,7 +469,7 @@ aws.queryDDB = function (action, obj, options, callback)
             if ((err || params.status == 500 || params.data.match(/(ProvisionedThroughputExceededException|ThrottlingException)/)) && options.retryCount-- > 0) {
                 options.retryTimeout *= 3;
                 logger.debug('queryDDB:', action, obj, err || params.data, 'retrying:', options.retryCount, options.retryTimeout);
-                return setTimeout(function() { self.queryDDB(action, obj, options, callback); }, options.retryTimeout);
+                return setTimeout(self.queryDDB.bind(self, action, obj, options, callback), options.retryTimeout);
             }
             // Report about the error
             if (!err) {
