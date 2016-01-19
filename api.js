@@ -1250,16 +1250,24 @@ api.getResultPage = function(req, options, rows, info)
 
 // Columns that are allowed to be visible, used in select to limit number of columns to be returned by a query
 //  - pub property means public column
+//  - admins property means visible to admins and owners only
 //
 // options may be used to define the following properties:
-// - columns - list of public columns to be returned, overrides the public columns in the definition list
+//  - skip - a regexp with names to be excluded as well
+//  - allow - a list of properties which can be checked along with the `pub` property for a column to be considered public
+//
+//    api.getPublicColumns("bk_account", { allow: ["admins"], skip: /device_id|0$/ });
+//
 api.getPublicColumns = function(table, options)
 {
-    if (options && Array.isArray(options.columns)) {
-        return options.columns.filter(function(x) { return x.pub }).map(function(x) { return x.name });
-    }
-    var cols = this.getColumns(table, options);
-    return Object.keys(cols).filter(function(x) { return cols[x].pub });
+    var allow = [ "pub" ];
+    if (options && options.allow) allow = allow.concat(options.allow);
+    var cols = db.getColumns(table, options);
+    return Object.keys(cols).filter(function(x) {
+        if (options && util.isRegExp(options.skip) && options.skip.test(x)) return false;
+        for (var i in allow) if (cols[x][allow[i]]) return true;
+        return false;
+    });
 }
 
 // Process records and keep only public properties as defined in the table columns. This method is supposed to be used in the post process

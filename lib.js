@@ -533,13 +533,21 @@ lib.toFormat = function(format, data, options)
     case "csv":
         var csv = "";
         var sep = (options && options.separator) || "\t";
+
         if (options && options.header) {
             var keys = allow || Object.keys(rows[0]);
             csv += keys.join(sep) + "\n";
         }
         for (var i = 0; i < rows.length; i++) {
             keys = allow || Object.keys(rows[i]);
-            csv += keys.map(function(y) { return rows[i][y] || "" }).join(sep) + "\n";
+            csv += keys.map(function(y) {
+                var v = rows[i][y] || "";
+                if (typeof v == "string" && v) {
+                    v = v.replace(/[\r\n\t]/g, " ");
+                    if (sep != "\t") v = v.replace(sep, " ");
+                }
+                return v;
+            }).join(sep) + "\n";
         }
         return csv;
 

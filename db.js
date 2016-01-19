@@ -1176,6 +1176,9 @@ db.search = function(table, query, options, callback)
 //    non-existing records an empty object will be attached
 // - options.incr can be a list of property names that need to be summed up with each other, not overriden
 //
+// A special case when table is empty `db.join` just returns same rows to the callback, this is
+// for convenience of doing joins on some conditions and trigger it by setting the table name or skip the join completely.
+//
 // Example:
 //
 //          db.join("bk_account", [{id:"123",key1:1},{id:"234",key1:2}], lib.log)
@@ -1183,11 +1186,11 @@ db.search = function(table, query, options, callback)
 //
 db.join = function(table, rows, options, callback)
 {
-    var self = this;
+    if (!table) return callback(null, rows);
     if (typeof options == "function") callback = options, options = null;
     options = this.getOptions(table, options);
-    if (typeof callback != "function") callback = lib.noop;
 
+    var self = this;
     var map = {}, ids = [];
     var keys = options.keys || self.getKeys(table, options);
     var mkeys = options.keysMap ? keys.map(function(x) { return options.keysMap[x] || x }) : keys;
@@ -1245,8 +1248,8 @@ db.join = function(table, rows, options, callback)
 //          db.describeTables({
 //                  geo: { geohash: { primary: 1 },
 //                         id: { primary: 1 },
-//                         latitude: { type: "real" },
-//                         longitude: { type: "real" },
+//                         latitude: { type: "real", projections: 1 },
+//                         longitude: { type: "real", projections: 1 },
 //                  }
 //          });
 //  the rest of the columns can be defined as needed, no special requirements.
@@ -1254,12 +1257,12 @@ db.join = function(table, rows, options, callback)
 //  *`id` can be any property, it is used for sorting only. For DynamoDB if geohash is an index then lat/long properties must
 //   use projections: 1 in order to be included in the index projection.*
 //
-// `obj` must contain the following:
+// `query` must contain the following:
 //  - latitude
 //  - longitude
 //
 // other properties:
-//  - distance - in km, the radius around the point, in not given the `min-distance` will be used
+//  - distance - in km, the radius around the point, if not given the `options.minDistance` will be used
 //
 // all other properties will be used as additional conditions
 //
@@ -1268,7 +1271,7 @@ db.join = function(table, rows, options, callback)
 //     only highest/lowest matches, useful for trending/statistics, count still defines the total number of locations
 //  - geokey - name of the geohash primary key column, by default it is `geohash`, it is possible to keep several different
 //     geohash indexes within the same table with different geohash length which will allow to perform
-//     searches more precisely dependgin on the distance given
+//     searches more precisely depending on the distance given
 //  - round - a number that defines the "precision" of  the distance, it rounds the distance to the nearest
 //    round number and uses decimal point of the round number to limit decimals in the distance
 //  - sort - sorting order, by default the RANGE key is used for DynamoDB, it is possible to specify any Index as well,
@@ -1294,7 +1297,6 @@ db.getLocations = function(table, query, options, callback)
 {
     var self = this;
     if (typeof options == "function") callback = options, options = null;
-    if (typeof callback != "function") callback = lib.noop;
     options = this.getOptions(table, options);
     var cols = db.getColumns(table, options);
     var keys = db.getKeys(table, options);
