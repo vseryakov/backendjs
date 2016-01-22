@@ -94,8 +94,8 @@ server.start = function()
     }
 
     // Graceful shutdown, kill all children processes
-    process.once('exit', function() { self.onexit()  });
-    process.once('SIGTERM', function() { self.onkill(); });
+    process.once('exit', function() { self.onProcessExit()  });
+    process.once('SIGTERM', function() { self.onProcessTerminate(); });
     // Reserved for restarting purposes
     process.on('SIGUSR2', function() {});
 
@@ -204,7 +204,7 @@ server.startWeb = function(options)
 
     process.on("uncaughtException", function(err) {
         logger.error('fatal:', core.role, lib.traceError(err));
-        self.onkill();
+        self.onProcessTerminate();
     });
 
     if (cluster.isMaster) {
@@ -287,7 +287,7 @@ server.startWeb = function(options)
             });
 
             // Graceful shutdown if the server needs restart
-            self.onkill = function() {
+            self.onProcessTerminate = function() {
                 self.exiting = true;
                 setTimeout(function() { process.exit(0); }, 30000);
                 logger.log('web server: shutdown started');
@@ -339,7 +339,7 @@ server.startWeb = function(options)
             core.dropPrivileges();
 
             // Gracefull termination of the process
-            self.onkill = function() {
+            self.onProcessTerminate = function() {
                 self.exiting = true;
                 api.shutdown(function() {
                     process.exit(0);
@@ -464,18 +464,21 @@ server.startDaemon = function()
 }
 
 // Kill all child processes on exit
-server.onexit = function()
+server.onProcessExit = function()
 {
     this.exiting = true;
     if (this.child) try { this.child.kill('SIGTERM'); } catch(e) {}
     for (var pid in this.pids) { try { process.kill(pid) } catch(e) {} };
 }
 
-// Terminates the server process
-server.onkill = function()
+// Terminates the server process, it is called on SIGTEMR signal but can be called manually for graceful shitdown,
+// it runs `shutdown[Role]` methods before exiting
+server.onProcessTerminate = function()
 {
     this.exiting = true;
-    process.exit(0);
+    core.runMethods("shutdown" + lib.toTitle(core.role), function() {
+        process.exit(0);
+    });
 }
 
 // Create a pid file for the current process
