@@ -2489,6 +2489,7 @@ db.delCache = function(table, query, options)
 // Returns concatenated values for the primary keys, this is used for caching records by primary key
 db.getCacheKey = function(table, query, options)
 {
+    if (options && options.cacheKey) return options.cacheKey;
     var keys = this.getKeys(table, options).filter(function(x) { return query[x] }).map(function(x) { return query[x] }).join(this.separator);
     if (keys) keys = (options && options.cachePrefix ? options.cachePrefix : table) + this.separator + keys;
     return keys;

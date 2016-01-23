@@ -1370,7 +1370,7 @@ will be needed once it is confgiured which prefix can be public using `api-allow
 
 The format of the endpoint is:
 
-- `/image/prefix/id/type`
+- `/image/prefix/id/type[.png|.jpg]`
 
     Example:
 
@@ -1383,6 +1383,7 @@ The format of the endpoint is:
         # Make requests
         /image/account/12345/0
         /image/account/12345/1
+        /image/account/12345/1.jpg
 
         #Return icons for account 12345 for types 0 and 1
 
@@ -1410,6 +1411,7 @@ The is implemented by the `icons` module from the core. To enable this functiona
   The following parameters can be used:
   - `prefix` - must be specified, this defines the icons namespace
   - `type` is used to specify unique icon created with such type which can be any string.
+  - `_ext` - image extension, like png or jpg if it was saved with it previously
 
 - `/icon/put`
 
