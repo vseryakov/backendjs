@@ -1687,6 +1687,7 @@ lib.objGet = function(obj, name, options)
 // objects will be create automatically. The options can have the folowing properties:
 // - incr - if 1 the numeric value will be added to the existing if any
 // - push - add to the array, if it is not an array a new empty aray is created
+// - unique - only push if not in the list
 //
 // Example
 //
@@ -1705,7 +1706,7 @@ lib.objSet = function(obj, name, value, options)
     }
     if (options && options.push) {
         if (!Array.isArray(obj[p])) obj[p] = [];
-        obj[p].push(value);
+        if (!options.unique || obj[p].indexOf(value) == -1) obj[p].push(value);
     } else
     if (options && options.incr) {
         if (!obj[p]) obj[p] = 0;

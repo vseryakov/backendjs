@@ -2256,12 +2256,9 @@ db.getTableProperties = function(table, options)
 // - maxCapacity - if set it will be used as the max burst capacity limit
 db.getCapacity = function(table, options)
 {
-    var cap = { table: table, writeCapacity: 0, readCapacity: 0 };
-    var cols = this.getColumns(table);
-    for (var p in cols) {
-        if (cols[p].readCapacity) cap.readCapacity = Math.max(cols[p].readCapacity, cap.readCapacity);
-        if (cols[p].writeCapacity) cap.writeCapacity = Math.max(cols[p].writeCapacity, cap.writeCapacity);
-    }
+    var capacity = this.getPool(table, options).dbcapacity[table] || {};
+    capacity = capacity[options && options.sort] || capacity[table] || {};
+    var cap = { table: table, writeCapacity: capacity.read || 0, readCapacity: capacity.write || 0 };
     var use = options && options.useCapacity;
     var factor = options && options.factorCapacity > 0 && options.factorCapacity <= 1 ? options.factorCapacity : 1;
     cap.maxCapacity = Math.max(1, typeof use == "number" ? use : use == "read" ? cap.readCapacity : cap.writeCapacity);
@@ -2575,6 +2572,7 @@ db.Pool = function(options)
     this.dbkeys = {};
     this.dbindexes = {};
     this.dbcache = {};
+    this.dbcapacity = {};
     this.connect = {};
     this.settings = {};
     this.configure(options);
