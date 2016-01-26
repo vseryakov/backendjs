@@ -1476,7 +1476,7 @@ tests.test_config = function(callback)
 {
     var argv = ["-uid", "1",
                 "-proxy-port", "3000",
-                "-db-sqlite-pool-no-init-tables",
+                "-db-sqlite-pool-no-cache-columns",
                 "-api-allow-path", "^/a",
                 "-api-allow-admin", "^/a",
                 "-api-allow-account-dev=^/a",
@@ -1493,7 +1493,7 @@ tests.test_config = function(callback)
     core.parseArgs(argv);
     if (core.uid != 1) return callback("invalid uid");
     if (core.proxy.port != 3000) return callback("invalid proxy-port");
-    if (!db.poolParams.sqliteNoInitTables) return callback("invalid sqlite no init tables");
+    if (!db.poolParams.sqliteNoCacheColumns) return callback("invalid sqlite no init tables");
     if (db.poolParams.sqliteMax != 10) return callback("invalid sqlite max");
     if (db.poolNames.sqlite1 != "a") return callback("invalid sqlite1");
     if (db.poolParams.sqliteMax1 != 10) return callback("invalid sqlite1 max");

@@ -122,7 +122,7 @@ aws.configureServer = function(options, callback)
            if (!self.elbName) return next();
            self.elbRegisterInstances(self.elbName, core.instance.id, options, function() { next() });
        },
-       ], callback);
+    ], callback);
 }
 
 // Read key and secret from the AWS SDK credentials file, if no profile is given in the config or command line only tge default peofile
@@ -275,10 +275,10 @@ aws.parseXMLResponse = function(err, params, options, callback)
             err = lib.newError({ message: params.obj.Error.Message, code: params.obj.Error.Code, status: params.status });
         }
         if (!err) err = lib.newError({ message: "Error: " + params.data, status: params.status });
-        logger.logger((options && options.logger_error) || "error", 'queryAWS:', params.href, params.search, params.Action || "", err);
+        logger.logger((options && options.logger_error) || "error", 'queryAWS:', params.href, params.search, params.Action || "", err, options);
         return callback(err, params.obj);
     }
-    logger.debug('queryAWS:', params.href, params.search, params.Action || "", params.obj);
+    logger.debug('queryAWS:', params.href, params.search, params.Action || "", params.obj, options);
     callback(err, params.obj);
 }
 
@@ -858,13 +858,13 @@ aws.ec2CreateImage = function(options, callback)
     if (typeof options == "function") callback = options, options = {};
     if (!options) options = {};
 
-    var req = { InstanceId: options.instanceId, Name: options.name || (core.appName + "-" + core.appVersion) };
-    if (options.noreboot) req.NoReboot = true;
+    var req = { InstanceId: options.instanceId, Name: options.name || (core.appName + "-" + core.appVersion), NoReboot: true };
     if (options.reboot) req.NoReboot = false;
+    if (options.noreboot) req.NoReboot = true;
     if (options.descr) req.Description = options.descr;
 
-    // If creating image from the current inddtance then no reboot
-    if (!req.InstanceId && core.instance.type == "aws") req.InstanceId = core.instance.id, req.NoReboot = true;
+    // If creating image from the current instance then no reboot
+    if (!req.InstanceId && core.instance.type == "aws") req.InstanceId = core.instance.id;
 
     this.queryEC2("CreateImage", req, options, callback);
 }
@@ -1679,7 +1679,7 @@ aws.ddbCreateTable = function(name, attrs, options, callback)
     if (typeof options.keys == "string" && options.keys) {
         params.KeySchema.push({ AttributeName: options.keys, KeyType: "HASH" });
     }
-    if (!params.KeySchema.length) {
+    if (!params.KeySchema.length && params.AttributeDefinitions.length) {
         params.KeySchema.push({ AttributeName: params.AttributeDefinitions[0].AttributeName, KeyType: "HASH" });
     }
 

@@ -290,6 +290,7 @@ case "$ARG" in
        echo "ClientAliveInterval 15" >> /tmp/sshd_config
        echo "ClientAliveCountMax 5" >> /tmp/sshd_config
        mv /tmp/sshd_config /etc/ssh
+       chmod 600 /etc/sshd_config
        service sshd restart
     fi
     ;;
@@ -401,7 +402,7 @@ case "$ARG" in
     if [ "$(grep -s '#Bkjs' /etc/sysctl.conf)" = "" ]; then
        echo "#Bkjs" >> /etc/sysctl.conf
        echo 'kernel.core_uses_pid=0' >> /etc/sysctl.conf
-       echo 'vm.max_map_count=131072' >> /etc/sysctl.conf
+       echo 'vm.max_map_count=262144' >> /etc/sysctl.conf
        echo 'vm.min_free_kbytes=65536' >> /etc/sysctl.conf
        echo 'net.core.somaxconn=16384' >> /etc/sysctl.conf
        echo 'net.core.netdev_max_backlog=16384' >> /etc/sysctl.conf
@@ -563,19 +564,19 @@ case "$ARG" in
 
     case "$ARG" in
      run-server)
-        $NODE_BIN $NODE_ARGS $SCRIPT -syslog -home $BKJS_HOME -daemon -monitor -master $BKJS_ARGS $@
+        $NODE_BIN $NODE_ARGS $SCRIPT -syslog -home $BKJS_HOME -daemon -monitor -master $BKJS_ARGS "$@"
         ;;
 
      run-backend)
-        $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME -log debug -master -watch `pwd` $@
+        $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME -log debug -master -watch `pwd` "$@"
         ;;
 
      run-shell|bksh)
-        $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME -shell -log log $@
+        $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME -shell -log log "$@"
         ;;
 
      *)
-        $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME -master $@
+        $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME -master "$@"
         ;;
     esac
     ;;
@@ -723,20 +724,26 @@ case "$ARG" in
     [ "$BACKUP_USER" != "" ] && chown -R $BACKUP_USER $BKJS_BACKUP
 
     # Files we just backed up
-    [ "$BACKUP_ARCHIVE_FILES" = "" ] && exit
+    if [ "$BACKUP_ARCHIVE_FILES" != "" ]; then
 
-    # Send to remote host if configured, must be full ssh url with path like user@host:/path
-    if [ "$BACKUP_REMOTE" != "" ]; then
-       for h in $BACKUP_REMOTE; do
-         su - $BKJS_USER -c "scp -q $BACKUP_ARCHIVE_FILES $h"
-       done
+       # Send to remote host if configured, must be full ssh url with path like user@host:/path
+       if [ "$BACKUP_REMOTE" != "" ]; then
+          for h in $BACKUP_REMOTE; do
+            su - $BKJS_USER -c "scp -q $BACKUP_ARCHIVE_FILES $h"
+          done
+       fi
+
+       # Send to the S3 bucket using AWS tools
+       if [ "$BACKUP_S3" != "" ]; then
+          for f in $BACKUP_ARCHIVE_FILES; do
+            aws s3 cp $f $BACKUP_S3/$(basename $f) --quiet
+          done
+       fi
     fi
 
-    # Send to the S3 bucket using AWS tools
-    if [ "$BACKUP_S3" != "" ]; then
-       for f in $BACKUP_ARCHIVE_FILES; do
-         aws s3 cp $f $BACKUP_S3/$(basename $f) --quiet
-       done
+    # Sync a directory with S3 bucket
+    if [ "$BACKUP_S3" != "" -a "$BACKUP_S3_SYNC" != "" ]; then
+       aws s3 sync $BACKUP_S3_SYNC $BACKUP_S3 --quiet
     fi
     ;;
 
@@ -789,6 +796,14 @@ case "$ARG" in
     killall postgres
     ;;
 
+  init-redis)
+    ($0 get-redis)
+    ($0 run-redis)
+    if [ "$PLATFORM" = "Linux" ]; then
+       sudo $0 init-redis-service
+    fi
+    ;;
+
   get-redis)
     # Install redis server
     sudo yum remove -y redis
@@ -809,7 +824,7 @@ case "$ARG" in
     rm -rf redis redis.tgz
     ;;
 
-  init-redis)
+  init-redis-service)
     # There is no startup script because we rely on the monit to handle processes
     [ "$(whoami)" != "root" ] && echo "Run as root please" && exit 1
     echo 1 > /proc/sys/vm/overcommit_memory
@@ -921,11 +936,11 @@ case "$ARG" in
     ($0 get-elasticsearch)
     ($0 run-elasticsearch)
     if [ "$PLATFORM" = "Linux" ]; then
-       sudo $0 init-elasticsearch-monit
+       sudo $0 init-elasticsearch-service
     fi
     ;;
 
-  init-elasticsearch-monit)
+  init-elasticsearch-service)
     echo "check process java with pidfile \"$BKJS_HOME/var/elasticsearch.pid\" start program = \"$0 run-elasticsearch\" as uid $BKJS_USER and gid $BKJS_GROUP stop program = \"$0 stop-elasticsearch\"" > /etc/monit.d/elasticsearch.conf
     monit reload
     ;;
@@ -950,7 +965,7 @@ case "$ARG" in
   run-elasticsearch)
     size=$(get_arg -es-heap-size)
     [ "$size" != "" ] && export ES_HEAP_SIZE=$size
-    $ELASTICSEARCH_PREFIX/bin/elasticsearch -p $BKJS_HOME/var/elasticsearch.pid -d >>$BKJS_HOME/log/message.log 2>&1
+    $ELASTICSEARCH_PREFIX/bin/elasticsearch -Des.path.logs=$BKJS_HOME/log -p $BKJS_HOME/var/elasticsearch.pid -d >>$BKJS_HOME/log/message.log 2>&1
     ;;
 
   stop-elasticsearch)
@@ -1000,8 +1015,12 @@ case "$ARG" in
     ;;
 
   npm-deps)
-    modules=$($NODE_BIN -e 'try{console.log(Object.keys(JSON.parse(require("fs").readFileSync("package.json")).dependencies).join(" "))}catch(e){}' | sed "s/$BKJS_MOD//g")
-    for m in $modules; do $NPM_BIN install $m; done
+    args=$(get_arg -args)
+    type=$(get_arg -type dependencies)
+    modules=$($NODE_BIN -e "try{console.log(Object.keys(JSON.parse(require('fs').readFileSync('package.json')).$type).join(' '))}catch(e){}" | sed "s/$BKJS_MOD//g")
+    echo $modules
+    sleep 1
+    for m in $modules; do $NPM_BIN $args install $m; done
     ;;
 
   install-bkjs)
@@ -1087,7 +1106,7 @@ EOF
 #logwatcher-email=logwatcher@dot.com
 #api-allow-path=^/open/url$
 #api-allow-admin=^/(system|data)
-#api-cache=redis://10.1.1.1
+#ipc-cache=redis://10.1.1.1
 EOF
     fi
 

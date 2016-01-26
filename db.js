@@ -104,7 +104,7 @@ var db = {
            { name: "name", key: "db-name", descr: "Default database name to be used for default connections in cases when no db is specified in the connection url" },
            { name: "no-cache-columns", type: "bool", descr: "Do not load column definitions from the database tables on startup, keep using in-app Javascript definitions only, in most cases caching columns is not required if tables are in sync between the app and the database" },
            { name: "cache-columns-interval", type: "int", descr: "How often in minutes to refresh tables columns from the database, it calls cacheColumns for each pool" },
-           { name: "no-init-tables", type: "regexp", novalue: ".+", descr: "Do not create tables in the database on startup and do not perform table upgrades for new columns, all tables are assumed to be created beforehand, this regexp will be applied to all pools if no pool-specific parameter is defined" },
+           { name: "init-tables", type: "none", descr: "Create tables in the database or perform table upgrades for new columns, only master processes can perform this operation, never workers" },
            { name: "cache-tables", array: 1, type: "list", descr: "List of tables that can be cached: bk_auth, bk_counter. This list defines which DB calls will cache data with currently configured cache. This is global for all db pools." },
            { name: "cache-ttl", type: "int", obj: "cacheTtl", key: "default", descr: "Default global TTL for cached tables", },
            { name: "cache-ttl-(.+)", type: "int", obj: "cacheTtl", nocamel: 1, strip: "cache-ttl-", descr: "TTL in milliseconds for each individual table being cached", },
@@ -120,8 +120,7 @@ var db = {
            { name: "(.+)-pool-tables(-[0-9]+)?", obj: 'poolTables', strip: "PoolTables", type: "list", reverse: 1, descr: "A DB pool tables, list of tables that belong to this pool only" },
            { name: "(.+)-pool-connect(-[0-9]+)?", obj: 'poolParams', strip: "Pool", type: "json", descr: "Options for a DB pool driver passed during connection or creation of the pool" },
            { name: "(.+)-pool-settings(-[0-9]+)?", obj: 'poolParams', strip: "Pool", type: "json", descr: "A DB pool driver settings passed to every request, contains pool-wide options and features upported by the driver" },
-           { name: "(.+)-pool-no-cache-columns(-[0-9]+)?", obj: 'poolParams', strip: "Pool", type: "bool", descr: "disable caching table columns for this pool only" },
-           { name: "(.+)-pool-no-init-tables(-[0-9]+)?", type: "regexp", obj: 'poolParams', strip: "Pool", novalue: ".+", descr: "Do not create tables for this pool only, a regexp of tables to skip" },
+           { name: "(.+)-pool-no-cache-columns(-[0-9]+)?", obj: 'poolParams', strip: "Pool", type: "bool", descr: "Disable caching table columns for this pool only" },
            { name: "(.+)-pool-cache2-(.+)", obj: 'cache2', nocamel: 1, strip: "pool-cache2-", type: "int", descr: "Level 2 cache TTL for the specified pool and table" },
            { name: "describe-tables", type: "callback", callback: function(v) { this.describeTables(lib.jsonParse(v, {datatype:"obj",logger:"error"})) }, descr: "A JSON object with table descriptions to be merged with the existing definitions" },
     ],
@@ -202,11 +201,19 @@ db.shutdownWeb = function(options, callback)
 // Initialize all database pools. the options may containt the following properties:
 // - localMode - only initialize default, local and config db pools, other pools are ignored, if not given
 //    global value is used. Currently it can be set globally from the app only, no config parameter.
+// - initTables - if true then create new tables or upgrade tables with new columns
 db.init = function(options, callback)
 {
     var self = this;
     if (typeof options == "function") callback = options, options = {};
     if (!options) options = {};
+
+    // One time db tables initialization
+    if (cluster.isMaster) {
+        if (typeof options.initTables == "undefined" && lib.isArg("db-init-tables")) options.initTables = 1;
+    } else {
+        delete options.initTables;
+    }
 
     // Config pool can be set to default which means use the current default pool
     ["localMode"].forEach(function(x) {
@@ -223,16 +230,20 @@ db.init = function(options, callback)
     // Configured pools for supported databases
     lib.forEachSeries(Object.keys(this.poolNames), function(pool, next) {
         if (self.localMode && pool != self.pool && pool != self.local && pool != self.config) return next();
+
         self.initPool(pool, options, function(err) {
             if (err) logger.error("init: db:", pool, err);
             next();
         });
-    }, callback);
+    }, function(err) {
+        delete options.initTables;
+        if (typeof callback == "function") callback(err);
+    });
 }
 
 // Initialize a db pool by parameter name.
 // Options can have the following properties:
-//   - noInitTables - if defined it is used instead of the global parameter
+//   - initTables - if defined it will force new tables creation or new upgrade
 //   - noCacheColumns - if defined it is used instead of the global parameter
 //   - force - if true, close existing pool with the same name, otherwise skip existing pools
 db.initPool = function(name, options, callback)
@@ -259,7 +270,6 @@ db.initPool = function(name, options, callback)
                  max: this.poolParams[type + 'Max' + n],
                  idle: this.poolParams[type + 'Idle' + n] || 300000,
                  noCacheColumns: options.noCacheColumns || this.poolParams[type + 'NoCacheColumns' + n],
-                 noInitTables: options.noInitTables || this.poolParams[type + 'NoInitTables' + n],
                  connect: this.poolParams[type + 'Connect' + n],
                  settings: this.poolParams[type + 'Settings' + n] };
 
@@ -363,7 +373,7 @@ db.initConfig = function(options, callback)
     // avoid situations when maintenance is being done and any process reloading the config may
     // create indexes/columns which are not missing but being provisioned or changed.
     var interval = self.configInterval ? self.configInterval * 60000 + lib.randomShort() : 0;
-    var opts = interval ? lib.cloneObj(options, "noInitTables", /.+/) : null;
+    var opts = interval ? options : null;
     lib.deferInterval(this, interval, "config", this.initConfig.bind(this, opts));
 
     self.select(options.table || "bk_config", { type: types, mtime: options.delta ? this._configMtime : 0 }, { ops: { type: "in", mtime: "gt" }, pool: this.config }, function(err, rows) {
@@ -408,7 +418,7 @@ db.initTables = function(options, callback)
 // Init the pool, create tables and columns:
 //  - name - db pool to create the tables in
 //  - tables - an object with list of tables to create or upgrade
-//  - noInitTables - a regexp that defines which tables should not be created/upgraded, overrides global parameter
+//  - initTables - if true then create or upgrade tables
 //  - noCacheColumns - if 1 tells to skip caching database columns, overrides the global parameter
 db.initPoolTables = function(name, tables, options, callback)
 {
@@ -426,8 +436,7 @@ db.initPoolTables = function(name, tables, options, callback)
 
     // These options can redefine behaviour of the initialization sequence
     var noCacheColumns = options.noCacheColumns || pool.noCacheColumns || pool.settings.noCacheColumns || this.noCacheColumns;
-    var noInitTables = options.noInitTables || pool.noInitTables || pool.settings.noInitTables || this.noInitTables;
-    logger.debug('initPoolTables:', core.role, name, noCacheColumns || 0, '/', noInitTables || 0, Object.keys(tables));
+    logger.debug('initPoolTables:', core.role, name, "nocache:", noCacheColumns || 0, 'init:', options.initTables || 0, "tables:", Object.keys(tables));
 
     // Periodic columns refresh
     var interval = this.cacheColumnsInterval ? this.cacheColumnsInterval * 60000 + lib.randomShort() : 0;
@@ -439,34 +448,40 @@ db.initPoolTables = function(name, tables, options, callback)
         this.mergeKeys(pool);
         return callback();
     }
+    var changes = 0;
 
-    this.cacheColumns(options, function() {
-        var changes = 0;
-        lib.forEachSeries(Object.keys(pool.dbtables), function(table, next) {
-            // Skip tables not supposed to be created
-            if (lib.typeName(noInitTables) == "regexp" && noInitTables.test(table)) return next();
-            // We if have columns, SQL table must be checked for missing columns and indexes
-            var cols = self.getColumns(table, options);
-            if (!cols || Object.keys(cols).every(function(x) { return cols[x].fake })) {
-                self.create(table, pool.dbtables[table], options, function(err, rows, info) {
-                    if (info.affected_rows) changes++;
-                    next();
-                });
-            } else {
-                // Refreshing columns after an upgrade is only required by the driver which depends on
-                // the actual db schema, in any case all columns are merged so no need to re-read just the columns,
-                // the case can be to read new indexes used in searches, this is true for DynamoDB.
-                self.upgrade(table, pool.dbtables[table], options, function(err, rows, info) {
-                    if (info.affected_rows) changes++;
-                    next();
-                });
-            }
-        }, function() {
-            if (!changes) return callback();
-            logger.info('initPoolTables:', name, 'changes:', changes);
-            self.cacheColumns(options, callback);
-        });
-    });
+    lib.series([
+      function(next) {
+          self.cacheColumns(options, next);
+      },
+      function(next) {
+          if (!options.initTables) return next();
+
+          lib.forEachSeries(Object.keys(pool.dbtables), function(table, next2) {
+              // We if have columns, SQL table must be checked for missing columns and indexes
+              var cols = self.getColumns(table, options);
+              if (!cols || Object.keys(cols).every(function(x) { return cols[x].fake })) {
+                  self.create(table, pool.dbtables[table], options, function(err, rows, info) {
+                      if (!err && info.affected_rows) changes++;
+                      next2();
+                  });
+              } else {
+                  // Refreshing columns after an upgrade is only required by the driver which depends on
+                  // the actual db schema, in any case all columns are merged so no need to re-read just the columns,
+                  // the case can be to read new indexes used in searches, this is true for DynamoDB.
+                  self.upgrade(table, pool.dbtables[table], options, function(err, rows, info) {
+                      if (!err && info.affected_rows) changes++;
+                      next2();
+                  });
+              }
+          }, next);
+      },
+      function(next) {
+          if (!changes) return next();
+          logger.info('initPoolTables:', name, 'changes:', changes);
+          self.cacheColumns(options, next);
+      },
+    ], callback);
 }
 
 // Delete all specified tables from the pool, if `name` is empty then default pool will be used, `tables` is an object with table names as
@@ -2589,7 +2604,6 @@ db.Pool.prototype.configure = function(options)
     if (lib.isObject(options.connect)) this.connect = lib.mergeObj(this.connect, options.connect);
     if (lib.isObject(options.settings)) this.settings = lib.mergeObj(this.settings, options.settings);
     if (!lib.isEmpty(options.noCacheColumns)) this.settings.noCacheColumns = options.noCacheColumns;
-    if (!lib.isEmpty(options.noInitTables)) this.settings.noInitTables = options.noInitTables;
     logger.debug("pool.configure:", this.name, this.type, options);
 }
 

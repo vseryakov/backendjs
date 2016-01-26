@@ -136,7 +136,7 @@ var core = {
     // All internal and loaded modules
     modules: {},
     // By default do not allow any modules, must be allowed in the config
-    allowModules: /core/,
+    allowModules: /^(?!x)x$/,
 
     // Config parameters
     args: [ { name: "help", type: "callback", callback: function() { this.showHelp() }, descr: "Print help and exit" },
@@ -236,7 +236,10 @@ module.exports = core;
 // - noConfigure - do not run all configure methods
 // - noDns - do not retrieve config from DNS
 // - noWatch - do not watch and reload config files
+// - noModules - do not load modules
 // - localDb - no db pools except local and config, this is passed to db.init
+// - denyModules - which modules should not be loaded
+// - allowModules - which modules to load
 core.init = function(options, callback)
 {
     var self = this;
@@ -310,11 +313,12 @@ core.init = function(options, callback)
 
         // Load external modules, from the core and from the app home
         function(next) {
+            if (options.noModules) return next();
             var modules = path.resolve(__dirname, "modules");
             if (modules != path.resolve(self.path.modules)) {
-                self.loadModules(modules, { denyModules: self.denyModules, allowModules: self.allowModules });
+                self.loadModules(modules, { denyModules: options.denyModules || self.denyModules, allowModules: options.allowModules || self.allowModules });
             }
-            self.loadModules(self.path.modules, { denyModules: self.denyModules, allowModules: self.allowModules });
+            self.loadModules(self.path.modules, { denyModules: options.denyModules || self.denyModules, allowModules: options.allowModules || self.allowModules });
             next();
         },
 
@@ -407,6 +411,7 @@ core.init = function(options, callback)
         },
 
         function(next) {
+            if (options.noConfigure || self.noConfigure) return next();
             self.loadLocales(options, next);
         },
 
@@ -562,6 +567,8 @@ core.processArgs = function(ctx, argv, pass)
             var name = x.key || key.substr(prefix.length), oname = "";
             // Command line priority, ignore all subsequent values
             if (x.cmdline && pass != 1 && lib.isArg(key)) return;
+            // Process type restrictions
+            if ((x.master && cluster.isWorker) || (x.worker && cluster.isMaster)) return;
 
             try {
                 // Place inside the object

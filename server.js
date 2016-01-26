@@ -10,6 +10,7 @@ var path = require('path');
 var util = require('util');
 var url = require('url');
 var fs = require('fs');
+var os = require('os');
 var spawn = require('child_process').spawn;
 var exec = require('child_process').exec;
 var core = require(__dirname + '/core');
@@ -20,10 +21,6 @@ var aws = require(__dirname + '/aws');
 var ipc = require(__dirname + '/ipc');
 var api = require(__dirname + '/api');
 var jobs = require(__dirname + '/jobs');
-var os = require('os');
-var express = require('express');
-var stream = require('stream');
-var proxy = require('http-proxy');
 
 // The main server class that starts various processes
 var server = {
@@ -33,12 +30,11 @@ var server = {
            { name: "crash-delay", type: "number", max: 30000, obj: "crash", descr: "Delay between respawing the crashed process" },
            { name: "restart-delay", type: "number", max: 30000, descr: "Delay between respawning the server after changes" },
            { name: "log-errors" ,type: "bool", descr: "If true, log crash errors from child processes by the logger, otherwise write to the daemon err-file. The reason for this is that the logger puts everything into one line thus breaking formatting for stack traces." },
-           { name: "proxy-reverse", type: "url", descr: "A Web server where to proxy requests not macthed by the url patterns or host header, in the form: http://host[:port]" },
-           { name: "proxy-url-(.+)", type: "regexpobj", reverse: 1, obj: 'proxy-url', lcase: ".+", descr: "URL regexp to be passed to other web server running behind, each parameter defines an url regexp and the destination in the value in the form http://host[:port], example: -server-proxy-url-^/api http://127.0.0.1:8080" },
-           { name: "proxy-host-(.+)", type: "regexpobj", reverse: 1, obj: 'proxy-host', lcase: ".+", descr: "Virtual host mapping, to match any Host: header, each parameter defines a host name and the destination in the value in the form http://host[:port], example: -server-proxy-host-www.myhost.com http://127.0.0.1:8080" },
            { name: "process-name", descr: "Path to the command to spawn by the monitor instead of node, for external processes guarded by this monitor" },
            { name: "process-args", type: "list", descr: "Arguments for spawned processes, for passing v8 options or other flags in case of external processes" },
            { name: "worker-args", type: "list", descr: "Node arguments for workers, job and web processes, for passing v8 options" },
+           { name: "deny-modules", type: "regexp", descr: "Modules that should not be loaded in the master and web server process" },
+           { name: "allow-modules", type: "regexp", descr: "Modules that can be loaded in the master or server process, by default no modules except the core are loaded in the master/server process" },
     ],
 
     // Watcher process status
@@ -51,6 +47,7 @@ var server = {
     // Redefined in case of log file
     stdout: null,
     stderr: null,
+    allowModules: /^(?!x)x$/,
 
     // Crash throttling
     crash: { interval: 3000, timeout: 2000, delay: 30000, count: 4, time: null, events: 0 },
@@ -62,11 +59,6 @@ var server = {
     // Options for v8
     processArgs: [],
     workerArgs: [],
-
-    // Proxy target
-    proxyUrl: {},
-    proxyHost: null,
-    proxyWorkers: [],
 };
 
 module.exports = server;
@@ -101,28 +93,32 @@ server.start = function()
 
     // Watch monitor for modified source files, for development mode only, in production -monitor is used
     if (lib.isArg("-watch")) {
-        return core.init({ role: "watcher", noDb: 1, noDns: 1, noConfigure: 1 }, function(err, opts) {
+        var opts = { role: "watcher", noDb: 1, noDns: 1, noConfigure: 1, noModules: 1, noWatch: 1 };
+        return core.init(opts, function(err, opts) {
             self.startWatcher(opts);
         });
     }
 
     // Start server monitor, it will watch the process and restart automatically
     if (lib.isArg("-monitor")) {
-        return core.init({ role: "monitor", noDb: 1, noDns: 1, noConfigure: 1 }, function(err, opts) {
+        var opts = { role: "monitor", noDb: 1, noDns: 1, noConfigure: 1, noModules: 1, noWatch: 1 };
+        return core.init(opts, function(err, opts) {
             self.startMonitor(opts);
         });
     }
 
     // Master server, always create tables in the masters processes but only for the primary db pools
     if (lib.isArg("-master")) {
-        return core.init({ role: "master", localMode: cluster.isMaster, noInitTables: cluster.isWorker ? /.+/ : null }, function(err, opts) {
+        var opts = { role: "master", localMode: cluster.isMaster, allowModules: cluster.isMaster ? this.allowModules : null };
+        return core.init(opts, function(err, opts) {
             self.startMaster(opts);
         });
     }
 
     // Backend Web server, the server makes table for all configured pools
     if (lib.isArg("-web")) {
-        return core.init({ role: "web", noInitTables: cluster.isWorker ? /.+/ : null }, function(err, opts) {
+        var opts = { role: "web", allowModules: cluster.isMaster ? this.allowModules : null };
+        return core.init(opts, function(err, opts) {
             self.startWeb(opts);
         });
     }
@@ -152,9 +148,6 @@ server.startMaster = function(options)
         core.role = 'master';
         process.title = core.name + ': master';
 
-        // Start other master processes
-        if (!core.noWeb) this.startWebProcess();
-
         var d = domain.create();
         d.on('error', function(err) { logger.error('master:', lib.traceError(err)); });
         d.run(function() {
@@ -173,6 +166,9 @@ server.startMaster = function(options)
 
             // Initialize modules that need to run in the master
             core.runMethods("configureMaster", options, function() {
+                // Start other master processes
+                if (!core.noWeb) self.startWebProcess();
+
                 logger.log('startMaster:', 'version:', core.version, 'home:', core.home, 'port:', core.port, 'uid:', process.getuid(), 'gid:', process.getgid(), 'pid:', process.pid);
             });
         });
@@ -222,55 +218,8 @@ server.startWeb = function(options)
 
             // In proxy mode we maintain continious sequence of ports for each worker starting with core.proxy.port
             if (core.proxy.port) {
-                ipc.on('api:ready', function(msg, worker) {
-                    logger.info("api:ready:", msg, self.proxyWorkers);
-                    for (var i = 0; i < self.proxyWorkers.length; i++) {
-                        if (self.proxyWorkers[i].id == msg.id) return self.proxyWorkers[i] = msg;
-                    }
-                    logger.error("api:ready:", msg, self.proxyWorkers);
-                });
-                ipc.on('api:shutdown', function(msg, worker) {
-                    logger.info("api:shutdown:", msg, self.proxyWorkers);
-                    for (var i = 0; i < self.proxyWorkers.length; i++) {
-                        if (self.proxyWorkers[i].id == msg.id) self.proxyWorkers[i].ready = false;
-                    }
-                });
-                ipc.on("cluster:exit", function(msg) {
-                    logger.info("cluster:exit:", msg, self.proxyWorkers);
-                    for (var i = 0; i < self.proxyWorkers.length; i++) {
-                        if (self.proxyWorkers[i].id == msg.id) return self.proxyWorkers.splice(i, 1);
-                    }
-                    logger.error("cluster:exit:", msg, self.proxyWorkers);
-                });
-                self.proxyServer = proxy.createServer();
-                self.proxyServer.on("error", function(err, req) { if (err.code != "ECONNRESET") logger.error("proxy:", req.target || '', req.url, lib.traceError(err)) })
-                self.server = core.createServer({ name: "http", port: core.port, bind: core.bind, restart: "web" }, function(req, res) {
-                    self.handleProxyRequest(req, res, 0);
-                });
-                if (core.proxy.ssl && (core.ssl.key || core.ssl.pfx)) {
-                    self.sslServer = core.createServer({ name: "https", ssl: core.ssl, port: core.ssl.port, bind: core.ssl.bind, restart: "web" }, function(req, res) {
-                        self.handleProxyRequest(req, res, 1);
-                    });
-                }
-                if (core.ws.port) {
-                    self.server.on('upgrade', function(req, socket, head) {
-                        var target = self.getProxyTarget(req);
-                        if (target) return self.proxyServer.ws(req, socket, head, target);
-                        req.close();
-                    });
-                    if (self.sslServer) {
-                        self.sslServer.on('upgrade', function(req, socket, head) {
-                            var target = self.getProxyTarget(req);
-                            if (target) return self.proxyServer.ws(req, socket, head, target);
-                            req.close();
-                        });
-                    }
-                }
-                self.clusterFork = function() {
-                    var port = self.getProxyPort();
-                    var worker = cluster.fork({ BKJS_PORT: port });
-                    self.proxyWorkers.push({ id: worker.id, port: port });
-                }
+                api.createProxyServer();
+                self.clusterFork = api.createProxyWorker.bind(api);
             } else {
                 self.clusterFork = function() { return cluster.fork(); }
             }
@@ -302,17 +251,13 @@ server.startWeb = function(options)
             // Arguments passed to the v8 engine
             if (self.workerArgs.length) process.execArgv = self.workerArgs;
 
-            // Create tables and spawn Web workers
-            db.initTables(options, function(err) {
-                for (var i = 0; i < self.maxProcesses; i++) self.clusterFork();
-            });
-
             self.writePidfile();
 
-            // Web server related initialization, not much functionality is expected in this process
-            // regardless if it is a proxy or not, it supposed to pass messages between the web workers
-            // and keep the cache
+            // Initialize server environment for other modules
             core.runMethods("configureServer", options, function() {
+                // Spawn web worker processes
+                for (var i = 0; i < self.maxProcesses; i++) self.clusterFork();
+
                 logger.log('startWeb:', core.role, 'version:', core.version, 'home:', core.home, 'port:', core.port, 'uid:', process.getuid(), 'gid:', process.getgid(), 'pid:', process.pid)
             });
         });
@@ -367,7 +312,7 @@ server.handleChildProcess = function(child, type, method)
     child.on('exit', function (code, signal) {
         delete self.pids[this.pid];
         logger.log('handleChildProcess:', core.role, 'process terminated:', type, 'pid:', this.pid, 'code:', code, 'signal:', signal);
-        // Make sure all web servers are down before restating to avoid EADDRINUSE error condition
+        // Make sure all web servers are down before restarting to avoid EADDRINUSE error condition
         core.killBackend(type, "SIGKILL", function() {
             self.respawn(function() { self[method](); });
         });
@@ -540,76 +485,3 @@ server.spawnProcess = function(args, skip, opts)
     return spawn(cmd, argv, opts);
 }
 
-// Return a target port for proxy requests, rotates between all web workers
-server.getProxyPort = function()
-{
-    var ports = this.proxyWorkers.map(function(x) { return x.port }).sort();
-    if (ports.length && ports[0] != core.proxy.port) return core.proxy.port;
-    for (var i = 1; i < ports.length; i++) {
-        if (ports[i] - ports[i - 1] != 1) return ports[i - 1] + 1;
-    }
-    return ports.length ? ports[ports.length-1] + 1 : core.proxy.port;
-}
-
-// Return a target for proxy requests
-server.getProxyTarget = function(req)
-{
-    // Virtual host proxy
-    var host = (req.headers.host || "").toLowerCase().trim();
-    if (host) {
-        for (var p in this.proxyHost) {
-            if (this.proxyHost[p].rx && host.match(this.proxyHost[p].rx)) return { target: p, xfwd: true };
-        }
-    }
-    // Proxy by url patterns
-    var url = req.url;
-    for (var p in this.proxyUrl) {
-        if (this.proxyUrl[p].rx && url.match(this.proxyUrl[p].rx)) return { target: p, xfwd: true };
-    }
-    // In reverse mode proxy all not matched to the host
-    if (this.proxyReverse) return { target: this.proxyReverse, xfwd: true };
-
-    // Forward api requests to the workers
-    for (var i = 0; i < this.proxyWorkers.length; i++) {
-        var target = this.proxyWorkers.shift();
-        if (!target) break;
-        this.proxyWorkers.push(target);
-        if (!target.ready) continue;
-        // In case when the request is originated by the load balancer we send its address
-        return { target: { host: core.proxy.bind, port: target.port }, xfwd: req.headers['x-forwarded-for'] ? false: true };
-    }
-    return null;
-}
-
-// Process a proxy request, perform all filtering or redirects
-server.handleProxyRequest = function(req, res, ssl)
-{
-    var self = this;
-    var d = domain.create();
-    d.on('error', function(err) {
-        logger.error('handleProxyRequest:', req.target || '', req.url, lib.traceError(err));
-        if (res.headersSent) return;
-        try {
-            res.writeHead(500, "Internal Error");
-            res.end(err.message);
-        } catch(e) {}
-    });
-    d.add(req);
-    d.add(res);
-
-    d.run(function() {
-        // Possibly overriden handler with aditiional logic
-        api.handleProxyRequest(req, res, function(err) {
-            if (res.headersSent) return;
-            if (err) {
-                res.writeHead(500, "Internal Error");
-                return res.end(err.message);
-            }
-            req.target = self.getProxyTarget(req);
-            logger.debug("handleProxyRequest:", req.headers.host, req.url, req.target);
-            if (req.target) return self.proxyServer.web(req, res, req.target);
-            res.writeHead(500, "Not ready yet");
-            res.end();
-        });
-    });
-}

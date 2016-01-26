@@ -490,7 +490,7 @@ shell.awsFilterSubnets = function(subnets, zone, name)
 {
     var self = this;
     return subnets.filter(function(x) {
-        if (zone && zone != x.availabilityZone.split("-").pop()) return 0;
+        if (zone && zone != x.availablityZone && zone != x.availabilityZone.split("-").pop()) return 0;
         return name ? self.awsCheckTags(x, name) : 1;
     }).map(function(x) {
         return x.subnetId;
@@ -589,6 +589,8 @@ shell.launchInstances = function(options, callback)
     var subnets = [], instances = [];
     var appName = self.getArg("-app-name", options, core.appName);
     var appVersion = self.getArg("-app-version", options, core.appVersion);
+    var cicmd = self.getArg("-cloudinit-cmd");
+    var zone = self.getArg("-zone");
 
     var req = {
         count: self.getArgInt("-count", options, 1),
@@ -600,7 +602,7 @@ shell.launchInstances = function(options, callback)
         elbName: self.getArg("-elb-name", options, aws.elbName),
         groupId: self.getArg("-group-id", options, aws.groupId),
         iamProfile: self.getArg("-ami-profile", options, aws.iamProfile) || appName,
-        data: self.getArg("-user-data", options),
+        data: self.getArg("-user-data", options) || (cicmd ? "#cloud-config\nruncmd:\n - " + cicmd + "\n" : ""),
         terminate: self.isArg("-no-terminate", options) ? 0 : 1,
         name: self.getArg("-tag-name", options, appName + "-" + appVersion),
         alarmName: self.getArg("-alarm-name", options),
@@ -687,11 +689,11 @@ shell.launchInstances = function(options, callback)
            } else
            // Same amount of instances in each subnet
            if (self.isArg("-subnet-each", options)) {
-               subnets = self.awsFilterSubnets(subnets, options.zone || aws.zone, self.getArg("-subnet-name", options, appName));
+               subnets = self.awsFilterSubnets(subnets, zone, self.getArg("-subnet-name", options, appName));
            } else
            // Split between all subnets
            if (self.isArg("-subnet-split", options)) {
-               subnets = self.awsFilterSubnets(subnets, options.zone || aws.zone, self.getArg("-subnet-name", options, appName));
+               subnets = self.awsFilterSubnets(subnets, zone, self.getArg("-subnet-name", options, appName));
                if (count <= subnets.length) {
                    subnets = subnets.slice(0, count);
                } else {
@@ -701,7 +703,7 @@ shell.launchInstances = function(options, callback)
                options.count = 1;
            } else {
                // Random subnet
-               subnets = self.awsFilterSubnets(subnets, options.zone || aws.zone, self.getArg("-subnet-name", options, appName));
+               subnets = self.awsFilterSubnets(subnets, zone, self.getArg("-subnet-name", options, appName));
                subnets = [ subnets[lib.randomInt(0, subnets.length - 1)] ];
            }
 
@@ -1116,7 +1118,8 @@ shell.AwsSetupInstance = function(options)
                    "    owner: ec2-user:root\n" +
                    "    permissions: '0755'\n" +
                    "runcmd:\n" +
-                   "  - /tmp/cmd.sh\n";
+                   "  - [ /tmp/cmd.sh ]\n" +
+                   "  - [ rm, -f, /tmp/cmd.sh ]\n";
            shell.launchInstances(opts, next);
        },
        function(next) {

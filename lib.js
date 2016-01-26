@@ -838,7 +838,7 @@ lib.forEachLimit = function(list, limit, iterator, callback)
 // - until - skip lines until this regexp matches
 // - ignore - skip lines that match this regexp
 // - header - skip first line because it is the CSV header line
-// - json - each line represent an JSON object, convert and pass it to the line callback if not null
+// - json - each line represents an JSON object, convert and pass it to the line callback if not null
 lib.forEachLine = function(file, options, lineCallback, endCallback)
 {
     var self = this;
@@ -869,7 +869,9 @@ lib.forEachLine = function(file, options, lineCallback, endCallback)
                     if (!line) return next();
                     lineCallback(line, next);
                 } else {
-                    lineCallback(line.trim(), next);
+                    line = line.trim();
+                    if (!line) return next();
+                    lineCallback(line, next);
                 }
             }, function(err) {
                 // Stop on reaching limit or end of file
@@ -908,7 +910,9 @@ lib.forEachLine = function(file, options, lineCallback, endCallback)
                         if (!obj) continue;
                         lineCallback(obj);
                     } else {
-                        lineCallback(lines[i].trim());
+                        var line = lines[i].trim();
+                        if (!line) continue;
+                        lineCallback(line);
                     }
                 }
                 // Stop on reaching limit or end of file

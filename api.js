@@ -134,6 +134,9 @@ var api = {
            { name: "errlog-limiter-max", type: "int", descr: "How many error messages to put in the log before throttling kicks in" },
            { name: "errlog-limiter-interval", type: "int", descr: "Interval for error log limiter, max errors per this interval" },
            { name: "errlog-limiter-ignore", type: "regexp", descr: "Do not show errors that match the regexp" },
+           { name: "proxy-reverse", type: "url", descr: "A Web server where to proxy requests not macthed by the url patterns or host header, in the form: http://host[:port]" },
+           { name: "proxy-url-(.+)", type: "regexpobj", reverse: 1, obj: 'proxy-url', lcase: ".+", descr: "URL regexp to be passed to other web server running behind, each parameter defines an url regexp and the destination in the value in the form http://host[:port], example: -server-proxy-url-^/api http://127.0.0.1:8080" },
+           { name: "proxy-host-(.+)", type: "regexpobj", reverse: 1, obj: 'proxy-host', lcase: ".+", descr: "Virtual host mapping, to match any Host: header, each parameter defines a host name and the destination in the value in the form http://host[:port], example: -server-proxy-host-www.myhost.com http://127.0.0.1:8080" },
     ],
 
     // Access handlers to grant access to the endpoint before checking for signature.
@@ -196,6 +199,11 @@ var api = {
 
     // All listening servers
     servers: [],
+
+    // Proxy target
+    proxyUrl: {},
+    proxyHost: null,
+    proxyWorkers: [],
 
     // Upload limit, bytes
     uploadLimit: 10*1024*1024,
@@ -706,14 +714,6 @@ api.handleServerRequest = function(req, res)
     d.run(function() {
         api.app(req, res);
     });
-}
-
-// Process incoming proxy request, can be overriden for custom logic with frontend proxy server. If any
-// response is sent or an error returned in the calback
-// then the request will be aborted and will not be forwarded to the web processes
-api.handleProxyRequest = function(req, res, callback)
-{
-    callback(null, req, res);
 }
 
 // Called on new socket connection, supports all type of sockets

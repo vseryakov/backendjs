@@ -39,7 +39,7 @@ var jobs = {
            { name: "worker-env", type: "json", descr: "Environment to be passed to the worker via fork, see `cluster.fork`" },
            { name: "max-runtime", type: "int", min: 300, descr: "Max number of seconds a job can run before being killed" },
            { name: "max-lifetime", type: "int", min: 0, descr: "Max number of seconds a worker can live, after that amount of time it will exit once all the jobs are finished, 0 means indefinitely" },
-           { name: "shutdown-timeout", type: "int", min: 0, descr: "Max number of milliseconds to wait for the graceful shutdown sequence to finish, after this timeout the process just exits" },
+           { name: "shutdown-timeout", type: "int", min: 500, descr: "Max number of milliseconds to wait for the graceful shutdown sequence to finish, after this timeout the process just exits" },
            { name: "worker-queue", type: "list", array: 1, descr: "Queue(s) to subscribe for workers, multiple queues can be processes at the same time, i.e. more than one job can run from different queues" },
            { name: "cron-queue", descr: "Default queue to use for cron jobs" },
            { name: "channel", descr: "Name of the channel where to publish/receive jobs" },
@@ -58,7 +58,7 @@ var jobs = {
     cronQueue: "",
     maxRuntime: 900,
     maxLifetime: 3600,
-    shutdownTimeout: 1000,
+    shutdownTimeout: 3000,
     workers: -1,
     workerQueue: [],
     workerCpuFactor: 2,
@@ -93,12 +93,12 @@ jobs.shutdownWorker = function(options, callback)
         ipc.unsubscribe(this.channel, { queueName: q });
     });
 
-    // Wait until the current job is processed and confirmed
+    // Give some time for a running job to exit by itself
     var timer = setInterval(function() {
-        if (self.running.length || Date.now() - self.runTime < 50) return;
+        if (self.running.length && Date.now() - self.runTime < self.shutdownTimeout * 0.9) return;
         clearInterval(timer);
         callback();
-    }, 50);
+    }, self.shutdownTimeout/10);
 }
 
 // Initialize a master that will manage jobs workers
@@ -186,9 +186,8 @@ jobs.initWorker = function(options, callback)
 jobs.exitWorker = function(options)
 {
     if (this.exiting++) return;
-    var timeout = setTimeout(function() { process.exit(99) }, this.shutdownTimeout);
+    var timeout = setTimeout(function() { process.exit(99) }, this.shutdownTimeout * 2);
     core.runMethods("shutdownWorker", function() {
-        clearTimeout(timeout);
         process.exit(0);
     });
 }
@@ -386,7 +385,7 @@ jobs.scheduleCronjob = function(jobspec)
                     }
                 }
             }
-            self.submitJob(this.jobspec, { queueName: self.cronQueue });
+            self.submitJob(this.jobspec, { queueName: jobspec.queue_name || self.cronQueue });
         }, null, true);
         cj.jobspec = jobspec;
         this.crontab.push(cj);
@@ -429,6 +428,7 @@ jobs.scheduleCronjobs = function(type, list)
 //    which must not run. For repeating tasks that can be ignored.
 // - single_timeout - how long to wait for running job before submitting another one, for cases when unique job stuck or other condition
 //    prevented to clear up running list in the master, milliseconds
+// - queue_name - name of the queue where to submit this job, if not given it uses cron-queue
 //
 // Example:
 //
