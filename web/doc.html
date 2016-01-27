@@ -1,6 +1,6 @@
 <head><title>Backendjs Documentation</title><link rel="shortcut icon" href="img/logo.png" type="image/png" /><link rel="icon" href="img/logo.png" type="image/png" /><link href="css/font-awesome.css" rel="stylesheet"><script src="js/jquery.js"></script><link href="css/bootstrap.css" rel="stylesheet"><script src="js/bootstrap.js"></script><link rel="stylesheet" href="css/doc.css"></head><body class="pages">
 <div class="container"><nav class="navbar"><div class="container-fluid"><div class="navbar-header"><button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar" aria-expanded="false" aria-controls="navbar"><span class="sr-only">Toggle navigation</span><span class="icon-bar"></span><span class="icon-bar"></span><span class="icon-bar"></span></button><a href="/"><img class="logo" style="max-height:30px;" src="img/logo.png"></a><span>Backendjs Documentation</span></div><div id="navbar" class="navbar-collapse collapse"><ul class="nav navbar-nav navbar-right"><li><a href="/"><span class="fa fa-gears fa-fw"></span> Home</a></li><li><a href="http://github.com/vseryakov/backendjs"><span class="fa fa-github fa-fw"></span> Github</a><li></ul></div></div></nav><h1 id="backendjs-documentation">Backendjs Documentation</h1>
-<h2 id="table-of-contents">Table of contents</h2>
+<p>##Table of contents</p>
 <ul>
 <li><a href="#backend-platform-for-node-js"> Backend platform for node.js</a></li>
 <li><a href="#installation"> Installation</a></li>
@@ -82,12 +82,12 @@
 <li><a href="#module-metrics">metrics</a></li>
 <li><a href="#module-msg">msg</a></li>
 <li><a href="#module-server">server</a></li>
-<li><a href="#module-shell">shell</a></li>
 <li><a href="#module-tests">tests</a></li>
 <li><a href="#module-api_accounts">api_accounts</a></li>
 <li><a href="#module-api_auth">api_auth</a></li>
 <li><a href="#module-api_files">api_files</a></li>
 <li><a href="#module-api_icons">api_icons</a></li>
+<li><a href="#module-api_proxy">api_proxy</a></li>
 <li><a href="#module-api_statistics">api_statistics</a></li>
 <li><a href="#module-core_http">core_http</a></li>
 <li><a href="#module-db_dynamodb">db_dynamodb</a></li>
@@ -111,6 +111,7 @@
 <li><a href="#module-bk_icons">bk_icons</a></li>
 <li><a href="#module-bk_locations">bk_locations</a></li>
 <li><a href="#module-bk_messages">bk_messages</a></li>
+<li><a href="#module-bk_shell">bk_shell</a></li>
 <li><a href="#module-bk_system">bk_system</a></li>
 <li><a href="#module-db_cassandra">db_cassandra</a></li>
 <li><a href="#module-db_couchdb">db_couchdb</a></li>
@@ -193,7 +194,18 @@ applications but still part of the core of the system to be available once neede
 <li><p>or to the PostgreSQL server, database backend</p>
 <pre><code>  bkjs run-backend -db-pool pgsql -db-pgsql-pool postgresql://postgres@127.0.0.1/backend
 </code></pre></li>
-<li><p>All commands above will behave exactly the same, all required tables will be automatically created</p>
+<li><p>All commands above will behave exactly the same</p>
+</li>
+<li><p><strong>Tables are not created by default</strong>, in order to initialize the database run the server or the shell with <code>-db-init-tables</code> flag,
+it is called only inside a master process, a worker never creates tables on start</p>
+<ul>
+<li><p>prepare the tables in the shell</p>
+<pre><code>bksh -db-pool pgsql -db-pgsql-pool postgresql://postgres@127.0.0.1/backend -db-init-tables
+</code></pre></li>
+<li><p>run the server and create table son start</p>
+<pre><code>bkjs run-backend -db-pool pgsql -db-pgsql-pool postgresql://postgres@127.0.0.1/backend -db-init-tables
+</code></pre></li>
+</ul>
 </li>
 <li><p>While the local backendjs is runnning, the documentation is always available at <a href="http://localhost:8000/doc.html">http://localhost:8000/doc.html</a> (or whatever port is the server using)</p>
 </li>
@@ -478,7 +490,7 @@ module.exports = mod;
 
 // Run db setup once all the DB pools are configured, for example produce dynamic icon property
 // for each record retrieved
-mod.configureMdiule = function(options, callback)
+mod.configureModule = function(options, callback)
 {
     db.setProcessRows(&quot;post&quot;, &quot;invoices&quot;, function(rq, row, opts) {
        if (row.id) row.icon = &quot;/images/&quot; + row.id + &quot;.png&quot;;
@@ -559,11 +571,11 @@ operations like add/update/delete a record, show all records.</p>
      bkjs.server.start();
 </code></pre>
 <p>Now run it with an option to allow API access without an account:</p>
-<pre><code>node app.js -log debug -web -api-allow-path /todo
-</code></pre><p>To use a different databse, for example PostgresSQL(running localy) or DynamoDB(assuming EC2 instance),
+<pre><code>node app.js -log debug -web -api-allow-path /todo -db-init-tables
+</code></pre><p>To use a different database, for example PostgresSQL(running localy) or DynamoDB(assuming EC2 instance),
 all config parametetrs can be stored in the etc/config as well</p>
-<pre><code>node app.js -log debug -web -api-allow-path /todo -db-pool dynamodb -db-dynamodb-pool default
-node app.js -log debug -web -api-allow-path /todo -db-pool pgsql -db-pgsql-pool default
+<pre><code>node app.js -log debug -web -api-allow-path /todo -db-pool dynamodb -db-dynamodb-pool default -db-init-tables
+node app.js -log debug -web -api-allow-path /todo -db-pool pgsql -db-pgsql-pool default -db-init-tables
 </code></pre><p>API commands can be executed in the browser or using <code>curl</code>:</p>
 <pre><code>curl &#39;http://localhost:8000/todo?name=TestTask1&amp;descr=Descr1&amp;due=2015-01-01`
 curl &#39;http://localhost:8000/todo/select&#39;
@@ -1323,7 +1335,7 @@ needs to be configured. This is to be able to control how pinging can be perform
 will be needed once it is confgiured which prefix can be public using <code>api-allow</code> or <code>api-allow-path</code> config parameters.</p>
 <p>The format of the endpoint is:</p>
 <ul>
-<li><p><code>/image/prefix/id/type</code></p>
+<li><p><code>/image/prefix/id/type[.png|.jpg]</code></p>
 <p>  Example:</p>
 <pre><code>  # Configure accounts icons to be public in the etc/config
   api-allow-path=/image/account/
@@ -1334,6 +1346,7 @@ will be needed once it is confgiured which prefix can be public using <code>api-
   # Make requests
   /image/account/12345/0
   /image/account/12345/1
+  /image/account/12345/1.jpg
 
   #Return icons for account 12345 for types 0 and 1
 </code></pre></li>
@@ -1358,6 +1371,7 @@ then retrieving all icons for an album would be only query with album1: prefix.<
 <ul>
 <li><code>prefix</code> - must be specified, this defines the icons namespace</li>
 <li><code>type</code> is used to specify unique icon created with such type which can be any string.</li>
+<li><code>_ext</code> - image extension, like png or jpg if it was saved with it previously</li>
 </ul>
 </li>
 <li><p><code>/icon/put</code></p>
@@ -2210,6 +2224,9 @@ Database pool statistics and other diagnostics</p>
 <li><code>instance-zone</code> - Set instance zone explicitely, skip all meta data checks for it</li>
 <li><code>instance-job</code> - Enables remote job mode, it means the backendjs is running in the cloud to execute a job or other task and can be terminated during the idle timeout</li>
 <li><code>run-mode</code> - Running mode for the app, used to separate different running environment and configurations. DNS TXT configurable.</li>
+<li><code>no-monitor</code> - Disable monitor process, for cases when the master will be monitored by other tool like monit...</li>
+<li><code>no-master</code> - Do not start the master process</li>
+<li><code>no-watch</code> - Disable source code watcher</li>
 <li><code>no-web</code> - Disable Web server processes, without this flag Web servers start by default</li>
 <li><code>no-db</code> - Do not initialize DB drivers</li>
 <li><code>no-dns</code> - Do not use DNS configuration during the initialization</li>
@@ -2265,7 +2282,7 @@ Database pool statistics and other diagnostics</p>
 <li><code>db-name</code> - Default database name to be used for default connections in cases when no db is specified in the connection url</li>
 <li><code>db-no-cache-columns</code> - Do not load column definitions from the database tables on startup, keep using in-app Javascript definitions only, in most cases caching columns is not required if tables are in sync between the app and the database</li>
 <li><code>db-cache-columns-interval</code> - How often in minutes to refresh tables columns from the database, it calls cacheColumns for each pool</li>
-<li><code>db-no-init-tables</code> - Do not create tables in the database on startup and do not perform table upgrades for new columns, all tables are assumed to be created beforehand, this regexp will be applied to all pools if no pool-specific parameter is defined</li>
+<li><code>db-init-tables</code> - Create tables in the database or perform table upgrades for new columns, only master processes can perform this operation, never workers</li>
 <li><code>db-cache-tables</code> - List of tables that can be cached: bk_auth, bk_counter. This list defines which DB calls will cache data with currently configured cache. This is global for all db pools.</li>
 <li><code>db-cache-ttl</code> - Default global TTL for cached tables</li>
 <li><code>db-cache-ttl-(.+)</code> - TTL in milliseconds for each individual table being cached</li>
@@ -2273,7 +2290,7 @@ Database pool statistics and other diagnostics</p>
 <li><code>db-cache2-(.+)</code> - Tables with TTL for level2 cache, i.e. in the local process LRU memory. It works before the primary cache and keeps records in the local LRU cache for the giben amount of time, the TTL is in ms and must be greater than zero for level 2 cache to work. Make sure <code>ipc-lru-max-</code> is properly configured for each process role</li>
 <li><code>db-local</code> - Local database pool for properties, cookies and other local instance only specific stuff</li>
 <li><code>db-config</code> - Configuration database pool to be used to retrieve config parameters from the database, must be defined to use remote db for config parameters, set to <code>default</code> to use current default pool</li>
-<li><code>db-config-interval</code> - Interval between loading configuration from the database configured with -db-config-type, in seconds, 0 disables refreshing config from the db</li>
+<li><code>db-config-interval</code> - Interval between loading configuration from the database configured with -db-config, in minutes, 0 disables refreshing config from the db</li>
 <li><code>db-([a-z0-9]+)-pool(-[0-9]+)?</code> - A database pool name, depending on the driver it can be an URL, name or pathname, examples of db pools: <code>-db-pgsql-pool, -db-dynamodb-pool</code>, examples of urls: <code>postgresql://[user:password@]hostname[:port]/db, mysql://[user:password@]hostname/db, mongodb://hostname[:port]/dbname, cql://[user:password@]hostname[:port]/dbname</code></li>
 <li><code>db-(.+)-pool-max(-[0-9]+)?</code> - Max number of open connections for a pool, default is Infinity</li>
 <li><code>db-(.+)-pool-min(-[0-9]+)?</code> - Min number of open connections for a pool</li>
@@ -2281,8 +2298,7 @@ Database pool statistics and other diagnostics</p>
 <li><code>db-(.+)-pool-tables(-[0-9]+)?</code> - A DB pool tables, list of tables that belong to this pool only</li>
 <li><code>db-(.+)-pool-connect(-[0-9]+)?</code> - Options for a DB pool driver passed during connection or creation of the pool</li>
 <li><code>db-(.+)-pool-settings(-[0-9]+)?</code> - A DB pool driver settings passed to every request, contains pool-wide options and features upported by the driver</li>
-<li><code>db-(.+)-pool-no-cache-columns(-[0-9]+)?</code> - disable caching table columns for this pool only</li>
-<li><code>db-(.+)-pool-no-init-tables(-[0-9]+)?</code> - Do not create tables for this pool only, a regexp of tables to skip</li>
+<li><code>db-(.+)-pool-no-cache-columns(-[0-9]+)?</code> - Disable caching table columns for this pool only</li>
 <li><code>db-(.+)-pool-cache2-(.+)</code> - Level 2 cache TTL for the specified pool and table</li>
 <li><code>db-describe-tables</code> - A JSON object with table descriptions to be merged with the existing definitions</li>
 <li><code>api-images-url</code> - URL where images are stored, for cases of central image server(s), must be full URL with optional path</li>
@@ -2356,6 +2372,9 @@ Database pool statistics and other diagnostics</p>
 <li><code>api-errlog-limiter-max</code> - How many error messages to put in the log before throttling kicks in</li>
 <li><code>api-errlog-limiter-interval</code> - Interval for error log limiter, max errors per this interval</li>
 <li><code>api-errlog-limiter-ignore</code> - Do not show errors that match the regexp</li>
+<li><code>api-proxy-reverse</code> - A Web server where to proxy requests not macthed by the url patterns or host header, in the form: <a href="http://host[:port">http://host[:port</a>]</li>
+<li><code>api-proxy-url-(.+)</code> - URL regexp to be passed to other web server running behind, each parameter defines an url regexp and the destination in the value in the form <a href="http://host[:port">http://host[:port</a>], example: -server-proxy-url-^/api <a href="http://127.0.0.1:8080">http://127.0.0.1:8080</a></li>
+<li><code>api-proxy-host-(.+)</code> - Virtual host mapping, to match any Host: header, each parameter defines a host name and the destination in the value in the form <a href="http://host[:port">http://host[:port</a>], example: -server-proxy-host-www.myhost.com <a href="http://127.0.0.1:8080">http://127.0.0.1:8080</a></li>
 <li><code>msg-(.+)-cert@?(.+)?</code> - A certificate for APN or similar services in pfx format, can be a file name with .p12 extension or a string with certificate contents encoded with base64, if the suffix is specified in the config parameter name will be used as the app name, otherwise it is global</li>
 <li><code>msg-(.+)-key@?(.+)?</code> - API key for GCM or similar services, if the suffix is specified in the config parameter will be used as the app name, without the suffix it is global</li>
 <li><code>msg-(.+)-secret@?(.+)?</code> - API secret for services that require it, if the suffix is specified in the config parameter will be used as the app name, without the suffix it is global</li>
@@ -2378,12 +2397,11 @@ Database pool statistics and other diagnostics</p>
 <li><code>server-crash-delay</code> - Delay between respawing the crashed process</li>
 <li><code>server-restart-delay</code> - Delay between respawning the server after changes</li>
 <li><code>server-log-errors</code> - If true, log crash errors from child processes by the logger, otherwise write to the daemon err-file. The reason for this is that the logger puts everything into one line thus breaking formatting for stack traces.</li>
-<li><code>server-proxy-reverse</code> - A Web server where to proxy requests not macthed by the url patterns or host header, in the form: <a href="http://host[:port">http://host[:port</a>]</li>
-<li><code>server-proxy-url-(.+)</code> - URL regexp to be passed to other web server running behind, each parameter defines an url regexp and the destination in the value in the form <a href="http://host[:port">http://host[:port</a>], example: -server-proxy-url-^/api <a href="http://127.0.0.1:8080">http://127.0.0.1:8080</a></li>
-<li><code>server-proxy-host-(.+)</code> - Virtual host mapping, to match any Host: header, each parameter defines a host name and the destination in the value in the form <a href="http://host[:port">http://host[:port</a>], example: -server-proxy-host-www.myhost.com <a href="http://127.0.0.1:8080">http://127.0.0.1:8080</a></li>
 <li><code>server-process-name</code> - Path to the command to spawn by the monitor instead of node, for external processes guarded by this monitor</li>
 <li><code>server-process-args</code> - Arguments for spawned processes, for passing v8 options or other flags in case of external processes</li>
 <li><code>server-worker-args</code> - Node arguments for workers, job and web processes, for passing v8 options</li>
+<li><code>server-deny-modules</code> - Modules that should not be loaded in the master and web server process</li>
+<li><code>server-allow-modules</code> - Modules that can be loaded in the master or server process, by default no modules except the core are loaded in the master/server process</li>
 </ul>
 <h2 id="module-api">Module: API</h2>
 <ul>
@@ -2528,14 +2546,6 @@ also, this will needed only for Express handlers <code>.all</code>, when registe
 <ul>
 <li><p><code>api.handleServerRequest(req, res)</code></p>
 <p> Start Express middleware processing wrapped in the node domain</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.handleProxyRequest(req, res, callback)</code></p>
-<p> Process incoming proxy request, can be overriden for custom logic with frontend proxy server. If any
-response is sent or an error returned in the calback
-then the request will be aborted and will not be forwarded to the web processes</p>
 </li>
 </ul>
 
@@ -2741,10 +2751,14 @@ if present in the info. This result object can be used for pagination responses.
 <p> Columns that are allowed to be visible, used in select to limit number of columns to be returned by a query</p>
 <ul>
 <li>pub property means public column</li>
+<li>admins property means visible to admins and owners only</li>
 </ul>
 <p>options may be used to define the following properties:</p>
 <ul>
-<li>columns - list of public columns to be returned, overrides the public columns in the definition list</li>
+<li>skip - a regexp with names to be excluded as well</li>
+<li><p>allow - a list of properties which can be checked along with the <code>pub</code> property for a column to be considered public</p>
+<p>api.getPublicColumns(&quot;bk_account&quot;, { allow: [&quot;admins&quot;], skip: /device_id|0$/ });</p>
+</li>
 </ul>
 </li>
 </ul>
@@ -3829,7 +3843,10 @@ Example:</p>
 <li>noConfigure - do not run all configure methods</li>
 <li>noDns - do not retrieve config from DNS</li>
 <li>noWatch - do not watch and reload config files</li>
+<li>noModules - do not load modules</li>
 <li>localDb - no db pools except local and config, this is passed to db.init</li>
+<li>denyModules - which modules should not be loaded</li>
+<li>allowModules - which modules to load</li>
 </ul>
 </li>
 </ul>
@@ -4156,9 +4173,9 @@ database like DynamoDB for real-time requests and slower SQL database running on
 <ul>
 <li><p><code>Database tables</code></p>
 <pre><code>      // Configuration store, same parameters as in the commandline or config file, can be placed in separate config groups
-      // to be used by different backends or workers, &#39;core&#39; is default global group
+      // to be used by different backends or workers
       bk_config: { name: { primary: 1 },                      // name of the parameter
-                   type: { primary: 1 },                      // config type
+                   type: { primary: 1 },                      // config type or tag
                    value: {},                                 // the value
                    mtime: { type: &quot;bigint&quot;, now: 1 } },
 
@@ -4187,6 +4204,7 @@ database like DynamoDB for real-time requests and slower SQL database running on
 <ul>
 <li>localMode - only initialize default, local and config db pools, other pools are ignored, if not given
 global value is used. Currently it can be set globally from the app only, no config parameter.</li>
+<li>initTables - if true then create new tables or upgrade tables with new columns</li>
 </ul>
 </li>
 </ul>
@@ -4196,7 +4214,7 @@ global value is used. Currently it can be set globally from the app only, no con
 <p> Initialize a db pool by parameter name.
 Options can have the following properties:</p>
 <ul>
-<li>noInitTables - if defined it is used instead of the global parameter</li>
+<li>initTables - if defined it will force new tables creation or new upgrade</li>
 <li>noCacheColumns - if defined it is used instead of the global parameter</li>
 <li>force - if true, close existing pool with the same name, otherwise skip existing pools</li>
 </ul>
@@ -4249,7 +4267,7 @@ types <code>myapp</code> and <code>prod-myapp</code>, then the last value will b
 <ul>
 <li>name - db pool to create the tables in</li>
 <li>tables - an object with list of tables to create or upgrade</li>
-<li>noInitTables - a regexp that defines which tables should not be created/upgraded, overrides global parameter</li>
+<li>initTables - if true then create or upgrade tables</li>
 <li>noCacheColumns - if 1 tells to skip caching database columns, overrides the global parameter</li>
 </ul>
 </li>
@@ -4577,6 +4595,8 @@ for cases when actual primary keys in the table are different from the rows prop
 non-existing records an empty object will be attached</li>
 <li>options.incr can be a list of property names that need to be summed up with each other, not overriden</li>
 </ul>
+<p>A special case when table is empty <code>db.join</code> just returns same rows to the callback, this is
+for convenience of doing joins on some conditions and trigger it by setting the table name or skip the join completely.</p>
 <p>Example:</p>
 <pre><code>    db.join(&quot;bk_account&quot;, [{id:&quot;123&quot;,key1:1},{id:&quot;234&quot;,key1:2}], lib.log)
     db.join(&quot;bk_account&quot;, [{aid:&quot;123&quot;,key1:1},{aid:&quot;234&quot;,key1:2}], { keysMap: { id: &quot;aid&quot; }}, lib.log)
@@ -4596,21 +4616,21 @@ table must be defined with the following required columns:</p>
 <pre><code>    db.describeTables({
             geo: { geohash: { primary: 1 },
                    id: { primary: 1 },
-                   latitude: { type: &quot;real&quot; },
-                   longitude: { type: &quot;real&quot; },
+                   latitude: { type: &quot;real&quot;, projections: 1 },
+                   longitude: { type: &quot;real&quot;, projections: 1 },
             }
     });
 </code></pre><p>the rest of the columns can be defined as needed, no special requirements.</p>
 <p><em><code>id</code> can be any property, it is used for sorting only. For DynamoDB if geohash is an index then lat/long properties must
  use projections: 1 in order to be included in the index projection.</em></p>
-<p><code>obj</code> must contain the following:</p>
+<p><code>query</code> must contain the following:</p>
 <ul>
 <li>latitude</li>
 <li>longitude</li>
 </ul>
 <p>other properties:</p>
 <ul>
-<li>distance - in km, the radius around the point, in not given the <code>min-distance</code> will be used</li>
+<li>distance - in km, the radius around the point, if not given the <code>options.minDistance</code> will be used</li>
 </ul>
 <p>all other properties will be used as additional conditions</p>
 <p><code>options</code> optional properties:</p>
@@ -4619,7 +4639,7 @@ table must be defined with the following required columns:</p>
  only highest/lowest matches, useful for trending/statistics, count still defines the total number of locations</li>
 <li>geokey - name of the geohash primary key column, by default it is <code>geohash</code>, it is possible to keep several different
  geohash indexes within the same table with different geohash length which will allow to perform
- searches more precisely dependgin on the distance given</li>
+ searches more precisely depending on the distance given</li>
 <li>round - a number that defines the &quot;precision&quot; of  the distance, it rounds the distance to the nearest
 round number and uses decimal point of the round number to limit decimals in the distance</li>
 <li>sort - sorting order, by default the RANGE key is used for DynamoDB, it is possible to specify any Index as well,
@@ -5698,6 +5718,7 @@ before submitting a new job. It can be a boolean meaning all tasks in the job mu
 which must not run. For repeating tasks that can be ignored.</li>
 <li>single_timeout - how long to wait for running job before submitting another one, for cases when unique job stuck or other condition
 prevented to clear up running list in the master, milliseconds</li>
+<li>queue_name - name of the queue where to submit this job, if not given it uses cron-queue</li>
 </ul>
 <p>Example:</p>
 <pre><code>    [ { cron: &quot;0 0 * * * *&quot;, job: &quot;scraper.run&quot; }, ..]
@@ -5899,6 +5920,7 @@ or the default message, this is useful for detection of invalid or missing input
                                           descr: { novalue: { name: &quot;name&quot;, value: &quot;test&quot; },
                                           email: { type: &quot;list&quot;, datatype: &quot;string } },
                                           internal: { ignore: 1 },
+                                          obj: { type: &quot;obj&quot;, params: { id: { type: &quot;int&quot; }, name: {} } },
                                           state: { type: &quot;list&quot;, datatype: &quot;string, values: [&quot;VA&quot;,&quot;DC] } },
                                           ssn: { type: &quot;string&quot;, regexp: /^[0-9]{3}-[0-9]{3}-[0-9]{4}$/, errmsg: &quot;Valid SSN is required&quot; } },
                                           phone: { type: &quot;list&quot;, datatype: &quot;number } },
@@ -6024,7 +6046,7 @@ options may specify the following parameters:</p>
 <li>until - skip lines until this regexp matches</li>
 <li>ignore - skip lines that match this regexp</li>
 <li>header - skip first line because it is the CSV header line</li>
-<li>json - each line represent an JSON object, convert and pass it to the line callback if not null</li>
+<li>json - each line represents an JSON object, convert and pass it to the line callback if not null</li>
 </ul>
 </li>
 </ul>
@@ -6097,6 +6119,12 @@ any errors must be passed, use the message object for it, no other arguments are
 <p> Run delayed callback for the message previously registered with the <code>deferCallback</code> method.
 The message must have <code>id</code> property which is used to find the corresponding callback, if the msg is a JSON string it will be converted into the object.</p>
 <p>Same parent object must be used for <code>deferCallback</code> and this method.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.deferInterval(parent, interval, name, callback)</code></p>
+<p> Assign or clear an interval timer, keep the reference in the given parent object</p>
 </li>
 </ul>
 
@@ -6426,6 +6454,7 @@ objects will be create automatically. The options can have the folowing properti
 <ul>
 <li>incr - if 1 the numeric value will be added to the existing if any</li>
 <li>push - add to the array, if it is not an array a new empty aray is created</li>
+<li>unique - only push if not in the list</li>
 </ul>
 <p>Example</p>
 <pre><code>    var a = lib.objSet({}, &quot;response.item.count&quot;, 1)
@@ -6835,6 +6864,7 @@ need to send push notifications in the worker process.</p>
 <li>sound - set to 1 if a sound should be produced on message receive</li>
 <li>type - set type of the message, service specific</li>
 <li>id - send id with the notification, this is application specific data, sent as is</li>
+<li>name - notification group name, can be used for grouping multiple messages under this name</li>
 </ul>
 </li>
 </ul>
@@ -6943,14 +6973,15 @@ Each item in the list is an object with the following properties: key, secret, a
 </ul>
 
 <ul>
-<li><p><code>server.onexit()</code></p>
+<li><p><code>server.onProcessExit()</code></p>
 <p> Kill all child processes on exit</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>server.onkill()</code></p>
-<p> Terminates the server process</p>
+<li><p><code>server.onProcessTerminate()</code></p>
+<p> Terminates the server process, it is called on SIGTEMR signal but can be called manually for graceful shitdown,
+it runs <code>shutdown[Role]</code> methods before exiting</p>
 </li>
 </ul>
 
@@ -6975,320 +7006,6 @@ Each item in the list is an object with the following properties: key, secret, a
 <ul>
 <li><p><code>server.spawnProcess(args, skip, opts)</code></p>
 <p> Start new process reusing global process arguments, args will be added and args in the skip list will be removed</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>server.getProxyPort()</code></p>
-<p> Return a target port for proxy requests, rotates between all web workers</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>server.getProxyTarget(req)</code></p>
-<p> Return a target for proxy requests</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>server.handleProxyRequest(req, res, ssl)</code></p>
-<p> Process a proxy request, perform all filtering or redirects</p>
-</li>
-</ul>
-
-<h2 id="module-shell">Module: SHELL</h2>
-<ul>
-<li><p><code>shell.exit(err, msg)</code></p>
-<p> Exit and write to the console a message or error message if non empty</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.getUser(obj, callback)</code></p>
-<p> Resolves a user from <code>obj.id</code> or <code>obj.login</code> params and return the record in the callback</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.getQuery()</code></p>
-<p> Returns an object with all command line params that do not start with dash(-), treat 2 subsequent parms without dashes as name value pair</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.getArgs()</code></p>
-<p> Returns an object with all command line params starting with dash set with the value if the next param does not start with dash or 1</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.getOptions()</code></p>
-<p> Returns an object with all command line params starting with dash set with the value if the next param does not start with dash or 1,
-this is API query emulation and only known API parameters will be set, all other config options must be handled by each command separately</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.getArg(name, options, dflt)</code></p>
-<p> Return first available value for the given name, options first, then command arg and then default</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.run(options)</code></p>
-<p> Start REPL shell or execute any subcommand if specified in the command line.
-A subcommand may return special string to indicate how to treat the flow:</p>
-<ul>
-<li>stop - stop processing commands and create REPL</li>
-<li>continue - do not exit and continue processing other commands or end with REPL</li>
-<li>all other values will result in returning from the run assuming the command will decide what to do, exit or continue running, no REPL is created</li>
-</ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.cmdShowInfo(options)</code></p>
-<p> App version</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.cmdRunApi(options)</code></p>
-<p> Run API server inside the shell</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.cmdTestRun(options)</code></p>
-<p> Run a test command inside the shell</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.cmdAccountAdd(options)</code></p>
-<p> Add a user</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.cmdAccountUpdate(options)</code></p>
-<p> Delete a user and all its history according to the options</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.cmdAccountDel(options)</code></p>
-<p> Delete a user and all its history according to the options</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.cmdLocationPut(options)</code></p>
-<p> Update location</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.cmdLogWatch(options)</code></p>
-<p> Run logwatcher and exit</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.cmdDbGetConfig(options)</code></p>
-<p> Show all config parameters</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.cmdDbTtables(options)</code></p>
-<p> Show all tables</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.cmdDbSelect(options)</code></p>
-<p> Show record that match the search criteria, return up to <code>-count N</code> records</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.cmdDbScan(options)</code></p>
-<p> Show all records that match search criteria</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.cmdDbBackup(options)</code></p>
-<p> Save all tables to the specified directory or the server home</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.cmdDbRestore(options)</code></p>
-<p> Restore tables</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.cmdDbGet(options)</code></p>
-<p> Put config entry</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.cmdDbPut(options)</code></p>
-<p> Put a record</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.cmdDbDel(options)</code></p>
-<p> Delete a record</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.cmdDbDelAll(options)</code></p>
-<p> Delete all records</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.cmdDbDrop(options)</code></p>
-<p> Drop a table</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.cmdSendRequest(options)</code></p>
-<p> Send API request</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.awsCheckTags(obj, name)</code></p>
-<p> Check all names in the tag set for given name pattern(s), all arguments after 0 are checked</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.awsFilterSubnets(subnets, zone, name)</code></p>
-<p> Return matched subnet ids by availability zone and/or name pattern</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.awsGetInstances(rc)</code></p>
-<p> Return instances from the response object</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.getSelfImages(name, callback)</code></p>
-<p> Retrieve my AMIs for the given name pattern</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.getAmazonImages(options, callback)</code></p>
-<p> Return Amazon AMIs for the current region, HVM type only</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.getElbCount(name, equal, total, options, callback)</code></p>
-<p> Wait ELB to have instance count equal or not to the expected total</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.launchInstances(options, callback)</code></p>
-<p> Launch instances by run mode and/or other criteria</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.cmdAwsLaunchInstances(options)</code></p>
-<p> Delete an AMI with the snapshot</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.cmdAwsDeleteImage(options)</code></p>
-<p> Delete an AMI with the snapshot</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.cmdAwsCreateImage(options)</code></p>
-<p> Create an AMI from the current instance of the instance by id</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.cmdAwsRebootInstances(options)</code></p>
-<p> Reboot instances by run mode and/or other criteria</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.cmdAwsTerminateInstances(options)</code></p>
-<p> Terminate instances by run mode and/or other criteria</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.cmdAwsShowInstances(options)</code></p>
-<p> Show running instances by run mode and/or other criteria</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.cmdAwsShowElb(options)</code></p>
-<p> Show ELB running instances</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.cmdAwsRebootElb(options)</code></p>
-<p> Reboot instances in the ELB, one by one</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.cmdAwsReplaceElb(options)</code></p>
-<p> Deploy new version in the ELB, terminate the old version</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.cmdAwsSetupSsh(options)</code></p>
-<p> Open/close SSH access to the specified group for the current external IP address</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.AwsSetupInstance(options)</code></p>
-<p> Launch an instance and setup it with provisioning script</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.cmdAwsS3Get(options)</code></p>
-<p> Get file</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.cmdAwsS3Put(options)</code></p>
-<p> Put file</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>},(err, opts)</code></p>
-<p> If executed as standalone script directly in the node</p>
 </li>
 </ul>
 
@@ -7641,6 +7358,45 @@ Valid properties in the options:</p>
 </li>
 </ul>
 
+<h2 id="module-api_proxy">Module: API_PROXY</h2>
+<ul>
+<li><p><code>api.handleProxyRequest(req, res, callback)</code></p>
+<p> Process incoming proxy request, can be overriden for custom logic with frontend proxy server. If any
+response is sent or an error returned in the calback
+then the request will be aborted and will not be forwarded to the web processes</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.createProxyServer()</code></p>
+<p> Create a proxy server to handle incoming requests and distribute them to the workers</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.createProxyWorker()</code></p>
+<p> Create/fork a worker to handle API requests, register a new port for load balancing between web workers</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.getProxyPort()</code></p>
+<p> Return a target port for proxy requests, rotates between all web workers</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.getProxyTarget(req)</code></p>
+<p> Return a target for proxy requests</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.runProxyRequest(req, res, ssl)</code></p>
+<p> Process a proxy request, perform all filtering or redirects</p>
+</li>
+</ul>
+
 <h2 id="module-api_statistics">Module: API_STATISTICS</h2>
 <ul>
 <li><p><code>api.initStatistics()</code></p>
@@ -7702,7 +7458,7 @@ must be defined for any metrics to be saved, use api.describeTable with addition
 <li>mtime - a Date or timestamp to be used in conditional requests</li>
 <li>conditional - add If-Modified-Since header using <code>params.mtime</code> if present or if <code>file</code> is given use file last modified timestamp, mtime</li>
 <li>httpTimeout - timeout in milliseconds afte which the request is borted if no data received</li>
-<li>retryCount - how many time to retry the request on error or timeout</li>
+<li>retryCount - how many times to retry the request on error or timeout</li>
 <li>retryTimeout - timeout in milliseconds for retries, with every subsequent timeout it will be multiplied by 2</li>
 <li>retryOnError - retry request if received non 2xx response status,
  if this is a function then it must return true in order to retry the request,
@@ -8986,6 +8742,302 @@ is used in <code>/location/get</code> request. It can be used in the application
 <ul>
 <li><p><code>mod.updateArchiveMessage(req, options, callback)</code></p>
 <p> Update a messages in the archive, used in /message/update/archive` API call</p>
+</li>
+</ul>
+
+<h2 id="module-bk_shell">Module: BK_SHELL</h2>
+<ul>
+<li><p><code>shell.exit(err, msg)</code></p>
+<p> Exit and write to the console a message or error message if non empty</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.getUser(obj, callback)</code></p>
+<p> Resolves a user from <code>obj.id</code> or <code>obj.login</code> params and return the record in the callback</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.getQuery()</code></p>
+<p> Returns an object with all command line params that do not start with dash(-), treat 2 subsequent parms without dashes as name value pair</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.getArgs()</code></p>
+<p> Returns an object with all command line params starting with dash set with the value if the next param does not start with dash or 1</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.getOptions()</code></p>
+<p> Returns an object with all command line params starting with dash set with the value if the next param does not start with dash or 1,
+this is API query emulation and only known API parameters will be set, all other config options must be handled by each command separately</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.getArg(name, options, dflt)</code></p>
+<p> Return first available value for the given name, options first, then command arg and then default</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.run(options)</code></p>
+<p> Start REPL shell or execute any subcommand if specified in the command line.
+A subcommand may return special string to indicate how to treat the flow:</p>
+<ul>
+<li>stop - stop processing commands and create REPL</li>
+<li>continue - do not exit and continue processing other commands or end with REPL</li>
+<li>all other values will result in returning from the run assuming the command will decide what to do, exit or continue running, no REPL is created</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.cmdShowInfo(options)</code></p>
+<p> App version</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.cmdRunApi(options)</code></p>
+<p> Run API server inside the shell</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.cmdTestRun(options)</code></p>
+<p> Run a test command inside the shell</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.cmdAccountAdd(options)</code></p>
+<p> Add a user</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.cmdAccountUpdate(options)</code></p>
+<p> Delete a user and all its history according to the options</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.cmdAccountDel(options)</code></p>
+<p> Delete a user and all its history according to the options</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.cmdLocationPut(options)</code></p>
+<p> Update location</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.cmdLogWatch(options)</code></p>
+<p> Run logwatcher and exit</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.cmdDbGetConfig(options)</code></p>
+<p> Show all config parameters</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.cmdDbTtables(options)</code></p>
+<p> Show all tables</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.cmdDbSelect(options)</code></p>
+<p> Show record that match the search criteria, return up to <code>-count N</code> records</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.cmdDbScan(options)</code></p>
+<p> Show all records that match search criteria</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.cmdDbBackup(options)</code></p>
+<p> Save all tables to the specified directory or the server home</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.cmdDbRestore(options)</code></p>
+<p> Restore tables</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.cmdDbGet(options)</code></p>
+<p> Put config entry</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.cmdDbPut(options)</code></p>
+<p> Put a record</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.cmdDbDel(options)</code></p>
+<p> Delete a record</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.cmdDbDelAll(options)</code></p>
+<p> Delete all records</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.cmdDbDrop(options)</code></p>
+<p> Drop a table</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.cmdSendRequest(options)</code></p>
+<p> Send API request</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.awsCheckTags(obj, name)</code></p>
+<p> Check all names in the tag set for given name pattern(s), all arguments after 0 are checked</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.awsFilterSubnets(subnets, zone, name)</code></p>
+<p> Return matched subnet ids by availability zone and/or name pattern</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.awsGetInstances(rc)</code></p>
+<p> Return instances from the response object</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.getSelfImages(name, callback)</code></p>
+<p> Retrieve my AMIs for the given name pattern</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.getAmazonImages(options, callback)</code></p>
+<p> Return Amazon AMIs for the current region, HVM type only</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.getElbCount(name, equal, total, options, callback)</code></p>
+<p> Wait ELB to have instance count equal or not to the expected total</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.launchInstances(options, callback)</code></p>
+<p> Launch instances by run mode and/or other criteria</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.cmdAwsLaunchInstances(options)</code></p>
+<p> Delete an AMI with the snapshot</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.cmdAwsDeleteImage(options)</code></p>
+<p> Delete an AMI with the snapshot</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.cmdAwsCreateImage(options)</code></p>
+<p> Create an AMI from the current instance of the instance by id</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.cmdAwsRebootInstances(options)</code></p>
+<p> Reboot instances by run mode and/or other criteria</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.cmdAwsTerminateInstances(options)</code></p>
+<p> Terminate instances by run mode and/or other criteria</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.cmdAwsShowInstances(options)</code></p>
+<p> Show running instances by run mode and/or other criteria</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.cmdAwsShowElb(options)</code></p>
+<p> Show ELB running instances</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.cmdAwsRebootElb(options)</code></p>
+<p> Reboot instances in the ELB, one by one</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.cmdAwsReplaceElb(options)</code></p>
+<p> Deploy new version in the ELB, terminate the old version</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.cmdAwsSetupSsh(options)</code></p>
+<p> Open/close SSH access to the specified group for the current external IP address</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.AwsSetupInstance(options)</code></p>
+<p> Launch an instance and setup it with provisioning script</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.cmdAwsS3Get(options)</code></p>
+<p> Get file</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.cmdAwsS3Put(options)</code></p>
+<p> Put file</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>},(err, opts)</code></p>
+<p> If executed as standalone script directly in the node</p>
 </li>
 </ul>
 
