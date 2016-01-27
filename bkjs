@@ -486,6 +486,17 @@ case "$ARG" in
     [ "$BKJS_ARGS" != "" ] && service $SERVICE $BKJS_ARGS
     ;;
 
+  init-monit-system)
+    $ECHO "check system \$HOST if loadavg (15min) > 5 then exec \"$0 send-alert\"" > /etc/monit.d/system.conf
+    $ECHO "check filesystem rootfs with path / if space usage > 90% for 3 times within 5 cycles then exec \"$0 send-alert\"" >> /etc/monit.d/system.conf
+    monit reload
+    ;;
+
+  init-monit-master)
+    $ECHO "check process $BKJS with pidfile \"$BKJS_HOME/var/master.pid\" start program = \"$0 start\" as uid $BKJS_USER and gid $BKJS_GROUP stop program = \"$0 stop\"" > /etc/monit.d/$BKJS.conf
+    monit reload
+    ;;
+
   init-logwatcher)
     [ "$BKJS_ARGS" = "" ] && BKJS_ARGS="*/30 * * * *"
     echo 'MAILTO=""' > /etc/cron.d/$BKJS-logwatcher
@@ -551,6 +562,15 @@ case "$ARG" in
          ;;
     esac
     yum -y -q install $packages
+    ;;
+
+  send-alert)
+    msg="$@ $MONIT_HOST $MONIT_EVENT $MONIT_DESCRIPTION"
+    msg=$(echo $msg)
+    [ "$msg" = "" ] && exit
+    echo $msg >> $BKJS_HOME/log/error.log
+    logger -p emerg $msg
+    [ "$BKJS_SNS" != "" ] && aws sns publish --region `echo $BKJS_SNS|awk -F: '{print $4}'` --topic-arn $BKJS_SNS --message "$msg"
     ;;
 
   run-backend|run-server|run-shell|run|backendjs|bksh)
@@ -809,7 +829,7 @@ case "$ARG" in
     sudo yum remove -y redis
     sudo yum install -y jemalloc
 
-    ver=$(get_arg -version 2.8.22)
+    ver=$(get_arg -version 3.0.6)
     curl -L -o redis.tgz http://download.redis.io/releases/redis-$ver.tar.gz
 
     mkdir -p redis

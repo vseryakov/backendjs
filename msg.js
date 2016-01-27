@@ -64,6 +64,7 @@ msg.shutdown = function(options, callback)
 //  - sound - set to 1 if a sound should be produced on message receive
 //  - type - set type of the message, service specific
 //  - id - send id with the notification, this is application specific data, sent as is
+//  - name - notification group name, can be used for grouping multiple messages under this name
 msg.send = function(options, callback)
 {
     var self = this;

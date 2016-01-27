@@ -75,7 +75,7 @@ server.start = function()
 
     // REPL shell
     if (lib.isArg("-shell")) {
-        var shell = require(__dirname + "/shell");
+        var shell = require(__dirname + "/modules/bk_shell");
         core.addModule("shell", shell);
         return core.init({ role: "shell" }, function(err, opts) { shell.run(opts); });
     }
@@ -92,7 +92,7 @@ server.start = function()
     process.on('SIGUSR2', function() {});
 
     // Watch monitor for modified source files, for development mode only, in production -monitor is used
-    if (lib.isArg("-watch")) {
+    if (lib.isArg("-watch") && !core.noWatch) {
         var opts = { role: "watcher", noDb: 1, noDns: 1, noConfigure: 1, noModules: 1, noWatch: 1 };
         return core.init(opts, function(err, opts) {
             self.startWatcher(opts);
@@ -100,7 +100,7 @@ server.start = function()
     }
 
     // Start server monitor, it will watch the process and restart automatically
-    if (lib.isArg("-monitor")) {
+    if (lib.isArg("-monitor") && !core.noMonitor) {
         var opts = { role: "monitor", noDb: 1, noDns: 1, noConfigure: 1, noModules: 1, noWatch: 1 };
         return core.init(opts, function(err, opts) {
             self.startMonitor(opts);
@@ -108,7 +108,7 @@ server.start = function()
     }
 
     // Master server, always create tables in the masters processes but only for the primary db pools
-    if (lib.isArg("-master")) {
+    if (lib.isArg("-master") && !core.noMaster) {
         var opts = { role: "master", localMode: cluster.isMaster, allowModules: cluster.isMaster ? this.allowModules : null };
         return core.init(opts, function(err, opts) {
             self.startMaster(opts);
@@ -116,7 +116,7 @@ server.start = function()
     }
 
     // Backend Web server, the server makes table for all configured pools
-    if (lib.isArg("-web")) {
+    if (lib.isArg("-web") && !core.noWeb) {
         var opts = { role: "web", allowModules: cluster.isMaster ? this.allowModules : null };
         return core.init(opts, function(err, opts) {
             self.startWeb(opts);

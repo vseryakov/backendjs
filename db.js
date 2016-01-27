@@ -1534,7 +1534,6 @@ db.getCached = function(op, table, query, options, callback)
         if (data) data = lib.jsonParse(data);
         // Parse errors treated as miss
         if (data) {
-            logger.debug("getCached:", options.cacheKey, m.elapsed, "ms");
             pool.metrics.Counter("hits").inc();
             return callback(null, data, {});
         }
@@ -2461,14 +2460,19 @@ db.getCache = function(table, query, options, callback)
     var key = this.getCacheKey(table, query, options);
     if (!key) return callback();
     if (options) options.cacheKey = key;
-    var ttl = this.getCache2Ttl(table, options);
-    if (ttl > 0) {
+    var ttl2 = this.getCache2Ttl(table, options);
+    if (ttl2 > 0) {
         var val = bkcache.lruGet(key, Date.now());
-        if (val) return callback(val);
+        if (val) {
+            logger.debug("getCache2:", key, options, 'ttl2:', ttl2);
+            return callback(val);
+        }
     }
     options = this.getCacheOptions(table, options);
     ipc.get(key, options, function(val) {
-        if (ttl > 0) bkcache.lruPut(key, val, Date.now() + ttl);
+        if (!val) return callback();
+        if (ttl2 > 0) bkcache.lruPut(key, val, Date.now() + ttl2);
+        logger.debug("getCache:", key, options, 'ttl2:', ttl2);
         callback(val);
     });
 }
@@ -2479,11 +2483,11 @@ db.putCache = function(table, query, options)
     var key = options && options.cacheKey ? options.cacheKey : this.getCacheKey(table, query, options);
     if (!key) return;
     options = this.getCacheOptions(table, options);
-    logger.debug("putCache:", key, options);
     var val = lib.stringify(query);
-    var ttl = this.getCache2Ttl(table, options);
-    if (ttl > 0) bkcache.lruPut(key, val, Date.now() + ttl);
+    var ttl2 = this.getCache2Ttl(table, options);
+    if (ttl2 > 0) bkcache.lruPut(key, val, Date.now() + ttl2);
     ipc.put(key, val, options);
+    logger.debug("putCache:", key, options, 'ttl2:', ttl2);
 }
 
 // Notify or clear cached record, this is called after del/update operation to clear cached version by primary keys
@@ -2492,10 +2496,10 @@ db.delCache = function(table, query, options)
     var key = options && options.cacheKey ? options.cacheKey : this.getCacheKey(table, query, options);
     if (!key) return;
     options = this.getCacheOptions(table, options);
-    logger.debug("delCache:", key, options);
-    var ttl = this.getCache2Ttl(table, options);
-    if (ttl > 0) bkcache.lruDel(key);
+    var ttl2 = this.getCache2Ttl(table, options);
+    if (ttl2 > 0) bkcache.lruDel(key);
     ipc.del(key, options);
+    logger.debug("delCache:", key, options, 'ttl2:', ttl2);
 }
 
 // Returns concatenated values for the primary keys, this is used for caching records by primary key

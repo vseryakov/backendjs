@@ -82,7 +82,18 @@ or simply
 
         bkjs run-backend -db-pool pgsql -db-pgsql-pool postgresql://postgres@127.0.0.1/backend
 
-* All commands above will behave exactly the same, all required tables will be automatically created
+* All commands above will behave exactly the same
+
+* **Tables are not created by default**, in order to initialize the database run the server or the shell with `-db-init-tables` flag,
+  it is called only inside a master process, a worker never creates tables on start
+
+  - prepare the tables in the shell
+
+        bksh -db-pool pgsql -db-pgsql-pool postgresql://postgres@127.0.0.1/backend -db-init-tables
+
+  - run the server and create table son start
+
+        bkjs run-backend -db-pool pgsql -db-pgsql-pool postgresql://postgres@127.0.0.1/backend -db-init-tables
 
 * While the local backendjs is runnning, the documentation is always available at http://localhost:8000/doc.html (or whatever port is the server using)
 
@@ -408,7 +419,7 @@ module.exports = mod;
 
 // Run db setup once all the DB pools are configured, for example produce dynamic icon property
 // for each record retrieved
-mod.configureMdiule = function(options, callback)
+mod.configureModule = function(options, callback)
 {
     db.setProcessRows("post", "invoices", function(rq, row, opts) {
        if (row.id) row.icon = "/images/" + row.id + ".png";
@@ -502,13 +513,13 @@ Create a file named `app.js` with the code below.
 
 Now run it with an option to allow API access without an account:
 
-    node app.js -log debug -web -api-allow-path /todo
+    node app.js -log debug -web -api-allow-path /todo -db-init-tables
 
-To use a different databse, for example PostgresSQL(running localy) or DynamoDB(assuming EC2 instance),
+To use a different database, for example PostgresSQL(running localy) or DynamoDB(assuming EC2 instance),
 all config parametetrs can be stored in the etc/config as well
 
-    node app.js -log debug -web -api-allow-path /todo -db-pool dynamodb -db-dynamodb-pool default
-    node app.js -log debug -web -api-allow-path /todo -db-pool pgsql -db-pgsql-pool default
+    node app.js -log debug -web -api-allow-path /todo -db-pool dynamodb -db-dynamodb-pool default -db-init-tables
+    node app.js -log debug -web -api-allow-path /todo -db-pool pgsql -db-pgsql-pool default -db-init-tables
 
 API commands can be executed in the browser or using `curl`:
 

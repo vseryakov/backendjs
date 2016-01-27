@@ -13,15 +13,14 @@ var url = require('url');
 var fs = require('fs');
 var spawn = require('child_process').spawn;
 var exec = require('child_process').exec;
-var core = require(__dirname + '/core');
-var lib = require(__dirname + '/lib');
-var logger = require(__dirname + '/logger');
-var db = require(__dirname + '/db');
-var aws = require(__dirname + '/aws');
-var ipc = require(__dirname + '/ipc');
-var api = require(__dirname + '/api');
-var app = require(__dirname + '/app');
-var jobs = require(__dirname + '/jobs');
+var core = require(__dirname + '/../core');
+var lib = require(__dirname + '/../lib');
+var logger = require(__dirname + '/../logger');
+var db = require(__dirname + '/../db');
+var aws = require(__dirname + '/../aws');
+var ipc = require(__dirname + '/../ipc');
+var api = require(__dirname + '/../api');
+var app = require(__dirname + '/../app');
 var os = require('os');
 
 var shell = {
@@ -500,7 +499,7 @@ shell.awsFilterSubnets = function(subnets, zone, name)
 // Return instances from the response object
 shell.awsGetInstances = function(rc)
 {
-    var list = lib.objGet(rc, "DescribeInstancesResponse.reservationSet.item", { obj: 1 });
+    var list = lib.objGet(rc, "DescribeInstancesResponse.reservationSet.item", { list: 1 });
     list = list.map(function(x) { return lib.objGet(x, "instancesSet.item"); });
     list.forEach(function(x) {
         x.name = lib.objGet(x, "tagSet.item", { list: 1 }).filter(function(x) { return x.key == "Name" }).map(function(x) { return x.value }).pop();

@@ -70,7 +70,9 @@ client.send = function(dev, options, callback)
 
     agent._queue++;
 
-    var msg = { registration_ids: [dev.id], data: {} };
+    var msg = { data: {} };
+    msg[dev.id.indexOf(",") > -1 ? "registration_ids" : "to"] = dev.id;
+    if (options.name) msg.collapse_key = options.name;
     if (options.msg) msg.data.msg = String(options.msg);
     if (options.id) msg.data.id = String(options.id);
     if (options.type) msg.data.type = String(options.type);
@@ -83,7 +85,7 @@ client.send = function(dev, options, callback)
         headers: { 'Authorization': 'key=' + agent.key },
         postdata: msg,
         retryCount: this.retryCount || 3,
-        retryTimeout: this.retryTimeout || 500,
+        retryTimeout: this.retryTimeout || 1000,
         retryOnError: client.retryOnError,
     };
     core.httpGet('https://android.googleapis.com/gcm/send', opts, function(err, params) {

@@ -275,10 +275,10 @@ aws.parseXMLResponse = function(err, params, options, callback)
             err = lib.newError({ message: params.obj.Error.Message, code: params.obj.Error.Code, status: params.status });
         }
         if (!err) err = lib.newError({ message: "Error: " + params.data, status: params.status });
-        logger.logger((options && options.logger_error) || "error", 'queryAWS:', params.href, params.search, params.Action || "", err, options);
+        logger.logger((options && options.logger_error) || "error", 'queryAWS:', params.href, params.search, params.Action || "", err, params.toJSON());
         return callback(err, params.obj);
     }
-    logger.debug('queryAWS:', params.href, params.search, params.Action || "", params.obj, options);
+    logger.debug('queryAWS:', params.href, params.search, params.Action || "", params.obj, params.toJSON());
     callback(err, params.obj);
 }
 
@@ -332,7 +332,7 @@ aws.queryOptions = function(method, data, headers, options)
         retryCount: options.retryCount,
         retryTimeout: options.retryTimeout,
         retryOnError: options.retryOnError,
-        httpTimeout: options.httpTimeout
+        httpTimeout: options.httpTimeout,
     };
 }
 
