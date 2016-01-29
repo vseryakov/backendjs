@@ -41,7 +41,6 @@ db.modules.push(pool);
 function Pool(options)
 {
     options.type = pool.name;
-    options.settings = lib.mergeObj(pool.settings, options.settings);
     db.Pool.call(this, options);
 }
 util.inherits(Pool, db.Pool);
@@ -123,7 +122,7 @@ Pool.prototype.query = function(client, req, options, callback)
         // Custom filter on other columns
         var cols = db.getColumns(req.table, options);
         var other = Object.keys(req.obj).filter(function(x) { return x[0] != "_" && keys.indexOf(x) == -1 && typeof req.obj[x] != "undefined" });
-        var options2 = { keys: other, cols: cols, ops: options.ops, typesMap: options.typesMap };
+        var options2 = { keys: other, cols: cols, ops: options.ops, typesMap: options.typesMap || this.poolOptions.typesMap };
         var filter = function(item) { return other.length > 0 ? db.filterRows(req.obj, [ item ], options2).length : 1; }
 
         var path = "/buckets/" + req.table + "/index/" + (options.sort || "primary_bin") + "/" + key.replace(/[\/]/g, "%2F");

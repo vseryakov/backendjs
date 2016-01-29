@@ -245,7 +245,7 @@ shell.cmdDbGetConfig = function(options)
 }
 
 // Show all tables
-shell.cmdDbTtables = function(options)
+shell.cmdDbTables = function(options)
 {
     var sep = lib.getArg("-separator", "\n");
     var tables = db.getPoolTables(db.pool, { names: 1 });
@@ -358,7 +358,7 @@ shell.cmdDbRestore = function(options)
             },
             function(next) {
                 if (!opts.drop) return next();
-                db.create(table, db.getTableProperties(table, opts), opts, next);
+                db.create(table, db.tables[table], opts, next);
             },
             function(next) {
                 if (!opts.drop) return next();

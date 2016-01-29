@@ -135,8 +135,8 @@ var api = {
            { name: "errlog-limiter-interval", type: "int", descr: "Interval for error log limiter, max errors per this interval" },
            { name: "errlog-limiter-ignore", type: "regexp", descr: "Do not show errors that match the regexp" },
            { name: "proxy-reverse", type: "url", descr: "A Web server where to proxy requests not macthed by the url patterns or host header, in the form: http://host[:port]" },
-           { name: "proxy-url-(.+)", type: "regexpobj", reverse: 1, obj: 'proxy-url', lcase: ".+", descr: "URL regexp to be passed to other web server running behind, each parameter defines an url regexp and the destination in the value in the form http://host[:port], example: -server-proxy-url-^/api http://127.0.0.1:8080" },
-           { name: "proxy-host-(.+)", type: "regexpobj", reverse: 1, obj: 'proxy-host', lcase: ".+", descr: "Virtual host mapping, to match any Host: header, each parameter defines a host name and the destination in the value in the form http://host[:port], example: -server-proxy-host-www.myhost.com http://127.0.0.1:8080" },
+           { name: "proxy-url-(.+)", type: "regexpobj", reverse: 1, obj: 'proxy-url', lcase: /.+/, descr: "URL regexp to be passed to other web server running behind, each parameter defines an url regexp and the destination in the value in the form http://host[:port], example: -server-proxy-url-^/api http://127.0.0.1:8080" },
+           { name: "proxy-host-(.+)", type: "regexpobj", reverse: 1, obj: 'proxy-host', lcase: /.+/, descr: "Virtual host mapping, to match any Host: header, each parameter defines a host name and the destination in the value in the form http://host[:port], example: -server-proxy-host-www.myhost.com http://127.0.0.1:8080" },
     ],
 
     // Access handlers to grant access to the endpoint before checking for signature.
@@ -669,16 +669,13 @@ api.shutdown = function(callback)
     });
 }
 
-// Allow access to API table in worker processes
-api.configureWorker = function(options, callback)
+// Gracefully close all database pools when the shutdown is initiated by a Web process
+api.shutdownWeb = function(options, callback)
 {
-    db.initTables(options, callback);
-}
-
-// Access to the API table in the shell
-api.configureShell = function(options, callback)
-{
-    db.initTables(options, callback);
+    var pools = this.getPools();
+    lib.forEachLimit(pools, pools.length, function(pool, next) {
+        db.pools[pool.name].shutdown(next);
+    }, callback);
 }
 
 // Setup access log stream
@@ -1625,7 +1622,7 @@ api.sendFormatted = function(req, err, data, options)
 
     case "csv":
         if (req.options.cleanup) this.checkResultColumns(req.options.cleanup, data.count && data.data ? data.data : data, req.options);
-        var rows = Array.isArray(data) ? data : (data.data || []);
+        var rows = Array.isArray(data) ? data : (data.data || lib.emptylist);
         var csv = Object.keys(rows[0]).join(options.separator || "|") + "\n";
         csv += lib.toFormat(options.format, rows, options);
         req.res.set('Content-Type', 'text/csv');

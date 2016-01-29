@@ -12,7 +12,7 @@ var mongodb = require('mongodb');
 
 var pool = {
     name: "mongodb",
-    settings: {
+    poolOptions: {
         jsonColumns: true,
         skipNull: { add: 1, put: 1 },
         w: 1,
@@ -27,16 +27,16 @@ db.modules.push(pool);
 function Pool(options)
 {
     if (!lib.isPositive(options.max)) options.max = 25;
-    options.settings = lib.mergeObj(pool.settings, options.settings);
     options.type = pool.name;
     db.Pool.call(this, options);
+    this.poolOptions = lib.mergeObj(this.poolOptions, pool.poolOptions);
 }
 util.inherits(Pool, db.Pool)
 
 Pool.prototype.open = function(callback)
 {
     if (this.url == "default") this.url = "mongodb://127.0.0.1";
-    mongodb.MongoClient.connect(this.url, this.connect, function(err, db) {
+    mongodb.MongoClient.connect(this.url, this.connectOptions, function(err, db) {
         if (err) logger.error('mongodbOpen:', err);
         if (callback) callback(err, db);
     });
@@ -127,7 +127,7 @@ Pool.prototype.query = function(client, req, options, callback)
 
     case "select":
     case "search":
-        var old = this.saveOptions(options, 'sort', 'skip', 'limit');
+        var optiopns = lib.cloneObj(options);
         var collection = client.collection(table);
         var fields = db.getSelectedColumns(table, options);
         options.fields = (fields || Object.keys(dbcols)).reduce(function(x,y) { x[y] = 1; return x }, {});
@@ -137,7 +137,6 @@ Pool.prototype.query = function(client, req, options, callback)
         var o = this.queryCondition(obj, options);
         logger.debug('select:', this.name, o, keys, options);
         collection.find(o, options).toArray(function(err, rows) {
-            self.restoreOptions(options, old);
             callback(err, rows);
         });
         break;
@@ -277,5 +276,5 @@ Pool.prototype.queryCondition = function(obj, options)
 
 Pool.prototype.nextToken = function(client, req, rows, options)
 {
-    return options.count && rows.length == options.count ? lib.toNumber(options.start) + lib.toNumber(options.count) : null;
+    return options && options.count && rows.length == options.count ? lib.toNumber(options.start) + lib.toNumber(options.count) : null;
 }

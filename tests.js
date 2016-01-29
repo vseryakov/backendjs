@@ -178,8 +178,8 @@ tests.run = function(options, callback)
 
 tests.resetTables = function(tables, callback)
 {
-    db.dropPoolTables(db.pool, tables, function() {
-        db.initPoolTables(db.pool, tables, callback);
+    db.dropTables(tables, function() {
+        db.createTables(callback);
     });
 }
 
@@ -649,6 +649,8 @@ tests.test_location = function(callback)
     // still can be in the box outside of the immediate neighbors, minDistance is an approximation
     var geo = lib.geoHash(latitude, longitude, { distance: distance });
 
+    db.describeTables(tables);
+
     lib.series([
         function(next) {
             if (!cluster.isMaster && !reset) return next();
@@ -789,6 +791,8 @@ tests.test_db_basic = function(callback)
     var next_token = null;
     var ids = [];
 
+    db.describeTables(tables);
+
     lib.series([
         function(next) {
              self.resetTables(tables, next);
@@ -903,6 +907,8 @@ tests.test_db = function(callback)
         row.mtime = type[1];
         return row;
     });
+
+    db.describeTables(tables);
 
     lib.series([
         function(next) {
@@ -1476,7 +1482,6 @@ tests.test_config = function(callback)
 {
     var argv = ["-uid", "1",
                 "-proxy-port", "3000",
-                "-db-sqlite-pool-no-cache-columns",
                 "-api-allow-path", "^/a",
                 "-api-allow-admin", "^/a",
                 "-api-allow-account-dev=^/a",
@@ -1493,7 +1498,6 @@ tests.test_config = function(callback)
     core.parseArgs(argv);
     if (core.uid != 1) return callback("invalid uid");
     if (core.proxy.port != 3000) return callback("invalid proxy-port");
-    if (!db.poolParams.sqliteNoCacheColumns) return callback("invalid sqlite no init tables");
     if (db.poolParams.sqliteMax != 10) return callback("invalid sqlite max");
     if (db.poolNames.sqlite1 != "a") return callback("invalid sqlite1");
     if (db.poolParams.sqliteMax1 != 10) return callback("invalid sqlite1 max");

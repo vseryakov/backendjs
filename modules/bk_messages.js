@@ -96,7 +96,7 @@ mod.init = function(options)
 {
     core.describeArgs("messages", [
          { name: "cache-name", obj: "cacheOptions", descr: "Cache name for keeping unread messages counter" },
-         { name: "cache-ttl", type: "number", obj: "cacheOptions", nocamel: 1, strip: "cache-", min: 0, descr: "How long in ms to keep unread messages counter" },
+         { name: "cache-ttl", type: "number", obj: "cacheOptions", nocamel: 1, strip: /cache-/, min: 0, descr: "How long in ms to keep unread messages counter" },
     ]);
 }
 

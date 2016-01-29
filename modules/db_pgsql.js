@@ -13,7 +13,7 @@ var bkpgsql = require("bkjs-pgsql");
 
 var pool = {
     name: "pgsql",
-    settings: {
+    poolOptions: {
         typesMap: { real: "numeric", bigint: "bigint", smallint: "smallint", search: "tsvector" },
         noIfExists: 1,
         noReplace: 1,
@@ -31,9 +31,9 @@ function Pool(options)
         logger.error("PgSQL driver is not installed or compiled properly");
         return;
     }
-    options.settings = lib.mergeObj(pool.settings, options.settings);
     options.type = pool.name;
     db.SqlPool.call(this, options);
+    this.poolOptions = lib.mergeObj(this.poolOptions, pool.poolOptions);
     this._handles = [];
 }
 util.inherits(Pool, db.SqlPool)
@@ -49,7 +49,7 @@ Pool.prototype.open = function(callback)
             logger.error('pgsql: connect:', err);
             callback(err);
         } else {
-            if (self.connect.blocking) client.setNonblocking(0);
+            if (self.connectOptions.blocking) client.setNonblocking(0);
             client.setNotify(function(msg) { logger.log('pgsql: notify:', msg) });
             callback(err, client);
         }
@@ -82,25 +82,25 @@ Pool.prototype.put = function(table, obj, opts, callback)
     });
 }
 
-Pool.prototype.prepare = function(op, table, obj, opts)
+Pool.prototype.prepare = function(req)
 {
+    db.sqlPrepare(req);
+
     switch (op) {
     case "create":
     case "upgrade":
-        var req = db.sqlPrepare(op, table, obj, opts);
-        if (!req.text.length) return req;
+        if (!req.text.length) return;
         // Prepare FTS triggers from the projection columns
-        var cols = this.dbcolumns[table] || {}, rc = [];
+        var cols = req.columns, rc = [];
         for (var p in cols) {
             if (cols[p].type == "search" && cols[p].projection) {
-                rc.push("DROP TRIGGER IF EXISTS " + table + "_" + p + "_trigger ON " + table + " CASCADE");
-                rc.push("CREATE TRIGGER " + table + "_" + p + "_trigger BEFORE INSERT OR UPDATE ON " + table + " FOR EACH ROW EXECUTE PROCEDURE tsvector_update_trigger(" + p + ", 'pg_catalog." + (cols[p].lang || "english") +"'," + lib.strSplit(cols[p].projection).join(",") + ")");
+                rc.push("DROP TRIGGER IF EXISTS " + req.table + "_" + p + "_trigger ON " + req.table + " CASCADE");
+                rc.push("CREATE TRIGGER " + req.table + "_" + p + "_trigger BEFORE INSERT OR UPDATE ON " + req.table + " FOR EACH ROW EXECUTE PROCEDURE tsvector_update_trigger(" + p + ", 'pg_catalog." + (cols[p].lang || "english") +"'," + lib.strSplit(cols[p].projection).join(",") + ")");
             }
         }
         if (Array.isArray(req.text)) req.text = req.text.concat(rc); else req.text += ";" + rc.join(";");
-        return req;
+        break;
     }
-    return db.sqlPrepare(op, table, obj, opts);
 }
 
 // Cache indexes using the information_schema
@@ -138,12 +138,11 @@ Pool.prototype.bindValue = function(val, info, options)
     function toArray(v) {
         return '{' + v.map(function(x) { return Array.isArray(x) ? toArray(x) : typeof x === 'undefined' || x === null ? 'NULL' : JSON.stringify(x); } ).join(',') + '}';
     }
-    switch ((info && info.data_type) || (info && info.type) || "") {
-    case "json":
+    var type = (info && info.data_type) || (info && info.type) || "";
+    if (type == "json") {
         val = JSON.stringify(val);
-        break;
-
-    case "array":
+    } else
+    if (type.indexOf("array") > -1) {
         if (Buffer.isBuffer(val)) {
             var a = [];
             for (var i = 0; i < v.length; i++) a.push(v[i]);
@@ -153,9 +152,7 @@ Pool.prototype.bindValue = function(val, info, options)
             val = toArray(val);
         }
         if (val && val[0] != "{") val = "{" + val + "}";
-        break;
-
-    default:
+    } else {
         if (Buffer.isBuffer(val)) val = val.toJSON();
         if (Array.isArray(val)) val = String(val);
     }

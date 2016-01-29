@@ -324,11 +324,12 @@ aws.queryPrepare = function(action, version, obj, options)
 
 aws.queryOptions = function(method, data, headers, options)
 {
+    if (!options) options = lib.empty;
     return {
         method: method || options.method || "POST",
         postdata: data,
         headers: headers,
-        quiet: options.quiet,
+        quiet: options.quiet || options.silence_error || options.ignore_error,
         retryCount: options.retryCount,
         retryTimeout: options.retryTimeout,
         retryOnError: options.retryOnError,
@@ -361,8 +362,8 @@ aws.queryAWS = function(region, endpoint, proto, host, path, obj, options, callb
 // AWS generic query interface
 aws.queryEndpoint = function(endpoint, version, action, obj, options, callback)
 {
-    if (typeof options == "function") callback = options, options = {};
-    if (!options) options = {};
+    if (typeof options == "function") callback = options, options = null;
+    if (!options) options = lib.empty;
     var region = options.region || this.region  || 'us-east-1';
     var e = options.endpoint ? url.parse(options.endpoint) : null;
     var proto = options.endpoint_protocol || (e && e.protocol) || 'https';
@@ -424,8 +425,8 @@ aws.queryElastiCache = function(action, obj, options, callback)
 aws.queryRoute53 = function(method, path, data, options, callback)
 {
     var self = this;
-    if (typeof options == "function") callback = options, options = {};
-    if (!options) options = {};
+    if (typeof options == "function") callback = options, options = null;
+    if (!options) options = lib.empty;
 
     var curTime = new Date().toUTCString();
     var uri = "https://route53.amazonaws.com/2013-04-01" + path;
@@ -441,15 +442,14 @@ aws.queryRoute53 = function(method, path, data, options, callback)
 aws.queryDDB = function (action, obj, options, callback)
 {
     var self = this;
-    if (typeof options == "function") callback = options, options = {};
+    if (typeof options == "function") callback = options, options = null;
     if (typeof callback != "function") callback = lib.noop;
-    if (!options) options = {};
+    if (!options) options = lib.empty;
     var start = Date.now();
     var region = options.region || this.region  || 'us-east-1';
     if (options.endpoint && options.endpoint.match(/[a-z][a-z]-[a-z]+-[1-9]/)) region = options.endpoint;
     var uri = options.endpoint && options.endpoint.match(/^https?:\/\//) ? options.endpoint : ((options.endpoint_protocol || 'http://') + 'dynamodb.' + region + '.amazonaws.com/');
-    var version = '2012-08-10';
-    var target = 'DynamoDB_' + version.replace(/\-/g,'') + '.' + action;
+    var target = 'DynamoDB_20120810.' + action;
     var headers = { 'content-type': 'application/x-amz-json-1.0; charset=utf-8', 'x-amz-target': target };
     var req = url.parse(uri);
     // All capitalized options are passed as is and take priority because they are in native format
@@ -458,29 +458,22 @@ aws.queryDDB = function (action, obj, options, callback)
 
     logger.debug('queryDDB:', action, uri, 'obj:', obj, 'options:', options, 'item:', obj);
 
+    var opts = this.queryOptions("POST", json, headers, options);
+    opts.replyOnError = function() { return this.status == 500 || this.data.match(/(ProvisionedThroughputExceededException|ThrottlingException)/) }
+
     this.querySign(region, "dynamodb", req.hostname, "POST", req.path, json, headers);
-    core.httpGet(uri, this.queryOptions("POST", json, headers, options), function(err, params) {
-        // Reply is always JSON but we dont take any chances
-        if (params.data) {
-            try { params.json = JSON.parse(params.data); } catch(e) { err = e; params.status += 1000; }
-        }
+    core.httpGet(uri, opts, function(err, params) {
+        if (!params.obj) params.obj = lib.jsonParse(params.data, { obj: 1 });
         if (params.status != 200) {
-            // Try several times, special cases or if err is not empty
-            if ((err || params.status == 500 || params.data.match(/(ProvisionedThroughputExceededException|ThrottlingException)/)) && options.retryCount-- > 0) {
-                options.retryTimeout *= 3;
-                logger.debug('queryDDB:', action, obj, err || params.data, 'retrying:', options.retryCount, options.retryTimeout);
-                return setTimeout(self.queryDDB.bind(self, action, obj, options, callback), options.retryTimeout);
-            }
-            // Report about the error
             if (!err) {
-                err = lib.newError(params.json.message || params.json.Message || (action + " Error"));
-                err.code = (params.json.__type || params.json.code).split('#').pop();
+                err = lib.newError(params.obj.message || params.obj.Message || (action + " Error"));
+                err.code = (params.obj.__type || params.obj.code).split('#').pop();
             }
-            logger[options.silence_error || err.code == "ConditionalCheckFailedException" ? "debug" : "error"]('queryDDB:', action, obj, err || params.data);
+            logger[opts.quiet || err.code == "ConditionalCheckFailedException" ? "debug" : "error"]('queryDDB:', action, obj, err || params.data);
             return callback(err, {});
         }
-        logger.debug('queryDDB:', action, 'finished:', Date.now() - start, 'ms', params.json.Item ? 1 : (params.json.Count || 0), 'rows', params.json.ConsumedCapacity || "");
-        callback(err, params.json || {});
+        logger.debug('queryDDB:', action, 'finished:', Date.now() - start, 'ms', params.obj.Item ? 1 : (params.obj.Count || 0), 'rows', params.obj.ConsumedCapacity || "");
+        callback(err, params.obj);
     });
 }
 
@@ -1459,11 +1452,11 @@ aws.queryFilter = function(obj, options)
     var self = this;
     var filter = {};
     var opsMap = { 'like%': 'begins_with', '=': 'eq', '<=': 'le', '<': 'lt', '>=': 'ge', '>': 'gt' };
-    if (!options.ops) options.ops = {};
+    var ops = options.ops || lib.empty;
 
     for (var name in obj) {
         var val = obj[name];
-        var op = options.ops[name] || "eq";
+        var op = ops[name] || "eq";
         if (opsMap[op]) op = opsMap[op];
         if (val == null) op = "null";
 
@@ -1512,12 +1505,12 @@ aws.queryFilter = function(obj, options)
 aws.queryExpression = function(obj, options)
 {
     var opsMap = { "!=": "<>", eq: "=", ne: "<>", lt: "<", le: ",=", gt: ">", ge: ">=" };
-    if (!options.ops) options.ops = {};
+    var ops = options.ops || lib.empty;
     var v = 0, n = 0, values = {}, expr = [], names = {};
 
     for (var name in obj) {
         var val = obj[name];
-        var op = options.ops[name] || "eq";
+        var op = ops[name] || "eq";
         if (opsMap[op]) op = opsMap[op];
         if (val == null) op = "null";
         if (this.ddbReserved[name.toUpperCase()]) {
@@ -1608,9 +1601,11 @@ aws.queryExpression = function(obj, options)
 aws.ddbListTables = function(options, callback)
 {
     var self = this;
-    if (typeof options == "function") callback = options, options = {};
-    if (!options) options = {};
-    this.queryDDB('ListTables', {}, options, callback);
+    if (typeof options == "function") callback = options, options = null;
+    this.queryDDB('ListTables', {}, options, function(err, rc) {
+        logger.debug("ListTables:", rc);
+        if (typeof callback == "function") callback(err, rc);
+    });
 }
 
 // Return table definition and parameters in the result structure with property of the given table name
@@ -1884,9 +1879,9 @@ aws.ddbWaitForTable = function(name, item, options, callback)
 aws.ddbPutItem = function(name, item, options, callback)
 {
     var self = this;
-    if (typeof options == "function") callback = options, options = {};
+    if (typeof options == "function") callback = options, options = null;
     if (typeof callback != "function") callback = lib.noop;
-    if (!options) options = {};
+    if (!options) options = lib.empty;
     var params = { TableName: name, Item: self.toDynamoDB(item) };
     if (options.expected) {
         var expected = this.queryExpression(options.expected, options);
@@ -1941,9 +1936,9 @@ aws.ddbPutItem = function(name, item, options, callback)
 aws.ddbUpdateItem = function(name, keys, item, options, callback)
 {
     var self = this;
-    if (typeof options == "function") callback = options, options = {};
+    if (typeof options == "function") callback = options, options = null;
     if (typeof callback != "function") callback = lib.noop;
-    if (!options) options = {};
+    if (!options) options = lib.empty;
     var params = { TableName: name, Key: {} };
     for (var p in keys) {
         params.Key[p] = self.toDynamoDB(keys[p]);
@@ -2071,9 +2066,9 @@ aws.ddbUpdateItem = function(name, keys, item, options, callback)
 aws.ddbDeleteItem = function(name, keys, options, callback)
 {
     var self = this;
-    if (typeof options == "function") callback = options, options = {};
+    if (typeof options == "function") callback = options, options = null;
     if (typeof callback != "function") callback = lib.noop;
-    if (!options) options = {};
+    if (!options) options = lib.empty;
     var params = { TableName: name, Key: {} };
     for (var p in keys) {
         params.Key[p] = self.toDynamoDB(keys[p]);
@@ -2114,9 +2109,9 @@ aws.ddbDeleteItem = function(name, keys, options, callback)
 aws.ddbBatchWriteItem = function(items, options, callback)
 {
     var self = this;
-    if (typeof options == "function") callback = options, options = {};
+    if (typeof options == "function") callback = options, options = null;
     if (typeof callback != "function") callback = lib.noop;
-    if (!options) options = {};
+    if (!options) options = lib.empty;
     var params = { RequestItems: {} };
     for (var p in items) {
         params.RequestItems[p] = [];
@@ -2144,9 +2139,9 @@ aws.ddbBatchWriteItem = function(items, options, callback)
 aws.ddbBatchGetItem = function(items, options, callback)
 {
     var self = this;
-    if (typeof options == "function") callback = options, options = {};
+    if (typeof options == "function") callback = options, options = null;
     if (typeof callback != "function") callback = lib.noop;
-    if (!options) options = {};
+    if (!options) options = lib.empty;
     var params = { RequestItems: {} };
     for (var p in items) {
         var obj = {};
@@ -2179,9 +2174,9 @@ aws.ddbBatchGetItem = function(items, options, callback)
 aws.ddbGetItem = function(name, keys, options, callback)
 {
     var self = this;
-    if (typeof options == "function") callback = options, options = {};
+    if (typeof options == "function") callback = options, options = null;
     if (typeof callback != "function") callback = lib.noop;
-    if (!options) options = {};
+    if (!options) options = lib.empty;
     var params = { TableName: name, Key: {} };
     if (options.select) {
         params.AttributesToGet = lib.strSplit(options.select);
@@ -2233,9 +2228,9 @@ aws.ddbGetItem = function(name, keys, options, callback)
 aws.ddbQueryTable = function(name, condition, options, callback)
 {
     var self = this;
-    if (typeof options == "function") callback = options, options = {};
+    if (typeof options == "function") callback = options, options = null;
     if (typeof callback != "function") callback = lib.noop;
-    if (!options) options = {};
+    if (!options) options = lib.empty;
     var params = { TableName: name, KeyConditions: {} };
     if (options.names) {
         params.ExpressionAttributeNames = self.toDynamoDB(options.names);
@@ -2310,9 +2305,9 @@ aws.ddbQueryTable = function(name, condition, options, callback)
 aws.ddbScanTable = function(name, condition, options, callback)
 {
     var self = this;
-    if (typeof options == "function") callback = options, options = {};
+    if (typeof options == "function") callback = options, options = null;
     if (typeof callback != "function") callback = lib.noop;
-    if (!options) options = {};
+    if (!options) options = lib.empty;
     var params = { TableName: name, ScanFilter: {} };
     if (options.projection) {
         params.ProjectionExpression = options.projection;

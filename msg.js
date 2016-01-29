@@ -14,7 +14,7 @@ var lib = require(__dirname + '/lib');
 var msg = {
     args: [ { name: "(.+)-cert@?(.+)?", obj: "config", camel: "-", descr: "A certificate for APN or similar services in pfx format, can be a file name with .p12 extension or a string with certificate contents encoded with base64, if the suffix is specified in the config parameter name will be used as the app name, otherwise it is global" },
             { name: "(.+)-key@?(.+)?", obj: "config", camel: "-", descr: "API key for GCM or similar services, if the suffix is specified in the config parameter will be used as the app name, without the suffix it is global" },
-            { name: "(.+)-secret@?(.+)?", obj: "config", camel: "-", strip: "", descr: "API secret for services that require it, if the suffix is specified in the config parameter will be used as the app name, without the suffix it is global" },
+            { name: "(.+)-secret@?(.+)?", obj: "config", camel: "-", descr: "API secret for services that require it, if the suffix is specified in the config parameter will be used as the app name, without the suffix it is global" },
             { name: "(.+)-sandbox", type: "bool", descr: "Enable sandbox for a service, default is production mode" },
             { name: "(.+)-feedback", type: "bool", descr: "Enable feedback mode for a service, default is no feedback service" },
             { name: "shutdown-timeout", type:" int", min: 0, descr: "How long to wait for messages draining out in ms on shutdown before exiting" },],

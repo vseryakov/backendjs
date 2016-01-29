@@ -35,6 +35,8 @@ var lib = {
 module.exports = lib;
 
 // Empty function to be used when callback was no provided
+lib.empty = {};
+lib.emptylist = [];
 lib.noop = function() {}
 lib.noopcb = function(err, cb) { if (typeof cb == "function" ) cb(err); };
 
@@ -240,9 +242,11 @@ lib.toValue = function(val, type)
     case "real":
     case "float":
     case "double":
+    case "decimal":
         return this.toNumber(val, { float: 1 });
 
     case "int":
+    case "int32":
     case "smallint":
     case "integer":
     case "number":
@@ -257,6 +261,7 @@ lib.toValue = function(val, type)
 
     case "date":
     case "time":
+    case "timestamp":
         return this.toDate(val);
 
     case "mtime":
@@ -640,7 +645,7 @@ lib.isNumeric = function(val)
 // Returns true if the given type belongs to the numeric family
 lib.isNumericType = function(type)
 {
-    return ["int","smallint","bigint","counter","real","float","double","numeric","number"].indexOf(String(type).trim()) > -1;
+    return type && /^(int|smallint|bigint|counter|real|float|double|numeric|number|decimal|long)/i.test(String(type).trim());
 }
 
 // Evaluate expr, compare 2 values with optional type and operation
@@ -1538,7 +1543,9 @@ lib.newObj = function()
 lib.mergeObj = function(obj, options)
 {
     var rc = {};
-    for (var p in options) rc[p] = options[p];
+    for (var p in options) {
+        if (typeof options[p] != "undefined") rc[p] = options[p];
+    }
     for (var p in obj) {
         var val = obj[p];
         switch (lib.typeName(val)) {
@@ -1662,6 +1669,7 @@ lib.searchObj = function(obj, options)
 //   - str - return the value as a string, convert any other type into string
 //   - num - return the value as a number, convert any other type by using toNumber
 //   - func - return the value as a function, if the object is not a function returns null
+//   - owner - return the owner object, not the value, i.e. return the object who owns the value specified in the name
 //
 // Example:
 //
@@ -1669,20 +1677,26 @@ lib.searchObj = function(obj, options)
 //          "Test"
 //          > lib.objGet({ response: { item : { id: 123, name: "Test" } } }, "response.item.name", { list: 1 })
 //          [ "Test" ]
+//          > lib.objGet({ response: { item : { id: 123, name: "Test" } } }, "response.item.name", { owner: 1 })
+//          { item : { id: 123, name: "Test" } }
 lib.objGet = function(obj, name, options)
 {
     if (!obj) return options ? (options.list ? [] : options.obj ? {} : options.str ? "" : options.num ? 0 : null) : null;
-    var path = !Array.isArray(name) ? String(name).split(".") : name;
+    var path = !Array.isArray(name) ? String(name).split(".") : name, owner = obj;
     for (var i = 0; i < path.length; i++) {
+        if (i && owner) owner = owner[path[i - 1]];
         obj = obj ? obj[path[i]] : undefined;
         if (typeof obj == "undefined") return options ? (options.list ? [] : options.obj ? {} : options.str ? "" : options.num ? 0 : null) : null;
     }
-    if (obj && options) {
-        if (options.func && typeof obj != "function") return null;
-        if (options.list && !Array.isArray(obj)) return [ obj ];
-        if (options.obj && typeof obj != "object") return { name: name, value: obj };
-        if (options.str && typeof obj != "string") return String(obj);
-        if (options.num && typeof obj != "number") return this.toNumber(obj);
+    if (options) {
+        if (options.owner) return owner;
+        if (obj) {
+            if (options.func && typeof obj != "function") return null;
+            if (options.list && !Array.isArray(obj)) return [ obj ];
+            if (options.obj && typeof obj != "object") return { name: name, value: obj };
+            if (options.str && typeof obj != "string") return String(obj);
+            if (options.num && typeof obj != "number") return this.toNumber(obj);
+        }
     }
     return obj;
 }
@@ -1692,6 +1706,7 @@ lib.objGet = function(obj, name, options)
 // - incr - if 1 the numeric value will be added to the existing if any
 // - push - add to the array, if it is not an array a new empty aray is created
 // - unique - only push if not in the list
+// - separator - separator for object names, default is `.`
 //
 // Example
 //
@@ -1701,7 +1716,7 @@ lib.objGet = function(obj, name, options)
 lib.objSet = function(obj, name, value, options)
 {
     if (this.typeName(obj) != "object") obj = {};
-    if (!Array.isArray(name)) name = String(name).split(".");
+    if (!Array.isArray(name)) name = String(name).split((options && options.separator) || ".");
     if (!name || !name.length) return obj;
     var p = name[name.length - 1], v = obj;
     for (var i = 0; i < name.length - 1; i++) {
@@ -1877,7 +1892,7 @@ function _parseResult(type, obj, options)
 function _checkResult(type, err, obj, options)
 {
     if (options) {
-        if (options.logger) logger.logger(options.logger, 'parse:', type, lib.traceError(err), obj);
+        if (options.logger) logger.logger(options.logger, 'parse:', type, options, lib.traceError(err), obj);
         if (options.datatype == "obj") return {};
         if (options.datatype == "list") return [];
         if (options.datatype == "str") return "";
@@ -2473,11 +2488,13 @@ lib.Pool.prototype.shutdown = function(callback, maxtime)
     this.destroyAll();
     this._pool.queue = {};
     clearInterval(this._pool.interval);
+    delete this._pool.interval;
     if (typeof callback != "function") return;
     this._pool.time = Date.now();
     this._pool.interval = setInterval(function() {
         if (self._pool.busy.length && (!maxtime || Date.now() - self._pool.time < maxtime)) return;
         clearInterval(self._pool.interval);
+        delete self._pool.interval;
         callback();
     }, 500);
 }

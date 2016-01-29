@@ -431,7 +431,7 @@ accounts.updateAccount = function(req, options, callback)
            // Skip admin properties if any
            if (!options.admin && !api.checkAccountType(req.account, "admin")) api.clearQuery(query, "bk_auth", "admin", options);
            // Avoid updating bk_auth and flushing cache if nothing to update
-           var obj = db.getQueryForKeys(Object.keys(db.getColumns("bk_auth", options)), query, { all_columns: 1, skip_columns: ["id","login","mtime"] });
+           var obj = db.getQueryForKeys(Object.keys(db.getColumns("bk_auth", options)), query, { no_columns: 1, skip_columns: ["id","login","mtime"] });
            if (!Object.keys(obj).length) return callback(err, rows, info);
            db.update("bk_auth", query, next);
        },

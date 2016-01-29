@@ -16,7 +16,7 @@ try {
 
 var pool = {
     name: "mysql",
-    settings: {
+    poolOptions: {
         typesMap: { json: "text", bigint: "bigint" },
         sqlPlaceholder: "?",
         defaultType: "VARCHAR(128)",
@@ -36,9 +36,9 @@ function Pool(options)
         logger.error("MySQL driver is not installed or compiled properly, consider to install libmysqlclient library");
         return;
     }
-    options.settings = lib.mergeObj(pool.settings, options.settings);
     options.type = pool.name;
     db.SqlPool.call(this, options);
+    this.poolOptions = lib.mergeObj(this.poolOptions, pool.poolOptions);
 }
 util.inherits(Pool, db.SqlPool);
 
@@ -61,12 +61,12 @@ Pool.prototype.cacheIndexes = function(options, callback)
     this.acquire(function(err, client) {
         if (err) return callback ? callback(err, []) : null;
 
-        self.dbkeys = {};
-        self.dbindexes = {};
         client.query("SHOW TABLES", function(err, tables) {
             lib.forEachSeries(tables, function(table, next) {
                 table = table[Object.keys(table)[0]].toLowerCase();
                 client.query("SHOW INDEX FROM " + table, function(err, rows) {
+                    self.dbkeys = {};
+                    self.dbindexes = {};
                     for (var i = 0; i < rows.length; i++) {
                         if (!self.dbcolumns[table]) continue;
                         var col = self.dbcolumns[table][rows[i].Column_name];

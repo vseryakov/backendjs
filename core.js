@@ -140,24 +140,24 @@ var core = {
 
     // Config parameters
     args: [ { name: "help", type: "callback", callback: function() { this.showHelp() }, descr: "Print help and exit" },
-            { name: "log", type: "callback", callback: function(v) { logger.setLevel(v); }, descr: "Set debugging level to any of " + Object.keys(logger.levels), cmdline: 1, pass: 1 },
-            { name: "log-filter", type: "callback", callback: function(v) { logger.setDebugFilter(v); }, descr: "Enable debug filters, format is: +label,... to enable, and -label,... to disable. Only first argument is used for label in logger.debug", cmdline: 1, pass: 1 },
+            { name: "log", type: "callback", callback: function(v) { logger.setLevel(v); }, descr: "Set debugging level to any of " + Object.keys(logger.levels), pass: 1 },
+            { name: "log-filter", type: "callback", callback: function(v) { logger.setDebugFilter(v); }, descr: "Enable debug filters, format is: +label,... to enable, and -label,... to disable. Only first argument is used for label in logger.debug", pass: 1 },
             { name: "log-file", type: "callback", callback: function(v) { if(v) this.logFile=v;logger.setFile(this.logFile); }, descr: "Log to a file, if not specified used default logfile, disables syslog", pass: 1 },
             { name: "syslog", type: "callback", callback: function(v) { logger.setSyslog(v ? lib.toBool(v) : true); }, descr: "Write all logging messages to syslog, connect to the local syslog server over Unix domain socket", pass: 1 },
             { name: "console", type: "callback", callback: function() { logger.setFile(null);}, descr: "All logging goes to the console resetting all previous log related settings, this is used in the development mode mostly", pass: 1 },
             { name: "home", type: "callback", callback: "setHome", descr: "Specify home directory for the server, the server will try to chdir there or exit if it is not possible, the directory must exist", pass: 1 },
             { name: "conf-file", descr: "Name of the config file to be loaded instead of the default etc/config, can be relative or absolute path", pass: 1 },
             { name: "err-file", type: "path", descr: "Path to the error log file where daemon will put app errors and crash stacks", pass: 1 },
-            { name: "etc-dir", type: "path", obj: "path", strip: "Dir", descr: "Path where to keep config files", pass: 1 },
-            { name: "web-dir", type: "path", obj: "path", strip: "Dir", descr: "Path where to keep web pages" },
-            { name: "views-dir", type: "path", obj: "path", strip: "Dir", descr: "Path where to keep web template views" },
-            { name: "tmp-dir", type: "path", obj: "path", strip: "Dir", descr: "Path where to keep temp files" },
-            { name: "spool-dir", type: "path", obj: "path", strip: "Dir", descr: "Path where to keep modifiable files" },
-            { name: "log-dir", type: "path", obj: "path", strip: "Dir", descr: "Path where to keep other log files, log-file and err-file are not affected by this", pass: 1 },
-            { name: "files-dir", type: "path", obj: "path", strip: "Dir", descr: "Path where to keep uploaded files" },
-            { name: "images-dir", type: "path", obj: "path", strip: "Dir", descr: "Path where to keep images" },
-            { name: "modules-dir", type: "path", obj: "path", strip: "Dir", descr: "Directory from where to load modules, these are the backendjs modules but in the same format and same conventions as regular node.js modules, the format of the files is NAME_{web,worker,shell}.js. The modules can load any other files or directories, this is just an entry point", pass: 1 },
-            { name: "locales-dir", type: "path", obj: "path", strip: "Dir", descr: "Path where to keep locale translations" },
+            { name: "etc-dir", type: "path", obj: "path", strip: /Dir/, descr: "Path where to keep config files", pass: 1 },
+            { name: "web-dir", type: "path", obj: "path", strip: /Dir/, descr: "Path where to keep web pages" },
+            { name: "views-dir", type: "path", obj: "path", strip: /Dir/, descr: "Path where to keep web template views" },
+            { name: "tmp-dir", type: "path", obj: "path", strip: /Dir/, descr: "Path where to keep temp files" },
+            { name: "spool-dir", type: "path", obj: "path", strip: /Dir/, descr: "Path where to keep modifiable files" },
+            { name: "log-dir", type: "path", obj: "path", strip: /Dir/, descr: "Path where to keep other log files, log-file and err-file are not affected by this", pass: 1 },
+            { name: "files-dir", type: "path", obj: "path", strip: /Dir/, descr: "Path where to keep uploaded files" },
+            { name: "images-dir", type: "path", obj: "path", strip: /Dir/, descr: "Path where to keep images" },
+            { name: "modules-dir", type: "path", obj: "path", strip: /Dir/, descr: "Directory from where to load modules, these are the backendjs modules but in the same format and same conventions as regular node.js modules, the format of the files is NAME_{web,worker,shell}.js. The modules can load any other files or directories, this is just an entry point", pass: 1 },
+            { name: "locales-dir", type: "path", obj: "path", strip: /Dir/, descr: "Path where to keep locale translations" },
             { name: "uid", type: "callback", callback: function(v) { if (!v)return;v = bkutils.getUser(v);if (v.name) this.uid = v.uid, this.gid = v.gid,this._name = "uid" }, descr: "User id or name to switch after startup if running as root, used by Web servers and job workers", pass: 1 },
             { name: "gid", type: "callback", callback: function(v) { if (!v)return;v = bkutils.getGroup(v);if (v.name) this.gid = v.gid,this._name = "gid" }, descr: "Group id or name to switch after startup if running to root", pass: 1 },
             { name: "email", descr: "Email address to be used when sending emails from the backend" },
@@ -195,9 +195,9 @@ var core = {
             { name: "instance-zone", obj: 'instance', descr: "Set instance zone explicitely, skip all meta data checks for it", pass: 1 },
             { name: "instance-job", obj: 'instance', type: "bool", descr: "Enables remote job mode, it means the backendjs is running in the cloud to execute a job or other task and can be terminated during the idle timeout" },
             { name: "run-mode", dns: 1, descr: "Running mode for the app, used to separate different running environment and configurations" },
-            { name: "no-monitor", type: "bool", descr: "Disable monitor process, for cases when the master will be monitored by other tool like monit..." },
-            { name: "no-master", type: "bool", descr: "Do not start the master process" },
-            { name: "no-watch", type: "bool", descr: "Disable source code watcher" },
+            { name: "no-monitor", type: "none", descr: "Disable monitor process, for cases when the master will be monitored by other tool like monit..." },
+            { name: "no-master", type: "none", descr: "Do not start the master process" },
+            { name: "no-watch", type: "none", descr: "Disable source code watcher" },
             { name: "no-web", type: "bool", descr: "Disable Web server processes, without this flag Web servers start by default" },
             { name: "no-db", type: "bool", descr: "Do not initialize DB drivers" },
             { name: "no-dns", type: "bool", descr: "Do not use DNS configuration during the initialization" },
@@ -227,6 +227,7 @@ var core = {
             { name: "config-domain", descr: "Domain to query for configuration TXT records, must be specified to enable DNS configuration" },
             { name: "watch", type: "callback", callback: function(v) { this.watch = true; this.watchdirs.push(v ? v : __dirname); }, descr: "Watch sources directory for file changes to restart the server, for development only, the backend module files will be added to the watch list automatically, so only app specific directores should be added. In the production -monitor must be used." },
             { name: "locales", array: 1, type: "list", descr: "A list of locales to load from the locales/ directory, only language name must be specified, example: en,es. It enables internal support for `res.__` and `req.__` methods that can be used for translations, for each request the internal language header will be honored forst, then HTTP Accept-Language" },
+            { name: "no-locales", type: "bool", descr: "Do not load locales on start" },
     ],
 }
 
@@ -240,7 +241,7 @@ module.exports = core;
 // - noDns - do not retrieve config from DNS
 // - noWatch - do not watch and reload config files
 // - noModules - do not load modules
-// - localDb - no db pools except local and config, this is passed to db.init
+// - noLocales - do not load locales
 // - denyModules - which modules should not be loaded
 // - allowModules - which modules to load
 core.init = function(options, callback)
@@ -414,7 +415,7 @@ core.init = function(options, callback)
         },
 
         function(next) {
-            if (options.noConfigure || self.noConfigure) return next();
+            if (options.noLocales || self.noLocales) return next();
             self.loadLocales(options, next);
         },
 
@@ -424,7 +425,7 @@ core.init = function(options, callback)
             next();
         },
     ], function(err) {
-        logger.debug("init:", err || "");
+        logger.debug("init:", self.role, err || "");
         if (!err) self._initialized = true;
         if (typeof callback == "function") callback.call(self, err, options);
     });
@@ -554,7 +555,8 @@ core.processArgs = function(ctx, argv, pass)
         var val = argv[i + 1] || null;
         if (val) {
             val = String(val);
-            if (val[0] == "-") val = null; else i++;
+            // Numbers can start with the minus and be the argument value
+            if (val[0] == "-" && !/^[0-9-]+$/.test(val)) val = null; else i++;
         }
 
         ctx.args.forEach(function(x) {
@@ -566,28 +568,46 @@ core.processArgs = function(ctx, argv, pass)
             // Module prefix and name of the key variable in the contenxt, key. property specifies alternative name for the value
             var prefix = ctx == self ? "-" : "-" + ctx.name + "-";
             // Name can be a regexp
-            if (!key.match("^" + prefix + x.name + "$")) return;
+            var d = key.match("^" + prefix + x.name + "$");
+            if (!d) return;
             var name = x.key || key.substr(prefix.length), oname = "";
-            // Command line priority, ignore all subsequent values
-            if (x.cmdline && pass != 1 && lib.isArg(key)) return;
             // Process type restrictions
             if ((x.master && cluster.isWorker) || (x.worker && cluster.isMaster)) return;
 
             try {
                 // Place inside the object
                 if (x.obj) {
-                    oname = lib.toCamel(x.obj, x.camel);
-                    if (!ctx[oname]) ctx[oname] = {};
-                    obj = ctx[oname];
-                    // Strip the prefix if starts with the same name
-                    name = name.replace(new RegExp("^" + x.obj + "-"), "");
+                    oname = x.obj;
+                    // Substitutions from the matched key
+                    if (oname.indexOf("$") > -1) {
+                        for (var j = 1; j < d.length; j++) {
+                            oname = oname.replace("$" + j, d[j] || "");
+                        }
+                    }
+                    // Compound name, no camel
+                    if (oname.indexOf(".") > -1) {
+                        obj = lib.objGet(ctx, oname + "." + name, { owner: 1 });
+                        if (!obj) lib.objSet(ctx, oname, obj = {});
+                    } else {
+                        if (!x.nocamel) oname = lib.toCamel(oname, x.camel);
+                        if (!ctx[oname]) ctx[oname] = {};
+                        obj = ctx[oname];
+                        // Strip the prefix if starts with the same name
+                        name = name.replace(new RegExp("^" + oname + "-"), "");
+                    }
                 }
 
+                // Make name from the matched pieces
+                if (x.make) {
+                    name = x.make;
+                    for (var j = 1; j < d.length; j++) {
+                        name = name.replace("$" + j, d[j] || "");
+                    }
+                }
                 if (!x.nocamel) name = lib.toCamel(name, x.camel);
-                // Update case according to the pattern(s)
-                if (x.ucase) name = name.replace(new RegExp(x.ucase, 'g'), function(v) { return v.toUpperCase(); });
-                if (x.lcase) name = name.replace(new RegExp(x.lcase, 'g'), function(v) { return v.toLowerCase(); });
-                if (x.strip) name = name.replace(new RegExp(x.strip, 'g'), "");
+                if (x.ucase) name = name.replace(x.ucase, function(v) { return v.toUpperCase(); });
+                if (x.lcase) name = name.replace(x.lcase, function(v) { return v.toLowerCase(); });
+                if (x.strip) name = name.replace(x.strip, "");
 
                 // Use defaults only for the first time
                 if (val == null && typeof obj[name] == "undefined") {
@@ -872,8 +892,7 @@ core.createServer = function(options, callback)
 // in the options back to the caller. Errors from a module is never propagated and simply ignored.
 //
 // The following properties can be specified in the options:
-//  - denyModules - a regexp of the modules names to be excluded from calling the method
-//  - allowModules - a regexp of the modules names to be called only
+//  - filterModules - a regexp of the modules names to be called only
 //
 core.runMethods = function(name, options, callback)
 {
@@ -881,9 +900,8 @@ core.runMethods = function(name, options, callback)
     if (typeof options == "function") callback = options, options = null;
     if (!options) options = {};
 
-    lib.forEachSeries(Object.keys(self.modules), function(mod, next) {
-        if (util.isRegExp(options.denyModules) && options.denyModules.test(mod)) return next();
-        if (util.isRegExp(options.allowModules) && !options.allowModules.test(mod)) return next();
+    lib.forEachSeries(Object.keys(this.modules), function(mod, next) {
+        if (util.isRegExp(options.filterModules) && !options.filterModules.test(mod)) return next();
         var ctx = self.modules[mod];
         if (typeof ctx[name] != "function") return next();
         logger.debug("runMethods:", name, mod);
@@ -1003,7 +1021,7 @@ core.sendRequest = function(options, callback)
     this.httpGet(options.url, lib.cloneObj(options), function(err, params) {
         if (!params.obj) params.obj = {};
         if ((params.status < 200 || params.status > 299) && !err) {
-            err = lib.newError({ message: "ResponseError-" + params.status + ": " + params.data, status: params.status });
+            err = lib.newError({ message: "Error-" + params.status + ": " + params.data, status: params.status });
         }
         if (typeof callback == "function") callback(err, options.obj ? params.obj : params);
     });

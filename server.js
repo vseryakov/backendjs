@@ -33,8 +33,7 @@ var server = {
            { name: "process-name", descr: "Path to the command to spawn by the monitor instead of node, for external processes guarded by this monitor" },
            { name: "process-args", type: "list", descr: "Arguments for spawned processes, for passing v8 options or other flags in case of external processes" },
            { name: "worker-args", type: "list", descr: "Node arguments for workers, job and web processes, for passing v8 options" },
-           { name: "deny-modules", type: "regexp", descr: "Modules that should not be loaded in the master and web server process" },
-           { name: "allow-modules", type: "regexp", descr: "Modules that can be loaded in the master or server process, by default no modules except the core are loaded in the master/server process" },
+           { name: "allow-modules", type: "regexp", descr: "Additional modules that can be loaded in the master or server process, by default no modules except the core are loaded in the master/server process" },
     ],
 
     // Watcher process status
@@ -82,7 +81,7 @@ server.start = function()
 
     // Go to background
     if (lib.isArg("-daemon")) {
-        return core.init({ role: "daemon", noWatch: 1, noDb: 1, noDns: 1, noConfigure: 1 }, function(err, opts) { self.startDaemon(opts); });
+        return core.init({ role: "daemon", noWatch: 1, noDb: 1, noDns: 1, noLocales: 1, noConfigure: 1 }, function(err, opts) { self.startDaemon(opts); });
     }
 
     // Graceful shutdown, kill all children processes
@@ -92,32 +91,32 @@ server.start = function()
     process.on('SIGUSR2', function() {});
 
     // Watch monitor for modified source files, for development mode only, in production -monitor is used
-    if (lib.isArg("-watch") && !core.noWatch) {
-        var opts = { role: "watcher", noDb: 1, noDns: 1, noConfigure: 1, noModules: 1, noWatch: 1 };
+    if (lib.isArg("-watch") && !lib.isArg("-no-watch")) {
+        var opts = { role: "watcher", noDb: 1, noDns: 1, noConfigure: 1, noLocales: 1, noModules: 1, noWatch: 1 };
         return core.init(opts, function(err, opts) {
             self.startWatcher(opts);
         });
     }
 
     // Start server monitor, it will watch the process and restart automatically
-    if (lib.isArg("-monitor") && !core.noMonitor) {
-        var opts = { role: "monitor", noDb: 1, noDns: 1, noConfigure: 1, noModules: 1, noWatch: 1 };
+    if (lib.isArg("-monitor") && !lib.isArg("-no-monitor")) {
+        var opts = { role: "monitor", noDb: 1, noDns: 1, noConfigure: 1, noLocales: 1, noModules: 1, noWatch: 1 };
         return core.init(opts, function(err, opts) {
             self.startMonitor(opts);
         });
     }
 
     // Master server, always create tables in the masters processes but only for the primary db pools
-    if (lib.isArg("-master") && !core.noMaster) {
-        var opts = { role: "master", localMode: cluster.isMaster, allowModules: cluster.isMaster ? this.allowModules : null };
+    if (lib.isArg("-master") && !lib.isArg("-no-master")) {
+        var opts = { role: "master", localTables: cluster.isMaster, noLocales: 1, allowModules: cluster.isMaster ? this.allowModules : null };
         return core.init(opts, function(err, opts) {
             self.startMaster(opts);
         });
     }
 
     // Backend Web server, the server makes table for all configured pools
-    if (lib.isArg("-web") && !core.noWeb) {
-        var opts = { role: "web", allowModules: cluster.isMaster ? this.allowModules : null };
+    if (lib.isArg("-web") && !lib.isArg("-no-web")) {
+        var opts = { role: "web", localTables: cluster.isMaster, noLocales: 1, allowModules: cluster.isMaster ? this.allowModules : null };
         return core.init(opts, function(err, opts) {
             self.startWeb(opts);
         });
@@ -300,7 +299,7 @@ server.startWeb = function(options)
 server.startWebProcess = function()
 {
     var self = this;
-    var child = this.spawnProcess([ "-web" ], [ "-master", "-proxy" ], { stdio: 'inherit' });
+    var child = this.spawnProcess([ "-web" ], [ "-master" ], { stdio: 'inherit' });
     this.handleChildProcess(child, "web", "startWebProcess");
 }
 

@@ -19,7 +19,7 @@ var cassandra = require('cassandra-driver');
 
 var pool = {
     name: "cassandra",
-    settings: {
+    poolOptions: {
         typesMap: { json: "text", real: "double", counter: "counter", bigint: "bigint" },
         opsMap: { begins_with: "begins_with" },
         sqlPlaceholder: "?",
@@ -36,7 +36,8 @@ var pool = {
         noJson: 1,
         noCustomKey: 1,
         noCompositeIndex: 1,
-        noMultiSQL: 1 },
+        noMultiSQL: 1
+    },
     createPool: function(options) { return new Pool(options); }
 };
 module.exports = pool;
@@ -45,9 +46,9 @@ db.modules.push(pool);
 
 function Pool(options)
 {
-    options.settings = lib.mergeObj(pool.settings, options.settings);
     options.type = pool.name;
     db.SqlPool.call(this, options);
+    this.poolOptions = lib.mergeObj(this.poolOptions, pool.poolOptions);
 }
 util.inherits(Pool, db.SqlPool)
 
@@ -59,7 +60,7 @@ Pool.prototype.open = function(callback)
     if (!hosts.length) return callback(lib.newError("no server provider"));
 
     var opts = { contactPoints: hosts.map(function(x) { return x.host }), keyspace: hosts[0].path.substr(1) };
-    for (var p in this.connect) opts[p] = this.connect[p];
+    for (var p in this.connectOptions) opts[p] = this.connectOptions[p];
     if (opts.user && opts.password) {
         opts.authProvider = new cassandra.auth.PlainTextAuthProvider(opts.user, opts.pasword);
     } else
@@ -111,53 +112,53 @@ Pool.prototype.close = function(client, callback)
     client.shutdown(callback);
 }
 
-Pool.prototype.prepare = function(op, table, obj, options)
+Pool.prototype.prepare = function(req)
 {
     switch (op) {
     case "search":
     case "select":
+        req.options = lib.cloneObj(req.options);
         // Cannot search by non primary keys
-        var keys = this.dbkeys[table] || [];
-        var cols = this.dbcolumns[table] || {};
-        // Save original properties, restore on exit to keep options unmodified for the caller
-        var old = this.saveOptions(options, 'keys', 'sort');
-        var lastKey = keys[keys.length - 1], lastOps = options.ops[lastKey];
+        var keys = db.getKeys(req.table);
+        var cols = req.columns || db.getColumns(req.table);
+        var lastKey = keys[keys.length - 1], lastOps = req.options.ops && req.options.ops[lastKey];
 
         // Install custom filter if we have other columns in the keys
-        var other = Object.keys(obj).filter(function(x) { return x[0] != "_" && keys.indexOf(x) == -1 && typeof obj[x] != "undefined" });
+        var other = Object.keys(req.obj).filter(function(x) { return x[0] != "_" && keys.indexOf(x) == -1 && typeof req.obj[x] != "undefined" });
         // Custom filter function for in-memory filtering of the results using non-indexed properties
-        if (other.length) options.rowfilter = function(rows) { return db.filterRows(obj, rows, { keys: other, cols: cols, ops: options.ops, typesMap: options.typesMap }); }
-        options.keys = keys;
+        if (other.length) req.options.rowfilter = function(rows) {
+            return db.filterRows(obj, rows, { keys: other, cols: cols, ops: req.options.ops, typesMap: req.options.typesMap || this.poolOptions.typesMap });
+        }
+        req.options.keys = keys;
 
         // Sorting is limited to the second part of the composite key so we will do it in memory
-        if (options.sort && (keys.length < 2 || keys[1] != options.sort)) {
-            var sort = options.sort;
-            options.rowsort = function(rows) { return rows.sort(function(a,b) { return (a[sort] - b[sort])*(options.desc?-1:1) }) }
-            options.sort = null;
+        if (req.options.sort && (keys.length < 2 || keys[1] != req.options.sort)) {
+            var sort = req.options.sort;
+            req.options.rowsort = function(rows) { return rows.sort(function(a,b) { return (a[sort] - b[sort])*(req.options.desc?-1:1) }) }
+            req.options.sort = null;
         }
 
         // Pagination, start must be a token returned by the previous query
-        if (Array.isArray(options.start) && typeof options.start[0] == "object") {
-            obj = lib.cloneObj(obj);
-            options.ops[lastKey] = options.desc ? "lt" : "gt";
-            options.start.forEach(function(x) { for (var p in x) obj[p] = x[p]; });
+        if (Array.isArray(req.options.start) && typeof req.options.start[0] == "object") {
+            req.obj = lib.cloneObj(req.obj);
+            req.options.ops[lastKey] = req.options.desc ? "lt" : "gt";
+            req.options.start.forEach(function(x) { for (var p in x) req.obj[p] = x[p]; });
         }
-        logger.debug('select:', pool.name, options.keys, options.sort, other);
+        logger.debug('select:', pool.name, req.options.keys, req.options.sort, other);
 
-        var req = db.sqlPrepare(op, table, obj, options);
-        this.restoreOptions(options, old);
-        if (lastOps) options.ops[lastKey] = lastOps;
-        if (!obj[keys[0]]) req.text += " ALLOW FILTERING";
-        return req;
+        db.sqlPrepare(req);
+        if (lastOps) req.options.ops[lastKey] = lastOps;
+        if (!req.obj[keys[0]]) req.text += " ALLOW FILTERING";
+        return;
 
     case "add":
     case "incr":
     case "put":
     case "update":
-        options.hints = [];
+        req.options.hints = [];
         break;
     }
-    return db.sqlPrepare(op, table, obj, options);
+    db.sqlPrepare(req);
 }
 
 Pool.prototype.bindValue = function(value, info, options)
@@ -175,33 +176,16 @@ Pool.prototype.cacheColumns = function(options, callback)
 
         client.query("SELECT * FROM system.schema_columns WHERE keyspace_name=?", [client.keyspace], options, function(err, rows) {
             rows.sort(function(a,b) { return a.component_index - b.component_index });
+            seld.dbcolumns = {};
+            self.dbkeys = {};
+            self.dbindexes = {};
             for (var i = 0; i < rows.length; i++) {
                 if (!self.dbcolumns[rows[i].columnfamily_name]) self.dbcolumns[rows[i].columnfamily_name] = {};
                 var data_type = rows[i].validator.replace(/[\(\)]/g,".").split(".").pop().replace("Type", "").toLowerCase();
-                var db_type = "";
-                switch (data_type) {
-                case "decimal":
-                case "float":
-                case "int32":
-                case "long":
-                case "double":
-                case "countercolumn":
-                    db_type = "number";
-                    break;
-
-                case "boolean":
-                    db_type = "bool";
-                    break;
-
-                case "date":
-                case "timestamp":
-                    db_type = "date";
-                    break;
-                }
                 // Set data type to collection type, use type for items
                 var d = rows[i].validator.match(/(ListType|SetType|MapType)/);
-                if (d) data_type = d[1].replace("Type", "").toLowerCase() + ":" + data_type;
-                var col = { id: i, db_type: db_type, data_type: data_type };
+                if (d) data_type = d[1].replace("Type", "").toLowerCase() + " " + data_type;
+                var col = { id: i, data_type: data_type };
                 switch(rows[i].type) {
                 case "regular":
                     if (!rows[i].index_name) break;
@@ -229,8 +213,8 @@ Pool.prototype.cacheColumns = function(options, callback)
 
 Pool.prototype.nextToken = function(client, req, rows, options)
 {
-    if (options.count > 0 && rows.length == options.count) {
-        var keys = this.dbkeys[req.table] || [];
+    if (options && options.count > 0 && rows.length == options.count) {
+        var keys = db.getKeys(req.table);
         return keys.map(function(x) { return lib.newObj(x, rows[rows.length-1][x]) });
     }
     return null;
