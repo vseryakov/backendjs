@@ -102,7 +102,7 @@ var db = {
     // Config parameters
     args: [{ name: "pool", dns: 1, descr: "Default pool to be used for db access without explicit pool specified" },
            { name: "name", key: "db-name", descr: "Default database name to be used for default connections in cases when no db is specified in the connection url" },
-           { name: "create-tables", make: "_createTables", type: "bool", nocamel: 1, master: 1, descr: "Create tables in the database or perform table upgrades for new columns in all pools, only master processes can perform this operation, never workers" },
+           { name: "create-tables", key: "_createTables", type: "bool", nocamel: 1, master: 1, descr: "Create tables in the database or perform table upgrades for new columns in all pools, only master processes can perform this operation, never workers" },
            { name: "cache-tables", array: 1, type: "list", descr: "List of tables that can be cached: bk_auth, bk_counter. This list defines which DB calls will cache data with currently configured cache. This is global for all db pools." },
            { name: "describe-tables", type: "callback", callback: function(v) { this.describeTables(lib.jsonParse(v, {datatype:"obj",logger:"error"})) }, descr: "A JSON object with table descriptions to be merged with the existing definitions" },
            { name: "cache-ttl", type: "int", obj: "cacheTtl", key: "default", descr: "Default global TTL for cached tables", },
@@ -113,14 +113,14 @@ var db = {
            { name: "config", descr: "Configuration database pool to be used to retrieve config parameters from the database, must be defined to use remote db for config parameters, set to `default` to use current default pool" },
            { name: "config-interval", type: "number", min: 0, descr: "Interval between loading configuration from the database configured with -db-config, in minutes, 0 disables refreshing config from the db" },
            { name: "cache-columns-interval", type: "int", descr: "How often in minutes to refresh tables columns from the database, it calls cacheColumns for each pool which supports it" },
-           { name: "([a-z]+)-pool(-[0-9]+)?", obj: 'poolParams.$1$2', make: "url", novalue: "default", descr: "A database pool name, depending on the driver it can be an URL, name or pathname, examples of db pools: ```-db-pgsql-pool, -db-dynamodb-pool```, examples of urls: ```postgresql://[user:password@]hostname[:port]/db, mysql://[user:password@]hostname/db, mongodb://hostname[:port]/dbname, cql://[user:password@]hostname[:port]/dbname```" },
-           { name: "([a-z]+)-pool-(max)(-[0-9]+)?", obj: 'poolParams.$1$3', make: "$2", type: "number", min: 1, descr: "Max number of open connections for a pool, default is Infinity" },
-           { name: "([a-z]+)-pool-(min)(-[0-9]+)?", obj: 'poolParams.$1$3', make: "$2", type: "number", min: 1, descr: "Min number of open connections for a pool" },
-           { name: "([a-z]+)-pool-(idle)(-[0-9]+)?", obj: 'poolParams.$1$3', make: "$2", type: "number", min: 1000, descr: "Number of ms for a db pool connection to be idle before being destroyed" },
-           { name: "([a-z]+)-pool-tables(-[0-9]+)?", obj: 'poolTables', strip: /PoolTables/, type: "list", reverse: 1, descr: "A DB pool tables, list of tables that belong to this pool only" },
-           { name: "([a-z]+)-pool-(connect)(-[0-9]+)?", obj: 'poolParams.$1$3', make: "$2", type: "json", descr: "Options for a DB pool driver passed during connection or creation of the pool" },
-           { name: "([a-z]+)-pool-(cache-columns)(-[0-9]+)?", obj: 'poolParams.$1$3.poolOptions', make: "$2", type: "bool", descr: "Enable caching table columns for this pool if it supports it" },
-           { name: "([a-z]+)-pool-(create-tables)(-[0-9]+)?", master: 1, obj: 'poolParams.$1$3.poolOptions', make: "$2", type: "bool", descr: "Create tables for this pool on startup" },
+           { name: "([a-z]+)-pool-?([0-9]+)?$", obj: 'poolParams.$1$2', make: "url", novalue: "default", descr: "A database pool name, depending on the driver it can be an URL, name or pathname, examples of db pools: ```-db-pgsql-pool, -db-dynamodb-pool```, examples of urls: ```postgresql://[user:password@]hostname[:port]/db, mysql://[user:password@]hostname/db, mongodb://hostname[:port]/dbname, cql://[user:password@]hostname[:port]/dbname```" },
+           { name: "([a-z]+)-pool-(max)-?([0-9]+)?$", obj: 'poolParams.$1$3', make: "$2", type: "number", min: 1, descr: "Max number of open connections for a pool, default is Infinity" },
+           { name: "([a-z]+)-pool-(min)-?([0-9]+)?$", obj: 'poolParams.$1$3', make: "$2", type: "number", min: 1, descr: "Min number of open connections for a pool" },
+           { name: "([a-z]+)-pool-(idle)-?([0-9]+)?$", obj: 'poolParams.$1$3', make: "$2", type: "number", min: 1000, descr: "Number of ms for a db pool connection to be idle before being destroyed" },
+           { name: "([a-z]+)-pool-tables-?([0-9]+)?$", obj: 'poolTables', strip: /PoolTables/, type: "list", reverse: 1, descr: "A DB pool tables, list of tables that belong to this pool only" },
+           { name: "([a-z]+)-pool-(connect)-?([0-9]+)?$", obj: 'poolParams.$1$3', make: "$2", type: "json", descr: "Options for a DB pool driver passed during connection or creation of the pool" },
+           { name: "([a-z]+)-pool-(cache-columns)-?([0-9]+)?$", obj: 'poolParams.$1$3.poolOptions', make: "$2", type: "bool", descr: "Enable caching table columns for this pool if it supports it" },
+           { name: "([a-z]+)-pool-(create-tables)-?([0-9]+)?$", master: 1, obj: 'poolParams.$1$3.poolOptions', make: "$2", type: "bool", descr: "Create tables for this pool on startup" },
            { name: "([a-z]+)-pool-cache2-(.+)", obj: 'cache2', nocamel: 1, strip: /pool-cache2-/, type: "int", descr: "Level 2 cache TTL for the specified pool and table" },
     ],
 
@@ -456,7 +456,7 @@ db.query = function(req, options, callback)
     if (!lib.isObject(req)) return typeof callback == "function" && callback(lib.newError("invalid request"));
 
     req.table = req.table || "";
-    var pool = this.getPool(req.table, options);
+    var pool = this.getPool(req.table, req.options);
     // For postprocess callbacks
     req.pool = pool.name;
 
@@ -466,38 +466,38 @@ db.query = function(req, options, callback)
     pool.metrics.Counter('req_0').inc();
 
     pool.acquire(function(err, client) {
-        if (err) return self.queryEnd(err, req, null, options, callback);
+        if (err) return self.queryEnd(err, req, null, callback);
         try {
-            self.queryRun(pool, client, req, options, callback);
+            self.queryRun(pool, client, req, callback);
         } catch(e) {
-            self.queryEnd(e, req, null, options, callback);
+            self.queryEnd(e, req, null, callback);
         }
     });
 }
 
-db.queryRun = function(pool, client, req, options, callback)
+db.queryRun = function(pool, client, req, callback)
 {
     var self = this;
     req.client = client;
-    pool.query(client, req, options, function(err, rows, info) {
+    pool.query(client, req, req.options, function(err, rows, info) {
         req.info = info || {};
         rows = rows || [];
         if (!err) {
             if (!req.info.affected_rows) req.info.affected_rows = client.affected_rows || 0;
             if (!req.info.inserted_oid) req.info.inserted_oid = client.inserted_oid || null;
-            if (!req.info.next_token) req.info.next_token = pool.nextToken(client, req, rows, options);
+            if (!req.info.next_token) req.info.next_token = pool.nextToken(client, req, rows);
             if (!req.info.consumed_capacity) req.info.consumed_capacity = client.consumed_capacity || 0;
 
             pool.release(client);
             delete req.client;
 
-            rows = self.queryResult(err, req, rows, options);
+            rows = self.queryResult(err, req, rows);
         }
-        self.queryEnd(err, req, rows, options, callback);
+        self.queryEnd(err, req, rows, callback);
     });
 }
 
-db.queryEnd = function(err, req, rows, options, callback)
+db.queryEnd = function(err, req, rows, callback)
 {
     var pool = this.pools[req.pool];
     pool.metrics.Counter('count').dec();
@@ -510,13 +510,13 @@ db.queryEnd = function(err, req, rows, options, callback)
     }
     if (!Array.isArray(rows)) rows = [];
 
-    if (err && (!options || !(options.silence_error || options.ignore_error || options.quiet))) {
+    if (err && (!req.options || !(req.options.silence_error || req.options.ignore_error || req.options.quiet))) {
         pool.metrics.Counter("err_0").inc();
-        logger.error("query:", req.pool, err, 'REQ:', req.op, req.table, req.obj, req.values, 'OPTS:', options, lib.traceError(err));
+        logger.error("query:", req.pool, err, 'REQ:', req.op, req.table, req.obj, req.values, 'OPTS:', req.options, lib.traceError(err));
     } else {
-        logger.debug("query:", req.pool, req.elapsed, 'ms', rows.length, 'rows', 'REQ:', req.op, req.table, req.obj, req.values, 'OPTS:', options, err);
+        logger.debug("query:", req.pool, req.elapsed, 'ms', rows.length, 'rows', 'REQ:', req.op, req.table, req.obj, req.values, 'OPTS:', req.options, err);
     }
-    if (err) err = this.convertError(pool, req.table, req.op || "", err, options);
+    if (err) err = this.convertError(pool, req.table, req.op || "", err, req.options);
 
     var info = req.info;
     for (var p in req) delete req[p];
@@ -526,9 +526,9 @@ db.queryEnd = function(err, req, rows, options, callback)
     }
 }
 
-db.queryResult = function(err, req, rows, options)
+db.queryResult = function(err, req, rows)
 {
-    options = options || lib.empty;
+    var options = req.options || lib.empty;
     // With total we only have one property 'count'
     if (options.total) return rows;
 
@@ -550,10 +550,10 @@ db.queryResult = function(err, req, rows, options)
 
     // Convert values if we have custom column callback
     if (!options.noprocessrows) {
-        rows = this.runProcessRows("post", req.table, req, rows, options);
+        rows = this.runProcessRows("post", req.table, req, rows);
     }
     // Always run global hooks
-    rows = this.runProcessRows("post", "*", req, rows, options);
+    rows = this.runProcessRows("post", "*", req, rows);
 
     // Custom filter to return the final result set
     if (typeof options.filter == "function" && rows.length) {
@@ -1671,10 +1671,10 @@ db.prepareRow = function(pool, req)
 
         default:
             if (this.getProcessRows('pre', req.table, req.options)) req.obj = lib.cloneObj(req.obj);
-            this.runProcessRows("pre", req.table, req, req.obj, req.options);
+            this.runProcessRows("pre", req.table, req, req.obj);
         }
         // Always run the global hook, keep the original object
-        this.runProcessRows("pre", "*", req, req.obj, req.options);
+        this.runProcessRows("pre", "*", req, req.obj);
     }
 
     var col, orig = {};
@@ -1944,17 +1944,16 @@ db.getProcessRows = function(type, table, options)
 // - `table` - the table to run the hooks for, usually the same as req.table but can be '*' for global hooks
 // - `req` is the original db request object with the following required properties: `op, table, obj, options, info`,
 // - `rows` is the result rows for post callbacks and the same request object for pre callbacks.
-// - `options` is the same object passed to a db operation or some other with different flags to use
-db.runProcessRows = function(type, table, req, rows, options)
+db.runProcessRows = function(type, table, req, rows)
 {
     if (!req) return rows;
-    var hooks = this.getProcessRows(type, table, options || req.options);
+    var hooks = this.getProcessRows(type, table, req.options);
     if (!hooks) return rows;
 
     // Stop on the first hook returning true to remove this row from the list
     function processRow(row) {
         for (var i = 0; i < hooks.length; i++) {
-            if (hooks[i].call(row, req, row, options || req.options) === true) return false;
+            if (hooks[i].call(row, req, row, req.options) === true) return false;
         }
         return true;
     }
@@ -2517,7 +2516,7 @@ db.Pool.prototype.cacheIndexes = function(options, callback)
 };
 
 // Return next token from the client object
-db.Pool.prototype.nextToken = function(client, req, rows, options)
+db.Pool.prototype.nextToken = function(client, req, rows)
 {
     return client.next_token || null;
 };
@@ -2586,9 +2585,9 @@ db.SqlPool.prototype.query = function(client, req, options, callback)
 }
 
 // Support for pagination, for SQL this is the OFFSET for the next request
-db.SqlPool.prototype.nextToken = function(client, req, rows, options)
+db.SqlPool.prototype.nextToken = function(client, req, rows)
 {
-    return options && options.count && rows.length == options.count ? lib.toNumber(options.start) + lib.toNumber(options.count) : null;
+    return req.options && req.options.count && rows.length == req.options.count ? lib.toNumber(req.options.start) + lib.toNumber(req.options.count) : null;
 }
 
 db.SqlPool.prototype.updateAll = function(table, query, obj, options, callback)

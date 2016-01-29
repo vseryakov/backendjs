@@ -1491,16 +1491,21 @@ tests.test_config = function(callback)
                 "-logwatcher-file-error", "a",
                 "-logwatcher-file", "b",
                 "-logwatcher-match-error", "a",
+                "-db-create-tables",
                 "-db-sqlite-pool-max", "10",
                 "-db-sqlite-pool-1", "a",
-                "-db-sqlite-pool-max-1", "10"
+                "-db-sqlite-pool-max-1", "10",
+                "-db-sqlite-pool-cache-columns-1", "1",
             ];
     core.parseArgs(argv);
+    logger.debug("poolParams:", db.poolParams);
     if (core.uid != 1) return callback("invalid uid");
     if (core.proxy.port != 3000) return callback("invalid proxy-port");
-    if (db.poolParams.sqliteMax != 10) return callback("invalid sqlite max");
-    if (db.poolNames.sqlite1 != "a") return callback("invalid sqlite1");
-    if (db.poolParams.sqliteMax1 != 10) return callback("invalid sqlite1 max");
+    if (!db._createTables) return callback("invalid create-tables");
+    if (!db.poolParams.sqlite || db.poolParams.sqlite.max != 10) return callback("invalid sqlite max");
+    if (!db.poolParams.sqlite1 || db.poolParams.sqlite1.url != "a") return callback("invalid sqlite1 url");
+    if (db.poolParams.sqlite1.max != 10) return callback("invalid sqlite1 max");
+    if (!db.poolParams.sqlite1.poolOptions.cacheColumns) return callback("invalid sqlite1 cache-columns");
     if (core.logwatcherEmail.error != "a") return callback("invalid logwatcher email:" + JSON.stringify(core.logwatcherEmail));
     if (core.logwatcherMatch.error.indexOf("a") == -1) return callback("invalid logwatcher match: " + JSON.stringify(core.logwatcherMatch));
     if (!core.logwatcherFile.some(function(x) { return x.file == "a" && x.type == "error"})) return callback("invalid logwatcher file: " + JSON.stringify(core.logwatcherFile));

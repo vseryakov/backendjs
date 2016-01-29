@@ -1686,7 +1686,10 @@ lib.objGet = function(obj, name, options)
     for (var i = 0; i < path.length; i++) {
         if (i && owner) owner = owner[path[i - 1]];
         obj = obj ? obj[path[i]] : undefined;
-        if (typeof obj == "undefined") return options ? (options.list ? [] : options.obj ? {} : options.str ? "" : options.num ? 0 : null) : null;
+        if (typeof obj == "undefined") {
+            if (!options) return null;
+            return options.owner && i == path.length - 1 ? owner : options.list ? [] : options.obj ? {} : options.str ? "" : options.num ? 0 : null;
+        }
     }
     if (options) {
         if (options.owner) return owner;

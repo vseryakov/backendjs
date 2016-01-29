@@ -38,9 +38,9 @@ function Pool(options)
 }
 util.inherits(Pool, db.Pool);
 
-Pool.prototype.nextToken = function(client, req, rows, options)
+Pool.prototype.nextToken = function(client, req, rows)
 {
-    if (options && options.count > 0 && rows.length == options.count) {
+    if (req.options && req.options.count > 0 && rows.length == req.options.count) {
         var key = this.getKey(req.table, rows[rows.length - 1], { ops: {} }, 1);
         return key.substr(0, key.length - 1) + String.fromCharCode(key.charCodeAt(key.length - 1) + 1);
     }

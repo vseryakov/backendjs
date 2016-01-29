@@ -575,6 +575,13 @@ core.processArgs = function(ctx, argv, pass)
             if ((x.master && cluster.isWorker) || (x.worker && cluster.isMaster)) return;
 
             try {
+                // Make name from the matched pieces
+                if (x.make) {
+                    name = x.make;
+                    for (var j = 1; j < d.length; j++) {
+                        name = name.replace("$" + j, d[j] || "");
+                    }
+                }
                 // Place inside the object
                 if (x.obj) {
                     oname = x.obj;
@@ -593,17 +600,10 @@ core.processArgs = function(ctx, argv, pass)
                         if (!ctx[oname]) ctx[oname] = {};
                         obj = ctx[oname];
                         // Strip the prefix if starts with the same name
-                        name = name.replace(new RegExp("^" + oname + "-"), "");
+                        name = name.replace(new RegExp("^" + x.obj + "-"), "");
                     }
                 }
 
-                // Make name from the matched pieces
-                if (x.make) {
-                    name = x.make;
-                    for (var j = 1; j < d.length; j++) {
-                        name = name.replace("$" + j, d[j] || "");
-                    }
-                }
                 if (!x.nocamel) name = lib.toCamel(name, x.camel);
                 if (x.ucase) name = name.replace(x.ucase, function(v) { return v.toUpperCase(); });
                 if (x.lcase) name = name.replace(x.lcase, function(v) { return v.toLowerCase(); });

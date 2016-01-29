@@ -399,7 +399,7 @@ accounts.addAccount = function(req, options, callback)
        function(next) {
            api.metrics.Counter('auth_add_0').inc();
            // Set all default and computed values because we return in-memory record, not from the database
-           db.runProcessRows("post", "bk_account", { op: "get", table: "bk_account", obj: req.query }, req.query, options);
+           db.runProcessRows("post", "bk_account", { op: "get", table: "bk_account", obj: req.query, options: options }, req.query);
            var cols = db.getColumns("bk_account", options);
            for (var p in cols) if (typeof cols[p].value != "undefined") req.query[p] = cols[p].value;
            req.query._added = true;

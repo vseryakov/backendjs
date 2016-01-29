@@ -211,9 +211,9 @@ Pool.prototype.cacheColumns = function(options, callback)
     });
 }
 
-Pool.prototype.nextToken = function(client, req, rows, options)
+Pool.prototype.nextToken = function(client, req, rows)
 {
-    if (options && options.count > 0 && rows.length == options.count) {
+    if (req.options && req.options.count > 0 && rows.length == req.options.count) {
         var keys = db.getKeys(req.table);
         return keys.map(function(x) { return lib.newObj(x, rows[rows.length-1][x]) });
     }

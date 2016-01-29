@@ -274,7 +274,7 @@ Pool.prototype.queryCondition = function(obj, options)
     return o;
 }
 
-Pool.prototype.nextToken = function(client, req, rows, options)
+Pool.prototype.nextToken = function(client, req, rows)
 {
-    return options && options.count && rows.length == options.count ? lib.toNumber(options.start) + lib.toNumber(options.count) : null;
+    return req.options && req.options.count && rows.length == req.options.count ? lib.toNumber(req.options.start) + lib.toNumber(req.options.count) : null;
 }
