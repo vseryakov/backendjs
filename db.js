@@ -118,7 +118,8 @@ var db = {
            { name: "([a-z]+)-pool-(min)-?([0-9]+)?$", obj: 'poolParams.$1$3', make: "$2", type: "number", min: 1, descr: "Min number of open connections for a pool" },
            { name: "([a-z]+)-pool-(idle)-?([0-9]+)?$", obj: 'poolParams.$1$3', make: "$2", type: "number", min: 1000, descr: "Number of ms for a db pool connection to be idle before being destroyed" },
            { name: "([a-z]+)-pool-tables-?([0-9]+)?$", obj: 'poolTables', strip: /PoolTables/, type: "list", reverse: 1, descr: "A DB pool tables, list of tables that belong to this pool only" },
-           { name: "([a-z]+)-pool-(connect)-?([0-9]+)?$", obj: 'poolParams.$1$3', make: "$2", type: "json", descr: "Options for a DB pool driver passed during connection or creation of the pool" },
+           { name: "([a-z]+)-pool-(connect)-?([0-9]+)?$", obj: 'poolParams.$1$3', make: "$2", type: "json", descr: "Connect options for a DB pool driver for new connection, driver specific" },
+           { name: "([a-z]+)-pool-options-([a-zA-Z0-9-]+)-?([0-9]+)?$", obj: 'poolParams.$1$3.poolOptions', autotype: 1, make: "$2", descr: "General options for a DB pool" },
            { name: "([a-z]+)-pool-(cache-columns)-?([0-9]+)?$", obj: 'poolParams.$1$3.poolOptions', make: "$2", type: "bool", descr: "Enable caching table columns for this pool if it supports it" },
            { name: "([a-z]+)-pool-(create-tables)-?([0-9]+)?$", master: 1, obj: 'poolParams.$1$3.poolOptions', make: "$2", type: "bool", descr: "Create tables for this pool on startup" },
            { name: "([a-z]+)-pool-cache2-(.+)", obj: 'cache2', nocamel: 1, strip: /pool-cache2-/, type: "int", descr: "Level 2 cache TTL for the specified pool and table" },
@@ -259,7 +260,7 @@ db.init = function(options, callback)
 // Load configuration from the config database, must be configured with `db-config-type` pointing to the database pool where bk_config table contains
 // configuration parameters.
 //
-// The priority of the paramaters is fixed and goes form the most broad to the most specific, most specific always wins, this allows
+// The priority of the paramaters is fixed and goes from the most broad to the most specific, most specific always wins, this allows
 // for very flexible configuration policies defined by the app or place where instances running and separated by the run mode.
 //
 // The following list of properties will be queried from the config database and the sorting order is very important, the last values
@@ -273,18 +274,19 @@ db.init = function(options, callback)
 //  - the run mode specified in the command line `-run-mode`: `prod`
 //  - the application name: `myapp`
 //  - the application name and major version specified in the package.json: `-1`
-//  - the application name and version specified in the package.json: `-1.0`
+//  - the application name and major/manor version specified in the package.json: `-1.0`
 //  - the process role: `-worker`
 //  - the network where the instance is running, first 2 octets from the current IP address: `-192.168`
 //  - the region where the instance is running, AWS region or other name: `us-east-1`
-//  - the network where the instance is running, first 3 octets from the current IP address: `-192.168.1`
 //  - the zone where the instance is running, AWS availability zone or other name: `-us-east-1a`
-//  - current instance tag or a custom tag for ad-hoc queries: `-nat`
+//  - the instance tag, AWS name tag or other name: `-nat`
 //
 // The options takes the following properties:
 //  - force - if true then force to refresh and reopen all db pools
 //  - delta - if true then pull only records updated since the last config pull using the max mtime from received records.
 //  - table - a table where to read the config parameters, default is bk_config
+//
+// **NOTE: The config parameters from the DB alwayse take precedence even over config.local.**
 //
 // On return, the callback second argument will receive all parameters received form the database as a list: -name value ...
 db.initConfig = function(options, callback)
@@ -302,10 +304,9 @@ db.initConfig = function(options, callback)
                   core.appName,
                   core.appName + "-" + ver[0] + "." + ver[1],
                   core.appName + "-" + ver[0],
-                  core.role,
+                  options.role || core.role,
                   options.network || core.network,
                   options.region || core.instance.region,
-                  options.subnet || core.subnet,
                   options.zone || core.instance.zone,
                   options.tag || core.instance.tag ];
 
@@ -355,7 +356,7 @@ db.initConfig = function(options, callback)
         });
         core.parseArgs(argv);
 
-        // Init more db pools
+        // Create or reconfigure db pools if needed
         self.init(options, function(err) {
             callback(err, argv);
         });
@@ -456,16 +457,17 @@ db.query = function(req, options, callback)
     if (!lib.isObject(req)) return typeof callback == "function" && callback(lib.newError("invalid request"));
 
     req.table = req.table || "";
+    req.options = options || req.options;
     var pool = this.getPool(req.table, req.options);
     // For postprocess callbacks
     req.pool = pool.name;
 
     // Metrics collection
-    req.timer = pool.metrics.Timer('que').start();
+    req._timer = pool.metrics.Timer('que').start();
     pool.metrics.Histogram('req').update(pool.metrics.Counter('count').inc());
     pool.metrics.Counter('req_0').inc();
 
-    pool.acquire(function(err, client) {
+    pool.acquire(function dbQuery(err, client) {
         if (err) return self.queryEnd(err, req, null, callback);
         try {
             self.queryRun(pool, client, req, callback);
@@ -501,8 +503,8 @@ db.queryEnd = function(err, req, rows, callback)
 {
     var pool = this.pools[req.pool];
     pool.metrics.Counter('count').dec();
-    req.elapsed = req.timer.end();
-    delete req.timer;
+    req.elapsed = req._timer.end();
+    delete req._timer;
 
     if (req.client) {
         pool.release(req.client);
@@ -2090,9 +2092,15 @@ db.getSortingColumn = function(table, options)
 db.getCapacity = function(table, options)
 {
     if (!options) options = lib.empty;
-    var capacity = this.getPool(table, options).dbcapacity[table] || lib.empty;
+    var pool = this.getPool(table, options);
+    var capacity = pool.dbcapacity[table] || lib.empty;
     capacity = capacity[options.sort] || capacity[table] || lib.empty;
-    var cap = { table: table, writeCapacity: capacity.read || 0, readCapacity: capacity.write || 0, unitCapacity: 1 };
+    var cap = {
+        table: table,
+        unitCapacity: 1,
+        readCapacity: capacity.read || pool.poolOptions.readCapacity || 0,
+        writeCapacity: capacity.write || pool.poolOptions.writeCapacity || 0,
+    };
     var use = options.useCapacity;
     var factor = options.factorCapacity > 0 && options.factorCapacity <= 1 ? options.factorCapacity : 1;
     cap.maxCapacity = Math.max(1, typeof use == "number" ? use : use == "read" ? cap.readCapacity : cap.writeCapacity);
@@ -2226,11 +2234,36 @@ db.filterRows = function(obj, rows, options)
     });
 }
 
-// Return cached primary keys for a table or empty array
+// Return primary keys for a table or empty array
 db.getKeys = function(table, options)
 {
     table = (table || "").toLowerCase();
     return this.getPool(table, options).dbkeys[table] || this.keys[table] || lib.emptylist;
+}
+
+// Return indexes for a table or empty object, each item in the object is an array with index columns
+db.getIndexes = function(table, options)
+{
+    table = (table || "").toLowerCase();
+    return this.getPool(table, options).dbindexes[table] || this.indexes[table] || lib.empty;
+}
+
+// Return an index name that can be used for searching for the given keys, the index match is performed on the index columns
+// from the left to right  and stop on the first missing key, for example for given keys { id: "1", name: "2", state: "VA" }
+// the index ["id", "state"] or ["id","name"] will be returned but the index ["id","city","state"] will not.
+db.getIndexForKeys = function(table, keys, options)
+{
+    var indexes = this.getIndexes(table, options);
+    var found = {};
+    for (var p in indexes) {
+        var idx = indexes[p];
+        for (var i in idx) {
+            if (!keys[idx[i]]) break;
+            if (!found[p]) found[p] = 0;
+            found[p]++;
+        }
+    }
+    return Object.keys(found).sort(function(a, b) { return found[a] - found[b] }).pop();
 }
 
 // Return keys for the table search, if options.keys provided and not empty it will be used otherwise

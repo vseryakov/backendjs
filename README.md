@@ -233,7 +233,7 @@ The typical structure of a backendjs application is the following (created by th
          ...
     });
 
-     // Optionally customize the Express environment, setup MVC routes or else, options.app is the Express server
+     // Optionally customize the Express environment, setup MVC routes or else, api.app is the Express server
     app.configureMiddleware = function(options, callback)
     {
        ...

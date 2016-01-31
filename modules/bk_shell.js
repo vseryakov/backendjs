@@ -90,6 +90,17 @@ shell.getArgInt = function(name, options, dflt)
     return lib.toNumber(this.getArg(name, options, dflt));
 }
 
+shell.getArgList = function(name, options)
+{
+    var arg = options && options[lib.toCamel(name.substr(1))];
+    if (arg) return Array.isArray(arg) ? arg : [ arg ];
+    var list = [];
+    for (var i = process.argv.length - 1; i > 1; i -= 2) {
+        if (process.argv[i - 1] == name) list.push(process.argv[i]);
+    }
+    return list;
+}
+
 shell.isArg = function(name, options)
 {
     return (options && typeof options[lib.toCamel(name.substr(1))] != "undefined") || lib.isArg(name);
@@ -121,7 +132,7 @@ shell.run = function(options)
             if (rc == "continue") continue;
             return;
         }
-        core.createRepl();
+        core.createRepl({ file: core.repl.file });
     });
 }
 
@@ -585,13 +596,22 @@ shell.getElbCount = function(name, equal, total, options, callback)
 shell.launchInstances = function(options, callback)
 {
     var self = this;
-    var subnets = [], instances = [];
+    var subnets = [], instances = [], cloudInit = "";
     var appName = self.getArg("-app-name", options, core.appName);
     var appVersion = self.getArg("-app-version", options, core.appVersion);
-    var cicmd = self.getArg("-cloudinit-cmd");
-    var zone = self.getArg("-zone");
+    var userData = self.getArg("-user-data", options);
+    var runCmd = self.getArgList("-cloudinit-cmd", options);
+    if (runCmd.length) cloudInit += "runcmd:\n" + runCmd.map(function(x) { return " - " + x }).join("\n") + "\n";
+    var hostName = self.getArg("-host-name", options);
+    if (hostName) cloudInit += "hostname: " + hostName + "\n";
+    var user = self.getArg("-user", options, "ec2-user");
+    var bkjsCmd = self.getArgList("-bkjs-cmd", options);
+    if (bkjsCmd.length) cloudInit += "runcmd:\n" + bkjsCmd.map(function(x) { return " - /home/" + user + "/bin/bkjs " + x }).join("\n") + "\n";
+    if (!userData) userData = "#cloudconfig\n" + cloudInit; else
+    if (userData.match(/^#cloudconfig/)) userData += cloudInit;
 
     var req = {
+        name: self.getArg("-name", options, appName + "-" + appVersion),
         count: self.getArgInt("-count", options, 1),
         vpcId: self.getArg("-vpc-id", options, aws.vpcId),
         instanceType: self.getArg("-instance-type", options, aws.instanceType),
@@ -599,13 +619,14 @@ shell.launchInstances = function(options, callback)
         subnetId: self.getArg("-subnet-id", options, aws.subnetId),
         keyName: self.getArg("-key-name", options, aws.keyName) || appName,
         elbName: self.getArg("-elb-name", options, aws.elbName),
+        elasticIp: self.getArg("-elastic-ip", options),
+        publicIp: self.getArg("-public-ip", options),
         groupId: self.getArg("-group-id", options, aws.groupId),
         iamProfile: self.getArg("-ami-profile", options, aws.iamProfile) || appName,
-        data: self.getArg("-user-data", options) || (cicmd ? "#cloud-config\nruncmd:\n - " + cicmd + "\n" : ""),
+        availabilityZone: self.getArg("-availability-zone"),
         terminate: self.isArg("-no-terminate", options) ? 0 : 1,
-        name: self.getArg("-tag-name", options, appName + "-" + appVersion),
-        alarmName: self.getArg("-alarm-name", options),
         alarms: [],
+        data: userData,
     };
     logger.debug("launchInstances:", req);
 
@@ -653,7 +674,8 @@ shell.launchInstances = function(options, callback)
        },
        function(next) {
            // Create CloudWatch alarms, find SNS topic by name
-           if (!req.alarmName) return next();
+           var alarmName = self.getArg("-alarm-name", options);
+           if (!alarmName) return next();
            aws.snsListTopics(function(err, topics) {
                var topic = new RegExp(alarmName, "i");
                topic = topics.filter(function(x) { return x.match(topic); }).pop();
@@ -683,6 +705,7 @@ shell.launchInstances = function(options, callback)
            });
        },
        function(next) {
+           var zone = self.getArg("-zone");
            if (req.subnetId) {
                subnets.push(req.subnetId);
            } else

@@ -39,6 +39,7 @@ function Ipc()
     this.workers = [];
     this.modules = [];
     this.clients = { cache: new Client(), queue: new Client() };
+    this.ports = {};
     // Use shared token buckets inside the server process, reuse the same object so we do not generate
     // a lot of short lived objects, the whole operation including serialization from/to the cache is atomic.
     this.tokenBucket = new metrics.TokenBucket()
@@ -95,7 +96,16 @@ Ipc.prototype.handleWorkerMessages = function(msg)
             break;
 
         case "columns:init":
-            core.modules.db.cacheColumns();
+            core.modules.db.refreshColumns();
+            break;
+
+        case "repl:init":
+            if (msg.port) core.startRepl(msg.port, core.repl.bind);
+            break;
+
+        case "repl:shutdown":
+            if (core.repl.server) core.repl.server.end();
+            delete core.repl.server;
             break;
         }
         this.emit(msg.__op, msg);
@@ -108,7 +118,7 @@ Ipc.prototype.handleWorkerMessages = function(msg)
 Ipc.prototype.handleServerMessages = function(worker, msg)
 {
     if (!msg) return false;
-    logger.dev('handleServerMessages:', msg);
+    logger.info('handleServerMessages:', msg);
     try {
         switch (msg.__op) {
         case "api:restart":
@@ -133,6 +143,17 @@ Ipc.prototype.handleServerMessages = function(worker, msg)
             for (var p in cluster.workers) cluster.workers[p].send(msg);
             break;
 
+        case "worker:ready":
+            break;
+
+        case "cluster:exit":
+            delete this.ports[msg.id];
+            break;
+
+        case "cluster:listen":
+            this.ports[msg.id] = msg.port;
+            break;
+
         case "queue:init":
             this.initClients("queue");
             for (var p in cluster.workers) cluster.workers[p].send(msg);
@@ -144,7 +165,7 @@ Ipc.prototype.handleServerMessages = function(worker, msg)
             break;
 
         case "columns:init":
-            core.modules.db.cacheColumns();
+            core.modules.db.refreshColumns();
             for (var p in cluster.workers) cluster.workers[p].send(msg);
             break;
 
@@ -292,7 +313,7 @@ Ipc.prototype.sendMsg = function(op, msg, options, callback)
     try { process.send(msg); } catch(e) { logger.error('send:', e, msg); }
 }
 
-// This function is called by the Web master server process to setup IPC channels and support for cache and messaging
+// This function is called by a master server process to setup IPC channels and support for cache and messaging
 Ipc.prototype.initServer = function()
 {
     var self = this;
@@ -301,7 +322,11 @@ Ipc.prototype.initServer = function()
     this.initClients("queue");
 
     cluster.on("exit", function(worker, code, signal) {
-        self.emitMsg("cluster:exit", { id: worker.id, pid: worker.pid });
+        self.handleServerMessages(worker, self.newMsg("cluster:exit", { id: worker.id, pid: worker.pid, code: code || undefined, signal: signal || undefined }));
+    });
+
+    cluster.on('listening', function(worker, address) {
+        self.handleServerMessages(worker, self.newMsg("cluster:listen", { id: worker.id, pid: worker.pid, port: address.port, address: address.address }));
     });
 
     // Handle messages from the workers
@@ -312,7 +337,7 @@ Ipc.prototype.initServer = function()
     });
 }
 
-// This function is called by Web worker process to setup IPC channels and support for cache and messaging
+// This function is called by a worker process to setup IPC channels and support for cache and messaging
 Ipc.prototype.initWorker = function()
 {
     var self = this;

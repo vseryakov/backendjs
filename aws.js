@@ -41,8 +41,6 @@ var aws = {
     tokenExpiration: 0,
     amiProfile: "",
     tags: [],
-    ddbDefaultReadCapacity: 25,
-    ddbDefaultWriteCapacity: 5,
 
     // DynamoDB reserved keywords
     ddbReserved: {
@@ -400,7 +398,7 @@ aws.querySNS = function(action, obj, options, callback)
 // AWS SES API request
 aws.querySES = function(action, obj, options, callback)
 {
-    this.queryEndpoint("ses", '2010-12-01', action, obj, options, callback);
+    this.queryEndpoint("email", '2010-12-01', action, obj, options, callback);
 }
 
 // AWS CFN API request
@@ -631,7 +629,7 @@ aws.s3ParseUrl = function(url)
 //  - elbName - join elastic balancer after the startup
 //  - elasticIp - asociate with the given Elastic IP address after the start
 //  - iamProfile - IAM profile to assign for instance credentials, if not given use aws.iamProfile or options['IamInstanceProfile.Name'] attribute
-//  - availZone - availability zone, if not given use aws.availZone or options['Placement.AvailabilityZone'] attribute
+//  - availabilityZone - availability zone, if not given use aws.zone or options['Placement.AvailabilityZone'] attribute
 //  - subnetId - subnet id, if not given use aws.subnetId or options.SubnetId attribute
 //  - alarms - a list with CloudWatch alarms to create for the instance, each value of the object represent an object with options to be
 //      passed to the cwPutMetricAlarm method.
@@ -651,7 +649,7 @@ aws.ec2RunInstances = function(options, callback)
     if (options.stop) req.InstanceInitiatedShutdownBehavior = "stop";
     if (options.terminate) req.InstanceInitiatedShutdownBehavior = "terminate";
     if (options.iamProfile || this.iamProfile) req["IamInstanceProfile.Name"] = options.iamProfile || this.iamProfile;
-    if (options.availZone || this.availZone) req["Placement.AvailabilityZone"] = options.availZone || this.availZone;
+    if (options.availabilityZone || this.zone) req["Placement.AvailabilityZone"] = options.availabilityZone || this.zone;
     if (options.subnetId || this.subnetId) {
         if (!options["SecurityGroupId.0"]) {
             var groups = lib.strSplitUnique(options.groupId || this.groupId || []);
@@ -1656,8 +1654,8 @@ aws.ddbCreateTable = function(name, attrs, options, callback)
     var params = { TableName: name,
                    AttributeDefinitions: [],
                    KeySchema: [],
-                   ProvisionedThroughput: { ReadCapacityUnits: options.readCapacity || self.ddbReadCapacity || self.ddbDefaultReadCapacity,
-                                            WriteCapacityUnits: options.writeCapacity || self.ddbWriteCapacity || self.ddbDefaultWriteCapacity }};
+                   ProvisionedThroughput: { ReadCapacityUnits: options.readCapacity || self.ddbReadCapacity || 5,
+                                            WriteCapacityUnits: options.writeCapacity || self.ddbWriteCapacity || 1 } };
 
     if (Array.isArray(attrs) && attrs.length) {
         params.AttributeDefinitions = attrs;

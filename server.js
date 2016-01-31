@@ -3,7 +3,6 @@
 //  Sep 2013
 //
 
-var net = require('net');
 var cluster = require('cluster');
 var domain = require('domain');
 var path = require('path');
@@ -153,7 +152,7 @@ server.startMaster = function(options)
             self.writePidfile();
 
             // REPL command prompt over TCP
-            if (core.repl.port) self.startRepl(core.repl.port, core.repl.bind);
+            if (core.repl.port) core.startRepl(core.repl.port, core.repl.bind);
 
             // Log watcher job, always runs even if no email configured, if enabled it will
             // start sending only new errors and not from the past
@@ -173,23 +172,15 @@ server.startMaster = function(options)
         });
     } else {
         core.dropPrivileges();
-        this.startWorker();
+        core.role = 'worker';
+        process.title = core.name + ': worker';
+
+        core.runMethods("configureWorker", options, function() {
+            ipc.sendMsg("worker:ready", { id: cluster.worker.id, pid: process.pid });
+
+            logger.log('startWorker:', 'id:', cluster.worker.id, 'version:', core.version, 'home:', core.home, 'uid:', process.getuid(), 'gid:', process.getgid(), 'pid:', process.pid);
+        });
     }
-}
-
-// Job worker process
-server.startWorker = function(options)
-{
-    var self = this;
-    core.role = 'worker';
-    process.title = core.name + ': worker';
-
-    // REPL command prompt over TCP
-    if (core.repl.portWorker) self.startRepl(core.repl.portWorker + lib.toNumber(cluster.worker.id), core.repl.bindWorker);
-
-    core.runMethods("configureWorker", options, function() {
-        logger.log('startWorker:', 'id:', cluster.worker.id, 'version:', core.version, 'home:', core.home, 'uid:', process.getuid(), 'gid:', process.getgid(), 'pid:', process.pid);
-    });
 }
 
 // Create Express server, setup worker environment, call supplied callback to set initial environment
@@ -213,7 +204,7 @@ server.startWeb = function(options)
             ipc.initServer();
 
             // REPL command prompt over TCP
-            if (core.repl.portWeb) self.startRepl(core.repl.portWeb, core.repl.bindWeb);
+            if (core.repl.portWeb) core.startRepl(core.repl.portWeb, core.repl.bind);
 
             // In proxy mode we maintain continious sequence of ports for each worker starting with core.proxy.port
             if (core.proxy.port) {
@@ -271,9 +262,6 @@ server.startWeb = function(options)
             if (core.ssl.port) core.ssl.port = core.port + 100;
             if (core.ws.port) core.ws.port = core.port + 200;
         }
-
-        // REPL command prompt over TCP
-        if (core.repl.portWeb) self.startRepl(core.repl.portWeb + 1 + lib.toNumber(cluster.worker.id), core.repl.bindWeb);
 
         // Setup IPC communication
         ipc.initWorker();
@@ -352,7 +340,7 @@ server.startWatcher = function()
     process.title = core.name + ": watcher";
 
     // REPL command prompt over TCP instead of the master process
-    if (core.repl.port && !lib.isArg("-master")) self.startRepl(core.repl.port, core.repl.bind);
+    if (core.repl.port && (!lib.isArg("-master") || lib.isArg("-no-master"))) self.startRepl(core.repl.port, core.repl.bind);
 
     if (core.watchdirs.indexOf(__dirname) == -1) core.watchdirs.push(__dirname, __dirname + "/lib", __dirname + "/modules");
     if (core.watchdirs.indexOf(core.path.modules) == -1) core.watchdirs.push(core.path.modules);
@@ -367,22 +355,6 @@ server.startWatcher = function()
         });
     });
     this.startProcess();
-}
-
-// Start command prompt on TCP socket, context can be an object with properties assigned with additional object to be accessible in the shell
-server.startRepl = function(port, bind)
-{
-    var self = this;
-    var repl = net.createServer(function(socket) {
-        self.repl = core.createRepl({ prompt: '> ', input: socket, output: socket, terminal: true, useGlobal: false });
-        self.repl.on('exit', function() { socket.end(); })
-        self.repl.context.socket = socket;
-    });
-    repl.on('error', function(err) {
-       logger.error('startRepl:', core.role, port, bind, err);
-    });
-    try { repl.listen(port, bind || '0.0.0.0'); } catch(e) { logger.error('startRepl:', port, bind, e) }
-    logger.info('startRepl:', core.role, 'port:', port, 'bind:', bind || '0.0.0.0');
 }
 
 // Create daemon from the current process, restart node with -daemon removed in the background

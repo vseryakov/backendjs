@@ -941,10 +941,8 @@ lib.forEachLine = function(file, options, lineCallback, endCallback)
 // called via setImmediate function to allow the main loop to process I/O.
 lib.parallel = function(tasks, callback)
 {
-    this.forEach(tasks, function(task, next) {
-        task(function(err) {
-            setImmediate(next, err);
-        });
+    this.forEach(tasks, function itEach(task, next) {
+        task(function itNext(err) { setImmediate(next.bind(null, err)) });
     }, function(err) {
         if (typeof callback == "function") setImmediate(callback, err);
     });
@@ -966,10 +964,8 @@ lib.parallel = function(tasks, callback)
 //          });
 lib.series = function(tasks, callback)
 {
-    this.forEachSeries(tasks, function(task, next) {
-        task(function(err) {
-            setImmediate(next, err);
-        });
+    this.forEachSeries(tasks, function itSeries(task, next) {
+        task(function itNext(err) { setImmediate(next.bind(null, err)); });
     }, function(err) {
         if (typeof callback == "function") setImmediate(callback, err);
     });
@@ -990,9 +986,9 @@ lib.whilst = function(test, iterator, callback)
     var self = this;
     callback = typeof callback == "function" ? callback : this.noop;
     if (!test()) return callback();
-    iterator(function (err) {
+    iterator(function itWhilst(err) {
         if (err) return callback(err);
-        setImmediate(function() { self.whilst(test, iterator, callback); });
+        setImmediate(self.whilst.bind(self, test, iterator, callback));
     });
 };
 
@@ -1001,10 +997,10 @@ lib.doWhilst = function(iterator, test, callback)
 {
     var self = this;
     callback = typeof callback == "function" ? callback : this.noop;
-    iterator(function(err) {
+    iterator(function itDoWhilst(err) {
         if (err) return callback(err);
         if (!test()) return callback();
-        setImmediate(function() { self.doWhilst(iterator, test, callback); });
+        setImmediate(self.doWhilst.bind(self, iterator, test, callback));
     });
 }
 

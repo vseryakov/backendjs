@@ -43,7 +43,8 @@ var jobs = {
            { name: "worker-queue", type: "list", array: 1, descr: "Queue(s) to subscribe for workers, multiple queues can be processes at the same time, i.e. more than one job can run from different queues" },
            { name: "cron-queue", descr: "Default queue to use for cron jobs" },
            { name: "channel", descr: "Name of the channel where to publish/receive jobs" },
-           { name: "cron", type: "bool", descr: "Load cron jobs from the local etc/crontab file, requires -jobs flag" },
+           { name: "cron", type: "bool", descr: "Allow cron jobs to be executed from the local etc/crontab file or via config parameter" },
+           { name: "schedule", type: "json", trigger: function(v) { if(ipc.role == "server" && this.cron) this.scheduleCronjobs("config", this.schedule) }, descr: "Cron jobs to be scheduled, the JSON must be in the same format as crontab file" },
     ],
 
     // List of running jobs for a worker
@@ -112,7 +113,10 @@ jobs.initServer = function(options, callback)
     ipc.monitor(options);
 
     // Setup background tasks from the crontab
-    if (this.cron) this.loadCronjobs();
+    if (this.cron) {
+        this.loadCronjobs();
+        if (this.schedule) this.scheduleCronjobs("config", this.schedule);
+    }
 
     // Graceful restart of all workers
     process.on('SIGUSR2', function() {
@@ -403,14 +407,13 @@ jobs.scheduleCronjob = function(jobspec)
 // Returns number of cron jobs actually scheduled.
 jobs.scheduleCronjobs = function(type, list)
 {
-    var self = this;
-    if (!list.length) return 0;
-    self.crontab.forEach(function(x) {
+    if (!Array.isArray(list) || !list.length) return 0;
+    this.crontab.forEach(function(x) {
         if (x.jobspec._type != type) return;
         x.stop();
         delete x;
     });
-    var n = 0;
+    var n = 0, self = this;
     list.forEach(function(x) {
         x._type = type;
         n += self.scheduleCronjob(x);

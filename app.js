@@ -12,7 +12,7 @@ var core = require(__dirname + '/core');
 var lib = require(__dirname + '/lib');
 var cluster = require('cluster');
 
-// This is a skeleton module to be extended by the specific application logic. It provides all 
+// This is a skeleton module to be extended by the specific application logic. It provides all
 // callbacks and hooks that are called by the core backend modules
 // during different phases, like initialization, shutting down, etc...
 //
@@ -38,18 +38,18 @@ app.configureModule = function(options, callback) { callback(); }
 
 // This handler is called during the Express server initialization just after the security middleware.
 //
-// NOTE: `options.app` refers to the Express instance.
+// NOTE: `api.app` refers to the Express instance.
 app.configureMiddleware = function(options, callback) { callback(); };
 
 // This handler is called after the Express server has been setup and all default API endpoints initialized but the Web server
 // is not ready for incoming requests yet. This handler can setup additional API endpoints, add/modify table descriptions.
 //
-// NOTE: `options.app` refers to the Express instance
+// NOTE: `api.app` refers to the Express instance
 app.configureWeb = function(options, callback) { callback(); };
 
 // Perform shutdown sequence when a Web process is about to exit
 //
-// NOTE: `options.app` refers to the Express instance
+// NOTE: `api.app` refers to the Express instance
 app.shutdownWeb = function(options, callback) { callback(); }
 
 // This handler is called during the master server startup, this is the process that monitors the worker jobs and performs jobs scheduling

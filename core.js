@@ -3,6 +3,7 @@
 //  Sep 2013
 //
 
+var net = require('net');
 var util = require('util');
 var fs = require('fs');
 var repl = require('repl');
@@ -18,7 +19,6 @@ var logger = require(__dirname + '/logger');
 var lib = require(__dirname + '/lib');
 var cluster = require('cluster');
 var os = require('os');
-var emailjs = require('emailjs');
 var dns = require('dns');
 
 // The primary object containing all config options and common functions
@@ -44,7 +44,7 @@ var core = {
     runMode: 'development',
 
     // Current instance attributes gathered by other modules
-    instance: { id: process.pid, type: "", index: 0, tag: '', image: '', region: '', zone: '' },
+    instance: { id: process.pid, pid: process.pid, type: "", index: 0, tag: '', image: '', region: '', zone: '' },
     workerId: '',
 
     // Home directory, current by default, must be absolute path
@@ -127,8 +127,6 @@ var core = {
 
     // REPL pors
     repl: {
-        bindWeb: '127.0.0.1',
-        bindWorker: '127.0.0.1',
         bind: '127.0.0.1',
         file: '.history',
     },
@@ -202,7 +200,6 @@ var core = {
             { name: "no-db", type: "bool", descr: "Do not initialize DB drivers" },
             { name: "no-dns", type: "bool", descr: "Do not use DNS configuration during the initialization" },
             { name: "no-configure", type: "bool", descr: "Do not run configure hooks during the initialization" },
-            { name: "repl-bind-([a-z]+)", obj: "repl", descr: "Worker REPL listen address, supported suffixes: web, worker" },
             { name: "repl-port-([a-z]+)", type: "number", obj: "repl", min: 1001, descr: "Worker base REPL port, if specified it initializes REPL in the worker processes, in workers port is port+worker_id+1, supported suffixes: web, worker" },
             { name: "repl-port", type: "number", obj: "repl", min: 1001, descr: "Port for REPL interface in the master, if specified it initializes REPL in the master server process" },
             { name: "repl-bind", obj: "repl", descr: "Listen only on specified address for REPL server in the master process" },
@@ -219,6 +216,7 @@ var core = {
             { name: "logwatcher-file(-[a-z]+)?", obj: "logwatcher-file", type: "callback", callback: function(v,k) { if (v) this.push({file:v,type:k}) }, descr: "Add a file to be watched by the logwatcher, it will use all configured match patterns" },
             { name: "logwatcher-url(-[a-z]+)?", obj: "logwatcher-url", descr: "The backend URL(s) where logwatcher reports should be sent, the log is sent in a POST request, additional info is in the headers" },
             { name: "logwatcher-table(-[a-z]+)?", obj: "logwatcher-table", descr: "The database table where logwatcher reports should be stored, the table must have the following columns: ipaddr, host, type, instance_id, instance_tag, run_mode, data, mtime" },
+            { name: "logwatcher-ses", type: "bool", descr: "Send logwatcher emails via SES if running inside an EC2 instance" },
             { name: "user-agent", array: 1, descr: "Add HTTP user-agent header to be used in HTTP requests, for scrapers or other HTTP requests that need to be pretended coming from Web browsers" },
             { name: "backend-host", descr: "Host of the master backend, can be used for backend nodes communications using core.sendRequest function calls with relative URLs, also used in tests." },
             { name: "backend-login", descr: "Credentials login for the master backend access when using core.sendRequest" },
@@ -632,8 +630,15 @@ core.processArgs = function(ctx, argv, pass)
                     x._key = key;
                 }
                 // Explicit clear
-                if (val == "<null>") val = null;
-                logger.debug("processArgs:", x.type || "str", ctx.name + "." + x._name, "(" + key + ")", "=", val);
+                if (val == "<null>" || val == "~") val = null;
+                // Autodetect type
+                if (x.autotype && val) {
+                    if (lib.isNumeric(val)) type = "number"; else
+                    if (val == "true" || val == "false") type = "bool"; else
+                    if (val[0] == "[" && val.slice(-1) == "]") type = "list"; else
+                    if (val[0] == "{" && val.slice(-1) == "}") type = "json";
+                }
+                logger.debug("processArgs:", type || "str", ctx.name + "." + x._name, "(" + key + ")", "=", val);
                 switch (type) {
                 case "none":
                     break;
@@ -694,15 +699,17 @@ core.processArgs = function(ctx, argv, pass)
                 case "callback":
                     if (!x.callback) break;
                     if (typeof x.callback == "string") {
-                        obj[x.callback](val, name, pass);
+                        ctx[x.callback](val, name, pass);
                     } else
                     if (typeof x.callback == "function") {
-                        x.callback.call(obj, val, name, pass);
+                        x.callback.call(ctx, val, name, pass);
                     }
                     break;
                 default:
                     put(obj, name, val, x, x.reverse);
                 }
+                // Notify about update
+                if (typeof x.trigger == "function") x.trigger.call(ctx, val, name);
             } catch(e) {
                 logger.error("processArgs:", name, val, e.stack);
             }
@@ -1046,6 +1053,7 @@ core.sendmail = function(options, callback)
 {
     var self = this;
     try {
+        var emailjs = require('emailjs');
         if (!options.from) options.from = "admin";
         if (options.from.indexOf("@") == -1) options.from += "@" + self.domain;
         if (!options.text) options.text = "";
@@ -1196,17 +1204,21 @@ core.createRepl = function(options)
     r.context.fs = fs;
     r.context.os = os;
     r.context.util = util;
+    r.context.url = url;
+    r.context.path = path;
+    r.context.child = child;
     r.rli.historyIndex = 0;
     r.rli.history = [];
     // Expose all modules as top level objects
     for (var p in this.modules) r.context[p] = this.modules[p];
 
     // Support history
-    if (this.repl.file) {
-        r.rli.history = lib.readFileSync(this.repl.file, { list: '\n' }).reverse();
+    var file = options && options.file;
+    if (file) {
+        r.rli.history = lib.readFileSync(file, { list: '\n' }).reverse();
         r.rli.addListener('line', function(code) {
             if (code) {
-                fs.appendFile(self.repl.file, code + '\n', function() {});
+                fs.appendFile(file, code + '\n', function() {});
             } else {
                 r.rli.historyIndex++;
                 r.rli.history.pop();
@@ -1214,6 +1226,26 @@ core.createRepl = function(options)
       });
     }
     return r;
+}
+
+// Start command prompt on TCP socket, context can be an object with properties assigned with additional object to be accessible in the shell
+core.startRepl = function(port, bind, options)
+{
+    var self = this;
+    if (!bind) bind = '127.0.0.1';
+    try {
+        this.repl.server = net.createServer(function(socket) {
+            var repl = self.createRepl(lib.cloneObj(options, "prompt", '> ', "input", socket, "output", socket, "terminal", true, "useGlobal", false));
+            repl.on('exit', function() {
+                socket.end();
+            });
+        }).on('error', function(err) {
+            logger.error('startRepl:', core.role, port, bind, err);
+        }).listen(port, bind);
+        logger.info('startRepl:', core.role, 'port:', port, 'bind:', bind);
+    } catch(e) {
+        logger.error('startRepl:', port, bind, e);
+    }
 }
 
 // Watch temp files and remove files that are older than given number of seconds since now, remove only files that match pattern if given
@@ -1427,10 +1459,12 @@ core.watchLogs = function(options, callback)
                     return;
                 }
                 if (self.logwatcherEmail[type]) {
-                    self.sendmail({ from: self.logwatcherFrom,
-                                    to: self.logwatcherEmail[type],
-                                    subject: "logwatcher: " + type + ": " + os.hostname() + "/" + self.ipaddr + "/" + self.instance.id + "/" + self.instance.tag + "/" + self.runMode,
-                                    text: errors[type] }, function() { next() });
+                    var subjext = "logwatcher: " + type + ": " + os.hostname() + "/" + self.ipaddr + "/" + self.instance.id + "/" + self.instance.tag + "/" + self.runMode;
+                    if (self.logwatcherSes) {
+                        core.modules.aws.sesSendEmail(self.logwatcherEmail[type], subject, errors[type], { from: self.logwatcherFrom }, function() { next() });
+                    } else {
+                        self.sendmail({ from: self.logwatcherFrom, to: self.logwatcherEmail[type], subject: subject, text: errors[type] }, function() { next() });
+                    }
                     return;
                 }
                 next();

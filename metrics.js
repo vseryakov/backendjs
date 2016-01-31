@@ -99,6 +99,7 @@ Meter.prototype.start = function()
 Meter.prototype.end = function()
 {
     clearInterval(this._interval);
+    delete this._interval;
 }
 
 Meter.prototype._tick = function()
@@ -134,7 +135,7 @@ Meter.prototype.toJSON = function()
 {
     return {
         rate: this.currentRate(),
-        rcnt: this._count,
+        rcount: this._count,
         rmean: this.meanRate(),
         r1m: this._m1Rate.rate(this._rateUnit),
         r5m: this._m5Rate.rate(this._rateUnit),
@@ -464,6 +465,7 @@ Timer.prototype.endTimer = function(self)
 {
     this.elapsed = Date.now() - this.start;
     self.update(this.elapsed);
+    delete this.end;
     return this.elapsed;
 }
 
@@ -538,7 +540,14 @@ Metrics.prototype.reset = function(filter)
 
 Metrics.prototype.end = function(filter)
 {
-    this.call("end");
+    this.call("end", filter);
+}
+
+Metrics.prototype.destroy = function(name)
+{
+    if (!this[name]) return;
+    if (typeof this[name].end == "function") this[name].end();
+    delete this[name];
 }
 
 Metrics.prototype.Counter = function(name, properties)

@@ -233,6 +233,9 @@ var api = {
     accessTokenSecret: "",
     accessTokenName: 'bk-access-token',
 
+    // Properties to be cleaned up on finish
+    reqCleanup: ["options", "account", "signature", "body"],
+
     // User agent patterns by platform
     platformMatch: lib.toRegexpMap(null,
                                 {
@@ -404,23 +407,21 @@ api.init = function(options, callback)
     if (!options) options = {};
 
     // Performance statistics
-    self.initStatistics();
+    this.initStatistics();
 
-    self.app = express();
-    options.api = self;
-    options.app = self.app;
+    this.app = express();
 
     // Setup busy timer to detect when our requests waiting in the queue for too long
     if (this.maxLatency) bkutils.initBusy(this.maxLatency);
 
     // Fake i18n methods
-    self.app.use(function(req, res, next) {
+    this.app.use(function apiLocales(req, res, next) {
         req.__ = res.__ = res.locals.__ = lib.__;
         next();
     });
 
     // Early request setup and checks
-    self.app.use(function(req, res, next) {
+    this.app.use(function apiLimits(req, res, next) {
         // Latency watcher
         if (self.maxLatency && bkutils.isBusy()) {
             self.metrics.Counter('busy_0').inc();
@@ -449,13 +450,13 @@ api.init = function(options, callback)
         self.prepareRequest(req);
 
         // Rate limits by IP address and path, early before all other filters
-        self.checkRateLimits(req, { type: "ip" }, function(err) {
+        self.checkRateLimits(req, { type: "ip" }, function ipLimits(err) {
             if (err) {
                 self.metrics.Counter('ip_0').inc();
                 return self.sendReply(res, err);
             }
 
-            self.checkRateLimits(req, { type: "path" }, function(err) {
+            self.checkRateLimits(req, { type: "path" }, function pathLimits(err) {
                 if (!err) return next();
                 self.metrics.Counter('path_0').inc();
                 self.sendReply(res, err);
@@ -464,7 +465,7 @@ api.init = function(options, callback)
     });
 
     // Allow cross site requests
-    self.app.use(function(req, res, next) {
+    this.app.use(function(req, res, next) {
         res.header('Server', core.name + '/' + core.version + " " + core.appName + "/" + core.appVersion);
         res.header('Access-Control-Allow-Origin', self.corsOrigin);
         res.header('Access-Control-Allow-Headers', 'content-type, ' + self.signatureHeaderName + ', ' + self.appHeaderName + ', ' + self.versionHeaderName + ', ' + self.langHeaderName);
@@ -474,11 +475,11 @@ api.init = function(options, callback)
     });
 
     // Acccess logging, always goes into api.accessLog, it must be a stream
-    if (!self.noAccessLog) {
-        self.configureAccessLog();
+    if (!this.noAccessLog) {
+        this.configureAccessLog();
 
-        self.app.use(function(req, res, next) {
-            req._startTime = new Date;
+        this.app.use(function apiLogger(req, res, next) {
+            var startTime = new Date;
             var end = res.end;
             res.end = function(chunk, encoding) {
                 res.end = end;
@@ -492,7 +493,7 @@ api.init = function(options, callback)
                         (req.httpProtocol || "HTTP") + "/" + req.httpVersionMajor + "/" + req.httpVersionMinor + " " +
                         res.statusCode + " " +
                         (res.get("Content-Length") || '-') + " - " +
-                        (now - req._startTime) + " ms - " +
+                        (now - startTime) + " ms - " +
                         (req.headers[self.appHeaderName] || req.headers['user-agent'] || "-") + " " +
                         (req.account.id || "-" ) + "\n";
                 self.accessLog.write(line);
@@ -502,28 +503,28 @@ api.init = function(options, callback)
     }
 
     // Redirect before processing the request
-    self.app.use(function(req, res, next) {
+    this.app.use(function(req, res, next) {
         var location = self.checkRedirect(req, req.options);
         if (location) return self.sendStatus(res, location);
         next();
     });
 
     // Metrics starts early, always enabled
-    self.app.use(function(req, res, next) { return self.handleMetrics(req, res, next); });
+    this.app.use(function apiMetrics(req, res, next) { return self.startMetrics(req, res, next); });
 
     // Request parsers
-    self.app.use(cookieParser());
-    self.app.use(function(req, res, next) { return self.checkQuery(req, res, next); });
-    self.app.use(function(req, res, next) { return self.checkBody(req, res, next); });
+    this.app.use(cookieParser());
+    this.app.use(function apiQuery(req, res, next) { return self.checkQuery(req, res, next); });
+    this.app.use(function apiBody(req, res, next) { return self.checkBody(req, res, next); });
 
     // Keep session in the cookies
-    if (!self.noSession) {
-        self.app.use(session({ key: self.signatureHeaderName, secret: self.sessionSecret || core.name, cookie: { path: '/', httpOnly: true, maxAge: self.sessionAge || null } }));
+    if (!this.noSession) {
+        this.app.use(session({ key: self.signatureHeaderName, secret: this.sessionSecret || core.name, cookie: { path: '/', httpOnly: true, maxAge: this.sessionAge || null } }));
     }
 
     // Check the signature, for virtual hosting, supports only the simple case when running the API and static web sites on the same server
-    if (!self.noSignature) {
-        self.app.use(function(req, res, next) {
+    if (!this.noSignature) {
+        this.app.use(function apiSignature(req, res, next) {
             // Verify limits using the login from the signature before going into full signature verification
             self.checkRateLimits(req, { type: "login" }, function(err) {
                 if (!err) return self.handleSignature(req, res, next);
@@ -534,12 +535,12 @@ api.init = function(options, callback)
     }
 
     // Config options for Express
-    for (var p in self.expressOptions) {
-        self.app.set(p, self.expressOptions[p]);
+    for (var p in this.expressOptions) {
+        this.app.set(p, this.expressOptions[p]);
     }
 
     if (core.locales.length) {
-        self.app.use(function(req, res, next) {
+        this.app.use(function apiLocale(req, res, next) {
             req.__ = lib.__.bind(req);
             res.locals.__ = res.__ = lib.__.bind(res);
             req.locale = req.options.appLocale;
@@ -553,7 +554,7 @@ api.init = function(options, callback)
     core.runMethods("configureMiddleware", options, function() {
 
         // Rate limits for an account, at this point we have verified account record
-        self.app.use(function(req, res, next) {
+        self.app.use(function idLimits(req, res, next) {
             self.checkRateLimits(req, { type: "id" }, function(err) {
                 if (err) self.metrics.Counter('id_0').inc();
                 if (err) return self.sendReply(res, err);
@@ -567,12 +568,6 @@ api.init = function(options, callback)
         // Setup routes from the loaded modules
         core.runMethods("configureWeb", options, function(err) {
             if (err) return callback.call(self, err);
-
-            // No API routes matched, cleanup stats
-            self.app.use(function(req, res, next) {
-                req._noRoute = 1;
-                next();
-            });
 
             // Templating engine setup
             if (!self.noTemplating) {
@@ -597,7 +592,7 @@ api.init = function(options, callback)
             if (self.errlogLimiterMax && self.errlogLimiterInterval) {
                 self.errlogLimiterToken = new metrics.TokenBucket(self.errlogLimiterMax, 0, self.errlogLimiterInterval);
             }
-            self.app.use(function(err, req, res, next) {
+            self.app.use(function apiEnd(err, req, res, next) {
                 self.sendReply(res, err);
             });
 
@@ -672,7 +667,7 @@ api.shutdown = function(callback)
 // Gracefully close all database pools when the shutdown is initiated by a Web process
 api.shutdownWeb = function(options, callback)
 {
-    var pools = this.getPools();
+    var pools = db.getPools();
     lib.forEachLimit(pools, pools.length, function(pool, next) {
         db.pools[pool.name].shutdown(next);
     }, callback);
@@ -708,9 +703,7 @@ api.handleServerRequest = function(req, res)
     });
     d.add(req);
     d.add(res);
-    d.run(function() {
-        api.app(req, res);
-    });
+    d.run(api.app.bind(api, req, res));
 }
 
 // Called on new socket connection, supports all type of sockets
@@ -770,7 +763,7 @@ api.createWebSocketRequest = function(socket, url, reply)
     req.res = new http.ServerResponse(req);
     req.res.assignSocket(req.socket);
     req.res.wsock = socket;
-    req.res.end = function(body) {
+    req.res.end = function wsEnd(body) {
         reply.call(this.wsock, body);
         var idx = this.wsock._requests.indexOf(this.req);
         if (idx > -1) this.wsock._requests.splice(idx, 1);
@@ -841,51 +834,59 @@ api.prepareRequest = function(req)
 
 // This is supposed to be called at the beginning of request processing to start metrics and install the handler which
 // will be called at the end to finalize the metrics and call the cleanup handlers
-api.handleMetrics = function(req, res, next)
+api.startMetrics = function(req, res, next)
 {
-    var self = this;
-    var path = "url_" + req.options.apath.slice(0, this.urlMetrics[req.options.apath[0]] || 2).map(function(x) { return x.replace("_", "__")}).join("_");
     this.metrics.Histogram('api_que').update(this.metrics.Counter('api_nreq').inc());
-    req.metric1 = self.metrics.Timer('api_req').start();
-    req.metric2 = self.metrics.Timer(path).start();
-    // Path counters, total and errors
-    this.metrics.Counter(path +'_0').inc();
-    if (res.statusCode >= 400 && res.statusCode < 500) this.metrics.Counter(path +'_bad_0').inc();
-    if (res.statusCode >= 500) self.metrics.Counter(path + "_err_0").inc();
+    var timer = this.metrics.Timer('api_req').start();
     var end = res.end;
-    res.end = function(chunk, encoding) {
+    res.end = function endMetrics(chunk, encoding) {
+        timer.end();
         res.end = end;
         res.end(chunk, encoding);
-        self.metrics.Counter('api_nreq').dec();
-        self.metrics.Counter("api_req_0").inc();
-        if (res.statusCode >= 400 && res.statusCode < 500) self.metrics.Counter("api_bad_0").inc();
-        if (res.statusCode >= 500) self.metrics.Counter("api_err_0").inc();
-        self.metrics.Counter("api_" + res.statusCode + "_0").inc();
-        req.metric1.end();
-        req.metric2.end();
-
-        // Ignore external or not handled urls
-        if (req._noRoute || req._noSignature) {
-            delete self.metrics[path];
-            delete self.metrics[path + '_0'];
-        }
-        self.handleCleanup(req);
+        api.handleMetrics(req, timer.elapsed);
+        api.handleCleanup(req);
     }
     next();
+}
+
+// Finish metrics collection about the current rquest
+api.handleMetrics = function(req, elapsed)
+{
+    this.metrics.Counter('api_nreq').dec();
+    this.metrics.Counter("api_req_0").inc();
+    this.metrics.Counter("api_" + req.res.statusCode + "_0").inc();
+    var path = "url_" + req.options.apath.slice(0, this.urlMetrics[req.options.apath[0]] || 2).map(function(x) { return x.replace("_", "__")}).join("_");
+
+    // Path counters, total and errors
+    if (req.res.statusCode >= 200 && req.res.statusCode < 300) {
+        this.metrics.Counter(path +'_0').inc();
+        if (elapsed > 0) this.metrics.Timer(path).update(elapsed);
+    }
+    if (req.res.statusCode >= 400 && req.res.statusCode < 500) {
+        this.metrics.Counter("api_bad_0").inc();
+        // Ignore unknown requests so we do not waste memory with timers
+        if (req.res.statusCode != 404) this.metrics.Counter(path +'_bad_0').inc();
+    }
+    if (req.res.statusCode >= 500) {
+        this.metrics.Counter("api_err_0").inc();
+        this.metrics.Counter(path + "_err_0").inc();
+    }
 }
 
 // Call registered cleanup hooks and clear the request explicitly
 api.handleCleanup = function(req)
 {
-    var self = this;
     var hooks = this.findHook('cleanup', req.method, req.options.path);
     lib.forEachSeries(hooks, function(hook, next) {
         logger.debug('cleanup:', req.method, req.options.path, hook.path);
-        hook.callback.call(self, req, function() { next() });
+        hook.callback.call(api, req, function() { next() });
     }, function() {
-        for (var p in req) if (p[0] == "_" && p[1] == "_") delete req[p];
-        for (var p in req.options) delete req.options[p];
-        for (var p in req.account) delete req.account[p];
+        for (var p in req) {
+            if ((p[0] == "_" && p[1] == "_") || api.reqCleanup.indexOf(p) > -1) {
+                for (var c in req[p]) delete req[p][c];
+                delete req[p];
+            }
+        }
     });
 }
 
@@ -906,18 +907,18 @@ api.checkQuery = function(req, res, next)
 
     default:
         // Custom types to be collected
-        if (self.mimeBody.indexOf(type) == -1) return next();
+        if (this.mimeBody.indexOf(type) == -1) return next();
         req.setEncoding('binary');
     }
 
     var clen = lib.toNumber(req.get("content-length"));
-    if (clen > 0 && clen > self.uploadLimit * 2) {
+    if (clen > 0 && clen > this.uploadLimit * 2) {
         return next(lib.newError("unable to process the request, it is too large", 413));
     }
 
     req._body = true;
     var buf = '', size = 0;
-    var sig = self.parseSignature(req);
+    var sig = this.parseSignature(req);
 
     req.on('data', function(chunk) {
         size += chunk.length;
@@ -969,7 +970,6 @@ api.checkBody = function(req, res, next)
 {
     var self = this;
     if (req._body) return next();
-    req.files = req.files || {};
 
     if ('GET' == req.method || 'HEAD' == req.method) return next();
     var type = (req.get("content-type") || "").split(";")[0];
@@ -1406,7 +1406,7 @@ api.registerAccessCheck = function(method, path, callback)
 // like redirection or returning something explaining what to do in case of failure. The callback for this call is different then in `checkAccess` hooks.
 // - method can be '' in such case all mathods will be matched
 // - path is a string or regexp of the request URL similr to registering Express routes
-// - callback is a function(req, status, cb) where status is an object { status:..., message: ..} passed from the checkSignature call, if status != 200 it means
+// - callback is a function(req, status, cb) where status is an object { status:..., message: ..} passed from the checkRequestSignature call, if status != 200 it means
 //   an error condition, the callback must pass the same or modified status object in its own `cb` callback
 //
 // Example:
@@ -1438,8 +1438,8 @@ api.registerPreProcess = function(method, path, callback)
 //   the callback may not return data back to the client, in this case next post-process hook will be called and eventually the result will be sent back to the client.
 //   **To indicate that this hook will send the result eventually it must return true, otherwise the rows will be sent afer all hooks are called**
 //
-// Note: the `req.account` and `req.options` objects may become empty if any callback decided to do some async action, they are explicitly emptied at the end of request,
-// in such cases make a copy of the account object if it will needed
+// Note: the `req.account,req.options,req.query` objects may become empty if any callback decided to do some async action, they are explicitly emptied at the end of the request,
+// in such cases make a copy of the needed objects if it will needed
 //
 // Example, just update the rows, it will be sent at the end of processing all post hooks
 //

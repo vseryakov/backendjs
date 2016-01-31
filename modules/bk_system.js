@@ -147,8 +147,8 @@ system.configureSystemAPI = function()
                 x[1].forEach(function(y) {
                     if (!y._name) return;
                     var val = lib.objGet(x[0] ? core.modules[x[0]] : core, y._name);
-                    if (val == null) return;
-                    data[y._key] = val;
+                    if (val == null && !options.total) return;
+                    data[y._key] = typeof val == "undefined" ? null : val;
                 });
             });
             res.json(data);
