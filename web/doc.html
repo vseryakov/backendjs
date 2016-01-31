@@ -196,14 +196,14 @@ applications but still part of the core of the system to be available once neede
 </code></pre></li>
 <li><p>All commands above will behave exactly the same</p>
 </li>
-<li><p><strong>Tables are not created by default</strong>, in order to initialize the database run the server or the shell with <code>-db-init-tables</code> flag,
+<li><p><strong>Tables are not created by default</strong>, in order to initialize the database run the server or the shell with <code>-db-create-tables</code> flag,
 it is called only inside a master process, a worker never creates tables on start</p>
 <ul>
 <li><p>prepare the tables in the shell</p>
-<pre><code>bksh -db-pool pgsql -db-pgsql-pool postgresql://postgres@127.0.0.1/backend -db-init-tables
+<pre><code>bksh -db-pool pgsql -db-pgsql-pool postgresql://postgres@127.0.0.1/backend -db-create-tables
 </code></pre></li>
 <li><p>run the server and create table son start</p>
-<pre><code>bkjs run-backend -db-pool pgsql -db-pgsql-pool postgresql://postgres@127.0.0.1/backend -db-init-tables
+<pre><code>bkjs run-backend -db-pool pgsql -db-pgsql-pool postgresql://postgres@127.0.0.1/backend -db-create-tables
 </code></pre></li>
 </ul>
 </li>
@@ -328,7 +328,7 @@ which makes it easy to refer and extend with additional methods and structures.<
          ...
     });
 
-     // Optionally customize the Express environment, setup MVC routes or else, options.app is the Express server
+     // Optionally customize the Express environment, setup MVC routes or else, api.app is the Express server
     app.configureMiddleware = function(options, callback)
     {
        ...
@@ -571,11 +571,11 @@ operations like add/update/delete a record, show all records.</p>
      bkjs.server.start();
 </code></pre>
 <p>Now run it with an option to allow API access without an account:</p>
-<pre><code>node app.js -log debug -web -api-allow-path /todo -db-init-tables
+<pre><code>node app.js -log debug -web -api-allow-path /todo -db-create-tables
 </code></pre><p>To use a different database, for example PostgresSQL(running localy) or DynamoDB(assuming EC2 instance),
 all config parametetrs can be stored in the etc/config as well</p>
-<pre><code>node app.js -log debug -web -api-allow-path /todo -db-pool dynamodb -db-dynamodb-pool default -db-init-tables
-node app.js -log debug -web -api-allow-path /todo -db-pool pgsql -db-pgsql-pool default -db-init-tables
+<pre><code>node app.js -log debug -web -api-allow-path /todo -db-pool dynamodb -db-dynamodb-pool default -db-create-tables
+node app.js -log debug -web -api-allow-path /todo -db-pool pgsql -db-pgsql-pool default -db-create-tables
 </code></pre><p>API commands can be executed in the browser or using <code>curl</code>:</p>
 <pre><code>curl &#39;http://localhost:8000/todo?name=TestTask1&amp;descr=Descr1&amp;due=2015-01-01`
 curl &#39;http://localhost:8000/todo/select&#39;
@@ -2231,7 +2231,6 @@ Database pool statistics and other diagnostics</p>
 <li><code>no-db</code> - Do not initialize DB drivers</li>
 <li><code>no-dns</code> - Do not use DNS configuration during the initialization</li>
 <li><code>no-configure</code> - Do not run configure hooks during the initialization</li>
-<li><code>repl-bind-([a-z]+)</code> - Worker REPL listen address, supported suffixes: web, worker</li>
 <li><code>repl-port-([a-z]+)</code> - Worker base REPL port, if specified it initializes REPL in the worker processes, in workers port is port+worker_id+1, supported suffixes: web, worker</li>
 <li><code>repl-port</code> - Port for REPL interface in the master, if specified it initializes REPL in the master server process</li>
 <li><code>repl-bind</code> - Listen only on specified address for REPL server in the master process</li>
@@ -2248,6 +2247,7 @@ Database pool statistics and other diagnostics</p>
 <li><code>logwatcher-file(-[a-z]+)?</code> - Add a file to be watched by the logwatcher, it will use all configured match patterns</li>
 <li><code>logwatcher-url(-[a-z]+)?</code> - The backend URL(s) where logwatcher reports should be sent, the log is sent in a POST request, additional info is in the headers</li>
 <li><code>logwatcher-table(-[a-z]+)?</code> - The database table where logwatcher reports should be stored, the table must have the following columns: ipaddr, host, type, instance_id, instance_tag, run_mode, data, mtime</li>
+<li><code>logwatcher-ses</code> - Send logwatcher emails via SES if running inside an EC2 instance</li>
 <li><code>user-agent</code> - Add HTTP user-agent header to be used in HTTP requests, for scrapers or other HTTP requests that need to be pretended coming from Web browsers</li>
 <li><code>backend-host</code> - Host of the master backend, can be used for backend nodes communications using core.sendRequest function calls with relative URLs, also used in tests.</li>
 <li><code>backend-login</code> - Credentials login for the master backend access when using core.sendRequest</li>
@@ -2256,6 +2256,7 @@ Database pool statistics and other diagnostics</p>
 <li><code>config-domain</code> - Domain to query for configuration TXT records, must be specified to enable DNS configuration</li>
 <li><code>watch</code> - Watch sources directory for file changes to restart the server, for development only, the backend module files will be added to the watch list automatically, so only app specific directores should be added. In the production -monitor must be used.</li>
 <li><code>locales</code> - A list of locales to load from the locales/ directory, only language name must be specified, example: en,es. It enables internal support for <code>res.__</code> and <code>req.__</code> methods that can be used for translations, for each request the internal language header will be honored forst, then HTTP Accept-Language</li>
+<li><code>no-locales</code> - Do not load locales on start</li>
 <li><code>aws-key</code> - AWS access key</li>
 <li><code>aws-secret</code> - AWS access secret</li>
 <li><code>aws-region</code> - AWS region</li>
@@ -2280,10 +2281,9 @@ Database pool statistics and other diagnostics</p>
 <li><code>ipc-queue-?([a-z0-1]+)?-options</code> - JSON object with options to the queue client, specific to each implementation</li>
 <li><code>db-pool</code> - Default pool to be used for db access without explicit pool specified. DNS TXT configurable.</li>
 <li><code>db-name</code> - Default database name to be used for default connections in cases when no db is specified in the connection url</li>
-<li><code>db-no-cache-columns</code> - Do not load column definitions from the database tables on startup, keep using in-app Javascript definitions only, in most cases caching columns is not required if tables are in sync between the app and the database</li>
-<li><code>db-cache-columns-interval</code> - How often in minutes to refresh tables columns from the database, it calls cacheColumns for each pool</li>
-<li><code>db-init-tables</code> - Create tables in the database or perform table upgrades for new columns, only master processes can perform this operation, never workers</li>
+<li><code>db-create-tables</code> - Create tables in the database or perform table upgrades for new columns in all pools, only master processes can perform this operation, never workers</li>
 <li><code>db-cache-tables</code> - List of tables that can be cached: bk_auth, bk_counter. This list defines which DB calls will cache data with currently configured cache. This is global for all db pools.</li>
+<li><code>db-describe-tables</code> - A JSON object with table descriptions to be merged with the existing definitions</li>
 <li><code>db-cache-ttl</code> - Default global TTL for cached tables</li>
 <li><code>db-cache-ttl-(.+)</code> - TTL in milliseconds for each individual table being cached</li>
 <li><code>db-cache-name-(.+)</code> - Cache client name to use for each table instead of the default in order to split cache usage for different tables, it can be just a table name or <code>pool.table</code></li>
@@ -2291,16 +2291,17 @@ Database pool statistics and other diagnostics</p>
 <li><code>db-local</code> - Local database pool for properties, cookies and other local instance only specific stuff</li>
 <li><code>db-config</code> - Configuration database pool to be used to retrieve config parameters from the database, must be defined to use remote db for config parameters, set to <code>default</code> to use current default pool</li>
 <li><code>db-config-interval</code> - Interval between loading configuration from the database configured with -db-config, in minutes, 0 disables refreshing config from the db</li>
-<li><code>db-([a-z0-9]+)-pool(-[0-9]+)?</code> - A database pool name, depending on the driver it can be an URL, name or pathname, examples of db pools: <code>-db-pgsql-pool, -db-dynamodb-pool</code>, examples of urls: <code>postgresql://[user:password@]hostname[:port]/db, mysql://[user:password@]hostname/db, mongodb://hostname[:port]/dbname, cql://[user:password@]hostname[:port]/dbname</code></li>
-<li><code>db-(.+)-pool-max(-[0-9]+)?</code> - Max number of open connections for a pool, default is Infinity</li>
-<li><code>db-(.+)-pool-min(-[0-9]+)?</code> - Min number of open connections for a pool</li>
-<li><code>db-(.+)-pool-idle(-[0-9]+)?</code> - Number of ms for a db pool connection to be idle before being destroyed</li>
-<li><code>db-(.+)-pool-tables(-[0-9]+)?</code> - A DB pool tables, list of tables that belong to this pool only</li>
-<li><code>db-(.+)-pool-connect(-[0-9]+)?</code> - Options for a DB pool driver passed during connection or creation of the pool</li>
-<li><code>db-(.+)-pool-settings(-[0-9]+)?</code> - A DB pool driver settings passed to every request, contains pool-wide options and features upported by the driver</li>
-<li><code>db-(.+)-pool-no-cache-columns(-[0-9]+)?</code> - Disable caching table columns for this pool only</li>
-<li><code>db-(.+)-pool-cache2-(.+)</code> - Level 2 cache TTL for the specified pool and table</li>
-<li><code>db-describe-tables</code> - A JSON object with table descriptions to be merged with the existing definitions</li>
+<li><code>db-cache-columns-interval</code> - How often in minutes to refresh tables columns from the database, it calls cacheColumns for each pool which supports it</li>
+<li><code>db-([a-z]+)-pool-?([0-9]+)?$</code> - A database pool name, depending on the driver it can be an URL, name or pathname, examples of db pools: <code>-db-pgsql-pool, -db-dynamodb-pool</code>, examples of urls: <code>postgresql://[user:password@]hostname[:port]/db, mysql://[user:password@]hostname/db, mongodb://hostname[:port]/dbname, cql://[user:password@]hostname[:port]/dbname</code></li>
+<li><code>db-([a-z]+)-pool-(max)-?([0-9]+)?$</code> - Max number of open connections for a pool, default is Infinity</li>
+<li><code>db-([a-z]+)-pool-(min)-?([0-9]+)?$</code> - Min number of open connections for a pool</li>
+<li><code>db-([a-z]+)-pool-(idle)-?([0-9]+)?$</code> - Number of ms for a db pool connection to be idle before being destroyed</li>
+<li><code>db-([a-z]+)-pool-tables-?([0-9]+)?$</code> - A DB pool tables, list of tables that belong to this pool only</li>
+<li><code>db-([a-z]+)-pool-(connect)-?([0-9]+)?$</code> - Connect options for a DB pool driver for new connection, driver specific</li>
+<li><code>db-([a-z]+)-pool-options-([a-zA-Z0-9-]+)-?([0-9]+)?$</code> - General options for a DB pool</li>
+<li><code>db-([a-z]+)-pool-(cache-columns)-?([0-9]+)?$</code> - Enable caching table columns for this pool if it supports it</li>
+<li><code>db-([a-z]+)-pool-(create-tables)-?([0-9]+)?$</code> - Create tables for this pool on startup</li>
+<li><code>db-([a-z]+)-pool-cache2-(.+)</code> - Level 2 cache TTL for the specified pool and table</li>
 <li><code>api-images-url</code> - URL where images are stored, for cases of central image server(s), must be full URL with optional path</li>
 <li><code>api-images-s3</code> - S3 bucket name where to store and retrieve images</li>
 <li><code>api-images-raw</code> - Return raw urls for the images, requires images-url to be configured. The path will reflect the actual 2 level structure and account id in the image name</li>
@@ -2391,7 +2392,8 @@ Database pool statistics and other diagnostics</p>
 <li><code>jobs-worker-queue</code> - Queue(s) to subscribe for workers, multiple queues can be processes at the same time, i.e. more than one job can run from different queues</li>
 <li><code>jobs-cron-queue</code> - Default queue to use for cron jobs</li>
 <li><code>jobs-channel</code> - Name of the channel where to publish/receive jobs</li>
-<li><code>jobs-cron</code> - Load cron jobs from the local etc/crontab file, requires -jobs flag</li>
+<li><code>jobs-cron</code> - Allow cron jobs to be executed from the local etc/crontab file or via config parameter</li>
+<li><code>jobs-schedule</code> - Cron jobs to be scheduled, the JSON must be in the same format as crontab file</li>
 <li><code>server-max-processes</code> - Max number of processes to launch for Web servers, 0 means NumberofCPUs-2</li>
 <li><code>server-max-workers</code> - Max number of worker processes to launch</li>
 <li><code>server-crash-delay</code> - Delay between respawing the crashed process</li>
@@ -2400,8 +2402,7 @@ Database pool statistics and other diagnostics</p>
 <li><code>server-process-name</code> - Path to the command to spawn by the monitor instead of node, for external processes guarded by this monitor</li>
 <li><code>server-process-args</code> - Arguments for spawned processes, for passing v8 options or other flags in case of external processes</li>
 <li><code>server-worker-args</code> - Node arguments for workers, job and web processes, for passing v8 options</li>
-<li><code>server-deny-modules</code> - Modules that should not be loaded in the master and web server process</li>
-<li><code>server-allow-modules</code> - Modules that can be loaded in the master or server process, by default no modules except the core are loaded in the master/server process</li>
+<li><code>server-allow-modules</code> - Additional modules that can be loaded in the master or server process, by default no modules except the core are loaded in the master/server process</li>
 </ul>
 <h2 id="module-api">Module: API</h2>
 <ul>
@@ -2526,14 +2527,8 @@ also, this will needed only for Express handlers <code>.all</code>, when registe
 </ul>
 
 <ul>
-<li><p><code>api.configureWorker(options, callback)</code></p>
-<p> Allow access to API table in worker processes</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.configureShell(options, callback)</code></p>
-<p> Access to the API table in the shell</p>
+<li><p><code>api.shutdownWeb(options, callback)</code></p>
+<p> Gracefully close all database pools when the shutdown is initiated by a Web process</p>
 </li>
 </ul>
 
@@ -2593,9 +2588,15 @@ required properties for subsequent use</p>
 </ul>
 
 <ul>
-<li><p><code>api.handleMetrics(req, res, next)</code></p>
+<li><p><code>api.startMetrics(req, res, next)</code></p>
 <p> This is supposed to be called at the beginning of request processing to start metrics and install the handler which
 will be called at the end to finalize the metrics and call the cleanup handlers</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.handleMetrics(req, elapsed)</code></p>
+<p> Finish metrics collection about the current rquest</p>
 </li>
 </ul>
 
@@ -2840,7 +2841,7 @@ like redirection or returning something explaining what to do in case of failure
 <ul>
 <li>method can be &#39;&#39; in such case all mathods will be matched</li>
 <li>path is a string or regexp of the request URL similr to registering Express routes</li>
-<li>callback is a function(req, status, cb) where status is an object { status:..., message: ..} passed from the checkSignature call, if status != 200 it means
+<li>callback is a function(req, status, cb) where status is an object { status:..., message: ..} passed from the checkRequestSignature call, if status != 200 it means
 an error condition, the callback must pass the same or modified status object in its own <code>cb</code> callback</li>
 </ul>
 <p>Example:</p>
@@ -2868,8 +2869,8 @@ results using <code>api.sendJSON</code> or <code>api.sendFormatted</code> method
 the callback may not return data back to the client, in this case next post-process hook will be called and eventually the result will be sent back to the client.
 <strong>To indicate that this hook will send the result eventually it must return true, otherwise the rows will be sent afer all hooks are called</strong></li>
 </ul>
-<p>Note: the <code>req.account</code> and <code>req.options</code> objects may become empty if any callback decided to do some async action, they are explicitly emptied at the end of request,
-in such cases make a copy of the account object if it will needed</p>
+<p>Note: the <code>req.account,req.options,req.query</code> objects may become empty if any callback decided to do some async action, they are explicitly emptied at the end of the request,
+in such cases make a copy of the needed objects if it will needed</p>
 <p>Example, just update the rows, it will be sent at the end of processing all post hooks</p>
 <pre><code>    api.registerPostProcess(&#39;&#39;, &#39;/data/&#39;, function(req, res, rows) {
         rows.forEach(function(row) { ...});
@@ -3007,7 +3008,7 @@ events using account id as a key.</p>
 <h2 id="module-app">Module: APP</h2>
 <ul>
 <li><p><code>app</code></p>
-<p> This is a skeleton module to be extended by the specific application logic. It provides all 
+<p> This is a skeleton module to be extended by the specific application logic. It provides all
 callbacks and hooks that are called by the core backend modules
 during different phases, like initialization, shutting down, etc...</p>
 <p>It should be used for custom functions and methods to be defined, the <code>app</code> module is always available.</p>
@@ -3034,7 +3035,7 @@ called regardless of what kind of server is about to start, it is always called 
 <ul>
 <li><p><code>app.configureMiddleware(options, callback)</code></p>
 <p> This handler is called during the Express server initialization just after the security middleware.</p>
-<p>NOTE: <code>options.app</code> refers to the Express instance.</p>
+<p>NOTE: <code>api.app</code> refers to the Express instance.</p>
 </li>
 </ul>
 
@@ -3042,14 +3043,14 @@ called regardless of what kind of server is about to start, it is always called 
 <li><p><code>app.configureWeb(options, callback)</code></p>
 <p> This handler is called after the Express server has been setup and all default API endpoints initialized but the Web server
 is not ready for incoming requests yet. This handler can setup additional API endpoints, add/modify table descriptions.</p>
-<p>NOTE: <code>options.app</code> refers to the Express instance</p>
+<p>NOTE: <code>api.app</code> refers to the Express instance</p>
 </li>
 </ul>
 
 <ul>
 <li><p><code>app.shutdownWeb(options, callback)</code></p>
 <p> Perform shutdown sequence when a Web process is about to exit</p>
-<p>NOTE: <code>options.app</code> refers to the Express instance</p>
+<p>NOTE: <code>api.app</code> refers to the Express instance</p>
 </li>
 </ul>
 
@@ -3285,7 +3286,7 @@ Options may contain the following properties:</p>
 <li>elbName - join elastic balancer after the startup</li>
 <li>elasticIp - asociate with the given Elastic IP address after the start</li>
 <li>iamProfile - IAM profile to assign for instance credentials, if not given use aws.iamProfile or options[&#39;IamInstanceProfile.Name&#39;] attribute</li>
-<li>availZone - availability zone, if not given use aws.availZone or options[&#39;Placement.AvailabilityZone&#39;] attribute</li>
+<li>availabilityZone - availability zone, if not given use aws.zone or options[&#39;Placement.AvailabilityZone&#39;] attribute</li>
 <li>subnetId - subnet id, if not given use aws.subnetId or options.SubnetId attribute</li>
 <li>alarms - a list with CloudWatch alarms to create for the instance, each value of the object represent an object with options to be
   passed to the cwPutMetricAlarm method.</li>
@@ -3844,7 +3845,7 @@ Example:</p>
 <li>noDns - do not retrieve config from DNS</li>
 <li>noWatch - do not watch and reload config files</li>
 <li>noModules - do not load modules</li>
-<li>localDb - no db pools except local and config, this is passed to db.init</li>
+<li>noLocales - do not load locales</li>
 <li>denyModules - which modules should not be loaded</li>
 <li>allowModules - which modules to load</li>
 </ul>
@@ -3967,8 +3968,7 @@ call the callback when finished. The callback second argument will be the option
 in the options back to the caller. Errors from a module is never propagated and simply ignored.</p>
 <p>The following properties can be specified in the options:</p>
 <ul>
-<li>denyModules - a regexp of the modules names to be excluded from calling the method</li>
-<li>allowModules - a regexp of the modules names to be called only</li>
+<li>filterModules - a regexp of the modules names to be called only</li>
 </ul>
 </li>
 </ul>
@@ -4084,6 +4084,12 @@ merge with existing cookies from the jar which is a list of cookies before the r
 </ul>
 
 <ul>
+<li><p><code>core.startRepl(port, bind, options)</code></p>
+<p> Start command prompt on TCP socket, context can be an object with properties assigned with additional object to be accessible in the shell</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>core.watchTmp(dir, options, callback)</code></p>
 <p> Watch temp files and remove files that are older than given number of seconds since now, remove only files that match pattern if given
 Options properties:</p>
@@ -4193,30 +4199,12 @@ database like DynamoDB for real-time requests and slower SQL database running on
 </ul>
 
 <ul>
-<li><p><code>db.shutdownWeb(options, callback)</code></p>
-<p> Gracefully close all database pools when the shutdown is initiated by a Web process</p>
-</li>
-</ul>
-
-<ul>
 <li><p><code>db.init(options, callback)</code></p>
 <p> Initialize all database pools. the options may containt the following properties:</p>
 <ul>
-<li>localMode - only initialize default, local and config db pools, other pools are ignored, if not given
-global value is used. Currently it can be set globally from the app only, no config parameter.</li>
-<li>initTables - if true then create new tables or upgrade tables with new columns</li>
-</ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.initPool(name, options, callback)</code></p>
-<p> Initialize a db pool by parameter name.
-Options can have the following properties:</p>
-<ul>
-<li>initTables - if defined it will force new tables creation or new upgrade</li>
-<li>noCacheColumns - if defined it is used instead of the global parameter</li>
-<li>force - if true, close existing pool with the same name, otherwise skip existing pools</li>
+<li>localTables - only initialize default, local and config db pools, other pools are ignored, if not given
+ global value is used. Currently it can be set globally from the app only, no config parameter.</li>
+<li>createTables - if true then create new tables or upgrade tables with new columns</li>
 </ul>
 </li>
 </ul>
@@ -4225,7 +4213,7 @@ Options can have the following properties:</p>
 <li><p><code>db.initConfig(options, callback)</code></p>
 <p> Load configuration from the config database, must be configured with <code>db-config-type</code> pointing to the database pool where bk_config table contains
 configuration parameters.</p>
-<p>The priority of the paramaters is fixed and goes form the most broad to the most specific, most specific always wins, this allows
+<p>The priority of the paramaters is fixed and goes from the most broad to the most specific, most specific always wins, this allows
 for very flexible configuration policies defined by the app or place where instances running and separated by the run mode.</p>
 <p>The following list of properties will be queried from the config database and the sorting order is very important, the last values
 will override values received for the earlier properties, for example, if two properties defined in the <code>bk_config</code> table with the
@@ -4237,13 +4225,12 @@ types <code>myapp</code> and <code>prod-myapp</code>, then the last value will b
 <li>the run mode specified in the command line <code>-run-mode</code>: <code>prod</code></li>
 <li>the application name: <code>myapp</code></li>
 <li>the application name and major version specified in the package.json: <code>-1</code></li>
-<li>the application name and version specified in the package.json: <code>-1.0</code></li>
+<li>the application name and major/manor version specified in the package.json: <code>-1.0</code></li>
 <li>the process role: <code>-worker</code></li>
 <li>the network where the instance is running, first 2 octets from the current IP address: <code>-192.168</code></li>
 <li>the region where the instance is running, AWS region or other name: <code>us-east-1</code></li>
-<li>the network where the instance is running, first 3 octets from the current IP address: <code>-192.168.1</code></li>
 <li>the zone where the instance is running, AWS availability zone or other name: <code>-us-east-1a</code></li>
-<li>current instance tag or a custom tag for ad-hoc queries: <code>-nat</code></li>
+<li>the instance tag, AWS name tag or other name: <code>-nat</code></li>
 </ul>
 <p>The options takes the following properties:</p>
 <ul>
@@ -4251,30 +4238,19 @@ types <code>myapp</code> and <code>prod-myapp</code>, then the last value will b
 <li>delta - if true then pull only records updated since the last config pull using the max mtime from received records.</li>
 <li>table - a table where to read the config parameters, default is bk_config</li>
 </ul>
+<p><strong>NOTE: The config parameters from the DB alwayse take precedence even over config.local.</strong></p>
 <p>On return, the callback second argument will receive all parameters received form the database as a list: -name value ...</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>db.initTables(options, callback)</code></p>
-<p> Create tables in all pools</p>
+<li><p><code>db.createTables(options, callback)</code></p>
+<p> Create or upgrade the tables for the given pool</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>db.initPoolTables(name, tables, options, callback)</code></p>
-<p> Init the pool, create tables and columns:</p>
-<ul>
-<li>name - db pool to create the tables in</li>
-<li>tables - an object with list of tables to create or upgrade</li>
-<li>initTables - if true then create or upgrade tables</li>
-<li>noCacheColumns - if 1 tells to skip caching database columns, overrides the global parameter</li>
-</ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.dropPoolTables(name, tables, options, callback)</code></p>
+<li><p><code>db.dropTables(tables, options, callback)</code></p>
 <p> Delete all specified tables from the pool, if <code>name</code> is empty then default pool will be used, <code>tables</code> is an object with table names as
 properties, same table definition format as for create table method</p>
 </li>
@@ -4326,7 +4302,7 @@ for the table to convert values returned from the db into the the format defined
 <ul>
 <li>obj - an JavaScript object with properties for the record, primary key properties must be supplied</li>
 <li>options may contain the following properties:<ul>
-<li>all_columns - do not check for actual columns defined in the pool tables and add all properties from the obj, only will work for NoSQL dbs,
+<li>no_columns - do not check for actual columns defined in the pool tables and add all properties from the obj, only will work for NoSQL dbs,
 by default all properties in the obj not described in the table definition for the given table will be ignored.</li>
 <li>skip_columns - ignore properties by name listed in the this array</li>
 <li>mtime - if set, mtime column will be added automatically with the current timestamp, if mtime is a
@@ -4744,22 +4720,6 @@ Options can use the following special properties:</p>
 </ul>
 
 <ul>
-<li><p><code>db.getCached(op, table, query, options, callback)</code></p>
-<p> Retrieve cached result or put a record into the cache prefixed with table:key[:key...]
-Options accept the same parameters as for the usual get action but it is very important that all the options
-be the same for every call, especially <code>select</code> parameters which tells which columns to retrieve and cache.
-Additional options:</p>
-<ul>
-<li>prefix - prefix to be used for the key instead of table name</li>
-</ul>
-<p>Example:</p>
-<pre><code>db.getCached(&quot;get&quot;, &quot;bk_account&quot;, { id: req.query.id }, { select: &quot;latitude,longitude&quot; }, function(err, row) {
-    var distance = lib.geoDistance(req.query.latitude, req.query.longitude, row.latitude, row.longitudde);
-});
-</code></pre></li>
-</ul>
-
-<ul>
 <li><p><code>db.create(table, columns, options, callback)</code></p>
 <p> Create a table using column definitions represented as a list of objects. Each column definition can
 contain the following properties:</p>
@@ -4856,28 +4816,15 @@ using this method. Only columns with changed properties need to be specified, ot
 </ul>
 
 <ul>
-<li><p><code>db.mergeTables(callback)</code></p>
-<p> Merge columns for all table in all pools tables with the global list of tables</p>
+<li><p><code>db.refreshColumns(options, callback)</code></p>
+<p> Refresh columns for all polls which need it</p>
 </li>
 </ul>
 
 <ul>
 <li><p><code>db.cacheColumns(options, callback)</code></p>
-<p> Reload all columns into the cache for the pool</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.mergeColumns(pool)</code></p>
-<p> Merge JavaScript column definitions with the db cached columns</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.mergeKeys(pool)</code></p>
-<p> Update pool keys with the primary keys form the table definitions in addition to the actual cached
-column info from the database, if no caching performed than this just set the keys assuming it will work, for databases that do
-not provide info about primary keys</p>
+<p> Reload all columns into the cache for the pool, options can be a pool name or an object like <code>{ pool: name }</code>.
+if <code>tables</code> property is an arary it asks to refresh only specified tables if that is possible.</p>
 </li>
 </ul>
 
@@ -4890,13 +4837,13 @@ helpers and is not used directly in the applications.</p>
 </ul>
 
 <ul>
-<li><p><code>db.prepareRow(pool, op, table, obj, options)</code></p>
+<li><p><code>db.prepareRow(pool, req)</code></p>
 <p> Preprocess an object for a given operation, convert types, assign defaults...</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>db.prepareForUpdate(pool, op, table, obj, options, cols, orig)</code></p>
+<li><p><code>db.prepareForUpdate(pool, req, orig)</code></p>
 <p> Keep only columns from the table definition if we have it
 Go over all properties in the object and makes sure the types of the values correspond to the column definition types,
 this is for those databases which are very sensitive on the types like DynamoDB.</p>
@@ -4950,14 +4897,13 @@ allow to handle such situations and can be used to set necessary propeties to th
 </ul>
 
 <ul>
-<li><p><code>db.runProcessRows(type, table, req, rows, options)</code></p>
+<li><p><code>db.runProcessRows(type, table, req, rows)</code></p>
 <p> Run registered pre- or post- process callbacks.</p>
 <ul>
 <li><code>type</code> is one of the <code>pre</code> or &#39;post`</li>
-<li><code>table</code> - the table to run the hooks for, usually te same as req.table but can be &#39;*&#39; for global hooks</li>
-<li><code>req</code> is the original db request object with the following required properties: <code>op, table, obj, info</code>,</li>
+<li><code>table</code> - the table to run the hooks for, usually the same as req.table but can be &#39;*&#39; for global hooks</li>
+<li><code>req</code> is the original db request object with the following required properties: <code>op, table, obj, options, info</code>,</li>
 <li><code>rows</code> is the result rows for post callbacks and the same request object for pre callbacks.</li>
-<li><code>options</code> is the same object passed to a db operation</li>
 </ul>
 </li>
 </ul>
@@ -5014,7 +4960,7 @@ callbacks to keep the record consistent.</p>
 
 <ul>
 <li><p><code>db.getPool(table, options)</code></p>
-<p> Return database pool by table name or default pool, options may contain { pool: name } to return
+<p> Return database pool by table name or default pool, options can be a pool name or an object with { pool: name } to return
 the pool by given name. This call always return valid pool object, in case no requiested pool found it returns
 default pool. A special pool <code>none</code> always return empty result and no errors.</p>
 </li>
@@ -5024,10 +4970,7 @@ default pool. A special pool <code>none</code> always return empty result and no
 <li><p><code>db.getPoolTables(name, options)</code></p>
 <p> Return all tables know to the given pool, returned tables are in the object with
 column information merged from cached columns from the database with description columns
-given by the application. Property fake: 1 in any column signifies not a real column but
-a column described by the application and not yet created by the database driver or could not be added
-due to some error.
-If <code>options.names</code> is 1 then return just table names as a list</p>
+given by the application. If <code>options.names</code> is 1 then return just table names as a list.</p>
 </li>
 </ul>
 
@@ -5038,17 +4981,8 @@ If <code>options.names</code> is 1 then return just table names as a list</p>
 </ul>
 
 <ul>
-<li><p><code>db.getOptions(table, options)</code></p>
-<p> Return combined options for the pool including global pool options</p>
-</li>
-</ul>
-
-<ul>
 <li><p><code>db.getColumns(table, options)</code></p>
 <p> Return columns for a table or null, columns is an object with column names and objects for definition.</p>
-<p>For dynamic column definition the options may have <code>dbcolumns</code> object with new columns to be merged with the current schema,
-new columns will stay permanently until the process restarts.
-Only new columns will be added, the existing columns are never changed dynamically.</p>
 </li>
 </ul>
 
@@ -5063,13 +4997,6 @@ Only new columns will be added, the existing columns are never changed dynamical
 <p> Check if the given index name corresponds to a real table column, for compound indexes the convention is to
 concatenate all columns with underscore, if the index is not a column name check the last part if it is a column name
 that can be used in sorting the results. This is for databases that do not support compound indexes.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.getTableProperties(table, options)</code></p>
-<p> Return a table definition which was used to create the table. This is different from cached table columns
-and only contains the original properties which are merged with the cached properties of existing table.</p>
 </li>
 </ul>
 
@@ -5122,7 +5049,7 @@ is for all columns or none</p>
 <li><p><code>db.skipColumn(name, val, options, columns)</code></p>
 <p> Verify column against common options for inclusion/exclusion into the operation, returns 1 if the column must be skipped</p>
 <ul>
-<li>to enable all properties to be saved in the record without column definition set <code>options.all_columns=1</code></li>
+<li>to enable all properties to be saved in the record without column definition set <code>options.no_columns=1</code></li>
 <li>to skip all null values set <code>options.skip_null=1</code></li>
 <li>to skip specific columns define <code>options.skip_columns=[&quot;a&quot;,&quot;b&quot;]</code></li>
 <li>to restrict to specific columns only define <code>options.allow_columns=[&quot;a&quot;,&quot;b&quot;]</code></li>
@@ -5147,7 +5074,21 @@ The rows that satisfy primary key conditions are returned and then called this f
 
 <ul>
 <li><p><code>db.getKeys(table, options)</code></p>
-<p> Return cached primary keys for a table or empty array</p>
+<p> Return primary keys for a table or empty array</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.getIndexes(table, options)</code></p>
+<p> Return indexes for a table or empty object, each item in the object is an array with index columns</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.getIndexForKeys(table, keys, options)</code></p>
+<p> Return an index name that can be used for searching for the given keys, the index match is performed on the index columns
+from the left to right  and stop on the first missing key, for example for given keys { id: &quot;1&quot;, name: &quot;2&quot;, state: &quot;VA&quot; }
+the index [&quot;id&quot;, &quot;state&quot;] or [&quot;id&quot;,&quot;name&quot;] will be returned but the index [&quot;id&quot;,&quot;city&quot;,&quot;state&quot;] will not.</p>
 </li>
 </ul>
 
@@ -5177,7 +5118,7 @@ will be returned in the query object</p>
 <ul>
 <li><p><code>db.getBindValue(table, options, val, info)</code></p>
 <p> Return possibly converted value to be used for inserting/updating values in the database,
-is used for SQL parametrized statements</p>
+is used for SQL parameterized statements</p>
 <p>Parameters:</p>
 <ul>
 <li>options - standard pool parameters with pool: property for specific pool</li>
@@ -5194,8 +5135,24 @@ is used for SQL parametrized statements</p>
 </ul>
 
 <ul>
+<li><p><code>db.getCached(op, table, query, options, callback)</code></p>
+<p> Retrieve cached result or put a record into the cache prefixed with table:key[:key...]
+Options accept the same parameters as for the usual get action but it is very important that all the options
+be the same for every call, especially <code>select</code> parameters which tells which columns to retrieve and cache.
+Additional options:</p>
+<ul>
+<li>prefix - prefix to be used for the key instead of table name</li>
+</ul>
+<p>Example:</p>
+<pre><code>db.getCached(&quot;get&quot;, &quot;bk_account&quot;, { id: req.query.id }, { select: &quot;latitude,longitude&quot; }, function(err, row) {
+    var distance = lib.geoDistance(req.query.latitude, req.query.longitude, row.latitude, row.longitudde);
+});
+</code></pre></li>
+</ul>
+
+<ul>
 <li><p><code>db.getCache(table, query, options, callback)</code></p>
-<p> Retrieve an object from the cache by key</p>
+<p> Retrieve an object from the cache by key, sets <code>cacheKey</code> in the options for later use</p>
 </li>
 </ul>
 
@@ -5294,13 +5251,13 @@ this is called during realtime config update</p>
 </ul>
 
 <ul>
-<li><p><code>db.Pool.prototype.nextToken(client, req, rows, options)</code></p>
+<li><p><code>db.Pool.prototype.nextToken(client, req, rows)</code></p>
 <p> Return next token from the client object</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>db.Pool.prototype.prepare(op, table, obj, options)</code></p>
+<li><p><code>db.Pool.prototype.prepare(req)</code></p>
 <p> Default prepare is to return all parameters in an object</p>
 </li>
 </ul>
@@ -5332,18 +5289,6 @@ and if exist it must return the same or new table name for the given query param
 </ul>
 
 <ul>
-<li><p><code>db.Pool.prototype.saveOptions(options)</code></p>
-<p> Save existing options and return as new object, first arg is options, then list of properties to save</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.Pool.prototype.restoreOptions(options, old)</code></p>
-<p> Restore the properties we saved or replaced</p>
-</li>
-</ul>
-
-<ul>
 <li><p><code>db.SqlPool(options)</code></p>
 <p> Create a database pool for SQL like databases</p>
 <ul>
@@ -5364,7 +5309,7 @@ and if exist it must return the same or new table name for the given query param
 </ul>
 
 <ul>
-<li><p><code>db.SqlPool.prototype.prepare(op, table, obj, options)</code></p>
+<li><p><code>db.SqlPool.prototype.prepare(req)</code></p>
 <p> Prepare for execution, return an object with formatted or transformed SQL query for the database driver of this pool</p>
 </li>
 </ul>
@@ -5376,7 +5321,7 @@ and if exist it must return the same or new table name for the given query param
 </ul>
 
 <ul>
-<li><p><code>db.SqlPool.prototype.nextToken(client, req, rows, options)</code></p>
+<li><p><code>db.SqlPool.prototype.nextToken(client, req, rows)</code></p>
 <p> Support for pagination, for SQL this is the OFFSET for the next request</p>
 </li>
 </ul>
@@ -5418,13 +5363,13 @@ and if exist it must return the same or new table name for the given query param
 
 <ul>
 <li><p><code>Ipc.prototype.initServer()</code></p>
-<p> This function is called by the Web master server process to setup IPC channels and support for cache and messaging</p>
+<p> This function is called by a master server process to setup IPC channels and support for cache and messaging</p>
 </li>
 </ul>
 
 <ul>
 <li><p><code>Ipc.prototype.initWorker()</code></p>
-<p> This function is called by Web worker process to setup IPC channels and support for cache and messaging</p>
+<p> This function is called by a worker process to setup IPC channels and support for cache and messaging</p>
 </li>
 </ul>
 
@@ -5735,12 +5680,6 @@ prevented to clear up running list in the master, milliseconds</li>
 <ul>
 <li><p><code>lib</code></p>
 <p> Common utilities and useful functions</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.noop()</code></p>
-<p> Empty function to be used when callback was no provided</p>
 </li>
 </ul>
 
@@ -6438,12 +6377,15 @@ Options may contains the following properties:</p>
 <li>str - return the value as a string, convert any other type into string</li>
 <li>num - return the value as a number, convert any other type by using toNumber</li>
 <li>func - return the value as a function, if the object is not a function returns null</li>
+<li>owner - return the owner object, not the value, i.e. return the object who owns the value specified in the name</li>
 </ul>
 <p>Example:</p>
 <pre><code>    &gt; lib.objGet({ response: { item : { id: 123, name: &quot;Test&quot; } } }, &quot;response.item.name&quot;)
     &quot;Test&quot;
     &gt; lib.objGet({ response: { item : { id: 123, name: &quot;Test&quot; } } }, &quot;response.item.name&quot;, { list: 1 })
     [ &quot;Test&quot; ]
+    &gt; lib.objGet({ response: { item : { id: 123, name: &quot;Test&quot; } } }, &quot;response.item.name&quot;, { owner: 1 })
+    { item : { id: 123, name: &quot;Test&quot; } }
 </code></pre></li>
 </ul>
 
@@ -6455,6 +6397,7 @@ objects will be create automatically. The options can have the folowing properti
 <li>incr - if 1 the numeric value will be added to the existing if any</li>
 <li>push - add to the array, if it is not an array a new empty aray is created</li>
 <li>unique - only push if not in the list</li>
+<li>separator - separator for object names, default is <code>.</code></li>
 </ul>
 <p>Example</p>
 <pre><code>    var a = lib.objSet({}, &quot;response.item.count&quot;, 1)
@@ -6925,12 +6868,6 @@ Each item in the list is an object with the following properties: key, secret, a
 </ul>
 
 <ul>
-<li><p><code>server.startWorker(options)</code></p>
-<p> Job worker process</p>
-</li>
-</ul>
-
-<ul>
 <li><p><code>server.startWeb(options)</code></p>
 <p> Create Express server, setup worker environment, call supplied callback to set initial environment</p>
 </li>
@@ -6957,12 +6894,6 @@ Each item in the list is an object with the following properties: key, secret, a
 <ul>
 <li><p><code>server.startWatcher()</code></p>
 <p> Watch source files for modifications and restart</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>server.startRepl(port, bind)</code></p>
-<p> Start command prompt on TCP socket, context can be an object with properties assigned with additional object to be accessible in the shell</p>
 </li>
 </ul>
 
@@ -7192,8 +7123,14 @@ properties after successful authorization.</p>
 </ul>
 
 <ul>
-<li><p><code>api.checkSignature(req, callback)</code></p>
+<li><p><code>api.checkRequestSignature(req, callback)</code></p>
 <p> Verify request signature from the request object, uses properties: .host, .method, .url or .originalUrl, .headers</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.checkAccountSignature(req, sig, account, callback)</code></p>
+<p> Check account record against a incoming request signature</p>
 </li>
 </ul>
 
@@ -7202,7 +7139,7 @@ properties after successful authorization.</p>
 <p> Perform URL based access checks, this is called before the signature verification, very early in the request processing step.</p>
 <p>Checks access permissions, calls the callback with the following argument:</p>
 <ul>
-<li>nothing if checkSignature needs to be called</li>
+<li>nothing if checkRequestSignature needs to be called</li>
 <li>an object with status: 200 to skip authorization and proceed with other routes</li>
 <li>an object with status: 0 means response has been sent, just stop</li>
 <li>an object with status other than 0 or 200 to return the status and stop request processing,
@@ -7513,19 +7450,19 @@ if not given the default database name will be used.</p>
 
 <h2 id="module-db_sql">Module: DB_SQL</h2>
 <ul>
-<li><p><code>db.sqlQuery(client, req, options, callback)</code></p>
+<li><p><code>db.sqlQuery(pool, client, req, options, callback)</code></p>
 <p> Execute one or more SQL statements</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>db.sqlCacheColumns(options, callback)</code></p>
+<li><p><code>db.sqlCacheColumns(pool, options, callback)</code></p>
 <p> Cache columns using the information_schema</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>db.sqlPrepare(op, table, obj, options)</code></p>
+<li><p><code>db.sqlPrepare(pool, req)</code></p>
 <p> Prepare SQL statement for the given operation</p>
 </li>
 </ul>
@@ -7549,7 +7486,7 @@ if not given the default database name will be used.</p>
 </ul>
 
 <ul>
-<li><p><code>db.sqlExpr(name, value, options)</code></p>
+<li><p><code>db.sqlExpr(pool, name, value, options)</code></p>
 <p> Build SQL expressions for the column and value
 options may contain the following properties:</p>
 <ul>
@@ -7575,7 +7512,7 @@ options may contain the following properties:</p>
 </ul>
 
 <ul>
-<li><p><code>db.sqlWhere(table, query, keys, options)</code></p>
+<li><p><code>db.sqlWhere(pool, req, query, keys)</code></p>
 <p> Build SQL where condition from the keys and object values, returns SQL statement to be used in WHERE</p>
 <ul>
 <li>query - properties for the condition, in case of an array the primary keys for IN condition will be used only</li>
@@ -7583,8 +7520,6 @@ options may contain the following properties:</p>
 <li>options may contains the following properties:<ul>
 <li>pool - pool to be used for driver specific functions</li>
 <li>ops - object for comparison operators for primary key, default is equal operator</li>
-<li>opsMap - operator mapping into supported by the database</li>
-<li>typesMap - type mapping for properties to be used in the condition</li>
 <li>join - how to join all expressions, default is AND</li>
 </ul>
 </li>
@@ -7593,7 +7528,7 @@ options may contain the following properties:</p>
 </ul>
 
 <ul>
-<li><p><code>db.sqlCreate(table, obj, options)</code></p>
+<li><p><code>db.sqlCreate(pool, req)</code></p>
 <p> Create SQL table using table definition</p>
 <ul>
 <li>table - name of the table to create</li>
@@ -7627,19 +7562,29 @@ options may contain the following properties:</p>
 </ul>
 
 <ul>
-<li><p><code>db.sqlUpgrade(table, obj, options)</code></p>
+<li><p><code>db.sqlUpgrade(pool, req)</code></p>
 <p> Create ALTER TABLE ADD COLUMN statements for missing columns</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>db.sqlDrop(table, obj, options)</code></p>
+<li><p><code>db.sqlDrop(pool, req)</code></p>
 <p> Create SQL DROP TABLE statement</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>db.sqlSelect(table, query, options)</code></p>
+<li><p><code>db.sqlGet(pool, req)</code></p>
+<p> Get one object from the database,
+options may define the following properties:</p>
+<ul>
+<li>select is list of columns or expressions to return</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.sqlSelect(pool, req)</code></p>
 <p> Select object from the database,
 options may define the following properties:</p>
 <ul>
@@ -7650,19 +7595,19 @@ options may define the following properties:</p>
 </ul>
 
 <ul>
-<li><p><code>db.sqlInsert(table, obj, options)</code></p>
+<li><p><code>db.sqlInsert(pool, req)</code></p>
 <p> Build SQL insert statement</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>db.sqlUpdate(table, obj, options)</code></p>
+<li><p><code>db.sqlUpdate(pool, req)</code></p>
 <p> Build SQL statement for update</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>db.sqlDelete(table, obj, options)</code></p>
+<li><p><code>db.sqlDelete(pool, req)</code></p>
 <p> Build SQL statement for delete</p>
 </li>
 </ul>
@@ -8649,7 +8594,7 @@ is used in <code>/location/get</code> request. It can be used in the application
   {</p>
 <pre><code>  core.describeArgs(&quot;messages&quot;, [
        { name: &quot;cache-name&quot;, obj: &quot;cacheOptions&quot;, descr: &quot;Cache name for keeping unread messages counter&quot; },
-       { name: &quot;cache-ttl&quot;, type: &quot;number&quot;, obj: &quot;cacheOptions&quot;, nocamel: 1, strip: &quot;cache-&quot;, min: 0, descr: &quot;How long in ms to keep unread messages counter&quot; },
+       { name: &quot;cache-ttl&quot;, type: &quot;number&quot;, obj: &quot;cacheOptions&quot;, nocamel: 1, strip: /cache-/, min: 0, descr: &quot;How long in ms to keep unread messages counter&quot; },
   ]);
 </code></pre><p>  }</p>
 <p>  mod.configureModule = function(options, callback)
@@ -8850,7 +8795,7 @@ A subcommand may return special string to indicate how to treat the flow:</p>
 </ul>
 
 <ul>
-<li><p><code>shell.cmdDbTtables(options)</code></p>
+<li><p><code>shell.cmdDbTables(options)</code></p>
 <p> Show all tables</p>
 </li>
 </ul>
