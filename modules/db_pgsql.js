@@ -9,7 +9,6 @@ var core = require(__dirname + '/../core');
 var lib = require(__dirname + '/../lib');
 var db = require(__dirname + '/../db');
 var logger = require(__dirname + '/../logger');
-var bkpgsql = require("bkjs-pgsql");
 
 var pool = {
     name: "pgsql",
@@ -27,7 +26,8 @@ db.modules.push(pool);
 
 function Pool(options)
 {
-    if (!bkmysql.Database) {
+    var bkpgsql = require("bkjs-pgsql");
+    if (!bkpgsql.Database) {
         logger.error("PgSQL driver is not installed or compiled properly");
         return;
     }
@@ -41,6 +41,7 @@ util.inherits(Pool, db.SqlPool)
 Pool.prototype.open = function(callback)
 {
     var self = this;
+    var bkpgsql = require("bkjs-pgsql");
     var client = this._handles.pop();
     if (this.url == "default") this.url = "postgresql://postgres@127.0.0.1/" + db.dbName;
     if (!client) client = new bkpgsql.Database(this.url);

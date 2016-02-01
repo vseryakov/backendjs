@@ -185,11 +185,13 @@ This is the typical output from the ps command on Linux server:
 To enable any task a command line parameter must be provided, it cannot be specified in the config file. The `bkjs` utility supports several
 commands that simplify running the backend in different modes.
 
-- `bkjs run-backend` - runs the Web server and the jobs scheduler in debug mode with watching source files for changes, this is the common command to be used
-   in development, it passes the command line switches: `-log debug -watch -web -master`
+- `bkjs run-watcher` - runs the master and Web server in wather mode checking all source files for changes, this is the common command to be used
+   in development, it passes the command line switches: `-watch -master`
 - `bkjs run-server` - this command is supposed to be run at the server startup, it runs in the backgroud and the monitors all tasks,
-   the command line parameters are: `-daemon -monitor -master -syslog`
-- `bkjs run` - this command runs the Web server and the job scheduler without any other parameters, all aditional parameters can be added in the command line, this command
+   the command line parameters are: `-daemon -master -syslog`
+- `bkjs run-monitor` - this command is supposed to be run at the server startup, it runs in the backgroud and the monitors all tasks,
+      the command line parameters are: `-daemon -monitor -master -syslog`
+- `bkjs run` - this command runs the master and Web server without any other parameters, all aditional parameters can be added in the command line, this command
    is a barebone helper to be used with any other custom settings.
 - `bkjs run-shell` or `bksh` - start backendjs shell, no API or Web server is initialized, only the database pools
 

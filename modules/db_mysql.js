@@ -8,11 +8,6 @@ var core = require(__dirname + '/../core');
 var lib = require(__dirname + '/../lib');
 var db = require(__dirname + '/../db');
 var logger = require(__dirname + '/../logger');
-try {
-    var bkmysql = require("bkjs-mysql");
-} catch(e) {
-    var bkmysql = {};
-}
 
 var pool = {
     name: "mysql",
@@ -32,6 +27,7 @@ db.modules.push(pool);
 
 function Pool(options)
 {
+    var bkmysql = require("bkjs-mysql");
     if (!bkmysql.Database) {
         logger.error("MySQL driver is not installed or compiled properly, consider to install libmysqlclient library");
         return;
@@ -45,6 +41,7 @@ util.inherits(Pool, db.SqlPool);
 Pool.prototype.open = function(callback)
 {
     if (this.url == "default") this.url = "mysql:///" + db.dbName;
+    var bkmysql = require("bkjs-mysql");
     new bkmysql.Database(this.url, function(err) {
         callback(err, this);
     });

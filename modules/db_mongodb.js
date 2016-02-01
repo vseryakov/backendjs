@@ -8,7 +8,6 @@ var core = require(__dirname + '/../core');
 var lib = require(__dirname + '/../lib');
 var db = require(__dirname + '/../db');
 var logger = require(__dirname + '/../logger');
-var mongodb = require('mongodb');
 
 var pool = {
     name: "mongodb",
@@ -26,6 +25,7 @@ db.modules.push(pool);
 
 function Pool(options)
 {
+    var mongodb = require('mongodb');
     if (!lib.isPositive(options.max)) options.max = 25;
     options.type = pool.name;
     db.Pool.call(this, options);

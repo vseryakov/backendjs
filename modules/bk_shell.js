@@ -607,8 +607,8 @@ shell.launchInstances = function(options, callback)
     var user = self.getArg("-user", options, "ec2-user");
     var bkjsCmd = self.getArgList("-bkjs-cmd", options);
     if (bkjsCmd.length) cloudInit += "runcmd:\n" + bkjsCmd.map(function(x) { return " - /home/" + user + "/bin/bkjs " + x }).join("\n") + "\n";
-    if (!userData) userData = "#cloudconfig\n" + cloudInit; else
-    if (userData.match(/^#cloudconfig/)) userData += cloudInit;
+    if (!userData && cloudInit) userData = "#cloudconfig\n" + cloudInit; else
+    if (userData.match(/^#cloudconfig/)) userData += "\n" + cloudInit;
 
     var req = {
         name: self.getArg("-name", options, appName + "-" + appVersion),
@@ -744,7 +744,7 @@ shell.launchInstances = function(options, callback)
            }, next);
        },
        function(next) {
-           if (instances.length) logger.log(instances.map(function(x) { return [ x.instanceId, x.privateIpAddress || "" ] }));
+           if (instances.length) logger.log(instances.map(function(x) { return [ x.instanceId, x.privateIpAddress || "", x.publicIpAddress || "" ] }));
            if (!self.isArg("-wait", options)) return next();
            if (instances.length != 1) return next();
            aws.ec2WaitForInstance(instances[0].instanceId, "running",

@@ -11,7 +11,6 @@ var core = require(__dirname + '/../core');
 var lib = require(__dirname + '/../lib');
 var aws = require(__dirname + '/../aws');
 var msg = require(__dirname + '/../msg');
-var apnagent = require("apnagent");
 
 var client = {
     name: "apn",
@@ -34,6 +33,7 @@ client.init = function(options)
 {
     var self = this;
 
+    var apnagent = require("apnagent");
     var config = msg.getConfig(this.name);
     for (var i in config) {
         if (this.agents[config[i].app]) continue;

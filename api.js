@@ -13,17 +13,6 @@ var http = require('http');
 var https = require('https');
 var cluster = require('cluster');
 var url = require('url');
-var qs = require('qs');
-var crypto = require('crypto');
-var express = require('express');
-var cookieParser = require('cookie-parser');
-var session = require('cookie-session');
-var serveStatic = require('serve-static');
-var formidable = require('formidable');
-var ws = require("ws");
-var mime = require('mime');
-var passport = require('passport');
-var consolidate = require('consolidate');
 var domain = require('domain');
 var bkutils = require('bkjs-utils');
 var core = require(__dirname + '/core');
@@ -406,6 +395,13 @@ api.init = function(options, callback)
     if (typeof callback != "function") callback = lib.noop;
     if (!options) options = {};
 
+    var qs = require('qs');
+    var express = require('express');
+    var cookieParser = require('cookie-parser');
+    var session = require('cookie-session');
+    var serveStatic = require('serve-static');
+    var formidable = require('formidable');
+
     // Performance statistics
     this.initStatistics();
 
@@ -571,6 +567,7 @@ api.init = function(options, callback)
 
             // Templating engine setup
             if (!self.noTemplating) {
+                var consolidate = require('consolidate');
                 self.app.engine('html', consolidate[self.templating]);
                 self.app.set('view engine', 'html');
                 // Use app specific views path if created even if it is empty
@@ -611,6 +608,7 @@ api.init = function(options, callback)
                 var server = core.ws.port == core.port ? self.server : core.ws.port == core.ssl.port ? self.sslServer : null;
                 if (!server) server = core.createServer({ ssl: core.ws.ssl ? core.ssl : null, port: core.ws.port, bind: core.ws.bind, restart: "web" }, function(req, res) { res.send(200, "OK"); });
                 if (server) {
+                    var ws = require("ws");
                     var opts = { server: server, verifyClient: function(data, callback) { self.checkWebSocketRequest(data, callback); } };
                     if (core.ws.path) opts.path = core.ws.path;
                     self.wsServer = new ws.Server(opts);
@@ -622,7 +620,7 @@ api.init = function(options, callback)
             }
 
             // Notify the master about new worker server
-            ipc.sendMsg("api:ready", { id: cluster.isWorker ? cluster.worker.id : process.pid, pid: process.pid, port: core.port, ready: true });
+            ipc.sendMsg("api:ready", { id: cluster.isWorker ? cluster.worker.id : process.pid, port: core.port, ready: true });
 
             callback.call(self);
         });
@@ -948,6 +946,7 @@ api.checkQuery = function(req, res, next)
 
             case 'application/x-www-form-urlencoded':
                 if (req.method != "POST") break;
+                var qs = require('qs');
                 req.body = buf.length ? qs.parse(buf) : {};
                 req.query = req.body;
                 sig.query = buf;
@@ -976,8 +975,10 @@ api.checkBody = function(req, res, next)
     if (type != 'multipart/form-data') return next();
     req._body = true;
 
-    var data = {}, files = {}, done;
+    var qs = require('qs');
+    var formidable = require('formidable');
     var form = new formidable.IncomingForm({ uploadDir: core.path.tmp, keepExtensions: true });
+    var data = {}, files = {}, done;
 
     function ondata(name, val, data) {
         if (Array.isArray(data[name])) {
@@ -1497,6 +1498,8 @@ api.registerOAuthStrategy = function(strategy, options, callback)
 {
     var self = this;
     if (!options || !options.clientID || !options.clientSecret) return;
+
+    var passport = require('passport');
 
     // Initialize passport on first call
     if (!this._passport) {

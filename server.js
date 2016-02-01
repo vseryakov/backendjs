@@ -152,7 +152,7 @@ server.startMaster = function(options)
             self.writePidfile();
 
             // REPL command prompt over TCP
-            if (core.repl.port) core.startRepl(core.repl.port, core.repl.bind);
+            if (core.repl.masterPort) core.startRepl(core.repl.masterPort, core.repl.bind);
 
             // Log watcher job, always runs even if no email configured, if enabled it will
             // start sending only new errors and not from the past
@@ -176,7 +176,7 @@ server.startMaster = function(options)
         process.title = core.name + ': worker';
 
         core.runMethods("configureWorker", options, function() {
-            ipc.sendMsg("worker:ready", { id: cluster.worker.id, pid: process.pid });
+            ipc.sendMsg("worker:ready", { id: cluster.worker.id });
 
             logger.log('startWorker:', 'id:', cluster.worker.id, 'version:', core.version, 'home:', core.home, 'uid:', process.getuid(), 'gid:', process.getgid(), 'pid:', process.pid);
         });
@@ -204,7 +204,7 @@ server.startWeb = function(options)
             ipc.initServer();
 
             // REPL command prompt over TCP
-            if (core.repl.portWeb) core.startRepl(core.repl.portWeb, core.repl.bind);
+            if (core.repl.serverPort) core.startRepl(core.repl.serverPort, core.repl.bind);
 
             // In proxy mode we maintain continious sequence of ports for each worker starting with core.proxy.port
             if (core.proxy.port) {
@@ -383,11 +383,11 @@ server.startDaemon = function()
 server.onProcessExit = function()
 {
     this.exiting = true;
-    if (this.child) try { this.child.kill('SIGTERM'); } catch(e) {}
+    if (this.child) try { this.child.kill(); } catch(e) {}
     for (var pid in this.pids) { try { process.kill(pid) } catch(e) {} };
 }
 
-// Terminates the server process, it is called on SIGTEMR signal but can be called manually for graceful shitdown,
+// Terminates the server process, it is called on SIGTERM signal but can be called manually for graceful shitdown,
 // it runs `shutdown[Role]` methods before exiting
 server.onProcessTerminate = function()
 {

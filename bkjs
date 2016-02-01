@@ -3,7 +3,7 @@
 #  Author: Vlad Seryakov vseryakov@gmail.com
 #  Sep 2013
 #
-# chkconfig: 2345 70 70
+# chkconfig: 2345 97 97
 # description: backendjs server
 #
 
@@ -141,7 +141,7 @@ case "$ARG" in
     ($0 run-sync)
 
     echo "Starting $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME $BKJS_ARGS $@"
-    $0 run-server
+    $0 run-${BKJS_SERVER:-server}
     ;;
 
   restart)
@@ -194,6 +194,9 @@ case "$ARG" in
     ($0 init-ssh)
     ($0 init-user)
     ($0 init-system)
+    ($0 init-service)
+    ($0 init-monit-system)
+    ($0 init-monit-bkjs)
     ($0 init-logrotate)
     ($0 init-rsyslog)
     ($0 init-home)
@@ -382,6 +385,7 @@ case "$ARG" in
 
     # Make sure monit is running all the time
     sed -e 's|set daemon 60|set daemon 30|' /etc/monit.conf
+    echo "set logfile syslog" > /etc/monit.d/logging
     chkconfig monit on
     service monit restart
 
@@ -495,12 +499,12 @@ case "$ARG" in
     ;;
 
   init-monit-system)
-    $ECHO "check system \$HOST if loadavg (15min) > 5 then exec \"$0 send-alert\"" > /etc/monit.d/system.conf
-    $ECHO "check filesystem rootfs with path / if space usage > 90% for 3 times within 5 cycles then exec \"$0 send-alert\"" >> /etc/monit.d/system.conf
+    $ECHO "check system localhost if loadavg(1min) > 5 for 10 cycles then exec \"$0 send-alert\"" > /etc/monit.d/system.conf
+    $ECHO "check filesystem rootfs with path / if space usage > 90% for 3 times within 5 cycles then exec exec \"$0 send-alert\"" >> /etc/monit.d/system.conf
     monit reload
     ;;
 
-  init-monit-master)
+  init-monit-bkjs)
     $ECHO "check process $BKJS with pidfile \"$BKJS_HOME/var/master.pid\" start program = \"$0 start\" as uid $BKJS_USER and gid $BKJS_GROUP stop program = \"$0 stop\"" > /etc/monit.d/$BKJS.conf
     monit reload
     ;;
@@ -573,11 +577,13 @@ case "$ARG" in
     ;;
 
   send-alert)
-    msg="$@ $MONIT_HOST $MONIT_EVENT $MONIT_DESCRIPTION"
-    msg=$(echo $msg)
-    [ "$msg" = "" ] && exit
-    echo $msg >> $BKJS_HOME/log/error.log
-    logger -p emerg $msg
+    event=$(get_arg -event $MONIT_EVENT)
+    descr=$(get_arg -descr $MONIT_DESCRIPTION)
+    [ "$event" = " -a "$descr" = " ] && exit
+    host=${MONIT_HOST:-$(uname -n)}
+    ip=$(ifconfig eth0|grep 'inet '|sed 's/addr://'|awk '{print $2}')
+    msg=$($ECHO "ALERT: $host/$ip $event\n\n$descr\n\n$(df -h)\n\n$(top -bn1)")
+    echo "$msg" >> $BKJS_HOME/log/error.log
     [ "$BKJS_SNS" != "" ] && aws sns publish --region `echo $BKJS_SNS|awk -F: '{print $4}'` --topic-arn $BKJS_SNS --message "$msg"
     ;;
 
@@ -591,16 +597,20 @@ case "$ARG" in
     [ -z $SCRIPT ] && echo "ERROR: Cannot find $BKJS module or app.js" && exit 1
 
     case "$ARG" in
-     run-server)
-        $NODE_BIN $NODE_ARGS $SCRIPT -syslog -home $BKJS_HOME -daemon -monitor -master $BKJS_ARGS "$@"
+     run-server|run-master)
+        $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME -syslog -daemon -master $BKJS_ARGS "$@"
         ;;
 
-     run-backend)
-        $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME -log debug -master -watch `pwd` "$@"
+     run-monitor)
+        $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME -syslog -daemon -monitor -master $BKJS_ARGS "$@"
+        ;;
+
+     run-wather)
+        $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME -master -watch `pwd` "$@"
         ;;
 
      run-shell|bksh)
-        $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME -shell -log log "$@"
+        $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME -shell "$@"
         ;;
 
      *)
@@ -958,19 +968,6 @@ case "$ARG" in
     kill $(ps agx|grep cassandra|grep -v grep|awk '{print $1}')
     ;;
 
-  init-elasticsearch)
-    ($0 get-elasticsearch)
-    ($0 run-elasticsearch)
-    if [ "$PLATFORM" = "Linux" ]; then
-       sudo $0 init-elasticsearch-service
-    fi
-    ;;
-
-  init-elasticsearch-service)
-    echo "check process java with pidfile \"$BKJS_HOME/var/elasticsearch.pid\" start program = \"$0 run-elasticsearch\" as uid $BKJS_USER and gid $BKJS_GROUP stop program = \"$0 stop-elasticsearch\"" > /etc/monit.d/elasticsearch.conf
-    monit reload
-    ;;
-
   get-elasticsearch)
     if [ ! -d $ELASTICSEARCH_PREFIX ]; then
         mkdir -p $ELASTICSEARCH_PREFIX
@@ -988,9 +985,25 @@ case "$ARG" in
     fi
     ;;
 
+  init-elasticsearch)
+    ($0 get-elasticsearch)
+    ($0 run-elasticsearch "$@")
+    if [ "$PLATFORM" = "Linux" ]; then
+       sudo $0 init-elasticsearch-service "$@"
+    fi
+    ;;
+
+  init-elasticsearch-service)
+    echo "check process java with pidfile \"$BKJS_HOME/var/elasticsearch.pid\" start program = \"$0 run-elasticsearch $@\" as uid $BKJS_USER and gid $BKJS_GROUP stop program = \"$0 stop-elasticsearch\"" > /etc/monit.d/elasticsearch.conf
+    monit reload
+    ;;
+
   run-elasticsearch)
-    size=$(get_arg -es-heap-size)
-    [ "$size" != "" ] && export ES_HEAP_SIZE=$size
+    # Percent from the total memory
+    size=$(get_arg -size)
+    [ "$size" != "" ] && max=$(( ($(free -m|grep Mem:|awk '{print $2}') * $size) / 100 ))
+    max=$(get_arg -max $max)
+    [ "$max" != "" ] && export ES_MAX_MEM=$max
     $ELASTICSEARCH_PREFIX/bin/elasticsearch -Des.path.logs=$BKJS_HOME/log -p $BKJS_HOME/var/elasticsearch.pid -d >>$BKJS_HOME/log/message.log 2>&1
     ;;
 
@@ -1118,8 +1131,8 @@ EOF
        cat > etc/config <<EOF
 #debug=1
 #port=80
-#repl-port=2080
-#repl-port-web=2081
+#repl-port-master=2080
+#repl-port-server=2081
 #db-pool=pgsql
 #db-mysql-pool=mysql:///backend
 #db-cassandra-pool=cql://127.0.0.1/backend
@@ -1277,6 +1290,8 @@ EOF
     echo "  init-logrotate - setup logrotate for the backend log files"
     echo "  init-rsyslog - setup rsyslog to use for the backend logging, access log and backend log"
     echo "  init-system - setup system wide parameters, tuniing, limits, permissions"
+    echo "  init-monit-system - setup system monitoring with monit, CPU, disk, send alert via send-aler command"
+    echo "  init-monit-bkjs - setup monit to keep $BKJS service running without using any other services and monitor"
     echo "  init-postfix - [-domain DOMAIN] install and configure postfix for the domain"
     echo "  init-dns - install and setup dnsmasq for local cahching DNS server"
     echo "  init-instancejob - configure for temporary job instance"
@@ -1286,8 +1301,9 @@ EOF
     echo "  init-devel - install development packages for node and modules compiclation"
     echo "  init-home - setup backend home with required folders"
     echo "  init-logwatcher - creates a crontab file in /etc/cron.d to periodically run the log watcher, -args can specify full cron time spec"
-    echo "  run-logwatcher - executes the log watcher"
     echo "  init-app - create application skeleton for an application based on the backend, app name can be specified as the first argument"
+    echo "  send-alert [-event EVENT] [-descr DESCR] - send alert message to the error log and SNS topic if configured in \$BKJS_SNS variable, if called from monit event/descr will be provided"
+    echo "  run-logwatcher - executes the log watcher"
     echo "  run-server - run the backend server process, this command is supposed to be run on system startup by start command"
     echo "  run-shell - run backend REPL in the current backend directory, works with the backend core or local app.js application"
     echo "  run-backend - run local backend server or the app.js if present, all command line params will be passed to the backend.js"
@@ -1301,7 +1317,8 @@ EOF
     echo "  run-pgsql - run local PostgreSQL server"
     echo "  stop-pgsql - stop local PostgreSQL server"
     echo "  get-redis - install Redis server into $REDIS_PREFIX, removes current redis package if installed (Linux only)"
-    echo "  init-redis - setup Redis server to be run on start and to be monitored (Linux only)"
+    echo "  init-redis - install and setup Redis server to be run on start and to be monitored (Linux only)"
+    echo "  init-redis-service - setup Redis server to be run on start and to be monitored (Linux only)"
     echo "  run-redis - run local Redis server, uses config file $REDIS_CONF"
     echo "  stop-redis - stop local Redis server"
     echo "  init-dynamodb - download and install local DynamoDB, start the server"
@@ -1313,8 +1330,9 @@ EOF
     echo "  run-cassandra - run local Cassandra server installed in $CASSANDRA_PREFIX, data files in $CASSANDRA_DIR"
     echo "  stop-cassandra - stop local Cassandra server"
     echo "  init-elasticsearch - download and install local ElasticSearch, start the server, configure monit"
+    echo "  init-elasticsearch-service - setup monit to keep elasticsearch service running"
     echo "  get-elasticsearch - install local ElasticSearch server in $BKJS_PREFIX/elasticsearch"
-    echo "  run-elasticsearch - run local ElasticSearch server installed in $BKJS_PREFIX/elasticsearch"
+    echo "  run-elasticsearch [-size PERCENT] [-max SIZE] - run local ElasticSearch server installed in $BKJS_PREFIX/elasticsearch, -max is max heap size, -size is percent of memory to use from the total"
     echo "  stop-elasticsearch - stop local ElasticSearch server"
     echo "  init-mysql [-db DB] - setup MySQL server for development and create initial database, start the server"
     echo "  run-mysql - run local MySQL server installed in $MYSQL_DIR"

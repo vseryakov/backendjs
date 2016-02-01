@@ -36,7 +36,7 @@ function Ipc()
     this.role = "";
     this.msgs = {};
     this._queue = [];
-    this.workers = [];
+    this.restarting = [];
     this.modules = [];
     this.clients = { cache: new Client(), queue: new Client() };
     this.ports = {};
@@ -118,40 +118,48 @@ Ipc.prototype.handleWorkerMessages = function(msg)
 Ipc.prototype.handleServerMessages = function(worker, msg)
 {
     if (!msg) return false;
-    logger.info('handleServerMessages:', msg);
+    logger.dev('handleServerMessages:', msg);
     try {
         switch (msg.__op) {
         case "api:restart":
             // Start gracefull restart of all api workers, wait till a new worker starts and then send a signal to another in the list.
             // This way we keep active processes responding to the requests while restarting
-            if (this.workers.length) break;
-            for (var p in cluster.workers) this.workers.push(cluster.workers[p].pid);
+            if (this.restarting.length) break;
+            for (var p in cluster.workers) this.restarting.push(cluster.workers[p].pid);
 
         case "api:ready":
             // Restart the next worker from the list
-            if (!this.workers.length) break;
-            for (var p in cluster.workers) {
-                var idx = this.workers.indexOf(cluster.workers[p].pid);
-                if (idx == -1) continue;
-                this.workers.splice(idx, 1);
-                cluster.workers[p].send({ __op: "api:restart" });
-                break;
+            if (this.restarting.length) {
+                for (var p in cluster.workers) {
+                    var idx = this.restarting.indexOf(cluster.workers[p].pid);
+                    if (idx == -1) continue;
+                    this.restarting.splice(idx, 1);
+                    cluster.workers[p].send({ __op: "api:restart" });
+                    break;
+                }
             }
+            this.sendReplPort("web", worker);
+            break;
+
+        case "worker:ready":
+            this.sendReplPort("worker", worker);
             break;
 
         case "worker:restart":
             for (var p in cluster.workers) cluster.workers[p].send(msg);
             break;
 
-        case "worker:ready":
-            break;
-
         case "cluster:exit":
-            delete this.ports[msg.id];
+            for (var p in this.ports) {
+                if (this.ports[p] == worker.process.pid) {
+                    this.ports[p] = 0;
+                    break;
+                }
+            }
             break;
 
         case "cluster:listen":
-            this.ports[msg.id] = msg.port;
+            this.ports[msg.port] = worker.process.pid;
             break;
 
         case "queue:init":
@@ -268,6 +276,25 @@ Ipc.prototype.handleServerMessages = function(worker, msg)
     }
 }
 
+// Send REPL port to a worker if needed
+Ipc.prototype.sendReplPort = function(role, worker)
+{
+    var port = core.repl[role + "Port"];
+    if (!port) return;
+    var ports = Object.keys(this.ports).sort();
+    for (var i in ports) {
+        var diff = ports[i] - port;
+        if (diff > 0) break;
+        if (diff == 0) {
+            if (this.ports[port] == worker.process.pid) return;
+            if (!this.ports[port]) break;
+            port++;
+        }
+    }
+    this.ports[port] = worker.process.pid;
+    worker.send({ __op: "repl:init", port: port });
+}
+
 // Returns an IPC message object, `msg` must be an object if given
 Ipc.prototype.newMsg = function(op, msg, options)
 {
@@ -322,11 +349,11 @@ Ipc.prototype.initServer = function()
     this.initClients("queue");
 
     cluster.on("exit", function(worker, code, signal) {
-        self.handleServerMessages(worker, self.newMsg("cluster:exit", { id: worker.id, pid: worker.pid, code: code || undefined, signal: signal || undefined }));
+        self.handleServerMessages(worker, self.newMsg("cluster:exit", { id: worker.id, pid: worker.process.pid, code: code || undefined, signal: signal || undefined }));
     });
 
     cluster.on('listening', function(worker, address) {
-        self.handleServerMessages(worker, self.newMsg("cluster:listen", { id: worker.id, pid: worker.pid, port: address.port, address: address.address }));
+        self.handleServerMessages(worker, self.newMsg("cluster:listen", { id: worker.id, pid: worker.process.pid, port: address.port, address: address.address }));
     });
 
     // Handle messages from the workers

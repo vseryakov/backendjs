@@ -8,8 +8,6 @@ var core = require(__dirname + '/../core');
 var lib = require(__dirname + '/../lib');
 var db = require(__dirname + '/../db');
 var logger = require(__dirname + '/../logger');
-var bklmdb = require("bkjs-lmdb");
-var bkleveldb = require("bkjs-leveldb");
 
 // Setup LMDB/LevelDB database driver, this is simplified driver which supports only basic key-value operations,
 // table parameter is ignored, the object only supports the properties name and value in the record objects.
@@ -53,6 +51,7 @@ Pool.prototype.getLevelDB = function(callback)
     if (this.dbhandle) return callback(null, this.dbhandle);
     try {
         var path = core.path.spool + "/" + (this.url || ('ldb_' + core.processName()));
+        var bkleveldb = require("bkjs-leveldb");
         new bkleveldb.Database(path, this.poolOptions, function(err) {
             self.dbhandle = this;
             callback(null, this);
@@ -73,6 +72,7 @@ Pool.prototype.getLMDB = function(callback)
         // Share same environment between multiple pools, each pool works with one db only to keep the API simple
         if (this.poolOptions.env && this.poolOptions.env instanceof bklmdb.Env) this.env = this.poolOptions.env;
         if (!this.env) this.env = new bklmdb.Env(this.poolOptions);
+        var bklmdb = require("bkjs-lmdb");
         new bklmdb.Database(this.env, { name: this.url, flags: this.poolOptions.flags }, function(err) {
             self.dbhandle = this;
             callback(err, this);

@@ -15,7 +15,6 @@ var core = require(__dirname + '/../core');
 var lib = require(__dirname + '/../lib');
 var db = require(__dirname + '/../db');
 var logger = require(__dirname + '/../logger');
-var cassandra = require('cassandra-driver');
 
 var pool = {
     name: "cassandra",
@@ -67,6 +66,7 @@ Pool.prototype.open = function(callback)
     if (hosts[0].auth) {
         opts.authProvider = new cassandra.auth.PlainTextAuthProvider(hosts[0].auth.split(':')[0], hosts[0].auth.split(':')[1]);
     }
+    var cassandra = require('cassandra-driver');
     var client = new cassandra.Client(opts);
     client.query = function() { self.doQuery.apply(client, arguments) }
     client.on('error', function(err) { logger.error('cassandra:', err); });

@@ -10,7 +10,6 @@ var core = require(__dirname + '/../core');
 var lib = require(__dirname + '/../lib');
 var ipc = require(__dirname + "/../ipc");
 var Client = require(__dirname + "/ipc_client");
-var Memcached = require("memcached");
 
 // Cache client using Memcached server
 var client = {
@@ -30,6 +29,8 @@ function IpcMemcacheClient(host, options)
     var self = this;
     Client.call(this, host, options);
     this.host = this.host.replace(/^[a-z]+:\/\//gi,"").split(",");
+
+    var Memcached = require("memcached");
     this.client = new Memcached(this.host, this.options);
     this.client.on("error", function(err) {
         logger.error("memcache:", self.host, err);

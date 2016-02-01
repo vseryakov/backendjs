@@ -138,7 +138,7 @@ var core = {
 
     // Config parameters
     args: [ { name: "help", type: "callback", callback: function() { this.showHelp() }, descr: "Print help and exit" },
-            { name: "log", type: "callback", callback: function(v) { logger.setLevel(v); }, descr: "Set debugging level to any of " + Object.keys(logger.levels), pass: 1 },
+            { name: "log", type: "callback", callback: function(v) { logger.setLevel(v); }, descr: "Set debugging level to any of " + Object.keys(logger.levels), pass: 1, cmdline: 1 },
             { name: "log-filter", type: "callback", callback: function(v) { logger.setDebugFilter(v); }, descr: "Enable debug filters, format is: +label,... to enable, and -label,... to disable. Only first argument is used for label in logger.debug", pass: 1 },
             { name: "log-file", type: "callback", callback: function(v) { if(v) this.logFile=v;logger.setFile(this.logFile); }, descr: "Log to a file, if not specified used default logfile, disables syslog", pass: 1 },
             { name: "syslog", type: "callback", callback: function(v) { logger.setSyslog(v ? lib.toBool(v) : true); }, descr: "Write all logging messages to syslog, connect to the local syslog server over Unix domain socket", pass: 1 },
@@ -200,8 +200,7 @@ var core = {
             { name: "no-db", type: "bool", descr: "Do not initialize DB drivers" },
             { name: "no-dns", type: "bool", descr: "Do not use DNS configuration during the initialization" },
             { name: "no-configure", type: "bool", descr: "Do not run configure hooks during the initialization" },
-            { name: "repl-port-([a-z]+)", type: "number", obj: "repl", min: 1001, descr: "Worker base REPL port, if specified it initializes REPL in the worker processes, in workers port is port+worker_id+1, supported suffixes: web, worker" },
-            { name: "repl-port", type: "number", obj: "repl", min: 1001, descr: "Port for REPL interface in the master, if specified it initializes REPL in the master server process" },
+            { name: "repl-port-([a-z]+)$", type: "number", obj: "repl", make: "$1Port", min: 1001, descr: "Base REPL port for process role (server, master, web, worker), if specified it initializes REPL in the processes, for workers the port is computed by adding a worker id to the base port, for example if specified `-repl-port-web 2090` then a web worker will use any available 2091,2092..." },
             { name: "repl-bind", obj: "repl", descr: "Listen only on specified address for REPL server in the master process" },
             { name: "repl-file", obj: "repl", descr: "User specified file for REPL history" },
             { name: "worker", type: "bool", descr: "Set this process as a worker even it is actually a master, this skips some initializations" },
@@ -561,6 +560,7 @@ core.processArgs = function(ctx, argv, pass)
             if (!x.name) return;
             // Process only equal to the given pass phase
             if (pass && !x.pass) return;
+            if (x.cmdline && x._cmdline) return;
 
             var obj = ctx;
             // Module prefix and name of the key variable in the contenxt, key. property specifies alternative name for the value
@@ -623,6 +623,7 @@ core.processArgs = function(ctx, argv, pass)
                     if (x._once[name]) return;
                     x._once[name] = 1;
                 }
+                if (x.cmdline) x._cmdline = 1;
 
                 // Set the actual config variable name for further reference and easy access to the value
                 if (val != null) {

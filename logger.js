@@ -6,7 +6,6 @@
 var util = require('util');
 var fs = require('fs');
 var os = require("os");
-var bksyslog = require("bkjs-syslog");
 
 // Simple logger utility for debugging
 var logger = {
@@ -95,54 +94,53 @@ logger.prefix = function(level)
 // Set or close syslog mode
 logger.setSyslog = function (on)
 {
-    var self = this;
+    var bksyslog = require("bkjs-syslog");
     if (on) {
         bksyslog.open("backend", this.options, this.facility);
-        self.print = this.printSyslog;
+        this.print = this.printSyslog;
         // Initialize map for facilities
-        self.syslogLevels = { test: this.LOG_DEBUG, dev: this.LOG_DEBUG, debug: this.LOG_DEBUG, warn: this.LOG_WARNING,
+        this.syslogLevels = { test: this.LOG_DEBUG, dev: this.LOG_DEBUG, debug: this.LOG_DEBUG, warn: this.LOG_WARNING,
                               notice: this.LOG_NOTICE, info: this.LOG_INFO, error: this.LOG_ERROR,
                               emerg: this.LOG_EMERG, alert: this.LOG_ALERT, crit: this.LOG_CRIT };
-        self.syslogFacilities = { kern: this.LOG_KERN, user: this.LOG_USER, mail: this.LOG_MAIL,
+        this.syslogFacilities = { kern: this.LOG_KERN, user: this.LOG_USER, mail: this.LOG_MAIL,
                                   daemon: this.LOG_DAEMON, auth: this.LOG_AUTH, syslog: this.LOG_SYSLOG,
                                   lpr: this.LOG_LPR, news: this.LOG_NEWS, uucp: this.LOG_UUCP,
                                   cron: this.LOG_CRON, authpriv: this.LOG_AUTHPRIV,
                                   ftp: this.LOG_FTP, local0: this.LOG_LOCAL0, local1: this.LOG_LOCAL1,
                                   local2: this.LOG_LOCAL2, local3: this.LOG_LOCAL3, local4: this.LOG_LOCAL4,
                                   local5: this.LOG_LOCAL5, local6: this.LOG_LOCAL6, local7: this.LOG_LOCAL7 };
-        self.syslogMap = {}
+        this.syslogMap = {}
         Object.keys(this.syslogLevels).forEach(function(l) {
-           Object.keys(self.syslogFacilities).forEach(function(f) {
-               self.syslogMap[l + ':' + f] = self.syslogLevels[l] | self.syslogFacilities[f];
+           Object.keys(logger.syslogFacilities).forEach(function(f) {
+               logger.syslogMap[l + ':' + f] = logger.syslogLevels[l] | logger.syslogFacilities[f];
            });
         });
     } else {
         bksyslog.close();
-        self.print = this.printStream;
+        this.print = this.printStream;
     }
-    self.syslog = on;
+    this.syslog = on;
 }
 
 // Redirect logging into file
 logger.setFile = function(file)
 {
-    var self = this;
     if (this.stream && this.stream != process.stdout) {
         this.stream.destroySoon();
     }
-    self.file = file;
-    if (self.file) {
-        self.stream = fs.createWriteStream(this.file, { flags: 'a' });
-        self.stream.on('error', function(err) {
+    this.file = file;
+    if (this.file) {
+        this.stream = fs.createWriteStream(this.file, { flags: 'a' });
+        this.stream.on('error', function(err) {
             process.stderr.write(String(err));
-            self.stream = process.stderr;
+            logger.stream = process.stderr;
         });
         // Make sure the log file is owned by regular user to avoid crashes due to no permission of the log file
         if (process.getuid() == 0) {
-            fs.chown(file, core.uid, core.gid, function(err) { self.error(file, e) });
+            fs.chown(file, core.uid, core.gid, function(err) { logger.error(file, e) });
         }
     } else {
-        self.stream = process.stdout;
+        this.stream = process.stdout;
     }
     this.setSyslog(0);
 }
@@ -150,8 +148,7 @@ logger.setFile = function(file)
 // Set the output level, it can be a number or one of the supported level names
 logger.setLevel = function(level)
 {
-    var self = this;
-    self.level = typeof this.levels[level] != "undefined" ? this.levels[level] : isNaN(parseInt(level)) ? 0 : parseInt(level);
+    this.level = typeof this.levels[level] != "undefined" ? this.levels[level] : isNaN(parseInt(level)) ? 0 : parseInt(level);
 }
 
 // Enable debugging level for this label, if used with the same debugging level it will be printed regardless of the global level,
@@ -159,19 +156,18 @@ logger.setLevel = function(level)
 // the current function name with comma, like `logger.debug("select:", name, args)`
 logger.setDebugFilter = function(str)
 {
-    var self = this;
     String(str).split(",").forEach(function(x) {
         x = x.trim();
         switch (x[0]) {
         case '-':
-            if (x == "-") self.filters = null;
-            if (!self.filters) break;
-            delete self.filters[x.substr(1)];
-            if (!Object.keys(self.filters).length) self.filters = null;
+            if (x == "-") logger.filters = null;
+            if (!logger.filters) break;
+            delete logger.filters[x.substr(1)];
+            if (!Object.keys(logger.filters).length) logger.filters = null;
             break;
         case '+':
-            if (!self.filters) self.filters = {};
-            self.filters[x.substr(1)] = 1;
+            if (!logger.filters) logger.filters = {};
+            logger.filters[x.substr(1)] = 1;
             break;
         }
     });

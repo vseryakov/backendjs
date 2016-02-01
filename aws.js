@@ -374,7 +374,7 @@ aws.queryEndpoint = function(endpoint, version, action, obj, options, callback)
 // AWS EC2 API request
 aws.queryEC2 = function(action, obj, options, callback)
 {
-    this.queryEndpoint("ec2", '2014-05-01', action, obj, options, callback);
+    this.queryEndpoint("ec2", '2015-10-01', action, obj, options, callback);
 }
 
 // AWS ELB API request
@@ -639,12 +639,15 @@ aws.ec2RunInstances = function(options, callback)
     if (typeof options == "function") callback = options, options = {};
     if (typeof callback != "function") callback = lib.noop;
 
-    var req = { MinCount: options.min || options.count || 1,
-                MaxCount: options.max || options.count || 1,
-                ImageId: options.imageId || this.imageId,
-                InstanceType: options.instanceType || this.instanceType,
-                KeyName: options.keyName || this.keyName || "",
-                UserData: options.data ? new Buffer(options.data).toString("base64") : "" };
+    var retries = options.retryCount || 3;
+    var req = {
+        MinCount: options.min || options.count || 1,
+        MaxCount: options.max || options.count || 1,
+        ImageId: options.imageId || this.imageId,
+        InstanceType: options.instanceType || this.instanceType,
+        KeyName: options.keyName || this.keyName || "",
+        UserData: options.data ? new Buffer(options.data).toString("base64") : "",
+    };
 
     if (options.stop) req.InstanceInitiatedShutdownBehavior = "stop";
     if (options.terminate) req.InstanceInitiatedShutdownBehavior = "terminate";
@@ -682,6 +685,8 @@ aws.ec2RunInstances = function(options, callback)
         }
     }
     if (options.file) req.UserData = lib.readFileSync(options.file).toString("base64");
+    // To make sure we launch exatly one instance
+    if (options.retryOnError && options.retryCount) req.ClientToken = lib.uuid();
 
     logger.debug('runInstances:', this.name, req, options);
     this.queryEC2("RunInstances", req, options, function(err, obj) {
@@ -703,31 +708,33 @@ aws.ec2RunInstances = function(options, callback)
 
         lib.series([
            function(next) {
-               self.ec2WaitForInstance(instanceId, "running", { waitTimeout: 300000, waitDelay: 5000 }, next);
+               self.ec2WaitForInstance(instanceId, "running", { waitTimeout: 300000, waitDelay: 5000, retryCount: retries }, next);
            },
            function(next) {
                // Set tag name for all instances
                if (!options.name) return next();
                lib.forEachSeries(items, function(item, next2) {
-                   self.ec2CreateTags(item.instanceId, options.name.replace("%i", lib.toNumber(item.amiLaunchIndex) + 1), next2);
+                   self.ec2CreateTags(item.instanceId, options.name.replace("%i", lib.toNumber(item.amiLaunchIndex) + 1), { retryCount: retries, retryOnError: 1 }, next2);
                }, next);
            },
            function(next) {
                // Add to the ELB
                if (!options.elbName) return next();
-               self.elbRegisterInstances(options.elbName, items.map(function(x) { return x.instanceId }), next);
+               self.elbRegisterInstances(options.elbName, items.map(function(x) { return x.instanceId }), { retryCount: retries, retryOnError: 1 }, next);
            },
            function(next) {
                // Elastic IP
                if (!options.elasticIp) return next();
-               self.ec2AssociateAddress(instanceId, options.elasticIp, { subnetId: req.SubnetId || req["NetworkInterface.0.SubnetId"] }, next);
+               self.ec2AssociateAddress(instanceId, options.elasticIp, { subnetId: req.SubnetId || req["NetworkInterface.0.SubnetId"], retryCount: retries, retryOnError: 1 },next);
            },
            function(next) {
                // CloudWatch alarms
                if (!Array.isArray(options.alarms)) return next();
                lib.forEachSeries(items, function(item, next2) {
                    lib.forEachSeries(options.alarms, function(alarm, next3) {
-                       alarm.dimensions = { InstanceId: item.instanceId }
+                       alarm.dimensions = { InstanceId: item.instanceId };
+                       alarm.retryCount = retries;
+                       alarm.retryOnError = 1;
                        self.cwPutMetricAlarm(alarm, next3);
                    }, next2);
                }, next);
@@ -750,9 +757,10 @@ aws.ec2WaitForInstance = function(instanceId, status, options, callback)
     if (typeof callback != "function") callback = lib.noop;
 
     var state = "", num = 0, expires = Date.now() + (options.waitTimeout || 60000);
+    var opts = { retryCount: options.retryCount || 3, retryOnError: 1 };
     lib.doWhilst(
       function(next) {
-          self.queryEC2("DescribeInstances", { 'Filter.1.Name': 'instance-id', 'Filter.1.Value.1': instanceId }, function(err, rc) {
+          self.queryEC2("DescribeInstances", { 'Filter.1.Name': 'instance-id', 'Filter.1.Value.1': instanceId }, opts, function(err, rc) {
               if (err) return next(err);
               state = lib.objGet(rc, "DescribeInstancesResponse.reservationSet.item.instancesSet.item.instanceState.name");
               setTimeout(next, num++ ? (options.waitDelay || 5000) : 0);

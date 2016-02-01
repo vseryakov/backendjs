@@ -10,7 +10,6 @@ var core = require(__dirname + '/../core');
 var lib = require(__dirname + '/../lib');
 var ipc = require(__dirname + "/../ipc");
 var Client = require(__dirname + "/ipc_client");
-var amqp = require("amqp");
 
 // Queue client using RabbitMQ server
 var client = {
@@ -32,6 +31,8 @@ function IpcAmqpClient(host, options)
     if (!lib.isObject(this.options.queueParams)) this.options.queueParams = {};
     if (!lib.isObject(this.options.subscribeParams)) this.options.subscribeParams = {};
     if (!lib.isObject(this.options.publishParams)) this.options.publishParams = {};
+
+    var amqp = require("amqp");
     this.client = amqp.createConnection({ url: this.host }, this.options);
     this.client.on("error", function(err) {
         logger.error("amqp:", self.host, err);
