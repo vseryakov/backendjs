@@ -289,11 +289,13 @@ ec2-user    921  0.0  0.7 1072120 40721 ?  Sl   14:33   0:02 bkjs: worker
 </code></pre><p>To enable any task a command line parameter must be provided, it cannot be specified in the config file. The <code>bkjs</code> utility supports several
 commands that simplify running the backend in different modes.</p>
 <ul>
-<li><code>bkjs run-backend</code> - runs the Web server and the jobs scheduler in debug mode with watching source files for changes, this is the common command to be used
- in development, it passes the command line switches: <code>-log debug -watch -web -master</code></li>
+<li><code>bkjs run-watcher</code> - runs the master and Web server in wather mode checking all source files for changes, this is the common command to be used
+ in development, it passes the command line switches: <code>-watch -master</code></li>
 <li><code>bkjs run-server</code> - this command is supposed to be run at the server startup, it runs in the backgroud and the monitors all tasks,
- the command line parameters are: <code>-daemon -monitor -master -syslog</code></li>
-<li><code>bkjs run</code> - this command runs the Web server and the job scheduler without any other parameters, all aditional parameters can be added in the command line, this command
+ the command line parameters are: <code>-daemon -master -syslog</code></li>
+<li><code>bkjs run-monitor</code> - this command is supposed to be run at the server startup, it runs in the backgroud and the monitors all tasks,<pre><code>the command line parameters are: `-daemon -monitor -master -syslog`
+</code></pre></li>
+<li><code>bkjs run</code> - this command runs the master and Web server without any other parameters, all aditional parameters can be added in the command line, this command
  is a barebone helper to be used with any other custom settings.</li>
 <li><code>bkjs run-shell</code> or <code>bksh</code> - start backendjs shell, no API or Web server is initialized, only the database pools</li>
 </ul>
@@ -2231,8 +2233,7 @@ Database pool statistics and other diagnostics</p>
 <li><code>no-db</code> - Do not initialize DB drivers</li>
 <li><code>no-dns</code> - Do not use DNS configuration during the initialization</li>
 <li><code>no-configure</code> - Do not run configure hooks during the initialization</li>
-<li><code>repl-port-([a-z]+)</code> - Worker base REPL port, if specified it initializes REPL in the worker processes, in workers port is port+worker_id+1, supported suffixes: web, worker</li>
-<li><code>repl-port</code> - Port for REPL interface in the master, if specified it initializes REPL in the master server process</li>
+<li><code>repl-port-([a-z]+)$</code> - Base REPL port for process role (server, master, web, worker), if specified it initializes REPL in the processes, for workers the port is computed by adding a worker id to the base port, for example if specified <code>-repl-port-web 2090</code> then a web worker will use any available 2091,2092...</li>
 <li><code>repl-bind</code> - Listen only on specified address for REPL server in the master process</li>
 <li><code>repl-file</code> - User specified file for REPL history</li>
 <li><code>worker</code> - Set this process as a worker even it is actually a master, this skips some initializations</li>
@@ -5334,6 +5335,12 @@ and if exist it must return the same or new table name for the given query param
 </ul>
 
 <ul>
+<li><p><code>Ipc.prototype.sendReplPort(role, worker)</code></p>
+<p> Send REPL port to a worker if needed</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>Ipc.prototype.newMsg(op, msg, options)</code></p>
 <p> Returns an IPC message object, <code>msg</code> must be an object if given</p>
 </li>
@@ -6911,7 +6918,7 @@ Each item in the list is an object with the following properties: key, secret, a
 
 <ul>
 <li><p><code>server.onProcessTerminate()</code></p>
-<p> Terminates the server process, it is called on SIGTEMR signal but can be called manually for graceful shitdown,
+<p> Terminates the server process, it is called on SIGTERM signal but can be called manually for graceful shitdown,
 it runs <code>shutdown[Role]</code> methods before exiting</p>
 </li>
 </ul>
