@@ -245,7 +245,12 @@ db.init = function(options, callback)
             return next();
         }
         var old = self.pools[name];
-        var pool = mod.createPool(params);
+        try {
+            var pool = mod.createPool(params);
+        } catch(e) {
+            logger.error("init:", core.role, params, e.stack);
+            return next();
+        }
         self.pools[name] = pool;
         if (old) old.shutdown();
 
@@ -725,15 +730,6 @@ db.updateAll = function(table, query, obj, options, callback)
 db.incr = function(table, obj, options, callback)
 {
     if (typeof options == "function") callback = options,options = null;
-
-    if (options && !lib.searchObj(options.updateOps, { value: "incr", count: 1 })) {
-        if (!lib.isObject(options.updateOps)) options.updateOps = {};
-        var cols = this.getColumns(table, options);
-        for (var p in cols) {
-            if (cols[p].type == "counter" && typeof obj[p] != "undefined") options.updateOps[p] = "incr";
-        }
-    }
-
     var req = this.prepare("incr", table, obj, options);
     this.query(req, req.options, callback);
 }
@@ -1684,9 +1680,11 @@ db.prepareRow = function(pool, req)
     for (var p in req.obj) orig[p] = req.obj[p];
 
     switch (req.op) {
+    case "incr":
+        this.prepareForIncr(pool, req, orig);
+
     case "add":
     case "put":
-    case "incr":
     case "update":
         this.prepareForUpdate(pool, req, orig);
         break;
@@ -1703,6 +1701,17 @@ db.prepareRow = function(pool, req)
     case "list":
         this.prepareForList(pool, req, orig);
         break;
+    }
+}
+
+db.prepareForIncr = function(pool, req, orig)
+{
+    if (!req.options || !lib.searchObj(req.options.updateOps, { value: "incr", count: 1 })) {
+        req.options = lib.cloneObj(req.options, "__bk", 1);
+        if (!lib.isObject(req.options.updateOps)) req.options.updateOps = {};
+        for (var p in req.columns) {
+            if (req.columns[p].type == "counter" && typeof req.obj[p] != "undefined") req.options.updateOps[p] = "incr";
+        }
     }
 }
 
@@ -1812,7 +1821,7 @@ db.prepareForSelect = function(pool, req, orig)
         // Default search op, for primary key cases
         var ops = req.options && req.options.ops || lib.empty;
         if (col.ops && col.ops[req.op] && !ops[p]) {
-            req.options = lib.cloneObj(req.options);
+            req.options = lib.cloneObj(req.options, "__bk", 1);
             lib.objSet(req.options, ["ops", p], col.ops[req.op]);
         }
 

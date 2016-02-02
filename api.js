@@ -14,6 +14,8 @@ var https = require('https');
 var cluster = require('cluster');
 var url = require('url');
 var domain = require('domain');
+var qs = require("qs");
+var formidable = require('formidable');
 var bkutils = require('bkjs-utils');
 var core = require(__dirname + '/core');
 var lib = require(__dirname + '/lib');
@@ -395,12 +397,11 @@ api.init = function(options, callback)
     if (typeof callback != "function") callback = lib.noop;
     if (!options) options = {};
 
-    var qs = require('qs');
+    // These will not used outside of this call
     var express = require('express');
     var cookieParser = require('cookie-parser');
     var session = require('cookie-session');
     var serveStatic = require('serve-static');
-    var formidable = require('formidable');
 
     // Performance statistics
     this.initStatistics();
@@ -946,7 +947,6 @@ api.checkQuery = function(req, res, next)
 
             case 'application/x-www-form-urlencoded':
                 if (req.method != "POST") break;
-                var qs = require('qs');
                 req.body = buf.length ? qs.parse(buf) : {};
                 req.query = req.body;
                 sig.query = buf;
@@ -975,8 +975,6 @@ api.checkBody = function(req, res, next)
     if (type != 'multipart/form-data') return next();
     req._body = true;
 
-    var qs = require('qs');
-    var formidable = require('formidable');
     var form = new formidable.IncomingForm({ uploadDir: core.path.tmp, keepExtensions: true });
     var data = {}, files = {}, done;
 
@@ -1499,8 +1497,7 @@ api.registerOAuthStrategy = function(strategy, options, callback)
     var self = this;
     if (!options || !options.clientID || !options.clientSecret) return;
 
-    var passport = require('passport');
-
+    var passport = require("passport");
     // Initialize passport on first call
     if (!this._passport) {
         this._passport = 1;

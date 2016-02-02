@@ -32,7 +32,13 @@ msg.init = function(options, callback)
     if (typeof options == "function") callback = options, options = null;
     logger.debug("msg:", "init");
 
-    for (var i in this.modules) this.modules[i].init(options);
+    for (var i in this.modules) {
+        try {
+            this.modules[i].init(options);
+        } catch(e) {
+            logger.error("msg:", core.role, this.modules[i].name, options, e.stack);
+        }
+    }
     if (typeof callback == "function") callback();
 }
 

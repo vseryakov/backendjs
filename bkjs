@@ -141,7 +141,7 @@ case "$ARG" in
     ($0 run-sync)
 
     echo "Starting $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME $BKJS_ARGS $@"
-    $0 run-${BKJS_SERVER:-server}
+    $0 run-${BKJS_SERVER:-monitor}
     ;;
 
   restart)
@@ -384,7 +384,6 @@ case "$ARG" in
     service iptables stop
 
     # Make sure monit is running all the time
-    sed -e 's|set daemon 60|set daemon 30|' /etc/monit.conf
     echo "set logfile syslog" > /etc/monit.d/logging
     chkconfig monit on
     service monit restart
@@ -499,13 +498,14 @@ case "$ARG" in
     ;;
 
   init-monit-system)
-    $ECHO "check system localhost if loadavg(1min) > 5 for 10 cycles then exec \"$0 send-alert\"" > /etc/monit.d/system.conf
+    $ECHO "set daemon 30 with start delay 60" > /etc/monit.d/system.conf
+    $ECHO "check system localhost if loadavg(1min) > 5 for 10 cycles then exec \"$0 send-alert\"" >> /etc/monit.d/system.conf
     $ECHO "check filesystem rootfs with path / if space usage > 90% for 3 times within 5 cycles then exec exec \"$0 send-alert\"" >> /etc/monit.d/system.conf
     monit reload
     ;;
 
   init-monit-bkjs)
-    $ECHO "check process $BKJS with pidfile \"$BKJS_HOME/var/master.pid\" start program = \"$0 start\" as uid $BKJS_USER and gid $BKJS_GROUP stop program = \"$0 stop\"" > /etc/monit.d/$BKJS.conf
+    $ECHO "check process $BKJS with pidfile \"$BKJS_HOME/var/master.pid\" start program = \"$0 start\" as uid $BKJS_USER and gid $BKJS_GROUP with timeout 60 seconds stop program = \"$0 stop\"" > /etc/monit.d/$BKJS.conf
     monit reload
     ;;
 
@@ -587,7 +587,7 @@ case "$ARG" in
     [ "$BKJS_SNS" != "" ] && aws sns publish --region `echo $BKJS_SNS|awk -F: '{print $4}'` --topic-arn $BKJS_SNS --message "$msg"
     ;;
 
-  run-backend|run-server|run-shell|run|backendjs|bksh)
+  run|run-master|run-monitor|run-watcher|run-shell|bkjs|bksh)
     [ -f /usr/lib/node_modules/$BKJS_MOD/app.js ] && SCRIPT=/usr/lib/node_modules/$BKJS_MOD/app.js
     [ -f $BKJS_PREFIX/lib/node_modules/$BKJS_MOD/app.js ] && SCRIPT=$BKJS_PREFIX/lib/node_modules/$BKJS_MOD/app.js
     [ -f $BKJS_HOME/node_modules/$BKJS_MOD/app.js ] && SCRIPT=$BKJS_HOME/node_modules/$BKJS_MOD/app.js
@@ -597,7 +597,7 @@ case "$ARG" in
     [ -z $SCRIPT ] && echo "ERROR: Cannot find $BKJS module or app.js" && exit 1
 
     case "$ARG" in
-     run-server|run-master)
+     run-master)
         $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME -syslog -daemon -master $BKJS_ARGS "$@"
         ;;
 
@@ -605,7 +605,7 @@ case "$ARG" in
         $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME -syslog -daemon -monitor -master $BKJS_ARGS "$@"
         ;;
 
-     run-wather)
+     run-watcher)
         $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME -master -watch `pwd` "$@"
         ;;
 
@@ -614,7 +614,7 @@ case "$ARG" in
         ;;
 
      *)
-        $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME -master "$@"
+        $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME "$@"
         ;;
     esac
     ;;

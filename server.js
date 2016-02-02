@@ -15,11 +15,6 @@ var exec = require('child_process').exec;
 var core = require(__dirname + '/core');
 var lib = require(__dirname + '/lib');
 var logger = require(__dirname + '/logger');
-var db = require(__dirname + '/db');
-var aws = require(__dirname + '/aws');
-var ipc = require(__dirname + '/ipc');
-var api = require(__dirname + '/api');
-var jobs = require(__dirname + '/jobs');
 
 // The main server class that starts various processes
 var server = {
@@ -64,10 +59,6 @@ module.exports = server;
 // Start the server process, call the callback to perform some initialization before launchng any server, just after core.init
 server.start = function()
 {
-    var self = this;
-
-    // Mark the time we started for calculating idle times properly
-    jobs.time = Date.now();
     process.title = core.name + ": process";
     logger.debug("start:", process.argv);
 
@@ -79,13 +70,16 @@ server.start = function()
     }
 
     // Go to background
-    if (lib.isArg("-daemon")) {
-        return core.init({ role: "daemon", noWatch: 1, noDb: 1, noDns: 1, noLocales: 1, noConfigure: 1 }, function(err, opts) { self.startDaemon(opts); });
+    if (lib.isArg("-daemon") && !lib.isArg("-no-daemon")) {
+        var opts = { role: "daemon", noDb: 1, noDns: 1, noConfigure: 1, noLocales: 1, noModules: 1, noWatch: 1 };
+        return core.init(opts, function(err, opts) {
+            server.startDaemon(opts);
+        });
     }
 
     // Graceful shutdown, kill all children processes
-    process.once('exit', function() { self.onProcessExit()  });
-    process.once('SIGTERM', function() { self.onProcessTerminate(); });
+    process.once('exit', function() { server.onProcessExit()  });
+    process.once('SIGTERM', function() { server.onProcessTerminate(); });
     // Reserved for restarting purposes
     process.on('SIGUSR2', function() {});
 
@@ -93,7 +87,7 @@ server.start = function()
     if (lib.isArg("-watch") && !lib.isArg("-no-watch")) {
         var opts = { role: "watcher", noDb: 1, noDns: 1, noConfigure: 1, noLocales: 1, noModules: 1, noWatch: 1 };
         return core.init(opts, function(err, opts) {
-            self.startWatcher(opts);
+            server.startWatcher(opts);
         });
     }
 
@@ -101,7 +95,7 @@ server.start = function()
     if (lib.isArg("-monitor") && !lib.isArg("-no-monitor")) {
         var opts = { role: "monitor", noDb: 1, noDns: 1, noConfigure: 1, noLocales: 1, noModules: 1, noWatch: 1 };
         return core.init(opts, function(err, opts) {
-            self.startMonitor(opts);
+            server.startMonitor(opts);
         });
     }
 
@@ -109,7 +103,7 @@ server.start = function()
     if (lib.isArg("-master") && !lib.isArg("-no-master")) {
         var opts = { role: "master", localTables: cluster.isMaster, noLocales: 1, allowModules: cluster.isMaster ? this.allowModules : null };
         return core.init(opts, function(err, opts) {
-            self.startMaster(opts);
+            server.startMaster(opts);
         });
     }
 
@@ -117,7 +111,7 @@ server.start = function()
     if (lib.isArg("-web") && !lib.isArg("-no-web")) {
         var opts = { role: "web", localTables: cluster.isMaster, noLocales: 1, allowModules: cluster.isMaster ? this.allowModules : null };
         return core.init(opts, function(err, opts) {
-            self.startWeb(opts);
+            server.startWeb(opts);
         });
     }
     logger.error("start:", "no server mode specified, need one of the -web, -master, -shell");
@@ -126,22 +120,19 @@ server.start = function()
 // Start process monitor, running as root
 server.startMonitor = function(options)
 {
-    var self = this;
-
     process.title = core.name + ': monitor';
     core.role = 'monitor';
     this.writePidfile();
+
     // Be careful about adding functionality to the monitor, it is supposed to just watch the process and restart it
     core.runMethods("configureMonitor", options, function() {
-        self.startProcess();
+        server.startProcess();
     });
 }
 
 // Setup worker environment
 server.startMaster = function(options)
 {
-    var self = this;
-
     if (cluster.isMaster) {
         core.role = 'master';
         process.title = core.name + ': master';
@@ -149,14 +140,14 @@ server.startMaster = function(options)
         var d = domain.create();
         d.on('error', function(err) { logger.error('master:', lib.traceError(err)); });
         d.run(function() {
-            self.writePidfile();
+            server.writePidfile();
 
             // REPL command prompt over TCP
             if (core.repl.masterPort) core.startRepl(core.repl.masterPort, core.repl.bind);
 
             // Log watcher job, always runs even if no email configured, if enabled it will
             // start sending only new errors and not from the past
-            self.watchInterval = setInterval(function() { core.watchLogs(); }, core.logwatcherInterval * 60000);
+            server.watchInterval = setInterval(function() { core.watchLogs(); }, core.logwatcherInterval * 60000);
 
             // Watch temp files
             setInterval(function() { core.watchTmp("tmp", { seconds: 86400 }) }, 43200000);
@@ -165,7 +156,7 @@ server.startMaster = function(options)
             // Initialize modules that need to run in the master
             core.runMethods("configureMaster", options, function() {
                 // Start other master processes
-                if (!core.noWeb) self.startWebProcess();
+                if (!core.noWeb) server.startWebProcess();
 
                 logger.log('startMaster:', 'version:', core.version, 'home:', core.home, 'port:', core.port, 'uid:', process.getuid(), 'gid:', process.getgid(), 'pid:', process.pid);
             });
@@ -176,7 +167,7 @@ server.startMaster = function(options)
         process.title = core.name + ': worker';
 
         core.runMethods("configureWorker", options, function() {
-            ipc.sendMsg("worker:ready", { id: cluster.worker.id });
+            core.modules.ipc.sendMsg("worker:ready", { id: cluster.worker.id });
 
             logger.log('startWorker:', 'id:', cluster.worker.id, 'version:', core.version, 'home:', core.home, 'uid:', process.getuid(), 'gid:', process.getgid(), 'pid:', process.pid);
         });
@@ -186,11 +177,9 @@ server.startMaster = function(options)
 // Create Express server, setup worker environment, call supplied callback to set initial environment
 server.startWeb = function(options)
 {
-    var self = this;
-
     process.on("uncaughtException", function(err) {
         logger.error('fatal:', core.role, lib.traceError(err));
-        self.onProcessTerminate();
+        server.onProcessTerminate();
     });
 
     if (cluster.isMaster) {
@@ -201,17 +190,17 @@ server.startWeb = function(options)
         d.on('error', function(err) { logger.error(core.role + ':', lib.traceError(err)); });
         d.run(function() {
             // Setup IPC communication
-            ipc.initServer();
+            core.modules.ipc.initServer();
 
             // REPL command prompt over TCP
             if (core.repl.serverPort) core.startRepl(core.repl.serverPort, core.repl.bind);
 
             // In proxy mode we maintain continious sequence of ports for each worker starting with core.proxy.port
             if (core.proxy.port) {
-                api.createProxyServer();
-                self.clusterFork = api.createProxyWorker.bind(api);
+                core.modules.api.createProxyServer();
+                server.clusterFork = core.modules.api.createProxyWorker.bind(core.modules.api);
             } else {
-                self.clusterFork = function() { return cluster.fork(); }
+                server.clusterFork = function() { return cluster.fork(); }
             }
 
             // Restart if any worker dies, keep the worker pool alive
@@ -219,15 +208,15 @@ server.startWeb = function(options)
                 var nworkers = Object.keys(cluster.workers).length;
                 logger.log('startWeb:', core.role, 'process terminated:', worker.id, 'pid:', worker.process.pid || "", "code:", code || "", 'signal:', signal || "", "workers:", nworkers);
                 // Exit when all workers are terminated
-                if (self.exiting && !nworkers) process.exit(0);
-                self.respawn(function() {
-                    self.clusterFork();
+                if (server.exiting && !nworkers) process.exit(0);
+                server.respawn(function() {
+                    server.clusterFork();
                 });
             });
 
             // Graceful shutdown if the server needs restart
-            self.onProcessTerminate = function() {
-                self.exiting = true;
+            server.onProcessTerminate = function() {
+                server.exiting = true;
                 setTimeout(function() { process.exit(0); }, 30000);
                 logger.log('web server: shutdown started');
                 for (var p in cluster.workers) try { process.kill(cluster.workers[p].process.pid); } catch(e) {}
@@ -235,18 +224,18 @@ server.startWeb = function(options)
 
             // Graceful restart of all web workers
             process.on('SIGUSR2', function() {
-                ipc.sendMsg("api:restart");
+                core.modules.ipc.sendMsg("api:restart");
             });
 
             // Arguments passed to the v8 engine
-            if (self.workerArgs.length) process.execArgv = self.workerArgs;
+            if (server.workerArgs.length) process.execArgv = server.workerArgs;
 
-            self.writePidfile();
+            server.writePidfile();
 
             // Initialize server environment for other modules
             core.runMethods("configureServer", options, function() {
                 // Spawn web worker processes
-                for (var i = 0; i < self.maxProcesses; i++) self.clusterFork();
+                for (var i = 0; i < server.maxProcesses; i++) server.clusterFork();
 
                 logger.log('startWeb:', core.role, 'version:', core.version, 'home:', core.home, 'port:', core.port, 'uid:', process.getuid(), 'gid:', process.getgid(), 'pid:', process.pid)
             });
@@ -264,16 +253,16 @@ server.startWeb = function(options)
         }
 
         // Setup IPC communication
-        ipc.initWorker();
+        core.modules.ipc.initWorker();
 
         // Init API environment
-        api.init(options, function(err) {
+        core.modules.api.init(options, function(err) {
             core.dropPrivileges();
 
             // Gracefull termination of the process
-            self.onProcessTerminate = function() {
-                self.exiting = true;
-                api.shutdown(function() {
+            server.onProcessTerminate = function() {
+                server.exiting = true;
+                core.modules.api.shutdown(function() {
                     process.exit(0);
                 });
             }
@@ -286,7 +275,6 @@ server.startWeb = function(options)
 // Spawn web server from the master as a separate master with web workers, it is used when web and master processes are running on the same server
 server.startWebProcess = function()
 {
-    var self = this;
     var child = this.spawnProcess([ "-web" ], [ "-master" ], { stdio: 'inherit' });
     this.handleChildProcess(child, "web", "startWebProcess");
 }
@@ -294,14 +282,13 @@ server.startWebProcess = function()
 // Setup exit listener on the child process and restart it
 server.handleChildProcess = function(child, type, method)
 {
-    var self = this;
-    self.pids[child.pid] = 1;
+    this.pids[child.pid] = 1;
     child.on('exit', function (code, signal) {
-        delete self.pids[this.pid];
+        delete server.pids[this.pid];
         logger.log('handleChildProcess:', core.role, 'process terminated:', type, 'pid:', this.pid, 'code:', code, 'signal:', signal);
         // Make sure all web servers are down before restarting to avoid EADDRINUSE error condition
         core.killBackend(type, "SIGKILL", function() {
-            self.respawn(function() { self[method](); });
+            server.respawn(function() { server[method](); });
         });
     });
     child.unref();
@@ -310,48 +297,46 @@ server.handleChildProcess = function(child, type, method)
 // Restart the main process with the same arguments and setup as a monitor for the spawn child
 server.startProcess = function()
 {
-    var self = this;
-    self.child = this.spawnProcess();
+    this.child = this.spawnProcess();
     // Pass child output to the console
-    self.child.stdout.on('data', function(data) {
-        if (self.logErrors) logger.log(data); else util.print(data);
+    this.child.stdout.on('data', function(data) {
+        if (server.logErrors) logger.log(data); else util.print(data);
     });
-    self.child.stderr.on('data', function(data) {
-        if (self.logErrors) logger.error(data); else util.print(data);
+    this.child.stderr.on('data', function(data) {
+        if (server.logErrors) logger.error(data); else util.print(data);
     });
     // Restart if dies or exits
-    self.child.on('exit', function(code, signal) {
-        logger.log('startProcess:', core.role, 'process terminated:', 'pid:', self.child.pid, 'code:', code, 'signal:', signal);
+    this.child.on('exit', function(code, signal) {
+        logger.log('startProcess:', core.role, 'process terminated:', 'pid:', server.child.pid, 'code:', code, 'signal:', signal);
         core.killBackend("", "", function() {
-            self.respawn(function() {
-                self.startProcess();
+            server.respawn(function() {
+                server.startProcess();
             });
         });
     });
-    process.stdin.pipe(self.child.stdin);
+    process.stdin.pipe(this.child.stdin);
     logger.log('startProcess:', core.role, 'version:', core.version, 'home:', core.home, 'port:', core.port, 'uid:', process.getuid(), 'gid:', process.getgid(), 'pid:', process.pid);
 }
 
 // Watch source files for modifications and restart
 server.startWatcher = function()
 {
-    var self = this;
     core.role = 'watcher';
     process.title = core.name + ": watcher";
 
     // REPL command prompt over TCP instead of the master process
-    if (core.repl.port && (!lib.isArg("-master") || lib.isArg("-no-master"))) self.startRepl(core.repl.port, core.repl.bind);
+    if (core.repl.port && (!lib.isArg("-master") || lib.isArg("-no-master"))) core.startRepl(core.repl.port, core.repl.bind);
 
     if (core.watchdirs.indexOf(__dirname) == -1) core.watchdirs.push(__dirname, __dirname + "/lib", __dirname + "/modules");
     if (core.watchdirs.indexOf(core.path.modules) == -1) core.watchdirs.push(core.path.modules);
     logger.debug('startWatcher:', core.watchdirs);
     core.watchdirs.forEach(function(dir) {
         core.watchFiles(dir, /\.js$/, function(file) {
-            if (self.watchTimer) clearTimeout(self.watchTimer);
-            self.watchTimer = setTimeout(function() {
-                logger.log('watcher:', 'restarting', self.child.pid);
-                if (self.child) self.child.kill(); else self.startProcess();
-            }, self.restartDelay);
+            if (server.watchTimer) clearTimeout(server.watchTimer);
+            server.watchTimer = setTimeout(function() {
+                logger.log('watcher:', 'restarting', server.child.pid);
+                if (server.child) server.child.kill(); else server.startProcess();
+            }, server.restartDelay);
         });
     });
     this.startProcess();
@@ -360,7 +345,6 @@ server.startWatcher = function()
 // Create daemon from the current process, restart node with -daemon removed in the background
 server.startDaemon = function()
 {
-    var self = this;
     // Avoid spawning loop, skip daemon flag
     var argv = process.argv.slice(1).filter(function(x) { return x != "-daemon"; });
     var log = "ignore";
@@ -406,7 +390,6 @@ server.writePidfile = function()
 // Shutdown the system immediately, mostly to be used in the remote jobs as the last task
 server.shutdown = function(options, callback)
 {
-    var self = this;
     if (typeof options == "function") callback = options, options = null;
     if (!options) options = {};
 
@@ -419,29 +402,27 @@ server.shutdown = function(options, callback)
 // If respawning too fast, delay otherwise schedule new process after short timeout
 server.respawn = function(callback)
 {
-    var self = this;
     if (this.exiting) return;
     var now = Date.now();
     logger.debug('respawn:', this.crash, now - this.crash.time);
-    if (self.crash.time && now - self.crash.time < self.crash.interval) {
-        if (self.crash.count && self.crash.events >= self.crash.count) {
-            logger.log('respawn:', 'throttling for', self.crash.delay, 'after', self.crash.events, 'crashes');
-            self.crash.events = 0;
-            self.crash.time = now;
-            return setTimeout(callback, self.crash.delay);
+    if (this.crash.time && now - this.crash.time < this.crash.interval) {
+        if (this.crash.count && this.crash.events >= this.crash.count) {
+            logger.log('respawn:', 'throttling for', this.crash.delay, 'after', this.crash.events, 'crashes');
+            this.crash.events = 0;
+            this.crash.time = now;
+            return setTimeout(callback, this.crash.delay);
         }
-        self.crash.events++;
+        this.crash.events++;
     } else {
-        self.crash.events = 0;
+        this.crash.events = 0;
     }
-    self.crash.time = now;
-    setTimeout(callback, self.crash.timeout);
+    this.crash.time = now;
+    setTimeout(callback, this.crash.timeout);
 }
 
 // Start new process reusing global process arguments, args will be added and args in the skip list will be removed
 server.spawnProcess = function(args, skip, opts)
 {
-    var self = this;
     if (this.exiting) return;
     // Arguments to skip when launchng new process
     if (!skip) skip = [];
@@ -451,7 +432,7 @@ server.spawnProcess = function(args, skip, opts)
     // Remove arguments we should not pass to the process
     var argv = this.processArgs.concat(process.argv.slice(1).filter(function(x) { return skip.indexOf(x) == -1; }));
     if (Array.isArray(args)) argv = argv.concat(args);
-    var cmd = self.processName || process.argv[0];
+    var cmd = this.processName || process.argv[0];
     logger.debug('spawnProcess:', cmd, argv, 'skip:', skip, 'opts:', opts);
     return spawn(cmd, argv, opts);
 }

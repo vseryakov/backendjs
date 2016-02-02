@@ -185,13 +185,15 @@ This is the typical output from the ps command on Linux server:
 To enable any task a command line parameter must be provided, it cannot be specified in the config file. The `bkjs` utility supports several
 commands that simplify running the backend in different modes.
 
+- `bkjs start` - this command is supposed to be run at the server startup as a service, it runs in the backgroud and the monitors all tasks,
+   the env variable `BKJS_SERVER` can be set in the profile to one of the `master or monitor` to define which run mode to use, default mode is monitor
+- `bkjs run-monitor` - this command is supposed to be run at the server startup, it runs in the backgroud and the monitors all processes,
+   the command line parameters are: `-daemon -monitor -master -syslog`
+- `bkjs run-master` - this command is supposed to be run at the server startup, it runs in the backgroud and the monitors all processes,
+   the command line parameters are: `-daemon -monitor -master -syslog`
 - `bkjs run-watcher` - runs the master and Web server in wather mode checking all source files for changes, this is the common command to be used
    in development, it passes the command line switches: `-watch -master`
-- `bkjs run-server` - this command is supposed to be run at the server startup, it runs in the backgroud and the monitors all tasks,
-   the command line parameters are: `-daemon -master -syslog`
-- `bkjs run-monitor` - this command is supposed to be run at the server startup, it runs in the backgroud and the monitors all tasks,
-      the command line parameters are: `-daemon -monitor -master -syslog`
-- `bkjs run` - this command runs the master and Web server without any other parameters, all aditional parameters can be added in the command line, this command
+- `bkjs run` - this command runs without other parameters, all aditional parameters can be added in the command line, this command
    is a barebone helper to be used with any other custom settings.
 - `bkjs run-shell` or `bksh` - start backendjs shell, no API or Web server is initialized, only the database pools
 
@@ -835,7 +837,7 @@ Any of the following config files can redefine any environmnt variable thus poin
 customize the running environment, these should be regular shell scripts using bash syntax.
 
 Most common used commands are:
-- bkjs run-backend - run the backend or the app for development purposes, uses local app.js if exists otherwise runs generic server
+- bkjs run-watcher - run the backend or the app for development purposes, uses local app.js if exists otherwise runs generic server
 - bkjs run-shell - start REPL shell with the backend module loaded and available for use, all submodules are availablein the shell as well like core, db, api
 - bkjs init-app - create the app skeleton
 - bkjs put-backend [-path path] [-host host] [-user user] - sync sources of the app with the remote site, uses BKJS_HOST env variable for host if not specified in the command line, this is for developent version of the backend only

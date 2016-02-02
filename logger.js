@@ -6,6 +6,7 @@
 var util = require('util');
 var fs = require('fs');
 var os = require("os");
+var bksyslog = require("bkjs-syslog");
 
 // Simple logger utility for debugging
 var logger = {
@@ -68,6 +69,7 @@ module.exports = logger;
 // Default options, can be set directly only so thi smodule does not have any dependencies
 logger.options = logger.LOG_PID | logger.LOG_CONS | (os.type() == "Linux" ? logger.LOG_RFC3339 : 0);
 logger.facility = logger.LOG_LOCAL0;
+
 // Logger labels
 for (var p in logger.levels) logger[p.toUpperCase()] = logger.levels[p];
 
@@ -94,7 +96,6 @@ logger.prefix = function(level)
 // Set or close syslog mode
 logger.setSyslog = function (on)
 {
-    var bksyslog = require("bkjs-syslog");
     if (on) {
         bksyslog.open("backend", this.options, this.facility);
         this.print = this.printSyslog;

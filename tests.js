@@ -991,17 +991,17 @@ tests.test_db = function(callback)
             });
         },
         function(next) {
-            db.incr("test3", { id: id, num: 1 }, { mtime: 1 }, function(err) {
+            db.incr("test3", { id: id, num: 3 }, { mtime: 1 }, function(err) {
                 if (err) return next(err);
-                db.incr("test3", { id: id, num: 2 }, function(err) {
+                db.incr("test3", { id: id, num: 1 }, function(err) {
                     if (err) return next(err);
-                    db.incr("test3", { id: id, num: -1 }, next);
+                    db.incr("test3", { id: id, num: -2 }, next);
                 });
             });
         },
         function(next) {
             db.get("test3", { id: id }, function(err, row) {
-                tests.check(next, err, !row || row.id != id && row.num != 2, "err7:", row);
+                tests.check(next, err, !row || row.id != id || row.num != 2, "err7:", row);
             });
         },
         function(next) {

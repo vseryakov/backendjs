@@ -15,11 +15,11 @@ var http = require('http');
 var https = require('https');
 var child = require('child_process');
 var bkutils = require('bkjs-utils');
-var logger = require(__dirname + '/logger');
-var lib = require(__dirname + '/lib');
 var cluster = require('cluster');
 var os = require('os');
 var dns = require('dns');
+var lib = require(__dirname + '/lib');
+var logger = require(__dirname + '/logger');
 
 // The primary object containing all config options and common functions
 var core = {
@@ -261,13 +261,13 @@ core.init = function(options, callback)
     if (cluster.worker) this.workerId = cluster.worker.id;
 
     // Random proces id to be used as a prefix in clusters
-    self.pid = crypto.randomBytes(4).toString('hex');
+    this.pid = crypto.randomBytes(4).toString('hex');
 
     // Initial args to run before the config file
-    self.processArgs(self, process.argv, 1);
+    this.processArgs(this, process.argv, 1);
 
     // Default home as absolute path from the command line or custom config file passed
-    self.setHome(self.home);
+    this.setHome(this.home);
 
     // No restriction on the client http clients
     http.globalAgent.maxSockets = http.Agent.defaultMaxSockets = Infinity;
@@ -283,11 +283,11 @@ core.init = function(options, callback)
             self.ipaddrs.push(y.address);
         });
     });
-    self.subnet = self.ipaddr.split(".").slice(0, 3).join(".");
-    self.network = self.ipaddr.split(".").slice(0, 2).join(".");
-    self.hostName = os.hostname().toLowerCase();
-    self.domain = lib.domainName(self.hostName);
-    self.location = "http://" + self.hostName + ":" + core.port;
+    this.subnet = self.ipaddr.split(".").slice(0, 3).join(".");
+    this.network = self.ipaddr.split(".").slice(0, 2).join(".");
+    this.hostName = os.hostname().toLowerCase();
+    this.domain = lib.domainName(this.hostName);
+    this.location = "http://" + this.hostName + ":" + core.port;
     // Pre load config files into memory to perform 2 passes
     var config = "";
 
