@@ -172,7 +172,7 @@ jobs.initWorker = function(options, callback)
             logger.info("initWorker:", "subscribe to queue", name, q.host);
             ipc.subscribe(self.channel, { queueName: name }, function(msg, next) {
                 self.runJob(msg, { queueName: name }, function(err) {
-                    logger[err ? "error" : "info"]("runJob:", "finished", name, lib.traceError(err), lib.objDescr(msg));
+                    logger[err ? "error" : "info"]("runJob:", "finished", name, lib.traceError(err), lib.descrObj(msg));
                     if (typeof next == "function") next(err);
                     // Mark end of last message processed
                     self.runTime = Date.now();
@@ -247,12 +247,12 @@ jobs.isJob = function(jobspec)
     var rx = /^[a-z0-9_]+\.[a-z0-9_]+$/i;
 
     if (typeof jobspec == "string" && jobspec.match(rx)) jobspec = { job: lib.newObj(jobspec, null) };
-    if (!lib.isObject(jobspec)) return lib.newError("invalid job:" + lib.objDescr(jobspec), 500);
+    if (!lib.isObject(jobspec)) return lib.newError("invalid job:" + lib.descrObj(jobspec), 500);
 
     if (typeof jobspec.job == "string") jobspec.job = lib.newObj(jobspec.job, null);
 
     if (lib.isObject(jobspec.job)) {
-        if (!Object.keys(jobspec.job).every(function(y) { return y.match(rx) })) return lib.newError('invalid job: ' + lib.objDescr(jobspec), 500);
+        if (!Object.keys(jobspec.job).every(function(y) { return y.match(rx) })) return lib.newError('invalid job: ' + lib.descrObj(jobspec), 500);
     } else
 
     if (Array.isArray(jobspec.job)) {
@@ -263,10 +263,10 @@ jobs.isJob = function(jobspec)
         }).map(function(x) {
             return typeof x == "string" ? lib.newObj(x, null) : x;
         });
-        if (!job.length) return lib.newError('invalid job: ' + lib.objDescr(jobspec), 500);
+        if (!job.length) return lib.newError('invalid job: ' + lib.descrObj(jobspec), 500);
         jobspec.job = job;
     } else {
-        return lib.newError('invalid job: ' + lib.objDescr(jobspec), 500);
+        return lib.newError('invalid job: ' + lib.descrObj(jobspec), 500);
     }
     return jobspec;
 }
@@ -292,7 +292,7 @@ jobs.runJob = function(jobspec, options, callback)
     var self = this;
     if (typeof options == "function") callback = options, options = {};
     if (!options) options = {};
-    logger.info("runJob:", "started", options.queueName || "", lib.objDescr(jobspec));
+    logger.info("runJob:", "started", options.queueName || "", lib.descrObj(jobspec));
 
     jobspec = this.isJob(jobspec);
     if (util.isError(jobspec)) return typeof callback == "function" && callback(jobspec);
@@ -325,13 +325,13 @@ jobs.runTask = function(name, options, callback)
     var method = name.split('.');
     var module = method[0] == "core" ? core : core.modules[method[0]];
     if (!module || typeof module[method[1]] != "function") {
-        logger.error("runTask:", "unknown method", name, lib.objDescr(options));
+        logger.error("runTask:", "unknown method", name, lib.descrObj(options));
         return callback(lib.newError("unknown method: " + name, 500));
     }
     if (!lib.isObject(options)) options = {};
 
     function done(err) {
-        logger[err ? "error" : "info"]('runTask:', 'finished', name, util.isError(err) && lib.traceError(err) ? lib.traceError(err) : (err || ""), lib.objDescr(options));
+        logger[err ? "error" : "info"]('runTask:', 'finished', name, util.isError(err) && lib.traceError(err) ? lib.traceError(err) : (err || ""), lib.descrObj(options));
         self.runTime = Date.now();
         // Update process title with current job list
         var idx = self.running.indexOf(name);
@@ -344,7 +344,7 @@ jobs.runTask = function(name, options, callback)
     var d = domain.create();
     d.on("error", done);
     d.run(function() {
-        logger.info('runTask:', 'started', name, lib.objDescr(options));
+        logger.info('runTask:', 'started', name, lib.descrObj(options));
         self.runTime = Date.now();
         self.running.push(name);
         if (cluster.isWorker) process.title = core.name + ': worker ' + self.running.join(',');
@@ -395,7 +395,7 @@ jobs.scheduleCronjob = function(jobspec)
         this.crontab.push(cj);
         return true;
     } catch(e) {
-        logger.error("scheduleCronjob:", e, lib.objDescr(jobspec));
+        logger.error("scheduleCronjob:", e, lib.descrObj(jobspec));
         return false;
     }
 }

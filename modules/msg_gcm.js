@@ -25,16 +25,15 @@ client.check = function(dev)
     return dev.service == "gcm";
 }
 
-// Initialize Google Cloud Messaginh servie to send push notifications to mobile devices
+// Initialize Google Cloud Messaging service to send push notifications to mobile devices
 client.init = function(options)
 {
     var self = this;
     var config = msg.getConfig(this.name);
     for (var i in config) {
         if (this.agents[config[i].app]) continue;
-        var agent = { key: config[i].key, _app: config[i].app, _sent: 0, _queue: 0 };
-        this.agents[config[i].app] = agent;
-        logger.info("init:", "gcm", config);
+        this.agents[config[i]._app] = lib.cloneObj(config[i], "_sent", 0, "_queue", 0);
+        logger.info("init:", "gcm", lib.descrObj(config));
     }
 }
 
@@ -82,10 +81,10 @@ client.send = function(dev, options, callback)
 
     var opts = {
         method: 'POST',
-        headers: { 'Authorization': 'key=' + agent.key },
+        headers: { 'Authorization': 'key=' + agent._key },
         postdata: msg,
-        retryCount: this.retryCount || 3,
-        retryTimeout: this.retryTimeout || 1000,
+        retryCount: agent.retryCount || this.retryCount || 3,
+        retryTimeout: agent.retryTimeout || this.retryTimeout || 1000,
         retryOnError: client.retryOnError,
     };
     core.httpGet('https://android.googleapis.com/gcm/send', opts, function(err, params) {

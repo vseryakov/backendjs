@@ -1735,10 +1735,11 @@ lib.objSet = function(obj, name, value, options)
     return v;
 }
 
-// Return an object structure as a string object by showing primitive properties only, for arrays it shows the length,
-// strings are limited by options.length or 32 bytes,
-// the object depth is limited by options.depth or 5 levels deep, the number of properties are limited by options.count or 5
-lib.objDescr = function(obj, options)
+// Return an object structure as a string object by showing primitive properties only,
+// for arrays it shows the length and `options.count` or 5 first items,
+// strings are limited by `options.length` or 64 bytes,
+// the object depth is limited by `options.depth` or 5 levels deep, the number of properties are limited by options.count or 5
+lib.descrObj = function(obj, options)
 {
     if (!obj) return "";
     if (!options) options = {};
@@ -1747,19 +1748,19 @@ lib.objDescr = function(obj, options)
     for (var p in obj) {
         if (rc) rc += ", ";
         if (Array.isArray(obj[p])) {
-            rc += p + ":[" + obj[p].length + "]";
+            rc += p + ":[" + obj[p].length + "] " + obj[p].slice(0, options.count || 5);
         } else
         if (this.isObject(obj[p])) {
             if (options._depth >= (options.depth || 3)) {
                 rc += p + ": {...}";
             } else {
                 options._depth++;
-                rc += p + ":{ " + this.objDescr(obj[p], options) + " }";
+                rc += p + ":{ " + this.descrObj(obj[p], options) + " }";
                 options._depth--;
             }
         } else
         if (typeof obj[p] == "string") {
-            rc += p + ":" + obj[p].slice(0, options.length || 32);
+            rc += p + ":" + obj[p].slice(0, options.length || 64);
         } else {
             rc += p + ":" + obj[p];
         }

@@ -12,11 +12,11 @@ var lib = require(__dirname + '/lib');
 
 // Messaging and push notifications for mobile and other clients, supports Apple, Google and AWS/SNS push notifications.
 var msg = {
-    args: [ { name: "(.+)-cert@?(.+)?", obj: "config", camel: "-", descr: "A certificate for APN or similar services in pfx format, can be a file name with .p12 extension or a string with certificate contents encoded with base64, if the suffix is specified in the config parameter name will be used as the app name, otherwise it is global" },
-            { name: "(.+)-key@?(.+)?", obj: "config", camel: "-", descr: "API key for GCM or similar services, if the suffix is specified in the config parameter will be used as the app name, without the suffix it is global" },
-            { name: "(.+)-secret@?(.+)?", obj: "config", camel: "-", descr: "API secret for services that require it, if the suffix is specified in the config parameter will be used as the app name, without the suffix it is global" },
-            { name: "(.+)-sandbox", type: "bool", descr: "Enable sandbox for a service, default is production mode" },
-            { name: "(.+)-feedback", type: "bool", descr: "Enable feedback mode for a service, default is no feedback service" },
+    args: [ { name: "([^-]+)-(cert)(@.+)?", obj: "config.$1$3", key: "_pfx", nocamel: 1, descr: "A certificate for APN or similar services in pfx format, can be a file name with .p12 extension or a string with certificate contents encoded with base64, if the suffix is specified in the config parameter name will be used as the app name, otherwise it is global" },
+            { name: "([^-]+)-(key)(@.+)?", obj: "config.$1$3", key: "_key", nocamel: 1, descr: "API key for GCM or similar services, if the suffix is specified in the config parameter will be used as the app name, without the suffix it is global" },
+            { name: "([^-]+)-(sandbox)(@.+)?", obj: "config.$1$3", key: "_sandbox", nocamel: 1, type: "bool", descr: "Enable sandbox for a service, default is production mode" },
+            { name: "([^-]+)-(feedback)(@.+)?", obj: "config.$1$3", key: "_feedback", nocamel: 1, type: "bool", descr: "Enable feedback mode for a service, default is no feedback service" },
+            { name: "([^-]+)-options-(.+)(@.+)?", obj: "config.$1$3", make: "$2", autotype: 1, nocamel: 1, descr: "A config property to the specified agent, driver specific" },
             { name: "shutdown-timeout", type:" int", min: 0, descr: "How long to wait for messages draining out in ms on shutdown before exiting" },],
     config: {},
     shutdownTimeout: 1000,
@@ -134,14 +134,12 @@ msg.getClient = function(dev)
 msg.getConfig = function(name)
 {
     var rc = [];
-    var rx = new RegExp("^" + name + "(Key|Cert)@?(.+)?");
+    var rx = new RegExp("^" + name + "@?(.+)?");
     for (var p in this.config) {
         var d = p.match(rx);
-        if (!d || !this.config[p] || typeof this.config[p] != "string") continue;
-        var obj = { app: d[2] || "default" };
-        obj.key = this.config[p];
-        obj.secret = this.config[name + "Secret"] || this.config[name + "Secret@" + obj.app] || "";
-        rc.push(obj);
+        if (!d || !this.config[p] || typeof this.config[p] != "object") continue;
+        this.config[p]._app = d[2] || "default";
+        rc.push(this.config[p]);
     }
     return rc;
 }

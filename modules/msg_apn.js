@@ -11,6 +11,7 @@ var core = require(__dirname + '/../core');
 var lib = require(__dirname + '/../lib');
 var aws = require(__dirname + '/../aws');
 var msg = require(__dirname + '/../msg');
+var apn;
 
 var client = {
     name: "apn",
@@ -31,71 +32,54 @@ client.check = function(dev)
 // connection to APN gateway.
 client.init = function(options)
 {
-    var self = this;
-
-    var apnagent = require("apnagent");
+    apn = require("apn");
     var config = msg.getConfig(this.name);
     for (var i in config) {
         if (this.agents[config[i].app]) continue;
 
-        var agent = new apnagent.Agent();
-        agent._app = config[i].app;
-        agent._sent = 0;
-        if (config[i].key.match(/\.p12$/)) {
-            agent.set('pfx file', config[i].key);
-        } else {
-            agent.set("pfx", new Buffer(config[i].key, "base64"));
-        }
-        agent.enable(msg.apnSandbox ? "sandbox" : "production");
-        agent.on('message:error', function(err, msg) { logger[err && err.code != 10 && err.code != 8 ? "error" : "log"]('apn:message:', lib.traceError(err)) });
-        agent.on('gateway:error', function(err) { logger[err && err.code != 10 && err.code != 8 ? "error" : "log"]('apn:gateway:', lib.traceError(err)) });
-        agent.on('gateway:close', function(err) { logger.info('apn: closed') });
-        agent.decoder.on("error", function(err) { logger.error('apn:decoder:', lib.traceError(err)); });
-        try {
-            agent.connect(function(err) { logger[err ? "error" : "log"]('apn:', err || "connected", this._app); });
-        } catch(e) {
-            logger.error("init:", "apn", config[i], e.stack);
-            continue;
-        }
+        var opts = lib.cloneObj(config[i]);
+        opts.pfx = config[i]._pfx ? config[i]._pfx.match(/\.p12$/) ? config[i]._pfx : new Buffer(config[i]._pfx, "base64") : "";
+        if (typeof opts.production == "undefined") opts.production = !config[i]._sandbox;
+        if (typeof opts.autoAdjustCache == "undefined") opts.autoAdjustCache = true;
+        if (typeof opts.connectionRetryLimit == "undefined") opts.connectionRetryLimit = 100;
 
-        // A posible workaround for the queue being stuck and not sending anything
-        agent._timeout = setInterval(function() { agent.queue.process() }, 3000);
+        var agent = new apn.Connection(opts);
+        agent._app = config[i]._app;
+        agent._sent = 0;
+        agent.on('error', console.error);
+        agent.on('transmissionError', function(err, msg, dev) { logger[err >= 512 ? "error" : "log"]('apn:', err, msg, dev) });
+        agent.on('connected', function() { logger.info('apn: connected') });
+        agent.on('disconnected', function() { logger.info('apn: disconnected') });
 
         // Only run if we need to handle uninstalls
-        if (msg.config.apnFeeback) {
-            agent.feedback = new apnagent.Feedback();
-            if (config[i].key.match(/\.p12$/)) {
-                agent.feedback.set('pfx file', config[i].key);
-            } else {
-                agent.feedback.set("pfx", new Buffer(config[i].key, "base64"));
-            }
-            agent.feedback.set('interval', '1h');
-            agent.feedback.connect(function(err) { if (err) logger.error('apn: feedback:', err);  });
-            agent.feedback.use(function(device, timestamp, next) {
-                logger.log('apn: feedback:', device, timestamp);
-                msg.uninstall(self, device, timestamp, next);
+        if (config[i].feeback) {
+            opts.batchFeedback = true;
+            agent.feedback = new apn.feedback(opts);
+            agent.feedback.on("feedback", function(devices) {
+                logger.info('apn: feedback:', devices);
+                for (var i in devices) msg.uninstall(self, devices[i].device, devices[i].time, next);
             });
+            agent.feedback.on("error", console.error);
+            agent.feedback.on("feedbackError", console.error);
+            agent.feedback.start();
         }
-        this.agents[config[i].app] = agent;
-        logger.info("init:", "apn", config[i], agent.settings);
+        this.agents[config[i]._app] = agent;
+        logger.info("init:", "apn", lib.descrObj(config[i]), agent.settings);
     }
 }
 
 // Close APN agent, try to send all pending messages before closing the gateway connection
 client.close = function(callback)
 {
-    var self = this;
     lib.forEach(Object.keys(this.agents), function(key, next) {
-        var agent = self.agents[key];
-        delete self.agents[key];
+        var agent = client.agents[key];
+        delete client.agents[key];
         logger.info('closeAPN:', key, agent.settings, 'connected:', agent.connected, 'queue:', agent.queue.length, 'sent:', agent._sent);
-        clearInterval(agent._timeout);
-        agent.close(function() {
-            if (agent.feedback) agent.feedback.close();
-            agent.feedback = null;
-            logger.info('close:', "apn", "done", key);
-            next();
-        });
+        agent.shutdown();
+        if (agent.feedback) agent.feedback.cancel();
+        agent.feedback = null;
+        logger.info('close:', "apn", "done", key);
+        next();
     }, callback);
 }
 
@@ -122,15 +106,26 @@ client.send = function(dev, options, callback)
     if (!agent) return typeof callback == "function" && callback(lib.newError("APN is not initialized for " + dev.id, 415));
 
     logger.debug("sendAPN:", agent._app, dev);
-    var pkt = agent.createMessage().device(dev.id);
-    if (options.msg) pkt.alert(options.msg);
-    if (options.badge) pkt.badge(options.badge);
-    if (options.sound) pkt.sound(typeof options.sound == "string" ? options.sound : "default");
-    if (options.contentAvailable) pkt.contentAvailable(1);
-    if (options.type) pkt.set("type", options.type);
-    if (options.id) pkt.set("id", options.id);
-    if (options.category) pkt.set("category", options.category);
-    pkt.send(function(err) { if (!err) agent._sent++; });
+    var device = new apn.Device(dev.id);
+    var msg = new apn.Notification();
+    if (options.expires) msg.setExpiry(options.expires);
+    if (options.priority) msg.setPriority(options.priority);
+    if (options.badge) msg.setBadge(options.badge);
+    if (options.sound) msg.setSound(typeof options.sound == "string" ? options.sound : "default");
+    if (options.msg) msg.setAlertText(options.msg);
+    if (options.title) msg.setAlertTitle(options.title);
+    if (options.category) msg.setCategory(options.category);
+    if (options.contentAvailable) msg.setContentAvailable(true);
+    if (options.launchImage) msg.setLaunchImage(options.launchImage);
+    if (options.locKey) msg.setLocKey(options.locKey);
+    if (options.locArgs) msg.setLocArgs(options.locArgs);
+    if (options.titleLocKey) msg.setTitleLocKey(options.titleLocKey);
+    if (options.titleLocArgs) msg.setTitleLocArgs(options.titleLocArgs);
+    if (options.alertAction) msg.setAlertAction(options.alertAction);
+    if (options.type) msg.payload.type = options.type;
+    if (options.id) msg.payload.id = options.id;
+    agent.pushNotification(msg, device);
+    agent._sent++;
     if (typeof callback == "function") process.nextTick(callback);
     return true;
 }
