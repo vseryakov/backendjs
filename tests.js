@@ -986,6 +986,11 @@ tests.test_db = function(callback)
             });
         },
         function(next) {
+            db.select("test2", { id: id2, id2: "" },  { ops: { id2: "in" } }, function(err, rows) {
+                tests.check(next, err, rows.length!=2, "err5-2:", rows.length, rows);
+            });
+        },
+        function(next) {
             db.list("test3", String([id,id2]), function(err, rows) {
                 tests.check(next, err, rows.length!=2, "err6:", rows);
             });

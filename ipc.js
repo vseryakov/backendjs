@@ -223,9 +223,9 @@ Ipc.prototype.handleServerMessages = function(worker, msg)
             } else
             if (msg.name) {
                 msg.value = bkcache.lruGet(msg.name, Date.now());
-                // Set initial value if does not exist or empty
+                // Set initial value if does not exist or empty, still return empty
                 if (!msg.value && msg.set) {
-                    bkcache.lruPut(msg.name, msg.value = msg.set, msg.expire);
+                    bkcache.lruPut(msg.name, msg.set, msg.expire);
                     delete msg.set;
                 }
             }

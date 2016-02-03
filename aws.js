@@ -1483,8 +1483,9 @@ aws.queryFilter = function(obj, options)
             if (Array.isArray(val)) {
                 if (!val.length) continue;
                 cond.AttributeValueList = [];
-                val.forEach(function(x) { cond.AttributeValueList.push(self.toDynamoDB(x));});
-            } else {
+                val.forEach(function(x) { if (x) cond.AttributeValueList.push(self.toDynamoDB(x));});
+            } else
+            if (val) {
                 cond.AttributeValueList = [ this.toDynamoDB(val) ];
             }
             break;

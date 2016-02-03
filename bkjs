@@ -21,7 +21,7 @@ case "$PLATFORM" in
     [ -f /etc/sysconfig/$BKJS ] && . /etc/sysconfig/$BKJS
     KILLALL="killall -qr"
     ECHO="echo -e"
-    SED="sed -i"
+    SED="sed -r -i"
     ;;
 
   Darwin)
@@ -33,7 +33,7 @@ case "$PLATFORM" in
     [ "$REDIS_PREFIX" = "" ] && REDIS_PREFIX=/opt/local
     KILLALL="killall -m"
     ECHO=echo
-    SED="sed -i .orig"
+    SED="sed -E -i .orig"
     ;;
 
   *)
@@ -137,9 +137,7 @@ export PKG_CONFIG_PATH=$BKJS_PREFIX/lib/pkgconfig:$PG_LIBDIR/pkgconfig:$PKG_CONF
 
 case "$ARG" in
   start)
-    # Perform setup and possibly get newest source code if sync master is configured
-    ($0 run-sync)
-
+    $0 run-setup
     echo "Starting $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME $BKJS_ARGS $@"
     $0 run-${BKJS_SERVER:-monitor}
     ;;
@@ -172,8 +170,8 @@ case "$ARG" in
 
   install)
     [ "$(whoami)" != "root" ] && echo "Run as root please" && exit 1
-    $0 init-server -user $BKJS_USER -home $BKJS_HOME -prefix $BKJS_PREFIX
-    $0 init-devel
+    $0 init-server "$@"
+    $0 init-devel "$@"
     [ "$(which node 2>/dev/null)" = "" ] && (cd $BKJS_HOME && sudo -H -u $BKJS_USER $0 build-node -prefix $BKJS_PREFIX)
     (cd $BKJS_HOME && sudo -H -u $BKJS_USER $0 install-bkjs -args $BKJS_ARGS)
     (cd $BKJS_HOME/bin && ln -sf ../node_modules/$BKJS_MOD/bkjs && ln -sf ../node_modules/$BKJS_MOD/bkjs bksh)
@@ -181,28 +179,29 @@ case "$ARG" in
     ;;
 
   install-ec2)
-    $0 install -user ec2-user -home /home/ec2-user -prefix /home/ec2-user
+    $0 install -user ec2-user -home /home/ec2-user -prefix /home/ec2-user "$@"
     ;;
 
   init-server)
     echo "Installing in $BKJS_HOME for $BKJS_USER with prefix $BKJS_PREFIX ..."
 
     # Install required packages and utilities
-    ($0 init-packages)
+    ($0 init-packages "$@")
 
-    ($0 init-hostname)
-    ($0 init-ssh)
-    ($0 init-user)
-    ($0 init-system)
-    ($0 init-service)
-    ($0 init-monit-system)
-    ($0 init-monit-bkjs)
-    ($0 init-logrotate)
-    ($0 init-rsyslog)
-    ($0 init-home)
+    ($0 init-hostname "$@")
+    ($0 init-ssh "$@")
+    ($0 init-user "$@")
+    ($0 init-system "$@")
+    ($0 init-service "$@")
+    ($0 init-monit-system "$@")
+    ($0 init-monit-bkjs "$@")
+    ($0 init-logrotate "$@")
+    ($0 init-rsyslog "$@")
+    ($0 init-home "$@")
 
     # Create global profile
     echo "BKJS_HOME=$BKJS_HOME" > /etc/sysconfig/$BKJS
+    [ "$BKJS_DOMAIN" != "" ] && echo "BKJS_DOMAIN=$BKJS_DOMAIN" >> /etc/sysconfig/$BKJS
     ;;
 
   init-hostname)
@@ -212,11 +211,13 @@ case "$ARG" in
        [ "$BKJS_HOST" = "" ] && exit
        BKJS_DOMAIN=$(uname -n|cut -d. -f2-)
     fi
-    hostname $BKJS_HOST.$BKJS_DOMAIN
-    echo $BKJS_HOST.$BKJS_DOMAIN > /etc/hostname
+    host=$BKJS_HOST.$BKJS_DOMAIN
+    [ "$(uname -n)" = "$host" ] && exit
+    echo "Configuring hostname $host ..."
+    hostname $host
+    echo $host > /etc/hostname
     if [ -f /etc/sysconfig/network ]; then
-       echo "Configuring hostname $BKJS_HOST.$BKJS_DOMAIN ..."
-       echo "HOSTNAME=$BKJS_HOST.$BKJS_DOMAIN" > /tmp/network
+       echo "HOSTNAME=$host" > /tmp/network
        grep -v HOSTNAME /etc/sysconfig/network >> /tmp/network
        mv /tmp/network /etc/sysconfig/network
     fi
@@ -501,11 +502,14 @@ case "$ARG" in
     $ECHO "set daemon 30 with start delay 60" > /etc/monit.d/system.conf
     $ECHO "check system localhost if loadavg(1min) > 5 for 10 cycles then exec \"$0 send-alert\"" >> /etc/monit.d/system.conf
     $ECHO "check filesystem rootfs with path / if space usage > 90% for 3 times within 5 cycles then exec exec \"$0 send-alert\"" >> /etc/monit.d/system.conf
+
+    alert=$(get_arg -alert_email)
+    [ "$alert" != "" ] && echo "set alert $alert" >> /etc/monit.d/system.conf
     monit reload
     ;;
 
   init-monit-bkjs)
-    $ECHO "check process $BKJS with pidfile \"$BKJS_HOME/var/master.pid\" start program = \"$0 start\" as uid $BKJS_USER and gid $BKJS_GROUP with timeout 60 seconds stop program = \"$0 stop\"" > /etc/monit.d/$BKJS.conf
+    $ECHO "check process $BKJS with pidfile \"$BKJS_HOME/var/master.pid\" start program = \"$0 start $@\" as uid $BKJS_USER and gid $BKJS_GROUP with timeout 60 seconds stop program = \"$0 stop\"" > /etc/monit.d/$BKJS.conf
     monit reload
     ;;
 
@@ -584,7 +588,9 @@ case "$ARG" in
     ip=$(ifconfig eth0|grep 'inet '|sed 's/addr://'|awk '{print $2}')
     msg=$($ECHO "ALERT: $host/$ip $event\n\n$descr\n\n$(df -h)\n\n$(top -bn1)")
     echo "$msg" >> $BKJS_HOME/log/error.log
-    [ "$BKJS_SNS" != "" ] && aws sns publish --region `echo $BKJS_SNS|awk -F: '{print $4}'` --topic-arn $BKJS_SNS --message "$msg"
+    region=$(get_arg -region $(curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone/|sed 's/[a-z]$//'))
+    [ "$region" != "" ] && topic=$(aws sns list-topics --region $region --output text|head -1|awk '{print $NF}')
+    [ "$topic" != "" ] && aws sns publish --region $region --topic-arn $topic --message "$msg"
     ;;
 
   run|run-master|run-monitor|run-watcher|run-shell|bkjs|bksh)
@@ -617,6 +623,12 @@ case "$ARG" in
         $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME "$@"
         ;;
     esac
+    ;;
+
+  run-setup)
+    # Setup domain from the config, keep the hostname as it is, for EC2 instances it is the IP address
+    [ "$BKJS_DOMAIN" != "" ] && $0 init-hostname -domain $BKJS_DOMAIN
+    $0 run-sync
     ;;
 
   run-sync)
@@ -845,17 +857,21 @@ case "$ARG" in
     sudo yum remove -y redis
     sudo yum install -y jemalloc
 
-    ver=$(get_arg -version 3.0.6)
+    ver=$(get_arg -version 3.0.7)
     curl -L -o redis.tgz http://download.redis.io/releases/redis-$ver.tar.gz
 
     mkdir -p redis
     tar -C redis --strip-components=1 -xzf redis.tgz
     make -C redis install PREFIX=$REDIS_PREFIX
-    sed -e 's|^# syslog-enabled no|syslog-enabled yes|' \
+    sed -r \
+        -e 's|^# syslog-enabled no|syslog-enabled yes|' \
         -e "s|^dir ./|dir $REDIS_PREFIX/var/|" \
         -e "s|^timeout 0|timeout 3600|" \
         -e "s|^pidfile /var/run/redis.pid|pidfile $REDIS_PREFIX/var/redis.pid|" \
         -e "s|^logfile \"\"|logfile $REDIS_PREFIX/log/redis.log|" \
+        -e "s|^tcp-keepalive .+|tcp-keepalive 60|" \
+        -e "s|^maxmemory-policy .+|maxmemory-policy volatile-lru|" \
+        -e "s|^# maxmemory-policy .+|maxmemory-policy volatile-lru|" \
         -e 's|^daemonize no|daemonize yes|' redis/redis.conf > $REDIS_PREFIX/etc/redis.conf
     rm -rf redis redis.tgz
     ;;
@@ -872,11 +888,18 @@ case "$ARG" in
        echo 'echo never > /sys/kernel/mm/transparent_hugepage/enabled' >> /etc/rc.local
     fi
     $ECHO "/home/ec2-user/log/redis.log {\n  weekly\n  rotate 10\n  copytruncate\n  delaycompress\n  compress\n  notifempty\n  missingok\n}" > /etc/logrotate.d/redis
-    $ECHO "check process redis-server with pidfile \"$REDIS_PREFIX/var/redis.pid\" start program = \"$0 run-redis\" as uid $BKJS_USER and gid $BKJS_GROUP stop program = \"$0 stop-redis\"" > /etc/monit.d/redis.conf
+    $ECHO "check process redis-server with pidfile \"$REDIS_PREFIX/var/redis.pid\" start program = \"$0 run-redis $@\" as uid $BKJS_USER and gid $BKJS_GROUP stop program = \"$0 stop-redis\"" > /etc/monit.d/redis.conf
     monit reload
     ;;
 
   run-redis)
+    # Percent from the total memory
+    memsize=$(get_arg -memsize)
+    [ "$memsize" != "" ] && memmax="$(( ($(free -m|grep Mem:|awk '{print $2}') * $memsize) / 100 ))mb"
+    memmax=$(get_arg -memmax $memmax)
+    if [ "$memmax" != "" ]; then
+       sed -r -i -e "s|^maxmemory .+|maxmemory $memmax|" -e "s|^# maxmemory .+|maxmemory $memmax|" $REDIS_PREFIX/etc/redis.conf
+    fi
     $REDIS_PREFIX/bin/redis-server $REDIS_PREFIX/etc/redis.conf
     ;;
 
@@ -971,7 +994,7 @@ case "$ARG" in
   get-elasticsearch)
     if [ ! -d $ELASTICSEARCH_PREFIX ]; then
         mkdir -p $ELASTICSEARCH_PREFIX
-        curl -L -o es.tgz https://download.elasticsearch.org/elasticsearch/release/org/elasticsearch/distribution/tar/elasticsearch/2.1.1/elasticsearch-2.1.1.tar.gz
+        curl -L -o es.tgz https://download.elasticsearch.org/elasticsearch/release/org/elasticsearch/distribution/tar/elasticsearch/2.2.0/elasticsearch-2.2.0.tar.gz
         tar -C $ELASTICSEARCH_PREFIX --strip-components=1 -xzf es.tgz
         rm -rf es.tgz
         cd $ELASTICSEARCH_PREFIX
@@ -1000,10 +1023,13 @@ case "$ARG" in
 
   run-elasticsearch)
     # Percent from the total memory
-    size=$(get_arg -size)
-    [ "$size" != "" ] && max=$(( ($(free -m|grep Mem:|awk '{print $2}') * $size) / 100 ))
-    max=$(get_arg -max $max)
-    [ "$max" != "" ] && export ES_MAX_MEM=$max
+    memsize=$(get_arg -memsize)
+    [ "$size" != "" ] && memmax="$(( ($(free -m|grep Mem:|awk '{print $2}') * $memsize) / 100 ))m"
+    memmax=$(get_arg -memmax $memmax)
+    if [ "$memmax" != "" ]; then
+       export ES_MAX_MEM=$memmax
+       $SED "s/ES_MAX_MEM=[0-9]+(g|m)?/ES_MAX_MEM=$memmax/" $ELASTICSEARCH_PREFIX/bin/elasticsearch.in.sh
+    fi
     $ELASTICSEARCH_PREFIX/bin/elasticsearch -Des.path.logs=$BKJS_HOME/log -p $BKJS_HOME/var/elasticsearch.pid -d >>$BKJS_HOME/log/message.log 2>&1
     ;;
 
@@ -1290,7 +1316,7 @@ EOF
     echo "  init-logrotate - setup logrotate for the backend log files"
     echo "  init-rsyslog - setup rsyslog to use for the backend logging, access log and backend log"
     echo "  init-system - setup system wide parameters, tuniing, limits, permissions"
-    echo "  init-monit-system - setup system monitoring with monit, CPU, disk, send alert via send-aler command"
+    echo "  init-monit-system [-alert EMAIL] - setup system monitoring with monit, CPU, disk, send alert via '$0 send-alert' command"
     echo "  init-monit-bkjs - setup monit to keep $BKJS service running without using any other services and monitor"
     echo "  init-postfix - [-domain DOMAIN] install and configure postfix for the domain"
     echo "  init-dns - install and setup dnsmasq for local cahching DNS server"
@@ -1304,6 +1330,7 @@ EOF
     echo "  init-app - create application skeleton for an application based on the backend, app name can be specified as the first argument"
     echo "  send-alert [-event EVENT] [-descr DESCR] - send alert message to the error log and SNS topic if configured in \$BKJS_SNS variable, if called from monit event/descr will be provided"
     echo "  run-logwatcher - executes the log watcher"
+    echo "  run-setup - it is run just before the server to set the domain, sync and other tasks"
     echo "  run-server - run the backend server process, this command is supposed to be run on system startup by start command"
     echo "  run-shell - run backend REPL in the current backend directory, works with the backend core or local app.js application"
     echo "  run-backend - run local backend server or the app.js if present, all command line params will be passed to the backend.js"
@@ -1318,8 +1345,8 @@ EOF
     echo "  stop-pgsql - stop local PostgreSQL server"
     echo "  get-redis - install Redis server into $REDIS_PREFIX, removes current redis package if installed (Linux only)"
     echo "  init-redis - install and setup Redis server to be run on start and to be monitored (Linux only)"
-    echo "  init-redis-service - setup Redis server to be run on start and to be monitored (Linux only)"
-    echo "  run-redis - run local Redis server, uses config file $REDIS_CONF"
+    echo "  init-redis-service [-memsize PERCENT] [-memmax SIZE] - setup Redis server to be run on start and to be monitored (Linux only)"
+    echo "  run-redis [-memsize PERCENT] [-memmax SIZE] - run local Redis server, uses config file $REDIS_CONF"
     echo "  stop-redis - stop local Redis server"
     echo "  init-dynamodb - download and install local DynamoDB, start the server"
     echo "  get-dynamodb - install local DynamoDB server in $BKJS_PREFIX/dynamodb"
@@ -1329,10 +1356,10 @@ EOF
     echo "  init-cassandra [-db DB] - download and initialize Cassandra, create initial keyspace, run the server"
     echo "  run-cassandra - run local Cassandra server installed in $CASSANDRA_PREFIX, data files in $CASSANDRA_DIR"
     echo "  stop-cassandra - stop local Cassandra server"
-    echo "  init-elasticsearch - download and install local ElasticSearch, start the server, configure monit"
-    echo "  init-elasticsearch-service - setup monit to keep elasticsearch service running"
     echo "  get-elasticsearch - install local ElasticSearch server in $BKJS_PREFIX/elasticsearch"
-    echo "  run-elasticsearch [-size PERCENT] [-max SIZE] - run local ElasticSearch server installed in $BKJS_PREFIX/elasticsearch, -max is max heap size, -size is percent of memory to use from the total"
+    echo "  init-elasticsearch - download and install local ElasticSearch, start the server, configure monit"
+    echo "  init-elasticsearch-service [-memsize PERCENT] [-memmax SIZE] - setup monit to keep elasticsearch service running"
+    echo "  run-elasticsearch [-memsize PERCENT] [-memmax SIZE] - run local ElasticSearch server installed in $BKJS_PREFIX/elasticsearch, -memmax is max heap size, -memsize is the percent of the total memory to use"
     echo "  stop-elasticsearch - stop local ElasticSearch server"
     echo "  init-mysql [-db DB] - setup MySQL server for development and create initial database, start the server"
     echo "  run-mysql - run local MySQL server installed in $MYSQL_DIR"
@@ -1352,6 +1379,7 @@ EOF
     echo "if any of the commands below is specified it is exetued and then exit, otherwise bksh launches interactive shell"
     echo ""
     echo "  -show-info - show app and version information"
+    echo "  -account-get ID|LOGIN ... - show accounts by id or login"
     echo "  -account-add [-scramble] login LOGIN secret SECRET [name NAME] [email EMAIL] [type TYPE] ... - add a new user for API access, any property from bk_account can be passed in the form: name value, if -scramble is given, store HMAC for login/secret, not real values "
     echo "  -account-update [-scramble] [login LOGIN|id ID] [name NAME] [email EMAIL] [type TYPE] ... - update existing user properties, any property from bk_account can be passed in the form: name value "
     echo "  -account-del [login LOGIN|id ID] [-keep message] [-keep location]... - delete a new user, 'keep TABLE' tells which records to keep the TABLE being account tables without bk_ prefix, one of auth,counter,account,location,connection,message,icon"

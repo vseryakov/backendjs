@@ -72,13 +72,6 @@ shell.getArgs = function()
     return query;
 }
 
-// Returns an object with all command line params starting with dash set with the value if the next param does not start with dash or 1,
-// this is API query emulation and only known API parameters will be set, all other config options must be handled by each command separately
-shell.getOptions = function()
-{
-    return api.getOptions({ query: this.getArgs(), options: { path: ["", "", ""], ops: {} } });
-}
-
 // Return first available value for the given name, options first, then command arg and then default
 shell.getArg = function(name, options, dflt)
 {
@@ -113,7 +106,6 @@ shell.isArg = function(name, options)
 // - all other values will result in returning from the run assuming the command will decide what to do, exit or continue running, no REPL is created
 shell.run = function(options)
 {
-    var self = this;
     process.title = core.name + ": shell";
 
     logger.debug('startShell:', process.argv);
@@ -126,8 +118,8 @@ shell.run = function(options)
         for (var i = 1; i < process.argv.length; i++) {
             if (process.argv[i][0] != '-') continue;
             var name = lib.toCamel("cmd" + process.argv[i]);
-            if (typeof self[name] != "function") continue;
-            var rc = self[name](options);
+            if (typeof shell[name] != "function") continue;
+            var rc = shell[name](options);
             if (rc == "stop") break;
             if (rc == "continue") continue;
             return;
@@ -169,31 +161,61 @@ shell.cmdTestRun = function(options)
     tests.run();
 }
 
+// Show account records by id or login
+shell.cmdAccountGet = function(options)
+{
+    lib.forEachSeries(process.argv.slice(2), function(id, next) {
+        if (id.match(/^[-\/]/)) return next();
+        db.get("bk_account", { id: id }, function(err, user) {
+            if (user) {
+                db.get("bk_auth", { login: user.login }, function(err, auth) {
+                    user.bk_auth = auth;
+                    console.log(user);
+                    next();
+                });
+            } else {
+                db.get("bk_auth", { login: id }, function(err, auth) {
+                    if (!auth) return next();
+                    db.get("bk_account", { id: auth.id }, function(err, user) {
+                        if (!user) {
+                            console.log(auth);
+                        } else {
+                            user.bk_auth = auth;
+                            console.log(user);
+                        }
+                        next();
+                    });
+                });
+            }
+        });
+    }, function(err) {
+        shell.exit(err);
+    });
+}
+
 // Add a user
 shell.cmdAccountAdd = function(options)
 {
-    var self = this;
     if (!core.modules.accounts) exit("accounts module not loaded");
     var query = this.getQuery();
-    var opts = this.getOptions();
+    var opts = api.getOptions({ query: this.getArgs(), options: { path: ["", "", ""], ops: {} } });
     if (lib.isArg("-scramble")) opts.scramble = 1;
     if (query.login && !query.name) query.name = query.login;
     core.modules.accounts.addAccount({ query: query, account: { type: 'admin' } }, opts, function(err, data) {
-        self.exit(err, data);
+        shell.exit(err, data);
     });
 }
 
 // Delete a user and all its history according to the options
 shell.cmdAccountUpdate = function(options)
 {
-    var self = this;
     if (!core.modules.accounts) this.exit("accounts module not loaded");
     var query = this.getQuery();
-    var opts = this.getOptions();
+    var opts = api.getOptions({ query: this.getArgs(), options: { path: ["", "", ""], ops: {} } });
     if (lib.isArg("-scramble")) opts.scramble = 1;
     this.getUser(query, function(row) {
         core.modules.accounts.updateAccount({ account: row, query: query }, opts, function(err, data) {
-            self.exit(err, data);
+            shell.exit(err, data);
         });
     });
 }
@@ -201,17 +223,16 @@ shell.cmdAccountUpdate = function(options)
 // Delete a user and all its history according to the options
 shell.cmdAccountDel = function(options)
 {
-    var self = this;
     if (!core.modules.accounts) this.exit("accounts module not loaded");
     var query = this.getQuery();
-    var opts = this.getOptions();
+    var opts = api.getOptions({ query: this.getArgs(), options: { path: ["", "", ""], ops: {} } });
     for (var i = 1; i < process.argv.length - 1; i += 2) {
         if (process.argv[i] == "-keep") opts[process.argv[i + 1]] = 1;
     }
     this.getUser(query, function(row) {
         opts.id = row.id;
         core.modules.accounts.deleteAccount({ account: opts }, function(err) {
-            self.exit(err);
+            shell.exit(err);
         });
     });
 }
@@ -219,12 +240,11 @@ shell.cmdAccountDel = function(options)
 // Update location
 shell.cmdLocationPut = function(options)
 {
-    var self = this;
     if (!core.modules.locations) this.exit("locations module not loaded");
     var query = this.getQuery();
     this.getUser(query, function(row) {
         core.modules.locations.putLocation({ account: row, query: query }, {}, function(err, data) {
-            self.exit(err, data);
+            shell.exit(err, data);
         });
     });
 }
@@ -232,16 +252,14 @@ shell.cmdLocationPut = function(options)
 // Run logwatcher and exit
 shell.cmdLogWatch = function(options)
 {
-    var self = this;
     core.watchLogs(function(err) {
-        self.exit(err);
+        shell.exit(err);
     });
 }
 
 // Show all config parameters
 shell.cmdDbGetConfig = function(options)
 {
-    var self = this;
     var opts = this.getQuery();
     var sep = lib.getArg("-separator", "=");
     var fmt = lib.getArg("-format");
@@ -251,7 +269,7 @@ shell.cmdDbGetConfig = function(options)
         } else {
             console.log(JSON.stringify(data));
         }
-        self.exit(err);
+        shell.exit(err);
     });
 }
 
@@ -267,7 +285,6 @@ shell.cmdDbTables = function(options)
 // Show record that match the search criteria, return up to `-count N` records
 shell.cmdDbSelect = function(options)
 {
-    var self = this;
     var query = this.getQuery();
     var opts = this.getArgs();
     var table = lib.getArg("-table");
@@ -282,14 +299,13 @@ shell.cmdDbSelect = function(options)
                 data.forEach(function(x) { console.log(JSON.stringify(x)) });
             }
         }
-        self.exit(err);
+        shell.exit(err);
     });
 }
 
 // Show all records that match search criteria
 shell.cmdDbScan = function(options)
 {
-    var self = this;
     var query = this.getQuery();
     var opts = this.getArgs();
     var table = lib.getArg("-table");
@@ -304,20 +320,20 @@ shell.cmdDbScan = function(options)
         }
         next();
     }, function(err) {
-        self.exit(err);
+        shell.exit(err);
     });
 }
 
 // Save all tables to the specified directory or the server home
 shell.cmdDbBackup = function(options)
 {
-    var self = this;
     var opts = this.getArgs();
     var query = this.getQuery();
     var root = lib.getArg("-path");
     var filter = lib.getArg("-filter");
     var tables = lib.strSplit(lib.getArg("-tables"));
     var skip = lib.strSplit(lib.getArg("-skip"));
+    opts.fullscan = 1;
     if (!opts.useCapacity) opts.useCapacity = "read";
     if (!opts.factorCapacity) opts.factorCapacity = 0.25;
     if (!tables.length) tables = db.getPoolTables(db.pool, { names: 1 });
@@ -334,14 +350,13 @@ shell.cmdDbBackup = function(options)
         });
     }, function(err) {
         logger.info("dbBackup:", root, tables, opts);
-        self.exit(err);
+        shell.exit(err);
     });
 }
 
 // Restore tables
 shell.cmdDbRestore = function(options)
 {
-    var self = this;
     var opts = this.getArgs();
     var root = lib.getArg("-path");
     var filter = lib.getArg("-filter");
@@ -394,14 +409,13 @@ shell.cmdDbRestore = function(options)
             }], next3);
     }, function(err) {
         logger.info("dbRestore:", root, tables || files, opts);
-        self.exit(err);
+        shell.exit(err);
     });
 }
 
 // Put config entry
 shell.cmdDbGet = function(options)
 {
-    var self = this;
     var query = this.getQuery();
     var opts = this.getArgs();
     var table = lib.getArg("-table");
@@ -416,68 +430,63 @@ shell.cmdDbGet = function(options)
                 console.log(JSON.stringify(data));
             }
         }
-        self.exit(err);
+        shell.exit(err);
     });
 }
 
 // Put a record
 shell.cmdDbPut = function(options)
 {
-    var self = this;
     var query = this.getQuery();
     var opts = this.getArgs();
     var table = lib.getArg("-table");
     db.put(table, query, opts, function(err, data) {
-        self.exit(err);
+        shell.exit(err);
     });
 }
 
 // Delete a record
 shell.cmdDbDel = function(options)
 {
-    var self = this;
     var query = this.getQuery();
     var opts = this.getArgs();
     var table = lib.getArg("-table");
     db.del(table, query, opts, function(err, data) {
-        self.exit(err);
+        shell.exit(err);
     });
 }
 
 // Delete all records
 shell.cmdDbDelAll = function(options)
 {
-    var self = this;
     var query = this.getQuery();
     var opts = this.getArgs();
     var table = lib.getArg("-table");
     db.delAll(table, query, opts, function(err, data) {
-        self.exit(err);
+        shell.exit(err);
     });
 }
 
 // Drop a table
 shell.cmdDbDrop = function(options)
 {
-    var self = this;
     var opts = this.getArgs();
     var table = lib.getArg("-table");
     db.drop(table, opts, function(err, data) {
-        self.exit(err);
+        shell.exit(err);
     });
 }
 
 // Send API request
 shell.cmdSendRequest = function(options)
 {
-    var self = this;
     var query = this.getQuery();
     var url = lib.getArg("-url");
     var id = lib.getArg("-id");
     var login = lib.getArg("-login");
     this.getUser({ id: id, login: login }, function(row) {
         core.sendRequest({ url: url, login: row.login, secret: row.secret, query: query }, function(err, params) {
-            self.exit(err, params.obj);
+            shell.exit(err, params.obj);
         });
     });
 }
@@ -498,10 +507,9 @@ shell.awsCheckTags = function(obj, name)
 // Return matched subnet ids by availability zone and/or name pattern
 shell.awsFilterSubnets = function(subnets, zone, name)
 {
-    var self = this;
     return subnets.filter(function(x) {
         if (zone && zone != x.availablityZone && zone != x.availabilityZone.split("-").pop()) return 0;
-        return name ? self.awsCheckTags(x, name) : 1;
+        return name ? shell.awsCheckTags(x, name) : 1;
     }).map(function(x) {
         return x.subnetId;
     });
@@ -595,36 +603,35 @@ shell.getElbCount = function(name, equal, total, options, callback)
 // Launch instances by run mode and/or other criteria
 shell.launchInstances = function(options, callback)
 {
-    var self = this;
     var subnets = [], instances = [], cloudInit = "";
-    var appName = self.getArg("-app-name", options, core.appName);
-    var appVersion = self.getArg("-app-version", options, core.appVersion);
-    var userData = self.getArg("-user-data", options);
-    var runCmd = self.getArgList("-cloudinit-cmd", options);
+    var appName = this.getArg("-app-name", options, core.appName);
+    var appVersion = this.getArg("-app-version", options, core.appVersion);
+    var userData = this.getArg("-user-data", options);
+    var runCmd = this.getArgList("-cloudinit-cmd", options);
     if (runCmd.length) cloudInit += "runcmd:\n" + runCmd.map(function(x) { return " - " + x }).join("\n") + "\n";
-    var hostName = self.getArg("-host-name", options);
+    var hostName = this.getArg("-host-name", options);
     if (hostName) cloudInit += "hostname: " + hostName + "\n";
-    var user = self.getArg("-user", options, "ec2-user");
-    var bkjsCmd = self.getArgList("-bkjs-cmd", options);
+    var user = this.getArg("-user", options, "ec2-user");
+    var bkjsCmd = this.getArgList("-bkjs-cmd", options);
     if (bkjsCmd.length) cloudInit += "runcmd:\n" + bkjsCmd.map(function(x) { return " - /home/" + user + "/bin/bkjs " + x }).join("\n") + "\n";
     if (!userData && cloudInit) userData = "#cloudconfig\n" + cloudInit; else
     if (userData.match(/^#cloudconfig/)) userData += "\n" + cloudInit;
 
     var req = {
-        name: self.getArg("-name", options, appName + "-" + appVersion),
-        count: self.getArgInt("-count", options, 1),
-        vpcId: self.getArg("-vpc-id", options, aws.vpcId),
-        instanceType: self.getArg("-instance-type", options, aws.instanceType),
-        imageId: self.getArg("-image-id", options, aws.imageId),
-        subnetId: self.getArg("-subnet-id", options, aws.subnetId),
-        keyName: self.getArg("-key-name", options, aws.keyName) || appName,
-        elbName: self.getArg("-elb-name", options, aws.elbName),
-        elasticIp: self.getArg("-elastic-ip", options),
-        publicIp: self.getArg("-public-ip", options),
-        groupId: self.getArg("-group-id", options, aws.groupId),
-        iamProfile: self.getArg("-ami-profile", options, aws.iamProfile) || appName,
-        availabilityZone: self.getArg("-availability-zone"),
-        terminate: self.isArg("-no-terminate", options) ? 0 : 1,
+        name: this.getArg("-name", options, appName + "-" + appVersion),
+        count: this.getArgInt("-count", options, 1),
+        vpcId: this.getArg("-vpc-id", options, aws.vpcId),
+        instanceType: this.getArg("-instance-type", options, aws.instanceType),
+        imageId: this.getArg("-image-id", options, aws.imageId),
+        subnetId: this.getArg("-subnet-id", options, aws.subnetId),
+        keyName: this.getArg("-key-name", options, aws.keyName) || appName,
+        elbName: this.getArg("-elb-name", options, aws.elbName),
+        elasticIp: this.getArg("-elastic-ip", options),
+        publicIp: this.getArg("-public-ip", options),
+        groupId: this.getArg("-group-id", options, aws.groupId),
+        iamProfile: this.getArg("-ami-profile", options, aws.iamProfile) || appName,
+        availabilityZone: this.getArg("-availability-zone"),
+        terminate: this.isArg("-no-terminate", options) ? 0 : 1,
         alarms: [],
         data: userData,
     };
@@ -633,8 +640,8 @@ shell.launchInstances = function(options, callback)
     lib.series([
        function(next) {
            if (req.imageId) return next();
-           var imageName = self.getArg("-image-name", options, '*');
-           self.getSelfImages(imageName, function(err, rc) {
+           var imageName = shell.getArg("-image-name", options, '*');
+           shell.getSelfImages(imageName, function(err, rc) {
                if (err) return next(err);
 
                // Give preference to the images with the same app name
@@ -651,7 +658,7 @@ shell.launchInstances = function(options, callback)
        },
        function(next) {
            if (req.groupId) return next();
-           var filter = self.getArg("-group-name", options, appName + "|^default$");
+           var filter = shell.getArg("-group-name", options, appName + "|^default$");
            aws.ec2DescribeSecurityGroups({ filter: filter }, function(err, rc) {
                if (!err) req.groupId = rc.map(function(x) { return x.groupId });
                next(err);
@@ -659,7 +666,7 @@ shell.launchInstances = function(options, callback)
        },
        function(next) {
            // Verify load balancer name
-           if (self.isArg("-no-elb", options)) return next();
+           if (shell.isArg("-no-elb", options)) return next();
            aws.queryELB("DescribeLoadBalancers", {}, function(err, rc) {
                if (err) return next(err);
 
@@ -674,19 +681,19 @@ shell.launchInstances = function(options, callback)
        },
        function(next) {
            // Create CloudWatch alarms, find SNS topic by name
-           var alarmName = self.getArg("-alarm-name", options);
+           var alarmName = shell.getArg("-alarm-name", options);
            if (!alarmName) return next();
            aws.snsListTopics(function(err, topics) {
                var topic = new RegExp(alarmName, "i");
                topic = topics.filter(function(x) { return x.match(topic); }).pop();
                if (!topic) return next(err);
                req.alarms.push({ metric:"CPUUtilization",
-                               threshold:self.getArgInt("-cpu-threshold", options, 80),
-                               evaluationPeriods:self.getArgInt("-periods", options, 3),
+                               threshold: shell.getArgInt("-cpu-threshold", options, 80),
+                               evaluationPeriods: shell.getArgInt("-periods", options, 3),
                                alarm:topic });
                req.alarms.push({ metric:"NetworkOut",
-                               threshold:self.getArgInt("-net-threshold", options, 8000000),
-                               evaluationPeriods:self.getArgInt("-periods", options, 3),
+                               threshold: shell.getArgInt("-net-threshold", options, 8000000),
+                               evaluationPeriods: shell.getArgInt("-periods", options, 3),
                                alarm:topic });
                req.alarms.push({ metric:"StatusCheckFailed",
                                threshold: 1,
@@ -705,17 +712,17 @@ shell.launchInstances = function(options, callback)
            });
        },
        function(next) {
-           var zone = self.getArg("-zone");
+           var zone = shell.getArg("-zone");
            if (req.subnetId) {
                subnets.push(req.subnetId);
            } else
            // Same amount of instances in each subnet
-           if (self.isArg("-subnet-each", options)) {
-               subnets = self.awsFilterSubnets(subnets, zone, self.getArg("-subnet-name", options, appName));
+           if (shell.isArg("-subnet-each", options)) {
+               subnets = shell.awsFilterSubnets(subnets, zone, shell.getArg("-subnet-name", options, appName));
            } else
            // Split between all subnets
-           if (self.isArg("-subnet-split", options)) {
-               subnets = self.awsFilterSubnets(subnets, zone, self.getArg("-subnet-name", options, appName));
+           if (shell.isArg("-subnet-split", options)) {
+               subnets = shell.awsFilterSubnets(subnets, zone, shell.getArg("-subnet-name", options, appName));
                if (count <= subnets.length) {
                    subnets = subnets.slice(0, count);
                } else {
@@ -725,7 +732,7 @@ shell.launchInstances = function(options, callback)
                options.count = 1;
            } else {
                // Random subnet
-               subnets = self.awsFilterSubnets(subnets, zone, self.getArg("-subnet-name", options, appName));
+               subnets = shell.awsFilterSubnets(subnets, zone, shell.getArg("-subnet-name", options, appName));
                subnets = [ subnets[lib.randomInt(0, subnets.length - 1)] ];
            }
 
@@ -745,11 +752,11 @@ shell.launchInstances = function(options, callback)
        },
        function(next) {
            if (instances.length) logger.log(instances.map(function(x) { return [ x.instanceId, x.privateIpAddress || "", x.publicIpAddress || "" ] }));
-           if (!self.isArg("-wait", options)) return next();
+           if (!shell.isArg("-wait", options)) return next();
            if (instances.length != 1) return next();
            aws.ec2WaitForInstance(instances[0].instanceId, "running",
-                                  { waitTimeout: self.getArgInt("-wait-timeout", options, 600000),
-                                    waitDelay: self.getArgInt("-wait-delay", options, 30000) },
+                                  { waitTimeout: shell.getArgInt("-wait-timeout", options, 600000),
+                                    waitDelay: shell.getArgInt("-wait-delay", options, 30000) },
                                   next);
        },
        ], callback);
@@ -808,14 +815,13 @@ shell.cmdAwsShowGroups = function(options)
 // Delete an AMI with the snapshot
 shell.cmdAwsDeleteImage = function(options)
 {
-    var self = this;
     var filter = this.getArg("-filter");
     if (!filter) shell.exit("-filter is required");
     var images = [];
 
     lib.series([
        function(next) {
-           self.getSelfImages(filter, function(err, list) {
+           shell.getSelfImages(filter, function(err, list) {
                if (!err) images = list;
                next(err);
            });
@@ -850,7 +856,6 @@ shell.cmdAwsCreateImage = function(options)
 // Reboot instances by run mode and/or other criteria
 shell.cmdAwsRebootInstances = function(options)
 {
-    var self = this;
     var instances = [];
     var filter = this.getArg("-filter");
     if (!filter) shell.exit("-filter is required");
@@ -860,7 +865,7 @@ shell.cmdAwsRebootInstances = function(options)
            var req = { "Filter.1.Name": "instance-state-name", "Filter.1.Value.1": "running", "Filter.2.Name": "tag:Name", "Filter.2.Value.1": filter };
            logger.debug("RebootInstances:", req)
            aws.queryEC2("DescribeInstances", req, function(err, rc) {
-               instances = self.awsGetInstances(rc).map(function(x) { return x.instanceId });
+               instances = shell.awsGetInstances(rc).map(function(x) { return x.instanceId });
                next(err);
            });
        },
@@ -873,14 +878,13 @@ shell.cmdAwsRebootInstances = function(options)
            aws.queryEC2("RebootInstances", req, next);
        },
        ], function(err) {
-           self.exit(err);
+           shell.exit(err);
        });
 }
 
 // Terminate instances by run mode and/or other criteria
 shell.cmdAwsTerminateInstances = function(options)
 {
-    var self = this;
     var instances = [];
     var filter = this.getArg("-filter");
     if (!filter) shell.exit("-filter is required");
@@ -890,7 +894,7 @@ shell.cmdAwsTerminateInstances = function(options)
            var req = { "Filter.1.Name": "instance-state-name", "Filter.1.Value.1": "running", "Filter.2.Name": "tag:Name", "Filter.2.Value.1": filter };
            logger.debug("terminateInstances:", req)
            aws.queryEC2("DescribeInstances", req, function(err, rc) {
-               instances = self.awsGetInstances(rc).map(function(x) { return x.instanceId });
+               instances = shell.awsGetInstances(rc).map(function(x) { return x.instanceId });
                next(err);
            });
        },
@@ -903,14 +907,13 @@ shell.cmdAwsTerminateInstances = function(options)
            aws.queryEC2("TerminateInstances", req, next);
        },
        ], function(err) {
-           self.exit(err);
+           shell.exit(err);
        });
 }
 
 // Show running instances by run mode and/or other criteria
 shell.cmdAwsShowInstances = function(options)
 {
-    var self = this;
     var instances = [];
     var filter = this.getArg("-filter");
 
@@ -920,7 +923,7 @@ shell.cmdAwsShowInstances = function(options)
                        "Filter.2.Name": "instance-state-name", "Filter.2.Value.1": "running", }
            logger.debug("showInstances:", req);
            aws.queryEC2("DescribeInstances", req, function(err, rc) {
-               instances = self.awsGetInstances(rc);
+               instances = shell.awsGetInstances(rc);
                next(err);
            });
        },
@@ -934,14 +937,13 @@ shell.cmdAwsShowInstances = function(options)
            next();
        },
        ], function(err) {
-           self.exit(err);
+           shell.exit(err);
        });
 }
 
 // Show ELB running instances
 shell.cmdAwsShowElb = function(options)
 {
-    var self = this;
     var elbName = this.getArg("-elb-name", options, aws.elbName);
     if (!elbName) shell.exit("ERROR: -aws-elb-name or -elb-name must be specified")
     var instances = [];
@@ -959,7 +961,7 @@ shell.cmdAwsShowElb = function(options)
            var req = {};
            instances.forEach(function(x, i) { req["InstanceId." + (i + 1)] = x.InstanceId });
            aws.queryEC2("DescribeInstances", req, function(err, rc) {
-               var list = self.awsGetInstances(rc);
+               var list = shell.awsGetInstances(rc);
                list.forEach(function(row) {
                    instances.forEach(function(x) {
                        if (x.InstanceId == row.instanceId) x.name = row.name;
@@ -979,14 +981,13 @@ shell.cmdAwsShowElb = function(options)
            next();
        },
        ], function(err) {
-           self.exit(err);
+           shell.exit(err);
        });
 }
 
 // Reboot instances in the ELB, one by one
 shell.cmdAwsRebootElb = function(options)
 {
-    var self = this;
     var elbName = this.getArg("-elb-name", options, aws.elbName);
     if (!elbName) shell.exit("ERROR: -aws-elb-name or -elb-name must be specified")
     var total = 0, instances = [];
@@ -1016,12 +1017,12 @@ shell.cmdAwsRebootElb = function(options)
        function(next) {
            if (lib.isArg("-dry-run")) return next();
            // Wait until one instance is out of service
-           self.getElbCount(elbName, 1, total, options, next);
+           shell.getElbCount(elbName, 1, total, options, next);
        },
        function(next) {
            if (lib.isArg("-dry-run")) return next();
            // Wait until all instances in service again
-           self.getElbCount(elbName, 0, total, options, next);
+           shell.getElbCount(elbName, 0, total, options, next);
        },
        function(next) {
            // Reboot the rest
@@ -1033,14 +1034,13 @@ shell.cmdAwsRebootElb = function(options)
            aws.queryEC2("RebootInstances", req, next);
        },
        ], function(err) {
-           self.exit(err);
+           shell.exit(err);
        });
 }
 
 // Deploy new version in the ELB, terminate the old version
 shell.cmdAwsReplaceElb = function(options)
 {
-    var self = this;
     var elbName = this.getArg("-elb-name", options, aws.elbName);
     if (!elbName) shell.exit("ERROR: -aws-elb-name or -elb-name must be specified")
     var total = 0, oldInstances = [], newInstances = [], oldInService = [];
@@ -1059,13 +1059,13 @@ shell.cmdAwsReplaceElb = function(options)
        function(next) {
            logger.log("ReplaceELB:", elbName, 'running:', oldInstances)
            // Launch new instances
-           self.launchInstances(options, next);
+           shell.launchInstances(options, next);
        },
        function(next) {
            newInstances = instances;
            if (lib.isArg("-dry-run")) return next();
            // Wait until all instances are online
-           self.getElbCount(elbName, 0, oldInService.length + newInstances.length, options, function(err, total, count) {
+           shell.getElbCount(elbName, 0, oldInService.length + newInstances.length, options, function(err, total, count) {
                if (!err && count != total) err = "Timeout waiting for instances";
                next(err);
            })
@@ -1080,7 +1080,7 @@ shell.cmdAwsReplaceElb = function(options)
            aws.queryEC2("TerminateInstances", req, next);
        },
        ], function(err) {
-           self.exit(err);
+           shell.exit(err);
        });
 }
 
@@ -1159,25 +1159,23 @@ shell.AwsSetupInstance = function(options)
 // Get file
 shell.cmdAwsS3Get = function(options)
 {
-    var self = this;
     var query = this.getQuery();
     var file = lib.getArg("-file");
     var uri = lib.getArg("-path");
     query.file = file || uri.split("?")[0].split("/").pop();
     aws.s3GetFile(uri, query, function(err, data) {
-        self.exit(err, data);
+        shell.exit(err, data);
     });
 }
 
 // Put file
 shell.cmdAwsS3Put = function(options)
 {
-    var self = this;
     var query = this.getQuery();
     var path = lib.getArg("-path");
     var uri = lib.getArg("-file");
     aws.s3PutFile(uri, file, query, function(err, data) {
-        self.exit(err, data);
+        shell.exit(err, data);
     });
 }
 

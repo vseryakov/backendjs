@@ -1402,6 +1402,8 @@ db.select = function(table, query, options, callback)
 //  - cached - if specified it runs getCached version
 //  - nocache - disable caching even if configured for the table
 //
+// NOTE: On return the `info.cached` will be set to 1 if the record was retrieved from cache or was put in the cache.
+//
 // Example
 //
 //          db.get("bk_account", { id: '12345' }, function(err, row) {
@@ -1417,8 +1419,8 @@ db.get = function(table, query, options, callback)
         return this.getCached("get", table, query, options, callback);
     }
     var req = this.prepare("get", table, query, options);
-    this.query(req, req.options, function(err, rows) {
-        callback(err, rows.length ? rows[0] : null);
+    this.query(req, req.options, function(err, rows, info) {
+        callback(err, rows.length ? rows[0] : null, info);
     });
 }
 
@@ -1823,6 +1825,7 @@ db.prepareForSelect = function(pool, req, orig)
         if (col.ops && col.ops[req.op] && !ops[p]) {
             req.options = lib.cloneObj(req.options, "__bk", 1);
             lib.objSet(req.options, ["ops", p], col.ops[req.op]);
+            ops = req.options.ops;
         }
 
         switch (ops[p]) {
@@ -1830,7 +1833,7 @@ db.prepareForSelect = function(pool, req, orig)
         case "between":
             if (!Array.isArray(req.obj[p])) {
                 if (req.obj[p]) {
-                    req.obj[p] = lib.strSplit(req.obj[p], null, col.type);
+                    req.obj[p] = lib.strSplitUnique(req.obj[p], null, col.type);
                 } else {
                     delete req.obj[p];
                 }
@@ -2355,13 +2358,14 @@ db.getCached = function(op, table, query, options, callback)
         // Parse errors treated as miss
         if (data) {
             pool.metrics.Counter("hits").inc();
-            return callback(null, data, {});
+            return callback(null, data, { cached: 1 });
         }
         pool.metrics.Counter("misses").inc();
         // Retrieve account from the database, use the parameters like in Select function
         self[op](table, query, options, function(err, data, info) {
             // Store in cache if no error
             if (data && !err) self.putCache(table, data, options);
+            info.cached = 1;
             callback(err, data, info);
         });
     });

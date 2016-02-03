@@ -59,10 +59,7 @@ var accounts = {
             status: { pub: 1 },                                // status, online, offline, away
             alias: { pub: 1 },
             atime: { type: "bigint", now: 1, pub: 1 },         // last access time
-            adtime: { type: "bigint" },                        // last daily access time
-            awtime: { type: "bigint" },                        // last weekly access time
-            amtime: { type: "bigint" },                        // last monthly access time
-            mtime: { type: "bigint", pub: 1 },                 // last status save to db time
+            mtime: { type: "bigint", pub: 1 },                 // last update time
         },
 
         // Account metrics, must correspond to `-api-url-metrics` settings, for images the default is first 2 path components
@@ -522,11 +519,11 @@ accounts.getStatus = function(id, options, callback)
         // Status feature is disabled, return immediately
         if (options.nostatus) return callback(null, { id: id, status: "", online: true, mtime: 0 });
 
-        db.get("bk_status", { id: id }, options, function(err, row) {
+        db.get("bk_status", { id: id }, options, function(err, row, info) {
             if (err) return callback(err);
             if (!row) row = { id: id, status: "", online: false, mtime: 0 };
             row.online = now - row.atime < self.statusInterval && row.status != "offline" ? true : false;
-            callback(err, row);
+            callback(err, row, info);
         });
     }
 }
@@ -534,50 +531,37 @@ accounts.getStatus = function(id, options, callback)
 // Maintain online status, update to db every status-interval seconds, if `options.check` is given only update db if last update happened
 // longer than `status-interval` milliseconds ago, keep atime up-to-date in the cache on every status update.
 //
-// On return the row will have a property `saved` if it was flushed to db.
+// On return and if it was flushed to db the `atime` will be equal to `mtime`.
 //
-// `oatime` and `omtime` will be set to the previous values of the corresponding time properties.
+// `otime` will be set to the previous old value of `atime`.
 //
 // *NOTE: All properties from the `obj` will be saved in the bk_status record, existing properties will be overriden*
 accounts.putStatus = function(obj, options, callback)
 {
     var self = this;
-    var now = Date.now();
 
     // Fake status or no status support but still can use the methods in order to enable/disable
     // on the fly without restarts
     if (options.nostatus) return callback(null, obj);
 
     // Read the current record, check is handled differently in put
-    self.getStatus(obj.id, options, function(err, row) {
+    self.getStatus(obj.id, options, function(err, row, info) {
         if (err) return callback(err);
 
         // Override properties except times
         for (var p in obj) {
-            if (!p.match(/^(a[dwm]?|m)time$/)) row[p] = obj[p];
+            if (!p.match(/^(mtime|atime$/)) row[p] = obj[p];
         }
+        row.otime = row.atime;
+        row.atime = Date.now();
 
-        // Keep current times
-        row.oatime = row.atime;
-        row.omtime = row.mtime;
-        row.oadtime = row.adtime || 0;
-        row.oawtime = row.awtime || 0;
-        row.oamtime = row.amtime || 0;
-
-        // Assign new times if needed
-        row.atime = now;
-        if (now - row.oadtime > 86400000) row.adtime = now;
-        if (now - row.oawtime > 86400000*7) row.awtime = now;
-        if (now - row.oamtime > 86400000*30) row.amtime = now;
-
-        // Do not update if we are within the interval since the last update
-        if (options.check && row.online && now - row.mtime < self.statusInterval) {
-            db.putCache("bk_status", row, options);
+        if (options.check && row.online && row.atime - row.mtime < self.statusInterval) {
+            // To keep the cache hot
+            if (info && info.cached) db.putCache("bk_status", row, options);
             return callback(err, row);
         }
 
-        row.saved = true;
-        row.mtime = now;
+        row.mtime = row.atime;
         db.put("bk_status", row, function(err) {
             callback(err, row);
         });
