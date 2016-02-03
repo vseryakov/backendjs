@@ -289,13 +289,15 @@ ec2-user    921  0.0  0.7 1072120 40721 ?  Sl   14:33   0:02 bkjs: worker
 </code></pre><p>To enable any task a command line parameter must be provided, it cannot be specified in the config file. The <code>bkjs</code> utility supports several
 commands that simplify running the backend in different modes.</p>
 <ul>
+<li><code>bkjs start</code> - this command is supposed to be run at the server startup as a service, it runs in the backgroud and the monitors all tasks,
+ the env variable <code>BKJS_SERVER</code> can be set in the profile to one of the <code>master or monitor</code> to define which run mode to use, default mode is monitor</li>
+<li><code>bkjs run-monitor</code> - this command is supposed to be run at the server startup, it runs in the backgroud and the monitors all processes,
+ the command line parameters are: <code>-daemon -monitor -master -syslog</code></li>
+<li><code>bkjs run-master</code> - this command is supposed to be run at the server startup, it runs in the backgroud and the monitors all processes,
+ the command line parameters are: <code>-daemon -monitor -master -syslog</code></li>
 <li><code>bkjs run-watcher</code> - runs the master and Web server in wather mode checking all source files for changes, this is the common command to be used
  in development, it passes the command line switches: <code>-watch -master</code></li>
-<li><code>bkjs run-server</code> - this command is supposed to be run at the server startup, it runs in the backgroud and the monitors all tasks,
- the command line parameters are: <code>-daemon -master -syslog</code></li>
-<li><code>bkjs run-monitor</code> - this command is supposed to be run at the server startup, it runs in the backgroud and the monitors all tasks,<pre><code>the command line parameters are: `-daemon -monitor -master -syslog`
-</code></pre></li>
-<li><code>bkjs run</code> - this command runs the master and Web server without any other parameters, all aditional parameters can be added in the command line, this command
+<li><code>bkjs run</code> - this command runs without other parameters, all aditional parameters can be added in the command line, this command
  is a barebone helper to be used with any other custom settings.</li>
 <li><code>bkjs run-shell</code> or <code>bksh</code> - start backendjs shell, no API or Web server is initialized, only the database pools</li>
 </ul>
@@ -843,7 +845,7 @@ On Linux, when started the bkjs tries to load and source the following config fi
 customize the running environment, these should be regular shell scripts using bash syntax.</p>
 <p>Most common used commands are:</p>
 <ul>
-<li>bkjs run-backend - run the backend or the app for development purposes, uses local app.js if exists otherwise runs generic server</li>
+<li>bkjs run-watcher - run the backend or the app for development purposes, uses local app.js if exists otherwise runs generic server</li>
 <li>bkjs run-shell - start REPL shell with the backend module loaded and available for use, all submodules are availablein the shell as well like core, db, api</li>
 <li>bkjs init-app - create the app skeleton</li>
 <li>bkjs put-backend [-path path] [-host host] [-user user] - sync sources of the app with the remote site, uses BKJS_HOST env variable for host if not specified in the command line, this is for developent version of the backend only</li>
@@ -4713,6 +4715,7 @@ Options can use the following special properties:</p>
 <li>cached - if specified it runs getCached version</li>
 <li>nocache - disable caching even if configured for the table</li>
 </ul>
+<p>NOTE: On return the <code>info.cached</code> will be set to 1 if the record was retrieved from cache or was put in the cache.</p>
 <p>Example</p>
 <pre><code>    db.get(&quot;bk_account&quot;, { id: &#39;12345&#39; }, function(err, row) {
        if (row) console.log(row.name);
@@ -7819,10 +7822,7 @@ and the property <code>delay</code> with number of milliseconds till the bucket 
           status: { pub: 1 },                                // status, online, offline, away
           alias: { pub: 1 },
           atime: { type: &quot;bigint&quot;, now: 1, pub: 1 },         // last access time
-          adtime: { type: &quot;bigint&quot; },                        // last daily access time
-          awtime: { type: &quot;bigint&quot; },                        // last weekly access time
-          amtime: { type: &quot;bigint&quot; },                        // last monthly access time
-          mtime: { type: &quot;bigint&quot;, pub: 1 },                 // last status save to db time
+          mtime: { type: &quot;bigint&quot;, pub: 1 },                 // last update time
       },
 
       // Account metrics, must correspond to `-api-url-metrics` settings, for images the default is first 2 path components
@@ -7965,8 +7965,8 @@ for other cases <code>status</code> property is not used, it is supposed for the
 <li><p><code>accounts.putStatus(obj, options, callback)</code></p>
 <p> Maintain online status, update to db every status-interval seconds, if <code>options.check</code> is given only update db if last update happened
 longer than <code>status-interval</code> milliseconds ago, keep atime up-to-date in the cache on every status update.</p>
-<p>On return the row will have a property <code>saved</code> if it was flushed to db.</p>
-<p><code>oatime</code> and <code>omtime</code> will be set to the previous values of the corresponding time properties.</p>
+<p>On return and if it was flushed to db the <code>atime</code> will be equal to <code>mtime</code>.</p>
+<p><code>otime</code> will be set to the previous old value of <code>atime</code>.</p>
 <p><em>NOTE: All properties from the <code>obj</code> will be saved in the bk_status record, existing properties will be overriden</em></p>
 </li>
 </ul>
@@ -8723,13 +8723,6 @@ is used in <code>/location/get</code> request. It can be used in the application
 </ul>
 
 <ul>
-<li><p><code>shell.getOptions()</code></p>
-<p> Returns an object with all command line params starting with dash set with the value if the next param does not start with dash or 1,
-this is API query emulation and only known API parameters will be set, all other config options must be handled by each command separately</p>
-</li>
-</ul>
-
-<ul>
 <li><p><code>shell.getArg(name, options, dflt)</code></p>
 <p> Return first available value for the given name, options first, then command arg and then default</p>
 </li>
@@ -8762,6 +8755,12 @@ A subcommand may return special string to indicate how to treat the flow:</p>
 <ul>
 <li><p><code>shell.cmdTestRun(options)</code></p>
 <p> Run a test command inside the shell</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.cmdAccountGet(options)</code></p>
+<p> Show account records by id or login</p>
 </li>
 </ul>
 
