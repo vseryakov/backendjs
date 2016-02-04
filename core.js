@@ -227,6 +227,7 @@ var core = {
             { name: "no-watch", type: "regexp", descr: "Files to be ignored by the wather" },
             { name: "locales", array: 1, type: "list", descr: "A list of locales to load from the locales/ directory, only language name must be specified, example: en,es. It enables internal support for `res.__` and `req.__` methods that can be used for translations, for each request the internal language header will be honored forst, then HTTP Accept-Language" },
             { name: "no-locales", type: "bool", descr: "Do not load locales on start" },
+            { name: "smtp-(.+)", obj: "smtp", make: "$1", descr: "SMTP server parameters, user, password, host, ssl, tls...see emailjs for details" },
     ],
 }
 
@@ -1065,7 +1066,7 @@ core.sendmail = function(options, callback)
         if (!options.text) options.text = "";
         if (!options.subject) options.subject = "";
         if (options.to) options.to += ",";
-        var server = emailjs.server.connect();
+        var server = emailjs.server.connect(this.smtp);
         server.send(options, function(err, message) {
             if (err) logger.error('sendmail:', err, options.from, options.to);
             if (typeof callback == "function") callback(err);

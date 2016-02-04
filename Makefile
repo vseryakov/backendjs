@@ -11,9 +11,6 @@ run:
 shell:
 	./bkjs run-shell
 
-tests:
-	for d in sqlite pgsql mysql dynamodb mongodb cassandra redis lmdb leveldb; do (node tests.js -test-cmd $(TEST) -db-pool $$d -log log); done
-
 pages:
 	git-new-workdir `pwd` ./pages gh-pages
 

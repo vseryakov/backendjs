@@ -145,20 +145,150 @@ shell.cmdShowInfo = function(options)
     this.exit();
 }
 
+// To be used in the tests, this function takes the following arguments:
+//
+// assert(next, err, failure, ....)
+//  - next is a callback to be called after printing error condition if any, it takes err as its argument
+//  - err - an error object from the most recent operation, can be null/undefined
+//  - failure - an flag that evaluates to true for an error condition to be raised, how it is calculated is
+//    up to the caller, assertion happens if an err is given or this value is true
+//  - all other arguments are printed in case of error or result being false
+//
+//  NOTE: In forever mode (-test-forever) any error is ignored and not reported
+//
+// Example
+//
+//          function(next) {
+//              db.get("bk_account", { id: "123" }, function(err, row) {
+//                  tests.assert(next, err, row && row.id == "123", "Record not found", row)
+//              });
+//          }
+shell.assert = function()
+{
+    var next = arguments[0], err = null;
+    if (this.test.forever) return next();
+
+    if (arguments[1] || arguments[2]) {
+        var args = [ arguments[1] || new Error("failed condition") ];
+        for (var i = 3; i < arguments.length; i++) args.push(arguments[i]);
+        logger.error(args);
+        err = args[0];
+    }
+    if (this.test.timeout) return setTimeout(function() { next(err) }, this.test.timeout);
+    next(err);
+}
+
+// Run the test function which is defined in the tests module, all arguments will be taken from the options or the command line. Options
+// use the same names as command line arguments without preceeding test- part.
+//
+// The common command line arguments that supported:
+// - -test-run - name of the function to run
+// - -test-workers - number of workers to run the test at the same time
+// - -test-delay - number of milliseconds before starting worker processes, default is 500ms
+// - -test-timeout - number of milliseconds between test steps, i.e. between invocations of the check
+// - -test-interval - number of milliseconds between iterations
+// - -test-iterations - how many times to run this test function, default is 1
+// - -test-forever - run forever without reporting any errors, for performance testing
+// - -test-file - a javascript file to be loaded with additional tests
+//
+// All other common command line arguments are used normally, like -db-pool to specify which db to use.
+//
+// After finish or in case of error the process exits if no callback is given.
+//
+// Example, store it in tests/tests.js:
+//
+//          var bkjs = require("backendjs");
+//          var tests = bkjs.core.modules.tests;
+//
+//          tests.test_mytest = function(next) {
+//             bkjs.db.get("bk_account", { id: "123" }, function(err, row) {
+//                 tests.check(next, err, row && row.id == "123", "Record not found", row)
+//             });
+//          }
+//
+//          # bksh -test-run mytest
+//
+//
+// Custom tests:
+//
+// - create a user for backend testing, if the API does not require authentication skip this step:
+//
+//           ./app.sh -shell -account-add login testuser secret testpw
+//
+//   - configure global backend credentials
+//
+//           echo "backend-login=testuser" >> etc/config.local
+//           echo "backend-secret=testpw" >> etc/config.local
+//
+// - to start a test command in the shell using local ./tests.js
+//
+//         ./app.sh -shell -test-run account
+//
+// - to start a test command in the shell using custom file with tests
+//
+//         ./app.sh -shell -test-run api -test-file tests/api.js
+//
+shell.cmdTestRun = function(options)
+{
+    var tests = shell;
+    core.addModule("tests", tests);
+
+    tests.test = { role: cluster.isMaster ? "master" : "worker", iterations: 0, stime: Date.now() };
+    tests.test.delay = tests.getArgInt("-test-delay", options, 500);
+    tests.test.countdown = tests.getArgInt("-test-iterations", options, 1);
+    tests.test.forever = tests.getArgInt("-test-forever", options, 0);
+    tests.test.timeout = tests.getArgInt("-test-timeout", options, 0);
+    tests.test.interval = tests.getArgInt("-test-interval", options, 0);
+    tests.test.keepmaster = tests.getArgInt("-test-keepmaster", options, 0);
+    tests.test.workers = tests.getArgInt("-test-workers", options, 0);
+    tests.test.cmd = tests.getArg("-test-run", options);
+    tests.test.file = tests.getArg("-test-file", options, "tests/tests.js");
+    if (tests.test.file) {
+        if (fs.existsSync(tests.test.file)) require(tests.test.file); else
+        if (fs.existsSync(core.cwd + "/" + tests.test.file)) require(core.cwd + "/" + tests.test.file);
+    }
+
+    if (!this['test_' + tests.test.cmd]) {
+        var cmds = Object.keys(this).filter(function(x) { return x.substr(0, 5) == "test_" && typeof tests[x] == "function" }).map(function(x) { return x.substr(5) }).join(", ");
+        logger.log(tests.name, "usage: ", process.argv[0], process.argv[1], "-test-run", "CMD", "where CMD is one of: ", cmds);
+        process.exit(1);
+    }
+
+    if (cluster.isMaster) {
+        setTimeout(function() { for (var i = 0; i < tests.test.workers; i++) cluster.fork(); }, tests.test.delay);
+        cluster.on("exit", function(worker) {
+            if (!Object.keys(cluster.workers).length && !tests.test.forever && !tests.test.keepmaster) process.exit(0);
+        });
+    }
+
+    logger.log("tests started:", cluster.isMaster ? "master" : "worker", 'cmd:', tests.test.cmd, 'db-pool:', core.modules.db.pool);
+
+    lib.whilst(
+        function () { return tests.test.countdown > 0 || tests.test.forever || options.running; },
+        function (next) {
+            tests.test.countdown--;
+            tests["test_" + tests.test.cmd](function(err) {
+                tests.test.iterations++;
+                if (tests.test.forever) err = null;
+                setTimeout(function() { next(err) }, tests.test.interval);
+            });
+        },
+        function(err) {
+            tests.test.etime = Date.now();
+            if (err) {
+                logger.error("tests failed:", tests.test.role, 'cmd:', tests.test.cmd, err);
+                process.exit(1);
+            }
+            logger.log("tests stopped:", tests.test.role, 'cmd:', tests.test.cmd, 'db-pool:', core.modules.db.pool, 'time:', tests.test.etime - tests.test.stime, "ms");
+            process.exit(0);
+        });
+}
+
 // Run API server inside the shell
 shell.cmdRunApi = function(options)
 {
     api.init();
     return "continue";
-}
-
-// Run a test command inside the shell
-shell.cmdTestRun = function(options)
-{
-    var tests = require(__dirname + "/../tests");
-    core.addModule("tests", tests);
-    if (fs.existsSync(core.cwd + "/tests.js")) require(core.cwd + "/tests.js");
-    tests.run();
 }
 
 // Show account records by id or login
@@ -265,7 +395,12 @@ shell.cmdDbGetConfig = function(options)
     var fmt = lib.getArg("-format");
     db.initConfig(opts, function(err, data) {
         if (fmt == "text") {
-            for (var i = 0; i < data.length; i += 2) console.log(data[i].substr(1) + (sep) + data[ i + 1]);
+            for (var i = 0; i < data.length; i += 2) console.log(data[i].substr(1) + (sep) + data[i + 1]);
+        } else
+        if (fmt == "args") {
+            var str = "";
+            for (var i = 0; i < data.length; i += 2) str += "-" + data[i].substr(1) + " '" + (data[i + 1] || 1) + "' ";
+            console.log(str);
         } else {
             console.log(JSON.stringify(data));
         }
@@ -692,7 +827,7 @@ shell.launchInstances = function(options, callback)
                                evaluationPeriods: shell.getArgInt("-periods", options, 3),
                                alarm:topic });
                req.alarms.push({ metric:"NetworkOut",
-                               threshold: shell.getArgInt("-net-threshold", options, 8000000),
+                               threshold: shell.getArgInt("-net-threshold", options, 10000000),
                                evaluationPeriods: shell.getArgInt("-periods", options, 3),
                                alarm:topic });
                req.alarms.push({ metric:"StatusCheckFailed",

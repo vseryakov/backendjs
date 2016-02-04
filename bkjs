@@ -84,6 +84,23 @@ get_value() {
   echo ${v:-$3}
 }
 
+# Read db config into memeory
+init_config() {
+  _a=$(get_arg -app-name)
+  [ "$_a" != "" ] && _a="-app-name $_m"
+  _m=$(get_arg -run-mode)
+  [ "$_m" != "" ] && _m="-run-mode $_m"
+  DB_ARGS=("`$0 run-shell -log info -db-pool dynamodb -db-config dynamodb -db-get-config -format args $_a $_m $BKJS_CONFIG`")
+}
+
+# Return config parameter value by name, pull the db config if not retrieved yet
+get_config() {
+  for ((i = 0;i < ${#DB_ARGS[@]}; ++i)); do
+    [ "$1" = "${DB_ARGS[i]}" ] && echo "${DB_ARGS[i+1]}" && return 0
+  done
+  echo $2
+}
+
 # Home must be specified for the script to work properly
 export BKJS_HOME=$(get_arg -home $BKJS_HOME)
 [ "$BKJS_HOME" = "" ] && export BKJS_HOME=$(sh -c "echo ~$BKJS_USER")
@@ -102,6 +119,7 @@ export BKJS_PATH=$(get_arg -path $BKJS_PATH)
 export BKJS_ARGS=$(concat_arg -args $BKJS_ARGS)
 export BKJS_SSH_ARGS=$(concat_arg -ssh $BKJS_SSH_ARGS)
 export BKJS_RSYNC_ARGS=$(concat_arg -rsync $BKJS_RSYNC_ARGS)
+export BKJS_CONFIG=$(get_arg -config $BKJS_CONFIG)
 
 # Setup all variables with the defaults
 [ "$BKJS_HOST" = "" ] && export BKJS_HOST=$(uname -n|awk -F. '{print $1}')
@@ -502,15 +520,30 @@ case "$ARG" in
     $ECHO "set daemon 30 with start delay 60" > /etc/monit.d/system.conf
     $ECHO "check system localhost if loadavg(1min) > 5 for 10 cycles then exec \"$0 send-alert\"" >> /etc/monit.d/system.conf
     $ECHO "check filesystem rootfs with path / if space usage > 90% for 3 times within 5 cycles then exec exec \"$0 send-alert\"" >> /etc/monit.d/system.conf
-
-    alert=$(get_arg -alert_email)
-    [ "$alert" != "" ] && echo "set alert $alert" >> /etc/monit.d/system.conf
     monit reload
     ;;
 
   init-monit-bkjs)
     $ECHO "check process $BKJS with pidfile \"$BKJS_HOME/var/master.pid\" start program = \"$0 start $@\" as uid $BKJS_USER and gid $BKJS_GROUP with timeout 60 seconds stop program = \"$0 stop\"" > /etc/monit.d/$BKJS.conf
     monit reload
+    ;;
+
+  init-monit-alert)
+    if [ "$BKJS_CONFIG" != "" ]; then
+       echo user: $(get_config -smtp-user)
+       echo host: $(get_config -smtp-host)
+       exit
+    fi
+    email=$(get_arg -email $email)
+    [ "$email" = "" ] && exit
+    $ECHO "set alert $email" > /etc/monit.d/alert.conf
+    $ECHO "set mail-format { from: $email }" >> /etc/monit.d/alert.conf
+    host=$(get_arg -host $BKJS_HOST)
+    user=$(get_arg -user $BKJS_USER)
+    password=$(get_arg -password $password)
+    [ "$user" != "" ] && user="user $user"
+    [ "$password" != "" ] && password="password $password"
+    [ "$host" != "" ] && $ECHO "set mailserver localhost, $host $user $password" >> /etc/monit.d/alert.conf
     ;;
 
   init-logwatcher)
@@ -588,9 +621,10 @@ case "$ARG" in
     ip=$(ifconfig eth0|grep 'inet '|sed 's/addr://'|awk '{print $2}')
     msg=$($ECHO "ALERT: $host/$ip $event\n\n$descr\n\n$(df -h)\n\n$(top -bn1)")
     echo "$msg" >> $BKJS_HOME/log/error.log
-    region=$(get_arg -region $(curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone/|sed 's/[a-z]$//'))
-    [ "$region" != "" ] && topic=$(aws sns list-topics --region $region --output text|head -1|awk '{print $NF}')
-    [ "$topic" != "" ] && aws sns publish --region $region --topic-arn $topic --message "$msg"
+    region=$(get_arg -region)
+    [ "$region" != "" ] && region="--region $region"
+    topic=$(aws sns list-topics $region --output text|head -1|awk '{print $NF}')
+    [ "$topic" != "" ] && aws sns publish $region --topic-arn $topic --message "$msg"
     ;;
 
   run|run-master|run-monitor|run-watcher|run-shell|bkjs|bksh)
@@ -628,6 +662,7 @@ case "$ARG" in
   run-setup)
     # Setup domain from the config, keep the hostname as it is, for EC2 instances it is the IP address
     [ "$BKJS_DOMAIN" != "" ] && $0 init-hostname -domain $BKJS_DOMAIN
+    [ "$OS_TYPE" = "amazon" ] && aws configure set region $(curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone/|sed 's/[a-z]$//')
     $0 run-sync
     ;;
 
@@ -1068,10 +1103,11 @@ case "$ARG" in
     ;;
 
   show-instances)
-    region=$(get_arg -region $(curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone/|sed 's/[a-z]$//'))
+    region=$(get_arg -region)
+    [ "$region" != "" ] && region="--region $region"
     name=$(get_arg -name)
     [ "$name" != "" ] && tags="Name=tag:Name,Values=${name}"
-    instances=$(aws ec2 describe-instances --region $region --filter "Name=instance-state-name,Values=running" $tags --query 'Reservations[*].Instances[*].[InstanceId,PrivateIpAddress,PublicIpAddress,Tags[?Key==`Name`]]' --output text|awk '{if($4=="None")print $0;else if($1=="Name")print $2;else printf "%s ",$0;}')
+    instances=$(aws ec2 describe-instances $region --filter "Name=instance-state-name,Values=running" $tags --query 'Reservations[*].Instances[*].[InstanceId,PrivateIpAddress,PublicIpAddress,Tags[?Key==`Name`]]' --output text|awk '{if($4=="None")print $0;else if($1=="Name")print $2;else printf "%s ",$0;}')
     [ "$(get_flag -showip)" != "" ] && instances=$(echo "$instances"|awk '{print $2}')
     echo "$instances"
     ;;
@@ -1316,8 +1352,9 @@ EOF
     echo "  init-logrotate - setup logrotate for the backend log files"
     echo "  init-rsyslog - setup rsyslog to use for the backend logging, access log and backend log"
     echo "  init-system - setup system wide parameters, tuniing, limits, permissions"
-    echo "  init-monit-system [-alert EMAIL] - setup system monitoring with monit, CPU, disk, send alert via '$0 send-alert' command"
+    echo "  init-monit-system - setup system monitoring with monit, CPU, disk, send alert via '$0 send-alert' command"
     echo "  init-monit-bkjs - setup monit to keep $BKJS service running without using any other services and monitor"
+    echo "  init-monit-alert [] [] [] - init alerting in the monit, take args or the DB config fro the specified app name"
     echo "  init-postfix - [-domain DOMAIN] install and configure postfix for the domain"
     echo "  init-dns - install and setup dnsmasq for local cahching DNS server"
     echo "  init-instancejob - configure for temporary job instance"
@@ -1376,7 +1413,7 @@ EOF
     echo "  show-help - show all backend command line and config parameters"
     echo ""
     echo "bksh commands:"
-    echo "if any of the commands below is specified it is exetued and then exit, otherwise bksh launches interactive shell"
+    echo "if any of the commands below is specified it is executed and then exit, otherwise bksh launches interactive shell"
     echo ""
     echo "  -show-info - show app and version information"
     echo "  -account-get ID|LOGIN ... - show accounts by id or login"
@@ -1386,8 +1423,8 @@ EOF
     echo "  -location-put [login LOGIN|id ID] latitude LAT longitude LON ... - update location for an account"
     echo "  -send-request -url URL [-id ID|-login LOGIN] param value param value ... - send API request to the server specified in the url as user specified by login or account id, resolving the user is done directly from the current db pool, param values should not be url-encoded"
     echo "  -log-watch - run logwatcher and exit, send emails in case any errors found"
-    echo "  -test-run -test-cmd CMD [-test-file FILE] - run a test command in the shell, autoload ./tests.js if exists, optinally can load other file with tests, all other test params will be used as well"
-    echo "  -db-get-config [-separator =] [-format text] [-run-mode MODE] [-app-name NAME] [name VALUE ...] - show all config parameters retrieved from the remote database bk_config table for the current environment, to simulate another environment pass the following arguments as name value pairs: network, subnet, ipaddr"
+    echo "  -test-run CMD [-test-file FILE] - run a test command in the shell, autoload ./tests/tests.js if exists, optinally can load other file with tests, all other test params will be used as well"
+    echo "  -db-get-config [-separator =] [-format text] [-run-mode MODE] [-app-name NAME] [name VALUE ...] - show all config parameters retrieved from the remote database bk_config table for the current environment, to simulate another environment pass the following arguments as name value pairs: role, network, region, zone, tag"
     echo "  -db-tables [-separator nl] - list all table names for the current db pool"
     echo "  -db-select -table TABLE [-separator !] [-format text] [name VALUE ...] - return all records from the table or only that match given column values, all supported by db.select options are supported by prefixing with underscore like _count 10, the format is the same as for API query parameters"
     echo "  -db-scan -table TABLE [name VALUE ...] - return all records from the table using scan operation, same arg as for db-select"
@@ -1424,6 +1461,7 @@ EOF
     echo "  -ssh opts - pass additional parameters to the ssh command"
     echo "  -rsync opts - pass additional parameters to the rsync command"
     echo "  -args opts - generic parameters used by any specific command"
+    echo "  -config params - if applicable retrieve the DB config for the given criteria, params are passed to the -db-get-config call"
     ;;
 esac
 
