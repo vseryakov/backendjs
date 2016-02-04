@@ -2379,11 +2379,11 @@ Database pool statistics and other diagnostics</p>
 <li><code>api-proxy-reverse</code> - A Web server where to proxy requests not macthed by the url patterns or host header, in the form: <a href="http://host[:port">http://host[:port</a>]</li>
 <li><code>api-proxy-url-(.+)</code> - URL regexp to be passed to other web server running behind, each parameter defines an url regexp and the destination in the value in the form <a href="http://host[:port">http://host[:port</a>], example: -server-proxy-url-^/api <a href="http://127.0.0.1:8080">http://127.0.0.1:8080</a></li>
 <li><code>api-proxy-host-(.+)</code> - Virtual host mapping, to match any Host: header, each parameter defines a host name and the destination in the value in the form <a href="http://host[:port">http://host[:port</a>], example: -server-proxy-host-www.myhost.com <a href="http://127.0.0.1:8080">http://127.0.0.1:8080</a></li>
-<li><code>msg-(.+)-cert@?(.+)?</code> - A certificate for APN or similar services in pfx format, can be a file name with .p12 extension or a string with certificate contents encoded with base64, if the suffix is specified in the config parameter name will be used as the app name, otherwise it is global</li>
-<li><code>msg-(.+)-key@?(.+)?</code> - API key for GCM or similar services, if the suffix is specified in the config parameter will be used as the app name, without the suffix it is global</li>
-<li><code>msg-(.+)-secret@?(.+)?</code> - API secret for services that require it, if the suffix is specified in the config parameter will be used as the app name, without the suffix it is global</li>
-<li><code>msg-(.+)-sandbox</code> - Enable sandbox for a service, default is production mode</li>
-<li><code>msg-(.+)-feedback</code> - Enable feedback mode for a service, default is no feedback service</li>
+<li><code>msg-([^-]+)-(cert)(@.+)?</code> - A certificate for APN or similar services in pfx format, can be a file name with .p12 extension or a string with certificate contents encoded with base64, if the suffix is specified in the config parameter name will be used as the app name, otherwise it is global</li>
+<li><code>msg-([^-]+)-(key)(@.+)?</code> - API key for GCM or similar services, if the suffix is specified in the config parameter will be used as the app name, without the suffix it is global</li>
+<li><code>msg-([^-]+)-(sandbox)(@.+)?</code> - Enable sandbox for a service, default is production mode</li>
+<li><code>msg-([^-]+)-(feedback)(@.+)?</code> - Enable feedback mode for a service, default is no feedback service</li>
+<li><code>msg-([^-]+)-options-(.+)(@.+)?</code> - A config property to the specified agent, driver specific</li>
 <li><code>msg-shutdown-timeout</code> - How long to wait for messages draining out in ms on shutdown before exiting</li>
 <li><code>jobs-workers</code> - How many worker processes to launch to process the job queue, -1 disables jobs, 0 means launch as many as the CPUs available</li>
 <li><code>jobs-worker-cpu-factor</code> - A number to multiply the number of CPUs available to make the total number of workers to launch, only used if <code>workers</code> is 0</li>
@@ -6416,10 +6416,11 @@ objects will be create automatically. The options can have the folowing properti
 </ul>
 
 <ul>
-<li><p><code>lib.objDescr(obj, options)</code></p>
-<p> Return an object structure as a string object by showing primitive properties only, for arrays it shows the length,
-strings are limited by options.length or 32 bytes,
-the object depth is limited by options.depth or 5 levels deep, the number of properties are limited by options.count or 5</p>
+<li><p><code>lib.descrObj(obj, options)</code></p>
+<p> Return an object structure as a string object by showing primitive properties only,
+for arrays it shows the length and <code>options.count</code> or 5 first items,
+strings are limited by <code>options.length</code> or 64 bytes,
+the object depth is limited by <code>options.depth</code> or 5 levels deep, the number of properties are limited by options.count or 5</p>
 </li>
 </ul>
 
@@ -9135,7 +9136,7 @@ connection to APN gateway.</p>
 <h2 id="module-msg_gcm">Module: MSG_GCM</h2>
 <ul>
 <li><p><code>client.init(options)</code></p>
-<p> Initialize Google Cloud Messaginh servie to send push notifications to mobile devices</p>
+<p> Initialize Google Cloud Messaging service to send push notifications to mobile devices</p>
 </li>
 </ul>
 
