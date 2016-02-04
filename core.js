@@ -95,6 +95,7 @@ var core = {
 
     // Watched source files for changes, restarts the process if any file has changed
     watchdirs: [],
+    noWatch: /tests.js/,
     timers: {},
     locales: [],
 
@@ -223,6 +224,7 @@ var core = {
             { name: "host-name", type: "callback", callback: function(v) { if(v)this.hostName=v;this.domain = lib.domainName(this.hostName);this._name = "hostName" }, descr: "Hostname/domain to use for communications, default is current domain of the host machine" },
             { name: "config-domain", descr: "Domain to query for configuration TXT records, must be specified to enable DNS configuration" },
             { name: "watch", type: "callback", callback: function(v) { this.watch = true; this.watchdirs.push(v ? v : __dirname); }, descr: "Watch sources directory for file changes to restart the server, for development only, the backend module files will be added to the watch list automatically, so only app specific directores should be added. In the production -monitor must be used." },
+            { name: "no-watch", type: "regexp", descr: "Files to be ignored by the wather" },
             { name: "locales", array: 1, type: "list", descr: "A list of locales to load from the locales/ directory, only language name must be specified, example: en,es. It enables internal support for `res.__` and `req.__` methods that can be used for translations, for each request the internal language header will be honored forst, then HTTP Accept-Language" },
             { name: "no-locales", type: "bool", descr: "Do not load locales on start" },
     ],
@@ -1018,15 +1020,18 @@ core.loadModules = function(dir, options, callback)
 core.sendRequest = function(options, callback)
 {
     if (typeof options == "string") options = { url: options };
+
     // Sign request using internal backend credentials
-    if (options.sign || options.sign == "undefined") options.signer = this.signRequest;
+    if (options.sign || typeof options.sign == "undefined") {
+        options = lib.cloneObj(options, "signer", this.signRequest);
+    }
 
     // Relative urls resolve against global backend host
     if (typeof options.url == "string" && options.url.indexOf("://") == -1) {
-        options.url = (this.backendHost || "http://localhost:" + this.port) + options.url;
+        options = lib.cloneObj(options, "url", (this.backendHost || "http://localhost:" + this.port) + options.url);
     }
 
-    this.httpGet(options.url, lib.cloneObj(options), function(err, params) {
+    this.httpGet(options.url, options, function(err, params) {
         if (!params.obj) params.obj = {};
         if ((params.status < 200 || params.status > 299) && !err) {
             err = lib.newError({ message: "Error-" + params.status + ": " + params.data, status: params.status });
@@ -1296,7 +1301,6 @@ core.watchTmp = function(dir, options, callback)
 // Watch files in a dir for changes and call the callback
 core.watchFiles = function(dir, pattern, fileCallback, endCallback)
 {
-    var self = this;
     logger.debug('watchFiles:', dir, pattern);
 
     function watcher(event, file) {
@@ -1318,7 +1322,7 @@ core.watchFiles = function(dir, pattern, fileCallback, endCallback)
         if (err) return typeof endCallback == "function" && endCallback(err);
 
         list = list.filter(function(file) {
-            return file.match(pattern);
+            return !core.noWatch.test(file) && file.match(pattern);
         }).map(function(file) {
             file = path.join(dir, file);
             return ({ name: file, stat: lib.statSync(file) });
@@ -1340,25 +1344,25 @@ core.watchLogs = function(options, callback)
     var db = self.modules.db;
 
     // Check interval
-    self.logwatcherMtime = Date.now();
+    this.logwatcherMtime = Date.now();
 
     // From address, use current hostname
-    if (!self.logwatcherFrom) self.logwatcherFrom = "logwatcher@" + self.domain;
+    if (!this.logwatcherFrom) this.logwatcherFrom = "logwatcher@" + this.domain;
 
     var match = {};
     for (var p in self.logwatcherMatch) {
         try {
-            match[p] = new RegExp(self.logwatcherMatch[p].map(function(x) { return "(" + x + ")"}).join("|"));
+            match[p] = new RegExp(this.logwatcherMatch[p].map(function(x) { return "(" + x + ")"}).join("|"));
         } catch(e) {
-            logger.error('watchLogs:', e, self.logwatcherMatch[p]);
+            logger.error('watchLogs:', e, this.logwatcherMatch[p]);
         }
     }
     var ignore = {}
-    for (var p in self.logwatcherIgnore) {
+    for (var p in this.logwatcherIgnore) {
         try {
-            ignore[p] = new RegExp(self.logwatcherIgnore[p].map(function(x) { return "(" + x + ")"}).join("|"));
+            ignore[p] = new RegExp(this.logwatcherIgnore[p].map(function(x) { return "(" + x + ")"}).join("|"));
         } catch(e) {
-            logger.error('watchLogs:', e, self.logwatcherIgnore[p]);
+            logger.error('watchLogs:', e, this.logwatcherIgnore[p]);
         }
     }
 
@@ -1368,7 +1372,7 @@ core.watchLogs = function(options, callback)
         return "";
     }
 
-    logger.debug('watchLogs:', self.logwatcherEmail, self.logwatcherUrl, self.logwatcherFiles);
+    logger.debug('watchLogs:', this.logwatcherEmail, this.logwatcherUrl, this.logwatcherFiles);
 
     // Load all previous positions for every log file, we start parsing file from the previous last stop
     db.select("bk_property", { name: 'logwatcher:' }, { ops: { name: 'begins_with' }, pool: db.local }, function(err, rows) {

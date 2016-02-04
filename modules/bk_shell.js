@@ -155,7 +155,7 @@ shell.cmdRunApi = function(options)
 // Run a test command inside the shell
 shell.cmdTestRun = function(options)
 {
-    var tests = require(__dirname + "/tests");
+    var tests = require(__dirname + "/../tests");
     core.addModule("tests", tests);
     if (fs.existsSync(core.cwd + "/tests.js")) require(core.cwd + "/tests.js");
     tests.run();

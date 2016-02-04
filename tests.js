@@ -80,7 +80,7 @@ tests.check = function()
 //
 // Example:
 //
-//          var bkjs = require("backendjs"), db = bkjs.db, tests = bkjs.tests;
+//          var bkjs = require("backendjs"), db = bkjs.db, tests = bkjs.core.modules.tests;
 //
 //          tests.test_mytest = function(next) {
 //             db.get("bk_account", { id: "123" }, function(err, row) {
@@ -92,15 +92,13 @@ tests.check = function()
 //          # node tests.js -test-cmd mytest
 //
 //
-// To perform server API testing, tests can be run with the app server and executed in the job worker,
-// just pass a job name to be executed by the master. This can be run along the primary application but
-// requires some configuration to be performed first:
+// Custom tests:
 //
-// - create a user for backend testing, if the API does not require authentiction skip this step:
+// - create a user for backend testing, if the API does not require authentication skip this step:
 //
 //           ./app.sh -shell -account-add login testuser secret testpw
 //
-// - configure global backend credentials
+//   - configure global backend credentials
 //
 //           echo "backend-login=testuser" >> etc/config.local
 //           echo "backend-secret=testpw" >> etc/config.local
@@ -111,7 +109,7 @@ tests.check = function()
 //
 // - to start a test command in the shell using custom file with tests
 //
-//         ./app.sh -shell -test-run -test-cmd apitest -test-file tests/api.js
+//         ./app.sh -shell -test-run -test-cmd api -test-file tests/api.js
 //
 tests.run = function(options, callback)
 {
@@ -133,8 +131,10 @@ tests.run = function(options, callback)
         self.test.workers = options.workers || lib.getArgInt("-test-workers", 0);
         self.test.cmd = options.cmd || lib.getArg("-test-cmd");
         self.test.file = options.file || lib.getArg("-test-file");
-        if (self.test.file && fs.existsSync(self.test.file)) require(self.test.file);
-        if (self.test.file && fs.existsSync(core.cwd + "/" + self.test.file)) require(core.cwd + "/" + self.test.file);
+        if (self.test.file) {
+            if (fs.existsSync(self.test.file)) require(self.test.file); else
+            if (fs.existsSync(core.cwd + "/" + self.test.file)) require(core.cwd + "/" + self.test.file);
+        }
 
         if (!self['test_' + self.test.cmd]) {
             var cmds = Object.keys(self).filter(function(x) { return x.substr(0, 5) == "test_" && typeof self[x] == "function" }).map(function(x) { return x.substr(5) }).join(", ");
@@ -181,169 +181,6 @@ tests.resetTables = function(tables, callback)
     db.dropTables(tables, function() {
         db.createTables(callback);
     });
-}
-
-tests.startTestServer = function(options)
-{
-    var self = this;
-    if (!options) options = {};
-
-    if (!options.master) {
-        options.running = options.stime = options.etime = options.id = 0;
-        aws.getInstanceInfo(function() {
-            setInterval(function() {
-                core.sendRequest({ url: options.host + '/ping/' + core.instance.id + '/' + options.id }, function(err, params) {
-                    if (err) return;
-                    logger.debug(params.obj);
-
-                    switch (params.obj.cmd) {
-                    case "exit":
-                    case "error":
-                        process.exit(0);
-                        break;
-
-                    case "register":
-                        options.id = params.obj.id;
-                        break;
-
-                    case "start":
-                        if (options.running) break;
-                        options.running = true;
-                        options.stime = Date.now();
-                        if (options.callback) {
-                            options.callback(options);
-                        } else
-                        if (options.test) {
-                            self.run(options);
-                        }
-                        break;
-
-                    case "stop":
-                        if (!options.running) break;
-                        options.running = false;
-                        options.etime = Date.now();
-                        break;
-
-                    case "shutdown":
-                        self.shutdown();
-                        break;
-                    }
-                });
-
-                // Check shutdown interval
-                if (!options.running) {
-                    var now = Date.now();
-                    if (!options.etime) options.etime = now;
-                    if (now - options.etime > (options.idlelimit || 3600000)) core.shutdown();
-                }
-            }, options.interval || 5000);
-        });
-        return;
-    }
-
-    var nodes = {};
-    var app = express();
-    app.on('error', function (e) { logger.error(e); });
-    app.use(function(req, res, next) { return api.checkQuery(req, res, next); });
-    app.use(app.routes);
-    app.use(function(err, req, res, next) {
-        logger.error('startTestMaster:', req.path, err, err.stack);
-        res.json(err);
-    });
-    try { app.listen(options.port || 8080); } catch(e) { logger.error('startTestMaster:', e); }
-
-    // Return list of all nodes
-    app.get('/nodes', function(req, res) {
-        res.json(nodes)
-    });
-
-    // Registration: instance, id
-    app.get(/^\/ping\/([a-z0-9-]+)\/([a-z0-9]+)/, function(req, res) {
-        var now = Date.now();
-        var obj = { cmd: 'error', mtime: now }
-        var node = nodes[req.params[1]];
-        if (node) {
-            node.instance = req.params[0];
-            node.mtime = now;
-            obj.cmd = node.state;
-        } else {
-            obj.cmd = 'register';
-            obj.id = lib.uuid();
-            nodes[obj.id] = { state: 'stop', ip: req.connection.remoteAddress, mtime: now, stime: now };
-        }
-        logger.debug(obj);
-        res.json(obj)
-    });
-
-    // Change state of the node(es)
-    app.get(/^\/(start|stop|launch|shutdown)\/([0-9]+)/, function(req, res, next) {
-        var obj = {}
-        var now = Date.now();
-        var state = req.params[0];
-        var num = req.params[1];
-        switch (state) {
-        case "launch":
-            break;
-
-        case "shutdown":
-            var instances = {};
-            for (var n in nodes) {
-                if (num <= 0) break;
-                if (!instances[nodes[n].instance]) {
-                    instances[nodes[n].instance] = 1;
-                    num--;
-                }
-            }
-            for (var n in nodes) {
-                var node = nodes[n];
-                if (node && node.state != state && instances[node.instance]) {
-                    node.state = state;
-                    node.stime = now;
-                }
-            }
-            logger.log('shutdown:', instances);
-            break;
-
-        default:
-            for (var n in nodes) {
-                if (num <= 0) break;
-                var node = nodes[n];
-                if (node && node.state != state) {
-                    node.state = state;
-                    node.stime = now;
-                    num--;
-                }
-            }
-        }
-        res.json(obj);
-    });
-
-    var interval = options.interval || 30000;
-    var runlimit = options.runlimit || 3600000;
-
-    setInterval(function() {
-        var now = Date.now();
-        for (var n in nodes) {
-            var node = nodes[n]
-            // Last time we saw this node
-            if (now - node.mtime > interval) {
-                logger.debug('cleanup: node expired', n, node);
-                delete nodes[n];
-            } else
-            // How long this node was in this state
-            if (now - node.stime > runlimit) {
-                switch (node.state) {
-                case 'start':
-                    // Stop long running nodes
-                    node.state = 'stop';
-                    logger.log('cleanup: node running too long', n, node)
-                    break;
-                }
-            }
-        }
-    }, interval);
-
-    logger.log('startTestMaster: started', options || "");
 }
 
 // Below are test routines, each routine must start with `test_` to be used in -test-cmd
