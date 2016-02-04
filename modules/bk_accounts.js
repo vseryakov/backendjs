@@ -517,11 +517,11 @@ accounts.getStatus = function(id, options, callback)
         });
     } else {
         // Status feature is disabled, return immediately
-        if (options.nostatus) return callback(null, { id: id, status: "", online: true, mtime: 0 });
+        if (options.nostatus) return callback(null, { id: id, status: "", online: true, atime: 0, mtime: 0 });
 
         db.get("bk_status", { id: id }, options, function(err, row, info) {
             if (err) return callback(err);
-            if (!row) row = { id: id, status: "", online: false, mtime: 0 };
+            if (!row) row = { id: id, status: "", online: false, atime: 0, mtime: 0 };
             row.online = now - row.atime < self.statusInterval && row.status != "offline" ? true : false;
             callback(err, row, info);
         });
@@ -550,7 +550,7 @@ accounts.putStatus = function(obj, options, callback)
 
         // Override properties except times
         for (var p in obj) {
-            if (!p.match(/^(mtime|atime$/)) row[p] = obj[p];
+            if (!p.match(/^(mtime|atime)$/)) row[p] = obj[p];
         }
         row.otime = row.atime;
         row.atime = Date.now();

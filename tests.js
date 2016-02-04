@@ -965,15 +965,20 @@ tests.test_db = function(callback)
             db.put("test3", { id: id2, num: 2, emai: id2 }, next);
         },
         function(next) {
-            db.put("test4", { id: id, type: "like:" + Date.now() }, next);
+            db.put("test4", { id: id, type: "like:" + Date.now(), fake: 1 }, next);
         },
         function(next) {
             db.select("test4", { id: id }, function(err, rows) {
-                tests.check(next, err, rows.length!=1 || rows[0].id != id || rows[0].type!="like", "err4:", rows);
+                tests.check(next, err, rows.length!=1 || rows[0].id != id || rows[0].type!="like" || rows[0].fake, "err4:", rows);
             });
         },
         function(next) {
-            db.delAll("test1", { id: id }, next);
+            db.delAll("test1", { id: id, fake: 1 }, { skip_join: ["num3"] }, next);
+        },
+        function(next) {
+            db.get("test1", { id: id }, function(err, row) {
+                tests.check(next, err, row, "err4-1:", row);
+            });
         },
         function(next) {
             db.select("test2", { id: id2 }, { filter: function(req, row, o) { return row.id2 == '1' } }, function(err, rows) {
@@ -1058,7 +1063,7 @@ tests.test_db = function(callback)
             });
         },
         function(next) {
-            db.del("test2", { id: id2, id2: '1' }, next);
+            db.del("test2", { id: id2, id2: '1', fake: 1 }, next);
         },
         function(next) {
             db.get("test2", { id: id2, id2: '1' }, { consistent: true }, function(err, row) {

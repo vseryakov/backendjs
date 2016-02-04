@@ -1778,7 +1778,7 @@ db.prepareForDelete = function(pool, req, orig)
         col = req.columns[p];
         if (this.skipColumn(p, v, req.options, req.columns)) continue;
         // Convert into native data type
-        if (pool.poolOptions.strictTypes && (col.primary || col.type) && typeof v != "undefined") v = lib.toValue(v, col.type);
+        if (pool.poolOptions.strictTypes && col && (col.primary || col.type) && typeof v != "undefined") v = lib.toValue(v, col.type);
         o[p] = v;
     }
     req.obj = o;
@@ -2213,8 +2213,8 @@ db.unjoinColumns = function(rows, name, col, options)
 db.skipColumn = function(name, val, options, columns)
 {
     if (!name || name[0] == '_' || typeof val == "undefined") return true;
+    if (!(options && options.no_columns) && columns && !columns[name]) return true;
     if (options) {
-        if (!options.no_columns && (!columns || !columns[name])) return true;
         if (options.skip_null && val === null) return true;
         if (Array.isArray(options.allow_columns) && options.allow_columns.indexOf(name) == -1) return true;
         if (Array.isArray(options.skip_columns) && options.skip_columns.indexOf(name) > -1) return true;
@@ -2302,7 +2302,7 @@ db.getQueryForKeys = function(keys, obj, options)
 {
     var self = this;
     return (keys || lib.emptylist).
-            filter(function(x) { return !self.skipColumn(x, obj[x]) }).
+            filter(function(x) { return x && x[0] != '_' && typeof obj[x] != "undefined" }).
             map(function(x) { return [ options && options.keysMap ? (options.keysMap[x] || x) : x, obj[x] ] }).
             reduce(function(x,y) { x[y[0]] = y[1]; return x; }, {});
 }
