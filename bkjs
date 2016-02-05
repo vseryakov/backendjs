@@ -3,7 +3,7 @@
 #  Author: Vlad Seryakov vseryakov@gmail.com
 #  Sep 2013
 #
-# chkconfig: 2345 97 97
+# chkconfig: 2345 91 91
 # description: backendjs server
 #
 
@@ -84,21 +84,16 @@ get_value() {
   echo ${v:-$3}
 }
 
-# Read db config into memeory
-init_config() {
-  _a=$(get_arg -app-name)
-  [ "$_a" != "" ] && _a="-app-name $_m"
-  _m=$(get_arg -run-mode)
-  [ "$_m" != "" ] && _m="-run-mode $_m"
-  DB_ARGS=("`$0 run-shell -log info -db-pool dynamodb -db-config dynamodb -db-get-config -format args $_a $_m $BKJS_CONFIG`")
-}
-
-# Return config parameter value by name, pull the db config if not retrieved yet
+# Return config parameter value by name
 get_config() {
-  for ((i = 0;i < ${#DB_ARGS[@]}; ++i)); do
-    [ "$1" = "${DB_ARGS[i]}" ] && echo "${DB_ARGS[i+1]}" && return 0
+  for ((i = 0;i < ${#ARGS[@]}; ++i)); do
+    [ "$2" = "${ARGS[i]}" ] && eval "$1=${ARGS[i+1]}" && return 0
   done
-  echo $2
+  [ -z $DB_ARGS ] && DB_ARGS=(`$BKJS_GET_CONFIG`)
+  for ((i = 0;i < ${#DB_ARGS[@]}; ++i)); do
+    [ "$2" = "${DB_ARGS[i]}" ] && eval "$1=${DB_ARGS[i+1]}" && return
+  done
+  [ "$3" != "" ] && eval "$1=$3"
 }
 
 # Home must be specified for the script to work properly
@@ -119,7 +114,7 @@ export BKJS_PATH=$(get_arg -path $BKJS_PATH)
 export BKJS_ARGS=$(concat_arg -args $BKJS_ARGS)
 export BKJS_SSH_ARGS=$(concat_arg -ssh $BKJS_SSH_ARGS)
 export BKJS_RSYNC_ARGS=$(concat_arg -rsync $BKJS_RSYNC_ARGS)
-export BKJS_CONFIG=$(get_arg -config $BKJS_CONFIG)
+export BKJS_GET_CONFIG="$0 run-shell -log none -db-get-config -format args $@"
 
 # Setup all variables with the defaults
 [ "$BKJS_HOST" = "" ] && export BKJS_HOST=$(uname -n|awk -F. '{print $1}')
@@ -528,24 +523,6 @@ case "$ARG" in
     monit reload
     ;;
 
-  init-monit-alert)
-    if [ "$BKJS_CONFIG" != "" ]; then
-       echo user: $(get_config -smtp-user)
-       echo host: $(get_config -smtp-host)
-       exit
-    fi
-    email=$(get_arg -email $email)
-    [ "$email" = "" ] && exit
-    $ECHO "set alert $email" > /etc/monit.d/alert.conf
-    $ECHO "set mail-format { from: $email }" >> /etc/monit.d/alert.conf
-    host=$(get_arg -host $BKJS_HOST)
-    user=$(get_arg -user $BKJS_USER)
-    password=$(get_arg -password $password)
-    [ "$user" != "" ] && user="user $user"
-    [ "$password" != "" ] && password="password $password"
-    [ "$host" != "" ] && $ECHO "set mailserver localhost, $host $user $password" >> /etc/monit.d/alert.conf
-    ;;
-
   init-logwatcher)
     [ "$BKJS_ARGS" = "" ] && BKJS_ARGS="*/30 * * * *"
     echo 'MAILTO=""' > /etc/cron.d/$BKJS-logwatcher
@@ -613,18 +590,45 @@ case "$ARG" in
     yum -y -q install $packages
     ;;
 
+  init-alerts)
+    get_config user -alert-user
+    get_config host -alert-host
+    get_config password -alert-password
+    get_config email -alert-email
+    get_config topic -alert-topic
+    if [ "$email" != "" ]; then
+       echo "Init monit alert: $email, $host, $user"
+       $ECHO "set alert $email" > /etc/monit.d/alert.conf
+       $ECHO "set mail-format { from: $email }" >> /etc/monit.d/alert.conf
+       [ "$user" != "" ] && user="username $user"
+       [ "$password" != "" ] && password="password $password"
+       [ "$host" != "" ] && $ECHO "set mailserver localhost, $host $user $password using hostname $(uname -n)" >> /etc/monit.d/alert.conf
+       monit reload
+    fi
+    if [ "$topic" != "" ]; then
+       [ "$(grep -s $topic $BKJS_HOME/etc/config.local)" = "" ] && echo "aws-alert-topic=$topic" >> $BKJS_HOME/etc/config.local
+    fi
+    ;;
+
   send-alert)
     event=$(get_arg -event $MONIT_EVENT)
     descr=$(get_arg -descr $MONIT_DESCRIPTION)
-    [ "$event" = " -a "$descr" = " ] && exit
+    [ "$event" = "" -a "$descr" = "" ] && exit
     host=${MONIT_HOST:-$(uname -n)}
     ip=$(ifconfig eth0|grep 'inet '|sed 's/addr://'|awk '{print $2}')
     msg=$($ECHO "ALERT: $host/$ip $event\n\n$descr\n\n$(df -h)\n\n$(top -bn1)")
     echo "$msg" >> $BKJS_HOME/log/error.log
-    region=$(get_arg -region)
-    [ "$region" != "" ] && region="--region $region"
-    topic=$(aws sns list-topics $region --output text|head -1|awk '{print $NF}')
-    [ "$topic" != "" ] && aws sns publish $region --topic-arn $topic --message "$msg"
+    topic=$(grep aws-alert-topic $BKJS_HOME/etc/config*|head -1|awk -F= '{print $2}')
+    if [ "$topic" != "" ]; then
+       region=$(get_arg -region)
+       [ "$region" != "" ] && region="--region $region"
+       aws sns publish $region --topic-arn $topic --message "$msg"
+       [ "$?" = "0" ] && exit
+    fi
+    email=$(grep 'set alert' /etc/monit.d/*|tail -1|awk '{print $NF}')
+    if [ "$email" != "" ]; then
+       $ECHO "From:$email\nTo:$email\nSubject: $msg" |sendmail $email
+    fi
     ;;
 
   run|run-master|run-monitor|run-watcher|run-shell|bkjs|bksh)
@@ -660,9 +664,11 @@ case "$ARG" in
     ;;
 
   run-setup)
+    [ "$(whoami)" != "root" ] && echo "Not root, skipping setup" && exit 1
     # Setup domain from the config, keep the hostname as it is, for EC2 instances it is the IP address
     [ "$BKJS_DOMAIN" != "" ] && $0 init-hostname -domain $BKJS_DOMAIN
     [ "$OS_TYPE" = "amazon" ] && aws configure set region $(curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone/|sed 's/[a-z]$//')
+    $0 init-alerts
     $0 run-sync
     ;;
 
@@ -1354,7 +1360,7 @@ EOF
     echo "  init-system - setup system wide parameters, tuniing, limits, permissions"
     echo "  init-monit-system - setup system monitoring with monit, CPU, disk, send alert via '$0 send-alert' command"
     echo "  init-monit-bkjs - setup monit to keep $BKJS service running without using any other services and monitor"
-    echo "  init-monit-alert [] [] [] - init alerting in the monit, take args or the DB config fro the specified app name"
+    echo "  init-alerts - init alerts in the monit and other systems, use DB config for the specified app name"
     echo "  init-postfix - [-domain DOMAIN] install and configure postfix for the domain"
     echo "  init-dns - install and setup dnsmasq for local cahching DNS server"
     echo "  init-instancejob - configure for temporary job instance"
