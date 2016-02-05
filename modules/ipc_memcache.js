@@ -52,9 +52,9 @@ IpcMemcacheClient.prototype.stats = function(options, callback)
     this.client.stats(function(e,v) { callback(v) });
 }
 
-IpcMemcacheClient.prototype.clear = function(pattern)
+IpcMemcacheClient.prototype.clear = function(pattern, callback)
 {
-    this.client.flush();
+    this.client.flush(callback);
 }
 
 IpcMemcacheClient.prototype.keys = function(pattern, callback)
@@ -80,10 +80,10 @@ IpcMemcacheClient.prototype.get = function(key, options, callback)
     this.client.get(key, function(e, v) { callback(v) });
 }
 
-IpcMemcacheClient.prototype.put = function(key, val, options)
+IpcMemcacheClient.prototype.put = function(key, val, options, callback)
 {
     var ttl = options && lib.isNumber(options.ttl) ? options.ttl : lib.isNumber(this.options.ttl) ? this.options.ttl : 0;
-    this.client.set(key, val, ttl > 0 ? Math.ceil(ttl/1000) : 0);
+    this.client.set(key, val, ttl > 0 ? Math.ceil(ttl/1000) : 0, callback);
 }
 
 IpcMemcacheClient.prototype.incr = function(key, val, options, callback)
@@ -94,8 +94,8 @@ IpcMemcacheClient.prototype.incr = function(key, val, options, callback)
     });
 }
 
-IpcMemcacheClient.prototype.del = function(key, options)
+IpcMemcacheClient.prototype.del = function(key, options, callback)
 {
-    this.client.del(key);
+    this.client.del(key, callback);
 }
 

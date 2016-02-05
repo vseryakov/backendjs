@@ -464,11 +464,11 @@ Ipc.prototype.keys = function(pattern, options, callback)
 }
 
 // Clear all or only items that match the given pattern
-Ipc.prototype.clear = function(pattern, options)
+Ipc.prototype.clear = function(pattern, options, callback)
 {
     logger.dev("ipc.clear:", pattern, options);
     try {
-        this.getClient("cache", options).clear(typeof pattern == "string" && pattern);
+        this.getClient("cache", options).clear(typeof pattern == "string" && pattern, typeof callback == "function" ? callback : undefined);
     } catch(e) {
         logger.error('ipc.clear:', pattern, e.stack);
     }
@@ -497,11 +497,11 @@ Ipc.prototype.get = function(key, options, callback)
 }
 
 // Delete an item by key
-Ipc.prototype.del = function(key, options)
+Ipc.prototype.del = function(key, options, callback)
 {
     logger.dev("ipc.del:", key, options);
     try {
-        this.getClient("cache", options).del(key, options);
+        this.getClient("cache", options).del(key, options, typeof callback == "function" ? callback : undefined);
     } catch(e) {
         logger.error('ipc.del:', e.stack);
     }
@@ -509,11 +509,11 @@ Ipc.prototype.del = function(key, options)
 }
 
 // Replace or put a new item in the cache, options.ttl can be passed if the driver supprts it.
-Ipc.prototype.put = function(key, val, options)
+Ipc.prototype.put = function(key, val, options, callback)
 {
     logger.dev("ipc.put:", key, val, options);
     try {
-        this.getClient("cache", options).put(key, val, options);
+        this.getClient("cache", options).put(key, val, options, typeof callback == "function" ? callback : undefined);
     } catch(e) {
         logger.error('ipc.put:', e.stack);
     }
@@ -526,7 +526,7 @@ Ipc.prototype.incr = function(key, val, options, callback)
     if (typeof options == "function") callback = options, options = null;
     logger.dev("ipc.incr:", key, val, options);
     try {
-        this.getClient("cache", options).incr(key, lib.toNumber(val), options, callback);
+        this.getClient("cache", options).incr(key, lib.toNumber(val), options, typeof callback == "function" ? callback : undefined);
     } catch(e) {
         logger.error('ipc.incr:', e.stack);
         if (typeof callback == "function") callback(0);
