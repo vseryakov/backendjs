@@ -894,7 +894,7 @@ core.createServer = function(options, callback)
     server.serverPort = options.port;
     if (options.name) server.serverName = options.name;
     try { server.listen(options.port, options.bind, this.backlog); } catch(e) { logger.error('server: listen:', options, e); server = null; }
-    logger.log("createServer:", options.port, options.bind);
+    logger.log("createServer:", options);
     return server;
 }
 

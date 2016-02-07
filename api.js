@@ -594,20 +594,21 @@ api.init = function(options, callback)
                 self.sendReply(res, err);
             });
 
+            var restart = core.proxy.port ? "server" : "web";
             // Start http server
             if (core.port) {
-                self.server = core.createServer({ name: "http", port: core.port, bind: core.bind, restart: "web", timeout: core.timeout }, self.handleServerRequest);
+                self.server = core.createServer({ name: "http", port: core.port, bind: core.bind, restart: restart, timeout: core.timeout }, self.handleServerRequest);
             }
 
             // Start SSL server
             if (core.ssl.port && (core.ssl.key || core.ssl.pfx)) {
-                self.sslServer = core.createServer({ name: "https", ssl: core.ssl, port: core.ssl.port, bind: core.ssl.bind, restart: "web", timeout: core.timeout }, self.handleServerRequest);
+                self.sslServer = core.createServer({ name: "https", ssl: core.ssl, port: core.ssl.port, bind: core.ssl.bind, restart: restart, timeout: core.timeout }, self.handleServerRequest);
             }
 
             // WebSocket server, by default uses the http port
             if (core.ws.port) {
                 var server = core.ws.port == core.port ? self.server : core.ws.port == core.ssl.port ? self.sslServer : null;
-                if (!server) server = core.createServer({ ssl: core.ws.ssl ? core.ssl : null, port: core.ws.port, bind: core.ws.bind, restart: "web" }, function(req, res) { res.send(200, "OK"); });
+                if (!server) server = core.createServer({ ssl: core.ws.ssl ? core.ssl : null, port: core.ws.port, bind: core.ws.bind, restart: restart }, function(req, res) { res.send(200, "OK"); });
                 if (server) {
                     var ws = require("ws");
                     var opts = { server: server, verifyClient: function(data, callback) { self.checkWebSocketRequest(data, callback); } };
@@ -639,21 +640,32 @@ api.shutdown = function(callback)
     logger.log('api.shutdown: started');
     var timeout = callback ? setTimeout(callback, self.shutdownTimeout || 30000) : null;
 
-    // Make the worker not ready during the shutdown
+    // Make workers not ready during the shutdown
     ipc.sendMsg("api:shutdown", { id: cluster.isWorker ? cluster.worker.id : process.pid, pid: process.pid, port: core.port });
 
-    lib.parallel([
+    var closing = 0;
+    lib.series([
         function(next) {
-            if (!self.wsServer) return next();
-            try { self.wsServer.close(); next(); } catch(e) { logger.error("api.shutdown:", e.stack); next() }
+            lib.forEach([ self.wsServer, self.server, self.sslServer ], function(server, next2) {
+                if (!server) return next2();
+                try {
+                    closing++;
+                    server.on("close", function() { closing--; logger.info("api.shutdown:", "closed", server.serverName) });
+                    server.close();
+                } catch(e) {
+                    closing--;
+                    logger.error("api.shutdown:", e.stack);
+                }
+                next2();
+            }, next);
         },
         function(next) {
-            if (!self.sslServer) return next();
-            try { self.sslServer.close(function() { next() }); } catch(e) { logger.error("api.shutdown:", e.stack); next() }
-        },
-        function(next) {
-            if (!self.server) return next();
-            try { self.server.close(function() { next() }); } catch(e) { logger.error("api.shutdown:", e.stack); next() }
+            var n = 0;
+            function check() {
+                if (!closing || ++n > 500) return next();
+                setTimeout(check, 50);
+            }
+            check();
         },
     ], function(err) {
         core.runMethods("shutdownWeb", function() {
