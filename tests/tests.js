@@ -967,7 +967,8 @@ tests.test_limiter = function(callback)
 
 tests.test_cookie = function(callback)
 {
-    core.httpGet('http://www.google.com', { cookies: true }, function(err, params) {
+    // Testing redirect and cookies
+    core.httpGet('http://google.com', { cookies: true }, function(err, params) {
         console.log('COOKIES:', params.cookies);
         callback(err);
     });

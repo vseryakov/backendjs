@@ -95,7 +95,7 @@ var core = {
 
     // Watched source files for changes, restarts the process if any file has changed
     watchdirs: [],
-    noWatch: /tests.js/,
+    noWatch: /(tests|bk_shell).js/,
     timers: {},
     locales: [],
 

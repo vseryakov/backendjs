@@ -169,9 +169,9 @@ shell.assert = function()
     if (this.test.forever) return next();
 
     if (arguments[1] || arguments[2]) {
-        var args = [ arguments[1] || new Error("failed condition") ];
-        for (var i = 3; i < arguments.length; i++) args.push(arguments[i]);
-        logger.error(args);
+        var args = [ arguments[1] || ("TEST ASSERTION: " + arguments[3]) ];
+        for (var i = arguments[1] ? 3 : 4; i < arguments.length; i++) args.push(arguments[i]);
+        logger.error.apply(logger, args);
         err = args[0];
     }
     if (this.test.timeout) return setTimeout(function() { next(err) }, this.test.timeout);
@@ -276,10 +276,10 @@ shell.cmdTestRun = function(options)
         function(err) {
             tests.test.etime = Date.now();
             if (err) {
-                logger.error("tests failed:", tests.test.role, 'cmd:', tests.test.cmd, err);
+                logger.error("FAILED:", tests.test.role, 'cmd:', tests.test.cmd, err);
                 process.exit(1);
             }
-            logger.log("tests stopped:", tests.test.role, 'cmd:', tests.test.cmd, 'db-pool:', core.modules.db.pool, 'time:', tests.test.etime - tests.test.stime, "ms");
+            logger.log("SUCCESS:", tests.test.role, 'cmd:', tests.test.cmd, 'db-pool:', core.modules.db.pool, 'time:', tests.test.etime - tests.test.stime, "ms");
             process.exit(0);
         });
 }
