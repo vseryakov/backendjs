@@ -639,7 +639,8 @@ core.processArgs = function(ctx, argv, pass)
                 if (x.autotype && val) {
                     if (lib.isNumeric(val)) type = "number"; else
                     if (val == "true" || val == "false") type = "bool"; else
-                    if (val[0] == "[" && val.slice(-1) == "]") type = "list"; else
+                    if (val.indexOf("|") > -1) type = "list"; else
+                    if (val[0] == "[" && val.slice(-1) == "]") type = "json"; else
                     if (val[0] == "{" && val.slice(-1) == "}") type = "json";
                 }
                 logger.debug("processArgs:", type || "str", ctx.name + "." + x._name, "(" + key + ")", "=", val);

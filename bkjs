@@ -928,7 +928,7 @@ case "$ARG" in
     if [ "$(grep -s 'transparent_hugepage' /etc/rc.local)" = "" ]; then
        echo 'echo never > /sys/kernel/mm/transparent_hugepage/enabled' >> /etc/rc.local
     fi
-    $ECHO "/home/ec2-user/log/redis.log {\n  weekly\n  rotate 10\n  copytruncate\n  delaycompress\n  compress\n  notifempty\n  missingok\n}" > /etc/logrotate.d/redis
+    $ECHO "$REDIS_PREFIX/log/redis.log {\n  weekly\n  rotate 10\n  copytruncate\n  delaycompress\n  compress\n  notifempty\n  missingok\n}" > /etc/logrotate.d/redis
     $ECHO "check process redis-server with pidfile \"$REDIS_PREFIX/var/redis.pid\" start program = \"$0 run-redis $@\" as uid $BKJS_USER and gid $BKJS_GROUP stop program = \"$0 stop-redis\"" > /etc/monit.d/redis.conf
     monit reload
     ;;
@@ -945,7 +945,31 @@ case "$ARG" in
     ;;
 
   stop-redis)
-    killall redis-server
+    $KILLALL redis-server
+    ;;
+
+  init-sentinel-service)
+    host=$(get_arg -host 127.0.0.1)
+    port=$(get_arg -port 6379)
+    quorum=$(get_arg -quorum 2)
+    name=$(get_arg -name redis)
+    conf=$REDIS_PREFIX/etc/sentinel.conf
+    $ECHO "daemonize yes" > $conf
+    $ECHO "syslog-enabled yes" >> $conf
+    $ECHO "sentinel monitor $name $host $port $quorum" >> $conf
+    $ECHO "dir $REDIS_PREFIX/var/" >> $conf
+    $ECHO "pidfile $REDIS_PREFIX/var/sentinel.pid" >> $conf
+
+    $ECHO "check process redis-sentinel with pidfile \"$REDIS_PREFIX/var/sentinel.pid\" start program = \"$0 run-sentinel $@\" as uid $BKJS_USER and gid $BKJS_GROUP stop program = \"$0 stop-sentinel\"" > /etc/monit.d/sentinel.conf
+    monit reload
+    ;;
+
+  run-sentinel)
+    $REDIS_PREFIX/bin/redis-sentinel $REDIS_PREFIX/etc/sentinel.conf
+    ;;
+
+  stop-sentinel)
+    $KILLALL redis-sentinel
     ;;
 
   init-mysql)
@@ -1391,6 +1415,9 @@ EOF
     echo "  init-redis-service [-memsize PERCENT] [-memmax SIZE] - setup Redis server to be run on start and to be monitored (Linux only)"
     echo "  run-redis [-memsize PERCENT] [-memmax SIZE] - run local Redis server, uses config file $REDIS_CONF"
     echo "  stop-redis - stop local Redis server"
+    echo "  init-sentinel-service [-host HOST] [-port PORT] - setup Redis Sentinel server to be run on start and to be monitored (Linux only)"
+    echo "  run-sentinel - run local Redis Sentinel server, uses config file $REDIS_PREFIX/sentinel.conf"
+    echo "  stop-sentinel - stop local Redis Sentinel server"
     echo "  init-dynamodb - download and install local DynamoDB, start the server"
     echo "  get-dynamodb - install local DynamoDB server in $BKJS_PREFIX/dynamodb"
     echo "  run-dynamodb - run local DynamoDB server installed in $BKJS_PREFIX/dynamodb, data files in $BKJS_HOME/var"

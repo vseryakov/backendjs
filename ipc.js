@@ -49,9 +49,9 @@ function Ipc()
     this.args = [{ name: "lru-max", type: "callback", callback: function(v) { bkcache.lruInit(lib.toNumber(v,{min:10000})) }, descr: "Max number of items in the LRU cache, this cache is managed by the master Web server process and available to all Web processes maintaining only one copy per machine, Web proceses communicate with LRU cache via IPC mechanism between node processes" },
                  { name: "lru-max-(.+)", type: "callback", nocamel: 1, strip: /lru-max-/, callback: function(v,n) { if(core.role==n) bkcache.lruInit(lib.toNumber(v,{min:100})) }, descr: "Max number of items in the local LRU cache by process role, works the same way as the global one but only is set for the specified process role" },
                  { name: "cache-?([a-z0-1]+)?", obj: "configParams", nocamel: 1, descr: "An URL that points to the cache server in the format `PROTO://HOST[:PORT]?PARAMS`, to use for caching in the API/DB requests, default is local LRU cache, multiple caches can be defined with unique names, all params starting with `bk-` will be copied into the options without the prefix and removed from the url, the rest of paarms will be left in the url" },
-                 { name: "cache-?([a-z0-1]+)-options", obj: "configParams", nocamel: 1, type: "json", descr: "JSON object with options to the cache client, specific to each implementation" },
                  { name: "queue-?([a-z0-1]+)?", obj: "configParams", nocamel: 1, descr: "An URL that points to the queue server in the format `PROTO://HOST[:PORT]?PARAMS`, to use for PUB/SUB or job queues, default is no local queue, multiple queues can be defined with unique names, params are handled the same way as for cache" },
-                 { name: "queue-?([a-z0-1]+)?-options", obj: "configParams", nocamel: 1, type: "json", descr: "JSON object with options to the queue client, specific to each implementation" },
+                 { name: "cache(-([a-z0-1]+)?-?options)-(.+)$", obj: "configParams.cache$1", make: "$3", nocamel: 1, autotype: 1, descr: "Additionalparameters for cache clients, specific to each implementation, Example: `-ipc-cache-options-ttl 3000`" },
+                 { name: "queue(-([a-z0-1]+)?-?options)-(.+)$", obj: "configParams.queue$1", make: "$3", nocamel: 1, autotype: 1, descr: "Additional parameters for queue clients, specific to each implementation, Example: `-ipc-queue-redis-options-max_attempts 3`" },
          ];
 }
 
@@ -379,19 +379,19 @@ Ipc.prototype.initWorker = function()
 }
 
 // Return a new client for the given host or null if not supported
-Ipc.prototype.createClient = function(host, options)
+Ipc.prototype.createClient = function(url, options)
 {
     var client = null;
     try {
         for (var i in this.modules) {
-            client = this.modules[i].createClient(host, options);
+            client = this.modules[i].createClient(url, options);
             if (client) {
                 if (!client.name) client.name = this.modules[i].name;
                 break;
             }
         }
     } catch(e) {
-        logger.error("ipc.createClient:", host, e.stack);
+        logger.error("ipc.createClient:", url, e.stack);
     }
     return client;
 }

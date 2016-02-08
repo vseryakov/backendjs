@@ -262,7 +262,7 @@ aws.parseXMLResponse = function(err, params, options, callback)
 {
     if (typeof callback != "function") callback = lib.noop;
     if (err || !params.data) return callback(err);
-    params.obj = lib.xmlParse(params.data);
+    if (!params.obj) params.obj = lib.xmlParse(params.data);
     if (params.obj === null) params.status += 1000;
     if (params.status != 200) {
         var errors = lib.objGet(params.obj, "Response.Errors.Error", { list: 1 });
