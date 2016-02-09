@@ -625,7 +625,7 @@ db.put = function(table, obj, options, callback)
 //     - opsMap - operator mapping into supported by the database
 //     - typesMap - type mapping for properties to be used in the condition
 //     - expected - an object with the condition for the update, it is used in addition to the primary keys condition from the `obj`
-//     - join - how to join all expressions, default is AND
+//     - expected_join - how to join expected expressions, default is AND
 //     - upsert - create a new record if it does not exist
 //     - updateOps - an object with column names and operations to be performed on the named column
 //        - incr - increment by given value

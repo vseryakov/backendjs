@@ -19,21 +19,21 @@ module.exports = client;
 
 ipc.modules.push(client);
 
-client.createClient = function(host, options)
+client.createClient = function(url, options)
 {
-    if (host.match(/^memcache:/)) return new IpcMemcacheClient(host, options);
+    if (url.match(/^memcache:/)) return new IpcMemcacheClient(url, options);
 }
 
-function IpcMemcacheClient(host, options)
+function IpcMemcacheClient(url, options)
 {
     var self = this;
-    Client.call(this, host, options);
-    this.host = this.host.replace(/^[a-z]+:\/\//gi,"").split(",");
+    Client.call(this, url, options);
+    this.url = this.url.replace(/^[a-z]+:\/\//gi,"").split(",");
 
     var Memcached = require("memcached");
-    this.client = new Memcached(this.host, this.options);
+    this.client = new Memcached(this.url, this.options);
     this.client.on("error", function(err) {
-        logger.error("memcache:", self.host, err);
+        logger.error("memcache:", self.url, err);
     });
     this.client.on("ready", function() {
         self.emit("ready");

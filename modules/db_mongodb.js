@@ -25,7 +25,6 @@ db.modules.push(pool);
 
 function Pool(options)
 {
-    var mongodb = require('mongodb');
     if (!lib.isPositive(options.max)) options.max = 25;
     options.type = pool.name;
     db.Pool.call(this, options);
@@ -36,6 +35,7 @@ util.inherits(Pool, db.Pool)
 Pool.prototype.open = function(callback)
 {
     if (this.url == "default") this.url = "mongodb://127.0.0.1";
+    var mongodb = require('mongodb');
     mongodb.MongoClient.connect(this.url, this.connectOptions, function(err, db) {
         if (err) logger.error('mongodbOpen:', err);
         if (callback) callback(err, db);

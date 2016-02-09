@@ -588,6 +588,7 @@ will pull it from the database and on success will store it in the cache before 
 that must be passed to all put/update/del database methods in order to clear local cache, so next time the record will be retrieved with new changes from the database
 and refresh the cache, that is `{ cached: true }` can be passed in the options parameter for the db methods that may modify records with cached contents. In any case
 it is required to clear cache manually there is `db.clearCache` method for that.
+
 Also there is a configuration option `-db-caching` to make any table automatically cached for all requests.
 
 ## Local
@@ -595,12 +596,37 @@ If no cache is configured the local driver is used, it keeps the cache on the ma
 communicate with it via internal messaging provided by the `cluster` module. This works only for a single server.
 
 ## memcached
-Set `ipc-cache=memcache://HOST[,HOST]` that points to one or more hosts running memcached servers is what needs to be done only.
-The great benefit using memcache is to configure more than one server in `cache-host` separated by comma which makes it more reliable and
-eliminates single point of failure if one of the memcache servers goes down.
+Set `ipc-cache=memcache://HOST[:PORT]` that points to the host running memcached. To support multiple servrs add the option
+`ipc-cache-options-servers=10.1.1.1,10.2.2.1:5000`.
 
 ## Redis
-Set `ipc-cache=redis://HOST[:PORT]` that points to the server running Redis server. Only single Redis server can be specified.
+Set `ipc-cache=redis://HOST[:PORT]` that points to the server running Redis server. To support more than one master Redis server in the client
+add additional servers in the servers parameter, `ipc-cache-options-servers=10.1.1.1,10.2.2.1:5000`, the client will reconnect automatically on every
+disconnect. To support quick failover it needs a parameter for the `node-redis` module (which is used by the driver) `max_attempts` to be a number how many times to try to reconnect before switching to another server like
+`ipc-cache-options-max_attempts=3`. Any other `node-redis` module parameter can be passed as well.
+
+Cache configurations also can be passed in the url, the system supports special parameters that start with `bk-`, it will extract them into options automatically.
+
+For example:
+
+    ipc-cache=redis://host1?bk-servers=host2,host3&bk-max_attempts=3
+    ipc-cache-backup=redis://host2
+    ipc-cache-backup-options-max_attempts=3
+
+
+## Redis Sentinel
+
+To enable Redis Sentinel pass `-sentinel` or `-sentinel-servers`: `ipc-cache-options-sentinel=host1` or `ipc-cache=redis://host1?bk-sentinel-servers=host1,host2`.
+
+The system will connect to the sentinel, get the master cache server and connect the cache driver to it, also it will listen constantly on
+sentinel events and failover to a new master autimatically. Sentinel use the regular redis module and supports all the same
+parameters, to pass options to the sentinel driver prefix them with `sentinel-`:
+
+    ipc-cache=redis://host1?bk-servers=host2,host3&bk-max_attempts=3&bk-sentinel=1&bk-sentinel-servers=host2,host3
+    ipc-cache-backup=redis://host2
+    ipc-cache-backup-options-sentinel-servers=host1,host2
+    ipc-cache-backup-options-sentinel-max_attempts=5
+
 
 # PUB/SUB or Queue configurations
 
@@ -654,7 +680,7 @@ will be passed to the corresponding AMQP methods: `amqp.queue, amqp.queue.sibcri
 ## DB
 This is a simple queue implementation using the atomic UPDATE, it polls for new jobs in the table and updates the status, only who succeeds
 with the update takes the job and executes it. It is not effective but can be used for simple and not busy systems for more or less long jobs.
-The advantage is that it uses the same database and does not quire additional servers.
+The advantage is that it uses the same database and does not require additional servers.
 
 ## SQS
 To use AWS SQS for job processing set `ipc-queue=https://sqs.amazonaws.com....`, this queue system will poll SQS for new messeges on a worker

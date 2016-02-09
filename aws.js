@@ -419,6 +419,12 @@ aws.queryElastiCache = function(action, obj, options, callback)
     this.queryEndpoint("elasticache", '2014-09-30', action, obj, options, callback);
 }
 
+// AWS Autoscaling API request
+aws.queryAS = function(action, obj, options, callback)
+{
+    this.queryEndpoint("autoscaling", '2011-01-01', action, obj, options, callback);
+}
+
 // Make a request to Route53 service
 aws.queryRoute53 = function(method, path, data, options, callback)
 {
@@ -457,7 +463,8 @@ aws.queryDDB = function (action, obj, options, callback)
     logger.debug('queryDDB:', action, uri, 'obj:', obj, 'options:', options, 'item:', obj);
 
     var opts = this.queryOptions("POST", json, headers, options);
-    opts.replyOnError = function() { return this.status == 500 || this.data.match(/(ProvisionedThroughputExceededException|ThrottlingException)/) }
+    if (!opts.retryCount) opts.retryCount = 3;
+    opts.retryOnError = function() { return this.status == 500 || this.data.match(/(ProvisionedThroughputExceededException|ThrottlingException)/) }
 
     this.querySign(region, "dynamodb", req.hostname, "POST", req.path, json, headers);
     core.httpGet(uri, opts, function(err, params) {
@@ -1509,14 +1516,24 @@ aws.queryFilter = function(obj, options)
 }
 
 // Build a condition expression for the given object, all properties in the obj are used
-aws.queryExpression = function(obj, options)
+aws.queryExpression = function(obj, options, join, index)
 {
-    var opsMap = { "!=": "<>", eq: "=", ne: "<>", lt: "<", le: ",=", gt: ">", ge: ">=" };
+    var opsMap = { "!=": "<>", eq: "=", ne: "<>", lt: "<", le: "<=", gt: ">", ge: ">=" };
     var ops = options.ops || lib.empty;
-    var v = 0, n = 0, values = {}, expr = [], names = {};
+    var v = index || 0, n = index || 0, values = {}, expr = [], names = {};
 
     for (var name in obj) {
         var val = obj[name];
+        if (name == "$or" || name == "$and") {
+            var e = this.queryExpression(val, options, name.substr(1), (n + 1) * 10);
+            if (e) {
+                expr.push("(" + e.expr + ")");
+                for (var p in e.names) names[p] = e.names[p];
+                for (var p in e.values) values[p] = e.values[p];
+            }
+            continue;
+        }
+
         var op = ops[name] || "eq";
         if (opsMap[op]) op = opsMap[op];
         if (val == null) op = "null";
@@ -1594,7 +1611,7 @@ aws.queryExpression = function(obj, options)
         }
     }
     if (!expr.length) return null;
-    var rc = { expr: expr.join(" " + (options.join || "and") + " ") };
+    var rc = { expr: expr.join(" " + (join || "and") + " ") };
     if (n) rc.names = names;
     if (v) rc.values = values;
     return rc;
@@ -1872,12 +1889,13 @@ aws.ddbWaitForTable = function(name, item, options, callback)
 // - options may contain any valid native property if it starts with capital letter or special properties:
 //    - expected - an object with column names to be used in Expected clause and value as null to set condition to { Exists: false } or
 //          any other exact value to be checked against which corresponds to { Exists: true, Value: value }
+//    - expected_join - how to join conditions, default is AND
 //    - expr - condition expression
 //    - values - an object with values map to be used for in the update and/or condition expressions, to be used
 //          for ExpressionAttributeValues parameters
 //    - names - an object with a map to be used for attribute names in condition and update expressions, to be used
 //          for ExpressionAttributeNames parameter
-//    - returning - values to be returned on success, * means ALL_NEW
+//    - returning - values to be returned on success, * means ALL_NEW, old means ALL_OLD
 //
 // Example:
 //
@@ -1891,7 +1909,7 @@ aws.ddbPutItem = function(name, item, options, callback)
     if (!options) options = lib.empty;
     var params = { TableName: name, Item: self.toDynamoDB(item) };
     if (options.expected) {
-        var expected = this.queryExpression(options.expected, options);
+        var expected = this.queryExpression(options.expected, options, options.expected_join);
         if (expected) {
             params.ConditionExpression = expected.expr;
             if (expected.names) params.ExpressionAttributeNames = expected.names;
@@ -1908,7 +1926,7 @@ aws.ddbPutItem = function(name, item, options, callback)
         params.ExpressionAttributeValues = self.toDynamoDB(options.values);
     }
     if (options.returning) {
-        params.ReturnValues = options.returning == "*" ? "ALL_NEW" : options.returning;
+        params.ReturnValues = options.returning == "*" ? "ALL_NEW" : options.returning == "old" ? "ALL_OLD" : options.returning;
     }
     this.queryDDB('PutItem', params, options, function(err, rc) {
         rc.Item = rc.Attributes ? self.fromDynamoDB(rc.Attributes) : {};
@@ -1932,7 +1950,7 @@ aws.ddbPutItem = function(name, item, options, callback)
 //      - expected - an object with column to be used in ConditionExpression, value null means an attrobute does not exists,
 //          any other value to be checked against using regular compare rules. The conditional comparison operator is taken
 //          from `options.ops` the same way as for queries.
-//      - returning - values to be returned on success, * means ALL_NEW
+//      - returning - values to be returned on success, * means ALL_NEW, old means ALL_OLD
 //
 // Example:
 //
@@ -1951,7 +1969,7 @@ aws.ddbUpdateItem = function(name, keys, item, options, callback)
         params.Key[p] = self.toDynamoDB(keys[p]);
     }
     if (options.expected) {
-        var expected = this.queryExpression(options.expected, options);
+        var expected = this.queryExpression(options.expected, options, options.expected_join);
         if (expected) {
             params.ConditionExpression = expected.expr;
             if (expected.names) params.ExpressionAttributeNames = expected.names;
@@ -1968,7 +1986,7 @@ aws.ddbUpdateItem = function(name, keys, item, options, callback)
         params.ExpressionAttributeValues = self.toDynamoDB(options.values);
     }
     if (options.returning) {
-        params.ReturnValues = options.returning == "*" ? "ALL_NEW" : options.returning;
+        params.ReturnValues = options.returning == "*" ? "ALL_NEW" : options.returning == "old" ? "ALL_OLD" : options.returning;
     }
     if (typeof item == "string") {
         params.UpdateExpression = item;
@@ -2081,7 +2099,7 @@ aws.ddbDeleteItem = function(name, keys, options, callback)
         params.Key[p] = self.toDynamoDB(keys[p]);
     }
     if (options.expected) {
-        var expected = this.queryExpression(options.expected, options);
+        var expected = this.queryExpression(options.expected, options, options.expected_join);
         if (expected) {
             params.ConditionExpression = expected.expr;
             if (expected.names) params.ExpressionAttributeNames = expected.names;
@@ -2098,7 +2116,7 @@ aws.ddbDeleteItem = function(name, keys, options, callback)
         params.ExpressionAttributeValues = self.toDynamoDB(options.values);
     }
     if (options.returning) {
-        params.ReturnValues = options.returning == "*" ? "ALL_OLD" : options.returning;
+        params.ReturnValues = options.returning == "*" || options.returning == "old" ? "ALL_OLD" : options.returning;
     }
     this.queryDDB('DeleteItem', params, options, function(err, rc) {
         rc.Item = rc.Attributes ? self.fromDynamoDB(rc.Attributes) : {};

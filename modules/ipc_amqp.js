@@ -19,23 +19,23 @@ module.exports = client;
 
 ipc.modules.push(client);
 
-client.createClient = function(host, options)
+client.createClient = function(url, options)
 {
-    if (host.match(/^amqps?:/)) return new IpcAmqpClient(host, options);
+    if (url.match(/^amqps?:/)) return new IpcAmqpClient(url, options);
 }
 
 function IpcAmqpClient(host, options)
 {
     var self = this;
-    Client.call(this, host, options);
+    Client.call(this, url, options);
     if (!lib.isObject(this.options.queueParams)) this.options.queueParams = {};
     if (!lib.isObject(this.options.subscribeParams)) this.options.subscribeParams = {};
     if (!lib.isObject(this.options.publishParams)) this.options.publishParams = {};
 
     var amqp = require("amqp");
-    this.client = amqp.createConnection({ url: this.host }, this.options);
+    this.client = amqp.createConnection({ url: this.url }, this.options);
     this.client.on("error", function(err) {
-        logger.error("amqp:", self.host, err);
+        logger.error("amqp:", self.url, err);
     });
     this.client.on("ready", function() {
         self._queue = this.queue(self.options.queueName || "", this.options.queueParams, function() {
