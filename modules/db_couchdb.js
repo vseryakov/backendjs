@@ -115,7 +115,7 @@ Pool.prototype.query = function(client, req, options, callback)
         // Custom filter on other columns
         var cols = db.getColumns(req.table, options);
         var other = Object.keys(req.obj).filter(function(x) { return x[0] != "_" && keys.indexOf(x) == -1 && typeof req.obj[x] != "undefined" });
-        var options2 = { keys: other, cols: cols, ops: options.ops, typesMap: options.typesMap || this.poolOptions.typesMap };
+        var options2 = { keys: other, cols: cols, ops: options.ops, typesMap: options.typesMap || this.configOptions.typesMap };
         var filter = function(items) { return other.length > 0 ? self.filterRows(req.obj, items, options2) : items; }
 
         this.doQuery("select", "GET", "_design/" + req.table + "/_view/" + (options.sort || "primary"), "", options, function(err, res) {

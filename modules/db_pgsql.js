@@ -12,7 +12,7 @@ var logger = require(__dirname + '/../logger');
 
 var pool = {
     name: "pgsql",
-    poolOptions: {
+    configOptions: {
         typesMap: { real: "numeric", bigint: "bigint", smallint: "smallint", search: "tsvector" },
         noIfExists: 1,
         noReplace: 1,
@@ -33,7 +33,7 @@ function Pool(options)
     }
     options.type = pool.name;
     db.SqlPool.call(this, options);
-    this.poolOptions = lib.mergeObj(this.poolOptions, pool.poolOptions);
+    this.configOptions = lib.mergeObj(this.configOptions, pool.configOptions);
     this._handles = [];
 }
 util.inherits(Pool, db.SqlPool)

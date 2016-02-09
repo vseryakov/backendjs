@@ -1439,14 +1439,14 @@ lib.typeName = function(v)
     return "object";
 }
 
-// Return a new Error object, options can be a string which will create an error with a message only
-// or an object with message, code, status, and name properties to build full error. The default error status is 400 if not specified.
-lib.newError = function(options, status)
+// Return a new Error object, msg can be a string or an object with message, code, status properties.
+// The default error status is 400 if not specified.
+lib.newError = function(msg, status)
 {
-    if (typeof options == "string") options = { status: typeof status == "number" ? status : 400, message: options };
-    if (!options) options = {};
-    var err = new Error(options.message || this.__("Internal error occured, please try later"));
-    for (var p in options) err[p] = options[p];
+    if (typeof msg == "string") msg = { status: typeof status == "number" ? status : 400, message: msg };
+    if (!msg) msg = {};
+    var err = new Error(msg.message || this.__("Internal error occured, please try later"));
+    for (var p in msg) err[p] = msg[p];
     if (!err.status) err.status = 400;
     return err;
 }

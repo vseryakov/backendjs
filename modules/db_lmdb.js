@@ -20,7 +20,7 @@ var logger = require(__dirname + '/../logger');
 // The LevelDB database can only be shared by one process so if no unique options.url is given, it will create a unique database using core.processId()
 var pool = {
     name: "lmdb",
-    poolOptions: { noJson: 1, concurrency: 3 },
+    configOptions: { noJson: 1, concurrency: 3 },
     createPool: function(options) { return new Pool(options); }
 };
 module.exports = pool;
@@ -32,7 +32,7 @@ function Pool(options)
 {
     options.type = pool.name;
     db.Pool.call(this, options);
-    this.poolOptions = lib.mergeObj(this.poolOptions, pool.poolOptions);
+    this.configOptions = lib.mergeObj(this.configOptions, pool.configOptions);
 }
 util.inherits(Pool, db.Pool);
 
@@ -52,7 +52,7 @@ Pool.prototype.getLevelDB = function(callback)
     try {
         var path = core.path.spool + "/" + (this.url || ('ldb_' + core.processName()));
         var bkleveldb = require("bkjs-leveldb");
-        new bkleveldb.Database(path, this.poolOptions, function(err) {
+        new bkleveldb.Database(path, this.configOptions, function(err) {
             self.dbhandle = this;
             callback(null, this);
         });
@@ -66,14 +66,14 @@ Pool.prototype.getLMDB = function(callback)
     var self = this;
     if (this.dbhandle) return callback(null, this.dbhandle);
     try {
-        if (!this.v.path) this.poolOptions.path = core.path.spool;
-        if (!this.poolOptions.poolOptions) this.poolOptions.flags = bklmdb.MDB_CREATE;
-        if (!this.poolOptions.dbs) this.poolOptions.dbs = 1;
+        if (!this.v.path) this.configOptions.path = core.path.spool;
+        if (!this.configOptions.configOptions) this.configOptions.flags = bklmdb.MDB_CREATE;
+        if (!this.configOptions.dbs) this.configOptions.dbs = 1;
         // Share same environment between multiple pools, each pool works with one db only to keep the API simple
-        if (this.poolOptions.env && this.poolOptions.env instanceof bklmdb.Env) this.env = this.poolOptions.env;
-        if (!this.env) this.env = new bklmdb.Env(this.poolOptions);
+        if (this.configOptions.env && this.configOptions.env instanceof bklmdb.Env) this.env = this.configOptions.env;
+        if (!this.env) this.env = new bklmdb.Env(this.configOptions);
         var bklmdb = require("bkjs-lmdb");
-        new bklmdb.Database(this.env, { name: this.url, flags: this.poolOptions.flags }, function(err) {
+        new bklmdb.Database(this.env, { name: this.url, flags: this.configOptions.flags }, function(err) {
             self.dbhandle = this;
             callback(err, this);
         });
@@ -170,7 +170,7 @@ Pool.prototype.query = function(client, req, options, callback)
                 rows.push(row);
             });
             if (other.length > 0) {
-                rows = db.filterRows(obj, rows, { keys: other, cols: cols, ops: options.ops, typesMap: options.typesMap || this.poolOptions.typesMap });
+                rows = db.filterRows(obj, rows, { keys: other, cols: cols, ops: options.ops, typesMap: options.typesMap || this.configOptions.typesMap });
             }
             if (rows.length && options.sort) rows.sort(function(a,b) { return (a[options.sort] - b[options.sort]) * (options.desc ? -1 : 1) });
             callback(null, rows);

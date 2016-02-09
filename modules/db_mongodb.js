@@ -11,7 +11,7 @@ var logger = require(__dirname + '/../logger');
 
 var pool = {
     name: "mongodb",
-    poolOptions: {
+    configOptions: {
         jsonColumns: true,
         skipNull: { add: 1, put: 1 },
         w: 1,
@@ -28,7 +28,7 @@ function Pool(options)
     if (!lib.isPositive(options.max)) options.max = 25;
     options.type = pool.name;
     db.Pool.call(this, options);
-    this.poolOptions = lib.mergeObj(this.poolOptions, pool.poolOptions);
+    this.configOptions = lib.mergeObj(this.configOptions, pool.configOptions);
 }
 util.inherits(Pool, db.Pool)
 

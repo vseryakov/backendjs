@@ -537,7 +537,7 @@ Ipc.prototype.incr = function(key, val, options, callback)
 // Subscribe to a publish or queue server for messages for the given channel, the callback will be called only on new message received.
 //
 // The callback accepts 2 arguments, a message and optional next callback, if it is provided it must be called at the end to confirm or reject the message processing.
-// Only errors with code>=500 will result in rejection, not ll drivers support the next callback if the underlying queue does not support message acknowledgement.
+// Only errors with code>=500 will result in rejection, not all drivers support the next callback if the underlying queue does not support message acknowledgement.
 //
 // Depending on the implementation, the subscription can work as fan-out, delivering messages to all subscribed to the same channel or
 // can implement job queue model where only one subscriber receives a message.

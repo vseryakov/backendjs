@@ -1192,6 +1192,7 @@ tests.test_config = function(callback)
                 "-db-sqlite-pool-1", "a",
                 "-db-sqlite-pool-max-1", "10",
                 "-db-sqlite-pool-cache-columns-1", "1",
+                "-db-sqlite-pool-options-discovery-interval", "30000",
             ];
     core.parseArgs(argv);
     logger.debug("poolParams:", db.poolParams);
@@ -1201,7 +1202,8 @@ tests.test_config = function(callback)
     if (!db.poolParams.sqlite || db.poolParams.sqlite.max != 10) return callback("invalid sqlite max");
     if (!db.poolParams.sqlite1 || db.poolParams.sqlite1.url != "a") return callback("invalid sqlite1 url");
     if (db.poolParams.sqlite1.max != 10) return callback("invalid sqlite1 max");
-    if (!db.poolParams.sqlite1.poolOptions.cacheColumns) return callback("invalid sqlite1 cache-columns");
+    if (!db.poolParams.sqlite1.configOptions.cacheColumns) return callback("invalid sqlite1 cache-columns");
+    if (db.poolParams.sqlite.configOptions.discoveryInterval != 30000) return callback("invalid sqlite interval");
     if (core.logwatcherEmail.error != "a") return callback("invalid logwatcher email:" + JSON.stringify(core.logwatcherEmail));
     if (core.logwatcherMatch.error.indexOf("a") == -1) return callback("invalid logwatcher match: " + JSON.stringify(core.logwatcherMatch));
     if (!core.logwatcherFile.some(function(x) { return x.file == "a" && x.type == "error"})) return callback("invalid logwatcher file: " + JSON.stringify(core.logwatcherFile));
@@ -1221,7 +1223,7 @@ tests.test_logwatcher = function(callback)
                 "-logwatcher-email-warning", email,
                 "-logwatcher-email-any", email,
                 "-logwatcher-match-test", "TEST: ",
-                "-logwatcher-match-any", "line:[0-9]+"
+                "-logwatcher-match-any", "line:[0-9]+",
             ];
     var lines = [
                 " ERROR: error1",

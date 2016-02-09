@@ -11,7 +11,7 @@ var logger = require(__dirname + '/../logger');
 
 var pool = {
     name: "mysql",
-    poolOptions: {
+    configOptions: {
         typesMap: { json: "text", bigint: "bigint" },
         sqlPlaceholder: "?",
         defaultType: "VARCHAR(128)",
@@ -34,7 +34,7 @@ function Pool(options)
     }
     options.type = pool.name;
     db.SqlPool.call(this, options);
-    this.poolOptions = lib.mergeObj(this.poolOptions, pool.poolOptions);
+    this.configOptions = lib.mergeObj(this.configOptions, pool.configOptions);
 }
 util.inherits(Pool, db.SqlPool);
 

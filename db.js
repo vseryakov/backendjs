@@ -119,9 +119,9 @@ var db = {
            { name: "([a-z]+)-pool-(idle)-?([0-9]+)?$", obj: 'poolParams.$1$3', make: "$2", type: "number", min: 1000, descr: "Number of ms for a db pool connection to be idle before being destroyed" },
            { name: "([a-z]+)-pool-tables-?([0-9]+)?$", obj: 'poolTables', strip: /PoolTables/, type: "list", reverse: 1, descr: "A DB pool tables, list of tables that belong to this pool only" },
            { name: "([a-z]+)-pool-(connect)-?([0-9]+)?$", obj: 'poolParams.$1$3', make: "$2", type: "json", descr: "Connect options for a DB pool driver for new connection, driver specific" },
-           { name: "([a-z]+)-pool-options-([a-zA-Z0-9-]+)-?([0-9]+)?$", obj: 'poolParams.$1$3.poolOptions', autotype: 1, make: "$2", descr: "General options for a DB pool" },
-           { name: "([a-z]+)-pool-(cache-columns)-?([0-9]+)?$", obj: 'poolParams.$1$3.poolOptions', make: "$2", type: "bool", descr: "Enable caching table columns for this pool if it supports it" },
-           { name: "([a-z]+)-pool-(create-tables)-?([0-9]+)?$", master: 1, obj: 'poolParams.$1$3.poolOptions', make: "$2", type: "bool", descr: "Create tables for this pool on startup" },
+           { name: "([a-z]+)-pool-options-([a-zA-Z0-9-]+)-?([0-9]+)?$", obj: 'poolParams.$1$3.configOptions', camel: '-', autotype: 1, make: "$2", descr: "General options for a DB pool" },
+           { name: "([a-z]+)-pool-(cache-columns)-?([0-9]+)?$", obj: 'poolParams.$1$3.configOptions', make: "$2", type: "bool", descr: "Enable caching table columns for this pool if it supports it" },
+           { name: "([a-z]+)-pool-(create-tables)-?([0-9]+)?$", master: 1, obj: 'poolParams.$1$3.configOptions', make: "$2", type: "bool", descr: "Create tables for this pool on startup" },
            { name: "([a-z]+)-pool-cache2-(.+)", obj: 'cache2', nocamel: 1, strip: /pool-cache2-/, type: "int", descr: "Level 2 cache TTL for the specified pool and table" },
     ],
 
@@ -165,7 +165,7 @@ var db = {
     separator: "|",
 
     // Translation map for similar operators from different database drivers, merge with the basic SQL mapping
-    sqlPoolOptions: {
+    sqlConfigOptions: {
         sql: true,
         schema: [],
         noAppend: 1,
@@ -256,8 +256,8 @@ db.init = function(options, callback)
 
         logger.debug('init:', core.role, params);
 
-        if (self._createTables || pool.poolOptions.createTables) return self.createTables(name, function() { next() });
-        if (pool.poolOptions.cacheColumns) return self.cacheColumns(name, function() { next() });
+        if (self._createTables || pool.configOptions.createTables) return self.createTables(name, function() { next() });
+        if (pool.configOptions.cacheColumns) return self.cacheColumns(name, function() { next() });
         next();
     }, callback);
 }
@@ -377,7 +377,7 @@ db.createTables = function(options, callback)
 
     var pool = self.getPool('', options);
     var changed = [];
-    logger.debug("createTables:", pool.name, pool.poolOptions);
+    logger.debug("createTables:", pool.name, pool.configOptions);
 
     lib.series([
       function(next) {
@@ -406,7 +406,7 @@ db.createTables = function(options, callback)
       function(next) {
           if (!changed.length) return next();
           logger.info('createTables:', pool.name, 'changed:', changed);
-          if (pool.poolOptions.cacheColumns) return self.cacheColumns({ pool: pool.name, tables: changed }, next);
+          if (pool.configOptions.cacheColumns) return self.cacheColumns({ pool: pool.name, tables: changed }, next);
           next();
       },
     ], callback);
@@ -1597,7 +1597,7 @@ db.refreshColumns = function(options, callback)
     if (typeof options == "function") callback = options, options = null;
     var pools = this.getPools();
     lib.forEachLimit(pools, pools.length, function(pool, next) {
-        if (!pool.poolOptions.cacheColumns) return next();
+        if (!pool.configOptions.cacheColumns) return next();
         self.cacheColumns(pool.name, next);
     }, callback);
 }
@@ -1729,14 +1729,14 @@ db.prepareForUpdate = function(pool, req, orig)
         col = req.columns[p];
         if (col) {
             // Skip artificial join columns
-            if (pool.poolOptions.noJoinColumns && Array.isArray(col.join) && col.join.indexOf(p) == -1) continue;
+            if (pool.configOptions.noJoinColumns && Array.isArray(col.join) && col.join.indexOf(p) == -1) continue;
             // Convert into native data type
             if (v !== null) {
-                if (pool.poolOptions.strictTypes) {
+                if (pool.configOptions.strictTypes) {
                     if (col.primary || col.index || col.type) v = lib.toValue(v, col.type);
                 } else {
                     // Handle json separately in sync with convertRows
-                    if (pool.poolOptions.noJson && col.type == "json") v = JSON.stringify(v);
+                    if (pool.configOptions.noJson && col.type == "json") v = JSON.stringify(v);
                 }
             }
             // Verify against allowed values
@@ -1744,7 +1744,7 @@ db.prepareForUpdate = function(pool, req, orig)
             // Max length limit for text fields
             if (col.maxlength && typeof v == "string" && !col.type && v.length > col.maxlength) v = v.substr(0, col.maxlength);
         }
-        if ((v == null || v === "") && pool.poolOptions.skipNull && pool.poolOptions.skipNull[req.op]) continue;
+        if ((v == null || v === "") && pool.configOptions.skipNull && pool.configOptions.skipNull[req.op]) continue;
         o[p] = v;
     }
     req.obj = o;
@@ -1778,7 +1778,7 @@ db.prepareForDelete = function(pool, req, orig)
         col = req.columns[p];
         if (this.skipColumn(p, v, req.options, req.columns)) continue;
         // Convert into native data type
-        if (pool.poolOptions.strictTypes && col && (col.primary || col.type) && typeof v != "undefined") v = lib.toValue(v, col.type);
+        if (pool.configOptions.strictTypes && col && (col.primary || col.type) && typeof v != "undefined") v = lib.toValue(v, col.type);
         o[p] = v;
     }
     req.obj = o;
@@ -1800,7 +1800,7 @@ db.prepareForSelect = function(pool, req, orig)
     // that strict and can be arrays which we should not convert due to options.ops
     for (var p in req.columns) {
         col = req.columns[p];
-        if (pool.poolOptions.strictTypes) {
+        if (pool.configOptions.strictTypes) {
             var type = typeof req.obj[p];
             if (lib.isNumericType(col.type)) {
                 if (type == "string" && req.obj[p]) req.obj[p] = lib.toNumber(req.obj[p]);
@@ -1852,7 +1852,7 @@ db.prepareForList = function(pool, req, orig)
     for (var i = 0; i < req.obj.length; i++) {
         for (var p in req.columns) {
             col = req.columns[p];
-            if (pool.poolOptions.strictTypes) {
+            if (pool.configOptions.strictTypes) {
                 if (lib.isNumericType(col.type)) {
                     if (typeof req.obj[i][p] == "string") req.obj[i][p] = lib.toNumber(req.obj[i][p]);
                 } else {
@@ -1893,7 +1893,7 @@ db.convertRows = function(pool, req, rows, options)
     for (var p in cols) {
         col = cols[p];
         // Convert from JSON type
-        if (pool.poolOptions.noJson && col.type == "json") {
+        if (pool.configOptions.noJson && col.type == "json") {
             for (var i = 0; i < rows.length; i++) {
                 if (typeof rows[i][p] == "string" && rows[i][p]) rows[i][p] = lib.jsonParse(rows[i][p], { logger: "error" });
             }
@@ -2053,7 +2053,7 @@ db.getPool = function(table, options)
 db.getPoolTables = function(name, options)
 {
     var pool = this.getPool('', name);
-    var tables = pool.poolOptions.cacheColumns ? pool.dbcolumns : this.tables;
+    var tables = pool.configOptions.cacheColumns ? pool.dbcolumns : this.tables;
     if (options && options.names) tables = Object.keys(tables);
     return tables;
 }
@@ -2110,8 +2110,8 @@ db.getCapacity = function(table, options)
     var cap = {
         table: table,
         unitCapacity: 1,
-        readCapacity: capacity.read || pool.poolOptions.readCapacity || 0,
-        writeCapacity: capacity.write || pool.poolOptions.writeCapacity || 0,
+        readCapacity: capacity.read || pool.configOptions.readCapacity || 0,
+        writeCapacity: capacity.write || pool.configOptions.writeCapacity || 0,
     };
     var use = options.useCapacity;
     var factor = options.factorCapacity > 0 && options.factorCapacity <= 1 ? options.factorCapacity : 1;
@@ -2498,7 +2498,7 @@ db.Pool = function(options)
     this.name = options.pool || options.name || options.type;
     this.url = options.url || "default";
     this.metrics = new metrics.Metrics('name', this.name);
-    this.poolOptions = {};
+    this.configOptions = {};
     this.connectOptions = {};
     this.dbcolumns = {};
     this.dbkeys = {};
@@ -2515,7 +2515,7 @@ db.Pool.prototype.configure = function(options)
 {
     this.init(options);
     if (options.url) this.url = options.url;
-    if (lib.isObject(options.poolOptions)) this.poolOptions = lib.mergeObj(this.poolOptions, options.poolOptions);
+    if (lib.isObject(options.configOptions)) this.configOptions = lib.mergeObj(this.configOptions, options.configOptions);
     if (lib.isObject(options.connectOptions)) this.connectOptions = lib.mergeObj(this.connectOptions, options.connectOptions);
     logger.debug("pool.configure:", this.name, this.type, options);
 }
@@ -2526,7 +2526,7 @@ db.Pool.prototype.shutdown = function(callback, maxtime)
     lib.Pool.prototype.shutdown.call(this, function() {
         self.metrics = new metrics.Metrics();
         self.dbcolumns = self.dbkeys = self.dbindexes = {};
-        self.poolOptions = self.connectOptions = {};
+        self.configOptions = self.connectOptions = {};
         if (typeof callback == "function") callback();
     }, maxtime);
 }
@@ -2608,7 +2608,7 @@ db.SqlPool = function(options)
     if (!lib.isPositive(options.max)) options.max = 25;
 
     db.Pool.call(this, options);
-    this.poolOptions = lib.mergeObj(this.poolOptions, db.sqlPoolOptions);
+    this.configOptions = lib.mergeObj(this.configOptions, db.sqlConfigOptions);
 }
 util.inherits(db.SqlPool, db.Pool);
 

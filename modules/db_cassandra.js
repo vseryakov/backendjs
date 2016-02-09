@@ -18,7 +18,7 @@ var logger = require(__dirname + '/../logger');
 
 var pool = {
     name: "cassandra",
-    poolOptions: {
+    configOptions: {
         typesMap: { json: "text", real: "double", counter: "counter", bigint: "bigint" },
         opsMap: { begins_with: "begins_with" },
         sqlPlaceholder: "?",
@@ -47,7 +47,7 @@ function Pool(options)
 {
     options.type = pool.name;
     db.SqlPool.call(this, options);
-    this.poolOptions = lib.mergeObj(this.poolOptions, pool.poolOptions);
+    this.configOptions = lib.mergeObj(this.configOptions, pool.configOptions);
 }
 util.inherits(Pool, db.SqlPool)
 
@@ -127,7 +127,7 @@ Pool.prototype.prepare = function(req)
         var other = Object.keys(req.obj).filter(function(x) { return x[0] != "_" && keys.indexOf(x) == -1 && typeof req.obj[x] != "undefined" });
         // Custom filter function for in-memory filtering of the results using non-indexed properties
         if (other.length) req.options.rowfilter = function(rows) {
-            return db.filterRows(obj, rows, { keys: other, cols: cols, ops: req.options.ops, typesMap: req.options.typesMap || this.poolOptions.typesMap });
+            return db.filterRows(obj, rows, { keys: other, cols: cols, ops: req.options.ops, typesMap: req.options.typesMap || this.configOptions.typesMap });
         }
         req.options.keys = keys;
 
