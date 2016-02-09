@@ -616,7 +616,7 @@ For example:
 
 ## Redis Sentinel
 
-To enable Redis Sentinel pass `-sentinel` or `-sentinel-servers`: `ipc-cache-options-sentinel=host1` or `ipc-cache=redis://host1?bk-sentinel-servers=host1,host2`.
+To enable Redis Sentinel pass in the options `-sentinel` or `-sentinel-servers`: `ipc-cache-options-sentinel=host1` or `ipc-cache=redis://host1?bk-sentinel-servers=host1,host2`.
 
 The system will connect to the sentinel, get the master cache server and connect the cache driver to it, also it will listen constantly on
 sentinel events and failover to a new master autimatically. Sentinel use the regular redis module and supports all the same

@@ -28,16 +28,17 @@ function IpcMemcacheClient(url, options)
 {
     var self = this;
     Client.call(this, url, options);
-    this.url = this.url.replace(/^[a-z]+:\/\//gi,"").split(",");
+    this.options.servers = lib.strSplitUnique(this.options.servers);
+    var h = (this.hostname || "127.0.0.1") + ":" + (this.port || this.options.port || 11211);
+    if (this.options.servers.indexOf(h) == -1) this.options.servers.unshift(h);
 
     var Memcached = require("memcached");
-    this.client = new Memcached(this.url, this.options);
+    this.client = new Memcached(this.options.servers, this.options);
     this.client.on("error", function(err) {
         logger.error("memcache:", self.url, err);
+        self.emit("error");
     });
-    this.client.on("ready", function() {
-        self.emit("ready");
-    });
+    this.client.on("ready", this.emit.bind(this, "ready"));
 }
 util.inherits(IpcMemcacheClient, Client);
 
