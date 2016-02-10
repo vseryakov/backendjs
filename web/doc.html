@@ -8778,7 +8778,7 @@ up to the caller, assertion happens if an err is given or this value is true</li
 <ul>
 <li><p><code>shell.cmdTestRun(options)</code></p>
 <p> Run the test function which is defined in the tests module, all arguments will be taken from the options or the command line. Options
-use the same names as command line arguments without preceeding test- part.</p>
+use the same names as command line arguments without preceeding <code>test-</code> prefix.</p>
 <p>The common command line arguments that supported:</p>
 <ul>
 <li>-test-run - name of the function to run</li>
@@ -8803,25 +8803,23 @@ use the same names as command line arguments without preceeding test- part.</p>
     }
 
     # bksh -test-run mytest
-</code></pre></li>
-</ul>
-<p> Custom tests:</p>
+</code></pre><p>Custom tests:</p>
 <ul>
 <li><p>create a user for backend testing, if the API does not require authentication skip this step:</p>
-<pre><code>    ./app.sh -shell -account-add login testuser secret testpw
-</code></pre><ul>
+<pre><code>  ./app.sh -shell -account-add login testuser secret testpw
+</code></pre></li>
 <li><p>configure global backend credentials</p>
 <pre><code>  echo &quot;backend-login=testuser&quot; &gt;&gt; etc/config.local
   echo &quot;backend-secret=testpw&quot; &gt;&gt; etc/config.local
 </code></pre></li>
-</ul>
-</li>
 <li><p>to start a test command in the shell using local ./tests.js</p>
-<pre><code>  ./app.sh -shell -test-run account
+<pre><code>./app.sh -shell -test-run account
 </code></pre></li>
 <li><p>to start a test command in the shell using custom file with tests</p>
-<pre><code>  ./app.sh -shell -test-run api -test-file tests/api.js
+<pre><code>./app.sh -shell -test-run api -test-file tests/api.js
 </code></pre></li>
+</ul>
+</li>
 </ul>
 
 <ul>
