@@ -71,37 +71,42 @@
 <li><a href="#author"> Author</a></li>
 <li><a href="#configuration-parameters">Configuration parameters</a></li>
 <li>Javascript API functions<ul>
-<li><a href="#module-api">api</a></li>
 <li><a href="#module-app">app</a></li>
-<li><a href="#module-aws">aws</a></li>
-<li><a href="#module-core">core</a></li>
-<li><a href="#module-db">db</a></li>
-<li><a href="#module-ipc">ipc</a></li>
-<li><a href="#module-jobs">jobs</a></li>
-<li><a href="#module-lib">lib</a></li>
-<li><a href="#module-logger">logger</a></li>
-<li><a href="#module-metrics">metrics</a></li>
-<li><a href="#module-msg">msg</a></li>
-<li><a href="#module-server">server</a></li>
+<li><a href="#module-api">api</a></li>
 <li><a href="#module-api_accounts">api_accounts</a></li>
 <li><a href="#module-api_auth">api_auth</a></li>
 <li><a href="#module-api_files">api_files</a></li>
 <li><a href="#module-api_icons">api_icons</a></li>
 <li><a href="#module-api_proxy">api_proxy</a></li>
 <li><a href="#module-api_statistics">api_statistics</a></li>
-<li><a href="#module-core_http">core_http</a></li>
+<li><a href="#module-aws">aws</a></li>
+<li><a href="#module-core">core</a></li>
+<li><a href="#module-core_utils">core_utils</a></li>
+<li><a href="#module-db">db</a></li>
 <li><a href="#module-db_dynamodb">db_dynamodb</a></li>
 <li><a href="#module-db_elasticsearch">db_elasticsearch</a></li>
 <li><a href="#module-db_redis">db_redis</a></li>
 <li><a href="#module-db_sql">db_sql</a></li>
 <li><a href="#module-db_sqlite">db_sqlite</a></li>
+<li><a href="#module-http_get">http_get</a></li>
+<li><a href="#module-ipc">ipc</a></li>
 <li><a href="#module-ipc_client">ipc_client</a></li>
 <li><a href="#module-ipc_db">ipc_db</a></li>
 <li><a href="#module-ipc_local">ipc_local</a></li>
+<li><a href="#module-ipc_memcache">ipc_memcache</a></li>
 <li><a href="#module-ipc_redis">ipc_redis</a></li>
 <li><a href="#module-ipc_redisclient">ipc_redisclient</a></li>
 <li><a href="#module-ipc_redisq">ipc_redisq</a></li>
 <li><a href="#module-ipc_sqs">ipc_sqs</a></li>
+<li><a href="#module-jobs">jobs</a></li>
+<li><a href="#module-lib">lib</a></li>
+<li><a href="#module-logger">logger</a></li>
+<li><a href="#module-metrics">metrics</a></li>
+<li><a href="#module-msg">msg</a></li>
+<li><a href="#module-msg_apn">msg_apn</a></li>
+<li><a href="#module-msg_gcm">msg_gcm</a></li>
+<li><a href="#module-msg_sns">msg_sns</a></li>
+<li><a href="#module-server">server</a></li>
 <li><a href="#module-bk_accounts">bk_accounts</a></li>
 <li><a href="#module-bk_connections">bk_connections</a></li>
 <li><a href="#module-bk_counters">bk_counters</a></li>
@@ -121,10 +126,6 @@
 <li><a href="#module-db_pgsql">db_pgsql</a></li>
 <li><a href="#module-db_riak">db_riak</a></li>
 <li><a href="#module-ipc_amqp">ipc_amqp</a></li>
-<li><a href="#module-ipc_memcache">ipc_memcache</a></li>
-<li><a href="#module-msg_apn">msg_apn</a></li>
-<li><a href="#module-msg_gcm">msg_gcm</a></li>
-<li><a href="#module-msg_sns">msg_sns</a></li>
 </ul>
 </li>
 </ul>
@@ -140,7 +141,7 @@ metrics and monitoring, a library of tools for developing node.js servers.</p>
 <li>Exposes a set of Web service APIs over HTTP(S) using Express framework.</li>
 <li>Database API supports Sqlite, PostgreSQL, MySQL, DynamoDB, Cassandra, MongoDB, Redis with all basic operations behaving the
 same way allowing to switch databases without changing the code.</li>
-<li>Database driver for LevelDB, LMDB, CouchDB, Riak, ElasticSearch support only a subset of all database operations</li>
+<li>Database drivers for LevelDB, LMDB, CouchDB, Riak, ElasticSearch support only a subset of all database operations</li>
 <li>Easily extendable to support any kind of database, provides a database driver on top of Redis with all supported methods.</li>
 <li>Provides accounts, connections, locations, messaging and icons APIs with basic functionality for a qucik start.</li>
 <li>Supports crontab and queue job processing by seperate workers.</li>
@@ -551,7 +552,7 @@ operations like add/update/delete a record, show all records.</p>
                 db.get(&quot;todo&quot;, { id: req.query.id }, options, function(err, rows) { api.sendJSON(req, err, rows); });
                 break;
              case &quot;select&quot;:
-                options.noscan = 0; // Allow empty scan of the whole table if not query is given, disabled by default
+                options.noscan = 0; // Allow empty scan of the whole table if no query is given, disabled by default
                 db.select(&quot;todo&quot;, req.query, options, function(err, rows) { api.sendJSON(req, err, rows); });
                 break;
             case &quot;add&quot;:
@@ -648,17 +649,19 @@ communicate with it via internal messaging provided by the <code>cluster</code> 
 <p>Set <code>ipc-cache=memcache://HOST[:PORT]</code> that points to the host running memcached. To support multiple servrs add the option
 <code>ipc-cache-options-servers=10.1.1.1,10.2.2.1:5000</code>.</p>
 <h2 id="redis">Redis</h2>
-<p>Set <code>ipc-cache=redis://HOST[:PORT]</code> that points to the server running Redis server. To support more than one master Redis server in the client
-add additional servers in the servers parameter, <code>ipc-cache-options-servers=10.1.1.1,10.2.2.1:5000</code>, the client will reconnect automatically on every
-disconnect. To support quick failover it needs a parameter for the <code>node-redis</code> module (which is used by the driver) <code>max_attempts</code> to be a number how many times to try to reconnect before switching to another server like
-<code>ipc-cache-options-max_attempts=3</code>. Any other <code>node-redis</code> module parameter can be passed as well.</p>
+<p>Set <code>ipc-cache=redis://HOST[:PORT]</code> that points to the server running Redis server.</p>
+<p>To support more than one master Redis server in the client add additional servers in the servers parameter,
+<code>ipc-cache-options-servers=10.1.1.1,10.2.2.1:5000</code>, the client will reconnect automatically on every
+disconnect. To support quick failover it needs a parameter for the <code>node-redis</code> module (which is used by the driver) <code>max_attempts</code> to be a
+number how many attempts to reconnect before switching to another server like <code>ipc-cache-options-max_attempts=3</code>.
+Any other <code>node-redis</code> module parameter can be passed as well.</p>
 <p>Cache configurations also can be passed in the url, the system supports special parameters that start with <code>bk-</code>, it will extract them into options automatically.</p>
 <p>For example:</p>
 <pre><code>ipc-cache=redis://host1?bk-servers=host2,host3&amp;bk-max_attempts=3
 ipc-cache-backup=redis://host2
 ipc-cache-backup-options-max_attempts=3
 </code></pre><h2 id="redis-sentinel">Redis Sentinel</h2>
-<p>To enable Redis Sentinel pass <code>-sentinel</code> or <code>-sentinel-servers</code>: <code>ipc-cache-options-sentinel=host1</code> or <code>ipc-cache=redis://host1?bk-sentinel-servers=host1,host2</code>.</p>
+<p>To enable Redis Sentinel pass in the options <code>-sentinel</code> or <code>-sentinel-servers</code>: <code>ipc-cache-options-sentinel=host1</code> or <code>ipc-cache=redis://host1?bk-sentinel-servers=host1,host2</code>.</p>
 <p>The system will connect to the sentinel, get the master cache server and connect the cache driver to it, also it will listen constantly on
 sentinel events and failover to a new master autimatically. Sentinel use the regular redis module and supports all the same
 parameters, to pass options to the sentinel driver prefix them with <code>sentinel-</code>:</p>
@@ -2298,7 +2301,7 @@ Database pool statistics and other diagnostics</p>
 <li><code>ipc-lru-max-(.+)</code> - Max number of items in the local LRU cache by process role, works the same way as the global one but only is set for the specified process role</li>
 <li><code>ipc-cache-?([a-z0-1]+)?</code> - An URL that points to the cache server in the format <code>PROTO://HOST[:PORT]?PARAMS</code>, to use for caching in the API/DB requests, default is local LRU cache, multiple caches can be defined with unique names, all params starting with <code>bk-</code> will be copied into the options without the prefix and removed from the url, the rest of paarms will be left in the url</li>
 <li><code>ipc-queue-?([a-z0-1]+)?</code> - An URL that points to the queue server in the format <code>PROTO://HOST[:PORT]?PARAMS</code>, to use for PUB/SUB or job queues, default is no local queue, multiple queues can be defined with unique names, params are handled the same way as for cache</li>
-<li><code>ipc-cache(-([a-z0-1]+)?-?options)-(.+)$</code> - Additionalparameters for cache clients, specific to each implementation, Example: <code>-ipc-cache-options-ttl 3000</code></li>
+<li><code>ipc-cache(-([a-z0-1]+)?-?options)-(.+)$</code> - Additional parameters for cache clients, specific to each implementation, Example: <code>-ipc-cache-options-ttl 3000</code></li>
 <li><code>ipc-queue(-([a-z0-1]+)?-?options)-(.+)$</code> - Additional parameters for queue clients, specific to each implementation, Example: <code>-ipc-queue-redis-options-max_attempts 3</code></li>
 <li><code>db-pool</code> - Default pool to be used for db access without explicit pool specified. DNS TXT configurable.</li>
 <li><code>db-name</code> - Default database name to be used for default connections in cases when no db is specified in the connection url</li>
@@ -2425,6 +2428,96 @@ Database pool statistics and other diagnostics</p>
 <li><code>server-worker-args</code> - Node arguments for workers, job and web processes, for passing v8 options</li>
 <li><code>server-allow-modules</code> - Additional modules that can be loaded in the master or server process, by default no modules except the core are loaded in the master/server process</li>
 </ul>
+<h2 id="module-app">Module: APP</h2>
+<ul>
+<li><p><code>app</code></p>
+<p> This is a skeleton module to be extended by the specific application logic. It provides all
+callbacks and hooks that are called by the core backend modules
+during different phases, like initialization, shutting down, etc...</p>
+<p>It should be used for custom functions and methods to be defined, the <code>app</code> module is always available.</p>
+<p>All app modules in the modules/ subdirectory use the same prototype, i.e. all hooks are available for custom app modules as well.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>app.configure(options, callback)</code></p>
+<p> Called after all config files are loaded and command line args are parsed, home directory is set but before the db is initialized,
+the primary purpose of this early call is to setup environment before connecting to the database. This is called regardless of the server
+to be started and intended to initialize the common environment before the database and other subsystems are initialized.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>app.configureModule(options, callback)</code></p>
+<p> Called after the core.init has been initialized successfully, this can be redefined in the applications to add additional
+init steps that all processes require to have. All database pools and other confugration is ready at this point. This hook is
+called regardless of what kind of server is about to start, it is always called before starting a server or shell.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>app.configureMiddleware(options, callback)</code></p>
+<p> This handler is called during the Express server initialization just after the security middleware.</p>
+<p>NOTE: <code>api.app</code> refers to the Express instance.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>app.configureWeb(options, callback)</code></p>
+<p> This handler is called after the Express server has been setup and all default API endpoints initialized but the Web server
+is not ready for incoming requests yet. This handler can setup additional API endpoints, add/modify table descriptions.</p>
+<p>NOTE: <code>api.app</code> refers to the Express instance</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>app.shutdownWeb(options, callback)</code></p>
+<p> Perform shutdown sequence when a Web process is about to exit</p>
+<p>NOTE: <code>api.app</code> refers to the Express instance</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>app.configureMaster(options, callback)</code></p>
+<p> This handler is called during the master server startup, this is the process that monitors the worker jobs and performs jobs scheduling</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>app.configureServer(options, callback)</code></p>
+<p> This handler is called during the Web server startup, this is the master process that creates Web workers for handling Web requests, this process
+interacts with the Web workers via IPC sockets between processes and relaunches them if any Web worker dies.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>app.configureWorker(options, callback)</code></p>
+<p> This handler is called on job worker instance startup after the tables are intialized and it is ready to process the job</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>app.shutdownWorker(options, callback)</code></p>
+<p> Perform last minute operations inside a worker process before exit, the callback must be called eventually which will exit the process.
+This method can be overrided to implement custom worker shutdown procedure in order to finish pending tasks like network calls.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>app.configureMonitor(options, callback)</code></p>
+<p> This callback is called when the monitor process is ready, there is no any other code is supposed to run inside the monitor, but
+in case it is needed, this is the hook to be used.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>app.configureShell(options, callback)</code></p>
+<p> This callback is called by the shell process to setup additional command or to execute a command which is not
+supported by the standard shell. Setting options.done to 1 will stop the shell, this is a signal that command has already
+been processed.</p>
+</li>
+</ul>
+
 <h2 id="module-api">Module: API</h2>
 <ul>
 <li><p><code>api</code></p>
@@ -3026,93 +3119,359 @@ events using account id as a key.</p>
 </li>
 </ul>
 
-<h2 id="module-app">Module: APP</h2>
+<h2 id="module-api_accounts">Module: API_ACCOUNTS</h2>
 <ul>
-<li><p><code>app</code></p>
-<p> This is a skeleton module to be extended by the specific application logic. It provides all
-callbacks and hooks that are called by the core backend modules
-during different phases, like initialization, shutting down, etc...</p>
-<p>It should be used for custom functions and methods to be defined, the <code>app</code> module is always available.</p>
-<p>All app modules in the modules/ subdirectory use the same prototype, i.e. all hooks are available for custom app modules as well.</p>
+<li><p><code>api.configureDefaultAPI()</code></p>
+<p> Default API calls that endpoints for health check, authentication and public image access</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>app.configure(options, callback)</code></p>
-<p> Called after all config files are loaded and command line args are parsed, home directory is set but before the db is initialized,
-the primary purpose of this early call is to setup environment before connecting to the database. This is called regardless of the server
-to be started and intended to initialize the common environment before the database and other subsystems are initialized.</p>
+<li><p><code>api.prepareAccountSecret(query, options)</code></p>
+<p> If specified in the options, prepare credentials to be stored in the db, if no error occured return null, otherwise an error object</p>
+<ul>
+<li>scramble can be used to encrypt the secret with login as HMAC_SHA256 so the db never stores cleartext credentials, this is an alternative to the
+cleartext password login when the password is hashed with SHA256 salt</li>
+</ul>
 </li>
 </ul>
 
 <ul>
-<li><p><code>app.configureModule(options, callback)</code></p>
-<p> Called after the core.init has been initialized successfully, this can be redefined in the applications to add additional
-init steps that all processes require to have. All database pools and other confugration is ready at this point. This hook is
-called regardless of what kind of server is about to start, it is always called before starting a server or shell.</p>
+<li><p><code>api.checkAccountSecret(query, options)</code></p>
+<p> Verifies the given account secret against the password policy, return an error messsage if any of the checks fails or null if the secret is valid</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>app.configureMiddleware(options, callback)</code></p>
-<p> This handler is called during the Express server initialization just after the security middleware.</p>
-<p>NOTE: <code>api.app</code> refers to the Express instance.</p>
+<li><p><code>api.fetchAccount(query, options, callback)</code></p>
+<p> Given a profile data from some other system, check if there is an account or create a new account for the given
+profile, returns account record in the callback. req.query contains profile fields converted to bk_auth names
+so the whole req.query can be saved as it is. <code>query.login</code> must exist.</p>
+<p>This method is supposed to be called after the user is authenticated and verified, it does not
+check secrets but only existence of a user by login. On success existing or new account is returned by the callback.</p>
+<p>If new account is created, the generated secret will be returned and must be saved by the client for subsequent
+API calls unless cookie session is established.</p>
+<p>if <code>query.icon&#39; is set with the url of the profile image, it will be downloaded and saved as account icon type</code>0<code>.</code>options.width`
+if specified will be used to resize the image.</p>
+<p>In case when a new account was created the account record will have a property <code>_added</code> set to true.
+This is to explicitely distinguish existing and new accounts.</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>app.configureWeb(options, callback)</code></p>
-<p> This handler is called after the Express server has been setup and all default API endpoints initialized but the Web server
-is not ready for incoming requests yet. This handler can setup additional API endpoints, add/modify table descriptions.</p>
-<p>NOTE: <code>api.app</code> refers to the Express instance</p>
+<li><p><code>api.addAccount(query, options, callback)</code></p>
+<p> Register new account, return new account record in the callback, when options.admin is true then allow to set all properties
+otherwise admin properties will not be updated</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>app.shutdownWeb(options, callback)</code></p>
-<p> Perform shutdown sequence when a Web process is about to exit</p>
-<p>NOTE: <code>api.app</code> refers to the Express instance</p>
+<li><p><code>api.updateAccount(query, options, callback)</code></p>
+<p> Update existing account, if <code>options.admin</code> is true then allow to update all properties</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>app.configureMaster(options, callback)</code></p>
-<p> This handler is called during the master server startup, this is the process that monitors the worker jobs and performs jobs scheduling</p>
+<li><p><code>api.setAccountSecret(query, options, callback)</code></p>
+<p> Change account secret</p>
+</li>
+</ul>
+
+<h2 id="module-api_auth">Module: API_AUTH</h2>
+<ul>
+<li><p><code>api.handleSignature(req, res, next)</code></p>
+<p> Perform authorization of the incoming request for access and permissions</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>app.configureServer(options, callback)</code></p>
-<p> This handler is called during the Web server startup, this is the master process that creates Web workers for handling Web requests, this process
-interacts with the Web workers via IPC sockets between processes and relaunches them if any Web worker dies.</p>
+<li><p><code>api.handleSessionSignature(req, options)</code></p>
+<p> Setup session cookies or access token for automatic authentication without signing, req must be complete with all required
+properties after successful authorization.</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>app.configureWorker(options, callback)</code></p>
-<p> This handler is called on job worker instance startup after the tables are intialized and it is ready to process the job</p>
+<li><p><code>api.newSignature(req)</code></p>
+<p> Returns a new signature object with all required properties filled form the request object</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>app.shutdownWorker(options, callback)</code></p>
-<p> Perform last minute operations inside a worker process before exit, the callback must be called eventually which will exit the process.
-This method can be overrided to implement custom worker shutdown procedure in order to finish pending tasks like network calls.</p>
+<li><p><code>api.parseSignature(req)</code></p>
+<p> Parse incoming request for signature and return all pieces wrapped in an object, this object will be used by <code>verifySignature</code> function.</p>
+<p>If the signature successfully recognized it is saved in the request as <code>req.signature</code></p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>app.configureMonitor(options, callback)</code></p>
-<p> This callback is called when the monitor process is ready, there is no any other code is supposed to run inside the monitor, but
-in case it is needed, this is the hook to be used.</p>
+<li><p><code>api.verifySignature(sig, account)</code></p>
+<p> Returns true if the signature <code>sig</code> matches given account secret or password. <code>account</code> object must be a <code>bk_auth</code> record.</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>app.configureShell(options, callback)</code></p>
-<p> This callback is called by the shell process to setup additional command or to execute a command which is not
-supported by the standard shell. Setting options.done to 1 will stop the shell, this is a signal that command has already
-been processed.</p>
+<li><p><code>api.createSignature(login, secret, method, host, uri, options)</code></p>
+<p> Create secure signature for an HTTP request. Returns an object with HTTP headers to be sent in the response.</p>
+<p>The options may contains the following:</p>
+<ul>
+<li>expires is absolute time in milliseconds when this request will expire, default is 30 seconds from now</li>
+<li>version a version number defining how the signature will be signed</li>
+<li>type - content-type header, may be omitted</li>
+<li>tag - a custom tag, vendor specific, opaque to the bkjs, can be used for passing additional account or session inforamtion</li>
+<li>checksum - SHA1 digest of the whole content body, may be omitted</li>
+<li>query - on object with query parameters to use instead of parameters in the uri</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.checkRequestSignature(req, callback)</code></p>
+<p> Verify request signature from the request object, uses properties: .host, .method, .url or .originalUrl, .headers</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.checkAccountSignature(req, sig, account, callback)</code></p>
+<p> Check account record against a incoming request signature</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.checkAccess(req, callback)</code></p>
+<p> Perform URL based access checks, this is called before the signature verification, very early in the request processing step.</p>
+<p>Checks access permissions, calls the callback with the following argument:</p>
+<ul>
+<li>nothing if checkRequestSignature needs to be called</li>
+<li>an object with status: 200 to skip authorization and proceed with other routes</li>
+<li>an object with status: 0 means response has been sent, just stop</li>
+<li>an object with status other than 0 or 200 to return the status and stop request processing,
+for statuses 301,302 there should be url property in the object returned</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.checkAuthorization(req, status, callback)</code></p>
+<p> Perform authorization checks after the account been checked for valid signature, this is called even if the signature verification failed,
+in case of a custom authentication middlware this must be called at the end and use the status object returned in the callback to
+return an error or proceed with the request. In any case the result of this function is the final.</p>
+<ul>
+<li>req is Express request object</li>
+<li>status contains the signature verification status, an object with status: and message: properties, can be null.
+if status property is not 200 it will be returned immeditately to the client stopping the middlware chain. For stopping without an error
+return a status in the range 200-299.</li>
+<li>callback is a function(status) to be called with the resulted status where status must be an object with status and message properties as well</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.checkLogin(req, callback)</code></p>
+<p> Check login and cleatext password from a client</p>
+</li>
+</ul>
+
+<h2 id="module-api_files">Module: API_FILES</h2>
+<ul>
+<li><p><code>api.getFile(req, res, file, options)</code></p>
+<p> Send a file to the client</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.putFile(req, name, options, callback)</code></p>
+<p> Upload file and store in the filesystem or S3, try to find the file in multipart form, in the body or query by the given name</p>
+<ul>
+<li>name is the name property to look for in the multipart body or in the request body or query</li>
+<li>callback will be called with err and actual filename saved
+Output file name is built according to the following options properties:</li>
+<li>name - defines the output name for the file, if not given same name as property will be used</li>
+<li>prefix - the folder prefix where the file will be uploaded, all leading folders will be created automatically</li>
+<li>ext - what file extention to use, appended to the name, if no ext is given the extension from the uploaded file will be used or no extention if could not determine one.</li>
+<li>extkeep - keep actual extention from the uploaded file, ignore the ext parameter</li>
+<li>namekeep - keep the name of the uploaded file if present in the multipart form</li>
+<li>encoding - encoding of the body, default is base64</li>
+<li>filesize - size of the file in bytes if available</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.storeFile(tmpfile, outfile, options, callback)</code></p>
+<p> Place the uploaded tmpfile to the destination pointed by outfile</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.delFile(file, options, callback)</code></p>
+<p> Delete file by name from the local filesystem or S3 drive if filesS3 is defined in api or options objects</p>
+</li>
+</ul>
+
+<h2 id="module-api_icons">Module: API_ICONS</h2>
+<ul>
+<li><p><code>api.scaleIcon(infile, options, callback)</code></p>
+<p> Scale image using ImageMagick, return err if failed</p>
+<ul>
+<li>infile can be a string with file name or a Buffer with actual image data</li>
+<li>options can specify image properties:<ul>
+<li>outfile - if not empty is a file name where to store scaled image or if empty the new image contents will be returned in the callback as a buffer</li>
+<li>width, height - new image dimensions<ul>
+<li>if width or height is negative this means do not perform upscale, keep the original size if smaller than given positive value,</li>
+<li>if any is 0 that means keep the original size</li>
+</ul>
+</li>
+<li>filter - ImageMagick image filters, default is lanczos</li>
+<li>quality - 0-99 percent, image scaling quality</li>
+<li>ext - image format: png, gif, jpg, jp2, svg</li>
+<li>flip - flip horizontally</li>
+<li>flop - flip vertically</li>
+<li>blue_radius, blur_sigma - perform adaptive blur on the image</li>
+<li>crop_x, crop_y, crop_width, crop_height - perform crop using given dimensions</li>
+<li>sharpen_radius, sharpen_sigma - perform sharpening of the image</li>
+<li>brightness - use thing to change brightness of the image</li>
+<li>contrast - set new contrast of the image</li>
+<li>rotate - rotation angle</li>
+<li>bgcolor - color for the background, used in rotation</li>
+<li>quantized - set number of colors for quantize</li>
+<li>treedepth - set tree depth for quantixe process</li>
+<li>dither - set 0 or 1 for quantixe and posterize processes</li>
+<li>posterize - set number of color levels</li>
+<li>normalize - normalize image</li>
+<li>opacity - set image opacity</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.iconPath(id, options)</code></p>
+<p> Full path to the icon, perform necessary hashing and sharding, id can be a number or any string</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.iconUrl(row, options)</code></p>
+<p> Returns constructed icon url from the icon record</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.checkIcon(op, row, options)</code></p>
+<p> Verify icon permissions and format for the result, used in setProcessRow for the bk_icon table</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.sendIcon(req, res, id, options)</code></p>
+<p> Send an icon to the client, only handles files</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.putIcon(req, id, options, callback)</code></p>
+<p> Store an icon for account, .type defines icon prefix</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.saveIcon(file, id, options, callback)</code></p>
+<p> Save the icon data to the destination, if api.imagesS3 or options.imagesS3 specified then plave the image on the S3 drive.
+Store in the proper location according to the types for given id, this function is used after downloading new image or
+when moving images from other places. On success the callback will be called with the second argument set to the output
+file name where the image has been saved.
+Valid properties in the options:</p>
+<ul>
+<li>type - icon type, this will be prepended to the name of the icon</li>
+<li>prefix - top level subdirectory under images/</li>
+<li>width, height, filter, ext, quality for <code>resizeImage</code> function</li>
+<li>filesize - file size if available</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.delIcon(id, options, callback)</code></p>
+<p> Delete an icon for account, .type defines icon prefix</p>
+</li>
+</ul>
+
+<h2 id="module-api_proxy">Module: API_PROXY</h2>
+<ul>
+<li><p><code>api.handleProxyRequest(req, res, callback)</code></p>
+<p> Process incoming proxy request, can be overriden for custom logic with frontend proxy server. If any
+response is sent or an error returned in the calback
+then the request will be aborted and will not be forwarded to the web processes</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.createProxyServer()</code></p>
+<p> Create a proxy server to handle incoming requests and distribute them to the workers</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.createProxyWorker()</code></p>
+<p> Create/fork a worker to handle API requests, register a new port for load balancing between web workers</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.getProxyPort()</code></p>
+<p> Return a target port for proxy requests, rotates between all web workers</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.getProxyTarget(req)</code></p>
+<p> Return a target for proxy requests</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.runProxyRequest(req, res, ssl)</code></p>
+<p> Process a proxy request, perform all filtering or redirects</p>
+</li>
+</ul>
+
+<h2 id="module-api_statistics">Module: API_STATISTICS</h2>
+<ul>
+<li><p><code>api.initStatistics()</code></p>
+<p> Setup statistics collections</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.getStatistics(options)</code></p>
+<p> Updates metrics with the current values and returns an object ready to be saved in the database, i.e. flattened ito one object
+where all property names of the complex objects are combined into one name separated by comma.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.sendStatistics()</code></p>
+<p> Send collected statistics to the collection server, <code>backend-host</code> must be configured and possibly <code>backend-login</code> and <code>backend-secret</code> in case
+the system API is secured, the user can be any valid user registered in the bk_auth table.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.saveStatistics(obj, options, callback)</code></p>
+<p> Save collected statistics in the bk_collect table, this can be called via API or directly by the backend, this wrapper
+is supposed to be overrriden by the application with additional logic how the statistics is saved. Columns in the bk_collect table
+must be defined for any metrics to be saved, use api.describeTable with additional columns from the api.metrics object in additional to the default ones.</p>
+<p>Example, add pool cache stats to the table</p>
+<pre><code>    api.describeTable({ bk_collect: { pool_cache_rmean: { type: &quot;real&quot; },
+                                      pool_cache_hmean: { type: &quot;real&quot; } });
+</code></pre></li>
+</ul>
+
+<ul>
+<li><p><code>api.calcStatistics(query, options, callback)</code></p>
+<p> Calculate statistics for a period of time, query and options must confirm to the db.select conventions.</p>
 </li>
 </ul>
 
@@ -3944,12 +4303,6 @@ core.describeArgs([ { name: &quot;api-list&quot;, array: 1, descr: &quot;list of
 </ul>
 
 <ul>
-<li><p><code>core.showHelp(options)</code></p>
-<p> Print help about command line arguments and exit</p>
-</li>
-</ul>
-
-<ul>
 <li><p><code>core.loadConfig(file, callback)</code></p>
 <p> Parse the config file, configFile can point to a file or can be skipped and the default file will be loaded</p>
 </li>
@@ -3964,28 +4317,6 @@ core.describeArgs([ { name: &quot;api-list&quot;, array: 1, descr: &quot;list of
 <ul>
 <li><p><code>core.loadLocales(options, callback)</code></p>
 <p> Load configured locales</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>core.processName()</code></p>
-<p> Return unique process name based on the cluster status, worker or master and the role. This is can be reused by other workers within the role thus
-making it usable for repeating environments or storage solutions.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>core.createServer(options, callback)</code></p>
-<p> Create a Web server with options and request handler, returns a server object.</p>
-<p>Options can have the following properties:</p>
-<ul>
-<li>port - port number is required</li>
-<li>bind - address to bind</li>
-<li>restart - name of the processes to restart on address in use error, usually &quot;web&quot;</li>
-<li>ssl - an object with SSL options for TLS createServer call</li>
-<li>timeout - number of milliseconds for the request timeout</li>
-<li>name - server name to be assigned</li>
-</ul>
 </li>
 </ul>
 
@@ -4045,8 +4376,14 @@ automatically.</p>
 </ul>
 
 <ul>
+<li><p><code>core.httpGet(uri, params, callback)</code></p>
+<p> Make a HTTP request, see <code>httpGet</code> module for more details.</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>core.sendRequest(options, callback)</code></p>
-<p> Make a HTTP request using <code>httpGet</code> with ability to sign requests and returne parsed JSON payload as objects.</p>
+<p> Make a HTTP request using <code>httpGet</code> with ability to sign requests.</p>
 <p>The POST request is made, if data is an object, it is converted into string.</p>
 <p>Returns params as in <code>httpGet</code> with .json property assigned with an object from parsed JSON response.</p>
 <p><em>When used with API endpoints, the <code>backend-host</code> parameter must be set in the config or command line to the base URL of the backend,
@@ -4059,6 +4396,26 @@ like <a href="http://localhost:8000">http://localhost:8000</a>, this is when <co
 <li>checksum - calculate checksum from the data</li>
 <li>obj - return just the result object, not the whole params</li>
 </ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.dropPrivileges()</code></p>
+<p> Drop root privileges and switch to regular user</p>
+</li>
+</ul>
+
+<h2 id="module-core_utils">Module: CORE_UTILS</h2>
+<ul>
+<li><p><code>core.processName()</code></p>
+<p> Return unique process name based on the cluster status, worker or master and the role. This is can be reused by other workers within the role thus
+making it usable for repeating environments or storage solutions.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.showHelp(options)</code></p>
+<p> Print help about command line arguments and exit</p>
 </li>
 </ul>
 
@@ -4081,14 +4438,23 @@ like <a href="http://localhost:8000">http://localhost:8000</a>, this is when <co
 </ul>
 
 <ul>
-<li><p><code>core.dropPrivileges()</code></p>
-<p> Drop root privileges and switch to regular user</p>
+<li><p><code>core.setTimeout(name, callback, timeout)</code></p>
+<p> Set or reset a timer</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>core.setTimeout(name, callback, timeout)</code></p>
-<p> Set or reset a timer</p>
+<li><p><code>core.createServer(options, callback)</code></p>
+<p> Create a Web server with options and request handler, returns a server object.</p>
+<p>Options can have the following properties:</p>
+<ul>
+<li>port - port number is required</li>
+<li>bind - address to bind</li>
+<li>restart - name of the processes to restart on address in use error, usually &quot;web&quot;</li>
+<li>ssl - an object with SSL options for TLS createServer call</li>
+<li>timeout - number of milliseconds for the request timeout</li>
+<li>name - server name to be assigned</li>
+</ul>
 </li>
 </ul>
 
@@ -4126,6 +4492,19 @@ Options properties:</p>
 <ul>
 <li><p><code>core.watchLogs(options, callback)</code></p>
 <p> Watch log files for errors and report via email or POST url, see config parameters starting with <code>logwatcher-</code> about how this works</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.cookieGet(domain, callback)</code></p>
+<p> Return cookies that match given domain</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.cookieSave(cookiejar, setcookies, hostname, callback)</code></p>
+<p> Save new cookies arrived in the request,
+merge with existing cookies from the jar which is a list of cookies before the request</p>
 </li>
 </ul>
 
@@ -5342,6 +5721,205 @@ and if exist it must return the same or new table name for the given query param
 </li>
 </ul>
 
+<h2 id="module-db_dynamodb">Module: DB_DYNAMODB</h2>
+<ul>
+<li><p><code>Pool.prototype.convertError(table, op, err, options)</code></p>
+<p> Convert into recognizable error codes</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>Pool.prototype.query(client, req, options, callback)</code></p>
+<p> Simulate query as in SQL driver but performing AWS call, text will be a table name and values will be request options</p>
+</li>
+</ul>
+
+<h2 id="module-db_elasticsearch">Module: DB_ELASTICSEARCH</h2>
+<ul>
+<li><p><code>pool</code></p>
+<p> Create a database pool that works with ElasticSearch server, the db pool connection url must include the index for all tables, like <a href="http://127.0.0.1:9200/billing">http://127.0.0.1:9200/billing</a>,
+if not given the default database name will be used.</p>
+<p>To support multiple seed nodes a parameter <code>-db-elasticserch-options-servers=1.1.1.1,2.2.2.2</code> can be specified, if the primary node
+fails it will switch to other configured nodes.</p>
+<p>On successful connect to any node the driver retrieves full list of nodes in the cluster and switches to a random node, this happens
+every <code>discovery-interval</code> in milliseconds, default is 1h, it can be specified as <code>-db-elasticserch-options-discovery-interval=300000</code></p>
+</li>
+</ul>
+
+<h2 id="module-db_redis">Module: DB_REDIS</h2>
+<ul>
+<li><p><code>pool</code></p>
+<p> Redis database pool, uses Hash to store the records</p>
+</li>
+</ul>
+
+<h2 id="module-db_sql">Module: DB_SQL</h2>
+<ul>
+<li><p><code>db.sqlQuery(pool, client, req, options, callback)</code></p>
+<p> Execute one or more SQL statements</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.sqlCacheColumns(pool, options, callback)</code></p>
+<p> Cache columns using the information_schema</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.sqlPrepare(pool, req)</code></p>
+<p> Prepare SQL statement for the given operation</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.sqlQuote(val)</code></p>
+<p> Quote value to be used in SQL expressions</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.sqlValue(value, options)</code></p>
+<p> Return properly quoted value to be used directly in SQL expressions, format according to the type</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.sqlValueIn(list, type)</code></p>
+<p> Return list in format to be used with SQL IN ()</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.sqlExpr(pool, name, value, options)</code></p>
+<p> Build SQL expressions for the column and value
+options may contain the following properties:</p>
+<ul>
+<li>op - SQL operator, default is =</li>
+<li>type - can be data, string, number, float, expr, default is string</li>
+<li>value - default value to use if passed value is null or empty</li>
+<li>min, max - are used for numeric values for validation of ranges</li>
+<li>expr - for op=expr, contains sprintf-like formatted expression to be used as is with all &#39;%s&#39; substituted with actual value</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.sqlTime(d)</code></p>
+<p> Return time formatted for SQL usage as ISO, if no date specified returns current time</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.sqlLimit(options)</code></p>
+<p> Build SQL orderby/limit/offset conditions, config can define defaults for sorting and paging</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.sqlWhere(pool, req, query, keys, join)</code></p>
+<p> Build SQL where condition from the keys and object values, returns SQL statement to be used in WHERE</p>
+<ul>
+<li>query - properties for the condition, in case of an array the primary keys for IN condition will be used only,
+a property named $or or $and will be treated as a sub-expression if it is an object.</li>
+<li>keys - a list of columns to use for the condition, other properties will be ignored</li>
+<li>options may contains the following properties:<ul>
+<li>pool - pool to be used for driver specific functions</li>
+<li>ops - object for comparison operators for primary key, default is equal operator</li>
+</ul>
+</li>
+<li>join - how to join all expressions, default is AND</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.sqlCreate(pool, req)</code></p>
+<p> Create SQL table using table definition</p>
+<ul>
+<li>table - name of the table to create</li>
+<li>obj - object with properties as column names and each property value is an object:<ul>
+<li>name - column name</li>
+<li>type - type of the column, default is TEXT, options: int, real or other supported types</li>
+<li>value - default value for the column</li>
+<li>primary - part of the primary key</li>
+<li>index - indexed column, part of the composite index</li>
+<li>unique - must be combined with index property to specify unique composite index</li>
+<li>len - max length of the column</li>
+<li>notnull - true if should be NOT NULL</li>
+<li>auto - true for AUTO_INCREMENT column</li>
+</ul>
+</li>
+<li>options may contains:<ul>
+<li>upgrade - perform alter table instead of create</li>
+<li>typesMap - type mapping, convert lowercase type into other type supported by any specific database</li>
+<li>noDefaults - ignore default value if not supported (Cassandra)</li>
+<li>noNulls - NOT NULL restriction is not supported (Cassandra)</li>
+<li>noMultiSQL - return as a list, the driver does not support multiple SQL commands</li>
+<li>noLengths - ignore column length for columns (Cassandra)</li>
+<li>noIfExists - do not support IF EXISTS on table or indexes</li>
+<li>noCompositeIndex - does not support composite indexes (Cassandra)</li>
+<li>noAuto - no support for auto increment columns</li>
+<li>skipNull - object with operations which dont support null(empty) values (DynamoDB cannot add/put empty/null values)</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.sqlUpgrade(pool, req)</code></p>
+<p> Create ALTER TABLE ADD COLUMN statements for missing columns</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.sqlDrop(pool, req)</code></p>
+<p> Create SQL DROP TABLE statement</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.sqlGet(pool, req)</code></p>
+<p> Get one object from the database,
+options may define the following properties:</p>
+<ul>
+<li>select is list of columns or expressions to return</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.sqlSelect(pool, req)</code></p>
+<p> Select object from the database,
+options may define the following properties:</p>
+<ul>
+<li>keys is a list of columns for the condition</li>
+<li>select is list of columns or expressions to return</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.sqlInsert(pool, req)</code></p>
+<p> Build SQL insert statement</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.sqlUpdate(pool, req)</code></p>
+<p> Build SQL statement for update</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.sqlDelete(pool, req)</code></p>
+<p> Build SQL statement for delete</p>
+</li>
+</ul>
+
+<h2 id="module-db_sqlite">Module: DB_SQLITE</h2>
+<h2 id="module-http_get">Module: HTTP_GET</h2>
 <h2 id="module-ipc">Module: IPC</h2>
 <ul>
 <li><p><code>Ipc.prototype.handleServerMessages(worker, msg)</code></p>
@@ -5477,7 +6055,7 @@ If <code>options.set</code> is given and no value exists in the cache it will be
 <li><p><code>Ipc.prototype.subscribe(channel, options, callback)</code></p>
 <p> Subscribe to a publish or queue server for messages for the given channel, the callback will be called only on new message received.</p>
 <p>The callback accepts 2 arguments, a message and optional next callback, if it is provided it must be called at the end to confirm or reject the message processing.
-Only errors with code&gt;=500 will result in rejection, not ll drivers support the next callback if the underlying queue does not support message acknowledgement.</p>
+Only errors with code&gt;=500 will result in rejection, not all drivers support the next callback if the underlying queue does not support message acknowledgement.</p>
 <p>Depending on the implementation, the subscription can work as fan-out, delivering messages to all subscribed to the same channel or
 can implement job queue model where only one subscriber receives a message.</p>
 <p>For cases when the <code>next</code> callback is provided this means the queue implementation requires an acknowledgement of successful processing,
@@ -5554,6 +6132,173 @@ instance.</p>
 </li>
 </ul>
 
+<h2 id="module-ipc_client">Module: IPC_CLIENT</h2>
+<ul>
+<li><p><code>IpcClient.prototype.close()</code></p>
+<p> Close current connection, ports.... not valid after this call</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>IpcClient.prototype.stats(options, callback)</code></p>
+<p> Returns the cache statistics to the callback as the forst argument, the object tructure is specific to each cache implementstion</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>IpcClient.prototype.clear(pattern, callback)</code></p>
+<p> Clear all or only matched keys from the cache</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>IpcClient.prototype.keys(pattern, callback)</code></p>
+<p> Retun all or matched keys from the cache, this is for debugging purposes mostly</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>IpcClient.prototype.get(key, options, callback)</code></p>
+<p> Returns an item from the cache by a key, callback is required and it acceptes only the item,
+on any error null or undefined will be returned</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>IpcClient.prototype.put(key, val, options, callback)</code></p>
+<p> Store an item in the cache, <code>options.ttl</code> can be used to specify TTL in milliseconds</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>IpcClient.prototype.incr(key, val, options, callback)</code></p>
+<p> Add/substract a number from the an item, returns new number in the callback if provided, in case of an error null/indefined should be returned</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>IpcClient.prototype.del(key, options, callback)</code></p>
+<p> Delete an item from the cache</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>IpcClient.prototype.poller()</code></p>
+<p> This is called to configure and setup event processing on first subscribe call, if nobody subscribes this
+will never be called and thus no initialization for event processing either, for clients that only publish this may save
+lots of processing and memory.</p>
+<p>This method must take care how to keep the poller running via interval or timeout as long as the <code>this._polling=1</code>.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>IpcClient.prototype.schedulePoller(timeout)</code></p>
+<p> Schedule next poller iteration immediately or after timeout, check configured polling rate, make sure it polls no more than
+configured number of time per second</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>IpcClient.prototype.monitor()</code></p>
+<p> Queue monitor or cleanup service, when poller is involved this will be started and can be used for cleaning up stale messages or other
+maintainence work the requires.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>IpcClient.prototype.isPolling()</code></p>
+<p> Returns 1 if the poller is active</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>IpcClient.prototype.isWorking()</code></p>
+<p> Returns 1 if currently a message is processing or being read</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>IpcClient.prototype.limiter(options, callback)</code></p>
+<p> Rate limit check, by default it uses the master LRU cache meaning it works within one physical machine only.</p>
+<p>The options must have the following properties:</p>
+<ul>
+<li>name - unique id, can be IP address, account id, etc...</li>
+<li>rate, max, interval - same as for <code>metrics.TokenBucket</code> rate limiter.</li>
+</ul>
+<p>The callback argument will be called with an object where the property <code>consumed</code> set to true if consumed or false otherwise,
+and the property <code>delay</code> with number of milliseconds till the bucket can be used again.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>IpcClient.prototype.subscribe(channel, options, callback)</code></p>
+<p> Subscribe to receive notification from the given channel</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>IpcClient.prototype.unsubscribe(channel, options, callback)</code></p>
+<p> Stop receiving notifications on the given channel</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>IpcClient.prototype.publish(channel, msg, options, callback)</code></p>
+<p> Publish an event</p>
+</li>
+</ul>
+
+<h2 id="module-ipc_db">Module: IPC_DB</h2>
+<ul>
+<li><p><code>Database tables</code></p>
+<pre><code>   bk_queue: { id: { primary: 1 },
+               active: { type: &quot;int&quot;, index: 1, value: 0 },      // job status, new, running
+               channel: { value: &quot;jobs&quot;, projection: 1 },        // subscription key
+               data: { type: &quot;json&quot;, projection: 1 },            // job definition object
+               mtime: { type: &quot;bigint&quot;, now: 1, index: 1 } },
+</code></pre><p>  });</p>
+<p>  client.createClient = function(url, options)
+  {</p>
+<pre><code>  if (url.match(/^db:/)) return new IpcDbClient(url, options);
+</code></pre><p>  }</p>
+<p>  function IpcDbClient(url, options)
+  {</p>
+<pre><code>  Client.call(this, url, options);
+  this.options.interval = lib.toNumber(this.options.interval, { dflt: 30, min: 1 });
+  this.options.count = lib.toNumber(this.options.count, { dflt: 1, min: 1 });
+  this.options.visibilityTimeout = lib.toNumber(this.options.visibilityTimeout, { min: 0, dflt: this.options.interval });
+  this.emit(&quot;ready&quot;);
+</code></pre><p>  }
+  util.inherits(IpcDbClient, Client);</p>
+<p>  IpcDbClient.prototype.monitorQueue = function()
+  {</p>
+<pre><code>  var options = { pool: this.options.pool, sort: &quot;active_mtime&quot;, ops: { mtime: &quot;lt&quot; }, expected: { active: 1 } };
+  var query = { active: 1, mtime: Date.now() - this.options.visibilityTimeout * 1000 };
+
+  db.updateAll(&quot;bk_queue&quot;, query, { active: 0 }, options, function(err, rows) {
+      for (var i in rows) logger.error(&quot;ipc.monitor:&quot;, lib.toAge(rows[i].mtime), rows[i]);
+</code></pre></li>
+</ul>
+
+<h2 id="module-ipc_local">Module: IPC_LOCAL</h2>
+<h2 id="module-ipc_memcache">Module: IPC_MEMCACHE</h2>
+<ul>
+<li><p><code>client</code></p>
+<p> Cache client based on Memcached server using <a href="https://github.com/3rd-Eden/node-memcached">https://github.com/3rd-Eden/node-memcached</a></p>
+<p>To support more than one server used either one:</p>
+<p>   ipc-cache=memcache://host1?bk-servers=host2,host3`</p>
+<p>   ipc-cache-memcache=memcache://host1
+   ipc-cache-memcache-options-servers=host1,host2</p>
+<p>To pass memcache specific options:</p>
+<p>   ipc-cache-options-failures=5
+   ipc-cache-options-maxValue=1024</p>
+</li>
+</ul>
+
+<h2 id="module-ipc_redis">Module: IPC_REDIS</h2>
+<h2 id="module-ipc_redisclient">Module: IPC_REDISCLIENT</h2>
+<h2 id="module-ipc_redisq">Module: IPC_REDISQ</h2>
+<h2 id="module-ipc_sqs">Module: IPC_SQS</h2>
 <h2 id="module-jobs">Module: JOBS</h2>
 <ul>
 <li><p><code>jobs</code></p>
@@ -6282,9 +7027,9 @@ that data is not chnaged and was signed with the same secret</p>
 </ul>
 
 <ul>
-<li><p><code>lib.newError(options, status)</code></p>
-<p> Return a new Error object, options can be a string which will create an error with a message only
-or an object with message, code, status, and name properties to build full error. The default error status is 400 if not specified.</p>
+<li><p><code>lib.newError(msg, status)</code></p>
+<p> Return a new Error object, msg can be a string or an object with message, code, status properties.
+The default error status is 400 if not specified.</p>
 </li>
 </ul>
 
@@ -6865,6 +7610,82 @@ Each item in the list is an object with the following properties: key, secret, a
 </li>
 </ul>
 
+<h2 id="module-msg_apn">Module: MSG_APN</h2>
+<ul>
+<li><p><code>client.check(dev)</code></p>
+<p> Returns true if given device is supported by APN</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>client.init(options)</code></p>
+<p> Initialize Apple Push Notification service in the current process, Apple supports multiple connections to the APN gateway but
+not too many so this should be called on the dedicated backend hosts, on multi-core servers every spawn web process will initialize a
+connection to APN gateway.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>client.close(callback)</code></p>
+<p> Close APN agent, try to send all pending messages before closing the gateway connection</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>client.send(dev, options, callback)</code></p>
+<p> Send push notification to an Apple device, returns true if the message has been queued.</p>
+<p>The options may contain the following properties:</p>
+<ul>
+<li>msg - message text</li>
+<li>badge - badge number</li>
+<li>sound - 1, true or a sound file to play</li>
+<li>type - set type of the packet</li>
+<li>category - a user notification category</li>
+<li>contentAvailable - to indicate about new content so fetchCompletionHandler is called</li>
+<li>id - send id in the user properties</li>
+</ul>
+</li>
+</ul>
+
+<h2 id="module-msg_gcm">Module: MSG_GCM</h2>
+<ul>
+<li><p><code>client.init(options)</code></p>
+<p> Initialize Google Cloud Messaging service to send push notifications to mobile devices</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>client.close(callback)</code></p>
+<p> Close GCM connection, flush the queue</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>client.send(dev, options, callback)</code></p>
+<p> Send push notification to an Android device, return true if queued.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>client.retryOnError()</code></p>
+<p> Retry on server error, honor Retry-After header if present, use it only on the first error</p>
+</li>
+</ul>
+
+<h2 id="module-msg_sns">Module: MSG_SNS</h2>
+<ul>
+<li><p><code>client.send(dev, options, callback)</code></p>
+<p> Send push notification to a device using AWS SNS service, device_id must be a valid SNS endpoint ARN.</p>
+<p>The options may contain the following properties:</p>
+<ul>
+<li>msg - message text</li>
+<li>badge - badge number</li>
+<li>type - set type of the packet</li>
+<li>id - send id in the user properties</li>
+</ul>
+</li>
+</ul>
+
 <h2 id="module-server">Module: SERVER</h2>
 <ul>
 <li><p><code>server</code></p>
@@ -6963,770 +7784,6 @@ it runs <code>shutdown[Role]</code> methods before exiting</p>
 </li>
 </ul>
 
-<h2 id="module-api_accounts">Module: API_ACCOUNTS</h2>
-<ul>
-<li><p><code>api.configureDefaultAPI()</code></p>
-<p> Default API calls that endpoints for health check, authentication and public image access</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.prepareAccountSecret(query, options)</code></p>
-<p> If specified in the options, prepare credentials to be stored in the db, if no error occured return null, otherwise an error object</p>
-<ul>
-<li>scramble can be used to encrypt the secret with login as HMAC_SHA256 so the db never stores cleartext credentials, this is an alternative to the
-cleartext password login when the password is hashed with SHA256 salt</li>
-</ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.checkAccountSecret(query, options)</code></p>
-<p> Verifies the given account secret against the password policy, return an error messsage if any of the checks fails or null if the secret is valid</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.fetchAccount(query, options, callback)</code></p>
-<p> Given a profile data from some other system, check if there is an account or create a new account for the given
-profile, returns account record in the callback. req.query contains profile fields converted to bk_auth names
-so the whole req.query can be saved as it is. <code>query.login</code> must exist.</p>
-<p>This method is supposed to be called after the user is authenticated and verified, it does not
-check secrets but only existence of a user by login. On success existing or new account is returned by the callback.</p>
-<p>If new account is created, the generated secret will be returned and must be saved by the client for subsequent
-API calls unless cookie session is established.</p>
-<p>if <code>query.icon&#39; is set with the url of the profile image, it will be downloaded and saved as account icon type</code>0<code>.</code>options.width`
-if specified will be used to resize the image.</p>
-<p>In case when a new account was created the account record will have a property <code>_added</code> set to true.
-This is to explicitely distinguish existing and new accounts.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.addAccount(query, options, callback)</code></p>
-<p> Register new account, return new account record in the callback, when options.admin is true then allow to set all properties
-otherwise admin properties will not be updated</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.updateAccount(query, options, callback)</code></p>
-<p> Update existing account, if <code>options.admin</code> is true then allow to update all properties</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.setAccountSecret(query, options, callback)</code></p>
-<p> Change account secret</p>
-</li>
-</ul>
-
-<h2 id="module-api_auth">Module: API_AUTH</h2>
-<ul>
-<li><p><code>api.handleSignature(req, res, next)</code></p>
-<p> Perform authorization of the incoming request for access and permissions</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.handleSessionSignature(req, options)</code></p>
-<p> Setup session cookies or access token for automatic authentication without signing, req must be complete with all required
-properties after successful authorization.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.newSignature(req)</code></p>
-<p> Returns a new signature object with all required properties filled form the request object</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.parseSignature(req)</code></p>
-<p> Parse incoming request for signature and return all pieces wrapped in an object, this object will be used by <code>verifySignature</code> function.</p>
-<p>If the signature successfully recognized it is saved in the request as <code>req.signature</code></p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.verifySignature(sig, account)</code></p>
-<p> Returns true if the signature <code>sig</code> matches given account secret or password. <code>account</code> object must be a <code>bk_auth</code> record.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.createSignature(login, secret, method, host, uri, options)</code></p>
-<p> Create secure signature for an HTTP request. Returns an object with HTTP headers to be sent in the response.</p>
-<p>The options may contains the following:</p>
-<ul>
-<li>expires is absolute time in milliseconds when this request will expire, default is 30 seconds from now</li>
-<li>version a version number defining how the signature will be signed</li>
-<li>type - content-type header, may be omitted</li>
-<li>tag - a custom tag, vendor specific, opaque to the bkjs, can be used for passing additional account or session inforamtion</li>
-<li>checksum - SHA1 digest of the whole content body, may be omitted</li>
-<li>query - on object with query parameters to use instead of parameters in the uri</li>
-</ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.checkRequestSignature(req, callback)</code></p>
-<p> Verify request signature from the request object, uses properties: .host, .method, .url or .originalUrl, .headers</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.checkAccountSignature(req, sig, account, callback)</code></p>
-<p> Check account record against a incoming request signature</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.checkAccess(req, callback)</code></p>
-<p> Perform URL based access checks, this is called before the signature verification, very early in the request processing step.</p>
-<p>Checks access permissions, calls the callback with the following argument:</p>
-<ul>
-<li>nothing if checkRequestSignature needs to be called</li>
-<li>an object with status: 200 to skip authorization and proceed with other routes</li>
-<li>an object with status: 0 means response has been sent, just stop</li>
-<li>an object with status other than 0 or 200 to return the status and stop request processing,
-for statuses 301,302 there should be url property in the object returned</li>
-</ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.checkAuthorization(req, status, callback)</code></p>
-<p> Perform authorization checks after the account been checked for valid signature, this is called even if the signature verification failed,
-in case of a custom authentication middlware this must be called at the end and use the status object returned in the callback to
-return an error or proceed with the request. In any case the result of this function is the final.</p>
-<ul>
-<li>req is Express request object</li>
-<li>status contains the signature verification status, an object with status: and message: properties, can be null.
-if status property is not 200 it will be returned immeditately to the client stopping the middlware chain. For stopping without an error
-return a status in the range 200-299.</li>
-<li>callback is a function(status) to be called with the resulted status where status must be an object with status and message properties as well</li>
-</ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.checkLogin(req, callback)</code></p>
-<p> Check login and cleatext password from a client</p>
-</li>
-</ul>
-
-<h2 id="module-api_files">Module: API_FILES</h2>
-<ul>
-<li><p><code>api.getFile(req, res, file, options)</code></p>
-<p> Send a file to the client</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.putFile(req, name, options, callback)</code></p>
-<p> Upload file and store in the filesystem or S3, try to find the file in multipart form, in the body or query by the given name</p>
-<ul>
-<li>name is the name property to look for in the multipart body or in the request body or query</li>
-<li>callback will be called with err and actual filename saved
-Output file name is built according to the following options properties:</li>
-<li>name - defines the output name for the file, if not given same name as property will be used</li>
-<li>prefix - the folder prefix where the file will be uploaded, all leading folders will be created automatically</li>
-<li>ext - what file extention to use, appended to the name, if no ext is given the extension from the uploaded file will be used or no extention if could not determine one.</li>
-<li>extkeep - keep actual extention from the uploaded file, ignore the ext parameter</li>
-<li>namekeep - keep the name of the uploaded file if present in the multipart form</li>
-<li>encoding - encoding of the body, default is base64</li>
-<li>filesize - size of the file in bytes if available</li>
-</ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.storeFile(tmpfile, outfile, options, callback)</code></p>
-<p> Place the uploaded tmpfile to the destination pointed by outfile</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.delFile(file, options, callback)</code></p>
-<p> Delete file by name from the local filesystem or S3 drive if filesS3 is defined in api or options objects</p>
-</li>
-</ul>
-
-<h2 id="module-api_icons">Module: API_ICONS</h2>
-<ul>
-<li><p><code>api.scaleIcon(infile, options, callback)</code></p>
-<p> Scale image using ImageMagick, return err if failed</p>
-<ul>
-<li>infile can be a string with file name or a Buffer with actual image data</li>
-<li>options can specify image properties:<ul>
-<li>outfile - if not empty is a file name where to store scaled image or if empty the new image contents will be returned in the callback as a buffer</li>
-<li>width, height - new image dimensions<ul>
-<li>if width or height is negative this means do not perform upscale, keep the original size if smaller than given positive value,</li>
-<li>if any is 0 that means keep the original size</li>
-</ul>
-</li>
-<li>filter - ImageMagick image filters, default is lanczos</li>
-<li>quality - 0-99 percent, image scaling quality</li>
-<li>ext - image format: png, gif, jpg, jp2, svg</li>
-<li>flip - flip horizontally</li>
-<li>flop - flip vertically</li>
-<li>blue_radius, blur_sigma - perform adaptive blur on the image</li>
-<li>crop_x, crop_y, crop_width, crop_height - perform crop using given dimensions</li>
-<li>sharpen_radius, sharpen_sigma - perform sharpening of the image</li>
-<li>brightness - use thing to change brightness of the image</li>
-<li>contrast - set new contrast of the image</li>
-<li>rotate - rotation angle</li>
-<li>bgcolor - color for the background, used in rotation</li>
-<li>quantized - set number of colors for quantize</li>
-<li>treedepth - set tree depth for quantixe process</li>
-<li>dither - set 0 or 1 for quantixe and posterize processes</li>
-<li>posterize - set number of color levels</li>
-<li>normalize - normalize image</li>
-<li>opacity - set image opacity</li>
-</ul>
-</li>
-</ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.iconPath(id, options)</code></p>
-<p> Full path to the icon, perform necessary hashing and sharding, id can be a number or any string</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.iconUrl(row, options)</code></p>
-<p> Returns constructed icon url from the icon record</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.checkIcon(op, row, options)</code></p>
-<p> Verify icon permissions and format for the result, used in setProcessRow for the bk_icon table</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.sendIcon(req, res, id, options)</code></p>
-<p> Send an icon to the client, only handles files</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.putIcon(req, id, options, callback)</code></p>
-<p> Store an icon for account, .type defines icon prefix</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.saveIcon(file, id, options, callback)</code></p>
-<p> Save the icon data to the destination, if api.imagesS3 or options.imagesS3 specified then plave the image on the S3 drive.
-Store in the proper location according to the types for given id, this function is used after downloading new image or
-when moving images from other places. On success the callback will be called with the second argument set to the output
-file name where the image has been saved.
-Valid properties in the options:</p>
-<ul>
-<li>type - icon type, this will be prepended to the name of the icon</li>
-<li>prefix - top level subdirectory under images/</li>
-<li>width, height, filter, ext, quality for <code>resizeImage</code> function</li>
-<li>filesize - file size if available</li>
-</ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.delIcon(id, options, callback)</code></p>
-<p> Delete an icon for account, .type defines icon prefix</p>
-</li>
-</ul>
-
-<h2 id="module-api_proxy">Module: API_PROXY</h2>
-<ul>
-<li><p><code>api.handleProxyRequest(req, res, callback)</code></p>
-<p> Process incoming proxy request, can be overriden for custom logic with frontend proxy server. If any
-response is sent or an error returned in the calback
-then the request will be aborted and will not be forwarded to the web processes</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.createProxyServer()</code></p>
-<p> Create a proxy server to handle incoming requests and distribute them to the workers</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.createProxyWorker()</code></p>
-<p> Create/fork a worker to handle API requests, register a new port for load balancing between web workers</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.getProxyPort()</code></p>
-<p> Return a target port for proxy requests, rotates between all web workers</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.getProxyTarget(req)</code></p>
-<p> Return a target for proxy requests</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.runProxyRequest(req, res, ssl)</code></p>
-<p> Process a proxy request, perform all filtering or redirects</p>
-</li>
-</ul>
-
-<h2 id="module-api_statistics">Module: API_STATISTICS</h2>
-<ul>
-<li><p><code>api.initStatistics()</code></p>
-<p> Setup statistics collections</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.getStatistics(options)</code></p>
-<p> Updates metrics with the current values and returns an object ready to be saved in the database, i.e. flattened ito one object
-where all property names of the complex objects are combined into one name separated by comma.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.sendStatistics()</code></p>
-<p> Send collected statistics to the collection server, <code>backend-host</code> must be configured and possibly <code>backend-login</code> and <code>backend-secret</code> in case
-the system API is secured, the user can be any valid user registered in the bk_auth table.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.saveStatistics(obj, options, callback)</code></p>
-<p> Save collected statistics in the bk_collect table, this can be called via API or directly by the backend, this wrapper
-is supposed to be overrriden by the application with additional logic how the statistics is saved. Columns in the bk_collect table
-must be defined for any metrics to be saved, use api.describeTable with additional columns from the api.metrics object in additional to the default ones.</p>
-<p>Example, add pool cache stats to the table</p>
-<pre><code>    api.describeTable({ bk_collect: { pool_cache_rmean: { type: &quot;real&quot; },
-                                      pool_cache_hmean: { type: &quot;real&quot; } });
-</code></pre></li>
-</ul>
-
-<ul>
-<li><p><code>api.calcStatistics(query, options, callback)</code></p>
-<p> Calculate statistics for a period of time, query and options must confirm to the db.select conventions.</p>
-</li>
-</ul>
-
-<h2 id="module-core_http">Module: CORE_HTTP</h2>
-<ul>
-<li><p><code>core.httpGet(uri, params, callback)</code></p>
-<p> Downloads file using HTTP and pass it to the callback if provided</p>
-<ul>
-<li>uri can be full URL or an object with parts of the url, same format as in url.format</li>
-<li>params can contain the following options:<ul>
-<li>method - GET, POST</li>
-<li>headers - object with headers to pass to HTTP request, properties must be all lower case</li>
-<li>cookies - a list with cookies or a boolean to load cookies from the db</li>
-<li>file - file name where to save response, in case of error response the error body will be saved as well, it uses sync file operations</li>
-<li>stream - a writable stream where to save data</li>
-<li>postdata - data to be sent with the request in the body</li>
-<li>postfile - file to be uploaded in the POST body, not as multipart</li>
-<li>postsize - file size to be uploaded if obtained separately</li>
-<li>noparse - do not parse known content types like json, xml</li>
-<li>chunked - post files using chunked encoding</li>
-<li>query - additional query parameters to be added to the url as an object or as encoded string</li>
-<li>sign - sign request with provided email/secret properties</li>
-<li>checksum - 1 if the body needs a checksum in the signature</li>
-<li>mtime - a Date or timestamp to be used in conditional requests</li>
-<li>conditional - add If-Modified-Since header using <code>params.mtime</code> if present or if <code>file</code> is given use file last modified timestamp, mtime</li>
-<li>httpTimeout - timeout in milliseconds afte which the request is borted if no data received</li>
-<li>retryCount - how many times to retry the request on error or timeout</li>
-<li>retryTimeout - timeout in milliseconds for retries, with every subsequent timeout it will be multiplied by 2</li>
-<li>retryOnError - retry request if received non 2xx response status,
- if this is a function then it must return true in order to retry the request,
- otherwise it is treated as a boolean value, if true then retry on all non-2xx responses</li>
-<li>noredirects - if true then do not follow redirect locations for 30-[1,2,3,7] statuses</li>
-</ul>
-</li>
-<li>callback will be called with the arguments:
- first argument is error object if any
- second is the params object itself with updated fields</li>
-</ul>
-<p>On end, the object params will contain the following updated properties:</p>
-<ul>
-<li>data if file was not specified, data will contain collected response body as string</li>
-<li>obj - if the content type is a known type like json or xml this property will hold a reference to the parsed document or null in case or parse error</li>
-<li>status - HTTP response status code</li>
-<li>mtime - Date object with the last modified time of the requested file</li>
-<li>size - size of the response body or file</li>
-<li>type - response content type</li>
-</ul>
-<p>Note: SIDE EFFECT: the params object is modified in place so many options will be changed/removed or added</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>core.cookieGet(domain, callback)</code></p>
-<p> Return cookies that match given domain</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>core.cookieSave(cookiejar, setcookies, hostname, callback)</code></p>
-<p> Save new cookies arrived in the request,
-merge with existing cookies from the jar which is a list of cookies before the request</p>
-</li>
-</ul>
-
-<h2 id="module-db_dynamodb">Module: DB_DYNAMODB</h2>
-<ul>
-<li><p><code>Pool.prototype.convertError(table, op, err, options)</code></p>
-<p> Convert into recognizable error codes</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>Pool.prototype.query(client, req, options, callback)</code></p>
-<p> Simulate query as in SQL driver but performing AWS call, text will be a table name and values will be request options</p>
-</li>
-</ul>
-
-<h2 id="module-db_elasticsearch">Module: DB_ELASTICSEARCH</h2>
-<ul>
-<li><p><code>pool</code></p>
-<p> Create a database pool that works with ElasticSearch server, the db pool connection url must include the index for all tables, like <a href="http://127.0.0.1:9200/billing">http://127.0.0.1:9200/billing</a>,
-if not given the default database name will be used.</p>
-</li>
-</ul>
-
-<h2 id="module-db_redis">Module: DB_REDIS</h2>
-<ul>
-<li><p><code>pool</code></p>
-<p> Redis database pool, uses Hash to store the records</p>
-</li>
-</ul>
-
-<h2 id="module-db_sql">Module: DB_SQL</h2>
-<ul>
-<li><p><code>db.sqlQuery(pool, client, req, options, callback)</code></p>
-<p> Execute one or more SQL statements</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.sqlCacheColumns(pool, options, callback)</code></p>
-<p> Cache columns using the information_schema</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.sqlPrepare(pool, req)</code></p>
-<p> Prepare SQL statement for the given operation</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.sqlQuote(val)</code></p>
-<p> Quote value to be used in SQL expressions</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.sqlValue(value, options)</code></p>
-<p> Return properly quoted value to be used directly in SQL expressions, format according to the type</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.sqlValueIn(list, type)</code></p>
-<p> Return list in format to be used with SQL IN ()</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.sqlExpr(pool, name, value, options)</code></p>
-<p> Build SQL expressions for the column and value
-options may contain the following properties:</p>
-<ul>
-<li>op - SQL operator, default is =</li>
-<li>type - can be data, string, number, float, expr, default is string</li>
-<li>value - default value to use if passed value is null or empty</li>
-<li>min, max - are used for numeric values for validation of ranges</li>
-<li>expr - for op=expr, contains sprintf-like formatted expression to be used as is with all &#39;%s&#39; substituted with actual value</li>
-</ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.sqlTime(d)</code></p>
-<p> Return time formatted for SQL usage as ISO, if no date specified returns current time</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.sqlLimit(options)</code></p>
-<p> Build SQL orderby/limit/offset conditions, config can define defaults for sorting and paging</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.sqlWhere(pool, req, query, keys, join)</code></p>
-<p> Build SQL where condition from the keys and object values, returns SQL statement to be used in WHERE</p>
-<ul>
-<li>query - properties for the condition, in case of an array the primary keys for IN condition will be used only,
-a property named $or or $and will be treated as a sub-expression if it is an object.</li>
-<li>keys - a list of columns to use for the condition, other properties will be ignored</li>
-<li>options may contains the following properties:<ul>
-<li>pool - pool to be used for driver specific functions</li>
-<li>ops - object for comparison operators for primary key, default is equal operator</li>
-</ul>
-</li>
-<li>join - how to join all expressions, default is AND</li>
-</ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.sqlCreate(pool, req)</code></p>
-<p> Create SQL table using table definition</p>
-<ul>
-<li>table - name of the table to create</li>
-<li>obj - object with properties as column names and each property value is an object:<ul>
-<li>name - column name</li>
-<li>type - type of the column, default is TEXT, options: int, real or other supported types</li>
-<li>value - default value for the column</li>
-<li>primary - part of the primary key</li>
-<li>index - indexed column, part of the composite index</li>
-<li>unique - must be combined with index property to specify unique composite index</li>
-<li>len - max length of the column</li>
-<li>notnull - true if should be NOT NULL</li>
-<li>auto - true for AUTO_INCREMENT column</li>
-</ul>
-</li>
-<li>options may contains:<ul>
-<li>upgrade - perform alter table instead of create</li>
-<li>typesMap - type mapping, convert lowercase type into other type supported by any specific database</li>
-<li>noDefaults - ignore default value if not supported (Cassandra)</li>
-<li>noNulls - NOT NULL restriction is not supported (Cassandra)</li>
-<li>noMultiSQL - return as a list, the driver does not support multiple SQL commands</li>
-<li>noLengths - ignore column length for columns (Cassandra)</li>
-<li>noIfExists - do not support IF EXISTS on table or indexes</li>
-<li>noCompositeIndex - does not support composite indexes (Cassandra)</li>
-<li>noAuto - no support for auto increment columns</li>
-<li>skipNull - object with operations which dont support null(empty) values (DynamoDB cannot add/put empty/null values)</li>
-</ul>
-</li>
-</ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.sqlUpgrade(pool, req)</code></p>
-<p> Create ALTER TABLE ADD COLUMN statements for missing columns</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.sqlDrop(pool, req)</code></p>
-<p> Create SQL DROP TABLE statement</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.sqlGet(pool, req)</code></p>
-<p> Get one object from the database,
-options may define the following properties:</p>
-<ul>
-<li>select is list of columns or expressions to return</li>
-</ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.sqlSelect(pool, req)</code></p>
-<p> Select object from the database,
-options may define the following properties:</p>
-<ul>
-<li>keys is a list of columns for the condition</li>
-<li>select is list of columns or expressions to return</li>
-</ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.sqlInsert(pool, req)</code></p>
-<p> Build SQL insert statement</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.sqlUpdate(pool, req)</code></p>
-<p> Build SQL statement for update</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.sqlDelete(pool, req)</code></p>
-<p> Build SQL statement for delete</p>
-</li>
-</ul>
-
-<h2 id="module-db_sqlite">Module: DB_SQLITE</h2>
-<h2 id="module-ipc_client">Module: IPC_CLIENT</h2>
-<ul>
-<li><p><code>IpcClient.prototype.close()</code></p>
-<p> Close current connection, ports.... not valid after this call</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>IpcClient.prototype.stats(options, callback)</code></p>
-<p> Returns the cache statistics to the callback as the forst argument, the object tructure is specific to each cache implementstion</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>IpcClient.prototype.clear(pattern, callback)</code></p>
-<p> Clear all or only matched keys from the cache</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>IpcClient.prototype.keys(pattern, callback)</code></p>
-<p> Retun all or matched keys from the cache, this is for debugging purposes mostly</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>IpcClient.prototype.get(key, options, callback)</code></p>
-<p> Returns an item from the cache by a key, callback is required and it acceptes only the item,
-on any error null or undefined will be returned</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>IpcClient.prototype.put(key, val, options, callback)</code></p>
-<p> Store an item in the cache, <code>options.ttl</code> can be used to specify TTL in milliseconds</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>IpcClient.prototype.incr(key, val, options, callback)</code></p>
-<p> Add/substract a number from the an item, returns new number in the callback if provided, in case of an error null/indefined should be returned</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>IpcClient.prototype.del(key, options, callback)</code></p>
-<p> Delete an item from the cache</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>IpcClient.prototype.poller()</code></p>
-<p> This is called to configure and setup event processing on first subscribe call, if nobody subscribes this
-will never be called and thus no initialization for event processing either, for clients that only publish this may save
-lots of processing and memory.</p>
-<p>This method must take care how to keep the poller running via interval or timeout as long as the <code>this._polling=1</code>.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>IpcClient.prototype.schedulePoller(timeout)</code></p>
-<p> Schedule next poller iteration immediately or after timeout, check configured polling rate, make sure it polls no more than
-configured number of time per second</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>IpcClient.prototype.monitor()</code></p>
-<p> Queue monitor or cleanup service, when poller is involved this will be started and can be used for cleaning up stale messages or other
-maintainence work the requires.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>IpcClient.prototype.isPolling()</code></p>
-<p> Returns 1 if the poller is active</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>IpcClient.prototype.isWorking()</code></p>
-<p> Returns 1 if currently a message is processing or being read</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>IpcClient.prototype.limiter(options, callback)</code></p>
-<p> Rate limit check, by default it uses the master LRU cache meaning it works within one physical machine only.</p>
-<p>The options must have the following properties:</p>
-<ul>
-<li>name - unique id, can be IP address, account id, etc...</li>
-<li>rate, max, interval - same as for <code>metrics.TokenBucket</code> rate limiter.</li>
-</ul>
-<p>The callback argument will be called with an object where the property <code>consumed</code> set to true if consumed or false otherwise,
-and the property <code>delay</code> with number of milliseconds till the bucket can be used again.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>IpcClient.prototype.subscribe(channel, options, callback)</code></p>
-<p> Subscribe to receive notification from the given channel</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>IpcClient.prototype.unsubscribe(channel, options, callback)</code></p>
-<p> Stop receiving notifications on the given channel</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>IpcClient.prototype.publish(channel, msg, options, callback)</code></p>
-<p> Publish an event</p>
-</li>
-</ul>
-
-<h2 id="module-ipc_db">Module: IPC_DB</h2>
-<ul>
-<li><p><code>Database tables</code></p>
-<pre><code>   bk_queue: { id: { primary: 1 },
-               active: { type: &quot;int&quot;, index: 1, value: 0 },      // job status, new, running
-               channel: { value: &quot;jobs&quot;, projection: 1 },        // subscription key
-               data: { type: &quot;json&quot;, projection: 1 },            // job definition object
-               mtime: { type: &quot;bigint&quot;, now: 1, index: 1 } },
-</code></pre><p>  });</p>
-<p>  client.createClient = function(url, options)
-  {</p>
-<pre><code>  if (url.match(/^db:/)) return new IpcDbClient(url, options);
-</code></pre><p>  }</p>
-<p>  function IpcDbClient(url, options)
-  {</p>
-<pre><code>  Client.call(this, url, options);
-  this.options.interval = lib.toNumber(this.options.interval, { dflt: 30, min: 1 });
-  this.options.count = lib.toNumber(this.options.count, { dflt: 1, min: 1 });
-  this.options.visibilityTimeout = lib.toNumber(this.options.visibilityTimeout, { min: 0, dflt: this.options.interval });
-  this.emit(&quot;ready&quot;);
-</code></pre><p>  }
-  util.inherits(IpcDbClient, Client);</p>
-<p>  IpcDbClient.prototype.monitorQueue = function()
-  {</p>
-<pre><code>  var options = { pool: this.options.pool, sort: &quot;active_mtime&quot;, ops: { mtime: &quot;lt&quot; }, expected: { active: 1 } };
-  var query = { active: 1, mtime: Date.now() - this.options.visibilityTimeout * 1000 };
-
-  db.updateAll(&quot;bk_queue&quot;, query, { active: 0 }, options, function(err, rows) {
-      for (var i in rows) logger.error(&quot;ipc.monitor:&quot;, lib.toAge(rows[i].mtime), rows[i]);
-</code></pre></li>
-</ul>
-
-<h2 id="module-ipc_local">Module: IPC_LOCAL</h2>
-<h2 id="module-ipc_redis">Module: IPC_REDIS</h2>
-<h2 id="module-ipc_redisclient">Module: IPC_REDISCLIENT</h2>
-<h2 id="module-ipc_redisq">Module: IPC_REDISQ</h2>
-<h2 id="module-ipc_sqs">Module: IPC_SQS</h2>
 <h2 id="module-bk_accounts">Module: BK_ACCOUNTS</h2>
 <ul>
 <li><p><code>accounts</code></p>
@@ -8900,13 +8957,19 @@ use the same names as command line arguments without preceeding test- part.</p>
 </ul>
 
 <ul>
-<li><p><code>shell.getSelfImages(name, callback)</code></p>
+<li><p><code>shell.awsGetSelfImages(name, callback)</code></p>
 <p> Retrieve my AMIs for the given name pattern</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>shell.getAmazonImages(options, callback)</code></p>
+<li><p><code>shell.awsSearchImage(filter, appName, callback)</code></p>
+<p> Return an image that matches given app name latest version</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.awsGetAmazonImages(options, callback)</code></p>
 <p> Return Amazon AMIs for the current region, HVM type only</p>
 </li>
 </ul>
@@ -9100,89 +9163,6 @@ db.query({ op: &quot;POST&quot;, text: &quot;/buckets/bucket/counter/name&quot;,
 <ul>
 <li><p><code>client</code></p>
 <p> Queue client using RabbitMQ server</p>
-</li>
-</ul>
-
-<h2 id="module-ipc_memcache">Module: IPC_MEMCACHE</h2>
-<ul>
-<li><p><code>client</code></p>
-<p> Cache client using Memcached server</p>
-</li>
-</ul>
-
-<h2 id="module-msg_apn">Module: MSG_APN</h2>
-<ul>
-<li><p><code>client.check(dev)</code></p>
-<p> Returns true if given device is supported by APN</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>client.init(options)</code></p>
-<p> Initialize Apple Push Notification service in the current process, Apple supports multiple connections to the APN gateway but
-not too many so this should be called on the dedicated backend hosts, on multi-core servers every spawn web process will initialize a
-connection to APN gateway.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>client.close(callback)</code></p>
-<p> Close APN agent, try to send all pending messages before closing the gateway connection</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>client.send(dev, options, callback)</code></p>
-<p> Send push notification to an Apple device, returns true if the message has been queued.</p>
-<p>The options may contain the following properties:</p>
-<ul>
-<li>msg - message text</li>
-<li>badge - badge number</li>
-<li>sound - 1, true or a sound file to play</li>
-<li>type - set type of the packet</li>
-<li>category - a user notification category</li>
-<li>contentAvailable - to indicate about new content so fetchCompletionHandler is called</li>
-<li>id - send id in the user properties</li>
-</ul>
-</li>
-</ul>
-
-<h2 id="module-msg_gcm">Module: MSG_GCM</h2>
-<ul>
-<li><p><code>client.init(options)</code></p>
-<p> Initialize Google Cloud Messaging service to send push notifications to mobile devices</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>client.close(callback)</code></p>
-<p> Close GCM connection, flush the queue</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>client.send(dev, options, callback)</code></p>
-<p> Send push notification to an Android device, return true if queued.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>client.retryOnError()</code></p>
-<p> Retry on server error, honor Retry-After header if present, use it only on the first error</p>
-</li>
-</ul>
-
-<h2 id="module-msg_sns">Module: MSG_SNS</h2>
-<ul>
-<li><p><code>client.send(dev, options, callback)</code></p>
-<p> Send push notification to a device using AWS SNS service, device_id must be a valid SNS endpoint ARN.</p>
-<p>The options may contain the following properties:</p>
-<ul>
-<li>msg - message text</li>
-<li>badge - badge number</li>
-<li>type - set type of the packet</li>
-<li>id - send id in the user properties</li>
-</ul>
 </li>
 </ul>
 
