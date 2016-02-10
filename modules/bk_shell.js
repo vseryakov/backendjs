@@ -13,14 +13,13 @@ var url = require('url');
 var fs = require('fs');
 var spawn = require('child_process').spawn;
 var exec = require('child_process').exec;
-var core = require(__dirname + '/../core');
-var lib = require(__dirname + '/../lib');
-var logger = require(__dirname + '/../logger');
-var db = require(__dirname + '/../db');
-var aws = require(__dirname + '/../aws');
-var ipc = require(__dirname + '/../ipc');
-var api = require(__dirname + '/../api');
-var app = require(__dirname + '/../app');
+var core = require(__dirname + '/../lib/core');
+var lib = require(__dirname + '/../lib/lib');
+var logger = require(__dirname + '/../lib/logger');
+var db = require(__dirname + '/../lib/db');
+var aws = require(__dirname + '/../lib/aws');
+var ipc = require(__dirname + '/../lib/ipc');
+var api = require(__dirname + '/../lib/api');
 var os = require('os');
 
 var shell = {
@@ -662,7 +661,7 @@ shell.awsGetInstances = function(rc)
 }
 
 // Retrieve my AMIs for the given name pattern
-shell.getSelfImages = function(name, callback)
+shell.awsGetSelfImages = function(name, callback)
 {
     aws.queryEC2("DescribeImages",
                  { 'Owner.0': 'self',
@@ -683,8 +682,28 @@ shell.getSelfImages = function(name, callback)
     });
 }
 
+// Return an image that matches given app name latest version
+shell.awsSearchImage = function(filter, appName, callback)
+{
+    var img;
+
+    this.awsGetSelfImages(filter, function(err, rc) {
+        if (err) return callback(err);
+
+        // Give preference to the images with the same app name
+        if (rc.length) {
+            var rx = new RegExp("^" + appName, "i");
+            for (var i = 0; i < rc.length && !img; i++) {
+                if (rc[i].name.match(rx)) img = rc[i];
+            }
+            if (!img) img = rc[0];
+        }
+        callback(err, img);
+    });
+}
+
 // Return Amazon AMIs for the current region, HVM type only
-shell.getAmazonImages = function(options, callback)
+shell.awsGetAmazonImages = function(options, callback)
 {
     var query = { 'Owner.0': 'amazon',
         'Filter.1.Name': 'name',
@@ -735,22 +754,29 @@ shell.getElbCount = function(name, equal, total, options, callback)
         });
 }
 
+shell.awsGetUserData = function(options)
+{
+    var userData = this.getArg("-user-data", options);
+    if (!userData || userData.match(/^#cloudconfig/)) {
+        var cloudInit = "";
+        var runCmd = this.getArgList("-cloudinit-cmd", options);
+        if (runCmd.length) cloudInit += "runcmd:\n" + runCmd.map(function(x) { return " - " + x }).join("\n") + "\n";
+        var hostName = this.getArg("-host-name", options);
+        if (hostName) cloudInit += "hostname: " + hostName + "\n";
+        var user = this.getArg("-user", options, "ec2-user");
+        var bkjsCmd = this.getArgList("-bkjs-cmd", options);
+        if (bkjsCmd.length) cloudInit += "runcmd:\n" + bkjsCmd.map(function(x) { return " - /home/" + user + "/bin/bkjs " + x }).join("\n") + "\n";
+        if (cloudInit) userData = !userData ? "#cloudconfig\n" + cloudInit : "\n" + cloudInit;
+    }
+    return userData;
+}
+
 // Launch instances by run mode and/or other criteria
 shell.launchInstances = function(options, callback)
 {
-    var subnets = [], instances = [], cloudInit = "";
+    var subnets = [], instances = [];
     var appName = this.getArg("-app-name", options, core.appName);
     var appVersion = this.getArg("-app-version", options, core.appVersion);
-    var userData = this.getArg("-user-data", options);
-    var runCmd = this.getArgList("-cloudinit-cmd", options);
-    if (runCmd.length) cloudInit += "runcmd:\n" + runCmd.map(function(x) { return " - " + x }).join("\n") + "\n";
-    var hostName = this.getArg("-host-name", options);
-    if (hostName) cloudInit += "hostname: " + hostName + "\n";
-    var user = this.getArg("-user", options, "ec2-user");
-    var bkjsCmd = this.getArgList("-bkjs-cmd", options);
-    if (bkjsCmd.length) cloudInit += "runcmd:\n" + bkjsCmd.map(function(x) { return " - /home/" + user + "/bin/bkjs " + x }).join("\n") + "\n";
-    if (!userData && cloudInit) userData = "#cloudconfig\n" + cloudInit; else
-    if (userData.match(/^#cloudconfig/)) userData += "\n" + cloudInit;
 
     var req = {
         name: this.getArg("-name", options, appName + "-" + appVersion),
@@ -768,7 +794,7 @@ shell.launchInstances = function(options, callback)
         availabilityZone: this.getArg("-availability-zone"),
         terminate: this.isArg("-no-terminate", options) ? 0 : 1,
         alarms: [],
-        data: userData,
+        data: this.awsGetUserData(options),
     };
     logger.debug("launchInstances:", req);
 
@@ -776,19 +802,9 @@ shell.launchInstances = function(options, callback)
        function(next) {
            if (req.imageId) return next();
            var imageName = shell.getArg("-image-name", options, '*');
-           shell.getSelfImages(imageName, function(err, rc) {
-               if (err) return next(err);
-
-               // Give preference to the images with the same app name
-               if (rc.length) {
-                   var rx = new RegExp("^" + appName, "i");
-                   for (var i = 0; i < rc.length && !req.imageId; i++) {
-                       if (rc[i].name.match(rx)) req.imageId = rc[i].imageId;
-                   }
-                   if (!req.imageId) req.imageId = rc[0].imageId;
-               }
-               if (!req.imageId) return next("ERROR: AMI must be specified or discovered by filters");
-               next(err);
+           shell.getappImage(imageName, appName, function(err, rc) {
+               req.imageId = rc;
+               next(err ? err : !req.imageId ? "ERROR: AMI must be specified or discovered by filters" : null);
            });
        },
        function(next) {
@@ -894,7 +910,7 @@ shell.launchInstances = function(options, callback)
                                     waitDelay: shell.getArgInt("-wait-delay", options, 30000) },
                                   next);
        },
-       ], callback);
+    ], callback);
 }
 
 // Delete an AMI with the snapshot
@@ -909,7 +925,7 @@ shell.cmdAwsShowImages = function(options)
 {
     var filter = this.getArg("-filter");
 
-    this.getSelfImages(filter || "*", function(err, images) {
+    this.awsGetSelfImages(filter || "*", function(err, images) {
         if (err) shell.exit(err);
         images.forEach(function(x) {
             console.log(x.imageId, x.name, x.imageState, x.description);
@@ -925,7 +941,7 @@ shell.cmdAwsShowAmazonImages = function(options)
     options.devtype = this.getArg("-devtype");
     options.arch = this.getArg("-arch");
 
-    this.getAmazonImages(options, function(err, images) {
+    this.awsGetAmazonImages(options, function(err, images) {
         if (err) shell.exit(err);
         images.forEach(function(x) {
             console.log(x.imageId, x.name, x.imageState, x.description);
@@ -956,7 +972,7 @@ shell.cmdAwsDeleteImage = function(options)
 
     lib.series([
        function(next) {
-           shell.getSelfImages(filter, function(err, list) {
+           shell.awsGetSelfImages(filter, function(err, list) {
                if (!err) images = list;
                next(err);
            });
@@ -969,9 +985,9 @@ shell.cmdAwsDeleteImage = function(options)
                aws.ec2DeregisterImage(img.imageId, { snapshots: 1 }, next2);
            }, next);
        },
-       ], function(err) {
-           shell.exit(err);
-       });
+    ], function(err) {
+        shell.exit(err);
+    });
 }
 
 // Create an AMI from the current instance of the instance by id
@@ -1012,9 +1028,9 @@ shell.cmdAwsRebootInstances = function(options)
            if (lib.isArg("-dry-run")) return next();
            aws.queryEC2("RebootInstances", req, next);
        },
-       ], function(err) {
-           shell.exit(err);
-       });
+    ], function(err) {
+        shell.exit(err);
+    });
 }
 
 // Terminate instances by run mode and/or other criteria
@@ -1041,9 +1057,9 @@ shell.cmdAwsTerminateInstances = function(options)
            if (lib.isArg("-dry-run")) return next();
            aws.queryEC2("TerminateInstances", req, next);
        },
-       ], function(err) {
-           shell.exit(err);
-       });
+    ], function(err) {
+        shell.exit(err);
+    });
 }
 
 // Show running instances by run mode and/or other criteria
@@ -1071,9 +1087,9 @@ shell.cmdAwsShowInstances = function(options)
            }
            next();
        },
-       ], function(err) {
-           shell.exit(err);
-       });
+    ], function(err) {
+        shell.exit(err);
+    });
 }
 
 // Show ELB running instances
@@ -1115,9 +1131,9 @@ shell.cmdAwsShowElb = function(options)
            });
            next();
        },
-       ], function(err) {
-           shell.exit(err);
-       });
+    ], function(err) {
+        shell.exit(err);
+    });
 }
 
 // Reboot instances in the ELB, one by one
@@ -1168,9 +1184,9 @@ shell.cmdAwsRebootElb = function(options)
            if (lib.isArg("-dry-run")) return next();
            aws.queryEC2("RebootInstances", req, next);
        },
-       ], function(err) {
-           shell.exit(err);
-       });
+    ], function(err) {
+        shell.exit(err);
+    });
 }
 
 // Deploy new version in the ELB, terminate the old version
@@ -1214,9 +1230,9 @@ shell.cmdAwsReplaceElb = function(options)
            if (lib.isArg("-dry-run")) return next();
            aws.queryEC2("TerminateInstances", req, next);
        },
-       ], function(err) {
-           shell.exit(err);
-       });
+    ], function(err) {
+        shell.exit(err);
+    });
 }
 
 // Open/close SSH access to the specified group for the current external IP address
@@ -1251,9 +1267,9 @@ shell.cmdAwsSetupSsh = function(options)
            if (lib.isArg("-dry-run")) return next();
            aws.queryEC2(lib.isArg("-close") ? "RevokeSecurityGroupIngress" : "AuthorizeSecurityGroupIngress", req, next);
        },
-       ], function(err) {
-           shell.exit(err);
-       });
+    ], function(err) {
+        shell.exit(err);
+    });
 }
 
 // Launch an instance and setup it with provisioning script
@@ -1286,9 +1302,9 @@ shell.AwsSetupInstance = function(options)
                    "  - " + cmd + "\n";
            shell.launchInstances(opts, next);
        },
-       ], function(err) {
-           shell.exit(err);
-       });
+    ], function(err) {
+        shell.exit(err);
+    });
 }
 
 // Get file
@@ -1311,6 +1327,117 @@ shell.cmdAwsS3Put = function(options)
     var uri = lib.getArg("-file");
     aws.s3PutFile(uri, file, query, function(err, data) {
         shell.exit(err, data);
+    });
+}
+
+shell.cmdAwsCreateLaunchConfig = function(options)
+{
+    var appName = this.getArg("-app-name", options, core.appName);
+    var appVersion = this.getArg("-app-version", options, core.appVersion);
+    var configName = shell.getArg("-config-name", options);
+
+    var config, image, instance, groups;
+    var req = {
+        LaunchConfigurationName: this.getArg("-name", options),
+        InstanceType: this.getArg("-instance-type", options),
+        ImageId: this.getArg("-image-id", options, aws.imageId),
+        InstanceId: this.getArg("-instance-id", options),
+        KeyName: this.getArg("-key-name", options, aws.keyName),
+        IamInstanceProfile: this.getArg("-ami-profile", options, aws.iamProfile),
+        AssociatePublicIpAddress: this.getArg("-public-ip"),
+        UserData: this.awsGetUserData(options),
+        "SecurityGroups.member.1": this.getArg("-group-id", options, aws.groupId),
+    };
+
+    lib.series([
+       function(next) {
+           if (!configName) return next();
+           aws.queryAS("DescribeLaunchConfigurations", {}, function(err, rc) {
+               if (err) return next(err);
+               var configs = lib.objGet(rc, "DescribeLaunchConfigurationsResponse.DescribeLaunchConfigurationsResult.LaunchConfigurations.member", { list: 1 });
+               // Sort by version in descending order, assume name-N.N.N naming convention
+               configs.sort(function(a, b) {
+                   var n1 = a.LaunchConfigurationName.split(/[ -]/);
+                   n1[1] = lib.toVersion(n1[1]);
+                   var n2 = b.LaunchConfigurationName.split(/[ -]/);
+                   n2[1] = lib.toVersion(n2[1]);
+                   return n1[0] > n2[0] ? -1 : n1[0] < n2[0] ? 1 : n2[1] - n1[1];
+               });
+               var rx = new RegExp("^" + configName, "i");
+               for (var i in configs) {
+                   if (rx.test(configs[i].LaunchConfigurationName)) {
+                       config = configs[i];
+                       break;
+                   }
+               }
+               next(err);
+           });
+       },
+       function(next) {
+           if (req.InstanceId) return next();
+           var filter = shell.getArg("-instance-name");
+           if (!filter) return next();
+           var q = { "Filter.1.Name": "tag:Name", "Filter.1.Value.1": filter || "*",
+                     "Filter.2.Name": "instance-state-name", "Filter.2.Value.1": "running", }
+           aws.queryEC2("DescribeInstances", q, function(err, rc) {
+               instance = shell.awsGetInstances(rc)[0];
+               if (instance) req.InstanceId = instance.instanceId;
+               next(err);
+           });
+       },
+       function(next) {
+           if (req.ImageId) return next();
+           var filter = shell.getArg("-image-name", options, '*');
+           shell.awsSearchImage(filter, appName, function(err, rc) {
+               image = rc;
+               next(err ? err : !image ? "ERROR: AMI must be specified or discovered by filters" : null);
+           });
+       },
+       function(next) {
+           if (req["SecurityGroups.member.1"]) return next();
+           var filter = shell.getArg("-group-name", options, appName + "|^default$");
+           aws.ec2DescribeSecurityGroups({ filter: filter }, function(err, rc) {
+               groups = rc;
+               next(err);
+           });
+       },
+       function(next) {
+           if (req.InstanceId) return next();
+           if (!config) return next();
+           if (!req.ImageId) req.ImageId = image ? image.imageId : config.ImageId;
+           // Reuse config name but replace the version from the image, this is an image upgrade
+           if (!req.LaunchConfigurationName && configName && config) {
+               var n = config.LaunchConfigurationName.split(/[ -]/);
+               if (configName == n[0]) req.LaunchConfigurationName = configName + "-" + image.name.split("-")[1];
+           }
+           if (!req.LaunchConfigurationName && image) req.LaunchConfigurationName = image.name;
+           if (!req.LaunchConfigurationName) req.LaunchConfigurationName = appName + "-" + appVersion;
+           if (!req.InstanceType) req.InstanceType = config.InstanceType;
+           if (!req.KeyName) req.KeyName = config.KeyName || appName;
+           if (!req.IamInstanceProfile) req.IamInstanceProfile = config.IamInstanceProfile || appName;
+           if (!req.UserData) req.UserData = config.UserData;
+           if (!req["SecurityGroups.member.1"]) {
+               lib.objGet(config, "SecurityGroups.member", { list: 1 }).forEach(function(x, i) {
+                   req["SecurityGroups.member." + (i + 1)] = x;
+               });
+           }
+           if (!req["SecurityGroups.member.1"] && groups) {
+               groups.forEach(function(x, i) { req["SecurityGroups.member." + (i + 1)] = x.groupId });
+           }
+           req.AssociatePublicIpAddress = lib.toBool(req.AssociatePublicIpAddress || config.AssociatePublicIpAddress);
+           next();
+       },
+       function(next) {
+           if (config) logger.info("CONFIG:", config);
+           if (image) logger.info("IMAGE:", image)
+           if (instance) logger.info("INSTANCE:", instance);
+           logger.log("CreateLaunchConfig:", req);
+           if (lib.isArg("-dry-run")) return next();
+           if (req.UserData) req.UserData = new Buffer(req.UserData).toString("base64");
+           aws.queryAS("CreateLaunchConfiguration", req, next);
+       },
+    ], function(err) {
+        shell.exit(err);
     });
 }
 

@@ -3,17 +3,18 @@
 //  Sep 2013
 //
 
-exports.core = require(__dirname + '/core');
-exports.lib = require(__dirname + '/lib');
-exports.logger = require(__dirname + '/logger');
-exports.ipc = require(__dirname + '/ipc');
-exports.aws = require(__dirname + '/aws');
-exports.db = require(__dirname + '/db');
-exports.msg = require(__dirname + '/msg');
-exports.server = require(__dirname + '/server');
-exports.api = require(__dirname + '/api');
-exports.jobs = require(__dirname + '/jobs');
-exports.metrics = require(__dirname + '/metrics');
+exports.core = require(__dirname + '/lib/core');
+exports.lib = require(__dirname + '/lib/lib');
+exports.logger = require(__dirname + '/lib/logger');
+exports.ipc = require(__dirname + '/lib/ipc');
+exports.aws = require(__dirname + '/lib/aws');
+exports.db = require(__dirname + '/lib/db');
+exports.msg = require(__dirname + '/lib/msg');
+exports.server = require(__dirname + '/lib/server');
+exports.api = require(__dirname + '/lib/api');
+exports.jobs = require(__dirname + '/lib/jobs');
+exports.metrics = require(__dirname + '/lib/metrics');
+exports.httpGet = require(__dirname + '/lib/http_get');
 exports.app = require(__dirname + '/app');
 exports.run = function(callback) { this.core.run(callback); }
 
@@ -27,7 +28,12 @@ exports.core.addModule('logger', exports.logger,
                        'jobs', exports.jobs,
                        'server', exports.server,
                        'metrics', exports.metrics,
+                       'httpGet', exports.httpGet,
                        'app', exports.app);
 
-// Load all submodules after we have all singletons ready
-exports.lib.findFileSync(__dirname + "/lib", { include: new RegExp(/\.js$/) }).forEach(function(file) { require(file); });
+var path = require("path");
+// Load all submodules for the singletons, files must start with a singleton name, each submodule just add more singleton methods
+exports.lib.findFileSync(__dirname + "/lib", { include: new RegExp(/[a-z]+_.+\.js$/) }).forEach(function(file) {
+    var mod = path.basename(file).split("_");
+    if (mod[0] == "core" || exports.core.modules[mod[0]]) require(file);
+});

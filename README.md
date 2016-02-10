@@ -14,7 +14,7 @@ Features:
 * Exposes a set of Web service APIs over HTTP(S) using Express framework.
 * Database API supports Sqlite, PostgreSQL, MySQL, DynamoDB, Cassandra, MongoDB, Redis with all basic operations behaving the
   same way allowing to switch databases without changing the code.
-* Database driver for LevelDB, LMDB, CouchDB, Riak, ElasticSearch support only a subset of all database operations
+* Database drivers for LevelDB, LMDB, CouchDB, Riak, ElasticSearch support only a subset of all database operations
 * Easily extendable to support any kind of database, provides a database driver on top of Redis with all supported methods.
 * Provides accounts, connections, locations, messaging and icons APIs with basic functionality for a qucik start.
 * Supports crontab and queue job processing by seperate workers.
@@ -491,7 +491,7 @@ Create a file named `app.js` with the code below.
                 db.get("todo", { id: req.query.id }, options, function(err, rows) { api.sendJSON(req, err, rows); });
                 break;
              case "select":
-                options.noscan = 0; // Allow empty scan of the whole table if not query is given, disabled by default
+                options.noscan = 0; // Allow empty scan of the whole table if no query is given, disabled by default
                 db.select("todo", req.query, options, function(err, rows) { api.sendJSON(req, err, rows); });
                 break;
             case "add":
@@ -600,10 +600,13 @@ Set `ipc-cache=memcache://HOST[:PORT]` that points to the host running memcached
 `ipc-cache-options-servers=10.1.1.1,10.2.2.1:5000`.
 
 ## Redis
-Set `ipc-cache=redis://HOST[:PORT]` that points to the server running Redis server. To support more than one master Redis server in the client
-add additional servers in the servers parameter, `ipc-cache-options-servers=10.1.1.1,10.2.2.1:5000`, the client will reconnect automatically on every
-disconnect. To support quick failover it needs a parameter for the `node-redis` module (which is used by the driver) `max_attempts` to be a number how many times to try to reconnect before switching to another server like
-`ipc-cache-options-max_attempts=3`. Any other `node-redis` module parameter can be passed as well.
+Set `ipc-cache=redis://HOST[:PORT]` that points to the server running Redis server.
+
+To support more than one master Redis server in the client add additional servers in the servers parameter,
+`ipc-cache-options-servers=10.1.1.1,10.2.2.1:5000`, the client will reconnect automatically on every
+disconnect. To support quick failover it needs a parameter for the `node-redis` module (which is used by the driver) `max_attempts` to be a
+number how many attempts to reconnect before switching to another server like `ipc-cache-options-max_attempts=3`.
+Any other `node-redis` module parameter can be passed as well.
 
 Cache configurations also can be passed in the url, the system supports special parameters that start with `bk-`, it will extract them into options automatically.
 

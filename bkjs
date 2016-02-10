@@ -953,10 +953,15 @@ case "$ARG" in
     port=$(get_arg -port 6379)
     quorum=$(get_arg -quorum 2)
     name=$(get_arg -name redis)
+    dtimeout=$(get_arg -down-timeout 10000)
+    ftimeout=$(get_arg -failover-timeout 180000)
     conf=$REDIS_PREFIX/etc/sentinel.conf
     $ECHO "daemonize yes" > $conf
     $ECHO "syslog-enabled yes" >> $conf
     $ECHO "sentinel monitor $name $host $port $quorum" >> $conf
+    $ECHO "sentinel down-after-milliseconds $name $dtimeout" >> $conf
+    $ECHO "sentinel failover-timeout $name $ftimeout" >> $conf
+    $ECHO "sentinel parallel-syncs $name 1" >> $conf
     $ECHO "dir $REDIS_PREFIX/var/" >> $conf
     $ECHO "pidfile $REDIS_PREFIX/var/sentinel.pid" >> $conf
 
@@ -1483,6 +1488,7 @@ EOF
     echo "  -aws-replace-elb -elb-name NAME [-timeout MSECS] [-interval MSECS] [-dry-run]"
     echo "  -aws-setup-ssh -group-name NAME [-close] [-dry-run]"
     echo "  -aws-setup-instance [-cmd CMD] [-file FILE ] [-wait] [-dry-run]"
+    echo "  -aws-create-launch-config [-name NAME] [-config-name NAME] [-instance-name NAME] [-dry-run] - create or copy a launch configuration for autoscaling"
     echo ""
     echo "Common options:"
     echo "  -root path - path to the backend home directory, default is $BKJS_HOME"

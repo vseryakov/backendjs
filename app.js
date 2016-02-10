@@ -7,10 +7,9 @@ var util = require('util');
 var fs = require('fs');
 var repl = require('repl');
 var path = require('path');
-var logger = require(__dirname + '/logger');
-var core = require(__dirname + '/core');
-var lib = require(__dirname + '/lib');
-var cluster = require('cluster');
+var logger = require(__dirname + '/lib/logger');
+var lib = require(__dirname + '/lib/lib');
+var core = require(__dirname + '/lib/core');
 
 // This is a skeleton module to be extended by the specific application logic. It provides all
 // callbacks and hooks that are called by the core backend modules
@@ -75,7 +74,7 @@ app.configureMonitor = function(options, callback) { callback(); }
 // been processed.
 app.configureShell = function(options, callback) { callback(); }
 
-// Run main server if we execute this as standalone program
+// Run the main server if we execute this as a standalone program
 if (!module.parent) {
     require('backendjs').server.start();
 }

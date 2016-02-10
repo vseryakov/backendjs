@@ -11,10 +11,10 @@ var path = require('path');
 var domain = require('domain');
 var cluster = require('cluster');
 var os = require('os');
-var core = require(__dirname + '/../core');
-var lib = require(__dirname + '/../lib');
-var db = require(__dirname + '/../db');
-var logger = require(__dirname + '/../logger');
+var core = require(__dirname + '/../lib/core');
+var lib = require(__dirname + '/../lib/lib');
+var db = require(__dirname + '/../lib/db');
+var logger = require(__dirname + '/../lib/logger');
 
 var pool = {
     name: "cassandra",

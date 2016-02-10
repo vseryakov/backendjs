@@ -4,10 +4,10 @@
 //
 
 var util = require('util');
-var core = require(__dirname + '/../core');
-var lib = require(__dirname + '/../lib');
-var db = require(__dirname + '/../db');
-var logger = require(__dirname + '/../logger');
+var core = require(__dirname + '/../lib/core');
+var lib = require(__dirname + '/../lib/lib');
+var db = require(__dirname + '/../lib/db');
+var logger = require(__dirname + '/../lib/logger');
 
 // Setup LMDB/LevelDB database driver, this is simplified driver which supports only basic key-value operations,
 // table parameter is ignored, the object only supports the properties name and value in the record objects.
