@@ -24,6 +24,11 @@ var server = bkjs.server;
 var logger = bkjs.logger;
 var tests = bkjs.core.modules.tests;
 
+var locations = { LA: { name: "Los Angeles",  bbox: [ 33.60503975233155, -117.72825045393661, 34.50336024766845, -118.75374954606342 ], },
+                  DC: { name: "Washington", bbox: [ 30.10, -77.5, 38.60, -76.5 ], },
+                  SD: { name: "San Diego", bbox: [ 32.26553975233155, -118.8279466261797, 33.163860247668445, -115.4840533738203 ], },
+                  SF: { name: "San Francisco", bbox: [ 37.32833975233156, -122.86154379633437, 38.22666024766845, -121.96045620366564 ] }, };
+
 tests.resetTables = function(tables, callback)
 {
     db.dropTables(tables, function() {
@@ -39,8 +44,9 @@ tests.test_account = function(callback)
     var secret = login;
     var gender = ['m','f'][lib.randomInt(0,1)];
     var bday = new Date(lib.randomInt(Date.now() - 50*365*86400000, Date.now() - 20*365*86400000));
-    var latitude = lib.randomNum(this.bbox[0], this.bbox[2]);
-    var longitude = lib.randomNum(this.bbox[1], this.bbox[3]);
+    var bbox = locations.LA.bbox;
+    var latitude = lib.randomNum(bbox[0], bbox[2]);
+    var longitude = lib.randomNum(bbox[1], bbox[3]);
     var name = "Name" + lib.randomInt(0, 1000);
     var email = "test@test.com"
     var icon = "iVBORw0KGgoAAAANSUhEUgAAAAcAAAAJCAYAAAD+WDajAAAABGdBTUEAALGPC/xhBQAAAAlwSFlzAAAOwgAADsIBFShKgAAAABp0RVh0U29mdHdhcmUAUGFpbnQuTkVUIHYzLjUuMTAw9HKhAAAAPElEQVQoU2NggIL6+npjIN4NxIIwMTANFFAC4rtA/B+kAC6JJgGSRCgAcs5ABWASMHoVw////3HigZAEACKmlTwMfriZAAAAAElFTkSuQmCC";
@@ -313,10 +319,6 @@ tests.test_location = function(callback)
                    mtime: { type: "bigint", now: 1 }
             },
     };
-    var locations = { LA: { name: "Los Angeles",  bbox: [ 33.60503975233155, -117.72825045393661, 34.50336024766845, -118.75374954606342 ], },
-                      DC: { name: "Washington", bbox: [ 30.10, -77.5, 38.60, -76.5 ], },
-                      SD: { name: "San Diego", bbox: [ 32.26553975233155, -118.8279466261797, 33.163860247668445, -115.4840533738203 ], },
-                      SF: { name: "San Francisco", bbox: [ 37.32833975233156, -122.86154379633437, 38.22666024766845, -121.96045620366564 ] }, };
     var city = lib.getArg("-city", "LA");
     var bbox = (locations[city] || locations.LA).bbox;
     var rows = lib.getArgInt("-rows", 10);

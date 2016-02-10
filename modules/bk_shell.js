@@ -178,7 +178,7 @@ shell.assert = function()
 }
 
 // Run the test function which is defined in the tests module, all arguments will be taken from the options or the command line. Options
-// use the same names as command line arguments without preceeding test- part.
+// use the same names as command line arguments without preceeding `test-` prefix.
 //
 // The common command line arguments that supported:
 // - -test-run - name of the function to run
@@ -207,10 +207,9 @@ shell.assert = function()
 //
 //          # bksh -test-run mytest
 //
-//
 // Custom tests:
 //
-// - create a user for backend testing, if the API does not require authentication skip this step:
+//   - create a user for backend testing, if the API does not require authentication skip this step:
 //
 //           ./app.sh -shell -account-add login testuser secret testpw
 //
@@ -219,11 +218,11 @@ shell.assert = function()
 //           echo "backend-login=testuser" >> etc/config.local
 //           echo "backend-secret=testpw" >> etc/config.local
 //
-// - to start a test command in the shell using local ./tests.js
+//   - to start a test command in the shell using local ./tests.js
 //
 //         ./app.sh -shell -test-run account
 //
-// - to start a test command in the shell using custom file with tests
+//   - to start a test command in the shell using custom file with tests
 //
 //         ./app.sh -shell -test-run api -test-file tests/api.js
 //
@@ -245,6 +244,7 @@ shell.cmdTestRun = function(options)
     if (tests.test.file) {
         if (fs.existsSync(tests.test.file)) require(tests.test.file); else
         if (fs.existsSync(core.cwd + "/" + tests.test.file)) require(core.cwd + "/" + tests.test.file);
+        if (fs.existsSync(__dirname + "/../" + tests.test.file)) require(__dirname + "/../" + tests.test.file);
     }
 
     if (!this['test_' + tests.test.cmd]) {
