@@ -1175,7 +1175,7 @@ case "$ARG" in
   build-node)
     if [ ! -d deps/node ]; then
        mkdir -p deps
-       (cd deps && git clone -b v0.10 https://github.com/joyent/node.git)
+       (cd deps && git clone -b v0.10 https://github.com/nodejs/node.git)
     fi
     (cd deps/node && [ ! -f out/Makefile ] && CFLAGS="$CFLAGS" CXXFLAGS="$CXXFLAGS" LDFLAGS="$LDFLAGS" ./configure --prefix=$BKJS_PREFIX)
     (cd deps/node && git pull && make install clean)

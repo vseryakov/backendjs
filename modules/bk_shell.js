@@ -146,35 +146,36 @@ shell.cmdShowInfo = function(options)
 
 // To be used in the tests, this function takes the following arguments:
 //
-// assert(next, err, failure, ....)
+// assert(next, err, ....)
 //  - next is a callback to be called after printing error condition if any, it takes err as its argument
-//  - err - an error object from the most recent operation, can be null/undefined
-//  - failure - an flag that evaluates to true for an error condition to be raised, how it is calculated is
+//  - err - an error object from the most recent operation, can be null/undefined or any value that results in Javascript "true" evaluation
 //    up to the caller, assertion happens if an err is given or this value is true
 //  - all other arguments are printed in case of error or result being false
 //
-//  NOTE: In forever mode (-test-forever) any error is ignored and not reported
+//  NOTES:
+//   - In forever mode `-test-forever` any error is ignored and not reported
+//   - if `tests.test.delay` is set it will be used to delay calling the next callback and reset, this is for
+//     one time delays.
 //
 // Example
 //
 //          function(next) {
 //              db.get("bk_account", { id: "123" }, function(err, row) {
-//                  tests.assert(next, err, row && row.id == "123", "Record not found", row)
+//                  tests.assert(next, err || !row || row.id != "123", "Record not found", row)
 //              });
 //          }
-shell.assert = function()
+shell.assert = function(next, err)
 {
-    var next = arguments[0], err = null;
     if (this.test.forever) return next();
 
-    if (arguments[1] || arguments[2]) {
-        var args = [ arguments[1] || ("TEST ASSERTION: " + arguments[3]) ];
-        for (var i = arguments[1] ? 3 : 4; i < arguments.length; i++) args.push(arguments[i]);
+    if (err) {
+        var args = [ util.isError(err) ? err : lib.isObject(err) ? lib.objDescr(err) : ("TEST ASSERTION: " + arguments[2]) ];
+        for (var i = 3; i < arguments.length; i++) args.push(arguments[i]);
         logger.error.apply(logger, args);
         err = args[0];
     }
-    if (this.test.timeout) return setTimeout(function() { next(err) }, this.test.timeout);
-    next(err);
+    setTimeout(next.bind(null, err), this.test.timeout || this.test.delay || 0);
+    this.test.delay = 0;
 }
 
 // Run the test function which is defined in the tests module, all arguments will be taken from the options or the command line. Options
@@ -201,7 +202,7 @@ shell.assert = function()
 //
 //          tests.test_mytest = function(next) {
 //             bkjs.db.get("bk_account", { id: "123" }, function(err, row) {
-//                 tests.check(next, err, row && row.id == "123", "Record not found", row)
+//                 tests.assert(next, err || !row || row.id != "123", "Record not found", row)
 //             });
 //          }
 //
@@ -232,13 +233,13 @@ shell.cmdTestRun = function(options)
     core.addModule("tests", tests);
 
     tests.test = { role: cluster.isMaster ? "master" : "worker", iterations: 0, stime: Date.now() };
-    tests.test.delay = tests.getArgInt("-test-delay", options, 500);
     tests.test.countdown = tests.getArgInt("-test-iterations", options, 1);
     tests.test.forever = tests.getArgInt("-test-forever", options, 0);
     tests.test.timeout = tests.getArgInt("-test-timeout", options, 0);
     tests.test.interval = tests.getArgInt("-test-interval", options, 0);
     tests.test.keepmaster = tests.getArgInt("-test-keepmaster", options, 0);
     tests.test.workers = tests.getArgInt("-test-workers", options, 0);
+    tests.test.workers_delay = tests.getArgInt("-test-workers-delay", options, 500);
     tests.test.cmd = tests.getArg("-test-run", options);
     tests.test.file = tests.getArg("-test-file", options, "tests/tests.js");
     if (tests.test.file) {
@@ -254,7 +255,7 @@ shell.cmdTestRun = function(options)
     }
 
     if (cluster.isMaster) {
-        setTimeout(function() { for (var i = 0; i < tests.test.workers; i++) cluster.fork(); }, tests.test.delay);
+        setTimeout(function() { for (var i = 0; i < tests.test.workers; i++) cluster.fork(); }, tests.test.workers_delay);
         cluster.on("exit", function(worker) {
             if (!Object.keys(cluster.workers).length && !tests.test.forever && !tests.test.keepmaster) process.exit(0);
         });
@@ -269,7 +270,7 @@ shell.cmdTestRun = function(options)
             tests["test_" + tests.test.cmd](function(err) {
                 tests.test.iterations++;
                 if (tests.test.forever) err = null;
-                setTimeout(function() { next(err) }, tests.test.interval);
+                setTimeout(next.bind(null, err), tests.test.interval);
             });
         },
         function(err) {
