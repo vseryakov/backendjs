@@ -80,6 +80,9 @@
 <li><a href="#module-api_proxy">api_proxy</a></li>
 <li><a href="#module-api_statistics">api_statistics</a></li>
 <li><a href="#module-aws">aws</a></li>
+<li><a href="#module-aws_dynamodb">aws_dynamodb</a></li>
+<li><a href="#module-aws_ec2">aws_ec2</a></li>
+<li><a href="#module-aws_s3">aws_s3</a></li>
 <li><a href="#module-core">core</a></li>
 <li><a href="#module-core_utils">core_utils</a></li>
 <li><a href="#module-db">db</a></li>
@@ -184,16 +187,16 @@ applications but still part of the core of the system to be available once neede
   &gt; bkjs.server.start()
 </code></pre></li>
 <li><p>Same but using the helper tool, by default it will use embedded Sqlite database and listen on port 8000</p>
-<pre><code>  bkjs run-backend
+<pre><code>  bkjs run
 </code></pre></li>
 <li><p>To start the server and connect to the DynamoDB (command line parameters can be saved in the etc/config file, see below about config files)</p>
-<pre><code>  bkjs run-backend -db-pool dynamodb -db-dynamodb-pool default -aws-key XXXX -aws-secret XXXX
+<pre><code>  bkjs run -db-pool dynamodb -db-dynamodb-pool default -aws-key XXXX -aws-secret XXXX
 </code></pre></li>
 <li><p>If running on EC2 instance with IAM profile then no need to specify AWS credentials:</p>
-<pre><code>  bkjs run-backend -db-pool dynamodb -db-dynamodb-pool default
+<pre><code>  bkjs run -db-pool dynamodb -db-dynamodb-pool default
 </code></pre></li>
 <li><p>or to the PostgreSQL server, database backend</p>
-<pre><code>  bkjs run-backend -db-pool pgsql -db-pgsql-pool postgresql://postgres@127.0.0.1/backend
+<pre><code>  bkjs run -db-pool pgsql -db-pgsql-pool postgresql://postgres@127.0.0.1/backend
 </code></pre></li>
 <li><p>All commands above will behave exactly the same</p>
 </li>
@@ -204,7 +207,7 @@ it is called only inside a master process, a worker never creates tables on star
 <pre><code>bksh -db-pool pgsql -db-pgsql-pool postgresql://postgres@127.0.0.1/backend -db-create-tables
 </code></pre></li>
 <li><p>run the server and create table son start</p>
-<pre><code>bkjs run-backend -db-pool pgsql -db-pgsql-pool postgresql://postgres@127.0.0.1/backend -db-create-tables
+<pre><code>bkjs run -db-pool pgsql -db-pgsql-pool postgresql://postgres@127.0.0.1/backend -db-create-tables
 </code></pre></li>
 </ul>
 </li>
@@ -214,7 +217,6 @@ it is called only inside a master process, a worker never creates tables on star
 For this example let&#39;s create an account:</p>
 <ul>
 <li>by default no external modules are loaded so it needs the accounts module</li>
-<li>restart the backend command from the above with additional parameter: <code>-allow-modules bk_accounts</code></li>
 <li><p>type and execute the following URLs in the Web console:</p>
 <pre><code>/account/add?name=test1&amp;secret=test1&amp;login=test1@test.com
 </code></pre></li>
@@ -247,7 +249,7 @@ is only enabled by default in development mode, check app.sh for parameters befo
 <pre><code>  ./app.sh -shell
 </code></pre></li>
 <li><p>To access the database while in the shell</p>
-<pre><code>  &gt; db.select(&quot;bk_account&quot;, {}, function(err, rows) { console.log(err, rows) });
+<pre><code>  &gt; db.select(&quot;bk_account&quot;, {}, function(err, rows, info) { console.log(err, rows) });
   &gt; db.select(&quot;bk_account&quot;, {}, lib.log);
   &gt; db.add(&quot;bk_account&quot;, { login: &#39;test2&#39;, secret: &#39;test2&#39;, name&#39; Test 2 name&#39;, gender: &#39;f&#39; }, lib.log);
   &gt; db.select(&quot;bk_account&quot;, { gender: &#39;m&#39; }, lib.log);
@@ -382,8 +384,17 @@ the application is structured.</p>
 <p>Another way to add functionality to the backend is via external modules specific to the backend, these modules are loaded on startup from the backend
 home subdirectory <code>modules/</code> and from the backendjs package directory for core modules. The format is the same as for regular node.js modules and
 only top level .js files are loaded on the backend startup.</p>
-<p><em>By default no modules are loaded, it must be configured by the <code>-allow-modules</code> config parameter.</em></p>
-<p>Once loaded they have the same access to the backend as the rest of the code, the only difference is that they reside in the backend home and
+<p><em>By default no modules are loaded except <code>bk_accounts|bk_icons</code>, it must be configured by the <code>-allow-modules</code> config parameter.</em></p>
+<p>The modules are managed per process role, by default <code>server</code> and <code>master</code> processes do not load any modules at all to keep them
+small and because they monitor workers the less code they have the better.</p>
+<p>The shell process loads all modules, it is configured with <code>.+</code>.</p>
+<p>To enable any module to be loaded in any process it can be configured by using a role in the config parameter:</p>
+<pre><code>  // Global modules except server and master
+  -allow-modules &#39;.+&#39;
+
+  // Master modules
+  -allow-modules-master &#39;bk_accounts|bk_debug&#39;
+</code></pre><p>Once loaded they have the same access to the backend as the rest of the code, the only difference is that they reside in the backend home and
 can be shipped regardless of the npm, node modules and other env setup. These modules are exposed in the <code>core.modules</code> the same way as all other core submodules
 methods.</p>
 <p>Let&#39;s assume the modules/ contains file facebook.js which implements custom FB logic:</p>
@@ -2258,8 +2269,8 @@ Database pool statistics and other diagnostics</p>
 <li><code>repl-bind</code> - Listen only on specified address for REPL server in the master process</li>
 <li><code>repl-file</code> - User specified file for REPL history</li>
 <li><code>worker</code> - Set this process as a worker even it is actually a master, this skips some initializations</li>
-<li><code>allow-modules</code> - A regexp with modules name to be loaded on startup, only matched modules will be loaded, basename of the file is matched only, no path or extension</li>
-<li><code>deny-modules</code> - A regexp with modules names that will never be loaded even if allowed, this is for blacklisted modules</li>
+<li><code>allow-modules-?(.+)?</code> - A regexp with modules name to be loaded on startup, only matched modules will be loaded, basename of the file is matched only, no path or extension, it is per role or global if no role is provided</li>
+<li><code>deny-modules-?(.+)?</code> - A regexp with modules names that will never be loaded even if allowed, this is for blacklisted modules, can be per role or global for all processes</li>
 <li><code>logwatcher-from</code> - Email address to send logwatcher notifications from, for cases with strict mail servers accepting only from known addresses</li>
 <li><code>logwatcher-interval</code> - How often to check for errors in the log files in minutes</li>
 <li><code>logwatcher-any-range</code> - Number of lines for matched channel <code>any</code> to be attached to the previous matched channel, if more than this number use the channel <code>any</code> on its own</li>
@@ -2426,7 +2437,6 @@ Database pool statistics and other diagnostics</p>
 <li><code>server-process-name</code> - Path to the command to spawn by the monitor instead of node, for external processes guarded by this monitor</li>
 <li><code>server-process-args</code> - Arguments for spawned processes, for passing v8 options or other flags in case of external processes</li>
 <li><code>server-worker-args</code> - Node arguments for workers, job and web processes, for passing v8 options</li>
-<li><code>server-allow-modules</code> - Additional modules that can be loaded in the master or server process, by default no modules except the core are loaded in the master/server process</li>
 </ul>
 <h2 id="module-app">Module: APP</h2>
 <ul>
@@ -2748,7 +2758,7 @@ The options is expected to contain the following cached request properties:</p>
 </ul>
 
 <ul>
-<li><p><code>api.checkAccountType(row, type)</code></p>
+<li><p><code>api.checkAccountType(account, type)</code></p>
 <p> Return true if the current user belong to the specified type, account type may contain more than one type</p>
 </li>
 </ul>
@@ -3544,18 +3554,6 @@ will be loaded.</p>
 </ul>
 
 <ul>
-<li><p><code>aws.queryEC2(action, obj, options, callback)</code></p>
-<p> AWS EC2 API request</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>aws.queryELB(action, obj, options, callback)</code></p>
-<p> AWS ELB API request</p>
-</li>
-</ul>
-
-<ul>
 <li><p><code>aws.querySQS(action, obj, options, callback)</code></p>
 <p> AWS SQS API request</p>
 </li>
@@ -3600,144 +3598,6 @@ will be loaded.</p>
 <ul>
 <li><p><code>aws.queryRoute53(method, path, data, options, callback)</code></p>
 <p> Make a request to Route53 service</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>aws.queryDDB (action, obj, options, callback)</code></p>
-<p> DynamoDB requests</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>aws.signS3(method, bucket, path, options)</code></p>
-<p> Sign S3 AWS request, returns url to be send to S3 server, options will have all updated headers to be sent as well</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>aws.queryS3(bucket, path, options, callback)</code></p>
-<p> S3 requests
-Options may contain the following properties:</p>
-<ul>
-<li>method - HTTP method</li>
-<li>query - query parameters for the url as an object</li>
-<li>postdata - any data to be sent with POST</li>
-<li>postfile - file to be uploaded to S3 bucket</li>
-<li>expires - absolute time when this request is expires</li>
-<li>headers - HTTP headers to be sent with request</li>
-<li>file - file name where to save downloaded contents</li>
-</ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>aws.s3GetFile(path, options, callback)</code></p>
-<p> Retrieve a file from S3 bucket, root of the path is a bucket, path can have a protocol prepended like s3://, it will be ignored</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>aws.s3PutFile(path, file, options, callback)</code></p>
-<p> Upload a file to S3 bucket, <code>file</code> can be a Buffer or a file name</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>aws.s3ParseUrl(url)</code></p>
-<p> Parse an S3 URL and return an object with bucket and path</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>aws.ec2RunInstances(options, callback)</code></p>
-<p> Run AWS instances, supports all native EC2 parameters with first capital letter but also accepts simple parameters in the options:</p>
-<ul>
-<li>min - min number of instances to run, default 1</li>
-<li>max - max number of instances to run, default 1</li>
-<li>imageId - AMI id, use aws.imageId if not given or options.ImageId attribute</li>
-<li>instanceType - instance type, use aws.instanceType if not given or options.InstanceType attribute</li>
-<li>keyName - Keypair, use aws.keyName if not given or options.KeyName attribute</li>
-<li>data - user data, in clear text</li>
-<li>terminate - set instance initiated shutdown behaviour to terminate</li>
-<li>stop - set instance initiated shutdown behaviour to stop</li>
-<li>groupId - one group id or an array with security group ids</li>
-<li>ip - a static private IP adress to assign</li>
-<li>publicIp - associate with a public IP address</li>
-<li>file - pass contents of a file as user data, contents are read using sync method</li>
-<li>waitTimeout - how long to wait in ms for instance to be runnable</li>
-<li>waitDelay  - now often in ms to poll for status while waiting</li>
-<li>waitRunning - if 1 then wait for instance to be in running state, this is implied also by elbName, name, elasticIp properties in the options</li>
-<li>name - assign a tag to the instance as <code>Name:</code>, any occurences of %i will be replaced with the instance index</li>
-<li>elbName - join elastic balancer after the startup</li>
-<li>elasticIp - asociate with the given Elastic IP address after the start</li>
-<li>iamProfile - IAM profile to assign for instance credentials, if not given use aws.iamProfile or options[&#39;IamInstanceProfile.Name&#39;] attribute</li>
-<li>availabilityZone - availability zone, if not given use aws.zone or options[&#39;Placement.AvailabilityZone&#39;] attribute</li>
-<li>subnetId - subnet id, if not given use aws.subnetId or options.SubnetId attribute</li>
-<li>alarms - a list with CloudWatch alarms to create for the instance, each value of the object represent an object with options to be
-  passed to the cwPutMetricAlarm method.</li>
-</ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>aws.ec2WaitForInstance(instanceId, status, options, callback)</code></p>
-<p> Check an instance status and keep waiting until it is equal what we expect or timeout occured.
-The <code>status</code> can be one of: pending | running | shutting-down | terminated | stopping | stopped
-The options can specify the following:</p>
-<ul>
-<li>waitTimeout - how long to wait in ms until give up, default is 30 secs</li>
-<li>waitDelay - how long in ms between polls</li>
-</ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>aws.ec2DescribeSecurityGroups(options, callback)</code></p>
-<p> Describe securty groups, optionally if <code>options.filter</code> regexp is provided then limit the result to the matched groups only,
-return list of groups to the callback</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>aws.ec2CreateTags(id, name, options, callback)</code></p>
-<p> Create tags for a resource. Options may contain tags property which is an object with tag key and value</p>
-<p>Example</p>
-<pre><code>aws.ec2CreateTags(&quot;i-1234&quot;,&quot;My Instance&quot;, { tags: { tag2 : &quot;val2&quot;, tag3: &quot;val3&quot; } } )
-</code></pre></li>
-</ul>
-
-<ul>
-<li><p><code>aws.ec2AssociateAddress(instanceId, elasticIp, options, callback)</code></p>
-<p> Associate an Elastic IP with an instance. Default behaviour is to reassociate if the EIP is taken.
-The options can specify the following:</p>
-<ul>
-<li>subnetId - required for instances in VPC, allocation id will be retrieved for the given ip address automatically</li>
-</ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>aws.ec2CreateImage(options, callback)</code></p>
-<p> Create an EBS image from the instance given or the current instance running</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>aws.ec2DeregisterImage(ami_id, options, callback)</code></p>
-<p> Deregister an AMI by id. If <code>options.snapshots</code> is set, then delete all snapshots for this image as well</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>aws.elbRegisterInstances(name, instance, options, callback)</code></p>
-<p> Register an instance(s) with ELB, instance can be one id or a list of ids</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>aws.elbDeregisterInstances(name, instance, options, callback)</code></p>
-<p> Deregister an instance(s) from ELB, instance can be one id or a list of ids</p>
 </li>
 </ul>
 
@@ -3928,6 +3788,13 @@ The options specify the following:</p>
 <li>name - a metric name</li>
 <li>namespace - limit by namespace: AWS/AutoScaling, AWS Billing, AWS/CloudFront, AWS/DynamoDB, AWS/ElastiCache, AWS/EBS, AWS/EC2, AWS/ELB, AWS/ElasticMapReduce, AWS/Kinesis, AWS/OpsWorks, AWS/Redshift, AWS/RDS, AWS/Route53, AWS/SNS, AWS/SQS, AWS/SWF, AWS/StorageGateway</li>
 </ul>
+</li>
+</ul>
+
+<h2 id="module-aws_dynamodb">Module: AWS_DYNAMODB</h2>
+<ul>
+<li><p><code>aws.queryDDB (action, obj, options, callback)</code></p>
+<p> DynamoDB requests</p>
 </li>
 </ul>
 
@@ -4213,6 +4080,152 @@ Example:</p>
 <pre><code>    aws.ddbScanTable(&quot;users&quot;, { id: 1, name: &#39;a&#39; }, { ops: { name: &#39;gt&#39; }})
     aws.ddbScanTable(&quot;users&quot;, &quot;id=:id AND name=:name&quot;, { values: { id: 1, name: &#39;a&#39; } });
 </code></pre></li>
+</ul>
+
+<h2 id="module-aws_ec2">Module: AWS_EC2</h2>
+<ul>
+<li><p><code>aws.queryEC2(action, obj, options, callback)</code></p>
+<p> AWS EC2 API request</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.queryELB(action, obj, options, callback)</code></p>
+<p> AWS ELB API request</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.ec2RunInstances(options, callback)</code></p>
+<p> Run AWS instances, supports all native EC2 parameters with first capital letter but also accepts simple parameters in the options:</p>
+<ul>
+<li>min - min number of instances to run, default 1</li>
+<li>max - max number of instances to run, default 1</li>
+<li>imageId - AMI id, use aws.imageId if not given or options.ImageId attribute</li>
+<li>instanceType - instance type, use aws.instanceType if not given or options.InstanceType attribute</li>
+<li>keyName - Keypair, use aws.keyName if not given or options.KeyName attribute</li>
+<li>data - user data, in clear text</li>
+<li>terminate - set instance initiated shutdown behaviour to terminate</li>
+<li>stop - set instance initiated shutdown behaviour to stop</li>
+<li>groupId - one group id or an array with security group ids</li>
+<li>ip - a static private IP adress to assign</li>
+<li>publicIp - associate with a public IP address</li>
+<li>file - pass contents of a file as user data, contents are read using sync method</li>
+<li>waitTimeout - how long to wait in ms for instance to be runnable</li>
+<li>waitDelay  - now often in ms to poll for status while waiting</li>
+<li>waitRunning - if 1 then wait for instance to be in running state, this is implied also by elbName, name, elasticIp properties in the options</li>
+<li>name - assign a tag to the instance as <code>Name:</code>, any occurences of %i will be replaced with the instance index</li>
+<li>elbName - join elastic balancer after the startup</li>
+<li>elasticIp - asociate with the given Elastic IP address after the start</li>
+<li>iamProfile - IAM profile to assign for instance credentials, if not given use aws.iamProfile or options[&#39;IamInstanceProfile.Name&#39;] attribute</li>
+<li>availabilityZone - availability zone, if not given use aws.zone or options[&#39;Placement.AvailabilityZone&#39;] attribute</li>
+<li>subnetId - subnet id, if not given use aws.subnetId or options.SubnetId attribute</li>
+<li>alarms - a list with CloudWatch alarms to create for the instance, each value of the object represent an object with options to be
+  passed to the cwPutMetricAlarm method.</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.ec2WaitForInstance(instanceId, status, options, callback)</code></p>
+<p> Check an instance status and keep waiting until it is equal what we expect or timeout occured.
+The <code>status</code> can be one of: pending | running | shutting-down | terminated | stopping | stopped
+The options can specify the following:</p>
+<ul>
+<li>waitTimeout - how long to wait in ms until give up, default is 30 secs</li>
+<li>waitDelay - how long in ms between polls</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.ec2DescribeSecurityGroups(options, callback)</code></p>
+<p> Describe securty groups, optionally if <code>options.filter</code> regexp is provided then limit the result to the matched groups only,
+return list of groups to the callback</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.ec2CreateTags(id, name, options, callback)</code></p>
+<p> Create tags for a resource. Options may contain tags property which is an object with tag key and value</p>
+<p>Example</p>
+<pre><code>aws.ec2CreateTags(&quot;i-1234&quot;,&quot;My Instance&quot;, { tags: { tag2 : &quot;val2&quot;, tag3: &quot;val3&quot; } } )
+</code></pre></li>
+</ul>
+
+<ul>
+<li><p><code>aws.ec2AssociateAddress(instanceId, elasticIp, options, callback)</code></p>
+<p> Associate an Elastic IP with an instance. Default behaviour is to reassociate if the EIP is taken.
+The options can specify the following:</p>
+<ul>
+<li>subnetId - required for instances in VPC, allocation id will be retrieved for the given ip address automatically</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.ec2CreateImage(options, callback)</code></p>
+<p> Create an EBS image from the instance given or the current instance running</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.ec2DeregisterImage(ami_id, options, callback)</code></p>
+<p> Deregister an AMI by id. If <code>options.snapshots</code> is set, then delete all snapshots for this image as well</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.elbRegisterInstances(name, instance, options, callback)</code></p>
+<p> Register an instance(s) with ELB, instance can be one id or a list of ids</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.elbDeregisterInstances(name, instance, options, callback)</code></p>
+<p> Deregister an instance(s) from ELB, instance can be one id or a list of ids</p>
+</li>
+</ul>
+
+<h2 id="module-aws_s3">Module: AWS_S3</h2>
+<ul>
+<li><p><code>aws.signS3(method, bucket, path, options)</code></p>
+<p> Sign S3 AWS request, returns url to be send to S3 server, options will have all updated headers to be sent as well</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.queryS3(bucket, path, options, callback)</code></p>
+<p> S3 requests
+Options may contain the following properties:</p>
+<ul>
+<li>method - HTTP method</li>
+<li>query - query parameters for the url as an object</li>
+<li>postdata - any data to be sent with POST</li>
+<li>postfile - file to be uploaded to S3 bucket</li>
+<li>expires - absolute time when this request is expires</li>
+<li>headers - HTTP headers to be sent with request</li>
+<li>file - file name where to save downloaded contents</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.s3GetFile(path, options, callback)</code></p>
+<p> Retrieve a file from S3 bucket, root of the path is a bucket, path can have a protocol prepended like s3://, it will be ignored</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.s3PutFile(path, file, options, callback)</code></p>
+<p> Upload a file to S3 bucket, <code>file</code> can be a Buffer or a file name</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.s3ParseUrl(url)</code></p>
+<p> Parse an S3 URL and return an object with bucket and path</p>
+</li>
 </ul>
 
 <h2 id="module-core">Module: CORE</h2>
@@ -6576,6 +6589,12 @@ false
 </ul>
 
 <ul>
+<li><p><code>lib.toRegexp(str, options)</code></p>
+<p> Safely create a regexp object, if invalid returns undefined</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>lib.toRegexpMap(obj, val, options)</code></p>
 <p> Add a regexp to the list of regexp objects, this is used in the config type <code>regexpmap</code>.</p>
 </li>
@@ -8755,21 +8774,25 @@ A subcommand may return special string to indicate how to treat the flow:</p>
 </ul>
 
 <ul>
-<li><p><code>shell.assert()</code></p>
+<li><p><code>shell.assert(next, err)</code></p>
 <p> To be used in the tests, this function takes the following arguments:</p>
-<p>assert(next, err, failure, ....)</p>
+<p>assert(next, err, ....)</p>
 <ul>
 <li>next is a callback to be called after printing error condition if any, it takes err as its argument</li>
-<li>err - an error object from the most recent operation, can be null/undefined</li>
-<li>failure - an flag that evaluates to true for an error condition to be raised, how it is calculated is
+<li>err - an error object from the most recent operation, can be null/undefined or any value that results in Javascript &quot;true&quot; evaluation
 up to the caller, assertion happens if an err is given or this value is true</li>
 <li>all other arguments are printed in case of error or result being false</li>
 </ul>
-<p>NOTE: In forever mode (-test-forever) any error is ignored and not reported</p>
+<p>NOTES:</p>
+<ul>
+<li>In forever mode <code>-test-forever</code> any error is ignored and not reported</li>
+<li>if <code>tests.test.delay</code> is set it will be used to delay calling the next callback and reset, this is for
+one time delays.</li>
+</ul>
 <p>Example</p>
 <pre><code>    function(next) {
         db.get(&quot;bk_account&quot;, { id: &quot;123&quot; }, function(err, row) {
-            tests.assert(next, err, row &amp;&amp; row.id == &quot;123&quot;, &quot;Record not found&quot;, row)
+            tests.assert(next, err || !row || row.id != &quot;123&quot;, &quot;Record not found&quot;, row)
         });
     }
 </code></pre></li>
@@ -8798,7 +8821,7 @@ use the same names as command line arguments without preceeding <code>test-</cod
 
     tests.test_mytest = function(next) {
        bkjs.db.get(&quot;bk_account&quot;, { id: &quot;123&quot; }, function(err, row) {
-           tests.check(next, err, row &amp;&amp; row.id == &quot;123&quot;, &quot;Record not found&quot;, row)
+           tests.assert(next, err || !row || row.id != &quot;123&quot;, &quot;Record not found&quot;, row)
        });
     }
 
