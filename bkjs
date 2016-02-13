@@ -725,8 +725,8 @@ case "$ARG" in
     [ -f .gitignore ] && BKJS_RSYNC_ARGS="$BKJS_RSYNC_ARGS --exclude-from .gitignore"
     [ -f $HOME/.gitignore_global ] && BKJS_RSYNC_ARGS="$BKJS_RSYNC_ARGS --exclude-from $HOME/.gitignore_global"
     [ "$BKJS_USER" != "$(whoami)" ] && BKJS_SSH_ARGS="$BKJS_SSH_ARGS -l $BKJS_USER"
-    key=$(get_arg -ssh-key)
     cleanup=$(get_flag -cleanup)
+    key=$(get_arg -ssh-key)
     [ "$key" != "" ] && BKJS_SSH_ARGS="$BKJS_SSH_ARGS -i $HOME/.ssh/$key.pem"
     files=$(get_arg -files)
     [ "$files" = "" ] && files=$(ls)

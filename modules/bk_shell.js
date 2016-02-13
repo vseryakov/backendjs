@@ -794,9 +794,9 @@ shell.launchInstances = function(options, callback)
         keyName: this.getArg("-key-name", options, aws.keyName) || appName,
         elbName: this.getArg("-elb-name", options, aws.elbName),
         elasticIp: this.getArg("-elastic-ip", options),
-        publicIp: this.getArg("-public-ip", options),
+        publicIp: this.isArg("-public-ip", options),
         groupId: this.getArg("-group-id", options, aws.groupId),
-        iamProfile: this.getArg("-ami-profile", options, aws.iamProfile) || appName,
+        iamProfile: this.getArg("-iam-profile", options, aws.iamProfile) || appName,
         availabilityZone: this.getArg("-availability-zone"),
         terminate: this.isArg("-no-terminate", options) ? 0 : 1,
         alarms: [],
@@ -808,8 +808,8 @@ shell.launchInstances = function(options, callback)
        function(next) {
            if (req.imageId) return next();
            var imageName = shell.getArg("-image-name", options, '*');
-           shell.getappImage(imageName, appName, function(err, rc) {
-               req.imageId = rc;
+           shell.awsSearchImage(imageName, appName, function(err, ami) {
+               req.imageId = ami.imageId;
                next(err ? err : !req.imageId ? "ERROR: AMI must be specified or discovered by filters" : null);
            });
        },
@@ -875,11 +875,11 @@ shell.launchInstances = function(options, callback)
            } else
            // Same amount of instances in each subnet
            if (shell.isArg("-subnet-each", options)) {
-               subnets = shell.awsFilterSubnets(subnets, zone, shell.getArg("-subnet-name", options, appName));
+               subnets = shell.awsFilterSubnets(subnets, zone, shell.getArg("-subnet-name", options));
            } else
            // Split between all subnets
            if (shell.isArg("-subnet-split", options)) {
-               subnets = shell.awsFilterSubnets(subnets, zone, shell.getArg("-subnet-name", options, appName));
+               subnets = shell.awsFilterSubnets(subnets, zone, shell.getArg("-subnet-name", options));
                if (count <= subnets.length) {
                    subnets = subnets.slice(0, count);
                } else {
@@ -889,10 +889,10 @@ shell.launchInstances = function(options, callback)
                options.count = 1;
            } else {
                // Random subnet
-               subnets = shell.awsFilterSubnets(subnets, zone, shell.getArg("-subnet-name", options, appName));
-               subnets = [ subnets[lib.randomInt(0, subnets.length - 1)] ];
+               subnets = shell.awsFilterSubnets(subnets, zone, shell.getArg("-subnet-name", options));
+               lib.shuffle(subnets);
+               subnets = subnets.slice(0, 1);
            }
-
            if (!subnets.length) return next("ERROR: subnet must be specified or discovered by filters");
 
            lib.forEachLimit(subnets, subnets.length, function(subnet, next2) {
@@ -1349,7 +1349,7 @@ shell.cmdAwsCreateLaunchConfig = function(options)
         ImageId: this.getArg("-image-id", options, aws.imageId),
         InstanceId: this.getArg("-instance-id", options),
         KeyName: this.getArg("-key-name", options, aws.keyName),
-        IamInstanceProfile: this.getArg("-ami-profile", options, aws.iamProfile),
+        IamInstanceProfile: this.getArg("-iam-profile", options, aws.iamProfile),
         AssociatePublicIpAddress: this.getArg("-public-ip"),
         UserData: this.awsGetUserData(options),
         "SecurityGroups.member.1": this.getArg("-group-id", options, aws.groupId),
