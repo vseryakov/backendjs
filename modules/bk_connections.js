@@ -20,7 +20,7 @@ var logger = bkjs.logger;
 
 // Connections management
 var mod = {
-    name: "connections",
+    name: "bk_connection",
     tables: {
         // All connections between accounts: like,dislike,friend...
         bk_connection: {

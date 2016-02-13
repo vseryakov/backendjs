@@ -23,7 +23,7 @@ var api = require(__dirname + '/../lib/api');
 var os = require('os');
 
 var shell = {
-    name: "shell",
+    name: "bk_shell",
 }
 
 module.exports = shell;
@@ -248,10 +248,13 @@ shell.cmdTestRun = function(options)
         if (fs.existsSync(__dirname + "/../" + tests.test.file)) require(__dirname + "/../" + tests.test.file);
     }
 
-    if (!this['test_' + tests.test.cmd]) {
-        var cmds = Object.keys(this).filter(function(x) { return x.substr(0, 5) == "test_" && typeof tests[x] == "function" }).map(function(x) { return x.substr(5) }).join(", ");
-        logger.log(tests.name, "usage: ", process.argv[0], process.argv[1], "-test-run", "CMD", "where CMD is one of: ", cmds);
-        process.exit(1);
+    var cmds = lib.strSplit(tests.test.cmd);
+    for (var i in cmds) {
+        if (!this['test_' + cmds[i]]) {
+            var cmds = Object.keys(this).filter(function(x) { return x.substr(0, 5) == "test_" && typeof tests[x] == "function" }).map(function(x) { return x.substr(5) }).join(", ");
+            logger.log(tests.name, "usage: ", process.argv[0], process.argv[1], "-test-run", "CMD", "where CMD is one of: ", cmds);
+            process.exit(1);
+        }
     }
 
     if (cluster.isMaster) {
@@ -267,11 +270,13 @@ shell.cmdTestRun = function(options)
         function () { return tests.test.countdown > 0 || tests.test.forever || options.running; },
         function (next) {
             tests.test.countdown--;
-            tests["test_" + tests.test.cmd](function(err) {
-                tests.test.iterations++;
-                if (tests.test.forever) err = null;
-                setTimeout(next.bind(null, err), tests.test.interval);
-            });
+            lib.forEachSeries(cmds, function(cmd, next2) {
+                tests["test_" + cmd](function(err) {
+                    tests.test.iterations++;
+                    if (tests.test.forever) err = null;
+                    setTimeout(next2.bind(null, err), tests.test.interval);
+                });
+            }, next);
         },
         function(err) {
             tests.test.etime = Date.now();
@@ -326,12 +331,12 @@ shell.cmdAccountGet = function(options)
 // Add a user
 shell.cmdAccountAdd = function(options)
 {
-    if (!core.modules.accounts) exit("accounts module not loaded");
+    if (!core.modules.bk_account) exit("accounts module not loaded");
     var query = this.getQuery();
     var opts = api.getOptions({ query: this.getArgs(), options: { path: ["", "", ""], ops: {} } });
     if (lib.isArg("-scramble")) opts.scramble = 1;
     if (query.login && !query.name) query.name = query.login;
-    core.modules.accounts.addAccount({ query: query, account: { type: 'admin' } }, opts, function(err, data) {
+    core.modules.bk_account.addAccount({ query: query, account: { type: 'admin' } }, opts, function(err, data) {
         shell.exit(err, data);
     });
 }
@@ -339,12 +344,12 @@ shell.cmdAccountAdd = function(options)
 // Delete a user and all its history according to the options
 shell.cmdAccountUpdate = function(options)
 {
-    if (!core.modules.accounts) this.exit("accounts module not loaded");
+    if (!core.modules.bk_account) this.exit("accounts module not loaded");
     var query = this.getQuery();
     var opts = api.getOptions({ query: this.getArgs(), options: { path: ["", "", ""], ops: {} } });
     if (lib.isArg("-scramble")) opts.scramble = 1;
     this.getUser(query, function(row) {
-        core.modules.accounts.updateAccount({ account: row, query: query }, opts, function(err, data) {
+        core.modules.bk_account.updateAccount({ account: row, query: query }, opts, function(err, data) {
             shell.exit(err, data);
         });
     });
@@ -353,7 +358,7 @@ shell.cmdAccountUpdate = function(options)
 // Delete a user and all its history according to the options
 shell.cmdAccountDel = function(options)
 {
-    if (!core.modules.accounts) this.exit("accounts module not loaded");
+    if (!core.modules.bk_account) this.exit("accounts module not loaded");
     var query = this.getQuery();
     var opts = api.getOptions({ query: this.getArgs(), options: { path: ["", "", ""], ops: {} } });
     for (var i = 1; i < process.argv.length - 1; i += 2) {
@@ -361,7 +366,7 @@ shell.cmdAccountDel = function(options)
     }
     this.getUser(query, function(row) {
         opts.id = row.id;
-        core.modules.accounts.deleteAccount({ account: opts }, function(err) {
+        core.modules.bk_account.deleteAccount({ account: opts }, function(err) {
             shell.exit(err);
         });
     });
@@ -370,10 +375,10 @@ shell.cmdAccountDel = function(options)
 // Update location
 shell.cmdLocationPut = function(options)
 {
-    if (!core.modules.locations) this.exit("locations module not loaded");
+    if (!core.modules.bk_location) this.exit("locations module not loaded");
     var query = this.getQuery();
     this.getUser(query, function(row) {
-        core.modules.locations.putLocation({ account: row, query: query }, {}, function(err, data) {
+        core.modules.bk_location.putLocation({ account: row, query: query }, {}, function(err, data) {
             shell.exit(err, data);
         });
     });

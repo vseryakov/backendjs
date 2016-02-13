@@ -10,7 +10,7 @@ var api = bkjs.api;
 
 // System management
 var debug = {
-    name: "debug"
+    name: "bk_debug"
 };
 module.exports = debug;
 

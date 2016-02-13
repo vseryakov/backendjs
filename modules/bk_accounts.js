@@ -20,7 +20,7 @@ var logger = bkjs.logger;
 
 // Account management
 var accounts = {
-    name: "accounts",
+    name: "bk_account",
     tables: {
         // Basic account information
         bk_account: {
@@ -171,7 +171,7 @@ accounts.configureAccountsAPI = function()
         case "select/location":
             options.table = "bk_account";
             options.cleanup = "bk_location,bk_account";
-            core.modules.locations.getLocation(req, options, function(err, data) {
+            core.modules.bk_location.getLocation(req, options, function(err, data) {
                 api.sendJSON(req, err, data);
             });
             break;
@@ -181,14 +181,14 @@ accounts.configureAccountsAPI = function()
             if (!req.query.type) req.query.type = '0';
             req.query.prefix = 'account';
             options.cleanup = "bk_icon";
-            core.modules.icons.getIcon(req, res, req.query.id, options);
+            core.modules.bk_icon.getIcon(req, res, req.query.id, options);
             break;
 
         case "select/icon":
             if (!req.query.id) req.query.id = req.account.id;
             req.query.prefix = "account";
             options.cleanup = "bk_icon";
-            core.modules.icons.selectIcon(req, options, function(err, rows) {
+            core.modules.bk_icon.selectIcon(req, options, function(err, rows) {
                 api.sendJSON(req, err, rows);
             });
             break;
@@ -199,7 +199,7 @@ accounts.configureAccountsAPI = function()
             req.query.prefix = 'account';
             req.query.id = req.account.id;
             if (!req.query.type) req.query.type = '0';
-            core.modules.icons.handleIconRequest(req, res, options, function(err, rows) {
+            core.modules.bk_icon.handleIconRequest(req, res, options, function(err, rows) {
                 api.sendJSON(req, err, rows);
             });
             break;

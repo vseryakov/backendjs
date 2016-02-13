@@ -20,7 +20,7 @@ var logger = bkjs.logger;
 
 // Counters management
 var mod = {
-    name: "counters",
+    name: "bk_counter",
     tables: {
         // All accumulated counters for accounts
         bk_counter: {

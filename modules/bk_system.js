@@ -22,7 +22,7 @@ var bkcache = require('bkjs-cache');
 
 // System management
 var system = {
-    name: "system"
+    name: "bk_system"
 };
 module.exports = system;
 

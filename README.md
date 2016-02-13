@@ -68,19 +68,19 @@ or simply
 
 * Same but using the helper tool, by default it will use embedded Sqlite database and listen on port 8000
 
-        bkjs run-backend
+        bkjs run
 
 * To start the server and connect to the DynamoDB (command line parameters can be saved in the etc/config file, see below about config files)
 
-        bkjs run-backend -db-pool dynamodb -db-dynamodb-pool default -aws-key XXXX -aws-secret XXXX
+        bkjs run -db-pool dynamodb -db-dynamodb-pool default -aws-key XXXX -aws-secret XXXX
 
 * If running on EC2 instance with IAM profile then no need to specify AWS credentials:
 
-        bkjs run-backend -db-pool dynamodb -db-dynamodb-pool default
+        bkjs run -db-pool dynamodb -db-dynamodb-pool default
 
 * or to the PostgreSQL server, database backend
 
-        bkjs run-backend -db-pool pgsql -db-pgsql-pool postgresql://postgres@127.0.0.1/backend
+        bkjs run -db-pool pgsql -db-pgsql-pool postgresql://postgres@127.0.0.1/backend
 
 * All commands above will behave exactly the same
 
@@ -93,7 +93,7 @@ or simply
 
   - run the server and create table son start
 
-        bkjs run-backend -db-pool pgsql -db-pgsql-pool postgresql://postgres@127.0.0.1/backend -db-create-tables
+        bkjs run -db-pool pgsql -db-pgsql-pool postgresql://postgres@127.0.0.1/backend -db-create-tables
 
 * While the local backendjs is runnning, the documentation is always available at http://localhost:8000/doc.html (or whatever port is the server using)
 
@@ -101,7 +101,6 @@ or simply
   For this example let's create an account:
 
   - by default no external modules are loaded so it needs the accounts module
-  - restart the backend command from the above with additional parameter: `-allow-modules bk_accounts`
   - type and execute the following URLs in the Web console:
 
         /account/add?name=test1&secret=test1&login=test1@test.com
@@ -134,7 +133,7 @@ or simply
 
 * To access the database while in the shell
 
-        > db.select("bk_account", {}, function(err, rows) { console.log(err, rows) });
+        > db.select("bk_account", {}, function(err, rows, info) { console.log(err, rows) });
         > db.select("bk_account", {}, lib.log);
         > db.add("bk_account", { login: 'test2', secret: 'test2', name' Test 2 name', gender: 'f' }, lib.log);
         > db.select("bk_account", { gender: 'm' }, lib.log);
@@ -291,7 +290,20 @@ Another way to add functionality to the backend is via external modules specific
 home subdirectory `modules/` and from the backendjs package directory for core modules. The format is the same as for regular node.js modules and
 only top level .js files are loaded on the backend startup.
 
-*By default no modules are loaded, it must be configured by the `-allow-modules` config parameter.*
+*By default no modules are loaded except `bk_accounts|bk_icons`, it must be configured by the `-allow-modules` config parameter.*
+
+The modules are managed per process role, by default `server` and `master` processes do not load any modules at all to keep them
+small and because they monitor workers the less code they have the better.
+
+The shell process loads all modules, it is configured with `.+`.
+
+To enable any module to be loaded in any process it can be configured by using a role in the config parameter:
+
+      // Global modules except server and master
+      -allow-modules '.+'
+
+      // Master modules
+      -allow-modules-master 'bk_accounts|bk_debug'
 
 Once loaded they have the same access to the backend as the rest of the code, the only difference is that they reside in the backend home and
 can be shipped regardless of the npm, node modules and other env setup. These modules are exposed in the `core.modules` the same way as all other core submodules

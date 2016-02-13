@@ -20,7 +20,7 @@ var logger = bkjs.logger;
 
 // Account management
 var mod = {
-    name: "data",
+    name: "bk_data",
 };
 module.exports = mod;
 

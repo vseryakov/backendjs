@@ -20,7 +20,7 @@ var logger = bkjs.logger;
 
 // Messages management
 var mod = {
-    name: "messages",
+    name: "bk_message",
     tables: {
         // New messages
         bk_message: {
@@ -225,7 +225,7 @@ mod.configureMessagesAPI = function()
 mod.sendImage = function(req, options)
 {
     if (!req.query.sender || !req.query.mtime) return api.sendReply(res, 400, "sender and mtime are required");
-    api.sendIcon(req, res, req.account.id, { prefix: 'message', type: req.query.mtime + ":" + req.query.sender});
+    api.sendIcon(req, req.res, req.account.id, { prefix: 'message', type: req.query.mtime + ":" + req.query.sender});
 }
 
 mod.getUnread = function(req, options, callback)

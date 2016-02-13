@@ -9,7 +9,7 @@ var logger = require(__dirname + '/../lib/logger');
 var core = require(__dirname + '/../lib/core');
 var lib = require(__dirname + '/../lib/lib');
 var ipc = require(__dirname + "/../lib/ipc");
-var Client = require(__dirname + "/lib/ipc_client");
+var Client = require(__dirname + "/../lib/ipc_client");
 
 // Queue client using RabbitMQ server
 var client = {

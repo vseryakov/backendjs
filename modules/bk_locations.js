@@ -21,7 +21,7 @@ var logger = bkjs.logger;
 
 // Locations management
 var mod = {
-    name: "locations",
+    name: "bk_location",
     tables: {
         bk_location: {
             geohash: { primary: 1 },                    // geohash, api.minDistance defines the size

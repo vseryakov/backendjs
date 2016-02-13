@@ -6,10 +6,10 @@
 TEST=db
 
 run:
-	./bkjs run-backend
+	./bkjs run-watcher -allow-modules-web .+ -allow-modules-master .+ -db-create-tables -log debug $(args)
 
 shell:
-	./bkjs run-shell
+	./bkjs run-shell $(args)
 
 pages:
 	git-new-workdir `pwd` ./pages gh-pages

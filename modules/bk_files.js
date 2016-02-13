@@ -20,7 +20,7 @@ var logger = bkjs.logger;
 
 // Account management
 var files = {
-    name: "files",
+    name: "bk_file",
     tables: {
         // Metrics
         bk_collect: {

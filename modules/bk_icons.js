@@ -21,7 +21,7 @@ var logger = bkjs.logger;
 
 // Icons management
 var mod = {
-    name: "icons",
+    name: "bk_icon",
     tables: {
         bk_icon: {
             id: { primary: 1 },                         // Account id
