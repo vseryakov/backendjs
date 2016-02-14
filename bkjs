@@ -733,7 +733,7 @@ case "$ARG" in
     for h in $BKJS_HOST; do
         echo "Deploying the module $mod: -e 'ssh $BKJS_SSH_ARGS' $BKJS_RSYNC_ARGS $(echo $files) $h:$BKJS_PATH"
         if [ "$BKJS_DRY_RUN" = "" ]; then
-           [ "$cleanup" != "" -a "$BKJS_PATH" != "" ] && ssh $BKJS_SSH_ARGS $h rm -f $BKJS_PATH/*
+           [ "$cleanup" != "" -a "$BKJS_PATH" != "" ] && ssh $BKJS_SSH_ARGS $h rm -rf $BKJS_PATH/*
            rsync -av $BKJS_DEBUG -e "ssh $BKJS_SSH_ARGS" $BKJS_RSYNC_ARGS $files $h:$BKJS_PATH
         fi
     done
