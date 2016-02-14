@@ -15,7 +15,7 @@ exports.api = require(__dirname + '/lib/api');
 exports.jobs = require(__dirname + '/lib/jobs');
 exports.metrics = require(__dirname + '/lib/metrics');
 exports.httpGet = require(__dirname + '/lib/http_get');
-exports.app = require(__dirname + '/app');
+exports.app = require(__dirname + '/lib/app');
 exports.run = function(callback) { this.core.run(callback); }
 
 exports.core.addModule('logger', exports.logger,

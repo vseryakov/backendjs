@@ -632,10 +632,10 @@ case "$ARG" in
     ;;
 
   run|run-master|run-monitor|run-watcher|run-shell|bkjs|bksh)
-    [ -f /usr/lib/node_modules/$BKJS_MOD/app.js ] && SCRIPT=/usr/lib/node_modules/$BKJS_MOD/app.js
-    [ -f $BKJS_PREFIX/lib/node_modules/$BKJS_MOD/app.js ] && SCRIPT=$BKJS_PREFIX/lib/node_modules/$BKJS_MOD/app.js
-    [ -f $BKJS_HOME/node_modules/$BKJS_MOD/app.js ] && SCRIPT=$BKJS_HOME/node_modules/$BKJS_MOD/app.js
-    [ -f node_modules/$BKJS_MOD/app.js ] && SCRIPT=node_modules/$BKJS_MOD/app.js
+    [ -f /usr/lib/node_modules/$BKJS_MOD/lib/app.js ] && SCRIPT=/usr/lib/node_modules/$BKJS_MOD/lib/app.js
+    [ -f $BKJS_PREFIX/lib/node_modules/$BKJS_MOD/lib/app.js ] && SCRIPT=$BKJS_PREFIX/lib/node_modules/$BKJS_MOD/lib/app.js
+    [ -f $BKJS_HOME/node_modules/$BKJS_MOD/lib/app.js ] && SCRIPT=$BKJS_HOME/node_modules/$BKJS_MOD/lib/app.js
+    [ -f node_modules/$BKJS_MOD/lib/app.js ] && SCRIPT=node_modules/$BKJS_MOD/lib/app.js
     [ -f $BKJS_HOME/app.js ] && SCRIPT=$BKJS_HOME/app.js
     [ -f app.js ] && SCRIPT=app.js
     [ -z $SCRIPT ] && echo "ERROR: Cannot find $BKJS module or app.js" && exit 1
@@ -733,7 +733,7 @@ case "$ARG" in
     for h in $BKJS_HOST; do
         echo "Deploying the module $mod: -e 'ssh $BKJS_SSH_ARGS' $BKJS_RSYNC_ARGS $(echo $files) $h:$BKJS_PATH"
         if [ "$BKJS_DRY_RUN" = "" ]; then
-           [ "$cleanup" != "" ] && ssh $BKJS_SSH_ARGS $h rm -f $BKJS_PATH/*.js $BKJS_PATH/lib/*.js $BKJS_PATH/modules/*.s
+           [ "$cleanup" != "" -a "$BKJS_PATH" != "" ] && ssh $BKJS_SSH_ARGS $h rm -f $BKJS_PATH/*
            rsync -av $BKJS_DEBUG -e "ssh $BKJS_SSH_ARGS" $BKJS_RSYNC_ARGS $files $h:$BKJS_PATH
         fi
     done

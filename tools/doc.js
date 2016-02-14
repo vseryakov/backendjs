@@ -8,7 +8,7 @@ var path = require("path");
 var marked = require("marked");
 var bkjs = require('backendjs');
 
-var skip = /tests.test_/;
+var skip = /tests\//;
 var files = fs.readdirSync(".").filter(function(x) { return fs.statSync(x).isFile() && ["index.js", "doc.js"].indexOf(x) == -1 && x.match(/\.js$/); });
 files = files.concat(fs.readdirSync("lib/").filter(function(x) { return fs.statSync("lib/" + x).isFile() && x.match(/\.js$/); }).map(function(x) { return "lib/" + x }));
 files = files.concat(fs.readdirSync("modules/").filter(function(x) { return fs.statSync("modules/" + x).isFile() && x.match(/\.js$/); }).map(function(x) { return "modules/" + x }));

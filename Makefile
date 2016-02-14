@@ -20,7 +20,7 @@ publish:
 	rm -rf backendjs*tgz
 
 doc:
-	node doc.js > web/doc.html
+	node tools/doc.js > web/doc.html
 	-git commit -a -m "Updated docs, minor bugfixes"
 	-git push
 	-if [ -d pages ]; then cp bkjs pages; fi

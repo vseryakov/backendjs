@@ -71,7 +71,6 @@
 <li><a href="#author"> Author</a></li>
 <li><a href="#configuration-parameters">Configuration parameters</a></li>
 <li>Javascript API functions<ul>
-<li><a href="#module-app">app</a></li>
 <li><a href="#module-api">api</a></li>
 <li><a href="#module-api_accounts">api_accounts</a></li>
 <li><a href="#module-api_auth">api_auth</a></li>
@@ -79,10 +78,12 @@
 <li><a href="#module-api_icons">api_icons</a></li>
 <li><a href="#module-api_proxy">api_proxy</a></li>
 <li><a href="#module-api_statistics">api_statistics</a></li>
+<li><a href="#module-app">app</a></li>
 <li><a href="#module-aws">aws</a></li>
 <li><a href="#module-aws_dynamodb">aws_dynamodb</a></li>
 <li><a href="#module-aws_ec2">aws_ec2</a></li>
 <li><a href="#module-aws_s3">aws_s3</a></li>
+<li><a href="#module-aws_sns">aws_sns</a></li>
 <li><a href="#module-core">core</a></li>
 <li><a href="#module-core_utils">core_utils</a></li>
 <li><a href="#module-db">db</a></li>
@@ -2302,6 +2303,7 @@ Database pool statistics and other diagnostics</p>
 <li><code>aws-sns-app-arn</code> - SNS Platform application ARN to be used for push notifications</li>
 <li><code>aws-key-name</code> - AWS instance keypair name for remote job instances or other AWS commands</li>
 <li><code>aws-elb-name</code> - AWS ELB name to be registered with on start up or other AWS commands</li>
+<li><code>aws-elastic-ip</code> - AWS Elastic IP to be associated on start</li>
 <li><code>aws-iam-profile</code> - IAM instance profile name for instances or commands</li>
 <li><code>aws-image-id</code> - AWS image id to be used for instances or commands</li>
 <li><code>aws-subnet-id</code> - AWS subnet id to be used for instances or commands</li>
@@ -2438,96 +2440,6 @@ Database pool statistics and other diagnostics</p>
 <li><code>server-process-args</code> - Arguments for spawned processes, for passing v8 options or other flags in case of external processes</li>
 <li><code>server-worker-args</code> - Node arguments for workers, job and web processes, for passing v8 options</li>
 </ul>
-<h2 id="module-app">Module: APP</h2>
-<ul>
-<li><p><code>app</code></p>
-<p> This is a skeleton module to be extended by the specific application logic. It provides all
-callbacks and hooks that are called by the core backend modules
-during different phases, like initialization, shutting down, etc...</p>
-<p>It should be used for custom functions and methods to be defined, the <code>app</code> module is always available.</p>
-<p>All app modules in the modules/ subdirectory use the same prototype, i.e. all hooks are available for custom app modules as well.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>app.configure(options, callback)</code></p>
-<p> Called after all config files are loaded and command line args are parsed, home directory is set but before the db is initialized,
-the primary purpose of this early call is to setup environment before connecting to the database. This is called regardless of the server
-to be started and intended to initialize the common environment before the database and other subsystems are initialized.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>app.configureModule(options, callback)</code></p>
-<p> Called after the core.init has been initialized successfully, this can be redefined in the applications to add additional
-init steps that all processes require to have. All database pools and other confugration is ready at this point. This hook is
-called regardless of what kind of server is about to start, it is always called before starting a server or shell.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>app.configureMiddleware(options, callback)</code></p>
-<p> This handler is called during the Express server initialization just after the security middleware.</p>
-<p>NOTE: <code>api.app</code> refers to the Express instance.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>app.configureWeb(options, callback)</code></p>
-<p> This handler is called after the Express server has been setup and all default API endpoints initialized but the Web server
-is not ready for incoming requests yet. This handler can setup additional API endpoints, add/modify table descriptions.</p>
-<p>NOTE: <code>api.app</code> refers to the Express instance</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>app.shutdownWeb(options, callback)</code></p>
-<p> Perform shutdown sequence when a Web process is about to exit</p>
-<p>NOTE: <code>api.app</code> refers to the Express instance</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>app.configureMaster(options, callback)</code></p>
-<p> This handler is called during the master server startup, this is the process that monitors the worker jobs and performs jobs scheduling</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>app.configureServer(options, callback)</code></p>
-<p> This handler is called during the Web server startup, this is the master process that creates Web workers for handling Web requests, this process
-interacts with the Web workers via IPC sockets between processes and relaunches them if any Web worker dies.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>app.configureWorker(options, callback)</code></p>
-<p> This handler is called on job worker instance startup after the tables are intialized and it is ready to process the job</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>app.shutdownWorker(options, callback)</code></p>
-<p> Perform last minute operations inside a worker process before exit, the callback must be called eventually which will exit the process.
-This method can be overrided to implement custom worker shutdown procedure in order to finish pending tasks like network calls.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>app.configureMonitor(options, callback)</code></p>
-<p> This callback is called when the monitor process is ready, there is no any other code is supposed to run inside the monitor, but
-in case it is needed, this is the hook to be used.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>app.configureShell(options, callback)</code></p>
-<p> This callback is called by the shell process to setup additional command or to execute a command which is not
-supported by the standard shell. Setting options.done to 1 will stop the shell, this is a signal that command has already
-been processed.</p>
-</li>
-</ul>
-
 <h2 id="module-api">Module: API</h2>
 <ul>
 <li><p><code>api</code></p>
@@ -3485,6 +3397,96 @@ must be defined for any metrics to be saved, use api.describeTable with addition
 </li>
 </ul>
 
+<h2 id="module-app">Module: APP</h2>
+<ul>
+<li><p><code>app</code></p>
+<p> This is a skeleton module to be extended by the specific application logic. It provides all
+callbacks and hooks that are called by the core backend modules
+during different phases, like initialization, shutting down, etc...</p>
+<p>It should be used for custom functions and methods to be defined, the <code>app</code> module is always available.</p>
+<p>All app modules in the modules/ subdirectory use the same prototype, i.e. all hooks are available for custom app modules as well.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>app.configure(options, callback)</code></p>
+<p> Called after all config files are loaded and command line args are parsed, home directory is set but before the db is initialized,
+the primary purpose of this early call is to setup environment before connecting to the database. This is called regardless of the server
+to be started and intended to initialize the common environment before the database and other subsystems are initialized.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>app.configureModule(options, callback)</code></p>
+<p> Called after the core.init has been initialized successfully, this can be redefined in the applications to add additional
+init steps that all processes require to have. All database pools and other confugration is ready at this point. This hook is
+called regardless of what kind of server is about to start, it is always called before starting a server or shell.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>app.configureMiddleware(options, callback)</code></p>
+<p> This handler is called during the Express server initialization just after the security middleware.</p>
+<p>NOTE: <code>api.app</code> refers to the Express instance.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>app.configureWeb(options, callback)</code></p>
+<p> This handler is called after the Express server has been setup and all default API endpoints initialized but the Web server
+is not ready for incoming requests yet. This handler can setup additional API endpoints, add/modify table descriptions.</p>
+<p>NOTE: <code>api.app</code> refers to the Express instance</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>app.shutdownWeb(options, callback)</code></p>
+<p> Perform shutdown sequence when a Web process is about to exit</p>
+<p>NOTE: <code>api.app</code> refers to the Express instance</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>app.configureMaster(options, callback)</code></p>
+<p> This handler is called during the master server startup, this is the process that monitors the worker jobs and performs jobs scheduling</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>app.configureServer(options, callback)</code></p>
+<p> This handler is called during the Web server startup, this is the master process that creates Web workers for handling Web requests, this process
+interacts with the Web workers via IPC sockets between processes and relaunches them if any Web worker dies.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>app.configureWorker(options, callback)</code></p>
+<p> This handler is called on job worker instance startup after the tables are intialized and it is ready to process the job</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>app.shutdownWorker(options, callback)</code></p>
+<p> Perform last minute operations inside a worker process before exit, the callback must be called eventually which will exit the process.
+This method can be overrided to implement custom worker shutdown procedure in order to finish pending tasks like network calls.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>app.configureMonitor(options, callback)</code></p>
+<p> This callback is called when the monitor process is ready, there is no any other code is supposed to run inside the monitor, but
+in case it is needed, this is the hook to be used.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>app.configureShell(options, callback)</code></p>
+<p> This callback is called by the shell process to setup additional command or to execute a command which is not
+supported by the standard shell. Setting options.done to 1 will stop the shell, this is a signal that command has already
+been processed.</p>
+</li>
+</ul>
+
 <h2 id="module-aws">Module: AWS</h2>
 <ul>
 <li><p><code>aws.configure(options, callback)</code></p>
@@ -3495,6 +3497,12 @@ must be defined for any metrics to be saved, use api.describeTable with addition
 <ul>
 <li><p><code>aws.configureServer(options, callback)</code></p>
 <p> Execute on Web server startup</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.configureMaster(options, callback)</code></p>
+<p> Execute on master server startup</p>
 </li>
 </ul>
 
@@ -3560,12 +3568,6 @@ will be loaded.</p>
 </ul>
 
 <ul>
-<li><p><code>aws.querySNS(action, obj, options, callback)</code></p>
-<p> AWS SNS API request</p>
-</li>
-</ul>
-
-<ul>
 <li><p><code>aws.querySES(action, obj, options, callback)</code></p>
 <p> AWS SES API request</p>
 </li>
@@ -3621,115 +3623,6 @@ The options can specify the following:</p>
 <li>delay - pass as DelaySeconds parameter</li>
 <li>attrs - an object with additional message attributes to send, use only string, numbers or binary values, all other types will be converted into strings</li>
 </ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>aws.snsCreatePlatformEndpoint(token, options, callback)</code></p>
-<p> Creates an endpoint for a device and mobile app on one of the supported push notification services, such as GCM and APNS.</p>
-<p>The following properties can be specified in the options:</p>
-<ul>
-<li>appArn - an application ARN to be used for push notifications, if not passed, global <code>-sns-app-arn</code> will be used.</li>
-<li>data - a user data to be associated with the endpoint arn</li>
-</ul>
-<p>All capitalized properties in the options will be pased as is. The callback will be called with an error if any and the endpoint ARN</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>aws.snsSetEndpointAttributes(arn, options, callback)</code></p>
-<p> Sets the attributes for an endpoint for a device on one of the supported push notification services, such as GCM and APNS.</p>
-<p>The following properties can be specified in the options:</p>
-<ul>
-<li>token - a device token for the notification service</li>
-<li>data - a user data to be associated with the endpoint arn</li>
-<li>enabled - true or false to enable/disable the deliver of notifications to this endpoint</li>
-</ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>aws.snsDeleteEndpoint(arn, options, callback)</code></p>
-<p> Deletes the endpoint from Amazon SNS.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>aws.snsPublish(arn, msg, options, callback)</code></p>
-<p> Sends a message to all of a topic&#39;s subscribed endpoints or to a mobile endpoint.
-If msg is an object, then it will be pushed as JSON.
-The options may take the following properties:</p>
-<ul>
-<li>subject - optional subject to be included in the message if the target supports it</li>
-</ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>aws.snsCreateTopic(name, options, callback)</code></p>
-<p> Creates a topic to which notifications can be published. The callback returns topic ARN on success.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>aws.snsSetTopicAttributes(arn, options, callback)</code></p>
-<p> Updates the topic attributes.
-The following options can be used:</p>
-<ul>
-<li>name - new topic name</li>
-<li>policy - an object with access policy</li>
-<li>deliveryPolicy - an object with delivery attributes, can specify all or only the ones that needed to be updated</li>
-</ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>aws.snsDeleteTopic(arn, options, callback)</code></p>
-<p> Deletes the topic from Amazon SNS.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>aws.snsSubscribe(arn, endpoint, options, callback)</code></p>
-<p> Creates a topic to which notifications can be published. The callback returns topic ARN on success, if the topic requires
-confirmation the arn returned will be null and a token will be sent to the endpoint for confirmation.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>aws.snsConfirmSubscription(arn, token, options, callback)</code></p>
-<p> Verifies an endpoint owner&#39;s intent to receive messages by validating the token sent to the
-endpoint by an earlier Subscribe action. If the token is valid, the action creates a new subscription
-and returns its Amazon Resource Name (ARN) in the callback.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>aws.snsSetSubscriptionAttributes(arn, options, callback)</code></p>
-<p> Updates the subscription attributes.
-The following options can be used:</p>
-<ul>
-<li>name - new topic name</li>
-<li>deliveryPolicy - an object with delivery attributes, can specify all or only the ones that needed to be updated</li>
-<li>minDelayTarget - update delivery policy by attribute name</li>
-<li>maxDelayTarget</li>
-<li>numRetries</li>
-<li>numMaxDelayRetries</li>
-<li>backoffFunction - one of linear|arithmetic|geometric|exponential</li>
-<li>maxReceivesPerSecond</li>
-</ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>aws.snsUnsubscribe(arn, options, callback)</code></p>
-<p> Creates a topic to which notifications can be published. The callback returns topic ARN on success.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>aws.snsListTopics(options, callback)</code></p>
-<p> Creates a topic to which notifications can be published. The callback returns topic ARN on success.</p>
 </li>
 </ul>
 
@@ -4225,6 +4118,122 @@ Options may contain the following properties:</p>
 <ul>
 <li><p><code>aws.s3ParseUrl(url)</code></p>
 <p> Parse an S3 URL and return an object with bucket and path</p>
+</li>
+</ul>
+
+<h2 id="module-aws_sns">Module: AWS_SNS</h2>
+<ul>
+<li><p><code>aws.querySNS(action, obj, options, callback)</code></p>
+<p> AWS SNS API request</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.snsCreatePlatformEndpoint(token, options, callback)</code></p>
+<p> Creates an endpoint for a device and mobile app on one of the supported push notification services, such as GCM and APNS.</p>
+<p>The following properties can be specified in the options:</p>
+<ul>
+<li>appArn - an application ARN to be used for push notifications, if not passed, global <code>-sns-app-arn</code> will be used.</li>
+<li>data - a user data to be associated with the endpoint arn</li>
+</ul>
+<p>All capitalized properties in the options will be pased as is. The callback will be called with an error if any and the endpoint ARN</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.snsSetEndpointAttributes(arn, options, callback)</code></p>
+<p> Sets the attributes for an endpoint for a device on one of the supported push notification services, such as GCM and APNS.</p>
+<p>The following properties can be specified in the options:</p>
+<ul>
+<li>token - a device token for the notification service</li>
+<li>data - a user data to be associated with the endpoint arn</li>
+<li>enabled - true or false to enable/disable the deliver of notifications to this endpoint</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.snsDeleteEndpoint(arn, options, callback)</code></p>
+<p> Deletes the endpoint from Amazon SNS.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.snsPublish(arn, msg, options, callback)</code></p>
+<p> Sends a message to all of a topic&#39;s subscribed endpoints or to a mobile endpoint.
+If msg is an object, then it will be pushed as JSON.
+The options may take the following properties:</p>
+<ul>
+<li>subject - optional subject to be included in the message if the target supports it</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.snsCreateTopic(name, options, callback)</code></p>
+<p> Creates a topic to which notifications can be published. The callback returns topic ARN on success.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.snsSetTopicAttributes(arn, options, callback)</code></p>
+<p> Updates the topic attributes.
+The following options can be used:</p>
+<ul>
+<li>name - new topic name</li>
+<li>policy - an object with access policy</li>
+<li>deliveryPolicy - an object with delivery attributes, can specify all or only the ones that needed to be updated</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.snsDeleteTopic(arn, options, callback)</code></p>
+<p> Deletes the topic from Amazon SNS.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.snsSubscribe(arn, endpoint, options, callback)</code></p>
+<p> Creates a topic to which notifications can be published. The callback returns topic ARN on success, if the topic requires
+confirmation the arn returned will be null and a token will be sent to the endpoint for confirmation.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.snsConfirmSubscription(arn, token, options, callback)</code></p>
+<p> Verifies an endpoint owner&#39;s intent to receive messages by validating the token sent to the
+endpoint by an earlier Subscribe action. If the token is valid, the action creates a new subscription
+and returns its Amazon Resource Name (ARN) in the callback.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.snsSetSubscriptionAttributes(arn, options, callback)</code></p>
+<p> Updates the subscription attributes.
+The following options can be used:</p>
+<ul>
+<li>name - new topic name</li>
+<li>deliveryPolicy - an object with delivery attributes, can specify all or only the ones that needed to be updated</li>
+<li>minDelayTarget - update delivery policy by attribute name</li>
+<li>maxDelayTarget</li>
+<li>numRetries</li>
+<li>numMaxDelayRetries</li>
+<li>backoffFunction - one of linear|arithmetic|geometric|exponential</li>
+<li>maxReceivesPerSecond</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.snsUnsubscribe(arn, options, callback)</code></p>
+<p> Creates a topic to which notifications can be published. The callback returns topic ARN on success.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.snsListTopics(options, callback)</code></p>
+<p> Creates a topic to which notifications can be published. The callback returns topic ARN on success.</p>
 </li>
 </ul>
 
@@ -7563,31 +7572,26 @@ the current function name with comma, like <code>logger.debug(&quot;select:&quot
 
 <h2 id="module-msg">Module: MSG</h2>
 <ul>
-<li><p><code>msg</code></p>
-<p> Messaging and push notifications for mobile and other clients, supports Apple, Google and AWS/SNS push notifications.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>msg.init(options, callback)</code></p>
+<li><p><code>Msg.prototype.init(options, callback)</code></p>
 <p> Initialize supported notification services, it supports jobs arguments convention so can be used in the jobs that
 need to send push notifications in the worker process.</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>msg.shutdown(options, callback)</code></p>
+<li><p><code>Msg.prototype.shutdown(options, callback)</code></p>
 <p> Shutdown notification services, wait till all pending messages are sent before calling the callback</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>msg.send(options, callback)</code></p>
+<li><p><code>Msg.prototype.send(options, callback)</code></p>
 <p> Deliver a notification for the given device token(s).</p>
 <p>Options with the following properties:</p>
 <ul>
 <li>device_id - device(s) where to send the message to, can be multiple ids separated by , or |, REQUIRED</li>
 <li>service_id - which service to use for delivery only: sns, apn, gcm</li>
+<li>account_id - an account id associated wit this token, for debugging and invalid token management</li>
 <li>app_id - send to the devices for the given app only, if none matched send to the default device tokens only</li>
 <li>msg - text message to send</li>
 <li>badge - badge number to show if supported by the service</li>
@@ -7600,7 +7604,7 @@ need to send push notifications in the worker process.</p>
 </ul>
 
 <ul>
-<li><p><code>msg.parseDevice(device)</code></p>
+<li><p><code>Msg.prototype.parseDevice(device)</code></p>
 <p> Parse device URN and returns an object with all parts into separate properties. A device URN can be in the following format:
   [service://]device_token[@app]</p>
 <ul>
@@ -7611,21 +7615,15 @@ need to send push notifications in the worker process.</p>
 </ul>
 
 <ul>
-<li><p><code>msg.getClient(dev)</code></p>
+<li><p><code>Msg.prototype.getClient(dev)</code></p>
 <p> Return a client module that supports the given device</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>msg.getConfig(name)</code></p>
+<li><p><code>Msg.prototype.getConfig(name)</code></p>
 <p> Return a list of all config cert/key parameters for the given name.
 Each item in the list is an object with the following properties: key, secret, app</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>msg.uninstall(client, device, timestamp, next)</code></p>
-<p> Perform device uninstall, the next callback must be called at the end.</p>
 </li>
 </ul>
 
