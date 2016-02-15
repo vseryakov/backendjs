@@ -683,13 +683,12 @@ case "$ARG" in
     network=$(get_value "$info" network)
     major=$(get_value "$info" major)
     minor=$(get_value "$info" minor)
-    patch=$(get_value "$info" patch)
     tag=$(echo $(get_value "$info" tag)|awk -F- '{print $1}')
-    dirs=$BKJS_SYNC/$name/
-    dirs="$dirs $BKJS_SYNC/$mode/"
-    dirs="$dirs $BKJS_SYNC/$name/$major.$minor/"
-    [ "$network" != "" ] && dirs="$dirs $BKJS_SYNC/$network/"
-    [ "$tag" != "" -a "$tag" != "$name" ] && dirs="$dirs $BKJS_SYNC/$tag/"
+    dirs=$BKJS_SYNC/$mode/$name
+    dirs="$dirs $BKJS_SYNC/$mode/$name/$major.$minor/"
+    [ "$network" != "" ] && dirs="$dirs $BKJS_SYNC/$mode/$name/$network/"
+    [ "$tag" != "" -a "$tag" != "$name" ] && dirs="$dirs $BKJS_SYNC/$mode/$name/$tag/"
+    [ "$BKJS_DRY_RUN" != "" ] && $ECHO "INFO:\n$info\nDIRS:\n$dirs" && exit
     if [[ $BKJS_SYNC =~ ^s3:// ]]; then
        region=$(get_value "$info" region)
        for dir in $dirs; do echo aws s3 sync $dir $BKJS_HOME ${BKJS_DEBUG:--quiet} --recursive --region $region; done
@@ -816,8 +815,8 @@ case "$ARG" in
     if [ "$BACKUP_ARCHIVE_FILES" != "" ]; then
 
        # Send to remote host if configured, must be full ssh url with path like user@host:/path
-       if [ "$BACKUP_REMOTE" != "" ]; then
-          for h in $BACKUP_REMOTE; do
+       if [ "$BACKUP_HOST" != "" ]; then
+          for h in $BACKUP_HOST; do
             su - $BKJS_USER -c "scp -q $BACKUP_ARCHIVE_FILES $h"
           done
        fi
@@ -1488,7 +1487,7 @@ EOF
     echo "  -aws-replace-elb -elb-name NAME [-timeout MSECS] [-interval MSECS] [-dry-run]"
     echo "  -aws-setup-ssh -group-name NAME [-close] [-dry-run]"
     echo "  -aws-setup-instance [-cmd CMD] [-file FILE ] [-wait] [-dry-run]"
-    echo "  -aws-create-launch-config [-name NAME] [-config-name NAME] [-instance-name NAME] [-dry-run] - create or copy a launch configuration for autoscaling"
+    echo "  -aws-create-launch-config [-name NAME] [-config-name NAME] [-instance-name NAME] [-update-groups] [-dry-run] - create a launch configuration for autoscaling, can copy from an instance or other existing config, optinally update all ASGs with new config name"
     echo ""
     echo "Common options:"
     echo "  -root path - path to the backend home directory, default is $BKJS_HOME"

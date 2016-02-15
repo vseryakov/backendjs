@@ -1073,6 +1073,7 @@ shell.cmdAwsShowInstances = function(options)
 {
     var instances = [];
     var filter = this.getArg("-filter");
+    var col = this.getArg("-col");
 
     lib.series([
        function(next) {
@@ -1086,8 +1087,9 @@ shell.cmdAwsShowInstances = function(options)
        },
        function(next) {
            logger.debug("showInstances:", instances);
-           if (lib.isArg("-show-ip")) {
-               console.log(instances.map(function(x) { return x.privateIpAddress }).join(" "));
+           if (col) {
+               var map = { priv: "privateIpAddress", ip: "ipAddress", id: "instanceId", name: "name" }
+               console.log(instances.map(function(x) { return lib.objDescr(x[map[col] || col]) }).join(" "));
            } else {
                instances.forEach(function(x) { console.log(x.instanceId, x.subnetId, x.privateIpAddress, x.ipAddress, x.name, x.keyName); });
            }
@@ -1438,9 +1440,19 @@ shell.cmdAwsCreateLaunchConfig = function(options)
            if (image) logger.info("IMAGE:", image)
            if (instance) logger.info("INSTANCE:", instance);
            logger.log("CreateLaunchConfig:", req);
-           if (lib.isArg("-dry-run")) return next();
+           if (lib.isArg("-dry-run")) return shell.exit();
            if (req.UserData) req.UserData = new Buffer(req.UserData).toString("base64");
            aws.queryAS("CreateLaunchConfiguration", req, next);
+       },
+       function(next) {
+           if (!lib.isArg("-update-groups") || !config) return next();
+           aws.queryAS("DescribeAutoScalingGroups", req, function(err, rc) {
+               groups = lib.objGet(rc, "DescribeAutoScalingGroupsResponse.DescribeAutoScalingGroupsResult.AutoScalingGroups.member", { list: 1 });
+               lib.forEachSeries(groups, function(group, next2) {
+                   if (group.LaunchConfigurationName != config.LaunchConfigurationName) return next2();
+                   aws.queryAS("UpdateAutoscalingGroup", { AutoScalingGroupName: group.AutoScalingGroupName, LaunchConfigurationName: req.LaunchConfigurationName }, next2);
+               }, next);
+           });
        },
     ], function(err) {
         shell.exit(err);
