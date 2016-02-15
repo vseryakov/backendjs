@@ -169,7 +169,7 @@ shell.assert = function(next, err)
     if (this.test.forever) return next();
 
     if (err) {
-        var args = [ util.isError(err) ? err : lib.isObject(err) ? lib.objDescr(err) : ("TEST ASSERTION: " + arguments[2]) ];
+        var args = [ util.isError(err) ? err : lib.isObject(err) ? lib.objDescr(err) : ("TEST ASSERTION: " + lib.objDescr(arguments[2])) ];
         for (var i = 3; i < arguments.length; i++) args.push(arguments[i]);
         logger.error.apply(logger, args);
         err = args[0];
