@@ -1449,8 +1449,8 @@ shell.cmdAwsCreateLaunchConfig = function(options)
            aws.queryAS("DescribeAutoScalingGroups", req, function(err, rc) {
                groups = lib.objGet(rc, "DescribeAutoScalingGroupsResponse.DescribeAutoScalingGroupsResult.AutoScalingGroups.member", { list: 1 });
                lib.forEachSeries(groups, function(group, next2) {
-                   if (group.LaunchConfigurationName != config.LaunchConfigurationName) return next2();
-                   aws.queryAS("UpdateAutoscalingGroup", { AutoScalingGroupName: group.AutoScalingGroupName, LaunchConfigurationName: req.LaunchConfigurationName }, next2);
+                   if (group.LaunchConfigurationName.split("-")[0] != config.LaunchConfigurationName.split("-")[0]) return next2();
+                   aws.queryAS("UpdateAutoScalingGroup", { AutoScalingGroupName: group.AutoScalingGroupName, LaunchConfigurationName: req.LaunchConfigurationName }, next2);
                }, next);
            });
        },
