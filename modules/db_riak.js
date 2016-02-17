@@ -63,7 +63,7 @@ Pool.prototype.doQuery = function(op, method, path, obj, options, callback)
         if (params.status >= 400) {
             err = lib.newError({ message: params.data || (method + " Error: " + params.status), code: obj.error, status: params.status });
         }
-        callback(err, obj, { context: params.headers['x-riak-vclock'] });
+        callback(err, obj, { context: params.resheaders['x-riak-vclock'] });
     });
 }
 

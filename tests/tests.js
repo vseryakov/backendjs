@@ -963,7 +963,7 @@ tests.test_cookie = function(callback)
 {
     // Testing redirect and cookies
     core.httpGet('http://google.com', { cookies: true }, function(err, params) {
-        console.log('COOKIES:', params.cookies);
+        console.log('COOKIES:', params.cookies, params.resheaders);
         callback(err);
     });
 }

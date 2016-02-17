@@ -963,6 +963,7 @@ case "$ARG" in
     $ECHO "sentinel parallel-syncs $name 1" >> $conf
     $ECHO "dir $REDIS_PREFIX/var/" >> $conf
     $ECHO "pidfile $REDIS_PREFIX/var/sentinel.pid" >> $conf
+    chown $BKJS_USER $conf
 
     $ECHO "check process redis-sentinel with pidfile \"$REDIS_PREFIX/var/sentinel.pid\" start program = \"$0 run-sentinel $@\" as uid $BKJS_USER and gid $BKJS_GROUP stop program = \"$0 stop-sentinel\"" > /etc/monit.d/sentinel.conf
     monit reload
