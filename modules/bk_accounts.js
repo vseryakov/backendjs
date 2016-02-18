@@ -379,13 +379,13 @@ accounts.addAccount = function(req, options, callback)
            api.prepareAccountSecret(query, options);
            // Put the secret back to return to the client, if generated or scrambled the client needs to know it for the API access
            req.query.secret = query.secret;
-           if (!options.admin && !api.checkAccountType(req.account, "admin")) api.clearQuery(query, "bk_auth", "admin", options);
+           if (!options.admin && !api.checkAccountType(req.account, "admin")) api.clearQuery("bk_auth", query, "admin");
            db.add("bk_auth", query, options, next);
        },
        function(next) {
            var query = lib.cloneObj(req.query);
            // Only admin can add accounts with admin properties
-           if (!options.admin && !api.checkAccountType(req.account, "admin")) api.clearQuery(query, "bk_account", "admin", options);
+           if (!options.admin && !api.checkAccountType(req.account, "admin")) api.clearQuery("bk_account", query, "admin");
 
            db.add("bk_account", query, function(err) {
                // Remove the record by login to make sure we can recreate it later
@@ -426,7 +426,7 @@ accounts.updateAccount = function(req, options, callback)
            var query = lib.cloneObj(req.query);
            api.prepareAccountSecret(query, options);
            // Skip admin properties if any
-           if (!options.admin && !api.checkAccountType(req.account, "admin")) api.clearQuery(query, "bk_auth", "admin", options);
+           if (!options.admin && !api.checkAccountType(req.account, "admin")) api.clearQuery("bk_auth", query, "admin");
            // Avoid updating bk_auth and flushing cache if nothing to update
            var obj = db.getQueryForKeys(Object.keys(db.getColumns("bk_auth", options)), query, { no_columns: 1, skip_columns: ["id","login","mtime"] });
            if (!Object.keys(obj).length) return callback(err, rows, info);
@@ -434,7 +434,7 @@ accounts.updateAccount = function(req, options, callback)
        },
        function(next) {
            // Skip admin properties if any
-           if (!options.admin && !api.checkAccountType(req.account, "admin")) api.clearQuery(req.query, "bk_account", "admin", options);
+           if (!options.admin && !api.checkAccountType(req.account, "admin")) api.clearQuery("bk_account", req.query, "admin");
            db.update("bk_account", req.query, next);
        },
        function(next) {
