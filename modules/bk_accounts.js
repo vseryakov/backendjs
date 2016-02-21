@@ -401,7 +401,7 @@ accounts.addAccount = function(req, options, callback)
            for (var p in cols) if (typeof cols[p].value != "undefined") req.query[p] = cols[p].value;
            req.query._added = true;
            // Link account record for other middleware
-           req.account = req.query;
+           api.setCurrentAccount(req, req.query);
            next();
        },
        function(next) {

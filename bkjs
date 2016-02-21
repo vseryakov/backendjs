@@ -123,15 +123,16 @@ export BKJS_GET_CONFIG="$0 run-shell -log none -db-get-config -format args $@"
 [ "$BKJS_PREFIX" = "" ] && export BKJS_PREFIX=/usr/local
 [ "$BKJS_BACKUP" = "" ] && export BKJS_BACKUP=$BKJS_HOME/backup
 [ "$CASSANDRA_PREFIX" = "" ] && export CASSANDRA_PREFIX=$BKJS_PREFIX/cassandra
-[ "$CASSANDRA_DIR" = "" ] && export CASSANDRA_DIR=$BKJS_HOME/cassandra
+[ "$CASSANDRA_DIR" = "" ] && export CASSANDRA_DIR=$BKJS_HOME/var/cassandra
 [ "$PG_PREFIX" = "" ] && export PG_PREFIX=/usr
 [ "$PG_LIBDIR" = "" ] && export PG_LIBDIR=$PG_PREFIX/lib
-[ "$PG_DIR" = "" ] && export PG_DIR=$BKJS_HOME/postgres
-[ "$MYSQL_DIR" = "" ] && export MYSQL_DIR=$BKJS_HOME/mysql
+[ "$PG_DIR" = "" ] && export PG_DIR=$BKJS_HOME/var/postgres
+[ "$MYSQL_DIR" = "" ] && export MYSQL_DIR=$BKJS_HOME/var/mysql
 [ "$MYSQL_PREFIX" = "" ] && export MYSQL_PREFIX=/usr
 [ "$DYNAMODB_PREFIX" = "" ] && export DYNAMODB_PREFIX=$BKJS_PREFIX/dynamodb
 [ "$ELASTICSEARCH_PREFIX" = "" ] && export ELASTICSEARCH_PREFIX=$BKJS_PREFIX/elasticsearch
-[ "$MONGO_DIR" = "" ] && export MONGO_DIR=$BKJS_HOME/mongo
+[ "$ELASTICSEARCH_DIR" = "" ] && export ELASTICSEARCH_DIR=$BKJS_HOME/var/elasticsearch
+[ "$MONGO_DIR" = "" ] && export MONGO_DIR=$BKJS_HOME/var/mongo
 [ "$BKJS_IDLETIME" = "" ] && export BKJS_IDLETIME=900
 [ "$BKJS_UPTIME" = "" ] && export BKJS_UPTIME=43200
 [ "$REDIS_PREFIX" = "" ] && export REDIS_PREFIX=$BKJS_HOME
@@ -1028,13 +1029,13 @@ case "$ARG" in
 
   get-cassandra)
     if [ ! -d $CASSANDRA_PREFIX ]; then
-        mkdir -p $CASSANDRA_PREFIX $CASSANDRA_DIR/var $CASSANDRA_DIR/log
+        mkdir -p $CASSANDRA_PREFIX $CASSANDRA_DIR
         curl -OL http://downloads.datastax.com/community/dsc.tar.gz
         tar -C $CASSANDRA_PREFIX --strip-components=1 -xzf dsc.tar.gz
         rm -rf dsc.tar.gz
-        $SED "s|-Dcassandra.logdir=\$CASSANDRA_HOME/logs|-Dcassandra.logdir=$CASSANDRA_DIR/log|g" $CASSANDRA_PREFIX/bin/cassandra
-        $SED "s|/var/lib/cassandra/|$CASSANDRA_DIR/var/|g" $CASSANDRA_PREFIX/conf/*.{yaml,properties,sh}
-        $SED "s|/var/log/cassandra/|$CASSANDRA_DIR/log/|g" $CASSANDRA_PREFIX/conf/*.{yaml,properties,sh}
+        $SED "s|-Dcassandra.logdir=\$CASSANDRA_HOME/logs|-Dcassandra.logdir=$BKJS_HOME/log|g" $CASSANDRA_PREFIX/bin/cassandra
+        $SED "s|/var/lib/cassandra/|$CASSANDRA_DIR/|g" $CASSANDRA_PREFIX/conf/*.{yaml,properties,sh}
+        $SED "s|/var/log/cassandra/|$BKJS_HOME/log/|g" $CASSANDRA_PREFIX/conf/*.{yaml,properties,sh}
         $SED "s|# commitlog_directory:|commitlog_directory:|" $CASSANDRA_PREFIX/conf/cassandra.yaml
         $SED "s|# saved_caches_directory:|saved_caches_directory:|" $CASSANDRA_PREFIX/conf/cassandra.yaml
         $SED "s|# data_file_directories:|data_file_directories:|" $CASSANDRA_PREFIX/conf/cassandra.yaml
@@ -1068,6 +1069,8 @@ case "$ARG" in
         tar -C $ELASTICSEARCH_PREFIX --strip-components=1 -xzf es.tgz
         rm -rf es.tgz
         cd $ELASTICSEARCH_PREFIX
+        echo "path.data: $ELASTICSEARCH_DIR" >> config/elasticsearch.yml
+        echo "path.logs: $BKJS_HOME/log" >> config/elasticsearch.yml
         echo "script.inline: on" >> config/elasticsearch.yml
         echo "script.indexed: on" >> config/elasticsearch.yml
         if [ "$OS_TYPE" = "amazon" ]; then
@@ -1100,7 +1103,7 @@ case "$ARG" in
        export ES_MAX_MEM=$memmax
        $SED "s/ES_MAX_MEM=[0-9]+(g|m)?/ES_MAX_MEM=$memmax/" $ELASTICSEARCH_PREFIX/bin/elasticsearch.in.sh
     fi
-    $ELASTICSEARCH_PREFIX/bin/elasticsearch -Des.path.logs=$BKJS_HOME/log -p $BKJS_HOME/var/elasticsearch.pid -d >>$BKJS_HOME/log/message.log 2>&1
+    $ELASTICSEARCH_PREFIX/bin/elasticsearch -p $BKJS_HOME/var/elasticsearch.pid -d >>$BKJS_HOME/log/message.log 2>&1
     ;;
 
   stop-elasticsearch)
