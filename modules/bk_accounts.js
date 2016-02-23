@@ -36,7 +36,7 @@ var accounts = {
             phone: {},
             website: {},
             company: {},
-            birthday: {},
+            birthday: { type: "string" },
             gender: {},
             street: {},
             city: {},
