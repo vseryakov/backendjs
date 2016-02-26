@@ -261,8 +261,8 @@ accounts.getAccount = function(req, options, callback)
 //  - badge - a badge number to be sent
 //  - prefix - prepend the message with this prefix
 //  - check - check the account status, if not specified the message will be sent unconditionally otherwise only if status is online
-//  - allow - the account property to check if notifications are enabled, must be a boolean true or number > 0 to flag it is enabled, if it is an Array then
-//      all properties in the array are checked against the account properties and all must allow notifications. If it is an object then only the object properties and values are checked.
+//  - allow - the account properties to check if notifications are enabled, it must be an object with properties in the account record and values to
+//      checked, it canbe a signle value or an array of valus, each value if starts with "!" means not equal.
 //  - skip - Array or an object with account ids which should be skipped, this is for mass sending in order to reuse the same options
 //  - logging - logging level about the notification send status, default is debug, can be any valid logger level, must be a string, not a number
 //  - service_id - name of the standard delivery service supported by the backend, it is be used instead of custom handler, one of the following: apple, google
@@ -271,6 +271,11 @@ accounts.getAccount = function(req, options, callback)
 //
 // In addition the device_id can be saved in the format service://id where the service is one of the supported delivery services, this way the notification
 // system will pick the right delivery service depending on the device id, the default service is apple.
+//
+//  Example:
+//
+//       bk_account.notifyAccount({ account_id: "123", msg: "test", badge: 1, sound: 1, allow: { notifications0: 1, type: ["user","!quiet"] } })
+//
 accounts.notifyAccount = function(options, callback)
 {
     if (typeof callback != "function") callback = lib.noop;
@@ -280,10 +285,10 @@ accounts.notifyAccount = function(options, callback)
     // Skip this account
     switch (lib.typeName(options.skip)) {
     case "array":
-        if (options.skip.indexOf(id) > -1) return callback({ status: 400, message: "skipped", id: options.account_id }, {});
+        if (options.skip.indexOf(options.account_id) > -1) return callback({ status: 400, message: "skipped", id: options.account_id }, {});
         break;
     case "object":
-        if (options.skip[id]) return callback({ status: 400, message: "skipped", id: options.account_id }, {});
+        if (options.skip[options.account_id]) return callback({ status: 400, message: "skipped", id: options.account_id }, {});
         break;
     }
 
@@ -294,18 +299,8 @@ accounts.notifyAccount = function(options, callback)
             if (err || !account) return callback(err || { status: 404, message: "account not found", id: options.account_id }, status);
             if (!account.device_id && !options.device_id) return callback({ status: 404, message: "device not found", id: options.account_id }, status);
 
-            switch (lib.typeName(options.allow)) {
-            case "array":
-                if (options.allow.some(function(x) { return !account[x] })) return callback({ status: 401, message: "not allowed", id: options.account_id }, status);
-                break;
-
-            case "object":
-                for (var p in options.allow) if (!options.allow[x]) return callback({ status: 401, message: "not allowed", id: options.account_id }, status);
-                break;
-
-            case "string":
-                if (!account[options.allow]) return callback({ status: 401, message: "not allowed", id: options.account_id }, status);
-                break;
+            if (!lib.isMatched(account, options.allow)) {
+                return callback({ status: 401, message: "not allowed", id: options.account_id }, status);
             }
 
             // Ready to send now, set additional properties, if if the options will be reused we overwrite the same properties for each account
