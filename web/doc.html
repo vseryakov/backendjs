@@ -677,7 +677,7 @@ ipc-cache-backup-options-max_attempts=3
 <p>The system will connect to the sentinel, get the master cache server and connect the cache driver to it, also it will listen constantly on
 sentinel events and failover to a new master autimatically. Sentinel use the regular redis module and supports all the same
 parameters, to pass options to the sentinel driver prefix them with <code>sentinel-</code>:</p>
-<pre><code>ipc-cache=redis://host1?bk-servers=host2,host3&amp;bk-max_attempts=3&amp;bk-sentinel=1&amp;bk-sentinel-servers=host2,host3
+<pre><code>ipc-cache=redis://host1?bk-servers=host2,host3&amp;bk-max_attempts=3&amp;bk-sentinel=host1&amp;bk-sentinel-servers=host2,host3
 ipc-cache-backup=redis://host2
 ipc-cache-backup-options-sentinel-servers=host1,host2
 ipc-cache-backup-options-sentinel-max_attempts=5
@@ -2293,6 +2293,7 @@ Database pool statistics and other diagnostics</p>
 <li><code>locales</code> - A list of locales to load from the locales/ directory, only language name must be specified, example: en,es. It enables internal support for <code>res.__</code> and <code>req.__</code> methods that can be used for translations, for each request the internal language header will be honored forst, then HTTP Accept-Language</li>
 <li><code>no-locales</code> - Do not load locales on start</li>
 <li><code>smtp-(.+)</code> - SMTP server parameters, user, password, host, ssl, tls...see emailjs for details</li>
+<li><code>tmp-watcher-(.+)</code> - How long to keep files per subdirectory in seconds</li>
 <li><code>aws-key</code> - AWS access key</li>
 <li><code>aws-secret</code> - AWS access secret</li>
 <li><code>aws-region</code> - AWS region</li>
@@ -2304,6 +2305,7 @@ Database pool statistics and other diagnostics</p>
 <li><code>aws-key-name</code> - AWS instance keypair name for remote job instances or other AWS commands</li>
 <li><code>aws-elb-name</code> - AWS ELB name to be registered with on start up or other AWS commands</li>
 <li><code>aws-elastic-ip</code> - AWS Elastic IP to be associated on start</li>
+<li><code>aws-host-name</code> - List of hosts to update in Route54 zone with the current private IP address, hosts must be in FQDN format</li>
 <li><code>aws-iam-profile</code> - IAM instance profile name for instances or commands</li>
 <li><code>aws-image-id</code> - AWS image id to be used for instances or commands</li>
 <li><code>aws-subnet-id</code> - AWS subnet id to be used for instances or commands</li>
@@ -2390,6 +2392,7 @@ Database pool statistics and other diagnostics</p>
 <li><code>api-subscribe-timeout</code> - Timeout for Long POLL subscribe listener, how long to wait for events before closing the connection, milliseconds</li>
 <li><code>api-subscribe-interval</code> - Interval between delivering events to subscribed clients, milliseconds</li>
 <li><code>api-mime-body</code> - Collect full request body in the req.body property for the given MIME type in addition to json and form posts, this is for custom body processing</li>
+<li><code>api-mime-ignore</code> - Ignore the body for the following MIME content types, request body will not be parsed at all</li>
 <li><code>api-collect-host</code> - The backend URL where all collected statistics should be sent over, if set to <code>pool</code> then each web worker will save metrics directly into the statistics database pool</li>
 <li><code>api-collect-pool</code> - Database pool where to save collected statistics</li>
 <li><code>api-collect-interval</code> - How often to collect statistics and metrics in seconds</li>
@@ -2417,7 +2420,7 @@ Database pool statistics and other diagnostics</p>
 <li><code>msg-([^-]+)-(key)(@.+)?</code> - API key for GCM or similar services, if the suffix is specified in the config parameter will be used as the app name, without the suffix it is global</li>
 <li><code>msg-([^-]+)-(sandbox)(@.+)?</code> - Enable sandbox for a service, default is production mode</li>
 <li><code>msg-([^-]+)-(feedback)(@.+)?</code> - Enable feedback mode for a service, default is no feedback service</li>
-<li><code>msg-([^-]+)-options-(.+)(@.+)?</code> - A config property to the specified agent, driver specific</li>
+<li><code>msg-([^-]+)-options-([^@]+)(@.+)?</code> - A config property to the specified agent, driver specific</li>
 <li><code>msg-shutdown-timeout</code> - How long to wait for messages draining out in ms on shutdown before exiting</li>
 <li><code>jobs-workers</code> - How many worker processes to launch to process the job queue, -1 disables jobs, 0 means launch as many as the CPUs available</li>
 <li><code>jobs-worker-cpu-factor</code> - A number to multiply the number of CPUs available to make the total number of workers to launch, only used if <code>workers</code> is 0</li>
@@ -2431,8 +2434,7 @@ Database pool statistics and other diagnostics</p>
 <li><code>jobs-channel</code> - Name of the channel where to publish/receive jobs</li>
 <li><code>jobs-cron</code> - Allow cron jobs to be executed from the local etc/crontab file or via config parameter</li>
 <li><code>jobs-schedule</code> - Cron jobs to be scheduled, the JSON must be in the same format as crontab file</li>
-<li><code>server-max-processes</code> - Max number of processes to launch for Web servers, 0 means NumberofCPUs-2</li>
-<li><code>server-max-workers</code> - Max number of worker processes to launch</li>
+<li><code>server-max-processes</code> - Max number of processes to launch for Web servers, 0 means <code>NumberOfCPUs-1</code>, &lt; 0 means <code>NumberOfCPUs*abs(N)</code></li>
 <li><code>server-crash-delay</code> - Delay between respawing the crashed process</li>
 <li><code>server-restart-delay</code> - Delay between respawning the server after changes</li>
 <li><code>server-log-errors</code> - If true, log crash errors from child processes by the logger, otherwise write to the daemon err-file. The reason for this is that the logger puts everything into one line thus breaking formatting for stack traces.</li>
@@ -2801,7 +2803,7 @@ if present in the info. This result object can be used for pagination responses.
 </ul>
 
 <ul>
-<li><p><code>api.checkResultColumns(table, rows, options)</code></p>
+<li><p><code>api.checkResultColumns(table, data, options)</code></p>
 <p> Process records and keep only public properties as defined in the table columns. This method is supposed to be used in the post process
 callbacks after all records have been processes and are ready to be returned to the client, the last step would be to cleanup
 all non public columns if necessary.</p>
@@ -2814,25 +2816,26 @@ property is used to detect current account but can be specified by the <code>opt
 <p>If any column is marked with <code>secure</code> property this means never return that column in the result even for the owner of the record</p>
 <p>If any column is marked with <code>admin</code> or <code>admins</code> property and the current account is an admin this property will be returned as well. The <code>options.admin</code>
 can be used to make it an artificial admin.</p>
-<p>The <code>options.strict</code> will enforce that all columns not present in the table definition will be skipped as well, by default all
+<p>The <code>options.cleanup_strict</code> will enforce that all columns not present in the table definition will be skipped as well, by default all
 new columns or columns created on the fly are returned to the client.</p>
+<p>The <code>options.cleanup_rules</code> can be an object with property names and the values -1, 0, or 1 which correspond to:
+-1 - never return, 0 return only to the owner, 1 always return.</p>
 <p>The <code>options.pool</code> property must match the actual rowset to be applied properly, in case the records have been retrieved for the different
 database pool.</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>api.clearQuery(query, table, name, options)</code></p>
+<li><p><code>api.clearQuery(table, query, name)</code></p>
 <p> Clear request query properties specified in the table definition, if any columns for the table contains the property <code>name</code> nonempty, then
 all request properties with the same name as this column name will be removed from the query. This for example is used for the <code>bk_auth</code>
 table to disable updating properties by the user which can only be set by an admin.</p>
-<p>The options can have a property in the form <code>keep_{name}</code> which will prevent from clearing the query for the name, this is for dynamic enabling/disabling
-this functionality without clearing table column definitions.</p>
-<p>The <code>options.reverse</code> will make the logic opposite: clear all properties that do not have the property <code>name</code> in the object.</p>
 <p>There can be more than one name specified</p>
+<p>If a name is prefixed with ! then the logic is reversed, keep all except this name</p>
 <p>Example:</p>
-<pre><code>  api.clearQuery(req.query, &quot;bk_account&quot;, &quot;admin&quot;)
-  api.clearQuery(req.query, &quot;bk_auth&quot;, &quot;admin&quot;, &quot;secure&quot;)
+<pre><code>  api.clearQuery(&quot;bk_account&quot;, req.query, &quot;admin&quot;)
+  api.clearQuery(&quot;bk_account&quot;, req.query, &quot;&quot;admin&quot;, &quot;secure&quot;)
+  api.clearQuery(&quot;bk_account&quot;, req.query, &quot;admin&quot;, &quot;!secure&quot;)
 </code></pre></li>
 </ul>
 
@@ -3156,6 +3159,12 @@ properties after successful authorization.</p>
 <ul>
 <li><p><code>api.checkAccountSignature(req, sig, account, callback)</code></p>
 <p> Check account record against a incoming request signature</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.setCurrentAccount(req, account)</code></p>
+<p> Assign an account record to be the current for the given request</p>
 </li>
 </ul>
 
@@ -3550,6 +3559,12 @@ will be loaded.</p>
 </ul>
 
 <ul>
+<li><p><code>aws.querySigner()</code></p>
+<p> It is called in the context of a http request</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>aws.queryAWS(region, endpoint, proto, host, path, obj, options, callback)</code></p>
 <p> Make AWS request, return parsed response as Javascript object or null in case of error</p>
 </li>
@@ -3680,6 +3695,22 @@ The options specify the following:</p>
 <ul>
 <li>name - a metric name</li>
 <li>namespace - limit by namespace: AWS/AutoScaling, AWS Billing, AWS/CloudFront, AWS/DynamoDB, AWS/ElastiCache, AWS/EBS, AWS/EC2, AWS/ELB, AWS/ElasticMapReduce, AWS/Kinesis, AWS/OpsWorks, AWS/Redshift, AWS/RDS, AWS/Route53, AWS/SNS, AWS/SQS, AWS/SWF, AWS/StorageGateway</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.route53Change(names, options, callback)</code></p>
+<p> Create or update a host in the Route53 database.</p>
+<ul>
+<li><code>names</code> is a host name to be set with the current IP address or a list with objects in the format
+   [ { name: &quot;..&quot;, value: &quot;1.1.1.1&quot;, type: &quot;A&quot;, ttl: 300 } ...]</li>
+</ul>
+<p>The <code>options</code> may contain the following:</p>
+<ul>
+<li>type - default record type, A</li>
+<li>ttl - default TTL, 300 seconds</li>
+<li>op - an operation, default is UPSERT</li>
 </ul>
 </li>
 </ul>
@@ -4641,7 +4672,7 @@ types <code>myapp</code> and <code>prod-myapp</code>, then the last value will b
 <li>the run mode specified in the command line <code>-run-mode</code>: <code>prod</code></li>
 <li>the application name: <code>myapp</code></li>
 <li>the application name and major version specified in the package.json: <code>-1</code></li>
-<li>the application name and major/manor version specified in the package.json: <code>-1.0</code></li>
+<li>the application name and major/minor version specified in the package.json: <code>-1.0</code></li>
 <li>the process role: <code>-worker</code></li>
 <li>the network where the instance is running, first 2 octets from the current IP address: <code>-192.168</code></li>
 <li>the region where the instance is running, AWS region or other name: <code>us-east-1</code></li>
@@ -4713,6 +4744,90 @@ for the table to convert values returned from the db into the the format defined
 </ul>
 
 <ul>
+<li><p><code>db.get(table, query, options, callback)</code></p>
+<p> Retrieve one record from the database by primary key, returns found record or null if not found
+Options can use the following special properties:</p>
+<ul>
+<li>select - a list of columns or expressions to return, default is to return all columns</li>
+<li>ops - operators to use for comparison for properties, see <code>db.select</code></li>
+<li>cached - if specified it runs getCached version</li>
+<li>nocache - disable caching even if configured for the table</li>
+</ul>
+<p>NOTE: On return the <code>info.cached</code> will be set to 1 if the record was retrieved from cache or was put in the cache.</p>
+<p>Example</p>
+<pre><code>    db.get(&quot;bk_account&quot;, { id: &#39;12345&#39; }, function(err, row) {
+       if (row) console.log(row.name);
+    });
+</code></pre></li>
+</ul>
+
+<ul>
+<li><p><code>db.select(table, query, options, callback)</code></p>
+<p> Select objects from the database that match supplied conditions.</p>
+<ul>
+<li>query - can be an object with properties for the condition, all matching records will be returned,
+also can be a list where each item is an object with primary key condition. Only records specified in the list must be returned.</li>
+<li>options can use the following special properties:<ul>
+<li>ops - operators to use for comparison for properties, an object with column name and operator. The following operators are available:
+ <code>&gt;, gt, &lt;, lt, =, !=, &lt;&gt;, &gt;=, ge, &lt;=, le, in, between, regexp, iregexp, begins_with, like%, ilike%</code></li>
+<li>opsMap - operator mapping between supplied operators and actual operators supported by the db</li>
+<li>typesMap - type mapping between supplied and actual column types, an object</li>
+<li>select - a list of columns or expressions to return or all columns if not specified</li>
+<li>start - start records with this primary key, this is the next_token passed by the previous query</li>
+<li>count - how many records to return</li>
+<li>join - how to join condition expressions, default is AND</li>
+<li>sort - sort by this column. if null then no sorting must be done at all, records will be returned in the order they are kept in the DB.
+ <em>NOTE: For DynamoDB this may affect the results if columns requsted are not projected in the index, with sort
+  <code>select</code> property might be used to get all required properties. For Elasticsearch if sort is null then scrolling scan will be used,
+  if no <code>timeout</code> or <code>scroll</code> are given the default is 1m.</em></li>
+<li>sort_timeout - for pagination how long to keep internal state in millisecons, depends on the DB, for example for Elasticsearch it corresponds
+ to the scroll param and defaults to 60000 (1m)</li>
+<li>desc - if sorting, do in descending order</li>
+<li>page - starting page number for pagination, uses count to find actual record to start, for SQL databases mostly</li>
+<li>unique - specified the column name to be used in determining unique records, if for some reasons there are multiple records in the location
+ table for the same id only one instance will be returned</li>
+<li>cacheKey - exlicit key for caching, return from the cche or from the DB and then cache it with this key, works the same as <code>get</code></li>
+<li>nocache - do not use cache even if cche key is given</li>
+</ul>
+</li>
+</ul>
+<p>On return, the callback can check third argument which is an object with some predefined properties along with driver specific state returned by the query:</p>
+<ul>
+<li>affected_rows - how many records this operation affected, for add/put/update</li>
+<li>inserted_oid - last created auto generated id</li>
+<li>next_token - next primary key or offset for pagination by passing it as .start property in the options, if null it means there are no more pages availabe for this query</li>
+</ul>
+<p>Example: get by primary key, refer above for default table definitions</p>
+<pre><code>  db.select(&quot;bk_message&quot;, { id: &#39;123&#39; }, { count: 2 }, function(err, rows) {
+
+  });
+</code></pre><p>Example: get all icons with type greater or equal to 2</p>
+<pre><code>  db.select(&quot;bk_icon&quot;, { id: &#39;123&#39;, type: &#39;2&#39; }, { select: &#39;id,type&#39;, ops: { type: &#39;ge&#39; } }, function(err, rows) {
+
+  });
+</code></pre><p>Example: get unread msgs sorted by time, recent first</p>
+<pre><code>  db.select(&quot;bk_message&quot;, { id: &#39;123&#39;, status: &#39;N:&#39; }, { sort: &quot;status&quot;, desc: 1, ops: { status: &quot;begins_with&quot; } }, function(err, rows) {
+
+  });
+</code></pre><p>Example: allow all accounts icons to be visible</p>
+<pre><code>  db.select(&quot;bk_account&quot;, {}, function(err, rows) {
+      rows.forEach(function(row) {
+          row.acl_allow = &#39;auth&#39;;
+          db.update(&quot;bk_icon&quot;, row);
+      });
+  });
+</code></pre><p>Example: scan accounts with custom filter, not by primary key: all females</p>
+<pre><code>  db.select(&quot;bk_account&quot;, { gender: &#39;f&#39; }, function(err, rows) {
+
+  });
+</code></pre><p>Example: select connections using primary key and other filter columns: all likes for the last day</p>
+<pre><code>  db.select(&quot;bk_connection&quot;, { id: &#39;123&#39;, type: &#39;like&#39;, mtime: Date.now()-86400000 }, { ops: { type: &quot;begins_with&quot;, mtime: &quot;gt&quot; } }, function(err, rows) {
+
+  });
+</code></pre></li>
+</ul>
+
+<ul>
 <li><p><code>db.add(table, obj, options, callback)</code></p>
 <p> Insert new object into the database</p>
 <ul>
@@ -4762,6 +4877,7 @@ string then it is used as a name of the column instead of default mtime name</li
 <li>upsert - create a new record if it does not exist</li>
 <li>updateOps - an object with column names and operations to be performed on the named column<ul>
 <li>incr - increment by given value</li>
+<li>set - to update as it is, for reseting counters forexample</li>
 <li>concat - concatenate given value, for strings if the database supports it</li>
 <li>append - appended to the list of values, only for lists if the database supports it</li>
 <li>not_exists - only update if not exists or null</li>
@@ -5048,90 +5164,6 @@ the next_token returned by the previous call and query will be ignored</p>
         db.getLocations(&quot;bk_location&quot;, query, info.next_token, function(err, rows, info) {
             ...
         });
-    });
-</code></pre></li>
-</ul>
-
-<ul>
-<li><p><code>db.select(table, query, options, callback)</code></p>
-<p> Select objects from the database that match supplied conditions.</p>
-<ul>
-<li>query - can be an object with properties for the condition, all matching records will be returned,
-also can be a list where each item is an object with primary key condition. Only records specified in the list must be returned.</li>
-<li>options can use the following special properties:<ul>
-<li>ops - operators to use for comparison for properties, an object with column name and operator. The following operators are available:
- <code>&gt;, gt, &lt;, lt, =, !=, &lt;&gt;, &gt;=, ge, &lt;=, le, in, between, regexp, iregexp, begins_with, like%, ilike%</code></li>
-<li>opsMap - operator mapping between supplied operators and actual operators supported by the db</li>
-<li>typesMap - type mapping between supplied and actual column types, an object</li>
-<li>select - a list of columns or expressions to return or all columns if not specified</li>
-<li>start - start records with this primary key, this is the next_token passed by the previous query</li>
-<li>count - how many records to return</li>
-<li>join - how to join condition expressions, default is AND</li>
-<li>sort - sort by this column. if null then no sorting must be done at all, records will be returned in the order they are kept in the DB.
- <em>NOTE: For DynamoDB this may affect the results if columns requsted are not projected in the index, with sort
-  <code>select</code> property might be used to get all required properties. For Elasticsearch if sort is null then scrolling scan will be used,
-  if no <code>timeout</code> or <code>scroll</code> are given the default is 1m.</em></li>
-<li>sort_timeout - for pagination how long to keep internal state in millisecons, depends on the DB, for example for Elasticsearch it corresponds
- to the scroll param and defaults to 60000 (1m)</li>
-<li>desc - if sorting, do in descending order</li>
-<li>page - starting page number for pagination, uses count to find actual record to start, for SQL databases mostly</li>
-<li>unique - specified the column name to be used in determining unique records, if for some reasons there are multiple records in the location
- table for the same id only one instance will be returned</li>
-<li>cacheKey - exlicit key for caching, return from the cche or from the DB and then cache it with this key, works the same as <code>get</code></li>
-<li>nocache - do not use cache even if cche key is given</li>
-</ul>
-</li>
-</ul>
-<p>On return, the callback can check third argument which is an object with some predefined properties along with driver specific state returned by the query:</p>
-<ul>
-<li>affected_rows - how many records this operation affected, for add/put/update</li>
-<li>inserted_oid - last created auto generated id</li>
-<li>next_token - next primary key or offset for pagination by passing it as .start property in the options, if null it means there are no more pages availabe for this query</li>
-</ul>
-<p>Example: get by primary key, refer above for default table definitions</p>
-<pre><code>  db.select(&quot;bk_message&quot;, { id: &#39;123&#39; }, { count: 2 }, function(err, rows) {
-
-  });
-</code></pre><p>Example: get all icons with type greater or equal to 2</p>
-<pre><code>  db.select(&quot;bk_icon&quot;, { id: &#39;123&#39;, type: &#39;2&#39; }, { select: &#39;id,type&#39;, ops: { type: &#39;ge&#39; } }, function(err, rows) {
-
-  });
-</code></pre><p>Example: get unread msgs sorted by time, recent first</p>
-<pre><code>  db.select(&quot;bk_message&quot;, { id: &#39;123&#39;, status: &#39;N:&#39; }, { sort: &quot;status&quot;, desc: 1, ops: { status: &quot;begins_with&quot; } }, function(err, rows) {
-
-  });
-</code></pre><p>Example: allow all accounts icons to be visible</p>
-<pre><code>  db.select(&quot;bk_account&quot;, {}, function(err, rows) {
-      rows.forEach(function(row) {
-          row.acl_allow = &#39;auth&#39;;
-          db.update(&quot;bk_icon&quot;, row);
-      });
-  });
-</code></pre><p>Example: scan accounts with custom filter, not by primary key: all females</p>
-<pre><code>  db.select(&quot;bk_account&quot;, { gender: &#39;f&#39; }, function(err, rows) {
-
-  });
-</code></pre><p>Example: select connections using primary key and other filter columns: all likes for the last day</p>
-<pre><code>  db.select(&quot;bk_connection&quot;, { id: &#39;123&#39;, type: &#39;like&#39;, mtime: Date.now()-86400000 }, { ops: { type: &quot;begins_with&quot;, mtime: &quot;gt&quot; } }, function(err, rows) {
-
-  });
-</code></pre></li>
-</ul>
-
-<ul>
-<li><p><code>db.get(table, query, options, callback)</code></p>
-<p> Retrieve one record from the database by primary key, returns found record or null if not found
-Options can use the following special properties:</p>
-<ul>
-<li>select - a list of columns or expressions to return, default is to return all columns</li>
-<li>ops - operators to use for comparison for properties, see <code>db.select</code></li>
-<li>cached - if specified it runs getCached version</li>
-<li>nocache - disable caching even if configured for the table</li>
-</ul>
-<p>NOTE: On return the <code>info.cached</code> will be set to 1 if the record was retrieved from cache or was put in the cache.</p>
-<p>Example</p>
-<pre><code>    db.get(&quot;bk_account&quot;, { id: &#39;12345&#39; }, function(err, row) {
-       if (row) console.log(row.name);
     });
 </code></pre></li>
 </ul>
@@ -6234,12 +6266,6 @@ maintainence work the requires.</p>
 </ul>
 
 <ul>
-<li><p><code>IpcClient.prototype.isWorking()</code></p>
-<p> Returns 1 if currently a message is processing or being read</p>
-</li>
-</ul>
-
-<ul>
 <li><p><code>IpcClient.prototype.limiter(options, callback)</code></p>
 <p> Rate limit check, by default it uses the master LRU cache meaning it works within one physical machine only.</p>
 <p>The options must have the following properties:</p>
@@ -6273,12 +6299,16 @@ and the property <code>delay</code> with number of milliseconds till the bucket 
 <h2 id="module-ipc_db">Module: IPC_DB</h2>
 <ul>
 <li><p><code>Database tables</code></p>
-<pre><code>   bk_queue: { id: { primary: 1 },
-               active: { type: &quot;int&quot;, index: 1, value: 0 },      // job status, new, running
-               channel: { value: &quot;jobs&quot;, projection: 1 },        // subscription key
-               data: { type: &quot;json&quot;, projection: 1 },            // job definition object
-               mtime: { type: &quot;bigint&quot;, now: 1, index: 1 } },
-</code></pre><p>  });</p>
+<pre><code>      bk_queue: {
+          id: { primary: 1 },
+          active: { type: &quot;int&quot;, index: 1, value: 0 },      // job status, new, running
+          channel: { value: &quot;jobs&quot;, projection: 1 },        // subscription key
+          data: { type: &quot;json&quot;, projection: 1 },            // job definition object
+          mtime: { type: &quot;bigint&quot;, now: 1, index: 1 }
+      },
+  },
+</code></pre><p>  };</p>
+<p>  ipc.modules.push(client);</p>
 <p>  client.createClient = function(url, options)
   {</p>
 <pre><code>  if (url.match(/^db:/)) return new IpcDbClient(url, options);
@@ -6375,12 +6405,6 @@ A job message is an object that defines what method from which module to run wit
 </ul>
 
 <ul>
-<li><p><code>jobs.isWorking()</code></p>
-<p> Returns 1 if any of the queues are processing or reading measages</p>
-</li>
-</ul>
-
-<ul>
 <li><p><code>jobs.checkTimes()</code></p>
 <p> Check how long we run a job and force kill if exceeded, check if total life time is exceeded</p>
 </li>
@@ -6414,8 +6438,14 @@ level job object then the whole job will stop on first error returned by any tas
 </ul>
 
 <ul>
-<li><p><code>jobs.runTask(name, options, callback)</code></p>
+<li><p><code>jobs.runTask(name, jobspec, options, callback)</code></p>
 <p> Execute a task by name, the <code>options</code> will be passed to the function as the first argument, calls the callback on finish or error</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>jobs._finishTask(err, name, jobspec, options, callback)</code></p>
+<p> Complete task execution, cleanup and update the status</p>
 </li>
 </ul>
 
@@ -6731,6 +6761,13 @@ properties will be replaced by empty strings</p>
 <ul>
 <li><p><code>lib.isTrue(val1, val2, op, type)</code></p>
 <p> Evaluate expr, compare 2 values with optional type and operation</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.isMatched(obj, condition)</code></p>
+<p> All properties in an object <code>obj</code> must match all properties in the object <code>condition</code>, each value in <code>condition</code> is treated as RegExp,
+if it begins with ! it means no match is expected, the leading ! will be stripped.</p>
 </li>
 </ul>
 
@@ -7296,6 +7333,7 @@ mdate is a Date object with last modified time</p>
 <li>list - split contents with the given separator</li>
 <li>encoding - file encoding when converting to string</li>
 <li>logger - log level for error messages</li>
+<li>missingok - if set ENOENT will not be logged</li>
 </ul>
 </li>
 </ul>
@@ -7599,6 +7637,7 @@ need to send push notifications in the worker process.</p>
 <li>type - set type of the message, service specific</li>
 <li>id - send id with the notification, this is application specific data, sent as is</li>
 <li>name - notification group name, can be used for grouping multiple messages under this name</li>
+<li>url - a launch url for the app, it show associated screen on launch if supported</li>
 </ul>
 </li>
 </ul>
@@ -7656,10 +7695,11 @@ connection to APN gateway.</p>
 <li>msg - message text</li>
 <li>badge - badge number</li>
 <li>sound - 1, true or a sound file to play</li>
-<li>type - set type of the packet</li>
+<li>type - set type of the event</li>
 <li>category - a user notification category</li>
 <li>contentAvailable - to indicate about new content so fetchCompletionHandler is called</li>
 <li>id - send id in the user properties</li>
+<li>url - launch url</li>
 </ul>
 </li>
 </ul>
@@ -7824,7 +7864,7 @@ it runs <code>shutdown[Role]</code> methods before exiting</p>
           phone: {},
           website: {},
           company: {},
-          birthday: {},
+          birthday: { type: &quot;string&quot; },
           gender: {},
           street: {},
           city: {},
@@ -7926,8 +7966,8 @@ The options may contain the following:</p>
 <li>badge - a badge number to be sent</li>
 <li>prefix - prepend the message with this prefix</li>
 <li>check - check the account status, if not specified the message will be sent unconditionally otherwise only if status is online</li>
-<li>allow - the account property to check if notifications are enabled, must be a boolean true or number &gt; 0 to flag it is enabled, if it is an Array then
-  all properties in the array are checked against the account properties and all must allow notifications. If it is an object then only the object properties and values are checked.</li>
+<li>allow - the account properties to check if notifications are enabled, it must be an object with properties in the account record and values to
+  checked, it canbe a signle value or an array of valus, each value if starts with &quot;!&quot; means not equal.</li>
 <li>skip - Array or an object with account ids which should be skipped, this is for mass sending in order to reuse the same options</li>
 <li>logging - logging level about the notification send status, default is debug, can be any valid logger level, must be a string, not a number</li>
 <li>service_id - name of the standard delivery service supported by the backend, it is be used instead of custom handler, one of the following: apple, google</li>
@@ -7936,7 +7976,9 @@ The options may contain the following:</p>
 </ul>
 <p>In addition the device_id can be saved in the format service://id where the service is one of the supported delivery services, this way the notification
 system will pick the right delivery service depending on the device id, the default service is apple.</p>
-</li>
+<p>Example:</p>
+<pre><code> bk_account.notifyAccount({ account_id: &quot;123&quot;, msg: &quot;test&quot;, badge: 1, sound: 1, allow: { notifications0: 1, type: [&quot;user&quot;,&quot;!quiet&quot;] } })
+</code></pre></li>
 </ul>
 
 <ul>
