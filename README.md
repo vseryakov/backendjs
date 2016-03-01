@@ -637,7 +637,7 @@ The system will connect to the sentinel, get the master cache server and connect
 sentinel events and failover to a new master autimatically. Sentinel use the regular redis module and supports all the same
 parameters, to pass options to the sentinel driver prefix them with `sentinel-`:
 
-    ipc-cache=redis://host1?bk-servers=host2,host3&bk-max_attempts=3&bk-sentinel=1&bk-sentinel-servers=host2,host3
+    ipc-cache=redis://host1?bk-servers=host2,host3&bk-max_attempts=3&bk-sentinel=host1&bk-sentinel-servers=host2,host3
     ipc-cache-backup=redis://host2
     ipc-cache-backup-options-sentinel-servers=host1,host2
     ipc-cache-backup-options-sentinel-max_attempts=5
