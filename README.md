@@ -21,9 +21,10 @@ Features:
 * Authentication is based on signed requests using API key and secret, similar to Amazon AWS signing requests.
 * Runs web server as separate processes to utilize multiple CPU cores.
 * Supports WebSockets connections and process them with the same Express routes as HTTP requests
-* Supports several cache modes(Redis, memcached, LRU) for the database operations.
+* Supports several cache modes(Redis, memcached, LRU) for the database operations, multiple hosts support
+  in the clients for failover.
 * Supports several PUB/SUB modes of operations using Redis, RabbitMQ.
-* Supports jobs processing using several work queue implementations on top of RabbitMQ, Redis, DB
+* Supports async jobs processing using several work queue implementations on top of SQS, Redis, DB, RabbitMQ
 * Supports common database operations (Get, Put, Del, Update, Select) for all databases using the same DB API.
 * ImageMagick is compiled as C++ module for in-process image scaling.
 * REPL(command line) interface for debugging and looking into server internals.
@@ -66,11 +67,12 @@ or simply
         > var bkjs = require('backendjs')
         > bkjs.server.start()
 
-* Same but using the helper tool, by default it will use embedded Sqlite database and listen on port 8000
+* Access is allowed only with valid signature except urls that are exlicitely allowed without it (see `api-allow` config parameter below)
+* Same but using the helper tool, by default it will use embedded Sqlite database and listen on port 8000.
 
         bkjs run
 
-* To start the server and connect to the DynamoDB (command line parameters can be saved in the etc/config file, see below about config files)
+* To start the server and connect to the DynamoDB (command line parameters can be saved in the `etc/config file`, see below about config files)
 
         bkjs run -db-pool dynamodb -db-dynamodb-pool default -aws-key XXXX -aws-secret XXXX
 
@@ -84,7 +86,7 @@ or simply
 
 * All commands above will behave exactly the same
 
-* **Tables are not created by default**, in order to initialize the database run the server or the shell with `-db-create-tables` flag,
+* **Tables are not created by default**, in order to initialize the database, run the server or the shell with `-db-create-tables` flag,
   it is called only inside a master process, a worker never creates tables on start
 
   - prepare the tables in the shell
@@ -97,14 +99,17 @@ or simply
 
 * While the local backendjs is runnning, the documentation is always available at http://localhost:8000/doc.html (or whatever port is the server using)
 
-* Go to http://localhost:8000/api.html for the Web console to test API requests.
-  For this example let's create an account:
+* By default no external modules are loaded so it needs the accounts module with a
+  parameter `-allow-modules PATTERN`, this will load all modules that match the pattern, default modules start with `bk_`:
 
-  - by default no external modules are loaded so it needs the accounts module
-  - type and execute the following URLs in the Web console:
+        bkjs run -allow-modules bk_
+
+* Go to http://localhost:8000/api.html for the Web console to test API requests.
+  For this example let's create an account.
+
+* Type and execute the following URLs in the Web console:
 
         /account/add?name=test1&secret=test1&login=test1@test.com
-
 
 * Now login with the new account, click on *Login* at the top-right corner and enter 'test1' as login and 'test1' as secret in the login popup dialog.
 * If no error message appeared after the login, try to get your current account details:
@@ -116,16 +121,16 @@ or simply
 
         bkjs init-app
 
-* The app.js file is created in your project directory with 2 additional API endpoints `/test/add` and `/test/[0-9]` to show the simplest way
+* The `app.js` file is created in your project directory with 2 additional API endpoints `/test/add` and `/test/[0-9]` to show the simplest way
   of adding new tables and API commands.
-* The app.sh script is created for convenience in the development process, it specifies common arguments and can be customized as needed.
-* Run new application now, it will start the Web server on port 8000:
+* The `app.sh` script is created for convenience in the development process, it specifies common arguments and can be customized as needed.
+* Run your new application now, it will start the Web server on port 8000:
 
         ./app.sh
 
 * Go to http://localhost:8000/api.html and issue command `/test/add?id=1&name=1` and then `/test/1` commands in the console to see it in action
 * Any change in the source files will make the server restart automatically letting you focus on the source code and not server management, this mode
-  is only enabled by default in development mode, check app.sh for parameters before running it in the production.
+  is only enabled by default in development mode, check `app.sh` for parameters before running it in the production.
 
 * To start node.js shell with backendjs loaded and initialized, all command line parameters apply to the shell as well
 
@@ -153,7 +158,7 @@ The whole principle behind it that once deployed in production, even quick resta
 there should be a way to push config changes to the processes without restarting.
 
 Every module defines a set of config parameters that defines the behavior of the code, due to single threaded
-nature of the node.js, it is simple to update any config parameter to new value so the code can operate differently.
+nature of the node.js, it is simple to update any config parameter to a new value so the code can operate differently.
 To achieve this the code must be written in a special way, like driven by configuration which can be changed at
 any time.
 
@@ -226,8 +231,8 @@ The typical structure of a backendjs application is the following (created by th
 
     // Define the module config parameters
     core.describeArgs('app', [
-      { name: "list-arg", array: 1, type: "list", descr: "List of words" },
-      { name: "int-arg", type: "int", descr: "An integer parameter" },
+        { name: "list-arg", array: 1, type: "list", descr: "List of words" },
+        { name: "int-arg", type: "int", descr: "An integer parameter" },
      ]);
 
     // Describe the tables or data models, all DB pools will use it, the master or shell
@@ -236,7 +241,7 @@ The typical structure of a backendjs application is the following (created by th
          ...
     });
 
-     // Optionally customize the Express environment, setup MVC routes or else, api.app is the Express server
+     // Optionally customize the Express environment, setup MVC routes or else, `api.app` is the Express server
     app.configureMiddleware = function(options, callback)
     {
        ...
@@ -247,19 +252,20 @@ The typical structure of a backendjs application is the following (created by th
     app.configureWeb = function(options, callback)
     {
         api.app.get('/some/api/endpoint', function(req, res) {
-          // to return an error
+          // to return an error, the message will be translated with internal i18n module if locales
+          // are loaded and the request requires it
           api.sendReply(res, err);
-          // or with custom status and message
-          api.sendReply(res, 404, res.__("not found"))
+          // or with custom status and message, explicitely translated
+          api.sendReply(res, 404, res.__("not found"));
 
           // with config check
           if (app.intArg > 5) ...
           if (app.listArg.indexOf(req.query.name) > -1) ...
 
-          // to send data back
+          // to send data back with optional postprocessing hooks
           api.sendJSON(req, err, data);
           // or simply
-          res.json(data)
+          res.json(data);
         });
         ...
         callback();
@@ -437,7 +443,7 @@ module.exports = mod;
 // for each record retrieved
 mod.configureModule = function(options, callback)
 {
-    db.setProcessRows("post", "invoices", function(rq, row, opts) {
+    db.setProcessRows("post", "invoices", function(req, row, opts) {
        if (row.id) row.icon = "/images/" + row.id + ".png";
     });
     callback();

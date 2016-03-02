@@ -152,9 +152,10 @@ same way allowing to switch databases without changing the code.</li>
 <li>Authentication is based on signed requests using API key and secret, similar to Amazon AWS signing requests.</li>
 <li>Runs web server as separate processes to utilize multiple CPU cores.</li>
 <li>Supports WebSockets connections and process them with the same Express routes as HTTP requests</li>
-<li>Supports several cache modes(Redis, memcached, LRU) for the database operations.</li>
+<li>Supports several cache modes(Redis, memcached, LRU) for the database operations, multiple hosts support
+in the clients for failover.</li>
 <li>Supports several PUB/SUB modes of operations using Redis, RabbitMQ.</li>
-<li>Supports jobs processing using several work queue implementations on top of RabbitMQ, Redis, DB</li>
+<li>Supports async jobs processing using several work queue implementations on top of SQS, Redis, DB, RabbitMQ</li>
 <li>Supports common database operations (Get, Put, Del, Update, Select) for all databases using the same DB API.</li>
 <li>ImageMagick is compiled as C++ module for in-process image scaling.</li>
 <li>REPL(command line) interface for debugging and looking into server internals.</li>
@@ -187,10 +188,12 @@ applications but still part of the core of the system to be available once neede
   &gt; var bkjs = require(&#39;backendjs&#39;)
   &gt; bkjs.server.start()
 </code></pre></li>
-<li><p>Same but using the helper tool, by default it will use embedded Sqlite database and listen on port 8000</p>
+<li><p>Access is allowed only with valid signature except urls that are exlicitely allowed without it (see <code>api-allow</code> config parameter below)</p>
+</li>
+<li><p>Same but using the helper tool, by default it will use embedded Sqlite database and listen on port 8000.</p>
 <pre><code>  bkjs run
 </code></pre></li>
-<li><p>To start the server and connect to the DynamoDB (command line parameters can be saved in the etc/config file, see below about config files)</p>
+<li><p>To start the server and connect to the DynamoDB (command line parameters can be saved in the <code>etc/config file</code>, see below about config files)</p>
 <pre><code>  bkjs run -db-pool dynamodb -db-dynamodb-pool default -aws-key XXXX -aws-secret XXXX
 </code></pre></li>
 <li><p>If running on EC2 instance with IAM profile then no need to specify AWS credentials:</p>
@@ -201,7 +204,7 @@ applications but still part of the core of the system to be available once neede
 </code></pre></li>
 <li><p>All commands above will behave exactly the same</p>
 </li>
-<li><p><strong>Tables are not created by default</strong>, in order to initialize the database run the server or the shell with <code>-db-create-tables</code> flag,
+<li><p><strong>Tables are not created by default</strong>, in order to initialize the database, run the server or the shell with <code>-db-create-tables</code> flag,
 it is called only inside a master process, a worker never creates tables on start</p>
 <ul>
 <li><p>prepare the tables in the shell</p>
@@ -214,18 +217,18 @@ it is called only inside a master process, a worker never creates tables on star
 </li>
 <li><p>While the local backendjs is runnning, the documentation is always available at <a href="http://localhost:8000/doc.html">http://localhost:8000/doc.html</a> (or whatever port is the server using)</p>
 </li>
-<li><p>Go to <a href="http://localhost:8000/api.html">http://localhost:8000/api.html</a> for the Web console to test API requests.
-For this example let&#39;s create an account:</p>
-<ul>
-<li>by default no external modules are loaded so it needs the accounts module</li>
-<li><p>type and execute the following URLs in the Web console:</p>
-<pre><code>/account/add?name=test1&amp;secret=test1&amp;login=test1@test.com
+<li><p>By default no external modules are loaded so it needs the accounts module with a
+parameter <code>-allow-modules PATTERN</code>, this will load all modules that match the pattern, default modules start with <code>bk_</code>:</p>
+<pre><code>  bkjs run -allow-modules bk_
 </code></pre></li>
-</ul>
+<li><p>Go to <a href="http://localhost:8000/api.html">http://localhost:8000/api.html</a> for the Web console to test API requests.
+For this example let&#39;s create an account.</p>
 </li>
-</ul>
-<ul>
-<li>Now login with the new account, click on <em>Login</em> at the top-right corner and enter &#39;test1&#39; as login and &#39;test1&#39; as secret in the login popup dialog.</li>
+<li><p>Type and execute the following URLs in the Web console:</p>
+<pre><code>  /account/add?name=test1&amp;secret=test1&amp;login=test1@test.com
+</code></pre></li>
+<li><p>Now login with the new account, click on <em>Login</em> at the top-right corner and enter &#39;test1&#39; as login and &#39;test1&#39; as secret in the login popup dialog.</p>
+</li>
 <li><p>If no error message appeared after the login, try to get your current account details:</p>
 <pre><code>  /account/get
 </code></pre></li>
@@ -234,17 +237,17 @@ For this example let&#39;s create an account:</p>
 <li><p>To make your own custom Web app, create a new directory (somewhere else) to store your project and run the following command from that directory:</p>
 <pre><code>  bkjs init-app
 </code></pre></li>
-<li><p>The app.js file is created in your project directory with 2 additional API endpoints <code>/test/add</code> and <code>/test/[0-9]</code> to show the simplest way
+<li><p>The <code>app.js</code> file is created in your project directory with 2 additional API endpoints <code>/test/add</code> and <code>/test/[0-9]</code> to show the simplest way
 of adding new tables and API commands.</p>
 </li>
-<li>The app.sh script is created for convenience in the development process, it specifies common arguments and can be customized as needed.</li>
-<li><p>Run new application now, it will start the Web server on port 8000:</p>
+<li>The <code>app.sh</code> script is created for convenience in the development process, it specifies common arguments and can be customized as needed.</li>
+<li><p>Run your new application now, it will start the Web server on port 8000:</p>
 <pre><code>  ./app.sh
 </code></pre></li>
 <li><p>Go to <a href="http://localhost:8000/api.html">http://localhost:8000/api.html</a> and issue command <code>/test/add?id=1&amp;name=1</code> and then <code>/test/1</code> commands in the console to see it in action</p>
 </li>
 <li><p>Any change in the source files will make the server restart automatically letting you focus on the source code and not server management, this mode
-is only enabled by default in development mode, check app.sh for parameters before running it in the production.</p>
+is only enabled by default in development mode, check <code>app.sh</code> for parameters before running it in the production.</p>
 </li>
 <li><p>To start node.js shell with backendjs loaded and initialized, all command line parameters apply to the shell as well</p>
 <pre><code>  ./app.sh -shell
@@ -268,7 +271,7 @@ is only enabled by default in development mode, check app.sh for parameters befo
 The whole principle behind it that once deployed in production, even quick restart are impossible to do so
 there should be a way to push config changes to the processes without restarting.</p>
 <p>Every module defines a set of config parameters that defines the behavior of the code, due to single threaded
-nature of the node.js, it is simple to update any config parameter to new value so the code can operate differently.
+nature of the node.js, it is simple to update any config parameter to a new value so the code can operate differently.
 To achieve this the code must be written in a special way, like driven by configuration which can be changed at
 any time.</p>
 <p>All configuration goes through the configuration process that checks all inputs and produces valid output which
@@ -326,8 +329,8 @@ which makes it easy to refer and extend with additional methods and structures.<
 
     // Define the module config parameters
     core.describeArgs(&#39;app&#39;, [
-      { name: &quot;list-arg&quot;, array: 1, type: &quot;list&quot;, descr: &quot;List of words&quot; },
-      { name: &quot;int-arg&quot;, type: &quot;int&quot;, descr: &quot;An integer parameter&quot; },
+        { name: &quot;list-arg&quot;, array: 1, type: &quot;list&quot;, descr: &quot;List of words&quot; },
+        { name: &quot;int-arg&quot;, type: &quot;int&quot;, descr: &quot;An integer parameter&quot; },
      ]);
 
     // Describe the tables or data models, all DB pools will use it, the master or shell
@@ -336,7 +339,7 @@ which makes it easy to refer and extend with additional methods and structures.<
          ...
     });
 
-     // Optionally customize the Express environment, setup MVC routes or else, api.app is the Express server
+     // Optionally customize the Express environment, setup MVC routes or else, `api.app` is the Express server
     app.configureMiddleware = function(options, callback)
     {
        ...
@@ -347,19 +350,20 @@ which makes it easy to refer and extend with additional methods and structures.<
     app.configureWeb = function(options, callback)
     {
         api.app.get(&#39;/some/api/endpoint&#39;, function(req, res) {
-          // to return an error
+          // to return an error, the message will be translated with internal i18n module if locales
+          // are loaded and the request requires it
           api.sendReply(res, err);
-          // or with custom status and message
-          api.sendReply(res, 404, res.__(&quot;not found&quot;))
+          // or with custom status and message, explicitely translated
+          api.sendReply(res, 404, res.__(&quot;not found&quot;));
 
           // with config check
           if (app.intArg &gt; 5) ...
           if (app.listArg.indexOf(req.query.name) &gt; -1) ...
 
-          // to send data back
+          // to send data back with optional postprocessing hooks
           api.sendJSON(req, err, data);
           // or simply
-          res.json(data)
+          res.json(data);
         });
         ...
         callback();
@@ -509,7 +513,7 @@ module.exports = mod;
 // for each record retrieved
 mod.configureModule = function(options, callback)
 {
-    db.setProcessRows(&quot;post&quot;, &quot;invoices&quot;, function(rq, row, opts) {
+    db.setProcessRows(&quot;post&quot;, &quot;invoices&quot;, function(req, row, opts) {
        if (row.id) row.icon = &quot;/images/&quot; + row.id + &quot;.png&quot;;
     });
     callback();
