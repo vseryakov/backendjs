@@ -22,19 +22,19 @@ var logger = bkjs.logger;
 var mod = {
     name: "bk_message",
     tables: {
-        // New messages
+        // New messages, the inbox
         bk_message: {
             id: { primary: 1 },                           // my account_id
             mtime: {
                 primary: 1,                               // mtime:sender
                 join: ["mtime","sender"],
                 unjoin: ["mtime","sender"],
-                ops: { select: "ge" }
             },
             sender: { type: "text" },                      // sender id
             alias: {},                                     // sender alias
             msg: {},                                       // Text of the message
             icon: { type: "int" },                         // 1 - icon present, 0 - no icon
+            read: { type: "int" },                         // 1 - read, 0 - unread
         },
         // Archived messages
         bk_archive: {
@@ -43,7 +43,6 @@ var mod = {
                 primary: 1,                                // mtime:sender
                 join: ["mtime","sender"],
                 unjoin: ["mtime","sender"],
-                ops: { select: "ge" }
             },
             sender: { type: "text" },                      // sender id
             alias: {},                                     // sender alias
@@ -57,7 +56,6 @@ var mod = {
                 primary: 1,                                // mtime:recipient
                 join: ["mtime","recipient"],
                 unjoin: ["mtime","recipient"],
-                ops: { select: "ge" }
             },
             recipient: { type: "text" },                  // recipient id
             alias: {},                                    // recipient alias if known
@@ -88,15 +86,15 @@ var mod = {
         trash: { type: "bool" },
         nosent: { type: "bool" },
     },
-    cacheOptions: { cacheName: "messages", ttl: 0 },
+    cacheOptions: { cacheName: "messages", ttl: 86400000 },
 };
 module.exports = mod;
 
 mod.init = function(options)
 {
-    core.describeArgs("messages", [
+    core.describeArgs(mod.name, [
          { name: "cache-name", obj: "cacheOptions", descr: "Cache name for keeping unread messages counter" },
-         { name: "cache-ttl", type: "number", obj: "cacheOptions", nocamel: 1, strip: /cache-/, min: 0, descr: "How long in ms to keep unread messages counter" },
+         { name: "cache-ttl", type: "number", obj: "cacheOptions", nocamel: 1, key: "ttl", min: 0, descr: "How long in ms to keep unread messages counter" },
     ]);
 }
 
@@ -104,16 +102,6 @@ mod.configureModule = function(options, callback)
 {
     db.setProcessRow("post", "bk_message", function(req, row, options) {
         if (row.icon) row.icon = api.iconUrl({ prefix: 'message', id: row.id, type: row.mtime + ":" + row.sender }); else delete row.icon;
-        switch (req.op) {
-        case "add":
-            ipc.incr("bk_message|unread|" + req.obj.id, 1, mod.cacheOptions);
-            break;
-        case "put":
-        case "del":
-        case "update":
-            ipc.del("bk_message|unread|" + req.obj.id, mod.cacheOptions);
-            break;
-        }
     });
 
     db.setProcessRow("post", "bk_archive", function(req, row, options) {
@@ -179,9 +167,16 @@ mod.configureMessagesAPI = function()
             break;
 
         case "add":
+            // Return full message with new properties
             options.cleanup = "";
             self.addMessage(req, options, function(err, data) {
                 if (!err) api.metrics.Counter('msg_add_0').inc();
+                api.sendJSON(req, err, data);
+            });
+            break;
+
+        case "read":
+            self.readMessage(req, options, function(err, data) {
                 api.sendJSON(req, err, data);
             });
             break;
@@ -231,9 +226,10 @@ mod.sendImage = function(req, options)
 mod.getUnread = function(req, options, callback)
 {
     ipc.get("bk_message|unread|" + req.account.id, mod.cacheOptions, function(count) {
-        if (count) return callback(null, { count: Math.max(lib.toNumber(count), 0) });
+        count = lib.toNumber(count);
+        if (count > 0) return callback(null, { count: count });
 
-        db.select("bk_message", { id: req.account.id }, { total: 1 }, function(err, rows) {
+        db.select("bk_message", { id: req.account.id, read: 1 }, { total: 1, ops: { read: "ne" } }, function(err, rows) {
             if (err) return callback(err);
 
             ipc.put("bk_message|unread|" + req.account.id, rows[0].count, mod.cacheOptions);
@@ -246,14 +242,16 @@ mod.getUnread = function(req, options, callback)
 mod.getArchiveMessage = function(req, options, callback)
 {
     req.query.id = req.account.id;
-    db.select("bk_archive", req.query, options, callback);
+    var query = lib.toParams(req.query, { id: {}, mtime: { type: "int" }, sender: {}, read: { type: "int" } });
+    db.select("bk_archive", query, options, callback);
 }
 
 // Return sent messages to the specified account, used in /message/get/sent API call
 mod.getSentMessage = function(req, options, callback)
 {
     req.query.id = req.account.id;
-    db.select("bk_sent", req.query, options, callback);
+    var query = lib.toParams(req.query, { id: {}, mtime: { type: "int" }, recipient: {} });
+    db.select("bk_sent", query, options, callback);
 }
 
 // Return new/unread messages, used in /message/get API call
@@ -270,7 +268,8 @@ mod.getMessage = function(req, options, callback)
     var cap1 = db.getCapacity("bk_message", { useCapacity: "write", factorCapacity: options.factorCapacity || 0.25 });
     var cap2 = db.getCapacity("bk_archive", { useCapacity: "write", factorCapacity: options.factorCapacity || 0.25 });
 
-    db.select("bk_message", req.query, options, function(err, rows, info) {
+    var query = lib.toParams(req.query, { id: {}, mtime: { type: "int" }, sender: {}, read: { type: "int" } });
+    db.select("bk_message", query, options, function(err, rows, info) {
         if (err) return callback(err);
 
         if (!archive && !trash) return callback(err, rows, info);
@@ -286,6 +285,7 @@ mod.getMessage = function(req, options, callback)
                   db.del("bk_message", row, next2);
               },
             ], function() {
+                if (!err && !row.read) ipc.incr("bk_message|unread|" + row.id, -1, mod.cacheOptions);
                 db.checkCapacity(archive ? cap2 : cap1, next);
             });
         }, function(err) {
@@ -296,31 +296,7 @@ mod.getMessage = function(req, options, callback)
     });
 }
 
-// Mark a message as archived, used in /message/archive API call
-mod.archiveMessage = function(req, options, callback)
-{
-    if (!req.query.sender || !req.query.mtime) return callback({ status: 400, message: "sender and mtime are required" });
-
-    req.query.id = req.account.id;
-    db.get("bk_message", req.query, options, function(err, row, info) {
-        if (err) return callback(err, []);
-        if (!row) return callback({ status: 404, message: "not found" }, []);
-
-        // Merge properties for the archive record
-        for (var p in req.query) row[p] = req.query[p];
-
-        lib.series([
-          function(next) {
-              db.put("bk_archive", row, next);
-          },
-          function(next) {
-              db.del("bk_message", row, next);
-          },
-        ], callback);
-    });
-}
-
-// Add new message, used in /message/add API call
+// Add new message(s), used in /message/add API call
 //
 // The following options properties can be used:
 // - nosent - do not create a record in the bk_sent table
@@ -331,13 +307,19 @@ mod.addMessage = function(req, options, callback)
 
     var cap = db.getCapacity("bk_message", { useCapacity: "write", factorCapacity: options.factorCapacity || 0.25 });
     var ids = lib.strSplitUnique(req.query.id), rows = [];
-    options.mtime = Date.now();
+    req.query.sender = req.account.id;
+    req.query.alias = req.account.alias;
+    req.query.mtime = Date.now();
 
     lib.forEachSeries(ids, function(id, next) {
         req.query.id = id;
-        mod.putMessage(req, options, function(err) {
-            if (err) return next(err);
-            rows.push({ id: req.query.id, mtime: req.query.mtime, sender: req.query.sender });
+        mod._putMessage(req, options, function(err) {
+            if (err) {
+                rows.push({ id: req.query.id, error: err.message || err });
+            } else {
+                ipc.incr("bk_message|unread|" + req.query.id, 1, mod.cacheOptions);
+                rows.push({ id: req.query.id, mtime: req.query.mtime, sender: req.query.sender });
+            }
             db.checkCapacity(cap, next);
         });
     }, function(err) {
@@ -345,79 +327,69 @@ mod.addMessage = function(req, options, callback)
     });
 }
 
-mod.putMessage = function(req, options, callback)
+mod._putMessage = function(req, options, callback)
 {
-    var sent = options.nosent ? null : lib.cloneObj(req.query);
+    api.putIcon(req, req.query.id, { prefix: 'message', type: req.query.mtime + ":" + req.query.sender }, function(err, icon) {
+        req.query.icon = icon ? 1 : 0;
+        db.add("bk_message", req.query, function(err) {
+            if (err || options.nosent) return callback(err);
 
-    req.query.sender = req.account.id;
-    req.query.alias = req.account.alias;
-    req.query.mtime = options.mtime || Date.now();
-
-    lib.series([
-      function(next) {
-          api.putIcon(req, req.query.id, { prefix: 'message', type: req.query.mtime + ":" + req.query.sender }, function(err, icon) {
-              req.query.icon = icon ? 1 : 0;
-              next(err);
-          });
-      },
-      function(next) {
-          db.add("bk_message", req.query, next);
-      },
-      function(next) {
-          if (options.nosent) return next();
-          sent.recipient = sent.id;
-          sent.id = req.account.id;
-          sent.mtime = req.query.mtime;
-          db.add("bk_sent", sent, function(err, rows) {
-              if (err) return db.del("bk_message", req.query, function() { next(err); });
-              next();
-          });
-      },
-    ], callback);
-}
-
-// Delete a message or all messages for the given account from the given sender, used in /message/del` API call
-mod.delMessage = function(req, options, callback)
-{
-    var table = options.table || "bk_message";
-    var sender = options.sender || "sender";
-    req.query.id = req.account.id;
-
-    var cap = db.getCapacity(table, { useCapacity: "write", factorCapacity: options.factorCapacity || 0.25 });
-
-    db.select(table, { id: req.account.id, mtime: req.query.mtime, sender: req.query[sender] }, options, function(err, rows) {
-        if (err) return callback(err);
-
-        lib.forEachSeries(rows, function(row, next) {
-            if (req.query[sender] && row[sender] != req.query[sender]) return next();
-            lib.series([
-              function(next2) {
-                  db.del(table, row, next2);
-              },
-              function(next2) {
-                  if (!row.icon) return next2();
-                  api.delIcon(req.account.id, { prefix: "message", type: row.mtime + ":" + row[sender] }, next2);
-              },
-            ], function() {
-                db.checkCapacity(cap, next);
+            var sent = lib.cloneObj(req.query, "id", req.query.sender, "recipient", req.query.id);
+            db.add("bk_sent", sent, function(err) {
+                callback();
             });
-        }, callback);
+        });
     });
 }
 
-// Delete the messages in the archive, used in /message/del/archive` API call
+// Move matched messages to the archive, used in /message/archive API call
+mod.archiveMessage = function(req, options, callback)
+{
+    req.query.id = req.account.id;
+    var cap = db.getCapacity("bk_message", { useCapacity: "write", factorCapacity: options.factorCapacity || 0.25 });
+    var query = lib.toParams(req.query, { id: {}, mtime: { type: "int" }, sender: {}, read: { type: "int" } });
+    db.scan("bk_message", query, options, function(row, next) {
+        db.put("bk_archive", row, function(err) {
+            if (err) return next(err);
+
+            db.del("bk_message", row, function(err) {
+                if (err) return next(err);
+
+                if (!row.read) ipc.incr("bk_message|unread|" + row.id, -1, mod.cacheOptions);
+                db.checkCapacity(cap, next);
+            });
+        });
+    }, callback);
+}
+
+// Delete matched messages, used in /message/del` API call
+mod.delMessage = function(req, options, callback)
+{
+    req.query.id = req.account.id;
+    options.select = ["id","mtime","sender","recipient","read"];
+    var table = options.table || "bk_message";
+    var cap = db.getCapacity(table, { useCapacity: "write", factorCapacity: options.factorCapacity || 0.25 });
+    var query = lib.toParams(req.query, { id: {}, mtime: { type: "int" }, sender: {}, read: { type: "int" }, recipient: {} });
+    db.scan(table, query, options, function(row, next) {
+        db.del(table, row, function(err) {
+            if (!row.read) ipc.incr("bk_message|unread|" + row.id, -1, mod.cacheOptions);
+            if (row.icon && row.sender) api.delIcon(row.id, { prefix: "message", type: row.mtime + ":" + row.sender });
+            db.checkCapacity(cap, next);
+        });
+    }, callback);
+}
+
+// Delete matched messages in the archive, used in /message/del/archive` API call
 mod.delArchiveMessage = function(req, options, callback)
 {
     options.table = "bk_archive";
-    options.sender = "sender";
     this.delMessage(req, options, callback);
 }
 
-// Delete the messages i sent, used in /message/del/sent` API call
+// Delete matched messages i sent, used in /message/del/sent` API call
 mod.delSentMessage = function(req, options, callback)
 {
     options.table = "bk_sent";
-    options.sender = "recipient";
     this.delMessage(req, options, callback);
 }
 
@@ -425,7 +397,6 @@ mod.delSentMessage = function(req, options, callback)
 mod.updateMessage = function(req, options, callback)
 {
     var table = options.table || "bk_message";
-    var sender = options.sender || "sender";
     req.query.id = req.account.id;
     db.update(table, req.query, options, callback);
 }
@@ -434,8 +405,19 @@ mod.updateMessage = function(req, options, callback)
 mod.updateArchiveMessage = function(req, options, callback)
 {
     options.table = "bk_archive";
-    options.sender = "sender";
     this.updateMessage(req, options, callback);
+}
+
+// Mark matched messages as read, used in /message/read` API call
+mod.readMessage = function(req, options, callback)
+{
+    req.query.id = req.account.id;
+    req.query.read = 1;
+    options.ops.read = "ne";
+    options.select = ["id","mtime","sender","read"];
+    options.process = function(row) { if (!row.read) ipc.incr("bk_message|unread|" + row.id, -1, mod.cacheOptions); }
+    var query = lib.toParams(req.query, { id: {}, mtime: { type: "int" }, sender: {}, read: { type: "int" } });
+    db.updateAll("bk_message", query, { read: 1 }, options, callback)
 }
 
 mod.bkDeleteAccount = function(req, callback)
@@ -443,11 +425,11 @@ mod.bkDeleteAccount = function(req, callback)
     lib.series([
      function(next) {
          if (req.options.keep_message) return next();
-         db.delAll("bk_message", { id: req.account.id }, function() { next() });
+         mod.delMessage(req, {}, function() { next() });
      },
      function(next) {
          if (req.options.keep_archive) return next();
-         db.delAll("bk_archive", { id: req.account.id }, function() { next() });
+         mod.delMessage(req, { table: "bk_archive" },function() { next() });
      },
      function(next) {
          if (req.options.keep_sent) return next();

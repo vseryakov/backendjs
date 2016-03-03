@@ -1710,7 +1710,7 @@ This is implemented by the `locations` module from the core. To enable this func
            }
 
 ## Messages
-The messaging API allows sending and recieving messages between accounts, it supports text and images. All new messages arrive into the bk_messsage table, the inbox. The client
+The messaging API allows sending and receiving messages between accounts, it supports text and images. All new messages arrive into the bk_messsage table, the inbox. The client
 may keep messages there as new, delete or archive them. Archiving means transfering messages into the bk_archive table. All sent messages are kept in the bk_sent table.
 
 This is implemented by the `messages` module from the core. To enable this functionality specify `-allow-modules=bk_messages`.
@@ -1728,7 +1728,7 @@ This is implemented by the `messages` module from the core. To enable this funct
       { count: 1 }
 
 - `/message/get`
-  Read all new messages, i.e. the messages that never been read or issued `/message/archive` call.
+  Read all messages from the inbox.
 
   Parameters:
    - `_archive` - if set to 1, all returned messages will be archived automatically, so no individual /message/read call needed
@@ -1819,6 +1819,13 @@ This is implemented by the `messages` module from the core. To enable this funct
         /message/add?id=12345&msg=Hello
         /message/add?id=12345&msg=this%2Bis%2Bthe%2Bpic&icon=KHFHTDDKH7676758JFGHFDRDEDET....TGJNK%2D
 
+- `/message/read`
+  Mark a message as read
+
+  Example:
+
+        /message/read?sender=12345&mtime=124345656567676
+
 - `/message/archive`
   Move a new message to the archive. The required query parameters are `sender` and `mtime`.
 
@@ -1831,7 +1838,7 @@ This is implemented by the `messages` module from the core. To enable this funct
 
   Example:
 
-        /message/update?sender=12345&mtime=124345656567676&unread=0
+        /message/update?sender=12345&mtime=124345656567676&read=1
 
 - `/message/update/archive`
   Update a message in the archive.
