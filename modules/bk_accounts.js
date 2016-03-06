@@ -54,14 +54,6 @@ var accounts = {
             mtime: { type: "bigint", now: 1 },                // Last update time
         },
 
-        bk_status: {
-            id: { primary: 1, pub: 1 },                        // account id
-            status: { pub: 1 },                                // status, online, offline, away
-            alias: { pub: 1 },
-            atime: { type: "bigint", now: 1, pub: 1 },         // last access time
-            mtime: { type: "bigint", pub: 1 },                 // last update time
-        },
-
         // Account metrics, must correspond to `-api-url-metrics` settings, for images the default is first 2 path components
         bk_collect: {
             url_image_account_rmean: { type: "real" },
@@ -84,18 +76,12 @@ var accounts = {
             url_account_update_err_0: { type: "real" },
         },
     },
-    // Intervals between updating presence status table
-    statusInterval: 1800000,
 };
 module.exports = accounts;
 
 // Initialize the module
 accounts.init = function(options)
 {
-    core.describeArgs("accounts", [
-         { name: "status-interval", type: "number", min: 0, max: 86400000, descr: "Number of milliseconds between status record updates, presence is considered offline if last access was more than this interval ago" },
-    ]);
-
     db.describeTables();
 }
 
@@ -155,6 +141,7 @@ accounts.configureAccountsAPI = function()
             break;
 
         case "select":
+            options.table = "bk_account";
             self.selectAccount(req, options, function(err, data) {
                 api.sendJSON(req, err, data);
             });
@@ -214,13 +201,13 @@ accounts.configureAccountsAPI = function()
         case "put/status":
             req.query.id = req.account.id;
             req.query.alias = req.account.alias;
-            self.putStatus(req.query, options, function(err, rows) {
+            core.modules.bk_status.putStatus(req.query, options, function(err, rows) {
                 api.sendJSON(req, err, rows);
             });
             break;
 
         case "del/status":
-            db.del("bk_status", { id: req.account.id }, options, function(err, rows) {
+            core.modules.bk_status.delStatus({ id: req.account.id }, options, function(err, rows) {
                 api.sendJSON(req, err, rows);
             });
             break;
@@ -449,6 +436,7 @@ accounts.deleteAccount = function(req, callback)
 {
     if (!req.account || !req.account.id) return callback({ status: 400, message: "no id provided" });
     if (!req.options) req.options = {};
+    if (!req.query) req.query = {};
     req.options.count = 0;
 
     db.get("bk_account", { id: req.account.id }, req.options, function(err, row) {
@@ -476,10 +464,6 @@ accounts.deleteAccount = function(req, callback)
                if (req.options.keep_account) return next();
                db.del("bk_account", { id: req.account.id }, req.options, function() { next() });
            },
-           function(next) {
-               if (req.options.keep_status) return next();
-               db.del("bk_status", { id: req.account.id }, req.options, function() { next() });
-           },
         ], function(err) {
             if (!err) api.metrics.Counter('auth_del_0').inc();
             callback(err);
@@ -488,79 +472,10 @@ accounts.deleteAccount = function(req, callback)
 }
 
 // Returns status record for given account, used in /status/get API call.
-// It always returns status object even if it was never set before, on return the record contains
-// a property `online` set to true of false according to the idle period and actual status.
-//
-// If id is an array, then return all status records for specified list of account ids.
-//
-// If status was explicitely set to `offline` then it is considered offline until changed to other value,
-// for other cases `status` property is not used, it is supposed for the application extention.
-//
-// `options.nostatus` can be set to 1 in order to skip the actual status record retrieval, returns immediately online status record
 accounts.getStatus = function(id, options, callback)
 {
-    var self = this;
-    var now = Date.now();
-
-    if (Array.isArray(id)) {
-        db.list("bk_status", id, options, function(err, rows) {
-            if (err) return callback(err);
-            rows = rows.filter(function(row) {
-                row.online = now - row.atime < self.statusInterval && row.status != "offline" ? true : false;
-            });
-            callback(err, rows);
-        });
-    } else {
-        // Status feature is disabled, return immediately
-        if (options.nostatus) return callback(null, { id: id, status: "", online: true, atime: 0, mtime: 0 });
-
-        db.get("bk_status", { id: id }, options, function(err, row, info) {
-            if (err) return callback(err);
-            if (!row) row = { id: id, status: "", online: false, atime: 0, mtime: 0 };
-            row.online = now - row.atime < self.statusInterval && row.status != "offline" ? true : false;
-            callback(err, row, info);
-        });
-    }
-}
-
-// Maintain online status, update to db every status-interval seconds, if `options.check` is given only update db if last update happened
-// longer than `status-interval` milliseconds ago, keep atime up-to-date in the cache on every status update.
-//
-// On return and if it was flushed to db the `atime` will be equal to `mtime`.
-//
-// `otime` will be set to the previous old value of `atime`.
-//
-// *NOTE: All properties from the `obj` will be saved in the bk_status record, existing properties will be overriden*
-accounts.putStatus = function(obj, options, callback)
-{
-    var self = this;
-
-    // Fake status or no status support but still can use the methods in order to enable/disable
-    // on the fly without restarts
-    if (options.nostatus) return callback(null, obj);
-
-    // Read the current record, check is handled differently in put
-    self.getStatus(obj.id, options, function(err, row, info) {
-        if (err) return callback(err);
-
-        // Override properties except times
-        for (var p in obj) {
-            if (!p.match(/^(mtime|atime)$/)) row[p] = obj[p];
-        }
-        row.otime = row.atime;
-        row.atime = Date.now();
-
-        if (options.check && row.online && row.atime - row.mtime < self.statusInterval) {
-            // To keep the cache hot
-            if (info && info.cached) db.putCache("bk_status", row, options);
-            return callback(err, row);
-        }
-
-        row.mtime = row.atime;
-        db.put("bk_status", row, function(err) {
-            callback(err, row);
-        });
-    });
+    if (!core.modules.bk_status) return callback(null, {});
+    core.modules.bk_status.getStatus(id, options, callback);
 }
 
 // Override OAuth account management
@@ -594,7 +509,7 @@ accounts.fetchAccount = function(query, options, callback)
                 core.httpGet(query.icon, { binary: 1 }, function(err, params) {
                     if (err || !params.data.length) return next();
                     api.saveIcon(params.data, auth.id, { prefix: "account", type: "0", width: options.width }, function(err) {
-                        if (err) return next();
+                        if (err || !core.modules.bk_icon) return next();
                         db.put("bk_icon", { id: auth.id, prefix: "account", type:"account:0" }, options, function(err, rows) { next() });
                     });
                 });
