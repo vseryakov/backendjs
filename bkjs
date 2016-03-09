@@ -496,9 +496,9 @@ case "$ARG" in
     # Support for shutdown as normal user for instances
     chmod u+s /sbin/reboot
     # Make sure instances are not running indefinitely
-    [ "$BKJS_ARGS" = "" ] && BKJS_ARGS="*/30 * * * *"
+    cron=$(get_arg -cron "*/30 * * * *")
     echo 'MAILTO=""' > /etc/cron.d/$BKJS-check
-    echo "$BKJS_ARGS * * * * root $BKJS_BIN run-check" >> /etc/cron.hourly/$BKJS-check
+    echo "$cron root $BKJS_BIN run-check" >> /etc/cron.d/$BKJS-check
     ;;
 
   init-service)
@@ -525,21 +525,21 @@ case "$ARG" in
     ;;
 
   init-logwatcher)
-    [ "$BKJS_ARGS" = "" ] && BKJS_ARGS="*/30 * * * *"
+    cron=$(get_arg -cron "*/30 * * * *")
     echo 'MAILTO=""' > /etc/cron.d/$BKJS-logwatcher
-    echo "$BKJS_ARGS $BKJS_USER $BKJS_BIN run-logwatcher" >> /etc/cron.d/$BKJS-logwatcher
+    echo "$cron $BKJS_USER $BKJS_BIN run-logwatcher" >> /etc/cron.d/$BKJS-logwatcher
     ;;
 
   init-backup)
-    [ "$BKJS_ARGS" = "" ] && BKJS_ARGS="30 3 * * *"
+    cron=$(get_arg -cron "30 3 * * *")
     echo 'MAILTO=""' > /etc/cron.d/$BKJS-backup
-    echo "$BKJS_ARGS root $BKJS_BIN run-backup" >> /etc/cron.d/$BKJS-backup
+    echo "$cron root $BKJS_BIN run-backup" >> /etc/cron.d/$BKJS-backup
     ;;
 
   init-sync)
-    [ "$BKJS_ARGS" = "" ] && BKJS_ARGS="*/15 * * * *"
+    cron=$(get_arg -cron "*/15 * * * *")
     echo 'MAILTO=""' > /etc/cron.d/$BKJS-sync
-    echo "$BKJS_ARGS $BKJS_USER $BKJS_BIN run-sync" >> /etc/cron.d/$BKJS-sync
+    echo "$cron $BKJS_USER $BKJS_BIN run-sync" >> /etc/cron.d/$BKJS-sync
     ;;
 
   init-packages)
@@ -1395,13 +1395,13 @@ EOF
     echo "  init-alerts - init alerts in the monit and other systems, use DB config for the specified app name"
     echo "  init-postfix - [-domain DOMAIN] install and configure postfix for the domain"
     echo "  init-dns - install and setup dnsmasq for local cahching DNS server"
-    echo "  init-instancejob - configure for temporary job instance"
+    echo "  init-instancejob - configure a checker for temporary job instance"
     echo "  init-service - create bkjs service to be run on server startup, i.e. makes symlink /etc/init.d/$BKJS after which regular 'service' command can be used to manage the $BKJS service"
     echo "  init-sync - setup a cron job to run run-sync command every 5 minites to check for new software on the \$BKJS_SYNC server"
     echo "  init-packages - install required packges and updates"
     echo "  init-devel - install development packages for node and modules compiclation"
     echo "  init-home - setup backend home with required folders"
-    echo "  init-logwatcher - creates a crontab file in /etc/cron.d to periodically run the log watcher, -args can specify full cron time spec"
+    echo "  init-logwatcher - creates a crontab file in /etc/cron.d to periodically run the log watcher, -cron can specify full cron time spec"
     echo "  init-app - create application skeleton for an application based on the backend, app name can be specified as the first argument"
     echo "  send-alert [-event EVENT] [-descr DESCR] - send alert message to the error log and SNS topic if configured in \$BKJS_SNS variable, if called from monit event/descr will be provided"
     echo "  run-logwatcher - executes the log watcher"

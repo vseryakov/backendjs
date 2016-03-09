@@ -122,7 +122,7 @@ mod.putStatus = function(obj, options, callback)
           next();
       },
       function(next) {
-          if (!obj) return  next();
+          if (!obj) return next();
           obj.mtime = obj.atime;
           db.put("bk_status", obj, next);
       },

@@ -121,6 +121,7 @@
 <li><a href="#module-bk_locations">bk_locations</a></li>
 <li><a href="#module-bk_messages">bk_messages</a></li>
 <li><a href="#module-bk_shell">bk_shell</a></li>
+<li><a href="#module-bk_status">bk_status</a></li>
 <li><a href="#module-bk_system">bk_system</a></li>
 <li><a href="#module-db_cassandra">db_cassandra</a></li>
 <li><a href="#module-db_couchdb">db_couchdb</a></li>
@@ -1619,7 +1620,7 @@ it must be passed as is as <code>_token=</code> parameter with all original quer
 </code></pre></li>
 </ul>
 <h2 id="messages">Messages</h2>
-<p>The messaging API allows sending and recieving messages between accounts, it supports text and images. All new messages arrive into the bk_messsage table, the inbox. The client
+<p>The messaging API allows sending and receiving messages between accounts, it supports text and images. All new messages arrive into the bk_messsage table, the inbox. The client
 may keep messages there as new, delete or archive them. Archiving means transfering messages into the bk_archive table. All sent messages are kept in the bk_sent table.</p>
 <p>This is implemented by the <code>messages</code> module from the core. To enable this functionality specify <code>-allow-modules=bk_messages</code>.</p>
 <ul>
@@ -1632,7 +1633,7 @@ may keep messages there as new, delete or archive them. Archiving means transfer
 <pre><code>{ count: 1 }
 </code></pre></li>
 <li><p><code>/message/get</code>
-Read all new messages, i.e. the messages that never been read or issued <code>/message/archive</code> call.</p>
+Read all messages from the inbox.</p>
 <p>Parameters:</p>
 <ul>
 <li><code>_archive</code> - if set to 1, all returned messages will be archived automatically, so no individual /message/read call needed</li>
@@ -1719,6 +1720,11 @@ can be a multipart file upload if submitted via browser, can be omitted if <code
 <pre><code>  /message/add?id=12345&amp;msg=Hello
   /message/add?id=12345&amp;msg=this%2Bis%2Bthe%2Bpic&amp;icon=KHFHTDDKH7676758JFGHFDRDEDET....TGJNK%2D
 </code></pre></li>
+<li><p><code>/message/read</code>
+Mark a message as read</p>
+<p>Example:</p>
+<pre><code>  /message/read?sender=12345&amp;mtime=124345656567676
+</code></pre></li>
 <li><p><code>/message/archive</code>
 Move a new message to the archive. The required query parameters are <code>sender</code> and <code>mtime</code>.</p>
 <p>Example:</p>
@@ -1727,7 +1733,7 @@ Move a new message to the archive. The required query parameters are <code>sende
 <li><p><code>/message/update</code>
 Update a message, can be used to keep track of read/unread status, etc...</p>
 <p>Example:</p>
-<pre><code>  /message/update?sender=12345&amp;mtime=124345656567676&amp;unread=0
+<pre><code>  /message/update?sender=12345&amp;mtime=124345656567676&amp;read=1
 </code></pre></li>
 <li><p><code>/message/update/archive</code>
 Update a message in the archive.</p>
@@ -7246,7 +7252,8 @@ objects will be create automatically. The options can have the folowing properti
 <p> Return an object structure as a string object by showing primitive properties only,
 for arrays it shows the length and <code>options.count</code> or 5 first items,
 strings are limited by <code>options.length</code> or 64 bytes,
-the object depth is limited by <code>options.depth</code> or 5 levels deep, the number of properties are limited by options.count or 5</p>
+the object depth is limited by <code>options.depth</code> or 5 levels deep, the number of properties are limited by options.count or 5,
+all properties that match <code>options.ignore</code> will be skipped from the output</p>
 </li>
 </ul>
 
@@ -7886,14 +7893,6 @@ it runs <code>shutdown[Role]</code> methods before exiting</p>
           mtime: { type: &quot;bigint&quot;, now: 1 },                // Last update time
       },
 
-      bk_status: {
-          id: { primary: 1, pub: 1 },                        // account id
-          status: { pub: 1 },                                // status, online, offline, away
-          alias: { pub: 1 },
-          atime: { type: &quot;bigint&quot;, now: 1, pub: 1 },         // last access time
-          mtime: { type: &quot;bigint&quot;, pub: 1 },                 // last update time
-      },
-
       // Account metrics, must correspond to `-api-url-metrics` settings, for images the default is first 2 path components
       bk_collect: {
           url_image_account_rmean: { type: &quot;real&quot; },
@@ -7916,18 +7915,12 @@ it runs <code>shutdown[Role]</code> methods before exiting</p>
           url_account_update_err_0: { type: &quot;real&quot; },
       },
   },
-  // Intervals between updating presence status table
-  statusInterval: 1800000,
 </code></pre><p>  };
   module.exports = accounts;</p>
 <p>  // Initialize the module
   accounts.init = function(options)
   {</p>
-<pre><code>  core.describeArgs(&quot;accounts&quot;, [
-       { name: &quot;status-interval&quot;, type: &quot;number&quot;, min: 0, max: 86400000, descr: &quot;Number of milliseconds between status record updates, presence is considered offline if last access was more than this interval ago&quot; },
-  ]);
-
-  db.describeTables();
+<pre><code>  db.describeTables();
 </code></pre><p>  }</p>
 <p>  // Create API endpoints and routes
   accounts.configureWeb = function(options, callback)
@@ -8022,23 +8015,7 @@ delete an account but keep all messages and location: <code>keep_message: 1, kee
 
 <ul>
 <li><p><code>accounts.getStatus(id, options, callback)</code></p>
-<p> Returns status record for given account, used in /status/get API call.
-It always returns status object even if it was never set before, on return the record contains
-a property <code>online</code> set to true of false according to the idle period and actual status.</p>
-<p>If id is an array, then return all status records for specified list of account ids.</p>
-<p>If status was explicitely set to <code>offline</code> then it is considered offline until changed to other value,
-for other cases <code>status</code> property is not used, it is supposed for the application extention.</p>
-<p><code>options.nostatus</code> can be set to 1 in order to skip the actual status record retrieval, returns immediately online status record</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>accounts.putStatus(obj, options, callback)</code></p>
-<p> Maintain online status, update to db every status-interval seconds, if <code>options.check</code> is given only update db if last update happened
-longer than <code>status-interval</code> milliseconds ago, keep atime up-to-date in the cache on every status update.</p>
-<p>On return and if it was flushed to db the <code>atime</code> will be equal to <code>mtime</code>.</p>
-<p><code>otime</code> will be set to the previous old value of <code>atime</code>.</p>
-<p><em>NOTE: All properties from the <code>obj</code> will be saved in the bk_status record, existing properties will be overriden</em></p>
+<p> Returns status record for given account, used in /status/get API call.</p>
 </li>
 </ul>
 
@@ -8599,19 +8576,19 @@ is used in <code>/location/get</code> request. It can be used in the application
 
 <ul>
 <li><p><code>Database tables</code></p>
-<pre><code>      // New messages
+<pre><code>      // New messages, the inbox
       bk_message: {
           id: { primary: 1 },                           // my account_id
           mtime: {
               primary: 1,                               // mtime:sender
               join: [&quot;mtime&quot;,&quot;sender&quot;],
               unjoin: [&quot;mtime&quot;,&quot;sender&quot;],
-              ops: { select: &quot;ge&quot; }
           },
           sender: { type: &quot;text&quot; },                      // sender id
           alias: {},                                     // sender alias
           msg: {},                                       // Text of the message
           icon: { type: &quot;int&quot; },                         // 1 - icon present, 0 - no icon
+          read: { type: &quot;int&quot; },                         // 1 - read, 0 - unread
       },
       // Archived messages
       bk_archive: {
@@ -8620,7 +8597,6 @@ is used in <code>/location/get</code> request. It can be used in the application
               primary: 1,                                // mtime:sender
               join: [&quot;mtime&quot;,&quot;sender&quot;],
               unjoin: [&quot;mtime&quot;,&quot;sender&quot;],
-              ops: { select: &quot;ge&quot; }
           },
           sender: { type: &quot;text&quot; },                      // sender id
           alias: {},                                     // sender alias
@@ -8634,7 +8610,6 @@ is used in <code>/location/get</code> request. It can be used in the application
               primary: 1,                                // mtime:recipient
               join: [&quot;mtime&quot;,&quot;recipient&quot;],
               unjoin: [&quot;mtime&quot;,&quot;recipient&quot;],
-              ops: { select: &quot;ge&quot; }
           },
           recipient: { type: &quot;text&quot; },                  // recipient id
           alias: {},                                    // recipient alias if known
@@ -8665,30 +8640,20 @@ is used in <code>/location/get</code> request. It can be used in the application
       trash: { type: &quot;bool&quot; },
       nosent: { type: &quot;bool&quot; },
   },
-  cacheOptions: { cacheName: &quot;messages&quot;, ttl: 0 },
+  cacheOptions: { cacheName: &quot;messages&quot;, ttl: 86400000 },
 </code></pre><p>  };
   module.exports = mod;</p>
 <p>  mod.init = function(options)
   {</p>
-<pre><code>  core.describeArgs(&quot;messages&quot;, [
+<pre><code>  core.describeArgs(mod.name, [
        { name: &quot;cache-name&quot;, obj: &quot;cacheOptions&quot;, descr: &quot;Cache name for keeping unread messages counter&quot; },
-       { name: &quot;cache-ttl&quot;, type: &quot;number&quot;, obj: &quot;cacheOptions&quot;, nocamel: 1, strip: /cache-/, min: 0, descr: &quot;How long in ms to keep unread messages counter&quot; },
+       { name: &quot;cache-ttl&quot;, type: &quot;number&quot;, obj: &quot;cacheOptions&quot;, nocamel: 1, key: &quot;ttl&quot;, min: 0, descr: &quot;How long in ms to keep unread messages counter&quot; },
   ]);
 </code></pre><p>  }</p>
 <p>  mod.configureModule = function(options, callback)
   {</p>
 <pre><code>  db.setProcessRow(&quot;post&quot;, &quot;bk_message&quot;, function(req, row, options) {
       if (row.icon) row.icon = api.iconUrl({ prefix: &#39;message&#39;, id: row.id, type: row.mtime + &quot;:&quot; + row.sender }); else delete row.icon;
-      switch (req.op) {
-      case &quot;add&quot;:
-          ipc.incr(&quot;bk_message|unread|&quot; + req.obj.id, 1, mod.cacheOptions);
-          break;
-      case &quot;put&quot;:
-      case &quot;del&quot;:
-      case &quot;update&quot;:
-          ipc.del(&quot;bk_message|unread|&quot; + req.obj.id, mod.cacheOptions);
-          break;
-      }
 </code></pre></li>
 </ul>
 
@@ -8723,14 +8688,8 @@ is used in <code>/location/get</code> request. It can be used in the application
 </ul>
 
 <ul>
-<li><p><code>mod.archiveMessage(req, options, callback)</code></p>
-<p> Mark a message as archived, used in /message/archive API call</p>
-</li>
-</ul>
-
-<ul>
 <li><p><code>mod.addMessage(req, options, callback)</code></p>
-<p> Add new message, used in /message/add API call</p>
+<p> Add new message(s), used in /message/add API call</p>
 <p>The following options properties can be used:</p>
 <ul>
 <li>nosent - do not create a record in the bk_sent table</li>
@@ -8739,20 +8698,26 @@ is used in <code>/location/get</code> request. It can be used in the application
 </ul>
 
 <ul>
+<li><p><code>mod.archiveMessage(req, options, callback)</code></p>
+<p> Move matched messages to the archive, used in /message/archive API call</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>mod.delMessage(req, options, callback)</code></p>
-<p> Delete a message or all messages for the given account from the given sender, used in /message/del` API call</p>
+<p> Delete matched messages, used in /message/del` API call</p>
 </li>
 </ul>
 
 <ul>
 <li><p><code>mod.delArchiveMessage(req, options, callback)</code></p>
-<p> Delete the messages in the archive, used in /message/del/archive` API call</p>
+<p> Delete matched messages in the archive, used in /message/del/archive` API call</p>
 </li>
 </ul>
 
 <ul>
 <li><p><code>mod.delSentMessage(req, options, callback)</code></p>
-<p> Delete the messages i sent, used in /message/del/sent` API call</p>
+<p> Delete matched messages i sent, used in /message/del/sent` API call</p>
 </li>
 </ul>
 
@@ -8765,6 +8730,12 @@ is used in <code>/location/get</code> request. It can be used in the application
 <ul>
 <li><p><code>mod.updateArchiveMessage(req, options, callback)</code></p>
 <p> Update a messages in the archive, used in /message/update/archive` API call</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>mod.readMessage(req, options, callback)</code></p>
+<p> Mark matched messages as read, used in /message/read` API call</p>
 </li>
 </ul>
 
@@ -9132,6 +9103,74 @@ use the same names as command line arguments without preceeding <code>test-</cod
 <ul>
 <li><p><code>},(err, opts)</code></p>
 <p> If executed as standalone script directly in the node</p>
+</li>
+</ul>
+
+<h2 id="module-bk_status">Module: BK_STATUS</h2>
+<ul>
+<li><p><code>mod</code></p>
+<p> Status management</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>Database tables</code></p>
+<pre><code>      bk_status: {
+          id: { primary: 1, pub: 1 },                        // account id
+          status: { pub: 1 },                                // status, online, offline, away
+          alias: { pub: 1 },
+          atime: { type: &quot;bigint&quot;, now: 1, pub: 1 },         // last access time
+          mtime: { type: &quot;bigint&quot;, pub: 1 },                 // last update time
+      },
+  },
+  // Intervals between updating presence status table
+  statusInterval: 1800000,
+</code></pre><p>  };
+  module.exports = mod;</p>
+<p>  // Initialize the module
+  mod.init = function(options)
+  {</p>
+<pre><code>  core.describeArgs(&quot;accounts&quot;, [
+       { name: &quot;status-interval&quot;, type: &quot;number&quot;, min: 0, max: 86400000, descr: &quot;Number of milliseconds between status record updates, presence is considered offline if last access was more than this interval ago&quot; },
+  ]);
+
+  db.describeTables();
+</code></pre><p>  }</p>
+<p>  // Returns status record for given account, used in /status/get API call.
+  // It always returns status object even if it was never set before, on return the record contains
+  // a property <code>online</code> set to true of false according to the idle period and actual status.
+  //
+  // If id is an array, then return all status records for specified list of account ids.
+  //
+  // If status was explicitely set to <code>offline</code> then it is considered offline until changed to other value,
+  // for other cases <code>status</code> property is not used, it is supposed for the application extention.
+  //
+  // <code>options.nostatus</code> can be set to 1 in order to skip the actual status record retrieval, returns immediately online status record
+  mod.getStatus = function(id, options, callback)
+  {</p>
+<pre><code>  var now = Date.now();
+
+  if (Array.isArray(id)) {
+      db.list(&quot;bk_status&quot;, id, options, function(err, rows) {
+          if (err) return callback(err);
+          rows = rows.filter(function(row) {
+              row.online = now - row.atime &lt; mod.statusInterval &amp;&amp; row.status != &quot;offline&quot; ? true : false;
+</code></pre></li>
+</ul>
+
+<ul>
+<li><p><code>mod.putStatus(obj, options, callback)</code></p>
+<p> Maintain online status, update to db every status-interval seconds, if <code>options.check</code> is given only update db if last update happened
+longer than <code>status-interval</code> milliseconds ago, keep atime up-to-date in the cache on every status update.</p>
+<p>On return and if it was flushed to db the <code>atime</code> will be equal to <code>mtime</code>.</p>
+<p><code>otime</code> will be set to the previous old value of <code>atime</code>.</p>
+<p><em>NOTE: All properties from the <code>obj</code> will be saved in the bk_status record, existing properties will be overriden</em></p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>mod.deleteAccount(req, callback)</code></p>
+<p> This methods is suitable for background jobs</p>
 </li>
 </ul>
 
