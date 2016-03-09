@@ -3,7 +3,7 @@
 //  Sep 2013
 //
 // Unit tests
-// To run a test execute for example: node tests.test_js -test-cmd db ....
+// To run a test execute for example: bksh -run-test db ....
 //
 
 var fs = require("fs");
