@@ -249,7 +249,7 @@ accounts.getAccount = function(req, options, callback)
 //  - prefix - prepend the message with this prefix
 //  - check - check the account status, if not specified the message will be sent unconditionally otherwise only if status is online
 //  - allow - the account properties to check if notifications are enabled, it must be an object with properties in the account record and values to
-//      checked, it canbe a signle value or an array of valus, each value if starts with "!" means not equal.
+//      be a regexp, each value if starts with "!" means not equal, see `lib.isMatched`
 //  - skip - Array or an object with account ids which should be skipped, this is for mass sending in order to reuse the same options
 //  - logging - logging level about the notification send status, default is debug, can be any valid logger level, must be a string, not a number
 //  - service_id - name of the standard delivery service supported by the backend, it is be used instead of custom handler, one of the following: apple, google
@@ -261,7 +261,7 @@ accounts.getAccount = function(req, options, callback)
 //
 //  Example:
 //
-//       bk_account.notifyAccount({ account_id: "123", msg: "test", badge: 1, sound: 1, allow: { notifications0: 1, type: ["user","!quiet"] } })
+//       bk_account.notifyAccount({ account_id: "123", msg: "test", badge: 1, sound: 1, allow: { notifications0: 1, type: "user" } })
 //
 accounts.notifyAccount = function(options, callback)
 {
