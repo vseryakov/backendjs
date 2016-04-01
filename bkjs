@@ -131,7 +131,7 @@ export BKJS_GET_CONFIG="$0 run-shell -log none -db-get-config -format args $@"
 [ "$MYSQL_PREFIX" = "" ] && export MYSQL_PREFIX=/usr
 [ "$DYNAMODB_PREFIX" = "" ] && export DYNAMODB_PREFIX=$BKJS_PREFIX/dynamodb
 [ "$ELASTICSEARCH_PREFIX" = "" ] && export ELASTICSEARCH_PREFIX=$BKJS_PREFIX/elasticsearch
-[ "$ELASTICSEARCH_DIR" = "" ] && export ELASTICSEARCH_DIR=$BKJS_HOME/var/elasticsearch
+[ "$ELASTICSEARCH_DIR" = "" ] && export ELASTICSEARCH_DIR=$BKJS_HOME/var
 [ "$MONGO_DIR" = "" ] && export MONGO_DIR=$BKJS_HOME/var/mongo
 [ "$BKJS_IDLETIME" = "" ] && export BKJS_IDLETIME=900
 [ "$BKJS_UPTIME" = "" ] && export BKJS_UPTIME=43200
@@ -1065,7 +1065,7 @@ case "$ARG" in
   get-elasticsearch)
     if [ ! -d $ELASTICSEARCH_PREFIX ]; then
         mkdir -p $ELASTICSEARCH_PREFIX
-        curl -L -o es.tgz https://download.elasticsearch.org/elasticsearch/release/org/elasticsearch/distribution/tar/elasticsearch/2.2.0/elasticsearch-2.2.0.tar.gz
+        curl -L -o es.tgz https://download.elasticsearch.org/elasticsearch/release/org/elasticsearch/distribution/tar/elasticsearch/2.2.1/elasticsearch-2.2.1.tar.gz
         tar -C $ELASTICSEARCH_PREFIX --strip-components=1 -xzf es.tgz
         rm -rf es.tgz
         cd $ELASTICSEARCH_PREFIX
@@ -1076,7 +1076,7 @@ case "$ARG" in
         if [ "$OS_TYPE" = "amazon" ]; then
            echo "network.host: _ec2_" >> config/elasticsearch.yml
            echo "discovery.type: ec2" >> config/elasticsearch.yml
-           bin/plugin install cloud-aws
+           bin/plugin install cloud-aws -b
         fi
     fi
     ;;
