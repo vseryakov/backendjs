@@ -611,6 +611,50 @@ case "$ARG" in
     fi
     ;;
 
+  init-sendmail)
+    get_config user -user
+    get_config host -host
+    get_config password -password
+    [ "$user" = "" -o "$password" = "" -o "$host" = "" ] && echo "-host,-user,-password must be provided" && exit
+    yum -y install sendmail-cf
+    echo "AuthInfo:$host \"U:root\" \"I:$user\" \"P:$password\" \"M:LOGIN\"" > /etc/mail/authinfo
+    if [[ $host =~ us-east ]]; then
+       echo "AuthInfo:ses-smtp-prod-335357831.us-east-1.elb.amazonaws.com \"U:root\" \"I:$user\" \"P:$password\" \"M:LOGIN\"" >> /etc/mail/authinfo
+    fi
+    if [[ $host =~ us-west ]]; then
+       echo "AuthInfo:ses-smtp-us-west-2-prod-14896026.us-west-2.elb.amazonaws.com \"U:root\" \"I:$user\" \"P:$password\" \"M:LOGIN\"" >> /etc/mail/authinfo
+    fi
+    makemap hash /etc/mail/authinfo.db < /etc/mail/authinfo
+    if [ "$(grep -s "$host" /etc/mail/access)" = "" ]; then
+       echo "Connect:$host RELAY" >> /etc/mail/access
+       makemap hash /etc/mail/access.db < /etc/mail/access
+    fi
+    if [ "$(grep -s "ses-smtp" /etc/mail/access)" = "" ]; then
+       if [[ $host =~ us-east ]]; then
+          echo "Connect:ses-smtp-prod-335357831.us-east-1.elb.amazonaws.com RELAY" >> /etc/mail/access
+       fi
+       if [[ $host =~ us-west ]]; then
+          echo "Connect:ses-smtp-us-west-2-prod-14896026.us-west-2.elb.amazonaws.com RELAY" >> /etc/mail/access
+       fi
+       makemap hash /etc/mail/access.db < /etc/mail/access
+    fi
+    file=/etc/mail/relay.mc
+    egrep -v '^MAILER' /etc/mail/sendmail.mc > $file
+    echo "define(\`SMART_HOST', \`$host')dnl" >> $file
+    echo "define(\`RELAY_MAILER_ARGS', \`TCP \$h 587')dnl" >> $file
+    echo "define(\`confAUTH_MECHANISMS', \`LOGIN PLAIN')dnl" >> $file
+    echo "FEATURE(\`authinfo', \`hash -o /etc/mail/authinfo.db')dnl" >> $file
+    get_config domain -domain
+    if [ "$domain" != "" ]; then
+       echo "MASQUERADE_AS(\`$domain')dnl" >> $file
+       echo "FEATURE(masquerade_envelope)dnl" >> $file
+       echo "FEATURE(masquerade_entire_domain)dnl" >> $file
+    fi
+    egrep '^MAILER' /etc/mail/sendmail.mc >> $file
+    m4 $file > /etc/mail/sendmail.cf
+    service sendmail restart
+    ;;
+
   send-alert)
     event=$(get_arg -event $MONIT_EVENT)
     descr=$(get_arg -descr $MONIT_DESCRIPTION)
@@ -1394,6 +1438,7 @@ EOF
     echo "  init-monit-bkjs - setup monit to keep $BKJS service running without using any other services and monitor"
     echo "  init-alerts - init alerts in the monit and other systems, use DB config for the specified app name"
     echo "  init-postfix - [-domain DOMAIN] install and configure postfix for the domain"
+    echo "  init-sendmail - [-domain DOMAIN] -host HOST -user USER -password PW - configure sendmail as relay to SES SMTP"
     echo "  init-dns - install and setup dnsmasq for local cahching DNS server"
     echo "  init-instancejob - configure a checker for temporary job instance"
     echo "  init-service - create bkjs service to be run on server startup, i.e. makes symlink /etc/init.d/$BKJS after which regular 'service' command can be used to manage the $BKJS service"

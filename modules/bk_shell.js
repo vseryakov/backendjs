@@ -1004,8 +1004,37 @@ shell.cmdAwsCreateImage = function(options)
     options.instanceId = this.getArg("-instance-id");
     options.noreboot = this.isArg("-no-reboot");
     options.reboot = this.isArg("-reboot");
+    options.interval = lib.getArgInt("-interval", 2000);
     if (lib.isArg("-dry-run")) return shell.exit(null, options);
-    aws.ec2CreateImage(options, function(err) {
+    var imgId;
+    lib.series([
+       function(next) {
+           aws.ec2CreateImage(options, function(err, rc) {
+               imgId = lib.objGet(rc, "CreateImageResponse.imageId");
+               next(err);
+           });
+       },
+       function(next) {
+           if (!imgId || !shell.getArg("-wait")) return next();
+           var running = 1, expires = Date.now() + lib.getArgInt("-timeout", 180000);
+           lib.doWhilst(
+             function(next) {
+                 aws.queryELB("DescribeImages", { "ImageId.1": imgId }, function(err, rc) {
+                     if (err) return next(err);
+                     var images = lib.objGet(rc, "DescribeImagesResponse.imagesSet.item", { list: 1 });
+                     running = (images.length && images[0].imageState == "available") || Date.now() > expires ? 0 : 1;
+                     setTimeout(next, running ? options.interval : 0);
+                 });
+             },
+             function() {
+                 return running;
+             },
+             function(err) {
+                 next(err);
+             });
+       },
+    ], function(err) {
+        if (imgId) console.log(imgId);
         shell.exit(err);
     });
 }
