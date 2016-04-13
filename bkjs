@@ -678,9 +678,11 @@ case "$ARG" in
 
   run|run-master|run-monitor|run-watcher|run-shell|bkjs|bksh)
     [ -f /usr/lib/node_modules/$BKJS_MOD/lib/app.js ] && SCRIPT=/usr/lib/node_modules/$BKJS_MOD/lib/app.js
+    [ -f $NODE_PATH/$BKJS_MOD/lib/app.js ] && SCRIPT=$NODE_PATH/$BKJS_MOD/lib/app.js
     [ -f $BKJS_PREFIX/lib/node_modules/$BKJS_MOD/lib/app.js ] && SCRIPT=$BKJS_PREFIX/lib/node_modules/$BKJS_MOD/lib/app.js
     [ -f $BKJS_HOME/node_modules/$BKJS_MOD/lib/app.js ] && SCRIPT=$BKJS_HOME/node_modules/$BKJS_MOD/lib/app.js
     [ -f node_modules/$BKJS_MOD/lib/app.js ] && SCRIPT=node_modules/$BKJS_MOD/lib/app.js
+    [ -f lib/app.js ] && SCRIPT=lib/app.js
     [ -f $BKJS_HOME/app.js ] && SCRIPT=$BKJS_HOME/app.js
     [ -f app.js ] && SCRIPT=app.js
     [ -z $SCRIPT ] && echo "ERROR: Cannot find $BKJS module or app.js" && exit 1
@@ -1109,7 +1111,7 @@ case "$ARG" in
   get-elasticsearch)
     if [ ! -d $ELASTICSEARCH_PREFIX ]; then
         mkdir -p $ELASTICSEARCH_PREFIX
-        curl -L -o es.tgz https://download.elasticsearch.org/elasticsearch/release/org/elasticsearch/distribution/tar/elasticsearch/2.2.1/elasticsearch-2.2.1.tar.gz
+        curl -L -o es.tgz https://download.elasticsearch.org/elasticsearch/release/org/elasticsearch/distribution/tar/elasticsearch/2.3.1/elasticsearch-2.3.1.tar.gz
         tar -C $ELASTICSEARCH_PREFIX --strip-components=1 -xzf es.tgz
         rm -rf es.tgz
         cd $ELASTICSEARCH_PREFIX

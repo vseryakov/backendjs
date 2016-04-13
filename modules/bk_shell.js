@@ -170,7 +170,7 @@ shell.assert = function(next, err)
 
     if (err) {
         var args = [ util.isError(err) ? err : lib.isObject(err) ? lib.objDescr(err) : ("TEST ASSERTION: " + lib.objDescr(arguments[2])) ];
-        for (var i = 3; i < arguments.length; i++) args.push(arguments[i]);
+        for (var i = 2; i < arguments.length; i++) args.push(arguments[i]);
         logger.error.apply(logger, args);
         err = args[0];
     }
@@ -1004,7 +1004,7 @@ shell.cmdAwsCreateImage = function(options)
     options.instanceId = this.getArg("-instance-id");
     options.noreboot = this.isArg("-no-reboot");
     options.reboot = this.isArg("-reboot");
-    options.interval = lib.getArgInt("-interval", 2000);
+    options.interval = lib.getArgInt("-interval", 5000);
     if (lib.isArg("-dry-run")) return shell.exit(null, options);
     var imgId;
     lib.series([
@@ -1015,11 +1015,11 @@ shell.cmdAwsCreateImage = function(options)
            });
        },
        function(next) {
-           if (!imgId || !shell.getArg("-wait")) return next();
-           var running = 1, expires = Date.now() + lib.getArgInt("-timeout", 180000);
+           if (!imgId || !shell.isArg("-wait")) return next();
+           var running = 1, expires = Date.now() + lib.getArgInt("-timeout", 300000);
            lib.doWhilst(
              function(next) {
-                 aws.queryELB("DescribeImages", { "ImageId.1": imgId }, function(err, rc) {
+                 aws.queryEC2("DescribeImages", { "ImageId.1": imgId }, function(err, rc) {
                      if (err) return next(err);
                      var images = lib.objGet(rc, "DescribeImagesResponse.imagesSet.item", { list: 1 });
                      running = (images.length && images[0].imageState == "available") || Date.now() > expires ? 0 : 1;
