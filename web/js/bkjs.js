@@ -395,27 +395,37 @@ var Bkjs = {
         }
         if (!options.level) options.level = 0;
         if (!options.indent) options.indent = "";
-        var style = "    ";
+        if (typeof options.nl1 == "undefined") options.nl1 = "\n";
+        if (typeof options.nl2 == "undefined") options.nl2 = "\n";
+        if (typeof options.sbracket1 == "undefined") options.sbracket1 = "[";
+        if (typeof options.sbracket2 == "undefined") options.sbracket2 = "]";
+        if (typeof options.cbracket1 == "undefined") options.cbracket1 = "{";
+        if (typeof options.cbracket2 == "undefined") options.cbracket2 = "}";
+        if (typeof options.quote1 == "undefined") options.quote1 = '"';
+        if (typeof options.quote2 == "undefined") options.quote2 = '"';
+        if (typeof options.space == "undefined") options.space = "    ";
+        if (typeof options.comma == "undefined") options.comma = ",";
+
         var type = this.typeName(obj);
         var count = 0;
-        var text = type == "array" ? "[" : "{";
+        var text = type == "array" ? options.sbracket1 : options.cbracket1;
         // Insert newlines only until specified level deep
         var nline = !options.indentlevel || options.level < options.indentlevel;
 
         for (var p in obj) {
             var val = obj[p];
-            if (count > 0) text += ",";
+            if (count > 0) text += options.comma;
             if (type != "array") {
-                text += ((nline ? "\n" + options.indent + style : " " ) + "\"" + p + "\"" + ": ");
+                text += ((nline ? (!options.level && !count ? "" : options.nl1) + options.indent + options.space : " ") + options.quote1 + p + options.quote2 + ": ");
             }
             switch (this.typeName(val)) {
             case "array":
             case "object":
-                options.indent += style;
+                options.indent += options.space;
                 options.level++;
                 text += this.formatJSON(val, options);
                 options.level--;
-                options.indent = options.indent.substr(0, options.indent.length - style.length);
+                options.indent = options.indent.substr(0, options.indent.length - options.space.length);
                 break;
             case "boolean":
             case "number":
@@ -425,14 +435,14 @@ var Bkjs = {
                 text += "null";
                 break;
             case "string":
-                text += ("\"" + val + "\"");
+                text += (options.quote1 + val + options.quote2);
                 break;
             default:
                 text += ("unknown: " + typeof(val));
             }
             count++;
         }
-        text += type == "array" ? "]" : ((nline ? "\n" + options.indent : " ") + "}");
+        text += type == "array" ? options.sbracket2 : ((nline ? options.nl2 + options.indent : " ") + options.cbracket2);
         return text;
     },
 
