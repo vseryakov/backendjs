@@ -1191,9 +1191,20 @@ case "$ARG" in
     [ "$region" != "" ] && region="--region $region"
     name=$(get_arg -name)
     [ "$name" != "" ] && tags="Name=tag:Name,Values=${name}"
-    instances=$(aws ec2 describe-instances $region --filter "Name=instance-state-name,Values=running" $tags --query 'Reservations[*].Instances[*].[InstanceId,PrivateIpAddress,PublicIpAddress,Tags[?Key==`Name`]]' --output text|awk '{if($4=="None")print $0;else if($1=="Name")print $2;else printf "%s ",$0;}')
-    [ "$(get_flag -showip)" != "" ] && instances=$(echo "$instances"|awk '{print $2}')
+    instances=$(aws ec2 describe-instances $region --filter "Name=instance-state-name,Values=running" $tags --query 'Reservations[*].Instances[*].[InstanceId,PrivateIpAddress,PublicIpAddress,KeyName,Tags[?Key==`Name`]]' --output text|awk '{if($4=="None")print $0;else if($1=="Name")print $2;else printf "%s ",$0;}')
+    fmt=$(get_arg -fmt)
+    [ "$fmt" != "" ] && instances=$(echo "$instances"|awk "{print $(echo $fmt|sed -e 's/id/\$1/' -e 's/ip/\$2/' -e 's/host/\$3/' -e 's/key/\$4/' -e 's/name/\$5/')}")
     echo "$instances"
+    ;;
+
+  ec2-ssh)
+    name=$(get_arg -name)
+    user=$(get_arg -user ec2-user)
+    region=$(get_arg -region)
+    cmd=$($0 show-instances -region "$region" -name "$name"|awk "{printf \"ssh -i ~/.ssh/\%s.pem -l $user %s\n\",\$4,\$3}"|head -1)
+    [ "$cmd" = "" ] && exit 1
+    [ "$BKJS_DEBUG" != ""] && echo $cmd
+    eval $cmd
     ;;
 
   show-help)
@@ -1497,7 +1508,8 @@ EOF
     echo "  install-bkjs - install the $BKJS_MOD from the github using npm, build dependencies are passed in -args"
     echo "  build-bkjs - clone and build the $BKJS_MOD from the git in the current dir with dependencies specified in -args"
     echo "  build-node - build node and install in $BKJS_PREFIX or in [-prefix PATH], on Linux init-devel should be called before this command to install devel packages"
-    echo "  show-instances [-ip] [-region region] [-name name] - show running instances in region, optional tag pattern can be used for filter, -showip will show only IP addresses of instances"
+    echo "  show-instances [-region region] [-name name] [-fmt fmt]- show running instances in region, optional tag pattern can be used for filter, FMT may contain: id,ip,host,key,name which will be replaced with actual values"
+    echo "  ec2-ssh -name name [-region region] - login using ssh to a host by tag name, key name will be used to specify a keypair from ~/.ssh/"
     echo "  show-help - show all backend command line and config parameters"
     echo ""
     echo "bksh commands:"

@@ -1117,7 +1117,7 @@ shell.cmdAwsShowInstances = function(options)
        function(next) {
            logger.debug("showInstances:", instances);
            if (col) {
-               var map = { priv: "privateIpAddress", ip: "ipAddress", id: "instanceId", name: "name" }
+               var map = { priv: "privateIpAddress", ip: "ipAddress", id: "instanceId", name: "name", key: "keyName" }
                console.log(instances.map(function(x) { return lib.objDescr(x[map[col] || col]) }).join(" "));
            } else {
                instances.forEach(function(x) { console.log(x.instanceId, x.subnetId, x.privateIpAddress, x.ipAddress, x.name, x.keyName); });
