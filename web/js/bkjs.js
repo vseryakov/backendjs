@@ -404,7 +404,8 @@ var Bkjs = {
         if (typeof options.quote1 == "undefined") options.quote1 = '"';
         if (typeof options.quote2 == "undefined") options.quote2 = '"';
         if (typeof options.space == "undefined") options.space = "    ";
-        if (typeof options.comma == "undefined") options.comma = ",";
+        if (typeof options.comma == "undefined") options.comma = ", ";
+        if (typeof options.sep == "undefined") options.sep = ", ";
 
         var type = this.typeName(obj);
         var count = 0;
@@ -414,7 +415,9 @@ var Bkjs = {
 
         for (var p in obj) {
             var val = obj[p];
-            if (count > 0) text += options.comma;
+            if (count > 0) {
+                text += type == "array" ? options.sep : options.comma;
+            }
             if (type != "array") {
                 text += ((nline ? (!options.level && !count ? "" : options.nl1) + options.indent + options.space : " ") + options.quote1 + p + options.quote2 + ": ");
             }
@@ -476,6 +479,7 @@ var Bkjs = {
             Y: function(t) { return utc ? t.getUTCFullYear() : t.getFullYear() },
             t: function(t) { return t.getTime() },
             u: function(t) { return Math.floor(t.getTime()/1000) },
+            Z: function(t) { return "GMT" + (-t.getTimezoneOffset()/60) + "00" },
             '%': function(t) { return '%' },
         };
         for (var h in handlers) {

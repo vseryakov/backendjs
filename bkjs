@@ -1194,16 +1194,21 @@ case "$ARG" in
     instances=$(aws ec2 describe-instances $region --filter "Name=instance-state-name,Values=running" $tags --query 'Reservations[*].Instances[*].[InstanceId,PrivateIpAddress,PublicIpAddress,KeyName,Tags[?Key==`Name`]]' --output text|awk '{if($4=="None")print $0;else if($1=="Name")print $2;else printf "%s ",$0;}')
     fmt=$(get_arg -fmt)
     [ "$fmt" != "" ] && instances=$(echo "$instances"|awk "{print $(echo $fmt|sed -e 's/id/\$1/' -e 's/ip/\$2/' -e 's/host/\$3/' -e 's/key/\$4/' -e 's/name/\$5/')}")
-    echo "$instances"
+    if [ "$(get_flag -line)" != "" ]; then
+       echo "$instances" | tr '\n' ' '
+    else
+       echo "$instances"
+    fi
     ;;
 
   ec2-ssh)
     name=$(get_arg -name)
+    [ "$name" = "" ] && echo "-name is required" && exit 1
     user=$(get_arg -user ec2-user)
     region=$(get_arg -region)
     cmd=$($0 show-instances -region "$region" -name "$name"|awk "{printf \"ssh -i ~/.ssh/\%s.pem -l $user %s\n\",\$4,\$3}"|head -1)
     [ "$cmd" = "" ] && exit 1
-    [ "$BKJS_DEBUG" != ""] && echo $cmd
+    [ "$BKJS_DEBUG" != "" ] && echo $cmd
     eval $cmd
     ;;
 
