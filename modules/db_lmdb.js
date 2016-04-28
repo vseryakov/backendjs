@@ -228,7 +228,7 @@ Pool.prototype.query = function(client, req, options, callback)
 
     case "incr":
         var key = this.getKey(table, obj, options);
-        var nums = lib.searchObj(options.updateOps, { value: "incr", names: 1 });
+        var nums = lib.searchObj(options.updateOps, { hasvalue: "incr", names: 1 });
         if (!nums.length) return callback();
         client.get(key, function(err, item) {
             if (err) return callback(err);

@@ -69,13 +69,13 @@ Pool.prototype.query = function(client, req, options, callback)
     case "create":
     case "upgrade":
         var views = {}, changed = 0;
-        var cols = Object.keys(lib.searchObj(req.obj, { name: 'primary', sort: 1, flag: 1 }));
+        var cols = Object.keys(lib.searchObj(req.obj, { exists: 'primary', sort: 1, flag: 1 }));
         if (cols.length) views.primary = cols;
 
         ["", "1", "2", "3", "4", "5"].forEach(function(n) {
-            var cols = Object.keys(lib.searchObj(req.obj, { name: "unique" + n, sort: 1, flag: 1 }));
+            var cols = Object.keys(lib.searchObj(req.obj, { exists: "unique" + n, sort: 1, flag: 1 }));
             if (cols.length) views[cols.join("_")] = cols;
-            cols = Object.keys(lib.searchObj(req.obj, { name: "index" + n, sort: 1, flag: 1 }));
+            cols = Object.keys(lib.searchObj(req.obj, { exists: "index" + n, sort: 1, flag: 1 }));
             if (cols.length) views[cols.join("_")] = cols;
         });
 
