@@ -306,7 +306,7 @@ case "$ARG" in
     # Allow only pubkey auth
     if [ "$(grep -s '#Bkjs' /etc/ssh/sshd_config)" = "" ]; then
        echo "Configuring ssh..."
-       egrep -v '^(#Bkjs|PasswordAuth|GSSAPIAuth|MaxAuth|MaxSess|ClientAlive)' /etc/ssh/sshd_config > /tmp/sshd_config
+       egrep -v '^(#Bkjs|PasswordAuth|GSSAPIAuth|MaxAuth|MaxSess|ClientAlive|PermitRootLogin)' /etc/ssh/sshd_config > /tmp/sshd_config
        echo "" >> /tmp/sshd_config
        echo "#Bkjs config" >> /tmp/sshd_config
        echo "PasswordAuthentication no" >> /tmp/sshd_config
@@ -315,6 +315,7 @@ case "$ARG" in
        echo "MaxSessions 10" >> /tmp/sshd_config
        echo "ClientAliveInterval 15" >> /tmp/sshd_config
        echo "ClientAliveCountMax 5" >> /tmp/sshd_config
+       echo "PermitRootLogin no" >> /tmp/sshd_config
        mv /tmp/sshd_config /etc/ssh
        chmod 600 /etc/sshd_config
        service sshd restart
