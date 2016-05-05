@@ -763,7 +763,7 @@ shell.getElbCount = function(name, equal, total, options, callback)
 shell.awsGetUserData = function(options)
 {
     var userData = this.getArg("-user-data", options);
-    if (!userData || userData.match(/^#cloudconfig/)) {
+    if (!userData || userData.match(/^#cloud-config/)) {
         var cloudInit = "";
         var runCmd = this.getArgList("-cloudinit-cmd", options);
         if (runCmd.length) cloudInit += "runcmd:\n" + runCmd.map(function(x) { return " - " + x }).join("\n") + "\n";
@@ -772,7 +772,7 @@ shell.awsGetUserData = function(options)
         var user = this.getArg("-user", options, "ec2-user");
         var bkjsCmd = this.getArgList("-bkjs-cmd", options);
         if (bkjsCmd.length) cloudInit += "runcmd:\n" + bkjsCmd.map(function(x) { return " - /home/" + user + "/bin/bkjs " + x }).join("\n") + "\n";
-        if (cloudInit) userData = !userData ? "#cloudconfig\n" + cloudInit : "\n" + cloudInit;
+        if (cloudInit) userData = !userData ? "#cloud-config\n" + cloudInit : "\n" + cloudInit;
     }
     return userData;
 }
@@ -1376,7 +1376,7 @@ shell.cmdAwsCreateLaunchConfig = function(options)
     var config, image, instance, groups;
     var req = {
         LaunchConfigurationName: this.getArg("-name", options),
-        InstanceType: this.getArg("-instance-type", options),
+        InstanceType: this.getArg("-instance-type", options, aws.instanceType),
         ImageId: this.getArg("-image-id", options, aws.imageId),
         InstanceId: this.getArg("-instance-id", options),
         KeyName: this.getArg("-key-name", options, aws.keyName),
@@ -1385,6 +1385,12 @@ shell.cmdAwsCreateLaunchConfig = function(options)
         UserData: this.awsGetUserData(options),
         "SecurityGroups.member.1": this.getArg("-group-id", options, aws.groupId),
     };
+    var d = this.getArg("-device", options).match(/^([a-z0-9\/]+):([a-z0-9]+):([0-9]+)$/);
+    if (d) {
+        req['BlockDeviceMappings.member.1.DeviceName'] = d[1];
+        req['BlockDeviceMappings.member.1.Ebs.VolumeType'] = d[2];
+        req['BlockDeviceMappings.member.1.Ebs.VolumeSize'] = d[3];
+    }
 
     lib.series([
        function(next) {
@@ -1449,10 +1455,15 @@ shell.cmdAwsCreateLaunchConfig = function(options)
            }
            if (!req.LaunchConfigurationName && image) req.LaunchConfigurationName = image.name;
            if (!req.LaunchConfigurationName) req.LaunchConfigurationName = appName + "-" + appVersion;
-           if (!req.InstanceType) req.InstanceType = config.InstanceType;
+           if (!req.InstanceType) req.InstanceType = config.InstanceType || aws.instanceType;
            if (!req.KeyName) req.KeyName = config.KeyName || appName;
            if (!req.IamInstanceProfile) req.IamInstanceProfile = config.IamInstanceProfile || appName;
            if (!req.UserData) req.UserData = config.UserData;
+           if (!req['BlockDeviceMappings.member.1.DeviceName']) {
+               lib.objGet(config, "BlockDeviceMappings.member", { list: 1 }).forEach(function(x, i) {
+                   req["BlockDeviceMappings.member." + (i + 1)] = x;
+               });
+           }
            if (!req["SecurityGroups.member.1"]) {
                lib.objGet(config, "SecurityGroups.member", { list: 1 }).forEach(function(x, i) {
                    req["SecurityGroups.member." + (i + 1)] = x;

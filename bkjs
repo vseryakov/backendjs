@@ -60,7 +60,7 @@ get_arg() {
   for ((i = 0;i < ${#ARGS[@]}; ++i)); do
     [ "$1" = "${ARGS[i]}" ] && echo "${ARGS[i+1]}" && return 0
   done
-  echo $2
+  echo "$2"
 }
 
 # Returns 1 if an argument exists
@@ -75,13 +75,13 @@ concat_arg() {
   _v=$(get_arg $1)
   [ "$_v" == "" ] && echo $2
   [ "$2" != "" ] && _v="$2 $_v"
-  echo $_v
+  echo "$_v"
 }
 
 # Return value of the named pair from the variable that holds all them
 get_value() {
   v=$(echo "$1"|awk -F= "{if(\$1==\"$2\" && \$2!=\"\") print \$2}")
-  echo ${v:-$3}
+  echo "${v:-$3}"
 }
 
 # Return config parameter value by name
@@ -509,8 +509,23 @@ case "$ARG" in
     echo "Init service $SERVICE with $BKJS_PATH"
     ln -sf $BKJS_PATH /etc/init.d/$SERVICE
     chkconfig $SERVICE on
-    # Start if command is given
-    [ "$BKJS_ARGS" != "" ] && service $SERVICE $BKJS_ARGS
+    server=$(get_arg -server)
+    if [ "$server" != "" ]; then
+       echo "BKJS_SERVER=$server" > /tmp/profile
+       grep -vs BKJS_SERVER $BKJS_HOME/etc/profile >> /tmp/profile
+       mv /tmp/profile $BKJS_HOME/etc
+       chown $BKJS_USER $BKJS_HOME/etc/profile
+    fi
+    # Execute a command if given
+    cmd=$(get_arg -cmd)
+    [ "$cmd" != "" ] && service $SERVICE $cmd
+    ;;
+
+  stop-service)
+    [ "$BKJS_PATH" = "" ] && BKJS_PATH=$BKJS_BIN
+    SERVICE=$(basename $BKJS_PATH | awk -F. '{print $1}')
+    echo "Stopping service $SERVICE with $BKJS_PATH"
+    chkconfig $SERVICE off
     ;;
 
   init-monit-system)
@@ -526,19 +541,19 @@ case "$ARG" in
     ;;
 
   init-logwatcher)
-    cron=$(get_arg -cron "*/30 * * * *")
+    cron=$(get_arg -cron '*/30 * * * *')
     echo 'MAILTO=""' > /etc/cron.d/$BKJS-logwatcher
     echo "$cron $BKJS_USER $BKJS_BIN run-logwatcher" >> /etc/cron.d/$BKJS-logwatcher
     ;;
 
   init-backup)
-    cron=$(get_arg -cron "30 3 * * *")
+    cron=$(get_arg -cron '30 3 * * *')
     echo 'MAILTO=""' > /etc/cron.d/$BKJS-backup
     echo "$cron root $BKJS_BIN run-backup" >> /etc/cron.d/$BKJS-backup
     ;;
 
   init-sync)
-    cron=$(get_arg -cron "*/15 * * * *")
+    cron=$(get_arg -cron '*/15 * * * *')
     echo 'MAILTO=""' > /etc/cron.d/$BKJS-sync
     echo "$cron $BKJS_USER $BKJS_BIN run-sync" >> /etc/cron.d/$BKJS-sync
     ;;
@@ -1056,6 +1071,7 @@ case "$ARG" in
     ;;
 
   get-dynamodb)
+  [ "$(get_arg -force)" != "" -a "$DYNAMODB_PREFIX" != "" ] && rm -rf $DYNAMODB_PREFIX
     if [ ! -d $DYNAMODB_PREFIX ]; then
        mkdir -p $DYNAMODB_PREFIX
        curl -L -o ddb.tgz http://dynamodb-local.s3-website-us-west-2.amazonaws.com/dynamodb_local_latest.tar.gz
@@ -1075,6 +1091,7 @@ case "$ARG" in
     ;;
 
   get-cassandra)
+    [ "$(get_arg -force)" != "" -a "$CASSANDRA_PREFIX" != "" ] && rm -rf $CASSANDRA_PREFIX
     if [ ! -d $CASSANDRA_PREFIX ]; then
         mkdir -p $CASSANDRA_PREFIX $CASSANDRA_DIR
         curl -OL http://downloads.datastax.com/community/dsc.tar.gz
@@ -1110,9 +1127,10 @@ case "$ARG" in
     ;;
 
   get-elasticsearch)
+  [ "$(get_arg -force)" != "" -a "$ELASTICSEARCH_PREFIX" != "" ] && rm -rf $ELASTICSEARCH_PREFIX
     if [ ! -d $ELASTICSEARCH_PREFIX ]; then
         mkdir -p $ELASTICSEARCH_PREFIX
-        curl -L -o es.tgz https://download.elasticsearch.org/elasticsearch/release/org/elasticsearch/distribution/tar/elasticsearch/2.3.1/elasticsearch-2.3.1.tar.gz
+        curl -L -o es.tgz https://download.elasticsearch.org/elasticsearch/release/org/elasticsearch/distribution/tar/elasticsearch/2.3.2/elasticsearch-2.3.2.tar.gz
         tar -C $ELASTICSEARCH_PREFIX --strip-components=1 -xzf es.tgz
         rm -rf es.tgz
         cd $ELASTICSEARCH_PREFIX
@@ -1121,8 +1139,8 @@ case "$ARG" in
         echo "script.inline: on" >> config/elasticsearch.yml
         echo "script.indexed: on" >> config/elasticsearch.yml
         if [ "$OS_TYPE" = "amazon" ]; then
-           echo "network.host: _ec2_" >> config/elasticsearch.yml
-           echo "discovery.type: ec2" >> config/elasticsearch.yml
+           echo 'network.host: ["_ec2_","_local_"]' >> config/elasticsearch.yml
+           echo 'discovery.type: ec2' >> config/elasticsearch.yml
            bin/plugin install cloud-aws -b
         fi
     fi
@@ -1144,7 +1162,7 @@ case "$ARG" in
   run-elasticsearch)
     # Percent from the total memory
     memsize=$(get_arg -memsize)
-    [ "$size" != "" ] && memmax="$(( ($(free -m|grep Mem:|awk '{print $2}') * $memsize) / 100 ))m"
+    [ "$memsize" != "" ] && memmax="$(( ($(free -m|grep Mem:|awk '{print $2}') * $memsize) / 100 ))m"
     memmax=$(get_arg -memmax $memmax)
     if [ "$memmax" != "" ]; then
        export ES_MAX_MEM=$memmax
@@ -1155,6 +1173,15 @@ case "$ARG" in
 
   stop-elasticsearch)
     kill $(ps agx|grep org.elasticsearch|grep -v grep|awk '{print $1}')
+    ;;
+
+  upgrade-elasticsearch)
+    curl -XPUT localhost:9200/_cluster/settings -d '{"transient":{"cluster.routing.allocation.enable": "none"}}'
+    $0 stop-elasticsearch
+    $0 get-elasticsearch -force
+    monit reload
+    sleep $(get_arg -sleep 30)
+    curl -XPUT localhost:9200/_cluster/settings -d '{"transient":{"cluster.routing.allocation.enable": "all"}}'
     ;;
 
   get-mongodb)
@@ -1460,7 +1487,7 @@ EOF
     echo "  init-sendmail - [-domain DOMAIN] -host HOST -user USER -password PW - configure sendmail as relay to SES SMTP"
     echo "  init-dns - install and setup dnsmasq for local cahching DNS server"
     echo "  init-instancejob - configure a checker for temporary job instance"
-    echo "  init-service - create bkjs service to be run on server startup, i.e. makes symlink /etc/init.d/$BKJS after which regular 'service' command can be used to manage the $BKJS service"
+    echo "  init-service [-server NAME] - create bkjs service to be run on server startup, i.e. makes symlink /etc/init.d/$BKJS after which regular 'service' command can be used to manage the $BKJS service"
     echo "  init-sync - setup a cron job to run run-sync command every 5 minites to check for new software on the \$BKJS_SYNC server"
     echo "  init-packages - install required packges and updates"
     echo "  init-devel - install development packages for node and modules compiclation"
@@ -1503,6 +1530,7 @@ EOF
     echo "  init-elasticsearch-service [-memsize PERCENT] [-memmax SIZE] - setup monit to keep elasticsearch service running"
     echo "  run-elasticsearch [-memsize PERCENT] [-memmax SIZE] - run local ElasticSearch server installed in $BKJS_PREFIX/elasticsearch, -memmax is max heap size, -memsize is the percent of the total memory to use"
     echo "  stop-elasticsearch - stop local ElasticSearch server"
+    echo "  upgrade-elasticsearch - update with a new version and restart"
     echo "  init-mysql [-db DB] - setup MySQL server for development and create initial database, start the server"
     echo "  run-mysql - run local MySQL server installed in $MYSQL_DIR"
     echo "  stop-mysql - stop local MySQL server"
