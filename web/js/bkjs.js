@@ -29,6 +29,9 @@ var Bkjs = {
     tzName: "bk-tz",
     langName: "bk-lang",
 
+    // For urls without host this will be used to make a full absolute URL, can be used for CORS
+    locationUrl: "",
+
     // Current account record
     account: {},
 
@@ -238,6 +241,8 @@ var Bkjs = {
         if (typeof options == "string") options = { url: options };
 
         if (!options.dataType) options.dataType = 'json';
+        if (this.locationUrl && !options.url.match(/^https?:/)) options.url = this.locationUrl + options.url;
+
         // Success callback but if it throws exception we call error handler instead
         options.success = function(json, status, xhr) {
             self.loading("hide");
