@@ -53,7 +53,7 @@ var Bkjs = {
         if (typeof login == "function") callback = login, login = secret = null;
         if (typeof login =="string" && typeof secret == "string") this.setCredentials(login, secret);
 
-        self.send({ url: "/auth?" + (this.session ? "_session=1" : "_session=0"), jsonType: "obj" }, function(data, xhr) {
+        self.send({ url: "/auth?_session=" + this.session, jsonType: "obj" }, function(data, xhr) {
             self.loggedIn = true;
             self.account = data;
             // Clear credentials from the memory if we use sessions
