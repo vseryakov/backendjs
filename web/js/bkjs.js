@@ -203,6 +203,14 @@ var Bkjs = {
         self.sendRequest({ url: '/account/update', data: obj, type: "POST", jsonType: "obj" }, callback);
     },
 
+    // Return true if the account contains the given type
+    checkAccountType: function(account, type) {
+        if (!account || !account.type) return false;
+        account._types = Array.isArray(account._types) ? account._types : String(account.type).split(",").map(function(x) { return x.trim() });
+        if (Array.isArray(type)) return type.some(function(x) { return account._types.indexOf(x) > -1 });
+        return account._types.indexOf(type) > -1;
+    },
+
     // Wait for events and call the callback, this runs until Backend.unsubscribe is set to true
     subscribeAccount: function(callback) {
         var self = this;
