@@ -19,7 +19,7 @@ var logger = require(__dirname + '/../lib/logger');
 var pool = {
     name: "cassandra",
     configOptions: {
-        typesMap: { json: "text", real: "double", counter: "counter", bigint: "bigint" },
+        typesMap: { json: "text", real: "double", counter: "counter", bigint: "bigint", now: "bigint" },
         opsMap: { begins_with: "begins_with" },
         sqlPlaceholder: "?",
         strictTypes: 1,

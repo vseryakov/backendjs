@@ -12,7 +12,7 @@ var logger = require(__dirname + '/../lib/logger');
 var pool = {
     name: "mysql",
     configOptions: {
-        typesMap: { json: "text", bigint: "bigint" },
+        typesMap: { json: "text", bigint: "bigint", now: "bigint" },
         sqlPlaceholder: "?",
         defaultType: "VARCHAR(128)",
         noIfExists: 1,

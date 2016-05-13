@@ -13,7 +13,7 @@ var logger = require(__dirname + '/../lib/logger');
 var pool = {
     name: "pgsql",
     configOptions: {
-        typesMap: { real: "numeric", bigint: "bigint", smallint: "smallint", search: "tsvector" },
+        typesMap: { real: "numeric", bigint: "bigint", smallint: "smallint", search: "tsvector", now: "bigint" },
         noIfExists: 1,
         noReplace: 1,
         schema: ['public']
