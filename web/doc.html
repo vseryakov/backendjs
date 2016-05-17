@@ -445,13 +445,13 @@ at the same time, for example lets define album table and make sure it exists wh
            album: {
                id: { primary: 1 },                         // Primary key for an album
                name: { pub: 1 },                           // Album name, public column
-               mtime: { type: &quot;bigint&quot; },                  // Modification timestamp
+               mtime: { type: &quot;now&quot; },                     // Modification timestamp
            },
            photo: {
                album_id: { primary: 1 },                   // Combined primary key
                id: { primary: 1 },                         // consiting of album and photo id
                name: { pub: 1, index: 1 },                 // Photo name or description, public column with the index for faster search
-               mtime: { type: &quot;bigint&quot; }
+               mtime: { type: &quot;now&quot; }
            }
         });
 </code></pre>
@@ -504,7 +504,7 @@ hooks are registered and return data itself then it is the hook responsibility t
           id: { type: &quot;int&quot;, primary: 1 },
           name: {},
           price: { type: &quot;real&quot; },
-          mtime: { type: &quot;bigint&quot;, now: 1 }
+          mtime: { type: &quot;now&quot; }
        }
     }
 }
@@ -554,7 +554,7 @@ operations like add/update/delete a record, show all records.</p>
            due: {},                           // Due date
            name: {},                          // Short task name
            descr: {},                         // Full description
-           mtime: { type: &quot;bigint&quot;, now: 1 }  // Last update time in ms
+           mtime: { type: &quot;now&quot; }             // Last update time in ms
        }
     });
 
@@ -2235,7 +2235,7 @@ Database pool statistics and other diagnostics</p>
 <li><code>locales-dir</code> - Path where to keep locale translations</li>
 <li><code>uid</code> - User id or name to switch after startup if running as root, used by Web servers and job workers</li>
 <li><code>gid</code> - Group id or name to switch after startup if running to root</li>
-<li><code>email</code> - Email address to be used when sending emails from the backend</li>
+<li><code>email-from</code> - Email address to be used when sending emails from the backend</li>
 <li><code>role</code> - Override servers roles, this may have very strange side effects and should only be used for testing purposes</li>
 <li><code>force-uid</code> - Drop privileges if running as root by all processes as early as possibly, this reqiures uid being set to non-root user. A convenient switch to start the backend without using any other tools like su or sudo.</li>
 <li><code>umask</code> - Permissions mask for new files, calls system umask on startup, if not specified the current umask is used</li>
@@ -2381,6 +2381,7 @@ Database pool statistics and other diagnostics</p>
 <li><code>api-signature-header-name</code> - Name for the access signature query parameter, header and session cookie</li>
 <li><code>api-lang-header-name</code> - Name for the language query parameter, header and session cookie, primary language for a client</li>
 <li><code>api-signature-age</code> - Max age for request signature in milliseconds, how old the API signature can be to be considered valid, the &#39;expires&#39; field in the signature must be less than current time plus this age, this is to support time drifts</li>
+<li><code>api-access-time-interval</code> - Intervals to refresh last access time for accounts, only updates the cache if <code>bk_auth</code> is configured to be cached</li>
 <li><code>api-access-token-name</code> - Name for the access token query parameter or header</li>
 <li><code>api-access-token-secret</code> - A secret to be used for access token signatures, additional enryption on top of the signature to use for API access without signing requests, it is required for access tokens to be used</li>
 <li><code>api-access-token-age</code> - Access tokens age in milliseconds, for API requests with access tokens only</li>
@@ -2412,9 +2413,9 @@ Database pool statistics and other diagnostics</p>
 <li><code>api-cors-origin</code> - Origin header for CORS requests</li>
 <li><code>api-error-message</code> - Default erro rmessage to return in case of exceptions</li>
 <li><code>api-url-metrics-([a-z]+)</code> - Defines the length of an API request path to be stored in the statistics, set by the first component of endpoint URL, example: -api-url-metrics-image 2 -api-url-metrics-account 3</li>
-<li><code>api-rlimits-([a-zA-Z0-9/_]+)-max</code> - Set max/burst rate limit by the given property, it is used by the request rate limiter using Token Bucket algorithm. Predefined types: ip, path, id, login</li>
-<li><code>api-rlimits-([a-zA-Z0-9/_]+)-rate</code> - Set fill/normal rate limit by the given property, it is used by the request rate limiter using Token Bucket algorithm. Predefined types: ip, path, id, login</li>
-<li><code>api-rlimits-([a-zA-Z0-9/_]+)-interval</code> - Set rate interval in ms by the given property, it is used by the request rate limiter using Token Bucket algorithm. Predefined types: ip, path, id, login</li>
+<li><code>api-rlimits-max-(.+)</code> - Set max/burst rate limit by the given property, it is used by the request rate limiter using Token Bucket algorithm. Predefined types: ip, path, id, login</li>
+<li><code>api-rlimits-rate-(.+)</code> - Set fill/normal rate limit by the given property, it is used by the request rate limiter using Token Bucket algorithm. Predefined types: ip, path, id, login</li>
+<li><code>api-rlimits-interval-(.+)</code> - Set rate interval in ms by the given property, it is used by the request rate limiter using Token Bucket algorithm. Predefined types: ip, path, id, login</li>
 <li><code>api-rlimits-total</code> - Total number of servers used in the rate limiter behind a load balancer, rates will be divided by this number so each server handles only a portion of the total rate limit</li>
 <li><code>api-rlimits-interval</code> - Interval in ms for all rate limiters, defines the time unit, default is 1000 ms</li>
 <li><code>api-exit-on-error</code> - Exit on uncaught exception in the route handler</li>
@@ -2492,23 +2493,26 @@ early with some properties always present:<ul>
 <ul>
 <li><p><code>Database tables</code></p>
 <pre><code>      // Authentication by login, only keeps id and secret to check the siganture
-      bk_auth: { login: { primary: 1 },                              // Account login
-                 id: {},                                             // Auto generated UUID to be linked with other records
-                 alias: {},                                          // Account alias
-                 status: {},                                         // Status of the account
-                 type: { admin: 1 },                                 // Account type: admin, ....
-                 secret: { secure: 1 },                              // Signature secret, not a password
-                 auth_secret: { admin: 1, secure: 1 },               // Code for 2-factor authentication
-                 token_secret: { admin: 1, secure: 1 },              // Secret for access tokens
-                 salt: { secure: 1 },                                // Salt for passwords
-                 password: { secure: 1},                             // Hashed with salt
-                 acl_deny: { admin: 1, secure: 1 },                  // Deny access to matched url, a regexp
-                 acl_allow: { admin: 1, secure: 1 },                 // Only grant access if path matches this regexp
-                 query_deny: { admin: 1, secure: 1 },                // Ignore these query params, a regexp
-                 rlimits_max: { type: &quot;int&quot; },                       // Burst/max reqs/sec rate allowed for this account, 0 to disable
-                 rlimits_rate: { type: &quot;int&quot; },                      // Fill/normal reqs/sec rate for this account, 0 to disable
-                 expires: { type: &quot;bigint&quot;, admin: 1, secure: 1 },   // Deny access to the account if this value is before current date, milliseconds
-                 mtime: { type: &quot;bigint&quot;, now: 1 } },
+      bk_auth: {
+          login: { primary: 1 },                              // Account login
+          id: { type: &quot;uuid&quot; },                               // Auto generated UUID to be linked with other records
+          alias: { type: &quot;text&quot; },                            // Account alias
+          status: { type: &quot;text&quot; },                           // Status of the account
+          type: { type: &quot;text&quot;, admin: 1 },                   // Account type: admin, ....
+          secret: { secure: 1 },                              // Signature secret, not a password
+          auth_secret: { admin: 1, secure: 1 },               // Code for 2-factor authentication
+          token_secret: { admin: 1, secure: 1 },              // Secret for access tokens
+          salt: { secure: 1 },                                // Salt for passwords
+          password: { secure: 1 },                            // Hashed with salt
+          acl_deny: { admin: 1, secure: 1 },                  // Deny access to matched url, a regexp
+          acl_allow: { admin: 1, secure: 1 },                 // Only grant access if path matches this regexp
+          query_deny: { admin: 1, secure: 1 },                // Ignore these query params, a regexp
+          rlimits_max: { type: &quot;int&quot; },                       // Burst/max reqs/sec rate allowed for this account, 0 to disable
+          rlimits_rate: { type: &quot;int&quot; },                      // Fill/normal reqs/sec rate for this account, 0 to disable
+          expires: { type: &quot;bigint&quot;, admin: 1, secure: 1 },   // Deny access to the account if this value is before current date, milliseconds
+          ctime: { type: &quot;now&quot;, readonly: 1 },                // Create time
+          mtime: { type: &quot;now&quot; }
+      },
 
       // Collected metrics per worker process, basic columns are defined in the table to be collected like
       // api and db request rates(.rmean), response times(.hmean) and total number of requests(_0).
@@ -3634,8 +3638,9 @@ will be loaded.</p>
 The following options can be specified:</p>
 <ul>
 <li>count - how many messages to receive</li>
-<li>timeout - how long to wait, this is for Long Poll</li>
-<li>visibilityTimeout - the duration (in seconds) that the received messages are hidden from subsequent retrieve requests after being retrieved by a ReceiveMessage request.</li>
+<li>timeout - how long to wait, in milliseconds, this is for Long Poll</li>
+<li>visibilityTimeout - the duration (in milliseconds) that the received messages are hidden from subsequent retrieve requests
+after being retrieved by a ReceiveMessage request.</li>
 </ul>
 </li>
 </ul>
@@ -3645,8 +3650,9 @@ The following options can be specified:</p>
 <p> Send a message to the SQS queue.
 The options can specify the following:</p>
 <ul>
-<li>delay - pass as DelaySeconds parameter</li>
-<li>attrs - an object with additional message attributes to send, use only string, numbers or binary values, all other types will be converted into strings</li>
+<li>delay - how long to delay this message in milliseconds</li>
+<li>attrs - an object with additional message attributes to send, use only string, numbers or binary values,
+all other types will be converted into strings</li>
 </ul>
 </li>
 </ul>
@@ -4640,12 +4646,12 @@ database like DynamoDB for real-time requests and slower SQL database running on
       bk_config: { name: { primary: 1 },                      // name of the parameter
                    type: { primary: 1 },                      // config type or tag
                    value: {},                                 // the value
-                   mtime: { type: &quot;bigint&quot;, now: 1 } },
+                   mtime: { type: &quot;now&quot; } },
 
       // General purpose properties, can be used to store arbitrary values
       bk_property: { name: { primary: 1 },
                      value: {},
-                     mtime: { type: &quot;bigint&quot;, now: 1 } },
+                     mtime: { type: &quot;now&quot; } },
 </code></pre></li>
 </ul>
 
@@ -4739,6 +4745,7 @@ the pool by table name if some tables are assigned to any specific pool by confi
 for the table to convert values returned from the db into the the format defined by the column</li>
 <li>cached - if true perform cache invalidation for the operations that resulted in modification of the table record(s)</li>
 <li>total - if true then it is supposed to return only one record with property <code>count</code>, skip all post processing and convertion</li>
+<li>info_obj - to return the record just processed in the info object as <code>obj</code> property, it will include all generated and updated columns</li>
 </ul>
 </li>
 <li>callback(err, rows, info) where<ul>
@@ -4923,7 +4930,7 @@ to finish due to sequential update every record one by one.
 Special properties that can be in the options for this call:</p>
 <ul>
 <li>updateOptions - options to be passed to the db.update if needed, this is useful so select and update options will not be mixed up</li>
-<li>factorCapacity - write capcity factor for update operations, default is 0.25</li>
+<li>factorCapacity - write capacity factor for update operations, default is 0.25</li>
 <li>concurrency - how many update queries to execute at the same time, default is 1, this is done by using lib.forEachLimit.</li>
 <li>process - a function callback that will be called for each row before updating it, this is for some transformations of the record properties
  in case of complex columns that may contain concatenated values as in the case of using DynamoDB. The callback will be called
@@ -4977,6 +4984,7 @@ if does not exist yet.</em></p>
 returned will be deleted using <code>db.del</code> call. The callback will receive on completion the err and all rows found and deleted.
 Special properties that can be in the options for this call:</p>
 <ul>
+<li>ops - query operations to retrieve records to be deleted</li>
 <li>delOptions - options to be passed to the db.del if needed, this is useful so select and del options will not be mixed up</li>
 <li>factorCapacity - write capcity factor for delete operations, default is 0.35</li>
 <li>concurrency - how many delete requests to execute at the same time by using lib.forEachLimit.</li>
@@ -5127,12 +5135,13 @@ for convenience of doing joins on some conditions and trigger it by setting the 
 table must be defined with the following required columns:</p>
 <ul>
 <li>geohash - location as primary key hash column</li>
-<li>id or other column name to be used as a RANGE key for DynamoDB/Cassandra or part of the compsoite primary key for SQL, the result will be sorted by this column for all databases</li>
+<li>id or other column name to be used as a RANGE key for DynamoDB/Cassandra or part of the composite primary key
+ for SQL, the result will be sorted by this column for all databases</li>
 <li>latitude and longitude as floating numbers to store the actual location</li>
 </ul>
 <p>When defining the table for location searches the begining of the table must be defined as the following:</p>
 <pre><code>    db.describeTables({
-            geo: { geohash: { primary: 1 },
+            geo: { geohash: { primary: 1, minDistance: 5 },
                    id: { primary: 1 },
                    latitude: { type: &quot;real&quot;, projections: 1 },
                    longitude: { type: &quot;real&quot;, projections: 1 },
@@ -5146,13 +5155,14 @@ table must be defined with the following required columns:</p>
 <li>latitude</li>
 <li>longitude</li>
 </ul>
-<p>other properties:</p>
+<p>other query parameters:</p>
 <ul>
 <li>distance - in km, the radius around the point, if not given the <code>options.minDistance</code> will be used</li>
 </ul>
 <p>all other properties will be used as additional conditions</p>
 <p><code>options</code> optional properties:</p>
 <ul>
+<li>minDistance - minimum distance to define how long a geohash will be, if not given it will use the same property from the column definition</li>
 <li>top - number of first &#39;top&#39;th records from each neighboring area, to be used with sorting by the range key to take
  only highest/lowest matches, useful for trending/statistics, count still defines the total number of locations</li>
 <li>geokey - name of the geohash primary key column, by default it is <code>geohash</code>, it is possible to keep several different
@@ -5175,8 +5185,21 @@ the next_token returned by the previous call and query will be ignored</p>
             ...
         });
     });
+</code></pre><p>Geohash grid in general looks like this (2 levels example):</p>
+<pre><code>   left33 left31   top3   right32 right34
+   left13 left11   top1   right12 right14
+   left03 left01  center  right01 rigt04
+   left23 left21  bottom2 right21 right24
+   left43 left41  bottom4 right41 right44
 </code></pre></li>
 </ul>
+<p> Geo grid for browsing is a list from the center all rows up, this means that records with
+ smaller distances will appear again when geohash range is big:
+         center   left01 right01 left02 right02
+         top1     left11 right11 left12 right12
+         bottom2  left21 right21 left22 right22
+         top3     left31 right31 left32 right32
+         bottom4  left41 right41 left42 right42</p>
 
 <ul>
 <li><p><code>db.create(table, columns, options, callback)</code></p>
@@ -5184,7 +5207,7 @@ the next_token returned by the previous call and query will be ignored</p>
 contain the following properties:</p>
 <ul>
 <li><code>name</code> - column name</li>
-<li><code>type</code> - column type: int, bigint, real, string, counter or other supported type</li>
+<li><code>type</code> - column type: int, bigint, real, string, now, counter or other supported type</li>
 <li><code>primary</code> - column is part of the primary key</li>
 <li><code>unique</code> - column is part of an unique key</li>
 <li><code>index</code> - column is part of an index</li>
@@ -5226,11 +5249,12 @@ defined in the object with the same name as the db driver, all properties are co
 below we create global secondary index on property &#39;name&#39; only, in the example above it was local secondary index for id and name. Also a local secondary index is
 created on <code>id,title</code>.</p>
 <p>DynamoDB projection is defined by a <code>projection</code> property, it can be suffixed with a number to signify which index it must belong to or if it must belong to
-all indexes it can be specified as <code>projections</code></p>
+all or some indexes it can be specified as <code>projections</code>, can be a number/boolean or an array with index numbers:</p>
 <pre><code>    db.create(&quot;test_table&quot;, { id: { primary: 1, type: &quot;int&quot;, index1: 1 },
                               type: { primary: 1, projection: 1 },
-                              name: { index: 1, projections: 1 }
-                              title: { index1: 1, projection1: 1 } }
+                              name: { index: 1, projections: 1 },
+                              title: { index1: 1, projection1: 1 } },
+                              descr: { index: 1, projections: [0, 1] },
                             });
 </code></pre><p>When using real DynamoDB creating a table may take some time, for such cases if <code>options.waitTimeout</code> is not specified it defaults to 1min,
 so the callback is called as soon as the table is active or after the timeout whichever comes first.</p>
@@ -5317,7 +5341,7 @@ The following special properties in the column definition chnage the format:</p>
 <ul>
 <li>type = json - if a column type is json and the value is a string returned will be converted into a Javascript object</li>
 <li>dflt property is defined for a json type and record does not have a value it will be set to specified default value</li>
-<li>list - split the value into array</li>
+<li>list - split the value into an array, optional .separator property can be specified</li>
 <li><p>unjoin - a list of names, it produces new properties by splitting the value by a separator and assigning pieces to
   separate properties using names from the list, this is the opposite of the <code>join</code> property and is used separately if
   splitting is required, if joined properties already in the record then no need to split it</p>
@@ -5447,7 +5471,7 @@ given by the application. If <code>options.names</code> is 1 then return just ta
 
 <ul>
 <li><p><code>db.getColumn(table, name, options)</code></p>
-<p> Return the column definition for a table</p>
+<p> Return the column definition for a table, for non-existent columns it returns an empty object</p>
 </li>
 </ul>
 
@@ -5512,6 +5536,7 @@ is for all columns or none</p>
 <li>to skip all null values set <code>options.skip_null=1</code></li>
 <li>to skip specific columns define <code>options.skip_columns=[&quot;a&quot;,&quot;b&quot;]</code></li>
 <li>to restrict to specific columns only define <code>options.allow_columns=[&quot;a&quot;,&quot;b&quot;]</code></li>
+<li>to restrict to specific DB pools only define <code>options.allow_pools=[&quot;sqlite&quot;,&quot;mysql&quot;]</code></li>
 </ul>
 </li>
 </ul>
@@ -6090,10 +6115,10 @@ cache implementation, options is an object passed down to the driver as is</p>
 <ul>
 <li><p><code>Ipc.prototype.get(key, options, callback)</code></p>
 <p> Retrieve an item from the cache by key.
-If <code>options.set</code> is given and no value exists in the cache it will be set as the initial value.</p>
+If <code>options.set</code> is given and no value exists in the cache it will be set as the initial value, local cache only</p>
 <p>Example</p>
 <p>  ipc.get(&quot;my:key&quot;, function(data) { console.log(data) });
-  ipc.get(&quot;my:counter&quot;, { init: 10 }, function(data) { console.log(data) });</p>
+  ipc.get(&quot;my:counter&quot;, { set: 10 }, function(data) { console.log(data) });</p>
 </li>
 </ul>
 
@@ -6105,13 +6130,14 @@ If <code>options.set</code> is given and no value exists in the cache it will be
 
 <ul>
 <li><p><code>Ipc.prototype.put(key, val, options, callback)</code></p>
-<p> Replace or put a new item in the cache, options.ttl can be passed if the driver supprts it.</p>
+<p> Replace or put a new item in the cache, <code>options.ttl</code> can be passed in milliseconds if the driver supports it.</p>
 </li>
 </ul>
 
 <ul>
 <li><p><code>Ipc.prototype.incr(key, val, options, callback)</code></p>
-<p> Increase/decrease a counter in the cache by <code>val</code>, non existent items are treated as 0, if a callback is given new value will be returned</p>
+<p> Increase/decrease a counter in the cache by <code>val</code>, non existent items are treated as 0, if a callback is given new value will be returned.
+<code>options.ttl</code> in milliseconds can be used if the driver supports it</p>
 </li>
 </ul>
 
@@ -6143,7 +6169,12 @@ subscribed. This is specific to a queue which relies on polling.</p>
 
 <ul>
 <li><p><code>Ipc.prototype.publish(channel, msg, options, callback)</code></p>
-<p> Publish an event to the channel, if no <code>options.queueName</code> is specified then it is sent to the default queue</p>
+<p> Publish an event to the channel</p>
+<ul>
+<li><code>options.queueName</code> defines the queue, if not specified then it is sent to the default queue</li>
+<li><code>options.stime</code> defines when the message should be processed, it will be held in the queue until the time comes</li>
+<li><code>options.etime</code> defines when the message expires, i.e. will be dropped if not executed before this time.</li>
+</ul>
 </li>
 </ul>
 
@@ -6258,7 +6289,7 @@ lots of processing and memory.</p>
 <ul>
 <li><p><code>IpcClient.prototype.schedulePoller(timeout)</code></p>
 <p> Schedule next poller iteration immediately or after timeout, check configured polling rate, make sure it polls no more than
-configured number of time per second</p>
+configured number of times per second</p>
 </li>
 </ul>
 
@@ -6314,7 +6345,7 @@ and the property <code>delay</code> with number of milliseconds till the bucket 
           active: { type: &quot;int&quot;, index: 1, value: 0 },      // job status, new, running
           channel: { value: &quot;jobs&quot;, projection: 1 },        // subscription key
           data: { type: &quot;json&quot;, projection: 1 },            // job definition object
-          mtime: { type: &quot;bigint&quot;, now: 1, index: 1 }
+          mtime: { type: &quot;now&quot;, index: 1 }
       },
   },
 </code></pre><p>  };</p>
@@ -6405,6 +6436,20 @@ A job message is an object that defines what method from which module to run wit
 <ul>
 <li><p><code>jobs.exitWorker(options)</code></p>
 <p> Perform graceful worker shutdown and then exit the process</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>jobs.isCancelled(name)</code></p>
+<p> Returns true if a task with given name must be cancelled, this flag is set from the jobs master and
+stoppable tasks must check it from time to time to terminate gracefully</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>jobs.cancelTask(name, workers)</code></p>
+<p> Send cancellation request to a worker or all workers, this has to be called from the jobs master. <code>workers</code> can be a single worker id or a list of worker ids,
+if not given the request will be sent to all workers for the current process cluster.</p>
 </li>
 </ul>
 
@@ -6509,6 +6554,12 @@ prevented to clear up running list in the master, milliseconds</li>
 <ul>
 <li><p><code>lib</code></p>
 <p> Common utilities and useful functions</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.tryCall(callback)</code></p>
+<p> Run a callback if a valid function, all arguments after the callback will be passed as is</p>
 </li>
 </ul>
 
@@ -6709,14 +6760,15 @@ or the default message, this is useful for detection of invalid or missing input
 <li><p><code>lib.toFormat(format, data, options)</code></p>
 <p> Convert a list of records into the specified format, supported formats are: <code>xml, csv, json</code>.</p>
 <ul>
-<li>For <code>csv</code> the default separator is <code>tab</code> but can be specified with <code>options.separator</code>. To produce columns header specify <code>options.header</code>.</li>
+<li>For <code>csv</code> the default separator is comma but can be specified with <code>options.separator</code>. To produce columns header specify <code>options.header</code>.</li>
 <li>For <code>json</code> format puts each record as a separate JSON object on each line, so to read it back
 it will require to read every line and parse it and add to the list.</li>
 <li>For <code>xml</code> format the name of the row tag is <code>&lt;row&gt;</code> but can be
 specified with <code>options.tag</code>.</li>
 </ul>
 <p>All formats support the property <code>options.allow</code> which is a list of property names that are allowed only in the output for each record, non-existent
-properties will be replaced by empty strings</p>
+properties will be replaced by empty strings.</p>
+<p>The <code>mapping</code> object property can redefine different tag/header names to be put into the file instead of the exact column names from the records.</p>
 </li>
 </ul>
 
@@ -6745,6 +6797,12 @@ properties will be replaced by empty strings</p>
 </ul>
 
 <ul>
+<li><p><code>lib.isUuid(val)</code></p>
+<p> Returns true if the value represents an UUID</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>lib.isPositive(val)</code></p>
 <p> Returns true if a number is positive, i.e. greater than zero</p>
 </li>
@@ -6753,6 +6811,12 @@ properties will be replaced by empty strings</p>
 <ul>
 <li><p><code>lib.isEmpty(val)</code></p>
 <p> Return true of the given value considered empty</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.isFlag(list, name)</code></p>
+<p> Returns true if <code>name</code> exists in the array <code>list</code>, search is case sensitive.</p>
 </li>
 </ul>
 
@@ -6778,7 +6842,10 @@ properties will be replaced by empty strings</p>
 <li><p><code>lib.isMatched(obj, condition)</code></p>
 <p> All properties in an object <code>obj</code> must match all properties in the object <code>condition</code>, each value in <code>condition</code> is treated as RegExp,
 if it begins with ! it means no match is expected, the leading ! will be stripped.</p>
-</li>
+<p>Example:</p>
+<pre><code>  lib.isMatched({id:1,name:2,notifications0:1,type:&quot;user,admin&quot;}, {notifications0:0})
+  lib.isMatched({id:1,name:2,notifications0:1,type:&quot;user,admin&quot;}, {notifications0:1,type:&quot;!admin&quot;})
+</code></pre></li>
 </ul>
 
 <ul>
@@ -6923,6 +6990,12 @@ The message must have <code>id</code> property which is used to find the corresp
 </ul>
 
 <ul>
+<li><p><code>lib.geoHashRange(distance)</code></p>
+<p> Returns the first geohash range greater than given distance</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>lib.geoDistance(latitude1, longitude1, latitude2, longitude2, options)</code></p>
 <p> Return distance between two locations</p>
 <p>The options can specify the following properties:</p>
@@ -6965,7 +7038,7 @@ The message must have <code>id</code> property which is used to find the corresp
 </ul>
 
 <ul>
-<li><p><code>lib.uuid()</code></p>
+<li><p><code>lib.uuid(prefix)</code></p>
 <p> Return unique Id without any special characters and in lower case</p>
 </li>
 </ul>
@@ -7156,7 +7229,7 @@ Example:<pre><code>  lib.cloneObj({ 1: 2 }, &quot;3&quot;, 3, &quot;4&quot;, 4)
 
 <ul>
 <li><p><code>lib.mergeObj(obj, options)</code></p>
-<p> Merge an object with the options, all properties in the options override existing in the object, returns a new object, shallow copy,
+<p> Merge an object with the options, all properties from the <code>options</code> override existing properties in the <code>obj</code>, returns a new object, shallow copy,
 only top level properties are reassigned.</p>
 <p>Example</p>
 <pre><code> var o = lib.mergeObject({ a:1, b:2, c:3 }, { c:5, d:1 })
@@ -7193,17 +7266,19 @@ If the second argument is an object then add all properties from this object onl
 <p> Return an object consisting of properties that matched given criteria in the given object or object of objects.
 options can define the following properties:</p>
 <ul>
-<li>name - search by property name, return all objects that contain given property</li>
-<li>value - search by value, return all objects that have a property with given value</li>
+<li>exists - search by property name, return all objects that contain given property</li>
+<li>hasvalue - search by value, return all objects that have a property with given value</li>
 <li>sort - if set then sort found columns by the property <code>name</code> or if it is a string by the given property</li>
 <li>names - if true just return list of column names</li>
 <li>flag - if true, return object with all properties set to flag value</li>
+<li>value - if given return the value of this property, not the whole matched object</li>
 <li>count - if true return just number of found properties</li>
 </ul>
 <p>Example</p>
-<pre><code>    lib.searchObj({id:{index:1},name:{index:3},type:{index:2},descr:{}}, { name: &#39;index&#39;, sort: 1 });
+<pre><code>    lib.searchObj({id:{index:1},name:{index:3},type:{index:2},descr:{}}, { exists: &#39;index&#39;, sort: 1 });
     { id: { index: 1 }, type: { index: 2 }, name: { index: 3 } }
-    lib.searchObj({id:1,name:&quot;test&quot;,type:&quot;test&quot;,descr:&quot;descr&quot;}, { value: &#39;test&#39;, count: 1});
+
+    lib.searchObj({id:1,name:&quot;test&quot;,type:&quot;test&quot;,descr:&quot;descr&quot;}, { hasvalue: &#39;test&#39;, count: 1});
     2
 </code></pre></li>
 </ul>
@@ -7640,7 +7715,7 @@ need to send push notifications in the worker process.</p>
 <ul>
 <li>device_id - device(s) where to send the message to, can be multiple ids separated by , or |, REQUIRED</li>
 <li>service_id - which service to use for delivery only: sns, apn, gcm</li>
-<li>account_id - an account id associated wit this token, for debugging and invalid token management</li>
+<li>account_id - an account id associated with this token, for debugging and invalid token management</li>
 <li>app_id - send to the devices for the given app only, if none matched send to the default device tokens only</li>
 <li>msg - text message to send</li>
 <li>badge - badge number to show if supported by the service</li>
@@ -7869,8 +7944,8 @@ it runs <code>shutdown[Role]</code> methods before exiting</p>
           first_name: {},
           last_name: {},
           alias: { pub: 1 },
-          status: {},
-          type: { admin: 1 },
+          status: { type: &quot;text&quot; },
+          type: { type: &quot;text&quot;, admin: 1 },
           email: {},
           phone: {},
           website: {},
@@ -7964,7 +8039,7 @@ The options may contain the following:</p>
 <li>prefix - prepend the message with this prefix</li>
 <li>check - check the account status, if not specified the message will be sent unconditionally otherwise only if status is online</li>
 <li>allow - the account properties to check if notifications are enabled, it must be an object with properties in the account record and values to
-  checked, it canbe a signle value or an array of valus, each value if starts with &quot;!&quot; means not equal.</li>
+  be a regexp, each value if starts with &quot;!&quot; means not equal, see <code>lib.isMatched</code></li>
 <li>skip - Array or an object with account ids which should be skipped, this is for mass sending in order to reuse the same options</li>
 <li>logging - logging level about the notification send status, default is debug, can be any valid logger level, must be a string, not a number</li>
 <li>service_id - name of the standard delivery service supported by the backend, it is be used instead of custom handler, one of the following: apple, google</li>
@@ -7974,7 +8049,7 @@ The options may contain the following:</p>
 <p>In addition the device_id can be saved in the format service://id where the service is one of the supported delivery services, this way the notification
 system will pick the right delivery service depending on the device id, the default service is apple.</p>
 <p>Example:</p>
-<pre><code> bk_account.notifyAccount({ account_id: &quot;123&quot;, msg: &quot;test&quot;, badge: 1, sound: 1, allow: { notifications0: 1, type: [&quot;user&quot;,&quot;!quiet&quot;] } })
+<pre><code> bk_account.notifyAccount({ account_id: &quot;123&quot;, msg: &quot;test&quot;, badge: 1, sound: 1, allow: { notifications0: 1, type: &quot;user&quot; } })
 </code></pre></li>
 </ul>
 

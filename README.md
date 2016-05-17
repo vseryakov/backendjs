@@ -366,13 +366,13 @@ Before the tables can be queried the schema must be defined and created, the bac
            album: {
                id: { primary: 1 },                         // Primary key for an album
                name: { pub: 1 },                           // Album name, public column
-               mtime: { type: "bigint" },                  // Modification timestamp
+               mtime: { type: "now" },                     // Modification timestamp
            },
            photo: {
                album_id: { primary: 1 },                   // Combined primary key
                id: { primary: 1 },                         // consiting of album and photo id
                name: { pub: 1, index: 1 },                 // Photo name or description, public column with the index for faster search
-               mtime: { type: "bigint" }
+               mtime: { type: "now" }
            }
         });
 ```
@@ -433,7 +433,7 @@ var mod = {
           id: { type: "int", primary: 1 },
           name: {},
           price: { type: "real" },
-          mtime: { type: "bigint", now: 1 }
+          mtime: { type: "now" }
        }
     }
 }
@@ -494,7 +494,7 @@ Create a file named `app.js` with the code below.
            due: {},                           // Due date
            name: {},                          // Short task name
            descr: {},                         // Full description
-           mtime: { type: "bigint", now: 1 }  // Last update time in ms
+           mtime: { type: "now" }             // Last update time in ms
        }
     });
 

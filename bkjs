@@ -1359,7 +1359,7 @@ db.describeTables({
     test: {
         id: { primary: 1 },
         name: {},
-        mtime: { type: "bigint", now: 1 },
+        mtime: { type: "now" },
     },
     // Extend accounts table
     bk_account: {
