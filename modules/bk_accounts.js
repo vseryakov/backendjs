@@ -347,8 +347,7 @@ accounts.addAccount = function(req, options, callback)
     if (!req.query.name && !req.query.alias) return callback({ status: 400, message: "name is required"});
     if (!req.query.alias && req.query.name) req.query.alias = req.query.name;
     if (!req.query.name && req.query.alias) req.query.name = req.query.alias;
-    req.query.id = lib.uuid();
-    req.query.mtime = req.query.ctime = Date.now();
+    delete req.query.id;
 
     lib.series([
        function(next) {
@@ -362,7 +361,10 @@ accounts.addAccount = function(req, options, callback)
            // Put the secret back to return to the client, if generated or scrambled the client needs to know it for the API access
            req.query.secret = query.secret;
            if (!options.admin && !api.checkAccountType(req.account, "admin")) api.clearQuery("bk_auth", query, "admin");
-           db.add("bk_auth", query, options, next);
+           db.add("bk_auth", query, options, function(err, rows, info) {
+               if (!err) req.query.id = info.obj.id;
+               next(err);
+           });
        },
        function(next) {
            var query = lib.cloneObj(req.query);

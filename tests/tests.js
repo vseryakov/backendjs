@@ -462,6 +462,7 @@ tests.test_db_basic = function(callback)
                      anum: { join: ["anum","num"], unjoin: ["anum","num"] },
                      jnum: { join: ["num2","num4"], unjoin: ["num2","num4"], strict_join: 1 },
                      num4: { hidden: 1 },
+                     mtime: { type: "now" },
             },
     };
     var now = Date.now();
@@ -484,7 +485,7 @@ tests.test_db_basic = function(callback)
         },
         function(next) {
             db.get("test1", { id: id }, function(err, row) {
-                tests.assert(next, err || !row || row.id != id || row.num != 1 || row.num3 != row.id+"|"+row.num || row.anum != "1" || row.jnum, "err1:", row);
+                tests.assert(next, err || !row || row.id != id || row.num != 1 || row.num3 != row.id+"|"+row.num || row.anum != "1" || row.jnum || !row.mtime, "err1:", row);
             });
         },
         function(next) {
@@ -522,18 +523,18 @@ tests.test_db_basic = function(callback)
             });
         },
         function(next) {
-            db.update("test1", { id: id, email: "test", num: 2 }, function(err, rc, info) {
+            db.update("test1", { id: id, email: "test", num: 2, mtime: 123 }, function(err, rc, info) {
                 tests.assert(next, err || info.affected_rows!=1, "err9:", info);
             });
         },
         function(next) {
-            db.incr("test1", { id: id, num2: 2 }, function(err, rc, info) {
+            db.incr("test1", { id: id, num2: 2, mtime: 123 }, function(err, rc, info) {
                 tests.assert(next, err || info.affected_rows!=1, "err10:", info);
             });
         },
         function(next) {
             db.get("test1", { id: id }, function(err, row) {
-                tests.assert(next, err || !row || row.email != "test" || row.num != 2 || row.num2 != 2, "err11:", row);
+                tests.assert(next, err || !row || row.email != "test" || row.num != 2 || row.num2 != 2 || !row.mtime || row.mtime == 123, "err11:", row);
             });
         },
     ],

@@ -118,7 +118,7 @@ mod.incrAutoCounter = function(id, type, num, options, callback)
 
     if (!id || !type || !num) return callback(null, []);
     var col = db.getColumn("bk_counter", type, options);
-    if (!col || !col.autoincr) return callback(null, []);
+    if (!col.autoincr) return callback(null, []);
     db.incr("bk_counter", lib.newObj('id', id, type, num), options, callback);
 }
 
