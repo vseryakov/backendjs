@@ -361,6 +361,7 @@ accounts.addAccount = function(req, options, callback)
            // Put the secret back to return to the client, if generated or scrambled the client needs to know it for the API access
            req.query.secret = query.secret;
            if (!options.admin && !api.checkAccountType(req.account, "admin")) api.clearQuery("bk_auth", query, "admin");
+           options.info_obj = 1;
            db.add("bk_auth", query, options, function(err, rows, info) {
                if (!err) req.query.id = info.obj.id;
                next(err);
