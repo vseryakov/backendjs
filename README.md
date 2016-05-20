@@ -1142,10 +1142,10 @@ There is also native iOS implementation [Bkjs.m](https://raw.githubusercontent.c
       Example:
 
               /auth?_accesstoken=1
-              > { id: "XXXX...", alias: "Test User", "bk-access-token": "XXXXX....", "bk-access-token-age": 604800000 }
+              > { id: "XXXX...", name: "Test User", "bk-access-token": "XXXXX....", "bk-access-token-age": 604800000 }
 
               /account/get?bk-access-token=XXXXXX...
-              > { id: "XXXX...", alias: "Test User", ... }
+              > { id: "XXXX...", name: "Test User", ... }
 
 - `/login`
 
@@ -1170,7 +1170,7 @@ There is also native iOS implementation [Bkjs.m](https://raw.githubusercontent.c
                        success: function(json, status, xhr) { console.log(json) }
               });
 
-              > { id: "XXXX...", alias: "Test User", login: "test123", ...}
+              > { id: "XXXX...", name: "Test User", login: "test123", ...}
 
 - `/logout`
 
@@ -1201,7 +1201,7 @@ This is implemented by the `accounts` module from the core. To enable accounts f
   Response:
 
           { "id": "57d07a4e28fc4f33bdca9f6c8e04d6c3",
-            "alias": "Test User",
+            "name": "Test User",
             "name": "Real Name",
             "mtime": 1391824028,
             "latitude": 34,
@@ -1264,15 +1264,13 @@ This is implemented by the `accounts` module from the core. To enable accounts f
 
             {  "data": [{
                           "id": "57d07a4e28fc4f33bdca9f6c8e04d6c3",
-                          "alias": "Test User1",
-                          "name": "User1",
+                          "name": "Test User1",
                           "mtime": 1391824028,
                           "login": "test1",
                         },
                         {
                           "id": "57d07a4e2824fc43bd669f6c8e04d6c3",
-                          "alias": "Test User2",
-                          "name": "User2",
+                          "name": "Test User2",
                           "mtime": 1391824028,
                           "login": "test2",
                         }],
@@ -1289,7 +1287,7 @@ This is implemented by the `accounts` module from the core. To enable accounts f
 
   Example:
 
-            /account/update?name=New%2BName&alias=Hidden%2BName&gender=m
+            /account/update?name=New%2BName&gender=m
 
 - `/account/put/secret`
 
@@ -1937,7 +1935,7 @@ This is implemented by the `data` module from the core.
 
         /data/get/bk_account?id=12345
         /data/put/bk_counter?id=12345&like0=1
-        /data/select/bk_account?name=john&_ops=name,gt&_select=name,alias,email
+        /data/select/bk_account?name=john&_ops=name,gt&_select=name,email
         /data/select/bk_connection?_noscan=0&_noprocessrows=1
 
 ## Pages

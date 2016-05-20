@@ -107,7 +107,7 @@ tests.test_account = function(callback)
             });
         },
         function(next) {
-            var options = { url: "/account/update",login: login, secret: secret, query: { alias: "test" + name }, type: "testadmin", latitude: 1, ltime: 1, type: "admin" };
+            var options = { url: "/account/update",login: login, secret: secret, query: { name: "test" + name }, type: "testadmin", latitude: 1, ltime: 1, type: "admin" };
             core.sendRequest(options, function(err, params) {
                 next(err);
             });
@@ -124,7 +124,7 @@ tests.test_account = function(callback)
             core.sendRequest(options, function(err, params) {
                 tests.assert(next, err || !params.obj ||
                              params.obj.name != name ||
-                             params.obj.alias != "test" + name ||
+                             params.obj.name != "test" + name ||
                              params.obj.latitude != latitude ||
                              params.obj.type =="testadmin", "err2:",params.obj);
             });
@@ -559,7 +559,7 @@ tests.test_db = function(callback)
             test2: { id: { primary: 1, pub: 1, index: 1 },
                      id2: { primary: 1, projection: 1 },
                      email: { projection: 1 },
-                     alias: { pub: 1 },
+                     name: { pub: 1 },
                      birthday: { semipub: 1 },
                      json: { type: "json" },
                      num: { type: "bigint", index: 1, projection: 1 },
@@ -633,13 +633,13 @@ tests.test_db = function(callback)
             });
         },
         function(next) {
-            db.add("test2", { id: id, id2: '1', email: id, alias: id, birthday: id, num: 0, num2: num2, mtime: now }, next);
+            db.add("test2", { id: id, id2: '1', email: id, name: id, birthday: id, num: 0, num2: num2, mtime: now }, next);
         },
         function(next) {
-            db.add("test2", { id: id2, id2: '2', email: id, alias: id, birthday: id, num: 2, num2: num2, mtime: now }, next);
+            db.add("test2", { id: id2, id2: '2', email: id, name: id, birthday: id, num: 2, num2: num2, mtime: now }, next);
         },
         function(next) {
-            db.put("test2", { id: id2, id2: '1', email: id2, alias: id2, birthday: id2, num: 1, num2: num2, mtime: now }, next);
+            db.put("test2", { id: id2, id2: '1', email: id2, name: id2, birthday: id2, num: 1, num2: num2, mtime: now }, next);
         },
         function(next) {
             db.put("test3", { id: id2, num: 2, emai: id2 }, next);
@@ -756,8 +756,8 @@ tests.test_db = function(callback)
             db.replace("test2", { id: id, id2: '1', email: id + "@test", num: 9, num2: 9, json: { a: 1, b: 2 }, mtime: now }, { check_data: 1 }, next);
         },
         function(next) {
-            db.get("test2", { id: id, id2: '1' }, { skip_columns: ['alias'], consistent: true }, function(err, row) {
-                tests.assert(next, err || !row || row.id != id || row.alias || row.email != id+"@test" || row.num!=9 || lib.typeName(row.json)!="object" || row.json.a!=1, "err9-1:", row);
+            db.get("test2", { id: id, id2: '1' }, { skip_columns: ['name'], consistent: true }, function(err, row) {
+                tests.assert(next, err || !row || row.id != id || row.name || row.email != id+"@test" || row.num!=9 || lib.typeName(row.json)!="object" || row.json.a!=1, "err9-1:", row);
             });
         },
         function(next) {
@@ -778,7 +778,7 @@ tests.test_db = function(callback)
         },
         function(next) {
             lib.forEachSeries([1,2,3,4,5,6,7,8,9], function(i, next2) {
-                db.put("test2", { id: id2, id2: String(i), email: id, alias: id, birthday: id, num: i, num2: i, mtime: now }, next2);
+                db.put("test2", { id: id2, id2: String(i), email: id, name: id, birthday: id, num: i, num2: i, mtime: now }, next2);
             }, function(err) {
                 next(err);
             });
@@ -830,7 +830,7 @@ tests.test_db = function(callback)
             tests.assert(next, null, next_token, "err13: next_token must be null", next_token);
         },
         function(next) {
-            db.add("test2", { id: id, id2: '2', email: id, alias: id, birthday: id, num: 2, num2: 1, mtime: now }, next);
+            db.add("test2", { id: id, id2: '2', email: id, name: id, birthday: id, num: 2, num2: 1, mtime: now }, next);
         },
         function(next) {
             // Select by primary key and other filter

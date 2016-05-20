@@ -28,7 +28,7 @@ var mod = {
             id: { primary: 1, pub: 1 },                 // my account id, part of the primary key for pagination
             latitude: { type: "real" },
             longitude: { type: "real" },
-            alias: { pub: 1 },
+            name: { pub: 1 },
             mtime: { type: "bigint", now: 1 }
         },
 

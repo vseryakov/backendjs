@@ -31,7 +31,7 @@ var mod = {
                 unjoin: ["type","peer"],
                 ops: { select: "begins_with" } },
             peer: { pub: 1 },                              // peer id
-            alias: { pub: 1 },                             // peer alias
+            name: { pub: 1 },                             // peer name
             status: {},
             mtime: { type: "bigint", now: 1, pub: 1 }
         },
@@ -45,7 +45,7 @@ var mod = {
                 unjoin: ["type","peer"],
                 ops: { select: "begins_with" } },
             peer: { pub: 1 },                              // peer id
-            alias: { pub: 1 },                             // peer alias
+            name: { pub: 1 },                             // peer name
             status: {},
             mtime: { type: "bigint", now: 1, pub: 1 }
         },
@@ -212,7 +212,7 @@ mod.readConnection = function(id, obj, options, callback)
 //
 // Connection `type` will be taken from the `peer` object only.
 //
-// To maintain aliases for both sides of the connection, set `alias` property in the both objects.
+// To maintain names for both sides of the connection, set `name` property in the both objects.
 //
 // Note: All other properties for both tables are treated separately, to make them appear in both they must be copied into the both objects.
 //
@@ -230,10 +230,10 @@ mod.makeConnection = function(obj, peer, options, callback)
     // Primary keys pointing to each other
     obj1.type = peer.type;
     obj1.peer = peer.id;
-    obj1.alias = peer.alias;
+    obj1.name = peer.name;
     obj1.mtime = now;
     obj2.peer = obj.id;
-    obj2.alias = obj.alias;
+    obj2.name = obj.name;
     obj2.mtime = now;
 
     lib.series([

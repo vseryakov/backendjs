@@ -26,10 +26,9 @@ var accounts = {
         bk_account: {
             id: { primary: 1, pub: 1 },
             login: {},
-            name: {},
+            name: { pub: 1 },
             first_name: {},
             last_name: {},
-            alias: { pub: 1 },
             status: { type: "text" },
             type: { type: "text", admin: 1 },
             email: {},
@@ -200,7 +199,7 @@ accounts.configureAccountsAPI = function()
 
         case "put/status":
             req.query.id = req.account.id;
-            req.query.alias = req.account.alias;
+            req.query.name = req.account.name;
             core.modules.bk_status.putStatus(req.query, options, function(err, rows) {
                 api.sendJSON(req, err, rows);
             });
@@ -221,7 +220,7 @@ accounts.configureAccountsAPI = function()
         if (row.birthday) {
             row.age = Math.floor((Date.now() - lib.toDate(row.birthday))/(86400000*365));
         }
-        var name = (row.alias || row.name || "").split(" ");
+        var name = (row.name || "").split(" ");
         row.first_name = name[0];
         row.last_name = name.slice(1).join(" ");
     }
@@ -298,7 +297,7 @@ accounts.notifyAccount = function(options, callback)
             msg.send(options, function(err) {
                 status.device_id = options.device_id;
                 status.sent = err ? false : true;
-                logger.logger(err ? "error" : (options.logging || "debug"), "notifyAccount:", account.id, account.alias, options.device_id, status, err || "");
+                logger.logger(err ? "error" : (options.logging || "debug"), "notifyAccount:", account.id, account.name, options.device_id, status, err || "");
                 callback(err, status);
             });
         });
@@ -344,9 +343,8 @@ accounts.selectAccount = function(req, options, callback)
 accounts.addAccount = function(req, options, callback)
 {
     // Verify required fields
-    if (!req.query.name && !req.query.alias) return callback({ status: 400, message: "name is required"});
-    if (!req.query.alias && req.query.name) req.query.alias = req.query.name;
     if (!req.query.name && req.query.alias) req.query.name = req.query.alias;
+    if (!req.query.name) return callback({ status: 400, message: "name is required"});
     delete req.query.id;
 
     lib.series([
@@ -401,8 +399,8 @@ accounts.addAccount = function(req, options, callback)
 accounts.updateAccount = function(req, options, callback)
 {
     req.query.mtime = Date.now();
-    // Cannot have account alias empty
-    if (!req.query.alias) delete req.query.alias;
+    // Cannot have account name empty
+    if (!req.query.name) delete req.query.name;
 
     lib.series([
        function(next) {

@@ -31,7 +31,7 @@ var mod = {
                 unjoin: ["mtime","sender"],
             },
             sender: { type: "text" },                      // sender id
-            alias: {},                                     // sender alias
+            name: {},                                      // sender name
             msg: {},                                       // Text of the message
             icon: { type: "int" },                         // 1 - icon present, 0 - no icon
             read: { type: "int" },                         // 1 - read, 0 - unread
@@ -45,7 +45,7 @@ var mod = {
                 unjoin: ["mtime","sender"],
             },
             sender: { type: "text" },                      // sender id
-            alias: {},                                     // sender alias
+            name: {},                                      // sender name
             msg: {},                                       // text of the message
             icon: { type: "int" },                         // 1 - icon present, 0 - no icon
         },
@@ -58,7 +58,7 @@ var mod = {
                 unjoin: ["mtime","recipient"],
             },
             recipient: { type: "text" },                  // recipient id
-            alias: {},                                    // recipient alias if known
+            name: {},                                     // recipient name if known
             msg: {},                                      // text of the message
             icon: { type: "int" },                        // 1 - icon present, 0 - no icon
         },
@@ -308,7 +308,7 @@ mod.addMessage = function(req, options, callback)
     var cap = db.getCapacity("bk_message", { useCapacity: "write", factorCapacity: options.factorCapacity || 0.25 });
     var ids = lib.strSplitUnique(req.query.id), rows = [];
     req.query.sender = req.account.id;
-    req.query.alias = req.account.alias;
+    req.query.name = req.account.name;
     req.query.mtime = Date.now();
 
     lib.forEachSeries(ids, function(id, next) {

@@ -104,7 +104,7 @@ mod.incrCounter = function(req, options, callback)
 
         // Notify only the other account
         if (obj.id != req.account.id && options.publish) {
-            self.publish(obj.id, { path: req.path, mtime: now, alias: (options.account ||{}).alias, type: Object.keys(obj).join(",") }, options);
+            self.publish(obj.id, { path: req.path, mtime: now, name: (options.account ||{}).name, type: Object.keys(obj).join(",") }, options);
         }
 
         callback(null, rows);

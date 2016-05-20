@@ -75,7 +75,7 @@ app.initBlogAPI = function()
             if (!req.query.sender) req.query.sender = req.account.id;
             if (!req.query.mtime) req.query.mtime = Date.now();
             req.query.mtime += ":" + req.query.sender;
-            req.query.alias = req.account.alias;
+            req.query.name = req.account.name;
 
             api.putIcon(req, req.query.id, { prefix: 'blog', type: req.query.mtime }, function(err, icon) {
                 if (err) return api.sendReply(res, err);
