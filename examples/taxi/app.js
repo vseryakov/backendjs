@@ -18,7 +18,7 @@ db.describeTables({
             status: { pub: 1 },
             latitude: { type: "real", pub: 1 },
             longitude: { type: "real", pub: 1 },
-            mtime: { type: "bigint", now: 1, pub: 1 },
+            mtime: { type: "now", pub: 1 },
     }
 });
 

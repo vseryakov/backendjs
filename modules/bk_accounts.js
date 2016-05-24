@@ -50,7 +50,7 @@ var accounts = {
             location: {},
             ltime: { type: "bigint" },                        // Last location update time
             ctime: { type: "bigint", readonly: 1, now: 1 },   // Create time
-            mtime: { type: "bigint", now: 1 },                // Last update time
+            mtime: { type: "now" },                // Last update time
         },
 
         // Account metrics, must correspond to `-api-url-metrics` settings, for images the default is first 2 path components

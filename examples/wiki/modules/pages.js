@@ -34,7 +34,7 @@ var pages = {
           toc: { type:" bool", pub: 1 },               // produce table of content
           pub: { type: "bool", pub: 1 },               // no account to see thos page
           userid: { pub: 1 },                          // id of the last user
-          mtime: { type: "bigint", now: 1, pub: 1 }
+          mtime: { type: "now", pub: 1 }
        },
     },
 };

@@ -38,7 +38,7 @@ var mod = {
             geohash: {},                                // Location associated with the icon
             latitude: { type: "real" },
             longitude: { type: "real" },
-            mtime: { type: "bigint", now: 1 },          // Last time added/updated
+            mtime: { type: "now" },          // Last time added/updated
         },
 
         // Metrics

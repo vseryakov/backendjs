@@ -29,7 +29,7 @@ var mod = {
             latitude: { type: "real" },
             longitude: { type: "real" },
             name: { pub: 1 },
-            mtime: { type: "bigint", now: 1 }
+            mtime: { type: "now" }
         },
 
         // Metrics

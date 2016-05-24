@@ -26,7 +26,7 @@ var mod = {
             id: { primary: 1, pub: 1 },                        // account id
             status: { pub: 1 },                                // status, online, offline, away
             name: { pub: 1 },
-            atime: { type: "bigint", now: 1, pub: 1 },         // last access time
+            atime: { type: "now", pub: 1 },         // last access time
             mtime: { type: "bigint", pub: 1 },                 // last update time
         },
     },

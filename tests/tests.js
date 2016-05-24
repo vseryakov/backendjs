@@ -308,7 +308,7 @@ tests.test_location = function(callback)
                    distance: { type: "real" },
                    rank: { type: 'int', index: 1 },
                    status: { value: 'good', projection: 1 },
-                   mtime: { type: "bigint", now: 1 }
+                   mtime: { type: "now" }
             },
     };
     var city = lib.getArg("-city", "LA");
@@ -547,32 +547,40 @@ tests.test_db = function(callback)
 {
     var self = this;
     var tables = {
-            test1: { id: { primary: 1, pub: 1 },
-                     num: { type: "int" },
-                     num2: {},
-                     num3: { join: ["id","num"] },
-                     email: {},
-                     anum: { join: ["anum","num"], unjoin: ["anum","num"] },
-                     jnum: { join: ["num2","num4"], unjoin: ["num2","num4"], strict_join: 1 },
-                     num4: { hidden: 1 },
-            },
-            test2: { id: { primary: 1, pub: 1, index: 1 },
-                     id2: { primary: 1, projection: 1 },
-                     email: { projection: 1 },
-                     name: { pub: 1 },
-                     birthday: { semipub: 1 },
-                     json: { type: "json" },
-                     num: { type: "bigint", index: 1, projection: 1 },
-                     num2: { type: "real" },
-                     mtime: { type: "bigint" } },
-            test3: { id : { primary: 1, pub: 1 },
-                     num: { type: "counter", value: 0, pub: 1 } },
-            test4: { id: { primary: 1, pub: 1 },
-                     type: { pub: 1 } },
-            test5: { id: { primary: 1, pub: 1 },
-                     hkey: { primary: 1, join: ["type","peer"], ops: { select: "begins_with" }  },
-                     type: { pub: 1 },
-                     peer: { pub: 1 } },
+        test1: {
+            id: { primary: 1, pub: 1 },
+            num: { type: "int" },
+            num2: {},
+            num3: { join: ["id","num"] },
+            email: {},
+            anum: { join: ["anum","num"], unjoin: ["anum","num"] },
+            jnum: { join: ["num2","num4"], unjoin: ["num2","num4"], strict_join: 1 },
+            num4: { hidden: 1 },
+            mnum: { join: ["num","mtime"] },
+            mtime: { type: "now" },
+        },
+        test2: {
+            id: { primary: 1, pub: 1, index: 1 },
+            id2: { primary: 1, projection: 1 },
+            email: { projection: 1 },
+            name: { pub: 1 },
+            birthday: { semipub: 1 },
+            json: { type: "json" },
+            num: { type: "bigint", index: 1, projection: 1 },
+            num2: { type: "real" },
+            mtime: { type: "bigint" }
+        },
+        test3: { id : { primary: 1, pub: 1 },
+            num: { type: "counter", value: 0, pub: 1 }
+        },
+        test4: { id: { primary: 1, pub: 1 },
+            type: { pub: 1 }
+        },
+        test5: { id: { primary: 1, pub: 1 },
+            hkey: { primary: 1, join: ["type","peer"], ops: { select: "begins_with" }  },
+            type: { pub: 1 },
+            peer: { pub: 1 }
+        },
     };
     var now = Date.now();
     var id = lib.random(64);
@@ -610,7 +618,7 @@ tests.test_db = function(callback)
         },
         function(next) {
             db.get("test1", { id: id2 }, function(err, row) {
-                tests.assert(next, err || !row || row.num4 != "4" || row.jnum != row.num2 + "|" + row.num4, "err1-1:", row);
+                tests.assert(next, err || !row || row.num4 != "4" || row.jnum != row.num2 + "|" + row.num4 || !row.mnum || row.mnum.match(/\|$/), "err1-1:", row);
             });
         },
         function(next) {

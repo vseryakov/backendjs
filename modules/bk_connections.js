@@ -33,7 +33,7 @@ var mod = {
             peer: { pub: 1 },                              // peer id
             name: { pub: 1 },                             // peer name
             status: {},
-            mtime: { type: "bigint", now: 1, pub: 1 }
+            mtime: { type: "now", pub: 1 }
         },
 
         // References from other accounts, likes,dislikes...
@@ -47,7 +47,7 @@ var mod = {
             peer: { pub: 1 },                              // peer id
             name: { pub: 1 },                             // peer name
             status: {},
-            mtime: { type: "bigint", now: 1, pub: 1 }
+            mtime: { type: "now", pub: 1 }
         },
 
         // Metrics
