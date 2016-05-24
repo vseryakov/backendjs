@@ -23,6 +23,12 @@ var logger = bkjs.logger;
 var mod = {
     name: "bk_location",
     tables: {
+        bk_account: {
+            geohash: {},
+            latitude: { type: "real" },
+            longitude: { type: "real" },
+            location: {},
+        },
         bk_location: {
             geohash: { primary: 1 },                    // geohash, api.minDistance defines the size
             id: { primary: 1, pub: 1 },                 // my account id, part of the primary key for pagination

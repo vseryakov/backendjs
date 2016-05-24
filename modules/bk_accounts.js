@@ -43,14 +43,10 @@ var accounts = {
             state: {},
             zipcode: {},
             country: {},
-            device_id: {},                                    // Device(s) for notifications the format is: [service://]token[@appname]
-            geohash: {},
-            latitude: { type: "real" },
-            longitude: { type: "real" },
-            location: {},
-            ltime: { type: "bigint" },                        // Last location update time
-            ctime: { type: "bigint", readonly: 1, now: 1 },   // Create time
-            mtime: { type: "now" },                // Last update time
+            device_id: {},                            // Device(s) for notifications the format is: [service://]token[@appname]
+            ltime: { type: "bigint" },                // Last location update time
+            ctime: { type: "now", readonly: 1 },      // Create time
+            mtime: { type: "now" },                   // Last update time
         },
 
         // Account metrics, must correspond to `-api-url-metrics` settings, for images the default is first 2 path components
@@ -102,7 +98,7 @@ accounts.configureAccountsAPI = function()
         switch (req.params[0]) {
         case "get":
             options.cleanup = "bk_auth,bk_account";
-            if (!req.query.id) {
+            if (!req.query.id || req.query.id == req.account.id) {
                 self.getAccount(req, options, function(err, data, info) {
                     api.sendJSON(req, err, data);
                 });
