@@ -9,332 +9,200 @@
 <link href="/css/font-awesome.css" rel="stylesheet">
 
 <script src="js/jquery.js" type="text/javascript" ></script>
+<link href="/css/bootstrap.css" rel="stylesheet">
+<script src="/js/bootstrap.js"></script>
 
-<script src="js/jquery-ui.js" type="text/javascript" ></script>
-<link href="css/jquery-ui.css" rel="stylesheet" type="text/css" />
-
-<script src="js/knockout.js" type="text/javascript"></script>
-<script src="js/crypto.js" type="text/javascript"></script>
-<script src="js/bkjs.js" type="text/javascript"></script>
-<script src="js/bkjs-jquery-ui.js" type="text/javascript"></script>
-<script src="js/bkjs-ko.js" type="text/javascript"></script>
+<script src="/js/knockout.js" type="text/javascript"></script>
+<script src="/js/crypto.js" type="text/javascript"></script>
+<script src="/js/bkjs.js" type="text/javascript"></script>
+<script src="/js/bkjs-bootstrap.js" type="text/javascript"></script>
+<script src="/js/bkjs-ko.js" type="text/javascript"></script>
 
 <style>
-#loading {
-    display:none;
-    width: 20px;
-    height: 20px;
+#api-data {
+  overflow-y: auto;
 }
-
-#file {
-    max-width: 200px;
+#api-data table th {
+  background-color: #eeeeee;
 }
-
-.header {
-    font-weight: bold;
-    font: bold 0.9em 'Trebuchet MS',Arial, Helvetica;
-    background: #a7cfdf;
-    padding: 5px;
-    border: solid #ccc 1px;
-    border-radius: 6px;
-    box-shadow: 0 1px 1px #ccc;
+#api-data table td {
+  padding: 3px;
+  border-bottom: 1px solid #eeeeee;
 }
-
-.title {
-    float: left;
-    top: 0;
-    padding-left: 5px;
-    padding-bottom: 10px;
-}
-
-.buttons {
-    float: right;
-    top:0;
-    right:100%;
-    padding-left: 5px;
-    padding-right: 5px;
-}
-
-.buttons span {
-    padding: 5px;
-}
-
-ul {
-    list-style-type: none;
-    margin: 0;
-    padding: 0;
-    width: 100%;
-    height: 500px;
-    overflow-y: auto;
-    overflow-x: hidden;
-    max-height: 500px;
-}
-
-li {
-    width: 100%;
-    padding: 3px;
-    border-bottom: 1px dotted black;
-    cursor: pointer;
+#api-url {
+  padding-left: 5px;
 }
 </style>
 
 <script type="text/javascript">
 
-// Based on https://github.com/ngn/jquery-input-history.git
-$(function() {
-    $.widget('Bkjs.inputHistory', {
-    _create:function() {
-        var s, _this = this;
-        this.storageKey = 'inputHistory.' + this.element.attr('id');
-        this.h0 = Bkjs.getHistory();
-        this.h = this.h0.concat(['']);
-        this.i = this.h0.length;
-        return this.element.keydown(function(event) {
-            switch(event.which) {
-            case 13:return _this.enter();
-            case 38:return _this.up();
-            case 40:return _this.down();
-            }
+Bkjs.apiFormat = ko.observable();
+Bkjs.apiFormat.subscribe(function(val) { Bkjs.apiUpdateUrl(); });
+Bkjs.apiHistoryList = [];
+Bkjs.apiHistoryIndex = 0;
+
+Bkjs.apiUpdateUrl = function()
+{
+    var url = $("#api-url").val().replace(/\&?_format=[a-z]+/, "");
+    if (Bkjs.apiFormat()) url += "&_format=" + Bkjs.apiFormat();
+    url = url.replace(/\&?id=[a-z0-9]+/, "");
+    $("#api-url").val(url);
+}
+
+Bkjs.apiHistory = function(key, val)
+{
+    switch (key) {
+    case "init":
+        Bkjs.apiHistoryList = String(localStorage["bkjs.api.history"] || "").split("|").filter(function(x) { return x });
+        Bkjs.apiHistoryIndex = Bkjs.apiHistoryList.length;
+        break;
+
+    case "put":
+        if (!val) break;
+        if (Bkjs.apiHistoryList.indexOf(val) > -1) break;
+        Bkjs.apiHistoryList.push(val);
+        Bkjs.apiHistoryIndex = Bkjs.apiHistoryList.length - 1;
+        localStorage["bkjs.api.history"] = Bkjs.apiHistoryList.join("|");
+        break;
+
+    case "up":
+        if (Bkjs.apiHistoryIndex > 0 && Bkjs.apiHistoryIndex <= Bkjs.apiHistoryList.length) {
+            Bkjs.apiHistoryIndex--;
+            $("#api-url").val(Bkjs.apiHistoryList[Bkjs.apiHistoryIndex]);
+        }
+        break;
+
+    case "down":
+        if (Bkjs.apiHistoryIndex >= 0 && Bkjs.apiHistoryIndex < Bkjs.apiHistoryList.length) {
+            Bkjs.apiHistoryIndex++;
+            $("#api-url").val(Bkjs.apiHistoryList[Bkjs.apiHistoryIndex] || "");
+        }
+        break;
+    }
+}
+
+Bkjs.apiRun = function(data, event)
+{
+    var url = $('#api-url').val();
+    if (!url) return;
+    $('#api-data').empty();
+
+    // Request for an image, re-route to image container
+    if (/^\/image\/|(^\/account\/get\/icon)|(^\/icon\/get)|(^\/message\/image)/.test(url)) {
+        $("<img />").attr('src', Bkjs.signUrl(url)).load(function() {
+            if (this.complete && this.naturalWidth) $("#api-data").append(this);
         });
-    },
-    up:function() {
-        if (this.i > 0) {
-            this.h[this.i--] = this.element.val();
-            this.element.val(this.h[this.i]);
-        }
-        this._trigger('up');
-        return false;
-    },
-    down:function() {
-        if (this.i < this.h0.length){
-            this.h[this.i++] = this.element.val();
-            this.element.val(this.h[this.i]);
-        }
-        this._trigger('down');
-        return false;
-    },
-    enter:function() {
-        this._trigger('enter');
-        if (this.i < this.h0.length){
-            this.h[this.i] = this.h0[this.i];
-        }
-        var v = this.element.val();
-        if (this.i >= 0 && this.i >= this.h0.length - 1 && this.h0[this.h0.length - 1] === v) {
-            this.h[this.h0.length] = '';
-        } else {
-        if (this.h0.indexOf(v) > -1) return false;
-            this.h[this.h0.length] = v;
-            this.h.push('');
-            this.h0.push(v);
-            localStorage[this.storageKey] = this.h0.join('\n');
-        }
-        this.i = this.h0.length;
-        return false;
-    }});
-});
+    } else {
+        var options = { url: url };
+        if (url.match(/_format=(csv|xml)/)) options.dataType = "text";
+        if ($("#api-encode").prop("checked")) options.url = Bkjs.encodeUrl(options.url)
+        Bkjs.send(options, function(data, xhr) {
+            try {
+                var ctype = xhr.getResponseHeader("content-type") || "";
+                if (ctype.indexOf("json") > -1) {
+                    if ($("#api-table").prop("checked") && (Array.isArray(data) || Array.isArray(data.data))) {
+                        var d = data.length ? data : (data.data || []);
+                        var html = "<table><tr>";
+                        for (var p in d[0]) html += "<th>" + p + "</th>"
+                        html += "</tr>";
+                        for (var i in d) {
+                            html += "<tr>"
+                            for (var p in d[i]) {
+                                if (String(d[i][p]).indexOf("http://") == 0) d[i][p] = "<a href=" + d[i][p] + ">" + d[i][p] + "</a>";
+                                html += "<td>" + d[i][p] + "</td>";
+                            }
+                            html += "</tr>"
+                        }
+                        html += "</table>";
+                        data = html;
+                    } else {
+                        data = Bkjs.formatJSON(data, " ");
+                    }
+                } else {
+                    data = data.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+                }
+
+                if ($("#api-win").prop("checked")) {
+                    var w = window.open("");
+                    w.document.write("<pre>" + data + "</pre>");
+                    return;
+                }
+                $("#api-data").append("<pre>" + data + "</pre>");
+            } catch(e) {
+                $("#api-data").append($("<div class=\"alert alert-danger\">" + e.toString() + "</div>"))
+            }
+            Bkjs.apiHistory("put", url);
+        }, function(msg, xhr) {
+            $("#api-data").append($("<div class=\"alert alert-danger\">" + msg + "<br/>" + xhr.responseText + "</div>"));
+        });
+    }
+}
 
 $(function() {
-     Bkjs.debug = 1;
-     Bkjs.session = 1;
-     Bkjs.apiResponse = ko.observable('');
-     Bkjs.apiUrl = ko.observable('');
-     Bkjs.apiEmail = ko.observable();
-     Bkjs.apiTable = false;
-     Bkjs.apiRaw = false;
-     Bkjs.apiEscape = false;
-     Bkjs.apiHistory = ko.observableArray();
-     Bkjs.apiWS = ko.observable(0);
-     Bkjs.apiWS.subscribe(function(val) {
-        if (!val) return Bkjs.wsClose();
-        Bkjs.wsConnect("", function(data) { Bkjs.formatResponse(data); });
-     });
-
-     Bkjs.getHistory = function(sort) {
-        var list = localStorage['inputHistory.url'], a = [];
-        list = (list || "").split('\n');
-        if (sort) list.sort();
-        list.forEach(function(x) { if (x && a.indexOf(x) == -1) a.push(x) });
-        return a;
-     }
-     Bkjs.clearHistory = function() {
-        localStorage['inputHistory.url'] = "";
-        Bkjs.apiHistory(Bkjs.getHistory(true));
-        $("#dialog-history").dialog("close");
-     }
-     Bkjs.deleteHistory = function(data, event) {
-        if (!data) return;
-        var list = Bkjs.getHistory();
-        var idx = list.indexOf(data);
-        if (idx == -1) return;
-        list.splice(idx, 1);
-        localStorage['inputHistory.url'] = list.join('\n');
-        Bkjs.apiHistory(Bkjs.getHistory(true));
-     }
-     Bkjs.selectHistory = function(data, event) {
-        if (!data) return;
-        $("#url").val(data);
-        $("#dialog-history").dialog("close");
-        Bkjs.doRun();
-     }
-     Bkjs.showHistory = function() {
-        Bkjs.apiHistory(this.getHistory(true));
-        $("#dialog-history").dialog("open");
-     }
-     Bkjs.formatResponse = function(data, xhr) {
-        try {
-            var ctype = xhr.getResponseHeader("content-type") || "";
-            if (ctype.indexOf("json") > -1) {
-                if (this.apiTable) {
-                    var d = data.length ? data : (data.data || []);
-                    var html = "<table><tr>";
-                    for (var p in d[0]) {
-                        if (p.substr(-3) == "_ts") continue;
-                        html += "<th>" + p + "</th>"
-                    }
-                    html += "</tr>";
-                    for (var i in d) {
-                        html += "<tr>"
-                        for (var p in d[i]) {
-                            if (String(d[i][p]).indexOf("http://") == 0) d[i][p] = "<a href=" + d[i][p] + ">" + d[i][p] + "</a>";
-                            html += "<td>" + d[i][p] + "</td>";
-                        }
-                        html += "</tr>"
-                    }
-                    html += "</table>";
-                    data = html;
-                } else {
-                    data = this.formatJSON(data, " ");
-                }
-            }
-            this.apiResponse(data);
-        } catch(e) {
-            this.apiResponse(e.toString())
+    Bkjs.apiHistory("init");
+    $('#api-url').on('keydown',function(e) {
+        switch(event.which) {
+        case 38:return Bkjs.apiHistory("up");
+        case 40:return Bkjs.apiHistory("down");
         }
-     }
-     Bkjs.doPrepare = function(options) {
-        var file = $("#file")[0];
-        if (!file.files.length) {
-            if (Bkjs.apiEscape) options.url = Bkjs.encodeUrl(options.url);
-            return true;
-        }
-        var form = new FormData(), obj = {}, fn = "icon";
-        if (options.url.indexOf("?") > -1) {
-            var url = options.url.split("?");
-            var q = url[1].replace(/\+/gi," ").split("&");
-            for (var i in q) {
-                var v = q[i].split("=");
-                fn = unescape(v[0]);
-                if (v[1]) form.append(fn, unescape(v[1]));
-            }
-            options.url = url[0];
-        }
-        form.append(fn, file.files[0]);
-        options.type = "POST";
-        options.data = form;
-        options.contentType = false;
-        options.nosignature = true;
-        options.processData = false;
-        return true;
-     }
-     Bkjs.doRun = function() {
-         var self = this;
-         var url = $('#url').val();
-         if (!url) return;
-         $('#icon').empty();
-
-         // Request for an image, re-route to image container
-         if (/^\/image\/|(^\/account\/get\/icon)|(^\/icon\/get)|(^\/message\/image)/.test(url)) {
-             self.apiResponse("");
-             $("<img />").attr('src', self.signUrl(url)).load(function() {
-                 if (this.complete && this.naturalWidth) $("#icon").append(this);
-                 $("#file").val('');
-             });
-         } else {
-             if (Bkjs.ws) return Bkjs.wsSend(url);
-             if (Bkjs.io) return Bkjs.ioSend(url);
-
-             var options = { url: url };
-             if (Bkjs.apiRaw) options.dataType = "text";
-             if (!Bkjs.doPrepare(options)) return;
-             Bkjs.send(options, function(data, xhr) {
-                 $("#file").val('');
-                 Bkjs.formatResponse(data, xhr);
-             }, function(msg, xhr, status, error) {
-                 $("#file").val('');
-                 self.apiResponse(error + "\n" + xhr.responseText);
-             });
-         }
-     }
-     Bkjs.koShow = function() {
-        Bkjs.apiEmail(Bkjs.loggedIn ? Bkjs.account.login : "");
-     }
-
-     $('#url').inputHistory({
-         enter: function() { Bkjs.doRun() }
-     });
-
-     $("#dialog-history").dialog({
-        autoOpen: false,
-        modal: true,
-        width: "80%"
-     });
-
-     document.title += ": " + window.location.hostname.split(".").shift();
-     Bkjs.koInit();
+    });
+    Bkjs.koInit();
 });
+
 </script>
 
 </head>
 <body>
-<div id="header" class="header">
-   <div class="title">
-   API console
+<nav class="navbar navbar-default">
+   <div class="navbar-header">
+     <a class="navbar-brand" href="#">API Console</a>
    </div>
-   <div class='buttons'>
-     <span title="Login into the account" data-bind="click: koLogin">Login</span>
-     <span title="Logout and clear the session" data-bind="click: koLogout" >Logout</span>
-     <span title="Documentation" onclick="window.open('doc.html')" >Help</span>
-   </div>
-   <span class="title" title="Logged in account email or error status" style="float:right;" data-bind='text: apiEmail' ></span>
-   <p style="clear:both;" />
+   <ul class='nav navbar-nav navbar-right'>
+     <li><a title="Login into the account" data-bind="click: koLogin">Login</a></li>
+     <li><a title="Logout and clear the session" data-bind="click: koLogout" >Logout</a></li>
+     <li><a title="Documentation" onclick="window.open('doc.html')" >Help</a></li>
+   </ul>
+</nav>
 
-   <div class="center">
-     <form data-bind="submit: doRun">
-     <table border=0 spacing=5>
-      <tr><td>URL:</td>
-          <td><input id="url" type="search" size=100" /></td>
-          <td><button type="submit" >Run</button></td>
-          <td><button data-bind="click: showHistory" title="Show all commands from history">History...</button></td>
-          <td colspan=3><input type="file" id="file" name="file" title="Upload a file, the last param in url must be empty like '/account/put/icon?type=0&icon=', it will be used for a file"/></td>
-       </tr>
-       <tr>
-          <td colspan=2></td>
-          <td><input type="checkbox" data-bind="checked: apiEscape" title="Encode url query, it is in the human readable form"/> Encode URL</td>
-          <td><input type="checkbox" data-bind="checked: apiWS" title="Use WebSockets connection instead of HTTP"/> WebSockets</td>
-          <td><input type="checkbox" data-bind="checked: apiTable" title="Show in tabular format"/> Tabular</td>
-          <td><input type="checkbox" data-bind="checked: apiRaw" title="Expeted result is not JSON"/> Not JSON</td>
-          <td><input type="checkbox" data-bind="checked: scramble" title="Scramble local secret"/> Scramble</td>
-          <td><img id="loading" src="img/loading.gif"></td>
-      </tr>
-     </table>
-     </form>
-   </div>
-   <br style="clear:both;"/>
-</div>
+<form data-bind="submit: apiRun">
+<div class="container">
+  <div class="row">
+     <div class="col-lg-8">
+       <div class="input-group">
+         <input id="api-url" type="text" class="form-control" autocomplete="off" placeholder="API endpoint url...">
+         <span class="input-group-btn">
+           <button class="btn btn-default btn-success" type="submit">Run</button>
+         </span>
+       </div>
+       <p/>
+       <div id="api-data"></div>
+     </div>
 
-<pre><span data-bind="html: apiResponse" ></span></pre>
-<div id="icon"></div>
-
-<div id="dialog-history" title="History">
-  <div align=right>
-    <button data-bind="click: clearHistory" title="Clear all history">Clear</button>
+     <div class="col-lg-4">
+       <ul class="nav nav-pills nav-stacked">
+         <li role="presentation">
+           <input type="checkbox" id="api-encode"> Encode URL
+         </li>
+         <li role="presentation">
+           <input type="checkbox" id="api-table"> Format result as a table
+         </li>
+         <li role="presentation">
+           <input type="checkbox" id="api-win"> Return result in a separate window
+         </li>
+         <li role="presentation">
+           <input type="radio" value="" data-bind="checked: apiFormat"> Return result in JSON format
+         </li>
+         <li role="presentation">
+           <input type="radio" value="csv" data-bind="checked: apiFormat"> Return result in CSV format
+         </li>
+         <li role="presentation">
+           <input type="radio" value="xml" data-bind="checked: apiFormat"> Return result in XML format
+         </li>
+       </ul>
+     </div>
   </div>
-  <ul data-bind="foreach: apiHistory">
-    <li><span data-bind="click: $root.selectHistory, text: $data"/></span>
-        <span data-bind="click: $root.deleteHistory" class="fa fa-trash"></span>
-    </li>
-  </ul>
 </div>
+</form>
 
 </body>
 </html>

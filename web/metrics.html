@@ -8,41 +8,20 @@
 
  <script src="/js/jquery.js" type="text/javascript" ></script>
 
- <script src="/js/jquery-ui.js" type="text/javascript" ></script>
- <link href="/css/jquery-ui.css" rel="stylesheet" type="text/css" />
+ <link href="/css/bootstrap.css" rel="stylesheet">
+ <script src="/js/bootstrap.js"></script>
 
  <script src="/js/knockout.js" type="text/javascript"></script>
-
  <script src="/js/crypto.js" type="text/javascript"></script>
-
  <script src="/js/bkjs.js" type="text/javascript"></script>
- <script src="/js/bkjs-jquery-ui.js" type="text/javascript"></script>
+ <script src="/js/bkjs-bootstrap.js" type="text/javascript"></script>
+ <script src="/js/bkjs-ko.js" type="text/javascript"></script>
 
  <link href="/css/nv.d3.css" rel="stylesheet" type="text/css">
  <script src="/js/d3.js"></script>
  <script src="/js/nv.d3.js"></script>
 
 <style>
-
-body {
-  overflow-y:scroll;
-  background-color: #bbbbbb;
-}
-
-text {
-  font: 12px sans-serif;
-}
-
-#loading {
-    display:none;
-    width: 16px;
-    height: 16px;
-}
-
-.buttons {
-    height: 22px;
-    background-color: #bbbbbb;
-}
 
 .chart svg {
   height: 450px;
@@ -148,23 +127,20 @@ function showChart()
 }
 
 $(function() {
-     Bkjs.session = true;
-
      $('#type').on('change', function() { showChart(); });
      $('#period').on('change', function() { showChart(); });
-
-     ko.applyBindings(Bkjs);
-     Bkjs.login(function(err) {
-       if (!err) return showChart();
-       $("#chart_canvas").html("Not logged in");
-     });
+     Bkjs.koInit();
  });
 
 </script>
 
 <body>
-<div id="header" class="header">
-   <div class="buttons">
+<nav class="nav navbar navbar-default">
+  <div class="navbar-header">
+    <a class="navbar-brand" href="#">Metrics</a>
+  </div>
+  <ul class="nav navbar-nav">
+  <li><a>
    <select id="type" title="Metric type">
      <option>Endpoints</option>
      <option>Requests</option>
@@ -172,6 +148,10 @@ $(function() {
      <option>Utilization</option>
      <option>Memory</option>
    </select>
+   </a>
+  </li>
+  <li><a>&nbsp;</a></li>
+  <li><a>
    <select id="period" title="Duration from the past">
      <option value=3600000>1 Hour</option>
      <option value=21600000>6 Hours</option>
@@ -182,12 +162,12 @@ $(function() {
      <option value=432000000>5 Days</option>
      <option value=604800000>7 Days</option>
    </select>
-   <img id="loading" src="/img/loading.gif">
-   </div>
-   <p style="clear:both;" />
-
-   <div class="center">
-     <div id="chart_canvas" class='chart with-transitions'><svg></svg></div>
-   </div>
+   </a>
+  </li>
+  </ul>
+</nav>
+<div class="row">
+  <div id="chart_canvas" class='chart with-transitions'><svg></svg></div>
+</div>
 </body>
 
