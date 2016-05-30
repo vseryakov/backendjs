@@ -68,6 +68,12 @@ mod.init = function(options)
     ]);
 }
 
+mod.configureMiddleware = function(options, callback)
+{
+    api.registerControlParams(mod.controls);
+    callback();
+}
+
 // Create API endpoints and routes
 mod.configureWeb = function(options, callback)
 {
@@ -81,7 +87,7 @@ mod.configureIconsAPI = function()
     var self = this;
 
     api.app.all(/^\/icon\/([a-z]+)$/, function(req, res) {
-        var options = api.getOptions(req, mod.controls);
+        var options = api.getOptions(req);
 
         if (!req.query.prefix) return api.sendReply(res, 400, "prefix is required");
         if (!req.query.id) req.query.id = req.account.id;

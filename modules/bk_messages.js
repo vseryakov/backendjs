@@ -98,6 +98,12 @@ mod.init = function(options)
     ]);
 }
 
+mod.configureMiddleware = function(options, callback)
+{
+    api.registerControlParams(mod.controls);
+    callback();
+}
+
 mod.configureModule = function(options, callback)
 {
     db.setProcessRow("post", "bk_message", function(req, row, options) {
@@ -128,7 +134,7 @@ mod.configureMessagesAPI = function()
     var self = this;
 
     api.app.all(/^\/message\/([a-z\/]+)$/, function(req, res) {
-        var options = api.getOptions(req, mod.controls);
+        var options = api.getOptions(req);
 
         switch (req.params[0]) {
         case "image":

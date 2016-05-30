@@ -92,6 +92,12 @@ mod.init = function(options)
     ]);
 }
 
+mod.configureMiddleware = function(options, callback)
+{
+    api.registerControlParams(mod.controls);
+    callback();
+}
+
 // Create API endpoints and routes
 mod.configureWeb = function(options, callback)
 {
