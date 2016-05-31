@@ -565,6 +565,7 @@ tests.test_db = function(callback)
             email: { projection: 1 },
             name: { pub: 1 },
             birthday: { semipub: 1 },
+            group: {},
             json: { type: "json" },
             num: { type: "bigint", index: 1, projection: 1 },
             num2: { type: "real" },
@@ -644,10 +645,10 @@ tests.test_db = function(callback)
             db.add("test2", { id: id, id2: '1', email: id, name: id, birthday: id, num: 0, num2: num2, mtime: now }, next);
         },
         function(next) {
-            db.add("test2", { id: id2, id2: '2', email: id, name: id, birthday: id, num: 2, num2: num2, mtime: now }, next);
+            db.add("test2", { id: id2, id2: '2', email: id, name: id, birthday: id, group: id, num: 2, num2: num2, mtime: now }, next);
         },
         function(next) {
-            db.put("test2", { id: id2, id2: '1', email: id2, name: id2, birthday: id2, num: 1, num2: num2, mtime: now }, next);
+            db.put("test2", { id: id2, id2: '1', email: id2, name: id2, birthday: id2, group: id2, num: 1, num2: num2, mtime: now }, next);
         },
         function(next) {
             db.put("test3", { id: id2, num: 2, emai: id2 }, next);
