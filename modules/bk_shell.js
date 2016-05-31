@@ -419,7 +419,7 @@ shell.cmdDbTables = function(options)
     var sep = lib.getArg("-separator", "\n");
     var tables = db.getPoolTables(db.pool, { names: 1 });
     console.log(tables.join(sep));
-    this.exit(err);
+    this.exit();
 }
 
 // Show record that match the search criteria, return up to `-count N` records
