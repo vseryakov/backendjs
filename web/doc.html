@@ -1128,10 +1128,10 @@ this is the only way to ensure the body is not modified when not using query par
  is passed in the query as <code>bk-access-token=TOKEN</code>.</p>
 <p> Example:</p>
 <pre><code>     /auth?_accesstoken=1
-     &gt; { id: &quot;XXXX...&quot;, alias: &quot;Test User&quot;, &quot;bk-access-token&quot;: &quot;XXXXX....&quot;, &quot;bk-access-token-age&quot;: 604800000 }
+     &gt; { id: &quot;XXXX...&quot;, name: &quot;Test User&quot;, &quot;bk-access-token&quot;: &quot;XXXXX....&quot;, &quot;bk-access-token-age&quot;: 604800000 }
 
      /account/get?bk-access-token=XXXXXX...
-     &gt; { id: &quot;XXXX...&quot;, alias: &quot;Test User&quot;, ... }
+     &gt; { id: &quot;XXXX...&quot;, name: &quot;Test User&quot;, ... }
 </code></pre></li>
 </ul>
 </li>
@@ -1152,7 +1152,7 @@ this is the only way to ensure the body is not modified when not using query par
             success: function(json, status, xhr) { console.log(json) }
    });
 
-   &gt; { id: &quot;XXXX...&quot;, alias: &quot;Test User&quot;, login: &quot;test123&quot;, ...}
+   &gt; { id: &quot;XXXX...&quot;, name: &quot;Test User&quot;, login: &quot;test123&quot;, ...}
 </code></pre></li>
 </ul>
 </li>
@@ -1180,7 +1180,7 @@ verifying if the given login and secret are valid, there is no special login API
 <code>bk_account</code> table will be returned.</p>
 <p>Response:</p>
 <pre><code>    { &quot;id&quot;: &quot;57d07a4e28fc4f33bdca9f6c8e04d6c3&quot;,
-      &quot;alias&quot;: &quot;Test User&quot;,
+      &quot;name&quot;: &quot;Test User&quot;,
       &quot;name&quot;: &quot;Real Name&quot;,
       &quot;mtime&quot;: 1391824028,
       &quot;latitude&quot;: 34,
@@ -1232,15 +1232,13 @@ large tables. Supports special query parameters <code>_select,_ops</code>, see d
 </code></pre><p>Response:</p>
 <pre><code>      {  &quot;data&quot;: [{
                     &quot;id&quot;: &quot;57d07a4e28fc4f33bdca9f6c8e04d6c3&quot;,
-                    &quot;alias&quot;: &quot;Test User1&quot;,
-                    &quot;name&quot;: &quot;User1&quot;,
+                    &quot;name&quot;: &quot;Test User1&quot;,
                     &quot;mtime&quot;: 1391824028,
                     &quot;login&quot;: &quot;test1&quot;,
                   },
                   {
                     &quot;id&quot;: &quot;57d07a4e2824fc43bd669f6c8e04d6c3&quot;,
-                    &quot;alias&quot;: &quot;Test User2&quot;,
-                    &quot;name&quot;: &quot;User2&quot;,
+                    &quot;name&quot;: &quot;Test User2&quot;,
                     &quot;mtime&quot;: 1391824028,
                     &quot;login&quot;: &quot;test2&quot;,
                   }],
@@ -1253,7 +1251,7 @@ large tables. Supports special query parameters <code>_select,_ops</code>, see d
 <li><p><code>/account/update</code></p>
 <p>Update current account with new values, the parameters are columns of the table <code>bk_account</code>, only columns with non empty values will be updated.</p>
 <p>Example:</p>
-<pre><code>      /account/update?name=New%2BName&amp;alias=Hidden%2BName&amp;gender=m
+<pre><code>      /account/update?name=New%2BName&amp;gender=m
 </code></pre></li>
 <li><p><code>/account/put/secret</code></p>
 <p>Change account secret for the current account, no columns except the secret will be updated and expected.</p>
@@ -1824,7 +1822,7 @@ separate fields. To return raw data pass the parameter <code>_noprocessrows=1</c
 <p>Example:</p>
 <pre><code>  /data/get/bk_account?id=12345
   /data/put/bk_counter?id=12345&amp;like0=1
-  /data/select/bk_account?name=john&amp;_ops=name,gt&amp;_select=name,alias,email
+  /data/select/bk_account?name=john&amp;_ops=name,gt&amp;_select=name,email
   /data/select/bk_connection?_noscan=0&amp;_noprocessrows=1
 </code></pre></li>
 </ul>
@@ -2368,6 +2366,7 @@ Database pool statistics and other diagnostics</p>
 <li><code>api-no-static</code> - Disable static files from /web folder, no .js or .html files will be served by the server</li>
 <li><code>api-static-options</code> - Options to be passed to the serve-static module for static content handling</li>
 <li><code>api-static-paths</code> - List of additional paths to be used when serving static content</li>
+<li><code>api-vhost-path-(.+)</code> - Define a virtual host regexp to be matched against the hostname header to serve static content from a different root, if not an absolute path then a vhost dir must be inside the primary web root, if the regexp starts with !, that means negative match, example: api-vhost-path-test_dir=test.com$</li>
 <li><code>api-no-templating</code> - Disable templating engine completely</li>
 <li><code>api-templating</code> - Templating engne to use, see consolidate.js for supported engines</li>
 <li><code>api-no-session</code> - Disable cookie session support, all requests must be signed for Web clients</li>
@@ -2397,7 +2396,7 @@ Database pool statistics and other diagnostics</p>
 <li><code>api-allow-anonymous</code> - Add to the list of allowed URL paths that can be served with or without valid account, the difference with <code>allow-path</code> is that it will check for signature and an account but will continue if no login is provided, return error in case of wrong account or not account found</li>
 <li><code>api-allow-ssl</code> - Add to the list of allowed URL paths using HTTPs only, plain HTTP requests to these urls will be refused</li>
 <li><code>api-redirect-ssl</code> - Add to the list of the URL paths to be redirected to the same path but using HTTPS protocol, for proxy mode the proxy server will perform redirects</li>
-<li><code>api-redirect-url</code> - Add to the list a JSON object with property name defining the host/path regexp to be matched against in order to redirect using the value of the property, if the regexp starts with !, that means negative match, 2 variables can be used for substitution: @HOST@, @PATH@, @URL@, example: { &#39;^[^/]+/path/$&#39;: &#39;/path2/index.html&#39;, &#39;.+/$&#39;: &#39;@PATH@/index.html&#39; } </li>
+<li><code>api-redirect-url</code> - Add to the list a JSON object with property name defining a host/path regexp to be matched against in order to redirect using the value of the property, if the regexp starts with !, that means negative match, 2 variables can be used for substitution: @HOST@, @PATH@, @URL@, example: { &#39;^[^/]+/path/$&#39;: &#39;/path2/index.html&#39;, &#39;.+/$&#39;: &#39;@PATH@/index.html&#39; } </li>
 <li><code>api-deny</code> - Regexp for URLs that will be denied access, replaces the whole access list</li>
 <li><code>api-deny-path</code> - Add to the list of URL paths to be denied without authentication</li>
 <li><code>api-subscribe-timeout</code> - Timeout for Long POLL subscribe listener, how long to wait for events before closing the connection, milliseconds</li>
@@ -2496,7 +2495,7 @@ early with some properties always present:<ul>
       bk_auth: {
           login: { primary: 1 },                              // Account login
           id: { type: &quot;uuid&quot; },                               // Auto generated UUID to be linked with other records
-          alias: { type: &quot;text&quot; },                            // Account alias
+          name: { type: &quot;text&quot; },                             // Account name
           status: { type: &quot;text&quot; },                           // Status of the account
           type: { type: &quot;text&quot;, admin: 1 },                   // Account type: admin, ....
           secret: { secure: 1 },                              // Signature secret, not a password
@@ -3293,7 +3292,12 @@ Output file name is built according to the following options properties:</li>
 
 <ul>
 <li><p><code>api.iconPath(id, options)</code></p>
-<p> Full path to the icon, perform necessary hashing and sharding, id can be a number or any string</p>
+<p> Full path to the icon, perform necessary hashing and sharding, id can be a number or any string.</p>
+<p><code>options.type</code> may contain special placeholders:</p>
+<ul>
+<li>@uuid@ - will be replaced with a unique UUID and placed back to the options.type</li>
+<li>@now@ - will be replaced with the current timestamp</li>
+</ul>
 </li>
 </ul>
 
@@ -3329,7 +3333,11 @@ when moving images from other places. On success the callback will be called wit
 file name where the image has been saved.
 Valid properties in the options:</p>
 <ul>
-<li>type - icon type, this will be prepended to the name of the icon</li>
+<li>type - icon type, this will be prepended to the name of the icon, there are several special types:<ul>
+<li>@uuid - auto generate an UUID</li>
+<li>@now - use current timestamp</li>
+</ul>
+</li>
 <li>prefix - top level subdirectory under images/</li>
 <li>width, height, filter, ext, quality for <code>resizeImage</code> function</li>
 <li>filesize - file size if available</li>
@@ -4985,6 +4993,7 @@ returned will be deleted using <code>db.del</code> call. The callback will recei
 Special properties that can be in the options for this call:</p>
 <ul>
 <li>ops - query operations to retrieve records to be deleted</li>
+<li>count - how many matching records to delete</li>
 <li>delOptions - options to be passed to the db.del if needed, this is useful so select and del options will not be mixed up</li>
 <li>factorCapacity - write capcity factor for delete operations, default is 0.35</li>
 <li>concurrency - how many delete requests to execute at the same time by using lib.forEachLimit.</li>
@@ -5097,8 +5106,9 @@ The following options can be used:</p>
 <li><p><code>db.search(table, query, options, callback)</code></p>
 <p> Perform full text search on the given table, the database implementation may ignore table name completely
 in case of global text index.</p>
-<p>Query in general is a text string with the format that is supported by the underlying driver, the db module DOES NOT PARSE the query at all.
-Options make take the same properties as in the select method.</p>
+<p>Query in general is a text string with the format that is supported by the underlying driver,
+the db module <em>DOES NOT PARSE</em> the query at all if the driver supports full text search, otherwise it behaves like <code>select</code>.</p>
+<p>Options make take the same properties as in the <code>select</code> method.</p>
 <p>A special query property <code>q</code> may be used for generic search in all fields.</p>
 <p>Without full text search support in the driver this may return nothing or an error.</p>
 <p>Example</p>
@@ -5224,18 +5234,27 @@ it can contain pub property to be returned to the client</li>
 <li><code>readonly</code> - only add/put operations will use the value, incr/update will not affect the value</li>
 <li><code>writeonly</code> - only incr/update can change this value, add/put will ignore it</li>
 <li><code>noresult</code> - delete this property from the result, mostly for joined artificial columns which used for indexes only</li>
-<li><code>now</code> - means on every add/put/update set this column with current time as Date.now()</li>
+<li><code>now</code> - means on every add/put/update set this column with current time as Date.now(), obsolete, use type &quot;now&quot;</li>
 <li>`lower&#39; - make string value lowercase</li>
 <li>`upper&#39; - make string value uppercase</li>
+<li><code>list</code> - splits the column value into an array, optional <code>separator</code> property can be used, default separator is <code>,|</code></li>
 <li><code>autoincr</code> - for counter tables, mark the column to be auto-incremented by the connection API if the connection type has the same name as the column name</li>
 <li><code>join</code> - a list with porperty names that must be joined together before performing a db operation, it will use the given record to produce new property,
  this will work both ways, to the db and when reading a record from the db it will split joined property and assign individual
  properties the value from the joined value.</li>
-<li><code>joinOps</code> - an array with operations for which perform join only, if not specified applies for all operation, allowed values: add, put, incr, update, del, get, select</li>
+<li><code>joinOps</code> - an array with operations for which perform columns join only, if not specified it applies for all operations, allowed values: add, put, incr, update, del, get, select</li>
 </ul>
 <p><em>Some properties may be defined multiple times with number suffixes like: unique1, unique2, index1, index2 to create more than one index for the table, same
 properties define a composite key in the order of definition or sorted by the property value, for example: <code>{ a: { index:2 }, b: { index:1 } }</code> will create index (b,a)
 because of the <code>index:</code> property value being not the same. If all index properties are set to 1 then a composite index will use the order of the properties.</em></p>
+<p><em>Special column types</em>:</p>
+<ul>
+<li><code>uuid</code> - autogenerate the column value with UUID, optional <code>prefix</code> property will be prepended, <code>{ type: &quot;uuid&quot;, prefix: &quot;u_&quot; }</code></li>
+<li><code>now</code> - defines a column to be automatically filled with the current timestamp, <code>{ type: &quot;now&quot; }</code></li>
+<li><code>counter</code> - defines a columns that will be automatically incremented by the <code>db.incr</code> command, on creation it is set with 0</li>
+<li><code>uid</code> - defines a columns to be automatically filled with the current user id, this assumes that account object is passed in the options from the API level</li>
+<li><code>uname</code> - defines a columns to be automatically filled with the current user name, this assumes that account object is passed in the options from the API level</li>
+</ul>
 <p>NOTE: Index creation is not required and all index properties can be omitted, it can be done more effectively using native tools for any specific database,
 this format is for simple and common use cases without using any other tools but it does not cover all possible variations for every database. But all indexes and
 primary keys created outside of the backend application will be detected properly by <code>db.cacheColumns</code> and by each pool <code>cacheIndexes</code> methods.</p>
@@ -5511,7 +5530,7 @@ requests with any database or can be used generically. The <code>cap</code> must
 </ul>
 
 <ul>
-<li><p><code>db.joinColumn(op, obj, name, col, options, orig)</code></p>
+<li><p><code>db.joinColumn(req, obj, name, col, orig)</code></p>
 <p> Join several columns to produce a combined property if configured, given a column description and an object record
 it replaces the column value with joined value if needed. Empty properties will be still joined as empty strings.
 It always uses the original value even if one of the properties has been joined already.</p>
@@ -6671,6 +6690,12 @@ false
 </ul>
 
 <ul>
+<li><p><code>lib.toClamp(num, min, max)</code></p>
+<p> Return a number clamped between the range</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>lib.toBool(val, dflt)</code></p>
 <p> Return true if value represents true condition, i.e. non empty value</p>
 </li>
@@ -6728,6 +6753,7 @@ validate incoming data. It is an object with property names and definitoons that
 <li>data - to pass realtime or other custom options for the validation or convertion utilities as the first argument if not defined in the definition.</li>
 <li>prefix - prefix to be used when searching for the parameters in the query, only properties with this prefix will be processed. The resulting
  object will not have this prefix in the properties.</li>
+<li>name - to save a value with different name than in the original query</li>
 </ul>
 <p>If any of the properties have <code>required:1</code> and the value will not be resolved then the function returns a string with the <code>errmsg</code> message
 or the default message, this is useful for detection of invalid or missing input data.</p>
@@ -6740,11 +6766,12 @@ or the default message, this is useful for detection of invalid or missing input
                                           code: { type: &quot;string&quot;, regexp: /^[a-z]-[0-9]+$/, errmsg: &quot;Valid code is required&quot; },
                                           start: { type: &quot;token&quot;, required: 1 },
                                           data: { type: &quot;json&quot;, datatype: &quot;obj&quot; },
-                                          mtime: { type: &quot;mtime&quot; },
+                                          mtime: { type: &quot;mtime&quot;, name: &quot;timestamp&quot; },
                                           flag: { type: &quot;bool&quot;, novalue: false },
                                           descr: { novalue: { name: &quot;name&quot;, value: &quot;test&quot; },
                                           email: { type: &quot;list&quot;, datatype: &quot;string } },
                                           internal: { ignore: 1 },
+                                          status: { value: &quot;ready&quot; },
                                           obj: { type: &quot;obj&quot;, params: { id: { type: &quot;int&quot; }, name: {} } },
                                           state: { type: &quot;list&quot;, datatype: &quot;string, values: [&quot;VA&quot;,&quot;DC] } },
                                           ssn: { type: &quot;string&quot;, regexp: /^[0-9]{3}-[0-9]{3}-[0-9]{4}$/, errmsg: &quot;Valid SSN is required&quot; } },
@@ -7327,7 +7354,7 @@ objects will be create automatically. The options can have the folowing properti
 <p> Return an object structure as a string object by showing primitive properties only,
 for arrays it shows the length and <code>options.count</code> or 5 first items,
 strings are limited by <code>options.length</code> or 64 bytes,
-the object depth is limited by <code>options.depth</code> or 5 levels deep, the number of properties are limited by options.count or 5,
+the object depth is limited by <code>options.depth</code> or 3 levels deep, the number of properties are limited by options.count or 5,
 all properties that match <code>options.ignore</code> will be skipped from the output</p>
 </li>
 </ul>
@@ -7940,10 +7967,9 @@ it runs <code>shutdown[Role]</code> methods before exiting</p>
       bk_account: {
           id: { primary: 1, pub: 1 },
           login: {},
-          name: {},
+          name: { pub: 1 },
           first_name: {},
           last_name: {},
-          alias: { pub: 1 },
           status: { type: &quot;text&quot; },
           type: { type: &quot;text&quot;, admin: 1 },
           email: {},
@@ -7958,14 +7984,10 @@ it runs <code>shutdown[Role]</code> methods before exiting</p>
           state: {},
           zipcode: {},
           country: {},
-          device_id: {},                                    // Device(s) for notifications the format is: [service://]token[@appname]
-          geohash: {},
-          latitude: { type: &quot;real&quot; },
-          longitude: { type: &quot;real&quot; },
-          location: {},
-          ltime: { type: &quot;bigint&quot; },                        // Last location update time
-          ctime: { type: &quot;bigint&quot;, readonly: 1, now: 1 },   // Create time
-          mtime: { type: &quot;bigint&quot;, now: 1 },                // Last update time
+          device_id: {},                            // Device(s) for notifications the format is: [service://]token[@appname]
+          ltime: { type: &quot;bigint&quot; },                // Last location update time
+          ctime: { type: &quot;now&quot;, readonly: 1 },      // Create time
+          mtime: { type: &quot;now&quot; },                   // Last update time
       },
 
       // Account metrics, must correspond to `-api-url-metrics` settings, for images the default is first 2 path components
@@ -8014,7 +8036,7 @@ it runs <code>shutdown[Role]</code> methods before exiting</p>
       switch (req.params[0]) {
       case &quot;get&quot;:
           options.cleanup = &quot;bk_auth,bk_account&quot;;
-          if (!req.query.id) {
+          if (!req.query.id || req.query.id == req.account.id) {
               self.getAccount(req, options, function(err, data, info) {
                   api.sendJSON(req, err, data);
 </code></pre></li>
@@ -8118,9 +8140,9 @@ delete an account but keep all messages and location: <code>keep_message: 1, kee
               unjoin: [&quot;type&quot;,&quot;peer&quot;],
               ops: { select: &quot;begins_with&quot; } },
           peer: { pub: 1 },                              // peer id
-          alias: { pub: 1 },                             // peer alias
+          name: { pub: 1 },                             // peer name
           status: {},
-          mtime: { type: &quot;bigint&quot;, now: 1, pub: 1 }
+          mtime: { type: &quot;now&quot;, pub: 1 }
       },
 
       // References from other accounts, likes,dislikes...
@@ -8132,9 +8154,9 @@ delete an account but keep all messages and location: <code>keep_message: 1, kee
               unjoin: [&quot;type&quot;,&quot;peer&quot;],
               ops: { select: &quot;begins_with&quot; } },
           peer: { pub: 1 },                              // peer id
-          alias: { pub: 1 },                             // peer alias
+          name: { pub: 1 },                             // peer name
           status: {},
-          mtime: { type: &quot;bigint&quot;, now: 1, pub: 1 }
+          mtime: { type: &quot;now&quot;, pub: 1 }
       },
 
       // Metrics
@@ -8176,6 +8198,11 @@ delete an account but keep all messages and location: <code>keep_message: 1, kee
 <pre><code>  core.describeArgs(&quot;connections&quot;, [
        { name: &quot;allow&quot;, type: &quot;map&quot;, descr: &quot;Map of connection type to operations to be allowed only, once a type is specified, all operations must be defined, the format is: type:op,type:op...&quot; },
   ]);
+</code></pre><p>  }</p>
+<p>  mod.configureMiddleware = function(options, callback)
+  {</p>
+<pre><code>  api.registerControlParams(mod.controls);
+  callback();
 </code></pre><p>  }</p>
 <p>  // Create API endpoints and routes
   mod.configureWeb = function(options, callback)
@@ -8245,7 +8272,7 @@ any two accounts and arbitrary properties, <code>obj</code> is the primary accou
 with other properties to be added. Both objects are left untouched.</p>
 <p>Both objects must have at least the <code>id</code> properties.</p>
 <p>Connection <code>type</code> will be taken from the <code>peer</code> object only.</p>
-<p>To maintain aliases for both sides of the connection, set <code>alias</code> property in the both objects.</p>
+<p>To maintain names for both sides of the connection, set <code>name</code> property in the both objects.</p>
 <p>Note: All other properties for both tables are treated separately, to make them appear in both they must be copied into the both objects.</p>
 <p>The following options properties can be used:</p>
 <ul>
@@ -8477,7 +8504,7 @@ If any of obj.id or obj.type are not specified then perform a query for matching
           geohash: {},                                // Location associated with the icon
           latitude: { type: &quot;real&quot; },
           longitude: { type: &quot;real&quot; },
-          mtime: { type: &quot;bigint&quot;, now: 1 },          // Last time added/updated
+          mtime: { type: &quot;now&quot; },          // Last time added/updated
       },
 
       // Metrics
@@ -8505,6 +8532,11 @@ If any of obj.id or obj.type are not specified then perform a query for matching
        { name: &quot;limit&quot;, type: &quot;intmap&quot;, descr: &quot;Set the limit of how many icons by type can be uploaded by an account, type:N,type:N..., type * means global limit for any icon type&quot; },
   ]);
 </code></pre><p>  }</p>
+<p>  mod.configureMiddleware = function(options, callback)
+  {</p>
+<pre><code>  api.registerControlParams(mod.controls);
+  callback();
+</code></pre><p>  }</p>
 <p>  // Create API endpoints and routes
   mod.configureWeb = function(options, callback)
   {</p>
@@ -8517,7 +8549,7 @@ If any of obj.id or obj.type are not specified then perform a query for matching
 <pre><code>  var self = this;
 
   api.app.all(/^\/icon\/([a-z]+)$/, function(req, res) {
-      var options = api.getOptions(req, mod.controls);
+      var options = api.getOptions(req);
 
       if (!req.query.prefix) return api.sendReply(res, 400, &quot;prefix is required&quot;);
       if (!req.query.id) req.query.id = req.account.id;
@@ -8561,13 +8593,19 @@ Verify icon limits before adding new icons</p>
 
 <ul>
 <li><p><code>Database tables</code></p>
-<pre><code>      bk_location: {
+<pre><code>      bk_account: {
+          geohash: {},
+          latitude: { type: &quot;real&quot; },
+          longitude: { type: &quot;real&quot; },
+          location: {},
+      },
+      bk_location: {
           geohash: { primary: 1 },                    // geohash, api.minDistance defines the size
           id: { primary: 1, pub: 1 },                 // my account id, part of the primary key for pagination
           latitude: { type: &quot;real&quot; },
           longitude: { type: &quot;real&quot; },
-          alias: { pub: 1 },
-          mtime: { type: &quot;bigint&quot;, now: 1 }
+          name: { pub: 1 },
+          mtime: { type: &quot;now&quot; }
       },
 
       // Metrics
@@ -8660,7 +8698,7 @@ is used in <code>/location/get</code> request. It can be used in the application
               unjoin: [&quot;mtime&quot;,&quot;sender&quot;],
           },
           sender: { type: &quot;text&quot; },                      // sender id
-          alias: {},                                     // sender alias
+          name: {},                                      // sender name
           msg: {},                                       // Text of the message
           icon: { type: &quot;int&quot; },                         // 1 - icon present, 0 - no icon
           read: { type: &quot;int&quot; },                         // 1 - read, 0 - unread
@@ -8674,7 +8712,7 @@ is used in <code>/location/get</code> request. It can be used in the application
               unjoin: [&quot;mtime&quot;,&quot;sender&quot;],
           },
           sender: { type: &quot;text&quot; },                      // sender id
-          alias: {},                                     // sender alias
+          name: {},                                      // sender name
           msg: {},                                       // text of the message
           icon: { type: &quot;int&quot; },                         // 1 - icon present, 0 - no icon
       },
@@ -8687,7 +8725,7 @@ is used in <code>/location/get</code> request. It can be used in the application
               unjoin: [&quot;mtime&quot;,&quot;recipient&quot;],
           },
           recipient: { type: &quot;text&quot; },                  // recipient id
-          alias: {},                                    // recipient alias if known
+          name: {},                                     // recipient name if known
           msg: {},                                      // text of the message
           icon: { type: &quot;int&quot; },                        // 1 - icon present, 0 - no icon
       },
@@ -8724,6 +8762,11 @@ is used in <code>/location/get</code> request. It can be used in the application
        { name: &quot;cache-name&quot;, obj: &quot;cacheOptions&quot;, descr: &quot;Cache name for keeping unread messages counter&quot; },
        { name: &quot;cache-ttl&quot;, type: &quot;number&quot;, obj: &quot;cacheOptions&quot;, nocamel: 1, key: &quot;ttl&quot;, min: 0, descr: &quot;How long in ms to keep unread messages counter&quot; },
   ]);
+</code></pre><p>  }</p>
+<p>  mod.configureMiddleware = function(options, callback)
+  {</p>
+<pre><code>  api.registerControlParams(mod.controls);
+  callback();
 </code></pre><p>  }</p>
 <p>  mod.configureModule = function(options, callback)
   {</p>
@@ -9193,8 +9236,8 @@ use the same names as command line arguments without preceeding <code>test-</cod
 <pre><code>      bk_status: {
           id: { primary: 1, pub: 1 },                        // account id
           status: { pub: 1 },                                // status, online, offline, away
-          alias: { pub: 1 },
-          atime: { type: &quot;bigint&quot;, now: 1, pub: 1 },         // last access time
+          name: { pub: 1 },
+          atime: { type: &quot;now&quot;, pub: 1 },         // last access time
           mtime: { type: &quot;bigint&quot;, pub: 1 },                 // last update time
       },
   },
