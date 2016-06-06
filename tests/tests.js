@@ -353,7 +353,7 @@ tests.test_location = function(callback)
                     obj.id = String(good);
                     obj.rank = good;
                     ghash = obj.geohash;
-                    db.add("geo", obj, { silence_error: 1 }, function(err) {
+                    db.add("geo", obj, { quiet: 1 }, function(err) {
                         if (!err) {
                             // Keep track of all records by area for top search by rank
                             if (!top[obj.geohash]) top[obj.geohash] = [];
@@ -385,7 +385,7 @@ tests.test_location = function(callback)
                     obj.id = String(bad);
                     obj.rank = bad;
                     obj.status = "bad";
-                    db.add("geo", obj, { silence_error: 1 }, function(err) {
+                    db.add("geo", obj, { quiet: 1 }, function(err) {
                         if (err) {
                             bad--;
                             if (error++ < 10) err = null;
@@ -459,7 +459,7 @@ tests.test_db_basic = function(callback)
                      num2: { type: "int" },
                      num3: { type: "text", join: ["id","num"], strict_join: 1 },
                      email: {},
-                     anum: { join: ["anum","num"], unjoin: ["anum","num"] },
+                     anum: { join: ["anum","num"], unjoin: 1 },
                      jnum: { join: ["num2","num4"], unjoin: ["num2","num4"], strict_join: 1 },
                      num4: { hidden: 1 },
                      mtime: { type: "now" },
@@ -1304,7 +1304,7 @@ tests.test_dblock = function(callback)
                 // Ignore if the period is not expired yet
                 if (now - mtime < interval) return callback();
                 // Try to update the record using the time we just retrieved, this must be atomic/consistent in the database
-                db.update("dbtest", { id: id, mtime: now, status: "running" }, { silence_error: 1, expected: { id: id, mtime: mtime } }, function(err, rc, info) {
+                db.update("dbtest", { id: id, mtime: now, status: "running" }, { quiet: 1, expected: { id: id, mtime: mtime } }, function(err, rc, info) {
                     if (err) return callback(err);
                     if (!info.affected_rows) return callback();
                     // We updated the record, we can start the job now
@@ -1312,7 +1312,7 @@ tests.test_dblock = function(callback)
                     return callback();
                 });
             } else {
-                db.add("dbtest", { id: id, mtime: now, status: "running" }, { silence_error: 1 }, function(err) {
+                db.add("dbtest", { id: id, mtime: now, status: "running" }, { quiet: 1 }, function(err) {
                     // Cannot create means somebody was ahead of us, ingore
                     if (err) return callback(err);
                     // We created a new record, now we can start the job now

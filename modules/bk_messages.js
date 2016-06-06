@@ -28,7 +28,7 @@ var mod = {
             mtime: {
                 primary: 1,                               // mtime:sender
                 join: ["mtime","sender"],
-                unjoin: ["mtime","sender"],
+                unjoin: 1,
             },
             sender: { type: "text" },                      // sender id
             name: {},                                      // sender name
@@ -42,7 +42,7 @@ var mod = {
             mtime: {
                 primary: 1,                                // mtime:sender
                 join: ["mtime","sender"],
-                unjoin: ["mtime","sender"],
+                unjoin: 1,
             },
             sender: { type: "text" },                      // sender id
             name: {},                                      // sender name
@@ -55,7 +55,7 @@ var mod = {
             mtime: {
                 primary: 1,                                // mtime:recipient
                 join: ["mtime","recipient"],
-                unjoin: ["mtime","recipient"],
+                unjoin: 1,
             },
             recipient: { type: "text" },                  // recipient id
             name: {},                                     // recipient name if known

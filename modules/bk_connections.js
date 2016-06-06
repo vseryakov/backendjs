@@ -28,7 +28,7 @@ var mod = {
             type: { primary: 1,                            // connection type:peer
                 pub: 1,
                 join: ["type","peer"],
-                unjoin: ["type","peer"],
+                unjoin: 1,
                 ops: { select: "begins_with" } },
             peer: { pub: 1 },                              // peer id
             name: { pub: 1 },                             // peer name
@@ -42,7 +42,7 @@ var mod = {
             type: { primary: 1,                            // reference type:peer
                 pub: 1,
                 join: ["type","peer"],
-                unjoin: ["type","peer"],
+                unjoin: 1,
                 ops: { select: "begins_with" } },
             peer: { pub: 1 },                              // peer id
             name: { pub: 1 },                             // peer name

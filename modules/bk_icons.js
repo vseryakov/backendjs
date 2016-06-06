@@ -28,7 +28,7 @@ var mod = {
             type: { primary: 1,                         // prefix:type
                 pub: 1,
                 join: [ "prefix", "type" ],
-                unjoin: [ "prefix", "type" ],
+                unjoin: 1,
                 separator: ":",
                 ops: { select: "begins_with" } },
             prefix: {},                                 // icon prefix/namespace
