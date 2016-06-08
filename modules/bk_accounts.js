@@ -44,7 +44,6 @@ var accounts = {
             zipcode: {},
             country: {},
             device_id: {},                            // Device(s) for notifications the format is: [service://]token[@appname]
-            ltime: { type: "bigint" },                // Last location update time
             ctime: { type: "now", readonly: 1 },      // Create time
             mtime: { type: "now" },                   // Last update time
         },

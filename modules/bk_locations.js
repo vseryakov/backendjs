@@ -28,6 +28,7 @@ var mod = {
             latitude: { type: "real" },
             longitude: { type: "real" },
             location: {},
+            ltime: { type: "mtime" },                   // Last location update time
         },
         bk_location: {
             geohash: { primary: 1 },                    // geohash, api.minDistance defines the size
