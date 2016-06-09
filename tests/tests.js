@@ -849,7 +849,7 @@ tests.test_db = function(callback)
         },
         function(next) {
             // Wrong query property
-            db.select("test2", { id: id, num: 9, num2: 9, email: 'fake' }, {  ops: { num: 'ge' } }, function(err, rows, info) {
+            db.select("test2", { id: id, num: 9, num2: 9, email: 'fake' }, {  sort: "id_num", ops: { num: 'ge' } }, function(err, rows, info) {
                 tests.assert(next, err || rows.length!=0, "err14:", rows, info);
             });
         },
