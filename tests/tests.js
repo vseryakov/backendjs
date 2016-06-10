@@ -1223,6 +1223,7 @@ tests.test_config = function(callback)
                 "-db-sqlite-pool-max-1", "10",
                 "-db-sqlite-pool-cache-columns-1", "1",
                 "-db-sqlite-pool-options-discovery-interval", "30000",
+                "-db-sqlite-pool-options-map.test", "test",
                 "-ipc-cache-options-sentinel-servers", "host1",
                 "-ipc-cache-aaa-options-sentinel-max_attempts", "1",
             ];
@@ -1235,9 +1236,10 @@ tests.test_config = function(callback)
     if (!db.poolParams.sqlite1 || db.poolParams.sqlite1.url != "a") return callback("invalid sqlite1 url");
     if (db.poolParams.sqlite1.max != 10) return callback("invalid sqlite1 max");
     if (!db.poolParams.sqlite1.configOptions.cacheColumns) return callback("invalid sqlite1 cache-columns");
-    if (db.poolParams.sqlite.configOptions.discoveryInterval != 30000) return callback("invalid sqlite interval");
-    if (!ipc.configParams['cache-options'] || ipc.configParams['cache-options'].sentinelServers != 'host1') return callback("invalid ipc sentinel servers");
-    if (!ipc.configParams['cache-aaa-options'] || ipc.configParams['cache-aaa-options'].sentinelMax_attempts != 1) return callback("invalid ipc max attempts");
+    if (db.poolParams.sqlite.configOptions.discoveryInterval != 30000) return callback("invalid sqlite interval:" + lib.stringify(db.poolParams.sqlite));
+    if (db.poolParams.sqlite.configOptions['map.test'] != "test") return callback("invalid sqlite map:" + lib.stringify(db.poolParams.sqlite));
+    if (!ipc.configParams['cache-options'] || !ipc.configParams['cache-options'].sentinel || ipc.configParams['cache-options'].sentinel.servers != 'host1') return callback("invalid ipc sentinel servers:" + lib.stringify(ipc.configParams));
+    if (!ipc.configParams['cache-aaa-options'] || !ipc.configParams['cache-options'].sentinel || ipc.configParams['cache-aaa-options'].sentinel.max_attempts != 1) return callback("invalid ipc max attempts:" + lib.stringify(ipc.configParams));
 
     if (core.logwatcherEmail.error != "a") return callback("invalid logwatcher email:" + JSON.stringify(core.logwatcherEmail));
     if (core.logwatcherMatch.error.indexOf("a") == -1) return callback("invalid logwatcher match: " + JSON.stringify(core.logwatcherMatch));
