@@ -1452,7 +1452,7 @@ shell.cmdAwsCreateLaunchConfig = function(options)
        },
        function(next) {
            if (req.InstanceId) return next();
-           if (!req.ImageId) req.ImageId = (config && config.ImageId) || (image && image.imageId);
+           if (!req.ImageId) req.ImageId = (image && image.imageId) || (config && config.ImageId);
            if (!config) return next();
            // Reuse config name but replace the version from the image, this is an image upgrade
            if (!req.LaunchConfigurationName && configName && config) {
