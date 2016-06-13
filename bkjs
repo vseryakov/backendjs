@@ -1582,7 +1582,7 @@ EOF
     echo "  -db-del-all -table TABLE name VALUE ... - delete all records from the table that match the search criteria, name value pairs must define a primary key for the table"
     echo "  -db-drop -table TABLE name [-nowait] - drop a table"
     echo "  -db-backup [-path PATH] [-tables LIST] [-skip LIST] - save tables into json files in the home or specified path"
-    echo "  -db-restore [-path PATH] [-tables LIST] [-skip LIST] [-drop] [-continue] - restore tables from json files located in the home or specified path"
+    echo "  -db-restore [-path PATH] [-tables LIST] [-skip LIST] [-mapping ID1,ID2...] [-drop] [-continue] - restore tables from json files located in the home or specified path"
     echo "  -aws-s3-get -path PATH - retrieve a file from S3"
     echo "  -aws-s3-put -path PATH -file FILE - store a file to S3"
     echo "  -aws-show-amazon-images [-filter PATTERN] [-arch ARCH] [-rootdev ebs|instance-store|*] [-devtype gp2|io1|standard|*] - show Amazon Linux AMIs (use %2A instead of *)"

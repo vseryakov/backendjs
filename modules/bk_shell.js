@@ -500,6 +500,7 @@ shell.cmdDbRestore = function(options)
     var opts = this.getArgs();
     var root = lib.getArg("-path");
     var filter = lib.getArg("-filter");
+    var mapping = lib.strSplit(lib.getArg("-mapping"));
     var tables = lib.strSplit(lib.getArg("-tables"));
     var skip = lib.strSplit(lib.getArg("-skip"));
     var files = lib.findFileSync(root, { depth: 1, types: "f", include: /\.json$/ });
@@ -540,6 +541,10 @@ shell.cmdDbRestore = function(options)
                     var row = lib.jsonParse(line, { logger: "error" });
                     if (!row) return next2(opts.continue ? null : "ERROR: parse error, line: " + opts.nlines);
                     if (filter && app[filter]) app[filter](table, row);
+                    for (var i = 0; i < mapping.length-1; i+= 2) {
+                        row[mapping[i+1]] = row[mapping[i]];
+                        delete row[mapping[i]];
+                    }
                     db.put(table, row, opts, function(err) {
                         if (err && !opts.continue) return next2(err);
                         if (err) opts.errors++;
@@ -549,7 +554,7 @@ shell.cmdDbRestore = function(options)
             }], next3);
     }, function(err) {
         logger.info("dbRestore:", root, tables || files, opts);
-        shell.exit(err);
+        if (!opts.noexit) shell.exit(err);
     });
 }
 
@@ -1382,7 +1387,6 @@ shell.cmdAwsCreateLaunchConfig = function(options)
         KeyName: this.getArg("-key-name", options, aws.keyName),
         IamInstanceProfile: this.getArg("-iam-profile", options, aws.iamProfile),
         AssociatePublicIpAddress: this.getArg("-public-ip"),
-        UserData: this.awsGetUserData(options),
         "SecurityGroups.member.1": this.getArg("-group-id", options, aws.groupId),
     };
     var d = this.getArg("-device", options).match(/^([a-z0-9\/]+):([a-z0-9]+):([0-9]+)$/);
@@ -1391,6 +1395,8 @@ shell.cmdAwsCreateLaunchConfig = function(options)
         req['BlockDeviceMappings.member.1.Ebs.VolumeType'] = d[2];
         req['BlockDeviceMappings.member.1.Ebs.VolumeSize'] = d[3];
     }
+    var udata = this.awsGetUserData(options);
+    if (udata) req.UserData = new Buffer(udata).toString("base64");
 
     lib.series([
        function(next) {
@@ -1406,7 +1412,7 @@ shell.cmdAwsCreateLaunchConfig = function(options)
                    n2[1] = lib.toVersion(n2[1]);
                    return n1[0] > n2[0] ? -1 : n1[0] < n2[0] ? 1 : n2[1] - n1[1];
                });
-               var rx = new RegExp("^" + configName, "i");
+               var rx = new RegExp("^" + configName + "-", "i");
                for (var i in configs) {
                    if (rx.test(configs[i].LaunchConfigurationName)) {
                        config = configs[i];
@@ -1446,8 +1452,8 @@ shell.cmdAwsCreateLaunchConfig = function(options)
        },
        function(next) {
            if (req.InstanceId) return next();
+           if (!req.ImageId) req.ImageId = (config && config.ImageId) || (image && image.imageId);
            if (!config) return next();
-           if (!req.ImageId) req.ImageId = image ? image.imageId : config.ImageId;
            // Reuse config name but replace the version from the image, this is an image upgrade
            if (!req.LaunchConfigurationName && configName && config) {
                var n = config.LaunchConfigurationName.split(/[ -]/);
@@ -1458,7 +1464,7 @@ shell.cmdAwsCreateLaunchConfig = function(options)
            if (!req.InstanceType) req.InstanceType = config.InstanceType || aws.instanceType;
            if (!req.KeyName) req.KeyName = config.KeyName || appName;
            if (!req.IamInstanceProfile) req.IamInstanceProfile = config.IamInstanceProfile || appName;
-           if (!req.UserData) req.UserData = config.UserData;
+           if (!req.UserData && config.UserData && typeof config.UserData == "string") req.UserData = config.UserData;
            if (!req['BlockDeviceMappings.member.1.DeviceName']) {
                lib.objGet(config, "BlockDeviceMappings.member", { list: 1 }).forEach(function(x, i) {
                    req["BlockDeviceMappings.member." + (i + 1) + ".DeviceName"] = x.DeviceName;
@@ -1488,7 +1494,6 @@ shell.cmdAwsCreateLaunchConfig = function(options)
            if (instance) logger.info("INSTANCE:", instance);
            logger.log("CreateLaunchConfig:", req);
            if (lib.isArg("-dry-run")) return shell.exit();
-           if (req.UserData) req.UserData = new Buffer(req.UserData).toString("base64");
            aws.queryAS("CreateLaunchConfiguration", req, next);
        },
        function(next) {
