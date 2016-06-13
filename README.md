@@ -970,10 +970,12 @@ how the environment is setup it is ultimatley 2 ways to specify the port for HTT
 - config database
 
   If `-db-config` is specified in the command line or `db-config=` in the local config file, this will trigger loading additional
-  config parameters from the specified database pool, it will load all records from tbe bk_config table on that db pool. `db-config-type` defines the
-  configuration group or type to load, by default all records will be use for config parameters if not specified. Using the database to store
+  config parameters from the specified database pool, it will load all records from the `bk_config` table on that db pool. Using the database to store
   configuration make it easier to maintain dynamic environment for example in case of auto scaling or lanching on demand, this way
   a new instance will query current config from the database and this eliminates supporting text files and distributing them to all instances.
+
+  The config database is refreshed from time to time acording to the `db-config-interval` parameter, also all records with `ttl` property in the bk_config
+  will be pulled every ttl interval and updated in place.
 
 - DNS records
   Some config options may be kept in the DNS TXT records and every time a instance is started it will query the local DNS for such parameters. Only a small subset of

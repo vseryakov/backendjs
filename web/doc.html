@@ -678,11 +678,11 @@ Any other <code>node-redis</code> module parameter can be passed as well.</p>
 ipc-cache-backup=redis://host2
 ipc-cache-backup-options-max_attempts=3
 </code></pre><h2 id="redis-sentinel">Redis Sentinel</h2>
-<p>To enable Redis Sentinel pass in the options <code>-sentinel</code> or <code>-sentinel-servers</code>: <code>ipc-cache-options-sentinel=host1</code> or <code>ipc-cache=redis://host1?bk-sentinel-servers=host1,host2</code>.</p>
+<p>To enable Redis Sentinel pass in the option <code>-sentinel-servers</code>: <code>ipc-cache=redis://host1?bk-sentinel-servers=host1,host2</code>.</p>
 <p>The system will connect to the sentinel, get the master cache server and connect the cache driver to it, also it will listen constantly on
 sentinel events and failover to a new master autimatically. Sentinel use the regular redis module and supports all the same
 parameters, to pass options to the sentinel driver prefix them with <code>sentinel-</code>:</p>
-<pre><code>ipc-cache=redis://host1?bk-servers=host2,host3&amp;bk-max_attempts=3&amp;bk-sentinel=host1&amp;bk-sentinel-servers=host2,host3
+<pre><code>ipc-cache=redis://host1?bk-servers=host2,host3&amp;bk-max_attempts=3&amp;bk-sentinel-servers=host1,host2,host3
 ipc-cache-backup=redis://host2
 ipc-cache-backup-options-sentinel-servers=host1,host2
 ipc-cache-backup-options-sentinel-max_attempts=5
@@ -952,10 +952,11 @@ defined via command line arguments as <code>-home</code> or via environment vari
 </code></pre></li>
 <li><p>config database</p>
 <p>If <code>-db-config</code> is specified in the command line or <code>db-config=</code> in the local config file, this will trigger loading additional
-config parameters from the specified database pool, it will load all records from tbe bk_config table on that db pool. <code>db-config-type</code> defines the
-configuration group or type to load, by default all records will be use for config parameters if not specified. Using the database to store
+config parameters from the specified database pool, it will load all records from the <code>bk_config</code> table on that db pool. Using the database to store
 configuration make it easier to maintain dynamic environment for example in case of auto scaling or lanching on demand, this way
 a new instance will query current config from the database and this eliminates supporting text files and distributing them to all instances.</p>
+<p>The config database is refreshed from time to time acording to the <code>db-config-interval</code> parameter, also all records with <code>ttl</code> property in the bk_config
+will be pulled every ttl interval and updated in place.</p>
 </li>
 <li><p>DNS records
 Some config options may be kept in the DNS TXT records and every time a instance is started it will query the local DNS for such parameters. Only a small subset of
@@ -2345,7 +2346,7 @@ Database pool statistics and other diagnostics</p>
 <li><code>db-([a-z]+)-pool-(idle)-?([0-9]+)?$</code> - Number of ms for a db pool connection to be idle before being destroyed</li>
 <li><code>db-([a-z]+)-pool-tables-?([0-9]+)?$</code> - A DB pool tables, list of tables that belong to this pool only</li>
 <li><code>db-([a-z]+)-pool-(connect)-?([0-9]+)?$</code> - Connect options for a DB pool driver for new connection, driver specific</li>
-<li><code>db-([a-z]+)-pool-options-([a-zA-Z0-9-]+)-?([0-9]+)?$</code> - General options for a DB pool</li>
+<li><code>db-([a-z]+)-pool-options-([a-zA-Z0-9.-]+)-?([0-9]+)?$</code> - General options for a DB pool</li>
 <li><code>db-([a-z]+)-pool-(cache-columns)-?([0-9]+)?$</code> - Enable caching table columns for this pool if it supports it</li>
 <li><code>db-([a-z]+)-pool-(create-tables)-?([0-9]+)?$</code> - Create tables for this pool on startup</li>
 <li><code>db-([a-z]+)-pool-cache2-(.+)</code> - Level 2 cache TTL for the specified pool and table</li>
@@ -2522,7 +2523,7 @@ early with some properties always present:<ul>
       // are the API requests, not the DB calls made by the app, the length of URL path to be stored is defined in the API module
       // by the `api-url-metrics-` config parameter.
       bk_collect: { id: { primary: 1 },
-                     mtime: { type: &quot;bigint&quot;, primary: 1 },
+                     mtime: { type: &quot;now&quot;, primary: 1 },
                      app: {},
                      ip: {},
                      type: {},
@@ -2555,7 +2556,7 @@ early with some properties always present:<ul>
                      pool_err_0: { type: &quot;real&quot; },
                      pool_que_rmean: { type: &quot;real&quot; },
                      pool_que_hmean: { type: &quot;real&quot; },
-                     ctime: { type: &quot;bigint&quot; } },
+                     ctime: { type: &quot;mtime&quot; } },
 </code></pre></li>
 </ul>
 
@@ -2773,14 +2774,16 @@ mod.configureWeb = function(options, callback) {
 </ul>
 
 <ul>
-<li><p><code>api.getOptions(req, controls)</code></p>
+<li><p><code>api.getOptions(req, controls, defaults)</code></p>
 <p> Convert query options into internal options, such options are prepended with the underscore to
-distinguish control parameters from query parameters.</p>
+distinguish control parameters from the query parameters.</p>
 <p>For security purposes this is the only place that translates special control query parameters into the options properties,
 all the supported options are defined in the <code>api.controls</code> and can be used by the apps freely but with caution. See <code>registerControlParams</code>.</p>
-<p>if <code>controls</code> is an object it will be used to define additional control parameters for this request only. Same rules as for
+<p>if <code>controls</code> is an object it will be used to define additional control parameters or override existing ones for this request only. Same rules as for
 <code>registerControlParams</code> apply.</p>
-</li>
+<p><code>defaults</code> is an object with runtime data or different defaults for the parameters.</p>
+<pre><code>   api.getOptions(req, null, { count: { min: 5, max: 100 } })
+</code></pre></li>
 </ul>
 
 <ul>
@@ -3990,7 +3993,7 @@ Example:</p>
 <li>desc - descending order</li>
 <li>sort - index name to use, indexes are named the same as the corresponding column, with index primary keys for Keycondition will be used</li>
 <li>ops - an object with operators to be used for properties if other than EQ.</li>
-<li>keys - list of primary key columns, if there are other properties in the condition then they will be<pre><code>   put into QueryFilter instead of KeyConditions. If keys is absent, all properties in the condition are treated as primary keys.
+<li>keys - list of primary key columns, if there are other properties in the condition then they will be<pre><code>   put into QueryFilter instead of KeyConditions. If keys are absent, all properties in the condition are treated as primary keys.
 </code></pre></li>
 <li>projection - projection expression</li>
 <li>values - an object with values map to be used for in the update and/or condition expressions, to be used
@@ -4651,15 +4654,21 @@ database like DynamoDB for real-time requests and slower SQL database running on
 <li><p><code>Database tables</code></p>
 <pre><code>      // Configuration store, same parameters as in the commandline or config file, can be placed in separate config groups
       // to be used by different backends or workers
-      bk_config: { name: { primary: 1 },                      // name of the parameter
-                   type: { primary: 1 },                      // config type or tag
-                   value: {},                                 // the value
-                   mtime: { type: &quot;now&quot; } },
+      bk_config: {
+          name: { primary: 1 },            // name of the parameter
+          type: { primary: 1 },            // config type or tag
+          value: {},                       // the value
+          ttl: { type: &quot;int&quot; },            // refresh interval in seconds since last read
+          mtime: { type: &quot;now&quot; }
+      },
 
       // General purpose properties, can be used to store arbitrary values
-      bk_property: { name: { primary: 1 },
-                     value: {},
-                     mtime: { type: &quot;now&quot; } },
+      bk_property: {
+          name: { primary: 1 },
+          value: {},
+          ttl: { type: &quot;int&quot; },            // time to live, seconds since last update
+          mtime: { type: &quot;now&quot; }
+      },
 </code></pre></li>
 </ul>
 
@@ -4715,6 +4724,12 @@ types <code>myapp</code> and <code>prod-myapp</code>, then the last value will b
 </ul>
 
 <ul>
+<li><p><code>db.refreshConfig(options, callback)</code></p>
+<p> Refresh parameters which are configured with a TTL</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>db.createTables(options, callback)</code></p>
 <p> Create or upgrade the tables for the given pool</p>
 </li>
@@ -4746,8 +4761,8 @@ explicitely if it is different from the default. Other functions can resolve
 the pool by table name if some tables are assigned to any specific pool by configuration parameters <code>db-pool-tables</code>.</li>
 <li>unique - perform sorting the result and eliminate any duplicate rows by the column name specified in the <code>unique</code> property</li>
 <li>filter - function to filter rows not to be included in the result, return false to skip row, args are: function(req, row, options)</li>
-<li>silence_error - do not report about the error in the log, still the error is returned to the caller</li>
-<li>ignore_error and quiet - same as silence_error</li>
+<li>quiet - do not report about the error in the log, still the error is returned to the caller</li>
+<li>ignore_error - clear any error occured as it never happen, do not report in the log</li>
 <li>noprocessrows - if true then skip post processing result rows, return the data as is, this will result in returning combined columns as it is</li>
 <li>noconvertrows - if true skip converting the data from the database format into Javascript data types, it uses column definitions
 for the table to convert values returned from the db into the the format defined by the column</li>
@@ -5168,6 +5183,8 @@ table must be defined with the following required columns:</p>
 <p>other query parameters:</p>
 <ul>
 <li>distance - in km, the radius around the point, if not given the <code>options.minDistance</code> will be used</li>
+<li>count - if greater than 0 then return this amount with each iteration, if 0 then all matched
+records within the specified distance will be returned, if no specified then defaults to 10</li>
 </ul>
 <p>all other properties will be used as additional conditions</p>
 <p><code>options</code> optional properties:</p>
@@ -5182,6 +5199,9 @@ table must be defined with the following required columns:</p>
 round number and uses decimal point of the round number to limit decimals in the distance</li>
 <li>sort - sorting order, by default the RANGE key is used for DynamoDB, it is possible to specify any Index as well,
 in case of SQL this is the second part of the primary key</li>
+<li>checkLocation - a function(table, query, options) than can be used to check if the current geohash is valid and can be
+scanned, returns false if ican be skipped, this is to make geohash scanning optimized if it is known before the call
+which geohashes contain no records at all.</li>
 </ul>
 <p>On first call, query must contain latitude and longitude of the center and optionally distance for the radius. On subsequent calls options must be the
 the next_token returned by the previous call and query will be ignored</p>
@@ -5361,11 +5381,12 @@ The following special properties in the column definition chnage the format:</p>
 <li>type = json - if a column type is json and the value is a string returned will be converted into a Javascript object</li>
 <li>dflt property is defined for a json type and record does not have a value it will be set to specified default value</li>
 <li>list - split the value into an array, optional .separator property can be specified</li>
-<li><p>unjoin - a list of names, it produces new properties by splitting the value by a separator and assigning pieces to
+<li><p>unjoin - a true value or a list of names, it produces new properties by splitting the value by a separator and assigning pieces to
   separate properties using names from the list, this is the opposite of the <code>join</code> property and is used separately if
-  splitting is required, if joined properties already in the record then no need to split it</p>
+  splitting is required, if joined properties already in the record then no need to split it. If not a list
+  the names are used form the join property.</p>
 <p>  Example:</p>
-<pre><code>      db.describeTables([ { user: { id: {}, name: {}, pair: { join: [&quot;left&quot;,&quot;right&quot;], split: [&quot;left&quot;, &quot;right&quot;] } } ]);
+<pre><code>      db.describeTables([ { user: { id: {}, name: {}, pair: { join: [&quot;left&quot;,&quot;right&quot;], unjoin: 1 } } ]);
 
       db.put(&quot;test&quot;, { id: &quot;1&quot;, type: &quot;user&quot;, name: &quot;Test&quot;, left: &quot;123&quot;, right: &quot;000&quot; })
       db.select(&quot;test&quot;, {}, lib.log)
@@ -5512,6 +5533,7 @@ By default it checks <code>writeCapacity</code> property of all table columns an
 <li>factorCapacity - a number between 0 and 1 to multiple the rate capacity</li>
 <li>rateCapacity - if set it will be used for rate capacity limit</li>
 <li>maxCapacity - if set it will be used as the max burst capacity limit</li>
+<li>intervalCapacity - default is 1000 ms</li>
 </ul>
 </li>
 </ul>
@@ -5690,6 +5712,14 @@ Additional options:</p>
 </ul>
 
 <ul>
+<li><p><code>db.parsePoolOptions(val, options)</code></p>
+<p> Callback to be called by the config parser to preprocess a config parameter for generic options, the options
+is an object with all the info about the parameter, all values can be modified to change the behavior, if not used
+the config parameter will be a string value assigned in the pool&#39;s <code>configOptions</code>.</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>db.Pool(options)</code></p>
 <p> Create a new database pool with default methods and properties</p>
 <ul>
@@ -5845,12 +5875,21 @@ and if exist it must return the same or new table name for the given query param
 <h2 id="module-db_elasticsearch">Module: DB_ELASTICSEARCH</h2>
 <ul>
 <li><p><code>pool</code></p>
-<p> Create a database pool that works with ElasticSearch server, the db pool connection url must include the index for all tables, like <a href="http://127.0.0.1:9200/billing">http://127.0.0.1:9200/billing</a>,
-if not given the default database name will be used.</p>
-<p>To support multiple seed nodes a parameter <code>-db-elasticserch-options-servers=1.1.1.1,2.2.2.2</code> can be specified, if the primary node
+<p> Create a database pool that works with ElasticSearch server, the db pool connection url may include the index for
+all tables, like <code>http://127.0.0.1:9200/billing</code>, if not given the default database name <code>-db-name</code> will be used.</p>
+<p>To place different tables into different indexes define the index mapping: <code>-db-elasticsearch-pool-options-index-table-INDEX_NAME=TABLES_REGEXP</code>,
+for example: <code>-db-elasticsearch-pool-options-index-table-users=(account|auth)</code> to place all account tables into the index <code>users</code>.</p>
+<p>A simple way to create an index per table: <code>-db-elasticsearch-pool-options-index-tables=bk_account,bk_auth,bk_message</code>,
+this will create a separate index for each table from the list.</p>
+<p>To define shards and replicas per index:</p>
+<ul>
+<li><code>-db-elasticsearch-pool-options-shards-INDEX_NAME=NUM</code></li>
+<li><code>-db-elasticsearch-pool-options-replicas-INDEX_NAME=NUM</code></li>
+</ul>
+<p>To support multiple seed nodes a parameter <code>-db-elasticsearch-pool-options-servers=1.1.1.1,2.2.2.2</code> can be specified, if the primary node
 fails it will switch to other configured nodes.</p>
 <p>On successful connect to any node the driver retrieves full list of nodes in the cluster and switches to a random node, this happens
-every <code>discovery-interval</code> in milliseconds, default is 1h, it can be specified as <code>-db-elasticserch-options-discovery-interval=300000</code></p>
+every <code>discovery-interval</code> in milliseconds, default is 1h, it can be specified as <code>-db-elasticserch-pool-options-discovery-interval=300000</code></p>
 </li>
 </ul>
 
@@ -6750,7 +6789,8 @@ validate incoming data. It is an object with property names and definitoons that
 <p>The options can define the following properties:</p>
 <ul>
 <li>null - always return null on any error</li>
-<li>data - to pass realtime or other custom options for the validation or convertion utilities as the first argument if not defined in the definition.</li>
+<li>data - to pass realtime or other custom options for the validation or convertion utilities as the first argument if not defined in the definition.
+This is the place to customize/add/override global parameter conditions without changing it.</li>
 <li>prefix - prefix to be used when searching for the parameters in the query, only properties with this prefix will be processed. The resulting
  object will not have this prefix in the properties.</li>
 <li>name - to save a value with different name than in the original query</li>
@@ -6772,12 +6812,15 @@ or the default message, this is useful for detection of invalid or missing input
                                           email: { type: &quot;list&quot;, datatype: &quot;string } },
                                           internal: { ignore: 1 },
                                           status: { value: &quot;ready&quot; },
+                                          state: { values: [&quot;ok&quot;,&quot;bad&quot;,&quot;good&quot;] },
                                           obj: { type: &quot;obj&quot;, params: { id: { type: &quot;int&quot; }, name: {} } },
                                           state: { type: &quot;list&quot;, datatype: &quot;string, values: [&quot;VA&quot;,&quot;DC] } },
                                           ssn: { type: &quot;string&quot;, regexp: /^[0-9]{3}-[0-9]{3}-[0-9]{4}$/, errmsg: &quot;Valid SSN is required&quot; } },
                                           phone: { type: &quot;list&quot;, datatype: &quot;number } },
                                         { data: { start: { secret: req.account.secret },
-                                                  name: { dflt: &quot;test&quot; }
+                                                  name: { dflt: &quot;test&quot; },
+                                                  count: { max: 100 },
+                                                  email: { ignore: req.accout.type != &quot;admin&quot; },
                                         })
   if (typeof account == &quot;string) return api.sendReply(res, 400, account);
 </code></pre></li>
@@ -6867,12 +6910,30 @@ properties will be replaced by empty strings.</p>
 
 <ul>
 <li><p><code>lib.isMatched(obj, condition)</code></p>
-<p> All properties in an object <code>obj</code> must match all properties in the object <code>condition</code>, each value in <code>condition</code> is treated as RegExp,
+<p> All properties in the object <code>obj</code> must match all properties in the object <code>condition</code>, each value in <code>condition</code> is treated as RegExp,
 if it begins with ! it means no match is expected, the leading ! will be stripped.</p>
 <p>Example:</p>
 <pre><code>  lib.isMatched({id:1,name:2,notifications0:1,type:&quot;user,admin&quot;}, {notifications0:0})
   lib.isMatched({id:1,name:2,notifications0:1,type:&quot;user,admin&quot;}, {notifications0:1,type:&quot;!admin&quot;})
 </code></pre></li>
+</ul>
+
+<ul>
+<li><p><code>lib.forEachLine(file, options, lineCallback, endCallback)</code></p>
+<p> Call callback for each line in the file
+options may specify the following parameters:</p>
+<ul>
+<li>sync - read file synchronously and call callback for every line</li>
+<li>abort - signal to stop processing</li>
+<li>limit - number of lines to process and exit</li>
+<li>skip - number of lines to skip from the start</li>
+<li>progress - if &gt; 0 report how many lines processed so far every specified lines</li>
+<li>until - skip lines until this regexp matches</li>
+<li>ignore - skip lines that match this regexp</li>
+<li>header - skip first line because it is the CSV header line</li>
+<li>json - each line represents an JSON object, convert and pass it to the line callback if not null</li>
+</ul>
+</li>
 </ul>
 
 <ul>
@@ -6905,24 +6966,6 @@ have been completed or immediately if there is is an error provided.</p>
 <li><p><code>lib.forEachLimit(list, limit, iterator, callback)</code></p>
 <p> Apply an iterator function to each item in an array in parallel as many as specified in <code>limit</code> at a time. Execute a callback when all items
 have been completed or immediately if there is is an error provided.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.forEachLine(file, options, lineCallback, endCallback)</code></p>
-<p> Call callback for each line in the file
-options may specify the following parameters:</p>
-<ul>
-<li>sync - read file synchronously and call callback for every line</li>
-<li>abort - signal to stop processing</li>
-<li>limit - number of lines to process and exit</li>
-<li>skip - number of lines to skip from the start</li>
-<li>progress - if &gt; 0 report how many lines processed so far every specified lines</li>
-<li>until - skip lines until this regexp matches</li>
-<li>ignore - skip lines that match this regexp</li>
-<li>header - skip first line because it is the CSV header line</li>
-<li>json - each line represents an JSON object, convert and pass it to the line callback if not null</li>
-</ul>
 </li>
 </ul>
 
@@ -7748,6 +7791,7 @@ need to send push notifications in the worker process.</p>
 <li>badge - badge number to show if supported by the service</li>
 <li>sound - set to 1 if a sound should be produced on message receive</li>
 <li>type - set type of the message, service specific</li>
+<li>category - action category for APN</li>
 <li>id - send id with the notification, this is application specific data, sent as is</li>
 <li>name - notification group name, can be used for grouping multiple messages under this name</li>
 <li>url - a launch url for the app, it show associated screen on launch if supported</li>
@@ -7985,7 +8029,6 @@ it runs <code>shutdown[Role]</code> methods before exiting</p>
           zipcode: {},
           country: {},
           device_id: {},                            // Device(s) for notifications the format is: [service://]token[@appname]
-          ltime: { type: &quot;bigint&quot; },                // Last location update time
           ctime: { type: &quot;now&quot;, readonly: 1 },      // Create time
           mtime: { type: &quot;now&quot; },                   // Last update time
       },
@@ -8137,7 +8180,7 @@ delete an account but keep all messages and location: <code>keep_message: 1, kee
           type: { primary: 1,                            // connection type:peer
               pub: 1,
               join: [&quot;type&quot;,&quot;peer&quot;],
-              unjoin: [&quot;type&quot;,&quot;peer&quot;],
+              unjoin: 1,
               ops: { select: &quot;begins_with&quot; } },
           peer: { pub: 1 },                              // peer id
           name: { pub: 1 },                             // peer name
@@ -8151,7 +8194,7 @@ delete an account but keep all messages and location: <code>keep_message: 1, kee
           type: { primary: 1,                            // reference type:peer
               pub: 1,
               join: [&quot;type&quot;,&quot;peer&quot;],
-              unjoin: [&quot;type&quot;,&quot;peer&quot;],
+              unjoin: 1,
               ops: { select: &quot;begins_with&quot; } },
           peer: { pub: 1 },                              // peer id
           name: { pub: 1 },                             // peer name
@@ -8494,7 +8537,7 @@ If any of obj.id or obj.type are not specified then perform a query for matching
           type: { primary: 1,                         // prefix:type
               pub: 1,
               join: [ &quot;prefix&quot;, &quot;type&quot; ],
-              unjoin: [ &quot;prefix&quot;, &quot;type&quot; ],
+              unjoin: 1,
               separator: &quot;:&quot;,
               ops: { select: &quot;begins_with&quot; } },
           prefix: {},                                 // icon prefix/namespace
@@ -8598,6 +8641,7 @@ Verify icon limits before adding new icons</p>
           latitude: { type: &quot;real&quot; },
           longitude: { type: &quot;real&quot; },
           location: {},
+          ltime: { type: &quot;mtime&quot; },                   // Last location update time
       },
       bk_location: {
           geohash: { primary: 1 },                    // geohash, api.minDistance defines the size
@@ -8695,7 +8739,7 @@ is used in <code>/location/get</code> request. It can be used in the application
           mtime: {
               primary: 1,                               // mtime:sender
               join: [&quot;mtime&quot;,&quot;sender&quot;],
-              unjoin: [&quot;mtime&quot;,&quot;sender&quot;],
+              unjoin: 1,
           },
           sender: { type: &quot;text&quot; },                      // sender id
           name: {},                                      // sender name
@@ -8709,7 +8753,7 @@ is used in <code>/location/get</code> request. It can be used in the application
           mtime: {
               primary: 1,                                // mtime:sender
               join: [&quot;mtime&quot;,&quot;sender&quot;],
-              unjoin: [&quot;mtime&quot;,&quot;sender&quot;],
+              unjoin: 1,
           },
           sender: { type: &quot;text&quot; },                      // sender id
           name: {},                                      // sender name
@@ -8722,7 +8766,7 @@ is used in <code>/location/get</code> request. It can be used in the application
           mtime: {
               primary: 1,                                // mtime:recipient
               join: [&quot;mtime&quot;,&quot;recipient&quot;],
-              unjoin: [&quot;mtime&quot;,&quot;recipient&quot;],
+              unjoin: 1,
           },
           recipient: { type: &quot;text&quot; },                  // recipient id
           name: {},                                     // recipient name if known
@@ -9237,8 +9281,8 @@ use the same names as command line arguments without preceeding <code>test-</cod
           id: { primary: 1, pub: 1 },                        // account id
           status: { pub: 1 },                                // status, online, offline, away
           name: { pub: 1 },
-          atime: { type: &quot;now&quot;, pub: 1 },         // last access time
-          mtime: { type: &quot;bigint&quot;, pub: 1 },                 // last update time
+          atime: { type: &quot;now&quot;, pub: 1 },                    // last access time
+          mtime: { type: &quot;mtime&quot;, pub: 1 },                  // last update time
       },
   },
   // Intervals between updating presence status table
