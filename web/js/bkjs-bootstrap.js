@@ -24,6 +24,41 @@ Bkjs.hideLogin = function()
     $("#bkjs-login-modal").modal("hide");
 }
 
+Bkjs.showConfirm = function(options, callback)
+{
+    if (typeof options == "string") options = { text: options };
+    var modal = $('#bkjs-confirm-modal');
+    if (!modal.length) {
+        modal = $(
+        '<div class="modal fade">\
+          <div class="modal-dialog">\
+            <div class="modal-content">\
+              <div class="modal-header">\
+                <a class="close" data-dismiss="modal" >&times;</a>\
+                <h3>' + (options.title || "Confirm") +'</h3>\
+              </div>\
+              <div class="modal-body">\
+                <p>' + options.text.replace(/\n/g, "<br>") + '</p>\
+              </div>\
+              <div class="modal-footer">\
+                <a href="#!" class="btn" data-dismiss="modal">' +
+                  (options.cancel || "Cancel") +
+                '</a>\
+                <a href="#!" id="okButton" class="btn btn-primary">' +
+                  (options.ok || "OK") +
+                '</a> \
+              </div>\
+            </div>\
+          </div>\
+        </div>');
+        modal.find('#okButton').click(function(event) {
+            if (callback) callback();
+            modal.modal('hide');
+        });
+    }
+    modal.modal("show");
+};
+
 Bkjs.showLogin = function(callback)
 {
     var modal = $('#bkjs-login-modal');
