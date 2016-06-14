@@ -6664,6 +6664,12 @@ all arguments will be printed in the log</p>
 </ul>
 
 <ul>
+<li><p><code>lib.typeName(v)</code></p>
+<p> Return object type, try to detect any distinguished type</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>lib.isArg(name)</code></p>
 <p> Returns true of given arg(s) are present in the command line, name can be a string or an array of strings.</p>
 </li>
@@ -7084,6 +7090,41 @@ The message must have <code>id</code> property which is used to find the corresp
 </ul>
 
 <ul>
+<li><p><code>lib.geoBoundingBox(latitude, longitude, distance)</code></p>
+<p> Return a bounding box geohash for a given point around distance in km</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.geoHashDecode(geohash)</code></p>
+<p> Decode a geohash into lattiude and longitude, returns an array with the coordinates</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.busyTimer(name, val)</code></p>
+<p> Busy timer handler, supports commands:</p>
+<ul>
+<li>init - start the timer with the given latency in ms</li>
+<li>get - returns the latest latency</li>
+<li>busy - returns true if busy i.e. latency is greater than configured</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.getUser(user)</code></p>
+<p> Return an object with user info from the /etc/passwd file, user can be uid or name, if user is ommitted the current user is returned</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.getGroup(group)</code></p>
+<p> Return an object with specified group info for the current user of for the given group id or name</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>lib.encrypt(key, data, algorithm, encoding)</code></p>
 <p> Encrypt data with the given key code</p>
 </li>
@@ -7214,6 +7255,12 @@ Usage:</p>
 </ul>
 
 <ul>
+<li><p><code>lib.phraseSplit(str, separators, quotes)</code></p>
+<p> Split a string into phrases separated by <code>separators</code> characters and surrounded by characters in <code>quotes</code>.</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>lib.arrayUnique(list, key)</code></p>
 <p> Returns only unique items in the array, optional <code>key</code> specified the name of the column to use when determining uniqueness if items are objects.</p>
 </li>
@@ -7235,12 +7282,6 @@ that data is not chnaged and was signed with the same secret</p>
 <ul>
 <li><p><code>lib.domainName(host)</code></p>
 <p> Extract domain from the host name, takes all host parts except the first one</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.typeName(v)</code></p>
-<p> Return object type, try to detect any distinguished type</p>
 </li>
 </ul>
 
