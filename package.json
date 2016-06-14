@@ -31,7 +31,7 @@
     "cookie-session": ">= 1.0.1",
     "serve-static": ">= 1.10.2",
     "nan": ">= 2.2.0",
-    "bkjs-utils": ">= 0.1.1",
+    "bkjs-utils": ">= 0.1.3",
     "bkjs-cache": ">= 0.3.0",
     "bkjs-wand": ">= 0.2.0",
     "bkjs-sqlite": ">= 0.1.4",
