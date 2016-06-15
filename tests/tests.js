@@ -566,7 +566,7 @@ tests.test_db = function(callback)
             birthday: { semipub: 1 },
             group: {},
             json: { type: "json" },
-            num: { type: "bigint", index: 1, projection: 1 },
+            num: { type: "bigint", index: 2, projection: 1 },
             num2: { type: "real" },
             mtime: { type: "bigint" }
         },
