@@ -115,7 +115,6 @@
 <li><a href="#module-bk_connections">bk_connections</a></li>
 <li><a href="#module-bk_counters">bk_counters</a></li>
 <li><a href="#module-bk_data">bk_data</a></li>
-<li><a href="#module-bk_debug">bk_debug</a></li>
 <li><a href="#module-bk_files">bk_files</a></li>
 <li><a href="#module-bk_icons">bk_icons</a></li>
 <li><a href="#module-bk_locations">bk_locations</a></li>
@@ -2774,15 +2773,22 @@ mod.configureWeb = function(options, callback) {
 </ul>
 
 <ul>
-<li><p><code>api.getOptions(req, controls, defaults)</code></p>
+<li><p><code>api.getOptions(req, controls)</code></p>
 <p> Convert query options into internal options, such options are prepended with the underscore to
 distinguish control parameters from the query parameters.</p>
 <p>For security purposes this is the only place that translates special control query parameters into the options properties,
 all the supported options are defined in the <code>api.controls</code> and can be used by the apps freely but with caution. See <code>registerControlParams</code>.</p>
 <p>if <code>controls</code> is an object it will be used to define additional control parameters or override existing ones for this request only. Same rules as for
 <code>registerControlParams</code> apply.</p>
-<p><code>defaults</code> is an object with runtime data or different defaults for the parameters.</p>
-<pre><code>   api.getOptions(req, null, { count: { min: 5, max: 100 } })
+<pre><code>   api.getOptions(req, { count: { min: 5, max: 100 } })
+</code></pre></li>
+</ul>
+
+<ul>
+<li><p><code>api.getQuery(req, params, controls)</code></p>
+<p> Parse query parameters according to the <code>params</code>, optionally process control parameters if <code>controls</code> si specified, this call combines
+<code>lib.toParams()</code> with <code>api.getOptions</code>. Returns a query object or an error message, on success all controls will be set in the <code>req.options</code></p>
+<pre><code>  var query = api.getQuery(req, { q: { required: 1 } }, { _count: { type: &quot;int&quot;, min: 10, max: 25 } });
 </code></pre></li>
 </ul>
 
@@ -5958,7 +5964,7 @@ options may contain the following properties:</p>
 </ul>
 
 <ul>
-<li><p><code>db.sqlLimit(options)</code></p>
+<li><p><code>db.sqlLimit(pool, req)</code></p>
 <p> Build SQL orderby/limit/offset conditions, config can define defaults for sorting and paging</p>
 </li>
 </ul>
@@ -6815,10 +6821,11 @@ or the default message, this is useful for detection of invalid or missing input
                                           mtime: { type: &quot;mtime&quot;, name: &quot;timestamp&quot; },
                                           flag: { type: &quot;bool&quot;, novalue: false },
                                           descr: { novalue: { name: &quot;name&quot;, value: &quot;test&quot; },
-                                          email: { type: &quot;list&quot;, datatype: &quot;string } },
+                                          email: { type: &quot;list&quot;, datatype: &quot;email&quot; } },
                                           internal: { ignore: 1 },
                                           status: { value: &quot;ready&quot; },
                                           state: { values: [&quot;ok&quot;,&quot;bad&quot;,&quot;good&quot;] },
+                                          status: { value: [{ name: &quot;state&quot;, value: &quot;ok&quot;, set: &quot;1&quot; }, { name: &quot;state&quot;, value: [&quot;bad&quot;,&quot;good&quot;], op: &quot;in&quot; }],
                                           obj: { type: &quot;obj&quot;, params: { id: { type: &quot;int&quot; }, name: {} } },
                                           state: { type: &quot;list&quot;, datatype: &quot;string, values: [&quot;VA&quot;,&quot;DC] } },
                                           ssn: { type: &quot;string&quot;, regexp: /^[0-9]{3}-[0-9]{3}-[0-9]{4}$/, errmsg: &quot;Valid SSN is required&quot; } },
@@ -6938,6 +6945,9 @@ options may specify the following parameters:</p>
 <li>ignore - skip lines that match this regexp</li>
 <li>header - skip first line because it is the CSV header line</li>
 <li>json - each line represents an JSON object, convert and pass it to the line callback if not null</li>
+<li>split - splitevery line before calling the callback, it uses phraseSplit</li>
+<li>separator - a string with characters to be used for splitting, default is <code>,</code></li>
+<li>quotes - a string with characters to be used for phrase splitting, default is <code>&quot;&#39;</code></li>
 </ul>
 </li>
 </ul>
@@ -7255,8 +7265,9 @@ Usage:</p>
 </ul>
 
 <ul>
-<li><p><code>lib.phraseSplit(str, separators, quotes)</code></p>
-<p> Split a string into phrases separated by <code>separators</code> characters and surrounded by characters in <code>quotes</code>.</p>
+<li><p><code>lib.phraseSplit(str, options)</code></p>
+<p> Split a string into phrases separated by <code>options.separator</code> character(s) and surrounded by characters in <code>options.quotes</code>. The default separator is space and
+default quotes are both double and single quote. If <code>options.keepempty</code> is given all empty parts will be kept in the list.</p>
 </li>
 </ul>
 
@@ -8462,37 +8473,6 @@ If any of obj.id or obj.type are not specified then perform a query for matching
 <ul>
 <li><p><code>mod.configureDataAPI()</code></p>
 <p> API for full access to all tables</p>
-</li>
-</ul>
-
-<h2 id="module-bk_debug">Module: BK_DEBUG</h2>
-<ul>
-<li><p><code>debug</code></p>
-<p> System management</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>debug.init(options)</code></p>
-<p> Initialize the module</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>debug.configureWeb(options, callback)</code></p>
-<p> Create API endpoints and routes</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>debug.cpuProfiler(cmd)</code></p>
-<p> Start/stop CPU V8 profiler, on stop, core.cpuProfile will contain the profiler nodes</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>debug.configureDebugAPI()</code></p>
-<p> API for internal provisioning and configuration</p>
 </li>
 </ul>
 
