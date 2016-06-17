@@ -46,7 +46,6 @@
     "bkjs-mysql": ">= 0.1.0",
     "bkjs-lmdb": ">= 0.1.0",
     "bkjs-leveldb": ">= 0.1.0",
-    "bkjs-debug": ">= 0.1.0"
   },
   "keywords": [
     "bkjs",
