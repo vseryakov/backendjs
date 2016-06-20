@@ -660,17 +660,6 @@ shell.awsFilterSubnets = function(subnets, zone, name)
     });
 }
 
-// Return instances from the response object
-shell.awsGetInstances = function(rc)
-{
-    var list = lib.objGet(rc, "DescribeInstancesResponse.reservationSet.item", { list: 1 });
-    list = list.map(function(x) { return lib.objGet(x, "instancesSet.item"); });
-    list.forEach(function(x) {
-        x.name = lib.objGet(x, "tagSet.item", { list: 1 }).filter(function(x) { return x.key == "Name" }).map(function(x) { return x.value }).pop();
-    });
-    return list;
-}
-
 // Retrieve my AMIs for the given name pattern
 shell.awsGetSelfImages = function(name, callback)
 {
@@ -1053,10 +1042,9 @@ shell.cmdAwsRebootInstances = function(options)
 
     lib.series([
        function(next) {
-           var req = { "Filter.1.Name": "instance-state-name", "Filter.1.Value.1": "running", "Filter.2.Name": "tag:Name", "Filter.2.Value.1": filter };
-           logger.debug("RebootInstances:", req)
-           aws.queryEC2("DescribeInstances", req, function(err, rc) {
-               instances = shell.awsGetInstances(rc).map(function(x) { return x.instanceId });
+           var req = { stateName: "running", tagName: filter };
+           aws.ec2DescribeInstances(req, function(err, list) {
+               instances = list.map(function(x) { return x.instanceId });
                next(err);
            });
        },
@@ -1082,10 +1070,9 @@ shell.cmdAwsTerminateInstances = function(options)
 
     lib.series([
        function(next) {
-           var req = { "Filter.1.Name": "instance-state-name", "Filter.1.Value.1": "running", "Filter.2.Name": "tag:Name", "Filter.2.Value.1": filter };
-           logger.debug("terminateInstances:", req)
-           aws.queryEC2("DescribeInstances", req, function(err, rc) {
-               instances = shell.awsGetInstances(rc).map(function(x) { return x.instanceId });
+           var req = { stateName: "running", tagName: filter };
+           aws.ec2DescribeInstances(req, function(err, list) {
+               instances = list.map(function(x) { return x.instanceId });
                next(err);
            });
        },
@@ -1111,11 +1098,9 @@ shell.cmdAwsShowInstances = function(options)
 
     lib.series([
        function(next) {
-           var req = { "Filter.1.Name": "tag:Name", "Filter.1.Value.1": filter || "*",
-                       "Filter.2.Name": "instance-state-name", "Filter.2.Value.1": "running", }
-           logger.debug("showInstances:", req);
-           aws.queryEC2("DescribeInstances", req, function(err, rc) {
-               instances = shell.awsGetInstances(rc);
+           var req = { stateName: "running", tagName: filter };
+           aws.ec2DescribeInstances(req, function(err, list) {
+               instances = list;
                next(err);
            });
        },
@@ -1128,6 +1113,43 @@ shell.cmdAwsShowInstances = function(options)
                instances.forEach(function(x) { console.log(x.instanceId, x.subnetId, x.privateIpAddress, x.ipAddress, x.name, x.keyName); });
            }
            next();
+       },
+    ], function(err) {
+        shell.exit(err);
+    });
+}
+
+// Update a Route53 record with IP/names of all instances specified by the filter
+shell.cmdAwsSetRoute53 = function(options)
+{
+    var name = this.getArg("-name");
+    if (!name) shell.exit("ERROR: -name must be specified and must be a full host name")
+    var filter = this.getArg("-filter");
+    var type = this.getArg("-type", options, "A");
+    var ttl = this.getArg("-ttl");
+    var public = this.isArg("-public");
+    var values = [];
+
+    lib.series([
+       function(next) {
+           var req = { stateName: "running", tagName: filter };
+           aws.ec2DescribeInstances(req, function(err, list) {
+               values = list.map(function(x) {
+                   switch (type) {
+                   case "A":
+                       return public ? x.ipAddress || x.publicIpAddress : x.privateIpAddress;
+                   case "CNAME":
+                       return public ? x.publicDnsName : x.privateDnsName;
+                   }
+               }).filter(function(x) { return x });
+               next(err);
+           });
+       },
+       function(next) {
+           if (!values.length) return next();
+           logger.log("setRoute53:", name, type, values);
+           if (lib.isArg("-dry-run")) return next();
+           aws.route53Change({ name: name, type: type, ttl: ttl, value: values }, next);
        },
     ], function(err) {
         shell.exit(err);
@@ -1151,10 +1173,8 @@ shell.cmdAwsShowElb = function(options)
            });
        },
        function(next) {
-           var req = {};
-           instances.forEach(function(x, i) { req["InstanceId." + (i + 1)] = x.InstanceId });
-           aws.queryEC2("DescribeInstances", req, function(err, rc) {
-               var list = shell.awsGetInstances(rc);
+           var req = { instanceId: instances.forEach(function(x, i) { req["InstanceId." + (i + 1)] = x.InstanceId }) };
+           aws.ec2DescribeInstances(req, function(err, list) {
                list.forEach(function(row) {
                    instances.forEach(function(x) {
                        if (x.InstanceId == row.instanceId) x.name = row.name;
@@ -1426,10 +1446,9 @@ shell.cmdAwsCreateLaunchConfig = function(options)
            if (req.InstanceId) return next();
            var filter = shell.getArg("-instance-name");
            if (!filter) return next();
-           var q = { "Filter.1.Name": "tag:Name", "Filter.1.Value.1": filter || "*",
-                     "Filter.2.Name": "instance-state-name", "Filter.2.Value.1": "running", }
-           aws.queryEC2("DescribeInstances", q, function(err, rc) {
-               instance = shell.awsGetInstances(rc)[0];
+           var q = { tagName: filter, stateName: "running" };
+           aws.ec2DescribeInstances(q, function(err, list) {
+               instance = list[0];
                if (instance) req.InstanceId = instance.instanceId;
                next(err);
            });
