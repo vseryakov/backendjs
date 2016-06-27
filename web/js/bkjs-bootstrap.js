@@ -44,15 +44,104 @@ Bkjs.showConfirm = function(options, callback)
                 <a href="#!" class="btn" data-dismiss="modal">' +
                   (options.cancel || "Cancel") +
                 '</a>\
-                <a href="#!" id="okButton" class="btn btn-primary">' +
+                <a href="#!" id="bkjs-confirm-ok-button" class="btn btn-primary">' +
                   (options.ok || "OK") +
                 '</a> \
               </div>\
             </div>\
           </div>\
         </div>');
-        modal.find('#okButton').click(function(event) {
+        modal.find('#bkjs-confirm-ok-button').click(function(event) {
             if (callback) callback();
+            modal.modal('hide');
+        });
+    }
+    modal.modal("show");
+};
+
+Bkjs.showChoice = function(options, callback)
+{
+    if (typeof options == "string") options = { text: options };
+    var modal = $('#bkjs-choice-modal');
+    if (!modal.length) {
+        modal = $(
+        '<div class="modal fade">\
+          <div class="modal-dialog">\
+            <div class="modal-content">\
+              <div class="modal-header">\
+                <a class="close" data-dismiss="modal" >&times;</a>\
+                <h3>' + (options.title || "Choose") +'</h3>\
+              </div>\
+              <div class="modal-body">\
+                <form role="form">\
+                 <div class="form-group">\
+                   <label>' + (options.text ? '<p>' + options.text.replace(/\n/g, "<br>") + '</p>' : "") + '</label>\
+                   <select class="form-control ' + (options.css || "") + '"></select>\
+                 </div>\
+                </form>\
+              </div>\
+              <div class="modal-footer">\
+                <a href="#!" class="btn" data-dismiss="modal">' +
+                  (options.cancel || "Cancel") +
+                '</a>\
+                <a href="#!" id="bkjs-choice-ok-button" class="btn btn-primary">' +
+                  (options.ok || "OK") +
+                '</a> \
+              </div>\
+            </div>\
+          </div>\
+        </div>');
+        var select = modal.find('select');
+        if (Array.isArray(options.values)) {
+            options.values.forEach(function(x) {
+                select.append($("<option>").attr('value', typeof x == "object" ? x.value : x).text(typeof x == "object" ? x.text : x));
+            });
+        }
+        if (options.value) select.val(options.value);
+        modal.find('#bkjs-choice-ok-button').click(function(event) {
+            if (callback) callback(select.val());
+            modal.modal('hide');
+        });
+    }
+    modal.modal("show");
+};
+
+Bkjs.showPrompt = function(options, callback)
+{
+    if (typeof options == "string") options = { text: options };
+    var modal = $('#bkjs-prompt-modal');
+    if (!modal.length) {
+        modal = $(
+        '<div class="modal fade">\
+          <div class="modal-dialog">\
+            <div class="modal-content">\
+              <div class="modal-header">\
+                <a class="close" data-dismiss="modal" >&times;</a>\
+                <h3>' + (options.title || "Prompt") +'</h3>\
+              </div>\
+              <div class="modal-body">\
+                <form role="form">\
+                 <div class="form-group">\
+                   <label>' + (options.text ? '<p>' + options.text.replace(/\n/g, "<br>") + '</p>' : "") + '</label>\
+                   <input type="text" class="form-control ' + (options.css || "") + '">\
+                 </div>\
+                </form>\
+              </div>\
+              <div class="modal-footer">\
+                <a href="#!" class="btn" data-dismiss="modal">' +
+                  (options.cancel || "Cancel") +
+                '</a>\
+                <a href="#!" id="bkjs-prompt-ok-button" class="btn btn-primary">' +
+                  (options.ok || "OK") +
+                '</a> \
+              </div>\
+            </div>\
+          </div>\
+        </div>');
+        var input = modal.find('input');
+        if (options.value) input.val(options.value);
+        modal.find('#bkjs-prompt-ok-button').click(function(event) {
+            if (callback) callback(input.val());
             modal.modal('hide');
         });
     }
@@ -75,11 +164,11 @@ Bkjs.showLogin = function(callback)
             <div class="modal-body">\
               <div class="alerts"></div>\
               <div class="form-group">\
-               <label for="bkjs-login">Login</label>\
+               <label>Login</label>\
                <input class="form-control" placeholder="Login" type="text" autofocus>\
               </div>\
               <div class="form-group">\
-               <label for="bkjs-login">Password</label>\
+               <label>Password</label>\
                <input class="form-control" placeholder="Password" type="password" value="">\
               </div>\
             </div>\
