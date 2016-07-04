@@ -207,7 +207,7 @@ system.configureSystemAPI = function()
                 ipc.keys(function(data) { res.json(data || {}) });
                 break;
             case "get":
-                ipc.get(req.query.name, function(data) { res.json({ value: data }); });
+                ipc.get(req.query.name, function(err, data) { res.json({ value: data }); });
                 break;
             case "clear":
                 ipc.clear();

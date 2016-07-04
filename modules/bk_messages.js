@@ -231,7 +231,7 @@ mod.sendImage = function(req, options)
 
 mod.getUnread = function(req, options, callback)
 {
-    ipc.get("bk_message|unread|" + req.account.id, mod.cacheOptions, function(count) {
+    ipc.get("bk_message|unread|" + req.account.id, mod.cacheOptions, function(err, count) {
         count = lib.toNumber(count);
         if (count > 0) return callback(null, { count: count });
 

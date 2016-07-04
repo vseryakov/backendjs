@@ -1022,143 +1022,75 @@ tests.test_busy = function(callback)
 tests.test_cache = function(callback)
 {
     var self = this;
-    core.msgType = "none";
-    core.cacheBind = "127.0.0.1";
-    core.cacheHost = "127.0.0.1";
-    var nworkers = lib.getArgInt("-test-workers");
 
-    function run1(cb) {
-        lib.series([
-           function(next) {
-               ipc.put("a", "1");
-               ipc.put("b", "1");
-               ipc.put("c", "1");
-               setTimeout(next, 10);
-           },
-           function(next) {
-               ipc.get("a", function(val) {
-                   tests.assert(next, null, val!="1", "value must be 1, got", val)
-               });
-           },
-           function(next) {
-               ipc.get(["a","b","c"], function(val) {
-                   tests.assert(next, null, !val||val.a!="1"||val.b!="1"||val.c!="1", "value must be {a:1,b:1,c:1} got", val)
-               });
-           },
-           function(next) {
-               ipc.incr("a", 1);
-               setTimeout(next, 10);
-           },
-           function(next) {
-               ipc.get("a", function(val) {
-                   tests.assert(next, null, val!="2", "value must be 2, got", val)
-               });
-           },
-           function(next) {
-               ipc.put("a", "3");
-               setTimeout(next, 10);
-           },
-           function(next) {
-               ipc.get("a", function(val) {
-                   tests.assert(next, null, val!="3", "value must be 3, got", val)
-               });
-           },
-           function(next) {
-               ipc.incr("a", 1);
-               setTimeout(next, 10);
-           },
-           function(next) {
-               ipc.put("c", {a:1});
-               setTimeout(next, 10);
-           },
-           function(next) {
-               ipc.get("c", function(val) {
-                   val = lib.jsonParse(val)
-                   tests.assert(next, null, !val||val.a!=1, "value must be {a:1}, got", val)
-               });
-           },
-           function(next) {
-               ipc.del("b");
-               setTimeout(next, 10);
-           },
-           function(next) {
-               ipc.get("b", function(val) {
-                   tests.assert(next, null, val!="", "value must be '', got", val)
-               });
-           },
-           ],
-           function(err) {
-                if (!err) return cb();
-                ipc.keys(function(keys) {
-                    var vals = {};
-                    lib.forEachSeries(keys || [], function(key, next) {
-                        ipc.get(key, function(val) { vals[key] = val; next(); })
-                    }, function() {
-                        logger.log("keys:", vals);
-                        cb(err);
-                    });
-                });
+    console.log("testing cache:", ipc.cache, ipc.getCache().name);
+
+    lib.series([
+      function(next) {
+          ipc.put("a", "1");
+          ipc.put("b", "1");
+          ipc.put("c", "1");
+          setTimeout(next, 10);
+      },
+      function(next) {
+          ipc.get("a", function(e, val) {
+              tests.assert(next, null, val!="1", "value must be 1, got", val)
+          });
+      },
+      function(next) {
+          ipc.get(["a","b","c"], function(e, val) {
+              tests.assert(next, null, !val||val.a!="1"||val.b!="1"||val.c!="1", "value must be {a:1,b:1,c:1} got", val)
+          });
+      },
+      function(next) {
+          ipc.incr("a", 1);
+          setTimeout(next, 10);
+      },
+      function(next) {
+          ipc.get("a", function(e, val) {
+              tests.assert(next, null, val!="2", "value must be 2, got", val)
+          });
+      },
+      function(next) {
+          ipc.put("a", "3");
+          setTimeout(next, 10);
+      },
+      function(next) {
+          ipc.get("a", function(e, val) {
+              tests.assert(next, null, val!="3", "value must be 3, got", val)
+          });
+      },
+      function(next) {
+          ipc.incr("a", 1);
+          setTimeout(next, 10);
+      },
+      function(next) {
+          ipc.put("c", {a:1});
+          setTimeout(next, 10);
+      },
+      function(next) {
+          ipc.get("c", function(e, val) {
+              val = lib.jsonParse(val)
+              tests.assert(next, null, !val||val.a!=1, "value must be {a:1}, got", val)
+          });
+      },
+      function(next) {
+          ipc.del("b");
+          setTimeout(next, 10);
+      },
+      function(next) {
+          ipc.get("b", function(e, val) {
+              tests.assert(next, null, val!="", "value must be '', got", val)
+          });
+      },
+    ], function(err) {
+        if (!err) return callback();
+        lib.forEachSeries(["a","b","c"], function(key, next) {
+            ipc.get(key, function(e, val) { console.log(key, val); next(); })
+        }, function() {
+            callback(err);
         });
-    }
-
-    function run2(cb) {
-        lib.series([
-           function(next) {
-               ipc.get("a", function(val) {
-                   tests.assert(next, null, val!="4", "value must be 4, got", val)
-               });
-           },
-           ],
-           function(err) {
-            cb(err);
-        });
-    }
-
-    if (cluster.isMaster) {
-        ipc.on("ready", function(msg) {
-            if (nworkers == 1) return this.send({ op: "run1" });
-            if (this.id == 1) return this.send({ op: "init" });
-            if (this.id > 1) return this.send({ op: "run1" });
-        });
-        ipc.on("done", function(msg) {
-            if (nworkers == 1) return;
-            if (this.id > 1) cluster.workers[1].send({ op: "run2" });
-        });
-        if (!self.test.iterations) {
-            ipc.initServer();
-            setInterval(function() { logger.log('keys:', bkcache.lruKeys()); }, 1000);
-        }
-    } else {
-        ipc.onMessage = function(msg) {
-            switch (msg.op) {
-            case "init":
-                if (self.test.iterations) break;
-                core.cacheBind = core.ipaddrs[0];
-                core.cachePort = 20000;
-                ipc.initServer();
-                ipc.initWorker();
-                break;
-
-            case "run2":
-                run2(function(err) {
-                    if (!err) ipc.sendMsg("done");
-                    callback(err);
-                });
-                break;
-
-            case "run1":
-                run1(function(err) {
-                    if (!err) ipc.sendMsg("done");
-                    callback(err);
-                });
-                break;
-            }
-        }
-        if (!self.test.iterations) {
-            ipc.initWorker();
-        }
-        ipc.sendMsg("ready");
-    }
+    });
 }
 
 tests.test_pool = function(callback)
