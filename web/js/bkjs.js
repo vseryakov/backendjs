@@ -674,6 +674,35 @@ var Bkjs = {
         return (num < 0 ? '-' : '') + str + (parts[1] ? '.' + parts[1] : '');
     },
 
+    // Returns a new object constructed from the arguments pairs
+    newObj: function() {
+        var obj = {};
+        for (var i = 0; i < arguments.length - 1; i += 2) if (typeof arguments[i + 1] != "undefined") obj[arguments[i]] = arguments[i + 1];
+        return obj;
+    },
+
+    // Shallow copy of an object, all additional arguments are treted as properties to be added to the new object
+    cloneObj: function() {
+        var obj = arguments[0];
+        var rc = Array.isArray(obj) ? [] : {};
+        for (var p in obj) {
+            switch (this.typeName(obj[p])) {
+            case "object":
+                rc[p] = {};
+                for (var k in obj[p]) rc[p][k] = obj[p][k];
+                break;
+            case "array":
+                rc[p] = [];
+                for (var k in obj[p]) rc[p][k] = obj[p][k];
+                break;
+            default:
+                rc[p] = obj[p];
+            }
+        }
+        for (var i = 1; i < arguments.length - 1; i += 2) rc[arguments[i]] = arguments[i + 1];
+        return rc;
+    },
+
     // Simple debugging function that outputs arguments in the error console
     log: function() {
         if (!console || !console.log) return;

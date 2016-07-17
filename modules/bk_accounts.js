@@ -211,15 +211,16 @@ accounts.configureAccountsAPI = function()
         }
     });
 
-    function onPostAccountRow(req, row, options) {
+    db.setProcessRow("post", "bk_account", function(req, row, options) {
         if (row.birthday) {
             row.age = Math.floor((Date.now() - lib.toDate(row.birthday))/(86400000*365));
         }
-        var name = (row.name || "").split(" ");
-        row.first_name = name[0];
-        row.last_name = name.slice(1).join(" ");
-    }
-    db.setProcessRow("post", "bk_account", onPostAccountRow);
+        if (row.name) {
+            var name = row.name.split(" ");
+            if (name.length > 1) row.last_name = name.pop();
+            row.first_name = name.join(" ");
+        }
+    });
 }
 
 // Returns current account, used in /account/get API call, req.account will be filled with the properties from the db
