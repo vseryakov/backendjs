@@ -632,7 +632,7 @@ case "$ARG" in
     fi
     ;;
 
-  init-sendmail)
+  init-sendmail-ses)
     get_config user -user
     get_config host -host
     get_config password -password
@@ -674,6 +674,21 @@ case "$ARG" in
     egrep '^MAILER' /etc/mail/sendmail.mc >> $file
     m4 $file > /etc/mail/sendmail.cf
     service sendmail restart
+    ;;
+
+  init-sendmail-ses-relay)
+    off=$(get_flag -off)
+    if [ "$off" != "" ]; then
+       if [ "$(egrep -s -E "^DSemail-smtp" /etc/mail/sendmail.cf)" != "" ]; then
+          sed -i 's/^DSemail-smtp/#DSemail-smtp/' /etc/mail/sendmail.cf
+          service sendmail restart
+       fi
+    else
+       if [ "$(egrep -s -E "^DSemail-smtp" /etc/mail/sendmail.cf)" = "" ]; then
+          sed -i 's/^#+DSemail-smtp/DSemail-smtp/' /etc/mail/sendmail.cf
+          service sendmail restart
+       fi
+    fi
     ;;
 
   send-alert)
