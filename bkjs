@@ -994,7 +994,7 @@ case "$ARG" in
     sudo yum remove -y redis
     sudo yum install -y jemalloc
 
-    ver=$(get_arg -version 3.0.7)
+    ver=$(get_arg -version 3.2.1)
     curl -L -o redis.tgz http://download.redis.io/releases/redis-$ver.tar.gz
 
     mkdir -p redis
@@ -1004,6 +1004,7 @@ case "$ARG" in
         -e 's|^# syslog-enabled no|syslog-enabled yes|' \
         -e "s|^dir ./|dir $REDIS_PREFIX/var/|" \
         -e "s|^timeout 0|timeout 3600|" \
+        -e "s|^bind|# bind|" \
         -e "s|^pidfile /var/run/redis.pid|pidfile $REDIS_PREFIX/var/redis.pid|" \
         -e "s|^logfile \"\"|logfile $REDIS_PREFIX/log/redis.log|" \
         -e "s|^tcp-keepalive .+|tcp-keepalive 60|" \
