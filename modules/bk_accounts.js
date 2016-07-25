@@ -27,8 +27,6 @@ var accounts = {
             id: { primary: 1, pub: 1 },
             login: {},
             name: { pub: 1 },
-            first_name: {},
-            last_name: {},
             status: { type: "text" },
             type: { type: "text", admin: 1 },
             email: {},
@@ -77,6 +75,21 @@ module.exports = accounts;
 accounts.init = function(options)
 {
     db.describeTables();
+}
+
+accounts.configureMdule = function(options, callback)
+{
+    db.setProcessRow("post", "bk_account", function(req, row, options) {
+        if (row.birthday) {
+            row.age = Math.floor((Date.now() - lib.toDate(row.birthday))/(86400000*365));
+        }
+        if (row.name) {
+            var name = row.name.split(" ");
+            if (name.length > 1) row.last_name = name.pop();
+            row.first_name = name.join(" ");
+        }
+    });
+    callback();
 }
 
 // Create API endpoints and routes
@@ -208,17 +221,6 @@ accounts.configureAccountsAPI = function()
 
         default:
             api.sendReply(res, 400, "Invalid command");
-        }
-    });
-
-    db.setProcessRow("post", "bk_account", function(req, row, options) {
-        if (row.birthday) {
-            row.age = Math.floor((Date.now() - lib.toDate(row.birthday))/(86400000*365));
-        }
-        if (row.name) {
-            var name = row.name.split(" ");
-            if (name.length > 1) row.last_name = name.pop();
-            row.first_name = name.join(" ");
         }
     });
 }

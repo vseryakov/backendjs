@@ -931,8 +931,13 @@ tests.test_db = function(callback)
             });
         },
         function(next) {
-            db.update("test1", { id: id, email: "test" }, { expected: { id: id, num: 1 }, ops: { num: "gt" } }, function(err, rc, info) {
+            db.update("test1", { id: id, email: "test", num: 2 }, { expected: { id: id, num: 1 }, ops: { num: "gt" } }, function(err, rc, info) {
                 tests.assert(next, err || !info.affected_rows, "err28:", info);
+            });
+        },
+        function(next) {
+            db.get("test1", { id: id }, {}, function(err, row) {
+                tests.assert(next, err || !row || row.num != 2, "err29:", row);
             });
         },
     ],
