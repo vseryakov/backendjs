@@ -473,6 +473,7 @@ shell.cmdDbBackup = function(options)
     var filter = lib.getArg("-filter");
     var tables = lib.strSplit(lib.getArg("-tables"));
     var skip = lib.strSplit(lib.getArg("-skip"));
+    if (lib.isArg("-incremental")) opts.incremental = 1;
     opts.fullscan = 1;
     if (!opts.useCapacity) opts.useCapacity = "read";
     if (!opts.factorCapacity) opts.factorCapacity = 0.25;
@@ -480,7 +481,12 @@ shell.cmdDbBackup = function(options)
     lib.forEachSeries(tables, function(table, next) {
         if (skip.indexOf(table) > -1) return next();
         file = path.join(root, table +  ".json");
-        fs.writeFileSync(file, "");
+        if (!opts.incremental) {
+            opts.start = "";
+            fs.writeFileSync(file, "");
+        } else {
+
+        }
         db.scan(table, query, opts, function(row, next2) {
             if (filter && app[filter]) app[filter](table, row);
             fs.appendFileSync(file, JSON.stringify(row) + "\n");

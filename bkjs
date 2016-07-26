@@ -685,7 +685,7 @@ case "$ARG" in
        fi
     else
        if [ "$(egrep -s -E "^DSemail-smtp" /etc/mail/sendmail.cf)" = "" ]; then
-          sed -i 's/^#+DSemail-smtp/DSemail-smtp/' /etc/mail/sendmail.cf
+          sed -r -i 's/^#+DSemail-smtp/DSemail-smtp/' /etc/mail/sendmail.cf
           service sendmail restart
        fi
     fi
