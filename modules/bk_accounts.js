@@ -470,6 +470,32 @@ accounts.deleteAccount = function(req, callback)
     });
 }
 
+// Rename account alias
+accounts.renameAccount = function(req, callback)
+{
+    if (!req.account || !req.account.id ||  !req.account.name) return callback({ status: 400, message: "no id and name provided" });
+    if (!req.options) req.options = {};
+    if (!req.query) req.query = {};
+
+    db.get("bk_account", { id: req.account.id }, req.options, function(err, account) {
+        if (err || !account) return callback(err || { status: 404, message: "No account found" });
+
+        lib.series([
+          function(next) {
+              if (req.account.name == account.name) return next();
+              db.update("bk_auth", { login: req.account.login, name: req.account.name }, next);
+          },
+          function(next) {
+              if (req.account.name == account.name) return next();
+              db.update("bk_account", { id: req.account.id, name: req.account.name }, next);
+          },
+          function(next) {
+              core.runMethods("bkRenameAccount", req, function() { next() });
+          },
+        ], callback);
+    });
+}
+
 // Returns status record for given account, used in /status/get API call.
 accounts.getStatus = function(id, options, callback)
 {

@@ -473,19 +473,25 @@ shell.cmdDbBackup = function(options)
     var filter = lib.getArg("-filter");
     var tables = lib.strSplit(lib.getArg("-tables"));
     var skip = lib.strSplit(lib.getArg("-skip"));
-    if (lib.isArg("-incremental")) opts.incremental = 1;
+    var incremental = lib.getArgInt("-incremental");
     opts.fullscan = 1;
     if (!opts.useCapacity) opts.useCapacity = "read";
     if (!opts.factorCapacity) opts.factorCapacity = 0.25;
     if (!tables.length) tables = db.getPoolTables(db.pool, { names: 1 });
     lib.forEachSeries(tables, function(table, next) {
         if (skip.indexOf(table) > -1) return next();
-        file = path.join(root, table +  ".json");
-        if (!opts.incremental) {
-            opts.start = "";
-            fs.writeFileSync(file, "");
+        var file = path.join(root, table +  ".json");
+        if (incremental > 0) {
+            var lines = lib.readFileSync(file, { offset: -incremental, list: "\n" });
+            for (var i = lines.length - 1; i >= 0; i--) {
+                var line = lib.jsonParse(lines[i]);
+                if (line) opts.start = db.getSearchQuery(table, line);
+                if (opts.start && Object.keys(opts.start).length) break;
+                delete opts.start;
+            }
         } else {
-
+            delete opts.start;
+            fs.writeFileSync(file, "");
         }
         db.scan(table, query, opts, function(row, next2) {
             if (filter && app[filter]) app[filter](table, row);
