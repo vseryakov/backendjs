@@ -26,9 +26,11 @@ var accounts = {
         bk_account: {
             id: { primary: 1, pub: 1 },
             login: {},
-            name: { pub: 1 },
             status: { type: "text" },
             type: { type: "text", admin: 1 },
+            name: { pub: 1 },
+            first_name: { pub: 1 },
+            last_name: { pub: 1 },
             email: {},
             phone: {},
             website: {},
@@ -83,7 +85,8 @@ accounts.configureMdule = function(options, callback)
         if (row.birthday) {
             row.age = Math.floor((Date.now() - lib.toDate(row.birthday))/(86400000*365));
         }
-        if (row.name) {
+        // If only used as alias then split manually
+        if (row.name && !row.first_name) {
             var name = row.name.split(" ");
             if (name.length > 1) row.last_name = name.pop();
             row.first_name = name.join(" ");
@@ -342,6 +345,9 @@ accounts.addAccount = function(req, options, callback)
 {
     // Verify required fields
     if (!req.query.name && req.query.alias) req.query.name = req.query.alias;
+    if (!req.query.name) {
+        if (req.query.first_name && req.query.last_name) req.query.name = req.query.first_name + " " + req.query.last_name;
+    }
     if (!req.query.name) return callback({ status: 400, message: "name is required"});
     delete req.query.id;
 
@@ -398,7 +404,10 @@ accounts.updateAccount = function(req, options, callback)
 {
     req.query.mtime = Date.now();
     // Cannot have account name empty
-    if (!req.query.name) delete req.query.name;
+    if (!req.query.name) {
+        delete req.query.name;
+        if (req.query.first_name && req.query.last_name) req.query.name = req.query.first_name + " " + req.query.last_name;
+    }
 
     lib.series([
        function(next) {
@@ -473,7 +482,7 @@ accounts.deleteAccount = function(req, callback)
 // Rename account alias
 accounts.renameAccount = function(req, callback)
 {
-    if (!req.account || !req.account.id ||  !req.account.name) return callback({ status: 400, message: "no id and name provided" });
+    if (!req.account || !req.account.id || !req.account.name) return callback({ status: 400, message: "no id and name provided" });
     if (!req.options) req.options = {};
     if (!req.query) req.query = {};
 

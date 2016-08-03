@@ -362,6 +362,7 @@ case "$ARG" in
        echo '$ModLoad imudp' >> /etc/rsyslog.conf
        echo '$UDPServerAddress 127.0.0.1' >> /etc/rsyslog.conf
        echo '$UDPServerRun 514' >> /etc/rsyslog.conf
+       echo '$MaxMessageSize 64k' >> /etc/rsyslog.conf
        echo '$SystemLogRateLimitInterval 1' >> /etc/rsyslog.conf
        echo '$SystemLogRateLimitInterval 1' >> /etc/rsyslog.conf
        echo '$SystemLogRateLimitBurst 10000' >> /etc/rsyslog.conf
