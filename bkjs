@@ -1287,7 +1287,8 @@ case "$ARG" in
     user=$(get_arg -user ec2-user)
     region=$(get_arg -region)
     index=$(get_arg -index 1)
-    cmd=$($0 show-instances -region "$region" -name "$name"|awk "{printf \"ssh -i ~/.ssh/\%s.pem -l $user %s\n\",\$4,\$3}"|head -$index|tail -1)
+    ip=$(get_arg -ip host)
+    cmd=$($0 show-instances -region "$region" -fmt "$ip,key" -name "$name"|awk "{printf \"ssh -i ~/.ssh/%s.pem -l $user %s\n\",\$2,\$1}"|head -$index|tail -1)
     [ "$cmd" = "" ] && exit 1
     [ "$BKJS_DEBUG" != "" ] && echo $cmd
     eval $cmd
