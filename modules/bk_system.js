@@ -56,6 +56,16 @@ system.configureSystemAPI = function()
                 ipc.sendMsg(req.params[0] + ":init");
                 res.json({});
                 break;
+
+            case "refresh":
+                var queue = ipc.systemQueue;
+                if (queue) {
+                    var opts = { queueName: queue };
+                    if (ipc.getQueue(queue).name == "redis") opts = { cacheName: queue };
+                    ["master","server","web","worker"].forEach(function(x) { ipc.publish(core.name + ":" + x, "config:init", opts) });
+                }
+                res.json({});
+                break;
             }
             break;
 
@@ -76,7 +86,7 @@ system.configureSystemAPI = function()
                 break;
 
             case "publish":
-                ipc.publish(req.query.key, req.query.value, function(err) { api.sendReply(res, err) });
+                ipc.publish(req.query.key, req.query.value, { queueName: req.query.queue }, function(err) { api.sendReply(res, err) });
                 break;
             }
             break;
@@ -201,28 +211,28 @@ system.configureSystemAPI = function()
                 res.json({});
                 break;
             case 'stats':
-                ipc.stats(function(data) { res.json(data || {}) });
+                ipc.stats({ cacheName: req.query.cache }, function(data) { res.json(data || {}) });
                 break;
             case "keys":
-                ipc.keys(function(data) { res.json(data || {}) });
+                ipc.keys({ cacheName: req.query.cache }, function(data) { res.json(data || {}) });
                 break;
             case "get":
-                ipc.get(req.query.name, function(err, data) { res.json({ value: data }); });
+                ipc.get(req.query.name, { cacheName: req.query.cache }, function(err, data) { res.json({ value: data }); });
                 break;
             case "clear":
-                ipc.clear();
+                ipc.clear({ cacheName: req.query.cache });
                 res.json({});
                 break;
             case "del":
-                ipc.del(req.query.name);
+                ipc.del(req.query.name, { cacheName: req.query.cache });
                 res.json({});
                 break;
             case "incr":
-                ipc.incr(req.query.name, lib.toNumber(req.query.value));
+                ipc.incr(req.query.name, lib.toNumber(req.query.value), { cacheName: req.query.cache });
                 res.json({});
                 break;
             case "put":
-                ipc.put(req.query.name, req.query.value);
+                ipc.put(req.query.name, req.query.value, { cacheName: req.query.cache });
                 res.json({});
                 break;
             case "command":
