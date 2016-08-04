@@ -50,41 +50,20 @@ system.configureSystemAPI = function()
             res.json({});
             break;
 
-        case "config":
-            switch (req.params[1]) {
-            case 'init':
-                ipc.sendMsg(req.params[0] + ":init");
-                res.json({});
-                break;
-
-            case "refresh":
-                var queue = ipc.systemQueue;
-                if (queue) {
-                    var opts = { queueName: queue };
-                    if (ipc.getQueue(queue).name == "redis") opts = { cacheName: queue };
-                    ["master","server","web","worker"].forEach(function(x) { ipc.publish(core.name + ":" + x, "config:init", opts) });
-                }
-                res.json({});
-                break;
+        case "init":
+            var queue = ipc.systemQueue;
+            if (req.query.name && queue) {
+                var opts = { queueName: queue };
+                if (ipc.getQueue(queue).name == "redis") opts = { cacheName: queue };
+                ["master","server","web","worker"].forEach(function(x) {
+                    ipc.publish(core.name + ":" + x, req.query.name + ":init", opts)
+                });
             }
-            break;
-
-        case "columns":
-            switch (req.params[1]) {
-            case 'init':
-                ipc.sendMsg(req.params[0] + ":init");
-                res.json({});
-                break;
-            }
+            res.json({});
             break;
 
         case "queue":
             switch (req.params[1]) {
-            case 'init':
-                ipc.sendMsg(req.params[0] + ":init");
-                res.json({});
-                break;
-
             case "publish":
                 ipc.publish(req.query.key, req.query.value, { queueName: req.query.queue }, function(err) { api.sendReply(res, err) });
                 break;
@@ -206,18 +185,20 @@ system.configureSystemAPI = function()
 
         case "cache":
             switch (req.params[1]) {
-            case 'init':
-                ipc.sendMsg('cache:init');
-                res.json({});
-                break;
             case 'stats':
-                ipc.stats({ cacheName: req.query.cache }, function(data) { res.json(data || {}) });
+                ipc.stats({ cacheName: req.query.cache }, function(data) {
+                    res.json(data || {})
+                });
                 break;
             case "keys":
-                ipc.keys({ cacheName: req.query.cache }, function(data) { res.json(data || {}) });
+                ipc.keys({ cacheName: req.query.cache }, function(data) {
+                    res.json(data || {})
+                });
                 break;
             case "get":
-                ipc.get(req.query.name, { cacheName: req.query.cache }, function(err, data) { res.json({ value: data }); });
+                ipc.get(req.query.name, { cacheName: req.query.cache }, function(err, data) {
+                    res.json({ value: data });
+                });
                 break;
             case "clear":
                 ipc.clear({ cacheName: req.query.cache });
@@ -228,8 +209,9 @@ system.configureSystemAPI = function()
                 res.json({});
                 break;
             case "incr":
-                ipc.incr(req.query.name, lib.toNumber(req.query.value), { cacheName: req.query.cache });
-                res.json({});
+                ipc.incr(req.query.name, lib.toNumber(req.query.value), { cacheName: req.query.cache }, function(err, val) {
+                    res.json({ value: val });
+                });
                 break;
             case "put":
                 ipc.put(req.query.name, req.query.value, { cacheName: req.query.cache });
