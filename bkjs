@@ -1305,8 +1305,8 @@ case "$ARG" in
     user=$(get_arg -user ec2-user)
     region=$(get_arg -region)
     index=$(get_arg -index 1)
-    ip=$(get_arg -ip host)
-    cmd=$($0 show-instances -region "$region" -fmt "$ip,key" -name "$name"|awk "{printf \"ssh -i ~/.ssh/%s.pem -l $user %s\n\",\$2,\$1}"|head -$index|tail -1)
+    [ "$(get_flag -ip)" != "" ] && host=ip
+    cmd=$($0 show-instances -region "$region" -fmt "${host:-host},key" -name "$name"|awk "{printf \"ssh -i ~/.ssh/%s.pem -l $user %s\n\",\$2,\$1}"|head -$index|tail -1)
     [ "$cmd" = "" ] && exit 1
     [ "$BKJS_DEBUG" != "" ] && echo $cmd
     eval $cmd
@@ -1616,7 +1616,7 @@ EOF
     echo "  build-bkjs - clone and build the $BKJS_MOD from the git in the current dir with dependencies specified in -args"
     echo "  build-node - build node and install in $BKJS_PREFIX or in [-prefix PATH], on Linux init-devel should be called before this command to install devel packages"
     echo "  show-instances [-region region] [-name name] [-fmt fmt]- show running instances in region, optional tag pattern can be used for filter, FMT may contain: id,ip,host,key,name which will be replaced with actual values"
-    echo "  ec2-ssh -name name [-region region] - login using ssh to a host by tag name, key name will be used to specify a keypair from ~/.ssh/"
+    echo "  ec2-ssh -name name [-region region] [-ip] - login using ssh to a host(IP) by tag name, key name will be used to specify a keypair from ~/.ssh/"
     echo "  show-help - show all backend command line and config parameters"
     echo ""
     echo "bksh commands:"
