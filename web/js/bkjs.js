@@ -492,7 +492,7 @@ var Bkjs = {
             Y: function(t) { return utc ? t.getUTCFullYear() : t.getFullYear() },
             t: function(t) { return t.getTime() },
             u: function(t) { return Math.floor(t.getTime()/1000) },
-            Z: function(t) { return "GMT" + (-t.getTimezoneOffset()/60) + "00" },
+            Z: function(t) { return "GMT-" + Math.abs(-t.getTimezoneOffset()/60) + "00" },
             '%': function(t) { return '%' },
         };
         for (var h in handlers) {

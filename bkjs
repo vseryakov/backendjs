@@ -534,6 +534,24 @@ case "$ARG" in
     $0 stop
     ;;
 
+  init-mfa)
+    [ "$(whoami)" != "root" ] && echo "Run as root please" && exit 1
+    yum install google-authenticator –y
+    if [ "$(egrep -s 'pam_google_authenticator' /etc/pam.d/sshd)" = "" ]; then
+       sed -i -r 's|^auth[ \t]+substack[ \t]+password-auth|auth required pam_google_authenticator.so\n#auth substack password-auth|' /etc/pam.d/sshd
+    fi
+    if [ "$(egrep -s 'pam_google_authenticator' /etc/pam.d/system-auth)" = "" ]; then
+       sed -i -r 's|^auth[ \t]+sufficient[ \t]+pam_unix.so nullok try_first_pass|auth requisite pam_unix.so nullok try_first_pass\nauth sufficient pam_google_authenticator.so|' /etc/pam.d/system-auth
+    fi
+    if [ "$(egrep -s '^ChallengeResponseAuthentication yes' /etc/ssh/sshd_config)" = "" ]; then
+       echo 'ChallengeResponseAuthentication yes' >> /etc/ssh/sshd_config
+    fi
+    if [ "$(egrep -s '^AuthenticationMethods publickey,keyboard-interactive' /etc/ssh/sshd_config)" = "" ]; then
+       echo 'AuthenticationMethods publickey,keyboard-interactive' >> /etc/ssh/sshd_config
+    fi
+    su $(get_arg -user ec2-user) -c "google-authenticator -d -t -f -r 2 -m 30"
+    ;;
+
   init-monit-system)
     $ECHO "set daemon 30 with start delay 60" > /etc/monit.d/system.conf
     $ECHO "check system localhost if loadavg(1min) > 5 for 10 cycles then exec \"$0 send-alert\"" >> /etc/monit.d/system.conf
@@ -1546,6 +1564,7 @@ EOF
     echo "  init-packages - install required packges and updates"
     echo "  init-devel - install development packages for node and modules compiclation"
     echo "  init-home - setup backend home with required folders"
+    echo "  init-mfa [-user ec2-user] - initialize EC2 instance with multi-factor authentication using Google authenticator"
     echo "  init-logwatcher - creates a crontab file in /etc/cron.d to periodically run the log watcher, -cron can specify full cron time spec"
     echo "  init-app - create application skeleton for an application based on the backend, app name can be specified as the first argument"
     echo "  send-alert [-event EVENT] [-descr DESCR] - send alert message to the error log and SNS topic if configured in \$BKJS_SNS variable, if called from monit event/descr will be provided"
