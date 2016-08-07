@@ -44,6 +44,11 @@
 <li><a href="#aws-instance-setup-with-node-and-backendjs"> AWS instance setup with node and backendjs</a></li>
 <li><a href="#aws-instance-as-an-appliance"> AWS instance as an appliance</a></li>
 <li><a href="#aws-beanstalk-deployment"> AWS Beanstalk deployment</a></li>
+<li><a href="#aws-provisioning-examples"> AWS Provisioning examples</a></li>
+<li><a href="#make-an-ami"> Make an AMI</a></li>
+<li><a href="#launch-instances-when-not-using-autoscaling-groups"> Launch instances when not using AutoScaling Groups</a></li>
+<li><a href="#launch-configurations"> Launch Configurations</a></li>
+<li><a href="#copy-autoscaling-launch-configs-after-new-ami-is-created"> Copy Autoscaling launch configs after new AMI is created</a></li>
 <li><a href="#proxy-mode"> Proxy mode</a></li>
 <li><a href="#configure-http-port"> Configure HTTP port</a></li>
 </ul>
@@ -927,7 +932,39 @@ replacing spaces with %20 is not required.</p>
 <h2 id="aws-beanstalk-deployment">AWS Beanstalk deployment</h2>
 <p>As with any node.js module, the backendjs app can be packaged into zip file according to AWS docs and deployed the same way as any other node.js app.
 Inside the app package etc/config file can be setup for any external connections.</p>
-<h2 id="proxy-mode">Proxy mode</h2>
+<h2 id="aws-provisioning-examples">AWS Provisioning examples</h2>
+<p>Note: on OS X laptop the <code>-aws-sdk-profile uc</code> when AWS credentials are in the ~/.aws/credentials.</p>
+<h3 id="make-an-ami">Make an AMI</h3>
+<p>On the running machine which will be used for an image:</p>
+<pre><code>bksh -aws-create-image -no-reboot
+</code></pre><p>Use an instance by tag for an image:</p>
+<pre><code>bksh -aws-create-image -no-reboot -instance-id `bkjs show-instances -name api -fmt id | head -1`
+</code></pre><h3 id="launch-instances-when-not-using-autoscaling-groups">Launch instances when not using AutoScaling Groups</h3>
+<p>When launching from an EC2 instance no need to specify any AWS credentials.</p>
+<ul>
+<li><p>admin (EC2)</p>
+<p> bksh -aws-sdk-profile uc -aws-launch-instances -aws-instance-type t2.small -subnet-name api -name admin -elb-name Admin -alarm-name alarms -public-ip 1 -dry-run</p>
+</li>
+<li><p>api (EC2)</p>
+<p> bksh -aws-sdk-profile uc -aws-launch-instances -aws-instance-type m3.large -subnet-name api -name api -elb-name api -alarm-name alarms -public-ip 1 -dry-run</p>
+</li>
+<li><p>jobs (EC2)</p>
+<p> bksh -aws-sdk-profile uc -aws-launch-instances -aws-instance-type t2.small -subnet-name internal -name sync -alarm-name alarms -dry-run
+ bksh -aws-sdk-profile uc -aws-launch-instances -aws-instance-type t2.small -subnet-name internal -name sync -zone 1c -alarm-name alarms -dry-run</p>
+</li>
+<li><p>Elasticsearch</p>
+<p> bksh -aws-sdk-profile uc -aws-launch-instances -aws-instance-type m3.large -subnet-name internal -name elasticsearch -bkjs-cmd &quot;init-elasticsearch-service -memsize 50&quot; -alarm-name alarms -dry-run</p>
+</li>
+<li><p>Redis</p>
+<p> bksh -aws-sdk-profile uc -aws-launch-instances -aws-instance-type m3.large -subnet-name internal -name redis -bkjs-cmd &quot;init-redis-service -memsize 70&quot; -alarm-name alarms -dry-run</p>
+</li>
+</ul>
+<h3 id="launch-configurations">Launch Configurations</h3>
+<pre><code>bksh -aws-create-launch-config -config-name elasticsearch -aws-sdk-profile uc -instance-type m3.large -update-groups -bkjs-cmd stop-service -bkjs-cmd init-logwatcher -bkjs-cmd &quot;init-elasticsearch-service -memsize 50&quot; -device /dev/xvda:gp2:16 -dry-run
+</code></pre><h3 id="copy-autoscaling-launch-configs-after-new-ami-is-created">Copy Autoscaling launch configs after new AMI is created</h3>
+<pre><code>bksh -aws-create-launch-config -config-name jobs -aws-sdk-profile uc -update-groups -dry-run
+bksh -aws-create-launch-config -config-name api -aws-sdk-profile uc -update-groups -dry-run
+</code></pre><h2 id="proxy-mode">Proxy mode</h2>
 <p>By default the Web proceses spawned by the server are load balanced using default cluster module whihc relies on the OS to do scheduling. On Linux
 this is proven not to work properly due to the kernel keeping the context switches to a minimum thus resulting in one process to be very busy while the others
 idle.</p>
@@ -2233,7 +2270,6 @@ Database pool statistics and other diagnostics</p>
 <li><code>locales-dir</code> - Path where to keep locale translations</li>
 <li><code>uid</code> - User id or name to switch after startup if running as root, used by Web servers and job workers</li>
 <li><code>gid</code> - Group id or name to switch after startup if running to root</li>
-<li><code>email-from</code> - Email address to be used when sending emails from the backend</li>
 <li><code>role</code> - Override servers roles, this may have very strange side effects and should only be used for testing purposes</li>
 <li><code>force-uid</code> - Drop privileges if running as root by all processes as early as possibly, this reqiures uid being set to non-root user. A convenient switch to start the backend without using any other tools like su or sudo.</li>
 <li><code>umask</code> - Permissions mask for new files, calls system umask on startup, if not specified the current umask is used</li>
@@ -2289,7 +2325,6 @@ Database pool statistics and other diagnostics</p>
 <li><code>logwatcher-file(-[a-z]+)?</code> - Add a file to be watched by the logwatcher, it will use all configured match patterns</li>
 <li><code>logwatcher-url(-[a-z]+)?</code> - The backend URL(s) where logwatcher reports should be sent, the log is sent in a POST request, additional info is in the headers</li>
 <li><code>logwatcher-table(-[a-z]+)?</code> - The database table where logwatcher reports should be stored, the table must have the following columns: ipaddr, host, type, instance_id, instance_tag, run_mode, data, mtime</li>
-<li><code>logwatcher-ses</code> - Send logwatcher emails via SES if running inside an EC2 instance</li>
 <li><code>user-agent</code> - Add HTTP user-agent header to be used in HTTP requests, for scrapers or other HTTP requests that need to be pretended coming from Web browsers</li>
 <li><code>backend-host</code> - Host of the master backend, can be used for backend nodes communications using core.sendRequest function calls with relative URLs, also used in tests.</li>
 <li><code>backend-login</code> - Credentials login for the master backend access when using core.sendRequest</li>
@@ -2300,6 +2335,8 @@ Database pool statistics and other diagnostics</p>
 <li><code>no-watch</code> - Files to be ignored by the wather</li>
 <li><code>locales</code> - A list of locales to load from the locales/ directory, only language name must be specified, example: en,es. It enables internal support for <code>res.__</code> and <code>req.__</code> methods that can be used for translations, for each request the internal language header will be honored forst, then HTTP Accept-Language</li>
 <li><code>no-locales</code> - Do not load locales on start</li>
+<li><code>email-from</code> - Email address to be used when sending emails from the backend</li>
+<li><code>email-transport</code> - Send emails via supported transports: ses:, sendgrid://?key=SG, if not set default SMTP settings are used</li>
 <li><code>smtp-(.+)</code> - SMTP server parameters, user, password, host, ssl, tls...see emailjs for details</li>
 <li><code>tmp-watcher-(.+)</code> - How long to keep files per subdirectory in seconds</li>
 <li><code>aws-key</code> - AWS access key</li>
@@ -2320,6 +2357,8 @@ Database pool statistics and other diagnostics</p>
 <li><code>aws-vpc-id</code> - AWS VPC id to be used for instances or commands</li>
 <li><code>aws-group-id</code> - AWS security group(s) to be used for instances or commands</li>
 <li><code>aws-instance-type</code> - AWS instance type to launch on demand</li>
+<li><code>ipc-ping-interval</code> - Interval for a worker keep-alive pings, if not received within this period it will be killed</li>
+<li><code>ipc-system-queue</code> - System queue name to subscribe for control messages, this is a PUB/SUB queue to process system messages like restart, re-init config,...</li>
 <li><code>ipc-lru-max</code> - Max number of items in the LRU cache, this cache is managed by the master Web server process and available to all Web processes maintaining only one copy per machine, Web proceses communicate with LRU cache via IPC mechanism between node processes</li>
 <li><code>ipc-lru-max-(.+)</code> - Max number of items in the local LRU cache by process role, works the same way as the global one but only is set for the specified process role</li>
 <li><code>ipc-cache-?([a-z0-1]+)?</code> - An URL that points to the cache server in the format <code>PROTO://HOST[:PORT]?PARAMS</code>, to use for caching in the API/DB requests, default is local LRU cache, multiple caches can be defined with unique names, all params starting with <code>bk-</code> will be copied into the options without the prefix and removed from the url, the rest of paarms will be left in the url</li>
@@ -2388,6 +2427,7 @@ Database pool statistics and other diagnostics</p>
 <li><code>api-allow-authenticated</code> - Add URLs which can be accessed by any authenticated user account, can be partial urls or Regexp, this is a convenient option which registers <code>AuthCheck</code> callback for the given endpoints and is checked before any other account types, if matched no account specific paths will be checked anymore(any of the allow-account-...)</li>
 <li><code>api-allow-admin</code> - Add URLs which can be accessed by admin accounts only, can be partial urls or Regexp, this is a convenient option which registers <code>AuthCheck</code> callback for the given endpoints</li>
 <li><code>api-allow-account-([a-z]+)</code> - Add URLs which can be accessed by specific account type only, can be partial urls or Regexp, this is a convenient option which registers AuthCheck callback for the given endpoints and only allow access to the specified account types</li>
+<li><code>api-deny-account-([a-z]+)</code> - Add URLs which CAN NOT be accessed by specific account type, can be partial urls or Regexp, this is checked before any allow parameters</li>
 <li><code>api-express-options</code> - Set Express config options during initialization,example: <code>-api-express-options { &quot;trust proxy&quot;: 1, &quot;strict routing&quot;: true }</code></li>
 <li><code>api-allow-ip</code> - Set regexp for IPs that dont need credentials, replaces the whole access list. It is checked before endpoint access list</li>
 <li><code>api-deny-ip</code> - Set regexp for IPs that will be denied access, replaces the whole access list. It is checked before endpoint access list.</li>
@@ -3018,6 +3058,7 @@ using <code>i18n.__</code> method for messages explicitely in the application co
 <ul>
 <li><p><code>api.sendReply(res, status, text)</code></p>
 <p> Send formatted JSON reply to an API client, if status is an instance of Error then error message with status 500 is sent back.</p>
+<p>If the status is an object it is sent as is.</p>
 <p>All Error objects will return a generic error message without exposing the real error message, it will log all error exceptions in the logger
 subject to log throttling configuration.</p>
 </li>
@@ -4103,6 +4144,21 @@ return list of groups to the callback</p>
 </ul>
 
 <ul>
+<li><p><code>aws.ec2DescribeInstances(options, callback)</code></p>
+<p> Describe instances according to the query filters, returns a list with instances, the following properties
+can be used:</p>
+<ul>
+<li>vpcId - VPC to get instances from</li>
+<li>instanceId - list of instances to show only</li>
+<li>tagName - filter by tag name(s)</li>
+<li>groupName - filter by group name(s)</li>
+<li>stateName - instances state(s)</li>
+<li>filters - an object with filters to send as is</li>
+</ul>
+</li>
+</ul>
+
+<ul>
 <li><p><code>aws.ec2CreateTags(id, name, options, callback)</code></p>
 <p> Create tags for a resource. Options may contain tags property which is an object with tag key and value</p>
 <p>Example</p>
@@ -4410,10 +4466,13 @@ core.describeArgs([ { name: &quot;api-list&quot;, array: 1, descr: &quot;list of
 <li><p><code>core.runMethods(name, options, callback)</code></p>
 <p> Run a method for every module, a method must conform to the following signature: <code>function(options, callback)</code> and
 call the callback when finished. The callback second argument will be the options, so it is possible to pass anything
-in the options back to the caller. Errors from a module is never propagated and simply ignored.</p>
+in the options back to the caller.</p>
 <p>The following properties can be specified in the options:</p>
 <ul>
-<li>filterModules - a regexp of the modules names to be called only</li>
+<li>allowModules - a regexp of the modules names to be called only</li>
+<li>stopOnError - on first error stop and return, otherwise all errors are ignored and all modules are processed</li>
+<li>stopOnValue - this must be an object with property names and values to be watched, as soon as any of it
+ exists and set with the specified value the processing stops.</li>
 </ul>
 </li>
 </ul>
@@ -5088,6 +5147,7 @@ To hint a driver that scanning is in progress the <code>options.scanning</code> 
 <li>options - same as in <code>db.select</code>, with the following additions:<ul>
 <li>count - size of every batch, default is 100</li>
 <li>limit - total number of records to scan</li>
+<li>start - the primary key to start the scan from</li>
 <li>batch - if true rowCallback will be called with all rows from the batch, not every row individually, batch size is defined by the count property</li>
 <li>noscan - if 1 no scan will be performed if no prmary keys are specified</li>
 <li>fullscan - if 1 force to scan full table without using any primary key conditons, use all query properties for all records (DynamoDB)</li>
@@ -5881,19 +5941,21 @@ and if exist it must return the same or new table name for the given query param
 <h2 id="module-db_elasticsearch">Module: DB_ELASTICSEARCH</h2>
 <ul>
 <li><p><code>pool</code></p>
-<p> Create a database pool that works with ElasticSearch server, the db pool connection url may include the index for
-all tables, like <code>http://127.0.0.1:9200/billing</code>, if not given the default database name <code>-db-name</code> will be used.</p>
-<p>To place different tables into different indexes define the index mapping: <code>-db-elasticsearch-pool-options-index-table-INDEX_NAME=TABLES_REGEXP</code>,
+<p> Create a database pool that works with ElasticSearch server, only the hostname and port will be used, by default each table
+is stored in its own index.</p>
+<p>To combine different tables in the same index define the index mapping: <code>-db-elasticsearch-pool-options-index-table-INDEX_NAME=TABLES_REGEXP</code>,
 for example: <code>-db-elasticsearch-pool-options-index-table-users=(account|auth)</code> to place all account tables into the index <code>users</code>.</p>
-<p>A simple way to create an index per table: <code>-db-elasticsearch-pool-options-index-tables=bk_account,bk_auth,bk_message</code>,
-this will create a separate index for each table from the list.</p>
 <p>To define shards and replicas per index:</p>
 <ul>
 <li><code>-db-elasticsearch-pool-options-shards-INDEX_NAME=NUM</code></li>
 <li><code>-db-elasticsearch-pool-options-replicas-INDEX_NAME=NUM</code></li>
 </ul>
 <p>To support multiple seed nodes a parameter <code>-db-elasticsearch-pool-options-servers=1.1.1.1,2.2.2.2</code> can be specified, if the primary node
-fails it will switch to other configured nodes.</p>
+fails it will switch to other configured nodes. To control the switch retries and timeout there are options:</p>
+<ul>
+<li><code>-db-elasticsearch-pool-options-retry-count=3</code></li>
+<li><code>-db-elasticsearch-pool-options-retry-timeout=250</code></li>
+</ul>
 <p>On successful connect to any node the driver retrieves full list of nodes in the cluster and switches to a random node, this happens
 every <code>discovery-interval</code> in milliseconds, default is 1h, it can be specified as <code>-db-elasticserch-pool-options-discovery-interval=300000</code></p>
 </li>
@@ -6088,7 +6150,8 @@ options may define the following properties:</p>
 
 <ul>
 <li><p><code>Ipc.prototype.newMsg(op, msg, options)</code></p>
-<p> Returns an IPC message object, <code>msg</code> must be an object if given</p>
+<p> Returns an IPC message object, <code>msg</code> must be an object if given. To support JSON text messages
+it can be represented as a string of JSON array: [op,msg]</p>
 </li>
 </ul>
 
@@ -6111,6 +6174,7 @@ options may define the following properties:</p>
   ipc.sendMsg(&quot;op1&quot;, { name: &quot;name&quot;, value: &quot;data&quot; }, function(data) { console.log(data); })
   ipc.sendMsg(&quot;op1&quot;, { 1: 1, 2: 2 }, { timeout: 100 })
   ipc.sendMsg(&quot;op1&quot;, { 1: 1, 2: 2 }, function(data) { console.log(data); })
+  ipc.newMsg(JSON.stringify([ &quot;op1&quot;, { name: &quot;test&quot; } ]))
 </code></pre></li>
 </ul>
 
@@ -6181,8 +6245,8 @@ cache implementation, options is an object passed down to the driver as is</p>
 <p> Retrieve an item from the cache by key.
 If <code>options.set</code> is given and no value exists in the cache it will be set as the initial value, local cache only</p>
 <p>Example</p>
-<p>  ipc.get(&quot;my:key&quot;, function(data) { console.log(data) });
-  ipc.get(&quot;my:counter&quot;, { set: 10 }, function(data) { console.log(data) });</p>
+<p>  ipc.get(&quot;my:key&quot;, function(err, data) { console.log(data) });
+  ipc.get(&quot;my:counter&quot;, { set: 10 }, function(err, data) { console.log(data) });</p>
 </li>
 </ul>
 
@@ -6200,7 +6264,8 @@ If <code>options.set</code> is given and no value exists in the cache it will be
 
 <ul>
 <li><p><code>Ipc.prototype.incr(key, val, options, callback)</code></p>
-<p> Increase/decrease a counter in the cache by <code>val</code>, non existent items are treated as 0, if a callback is given new value will be returned.
+<p> Increase/decrease a counter in the cache by <code>val</code>, non existent items are treated as 0, if a callback is given an
+error and the new value will be returned.
 <code>options.ttl</code> in milliseconds can be used if the driver supports it</p>
 </li>
 </ul>
@@ -6856,6 +6921,28 @@ properties will be replaced by empty strings.</p>
 </ul>
 
 <ul>
+<li><p><code>lib.toTemplate(text, obj, options)</code></p>
+<p> Given a template with @..@ placeholders, replace each placeholder with the value from the obj.
+The <code>obj</code> can be an object or an array of objects in which case all object will be checked for the value until non empty.</p>
+<p>The options if given may provide the following:</p>
+<ul>
+<li>allow - placeholders with a name present in this list will be replaced, all other will be replaced with empty string</li>
+<li>skip - placeholders with a name present in this list will be ignored, the placeholer will be kept</li>
+<li>only - placeholders with a name present in this list will be replaced only, all other will be ignored and kept as placeholders</li>
+<li>encoding - canbe url or base64, the replaced values will be encoded accordingly</li>
+</ul>
+<p>Example:</p>
+<pre><code>  lib.toTemplate(&quot;http://www.site.com/@code@/@id@&quot;, { id: 123, code: &quot;YYY&quot; }, { encoding: &quot;url&quot; })
+</code></pre></li>
+</ul>
+
+<ul>
+<li><p><code>lib.escapeUnicode(text)</code></p>
+<p> Convert all Unicode binary symbols into Javascript text representation</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>lib.textToEntity(str)</code></p>
 <p> Convert all special symbols into html entities</p>
 </li>
@@ -6880,7 +6967,7 @@ properties will be replaced by empty strings.</p>
 </ul>
 
 <ul>
-<li><p><code>lib.isUuid(val)</code></p>
+<li><p><code>lib.isUuid(val, prefix)</code></p>
 <p> Returns true if the value represents an UUID</p>
 </li>
 </ul>
@@ -7291,6 +7378,12 @@ that data is not chnaged and was signed with the same secret</p>
 </ul>
 
 <ul>
+<li><p><code>lib.strCompress(data, encoding)</code></p>
+<p> From <a href="https://github.com/pieroxy/lz-string/">https://github.com/pieroxy/lz-string/</a></p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>lib.domainName(host)</code></p>
 <p> Extract domain from the host name, takes all host parts except the first one</p>
 </li>
@@ -7447,8 +7540,8 @@ objects will be create automatically. The options can have the folowing properti
 <ul>
 <li><p><code>lib.objDescr(obj, options)</code></p>
 <p> Return an object structure as a string object by showing primitive properties only,
-for arrays it shows the length and <code>options.count</code> or 5 first items,
-strings are limited by <code>options.length</code> or 64 bytes,
+for arrays it shows the length and <code>options.count</code> or 10 first items,
+strings are limited by <code>options.length</code> or 128 bytes,
 the object depth is limited by <code>options.depth</code> or 3 levels deep, the number of properties are limited by options.count or 5,
 all properties that match <code>options.ignore</code> will be skipped from the output</p>
 </li>
@@ -7542,6 +7635,8 @@ mdate is a Date object with last modified time</p>
 <li>encoding - file encoding when converting to string</li>
 <li>logger - log level for error messages</li>
 <li>missingok - if set ENOENT will not be logged</li>
+<li>offset - read from the position in the file, if negative the offset is from the end of file</li>
+<li>length - read only this much of the data, otherwise read till the end of file</li>
 </ul>
 </li>
 </ul>
@@ -8063,11 +8158,11 @@ it runs <code>shutdown[Role]</code> methods before exiting</p>
       bk_account: {
           id: { primary: 1, pub: 1 },
           login: {},
-          name: { pub: 1 },
-          first_name: {},
-          last_name: {},
           status: { type: &quot;text&quot; },
           type: { type: &quot;text&quot;, admin: 1 },
+          name: { pub: 1 },
+          first_name: { pub: 1 },
+          last_name: { pub: 1 },
           email: {},
           phone: {},
           website: {},
@@ -8114,27 +8209,31 @@ it runs <code>shutdown[Role]</code> methods before exiting</p>
   {</p>
 <pre><code>  db.describeTables();
 </code></pre><p>  }</p>
-<p>  // Create API endpoints and routes
-  accounts.configureWeb = function(options, callback)
+<p>  accounts.configureMdule = function(options, callback)
   {</p>
-<pre><code>  this.configureAccountsAPI();
-  callback()
-</code></pre><p>  }</p>
-<p>  // Account management
-  accounts.configureAccountsAPI = function()
-  {</p>
-<pre><code>  var self = this;
-
-  api.app.all(/^\/account\/([a-z\/]+)$/, function(req, res, next) {
-      var options = api.getOptions(req);
-
-      switch (req.params[0]) {
-      case &quot;get&quot;:
-          options.cleanup = &quot;bk_auth,bk_account&quot;;
-          if (!req.query.id || req.query.id == req.account.id) {
-              self.getAccount(req, options, function(err, data, info) {
-                  api.sendJSON(req, err, data);
+<pre><code>  db.setProcessRow(&quot;post&quot;, &quot;bk_account&quot;, function(req, row, options) {
+      if (row.birthday) {
+          row.age = Math.floor((Date.now() - lib.toDate(row.birthday))/(86400000*365));
+      }
+      // If only used as alias then split manually
+      if (row.name &amp;&amp; !row.first_name) {
+          var name = row.name.split(&quot; &quot;);
+          if (name.length &gt; 1) row.last_name = name.pop();
+          row.first_name = name.join(&quot; &quot;);
+      }
 </code></pre></li>
+</ul>
+
+<ul>
+<li><p><code>accounts.configureWeb(options, callback)</code></p>
+<p> Create API endpoints and routes</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>accounts.configureAccountsAPI()</code></p>
+<p> Account management</p>
+</li>
 </ul>
 
 <ul>
@@ -8202,6 +8301,12 @@ If options.existing is 1 then return only record with found accounts, all other 
 The options may contain <code>keep_NAME</code> properties with NAME being a table name to be kept without the bk_ prefix, for example
 delete an account but keep all messages and location: <code>keep_message: 1, keep_location: 1</code></p>
 <p>This methods is suitable for background jobs</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>accounts.renameAccount(req, callback)</code></p>
+<p> Rename account alias</p>
 </li>
 </ul>
 
@@ -9170,12 +9275,6 @@ use the same names as command line arguments without preceeding <code>test-</cod
 </ul>
 
 <ul>
-<li><p><code>shell.awsGetInstances(rc)</code></p>
-<p> Return instances from the response object</p>
-</li>
-</ul>
-
-<ul>
 <li><p><code>shell.awsGetSelfImages(name, callback)</code></p>
 <p> Retrieve my AMIs for the given name pattern</p>
 </li>
@@ -9238,6 +9337,12 @@ use the same names as command line arguments without preceeding <code>test-</cod
 <ul>
 <li><p><code>shell.cmdAwsShowInstances(options)</code></p>
 <p> Show running instances by run mode and/or other criteria</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.cmdAwsSetRoute53(options)</code></p>
+<p> Update a Route53 record with IP/names of all instances specified by the filter</p>
 </li>
 </ul>
 
