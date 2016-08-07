@@ -1192,7 +1192,7 @@ case "$ARG" in
   [ "$(get_arg -force)" != "" -a "$ELASTICSEARCH_PREFIX" != "" ] && rm -rf $ELASTICSEARCH_PREFIX
     if [ ! -d $ELASTICSEARCH_PREFIX ]; then
         mkdir -p $ELASTICSEARCH_PREFIX
-        curl -L -o es.tgz https://download.elasticsearch.org/elasticsearch/release/org/elasticsearch/distribution/tar/elasticsearch/2.3.4/elasticsearch-2.3.4.tar.gz
+        curl -L -o es.tgz https://download.elasticsearch.org/elasticsearch/release/org/elasticsearch/distribution/tar/elasticsearch/2.3.5/elasticsearch-2.3.5.tar.gz
         tar -C $ELASTICSEARCH_PREFIX --strip-components=1 -xzf es.tgz
         rm -rf es.tgz
         cd $ELASTICSEARCH_PREFIX
@@ -1327,8 +1327,9 @@ case "$ARG" in
   npm-deps)
     args=$(get_arg -args)
     type=$(get_arg -type dependencies)
-    modules=$($NODE_BIN -e "try{console.log(Object.keys(JSON.parse(require('fs').readFileSync('package.json')).$type).join(' '))}catch(e){}" | sed "s/$BKJS_MOD//g")
-    echo $modules
+    skip=$(get_arg -skip $BKJS_MOD)
+    modules=$($NODE_BIN -e "try{skip='$skip'.split(/[ ,]/);console.log(Object.keys(JSON.parse(require('fs').readFileSync('package.json')).$type).filter(function(x){return skip.indexOf(x)==-1}).join(' '))}catch(e){}")
+    echo "$modules"
     sleep 1
     for m in $modules; do $NPM_BIN $args install $m; done
     ;;

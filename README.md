@@ -937,6 +937,54 @@ replacing spaces with %20 is not required.
 As with any node.js module, the backendjs app can be packaged into zip file according to AWS docs and deployed the same way as any other node.js app.
 Inside the app package etc/config file can be setup for any external connections.
 
+## AWS Provisioning examples
+
+Note: on OS X laptop the `-aws-sdk-profile uc` when AWS credentials are in the ~/.aws/credentials.
+
+### Make an AMI
+
+On the running machine which will be used for an image:
+
+    bksh -aws-create-image -no-reboot
+
+Use an instance by tag for an image:
+
+    bksh -aws-create-image -no-reboot -instance-id `bkjs show-instances -name api -fmt id | head -1`
+
+### Launch instances when not using AutoScaling Groups
+
+When launching from an EC2 instance no need to specify any AWS credentials.
+
+ - admin (EC2)
+
+    bksh -aws-sdk-profile uc -aws-launch-instances -aws-instance-type t2.small -subnet-name api -name admin -elb-name Admin -alarm-name alarms -public-ip 1 -dry-run
+
+ - api (EC2)
+
+    bksh -aws-sdk-profile uc -aws-launch-instances -aws-instance-type m3.large -subnet-name api -name api -elb-name api -alarm-name alarms -public-ip 1 -dry-run
+
+ - jobs (EC2)
+
+    bksh -aws-sdk-profile uc -aws-launch-instances -aws-instance-type t2.small -subnet-name internal -name sync -alarm-name alarms -dry-run
+    bksh -aws-sdk-profile uc -aws-launch-instances -aws-instance-type t2.small -subnet-name internal -name sync -zone 1c -alarm-name alarms -dry-run
+
+ - Elasticsearch
+
+    bksh -aws-sdk-profile uc -aws-launch-instances -aws-instance-type m3.large -subnet-name internal -name elasticsearch -bkjs-cmd "init-elasticsearch-service -memsize 50" -alarm-name alarms -dry-run
+
+ - Redis
+
+    bksh -aws-sdk-profile uc -aws-launch-instances -aws-instance-type m3.large -subnet-name internal -name redis -bkjs-cmd "init-redis-service -memsize 70" -alarm-name alarms -dry-run
+
+### Launch Configurations
+
+    bksh -aws-create-launch-config -config-name elasticsearch -aws-sdk-profile uc -instance-type m3.large -update-groups -bkjs-cmd stop-service -bkjs-cmd init-logwatcher -bkjs-cmd "init-elasticsearch-service -memsize 50" -device /dev/xvda:gp2:16 -dry-run
+
+### Copy Autoscaling launch configs after new AMI is created
+
+    bksh -aws-create-launch-config -config-name jobs -aws-sdk-profile uc -update-groups -dry-run
+    bksh -aws-create-launch-config -config-name api -aws-sdk-profile uc -update-groups -dry-run
+
 ## Proxy mode
 
 By default the Web proceses spawned by the server are load balanced using default cluster module whihc relies on the OS to do scheduling. On Linux
