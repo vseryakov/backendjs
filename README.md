@@ -985,6 +985,10 @@ When launching from an EC2 instance no need to specify any AWS credentials.
     bksh -aws-create-launch-config -config-name jobs -aws-sdk-profile uc -update-groups -dry-run
     bksh -aws-create-launch-config -config-name api -aws-sdk-profile uc -update-groups -dry-run
 
+### Update Route53 with all IPs from running instances
+
+    bksh -aws-set-route53 -name elasticsearch.ec-internal -filter elasticsearch
+
 ## Proxy mode
 
 By default the Web proceses spawned by the server are load balanced using default cluster module whihc relies on the OS to do scheduling. On Linux

@@ -474,6 +474,7 @@ shell.cmdDbBackup = function(options)
     var tables = lib.strSplit(lib.getArg("-tables"));
     var skip = lib.strSplit(lib.getArg("-skip"));
     var incremental = lib.getArgInt("-incremental");
+    var progress = lib.getArgInt("-progress");
     opts.fullscan = 1;
     if (!opts.useCapacity) opts.useCapacity = "read";
     if (!opts.factorCapacity) opts.factorCapacity = 0.25;
@@ -496,6 +497,7 @@ shell.cmdDbBackup = function(options)
         db.scan(table, query, opts, function(row, next2) {
             if (filter && app[filter]) app[filter](table, row);
             fs.appendFileSync(file, JSON.stringify(row) + "\n");
+            if (progress && opts.nrows % progress == 0) logger.info("cmdDbBackup:", table, opts.nrows, "records");
             next2();
         }, function() {
             next();
@@ -516,6 +518,7 @@ shell.cmdDbRestore = function(options)
     var tables = lib.strSplit(lib.getArg("-tables"));
     var skip = lib.strSplit(lib.getArg("-skip"));
     var files = lib.findFileSync(root, { depth: 1, types: "f", include: /\.json$/ });
+    var progress = lib.getArgInt("-progress");
     if (lib.isArg("-drop")) opts.drop = 1;
     if (lib.isArg("-continue")) opts.continue = 1;
     opts.errors = 0;
@@ -557,6 +560,7 @@ shell.cmdDbRestore = function(options)
                         row[mapping[i+1]] = row[mapping[i]];
                         delete row[mapping[i]];
                     }
+                    if (progress && opts.nlines % progress == 0) logger.info("cmdDbRestor:", table, opts.nlines, "records");
                     db.put(table, row, opts, function(err) {
                         if (err && !opts.continue) return next2(err);
                         if (err) opts.errors++;
