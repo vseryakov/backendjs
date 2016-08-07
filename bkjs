@@ -1010,8 +1010,15 @@ case "$ARG" in
 
   get-redis)
     # Install redis server
-    sudo yum remove -y redis
-    sudo yum install -y jemalloc
+    case "$PLATFORM" in
+     Darwin)
+       OS=osx
+       ;;
+     Linux)
+       sudo yum remove -y redis
+       sudo yum install -y jemalloc
+       ;;
+    esac
 
     ver=$(get_arg -version 3.2.1)
     curl -L -o redis.tgz http://download.redis.io/releases/redis-$ver.tar.gz
@@ -1019,18 +1026,19 @@ case "$ARG" in
     mkdir -p redis
     tar -C redis --strip-components=1 -xzf redis.tgz
     make -C redis install PREFIX=$REDIS_PREFIX
-    sed -r \
-        -e 's|^# syslog-enabled no|syslog-enabled yes|' \
-        -e "s|^dir ./|dir $REDIS_PREFIX/var/|" \
-        -e "s|^timeout 0|timeout 3600|" \
-        -e "s|^bind|# bind|" \
-        -e "s|^pidfile /var/run/redis.pid|pidfile $REDIS_PREFIX/var/redis.pid|" \
-        -e "s|^logfile \"\"|logfile $REDIS_PREFIX/log/redis.log|" \
-        -e "s|^tcp-keepalive .+|tcp-keepalive 60|" \
-        -e "s|^maxmemory-policy .+|maxmemory-policy volatile-lru|" \
-        -e "s|^# maxmemory-policy .+|maxmemory-policy volatile-lru|" \
-        -e 's|^daemonize no|daemonize yes|' redis/redis.conf > $REDIS_PREFIX/etc/redis.conf
+    cp redis/redis.conf $BKJS_HOME/etc
     rm -rf redis redis.tgz
+    $SED -e 's|^# syslog-enabled no|syslog-enabled yes|' \
+         -e "s|^dir ./|dir $BKJS_HOME/var/|" \
+         -e "s|^timeout 0|timeout 3600|" \
+         -e "s|^bind|# bind|" \
+         -e "s|^pidfile /var/run/redis.pid|pidfile $BKJS_HOME/var/redis.pid|" \
+         -e "s|^logfile \"\"|logfile $BKJS_HOME/log/redis.log|" \
+         -e "s|^tcp-keepalive .+|tcp-keepalive 60|" \
+         -e "s|^maxmemory-policy .+|maxmemory-policy volatile-lru|" \
+         -e "s|^# maxmemory-policy .+|maxmemory-policy volatile-lru|" \
+         -e 's|^daemonize no|daemonize yes|' \
+         $BKJS_HOME/etc/redis.conf
     ;;
 
   init-redis-service)
@@ -1044,8 +1052,8 @@ case "$ARG" in
     if [ "$(grep -s 'transparent_hugepage' /etc/rc.local)" = "" ]; then
        echo 'echo never > /sys/kernel/mm/transparent_hugepage/enabled' >> /etc/rc.local
     fi
-    $ECHO "$REDIS_PREFIX/log/redis.log {\n  weekly\n  rotate 10\n  copytruncate\n  delaycompress\n  compress\n  notifempty\n  missingok\n}" > /etc/logrotate.d/redis
-    $ECHO "check process redis-server with pidfile \"$REDIS_PREFIX/var/redis.pid\" start program = \"$0 run-redis $@\" as uid $BKJS_USER and gid $BKJS_GROUP stop program = \"$0 stop-redis\"" > /etc/monit.d/redis.conf
+    $ECHO "$BKJS_HOME/log/redis.log {\n  weekly\n  rotate 10\n  copytruncate\n  delaycompress\n  compress\n  notifempty\n  missingok\n}" > /etc/logrotate.d/redis
+    $ECHO "check process redis-server with pidfile \"$BKJS_HOME/var/redis.pid\" start program = \"$0 run-redis $@\" as uid $BKJS_USER and gid $BKJS_GROUP stop program = \"$0 stop-redis\"" > /etc/monit.d/redis.conf
     monit reload
     ;;
 
@@ -1055,9 +1063,9 @@ case "$ARG" in
     [ "$memsize" != "" ] && memmax="$(( ($(free -m|grep Mem:|awk '{print $2}') * $memsize) / 100 ))mb"
     memmax=$(get_arg -memmax $memmax)
     if [ "$memmax" != "" ]; then
-       sed -r -i -e "s|^maxmemory .+|maxmemory $memmax|" -e "s|^# maxmemory .+|maxmemory $memmax|" $REDIS_PREFIX/etc/redis.conf
+       sed -r -i -e "s|^maxmemory .+|maxmemory $memmax|" -e "s|^# maxmemory .+|maxmemory $memmax|" $BKJS_HOME/etc/redis.conf
     fi
-    $REDIS_PREFIX/bin/redis-server $REDIS_PREFIX/etc/redis.conf
+    $REDIS_PREFIX/bin/redis-server $BKJS_HOME/etc/redis.conf
     ;;
 
   stop-redis)
