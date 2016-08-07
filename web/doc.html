@@ -49,6 +49,7 @@
 <li><a href="#launch-instances-when-not-using-autoscaling-groups"> Launch instances when not using AutoScaling Groups</a></li>
 <li><a href="#launch-configurations"> Launch Configurations</a></li>
 <li><a href="#copy-autoscaling-launch-configs-after-new-ami-is-created"> Copy Autoscaling launch configs after new AMI is created</a></li>
+<li><a href="#update-route53-with-all-ips-from-running-instances"> Update Route53 with all IPs from running instances</a></li>
 <li><a href="#proxy-mode"> Proxy mode</a></li>
 <li><a href="#configure-http-port"> Configure HTTP port</a></li>
 </ul>
@@ -964,6 +965,8 @@ Inside the app package etc/config file can be setup for any external connections
 </code></pre><h3 id="copy-autoscaling-launch-configs-after-new-ami-is-created">Copy Autoscaling launch configs after new AMI is created</h3>
 <pre><code>bksh -aws-create-launch-config -config-name jobs -aws-sdk-profile uc -update-groups -dry-run
 bksh -aws-create-launch-config -config-name api -aws-sdk-profile uc -update-groups -dry-run
+</code></pre><h3 id="update-route53-with-all-ips-from-running-instances">Update Route53 with all IPs from running instances</h3>
+<pre><code>bksh -aws-set-route53 -name elasticsearch.ec-internal -filter elasticsearch
 </code></pre><h2 id="proxy-mode">Proxy mode</h2>
 <p>By default the Web proceses spawned by the server are load balanced using default cluster module whihc relies on the OS to do scheduling. On Linux
 this is proven not to work properly due to the kernel keeping the context switches to a minimum thus resulting in one process to be very busy while the others
