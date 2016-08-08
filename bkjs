@@ -1023,7 +1023,7 @@ case "$ARG" in
     ver=$(get_arg -version 3.2.1)
     curl -L -o redis.tgz http://download.redis.io/releases/redis-$ver.tar.gz
 
-    mkdir -p redis
+    mkdir -p redis $BKJS_HOME/etc
     tar -C redis --strip-components=1 -xzf redis.tgz
     make -C redis install PREFIX=$REDIS_PREFIX
     cp redis/redis.conf $BKJS_HOME/etc
@@ -1144,7 +1144,7 @@ case "$ARG" in
 
   run-dynamodb)
     mkdir -p $BKJS_HOME/var $BKJS_HOME/log
-    params="-Xmx$(get_arg -xmx 320M)"
+    params="-Xmx$(get_arg -xmx 512M)"
     exec nohup java $params -Djava.library.path=$DYNAMODB_PREFIX/DynamoDBLocal_lib -jar $DYNAMODB_PREFIX/DynamoDBLocal.jar -dbPath $BKJS_HOME/var -port 8181 >>$BKJS_HOME/log/message.log 2>&1 &
     ;;
 
@@ -1314,8 +1314,13 @@ case "$ARG" in
     region=$(get_arg -region)
     index=$(get_arg -index 1)
     [ "$(get_flag -ip)" != "" ] && host=ip
-    cmd=$($0 show-instances -region "$region" -fmt "${host:-host},key" -name "$name"|awk "{printf \"ssh -i ~/.ssh/%s.pem -l $user %s\n\",\$2,\$1}"|head -$index|tail -1)
-    [ "$cmd" = "" ] && exit 1
+    instance=$($0 show-instances -region "$region" -fmt "${host:-host},key" -name "$name"|head -$index|tail -1)
+    [ "$instance" = "" ] && exit 1
+    host=$(echo $instance|awk '{print $1}')
+    key=$(echo $instance|awk '{print $2}')
+    cmd="ssh -l $user"
+    [ -f "~/.ssh/$key.pem" ] && cmd="$cmd -i ~/.ssh/$key.pem"
+    cmd="$cmd $host"
     [ "$BKJS_DEBUG" != "" ] && echo $cmd
     eval $cmd
     ;;
