@@ -145,7 +145,7 @@ or simply
 
 * To add users from the command line
 
-        bksh -add-user login test secret test name TestUser email test@test.com
+        bksh -account-add login test secret test name TestUser email test@test.com
 
 * To see current metrics run the command in the console '/system/stats/get'
 

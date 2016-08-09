@@ -33,9 +33,9 @@
     "nan": ">= 2.2.0",
     "bkjs-utils": ">= 0.1.3",
     "bkjs-cache": ">= 0.3.0",
-    "bkjs-wand": ">= 0.2.0",
     "bkjs-sqlite": ">= 0.1.4",
-    "bkjs-syslog": ">= 0.1.3"
+    "bkjs-syslog": ">= 0.1.3",
+    "bkjs-wand": ">= 0.2.0"
   },
   "modulesDependencies": {
     "memcached": ">= 2.1.1",
