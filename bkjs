@@ -828,7 +828,7 @@ case "$ARG" in
     [ "$BKJS_USER" != "$(whoami)" ] && BKJS_SSH_ARGS="$BKJS_SSH_ARGS -l $BKJS_USER"
     cleanup=$(get_flag -cleanup)
     key=$(get_arg -ssh-key)
-    [ "$key" != "" ] && BKJS_SSH_ARGS="$BKJS_SSH_ARGS -i $HOME/.ssh/$key.pem"
+    [ "$key" != "" -a -f $HOME/.ssh/$key.pem ] && BKJS_SSH_ARGS="$BKJS_SSH_ARGS -i $HOME/.ssh/$key.pem"
     files=$(get_arg -files)
     [ "$files" = "" ] && files=$(ls)
     for h in $BKJS_HOST; do
@@ -1300,6 +1300,10 @@ case "$ARG" in
     instances=$(aws ec2 describe-instances $region --filter "Name=instance-state-name,Values=running" $tags --query 'Reservations[*].Instances[*].[InstanceId,PrivateIpAddress,PublicIpAddress,KeyName,Tags[?Key==`Name`]]' --output text|awk '{if($4=="None")print $0;else if($1=="Name")print $2;else printf "%s ",$0;}')
     fmt=$(get_arg -fmt)
     [ "$fmt" != "" ] && instances=$(echo "$instances"|awk "{print $(echo $fmt|sed -e 's/id/\$1/' -e 's/ip/\$2/' -e 's/host/\$3/' -e 's/key/\$4/' -e 's/name/\$5/')}")
+    if [ "$PLATFORM" = "Linux" -a "$(get_flag -nomyip)" != "" ]; then
+       ip=$(ifconfig eth0|grep 'inet '|sed 's/addr://'|awk '{print $2}')
+       instances=$(echo $instances|sed "s/$ip//")
+    fi
     if [ "$(get_flag -line)" != "" ]; then
        echo "$instances" | tr '\n' ' '
     else
