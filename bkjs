@@ -276,6 +276,7 @@ case "$ARG" in
        echo "Configuring .bashrc..."
        echo '#Bkjs' >> $LHOME/.bashrc
        echo "umask 022" >> $LHOME/.bashrc
+       echo "BKJS_HOME=$BKJS_HOME" >> $LHOME/.bashrc
        echo "export PATH=\$PATH:$LHOME/bin:$LHOME/node_modules/.bin" >> $LHOME/.bashrc
        echo 'alias slog="tail -100 /var/log/messages"' >> $LHOME/.bashrc
        echo "alias mlog=\"tail -100 $BKJS_HOME/log/message.log\"" >> $LHOME/.bashrc
@@ -450,6 +451,7 @@ case "$ARG" in
        echo 'net.ipv4.tcp_synack_retries=2' >> /etc/sysctl.conf
        echo 'net.ipv4.tcp_rmem=8192 256000 8388608' >> /etc/sysctl.conf
        echo 'net.ipv4.tcp_wmem=4096 256000 8388608' >> /etc/sysctl.conf
+       echo 'net.ipv4.tcp_challenge_ack_limit = 999999999' >> /etc/sysctl.conf
        sysctl -p /etc/sysctl.conf
     fi
     ;;
