@@ -265,7 +265,7 @@ is only enabled by default in development mode, check <code>app.sh</code> for pa
   &gt; db.select(&quot;bk_account&quot;, { gender: &#39;m&#39; }, lib.log);
 </code></pre></li>
 <li><p>To add users from the command line</p>
-<pre><code>  bksh -add-user login test secret test name TestUser email test@test.com
+<pre><code>  bksh -account-add login test secret test name TestUser email test@test.com
 </code></pre></li>
 <li><p>To see current metrics run the command in the console &#39;/system/stats/get&#39;</p>
 </li>
@@ -607,7 +607,8 @@ node app.js -log debug -web -api-allow-path /todo -db-pool pgsql -db-pgsql-pool 
 <pre><code>curl &#39;http://localhost:8000/todo?name=TestTask1&amp;descr=Descr1&amp;due=2015-01-01`
 curl &#39;http://localhost:8000/todo/select&#39;
 </code></pre><h1 id="backend-directory-structure">Backend directory structure</h1>
-<p>When the backend server starts and no -home argument passed in the command line the backend makes its home environment in the ~/.backend directory.</p>
+<p>When the backend server starts and no -home argument passed in the command line the backend makes its home environment in the <code>~/.bkjs</code> directory.
+It is also possible to set the default home using BKJS_HOME environment variable.</p>
 <p>The backend directory structure is the following:</p>
 <ul>
 <li><p><code>etc</code> - configuration directory, all config files are there</p>
@@ -7035,7 +7036,8 @@ options may specify the following parameters:</p>
 <li>ignore - skip lines that match this regexp</li>
 <li>header - skip first line because it is the CSV header line</li>
 <li>json - each line represents an JSON object, convert and pass it to the line callback if not null</li>
-<li>split - splitevery line before calling the callback, it uses phraseSplit</li>
+<li>split - split every line before calling the callback, it uses phraseSplit</li>
+<li>keepempty - by default is enabled if split is set to keep empty fields in the line array</li>
 <li>separator - a string with characters to be used for splitting, default is <code>,</code></li>
 <li>quotes - a string with characters to be used for phrase splitting, default is <code>&quot;&#39;</code></li>
 </ul>

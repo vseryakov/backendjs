@@ -550,7 +550,8 @@ API commands can be executed in the browser or using `curl`:
 
 # Backend directory structure
 
-When the backend server starts and no -home argument passed in the command line the backend makes its home environment in the ~/.backend directory.
+When the backend server starts and no -home argument passed in the command line the backend makes its home environment in the `~/.bkjs` directory.
+It is also possible to set the default home using BKJS_HOME environment variable.
 
 The backend directory structure is the following:
 
