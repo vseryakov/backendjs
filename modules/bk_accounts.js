@@ -340,7 +340,8 @@ accounts.selectAccount = function(req, options, callback)
     });
 }
 
-// Register new account, used in /account/add API call
+// Register new account, used in /account/add API call, but the req does not to be an Express request, it just
+// need to have query and options objects.
 accounts.addAccount = function(req, options, callback)
 {
     // Verify required fields
@@ -457,20 +458,20 @@ accounts.deleteAccount = function(req, callback)
            function(next) {
                if (!req.account.login) return next();
                if (req.options.keep_auth) {
-                   db.update("bk_auth", { login: req.account.login, type: req.account.type }, req.options, function() { next() });
+                   db.update("bk_auth", { login: req.account.login, type: req.account.type }, req.options, next);
                } else {
-                   db.del("bk_auth", { login: req.account.login }, req.options, function() { next() });
+                   db.del("bk_auth", { login: req.account.login }, req.options, next);
                }
            },
            function(next) {
-               db.update("bk_account", { id: req.account.id, type: req.account.type }, function() { next() });
+               db.update("bk_account", { id: req.account.id, type: req.account.type }, next);
            },
            function(next) {
                core.runMethods("bkDeleteAccount", req, function() { next() });
            },
            function(next) {
                if (req.options.keep_account) return next();
-               db.del("bk_account", { id: req.account.id }, req.options, function() { next() });
+               db.del("bk_account", { id: req.account.id }, req.options, next);
            },
         ], function(err) {
             if (!err) api.metrics.Counter('auth_del_0').inc();
