@@ -1022,7 +1022,7 @@ case "$ARG" in
        ;;
     esac
 
-    ver=$(get_arg -version 3.2.1)
+    ver=$(get_arg -version 3.2.3)
     curl -L -o redis.tgz http://download.redis.io/releases/redis-$ver.tar.gz
 
     mkdir -p redis $BKJS_HOME/etc
@@ -1034,7 +1034,7 @@ case "$ARG" in
          -e "s|^dir ./|dir $BKJS_HOME/var/|" \
          -e "s|^timeout 0|timeout 3600|" \
          -e "s|^bind|# bind|" \
-         -e "s|^pidfile /var/run/redis.pid|pidfile $BKJS_HOME/var/redis.pid|" \
+         -e "s|^pidfile /var/run/redis.+|pidfile $BKJS_HOME/var/redis.pid|" \
          -e "s|^logfile \"\"|logfile $BKJS_HOME/log/redis.log|" \
          -e "s|^tcp-keepalive .+|tcp-keepalive 60|" \
          -e "s|^maxmemory-policy .+|maxmemory-policy volatile-lru|" \
