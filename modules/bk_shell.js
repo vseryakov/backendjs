@@ -362,11 +362,11 @@ shell.cmdAccountDel = function(options)
     var query = this.getQuery();
     var opts = api.getOptions({ query: this.getArgs(), options: { path: ["", "", ""], ops: {} } });
     for (var i = 1; i < process.argv.length - 1; i += 2) {
-        if (process.argv[i] == "-keep") opts[process.argv[i + 1]] = 1;
+        if (process.argv[i] == "-keep") opts["keep_" + process.argv[i + 1]] = 1;
     }
     this.getUser(query, function(row) {
         opts.id = row.id;
-        core.modules.bk_account.deleteAccount({ account: opts }, function(err) {
+        core.modules.bk_account.deleteAccount({ account: row, options: opts }, function(err) {
             shell.exit(err);
         });
     });

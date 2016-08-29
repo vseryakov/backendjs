@@ -363,7 +363,7 @@ accounts.addAccount = function(req, options, callback)
            api.prepareAccountSecret(query, options);
            // Put the secret back to return to the client, if generated or scrambled the client needs to know it for the API access
            req.query.secret = query.secret;
-           if (!options.admin && !api.checkAccountType(req.account, "admin")) api.clearQuery("bk_auth", query, "admin");
+           if (!(options.admin || api.checkAccountType(req.account, "admin"))) api.clearQuery("bk_auth", query, "admin");
            options.info_obj = 1;
            db.add("bk_auth", query, options, function(err, rows, info) {
                if (!err) req.query.id = info.obj.id;
@@ -373,8 +373,7 @@ accounts.addAccount = function(req, options, callback)
        function(next) {
            var query = lib.cloneObj(req.query);
            // Only admin can add accounts with admin properties
-           if (!options.admin && !api.checkAccountType(req.account, "admin")) api.clearQuery("bk_account", query, "admin");
-
+           if (!(options.admin || api.checkAccountType(req.account, "admin"))) api.clearQuery("bk_account", query, "admin");
            db.add("bk_account", query, function(err) {
                // Remove the record by login to make sure we can recreate it later
                if (err && !options.noauth) return db.del("bk_auth", { login: req.query.login }, function() { next(err); });
@@ -457,7 +456,7 @@ accounts.deleteAccount = function(req, callback)
         lib.series([
            function(next) {
                if (!req.account.login) return next();
-               if (req.options.keep_auth) {
+               if (req.options.keep_all || req.options.keep_auth) {
                    db.update("bk_auth", { login: req.account.login, type: req.account.type }, req.options, next);
                } else {
                    db.del("bk_auth", { login: req.account.login }, req.options, next);
@@ -470,7 +469,7 @@ accounts.deleteAccount = function(req, callback)
                core.runMethods("bkDeleteAccount", req, function() { next() });
            },
            function(next) {
-               if (req.options.keep_account) return next();
+               if (req.options.keep_all || req.options.keep_account) return next();
                db.del("bk_account", { id: req.account.id }, req.options, next);
            },
         ], function(err) {

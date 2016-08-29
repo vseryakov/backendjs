@@ -224,7 +224,7 @@ mod.getIcon = function(req, res, id, options)
 
 mod.bkDeleteAccount  = function(req, callback)
 {
-    if (req.options.keep_icon) return callback();
+    if (req.options.keep_all || req.options.keep_icon) return callback();
     db.delAll("bk_icon", { id: req.account.id }, function(err, rows) {
         if (req.options.keep_images) return callback();
         // Delete all image files

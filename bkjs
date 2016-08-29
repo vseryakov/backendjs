@@ -331,7 +331,7 @@ case "$ARG" in
        echo "/var/log/cron /var/log/messages {" >> /etc/logrotate.d/syslog
        echo " missingok" >> /etc/logrotate.d/syslog
        echo " daily" >> /etc/logrotate.d/syslog
-       echo " rotate 14" >> /etc/logrotate.d/$BKJS
+       echo " rotate 30" >> /etc/logrotate.d/$BKJS
        echo " sharedscripts" >> /etc/logrotate.d/syslog
        echo " postrotate" >> /etc/logrotate.d/syslog
        echo "  /usr/bin/killall -q -HUP rsyslogd" >> /etc/logrotate.d/syslog

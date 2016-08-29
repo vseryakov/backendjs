@@ -430,15 +430,15 @@ mod.bkDeleteAccount = function(req, callback)
 {
     lib.series([
      function(next) {
-         if (req.options.keep_message) return next();
+         if (req.options.keep_all || req.options.keep_message) return next();
          mod.delMessage(req, {}, function() { next() });
      },
      function(next) {
-         if (req.options.keep_archive) return next();
+         if (req.options.keep_all || req.options.keep_archive) return next();
          mod.delMessage(req, { table: "bk_archive" },function() { next() });
      },
      function(next) {
-         if (req.options.keep_sent) return next();
+         if (req.options.keep_all || req.options.keep_sent) return next();
          db.delAll("bk_sent", { id: req.account.id }, function() { next() });
      },
      function(next) {

@@ -135,10 +135,9 @@ mod.delStatus = function(obj, options, callback)
 }
 
 // This methods is suitable for background jobs
-mod.deleteAccount = function(req, callback)
+mod.bkDeleteAccount = function(req, callback)
 {
-    if (!req.account || !req.account.id) return callback({ status: 400, message: "no id provided" });
-    if (req.options && req.options.keep_status) return callback();
+    if (req.options.keep_all || req.options.keep_status) return callback();
     db.del("bk_status", { id: req.account.id }, req.options, callback);
 }
 

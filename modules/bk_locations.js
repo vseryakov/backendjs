@@ -208,6 +208,6 @@ mod.putLocation = function(req, options, callback)
 
 mod.bkDeleteAccount =  function(req, callback)
 {
-    if (req.options.keep_location) return callback();
+    if (req.options.keep_all || req.options.keep_location) return callback();
     db.del("bk_location", { id: req.account.id }, callback);
 }
