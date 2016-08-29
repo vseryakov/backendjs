@@ -570,10 +570,12 @@ tests.test_db = function(callback)
             num2: { type: "real" },
             mtime: { type: "bigint" }
         },
-        test3: { id : { primary: 1, pub: 1 },
+        test3: {
+            id : { primary: 1, pub: 1 },
             num: { type: "counter", value: 0, pub: 1 }
         },
-        test4: { id: { primary: 1, pub: 1 },
+        test4: {
+            id: { primary: 1, pub: 1 },
             type: { pub: 1 }
         },
         test5: { id: { primary: 1, pub: 1 },
@@ -633,7 +635,13 @@ tests.test_db = function(callback)
             });
         },
         function(next) {
-            db.list("test1", String([id,id2]),  {}, function(err, rows) {
+            // Type conversion for strictTypes
+            db.join("test1", [{ id: id }, { id: id2 }, { id: "" }], { existing: 1 }, function(err, rows) {
+                tests.assert(next, err || rows.length != 2 || rows[0].id != id || rows[1].id != id2, "err2-1:", rows);
+            });
+        },
+        function(next) {
+            db.list("test1", String([id,id2,""]),  {}, function(err, rows) {
                 var isok = rows.every(function(x) { return x.id==id || x.id==id2});
                 var row1 = rows.filter(function(x) { return x.id==id}).pop();
                 var row2 = rows.filter(function(x) { return x.id==id2}).pop();
