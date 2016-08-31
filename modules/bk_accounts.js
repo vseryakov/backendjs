@@ -28,7 +28,7 @@ var accounts = {
             login: {},
             status: { type: "text" },
             type: { type: "text", admin: 1 },
-            name: { pub: 1 },
+            name: { pub: 1, notempty: 1 },
             first_name: { pub: 1 },
             last_name: { pub: 1 },
             email: {},

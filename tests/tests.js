@@ -576,7 +576,8 @@ tests.test_db = function(callback)
         },
         test4: {
             id: { primary: 1, pub: 1 },
-            type: { pub: 1 }
+            type: { pub: 1 },
+            notempty: { notempty: 1 },
         },
         test5: { id: { primary: 1, pub: 1 },
             hkey: { primary: 1, join: ["type","peer"], ops: { select: "begins_with" }  },
@@ -661,7 +662,7 @@ tests.test_db = function(callback)
             db.put("test3", { id: id2, num: 2, emai: id2 }, next);
         },
         function(next) {
-            db.put("test4", { id: id, type: "like:" + Date.now(), fake: 1 }, next);
+            db.put("test4", { id: id, type: "like:" + Date.now(), fake: 1, notempty: "1" }, next);
         },
         function(next) {
             db.select("test4", { id: id }, function(err, rows) {
@@ -946,6 +947,26 @@ tests.test_db = function(callback)
         function(next) {
             db.get("test1", { id: id }, {}, function(err, row) {
                 tests.assert(next, err || !row || row.num != 2, "err29:", row);
+            });
+        },
+        function(next) {
+            db.put("test4", { id: id, type: "1", notempty: "" }, { quiet: 1 }, function(err, rc, info) {
+                tests.assert(next, !err, "err30:", err, info);
+            });
+        },
+        function(next) {
+            db.put("test4", { id: id, type: "2", notempty: "notempty" }, function(err, rc, info) {
+                tests.assert(next, err, "err31:", info);
+            });
+        },
+        function(next) {
+            db.update("test4", { id: id, type: "3", notempty: null }, function(err, rc, info) {
+                tests.assert(next, err || !info.affected_rows, "err32:", info);
+            });
+        },
+        function(next) {
+            db.get("test4", { id: id }, {}, function(err, row) {
+                tests.assert(next, err || !row || row.notempty != "notempty", "err33:", row);
             });
         },
     ],
