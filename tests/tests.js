@@ -584,13 +584,18 @@ tests.test_db = function(callback)
             type: { pub: 1 },
             peer: { pub: 1 }
         },
+        test6: {
+            id : { primary: 1, pub: 1 },
+            mtime: { type: "now", pub: 1 },
+            num: {},
+        },
     };
     var now = Date.now();
     var id = lib.random(64);
     var id2 = lib.random(128);
     var num2 = lib.randomNum(1, 1000);
     var next_token = null;
-    var ids = [];
+    var ids = [], rec;
 
     db.setProcessRow("post", "test4", function(op, row, options, cols) {
         var type = (row.type || "").split(":");
@@ -920,13 +925,19 @@ tests.test_db = function(callback)
             });
         },
         function(next) {
-            db.put("test1", { id: id, email: id, num: 1 }, function(err) {
+            db.put("test1", { id: id, email: id, num: 1 }, { info_obj: 1 }, function(err, rows, info) {
+                rec = info.obj;
                 tests.assert(next, err || 0, "err24:");
             });
         },
         function(next) {
-            db.update("test1", { id: id, email: "test", num: 1 }, { expected: { id: id, email: id }, updateOps: { num: "incr" } }, function(err, rc, info) {
+            db.update("test1", { id: id, email: "test", num: 1 }, { expected: { id: id, email: id }, skip_columns: ["mtime"], updateOps: { num: "incr" } }, function(err, rc, info) {
                 tests.assert(next, err || info.affected_rows!=1, "err25:", info);
+            });
+        },
+        function(next) {
+            db.get("test1", { id: id }, {}, function(err, row) {
+                tests.assert(next, err || !row || row.mtime != rec.mtime, "err25-1:", row, rec);
             });
         },
         function(next) {
@@ -969,6 +980,23 @@ tests.test_db = function(callback)
                 tests.assert(next, err || !row || row.notempty != "notempty", "err33:", row);
             });
         },
+        function(next) {
+            db.put("test6", { id: id, num: 1 }, { info_obj: 1 }, function(err, rc, info) {
+                rec = info.obj;
+                tests.assert(next, err, "err34:", info);
+            });
+        },
+        function(next) {
+            db.update("test6", { id: id, num: 2, mtime: rec.mtime }, function(err, rc, info) {
+                tests.assert(next, err || !info.affected_rows, "err35:", info);
+            });
+        },
+        function(next) {
+            db.get("test6", { id: id }, {}, function(err, row) {
+                tests.assert(next, err || !row || row.num != 2, "err36:", row);
+            });
+        },
+
     ],
     function(err) {
         callback(err);
