@@ -529,6 +529,7 @@ shell.cmdDbRestore = function(options)
         var cap = db.getCapacity(table);
         opts.readCapacity = cap.readCapacity;
         opts.writeCapacity = cap.writeCapacity;
+        opts.upsert = true;
         lib.series([
             function(next) {
                 if (!opts.drop) return next();
@@ -560,8 +561,8 @@ shell.cmdDbRestore = function(options)
                         row[mapping[i+1]] = row[mapping[i]];
                         delete row[mapping[i]];
                     }
-                    if (progress && opts.nlines % progress == 0) logger.info("cmdDbRestor:", table, opts.nlines, "records");
-                    db.put(table, row, opts, function(err) {
+                    if (progress && opts.nlines % progress == 0) logger.info("cmdDbRestore:", table, opts.nlines, "records");
+                    db.update(table, row, opts, function(err) {
                         if (err && !opts.continue) return next2(err);
                         if (err) opts.errors++;
                         db.checkCapacity(cap, next2);

@@ -408,7 +408,6 @@ accounts.updateAccount = function(req, options, callback)
         delete req.query.name;
         if (req.query.first_name && req.query.last_name) req.query.name = req.query.first_name + " " + req.query.last_name;
     }
-
     lib.series([
        function(next) {
            if (options.noauth) return next();
