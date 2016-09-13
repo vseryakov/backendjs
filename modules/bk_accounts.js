@@ -346,8 +346,8 @@ accounts.addAccount = function(req, options, callback)
 {
     // Verify required fields
     if (!req.query.name && req.query.alias) req.query.name = req.query.alias;
-    if (!req.query.name) {
-        if (req.query.first_name && req.query.last_name) req.query.name = req.query.first_name + " " + req.query.last_name;
+    if (!req.query.name && req.query.first_name && req.query.last_name) {
+        req.query.name = req.query.first_name.trim() + " " + req.query.last_name.trim();
     }
     if (!req.query.name) return callback({ status: 400, message: "name is required"});
     delete req.query.id;
@@ -404,10 +404,7 @@ accounts.updateAccount = function(req, options, callback)
 {
     req.query.mtime = Date.now();
     // Cannot have account name empty
-    if (!req.query.name) {
-        delete req.query.name;
-        if (req.query.first_name && req.query.last_name) req.query.name = req.query.first_name + " " + req.query.last_name;
-    }
+    if (!req.query.name) delete req.query.name;
     lib.series([
        function(next) {
            if (options.noauth) return next();
