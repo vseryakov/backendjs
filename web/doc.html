@@ -114,6 +114,7 @@
 <li><a href="#module-metrics">metrics</a></li>
 <li><a href="#module-msg">msg</a></li>
 <li><a href="#module-msg_apn">msg_apn</a></li>
+<li><a href="#module-msg_fcm">msg_fcm</a></li>
 <li><a href="#module-msg_gcm">msg_gcm</a></li>
 <li><a href="#module-msg_sns">msg_sns</a></li>
 <li><a href="#module-server">server</a></li>
@@ -2447,6 +2448,7 @@ Database pool statistics and other diagnostics</p>
 <li><code>api-subscribe-interval</code> - Interval between delivering events to subscribed clients, milliseconds</li>
 <li><code>api-mime-body</code> - Collect full request body in the req.body property for the given MIME type in addition to json and form posts, this is for custom body processing</li>
 <li><code>api-mime-ignore</code> - Ignore the body for the following MIME content types, request body will not be parsed at all</li>
+<li><code>api-mime-map-(.+)</code> - File extension to MIME content type mapping, this is used by static-serve, example: -api-mime-map-mobileconfig application/x-apple-aspen-config</li>
 <li><code>api-collect-host</code> - The backend URL where all collected statistics should be sent over, if set to <code>pool</code> then each web worker will save metrics directly into the statistics database pool</li>
 <li><code>api-collect-pool</code> - Database pool where to save collected statistics</li>
 <li><code>api-collect-interval</code> - How often to collect statistics and metrics in seconds</li>
@@ -3231,7 +3233,7 @@ properties after successful authorization.</p>
 
 <ul>
 <li><p><code>api.setCurrentAccount(req, account)</code></p>
-<p> Assign an account record to be the current for the given request</p>
+<p> Assign or clear the current account record for the given request, if account is null the account is cleared</p>
 </li>
 </ul>
 
@@ -5022,6 +5024,7 @@ to finish due to sequential update every record one by one.
 Special properties that can be in the options for this call:</p>
 <ul>
 <li>updateOptions - options to be passed to the db.update if needed, this is useful so select and update options will not be mixed up</li>
+<li>updateCollect - if true return all updated rows in the callback</li>
 <li>factorCapacity - write capacity factor for update operations, default is 0.25</li>
 <li>concurrency - how many update queries to execute at the same time, default is 1, this is done by using lib.forEachLimit.</li>
 <li>process - a function callback that will be called for each row before updating it, this is for some transformations of the record properties
@@ -5079,6 +5082,7 @@ Special properties that can be in the options for this call:</p>
 <li>ops - query operations to retrieve records to be deleted</li>
 <li>count - how many matching records to delete</li>
 <li>delOptions - options to be passed to the db.del if needed, this is useful so select and del options will not be mixed up</li>
+<li>delCollect - if true return all deleted rows in the callback</li>
 <li>factorCapacity - write capcity factor for delete operations, default is 0.35</li>
 <li>concurrency - how many delete requests to execute at the same time by using lib.forEachLimit.</li>
 <li>ignore_error - continue deleting records even after an error</li>
@@ -5669,7 +5673,8 @@ The rows that satisfy primary key conditions are returned and then called this f
 
 <ul>
 <li><p><code>db.getKeys(table, options)</code></p>
-<p> Return primary keys for a table or empty array</p>
+<p> Return primary keys for a table or empty array, if <code>allkeys</code> is given in the options then return
+a list of all properties involed in primary keys including joined columns</p>
 </li>
 </ul>
 
@@ -6665,12 +6670,12 @@ empty invalid jobs must be passed, like: <code>[ {} ]</code></p>
 <li>job - a string as obj.method or an object with job name as property name and the value is an object with<pre><code> additional jobspec for the job passed as first argument, a job callback always takes jobspec and callback as 2 arguments
 </code></pre></li>
 <li>disabled - disable the job but keep in the cron file, it will be ignored</li>
-<li>single_task - if set only one cron job can be run at a time with the same name, this works only within single master and is checked
+<li>singleTask - if set only one cron job can be run at a time with the same name, this works only within single master and is checked
 before submitting a new job. It can be a boolean meaning all tasks in the job must not run or a string with single task name
 which must not run. For repeating tasks that can be ignored.</li>
-<li>single_timeout - how long to wait for running job before submitting another one, for cases when unique job stuck or other condition
+<li>singleTimeout - how long to wait for running job before submitting another one, for cases when unique job stuck or other condition
 prevented to clear up running list in the master, milliseconds</li>
-<li>queue_name - name of the queue where to submit this job, if not given it uses cron-queue</li>
+<li>queueName - name of the queue where to submit this job, if not given it uses cron-queue</li>
 </ul>
 <p>Example:</p>
 <pre><code>    [ { cron: &quot;0 0 * * * *&quot;, job: &quot;scraper.run&quot; }, ..]
@@ -6990,7 +6995,8 @@ The <code>obj</code> can be an object or an array of objects in which case all o
 
 <ul>
 <li><p><code>lib.isFlag(list, name)</code></p>
-<p> Returns true if <code>name</code> exists in the array <code>list</code>, search is case sensitive.</p>
+<p> Returns true if <code>name</code> exists in the array <code>list</code>, search is case sensitive. if <code>name</code> is an array it will return true if
+any element in the array exists in the <code>list</code>.</p>
 </li>
 </ul>
 
@@ -8013,6 +8019,31 @@ connection to APN gateway.</p>
 </li>
 </ul>
 
+<h2 id="module-msg_fcm">Module: MSG_FCM</h2>
+<ul>
+<li><p><code>client.init(options)</code></p>
+<p> Initialize Google Cloud Messaging service to send push notifications to mobile devices</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>client.close(callback)</code></p>
+<p> Close GCM connection, flush the queue</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>client.send(dev, options, callback)</code></p>
+<p> Send push notification to an Android device, return true if queued.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>client.retryOnError()</code></p>
+<p> Retry on server error, honor Retry-After header if present, use it only on the first error</p>
+</li>
+</ul>
+
 <h2 id="module-msg_gcm">Module: MSG_GCM</h2>
 <ul>
 <li><p><code>client.init(options)</code></p>
@@ -8165,7 +8196,7 @@ it runs <code>shutdown[Role]</code> methods before exiting</p>
           login: {},
           status: { type: &quot;text&quot; },
           type: { type: &quot;text&quot;, admin: 1 },
-          name: { pub: 1 },
+          name: { pub: 1, notempty: 1 },
           first_name: { pub: 1 },
           last_name: { pub: 1 },
           email: {},
@@ -8290,7 +8321,8 @@ If options.existing is 1 then return only record with found accounts, all other 
 
 <ul>
 <li><p><code>accounts.addAccount(req, options, callback)</code></p>
-<p> Register new account, used in /account/add API call</p>
+<p> Register new account, used in /account/add API call, but the req does not to be an Express request, it just
+need to have query and options objects.</p>
 </li>
 </ul>
 
@@ -9462,7 +9494,7 @@ longer than <code>status-interval</code> milliseconds ago, keep atime up-to-date
 </ul>
 
 <ul>
-<li><p><code>mod.deleteAccount(req, callback)</code></p>
+<li><p><code>mod.bkDeleteAccount(req, callback)</code></p>
 <p> This methods is suitable for background jobs</p>
 </li>
 </ul>
