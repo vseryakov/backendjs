@@ -193,7 +193,7 @@ var Bkjs = {
     // Update current account
     updateAccount: function(obj, callback) {
         var self = this;
-        // Scramble here if we did not ask the sertver to do it with _scramble option
+        // Scramble here if we did not ask the server to do it with _scramble option
         if (obj.secret && !obj._scramble) {
             var creds = this.checkCredentials(obj.login || this.account.login, obj.secret);
             obj.login = creds.login;
@@ -572,6 +572,15 @@ var Bkjs = {
             });
         }
         iterate(0);
+    },
+
+    // Execute a list of functions serially and execute a callback upon completion or occurance of an error.
+    series: function(tasks, callback) {
+        this.forEachSeries(tasks, function(task, next) {
+            task(next);
+        }, function(err) {
+            if (typeof callback == "function") callback(err);
+        });
     },
 
     // Parse the input and convert into a Date object

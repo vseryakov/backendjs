@@ -302,11 +302,11 @@ tests.test_location = function(callback)
     var tables = {
             geo: { geohash: { primary: 1, index: 1, semipub: 1 },
                    id: { type: "int", primary: 1, pub: 1 },
-                   latitude: { type: "real", semipub: 1, projection: 1 },
-                   longitude: { type: "real", semipub: 1, projection: 1 },
+                   latitude: { type: "real", semipub: 1, projections: 1 },
+                   longitude: { type: "real", semipub: 1, projections: 1 },
                    distance: { type: "real" },
                    rank: { type: 'int', index: 1 },
-                   status: { value: 'good', projection: 1 },
+                   status: { value: 'good', projections: 1 },
                    mtime: { type: "now" }
             },
     };
@@ -560,13 +560,13 @@ tests.test_db = function(callback)
         },
         test2: {
             id: { primary: 1, pub: 1, index: 1 },
-            id2: { primary: 1, projection: 1 },
-            email: { projection: 1 },
+            id2: { primary: 1, projections: 1 },
+            email: { projections: 1 },
             name: { pub: 1 },
             birthday: { semipub: 1 },
             group: {},
             json: { type: "json" },
-            num: { type: "bigint", index: 2, projection: 1 },
+            num: { type: "bigint", index: 2, projections: 1 },
             num2: { type: "real" },
             mtime: { type: "bigint" }
         },
@@ -626,7 +626,7 @@ tests.test_db = function(callback)
         },
         function(next) {
             db.get("test1", { id: id2 }, function(err, row) {
-                tests.assert(next, err || !row || row.num4 != "4" || row.jnum != row.num2 + "|" + row.num4 || !row.mnum || row.mnum.match(/\|$/), "err1-1:", row);
+                tests.assert(next, err || !row || row.num4 != "4" || row.jnum || !row.mnum || row.mnum.match(/\|$/), "err1-1:", row);
             });
         },
         function(next) {

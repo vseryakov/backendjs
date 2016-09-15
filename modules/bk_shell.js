@@ -43,7 +43,7 @@ shell.getUser = function(obj, callback)
         if (err) exit(err);
 
         db.get("bk_auth", { login: row ? row.login : obj.login }, function(err, row) {
-            if (err || !row) exit(err, "ERROR: no user found with this id: " + util.inspect(obj));
+            if (err || !row) shell.exit(err, "ERROR: no user found with this id: " + util.inspect(obj));
             callback(row);
         });
     });
