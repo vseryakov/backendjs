@@ -472,6 +472,7 @@ var Bkjs = {
             try { date = new Date(date); } catch(e) {}
         }
         if (!date || isNaN(date)) return "";
+        if (!fmt) fmt = "%Y-%m-%d %H:%M:%S";
         function zeropad(n) { return n > 9 ? n : '0' + n; }
         var handlers = {
             a: function(t) { return [ 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat' ][utc ? t.getUTCDay() : t.getDay()] },

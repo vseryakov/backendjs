@@ -131,16 +131,31 @@ system.configureSystemAPI = function()
             Object.keys(core.modules).forEach(function(n) {
                 if (core.modules[n].args) args.push([n, core.modules[n].args]);
             });
-            var data = { "-home": core.home, "-log": logger.level };
-            args.forEach(function(x) {
-                x[1].forEach(function(y) {
-                    if (!y._name) return;
-                    var val = lib.objGet(x[0] ? core.modules[x[0]] : core, y._name);
-                    if (val == null && !options.total) return;
-                    data[y._key] = typeof val == "undefined" ? null : val;
+            switch (req.params[1]) {
+            case 'get':
+                var data = { "-home": core.home, "-log": logger.level };
+                args.forEach(function(x) {
+                    x[1].forEach(function(y) {
+                        if (!y._name) return;
+                        var val = lib.objGet(x[0] ? core.modules[x[0]] : core, y._name);
+                        if (val == null && !options.total) return;
+                        data[y._key] = typeof val == "undefined" ? null : val;
+                    });
                 });
-            });
-            res.json(data);
+                res.json(data);
+                break;
+            case "info":
+                var data = {};
+                args.forEach(function(x) {
+                    x[1].forEach(function(y) {
+                        data[(x[0] ? x[0] + "-" : "") + y.name] = y;
+                    });
+                });
+                res.json(data);
+                break;
+            default:
+                api.sendReply(res, 400, "Invalid command:" + req.params[1]);
+            }
             break;
 
         case "log":

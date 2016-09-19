@@ -568,7 +568,8 @@ shell.cmdDbRestore = function(options)
                         db.checkCapacity(cap, next2);
                     });
                 }, next);
-            }], next3);
+            }
+        ], next3);
     }, function(err) {
         logger.info("dbRestore:", root, tables || files, opts);
         if (!opts.noexit) shell.exit(err);

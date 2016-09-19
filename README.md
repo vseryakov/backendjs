@@ -2047,7 +2047,7 @@ This is implemented by the `system` module from the core. To enable this functio
 - `/system/queue/(init|publish)`
     Access to the queue functions
 
-- `/system/params`
+- `/system/params/get`
     Return all config parameters applied from the config file(s) or remote database.
 
 - `/system/stats/get`
