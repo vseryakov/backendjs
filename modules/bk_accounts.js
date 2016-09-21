@@ -351,6 +351,7 @@ accounts.addAccount = function(req, options, callback)
     }
     if (!req.query.name) return callback({ status: 400, message: "name is required"});
     delete req.query.id;
+    var login, account;
 
     lib.series([
        function(next) {
@@ -358,27 +359,23 @@ accounts.addAccount = function(req, options, callback)
            if (!req.query.login) return next({ status: 400, message: "login is required"});
            if (!req.query.secret && !req.query.password) return next({ status: 400, message: "secret is required"});
            // Copy for the auth table in case we have different properties that needs to be cleared
-           var query = lib.cloneObj(req.query);
-           query.token_secret = true;
-           api.prepareAccountSecret(query, options);
+           login = lib.cloneObj(req.query);
+           login.token_secret = true;
+           api.prepareAccountSecret(login, options);
            // Put the secret back to return to the client, if generated or scrambled the client needs to know it for the API access
-           req.query.secret = query.secret;
-           if (!(options.admin || api.checkAccountType(req.account, "admin"))) api.clearQuery("bk_auth", query, "admin");
+           req.query.secret = login.secret;
+           if (!(options.admin || api.checkAccountType(req.account, "admin"))) api.clearQuery("bk_auth", login, "admin");
            options.info_obj = 1;
-           db.add("bk_auth", query, options, function(err, rows, info) {
-               if (!err) req.query.id = info.obj.id;
+           db.add("bk_auth", login, options, function(err, rows, info) {
+               if (!err) req.query.id = login.id = info.obj.id;
                next(err);
            });
        },
        function(next) {
-           var query = lib.cloneObj(req.query);
+           account = lib.cloneObj(req.query);
            // Only admin can add accounts with admin properties
-           if (!(options.admin || api.checkAccountType(req.account, "admin"))) api.clearQuery("bk_account", query, "admin");
-           db.add("bk_account", query, function(err) {
-               // Remove the record by login to make sure we can recreate it later
-               if (err && !options.noauth) return db.del("bk_auth", { login: req.query.login }, function() { next(err); });
-               next(err);
-           });
+           if (!(options.admin || api.checkAccountType(req.account, "admin"))) api.clearQuery("bk_account", account, "admin");
+           db.add("bk_account", account, next);
        },
        function(next) {
            api.metrics.Counter('auth_add_0').inc();
@@ -395,6 +392,8 @@ accounts.addAccount = function(req, options, callback)
            core.runMethods("bkAddAccount", req, function() { next() });
        },
     ], function(err) {
+        // Remove the record by login to make sure we can recreate it later
+        if (err && login && login.id) return db.del("bk_auth", { login: login.login }, function() { callback(err, req.query) });
         callback(err, req.query);
     });
 }

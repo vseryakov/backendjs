@@ -364,6 +364,7 @@ shell.cmdAccountDel = function(options)
     for (var i = 1; i < process.argv.length - 1; i += 2) {
         if (process.argv[i] == "-keep") opts["keep_" + process.argv[i + 1]] = 1;
     }
+    if (lib.isArg("-force")) opts.force = 1;
     this.getUser(query, function(row) {
         opts.id = row.id;
         core.modules.bk_account.deleteAccount({ account: row, options: opts }, function(err) {
