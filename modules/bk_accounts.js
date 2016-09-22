@@ -344,12 +344,7 @@ accounts.selectAccount = function(req, options, callback)
 // need to have query and options objects.
 accounts.addAccount = function(req, options, callback)
 {
-    // Verify required fields
-    if (!req.query.name && req.query.alias) req.query.name = req.query.alias;
-    if (!req.query.name && req.query.first_name && req.query.last_name) {
-        req.query.name = req.query.first_name.trim() + " " + req.query.last_name.trim();
-    }
-    if (!req.query.name) return callback({ status: 400, message: "name is required"});
+    if (lib.isEmpty(req.query.name)) return callback({ status: 400, message: "name is required"});
     delete req.query.id;
     var login, account;
 
