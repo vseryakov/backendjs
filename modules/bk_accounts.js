@@ -239,15 +239,12 @@ accounts.getAccount = function(req, options, callback)
     });
 }
 
-// Send Push notification to the account, the actual transport delivery must be setup before calling this and passed in the options
-// as handler: property which accepts the same arguments as this function. The delivery is not guaranteed, only will be sent if the account is considered
-// "offline" according to the status and/or idle time. If the messages was queued for delivery, the row returned will contain the property sent:.
+// Send Push notification to the account. The delivery is not guaranteed, if the message was queued for delivery, no errors will be returned.
+//
 // The options may contain the following:
 //  - account_id - REQUIRED, the account to who to send the notification
 //  - msg - message text to send
 //  - badge - a badge number to be sent
-//  - prefix - prepend the message with this prefix
-//  - check - check the account status, if not specified the message will be sent unconditionally otherwise only if status is online
 //  - allow - the account properties to check if notifications are enabled, it must be an object with properties in the account record and values to
 //      be a regexp, each value if starts with "!" means not equal, see `lib.isMatched`
 //  - skip - Array or an object with account ids which should be skipped, this is for mass sending in order to reuse the same options
@@ -265,44 +262,41 @@ accounts.getAccount = function(req, options, callback)
 //
 accounts.notifyAccount = function(options, callback)
 {
-    if (typeof callback != "function") callback = lib.noop;
-    if (!lib.isObject(options) || !options.account_id) return callback({ status: 500, message: "invalid arguments" }, {});
+    if (!options || !options.account_id) {
+        return lib.tryCall(callback, { status: 500, message: "invalid account" });
+    }
 
-    options = lib.cloneObj(options);
     // Skip this account
     switch (lib.typeName(options.skip)) {
     case "array":
-        if (options.skip.indexOf(options.account_id) > -1) return callback({ status: 400, message: "skipped", id: options.account_id }, {});
+        if (options.skip.indexOf(options.account_id) > -1) return lib.tryCall(callback, { status: 400, message: "skipped", id: options.account_id });
         break;
     case "object":
-        if (options.skip[options.account_id]) return callback({ status: 400, message: "skipped", id: options.account_id }, {});
+        if (options.skip[options.account_id]) return lib.tryCall(callback, { status: 400, message: "skipped", id: options.account_id });
         break;
     }
 
-    this.getStatus(options.account_id, { nostatus: !options.check }, function(err, status) {
-        if (err || (options.check && status.online)) return callback(err, status);
-
-        db.get("bk_account", { id: options.account_id }, function(err, account) {
-            if (err || !account) return callback(err || { status: 404, message: "account not found", id: options.account_id }, status);
-            if (!account.device_id && !options.device_id) return callback({ status: 404, message: "device not found", id: options.account_id }, status);
-
-            if (!lib.isMatched(account, options.allow)) {
-                return callback({ status: 401, message: "not allowed", id: options.account_id }, status);
-            }
-
-            // Ready to send now, set additional properties, if if the options will be reused we overwrite the same properties for each account
-            options.status = status;
-            options.account = account;
-            if (!options.device_id) options.device_id = account.device_id;
-            if (options.prefix) options.msg = options.prefix + " " + (options.msg || "");
-            msg.send(options, function(err) {
-                status.device_id = options.device_id;
-                status.sent = err ? false : true;
-                logger.logger(err ? "error" : (options.logging || "debug"), "notifyAccount:", account.id, account.name, options.device_id, status, err || "");
-                callback(err, status);
-            });
-        });
-    });
+    var account = options.account;
+    lib.series([
+      function(next) {
+          if (account && account.id == options.account_id) return next();
+          db.get("bk_account", { id: options.account_id }, function(err, row) {
+              if (err || !row) return next(err || { status: 404, message: "account not found", id: options.account_id });
+              if (!row.device_id && !row.device_id) return next({ status: 404, message: "device not found", id: options.account_id });
+              account = row;
+              next();
+          });
+      },
+      function(next) {
+          if (!lib.isMatched(account, options.allow)) {
+              return next({ status: 401, message: "not allowed", id: options.account_id });
+          }
+          msg.send(options.device_id || account.device_id, options, function(err) {
+              logger.logger(err ? "error" : (options.logging || "debug"), "notifyAccount:", err, lib.objDescr(options), lib.objDescr(account));
+              next(err);
+          });
+      },
+    ], callback);
 }
 
 // Return account details for the list of rows, `options.account_key` specified the column to use for the account id in the `rows`, or `id` will be used.

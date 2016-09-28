@@ -86,7 +86,7 @@ system.configureSystemAPI = function()
                 break;
 
             case 'send':
-                msg.send(req.query, function(err) { api.sendReply(res, err) });
+                msg.send(req.query.device_id, req.query, function(err) { api.sendReply(res, err) });
                 break;
             }
             break;

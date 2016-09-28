@@ -76,7 +76,7 @@ client.send = function(dev, options, callback)
         if (options.id) pkt.data.url = String(options.url);
         if (options.url) pkt.data.url = String(options.url);
         if (options.type) pkt.data.type = String(options.type);
-        if (options.account_id) pkt.data.account_id = String(options.account_id);
+        if (options.account_id) pkt.data.account_id = options.account_id;
 
         if (options.msg) pkt.data.msg = options.msg;
         if (options.badge) pkt.data.badge = lib.toBool(options.badge);

@@ -92,7 +92,6 @@ client.send = function(dev, options, callback)
     if (options.id) msg.data.id = String(options.id);
     if (options.url) msg.data.url = String(options.url);
     if (options.type) msg.data.type = String(options.type);
-    if (options.account_id) msg.data.account_id = String(options.account_id);
 
     var opts = {
         method: 'POST',
