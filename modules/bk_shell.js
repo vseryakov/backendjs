@@ -518,8 +518,9 @@ shell.cmdDbRestore = function(options)
     var mapping = lib.strSplit(lib.getArg("-mapping"));
     var tables = lib.strSplit(lib.getArg("-tables"));
     var skip = lib.strSplit(lib.getArg("-skip"));
-    var files = lib.findFileSync(root, { depth: 1, types: "f", include: /\.json$/ });
+    var files = lib.findFileSync(root || core.home, { depth: 1, types: "f", include: /\.json$/ });
     var progress = lib.getArgInt("-progress");
+    var op = lib.getArg("-op", "add");
     if (lib.isArg("-drop")) opts.drop = 1;
     if (lib.isArg("-continue")) opts.continue = 1;
     opts.errors = 0;
@@ -563,7 +564,7 @@ shell.cmdDbRestore = function(options)
                         delete row[mapping[i]];
                     }
                     if (progress && opts.nlines % progress == 0) logger.info("cmdDbRestore:", table, opts.nlines, "records");
-                    db.update(table, row, opts, function(err) {
+                    db[op](table, row, opts, function(err) {
                         if (err && !opts.continue) return next2(err);
                         if (err) opts.errors++;
                         db.checkCapacity(cap, next2);
