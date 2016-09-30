@@ -520,7 +520,7 @@ shell.cmdDbRestore = function(options)
     var skip = lib.strSplit(lib.getArg("-skip"));
     var files = lib.findFileSync(root || core.home, { depth: 1, types: "f", include: /\.json$/ });
     var progress = lib.getArgInt("-progress");
-    var op = lib.getArg("-op", "add");
+    var op = lib.getArg("-op", "update");
     if (lib.isArg("-drop")) opts.drop = 1;
     if (lib.isArg("-continue")) opts.continue = 1;
     opts.errors = 0;
@@ -574,6 +574,7 @@ shell.cmdDbRestore = function(options)
         ], next3);
     }, function(err) {
         logger.info("dbRestore:", root, tables || files, opts);
+        if (opts.exitdelay) return setTimeout(shell.exit.bind(shell, err), opts.exitdelay);
         if (!opts.noexit) shell.exit(err);
     });
 }

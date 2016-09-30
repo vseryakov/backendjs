@@ -133,8 +133,6 @@ accounts.configureAccountsAPI = function()
             break;
 
         case "update":
-            req.query.id = req.account.id;
-            req.query.login = req.account.login;
             self.updateAccount(req, options, function(err, data) {
                 api.sendJSON(req, err, data);
             });
@@ -390,9 +388,12 @@ accounts.addAccount = function(req, options, callback)
 // Update existing account, used in /account/update API call
 accounts.updateAccount = function(req, options, callback)
 {
-    req.query.mtime = Date.now();
     // Cannot have account name empty
     if (!req.query.name) delete req.query.name;
+    // Required primary keys
+    req.query.id = req.account.id;
+    req.query.login = req.account.login;
+    req.query.mtime = Date.now();
     lib.series([
        function(next) {
            if (options.noauth) return next();
