@@ -247,24 +247,20 @@ mod.getUnread = function(req, options, callback)
 // Return archived messages, used in /message/get API call
 mod.getArchiveMessage = function(req, options, callback)
 {
-    req.query.id = req.account.id;
-    var query = lib.toParams(req.query, { id: {}, mtime: { type: "int" }, sender: {}, read: { type: "int" } });
+    var query = lib.toParams(req.query, { id: { value: req.account.id }, mtime: { type: "int" }, sender: {}, read: { type: "int" } });
     db.select("bk_archive", query, options, callback);
 }
 
 // Return sent messages to the specified account, used in /message/get/sent API call
 mod.getSentMessage = function(req, options, callback)
 {
-    req.query.id = req.account.id;
-    var query = lib.toParams(req.query, { id: {}, mtime: { type: "int" }, recipient: {} });
+    var query = lib.toParams(req.query, { id: { value: req.account.id }, mtime: { type: "int" }, recipient: {} });
     db.select("bk_sent", query, options, callback);
 }
 
 // Return new/unread messages, used in /message/get API call
 mod.getMessage = function(req, options, callback)
 {
-    req.query.id = req.account.id;
-
     // If asked for a total with _archive/_trash we have to retrieve all messages but return only the count
     var total = lib.toBool(options.total);
     var archive = lib.toBool(options.archive);
@@ -274,7 +270,7 @@ mod.getMessage = function(req, options, callback)
     var cap1 = db.getCapacity("bk_message", { useCapacity: "write", factorCapacity: options.factorCapacity || 0.25 });
     var cap2 = db.getCapacity("bk_archive", { useCapacity: "write", factorCapacity: options.factorCapacity || 0.25 });
 
-    var query = lib.toParams(req.query, { id: {}, mtime: { type: "int" }, sender: {}, read: { type: "int" } });
+    var query = lib.toParams(req.query, { id: { value: req.account.id }, mtime: { type: "int" }, sender: {}, read: { type: "int" } });
     db.select("bk_message", query, options, function(err, rows, info) {
         if (err) return callback(err);
 
@@ -313,18 +309,16 @@ mod.addMessage = function(req, options, callback)
 
     var cap = db.getCapacity("bk_message", { useCapacity: "write", factorCapacity: options.factorCapacity || 0.25 });
     var ids = lib.strSplitUnique(req.query.id), rows = [];
-    req.query.sender = req.account.id;
-    req.query.name = req.account.name;
-    req.query.mtime = Date.now();
+    var query = lib.cloneObj(req.query, "sender", req.account.id, "name", req.account.name, "mtime", Date.now())
 
     lib.forEachSeries(ids, function(id, next) {
-        req.query.id = id;
-        mod._putMessage(req, options, function(err) {
+        query.id = id;
+        mod._putMessage(req, query, options, function(err) {
             if (err) {
-                rows.push({ id: req.query.id, error: err.message || err });
+                rows.push({ id: query.id, error: err.message || err });
             } else {
-                ipc.incr("bk_message|unread|" + req.query.id, 1, mod.cacheOptions);
-                rows.push({ id: req.query.id, mtime: req.query.mtime, sender: req.query.sender });
+                ipc.incr("bk_message|unread|" + query.id, 1, mod.cacheOptions);
+                rows.push({ id: query.id, mtime: query.mtime, sender: query.sender });
             }
             db.checkCapacity(cap, next);
         });
@@ -333,14 +327,14 @@ mod.addMessage = function(req, options, callback)
     });
 }
 
-mod._putMessage = function(req, options, callback)
+mod._putMessage = function(req, query, options, callback)
 {
-    api.putIcon(req, req.query.id, { prefix: 'message', type: req.query.mtime + ":" + req.query.sender }, function(err, icon) {
-        req.query.icon = icon ? 1 : 0;
-        db.add("bk_message", req.query, function(err) {
+    api.putIcon(req, query.id, { prefix: 'message', type: query.mtime + ":" + query.sender }, function(err, icon) {
+        query.icon = icon ? 1 : 0;
+        db.add("bk_message", query, function(err) {
             if (err || options.nosent) return callback(err);
 
-            var sent = lib.cloneObj(req.query, "id", req.query.sender, "recipient", req.query.id);
+            var sent = lib.cloneObj(query, "id", query.sender, "recipient", query.id);
             db.add("bk_sent", sent, function(err) {
                 callback();
             });
@@ -351,9 +345,8 @@ mod._putMessage = function(req, options, callback)
 // Move matched messages to the archive, used in /message/archive API call
 mod.archiveMessage = function(req, options, callback)
 {
-    req.query.id = req.account.id;
     var cap = db.getCapacity("bk_message", { useCapacity: "write", factorCapacity: options.factorCapacity || 0.25 });
-    var query = lib.toParams(req.query, { id: {}, mtime: { type: "int" }, sender: {}, read: { type: "int" } });
+    var query = lib.toParams(req.query, { id: { value: req.account.id }, mtime: { type: "int" }, sender: {}, read: { type: "int" } });
     db.scan("bk_message", query, options, function(row, next) {
         db.put("bk_archive", row, function(err) {
             if (err) return next(err);
@@ -371,11 +364,10 @@ mod.archiveMessage = function(req, options, callback)
 // Delete matched messages, used in /message/del` API call
 mod.delMessage = function(req, options, callback)
 {
-    req.query.id = req.account.id;
     options.select = ["id","mtime","sender","recipient","read"];
     var table = options.table || "bk_message";
     var cap = db.getCapacity(table, { useCapacity: "write", factorCapacity: options.factorCapacity || 0.25 });
-    var query = lib.toParams(req.query, { id: {}, mtime: { type: "int" }, sender: {}, read: { type: "int" }, recipient: {} });
+    var query = lib.toParams(req.query, { id: { value: req.account.id }, mtime: { type: "int" }, sender: {}, read: { type: "int" }, recipient: {} });
     db.scan(table, query, options, function(row, next) {
         db.del(table, row, function(err) {
             if (!row.read) ipc.incr("bk_message|unread|" + row.id, -1, mod.cacheOptions);
@@ -403,8 +395,8 @@ mod.delSentMessage = function(req, options, callback)
 mod.updateMessage = function(req, options, callback)
 {
     var table = options.table || "bk_message";
-    req.query.id = req.account.id;
-    db.update(table, req.query, options, callback);
+    var query = lib.cloneObj(req.query, "id", req.account.id);
+    db.update(table, query, options, callback);
 }
 
 // Update a messages in the archive, used in /message/update/archive` API call
@@ -417,12 +409,10 @@ mod.updateArchiveMessage = function(req, options, callback)
 // Mark matched messages as read, used in /message/read` API call
 mod.readMessage = function(req, options, callback)
 {
-    req.query.id = req.account.id;
-    req.query.read = 1;
     options.ops.read = "ne";
     options.select = ["id","mtime","sender","read"];
     options.process = function(row) { if (!row.read) ipc.incr("bk_message|unread|" + row.id, -1, mod.cacheOptions); }
-    var query = lib.toParams(req.query, { id: {}, mtime: { type: "int" }, sender: {}, read: { type: "int" } });
+    var query = lib.toParams(req.query, { id: { value: req.account.id }, mtime: { type: "int" }, sender: {}, read: { type: "int", value: 1 } });
     db.updateAll("bk_message", query, { read: 1 }, options, callback)
 }
 
