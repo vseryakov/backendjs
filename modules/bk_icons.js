@@ -64,7 +64,7 @@ module.exports = mod;
 mod.init = function(options)
 {
     core.describeArgs("icons", [
-         { name: "limit", type: "intmap", descr: "Set the limit of how many icons by type can be uploaded by an account, type:N,type:N..., type * means global limit for any icon type" },
+         { name: "limit", type: "map", datatype: "int", descr: "Set the limit of how many icons by type can be uploaded by an account, type:N,type:N..., type * means global limit for any icon type" },
     ]);
 }
 

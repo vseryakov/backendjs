@@ -88,7 +88,7 @@ module.exports = mod;
 mod.init = function(options)
 {
     core.describeArgs("connections", [
-         { name: "allow", type: "map", descr: "Map of connection type to operations to be allowed only, once a type is specified, all operations must be defined, the format is: type:op,type:op..." },
+         { name: "allow", array: 1, type: "map", descr: "Map of connection type to operations to be allowed only, once a type is specified, all operations must be defined, the format is: type:op,type:op..." },
     ]);
 }
 
