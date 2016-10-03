@@ -362,7 +362,7 @@ accounts.addAccount = function(req, options, callback)
            account = lib.cloneObj(req.query);
            // Only admin can add accounts with admin properties
            if (!(options.admin || api.checkAccountType(req.account, "admin"))) api.clearQuery("bk_account", account, "admin");
-           db.add("bk_account", account, next);
+           db.add("bk_account", account, options, next);
        },
        function(next) {
            api.metrics.Counter('auth_add_0').inc();
@@ -401,13 +401,13 @@ accounts.updateAccount = function(req, options, callback)
            // Avoid updating bk_auth and flushing cache if nothing to update
            var obj = db.getQueryForKeys(Object.keys(db.getColumns("bk_auth", options)), query, { no_columns: 1, skip_columns: ["id","login","mtime"] });
            if (!Object.keys(obj).length) return callback(err, rows, info);
-           db.update("bk_auth", query, next);
+           db.update("bk_auth", query, options, next);
        },
        function(next) {
            // Skip admin properties if any
            var query = lib.cloneObj(req.query, "id", req.account.id);
            if (!options.admin && !api.checkAccountType(req.account, "admin")) api.clearQuery("bk_account", query, "admin");
-           db.update("bk_account", query, next);
+           db.update("bk_account", query, options, next);
        },
        function(next) {
            core.runMethods("bkUpdateAccount", req, function() { next() });
