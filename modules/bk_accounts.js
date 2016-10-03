@@ -390,15 +390,11 @@ accounts.updateAccount = function(req, options, callback)
 {
     // Cannot have account name empty
     if (!req.query.name) delete req.query.name;
-    // Required primary keys
-    req.query.id = req.account.id;
-    req.query.login = req.account.login;
-    req.query.mtime = Date.now();
     lib.series([
        function(next) {
            if (options.noauth) return next();
            // Copy for the auth table in case we have different properties that needs to be cleared
-           var query = lib.cloneObj(req.query);
+           var query = lib.cloneObj(req.query, "login", req.account.login);
            api.prepareAccountSecret(query, options);
            // Skip admin properties if any
            if (!options.admin && !api.checkAccountType(req.account, "admin")) api.clearQuery("bk_auth", query, "admin");
@@ -409,8 +405,9 @@ accounts.updateAccount = function(req, options, callback)
        },
        function(next) {
            // Skip admin properties if any
-           if (!options.admin && !api.checkAccountType(req.account, "admin")) api.clearQuery("bk_account", req.query, "admin");
-           db.update("bk_account", req.query, next);
+           var query = lib.cloneObj(req.query, "id", req.account.id);
+           if (!options.admin && !api.checkAccountType(req.account, "admin")) api.clearQuery("bk_account", query, "admin");
+           db.update("bk_account", query, next);
        },
        function(next) {
            core.runMethods("bkUpdateAccount", req, function() { next() });
