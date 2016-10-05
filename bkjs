@@ -1191,7 +1191,7 @@ case "$ARG" in
     ;;
 
   get-elasticsearch)
-  [ "$(get_arg -force)" != "" -a "$ELASTICSEARCH_PREFIX" != "" ] && rm -rf $ELASTICSEARCH_PREFIX
+    [ "$(get_flag -force)" != "" -a "$ELASTICSEARCH_PREFIX" != "" ] && rm -rf $ELASTICSEARCH_PREFIX
     if [ ! -d $ELASTICSEARCH_PREFIX ]; then
         mkdir -p $ELASTICSEARCH_PREFIX
         curl -L -o es.tgz https://download.elasticsearch.org/elasticsearch/release/org/elasticsearch/distribution/tar/elasticsearch/2.4.0/elasticsearch-2.4.0.tar.gz
@@ -1256,6 +1256,7 @@ case "$ARG" in
     ;;
 
   upgrade-elasticsearch)
+    [ "$PLATFORM" != "Linux" ] && echo "Supports only Linux" && exit 1
     curl -XPUT localhost:9200/_cluster/settings -d '{"transient":{"cluster.routing.allocation.enable": "none"}}'
     $0 stop-elasticsearch
     $0 get-elasticsearch -force
