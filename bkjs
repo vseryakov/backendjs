@@ -1154,6 +1154,12 @@ case "$ARG" in
     kill $(ps agx|grep DynamoDBLocal|grep -v grep|awk '{print $1}')
     ;;
 
+  reset-dynamodb)
+    $0 stop-dynamodb
+    rm -rf $BKJS_HOME/var/*_us-east-1.db
+    $0 run-dynamodb
+    ;;
+
   get-cassandra)
     [ "$(get_arg -force)" != "" -a "$CASSANDRA_PREFIX" != "" ] && rm -rf $CASSANDRA_PREFIX
     if [ ! -d $CASSANDRA_PREFIX ]; then
@@ -1194,7 +1200,7 @@ case "$ARG" in
     [ "$(get_flag -force)" != "" -a "$ELASTICSEARCH_PREFIX" != "" ] && rm -rf $ELASTICSEARCH_PREFIX
     if [ ! -d $ELASTICSEARCH_PREFIX ]; then
         mkdir -p $ELASTICSEARCH_PREFIX
-        curl -L -o es.tgz https://download.elasticsearch.org/elasticsearch/release/org/elasticsearch/distribution/tar/elasticsearch/2.4.0/elasticsearch-2.4.0.tar.gz
+        curl -L -o es.tgz https://download.elasticsearch.org/elasticsearch/release/org/elasticsearch/distribution/tar/elasticsearch/2.4.1/elasticsearch-2.4.1.tar.gz
         tar -C $ELASTICSEARCH_PREFIX --strip-components=1 -xzf es.tgz
         rm -rf es.tgz
         cd $ELASTICSEARCH_PREFIX
@@ -1253,6 +1259,12 @@ case "$ARG" in
 
   stop-elasticsearch)
     kill $(ps agx|grep org.elasticsearch|grep -v grep|awk '{print $1}')
+    ;;
+
+  reset-elasticsearch)
+    $0 stop-elasticsearch
+    rm -rf $ELASTICSEARCH_DIR/nodes
+    $0 run-elasticsearch
     ;;
 
   upgrade-elasticsearch)
@@ -1615,6 +1627,7 @@ EOF
     echo "  get-dynamodb - install local DynamoDB server in $BKJS_PREFIX/dynamodb"
     echo "  run-dynamodb - run local DynamoDB server installed in $BKJS_PREFIX/dynamodb, data files in $BKJS_HOME/var"
     echo "  stop-dynamodb - stop local DynamoDB server"
+    echo "  reset-dynamodb - remove local DynamoDB database and restart the server"
     echo "  get-cassandra - download and install Cassandra server in $CASSANDRA_PREFIX"
     echo "  init-cassandra [-db DB] - download and initialize Cassandra, create initial keyspace, run the server"
     echo "  run-cassandra - run local Cassandra server installed in $CASSANDRA_PREFIX, data files in $CASSANDRA_DIR"
@@ -1624,6 +1637,7 @@ EOF
     echo "  init-elasticsearch-service [-memsize PERCENT] [-memmax SIZE] [-nodetype TYPE] - setup monit to keep elasticsearch service running"
     echo "  run-elasticsearch [-memsize PERCENT] [-memmax SIZE] [-nodetype TYPE] - run local ElasticSearch server installed in $BKJS_PREFIX/elasticsearch, -memmax is max heap size, -memsize is the percent of the total memory to use, -nodetype can be node,master,data,client"
     echo "  stop-elasticsearch - stop local ElasticSearch server"
+    echo "  reset-elasticsearch - remove local ElasticSearch database and restart the server"
     echo "  upgrade-elasticsearch - update with a new version and restart"
     echo "  init-mysql [-db DB] - setup MySQL server for development and create initial database, start the server"
     echo "  run-mysql - run local MySQL server installed in $MYSQL_DIR"
