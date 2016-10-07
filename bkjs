@@ -557,7 +557,7 @@ case "$ARG" in
   init-monit-system)
     $ECHO "set daemon 30 with start delay 60" > /etc/monit.d/system.conf
     $ECHO "check system localhost if loadavg(1min) > 5 for 10 cycles then exec \"$0 send-alert\"" >> /etc/monit.d/system.conf
-    $ECHO "check filesystem rootfs with path / if space usage > 90% for 3 times within 5 cycles then exec exec \"$0 send-alert\"" >> /etc/monit.d/system.conf
+    $ECHO "check filesystem rootfs with path / if space usage > 90% for 3 times within 5 cycles then exec \"$0 send-alert\"" >> /etc/monit.d/system.conf
     monit reload
     ;;
 
@@ -1227,7 +1227,13 @@ case "$ARG" in
     ;;
 
   init-elasticsearch-service)
-    echo "check process java with pidfile \"$BKJS_HOME/var/elasticsearch.pid\" start program = \"$0 run-elasticsearch $@\" as uid $BKJS_USER and gid $BKJS_GROUP stop program = \"$0 stop-elasticsearch\"" > /etc/monit.d/elasticsearch.conf
+    echo "check process java with pidfile \"$BKJS_HOME/var/elasticsearch.pid\" start program = \"$0 run-elasticsearch $@\" as uid $BKJS_USER and gid $BKJS_GROUP stop program = \"$0 stop-elasticsearch\" if failed url http://127.0.0.1:9200/ with timeout 15 seconds then restart" > /etc/monit.d/elasticsearch.conf
+    monit reload
+    ;;
+
+  init-monit-elasticsearch-health)
+    host=$(get_arg -host elasticsearch)
+    echo "check host elasticsearch-health with address $host if failed url http://$host:9200/_cluster/health and content == 'green' with timeout 60 seconds then exec \"$0 send-alert\"" > /etc/monit.d/elasticsearch-health.conf
     monit reload
     ;;
 
