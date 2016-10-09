@@ -1206,7 +1206,7 @@ tests.test_config = function(callback)
                 "-api-allow-account-dev=^/a",
                 "-api-allow-anonymous=^/a",
                 "-api-redirect-url", '{ "^a/$": "a", "^b": "b" }',
-                "-logwatcher-email-error", "a",
+                "-logwatcher-send-error", "a",
                 "-logwatcher-file-error", "a",
                 "-logwatcher-file", "b",
                 "-logwatcher-match-error", "a",
@@ -1234,7 +1234,7 @@ tests.test_config = function(callback)
     if (!ipc.configParams['cache-options'] || !ipc.configParams['cache-options'].sentinel || ipc.configParams['cache-options'].sentinel.servers != 'host1') return callback("invalid ipc sentinel servers:" + lib.stringify(ipc.configParams));
     if (!ipc.configParams['cache-aaa-options'] || !ipc.configParams['cache-options'].sentinel || ipc.configParams['cache-aaa-options'].sentinel.max_attempts != 1) return callback("invalid ipc max attempts:" + lib.stringify(ipc.configParams));
 
-    if (core.logwatcherEmail.error != "a") return callback("invalid logwatcher email:" + JSON.stringify(core.logwatcherEmail));
+    if (core.logwatcherSend.error != "a") return callback("invalid logwatcher email:" + JSON.stringify(core.logwatcherSend));
     if (core.logwatcherMatch.error.indexOf("a") == -1) return callback("invalid logwatcher match: " + JSON.stringify(core.logwatcherMatch));
     if (!core.logwatcherFile.some(function(x) { return x.file == "a" && x.type == "error"})) return callback("invalid logwatcher file: " + JSON.stringify(core.logwatcherFile));
     if (!core.logwatcherFile.some(function(x) { return x.file == "b"})) return callback("invalid logwatcher file: " + JSON.stringify(core.logwatcherFile));
@@ -1248,10 +1248,10 @@ tests.test_logwatcher = function(callback)
     var email = lib.getArg("-email");
     if (!email) return callback("-email is required")
 
-    var argv = ["-logwatcher-email-error", email,
-                "-logwatcher-email-test", email,
-                "-logwatcher-email-warning", email,
-                "-logwatcher-email-any", email,
+    var argv = ["-logwatcher-send-error", email,
+                "-logwatcher-send-test", email,
+                "-logwatcher-send-warning", email,
+                "-logwatcher-send-any", email,
                 "-logwatcher-match-test", "TEST: ",
                 "-logwatcher-match-any", "line:[0-9]+",
             ];
