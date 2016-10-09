@@ -103,7 +103,6 @@
 <li><a href="#module-ipc_client">ipc_client</a></li>
 <li><a href="#module-ipc_db">ipc_db</a></li>
 <li><a href="#module-ipc_local">ipc_local</a></li>
-<li><a href="#module-ipc_memcache">ipc_memcache</a></li>
 <li><a href="#module-ipc_redis">ipc_redis</a></li>
 <li><a href="#module-ipc_redisclient">ipc_redisclient</a></li>
 <li><a href="#module-ipc_redisq">ipc_redisq</a></li>
@@ -114,9 +113,7 @@
 <li><a href="#module-metrics">metrics</a></li>
 <li><a href="#module-msg">msg</a></li>
 <li><a href="#module-msg_apn">msg_apn</a></li>
-<li><a href="#module-msg_fcm">msg_fcm</a></li>
 <li><a href="#module-msg_gcm">msg_gcm</a></li>
-<li><a href="#module-msg_sns">msg_sns</a></li>
 <li><a href="#module-server">server</a></li>
 <li><a href="#module-bk_accounts">bk_accounts</a></li>
 <li><a href="#module-bk_connections">bk_connections</a></li>
@@ -137,6 +134,9 @@
 <li><a href="#module-db_pgsql">db_pgsql</a></li>
 <li><a href="#module-db_riak">db_riak</a></li>
 <li><a href="#module-ipc_amqp">ipc_amqp</a></li>
+<li><a href="#module-ipc_memcache">ipc_memcache</a></li>
+<li><a href="#module-msg_fcm">msg_fcm</a></li>
+<li><a href="#module-msg_sns">msg_sns</a></li>
 </ul>
 </li>
 </ul>
@@ -1919,7 +1919,7 @@ default is is open for access to all users but same security considerations appl
 <li><p><code>/system/queue/(init|publish)</code>
   Access to the queue functions</p>
 </li>
-<li><p><code>/system/params</code>
+<li><p><code>/system/params/get</code>
   Return all config parameters applied from the config file(s) or remote database.</p>
 </li>
 <li><p><code>/system/stats/get</code>
@@ -2325,11 +2325,9 @@ Database pool statistics and other diagnostics</p>
 <li><code>logwatcher-interval</code> - How often to check for errors in the log files in minutes</li>
 <li><code>logwatcher-any-range</code> - Number of lines for matched channel <code>any</code> to be attached to the previous matched channel, if more than this number use the channel <code>any</code> on its own</li>
 <li><code>logwatcher-match-[a-z]+</code> - Regexp patterns that match conditions for logwatcher notifications, this is in addition to default backend logger patterns, suffix defines the log channel to use, like error, warning.... Special channel <code>any</code> is reserved to send matched lines to the previously matched channel if within configured range. Example: <code>-logwatcher-match-error=^failed:</code> <code>-logwatcher-match-any=line:[0-9]+</code></li>
-<li><code>logwatcher-email-[a-z]+</code> - Email address for the logwatcher notifications, the monitor process scans system and backend log files for errors and sends them to this email address, if not specified no log watching will happen, each channel must define an email separately, one of error, warning, info, all. Example: <code>-logwatcher-email-error=help@error.com</code></li>
+<li><code>logwatcher-send-[a-z]+</code> - Email address or other supported transport for the logwatcher notifications, the monitor process scans system and backend log files for errors and sends them to this email address, if not specified no log watching will happen, each channel must define a transport separately, one of error, warning, info, all. Supported transports: table://TABLE, <a href="http://URL">http://URL</a>, sns://ARN, ses://EMAIL, email@addr. Example: <code>-logwatcher-send-error=help@error.com</code></li>
 <li><code>logwatcher-ignore-[a-z]+</code> - Regexp with patterns that need to be ignored by the logwatcher process, it is added to the list of ignored patterns for each specified channel separately</li>
 <li><code>logwatcher-file(-[a-z]+)?</code> - Add a file to be watched by the logwatcher, it will use all configured match patterns</li>
-<li><code>logwatcher-url(-[a-z]+)?</code> - The backend URL(s) where logwatcher reports should be sent, the log is sent in a POST request, additional info is in the headers</li>
-<li><code>logwatcher-table(-[a-z]+)?</code> - The database table where logwatcher reports should be stored, the table must have the following columns: ipaddr, host, type, instance_id, instance_tag, run_mode, data, mtime</li>
 <li><code>user-agent</code> - Add HTTP user-agent header to be used in HTTP requests, for scrapers or other HTTP requests that need to be pretended coming from Web browsers</li>
 <li><code>backend-host</code> - Host of the master backend, can be used for backend nodes communications using core.sendRequest function calls with relative URLs, also used in tests.</li>
 <li><code>backend-login</code> - Credentials login for the master backend access when using core.sendRequest</li>
@@ -2406,9 +2404,10 @@ Database pool statistics and other diagnostics</p>
 <li><code>api-max-request-queue</code> - Max number of requests in the processing queue, if exceeds this value server returns too busy error</li>
 <li><code>api-no-access-log</code> - Disable access logging in both file or syslog</li>
 <li><code>api-access-log-file</code> - File for access logging</li>
+<li><code>api-access-log-fields</code> - Additional fields from the request or account to put in the access log, prefix defines where the field is lcoated: q: - query, h: - headers, a: - account otherwise from the request, Example: -api-log-fields h:Referer,a:name,q:action</li>
 <li><code>api-salt</code> - Salt to be used for scrambling credentials or other hashing activities</li>
 <li><code>api-no-static</code> - Disable static files from /web folder, no .js or .html files will be served by the server</li>
-<li><code>api-static-options</code> - Options to be passed to the serve-static module for static content handling</li>
+<li><code>api-static-options-(.+)</code> - Options to pass to serve-static module: maxAge, dotfiles, etag, redirect, fallthrough, extensions, index, lastModified</li>
 <li><code>api-static-paths</code> - List of additional paths to be used when serving static content</li>
 <li><code>api-vhost-path-(.+)</code> - Define a virtual host regexp to be matched against the hostname header to serve static content from a different root, if not an absolute path then a vhost dir must be inside the primary web root, if the regexp starts with !, that means negative match, example: api-vhost-path-test_dir=test.com$</li>
 <li><code>api-no-templating</code> - Disable templating engine completely</li>
@@ -3353,6 +3352,7 @@ Output file name is built according to the following options properties:</li>
 <ul>
 <li>@uuid@ - will be replaced with a unique UUID and placed back to the options.type</li>
 <li>@now@ - will be replaced with the current timestamp</li>
+<li>@filename@ - will be replaced with the basename of the uploaded file from the filename property if present</li>
 </ul>
 </li>
 </ul>
@@ -3390,13 +3390,15 @@ file name where the image has been saved.
 Valid properties in the options:</p>
 <ul>
 <li>type - icon type, this will be prepended to the name of the icon, there are several special types:<ul>
-<li>@uuid - auto generate an UUID</li>
-<li>@now - use current timestamp</li>
+<li>@uuid@ - auto generate an UUID</li>
+<li>@now@ - use current timestamp</li>
+<li>@filename@ - if filename is present the basename without extension will be used</li>
 </ul>
 </li>
 <li>prefix - top level subdirectory under images/</li>
 <li>width, height, filter, ext, quality for <code>resizeImage</code> function</li>
 <li>filesize - file size if available</li>
+<li>filename - name of a file uploaded if available</li>
 </ul>
 </li>
 </ul>
@@ -3853,7 +3855,7 @@ The options specify the following:</p>
 <li>keys is an array of column ids used for the primary key or a string with the hash key. if omitted, the first attribute will be used for the primary key</li>
 <li>local - an object with each property for a local secondary index name defining key format the same way as for primary keys, all Uppercase properties are added to the top index object</li>
 <li>global - an object for global secondary indexes, same format as for local indexes</li>
-<li>projection - an object with index name and list of projected properties to be included in the index or &quot;ALL&quot; for all properties, if omitted then default KEYS_ONLY is assumed</li>
+<li>projections - an object with index name and list of projected properties to be included in the index or &quot;ALL&quot; for all properties, if omitted then default KEYS_ONLY is assumed</li>
 <li>readCapacity - read capacity units for provisioned throughput</li>
 <li>writeCapacity - write capacity units</li>
 </ul>
@@ -3866,8 +3868,8 @@ The options specify the following:</p>
                               { keys: [&quot;id&quot;, &quot;name&quot;],
                                 local: { mtime: { mtime: &quot;HASH&quot; } },
                                 global: { name: { name: &#39;HASH&#39;, ProvisionedThroughput: { ReadCapacityUnits: 50 } } },
-                                projection: { mtime: [&#39;gender&#39;,&#39;age&#39;],
-                                              name: [&#39;name&#39;,&#39;gender&#39;] },
+                                projections: { mtime: [&#39;gender&#39;,&#39;age&#39;],
+                                               name: [&#39;name&#39;,&#39;gender&#39;] },
                                 readCapacity: 10,
                                 writeCapacity: 10 });
 </code></pre>
@@ -3885,8 +3887,8 @@ Options must provide the following properties:</p>
 <li>waitTimeout - how long to wait in ms until the table is active again</li>
 </ul>
 <p>Example</p>
-<pre><code>        aws.ddbUpdateTable({ name: &quot;users&quot;, add: { name_id: { name: &quot;S&quot;, id: &#39;N&#39;, readCapacity: 20, writeCapacity: 20, projection: [&quot;mtime&quot;,&quot;email&quot;] } })
-        aws.ddbUpdateTable({ name: &quot;users&quot;, add: { name: { name: &quot;S&quot;, readCapacity: 20, writeCapacity: 20, projection: [&quot;mtime&quot;,&quot;email&quot;] } })
+<pre><code>        aws.ddbUpdateTable({ name: &quot;users&quot;, add: { name_id: { name: &quot;S&quot;, id: &#39;N&#39;, readCapacity: 20, writeCapacity: 20, projections: [&quot;mtime&quot;,&quot;email&quot;] } })
+        aws.ddbUpdateTable({ name: &quot;users&quot;, add: { name: { name: &quot;S&quot;, readCapacity: 20, writeCapacity: 20, projections: [&quot;mtime&quot;,&quot;email&quot;] } })
         aws.ddbUpdateTable({ name: &quot;users&quot;, del: &quot;name&quot; })
         aws.ddbUpdateTable({ name: &quot;users&quot;, update: { name: { readCapacity: 10, writeCapacity: 10 } })
 </code></pre><p>Example of crontab job in etc/crontab:</p>
@@ -4226,6 +4228,12 @@ Options may contain the following properties:</p>
 <li>headers - HTTP headers to be sent with request</li>
 <li>file - file name where to save downloaded contents</li>
 </ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.s3List(path, options, callback)</code></p>
+<p> Retrieve a list of files from S3 bucket, only files inside the path will be returned</p>
 </li>
 </ul>
 
@@ -5355,18 +5363,17 @@ primary keys created outside of the backend application will be detected properl
 <p>Each database pool also can support native options that are passed directly to the driver in the options, these properties are
 defined in the object with the same name as the db driver, all properties are combined, for example to define provisioned throughput for the DynamoDB index:</p>
 <pre><code>    db.create(&quot;test_table&quot;, { id: { primary: 1, type: &quot;int&quot;, index: 1, dynamodb: { readCapacity: 50, writeCapacity: 50 } },
-                              type: { primary: 1, pub: 1, projection: 1 },
+                              type: { primary: 1, pub: 1, projections: 1 },
                               name: { index: 1, pub: 1 } }
                             });
 </code></pre><p>Create DynamoDB table with global secondary index, the first index property if not the same as primary key hash defines global index, if it is the same then local,
-below we create global secondary index on property &#39;name&#39; only, in the example above it was local secondary index for id and name. Also a local secondary index is
-created on <code>id,title</code>.</p>
-<p>DynamoDB projection is defined by a <code>projection</code> property, it can be suffixed with a number to signify which index it must belong to or if it must belong to
-all or some indexes it can be specified as <code>projections</code>, can be a number/boolean or an array with index numbers:</p>
+or if the second key column contains <code>global</code> property then it is a global index as well, below we create global secondary index on property &#39;name&#39; only,
+in the example above it was local secondary index for id and name. Also a local secondary index is created on <code>id,title</code>.</p>
+<p>DynamoDB projection is defined by a <code>projections</code> property, can be a number/boolean or an array with index numbers:</p>
 <pre><code>    db.create(&quot;test_table&quot;, { id: { primary: 1, type: &quot;int&quot;, index1: 1 },
-                              type: { primary: 1, projection: 1 },
+                              type: { primary: 1, projections: [0] },
                               name: { index: 1, projections: 1 },
-                              title: { index1: 1, projection1: 1 } },
+                              title: { index1: 1, projections: [1] } },
                               descr: { index: 1, projections: [0, 1] },
                             });
 </code></pre><p>When using real DynamoDB creating a table may take some time, for such cases if <code>options.waitTimeout</code> is not specified it defaults to 1min,
@@ -5623,6 +5630,17 @@ requests with any database or can be used generically. The <code>cap</code> must
 <li><p><code>db.getSelectedColumns(table, options)</code></p>
 <p> Return list of selected or allowed only columns, empty list if no <code>options.select</code> is specified</p>
 </li>
+</ul>
+
+<ul>
+<li><p><code>db.getFilteredColumns(table, filter)</code></p>
+<p> Return table columns filtered by a proprty filter, only return columns that contain(or not)
+any property from the filter list. If the filter is an object then values must match, null means if exists.</p>
+<p>Example:</p>
+<pre><code>db.getFilteredColumns(&quot;bk_account&quot;, &quot;pub&quot;)
+db.getFilteredColumns(&quot;bk_account&quot;, { pub: null, index: 2 })
+db.getFilteredColumns(&quot;bk_account&quot;, { type: &quot;now&quot; })
+</code></pre></li>
 </ul>
 
 <ul>
@@ -6481,8 +6499,8 @@ and the property <code>delay</code> with number of milliseconds till the bucket 
 <pre><code>      bk_queue: {
           id: { primary: 1 },
           active: { type: &quot;int&quot;, index: 1, value: 0 },      // job status, new, running
-          channel: { value: &quot;jobs&quot;, projection: 1 },        // subscription key
-          data: { type: &quot;json&quot;, projection: 1 },            // job definition object
+          channel: { value: &quot;jobs&quot;, projections: 1 },        // subscription key
+          data: { type: &quot;json&quot;, projections: 1 },            // job definition object
           mtime: { type: &quot;now&quot;, index: 1 }
       },
   },
@@ -6512,20 +6530,6 @@ and the property <code>delay</code> with number of milliseconds till the bucket 
 </ul>
 
 <h2 id="module-ipc_local">Module: IPC_LOCAL</h2>
-<h2 id="module-ipc_memcache">Module: IPC_MEMCACHE</h2>
-<ul>
-<li><p><code>client</code></p>
-<p> Cache client based on Memcached server using <a href="https://github.com/3rd-Eden/node-memcached">https://github.com/3rd-Eden/node-memcached</a></p>
-<p>To support more than one server used either one:</p>
-<p>   ipc-cache=memcache://host1?bk-servers=host2,host3`</p>
-<p>   ipc-cache-memcache=memcache://host1
-   ipc-cache-memcache-options-servers=host1,host2</p>
-<p>To pass memcache specific options:</p>
-<p>   ipc-cache-options-failures=5
-   ipc-cache-options-maxValue=1024</p>
-</li>
-</ul>
-
 <h2 id="module-ipc_redis">Module: IPC_REDIS</h2>
 <h2 id="module-ipc_redisclient">Module: IPC_REDISCLIENT</h2>
 <h2 id="module-ipc_redisq">Module: IPC_REDISQ</h2>
@@ -6887,7 +6891,7 @@ or the default message, this is useful for detection of invalid or missing input
 <pre><code>  var account = lib.toParams(req.query, { id: { type: &quot;int&quot; },
                                           count: { type: &quot;int&quot;, min: 1, max: 10, dflt: 5 },
                                           page: { type: &quot;int&quot;, min: 1, max: 10, dflt: NaN, required: 1, errmsg: &quot;Page number between 1 and 10 is required&quot; },
-                                          name: { type: &quot;string&quot; },
+                                          name: { type: &quot;string&quot;, max: 32, trunc: 1 },
                                           pair: { type: &quot;map&quot;, separator: &quot;|&quot; },
                                           code: { type: &quot;string&quot;, regexp: /^[a-z]-[0-9]+$/, errmsg: &quot;Valid code is required&quot; },
                                           start: { type: &quot;token&quot;, required: 1 },
@@ -7346,18 +7350,18 @@ Usage:</p>
 </ul>
 
 <ul>
-<li><p><code>lib.strSplit(str, sep, type)</code></p>
+<li><p><code>lib.strSplit(str, sep, options)</code></p>
 <p> Split string into array, ignore empty items,</p>
 <ul>
 <li><code>sep</code> is an RegExp to use as a separator instead of default  pattern <code>[,\|]</code>,</li>
-<li><code>type</code> then convert all items into the type using <code>toValue</code></li>
+<li><code>options</code> is an object with the same properties as for the <code>toParams</code>, <code>datatype&#39; will be used with</code>toValue` to convert the value for each item</li>
 </ul>
 <p>If <code>str</code> is an array and type is not specified then all non-string items will be returned as is.</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>lib.strSplitUnique(str, sep, type)</code></p>
+<li><p><code>lib.strSplitUnique(str, sep, options)</code></p>
 <p> Split as above but keep only unique items, case-insensitive</p>
 </li>
 </ul>
@@ -7455,7 +7459,7 @@ Example:<pre><code>  lib.cloneObj({ 1: 2 }, &quot;3&quot;, 3, &quot;4&quot;, 4)
 
 <ul>
 <li><p><code>lib.mergeObj(obj, options)</code></p>
-<p> Merge an object with the options, all properties from the <code>options</code> override existing properties in the <code>obj</code>, returns a new object, shallow copy,
+<p> Merge two object, all properties from the <code>options</code> override existing properties in the <code>obj</code>, returns a new object, shallow copy,
 only top level properties are reassigned.</p>
 <p>Example</p>
 <pre><code> var o = lib.mergeObject({ a:1, b:2, c:3 }, { c:5, d:1 })
@@ -7822,6 +7826,19 @@ all items to be released, when expired the callback will be called</p>
 </ul>
 
 <ul>
+<li><p><code>logger.registerLevel(level, callback, options)</code></p>
+<p> Register a custom level handler, must be invoked via <code>logger.logger</code> only, if no handler registered for given level
+the whole message will be logger as an error. The custom hadnler is called in the context of the module which means
+the options are available inside the handler.</p>
+<p>The following properties are supported automatically:</p>
+<ul>
+<li>format - if 1 then all arguments will be formatted into one line as for the regular levels and passed
+the handler as one argument, this is to support different transport and preserve the same standard logging format</li>
+</ul>
+</li>
+</ul>
+
+<ul>
 <li><p><code>logger.setSyslog (on)</code></p>
 <p> Set or close syslog mode</p>
 </li>
@@ -7861,7 +7878,7 @@ the current function name with comma, like <code>logger.debug(&quot;select:&quot
 
 <ul>
 <li><p><code>logger.logger()</code></p>
-<p> A generic logger method, safe, first arg is supposed to be a logging level, if not valid the call is ignored</p>
+<p> A generic logger method, safe, first arg is supposed to be a logging level, if not valid the error level is used</p>
 </li>
 </ul>
 
@@ -7937,13 +7954,13 @@ need to send push notifications in the worker process.</p>
 </ul>
 
 <ul>
-<li><p><code>Msg.prototype.send(options, callback)</code></p>
+<li><p><code>Msg.prototype.send(device, options, callback)</code></p>
 <p> Deliver a notification for the given device token(s).</p>
+<p>The <code>device</code> is where to send the message to, can be multiple ids separated by , or |.</p>
 <p>Options with the following properties:</p>
 <ul>
-<li>device_id - device(s) where to send the message to, can be multiple ids separated by , or |, REQUIRED</li>
 <li>service_id - which service to use for delivery only: sns, apn, gcm</li>
-<li>account_id - an account id associated with this token, for debugging and invalid token management</li>
+<li>account_id - an account id associated with this token, for debugging and invalid token management(feedback)</li>
 <li>app_id - send to the devices for the given app only, if none matched send to the default device tokens only</li>
 <li>msg - text message to send</li>
 <li>badge - badge number to show if supported by the service</li>
@@ -8010,37 +8027,19 @@ connection to APN gateway.</p>
 <li>msg - message text</li>
 <li>badge - badge number</li>
 <li>sound - 1, true or a sound file to play</li>
-<li>type - set type of the event</li>
 <li>category - a user notification category</li>
-<li>contentAvailable - to indicate about new content so fetchCompletionHandler is called</li>
+<li>alertAction - action to exec per Apple doc, action</li>
+<li>launchImage - image to show per Apple doc, launch-image</li>
+<li>contentAvailable - content indication per Apple doc, content-available</li>
+<li>locKey - localization key per Apple doc, loc-key</li>
+<li>locArgs - localization key per Apple doc, loc-args</li>
+<li>titleLocKey - localization key per Apple doc, title-loc-key</li>
+<li>titleLocArgs - localization key per Apple doc, title-loc-args</li>
 <li>id - send id in the user properties</li>
+<li>type - set type of the event</li>
 <li>url - launch url</li>
+<li>payload - an object with additional fileds to send in the message payload</li>
 </ul>
-</li>
-</ul>
-
-<h2 id="module-msg_fcm">Module: MSG_FCM</h2>
-<ul>
-<li><p><code>client.init(options)</code></p>
-<p> Initialize Google Cloud Messaging service to send push notifications to mobile devices</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>client.close(callback)</code></p>
-<p> Close GCM connection, flush the queue</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>client.send(dev, options, callback)</code></p>
-<p> Send push notification to an Android device, return true if queued.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>client.retryOnError()</code></p>
-<p> Retry on server error, honor Retry-After header if present, use it only on the first error</p>
 </li>
 </ul>
 
@@ -8066,20 +8065,6 @@ connection to APN gateway.</p>
 <ul>
 <li><p><code>client.retryOnError()</code></p>
 <p> Retry on server error, honor Retry-After header if present, use it only on the first error</p>
-</li>
-</ul>
-
-<h2 id="module-msg_sns">Module: MSG_SNS</h2>
-<ul>
-<li><p><code>client.send(dev, options, callback)</code></p>
-<p> Send push notification to a device using AWS SNS service, device_id must be a valid SNS endpoint ARN.</p>
-<p>The options may contain the following properties:</p>
-<ul>
-<li>msg - message text</li>
-<li>badge - badge number</li>
-<li>type - set type of the packet</li>
-<li>id - send id in the user properties</li>
-</ul>
 </li>
 </ul>
 
@@ -8280,16 +8265,12 @@ it runs <code>shutdown[Role]</code> methods before exiting</p>
 
 <ul>
 <li><p><code>accounts.notifyAccount(options, callback)</code></p>
-<p> Send Push notification to the account, the actual transport delivery must be setup before calling this and passed in the options
-as handler: property which accepts the same arguments as this function. The delivery is not guaranteed, only will be sent if the account is considered
-&quot;offline&quot; according to the status and/or idle time. If the messages was queued for delivery, the row returned will contain the property sent:.
-The options may contain the following:</p>
+<p> Send Push notification to the account. The delivery is not guaranteed, if the message was queued for delivery, no errors will be returned.</p>
+<p>The options may contain the following:</p>
 <ul>
 <li>account_id - REQUIRED, the account to who to send the notification</li>
 <li>msg - message text to send</li>
 <li>badge - a badge number to be sent</li>
-<li>prefix - prepend the message with this prefix</li>
-<li>check - check the account status, if not specified the message will be sent unconditionally otherwise only if status is online</li>
 <li>allow - the account properties to check if notifications are enabled, it must be an object with properties in the account record and values to
   be a regexp, each value if starts with &quot;!&quot; means not equal, see <code>lib.isMatched</code></li>
 <li>skip - Array or an object with account ids which should be skipped, this is for mass sending in order to reuse the same options</li>
@@ -8433,7 +8414,7 @@ delete an account but keep all messages and location: <code>keep_message: 1, kee
   mod.init = function(options)
   {</p>
 <pre><code>  core.describeArgs(&quot;connections&quot;, [
-       { name: &quot;allow&quot;, type: &quot;map&quot;, descr: &quot;Map of connection type to operations to be allowed only, once a type is specified, all operations must be defined, the format is: type:op,type:op...&quot; },
+       { name: &quot;allow&quot;, array: 1, type: &quot;map&quot;, descr: &quot;Map of connection type to operations to be allowed only, once a type is specified, all operations must be defined, the format is: type:op,type:op...&quot; },
   ]);
 </code></pre><p>  }</p>
 <p>  mod.configureMiddleware = function(options, callback)
@@ -8735,7 +8716,7 @@ If any of obj.id or obj.type are not specified then perform a query for matching
   mod.init = function(options)
   {</p>
 <pre><code>  core.describeArgs(&quot;icons&quot;, [
-       { name: &quot;limit&quot;, type: &quot;intmap&quot;, descr: &quot;Set the limit of how many icons by type can be uploaded by an account, type:N,type:N..., type * means global limit for any icon type&quot; },
+       { name: &quot;limit&quot;, type: &quot;map&quot;, datatype: &quot;int&quot;, descr: &quot;Set the limit of how many icons by type can be uploaded by an account, type:N,type:N..., type * means global limit for any icon type&quot; },
   ]);
 </code></pre><p>  }</p>
 <p>  mod.configureMiddleware = function(options, callback)
@@ -9592,6 +9573,59 @@ db.query({ op: &quot;POST&quot;, text: &quot;/buckets/bucket/counter/name&quot;,
 <ul>
 <li><p><code>client</code></p>
 <p> Queue client using RabbitMQ server</p>
+</li>
+</ul>
+
+<h2 id="module-ipc_memcache">Module: IPC_MEMCACHE</h2>
+<ul>
+<li><p><code>client</code></p>
+<p> Cache client based on Memcached server using <a href="https://github.com/3rd-Eden/node-memcached">https://github.com/3rd-Eden/node-memcached</a></p>
+<p>To support more than one server used either one:</p>
+<p>   ipc-cache=memcache://host1?bk-servers=host2,host3`</p>
+<p>   ipc-cache-memcache=memcache://host1
+   ipc-cache-memcache-options-servers=host1,host2</p>
+<p>To pass memcache specific options:</p>
+<p>   ipc-cache-options-failures=5
+   ipc-cache-options-maxValue=1024</p>
+</li>
+</ul>
+
+<h2 id="module-msg_fcm">Module: MSG_FCM</h2>
+<ul>
+<li><p><code>client.init(options)</code></p>
+<p> Initialize Google Cloud Messaging service to send push notifications to mobile devices</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>client.close(callback)</code></p>
+<p> Close GCM connection, flush the queue</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>client.send(dev, options, callback)</code></p>
+<p> Send push notification to an Android device, return true if queued.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>client.retryOnError()</code></p>
+<p> Retry on server error, honor Retry-After header if present, use it only on the first error</p>
+</li>
+</ul>
+
+<h2 id="module-msg_sns">Module: MSG_SNS</h2>
+<ul>
+<li><p><code>client.send(dev, options, callback)</code></p>
+<p> Send push notification to a device using AWS SNS service, device_id must be a valid SNS endpoint ARN.</p>
+<p>The options may contain the following properties:</p>
+<ul>
+<li>msg - message text</li>
+<li>badge - badge number</li>
+<li>type - set type of the packet</li>
+<li>id - send id in the user properties</li>
+</ul>
 </li>
 </ul>
 
