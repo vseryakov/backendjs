@@ -729,7 +729,7 @@ case "$ARG" in
     fi
     email=$(grep 'set alert' /etc/monit.d/*|tail -1|awk '{print $NF}')
     if [ "$email" != "" ]; then
-       $ECHO "From:$email\nTo:$email\nSubject: $msg" |sendmail $email
+       $ECHO "From:$email\nTo:$email\nSubject: $(echo "$msg")" |sendmail $email
     fi
     ;;
 
@@ -1227,13 +1227,13 @@ case "$ARG" in
     ;;
 
   init-elasticsearch-service)
-    echo "check process java with pidfile \"$BKJS_HOME/var/elasticsearch.pid\" start program = \"$0 run-elasticsearch $@\" as uid $BKJS_USER and gid $BKJS_GROUP stop program = \"$0 stop-elasticsearch\" if failed url http://127.0.0.1:9200/ with timeout 15 seconds then restart" > /etc/monit.d/elasticsearch.conf
+    echo "check process java with pidfile \"$BKJS_HOME/var/elasticsearch.pid\" start program = \"$0 run-elasticsearch $@\" as uid $BKJS_USER and gid $BKJS_GROUP stop program = \"$0 stop-elasticsearch\" if failed url http://127.0.0.1:9200/ with timeout 15 seconds for 2 cycles then restart" > /etc/monit.d/elasticsearch.conf
     monit reload
     ;;
 
   init-monit-elasticsearch-health)
     host=$(get_arg -host elasticsearch)
-    echo "check host elasticsearch-health with address $host if failed url http://$host:9200/_cluster/health and content == 'green' with timeout 60 seconds then exec \"$0 send-alert\"" > /etc/monit.d/elasticsearch-health.conf
+    echo "check host elasticsearch-health with address $host if failed url http://$host:9200/_cluster/health and content = 'green' with timeout 60 seconds for 2 cycles then alert" > /etc/monit.d/elasticsearch-health.conf
     monit reload
     ;;
 
