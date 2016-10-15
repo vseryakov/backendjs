@@ -341,7 +341,6 @@ shell.cmdAccountAdd = function(options)
     });
 }
 
-// Delete a user and all its history according to the options
 shell.cmdAccountUpdate = function(options)
 {
     if (!core.modules.bk_account) this.exit("accounts module not loaded");
@@ -370,6 +369,56 @@ shell.cmdAccountDel = function(options)
         core.modules.bk_account.deleteAccount({ account: row, options: opts }, function(err) {
             shell.exit(err);
         });
+    });
+}
+
+// Show account records by id or login
+shell.cmdLoginGet = function(options)
+{
+    lib.forEachSeries(process.argv.slice(2), function(login, next) {
+        if (login.match(/^[-\/]/)) return next();
+        db.get("bk_auth", { login: login }, function(err, auth) {
+            if (auth) console.log(auth);
+            next();
+        });
+    }, function(err) {
+        shell.exit(err);
+    });
+}
+
+// Add a user login
+shell.cmdLoginAdd = function(options)
+{
+    var query = this.getQuery();
+    var opts = api.getOptions({ query: this.getArgs(), options: { path: ["", "", ""], ops: {} } });
+    if (lib.isArg("-scramble")) opts.scramble = 1;
+    if (query.login && !query.name) query.name = query.login;
+    api.addAccount(query, opts, function(err, data) {
+        shell.exit(err, data);
+    });
+}
+
+// Update a user login
+shell.cmdLoginUpdate = function(options)
+{
+    var query = this.getQuery();
+    var opts = api.getOptions({ query: this.getArgs(), options: { path: ["", "", ""], ops: {} } });
+    if (lib.isArg("-scramble")) opts.scramble = 1;
+    api.updateAccount(query, opts, function(err, data) {
+        shell.exit(err, data);
+    });
+}
+
+// Delete a user login
+shell.cmdLoginDel = function(options)
+{
+    lib.forEachSeries(process.argv.slice(2), function(login, next) {
+        if (login.match(/^[-\/]/)) return next();
+        db.del("bk_auth", { login: login }, function(err) {
+            next(err);
+        });
+    }, function(err) {
+        shell.exit(err);
     });
 }
 
