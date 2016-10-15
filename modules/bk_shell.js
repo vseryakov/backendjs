@@ -87,8 +87,8 @@ shell.getArgList = function(name, options)
     var arg = options && options[lib.toCamel(name.substr(1))];
     if (arg) return Array.isArray(arg) ? arg : [ arg ];
     var list = [];
-    for (var i = process.argv.length - 1; i > 1; i -= 2) {
-        if (process.argv[i - 1] == name) list.push(process.argv[i]);
+    for (var i = 1; i < process.argv.length - 1; i++) {
+        if (process.argv[i] == name && process.argv[i + 1][0] != "-") list.push(process.argv[i + 1]);
     }
     return list;
 }
@@ -824,7 +824,7 @@ shell.launchInstances = function(options, callback)
            if (req.imageId) return next();
            var imageName = shell.getArg("-image-name", options, '*');
            shell.awsSearchImage(imageName, appName, function(err, ami) {
-               req.imageId = ami.imageId;
+               req.imageId = ami && ami.imageId;
                next(err ? err : !req.imageId ? "ERROR: AMI must be specified or discovered by filters" : null);
            });
        },

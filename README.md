@@ -971,11 +971,11 @@ When launching from an EC2 instance no need to specify any AWS credentials.
 
  - Elasticsearch
 
-    bksh -aws-sdk-profile uc -aws-launch-instances -aws-instance-type m3.large -subnet-name internal -name elasticsearch -bkjs-cmd "init-elasticsearch-service -memsize 50" -alarm-name alarms -dry-run
+    bksh -aws-sdk-profile uc -aws-launch-instances -aws-instance-type m3.large -subnet-name internal -name elasticsearch -bkjs-cmd stop-service -bkjs-cmd "init-elasticsearch-service -memsize 50" -alarm-name alarms -public-ip 1 -dry-run
 
  - Redis
 
-    bksh -aws-sdk-profile uc -aws-launch-instances -aws-instance-type m3.large -subnet-name internal -name redis -bkjs-cmd "init-redis-service -memsize 70" -alarm-name alarms -dry-run
+    bksh -aws-sdk-profile uc -aws-launch-instances -aws-instance-type m3.large -subnet-name internal -name redis -bkjs-cmd stop-service -bkjs-cmd "init-redis-service -memsize 70" -alarm-name alarms -public-ip 1 -dry-run
 
 ### Launch Configurations
 
