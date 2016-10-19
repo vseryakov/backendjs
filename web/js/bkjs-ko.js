@@ -9,11 +9,13 @@ Bkjs.koLogoutUrl = "";
 // Status of the current account
 Bkjs.koAuth = ko.observable(0);
 Bkjs.koAdmin = ko.observable(0);
+Bkjs.koName = ko.observable();
 
 Bkjs.koLogin = function(data, event)
 {
     Bkjs.showLogin(function(err, data, xhr) {
         Bkjs.koAuth(Bkjs.loggedIn);
+        Bkjs.koName(Bkjs.account.name);
         Bkjs.koAdmin(Bkjs.loggedIn && (Bkjs.account.type || "").split(",").indexOf("admin") > -1);
         $(Bkjs).trigger(Bkjs.loggedIn ? "login" : "nologin", [err, xhr.status]);
         if (err) return;
@@ -27,6 +29,7 @@ Bkjs.koLogout = function(data, event)
     Bkjs.logout(function() {
         Bkjs.koAuth(0);
         Bkjs.koAdmin(0);
+        Bkjs.koName("");
         $(Bkjs).trigger('logout');
         if (Bkjs.koLogoutUrl) window.location.href = Bkjs.koLogoutUrl;
     });
@@ -37,6 +40,7 @@ Bkjs.koInit = function()
     ko.applyBindings(Bkjs);
     Bkjs.login(function(err, data, xhr) {
         Bkjs.koAuth(Bkjs.loggedIn);
+        Bkjs.koName(Bkjs.account.name);
         Bkjs.koAdmin(Bkjs.loggedIn && Bkjs.checkAccountType(Bkjs.account, "admin"));
         $(Bkjs).trigger(Bkjs.loggedIn ? "login" : "nologin", [err, xhr.status]);
         if (err) return;
