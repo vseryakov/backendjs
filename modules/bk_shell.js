@@ -289,6 +289,29 @@ shell.cmdTestRun = function(options)
         });
 }
 
+// Load a module and optionally execute it
+//
+// Example:
+//
+//        var bkjs = require("backendjs")
+//        bkjs.app.test = 123;
+//        exports.run = function() {
+//            console.log("run");
+//        }
+//
+shell.cmdRunFile = function(options)
+{
+    var file = lib.getArg("-file");
+    if (!file) shell.exit("-file is required");
+    var mod;
+    if (fs.existsSync(core.cwd + "/" + file) + ".js") mod = require(core.cwd + "/" + file); else
+    if (fs.existsSync(core.home + "/" + file + ".js")) mod = require(core.home + "/" + file); else
+    if (fs.existsSync(__dirname + "/../" + file + ".js")) mod = require(__dirname + "/../" + file);
+    if (!mod) shell.exit("file not found " + file);
+    if (typeof mod.run == "function") mod.run();
+    return "continue";
+}
+
 // Run API server inside the shell
 shell.cmdRunApi = function(options)
 {

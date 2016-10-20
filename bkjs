@@ -1664,6 +1664,7 @@ EOF
     echo "if any of the commands below is specified it is executed and then exit, otherwise bksh launches interactive shell"
     echo ""
     echo "  -show-info - show app and version information"
+    echo "  -run-file -file FILE.js - load a script and run it if it exports run function"
     echo "  -account-get ID|LOGIN ... - show accounts by id or login"
     echo "  -account-add [-scramble] login LOGIN secret SECRET [name NAME] [email EMAIL] [type TYPE] ... - add a new user for API access, any property from bk_account can be passed in the form: name value, if -scramble is given, store HMAC for login/secret, not real values "
     echo "  -account-update [-scramble] [login LOGIN|id ID] [name NAME] [email EMAIL] [type TYPE] ... - update existing user properties, any property from bk_account can be passed in the form: name value "
