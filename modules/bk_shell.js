@@ -103,7 +103,7 @@ shell.isArg = function(name, options)
 // - stop - stop processing commands and create REPL
 // - continue - do not exit and continue processing other commands or end with REPL
 // - all other values will result in returning from the run assuming the command will decide what to do, exit or continue running, no REPL is created
-shell.run = function(options)
+shell.runShell = function(options)
 {
     process.title = core.name + ": shell";
 
@@ -298,10 +298,17 @@ shell.cmdTestRun = function(options)
 //        exports.run = function() {
 //            console.log("run");
 //        }
+//        exports.newMethod = function() {
+//            console.log(bkjs.core.version, "version");
+//        }
 //
 //  Save into a file a.js and run
 //
 //        bksh -run-file -file a.js
+//
+//  In the shell now it new methods can be executed
+//
+//        > shell.newMethod()
 //
 shell.cmdRunFile = function(options)
 {
@@ -312,6 +319,8 @@ shell.cmdRunFile = function(options)
     if (fs.existsSync(core.home + "/" + file + ".js")) mod = require(core.home + "/" + file); else
     if (fs.existsSync(__dirname + "/../" + file + ".js")) mod = require(__dirname + "/../" + file);
     if (!mod) shell.exit("file not found " + file);
+    // Exported functions are set in the shell module
+    for (var p in mod) if (typeof mod[p] == "function") shell[p] = mod[p];
     if (typeof mod.run == "function") mod.run();
     return "continue";
 }

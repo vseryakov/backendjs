@@ -9071,7 +9071,7 @@ is used in <code>/location/get</code> request. It can be used in the application
 </ul>
 
 <ul>
-<li><p><code>shell.run(options)</code></p>
+<li><p><code>shell.runShell(options)</code></p>
 <p> Start REPL shell or execute any subcommand if specified in the command line.
 A subcommand may return special string to indicate how to treat the flow:</p>
 <ul>
@@ -9169,8 +9169,13 @@ use the same names as command line arguments without preceeding <code>test-</cod
   exports.run = function() {
       console.log(&quot;run&quot;);
   }
+  exports.newMethod = function() {
+      console.log(bkjs.core.version, &quot;version&quot;);
+  }
 </code></pre><p>Save into a file a.js and run</p>
 <pre><code>  bksh -run-file -file a.js
+</code></pre><p>In the shell now it new methods can be executed</p>
+<pre><code>  &gt; shell.newMethod()
 </code></pre></li>
 </ul>
 
