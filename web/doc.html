@@ -956,10 +956,10 @@ Inside the app package etc/config file can be setup for any external connections
  bksh -aws-sdk-profile uc -aws-launch-instances -aws-instance-type t2.small -subnet-name internal -name sync -zone 1c -alarm-name alarms -dry-run</p>
 </li>
 <li><p>Elasticsearch</p>
-<p> bksh -aws-sdk-profile uc -aws-launch-instances -aws-instance-type m3.large -subnet-name internal -name elasticsearch -bkjs-cmd &quot;init-elasticsearch-service -memsize 50&quot; -alarm-name alarms -dry-run</p>
+<p> bksh -aws-sdk-profile uc -aws-launch-instances -aws-instance-type m3.large -subnet-name internal -name elasticsearch -bkjs-cmd stop-service -bkjs-cmd &quot;init-elasticsearch-service -memsize 50&quot; -alarm-name alarms -public-ip 1 -dry-run</p>
 </li>
 <li><p>Redis</p>
-<p> bksh -aws-sdk-profile uc -aws-launch-instances -aws-instance-type m3.large -subnet-name internal -name redis -bkjs-cmd &quot;init-redis-service -memsize 70&quot; -alarm-name alarms -dry-run</p>
+<p> bksh -aws-sdk-profile uc -aws-launch-instances -aws-instance-type m3.large -subnet-name internal -name redis -bkjs-cmd stop-service -bkjs-cmd &quot;init-redis-service -memsize 70&quot; -alarm-name alarms -public-ip 1 -dry-run</p>
 </li>
 </ul>
 <h3 id="launch-configurations">Launch Configurations</h3>
@@ -6956,12 +6956,6 @@ The <code>obj</code> can be an object or an array of objects in which case all o
 </ul>
 
 <ul>
-<li><p><code>lib.textToEntity(str)</code></p>
-<p> Convert all special symbols into html entities</p>
-</li>
-</ul>
-
-<ul>
 <li><p><code>lib.entityToText(str)</code></p>
 <p> Convert html entities into their original symbols</p>
 </li>
@@ -9167,6 +9161,20 @@ use the same names as command line arguments without preceeding <code>test-</cod
 </ul>
 
 <ul>
+<li><p><code>shell.cmdRunFile(options)</code></p>
+<p> Load a module and optionally execute it</p>
+<p>Example:</p>
+<pre><code>  var bkjs = require(&quot;backendjs&quot;)
+  bkjs.app.test = 123;
+  exports.run = function() {
+      console.log(&quot;run&quot;);
+  }
+</code></pre><p>Save into a file a.js and run</p>
+<pre><code>  bksh -run-file -file a.js
+</code></pre></li>
+</ul>
+
+<ul>
 <li><p><code>shell.cmdRunApi(options)</code></p>
 <p> Run API server inside the shell</p>
 </li>
@@ -9185,14 +9193,32 @@ use the same names as command line arguments without preceeding <code>test-</cod
 </ul>
 
 <ul>
-<li><p><code>shell.cmdAccountUpdate(options)</code></p>
+<li><p><code>shell.cmdAccountDel(options)</code></p>
 <p> Delete a user and all its history according to the options</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>shell.cmdAccountDel(options)</code></p>
-<p> Delete a user and all its history according to the options</p>
+<li><p><code>shell.cmdLoginGet(options)</code></p>
+<p> Show account records by id or login</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.cmdLoginAdd(options)</code></p>
+<p> Add a user login</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.cmdLoginUpdate(options)</code></p>
+<p> Update a user login</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.cmdLoginDel(options)</code></p>
+<p> Delete a user login</p>
 </li>
 </ul>
 

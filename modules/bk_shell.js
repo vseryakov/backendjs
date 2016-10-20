@@ -299,6 +299,10 @@ shell.cmdTestRun = function(options)
 //            console.log("run");
 //        }
 //
+//  Save into a file a.js and run
+//
+//        bksh -run-file -file a.js
+//
 shell.cmdRunFile = function(options)
 {
     var file = lib.getArg("-file");
