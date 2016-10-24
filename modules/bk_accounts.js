@@ -392,7 +392,7 @@ accounts.updateAccount = function(req, options, callback)
     if (!req.query.name) delete req.query.name;
     lib.series([
        function(next) {
-           if (options.noauth) return next();
+           if (options.noauth || !req.account.login) return next();
            // Copy for the auth table in case we have different properties that needs to be cleared
            var query = lib.cloneObj(req.query, "login", req.account.login);
            api.prepareAccountSecret(query, options);
