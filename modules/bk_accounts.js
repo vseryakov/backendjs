@@ -229,6 +229,7 @@ accounts.configureAccountsAPI = function()
 // Returns current account, used in /account/get API call, req.account will be filled with the properties from the db
 accounts.getAccount = function(req, options, callback)
 {
+    if (typeof options == "function") callback = options, options = null;
     if (!req.account || !req.account.id) return callback({ status: 400, message: "invalid account" });
     db.get("bk_account", { id: req.account.id }, options, function(err, row, info) {
         if (err || !row) return callback(err || { status: 404, message: "account not found" });
@@ -302,6 +303,8 @@ accounts.notifyAccount = function(options, callback)
 // If options.existing is 1 then return only record with found accounts, all other records in the rows will be deleted
 accounts.listAccount = function(rows, options, callback)
 {
+    if (typeof options == "function") callback = options, options = null;
+    if (!options) options = {};
     if (!rows) return callback(null, []);
     var key = options.account_key || "id";
     var map = {};
@@ -326,6 +329,7 @@ accounts.listAccount = function(rows, options, callback)
 // Query accounts, used in /accout/select API call, simple wrapper around db.select but can be replaced in the apps while using the same API endpoint
 accounts.selectAccount = function(req, options, callback)
 {
+    if (typeof options == "function") callback = options, options = null;
     db.select("bk_account", req.query, options, function(err, rows, info) {
         if (err) return callback(err, []);
         callback(err, api.getResultPage(req, options, rows, info));
@@ -336,6 +340,8 @@ accounts.selectAccount = function(req, options, callback)
 // need to have query and options objects.
 accounts.addAccount = function(req, options, callback)
 {
+    if (typeof options == "function") callback = options, options = null;
+    if (!options) options = {};
     if (lib.isEmpty(req.query.name)) return callback({ status: 400, message: "name is required"});
     delete req.query.id;
     var login, account;
@@ -388,6 +394,8 @@ accounts.addAccount = function(req, options, callback)
 // Update existing account, used in /account/update API call
 accounts.updateAccount = function(req, options, callback)
 {
+    if (typeof options == "function") callback = options, options = null;
+    if (!options) options = {};
     // Cannot have account name empty
     if (!req.query.name) delete req.query.name;
     lib.series([
@@ -490,6 +498,7 @@ accounts.renameAccount = function(req, callback)
 // Returns status record for given account, used in /status/get API call.
 accounts.getStatus = function(id, options, callback)
 {
+    if (typeof options == "function") callback = options, options = null;
     if (!core.modules.bk_status) return callback(null, {});
     core.modules.bk_status.getStatus(id, options, callback);
 }
@@ -497,15 +506,13 @@ accounts.getStatus = function(id, options, callback)
 // Override OAuth account management
 accounts.fetchAccount = function(query, options, callback)
 {
-    var self = this;
-
-    logger.debug("fetchAccount:", query);
-
+    if (typeof options == "function") callback = options, options = null;
+    if (!options) options = {};
     db.get("bk_auth", { login: query.login }, function(err, auth) {
         if (err) return callback(err);
 
         if (auth) {
-            self.getAccount({ query: {}, account: auth }, options, function(err, row) {
+            accounts.getAccount({ query: {}, account: auth }, options, function(err, row) {
                 if (!err) for (var p in row) auth[p] = row[p];
                 callback(err, auth);
             });
@@ -515,7 +522,7 @@ accounts.fetchAccount = function(query, options, callback)
         lib.series([
             function(next) {
                 // Pretend to be an admin
-                self.addAccount({ query: query, account: { type: "admin" } }, options, function(err, row) {
+                accounts.addAccount({ query: query, account: { type: "admin" } }, options, function(err, row) {
                     if (row) auth = row;
                     next(err);
                 });
@@ -530,8 +537,8 @@ accounts.fetchAccount = function(query, options, callback)
                     });
                 });
             },
-            ], function(err) {
-                callback(err, auth);
-            });
+        ], function(err) {
+            callback(err, auth);
+        });
     });
 }
