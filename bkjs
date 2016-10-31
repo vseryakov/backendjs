@@ -1208,8 +1208,6 @@ case "$ARG" in
         echo "node.data: true" >> config/elasticsearch.yml
         echo "path.data: $ELASTICSEARCH_DIR" >> config/elasticsearch.yml
         echo "path.logs: $BKJS_HOME/log" >> config/elasticsearch.yml
-        echo "script.inline: on" >> config/elasticsearch.yml
-        echo "script.indexed: on" >> config/elasticsearch.yml
         if [ "$OS_TYPE" = "amazon" ]; then
            echo 'network.host: ["_ec2_","_local_"]' >> config/elasticsearch.yml
            echo 'discovery.type: ec2' >> config/elasticsearch.yml
