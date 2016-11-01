@@ -21,6 +21,7 @@ var logger = bkjs.logger;
 // Account management
 var accounts = {
     name: "bk_account",
+    priority: 99999,
     tables: {
         // Basic account information
         bk_account: {
