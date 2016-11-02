@@ -594,16 +594,12 @@ case "$ARG" in
     case "$OS_TYPE" in
       centos)
          rpm -i http://mirror.pnl.gov/epel/6/x86_64/epel-release-6-8.noarch.rpm
-         if [ ! -f /etc/yum.repos.d/pgdg-93-centos.repo ]; then
-            echo "Setting up PostgreSQL repo..."
-            rpm -i http://yum.postgresql.org/9.3/redhat/rhel-6-x86_64/pgdg-centos93-9.3-1.noarch.rpm
-         fi
-         packages="$packages postgresql93-server"
          ;;
 
       amazon)
          yum-config-manager --enable epel
-         packages="$packages postgresql9-server nodejs-devel npm"
+         yum remove java-1.7.0-openjdk
+         packages="$packages java-1.8.0"
          ;;
     esac
     sleep 10
@@ -618,18 +614,7 @@ case "$ARG" in
   init-devel)
     # Install development packages for compiling node and modules
     packages="git svn gdb gcc-c++ make cmake autoconf automake libtool"
-    packages="$packages libuuid-devel openssl-devel libxml2-devel openldap-devel readline-devel libpng-devel libjpeg-turbo-devel mysql-devel"
-
-    # Linux distro specific actions
-    case "$OS_TYPE" in
-      centos)
-         packages="$packages postgresql93-devel"
-         ;;
-
-      amazon)
-         packages="$packages postgresql9-devel"
-         ;;
-    esac
+    packages="$packages libuuid-devel openssl-devel libxml2-devel openldap-devel readline-devel libpng-devel libjpeg-turbo-devel"
     yum -y -q install $packages
     ;;
 
@@ -1211,7 +1196,7 @@ case "$ARG" in
         if [ "$OS_TYPE" = "amazon" ]; then
            echo 'network.host: ["_ec2_","_local_"]' >> config/elasticsearch.yml
            echo 'discovery.type: ec2' >> config/elasticsearch.yml
-           bin/plugin install cloud-aws -b
+           bin/elasticsearch-plugin install discovery-ec2 -b
         fi
     fi
     ;;

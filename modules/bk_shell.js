@@ -304,7 +304,7 @@ shell.cmdTestRun = function(options)
 //
 //  Save into a file a.js and run
 //
-//        bksh -run-file -file a.js
+//        bksh -run-file a.js
 //
 //  In the shell now it new methods can be executed
 //
@@ -312,8 +312,8 @@ shell.cmdTestRun = function(options)
 //
 shell.cmdRunFile = function(options)
 {
-    var file = lib.getArg("-file");
-    if (!file) shell.exit("-file is required");
+    var file = lib.getArg("-run-file");
+    if (!file) shell.exit("-run-file argument is required");
     var mod;
     if (fs.existsSync(core.cwd + "/" + file) + ".js") mod = require(core.cwd + "/" + file); else
     if (fs.existsSync(core.home + "/" + file + ".js")) mod = require(core.home + "/" + file); else
