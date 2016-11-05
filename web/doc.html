@@ -3342,6 +3342,8 @@ Output file name is built according to the following options properties:</li>
 </ul>
 </li>
 </ul>
+<p>The callback takes 4 arguments: function(err, data, info)</p>
+<p>where <code>data</code> will contain a new image data and <code>info</code> is an object with the info about the new or unmodified image: format, width, height</p>
 </li>
 </ul>
 
@@ -6892,6 +6894,7 @@ or the default message, this is useful for detection of invalid or missing input
                                           pair: { type: &quot;map&quot;, separator: &quot;|&quot; },
                                           code: { type: &quot;string&quot;, regexp: /^[a-z]-[0-9]+$/, errmsg: &quot;Valid code is required&quot; },
                                           start: { type: &quot;token&quot;, required: 1 },
+                                          email1: { type: &quot;email&quot;, required: { email: null } },
                                           data: { type: &quot;json&quot;, datatype: &quot;obj&quot; },
                                           mtime: { type: &quot;mtime&quot;, name: &quot;timestamp&quot; },
                                           flag: { type: &quot;bool&quot;, novalue: false },
@@ -7016,6 +7019,7 @@ any element in the array exists in the <code>list</code>.</p>
 <ul>
 <li><p><code>lib.isMatched(obj, condition)</code></p>
 <p> All properties in the object <code>obj</code> must match all properties in the object <code>condition</code>, each value in <code>condition</code> is treated as RegExp,
+unless it is equal to &#39;null&#39; which means an empty or non-existed value,
 if it begins with ! it means no match is expected, the leading ! will be stripped.</p>
 <p>Example:</p>
 <pre><code>  lib.isMatched({id:1,name:2,notifications0:1,type:&quot;user,admin&quot;}, {notifications0:0})
