@@ -2469,8 +2469,9 @@ Database pool statistics and other diagnostics</p>
 <li><code>api-errlog-limiter-interval</code> - Interval for error log limiter, max errors per this interval</li>
 <li><code>api-errlog-limiter-ignore</code> - Do not show errors that match the regexp</li>
 <li><code>api-proxy-reverse</code> - A Web server where to proxy requests not macthed by the url patterns or host header, in the form: <a href="http://host[:port">http://host[:port</a>]</li>
-<li><code>api-proxy-url-(.+)</code> - URL regexp to be passed to other web server running behind, each parameter defines an url regexp and the destination in the value in the form <a href="http://host[:port">http://host[:port</a>], example: -server-proxy-url-^/api <a href="http://127.0.0.1:8080">http://127.0.0.1:8080</a></li>
-<li><code>api-proxy-host-(.+)</code> - Virtual host mapping, to match any Host: header, each parameter defines a host name and the destination in the value in the form <a href="http://host[:port">http://host[:port</a>], example: -server-proxy-host-www.myhost.com <a href="http://127.0.0.1:8080">http://127.0.0.1:8080</a></li>
+<li><code>api-proxy-url-(.+)</code> - URL regexp to be passed to other web server running behind, each parameter defines an url regexp and the destination in the value in the form <a href="http://host[:port">http://host[:port</a>], example: -api-proxy-url-^/api <a href="http://127.0.0.1:8080">http://127.0.0.1:8080</a></li>
+<li><code>api-proxy-host-(.+)</code> - Virtual host mapping, to match any Host: header, each parameter defines a host name and the destination in the value in the form <a href="http://host[:port">http://host[:port</a>], example: -api-proxy-host-www.myhost.com <a href="http://127.0.0.1:8080">http://127.0.0.1:8080</a></li>
+<li><code>api-routing-(.+)</code> - URL path to be re-routed to other path, this is done inside the server, only the path is checked and replaced, example: -api-routing-^/account/get /acount/read</li>
 <li><code>msg-([^-]+)-(cert)(@.+)?</code> - A certificate for APN or similar services in pfx format, can be a file name with .p12 extension or a string with certificate contents encoded with base64, if the suffix is specified in the config parameter name will be used as the app name, otherwise it is global</li>
 <li><code>msg-([^-]+)-(key)(@.+)?</code> - API key for GCM or similar services, if the suffix is specified in the config parameter will be used as the app name, without the suffix it is global</li>
 <li><code>msg-([^-]+)-(sandbox)(@.+)?</code> - Enable sandbox for a service, default is production mode</li>
@@ -2711,6 +2712,12 @@ will be called at the end to finalize the metrics and call the cleanup handlers<
 <ul>
 <li><p><code>api.checkBody(req, res, next)</code></p>
 <p> Parse multipart forms for uploaded files</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.checkRouting(req)</code></p>
+<p> Check if the current request must be re-routed to another endpoint</p>
 </li>
 </ul>
 
