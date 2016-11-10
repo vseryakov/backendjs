@@ -2487,6 +2487,7 @@ Database pool statistics and other diagnostics</p>
 <li><code>jobs-shutdown-timeout</code> - Max number of milliseconds to wait for the graceful shutdown sequence to finish, after this timeout the process just exits</li>
 <li><code>jobs-worker-queue</code> - Queue(s) to subscribe for workers, multiple queues can be processes at the same time, i.e. more than one job can run from different queues</li>
 <li><code>jobs-cron-queue</code> - Default queue to use for cron jobs</li>
+<li><code>jobs-unique-queue</code> - Default queue name to use for keeping track of unique jobs</li>
 <li><code>jobs-channel</code> - Name of the channel where to publish/receive jobs</li>
 <li><code>jobs-cron</code> - Allow cron jobs to be executed from the local etc/crontab file or via config parameter</li>
 <li><code>jobs-schedule</code> - Cron jobs to be scheduled, the JSON must be in the same format as crontab file</li>
@@ -6275,8 +6276,9 @@ cache implementation, options is an object passed down to the driver as is</p>
 
 <ul>
 <li><p><code>Ipc.prototype.get(key, options, callback)</code></p>
-<p> Retrieve an item from the cache by key.
-If <code>options.set</code> is given and no value exists in the cache it will be set as the initial value, local cache only</p>
+<p> Retrieve an item from the cache by key.</p>
+<p>If <code>options.set</code> is given and no value exists in the cache it will be set as the initial value, still
+nothing will be returned to signify that a new value assigned.</p>
 <p>Example</p>
 <p>  ipc.get(&quot;my:key&quot;, function(err, data) { console.log(data) });
   ipc.get(&quot;my:counter&quot;, { set: 10 }, function(err, data) { console.log(data) });</p>
@@ -6285,7 +6287,7 @@ If <code>options.set</code> is given and no value exists in the cache it will be
 
 <ul>
 <li><p><code>Ipc.prototype.del(key, options, callback)</code></p>
-<p> Delete an item by key</p>
+<p> Delete an item by key(s),  if <code>key</code> is an array all keys will be deleted at once atomically if supported</p>
 </li>
 </ul>
 
@@ -6370,22 +6372,28 @@ it will wait and try again until the bucket is filled.</p>
 </ul>
 
 <ul>
-<li><p><code>Ipc.prototype.checkTimer(name, options, callback)</code></p>
-<p> Implementation of a timer with the lock, only one instance can lock something for some period of time(interval) and will expire after timeout, all other
-attempts to lock the timer will fail. A timer is named and optional properties in the options can specify the <code>interval</code> and <code>timeout</code> in milliseconds, the
-defaults are 1 min and 1 hour accordingly.</p>
+<li><p><code>Ipc.prototype.lock(name, options, callback)</code></p>
+<p> Implementation of a lock with optional ttl, only one instance can lock it, can be for some period of time and will expire after timeout.
+A lock must be uniquely named and the timeout is specified by <code>options.ttl</code> in milliseconds.</p>
 <p>This is intended to be used for background job processing or something similar when
-only one instance is needed to run. At the end of the processing <code>clearTimer</code> must be called to enable another instance immediately,
-otherwise it will be available after the timeout only.</p>
-<p>The callback must be passed which will take one boolean argument, if true is retuned the timer has been locked by the caller, otherwise it is already locked by other
-instance.</p>
-<p>Note: The implementaton uses the currently configured cache system.</p>
-</li>
+only one instance is needed to run. At the end of the processing <code>ipc.unlock</code> must be called to enable another instance immediately,
+otherwise it will be available after the ttl only.</p>
+<p>if <code>options.timeout</code> is given the function will keep trying to lock for the <code>timeout</code> milliseconds.</p>
+<p>The callback must be passed which will take an error and a boolean value, if true is returned it means the timer has been locked by the caller,
+otherwise it is already locked by other instance. In case of an error the lock is not supposed to be locked by the caller.</p>
+<p>Example:</p>
+<pre><code>    ipc.lock(&quot;my-lock&quot;, { ttl: 60000, timeout: 30000 }, function(err, locked) {
+         if (locked) {
+             ...
+             ipc.unlock(&quot;my-lock&quot;);
+         }
+    });
+</code></pre></li>
 </ul>
 
 <ul>
-<li><p><code>Ipc.prototype.resetTimer(name)</code></p>
-<p> Reset the timer so it can be locked immediately.</p>
+<li><p><code>Ipc.prototype.unlock(name, options)</code></p>
+<p> Unconditionally unlock the lock, any client can unlock any lock.</p>
 </li>
 </ul>
 
@@ -6630,6 +6638,8 @@ must be in the following formats:</p>
 <p> Submit a job for execution, it will be saved in a queue and will be picked up later and executed.
 The queue and the way how it will be executed depends on the configured queue. See <code>isJob</code> for
 the format of the job objects.</p>
+<p>if &#39;jobspec.unique` is greater than zero it defines number of milliseconds for this job to say in the queue or run,
+it creates a global lock using the job object as the hash key, no other job canbe submitted until the ttl expires.</p>
 </li>
 </ul>
 
@@ -6677,15 +6687,12 @@ empty invalid jobs must be passed, like: <code>[ {} ]</code></p>
 <p> Load crontab from JSON file as list of job specs:</p>
 <ul>
 <li>cron - cron time interval spec: &#39;second&#39; &#39;minute&#39; &#39;hour&#39; &#39;dayOfMonth&#39; &#39;month&#39; &#39;dayOfWeek&#39;</li>
-<li>job - a string as obj.method or an object with job name as property name and the value is an object with<pre><code> additional jobspec for the job passed as first argument, a job callback always takes jobspec and callback as 2 arguments
-</code></pre></li>
+<li>job - a string as obj.method or an object with job name as property name and the value is an object with
+additional jobspec for the job passed as first argument, a job callback always takes jobspec and callback as 2 arguments</li>
 <li>disabled - disable the job but keep in the cron file, it will be ignored</li>
-<li>singleTask - if set only one cron job can be run at a time with the same name, this works only within single master and is checked
-before submitting a new job. It can be a boolean meaning all tasks in the job must not run or a string with single task name
-which must not run. For repeating tasks that can be ignored.</li>
-<li>singleTimeout - how long to wait for running job before submitting another one, for cases when unique job stuck or other condition
-prevented to clear up running list in the master, milliseconds</li>
 <li>queueName - name of the queue where to submit this job, if not given it uses cron-queue</li>
+<li>unique - defines that this job must be the only one in the queue for the number of milliseconds specified, after that
+time another job with the same arguments can be submitted.</li>
 </ul>
 <p>Example:</p>
 <pre><code>    [ { cron: &quot;0 0 * * * *&quot;, job: &quot;scraper.run&quot; }, ..]
