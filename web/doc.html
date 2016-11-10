@@ -2437,6 +2437,8 @@ Database pool statistics and other diagnostics</p>
 <li><code>api-deny-ip</code> - Set regexp for IPs that will be denied access, replaces the whole access list. It is checked before endpoint access list.</li>
 <li><code>api-allow</code> - Regexp for URLs that dont need credentials, replaces the whole access list</li>
 <li><code>api-allow-path</code> - Add to the list of allowed URL paths without authentication, return result before even checking for the signature</li>
+<li><code>api-ignore-allow</code> - Regexp for URLs that should be ignored by the allow rules, the processing will continue</li>
+<li><code>api-ignore-allow-path</code> - Add to the list of URL paths which should e ignored by the allow rules, in order to keep allow/deny rules simple, for example to keep some js files from open to all: -allow-path .js -disallow-path /secure/</li>
 <li><code>api-allow-anonymous</code> - Add to the list of allowed URL paths that can be served with or without valid account, the difference with <code>allow-path</code> is that it will check for signature and an account but will continue if no login is provided, return error in case of wrong account or not account found</li>
 <li><code>api-allow-ssl</code> - Add to the list of allowed URL paths using HTTPs only, plain HTTP requests to these urls will be refused</li>
 <li><code>api-redirect-ssl</code> - Add to the list of the URL paths to be redirected to the same path but using HTTPS protocol, for proxy mode the proxy server will perform redirects</li>
@@ -2934,7 +2936,8 @@ validating the signature or session cookies. No account information is available
 <li>method can be &#39;&#39; in such case all methods will be matched</li>
 <li>path is a string or regexp of the request URL similar to registering Express routes</li>
 <li>callback is a function with the following parameters: function(req, cb) {}, to indicate an error condition pass an object
-with the callback with status: and message: properties, status != 200 means error</li>
+with the callback with status: and message: properties, status != 200 means error,
+status == 0 means continue processing, ignore this match</li>
 </ul>
 <p>Example:</p>
 <pre><code>    api.registerAccessCheck(&#39;&#39;, &#39;account&#39;, function(req, cb) { cb({ status: 500, message: &quot;access disabled&quot;}) }))
