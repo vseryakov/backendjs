@@ -3,11 +3,11 @@
 //  Nov 2014
 //
 
-var logger = require(__dirname + '/logger');
-var core = require(__dirname + '/core');
-var lib = require(__dirname + '/lib');
-var aws = require(__dirname + '/aws');
-var msg = require(__dirname + '/msg');
+var logger = require(__dirname + '/../lib/logger');
+var core = require(__dirname + '/../lib/core');
+var lib = require(__dirname + '/../lib/lib');
+var aws = require(__dirname + '/../lib/aws');
+var msg = require(__dirname + '/../lib/msg');
 
 var client = {
     name: "sns",

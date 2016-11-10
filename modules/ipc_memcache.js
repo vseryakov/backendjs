@@ -5,11 +5,11 @@
 
 var util = require('util');
 var path = require('path');
-var logger = require(__dirname + '/logger');
-var core = require(__dirname + '/core');
-var lib = require(__dirname + '/lib');
-var ipc = require(__dirname + "/ipc");
-var Client = require(__dirname + "/ipc_client");
+var logger = require(__dirname + '/../lib/logger');
+var core = require(__dirname + '/../lib/core');
+var lib = require(__dirname + '/../lib/lib');
+var ipc = require(__dirname + "/../lib/ipc");
+var Client = require(__dirname + "/../lib/ipc_client");
 
 // Cache client based on Memcached server using https://github.com/3rd-Eden/node-memcached
 //

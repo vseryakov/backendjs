@@ -6,14 +6,15 @@
 var util = require('util');
 var fs = require('fs');
 var path = require('path');
-var logger = require(__dirname + '/logger');
-var core = require(__dirname + '/core');
-var lib = require(__dirname + '/lib');
-var aws = require(__dirname + '/aws');
-var msg = require(__dirname + '/msg');
+var logger = require(__dirname + '/../lib/logger');
+var core = require(__dirname + '/../lib/core');
+var lib = require(__dirname + '/../lib/lib');
+var aws = require(__dirname + '/../lib/aws');
+var msg = require(__dirname + '/../lib/msg');
 
 var client = {
     name: "fcm",
+    priority: 10,
     agents: {},
 };
 module.exports = client;
@@ -22,7 +23,7 @@ msg.modules.push(client);
 
 client.check = function(dev)
 {
-    return dev.service == "fcm";
+    return dev.service == "fcm" || dev.service == "gcm";
 }
 
 // Initialize Google Cloud Messaging service to send push notifications to mobile devices
