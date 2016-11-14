@@ -4752,6 +4752,7 @@ database like DynamoDB for real-time requests and slower SQL database running on
           name: { primary: 1 },            // name of the parameter
           type: { primary: 1 },            // config type or tag
           value: {},                       // the value
+          status: { value: &quot;ok&quot; },         // ok - availaible
           ttl: { type: &quot;int&quot; },            // refresh interval in seconds since last read
           mtime: { type: &quot;now&quot; }
       },
@@ -5643,13 +5644,13 @@ requests with any database or can be used generically. The <code>cap</code> must
 </ul>
 
 <ul>
-<li><p><code>db.getFilteredColumns(table, filter)</code></p>
+<li><p><code>db.getFilteredColumns(table, filter, options)</code></p>
 <p> Return table columns filtered by a proprty filter, only return columns that contain(or not)
 any property from the filter list. If the filter is an object then values must match, null means if exists.</p>
 <p>Example:</p>
 <pre><code>db.getFilteredColumns(&quot;bk_account&quot;, &quot;pub&quot;)
 db.getFilteredColumns(&quot;bk_account&quot;, { pub: null, index: 2 })
-db.getFilteredColumns(&quot;bk_account&quot;, { type: &quot;now&quot; })
+db.getFilteredColumns(&quot;bk_account&quot;, { type: &quot;now&quot; }, { list: 1 })
 </code></pre></li>
 </ul>
 
@@ -6507,6 +6508,12 @@ and the property <code>delay</code> with number of milliseconds till the bucket 
 <ul>
 <li><p><code>IpcClient.prototype.publish(channel, msg, options, callback)</code></p>
 <p> Publish an event</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>IpcClient.prototype.lock(name, options, callback)</code></p>
+<p> By default always lock because of lack of actual implementtion</p>
 </li>
 </ul>
 

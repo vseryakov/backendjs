@@ -65,7 +65,7 @@
     "geohash"
   ],
   "engines": {
-    "node": ">=0.10 <0.12"
+    "node": ">=0.10"
   },
   "license": "BSD-3-Clause",
   "bin": {
