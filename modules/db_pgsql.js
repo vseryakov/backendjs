@@ -15,6 +15,7 @@ var pool = {
     configOptions: {
         typesMap: { real: "numeric", bigint: "bigint", smallint: "smallint", search: "tsvector", now: "bigint" },
         noIfExists: 1,
+        noJson: 1,
         noReplace: 1,
         schema: ['public']
     },

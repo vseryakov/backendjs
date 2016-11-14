@@ -15,6 +15,7 @@ var pool = {
         typesMap: { json: "text", bigint: "bigint", now: "bigint" },
         sqlPlaceholder: "?",
         defaultType: "VARCHAR(128)",
+        noJson: 1,
         noIfExists: 1,
         noJson: 1,
         noMultiSQL: 1

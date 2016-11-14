@@ -41,11 +41,7 @@
     "memcached": ">= 2.1.1",
     "mongodb": ">= 2.1.4",
     "amqp": ">= 0.2.4",
-    "cassandra-driver": ">= 3.0.0",
-    "bkjs-pgsql": ">= 0.1.0",
-    "bkjs-mysql": ">= 0.1.0",
-    "bkjs-lmdb": ">= 0.1.0",
-    "bkjs-leveldb": ">= 0.1.0"
+    "cassandra-driver": ">= 3.0.0"
   },
   "keywords": [
     "bkjs",

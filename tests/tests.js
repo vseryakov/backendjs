@@ -770,7 +770,7 @@ tests.test_db = function(callback)
         },
         function(next) {
             db.get("test2", { id: id, id2: '1' }, { consistent: true }, function(err, row) {
-                tests.assert(next, err || !row || row.id != id  || row.email != id+"@test" || row.num == 9 || !Array.isArray(row.json), "err9:", row);
+                tests.assert(next, err || !row || row.id != id  || row.email != id+"@test" || row.num == 9 || !Array.isArray(row.json), "err9:", id, row);
             });
         },
         function(next) {
