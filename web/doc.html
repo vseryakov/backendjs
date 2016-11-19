@@ -6650,6 +6650,9 @@ The queue and the way how it will be executed depends on the configured queue. S
 the format of the job objects.</p>
 <p>if &#39;jobspec.unique` is greater than zero it defines number of milliseconds for this job to say in the queue or run,
 it creates a global lock using the job object as the hash key, no other job canbe submitted until the ttl expires.</p>
+<p>Special queueName: <code>jobs.selfQueue</code> is reserved to run the job immediately inside the current process,
+it will call the <code>runJob</code> directly, this is useful in cases when already inside a worker and instead of submitting a new job
+just run it directly.</p>
 </li>
 </ul>
 
@@ -7478,7 +7481,7 @@ Example:<pre><code>  lib.cloneObj({ 1: 2 }, &quot;3&quot;, 3, &quot;4&quot;, 4)
 
 <ul>
 <li><p><code>lib.mergeObj(obj, options)</code></p>
-<p> Merge two object, all properties from the <code>options</code> override existing properties in the <code>obj</code>, returns a new object, shallow copy,
+<p> Merge two objects, all properties from the <code>options</code> override existing properties in the <code>obj</code>, returns a new object, shallow copy,
 only top level properties are reassigned.</p>
 <p>Example</p>
 <pre><code> var o = lib.mergeObject({ a:1, b:2, c:3 }, { c:5, d:1 })
@@ -7493,6 +7496,25 @@ only top level properties are reassigned.</p>
 <pre><code>    &gt; lib.flattenObj({ a: { c: 1 }, b: { d: 1 } } )
     { &#39;a.c&#39;: 1, &#39;b.d&#39;: 1 }
 </code></pre></li>
+</ul>
+
+<ul>
+<li><p><code>lib.cleanObj(obj, options)</code></p>
+<p> Cleanup object properties, delete all undefined values in place by default.
+Additional options:</p>
+<ul>
+<li>If <code>null</code> is true then delete all null properties.</li>
+<li>If <code>type</code> is a RegExp then all properties that match it by type will be deleted.</li>
+<li>If <code>name</code> is a RegExp then all properties that match it by name will be deleted.</li>
+<li>If <code>value</code> is a RegExp then all string|number|boolean properties that match it by value will be deleted.</li>
+<li>If <code>array</code> is true then process all array items recursivelly</li>
+</ul>
+<p>Example</p>
+<blockquote>
+<p>lib.cleanObj({ a: 1, b: true, c: undefined, d: 2, e: null, l: [&quot;a&quot;, &quot;b&quot;, null, undefined, { a: 1, b: undefined } ] },{ null:1, array:1, type: /boolean/})
+   { a: 1, d: 2, l: [ &#39;a&#39;, &#39;b&#39;, { a: 1 } ] }</p>
+</blockquote>
+</li>
 </ul>
 
 <ul>
