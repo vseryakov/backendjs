@@ -115,14 +115,14 @@
 <li><a href="#module-msg_apn">msg_apn</a></li>
 <li><a href="#module-msg_gcm">msg_gcm</a></li>
 <li><a href="#module-server">server</a></li>
-<li><a href="#module-bk_accounts">bk_accounts</a></li>
-<li><a href="#module-bk_connections">bk_connections</a></li>
-<li><a href="#module-bk_counters">bk_counters</a></li>
+<li><a href="#module-bk_account">bk_account</a></li>
+<li><a href="#module-bk_connection">bk_connection</a></li>
+<li><a href="#module-bk_counter">bk_counter</a></li>
 <li><a href="#module-bk_data">bk_data</a></li>
-<li><a href="#module-bk_files">bk_files</a></li>
-<li><a href="#module-bk_icons">bk_icons</a></li>
-<li><a href="#module-bk_locations">bk_locations</a></li>
-<li><a href="#module-bk_messages">bk_messages</a></li>
+<li><a href="#module-bk_file">bk_file</a></li>
+<li><a href="#module-bk_icon">bk_icon</a></li>
+<li><a href="#module-bk_location">bk_location</a></li>
+<li><a href="#module-bk_message">bk_message</a></li>
 <li><a href="#module-bk_shell">bk_shell</a></li>
 <li><a href="#module-bk_status">bk_status</a></li>
 <li><a href="#module-bk_system">bk_system</a></li>
@@ -5256,83 +5256,6 @@ for convenience of doing joins on some conditions and trigger it by setting the 
 </ul>
 
 <ul>
-<li><p><code>db.getLocations(table, query, options, callback)</code></p>
-<p> Geo locations search, paginate all results until the end.
-table must be defined with the following required columns:</p>
-<ul>
-<li>geohash - location as primary key hash column</li>
-<li>id or other column name to be used as a RANGE key for DynamoDB/Cassandra or part of the composite primary key
- for SQL, the result will be sorted by this column for all databases</li>
-<li>latitude and longitude as floating numbers to store the actual location</li>
-</ul>
-<p>When defining the table for location searches the begining of the table must be defined as the following:</p>
-<pre><code>    db.describeTables({
-            geo: { geohash: { primary: 1, minDistance: 5 },
-                   id: { primary: 1 },
-                   latitude: { type: &quot;real&quot;, projections: 1 },
-                   longitude: { type: &quot;real&quot;, projections: 1 },
-            }
-    });
-</code></pre><p>the rest of the columns can be defined as needed, no special requirements.</p>
-<p><em><code>id</code> can be any property, it is used for sorting only. For DynamoDB if geohash is an index then lat/long properties must
- use projections: 1 in order to be included in the index projection.</em></p>
-<p><code>query</code> must contain the following:</p>
-<ul>
-<li>latitude</li>
-<li>longitude</li>
-</ul>
-<p>other query parameters:</p>
-<ul>
-<li>distance - in km, the radius around the point, if not given the <code>options.minDistance</code> will be used</li>
-<li>count - if greater than 0 then return this amount with each iteration, if 0 then all matched
-records within the specified distance will be returned, if no specified then defaults to 10</li>
-</ul>
-<p>all other properties will be used as additional conditions</p>
-<p><code>options</code> optional properties:</p>
-<ul>
-<li>minDistance - minimum distance to define how long a geohash will be, if not given it will use the same property from the column definition</li>
-<li>top - number of first &#39;top&#39;th records from each neighboring area, to be used with sorting by the range key to take
- only highest/lowest matches, useful for trending/statistics, count still defines the total number of locations</li>
-<li>geokey - name of the geohash primary key column, by default it is <code>geohash</code>, it is possible to keep several different
- geohash indexes within the same table with different geohash length which will allow to perform
- searches more precisely depending on the distance given</li>
-<li>round - a number that defines the &quot;precision&quot; of  the distance, it rounds the distance to the nearest
-round number and uses decimal point of the round number to limit decimals in the distance</li>
-<li>sort - sorting order, by default the RANGE key is used for DynamoDB, it is possible to specify any Index as well,
-in case of SQL this is the second part of the primary key</li>
-<li>checkLocation - a function(table, query, options) than can be used to check if the current geohash is valid and can be
-scanned, returns false if ican be skipped, this is to make geohash scanning optimized if it is known before the call
-which geohashes contain no records at all.</li>
-</ul>
-<p>On first call, query must contain latitude and longitude of the center and optionally distance for the radius. On subsequent calls options must be the
-the next_token returned by the previous call and query will be ignored</p>
-<p>On return, the callback&#39;s third argument contains the object with next_token that must be provided for subsequent searches until rows array is empty.</p>
-<p>Example</p>
-<pre><code>    var query = { latitude: -118, longitude: 30, distance: 10 };
-    db.getLocations(&quot;bk_location&quot;, query, { round: 5 }, function(err, rows, info) {
-        ...
-        // Get next page using previous info object
-        db.getLocations(&quot;bk_location&quot;, query, info.next_token, function(err, rows, info) {
-            ...
-        });
-    });
-</code></pre><p>Geohash grid in general looks like this (2 levels example):</p>
-<pre><code>   left33 left31   top3   right32 right34
-   left13 left11   top1   right12 right14
-   left03 left01  center  right01 rigt04
-   left23 left21  bottom2 right21 right24
-   left43 left41  bottom4 right41 right44
-</code></pre></li>
-</ul>
-<p> Geo grid for browsing is a list from the center all rows up, this means that records with
- smaller distances will appear again when geohash range is big:
-         center   left01 right01 left02 right02
-         top1     left11 right11 left12 right12
-         bottom2  left21 right21 left22 right22
-         top3     left31 right31 left32 right32
-         bottom4  left41 right41 left42 right42</p>
-
-<ul>
 <li><p><code>db.create(table, columns, options, callback)</code></p>
 <p> Create a table using column definitions represented as a list of objects. Each column definition can
 contain the following properties:</p>
@@ -7200,12 +7123,6 @@ The message must have <code>id</code> property which is used to find the corresp
 </ul>
 
 <ul>
-<li><p><code>lib.geoHashRange(distance)</code></p>
-<p> Returns the first geohash range greater than given distance</p>
-</li>
-</ul>
-
-<ul>
 <li><p><code>lib.geoDistance(latitude1, longitude1, latitude2, longitude2, options)</code></p>
 <p> Return distance between two locations</p>
 <p>The options can specify the following properties:</p>
@@ -7215,24 +7132,6 @@ The message must have <code>id</code> property which is used to find the corresp
 <p>Example: round to the nearest full 5 km and use only 1 decimal point, if the distance is 13, it will be 15.0</p>
 <pre><code>lib.geoDistance(34, -188, 34.4, -119, { round: 5.1 })
 </code></pre></li>
-</ul>
-
-<ul>
-<li><p><code>lib.geoHashDistance(geohash1, geohash2, options)</code></p>
-<p> Same as geoDistance but operates on 2 geohashes instead of coordinates.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.geoBoundingBox(latitude, longitude, distance)</code></p>
-<p> Return a bounding box geohash for a given point around distance in km</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.geoHashDecode(geohash)</code></p>
-<p> Decode a geohash into lattiude and longitude, returns an array with the coordinates</p>
-</li>
 </ul>
 
 <ul>
@@ -8208,7 +8107,7 @@ it runs <code>shutdown[Role]</code> methods before exiting</p>
 </li>
 </ul>
 
-<h2 id="module-bk_accounts">Module: BK_ACCOUNTS</h2>
+<h2 id="module-bk_account">Module: BK_ACCOUNT</h2>
 <ul>
 <li><p><code>accounts</code></p>
 <p> Account management</p>
@@ -8382,7 +8281,7 @@ delete an account but keep all messages and location: <code>keep_message: 1, kee
 </li>
 </ul>
 
-<h2 id="module-bk_connections">Module: BK_CONNECTIONS</h2>
+<h2 id="module-bk_connection">Module: BK_CONNECTION</h2>
 <ul>
 <li><p><code>mod</code></p>
 <p> Connections management</p>
@@ -8549,7 +8448,7 @@ If any of obj.id or obj.type are not specified then perform a query for matching
 </li>
 </ul>
 
-<h2 id="module-bk_counters">Module: BK_COUNTERS</h2>
+<h2 id="module-bk_counter">Module: BK_COUNTER</h2>
 <ul>
 <li><p><code>mod</code></p>
 <p> Counters management</p>
@@ -8641,7 +8540,7 @@ If any of obj.id or obj.type are not specified then perform a query for matching
 </li>
 </ul>
 
-<h2 id="module-bk_files">Module: BK_FILES</h2>
+<h2 id="module-bk_file">Module: BK_FILE</h2>
 <ul>
 <li><p><code>files</code></p>
 <p> Account management</p>
@@ -8709,7 +8608,7 @@ If any of obj.id or obj.type are not specified then perform a query for matching
 </code></pre></li>
 </ul>
 
-<h2 id="module-bk_icons">Module: BK_ICONS</h2>
+<h2 id="module-bk_icon">Module: BK_ICON</h2>
 <ul>
 <li><p><code>mod</code></p>
 <p> Icons management</p>
@@ -8813,7 +8712,7 @@ Verify icon limits before adding new icons</p>
 </li>
 </ul>
 
-<h2 id="module-bk_locations">Module: BK_LOCATIONS</h2>
+<h2 id="module-bk_location">Module: BK_LOCATION</h2>
 <ul>
 <li><p><code>mod</code></p>
 <p> Locations management</p>
@@ -8831,7 +8730,7 @@ Verify icon limits before adding new icons</p>
       },
       bk_location: {
           geohash: { primary: 1 },                    // geohash, api.minDistance defines the size
-          id: { primary: 1, pub: 1 },                 // my account id, part of the primary key for pagination
+          id: { primary: 2, pub: 1 },                 // my account id, part of the primary key for pagination
           latitude: { type: &quot;real&quot; },
           longitude: { type: &quot;real&quot; },
           name: { pub: 1 },
@@ -8853,7 +8752,7 @@ Verify icon limits before adding new icons</p>
       },
   },
   // Geo min distance for the hash key, km
-  minDistance: 5,
+  minDistance: 1,
   // Max searchable distance, km
   maxDistance: 50,
 </code></pre><p>  };
@@ -8882,35 +8781,112 @@ Verify icon limits before adding new icons</p>
 
       switch (req.params[0]) {
       case &quot;put&quot;:
-          self.putLocation(req, options, function(err, data) {
+          self.put(req, options, function(err, data) {
               api.sendJSON(req, err, data);
 </code></pre></li>
 </ul>
 
 <ul>
-<li><p><code>mod.getLocation(req, options, callback)</code></p>
+<li><p><code>mod.search(req, options, callback)</code></p>
 <p> Perform locations search, request comes from the Express server, callback will takes err and data to be returned back to the client, this function
-is used in <code>/location/get</code> request. It can be used in the applications with customized input and output if neccesary for the application specific logic.</p>
+is used in <code>/location/search</code> request. It can be used in the applications with customized input and output if neccesary for the application specific logic.</p>
 <p>Example</p>
 <pre><code>    # Request will look like: /recent/locations?latitude=34.1&amp;longitude=-118.1&amp;mtime=123456789
     api.app.all(/^\/recent\/locations$/, function(req, res) {
         var options = api.getOptions(req);
         options.keys = [&quot;geohash&quot;,&quot;mtime&quot;];
         options.ops = { mtime: &#39;gt&#39; };
-        api.getLocations(req, options, function(err, data) {
-            self.sendJSON(req, err, data);
+        core.modules.bk_location.search(req, options, function(err, data) {
+            api.sendJSON(req, err, data);
         });
     });
 </code></pre></li>
 </ul>
 
 <ul>
-<li><p><code>mod.putLocation(req, options, callback)</code></p>
+<li><p><code>mod.put(req, options, callback)</code></p>
 <p> Save location coordinates for current account, this function is called by the <code>/location/put</code> API call</p>
 </li>
 </ul>
 
-<h2 id="module-bk_messages">Module: BK_MESSAGES</h2>
+<ul>
+<li><p><code>mod.select(table, query, options, callback)</code></p>
+<p> Geo locations search, paginate all results until the end.
+table must be defined with the following required columns:</p>
+<ul>
+<li>geohash - location as primary key hash column</li>
+<li>id or other column name to be used as a RANGE key for DynamoDB/Cassandra or part of the composite primary key
+ for SQL, the result will be sorted by this column for all databases</li>
+<li>latitude and longitude as floating numbers to store the actual location</li>
+</ul>
+<p>When defining the table for location searches the begining of the table must be defined as the following:</p>
+<pre><code>    db.describeTables({
+            geo: { geohash: { primary: 1, minDistance: 5 },
+                   id: { primary: 2 },
+                   latitude: { type: &quot;real&quot;, projections: 1 },
+                   longitude: { type: &quot;real&quot;, projections: 1 },
+            }
+    });
+</code></pre><p>the rest of the columns can be defined as needed, no special requirements.</p>
+<p><em><code>id</code> can be any property, it is used for sorting only. For DynamoDB if geohash is an index then lat/long properties must
+ use projections: 1 in order to be included in the index projection.</em></p>
+<p><code>query</code> must contain the following:</p>
+<ul>
+<li>latitude</li>
+<li>longitude</li>
+</ul>
+<p>other query parameters:</p>
+<ul>
+<li>distance - in km, the radius around the point, if not given the <code>options.minDistance</code> will be used</li>
+<li>count - if greater than 0 then return this amount with each iteration, if 0 then all matched
+records within the specified distance will be returned, if no specified then defaults to 10</li>
+</ul>
+<p>all other properties will be used as additional conditions</p>
+<p><code>options</code> optional properties:</p>
+<ul>
+<li>minDistance - minimum distance to define how long a geohash will be, if not given it will use the same property from the column definition</li>
+<li>top - number of first &#39;top&#39;th records from each neighboring area, to be used with sorting by the range key to take
+ only highest/lowest matches, useful for trending/statistics, count still defines the total number of locations</li>
+<li>geokey - name of the geohash primary key column, by default it is <code>geohash</code>, it is possible to keep several different
+ geohash indexes within the same table with different geohash length which will allow to perform
+ searches more precisely depending on the distance given</li>
+<li>round - a number that defines the &quot;precision&quot; of  the distance, it rounds the distance to the nearest
+round number and uses decimal point of the round number to limit decimals in the distance</li>
+<li>sort - sorting order, by default the RANGE key is used for DynamoDB, it is possible to specify any Index as well,
+in case of SQL this is the second part of the primary key</li>
+<li>checkLocation - a function(table, query, options) than can be used to check if the current geohash is valid and can be
+scanned, returns false if ican be skipped, this is to make geohash scanning optimized if it is known before the call
+which geohashes contain no records at all.</li>
+</ul>
+<p>On first call, query must contain latitude and longitude of the center and optionally distance for the radius. On subsequent calls options must be the
+the next_token returned by the previous call and query will be ignored</p>
+<p>On return, the callback&#39;s third argument contains the object with next_token that must be provided for subsequent searches until rows array is empty.</p>
+<p>Example</p>
+<pre><code>    var query = { latitude: -118, longitude: 30, distance: 10 };
+    core.modules.bk_location.select(&quot;bk_location&quot;, query, { round: 5 }, function(err, rows, info) {
+        ...
+        // Get next page using previous info object
+        core.modules.bk_location.select(&quot;bk_location&quot;, query, info.next_token, function(err, rows, info) {
+            ...
+        });
+    });
+</code></pre><p>Geohash grid in general looks like this (2 levels example):</p>
+<pre><code>   left33 left31   top3   right32 right34
+   left13 left11   top1   right12 right14
+   left03 left01  center  right01 rigt04
+   left23 left21  bottom2 right21 right24
+   left43 left41  bottom4 right41 right44
+</code></pre></li>
+</ul>
+<p> Geo grid for browsing is a list from the center all rows up, this means that records with
+ smaller distances will appear again when geohash range is big:
+         center   left01 right01 left02 right02
+         top1     left11 right11 left12 right12
+         bottom2  left21 right21 left22 right22
+         top3     left31 right31 left32 right32
+         bottom4  left41 right41 left42 right42</p>
+
+<h2 id="module-bk_message">Module: BK_MESSAGE</h2>
 <ul>
 <li><p><code>mod</code></p>
 <p> Messages management</p>
