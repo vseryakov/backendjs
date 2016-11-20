@@ -13,6 +13,7 @@ var path = require('path');
 var child_process = require('child_process');
 var bkjs = require('backendjs')
 var bkcache = require('bkjs-cache');
+var bkutils = require("bkjs-utils");
 var core = bkjs.core;
 var lib = bkjs.lib;
 var ipc = bkjs.ipc;
@@ -298,6 +299,7 @@ tests.test_account = function(callback)
 
 tests.test_location = function(callback)
 {
+    if (!core.modules.bk_location) return callback("bk_location module is required, use -allow-modules bk_location");
     var self = this;
     var tables = {
             geo: { geohash: { primary: 1, index: 1, semipub: 1 },
@@ -313,7 +315,8 @@ tests.test_location = function(callback)
     var city = lib.getArg("-city", "LA");
     var bbox = (locations[city] || locations.LA).bbox;
     var rows = lib.getArgInt("-rows", 10);
-    var distance = lib.getArgInt("-distance", 25);
+    var distance = lib.getArgInt("-distance", 15);
+    var minDistance = lib.getArgInt("-mindistance", 1);
     var round = lib.getArgInt("-round", 0);
     var reset = lib.getArgInt("-reset", 1);
     var latitude = lib.getArgInt("-lat", lib.randomNum(bbox[0], bbox[2]))
@@ -322,10 +325,10 @@ tests.test_location = function(callback)
     var rc = [], top = {}, bad = 0, good = 0, error = 0, count = rows/2;
     var ghash, gcount = Math.floor(count/2);
     // New bounding box for the tests
-    bbox = lib.geoBoundingBox(latitude, longitude, distance);
+    bbox = bkutils.geoBoundingBox(latitude, longitude, distance);
     // To get all neighbors, we can only guarantee searches in the neighboring areas, even if the distance is within it
     // still can be in the box outside of the immediate neighbors, minDistance is an approximation
-    var geo = lib.geoHash(latitude, longitude, { distance: distance });
+    var geo = lib.geoHash(latitude, longitude, { distance: distance, minDistance: minDistance });
 
     db.describeTables(tables);
 
@@ -337,17 +340,22 @@ tests.test_location = function(callback)
         function(next) {
             if (!reset) return next();
             lib.whilst(
-                function () { return good < rows + count; },
+                function () {
+                    return good < rows + count
+                },
                 function (next2) {
                     var lat = lib.randomNum(bbox[0], bbox[2]);
                     var lon = lib.randomNum(bbox[1], bbox[3]);
-                    var obj = lib.geoHash(lat, lon);
+                    var obj = lib.geoHash(lat, lon, { minDistance: minDistance });
                     obj.distance = lib.geoDistance(latitude, longitude, lat, lon, { round: round });
                     if (obj.distance == null || obj.distance > distance) return next2();
                     // Make sure its in the neighbors
                     if (geo.neighbors.indexOf(obj.geohash) == -1) return next2();
                     // Create several records in the same geohash box
-                    if (good > rows && ghash != obj.geohash) return next2();
+                    if (good > rows && ghash != obj.geohash) {
+                        logger.debug("skip", ghash, obj.geohash, lat, lon, Object.keys(top));
+                        return next2();
+                    }
                     good++;
                     obj.id = String(good);
                     obj.rank = good;
@@ -364,21 +372,21 @@ tests.test_location = function(callback)
                         next2(err);
                     });
                 },
-                function(err) {
-                    next(err);
-                });
+                next);
         },
         function(next) {
             if (!reset) return next();
             // Records beyond our distance
             bad = good;
             lib.whilst(
-                function () { return bad < good + count; },
+                function () {
+                    return bad < good + count
+                },
                 function (next2) {
                     var lat = lib.randomNum(bbox[0], bbox[2]);
                     var lon = lib.randomNum(bbox[1], bbox[3]);
-                    var obj = lib.geoHash(lat, lon);
-                    obj.distance = lib.geoDistance(latitude, longitude, lat, lon, { round: round });
+                    var obj = lib.geoHash(lat, lon, { minDistance: minDistance });
+                    obj.distance = lib.geoDistance(latitude, longitude, lat, lon, { round: round, minDistance: minDistance });
                     if (obj.distance == null || obj.distance <= distance || obj.distance > distance*2) return next2();
                     bad++;
                     obj.id = String(bad);
@@ -392,17 +400,15 @@ tests.test_location = function(callback)
                         next2(err);
                     });
                 },
-                function(err) {
-                    next(err);
-                });
+                next);
         },
         function(next) {
             // Scan all locations, do it in small chunks to verify we can continue within the same geohash area
             var query = { latitude: latitude, longitude: longitude, distance: distance };
-            var options = { count: gcount, round: round };
+            var options = { count: gcount, round: round, minDstance: minDistance };
             lib.doWhilst(
                 function(next2) {
-                    db.getLocations("geo", query, options, function(err, rows, info) {
+                    core.modules.bk_location.select("geo", query, options, function(err, rows, info) {
                         options = info.next_token;
                         rows.forEach(function(x) { rc.push({ id: x.geohash + ":" + x.id, status: x.status }) })
                         next2();
@@ -418,8 +424,8 @@ tests.test_location = function(callback)
         function(next) {
             // Scan all good locations with the top 3 rank values
             var query = { latitude: latitude, longitude: longitude, distance: distance, status: "good", rank: good-3 };
-            var options = { round: round, ops: { rank: 'gt' } };
-            db.getLocations("geo", query, options, function(err, rows, info) {
+            var options = { round: round, ops: { rank: 'gt' }, minDstance: minDistance };
+            core.modules.bk_location.select("geo", query, options, function(err, rows, info) {
                 var isok = rows.every(function(x) { return x.status == 'good' && x.rank > good-3 });
                 tests.assert(next, err || rows.length!=3 || !isok, "err2:", rows.length, isok, good, rows);
             });
@@ -427,8 +433,8 @@ tests.test_location = function(callback)
         function(next) {
             // Scan all locations beyond our good distance, get all bad with top 2 rank values
             var query = { latitude: latitude, longitude: longitude, distance: distance*2, status: "bad", rank: bad-2 };
-            var options = { round: round, ops: { rank: 'gt' }, sort: "rank", desc: true };
-            db.getLocations("geo", query, options, function(err, rows, info) {
+            var options = { round: round, ops: { rank: 'gt' }, sort: "rank", desc: true, minDstance: minDistance };
+            core.modules.bk_location.select("geo", query, options, function(err, rows, info) {
                 var isok = rows.every(function(x) { return x.status == 'bad' && x.rank > bad-2 });
                 tests.assert(next, err || rows.length!=2 || !isok, "err3:", rows.length, isok, bad, rows);
             });
@@ -436,8 +442,8 @@ tests.test_location = function(callback)
         function(next) {
             // Scan all neighbors within the distance and take top 2 ranks only, in desc order
             var query = { latitude: latitude, longitude: longitude, distance: distance, status: "good" };
-            var options = { round: round, sort: "rank", desc: true, count: 50, top: 2, select: "latitude,longitude,id,status,rank" };
-            db.getLocations("geo", query, options, function(err, rows, info) {
+            var options = { round: round, sort: "rank", desc: true, count: 50, top: 2, select: "latitude,longitude,id,status,rank", minDstance: minDistance };
+            core.modules.bk_location.select("geo", query, options, function(err, rows, info) {
                 var isok = rows.every(function(x) { return x.status == 'good' })
                 var iscount = Object.keys(top).reduce(function(x,y) { return x + Math.min(2, top[y].length) }, 0);
                 tests.assert(next, err || rows.length!=iscount || !isok, "err4:", rows.length, iscount, isok, rows, 'TOP:', top);
@@ -1163,7 +1169,7 @@ tests.test_pool = function(callback)
                     create: function(cb) { cb(null,{ id:Date.now()}) }
     }
     var list = [];
-    var pool = lib.createPool(options)
+    var pool = new lib.Pool(options)
     lib.series([
        function(next) {
            console.log('pool0:', pool.stats(), 'list:', list.length);

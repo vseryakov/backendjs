@@ -9,6 +9,7 @@ var db = bkjs.db;
 var api = bkjs.api;
 var app = bkjs.app;
 var logger = bkjs.logger;
+var bkutils = require("bkjs-utils");
 
 var center = [ 37.758565, -122.450523 ];
 
@@ -54,7 +55,7 @@ function updateTaxis()
 {
     var ids = [ "11", "22", "33" ];
     var statuses = [ "avail", "busy", "scheduled" ];
-    var bbox = lib.geoBoundingBox(center[0], center[1], 2); // within 2 km from the center
+    var bbox = bkutils.geoBoundingBox(center[0], center[1], 2); // within 2 km from the center
     var latitude = lib.randomNum(bbox[0], bbox[2], 5);
     var longitude = lib.randomNum(bbox[1], bbox[3], 5);
     var id = ids[lib.randomInt(0, ids.length - 1)];
