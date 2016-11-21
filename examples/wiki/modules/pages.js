@@ -173,5 +173,5 @@ pages.preparePages = function(options)
 // Send rendered markdown to the client response
 pages.sendPages = function(req, options)
 {
-    req.res.render(this.view, { pages: this.preparePages(lib.extendObj(options, 'render', 1)) });
+    req.res.render(this.view, { pages: this.preparePages(lib.objExtend(options, 'render', 1)) });
 }

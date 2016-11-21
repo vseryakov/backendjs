@@ -33,7 +33,7 @@ client.init = function(options)
     var config = msg.getConfig(this.name);
     for (var i in config) {
         if (this.agents[config[i]._app]) continue;
-        this.agents[config[i]._app] = lib.cloneObj(config[i], "_sent", 0, "_queue", 0);
+        this.agents[config[i]._app] = lib.objClone(config[i], "_sent", 0, "_queue", 0);
         logger.info("init:", "fcm", lib.objDescr(config[i]));
     }
 }

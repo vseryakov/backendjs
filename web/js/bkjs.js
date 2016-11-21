@@ -685,14 +685,14 @@ var Bkjs = {
     },
 
     // Returns a new object constructed from the arguments pairs
-    newObj: function() {
+    objNew: function() {
         var obj = {};
         for (var i = 0; i < arguments.length - 1; i += 2) if (typeof arguments[i + 1] != "undefined") obj[arguments[i]] = arguments[i + 1];
         return obj;
     },
 
     // Shallow copy of an object, all additional arguments are treted as properties to be added to the new object
-    cloneObj: function() {
+    objClone: function() {
         var obj = arguments[0];
         var rc = Array.isArray(obj) ? [] : {};
         for (var p in obj) {

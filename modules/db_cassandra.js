@@ -47,7 +47,7 @@ function Pool(options)
 {
     options.type = pool.name;
     db.SqlPool.call(this, options);
-    this.configOptions = lib.mergeObj(this.configOptions, pool.configOptions);
+    this.configOptions = lib.objMerge(this.configOptions, pool.configOptions);
 }
 util.inherits(Pool, db.SqlPool)
 
@@ -76,7 +76,7 @@ Pool.prototype.open = function(callback)
 Pool.prototype.doQuery = function(text, values, options, callback)
 {
     var self = this;
-    this.execute(text, values ? lib.cloneObj(values) : null, options, function(err, result) {
+    this.execute(text, values ? lib.objClone(values) : null, options, function(err, result) {
         if (err) return callback(err, []);
         var rows = [];
         if (result && result.rows) {
@@ -117,7 +117,7 @@ Pool.prototype.prepare = function(req)
     switch (op) {
     case "search":
     case "select":
-        req.options = lib.cloneObj(req.options);
+        req.options = lib.objClone(req.options);
         // Cannot search by non primary keys
         var keys = db.getKeys(req.table);
         var cols = req.columns || db.getColumns(req.table);
@@ -140,7 +140,7 @@ Pool.prototype.prepare = function(req)
 
         // Pagination, start must be a token returned by the previous query
         if (Array.isArray(req.options.start) && typeof req.options.start[0] == "object") {
-            req.obj = lib.cloneObj(req.obj);
+            req.obj = lib.objClone(req.obj);
             req.options.ops[lastKey] = req.options.desc ? "lt" : "gt";
             req.options.start.forEach(function(x) { for (var p in x) req.obj[p] = x[p]; });
         }
@@ -215,7 +215,7 @@ Pool.prototype.nextToken = function(client, req, rows)
 {
     if (req.options && req.options.count > 0 && rows.length == req.options.count) {
         var keys = db.getKeys(req.table);
-        return keys.map(function(x) { return lib.newObj(x, rows[rows.length-1][x]) });
+        return keys.map(function(x) { return lib.objNew(x, rows[rows.length-1][x]) });
     }
     return null;
 }

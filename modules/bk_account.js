@@ -353,7 +353,7 @@ accounts.addAccount = function(req, options, callback)
            if (!req.query.login) return next({ status: 400, message: "login is required"});
            if (!req.query.secret && !req.query.password) return next({ status: 400, message: "secret is required"});
            // Copy for the auth table in case we have different properties that needs to be cleared
-           login = lib.cloneObj(req.query);
+           login = lib.objClone(req.query);
            login.token_secret = true;
            api.prepareAccountSecret(login, options);
            // Put the secret back to return to the client, if generated or scrambled the client needs to know it for the API access
@@ -366,7 +366,7 @@ accounts.addAccount = function(req, options, callback)
            });
        },
        function(next) {
-           account = lib.cloneObj(req.query);
+           account = lib.objClone(req.query);
            // Only admin can add accounts with admin properties
            if (!(options.admin || api.checkAccountType(req.account, "admin"))) api.clearQuery("bk_account", account, "admin");
            db.add("bk_account", account, options, next);
@@ -403,7 +403,7 @@ accounts.updateAccount = function(req, options, callback)
        function(next) {
            if (options.noauth || !req.account.login) return next();
            // Copy for the auth table in case we have different properties that needs to be cleared
-           var query = lib.cloneObj(req.query, "login", req.account.login);
+           var query = lib.objClone(req.query, "login", req.account.login);
            api.prepareAccountSecret(query, options);
            // Skip admin properties if any
            if (!options.admin && !api.checkAccountType(req.account, "admin")) api.clearQuery("bk_auth", query, "admin");
@@ -414,7 +414,7 @@ accounts.updateAccount = function(req, options, callback)
        },
        function(next) {
            // Skip admin properties if any
-           var query = lib.cloneObj(req.query, "id", req.account.id);
+           var query = lib.objClone(req.query, "id", req.account.id);
            if (!options.admin && !api.checkAccountType(req.account, "admin")) api.clearQuery("bk_account", query, "admin");
            db.update("bk_account", query, options, next);
        },

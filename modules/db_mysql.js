@@ -35,7 +35,7 @@ function Pool(options)
     }
     options.type = pool.name;
     db.SqlPool.call(this, options);
-    this.configOptions = lib.mergeObj(this.configOptions, pool.configOptions);
+    this.configOptions = lib.objMerge(this.configOptions, pool.configOptions);
 }
 util.inherits(Pool, db.SqlPool);
 

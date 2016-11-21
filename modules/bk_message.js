@@ -309,7 +309,7 @@ mod.addMessage = function(req, options, callback)
 
     var cap = db.getCapacity("bk_message", { useCapacity: "write", factorCapacity: options.factorCapacity || 0.25 });
     var ids = lib.strSplitUnique(req.query.id), rows = [];
-    var query = lib.cloneObj(req.query, "sender", req.account.id, "name", req.account.name, "mtime", Date.now())
+    var query = lib.objClone(req.query, "sender", req.account.id, "name", req.account.name, "mtime", Date.now())
 
     lib.forEachSeries(ids, function(id, next) {
         query.id = id;
@@ -334,7 +334,7 @@ mod._putMessage = function(req, query, options, callback)
         db.add("bk_message", query, function(err) {
             if (err || options.nosent) return callback(err);
 
-            var sent = lib.cloneObj(query, "id", query.sender, "recipient", query.id);
+            var sent = lib.objClone(query, "id", query.sender, "recipient", query.id);
             db.add("bk_sent", sent, function(err) {
                 callback();
             });
@@ -395,7 +395,7 @@ mod.delSentMessage = function(req, options, callback)
 mod.updateMessage = function(req, options, callback)
 {
     var table = options.table || "bk_message";
-    var query = lib.cloneObj(req.query, "id", req.account.id);
+    var query = lib.objClone(req.query, "id", req.account.id);
     db.update(table, query, options, callback);
 }
 

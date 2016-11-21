@@ -193,7 +193,7 @@ mod.delConnection = function(req, options, callback)
 // Return all connections for the account id with optional query properties
 mod.queryConnection = function(id, obj, options, callback)
 {
-    obj = lib.cloneObj(obj, 'id', id);
+    obj = lib.objClone(obj, 'id', id);
 
     db.select("bk_" + (options.op || "connection"), obj, options, function(err, rows, info) {
         callback(null, rows, info);
@@ -230,8 +230,8 @@ mod.makeConnection = function(obj, peer, options, callback)
     var self = this;
     var now = Date.now();
     var op = options.op || 'put';
-    var obj1 = lib.cloneObj(obj);
-    var obj2 = lib.cloneObj(peer);
+    var obj1 = lib.objClone(obj);
+    var obj2 = lib.objClone(peer);
     var result = {};
     // Primary keys pointing to each other
     obj1.type = peer.type;

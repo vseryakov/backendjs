@@ -7361,38 +7361,38 @@ The default error status is 400 if not specified.</p>
 </ul>
 
 <ul>
-<li><p><code>lib.cloneObj()</code></p>
+<li><p><code>lib.objClone()</code></p>
 <p> A copy of an object, this is a shallow copy, only arrays and objects are created but all other types are just referenced in the new object</p>
 <ul>
 <li>first argument is the object to clone, can be null</li>
 <li>all additional arguments are treated as name value pairs and added to the cloned object as additional properties
-Example:<pre><code>  lib.cloneObj({ 1: 2 }, &quot;3&quot;, 3, &quot;4&quot;, 4)
+Example:<pre><code>  lib.objClone({ 1: 2 }, &quot;3&quot;, 3, &quot;4&quot;, 4)
 </code></pre></li>
 </ul>
 </li>
 </ul>
 
 <ul>
-<li><p><code>lib.newObj()</code></p>
+<li><p><code>lib.objNew()</code></p>
 <p> Return new object using arguments as name value pairs for new object properties</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>lib.mergeObj(obj, options)</code></p>
+<li><p><code>lib.objMerge(obj, options)</code></p>
 <p> Merge two objects, all properties from the <code>options</code> override existing properties in the <code>obj</code>, returns a new object, shallow copy,
 only top level properties are reassigned.</p>
 <p>Example</p>
-<pre><code> var o = lib.mergeObject({ a:1, b:2, c:3 }, { c:5, d:1 })
+<pre><code> var o = lib.objMergeect({ a:1, b:2, c:3 }, { c:5, d:1 })
  o = { a:1, b:2, c:5, d:1 }
 </code></pre></li>
 </ul>
 
 <ul>
-<li><p><code>lib.flattenObj(obj, options)</code></p>
+<li><p><code>lib.objFlatten(obj, options)</code></p>
 <p> Flatten a javascript object into a single-depth object, all nested values will have property names appended separated by comma</p>
 <p>Example</p>
-<pre><code>    &gt; lib.flattenObj({ a: { c: 1 }, b: { d: 1 } } )
+<pre><code>    &gt; lib.objFlatten({ a: { c: 1 }, b: { d: 1 } } )
     { &#39;a.c&#39;: 1, &#39;b.d&#39;: 1 }
 </code></pre></li>
 </ul>
@@ -7417,11 +7417,11 @@ Additional options:</p>
 </ul>
 
 <ul>
-<li><p><code>lib.extendObj()</code></p>
+<li><p><code>lib.objExtend()</code></p>
 <p> Add properties to existing object, first arg is the object, the rest are pairs: name, value,....
 If the second argument is an object then add all properties from this object only.</p>
-<pre><code>   lib.extendObj({ a: 1 }, &#39;b&#39;, 2, &#39;c&#39; 3 )
-   lib.extendObj({ a: 1 }, { b: 2, c: 3 })
+<pre><code>   lib.objExtend({ a: 1 }, &#39;b&#39;, 2, &#39;c&#39; 3 )
+   lib.objExtend({ a: 1 }, { b: 2, c: 3 })
 </code></pre></li>
 </ul>
 
@@ -7432,7 +7432,7 @@ If the second argument is an object then add all properties from this object onl
 </ul>
 
 <ul>
-<li><p><code>lib.searchObj(obj, options)</code></p>
+<li><p><code>lib.objSearch(obj, options)</code></p>
 <p> Return an object consisting of properties that matched given criteria in the given object or object of objects.
 options can define the following properties:</p>
 <ul>
@@ -7445,10 +7445,10 @@ options can define the following properties:</p>
 <li>count - if true return just number of found properties</li>
 </ul>
 <p>Example</p>
-<pre><code>    lib.searchObj({id:{index:1},name:{index:3},type:{index:2},descr:{}}, { exists: &#39;index&#39;, sort: 1 });
+<pre><code>    lib.objSearch({id:{index:1},name:{index:3},type:{index:2},descr:{}}, { exists: &#39;index&#39;, sort: 1 });
     { id: { index: 1 }, type: { index: 2 }, name: { index: 3 } }
 
-    lib.searchObj({id:1,name:&quot;test&quot;,type:&quot;test&quot;,descr:&quot;descr&quot;}, { hasvalue: &#39;test&#39;, count: 1});
+    lib.objSearch({id:1,name:&quot;test&quot;,type:&quot;test&quot;,descr:&quot;descr&quot;}, { hasvalue: &#39;test&#39;, count: 1});
     2
 </code></pre></li>
 </ul>

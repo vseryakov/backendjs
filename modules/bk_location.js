@@ -289,8 +289,8 @@ mod.select = function(table, query, options, callback)
 {
     if (typeof options == "function") callback = options, options = null;
 
-    query = lib.cloneObj(query);
-    options = lib.cloneObj(options);
+    query = lib.objClone(query);
+    options = lib.objClone(options);
     var cols = db.getColumns(table, options);
     var keys = db.getKeys(table, options);
     var lcols =  ["geohash", "latitude", "longitude"];

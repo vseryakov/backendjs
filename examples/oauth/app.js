@@ -71,7 +71,7 @@ app.fetchAccount = function(query, options, callback)
     api.fetchAccount(query, options, function(err, row) {
         if (err) return callback(err);
         // Save new access tokens in the account record
-        req = lib.newObj('id', row.id, req.profile.provider + "_access_token", req.accessToken, req.profile.provider + "_refresh_token", req.refreshToken);
+        req = lib.objNew('id', row.id, req.profile.provider + "_access_token", req.accessToken, req.profile.provider + "_refresh_token", req.refreshToken);
         db.update("bk_auth", req, function(err) {
             callback(err, row);
         });
@@ -80,11 +80,11 @@ app.fetchAccount = function(query, options, callback)
 
 app.configureMiddleware = function(options, callback)
 {
-    api.registerOAuthStrategy(githubStrategy, lib.extendObj(app.github, { fetchAccount: app.fetchAccount }));
-    api.registerOAuthStrategy(googleStrategy, lib.extendObj(app.google, { fetchAccount: app.fetchAccount }));
-    api.registerOAuthStrategy(facebookStrategy, lib.extendObj(app.facebook, { fetchAccount: app.fetchAccount }));
-    api.registerOAuthStrategy(linkedinStrategy, lib.extendObj(app.linkedin, { fetchAccount: app.fetchAccount }));
-    api.registerOAuthStrategy(twitterStrategy, lib.extendObj(app.twitter, { fetchAccount: app.fetchAccount }));
+    api.registerOAuthStrategy(githubStrategy, lib.objExtend(app.github, { fetchAccount: app.fetchAccount }));
+    api.registerOAuthStrategy(googleStrategy, lib.objExtend(app.google, { fetchAccount: app.fetchAccount }));
+    api.registerOAuthStrategy(facebookStrategy, lib.objExtend(app.facebook, { fetchAccount: app.fetchAccount }));
+    api.registerOAuthStrategy(linkedinStrategy, lib.objExtend(app.linkedin, { fetchAccount: app.fetchAccount }));
+    api.registerOAuthStrategy(twitterStrategy, lib.objExtend(app.twitter, { fetchAccount: app.fetchAccount }));
 
     callback()
 };
