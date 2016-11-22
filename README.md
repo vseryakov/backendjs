@@ -992,9 +992,9 @@ When launching from an EC2 instance no need to specify any AWS credentials.
 
 ## Proxy mode
 
-By default the Web proceses spawned by the server are load balanced using default cluster module whihc relies on the OS to do scheduling. On Linux
+By default the Web proceses spawned by the server are load balanced using default cluster module which relies on the OS to do scheduling. On Linux with node 0.10
 this is proven not to work properly due to the kernel keeping the context switches to a minimum thus resulting in one process to be very busy while the others
-idle.
+idle. Node versions 4 and above perform round-robin by default.
 
 For such case the Backendjs implements the proxy mode by setting `proxy-port` config paremeter to any number above 1000, this will be the initial
 port for the web processes to listen for incoming requests, for example if use `-proxy-port 3000` and launch 2 web processes they will listen on ports
