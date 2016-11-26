@@ -226,7 +226,7 @@ mod.configureMessagesAPI = function()
 mod.sendImage = function(req, options)
 {
     if (!req.query.sender || !req.query.mtime) return api.sendReply(res, 400, "sender and mtime are required");
-    api.sendIcon(req, req.res, req.account.id, { prefix: 'message', type: req.query.mtime + ":" + req.query.sender});
+    api.sendIcon(req, req.account.id, { prefix: 'message', type: req.query.mtime + ":" + req.query.sender});
 }
 
 mod.getUnread = function(req, options, callback)
@@ -329,7 +329,7 @@ mod.addMessage = function(req, options, callback)
 
 mod._putMessage = function(req, query, options, callback)
 {
-    api.putIcon(req, query.id, { prefix: 'message', type: query.mtime + ":" + query.sender }, function(err, icon) {
+    api.putIcon(req, "icon", query.id, { prefix: 'message', type: query.mtime + ":" + query.sender }, function(err, icon) {
         query.icon = icon ? 1 : 0;
         db.add("bk_message", query, function(err) {
             if (err || options.nosent) return callback(err);

@@ -71,12 +71,12 @@ files.configureFilesAPI = function()
 
         switch (req.params[0]) {
         case "get":
-            api.getFile(req, res, file, options);
+            api.getFile(req, file, options);
             break;
 
         case "add":
         case "put":
-            options.name = file;
+            options.name = req.query.name;
             options.prefix = req.query.prefix;
             api.putFile(req, req.query._name || "data", options, function(err) {
                 api.sendReply(res, err);

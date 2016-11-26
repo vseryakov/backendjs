@@ -293,12 +293,13 @@ var Bkjs = {
         });
     },
 
-    // Send a file as multi-part upload
+    // Send a file as multi-part upload, additional files can be passed in the `files` object.
     sendFile: function(options, callback) {
         if (!options || !options.file || !options.file.files || !options.file.files.length) return typeof callback == "function" ? callback() : null;
         var form = new FormData();
         for (var p in options.data) form.append(p, options.data[p])
-        form.append("data", options.file.files[0]);
+        form.append(options.name || "data", options.file.files[0]);
+        for (var p in options.files) form.append(p, options.files[i].files[0])
         // Send within the session, multipart is not supported by signature
         var rc = { url: options.url, type: "POST", processData: false, data: form, contentType: false, nosignature: true };
         this.send(rc, function(data, xhr) {
@@ -320,7 +321,7 @@ var Bkjs = {
         }
         this.ws.onerror = function(msg) {
             console.log('ws:', self.wsconf.errors++, msg);
-            onerror && onerror(err);
+            if (typeof onerror == "function") onerror(err);
         }
         this.ws.onclose = function() { self.ws = null; }
     },

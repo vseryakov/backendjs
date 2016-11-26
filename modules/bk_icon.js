@@ -106,6 +106,7 @@ mod.configureIconsAPI = function()
         case "upload":
             options.type = req.query.type;
             options.prefix = req.query.prefix;
+            options.name = req.query.name;
             self.putIcon(req, req.account.id, options, function(err, icon) {
                 var row = { id: req.account.id, prefix: req.query.prefix, type: req.query.type };
                 row.url = self.iconUrl(row, options);
@@ -174,7 +175,7 @@ mod.handleIconRequest = function(req, res, options, callback)
 
                switch (op) {
                case "put":
-                   api.putIcon(req, req.query.id, options, function(err, icon) {
+                   api.putIcon(req, options.name || "icon", req.query.id, options, function(err, icon) {
                        if (err || !icon) return db.del('bk_icon', req.query, options, function() { next(err || { status: 500, message: "Upload error" }); });
                        // Add new icons to the list which will be returned back to the client
                        if (!icons.some(function(x) { return x.type == options.type })) {
@@ -218,7 +219,7 @@ mod.getIcon = function(req, res, id, options)
         if (row.ext) options.ext = row.ext;
         options.prefix = req.query.prefix;
         options.type = req.query.type;
-        api.sendIcon(req, res, id, options);
+        api.sendIcon(req, id, options);
     });
 }
 
