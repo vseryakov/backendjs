@@ -2396,6 +2396,8 @@ Database pool statistics and other diagnostics</p>
 <li><code>api-images-raw</code> - Return raw urls for the images, requires images-url to be configured. The path will reflect the actual 2 level structure and account id in the image name</li>
 <li><code>api-images-s3-options</code> - S3 options to sign images urls, may have expires:, key:, secret: properties</li>
 <li><code>api-images-ext</code> - Default image extension to use when saving images</li>
+<li><code>api-files-raw</code> - Return raw urls for the files, requires files-url to be configured. The path will reflect the actual 2 level structure and account id in the file name</li>
+<li><code>api-files-url</code> - URL where files are stored, for cases of central file server(s), must be full URL with optional path</li>
 <li><code>api-files-s3</code> - S3 bucket name where to store files uploaded with the File API</li>
 <li><code>api-max-latency</code> - Max time in ms for a request to wait in the queue, if exceeds this value server returns too busy error</li>
 <li><code>api-max-cpu-util</code> - Max CPU utilization allowed, if exceeds this value server returns too busy error</li>
@@ -3081,7 +3083,7 @@ subject to log throttling configuration.</p>
 </ul>
 
 <ul>
-<li><p><code>api.sendFile(req, res, file, redirect)</code></p>
+<li><p><code>api.sendFile(req, file, redirect)</code></p>
 <p> Send file back to the client, res is Express response object</p>
 </li>
 </ul>
@@ -3284,7 +3286,13 @@ return a status in the range 200-299.</li>
 
 <h2 id="module-api_files">Module: API_FILES</h2>
 <ul>
-<li><p><code>api.getFile(req, res, file, options)</code></p>
+<li><p><code>api.fileUrl(file, options)</code></p>
+<p> Returns absolute file url if it is configured with any prefix or S3 bucket, otherwise returns empty string</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.getFile(req, file, options)</code></p>
 <p> Send a file to the client</p>
 </li>
 </ul>
@@ -3383,14 +3391,18 @@ Output file name is built according to the following options properties:</li>
 </ul>
 
 <ul>
-<li><p><code>api.sendIcon(req, res, id, options)</code></p>
+<li><p><code>api.sendIcon(req, id, options)</code></p>
 <p> Send an icon to the client, only handles files</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>api.putIcon(req, id, options, callback)</code></p>
-<p> Store an icon for account, .type defines icon prefix</p>
+<li><p><code>api.putIcon(req, name, id, options, callback)</code></p>
+<p> Store an icon for account, the options are the same as for the <code>iconPath</code> method</p>
+<ul>
+<li>name is the name property to look for in the multipart body or in the request body or query</li>
+<li>id is used in <code>iconPath</code> along with the options to build the icon absolute path</li>
+</ul>
 </li>
 </ul>
 
@@ -6849,7 +6861,7 @@ or the default message, this is useful for detection of invalid or missing input
                                           mtime: { type: &quot;mtime&quot;, name: &quot;timestamp&quot; },
                                           flag: { type: &quot;bool&quot;, novalue: false },
                                           descr: { novalue: { name: &quot;name&quot;, value: &quot;test&quot; },
-                                          email: { type: &quot;list&quot;, datatype: &quot;email&quot; } },
+                                          email: { type: &quot;list&quot;, datatype: &quot;email&quot;, novalue: [&quot;a@a&quot;] } },
                                           internal: { ignore: 1 },
                                           status: { value: &quot;ready&quot; },
                                           state: { values: [&quot;ok&quot;,&quot;bad&quot;,&quot;good&quot;] },
@@ -8602,12 +8614,12 @@ If any of obj.id or obj.type are not specified then perform a query for matching
 
       switch (req.params[0]) {
       case &quot;get&quot;:
-          api.getFile(req, res, file, options);
+          api.getFile(req, file, options);
           break;
 
       case &quot;add&quot;:
       case &quot;put&quot;:
-          options.name = file;
+          options.name = req.query.name;
           options.prefix = req.query.prefix;
           api.putFile(req, req.query._name || &quot;data&quot;, options, function(err) {
               api.sendReply(res, err);
