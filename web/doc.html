@@ -2498,6 +2498,7 @@ Database pool statistics and other diagnostics</p>
 <li><code>server-max-processes</code> - Max number of processes to launch for Web servers, 0 means <code>NumberOfCPUs-1</code>, &lt; 0 means <code>NumberOfCPUs*abs(N)</code></li>
 <li><code>server-crash-delay</code> - Delay between respawing the crashed process</li>
 <li><code>server-restart-delay</code> - Delay between respawning the server after changes</li>
+<li><code>server-no-restart</code> - Do not restart any processes terminated, for debugging crashes only</li>
 <li><code>server-log-errors</code> - If true, log crash errors from child processes by the logger, otherwise write to the daemon err-file. The reason for this is that the logger puts everything into one line thus breaking formatting for stack traces.</li>
 <li><code>server-process-name</code> - Path to the command to spawn by the monitor instead of node, for external processes guarded by this monitor</li>
 <li><code>server-process-args</code> - Arguments for spawned processes, for passing v8 options or other flags in case of external processes</li>
@@ -6987,6 +6988,12 @@ if it begins with ! it means no match is expected, the leading ! will be strippe
 <pre><code>  lib.isMatched({id:1,name:2,notifications0:1,type:&quot;user,admin&quot;}, {notifications0:0})
   lib.isMatched({id:1,name:2,notifications0:1,type:&quot;user,admin&quot;}, {notifications0:1,type:&quot;!admin&quot;})
 </code></pre></li>
+</ul>
+
+<ul>
+<li><p><code>lib.toFlags(cmd, list, name)</code></p>
+<p> Flags command utility, uopdate flags array, the commanda are: add, del, always returns an array</p>
+</li>
 </ul>
 
 <ul>
