@@ -3271,9 +3271,8 @@ in case of a custom authentication middlware this must be called at the end and 
 return an error or proceed with the request. In any case the result of this function is the final.</p>
 <ul>
 <li>req is Express request object</li>
-<li>status contains the signature verification status, an object with status: and message: properties, can be null.
-if status property is not 200 it will be returned immeditately to the client stopping the middlware chain. For stopping without an error
-return a status in the range 200-299.</li>
+<li>status contains the signature verification status, an object with status: and message: properties, can not be null.
+The status property is passed to each hook in the chain, the result status will be returned to the client.</li>
 <li>callback is a function(status) to be called with the resulted status where status must be an object with status and message properties as well</li>
 </ul>
 </li>

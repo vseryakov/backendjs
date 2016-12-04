@@ -11,16 +11,20 @@ Bkjs.koAuth = ko.observable(0);
 Bkjs.koAdmin = ko.observable(0);
 Bkjs.koName = ko.observable();
 
+Bkjs.checkLogin = function(err, status)
+{
+    Bkjs.koAuth(Bkjs.loggedIn);
+    Bkjs.koName(Bkjs.account.name);
+    Bkjs.koAdmin(Bkjs.loggedIn && Bkjs.checkAccountType(Bkjs.account, "admin"));
+    $(Bkjs).trigger(Bkjs.loggedIn ? "login" : "nologin", [err, status]);
+    if (!err && Bkjs.koShow) Bkjs.koShow();
+}
+
 Bkjs.koLogin = function(data, event)
 {
     Bkjs.showLogin(function(err, data, xhr) {
-        Bkjs.koAuth(Bkjs.loggedIn);
-        Bkjs.koName(Bkjs.account.name);
-        Bkjs.koAdmin(Bkjs.loggedIn && (Bkjs.account.type || "").split(",").indexOf("admin") > -1);
-        $(Bkjs).trigger(Bkjs.loggedIn ? "login" : "nologin", [err, xhr.status]);
-        if (err) return;
-        Bkjs.hideLogin();
-        if (Bkjs.koShow) Bkjs.koShow();
+        Bkjs.checkLogin(err, xhr.status);
+        if (!err) Bkjs.hideLogin();
     });
 }
 
@@ -39,11 +43,6 @@ Bkjs.koInit = function()
 {
     ko.applyBindings(Bkjs);
     Bkjs.login(function(err, data, xhr) {
-        Bkjs.koAuth(Bkjs.loggedIn);
-        Bkjs.koName(Bkjs.account.name);
-        Bkjs.koAdmin(Bkjs.loggedIn && Bkjs.checkAccountType(Bkjs.account, "admin"));
-        $(Bkjs).trigger(Bkjs.loggedIn ? "login" : "nologin", [err, xhr.status]);
-        if (err) return;
-        if (Bkjs.koShow) Bkjs.koShow();
+        Bkjs.checkLogin(err, xhr.status);
     });
 }
