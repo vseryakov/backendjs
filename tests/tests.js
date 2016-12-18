@@ -1095,60 +1095,54 @@ tests.test_cache = function(callback)
 
     lib.series([
       function(next) {
-          ipc.put("a", "1");
-          ipc.put("b", "1");
-          ipc.put("c", "1");
-          setTimeout(next, 10);
+          lib.forEachSeries(["a","b","c"], function(key, next2) {
+              ipc.put(key, "1", next2);
+          }, next);
       },
       function(next) {
           ipc.get("a", function(e, val) {
-              tests.assert(next, null, val!="1", "value must be 1, got", val)
+              tests.assert(next, val!="1", "value must be 1, got", val)
           });
       },
       function(next) {
           ipc.get(["a","b","c"], function(e, val) {
-              tests.assert(next, null, !val||val.a!="1"||val.b!="1"||val.c!="1", "value must be {a:1,b:1,c:1} got", val)
+              tests.assert(next, !val||val.length!=3||val[0]!="1"||val[1]!="1"||val[2]!="1", "value must be [1,1,1] got", val)
           });
       },
       function(next) {
-          ipc.incr("a", 1);
-          setTimeout(next, 10);
+          ipc.incr("a", 1, next);
       },
       function(next) {
           ipc.get("a", function(e, val) {
-              tests.assert(next, null, val!="2", "value must be 2, got", val)
+              tests.assert(next, val!="2", "value must be 2, got", val)
           });
       },
       function(next) {
-          ipc.put("a", "3");
-          setTimeout(next, 10);
+          ipc.put("a", "3", next);
       },
       function(next) {
           ipc.get("a", function(e, val) {
-              tests.assert(next, null, val!="3", "value must be 3, got", val)
+              tests.assert(next, val!="3", "value must be 3, got", val)
           });
       },
       function(next) {
-          ipc.incr("a", 1);
-          setTimeout(next, 10);
+          ipc.incr("a", 1, next);
       },
       function(next) {
-          ipc.put("c", {a:1});
-          setTimeout(next, 10);
+          ipc.put("c", {a:1}, next);
       },
       function(next) {
           ipc.get("c", function(e, val) {
               val = lib.jsonParse(val)
-              tests.assert(next, null, !val||val.a!=1, "value must be {a:1}, got", val)
+              tests.assert(next, !val||val.a!=1, "value must be {a:1}, got", val)
           });
       },
       function(next) {
-          ipc.del("b");
-          setTimeout(next, 10);
+          ipc.del("b", next);
       },
       function(next) {
           ipc.get("b", function(e, val) {
-              tests.assert(next, null, val!="", "value must be '', got", val)
+              tests.assert(next, val, "value must be null, got", val)
           });
       },
     ], function(err) {

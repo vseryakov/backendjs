@@ -183,8 +183,9 @@ shell.assert = function(next, err)
 //
 // The common command line arguments that supported:
 // - -test-run - name of the function to run
+// - -test-delay - number of milliseconds before starting the test
 // - -test-workers - number of workers to run the test at the same time
-// - -test-delay - number of milliseconds before starting worker processes, default is 500ms
+// - -test-workers-delay - number of milliseconds before starting worker processes, default is 500ms
 // - -test-timeout - number of milliseconds between test steps, i.e. between invocations of the check
 // - -test-interval - number of milliseconds between iterations
 // - -test-iterations - how many times to run this test function, default is 1
@@ -240,6 +241,7 @@ shell.cmdTestRun = function(options)
     tests.test.keepmaster = tests.getArgInt("-test-keepmaster", options, 0);
     tests.test.workers = tests.getArgInt("-test-workers", options, 0);
     tests.test.workers_delay = tests.getArgInt("-test-workers-delay", options, 500);
+    tests.test.delay = tests.getArgInt("-test-delay", options, 0);
     tests.test.cmd = tests.getArg("-test-run", options);
     tests.test.file = tests.getArg("-test-file", options, "tests/tests.js");
     if (tests.test.file) {
@@ -264,29 +266,33 @@ shell.cmdTestRun = function(options)
         });
     }
 
-    logger.log("tests started:", cluster.isMaster ? "master" : "worker", 'cmd:', tests.test.cmd, 'db-pool:', core.modules.db.pool);
+    setTimeout(function() {
+        logger.log("tests started:", cluster.isMaster ? "master" : "worker", 'cmd:', tests.test.cmd, 'db-pool:', core.modules.db.pool);
 
-    lib.whilst(
-        function () { return tests.test.countdown > 0 || tests.test.forever || options.running; },
-        function (next) {
-            tests.test.countdown--;
-            lib.forEachSeries(cmds, function(cmd, next2) {
-                tests["test_" + cmd](function(err) {
-                    tests.test.iterations++;
-                    if (tests.test.forever) err = null;
-                    setTimeout(next2.bind(null, err), tests.test.interval);
-                });
-            }, next);
-        },
-        function(err) {
-            tests.test.etime = Date.now();
-            if (err) {
-                logger.error("FAILED:", tests.test.role, 'cmd:', tests.test.cmd, err);
-                process.exit(1);
-            }
-            logger.log("SUCCESS:", tests.test.role, 'cmd:', tests.test.cmd, 'db-pool:', core.modules.db.pool, 'time:', tests.test.etime - tests.test.stime, "ms");
-            process.exit(0);
-        });
+        lib.whilst(
+          function () {
+              return tests.test.countdown > 0 || tests.test.forever || options.running
+          },
+          function (next) {
+              tests.test.countdown--;
+              lib.forEachSeries(cmds, function(cmd, next2) {
+                  tests["test_" + cmd](function(err) {
+                      tests.test.iterations++;
+                      if (tests.test.forever) err = null;
+                      setTimeout(next2.bind(null, err), tests.test.interval);
+                  });
+              }, next);
+          },
+          function(err) {
+              tests.test.etime = Date.now();
+              if (err) {
+                  logger.error("FAILED:", tests.test.role, 'cmd:', tests.test.cmd, err);
+                  process.exit(1);
+              }
+              logger.log("SUCCESS:", tests.test.role, 'cmd:', tests.test.cmd, 'db-pool:', core.modules.db.pool, 'time:', tests.test.etime - tests.test.stime, "ms");
+              process.exit(0);
+          });
+    }, tests.test.delay);
 }
 
 // Load a module and optionally execute it
