@@ -20,6 +20,7 @@ var db = require(__dirname + '/../lib/db');
 var aws = require(__dirname + '/../lib/aws');
 var ipc = require(__dirname + '/../lib/ipc');
 var api = require(__dirname + '/../lib/api');
+var jobs = require(__dirname + '/../lib/jobs');
 var os = require('os');
 
 var shell = {
@@ -123,7 +124,7 @@ shell.runShell = function(options)
             if (rc == "continue") continue;
             return;
         }
-        core.createRepl({ file: core.repl.file });
+        if (cluster.isMaster) core.createRepl({ file: core.repl.file });
     });
 }
 
@@ -253,8 +254,8 @@ shell.cmdTestRun = function(options)
     var cmds = lib.strSplit(tests.test.cmd);
     for (var i in cmds) {
         if (!this['test_' + cmds[i]]) {
-            var cmds = Object.keys(this).filter(function(x) { return x.substr(0, 5) == "test_" && typeof tests[x] == "function" }).map(function(x) { return x.substr(5) }).join(", ");
-            logger.log(tests.name, "usage: ", process.argv[0], process.argv[1], "-test-run", "CMD", "where CMD is one of: ", cmds);
+            var avail = Object.keys(tests).filter(function(x) { return x.substr(0, 5) == "test_" && typeof tests[x] == "function" }).map(function(x) { return x.substr(5) }).join(", ");
+            logger.error("cmdTestRun:", "invaid test:", cmds[i], "usage: -test-run CMD where CMD is one of:", avail, "ARGS:", process.argv, "TEST:", tests.test);
             process.exit(1);
         }
     }
@@ -264,6 +265,8 @@ shell.cmdTestRun = function(options)
         cluster.on("exit", function(worker) {
             if (!Object.keys(cluster.workers).length && !tests.test.forever && !tests.test.keepmaster) process.exit(0);
         });
+    } else {
+        if (!tests.test.workers) return "continue";
     }
 
     setTimeout(function() {
@@ -334,7 +337,18 @@ shell.cmdRunFile = function(options)
 // Run API server inside the shell
 shell.cmdRunApi = function(options)
 {
-    api.init();
+    if (cluster.isMaster) api.init();
+    return "continue";
+}
+
+// Run jobs workers inside the shell
+shell.cmdRunJobs = function(options)
+{
+    if (cluster.isMaster) {
+        jobs.initServer();
+    } else {
+        jobs.initWorker();
+    }
     return "continue";
 }
 
