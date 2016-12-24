@@ -176,6 +176,9 @@ case "$ARG" in
     exit 0
     ;;
 
+  status)
+    ;;
+
   stop-web|stop-server|stop-master|stop-worker)
     name=${ARG:5}
     [ "$name" = "" ] && exit 0
@@ -1289,12 +1292,29 @@ case "$ARG" in
 
   upgrade-elasticsearch)
     [ "$PLATFORM" != "Linux" ] && echo "Supports only Linux" && exit 1
-    curl -XPUT localhost:9200/_cluster/settings -d '{"transient":{"cluster.routing.allocation.enable": "none"}}'
-    $0 stop-elasticsearch
-    $0 get-elasticsearch -force
-    monit reload
-    sleep $(get_arg -sleep 30)
-    curl -XPUT localhost:9200/_cluster/settings -d '{"transient":{"cluster.routing.allocation.enable": "all"}}'
+    [ "$(whoami)" != "root" ] && echo "Not root, skipping setup" && exit 1
+    case "$(get_arg -cmd)" in
+     init)
+       curl -XPUT localhost:9200/_cluster/settings -d '{"transient":{"cluster.routing.allocation.enable": "none"}}'
+       curl -XPOST localhost:9200/_flush/synced
+       ;;
+     stop)
+       mv /etc/monit.d/elasticsearch.conf $BKJS_HOME/var
+       monit reload
+       $0 stop-elasticsearch
+       ;;
+     start)
+       $0 get-elasticsearch -force
+       mv $BKJS_HOME/var/elasticsearch.conf /etc/monit.d/
+       monit reload
+       ;;
+     finish)
+       curl -XPUT localhost:9200/_cluster/settings -d '{"transient":{"cluster.routing.allocation.enable": "all"}}'
+       ;;
+     *)
+       echo "Upgrade sequence: init, stop on all nodes, start on all nodes, finish"
+       ;;
+     esac
     ;;
 
   get-mongodb)

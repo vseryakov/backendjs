@@ -15,15 +15,15 @@ var Client = require(__dirname + "/../lib/ipc_client");
 //
 // To support more than one server use either one:
 //
-//     ipc-cache=hazelcast://host
+//     ipc-cache=hazelcast://host?bk-servers=host2,host3
 //
-//     ipc-cache-memcache=memcache://host1
-//     ipc-cache-memcache-options-servers=host1,host2
+//     ipc-cache=memcache://host1
+//     ipc-cache-options-servers=host1,host2
 //
-// To pass memcached module specific options:
+// To pass module specific options:
 //
-//     ipc-cache-options-failures=5
-//     ipc-cache-options-maxValue=1024
+//     ipc-cache-options-map-name=defaultMap
+//     ipc-cache-options-map-prefix=|
 //
 
 var client = {
@@ -92,9 +92,19 @@ HazelCastClient.prototype.keys = function(pattern, callback)
 {
 }
 
+HazelCastClient.prototype._getMap = function(key)
+{
+    var name = this.options.mapName;
+    if (this.options.mapPrefix) {
+        var i = key.indexOf(this.options.mapPrefix);
+        if (i > 0) name = key.substr(0, i);
+    }
+    return this.client.getMap(name);
+}
+
 HazelCastClient.prototype.get = function(key, options, callback)
 {
-    var map = this.client.getMap(this.options.mapName);
+    var map = this._getMap(key);
     if (Array.isArray(key)) {
         map.getAll(key).then(function(data) {
             if (Array.isArray(data)) data = data.map(function(x) { return x[1] });
@@ -116,7 +126,7 @@ HazelCastClient.prototype.get = function(key, options, callback)
 
 HazelCastClient.prototype.put = function(key, val, options, callback)
 {
-    var map = this.client.getMap(this.options.mapName);
+    var map = this._getMap(key);
     var ttl = options && lib.isNumber(options.ttl) ? options.ttl : lib.isNumber(this.options.ttl) ? this.options.ttl : 0;
     map.put(key, val, ttl > 0 ? ttl : -1).then(function() {
         lib.tryCall(callback);
@@ -126,7 +136,7 @@ HazelCastClient.prototype.put = function(key, val, options, callback)
 HazelCastClient.prototype.incr = function(key, val, options, callback)
 {
     var self = this;
-    var map = this.client.getMap(this.options.mapName);
+    var map = this._getMap(key);
     var ttl = options && lib.isNumber(options.ttl) ? options.ttl : lib.isNumber(this.options.ttl) ? this.options.ttl : 0;
     map.get(key).then(function(data) {
         val += lib.toNumber(data);
@@ -139,7 +149,7 @@ HazelCastClient.prototype.incr = function(key, val, options, callback)
 
 HazelCastClient.prototype.del = function(key, options, callback)
 {
-    var map = this.client.getMap(this.options.mapName);
+    var map = this._getMap(key);
     map.delete(key).then(function() {
         lib.tryCall(callback)
     }).catch(callback || lib.noop);

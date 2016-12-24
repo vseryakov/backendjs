@@ -581,7 +581,8 @@ shell.cmdDbBackup = function(options)
     var skip = lib.strSplit(lib.getArg("-skip"));
     var incremental = lib.getArgInt("-incremental");
     var progress = lib.getArgInt("-progress");
-    opts.fullscan = 1;
+    opts.fullscan = lib.getArgInt("-fullscan", 1);
+    opts.scanRetry = lib.getArgInt("-scanRetry", 1);
     if (!opts.useCapacity) opts.useCapacity = "read";
     if (!opts.factorCapacity) opts.factorCapacity = 0.25;
     if (!tables.length) tables = db.getPoolTables(db.pool, { names: 1 });
@@ -605,11 +606,12 @@ shell.cmdDbBackup = function(options)
             fs.appendFileSync(file, JSON.stringify(row) + "\n");
             if (progress && opts.nrows % progress == 0) logger.info("cmdDbBackup:", table, opts.nrows, "records");
             next2();
-        }, function() {
+        }, function(err) {
+            if (err) logger.error("cmdDbBackup:", table, err);
             next();
         });
     }, function(err) {
-        logger.info("dbBackup:", root, tables, opts);
+        logger.info("cmdDbBackup:", root, tables, opts);
         shell.exit(err);
     });
 }
@@ -678,7 +680,7 @@ shell.cmdDbRestore = function(options)
             }
         ], next3);
     }, function(err) {
-        logger.info("dbRestore:", root, tables || files, opts);
+        logger.info("cmdDbRestore:", root, tables || files, opts);
         if (opts.exitdelay) return setTimeout(shell.exit.bind(shell, err), opts.exitdelay);
         if (!opts.noexit) shell.exit(err);
     });
