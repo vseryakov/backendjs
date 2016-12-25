@@ -58,7 +58,7 @@ IpcAmqpClient.prototype.poller = function()
     var self = this;
     this._queue.subscribe(self.options.subscribeParams, function(json, headers, info, msg) {
         if (self.options.subscribeParams.ack) {
-            if (!self.emit(info.routingKey || "message", json, function(err) {
+            if (!self.emit("message", json, function(err) {
                 if (err && err.status >= 500) return msg.reject(true);
                 msg.acknowledge();
             })) {
@@ -70,19 +70,19 @@ IpcAmqpClient.prototype.poller = function()
     });
 }
 
-IpcAmqpClient.prototype.subscribe = function(channel, options, callback)
+IpcAmqpClient.prototype.listen = function(options, callback)
 {
-    Client.prototype.subscribe.call(this, channel, options, callback);
-    this._queue.bind(channel);
+    Client.prototype.listen.call(this, options, callback);
+    this._queue.bind(this.options.channel);
 }
 
-IpcAmqpClient.prototype.unsubscribe = function(channel, options, callback)
+IpcAmqpClient.prototype.unlisten = function(options, callback)
 {
-    Client.prototype.unsubscribe.call(this, channel, options, callback);
-    this._queue.unbind(channel);
+    Client.prototype.unlisten.call(this, options, callback);
+    this._queue.unbind(this.options.channel);
 }
 
-IpcAmqpClient.prototype.publish = function(channel, msg, options, callback)
+IpcAmqpClient.prototype.submit = function(msg, options, callback)
 {
-    this.client.publish(channel, msg, options || this.options.publishOptions, callback);
+    this.client.submit(msg, options || this.options.publishOptions, callback);
 }

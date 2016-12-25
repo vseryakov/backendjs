@@ -205,11 +205,6 @@ system.configureSystemAPI = function()
                     res.json(data || {})
                 });
                 break;
-            case "keys":
-                ipc.keys({ cacheName: req.query.cache }, function(data) {
-                    res.json(data || {})
-                });
-                break;
             case "get":
                 ipc.get(req.query.name, { cacheName: req.query.cache }, function(err, data) {
                     res.json({ value: data });

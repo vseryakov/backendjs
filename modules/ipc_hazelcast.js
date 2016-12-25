@@ -88,10 +88,6 @@ HazelCastClient.prototype.clear = function(pattern, callback)
     }).catch(callback || lib.noop);
 }
 
-HazelCastClient.prototype.keys = function(pattern, callback)
-{
-}
-
 HazelCastClient.prototype._getMap = function(key)
 {
     var name = this.options.mapName;
@@ -159,8 +155,9 @@ HazelCastClient.prototype.subscribe = function(channel, options, callback)
 {
     Client.prototype.subscribe.call(this, channel, options, callback);
     var topic = this.client.getReliableTopic(channel);
+    var self = this;
     this.listenerId = topic.addMessageListener(function(msg) {
-        callback(msg.messageObject);
+        self.emit(channel, msg.messageObject);
     });
 }
 
@@ -170,7 +167,6 @@ HazelCastClient.prototype.unsubscribe = function(channel, options, callback)
     var topic = this.client.getReliableTopic(channel);
     if (this.listenerId) topic.removeMessageListener(this.listenerId);
     delete this.listenerId;
-    lib.tryCall(callback);
 }
 
 HazelCastClient.prototype.publish = function(channel, msg, options, callback)
