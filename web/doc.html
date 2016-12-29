@@ -103,9 +103,8 @@
 <li><a href="#module-ipc_client">ipc_client</a></li>
 <li><a href="#module-ipc_db">ipc_db</a></li>
 <li><a href="#module-ipc_local">ipc_local</a></li>
+<li><a href="#module-ipc_memcache">ipc_memcache</a></li>
 <li><a href="#module-ipc_redis">ipc_redis</a></li>
-<li><a href="#module-ipc_redisclient">ipc_redisclient</a></li>
-<li><a href="#module-ipc_redisq">ipc_redisq</a></li>
 <li><a href="#module-ipc_sqs">ipc_sqs</a></li>
 <li><a href="#module-jobs">jobs</a></li>
 <li><a href="#module-lib">lib</a></li>
@@ -113,6 +112,7 @@
 <li><a href="#module-metrics">metrics</a></li>
 <li><a href="#module-msg">msg</a></li>
 <li><a href="#module-msg_apn">msg_apn</a></li>
+<li><a href="#module-msg_fcm">msg_fcm</a></li>
 <li><a href="#module-msg_gcm">msg_gcm</a></li>
 <li><a href="#module-server">server</a></li>
 <li><a href="#module-bk_account">bk_account</a></li>
@@ -134,8 +134,7 @@
 <li><a href="#module-db_pgsql">db_pgsql</a></li>
 <li><a href="#module-db_riak">db_riak</a></li>
 <li><a href="#module-ipc_amqp">ipc_amqp</a></li>
-<li><a href="#module-ipc_memcache">ipc_memcache</a></li>
-<li><a href="#module-msg_fcm">msg_fcm</a></li>
+<li><a href="#module-ipc_hazelcast">ipc_hazelcast</a></li>
 <li><a href="#module-msg_sns">msg_sns</a></li>
 </ul>
 </li>
@@ -159,15 +158,15 @@ same way allowing to switch databases without changing the code.</li>
 <li>Authentication is based on signed requests using API key and secret, similar to Amazon AWS signing requests.</li>
 <li>Runs web server as separate processes to utilize multiple CPU cores.</li>
 <li>Supports WebSockets connections and process them with the same Express routes as HTTP requests</li>
-<li>Supports several cache modes(Redis, memcached, LRU) for the database operations, multiple hosts support
+<li>Supports several cache modes(Redis, Memcache, Hazelcast, LRU) for the database operations, multiple hosts support
 in the clients for failover.</li>
-<li>Supports several PUB/SUB modes of operations using Redis, RabbitMQ.</li>
-<li>Supports async jobs processing using several work queue implementations on top of SQS, Redis, DB, RabbitMQ</li>
+<li>Supports several PUB/SUB modes of operations using Redis, RabbitMQ, Hazelcast.</li>
+<li>Supports async jobs processing using several work queue implementations on top of SQS, Redis, DB, RabbitMQ, Hazelcast.</li>
 <li>Supports common database operations (Get, Put, Del, Update, Select) for all databases using the same DB API.</li>
 <li>ImageMagick is compiled as C++ module for in-process image scaling.</li>
 <li>REPL(command line) interface for debugging and looking into server internals.</li>
 <li>Geohash based location searches supported by all databases drivers.</li>
-<li>Supports push notifications for mobile devices, APN and GCM</li>
+<li>Supports push notifications for mobile devices, APN and GCM/FCM.</li>
 <li>Supports HTTP(S) reverse proxy mode where multiple Web workers are load-balanced by the proxy
 server running in the master process instead of relying on the OS scheduling between processes listening on the same port.</li>
 <li>Can be used with any MVC, MVVC or other types of frameworks that work on top or with the Express server.</li>
@@ -2492,7 +2491,6 @@ Database pool statistics and other diagnostics</p>
 <li><code>jobs-worker-queue</code> - Queue(s) to subscribe for workers, multiple queues can be processes at the same time, i.e. more than one job can run from different queues</li>
 <li><code>jobs-cron-queue</code> - Default queue to use for cron jobs</li>
 <li><code>jobs-unique-queue</code> - Default queue name to use for keeping track of unique jobs</li>
-<li><code>jobs-channel</code> - Name of the channel where to publish/receive jobs</li>
 <li><code>jobs-cron</code> - Allow cron jobs to be executed from the local etc/crontab file or via config parameter</li>
 <li><code>jobs-schedule</code> - Cron jobs to be scheduled, the JSON must be in the same format as crontab file</li>
 <li><code>server-max-processes</code> - Max number of processes to launch for Web servers, 0 means <code>NumberOfCPUs-1</code>, &lt; 0 means <code>NumberOfCPUs*abs(N)</code></li>
@@ -5222,7 +5220,7 @@ The following options can be used:</p>
 <li>preprocess - a callback function(row, options, next) that is called for every row on the original table, next must be called to move to the next row, if err is returned as first arg then the processing will stop</li>
 <li>postprocess - a callback function(row, options, next) that is called for every row on the destination table, same rules as for preprocess</li>
 <li>tmppool - the db pool to be used for temporary table</li>
-<li>tpmdrop - if 1 then the temporary table will be dropped at the end in case of success, by default it is kept</li>
+<li>tmpdrop - if 1 then the temporary table will be dropped at the end in case of success, by default it is kept</li>
 <li>delay - number of milliseconds to wait between the steps</li>
 </ul>
 </li>
@@ -6201,13 +6199,6 @@ supported prefixes are: queue, cache</p>
 </ul>
 
 <ul>
-<li><p><code>Ipc.prototype.keys(pattern, options, callback)</code></p>
-<p> Returns in the callback all cached keys or if pattern is given can return only matched keys according to the
-cache implementation, options is an object passed down to the driver as is</p>
-</li>
-</ul>
-
-<ul>
 <li><p><code>Ipc.prototype.clear(pattern, options, callback)</code></p>
 <p> Clear all or only items that match the given pattern</p>
 </li>
@@ -6246,15 +6237,40 @@ error and the new value will be returned.
 
 <ul>
 <li><p><code>Ipc.prototype.subscribe(channel, options, callback)</code></p>
-<p> Subscribe to a publish or queue server for messages for the given channel, the callback will be called only on new message received.</p>
+<p> Subscribe to a publish server for messages for the given channel, the callback will be called only on new message received.</p>
+<p>Example:</p>
+<pre><code>    ipc.subscribe(&quot;alerts&quot;, function(msg) {
+        req.res.json(data);
+    }, req);
+</code></pre></li>
+</ul>
+
+<ul>
+<li><p><code>Ipc.prototype.unsubscribe(channel, options, callback)</code></p>
+<p> Close a subscription for the given channel, no more messages will be delivered.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>Ipc.prototype.publish(channel, msg, options, callback)</code></p>
+<p> Publish an event to the channel to be delivered to all subscribers.</p>
+<ul>
+<li><code>options.queueName</code> defines the queue, if not specified then it is sent to the default queue</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>Ipc.prototype.listen(options, callback)</code></p>
+<p> Listen for messages from the given queue, the callback will be called only on new message received.</p>
 <p>The callback accepts 2 arguments, a message and optional next callback, if it is provided it must be called at the end to confirm or reject the message processing.
 Only errors with code&gt;=500 will result in rejection, not all drivers support the next callback if the underlying queue does not support message acknowledgement.</p>
-<p>Depending on the implementation, the subscription can work as fan-out, delivering messages to all subscribed to the same channel or
+<p>Depending on the implementation, this can work as fan-out, delivering messages to all subscribed to the same channel or
 can implement job queue model where only one subscriber receives a message.</p>
 <p>For cases when the <code>next</code> callback is provided this means the queue implementation requires an acknowledgement of successful processing,
 returning an error with .status &gt;= 500 will keep the message in the queue to be processed later.</p>
 <p>Example:</p>
-<pre><code>    ipc.subscribe(&quot;alerts&quot;, function(msg, next) {
+<pre><code>    ipc.listen({ queueName: &quot;jobs&quot; }, function(msg, next) {
         req.res.json(data);
         if (next) next();
     }, req);
@@ -6262,8 +6278,8 @@ returning an error with .status &gt;= 500 will keep the message in the queue to 
 </ul>
 
 <ul>
-<li><p><code>Ipc.prototype.unsubscribe(channel, options, callback)</code></p>
-<p> Close a subscription, if no callback is provided all listeners for the key will be unsubscribed, otherwise only the specified listener.
+<li><p><code>Ipc.prototype.unlisten(channel, options, callback)</code></p>
+<p> Stop listening for message, if no callback is provided all listeners for the key will be unsubscribed, otherwise only the specified listener.
 The callback will not be called.
 It keeps a count how many subscribe/unsubscribe calls been made and stops any internal listeners once nobody is
 subscribed. This is specific to a queue which relies on polling.</p>
@@ -6271,8 +6287,8 @@ subscribed. This is specific to a queue which relies on polling.</p>
 </ul>
 
 <ul>
-<li><p><code>Ipc.prototype.publish(channel, msg, options, callback)</code></p>
-<p> Publish an event to the channel</p>
+<li><p><code>Ipc.prototype.submit(msg, options, callback)</code></p>
+<p> Submit a message to the queue</p>
 <ul>
 <li><code>options.queueName</code> defines the queue, if not specified then it is sent to the default queue</li>
 <li><code>options.stime</code> defines when the message should be processed, it will be held in the queue until the time comes</li>
@@ -6352,12 +6368,6 @@ otherwise it is already locked by other instance. In case of an error the lock i
 <ul>
 <li><p><code>IpcClient.prototype.clear(pattern, callback)</code></p>
 <p> Clear all or only matched keys from the cache</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>IpcClient.prototype.keys(pattern, callback)</code></p>
-<p> Retun all or matched keys from the cache, this is for debugging purposes mostly</p>
 </li>
 </ul>
 
@@ -6447,6 +6457,24 @@ and the property <code>delay</code> with number of milliseconds till the bucket 
 </ul>
 
 <ul>
+<li><p><code>IpcClient.prototype.listen(options, callback)</code></p>
+<p> Listen for incoming messages</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>IpcClient.prototype.unlisten(options, callback)</code></p>
+<p> Stop receiving messages</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>IpcClient.prototype.submit(msg, options, callback)</code></p>
+<p> Submit a message to a queue</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>IpcClient.prototype.lock(name, options, callback)</code></p>
 <p> By default always lock because of lack of actual implementtion</p>
 </li>
@@ -6458,7 +6486,6 @@ and the property <code>delay</code> with number of milliseconds till the bucket 
 <pre><code>      bk_queue: {
           id: { primary: 1 },
           active: { type: &quot;int&quot;, index: 1, value: 0 },      // job status, new, running
-          channel: { value: &quot;jobs&quot;, projections: 1 },        // subscription key
           data: { type: &quot;json&quot;, projections: 1 },            // job definition object
           mtime: { type: &quot;now&quot;, index: 1 }
       },
@@ -6489,9 +6516,21 @@ and the property <code>delay</code> with number of milliseconds till the bucket 
 </ul>
 
 <h2 id="module-ipc_local">Module: IPC_LOCAL</h2>
+<h2 id="module-ipc_memcache">Module: IPC_MEMCACHE</h2>
+<ul>
+<li><p><code>client</code></p>
+<p> Cache client based on Memcached server using <a href="https://github.com/3rd-Eden/node-memcached">https://github.com/3rd-Eden/node-memcached</a></p>
+<p>To support more than one server use either one:</p>
+<p>   ipc-cache=memcache://host1?bk-servers=host2,host3</p>
+<p>   ipc-cache-memcache=memcache://host1
+   ipc-cache-memcache-options-servers=host1,host2</p>
+<p>To pass memcached module specific options:</p>
+<p>   ipc-cache-options-failures=5
+   ipc-cache-options-maxValue=1024</p>
+</li>
+</ul>
+
 <h2 id="module-ipc_redis">Module: IPC_REDIS</h2>
-<h2 id="module-ipc_redisclient">Module: IPC_REDISCLIENT</h2>
-<h2 id="module-ipc_redisq">Module: IPC_REDISQ</h2>
 <h2 id="module-ipc_sqs">Module: IPC_SQS</h2>
 <h2 id="module-jobs">Module: JOBS</h2>
 <ul>
@@ -7963,6 +8002,12 @@ Each item in the list is an object with the following properties: key, secret, a
 </li>
 </ul>
 
+<ul>
+<li><p><code>Msg.prototype.getAgent(mod, dev)</code></p>
+<p> Return an agent for the given module for the given device</p>
+</li>
+</ul>
+
 <h2 id="module-msg_apn">Module: MSG_APN</h2>
 <ul>
 <li><p><code>client.check(dev)</code></p>
@@ -8005,6 +8050,31 @@ connection to APN gateway.</p>
 <li>url - launch url</li>
 <li>payload - an object with additional fileds to send in the message payload</li>
 </ul>
+</li>
+</ul>
+
+<h2 id="module-msg_fcm">Module: MSG_FCM</h2>
+<ul>
+<li><p><code>client.init(options)</code></p>
+<p> Initialize Google Cloud Messaging service to send push notifications to mobile devices</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>client.close(callback)</code></p>
+<p> Close GCM connection, flush the queue</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>client.send(dev, options, callback)</code></p>
+<p> Send push notification to an Android device, return true if queued.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>client.retryOnError()</code></p>
+<p> Retry on server error, honor Retry-After header if present, use it only on the first error</p>
 </li>
 </ul>
 
@@ -9168,8 +9238,9 @@ use the same names as command line arguments without preceeding <code>test-</cod
 <p>The common command line arguments that supported:</p>
 <ul>
 <li>-test-run - name of the function to run</li>
+<li>-test-delay - number of milliseconds before starting the test</li>
 <li>-test-workers - number of workers to run the test at the same time</li>
-<li>-test-delay - number of milliseconds before starting worker processes, default is 500ms</li>
+<li>-test-workers-delay - number of milliseconds before starting worker processes, default is 500ms</li>
 <li>-test-timeout - number of milliseconds between test steps, i.e. between invocations of the check</li>
 <li>-test-interval - number of milliseconds between iterations</li>
 <li>-test-iterations - how many times to run this test function, default is 1</li>
@@ -9230,6 +9301,12 @@ use the same names as command line arguments without preceeding <code>test-</cod
 <ul>
 <li><p><code>shell.cmdRunApi(options)</code></p>
 <p> Run API server inside the shell</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.cmdRunJobs(options)</code></p>
+<p> Run jobs workers inside the shell</p>
 </li>
 </ul>
 
@@ -9655,42 +9732,17 @@ db.query({ op: &quot;POST&quot;, text: &quot;/buckets/bucket/counter/name&quot;,
 </li>
 </ul>
 
-<h2 id="module-ipc_memcache">Module: IPC_MEMCACHE</h2>
+<h2 id="module-ipc_hazelcast">Module: IPC_HAZELCAST</h2>
 <ul>
 <li><p><code>client</code></p>
-<p> Cache client based on Memcached server using <a href="https://github.com/3rd-Eden/node-memcached">https://github.com/3rd-Eden/node-memcached</a></p>
-<p>To support more than one server used either one:</p>
-<p>   ipc-cache=memcache://host1?bk-servers=host2,host3`</p>
-<p>   ipc-cache-memcache=memcache://host1
-   ipc-cache-memcache-options-servers=host1,host2</p>
-<p>To pass memcache specific options:</p>
-<p>   ipc-cache-options-failures=5
-   ipc-cache-options-maxValue=1024</p>
-</li>
-</ul>
-
-<h2 id="module-msg_fcm">Module: MSG_FCM</h2>
-<ul>
-<li><p><code>client.init(options)</code></p>
-<p> Initialize Google Cloud Messaging service to send push notifications to mobile devices</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>client.close(callback)</code></p>
-<p> Close GCM connection, flush the queue</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>client.send(dev, options, callback)</code></p>
-<p> Send push notification to an Android device, return true if queued.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>client.retryOnError()</code></p>
-<p> Retry on server error, honor Retry-After header if present, use it only on the first error</p>
+<p> Cache client based on HazelCast server using <a href="https://github.com/hazelcast/hazelcast-nodejs-client">https://github.com/hazelcast/hazelcast-nodejs-client</a></p>
+<p>To support more than one server use either one:</p>
+<p>   ipc-cache=hazelcast://host?bk-servers=host2,host3</p>
+<p>   ipc-cache=memcache://host1
+   ipc-cache-options-servers=host1,host2</p>
+<p>To pass module specific options:</p>
+<p>   ipc-cache-options-map-name=defaultMap
+   ipc-cache-options-map-prefix=|</p>
 </li>
 </ul>
 
