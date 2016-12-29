@@ -21,15 +21,15 @@ Features:
 * Authentication is based on signed requests using API key and secret, similar to Amazon AWS signing requests.
 * Runs web server as separate processes to utilize multiple CPU cores.
 * Supports WebSockets connections and process them with the same Express routes as HTTP requests
-* Supports several cache modes(Redis, memcached, LRU) for the database operations, multiple hosts support
+* Supports several cache modes(Redis, Memcache, Hazelcast, LRU) for the database operations, multiple hosts support
   in the clients for failover.
-* Supports several PUB/SUB modes of operations using Redis, RabbitMQ.
-* Supports async jobs processing using several work queue implementations on top of SQS, Redis, DB, RabbitMQ
+* Supports several PUB/SUB modes of operations using Redis, RabbitMQ, Hazelcast.
+* Supports async jobs processing using several work queue implementations on top of SQS, Redis, DB, RabbitMQ, Hazelcast.
 * Supports common database operations (Get, Put, Del, Update, Select) for all databases using the same DB API.
 * ImageMagick is compiled as C++ module for in-process image scaling.
 * REPL(command line) interface for debugging and looking into server internals.
 * Geohash based location searches supported by all databases drivers.
-* Supports push notifications for mobile devices, APN and GCM
+* Supports push notifications for mobile devices, APN and GCM/FCM.
 * Supports HTTP(S) reverse proxy mode where multiple Web workers are load-balanced by the proxy
   server running in the master process instead of relying on the OS scheduling between processes listening on the same port.
 * Can be used with any MVC, MVVC or other types of frameworks that work on top or with the Express server.
