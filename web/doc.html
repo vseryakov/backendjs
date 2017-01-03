@@ -3978,7 +3978,7 @@ while the status is equal to it. options.waitDelay can be specified how often to
 <li>names - an object with a map to be used for attribute names in condition and update expressions, to be used
   for ExpressionAttributeNames parameter</li>
 <li>action - an object with operators to be used for properties, one of the: SET, REMOVE, DELETE, ADD, APPEND, PREPEND, NOT_EXISTS</li>
-<li>expected - an object with column to be used in ConditionExpression, value null means an attrobute does not exists,
+<li>expected - an object with columns to be used in ConditionExpression, value null means the attribute does not exists,
   any other value to be checked against using regular compare rules. The conditional comparison operator is taken
   from <code>options.ops</code> the same way as for queries.</li>
 <li>returning - values to be returned on success, * means ALL_NEW, old means ALL_OLD</li>
@@ -5158,20 +5158,42 @@ db.list(&quot;bk_account&quot;, &quot;id1,id2&quot;, function(err, rows) { conso
 </ul>
 
 <ul>
-<li><p><code>db.batch(table, op, objs, options, callback)</code></p>
-<p> Perform a batch of operations at the same time.</p>
+<li><p><code>db.batch(list, options, callback)</code></p>
+<p> Perform a batch of operations at the same time, all operations for the same table will be run
+together one by one but different tables will be updated in parallel.</p>
 <ul>
+<li><code>list</code> an array of objects to put/delete from the database in the format:<ul>
 <li>op - is one of add, incr, put, update, del</li>
-<li>objs a list of objects to put/delete from the database</li>
+<li>table - which table to use</li>
+<li>obj - an object with data</li>
+<li>options - params for the operation, optional</li>
+</ul>
+</li>
 <li>options can have the follwoing:<ul>
 <li>concurrency - number of how many operations to run at the same time, 1 means sequential</li>
-<li>ignore_error - will run all operations without stopping on error, the callback will have third argument which is an array of arrays with failed operations</li>
+<li>no_errors - will stop on first error, because operations will be run in parallel some operations still may be performed</li>
 <li>factorCapacity - a capacity factor to apply to the write capacity if present, by default it is used write capacity at 100%</li>
 </ul>
 </li>
 </ul>
+<p>The callback will receive and error if any and the list of errors for each object as an array of arrays.</p>
 <p>Example:</p>
-<pre><code>    db.batch(&quot;bc_counter&quot;, &quot;add&quot;, [{id:1&quot;,like0:1}, {id:&quot;2&quot;,like0:2}], lib.log)
+<pre><code>    var ops = [ { op: &quot;add&quot;, table: &quot;bk_counter&quot;, obj: { id:1, like:1 } },
+                { op: &quot;add&quot;, table: &quot;bk_auth&quot;, obj: { login: &quot;test&quot;, id:1, name:&quot;test&quot; }]
+    db.batch(ops, { factorCapacity: 0.5 }, lib.log);
+</code></pre></li>
+</ul>
+
+<ul>
+<li><p><code>db.bulk(list, options, callback)</code></p>
+<p> Bulk operations, it will be noop if the driver does not support it.
+The input format is the same as for the <code>db.batch</code> method.</p>
+<p>Example</p>
+<pre><code>    var ops = [ { op: &quot;add&quot;, table: &quot;bk_counter&quot;, obj: { id:1, like:1 } },
+                { op: &quot;del&quot;, table: &quot;bk_auth&quot;, obj: { login: &quot;test1&quot; } },
+                { op: &quot;incr&quot;, table: &quot;bk_counter&quot;, obj: { id:2, like:1 } },
+                { op: &quot;add&quot;, table: &quot;bk_auth&quot;, obj: { login: &quot;test2&quot;, id:2, name:&quot;test2&quot; } }]
+    db.bulk(ops, { pool: &quot;elasticsearch&quot; }, lib.log);
 </code></pre></li>
 </ul>
 
@@ -5805,6 +5827,12 @@ this is called during realtime config update</p>
 <ul>
 <li><p><code>db.Pool.prototype.query(client, req, options, callback)</code></p>
 <p> Query the database, always return an array as a result (i.e. the second argument for the callback)</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.Pool.prototype.bulk(list, options, callback)</code></p>
+<p> Bulk operations</p>
 </li>
 </ul>
 
