@@ -56,6 +56,9 @@ var mod = {
         height: { type: "number" },
         rotate: { type: "number" },
         quality: { type: "number" },
+        brightness: { type: "number" },
+        contrast: { type: "number" },
+        bgcolor: { type: "string" },
     }
 };
 module.exports = mod;
