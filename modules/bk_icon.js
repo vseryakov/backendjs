@@ -50,7 +50,7 @@ var mod = {
             url_icon_get_err_0: { type: "real" },
         },
     },
-    limit: { "*": 3 },
+    limit: { "*": 0 },
     controls: {
         width: { type: "number" },
         height: { type: "number" },
