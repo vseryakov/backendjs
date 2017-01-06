@@ -96,6 +96,13 @@ get_config() {
   [ "$3" != "" ] && eval "$1=$3"
 }
 
+# Kill a process by name: kill_proc redis -9
+kill_proc() {
+  pid=$(ps agx|grep "$1"|grep -v grep|awk "{print \$1}")
+  [ "$pid" = "" ] && return
+  kill "$2" $pid
+}
+
 # Home must be specified for the script to work properly
 export BKJS_HOME=$(get_arg -home $BKJS_HOME)
 [ "$BKJS_HOME" = "" ] && export BKJS_HOME=$(sh -c "echo ~$BKJS_USER")
@@ -407,6 +414,7 @@ case "$ARG" in
 
     # Make sure monit is running all the time
     echo "set logfile syslog" > /etc/monit.d/logging
+    sed -i 's|daemon $prog|daemon $prog\n\t[ "$(whoami)" = "root" ] \&\& ulimit -n 512000|' /etc/init.d/monit
     chkconfig monit on
     service monit restart
 
@@ -1147,7 +1155,7 @@ case "$ARG" in
     ;;
 
   stop-dynamodb)
-    kill $(ps agx|grep DynamoDBLocal|grep -v grep|awk '{print $1}')
+    kill_proc DynamoDBLocal
     ;;
 
   reset-dynamodb)
@@ -1166,6 +1174,12 @@ case "$ARG" in
     fi
     ;;
 
+  init-hazelcast-service)
+    echo "check process hazelcast with pidfile \"$BKJS_HOME/var/hazelcast.pid\" start program = \"$0 run-hazelcast $@\" as uid $BKJS_USER and gid $BKJS_GROUP stop program = \"$0 stop-hazelcast\" if failed url http://127.0.0.1:5701/ with timeout 15 seconds for 2 cycles then restart" > /etc/monit.d/hazelcast.conf
+    echo "check file hazelcast-log with path $BKJS_HOME/log/hazelcast.log if match 'java.lang.OutOfMemoryError' then exec \"$0 restart-hazelcast $@\"" >> /etc/monit.d/hazelcast.conf
+    monit reload
+    ;;
+
   run-hazelcast)
     mkdir -p $BKJS_HOME/var $BKJS_HOME/log
     # Percent from the total memory
@@ -1178,7 +1192,15 @@ case "$ARG" in
     ;;
 
   stop-hazelcast)
-    kill $(ps agx|grep hazelcast.core.server|grep -v grep|awk '{print $1}')
+    sig=$(get_arg -signal)
+    kill_proc hazelcast.core.server $sig
+    ;;
+
+  restart-hazelcast)
+    kill_proc hazelcast.core.server
+    sleep 1
+    kill_proc hazelcast.core.server -9
+    $0 run-hazelcast "$@"
     ;;
 
   get-cassandra)
@@ -1214,7 +1236,7 @@ case "$ARG" in
     ;;
 
   stop-cassandra)
-    kill $(ps agx|grep cassandra|grep -v grep|awk '{print $1}')
+    kill_proc cassandra
     ;;
 
   get-elasticsearch)
@@ -1247,7 +1269,7 @@ case "$ARG" in
 
   init-elasticsearch-service)
     echo "check process elasticsearch with pidfile \"$BKJS_HOME/var/elasticsearch.pid\" start program = \"$0 run-elasticsearch $@\" as uid $BKJS_USER and gid $BKJS_GROUP stop program = \"$0 stop-elasticsearch\" if failed url http://127.0.0.1:9200/ with timeout 15 seconds for 2 cycles then restart" > /etc/monit.d/elasticsearch.conf
-    echo "check file elasticsearch-log with path $BKJS_HOME/log/elasticsearch.log if content = java.lang.OutOfMemoryError then restart elasticsearch >> /etc/monit.d/elasticsearch.conf
+    echo "check file elasticsearch-log with path $BKJS_HOME/log/elasticsearch.log if match 'java.lang.OutOfMemoryError' then exec \"$0 restart-elasticsearch $@\"" >> /etc/monit.d/elasticsearch.conf
     monit reload
     ;;
 
@@ -1266,7 +1288,6 @@ case "$ARG" in
        export ES_MAX_MEM=$memmax
        $SED "s/ES_MAX_MEM=[0-9]+(g|m)?/ES_MAX_MEM=$memmax/" $ELASTICSEARCH_PREFIX/bin/elasticsearch.in.sh
     fi
-    ulimit -n 512000
     case "$(get_arg -nodetype)" in
     node)
       $SED -e "s/^node.master.+/node.master: true/" -e "s/^node.data.+/node.data: true/" $ELASTICSEARCH_PREFIX/config/elasticsearch.yml
@@ -1285,7 +1306,14 @@ case "$ARG" in
     ;;
 
   stop-elasticsearch)
-    kill $(ps agx|grep org.elasticsearch|grep -v grep|awk '{print $1}')
+    $(kill_proc org.elasticsearch)
+    ;;
+
+  restart-elasticsearch)
+    kill_proc org.elasticsearch
+    sleep 1
+    kill_proc org.elasticsearch -9
+    $0 run-elasticsearch "$@"
     ;;
 
   reset-elasticsearch)
@@ -1348,7 +1376,7 @@ case "$ARG" in
     ;;
 
   stop-mongodb)
-    kill $(ps agx|grep mongod|grep -v grep|awk '{print $1}')
+    kill_proc mongod
     ;;
 
   show-instances)
