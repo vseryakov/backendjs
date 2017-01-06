@@ -434,6 +434,7 @@ case "$ARG" in
     # System tuning
     if [ "$(grep -s '#Bkjs' /etc/sysctl.conf)" = "" ]; then
        echo "#Bkjs" >> /etc/sysctl.conf
+       echo 'fs.file-max=512000' >> /etc/sysctl.conf
        echo 'kernel.core_uses_pid=0' >> /etc/sysctl.conf
        echo 'vm.max_map_count=262144' >> /etc/sysctl.conf
        echo 'vm.min_free_kbytes=65536' >> /etc/sysctl.conf
@@ -441,7 +442,9 @@ case "$ARG" in
        echo 'net.core.netdev_max_backlog=16384' >> /etc/sysctl.conf
        echo 'net.core.rmem_max=8388608' >> /etc/sysctl.conf
        echo 'net.core.wmem_max=8388608' >> /etc/sysctl.conf
+       echo 'net.ipv4.tcp_rfc1337=1' >> /etc/sysctl.conf
        echo 'net.ipv4.ip_local_port_range=1024 65000' >> /etc/sysctl.conf
+       echo 'net.ipv4.tcp_max_tw_buckets=400000' >> /etc/sysctl.conf
        echo 'net.ipv4.tcp_tw_reuse=1' >> /etc/sysctl.conf
        echo 'net.ipv4.tcp_tw_recycle=1' >> /etc/sysctl.conf
        echo 'net.ipv4.tcp_fin_timeout=15' >> /etc/sysctl.conf
@@ -449,7 +452,6 @@ case "$ARG" in
        echo 'net.ipv4.tcp_slow_start_after_idle=0' >> /etc/sysctl.conf
        echo 'net.ipv4.tcp_max_orphans=262144' >> /etc/sysctl.conf
        echo 'net.ipv4.tcp_max_syn_backlog=16384' >> /etc/sysctl.conf
-       echo 'net.ipv4.tcp_max_tw_buckets=400000' >> /etc/sysctl.conf
        echo 'net.ipv4.tcp_no_metrics_save=1' >> /etc/sysctl.conf
        echo 'net.ipv4.tcp_syn_retries=2' >> /etc/sysctl.conf
        echo 'net.ipv4.tcp_synack_retries=2' >> /etc/sysctl.conf
@@ -1244,7 +1246,8 @@ case "$ARG" in
     ;;
 
   init-elasticsearch-service)
-    echo "check process java with pidfile \"$BKJS_HOME/var/elasticsearch.pid\" start program = \"$0 run-elasticsearch $@\" as uid $BKJS_USER and gid $BKJS_GROUP stop program = \"$0 stop-elasticsearch\" if failed url http://127.0.0.1:9200/ with timeout 15 seconds for 2 cycles then restart" > /etc/monit.d/elasticsearch.conf
+    echo "check process elasticsearch with pidfile \"$BKJS_HOME/var/elasticsearch.pid\" start program = \"$0 run-elasticsearch $@\" as uid $BKJS_USER and gid $BKJS_GROUP stop program = \"$0 stop-elasticsearch\" if failed url http://127.0.0.1:9200/ with timeout 15 seconds for 2 cycles then restart" > /etc/monit.d/elasticsearch.conf
+    echo "check file elasticsearch-log with path $BKJS_HOME/log/elasticsearch.log if content = java.lang.OutOfMemoryError then restart elasticsearch >> /etc/monit.d/elasticsearch.conf
     monit reload
     ;;
 
@@ -1263,6 +1266,7 @@ case "$ARG" in
        export ES_MAX_MEM=$memmax
        $SED "s/ES_MAX_MEM=[0-9]+(g|m)?/ES_MAX_MEM=$memmax/" $ELASTICSEARCH_PREFIX/bin/elasticsearch.in.sh
     fi
+    ulimit -n 512000
     case "$(get_arg -nodetype)" in
     node)
       $SED -e "s/^node.master.+/node.master: true/" -e "s/^node.data.+/node.data: true/" $ELASTICSEARCH_PREFIX/config/elasticsearch.yml
