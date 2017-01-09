@@ -1256,10 +1256,12 @@ shell.cmdAwsSetRoute53 = function(options)
     var type = this.getArg("-type", options, "A");
     var ttl = this.getArg("-ttl");
     var public = this.isArg("-public");
+    var current = this.isArg("-current");
     var values = [];
 
     lib.series([
        function(next) {
+           if (current) return next();
            var req = { stateName: "running", tagName: filter };
            aws.ec2DescribeInstances(req, function(err, list) {
                values = list.map(function(x) {
@@ -1274,10 +1276,10 @@ shell.cmdAwsSetRoute53 = function(options)
            });
        },
        function(next) {
-           if (!values.length) return next();
-           logger.log("setRoute53:", name, type, values);
+           if (!values.length && !current) return next();
+           logger.log("setRoute53:", name, type, values, core.ipaddr);
            if (lib.isArg("-dry-run")) return next();
-           aws.route53Change({ name: name, type: type, ttl: ttl, value: values }, next);
+           aws.route53Change(current ? name : { name: name, type: type, ttl: ttl, value: values }, next);
        },
     ], function(err) {
         shell.exit(err);
