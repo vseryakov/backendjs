@@ -594,6 +594,8 @@ tests.test_db = function(callback)
             id : { primary: 1, pub: 1 },
             mtime: { type: "now", pub: 1 },
             num: {},
+            obj: { type: "obj" },
+            list: { type: "array" },
         },
     };
     var now = Date.now();
@@ -987,19 +989,19 @@ tests.test_db = function(callback)
             });
         },
         function(next) {
-            db.put("test6", { id: id, num: 1 }, { info_obj: 1 }, function(err, rc, info) {
+            db.put("test6", { id: id, num: 1, obj: { n: 1, v: 2 }, list: [{ n:1 },{ n:2 }] }, { info_obj: 1 }, function(err, rc, info) {
                 rec = info.obj;
                 tests.assert(next, err, "err34:", info);
             });
         },
         function(next) {
-            db.update("test6", { id: id, num: 2, mtime: rec.mtime }, function(err, rc, info) {
+            db.update("test6", { id: id, num: 2, mtime: rec.mtime, obj: "1" }, function(err, rc, info) {
                 tests.assert(next, err || !info.affected_rows, "err35:", info);
             });
         },
         function(next) {
             db.get("test6", { id: id }, {}, function(err, row) {
-                tests.assert(next, err || !row || row.num != 2, "err36:", row);
+                tests.assert(next, err || !row || row.num != 2 || !row.obj || row.obj.n != 1 || !row.list || !row.list[0] || row.list[0].n != 1, "err36:", row);
             });
         },
 
