@@ -754,14 +754,32 @@ shell.cmdDbDrop = function(options)
 shell.cmdSendRequest = function(options)
 {
     var query = this.getQuery();
-    var url = lib.getArg("-url");
-    var id = lib.getArg("-id");
-    var login = lib.getArg("-login");
-    this.getUser({ id: id, login: login }, function(row) {
-        core.sendRequest({ url: url, login: row.login, secret: row.secret, query: query }, function(err, params) {
-            shell.exit(err, params.obj);
+    var url = this.getArg("-url", options);
+    var id = this.getArg("-id", options);
+    var login = this.getArg("-login", options);
+    var select = lib.strSplit(this.getArg("-select", options));
+    var json = this.isArg("-json", options);
+    var flatten = this.isArg("-flatten", options)
+    lib.series([
+      function(next) {
+          if (!id && !login) return next();
+          shell.getUser({ id: id, login: login }, function(row) {
+              next(null, row);
+          });
+      },
+      function(next, user) {
+        core.sendRequest({ url: url, login: user && user.login, secret: user && user.secret, query: query }, function(err, params) {
+            if (err) shell.exit(err);
+            if (select.length) {
+                var obj = {};
+                for (var i in select) lib.objSet(obj, select[i], lib.objGet(params.obj, select[i]));
+                params.obj = obj;
+            }
+            if (flatten) params.obj = lib.objFlatten(params.obj);
+            shell.exit(err, json ? lib.stringify(params.obj) : params.obj);
         });
-    });
+      },
+    ]);
 }
 
 // Check all names in the tag set for given name pattern(s), all arguments after 0 are checked
