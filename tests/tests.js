@@ -585,7 +585,8 @@ tests.test_db = function(callback)
             type: { pub: 1 },
             notempty: { notempty: 1 },
         },
-        test5: { id: { primary: 1, pub: 1 },
+        test5: {
+            id: { primary: 1, pub: 1 },
             hkey: { primary: 1, join: ["type","peer"], ops: { select: "begins_with" }  },
             type: { pub: 1 },
             peer: { pub: 1 }
