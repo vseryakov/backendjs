@@ -49,8 +49,6 @@ files.forEach(function(file) {
         }
     }
 });
-console.log("{");
-for (var p in msgs) console.log('  "' + p + '": "' + msgs[p] + '"');
-console.log("}");
+console.log(JSON.stringify(msgs, null, " "));
 process.exit(0);
 
