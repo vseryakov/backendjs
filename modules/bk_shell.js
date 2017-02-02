@@ -1540,6 +1540,138 @@ shell.cmdAwsS3Put = function(options)
     });
 }
 
+shell.cmdAwsCheckCfn = function(options)
+{
+    var region = this.getArg("-region", aws.region);
+    if (!region) shell.exit("ERROR: -region is required");
+    var file = this.getArg("-file");
+    if (!file) shell.exit("ERROR: -file is required");
+
+    var body = lib.readFileSync(file, { json: 1, error: 1 });
+    if (!body.Resources) shell.exit("ERROR: Resources must be specified in the template");
+
+    aws.queryCFN("ValidateTemplate", { TemplateBody: JSON.stringify(body) }, { region: region }, function(err, rc) {
+        if (err) return shell.exit(err);
+        shell.exit(null, util.inspect(rc, { depth: null }));
+    });
+}
+
+shell.cmdAwsCreateCfn = function(callback)
+{
+    var region = this.getArg("-region", aws.region);
+    if (!region) shell.exit("ERROR: -region is required");
+    var name = this.getArg("-name");
+    if (!name) shell.exit("ERROR: -name is required");
+    var file = this.getArg("-file");
+    if (!file) shell.exit("ERROR: -file is required");
+
+    var body = lib.readFileSync(file, { json: 1, error: 1 });
+    if (!body.Resources) shell.exit("ERROR: Resources must be specified in the template");
+
+    // Mark all resources as Retain so when deleting the stack all resource will still be active and can be configured separately
+    if (core.isArg("-retain")) {
+        Object.keys(body.Resources).forEach(function(x) {
+            body.Resources[x].DeletionPolicy = "Retain";
+        });
+    }
+    var req = { StackName: name };
+
+    // Assign parameters
+    Object.keys(body.Parameters).forEach(function(x, i) {
+        var val = lib.getArg('-' + x, body.Parameters[x].Default).trim();
+        if (!val && lib.toNumber(body.Parameters[x].MinLength)) exit("ERROR: -" + x + " is required");
+        req['Parameters.member.' + (i+1) + '.ParameterKey'] = x;
+        req['Parameters.member.' + (i+1) + '.ParameterValue'] = val;
+    });
+    logger.log(req)
+    if (core.isArg("-dry-run")) return shell.exit();
+
+    req.TemplateBody = JSON.stringify(body)
+    aws.queryCFN("CreateStack", req, { region: region }, function(err, rc) {
+        if (err) return shell.exit(err);
+        logger.log(util.inspect(rc, { depth: null }));
+        if (!core.isArg("-wait")) return shell.exit();
+        shell.cmdAwsWaitCfn(options, function(err) {
+            if (err) return shell.cmdAwsShowCfnEvents(options);
+            shell.exit();
+        });
+    });
+}
+
+shell.cmdAwsWaitCfn = function(options, callback)
+{
+    var region = this.getArg("-region", aws.region);
+    if (!region) shell.exit("ERROR: -region is required");
+    var name = this.getArg("-name");
+    if (!name) shell.exit("ERROR: -name is required");
+    var timeout = lib.getArgInt("-timeout", 1800);
+    var interval = lib.getArgInt("-interval", 60);
+
+    var num = 0, expires = Date.now() + timeout * 1000, stacks = [], status = "";
+    var complete = ["CREATE_COMPLETE","CREATE_FAILED",
+                    "ROLLBACK_COMPLETE","ROLLBACK_FAILED",
+                    "DELETE_COMPLETE","DELETE_FAILED",
+                    "UPDATE_COMPLETE","UPDATE_FAILED",
+                    "UPDATE_ROLLBACK_COMPLETE","UPDATE_ROLLBACK_FAILED"];
+
+    lib.series([
+      function(next) {
+          // Wait for all instances to register or exit after timeout
+          lib.doWhilst(
+            function(next2) {
+                aws.queryCFN("DescribeStacks", { StackName: name }, { region: region }, function(err, rc) {
+                    if (err) return next2(err);
+                    stacks = lib.objGet(rc, "DescribeStacksResponse.DescribeStacksResult.Stacks.member", { list: 1 })
+                    if (stacks.length > 0) status = stacks[0].StackStatus;
+                    setTimeout(next2, num++ == 0 ? 0 : interval*1000);
+                });
+            },
+            function() {
+                if (status) logger.log("Status: ", name, status);
+                return complete.indexOf(status) == -1 && Date.now() < expires;
+            },
+            next);
+      },
+      function(next) {
+          logger.log(util.inspect(stacks, { depth: null }));
+          next(status.match(/(CREATE|DELETE|UPDATE)_COMPLETE/) ? null :
+              (status.match(/CREATING$/) ? "Timeout waiting for completion, start again to continue" :
+                                           "Error waiting for completion: " + status));
+      },
+    ], function(err) {
+        if (typeof callback == "function") return callback(err)
+        shell.exit(err)
+    })
+}
+
+shell.cmdAwsShowCfnEvents = function(options)
+{
+    var region = this.getArg("-region", aws.region);
+    if (!region) shell.exit("ERROR: -region is required");
+    var name = this.getArg("-name");
+    if (!name) exit("ERROR: -name is required");
+
+    var token = undefined;
+
+    lib.doWhilst(
+      function(next) {
+          aws.queryCFN("DescribeStackEvents", { StackName: name, NextToken: token }, { region: region }, function(err, rc) {
+              if (err) return next(err);
+              token = lib.objGet(rc, "DescribeStackEventsResponse.DescribeStackEventsResult.NextToken");
+              var events = lib.objGet(rc, "DescribeStackEventsResponse.DescribeStackEventsResult.StackEvents.member", { list: 1 });
+              events.forEach(function(x) {
+                  console.log(x.Timestamp, x.ResourceType, x.LogicalResourceId, x.PhysicalResourceId, x.ResourceStatus, x.ResourceStatusReason || "");
+              });
+              next();
+          });
+      },
+      function() {
+          return token;
+      },function(err) {
+          shell.exit(err);
+      });
+}
+
 shell.cmdAwsCreateLaunchConfig = function(options)
 {
     var appName = this.getArg("-app-name", options, core.appName);
