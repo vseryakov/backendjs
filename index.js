@@ -33,7 +33,7 @@ exports.core.addModule('logger', exports.logger,
 
 var path = require("path");
 // Load all submodules for the singletons, files must start with a singleton name, each submodule just add more singleton methods
-exports.lib.findFileSync(__dirname + "/lib", { include: new RegExp(/[a-z]+_.+\.js$/) }).forEach(function(file) {
+exports.lib.findFileSync(__dirname + "/lib", { include: /[a-z]+_.+\.js$/ }).forEach(function(file) {
     var mod = path.basename(file).split("_");
     if (mod[0] == "core" || exports.core.modules[mod[0]]) require(file);
 });
