@@ -1179,6 +1179,49 @@ shell.cmdAwsCreateImage = function(options)
     });
 }
 
+shell.cmdAwsCopyImage = function(callback)
+{
+    var region = this.getArg("-region");
+    if (!region) shell.exit("-region is required");
+    var imageName = shell.getArg("-image-name", options, '*');
+    var appName = this.getArg("-app-name", options, core.appName);
+    var imageId;
+
+    lib.series([
+      function(next) {
+          shell.awsSearchImage(imageName, appName, function(err, ami) {
+              imageId = ami && ami.imageId;
+              imageName = ami && mi.imageName;
+              next(err ? err : imageId ? "ERROR: AMI must be specified or discovered by filters" : null);
+          });
+      },
+      // Deregister existing image with the same name in the destination region
+      function(next) {
+          aws.queryEC2("DescribeImages", { 'ImageId.1': imageId  }, { region: region }, function(err, rc) {
+              if (err) return next(err);
+              images = lib.objGet(rc, "DescribeImagesResponse.imagesSet.item", { list: 1 });
+              if (!images.length) return next();
+              logger.log("Will deregister existing AMI with the same name", region, images[0].imageName, images[0].imageId, "...");
+              if (core.isArg("-dry-run")) return next();
+              aws.ec2DeregisterImage(images[0].imageId, { snapshots: 1, region: region }, next);
+          });
+      },
+      function(next) {
+          var req = { SourceRegion: aws.region || 'us-east-1', SourceImageId: imageId, Name: imageName };
+          logger.log("CopyImage:", req)
+          if (core.isArg("-dry-run")) return next();
+          aws.queryEC2("CopyImage", req, { region: region }, function(err, rc) {
+              if (err) return next(err);
+              var id = lib.objGet(rc, "CopyImageResponse.imageId");
+              if (id) logger.log("CopyImage:", id);
+              next();
+          });
+      },
+    ], function(err) {
+        shell.exit(err);
+    });
+}
+
 // Reboot instances by run mode and/or other criteria
 shell.cmdAwsRebootInstances = function(options)
 {
@@ -1667,7 +1710,8 @@ shell.cmdAwsShowCfnEvents = function(options)
       },
       function() {
           return token;
-      },function(err) {
+      },
+      function(err) {
           shell.exit(err);
       });
 }
