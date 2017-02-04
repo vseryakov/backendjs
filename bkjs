@@ -1021,7 +1021,7 @@ case "$ARG" in
        ;;
     esac
 
-    ver=$(get_arg -version 3.2.6)
+    ver=$(get_arg -version 3.2.7)
     curl -L -o redis.tgz http://download.redis.io/releases/redis-$ver.tar.gz
 
     mkdir -p redis $BKJS_HOME/etc
@@ -1243,7 +1243,7 @@ case "$ARG" in
     [ "$(get_flag -force)" != "" -a "$ELASTICSEARCH_PREFIX" != "" ] && rm -rf $ELASTICSEARCH_PREFIX
     if [ ! -d $ELASTICSEARCH_PREFIX ]; then
         mkdir -p $ELASTICSEARCH_PREFIX
-        curl -L -o es.tgz https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-5.1.2.tar.gz
+        curl -L -o es.tgz https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-5.2.0.tar.gz
         tar -C $ELASTICSEARCH_PREFIX --strip-components=1 -xzf es.tgz
         rm -rf es.tgz
         cd $ELASTICSEARCH_PREFIX
@@ -1306,7 +1306,7 @@ case "$ARG" in
     ;;
 
   stop-elasticsearch)
-    $(kill_proc org.elasticsearch)
+    kill_proc org.elasticsearch
     ;;
 
   restart-elasticsearch)
