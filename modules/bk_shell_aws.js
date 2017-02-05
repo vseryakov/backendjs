@@ -49,13 +49,7 @@ shell.awsGetSelfImages = function(name, callback)
         if (err) return callback(err);
         var images = lib.objGet(rc, "DescribeImagesResponse.imagesSet.item", { list: 1 });
         // Sort by version in descending order, assume name-N.N.N naming convention
-        images.sort(function(a, b) {
-            var n1 = a.name.split("-");
-            n1[1] = lib.toVersion(n1[1]);
-            var n2 = b.name.split("-");
-            n2[1] = lib.toVersion(n2[1]);
-            return n1[0] > n2[0] ? -1 : n1[0] < n2[0] ? 1 : n2[1] - n1[1];
-        });
+        images = lib.sortByVersion(images, "name");
         callback(null, images);
     });
 }
@@ -817,15 +811,13 @@ shell.cmdAwsS3Put = function(options)
 
 shell.cmdAwsCheckCfn = function(options)
 {
-    var region = this.getArg("-region", options, aws.region);
-    if (!region) shell.exit("ERROR: -region is required");
     var file = this.getArg("-file", options);
     if (!file) shell.exit("ERROR: -file is required");
 
-    var body = lib.readFileSync(file, { json: 1, error: 1 });
+    var body = lib.readFileSync(file, { json: 1, logger: "error" });
     if (!body.Resources) shell.exit("ERROR: Resources must be specified in the template");
 
-    aws.queryCFN("ValidateTemplate", { TemplateBody: JSON.stringify(body) }, { region: region }, function(err, rc) {
+    aws.queryCFN("ValidateTemplate", { TemplateBody: JSON.stringify(body) }, function(err, rc) {
         if (err) return shell.exit(err);
         shell.exit(null, util.inspect(rc, { depth: null }));
     });
@@ -833,14 +825,12 @@ shell.cmdAwsCheckCfn = function(options)
 
 shell.cmdAwsCreateCfn = function(options)
 {
-    var region = this.getArg("-region", options, aws.region);
-    if (!region) shell.exit("ERROR: -region is required");
     var name = this.getArg("-name", options);
     if (!name) shell.exit("ERROR: -name is required");
     var file = this.getArg("-file", options);
     if (!file) shell.exit("ERROR: -file is required");
 
-    var body = lib.readFileSync(file, { json: 1, error: 1 });
+    var body = lib.readFileSync(file, { json: 1, logger: "error" });
     if (!body.Resources) shell.exit("ERROR: Resources must be specified in the template");
 
     // Mark all resources as Retain so when deleting the stack all resource will still be active and can be configured separately
@@ -854,15 +844,34 @@ shell.cmdAwsCreateCfn = function(options)
     // Assign parameters
     Object.keys(body.Parameters).forEach(function(x, i) {
         var val = shell.getArg('-' + x, options, body.Parameters[x].Default).trim();
-        if (!val && lib.toNumber(body.Parameters[x].MinLength)) exit("ERROR: -" + x + " is required");
-        req['Parameters.member.' + (i+1) + '.ParameterKey'] = x;
-        req['Parameters.member.' + (i+1) + '.ParameterValue'] = val;
+        if (!val && lib.toNumber(body.Parameters[x].MinLength)) shell.exit("ERROR: -" + x + " is required");
+        if (!val) return;
+        req['Parameters.member.' + (i + 1) + '.ParameterKey'] = x;
+        req['Parameters.member.' + (i + 1) + '.ParameterValue'] = val;
     });
+    for (var p in body.Resources) {
+        if (body.Resources[p].Type.indexOf("AWS::IAM::") == 0) {
+            req["Capabilities.member.1"] = "CAPABILITY_IAM";
+            break;
+        }
+    }
+    if (shell.isArg("-disable-rollback")) req.DisableRollback = true;
+    if (shell.isArg("-rollback")) req.OnFailure = "ROLLBACK";
+    if (shell.isArg("-delete")) req.OnFailure = "DELETE";
+    if (shell.isArg("-do-nothing")) req.OnFailure = "DO_NOTHING";
+    var role = shell.getArg("-role-arn", options);
+    if (role) req.RoleARN = role;
+    var policy = shell.getArg("-policy-url", options);
+    if (policy) req.StackPolicyURL = policy;
+    shell.getArgList("-tags", options).forEach(function(x, i) {
+        req['Tags.member.' + (i + 1)] = tags[i];
+    });
+
     logger.log(req)
     if (shell.isArg("-dry-run", options)) return shell.exit();
 
     req.TemplateBody = JSON.stringify(body)
-    aws.queryCFN("CreateStack", req, { region: region }, function(err, rc) {
+    aws.queryCFN("CreateStack", req, function(err, rc) {
         if (err) return shell.exit(err);
         logger.log(util.inspect(rc, { depth: null }));
         if (!shell.isArg("-wait", options)) return shell.exit();
@@ -875,8 +884,6 @@ shell.cmdAwsCreateCfn = function(options)
 
 shell.cmdAwsWaitCfn = function(options, callback)
 {
-    var region = this.getArg("-region", options, aws.region);
-    if (!region) shell.exit("ERROR: -region is required");
     var name = this.getArg("-name", options);
     if (!name) shell.exit("ERROR: -name is required");
     var timeout = this.getArgInt("-timeout", options, 1800);
@@ -894,7 +901,7 @@ shell.cmdAwsWaitCfn = function(options, callback)
           // Wait for all instances to register or exit after timeout
           lib.doWhilst(
             function(next2) {
-                aws.queryCFN("DescribeStacks", { StackName: name }, { region: region }, function(err, rc) {
+                aws.queryCFN("DescribeStacks", { StackName: name }, function(err, rc) {
                     if (err) return next2(err);
                     stacks = lib.objGet(rc, "DescribeStacksResponse.DescribeStacksResult.Stacks.member", { list: 1 })
                     if (stacks.length > 0) status = stacks[0].StackStatus;
@@ -921,8 +928,6 @@ shell.cmdAwsWaitCfn = function(options, callback)
 
 shell.cmdAwsShowCfnEvents = function(options)
 {
-    var region = this.getArg("-region", options, aws.region);
-    if (!region) shell.exit("ERROR: -region is required");
     var name = this.getArg("-name", options);
     if (!name) exit("ERROR: -name is required");
 
@@ -930,7 +935,7 @@ shell.cmdAwsShowCfnEvents = function(options)
 
     lib.doWhilst(
       function(next) {
-          aws.queryCFN("DescribeStackEvents", { StackName: name, NextToken: token }, { region: region }, function(err, rc) {
+          aws.queryCFN("DescribeStackEvents", { StackName: name, NextToken: token }, function(err, rc) {
               if (err) return next(err);
               token = lib.objGet(rc, "DescribeStackEventsResponse.DescribeStackEventsResult.NextToken");
               var events = lib.objGet(rc, "DescribeStackEventsResponse.DescribeStackEventsResult.StackEvents.member", { list: 1 });
@@ -948,13 +953,13 @@ shell.cmdAwsShowCfnEvents = function(options)
       });
 }
 
-shell.cmdAwsCreateLaunchConfig = function(options)
+shell.cmdAwsCreateLaunchConfig = function(options, callback)
 {
     var appName = this.getArg("-app-name", options, core.appName);
     var appVersion = this.getArg("-app-version", options, core.appVersion);
     var configName = shell.getArg("-config-name", options);
 
-    var config, image, instance, groups;
+    var lconfig, lconfigs, image, instance, groups;
     var req = {
         LaunchConfigurationName: this.getArg("-name", options),
         InstanceType: this.getArg("-instance-type", options, aws.instanceType),
@@ -977,21 +982,17 @@ shell.cmdAwsCreateLaunchConfig = function(options)
     lib.series([
        function(next) {
            if (!configName) return next();
+           var lname = configName.replace(/-[0-9\.]+$/, "");
+           if (lname != configName) lname += "-";
            aws.queryAS("DescribeLaunchConfigurations", {}, function(err, rc) {
                if (err) return next(err);
-               var configs = lib.objGet(rc, "DescribeLaunchConfigurationsResponse.DescribeLaunchConfigurationsResult.LaunchConfigurations.member", { list: 1 });
+               lconfigs = lib.objGet(rc, "DescribeLaunchConfigurationsResponse.DescribeLaunchConfigurationsResult.LaunchConfigurations.member", { list: 1 });
                // Sort by version in descending order, assume name-N.N.N naming convention
-               configs.sort(function(a, b) {
-                   var n1 = a.LaunchConfigurationName.split(/[ -]/);
-                   n1[1] = lib.toVersion(n1[1]);
-                   var n2 = b.LaunchConfigurationName.split(/[ -]/);
-                   n2[1] = lib.toVersion(n2[1]);
-                   return n1[0] > n2[0] ? -1 : n1[0] < n2[0] ? 1 : n2[1] - n1[1];
-               });
-               var rx = new RegExp("^" + configName + "-", "i");
-               for (var i in configs) {
-                   if (rx.test(configs[i].LaunchConfigurationName)) {
-                       config = configs[i];
+               lconfigs = lib.sortByVersion(lconfigs, "LaunchConfigurationName");
+               var rx = new RegExp("^" + lname, "i");
+               for (var i in lconfigs) {
+                   if (rx.test(lconfigs[i].LaunchConfigurationName)) {
+                       lconfig = lconfigs[i];
                        break;
                    }
                }
@@ -1028,20 +1029,26 @@ shell.cmdAwsCreateLaunchConfig = function(options)
        function(next) {
            if (req.InstanceId) return next();
            if (!req.ImageId) req.ImageId = (image && image.imageId) || (config && config.ImageId);
-           if (!config) return next();
+           if (!lconfig) return next();
            // Reuse config name but replace the version from the image, this is an image upgrade
-           if (!req.LaunchConfigurationName && configName && config) {
-               var n = config.LaunchConfigurationName.split(/[ -]/);
-               if (configName == n[0]) req.LaunchConfigurationName = configName + "-" + image.name.split("-")[1];
+           if (!req.LaunchConfigurationName && configName && lconfig) {
+               var n = lconfig.LaunchConfigurationName.split(/[ -]/);
+               if (configName == n[0]) req.LaunchConfigurationName = configName + "-" + image.name.split("-").pop();
            }
-           if (!req.LaunchConfigurationName && image) req.LaunchConfigurationName = image.name;
+           if (image) {
+               // Attach the image version to the config name
+               if (req.LaunchConfigurationName && /-[0-9\.]+$/.test(image.name) && !/-[0-9\.]+$/.test(req.LaunchConfigurationName)) {
+                   req.LaunchConfigurationName += "-" + image.name.split("-").pop();
+               }
+               if (!req.LaunchConfigurationName) req.LaunchConfigurationName = image.name;
+           }
            if (!req.LaunchConfigurationName) req.LaunchConfigurationName = appName + "-" + appVersion;
-           if (!req.InstanceType) req.InstanceType = config.InstanceType || aws.instanceType;
-           if (!req.KeyName) req.KeyName = config.KeyName || appName;
-           if (!req.IamInstanceProfile) req.IamInstanceProfile = config.IamInstanceProfile || appName;
-           if (!req.UserData && config.UserData && typeof config.UserData == "string") req.UserData = config.UserData;
+           if (!req.InstanceType) req.InstanceType = lconfig.InstanceType || aws.instanceType;
+           if (!req.KeyName) req.KeyName = lconfig.KeyName || appName;
+           if (!req.IamInstanceProfile) req.IamInstanceProfile = lconfig.IamInstanceProfile || appName;
+           if (!req.UserData && lconfig.UserData && typeof lconfig.UserData == "string") req.UserData = lconfig.UserData;
            if (!req['BlockDeviceMappings.member.1.DeviceName']) {
-               lib.objGet(config, "BlockDeviceMappings.member", { list: 1 }).forEach(function(x, i) {
+               lib.objGet(lconfig, "BlockDeviceMappings.member", { list: 1 }).forEach(function(x, i) {
                    req["BlockDeviceMappings.member." + (i + 1) + ".DeviceName"] = x.DeviceName;
                    if (x.VirtualName) req["BlockDeviceMappings.member." + (i + 1) + ".VirtualName"] = x.Ebs.VirtualName;
                    if (x.Ebs && x.Ebs.VolumeSize) req["BlockDeviceMappings.member." + (i + 1) + ".Ebs.VolumeSize"] = x.Ebs.VolumeSize;
@@ -1053,35 +1060,41 @@ shell.cmdAwsCreateLaunchConfig = function(options)
                });
            }
            if (!req["SecurityGroups.member.1"]) {
-               lib.objGet(config, "SecurityGroups.member", { list: 1 }).forEach(function(x, i) {
+               lib.objGet(lconfig, "SecurityGroups.member", { list: 1 }).forEach(function(x, i) {
                    req["SecurityGroups.member." + (i + 1)] = x;
                });
            }
            if (!req["SecurityGroups.member.1"] && groups) {
                groups.forEach(function(x, i) { req["SecurityGroups.member." + (i + 1)] = x.groupId });
            }
-           req.AssociatePublicIpAddress = lib.toBool(req.AssociatePublicIpAddress || config.AssociatePublicIpAddress);
+           req.AssociatePublicIpAddress = lib.toBool(req.AssociatePublicIpAddress || lconfig.AssociatePublicIpAddress);
            next();
        },
        function(next) {
-           if (config) logger.info("CONFIG:", config);
+           if (lconfigs.some(function(x) { return x.LaunchConfigurationName == req.LaunchConfigurationName })) return next();
+           if (lconfig) logger.info("CONFIG:", lconfig);
            if (image) logger.info("IMAGE:", image)
            if (instance) logger.info("INSTANCE:", instance);
            logger.log("CreateLaunchConfig:", req);
-           if (shell.isArg("-dry-run", options)) return shell.exit();
+           if (shell.isArg("-dry-run", options)) return next();
            aws.queryAS("CreateLaunchConfiguration", req, next);
        },
        function(next) {
-           if (!shell.isArg("-update-groups", options) || !config) return next();
+           if (shell.isArg("-dry-run", options)) return next();
+           if (!shell.isArg("-update-groups", options) || !lconfig) return next();
            aws.queryAS("DescribeAutoScalingGroups", req, function(err, rc) {
                groups = lib.objGet(rc, "DescribeAutoScalingGroupsResponse.DescribeAutoScalingGroupsResult.AutoScalingGroups.member", { list: 1 });
+               var lname = lconfig.LaunchConfigurationName.replace(/-[0-9\.]+$/, "");
                lib.forEachSeries(groups, function(group, next2) {
-                   if (group.LaunchConfigurationName.split("-")[0] != config.LaunchConfigurationName.split("-")[0]) return next2();
+                   if (group.LaunchConfigurationName.replace(/-[0-9\.]+$/, "") != lname && group.LaunchConfigurationName != lconfig.LaunchConfigurationName) {
+                       return next2();
+                   }
                    aws.queryAS("UpdateAutoScalingGroup", { AutoScalingGroupName: group.AutoScalingGroupName, LaunchConfigurationName: req.LaunchConfigurationName }, next2);
                }, next);
            });
        },
     ], function(err) {
+        if (typeof callback == "function") return callback(err);
         shell.exit(err);
     });
 }

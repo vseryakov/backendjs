@@ -101,12 +101,12 @@ shell.runShell = function(options)
 {
     process.title = core.name + ": shell";
 
-    logger.log('startShell:', process.argv);
+    logger.debug('startShell:', process.argv);
 
     // Load all default shell modules
-    lib.findFileSync(__dirname + "/../modules", { include: /bk_shell_[a-z]+\.js$/ }).forEach(function(file) {
-        require(file);
-    });
+    var mods = lib.findFileSync(__dirname + "/../modules", { include: /bk_shell_[a-z]+\.js$/ });
+    mods = mods.concat(lib.findFileSync(core.path.modules, { include: /bk_shell_[a-z]+\.js$/ }));
+    for (var i in mods) require(mods[i]);
 
     core.runMethods("configureShell", options, function(err) {
         if (options.done) exit();
@@ -328,7 +328,7 @@ shell.cmdRunFile = function(options)
     if (!mod) shell.exit("file not found " + file);
     // Exported functions are set in the shell module
     for (var p in mod) if (typeof mod[p] == "function") shell[p] = mod[p];
-    if (typeof mod.run == "function") mod.run();
+    if (typeof mod.run == "function") mod.run(options);
     return "continue";
 }
 
