@@ -1104,7 +1104,7 @@ tests.test_cache = function(callback)
       },
       function(next) {
           ipc.get("a", function(e, val) {
-              tests.assert(next, val!="1", "value must be 1, got", val)
+              tests.assert(next, val!="1", "value must be a=1, got", val)
           });
       },
       function(next) {
@@ -1117,7 +1117,7 @@ tests.test_cache = function(callback)
       },
       function(next) {
           ipc.get("a", function(e, val) {
-              tests.assert(next, val!="2", "value must be 2, got", val)
+              tests.assert(next, val!="2", "value must be a=2, got", val)
           });
       },
       function(next) {
@@ -1125,7 +1125,7 @@ tests.test_cache = function(callback)
       },
       function(next) {
           ipc.get("a", function(e, val) {
-              tests.assert(next, val!="3", "value must be 3, got", val)
+              tests.assert(next, val!="3", "value must be a=3, got", val)
           });
       },
       function(next) {
@@ -1146,6 +1146,25 @@ tests.test_cache = function(callback)
       function(next) {
           ipc.get("b", function(e, val) {
               tests.assert(next, val, "value must be null, got", val)
+          });
+      },
+      function(next) {
+          ipc.put("*", {a:1,b:2,c:3}, {mapName:"m"}, next);
+      },
+      function(next) {
+          ipc.incr("c", 1, {mapName:"m"}, next);
+      },
+      function(next) {
+          ipc.del("b", {mapName:"m"}, next);
+      },
+      function(next) {
+          ipc.get("c", {mapName:"m"}, function(e, val) {
+              tests.assert(next, val!=4, "value must be 4, got", val)
+          });
+      },
+      function(next) {
+          ipc.get("*", {mapName:"m"}, function(e, val) {
+              tests.assert(next, !val || val.c!=4 || val.a!=1 || val.b, "value must be {a:1,c:4}, got", val)
           });
       },
     ], function(err) {
