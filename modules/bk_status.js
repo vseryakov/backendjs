@@ -21,9 +21,6 @@ var logger = bkjs.logger;
 // Status management
 var mod = {
     name: "bk_status",
-    args: [
-        { name: "interval", type: "number", min: 0, max: 86400000, descr: "Number of milliseconds between status record updates, presence is considered offline if last access was more than this interval ago" },
-    ],
     tables: {
         bk_status: {
             id: { primary: 1, pub: 1 },                        // account id
@@ -34,7 +31,10 @@ var mod = {
         },
     },
     // Intervals between updating presence status table
-    statusInterval: 90000,
+    args: [
+        { name: "interval", type: "number", min: 60000, max: 86400000, descr: "Number of milliseconds between status record updates, presence is considered offline if last access was more than this interval ago" },
+    ],
+    interval: 900000,
 };
 module.exports = mod;
 
