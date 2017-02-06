@@ -1453,27 +1453,6 @@ This is implemented by the `accounts` module from the core. To enable accounts f
 
         /account/icon/del?type=1
 
-- `/account/get/status
-  Return status for the account by id, if no id is psecified return status for the current account.
-
-  The system maintains account status with the timestamp to be used for presence or any other purposes. The bk_status table can be cached with any available
-  caching system like Redis, memcache to be very fast presence state system.
-
-  Example:
-
-        /account/get/status?id=12345
-
-- `/account/put/status`
-  Set the status of the current account, requires status parameter, automatically updates the timestamp
-
-  Example:
-
-        /account/put/status?status=online
-
-- `/account/del/status`
-  Delete current account status, mostly for clearing the cache or marking offline status
-
-
 ### Health enquiry
 When running with AWS load balancer there should be a url that a load balancer polls all the time and this must be very quick and lightweight request. For this
 purpose there is an API endpoint `/ping` that just responds with status 200. It is not open by default, the `allow-path` or other way to allow non-authenticted access

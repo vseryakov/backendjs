@@ -200,27 +200,6 @@ accounts.configureAccountsAPI = function()
             });
             break;
 
-        case "get/status":
-            options.cleanup = "bk_status,bk_account";
-            self.getStatus(!req.query.id ? req.account.id : lib.strSplit(req.query.id), options, function(err, rows) {
-                api.sendJSON(req, err, rows);
-            });
-            break;
-
-        case "put/status":
-            req.query.id = req.account.id;
-            req.query.name = req.account.name;
-            core.modules.bk_status.putStatus(req.query, options, function(err, rows) {
-                api.sendJSON(req, err, rows);
-            });
-            break;
-
-        case "del/status":
-            core.modules.bk_status.delStatus({ id: req.account.id }, options, function(err, rows) {
-                api.sendJSON(req, err, rows);
-            });
-            break;
-
         default:
             api.sendReply(res, 400, "Invalid command");
         }
@@ -494,14 +473,6 @@ accounts.renameAccount = function(req, callback)
           },
         ], callback);
     });
-}
-
-// Returns status record for given account, used in /status/get API call.
-accounts.getStatus = function(id, options, callback)
-{
-    if (typeof options == "function") callback = options, options = null;
-    if (!core.modules.bk_status) return callback(null, {});
-    core.modules.bk_status.getStatus(id, options, callback);
 }
 
 // Override OAuth account management
