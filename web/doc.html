@@ -6229,32 +6229,65 @@ supported prefixes are: queue, cache</p>
 <ul>
 <li><p><code>Ipc.prototype.get(key, options, callback)</code></p>
 <p> Retrieve an item from the cache by key.</p>
-<p>If <code>options.set</code> is given and no value exists in the cache it will be set as the initial value, still
-nothing will be returned to signify that a new value assigned.</p>
-<p>Example</p>
-<p>  ipc.get(&quot;my:key&quot;, function(err, data) { console.log(data) });
-  ipc.get(&quot;my:counter&quot;, { set: 10 }, function(err, data) { console.log(data) });</p>
+<ul>
+<li><code>options.set</code> is given and no value exists in the cache it will be set as the initial value, still
+nothing will be returned to signify that a new value assigned.</li>
+<li><code>options.mapName</code> defines a map from which the key will be retrieved if the cache supports maps, to get the whole map
+the key must be set to *</li>
+</ul>
+<p>If the <code>key</code> is an array then it returns an array with values for each key, for non existent keys an empty
+string will be returned. For maps only if the <code>key</code> is * it will return the whole object, otherise only value(s)
+are returned.</p>
 </li>
 </ul>
-
+<p> Example</p>
+<pre><code>ipc.get([&quot;my:key1&quot;, &quot;my:key2&quot;], function(err, data) { console.log(data) });
+ipc.get(&quot;my:key&quot;, function(err, data) { console.log(data) });
+ipc.get(&quot;my:counter&quot;, { set: 10 }, function(err, data) { console.log(data) });
+ipc.get(&quot;*&quot;, { mapName: &quot;my:map&quot; }, function(err, data) { console.log(data) });
+ipc.get(&quot;key1&quot;, { mapName: &quot;my:map&quot; }, function(err, data) { console.log(data) });
+ipc.get([&quot;key1&quot;, &quot;key2&quot;], { mapName: &quot;my:map&quot; }, function(err, data) { console.log(data) });
+</code></pre>
 <ul>
 <li><p><code>Ipc.prototype.del(key, options, callback)</code></p>
 <p> Delete an item by key(s),  if <code>key</code> is an array all keys will be deleted at once atomically if supported</p>
-</li>
+<ul>
+<li><code>options.mapName</code> defines a map from which the counter will be deleted if the cache supports maps, to delete the whole map
+the key must be set to *</li>
+</ul>
+<p>Example:</p>
+<pre><code>  ipc.del(&quot;my:key&quot;)
+  ipc.del(&quot;key1&quot;, { mapName: &quot;my:map&quot; })
+  ipc.del(&quot;*&quot;, { mapName: &quot;my:map&quot; })
+</code></pre></li>
 </ul>
 
 <ul>
 <li><p><code>Ipc.prototype.put(key, val, options, callback)</code></p>
-<p> Replace or put a new item in the cache, <code>options.ttl</code> can be passed in milliseconds if the driver supports it.</p>
-</li>
+<p> Replace or put a new item in the cache.</p>
+<ul>
+<li><code>options.ttl</code> can be passed in milliseconds if the driver supports it</li>
+<li><code>options.mapName</code> defines a map where the counter will be stored if the cache supports maps, to store the whole map in one
+operation the <code>key</code> must be set to * and the <code>val</code> must be an object</li>
+</ul>
+<p>Example:</p>
+<pre><code> ipc.put(&quot;my:key&quot;, 1)
+ ipc.put(&quot;*&quot;, { key1: 1, key2: 2 }, { mapName: &quot;my:map&quot; })
+</code></pre></li>
 </ul>
 
 <ul>
 <li><p><code>Ipc.prototype.incr(key, val, options, callback)</code></p>
 <p> Increase/decrease a counter in the cache by <code>val</code>, non existent items are treated as 0, if a callback is given an
-error and the new value will be returned.
-<code>options.ttl</code> in milliseconds can be used if the driver supports it</p>
-</li>
+error and the new value will be returned.</p>
+<ul>
+<li><code>options.ttl</code> in milliseconds can be used if the driver supports it</li>
+<li><code>options.mapName</code> defines a map where the counter will be stored if the cache supports maps</li>
+</ul>
+<p>Example:</p>
+<pre><code>  ipc.incr(&quot;my:key&quot;, 1)
+  ipc.incr(&quot;key1&quot;, 1, { mapName: &quot;my:map&quot; })
+</code></pre></li>
 </ul>
 
 <ul>
