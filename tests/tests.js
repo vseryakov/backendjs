@@ -1124,6 +1124,9 @@ tests.test_cache = function(callback)
           ipc.put("a", "3", next);
       },
       function(next) {
+          ipc.put("a", "1", { setmax: 1 }, next);
+      },
+      function(next) {
           ipc.get("a", function(e, val) {
               tests.assert(next, val!="3", "value must be a=3, got", val)
           });
@@ -1153,6 +1156,9 @@ tests.test_cache = function(callback)
       },
       function(next) {
           ipc.incr("c", 1, {mapName:"m"}, next);
+      },
+      function(next) {
+          ipc.put("c", 2, {mapName:"m",setmax:1}, next);
       },
       function(next) {
           ipc.del("b", {mapName:"m"}, next);
