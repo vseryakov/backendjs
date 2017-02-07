@@ -2375,7 +2375,7 @@ Database pool statistics and other diagnostics</p>
 <li><code>db-([a-z]+)-pool-(idle)-?([0-9]+)?$</code> - Number of ms for a db pool connection to be idle before being destroyed</li>
 <li><code>db-([a-z]+)-pool-tables-?([0-9]+)?$</code> - A DB pool tables, list of tables that belong to this pool only</li>
 <li><code>db-([a-z]+)-pool-(connect)-?([0-9]+)?$</code> - Connect options for a DB pool driver for new connection, driver specific</li>
-<li><code>db-([a-z]+)-pool-options-([a-zA-Z0-9.-]+)-?([0-9]+)?$</code> - General options for a DB pool</li>
+<li><code>db-([a-z]+)-pool-options-([a-zA-Z0-9_.-]+)-?([0-9]+)?$</code> - General options for a DB pool</li>
 <li><code>db-([a-z]+)-pool-(cache-columns)-?([0-9]+)?$</code> - Enable caching table columns for this pool if it supports it</li>
 <li><code>db-([a-z]+)-pool-(create-tables)-?([0-9]+)?$</code> - Create tables for this pool on startup</li>
 <li><code>db-([a-z]+)-pool-cache2-(.+)</code> - Level 2 cache TTL for the specified pool and table, data is JSON strings in the LRU cache</li>
@@ -6269,9 +6269,12 @@ the key must be set to *</li>
 <li><code>options.ttl</code> can be passed in milliseconds if the driver supports it</li>
 <li><code>options.mapName</code> defines a map where the counter will be stored if the cache supports maps, to store the whole map in one
 operation the <code>key</code> must be set to * and the <code>val</code> must be an object</li>
+<li><code>options.setmax</code> if not empty tell the driver to set this new number only if there is no existing
+value or it is less that the new number, only works for numeric values</li>
 </ul>
 <p>Example:</p>
-<pre><code> ipc.put(&quot;my:key&quot;, 1)
+<pre><code> ipc.put(&quot;my:key&quot;, 2)
+ ipc.put(&quot;my:key&quot;, 1, { setmax: 1 })
  ipc.put(&quot;*&quot;, { key1: 1, key2: 2 }, { mapName: &quot;my:map&quot; })
 </code></pre></li>
 </ul>
