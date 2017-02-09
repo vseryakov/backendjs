@@ -35,6 +35,7 @@ var mod = {
             acl_allow: {},                              // Who can see it: all, auth, id:id...
             ext: {},                                    // Saved image extension
             descr: {},
+            tags: { type: "list" },                     // detected or attached tags
             geohash: {},                                // Location associated with the icon
             latitude: { type: "real" },
             longitude: { type: "real" },
