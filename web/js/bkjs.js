@@ -46,6 +46,9 @@ var Bkjs = {
         '.{8,}': 'requires at least 8 characters',
     },
 
+    // i18n locales by 2-letter code, uses account.lang to resolve the translation
+    locales: {},
+
     // Try to authenticate with the supplied credentials, it uses login and secret to sign the reauest, if not specified it uses
     // already saved credentials
     login: function(login, secret, callback) {
@@ -722,4 +725,22 @@ var Bkjs = {
         for (var i in arguments) args += (typeof arguments[i] == "object" ? JSON.stringify(arguments[i]) : arguments[i]) + " ";
         console.log(args);
     },
+
+    // Simple i18n translation method compatible with other popular modules, supports the following usage:
+    // - __(name)
+    // - __(fmt, arg,...)
+    // - __({ phrase: "", locale: "" }, arg...
+    //
+    __: function() {
+        var lang = this.account.lang;
+        var msg = arguments[0];
+
+        if (typeof arguments[0] === "object" && arguments[0].phrase) {
+            msg = arguments[0].phrase;
+            lang = arguments[0].locale || lang;
+        }
+        msg = (this.locales[lang] && this.locales[lang][msg]) || msg;
+        if (arguments.length == 1) return msg;
+        return this.sprintf(msg, Array.prototype.slice.call(arguments, 1));
+    }
 };
