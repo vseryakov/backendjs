@@ -165,7 +165,13 @@ var Bkjs = {
         secret = secret || "";
         for (var p in this.passwordPolicy) {
             if (!secret.match(p)) {
-                return { status: 400, message: this.passwordPolicy[p], policy: Object.keys(this.passwordPolicy).map(function(x) { return self.passwordPolicy[x] }).join(", ") };
+                return {
+                    status: 400,
+                    message: this.__(this.passwordPolicy[p]),
+                    policy: Object.keys(this.passwordPolicy).map(function(x) {
+                        return self.__(self.passwordPolicy[x])
+                    }).join(", ")
+                };
             }
         }
         return "";
@@ -468,6 +474,7 @@ var Bkjs = {
 
     // Format a Date object
     strftime: function(date, fmt, utc) {
+        var self = this;
         if (typeof date == "string") {
             if (date.match(/^[0-9]+$/)) date = parseInt(date);
             try { date = new Date(date); } catch(e) {}
@@ -479,10 +486,10 @@ var Bkjs = {
         if (!fmt) fmt = "%Y-%m-%d %H:%M:%S";
         function zeropad(n) { return n > 9 ? n : '0' + n; }
         var handlers = {
-            a: function(t) { return [ 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat' ][utc ? t.getUTCDay() : t.getDay()] },
-            A: function(t) { return [ 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday' ][utc ? t.getUTCDay() : t.getDay()] },
-            b: function(t) { return [ 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec' ][utc ? t.getUTCMonth() : t.getMonth()] },
-            B: function(t) { return [ 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December' ][utc ? t.getUTCMonth() : t.getMonth()] },
+            a: function(t) { return [ self.__('Sun'), self.__('Mon'), self.__('Tue'), self.__('Wed'), self.__('Thu'), self.__('Fri'), self.__('Sat') ][utc ? t.getUTCDay() : t.getDay()] },
+            A: function(t) { return [ self.__('Sunday'), self.__('Monday'), self.__('Tuesday'), self.__('Wednesday'), self.__('Thursday'), self.__('Friday'), self.__('Saturday') ][utc ? t.getUTCDay() : t.getDay()] },
+            b: function(t) { return [ self.__('Jan'), self.__('Feb'), self.__('Mar'), self.__('Apr'), self.__('May'), self.__('Jun'), self.__('Jul'), self.__('Aug'), self.__('Sep'), self.__('Oct'), self.__('Nov'), self.__('Dec') ][utc ? t.getUTCMonth() : t.getMonth()] },
+            B: function(t) { return [ self.__('January'), self.__('February'), self.__('March'), self.__('April'), self.__('May'), self.__('June'), self.__('July'), self.__('August'), self.__('September'), self.__('October'), self.__('November'), self.__('December') ][utc ? t.getUTCMonth() : t.getMonth()] },
             c: function(t) { return utc ? t.toUTCString() : t.toString() },
             d: function(t) { return zeropad(utc ? t.getUTCDate() : t.getDate()) },
             H: function(t) { return zeropad(utc ? t.getUTCHours() : t.getHours()) },
@@ -602,34 +609,43 @@ var Bkjs = {
     },
 
     // Returns a human representation of an age for the given timestamp in milliseconds
-    toAge: function(mtime) {
+    toAge: function(mtime, options) {
         var str = "";
-        mtime = typeof mtime == "number" ? mtime : parseInt(mtime, 10);
+        mtime = typeof mtime == "number" ? mtime : this.toNumber(mtime);
         if (mtime > 0) {
-            var seconds = Math.floor((Date.now() - mtime)/1000);
-            var d = Math.floor(seconds / 86400);
+            var lang = options && options.lang;
+            var secs = Math.floor((Date.now() - mtime)/1000);
+            var d = Math.floor(secs / 86400);
             var mm = Math.floor(d / 30);
             var w = Math.floor(d / 7);
-            var h = Math.floor((seconds - d * 86400) / 3600);
-            var m = Math.floor((seconds - d * 86400 - h * 3600) / 60);
+            var h = Math.floor((secs - d * 86400) / 3600);
+            var m = Math.floor((secs - d * 86400 - h * 3600) / 60);
+            var s = Math.floor(secs - d * 86400 - h * 3600 - m * 60);
             if (mm > 0) {
-                str = mm + " month" + (mm > 1 ? "s" : "");
+                str = mm > 1 ? this.__("%s months", mm) : this.__("1 month");
+                if (d > 0) str += " " + (d > 1 ? this.__("%s days", d) : this.__("1 day"));
+                if (h > 0) str += " " + (h > 1 ? this.__("%s hours", h) : this.__("1 hour"));
             } else
             if (w > 0) {
-                str = w + " week" + (w > 1 ? "s" : "");
+                str = w > 1 ? this.__("%s weeks", w) : this.__("1 week");
+                if (d > 0) str += " " + (d > 1 ? this.__("%s days", d) : this.__("1 day"));
+                if (h > 0) str += " " + (h > 1 ? this.__("%s hours", h) : this.__("1 hour"));
             } else
             if (d > 0) {
-                str = d + " day" + (d > 1 ? "s" : "");
+                str = d > 1 ? this.__("%s days", d) : this.__("1 day");
+                if (h > 0) str += " " + (h > 1 ? this.__("%s hours", h) : this.__("1 hour"));
+                if (m > 0) str += " " + (m > 1 ? this.__("%s minutes", m) : this.__("1 minute"));
             } else
             if (h > 0) {
-                str = h + " hour" + (h > 1 ? "s" : "");
+                str = h > 1 ? this.__("%s hours", h) : this.__("1 hour");
+                if (m > 0) str += " " + (m > 1 ? this.__("%s minutes", m) : this.__("1 minute"));
             } else
             if (m > 0) {
-                str = m + " minute" + (m > 1 ? "s" : "");
+                str = m > 1 ? this.__("%s minutes", m) : this.__("1 minute");
+                if (s > 0) str += " " + (s > 1 ? this.__("%s seconds", s) : this.__("1 second"));
             } else {
-                str = seconds + " second" + (seconds > 1 ? "s" : "");
+                str = secs > 1 ? this.__("%s seconds", secs) : this.__("1 second");
             }
-            if (str) str += " ago";
         }
         return str;
     },
@@ -729,7 +745,7 @@ var Bkjs = {
     // Simple i18n translation method compatible with other popular modules, supports the following usage:
     // - __(name)
     // - __(fmt, arg,...)
-    // - __({ phrase: "", locale: "" }, arg...
+    // - __("", locale: "" }, arg...
     //
     __: function() {
         var lang = this.account.lang;
