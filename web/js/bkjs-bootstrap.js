@@ -51,6 +51,9 @@ Bkjs.showConfirm = function(options, callback)
             </div>\
           </div>\
         </div>');
+        modal.off().on('shown.bs.modal', function () {
+            if (typeof options.onShown == "function") options.onShown(modal);
+        });
         modal.find('#bkjs-confirm-ok-button').click(function(event) {
             if (callback) callback();
             modal.modal('hide');
@@ -98,6 +101,9 @@ Bkjs.showChoice = function(options, callback)
             });
         }
         if (options.value) select.val(options.value);
+        modal.off().on('shown.bs.modal', function () {
+            if (typeof options.onShown == "function") options.onShown(modal);
+        });
         modal.find('#bkjs-choice-ok-button').click(function(event) {
             if (callback) callback(select.val());
             modal.modal('hide');
@@ -140,6 +146,9 @@ Bkjs.showPrompt = function(options, callback)
         </div>');
         var input = modal.find('input');
         if (options.value) input.val(options.value);
+        modal.off().on('shown.bs.modal', function () {
+            if (typeof options.onShown == "function") options.onShown(modal);
+        });
         modal.find('#bkjs-prompt-ok-button').click(function(event) {
             if (callback) callback(input.val());
             modal.modal('hide');
@@ -185,10 +194,18 @@ Bkjs.showLogin = function(callback)
     var form = modal.find('form');
     var login = form.find('input[type=text]');
     var secret = form.find('input[type=password]');
-    modal.off().on('shown.bs.modal', function () { $(this).find('input:text:visible:first').focus(); });
-    login.off().on("keyup", function(e) { if (e.which == 13) { secret.focus(); e.preventDefault(); } });
-    secret.off().on("keyup", function(e) { if (e.which == 13) { form.trigger("submit"); e.preventDefault(); } });
-    form.find('button[type=submit]').off().on("click", function(e) { form.trigger("submit"); e.preventDefault(); });
+    modal.off().on('shown.bs.modal', function () {
+        $(this).find('input:text:visible:first').focus();
+    });
+    login.off().on("keyup", function(e) {
+        if (e.which == 13) { secret.focus(); e.preventDefault(); }
+    });
+    secret.off().on("keyup", function(e) {
+        if (e.which == 13) { form.trigger("submit"); e.preventDefault(); }
+    });
+    form.find('button[type=submit]').off().on("click", function(e) {
+        form.trigger("submit"); e.preventDefault();
+    });
     form.off().on("submit", function() {
         Bkjs.login(login.val(), secret.val(), function(err, data, xhr) {
             if (err) Bkjs.showAlert(modal, "danger", err);
