@@ -31,11 +31,11 @@
     "cookie-session": ">= 1.0.1",
     "serve-static": ">= 1.10.2",
     "nan": ">= 2.4.0",
-    "bkjs-utils": ">= 0.2.0",
+    "bkjs-utils": ">= 0.2.2",
     "bkjs-cache": ">= 0.5.1",
     "bkjs-sqlite": ">= 0.2.0",
     "bkjs-syslog": ">= 0.3.0",
-    "bkjs-wand": ">= 0.5.0"
+    "bkjs-wand": ">= 0.4.1"
   },
   "modulesDependencies": {
     "memcached": ">= 2.1.1",
