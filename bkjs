@@ -1168,7 +1168,7 @@ case "$ARG" in
     [ "$(get_flag -force)" != "" -a "$HAZELCAST_PREFIX" != "" ] && rm -rf $HAZELCAST_PREFIX
     if [ ! -d $HAZELCAST_PREFIX ]; then
        mkdir -p $HAZELCAST_PREFIX
-       curl -L -o hc.tar 'http://download.hazelcast.com/download.jsp?version=hazelcast-3.7.4&type=tar&p=224475444'
+       curl -L -o hc.tar 'http://download.hazelcast.com/download.jsp?version=hazelcast-3.8&type=tar&p=224475444'
        tar -C $HAZELCAST_PREFIX --strip-components=1 -xf hc.tar
        rm -rf hc.tar
     fi

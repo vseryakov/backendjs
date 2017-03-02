@@ -131,15 +131,9 @@ HazelCastClient.prototype.put = function(key, val, options, callback)
 
 HazelCastClient.prototype.incr = function(key, val, options, callback)
 {
-    var self = this;
-    var map = this._getMap(key);
-    var ttl = options && lib.isNumber(options.ttl) ? options.ttl : lib.isNumber(this.options.ttl) ? this.options.ttl : 0;
-    map.get(key).then(function(data) {
-        val += lib.toNumber(data);
-        // TODO, wait for AtomicLong interface in the node client
-        map.put(key, val, ttl > 0 ? ttl : -1).then(function() {
-            lib.tryCall(callback, null, val);
-        }).catch(callback || lib.noop);
+    var long = this.client.getAtomicLong(key);
+    long.addAndGet(key, lib.toNumber(val)).then(function(data) {
+        lib.tryCall(callback, data);
     }).catch(callback || lib.noop);
 }
 
