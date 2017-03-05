@@ -199,7 +199,7 @@ case "$ARG" in
     $0 init-devel "$@"
     [ "$(which node 2>/dev/null)" = "" ] && (cd $BKJS_HOME && sudo -H -u $BKJS_USER $0 build-node -prefix $BKJS_PREFIX)
     (cd $BKJS_HOME && sudo -H -u $BKJS_USER $0 install-bkjs -args $BKJS_ARGS)
-    (cd $BKJS_HOME/bin && ln -sf ../node_modules/$BKJS_MOD/bkjs && ln -sf ../node_modules/$BKJS_MOD/bkjs bksh)
+    (cd $BKJS_HOME/bin && ln -sf ../node_modules/$BKJS_MOD/bkjs && ln -sf bkjs bksh)
     chown -R $BKJS_USER $BKJS_HOME
     ;;
 
@@ -1033,6 +1033,7 @@ case "$ARG" in
          -e "s|^dir ./|dir $BKJS_HOME/var/|" \
          -e "s|^timeout 0|timeout 3600|" \
          -e "s|^bind|# bind|" \
+         -e "s|^protected-mode yes|protected-mode no|" \
          -e "s|^pidfile /var/run/redis.+|pidfile $BKJS_HOME/var/redis.pid|" \
          -e "s|^logfile \"\"|logfile $BKJS_HOME/log/redis.log|" \
          -e "s|^tcp-keepalive .+|tcp-keepalive 60|" \
