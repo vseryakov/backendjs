@@ -414,7 +414,7 @@ case "$ARG" in
 
     # Make sure monit is running all the time
     echo "set logfile syslog" > /etc/monit.d/logging
-    sed -i 's|daemon $prog|daemon $prog\n\t[ "$(whoami)" = "root" ] \&\& ulimit -n 512000|' /etc/init.d/monit
+    sed -i 's|daemon $prog|ulimit -n 512000\n\tdaemon $prog|' /etc/init.d/monit
     chkconfig monit on
     service monit restart
 
@@ -1021,7 +1021,7 @@ case "$ARG" in
        ;;
     esac
 
-    ver=$(get_arg -version 3.2.7)
+    ver=$(get_arg -version 3.2.8)
     curl -L -o redis.tgz http://download.redis.io/releases/redis-$ver.tar.gz
 
     mkdir -p redis $BKJS_HOME/etc
@@ -1243,7 +1243,7 @@ case "$ARG" in
     [ "$(get_flag -force)" != "" -a "$ELASTICSEARCH_PREFIX" != "" ] && rm -rf $ELASTICSEARCH_PREFIX
     if [ ! -d $ELASTICSEARCH_PREFIX ]; then
         mkdir -p $ELASTICSEARCH_PREFIX
-        curl -L -o es.tgz https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-5.2.1.tar.gz
+        curl -L -o es.tgz https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-5.2.2.tar.gz
         tar -C $ELASTICSEARCH_PREFIX --strip-components=1 -xzf es.tgz
         rm -rf es.tgz
         cd $ELASTICSEARCH_PREFIX
@@ -1285,8 +1285,8 @@ case "$ARG" in
     [ "$memsize" != "" ] && memmax="$(( ($(free -m|grep Mem:|awk '{print $2}') * $memsize) / 100 ))m"
     memmax=$(get_arg -memmax $memmax)
     if [ "$memmax" != "" ]; then
-       export ES_MAX_MEM=$memmax
-       $SED "s/ES_MAX_MEM=[0-9]+(g|m)?/ES_MAX_MEM=$memmax/" $ELASTICSEARCH_PREFIX/bin/elasticsearch.in.sh
+       $SED "s/^-Xms.+/-Xms$memmax/" $ELASTICSEARCH_PREFIX/config/jvm.options
+       $SED "s/^-Xmx.+/-Xmx$memmax/" $ELASTICSEARCH_PREFIX/config/jvm.options
     fi
     case "$(get_arg -nodetype)" in
     node)
