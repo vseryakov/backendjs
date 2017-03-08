@@ -2350,7 +2350,7 @@ Database pool statistics and other diagnostics</p>
 <li><code>ipc-system-queue</code> - System queue name to subscribe for control messages, this is a PUB/SUB queue to process system messages like restart, re-init config,...</li>
 <li><code>ipc-lru-max</code> - Max number of items in the LRU cache, this cache is managed by the master Web server process and available to all Web processes maintaining only one copy per machine, Web proceses communicate with LRU cache via IPC mechanism between node processes</li>
 <li><code>ipc-lru-max-(.+)</code> - Max number of items in the local LRU cache by process role, works the same way as the global one but only is set for the specified process role</li>
-<li><code>ipc-cache-?([a-z0-1]+)?</code> - An URL that points to the cache server in the format <code>PROTO://HOST[:PORT]?PARAMS</code>, to use for caching in the API/DB requests, default is local LRU cache, multiple caches can be defined with unique names, all params starting with <code>bk-</code> will be copied into the options without the prefix and removed from the url, the rest of paarms will be left in the url</li>
+<li><code>ipc-cache-?([a-z0-1]+)?</code> - An URL that points to the cache server in the format <code>PROTO://HOST[:PORT]?PARAMS</code>, to use for caching in the API/DB requests, default is local LRU cache, multiple caches can be defined with unique names, all params starting with <code>bk-</code> will be copied into the options without the prefix and removed from the url, the rest of params will be left in the url</li>
 <li><code>ipc-queue-?([a-z0-1]+)?</code> - An URL that points to the queue server in the format <code>PROTO://HOST[:PORT]?PARAMS</code>, to use for PUB/SUB or job queues, default is no local queue, multiple queues can be defined with unique names, params are handled the same way as for cache</li>
 <li><code>ipc-cache(-([a-z0-1]+)?-?options)-(.+)$</code> - Additional parameters for cache clients, specific to each implementation, Example: <code>-ipc-cache-options-ttl 3000</code></li>
 <li><code>ipc-queue(-([a-z0-1]+)?-?options)-(.+)$</code> - Additional parameters for queue clients, specific to each implementation, Example: <code>-ipc-queue-redis-options-max_attempts 3</code></li>
@@ -3640,7 +3640,7 @@ will be loaded.</p>
 </ul>
 
 <ul>
-<li><p><code>aws.querySign(region, service, host, method, path, body, headers)</code></p>
+<li><p><code>aws.querySign(region, service, host, method, path, body, headers, options)</code></p>
 <p> Build version 4 signature headers</p>
 </li>
 </ul>
@@ -3708,6 +3708,12 @@ will be loaded.</p>
 <ul>
 <li><p><code>aws.queryRoute53(method, path, data, options, callback)</code></p>
 <p> Make a request to Route53 service</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.queryRekognition(action, obj, options, callback)</code></p>
+<p> Make a request to the Rekognition service</p>
 </li>
 </ul>
 
@@ -3807,6 +3813,14 @@ The options specify the following:</p>
 <li>ttl - default TTL, 300 seconds</li>
 <li>op - an operation, default is UPSERT</li>
 </ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.detectLabels(name, options, callback)</code></p>
+<p> Detect image featires using AWS Rekognition service, the <code>name</code> can be a Buffer, a local file or an url to the S3 bucket. In the latter case
+the url can be just apath to the file inside a bucket if <code>options.bucket</code> is specified, otherwise it must be a public S3 url with the bucket name
+to be the first part of the host name. For CDN/CloudFront cases use the <code>option.bucket</code> option.</p>
 </li>
 </ul>
 
@@ -4500,7 +4514,15 @@ in the options back to the caller.</p>
 <li>stopOnError - on first error stop and return, otherwise all errors are ignored and all modules are processed</li>
 <li>stopOnValue - this must be an object with property names and values to be watched, as soon as any of it
  exists and set with the specified value the processing stops.</li>
+<li>parallel - if true run methods for all modules in parallel</li>
+<li>concurrency - if a number greater than 1 run that many methods in parallel</li>
 </ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.runMethod(module, name, options, callback)</code></p>
+<p> Run a method for the given module</p>
 </li>
 </ul>
 
@@ -7265,13 +7287,13 @@ The name format is assumed to be: <code>XXXXX-N.N.N</code></p>
 </ul>
 
 <ul>
-<li><p><code>lib.encrypt(key, data, algorithm, encoding)</code></p>
+<li><p><code>lib.encrypt(key, data, algorithm, encode)</code></p>
 <p> Encrypt data with the given key code</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>lib.decrypt(key, data, algorithm, encoding)</code></p>
+<li><p><code>lib.decrypt(key, data, algorithm, encode)</code></p>
 <p> Decrypt data with the given key code</p>
 </li>
 </ul>
@@ -7332,6 +7354,12 @@ Optional third parameter indicates the number of decimal points to return:</p>
 <li>If it is not given or is NaN, random number is unmodified</li>
 <li>If &gt;0, then that many decimal points are returned (e.g., &quot;2&quot; -&gt; 12.52</li>
 </ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.clock()</code></p>
+<p> Returns current time in microseconds</p>
 </li>
 </ul>
 
@@ -8767,6 +8795,7 @@ If any of obj.id or obj.type are not specified then perform a query for matching
           acl_allow: {},                              // Who can see it: all, auth, id:id...
           ext: {},                                    // Saved image extension
           descr: {},
+          tags: { type: &quot;list&quot; },                     // detected or attached tags
           geohash: {},                                // Location associated with the icon
           latitude: { type: &quot;real&quot; },
           longitude: { type: &quot;real&quot; },
