@@ -1301,8 +1301,9 @@ tests.test_logwatcher = function(callback)
     core.parseArgs(argv);
     fs.appendFile(core.logFile, lines.join("\n"));
     core.watchLogs(function(err, errors) {
+        if (!err && !Object.keys(errors).length) err = "no errors matched but should";
         console.log(errors);
-        callback();
+        callback(err);
     });
 }
 

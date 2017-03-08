@@ -560,12 +560,14 @@ case "$ARG" in
        sed -i -r 's|^auth[ \t]+sufficient[ \t]+pam_unix.so nullok try_first_pass|auth requisite pam_unix.so nullok try_first_pass\nauth sufficient pam_google_authenticator.so|' /etc/pam.d/system-auth
     fi
     if [ "$(egrep -s '^ChallengeResponseAuthentication yes' /etc/ssh/sshd_config)" = "" ]; then
+       sed -i -r 's|^ChallengeResponseAuthentication|#ChallengeResponseAuthentication' /etc/ssh/sshd_config
        echo 'ChallengeResponseAuthentication yes' >> /etc/ssh/sshd_config
     fi
     if [ "$(egrep -s '^AuthenticationMethods publickey,keyboard-interactive' /etc/ssh/sshd_config)" = "" ]; then
+       sed -i -r 's|^AuthenticationMethods|#AuthenticationMethods' /etc/ssh/sshd_config
        echo 'AuthenticationMethods publickey,keyboard-interactive' >> /etc/ssh/sshd_config
     fi
-    su $(get_arg -user ec2-user) -c "google-authenticator -d -t -f -r 2 -m 30"
+    su $(get_arg -user ec2-user) -c "google-authenticator -d -t -f -r 2 -R 30"
     ;;
 
   init-monit-system)
@@ -771,6 +773,7 @@ case "$ARG" in
     # Setup domain from the config, keep the hostname as it is, for EC2 instances it is the IP address
     [ "$BKJS_DOMAIN" != "" ] && $0 init-hostname -domain $BKJS_DOMAIN
     [ "$OS_TYPE" = "amazon" ] && aws configure set region $(curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone/|sed 's/[a-z]$//')
+    [ -f $BKJS_HOME/var/bkjs.init ] && rm -rf $BKJS_HOME/var/* $BKJS_HOME/log/*
     $0 init-alerts
     $0 run-sync
     ;;
