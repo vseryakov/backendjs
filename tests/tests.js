@@ -462,10 +462,10 @@ tests.test_db_basic = function(callback)
             test1: { id: { primary: 1, pub: 1 },
                      num: { type: "int" },
                      num2: { type: "int" },
-                     num3: { type: "text", join: ["id","num"], strict_join: 1 },
+                     num3: { type: "text", join: ["id","num"], join_strict: 1 },
                      email: {},
                      anum: { join: ["anum","num"], unjoin: 1 },
-                     jnum: { join: ["num2","num4"], unjoin: ["num2","num4"], strict_join: 1 },
+                     jnum: { join: ["num2","num4"], unjoin: ["num2","num4"], join_strict: 1 },
                      num4: { hidden: 1 },
                      mtime: { type: "now" },
             },
@@ -559,7 +559,7 @@ tests.test_db = function(callback)
             num3: { join: ["id","num"] },
             email: {},
             anum: { join: ["anum","num"], unjoin: ["anum","num"] },
-            jnum: { join: ["num2","num4"], unjoin: ["num2","num4"], strict_join: 1 },
+            jnum: { join: ["num2","num4"], unjoin: ["num2","num4"], join_strict: 1 },
             num4: { hidden: 1 },
             mnum: { join: ["num","mtime"] },
             mtime: { type: "now" },
@@ -589,7 +589,9 @@ tests.test_db = function(callback)
             id: { primary: 1, pub: 1 },
             hkey: { primary: 1, join: ["type","peer"], ops: { select: "begins_with" }  },
             type: { pub: 1 },
-            peer: { pub: 1 }
+            peer: { pub: 1 },
+            skipcol: { pub: 1, allow_pools: ["elasticsearch"] },
+            skipjoin: { pub: 1, join: ["id","type"], join_pools: ["elasticsearch"] },
         },
         test6: {
             id : { primary: 1, pub: 1 },
@@ -815,13 +817,6 @@ tests.test_db = function(callback)
             });
         },
         function(next) {
-            lib.forEachSeries([1,2,3], function(i, next2) {
-                db.put("test5", { id: id, type: "like", peer: i }, next2);
-            }, function(err) {
-                next(err);
-            });
-        },
-        function(next) {
             // Check pagination
             next_token = null;
             var rc = [];
@@ -912,6 +907,13 @@ tests.test_db = function(callback)
             });
         },
         function(next) {
+            lib.forEachSeries([1,2,3], function(i, next2) {
+                db.put("test5", { id: id, type: "like", peer: i, skipcol:"skip" }, next2);
+            }, function(err) {
+                next(err);
+            });
+        },
+        function(next) {
             db.select("test5", { id: id }, {}, function(err, rows) {
                 tests.assert(next, err || rows.length!=3 , "err20:", rows);
             });
@@ -930,7 +932,7 @@ tests.test_db = function(callback)
         },
         function(next) {
             db.get("test5", { id: id, type: "like", peer: 2 }, {}, function(err, row) {
-                tests.assert(next, err || !row, "err23:", row);
+                tests.assert(next, err || !row || row.skipcol || row.skipjoin, "err23:", row);
             });
         },
         function(next) {
