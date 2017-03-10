@@ -592,6 +592,7 @@ tests.test_db = function(callback)
             peer: { pub: 1 },
             skipcol: { pub: 1, allow_pools: ["elasticsearch"] },
             skipjoin: { pub: 1, join: ["id","type"], join_pools: ["elasticsearch"] },
+            nojoin: { pub: 1, join: ["id","type"], nojoin_pools: ["elasticsearch"] },
         },
         test6: {
             id : { primary: 1, pub: 1 },
@@ -932,7 +933,7 @@ tests.test_db = function(callback)
         },
         function(next) {
             db.get("test5", { id: id, type: "like", peer: 2 }, {}, function(err, row) {
-                tests.assert(next, err || !row || row.skipcol || row.skipjoin, "err23:", row);
+                tests.assert(next, err || !row || row.skipcol || row.skipjoin || !row.nojoin, "err23:", row);
             });
         },
         function(next) {
