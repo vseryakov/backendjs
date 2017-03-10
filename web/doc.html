@@ -5343,10 +5343,11 @@ it can contain pub property to be returned to the client</li>
 <li>`upper&#39; - make string value uppercase</li>
 <li><code>list</code> - splits the column value into an array, optional <code>separator</code> property can be used, default separator is <code>,|</code></li>
 <li><code>autoincr</code> - for counter tables, mark the column to be auto-incremented by the connection API if the connection type has the same name as the column name</li>
-<li><code>join</code> - a list with porperty names that must be joined together before performing a db operation, it will use the given record to produce new property,
+<li><code>join</code> - a list with property names that must be joined together before performing a db operation, it will use the given record to produce new property,
  this will work both ways, to the db and when reading a record from the db it will split joined property and assign individual
  properties the value from the joined value.</li>
-<li><code>joinOps</code> - an array with operations for which perform columns join only, if not specified it applies for all operations, allowed values: add, put, incr, update, del, get, select</li>
+<li><code>join_ops</code> - an array with operations for which perform columns join only, if not specified it applies for all operations,
+ allowed values: add, put, incr, update, del, get, select</li>
 </ul>
 <p><em>Some properties may be defined multiple times with number suffixes like: unique1, unique2, index1, index2 to create more than one index for the table, same
 properties define a composite key in the order of definition or sorted by the property value, for example: <code>{ a: { index:2 }, b: { index:1 } }</code> will create index (b,a)
@@ -5642,8 +5643,10 @@ db.getFilteredColumns(&quot;bk_account&quot;, { type: &quot;now&quot; }, { list:
 <p> Join several columns to produce a combined property if configured, given a column description and an object record
 it replaces the column value with joined value if needed. Empty properties will be still joined as empty strings.
 It always uses the original value even if one of the properties has been joined already.</p>
-<p>Checks for <code>join</code> and <code>joinOps</code> properties in the column definition.</p>
+<p>Checks for <code>join</code> and <code>join_ops</code> properties in the column definition.</p>
 <p>The <code>options.skip_join</code> can be used to restrict joins, it is a list with columns that should not be joined</p>
+<p>The <code>col.join_pools</code> can be an array with pool names which are allowed to do the join, other pools will skip joining this column.</p>
+<p>The <code>col.nojoin_pools</code> can be an array with pool names which are not allowed to do the join, other pools will skip joining this column</p>
 <p>The <code>options.join_strict</code> can be used to perform join only if all columns in the list are not empty, so the join
 is for all columns or none</p>
 </li>
@@ -5664,6 +5667,8 @@ is for all columns or none</p>
 <li>to skip specific columns define <code>options.skip_columns=[&quot;a&quot;,&quot;b&quot;]</code></li>
 <li>to restrict to specific columns only define <code>options.allow_columns=[&quot;a&quot;,&quot;b&quot;]</code></li>
 <li>to restrict to specific DB pools only define <code>options.allow_pools=[&quot;sqlite&quot;,&quot;mysql&quot;]</code></li>
+<li>to skip specific DB pools define <code>options.skip_pools=[&quot;sqlite&quot;,&quot;mysql&quot;]</code></li>
+<li>to restrict to specific DB pools for this columns only define <code>name: { allow_pools: [&quot;sqlite&quot;,&quot;mysql&quot;] }</code></li>
 </ul>
 </li>
 </ul>
