@@ -1048,6 +1048,13 @@ how the environment is setup it is ultimatley 2 ways to specify the port for HTT
 
 * if node.js is already installed skip to the next section
 
+    * to install binary release run the command, it will install it into /opt/local on Darwin
+
+             ./bkjs get-node
+
+             # To install into different path
+             ./bkjs get-node -prefix /usr/local/node
+
     * node.js can be compiled by the bkjs and installed into default location, on Darwin it is /opt/local
 
     * to install node.js in $BKJS_PREFIX/bin run command:
