@@ -573,7 +573,7 @@ case "$ARG" in
   init-monit-system)
     $ECHO "set daemon 30 with start delay 60" > /etc/monit.d/system.conf
     $ECHO "check system localhost if loadavg(1min) > 5 for 10 cycles then exec \"$0 send-alert\"" >> /etc/monit.d/system.conf
-    $ECHO "check filesystem rootfs with path / if space usage > 90% for 3 times within 5 cycles then exec \"$0 send-alert\"" >> /etc/monit.d/system.conf
+    $ECHO "check filesystem rootfs with path / every 30 cycles if space usage > 90% then exec \"$0 send-alert\"" >> /etc/monit.d/system.conf
     monit reload
     ;;
 
