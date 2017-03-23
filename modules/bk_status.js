@@ -26,7 +26,7 @@ var mod = {
             id: { primary: 1, pub: 1 },                        // account id
             status: { pub: 1 },                                // status, online, offline, away
             name: { pub: 1 },
-            atime: { type: "now", pub: 1 },                   // last access time
+            atime: { type: "bigint", pub: 1 },                // last access time
             mtime: { type: "now", pub: 1 },                   // last update time
         },
     },
@@ -85,6 +85,7 @@ mod.update = function(status, options, callback)
         db.putCache("bk_status", status, options);
         lib.tryCall(callback, null, status);
     } else {
+        status.atime = Date.now();
         db.put("bk_status", status, { info_obj: 1 }, function(err, data, info)  {
             lib.tryCall(callback, err, info.obj);
         });
