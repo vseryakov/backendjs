@@ -25,7 +25,7 @@ if (lang) locale = JSON.parse(fs.readFileSync("locales/" + lang + ".json"));
 var rx = [
    /api.sendReply\(res,[ 0-9]+, ?"([^\"]+)"/,
    /message: ?"([^\"]+)"/,
-   /_msg: ?"([^\"]+)"/,
+   /[_ ]msg: ?"([^\"]+)"/,
    /__\("([^""]+)"/,
    /phrase: ?"([^\"]+)"/,
    /"([^\"@]*@[^\"@]+@[^\"]*)"/,
