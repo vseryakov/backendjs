@@ -1447,23 +1447,50 @@ case "$ARG" in
     ;;
 
   get-node)
-    [ "$(get_flag -force)" != "" -a "$BKJS_PREFIX/bin/node" != "" ] && rm -rf $BKJS_PREFIX/bin/node
+    ver=$(get_arg- version v6.10.2)
+    [ "$(get_flag -force)" != "" -a -f $BKJS_PREFIX/bin/node ] && rm -rf $BKJS_PREFIX/bin/node $BKJS_PREFIX/bin/npm $BKJS_PREFIX/lib/node_modules
     if [ ! -f $BKJS_PREFIX/bin/node ]; then
        mkdir -p $BKJS_PREFIX
-       curl -L -o node.tgz https://nodejs.org/dist/v6.10.0/node-v6.10.0-darwin-x64.tar.gz
-       tar -C $BKJS_PREFIX --strip-components=1 -xzf node.tgz
-       rm -rf node.tgz $BKJS_PREFIX/README.md $BKJS_PREFIX/LICENSE $BKJS_PREFIX/CHANGELOG.md
+       if [ "$PLATFORM" = "Linux" ]; then
+          curl -L -o node.tar.xz https://nodejs.org/dist/$ver/node-$ver-linux-x64.tar.xz
+          [ "$?" != "0" ] && exit 1
+          xz -d node.tar.xz
+          tar -C $BKJS_PREFIX --strip-components=1 -xf node.tar
+          rm -rf node.tar
+       fi
+       if [ "$PLATFORM" = "Darwin" ]; then
+          curl -L -o node.tgz https://nodejs.org/dist/$ver/node-$ver-darwin-x64.tar.gz
+          [ "$?" != "0" ] && exit 1
+          tar -C $BKJS_PREFIX --strip-components=1 -xzf node.tgz
+          rm -rf node.tgz
+       fi
+       mv $BKJS_PREFIX/README.md $BKJS_PREFIX/LICENSE $BKJS_PREFIX/CHANGELOG.md $BKJS_PREFIX/share/doc
     fi
     ;;
 
   build-node)
+    ver=$(get_arg- version v6.10.2)
     if [ ! -d deps/node ]; then
        mkdir -p deps
-       (cd deps && git clone -b v6.x https://github.com/nodejs/node.git)
+       (cd deps && git clone -b $ver https://github.com/nodejs/node.git)
     fi
     (cd deps/node && [ ! -f out/Makefile ] && CFLAGS="$CFLAGS" CXXFLAGS="$CXXFLAGS" LDFLAGS="$LDFLAGS" ./configure --prefix=$BKJS_PREFIX)
     (cd deps/node && git pull && make install clean)
     $NPM_BIN config set nodedir "$(pwd)/deps/node"
+    ;;
+
+  upgrade-node)
+    if [ "$PLATFORM" == "Linux" ]; then
+       rm -rf $HOME/.npmrc deps
+       $0 get-node -force
+       cd $HOME/node_modules/backendjs
+       rm -rf node_modules/*
+       bkjs npm-deps
+       cd $HOME/node_modules
+       rm -rf $(ls |grep -v backendjs|paste -s)
+       cd $HOME
+       bkjs npm-deps
+    fi
     ;;
 
   pack-app)
