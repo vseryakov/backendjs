@@ -1490,6 +1490,9 @@ case "$ARG" in
        rm -rf $(ls |grep -v backendjs|paste -s)
        cd $HOME
        bkjs npm-deps
+       cd $HOME/node_modules/.bin
+       ln -s ../backendjs/bkjs
+       ln -s ../backendjs/bkjs bksh
     fi
     ;;
 

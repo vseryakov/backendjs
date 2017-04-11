@@ -1243,9 +1243,10 @@ tests.test_config = function(callback)
                 "-logwatcher-match-error", "a",
                 "-db-create-tables",
                 "-db-sqlite-pool-max", "10",
-                "-db-sqlite-pool-1", "a",
-                "-db-sqlite-pool-max-1", "10",
-                "-db-sqlite-pool-cache-columns-1", "1",
+                "-db-sqlite1-pool", "a",
+                "-db-sqlite1-pool-max", "10",
+                "-db-sqlite1-pool-cache-columns", "1",
+                "-db-sqlite1-pool-options-test", "test",
                 "-db-sqlite-pool-options-discovery-interval", "30000",
                 "-db-sqlite-pool-options-map.test", "test",
                 "-ipc-cache-options-sentinel-servers", "host1",
@@ -1262,6 +1263,7 @@ tests.test_config = function(callback)
     if (!db.poolParams.sqlite1.configOptions.cacheColumns) return callback("invalid sqlite1 cache-columns");
     if (db.poolParams.sqlite.configOptions.discoveryInterval != 30000) return callback("invalid sqlite interval:" + lib.stringify(db.poolParams.sqlite));
     if (db.poolParams.sqlite.configOptions['map.test'] != "test") return callback("invalid sqlite map:" + lib.stringify(db.poolParams.sqlite));
+    if (db.poolParams.sqlite1.configOptions.test != "test") return callback("invalid sqlite1 map:" + lib.stringify(db.poolParams.sqlite1));
     if (!ipc.configParams['cache-options'] || !ipc.configParams['cache-options'].sentinel || ipc.configParams['cache-options'].sentinel.servers != 'host1') return callback("invalid ipc sentinel servers:" + lib.stringify(ipc.configParams));
     if (!ipc.configParams['cache-aaa-options'] || !ipc.configParams['cache-options'].sentinel || ipc.configParams['cache-aaa-options'].sentinel.max_attempts != 1) return callback("invalid ipc max attempts:" + lib.stringify(ipc.configParams));
 
