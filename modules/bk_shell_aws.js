@@ -723,8 +723,8 @@ shell.cmdAwsSetupSsh = function(options)
 
     lib.series([
        function(next) {
-           getGroups(groupName, function(err, ids) {
-               if (!err && ids.length) groupId = ids[0];
+           aws.ec2DescribeSecurityGroups({}, function(err, rc) {
+               if (!err && rc.length) groupId = rc[0];
                next(err);
            });
        },
