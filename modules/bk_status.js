@@ -34,7 +34,7 @@ var mod = {
     args: [
         { name: "interval", type: "number", min: 60000, max: 86400000, descr: "Number of milliseconds between status record updates, presence is considered offline if last access was more than this interval ago" },
     ],
-    interval: 900000,
+    interval: 300000,
 };
 module.exports = mod;
 

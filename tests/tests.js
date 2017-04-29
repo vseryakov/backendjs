@@ -705,7 +705,7 @@ tests.test_db = function(callback)
             });
         },
         function(next) {
-            db.select("test2", { id: id2, id2: "" },  { ops: { id2: "in" } }, function(err, rows) {
+            db.select("test2", { id: id2, id2: "" },  { ops: { id2: "in" }, select: ["id","name"] }, function(err, rows) {
                 tests.assert(next, err || rows.length!=2, "err5-2:", rows.length, rows);
             });
         },
