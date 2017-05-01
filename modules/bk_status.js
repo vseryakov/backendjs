@@ -32,17 +32,17 @@ var mod = {
     },
     // Intervals between updating presence status table
     args: [
-        { name: "interval", type: "number", min: 60000, max: 86400000, descr: "Number of milliseconds between status record updates, presence is considered offline if last access was more than this interval ago" },
+        { name: "interval", type: "number", min: 60000, max: 86400000, descr: "Max idle period in milliseconds after which the status will be considered offline" },
+        { name: "update-interval", type: "number", min: 60000, max: 86400000, descr: "Period in milliseconds between database flushing updates in the case when bk_status is cached" },
     ],
-    interval: 300000,
+    interval: 60000,
+    updateInterval: 180000,
 };
 module.exports = mod;
 
 // Returns status record for given account, used in /status/get API call.
 // It always returns status object even if it was never set before, on return the record contains
 // a property `online` set to true of false according to the idle period and actual status.
-//
-// If id is an array, then return all status records for specified list of account ids.
 //
 // If status was explicitely set to `offline` then it is considered offline until changed to other value,
 // for other cases `status` property is not used, it is supposed for the application extention.
@@ -51,24 +51,28 @@ mod.get = function(id, options, callback)
 {
     if (typeof options == "function") callback = options, options = null;
     var now = Date.now();
+    db.get("bk_status", { id: id }, options, function(err, status, info) {
+        if (err) return callback(err);
+        if (!status) status = { id: id, status: "", online: false, atime: 0, mtime: 0 };
+        status.online = now - status.atime < mod.interval && status.status != "offline" ? true : false;
+        status._cached = info.cached;
+        callback(err, status);
+    });
+}
 
-    if (Array.isArray(id)) {
-        db.list("bk_status", id, options, function(err, rows) {
-            if (err) return callback(err);
-            rows = rows.filter(function(row) {
-                row.online = now - row.atime < mod.statusInterval && row.status != "offline" ? true : false;
-            });
-            callback(err, rows);
+// Return status records for specified list of account ids.
+mod.select = function(ids, options, callback)
+{
+    if (typeof options == "function") callback = options, options = null;
+    var now = Date.now();
+    if (!Array.isArray(ids)) ids = [ ids ];
+    db.list("bk_status", ids, options, function(err, rows) {
+        if (err) return callback(err);
+        rows = rows.filter(function(row) {
+            row.online = now - row.atime < mod.interval && row.status != "offline" ? true : false;
         });
-    } else {
-        db.get("bk_status", { id: id }, options, function(err, status, info) {
-            if (err) return callback(err);
-            if (!status) status = { id: id, status: "", online: false, atime: 0, mtime: 0 };
-            status.online = now - status.atime < mod.statusInterval && status.status != "offline" ? true : false;
-            status._cached = info.cached;
-            callback(err, status);
-        });
-    }
+        callback(err, rows);
+    });
 }
 
 // Maintain online status, update to db every status-interval seconds, only update the db if last update happened
@@ -80,7 +84,7 @@ mod.get = function(id, options, callback)
 mod.update = function(status, options, callback)
 {
     if (typeof options == "function") callback = options, options = null;
-    if (status.online && status.atime - status.mtime < mod.statusInterval && status._cached) {
+    if (status.atime - status.mtime < mod.updateInterval && status._cached) {
         status.atime = Date.now();
         db.putCache("bk_status", status, options);
         lib.tryCall(callback, null, status);
