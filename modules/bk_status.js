@@ -23,9 +23,9 @@ var mod = {
     name: "bk_status",
     tables: {
         bk_status: {
-            id: { primary: 1, pub: 1 },                        // account id
-            status: { pub: 1 },                                // status, online, offline, away
-            name: { pub: 1 },
+            id: { primary: 1, pub: 1 },                       // account id
+            name: { pub: 1 },                                 // account name
+            status: { pub: 1 },                               // status, online, offline, away
             atime: { type: "bigint", pub: 1 },                // last access time
             mtime: { type: "now", pub: 1 },                   // last update time
         },
