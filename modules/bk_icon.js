@@ -111,6 +111,7 @@ mod.configureIconsAPI = function()
             options.type = req.query.type;
             options.prefix = req.query.prefix;
             options.name = req.query.name;
+            options.autodel = 1;
             self.putIcon(req, req.account.id, options, function(err, icon) {
                 var row = { id: req.account.id, prefix: req.query.prefix, type: req.query.type };
                 row.url = self.iconUrl(row, options);
@@ -169,6 +170,7 @@ mod.handleIconRequest = function(req, res, options, callback)
 
        function(next) {
            options.ops = {};
+           options.autodel = 1;
            req.query.type = options.type;
            req.query.prefix = options.prefix;
            if (options.ext) req.query.ext = options.ext;

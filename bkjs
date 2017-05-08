@@ -820,7 +820,7 @@ case "$ARG" in
     [ "$modules" != "" ] && npm install $modules $@
     ;;
 
-  put-backend)
+  put-backend|pb)
     # Put backend code to the remote site
     if [ "$BKJS_PATH" = "" ]; then
        mod=$(node -e 'try{console.log(JSON.parse(require("fs").readFileSync("package.json")).name)}catch(e){}')
@@ -1247,7 +1247,7 @@ case "$ARG" in
     [ "$(get_flag -force)" != "" -a "$ELASTICSEARCH_PREFIX" != "" ] && rm -rf $ELASTICSEARCH_PREFIX
     if [ ! -d $ELASTICSEARCH_PREFIX ]; then
         mkdir -p $ELASTICSEARCH_PREFIX
-        curl -L -o es.tgz https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-5.3.2.tar.gz
+        curl -L -o es.tgz https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-5.4.0.tar.gz
         tar -C $ELASTICSEARCH_PREFIX --strip-components=1 -xzf es.tgz
         rm -rf es.tgz
         cd $ELASTICSEARCH_PREFIX
@@ -1383,7 +1383,7 @@ case "$ARG" in
     kill_proc mongod
     ;;
 
-  show-instances)
+  show-instances|si)
     region=$(get_arg -region)
     [ "$region" != "" ] && region="--region $region"
     name=$(get_arg -name)
@@ -1402,7 +1402,7 @@ case "$ARG" in
     fi
     ;;
 
-  ec2-ssh)
+  ec2-ssh|e2s)
     name=$(get_arg -name)
     [ "$name" = "" ] && echo "-name is required" && exit 1
     user=$(get_arg -user ec2-user)
