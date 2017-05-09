@@ -86,7 +86,7 @@ var mod = {
         trash: { type: "bool" },
         nosent: { type: "bool" },
     },
-    cacheOptions: { cacheName: "messages", ttl: 86400000 },
+    cacheOptions: { cacheName: "messages", ttl: 3600000 },
 };
 module.exports = mod;
 
@@ -231,9 +231,9 @@ mod.sendImage = function(req, options)
 
 mod.getUnread = function(req, options, callback)
 {
-    ipc.get("bk_message|unread|" + req.account.id, mod.cacheOptions, function(err, count) {
-        count = lib.toNumber(count);
-        if (count > 0) return callback(null, { count: count });
+    ipc.get("bk_message|unread|" + req.account.id, mod.cacheOptions, function(err, data) {
+        var count = lib.toNumber(data);
+        if (count > 0 || data === "0") return callback(null, { count: count });
 
         db.select("bk_message", { id: req.account.id, read: 1 }, { total: 1, ops: { read: "ne" } }, function(err, rows) {
             if (err) return callback(err);
@@ -242,6 +242,11 @@ mod.getUnread = function(req, options, callback)
             callback(null, { count: rows[0].count });
         });
     });
+}
+
+mod.resetUnread = function(req, callback)
+{
+    ipc.del("bk_message|unread|" + req.account.id, mod.cacheOptions, callback);
 }
 
 // Return archived messages, used in /message/get API call
@@ -433,7 +438,7 @@ mod.bkDeleteAccount = function(req, callback)
          db.delAll("bk_sent", { id: req.account.id }, function() { next() });
      },
      function(next) {
-         ipc.del("bk_message|unread" + req.account.id, mod.cacheOptions);
+         mod.resetUnread(req);
          next();
      }
     ], callback);
