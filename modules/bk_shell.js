@@ -54,6 +54,17 @@ shell.getQuery = function()
     return query;
 }
 
+// Returns a list with all command line params that do not start with dash(-), only the trailing arguments will be collected
+shell.getQueryList = function()
+{
+    var query = [];
+    for (var i = process.argv.length - 1; i > 1; i--) {
+        if (process.argv[i][0] == '-') break;
+        query.push(process.argv[i]);
+    }
+    return query;
+}
+
 // Returns an object with all command line params starting with dash set with the value if the next param does not start with dash or 1
 shell.getArgs = function()
 {
