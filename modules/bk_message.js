@@ -34,6 +34,7 @@ var mod = {
             name: {},                                      // sender name
             msg: {},                                       // Text of the message
             icon: { type: "int" },                         // 1 - icon present, 0 - no icon
+            icon_type: {},                                 // png, gif, jpg
             read: { type: "int" },                         // 1 - read, 0 - unread
         },
         // Archived messages
@@ -48,6 +49,7 @@ var mod = {
             name: {},                                      // sender name
             msg: {},                                       // text of the message
             icon: { type: "int" },                         // 1 - icon present, 0 - no icon
+            icon_type: {},                                 // png, gif, jpg
         },
         // Messages sent
         bk_sent: {
@@ -57,10 +59,11 @@ var mod = {
                 join: ["mtime","recipient"],
                 unjoin: 1,
             },
-            recipient: { type: "text" },                  // recipient id
-            name: {},                                     // recipient name if known
-            msg: {},                                      // text of the message
-            icon: { type: "int" },                        // 1 - icon present, 0 - no icon
+            recipient: { type: "text" },                   // recipient id
+            name: {},                                      // recipient name if known
+            msg: {},                                       // text of the message
+            icon: { type: "int" },                         // 1 - icon present, 0 - no icon
+            icon_type: {},                                 // png, gif, jpg
         },
         // Metrics
         bk_collect: {
@@ -107,15 +110,15 @@ mod.configureMiddleware = function(options, callback)
 mod.configureModule = function(options, callback)
 {
     db.setProcessRow("post", "bk_message", function(req, row, options) {
-        if (row.icon) row.icon = api.iconUrl({ prefix: 'message', id: row.id, type: row.mtime + ":" + row.sender }); else delete row.icon;
+        if (row.icon) row.icon = api.iconUrl({ prefix: 'message', id: row.id, type: row.mtime + ":" + row.sender, ext: row.icon_type }); else delete row.icon;
     });
 
     db.setProcessRow("post", "bk_archive", function(req, row, options) {
-        if (row.icon) row.icon = api.iconUrl({ prefix: 'message', id: row.id, type: row.mtime + ":" + row.sender }); else delete row.icon;
+        if (row.icon) row.icon = api.iconUrl({ prefix: 'message', id: row.id, type: row.mtime + ":" + row.sender, ext: row.icon_type  }); else delete row.icon;
     });
 
     db.setProcessRow("post", "bk_sent", function(req, row, options) {
-        if (row.icon) row.icon = api.iconUrl({ prefix: 'message', id: row.sender, type: row.mtime + ":" + row.id }); else delete row.icon;
+        if (row.icon) row.icon = api.iconUrl({ prefix: 'message', id: row.sender, type: row.mtime + ":" + row.id, ext: row.icon_type  }); else delete row.icon;
     });
 
     callback();
@@ -334,8 +337,9 @@ mod.addMessage = function(req, options, callback)
 
 mod._putMessage = function(req, query, options, callback)
 {
-    api.putIcon(req, "icon", query.id, { prefix: 'message', type: query.mtime + ":" + query.sender }, function(err, icon) {
+    api.putIcon(req, "icon", query.id, { prefix: 'message', type: query.mtime + ":" + query.sender }, function(err, icon, info) {
         query.icon = icon ? 1 : 0;
+        query.icon_type = icon && info && info.format;
         db.add("bk_message", query, function(err) {
             if (err || options.nosent) return callback(err);
 
@@ -376,7 +380,7 @@ mod.delMessage = function(req, options, callback)
     db.scan(table, query, options, function(row, next) {
         db.del(table, row, function(err) {
             if (!row.read) ipc.incr("bk_message|unread|" + row.id, -1, mod.cacheOptions);
-            if (row.icon && row.sender) api.delIcon(row.id, { prefix: "message", type: row.mtime + ":" + row.sender });
+            if (row.icon && row.sender) api.delIcon(row.id, { prefix: "message", type: row.mtime + ":" + row.sender, ext: row.icon_type });
             db.checkCapacity(cap, next);
         });
     }, callback);
