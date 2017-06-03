@@ -705,6 +705,77 @@ var Bkjs = {
         return (num < 0 ? '-' : '') + str + (parts[1] ? '.' + parts[1] : '');
     },
 
+    toValue: function(val, type) {
+        switch ((type || "").trim()) {
+        case "list":
+        case 'array':
+            return Array.isArray(val) ? val : String(val).split(/[,\|]/);
+
+        case "expr":
+        case "buffer":
+            return val;
+
+        case "real":
+        case "float":
+        case "double":
+            return this.toNumber(val, { float: 1 });
+
+        case "int":
+        case "smallint":
+        case "integer":
+        case "number":
+        case "bigint":
+        case "numeric":
+        case "counter":
+            return this.toNumber(val);
+
+        case "bool":
+        case "boolean":
+            return this.toBool(val);
+
+        case "date":
+        case "time":
+            return this.toDate(val);
+
+        case "mtime":
+            return /^[0-9\.]+$/.test(String(val)) ? toNumber(val) : (new Date(val));
+
+        case "json":
+            return JSON.stringify(val);
+
+        case "phone":
+            return String(str).replace(/[^0-9]+/g, "");
+
+        default:
+            if (typeof val == "string") return val;
+            return String(val);
+        }
+    },
+
+    // Split string into array, ignore empty items,
+    // - `sep` is an RegExp to use as a separator instead of default  pattern `[,\|]`,
+    // - `options` is an object with the same properties as for the `toParams`, `datatype' will be used with
+    //   `toValue` to convert the value for each item
+    //
+    // If `str` is an array and type is not specified then all non-string items will be returned as is.
+    strSplit: function(str, sep, type) {
+        var self = this;
+        if (!str) return [];
+        var typed = typeof type != "undefined";
+        return (Array.isArray(str) ? str : String(str).split(sep || /[,\|]/)).
+                map(function(x) { return typed ? self.toValue(x, type) : typeof x == "string" ? x.trim() : x }).
+                filter(function(x) { return typeof x == "string" ? x.length : 1 });
+    },
+
+    strSplitUnique: function(str, sep, type) {
+        var rc = [];
+        var typed = typeof type != "undefined";
+        this.strSplit(str, sep, type).forEach(function(x) {
+            if (!rc.some(function(y) { return typed ? x == y : x.toLowerCase() == y.toLowerCase() })) rc.push(x);
+        });
+        return rc;
+    },
+
     // Returns a new object constructed from the arguments pairs
     objNew: function() {
         var obj = {};
