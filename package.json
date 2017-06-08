@@ -35,7 +35,7 @@
     "bkjs-cache": ">= 0.5.1",
     "bkjs-sqlite": ">= 0.2.0",
     "bkjs-syslog": ">= 0.3.0",
-    "bkjs-wand": ">= 0.4.5"
+    "bkjs-wand": ">= 0.4.7"
   },
   "modulesDependencies": {
     "memcached": ">= 2.1.1",
