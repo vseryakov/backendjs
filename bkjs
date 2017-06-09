@@ -1469,7 +1469,7 @@ case "$ARG" in
     ;;
 
   build-node)
-    ver=$(get_arg -version v6.10.2)
+    ver=$(get_arg -version v6.11.0)
     if [ ! -d deps/node ]; then
        mkdir -p deps
        (cd deps && git clone -b $ver https://github.com/nodejs/node.git)

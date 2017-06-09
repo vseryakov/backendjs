@@ -24,22 +24,27 @@ var mod = {
     name: "bk_icon",
     tables: {
         bk_icon: {
-            id: { primary: 1 },                         // Account id
-            type: { primary: 1,                         // prefix:type
+            id: { primary: 1 },                         // account id
+            type: {                                     // prefix:type
+                primary: 1,
                 pub: 1,
                 join: [ "prefix", "type" ],
                 unjoin: 1,
                 separator: ":",
-                ops: { select: "begins_with" } },
+                ops: { select: "begins_with" }
+            },
             prefix: {},                                 // icon prefix/namespace
             acl_allow: {},                              // Who can see it: all, auth, id:id...
             ext: {},                                    // Saved image extension
-            descr: {},
             tags: { type: "list" },                     // detected or attached tags
+            width: { type: "int" },
+            height: { type: "int" },
+            rotation: { type: "int" },                  // angle
+            descr: {},
             geohash: {},                                // Location associated with the icon
             latitude: { type: "real" },
             longitude: { type: "real" },
-            mtime: { type: "now" },          // Last time added/updated
+            mtime: { type: "now" },                     // Last time added/updated
         },
 
         // Metrics
@@ -88,8 +93,6 @@ mod.configureWeb = function(options, callback)
 // Generic icon management
 mod.configureIconsAPI = function()
 {
-    var self = this;
-
     api.app.all(/^\/icon\/([a-z]+)$/, function(req, res) {
         var options = api.getOptions(req);
 
@@ -98,11 +101,11 @@ mod.configureIconsAPI = function()
         if (!req.query.type) req.query.type = "";
         switch (req.params[0]) {
         case "get":
-            self.getIcon(req, res, req.query.id, options);
+            mod.getIcon(req, res, req.query.id, options);
             break;
 
         case "select":
-            self.selectIcon(req, options, function(err, rows) {
+            mod.selectIcon(req, options, function(err, rows) {
                 api.sendJSON(req, err, rows);
             });
             break;
@@ -112,17 +115,21 @@ mod.configureIconsAPI = function()
             options.prefix = req.query.prefix;
             options.name = req.query.name;
             options.autodel = 1;
-            self.putIcon(req, req.account.id, options, function(err, icon) {
-                var row = { id: req.account.id, prefix: req.query.prefix, type: req.query.type };
-                row.url = self.iconUrl(row, options);
-                api.sendJSON(req, err, row);
+            api.putIcon(req, req.account.id, options, function(err, icon, info) {
+                if (info) {
+                    info.id = req.account.id;
+                    info.prefix = req.query.prefix;
+                    info.type = req.query.type;
+                    info.url = api.iconUrl(info, options);
+                }
+                api.sendJSON(req, err, info);
             });
             break;
 
         case "del":
         case "put":
             options.op = req.params[0];
-            self.handleIconRequest(req, res, options, function(err, rows) {
+            mod.handleIconRequest(req, options, function(err, rows) {
                 api.sendJSON(req, err, rows);
             });
             break;
@@ -138,18 +145,18 @@ mod.configureIconsAPI = function()
 
 // Process icon request, put or del, update table and deal with the actual image data, always overwrite the icon file
 // Verify icon limits before adding new icons
-mod.handleIconRequest = function(req, res, options, callback)
+mod.handleIconRequest = function(req, options, callback)
 {
-    var self = this;
     var op = options.op || "put";
 
     options.type = req.query.type || "";
     options.prefix = req.query.prefix || "account";
     if (!req.query.id) req.query.id = req.account.id;
+    if (typeof options.autodel == "undefined") options.autodel = 1;
 
     // Max number of allowed icons per type or globally
-    var limit = self.limit[options.type] || self.limit['*'];
-    var icons = [];
+    var limit = mod.limit[options.type] || mod.limit['*'];
+    var icons = [], info;
 
     lib.series([
        function(next) {
@@ -159,7 +166,7 @@ mod.handleIconRequest = function(req, res, options, callback)
                case "put":
                    // We can override existing icon but not add a new one
                    if (limit > 0 && rows.length >= limit && !rows.some(function(x) { return x.type == options.type })) {
-                       return next({ status: 400, message: "No more icons allowed" });
+                       return next({ status: 403, message: "No more icons allowed" });
                    }
                    break;
                }
@@ -170,50 +177,47 @@ mod.handleIconRequest = function(req, res, options, callback)
 
        function(next) {
            options.ops = {};
-           options.autodel = 1;
            req.query.type = options.type;
            req.query.prefix = options.prefix;
            if (options.ext) req.query.ext = options.ext;
            if (req.query.latitude && req.query.longitude) req.query.geohash = lib.geoHash(req.query.latitude, req.query.longitude);
 
-           db[op]("bk_icon", req.query, options, function(err, rows) {
-               if (err) return next(err);
+           switch (op) {
+           case "put":
+               api.putIcon(req, options.name || "icon", req.query.id, options, function(err, icon, meta) {
+                   if (err || !icon) return next(err || { status: 400, message: "Upload error" });
+                   info = meta;
+                   for (var p in info) req.query[p] = info[p];
+                   // Add new icons to the list which will be returned back to the client
+                   if (!icons.some(function(x) { return x.type == options.type })) {
+                       req.query.url = api.iconUrl(req.query, options);
+                       icons.push(req.query);
+                   }
+                   db.put("bk_icon", req.query, options, next);
+               });
+               break;
 
-               switch (op) {
-               case "put":
-                   api.putIcon(req, options.name || "icon", req.query.id, options, function(err, icon) {
-                       if (err || !icon) return db.del('bk_icon', req.query, options, function() { next(err || { status: 500, message: "Upload error" }); });
-                       // Add new icons to the list which will be returned back to the client
-                       if (!icons.some(function(x) { return x.type == options.type })) {
-                           req.query.url = api.iconUrl(req.query, options);
-                           icons.push(req.query);
-                       }
-                       next();
-                   });
-                   break;
-
-               case "del":
+           case "del":
+               db.del("bk_icon", req.query, options, function(err, rows) {
                    api.delIcon(req.query.id, options, function() {
                        icons = icons.filter(function(x) { return x.type != options.type });
                        next();
                    });
-                   break;
+               });
+               break;
 
-               default:
-                   next({ status: 500, message: "invalid op" });
-               }
-           });
+           default:
+               next({ status: 400, message: "invalid op" });
+           }
        }], function(err) {
-            if (callback) callback(err, icons);
+           lib.tryCall(callback, err, icons, info);
     });
 }
 
 // Return list of icons for the account, used in /icon/get API call
 mod.selectIcon = function(req, options, callback)
 {
-    db.select("bk_icon", { id: req.query.id, type: req.query.type, prefix: req.query.prefix }, options, function(err, rows) {
-        callback(err, rows);
-    });
+    db.select("bk_icon", { id: req.query.id, type: req.query.type, prefix: req.query.prefix }, options, callback);
 }
 
 // Return icon to the client, checks the bk_icon table for existence and permissions
