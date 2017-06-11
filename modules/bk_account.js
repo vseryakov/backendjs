@@ -174,29 +174,36 @@ accounts.configureAccountsAPI = function()
 
         case "get/icon":
             if (!req.query.id) req.query.id = req.account.id;
-            if (!req.query.type) req.query.type = '0';
             req.query.prefix = 'account';
+            if (!req.query.type) req.query.type = '0';
             options.cleanup = "bk_icon";
-            core.modules.bk_icon.getIcon(req, res, req.query.id, options);
+            core.modules.bk_icon.send(req, options);
             break;
 
         case "select/icon":
             if (!req.query.id) req.query.id = req.account.id;
             req.query.prefix = "account";
             options.cleanup = "bk_icon";
-            core.modules.bk_icon.selectIcon(req, options, function(err, rows) {
+            core.modules.bk_icon.select(req.query, function(err, rows) {
                 api.sendJSON(req, err, rows);
             });
             break;
 
         case "put/icon":
-        case "del/icon":
-            options.op = req.params[0].substr(0, 3);
             req.query.prefix = 'account';
             req.query.id = req.account.id;
             if (!req.query.type) req.query.type = '0';
-            core.modules.bk_icon.handleIconRequest(req, options, function(err, rows) {
-                api.sendJSON(req, err, rows);
+            core.modules.bk_icon.put(req, options, function(err, data) {
+                api.sendJSON(req, err, data);
+            });
+            break;
+
+        case "del/icon":
+            req.query.prefix = 'account';
+            req.query.id = req.account.id;
+            if (!req.query.type) req.query.type = '0';
+            core.modules.bk_icon.del(req.query, function(err, rows) {
+                api.sendJSON(req, err);
             });
             break;
 
@@ -517,7 +524,7 @@ accounts.fetchAccount = function(query, options, callback)
                     if (err || !params.data.length) return next();
                     api.saveIcon(params.data, auth.id, { prefix: "account", type: "0", width: options.width }, function(err) {
                         if (err || !core.modules.bk_icon) return next();
-                        db.put("bk_icon", { id: auth.id, prefix: "account", type:"account:0" }, options, function(err, rows) { next() });
+                        db.put("bk_icon", { id: auth.id, prefix: "account", type: "0" }, options, function(err, rows) { next() });
                     });
                 });
             },
