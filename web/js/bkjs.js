@@ -514,8 +514,10 @@ var Bkjs = {
         return fmt;
     },
 
-    sprintf: function(str) {
+    sprintf: function(str, args) {
         var i = 0, arr = arguments;
+        if (arguments.length == 2 && Array.isArray(args)) i = -1, arr = args;
+
         function format(sym, p0, p1, p2, p3, p4) {
             if (sym == '%%') return '%';
             if (arr[++i] === undefined) return undefined;
