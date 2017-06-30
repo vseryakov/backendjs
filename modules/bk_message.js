@@ -36,6 +36,7 @@ var mod = {
             icon: { type: "int" },                         // 1 - icon present, 0 - no icon
             icon_type: {},                                 // png, gif, jpg
             read: { type: "int" },                         // 1 - read, 0 - unread
+            flags: { type: "list" },
         },
         // Archived messages
         bk_archive: {
@@ -50,6 +51,7 @@ var mod = {
             msg: {},                                       // text of the message
             icon: { type: "int" },                         // 1 - icon present, 0 - no icon
             icon_type: {},                                 // png, gif, jpg
+            flags: { type: "list" },
         },
         // Messages sent
         bk_sent: {
@@ -64,6 +66,7 @@ var mod = {
             msg: {},                                       // text of the message
             icon: { type: "int" },                         // 1 - icon present, 0 - no icon
             icon_type: {},                                 // png, gif, jpg
+            flags: { type: "list" },
         },
         // Metrics
         bk_collect: {
@@ -373,14 +376,16 @@ mod.archiveMessage = function(req, options, callback)
 // Delete matched messages, used in /message/del` API call
 mod.delMessage = function(req, options, callback)
 {
-    options.select = ["id","mtime","sender","recipient","read"];
+    options.select = ["id","mtime","sender","recipient","read","flags"];
     var table = options.table || "bk_message";
     var cap = db.getCapacity(table, { useCapacity: "write", factorCapacity: options.factorCapacity || 0.25 });
     var query = lib.toParams(req.query, { id: { value: req.account.id }, mtime: { type: "int" }, sender: {}, read: { type: "int" }, recipient: {} });
     db.scan(table, query, options, function(row, next) {
         db.del(table, row, function(err) {
             if (!row.read) ipc.incr("bk_message|unread|" + row.id, -1, mod.cacheOptions);
-            if (row.icon && row.sender) api.delIcon(row.id, { prefix: "message", type: row.mtime + ":" + row.sender, ext: row.icon_type });
+            if (row.icon && row.sender && !lib.isFlag(row.flags, "keepicon")) {
+                api.delIcon(row.id, { prefix: "message", type: row.mtime + ":" + row.sender, ext: row.icon_type });
+            }
             db.checkCapacity(cap, next);
         });
     }, callback);
