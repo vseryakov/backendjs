@@ -232,8 +232,10 @@ accounts.getAccount = function(req, options, callback)
 //  - msg - message text to send
 //  - badge - a badge number to be sent
 //  - allow - the account properties to check if notifications are enabled, it must be an object with properties in the account record and values to
-//      be a regexp, each value if starts with "!" means not equal, see `lib.isMatched`
+//    be a regexp, each value if starts with "!" means not equal, see `lib.isMatched`
 //  - skip - Array or an object with account ids which should be skipped, this is for mass sending in order to reuse the same options
+//  - enable - the account properties to check if a notification parameter must be set or removed, an account property must be a boolean and
+//    if false then a notification parameter is removed and if true a notification parameter is set to 1
 //  - logging - logging level about the notification send status, default is debug, can be any valid logger level, must be a string, not a number
 //  - service_id - name of the standard delivery service supported by the backend, it is be used instead of custom handler, one of the following: apple, google
 //  - app_id - the application specific device tokens should be used only or if none matched the default device tokens
@@ -244,7 +246,7 @@ accounts.getAccount = function(req, options, callback)
 //
 //  Example:
 //
-//       bk_account.notifyAccount({ account_id: "123", msg: "test", badge: 1, sound: 1, allow: { notifications0: 1, type: "user" } })
+//       bk_account.notifyAccount({ account_id: "123", msg: "test", badge: 1, sound: 1, allow: { notifications0: 1, type: "user" }, enable: { sound: "sound0", badge: "badge0" } })
 //
 accounts.notifyAccount = function(options, callback)
 {
@@ -276,6 +278,11 @@ accounts.notifyAccount = function(options, callback)
       function(next) {
           if (!lib.isMatched(account, options.allow)) {
               return next({ status: 401, message: "not allowed", id: options.account_id });
+          }
+          for (var p in options.enable) {
+              var c = options.enable[p];
+              if (typeof account[c] == "undefined") continue;
+              if (lib.toBool(account[c])) options[p] = 1; else delete options[p];
           }
           msg.send(options.device_id || account.device_id, options, function(err) {
               logger.logger(err ? "error" : (options.logging || "debug"), "notifyAccount:", err, lib.objDescr(options), lib.objDescr(account));
