@@ -1029,7 +1029,7 @@ case "$ARG" in
        ;;
     esac
 
-    ver=$(get_arg -version 3.2.8)
+    ver=$(get_arg -version 3.2.9)
     curl -L -o redis.tgz http://download.redis.io/releases/redis-$ver.tar.gz
 
     mkdir -p redis $BKJS_HOME/etc
