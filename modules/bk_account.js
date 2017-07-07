@@ -402,7 +402,7 @@ accounts.updateAccount = function(req, options, callback)
        function(next) {
            if (options.noauth || !req.account.login) return next();
            // Copy for the auth table in case we have different properties that needs to be cleared
-           var query = lib.objClone(req.query, "login", req.account.login);
+           var query = lib.objClone(req.query, "login", req.account.login, "id", req.account.id);
            api.prepareAccountSecret(query, options);
            // Skip admin properties if any
            if (!options.admin && !api.checkAccountType(req.account, "admin")) {
@@ -416,7 +416,7 @@ accounts.updateAccount = function(req, options, callback)
        },
        function(next) {
            // Skip admin properties if any
-           var query = lib.objClone(req.query, "id", req.account.id);
+           var query = lib.objClone(req.query, "login", req.account.login, "id", req.account.id);
            if (!options.admin && !api.checkAccountType(req.account, "admin")) {
                api.clearQuery("bk_account", query, "admin");
                for (var i in options.admin_values) query[options.admin_values[i]] = req.query[options.admin_values[i]];
