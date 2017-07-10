@@ -355,7 +355,7 @@ case "$ARG" in
        echo "$BKJS_HOME/log/message.log $BKJS_HOME/log/access.log {" >> /etc/logrotate.d/$BKJS
        echo " missingok" >> /etc/logrotate.d/$BKJS
        echo " daily" >> /etc/logrotate.d/$BKJS
-       echo " rotate 14" >> /etc/logrotate.d/$BKJS
+       echo " rotate 30" >> /etc/logrotate.d/$BKJS
        echo " sharedscripts" >> /etc/logrotate.d/$BKJS
        echo " postrotate" >> /etc/logrotate.d/$BKJS
        echo "  /usr/bin/killall -q -HUP rsyslogd" >> /etc/logrotate.d/$BKJS
