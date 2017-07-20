@@ -1252,7 +1252,7 @@ case "$ARG" in
     [ "$(get_flag -force)" != "" -a "$ELASTICSEARCH_PREFIX" != "" ] && rm -rf $ELASTICSEARCH_PREFIX
     if [ ! -d $ELASTICSEARCH_PREFIX ]; then
         mkdir -p $ELASTICSEARCH_PREFIX
-        curl -L -o es.tgz https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-5.4.3.tar.gz
+        curl -L -o es.tgz https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-5.5.0.tar.gz
         tar -C $ELASTICSEARCH_PREFIX --strip-components=1 -xzf es.tgz
         rm -rf es.tgz
         cd $ELASTICSEARCH_PREFIX
@@ -1452,7 +1452,7 @@ case "$ARG" in
     ;;
 
   get-node)
-    ver=$(get_arg -version v6.11.0)
+    ver=$(get_arg -version v6.11.1)
     [ "$(get_flag -force)" != "" -a -f $BKJS_PREFIX/bin/node ] && rm -rf $BKJS_PREFIX/bin/node $BKJS_PREFIX/bin/npm $BKJS_PREFIX/lib/node_modules
     if [ ! -f $BKJS_PREFIX/bin/node ]; then
        mkdir -p $BKJS_PREFIX
