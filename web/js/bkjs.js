@@ -652,6 +652,10 @@ var Bkjs = {
         return str;
     },
 
+    isFlag: function(list, name) {
+        return Array.isArray(list) && (Array.isArray(name) ? name.some(function(x) { return list.indexOf(x) > -1 }) : list.indexOf(name) > -1);
+    },
+
     // Capitalize words
     toTitle: function(name) {
         return (name || "").replace(/_/g, " ").split(/[ ]+/).reduce(function(x,y) { return x + y.substr(0,1).toUpperCase() + y.substr(1) + " "; }, "").trim();
