@@ -616,7 +616,7 @@ tests.test_db = function(callback)
         return row;
     });
 
-    db.allowColumn["action[0-9]+"] = "counter";
+    db.allowColumn.test6 = { "action[0-9]+": "counter" };
 
     db.describeTables(tables);
 
