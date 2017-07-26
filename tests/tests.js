@@ -616,6 +616,8 @@ tests.test_db = function(callback)
         return row;
     });
 
+    db.allowColumn["action[0-9]+"] = "counter";
+
     db.describeTables(tables);
 
     lib.series([
@@ -999,16 +1001,26 @@ tests.test_db = function(callback)
             });
         },
         function(next) {
-            db.update("test6", { id: id, num: 2, mtime: rec.mtime, obj: "1" }, function(err, rc, info) {
+            db.update("test6", { id: id, num: 2, mtime: rec.mtime, obj: "1", action1: 1 }, function(err, rc, info) {
                 tests.assert(next, err || !info.affected_rows, "err35:", info);
             });
         },
         function(next) {
             db.get("test6", { id: id }, {}, function(err, row) {
-                tests.assert(next, err || !row || row.num != 2 || !row.obj || row.obj.n != 1 || !row.list || !row.list[0] || row.list[0].n != 1, "err36:", row);
+                tests.assert(next, err || !row || row.num != 2 || !row.obj || row.obj.n != 1 ||
+                             !row.list || !row.list[0] || row.list[0].n != 1, "err36:", row);
             });
         },
-
+        function(next) {
+            db.incr("test6", { id: id, action1: 2 }, function(err, rc, info) {
+                tests.assert(next, err || !info.affected_rows, "err37:", info);
+            });
+        },
+        function(next) {
+            db.get("test6", { id: id }, {}, function(err, row) {
+                tests.assert(next, err || !row || (!db.getPool(db.pool).configOptions.noAllowColumns && row.action1 != 3), "err38:", row);
+            });
+        },
     ],
     function(err) {
         callback(err);
