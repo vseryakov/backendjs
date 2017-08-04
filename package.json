@@ -1,5 +1,5 @@
 {
-  "version": "0.58.0",
+  "version": "0.59.0",
   "author": "Vlad Seryakov",
   "name": "backendjs",
   "description": "A platform for building backends",
@@ -66,7 +66,7 @@
     "geohash"
   ],
   "engines": {
-    "node": ">=4.0"
+    "node": ">=6.0"
   },
   "license": "BSD-3-Clause",
   "bin": {
