@@ -10,11 +10,11 @@ Bkjs.showAlert = function(obj, type, text, options)
     if (typeof obj == "string") options = text, text = type, type = obj, obj = $("body");
     if (!options) options = {};
     text = "<div class='alert alert-dissmisible alert-" + type + "' role='alert'>" + (typeof text == "string" ? text : JSON.stringify(text))
-    if (options.dismiss) text += '<button type="button" class="close" data-dismiss="alert"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>';
+    text += '<button type="button" class="close" data-dismiss="alert"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>';
     text += "</div>";
     if (!$(obj).find(".alerts").length) obj = $("body");
     $(obj).find(".alerts").empty().append(text);
-    if (!options.dismiss) $(obj).find(".alerts div").hide().fadeIn(200).delay(5000 + (type == "error" ? 5000 : 0)).fadeOut(1000, function () { $(this).remove(); });
+    if (!options.dismiss) $(obj).find(".alerts div").hide().fadeIn(200).delay(5000 + (type == "danger" ? 15000 : type == "warning" ? 5000 : 0)).fadeOut(1000, function () { $(this).remove(); });
     if (options.scroll) $(obj).animate({ scrollTop: 0 }, "slow");
 }
 

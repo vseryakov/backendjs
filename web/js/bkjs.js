@@ -28,6 +28,8 @@ var Bkjs = {
     accessTokenName: "bk-access-token",
     tzName: "bk-tz",
     langName: "bk-lang",
+    // HTTP headers to be sent with every request
+    headers: {},
 
     // For urls without host this will be used to make a full absolute URL, can be used for CORS
     locationUrl: "",
@@ -289,6 +291,7 @@ var Bkjs = {
             options.headers[this.tzName] = (new Date()).getTimezoneOffset();
             if (this.language) options.headers[this.langName] = this.language;
         }
+        for (var h in this.headers) options.headers[h] = this.headers[h];
         this.loading("show");
         $.ajax(options);
     },
