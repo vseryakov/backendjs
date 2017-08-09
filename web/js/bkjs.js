@@ -291,6 +291,7 @@ var Bkjs = {
             options.headers[this.tzName] = (new Date()).getTimezoneOffset();
             if (this.language) options.headers[this.langName] = this.language;
         }
+        if (!options.headers) options.headers = {};
         for (var h in this.headers) options.headers[h] = this.headers[h];
         this.loading("show");
         $.ajax(options);
