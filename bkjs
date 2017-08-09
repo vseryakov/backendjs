@@ -773,7 +773,11 @@ case "$ARG" in
     [ "$(whoami)" != "root" ] && echo "Not root, skipping setup" && exit 1
     # Setup domain from the config, keep the hostname as it is, for EC2 instances it is the IP address
     [ "$BKJS_DOMAIN" != "" ] && $0 init-hostname -domain $BKJS_DOMAIN
-    [ "$OS_TYPE" = "amazon" ] && aws configure set region $(curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone/|sed 's/[a-z]$//')
+    if [ "$OS_TYPE" = "amazon" ]; then
+       region=$(curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone/|sed 's/[a-z]$//')
+       aws configure set region $region
+       su ec2-user -c "aws configure set region $region"
+    fi
     if [ -f $BKJS_HOME/var/bkjs.init ]; then
        rm -rf $BKJS_HOME/var/* $BKJS_HOME/log/*
        service rsyslog restart
