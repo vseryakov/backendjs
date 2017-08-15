@@ -30,6 +30,7 @@
     "cookie-parser": ">= 1.4.1",
     "cookie-session": ">= 1.0.1",
     "serve-static": ">= 1.10.2",
+    "mmmagic": ">= 0.4.5",
     "nan": ">= 2.4.0",
     "bkjs-utils": ">= 0.2.2",
     "bkjs-cache": ">= 0.5.1",
