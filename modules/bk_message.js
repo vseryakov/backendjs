@@ -37,6 +37,7 @@ var mod = {
             icon_type: {},                                 // png, gif, jpg
             read: { type: "int" },                         // 1 - read, 0 - unread
             flags: { type: "list" },
+            ctime: { type: "now", readonly: 1 },
         },
         // Archived messages
         bk_archive: {
@@ -52,6 +53,7 @@ var mod = {
             icon: { type: "int" },                         // 1 - icon present, 0 - no icon
             icon_type: {},                                 // png, gif, jpg
             flags: { type: "list" },
+            ctime: { type: "now", readonly: 1 },
         },
         // Messages sent
         bk_sent: {
@@ -67,6 +69,7 @@ var mod = {
             icon: { type: "int" },                         // 1 - icon present, 0 - no icon
             icon_type: {},                                 // png, gif, jpg
             flags: { type: "list" },
+            ctime: { type: "now", readonly: 1 },
         },
         // Metrics
         bk_collect: {
@@ -258,15 +261,15 @@ mod.resetUnread = function(req, callback)
 // Return archived messages, used in /message/get API call
 mod.getArchiveMessage = function(req, options, callback)
 {
-    var query = lib.toParams(req.query, { id: { value: req.account.id }, mtime: { type: "int" }, sender: {}, read: { type: "int" } });
-    db.select("bk_archive", query, options, callback);
+    var query = lib.toParams(req.query, { q: {}, id: { value: req.account.id }, mtime: { type: "int" }, sender: {}, read: { type: "int" } });
+    db.search("bk_archive", query, options, callback);
 }
 
 // Return sent messages to the specified account, used in /message/get/sent API call
 mod.getSentMessage = function(req, options, callback)
 {
-    var query = lib.toParams(req.query, { id: { value: req.account.id }, mtime: { type: "int" }, recipient: {} });
-    db.select("bk_sent", query, options, callback);
+    var query = lib.toParams(req.query, { q: {}, id: { value: req.account.id }, mtime: { type: "int" }, recipient: {} });
+    db.search("bk_sent", query, options, callback);
 }
 
 // Return new/unread messages, used in /message/get API call
@@ -281,8 +284,8 @@ mod.getMessage = function(req, options, callback)
     var cap1 = db.getCapacity("bk_message", { useCapacity: "write", factorCapacity: options.factorCapacity || 0.25 });
     var cap2 = db.getCapacity("bk_archive", { useCapacity: "write", factorCapacity: options.factorCapacity || 0.25 });
 
-    var query = lib.toParams(req.query, { id: { value: req.account.id }, mtime: { type: "int" }, sender: {}, read: { type: "int" } });
-    db.select("bk_message", query, options, function(err, rows, info) {
+    var query = lib.toParams(req.query, { q: {}, id: { value: req.account.id }, mtime: { type: "int" }, sender: {}, read: { type: "int" } });
+    db.search("bk_message", query, options, function(err, rows, info) {
         if (err) return callback(err);
 
         if (!archive && !trash) return callback(err, rows, info);
