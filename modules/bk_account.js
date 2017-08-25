@@ -193,7 +193,7 @@ accounts.configureAccountsAPI = function()
             req.query.prefix = 'account';
             req.query.id = req.account.id;
             if (!req.query.type) req.query.type = '0';
-            core.modules.bk_icon.put(req, options, function(err, data) {
+            core.modules.bk_icon.upload(req, options, function(err, data) {
                 api.sendJSON(req, err, data);
             });
             break;

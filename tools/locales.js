@@ -49,6 +49,9 @@ files.forEach(function(file) {
         }
     }
 });
+if (lib.isArg("-merge")) {
+    for (var p in locale) if (!msgs[p]) msgs[p] = locale[p];
+}
 console.log(JSON.stringify(msgs, null, " "));
 process.exit(0);
 

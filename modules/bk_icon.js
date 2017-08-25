@@ -110,7 +110,7 @@ mod.configureIconsAPI = function()
             break;
 
         case "put":
-            mod.put(req, options, function(err, rows) {
+            mod.upload(req, options, function(err, rows) {
                 api.sendJSON(req, err, rows);
             });
             break;
@@ -148,7 +148,7 @@ mod.configureIconsAPI = function()
 
 // Process icon request, put or del, update table and deal with the actual image data, always overwrite the icon file
 // Verify icon limits before adding new icons
-mod.put = function(req, options, callback)
+mod.upload = function(req, options, callback)
 {
     req.query.type = req.query.type || "";
     req.query.prefix = req.query.prefix || "account";
@@ -196,6 +196,26 @@ mod.put = function(req, options, callback)
     });
 }
 
+mod.get = function(query, options, callback)
+{
+    if (typeof options == "function") callback = options, options = null;
+    db.get("bk_icon", { id: options.id, type: options.type, prefix: options.prefix }, options, callback);
+}
+
+mod.put = function(query, options, callback)
+{
+    if (typeof options == "function") callback = options, options = null;
+    db.put("bk_icon", query, options, callback);
+}
+
+// Return list of icons for the account, used in /icon/get API call
+mod.select = function(query, options, callback)
+{
+    if (typeof options == "function") callback = options, options = null;
+    if (!query.id) return callback({ status: 400, message: "no id provided" })
+    db.select("bk_icon", { id: query.id, type: query.type, prefix: query.prefix }, options || query, callback);
+}
+
 // Delete an icon, only one icon at a time, options must profile id, prefix. It will try to delete
 // an icon file even if there is no record in the bk_icon table.
 mod.del = function(options, callback)
@@ -207,13 +227,6 @@ mod.del = function(options, callback)
         if (rows.length) options = rows[0];
         api.delIcon(options.id, options, callback);
     });
-}
-
-// Return list of icons for the account, used in /icon/get API call
-mod.select = function(options, callback)
-{
-    if (!options.id) return callback({ status: 400, message: "no id provided" })
-    db.select("bk_icon", { id: options.id, type: options.type, prefix: options.prefix }, callback);
 }
 
 // Return icon to the client, checks the bk_icon table for existence and permissions
