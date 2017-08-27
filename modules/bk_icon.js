@@ -199,7 +199,7 @@ mod.upload = function(req, options, callback)
 mod.get = function(query, options, callback)
 {
     if (typeof options == "function") callback = options, options = null;
-    db.get("bk_icon", { id: options.id, type: options.type, prefix: options.prefix }, options, callback);
+    db.get("bk_icon", { id: query.id, type: query.type, prefix: query.prefix }, options, callback);
 }
 
 mod.put = function(query, options, callback)
