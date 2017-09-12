@@ -1456,7 +1456,7 @@ case "$ARG" in
     ;;
 
   get-node)
-    ver=$(get_arg -version v6.11.2)
+    ver=$(get_arg -version v6.11.3)
     [ "$(get_flag -force)" != "" -a -f $BKJS_PREFIX/bin/node ] && rm -rf $BKJS_PREFIX/bin/node $BKJS_PREFIX/bin/npm $BKJS_PREFIX/lib/node_modules
     if [ ! -f $BKJS_PREFIX/bin/node ]; then
        mkdir -p $BKJS_PREFIX

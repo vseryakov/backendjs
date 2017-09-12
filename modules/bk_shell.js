@@ -36,9 +36,9 @@ shell.getUser = function(obj, callback)
     db.get("bk_account", { id: obj.id }, function(err, row) {
         if (err) exit(err);
 
-        db.get("bk_auth", { login: row ? row.login : obj.login }, function(err, row) {
-            if (err || !row) shell.exit(err, "ERROR: no user found with this id: " + util.inspect(obj));
-            callback(row);
+        db.get("bk_auth", { login: row ? row.login : obj.login }, function(err, row2) {
+            if (err || !(row ||row2)) shell.exit(err, "ERROR: no user found with this id: " + util.inspect(obj));
+            callback(row || row2);
         });
     });
 }
@@ -181,7 +181,10 @@ shell.assert = function(next, err)
     if (err) {
         var args = [ util.isError(err) ? err : lib.isObject(err) ? lib.objDescr(err) : ("TEST ASSERTION: " + lib.objDescr(arguments[2])) ];
         for (var i = 2; i < arguments.length; i++) args.push(arguments[i]);
+        logger.oneline = false;
+        logger.separator = "\n";
         logger.error.apply(logger, args);
+        logger.oneline = true;
         err = args[0];
     }
     setTimeout(next.bind(null, err), this.test.timeout || this.test.delay || 0);
