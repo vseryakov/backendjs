@@ -64,6 +64,9 @@ var mod = {
         brightness: { type: "number" },
         contrast: { type: "number" },
         bgcolor: { type: "string" },
+        verify: { type: "bool" },
+        extkeep: { type: "regexp" },
+        autodel: { type: "bool" },
     }
 };
 module.exports = mod;
