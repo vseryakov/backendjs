@@ -1429,6 +1429,15 @@ case "$ARG" in
     eval $cmd
     ;;
 
+  ec2-run|e2r)
+    name=$(get_arg -name)
+    region=$(get_arg -region us-east-1)
+    cmd=$(get_arg -cmd)
+    ids=$($0 show-instances -region "$region" -fmt id -name "$name"|awk '{printf "%s,",$1}'|sed 's/,$//')
+    [ "$ids" = "" ] && exit
+    aws ssm send-command --targets "Key=InstanceIds,Values=$ids" --document-name "AWS-RunShellScript" --parameters "commands=$cmd" --region $region
+    ;;
+
   show-help)
     $NODE_BIN -e "require('$BKJS_MOD').core.showHelp()"
     ;;
@@ -1779,8 +1788,9 @@ EOF
     echo "  build-bkjs - clone and build the $BKJS_MOD from the git in the current dir with dependencies specified in -args"
     echo "  get-node [-prefix PATH] - install binary release of the node into $BKJS_PREFIX or specified path"
     echo "  build-node - build node and install in $BKJS_PREFIX or in [-prefix PATH], on Linux init-devel should be called before this command to install devel packages"
-    echo "  show-instances [-region region] [-name name] [-fmt fmt]- show running instances in region, optional tag pattern can be used for filter, FMT may contain: id,ip,host,key,name which will be replaced with actual values"
-    echo "  ec2-ssh -name name [-region region] [-ip] [-cmd cmd] - login using ssh to a host(IP) by tag name, key name will be used to specify a keypair from ~/.ssh/, -cmd if specified will be run on the remote host"
+    echo "  show-instances|si [-region region] [-name name] [-fmt fmt]- show running instances in region, optional tag pattern can be used for filter, FMT may contain: id,ip,host,key,name which will be replaced with actual values"
+    echo "  ec2-run|e2r -name tag -cmd cmd [-region  region] - run a command over SSM by tag name"
+    echo "  ec2-ssh|e2s -name tag [-region region] [-ip] [-cmd cmd] - login using ssh to a host(IP) by tag name, key name will be used to specify a keypair from ~/.ssh/, -cmd if specified will be run on the remote host"
     echo "  show-help - show all backend command line and config parameters"
     echo ""
     echo "bksh commands:"
