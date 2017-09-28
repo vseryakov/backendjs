@@ -302,7 +302,7 @@ case "$ARG" in
        echo 'ec2ssh() { ssh -i ~/.ssh/$2.pem -l ec2-user $1 $3; }' >> $LHOME/.bashrc
        echo 'ec2scp() { scp -r -i ~/.ssh/$3.pem $1 ec2-user@$2; }' >> $LHOME/.bashrc
        echo 'bkssh() { bkjs ec2-ssh -name $1 -ip -index ${2-1}; }' >>
-       echo 'bkstop() { bkjs e2s -name ${1-api} -ip -cmd "bkjs stop-${2-api}" }' >> $LHOME/.bashrc
+       echo 'bkstop() { bkjs e2s -name ${1-api} -ip -cmd "bkjs stop-${2-api}"; }' >> $LHOME/.bashrc
     fi
     ;;
 
