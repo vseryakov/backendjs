@@ -45,7 +45,7 @@ esac
 # There are special commands that can be used as the script name
 NAME=$(basename $0)
 case "$NAME" in
-  bksh)
+  bksh|bkrsync)
     ARG=$NAME
     ;;
 
@@ -150,11 +150,11 @@ export PATH=$BKJS_HOME/bin:$BKJS_HOME/node_modules/.bin:$BKJS_PREFIX/bin:$PG_PRE
 export PKG_CONFIG_PATH=$BKJS_PREFIX/lib/pkgconfig:$PG_LIBDIR/pkgconfig:$PKG_CONFIG_PATH
 
 # Locate binaries after all variables are set
-[ "$NODE_BIN" = "" ] && export NODE_BIN=$(which node 2>/dev/null)
+[ "$NODE_BIN" = "" -a ! -f $BKJS_PREFIX/bin/node ] && export NODE_BIN=$(which node 2>/dev/null)
 [ "$NODE_BIN" = "" ] && export NODE_BIN=$BKJS_PREFIX/bin/node
-[ "$NPM_BIN" = "" ] && export NPM_BIN=$(which npm 2>/dev/null)
+[ "$NPM_BIN" = "" -a ! -f $BKJS_PREFIX/bin/npm ] && export NPM_BIN=$(which npm 2>/dev/null)
 [ "$NPM_BIN" = "" ] && export NPM_BIN=$BKJS_PREFIX/bin/npm
-[ "$BKJS_BIN" = "" ] && export BKJS_BIN=$(which bkjs 2>/dev/null)
+[ "$BKJS_BIN" = "" -a ! -f $BKJS_PREFIX/bin/$BK ] && export BKJS_BIN=$(which bkjs 2>/dev/null)
 [ "$BKJS_BIN" = "" ] && export BKJS_BIN=$BKJS_PREFIX/bin/$BK
 
 case "$ARG" in
@@ -191,6 +191,12 @@ case "$ARG" in
     [ "$name" = "" ] && exit 0
     $KILLALL $1 "$BKJS: $name"
     exit 0
+    ;;
+
+  bkrsync)
+    rsync "$@"
+    rc=$?
+    [ "$rc" != "0" ] && exit $rc
     ;;
 
   install)
@@ -301,7 +307,7 @@ case "$ARG" in
        echo 'bcp() { socat readline,history=$HOME/.socat tcp4:localhost:$((2080+${1-0})); }' >> $LHOME/.bashrc
        echo 'ec2ssh() { ssh -i ~/.ssh/$2.pem -l ec2-user $1 $3; }' >> $LHOME/.bashrc
        echo 'ec2scp() { scp -r -i ~/.ssh/$3.pem $1 ec2-user@$2; }' >> $LHOME/.bashrc
-       echo 'bkssh() { bkjs ec2-ssh -name $1 -ip -index ${2-1}; }' >>
+       echo 'bkssh() { bkjs ec2-ssh -name $1 -ip -index ${2-1}; }' >> $LHOME/.bashrc
        echo 'bkstop() { bkjs e2s -name ${1-api} -ip -cmd "bkjs stop-${2-api}"; }' >> $LHOME/.bashrc
     fi
     ;;
