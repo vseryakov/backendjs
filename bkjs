@@ -1438,9 +1438,10 @@ case "$ARG" in
     ;;
 
   ec2-run|e2r)
+    cmd=$(get_arg -cmd)
+    [ "$cmd" = "" ] && echo "-cmd is required" && exit 1
     name=$(get_arg -name)
     region=$(get_arg -region us-east-1)
-    cmd=$(get_arg -cmd)
     ids=$($0 show-instances -region "$region" -fmt id -name "$name"|awk '{printf "%s,",$1}'|sed 's/,$//')
     [ "$ids" = "" ] && exit
     aws ssm send-command --targets "Key=InstanceIds,Values=$ids" --document-name "AWS-RunShellScript" --parameters "commands=$cmd" --region $region
