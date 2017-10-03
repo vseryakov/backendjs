@@ -1446,6 +1446,14 @@ case "$ARG" in
     aws ssm send-command --targets "Key=InstanceIds,Values=$ids" --document-name "AWS-RunShellScript" --parameters "commands=$cmd" --region $region
     ;;
 
+  ec2-region)
+    echo $(curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone/|sed 's/[a-z]$//')
+    ;;
+
+  ec2-tag)
+    aws ec2 describe-tags --filter "Name=key,Values=Name" --filter "resource-type=instance" --filter "Name=resource-id,Values=$(ec2-metadata -i | cut -d ' ' -f2)" --output text| cut -f5|head -1
+    ;;
+
   show-help)
     $NODE_BIN -e "require('$BKJS_MOD').core.showHelp()"
     ;;
@@ -1799,6 +1807,7 @@ EOF
     echo "  show-instances|si [-region region] [-name name] [-fmt fmt]- show running instances in region, optional tag pattern can be used for filter, FMT may contain: id,ip,host,key,name which will be replaced with actual values"
     echo "  ec2-run|e2r -name tag -cmd cmd [-region  region] - run a command over SSM by tag name"
     echo "  ec2-ssh|e2s -name tag [-region region] [-ip] [-cmd cmd] - login using ssh to a host(IP) by tag name, key name will be used to specify a keypair from ~/.ssh/, -cmd if specified will be run on the remote host"
+    echo "  ec2-region - current instance region"
     echo "  show-help - show all backend command line and config parameters"
     echo ""
     echo "bksh commands:"
