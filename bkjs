@@ -1264,7 +1264,7 @@ case "$ARG" in
     [ "$(get_flag -force)" != "" -a "$ELASTICSEARCH_PREFIX" != "" ] && rm -rf $ELASTICSEARCH_PREFIX
     if [ ! -d $ELASTICSEARCH_PREFIX ]; then
         mkdir -p $ELASTICSEARCH_PREFIX
-        curl -L -o es.tgz https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-5.6.1.tar.gz
+        curl -L -o es.tgz https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-5.6.2.tar.gz
         tar -C $ELASTICSEARCH_PREFIX --strip-components=1 -xzf es.tgz
         rm -rf es.tgz
         cd $ELASTICSEARCH_PREFIX
@@ -1452,7 +1452,8 @@ case "$ARG" in
     ;;
 
   ec2-tag)
-    aws ec2 describe-tags --filter "Name=key,Values=Name" --filter "resource-type=instance" --filter "Name=resource-id,Values=$(ec2-metadata -i | cut -d ' ' -f2)" --output text| cut -f5|head -1
+    instance=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
+    aws ec2 describe-tags --filter "Name=key,Values=Name" --filter "resource-type=instance" --filter "Name=resource-id,Values=$instance" --output text| cut -f5|head -1
     ;;
 
   show-help)
