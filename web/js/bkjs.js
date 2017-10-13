@@ -656,6 +656,10 @@ var Bkjs = {
         return str;
     },
 
+    isArray: function(list) {
+        return Array.isArray(list) && list.length > 0;
+    },
+
     isFlag: function(list, name) {
         return Array.isArray(list) && (Array.isArray(name) ? name.some(function(x) { return list.indexOf(x) > -1 }) : list.indexOf(name) > -1);
     },
