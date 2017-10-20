@@ -113,7 +113,7 @@ accounts.configureAccountsAPI = function()
 
         switch (req.params[0]) {
         case "get":
-            options.cleanup = "bk_auth,bk_account";
+            options.cleanup = api.authTable + ",bk_account";
             if (!req.query.id || req.query.id == req.account.id) {
                 self.getAccount(req, options, function(err, data, info) {
                     api.sendJSON(req, err, data);
@@ -342,7 +342,7 @@ accounts.addAccount = function(req, options, callback)
 
     lib.series([
        function(next) {
-           if (options.noauth) return next();
+           if (options.noauth || api.authTable == "bk_account") return next();
            if (!req.query.login) return next({ status: 400, message: "login is required"});
            if (!req.query.secret && !req.query.password) return next({ status: 400, message: "secret is required"});
            // Copy for the auth table in case we have different properties that needs to be cleared
@@ -352,11 +352,11 @@ accounts.addAccount = function(req, options, callback)
            // Put the secret back to return to the client, if generated or scrambled the client needs to know it for the API access
            req.query.secret = login.secret;
            if (!(options.admin || api.checkAccountType(req.account, "admin"))) {
-               api.clearQuery("bk_auth", login, "admin");
+               api.clearQuery(api.authTable, login, "admin");
                for (var i in options.admin_values) login[options.admin_values[i]] = req.query[options.admin_values[i]];
            }
            options.info_obj = 1;
-           db.add("bk_auth", login, options, function(err, rows, info) {
+           db.add(api.authTable, login, options, function(err, rows, info) {
                if (!err) req.query.id = login.id = info.obj.id;
                next(err);
            });
@@ -386,7 +386,9 @@ accounts.addAccount = function(req, options, callback)
        },
     ], function(err) {
         // Remove the record by login to make sure we can recreate it later
-        if (err && login && login.id) return db.del("bk_auth", { login: login.login }, function() { callback(err, req.query) });
+        if (err && login && login.id && api.authTable != "bk_account") {
+            return db.del(api.authTable, { login: login.login }, function() { callback(err, req.query) });
+        }
         callback(err, req.query);
     });
 }
@@ -400,19 +402,19 @@ accounts.updateAccount = function(req, options, callback)
     if (!req.query.name) delete req.query.name;
     lib.series([
        function(next) {
-           if (options.noauth || !req.account.login) return next();
+           if (options.noauth || !req.account.login || api.authTable == "bk_account") return next();
            // Copy for the auth table in case we have different properties that needs to be cleared
            var query = lib.objClone(req.query, "login", req.account.login, "id", req.account.id);
            api.prepareAccountSecret(query, options);
            // Skip admin properties if any
            if (!options.admin && !api.checkAccountType(req.account, "admin")) {
-               api.clearQuery("bk_auth", query, "admin");
+               api.clearQuery(api.authTable, query, "admin");
                for (var i in options.admin_values) query[options.admin_values[i]] = req.query[options.admin_values[i]];
            }
-           // Avoid updating bk_auth and flushing cache if nothing to update
-           var obj = db.getQueryForKeys(Object.keys(db.getColumns("bk_auth", options)), query, { no_columns: 1, skip_columns: ["id","login","mtime"] });
+           // Avoid updating auth table and flushing cache if nothing to update
+           var obj = db.getQueryForKeys(Object.keys(db.getColumns(api.authTable, options)), query, { no_columns: 1, skip_columns: ["id","login","mtime"] });
            if (!Object.keys(obj).length) return callback(err, rows, info);
-           db.update("bk_auth", query, options, next);
+           db.update(api.authTable, query, options, next);
        },
        function(next) {
            // Skip admin properties if any
@@ -451,11 +453,11 @@ accounts.deleteAccount = function(req, callback)
 
         lib.series([
            function(next) {
-               if (!req.account.login) return next();
+               if (!req.account.login || api.authTable == "bk_account") return next();
                if (req.options.keep_all || req.options.keep_auth) {
-                   db.update("bk_auth", { login: req.account.login, type: req.account.type }, req.options, next);
+                   db.update(api.authTable, { login: req.account.login, type: req.account.type }, req.options, next);
                } else {
-                   db.del("bk_auth", { login: req.account.login }, req.options, next);
+                   db.del(api.authTable, { login: req.account.login }, req.options, next);
                }
            },
            function(next) {
@@ -487,8 +489,9 @@ accounts.renameAccount = function(req, callback)
 
         lib.series([
           function(next) {
+              if (api.authTable == "bk_account") return next();
               if (req.account.name == account.name) return next();
-              db.update("bk_auth", { login: req.account.login, name: req.account.name }, next);
+              db.update(api.authTable, { login: req.account.login, name: req.account.name }, next);
           },
           function(next) {
               if (req.account.name == account.name) return next();
@@ -506,7 +509,7 @@ accounts.fetchAccount = function(query, options, callback)
 {
     if (typeof options == "function") callback = options, options = null;
     if (!options) options = {};
-    db.get("bk_auth", { login: query.login }, function(err, auth) {
+    db.get(api.authTable, { login: query.login }, function(err, auth) {
         if (err) return callback(err);
 
         if (auth) {

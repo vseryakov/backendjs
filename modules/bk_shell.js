@@ -36,7 +36,7 @@ shell.getUser = function(obj, callback)
     db.get("bk_account", { id: obj.id }, function(err, row) {
         if (err) exit(err);
 
-        db.get("bk_auth", { login: row ? row.login : obj.login }, function(err, row2) {
+        db.get(api.authTable, { login: row ? row.login : obj.login }, function(err, row2) {
             if (err || !(row ||row2)) shell.exit(err, "ERROR: no user found with this id: " + util.inspect(obj));
             callback(row || row2);
         });
@@ -371,13 +371,13 @@ shell.cmdAccountGet = function(options)
         if (id.match(/^[-\/]/)) return next();
         db.get("bk_account", { id: id }, function(err, user) {
             if (user) {
-                db.get("bk_auth", { login: user.login }, function(err, auth) {
+                db.get(api.authTable, { login: user.login }, function(err, auth) {
                     user.bk_auth = auth;
                     console.log(user);
                     next();
                 });
             } else {
-                db.get("bk_auth", { login: id }, function(err, auth) {
+                db.get(api.authTable, { login: id }, function(err, auth) {
                     if (!auth) return next();
                     db.get("bk_account", { id: auth.id }, function(err, user) {
                         if (!user) {
@@ -445,7 +445,7 @@ shell.cmdLoginGet = function(options)
 {
     lib.forEachSeries(process.argv.slice(2), function(login, next) {
         if (login.match(/^[-\/]/)) return next();
-        db.get("bk_auth", { login: login }, function(err, auth) {
+        db.get(api.authTable, { login: login }, function(err, auth) {
             if (auth) console.log(auth);
             next();
         });
@@ -482,7 +482,7 @@ shell.cmdLoginDel = function(options)
 {
     lib.forEachSeries(process.argv.slice(2), function(login, next) {
         if (login.match(/^[-\/]/)) return next();
-        db.del("bk_auth", { login: login }, function(err) {
+        db.del(api.authTable, { login: login }, function(err) {
             next(err);
         });
     }, function(err) {
