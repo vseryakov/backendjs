@@ -194,9 +194,23 @@ case "$ARG" in
     ;;
 
   bkrsync)
-    rsync "$@"
+    args=""
+    while [[ $# -gt 0 ]]; do
+      case $1 in
+        -bkcmd)
+          cmd=$2
+          shift
+          ;;
+        *)
+          args="$args $1"
+          ;;
+      esac
+      shift
+    done
+    rsync "$args"
     rc=$?
     [ "$rc" != "0" ] && exit $rc
+    [ "$cmd" != "" ] && $cmd
     ;;
 
   install)
@@ -256,7 +270,7 @@ case "$ARG" in
 
   check-hostname)
     # Check hostname for the eth0 and setup /etc/hosts with EC2 host name
-    addr=$(ifconfig eth0|grep 'inet '|sed 's/addr://'|awk '{print $2}')
+    addr=$(/sbin/ifconfig eth0|grep 'inet '|sed 's/addr://'|awk '{print $2}')
     [ "$addr" = "" ] && echo "No IP address found" && exit
     host=ip-$(echo $addr|sed 's/\./-/g')
     domain=${BKJS_DOMAN:-$(uname -n|cut -d. -f2-)}
@@ -727,7 +741,7 @@ case "$ARG" in
     descr=$(get_arg -descr $MONIT_DESCRIPTION)
     [ "$event" = "" -a "$descr" = "" ] && exit
     host=${MONIT_HOST:-$(uname -n)}
-    ip=$(ifconfig eth0|grep 'inet '|sed 's/addr://'|awk '{print $2}')
+    ip=$(/sbin/ifconfig eth0|grep 'inet '|sed 's/addr://'|awk '{print $2}')
     msg=$($ECHO "ALERT: $host/$ip $event\n\n$descr\n\n$(df -h)\n\n$(top -bn1)")
     echo "$msg" >> $BKJS_HOME/log/error.log
     topic=$(grep aws-alert-topic $BKJS_HOME/etc/config*|head -1|awk -F= '{print $2}')
@@ -1409,7 +1423,7 @@ case "$ARG" in
     fmt=$(get_arg -fmt)
     [ "$fmt" != "" ] && instances=$(echo "$instances"|awk "{print $(echo $fmt|sed -e 's/id/\$1/' -e 's/ip/\$2/' -e 's/host/\$3/' -e 's/key/\$4/' -e 's/name/\$5/')}")
     if [ "$PLATFORM" = "Linux" -a "$(get_flag -nomyip)" != "" ]; then
-       ip=$(ifconfig eth0|grep 'inet '|sed 's/addr://'|awk '{print $2}')
+       ip=$(/sbin/ifconfig eth0|grep 'inet '|sed 's/addr://'|awk '{print $2}')
        instances=$(echo $instances|sed "s/$ip//")
     fi
     if [ "$(get_flag -line)" != "" ]; then
