@@ -194,23 +194,16 @@ case "$ARG" in
     ;;
 
   bkrsync)
-    args=""
-    while [[ $# -gt 0 ]]; do
-      case $1 in
-        -bkcmd)
-          cmd=$2
-          shift
-          ;;
-        *)
-          args="$args $1"
-          ;;
-      esac
-      shift
+    cmd=""
+    while [ "$1" = "-bkcmd" ]; do
+       cmd=$2
+       shift;shift
     done
-    rsync "$args"
+    rsync "$@"
     rc=$?
     [ "$rc" != "0" ] && exit $rc
-    [ "$cmd" != "" ] && $cmd
+    [ "$cmd" != "" ] && logger -p local0.notice -t bkrsync "$cmd" && $cmd
+    exit 0
     ;;
 
   install)
@@ -864,13 +857,15 @@ case "$ARG" in
     cleanup=$(get_flag -cleanup)
     key=$(get_arg -ssh-key)
     [ "$key" != "" -a -f $HOME/.ssh/$key.pem ] && BKJS_SSH_ARGS="$BKJS_SSH_ARGS -i $HOME/.ssh/$key.pem"
+    bkcmd=$(get_arg -bkcmd)
+    [ "$bkcmd" != "" ] && bkcmd="--rsync-path=/home/$BKJS_USER/bin/bkrsync -bkcmd '$bkcmd'"
     files=$(get_arg -files)
     [ "$files" = "" ] && files=$(ls)
     for h in $BKJS_HOST; do
         echo "Deploying the module $mod: -e 'ssh $BKJS_SSH_ARGS' $BKJS_RSYNC_ARGS $(echo $files) $h:$BKJS_PATH"
         if [ "$BKJS_DRY_RUN" = "" ]; then
            [ "$cleanup" != "" -a "$BKJS_PATH" != "" ] && ssh $BKJS_SSH_ARGS $h rm -rf $BKJS_PATH/*
-           rsync -av $BKJS_DEBUG -e "ssh $BKJS_SSH_ARGS" $BKJS_RSYNC_ARGS $files $h:$BKJS_PATH
+           rsync -av $BKJS_DEBUG -e "ssh $BKJS_SSH_ARGS" $BKJS_RSYNC_ARGS "$bkcmd" $files $h:$BKJS_PATH
         fi
     done
     ;;
@@ -1458,7 +1453,9 @@ case "$ARG" in
     region=$(get_arg -region us-east-1)
     ids=$($0 show-instances -region "$region" -fmt id -name "$name"|awk '{printf "%s,",$1}'|sed 's/,$//')
     [ "$ids" = "" ] && exit
-    aws ssm send-command --targets "Key=InstanceIds,Values=$ids" --document-name "AWS-RunShellScript" --parameters "commands=$cmd" --region $region
+    user=$(get_arg -user)
+    [ "$user" != "" ] && cmd="su -l ec2-user -c '$(cmd)'"
+    aws ssm send-command --targets "Key=InstanceIds,Values=$ids" --document-name "AWS-RunShellScript" --parameters "commands=[\"$cmd\"]" --region $region
     ;;
 
   ec2-region)
@@ -1772,10 +1769,10 @@ EOF
     echo "  run-server - run the backend server process, this command is supposed to be run on system startup by start command"
     echo "  run-shell - run backend REPL in the current backend directory, works with the backend core or local app.js application"
     echo "  run-backend - run local backend server or the app.js if present, all command line params will be passed to the backend.js"
-    echo "  put-backend [-host HOST] [-path PATH] [-user USER] [-ssh-key pem] [-ssh OPTS] [-exclude PATTERN] [-delete] - push the backend code to the master server, uses env BKJS_HOST or host parameter from the command line, replaces all files and removes non-existing on the dest except in web/ directory, default path is ~/node_modules/$BKJS_MOD"
+    echo "  put-backend [-host HOST] [-path PATH] [-user USER] [-ssh-key pem] [-ssh OPTS] [-exclude PATTERN] [-bkcmd CMD] [-delete] - push the backend code to the master server, uses env BKJS_HOST or host parameter from the command line, replaces all files and removes non-existing on the dest except in web/ directory, default path is ~/node_modules/$BKJS_MOD"
     echo "  run-sync - synchronize other directories from the master host, runs on the start, must use BKJS_SYNC in the profile set to the host name where to get files"
     echo "  run-update [-g] - update all dependencies except the backend module from the package.json"
-    echo "  run-check - to be run on instances, check for idleness,if no jobs running then shutdown the host"
+    echo "  run-check - to be run on instances, check for idleness, if no jobs running then shutdown the host"
     echo "  init-backup - creates a crontab file in /etc/cron.d to periodically run the backup, -args can be used to specify the full cron time spec"
     echo "  run-backup - run the backup script, store in \$BKJS_BACKUP, can be used in crontabs with symlink"
     echo "  init-pgsql [-db NAME] - setup and run the PostgreSQL server, install in $PG_PREFIX, data files in $PG_DIR, create initial database"
@@ -1824,6 +1821,7 @@ EOF
     echo "  ec2-run|e2r -name tag -cmd cmd [-region  region] - run a command over SSM by tag name"
     echo "  ec2-ssh|e2s -name tag [-region region] [-ip] [-cmd cmd] - login using ssh to a host(IP) by tag name, key name will be used to specify a keypair from ~/.ssh/, -cmd if specified will be run on the remote host"
     echo "  ec2-region - current instance region"
+    echo "  bkrsync  [-bkcmd CMD] - use with rsync as --rsync-path parameter to be invoked on the server and execute a command after the sync"
     echo "  show-help - show all backend command line and config parameters"
     echo ""
     echo "bksh commands:"
