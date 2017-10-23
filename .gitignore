@@ -1,4 +1,3 @@
-.DS_Store
 *.[aod]
 *.gch
 *.so
@@ -18,12 +17,14 @@
 *.user
 *xcshareddata*
 *xcuserdata*
+.DS_Store
 .settings
 .cproject
 .history
 .project
 .git
-node_modules
+bower_components/
+node_modules/
 build/
 deps/
 etc/
@@ -34,4 +35,5 @@ images/
 files/
 log/
 pages/
+include/
 

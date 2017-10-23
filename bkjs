@@ -10,14 +10,11 @@
 BKJS=bkjs
 BKJS_MOD=backendjs
 
-HOST=$(uname -n | awk -F. '{print $1}')
 PLATFORM=$(uname -s)
 case "$PLATFORM" in
   Linux)
     [ "$(grep CentOS /etc/issue)" != "" ] && OS_TYPE=centos
     [ "$(grep Amazon /etc/issue)" != "" ] && OS_TYPE=amazon
-    # In multi-OS environment have to sync by OS type due to different dependencies in each distro
-    [ "$PG_PREFIX" = "" ] && PG_PREFIX=$(find /usr -maxdepth 1 -name 'pgsql*' -type d -print|sort -r|head -1)
     [ -f /etc/sysconfig/$BKJS ] && . /etc/sysconfig/$BKJS
     KILLALL="killall -qr"
     ECHO="echo -e"
@@ -28,9 +25,6 @@ case "$PLATFORM" in
     OS_TYPE=macosx
     [ "$BKJS_HOME" = "" ] && export BKJS_HOME=~/.bkjs
     [ "$BKJS_PREFIX" = "" ] && export BKJS_PREFIX=/opt/local
-    [ "$PG_PREFIX" = "" ] && export PG_PREFIX=$(find $BKJS_PREFIX/lib -maxdepth 1 -name 'postgresql*' -type d -print|sort -r|head -1) && PG_LIBDIR=$PG_PREFIX
-    [ "$MYSQL_PREFIX" = "" ] && export MYSQL_PREFIX=$(find $BKJS_PREFIX/lib -maxdepth 1 -name 'mysql*' -type d -print|sort -r|head -1)
-    [ "$REDIS_PREFIX" = "" ] && REDIS_PREFIX=/opt/local
     KILLALL="killall -m"
     ECHO=echo
     SED="sed -E -i .orig"
@@ -89,7 +83,7 @@ get_config() {
   for ((i = 0;i < ${#ARGS[@]}; ++i)); do
     [ "$2" = "${ARGS[i]}" ] && eval "$1=${ARGS[i+1]}" && return 0
   done
-  [ -z $DB_ARGS ] && DB_ARGS=(`$BKJS_GET_CONFIG`)
+  [ -z $DB_ARGS ] && DB_ARGS=(`$0 run-shell -log none -db-get-config -format args`)
   for ((i = 0;i < ${#DB_ARGS[@]}; ++i)); do
     [ "$2" = "${DB_ARGS[i]}" ] && eval "$1=${DB_ARGS[i+1]}" && return
   done
@@ -103,64 +97,38 @@ kill_proc() {
   kill "$2" $pid
 }
 
-# Home must be specified for the script to work properly
+find_bkjsbin() {
+  [ "$BKJS_BIN" = "" -a -f $BKJS_HOME/bin/$BK ] && export BKJS_BIN=$BKJS_HOME/bin/$BK
+  [ "$BKJS_BIN" = "" -a -f $BKJS_PREFIX/bin/$BK ] && export BKJS_BIN=$BKJS_PREFIX/bin/$BK
+  [ "$BKJS_BIN" = "" ] && export BKJS_BIN=$(which $BK 2>/dev/null)
+}
+
+find_nodebin() {
+   [ "$NODE_BIN" = "" -a -f $BKJS_HOME/bin/node ] && export NODE_BIN=$BKJS_HOME/bin/node
+   [ "$NODE_BIN" = "" -a -f $BKJS_PREFIX/bin/node ] && export NODE_BIN=$BKJS_PREFIX/bin/node
+   [ "$NODE_BIN" = "" ] && export NODE_BIN=$(which node 2>/dev/null)
+}
+
+# Home and prefix must be specified for the script to work properly
 export BKJS_HOME=$(get_arg -home $BKJS_HOME)
 [ "$BKJS_HOME" = "" ] && export BKJS_HOME=$(sh -c "echo ~$BKJS_USER")
 [ -f $BKJS_HOME/etc/profile ] && . $BKJS_HOME/etc/profile
 
-# Global options that are used thoughout the script
-export BKJS_DEBUG=$(get_arg -debug $BKJS_DEBUG)
-export BKJS_DRY_RUN=$(get_flag -dry-run $BKJS_DRY_RUN)
 export BKJS_PREFIX=$(get_arg -prefix $BKJS_PREFIX)
-export BKJS_USER=$(get_arg -user $BKJS_USER)
-export BKJS_GROUP=$(get_arg -group $BKJS_GROUP)
-export BKJS_DOMAIN=$(get_arg -domain $BKJS_DOMAIN)
-export BKJS_HOST=$(get_arg -host $BKJS_HOST)
-export BKJS_SYNC=$(get_arg -sync $BKJS_SYNC)
-export BKJS_PATH=$(get_arg -path $BKJS_PATH)
-export BKJS_ARGS=$(concat_arg -args $BKJS_ARGS)
-export BKJS_SSH_ARGS=$(concat_arg -ssh $BKJS_SSH_ARGS)
-export BKJS_RSYNC_ARGS=$(concat_arg -rsync $BKJS_RSYNC_ARGS)
-export BKJS_GET_CONFIG="$0 run-shell -log none -db-get-config -format args $@"
+[ "$BKJS_PREFIX" = "" ] && export BKJS_PREFIX=$BKJS_HOME
 
-# Setup all variables with the defaults
-[ "$BKJS_HOST" = "" ] && export BKJS_HOST=$(uname -n|awk -F. '{print $1}')
+# Global options that are used thoughout the script
+export BKJS_USER=$(get_arg -user $BKJS_USER)
 [ "$BKJS_USER" = "" ] && export BKJS_USER=$(whoami)
+export BKJS_GROUP=$(get_arg -group $BKJS_GROUP)
 [ "$BKJS_GROUP" = "" ] && export BKJS_GROUP=$(id -gn)
-[ "$BKJS_PREFIX" = "" ] && export BKJS_PREFIX=/usr/local
-[ "$BKJS_BACKUP" = "" ] && export BKJS_BACKUP=$BKJS_HOME/backup
-[ "$CASSANDRA_PREFIX" = "" ] && export CASSANDRA_PREFIX=$BKJS_PREFIX/cassandra
-[ "$CASSANDRA_DIR" = "" ] && export CASSANDRA_DIR=$BKJS_HOME/var/cassandra
-[ "$PG_PREFIX" = "" ] && export PG_PREFIX=/usr
-[ "$PG_LIBDIR" = "" ] && export PG_LIBDIR=$PG_PREFIX/lib
-[ "$PG_DIR" = "" ] && export PG_DIR=$BKJS_HOME/var/postgres
-[ "$MYSQL_DIR" = "" ] && export MYSQL_DIR=$BKJS_HOME/var/mysql
-[ "$MYSQL_PREFIX" = "" ] && export MYSQL_PREFIX=/usr
-[ "$DYNAMODB_PREFIX" = "" ] && export DYNAMODB_PREFIX=$BKJS_PREFIX/dynamodb
-[ "$ELASTICSEARCH_PREFIX" = "" ] && export ELASTICSEARCH_PREFIX=$BKJS_PREFIX/elasticsearch
-[ "$ELASTICSEARCH_DIR" = "" ] && export ELASTICSEARCH_DIR=$BKJS_HOME/var
-[ "$MONGO_DIR" = "" ] && export MONGO_DIR=$BKJS_HOME/var/mongo
-[ "$BKJS_IDLETIME" = "" ] && export BKJS_IDLETIME=900
-[ "$BKJS_UPTIME" = "" ] && export BKJS_UPTIME=43200
-[ "$REDIS_PREFIX" = "" ] && export REDIS_PREFIX=$BKJS_HOME
-[ "$HAZELCAST_PREFIX" = "" ] && export HAZELCAST_PREFIX=$BKJS_PREFIX/hazelcast
 
 # Setup paths
-export PATH=$BKJS_HOME/bin:$BKJS_HOME/node_modules/.bin:$BKJS_PREFIX/bin:$PG_PREFIX/bin:$CASSANDRA_PREFIX/bin:/sbin:/usr/sbin:/usr/local/bin:/opt/local/bin:$PATH
-export PKG_CONFIG_PATH=$BKJS_PREFIX/lib/pkgconfig:$PG_LIBDIR/pkgconfig:$PKG_CONFIG_PATH
-
-# Locate binaries after all variables are set
-[ "$NODE_BIN" = "" -a ! -f $BKJS_PREFIX/bin/node ] && export NODE_BIN=$(which node 2>/dev/null)
-[ "$NODE_BIN" = "" ] && export NODE_BIN=$BKJS_PREFIX/bin/node
-[ "$NPM_BIN" = "" -a ! -f $BKJS_PREFIX/bin/npm ] && export NPM_BIN=$(which npm 2>/dev/null)
-[ "$NPM_BIN" = "" ] && export NPM_BIN=$BKJS_PREFIX/bin/npm
-[ "$BKJS_BIN" = "" -a ! -f $BKJS_PREFIX/bin/$BK ] && export BKJS_BIN=$(which bkjs 2>/dev/null)
-[ "$BKJS_BIN" = "" ] && export BKJS_BIN=$BKJS_PREFIX/bin/$BK
+export PATH=$BKJS_HOME/bin:$BKJS_HOME/node_modules/.bin:$BKJS_PREFIX/bin:/usr/local/bin:/opt/local/bin:/sbin:/usr/sbin:$PATH
 
 case "$ARG" in
   start)
     $0 run-setup
-    echo "Starting $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME $BKJS_ARGS $@"
     $0 run-${BKJS_SERVER:-monitor}
     ;;
 
@@ -211,7 +179,7 @@ case "$ARG" in
     $0 init-server "$@"
     $0 init-devel "$@"
     [ "$(which node 2>/dev/null)" = "" ] && (cd $BKJS_HOME && sudo -H -u $BKJS_USER $0 build-node -prefix $BKJS_PREFIX)
-    (cd $BKJS_HOME && sudo -H -u $BKJS_USER $0 install-bkjs -args $BKJS_ARGS)
+    (cd $BKJS_HOME && sudo -H -u $BKJS_USER $0 install-bkjs -deps $(get_arg -deps))
     (cd $BKJS_HOME/bin && ln -sf ../node_modules/$BKJS_MOD/bkjs && ln -sf bkjs bksh)
     chown -R $BKJS_USER $BKJS_HOME
     ;;
@@ -239,17 +207,21 @@ case "$ARG" in
 
     # Create global profile
     echo "BKJS_HOME=$BKJS_HOME" > /etc/sysconfig/$BKJS
-    [ "$BKJS_DOMAIN" != "" ] && echo "BKJS_DOMAIN=$BKJS_DOMAIN" >> /etc/sysconfig/$BKJS
+    domain=$(get_arg -domain)
+    [ "$domain" != "" ] && echo "BKJS_DOMAIN=$domain" >> /etc/sysconfig/$BKJS
     ;;
 
   init-hostname)
+    host=$(get_arg -host $BKJS_HOST)
+    [ "$host" = "" ] && host=$(uname -n|awk -F. '{print $1}')
+    domain=$(get_arg -domain $BKJS_DOMAIN)
     # Set hostname with name and domain
-    if [ "$BKJS_DOMAIN" = "" ]; then
-       BKJS_HOST=$(get_arg -host)
-       [ "$BKJS_HOST" = "" ] && exit
-       BKJS_DOMAIN=$(uname -n|cut -d. -f2-)
+    if [ "$domain" = "" ]; then
+       host=$(get_arg -host)
+       [ "$host" = "" ] && exit
+       domain=$(uname -n|cut -d. -f2-)
     fi
-    host=$BKJS_HOST.$BKJS_DOMAIN
+    host=$host.$domain
     [ "$(uname -n)" = "$host" ] && exit
     echo "Configuring hostname $host ..."
     hostname $host
@@ -266,7 +238,8 @@ case "$ARG" in
     addr=$(/sbin/ifconfig eth0|grep 'inet '|sed 's/addr://'|awk '{print $2}')
     [ "$addr" = "" ] && echo "No IP address found" && exit
     host=ip-$(echo $addr|sed 's/\./-/g')
-    domain=${BKJS_DOMAN:-$(uname -n|cut -d. -f2-)}
+    domain=$(get_arg -domain $BKJS_DOMAIN)
+    [ "$domain" = "" ] && domain=$(uname -n|cut -d. -f2-)
     hostname=$host
     [ "$domain" != "" ] && hostname="$host.$domain"
     if [ "$(grep -s $addr /etc/hosts)" = "" -o "$(grep -s $host /etc/hosts)" = "" ]; then
@@ -303,6 +276,7 @@ case "$ARG" in
        echo "BKJS_HOME=$BKJS_HOME" >> $LHOME/.bashrc
        echo "export PATH=\$PATH:$LHOME/bin:$LHOME/node_modules/.bin" >> $LHOME/.bashrc
        echo 'alias slog="tail -100 /var/log/messages"' >> $LHOME/.bashrc
+       echo "alias clog=\"sudo tail -100 /var/log/cron\"" >> $LHOME/.bashrc
        echo "alias mlog=\"tail -100 $BKJS_HOME/log/message.log\"" >> $LHOME/.bashrc
        echo "alias elog=\"tail -100 $BKJS_HOME/log/error.log\"" >> $LHOME/.bashrc
        echo "alias alog=\"tail -100 $BKJS_HOME/log/access.log\"" >> $LHOME/.bashrc
@@ -314,7 +288,7 @@ case "$ARG" in
        echo 'bcp() { socat readline,history=$HOME/.socat tcp4:localhost:$((2080+${1-0})); }' >> $LHOME/.bashrc
        echo 'ec2ssh() { ssh -i ~/.ssh/$2.pem -l ec2-user $1 $3; }' >> $LHOME/.bashrc
        echo 'ec2scp() { scp -r -i ~/.ssh/$3.pem $1 ec2-user@$2; }' >> $LHOME/.bashrc
-       echo 'bkssh() { bkjs ec2-ssh -name $1 -ip -index ${2-1}; }' >> $LHOME/.bashrc
+       echo 'bkssh() { bkjs e2s -name $1 -ip -index ${2-1}; }' >> $LHOME/.bashrc
        echo 'bkstop() { bkjs e2s -name ${1-api} -ip -cmd "bkjs stop-${2-api}"; }' >> $LHOME/.bashrc
     fi
     ;;
@@ -522,6 +496,7 @@ case "$ARG" in
     ;;
 
   init-instancejob)
+    find_bkjsbin
     # Instance mode, duplicate messages to the console for easier access
     echo '*.info /dev/console' > /etc/rsyslog.d/console.conf
     truncate -c -s 0 /var/log/messages $BKJS_HOME/log/message.log $BKJS_HOME/log/error.log
@@ -535,12 +510,13 @@ case "$ARG" in
     ;;
 
   init-service)
+    find_bkjsbin
     # Install service for a script or bkjs service
-    [ "$BKJS_PATH" = "" ] && BKJS_PATH=$BKJS_BIN
-    SERVICE=$(basename $BKJS_PATH | awk -F. '{print $1}')
-    echo "Init service $SERVICE with $BKJS_PATH"
-    ln -sf $BKJS_PATH /etc/init.d/$SERVICE
-    chkconfig $SERVICE on
+    path=$(get_arg -path $BKJS_BIN)
+    service=$(basename $path | awk -F. '{print $1}')
+    echo "Init service $service with $path"
+    ln -sf $path /etc/init.d/$service
+    chkconfig $service on
     server=$(get_arg -server)
     if [ "$server" != "" ]; then
        echo "BKJS_SERVER=$server" > /tmp/profile
@@ -550,16 +526,17 @@ case "$ARG" in
     fi
     # Execute a command if given
     cmd=$(get_arg -cmd)
-    [ "$cmd" != "" ] && service $SERVICE $cmd
+    [ "$cmd" != "" ] && service $service $cmd
     ;;
 
   stop-service)
-    [ "$BKJS_PATH" = "" ] && BKJS_PATH=$BKJS_BIN
-    SERVICE=$(basename $BKJS_PATH | awk -F. '{print $1}')
-    echo "Stopping service $SERVICE with $BKJS_PATH"
-    chkconfig $SERVICE off
-    if [ -f /etc/monit.d/$SERVICE.conf ]; then
-       rm /etc/monit.d/$SERVICE.conf
+    find_bkjsbin
+    path=$(get_arg -path $BKJS_BIN)
+    service=$(basename $path | awk -F. '{print $1}')
+    echo "Stopping service $service with $path"
+    chkconfig $service off
+    if [ -f /etc/monit.d/$service.conf ]; then
+       rm /etc/monit.d/$service.conf
        monit reload
     fi
     $0 stop
@@ -599,21 +576,17 @@ case "$ARG" in
     ;;
 
   init-logwatcher)
+    find_bkjsbin
     cron=$(get_arg -cron '*/30 * * * *')
     echo 'MAILTO=""' > /etc/cron.d/$BKJS-logwatcher
     echo "$cron $BKJS_USER $BKJS_BIN run-logwatcher" >> /etc/cron.d/$BKJS-logwatcher
     ;;
 
   init-backup)
+    find_bkjsbin
     cron=$(get_arg -cron '30 3 * * *')
     echo 'MAILTO=""' > /etc/cron.d/$BKJS-backup
     echo "$cron root $BKJS_BIN run-backup" >> /etc/cron.d/$BKJS-backup
-    ;;
-
-  init-sync)
-    cron=$(get_arg -cron '*/15 * * * *')
-    echo 'MAILTO=""' > /etc/cron.d/$BKJS-sync
-    echo "$cron $BKJS_USER $BKJS_BIN run-sync" >> /etc/cron.d/$BKJS-sync
     ;;
 
   init-packages)
@@ -760,18 +733,22 @@ case "$ARG" in
     [ -f $BKJS_HOME/app.js ] && SCRIPT=$BKJS_HOME/app.js
     [ -f app.js ] && SCRIPT=app.js
     [ -z $SCRIPT ] && echo "ERROR: Cannot find $BKJS module or app.js" && exit 1
+    args=$(get_arg -args $BKJS_RUN_ARGS)
+
+    find_nodebin
+    echo "Starting $ARG: $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME $args $@"
 
     case "$ARG" in
      run-master)
-        $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME -syslog -daemon -master $BKJS_ARGS "$@"
+        $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME -syslog -daemon -master $args "$@"
         ;;
 
      run-monitor)
-        $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME -syslog -daemon -monitor -master $BKJS_ARGS "$@"
+        $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME -syslog -daemon -monitor -master $args "$@"
         ;;
 
      run-watcher)
-        $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME -master -watch `pwd` "$@"
+        $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME -master -watch `pwd` $args "$@"
         ;;
 
      run-shell|bksh)
@@ -779,7 +756,7 @@ case "$ARG" in
         ;;
 
      *)
-        $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME "$@"
+        $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME $args "$@"
         ;;
     esac
     ;;
@@ -787,6 +764,7 @@ case "$ARG" in
   run-setup)
     [ "$(whoami)" != "root" ] && echo "Not root, skipping setup" && exit 1
     # Setup domain from the config, keep the hostname as it is, for EC2 instances it is the IP address
+    BKJS_DOMAIN=$(get_arg -domain $BKJS_DOMAIN)
     [ "$BKJS_DOMAIN" != "" ] && $0 init-hostname -domain $BKJS_DOMAIN
     if [ "$OS_TYPE" = "amazon" ]; then
        region=$(curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone/|sed 's/[a-z]$//')
@@ -802,43 +780,6 @@ case "$ARG" in
     $0 run-sync
     ;;
 
-  run-sync)
-    # Sync code from the master, only inside backend home, must be explicitely configured
-    [ "$BKJS_SYNC" = "" ] && exit
-    cd $BKJS_HOME
-    info=$($0 run-shell -log none -show-info)
-    mode=$(get_value "$info" mode)
-    name=$(get_value "$info" name)
-    version=$(get_value "$info" version)
-    network=$(get_value "$info" network)
-    major=$(get_value "$info" major)
-    minor=$(get_value "$info" minor)
-    tag=$(echo $(get_value "$info" tag)|awk -F- '{print $1}')
-    dirs=$BKJS_SYNC/$mode/$name
-    dirs="$dirs $BKJS_SYNC/$mode/$name/$major.$minor/"
-    [ "$network" != "" ] && dirs="$dirs $BKJS_SYNC/$mode/$name/$network/"
-    [ "$tag" != "" -a "$tag" != "$name" ] && dirs="$dirs $BKJS_SYNC/$mode/$name/$tag/"
-    [ "$BKJS_DRY_RUN" != "" ] && $ECHO "INFO:\n$info\nDIRS:\n$dirs" && exit
-    if [[ $BKJS_SYNC =~ ^s3:// ]]; then
-       region=$(get_value "$info" region)
-       for dir in $dirs; do echo aws s3 sync $dir $BKJS_HOME ${BKJS_DEBUG:--quiet} --recursive --region $region; done
-    else
-        rsync -aFF ${BKJS_DEBUG:-q} -e "ssh -l $BKJS_USER -y -o StrictHostKeyChecking=no -o ConnectTimeout=5 $BKJS_SSH_ARGS" $dirs $BKJS_HOME
-    fi
-    # Check for version change and run the restart command
-    info2=$($0 run-shell -log none -no-db -no-dns -no-configure -show-info)
-    [ "$BKJS_DEBUG" != "" ] && $ECHO "OLD:\n$info\nNEW:\n$info2"
-    version2=$(get_value "$info2" version)
-    major2=$(get_value "$info2" major)
-    minor2=$(get_value "$info2" minor)
-    [ "$version" = "$version2" ] && exit
-    if [ "$major2" != "" -a "$major" != "$major2" ]; then
-       npm restart
-    else
-       $0 restart-api
-    fi
-    ;;
-
   run-update)
     [ -f package.json ] && modules=$(node -e 'console.log(Object.keys(JSON.parse(require("fs").readFileSync("package.json")).dependencies).join(" "))' | sed "s/$BKJS_MOD//g")
     [ "$modules" != "" ] && npm install $modules $@
@@ -846,45 +787,56 @@ case "$ARG" in
 
   put-backend|pb)
     # Put backend code to the remote site
-    if [ "$BKJS_PATH" = "" ]; then
+    path=$(get_arg -path)
+    if [ "$path" = "" ]; then
        mod=$(node -e 'try{console.log(JSON.parse(require("fs").readFileSync("package.json")).name)}catch(e){}')
-       [ "$mod" = "$BKJS_MOD" ] && BKJS_PATH=node_modules/$BKJS_MOD
+       [ "$mod" = "$BKJS_MOD" ] && path=node_modules/$BKJS_MOD
     fi
-    [ "$BKJS_HOST" = "" ] && echo "Remote host required, specify with -host or BKJS_HOST" && exit
-    [ -f .gitignore ] && BKJS_RSYNC_ARGS="$BKJS_RSYNC_ARGS --exclude-from .gitignore"
-    [ -f $HOME/.gitignore_global ] && BKJS_RSYNC_ARGS="$BKJS_RSYNC_ARGS --exclude-from $HOME/.gitignore_global"
-    [ "$BKJS_USER" != "$(whoami)" ] && BKJS_SSH_ARGS="$BKJS_SSH_ARGS -l $BKJS_USER"
+    host=$(get_arg -host $BKJS_HOST)
+    [ "$host" = "" ] && echo "Remote host required, specify with -host" && exit
+    rsyncargs=$(concat_arg -rsync $BKJS_RSYNC_ARGS)
+    [ -f .gitignore ] && rsyncargs="$rsyncargs --exclude-from .gitignore"
+    [ -f $HOME/.gitignore_global ] && rsyncargs="$rsyncargs --exclude-from $HOME/.gitignore_global"
+    sshargs=$(concat_arg -ssh $BKJS_SSH_ARGS)
+    user=$(get_arg -user)
+    [ "$user" != "" ] && sshargs="$sshargs -l $user"
     cleanup=$(get_flag -cleanup)
     key=$(get_arg -ssh-key)
-    [ "$key" != "" -a -f $HOME/.ssh/$key.pem ] && BKJS_SSH_ARGS="$BKJS_SSH_ARGS -i $HOME/.ssh/$key.pem"
+    [ "$key" != "" -a -f $HOME/.ssh/$key.pem ] && sshargs="$sshargs -i $HOME/.ssh/$key.pem"
     bkcmd=$(get_arg -bkcmd)
     [ "$bkcmd" != "" ] && bkcmd="--rsync-path=/home/$BKJS_USER/bin/bkrsync -bkcmd '$bkcmd'"
     files=$(get_arg -files)
     [ "$files" = "" ] && files=$(ls)
-    for h in $BKJS_HOST; do
-        echo "Deploying the module $mod: -e 'ssh $BKJS_SSH_ARGS' $BKJS_RSYNC_ARGS $(echo $files) $h:$BKJS_PATH"
-        if [ "$BKJS_DRY_RUN" = "" ]; then
-           [ "$cleanup" != "" -a "$BKJS_PATH" != "" ] && ssh $BKJS_SSH_ARGS $h rm -rf $BKJS_PATH/*
-           rsync -av $BKJS_DEBUG -e "ssh $BKJS_SSH_ARGS" $BKJS_RSYNC_ARGS "$bkcmd" $files $h:$BKJS_PATH
+    debug=$(get_arg -debug)
+    for h in $host; do
+        echo "Deploying the module $mod: $debug -e 'ssh $sshargs' $rsyncargs $(echo $files) $h:$path"
+        if [ "$(get_flag -dry-run)" = "" ]; then
+           [ "$cleanup" != "" -a "$path" != "" ] && ssh $sshargs $h rm -rf $path/*
+           rsync -av $debug -e "ssh $sshargs" $rsyncargs "$bkcmd" $files $h:$path
         fi
     done
     ;;
 
   run-ssh)
-    [ "$BKJS_HOST" = "" ] && echo "Remote host required, specify with -host or BKJS_HOST" && exit
-    [ "$BKJS_USER" != "$(whoami)" ] && BKJS_SSH_ARGS="$BKJS_SSH_ARGS -l $BKJS_USER"
-    cmd=$(get_arg -cmd)
+    host=$(get_arg -host $BKJS_HOST)
+    [ "$host" = "" ] && echo "Remote host required, specify with -host" && exit
+    sshargs=$(concat_arg -ssh $BKJS_SSH_ARGS)
+    user=$(get_arg -user)
+    [ "$user" != "" ] && sshargs="$sshargs -l $user"
     key=$(get_arg -ssh-key)
-    [ "$key" != "" ] && BKJS_SSH_ARGS="$BKJS_SSH_ARGS -i $HOME/.ssh/$key.pem"
-    for h in $BKJS_HOST; do
-      echo "Running 'ssh $BKJS_SSH_ARGS' $h $cmd"
-      if [ "$BKJS_DRY_RUN" = "" ]; then
-         ssh $BKJS_SSH_ARGS $h $cmd
+    [ "$key" != "" ] && sshargs="$sshargs -i $HOME/.ssh/$key.pem"
+    cmd=$(get_arg -cmd)
+    for h in $host; do
+      echo "Running 'ssh $sshargs' $h $cmd"
+      if [ "$(get_flag -dry-run)" = "" ]; then
+         ssh $sshargs $h $cmd
       fi
     done
     ;;
 
   run-check)
+    [ "$BKJS_IDLETIME" = "" ] && BKJS_IDLETIME=900
+    [ "$BKJS_UPTIME" = "" ] && BKJS_UPTIME=43200
     uptime=$(</proc/uptime)
     uptime=${uptime%%.*}
     if [ $uptime -gt $BKJS_IDLETIME ]; then
@@ -910,7 +862,7 @@ case "$ARG" in
     ;;
 
   run-backup)
-    [ "$BKJS_BACKUP" = "" ] && exit
+    [ "$BKJS_BACKUP" = "" ] && BKJS_BACKUP=$BKJS_HOME/backup
     DATE=$(date +%m-%d-%y)
     HOUR=$(date +%H)
     DOW=$(date +%w)
@@ -921,7 +873,7 @@ case "$ARG" in
     [ "$BACKUP_HOURLY" != "" ] && FILE="$FILE$HOUR"
     [ "$BACKUP_DAILY" != "" ] && FILE="$FILE$DAY"
     [ "$BACKUP_WEEKLY" != "" ] && FILE="$FILE$DOW"
-    FILE="$FILE-$HOST"
+    FILE="$FILE-$(uname -n|awk -F. '{print $1}')"
     # Additional options for tar
     BACKUP_TAR_ARGS="--ignore-failed-read --exclude-backup $BACKUP_TAR_ARGS"
     # File extensions to exclude from the backup
@@ -981,49 +933,23 @@ case "$ARG" in
     fi
     ;;
 
-  get-java)
-    [ "$BKJS_PATH" = "" ] && echo "-path url is required" && exit 1
-    url=$BKJS_PATH
-    file=jdk.rpm
-    rm -rf $file
-    if [[ $url =~ oracle.com ]]; then
-       wget -O $file --no-cookies --no-check-certificate --header "Cookie: gpw_e24=http%3A%2F%2Fwww.oracle.com%2F; oraclelicense=accept-securebackup-cookie" $url
-    else
-      if [[ $url =~ ^http:// ]]; then
-         wget -O $file $url
-      else
-        if [[ $url =~ ^s3:// ]]; then
-           aws s3 cp $url $file
-        else
-           echo "unsupported url $url" && exit 1
-        fi
-      fi
-    fi
-    [ ! -f $file ] && echo "no jdk rpm found" && exit 1
-    [ "$PLATFORM" != "Linux" ] && exit
-    rpm -Uvh $file
-    alternatives --install /usr/bin/java java /usr/java/default/bin/java 20000
-    alternatives --set java /usr/java/default/bin/java
-    rm -rf $file
-    ;;
-
   init-pgsql)
+    PG_DIR=$BKJS_HOME/var/postgres
     if [ ! -f $PG_DIR/postgresql.conf ]; then
        db=$(get_arg -db backend)
        mkdir -p $PG_DIR
-       [ "$OS_TYPE" = "amazon" -a -d /var/run/postgresql ] && sudo chown $BKJS_USER /var/run/postgresql
-       $PG_PREFIX/bin/initdb -U postgres -D $PG_DIR
+       initdb -U postgres -D $PG_DIR
        $SED "s/#fsync = on/fsync = off/g" $PG_DIR/postgresql.conf
        $SED "s/#log_destination = 'stderr'/log_destination = 'syslog'/g" $PG_DIR/postgresql.conf
-       $PG_PREFIX/bin/postgres -F -D $PG_DIR &
+       postgres -F -D $PG_DIR &
        sleep 3
-       $PG_PREFIX/bin/createdb -U postgres $db
+       createdb -U postgres $db
     fi
     ;;
 
   run-pgsql)
     mkdir -p $BKJS_HOME/var $BKJS_HOME/log
-    exec nohup $PG_PREFIX/bin/postgres -F -D $PG_DIR >>$BKJS_HOME/log/message.log 2>&1 &
+    exec nohup postgres -F -D $BKJS_HOME/var/postgres >>$BKJS_HOME/log/message.log 2>&1 &
     ;;
 
   stop-pgsql)
@@ -1043,10 +969,12 @@ case "$ARG" in
     case "$PLATFORM" in
      Darwin)
        OS=osx
+       REDIS_PREFIX=$BKJS_PREFIX
        ;;
      Linux)
        sudo yum remove -y redis
        sudo yum install -y jemalloc
+       REDIS_PREFIX=$BKJS_HOME
        ;;
     esac
 
@@ -1096,11 +1024,11 @@ case "$ARG" in
     if [ "$memmax" != "" ]; then
        sed -r -i -e "s|^maxmemory .+|maxmemory $memmax|" -e "s|^# maxmemory .+|maxmemory $memmax|" $BKJS_HOME/etc/redis.conf
     fi
-    $REDIS_PREFIX/bin/redis-server $BKJS_HOME/etc/redis.conf
+    redis-server $BKJS_HOME/etc/redis.conf
     slavehost=$(get_arg -slave-host)
     slaveport=$(get_arg -slave-port 6379)
     if [ "$slavehost" != "" ]; then
-       $REDIS_PREFIX/bin/redis-cli slaveof $slavehost $slaveport
+       redis-cli slaveof $slavehost $slaveport
     fi
     ;;
 
@@ -1115,23 +1043,23 @@ case "$ARG" in
     name=$(get_arg -name redis)
     dtimeout=$(get_arg -down-timeout 10000)
     ftimeout=$(get_arg -failover-timeout 180000)
-    conf=$REDIS_PREFIX/etc/sentinel.conf
+    conf=$BKJS_HOME/etc/sentinel.conf
     $ECHO "daemonize yes" > $conf
     $ECHO "syslog-enabled yes" >> $conf
     $ECHO "sentinel monitor $name $host $port $quorum" >> $conf
     $ECHO "sentinel down-after-milliseconds $name $dtimeout" >> $conf
     $ECHO "sentinel failover-timeout $name $ftimeout" >> $conf
     $ECHO "sentinel parallel-syncs $name 1" >> $conf
-    $ECHO "dir $REDIS_PREFIX/var/" >> $conf
-    $ECHO "pidfile $REDIS_PREFIX/var/sentinel.pid" >> $conf
+    $ECHO "dir $BKJS_HOME/var/" >> $conf
+    $ECHO "pidfile $BKJS_HOME/var/sentinel.pid" >> $conf
     chown $BKJS_USER $conf
 
-    $ECHO "check process redis-sentinel with pidfile \"$REDIS_PREFIX/var/sentinel.pid\" start program = \"$0 run-sentinel $@\" as uid $BKJS_USER and gid $BKJS_GROUP stop program = \"$0 stop-sentinel\"" > /etc/monit.d/sentinel.conf
+    $ECHO "check process redis-sentinel with pidfile \"$BKJS_HOME/var/sentinel.pid\" start program = \"$0 run-sentinel $@\" as uid $BKJS_USER and gid $BKJS_GROUP stop program = \"$0 stop-sentinel\"" > /etc/monit.d/sentinel.conf
     monit reload
     ;;
 
   run-sentinel)
-    $REDIS_PREFIX/bin/redis-sentinel $REDIS_PREFIX/etc/sentinel.conf
+    redis-sentinel $BKJS_HOME/etc/sentinel.conf
     ;;
 
   stop-sentinel)
@@ -1139,24 +1067,24 @@ case "$ARG" in
     ;;
 
   init-mysql)
-    if [ ! -d $MYSQL_DIR/mysql ]; then
+    [ "$MYSQL_DIR" = "" ] && MYSQL_DIR=$BKJS_HOME/var/mysql
+    if [ ! -d $MYSQL_DIR ]; then
        db=$(get_arg -db backend)
        mkdir -p $MYSQL_DIR
        $ECHO "[client]\nuser=root\ndatabase=$db\nport=3306\nsocket=$MYSQL_DIR/mysql.sock\n\n" > ~/.my.cnf
        $ECHO "[mysqld]\nport=3306\nsocket=$MYSQL_DIR/mysql.sock\ndatadir=$MYSQL_DIR\nkey_buffer_size=16M\nmax_allowed_packet=500M\ngroup_concat_max_len=16000\n" >> ~/.my.cnf
-       $MYSQL_PREFIX/bin/mysql_install_db --force --skip-name-resolve --datadir=$MYSQL_DIR --defaults-file=$HOME/.my.cnf
+       mysql_install_db --force --skip-name-resolve --datadir=$MYSQL_DIR --defaults-file=$HOME/.my.cnf
        ($0 run-mysql)
        sleep 5
-       $MYSQL_PREFIX/bin/mysql -u root -e "DELETE FROM user WHERE user=''" mysql
-       $MYSQL_PREFIX/bin/mysql -u root -e "DROP DATABASE test" mysql
-       $MYSQL_PREFIX/bin/mysql -u root -e "CREATE DATABASE $db" mysql
+       mysql -u root -e "DELETE FROM user WHERE user=''" mysql
+       mysql -u root -e "DROP DATABASE test" mysql
+       mysql -u root -e "CREATE DATABASE $db" mysql
     fi
     ;;
 
   run-mysql)
     mkdir -p $BKJS_HOME/var $BKJS_HOME/log
-    [ -f $MYSQL_PREFIX/bin/mysqld ] && exec nohup $MYSQL_PREFIX/bin/mysqld >>$BKJS_HOME/log/message.log 2>&1 &
-    [ -f $MYSQL_PREFIX/libexec/mysqld ] && exec nohup $MYSQL_PREFIX/libexec/mysqld >>$BKJS_HOME/log/message.log 2>&1 &
+    exec nohup mysqld >>$BKJS_HOME/log/message.log 2>&1 &
     ;;
 
   stop-mysql)
@@ -1169,7 +1097,8 @@ case "$ARG" in
     ;;
 
   get-dynamodb)
-  [ "$(get_flag -force)" != "" -a "$DYNAMODB_PREFIX" != "" ] && rm -rf $DYNAMODB_PREFIX
+    [ "$DYNAMODB_PREFIX" = "" ] && DYNAMODB_PREFIX=$BKJS_PREFIX/dynamodb
+    [ "$(get_flag -force)" != "" -a "$DYNAMODB_PREFIX" != "" ] && rm -rf $DYNAMODB_PREFIX
     if [ ! -d $DYNAMODB_PREFIX ]; then
        mkdir -p $DYNAMODB_PREFIX
        curl -L -o ddb.tgz http://dynamodb-local.s3-website-us-west-2.amazonaws.com/dynamodb_local_latest.tar.gz
@@ -1179,6 +1108,7 @@ case "$ARG" in
     ;;
 
   run-dynamodb)
+    [ "$DYNAMODB_PREFIX" = "" ] && DYNAMODB_PREFIX=$BKJS_PREFIX/dynamodb
     mkdir -p $BKJS_HOME/var $BKJS_HOME/log
     params="-Xmx$(get_arg -xmx 512M)"
     exec nohup java $params -Djava.library.path=$DYNAMODB_PREFIX/DynamoDBLocal_lib -jar $DYNAMODB_PREFIX/DynamoDBLocal.jar -dbPath $BKJS_HOME/var -port 8181 >>$BKJS_HOME/log/message.log 2>&1 &
@@ -1195,6 +1125,7 @@ case "$ARG" in
     ;;
 
   get-hazelcast)
+    [ "$HAZELCAST_PREFIX" = "" ] && HAZELCAST_PREFIX=$BKJS_PREFIX/hazelcast
     [ "$(get_flag -force)" != "" -a "$HAZELCAST_PREFIX" != "" ] && rm -rf $HAZELCAST_PREFIX
     if [ ! -d $HAZELCAST_PREFIX ]; then
        mkdir -p $HAZELCAST_PREFIX
@@ -1211,6 +1142,7 @@ case "$ARG" in
     ;;
 
   run-hazelcast)
+    [ "$HAZELCAST_PREFIX" = "" ] && HAZELCAST_PREFIX=$BKJS_PREFIX/hazelcast
     mkdir -p $BKJS_HOME/var $BKJS_HOME/log
     # Percent from the total memory
     memsize=$(get_arg -memsize)
@@ -1234,6 +1166,7 @@ case "$ARG" in
     ;;
 
   get-cassandra)
+    [ "$CASSANDRA_PREFIX" = "" ] && export CASSANDRA_PREFIX=$BKJS_PREFIX/cassandra
     [ "$(get_arg -force)" != "" -a "$CASSANDRA_PREFIX" != "" ] && rm -rf $CASSANDRA_PREFIX
     if [ ! -d $CASSANDRA_PREFIX ]; then
         mkdir -p $CASSANDRA_PREFIX $CASSANDRA_DIR
@@ -1257,12 +1190,12 @@ case "$ARG" in
     sleep 15
     db=$(get_arg -db backend)
     echo "CREATE KEYSPACE $db WITH REPLICATION = {'class': 'SimpleStrategy' , 'replication_factor': 1 };" > /tmp/cql
-    $CASSANDRA_PREFIX/bin/cqlsh -f /tmp/cql
+    cqlsh -f /tmp/cql
     ;;
 
   run-cassandra)
     mkdir -p $BKJS_HOME/var $BKJS_HOME/log
-    $CASSANDRA_PREFIX/bin/cassandra >>$BKJS_HOME/log/message.log 2>&1
+    cassandra >>$BKJS_HOME/log/message.log 2>&1
     ;;
 
   stop-cassandra)
@@ -1270,6 +1203,7 @@ case "$ARG" in
     ;;
 
   get-elasticsearch)
+    [ "$ELASTICSEARCH_PREFIX" = "" ] && export ELASTICSEARCH_PREFIX=$BKJS_PREFIX/elasticsearch
     [ "$(get_flag -force)" != "" -a "$ELASTICSEARCH_PREFIX" != "" ] && rm -rf $ELASTICSEARCH_PREFIX
     if [ ! -d $ELASTICSEARCH_PREFIX ]; then
         mkdir -p $ELASTICSEARCH_PREFIX
@@ -1279,7 +1213,7 @@ case "$ARG" in
         cd $ELASTICSEARCH_PREFIX
         echo "node.master: true" >> config/elasticsearch.yml
         echo "node.data: true" >> config/elasticsearch.yml
-        echo "path.data: $ELASTICSEARCH_DIR" >> config/elasticsearch.yml
+        echo "path.data: $BKJS_HOME/var" >> config/elasticsearch.yml
         echo "path.logs: $BKJS_HOME/log" >> config/elasticsearch.yml
         if [ "$OS_TYPE" = "amazon" ]; then
            echo 'network.host: ["_ec2_","_local_"]' >> config/elasticsearch.yml
@@ -1310,6 +1244,7 @@ case "$ARG" in
     ;;
 
   run-elasticsearch)
+    [ "$ELASTICSEARCH_PREFIX" = "" ] && export ELASTICSEARCH_PREFIX=$BKJS_PREFIX/elasticsearch
     # Percent from the total memory
     memsize=$(get_arg -memsize)
     [ "$memsize" != "" ] && memmax="$(( ($(free -m|grep Mem:|awk '{print $2}') * $memsize) / 100 ))m"
@@ -1401,8 +1336,9 @@ case "$ARG" in
     ;;
 
   run-mongodb)
+    [ "$MONGO_DIR" = "" ] && export MONGO_DIR=$BKJS_HOME/var/mongo
     mkdir -p $MONGO_DIR $BKJS_HOME/var $BKJS_HOME/log
-    $BKJS_PREFIX/bin/mongod --fork --dbpath $MONGO_DIR --syslog >>$BKJS_HOME/log/message.log 2>&1
+    mongod --fork --dbpath $MONGO_DIR --syslog >>$BKJS_HOME/log/message.log 2>&1
     ;;
 
   stop-mongodb)
@@ -1442,7 +1378,7 @@ case "$ARG" in
     cmd="ssh -l $user"
     [ -f "~/.ssh/$key.pem" ] && cmd="$cmd -i ~/.ssh/$key.pem"
     cmd="$cmd $host $(get_arg -cmd)"
-    [ "$BKJS_DEBUG" != "" ] && echo $cmd
+    [ "$(get_flag -debug)" != "" ] && echo $cmd
     eval $cmd
     ;;
 
@@ -1454,7 +1390,7 @@ case "$ARG" in
     ids=$($0 show-instances -region "$region" -fmt id -name "$name"|awk '{printf "%s,",$1}'|sed 's/,$//')
     [ "$ids" = "" ] && exit
     user=$(get_arg -user)
-    [ "$user" != "" ] && cmd="su -l ec2-user -c '$(cmd)'"
+    [ "$user" != "" ] && cmd="su -l $user -c '$(cmd)'"
     aws ssm send-command --targets "Key=InstanceIds,Values=$ids" --document-name "AWS-RunShellScript" --parameters "commands=[\"$cmd\"]" --region $region
     ;;
 
@@ -1468,21 +1404,25 @@ case "$ARG" in
     ;;
 
   show-help)
+    find_nodebin
     $NODE_BIN -e "require('$BKJS_MOD').core.showHelp()"
     ;;
 
   npm-deps)
-    args=$(get_arg -args)
+    find_nodebin
+    [ "$NPM_BIN" = "" -a ! -f $BKJS_PREFIX/bin/npm ] && НPM_BIN=$(which npm 2>/dev/null)
+    [ "$NPM_BIN" = "" ] && NPM_BIN=$BKJS_PREFIX/bin/npm
+    deps=$(get_arg -deps)
     type=$(get_arg -type dependencies)
     skip=$(get_arg -skip $BKJS_MOD)
     modules=$($NODE_BIN -e "try{skip='$skip'.split(/[ ,]/);console.log(Object.keys(JSON.parse(require('fs').readFileSync('package.json')).$type).filter(function(x){return skip.indexOf(x)==-1}).join(' '))}catch(e){}")
     echo "$modules"
     sleep 1
-    for m in $modules; do $NPM_BIN $args install $m; done
+    for m in $modules; do $NPM_BIN $deps install $m; done
     ;;
 
   install-bkjs)
-    (cd $BKJS_HOME && npm install git+https://github.com/vseryakov/$BKJS_MOD.git $BKJS_ARGS)
+    (cd $BKJS_HOME && npm install git+https://github.com/vseryakov/$BKJS_MOD.git $(get_arg -deps))
     ;;
 
   build-bkjs)
@@ -1490,7 +1430,7 @@ case "$ARG" in
         git clone https://github.com/vseryakov/$BKJS_MOD.git
     fi
     (cd $BKJS_MOD && git pull)
-    (cd $BKJS_MOD && npm install $BKJS_ARGS)
+    (cd $BKJS_MOD && npm install $(get_arg -deps))
     ;;
 
   get-node)
@@ -1523,7 +1463,7 @@ case "$ARG" in
     fi
     (cd deps/node && [ ! -f out/Makefile ] && CFLAGS="$CFLAGS" CXXFLAGS="$CXXFLAGS" LDFLAGS="$LDFLAGS" ./configure --prefix=$BKJS_PREFIX)
     (cd deps/node && git pull && make install clean)
-    $NPM_BIN config set nodedir "$(pwd)/deps/node"
+    echo "nodedir=$(pwd)/deps/node" >> ~/.npmrc
     ;;
 
   upgrade-node)
@@ -1719,6 +1659,7 @@ EOF
     ;;
 
   run-app)
+    find_nodebin
     NAME=app
     [ "$1" != "" -a "${1:0:1}" != "-" ] && NAME=$1 && shift
     $NODE_BIN $NAME.js -log debug -watch `pwd` -web $@
@@ -1756,7 +1697,6 @@ EOF
     echo "  init-dns - install and setup dnsmasq for local cahching DNS server"
     echo "  init-instancejob - configure a checker for temporary job instance"
     echo "  init-service [-server NAME] - create bkjs service to be run on server startup, i.e. makes symlink /etc/init.d/$BKJS after which regular 'service' command can be used to manage the $BKJS service"
-    echo "  init-sync - setup a cron job to run run-sync command every 5 minites to check for new software on the \$BKJS_SYNC server"
     echo "  init-packages - install required packges and updates"
     echo "  init-devel - install development packages for node and modules compiclation"
     echo "  init-home - setup backend home with required folders"
@@ -1770,10 +1710,9 @@ EOF
     echo "  run-shell - run backend REPL in the current backend directory, works with the backend core or local app.js application"
     echo "  run-backend - run local backend server or the app.js if present, all command line params will be passed to the backend.js"
     echo "  put-backend [-host HOST] [-path PATH] [-user USER] [-ssh-key pem] [-ssh OPTS] [-exclude PATTERN] [-bkcmd CMD] [-delete] - push the backend code to the master server, uses env BKJS_HOST or host parameter from the command line, replaces all files and removes non-existing on the dest except in web/ directory, default path is ~/node_modules/$BKJS_MOD"
-    echo "  run-sync - synchronize other directories from the master host, runs on the start, must use BKJS_SYNC in the profile set to the host name where to get files"
     echo "  run-update [-g] - update all dependencies except the backend module from the package.json"
     echo "  run-check - to be run on instances, check for idleness, if no jobs running then shutdown the host"
-    echo "  init-backup - creates a crontab file in /etc/cron.d to periodically run the backup, -args can be used to specify the full cron time spec"
+    echo "  init-backup - creates a crontab file in /etc/cron.d to periodically run the backup, -cron can be used to specify the full cron time spec"
     echo "  run-backup - run the backup script, store in \$BKJS_BACKUP, can be used in crontabs with symlink"
     echo "  init-pgsql [-db NAME] - setup and run the PostgreSQL server, install in $PG_PREFIX, data files in $PG_DIR, create initial database"
     echo "  run-pgsql - run local PostgreSQL server"
@@ -1813,8 +1752,8 @@ EOF
     echo "  run-mongodb - run local Mongo server installed in $BKJS_PREFIX/bin, db path is $MONGO_DIR"
     echo "  stop-mongodb - stop local Mongo server"
     echo "  npm-deps - install all npm packages from the dependencies list"
-    echo "  install-bkjs - install the $BKJS_MOD from the github using npm, build dependencies are passed in -args"
-    echo "  build-bkjs - clone and build the $BKJS_MOD from the git in the current dir with dependencies specified in -args"
+    echo "  install-bkjs - install the $BKJS_MOD from the github using npm, build dependencies are passed in -depss"
+    echo "  build-bkjs - clone and build the $BKJS_MOD from the git in the current dir with dependencies specified in -deps"
     echo "  get-node [-prefix PATH] - install binary release of the node into $BKJS_PREFIX or specified path"
     echo "  build-node - build node and install in $BKJS_PREFIX or in [-prefix PATH], on Linux init-devel should be called before this command to install devel packages"
     echo "  show-instances|si [-region region] [-name name] [-fmt fmt]- show running instances in region, optional tag pattern can be used for filter, FMT may contain: id,ip,host,key,name which will be replaced with actual values"
@@ -1875,12 +1814,6 @@ EOF
     echo "  -home path - same as -root"
     echo "  -prefix path - path to the local binaries directory, default is $BKJS_PREFIX"
     echo "  -user name - set backend user on the remote or local side, default is $BKJS_USER"
-    echo "  -host host - host to be used transfer or sync, default is $BKJS_HOST"
-    echo "  -path path - path to be used for transfer or sync, default is $BKJS_PATH"
-    echo "  -ssh opts - pass additional parameters to the ssh command"
-    echo "  -rsync opts - pass additional parameters to the rsync command"
-    echo "  -args opts - generic parameters used by any specific command"
-    echo "  -config params - if applicable retrieve the DB config for the given criteria, params are passed to the -db-get-config call"
     ;;
 esac
 
