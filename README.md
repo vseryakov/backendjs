@@ -117,13 +117,17 @@ or simply
         /account/get
 
 * Shutdown the backend by pressing Ctrl-C
-* To make your own custom Web app, create a new directory (somewhere else) to store your project and run the following command from that directory:
+* To make your own custom Web app, copy the app template directory:
 
-        bkjs init-app
+        # Find the directory where the backendjs is installed:
+        node -e "console.log(path.dirname(require.resolve('backendjs')))"
 
-* The `app.js` file is created in your project directory with 2 additional API endpoints `/test/add` and `/test/[0-9]` to show the simplest way
+        # Copy the app template
+        cp -r path_to_backendjs/examples/app path_to_new_app_name
+
+* The `app.js` file has 2 additional API endpoints `/test/add` and `/test/[0-9]` to show the simplest way
   of adding new tables and API commands.
-* The `app.sh` script is created for convenience in the development process, it specifies common arguments and can be customized as needed.
+* The `app.sh` script is for convenience in the development process, it specifies common arguments and can be customized as needed.
 * Run your new application now, it will start the Web server on port 8000:
 
         ./app.sh
@@ -219,7 +223,7 @@ When the API layer is initialized, the api module contains `app` object which is
 Special module/namespace `app` is designated to be used for application development/extension. This module is available the same way as the `api` or `core`
 which makes it easy to refer and extend with additional methods and structures.
 
-The typical structure of a backendjs application is the following (created by the bkjs init-app command):
+The typical structure of a backendjs application is the following:
 
 ```javascript
     var bkjs = require('backendjs');
@@ -887,7 +891,6 @@ customize the running environment, these should be regular shell scripts using b
 Most common used commands are:
 - bkjs run-watcher - run the backend or the app for development purposes, uses local app.js if exists otherwise runs generic server
 - bkjs run-shell - start REPL shell with the backend module loaded and available for use, all submodules are availablein the shell as well like core, db, api
-- bkjs init-app - create the app skeleton
 - bkjs put-backend [-path path] [-host host] [-user user] - sync sources of the app with the remote site, uses BKJS_HOST env variable for host if not specified in the command line, this is for developent version of the backend only
 - bkjs init-server [-home path] [-user user] [-host name] [-domain name] - initialize Linux instance(Amazon,CentOS) for backend use, optional -home can be specified where the backend
    home will be instead of ~/.bkjs, optional -user tells to use existing user instead of the current user.
@@ -1057,16 +1060,16 @@ how the environment is setup it is ultimatley 2 ways to specify the port for HTT
 
     * node.js can be compiled by the bkjs and installed into default location, on Darwin it is /opt/local
 
-    * to install node.js in $BKJS_PREFIX/bin run command:
+      * to install node.js in $BKJS_PREFIX/bin run command:
 
             ./bkjs build-node
 
-    * to specify a different install path for the node run
+      * to specify a different install path for the node run
 
             ./bksj build-node -prefix $HOME
 
-    * **Important**: Add NODE_PATH=$BKJS_PREFIX/lib/node_modules to your environment in .profile or .bash_profile so
-      node can find global modules, replace $BKJS_PREFIX with the actual path unless this variable is also set in the .profile
+      * **Important**: Add NODE_PATH=$BKJS_PREFIX/lib/node_modules to your environment in .profile or .bash_profile so
+        node can find global modules, replace $BKJS_PREFIX with the actual path unless this variable is also set in the .profile
 
 * to install all dependencies and make backendjs module and bkjs globally available:
 
