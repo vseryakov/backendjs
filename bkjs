@@ -97,18 +97,21 @@ kill_proc() {
   kill "$2" $pid
 }
 
+# Resolve bkjs shell script location
 find_bkjsbin() {
   [ "$BKJS_BIN" = "" -a -f $BKJS_HOME/bin/$BK ] && export BKJS_BIN=$BKJS_HOME/bin/$BK
   [ "$BKJS_BIN" = "" -a -f $BKJS_PREFIX/bin/$BK ] && export BKJS_BIN=$BKJS_PREFIX/bin/$BK
   [ "$BKJS_BIN" = "" ] && export BKJS_BIN=$(which $BK 2>/dev/null)
 }
 
+# Resolve node binary location
 find_nodebin() {
    [ "$NODE_BIN" = "" -a -f $BKJS_HOME/bin/node ] && export NODE_BIN=$BKJS_HOME/bin/node
    [ "$NODE_BIN" = "" -a -f $BKJS_PREFIX/bin/node ] && export NODE_BIN=$BKJS_PREFIX/bin/node
    [ "$NODE_BIN" = "" ] && export NODE_BIN=$(which node 2>/dev/null)
 }
 
+# Use configured or provided user:group, defaults to the current user
 find_user() {
     export BKJS_USER=$(get_arg -user $BKJS_USER)
     [ "$BKJS_USER" = "" ] && export BKJS_USER=$(whoami)
@@ -796,32 +799,34 @@ case "$ARG" in
 
   put-backend|pb)
     # Put backend code to the remote site
-    find_user
-    path=$(get_arg -path)
-    if [ "$path" = "" ]; then
-       mod=$(node -e 'try{console.log(JSON.parse(require("fs").readFileSync("package.json")).name)}catch(e){}')
-       [ "$mod" = "$BKJS_MOD" ] && path=node_modules/$BKJS_MOD
-    fi
     host=$(get_arg -host $BKJS_HOST)
-    [ "$host" = "" ] && echo "Remote host required, specify with -host" && exit
+    [ "$host" = "" ] && echo "no sync withut -host" && exit
     rsyncargs=$(concat_arg -rsync $BKJS_RSYNC_ARGS)
     [ -f .gitignore ] && rsyncargs="$rsyncargs --exclude-from .gitignore"
     [ -f $HOME/.gitignore_global ] && rsyncargs="$rsyncargs --exclude-from $HOME/.gitignore_global"
+    path=$(get_arg -path)
+    mod=$(node -e 'try{console.log(JSON.parse(require("fs").readFileSync("package.json")).name)}catch(e){}')
+    if [ -z "$path" ]; then
+       [ "$mod" = "$BKJS_MOD" ] && path=node_modules/$BKJS_MOD
+    fi
+    [[ -z $mod ]] && echo "no sync without package.json" && exit 1
     sshargs=$(concat_arg -ssh $BKJS_SSH_ARGS)
     user=$(get_arg -user)
     [ "$user" != "" ] && sshargs="$sshargs -l $user"
     key=$(get_arg -ssh-key)
     [ "$key" != "" -a -f $HOME/.ssh/$key.pem ] && sshargs="$sshargs -i $HOME/.ssh/$key.pem"
     bkcmd=$(get_arg -bkcmd)
-    [ "$bkcmd" != "" ] && bkcmd="--rsync-path=/home/$BKJS_USER/bin/bkrsync -bkcmd '$bkcmd'"
+    if [ "$bkcmd" != "" ]; then
+       find_user
+       bkcmd="--rsync-path=/home/$BKJS_USER/bin/bkrsync -bkcmd '$bkcmd'"
+    fi
     files=$(get_arg -files)
-    [ "$files" = "" ] && files=$(ls)
-    debug=$(get_arg -debug)
+    [[ -z $files ]] && files=$(node -e 'try{console.log(JSON.parse(require("fs").readFileSync("package.json")).config.files)}catch(e){}')
+    [[ -z $files ]] && echo "no sync without -files" && exit 1
+    echo "Deploying the module $mod: 'ssh $sshargs' $rsyncargs $bkcmd $(echo $files) to $host:$path"
+    [ ! -z "$(get_flag -dry-run)" ] && exit 0
     for h in $host; do
-        echo "Deploying the module $mod: $debug -e 'ssh $sshargs' $rsyncargs $(echo $files) $h:$path"
-        if [ "$(get_flag -dry-run)" = "" ]; then
-           rsync -av $debug -e "ssh $sshargs" $rsyncargs "$bkcmd" $files $h:$path
-        fi
+      rsync -av -e "ssh $sshargs" $rsyncargs "$bkcmd" $files $h:$path
     done
     ;;
 
@@ -834,11 +839,10 @@ case "$ARG" in
     key=$(get_arg -ssh-key)
     [ "$key" != "" ] && sshargs="$sshargs -i $HOME/.ssh/$key.pem"
     cmd=$(get_arg -cmd)
+    echo "Running 'ssh $sshargs' $h $cmd"
+    [ "$(get_flag -dry-run)" != "" ] && exit 0
     for h in $host; do
-      echo "Running 'ssh $sshargs' $h $cmd"
-      if [ "$(get_flag -dry-run)" = "" ]; then
-         ssh $sshargs $h $cmd
-      fi
+      ssh $sshargs $h $cmd
     done
     ;;
 

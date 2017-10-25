@@ -8,6 +8,7 @@
 *.*~
 *.log
 *.tgz
+*.zip
 *.config
 *.creator
 *.files

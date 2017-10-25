@@ -3,7 +3,7 @@
   "author": "Vlad Seryakov",
   "name": "backendjs",
   "description": "A platform for building backends",
-  "main": "index",
+  "main": "lib/index",
   "homepage": "http://bkjs.io",
   "repository": {
     "type": "git",
@@ -74,8 +74,12 @@
     "bkjs": "./bkjs",
     "bksh": "./bkjs"
   },
+  "config": {
+    "files": "package.json bkjs etc lib modules tools views web"
+  },
   "scripts": {
     "start": "./bkjs run-backend",
-    "stop": "./bkjs stop"
+    "stop": "./bkjs stop",
+    "doc": "node tools/doc.js > web/doc.html"
   }
 }

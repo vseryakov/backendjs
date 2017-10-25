@@ -98,6 +98,7 @@
 <li><a href="#module-db_sql">db_sql</a></li>
 <li><a href="#module-db_sqlite">db_sqlite</a></li>
 <li><a href="#module-http_get">http_get</a></li>
+<li><a href="#module-index">index</a></li>
 <li><a href="#module-ipc">ipc</a></li>
 <li><a href="#module-ipc_client">ipc_client</a></li>
 <li><a href="#module-ipc_local">ipc_local</a></li>
@@ -242,13 +243,17 @@ For this example let&#39;s create an account.</p>
 </code></pre></li>
 <li><p>Shutdown the backend by pressing Ctrl-C</p>
 </li>
-<li><p>To make your own custom Web app, create a new directory (somewhere else) to store your project and run the following command from that directory:</p>
-<pre><code>  bkjs init-app
+<li><p>To make your own custom Web app, copy the app template directory:</p>
+<pre><code>  # Find the directory where the backendjs is installed:
+  node -e &quot;console.log(path.dirname(require.resolve(&#39;backendjs&#39;)))&quot;
+
+  # Copy the app template
+  cp -r path_to_backendjs/examples/app path_to_new_app_name
 </code></pre></li>
-<li><p>The <code>app.js</code> file is created in your project directory with 2 additional API endpoints <code>/test/add</code> and <code>/test/[0-9]</code> to show the simplest way
+<li><p>The <code>app.js</code> file has 2 additional API endpoints <code>/test/add</code> and <code>/test/[0-9]</code> to show the simplest way
 of adding new tables and API commands.</p>
 </li>
-<li>The <code>app.sh</code> script is created for convenience in the development process, it specifies common arguments and can be customized as needed.</li>
+<li>The <code>app.sh</code> script is for convenience in the development process, it specifies common arguments and can be customized as needed.</li>
 <li><p>Run your new application now, it will start the Web server on port 8000:</p>
 <pre><code>  ./app.sh
 </code></pre></li>
@@ -327,7 +332,7 @@ processing of the data is needed before sending it to the user, it is possible t
 <p>When the API layer is initialized, the api module contains <code>app</code> object which is an Express server.</p>
 <p>Special module/namespace <code>app</code> is designated to be used for application development/extension. This module is available the same way as the <code>api</code> or <code>core</code>
 which makes it easy to refer and extend with additional methods and structures.</p>
-<p>The typical structure of a backendjs application is the following (created by the bkjs init-app command):</p>
+<p>The typical structure of a backendjs application is the following:</p>
 <pre><code class="lang-javascript">    var bkjs = require(&#39;backendjs&#39;);
     var api = bkjs.api;
     var app = bkjs.app;
@@ -891,7 +896,6 @@ customize the running environment, these should be regular shell scripts using b
 <ul>
 <li>bkjs run-watcher - run the backend or the app for development purposes, uses local app.js if exists otherwise runs generic server</li>
 <li>bkjs run-shell - start REPL shell with the backend module loaded and available for use, all submodules are availablein the shell as well like core, db, api</li>
-<li>bkjs init-app - create the app skeleton</li>
 <li>bkjs put-backend [-path path] [-host host] [-user user] - sync sources of the app with the remote site, uses BKJS_HOST env variable for host if not specified in the command line, this is for developent version of the backend only</li>
 <li><p>bkjs init-server [-home path] [-user user] [-host name] [-domain name] - initialize Linux instance(Amazon,CentOS) for backend use, optional -home can be specified where the backend
  home will be instead of ~/.bkjs, optional -user tells to use existing user instead of the current user.</p>
@@ -1018,16 +1022,24 @@ all config parameters support DNS store. To see which parmeteres can be stored i
 </li>
 <li><p>if node.js is already installed skip to the next section</p>
 <ul>
+<li><p>to install binary release run the command, it will install it into /opt/local on Darwin</p>
+<pre><code>   ./bkjs get-node
+
+   # To install into different path
+   ./bkjs get-node -prefix /usr/local/node
+</code></pre></li>
 <li><p>node.js can be compiled by the bkjs and installed into default location, on Darwin it is /opt/local</p>
-</li>
+<ul>
 <li><p>to install node.js in $BKJS_PREFIX/bin run command:</p>
-<pre><code>  ./bkjs build-node
+<pre><code>./bkjs build-node
 </code></pre></li>
 <li><p>to specify a different install path for the node run</p>
-<pre><code>  ./bksj build-node -prefix $HOME
+<pre><code>./bksj build-node -prefix $HOME
 </code></pre></li>
 <li><p><strong>Important</strong>: Add NODE_PATH=$BKJS_PREFIX/lib/node_modules to your environment in .profile or .bash_profile so
 node can find global modules, replace $BKJS_PREFIX with the actual path unless this variable is also set in the .profile</p>
+</li>
+</ul>
 </li>
 </ul>
 </li>
@@ -2358,6 +2370,8 @@ Database pool statistics and other diagnostics</p>
 <li><code>db-name</code> - Default database name to be used for default connections in cases when no db is specified in the connection url</li>
 <li><code>db-create-tables</code> - Create tables in the database or perform table upgrades for new columns in all pools, only master processes can perform this operation, never workers</li>
 <li><code>db-cache-tables</code> - List of tables that can be cached: bk_auth, bk_counter. This list defines which DB calls will cache data with currently configured cache. This is global for all db pools.</li>
+<li><code>db-cache-pools</code> - List of pools which trigger cache flushes on update.</li>
+<li><code>db-cache-keys-([a-z0-9_]+)-(.+)</code> - List of columns to be used for the table cache, all update operations will flush the cache if the cache key can be created from the record columns. This is for ad-hoc and caches to be used for custom selects which specified the cache key.</li>
 <li><code>db-describe-tables</code> - A JSON object with table descriptions to be merged with the existing definitions</li>
 <li><code>db-cache-ttl</code> - Default global TTL for cached tables</li>
 <li><code>db-cache-ttl-(.+)</code> - TTL in milliseconds for each individual table being cached</li>
@@ -2365,21 +2379,22 @@ Database pool statistics and other diagnostics</p>
 <li><code>db-cache2-(.+)</code> - Tables with TTL for level2 cache, i.e. in the local process LRU memory. It works before the primary cache and keeps records in the local LRU cache for the giben amount of time, the TTL is in ms and must be greater than zero for level 2 cache to work. Make sure <code>ipc-lru-max-</code> is properly configured for each process role</li>
 <li><code>db-jscache2-(.+)</code> - Same as cache2 but keeps references to the actual objects in the heap</li>
 <li><code>db-jscache2-max</code> - Max number of items to keep in the Javascript Level 2 cache</li>
+<li><code>db-allow-column-([a-z0-9_]+)-(.+)</code> - A column that is allowed to be used in any table, the name is a regexp with the value to be a type</li>
 <li><code>db-local</code> - Local database pool for properties, cookies and other local instance only specific stuff</li>
 <li><code>db-config</code> - Configuration database pool to be used to retrieve config parameters from the database, must be defined to use remote db for config parameters, set to <code>default</code> to use current default pool</li>
 <li><code>db-config-interval</code> - Interval between loading configuration from the database configured with -db-config, in minutes, 0 disables refreshing config from the db</li>
 <li><code>db-cache-columns-interval</code> - How often in minutes to refresh tables columns from the database, it calls cacheColumns for each pool which supports it</li>
-<li><code>db-([a-z]+)-pool-?([0-9]+)?$</code> - A database pool name, depending on the driver it can be an URL, name or pathname, examples of db pools: <code>-db-pgsql-pool, -db-dynamodb-pool</code>, examples of urls: <code>postgresql://[user:password@]hostname[:port]/db, mysql://[user:password@]hostname/db, mongodb://hostname[:port]/dbname, cql://[user:password@]hostname[:port]/dbname</code></li>
-<li><code>db-([a-z]+)-pool-(max)-?([0-9]+)?$</code> - Max number of open connections for a pool, default is Infinity</li>
-<li><code>db-([a-z]+)-pool-(min)-?([0-9]+)?$</code> - Min number of open connections for a pool</li>
-<li><code>db-([a-z]+)-pool-(idle)-?([0-9]+)?$</code> - Number of ms for a db pool connection to be idle before being destroyed</li>
-<li><code>db-([a-z]+)-pool-tables-?([0-9]+)?$</code> - A DB pool tables, list of tables that belong to this pool only</li>
-<li><code>db-([a-z]+)-pool-(connect)-?([0-9]+)?$</code> - Connect options for a DB pool driver for new connection, driver specific</li>
-<li><code>db-([a-z]+)-pool-options-([a-zA-Z0-9_.-]+)-?([0-9]+)?$</code> - General options for a DB pool</li>
-<li><code>db-([a-z]+)-pool-(cache-columns)-?([0-9]+)?$</code> - Enable caching table columns for this pool if it supports it</li>
-<li><code>db-([a-z]+)-pool-(create-tables)-?([0-9]+)?$</code> - Create tables for this pool on startup</li>
-<li><code>db-([a-z]+)-pool-cache2-(.+)</code> - Level 2 cache TTL for the specified pool and table, data is JSON strings in the LRU cache</li>
-<li><code>db-([a-z]+)-pool-jscache2-(.+)</code> - Level 2 cache TTL for the specified pool and table, data is Js objects in the heap</li>
+<li><code>db-([a-z0-9]+)-pool$</code> - A database pool name, depending on the driver it can be an URL, name or pathname, examples of db pools: <code>-db-pgsql-pool, -db-dynamodb-pool</code>, examples of urls: <code>postgresql://[user:password@]hostname[:port]/db, mysql://[user:password@]hostname/db, mongodb://hostname[:port]/dbname, cql://[user:password@]hostname[:port]/dbname</code></li>
+<li><code>db-([a-z0-9]+)-pool-(max)$</code> - Max number of open connections for a pool, default is Infinity</li>
+<li><code>db-([a-z0-9]+)-pool-(min)$</code> - Min number of open connections for a pool</li>
+<li><code>db-([a-z0-9]+)-pool-(idle)$</code> - Number of ms for a db pool connection to be idle before being destroyed</li>
+<li><code>db-([a-z0-9]+)-pool-tables$</code> - A DB pool tables, list of tables that belong to this pool only</li>
+<li><code>db-([a-z0-9]+)-pool-(connect)$</code> - Connect options for a DB pool driver for new connection, driver specific</li>
+<li><code>db-([a-z0-9]+)-pool-options-([a-zA-Z0-9_.-]+)$</code> - General options for a DB pool</li>
+<li><code>db-([a-z0-9]+)-pool-(cache-columns)$</code> - Enable caching table columns for this pool if it supports it</li>
+<li><code>db-([a-z0-9]+)-pool-(create-tables)$</code> - Create tables for this pool on startup</li>
+<li><code>db-([a-z0-9]+)-pool-cache2-(.+)</code> - Level 2 cache TTL for the specified pool and table, data is JSON strings in the LRU cache</li>
+<li><code>db-([a-z0-9]+)-pool-jscache2-(.+)</code> - Level 2 cache TTL for the specified pool and table, data is Js objects in the heap</li>
 <li><code>api-images-url</code> - URL where images are stored, for cases of central image server(s), must be full URL with optional path</li>
 <li><code>api-images-s3</code> - S3 bucket name where to store and retrieve images</li>
 <li><code>api-images-raw</code> - Return raw urls for the images, requires images-url to be configured. The path will reflect the actual 2 level structure and account id in the image name</li>
@@ -2410,6 +2425,7 @@ Database pool statistics and other diagnostics</p>
 <li><code>api-app-header-name</code> - Name for the app name/version query parameter or header, it is can be used to tell the server about the application version</li>
 <li><code>api-version-header-name</code> - Name for the access version query parameter or header, this is the core protocol version that can be sent to specify which core functionality a client expects</li>
 <li><code>api-no-signature</code> - Disable signature verification for requests</li>
+<li><code>api-no-cache-files</code> - Set cache-control=no-cache header for matching static files</li>
 <li><code>api-tz-header-name</code> - Name for the timezone offset header a client can send for time sensitive requests, the backend decides how to treat this offset</li>
 <li><code>api-signature-header-name</code> - Name for the access signature query parameter, header and session cookie</li>
 <li><code>api-lang-header-name</code> - Name for the language query parameter, header and session cookie, primary language for a client</li>
@@ -2448,7 +2464,7 @@ Database pool statistics and other diagnostics</p>
 <li><code>api-secret-policy</code> - An JSON object with list of regexps to validate account password, each regexp comes with an error message to be returned if such regexp fails, <code>api.checkAccountSecret</code> performs the validation, example: { &#39;[a-z]+&#39;: &#39;At least one lowercase letter&#39;, &#39;[A-Z]+&#39;: &#39;At least one upper case letter&#39; }</li>
 <li><code>api-platform-match</code> - An JSON object with list of regexps to match user-agent header for platform detection, example: { &#39;ios|iphone|ipad&#39;: &#39;ios&#39;, &#39;android&#39;: &#39;android&#39; }</li>
 <li><code>api-cors-origin</code> - Origin header for CORS requests</li>
-<li><code>api-error-message</code> - Default erro rmessage to return in case of exceptions</li>
+<li><code>api-error-message</code> - Default error message to return in case of exceptions</li>
 <li><code>api-url-metrics-([a-z]+)</code> - Defines the length of an API request path to be stored in the statistics, set by the first component of endpoint URL, example: -api-url-metrics-image 2 -api-url-metrics-account 3</li>
 <li><code>api-rlimits-max-(.+)</code> - Set max/burst rate limit by the given property, it is used by the request rate limiter using Token Bucket algorithm. Predefined types: ip, path, id, login</li>
 <li><code>api-rlimits-rate-(.+)</code> - Set fill/normal rate limit by the given property, it is used by the request rate limiter using Token Bucket algorithm. Predefined types: ip, path, id, login</li>
@@ -2466,15 +2482,20 @@ Database pool statistics and other diagnostics</p>
 <li><code>api-proxy-host-(.+)</code> - Virtual host mapping, to match any Host: header, each parameter defines a host name and the destination in the value in the form <a href="http://host[:port">http://host[:port</a>], example: -api-proxy-host-www.myhost.com <a href="http://127.0.0.1:8080">http://127.0.0.1:8080</a></li>
 <li><code>api-routing-(.+)</code> - URL path to be re-routed to other path, this is done inside the server, only the path is checked and replaced, example: -api-routing-^/account/get /acount/read</li>
 <li><code>msg-([^-]+)-(cert)(@.+)?</code> - A certificate for APN or similar services in pfx format, can be a file name with .p12 extension or a string with certificate contents encoded with base64, if the suffix is specified in the config parameter name will be used as the app name, otherwise it is global</li>
+<li><code>msg-([^-]+)-authkey-([^-]+)-(.+)</code> - A auth key for APN in p8 format, can be a file name with .p8 extension or a string with the key contents encoded with base64</li>
 <li><code>msg-([^-]+)-(key)(@.+)?</code> - API key for GCM or similar services, if the suffix is specified in the config parameter will be used as the app name, without the suffix it is global</li>
 <li><code>msg-([^-]+)-(sandbox)(@.+)?</code> - Enable sandbox for a service, default is production mode</li>
-<li><code>msg-([^-]+)-(feedback)(@.+)?</code> - Enable feedback mode for a service, default is no feedback service</li>
 <li><code>msg-([^-]+)-options-([^@]+)(@.+)?</code> - A config property to the specified agent, driver specific</li>
 <li><code>msg-shutdown-timeout</code> - How long to wait for messages draining out in ms on shutdown before exiting</li>
+<li><code>msg-app-default</code> - Default app id(app bundle id) to be used when no app_id is specified</li>
+<li><code>msg-app-dependency@(.+)</code> - List of other apps that are considered in the same app family, sending to the primary app will also send to all dependent apps</li>
+<li><code>msg-app-team-(.+)</code> - Regexp that identifies all app bundles for a team</li>
+<li><code>msg-app-team</code> - Default team to use for apps that do not match any specific teams</li>
 <li><code>jobs-workers</code> - How many worker processes to launch to process the job queue, -1 disables jobs, 0 means launch as many as the CPUs available</li>
 <li><code>jobs-worker-cpu-factor</code> - A number to multiply the number of CPUs available to make the total number of workers to launch, only used if <code>workers</code> is 0</li>
 <li><code>jobs-worker-args</code> - Node arguments for workers, for passing v8 jobspec, see <code>process</code></li>
 <li><code>jobs-worker-env</code> - Environment to be passed to the worker via fork, see <code>cluster.fork</code></li>
+<li><code>jobs-worker-delay</code> - Delay in milliseconds for a worker before it will start accepting jobs, for cases when other dependencies may take some time to start</li>
 <li><code>jobs-max-runtime</code> - Max number of seconds a job can run before being killed</li>
 <li><code>jobs-max-lifetime</code> - Max number of seconds a worker can live, after that amount of time it will exit once all the jobs are finished, 0 means indefinitely</li>
 <li><code>jobs-shutdown-timeout</code> - Max number of milliseconds to wait for the graceful shutdown sequence to finish, after this timeout the process just exits</li>
@@ -2538,6 +2559,7 @@ early with some properties always present:<ul>
           name: { type: &quot;text&quot; },                             // Account name
           status: { type: &quot;text&quot; },                           // Status of the account
           type: { type: &quot;text&quot;, admin: 1 },                   // Account type: admin, ....
+          flags: { type: &quot;list&quot;, list: 1, admin: 1 },         // Admin assigned flags about the account
           secret: { secure: 1 },                              // Signature secret, not a password
           auth_secret: { admin: 1, secure: 1 },               // Code for 2-factor authentication
           token_secret: { admin: 1, secure: 1 },              // Secret for access tokens
@@ -2898,10 +2920,12 @@ database pool.</p>
 <p> Clear request query properties specified in the table definition, if any columns for the table contains the property <code>name</code> nonempty, then
 all request properties with the same name as this column name will be removed from the query. This for example is used for the <code>bk_auth</code>
 table to disable updating properties by the user which can only be set by an admin.</p>
+<p>If no names are specified the query will only keep existing columns for the given table.</p>
 <p>There can be more than one name specified</p>
 <p>If a name is prefixed with ! then the logic is reversed, keep all except this name</p>
 <p>Example:</p>
-<pre><code>  api.clearQuery(&quot;bk_account&quot;, req.query, &quot;admin&quot;)
+<pre><code>  api.clearQuery(&quot;bk_account&quot;, req.query)
+  api.clearQuery(&quot;bk_account&quot;, req.query, &quot;admin&quot;)
   api.clearQuery(&quot;bk_account&quot;, req.query, &quot;&quot;admin&quot;, &quot;secure&quot;)
   api.clearQuery(&quot;bk_account&quot;, req.query, &quot;admin&quot;, &quot;!secure&quot;)
 </code></pre></li>
@@ -3290,15 +3314,22 @@ The status property is passed to each hook in the chain, the result status will 
 <p> Upload file and store in the filesystem or S3, try to find the file in multipart form, in the body or query by the given name</p>
 <ul>
 <li>name is the name property to look for in the multipart body or in the request body or query</li>
-<li>callback will be called with err and actual filename saved
-Output file name is built according to the following options properties:</li>
+<li>callback will be called with err and actual filename saved</li>
+</ul>
+<p>Output file name is built according to the following options properties:</p>
+<ul>
 <li>name - defines the output name for the file, if not given same name as property will be used</li>
 <li>prefix - the folder prefix where the file will be uploaded, all leading folders will be created automatically</li>
 <li>ext - what file extention to use, appended to the name, if no ext is given the extension from the uploaded file will be used or no extention if could not determine one.</li>
 <li>extkeep - keep actual extention from the uploaded file, ignore the ext parameter</li>
 <li>namekeep - keep the name of the uploaded file if present in the multipart form</li>
 <li>encoding - encoding of the body, default is base64</li>
+<li>allow - a Regexp with allowed MIME types, this will use detectFile method to discover file type by the contents</li>
+</ul>
+<p>On return the options may have the following properties set:</p>
+<ul>
 <li>filesize - size of the file in bytes if available</li>
+<li>mimetype - file mime type if detected</li>
 </ul>
 </li>
 </ul>
@@ -3312,6 +3343,12 @@ Output file name is built according to the following options properties:</li>
 <ul>
 <li><p><code>api.delFile(file, options, callback)</code></p>
 <p> Delete file by name from the local filesystem or S3 drive if filesS3 is defined in api or options objects</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.detectFile(file, callback)</code></p>
+<p> Returns detected mime type for a file</p>
 </li>
 </ul>
 
@@ -3330,7 +3367,7 @@ Output file name is built according to the following options properties:</li>
 </li>
 <li>filter - ImageMagick image filters, default is lanczos</li>
 <li>quality - 0-99 percent, image scaling quality</li>
-<li>ext - image format: png, gif, jpg, jp2, svg</li>
+<li>ext - image format: png, gif, jpg, svg</li>
 <li>flip - flip horizontally</li>
 <li>flop - flip vertically</li>
 <li>blue_radius, blur_sigma - perform adaptive blur on the image</li>
@@ -3338,7 +3375,7 @@ Output file name is built according to the following options properties:</li>
 <li>sharpen_radius, sharpen_sigma - perform sharpening of the image</li>
 <li>brightness - use thing to change brightness of the image</li>
 <li>contrast - set new contrast of the image</li>
-<li>rotate - rotation angle</li>
+<li>rotate - rotation angle, if 1 strip=1 is assigned automatically</li>
 <li>bgcolor - color for the background, used in rotation</li>
 <li>quantized - set number of colors for quantize</li>
 <li>treedepth - set tree depth for quantixe process</li>
@@ -3346,11 +3383,15 @@ Output file name is built according to the following options properties:</li>
 <li>posterize - set number of color levels</li>
 <li>normalize - normalize image</li>
 <li>opacity - set image opacity</li>
+<li>strip - remove EXIF meta data, if not specified defaults to 1</li>
 </ul>
 </li>
 </ul>
 <p>The callback takes 4 arguments: function(err, data, info)</p>
-<p>where <code>data</code> will contain a new image data and <code>info</code> is an object with the info about the new or unmodified image: format, width, height</p>
+<p>where <code>data</code> will contain a new image data and <code>info</code> is an object with the info about the new or unmodified image: ext, width, height.
+For animated GIF files it will not convert but return it as is unless it is specified in the options to do so, frame and no_animation
+must be used if no animation is required, see bk_wand for more info. This means that the resulting image type must be consulted
+from the info.format because it may be not the desired format.</p>
 </li>
 </ul>
 
@@ -3390,6 +3431,11 @@ Output file name is built according to the following options properties:</li>
 <ul>
 <li>name is the name property to look for in the multipart body or in the request body or query</li>
 <li>id is used in <code>iconPath</code> along with the options to build the icon absolute path</li>
+<li>autodel - if true, auto delete the base64 icon property from the query or the body after it is decoded, this is to
+mark it for deallocation while the icon is being processed, the worker queue is limited so with large number of requests
+all these query objects will remain in the query wsting memory</li>
+<li>verify = check the given image of file header for known image types</li>
+<li>extkeep - a regexp with image types to preserve, not to convert into the specified image type</li>
 </ul>
 </li>
 </ul>
@@ -3419,6 +3465,12 @@ Valid properties in the options:</p>
 <ul>
 <li><p><code>api.delIcon(id, options, callback)</code></p>
 <p> Delete an icon for account, .type defines icon prefix</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.isIcon(buf)</code></p>
+<p> Returns detected image type if the given buffer contains an image, it checks the header only</p>
 </li>
 </ul>
 
@@ -4049,7 +4101,6 @@ while the status is equal to it. options.waitDelay can be specified how often to
 <li><p>options may contain any native property allowed in the request or special properties:</p>
 <ul>
 <li>consistent - set consistency level for the request</li>
-<li>projection - projection expression</li>
 <li><p>names - an object with a map to be used for attribute names in condition and update expressions, to be used
   for ExpressionAttributeNames parameter
 Example:</p>
@@ -4237,7 +4288,7 @@ The options can specify the following:</p>
 
 <h2 id="module-aws_s3">Module: AWS_S3</h2>
 <ul>
-<li><p><code>aws.signS3(method, bucket, path, options)</code></p>
+<li><p><code>aws.signS3(method, bucket, path, body, options)</code></p>
 <p> Sign S3 AWS request, returns url to be send to S3 server, options will have all updated headers to be sent as well</p>
 </li>
 </ul>
@@ -4512,8 +4563,7 @@ in the options back to the caller.</p>
 <ul>
 <li>allowModules - a regexp of the modules names to be called only</li>
 <li>stopOnError - on first error stop and return, otherwise all errors are ignored and all modules are processed</li>
-<li>stopOnValue - this must be an object with property names and values to be watched, as soon as any of it
- exists and set with the specified value the processing stops.</li>
+<li>stopFilter - a function to be called after each pass to check if the processing must be stopped, it must return true to stop</li>
 <li>parallel - if true run methods for all modules in parallel</li>
 <li>concurrency - if a number greater than 1 run that many methods in parallel</li>
 </ul>
@@ -4559,7 +4609,7 @@ modules with the core it makes the module a first class citizen in the backendjs
 called on startup, not dynamically during a request processing. Only top level .js files are loaded, not subdirectories. <code>core.addModule</code> is called
 automatically.</p>
 <p>Modules can be sorted by a priority, if .priority property is defined in the module it wil be used to place the module, the higher priority the
-closer to the top the module will be. The position of t module in the <code>core.modules</code> will define the order <code>runMethods</code> will call.</p>
+closer to the top the module will be. The position of a module in the <code>core.modules</code> will define the order <code>runMethods</code> will call.</p>
 <p><strong>Caution must be taken for module naming, it is possible to override any default bkjs module which will result in unexpected behaviour</strong></p>
 <p>The following options properties can be specified:</p>
 <ul>
@@ -4758,13 +4808,14 @@ database like DynamoDB for real-time requests and slower SQL database running on
  other database will not require any application code changes.</p>
 <p> Multiple connections of the same type can be opened, just add -n suffix to all database config parameters where n is a number, referer to such pools in the code as <code>poolN</code>.</p>
 <p> Example:</p>
-<pre><code>      db-pgsql-pool = postgresql://locahost/backend
-      db-pgsql-pool-1 = postgresql://localhost/billing
-      db-pgsql-pool-max-1 = 100
+<pre><code>      db-sqlite1-pool = billing
+      db-sqlite1-pool-max = 10
+      db-sqlite1-pool-options-path = /data/db
+      db-sqlite1-pool-options-journal_mode = OFF
 
       in the Javascript:
 
-      db.select(&quot;bills&quot;, { status: &quot;ok&quot; }, { pool: &quot;pgsql1&quot; }, lib.log)
+      db.select(&quot;bills&quot;, { status: &quot;ok&quot; }, { pool: &quot;sqlite1&quot; }, lib.log)
 </code></pre>
 <ul>
 <li><p><code>Database tables</code></p>
@@ -4888,6 +4939,8 @@ explicitely if it is different from the default. Other functions can resolve
 the pool by table name if some tables are assigned to any specific pool by configuration parameters <code>db-pool-tables</code>.</li>
 <li>unique - perform sorting the result and eliminate any duplicate rows by the column name specified in the <code>unique</code> property</li>
 <li>filter - function to filter rows not to be included in the result, return false to skip row, args are: function(req, row, options)</li>
+<li>postprocess - function to process rows in the result, return a new result, args are: function(req, row, options), this result will be put in cache
+if requested so this may be used for preparing cached results, it must return an array</li>
 <li>quiet - do not report about the error in the log, still the error is returned to the caller</li>
 <li>ignore_error - clear any error occured as it never happen, do not report in the log</li>
 <li>noprocessrows - if true then skip post processing result rows, return the data as is, this will result in returning combined columns as it is</li>
@@ -4954,6 +5007,7 @@ also can be a list where each item is an object with primary key condition. Only
 <li>unique - specified the column name to be used in determining unique records, if for some reasons there are multiple records in the location
  table for the same id only one instance will be returned</li>
 <li>cacheKey - exlicit key for caching, return from the cche or from the DB and then cache it with this key, works the same as <code>get</code></li>
+<li>cacheKeyName - a name of one of the cache keys to use, it must be defined by a <code>db-cache-keys-table-name</code> parameter</li>
 <li>nocache - do not use cache even if cche key is given</li>
 </ul>
 </li>
@@ -5024,7 +5078,7 @@ key will be incremented, use negative value to decrease the value.</p>
 <p>If no <code>options.updateOps</code> object specified or no &#39;incr&#39; operations are provided then
 all columns with type &#39;counter&#39; will be used for the action <code>incr</code></p>
 <p><em>Note: The record must exist already for SQL databases, for DynamoDB and Cassandra a new record will be created
-if does not exist yet.</em></p>
+if does not exist yet.</em> To disable upsert pass <code>noupsert</code> in the options.</p>
 <p>Example</p>
 <pre><code> db.incr(&quot;bk_counter&quot;, { id: &#39;123&#39;, like0: 1, invite0: 1 }, function(err, rows, info) {
  });
@@ -5103,6 +5157,7 @@ Special properties that can be in the options for this call:</p>
 <li>updateCollect - if true return all updated rows in the callback otherwise just the number of updated rows</li>
 <li>factorCapacity - write capacity factor for update operations, default is 0.25</li>
 <li>concurrency - how many update queries to execute at the same time, default is 1, this is done by using lib.forEachLimit.</li>
+<li>op - by default it uses db.update but the <code>op</code> can be set to <code>put</code> or <code>add</code></li>
 <li>process - a function callback that will be called for each row before updating it, this is for some transformations of the record properties
  in case of complex columns that may contain concatenated values as in the case of using DynamoDB. The callback will be called
  as <code>options.process(row, options)</code></li>
@@ -5241,6 +5296,7 @@ To hint a driver that scanning is in progress the <code>options.scanning</code> 
 <li>count - size of every batch, default is 100</li>
 <li>limit - total number of records to scan</li>
 <li>start - the primary key to start the scan from</li>
+<li>search - use search instead of select, for ElasticSearch,...</li>
 <li>batch - if true rowCallback will be called with all rows from the batch, not every row individually, batch size is defined by the count property</li>
 <li>noscan - if 1 no scan will be performed if no prmary keys are specified</li>
 <li>fullscan - if 1 force to scan full table without using any primary key conditons, use all query properties for all records (DynamoDB)</li>
@@ -5610,6 +5666,8 @@ By default it checks <code>writeCapacity</code> property of all table columns an
 <li>rateCapacity - if set it will be used for rate capacity limit</li>
 <li>maxCapacity - if set it will be used as the max burst capacity limit</li>
 <li>intervalCapacity - default is 1000 ms</li>
+<li>sort - an index to use for capacity, for systems like DynamoDB which has different capacity for
+global indexes, it makes sense for indexed reads or partial updates where only global index is affected and not the whole record</li>
 </ul>
 </li>
 </ul>
@@ -5629,7 +5687,7 @@ requests with any database or can be used generically. The <code>cap</code> must
 
 <ul>
 <li><p><code>db.getFilteredColumns(table, filter, options)</code></p>
-<p> Return table columns filtered by a proprty filter, only return columns that contain(or not)
+<p> Return table columns filtered by a property filter, only return columns that contain(or not)
 any property from the filter list. If the filter is an object then values must match, null means if exists.</p>
 <p>Example:</p>
 <pre><code>db.getFilteredColumns(&quot;bk_account&quot;, &quot;pub&quot;)
@@ -5655,6 +5713,13 @@ is for all columns or none</p>
 <ul>
 <li><p><code>db.unjoinColumns(rows, name, col, options)</code></p>
 <p> Split joined columns for all rows</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.checkAllowColumn(req, name)</code></p>
+<p> Returns type for a global column if exists otherwise null, if cache is an object all resolved
+columns will be saved in it for further reference as name: type</p>
 </li>
 </ul>
 
@@ -5698,6 +5763,12 @@ a list of all properties involed in primary keys including joined columns</p>
 <ul>
 <li><p><code>db.getIndexes(table, options)</code></p>
 <p> Return indexes for a table or empty object, each item in the object is an array with index columns</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.getIndexColumns(table, options)</code></p>
+<p> Return columns for all indexes as alist</p>
 </li>
 </ul>
 
@@ -5800,6 +5871,18 @@ Additional options:</p>
 <ul>
 <li><p><code>db.getCache2Ttl(table, options)</code></p>
 <p> Return TTL for level 2 cache, negative means use js cache</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.getCacheKeys(table, name, obj)</code></p>
+<p> Return a named global cache key for a table</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.delCacheKeys(table, obj)</code></p>
+<p> Flush all global caches for a table</p>
 </li>
 </ul>
 
@@ -6155,6 +6238,7 @@ options may define the following properties:</p>
 
 <h2 id="module-db_sqlite">Module: DB_SQLITE</h2>
 <h2 id="module-http_get">Module: HTTP_GET</h2>
+<h2 id="module-index">Module: INDEX</h2>
 <h2 id="module-ipc">Module: IPC</h2>
 <ul>
 <li><p><code>Ipc.prototype.handleServerMessages(worker, msg)</code></p>
@@ -6870,6 +6954,7 @@ false
 <li>float - treat as floating number</li>
 <li>min - minimal value, clip</li>
 <li>max - maximum value, clip</li>
+<li>novalue - replace this number with default</li>
 </ul>
 <p>Example:</p>
 <pre><code>         lib.toNumber(&quot;123&quot;)
@@ -6890,20 +6975,29 @@ false
 </ul>
 
 <ul>
-<li><p><code>lib.toDate(val, dflt)</code></p>
-<p> Return Date object for given text or numeric date representation, for invalid date returns 1969</p>
+<li><p><code>lib.toDate(val, dflt, invalid)</code></p>
+<p> Return Date object for given text or numeric date representation, for invalid date returns 1969 unless <code>invalid</code> parameter is given,
+in this case invalid date returned as null</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>lib.toValue(val, type)</code></p>
+<li><p><code>lib.toValue(val, type, options)</code></p>
 <p> Convert value to the proper type</p>
 </li>
 </ul>
 
 <ul>
 <li><p><code>lib.toRegexp(str, options)</code></p>
-<p> Safely create a regexp object, if invalid returns undefined</p>
+<p> Safely create a regexp object, if invalid returns undefined, the options can be a string with srandard RegExp
+flags or an object with the following properties:</p>
+<ul>
+<li>ingoreCase - similar to i</li>
+<li>globalMatch - similar to m</li>
+<li>multiLine - similar to m</li>
+<li>unicode - similar to u</li>
+<li>sticky - similar to y</li>
+</ul>
 </li>
 </ul>
 
@@ -6961,6 +7055,7 @@ or the default message, this is useful for detection of invalid or missing input
                                           descr: { novalue: { name: &quot;name&quot;, value: &quot;test&quot; },
                                           email: { type: &quot;list&quot;, datatype: &quot;email&quot;, novalue: [&quot;a@a&quot;] } },
                                           internal: { ignore: 1 },
+                                          tm: { type:&quot; timestamp&quot;, optional: 1 },
                                           status: { value: &quot;ready&quot; },
                                           state: { values: [&quot;ok&quot;,&quot;bad&quot;,&quot;good&quot;] },
                                           status: { value: [{ name: &quot;state&quot;, value: &quot;ok&quot;, set: &quot;1&quot; }, { name: &quot;state&quot;, value: [&quot;bad&quot;,&quot;good&quot;], op: &quot;in&quot; }],
@@ -7023,6 +7118,12 @@ The <code>obj</code> can be an object or an array of objects in which case all o
 </ul>
 
 <ul>
+<li><p><code>lib.textToEntity(str)</code></p>
+<p> Convert all special symbols into html entities</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>lib.entityToText(str)</code></p>
 <p> Convert html entities into their original symbols</p>
 </li>
@@ -7053,15 +7154,14 @@ The <code>obj</code> can be an object or an array of objects in which case all o
 </ul>
 
 <ul>
-<li><p><code>lib.isEmpty(val)</code></p>
-<p> Return true of the given value considered empty</p>
+<li><p><code>lib.isArray(val)</code></p>
+<p> Returns the array if the value is non empty array or null</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>lib.isFlag(list, name)</code></p>
-<p> Returns true if <code>name</code> exists in the array <code>list</code>, search is case sensitive. if <code>name</code> is an array it will return true if
-any element in the array exists in the <code>list</code>.</p>
+<li><p><code>lib.isEmpty(val)</code></p>
+<p> Return true of the given value considered empty</p>
 </li>
 </ul>
 
@@ -7074,6 +7174,12 @@ any element in the array exists in the <code>list</code>.</p>
 <ul>
 <li><p><code>lib.isNumericType(type)</code></p>
 <p> Returns true if the given type belongs to the numeric family</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.isDate(d)</code></p>
+<p> Returns true if the given date is valid</p>
 </li>
 </ul>
 
@@ -7095,8 +7201,21 @@ if it begins with ! it means no match is expected, the leading ! will be strippe
 </ul>
 
 <ul>
+<li><p><code>lib.isFlag(list, name)</code></p>
+<p> Returns true if <code>name</code> exists in the array <code>list</code>, search is case sensitive. if <code>name</code> is an array it will return true if
+any element in the array exists in the <code>list</code>.</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>lib.toFlags(cmd, list, name)</code></p>
-<p> Flags command utility, uopdate flags array, the commanda are: add, del, always returns an array</p>
+<p> Flags command utility, update flags array and returns a new array, the commands are:</p>
+<ul>
+<li>add - adds the <code>name</code> flags if does not exists</li>
+<li>del - removes the flags <code>name</code></li>
+<li>present - returns only flags that present in the list <code>name</code></li>
+<li>absent - returns only flags that are not present in the list <code>name</code></li>
+</ul>
 </li>
 </ul>
 
@@ -7411,6 +7530,13 @@ Usage:</p>
 </ul>
 
 <ul>
+<li><p><code>lib.matchRegexp(str, rx, index)</code></p>
+<p> Perform match on a regexp for a string and returns matched value, if no index is specified returns item 1,
+this is a simple case for oneshot match and only single matched element.</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>lib.strSplit(str, sep, options)</code></p>
 <p> Split string into array, ignore empty items,</p>
 <ul>
@@ -7640,6 +7766,12 @@ objects will be create automatically. The options can have the folowing properti
 </ul>
 
 <ul>
+<li><p><code>lib.objKeys(obj)</code></p>
+<p> Return all property names for an object</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>lib.objDescr(obj, options)</code></p>
 <p> Return an object structure as a string object by showing primitive properties only,
 for arrays it shows the length and <code>options.count</code> or 10 first items,
@@ -7733,6 +7865,7 @@ mdate is a Date object with last modified time</p>
 <p>Options can specify the format:</p>
 <ul>
 <li>json - parse file as JSON, return an object, in case of error an empty object</li>
+<li>xml - parse the file as XML, return an object</li>
 <li>list - split contents with the given separator</li>
 <li>encoding - file encoding when converting to string</li>
 <li>logger - log level for error messages</li>
@@ -7740,6 +7873,12 @@ mdate is a Date object with last modified time</p>
 <li>offset - read from the position in the file, if negative the offset is from the end of file</li>
 <li>length - read only this much of the data, otherwise read till the end of file</li>
 </ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.readFile(file, options, callback)</code></p>
+<p> Same as <code>lib.readFileSync</code> but asynchronous</p>
 </li>
 </ul>
 
@@ -8047,7 +8186,7 @@ need to send push notifications in the worker process.</p>
 <p>Options with the following properties:</p>
 <ul>
 <li>service_id - list of services to use for delivery only: default, sns, apn, gcm</li>
-<li>account_id - an account id associated with this token, for debugging and invalid token management(feedback)</li>
+<li>account_id - an account id associated with this token, for debugging and invalid token management</li>
 <li>app_id - send to the devices for the given app only, if none matched send to the default device tokens only</li>
 <li>msg - text message to send</li>
 <li>badge - badge number to show if supported by the service</li>
@@ -8302,8 +8441,8 @@ it runs <code>shutdown[Role]</code> methods before exiting</p>
           name: { pub: 1, notempty: 1 },
           first_name: { pub: 1 },
           last_name: { pub: 1 },
-          email: {},
-          phone: {},
+          email: { type: &quot;email&quot; },
+          phone: { type: &quot;phone&quot; },
           website: {},
           company: {},
           birthday: { type: &quot;string&quot; },
@@ -8390,8 +8529,10 @@ it runs <code>shutdown[Role]</code> methods before exiting</p>
 <li>msg - message text to send</li>
 <li>badge - a badge number to be sent</li>
 <li>allow - the account properties to check if notifications are enabled, it must be an object with properties in the account record and values to
-  be a regexp, each value if starts with &quot;!&quot; means not equal, see <code>lib.isMatched</code></li>
+be a regexp, each value if starts with &quot;!&quot; means not equal, see <code>lib.isMatched</code></li>
 <li>skip - Array or an object with account ids which should be skipped, this is for mass sending in order to reuse the same options</li>
+<li>enable - the account properties to check if a notification parameter must be set or removed, an account property must be a boolean and
+if false then a notification parameter is removed and if true a notification parameter is set to 1</li>
 <li>logging - logging level about the notification send status, default is debug, can be any valid logger level, must be a string, not a number</li>
 <li>service_id - name of the standard delivery service supported by the backend, it is be used instead of custom handler, one of the following: apple, google</li>
 <li>app_id - the application specific device tokens should be used only or if none matched the default device tokens</li>
@@ -8400,7 +8541,7 @@ it runs <code>shutdown[Role]</code> methods before exiting</p>
 <p>In addition the device_id can be saved in the format service://id where the service is one of the supported delivery services, this way the notification
 system will pick the right delivery service depending on the device id, the default service is apple.</p>
 <p>Example:</p>
-<pre><code> bk_account.notifyAccount({ account_id: &quot;123&quot;, msg: &quot;test&quot;, badge: 1, sound: 1, allow: { notifications0: 1, type: &quot;user&quot; } })
+<pre><code> bk_account.notifyAccount({ account_id: &quot;123&quot;, msg: &quot;test&quot;, badge: 1, sound: 1, allow: { notifications0: 1, type: &quot;user&quot; }, enable: { sound: &quot;sound0&quot;, badge: &quot;badge0&quot; } })
 </code></pre></li>
 </ul>
 
@@ -8789,22 +8930,26 @@ If any of obj.id or obj.type are not specified then perform a query for matching
 <ul>
 <li><p><code>Database tables</code></p>
 <pre><code>      bk_icon: {
-          id: { primary: 1 },                         // Account id
-          type: { primary: 1,                         // prefix:type
+          id: { primary: 1 },                         // account id
+          type: {                                     // prefix:type
+              primary: 1,
               pub: 1,
               join: [ &quot;prefix&quot;, &quot;type&quot; ],
               unjoin: 1,
               separator: &quot;:&quot;,
-              ops: { select: &quot;begins_with&quot; } },
+              ops: { select: &quot;begins_with&quot; }
+          },
           prefix: {},                                 // icon prefix/namespace
-          acl_allow: {},                              // Who can see it: all, auth, id:id...
-          ext: {},                                    // Saved image extension
-          descr: {},
+          descr: { pub: 1 },                          // user provided caption
+          acl_allow: {},                              // who can see it: all, auth, id:id...
           tags: { type: &quot;list&quot; },                     // detected or attached tags
-          geohash: {},                                // Location associated with the icon
+          width: { type: &quot;int&quot; },
+          height: { type: &quot;int&quot; },
+          rotation: { type: &quot;int&quot; },                  // rotation angle
+          ext: {},                                    // saved image extension
           latitude: { type: &quot;real&quot; },
           longitude: { type: &quot;real&quot; },
-          mtime: { type: &quot;now&quot; },          // Last time added/updated
+          mtime: { type: &quot;now&quot; },
       },
 
       // Metrics
@@ -8825,6 +8970,9 @@ If any of obj.id or obj.type are not specified then perform a query for matching
       brightness: { type: &quot;number&quot; },
       contrast: { type: &quot;number&quot; },
       bgcolor: { type: &quot;string&quot; },
+      verify: { type: &quot;bool&quot; },
+      extkeep: { type: &quot;regexp&quot; },
+      autodel: { type: &quot;bool&quot; },
   }
 </code></pre><p>  };
   module.exports = mod;</p>
@@ -8849,9 +8997,7 @@ If any of obj.id or obj.type are not specified then perform a query for matching
 <p>  // Generic icon management
   mod.configureIconsAPI = function()
   {</p>
-<pre><code>  var self = this;
-
-  api.app.all(/^\/icon\/([a-z]+)$/, function(req, res) {
+<pre><code>  api.app.all(/^\/icon\/([a-z]+)$/, function(req, res) {
       var options = api.getOptions(req);
 
       if (!req.query.prefix) return api.sendReply(res, 400, &quot;prefix is required&quot;);
@@ -8859,30 +9005,37 @@ If any of obj.id or obj.type are not specified then perform a query for matching
       if (!req.query.type) req.query.type = &quot;&quot;;
       switch (req.params[0]) {
       case &quot;get&quot;:
-          self.getIcon(req, res, req.query.id, options);
+          mod.send(req, options);
           break;
 
       case &quot;select&quot;:
-          self.selectIcon(req, options, function(err, rows) {
+          mod.select(req.query, function(err, rows) {
               api.sendJSON(req, err, rows);
 </code></pre></li>
 </ul>
 
 <ul>
-<li><p><code>mod.handleIconRequest(req, res, options, callback)</code></p>
+<li><p><code>mod.upload(req, options, callback)</code></p>
 <p> Process icon request, put or del, update table and deal with the actual image data, always overwrite the icon file
 Verify icon limits before adding new icons</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>mod.selectIcon(req, options, callback)</code></p>
+<li><p><code>mod.select(query, options, callback)</code></p>
 <p> Return list of icons for the account, used in /icon/get API call</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>mod.getIcon(req, res, id, options)</code></p>
+<li><p><code>mod.del(options, callback)</code></p>
+<p> Delete an icon, only one icon at a time, options must profile id, prefix. It will try to delete
+an icon file even if there is no record in the bk_icon table.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>mod.send(req, options)</code></p>
 <p> Return icon to the client, checks the bk_icon table for existence and permissions</p>
 </li>
 </ul>
@@ -9082,7 +9235,10 @@ the next_token returned by the previous call and query will be ignored</p>
           name: {},                                      // sender name
           msg: {},                                       // Text of the message
           icon: { type: &quot;int&quot; },                         // 1 - icon present, 0 - no icon
+          icon_type: {},                                 // png, gif, jpg
           read: { type: &quot;int&quot; },                         // 1 - read, 0 - unread
+          flags: { type: &quot;list&quot; },
+          ctime: { type: &quot;now&quot;, readonly: 1 },
       },
       // Archived messages
       bk_archive: {
@@ -9096,6 +9252,9 @@ the next_token returned by the previous call and query will be ignored</p>
           name: {},                                      // sender name
           msg: {},                                       // text of the message
           icon: { type: &quot;int&quot; },                         // 1 - icon present, 0 - no icon
+          icon_type: {},                                 // png, gif, jpg
+          flags: { type: &quot;list&quot; },
+          ctime: { type: &quot;now&quot;, readonly: 1 },
       },
       // Messages sent
       bk_sent: {
@@ -9105,10 +9264,13 @@ the next_token returned by the previous call and query will be ignored</p>
               join: [&quot;mtime&quot;,&quot;recipient&quot;],
               unjoin: 1,
           },
-          recipient: { type: &quot;text&quot; },                  // recipient id
-          name: {},                                     // recipient name if known
-          msg: {},                                      // text of the message
-          icon: { type: &quot;int&quot; },                        // 1 - icon present, 0 - no icon
+          recipient: { type: &quot;text&quot; },                   // recipient id
+          name: {},                                      // recipient name if known
+          msg: {},                                       // text of the message
+          icon: { type: &quot;int&quot; },                         // 1 - icon present, 0 - no icon
+          icon_type: {},                                 // png, gif, jpg
+          flags: { type: &quot;list&quot; },
+          ctime: { type: &quot;now&quot;, readonly: 1 },
       },
       // Metrics
       bk_collect: {
@@ -9134,7 +9296,7 @@ the next_token returned by the previous call and query will be ignored</p>
       trash: { type: &quot;bool&quot; },
       nosent: { type: &quot;bool&quot; },
   },
-  cacheOptions: { cacheName: &quot;messages&quot;, ttl: 86400000 },
+  cacheOptions: { cacheName: &quot;messages&quot;, ttl: 3600000 },
 </code></pre><p>  };
   module.exports = mod;</p>
 <p>  mod.init = function(options)
@@ -9152,7 +9314,7 @@ the next_token returned by the previous call and query will be ignored</p>
 <p>  mod.configureModule = function(options, callback)
   {</p>
 <pre><code>  db.setProcessRow(&quot;post&quot;, &quot;bk_message&quot;, function(req, row, options) {
-      if (row.icon) row.icon = api.iconUrl({ prefix: &#39;message&#39;, id: row.id, type: row.mtime + &quot;:&quot; + row.sender }); else delete row.icon;
+      if (row.icon) row.icon = api.iconUrl({ prefix: &#39;message&#39;, id: row.id, type: row.mtime + &quot;:&quot; + row.sender, ext: row.icon_type }); else delete row.icon;
 </code></pre></li>
 </ul>
 
@@ -9254,6 +9416,12 @@ the next_token returned by the previous call and query will be ignored</p>
 <ul>
 <li><p><code>shell.getQuery()</code></p>
 <p> Returns an object with all command line params that do not start with dash(-), treat 2 subsequent parms without dashes as name value pair</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.getQueryList()</code></p>
+<p> Returns a list with all command line params that do not start with dash(-), only the trailing arguments will be collected</p>
 </li>
 </ul>
 
@@ -9661,25 +9829,25 @@ use the same names as command line arguments without preceeding <code>test-</cod
 <ul>
 <li><p><code>Database tables</code></p>
 <pre><code>      bk_status: {
-          id: { primary: 1, pub: 1 },                        // account id
-          status: { pub: 1 },                                // status, online, offline, away
-          name: { pub: 1 },
-          atime: { type: &quot;now&quot;, pub: 1 },                   // last access time
+          id: { primary: 1, pub: 1 },                       // account id
+          name: { pub: 1 },                                 // account name
+          status: { pub: 1 },                               // status, online, offline, away
+          atime: { type: &quot;bigint&quot;, pub: 1 },                // last access time
           mtime: { type: &quot;now&quot;, pub: 1 },                   // last update time
       },
   },
   // Intervals between updating presence status table
   args: [
-      { name: &quot;interval&quot;, type: &quot;number&quot;, min: 60000, max: 86400000, descr: &quot;Number of milliseconds between status record updates, presence is considered offline if last access was more than this interval ago&quot; },
+      { name: &quot;interval&quot;, type: &quot;number&quot;, min: 60000, max: 86400000, descr: &quot;Max idle period in milliseconds after which the status will be considered offline&quot; },
+      { name: &quot;update-interval&quot;, type: &quot;number&quot;, min: 60000, max: 86400000, descr: &quot;Period in milliseconds between database flushing updates in the case when bk_status is cached&quot; },
   ],
-  interval: 900000,
+  interval: 60000,
+  updateInterval: 180000,
 </code></pre><p>  };
   module.exports = mod;</p>
 <p>  // Returns status record for given account, used in /status/get API call.
   // It always returns status object even if it was never set before, on return the record contains
   // a property <code>online</code> set to true of false according to the idle period and actual status.
-  //
-  // If id is an array, then return all status records for specified list of account ids.
   //
   // If status was explicitely set to <code>offline</code> then it is considered offline until changed to other value,
   // for other cases <code>status</code> property is not used, it is supposed for the application extention.
@@ -9688,13 +9856,19 @@ use the same names as command line arguments without preceeding <code>test-</cod
   {</p>
 <pre><code>  if (typeof options == &quot;function&quot;) callback = options, options = null;
   var now = Date.now();
-
-  if (Array.isArray(id)) {
-      db.list(&quot;bk_status&quot;, id, options, function(err, rows) {
-          if (err) return callback(err);
-          rows = rows.filter(function(row) {
-              row.online = now - row.atime &lt; mod.statusInterval &amp;&amp; row.status != &quot;offline&quot; ? true : false;
+  db.get(&quot;bk_status&quot;, { id: id }, options, function(err, status, info) {
+      if (err) return callback(err);
+      if (!status) status = { id: id, status: &quot;&quot;, online: false, atime: 0, mtime: 0 };
+      status.online = now - status.atime &lt; mod.interval &amp;&amp; status.status != &quot;offline&quot; ? true : false;
+      status._cached = info.cached;
+      callback(err, status);
 </code></pre></li>
+</ul>
+
+<ul>
+<li><p><code>mod.select(ids, options, callback)</code></p>
+<p> Return status records for specified list of account ids.</p>
+</li>
 </ul>
 
 <ul>
