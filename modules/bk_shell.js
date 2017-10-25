@@ -116,7 +116,9 @@ shell.runShell = function(options)
 
     // Load all default shell modules
     var mods = lib.findFileSync(__dirname + "/../modules", { include: /bk_shell_[a-z]+\.js$/ });
-    mods = mods.concat(lib.findFileSync(core.path.modules, { include: /bk_shell_[a-z]+\.js$/ }));
+    core.path.modules.forEach(function(mod) {
+        mods = mods.concat(lib.findFileSync(mod, { include: /bk_shell_[a-z]+\.js$/ }));
+    });
     for (var i in mods) require(mods[i]);
 
     core.runMethods("configureShell", options, function(err) {
