@@ -24,7 +24,7 @@ var pages = {
     name: "pages",
     view: "pages.html",
     tables: {
-       bk_pages: { 
+       bk_pages: {
           id: { primary: 1, pub: 1 },
           title: { pub: 1 },
           subtitle: { pub: 1 },
@@ -73,7 +73,7 @@ pages.configurePagesAPI = function()
         switch (req.params[0]) {
         case "file":
             if (!req.params[1]) return api.sendReply(res, 400, "file is required");
-            var file = core.path.web + '/' + path.normalize(req.params[1]);
+            var file = core.path.web[0] + '/' + path.normalize(req.params[1]);
             fs.readFile(file, 'utf8', function(err, data) {
                 if (err) return api.sendReply(res, err);
                 self.sendPages(req, { id: req.params[1], content: data });

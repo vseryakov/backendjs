@@ -736,19 +736,16 @@ case "$ARG" in
     fi
     ;;
 
-  run|run-master|run-monitor|run-watcher|run-shell|bkjs|bksh)
-    [ -f /usr/lib/node_modules/$BKJS_MOD/lib/app.js ] && SCRIPT=/usr/lib/node_modules/$BKJS_MOD/lib/app.js
-    [ -f $NODE_PATH/$BKJS_MOD/lib/app.js ] && SCRIPT=$NODE_PATH/$BKJS_MOD/lib/app.js
-    [ -f $BKJS_PREFIX/lib/node_modules/$BKJS_MOD/lib/app.js ] && SCRIPT=$BKJS_PREFIX/lib/node_modules/$BKJS_MOD/lib/app.js
-    [ -f $BKJS_HOME/node_modules/$BKJS_MOD/lib/app.js ] && SCRIPT=$BKJS_HOME/node_modules/$BKJS_MOD/lib/app.js
-    [ -f node_modules/$BKJS_MOD/lib/app.js ] && SCRIPT=node_modules/$BKJS_MOD/lib/app.js
-    [ -f lib/app.js ] && SCRIPT=lib/app.js
-    [ -f $BKJS_HOME/app.js ] && SCRIPT=$BKJS_HOME/app.js
+  run|run-master|run-monitor|run-watcher|run-shell|shell|bkjs|bksh)
     [ -f app.js ] && SCRIPT=app.js
-    [ -z $SCRIPT ] && echo "ERROR: Cannot find $BKJS module or app.js in '$NODE_PATH/', '$BKJS_PREFIX/', '$BKJS_HOME/'" && exit 1
+    [ -z "$SCRIPT" -a -f lib/app.js ] && SCRIPT=lib/app.js
+    [ -z "$SCRIPT" -a -f $BKJS_HOME/app.js ] && SCRIPT=$BKJS_HOME/app.js
+    [ -z "$SCRIPT" -a -f $BKJS_HOME/lib/app.js ] && SCRIPT=$BKJS_HOME/lib/app.js
+    [ -z "$SCRIPT" ] && SCRIPT=$(node -e "try{console.log(require.resolve('$BKJS_MOD').replace('index.js','app.js'))}catch(e){}")
+    [ -z $SCRIPT ] && echo "ERROR: Cannot find $BKJS_MOD module or app.js in '.:$BKJS_HOME'" && exit 1
 
     find_nodebin
-    echo "Starting $ARG: $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME $BKJS_RUN_ARGS $@"
+    [ ! -z "$(get_arg -debug)" ] && echo "Starting $ARG: $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME $BKJS_RUN_ARGS $@"
 
     case "$ARG" in
      run-master)
@@ -763,7 +760,7 @@ case "$ARG" in
         $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME -master -watch `pwd` $BKJS_RUN_ARGS "$@"
         ;;
 
-     run-shell|bksh)
+     run-shell|shell|bksh)
         $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME -shell "$@"
         ;;
 
@@ -804,12 +801,14 @@ case "$ARG" in
     rsyncargs=$(concat_arg -rsync $BKJS_RSYNC_ARGS)
     [ -f .gitignore ] && rsyncargs="$rsyncargs --exclude-from .gitignore"
     [ -f $HOME/.gitignore_global ] && rsyncargs="$rsyncargs --exclude-from $HOME/.gitignore_global"
-    path=$(get_arg -path)
     mod=$(node -e 'try{console.log(JSON.parse(require("fs").readFileSync("package.json")).name)}catch(e){}')
-    if [ -z "$path" ]; then
-       [ "$mod" = "$BKJS_MOD" ] && path=node_modules/$BKJS_MOD
-    fi
     [[ -z $mod ]] && echo "no sync without package.json" && exit 1
+    path=$(get_arg -path)
+    [ -z "$path" -a "$mod" = "$BKJS_MOD" ] && path=node_modules/$BKJS_MOD
+    if [ -z "$path" ]; then
+       path=$(node -e 'try{console.log(JSON.parse(require("fs").readFileSync("package.json")).config.put.path)}catch(e){}')
+       [ "$path" = "node_modules" ] && path=$path/$mod
+    fi
     sshargs=$(concat_arg -ssh $BKJS_SSH_ARGS)
     user=$(get_arg -user)
     [ "$user" != "" ] && sshargs="$sshargs -l $user"
@@ -821,7 +820,7 @@ case "$ARG" in
        bkcmd="--rsync-path=/home/$BKJS_USER/bin/bkrsync -bkcmd '$bkcmd'"
     fi
     files=$(get_arg -files)
-    [[ -z $files ]] && files=$(node -e 'try{console.log(JSON.parse(require("fs").readFileSync("package.json")).config.files)}catch(e){}')
+    [[ -z $files ]] && files=$(node -e 'try{console.log(JSON.parse(require("fs").readFileSync("package.json")).config.put.files)}catch(e){}')
     [[ -z $files ]] && echo "no sync without -files" && exit 1
     echo "Deploying the module $mod: 'ssh $sshargs' $rsyncargs $bkcmd $(echo $files) to $host:$path"
     [ ! -z "$(get_flag -dry-run)" ] && exit 0
@@ -1626,6 +1625,7 @@ case "$ARG" in
     echo "  -db-restore [-path PATH] [-tables LIST] [-skip LIST] [-mapping ID1,ID2...] [-drop] [-continue] [-progress N] [-op add|update|put] [-noexit] [-exitdelay MS] - restore tables from json files located in the home or specified path"
     echo "  -aws-s3-get -path PATH - retrieve a file from S3"
     echo "  -aws-s3-put -path PATH -file FILE - store a file to S3"
+    echo "  -aws-s3-list -path PATH [-filter PATTERN] [-sort version|file|size|date|mtime] [-fmt obj|path] [-start NUM] [-count NUM] - list contents of a S3 folder"
     echo "  -aws-show-amazon-images [-filter PATTERN] [-arch ARCH] [-rootdev ebs|instance-store|*] [-devtype gp2|io1|standard|*] - show Amazon Linux AMIs (use %2A instead of *)"
     echo "  -aws-show-images [-filter PATTERN] - show my account AMIs by name pattern"
     echo "  -aws-delete-image -filter PATTERN [-dry-run] - delete all AMIs that match the given name filter"

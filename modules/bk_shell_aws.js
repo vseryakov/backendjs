@@ -809,6 +809,61 @@ shell.cmdAwsS3Put = function(options)
     });
 }
 
+// List folder
+shell.cmdAwsS3List = function(options)
+{
+    var query = this.getQuery();
+    var sort = this.getArg("-sort", options);
+    var desc = this.getArg("-desc", options);
+    var uri = this.getArg("-path", options);
+    var fmt = this.getArg("-fmt", options);
+    var filter = lib.toRegexp(this.getArg("-filter", options));
+    var start = this.getArgInt("-start", options);
+    var count = this.getArgInt("-count", options);
+    aws.s3List(uri, query, function(err, files) {
+        if (err) shell.exit(err);
+        files = files.filter(function(x) {
+            if (x.Key.slice(-1) == "/") return 0;
+            return filter.test(x.Key);
+        }).map(function(x) {
+            switch (fmt) {
+            case "obj":
+                return { file: x.Key, date: x.LastModified, mtime: lib.toDate(x.LastModified), size: x.Size };
+            case "path":
+                return x.Key;
+            default:
+                return x.Key.split("/").pop();
+            }
+        });
+        switch (sort) {
+        case "version":
+            files = lib.sortByVersion(files, "file");
+            break;
+        case "size":
+            files.sort(function(a, b) { return desc ? b.size - a.size : a.size - b.size });
+            break;
+        case "mtime":
+            files.sort(function(a, b) { return desc ? b.mtime - a.mtime : a.mtime - b.mtime });
+            break;
+        case "date":
+            files.sort(function(a, b) { return desc ? b.date < a.date : a.date < b.date });
+            break;
+        case "file":
+        case "name":
+            if (fmt == "obj") {
+                files.sort(function(a, b) { return desc ? b.file < a.file : a.file < b.file });
+            } else {
+                files.sort(function(a, b) { return desc ? b < a : a < b });
+            }
+            break;
+        }
+        if (start) files = files.slice(start);
+        if (count) files = files.slice(0, count);
+        for (var i in files) console.log(files[i]);
+        shell.exit();
+    });
+}
+
 shell.cmdAwsCheckCfn = function(options)
 {
     var file = this.getArg("-file", options);

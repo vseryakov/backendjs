@@ -353,6 +353,25 @@ This is the main app code:
     bkj.server.start()
 ```
 
+## NPM packages as modules
+
+In case different modules is better keep separately for maintenance or development purposes they canbe split into
+separate NPM packages, the structure is the same, modules must be in the modules/ folder and the package must be loadable
+via require as usual. In most cases just empty index.js is enough. Such modules will not be loaded via rrquire though but
+by the backendjs `core.loadModule` machinery, the NPM packages are just keep different module directories separate from each other.
+
+The config parameter `npm-packages` can be used to specify NPM package names to be loaded separated by comma, as with the default
+application structure all subfolders inside each NPM package will be added to the core:
+
+  - modules will be loaded from the modules/ older
+  - locales from the locales/ folder
+  - files in the web/ folder will be added to the static search path
+  - all tempates from views/ folder will be used for rendering
+
+If there is a config file present as `etc/config` it will be loaded as well, this way each package can maintain its default config parameters if necessary
+without touching other or global configuration. Although such config files will not be reloaded on changes, when NPM installs or updtes packages it
+moves files around so watching the old config is no point because the updated config file will be different.
+
 # Database schema definition
 
 The backend support multiple databases and provides the same db layer for access. Common operations are supported and all other specific usage can be achieved by
