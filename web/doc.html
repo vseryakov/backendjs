@@ -9,6 +9,7 @@
 <li><a href="#backend-runtime"> Backend runtime</a></li>
 <li><a href="#application-structure"> Application structure</a><ul>
 <li><a href="#modules"> Modules</a></li>
+<li><a href="#npm-packages-as-modules"> NPM packages as modules</a></li>
 </ul>
 </li>
 <li><a href="#database-schema-definition"> Database schema definition</a></li>
@@ -443,6 +444,22 @@ methods.</p>
 
     bkj.server.start()
 </code></pre>
+<h2 id="npm-packages-as-modules">NPM packages as modules</h2>
+<p>In case different modules is better keep separately for maintenance or development purposes they canbe split into
+separate NPM packages, the structure is the same, modules must be in the modules/ folder and the package must be loadable
+via require as usual. In most cases just empty index.js is enough. Such modules will not be loaded via rrquire though but
+by the backendjs <code>core.loadModule</code> machinery, the NPM packages are just keep different module directories separate from each other.</p>
+<p>The config parameter <code>npm-packages</code> can be used to specify NPM package names to be loaded separated by comma, as with the default
+application structure all subfolders inside each NPM package will be added to the core:</p>
+<ul>
+<li>modules will be loaded from the modules/ older</li>
+<li>locales from the locales/ folder</li>
+<li>files in the web/ folder will be added to the static search path</li>
+<li>all tempates from views/ folder will be used for rendering</li>
+</ul>
+<p>If there is a config file present as <code>etc/config</code> it will be loaded as well, this way each package can maintain its default config parameters if necessary
+without touching other or global configuration. Although such config files will not be reloaded on changes, when NPM installs or updtes packages it
+moves files around so watching the old config is no point because the updated config file will be different.</p>
 <h1 id="database-schema-definition">Database schema definition</h1>
 <p>The backend support multiple databases and provides the same db layer for access. Common operations are supported and all other specific usage can be achieved by
 using SQL directly or other query language supported by any particular database.
@@ -2262,15 +2279,16 @@ Database pool statistics and other diagnostics</p>
 <li><code>conf-file</code> - Name of the config file to be loaded instead of the default etc/config, can be relative or absolute path</li>
 <li><code>err-file</code> - Path to the error log file where daemon will put app errors and crash stacks</li>
 <li><code>etc-dir</code> - Path where to keep config files</li>
-<li><code>web-dir</code> - Path where to keep web pages</li>
-<li><code>views-dir</code> - Path where to keep web template views</li>
 <li><code>tmp-dir</code> - Path where to keep temp files</li>
 <li><code>spool-dir</code> - Path where to keep modifiable files</li>
 <li><code>log-dir</code> - Path where to keep other log files, log-file and err-file are not affected by this</li>
 <li><code>files-dir</code> - Path where to keep uploaded files</li>
 <li><code>images-dir</code> - Path where to keep images</li>
-<li><code>modules-dir</code> - Directory from where to load modules, these are the backendjs modules but in the same format and same conventions as regular node.js modules, the format of the files is NAME_{web,worker,shell}.js. The modules can load any other files or directories, this is just an entry point</li>
-<li><code>locales-dir</code> - Path where to keep locale translations</li>
+<li><code>web-path</code> - Path where to keep web pages and other static files to be served by the web servers</li>
+<li><code>views-path</code> - Path where to keep virtual hosts web pages, every subdirectory name is a host name to match with Host: header, www. is always stripped before matching vhost directory</li>
+<li><code>modules-path</code> - Directory from where to load modules, these are the backendjs modules but in the same format and same conventions as regular node.js modules, the format of the files is NAME_{web,worker,shell}.js. The modules can load any other files or directories, this is just an entry point</li>
+<li><code>locales-path</code> - Path where to keep locale translations</li>
+<li><code>npm-packages</code> - NPM packages to load on startup, the modules, locales, viewes, web subfolders from the package will be added automatically to the system paths, modules will be loaded if present, the config file in etc subfolder will be parsed if present</li>
 <li><code>uid</code> - User id or name to switch after startup if running as root, used by Web servers and job workers</li>
 <li><code>gid</code> - Group id or name to switch after startup if running to root</li>
 <li><code>role</code> - Override servers roles, this may have very strange side effects and should only be used for testing purposes</li>
@@ -2414,8 +2432,7 @@ Database pool statistics and other diagnostics</p>
 <li><code>api-salt</code> - Salt to be used for scrambling credentials or other hashing activities</li>
 <li><code>api-no-static</code> - Disable static files from /web folder, no .js or .html files will be served by the server</li>
 <li><code>api-static-options-(.+)</code> - Options to pass to serve-static module: maxAge, dotfiles, etag, redirect, fallthrough, extensions, index, lastModified</li>
-<li><code>api-static-paths</code> - List of additional paths to be used when serving static content</li>
-<li><code>api-vhost-path-(.+)</code> - Define a virtual host regexp to be matched against the hostname header to serve static content from a different root, if not an absolute path then a vhost dir must be inside the primary web root, if the regexp starts with !, that means negative match, example: api-vhost-path-test_dir=test.com$</li>
+<li><code>api-vhost-path-([^/]+)</code> - Define a virtual host regexp to be matched against the hostname header to serve static content from a different root, a vhost path must be inside the web directory, if the regexp starts with !, that means negative match, example: api-vhost-path-test_dir=test.com$</li>
 <li><code>api-no-templating</code> - Disable templating engine completely</li>
 <li><code>api-templating</code> - Templating engne to use, see consolidate.js for supported engines</li>
 <li><code>api-no-session</code> - Disable cookie session support, all requests must be signed for Web clients</li>
@@ -9749,6 +9766,12 @@ use the same names as command line arguments without preceeding <code>test-</cod
 <ul>
 <li><p><code>shell.cmdAwsS3Put(options)</code></p>
 <p> Put file</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.cmdAwsS3List(options)</code></p>
+<p> List folder</p>
 </li>
 </ul>
 
