@@ -757,7 +757,7 @@ case "$ARG" in
         ;;
 
      run-watcher)
-        $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME -master -watch `pwd` $BKJS_RUN_ARGS "$@"
+        $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME -master -watch $(pwd) $BKJS_RUN_ARGS "$@"
         ;;
 
      run-shell|shell|bksh)
@@ -789,12 +789,25 @@ case "$ARG" in
     $0 init-alerts
     ;;
 
-  run-update)
-    [ -f package.json ] && modules=$(node -e 'console.log(Object.keys(JSON.parse(require("fs").readFileSync("package.json")).dependencies).join(" "))' | sed "s/$BKJS_MOD//g")
-    [ "$modules" != "" ] && npm install $modules $@
+  install-deps)
+    find_nodebin
+    [ "$NPM_BIN" = "" -a ! -f $BKJS_PREFIX/bin/npm ] && НPM_BIN=$(which npm 2>/dev/null)
+    [ "$NPM_BIN" = "" ] && NPM_BIN=$BKJS_PREFIX/bin/npm
+    npm=$(get_arg -npm)
+    type=$(get_arg -type deps)
+    skip=$(get_arg -skip $BKJS_MOD)
+    path=$(get_arg -type .)
+    modules=$($NODE_BIN -e "try{skip='$skip'.split(/[ ,]/);console.log(Object.keys(JSON.parse(require('fs').readFileSync('$path/package.json')).$type).filter(function(x){return skip.indexOf(x)==-1}).join(' '))}catch(e){}")
+    [[ -z $modules ]] && exit 0
+    echo $modules
+    [ ! -z "$(get_flag -dry-run)" ] && exit 0
+    for m in $modules; do
+      $NPM_BIN $npm install $m
+      [ "$?" != "0" ] && exit 1
+    done
     ;;
 
-  put-backend|pb)
+  put-backend|put)
     # Put backend code to the remote site
     host=$(get_arg -host $BKJS_HOST)
     [ "$host" = "" ] && echo "no sync withut -host" && exit
@@ -1426,28 +1439,8 @@ case "$ARG" in
     $NODE_BIN -e "require('$BKJS_MOD').core.showHelp()"
     ;;
 
-  npm-deps)
-    find_nodebin
-    [ "$NPM_BIN" = "" -a ! -f $BKJS_PREFIX/bin/npm ] && НPM_BIN=$(which npm 2>/dev/null)
-    [ "$NPM_BIN" = "" ] && NPM_BIN=$BKJS_PREFIX/bin/npm
-    type=$(get_arg -type dependencies)
-    skip=$(get_arg -skip $BKJS_MOD)
-    modules=$($NODE_BIN -e "try{skip='$skip'.split(/[ ,]/);console.log(Object.keys(JSON.parse(require('fs').readFileSync('package.json')).$type).filter(function(x){return skip.indexOf(x)==-1}).join(' '))}catch(e){}")
-    echo "$modules"
-    sleep 1
-    for m in $modules; do $NPM_BIN $(get_arg -deps) install $m; done
-    ;;
-
   install-bkjs)
     (cd $BKJS_HOME && npm install git+https://github.com/vseryakov/$BKJS_MOD.git $(get_arg -deps))
-    ;;
-
-  build-bkjs)
-    if [ ! -d $BKJS_MOD ]; then
-        git clone https://github.com/vseryakov/$BKJS_MOD.git
-    fi
-    (cd $BKJS_MOD && git pull)
-    (cd $BKJS_MOD && npm install $(get_arg -deps))
     ;;
 
   get-node)
@@ -1489,11 +1482,11 @@ case "$ARG" in
        $0 get-node -force
        cd $HOME/node_modules/backendjs
        rm -rf node_modules/*
-       bkjs npm-deps
+       bkjs install-deps
        cd $HOME/node_modules
        rm -rf $(ls |grep -v backendjs|paste -s)
        cd $HOME
-       bkjs npm-deps
+       bkjs install-deps
        cd $HOME/node_modules/.bin
        ln -s ../backendjs/bkjs
        ln -s ../backendjs/bkjs bksh
@@ -1538,13 +1531,14 @@ case "$ARG" in
     echo "  init-mfa [-user ec2-user] - initialize EC2 instance with multi-factor authentication using Google authenticator"
     echo "  init-logwatcher - creates a crontab file in /etc/cron.d to periodically run the log watcher, -cron can specify full cron time spec"
     echo "  send-alert [-event EVENT] [-descr DESCR] - send alert message to the error log and SNS topic if configured in \$BKJS_SNS variable, if called from monit event/descr will be provided"
+    echo "  install-deps [-field dependencies] [-path .] [-skip $BKJS_MOD] - install all npm packages from the dependencies list"
+    echo "  install-bkjs [-deps PKGS] - install the $BKJS_MOD from the github using npm, build dependencies are passed in -deps"
     echo "  run-logwatcher - executes the log watcher"
     echo "  run-setup - it is run just before the server to set the domain, sync and other tasks"
     echo "  run-server - run the backend server process, this command is supposed to be run on system startup by start command"
     echo "  run-shell - run backend REPL in the current backend directory, works with the backend core or local app.js application"
     echo "  run-backend - run local backend server or the app.js if present, all command line params will be passed to the backend.js"
     echo "  put-backend [-host HOST] [-path PATH] [-user USER] [-ssh-key pem] [-ssh OPTS] [-exclude PATTERN] [-bkcmd CMD] - push the backend code to the master server, uses env BKJS_HOST or host parameter from the command line, replaces all files and removes non-existing on the dest except in web/ directory, default path is ~/node_modules/$BKJS_MOD"
-    echo "  run-update [-g] - update all dependencies except the backend module from the package.json"
     echo "  run-check - to be run on instances, check for idleness, if no jobs running then shutdown the host"
     echo "  init-backup - creates a crontab file in /etc/cron.d to periodically run the backup, -cron can be used to specify the full cron time spec"
     echo "  run-backup - run the backup script, store in \$BKJS_BACKUP, can be used in crontabs with symlink"
@@ -1585,9 +1579,6 @@ case "$ARG" in
     echo "  get-mongodb - download Mongo server and install in $BKJS_PREFIX/bin"
     echo "  run-mongodb - run local Mongo server installed in $BKJS_PREFIX/bin, db path is $MONGO_DIR"
     echo "  stop-mongodb - stop local Mongo server"
-    echo "  npm-deps - install all npm packages from the dependencies list"
-    echo "  install-bkjs - install the $BKJS_MOD from the github using npm, build dependencies are passed in -deps"
-    echo "  build-bkjs - clone and build the $BKJS_MOD from the git in the current dir with dependencies specified in -deps"
     echo "  get-node [-prefix PATH] - install binary release of the node into $BKJS_PREFIX or specified path"
     echo "  build-node - build node and install in $BKJS_PREFIX or in [-prefix PATH], on Linux init-devel should be called before this command to install devel packages"
     echo "  show-help - show all backend command line and config parameters"
