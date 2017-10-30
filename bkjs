@@ -90,6 +90,18 @@ get_config() {
   [ "$3" != "" ] && eval "$1=$3"
 }
 
+# Return the value for the given named config parameter
+get_config_value() {
+  [ "$1" == "" ] && return
+  echo $($0 run-shell -log none -db-get-config -format value name "$1")
+}
+
+# Return the value for a property from package.json file
+get_package_json() {
+  v=$(node -e "try{console.log(JSON.parse(require('fs').readFileSync('package.json')).$1)}catch(e){}")
+  echo "${v:-$2}"
+}
+
 # Kill a process by name: kill_proc redis -9
 kill_proc() {
   pid=$(ps agx|grep "$1"|grep -v grep|awk "{print \$1}")
@@ -641,7 +653,6 @@ case "$ARG" in
     get_config host -alert-host
     get_config password -alert-password
     get_config email -alert-email
-    get_config topic -alert-topic
     if [ "$email" != "" ]; then
        echo "Init monit alert: $email, $host, $user"
        $ECHO "set alert $email" > /etc/monit.d/alert.conf
@@ -650,9 +661,6 @@ case "$ARG" in
        [ "$password" != "" ] && password="password $password"
        [ "$host" != "" ] && $ECHO "set mailserver localhost, $host $user $password using hostname $(uname -n)" >> /etc/monit.d/alert.conf
        monit reload
-    fi
-    if [ "$topic" != "" ]; then
-       [ "$(grep -s $topic $BKJS_HOME/etc/config.local)" = "" ] && echo "aws-alert-topic=$topic" >> $BKJS_HOME/etc/config.local
     fi
     ;;
 
@@ -721,9 +729,10 @@ case "$ARG" in
     [ "$event" = "" -a "$descr" = "" ] && exit
     host=${MONIT_HOST:-$(uname -n)}
     ip=$(/sbin/ifconfig eth0|grep 'inet '|sed 's/addr://'|awk '{print $2}')
-    msg=$($ECHO "ALERT: $host/$ip $event\n\n$descr\n\n$(df -h)\n\n$(top -bn1)")
+    subject="ALERT: $host/$ip $event"
+    msg=$($ECHO "$subject\n\n$descr\n\n$(df -h)\n\n$(free)\n\n$(ps agx)")
     echo "$msg" >> $BKJS_HOME/log/error.log
-    topic=$(grep aws-alert-topic $BKJS_HOME/etc/config*|head -1|awk -F= '{print $2}')
+    topic=$(get_config_value alert-topic)
     if [ "$topic" != "" ]; then
        region=$(get_arg -region)
        [ "$region" != "" ] && region="--region $region"
@@ -732,7 +741,7 @@ case "$ARG" in
     fi
     email=$(grep 'set alert' /etc/monit.d/*|tail -1|awk '{print $NF}')
     if [ "$email" != "" ]; then
-       $ECHO "From:$email\nTo:$email\nSubject: $(echo "$msg")" |sendmail $email
+       $ECHO "From:$email\nTo:$email\nSubject: $subject\n\n$(echo "$msg")"|sendmail $email
     fi
     ;;
 
@@ -814,12 +823,12 @@ case "$ARG" in
     rsyncargs=$(concat_arg -rsync $BKJS_RSYNC_ARGS)
     [ -f .gitignore ] && rsyncargs="$rsyncargs --exclude-from .gitignore"
     [ -f $HOME/.gitignore_global ] && rsyncargs="$rsyncargs --exclude-from $HOME/.gitignore_global"
-    mod=$(node -e 'try{console.log(JSON.parse(require("fs").readFileSync("package.json")).name)}catch(e){}')
+    mod=$(get_package_json name)
     [[ -z $mod ]] && echo "no sync without package.json" && exit 1
     path=$(get_arg -path)
     [ -z "$path" -a "$mod" = "$BKJS_MOD" ] && path=node_modules/$BKJS_MOD
     if [ -z "$path" ]; then
-       path=$(node -e 'try{console.log(JSON.parse(require("fs").readFileSync("package.json")).config.put.path)}catch(e){}')
+       path=$(get_package_json config.put.path)
        [ "$path" = "node_modules" ] && path=$path/$mod
     fi
     sshargs=$(concat_arg -ssh $BKJS_SSH_ARGS)
@@ -833,7 +842,7 @@ case "$ARG" in
        bkcmd="--rsync-path=/home/$BKJS_USER/bin/bkrsync -bkcmd '$bkcmd'"
     fi
     files=$(get_arg -files)
-    [[ -z $files ]] && files=$(node -e 'try{console.log(JSON.parse(require("fs").readFileSync("package.json")).config.put.files)}catch(e){}')
+    [[ -z $files ]] && files=$(get_package_json config.put.files)
     [[ -z $files ]] && echo "no sync without -files" && exit 1
     echo "Deploying the module $mod: 'ssh $sshargs' $rsyncargs $bkcmd $(echo $files) to $host:$path"
     [ ! -z "$(get_flag -dry-run)" ] && exit 0
@@ -1417,12 +1426,13 @@ case "$ARG" in
     cmd=$(get_arg -cmd)
     [ "$cmd" = "" ] && echo "-cmd is required" && exit 1
     name=$(get_arg -name)
-    region=$(get_arg -region us-east-1)
+    region=$(get_arg -region)
     ids=$($0 show-instances -region "$region" -fmt id -name "$name"|awk '{printf "%s,",$1}'|sed 's/,$//')
     [ "$ids" = "" ] && exit
     user=$(get_arg -user)
     [ "$user" != "" ] && cmd="su -l $user -c '$(cmd)'"
-    aws ssm send-command --targets "Key=InstanceIds,Values=$ids" --document-name "AWS-RunShellScript" --parameters "commands=[\"$cmd\"]" --region $region
+    [ "$region" != "" ] && region="--region $region"
+    aws ssm send-command --targets "Key=InstanceIds,Values=$ids" --document-name "AWS-RunShellScript" --parameters "commands=[\"$cmd\"]" $region
     ;;
 
   ec2-region)
@@ -1506,8 +1516,9 @@ case "$ARG" in
     echo "  start - start the backend service"
     echo "  restart - restart the backend service"
     echo "  stop - stop the backend service"
-    echo "  stop-web - kill Web worker processes at once so they will restart with possibly updated modules"
-    echo "  stop-api - graceful API servers restart, drain all connections and restart one at a time"
+    echo "  stop-web - kill web processes at once so they will restart with possibly updated modules"
+    echo "  stop-worker - kill job worker processes at once so they will restart with possibly updated modules"
+    echo "  stop-api - graceful API servers restart, drain all connections and restart one at a time, workers will restart after finishing jobs"
     echo "  install - [-user USER] [-home HOME] [-prefix $PREFIX] [-doman DOMAIN] [-host HOST] - make server setup and install all pakages including node and the $BKJS_MOD"
     echo "  init-server [-user USER] [-home HOME] [-prefix $PREFIX] [-doman DOMAIN] [-host HOST] - initialize the backend environment, setup the Linux server with packages and change system config files for production use (Amazon AMI, CentOS)"
     echo "  init-hostname [-host HOST] [-domain DOMAIN] - set the hostname"

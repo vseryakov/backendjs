@@ -74,7 +74,9 @@
     "bksh": "./bkjs"
   },
   "config": {
-    "files": "package.json bkjs etc lib modules tools views web"
+    "put": {
+      "files": "package.json bkjs etc lib modules tools views web"
+    }
   },
   "scripts": {
     "start": "./bkjs run-backend",

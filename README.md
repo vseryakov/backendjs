@@ -360,7 +360,7 @@ separate NPM packages, the structure is the same, modules must be in the modules
 via require as usual. In most cases just empty index.js is enough. Such modules will not be loaded via rrquire though but
 by the backendjs `core.loadModule` machinery, the NPM packages are just keep different module directories separate from each other.
 
-The config parameter `npm-packages` can be used to specify NPM package names to be loaded separated by comma, as with the default
+The config parameter `allow-packages` can be used to specify NPM package names to be loaded separated by comma, as with the default
 application structure all subfolders inside each NPM package will be added to the core:
 
   - modules will be loaded from the modules/ older
@@ -930,7 +930,7 @@ new image configuration.
 
         yum-config-manager --enable epel
         sudo yum install npm
-        npm install backendjs --backendjs_imagemagick
+        npm install backendjs
         sudo bkjs init-service
         bkjs restart
 

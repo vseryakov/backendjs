@@ -19,13 +19,22 @@ shell.cmdDbGetConfig = function(options)
     var opts = this.getQuery();
     var sep = this.getArg("-separator", options, "=");
     var fmt = this.getArg("-format", options);
-    db.initConfig(opts, function(err, data) {
+    opts.unique = 1;
+    db.getConfig(opts, function(err, data) {
+        var argv = [], args = {};
+        data = data.filter(function(x) {
+            if (args[x.name]) return 0;
+            return args[x.name] = 1;
+        });
+        if (fmt == "value") {
+            console.log(data.length && data[0].value || "");
+        } else
         if (fmt == "text") {
-            for (var i = 0; i < data.length; i += 2) console.log(data[i].substr(1) + (sep) + data[i + 1]);
+            for (var i = 0; i < data.length; i += 2) console.log(data[i].name + (sep) + data[i].value);
         } else
         if (fmt == "args") {
             var str = "";
-            for (var i = 0; i < data.length; i += 2) str += "-" + data[i].substr(1) + " '" + (data[i + 1] || 1) + "' ";
+            for (var i = 0; i < data.length; i += 2) str += "-" + data[i].name + " '" + (data[i].value || 1) + "' ";
             console.log(str);
         } else {
             console.log(JSON.stringify(data));
