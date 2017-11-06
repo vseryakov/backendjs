@@ -38,29 +38,26 @@ esac
 
 # There are special commands that can be used as the script name
 NAME=$(basename $0)
-case "$NAME" in
-  bksh|bkrsync)
-    ARG=$NAME
-    ;;
-
-  *)
-    ARG=$1;shift
-    ;;
-esac
+if [ "${NAME:0:2}" = "bk" -a "$NAME" != $BKJS ]; then
+   BKJS_CMD=$NAME
+else
+   BKJS_CMD=$1
+   shift
+fi
 
 # Returns an argument value by name, format is -name value
-ARGS=("$@")
+BKJS_ARGS=("$@")
 get_arg() {
-  for ((i = 0;i < ${#ARGS[@]}; ++i)); do
-    [ "$1" = "${ARGS[i]}" ] && echo "${ARGS[i+1]}" && return 0
+  for ((i = 0;i < ${#BKJS_ARGS[@]}; ++i)); do
+    [ "$1" = "${BKJS_ARGS[i]}" ] && echo "${BKJS_ARGS[i+1]}" && return 0
   done
   echo "$2"
 }
 
 # Returns 1 if an argument exists
 get_flag() {
-  for ((i = 0;i < ${#ARGS[@]}; ++i)); do
-    [ "$1" = "${ARGS[i]}" ] && echo "1" && return 0
+  for ((i = 0;i < ${#BKJS_ARGS[@]}; ++i)); do
+    [ "$1" = "${BKJS_ARGS[i]}" ] && echo "1" && return 0
   done
 }
 
@@ -80,12 +77,12 @@ get_value() {
 
 # Return config parameter value by name
 get_config() {
-  for ((i = 0;i < ${#ARGS[@]}; ++i)); do
-    [ "$2" = "${ARGS[i]}" ] && eval "$1=${ARGS[i+1]}" && return 0
+  for ((i = 0;i < ${#BKJS_ARGS[@]}; ++i)); do
+    [ "$2" = "${BKJS_ARGS[i]}" ] && eval "$1=${BKJS_ARGS[i+1]}" && return 0
   done
-  [ -z $DB_ARGS ] && DB_ARGS=(`$0 run-shell -log none -db-get-config -format args`)
-  for ((i = 0;i < ${#DB_ARGS[@]}; ++i)); do
-    [ "$2" = "${DB_ARGS[i]}" ] && eval "$1=${DB_ARGS[i+1]}" && return
+  [ -z $BKJS_DB_ARGS ] && BKJS_DB_ARGS=(`$0 shell -log none -db-get-config -format args`)
+  for ((i = 0;i < ${#BKJS_DB_ARGS[@]}; ++i)); do
+    [ "$2" = "${BKJS_DB_ARGS[i]}" ] && eval "$1=${BKJS_DB_ARGS[i+1]}" && return
   done
   [ "$3" != "" ] && eval "$1=$3"
 }
@@ -93,7 +90,7 @@ get_config() {
 # Return the value for the given named config parameter
 get_config_value() {
   [ "$1" == "" ] && return
-  echo $($0 run-shell -log none -db-get-config -format value name "$1")
+  echo $($0 shell -log none -db-get-config -format value name "$1")
 }
 
 # Return the value for a property from package.json file
@@ -109,6 +106,12 @@ kill_proc() {
   kill "$2" $pid
 }
 
+# Resolve package location
+find_bkjs() {
+  v=$(node -e "try{console.log(require.resolve('$BKJS_MOD').replace('lib/index.js',''))}catch(e){}")
+  [[ ! -z $v ]] && echo "$v$1"
+}
+
 # Resolve bkjs shell script location
 find_bkjsbin() {
   [ "$BKJS_BIN" = "" -a -f $BKJS_HOME/bin/$BK ] && export BKJS_BIN=$BKJS_HOME/bin/$BK
@@ -118,18 +121,34 @@ find_bkjsbin() {
 
 # Resolve node binary location
 find_nodebin() {
-   [ "$NODE_BIN" = "" -a -f $BKJS_HOME/bin/node ] && export NODE_BIN=$BKJS_HOME/bin/node
-   [ "$NODE_BIN" = "" -a -f $BKJS_PREFIX/bin/node ] && export NODE_BIN=$BKJS_PREFIX/bin/node
-   [ "$NODE_BIN" = "" ] && export NODE_BIN=$(which node 2>/dev/null)
+  [ "$NODE_BIN" = "" -a -f $BKJS_HOME/bin/node ] && export NODE_BIN=$BKJS_HOME/bin/node
+  [ "$NODE_BIN" = "" -a -f $BKJS_PREFIX/bin/node ] && export NODE_BIN=$BKJS_PREFIX/bin/node
+  [ "$NODE_BIN" = "" ] && export NODE_BIN=$(which node 2>/dev/null)
 }
 
 # Use configured or provided user:group, defaults to the current user
 find_user() {
-    export BKJS_USER=$(get_arg -user $BKJS_USER)
-    [ "$BKJS_USER" = "" ] && export BKJS_USER=$(whoami)
-    export BKJS_GROUP=$(get_arg -group $BKJS_GROUP)
-    [ "$BKJS_GROUP" = "" ] && export BKJS_GROUP=$(id -gn)
+  export BKJS_USER=$(get_arg -user $BKJS_USER)
+  [ "$BKJS_USER" = "" ] && export BKJS_USER=$(whoami)
+  export BKJS_GROUP=$(get_arg -group $BKJS_GROUP)
+  [ "$BKJS_GROUP" = "" ] && export BKJS_GROUP=$(id -gn)
 }
+
+# Run the command by sourcing all scripts from tools folders, if $1 is not empty then
+# run all tools scripts, otherwise stop once the command is processed
+process_cmd() {
+  dirs="$BKJS_TOOLS $BKJS_HOME/tools $(find_bkjs tools)"
+  for d in $dirs; do
+     if [ -d $d ]; then
+        for f in $d/bkjs-*; do
+           unset BKJS_UNKNOWN
+           source $f
+           [[ -z $BKJS_UNKNOWN && -z $1 ]] && exit 0
+        done
+     fi
+  done
+}
+process_cmds() { process_cmd 1; }
 
 # Home and prefix must be specified for the script to work properly
 export BKJS_HOME=$(get_arg -home $BKJS_HOME)
@@ -142,9 +161,11 @@ export BKJS_PREFIX=$(get_arg -prefix $BKJS_PREFIX)
 # Setup paths
 export PATH=$BKJS_HOME/bin:$BKJS_HOME/node_modules/.bin:$BKJS_PREFIX/bin:/usr/local/bin:/opt/local/bin:/sbin:/usr/sbin:$PATH
 
-case "$ARG" in
+[ ! -z "$(get_flag -debug)" ] && echo "$0: CMD=$BKJS_CMD, HOME=$BKJS_HOME, PREFIX=$BKJS_PREFIX"
+
+case "$BKJS_CMD" in
   start)
-    $0 run-setup
+    $0 check-server
     $0 run-${BKJS_SERVER:-monitor}
     ;;
 
@@ -171,7 +192,7 @@ case "$ARG" in
     ;;
 
   stop-web|stop-server|stop-master|stop-worker)
-    name=${ARG:5}
+    name=${BKJS_CMD:5}
     [ "$name" = "" ] && exit 0
     $KILLALL $1 "$BKJS: $name"
     exit 0
@@ -190,67 +211,40 @@ case "$ARG" in
     exit 0
     ;;
 
-  install)
-    [ "$(whoami)" != "root" ] && echo "Run as root please" && exit 1
-    $0 init-server "$@"
-    $0 init-devel "$@"
-    find_user
-    find_nodebin
-    [ "$NODE_BIN" = "" ] && (cd $BKJS_HOME && sudo -H -u $BKJS_USER $0 get-node -prefix $BKJS_PREFIX)
-    (cd $BKJS_HOME && sudo -H -u $BKJS_USER $0 install-bkjs -deps $(get_arg -deps))
-    (cd $BKJS_HOME/bin && ln -sf ../node_modules/$BKJS_MOD/bkjs && ln -sf bkjs bksh)
-    chown -R $BKJS_USER $BKJS_HOME
-    ;;
-
-  install-ec2)
-    $0 install -user ec2-user -home /home/ec2-user -prefix /home/ec2-user "$@"
-    ;;
-
-  init-server)
-    find_user
-    echo "Installing in $BKJS_HOME for $BKJS_USER with prefix $BKJS_PREFIX ..."
-
-    # Install required packages and utilities
-    ($0 init-packages "$@")
-
-    ($0 init-hostname "$@")
-    ($0 init-ssh "$@")
-    ($0 init-user "$@")
-    ($0 init-system "$@")
-    ($0 init-service "$@")
-    ($0 init-monit-system "$@")
-    ($0 init-monit-bkjs "$@")
-    ($0 init-logrotate "$@")
-    ($0 init-rsyslog "$@")
-    ($0 init-home "$@")
-
-    # Create global profile
-    echo "BKJS_HOME=$BKJS_HOME" > /etc/sysconfig/$BKJS
-    domain=$(get_arg -domain)
-    [ "$domain" != "" ] && echo "BKJS_DOMAIN=$domain" >> /etc/sysconfig/$BKJS
-    ;;
-
-  init-hostname)
-    host=$(get_arg -host $BKJS_HOST)
-    [ "$host" = "" ] && host=$(uname -n|awk -F. '{print $1}')
-    domain=$(get_arg -domain $BKJS_DOMAIN)
-    # Set hostname with name and domain
-    if [ "$domain" = "" ]; then
-       host=$(get_arg -host)
-       [ "$host" = "" ] && exit
-       domain=$(uname -n|cut -d. -f2-)
-    fi
-    host=$host.$domain
-    [ "$(uname -n)" = "$host" ] && exit
-    echo "Configuring hostname $host ..."
-    hostname $host
-    echo $host > /etc/hostname
-    if [ -f /etc/sysconfig/network ]; then
-       echo "HOSTNAME=$host" > /tmp/network
-       grep -v HOSTNAME /etc/sysconfig/network >> /tmp/network
-       mv /tmp/network /etc/sysconfig/network
+  check-server)
+    if [ "$(whoami)" = "root" ]; then
+       # Setup domain from the config, keep the hostname as it is, for EC2 instances it is the IP address
+       domain=$(get_arg -domain $BKJS_DOMAIN)
+       [ "$domain" != "" ] && $0 init-hostname -domain $domain
+       # New instance started from existing AMI which might have old log files
+       if [ -f $BKJS_HOME/var/bkjs.init ]; then
+          rm -rf $BKJS_HOME/var/* $BKJS_HOME/log/*
+          service rsyslog restart
+       fi
+       process_cmds
+       find_user
+       chown -R $BKJS_USER $BKJS_HOME/etc $BKJS_HOME/var $BKJS_HOME/log
     fi
     ;;
+
+  check-adhoc)
+    [ "$BKJS_IDLETIME" = "" ] && BKJS_IDLETIME=900
+    [ "$BKJS_UPTIME" = "" ] && BKJS_UPTIME=43200
+    uptime=$(</proc/uptime)
+    uptime=${uptime%%.*}
+    if [ $uptime -gt $BKJS_IDLETIME ]; then
+       ps=$(ps agx|grep "$BKJS: worker"|grep -v grep)
+       if [ "$ps" = "" ]; then
+          logger "No backend is running, $uptime/$BKJS_IDLETIME, shutting down..."
+          echo $ps >> /var/log/messages
+          /sbin/halt
+       fi
+   fi
+   if [ $uptime -gt $BKJS_UPTIME ]; then
+      logger "Running too long, $uptime/$BKJS_UPTIME, shutting down..."
+      /sbin/halt
+   fi
+   ;;
 
   check-hostname)
     # Check hostname for the eth0 and setup /etc/hosts with EC2 host name
@@ -269,460 +263,6 @@ case "$ARG" in
     fi
     ;;
 
-  init-user)
-    # Add local user
-    find_user
-    LHOME=/home/$BKJS_USER
-    if [ "$(grep -s $BKJS_USER /etc/passwd)" = "" ]; then
-       echo "Adding user $BKJS_USER..."
-       useradd -g 0 -m $BKJS_USER
-       echo "$BKJS_USER ALL = NOPASSWD: ALL" > /etc/sudoers.d/$BKJS
-       mkdir -p -m 700 $LHOME/.ssh && chown $BKJS_USER $LHOME/.ssh
-       # Copy ssh config if running on Amazon instance
-       [ -d /home/ec2-user -a "$BKJS_USER" != "ec2-user" ] && cp /home/ec2-user/.ssh/authorized_keys $LHOME/.ssh && chown $BKJS_USER $LHOME/.ssh/*
-    fi
-
-    # Allow path in sudo and skip tty for our user so we can run commands via ssh
-    if [ ! -f /etc/sudoers.d/$BKJS ]; then
-       echo "Defaults secure_path = /sbin:/bin:/usr/sbin:/usr/bin:/usr/local/bin:$BKJS_PREFIX/bin:$LHOME/bin:$LHOME/node_modules/.bin" >> /etc/sudoers.d/$BKJS
-       echo "Defaults:$BKJS_USER !requiretty" >> /etc/sudoers.d/$BKJS
-    fi
-
-    # Aliases and environment
-    if [ "$(grep -s '#Bkjs' $LHOME/.bashrc)" = "" ]; then
-       echo "Configuring .bashrc..."
-       echo '#Bkjs' >> $LHOME/.bashrc
-       echo "umask 022" >> $LHOME/.bashrc
-       echo "BKJS_HOME=$BKJS_HOME" >> $LHOME/.bashrc
-       echo "export PATH=\$PATH:$LHOME/bin:$LHOME/node_modules/.bin" >> $LHOME/.bashrc
-       echo 'alias slog="tail -100 /var/log/messages"' >> $LHOME/.bashrc
-       echo "alias clog=\"sudo tail -100 /var/log/cron\"" >> $LHOME/.bashrc
-       echo "alias mlog=\"tail -100 $BKJS_HOME/log/message.log\"" >> $LHOME/.bashrc
-       echo "alias elog=\"tail -100 $BKJS_HOME/log/error.log\"" >> $LHOME/.bashrc
-       echo "alias alog=\"tail -100 $BKJS_HOME/log/access.log\"" >> $LHOME/.bashrc
-       echo 'alias h="history"' >> $LHOME/.bashrc
-       echo 'alias ll="ls -la"' >> $LHOME/.bashrc
-       echo 'alias ps="ps augx"' >> $LHOME/.bashrc
-       echo 'alias mc="mc -b"' >> $LHOME/.bashrc
-       echo 'alias df="df -h"' >> $LHOME/.bashrc
-       echo 'bcp() { socat readline,history=$HOME/.socat tcp4:localhost:$((2080+${1-0})); }' >> $LHOME/.bashrc
-       echo 'ec2ssh() { ssh -i ~/.ssh/$2.pem -l ec2-user $1 $3; }' >> $LHOME/.bashrc
-       echo 'ec2scp() { scp -r -i ~/.ssh/$3.pem $1 ec2-user@$2; }' >> $LHOME/.bashrc
-       echo 'bkssh() { bkjs e2s -name $1 -ip -index ${2-1}; }' >> $LHOME/.bashrc
-       echo 'bkstop() { bkjs e2s -name ${1-api} -ip -cmd "bkjs stop-${2-api}"; }' >> $LHOME/.bashrc
-    fi
-    ;;
-
-  init-home)
-    # Create required directories
-    find_user
-    mkdir -p $BKJS_HOME/node_modules $BKJS_HOME/bin $BKJS_HOME/log $BKJS_HOME/etc $BKJS_HOME/var
-    if [ "$BKJS_USER" != "root" -a ! -f $BKJS_HOME/etc/config ]; then
-       echo "Creating default $BKJS config ..."
-       $ECHO "uid=$BKJS_USER\nforce-uid=1" > $BKJS_HOME/etc/config
-    fi
-    chown -R $BKJS_USER $BKJS_HOME
-    ;;
-
-  init-ssh)
-    # Allow only pubkey auth
-    if [ "$(grep -s '#Bkjs' /etc/ssh/sshd_config)" = "" ]; then
-       echo "Configuring ssh..."
-       egrep -v '^(#Bkjs|PasswordAuth|GSSAPIAuth|MaxAuth|MaxSess|ClientAlive|PermitRootLogin)' /etc/ssh/sshd_config > /tmp/sshd_config
-       echo "" >> /tmp/sshd_config
-       echo "#Bkjs config" >> /tmp/sshd_config
-       echo "PasswordAuthentication no" >> /tmp/sshd_config
-       echo "GSSAPIAuthentication no" >> /tmp/sshd_config
-       echo "MaxAuthTries 5" >> /tmp/sshd_config
-       echo "MaxSessions 10" >> /tmp/sshd_config
-       echo "ClientAliveInterval 15" >> /tmp/sshd_config
-       echo "ClientAliveCountMax 5" >> /tmp/sshd_config
-       echo "PermitRootLogin no" >> /tmp/sshd_config
-       mv /tmp/sshd_config /etc/ssh
-       chmod 600 /etc/sshd_config
-       service sshd restart
-    fi
-    ;;
-
-  init-logrotate)
-    # Setup logrotate for backend log files
-    if [ "$(grep -s '#Bkjs' /etc/logrotate.d/syslog)" = "" ]; then
-       echo "Configuring logrotate..."
-       echo "#Bkjs" > /etc/logrotate.d/syslog
-       echo "/var/log/cron /var/log/messages {" >> /etc/logrotate.d/syslog
-       echo " missingok" >> /etc/logrotate.d/syslog
-       echo " daily" >> /etc/logrotate.d/syslog
-       echo " rotate 30" >> /etc/logrotate.d/$BKJS
-       echo " sharedscripts" >> /etc/logrotate.d/syslog
-       echo " postrotate" >> /etc/logrotate.d/syslog
-       echo "  /usr/bin/killall -q -HUP rsyslogd" >> /etc/logrotate.d/syslog
-       echo " endscript" >> /etc/logrotate.d/syslog
-       echo "}" >> /etc/logrotate.d/syslog
-    fi
-    if [ "$(grep -s "#Bkjs $BKJS_HOME" /etc/logrotate.d/$BKJS)" = "" ]; then
-       echo "Configuring logrotate.d/$BKJS..."
-       echo "#Bkjs $BKJS_HOME" > /etc/logrotate.d/$BKJS
-       echo "$BKJS_HOME/log/message.log $BKJS_HOME/log/access.log {" >> /etc/logrotate.d/$BKJS
-       echo " missingok" >> /etc/logrotate.d/$BKJS
-       echo " daily" >> /etc/logrotate.d/$BKJS
-       echo " rotate 30" >> /etc/logrotate.d/$BKJS
-       echo " sharedscripts" >> /etc/logrotate.d/$BKJS
-       echo " postrotate" >> /etc/logrotate.d/$BKJS
-       echo "  /usr/bin/killall -q -HUP rsyslogd" >> /etc/logrotate.d/$BKJS
-       echo " endscript" >> /etc/logrotate.d/$BKJS
-       echo "}" >> /etc/logrotate.d/$BKJS
-    fi
-    ;;
-
-  init-rsyslog)
-    # Setup syslog config for backend logging
-    find_user
-    if [ "$(grep -s '#Bkjs' /etc/rsyslog.conf)" = "" ]; then
-       echo "Configuring rsyslog..."
-       echo "#Bkjs" > /etc/rsyslog.conf
-       echo '$ModLoad imklog' >> /etc/rsyslog.conf
-       echo '$ModLoad imuxsock' >> /etc/rsyslog.conf
-       echo '$ModLoad imudp' >> /etc/rsyslog.conf
-       echo '$UDPServerAddress 127.0.0.1' >> /etc/rsyslog.conf
-       echo '$UDPServerRun 514' >> /etc/rsyslog.conf
-       echo '$MaxMessageSize 64k' >> /etc/rsyslog.conf
-       echo '$SystemLogRateLimitInterval 1' >> /etc/rsyslog.conf
-       echo '$SystemLogRateLimitInterval 1' >> /etc/rsyslog.conf
-       echo '$SystemLogRateLimitBurst 10000' >> /etc/rsyslog.conf
-       echo '$ActionFileDefaultTemplate RSYSLOG_FileFormat' >> /etc/rsyslog.conf
-       echo '$IncludeConfig /etc/rsyslog.d/*.conf' >> /etc/rsyslog.conf
-       echo 'kern.*,*.emerg /dev/console' >> /etc/rsyslog.conf
-       echo 'cron.* /var/log/cron' >> /etc/rsyslog.conf
-       echo 'local7.* /var/log/boot.log' >> /etc/rsyslog.conf
-       echo "\$FileOwner $BKJS_USER" >> /etc/rsyslog.conf
-       echo '*.info;cron.none,local0.none,local5.none /var/log/messages' >> /etc/rsyslog.conf
-       rm -rf /var/log/maillog* /var/log/secure* /var/log/spooler*
-       touch /var/log/messages
-       chown -R $BKJS_USER /var/log/messages
-       service rsyslog restart
-    fi
-    if [ "$(grep -s "#Bkjs $BKJS_HOME" /etc/rsyslog.d/$BKJS.conf)" = "" ]; then
-       echo "Configuring rsyslog.d/$BKJS ..."
-       echo "#Bkjs $BKJS_HOME" > /etc/rsyslog.d/$BKJS.conf
-       echo "\$FileOwner $BKJS_USER" >> /etc/rsyslog.d/$BKJS.conf
-       echo "local0.* $BKJS_HOME/log/message.log" >> /etc/rsyslog.d/$BKJS.conf
-       echo "local5.* $BKJS_HOME/log/access.log" >> /etc/rsyslog.d/$BKJS.conf
-       mkdir -p $BKJS_HOME/log
-       chown -R $BKJS_USER $BKJS_HOME/log
-       service rsyslog restart
-    fi
-    ;;
-
-  init-system)
-    # Disable SELinux
-    if [ -f /etc/selinux/config ]; then
-        sed -i 's/SELINUX=(enforcing|permissive)/SELINUX=disabled/' /etc/selinux/config
-    fi
-
-    # Disable internal firewall
-    chkconfig iptables off
-    service iptables stop
-
-    # Make sure monit is running all the time
-    echo "set logfile syslog" > /etc/monit.d/logging
-    sed -i 's|daemon $prog|ulimit -n 512000\n\tdaemon $prog|' /etc/init.d/monit
-    chkconfig monit on
-    service monit restart
-
-    # Allow sudo use local binaries
-    sed -i 's/requiretty/!requiretty/' /etc/sudoers
-
-    # File handles and coredumps for debugging
-    if [ ! -f /etc/security/limits.d/99-$BKJS.conf ]; then
-       $ECHO '* soft core unlimited' > /etc/security/limits.d/90-$BKJS.conf
-       $ECHO '* hard core unlimited' >> /etc/security/limits.d/90-$BKJS.conf
-       $ECHO '* soft nofile 512000' >> /etc/security/limits.d/90-$BKJS.conf
-       $ECHO '* hard nofile 512000' >> /etc/security/limits.d/90-$BKJS.conf
-       $ECHO 'root soft nofile 512000' >> /etc/security/limits.d/90-$BKJS.conf
-       $ECHO 'root hard nofile 512000' >> /etc/security/limits.d/90-$BKJS.conf
-       $ECHO '* soft memlock unlimited' >> /etc/security/limits.d/90-$BKJS.conf
-       $ECHO '* hard memlock unlimited' >> /etc/security/limits.d/90-$BKJS.conf
-       $ECHO 'root soft memlock unlimited' >> /etc/security/limits.d/90-$BKJS.conf
-       $ECHO 'root hard memlock unlimited' >> /etc/security/limits.d/90-$BKJS.conf
-       $ECHO '* soft as unlimited' >> /etc/security/limits.d/90-$BKJS.conf
-       $ECHO '* hard as unlimited' >> /etc/security/limits.d/90-$BKJS.conf
-       $ECHO 'root soft as unlimited' >> /etc/security/limits.d/90-$BKJS.conf
-       $ECHO 'root hard as unlimited' >> /etc/security/limits.d/90-$BKJS.conf
-    fi
-
-    # System tuning
-    if [ "$(grep -s '#Bkjs' /etc/sysctl.conf)" = "" ]; then
-       echo "#Bkjs" >> /etc/sysctl.conf
-       echo 'fs.file-max=512000' >> /etc/sysctl.conf
-       echo 'kernel.core_uses_pid=0' >> /etc/sysctl.conf
-       echo 'vm.max_map_count=262144' >> /etc/sysctl.conf
-       echo 'vm.min_free_kbytes=65536' >> /etc/sysctl.conf
-       echo 'net.core.somaxconn=16384' >> /etc/sysctl.conf
-       echo 'net.core.netdev_max_backlog=16384' >> /etc/sysctl.conf
-       echo 'net.core.rmem_max=8388608' >> /etc/sysctl.conf
-       echo 'net.core.wmem_max=8388608' >> /etc/sysctl.conf
-       echo 'net.ipv4.tcp_rfc1337=1' >> /etc/sysctl.conf
-       echo 'net.ipv4.ip_local_port_range=1024 65000' >> /etc/sysctl.conf
-       echo 'net.ipv4.tcp_max_tw_buckets=400000' >> /etc/sysctl.conf
-       echo 'net.ipv4.tcp_tw_reuse=1' >> /etc/sysctl.conf
-       echo 'net.ipv4.tcp_tw_recycle=1' >> /etc/sysctl.conf
-       echo 'net.ipv4.tcp_fin_timeout=15' >> /etc/sysctl.conf
-       echo 'net.ipv4.tcp_keepalive_intvl=15' >> /etc/sysctl.conf
-       echo 'net.ipv4.tcp_slow_start_after_idle=0' >> /etc/sysctl.conf
-       echo 'net.ipv4.tcp_max_orphans=262144' >> /etc/sysctl.conf
-       echo 'net.ipv4.tcp_max_syn_backlog=16384' >> /etc/sysctl.conf
-       echo 'net.ipv4.tcp_no_metrics_save=1' >> /etc/sysctl.conf
-       echo 'net.ipv4.tcp_syn_retries=2' >> /etc/sysctl.conf
-       echo 'net.ipv4.tcp_synack_retries=2' >> /etc/sysctl.conf
-       echo 'net.ipv4.tcp_rmem=8192 256000 8388608' >> /etc/sysctl.conf
-       echo 'net.ipv4.tcp_wmem=4096 256000 8388608' >> /etc/sysctl.conf
-       echo 'net.ipv4.tcp_challenge_ack_limit = 999999999' >> /etc/sysctl.conf
-       sysctl -p /etc/sysctl.conf
-    fi
-    ;;
-
-  init-postfix)
-    # Setup postfix with origin domain name
-    if [ "$(grep -s '#Bkjs' /etc/postfix/main.cf)" = "" ]; then
-       yum -y -q remove sendmail
-       yum -y -q install postfix
-       echo "Configuring postfix..."
-       echo '#Bkjs' > /tmp/main.cf
-       echo 'myorigin = $mydomain' >> /tmp/main.cf
-       egrep -v '^(#Bkjs|myorigin)' /etc/postfix/main.cf >> /tmp/main.cf
-       mv /tmp/main.cf /etc/postfix
-       chkconfig postfix on
-       postfix start
-    fi
-    ;;
-
-  init-dns)
-    # DNS cache
-    if [ "$(grep -s '#Bkjs' /etc/dnsmasq.conf)" = "" ]; then
-       yum -y -q install dnsmasq
-       echo "#Bkjs" > /etc/dnsmasq.conf
-       echo "domain-needed" >> /etc/dnsmasq.conf
-       echo "bogus-priv" >> /etc/dnsmasq.conf
-       echo "no-resolv" >> /etc/dnsmasq.conf
-       echo "no-poll" >> /etc/dnsmasq.conf
-       grep nameserver /etc/resolv.conf |grep -v 127|sed 's/nameserver /server=/' >> /etc/dnsmasq.conf
-       echo "server=8.8.8.8" >> /etc/dnsmasq.conf
-       echo "server=8.8.4.4" >> /etc/dnsmasq.conf
-       echo "listen-address=127.0.0.1" >> /etc/dnsmasq.conf
-       echo "no-dhcp-interface=" >> /etc/dnsmasq.conf
-       echo "nameserver 127.0.0.1" > /etc/resolv.conf
-       echo "search $BKJS_DNS" >> /etc/resolv.conf
-       chkconfig dnsmasq on
-       service dnsmasq restart
-    fi
-    ;;
-
-  init-instancejob)
-    find_bkjsbin
-    # Instance mode, duplicate messages to the console for easier access
-    echo '*.info /dev/console' > /etc/rsyslog.d/console.conf
-    truncate -c -s 0 /var/log/messages $BKJS_HOME/log/message.log $BKJS_HOME/log/error.log
-    service rsyslog restart
-    # Support for shutdown as normal user for instances
-    chmod u+s /sbin/reboot
-    # Make sure instances are not running indefinitely
-    cron=$(get_arg -cron "*/30 * * * *")
-    echo 'MAILTO=""' > /etc/cron.d/$BKJS-check
-    echo "$cron root $BKJS_BIN run-check" >> /etc/cron.d/$BKJS-check
-    ;;
-
-  init-service)
-    find_user
-    find_bkjsbin
-    # Install service for a script or bkjs service
-    path=$(get_arg -path $BKJS_BIN)
-    service=$(basename $path | awk -F. '{print $1}')
-    echo "Init service $service with $path"
-    ln -sf $path /etc/init.d/$service
-    chkconfig $service on
-    server=$(get_arg -server)
-    if [ "$server" != "" ]; then
-       echo "BKJS_SERVER=$server" > /tmp/profile
-       grep -vs BKJS_SERVER $BKJS_HOME/etc/profile >> /tmp/profile
-       mv /tmp/profile $BKJS_HOME/etc
-       chown $BKJS_USER $BKJS_HOME/etc/profile
-    fi
-    # Execute a command if given
-    cmd=$(get_arg -cmd)
-    [ "$cmd" != "" ] && service $service $cmd
-    ;;
-
-  stop-service)
-    find_bkjsbin
-    path=$(get_arg -path $BKJS_BIN)
-    service=$(basename $path | awk -F. '{print $1}')
-    echo "Stopping service $service with $path"
-    chkconfig $service off
-    if [ -f /etc/monit.d/$service.conf ]; then
-       rm /etc/monit.d/$service.conf
-       monit reload
-    fi
-    $0 stop
-    ;;
-
-  init-mfa)
-    [ "$(whoami)" != "root" ] && echo "Run as root please" && exit 1
-    yum install google-authenticator –y
-    if [ "$(egrep -s 'pam_google_authenticator' /etc/pam.d/sshd)" = "" ]; then
-       sed -i -r 's|^auth[ \t]+substack[ \t]+password-auth|auth required pam_google_authenticator.so\n#auth substack password-auth|' /etc/pam.d/sshd
-    fi
-    if [ "$(egrep -s 'pam_google_authenticator' /etc/pam.d/system-auth)" = "" ]; then
-       sed -i -r 's|^auth[ \t]+sufficient[ \t]+pam_unix.so nullok try_first_pass|auth requisite pam_unix.so nullok try_first_pass\nauth sufficient pam_google_authenticator.so|' /etc/pam.d/system-auth
-    fi
-    echo >> /etc/ssh/sshd_config
-    if [ "$(egrep -s '^ChallengeResponseAuthentication yes' /etc/ssh/sshd_config)" = "" ]; then
-       sed -i -r 's|^ChallengeResponseAuthentication|#ChallengeResponseAuthentication|' /etc/ssh/sshd_config
-       echo 'ChallengeResponseAuthentication yes' >> /etc/ssh/sshd_config
-    fi
-    if [ "$(egrep -s '^AuthenticationMethods publickey,keyboard-interactive' /etc/ssh/sshd_config)" = "" ]; then
-       sed -i -r 's|^AuthenticationMethods|#AuthenticationMethods|' /etc/ssh/sshd_config
-       echo 'AuthenticationMethods publickey,keyboard-interactive' >> /etc/ssh/sshd_config
-    fi
-    su $(get_arg -user ec2-user) -c "google-authenticator -d -t -f -r 2 -R 30"
-    ;;
-
-  init-monit-system)
-    $ECHO "set daemon 30 with start delay 60" > /etc/monit.d/system.conf
-    $ECHO "check system localhost if loadavg(1min) > 5 for 10 cycles then exec \"$0 send-alert\"" >> /etc/monit.d/system.conf
-    $ECHO "check filesystem rootfs with path / every 30 cycles if space usage > 90% then exec \"$0 send-alert\"" >> /etc/monit.d/system.conf
-    monit reload
-    ;;
-
-  init-monit-bkjs)
-    find_user
-    $ECHO "check process $BKJS with pidfile \"$BKJS_HOME/var/master.pid\" start program = \"$0 start $@\" as uid $BKJS_USER and gid $BKJS_GROUP with timeout 60 seconds stop program = \"$0 stop\"" > /etc/monit.d/$BKJS.conf
-    monit reload
-    ;;
-
-  init-logwatcher)
-    find_user
-    find_bkjsbin
-    cron=$(get_arg -cron '*/30 * * * *')
-    echo 'MAILTO=""' > /etc/cron.d/$BKJS-logwatcher
-    echo "$cron $BKJS_USER $BKJS_BIN run-logwatcher" >> /etc/cron.d/$BKJS-logwatcher
-    ;;
-
-  init-backup)
-    find_bkjsbin
-    cron=$(get_arg -cron '30 3 * * *')
-    echo 'MAILTO=""' > /etc/cron.d/$BKJS-backup
-    echo "$cron root $BKJS_BIN run-backup" >> /etc/cron.d/$BKJS-backup
-    ;;
-
-  init-packages)
-    # Install required runtime packages
-    packages="ntp rsync wget socat mc nano man telnet daemonize monit redis"
-
-    yum -y -q update
-
-    # Linux distro specific actions
-    case "$OS_TYPE" in
-      centos)
-         rpm -i http://mirror.pnl.gov/epel/6/x86_64/epel-release-6-8.noarch.rpm
-         ;;
-
-      amazon)
-         yum-config-manager --enable epel
-         yum remove java-1.7.0-openjdk
-         packages="$packages java-1.8.0"
-         ;;
-    esac
-    sleep 10
-    yum -y -q install $packages
-
-    # Daemon superviser with respawn ability
-    if [ "$(which daemon 2>/dev/null)" == "" ]; then
-       rpm -i http://libslack.org/daemon/download/daemon-0.6.4-1.x86_64.rpm
-    fi
-    ;;
-
-  init-devel)
-    # Install development packages for compiling node and modules
-    packages="git svn gdb gcc-c++ make cmake autoconf automake libtool"
-    packages="$packages libuuid-devel openssl-devel libxml2-devel openldap-devel readline-devel libpng-devel libjpeg-turbo-devel"
-    yum -y -q install $packages
-    ;;
-
-  init-alerts)
-    get_config user -alert-user
-    get_config host -alert-host
-    get_config password -alert-password
-    get_config email -alert-email
-    if [ "$email" != "" ]; then
-       echo "Init monit alert: $email, $host, $user"
-       $ECHO "set alert $email" > /etc/monit.d/alert.conf
-       $ECHO "set mail-format { from: $email }" >> /etc/monit.d/alert.conf
-       [ "$user" != "" ] && user="username $user"
-       [ "$password" != "" ] && password="password $password"
-       [ "$host" != "" ] && $ECHO "set mailserver localhost, $host $user $password using hostname $(uname -n)" >> /etc/monit.d/alert.conf
-       monit reload
-    fi
-    ;;
-
-  init-sendmail-ses)
-    get_config user -user
-    get_config host -host
-    get_config password -password
-    [ "$user" = "" -o "$password" = "" -o "$host" = "" ] && echo "-host,-user,-password must be provided" && exit
-    yum -y install sendmail-cf
-    echo "AuthInfo:$host \"U:root\" \"I:$user\" \"P:$password\" \"M:LOGIN\"" > /etc/mail/authinfo
-    if [[ $host =~ us-east ]]; then
-       echo "AuthInfo:ses-smtp-prod-335357831.us-east-1.elb.amazonaws.com \"U:root\" \"I:$user\" \"P:$password\" \"M:LOGIN\"" >> /etc/mail/authinfo
-    fi
-    if [[ $host =~ us-west ]]; then
-       echo "AuthInfo:ses-smtp-us-west-2-prod-14896026.us-west-2.elb.amazonaws.com \"U:root\" \"I:$user\" \"P:$password\" \"M:LOGIN\"" >> /etc/mail/authinfo
-    fi
-    makemap hash /etc/mail/authinfo.db < /etc/mail/authinfo
-    if [ "$(grep -s "$host" /etc/mail/access)" = "" ]; then
-       echo "Connect:$host RELAY" >> /etc/mail/access
-       makemap hash /etc/mail/access.db < /etc/mail/access
-    fi
-    if [ "$(grep -s "ses-smtp" /etc/mail/access)" = "" ]; then
-       if [[ $host =~ us-east ]]; then
-          echo "Connect:ses-smtp-prod-335357831.us-east-1.elb.amazonaws.com RELAY" >> /etc/mail/access
-       fi
-       if [[ $host =~ us-west ]]; then
-          echo "Connect:ses-smtp-us-west-2-prod-14896026.us-west-2.elb.amazonaws.com RELAY" >> /etc/mail/access
-       fi
-       makemap hash /etc/mail/access.db < /etc/mail/access
-    fi
-    file=/etc/mail/relay.mc
-    egrep -v '^MAILER' /etc/mail/sendmail.mc > $file
-    echo "define(\`SMART_HOST', \`$host')dnl" >> $file
-    echo "define(\`RELAY_MAILER_ARGS', \`TCP \$h 587')dnl" >> $file
-    echo "define(\`confAUTH_MECHANISMS', \`LOGIN PLAIN')dnl" >> $file
-    echo "FEATURE(\`authinfo', \`hash -o /etc/mail/authinfo.db')dnl" >> $file
-    get_config domain -domain
-    if [ "$domain" != "" ]; then
-       echo "MASQUERADE_AS(\`$domain')dnl" >> $file
-       echo "FEATURE(masquerade_envelope)dnl" >> $file
-       echo "FEATURE(masquerade_entire_domain)dnl" >> $file
-    fi
-    egrep '^MAILER' /etc/mail/sendmail.mc >> $file
-    m4 $file > /etc/mail/sendmail.cf
-    service sendmail restart
-    ;;
-
-  init-sendmail-ses-relay)
-    off=$(get_flag -off)
-    if [ "$off" != "" ]; then
-       if [ "$(egrep -s -E "^DSemail-smtp" /etc/mail/sendmail.cf)" != "" ]; then
-          sed -i 's/^DSemail-smtp/#DSemail-smtp/' /etc/mail/sendmail.cf
-          service sendmail restart
-       fi
-    else
-       if [ "$(egrep -s -E "^DSemail-smtp" /etc/mail/sendmail.cf)" = "" ]; then
-          sed -r -i 's/^#+DSemail-smtp/DSemail-smtp/' /etc/mail/sendmail.cf
-          service sendmail restart
-       fi
-    fi
-    ;;
-
   send-alert)
     event=$(get_arg -event $MONIT_EVENT)
     descr=$(get_arg -descr $MONIT_DESCRIPTION)
@@ -731,47 +271,49 @@ case "$ARG" in
     ip=$(/sbin/ifconfig eth0|grep 'inet '|sed 's/addr://'|awk '{print $2}')
     subject="ALERT: $host/$ip $event"
     msg=$($ECHO "$subject\n\n$descr\n\n$(df -h)\n\n$(free)\n\n$(ps agx)")
-    echo "$msg" >> $BKJS_HOME/log/error.log
-    topic=$(get_config_value alert-topic)
-    if [ "$topic" != "" ]; then
-       region=$(get_arg -region)
-       [ "$region" != "" ] && region="--region $region"
-       aws sns publish $region --topic-arn $topic --message "$msg"
-       [ "$?" = "0" ] && exit
-    fi
+    echo $msg >> $BKJS_HOME/log/error.log
+    process_cmds
     email=$(grep 'set alert' /etc/monit.d/*|tail -1|awk '{print $NF}')
     if [ "$email" != "" ]; then
        $ECHO "From:$email\nTo:$email\nSubject: $subject\n\n$(echo "$msg")"|sendmail $email
     fi
     ;;
 
-  run|run-master|run-monitor|run-watcher|run-shell|shell|bkjs|bksh)
+  logwatcher)
+    $0 shell -log error -log-watch $@
+    ;;
+
+  run|run-master|master|run-monitor|monitor|web|watch|shell|bksh)
     [ -f app.js ] && SCRIPT=app.js
     [ -z "$SCRIPT" -a -f lib/app.js ] && SCRIPT=lib/app.js
     [ -z "$SCRIPT" -a -f $BKJS_HOME/app.js ] && SCRIPT=$BKJS_HOME/app.js
     [ -z "$SCRIPT" -a -f $BKJS_HOME/lib/app.js ] && SCRIPT=$BKJS_HOME/lib/app.js
-    [ -z "$SCRIPT" ] && SCRIPT=$(node -e "try{console.log(require.resolve('$BKJS_MOD').replace('index.js','app.js'))}catch(e){}")
+    [ -z "$SCRIPT" ] && SCRIPT=$(find_bkjs lib/app.js)
     [ -z $SCRIPT ] && echo "ERROR: Cannot find $BKJS_MOD module or app.js in '.:$BKJS_HOME'" && exit 1
 
     find_nodebin
-    [ ! -z "$(get_arg -debug)" ] && echo "Starting $ARG: $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME $BKJS_RUN_ARGS $@"
+    [ ! -z "$(get_flag -debug)" ] && echo "Starting $BKJS_CMD: $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME $BKJS_RUN_ARGS $@"
 
-    case "$ARG" in
-     run-master)
-        $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME -syslog -daemon -master $BKJS_RUN_ARGS "$@"
-        ;;
-
-     run-monitor)
+    case "$BKJS_CMD" in
+     run-monitor|monitor)
         $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME -syslog -daemon -monitor -master $BKJS_RUN_ARGS "$@"
         ;;
 
-     run-watcher)
-        $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME -master -watch $(pwd) $BKJS_RUN_ARGS "$@"
+     run-master|master)
+        $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME -syslog -daemon -master $BKJS_RUN_ARGS "$@"
         ;;
 
-     run-shell|shell|bksh)
-        $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME -shell "$@"
+     watch)
+        exec $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME -master -watch $(pwd) $BKJS_RUN_ARGS "$@"
         ;;
+
+     shell|bksh)
+        exec $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME -shell "$@"
+        ;;
+
+     web)
+       $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME $BKJS_RUN_ARGS -web "$@"
+       ;;
 
      *)
         $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME $BKJS_RUN_ARGS "$@"
@@ -779,44 +321,23 @@ case "$ARG" in
     esac
     ;;
 
-  run-setup)
-    [ "$(whoami)" != "root" ] && echo "Not root, skipping setup" && exit 1
-    # Setup domain from the config, keep the hostname as it is, for EC2 instances it is the IP address
-    domain=$(get_arg -domain $BKJS_DOMAIN)
-    [ "$domain" != "" ] && $0 init-hostname -domain $domain
-    if [ "$OS_TYPE" = "amazon" ]; then
-       region=$(curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone/|sed 's/[a-z]$//')
-       aws configure set region $region
-       su ec2-user -c "aws configure set region $region"
-    fi
-    if [ -f $BKJS_HOME/var/bkjs.init ]; then
-       rm -rf $BKJS_HOME/var/* $BKJS_HOME/log/*
-       service rsyslog restart
-    fi
-    find_user
-    chown -R $BKJS_USER $BKJS_HOME/log
-    $0 init-alerts
-    ;;
-
-  install-deps)
-    find_nodebin
-    [ "$NPM_BIN" = "" -a ! -f $BKJS_PREFIX/bin/npm ] && НPM_BIN=$(which npm 2>/dev/null)
-    [ "$NPM_BIN" = "" ] && NPM_BIN=$BKJS_PREFIX/bin/npm
-    npm=$(get_arg -npm)
-    type=$(get_arg -type deps)
-    skip=$(get_arg -skip $BKJS_MOD)
-    path=$(get_arg -type .)
-    modules=$($NODE_BIN -e "try{skip='$skip'.split(/[ ,]/);console.log(Object.keys(JSON.parse(require('fs').readFileSync('$path/package.json')).$type).filter(function(x){return skip.indexOf(x)==-1}).join(' '))}catch(e){}")
-    [[ -z $modules ]] && exit 0
-    echo $modules
-    [ ! -z "$(get_flag -dry-run)" ] && exit 0
-    for m in $modules; do
-      $NPM_BIN $npm install $m
-      [ "$?" != "0" ] && exit 1
+  ssh)
+    host=$(get_arg -host $BKJS_HOST)
+    cmd=$(get_arg -cmd)
+    [ "$host" = "" -o "$cmd" = "" ] && echo "-host and -cmd are required" && exit
+    sshargs=$(concat_arg -ssh $BKJS_SSH_ARGS)
+    user=$(get_arg -user)
+    [ "$user" != "" ] && sshargs="$sshargs -l $user"
+    key=$(get_arg -key)
+    [ "$key" != "" ] && sshargs="$sshargs -i $HOME/.ssh/$key.pem"
+    echo "Running 'ssh $sshargs' $h $cmd"
+    [ "$(get_flag -dry-run)" != "" ] && exit 0
+    for h in $host; do
+      ssh $sshargs $h $cmd
     done
     ;;
 
-  put-backend|put)
+  sync)
     # Put backend code to the remote site
     host=$(get_arg -host $BKJS_HOST)
     [ "$host" = "" ] && echo "no sync withut -host" && exit
@@ -851,667 +372,70 @@ case "$ARG" in
     done
     ;;
 
-  run-ssh)
-    host=$(get_arg -host $BKJS_HOST)
-    [ "$host" = "" ] && echo "Remote host required, specify with -host" && exit
-    sshargs=$(concat_arg -ssh $BKJS_SSH_ARGS)
-    user=$(get_arg -user)
-    [ "$user" != "" ] && sshargs="$sshargs -l $user"
-    key=$(get_arg -ssh-key)
-    [ "$key" != "" ] && sshargs="$sshargs -i $HOME/.ssh/$key.pem"
-    cmd=$(get_arg -cmd)
-    echo "Running 'ssh $sshargs' $h $cmd"
-    [ "$(get_flag -dry-run)" != "" ] && exit 0
-    for h in $host; do
-      ssh $sshargs $h $cmd
-    done
-    ;;
-
-  run-check)
-    [ "$BKJS_IDLETIME" = "" ] && BKJS_IDLETIME=900
-    [ "$BKJS_UPTIME" = "" ] && BKJS_UPTIME=43200
-    uptime=$(</proc/uptime)
-    uptime=${uptime%%.*}
-    if [ $uptime -gt $BKJS_IDLETIME ]; then
-       ps=$(ps agx|grep "$BKJS: worker"|grep -v grep)
-       if [ "$ps" = "" ]; then
-          logger "No backend running, $uptime/$BKJS_IDLETIME, shutting down..."
-          echo $ps >> /var/log/messages
-          /sbin/halt
-       fi
-    fi
-    if [ $uptime -gt $BKJS_UPTIME ]; then
-       logger "Running too long, $uptime/$BKJS_UPTIME, shutting down..."
-       /sbin/halt
-    fi
-    ;;
-
-  run-logwatcher)
-    bkjs run-shell -log error -log-watch $@
-    ;;
-
-  run-ntp)
-    ntpdate pool.ntp.org > /dev/null 2>&1
-    ;;
-
-  run-backup)
-    [ "$BKJS_BACKUP" = "" ] && BKJS_BACKUP=$BKJS_HOME/backup
-    find_user
-    DATE=$(date +%m-%d-%y)
-    HOUR=$(date +%H)
-    DOW=$(date +%w)
-    DAY=$(date +%d|sed 's/^0*//g')
-    FILE=backup
-    # Make backup file names distinguished
-    [ "$BACKUP_MOD" != "" ] && [ $(($DAY % $BACKUP_MOD)) eq 0 ] && FILE="${FILE}$BACKUP_MOD"
-    [ "$BACKUP_HOURLY" != "" ] && FILE="$FILE$HOUR"
-    [ "$BACKUP_DAILY" != "" ] && FILE="$FILE$DAY"
-    [ "$BACKUP_WEEKLY" != "" ] && FILE="$FILE$DOW"
-    FILE="$FILE-$(uname -n|awk -F. '{print $1}')"
-    # Additional options for tar
-    BACKUP_TAR_ARGS="--ignore-failed-read --exclude-backup $BACKUP_TAR_ARGS"
-    # File extensions to exclude from the backup
-    for ext in $BACKUP_TAR_EXCLUDE; do
-       BACKUP_TAR_ARGS="--exclude='*.$ext' $BACKUP_TAR_ARGS"
-    done
-    # Files and dirs to backup
-    BACKUP_FILES="/etc /home/$BKJS_USER $BKJS_HOME/etc $BKJS_HOME/web $BKJS_PREFIX $BACKUP_FILES"
-    mkdir -p $BKJS_BACKUP
-
-    # Database backup if exists
-    if [ "$BACKUP_PG" != "" -a -d $BKJS_HOME/var/postgres/base ]; then
-       BACKUP_FILES="$BACKUP_FILES $PG_DIR/*.conf"
-       # PG directory on CentOS is separate
-       [ -e $PG_PREFIX ] && BACKUP_FILES="$BACKUP_FILES $PG_PREFIX"
-       for d in $BACKUP_PG; do
-         pg_dump -Fc -U ${BACKUP_PG_USER:-postgres} $d > $BKJS_BACKUP/$FILE-$d.pgsql.dump
-         [ -f $BKJS_BACKUP/$FILE-$d.pgsql.dump ] && BACKUP_ARCHIVE_FILES="$BACKUP_ARCHIVE_FILES $BKJS_BACKUP/$FILE-$d.pgsql.dump"
-       done
-    fi
-    if [ "$BACKUP_MYSQL" != "" -a -d $BKJS_HOME/var/mysql/mysql ]; then
-       for d in $BACKUP_MYSQL; do
-         mysqldump -u ${BACKUP_MYSQL_USER:-root} $d > $BKJS_BACKUP/$FILE-$d.mysql.dump
-         [ -f $BKJS_BACKUP/$FILE-$d.mysql.dump ] && BACKUP_ARCHIVE_FILES="$BACKUP_ARCHIVE_FILES $BKJS_BACKUP/$FILE-$d.mysql.dump"
-       done
-    fi
-
-    # Filesystem backup
-    if [ "$BACKUP_FS" != "" ]; then
-       tar $BACKUP_TAR_ARGS -czf $BKJS_BACKUP/$FILE.tar.gz $BACKUP_FILES 2>&1 |egrep -v "tar: Removing leading|tar:.+ignored|as we read it"
-       [ -f $BKJS_BACKUP/$FILE.tar.gz ] && BACKUP_ARCHIVE_FILES="$BACKUP_ARCHIVE_FILES $BKJS_BACKUP/$FILE.tar.gz"
-    fi
-    # Allow to be managed by the user
-    [ "$BACKUP_USER" != "" ] && chown -R $BACKUP_USER $BKJS_BACKUP
-
-    # Files we just backed up
-    if [ "$BACKUP_ARCHIVE_FILES" != "" ]; then
-
-       # Send to remote host if configured, must be full ssh url with path like user@host:/path
-       if [ "$BACKUP_HOST" != "" ]; then
-          for h in $BACKUP_HOST; do
-            su - $BKJS_USER -c "scp -q $BACKUP_ARCHIVE_FILES $h"
-          done
-       fi
-
-       # Send to the S3 bucket using AWS tools
-       if [ "$BACKUP_S3" != "" ]; then
-          for f in $BACKUP_ARCHIVE_FILES; do
-            aws s3 cp $f $BACKUP_S3/$(basename $f) --quiet
-          done
-       fi
-    fi
-
-    # Sync a directory with S3 bucket
-    if [ "$BACKUP_S3" != "" -a "$BACKUP_S3_SYNC" != "" ]; then
-       aws s3 sync $BACKUP_S3_SYNC $BACKUP_S3 --quiet
-    fi
-    ;;
-
-  init-pgsql)
-    PG_DIR=$BKJS_HOME/var/postgres
-    if [ ! -f $PG_DIR/postgresql.conf ]; then
-       db=$(get_arg -db backend)
-       mkdir -p $PG_DIR
-       initdb -U postgres -D $PG_DIR
-       $SED "s/#fsync = on/fsync = off/g" $PG_DIR/postgresql.conf
-       $SED "s/#log_destination = 'stderr'/log_destination = 'syslog'/g" $PG_DIR/postgresql.conf
-       postgres -F -D $PG_DIR &
-       sleep 3
-       createdb -U postgres $db
-    fi
-    ;;
-
-  run-pgsql)
-    mkdir -p $BKJS_HOME/var $BKJS_HOME/log
-    exec nohup postgres -F -D $BKJS_HOME/var/postgres >>$BKJS_HOME/log/message.log 2>&1 &
-    ;;
-
-  stop-pgsql)
-    killall postgres
-    ;;
-
-  init-redis)
-    ($0 get-redis)
-    ($0 run-redis)
-    if [ "$PLATFORM" = "Linux" ]; then
-       sudo $0 init-redis-service
-    fi
-    ;;
-
-  get-redis)
-    # Install redis server
-    case "$PLATFORM" in
-     Darwin)
-       OS=osx
-       REDIS_PREFIX=$BKJS_PREFIX
-       ;;
-     Linux)
-       sudo yum remove -y redis
-       sudo yum install -y jemalloc
-       REDIS_PREFIX=$BKJS_HOME
-       ;;
-    esac
-
-    ver=$(get_arg -version 3.2.11)
-    curl -L -o redis.tgz http://download.redis.io/releases/redis-$ver.tar.gz
-
-    mkdir -p redis $BKJS_HOME/etc
-    tar -C redis --strip-components=1 -xzf redis.tgz
-    make -C redis install PREFIX=$REDIS_PREFIX
-    cp redis/redis.conf $BKJS_HOME/etc
-    rm -rf redis redis.tgz
-    $SED -e 's|^# syslog-enabled no|syslog-enabled yes|' \
-         -e "s|^dir ./|dir $BKJS_HOME/var/|" \
-         -e "s|^timeout 0|timeout 3600|" \
-         -e "s|^bind|# bind|" \
-         -e "s|^protected-mode yes|protected-mode no|" \
-         -e "s|^pidfile /var/run/redis.+|pidfile $BKJS_HOME/var/redis.pid|" \
-         -e "s|^logfile \"\"|logfile $BKJS_HOME/log/redis.log|" \
-         -e "s|^tcp-keepalive .+|tcp-keepalive 60|" \
-         -e "s|^maxmemory-policy .+|maxmemory-policy volatile-lru|" \
-         -e "s|^# maxmemory-policy .+|maxmemory-policy volatile-lru|" \
-         -e 's|^daemonize no|daemonize yes|' \
-         $BKJS_HOME/etc/redis.conf
-    ;;
-
-  init-redis-service)
-    # There is no startup script because we rely on the monit to handle processes
-    [ "$(whoami)" != "root" ] && echo "Run as root please" && exit 1
-    echo 1 > /proc/sys/vm/overcommit_memory
-    echo never > /sys/kernel/mm/transparent_hugepage/enabled
-    if [ "$(grep -s 'overcommit_memory' /etc/sysctl.conf)" = "" ]; then
-       echo 'vm.overcommit_memory=1' >> /etc/sysctl.conf
-    fi
-    if [ "$(grep -s 'transparent_hugepage' /etc/rc.local)" = "" ]; then
-       echo 'echo never > /sys/kernel/mm/transparent_hugepage/enabled' >> /etc/rc.local
-    fi
-    find_user
-    $ECHO "$BKJS_HOME/log/redis.log {\n  weekly\n  rotate 10\n  copytruncate\n  delaycompress\n  compress\n  notifempty\n  missingok\n}" > /etc/logrotate.d/redis
-    $ECHO "check process redis-server with pidfile \"$BKJS_HOME/var/redis.pid\" start program = \"$0 run-redis $@\" as uid $BKJS_USER and gid $BKJS_GROUP stop program = \"$0 stop-redis\" if failed host 127.0.0.1 port 6379 for 2 cycles then restart" > /etc/monit.d/redis.conf
-    monit reload
-    ;;
-
-  run-redis)
-    # Percent from the total memory
-    memsize=$(get_arg -memsize)
-    [ "$memsize" != "" ] && memmax="$(( ($(free -m|grep Mem:|awk '{print $2}') * $memsize) / 100 ))mb"
-    memmax=$(get_arg -memmax $memmax)
-    if [ "$memmax" != "" ]; then
-       sed -r -i -e "s|^maxmemory .+|maxmemory $memmax|" -e "s|^# maxmemory .+|maxmemory $memmax|" $BKJS_HOME/etc/redis.conf
-    fi
-    redis-server $BKJS_HOME/etc/redis.conf
-    slavehost=$(get_arg -slave-host)
-    slaveport=$(get_arg -slave-port 6379)
-    if [ "$slavehost" != "" ]; then
-       redis-cli slaveof $slavehost $slaveport
-    fi
-    ;;
-
-  stop-redis)
-    $KILLALL redis-server
-    ;;
-
-  init-sentinel-service)
-    find_user
-    host=$(get_arg -host 127.0.0.1)
-    port=$(get_arg -port 6379)
-    quorum=$(get_arg -quorum 2)
-    name=$(get_arg -name redis)
-    dtimeout=$(get_arg -down-timeout 10000)
-    ftimeout=$(get_arg -failover-timeout 180000)
-    conf=$BKJS_HOME/etc/sentinel.conf
-    $ECHO "daemonize yes" > $conf
-    $ECHO "syslog-enabled yes" >> $conf
-    $ECHO "sentinel monitor $name $host $port $quorum" >> $conf
-    $ECHO "sentinel down-after-milliseconds $name $dtimeout" >> $conf
-    $ECHO "sentinel failover-timeout $name $ftimeout" >> $conf
-    $ECHO "sentinel parallel-syncs $name 1" >> $conf
-    $ECHO "dir $BKJS_HOME/var/" >> $conf
-    $ECHO "pidfile $BKJS_HOME/var/sentinel.pid" >> $conf
-    chown $BKJS_USER $conf
-
-    $ECHO "check process redis-sentinel with pidfile \"$BKJS_HOME/var/sentinel.pid\" start program = \"$0 run-sentinel $@\" as uid $BKJS_USER and gid $BKJS_GROUP stop program = \"$0 stop-sentinel\"" > /etc/monit.d/sentinel.conf
-    monit reload
-    ;;
-
-  run-sentinel)
-    redis-sentinel $BKJS_HOME/etc/sentinel.conf
-    ;;
-
-  stop-sentinel)
-    $KILLALL redis-sentinel
-    ;;
-
-  init-mysql)
-    [ "$MYSQL_DIR" = "" ] && MYSQL_DIR=$BKJS_HOME/var/mysql
-    if [ ! -d $MYSQL_DIR ]; then
-       db=$(get_arg -db backend)
-       mkdir -p $MYSQL_DIR
-       $ECHO "[client]\nuser=root\ndatabase=$db\nport=3306\nsocket=$MYSQL_DIR/mysql.sock\n\n" > ~/.my.cnf
-       $ECHO "[mysqld]\nport=3306\nsocket=$MYSQL_DIR/mysql.sock\ndatadir=$MYSQL_DIR\nkey_buffer_size=16M\nmax_allowed_packet=500M\ngroup_concat_max_len=16000\n" >> ~/.my.cnf
-       mysql_install_db --force --skip-name-resolve --datadir=$MYSQL_DIR --defaults-file=$HOME/.my.cnf
-       ($0 run-mysql)
-       sleep 5
-       mysql -u root -e "DELETE FROM user WHERE user=''" mysql
-       mysql -u root -e "DROP DATABASE test" mysql
-       mysql -u root -e "CREATE DATABASE $db" mysql
-    fi
-    ;;
-
-  run-mysql)
-    mkdir -p $BKJS_HOME/var $BKJS_HOME/log
-    exec nohup mysqld >>$BKJS_HOME/log/message.log 2>&1 &
-    ;;
-
-  stop-mysql)
-    killall mysqld
-    ;;
-
-  init-dynamodb)
-    ($0 get-dynamodb)
-    ($0 run-dynamodb)
-    ;;
-
-  get-dynamodb)
-    [ "$DYNAMODB_PREFIX" = "" ] && DYNAMODB_PREFIX=$BKJS_PREFIX/dynamodb
-    [ "$(get_flag -force)" != "" -a "$DYNAMODB_PREFIX" != "" ] && rm -rf $DYNAMODB_PREFIX
-    if [ ! -d $DYNAMODB_PREFIX ]; then
-       mkdir -p $DYNAMODB_PREFIX
-       curl -L -o ddb.tgz http://dynamodb-local.s3-website-us-west-2.amazonaws.com/dynamodb_local_latest.tar.gz
-       tar -C $DYNAMODB_PREFIX -xzf ddb.tgz
-       rm -rf ddb.tgz
-    fi
-    ;;
-
-  run-dynamodb)
-    [ "$DYNAMODB_PREFIX" = "" ] && DYNAMODB_PREFIX=$BKJS_PREFIX/dynamodb
-    mkdir -p $BKJS_HOME/var $BKJS_HOME/log
-    params="-Xmx$(get_arg -xmx 512M)"
-    exec nohup java $params -Djava.library.path=$DYNAMODB_PREFIX/DynamoDBLocal_lib -jar $DYNAMODB_PREFIX/DynamoDBLocal.jar -dbPath $BKJS_HOME/var -port 8181 >>$BKJS_HOME/log/message.log 2>&1 &
-    ;;
-
-  stop-dynamodb)
-    kill_proc DynamoDBLocal
-    ;;
-
-  reset-dynamodb)
-    $0 stop-dynamodb
-    rm -rf $BKJS_HOME/var/*_us-east-1.db
-    $0 run-dynamodb
-    ;;
-
-  get-hazelcast)
-    [ "$HAZELCAST_PREFIX" = "" ] && HAZELCAST_PREFIX=$BKJS_PREFIX/hazelcast
-    [ "$(get_flag -force)" != "" -a "$HAZELCAST_PREFIX" != "" ] && rm -rf $HAZELCAST_PREFIX
-    if [ ! -d $HAZELCAST_PREFIX ]; then
-       mkdir -p $HAZELCAST_PREFIX
-       curl -L -o hc.tar 'http://download.hazelcast.com/download.jsp?version=hazelcast-3.8&type=tar&p=224475444'
-       tar -C $HAZELCAST_PREFIX --strip-components=1 -xf hc.tar
-       rm -rf hc.tar
-    fi
-    ;;
-
-  init-hazelcast-service)
-    find_user
-    echo "check process hazelcast with pidfile \"$BKJS_HOME/var/hazelcast.pid\" start program = \"$0 run-hazelcast $@\" as uid $BKJS_USER and gid $BKJS_GROUP stop program = \"$0 stop-hazelcast\" if failed url http://127.0.0.1:5701/ with timeout 15 seconds for 2 cycles then restart" > /etc/monit.d/hazelcast.conf
-    echo "check file hazelcast-log with path $BKJS_HOME/log/hazelcast.log if match 'java.lang.OutOfMemoryError' then exec \"$0 restart-hazelcast $@\"" >> /etc/monit.d/hazelcast.conf
-    monit reload
-    ;;
-
-  run-hazelcast)
-    [ "$HAZELCAST_PREFIX" = "" ] && HAZELCAST_PREFIX=$BKJS_PREFIX/hazelcast
-    mkdir -p $BKJS_HOME/var $BKJS_HOME/log
-    # Percent from the total memory
-    memsize=$(get_arg -memsize)
-    [ "$memsize" != "" ] && xmx="$(( ($(free -m|grep Mem:|awk '{print $2}') * $memsize) / 100 ))M"
-    [ "$xmx" = "" ] && xmx=$(get_arg -xmx 512M)
-    params="-Xmx$xmx -Dhazelcast.config=$BKJS_HOME/etc/hazelcast.xml"
-    cp=$(ls $HAZELCAST_PREFIX/lib/hazelcast-all-*.jar)
-    exec nohup java -server $params -cp $cp com.hazelcast.core.server.StartServer >>$BKJS_HOME/log/message.log 2>&1 &
-    ;;
-
-  stop-hazelcast)
-    sig=$(get_arg -signal)
-    kill_proc hazelcast.core.server $sig
-    ;;
-
-  restart-hazelcast)
-    kill_proc hazelcast.core.server
-    sleep 1
-    kill_proc hazelcast.core.server -9
-    $0 run-hazelcast "$@"
-    ;;
-
-  get-cassandra)
-    find_user
-    [ "$CASSANDRA_PREFIX" = "" ] && CASSANDRA_PREFIX=$BKJS_PREFIX/cassandra
-    [ "$CASSANDRA_DIR" = "" ] && CASSANDRA_DIR=$BKJS_HOME/var/cassandra
-    [ "$(get_arg -force)" != "" -a "$CASSANDRA_PREFIX" != "" ] && rm -rf $CASSANDRA_PREFIX
-    if [ ! -d $CASSANDRA_PREFIX ]; then
-        mkdir -p $CASSANDRA_PREFIX
-        curl -OL http://downloads.datastax.com/community/dsc.tar.gz
-        tar -C $CASSANDRA_PREFIX --strip-components=1 -xzf dsc.tar.gz
-        rm -rf dsc.tar.gz
-        $SED "s|-Dcassandra.logdir=\$CASSANDRA_HOME/logs|-Dcassandra.logdir=$BKJS_HOME/log|g" $CASSANDRA_PREFIX/bin/cassandra
-        $SED "s|/var/lib/cassandra/|$CASSANDRA_DIR|g" $CASSANDRA_PREFIX/conf/*.{yaml,properties,sh}
-        $SED "s|/var/log/cassandra/|$BKJS_HOME/log/|g" $CASSANDRA_PREFIX/conf/*.{yaml,properties,sh}
-        $SED "s|# commitlog_directory:|commitlog_directory:|" $CASSANDRA_PREFIX/conf/cassandra.yaml
-        $SED "s|# saved_caches_directory:|saved_caches_directory:|" $CASSANDRA_PREFIX/conf/cassandra.yaml
-        $SED "s|# data_file_directories:|data_file_directories:|" $CASSANDRA_PREFIX/conf/cassandra.yaml
-        $SED "s|#     - $CASSANDRA_DIR|    - $CASSANDRA_DIR|" $CASSANDRA_PREFIX/conf/cassandra.yaml
-        chown -R $BKJS_USER $CASSANDRA_PREFIX $CASSANDRA_DIR
-    fi
-    ;;
-
-  init-cassandra)
-    ($0 get-cassandra)
-    ($0 run-cassandra)
-    sleep 15
-    db=$(get_arg -db backend)
-    echo "CREATE KEYSPACE $db WITH REPLICATION = {'class': 'SimpleStrategy' , 'replication_factor': 1 };" > /tmp/cql
-    cqlsh -f /tmp/cql
-    ;;
-
-  run-cassandra)
-    mkdir -p $BKJS_HOME/var $BKJS_HOME/log
-    cassandra >>$BKJS_HOME/log/message.log 2>&1
-    ;;
-
-  stop-cassandra)
-    kill_proc cassandra
-    ;;
-
-  get-elasticsearch)
-    [ "$ELASTICSEARCH_PREFIX" = "" ] && ELASTICSEARCH_PREFIX=$BKJS_PREFIX/elasticsearch
-    [ "$(get_flag -force)" != "" -a "$ELASTICSEARCH_PREFIX" != "" ] && rm -rf $ELASTICSEARCH_PREFIX
-    if [ ! -d $ELASTICSEARCH_PREFIX ]; then
-        mkdir -p $ELASTICSEARCH_PREFIX
-        curl -L -o es.tgz https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-5.6.3.tar.gz
-        tar -C $ELASTICSEARCH_PREFIX --strip-components=1 -xzf es.tgz
-        rm -rf es.tgz
-        cd $ELASTICSEARCH_PREFIX
-        echo "node.master: true" >> config/elasticsearch.yml
-        echo "node.data: true" >> config/elasticsearch.yml
-        echo "path.data: $BKJS_HOME/var" >> config/elasticsearch.yml
-        echo "path.logs: $BKJS_HOME/log" >> config/elasticsearch.yml
-        if [ "$OS_TYPE" = "amazon" ]; then
-           echo 'network.host: ["_ec2_","_local_"]' >> config/elasticsearch.yml
-           echo 'discovery.type: ec2' >> config/elasticsearch.yml
-           bin/elasticsearch-plugin install discovery-ec2 -b
-        fi
-    fi
-    ;;
-
-  init-elasticsearch)
-    ($0 get-elasticsearch)
-    ($0 run-elasticsearch "$@")
-    if [ "$PLATFORM" = "Linux" ]; then
-       sudo $0 init-elasticsearch-service "$@"
-    fi
-    ;;
-
-  init-elasticsearch-service)
-    find_user
-    echo "check process elasticsearch with pidfile \"$BKJS_HOME/var/elasticsearch.pid\" start program = \"$0 run-elasticsearch $@\" as uid $BKJS_USER and gid $BKJS_GROUP stop program = \"$0 stop-elasticsearch\" if failed url http://127.0.0.1:9200/ with timeout 15 seconds for 2 cycles then restart" > /etc/monit.d/elasticsearch.conf
-    echo "check file elasticsearch-log with path $BKJS_HOME/log/elasticsearch.log if match 'java.lang.OutOfMemoryError' then exec \"$0 restart-elasticsearch $@\"" >> /etc/monit.d/elasticsearch.conf
-    monit reload
-    ;;
-
-  init-monit-elasticsearch-health)
-    host=$(get_arg -host elasticsearch)
-    echo "check host elasticsearch-health with address $host if failed url http://$host:9200/_cluster/health and content = 'green' with timeout 60 seconds for 2 cycles then alert" > /etc/monit.d/elasticsearch-health.conf
-    monit reload
-    ;;
-
-  run-elasticsearch)
-    [ "$ELASTICSEARCH_PREFIX" = "" ] && ELASTICSEARCH_PREFIX=$BKJS_PREFIX/elasticsearch
-    # Percent from the total memory
-    memsize=$(get_arg -memsize)
-    [ "$memsize" != "" ] && memmax="$(( ($(free -m|grep Mem:|awk '{print $2}') * $memsize) / 100 ))m"
-    memmax=$(get_arg -memmax $memmax)
-    if [ "$memmax" != "" ]; then
-       $SED "s/^-Xms.+/-Xms$memmax/" $ELASTICSEARCH_PREFIX/config/jvm.options
-       $SED "s/^-Xmx.+/-Xmx$memmax/" $ELASTICSEARCH_PREFIX/config/jvm.options
-    fi
-    case "$(get_arg -nodetype)" in
-    node)
-      $SED -e "s/^node.master.+/node.master: true/" -e "s/^node.data.+/node.data: true/" $ELASTICSEARCH_PREFIX/config/elasticsearch.yml
-      ;;
-    master)
-      $SED -e "s/^node.master.+/node.master: true/" -e "s/^node.data.+/node.data: false/" $ELASTICSEARCH_PREFIX/config/elasticsearch.yml
-      ;;
-    data)
-      $SED -e "s/^node.master.+/node.master: false/" -e "s/^node.data.+/node.data: true/" $ELASTICSEARCH_PREFIX/config/elasticsearch.yml
-      ;;
-    client)
-      $SED -e "s/^node.master.+/node.master: false/" -e "s/^node.data.+/node.data: false/" $ELASTICSEARCH_PREFIX/config/elasticsearch.yml
-      ;;
-    esac
-    $ELASTICSEARCH_PREFIX/bin/elasticsearch -p $BKJS_HOME/var/elasticsearch.pid -d >>$BKJS_HOME/log/message.log 2>&1
-    ;;
-
-  stop-elasticsearch)
-    kill_proc org.elasticsearch
-    ;;
-
-  restart-elasticsearch)
-    kill_proc org.elasticsearch
-    sleep 1
-    kill_proc org.elasticsearch -9
-    $0 run-elasticsearch "$@"
-    ;;
-
-  reset-elasticsearch)
-    $0 stop-elasticsearch
-    rm -rf $BKJS_HOME/var/nodes
-    $0 run-elasticsearch
-    ;;
-
-  upgrade-elasticsearch)
-    [ "$PLATFORM" != "Linux" ] && echo "Supports only Linux" && exit 1
-    [ "$(whoami)" != "root" ] && echo "Not root, skipping setup" && exit 1
-    case "$(get_arg -cmd)" in
-     init)
-       curl -XPUT localhost:9200/_cluster/settings -d '{"transient":{"cluster.routing.allocation.enable": "none"}}'
-       curl -XPOST localhost:9200/_flush/synced
-       ;;
-     stop)
-       mv /etc/monit.d/elasticsearch.conf $BKJS_HOME/var
-       monit reload
-       $0 stop-elasticsearch
-       ;;
-     start)
-       $0 get-elasticsearch -force
-       mv $BKJS_HOME/var/elasticsearch.conf /etc/monit.d/
-       monit reload
-       ;;
-     finish)
-       curl -XPUT localhost:9200/_cluster/settings -d '{"transient":{"cluster.routing.allocation.enable": "all"}}'
-       ;;
-     *)
-       echo "Upgrade sequence: init, stop on all nodes, start on all nodes, finish"
-       ;;
-     esac
-    ;;
-
-  get-mongodb)
-    case "$PLATFORM" in
-     Darwin)
-       OS=osx
-       ;;
-     Linux)
-       OS=linux
-       ;;
-    esac
-    if [ ! -f $BKJS_PREFIX/bin/mongod ]; then
-       curl -L -o mongo.tgz http://fastdl.mongodb.org/osx/mongodb-$OS-x86_64-3.0.6.tgz
-       tar -C $BKJS_PREFIX/bin --strip-components=1 -xzf mongo.tgz '*/bin/*'
-       rm -rf mongo.tgz
-    fi
-    ;;
-
-  init-mongodb)
-    ($0 get-mongodb)
-    ($0 run-mongodb)
-    ;;
-
-  run-mongodb)
-    [ "$MONGO_DIR" = "" ] && export MONGO_DIR=$BKJS_HOME/var/mongo
-    mkdir -p $MONGO_DIR $BKJS_HOME/var $BKJS_HOME/log
-    mongod --fork --dbpath $MONGO_DIR --syslog >>$BKJS_HOME/log/message.log 2>&1
-    ;;
-
-  stop-mongodb)
-    kill_proc mongod
-    ;;
-
-  show-instances|si)
-    region=$(get_arg -region)
-    [ "$region" != "" ] && region="--region $region"
-    name=$(get_arg -name)
-    [ "$name" != "" ] && tags="Name=tag:Name,Values=${name}"
-    instances=$(aws ec2 describe-instances $region --filter "Name=instance-state-name,Values=running" $tags --query 'Reservations[*].Instances[*].[InstanceId,PrivateIpAddress,PublicIpAddress,KeyName,Tags[?Key==`Name`]]' --output text|awk '{if($4=="None")print $0;else if($1=="Name")print $2;else printf "%s ",$0;}')
-    fmt=$(get_arg -fmt)
-    [ "$fmt" != "" ] && instances=$(echo "$instances"|awk "{print $(echo $fmt|sed -e 's/id/\$1/' -e 's/ip/\$2/' -e 's/host/\$3/' -e 's/key/\$4/' -e 's/name/\$5/')}")
-    if [ "$PLATFORM" = "Linux" -a "$(get_flag -nomyip)" != "" ]; then
-       ip=$(/sbin/ifconfig eth0|grep 'inet '|sed 's/addr://'|awk '{print $2}')
-       instances=$(echo $instances|sed "s/$ip//")
-    fi
-    if [ "$(get_flag -line)" != "" ]; then
-       echo "$instances" | tr '\n' ' '
-    else
-       echo "$instances"
-    fi
-    ;;
-
-  ec2-ssh|e2s)
-    name=$(get_arg -name)
-    [ "$name" = "" ] && echo "-name is required" && exit 1
-    user=$(get_arg -user ec2-user)
-    region=$(get_arg -region)
-    index=$(get_arg -index 1)
-    [ "$(get_flag -ip)" != "" ] && host=ip
-    instance=$($0 show-instances -region "$region" -fmt "${host:-host},key" -name "$name"|head -$index|tail -1)
-    [ "$instance" = "" ] && exit 1
-    host=$(echo $instance|awk '{print $1}')
-    key=$(echo $instance|awk '{print $2}')
-    cmd="ssh -l $user"
-    [ -f "~/.ssh/$key.pem" ] && cmd="$cmd -i ~/.ssh/$key.pem"
-    cmd="$cmd $host $(get_arg -cmd)"
-    [ "$(get_flag -debug)" != "" ] && echo $cmd
-    eval $cmd
-    ;;
-
-  ec2-run|e2r)
-    cmd=$(get_arg -cmd)
-    [ "$cmd" = "" ] && echo "-cmd is required" && exit 1
-    name=$(get_arg -name)
-    region=$(get_arg -region)
-    ids=$($0 show-instances -region "$region" -fmt id -name "$name"|awk '{printf "%s,",$1}'|sed 's/,$//')
-    [ "$ids" = "" ] && exit
-    user=$(get_arg -user)
-    [ "$user" != "" ] && cmd="su -l $user -c '$(cmd)'"
-    [ "$region" != "" ] && region="--region $region"
-    aws ssm send-command --targets "Key=InstanceIds,Values=$ids" --document-name "AWS-RunShellScript" --parameters "commands=[\"$cmd\"]" $region
-    ;;
-
-  ec2-region)
-    echo $(curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone/|sed 's/[a-z]$//')
-    ;;
-
-  ec2-tag)
-    instance=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
-    aws ec2 describe-tags --filter "Name=key,Values=Name" --filter "resource-type=instance" --filter "Name=resource-id,Values=$instance" --output text| cut -f5|head -1
-    ;;
-
-  show-help)
+  install-deps)
     find_nodebin
-    $NODE_BIN -e "require('$BKJS_MOD').core.showHelp()"
+    [ "$NPM_BIN" = "" -a ! -f $BKJS_PREFIX/bin/npm ] && NPM_BIN=$(which npm 2>/dev/null)
+    [ "$NPM_BIN" = "" ] && NPM_BIN=$BKJS_PREFIX/bin/npm
+    npm=$(get_arg -npm)
+    type=$(get_arg -type dependencies)
+    skip=$(get_arg -skip $BKJS_MOD)
+    path=$(get_arg -type .)
+    modules=$($NODE_BIN -e "try{skip='$skip'.split(/[ ,]/);console.log(Object.keys(JSON.parse(require('fs').readFileSync('$path/package.json')).$type).filter(function(x){return skip.indexOf(x)==-1}).join(' '))}catch(e){}")
+    [[ -z $modules ]] && exit 0
+    echo $modules
+    [ ! -z "$(get_flag -dry-run)" ] && exit 0
+    for m in $modules; do
+      $NPM_BIN $npm install $m
+      [ "$?" != "0" ] && exit 1
+    done
+    ;;
+
+  install-node)
+    ver=$(get_arg -version v8.9.0)
+    [ "$(get_flag -force)" != "" -a -f $BKJS_PREFIX/bin/node ] && rm -rf $BKJS_PREFIX/bin/node $BKJS_PREFIX/bin/npm $BKJS_PREFIX/lib/node_modules
+    [ -f $BKJS_PREFIX/bin/node ] && exit 0
+    mkdir -p $BKJS_PREFIX
+    if [ "$PLATFORM" = "Linux" ]; then
+       curl -L -o node.tar.xz https://nodejs.org/dist/$ver/node-$ver-linux-x64.tar.xz
+       [ "$?" != "0" ] && exit 1
+       xz -d node.tar.xz
+       tar -C $BKJS_PREFIX --strip-components=1 -xf node.tar
+       rm -rf node.tar
+    fi
+    if [ "$PLATFORM" = "Darwin" ]; then
+       curl -L -o node.tgz https://nodejs.org/dist/$ver/node-$ver-darwin-x64.tar.gz
+       [ "$?" != "0" ] && exit 1
+       tar -C $BKJS_PREFIX --strip-components=1 -xzf node.tgz
+       rm -rf node.tgz
+    fi
+    mv $BKJS_PREFIX/README.md $BKJS_PREFIX/LICENSE $BKJS_PREFIX/CHANGELOG.md $BKJS_PREFIX/share/doc
     ;;
 
   install-bkjs)
     (cd $BKJS_HOME && npm install git+https://github.com/vseryakov/$BKJS_MOD.git $(get_arg -deps))
     ;;
 
-  get-node)
-    ver=$(get_arg -version v6.11.4)
-    [ "$(get_flag -force)" != "" -a -f $BKJS_PREFIX/bin/node ] && rm -rf $BKJS_PREFIX/bin/node $BKJS_PREFIX/bin/npm $BKJS_PREFIX/lib/node_modules
-    if [ ! -f $BKJS_PREFIX/bin/node ]; then
-       mkdir -p $BKJS_PREFIX
-       if [ "$PLATFORM" = "Linux" ]; then
-          curl -L -o node.tar.xz https://nodejs.org/dist/$ver/node-$ver-linux-x64.tar.xz
-          [ "$?" != "0" ] && exit 1
-          xz -d node.tar.xz
-          tar -C $BKJS_PREFIX --strip-components=1 -xf node.tar
-          rm -rf node.tar
-       fi
-       if [ "$PLATFORM" = "Darwin" ]; then
-          curl -L -o node.tgz https://nodejs.org/dist/$ver/node-$ver-darwin-x64.tar.gz
-          [ "$?" != "0" ] && exit 1
-          tar -C $BKJS_PREFIX --strip-components=1 -xzf node.tgz
-          rm -rf node.tgz
-       fi
-       mv $BKJS_PREFIX/README.md $BKJS_PREFIX/LICENSE $BKJS_PREFIX/CHANGELOG.md $BKJS_PREFIX/share/doc
-    fi
+  bkhelp)
+    find_nodebin
+    $NODE_BIN -e "require('$BKJS_MOD').core.showHelp()"
     ;;
 
-  build-node)
-    ver=$(get_arg -version v6.11.4)
-    if [ ! -d deps/node ]; then
-       mkdir -p deps
-       (cd deps && git clone -b $ver https://github.com/nodejs/node.git)
-    fi
-    (cd deps/node && [ ! -f out/Makefile ] && CFLAGS="$CFLAGS" CXXFLAGS="$CXXFLAGS" LDFLAGS="$LDFLAGS" ./configure --prefix=$BKJS_PREFIX)
-    (cd deps/node && git pull && make install clean)
-    echo "nodedir=$(pwd)/deps/node" >> ~/.npmrc
-    ;;
-
-  upgrade-node)
-    if [ "$PLATFORM" == "Linux" ]; then
-       rm -rf $HOME/.npmrc deps
-       $0 get-node -force
-       cd $HOME/node_modules/backendjs
-       rm -rf node_modules/*
-       bkjs install-deps
-       cd $HOME/node_modules
-       rm -rf $(ls |grep -v backendjs|paste -s)
-       cd $HOME
-       bkjs install-deps
-       cd $HOME/node_modules/.bin
-       ln -s ../backendjs/bkjs
-       ln -s ../backendjs/bkjs bksh
-    fi
-    ;;
-
-  show-env)
+  env)
     set
     ;;
 
   *)
-    [ "$ARG" != "" ] && echo "error: unknown command: $ARG: $@" >&2
+    # Load tools extensions, the protocol is:
+    # - shell file must be in the tools/ and named bkjs-NAME
+    # - it must check for BKJS_CMD and execute its code if it does
+    # - if the command is unknown it must set BKJS_UNKNOWN with any value
+    # - it must support help) command to show help about all supported commands
+    #
+    process_cmd
+
+    [ "$BKJS_CMD" != "" ] && echo "error: unrecognized command: $BKJS_CMD: $@" >&2
     echo ""
-    echo "usage: $BK command ..."
-    echo "  where command is:"
+    echo "General commands:"
     echo ""
     echo "  start - start the backend service"
     echo "  restart - restart the backend service"
@@ -1519,134 +443,23 @@ case "$ARG" in
     echo "  stop-web - kill web processes at once so they will restart with possibly updated modules"
     echo "  stop-worker - kill job worker processes at once so they will restart with possibly updated modules"
     echo "  stop-api - graceful API servers restart, drain all connections and restart one at a time, workers will restart after finishing jobs"
-    echo "  install - [-user USER] [-home HOME] [-prefix $PREFIX] [-doman DOMAIN] [-host HOST] - make server setup and install all pakages including node and the $BKJS_MOD"
-    echo "  init-server [-user USER] [-home HOME] [-prefix $PREFIX] [-doman DOMAIN] [-host HOST] - initialize the backend environment, setup the Linux server with packages and change system config files for production use (Amazon AMI, CentOS)"
-    echo "  init-hostname [-host HOST] [-domain DOMAIN] - set the hostname"
-    echo "  check-hostname - if needed update /etc/hosts with the hostname of eth0 interface IP address"
-    echo "  init-user [-user NAME] - create a new user for the backend"
-    echo "  init-ssh - setup SSH permissions, allow only public key auth"
-    echo "  init-logrotate - setup logrotate for the backend log files"
-    echo "  init-rsyslog - setup rsyslog to use for the backend logging, access log and backend log"
-    echo "  init-system - setup system wide parameters, tuniing, limits, permissions"
-    echo "  init-monit-system - setup system monitoring with monit, CPU, disk, send alert via '$0 send-alert' command"
-    echo "  init-monit-bkjs - setup monit to keep $BKJS service running without using any other services and monitor"
-    echo "  init-alerts - init alerts in the monit and other systems, use DB config for the specified app name"
-    echo "  init-postfix - [-domain DOMAIN] install and configure postfix for the domain"
-    echo "  init-sendmail - [-domain DOMAIN] -host HOST -user USER -password PW - configure sendmail as relay to SES SMTP"
-    echo "  init-dns - install and setup dnsmasq for local cahching DNS server"
-    echo "  init-instancejob - configure a checker for temporary job instance"
-    echo "  init-service [-server NAME] - create bkjs service to be run on server startup, i.e. makes symlink /etc/init.d/$BKJS after which regular 'service' command can be used to manage the $BKJS service"
-    echo "  init-packages - install required packges and updates"
-    echo "  init-devel - install development packages for node and modules compiclation"
-    echo "  init-home - setup backend home with required folders"
-    echo "  init-mfa [-user ec2-user] - initialize EC2 instance with multi-factor authentication using Google authenticator"
-    echo "  init-logwatcher - creates a crontab file in /etc/cron.d to periodically run the log watcher, -cron can specify full cron time spec"
-    echo "  send-alert [-event EVENT] [-descr DESCR] - send alert message to the error log and SNS topic if configured in \$BKJS_SNS variable, if called from monit event/descr will be provided"
+    echo "  send-alert [-event EVENT] [-descr DESCR] - appends alert message to the error log and runs the command for all tools scripts, if called from the monit then event/descr will be provided"
+    echo "  check-server - run the checks before starting the backend, processed by all tools scripts"
+    echo "  check-adhoc - to be run on adhoc instances, check for idleness, if no jobs running then shutdown the host"
+    echo "  check-hostname - if needed update /etc/hosts with the hostname of eth0 interface IP address for localhost access"
+    echo "  shell - run backend REPL in the current backend directory, works with the backend core or local app.js application"
+    echo "  moninor - run the backend monitor process which starts master, web server and job server"
+    echo "  master - run the backend master process which starts web server and jobs server"
+    echo "  web - run the backend web server only"
+    echo "  watch - run the backend in watcher and master mode with all source files being monitored for changes, the server is restarts on any change automatically"
+    echo "  run - run local backend with provided arguments"
+    echo "  logwatcher - runs the log watcher and exists, for cases when no $BKJS service is running but the error log must be watched"
+    echo "  bkhelp - show all backend config parameters"
+    echo "  install-node [-prefix PATH] [-force] - install binary release of the node into $BKJS_PREFIX or specified path"
     echo "  install-deps [-field dependencies] [-path .] [-skip $BKJS_MOD] - install all npm packages from the dependencies list"
     echo "  install-bkjs [-deps PKGS] - install the $BKJS_MOD from the github using npm, build dependencies are passed in -deps"
-    echo "  run-logwatcher - executes the log watcher"
-    echo "  run-setup - it is run just before the server to set the domain, sync and other tasks"
-    echo "  run-server - run the backend server process, this command is supposed to be run on system startup by start command"
-    echo "  run-shell - run backend REPL in the current backend directory, works with the backend core or local app.js application"
-    echo "  run-backend - run local backend server or the app.js if present, all command line params will be passed to the backend.js"
-    echo "  put-backend [-host HOST] [-path PATH] [-user USER] [-ssh-key pem] [-ssh OPTS] [-exclude PATTERN] [-bkcmd CMD] - push the backend code to the master server, uses env BKJS_HOST or host parameter from the command line, replaces all files and removes non-existing on the dest except in web/ directory, default path is ~/node_modules/$BKJS_MOD"
-    echo "  run-check - to be run on instances, check for idleness, if no jobs running then shutdown the host"
-    echo "  init-backup - creates a crontab file in /etc/cron.d to periodically run the backup, -cron can be used to specify the full cron time spec"
-    echo "  run-backup - run the backup script, store in \$BKJS_BACKUP, can be used in crontabs with symlink"
-    echo "  init-pgsql [-db NAME] - setup and run the PostgreSQL server, install in $PG_PREFIX, data files in $PG_DIR, create initial database"
-    echo "  run-pgsql - run local PostgreSQL server"
-    echo "  stop-pgsql - stop local PostgreSQL server"
-    echo "  get-redis - install Redis server into $REDIS_PREFIX, removes current redis package if installed (Linux only)"
-    echo "  init-redis - install and setup Redis server to be run on start and to be monitored (Linux only)"
-    echo "  init-redis-service [-memsize PERCENT] [-memmax SIZE] - setup Redis server to be run on start and to be monitored (Linux only)"
-    echo "  run-redis [-memsize PERCENT] [-memmax SIZE] [-slave-host HOST] - run local Redis server, uses config file $REDIS_CONF"
-    echo "  stop-redis - stop local Redis server"
-    echo "  init-sentinel-service [-host HOST] [-port PORT] - setup Redis Sentinel server to be run on start and to be monitored (Linux only)"
-    echo "  run-sentinel - run local Redis Sentinel server, uses config file $REDIS_PREFIX/sentinel.conf"
-    echo "  stop-sentinel - stop local Redis Sentinel server"
-    echo "  init-dynamodb - download and install local DynamoDB, start the server"
-    echo "  get-dynamodb - install local DynamoDB server in $BKJS_PREFIX/dynamodb"
-    echo "  run-dynamodb - run local DynamoDB server installed in $BKJS_PREFIX/dynamodb, data files in $BKJS_HOME/var"
-    echo "  stop-dynamodb - stop local DynamoDB server"
-    echo "  reset-dynamodb - remove local DynamoDB database and restart the server"
-    echo "  get-hazelcast - install HazelCast server in $BKJS_PREFIX/hazelcast"
-    echo "  run-hazelcast - run HazelCast server installed in $BKJS_PREFIX/hazelcast"
-    echo "  stop-hazelcast - stop HazelCast server"
-    echo "  get-cassandra - download and install Cassandra server in $CASSANDRA_PREFIX"
-    echo "  init-cassandra [-db DB] - download and initialize Cassandra, create initial keyspace, run the server"
-    echo "  run-cassandra - run local Cassandra server installed in $CASSANDRA_PREFIX, data files in $CASSANDRA_DIR"
-    echo "  stop-cassandra - stop local Cassandra server"
-    echo "  get-elasticsearch - install local ElasticSearch server in $BKJS_PREFIX/elasticsearch"
-    echo "  init-elasticsearch - download and install local ElasticSearch, start the server, configure monit"
-    echo "  init-elasticsearch-service [-memsize PERCENT] [-memmax SIZE] [-nodetype TYPE] - setup monit to keep elasticsearch service running"
-    echo "  run-elasticsearch [-memsize PERCENT] [-memmax SIZE] [-nodetype TYPE] - run local ElasticSearch server installed in $BKJS_PREFIX/elasticsearch, -memmax is max heap size, -memsize is the percent of the total memory to use, -nodetype can be node,master,data,client"
-    echo "  stop-elasticsearch - stop local ElasticSearch server"
-    echo "  reset-elasticsearch - remove local ElasticSearch database and restart the server"
-    echo "  upgrade-elasticsearch - update with a new version and restart"
-    echo "  init-mysql [-db DB] - setup MySQL server for development and create initial database, start the server"
-    echo "  run-mysql - run local MySQL server installed in $MYSQL_DIR"
-    echo "  stop-mysql - stop local MySQL server"
-    echo "  init-mongodb - download and start the Mongo server"
-    echo "  get-mongodb - download Mongo server and install in $BKJS_PREFIX/bin"
-    echo "  run-mongodb - run local Mongo server installed in $BKJS_PREFIX/bin, db path is $MONGO_DIR"
-    echo "  stop-mongodb - stop local Mongo server"
-    echo "  get-node [-prefix PATH] - install binary release of the node into $BKJS_PREFIX or specified path"
-    echo "  build-node - build node and install in $BKJS_PREFIX or in [-prefix PATH], on Linux init-devel should be called before this command to install devel packages"
-    echo "  show-help - show all backend command line and config parameters"
-    echo ""
-    echo "provisioning commands using AWS CLI:"
-    echo ""
-    echo "  show-instances|si [-region region] [-name name] [-fmt fmt]- show running instances in region, optional tag pattern can be used for filter, FMT may contain: id,ip,host,key,name which will be replaced with actual values"
-    echo "  ec2-run|e2r -name tag -cmd cmd [-region  region] - run a command over SSM by tag name"
-    echo "  ec2-ssh|e2s -name tag [-region region] [-ip] [-cmd cmd] - login using ssh to a host(IP) by tag name, key name will be used to specify a keypair from ~/.ssh/, -cmd if specified will be run on the remote host"
-    echo "  ec2-region - current instance region"
-    echo ""
-    echo "bksh commands:"
-    echo "if any of the commands below is specified it is executed and then exit, otherwise bksh launches interactive shell"
-    echo ""
-    echo "  -show-info - show app and version information"
-    echo "  -run-file -file FILE.js - load a script and run it if it exports run function"
-    echo "  -account-get ID|LOGIN ... - show accounts by id or login"
-    echo "  -account-add [-scramble] login LOGIN secret SECRET [name NAME] [email EMAIL] [type TYPE] ... - add a new user for API access, any property from bk_account can be passed in the form: name value, if -scramble is given, store HMAC for login/secret, not real values "
-    echo "  -account-update [-scramble] [login LOGIN|id ID] [name NAME] [email EMAIL] [type TYPE] ... - update existing user properties, any property from bk_account can be passed in the form: name value "
-    echo "  -account-del [login LOGIN|id ID] [-keep message] [-keep location]... - delete a new user, 'keep TABLE' tells which records to keep the TABLE being account tables without bk_ prefix, one of auth,counter,account,location,connection,message,icon"
-    echo "  -location-put [login LOGIN|id ID] latitude LAT longitude LON ... - update location for an account"
-    echo "  -send-request -url URL [-id ID|-login LOGIN] param value param value ... - send API request to the server specified in the url as user specified by login or account id, resolving the user is done directly from the current db pool, param values should not be url-encoded"
-    echo "  -log-watch - run logwatcher and exit, send emails in case any errors found"
-    echo "  -test-run CMD [-test-file FILE] - run a test command in the shell, autoload ./tests/tests.js if exists, optinally can load other file with tests, all other test params will be used as well"
-    echo "  -db-get-config [-separator =] [-format text] [-run-mode MODE] [-app-name NAME] [name VALUE ...] - show all config parameters retrieved from the remote database bk_config table for the current environment, to simulate another environment pass the following arguments as name value pairs: role, network, region, zone, tag"
-    echo "  -db-tables [-separator nl] - list all table names for the current db pool"
-    echo "  -db-select -table TABLE [-separator !] [-format text] [name VALUE ...] - return all records from the table or only that match given column values, all supported by db.select options are supported by prefixing with underscore like _count 10, the format is the same as for API query parameters"
-    echo "  -db-scan -table TABLE [name VALUE ...] - return all records from the table using scan operation, same arg as for db-select"
-    echo "  -db-get -table TABLE [name VALUE ...] - return a record from the table for given primary key"
-    echo "  -db-put -table TABLE name VALUE ... - add or replace a record in the config table, name value pairs are column name and value to be set for the record to be added"
-    echo "  -db-del -table TABLE name VALUE ... - delete a record from the table, name value pairs must define a primary key for the table"
-    echo "  -db-del-all -table TABLE name VALUE ... - delete all records from the table that match the search criteria, name value pairs must define a primary key for the table"
-    echo "  -db-drop -table TABLE name [-nowait] - drop a table"
-    echo "  -db-backup [-path PATH] [-tables LIST] [-skip LIST] - save tables into json files in the home or specified path"
-    echo "  -db-restore [-path PATH] [-tables LIST] [-skip LIST] [-mapping ID1,ID2...] [-drop] [-continue] [-progress N] [-op add|update|put] [-noexit] [-exitdelay MS] - restore tables from json files located in the home or specified path"
-    echo "  -aws-s3-get -path PATH - retrieve a file from S3"
-    echo "  -aws-s3-put -path PATH -file FILE - store a file to S3"
-    echo "  -aws-s3-list -path PATH [-filter PATTERN] [-sort version|file|size|date|mtime] [-fmt obj|path] [-start NUM] [-count NUM] - list contents of a S3 folder"
-    echo "  -aws-show-amazon-images [-filter PATTERN] [-arch ARCH] [-rootdev ebs|instance-store|*] [-devtype gp2|io1|standard|*] - show Amazon Linux AMIs (use %2A instead of *)"
-    echo "  -aws-show-images [-filter PATTERN] - show my account AMIs by name pattern"
-    echo "  -aws-delete-image -filter PATTERN [-dry-run] - delete all AMIs that match the given name filter"
-    echo "  -aws-create-image [-name NAME] [-descr DESCR] [-no-reboot] [-reboot] [-instance-id ID] [-dry-run] - create a new AMI from the instance by id or the current instance"
-    echo "  -aws-launch-instances [-count NUM] [-image-name PATTERN] [-name NAME] [-group-name PATTERN] [-subnet-name PATTERN] [-subnet-split] [-subnet-each] [-user-data TEXT] [-alarm-name NAME] [-host-name HOST] [-bkjs-cmd NAME] [-cloudinit-cmd CMD] [-wait] [wait-timeout MSECS] [-wait-delay MSECS] [-dry-run] - start instance(s), the app name from the package.json is used as the base for all other resources unless explicitely defined in the command line"
-    echo "  -aws-reboot-instances -filter PATTERN [-dry-run] - reboot instances by tag pattern"
-    echo "  -aws-terminate-instances -filter PATTERN [-count NUM] [-dry-run] - terminate instances by tag pattern"
-    echo "  -aws-show-instances [-filter PATTERN] [-show-ip] - show running instances by tag pattern"
-    echo "  -aws-show-elb -elb-name NAME [-filter PATTERN] - show instances for an ELB"
-    echo "  -aws-reboot-elb -elb-name NAME [-timeout MSECS] [-interval MSECS] [-dry-run]"
-    echo "  -aws-replace-elb -elb-name NAME [-timeout MSECS] [-interval MSECS] [-dry-run]"
-    echo "  -aws-setup-ssh -group-name NAME [-close] [-dry-run]"
-    echo "  -aws-setup-instance [-cmd CMD] [-file FILE ] [-wait] [-dry-run]"
-    echo "  -aws-create-launch-config [-name NAME] [-config-name NAME] [-instance-name NAME] [-update-groups] [-dry-run] - create a launch configuration for autoscaling, can copy from an instance or other existing config, optinally update all ASGs with new config name"
-    echo "  -aws-set-route53 -name HOSTNAME [-current] [-filter PATTERN] [-type A|CNAME] [-ttl N] [-public] [-dry-run] - create or update a Route53 record of specified type with IP/hostnames of all instances that satisfy the given filter, -public makes it use public IP/hostnames"
-    echo "  -aws-check-cfn -file FILE - verify a CF template"
-    echo "  -aws-create-cfn -name NAME -file FILE [-aws-region REGION] [-retain] [-wait] [-PARAM VALUE] ..."
-    echo "  -aws-wait-cfn -name NAME [-aws-region REGION] - wait for the given CF stack to be completed"
-    echo "  -aws-show-cfn-events -name NAME [-aws-region REGION] - show events for the given stack"
+    echo "  sync [-host HOST] [-path PATH] [-user USER] [-ssh-key pem] [-ssh OPTS] [-exclude PATTERN] [-bkcmd CMD] - push the backend code to the remote host using rsync, default path is ~/node_modules/$BKJS_MOD"
+    echo "  ssh -host HOST -cmd CMD [-user USER] [-key PEM] [-ssh ARGS] - run a command over ssh on all specified hosts"
     echo ""
     echo "Common options:"
     echo "  -root path - path to the backend home directory, default is $BKJS_HOME"
@@ -1654,6 +467,11 @@ case "$ARG" in
     echo "  -prefix path - path to the local binaries directory, default is $BKJS_PREFIX"
     echo "  -user name - set backend user on the remote or local side, default is ${BKJS_USER:-`whoami`}"
     echo "  -group name - set backend group on the remote or local side, default is ${BKJS_GROUP:-`id -gn`}"
+    echo ""
+
+    BKJS_CMD=help
+    process_cmds
+    echo ""
     ;;
 esac
 

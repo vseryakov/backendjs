@@ -1,0 +1,220 @@
+#!/bin/bash
+#
+#  Author: Vlad Seryakov vseryakov@gmail.com
+#  Sep 2013
+#
+
+case "$BKJS_CMD" in
+
+  run-pgsql)
+    mkdir -p $BKJS_HOME/var $BKJS_HOME/log
+    exec nohup postgres -F -D $BKJS_HOME/var/postgres >>$BKJS_HOME/log/message.log 2>&1 &
+    ;;
+
+  stop-pgsql)
+    killall postgres
+    ;;
+
+  init-mysql)
+    [ "$MYSQL_DIR" = "" ] && MYSQL_DIR=$BKJS_HOME/var/mysql
+    if [ ! -d $MYSQL_DIR ]; then
+       db=$(get_arg -db backend)
+       mkdir -p $MYSQL_DIR
+       $ECHO "[client]\nuser=root\ndatabase=$db\nport=3306\nsocket=$MYSQL_DIR/mysql.sock\n\n" > ~/.my.cnf
+       $ECHO "[mysqld]\nport=3306\nsocket=$MYSQL_DIR/mysql.sock\ndatadir=$MYSQL_DIR\nkey_buffer_size=16M\nmax_allowed_packet=500M\ngroup_concat_max_len=16000\n" >> ~/.my.cnf
+       mysql_install_db --force --skip-name-resolve --datadir=$MYSQL_DIR --defaults-file=$HOME/.my.cnf
+       ($0 run-mysql)
+       sleep 5
+       mysql -u root -e "DELETE FROM user WHERE user=''" mysql
+       mysql -u root -e "DROP DATABASE test" mysql
+       mysql -u root -e "CREATE DATABASE $db" mysql
+    fi
+    ;;
+
+  run-mysql)
+    mkdir -p $BKJS_HOME/var $BKJS_HOME/log
+    exec nohup mysqld >>$BKJS_HOME/log/message.log 2>&1 &
+    ;;
+
+  stop-mysql)
+    killall mysqld
+    ;;
+
+  init-dynamodb)
+    ($0 get-dynamodb)
+    ($0 run-dynamodb)
+    ;;
+
+  get-dynamodb)
+    [ "$DYNAMODB_PREFIX" = "" ] && DYNAMODB_PREFIX=$BKJS_PREFIX/dynamodb
+    [ "$(get_flag -force)" != "" -a "$DYNAMODB_PREFIX" != "" ] && rm -rf $DYNAMODB_PREFIX
+    if [ ! -d $DYNAMODB_PREFIX ]; then
+       mkdir -p $DYNAMODB_PREFIX
+       curl -L -o ddb.tgz http://dynamodb-local.s3-website-us-west-2.amazonaws.com/dynamodb_local_latest.tar.gz
+       tar -C $DYNAMODB_PREFIX -xzf ddb.tgz
+       rm -rf ddb.tgz
+    fi
+    ;;
+
+  run-dynamodb)
+    [ "$DYNAMODB_PREFIX" = "" ] && DYNAMODB_PREFIX=$BKJS_PREFIX/dynamodb
+    mkdir -p $BKJS_HOME/var $BKJS_HOME/log
+    params="-Xmx$(get_arg -xmx 512M)"
+    exec nohup java $params -Djava.library.path=$DYNAMODB_PREFIX/DynamoDBLocal_lib -jar $DYNAMODB_PREFIX/DynamoDBLocal.jar -dbPath $BKJS_HOME/var -port 8181 >>$BKJS_HOME/log/message.log 2>&1 &
+    ;;
+
+  stop-dynamodb)
+    kill_proc DynamoDBLocal
+    ;;
+
+  reset-dynamodb)
+    $0 stop-dynamodb
+    rm -rf $BKJS_HOME/var/*_us-east-1.db
+    $0 run-dynamodb
+    ;;
+
+  get-hazelcast)
+    [ "$HAZELCAST_PREFIX" = "" ] && HAZELCAST_PREFIX=$BKJS_PREFIX/hazelcast
+    [ "$(get_flag -force)" != "" -a "$HAZELCAST_PREFIX" != "" ] && rm -rf $HAZELCAST_PREFIX
+    if [ ! -d $HAZELCAST_PREFIX ]; then
+       mkdir -p $HAZELCAST_PREFIX
+       curl -L -o hc.tar 'http://download.hazelcast.com/download.jsp?version=hazelcast-3.8&type=tar&p=224475444'
+       tar -C $HAZELCAST_PREFIX --strip-components=1 -xf hc.tar
+       rm -rf hc.tar
+    fi
+    ;;
+
+  init-hazelcast-service)
+    find_user
+    echo "check process hazelcast with pidfile \"$BKJS_HOME/var/hazelcast.pid\" start program = \"$0 run-hazelcast $@\" as uid $BKJS_USER and gid $BKJS_GROUP stop program = \"$0 stop-hazelcast\" if failed url http://127.0.0.1:5701/ with timeout 15 seconds for 2 cycles then restart" > /etc/monit.d/hazelcast.conf
+    echo "check file hazelcast-log with path $BKJS_HOME/log/hazelcast.log if match 'java.lang.OutOfMemoryError' then exec \"$0 restart-hazelcast $@\"" >> /etc/monit.d/hazelcast.conf
+    monit reload
+    ;;
+
+  run-hazelcast)
+    [ "$HAZELCAST_PREFIX" = "" ] && HAZELCAST_PREFIX=$BKJS_PREFIX/hazelcast
+    mkdir -p $BKJS_HOME/var $BKJS_HOME/log
+    # Percent from the total memory
+    memsize=$(get_arg -memsize)
+    [ "$memsize" != "" ] && xmx="$(( ($(free -m|grep Mem:|awk '{print $2}') * $memsize) / 100 ))M"
+    [ "$xmx" = "" ] && xmx=$(get_arg -xmx 512M)
+    params="-Xmx$xmx -Dhazelcast.config=$BKJS_HOME/etc/hazelcast.xml"
+    cp=$(ls $HAZELCAST_PREFIX/lib/hazelcast-all-*.jar)
+    exec nohup java -server $params -cp $cp com.hazelcast.core.server.StartServer >>$BKJS_HOME/log/message.log 2>&1 &
+    ;;
+
+  stop-hazelcast)
+    sig=$(get_arg -signal)
+    kill_proc hazelcast.core.server $sig
+    ;;
+
+  restart-hazelcast)
+    kill_proc hazelcast.core.server
+    sleep 1
+    kill_proc hazelcast.core.server -9
+    $0 run-hazelcast "$@"
+    ;;
+
+  get-cassandra)
+    find_user
+    [ "$CASSANDRA_PREFIX" = "" ] && CASSANDRA_PREFIX=$BKJS_PREFIX/cassandra
+    [ "$CASSANDRA_DIR" = "" ] && CASSANDRA_DIR=$BKJS_HOME/var/cassandra
+    [ "$(get_arg -force)" != "" -a "$CASSANDRA_PREFIX" != "" ] && rm -rf $CASSANDRA_PREFIX
+    if [ ! -d $CASSANDRA_PREFIX ]; then
+        mkdir -p $CASSANDRA_PREFIX
+        curl -OL http://downloads.datastax.com/community/dsc.tar.gz
+        tar -C $CASSANDRA_PREFIX --strip-components=1 -xzf dsc.tar.gz
+        rm -rf dsc.tar.gz
+        $SED "s|-Dcassandra.logdir=\$CASSANDRA_HOME/logs|-Dcassandra.logdir=$BKJS_HOME/log|g" $CASSANDRA_PREFIX/bin/cassandra
+        $SED "s|/var/lib/cassandra/|$CASSANDRA_DIR|g" $CASSANDRA_PREFIX/conf/*.{yaml,properties,sh}
+        $SED "s|/var/log/cassandra/|$BKJS_HOME/log/|g" $CASSANDRA_PREFIX/conf/*.{yaml,properties,sh}
+        $SED "s|# commitlog_directory:|commitlog_directory:|" $CASSANDRA_PREFIX/conf/cassandra.yaml
+        $SED "s|# saved_caches_directory:|saved_caches_directory:|" $CASSANDRA_PREFIX/conf/cassandra.yaml
+        $SED "s|# data_file_directories:|data_file_directories:|" $CASSANDRA_PREFIX/conf/cassandra.yaml
+        $SED "s|#     - $CASSANDRA_DIR|    - $CASSANDRA_DIR|" $CASSANDRA_PREFIX/conf/cassandra.yaml
+        chown -R $BKJS_USER $CASSANDRA_PREFIX $CASSANDRA_DIR
+    fi
+    ;;
+
+  init-cassandra)
+    ($0 get-cassandra)
+    ($0 run-cassandra)
+    sleep 15
+    db=$(get_arg -db backend)
+    echo "CREATE KEYSPACE $db WITH REPLICATION = {'class': 'SimpleStrategy' , 'replication_factor': 1 };" > /tmp/cql
+    cqlsh -f /tmp/cql
+    ;;
+
+  run-cassandra)
+    mkdir -p $BKJS_HOME/var $BKJS_HOME/log
+    cassandra >>$BKJS_HOME/log/message.log 2>&1
+    ;;
+
+  stop-cassandra)
+    kill_proc cassandra
+    ;;
+
+  get-mongodb)
+    case "$PLATFORM" in
+     Darwin)
+       OS=osx
+       ;;
+     Linux)
+       OS=linux
+       ;;
+    esac
+    if [ ! -f $BKJS_PREFIX/bin/mongod ]; then
+       curl -L -o mongo.tgz http://fastdl.mongodb.org/osx/mongodb-$OS-x86_64-3.0.6.tgz
+       tar -C $BKJS_PREFIX/bin --strip-components=1 -xzf mongo.tgz '*/bin/*'
+       rm -rf mongo.tgz
+    fi
+    ;;
+
+  init-mongodb)
+    ($0 get-mongodb)
+    ($0 run-mongodb)
+    ;;
+
+  run-mongodb)
+    [ "$MONGO_DIR" = "" ] && export MONGO_DIR=$BKJS_HOME/var/mongo
+    mkdir -p $MONGO_DIR $BKJS_HOME/var $BKJS_HOME/log
+    mongod --fork --dbpath $MONGO_DIR --syslog >>$BKJS_HOME/log/message.log 2>&1
+    ;;
+
+  stop-mongodb)
+    kill_proc mongod
+    ;;
+
+  help)
+    echo ""
+    echo "Servers and tools commands:"
+    echo ""
+    echo "  init-dynamodb - download and install local DynamoDB, start the server"
+    echo "  get-dynamodb [-force] - install local DynamoDB server in $BKJS_PREFIX/dynamodb"
+    echo "  run-dynamodb - run local DynamoDB server installed in $BKJS_PREFIX/dynamodb, data files in $BKJS_HOME/var"
+    echo "  stop-dynamodb - stop local DynamoDB server"
+    echo "  reset-dynamodb - remove local DynamoDB database and restart the server"
+    echo "  init-pgsql [-db NAME] - setup and run the PostgreSQL server, install in $PG_PREFIX, data files in $PG_DIR, create initial database"
+    echo "  run-pgsql - run local PostgreSQL server"
+    echo "  stop-pgsql - stop local PostgreSQL server"
+    echo "  get-hazelcast - install HazelCast server in $BKJS_PREFIX/hazelcast"
+    echo "  run-hazelcast - run HazelCast server installed in $BKJS_PREFIX/hazelcast"
+    echo "  stop-hazelcast - stop HazelCast server"
+    echo "  get-cassandra - download and install Cassandra server in $CASSANDRA_PREFIX"
+    echo "  init-cassandra [-db DB] - download and initialize Cassandra, create initial keyspace, run the server"
+    echo "  run-cassandra - run local Cassandra server installed in $CASSANDRA_PREFIX, data files in $CASSANDRA_DIR"
+    echo "  stop-cassandra - stop local Cassandra server"
+    echo "  init-mysql [-db DB] - setup MySQL server for development and create initial database, start the server"
+    echo "  run-mysql - run local MySQL server installed in $MYSQL_DIR"
+    echo "  stop-mysql - stop local MySQL server"
+    echo "  init-mongodb - download and start the Mongo server"
+    echo "  get-mongodb - download Mongo server and install in $BKJS_PREFIX/bin"
+    echo "  run-mongodb - run local Mongo server installed in $BKJS_PREFIX/bin, db path is $MONGO_DIR"
+    echo "  stop-mongodb - stop local Mongo server"
+    ;;
+
+  *)
+    BKJS_UNKNOWN=1
+    ;;
+esac
+

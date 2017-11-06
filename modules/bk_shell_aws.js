@@ -14,6 +14,29 @@ var db = require(__dirname + '/../lib/db');
 var aws = require(__dirname + '/../lib/aws');
 var shell = require(__dirname + '/bk_shell');
 
+shell.help.push("-aws-s3-get -path PATH - retrieve a file from S3");
+shell.help.push("-aws-s3-put -path PATH -file FILE - store a file to S3");
+shell.help.push("-aws-s3-list -path PATH [-filter PATTERN] [-sort version|file|size|date|mtime] [-fmt obj|path] [-start NUM] [-count NUM] - list contents of a S3 folder");
+shell.help.push("-aws-show-amazon-images [-filter PATTERN] [-arch ARCH] [-rootdev ebs|instance-store|*] [-devtype gp2|io1|standard|*] - show Amazon Linux AMIs (use %2A instead of *)");
+shell.help.push("-aws-show-images [-filter PATTERN] - show my account AMIs by name pattern");
+shell.help.push("-aws-delete-image -filter PATTERN [-dry-run] - delete all AMIs that match the given name filter");
+shell.help.push("-aws-create-image [-name NAME] [-descr DESCR] [-no-reboot] [-reboot] [-instance-id ID] [-dry-run] - create a new AMI from the instance by id or the current instance");
+shell.help.push("-aws-launch-instances [-count NUM] [-image-name PATTERN] [-name NAME] [-group-name PATTERN] [-subnet-name PATTERN] [-subnet-split] [-subnet-each] [-user-data TEXT] [-alarm-name NAME] [-host-name HOST] [-bkjs-cmd NAME] [-cloudinit-cmd CMD] [-wait] [wait-timeout MSECS] [-wait-delay MSECS] [-dry-run] - start instance(s), the app name from the package.json is used as the base for all other resources unless explicitely defined in the command line");
+shell.help.push("-aws-reboot-instances -filter PATTERN [-dry-run] - reboot instances by tag pattern");
+shell.help.push("-aws-terminate-instances -filter PATTERN [-count NUM] [-dry-run] - terminate instances by tag pattern");
+shell.help.push("-aws-show-instances [-filter PATTERN] [-show-ip] - show running instances by tag pattern");
+shell.help.push("-aws-show-elb -elb-name NAME [-filter PATTERN] - show instances for an ELB");
+shell.help.push("-aws-reboot-elb -elb-name NAME [-timeout MSECS] [-interval MSECS] [-dry-run]");
+shell.help.push("-aws-replace-elb -elb-name NAME [-timeout MSECS] [-interval MSECS] [-dry-run]");
+shell.help.push("-aws-setup-ssh -group-name NAME [-close] [-dry-run]");
+shell.help.push("-aws-setup-instance [-cmd CMD] [-file FILE ] [-wait] [-dry-run]");
+shell.help.push("-aws-create-launch-config [-name NAME] [-config-name NAME] [-instance-name NAME] [-update-groups] [-dry-run] - create a launch configuration for autoscaling, can copy from an instance or other existing config, optinally update all ASGs with new config name");
+shell.help.push("-aws-set-route53 -name HOSTNAME [-current] [-filter PATTERN] [-type A|CNAME] [-ttl N] [-public] [-dry-run] - create or update a Route53 record of specified type with IP/hostnames of all instances that satisfy the given filter, -public makes it use public IP/hostnames");
+shell.help.push("-aws-check-cfn -file FILE - verify a CF template");
+shell.help.push("-aws-create-cfn -name NAME -file FILE [-aws-region REGION] [-retain] [-wait] [-PARAM VALUE] ...");
+shell.help.push("-aws-wait-cfn -name NAME [-aws-region REGION] - wait for the given CF stack to be completed");
+shell.help.push("-aws-show-cfn-events -name NAME [-aws-region REGION] - show events for the given stack");
+
 // Check all names in the tag set for given name pattern(s), all arguments after 0 are checked
 shell.awsCheckTags = function(obj, name)
 {

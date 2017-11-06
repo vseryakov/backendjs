@@ -1,5 +1,5 @@
 {
-  "version": "0.61.0",
+  "version": "0.62.0",
   "author": "Vlad Seryakov",
   "name": "backendjs",
   "description": "A platform for building backends",
@@ -31,9 +31,9 @@
     "cookie-session": ">= 1.0.1",
     "mmmagic": ">= 0.4.5",
     "nan": ">= 2.4.0",
-    "bkjs-utils": ">= 0.2.2",
-    "bkjs-cache": ">= 0.5.1",
-    "bkjs-sqlite": ">= 0.2.0",
+    "bkjs-utils": ">= 0.2.4",
+    "bkjs-cache": ">= 0.5.2",
+    "bkjs-sqlite": ">= 0.2.1",
     "bkjs-syslog": ">= 0.3.0",
     "bkjs-wand": ">= 0.5.0"
   },

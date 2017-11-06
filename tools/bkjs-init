@@ -1,0 +1,516 @@
+#!/bin/bash
+#
+#  Author: Vlad Seryakov vseryakov@gmail.com
+#  Sep 2013
+#
+
+case "$BKJS_CMD" in
+
+  install)
+    [ "$(whoami)" != "root" ] && echo "Run as root please" && exit 1
+    $0 init-server "$@"
+    $0 init-devel "$@"
+    find_user
+    find_nodebin
+    [ "$NODE_BIN" = "" ] && (cd $BKJS_HOME && sudo -H -u $BKJS_USER $0 install-node -prefix $BKJS_PREFIX)
+    (cd $BKJS_HOME && sudo -H -u $BKJS_USER $0 install-bkjs -deps $(get_arg -deps))
+    (cd $BKJS_HOME/bin && ln -sf ../node_modules/$BKJS_MOD/bkjs && ln -sf bkjs bksh)
+    chown -R $BKJS_USER $BKJS_HOME
+    ;;
+
+  install-ec2)
+    $0 install -user ec2-user -home /home/ec2-user -prefix /home/ec2-user "$@"
+    ;;
+
+  init-server)
+    find_user
+    echo "Installing in $BKJS_HOME for $BKJS_USER with prefix $BKJS_PREFIX ..."
+
+    # Install required packages and utilities
+    ($0 init-packages "$@")
+
+    ($0 init-hostname "$@")
+    ($0 init-ssh "$@")
+    ($0 init-user "$@")
+    ($0 init-system "$@")
+    ($0 init-service "$@")
+    ($0 init-monit-system "$@")
+    ($0 init-monit-bkjs "$@")
+    ($0 init-logrotate "$@")
+    ($0 init-rsyslog "$@")
+    ($0 init-home "$@")
+
+    # Create global profile
+    echo "BKJS_HOME=$BKJS_HOME" > /etc/sysconfig/$BKJS
+    domain=$(get_arg -domain)
+    [ "$domain" != "" ] && echo "BKJS_DOMAIN=$domain" >> /etc/sysconfig/$BKJS
+    ;;
+
+  init-hostname)
+    host=$(get_arg -host $BKJS_HOST)
+    [ "$host" = "" ] && host=$(uname -n|awk -F. '{print $1}')
+    domain=$(get_arg -domain $BKJS_DOMAIN)
+    # Set hostname with name and domain
+    if [ "$domain" = "" ]; then
+       host=$(get_arg -host)
+       [ "$host" = "" ] && exit
+       domain=$(uname -n|cut -d. -f2-)
+    fi
+    host=$host.$domain
+    [ "$(uname -n)" = "$host" ] && exit
+    echo "Configuring hostname $host ..."
+    hostname $host
+    echo $host > /etc/hostname
+    if [ -f /etc/sysconfig/network ]; then
+       echo "HOSTNAME=$host" > /tmp/network
+       grep -v HOSTNAME /etc/sysconfig/network >> /tmp/network
+       mv /tmp/network /etc/sysconfig/network
+    fi
+    ;;
+
+  init-user)
+    # Add local user
+    find_user
+    LHOME=/home/$BKJS_USER
+    if [ "$(grep -s $BKJS_USER /etc/passwd)" = "" ]; then
+       echo "Adding user $BKJS_USER..."
+       useradd -g 0 -m $BKJS_USER
+       echo "$BKJS_USER ALL = NOPASSWD: ALL" > /etc/sudoers.d/$BKJS
+       mkdir -p -m 700 $LHOME/.ssh && chown $BKJS_USER $LHOME/.ssh
+       # Copy ssh config if running on Amazon instance
+       [ -d /home/ec2-user -a "$BKJS_USER" != "ec2-user" ] && cp /home/ec2-user/.ssh/authorized_keys $LHOME/.ssh && chown $BKJS_USER $LHOME/.ssh/*
+    fi
+
+    # Allow path in sudo and skip tty for our user so we can run commands via ssh
+    if [ ! -f /etc/sudoers.d/$BKJS ]; then
+       echo "Defaults secure_path = /sbin:/bin:/usr/sbin:/usr/bin:/usr/local/bin:$BKJS_PREFIX/bin:$LHOME/bin:$LHOME/node_modules/.bin" >> /etc/sudoers.d/$BKJS
+       echo "Defaults:$BKJS_USER !requiretty" >> /etc/sudoers.d/$BKJS
+    fi
+
+    # Aliases and environment
+    if [ "$(grep -s '#Bkjs' $LHOME/.bashrc)" = "" ]; then
+       echo "Configuring .bashrc..."
+       echo '#Bkjs' >> $LHOME/.bashrc
+       echo "umask 022" >> $LHOME/.bashrc
+       echo "BKJS_HOME=$BKJS_HOME" >> $LHOME/.bashrc
+       echo "export PATH=\$PATH:$LHOME/bin:$LHOME/node_modules/.bin" >> $LHOME/.bashrc
+       echo 'alias slog="tail -100 /var/log/messages"' >> $LHOME/.bashrc
+       echo "alias clog=\"sudo tail -100 /var/log/cron\"" >> $LHOME/.bashrc
+       echo "alias mlog=\"tail -100 $BKJS_HOME/log/message.log\"" >> $LHOME/.bashrc
+       echo "alias elog=\"tail -100 $BKJS_HOME/log/error.log\"" >> $LHOME/.bashrc
+       echo "alias alog=\"tail -100 $BKJS_HOME/log/access.log\"" >> $LHOME/.bashrc
+       echo 'alias h="history"' >> $LHOME/.bashrc
+       echo 'alias ll="ls -la"' >> $LHOME/.bashrc
+       echo 'alias ps="ps augx"' >> $LHOME/.bashrc
+       echo 'alias mc="mc -b"' >> $LHOME/.bashrc
+       echo 'alias df="df -h"' >> $LHOME/.bashrc
+       echo 'bcp() { socat readline,history=$HOME/.socat tcp4:localhost:$((2080+${1-0})); }' >> $LHOME/.bashrc
+       echo 'ec2ssh() { ssh -i ~/.ssh/$2.pem -l ec2-user $1 $3; }' >> $LHOME/.bashrc
+       echo 'ec2scp() { scp -r -i ~/.ssh/$3.pem $1 ec2-user@$2; }' >> $LHOME/.bashrc
+       echo 'bkssh() { bkjs ec2-ssh -tag $1 -ip -index ${2-1}; }' >> $LHOME/.bashrc
+       echo 'bkstop() { bkjs ec2-ssh -tag ${1-api} -ip -cmd "bkjs stop-${2-api}"; }' >> $LHOME/.bashrc
+    fi
+    ;;
+
+  init-home)
+    # Create required directories
+    find_user
+    mkdir -p $BKJS_HOME/node_modules $BKJS_HOME/bin $BKJS_HOME/log $BKJS_HOME/etc $BKJS_HOME/var
+    if [ "$BKJS_USER" != "root" -a ! -f $BKJS_HOME/etc/config ]; then
+       echo "Creating default $BKJS config ..."
+       $ECHO "uid=$BKJS_USER\nforce-uid=1" > $BKJS_HOME/etc/config
+    fi
+    chown -R $BKJS_USER $BKJS_HOME
+    ;;
+
+  init-ssh)
+    # Allow only pubkey auth
+    if [ "$(grep -s '#Bkjs' /etc/ssh/sshd_config)" = "" ]; then
+       echo "Configuring ssh..."
+       egrep -v '^(#Bkjs|PasswordAuth|GSSAPIAuth|MaxAuth|MaxSess|ClientAlive|PermitRootLogin)' /etc/ssh/sshd_config > /tmp/sshd_config
+       echo "" >> /tmp/sshd_config
+       echo "#Bkjs config" >> /tmp/sshd_config
+       echo "PasswordAuthentication no" >> /tmp/sshd_config
+       echo "GSSAPIAuthentication no" >> /tmp/sshd_config
+       echo "MaxAuthTries 5" >> /tmp/sshd_config
+       echo "MaxSessions 10" >> /tmp/sshd_config
+       echo "ClientAliveInterval 15" >> /tmp/sshd_config
+       echo "ClientAliveCountMax 5" >> /tmp/sshd_config
+       echo "PermitRootLogin no" >> /tmp/sshd_config
+       mv /tmp/sshd_config /etc/ssh
+       chmod 600 /etc/sshd_config
+       service sshd restart
+    fi
+    ;;
+
+  init-logrotate)
+    # Setup logrotate for backend log files
+    if [ "$(grep -s '#Bkjs' /etc/logrotate.d/syslog)" = "" ]; then
+       echo "Configuring logrotate..."
+       echo "#Bkjs" > /etc/logrotate.d/syslog
+       echo "/var/log/cron /var/log/messages {" >> /etc/logrotate.d/syslog
+       echo " missingok" >> /etc/logrotate.d/syslog
+       echo " daily" >> /etc/logrotate.d/syslog
+       echo " rotate 30" >> /etc/logrotate.d/$BKJS
+       echo " sharedscripts" >> /etc/logrotate.d/syslog
+       echo " postrotate" >> /etc/logrotate.d/syslog
+       echo "  /usr/bin/killall -q -HUP rsyslogd" >> /etc/logrotate.d/syslog
+       echo " endscript" >> /etc/logrotate.d/syslog
+       echo "}" >> /etc/logrotate.d/syslog
+    fi
+    if [ "$(grep -s "#Bkjs $BKJS_HOME" /etc/logrotate.d/$BKJS)" = "" ]; then
+       echo "Configuring logrotate.d/$BKJS..."
+       echo "#Bkjs $BKJS_HOME" > /etc/logrotate.d/$BKJS
+       echo "$BKJS_HOME/log/message.log $BKJS_HOME/log/access.log {" >> /etc/logrotate.d/$BKJS
+       echo " missingok" >> /etc/logrotate.d/$BKJS
+       echo " daily" >> /etc/logrotate.d/$BKJS
+       echo " rotate 30" >> /etc/logrotate.d/$BKJS
+       echo " sharedscripts" >> /etc/logrotate.d/$BKJS
+       echo " postrotate" >> /etc/logrotate.d/$BKJS
+       echo "  /usr/bin/killall -q -HUP rsyslogd" >> /etc/logrotate.d/$BKJS
+       echo " endscript" >> /etc/logrotate.d/$BKJS
+       echo "}" >> /etc/logrotate.d/$BKJS
+    fi
+    ;;
+
+  init-rsyslog)
+    # Setup syslog config for backend logging
+    find_user
+    if [ "$(grep -s '#Bkjs' /etc/rsyslog.conf)" = "" ]; then
+       echo "Configuring rsyslog..."
+       echo "#Bkjs" > /etc/rsyslog.conf
+       echo '$ModLoad imklog' >> /etc/rsyslog.conf
+       echo '$ModLoad imuxsock' >> /etc/rsyslog.conf
+       echo '$ModLoad imudp' >> /etc/rsyslog.conf
+       echo '$UDPServerAddress 127.0.0.1' >> /etc/rsyslog.conf
+       echo '$UDPServerRun 514' >> /etc/rsyslog.conf
+       echo '$MaxMessageSize 64k' >> /etc/rsyslog.conf
+       echo '$SystemLogRateLimitInterval 1' >> /etc/rsyslog.conf
+       echo '$SystemLogRateLimitInterval 1' >> /etc/rsyslog.conf
+       echo '$SystemLogRateLimitBurst 10000' >> /etc/rsyslog.conf
+       echo '$ActionFileDefaultTemplate RSYSLOG_FileFormat' >> /etc/rsyslog.conf
+       echo '$IncludeConfig /etc/rsyslog.d/*.conf' >> /etc/rsyslog.conf
+       echo 'kern.*,*.emerg /dev/console' >> /etc/rsyslog.conf
+       echo 'cron.* /var/log/cron' >> /etc/rsyslog.conf
+       echo 'local7.* /var/log/boot.log' >> /etc/rsyslog.conf
+       echo "\$FileOwner $BKJS_USER" >> /etc/rsyslog.conf
+       echo '*.info;cron.none,local0.none,local5.none /var/log/messages' >> /etc/rsyslog.conf
+       rm -rf /var/log/maillog* /var/log/secure* /var/log/spooler*
+       touch /var/log/messages
+       chown -R $BKJS_USER /var/log/messages
+       service rsyslog restart
+    fi
+    if [ "$(grep -s "#Bkjs $BKJS_HOME" /etc/rsyslog.d/$BKJS.conf)" = "" ]; then
+       echo "Configuring rsyslog.d/$BKJS ..."
+       echo "#Bkjs $BKJS_HOME" > /etc/rsyslog.d/$BKJS.conf
+       echo "\$FileOwner $BKJS_USER" >> /etc/rsyslog.d/$BKJS.conf
+       echo "local0.* $BKJS_HOME/log/message.log" >> /etc/rsyslog.d/$BKJS.conf
+       echo "local5.* $BKJS_HOME/log/access.log" >> /etc/rsyslog.d/$BKJS.conf
+       mkdir -p $BKJS_HOME/log
+       chown -R $BKJS_USER $BKJS_HOME/log
+       service rsyslog restart
+    fi
+    ;;
+
+  init-system)
+    # Disable SELinux
+    if [ -f /etc/selinux/config ]; then
+        sed -i 's/SELINUX=(enforcing|permissive)/SELINUX=disabled/' /etc/selinux/config
+    fi
+
+    # Disable internal firewall
+    chkconfig iptables off
+    service iptables stop
+
+    # Make sure monit is running all the time
+    echo "set logfile syslog" > /etc/monit.d/logging
+    sed -i 's|daemon $prog|ulimit -n 512000\n\tdaemon $prog|' /etc/init.d/monit
+    chkconfig monit on
+    service monit restart
+
+    # Allow sudo use local binaries
+    sed -i 's/requiretty/!requiretty/' /etc/sudoers
+
+    # File handles and coredumps for debugging
+    if [ ! -f /etc/security/limits.d/99-$BKJS.conf ]; then
+       $ECHO '* soft core unlimited' > /etc/security/limits.d/90-$BKJS.conf
+       $ECHO '* hard core unlimited' >> /etc/security/limits.d/90-$BKJS.conf
+       $ECHO '* soft nofile 512000' >> /etc/security/limits.d/90-$BKJS.conf
+       $ECHO '* hard nofile 512000' >> /etc/security/limits.d/90-$BKJS.conf
+       $ECHO 'root soft nofile 512000' >> /etc/security/limits.d/90-$BKJS.conf
+       $ECHO 'root hard nofile 512000' >> /etc/security/limits.d/90-$BKJS.conf
+       $ECHO '* soft memlock unlimited' >> /etc/security/limits.d/90-$BKJS.conf
+       $ECHO '* hard memlock unlimited' >> /etc/security/limits.d/90-$BKJS.conf
+       $ECHO 'root soft memlock unlimited' >> /etc/security/limits.d/90-$BKJS.conf
+       $ECHO 'root hard memlock unlimited' >> /etc/security/limits.d/90-$BKJS.conf
+       $ECHO '* soft as unlimited' >> /etc/security/limits.d/90-$BKJS.conf
+       $ECHO '* hard as unlimited' >> /etc/security/limits.d/90-$BKJS.conf
+       $ECHO 'root soft as unlimited' >> /etc/security/limits.d/90-$BKJS.conf
+       $ECHO 'root hard as unlimited' >> /etc/security/limits.d/90-$BKJS.conf
+    fi
+
+    # System tuning
+    if [ "$(grep -s '#Bkjs' /etc/sysctl.conf)" = "" ]; then
+       echo "#Bkjs" >> /etc/sysctl.conf
+       echo 'fs.file-max=512000' >> /etc/sysctl.conf
+       echo 'kernel.core_uses_pid=0' >> /etc/sysctl.conf
+       echo 'vm.max_map_count=262144' >> /etc/sysctl.conf
+       echo 'vm.min_free_kbytes=65536' >> /etc/sysctl.conf
+       echo 'net.core.somaxconn=16384' >> /etc/sysctl.conf
+       echo 'net.core.netdev_max_backlog=16384' >> /etc/sysctl.conf
+       echo 'net.core.rmem_max=8388608' >> /etc/sysctl.conf
+       echo 'net.core.wmem_max=8388608' >> /etc/sysctl.conf
+       echo 'net.ipv4.tcp_rfc1337=1' >> /etc/sysctl.conf
+       echo 'net.ipv4.ip_local_port_range=1024 65000' >> /etc/sysctl.conf
+       echo 'net.ipv4.tcp_max_tw_buckets=400000' >> /etc/sysctl.conf
+       echo 'net.ipv4.tcp_tw_reuse=1' >> /etc/sysctl.conf
+       echo 'net.ipv4.tcp_tw_recycle=1' >> /etc/sysctl.conf
+       echo 'net.ipv4.tcp_fin_timeout=15' >> /etc/sysctl.conf
+       echo 'net.ipv4.tcp_keepalive_intvl=15' >> /etc/sysctl.conf
+       echo 'net.ipv4.tcp_slow_start_after_idle=0' >> /etc/sysctl.conf
+       echo 'net.ipv4.tcp_max_orphans=262144' >> /etc/sysctl.conf
+       echo 'net.ipv4.tcp_max_syn_backlog=16384' >> /etc/sysctl.conf
+       echo 'net.ipv4.tcp_no_metrics_save=1' >> /etc/sysctl.conf
+       echo 'net.ipv4.tcp_syn_retries=2' >> /etc/sysctl.conf
+       echo 'net.ipv4.tcp_synack_retries=2' >> /etc/sysctl.conf
+       echo 'net.ipv4.tcp_rmem=8192 256000 8388608' >> /etc/sysctl.conf
+       echo 'net.ipv4.tcp_wmem=4096 256000 8388608' >> /etc/sysctl.conf
+       echo 'net.ipv4.tcp_challenge_ack_limit = 999999999' >> /etc/sysctl.conf
+       sysctl -p /etc/sysctl.conf
+    fi
+    ;;
+
+  init-postfix)
+    # Setup postfix with origin domain name
+    if [ "$(grep -s '#Bkjs' /etc/postfix/main.cf)" = "" ]; then
+       yum -y -q remove sendmail
+       yum -y -q install postfix
+       echo "Configuring postfix..."
+       echo '#Bkjs' > /tmp/main.cf
+       echo 'myorigin = $mydomain' >> /tmp/main.cf
+       egrep -v '^(#Bkjs|myorigin)' /etc/postfix/main.cf >> /tmp/main.cf
+       mv /tmp/main.cf /etc/postfix
+       chkconfig postfix on
+       postfix start
+    fi
+    ;;
+
+  init-dns)
+    # DNS cache
+    if [ "$(grep -s '#Bkjs' /etc/dnsmasq.conf)" = "" ]; then
+       yum -y -q install dnsmasq
+       echo "#Bkjs" > /etc/dnsmasq.conf
+       echo "domain-needed" >> /etc/dnsmasq.conf
+       echo "bogus-priv" >> /etc/dnsmasq.conf
+       echo "no-resolv" >> /etc/dnsmasq.conf
+       echo "no-poll" >> /etc/dnsmasq.conf
+       grep nameserver /etc/resolv.conf |grep -v 127|sed 's/nameserver /server=/' >> /etc/dnsmasq.conf
+       echo "server=8.8.8.8" >> /etc/dnsmasq.conf
+       echo "server=8.8.4.4" >> /etc/dnsmasq.conf
+       echo "listen-address=127.0.0.1" >> /etc/dnsmasq.conf
+       echo "no-dhcp-interface=" >> /etc/dnsmasq.conf
+       echo "nameserver 127.0.0.1" > /etc/resolv.conf
+       echo "search $BKJS_DNS" >> /etc/resolv.conf
+       chkconfig dnsmasq on
+       service dnsmasq restart
+    fi
+    ;;
+
+  init-adhoc)
+    find_bkjsbin
+    # Duplicate messages to the console for easier access
+    echo '*.info /dev/console' > /etc/rsyslog.d/console.conf
+    truncate -c -s 0 /var/log/messages $BKJS_HOME/log/message.log $BKJS_HOME/log/error.log
+    service rsyslog restart
+    # Support for shutdown as normal user for instances
+    chmod u+s /sbin/reboot
+    # Make sure instances are not running indefinitely
+    cron=$(get_arg -cron "*/30 * * * *")
+    echo 'MAILTO=""' > /etc/cron.d/$BKJS-adhoc
+    echo "$cron root $BKJS_BIN check-adhoc" >> /etc/cron.d/$BKJS-adhoc
+    ;;
+
+  init-service)
+    find_user
+    find_bkjsbin
+    # Install service for a script or bkjs service
+    path=$(get_arg -path $BKJS_BIN)
+    service=$(basename $path | awk -F. '{print $1}')
+    echo "Init service $service with $path"
+    ln -sf $path /etc/init.d/$service
+    chkconfig $service on
+    server=$(get_arg -server)
+    if [ "$server" != "" ]; then
+       echo "BKJS_SERVER=$server" > /tmp/profile
+       grep -vs BKJS_SERVER $BKJS_HOME/etc/profile >> /tmp/profile
+       mv /tmp/profile $BKJS_HOME/etc
+       chown $BKJS_USER $BKJS_HOME/etc/profile
+    fi
+    # Execute a command if given
+    cmd=$(get_arg -cmd)
+    [ "$cmd" != "" ] && service $service $cmd
+    ;;
+
+  stop-service)
+    find_bkjsbin
+    path=$(get_arg -path $BKJS_BIN)
+    service=$(basename $path | awk -F. '{print $1}')
+    echo "Stopping service $service with $path"
+    chkconfig $service off
+    $0 stop-monit-$service
+    $0 stop
+    ;;
+
+  init-mfa)
+    [ "$(whoami)" != "root" ] && echo "Run as root please" && exit 1
+    yum install google-authenticator –y
+    if [ "$(egrep -s 'pam_google_authenticator' /etc/pam.d/sshd)" = "" ]; then
+       sed -i -r 's|^auth[ \t]+substack[ \t]+password-auth|auth required pam_google_authenticator.so\n#auth substack password-auth|' /etc/pam.d/sshd
+    fi
+    if [ "$(egrep -s 'pam_google_authenticator' /etc/pam.d/system-auth)" = "" ]; then
+       sed -i -r 's|^auth[ \t]+sufficient[ \t]+pam_unix.so nullok try_first_pass|auth requisite pam_unix.so nullok try_first_pass\nauth sufficient pam_google_authenticator.so|' /etc/pam.d/system-auth
+    fi
+    echo >> /etc/ssh/sshd_config
+    if [ "$(egrep -s '^ChallengeResponseAuthentication yes' /etc/ssh/sshd_config)" = "" ]; then
+       sed -i -r 's|^ChallengeResponseAuthentication|#ChallengeResponseAuthentication|' /etc/ssh/sshd_config
+       echo 'ChallengeResponseAuthentication yes' >> /etc/ssh/sshd_config
+    fi
+    if [ "$(egrep -s '^AuthenticationMethods publickey,keyboard-interactive' /etc/ssh/sshd_config)" = "" ]; then
+       sed -i -r 's|^AuthenticationMethods|#AuthenticationMethods|' /etc/ssh/sshd_config
+       echo 'AuthenticationMethods publickey,keyboard-interactive' >> /etc/ssh/sshd_config
+    fi
+    su $(get_arg -user ec2-user) -c "google-authenticator -d -t -f -r 2 -R 30"
+    ;;
+
+  init-logwatcher)
+    find_user
+    find_bkjsbin
+    cron=$(get_arg -cron '*/30 * * * *')
+    echo 'MAILTO=""' > /etc/cron.d/$BKJS-logwatcher
+    echo "$cron $BKJS_USER $BKJS_BIN logwatcher" >> /etc/cron.d/$BKJS-logwatcher
+    ;;
+
+  init-packages)
+    # Install required runtime packages
+    packages="ntp rsync wget socat mc nano man telnet daemonize monit redis"
+
+    yum -y -q update
+
+    # Linux distro specific actions
+    case "$OS_TYPE" in
+      centos)
+         rpm -i http://mirror.pnl.gov/epel/6/x86_64/epel-release-6-8.noarch.rpm
+         ;;
+
+      amazon)
+         yum-config-manager --enable epel
+         yum remove java-1.7.0-openjdk
+         packages="$packages java-1.8.0"
+         ;;
+    esac
+    sleep 10
+    yum -y -q install $packages
+
+    # Daemon superviser with respawn ability
+    if [ "$(which daemon 2>/dev/null)" == "" ]; then
+       rpm -i http://libslack.org/daemon/download/daemon-0.6.4-1.x86_64.rpm
+    fi
+    ;;
+
+  init-devel)
+    # Install development packages for compiling node and modules
+    packages="git svn gdb gcc-c++ make cmake autoconf automake libtool"
+    packages="$packages libuuid-devel openssl-devel libxml2-devel openldap-devel readline-devel libpng-devel libjpeg-turbo-devel"
+    yum -y -q install $packages
+    ;;
+
+  init-sendmail-ses)
+    get_config user -user
+    get_config host -host
+    get_config password -password
+    [ "$user" = "" -o "$password" = "" -o "$host" = "" ] && echo "-host,-user,-password must be provided" && exit
+    yum -y install sendmail-cf
+    echo "AuthInfo:$host \"U:root\" \"I:$user\" \"P:$password\" \"M:LOGIN\"" > /etc/mail/authinfo
+    if [[ $host =~ us-east ]]; then
+       echo "AuthInfo:ses-smtp-prod-335357831.us-east-1.elb.amazonaws.com \"U:root\" \"I:$user\" \"P:$password\" \"M:LOGIN\"" >> /etc/mail/authinfo
+    fi
+    if [[ $host =~ us-west ]]; then
+       echo "AuthInfo:ses-smtp-us-west-2-prod-14896026.us-west-2.elb.amazonaws.com \"U:root\" \"I:$user\" \"P:$password\" \"M:LOGIN\"" >> /etc/mail/authinfo
+    fi
+    makemap hash /etc/mail/authinfo.db < /etc/mail/authinfo
+    if [ "$(grep -s "$host" /etc/mail/access)" = "" ]; then
+       echo "Connect:$host RELAY" >> /etc/mail/access
+       makemap hash /etc/mail/access.db < /etc/mail/access
+    fi
+    if [ "$(grep -s "ses-smtp" /etc/mail/access)" = "" ]; then
+       if [[ $host =~ us-east ]]; then
+          echo "Connect:ses-smtp-prod-335357831.us-east-1.elb.amazonaws.com RELAY" >> /etc/mail/access
+       fi
+       if [[ $host =~ us-west ]]; then
+          echo "Connect:ses-smtp-us-west-2-prod-14896026.us-west-2.elb.amazonaws.com RELAY" >> /etc/mail/access
+       fi
+       makemap hash /etc/mail/access.db < /etc/mail/access
+    fi
+    file=/etc/mail/relay.mc
+    egrep -v '^MAILER' /etc/mail/sendmail.mc > $file
+    echo "define(\`SMART_HOST', \`$host')dnl" >> $file
+    echo "define(\`RELAY_MAILER_ARGS', \`TCP \$h 587')dnl" >> $file
+    echo "define(\`confAUTH_MECHANISMS', \`LOGIN PLAIN')dnl" >> $file
+    echo "FEATURE(\`authinfo', \`hash -o /etc/mail/authinfo.db')dnl" >> $file
+    get_config domain -domain
+    if [ "$domain" != "" ]; then
+       echo "MASQUERADE_AS(\`$domain')dnl" >> $file
+       echo "FEATURE(masquerade_envelope)dnl" >> $file
+       echo "FEATURE(masquerade_entire_domain)dnl" >> $file
+    fi
+    egrep '^MAILER' /etc/mail/sendmail.mc >> $file
+    m4 $file > /etc/mail/sendmail.cf
+    service sendmail restart
+    ;;
+
+  init-sendmail-ses-relay)
+    off=$(get_flag -off)
+    if [ "$off" != "" ]; then
+       if [ "$(egrep -s -E "^DSemail-smtp" /etc/mail/sendmail.cf)" != "" ]; then
+          sed -i 's/^DSemail-smtp/#DSemail-smtp/' /etc/mail/sendmail.cf
+          service sendmail restart
+       fi
+    else
+       if [ "$(egrep -s -E "^DSemail-smtp" /etc/mail/sendmail.cf)" = "" ]; then
+          sed -r -i 's/^#+DSemail-smtp/DSemail-smtp/' /etc/mail/sendmail.cf
+          service sendmail restart
+       fi
+    fi
+    ;;
+
+  help)
+    echo ""
+    echo "Instance setup commands:"
+    echo ""
+    echo "  install - [-user USER] [-home HOME] [-prefix $PREFIX] [-doman DOMAIN] [-host HOST] - make server setup and install all pakages including node and the $BKJS_MOD"
+    echo "  install-ec2 - setup server on EC2 instance in the ec2-user home"
+    echo "  init-server [-user USER] [-home HOME] [-prefix $PREFIX] [-doman DOMAIN] [-host HOST] - initialize the backend environment, setup the Linux server with packages and change system config files for production use (Amazon AMI, CentOS)"
+    echo "  init-hostname [-host HOST] [-domain DOMAIN] - set the hostname"
+    echo "  init-user [-user NAME] - create a new user for the backend"
+    echo "  init-ssh - setup SSH permissions, allow only public key auth"
+    echo "  init-logrotate - setup logrotate for the backend log files"
+    echo "  init-rsyslog - setup rsyslog to use for the backend logging, access log and backend log"
+    echo "  init-system - setup system wide parameters, tuniing, limits, permissions"
+    echo "  init-postfix - [-domain DOMAIN] install and configure postfix for the domain"
+    echo "  init-sendmail - [-domain DOMAIN] -host HOST -user USER -password PW - configure sendmail as relay to SES SMTP"
+    echo "  init-dns - install and setup dnsmasq for local cahching DNS server"
+    echo "  init-adhoc - configure for running temporary ad-hoc instances"
+    echo "  init-service [-server NAME] - create $BKJS service to be run on server startup, i.e. makes symlink /etc/init.d/$BKJS after which regular 'service' command can be used to manage the $BKJS service"
+    echo "  stop-service - stop $BKJS service from starting on startup"
+    echo "  init-packages - install required packges and updates"
+    echo "  init-devel - install development packages for node and modules compiclation"
+    echo "  init-home - setup backend home with required folders"
+    echo "  init-mfa [-user ec2-user] - initialize EC2 instance with multi-factor authentication using Google authenticator"
+    echo "  init-logwatcher - creates a crontab file in /etc/cron.d to periodically run the log watcher, -cron can specify full cron time spec"
+    ;;
+
+  *)
+    BKJS_UNKNOWN=1
+    ;;
+esac
+

@@ -1,0 +1,98 @@
+#!/bin/bash
+#
+#  Author: Vlad Seryakov vseryakov@gmail.com
+#  Sep 2013
+#
+
+case "$BKJS_CMD" in
+
+  get-redis)
+    # Install redis server
+    case "$PLATFORM" in
+     Darwin)
+       OS=osx
+       REDIS_PREFIX=$BKJS_PREFIX
+       ;;
+     Linux)
+       sudo yum remove -y redis
+       sudo yum install -y jemalloc
+       REDIS_PREFIX=$BKJS_HOME
+       ;;
+    esac
+
+    ver=$(get_arg -version 3.2.11)
+    curl -L -o redis.tgz http://download.redis.io/releases/redis-$ver.tar.gz
+
+    mkdir -p redis $BKJS_HOME/etc
+    tar -C redis --strip-components=1 -xzf redis.tgz
+    make -C redis install PREFIX=$REDIS_PREFIX
+    cp redis/redis.conf $BKJS_HOME/etc
+    rm -rf redis redis.tgz
+    $SED -e 's|^# syslog-enabled no|syslog-enabled yes|' \
+         -e "s|^dir ./|dir $BKJS_HOME/var/|" \
+         -e "s|^timeout 0|timeout 3600|" \
+         -e "s|^bind|# bind|" \
+         -e "s|^protected-mode yes|protected-mode no|" \
+         -e "s|^pidfile /var/run/redis.+|pidfile $BKJS_HOME/var/redis.pid|" \
+         -e "s|^logfile \"\"|logfile $BKJS_HOME/log/redis.log|" \
+         -e "s|^tcp-keepalive .+|tcp-keepalive 60|" \
+         -e "s|^maxmemory-policy .+|maxmemory-policy volatile-lru|" \
+         -e "s|^# maxmemory-policy .+|maxmemory-policy volatile-lru|" \
+         -e 's|^daemonize no|daemonize yes|' \
+         $BKJS_HOME/etc/redis.conf
+    ;;
+
+  init-redis)
+    ($0 get-redis)
+    ($0 run-redis)
+    if [ "$PLATFORM" = "Linux" ]; then
+       sudo $0 init-monit-redis
+    fi
+    ;;
+
+  run-redis)
+    # Percent from the total memory
+    memsize=$(get_arg -memsize)
+    [ "$memsize" != "" ] && memmax="$(( ($(free -m|grep Mem:|awk '{print $2}') * $memsize) / 100 ))mb"
+    memmax=$(get_arg -memmax $memmax)
+    if [ "$memmax" != "" ]; then
+       sed -r -i -e "s|^maxmemory .+|maxmemory $memmax|" -e "s|^# maxmemory .+|maxmemory $memmax|" $BKJS_HOME/etc/redis.conf
+    fi
+    redis-server $BKJS_HOME/etc/redis.conf
+    slavehost=$(get_arg -slave-host)
+    slaveport=$(get_arg -slave-port 6379)
+    if [ "$slavehost" != "" ]; then
+       redis-cli slaveof $slavehost $slaveport
+    fi
+    ;;
+
+  stop-redis)
+    $KILLALL redis-server
+    ;;
+
+  run-sentinel)
+    redis-sentinel $BKJS_HOME/etc/sentinel.conf
+    ;;
+
+  stop-sentinel)
+    $KILLALL redis-sentinel
+    ;;
+
+  help)
+    echo ""
+    echo "Redis commands:"
+    echo ""
+    echo "  get-redis - install Redis server into $REDIS_PREFIX, removes current redis package if installed (Linux only)"
+    echo "  init-redis - install and setup Redis server to be run on start and to be monitored (Linux only)"
+    echo "  run-redis [-memsize PERCENT] [-memmax SIZE] [-slave-host HOST] - run local Redis server, uses config file $REDIS_CONF"
+    echo "  stop-redis - stop local Redis server"
+    echo "  run-sentinel - run local Redis Sentinel server, uses config file $REDIS_PREFIX/sentinel.conf"
+    echo "  stop-sentinel - stop local Redis Sentinel server"
+    echo ""
+    ;;
+
+  *)
+    BKJS_UNKNOWN=1
+    ;;
+esac
+

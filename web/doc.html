@@ -449,7 +449,7 @@ methods.</p>
 separate NPM packages, the structure is the same, modules must be in the modules/ folder and the package must be loadable
 via require as usual. In most cases just empty index.js is enough. Such modules will not be loaded via rrquire though but
 by the backendjs <code>core.loadModule</code> machinery, the NPM packages are just keep different module directories separate from each other.</p>
-<p>The config parameter <code>npm-packages</code> can be used to specify NPM package names to be loaded separated by comma, as with the default
+<p>The config parameter <code>allow-packages</code> can be used to specify NPM package names to be loaded separated by comma, as with the default
 application structure all subfolders inside each NPM package will be added to the core:</p>
 <ul>
 <li>modules will be loaded from the modules/ older</li>
@@ -930,7 +930,7 @@ new image configuration.</p>
 <li><p>install commands</p>
 <pre><code>  yum-config-manager --enable epel
   sudo yum install npm
-  npm install backendjs --backendjs_imagemagick
+  npm install backendjs
   sudo bkjs init-service
   bkjs restart
 </code></pre></li>
@@ -944,8 +944,8 @@ new image configuration.</p>
 <li>start new AWS instance via AWS console, use Amazon Linux or CentOS 6</li>
 <li>login as <code>ec2-user</code></li>
 <li><p>install commands</p>
-<pre><code>  curl -L -o /tmp/bkjs http://bkjs.io/bkjs &amp;&amp; chmod 755 /tmp/bkjs
-  /tmp/bkjs install -user ec2-user -prefix ec2-user
+<pre><code>  git clone https://github.com/vseryakov/backendjs.git
+  backendjs/bkjs install-ec2
   bkjs restart
 </code></pre></li>
 <li><p>run <code>ps agx</code>, it should show several backend processes running</p>
@@ -1040,23 +1040,13 @@ all config parameters support DNS store. To see which parmeteres can be stored i
 <li><p>if node.js is already installed skip to the next section</p>
 <ul>
 <li><p>to install binary release run the command, it will install it into /opt/local on Darwin</p>
-<pre><code>   ./bkjs get-node
+<pre><code>   ./bkjs install-node
 
    # To install into different path
-   ./bkjs get-node -prefix /usr/local/node
-</code></pre></li>
-<li><p>node.js can be compiled by the bkjs and installed into default location, on Darwin it is /opt/local</p>
-<ul>
-<li><p>to install node.js in $BKJS_PREFIX/bin run command:</p>
-<pre><code>./bkjs build-node
-</code></pre></li>
-<li><p>to specify a different install path for the node run</p>
-<pre><code>./bksj build-node -prefix $HOME
+   ./bkjs install-node -prefix /usr/local/node
 </code></pre></li>
 <li><p><strong>Important</strong>: Add NODE_PATH=$BKJS_PREFIX/lib/node_modules to your environment in .profile or .bash_profile so
 node can find global modules, replace $BKJS_PREFIX with the actual path unless this variable is also set in the .profile</p>
-</li>
-</ul>
 </li>
 </ul>
 </li>
@@ -2288,7 +2278,7 @@ Database pool statistics and other diagnostics</p>
 <li><code>views-path</code> - Path where to keep virtual hosts web pages, every subdirectory name is a host name to match with Host: header, www. is always stripped before matching vhost directory</li>
 <li><code>modules-path</code> - Directory from where to load modules, these are the backendjs modules but in the same format and same conventions as regular node.js modules, the format of the files is NAME_{web,worker,shell}.js. The modules can load any other files or directories, this is just an entry point</li>
 <li><code>locales-path</code> - Path where to keep locale translations</li>
-<li><code>npm-packages</code> - NPM packages to load on startup, the modules, locales, viewes, web subfolders from the package will be added automatically to the system paths, modules will be loaded if present, the config file in etc subfolder will be parsed if present</li>
+<li><code>allow-packages</code> - NPM packages to load on startup, the modules, locales, viewes, web subfolders from the package will be added automatically to the system paths, modules will be loaded if present, the config file in etc subfolder will be parsed if present</li>
 <li><code>uid</code> - User id or name to switch after startup if running as root, used by Web servers and job workers</li>
 <li><code>gid</code> - Group id or name to switch after startup if running to root</li>
 <li><code>role</code> - Override servers roles, this may have very strange side effects and should only be used for testing purposes</li>
@@ -2319,6 +2309,7 @@ Database pool statistics and other diagnostics</p>
 <li><code>proxy-port</code> - Start the HTTP reverse proxy server, all Web workers will listen on different ports and will be load-balanced by the proxy, the proxy server will listen on global HTTP port and all workers will listen on ports starting with the proxy-port</li>
 <li><code>proxy-ssl</code> - Start HTTPS reverse proxy to accept incoming SSL requests, ssl-key/cert must be defined</li>
 <li><code>app-name</code> - Set appName and version explicitely an skip reading it from package.json, it can be just a name or name-version</li>
+<li><code>app-package</code> - NPM package containing the application package.json, it will be added to the list of package.json files for app name and version discovery. The package must be included in the -allow-packages list.</li>
 <li><code>instance-tag</code> - Set instance tag explicitely, skip all meta data checks for it</li>
 <li><code>instance-region</code> - Set instance region explicitely, skip all meta data checks for it</li>
 <li><code>instance-zone</code> - Set instance zone explicitely, skip all meta data checks for it</li>
@@ -4915,6 +4906,12 @@ types <code>myapp</code> and <code>prod-myapp</code>, then the last value will b
 </ul>
 <p><strong>NOTE: The config parameters from the DB always take precedence even over config.local.</strong></p>
 <p>On return, the callback second argument will receive all parameters received form the database as a list: -name value ...</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.getConfig(options, callback)</code></p>
+<p> Return all config records for the given instance, the result will be sorted most relevant at the top</p>
 </li>
 </ul>
 

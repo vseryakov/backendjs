@@ -13,6 +13,18 @@ var logger = require(__dirname + '/../lib/logger');
 var db = require(__dirname + '/../lib/db');
 var shell = require(__dirname + '/bk_shell');
 
+shell.help.push("-db-get-config [-separator =] [-format text] [-run-mode MODE] [-app-name NAME] [name VALUE ...] - show all config parameters retrieved from the remote database bk_config table for the current environment, to simulate another environment pass the following arguments as name value pairs: role, network, region, zone, tag");
+shell.help.push("-db-tables [-separator nl] - list all table names for the current db pool");
+shell.help.push("-db-select -table TABLE [-separator !] [-format text] [name VALUE ...] - return all records from the table or only that match given column values, all supported by db.select options are supported by prefixing with underscore like _count 10, the format is the same as for API query parameters");
+shell.help.push("-db-scan -table TABLE [name VALUE ...] - return all records from the table using scan operation, same arg as for db-select");
+shell.help.push("-db-get -table TABLE [name VALUE ...] - return a record from the table for given primary key");
+shell.help.push("-db-put -table TABLE name VALUE ... - add or replace a record in the config table, name value pairs are column name and value to be set for the record to be added");
+shell.help.push("-db-del -table TABLE name VALUE ... - delete a record from the table, name value pairs must define a primary key for the table");
+shell.help.push("-db-del-all -table TABLE name VALUE ... - delete all records from the table that match the search criteria, name value pairs must define a primary key for the table");
+shell.help.push("-db-drop -table TABLE name [-nowait] - drop a table");
+shell.help.push("-db-backup [-path PATH] [-tables LIST] [-skip LIST] - save tables into json files in the home or specified path");
+shell.help.push("-db-restore [-path PATH] [-tables LIST] [-skip LIST] [-mapping ID1,ID2...] [-drop] [-continue] [-progress N] [-op add|update|put] [-noexit] [-exitdelay MS] - restore tables from json files located in the home or specified path");
+
 // Show all config parameters
 shell.cmdDbGetConfig = function(options)
 {

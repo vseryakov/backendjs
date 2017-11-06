@@ -1,0 +1,134 @@
+#!/bin/bash
+#
+#  Author: Vlad Seryakov vseryakov@gmail.com
+#  Sep 2013
+#
+
+case "$BKJS_CMD" in
+
+  check-server)
+    if [ "$OS_TYPE" = "amazon" ]; then
+       region=$(curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone/|sed 's/[a-z]$//')
+       aws configure set region $region
+       [ "$(whoami)" = "root" ] && su ec2-user -c "aws configure set region $region"
+    fi
+    ;;
+
+  send-alert)
+    topic=$(get_config_value alert-topic)
+    if [ "$topic" != "" ]; then
+       region=$(get_arg -region)
+       [ "$region" != "" ] && region="--region $region"
+       aws sns publish $region --topic-arn $topic --message "$msg"
+       [ "$?" = "0" ] && exit 0
+    fi
+    ;;
+
+  ec2-show)
+    region=$(get_arg -region)
+    [ "$region" != "" ] && region="--region $region"
+    tag=$(get_arg -tag)
+    [ "$tag" != "" ] && tags="Name=tag:Name,Values=${tag}"
+    instances=$(aws ec2 describe-instances $region --filter "Name=instance-state-name,Values=running" $tags --query 'Reservations[*].Instances[*].[InstanceId,PrivateIpAddress,PublicIpAddress,KeyName,Tags[?Key==`Name`]]' --output text|awk '{if($4=="None")print $0;else if($1=="Name")print $2;else printf "%s ",$0;}')
+    fmt=$(get_arg -fmt)
+    [ "$fmt" != "" ] && instances=$(echo "$instances"|awk "{print $(echo $fmt|sed -e 's/id/\$1/' -e 's/ip/\$2/' -e 's/host/\$3/' -e 's/key/\$4/' -e 's/name/\$5/')}")
+    if [ "$PLATFORM" = "Linux" -a "$(get_flag -nomyip)" != "" ]; then
+       ip=$(/sbin/ifconfig eth0|grep 'inet '|sed 's/addr://'|awk '{print $2}')
+       instances=$(echo $instances|sed "s/$ip//")
+    fi
+    if [ "$(get_flag -line)" != "" ]; then
+       echo "$instances" | tr '\n' ' '
+    else
+       echo "$instances"
+    fi
+    ;;
+
+  ec2-host)
+    $0 ec2-show -line -nomyip -fmt ip -tag $(get_arg -tag) -region $(get_arg -region)
+    ;;
+
+  ec2-ssh)
+    tag=$(get_arg -tag)
+    [ "$tag" = "" ] && echo "-tag is required" && exit 1
+    user=$(get_arg -user ec2-user)
+    region=$(get_arg -region)
+    index=$(get_arg -index 1)
+    [ "$(get_flag -ip)" != "" ] && host=ip
+    instance=$($0 ec2-show -region "$region" -fmt "${host:-host},key" -tag "$tag"|head -$index|tail -1)
+    [ "$instance" = "" ] && exit 1
+    host=$(echo $instance|awk '{print $1}')
+    key=$(echo $instance|awk '{print $2}')
+    cmd="ssh -l $user"
+    [ -f "~/.ssh/$key.pem" ] && cmd="$cmd -i ~/.ssh/$key.pem"
+    cmd="$cmd $host $(get_arg -cmd)"
+    [ "$(get_flag -debug)" != "" ] && echo $cmd
+    eval $cmd
+    ;;
+
+  ec2-run)
+    cmd=$(get_arg -cmd)
+    [ "$cmd" = "" ] && echo "-cmd is required" && exit 1
+    id=$(get_arg -id)
+    tag=$(get_arg -tag)
+    region=$(get_arg -region)
+    if [ "$id" = "all" -o "$tag" = "all" ]; then
+       id=$($0 ec2-show -region "$region" -fmt id|awk '{printf "%s,",$1}'|sed 's/,$//')
+       tag=""
+    fi
+    [ "$id" != "" ] && targets="Key=instanceIds,Values=$id"
+    [ "$tag" != "" ] && targets="Key=tag:Name,Values=$tag"
+    [ "$targets" = "" ] && echo "no targets specified, either -tag or -id is required" && exit 1
+    user=$(get_arg -user)
+    [ "$user" != "" ] && cmd="su -l $user -c '$(cmd)'"
+    [ "$region" != "" ] && region="--region $region"
+    aws ssm send-command --targets $targets --document-name "AWS-RunShellScript" --parameters "commands=[\"$cmd\"]" $region
+    ;;
+
+  ec2-region)
+    echo $(curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone/|sed 's/[a-z]$//')
+    ;;
+
+  ec2-tag)
+    instance=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
+    aws ec2 describe-tags --filter "Name=key,Values=Name" --filter "resource-type=instance" --filter "Name=resource-id,Values=$instance" --output text| cut -f5|head -1
+    ;;
+
+  ec2-stop-api)
+    $0 ec2-run -tag $(get_arg -tag api) -user $(get_arg -user ec2-user) -cmd "bkjs stop-api"
+    ;;
+
+  create-ami)
+    tag=$(get_arg -tag api)
+    [ "`uname -s`" = "Linux" ] && echo 1 > $HOME/var/bkjs.init
+    bksh -aws-create-image -wait -instance-id $(bkjs ec2-show -tag $tag -fmt id | head -1)
+    rm -f $HOME/var/bkjs.init
+    ;;
+
+  create-launch-config)
+    name=$(get_arg -name)
+    if [ -z "$name" ]; then
+       name=$(aws autoscaling describe-launch-configurations --query 'LaunchConfigurations[*].LaunchConfigurationName' --output text|sed 's/[0-9\.-]//g'|sed 's/\t/\n/g'|sort|uniq)
+    fi
+    for c in $name; do bksh -aws-create-launch-config -config-name $c -update-groups; done
+    ;;
+
+  help)
+    echo ""
+    echo "AWS provisioning commands using:"
+    echo ""
+    echo "  ec2-show [-region region] [-tag NAME] [-fmt fmt]- show running instances in region, optional tag pattern can be used for filter, FMT may contain: id,ip,host,key,name which will be replaced with actual values"
+    echo "  ec2-run -tag NAME [-id ID] -cmd cmd [-region  region] - run a command over SSM by tag name or instance id, if -tag or -id one is 'all' then all instances will run the command"
+    echo "  ec2-ssh -tag NAME [-region region] [-ip] [-cmd cmd] - ssh into a host by tag name, key name will be used to specify a keypair from ~/.ssh/, -cmd if specified will be run on the remote host"
+    echo "  ec2-host [-tag NAME] - show running instances local IP addresses by tag"
+    echo "  ec2-region - current instance region"
+    echo "  ec2-tag - current instance tag name"
+    echo "  ec2-stop-api [-tag NAME] - restart gracefully on the specified instances by tag"
+    echo "  create-ami [-tag NAME] - create a new AMI from the given running instance by tag(api default)"
+    echo "  create-launch-config [-name NAME] - create new launch configuration from the latest AMI, if no -name is given all existing configs will be copied"
+    ;;
+
+  *)
+    BKJS_UNKNOWN=1
+    ;;
+esac
+

@@ -18,6 +18,18 @@ var jobs = require(__dirname + '/../lib/jobs');
 
 var shell = {
     name: "bk_shell",
+    help: [
+        "-show-info - show app and version information",
+        "-run-file -file FILE.js - load a script and run it if it exports run function",
+        "-account-get ID|LOGIN ... - show accounts by id or login",
+        "-account-add [-scramble] login LOGIN secret SECRET [name NAME] [email EMAIL] [type TYPE] ... - add a new user for API access, any property from bk_account can be passed in the form: name value, if -scramble is given, store HMAC for login/secret, not real values ",
+        "-account-update [-scramble] [login LOGIN|id ID] [name NAME] [email EMAIL] [type TYPE] ... - update existing user properties, any property from bk_account can be passed in the form: name value ",
+        "-account-del [login LOGIN|id ID] [-keep message] [-keep location]... - delete a new user, 'keep TABLE' tells which records to keep the TABLE being account tables without bk_ prefix, one of auth,counter,account,location,connection,message,icon",
+        "-location-put [login LOGIN|id ID] latitude LAT longitude LON ... - update location for an account",
+        "-send-request -url URL [-id ID|-login LOGIN] param value param value ... - send API request to the server specified in the url as user specified by login or account id, resolving the user is done directly from the current db pool, param values should not be url-encoded",
+        "-log-watch - run logwatcher and exit, send emails in case any errors found",
+        "-test-run CMD [-test-file FILE] - run a test command in the shell, autoload ./tests/tests.js if exists, optinally can load other file with tests, all other test params will be used as well",
+    ],
 }
 
 module.exports = shell;
@@ -137,6 +149,12 @@ shell.runShell = function(options)
         }
         if (cluster.isMaster) core.createRepl({ file: core.repl.file });
     });
+}
+
+shell.cmdShellHelp = function()
+{
+    for (var i in this.help) console.log("  ", this.help[i]);
+    this.exit();
 }
 
 // App version
