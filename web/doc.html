@@ -201,16 +201,16 @@ applications but still part of the core of the system to be available once neede
 <li><p>Access is allowed only with valid signature except urls that are exlicitely allowed without it (see <code>api-allow</code> config parameter below)</p>
 </li>
 <li><p>Same but using the helper tool, by default it will use embedded Sqlite database and listen on port 8000.</p>
-<pre><code>  bkjs run
+<pre><code>  bkjs web
 </code></pre></li>
 <li><p>To start the server and connect to the DynamoDB (command line parameters can be saved in the <code>etc/config file</code>, see below about config files)</p>
-<pre><code>  bkjs run -db-pool dynamodb -db-dynamodb-pool default -aws-key XXXX -aws-secret XXXX
+<pre><code>  bkjs web -db-pool dynamodb -db-dynamodb-pool default -aws-key XXXX -aws-secret XXXX
 </code></pre></li>
 <li><p>If running on EC2 instance with IAM profile then no need to specify AWS credentials:</p>
-<pre><code>  bkjs run -db-pool dynamodb -db-dynamodb-pool default
+<pre><code>  bkjs web -db-pool dynamodb -db-dynamodb-pool default
 </code></pre></li>
 <li><p>or to the PostgreSQL server, database backend</p>
-<pre><code>  bkjs run -db-pool pgsql -db-pgsql-pool postgresql://postgres@127.0.0.1/backend
+<pre><code>  bkjs web -db-pool pgsql -db-pgsql-pool postgresql://postgres@127.0.0.1/backend
 </code></pre></li>
 <li><p>All commands above will behave exactly the same</p>
 </li>
@@ -221,7 +221,7 @@ it is called only inside a master process, a worker never creates tables on star
 <pre><code>bksh -db-pool pgsql -db-pgsql-pool postgresql://postgres@127.0.0.1/backend -db-create-tables
 </code></pre></li>
 <li><p>run the server and create table son start</p>
-<pre><code>bkjs run -db-pool pgsql -db-pgsql-pool postgresql://postgres@127.0.0.1/backend -db-create-tables
+<pre><code>bkjs web -db-pool pgsql -db-pgsql-pool postgresql://postgres@127.0.0.1/backend -db-create-tables
 </code></pre></li>
 </ul>
 </li>
@@ -229,7 +229,7 @@ it is called only inside a master process, a worker never creates tables on star
 </li>
 <li><p>By default no external modules are loaded so it needs the accounts module with a
 parameter <code>-allow-modules PATTERN</code>, this will load all modules that match the pattern, default modules start with <code>bk_</code>:</p>
-<pre><code>  bkjs run -allow-modules bk_
+<pre><code>  bkjs web -allow-modules bk_
 </code></pre></li>
 <li><p>Go to <a href="http://localhost:8000/api.html">http://localhost:8000/api.html</a> for the Web console to test API requests.
 For this example let&#39;s create an account.</p>
@@ -312,15 +312,16 @@ commands that simplify running the backend in different modes.</p>
 <ul>
 <li><code>bkjs start</code> - this command is supposed to be run at the server startup as a service, it runs in the backgroud and the monitors all tasks,
  the env variable <code>BKJS_SERVER</code> can be set in the profile to one of the <code>master or monitor</code> to define which run mode to use, default mode is monitor</li>
-<li><code>bkjs run-monitor</code> - this command is supposed to be run at the server startup, it runs in the backgroud and the monitors all processes,
+<li><code>bkjs monitor</code> - this command is supposed to be run at the server startup, it runs in the backgroud and the monitors all processes,
  the command line parameters are: <code>-daemon -monitor -master -syslog</code></li>
-<li><code>bkjs run-master</code> - this command is supposed to be run at the server startup, it runs in the backgroud and the monitors all processes,
+<li><code>bkjs master</code> - this command is supposed to be run at the server startup, it runs in the backgroud and the monitors all processes,
  the command line parameters are: <code>-daemon -monitor -master -syslog</code></li>
-<li><code>bkjs run-watcher</code> - runs the master and Web server in wather mode checking all source files for changes, this is the common command to be used
+<li><code>bkjs watch</code> - runs the master and Web server in wather mode checking all source files for changes, this is the common command to be used
  in development, it passes the command line switches: <code>-watch -master</code></li>
+<li><code>bkjs web</code> - this command runs just web server process.</li>
 <li><code>bkjs run</code> - this command runs without other parameters, all aditional parameters can be added in the command line, this command
  is a barebone helper to be used with any other custom settings.</li>
-<li><code>bkjs run-shell</code> or <code>bksh</code> - start backendjs shell, no API or Web server is initialized, only the database pools</li>
+<li><code>bkjs shell</code> or <code>bksh</code> - start backendjs shell, no API or Web server is initialized, only the database pools</li>
 </ul>
 <h1 id="application-structure">Application structure</h1>
 <p>The main puspose of the backendjs is to provide API to access the data, the data can be stored in the database or some other way
@@ -645,7 +646,7 @@ It is also possible to set the default home using BKJS_HOME environment variable
   db-dynamodb-pool=http://localhost:9000
   db-pgsql-pool=postgresql://postgres@127.0.0.1/backend
 
-  To specify other config file: bkjs run-backend -config-file file
+  To specify other config file: bkjs shell -config-file file
 </code></pre></li>
 <li><p>etc/config.local - same as the config but for the cases when local environment is different than the production or for dev specific parameters</p>
 </li>
@@ -667,7 +668,7 @@ concatenated with the domain and queried for the TXT record, for example: <code>
  bkjs.server.start()
 </code></pre></li>
 <li><p>Start the jobs queue and the web server at once</p>
-<pre><code> bkjs run-backend -master -web -jobs-workers 1 -jobs-cron
+<pre><code> bkjs master -jobs-workers 1 -jobs-cron
 </code></pre></li>
 </ol>
 </li>
@@ -772,7 +773,7 @@ This is intended for a single server development pusposes only.</p>
 are available to everyone. This mode assumes that Web development will be based on &#39;single-page&#39; design when only data is requested from the Web server and all
 rendering is done using Javascript. This is how the <code>api.html</code> develpers console is implemented, using JQuery-UI and Knockout.js.</p>
 <p>To see current default config parameters run any of the following commands:</p>
-<pre><code>    bkjs run-backend -help | grep api-allow
+<pre><code>    bkjs bkhelp | grep api-allow
 
     node -e &#39;require(&quot;backendjs&quot;).core.showHelp()&#39;
 </code></pre><p>To disable open registration in this mode just add config parameter <code>api-deny-path=^/account/add$</code> or if developing an application add this in the initMiddleware</p>
@@ -911,11 +912,11 @@ On Linux, when started the bkjs tries to load and source the following config fi
 customize the running environment, these should be regular shell scripts using bash syntax.</p>
 <p>Most common used commands are:</p>
 <ul>
-<li>bkjs run-watcher - run the backend or the app for development purposes, uses local app.js if exists otherwise runs generic server</li>
-<li>bkjs run-shell - start REPL shell with the backend module loaded and available for use, all submodules are availablein the shell as well like core, db, api</li>
-<li>bkjs put-backend [-path path] [-host host] [-user user] - sync sources of the app with the remote site, uses BKJS_HOST env variable for host if not specified in the command line, this is for developent version of the backend only</li>
+<li>bkjs watch - run the backend or the app for development purposes, uses local app.js if exists otherwise runs generic server</li>
+<li>bkjs shell - start REPL shell with the backend module loaded and available for use, all submodules are available in the shell as well like core, db, api</li>
+<li>bkjs sync [-path path] [-host host] [-user user] - sync sources of the app with the remote site, this is for developent version of the backend only</li>
 <li><p>bkjs init-server [-home path] [-user user] [-host name] [-domain name] - initialize Linux instance(Amazon,CentOS) for backend use, optional -home can be specified where the backend
- home will be instead of ~/.bkjs, optional -user tells to use existing user instead of the current user.</p>
+home will be instead of ~/.bkjs, optional -user tells to use existing user instead of the current user.</p>
 <p> <strong>This command will create <code>/etc/sysconfig/bkjs</code> file with BKJS_HOME set to the home of the
  backendjs app which was pased in the command line. This makes the bkjs or bksh run globally regardless of the current directory.</strong></p>
 </li>
@@ -963,7 +964,7 @@ Inside the app package etc/config file can be setup for any external connections
 <p>On the running machine which will be used for an image:</p>
 <pre><code>bksh -aws-create-image -no-reboot
 </code></pre><p>Use an instance by tag for an image:</p>
-<pre><code>bksh -aws-create-image -no-reboot -instance-id `bkjs show-instances -name api -fmt id | head -1`
+<pre><code>bksh -aws-create-image -no-reboot -instance-id `bkjs ec2-show -tag api -fmt id | head -1`
 </code></pre><h3 id="launch-instances-when-not-using-autoscaling-groups">Launch instances when not using AutoScaling Groups</h3>
 <p>When launching from an EC2 instance no need to specify any AWS credentials.</p>
 <ul>
@@ -1040,10 +1041,10 @@ all config parameters support DNS store. To see which parmeteres can be stored i
 <li><p>if node.js is already installed skip to the next section</p>
 <ul>
 <li><p>to install binary release run the command, it will install it into /opt/local on Darwin</p>
-<pre><code>   ./bkjs install-node
+<pre><code>   bkjs install-node
 
    # To install into different path
-   ./bkjs install-node -prefix /usr/local/node
+   bkjs install-node -prefix /usr/local/node
 </code></pre></li>
 <li><p><strong>Important</strong>: Add NODE_PATH=$BKJS_PREFIX/lib/node_modules to your environment in .profile or .bash_profile so
 node can find global modules, replace $BKJS_PREFIX with the actual path unless this variable is also set in the .profile</p>
@@ -1054,12 +1055,12 @@ node can find global modules, replace $BKJS_PREFIX with the actual path unless t
 <pre><code>      npm link backendjs
 </code></pre></li>
 <li><p>to run local server on port 8000 run command:</p>
-<pre><code>      ./bkjs run-backend
+<pre><code>      bkjs web
 </code></pre></li>
 <li><p>to start the backend in command line mode, the backend environment is prepared and initialized including all database pools.
  This command line access allows you to test and run all functions from all modules of the backend without running full server
  similar to node.js REPL functionality. All modules are accessible from the command line.</p>
-<pre><code>      $ ./bkjs run-shell
+<pre><code>      $ ./bkjs shell
       &gt; core.version
       &#39;2013.10.20.0&#39;
       &gt; logger.setLevel(&#39;info&#39;)
@@ -1278,7 +1279,7 @@ inteded for Web app and will require sessions or access tokens for subsequent re
       /account/add?name=test&amp;login=test@test.com&amp;password=test123&amp;gender=f&amp;phone=1234567
 </code></pre><p>How to make an account as admin</p>
 <pre><code>      # Run backend shell
-      bkjs run-shell
+      bkjs shell
 
       # Update record by login
       &gt; db.update(&quot;bk_auth&quot;, { login: &#39;login@name&#39;, type: &#39;admin&#39; });

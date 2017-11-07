@@ -6,14 +6,39 @@
 
 case "$BKJS_CMD" in
 
+  install-node)
+    ver=$(get_arg -version v8.9.0)
+    [ "$(get_flag -force)" != "" -a -f $BKJS_PREFIX/bin/node ] && rm -rf $BKJS_PREFIX/bin/node $BKJS_PREFIX/bin/npm $BKJS_PREFIX/lib/node_modules
+    [ -f $BKJS_PREFIX/bin/node ] && exit 0
+    mkdir -p $BKJS_PREFIX
+    if [ "$PLATFORM" = "Linux" ]; then
+       curl -L -o node.tar.xz https://nodejs.org/dist/$ver/node-$ver-linux-x64.tar.xz
+       [ "$?" != "0" ] && exit 1
+       xz -d node.tar.xz
+       tar -C $BKJS_PREFIX --strip-components=1 -xf node.tar
+       rm -rf node.tar
+    fi
+    if [ "$PLATFORM" = "Darwin" ]; then
+       curl -L -o node.tgz https://nodejs.org/dist/$ver/node-$ver-darwin-x64.tar.gz
+       [ "$?" != "0" ] && exit 1
+       tar -C $BKJS_PREFIX --strip-components=1 -xzf node.tgz
+       rm -rf node.tgz
+    fi
+    mv $BKJS_PREFIX/README.md $BKJS_PREFIX/LICENSE $BKJS_PREFIX/CHANGELOG.md $BKJS_PREFIX/share/doc
+    ;;
+
+  install-bkjs)
+    (cd $BKJS_HOME && npm install git+https://github.com/vseryakov/$BKJS_MOD.git $(get_arg -deps))
+    ;;
+
   install)
     [ "$(whoami)" != "root" ] && echo "Run as root please" && exit 1
     $0 init-server "$@"
     $0 init-devel "$@"
     find_user
     find_nodebin
-    [ "$NODE_BIN" = "" ] && (cd $BKJS_HOME && sudo -H -u $BKJS_USER $0 install-node -prefix $BKJS_PREFIX)
-    (cd $BKJS_HOME && sudo -H -u $BKJS_USER $0 install-bkjs -deps $(get_arg -deps))
+    [ "$NODE_BIN" = "" ] && sudo -H -u $BKJS_USER $0 install-node -prefix $BKJS_PREFIX
+    sudo -H -u $BKJS_USER $0 install-bkjs -deps $(get_arg -deps)
     (cd $BKJS_HOME/bin && ln -sf ../node_modules/$BKJS_MOD/bkjs && ln -sf bkjs bksh)
     chown -R $BKJS_USER $BKJS_HOME
     ;;
@@ -487,6 +512,8 @@ case "$BKJS_CMD" in
     echo ""
     echo "Instance setup commands:"
     echo ""
+    echo "  install-node [-prefix PATH] [-force] - install binary release of the node into $BKJS_PREFIX or specified path"
+    echo "  install-bkjs [-deps PKGS] - install the $BKJS_MOD from the github using npm, build dependencies are passed in -deps"
     echo "  install - [-user USER] [-home HOME] [-prefix $PREFIX] [-doman DOMAIN] [-host HOST] - make server setup and install all pakages including node and the $BKJS_MOD"
     echo "  install-ec2 - setup server on EC2 instance in the ec2-user home"
     echo "  init-server [-user USER] [-home HOME] [-prefix $PREFIX] [-doman DOMAIN] [-host HOST] - initialize the backend environment, setup the Linux server with packages and change system config files for production use (Amazon AMI, CentOS)"
