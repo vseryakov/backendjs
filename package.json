@@ -75,6 +75,7 @@
   },
   "config": {
     "put": {
+      "path": "node_modules",
       "files": "package.json bkjs etc lib modules tools views web"
     }
   },

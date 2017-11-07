@@ -347,11 +347,11 @@ case "$BKJS_CMD" in
     mod=$(get_package_json name)
     [[ -z $mod ]] && echo "no sync without package.json" && exit 1
     path=$(get_arg -path)
-    [ -z "$path" -a "$mod" = "$BKJS_MOD" ] && path=node_modules/$BKJS_MOD
     if [ -z "$path" ]; then
        path=$(get_package_json config.put.path)
        [ "$path" = "node_modules" ] && path=$path/$mod
     fi
+    [ -z "$path" ] && echo "no sync without -path or config.put.path" && exit 1
     sshargs=$(concat_arg -ssh $BKJS_SSH_ARGS)
     user=$(get_arg -user)
     [ "$user" != "" ] && sshargs="$sshargs -l $user"
