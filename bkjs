@@ -140,7 +140,7 @@ process_cmd() {
   dirs="$BKJS_TOOLS $BKJS_HOME/tools $(find_bkjs tools)"
   for d in $dirs; do
      if [ -d $d ]; then
-        for f in $d/bkjs-*; do
+        for f in $(find $d -name 'bkjs-*'); do
            unset BKJS_UNKNOWN
            source $f
            [[ -z $BKJS_UNKNOWN && -z $1 ]] && exit 0
@@ -382,7 +382,7 @@ case "$BKJS_CMD" in
     field=$(get_arg -field dependencies)
     skip=$(get_arg -skip $BKJS_MOD)
     path=$(get_arg -path .)
-    modules=$($NODE_BIN -e "try{skip='$skip'.split(/[ ,]/);console.log(Object.keys(JSON.parse(require('fs').readFileSync('$path/package.json')).$type).filter(function(x){return skip.indexOf(x)==-1}).join(' '))}catch(e){}")
+    modules=$($NODE_BIN -e "try{skip='$skip'.split(/[ ,]/);console.log(Object.keys(JSON.parse(require('fs').readFileSync('$path/package.json')).$field).filter(function(x){return !x.match(skip)}).join(' '))}catch(e){}")
     [[ -z $modules ]] && exit 0
     echo "$cmd: $modules"
     [ ! -z "$(get_flag -dry-run)" ] && exit 0
@@ -394,7 +394,7 @@ case "$BKJS_CMD" in
 
   install-node)
     ver=$(get_arg -version v8.9.1)
-    [ "$(get_flag -force)" != "" -a -f $BKJS_PREFIX/bin/node ] && rm -rf $BKJS_PREFIX/bin/node $BKJS_PREFIX/bin/npm $BKJS_PREFIX/lib/node_modules
+    [ "$(get_flag -force)" != "" -a -f $BKJS_PREFIX/bin/node ] && rm -rvf $BKJS_PREFIX/bin/node $BKJS_PREFIX/bin/npm $BKJS_PREFIX/lib/node_modules
     [ -f $BKJS_PREFIX/bin/node ] && exit 0
     mkdir -p $BKJS_PREFIX
     if [ "$PLATFORM" = "Linux" ]; then
