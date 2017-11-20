@@ -165,6 +165,7 @@ export PATH=$BKJS_HOME/bin:$BKJS_HOME/node_modules/.bin:$BKJS_PREFIX/bin:/usr/lo
 
 case "$BKJS_CMD" in
   start)
+    cd $BKJS_HOME
     $0 check-server
     $0 run-${BKJS_SERVER:-monitor}
     ;;
