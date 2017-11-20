@@ -113,6 +113,7 @@ case "$BKJS_CMD" in
        echo 'ec2scp() { scp -r -i ~/.ssh/$3.pem $1 ec2-user@$2; }' >> $LHOME/.bashrc
        echo 'bkssh() { bkjs ec2-ssh -tag $1 -ip -index ${2-1}; }' >> $LHOME/.bashrc
        echo 'bkstop() { bkjs ec2-ssh -tag ${1-api} -ip -cmd "bkjs stop-${2-api}"; }' >> $LHOME/.bashrc
+       echo 'bksync() { cd $HOME/node_modules/$1 && bkjs sync -host $(bkjs ec2-host -tag ${2-api}); }' >> $LHOME/.bashrc
     fi
     ;;
 

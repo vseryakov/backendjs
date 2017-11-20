@@ -356,9 +356,11 @@ shell.cmdRunFile = function(options)
     var file = this.getArg("-run-file", options);
     if (!file) shell.exit("-run-file argument is required");
     var mod;
-    if (fs.existsSync(core.cwd + "/" + file) + ".js") mod = require(core.cwd + "/" + file); else
-    if (fs.existsSync(core.home + "/" + file + ".js")) mod = require(core.home + "/" + file); else
-    if (fs.existsSync(__dirname + "/../" + file + ".js")) mod = require(__dirname + "/../" + file);
+    if (!/\.js$/.test(file)) file += ".js";
+    if (fs.existsSync(core.cwd + "/" + file)) mod = require(core.cwd + "/" + file); else
+    if (!mod &&fs.existsSync(core.home + "/" + file)) mod = require(core.home + "/" + file); else
+    if (!mod && fs.existsSync(__dirname + "/../" + file)) mod = require(__dirname + "/../" + file);
+    if (!mod) core.path.modules.forEach(function(x) { if (!mod && fs.existsSync(x + "/../" + file )) mod = require(x + "/../" + file) });
     if (!mod) shell.exit("file not found " + file);
     // Exported functions are set in the shell module
     for (var p in mod) if (typeof mod[p] == "function") shell[p] = mod[p];
