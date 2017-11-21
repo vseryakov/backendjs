@@ -1131,7 +1131,7 @@ shell.cmdAwsCreateLaunchConfig = function(options, callback)
                    if (x.VirtualName) req["BlockDeviceMappings.member." + (i + 1) + ".VirtualName"] = x.Ebs.VirtualName;
                    if (x.Ebs && x.Ebs.VolumeSize) req["BlockDeviceMappings.member." + (i + 1) + ".Ebs.VolumeSize"] = x.Ebs.VolumeSize;
                    if (x.Ebs && x.Ebs.VolumeType) req["BlockDeviceMappings.member." + (i + 1) + ".Ebs.VolumeType"] = x.Ebs.VolumeType;
-                   if (x.Ebs && x.Ebs.SnapshotId) req["BlockDeviceMappings.member." + (i + 1) + ".Ebs.SnapshotId"] = x.Ebs.SnapshotId;
+                   //if (x.Ebs && x.Ebs.SnapshotId) req["BlockDeviceMappings.member." + (i + 1) + ".Ebs.SnapshotId"] = x.Ebs.SnapshotId;
                    if (x.Ebs && x.Ebs.Iops) req["BlockDeviceMappings.member." + (i + 1) + ".Ebs.Iops"] = x.Ebs.Iops;
                    if (x.Ebs && x.Ebs.Encrypted) req["BlockDeviceMappings.member." + (i + 1) + ".Ebs.Encrypted"] = x.Ebs.Encrypted;
                    if (x.Ebs && typeof x.Ebs.DeleteOnTermination == "boolean") req["BlockDeviceMappings.member." + (i + 1) + ".Ebs.DeleteOnTermination"] = x.Ebs.DeleteOnTermination;
