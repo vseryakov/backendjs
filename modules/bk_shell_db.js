@@ -42,11 +42,11 @@ shell.cmdDbGetConfig = function(options)
             console.log(data.length && data[0].value || "");
         } else
         if (fmt == "text") {
-            for (var i = 0; i < data.length; i += 2) console.log(data[i].name + (sep) + data[i].value);
+            for (var i = 0; i < data.length; i++) console.log(data[i].name + (sep) + data[i].value);
         } else
         if (fmt == "args") {
             var str = "";
-            for (var i = 0; i < data.length; i += 2) str += "-" + data[i].name + " '" + (data[i].value || 1) + "' ";
+            for (var i = 0; i < data.length; i++) str += "-" + data[i].name + " '" + (data[i].value || 1) + "' ";
             console.log(str);
         } else {
             console.log(JSON.stringify(data));
