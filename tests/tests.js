@@ -728,6 +728,7 @@ tests.test_db = function(callback)
         function(next) {
             ipc.role = "server";
             db.cacheName.test3 = "local";
+            db.cacheTables.push("test3");
             tests.test.delay = 100;
             db.get("test3", { id: id }, { cached: 1 }, function(err, row) {
                 tests.assert(next, err || !row || row.id != id || row.num != 2, "err7:", row);
@@ -737,23 +738,6 @@ tests.test_db = function(callback)
             db.getCache("test3", { id: id }, {}, function(data) {
                 var row = lib.jsonParse(data);
                 tests.assert(next, !data || row.num != 2, "err7-1:", row);
-            });
-        },
-        function(next) {
-            tests.test.delay = 100;
-            db.incr("test3", { id: id, num: 1 }, { cached: 1, returning: "*" }, function(err, rows) {
-                if (!err && !db.getPool("test3").configOptions.noReturning) err = !rows.length || rows[0].id != id || rows[0].num != 3;
-                tests.assert(next, err, "err7-2:", rows);
-            });
-        },
-        function(next) {
-            db.getCache("test3", { id: id }, {  }, function(data) {
-                if (db.getPool("test3").configOptions.noReturning) {
-                    tests.assert(next, data, "err7-3:", data);
-                } else {
-                    var row = lib.jsonParse(data);
-                    tests.assert(next, !data || row.num != 3, "err7-3:", row);
-                }
             });
         },
         function(next) {
