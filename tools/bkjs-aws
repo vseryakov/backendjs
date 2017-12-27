@@ -79,7 +79,7 @@ case "$BKJS_CMD" in
     [ "$tag" != "" ] && targets="Key=tag:Name,Values=$tag"
     [ "$targets" = "" ] && echo "no targets specified, either -tag or -id is required" && exit 1
     user=$(get_arg -user)
-    [ "$user" != "" ] && cmd="su -l $user -c '$(cmd)'"
+    [ "$user" != "" ] && cmd="su -l $user -c '$cmd'"
     [ "$region" != "" ] && region="--region $region"
     aws ssm send-command --targets $targets --document-name "AWS-RunShellScript" --parameters "commands=[\"$cmd\"]" $region
     ;;
