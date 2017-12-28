@@ -456,7 +456,7 @@ shell.cmdAccountDel = function(options)
     if (this.isArg("-force", options)) opts.force = 1;
     this.getUser(query, function(row) {
         opts.id = row.id;
-        core.modules.bk_account.deleteAccount({ account: row, options: opts }, function(err) {
+        core.modules.bk_account.deleteAccount({ account: row, obj: query, options: opts }, function(err) {
             shell.exit(err);
         });
     });
