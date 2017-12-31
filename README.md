@@ -648,7 +648,8 @@ Set `ipc-cache=redis://HOST[:PORT]` that points to the server running Redis serv
 To support more than one master Redis server in the client add additional servers in the servers parameter,
 `ipc-cache-options-servers=10.1.1.1,10.2.2.1:5000`, the client will reconnect automatically on every
 disconnect. To support quick failover it needs a parameter for the `node-redis` module (which is used by the driver) `max_attempts` to be a
-number how many attempts to reconnect before switching to another server like `ipc-cache-options-max_attempts=3`.
+number how many attempts to reconnect before switching to another server like `ipc-cache-options-max_attempts=3`. If there is only one
+server then it will keep reconnecting until total reconnect time exceeds the `connect_timeout` ms.
 Any other `node-redis` module parameter can be passed as well.
 
 Cache configurations also can be passed in the url, the system supports special parameters that start with `bk-`, it will extract them into options automatically.
