@@ -28,7 +28,7 @@ case "$BKJS_CMD" in
     region=$(get_arg -region)
     [ "$region" != "" ] && region="--region $region"
     tag=$(get_arg -tag)
-    [ "$tag" != "" ] && tags="Name=tag:Name,Values=${tag}"
+    [ "$tag" != "" -a "$tag" != "." ] && tags="Name=tag:Name,Values=${tag}"
     instances=$(aws ec2 describe-instances $region --filter "Name=instance-state-name,Values=running" $tags --query 'Reservations[*].Instances[*].[InstanceId,PrivateIpAddress,PublicIpAddress,KeyName,Tags[?Key==`Name`]]' --output text|awk '{if($4=="None")print $0;else if($1=="Name")print $2;else printf "%s ",$0;}')
     fmt=$(get_arg -fmt)
     [ "$fmt" != "" ] && instances=$(echo "$instances"|awk "{print $(echo $fmt|sed -e 's/id/\$1/' -e 's/ip/\$2/' -e 's/host/\$3/' -e 's/key/\$4/' -e 's/name/\$5/')}")
