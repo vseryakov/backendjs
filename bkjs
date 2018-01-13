@@ -137,7 +137,7 @@ find_user() {
 # Run the command by sourcing all scripts from tools folders, if $1 is not empty then
 # run all tools scripts, otherwise stop once the command is processed
 process_cmd() {
-  dirs="$BKJS_TOOLS $BKJS_HOME/tools $(find_bkjs tools)"
+  dirs="$BKJS_TOOLS $BKJS_HOME/tools $BKJS_HOME/node_modules/$BKJS_MOD/tools $(find_bkjs tools)"
   for d in $dirs; do
      if [ -d $d ]; then
         for f in $(find $d -name 'bkjs-*'); do
@@ -382,14 +382,14 @@ case "$BKJS_CMD" in
     field=$(get_arg -field dependencies)
     skip=$(get_arg -skip $BKJS_MOD)
     path=$(get_arg -path .)
-    modules=$($NODE_BIN -e "try{skip='$skip'.split(/[ ,]/);console.log(Object.keys(JSON.parse(require('fs').readFileSync('$path/package.json')).$field).filter(function(x){return !x.match(skip)}).join(' '))}catch(e){}")
+    for p in $path; do
+      m=$($NODE_BIN -e "try{skip='$skip'.split(/[ ,]/);console.log(Object.keys(JSON.parse(require('fs').readFileSync('$p/package.json')).$field).filter(function(x){return !x.match(skip)}).join(' '))}catch(e){}")
+      [ "$m" != "" ] && modules="$modules $m"
+    done
     [[ -z $modules ]] && exit 0
     echo "$cmd: $modules"
     [ ! -z "$(get_flag -dry-run)" ] && exit 0
-    for m in $modules; do
-      $NPM_BIN $npm $cmd $m
-      [ "$?" != "0" ] && exit 1
-    done
+    $NPM_BIN $npm $cmd $modules
     ;;
 
   install-node)
