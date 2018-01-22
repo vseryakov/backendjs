@@ -137,7 +137,7 @@ find_user() {
 # Run the command by sourcing all scripts from tools folders, if $1 is not empty then
 # run all tools scripts, otherwise stop once the command is processed
 process_cmd() {
-  dirs="$BKJS_TOOLS $BKJS_HOME/tools $BKJS_HOME/node_modules/$BKJS_MOD/tools $(find_bkjs tools)"
+  dirs="$BKJS_HOME/tools $BKJS_HOME/node_modules/$BKJS_MOD/tools $(find_bkjs tools) $BKJS_TOOLS"
   for d in $dirs; do
      if [ -d $d ]; then
         for f in $(find $d -name 'bkjs-*'); do
