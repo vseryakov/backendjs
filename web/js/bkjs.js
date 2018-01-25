@@ -657,7 +657,7 @@ var Bkjs = {
     },
 
     isArray: function(list) {
-        return Array.isArray(list) && list.length > 0;
+        return Array.isArray(list) && list.length > 0 ? list : null;
     },
 
     isFlag: function(list, name) {
