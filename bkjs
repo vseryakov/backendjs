@@ -61,6 +61,24 @@ get_flag() {
   done
 }
 
+# Returns all commandline arguments not present in the first arg
+get_all_args() {
+  for ((i = 0;i < ${#BKJS_ARGS[@]}; ++i)); do
+    found=""
+    n=${BKJS_ARGS[i]}
+    v=${BKJS_ARGS[i+1]}
+    for a in $1; do
+      [ "$n" = "$a" ] && found=1
+    done
+    if [ "$found" = "" ]; then
+       args="$args '$n'"
+       [ "$v" != "" -a "${v:0:1}" != "-" ] && args="$args '$v'"
+    fi
+    [ "${v:0:1}" != "-" ] && ((++i))
+  done
+  echo "$args"
+}
+
 # Concatenate args
 concat_arg() {
   _v=$(get_arg $1)
@@ -75,7 +93,7 @@ get_value() {
   echo "${v:-$3}"
 }
 
-# Return config parameter value by name
+# Return config parameter value by name from the commandline or database
 get_config() {
   for ((i = 0;i < ${#BKJS_ARGS[@]}; ++i)); do
     [ "$2" = "${BKJS_ARGS[i]}" ] && eval "$1=${BKJS_ARGS[i+1]}" && return 0
@@ -87,16 +105,22 @@ get_config() {
   [ "$3" != "" ] && eval "$1=$3"
 }
 
-# Return the value for the given named config parameter
+# Return the value for the given named config parameter from the database
 get_config_value() {
   [ "$1" == "" ] && return
   echo $($0 shell -log none -db-get-config -format value name "$1")
 }
 
-# Return the value for a property from package.json file
-get_package_json() {
-  v=$(node -e "try{console.log(JSON.parse(require('fs').readFileSync('package.json')).$1||'')}catch(e){}")
-  echo "${v:-$2}"
+# Return a config parameter by name from local config files
+get_local_config() {
+  for f in $BKJS_HOME/etc/config $BKJS_HOME/etc/config.local; do [ -f $f ] && cfg="$cfg $f"; done
+  [ "$cfg" != "" ] && v=$(cat $cfg|egrep -Eo "$1=.+"|tail -1|sed "s/$1=//")
+  echo ${v:-$2}
+}
+
+# Return the value for a properties from a json file: get_json file name [name2]
+get_json() {
+  node -e "try{var o=JSON.parse(require('fs').readFileSync('$1'));var d=o['$2']||o['$3'];if(typeof d!='undefined')console.log(d)}catch(e){}"
 }
 
 # Kill a process by name: kill_proc redis -9
@@ -149,6 +173,14 @@ process_cmd() {
   done
 }
 process_cmds() { process_cmd 1; }
+
+# Utility functions
+to_lower() {
+  echo $1 | tr [:upper:] [:lower:]
+}
+to_upper() {
+  echo $1 | tr [:lower:] [:upper:]
+}
 
 # Home and prefix must be specified for the script to work properly
 export BKJS_HOME=$(get_arg -home $BKJS_HOME)
@@ -342,11 +374,11 @@ case "$BKJS_CMD" in
     # Put backend code to the remote site
     host=$(get_arg -host $BKJS_HOST)
     [ "$host" = "" ] && echo "no sync withut -host" && exit
-    mod=$(get_package_json name)
+    mod=$(get_json package.json name)
     [[ -z $mod ]] && echo "no sync without package.json" && exit 1
     path=$(get_arg -path)
     if [ -z "$path" ]; then
-       path=$(get_package_json config.sync.path)
+       path=$(get_json package.json config.sync.path)
        [ "$path" = "node_modules" ] && path=$path/$mod
     fi
     [ -z "$path" ] && echo "no sync without -path or config.sync.path" && exit 1
@@ -363,7 +395,7 @@ case "$BKJS_CMD" in
     rsyncargs=$(concat_arg -rsync $BKJS_RSYNC_ARGS)
     [ -f .gitignore ] && rsyncargs="$rsyncargs --exclude-from .gitignore"
     [ -f $HOME/.gitignore_global ] && rsyncargs="$rsyncargs --exclude-from $HOME/.gitignore_global"
-    exclude=$(get_package_json config.sync.exclude)
+    exclude=$(get_json package.json config.sync.exclude)
     [[ ! -z $exclude ]] && rsyncargs="$rsyncargs --exclude="$exclude
     echo "Deploying the module $mod: 'ssh $sshargs' $rsyncargs $bkcmd to $host:$path"
     [ ! -z "$(get_flag -dry-run)" ] && exit 0
