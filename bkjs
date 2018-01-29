@@ -118,9 +118,9 @@ get_local_config() {
   echo ${v:-$2}
 }
 
-# Return the value for a properties from a json file: get_json file name [name2]
+# Return the value for a properties from a json file: get_json file name
 get_json() {
-  node -e "try{var o=JSON.parse(require('fs').readFileSync('$1'));var d=o['$2']||o['$3'];if(typeof d!='undefined')console.log(d)}catch(e){}"
+  node -e "try{var o=JSON.parse(require('fs').readFileSync('$1'));if(typeof o.$2!='undefined')console.log(o.$2)}catch(e){}"
 }
 
 # Kill a process by name: kill_proc redis -9
