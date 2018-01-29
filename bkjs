@@ -172,7 +172,6 @@ process_cmd() {
      fi
   done
 }
-process_cmds() { process_cmd 1; }
 
 # Utility functions
 to_lower() {
@@ -192,6 +191,8 @@ export BKJS_PREFIX=$(get_arg -prefix $BKJS_PREFIX)
 
 # Setup paths
 export PATH=$BKJS_HOME/bin:$BKJS_HOME/node_modules/.bin:$BKJS_PREFIX/bin:/usr/local/bin:/opt/local/bin:/sbin:/usr/sbin:$PATH
+
+process_cmds() { process_cmd 1; }
 
 [ ! -z "$(get_flag -debug)" ] && echo "$0: CMD=$BKJS_CMD, HOME=$BKJS_HOME, PREFIX=$BKJS_PREFIX"
 
