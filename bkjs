@@ -190,7 +190,7 @@ export BKJS_PREFIX=$(get_arg -prefix $BKJS_PREFIX)
 [ "$BKJS_PREFIX" = "" ] && export BKJS_PREFIX=$BKJS_HOME
 
 # Setup paths
-export PATH=$BKJS_HOME/bin:$BKJS_HOME/node_modules/.bin:$BKJS_PREFIX/bin:/usr/local/bin:/opt/local/bin:/sbin:/usr/sbin:$PATH
+export PATH=$BKJS_HOME/bin:$BKJS_HOME/node_modules/.bin:$BKJS_PREFIX/bin:/usr/local/bin:/opt/local/bin:/opt/local/node/bin:/sbin:/usr/sbin:$PATH
 
 process_cmds() { process_cmd 1; }
 
