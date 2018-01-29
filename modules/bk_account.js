@@ -352,7 +352,7 @@ accounts.addAccount = function(req, options, callback)
            // Put the secret back to return to the client, if generated or scrambled the client needs to know it for the API access
            req.query.secret = login.secret;
            if (!(options.admin || api.checkAccountType(req.account, "admin"))) {
-               api.clearQuery(api.authTable, login, "admin");
+               api.clearQuery(api.authTable, login, { filter: "admin" });
                for (var i in options.admin_values) login[options.admin_values[i]] = req.query[options.admin_values[i]];
            }
            options.info_obj = 1;
@@ -365,7 +365,7 @@ accounts.addAccount = function(req, options, callback)
            account = lib.objClone(req.query);
            // Only admin can add accounts with admin properties
            if (!(options.admin || api.checkAccountType(req.account, "admin"))) {
-               api.clearQuery("bk_account", account, "admin");
+               api.clearQuery("bk_account", account, { filter: "admin" });
                for (var i in options.admin_values) account[options.admin_values[i]] = req.query[options.admin_values[i]];
            }
            db.add("bk_account", account, options, next);
@@ -408,7 +408,7 @@ accounts.updateAccount = function(req, options, callback)
            api.prepareAccountSecret(query, options);
            // Skip admin properties if any
            if (!options.admin && !api.checkAccountType(req.account, "admin")) {
-               api.clearQuery(api.authTable, query, "admin");
+               api.clearQuery(api.authTable, query, { filter: "admin" });
                for (var i in options.admin_values) query[options.admin_values[i]] = req.query[options.admin_values[i]];
            }
            // Avoid updating auth table and flushing cache if nothing to update
@@ -420,7 +420,7 @@ accounts.updateAccount = function(req, options, callback)
            // Skip admin properties if any
            var query = lib.objClone(req.query, "login", req.account.login, "id", req.account.id);
            if (!options.admin && !api.checkAccountType(req.account, "admin")) {
-               api.clearQuery("bk_account", query, "admin");
+               api.clearQuery("bk_account", query, { filter: "admin" });
                for (var i in options.admin_values) query[options.admin_values[i]] = req.query[options.admin_values[i]];
            }
            db.update("bk_account", query, options, next);
