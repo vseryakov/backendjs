@@ -118,6 +118,11 @@ get_local_config() {
   echo ${v:-$2}
 }
 
+# Local IP address, not localhost
+get_local_ip() {
+  echo $(/sbin/ifconfig eth0|grep 'inet '|sed 's/addr://'|awk '{print $2}')
+}
+
 # Return the value for a properties from a json file: get_json file name
 get_json() {
   node -e "try{var o=JSON.parse(require('fs').readFileSync('$1'));if(typeof o.$2!='undefined')console.log(o.$2)}catch(e){}"
@@ -282,7 +287,7 @@ case "$BKJS_CMD" in
 
   check-hostname)
     # Check hostname for the eth0 and setup /etc/hosts with EC2 host name
-    addr=$(/sbin/ifconfig eth0|grep 'inet '|sed 's/addr://'|awk '{print $2}')
+    addr=$(get_local_ip)
     [ "$addr" = "" ] && echo "No IP address found" && exit
     host=ip-$(echo $addr|sed 's/\./-/g')
     domain=$(get_arg -domain $BKJS_DOMAIN)
@@ -302,7 +307,7 @@ case "$BKJS_CMD" in
     descr=$(get_arg -descr $MONIT_DESCRIPTION)
     [ "$event" = "" -a "$descr" = "" ] && exit
     host=${MONIT_HOST:-$(uname -n)}
-    ip=$(/sbin/ifconfig eth0|grep 'inet '|sed 's/addr://'|awk '{print $2}')
+    ip=$(get_local_ip)
     subject="ALERT: $host/$ip $event"
     msg=$($ECHO "$subject\n\n$descr\n\n$(df -h)\n\n$(free)\n\n$(ps agx)")
     echo $msg >> $BKJS_HOME/log/error.log

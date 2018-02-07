@@ -11,7 +11,7 @@ case "$BKJS_CMD" in
     [ "$(get_flag -force)" != "" -a "$ELASTICSEARCH_PREFIX" != "" ] && rm -rf $ELASTICSEARCH_PREFIX
     if [ ! -d $ELASTICSEARCH_PREFIX ]; then
         mkdir -p $ELASTICSEARCH_PREFIX
-        curl -L -o es.tgz https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-5.6.5.tar.gz
+        curl -L -o es.tgz https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-5.6.7.tar.gz
         tar -C $ELASTICSEARCH_PREFIX --strip-components=1 -xzf es.tgz
         rm -rf es.tgz
         cd $ELASTICSEARCH_PREFIX
@@ -79,31 +79,33 @@ case "$BKJS_CMD" in
     $0 run-elasticsearch
     ;;
 
-  upgrade-elasticsearch)
-    [ "$PLATFORM" != "Linux" ] && echo "Supports only Linux" && exit 1
+  stop-elasticsearch-replication)
+    host=$(get_arg -host localhost)
+    curl -XPUT -H 'Content-Type: application/json' -d '{"transient":{"cluster.routing.allocation.enable":"none"}}' http://$host:9200/_cluster/settings
+    curl -XPOST $host:9200/_flush/synced
+    ;;
+
+  start-elasticsearch-replication)
+    host=$(get_arg -host localhost)
+    curl -XPUT -H 'Content-Type: application/json' -d '{"transient":{"cluster.routing.allocation.enable":"all"}}' http://$host:9200/_cluster/settings
+    ;;
+
+  exclude-elasticsearch-node)
+    host=$(get_arg -host localhost)
+    ip=$(get_arg -ip $(get_local_ip))
+    curl -XPUT -H 'Content-Type: application/json' -d "{\"transient\":{\"cluster.routing.allocation.exclude._ip\":\"$ip\"}}" http://$host:9200/_cluster/settings
+    ;;
+
+  elasticsearch-health)
+    host=$(get_arg -host localhost)
+    curl -XGET http://$host:9200/_cluster/health?pretty
+    ;;
+
+  stop-elasticsearch-monit)
     [ "$(whoami)" != "root" ] && echo "Not root, skipping setup" && exit 1
-    case "$(get_arg -cmd)" in
-     init)
-       curl -XPUT localhost:9200/_cluster/settings -d '{"transient":{"cluster.routing.allocation.enable": "none"}}'
-       curl -XPOST localhost:9200/_flush/synced
-       ;;
-     stop)
-       mv /etc/monit.d/elasticsearch.conf $BKJS_HOME/var
-       monit reload
-       $0 stop-elasticsearch
-       ;;
-     start)
-       $0 get-elasticsearch -force
-       mv $BKJS_HOME/var/elasticsearch.conf /etc/monit.d/
-       monit reload
-       ;;
-     finish)
-       curl -XPUT localhost:9200/_cluster/settings -d '{"transient":{"cluster.routing.allocation.enable": "all"}}'
-       ;;
-     *)
-       echo "Upgrade sequence: init, stop on all nodes, start on all nodes, finish"
-       ;;
-     esac
+    rm -rf /etc/monit.d/elasticsearch*
+    monit reload
+    $0 stop-elasticsearch
     ;;
 
   help)
@@ -115,7 +117,6 @@ case "$BKJS_CMD" in
     echo "  run-elasticsearch [-memsize PERCENT] [-memmax SIZE] [-nodetype TYPE] - run local ElasticSearch server installed in $BKJS_PREFIX/elasticsearch, -memmax is max heap size, -memsize is the percent of the total memory to use, -nodetype can be node,master,data,client"
     echo "  stop-elasticsearch - stop local ElasticSearch server"
     echo "  reset-elasticsearch - remove local ElasticSearch database and restart the server"
-    echo "  upgrade-elasticsearch - update with a new version and restart"
     echo ""
     ;;
 
