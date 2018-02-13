@@ -117,7 +117,7 @@ case "$BKJS_CMD" in
     echo "AWS provisioning commands using:"
     echo ""
     echo "  ec2-show [-region region] [-tag NAME] [-fmt fmt]- show running instances in region, optional tag pattern can be used for filter, FMT may contain: id,ip,host,key,name which will be replaced with actual values"
-    echo "  ec2-run -tag NAME [-id ID] -cmd cmd [-region  region] - run a command over SSM by tag name or instance id, if -tag or -id one is 'all' then all instances will run the command"
+    echo "  ec2-run -tag NAME [-id ID] -cmd cmd [-region  region] [-user NAME] - run a command over SSM by tag name or instance id, if -tag or -id one is 'all' then all instances will run the command"
     echo "  ec2-ssh -tag NAME [-region region] [-ip] [-cmd cmd] - ssh into a host by tag name, key name will be used to specify a keypair from ~/.ssh/, -cmd if specified will be run on the remote host"
     echo "  ec2-host [-tag NAME] - show running instances local IP addresses by tag"
     echo "  ec2-region - current instance region"

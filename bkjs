@@ -71,8 +71,8 @@ get_all_args() {
       [ "$n" = "$a" ] && found=1
     done
     if [ "$found" = "" ]; then
-       args="$args '$n'"
-       [ "$v" != "" -a "${v:0:1}" != "-" ] && args="$args '$v'"
+       args="$args \"$n\""
+       [ "$v" != "" -a "${v:0:1}" != "-" ] && args="$args \"$v\""
     fi
     [ "${v:0:1}" != "-" ] && ((++i))
   done
