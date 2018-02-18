@@ -948,7 +948,7 @@ To make an API appliance by using the backendjs on the AWS instance as user ec2-
 - install commands
 
         git clone https://github.com/vseryakov/backendjs.git
-        backendjs/bkjs install-ec2
+        sudo backendjs/bkjs install-ec2 -home $HOME
         bkjs restart
 
 - run `ps agx`, it should show several backend processes running

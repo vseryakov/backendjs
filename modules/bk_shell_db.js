@@ -42,12 +42,7 @@ shell.cmdDbGetConfig = function(options)
             console.log(data.length && data[0].value || "");
         } else
         if (fmt == "text") {
-            for (var i = 0; i < data.length; i++) console.log(data[i].name + (sep) + data[i].value);
-        } else
-        if (fmt == "args") {
-            var str = "";
-            for (var i = 0; i < data.length; i++) str += "-" + data[i].name + " '" + (data[i].value || 1) + "' ";
-            console.log(str);
+            for (var i = 0; i < data.length; i++) console.log(data[i].name + (sep) + (data[i].value || "").replace(/[\r\n]/g, ""));
         } else {
             console.log(JSON.stringify(data));
         }

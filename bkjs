@@ -98,10 +98,10 @@ get_config() {
   for ((i = 0;i < ${#BKJS_ARGS[@]}; ++i)); do
     [ "$2" = "${BKJS_ARGS[i]}" ] && eval "$1=${BKJS_ARGS[i+1]}" && return 0
   done
-  [ -z $BKJS_DB_ARGS ] && BKJS_DB_ARGS=(`$0 shell -log none -db-get-config -format args`)
-  for ((i = 0;i < ${#BKJS_DB_ARGS[@]}; ++i)); do
-    [ "$2" = "${BKJS_DB_ARGS[i]}" ] && eval "$1=${BKJS_DB_ARGS[i+1]}" && return
-  done
+  json=$BKJS_HOME/tmp/config.json
+  [ ! -f $json -o $(($(date +%s) - $(stat -c %Y "$json"))) -gt 3600 ] && $0 shell -log none -db-get-config > $json
+  v=$(node -e "try{var v=JSON.parse(require('fs').readFileSync('$json')).filter(x=>(x.name=='${2:1}')).pop();if(v&&v.value)console.log(v.value)}catch(e){}")
+  [ "$v" != "" ] && eval "$1=$v" && return
   [ "$3" != "" ] && eval "$1=$3"
 }
 
@@ -125,7 +125,7 @@ get_local_ip() {
 
 # Return the value for a properties from a json file: get_json file name
 get_json() {
-  node -e "try{var o=JSON.parse(require('fs').readFileSync('$1'));if(typeof o.$2!='undefined')console.log(o.$2)}catch(e){}"
+  ${NODE_BIN:-node} -e "try{var o=JSON.parse(require('fs').readFileSync('$1'));if(typeof o.$2!='undefined')console.log(o.$2)}catch(e){}"
 }
 
 # Kill a process by name: kill_proc redis -9
@@ -137,15 +137,15 @@ kill_proc() {
 
 # Resolve package location
 find_bkjs() {
-  v=$(node -e "try{console.log(require.resolve('$BKJS_MOD').replace('lib/index.js',''))}catch(e){}")
+  v=$(${NODE_BIN:-node} -e "try{console.log(require.resolve('$BKJS_MOD').replace('lib/index.js',''))}catch(e){}")
   [[ ! -z $v ]] && echo "$v$1"
 }
 
 # Resolve bkjs shell script location
 find_bkjsbin() {
-  [ "$BKJS_BIN" = "" -a -f $BKJS_HOME/bin/$BK ] && export BKJS_BIN=$BKJS_HOME/bin/$BK
-  [ "$BKJS_BIN" = "" -a -f $BKJS_PREFIX/bin/$BK ] && export BKJS_BIN=$BKJS_PREFIX/bin/$BK
-  [ "$BKJS_BIN" = "" ] && export BKJS_BIN=$(which $BK 2>/dev/null)
+  [ "$BKJS_BIN" = "" -a -f $BKJS_HOME/bin/$BKJS ] && export BKJS_BIN=$BKJS_HOME/bin/$BKJS
+  [ "$BKJS_BIN" = "" -a -f $BKJS_PREFIX/bin/$BKJS ] && export BKJS_BIN=$BKJS_PREFIX/bin/$BKJS
+  [ "$BKJS_BIN" = "" ] && export BKJS_BIN=$(which $BKJS 2>/dev/null)
 }
 
 # Resolve node binary location
@@ -323,6 +323,7 @@ case "$BKJS_CMD" in
     ;;
 
   run|run-master|master|run-monitor|monitor|web|watch|shell|bksh)
+    find_nodebin
     [ -f app.js ] && SCRIPT=app.js
     [ -z "$SCRIPT" -a -f lib/app.js ] && SCRIPT=lib/app.js
     [ -z "$SCRIPT" -a -f $BKJS_HOME/app.js ] && SCRIPT=$BKJS_HOME/app.js
@@ -330,7 +331,6 @@ case "$BKJS_CMD" in
     [ -z "$SCRIPT" ] && SCRIPT=$(find_bkjs lib/app.js)
     [ -z $SCRIPT ] && echo "ERROR: Cannot find $BKJS_MOD module or app.js in '.:$BKJS_HOME'" && exit 1
 
-    find_nodebin
     [ ! -z "$(get_flag -debug)" ] && echo "Starting $BKJS_CMD: $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME $BKJS_RUN_ARGS $@"
 
     case "$BKJS_CMD" in
@@ -460,6 +460,8 @@ case "$BKJS_CMD" in
     ;;
 
   env)
+    find_nodebin
+    find_bkjsbin
     set
     ;;
 

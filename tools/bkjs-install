@@ -143,7 +143,7 @@ case "$BKJS_CMD" in
        echo "ClientAliveCountMax 5" >> /tmp/sshd_config
        echo "PermitRootLogin no" >> /tmp/sshd_config
        mv /tmp/sshd_config /etc/ssh
-       chmod 600 /etc/sshd_config
+       chmod 600 /etc/ssh/sshd_config
        service sshd restart
     fi
     ;;
@@ -336,10 +336,11 @@ case "$BKJS_CMD" in
     ;;
 
   init-service)
+    # Install service for a script or bkjs service
     find_user
     find_bkjsbin
-    # Install service for a script or bkjs service
     path=$(get_arg -path $BKJS_BIN)
+    [ "$path" = "" ] && echo "not $BKJS path specified or detected" && exit 1
     service=$(basename $path | awk -F. '{print $1}')
     echo "Init service $service with $path"
     ln -sf $path /etc/init.d/$service
@@ -359,6 +360,7 @@ case "$BKJS_CMD" in
   stop-service)
     find_bkjsbin
     path=$(get_arg -path $BKJS_BIN)
+    [ "$path" = "" ] && echo "not $BKJS path specified or detected" && exit 1
     service=$(basename $path | awk -F. '{print $1}')
     echo "Stopping service $service with $path"
     chkconfig $service off
@@ -409,7 +411,7 @@ case "$BKJS_CMD" in
 
       amazon)
          yum-config-manager --enable epel
-         yum remove java-1.7.0-openjdk
+         yum -y remove java-1.7.0-openjdk
          packages="$packages java-1.8.0"
          ;;
     esac
@@ -429,65 +431,6 @@ case "$BKJS_CMD" in
     yum -y -q install $packages
     ;;
 
-  init-sendmail-ses)
-    get_config user -user
-    get_config host -host
-    get_config password -password
-    [ "$user" = "" -o "$password" = "" -o "$host" = "" ] && echo "-host,-user,-password must be provided" && exit
-    yum -y install sendmail-cf
-    echo "AuthInfo:$host \"U:root\" \"I:$user\" \"P:$password\" \"M:LOGIN\"" > /etc/mail/authinfo
-    if [[ $host =~ us-east ]]; then
-       echo "AuthInfo:ses-smtp-prod-335357831.us-east-1.elb.amazonaws.com \"U:root\" \"I:$user\" \"P:$password\" \"M:LOGIN\"" >> /etc/mail/authinfo
-    fi
-    if [[ $host =~ us-west ]]; then
-       echo "AuthInfo:ses-smtp-us-west-2-prod-14896026.us-west-2.elb.amazonaws.com \"U:root\" \"I:$user\" \"P:$password\" \"M:LOGIN\"" >> /etc/mail/authinfo
-    fi
-    makemap hash /etc/mail/authinfo.db < /etc/mail/authinfo
-    if [ "$(grep -s "$host" /etc/mail/access)" = "" ]; then
-       echo "Connect:$host RELAY" >> /etc/mail/access
-       makemap hash /etc/mail/access.db < /etc/mail/access
-    fi
-    if [ "$(grep -s "ses-smtp" /etc/mail/access)" = "" ]; then
-       if [[ $host =~ us-east ]]; then
-          echo "Connect:ses-smtp-prod-335357831.us-east-1.elb.amazonaws.com RELAY" >> /etc/mail/access
-       fi
-       if [[ $host =~ us-west ]]; then
-          echo "Connect:ses-smtp-us-west-2-prod-14896026.us-west-2.elb.amazonaws.com RELAY" >> /etc/mail/access
-       fi
-       makemap hash /etc/mail/access.db < /etc/mail/access
-    fi
-    file=/etc/mail/relay.mc
-    egrep -v '^MAILER' /etc/mail/sendmail.mc > $file
-    echo "define(\`SMART_HOST', \`$host')dnl" >> $file
-    echo "define(\`RELAY_MAILER_ARGS', \`TCP \$h 587')dnl" >> $file
-    echo "define(\`confAUTH_MECHANISMS', \`LOGIN PLAIN')dnl" >> $file
-    echo "FEATURE(\`authinfo', \`hash -o /etc/mail/authinfo.db')dnl" >> $file
-    get_config domain -domain
-    if [ "$domain" != "" ]; then
-       echo "MASQUERADE_AS(\`$domain')dnl" >> $file
-       echo "FEATURE(masquerade_envelope)dnl" >> $file
-       echo "FEATURE(masquerade_entire_domain)dnl" >> $file
-    fi
-    egrep '^MAILER' /etc/mail/sendmail.mc >> $file
-    m4 $file > /etc/mail/sendmail.cf
-    service sendmail restart
-    ;;
-
-  init-sendmail-ses-relay)
-    off=$(get_flag -off)
-    if [ "$off" != "" ]; then
-       if [ "$(egrep -s -E "^DSemail-smtp" /etc/mail/sendmail.cf)" != "" ]; then
-          sed -i 's/^DSemail-smtp/#DSemail-smtp/' /etc/mail/sendmail.cf
-          service sendmail restart
-       fi
-    else
-       if [ "$(egrep -s -E "^DSemail-smtp" /etc/mail/sendmail.cf)" = "" ]; then
-          sed -r -i 's/^#+DSemail-smtp/DSemail-smtp/' /etc/mail/sendmail.cf
-          service sendmail restart
-       fi
-    fi
-    ;;
-
   help)
     echo ""
     echo "Instance setup commands:"
@@ -503,16 +446,15 @@ case "$BKJS_CMD" in
     echo "  init-rsyslog - setup rsyslog to use for the backend logging, access log and backend log"
     echo "  init-system - setup system wide parameters, tuniing, limits, permissions"
     echo "  init-postfix - [-domain DOMAIN] install and configure postfix for the domain"
-    echo "  init-sendmail - [-domain DOMAIN] -host HOST -user USER -password PW - configure sendmail as relay to SES SMTP"
     echo "  init-dns - install and setup dnsmasq for local cahching DNS server"
     echo "  init-adhoc - configure for running temporary ad-hoc instances"
-    echo "  init-service [-server NAME] - create $BKJS service to be run on server startup, i.e. makes symlink /etc/init.d/$BKJS after which regular 'service' command can be used to manage the $BKJS service"
-    echo "  stop-service - stop $BKJS service from starting on startup"
     echo "  init-packages - install required packges and updates"
     echo "  init-devel - install development packages for node and modules compiclation"
     echo "  init-home - setup backend home with required folders"
     echo "  init-mfa [-user ec2-user] - initialize EC2 instance with multi-factor authentication using Google authenticator"
     echo "  init-logwatcher - creates a crontab file in /etc/cron.d to periodically run the log watcher, -cron can specify full cron time spec"
+    echo "  init-service [-server NAME] - create $BKJS service to be run on server startup, i.e. makes symlink /etc/init.d/$BKJS after which regular 'service' command can be used to manage the $BKJS service"
+    echo "  stop-service - stop $BKJS service from starting on startup"
     ;;
 
   *)
