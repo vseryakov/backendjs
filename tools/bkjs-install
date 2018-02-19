@@ -340,7 +340,7 @@ case "$BKJS_CMD" in
     find_user
     find_bkjsbin
     path=$(get_arg -path $BKJS_BIN)
-    [ "$path" = "" ] && echo "not $BKJS path specified or detected" && exit 1
+    [ "$path" = "" ] && echo "no $BKJS path specified or detected" && exit 1
     service=$(basename $path | awk -F. '{print $1}')
     echo "Init service $service with $path"
     ln -sf $path /etc/init.d/$service
@@ -360,7 +360,7 @@ case "$BKJS_CMD" in
   stop-service)
     find_bkjsbin
     path=$(get_arg -path $BKJS_BIN)
-    [ "$path" = "" ] && echo "not $BKJS path specified or detected" && exit 1
+    [ "$path" = "" ] && echo "no $BKJS path specified or detected" && exit 1
     service=$(basename $path | awk -F. '{print $1}')
     echo "Stopping service $service with $path"
     chkconfig $service off

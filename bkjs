@@ -137,14 +137,22 @@ kill_proc() {
 
 # Resolve package location
 find_bkjs() {
-  v=$(${NODE_BIN:-node} -e "try{console.log(require.resolve('$BKJS_MOD').replace('lib/index.js',''))}catch(e){}")
-  [[ ! -z $v ]] && echo "$v$1"
+  [ -f node_modules/$BKJS_MOD ] && v=$(pwd)/node_modules/$BKJS_MOD
+  [ "$v" = "" -a -d $HOME/node_modules/$BKJS_MOD ] && v=$HOME/node_modules/$BKJS_MOD
+  [ "$v" = "" -a -d $BKJS_HOME/node_modules/$BKJS_MOD ] && v=$BKJS_HOME/node_modules/$BKJS_MOD
+  [ "$v" = "" -a -d $BKJS_PREFIX/node_modules/$BKJS_MOD ] && v=$BKJS_PREFIX/node_modules/$BKJS_MOD
+  [ "$v" = "" -a -d /opt/local/lib/node_modules/$BKJS_MOD ] && v=/opt/local/lib/node_modules/$BKJS_MOD
+  [ "$v" = "" -a -d $NODE_PATH/$BKJS_MOD ] && v=$NODE_PATH/$BKJS_MOD
+  [[ ! -z $v ]] && echo "$v/$1"
 }
 
 # Resolve bkjs shell script location
 find_bkjsbin() {
+  [ "$BKJS_BIN" = "" -a -f $HOME/bin/$BKJS ] && export BKJS_BIN=$HOME/bin/$BKJS
   [ "$BKJS_BIN" = "" -a -f $BKJS_HOME/bin/$BKJS ] && export BKJS_BIN=$BKJS_HOME/bin/$BKJS
   [ "$BKJS_BIN" = "" -a -f $BKJS_PREFIX/bin/$BKJS ] && export BKJS_BIN=$BKJS_PREFIX/bin/$BKJS
+  [ "$BKJS_BIN" = "" -a -d $NODE_PATH/$BKJS ] && export BKJS_BIN=$NODE_PATH/$BKJS/bin/$BKJS
+  [ "$BKJS_BIN" = "" -a -f /opt/local/bin/$BKJS ] && export BKJS_BIN=/opt/local/bin/$BKJS
   [ "$BKJS_BIN" = "" ] && export BKJS_BIN=$(which $BKJS 2>/dev/null)
 }
 
@@ -462,6 +470,7 @@ case "$BKJS_CMD" in
   env)
     find_nodebin
     find_bkjsbin
+    echo BKJS_PATH=$(find_bkjs)
     set
     ;;
 
