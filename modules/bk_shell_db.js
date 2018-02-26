@@ -229,7 +229,7 @@ shell.cmdDbGet = function(options)
     db.get(table, query, opts, function(err, data) {
         if (data) {
             if (fmt == "text") {
-                console.log((cols || Object.keys(data)).map(function(y) { return x[y] }).join(sep))
+                console.log((cols || Object.keys(data)).map(function(y) { return data[y] }).join(sep))
             } else {
                 console.log(JSON.stringify(data));
             }

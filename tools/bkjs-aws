@@ -24,7 +24,7 @@ case "$BKJS_CMD" in
     fi
     ;;
 
-  ec2-show)
+  ec2-show|ec2-ls)
     region=$(get_arg -region)
     [ "$region" != "" ] && region="--region $region"
     tag=$(get_arg -tag)
