@@ -108,6 +108,17 @@ case "$BKJS_CMD" in
     $0 stop-elasticsearch
     ;;
 
+  migrate-elasticsearch)
+    limit=$(get_arg -limit 250)
+    from=$(get_arg -from)
+    to=$(get_arg -to http://localhost:9200)
+    list="$(curl -XGET $from/_cat/indices?pretty=true -v | cut -d $' ' -f3)"
+    for idx in $list
+    do
+      elasticdump --bulk=true --limit=$limit --output=$to/$idx --input=$from/$idx
+    done
+    ;;
+
   help)
     echo ""
     echo "Elasticsearch commands:"

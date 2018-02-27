@@ -285,7 +285,8 @@ accounts.notifyAccount = function(options, callback)
               if (lib.toBool(account[c])) options[p] = 1; else delete options[p];
           }
           msg.send(options.device_id || account.device_id, options, function(err) {
-              logger.logger(err ? "error" : (options.logging || "debug"), "notifyAccount:", err, lib.objDescr(options), lib.objDescr(account));
+              if (!err) logger.debug("notifyAccount:", options, account);
+              if (err) logger.error("notifyAccount:", err, lib.objDescr(options), lib.objDescr(account));
               next(err);
           });
       },
