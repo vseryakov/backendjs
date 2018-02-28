@@ -30,6 +30,8 @@ case "$BKJS_CMD" in
     tag=$(get_arg -tag)
     [ "$tag" != "" -a "$tag" != "." ] && tags="Name=tag:Name,Values=${tag}"
     instances=$(aws ec2 describe-instances $region --filter "Name=instance-state-name,Values=running" $tags --query 'Reservations[*].Instances[*].[InstanceId,PrivateIpAddress,PublicIpAddress,KeyName,Tags[?Key==`Name`]]' --output text|awk '{if($4=="None")print $0;else if($1=="Name")print $2;else printf "%s ",$0;}')
+    skip=$(get_arg -skip-tag)
+    [ "$skip" != "" ] && instances=$(echo "$instances"|grep -v $skip)
     fmt=$(get_arg -fmt)
     [ "$fmt" != "" ] && instances=$(echo "$instances"|awk "{print $(echo $fmt|sed -e 's/id/\$1/' -e 's/ip/\$2/' -e 's/host/\$3/' -e 's/key/\$4/' -e 's/name/\$5/')}")
     if [ "$PLATFORM" = "Linux" -a "$(get_flag -nomyip)" != "" ]; then
@@ -44,7 +46,7 @@ case "$BKJS_CMD" in
     ;;
 
   ec2-host)
-    $0 ec2-show -line -nomyip -fmt ip -tag $(get_arg -tag) -region $(get_arg -region)
+    $0 ec2-show -line -nomyip -fmt ip -tag $(get_arg -tag) -region $(get_arg -region) -skip-tag $(get_arg -skip-tag)
     ;;
 
   ec2-ssh)
@@ -176,10 +178,10 @@ case "$BKJS_CMD" in
     echo ""
     echo "AWS provisioning commands using:"
     echo ""
-    echo "  ec2-show [-region region] [-tag NAME] [-fmt fmt]- show running instances in region, optional tag pattern can be used for filter, FMT may contain: id,ip,host,key,name which will be replaced with actual values"
+    echo "  ec2-show [-region region] [-tag NAME] [-skip-tag NAME] [-fmt fmt]- show running instances in region, optional tag pattern can be used for filter, FMT may contain: id,ip,host,key,name which will be replaced with actual values"
     echo "  ec2-run -tag NAME [-id ID] -cmd cmd [-region  region] [-user NAME] - run a command over SSM by tag name or instance id, if -tag or -id one is 'all' then all instances will run the command"
     echo "  ec2-ssh -tag NAME [-region region] [-ip] [-cmd cmd] - ssh into a host by tag name, key name will be used to specify a keypair from ~/.ssh/, -cmd if specified will be run on the remote host"
-    echo "  ec2-host [-tag NAME] - show running instances local IP addresses by tag"
+    echo "  ec2-host [-tag NAME] [-skip-tag NAME] - show running instances local IP addresses by tag"
     echo "  ec2-region - current instance region"
     echo "  ec2-tag - current instance tag name"
     echo "  ec2-stop-api [-tag NAME] - restart gracefully on the specified instances by tag"

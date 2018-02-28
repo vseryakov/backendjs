@@ -493,7 +493,7 @@ accounts.renameAccount = function(req, callback)
           function(next) {
               if (api.authTable == "bk_account") return next();
               if (req.account.name == account.name) return next();
-              db.update(api.authTable, { login: req.account.login, name: req.account.name }, next);
+              db.update(api.authTable, { login: account.login, name: req.account.name }, next);
           },
           function(next) {
               if (req.account.name == account.name) return next();
