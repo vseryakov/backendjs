@@ -74,7 +74,7 @@ case "$BKJS_CMD" in
           esac
        fi
     fi
-    [ "$rc" != "0" ] && $0 send-alert -event "Update failed for $name-$version from $bucket/$pkg" -descr "Command: $0 $@\n\n$out"
+    [ "$rc" != "0" ] && $0 send-alert -event "Update failed for $name-$version from $bucket/$pkg" -descr "Command: $0 $(get_all_args)\n\n$out"
     exit $rc
     ;;
 

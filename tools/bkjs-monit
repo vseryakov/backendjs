@@ -15,7 +15,7 @@ case "$BKJS_CMD" in
 
   init-monit-bkjs)
     find_user
-    $ECHO "check process $BKJS with pidfile \"$BKJS_HOME/var/master.pid\" start program = \"$0 start $@\" as uid $BKJS_USER and gid $BKJS_GROUP with timeout 60 seconds stop program = \"$0 stop\"" > /etc/monit.d/$BKJS.conf
+    $ECHO "check process $BKJS with pidfile \"$BKJS_HOME/var/master.pid\" start program = \"$0 start $(get_all_args)\" as uid $BKJS_USER and gid $BKJS_GROUP with timeout 60 seconds stop program = \"$0 stop\"" > /etc/monit.d/$BKJS.conf
     monit reload
     ;;
 
@@ -48,8 +48,8 @@ case "$BKJS_CMD" in
 
   init-monit-elasticsearch)
     find_user
-    echo "check process elasticsearch with pidfile \"$BKJS_HOME/var/elasticsearch.pid\" start program = \"$0 run-elasticsearch $@\" as uid $BKJS_USER and gid $BKJS_GROUP stop program = \"$0 stop-elasticsearch\" if failed url http://127.0.0.1:9200/ with timeout 15 seconds for 2 cycles then restart" > /etc/monit.d/elasticsearch.conf
-    echo "check file elasticsearch-log with path $BKJS_HOME/log/elasticsearch.log if match 'java.lang.OutOfMemoryError' then exec \"$0 restart-elasticsearch $@\"" >> /etc/monit.d/elasticsearch.conf
+    echo "check process elasticsearch with pidfile \"$BKJS_HOME/var/elasticsearch.pid\" start program = \"$0 run-elasticsearch $(get_all_args)\" as uid $BKJS_USER and gid $BKJS_GROUP stop program = \"$0 stop-elasticsearch\" if failed url http://127.0.0.1:9200/ with timeout 15 seconds for 2 cycles then restart" > /etc/monit.d/elasticsearch.conf
+    echo "check file elasticsearch-log with path $BKJS_HOME/log/elasticsearch.log if match 'java.lang.OutOfMemoryError' then exec \"$0 restart-elasticsearch $(get_all_args)\"" >> /etc/monit.d/elasticsearch.conf
     monit reload
     ;;
 
@@ -72,7 +72,7 @@ case "$BKJS_CMD" in
     fi
     find_user
     $ECHO "$BKJS_HOME/log/redis.log {\n  weekly\n  rotate 10\n  copytruncate\n  delaycompress\n  compress\n  notifempty\n  missingok\n}" > /etc/logrotate.d/redis
-    $ECHO "check process redis-server with pidfile \"$BKJS_HOME/var/redis.pid\" start program = \"$0 run-redis $@\" as uid $BKJS_USER and gid $BKJS_GROUP stop program = \"$0 stop-redis\" if failed host 127.0.0.1 port 6379 for 2 cycles then restart" > /etc/monit.d/redis.conf
+    $ECHO "check process redis-server with pidfile \"$BKJS_HOME/var/redis.pid\" start program = \"$0 run-redis $(get_all_args)\" as uid $BKJS_USER and gid $BKJS_GROUP stop program = \"$0 stop-redis\" if failed host 127.0.0.1 port 6379 for 2 cycles then restart" > /etc/monit.d/redis.conf
     monit reload
     ;;
 
@@ -95,7 +95,7 @@ case "$BKJS_CMD" in
     $ECHO "pidfile $BKJS_HOME/var/sentinel.pid" >> $conf
     chown $BKJS_USER $conf
 
-    $ECHO "check process redis-sentinel with pidfile \"$BKJS_HOME/var/sentinel.pid\" start program = \"$0 run-sentinel $@\" as uid $BKJS_USER and gid $BKJS_GROUP stop program = \"$0 stop-sentinel\"" > /etc/monit.d/sentinel.conf
+    $ECHO "check process redis-sentinel with pidfile \"$BKJS_HOME/var/sentinel.pid\" start program = \"$0 run-sentinel $(get_all_args)\" as uid $BKJS_USER and gid $BKJS_GROUP stop program = \"$0 stop-sentinel\"" > /etc/monit.d/sentinel.conf
     monit reload
     ;;
 

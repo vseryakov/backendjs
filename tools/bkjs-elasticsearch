@@ -29,9 +29,9 @@ case "$BKJS_CMD" in
 
   init-elasticsearch)
     ($0 get-elasticsearch)
-    ($0 run-elasticsearch "$@")
+    ($0 run-elasticsearch $(get_all_args))
     if [ "$PLATFORM" = "Linux" ]; then
-       sudo $0 init-monit-elasticsearch "$@"
+       sudo $0 init-monit-elasticsearch "$(get_all_args)"
     fi
     ;;
 
@@ -70,7 +70,7 @@ case "$BKJS_CMD" in
     kill_proc org.elasticsearch
     sleep 1
     kill_proc org.elasticsearch -9
-    $0 run-elasticsearch "$@"
+    $0 run-elasticsearch "$(get_all_args)"
     ;;
 
   reset-elasticsearch)

@@ -46,7 +46,7 @@ case "$BKJS_CMD" in
     ;;
 
   ec2-host)
-    $0 ec2-show -line -nomyip -fmt ip -tag $(get_arg -tag) -region $(get_arg -region) -skip-tag $(get_arg -skip-tag)
+    $0 ec2-show -line -nomyip -fmt ip -tag "$(get_arg -tag)" -region "$(get_arg -region)" -skip-tag "$(get_arg -skip-tag)"
     ;;
 
   ec2-ssh)

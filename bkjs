@@ -63,6 +63,7 @@ get_flag() {
 
 # Returns all commandline arguments not present in the first arg
 get_all_args() {
+  sep=${2:-"\""}
   for ((i = 0;i < ${#BKJS_ARGS[@]}; ++i)); do
     found=""
     n=${BKJS_ARGS[i]}
@@ -71,8 +72,18 @@ get_all_args() {
       [ "$n" = "$a" ] && found=1
     done
     if [ "$found" = "" ]; then
-       args="$args \"$n\""
-       [ "$v" != "" -a "${v:0:1}" != "-" ] && args="$args \"$v\""
+       if [[ ! $n =~ "[ '\"]" ]]; then
+          args="$args $n"
+       else
+          args="$args $sep$n$sep"
+       fi
+       if [ "$v" != "" -a "${v:0:1}" != "-" ]; then
+          if [[ ! $v =~ "[ '\"]" ]]; then
+             args="$args $v"
+          else
+             args="$args $sep$v$sep"
+          fi
+       fi
     fi
     [ "${v:0:1}" != "-" ] && ((++i))
   done
@@ -472,6 +483,10 @@ case "$BKJS_CMD" in
     find_bkjsbin
     echo BKJS_PATH=$(find_bkjs)
     set
+    ;;
+
+  args)
+    echo "$(get_all_args "$(get_arg -skip)" $(get_arg -sep))"
     ;;
 
   *)

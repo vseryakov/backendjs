@@ -12,8 +12,8 @@ case "$BKJS_CMD" in
 
   install)
     [ "$(whoami)" != "root" ] && echo "Run as root please" && exit 1
-    $0 init-server "$@"
-    $0 init-devel "$@"
+    $0 init-server "$(get_all_args)"
+    $0 init-devel "$(get_all_args)"
     find_user
     find_nodebin
     [ "$NODE_BIN" = "" ] && sudo -H -u $BKJS_USER $0 install-node -prefix $BKJS_PREFIX
@@ -23,26 +23,27 @@ case "$BKJS_CMD" in
     ;;
 
   install-ec2)
-    $0 install -user ec2-user -home /home/ec2-user -prefix /home/ec2-user "$@"
+    $0 install -user ec2-user -home /home/ec2-user -prefix /home/ec2-user "$(get_all_args)"
     ;;
 
   init-server)
+    args=$(get_all_args)
     find_user
     echo "Installing in $BKJS_HOME for $BKJS_USER with prefix $BKJS_PREFIX ..."
 
     # Install required packages and utilities
-    ($0 init-packages "$@")
+    ($0 init-packages "$args")
 
-    ($0 init-hostname "$@")
-    ($0 init-ssh "$@")
-    ($0 init-user "$@")
-    ($0 init-system "$@")
-    ($0 init-service "$@")
-    ($0 init-monit-system "$@")
-    ($0 init-monit-bkjs "$@")
-    ($0 init-logrotate "$@")
-    ($0 init-rsyslog "$@")
-    ($0 init-home "$@")
+    ($0 init-hostname "$args")
+    ($0 init-ssh "$args")
+    ($0 init-user "$args")
+    ($0 init-system "$args")
+    ($0 init-service "$args")
+    ($0 init-monit-system "$args")
+    ($0 init-monit-bkjs "$args")
+    ($0 init-logrotate "$args")
+    ($0 init-rsyslog "$args")
+    ($0 init-home "$args")
 
     # Create global profile
     echo "BKJS_HOME=$BKJS_HOME" > /etc/sysconfig/$BKJS

@@ -86,8 +86,8 @@ case "$BKJS_CMD" in
 
   init-hazelcast-service)
     find_user
-    echo "check process hazelcast with pidfile \"$BKJS_HOME/var/hazelcast.pid\" start program = \"$0 run-hazelcast $@\" as uid $BKJS_USER and gid $BKJS_GROUP stop program = \"$0 stop-hazelcast\" if failed url http://127.0.0.1:5701/ with timeout 15 seconds for 2 cycles then restart" > /etc/monit.d/hazelcast.conf
-    echo "check file hazelcast-log with path $BKJS_HOME/log/hazelcast.log if match 'java.lang.OutOfMemoryError' then exec \"$0 restart-hazelcast $@\"" >> /etc/monit.d/hazelcast.conf
+    echo "check process hazelcast with pidfile \"$BKJS_HOME/var/hazelcast.pid\" start program = \"$0 run-hazelcast $(get_all_args)\" as uid $BKJS_USER and gid $BKJS_GROUP stop program = \"$0 stop-hazelcast\" if failed url http://127.0.0.1:5701/ with timeout 15 seconds for 2 cycles then restart" > /etc/monit.d/hazelcast.conf
+    echo "check file hazelcast-log with path $BKJS_HOME/log/hazelcast.log if match 'java.lang.OutOfMemoryError' then exec \"$0 restart-hazelcast $(get_all_args)\"" >> /etc/monit.d/hazelcast.conf
     monit reload
     ;;
 
@@ -112,7 +112,7 @@ case "$BKJS_CMD" in
     kill_proc hazelcast.core.server
     sleep 1
     kill_proc hazelcast.core.server -9
-    $0 run-hazelcast "$@"
+    $0 run-hazelcast "$(get_all_args)"
     ;;
 
   get-cassandra)
