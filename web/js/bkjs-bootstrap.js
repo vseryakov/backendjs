@@ -8,6 +8,7 @@
 Bkjs.showAlert = function(obj, type, text, options)
 {
     if (typeof obj == "string") options = text, text = type, type = obj, obj = $("body");
+    if (!text) return;
     if (!options) options = {};
     text = "<div class='alert alert-dissmisible alert-" + type + "' role='alert'>" + (typeof text == "string" ? text : JSON.stringify(text))
     text += '<button type="button" class="close" data-dismiss="alert"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>';

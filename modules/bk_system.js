@@ -75,6 +75,12 @@ system.configureSystemAPI = function()
             case 'submit':
                 jobs.submitJob(req.query, function(err) { api.sendReply(res, err) });
                 break;
+
+            case 'cancel':
+                ipc.publish(core.name + ":master", ipc.newMsg("jobs:cancel", req.query), { queueName: ipc.systemQueue }, function(err) {
+                    api.sendReply(res, err)
+                });
+                break;
             }
             break;
 
