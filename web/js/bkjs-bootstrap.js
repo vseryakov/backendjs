@@ -15,7 +15,7 @@ Bkjs.showAlert = function(obj, type, text, options)
     text += "</div>";
     if (!$(obj).find(".alerts").length) obj = $("body");
     $(obj).find(".alerts").empty().append(text);
-    if (!options.dismiss) $(obj).find(".alerts div").hide().fadeIn(200).delay(5000 + (type == "danger" ? 15000 : type == "warning" ? 5000 : 0)).fadeOut(1000, function () { $(this).remove(); });
+    if (!options.dismiss) $(obj).find(".alerts div").hide().fadeIn(200).delay(5000 * (type == "danger" ? 5 : type == "warning" ? 3 : 1)).fadeOut(1000, function () { $(this).remove(); });
     if (options.scroll) $(obj).animate({ scrollTop: 0 }, "slow");
 }
 

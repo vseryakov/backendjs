@@ -250,6 +250,12 @@ var Bkjs = {
         return url;
     },
 
+    // Return or build the message from the error response object or text
+    parseError: function(err) {
+        if (typeof err == "string") return err;
+        return err && err.message;
+    },
+
     // Send signed AJAX request using jQuery, call callbacks onsuccess or onerror on successful or error response accordingly.
     // - options can be a string with url or an object with options.url, options.data and options.type properties,
     // - for POST set options.type to POST and provide options.data
@@ -281,7 +287,11 @@ var Bkjs = {
         options.error = function(xhr, status, error) {
             self.loading("hide");
             var msg = "";
-            try { msg = JSON.parse(xhr.responseText).message; } catch(e) { msg = xhr.responseText; }
+            try {
+                msg = self.parseError(JSON.parse(xhr.responseText));
+            } catch(e) {
+                msg = self.parseError(xhr.responseText);
+            }
             self.log('send: error:', xhr.status, status, msg, error, options);
             if (typeof onerror == "function") onerror(msg || error || status, xhr, status, error);
         }
@@ -651,6 +661,44 @@ var Bkjs = {
                 if (s > 0) str += " " + (s > 1 ? this.__("%s seconds", s) : this.__("1 second"));
             } else {
                 str = secs > 1 ? this.__("%s seconds", secs) : this.__("1 second");
+            }
+        }
+        return str;
+    },
+
+    toDuration: function(mtime, options)
+    {
+        var str = "";
+        mtime = typeof mtime == "number" ? mtime : this.toNumber(mtime);
+        if (mtime > 0) {
+            var lang = options && options.lang;
+            var seconds = Math.floor(mtime/1000);
+            var d = Math.floor(seconds / 86400);
+            var h = Math.floor((seconds - d * 86400) / 3600);
+            var m = Math.floor((seconds - d * 86400 - h * 3600) / 60);
+            var s = Math.floor(seconds - d * 86400 - h * 3600 - m * 60);
+            if (d > 0) {
+                str = d > 1 ? this.__("%s days", d) :
+                              this.__("1 day");
+                if (h > 0) str += " " + (h > 1 ? this.__("%s hours", h) :
+                                                 this.__("1 hour"));
+                if (m > 0) str += " " + (m > 1 ? this.__("%s minutes", m) :
+                                                 this.__("1 minute"));
+            } else
+            if (h > 0) {
+                str = h > 1 ? this.__("%s hours", h) :
+                              this.__("1 hour");
+                if (m > 0) str += " " + (m > 1 ? this.__("%s minutes", m) :
+                                                 this.__("1 minute"));
+            } else
+            if (m > 0) {
+                str = m > 1 ? this.__("%s minutes", m) :
+                              this.__("1 minute");
+                if (s > 0) str += " " + (s > 1 ? this.__("%s seconds", s) :
+                                                 this.__("1 second"));
+            } else {
+                str = seconds > 1 ? this.__("%s seconds", seconds) :
+                                    this.__("1 second");
             }
         }
         return str;
