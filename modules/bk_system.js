@@ -51,12 +51,9 @@ system.configureSystemAPI = function()
             break;
 
         case "init":
-            var queue = ipc.systemQueue;
-            if (req.query.name && queue) {
-                var opts = { queueName: queue };
-                if (ipc.getQueue(queue).name == "redis") opts = { cacheName: queue };
+            if (req.query.name) {
                 ["master","server","web","worker"].forEach(function(x) {
-                    ipc.publish(core.name + ":" + x, req.query.name + ":init", opts)
+                    ipc.broadcast(core.name + ":" + x, req.query.name + ":init", { queueName: ipc.systemQueue });
                 });
             }
             res.json({});
@@ -65,7 +62,7 @@ system.configureSystemAPI = function()
         case "queue":
             switch (req.params[1]) {
             case "publish":
-                ipc.publish(req.query.key, req.query.value, { queueName: req.query.queue }, function(err) { api.sendReply(res, err) });
+                ipc.broadcast(req.query.key, req.query.value, { queueName: req.query.queue }, function(err) { api.sendReply(res, err) });
                 break;
             }
             break;
@@ -77,7 +74,7 @@ system.configureSystemAPI = function()
                 break;
 
             case 'cancel':
-                ipc.publish(core.name + ":master", ipc.newMsg("jobs:cancel", req.query), { queueName: ipc.systemQueue }, function(err) {
+                ipc.broadcast(core.name + ":master", ipc.newMsg("jobs:cancel", req.query), { queueName: ipc.systemQueue }, function(err) {
                     api.sendReply(res, err)
                 });
                 break;
