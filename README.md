@@ -833,8 +833,8 @@ There is no ready to use support for different versions of API at the same becau
 tools ready to use that will allow to implement such versioning system in the backend. Some examples are provided below:
 
 - Fixed versions
-  This is similar to AWS version system when versions are fixed and changed not very often. For such cases the backend exposes `core.version` which is
-  supposed to be a core backend version. This version is returned with every backend reponse in the Verison: header. A client also can specify the core version
+  This is similar to AWS version system when versions are fixed and changed not very often. For such cases the backend exposes `core.bkVersion` which is
+  supposed to be a core backend version. This version is returned with every backend reponse in the Server: header. A client also can specify the core version
   using `bk-version` query parameter or a header. When a request is parsed and the version is provided it will be set in the request options object.
 
   All API routes are defined using Express middleware and one of the possible ways of dealing with different versions can look like this, by
@@ -1096,7 +1096,7 @@ how the environment is setup it is ultimatley 2 ways to specify the port for HTT
 
             $ ./bkjs shell
             > core.version
-            '2013.10.20.0'
+            '0.70.0'
             > logger.setLevel('info')
 
 # Design considerations
