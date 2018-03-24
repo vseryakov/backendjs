@@ -49,7 +49,7 @@ case "$BKJS_CMD" in
     out=$(aws s3 cp $bucket/$pkg tmp/$pkg 2>&1)
     rc=$?
     if [ "$rc" = "0" ]; then
-       out=$(npm -q -y -q --progress=false install tmp/$pkg 2>&1)
+       out=$(npm -q -y --progress=false install tmp/$pkg 2>&1)
        rc=$?
     fi
     if [ "$rc" = "0" ]; then
@@ -107,7 +107,7 @@ case "$BKJS_CMD" in
     echo "Deployment commands:"
     echo ""
     echo "  publish-pkg -bucket S3BUCKET [-tag TAG] [-stop all|api|worker] - publishes the current package into S3 deployment bucket $BKJS_DEPLOY_BUCKET, if -stop and -tag are provided the deploy-pkg will be executed after publish"
-    echo "  deploy-pkg -name NAME [-version VER] [-tag TAG] [-stop all|api|worker] - update instances by tags with the specified package/version, uses AWS SSM to send the update cmmand"
+    echo "  deploy-pkg -name NAME [-version VER] [-tag TAG] [-stop all|api|worker] - update instances by tags with the specified package/version, uses AWS SSM to send the update command"
     echo "  update-pkg - updates in place the specified package using NPM, this can only be run on an instance, if -stop provided then one of the stop|stop-api|stop-worker commands will be executed after successful update"
     echo "  cleanup-deploy-bucket [-count 10] - delete old packages from the S3 deployment bucket, keep the latest -count versions only"
     ;;
