@@ -360,7 +360,10 @@ var Bkjs = {
 
     // Percent encode with special symbols in addition
     encode: function(str) {
-        return encodeURIComponent(str).replace("!","%21","g").replace("*","%2A","g").replace("'","%27","g").replace("(","%28","g").replace(")","%29","g");
+        if (typeof str == "undefined") return "";
+        return encodeURIComponent(str).replace(/[!'()*]/g, function(m) {
+            return m == '!' ? '%21' : m == "'" ? '%27' : m == '(' ? '%28' : m == ')' ? '%29' : m == '*' ? '%2A' : m;
+        });
     },
 
     // Show/hide loading animation
