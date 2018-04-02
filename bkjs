@@ -434,8 +434,9 @@ case "$BKJS_CMD" in
     [ "$NPM_BIN" = "" -a ! -f $BKJS_PREFIX/bin/npm ] && NPM_BIN=$(which npm 2>/dev/null)
     [ "$NPM_BIN" = "" ] && NPM_BIN=$BKJS_PREFIX/bin/npm
     cmd=install
-    [ "$(get_flag -update)" != "" ] && cmd=update
+    [ ! -z "$(get_flag -update)" ] && cmd=update
     npm=$(get_arg -npm)
+    [ ! -z "$(get_flag -global)" ] && npm="$npm -g"
     field=$(get_arg -field dependencies)
     skip=$(get_arg -skip $BKJS_MOD)
     path=$(get_arg -path .)
@@ -450,10 +451,11 @@ case "$BKJS_CMD" in
     ;;
 
   install-node)
-    ver=$(get_arg -version v8.10.0)
+    ver=$(get_arg -version v8.11.1)
     if [ "$(get_flag -force)" != "" -a -f $BKJS_PREFIX/bin/node ]; then
        echo "Uninstalling node from $BKJS_PREFIX ..."
-       rm -rf $BKJS_PREFIX/bin/node $BKJS_PREFIX/bin/npm $BKJS_PREFIX/lib/node_modules
+       rm -rf $BKJS_PREFIX/bin/node $BKJS_PREFIX/bin/npm $BKJS_PREFIX/lib/node_modules/npm
+       [ ! -z "$(get_flag -clean)" ] && rm -rf $BKJS_PREFIX/lib/node_modules
     fi
     [ -f $BKJS_PREFIX/bin/node ] && exit 0
     mkdir -p $BKJS_PREFIX
@@ -522,7 +524,7 @@ case "$BKJS_CMD" in
     echo "  deps [-field dependencies] [-path .] [-skip $BKJS_MOD] [-update] [-npm ARGS] - install npm packages from the dependencies list from the package.json"
     echo "  sync [-host HOST] [-path PATH] [-user USER] [-ssh-key pem] [-ssh OPTS] [-exclude PATTERN] [-bkcmd CMD] - push the backend code to the remote host using rsync, default path is ~/node_modules/$BKJS_MOD"
     echo "  ssh -host HOST -cmd CMD [-user USER] [-key PEM] [-ssh ARGS] - run a command over ssh on all specified hosts"
-    echo "  install-node [-prefix PATH] [-force] - install binary release of the node into $BKJS_PREFIX or specified path"
+    echo "  install-node [-prefix PATH] [-force] [-clean] - install binary release of the node into $BKJS_PREFIX or specified path"
     echo ""
     echo "  bkhelp - show all $BKJS_MOD config parameters"
     echo ""
