@@ -697,7 +697,7 @@ tests.test_db = function(callback)
             });
         },
         function(next) {
-            db.select("test2", { id: id2 }, { filter: function(req, row, o) { return row.id2 == '1' } }, function(err, rows) {
+            db.select("test2", { id: id2 }, { postfilter: function(req, row, o) { return row.id2 == '1' } }, function(err, rows) {
                 tests.assert(next, err || rows.length!=1 || rows[0].id2 != '1' || rows[0].num2 != num2 , "err5:", num2, rows);
             });
         },
