@@ -72,7 +72,7 @@ shell.getQueryList = function()
     var query = [];
     for (var i = process.argv.length - 1; i > 1; i--) {
         if (process.argv[i][0] == '-') break;
-        query.push(process.argv[i]);
+        query.unshift(process.argv[i]);
     }
     return query;
 }
@@ -81,9 +81,9 @@ shell.getQueryList = function()
 shell.getArgs = function()
 {
     var query = {};
-    for (var i = process.argv.length - 1; i > 1; i -= 2) {
-        var a = process.argv[i - 1][0], b = process.argv[i][0];
-        if (a == '-') query[process.argv[i - 1].substr(1)] = b != '-' ? process.argv[i] : 1;
+    for (var i = process.argv.length - 1; i > 1; i--) {
+        var a = process.argv[i] || "", b = process.argv[i + 1] || "";
+        if (a[0] == '-') query[a.substr(1)] = b && b[0] != '-' ? b : 1;
     }
     return query;
 }
