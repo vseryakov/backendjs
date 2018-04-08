@@ -4,7 +4,10 @@
 <ul>
 <li><a href="#backend-platform-for-node-js"> Backend platform for node.js</a></li>
 <li><a href="#installation"> Installation</a></li>
-<li><a href="#quick-start"> Quick start</a></li>
+<li><a href="#quick-start"> Quick start</a><ul>
+<li><a href="#to-run-an-example"> To run an example</a></li>
+</ul>
+</li>
 <li><a href="#configuration"> Configuration</a></li>
 <li><a href="#backend-runtime"> Backend runtime</a></li>
 <li><a href="#application-structure"> Application structure</a><ul>
@@ -220,49 +223,20 @@ it is called only inside a master process, a worker never creates tables on star
 <li><p>prepare the tables in the shell</p>
 <pre><code>bksh -db-pool pgsql -db-pgsql-pool postgresql://postgres@127.0.0.1/backend -db-create-tables
 </code></pre></li>
-<li><p>run the server and create table son start</p>
+<li><p>run the server and create tables on start</p>
 <pre><code>bkjs web -db-pool pgsql -db-pgsql-pool postgresql://postgres@127.0.0.1/backend -db-create-tables
 </code></pre></li>
 </ul>
 </li>
 <li><p>While the local backendjs is runnning, the documentation is always available at <a href="http://localhost:8000/doc.html">http://localhost:8000/doc.html</a> (or whatever port is the server using)</p>
 </li>
+<li><p>To add users from the command line</p>
+<pre><code>  bksh -account-add login test secret test name TestUser email test@test.com
+</code></pre></li>
 <li><p>By default no external modules are loaded so it needs the accounts module with a
 parameter <code>-allow-modules PATTERN</code>, this will load all modules that match the pattern, default modules start with <code>bk_</code>:</p>
 <pre><code>  bkjs web -allow-modules bk_
 </code></pre></li>
-<li><p>Go to <a href="http://localhost:8000/api.html">http://localhost:8000/api.html</a> for the Web console to test API requests.
-For this example let&#39;s create an account.</p>
-</li>
-<li><p>Type and execute the following URLs in the Web console:</p>
-<pre><code>  /account/add?name=test1&amp;secret=test1&amp;login=test1@test.com
-</code></pre></li>
-<li><p>Now login with the new account, click on <em>Login</em> at the top-right corner and enter &#39;test1&#39; as login and &#39;test1&#39; as secret in the login popup dialog.</p>
-</li>
-<li><p>If no error message appeared after the login, try to get your current account details:</p>
-<pre><code>  /account/get
-</code></pre></li>
-<li><p>Shutdown the backend by pressing Ctrl-C</p>
-</li>
-<li><p>To make your own custom Web app, copy the app template directory:</p>
-<pre><code>  # Find the directory where the backendjs is installed:
-  node -e &quot;console.log(path.dirname(require.resolve(&#39;backendjs&#39;)))&quot;
-
-  # Copy the app template
-  cp -r path_to_backendjs/examples/app path_to_new_app_name
-</code></pre></li>
-<li><p>The <code>app.js</code> file has 2 additional API endpoints <code>/test/add</code> and <code>/test/[0-9]</code> to show the simplest way
-of adding new tables and API commands.</p>
-</li>
-<li>The <code>app.sh</code> script is for convenience in the development process, it specifies common arguments and can be customized as needed.</li>
-<li><p>Run your new application now, it will start the Web server on port 8000:</p>
-<pre><code>  ./app.sh
-</code></pre></li>
-<li><p>Go to <a href="http://localhost:8000/api.html">http://localhost:8000/api.html</a> and issue command <code>/test/add?id=1&amp;name=1</code> and then <code>/test/1</code> commands in the console to see it in action</p>
-</li>
-<li><p>Any change in the source files will make the server restart automatically letting you focus on the source code and not server management, this mode
-is only enabled by default in development mode, check <code>app.sh</code> for parameters before running it in the production.</p>
-</li>
 <li><p>To start node.js shell with backendjs loaded and initialized, all command line parameters apply to the shell as well</p>
 <pre><code>  ./app.sh -shell
 </code></pre></li>
@@ -272,12 +246,23 @@ is only enabled by default in development mode, check <code>app.sh</code> for pa
   &gt; db.add(&quot;bk_account&quot;, { login: &#39;test2&#39;, secret: &#39;test2&#39;, name&#39; Test 2 name&#39;, gender: &#39;f&#39; }, lib.log);
   &gt; db.select(&quot;bk_account&quot;, { gender: &#39;m&#39; }, lib.log);
 </code></pre></li>
-<li><p>To add users from the command line</p>
-<pre><code>  bksh -account-add login test secret test name TestUser email test@test.com
+</ul>
+<h2 id="to-run-an-example">To run an example</h2>
+<ul>
+<li>Go to <code>examples/api</code> directory:</li>
+<li><p>Run the application, it will start the Web server on port 8000:</p>
+<pre><code>  ./app.sh
 </code></pre></li>
-<li><p>To see current metrics run the command in the console &#39;/system/stats/get&#39;</p>
+<li><p>Now login with the new account,</p>
 </li>
+<li>Go to <a href="http://localhost:8000/api.html">http://localhost:8000/api.html</a> and click on <em>Login</em> at the top-right corner, then enter &#39;test&#39; as login and &#39;test&#39; as secret in the login popup dialog.</li>
+<li>To see your account details run the command in the console <code>/account/get</code></li>
+<li>To see current metrics run the command in the console <code>/system/stats/get</code></li>
 <li><p>To see charts about accumulated metrics go to <a href="http://localhost:8000/metrics.html">http://localhost:8000/metrics.html</a></p>
+</li>
+<li><p>When the web server is starte with <code>-watch</code> parameters any change in the source files will make the server restart automatically
+letting you focus on the source code and not server management, this mode is only enabled by default in development mode,
+check <code>app.sh</code> for parameters before running it in the production.</p>
 </li>
 </ul>
 <h1 id="configuration">Configuration</h1>
@@ -701,7 +686,8 @@ communicate with it via internal messaging provided by the <code>cluster</code> 
 <p>To support more than one master Redis server in the client add additional servers in the servers parameter,
 <code>ipc-cache-options-servers=10.1.1.1,10.2.2.1:5000</code>, the client will reconnect automatically on every
 disconnect. To support quick failover it needs a parameter for the <code>node-redis</code> module (which is used by the driver) <code>max_attempts</code> to be a
-number how many attempts to reconnect before switching to another server like <code>ipc-cache-options-max_attempts=3</code>.
+number how many attempts to reconnect before switching to another server like <code>ipc-cache-options-max_attempts=3</code>. If there is only one
+server then it will keep reconnecting until total reconnect time exceeds the <code>connect_timeout</code> ms.
 Any other <code>node-redis</code> module parameter can be passed as well.</p>
 <p>Cache configurations also can be passed in the url, the system supports special parameters that start with <code>bk-</code>, it will extract them into options automatically.</p>
 <p>For example:</p>
@@ -752,6 +738,7 @@ process with <code>-jobs-workers 2</code> will launch 2 worker processes which w
           api.sendReply(res, err);
        });
    });
+
 </code></pre>
 <h2 id="rabbitmq">RabbitMQ</h2>
 <p>To configure the backend to use RabbitMQ for messaging set <code>ipc-queue=amqp://HOST</code> and optionally <code>amqp-options=JSON</code> with options to the amqp module.
@@ -771,7 +758,7 @@ This is intended for a single server development pusposes only.</p>
 <h2 id="api-only">API only</h2>
 <p>This is default setup of the backend when all API requests except <code>/account/add</code> must provide valid signature and all HTML, Javascript, CSS and image files
 are available to everyone. This mode assumes that Web development will be based on &#39;single-page&#39; design when only data is requested from the Web server and all
-rendering is done using Javascript. This is how the <code>api.html</code> develpers console is implemented, using JQuery-UI and Knockout.js.</p>
+rendering is done using Javascript. This is how the <code>examples/api/api.html</code> develpers console is implemented, using JQuery-UI and Knockout.js.</p>
 <p>To see current default config parameters run any of the following commands:</p>
 <pre><code>    bkjs bkhelp | grep api-allow
 
@@ -815,7 +802,7 @@ html pages to work after login without singing every API request.</p>
       callback();
    }
 </code></pre>
-<ol>
+<ol start="2">
 <li>We define an auth callback in the app and redirect to login if the reauest has no valid signature, we check all html pages, all allowed html pages from the /public
 will never end up in this callback because it is called after the signature check but allowed pages are served before that:</li>
 </ol>
@@ -844,8 +831,8 @@ All requests must be properly signed with all parameters encoded as for GET requ
 tools ready to use that will allow to implement such versioning system in the backend. Some examples are provided below:</p>
 <ul>
 <li><p>Fixed versions
-This is similar to AWS version system when versions are fixed and changed not very often. For such cases the backend exposes <code>core.version</code> which is
-supposed to be a core backend version. This version is returned with every backend reponse in the Verison: header. A client also can specify the core version
+This is similar to AWS version system when versions are fixed and changed not very often. For such cases the backend exposes <code>core.bkVersion</code> which is
+supposed to be a core backend version. This version is returned with every backend reponse in the Server: header. A client also can specify the core version
 using <code>bk-version</code> query parameter or a header. When a request is parsed and the version is provided it will be set in the request options object.</p>
 <p>All API routes are defined using Express middleware and one of the possible ways of dealing with different versions can look like this, by
 appending version to the command it is very simple to call only changed API code.</p>
@@ -946,7 +933,7 @@ new image configuration.</p>
 <li>login as <code>ec2-user</code></li>
 <li><p>install commands</p>
 <pre><code>  git clone https://github.com/vseryakov/backendjs.git
-  backendjs/bkjs install-ec2
+  sudo backendjs/bkjs install-ec2 -home $HOME
   bkjs restart
 </code></pre></li>
 <li><p>run <code>ps agx</code>, it should show several backend processes running</p>
@@ -1062,7 +1049,7 @@ node can find global modules, replace $BKJS_PREFIX with the actual path unless t
  similar to node.js REPL functionality. All modules are accessible from the command line.</p>
 <pre><code>      $ ./bkjs shell
       &gt; core.version
-      &#39;2013.10.20.0&#39;
+      &#39;0.70.0&#39;
       &gt; logger.setLevel(&#39;info&#39;)
 </code></pre></li>
 </ul>
@@ -2333,7 +2320,7 @@ Database pool statistics and other diagnostics</p>
 <li><code>logwatcher-interval</code> - How often to check for errors in the log files in minutes</li>
 <li><code>logwatcher-any-range</code> - Number of lines for matched channel <code>any</code> to be attached to the previous matched channel, if more than this number use the channel <code>any</code> on its own</li>
 <li><code>logwatcher-match-[a-z]+</code> - Regexp patterns that match conditions for logwatcher notifications, this is in addition to default backend logger patterns, suffix defines the log channel to use, like error, warning.... Special channel <code>any</code> is reserved to send matched lines to the previously matched channel if within configured range. Example: <code>-logwatcher-match-error=^failed:</code> <code>-logwatcher-match-any=line:[0-9]+</code></li>
-<li><code>logwatcher-send-[a-z]+</code> - Email address or other supported transport for the logwatcher notifications, the monitor process scans system and backend log files for errors and sends them to this email address, if not specified no log watching will happen, each channel must define a transport separately, one of error, warning, info, all. Supported transports: table://TABLE, <a href="http://URL">http://URL</a>, sns://ARN, ses://EMAIL, email@addr. Example: <code>-logwatcher-send-error=help@error.com</code></li>
+<li><code>logwatcher-send-[a-z]+</code> - Email address or other supported transport for the logwatcher notifications, the monitor process scans system and backend log files for errors and sends them to this email address, if not specified no log watching will happen, each channel must define a transport separately, one of error, warning, info, all. Supported transports: table://TABLE, <a href="http://URL">http://URL</a>, sns://ARN, ses://EMAIL, email@addr. Example: <a href="mailto:`-logwatcher-send-error=help@error.com">`-logwatcher-send-error=help@error.com</a>`</li>
 <li><code>logwatcher-ignore-[a-z]+</code> - Regexp with patterns that need to be ignored by the logwatcher process, it is added to the list of ignored patterns for each specified channel separately</li>
 <li><code>logwatcher-file(-[a-z]+)?</code> - Add a file to be watched by the logwatcher, it will use all configured match patterns</li>
 <li><code>user-agent</code> - Add HTTP user-agent header to be used in HTTP requests, for scrapers or other HTTP requests that need to be pretended coming from Web browsers</li>
@@ -2393,8 +2380,10 @@ Database pool statistics and other diagnostics</p>
 <li><code>db-local</code> - Local database pool for properties, cookies and other local instance only specific stuff</li>
 <li><code>db-config</code> - Configuration database pool to be used to retrieve config parameters from the database, must be defined to use remote db for config parameters, set to <code>default</code> to use current default pool</li>
 <li><code>db-config-interval</code> - Interval between loading configuration from the database configured with -db-config, in minutes, 0 disables refreshing config from the db</li>
+<li><code>db-config-roles</code> - Roles to assume when puling config parameters</li>
 <li><code>db-cache-columns-interval</code> - How often in minutes to refresh tables columns from the database, it calls cacheColumns for each pool which supports it</li>
 <li><code>db-([a-z0-9]+)-pool$</code> - A database pool name, depending on the driver it can be an URL, name or pathname, examples of db pools: <code>-db-pgsql-pool, -db-dynamodb-pool</code>, examples of urls: <code>postgresql://[user:password@]hostname[:port]/db, mysql://[user:password@]hostname/db, mongodb://hostname[:port]/dbname, cql://[user:password@]hostname[:port]/dbname</code></li>
+<li><code>db-([a-z0-9]+)-pool-(disabled)$</code> - Disable the specified pool but keep the configuration</li>
 <li><code>db-([a-z0-9]+)-pool-(max)$</code> - Max number of open connections for a pool, default is Infinity</li>
 <li><code>db-([a-z0-9]+)-pool-(min)$</code> - Min number of open connections for a pool</li>
 <li><code>db-([a-z0-9]+)-pool-(idle)$</code> - Number of ms for a db pool connection to be idle before being destroyed</li>
@@ -2425,6 +2414,7 @@ Database pool statistics and other diagnostics</p>
 <li><code>api-no-static</code> - Disable static files from /web folder, no .js or .html files will be served by the server</li>
 <li><code>api-static-options-(.+)</code> - Options to pass to serve-static module: maxAge, dotfiles, etag, redirect, fallthrough, extensions, index, lastModified</li>
 <li><code>api-vhost-path-([^/]+)</code> - Define a virtual host regexp to be matched against the hostname header to serve static content from a different root, a vhost path must be inside the web directory, if the regexp starts with !, that means negative match, example: api-vhost-path-test_dir=test.com$</li>
+<li><code>api-no-vhost-path</code> - Add to the list of URL paths that should be served for all virtual hosts</li>
 <li><code>api-no-templating</code> - Disable templating engine completely</li>
 <li><code>api-templating</code> - Templating engne to use, see consolidate.js for supported engines</li>
 <li><code>api-no-session</code> - Disable cookie session support, all requests must be signed for Web clients</li>
@@ -2458,7 +2448,7 @@ Database pool statistics and other diagnostics</p>
 <li><code>api-allow-anonymous</code> - Add to the list of allowed URL paths that can be served with or without valid account, the difference with <code>allow-path</code> is that it will check for signature and an account but will continue if no login is provided, return error in case of wrong account or not account found</li>
 <li><code>api-allow-ssl</code> - Add to the list of allowed URL paths using HTTPs only, plain HTTP requests to these urls will be refused</li>
 <li><code>api-redirect-ssl</code> - Add to the list of the URL paths to be redirected to the same path but using HTTPS protocol, for proxy mode the proxy server will perform redirects</li>
-<li><code>api-redirect-url</code> - Add to the list a JSON object with property name defining a host/path regexp to be matched against in order to redirect using the value of the property, if the regexp starts with !, that means negative match, 2 variables can be used for substitution: @HOST@, @PATH@, @URL@, example: { &#39;^[^/]+/path/$&#39;: &#39;/path2/index.html&#39;, &#39;.+/$&#39;: &#39;@PATH@/index.html&#39; } </li>
+<li><code>api-redirect-url</code> - Add to the list a JSON object with property name defining a host/path regexp to be matched early against in order to redirect using the value of the property, if the regexp starts with !, that means negative match, 2 variables can be used for substitution: @HOST@, @PATH@, @URL@, @BASE@, example: { &#39;^[^/]+/path/$&#39;: &#39;/path2/index.html&#39;, &#39;.+/$&#39;: &#39;@PATH@/index.html&#39; } </li>
 <li><code>api-deny</code> - Regexp for URLs that will be denied access, replaces the whole access list</li>
 <li><code>api-deny-path</code> - Add to the list of URL paths to be denied without authentication</li>
 <li><code>api-subscribe-timeout</code> - Timeout for Long POLL subscribe listener, how long to wait for events before closing the connection, milliseconds</li>
@@ -2486,10 +2476,11 @@ Database pool statistics and other diagnostics</p>
 <li><code>api-errlog-limiter-max</code> - How many error messages to put in the log before throttling kicks in</li>
 <li><code>api-errlog-limiter-interval</code> - Interval for error log limiter, max errors per this interval</li>
 <li><code>api-errlog-limiter-ignore</code> - Do not show errors that match the regexp</li>
-<li><code>api-proxy-reverse</code> - A Web server where to proxy requests not macthed by the url patterns or host header, in the form: <a href="http://host[:port">http://host[:port</a>]</li>
-<li><code>api-proxy-url-(.+)</code> - URL regexp to be passed to other web server running behind, each parameter defines an url regexp and the destination in the value in the form <a href="http://host[:port">http://host[:port</a>], example: -api-proxy-url-^/api <a href="http://127.0.0.1:8080">http://127.0.0.1:8080</a></li>
-<li><code>api-proxy-host-(.+)</code> - Virtual host mapping, to match any Host: header, each parameter defines a host name and the destination in the value in the form <a href="http://host[:port">http://host[:port</a>], example: -api-proxy-host-www.myhost.com <a href="http://127.0.0.1:8080">http://127.0.0.1:8080</a></li>
+<li><code>api-proxy-reverse</code> - A Web server where to proxy requests not macthed by the url patterns or host header, in the form: <a href="http://host[:port]">http://host[:port]</a></li>
+<li><code>api-proxy-url-(.+)</code> - URL regexp to be passed to other web server running behind, each parameter defines an url regexp and the destination in the value in the form <a href="http://host[:port]">http://host[:port]</a>, example: -api-proxy-url-^/api <a href="http://127.0.0.1:8080">http://127.0.0.1:8080</a></li>
+<li><code>api-proxy-host-(.+)</code> - Virtual host mapping, to match any Host: header, each parameter defines a host name and the destination in the value in the form <a href="http://host[:port]">http://host[:port]</a>, example: -api-proxy-host-<a href="http://www.myhost.com">www.myhost.com</a> <a href="http://127.0.0.1:8080">http://127.0.0.1:8080</a></li>
 <li><code>api-routing-(.+)</code> - URL path to be re-routed to other path, this is done inside the server, only the path is checked and replaced, example: -api-routing-^/account/get /acount/read</li>
+<li><code>api-login-redirect-(.+)</code> - Define a location where to redirect if no login is provided and it matches host/path regexp, same placeholders as in redirect-url, example: api-login-redirect-^/admin/=/login.html</li>
 <li><code>msg-([^-]+)-(cert)(@.+)?</code> - A certificate for APN or similar services in pfx format, can be a file name with .p12 extension or a string with certificate contents encoded with base64, if the suffix is specified in the config parameter name will be used as the app name, otherwise it is global</li>
 <li><code>msg-([^-]+)-authkey-([^-]+)-(.+)</code> - A auth key for APN in p8 format, can be a file name with .p8 extension or a string with the key contents encoded with base64</li>
 <li><code>msg-([^-]+)-(key)(@.+)?</code> - API key for GCM or similar services, if the suffix is specified in the config parameter will be used as the app name, without the suffix it is global</li>
@@ -2510,6 +2501,7 @@ Database pool statistics and other diagnostics</p>
 <li><code>jobs-shutdown-timeout</code> - Max number of milliseconds to wait for the graceful shutdown sequence to finish, after this timeout the process just exits</li>
 <li><code>jobs-worker-queue</code> - Queue(s) to subscribe for workers, multiple queues can be processes at the same time, i.e. more than one job can run from different queues</li>
 <li><code>jobs-cron-queue</code> - Default queue to use for cron jobs</li>
+<li><code>jobs-global-queue</code> - Default queue for all jobs, the queueName is ignored</li>
 <li><code>jobs-unique-queue</code> - Default queue name to use for keeping track of unique jobs</li>
 <li><code>jobs-cron</code> - Allow cron jobs to be executed from the local etc/crontab file or via config parameter</li>
 <li><code>jobs-schedule</code> - Cron jobs to be scheduled, the JSON must be in the same format as crontab file</li>
@@ -2762,6 +2754,12 @@ The options is expected to contain the following cached request properties:</p>
 </ul>
 
 <ul>
+<li><p><code>api.checkRedirectRules(req, options, rules)</code></p>
+<p> Redirect rules, supports regexpobj and regexpmap parameters</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>api.checkAccountType(account, type)</code></p>
 <p> Return true if the current user belong to the specified type, account type may contain more than one type</p>
 </li>
@@ -2925,18 +2923,20 @@ database pool.</p>
 </ul>
 
 <ul>
-<li><p><code>api.clearQuery(table, query, name)</code></p>
-<p> Clear request query properties specified in the table definition, if any columns for the table contains the property <code>name</code> nonempty, then
-all request properties with the same name as this column name will be removed from the query. This for example is used for the <code>bk_auth</code>
-table to disable updating properties by the user which can only be set by an admin.</p>
-<p>If no names are specified the query will only keep existing columns for the given table.</p>
-<p>There can be more than one name specified</p>
-<p>If a name is prefixed with ! then the logic is reversed, keep all except this name</p>
+<li><p><code>api.clearQuery(table, query, options)</code></p>
+<p> Clear request query properties specified in the table definition.</p>
+<p>If <code>options.filter</code> is not specified the <code>query</code> will only keep existing columns for the given table.</p>
+<p>If <code>options.filter</code> is a list then the <code>query</code> will only not contain properties for columns that contain any specified
+property from the filter list. This is used for the <code>bk_auth</code> table to remove properties that supposed to be updated by admins only.
+The filter will keep non-existent columns in the <code>query</code>. To remove such columns when using the filter specify <code>options.force</code>.</p>
+<p>If a name in the filter is prefixed with ! then the logic is reversed, keep all except this property</p>
+<p>If <code>options.keep</code> is a regexp it will be used to keep matched properties by name in the <code>query</code> regardless of any condition.</p>
+<p>If <code>options.clear</code> is a regexp it will be used to remove matched properties by name in the <code>query</code>.</p>
 <p>Example:</p>
 <pre><code>  api.clearQuery(&quot;bk_account&quot;, req.query)
-  api.clearQuery(&quot;bk_account&quot;, req.query, &quot;admin&quot;)
-  api.clearQuery(&quot;bk_account&quot;, req.query, &quot;&quot;admin&quot;, &quot;secure&quot;)
-  api.clearQuery(&quot;bk_account&quot;, req.query, &quot;admin&quot;, &quot;!secure&quot;)
+  api.clearQuery(&quot;bk_auth&quot;, req.query, { filter: [&quot;admin&quot;] })
+  api.clearQuery(&quot;bk_account&quot;, req.query, { filter: [&quot;admin&quot;,&quot;secure&quot;] })
+  api.clearQuery(&quot;bk_account&quot;, req.query, { filter: [&quot;admin&quot;,&quot;!secure&quot;], keep: /^__/ })
 </code></pre></li>
 </ul>
 
@@ -3034,6 +3034,18 @@ of registration. At this time the result has been sent so connection is not vali
 <p>Example, do custom logging of all requests</p>
 <pre><code>    api.registerCleanup(&#39;&#39;, &#39;/data/&#39;, function(req, next) {
         db.add(&quot;log&quot;, req.query, next);
+    });
+</code></pre></li>
+</ul>
+
+<ul>
+<li><p><code>api.registerSendStatus(method, path, callback)</code></p>
+<p> Register a status callback that will be called when <code>api.sendReply</code> or <code>api.sendStatus</code> is called,
+all registered callbacks will be called in the order of registration. At this time the result has NOT been sent yet so connection is
+still valid and can be channged.</p>
+<p>Example, do custom logging of all requests</p>
+<pre><code>    api.registerSendStatus(&#39;&#39;, &#39;/data/&#39;, function(req, data) {
+        logger.info(&quot;response&quot;, req.path, data);
     });
 </code></pre></li>
 </ul>
@@ -3357,7 +3369,7 @@ The status property is passed to each hook in the chain, the result status will 
 
 <ul>
 <li><p><code>api.detectFile(file, callback)</code></p>
-<p> Returns detected mime type for a file</p>
+<p> Returns detected mime type and ext for a file</p>
 </li>
 </ul>
 
@@ -3442,8 +3454,8 @@ from the info.format because it may be not the desired format.</p>
 <li>id is used in <code>iconPath</code> along with the options to build the icon absolute path</li>
 <li>autodel - if true, auto delete the base64 icon property from the query or the body after it is decoded, this is to
 mark it for deallocation while the icon is being processed, the worker queue is limited so with large number of requests
-all these query objects will remain in the query wsting memory</li>
-<li>verify = check the given image of file header for known image types</li>
+all these query objects will remain in the query wasting memory</li>
+<li>verify - check the given image of file header for known image types</li>
 <li>extkeep - a regexp with image types to preserve, not to convert into the specified image type</li>
 </ul>
 </li>
@@ -4953,7 +4965,7 @@ The difference with the high level functions that take a table name as their fir
 explicitely if it is different from the default. Other functions can resolve
 the pool by table name if some tables are assigned to any specific pool by configuration parameters <code>db-pool-tables</code>.</li>
 <li>unique - perform sorting the result and eliminate any duplicate rows by the column name specified in the <code>unique</code> property</li>
-<li>filter - function to filter rows not to be included in the result, return false to skip row, args are: function(req, row, options)</li>
+<li>postfilter - function to filter rows not to be included in the result, return false to skip row, args are: function(req, row, options)</li>
 <li>postprocess - function to process rows in the result, return a new result, args are: function(req, row, options), this result will be put in cache
 if requested so this may be used for preparing cached results, it must return an array</li>
 <li>quiet - do not report about the error in the log, still the error is returned to the caller</li>
@@ -5010,6 +5022,7 @@ also can be a list where each item is an object with primary key condition. Only
 <li>select - a list of columns or expressions to return or all columns if not specified</li>
 <li>start - start records with this primary key, this is the next_token passed by the previous query</li>
 <li>count - how many records to return</li>
+<li>first - a convenient option to return the first record from the result or null (similar to <code>db.get</code> method)</li>
 <li>join - how to join condition expressions, default is AND</li>
 <li>sort - sort by this column. if null then no sorting must be done at all, records will be returned in the order they are kept in the DB.
  <em>NOTE: For DynamoDB this may affect the results if columns requsted are not projected in the index, with sort
@@ -5060,6 +5073,21 @@ also can be a list where each item is an object with primary key condition. Only
 <pre><code>  db.select(&quot;bk_connection&quot;, { id: &#39;123&#39;, type: &#39;like&#39;, mtime: Date.now()-86400000 }, { ops: { type: &quot;begins_with&quot;, mtime: &quot;gt&quot; } }, function(err, rows) {
 
   });
+</code></pre></li>
+</ul>
+
+<ul>
+<li><p><code>db.search(table, query, options, callback)</code></p>
+<p> Perform full text search on the given table, the database implementation may ignore table name completely
+in case of global text index.</p>
+<p>Query in general is a text string with the format that is supported by the underlying driver,
+the db module <em>DOES NOT PARSE</em> the query at all if the driver supports full text search, otherwise it behaves like <code>select</code>.</p>
+<p>Options make take the same properties as in the <code>select</code> method.</p>
+<p>A special query property <code>q</code> may be used for generic search in all fields.</p>
+<p>Without full text search support in the driver this may return nothing or an error.</p>
+<p>Example</p>
+<pre><code>      db.search(&quot;bk_account&quot;, { type: &quot;admin&quot;, q: &quot;john*&quot; }, { pool: &quot;elasticsearch&quot; }, lib.log);
+      db.search(&quot;bk_account&quot;, &quot;john*&quot;, { pool: &quot;elasticsearch&quot; }, lib.log);
 </code></pre></li>
 </ul>
 
@@ -5171,18 +5199,17 @@ Special properties that can be in the options for this call:</p>
 <li>updateOptions - options to be passed to the db.update if needed, this is useful so select and update options will not be mixed up</li>
 <li>updateCollect - if true return all updated rows in the callback otherwise just the number of updated rows</li>
 <li>factorCapacity - write capacity factor for update operations, default is 0.25</li>
-<li>concurrency - how many update queries to execute at the same time, default is 1, this is done by using lib.forEachLimit.</li>
 <li>op - by default it uses db.update but the <code>op</code> can be set to <code>put</code> or <code>add</code></li>
 <li>process - a function callback that will be called for each row before updating it, this is for some transformations of the record properties
  in case of complex columns that may contain concatenated values as in the case of using DynamoDB. The callback will be called
  as <code>options.process(row, options)</code></li>
+<li>updateFilter - a function that must return true in order to skip the current record. <code>options.updateFilter(row, options)</code></li>
 </ul>
 <p>Example, update birthday format if not null</p>
 <pre><code>    db.updateAll(&quot;bk_account&quot;,
                 { birthday: 1 },
                 { mtime: Date.now() },
                 { ops: { birthday: &quot;not null&quot; },
-                  concurrency: 2,
                   process: function(r, o) {
                         r.birthday = lib.strftime(new Date(r.birthday, &quot;%Y-%m-D&quot;));
                   } },
@@ -5221,7 +5248,10 @@ Special properties that can be in the options for this call:</p>
 <li>ignore_error - continue deleting records even after an error</li>
 <li>process - a function callback that will be called for each row before deleting it, this is for some transformations of the record properties
 in case of complex columns that may contain concatenated values as in the case of using DynamoDB. The callback will be called
-as <code>options.process(row, options)</code></li>
+as <code>options.process(row, options)</code><ul>
+<li>delFilter - a function that must return true in order to skip the current record. <code>options.delFilter(row, options)</code></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -5345,21 +5375,6 @@ The following options can be used:</p>
 <li>delay - number of milliseconds to wait between the steps</li>
 </ul>
 </li>
-</ul>
-
-<ul>
-<li><p><code>db.search(table, query, options, callback)</code></p>
-<p> Perform full text search on the given table, the database implementation may ignore table name completely
-in case of global text index.</p>
-<p>Query in general is a text string with the format that is supported by the underlying driver,
-the db module <em>DOES NOT PARSE</em> the query at all if the driver supports full text search, otherwise it behaves like <code>select</code>.</p>
-<p>Options make take the same properties as in the <code>select</code> method.</p>
-<p>A special query property <code>q</code> may be used for generic search in all fields.</p>
-<p>Without full text search support in the driver this may return nothing or an error.</p>
-<p>Example</p>
-<pre><code>      db.search(&quot;bk_account&quot;, { type: &quot;admin&quot;, q: &quot;john*&quot; }, { pool: &quot;elasticsearch&quot; }, lib.log);
-      db.search(&quot;bk_account&quot;, &quot;john*&quot;, { pool: &quot;elasticsearch&quot; }, lib.log);
-</code></pre></li>
 </ul>
 
 <ul>
@@ -5524,6 +5539,26 @@ helpers and is not used directly in the applications.</p>
 <p> Keep only columns from the table definition if we have it
 Go over all properties in the object and makes sure the types of the values correspond to the column definition types,
 this is for those databases which are very sensitive on the types like DynamoDB.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.joinColumn(req, obj, name, col, orig)</code></p>
+<p> Join several columns to produce a combined property if configured, given a column description and an object record
+it replaces the column value with joined value if needed. Empty properties will be still joined as empty strings.
+It always uses the original value even if one of the properties has been joined already.</p>
+<p>Checks for <code>join</code> and <code>join_ops</code> properties in the column definition.</p>
+<p>The <code>options.skip_join</code> can be used to restrict joins, it is a list with columns that should not be joined</p>
+<p>The <code>col.join_pools</code> can be an array with pool names which are allowed to do the join, other pools will skip joining this column.</p>
+<p>The <code>col.nojoin_pools</code> can be an array with pool names which are not allowed to do the join, other pools will skip joining this column</p>
+<p>The <code>options.join_strict</code> can be used to perform join only if all columns in the list are not empty, so the join
+is for all columns or none</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.unjoinColumns(rows, name, col, options)</code></p>
+<p> Split joined columns for all rows</p>
 </li>
 </ul>
 
@@ -5709,26 +5744,6 @@ any property from the filter list. If the filter is an object then values must m
 db.getFilteredColumns(&quot;bk_account&quot;, { pub: null, index: 2 })
 db.getFilteredColumns(&quot;bk_account&quot;, { type: &quot;now&quot; }, { list: 1 })
 </code></pre></li>
-</ul>
-
-<ul>
-<li><p><code>db.joinColumn(req, obj, name, col, orig)</code></p>
-<p> Join several columns to produce a combined property if configured, given a column description and an object record
-it replaces the column value with joined value if needed. Empty properties will be still joined as empty strings.
-It always uses the original value even if one of the properties has been joined already.</p>
-<p>Checks for <code>join</code> and <code>join_ops</code> properties in the column definition.</p>
-<p>The <code>options.skip_join</code> can be used to restrict joins, it is a list with columns that should not be joined</p>
-<p>The <code>col.join_pools</code> can be an array with pool names which are allowed to do the join, other pools will skip joining this column.</p>
-<p>The <code>col.nojoin_pools</code> can be an array with pool names which are not allowed to do the join, other pools will skip joining this column</p>
-<p>The <code>options.join_strict</code> can be used to perform join only if all columns in the list are not empty, so the join
-is for all columns or none</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.unjoinColumns(rows, name, col, options)</code></p>
-<p> Split joined columns for all rows</p>
-</li>
 </ul>
 
 <ul>
@@ -6298,6 +6313,13 @@ it can be represented as a string of JSON array: [op,msg]</p>
 </ul>
 
 <ul>
+<li><p><code>Ipc.prototype.broadcast(channel, msg, options, callback)</code></p>
+<p> Send a message to a channel, this is high level routine that uses the corresponding queue, it uses eventually
+ipc.publish.</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>Ipc.prototype.initServer()</code></p>
 <p> This function is called by a master server process to setup IPC channels and support for cache and messaging</p>
 </li>
@@ -6519,6 +6541,8 @@ A lock must be uniquely named and the timeout is specified by <code>options.ttl<
 only one instance is needed to run. At the end of the processing <code>ipc.unlock</code> must be called to enable another instance immediately,
 otherwise it will be available after the ttl only.</p>
 <p>if <code>options.timeout</code> is given the function will keep trying to lock for the <code>timeout</code> milliseconds.</p>
+<p>if <code>options.set</code> is given it will unconditionally set the lock for the specified ttl, this is for cases when
+the lock must be active for longer because of the long running task</p>
 <p>The callback must be passed which will take an error and a boolean value, if true is returned it means the timer has been locked by the caller,
 otherwise it is already locked by other instance. In case of an error the lock is not supposed to be locked by the caller.</p>
 <p>Example:</p>
@@ -6532,7 +6556,7 @@ otherwise it is already locked by other instance. In case of an error the lock i
 </ul>
 
 <ul>
-<li><p><code>Ipc.prototype.unlock(name, options)</code></p>
+<li><p><code>Ipc.prototype.unlock(name, options, callback)</code></p>
 <p> Unconditionally unlock the lock, any client can unlock any lock.</p>
 </li>
 </ul>
@@ -6730,16 +6754,17 @@ A job message is an object that defines what method from which module to run wit
 </ul>
 
 <ul>
-<li><p><code>jobs.isCancelled(name)</code></p>
+<li><p><code>jobs.isCancelled(name, tag)</code></p>
 <p> Returns true if a task with given name must be cancelled, this flag is set from the jobs master and
 stoppable tasks must check it from time to time to terminate gracefully</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>jobs.cancelTask(name, workers)</code></p>
-<p> Send cancellation request to a worker or all workers, this has to be called from the jobs master. <code>workers</code> can be a single worker id or a list of worker ids,
-if not given the request will be sent to all workers for the current process cluster.</p>
+<li><p><code>jobs.cancelTask(name, options)</code></p>
+<p> Send cancellation request to a worker or all workers, this has to be called from the jobs master.
+<code>options.workers</code> can be a single worker id or a list of worker ids, if not given the request will be sent to all workers for the current process cluster.
+<code>options.tag</code> is an opaque data that will be used to verifying which task should be cancelled, without it all tasks with given name will be cancelled.</p>
 </li>
 </ul>
 
@@ -6775,10 +6800,11 @@ the format of the job objects.</p>
 <p>if &#39;jobspec.uniqueTtl<code>is greater than zero it defines number of milliseconds for this job to stay in the queue or run,
 it creates a global lock using the job object as the hash key, no other job can be run until the ttl expires or the job
 finished, non unique jobs will be kept in the queue and repeated later according to the</code>visibilityTimeeout` setting.</p>
+<p><code>jobspec.uniqueKey</code> can define an alternative unique key for this job for cases when different jobs must be run sequentially</p>
 <p>if &#39;jobspec.uniqueDrop` if true will make non-unique jobs to be silently dropped instead of keeping them in the queue</p>
 <p>Special queueName: <code>jobs.selfQueue</code> is reserved to run the job immediately inside the current process,
 it will call the <code>runJob</code> directly, this is useful in cases when already inside a worker and instead of submitting a new job
-just run it directly.</p>
+just run it directly. Any queue can be configured to run in <code>selfQueue</code> by setting <code>-ipc-queue[-NAME]-options-self-queue 1</code>.</p>
 </li>
 </ul>
 
@@ -6970,6 +6996,7 @@ false
 <li>min - minimal value, clip</li>
 <li>max - maximum value, clip</li>
 <li>novalue - replace this number with default</li>
+<li>zero - replace with this number if result is 0</li>
 </ul>
 <p>Example:</p>
 <pre><code>         lib.toNumber(&quot;123&quot;)
@@ -7082,7 +7109,7 @@ or the default message, this is useful for detection of invalid or missing input
                                         { data: { start: { secret: req.account.secret },
                                                   name: { dflt: &quot;test&quot; },
                                                   count: { max: 100 },
-                                                  email: { ignore: req.accout.type != &quot;admin&quot; },
+                                                  email: { ignore: req.account.type != &quot;admin&quot; },
                                         })
   if (typeof account == &quot;string) return api.sendReply(res, 400, account);
 </code></pre></li>
@@ -7188,13 +7215,25 @@ The <code>obj</code> can be an object or an array of objects in which case all o
 
 <ul>
 <li><p><code>lib.isNumericType(type)</code></p>
-<p> Returns true if the given type belongs to the numeric family</p>
+<p> Returns true if the given type belongs to the numeric family of data types</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.isTextType(type)</code></p>
+<p> Retyurns true if the given type belongs to the text family of data types</p>
 </li>
 </ul>
 
 <ul>
 <li><p><code>lib.isDate(d)</code></p>
 <p> Returns true if the given date is valid</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.isTimeRange(time1, time2, tz)</code></p>
+<p> Returns 0 if the current time is not within specified valid time range, invalid range is ignored, no timezone means current timezone.</p>
 </li>
 </ul>
 
@@ -7247,12 +7286,18 @@ options may specify the following parameters:</p>
 <li>progress - if &gt; 0 report how many lines processed so far every specified lines</li>
 <li>until - skip lines until this regexp matches</li>
 <li>ignore - skip lines that match this regexp</li>
-<li>header - skip first line because it is the CSV header line</li>
+<li>header - if true then skip first line because it is the a header, if <code>options.header</code> it is a function
+it will be called with the first line as an argument and must return true if this line needs to be skipped</li>
 <li>json - each line represents an JSON object, convert and pass it to the line callback if not null</li>
 <li>split - split every line before calling the callback, it uses phraseSplit</li>
 <li>keepempty - by default is enabled if split is set to keep empty fields in the line array</li>
 <li>separator - a string with characters to be used for splitting, default is <code>,</code></li>
 <li>quotes - a string with characters to be used for phrase splitting, default is <code>&quot;&#39;</code></li>
+</ul>
+<p>Properties updated and returned in the options:</p>
+<ul>
+<li>nlines - number of lines read from the file</li>
+<li>ncalls - number of lines passed to the line callback</li>
 </ul>
 </li>
 </ul>
@@ -7456,6 +7501,18 @@ The name format is assumed to be: <code>XXXXX-N.N.N</code></p>
 </ul>
 
 <ul>
+<li><p><code>lib.tuuid(prefix)</code></p>
+<p> Returns time sortable unique id, inspired by <a href="https://github.com/paixaop/node-time-uuid">https://github.com/paixaop/node-time-uuid</a></p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.tuuidTime(str)</code></p>
+<p> Return time in milliseconds from the time uuid</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>lib.random(size)</code></p>
 <p> Generate random key, size if specified defines how many random bits to generate</p>
 </li>
@@ -7475,13 +7532,20 @@ The name format is assumed to be: <code>XXXXX-N.N.N</code></p>
 
 <ul>
 <li><p><code>lib.randomUInt()</code></p>
-<p> Return random number between 0 and UINT_MAX</p>
+<p> Return random number between 0 and ULONG_MAX</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.randomFloat()</code></p>
+<p> Returns random number between 0 and 1, 32 bits</p>
 </li>
 </ul>
 
 <ul>
 <li><p><code>lib.randomInt(min, max)</code></p>
-<p> Return random integer between min and max inclusive</p>
+<p> Return random integer between min and max inclusive using crypto generator, based on
+<a href="https://github.com/joepie91/node-random-number-csprng">https://github.com/joepie91/node-random-number-csprng</a></p>
 </li>
 </ul>
 
@@ -7548,6 +7612,13 @@ Usage:</p>
 <li><p><code>lib.matchRegexp(str, rx, index)</code></p>
 <p> Perform match on a regexp for a string and returns matched value, if no index is specified returns item 1,
 this is a simple case for oneshot match and only single matched element.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.replaceRegexp(str, rx, val)</code></p>
+<p> Safe version of replace for strings, always returns a string, if <code>val</code> is not provided performs
+removal of the matched patterns</p>
 </li>
 </ul>
 
@@ -7670,7 +7741,7 @@ Example:<pre><code>  lib.objClone({ 1: 2 }, &quot;3&quot;, 3, &quot;4&quot;, 4)
 <p> Merge two objects, all properties from the <code>options</code> override existing properties in the <code>obj</code>, returns a new object, shallow copy,
 only top level properties are reassigned.</p>
 <p>Example</p>
-<pre><code> var o = lib.objMergeect({ a:1, b:2, c:3 }, { c:5, d:1 })
+<pre><code> var o = lib.objMerge({ a:1, b:2, c:3 }, { c:5, d:1 })
  o = { a:1, b:2, c:5, d:1 }
 </code></pre></li>
 </ul>
@@ -7704,14 +7775,25 @@ Additional options:</p>
 </ul>
 
 <ul>
-<li><p><code>lib.objExtend()</code></p>
-<p> Add properties to existing object, first arg is the object, the rest are pairs: name, value,....
-If the second argument is an object then add all properties from this object only.</p>
-<pre><code>   lib.objExtend({ a: 1 }, &#39;b&#39;, 2, &#39;c&#39; 3 )
-   lib.objExtend({ a: 1 }, { b: 2, c: 3 })
-</code></pre></li>
+<li><p><code>lib.objExtend(obj, val, options)</code></p>
+<p> Add properties to an existing object, two use cases:</p>
+<ul>
+<li>the first arg is the object, the rest are pairs: name, value,....</li>
+<li>the first arg is the object, the second arg is an object to add properties from. In this case
+the third argument can be an options object that can control how the properties are merged.</li>
 </ul>
-
+<p>Options properties:</p>
+<ul>
+<li>allow - a regexp which properties are allowed to be mrged</li>
+<li>ignore - a regexp which properties should be ignored</li>
+<li>remove - a regexp to apply to each property name before merging, the matching parts will be removed from the name</li>
+</ul>
+</li>
+</ul>
+<pre><code>     lib.objExtend({ a: 1 }, &#39;b&#39;, 2, &#39;c&#39; 3 )
+     lib.objExtend({ a: 1 }, { b: 2, c: 3 }, {})
+     lib.objExtend({ a: 1 }, { b: 2, _c: 3, _d: 4 }, { remove: /^_/ })
+</code></pre>
 <ul>
 <li><p><code>lib.objDel()</code></p>
 <p> Delete properties from the object, first arg is an object, the rest are properties to be deleted</p>
@@ -7791,8 +7873,9 @@ objects will be create automatically. The options can have the folowing properti
 <p> Return an object structure as a string object by showing primitive properties only,
 for arrays it shows the length and <code>options.count</code> or 10 first items,
 strings are limited by <code>options.length</code> or 128 bytes,
-the object depth is limited by <code>options.depth</code> or 3 levels deep, the number of properties are limited by options.count or 5,
-all properties that match <code>options.ignore</code> will be skipped from the output</p>
+the object depth is limited by <code>options.depth</code> or 3 levels deep, the number of properties are limited by options.count or 10,
+all properties that match <code>options.ignore</code> will be skipped from the output, if <code>options.allow</code> is a regexp, only properties that
+match it will be output.</p>
 </li>
 </ul>
 
@@ -7935,6 +8018,12 @@ mdate is a Date object with last modified time</p>
 <ul>
 <li><p><code>lib.makePath(dir, callback)</code></p>
 <p> Async version of makePath, stops on first error</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.unlink(name, callback)</code></p>
+<p> Unlink a file, no error on non-existent file, callback is optional</p>
 </li>
 </ul>
 

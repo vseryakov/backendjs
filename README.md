@@ -93,48 +93,20 @@ or simply
 
         bksh -db-pool pgsql -db-pgsql-pool postgresql://postgres@127.0.0.1/backend -db-create-tables
 
-  - run the server and create table son start
+  - run the server and create tables on start
 
         bkjs web -db-pool pgsql -db-pgsql-pool postgresql://postgres@127.0.0.1/backend -db-create-tables
 
 * While the local backendjs is runnning, the documentation is always available at http://localhost:8000/doc.html (or whatever port is the server using)
 
+* To add users from the command line
+
+        bksh -account-add login test secret test name TestUser email test@test.com
+
 * By default no external modules are loaded so it needs the accounts module with a
   parameter `-allow-modules PATTERN`, this will load all modules that match the pattern, default modules start with `bk_`:
 
         bkjs web -allow-modules bk_
-
-* Go to http://localhost:8000/api.html for the Web console to test API requests.
-  For this example let's create an account.
-
-* Type and execute the following URLs in the Web console:
-
-        /account/add?name=test1&secret=test1&login=test1@test.com
-
-* Now login with the new account, click on *Login* at the top-right corner and enter 'test1' as login and 'test1' as secret in the login popup dialog.
-* If no error message appeared after the login, try to get your current account details:
-
-        /account/get
-
-* Shutdown the backend by pressing Ctrl-C
-* To make your own custom Web app, copy the app template directory:
-
-        # Find the directory where the backendjs is installed:
-        node -e "console.log(path.dirname(require.resolve('backendjs')))"
-
-        # Copy the app template
-        cp -r path_to_backendjs/examples/app path_to_new_app_name
-
-* The `app.js` file has 2 additional API endpoints `/test/add` and `/test/[0-9]` to show the simplest way
-  of adding new tables and API commands.
-* The `app.sh` script is for convenience in the development process, it specifies common arguments and can be customized as needed.
-* Run your new application now, it will start the Web server on port 8000:
-
-        ./app.sh
-
-* Go to http://localhost:8000/api.html and issue command `/test/add?id=1&name=1` and then `/test/1` commands in the console to see it in action
-* Any change in the source files will make the server restart automatically letting you focus on the source code and not server management, this mode
-  is only enabled by default in development mode, check `app.sh` for parameters before running it in the production.
 
 * To start node.js shell with backendjs loaded and initialized, all command line parameters apply to the shell as well
 
@@ -147,13 +119,23 @@ or simply
         > db.add("bk_account", { login: 'test2', secret: 'test2', name' Test 2 name', gender: 'f' }, lib.log);
         > db.select("bk_account", { gender: 'm' }, lib.log);
 
-* To add users from the command line
+## To run an example
 
-        bksh -account-add login test secret test name TestUser email test@test.com
+* Go to `examples/api` directory:
+* Run the application, it will start the Web server on port 8000:
 
-* To see current metrics run the command in the console '/system/stats/get'
+        ./app.sh
 
+* Now login with the new account,
+* Go to http://localhost:8000/api.html and click on *Login* at the top-right corner, then enter 'test' as login and 'test' as secret in the login popup dialog.
+* To see your account details run the command in the console `/account/get`
+* To see current metrics run the command in the console `/system/stats/get`
 * To see charts about accumulated metrics go to http://localhost:8000/metrics.html
+
+* When the web server is starte with `-watch` parameters any change in the source files will make the server restart automatically
+  letting you focus on the source code and not server management, this mode is only enabled by default in development mode,
+  check `app.sh` for parameters before running it in the production.
+
 
 # Configuration
 
@@ -742,7 +724,7 @@ This is intended for a single server development pusposes only.
 ## API only
 This is default setup of the backend when all API requests except `/account/add` must provide valid signature and all HTML, Javascript, CSS and image files
 are available to everyone. This mode assumes that Web development will be based on 'single-page' design when only data is requested from the Web server and all
-rendering is done using Javascript. This is how the `api.html` develpers console is implemented, using JQuery-UI and Knockout.js.
+rendering is done using Javascript. This is how the `examples/api/api.html` develpers console is implemented, using JQuery-UI and Knockout.js.
 
 To see current default config parameters run any of the following commands:
 

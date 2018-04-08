@@ -1,5 +1,5 @@
 {
-  "version": "0.72.0",
+  "version": "0.73.0",
   "author": "Vlad Seryakov",
   "name": "backendjs",
   "description": "A platform for building backends",
@@ -82,6 +82,7 @@
   "scripts": {
     "start": "./bkjs run-backend",
     "stop": "./bkjs stop",
-    "doc": "node tools/doc.js > web/doc.html"
+    "doc": "node tools/doc.js > web/doc.html",
+    "js-bundle": "(cd web/js && cat jquery.js crypto.js bootstrap.js knockout.js knockout.mapping.js bkjs.js bkjs-ko.js bkjs-bootstrap.js|uglifyjs -c -m > bkjs.bundle.js)"
   }
 }
