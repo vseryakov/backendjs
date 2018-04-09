@@ -134,9 +134,9 @@ get_local_ip() {
   echo $(/sbin/ifconfig eth0|grep 'inet '|sed 's/addr://'|awk '{print $2}')
 }
 
-# Return the value for a properties from a json file: get_json file name
+# Return the value for a properties from a json file: get_json file name fallback
 get_json() {
-  ${NODE_BIN:-node} -e "try{var o=JSON.parse(require('fs').readFileSync('$1'));if(typeof o.$2!='undefined')console.log(o.$2)}catch(e){}"
+  ${NODE_BIN:-node} -e "try{o=JSON.parse(require('fs').readFileSync('$1'));v=o.$2||o['$3'];if(Array.isArray(v))v=v.join(',');if(typeof v!='undefined')console.log(v)}catch(e){}"
 }
 
 # Kill a process by name: kill_proc redis -9
@@ -450,6 +450,47 @@ case "$BKJS_CMD" in
     $NPM_BIN $npm $cmd $modules
     ;;
 
+  web-bundle)
+    dev=$(get_flag -dev)
+    quiet=$(get_flag -quiet)
+    uglifyargs=$(get_arg -uglifyargs)
+    file=$(get_arg -file)
+    if [[ $file =~ ^(js|css)$ ]]; then
+       dir=web/$file
+       pkg=package.json
+       type=$file
+    else
+       dir=$(dirname $file)
+       [[ ! $dir =~ \/web\/(js|css)$ ]] && echo "$BKJS_CMD: unsupported package" && exit 1
+       pkg=$dir/../../package.json
+       type=$(basename $dir)
+    fi
+    if [ ! -f $pkg ]; then
+       [ "$quiet" = "" ] && echo "$BKJS_CMD: $pkg is not found"
+       exit
+    fi
+    bundle=$(get_json $pkg config.bundle.name name)
+    files=$(get_json $pkg config.bundle.$type|sed 's/,/ /g')
+    if [ "$files" = "" ]; then
+       [ "$quiet" = "" ] && echo "$BKJS_CMD: no config.bundle.$type found in $pkg"
+       exit
+    fi
+
+    [ "$quiet" = "" ] && echo "$(date): web-bundle $bundle.$type started in $dir"
+    case $file in
+      *js)
+        [ "$dev" = "" ] && uglifyargs="$uglifyargs --comments '/^!/' -c -m"
+        (cd $dir && cat $files|uglifyjs $uglifyargs > $bundle.bundle.js)
+        ;;
+
+      *css)
+        (cd $dir && cat $files|uglifycss > $bundle.bundle.css)
+        echo "web-bundle $file finished"
+        ;;
+    esac
+    [ "$quiet" = "" ] && echo "$(date): web-bundle $bundle.$type finished"
+    ;;
+
   install-node)
     ver=$(get_arg -version v8.11.1)
     if [ "$(get_flag -force)" != "" -a -f $BKJS_PREFIX/bin/node ]; then
@@ -525,6 +566,7 @@ case "$BKJS_CMD" in
     echo "  sync [-host HOST] [-path PATH] [-user USER] [-ssh-key pem] [-ssh OPTS] [-exclude PATTERN] [-bkcmd CMD] - push the backend code to the remote host using rsync, default path is ~/node_modules/$BKJS_MOD"
     echo "  ssh -host HOST -cmd CMD [-user USER] [-key PEM] [-ssh ARGS] - run a command over ssh on all specified hosts"
     echo "  install-node [-prefix PATH] [-force] [-clean] - install binary release of the node into $BKJS_PREFIX or specified path"
+    echo "  web-bundle -file FILE [-dev] [-uglifyargs ARGS] - produce a web bundle by uglifying js or css files into one file, resolves files from package.json"
     echo ""
     echo "  bkhelp - show all $BKJS_MOD config parameters"
     echo ""

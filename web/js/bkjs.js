@@ -1,11 +1,9 @@
-//
-//  Author: Vlad Seryakov vseryakov@gmail.com
-//  Sep 2013
-//
-// jQuery and crypto.js must be loaded before this class can be used.
-//
+/*!
+ *  backend.js client
+ *  Author: Vlad Seryakov vseryakov@gmail.com
+ *  Sep 2013
+ */
 
-// Backend.js client
 var Bkjs = {
 
     // True if current credentials are good
@@ -58,7 +56,7 @@ var Bkjs = {
         if (typeof login == "function") callback = login, login = secret = null;
         if (typeof login =="string" && typeof secret == "string") this.setCredentials(login, secret);
 
-        self.send({ url: "/auth?_session=" + this.session, jsonType: "obj" }, function(data, xhr) {
+        this.send({ url: "/auth?_session=" + this.session, jsonType: "obj" }, function(data, xhr) {
             self.loggedIn = true;
             self.account = data;
             // Clear credentials from the memory if we use sessions
@@ -75,9 +73,9 @@ var Bkjs = {
     // Logout and clear all cookies and local credentials
     logout: function(callback) {
         var self = this;
-        self.loggedIn = false;
-        self.account = {};
-        self.sendRequest("/logout", function(err, data, xhr) {
+        this.loggedIn = false;
+        this.account = {};
+        this.sendRequest("/logout", function(err, data, xhr) {
             self.setCredentials();
             if (typeof callback == "function") callback(err, data, xhr);
         });
@@ -182,7 +180,7 @@ var Bkjs = {
     // Retrieve current account record, call the callback with the object or error
     getAccount: function(callback) {
         var self = this;
-        self.sendRequest({ url: "/account/get", jsonType: "obj" }, function(err, data, xhr) {
+        this.sendRequest({ url: "/account/get", jsonType: "obj" }, function(err, data, xhr) {
             for (var p in data) self.account[p] = data[p];
             if (typeof callback == "function") callback(err, data, xhr);
         });
@@ -190,7 +188,6 @@ var Bkjs = {
 
     // Register new account record, call the callback with the object or error
     addAccount: function(obj, callback) {
-        var self = this;
         // Replace the actual credentials from the storage in case of scrambling in the client
         if (!obj._scramble) {
             var creds = this.checkCredentials(obj.login, obj.secret);
@@ -198,12 +195,11 @@ var Bkjs = {
             obj.secret = creds.secret;
         }
         delete obj.secret2;
-        self.sendRequest({ type: "POST", url: "/account/add", data: obj, jsonType: "obj", nosignature: 1 }, callback);
+        this.sendRequest({ type: "POST", url: "/account/add", data: obj, jsonType: "obj", nosignature: 1 }, callback);
     },
 
     // Update current account
     updateAccount: function(obj, callback) {
-        var self = this;
         // Scramble here if we did not ask the server to do it with _scramble option
         if (obj.secret && !obj._scramble) {
             var creds = this.checkCredentials(obj.login || this.account.login, obj.secret);
@@ -211,7 +207,7 @@ var Bkjs = {
             obj.secret = creds.secret;
         }
         delete obj.secret2;
-        self.sendRequest({ url: '/account/update', data: obj, type: "POST", jsonType: "obj" }, callback);
+        this.sendRequest({ url: '/account/update', data: obj, type: "POST", jsonType: "obj" }, callback);
     },
 
     // Return true if the account contains the given type
@@ -425,13 +421,12 @@ var Bkjs = {
 
     // Format an object into nice JSON formatted text
     formatJSON: function(obj, options) {
-        var self = this;
         if (typeof options == "string") options = { indent: options };
         if (!options) options = {};
         // Shortcut to parse and format json from the string
         if (typeof obj == "string" && obj != "") {
             if (obj[0] != "[" && obj[0] != "{") return obj;
-            try { obj = JSON.parse(obj); } catch(e) { self.log(e) }
+            try { obj = JSON.parse(obj); } catch(e) { this.log(e) }
         }
         if (!options.level) options.level = 0;
         if (!options.indent) options.indent = "";
@@ -669,8 +664,7 @@ var Bkjs = {
         return str;
     },
 
-    toDuration: function(mtime, options)
-    {
+    toDuration: function(mtime, options) {
         var str = "";
         mtime = typeof mtime == "number" ? mtime : this.toNumber(mtime);
         if (mtime > 0) {
@@ -870,12 +864,10 @@ var Bkjs = {
         return rc;
     },
 
-    // Simple debugging function that outputs arguments in the error console
+    // Simple debugging function that outputs arguments in the error console each argument on a separate line
     log: function() {
         if (!console || !console.log) return;
-        var args = "";
-        for (var i in arguments) args += (typeof arguments[i] == "object" ? JSON.stringify(arguments[i]) : arguments[i]) + " ";
-        console.log(args);
+        for (var i in arguments) console.log(arguments[i]);
     },
 
     // Simple i18n translation method compatible with other popular modules, supports the following usage:

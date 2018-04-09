@@ -77,12 +77,16 @@
     "sync": {
       "path": "node_modules",
       "exclude": "examples/"
+    },
+    "bundle": {
+        "name": "bkjs",
+        "js": ["jquery.js","bootstrap.js","knockout.js","knockout.mapping.js","crypto.js","bkjs.js","bkjs-ko.js","bkjs-bootstrap.js"],
+        "css": ["bootstrap.css","font-awesome.css"]
     }
   },
   "scripts": {
     "start": "./bkjs run-backend",
     "stop": "./bkjs stop",
-    "doc": "node tools/doc.js > web/doc.html",
-    "js-bundle": "(cd web/js && cat jquery.js crypto.js bootstrap.js knockout.js knockout.mapping.js bkjs.js bkjs-ko.js bkjs-bootstrap.js|uglifyjs -c -m > bkjs.bundle.js)"
+    "doc": "node tools/doc.js > web/doc.html"
   }
 }
