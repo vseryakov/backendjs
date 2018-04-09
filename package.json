@@ -78,10 +78,11 @@
       "path": "node_modules",
       "exclude": "examples/"
     },
-    "bundle": {
-        "name": "bkjs",
-        "js": ["jquery.js","bootstrap.js","knockout.js","knockout.mapping.js","crypto.js","bkjs.js","bkjs-ko.js","bkjs-bootstrap.js"],
-        "css": ["bootstrap.css","font-awesome.css"]
+    "bundles": {
+        "bkjs": {
+            "js": ["jquery.js","bootstrap.js","knockout.js","knockout.mapping.js","crypto.js","bkjs.js","bkjs-ko.js","bkjs-bootstrap.js"],
+            "css": ["bootstrap.css","font-awesome.css"]
+        }
     }
   },
   "scripts": {

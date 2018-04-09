@@ -134,9 +134,14 @@ get_local_ip() {
   echo $(/sbin/ifconfig eth0|grep 'inet '|sed 's/addr://'|awk '{print $2}')
 }
 
-# Return the value for a properties from a json file: get_json file name fallback
+# Return the value for a property from a json file: get_json file.json name fallback
 get_json() {
-  ${NODE_BIN:-node} -e "try{o=JSON.parse(require('fs').readFileSync('$1'));v=o.$2||o['$3'];if(Array.isArray(v))v=v.join(',');if(typeof v!='undefined')console.log(v)}catch(e){}"
+  ${NODE_BIN:-node} -e "try{o=JSON.parse(require('fs').readFileSync('$1'));v=o.$2||o['$3'];if(Array.isArray(v))v=v.join(' ');if(v&&typeof v=='object')v=Object.keys(v).join(' ');if(typeof v!='undefined')console.log(v)}catch(e){}"
+}
+
+# Return the value for a property from a json file, object properties are flattened first to support property names with spaces or dashes
+get_json_flat() {
+  ${NODE_BIN:-node} -e "function f(o){var r={};for(var p in o){if(!Array.isArray(o[p])&&typeof o[p]=='object'){var a=f(o[p]);for(var x in a)r[p+'.'+x]=a[x]}else r[p]=o[p]};return r};try{o=f(JSON.parse(require('fs').readFileSync('$1')));v=o['$2']||o['$3'];if(Array.isArray(v))v=v.join(' ');if(v&&typeof v=='object')v=Object.keys(v).join(' ');if(typeof v!='undefined')console.log(v)}catch(e){}"
 }
 
 # Kill a process by name: kill_proc redis -9
@@ -455,24 +460,37 @@ case "$BKJS_CMD" in
     quiet=$(get_flag -quiet)
     uglifyargs=$(get_arg -uglifyargs)
     file=$(get_arg -file)
-    if [[ $file =~ ^(js|css)$ ]]; then
-       dir=web/$file
+    if [[ $file =~ ^([a-zA-Z0-9\._-]+)?(js|css)$ ]]; then
        pkg=package.json
-       type=$file
+       type=${file##*.}
+       name=${file%.*}
+       dir=web/$type
     else
        dir=$(dirname $file)
        [[ ! $dir =~ \/web\/(js|css)$ ]] && echo "$BKJS_CMD: unsupported package" && exit 1
        pkg=$dir/../../package.json
        type=$(basename $dir)
+       name=$(basename $file)
     fi
     if [ ! -f $pkg ]; then
        [ "$quiet" = "" ] && echo "$BKJS_CMD: $pkg is not found"
        exit
     fi
-    bundle=$(get_json $pkg config.bundle.name name)
-    files=$(get_json $pkg config.bundle.$type|sed 's/,/ /g')
+    bundles=$(get_json $pkg config.bundles)
+    [ "$quiet" = "" ] && echo "$BKJS_CMD: $pkg bundles: $bundles"
+
+    for b in $bundles; do
+        f=$(get_json_flat $pkg config.bundles.$b.$type)
+        [[ -z $f ]] && continue
+        if [[ -z $name || $name = $b || $f =~ $name ]]; then
+            files=$f
+            bundle=$b
+            break
+        fi
+    done
+
     if [ "$files" = "" ]; then
-       [ "$quiet" = "" ] && echo "$BKJS_CMD: no config.bundle.$type found in $pkg"
+       [ "$quiet" = "" ] && echo "$BKJS_CMD: no $type config.bundles found in $pkg"
        exit
     fi
 
