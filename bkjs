@@ -456,10 +456,37 @@ case "$BKJS_CMD" in
     ;;
 
   web-bundle)
+    # show info about all files
+    if [[ ! -z $(get_flag -list) ]]; then
+        pkg=package.json
+        bundles=$(get_json $pkg config.bundles)
+        alljs="$(echo $(ls web/js/))"
+        allcss="$(echo $(ls web/css/))"
+        for b in $bundles; do
+            js=$(get_json_flat $pkg config.bundles.$b.js)
+            css=$(get_json_flat $pkg config.bundles.$b.css)
+            echo -e "\n$b:\n\tjs:\n\t\t$js\n\tcss:\n\t\t$css"
+            alljs=$(echo $alljs|sed -E "s/$(echo $js|sed 's/ /|/g')//g")
+            allcss=$(echo $allcss|sed -E "s/$(echo $css|sed 's/ /|/g')//g")
+        done
+        echo -e "\nunbundled:\n\tjs:\n\t\t$(echo $alljs)\n\tcss:\n\t\t$(echo $allcss)"
+        exit
+    fi
+    if [[ ! -z $(get_flag -all) ]]; then
+        pkg=package.json
+        bundles=$(get_json $pkg config.bundles)
+        for b in $bundles; do
+            $0 web-bundle -file $b.js $(get_all_args "-all -file")
+            $0 web-bundle -file $b.css $(get_all_args "-all -file")
+        done
+        exit
+    fi
+
+    file=$(get_arg -file)
     dev=$(get_flag -dev)
     quiet=$(get_flag -quiet)
     uglifyargs=$(get_arg -uglifyargs)
-    file=$(get_arg -file)
+
     if [[ $file =~ ^([a-zA-Z0-9\._-]+)?(js|css)$ ]]; then
        pkg=package.json
        type=${file##*.}
@@ -497,8 +524,12 @@ case "$BKJS_CMD" in
     [ "$quiet" = "" ] && echo "$(date): web-bundle $bundle.$type started in $dir"
     case $file in
       *js)
-        [ "$dev" = "" ] && uglifyargs="$uglifyargs --comments '/^!/' -c -m"
-        (cd $dir && cat $files|uglifyjs $uglifyargs > $bundle.bundle.js)
+        if [ "$dev" = "" ]; then
+           uglifyargs="-c -m --comments /^!/ $uglifyargs"
+        else
+           uglifyargs="--source-map includeSources,url=$bundle.bundle.js.map $uglifyargs"
+        fi
+        (cd $dir && uglifyjs $files $uglifyargs -o $bundle.bundle.js)
         ;;
 
       *css)
@@ -584,7 +615,7 @@ case "$BKJS_CMD" in
     echo "  sync [-host HOST] [-path PATH] [-user USER] [-ssh-key pem] [-ssh OPTS] [-exclude PATTERN] [-bkcmd CMD] - push the backend code to the remote host using rsync, default path is ~/node_modules/$BKJS_MOD"
     echo "  ssh -host HOST -cmd CMD [-user USER] [-key PEM] [-ssh ARGS] - run a command over ssh on all specified hosts"
     echo "  install-node [-prefix PATH] [-force] [-clean] - install binary release of the node into $BKJS_PREFIX or specified path"
-    echo "  web-bundle -file FILE [-dev] [-uglifyargs ARGS] - produce a web bundle by uglifying js or css files into one file, resolves files from package.json"
+    echo "  web-bundle -file FILE|(js|css)|BUNDLE.(js|css) [-dev] [-uglifyargs ARGS] [-all] [-list] - produce a web bundle by uglifying js or css files into one file, resolves files from package.json"
     echo ""
     echo "  bkhelp - show all $BKJS_MOD config parameters"
     echo ""

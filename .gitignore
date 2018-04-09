@@ -16,6 +16,7 @@
 *.autosave
 *.qbs
 *.user
+*.js.map
 *xcshareddata*
 *xcuserdata*
 .DS_Store

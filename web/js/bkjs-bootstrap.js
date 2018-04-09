@@ -164,18 +164,20 @@ Bkjs.showPrompt = function(options, callback)
     modal.modal("show");
 };
 
-Bkjs.showLogin = function(callback)
+Bkjs.showLogin = function(options, callback)
 {
+    if (typeof options == "function") callback = options, options = null;
+    if (!options) options = {};
     var modal = $('#bkjs-login-modal');
     if (!modal.length) {
-        modal = $(
+        var text =
         '<div id="bkjs-login-modal" class="modal fade" tabindex="-1" role="dialog" aria-labelledby="LoginLabel" aria-hidden="true">\
           <div class="modal-dialog">\
            <div class="modal-content">\
             <form role="form">\
             <div class="modal-header">\
              <button type="button" class="close" onclick="Bkjs.hideLogin()"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>\
-             <h4 class="modal-title" id="LoginLabel">Please Sign In</h4>\
+             <h4 class="modal-title" id="LoginLabel"><img src=@icon@ class="logo"> @title@</h4>\
             </div>\
             <div class="modal-body">\
               <div class="alerts"></div>\
@@ -187,6 +189,7 @@ Bkjs.showLogin = function(callback)
                <label>Password</label>\
                <input class="form-control" placeholder="Password" type="password" value="">\
               </div>\
+              @disclaimer@\
             </div>\
             <div class="modal-footer">\
              <button type="button" class="btn btn-default" onclick="Bkjs.hideLogin()">Close</button>\
@@ -195,8 +198,11 @@ Bkjs.showLogin = function(callback)
             </form>\
            </div>\
           </div>\
-        </div>').
-        appendTo("body");
+        </div>';
+        text = text.replace("@icon@", options.icon || "/img/logo.png");
+        text = text.replace("@title@", options.title || "Please Sign In");
+        text = text.replace("@disclaimer@", options.disclaimer || "");
+        modal = $(text).appendTo("body");
     }
     var form = modal.find('form');
     var login = form.find('input[type=text]');

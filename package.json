@@ -88,6 +88,8 @@
   "scripts": {
     "start": "./bkjs run-backend",
     "stop": "./bkjs stop",
-    "doc": "node tools/doc.js > web/doc.html"
+    "doc": "node tools/doc.js > web/doc.html",
+    "prepublish": "npm run build",
+    "build": "./bkjs web-bundle -all"
   }
 }
