@@ -10,7 +10,7 @@ var Bkjs = {
     loggedIn: false,
 
     // Support sessions by storing wildcard signature in the cookies
-    session: false,
+    session: 1,
 
     // Save credentials in the local storage, by default keep only in memory
     persistent: false,
@@ -18,7 +18,7 @@ var Bkjs = {
     // Scramble the secret, use HMAC for the secret instead of the actual value, a user still
     // needs to enter the real values but the browser will never store them, only hashes.
     // The value is: 0 - no scramble, 1 - scramble secret as HMAC_SHA256(secret, login)
-    scramble: 0,
+    scramble: 1,
 
     // Signature header name and version
     signatureVersion: 4,

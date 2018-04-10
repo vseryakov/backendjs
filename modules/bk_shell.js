@@ -22,8 +22,8 @@ var shell = {
         "-show-info - show app and version information",
         "-run-file -file FILE.js - load a script and run it if it exports run function",
         "-account-get ID|LOGIN ... - show accounts by id or login",
-        "-account-add [-scramble] login LOGIN secret SECRET [name NAME] [email EMAIL] [type TYPE] ... - add a new user for API access, any property from bk_account can be passed in the form: name value, if -scramble is given, store HMAC for login/secret, not real values ",
-        "-account-update [-scramble] [login LOGIN|id ID] [name NAME] [email EMAIL] [type TYPE] ... - update existing user properties, any property from bk_account can be passed in the form: name value ",
+        "-account-add [-noscramble] login LOGIN secret SECRET [name NAME] [email EMAIL] [type TYPE] ... - add a new user for API access, any property from bk_account can be passed in the form: name value, if -scramble is given, store HMAC for login/secret, not real values ",
+        "-account-update [-noscramble] [login LOGIN|id ID] [name NAME] [email EMAIL] [type TYPE] ... - update existing user properties, any property from bk_account can be passed in the form: name value ",
         "-account-del [login LOGIN|id ID] [-keep message] [-keep location]... - delete a new user, 'keep TABLE' tells which records to keep the TABLE being account tables without bk_ prefix, one of auth,counter,account,location,connection,message,icon",
         "-location-put [login LOGIN|id ID] latitude LAT longitude LON ... - update location for an account",
         "-send-request -url URL [-id ID|-login LOGIN] param value param value ... - send API request to the server specified in the url as user specified by login or account id, resolving the user is done directly from the current db pool, param values should not be url-encoded",
@@ -424,7 +424,7 @@ shell.cmdAccountAdd = function(options)
     if (!core.modules.bk_account) exit("accounts module not loaded");
     var query = this.getQuery();
     var opts = api.getOptions({ query: this.getArgs(), options: { path: ["", "", ""], ops: {} } });
-    if (this.isArg("-scramble")) opts.scramble = 1;
+    if (this.isArg("-noscramble")) opts.scramble = false;
     if (query.login && !query.name) query.name = query.login;
     core.modules.bk_account.addAccount({ query: query, account: { type: 'admin' } }, opts, function(err, data) {
         shell.exit(err, data);
@@ -436,7 +436,7 @@ shell.cmdAccountUpdate = function(options)
     if (!core.modules.bk_account) this.exit("accounts module not loaded");
     var query = this.getQuery();
     var opts = api.getOptions({ query: this.getArgs(), options: { path: ["", "", ""], ops: {} } });
-    if (this.isArg("-scramble", options)) opts.scramble = 1;
+    if (this.isArg("-noscramble", options)) opts.scramble = false;
     this.getUser(query, function(row) {
         core.modules.bk_account.updateAccount({ account: row, query: query }, opts, function(err, data) {
             shell.exit(err, data);
@@ -481,7 +481,7 @@ shell.cmdLoginAdd = function(options)
 {
     var query = this.getQuery();
     var opts = api.getOptions({ query: this.getArgs(), options: { path: ["", "", ""], ops: {} } });
-    if (this.isArg("-scramble", options)) opts.scramble = 1;
+    if (this.isArg("-noscramble", options)) opts.scramble = 0;
     if (query.login && !query.name) query.name = query.login;
     api.addAccount(query, opts, function(err, data) {
         shell.exit(err, data);
@@ -493,7 +493,7 @@ shell.cmdLoginUpdate = function(options)
 {
     var query = this.getQuery();
     var opts = api.getOptions({ query: this.getArgs(), options: { path: ["", "", ""], ops: {} } });
-    if (this.isArg("-scramble", options)) opts.scramble = 1;
+    if (this.isArg("-noscramble", options)) opts.scramble = 0;
     api.updateAccount(query, opts, function(err, data) {
         shell.exit(err, data);
     });
