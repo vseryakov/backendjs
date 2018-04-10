@@ -867,7 +867,7 @@ var Bkjs = {
     // Simple debugging function that outputs arguments in the error console each argument on a separate line
     log: function() {
         if (!console || !console.log) return;
-        for (var i in arguments) console.log(arguments[i]);
+        console.log.apply(console, arguments);
     },
 
     // Simple i18n translation method compatible with other popular modules, supports the following usage:

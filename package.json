@@ -44,6 +44,11 @@
     "hazelcast-client": ">= 0.5.0",
     "cassandra-driver": ">= 3.0.0"
   },
+  "devDependencies": {
+    "npm-run-all": "^4.1.2",
+    "uglify-js": "^3.3.5",
+    "uglifycss": ">=0.0.29"
+  },
   "keywords": [
     "bkjs",
     "webservice",
@@ -90,6 +95,7 @@
     "stop": "./bkjs stop",
     "doc": "node tools/doc.js > web/doc.html",
     "prepublish": "npm run build",
-    "build": "./bkjs web-bundle -all"
+    "build": "./bkjs web-bundle -all",
+    "devbuild": "./bkjs web-bundle -all -dev"
   }
 }
