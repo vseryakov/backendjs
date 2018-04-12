@@ -491,9 +491,9 @@ case "$BKJS_CMD" in
     if [[ $file =~ \.bundle\.(js|css)$ ]]; then
        exit
     elif [[ $file =~ ^([a-zA-Z0-9\._-]+)?(js|css)$ ]]; then
+       dir=$(pwd)
        type=${file##*.}
        name=${file%.*}
-       dir=$(pwd)
     else
        dir=$(dirname $file)
        while ! [ -e $dir/package.json ] && [ -n $dir ]; do dir=${dir%/*}; done
