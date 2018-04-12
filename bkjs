@@ -483,6 +483,7 @@ case "$BKJS_CMD" in
     fi
 
     file=$(get_arg -file)
+    [ "$file" = "" ] && echo "-file must be provided" && exit 1
     dev=$(get_flag -dev)
     quiet=$(get_flag -quiet)
     uglifyargs=$(get_arg -uglifyargs)
@@ -525,12 +526,16 @@ case "$BKJS_CMD" in
     [ "$quiet" = "" ] && echo "$(date): web-bundle $bundle.$type started $dir/$file"
     case $file in
       *js)
-        if [ "$dev" = "" ]; then
-           uglifyargs="-c -m --comments /^!/ $uglifyargs"
+        if [[ ! -z $(get_flag -cat) ]]; then
+            (cd $dir && cat $files > web/js/$bundle.bundle.js)
         else
-           uglifyargs="--source-map includeSources,url=$bundle.bundle.js.map $uglifyargs"
+            if [ "$dev" = "" ]; then
+                uglifyargs="-c -m --comments /^!/ $uglifyargs"
+            else
+                uglifyargs="--keep-fnames --source-map includeSources,url=$bundle.bundle.js.map $uglifyargs"
+            fi
+            (cd $dir && uglifyjs $files $uglifyargs -o web/js/$bundle.bundle.js)
         fi
-        (cd $dir && uglifyjs $files $uglifyargs -o web/js/$bundle.bundle.js)
         ;;
 
       *css)
