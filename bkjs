@@ -487,27 +487,28 @@ case "$BKJS_CMD" in
     quiet=$(get_flag -quiet)
     uglifyargs=$(get_arg -uglifyargs)
 
-    if [[ $file =~ ^([a-zA-Z0-9\._-]+)?(js|css)$ ]]; then
-       pkg=package.json
+    if [[ $file =~ \.bundle\.(js|css)$ ]]; then
+       exit
+    elif [[ $file =~ ^([a-zA-Z0-9\._-]+)?(js|css)$ ]]; then
        type=${file##*.}
        name=${file%.*}
-       dir=web/$type
+       dir=$(pwd)
     else
        dir=$(dirname $file)
-       [[ ! $dir =~ \/web\/(js|css)$ ]] && echo "$BKJS_CMD: unsupported package" && exit 1
-       pkg=$dir/../../package.json
-       type=$(basename $dir)
-       name=$(basename $file)
+       while ! [ -e $dir/package.json ] && [ -n $dir ]; do dir=${dir%/*}; done
+       file=$(echo $file|sed "s|$dir/||")
+       type=${file##*.}
+       name=${file%.*}
     fi
-    if [ ! -f $pkg ]; then
-       [ "$quiet" = "" ] && echo "$BKJS_CMD: $pkg is not found"
+    if [ ! -f $dir/package.json ]; then
+       [ "$quiet" = "" ] && echo "$BKJS_CMD: package.json is not found"
        exit
     fi
-    bundles=$(get_json $pkg config.bundles)
-    [ "$quiet" = "" ] && echo "$BKJS_CMD: $pkg bundles: $bundles"
+    bundles=$(get_json $dir/package.json config.bundles)
+    [ "$quiet" = "" ] && echo "$BKJS_CMD: $dir $type bundles: $bundles"
 
     for b in $bundles; do
-        f=$(get_json_flat $pkg config.bundles.$b.$type)
+        f=$(get_json_flat $dir/package.json config.bundles.$b.$type)
         [[ -z $f ]] && continue
         if [[ -z $name || $name = $b || $f =~ $name ]]; then
             files=$f
@@ -517,11 +518,11 @@ case "$BKJS_CMD" in
     done
 
     if [ "$files" = "" ]; then
-       [ "$quiet" = "" ] && echo "$BKJS_CMD: no $type config.bundles found in $pkg"
+       [ "$quiet" = "" ] && echo "$BKJS_CMD: no $type config.bundles found in $dir/package.json"
        exit
     fi
 
-    [ "$quiet" = "" ] && echo "$(date): web-bundle $bundle.$type started in $dir"
+    [ "$quiet" = "" ] && echo "$(date): web-bundle $bundle.$type started $dir/$file"
     case $file in
       *js)
         if [ "$dev" = "" ]; then
@@ -529,15 +530,14 @@ case "$BKJS_CMD" in
         else
            uglifyargs="--source-map includeSources,url=$bundle.bundle.js.map $uglifyargs"
         fi
-        (cd $dir && uglifyjs $files $uglifyargs -o $bundle.bundle.js)
+        (cd $dir && uglifyjs $files $uglifyargs -o web/js/$bundle.bundle.js)
         ;;
 
       *css)
-        (cd $dir && cat $files|uglifycss > $bundle.bundle.css)
-        echo "web-bundle $file finished"
+        (cd $dir && uglifycss $files --output web/css/$bundle.bundle.css)
         ;;
     esac
-    [ "$quiet" = "" ] && echo "$(date): web-bundle $bundle.$type finished"
+    [ "$quiet" = "" ] && echo "$(date): web-bundle $bundle.$type finished $dir/$file"
     ;;
 
   install-node)
