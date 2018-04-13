@@ -901,6 +901,31 @@ Most common used commands are:
    **This command will create `/etc/sysconfig/bkjs` file with BKJS_HOME set to the home of the
    backendjs app which was pased in the command line. This makes the bkjs or bksh run globally regardless of the current directory.**
 
+# Web development notes
+
+The server supports simple web bundling using uglify-js utility. To enable it just add tyo the local config a list of directories to be
+watched for changes. For example adding these lines to the local config will enable the watcher and bundle support
+
+     watch-web=web/js,web/css,$HOME/src/js,$HOME/src/css
+     watch-ignore=.bundle.(js|css)$
+     build-web=bkjs web-bundle -dev
+
+Now instead of incding a bunch of .js or css files in the html pages it only needs /js/bkjs.bundle.js and /css/bkjs.bundle.css. The configuration is in the
+package.json file.
+
+The simple script below allows to build the bundle and refresh Chrome tab automatically, saves several clicks:
+
+     #!/bin/bash
+     bkjs web-bundle -dev -file $2
+     [ "$?" != "0" ] && exit
+     osascript -e "tell application \"Google Chrome\" to reload (tabs of window 1 whose URL contains \"$1\")"
+     #osascript -e 'tell application "Google Chrome" to tell the active tab of its first window to reload'
+
+
+To use it call this script instead in the config.local:
+
+     build-web=web-bundle.sh /website
+
 # Deployment use cases
 
 ## AWS instance setup with node and backendjs

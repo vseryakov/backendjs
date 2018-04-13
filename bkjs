@@ -496,7 +496,7 @@ case "$BKJS_CMD" in
        name=${file%.*}
     else
        dir=$(dirname $file)
-       while ! [ -e $dir/package.json ] && [ -n $dir ]; do dir=${dir%/*}; done
+       while ! [ -e $dir/package.json ] && [ -n $dir ] && [ $dir != . ]; do dir=${dir%/*}; done
        file=$(echo $file|sed "s|$dir/||")
        type=${file##*.}
        name=${file%.*}
