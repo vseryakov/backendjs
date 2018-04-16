@@ -477,7 +477,9 @@ case "$BKJS_CMD" in
         bundles=$(get_json $pkg config.bundles)
         for b in $bundles; do
             $0 web-bundle -file $b.js $(get_all_args "-all -file")
+            [ "$?" != "0" ] && exit 1
             $0 web-bundle -file $b.css $(get_all_args "-all -file")
+            [ "$?" != "0" ] && exit 1
         done
         exit
     fi
@@ -535,11 +537,17 @@ case "$BKJS_CMD" in
                 uglifyargs="--keep-fnames --source-map includeSources,url=$bundle.bundle.js.map $uglifyargs"
             fi
             (cd $dir && uglifyjs $files $uglifyargs -o web/js/$bundle.bundle.js)
+            [ "$?" != "0" ] && exit 1
         fi
         ;;
 
       *css)
-        (cd $dir && uglifycss $files --output web/css/$bundle.bundle.css)
+        if [[ ! -z $(get_flag -cat) ]]; then
+            (cd $dir && cat $files > web/css/$bundle.bundle.css)
+        else
+            (cd $dir && uglifycss $files --output web/css/$bundle.bundle.css)
+            [ "$?" != "0" ] && exit 1
+        fi
         ;;
     esac
     [ "$quiet" = "" ] && echo "$(date): web-bundle $bundle.$type finished $dir/$file"
