@@ -10,12 +10,17 @@ Bkjs.showAlert = function(obj, type, text, options)
     if (typeof obj == "string") options = text, text = type, type = obj, obj = $("body");
     if (!text) return;
     if (!options) options = {};
-    text = "<div class='alert alert-dissmisible alert-" + type + "' role='alert'>" + (typeof text == "string" ? text : JSON.stringify(text))
-    text += '<button type="button" class="close" data-dismiss="alert"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>';
-    text += "</div>";
+    if (!Bkjs._alertNum) Bkjs._alertNum = 0;
+    var aid = "alert-" + Bkjs._alertNum++;
+    var html = "<div id=" + aid + " class='alert alert-dissmisible alert-" + type + "' role='alert'>";
+    if (options.icon) html += '<i class="fa fa-fw ' + options.icon + '"></i>';
+    html += typeof text == "string" ? text : JSON.stringify(text);
+    html += '<button type="button" class="close" data-dismiss="alert"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>';
+    html += "</div>";
     if (!$(obj).find(".alerts").length) obj = $("body");
-    $(obj).find(".alerts").empty().append(text);
-    if (!options.dismiss) $(obj).find(".alerts div").hide().fadeIn(200).delay(5000 * (type == "danger" ? 5 : type == "warning" ? 3 : 1)).fadeOut(1000, function () { $(this).remove(); });
+    if (options.empty) $(obj).find(".alerts").empty();
+    $(obj).find(".alerts").append(html);
+    if (!options.dismiss) $(obj).find("#" + aid).hide().fadeIn(200).delay(5000 * (type == "danger" ? 5 : type == "warning" ? 3 : 1)).fadeOut(1000, function () { $(this).remove(); });
     if (options.scroll) $(obj).animate({ scrollTop: 0 }, "slow");
 }
 
