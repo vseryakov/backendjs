@@ -231,21 +231,6 @@ var Bkjs = {
         })();
     },
 
-    // Encode url query, provided full url with query parameters in human form, re-encode the query
-    encodeUrl: function(url) {
-        if (url && url.indexOf("?") > -1) {
-            var url = url.split("?");
-            var q = url[1].split("&");
-            url = url[0] + "?";
-            for (var i in q) {
-                var v = q[i].split("=");
-                var n = unescape(v[0]);
-                if (v[1]) url += "&" + n + "=" + this.encode(v[1]);
-            }
-        }
-        return url;
-    },
-
     // Return or build the message from the error response object or text
     parseError: function(err) {
         if (typeof err == "string") return err;
@@ -518,6 +503,7 @@ var Bkjs = {
             t: function(t) { return t.getTime() },
             u: function(t) { return Math.floor(t.getTime()/1000) },
             Z: function(t) { return "GMT" + (t.getTimezoneOffset() < 0 ? "+" : "-") + zeropad(Math.abs(-t.getTimezoneOffset()/60)) + "00" },
+            Q: function(t) { var h = utc ? t.getUTCHours() : t.getHours(); return h < 12 ? self.__("Morning") : h < 17 ? self.__("Afternoon") : self.__("Evening") },
             '%': function(t) { return '%' },
         };
         for (var h in handlers) {

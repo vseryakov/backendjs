@@ -470,7 +470,7 @@ case "$BKJS_CMD" in
             allcss=$(echo $allcss|sed -E "s/$(echo $css|sed 's/ /|/g')//g")
         done
         echo -e "\nunbundled:\n\tjs:\n\t\t$(echo $alljs)\n\tcss:\n\t\t$(echo $allcss)"
-        exit
+        exit 0
     fi
     if [[ ! -z $(get_flag -all) ]]; then
         pkg=package.json
@@ -481,7 +481,7 @@ case "$BKJS_CMD" in
             $0 web-bundle -file $b.css $(get_all_args "-all -file")
             [ "$?" != "0" ] && exit 1
         done
-        exit
+        exit 0
     fi
 
     file=$(get_arg -file)
@@ -505,7 +505,7 @@ case "$BKJS_CMD" in
     fi
     if [ ! -f $dir/package.json ]; then
        [ "$quiet" = "" ] && echo "$BKJS_CMD: package.json is not found"
-       exit
+       exit 1
     fi
     bundles=$(get_json $dir/package.json config.bundles)
     [ "$quiet" = "" ] && echo "$BKJS_CMD: $dir $type bundles: $bundles"

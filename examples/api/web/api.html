@@ -73,6 +73,21 @@ Bkjs.apiHistory = function(key, val)
     }
 }
 
+Bkjs.encodeUrl = function(url)
+{
+    if (url && url.indexOf("?") > -1) {
+        var url = url.split("?");
+        var q = url[1].split("&");
+        url = url[0] + "?";
+        for (var i in q) {
+            var v = q[i].split("=");
+            var n = unescape(v[0]);
+            if (v[1]) url += "&" + n + "=" + this.encode(v[1]);
+        }
+    }
+    return url;
+}
+
 Bkjs.apiRun = function(data, event)
 {
     var url = $('#api-url').val();
