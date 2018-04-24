@@ -408,8 +408,8 @@ case "$BKJS_CMD" in
     [[ -z $mod ]] && echo "no sync without package.json" && exit 1
     path=$(get_arg -path)
     if [ -z "$path" ]; then
-       path=$(get_json package.json config.sync.path)
-       [ "$path" = "node_modules" ] && path=$path/$mod
+        path=$(get_json package.json config.sync.path)
+        [ "$path" = "node_modules" ] && path=$path/$mod
     fi
     [ -z "$path" ] && echo "no sync without -path or config.sync.path" && exit 1
     sshargs=$(concat_arg -ssh $BKJS_SSH_ARGS)
@@ -419,18 +419,24 @@ case "$BKJS_CMD" in
     [ "$key" != "" -a -f $HOME/.ssh/$key.pem ] && sshargs="$sshargs -i $HOME/.ssh/$key.pem"
     bkcmd=$(get_arg -bkcmd)
     if [ "$bkcmd" != "" ]; then
-       find_user
-       bkcmd="--rsync-path=/home/$BKJS_USER/bin/bkrsync -bkcmd '$bkcmd'"
+        find_user
+        bkcmd="--rsync-path=/home/$BKJS_USER/bin/bkrsync -bkcmd '$bkcmd'"
     fi
     rsyncargs=$(concat_arg -rsync $BKJS_RSYNC_ARGS)
-    [ -f .gitignore ] && rsyncargs="$rsyncargs --exclude-from .gitignore"
+    include=$(get_json package.json config.sync.include)
+    for inc in $include; do
+        rsyncargs="$rsyncargs --include=$inc"
+    done
+    if [ -f .gitignore ]; then
+        rsyncargs="$rsyncargs --exclude-from .gitignore"
+    fi
     [ -f $HOME/.gitignore_global ] && rsyncargs="$rsyncargs --exclude-from $HOME/.gitignore_global"
     exclude=$(get_json package.json config.sync.exclude)
-    [[ ! -z $exclude ]] && rsyncargs="$rsyncargs --exclude="$exclude
+    [[ ! -z $exclude ]] && rsyncargs="$rsyncargs --exclude=$exclude"
     echo "Deploying the module $mod: 'ssh $sshargs' $rsyncargs $bkcmd to $host:$path"
     [ ! -z "$(get_flag -dry-run)" ] && exit 0
     for h in $host; do
-      rsync -av -e "ssh $sshargs" $rsyncargs "$bkcmd" $h:$path
+        rsync -av -e "ssh $sshargs" $rsyncargs "$bkcmd" $h:$path
     done
     ;;
 
@@ -446,8 +452,8 @@ case "$BKJS_CMD" in
     skip=$(get_arg -skip $BKJS_MOD)
     path=$(get_arg -path .)
     for p in $path; do
-      m=$($NODE_BIN -e "try{skip='$skip'.split(/[ ,]/);console.log(Object.keys(JSON.parse(require('fs').readFileSync('$p/package.json')).$field).filter(function(x){return !x.match(skip)}).join(' '))}catch(e){}")
-      [ "$m" != "" ] && modules="$modules $m"
+        m=$($NODE_BIN -e "try{skip='$skip'.split(/[ ,]/);console.log(Object.keys(JSON.parse(require('fs').readFileSync('$p/package.json')).$field).filter(function(x){return !x.match(skip)}).join(' '))}catch(e){}")
+        [ "$m" != "" ] && modules="$modules $m"
     done
     [[ -z $modules ]] && exit 0
     echo "$cmd: $modules"
@@ -528,6 +534,7 @@ case "$BKJS_CMD" in
     [ "$quiet" = "" ] && echo "$(date): web-bundle $bundle.$type started $dir/$file"
     case $file in
       *js)
+        mkdir -p web/js
         if [[ ! -z $(get_flag -cat) ]]; then
             (cd $dir && cat $files > web/js/$bundle.bundle.js)
         else
@@ -542,6 +549,7 @@ case "$BKJS_CMD" in
         ;;
 
       *css)
+        mkdir -p web/css
         if [[ ! -z $(get_flag -cat) ]]; then
             (cd $dir && cat $files > web/css/$bundle.bundle.css)
         else

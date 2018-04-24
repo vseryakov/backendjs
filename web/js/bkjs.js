@@ -284,6 +284,7 @@ var Bkjs = {
         }
         if (!options.headers) options.headers = {};
         for (var h in this.headers) options.headers[h] = this.headers[h];
+        for (var p in options.data) if (typeof options.data[p] == "undefined") delete options.data[p];
         this.loading("show");
         $.ajax(options);
     },
@@ -301,7 +302,9 @@ var Bkjs = {
     sendFile: function(options, callback) {
         if (!options || !options.file || !options.file.files || !options.file.files.length) return typeof callback == "function" ? callback() : null;
         var form = new FormData();
-        for (var p in options.data) form.append(p, options.data[p])
+        for (var p in options.data) {
+            if (typeof options.data[p] != "undefined") form.append(p, options.data[p])
+        }
         form.append(options.name || "data", options.file.files[0]);
         for (var p in options.files) form.append(p, options.files[i].files[0])
         // Send within the session, multipart is not supported by signature
