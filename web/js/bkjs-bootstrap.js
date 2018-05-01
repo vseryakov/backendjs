@@ -18,7 +18,7 @@ Bkjs.showAlert = function(obj, type, text, options)
     html += '<button type="button" class="close" data-dismiss="alert"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>';
     html += "</div>";
     if (!$(obj).find(".alerts").length) obj = $("body");
-    if (options.empty) $(obj).find(".alerts").empty();
+    if (!options.append) $(obj).find(".alerts").empty();
     $(obj).find(".alerts").append(html);
     if (!options.dismiss) $(obj).find("#" + aid).hide().fadeIn(200).delay(5000 * (type == "danger" ? 5 : type == "warning" ? 3 : 1)).fadeOut(1000, function () { $(this).remove(); });
     if (options.scroll) $(obj).animate({ scrollTop: 0 }, "slow");
@@ -225,6 +225,7 @@ Bkjs.showLogin = function(options, callback)
         form.trigger("submit"); e.preventDefault();
     });
     form.off().on("submit", function() {
+        if (typeof options.onSubmit == "function" && !options.onSubmit(form)) return false;
         Bkjs.login(login.val(), secret.val(), function(err, data, xhr) {
             if (err) Bkjs.showAlert(modal, "danger", err);
             if (typeof callback == "function") callback(err, data, xhr);
