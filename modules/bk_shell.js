@@ -59,9 +59,10 @@ shell.getUser = function(obj, callback)
 shell.getQuery = function()
 {
     var query = {};
-    for (var i = process.argv.length - 1; i > 1; i -= 2) {
-        var a = process.argv[i - 1][0], b = process.argv[i][0];
-        if (a != '-' && b != '-') query[process.argv[i - 1]] = process.argv[i];
+    for (var i = 2; i < process.argv.length; i++) {
+        var a = process.argv[i - 1], b = process.argv[i];
+        if (a[0] == '-' && b[0] != '-') i++; else
+        if (a[0] != '-' && b[0] != '-') query[a] = b, i++;
     }
     return query;
 }
@@ -82,8 +83,9 @@ shell.getArgs = function()
 {
     var query = {};
     for (var i = process.argv.length - 1; i > 1; i--) {
-        var a = process.argv[i] || "", b = process.argv[i + 1] || "";
-        if (a[0] == '-') query[a.substr(1)] = b && b[0] != '-' ? b : 1;
+        var a = process.argv[i - 1], b = process.argv[i];
+        if (b[0] == '-') query[b.substr(1)] = 1; else
+        if (a[0] == '-') query[a.substr(1)] = b || 1, i--;
     }
     return query;
 }
@@ -436,7 +438,7 @@ shell.cmdAccountUpdate = function(options)
     if (!core.modules.bk_account) this.exit("accounts module not loaded");
     var query = this.getQuery();
     var opts = api.getOptions({ query: this.getArgs(), options: { path: ["", "", ""], ops: {} } });
-    if (this.isArg("-noscramble", options)) opts.scramble = false;
+    opts.scramble = this.isArg("-noscramble", options) ? 0 : 1;
     this.getUser(query, function(row) {
         core.modules.bk_account.updateAccount({ account: row, query: query }, opts, function(err, data) {
             shell.exit(err, data);
@@ -493,7 +495,7 @@ shell.cmdLoginUpdate = function(options)
 {
     var query = this.getQuery();
     var opts = api.getOptions({ query: this.getArgs(), options: { path: ["", "", ""], ops: {} } });
-    if (this.isArg("-noscramble", options)) opts.scramble = 0;
+    opts.scramble = this.isArg("-noscramble", options) ? 0 : 1;
     api.updateAccount(query, opts, function(err, data) {
         shell.exit(err, data);
     });
