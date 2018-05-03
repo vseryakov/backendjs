@@ -59,7 +59,7 @@ shell.getUser = function(obj, callback)
 shell.getQuery = function()
 {
     var query = {};
-    for (var i = 2; i < process.argv.length; i++) {
+    for (var i = this.cmdIndex + 2; i < process.argv.length; i++) {
         var a = process.argv[i - 1], b = process.argv[i];
         if (a[0] == '-' && b[0] != '-') i++; else
         if (a[0] != '-' && b[0] != '-') query[a] = b, i++;
@@ -71,7 +71,7 @@ shell.getQuery = function()
 shell.getQueryList = function()
 {
     var query = [];
-    for (var i = process.argv.length - 1; i > 1; i--) {
+    for (var i = process.argv.length - 1; i > this.cmdIndex + 1; i--) {
         if (process.argv[i][0] == '-') break;
         query.unshift(process.argv[i]);
     }
@@ -82,7 +82,7 @@ shell.getQueryList = function()
 shell.getArgs = function()
 {
     var query = {};
-    for (var i = process.argv.length - 1; i > 1; i--) {
+    for (var i = process.argv.length - 1; i > this.cmdIndex + 1; i--) {
         var a = process.argv[i - 1], b = process.argv[i];
         if (b[0] == '-') query[b.substr(1)] = 1; else
         if (a[0] == '-') query[a.substr(1)] = b || 1, i--;
@@ -144,6 +144,8 @@ shell.runShell = function(options)
             if (process.argv[i][0] != '-') continue;
             var name = lib.toCamel("cmd" + process.argv[i]);
             if (typeof shell[name] != "function") continue;
+            shell.cmdName = name;
+            shell.cmdIndex = i;
             var rc = shell[name](options);
             if (rc == "stop") break;
             if (rc == "continue") continue;
