@@ -1,6 +1,6 @@
 //
 //  Author: Vlad Seryakov vseryakov@gmail.com
-//  Nov 2014
+//  backendjs 2018
 //
 
 var logger = require(__dirname + '/../lib/logger');

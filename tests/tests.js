@@ -1,6 +1,6 @@
 //
 //  Author: Vlad Seryakov vseryakov@gmail.com
-//  Sep 2013
+//  backendjs 2018
 //
 // Unit tests
 // To run a test execute for example: bksh -run-test db ....
