@@ -71,7 +71,7 @@ shell.getQuery = function()
 shell.getQueryList = function()
 {
     var query = [];
-    for (var i = process.argv.length - 1; i > this.cmdIndex + 1; i--) {
+    for (var i = process.argv.length - 1; i > this.cmdIndex; i--) {
         if (process.argv[i][0] == '-') break;
         query.unshift(process.argv[i]);
     }
