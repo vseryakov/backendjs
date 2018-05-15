@@ -517,7 +517,8 @@ case "$BKJS_CMD" in
     [ "$quiet" = "" ] && echo "$BKJS_CMD: $dir $type bundles: $bundles"
 
     for b in $bundles; do
-        f=$(get_json_flat $dir/package.json config.bundles.$b.$type)
+        [ "$dev" != "" ] && f=$(get_json_flat $dir/package.json config.bundles.$b.$type.dev)
+        [[ -z $f ]] && f=$(get_json_flat $dir/package.json config.bundles.$b.$type)
         [[ -z $f ]] && continue
         if [[ -z $name || $name = $b || $f =~ $name ]]; then
             files=$f
