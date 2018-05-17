@@ -108,6 +108,7 @@ shell.cmdDbBackup = function(options)
     var query = this.getQuery();
     var root = this.getArg("-path", options);
     var filter = this.getArg("-filter", options);
+    var table = this.getArg("-table", options);
     var tables = lib.strSplit(this.getArg("-tables", options));
     var skip = lib.strSplit(this.getArg("-skip", options));
     var incremental = this.getArgInt("-incremental", options);
@@ -116,6 +117,7 @@ shell.cmdDbBackup = function(options)
     opts.scanRetry = this.getArgInt("-scanRetry", options, 1);
     if (!opts.useCapacity) opts.useCapacity = "read";
     if (!opts.factorCapacity) opts.factorCapacity = 0.25;
+    if (table) tables.push(table);
     if (!tables.length) tables = db.getPoolTables(db.pool, { names: 1 });
     lib.forEachSeries(tables, function(table, next) {
         if (skip.indexOf(table) > -1) return next();
@@ -154,6 +156,7 @@ shell.cmdDbRestore = function(options)
     var root = this.getArg("-path", options);
     var filter = this.getArg("-filter", options);
     var mapping = lib.strSplit(this.getArg("-mapping", options));
+    var table = this.getArg("-table", options);
     var tables = lib.strSplit(this.getArg("-tables", options));
     var skip = lib.strSplit(this.getArg("-skip", options));
     var files = lib.findFileSync(root || core.home, { depth: 1, types: "f", include: /\.json$/ });
@@ -161,6 +164,7 @@ shell.cmdDbRestore = function(options)
     var op = this.getArg("-op", options, "update");
     if (this.isArg("-drop", options)) opts.drop = 1;
     if (this.isArg("-continue", options)) opts.continue = 1;
+    if (table) tables.push(table);
     opts.errors = 0;
     lib.forEachSeries(files, function(file, next3) {
         var table = path.basename(file, ".json");
