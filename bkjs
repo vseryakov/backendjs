@@ -403,7 +403,7 @@ case "$BKJS_CMD" in
   sync)
     # Put backend code to the remote site
     host=$(get_arg -host $BKJS_HOST)
-    [ "$host" = "" ] && echo "no sync withut -host" && exit
+    [ "$host" = "" ] && echo "no sync without -host" && exit
     mod=$(get_json package.json name)
     [[ -z $mod ]] && echo "no sync without package.json" && exit 1
     path=$(get_arg -path)

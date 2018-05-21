@@ -5,6 +5,11 @@
         "es6": true,
         "node": true
     },
+    "globals": {
+        "Bkjs": false,
+        "$": false,
+        "jQuery": false
+    },
     "extends": "eslint:recommended",
     "rules": {
         "accessor-pairs": "error",
@@ -88,10 +93,7 @@
         "max-params": "off",
         "max-statements": "off",
         "max-statements-per-line": "off",
-        "multiline-comment-style": [
-            "error",
-            "separate-lines"
-        ],
+        "multiline-comment-style": "off",
         "multiline-ternary": "off",
         "new-cap": "error",
         "new-parens": "error",
@@ -258,10 +260,7 @@
                 "words": false
             }
         ],
-        "spaced-comment": [
-            "error",
-            "always"
-        ],
+        "spaced-comment": "off",
         "strict": [
             "error",
             "never"
