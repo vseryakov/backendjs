@@ -413,8 +413,8 @@ accounts.updateAccount = function(req, options, callback)
                for (var i in options.admin_values) query[options.admin_values[i]] = req.query[options.admin_values[i]];
            }
            // Avoid updating auth table and flushing cache if nothing to update
-           var obj = db.getQueryForKeys(Object.keys(db.getColumns(api.authTable, options)), query, { no_columns: 1, skip_columns: ["id","login","mtime"] });
-           if (!Object.keys(obj).length) return callback(err, rows, info);
+           var obj = db.getQueryForKeys(Object.keys(db.getColumns(api.authTable, options)), query, { skip_columns: ["id","login","mtime"] });
+           if (!Object.keys(obj).length) return next();
            db.update(api.authTable, query, options, next);
        },
        function(next) {
