@@ -266,13 +266,10 @@ var Bkjs = {
         // Parse error message
         options.error = function(xhr, status, error) {
             self.loading("hide");
-            var msg = "";
-            try {
-                msg = self.parseError(JSON.parse(xhr.responseText));
-            } catch(e) {
-                msg = self.parseError(xhr.responseText);
-            }
-            self.log('send: error:', xhr.status, status, msg, error, options);
+            var msg = xhr.responseText;
+            try { msg = JSON.parse(xhr.responseText) } catch(e) {}
+            self.log('send:', xhr.status, status, msg, error, options);
+            if (!options.rawError) msg = self.parseError(msg);
             if (typeof onerror == "function") onerror(msg || error || status, xhr, status, error);
         }
         if (!options.nosignature) {
@@ -293,7 +290,8 @@ var Bkjs = {
         this.send(options, function(data, xhr) {
             if (typeof callback == "function") callback(null, data, xhr);
         }, function(err, xhr) {
-            if (typeof callback == "function") callback(err, null, xhr);
+            var data = options.jsonType == "list" ? [] : options.jsonType == "obj" ? {} : null;
+            if (typeof callback == "function") callback(err, data, xhr);
         });
     },
 
