@@ -438,15 +438,15 @@ mod.bkDeleteAccount = function(req, callback)
 {
     lib.parallel([
         function(next) {
-            if (req.options.keep_all || req.options.keep_message) return next();
+            if (lib.isFlag(req.options.keep, ["all","bk_message"])) return next();
             db.delAll("bk_message", { id: req.account.id }, function() { next() });
         },
         function(next) {
-            if (req.options.keep_all || req.options.keep_archive) return next();
+            if (lib.isFlag(req.options.keep, ["all","bk_archive"])) return next();
             db.delAll("bk_archive", { id: req.account.id }, function() { next() });
         },
         function(next) {
-            if (req.options.keep_all || req.options.keep_sent) return next();
+            if (lib.isFlag(req.options.keep, ["all","bk_sent"])) return next();
             db.delAll("bk_sent", { id: req.account.id }, function() { next() });
         },
         function(next) {

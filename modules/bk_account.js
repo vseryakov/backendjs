@@ -435,8 +435,8 @@ accounts.updateAccount = function(req, options, callback)
 }
 
 // Delete account specified by the obj. Used in `/account/del` API call.
-// The options may contain `keep_NAME` properties with NAME being a table name to be kept without the bk_ prefix, for example
-// delete an account but keep all messages and location: `keep_message: 1, keep_location: 1`
+// The options may contain `keep` array with tables to be kept, for example
+// delete an account but keep all messages and location: keep:["bk_message","bk_location"]
 //
 // This methods is suitable for background jobs
 accounts.deleteAccount = function(req, callback)
@@ -456,7 +456,7 @@ accounts.deleteAccount = function(req, callback)
         lib.series([
            function(next) {
                if (!req.account.login || api.authTable == "bk_account") return next();
-               if (req.options.keep_all || req.options.keep_auth) {
+               if (lib.isFlag(req.options.keep, ["all","bk_auth"])) {
                    db.update(api.authTable, rec, req.options, next);
                } else {
                    db.del(api.authTable, { login: req.account.login }, req.options, next);
@@ -469,7 +469,7 @@ accounts.deleteAccount = function(req, callback)
                core.runMethods("bkDeleteAccount", req, function() { next() });
            },
            function(next) {
-               if (req.options.keep_all || req.options.keep_account) return next();
+               if (lib.isFlag(req.options.keep, ["all","bk_account"])) return next();
                db.del("bk_account", { id: req.account.id }, req.options, next);
            },
         ], function(err) {

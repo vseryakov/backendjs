@@ -130,6 +130,6 @@ mod.bkAddAccount = function(req, callback)
 
 mod.bkDeleteAccount = function(req, callback)
 {
-    if (req.options.keep_all || req.options.keep_counter) return callback();
+    if (lib.isFlag(req.options.keep, ["all","bk_counter"])) return callback();
     db.del("bk_counter", { id: req.account.id }, callback);
 }
