@@ -242,11 +242,11 @@ mod.send = function(req, options)
     });
 }
 
-mod.bkDeleteAccount  = function(req, callback)
+mod.bkDeleteAccount = function(req, callback)
 {
     if (lib.isFlag(req.options.keep, ["all","bk_icon"])) return callback();
     db.delAll("bk_icon", { id: req.account.id }, { delCollect: 1 }, function(err, rows) {
-        if (lib.isFlag(req.options.keep, ["all","images"]) return callback();
+        if (lib.isFlag(req.options.keep, ["all","images"])) return callback();
         // Delete all image files
         lib.forEachSeries(rows, function(row, next) {
             api.delIcon(req.account.id, row, function() { next() });
