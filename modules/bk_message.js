@@ -429,7 +429,7 @@ mod.readMessage = function(req, options, callback)
     options.ops.read = "ne";
     options.select = lib.strSplit(options.select);
     ["id","mtime","sender","read","flags"].forEach(function(x) { if (options.select.indexOf(x) == -1) options.select.push(x) });
-    options.process = function(row) { if (!row.read) ipc.incr("bk_message|unread|" + row.id, -1, mod.cacheOptions); }
+    options.updateProcess = function(row) { if (!row.read) ipc.incr("bk_message|unread|" + row.id, -1, mod.cacheOptions); }
     var query = lib.toParams(req.query, { id: { value: req.account.id }, mtime: { type: "int" }, sender: {}, read: { type: "int", value: 1 } });
     db.updateAll("bk_message", query, { read: 1 }, options, callback)
 }
