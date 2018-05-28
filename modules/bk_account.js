@@ -445,6 +445,7 @@ accounts.deleteAccount = function(req, callback)
     if (!req.options) req.options = {};
     if (!req.query) req.query = {};
     req.options.count = 0;
+    var started = Date.now();
 
     db.get("bk_account", { id: req.account.id }, req.options, function(err, row) {
         if (err) return callback(err);
@@ -463,7 +464,7 @@ accounts.deleteAccount = function(req, callback)
                }
            },
            function(next) {
-               db.update("bk_account", rec, next);
+               db.update("bk_account", rec, req.options, next);
            },
            function(next) {
                core.runMethods("bkDeleteAccount", req, function() { next() });
@@ -474,6 +475,7 @@ accounts.deleteAccount = function(req, callback)
            },
         ], function(err) {
             if (!err) api.metrics.Counter('auth_del_0').inc();
+            logger.info("deleteAccount:", req.account.id, req.options.keep, lib.toAge(started));
             callback(err);
         });
     });
