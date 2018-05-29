@@ -322,7 +322,7 @@ mod.deleteConnection = function(id, obj, options, callback)
 
 mod.bkDeleteAccount = function(req, callback)
 {
-    if (lib.isFlag(req.options.keep, ["all","bk_connection"])) return callback();
+    if (lib.isFlag(req.options.keep, ["all","account","bk_connection"])) return callback();
     db.select("bk_connection", { id: req.account.id }, function(err, rows) {
         if (err) return callback();
         lib.forEachSeries(rows, function(row, next) {

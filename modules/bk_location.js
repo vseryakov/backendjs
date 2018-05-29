@@ -385,6 +385,6 @@ mod.select = function(table, query, options, callback)
 
 mod.bkDeleteAccount =  function(req, callback)
 {
-    if (!req.account.geohash || lib.isFlag(req.options.keep, ["all","bk_location"])) return callback();
+    if (!req.account.geohash || lib.isFlag(req.options.keep, ["all","account","bk_location"])) return callback();
     db.del("bk_location", { id: req.account.id, geohash: req.account.geohash }, callback);
 }

@@ -457,7 +457,7 @@ accounts.deleteAccount = function(req, callback)
         lib.series([
            function(next) {
                if (!req.account.login || api.authTable == "bk_account") return next();
-               if (lib.isFlag(req.options.keep, ["all","bk_auth"])) {
+               if (lib.isFlag(req.options.keep, ["all","account","bk_auth"])) {
                    db.update(api.authTable, rec, req.options, next);
                } else {
                    db.del(api.authTable, { login: req.account.login }, req.options, next);
@@ -470,7 +470,7 @@ accounts.deleteAccount = function(req, callback)
                core.runMethods("bkDeleteAccount", req, function() { next() });
            },
            function(next) {
-               if (lib.isFlag(req.options.keep, ["all","bk_account"])) return next();
+               if (lib.isFlag(req.options.keep, ["all","account","bk_account"])) return next();
                db.del("bk_account", { id: req.account.id }, req.options, next);
            },
         ], function(err) {

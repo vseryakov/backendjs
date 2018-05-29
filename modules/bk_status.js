@@ -105,7 +105,7 @@ mod.del = function(status, options, callback)
 // This methods is suitable for background jobs
 mod.bkDeleteAccount = function(req, callback)
 {
-    if (lib.isFlag(req.options.keep, ["all","bk_status"])) return callback();
+    if (lib.isFlag(req.options.keep, ["all","account","bk_status"])) return callback();
     db.del("bk_status", { id: req.account.id }, req.options, callback);
 }
 
