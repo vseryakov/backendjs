@@ -181,6 +181,7 @@ find_nodebin() {
 
 # Use configured or provided user:group, defaults to the current user
 find_user() {
+    echo "Find user: $BKJS_USER, $(get_arg -user)"
   export BKJS_USER=$(get_arg -user $BKJS_USER)
   [ "$BKJS_USER" = "" ] && export BKJS_USER=$(whoami)
   export BKJS_GROUP=$(get_arg -group $BKJS_GROUP)
@@ -190,7 +191,7 @@ find_user() {
 # Run the command by sourcing all scripts from tools folders, if $1 is not empty then
 # run all tools scripts, otherwise stop once the command is processed
 process_cmd() {
-  dirs="$BKJS_HOME/tools $BKJS_HOME/node_modules/$BKJS_MOD/tools $(find_bkjs tools) $BKJS_TOOLS"
+  dirs="$BKJS_HOME/tools $BKJS_HOME/node_modules/$BKJS_MOD/tools $(find_bkjs tools) $BKJS_TOOLS $(get_arg -tools)"
   for d in $dirs; do
      if [ -d $d ]; then
         for f in $(find $d -name 'bkjs-*'); do
@@ -223,7 +224,7 @@ export PATH=$BKJS_HOME/bin:$BKJS_HOME/node_modules/.bin:$BKJS_PREFIX/bin:/usr/lo
 
 process_cmds() { process_cmd 1; }
 
-[ ! -z "$(get_flag -debug)" ] && echo "$0: CMD=$BKJS_CMD, HOME=$BKJS_HOME, PREFIX=$BKJS_PREFIX"
+[ ! -z "$(get_flag -debug)" ] && echo "$0: CMD=$BKJS_CMD, USER=$BKJS_USER, HOME=$BKJS_HOME, PREFIX=$BKJS_PREFIX"
 
 case "$BKJS_CMD" in
   start)

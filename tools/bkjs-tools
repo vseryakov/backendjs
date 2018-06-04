@@ -112,7 +112,7 @@ case "$BKJS_CMD" in
     kill_proc hazelcast.core.server
     sleep 1
     kill_proc hazelcast.core.server -9
-    $0 run-hazelcast "$(get_all_args)"
+    $0 run-hazelcast $(get_all_args)
     ;;
 
   get-cassandra)
