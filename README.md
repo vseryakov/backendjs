@@ -896,7 +896,7 @@ Most common used commands are:
 - bkjs shell - start REPL shell with the backend module loaded and available for use, all submodules are available in the shell as well like core, db, api
 - bkjs sync [-path path] [-host host] [-user user] - sync sources of the app with the remote site, this is for developent version of the backend only
 - bkjs init-server [-home path] [-user user] [-host name] [-domain name] - initialize Linux instance(Amazon,CentOS) for backend use, optional -home can be specified where the backend
-  home will be instead of ~/.bkjs, optional -user tells to use existing user instead of the current user.
+  home will be instead of ~/.bkjs, optional -user tells to use existing user instead of the current user and not root.
 
    **This command will create `/etc/sysconfig/bkjs` file with BKJS_HOME set to the home of the
    backendjs app which was pased in the command line. This makes the bkjs or bksh run globally regardless of the current directory.**
@@ -955,7 +955,7 @@ To make an API appliance by using the backendjs on the AWS instance as user ec2-
 - install commands
 
         git clone https://github.com/vseryakov/backendjs.git
-        sudo backendjs/bkjs install-ec2 -home $HOME
+        sudo backendjs/bkjs install-ec2 -tools $(pwd)/backendjs/tools
         bkjs restart
 
 - run `ps agx`, it should show several backend processes running
