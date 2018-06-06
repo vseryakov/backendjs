@@ -4,9 +4,7 @@
 //
 
 var cluster = require('cluster');
-var path = require('path');
 var util = require('util');
-var url = require('url');
 var fs = require('fs');
 var core = require(__dirname + '/../lib/core');
 var lib = require(__dirname + '/../lib/lib');
@@ -21,10 +19,14 @@ var shell = {
     help: [
         "-show-info - show app and version information",
         "-run-file -file FILE.js - load a script and run it if it exports run function",
+        "-login-get LOGIN ... - show login records",
+        "-login-add [-noscramble] login LOGIN secret SECRET [name NAME] [type TYPE] ... - add a new login record for API access",
+        "-login-update [-noscramble] login LOGIN [name NAME] [type TYPE] ... - update existing login record",
+        "-login-del login LOGIN... - delete a login record",
         "-account-get ID|LOGIN ... - show accounts by id or login",
-        "-account-add [-noscramble] login LOGIN secret SECRET [name NAME] [email EMAIL] [type TYPE] ... - add a new user for API access, any property from bk_account can be passed in the form: name value, if -scramble is given, store HMAC for login/secret, not real values ",
+        "-account-add [-noscramble] login LOGIN secret SECRET [name NAME] [email EMAIL] [type TYPE] ... - add a new user for API access, any property from bk_account can be passed in the form: name value",
         "-account-update [-noscramble] [login LOGIN|id ID] [name NAME] [email EMAIL] [type TYPE] ... - update existing user properties, any property from bk_account can be passed in the form: name value ",
-        "-account-del [login LOGIN|id ID] [-keep message] [-keep location]... - delete a new user, 'keep TABLE' tells which records to keep the TABLE being account tables without bk_ prefix, one of auth,counter,account,location,connection,message,icon",
+        "-account-del [login LOGIN|id ID]... - delete a user and login",
         "-location-put [login LOGIN|id ID] latitude LAT longitude LON ... - update location for an account",
         "-send-request -url URL [-id ID|-login LOGIN] param value param value ... - send API request to the server specified in the url as user specified by login or account id, resolving the user is done directly from the current db pool, param values should not be url-encoded",
         "-log-watch - run logwatcher and exit, send emails in case any errors found",
@@ -428,7 +430,7 @@ shell.cmdAccountAdd = function(options)
     if (!core.modules.bk_account) exit("accounts module not loaded");
     var query = this.getQuery();
     var opts = api.getOptions({ query: this.getArgs(), options: { path: ["", "", ""], ops: {} } });
-    if (this.isArg("-noscramble")) opts.scramble = false;
+    opts.scramble = this.isArg("-noscramble", options) ? 0 : 1;
     if (query.login && !query.name) query.name = query.login;
     core.modules.bk_account.addAccount({ query: query, account: { type: 'admin' } }, opts, function(err, data) {
         shell.exit(err, data);
@@ -485,7 +487,7 @@ shell.cmdLoginAdd = function(options)
 {
     var query = this.getQuery();
     var opts = api.getOptions({ query: this.getArgs(), options: { path: ["", "", ""], ops: {} } });
-    if (this.isArg("-noscramble", options)) opts.scramble = 0;
+    opts.scramble = this.isArg("-noscramble", options) ? 0 : 1;
     if (query.login && !query.name) query.name = query.login;
     api.addAccount(query, opts, function(err, data) {
         shell.exit(err, data);
