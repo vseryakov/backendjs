@@ -392,7 +392,8 @@ var Bkjs = {
         }
         return "";
     },
-        // Simple debugging function that outputs arguments in the error console each argument on a separate line
+
+    // Simple debugging function that outputs arguments in the error console each argument on a separate line
     log: function() {
         if (!console || !console.log) return;
         console.log.apply(console, arguments);
