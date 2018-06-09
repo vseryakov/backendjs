@@ -904,7 +904,7 @@ customize the running environment, these should be regular shell scripts using b
 <li>bkjs shell - start REPL shell with the backend module loaded and available for use, all submodules are available in the shell as well like core, db, api</li>
 <li>bkjs sync [-path path] [-host host] [-user user] - sync sources of the app with the remote site, this is for developent version of the backend only</li>
 <li><p>bkjs init-server [-home path] [-user user] [-host name] [-domain name] - initialize Linux instance(Amazon,CentOS) for backend use, optional -home can be specified where the backend
-home will be instead of ~/.bkjs, optional -user tells to use existing user instead of the current user.</p>
+home will be instead of ~/.bkjs, optional -user tells to use existing user instead of the current user and not root.</p>
 <p> <strong>This command will create <code>/etc/sysconfig/bkjs</code> file with BKJS_HOME set to the home of the
  backendjs app which was pased in the command line. This makes the bkjs or bksh run globally regardless of the current directory.</strong></p>
 </li>
@@ -950,7 +950,7 @@ new image configuration.</p>
 <li>login as <code>ec2-user</code></li>
 <li><p>install commands</p>
 <pre><code>  git clone https://github.com/vseryakov/backendjs.git
-  sudo backendjs/bkjs install-ec2 -home $HOME
+  sudo backendjs/bkjs install-ec2 -tools $(pwd)/backendjs/tools
   bkjs restart
 </code></pre></li>
 <li><p>run <code>ps agx</code>, it should show several backend processes running</p>
@@ -2268,6 +2268,7 @@ Database pool statistics and other diagnostics</p>
 <li><code>log</code> - Set debugging level to any of test,dev,debug,info,notice,log,warn,error,none</li>
 <li><code>log-filter</code> - Enable debug filters, format is: +label,... to enable, and -label,... to disable. Only first argument is used for label in logger.debug</li>
 <li><code>log-file</code> - Log to a file, if not specified used default logfile, disables syslog</li>
+<li><code>log-ignore</code> - Regexp with property names which must not be exposed in the log</li>
 <li><code>syslog</code> - Write all logging messages to syslog, connect to the local syslog server over Unix domain socket</li>
 <li><code>console</code> - All logging goes to the console resetting all previous log related settings, this is used in the development mode mostly</li>
 <li><code>home</code> - Specify home directory for the server, the server will try to chdir there or exit if it is not possible, the directory must exist</li>
@@ -2348,6 +2349,7 @@ Database pool statistics and other diagnostics</p>
 <li><code>config-domain</code> - Domain to query for configuration TXT records, must be specified to enable DNS configuration</li>
 <li><code>watch</code> - Watch sources directory for file changes to restart the server, for development only, the backend module files will be added to the watch list automatically, so only app specific directores should be added. In the production -monitor must be used.</li>
 <li><code>watch-ignore</code> - Files to be ignored by the watcher</li>
+<li><code>watch-match</code> - Files to be watched, .js and .css is the default</li>
 <li><code>watch-web</code> - List of directories to be watched for file modifications and execute a <code>buildWeb</code> command to produce bundles, apps, etc... Relative paths will be applied to all packages, example: web/js,web/css</li>
 <li><code>build-web</code> - Command to run on web files modifications, to be used with tools like minify/uglify</li>
 <li><code>locales</code> - A list of locales to load from the locales/ directory, only language name must be specified, example: en,es. It enables internal support for <code>res.__</code> and <code>req.__</code> methods that can be used for translations, for each request the internal language header will be honored forst, then HTTP Accept-Language</li>
@@ -2358,6 +2360,7 @@ Database pool statistics and other diagnostics</p>
 <li><code>tmp-watcher-(.+)</code> - How long to keep files per subdirectory in seconds</li>
 <li><code>aws-key</code> - AWS access key</li>
 <li><code>aws-secret</code> - AWS access secret</li>
+<li><code>aws-token</code> - AWS secuiry token</li>
 <li><code>aws-region</code> - AWS region</li>
 <li><code>aws-zone</code> - AWS availability zone</li>
 <li><code>aws-sdk-profile</code> - AWS SDK profile to use when reading credentials file</li>
@@ -2462,6 +2465,7 @@ Database pool statistics and other diagnostics</p>
 <li><code>api-deny-ip</code> - Set regexp for IPs that will be denied access, replaces the whole access list. It is checked before endpoint access list.</li>
 <li><code>api-allow</code> - Regexp for URLs that dont need credentials, replaces the whole access list</li>
 <li><code>api-allow-path</code> - Add to the list of allowed URL paths without authentication, return result before even checking for the signature</li>
+<li><code>api-allow-empty</code> - Regexp for URLs that should return empty responses if not found, for example return nothing for non-existent javascript files</li>
 <li><code>api-ignore-allow</code> - Regexp for URLs that should be ignored by the allow rules, the processing will continue</li>
 <li><code>api-ignore-allow-path</code> - Add to the list of URL paths which should e ignored by the allow rules, in order to keep allow/deny rules simple, for example to keep some js files from open to all: -allow-path .js -disallow-path /secure/</li>
 <li><code>api-allow-anonymous</code> - Add to the list of allowed URL paths that can be served with or without valid account, the difference with <code>allow-path</code> is that it will check for signature and an account but will continue if no login is provided, return error in case of wrong account or not account found</li>
@@ -2483,7 +2487,9 @@ Database pool statistics and other diagnostics</p>
 <li><code>api-platform-match</code> - An JSON object with list of regexps to match user-agent header for platform detection, example: { &#39;ios|iphone|ipad&#39;: &#39;ios&#39;, &#39;android&#39;: &#39;android&#39; }</li>
 <li><code>api-cors-origin</code> - Origin header for CORS requests</li>
 <li><code>api-error-message</code> - Default error message to return in case of exceptions</li>
-<li><code>api-url-metrics-([a-z]+)</code> - Defines the length of an API request path to be stored in the statistics, set by the first component of endpoint URL, example: -api-url-metrics-image 2 -api-url-metrics-account 3</li>
+<li><code>api-url-metrics-ignore</code> - Ignore matched urls from the metrics collection</li>
+<li><code>api-url-metrics-max</code> - Max number of path related metrics objects to keep, the most recent or the most popular urls will be kept only</li>
+<li><code>api-url-metrics-path-(.+)</code> - Defines the length of an API request path to be stored in the statistics by matching the beginning of the request url, the smallest path wins, example: -api-url-metrics-/img 2 -api-url-metrics-/account/get 3</li>
 <li><code>api-rlimits-max-(.+)</code> - Set max/burst rate limit by the given property, it is used by the request rate limiter using Token Bucket algorithm. Predefined types: ip, path, id, login</li>
 <li><code>api-rlimits-rate-(.+)</code> - Set fill/normal rate limit by the given property, it is used by the request rate limiter using Token Bucket algorithm. Predefined types: ip, path, id, login</li>
 <li><code>api-rlimits-interval-(.+)</code> - Set rate interval in ms by the given property, it is used by the request rate limiter using Token Bucket algorithm. Predefined types: ip, path, id, login</li>
@@ -2575,7 +2581,7 @@ early with some properties always present:<ul>
 <pre><code>      // Authentication by login, only keeps id and secret to check the siganture
       bk_auth: {
           login: { primary: 1 },                              // Account login
-          id: { type: &quot;uuid&quot; },                               // Auto generated UUID to be linked with other records
+          id: { type: &quot;uuid&quot;, prefix: &quot;u_&quot; },                 // Auto generated UUID to be linked with other records
           name: { type: &quot;text&quot; },                             // Account name
           status: { type: &quot;text&quot; },                           // Status of the account
           type: { type: &quot;text&quot;, admin: 1 },                   // Account type: admin, ....
@@ -2911,7 +2917,8 @@ if present in the info. This result object can be used for pagination responses.
 <p>options may be used to define the following properties:</p>
 <ul>
 <li>skip - a regexp with names to be excluded as well</li>
-<li><p>allow - a list of properties which can be checked along with the <code>pub</code> property for a column to be considered public</p>
+<li>allow - a list of properties which can be checked along with the <code>pub</code> property for a column to be considered public</li>
+<li><p>disallow - a list of properties which if set will prevent a column to be returned, it is checked before the &#39;allow&#39; rule</p>
 <p>api.getPublicColumns(&quot;bk_account&quot;, { allow: [&quot;admins&quot;], skip: /device_id|0$/ });</p>
 </li>
 </ul>
@@ -2943,7 +2950,8 @@ database pool.</p>
 
 <ul>
 <li><p><code>api.clearQuery(table, query, options)</code></p>
-<p> Clear request query properties specified in the table definition.</p>
+<p> Clear request query properties specified in the table definition or in custom schema.</p>
+<p>The <code>table</code> argument can be a table name or an object with properties as columns.</p>
 <p>If <code>options.filter</code> is not specified the <code>query</code> will only keep existing columns for the given table.</p>
 <p>If <code>options.filter</code> is a list then the <code>query</code> will only not contain properties for columns that contain any specified
 property from the filter list. This is used for the <code>bk_auth</code> table to remove properties that supposed to be updated by admins only.
@@ -2956,6 +2964,7 @@ The filter will keep non-existent columns in the <code>query</code>. To remove s
   api.clearQuery(&quot;bk_auth&quot;, req.query, { filter: [&quot;admin&quot;] })
   api.clearQuery(&quot;bk_account&quot;, req.query, { filter: [&quot;admin&quot;,&quot;secure&quot;] })
   api.clearQuery(&quot;bk_account&quot;, req.query, { filter: [&quot;admin&quot;,&quot;!secure&quot;], keep: /^__/ })
+  api.clearQuery({ name: {}, id: { admin: 1 } }, req.query, { filter: [&quot;admin&quot;] })
 </code></pre></li>
 </ul>
 
@@ -3509,6 +3518,12 @@ Valid properties in the options:</p>
 </ul>
 
 <ul>
+<li><p><code>api.isIconUrl(url)</code></p>
+<p> Return true if the given file or url point ot an image</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>api.isIcon(buf)</code></p>
 <p> Returns detected image type if the given buffer contains an image, it checks the header only</p>
 </li>
@@ -3702,7 +3717,7 @@ been processed.</p>
 
 <ul>
 <li><p><code>aws.readCredentials(profile, callback)</code></p>
-<p> Read key and secret from the AWS SDK credentials file, if no profile is given in the config or command line only tge default peofile
+<p> Read key and secret from the AWS SDK credentials file, if no profile is given in the config or command line only the default peofile
 will be loaded.</p>
 </li>
 </ul>
@@ -3732,7 +3747,7 @@ will be loaded.</p>
 </ul>
 
 <ul>
-<li><p><code>aws.querySign(region, service, host, method, path, body, headers, options)</code></p>
+<li><p><code>aws.querySign(region, service, host, method, path, body, headers, credentials, options)</code></p>
 <p> Build version 4 signature headers</p>
 </li>
 </ul>
@@ -4019,6 +4034,24 @@ Options must provide the following properties:</p>
 </ul>
 
 <ul>
+<li><p><code>aws.ddbUpdateTimeToLive(options, callback)</code></p>
+<p> Update TTL attribute.
+The options properties:</p>
+<ul>
+<li>name - table name</li>
+<li>attribute - the attribute name</li>
+<li>enabled - true or false</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.ddbDescribeTimeToLive(name, options, callback)</code></p>
+<p> Returns status of Time to live attribute for a table</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>aws.ddbDeleteTable(name, options, callback)</code></p>
 <p> Remove a table from the database.
 By default the callback will ba callled only after the table is deleted, specifying <code>options.nowait</code> will return immediately</p>
@@ -4047,7 +4080,7 @@ while the status is equal to it. options.waitDelay can be specified how often to
 </code></pre></li>
 <li>names - an object with a map to be used for attribute names in condition and update expressions, to be used<pre><code>for ExpressionAttributeNames parameter
 </code></pre></li>
-<li>returning - values to be returned on success, * means ALL_OLD</li>
+<li>returning - values to be returned on success, any value means ALL_OLD</li>
 </ul>
 </li>
 </ul>
@@ -4077,7 +4110,8 @@ while the status is equal to it. options.waitDelay can be specified how often to
 <li>expected - an object with columns to be used in ConditionExpression, value null means the attribute does not exists,
   any other value to be checked against using regular compare rules. The conditional comparison operator is taken
   from <code>options.ops</code> the same way as for queries.</li>
-<li>returning - values to be returned on success, * means ALL_NEW, old means ALL_OLD</li>
+<li>returning - values to be returned on success, <code>*</code> or <code>new</code> means ALL_NEW, <code>old</code> means ALL_OLD,<pre><code>        `updated` means UPDATED_NEW, `old_updated` means UPDATED_OLD
+</code></pre></li>
 </ul>
 </li>
 </ul>
@@ -4099,7 +4133,7 @@ while the status is equal to it. options.waitDelay can be specified how often to
   for ExpressionAttributeValues parameters</li>
 <li>names - an object with a map to be used for attribute names in condition and update expressions, to be used
   for ExpressionAttributeNames parameter</li>
-<li>returning - values to be returned on success, * means ALL_OLD</li>
+<li>returning - values to be returned on success, any value means ALL_OLD</li>
 </ul>
 </li>
 </ul>
@@ -4264,7 +4298,7 @@ The options can specify the following:</p>
 
 <ul>
 <li><p><code>aws.ec2DescribeSecurityGroups(options, callback)</code></p>
-<p> Describe securty groups, optionally if <code>options.filter</code> regexp is provided then limit the result to the matched groups only,
+<p> Describe security groups, optionally if <code>options.filter</code> regexp is provided then limit the result to the matched groups only,
 return list of groups to the callback</p>
 </li>
 </ul>
@@ -4679,12 +4713,6 @@ like <a href="http://localhost:8000">http://localhost:8000</a>, this is when <co
 </li>
 </ul>
 
-<ul>
-<li><p><code>core.dropPrivileges()</code></p>
-<p> Drop root privileges and switch to regular user</p>
-</li>
-</ul>
-
 <h2 id="module-core_utils">Module: CORE_UTILS</h2>
 <ul>
 <li><p><code>core.processName()</code></p>
@@ -4759,18 +4787,6 @@ Options properties:</p>
 <li>ignore - a regexp of files to be ignored</li>
 <li>seconds - number of seconds a file to be older to be deleted</li>
 <li>nodirs - if 1 skip deleting directories</li>
-</ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>core.watchFiles(options, fileCallback, endCallback)</code></p>
-<p> Watch files in a dir for changes and call the callback, the parameters:</p>
-<ul>
-<li>root - a string with root path</li>
-<li>files - a regexp to watch files individually, if omitted watch the whole dir</li>
-<li>match - a regexp to watch files when using the whole dir, only for matched files the callback will be called</li>
-<li>ignore - a regexp to ignore files</li>
 </ul>
 </li>
 </ul>
@@ -4987,8 +5003,10 @@ the pool by table name if some tables are assigned to any specific pool by confi
 <li>postfilter - function to filter rows not to be included in the result, return false to skip row, args are: function(req, row, options)</li>
 <li>postprocess - function to process rows in the result, return a new result, args are: function(req, row, options), this result will be put in cache
 if requested so this may be used for preparing cached results, it must return an array</li>
-<li>quiet - do not report about the error in the log, still the error is returned to the caller</li>
-<li>ignore_error - clear any error occured as it never happen, do not report in the log</li>
+<li>quiet - report errors in debug level</li>
+<li>logger_db - log results at the end with this level or debug by default</li>
+<li>logger_error - a log level to report about errors, default is &#39;error&#39;</li>
+<li>ignore_error - clear errors occured as it never happen, do not report in the log, if an array then only matched codes will be cleared</li>
 <li>noprocessrows - if true then skip post processing result rows, return the data as is, this will result in returning combined columns as it is</li>
 <li>noconvertrows - if true skip converting the data from the database format into Javascript data types, it uses column definitions
 for the table to convert values returned from the db into the the format defined by the column</li>
@@ -5219,17 +5237,18 @@ Special properties that can be in the options for this call:</p>
 <li>updateCollect - if true return all updated rows in the callback otherwise just the number of updated rows</li>
 <li>factorCapacity - write capacity factor for update operations, default is 0.25</li>
 <li>op - by default it uses db.update but the <code>op</code> can be set to <code>put</code> or <code>add</code></li>
-<li>process - a function callback that will be called for each row before updating it, this is for some transformations of the record properties
+<li>updateProcess - a function callback that will be called for each row before updating it, this is for some transformations of the record properties
  in case of complex columns that may contain concatenated values as in the case of using DynamoDB. The callback will be called
- as <code>options.process(row, options)</code></li>
+ as <code>options.updateProcess(row, options)</code></li>
 <li>updateFilter - a function that must return true in order to skip the current record. <code>options.updateFilter(row, options)</code></li>
 </ul>
+<p>If no <code>options.select</code> is specified only the primary keys will be returned or collected</p>
 <p>Example, update birthday format if not null</p>
 <pre><code>    db.updateAll(&quot;bk_account&quot;,
                 { birthday: 1 },
                 { mtime: Date.now() },
                 { ops: { birthday: &quot;not null&quot; },
-                  process: function(r, o) {
+                  updateProcess: function(r, o) {
                         r.birthday = lib.strftime(new Date(r.birthday, &quot;%Y-%m-D&quot;));
                   } },
     function(err, count) {
@@ -5262,16 +5281,15 @@ Special properties that can be in the options for this call:</p>
 <li>count - how many matching records to delete</li>
 <li>delOptions - options to be passed to the db.del if needed, this is useful so select and del options will not be mixed up</li>
 <li>delCollect - if true return all deleted rows in the callback, oherwise just the number of rows deleted</li>
-<li>factorCapacity - write capcity factor for delete operations, default is 0.35</li>
+<li>factorCapacity - write capqcity factor for delete operations, default is 0.35</li>
 <li>concurrency - how many delete requests to execute at the same time by using lib.forEachLimit.</li>
 <li>ignore_error - continue deleting records even after an error</li>
-<li>process - a function callback that will be called for each row before deleting it, this is for some transformations of the record properties
+<li>delProcess - a function callback that will be called for each row before deleting it, this is for some transformations of the record properties
 in case of complex columns that may contain concatenated values as in the case of using DynamoDB. The callback will be called
-as <code>options.process(row, options)</code><ul>
+as <code>options.delProcess(row, options)</code></li>
 <li>delFilter - a function that must return true in order to skip the current record. <code>options.delFilter(row, options)</code></li>
 </ul>
-</li>
-</ul>
+<p>If no <code>options.select</code> is specified only the primary keys will be returned or collected</p>
 </li>
 </ul>
 
@@ -5362,6 +5380,7 @@ To hint a driver that scanning is in progress the <code>options.scanning</code> 
 <li>start - the primary key to start the scan from</li>
 <li>search - use search instead of select, for ElasticSearch,...</li>
 <li>batch - if true rowCallback will be called with all rows from the batch, not every row individually, batch size is defined by the count property</li>
+<li>concurrency - how many rows to process at the same time, if not given proxess sequentially</li>
 <li>noscan - if 1 no scan will be performed if no prmary keys are specified</li>
 <li>fullscan - if 1 force to scan full table without using any primary key conditons, use all query properties for all records (DynamoDB)</li>
 <li>useCapacity - triggers to use specific capacity, default is <code>read</code></li>
@@ -5383,15 +5402,24 @@ To hint a driver that scanning is in progress the <code>options.scanning</code> 
 </ul>
 
 <ul>
-<li><p><code>db.migrate(table, options, callback)</code></p>
-<p> Migrate a table via temporary table, copies all records into a temp table, then re-create the table with up-to-date definitions and copies all records back into the new table.
-The following options can be used:</p>
+<li><p><code>db.copy(table, query, options, callback)</code></p>
+<p> Copy records from one table to another between different DB pools or regions</p>
+<p>Parameters:</p>
 <ul>
-<li>preprocess - a callback function(row, options, next) that is called for every row on the original table, next must be called to move to the next row, if err is returned as first arg then the processing will stop</li>
-<li>postprocess - a callback function(row, options, next) that is called for every row on the destination table, same rules as for preprocess</li>
-<li>tmppool - the db pool to be used for temporary table</li>
-<li>tmpdrop - if 1 then the temporary table will be dropped at the end in case of success, by default it is kept</li>
-<li>delay - number of milliseconds to wait between the steps</li>
+<li>table - name of the table to copy</li>
+<li>query - a query condition for the table</li>
+<li>options properties<ul>
+<li>sort - index to use for query</li>
+<li>minCapacity - capacity minimum for read/writes, it will override actual DB capacity</li>
+<li>factorCapacity - factor the actual capacity for reads/writes</li>
+<li>region - other region where to copy</li>
+<li>pool - other DB pool</li>
+<li>preprocess - a function(table, row, options) to be called before the update, if it returns true the record will be skipped</li>
+<li>posprocess - a function(table, row, options, next) to be called after the record is copied, for recursive or joined cases</li>
+<li>reget - if set the actual record will read using db.get, for cases when db.scan returns only partial record as in DynamoDB cases with indexes</li>
+<li>incremental - if set, try to read the latest record in the other table and continue from there, uses <code>sort</code> index in desc order</li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -5734,6 +5762,7 @@ By default it checks <code>writeCapacity</code> property of all table columns an
 <li>factorCapacity - a number between 0 and 1 to multiple the rate capacity</li>
 <li>rateCapacity - if set it will be used for rate capacity limit</li>
 <li>maxCapacity - if set it will be used as the max burst capacity limit</li>
+<li>minCapacity - if set it will be used as the minimum threshold</li>
 <li>intervalCapacity - default is 1000 ms</li>
 <li>sort - an index to use for capacity, for systems like DynamoDB which has different capacity for
 global indexes, it makes sense for indexed reads or partial updates where only global index is affected and not the whole record</li>
@@ -5750,7 +5779,7 @@ requests with any database or can be used generically. The <code>cap</code> must
 
 <ul>
 <li><p><code>db.getSelectedColumns(table, options)</code></p>
-<p> Return list of selected or allowed only columns, empty list if no <code>options.select</code> is specified</p>
+<p> Return list of selected or allowed only columns, empty list if no <code>options.select</code> is specified or it is equal to <code>*</code></p>
 </li>
 </ul>
 
@@ -6812,15 +6841,25 @@ must be in the following formats:</p>
 </ul>
 
 <ul>
+<li><p><code>jobs.descrJob(jobspec, options)</code></p>
+<p> Returns safe description of the job</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>jobs.submitJob(jobspec, options, callback)</code></p>
 <p> Submit a job for execution, it will be saved in a queue and will be picked up later and executed.
 The queue and the way how it will be executed depends on the configured queue. See <code>isJob</code> for
 the format of the job objects.</p>
-<p>if &#39;jobspec.uniqueTtl<code>is greater than zero it defines number of milliseconds for this job to stay in the queue or run,
+<p>if <code>jobspec.uniqueTtl</code> is greater than zero it defines number of milliseconds for this job to stay in the queue or run,
 it creates a global lock using the job object as the hash key, no other job can be run until the ttl expires or the job
-finished, non unique jobs will be kept in the queue and repeated later according to the</code>visibilityTimeeout` setting.</p>
+finished, non unique jobs will be kept in the queue and repeated later according to the <code>visibilityTimeeout</code> setting.</p>
 <p><code>jobspec.uniqueKey</code> can define an alternative unique key for this job for cases when different jobs must be run sequentially</p>
-<p>if &#39;jobspec.uniqueDrop` if true will make non-unique jobs to be silently dropped instead of keeping them in the queue</p>
+<p>if <code>jobspec.uniqueDrop</code> if true will make non-unique jobs to be silently dropped instead of keeping them in the queue</p>
+<p><code>jobspec.nowait</code> will run the job and delete it from the queue immediately, not at the end, for one-off jobs</p>
+<p><code>jobspec.logger</code> defines the logger level which will be used to log when the job is finished, default is debug</p>
+<p><code>jobspec.maxRuntime</code> defines max number of seconds this job can run, if not specified then the queue default is used</p>
+<p><code>jobspec.uniqueTag</code> defines additional tag to be used for job cancelling, for cases when multiple jobs are running with the same method</p>
 <p>Special queueName: <code>jobs.selfQueue</code> is reserved to run the job immediately inside the current process,
 it will call the <code>runJob</code> directly, this is useful in cases when already inside a worker and instead of submitting a new job
 just run it directly. Any queue can be configured to run in <code>selfQueue</code> by setting <code>-ipc-queue[-NAME]-options-self-queue 1</code>.</p>
@@ -7123,6 +7162,7 @@ or the default message, this is useful for detection of invalid or missing input
                                                   name: { dflt: &quot;test&quot; },
                                                   count: { max: 100 },
                                                   email: { ignore: req.account.type != &quot;admin&quot; },
+                                                  &#39;*&#39;: { empty: 1, null: 1 },
                                         })
   if (typeof account == &quot;string) return api.sendReply(res, 400, account);
 </code></pre></li>
@@ -7179,6 +7219,12 @@ The <code>obj</code> can be an object or an array of objects in which case all o
 </ul>
 
 <ul>
+<li><p><code>lib.textToXml(str)</code></p>
+<p> Convert all special symbols into xml entities</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>lib.entityToText(str)</code></p>
 <p> Convert html entities into their original symbols</p>
 </li>
@@ -7209,8 +7255,8 @@ The <code>obj</code> can be an object or an array of objects in which case all o
 </ul>
 
 <ul>
-<li><p><code>lib.isArray(val)</code></p>
-<p> Returns the array if the value is non empty array or null</p>
+<li><p><code>lib.isArray(val, dflt)</code></p>
+<p> Returns the array if the value is non empty array or dflt value if given or undefined</p>
 </li>
 </ul>
 
@@ -7245,8 +7291,9 @@ The <code>obj</code> can be an object or an array of objects in which case all o
 </ul>
 
 <ul>
-<li><p><code>lib.isTimeRange(time1, time2, tz)</code></p>
-<p> Returns 0 if the current time is not within specified valid time range, invalid range is ignored, no timezone means current timezone.</p>
+<li><p><code>lib.isTimeRange(time1, time2, tz, date)</code></p>
+<p> Returns 0 if the current time is not within specified valid time range, invalid range is ignored, no timezone means current timezone.
+<code>date</code> must be a list of dates in the format: YYY-MM-DD</p>
 </li>
 </ul>
 
@@ -7464,12 +7511,6 @@ The message must have <code>id</code> property which is used to find the corresp
 </ul>
 
 <ul>
-<li><p><code>lib.getUser(user)</code></p>
-<p> Return an object with user info from the /etc/passwd file, user can be uid or name, if user is ommitted the current user is returned</p>
-</li>
-</ul>
-
-<ul>
 <li><p><code>lib.sortByVersion(list, name)</code></p>
 <p> Sort a list be version in descending order, an item can be a string or an object with
 a property to sort by, in such case <code>name</code> must be specified which property to use for sorting.
@@ -7478,8 +7519,20 @@ The name format is assumed to be: <code>XXXXX-N.N.N</code></p>
 </ul>
 
 <ul>
+<li><p><code>lib.getUser(user)</code></p>
+<p> Return an object with user info from the /etc/passwd file, user can be uid or name, if user is ommitted the current user is returned</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>lib.getGroup(group)</code></p>
 <p> Return an object with specified group info for the current user of for the given group id or name</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.dropPrivileges()</code></p>
+<p> Drop root privileges and switch to regular user</p>
 </li>
 </ul>
 
@@ -7656,6 +7709,12 @@ removal of the matched patterns</p>
 <li><p><code>lib.phraseSplit(str, options)</code></p>
 <p> Split a string into phrases separated by <code>options.separator</code> character(s) and surrounded by characters in <code>options.quotes</code>. The default separator is space and
 default quotes are both double and single quote. If <code>options.keepempty</code> is given all empty parts will be kept in the list.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.arrayLength(list)</code></p>
+<p> Return the length of an array or 0 if it is not an array</p>
 </li>
 </ul>
 
@@ -8023,6 +8082,18 @@ mdate is a Date object with last modified time</p>
 </ul>
 
 <ul>
+<li><p><code>lib.watchFiles(options, fileCallback, endCallback)</code></p>
+<p> Watch files in a dir for changes and call the callback, the parameters:</p>
+<ul>
+<li>root - a string with root path</li>
+<li>files - a regexp to watch files individually, if omitted watch the whole dir</li>
+<li>match - a regexp to watch files when using the whole dir, only for matched files the callback will be called</li>
+<li>ignore - a regexp to ignore files</li>
+</ul>
+</li>
+</ul>
+
+<ul>
 <li><p><code>lib.makePathSync(dir)</code></p>
 <p> Recursively create all directories, return 1 if created or 0 on error or if exists, no exceptions are raised, error is logged only</p>
 </li>
@@ -8106,7 +8177,7 @@ for this function to work and it is called by the root only, all the rest of the
 
 <ul>
 <li><p><code>lib.Pool.prototype.init(options)</code></p>
-<p> Initialize pool properties, this can be run anytme even on the active pool to override some properties</p>
+<p> Initialize pool properties, this can be run anytime even on the active pool to override some properties</p>
 </li>
 </ul>
 
@@ -8686,8 +8757,8 @@ need to have query and options objects.</p>
 <ul>
 <li><p><code>accounts.deleteAccount(req, callback)</code></p>
 <p> Delete account specified by the obj. Used in <code>/account/del</code> API call.
-The options may contain <code>keep_NAME</code> properties with NAME being a table name to be kept without the bk_ prefix, for example
-delete an account but keep all messages and location: <code>keep_message: 1, keep_location: 1</code></p>
+The options may contain <code>keep</code> array with tables to be kept, for example
+delete an account but keep all messages and location: keep:[&quot;bk_message&quot;,&quot;bk_location&quot;]</p>
 <p>This methods is suitable for background jobs</p>
 </li>
 </ul>

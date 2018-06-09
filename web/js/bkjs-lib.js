@@ -306,9 +306,9 @@ Bkjs.toDuration = function(mtime, options)
     return str;
 }
 
-Bkjs.isArray = function(list)
+Bkjs.isArray = function(list, dflt)
 {
-    return Array.isArray(list) && list.length > 0 ? list : null;
+    return Array.isArray(val) && val.length ? val : dflt;
 }
 
 Bkjs.isFlag = function(list, name)
