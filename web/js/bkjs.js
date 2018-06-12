@@ -44,6 +44,14 @@ var Bkjs = {
         '[0-9]+': 'requires at least one digit',
         '.{8,}': 'requires at least 8 characters',
     },
+    // Trim these symbols from login/secret, all whitespace is default
+    trimCredentials: [
+        '"', "\r","\n","\t", " ",
+        "\u2001","\u2002","\u2003","\u2004","\u2005","\u2006","\u2007","\u2008","\u2009","\u200A","\u202F","\u205F","\u3000",
+        "\u008D","\u009F","\u0080","\u0090","\u009B","\u0010","\u0009","\u0000","\u0003","\u0004","\u0017","\u0019","\u0011","\u0012","\u0013",
+        "\u0014","\u2028","\u2029","\u2060","\u202C",
+    ],
+
 
     // i18n locales by 2-letter code, uses account.lang to resolve the translation
     locales: {},
@@ -145,6 +153,11 @@ var Bkjs = {
     checkCredentials: function(login, secret) {
         login = login ? String(login) : "";
         secret = secret ? String(secret) : "";
+        if (Array.isArray(this.trimCredentials)) {
+            if (!this._trimC) this._trimC = new RegExp("(^[" + this.trimCredentials.join("") + "]+)|([" + this.trimCredentials.join("") + "]+$)", "gi");
+            login = login.replace(this._trimC, "");
+            secret = secret.replace(this._trimC, "");
+        }
         if (this.scramble && login && secret) secret = b64_hmac_sha256(secret, login);
         return { login: login, secret: secret };
     },

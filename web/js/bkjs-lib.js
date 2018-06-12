@@ -306,7 +306,7 @@ Bkjs.toDuration = function(mtime, options)
     return str;
 }
 
-Bkjs.isArray = function(list, dflt)
+Bkjs.isArray = function(val, dflt)
 {
     return Array.isArray(val) && val.length ? val : dflt;
 }
