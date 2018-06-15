@@ -59,6 +59,27 @@ shell.cmdDbTables = function(options)
     this.exit();
 }
 
+shell.cmdDbGet = function(options)
+{
+    var query = this.getQuery();
+    var opts = this.getArgs();
+    var table = this.getArg("-table", options);
+    var sep = this.getArg("-separator", options, "!");
+    var fmt = this.getArg("-format", options);
+    var cols = Object.keys(db.getColumns(table))
+    var spacing = this.getArgInt("-spacing")
+    db.get(table, query, opts, function(err, data) {
+        if (data) {
+            if (fmt == "text") {
+                console.log((cols || Object.keys(data)).map(function(y) { return data[y] }).join(sep))
+            } else {
+                console.log(JSON.stringify(data, null, spacing));
+            }
+        }
+        shell.exit(err);
+    });
+}
+
 // Show record that match the search criteria, return up to `-count N` records
 shell.cmdDbSelect = function(options)
 {
@@ -68,12 +89,13 @@ shell.cmdDbSelect = function(options)
     var sep = this.getArg("-separator", options, "!");
     var fmt = this.getArg("-format", options);
     var cols = Object.keys(db.getColumns(table))
+    var spacing = this.getArgInt("-spacing");
     db.select(table, query, opts, function(err, data) {
         if (data && data.length) {
             if (fmt == "text") {
                 data.forEach(function(x) { console.log((cols || Object.keys(x)).map(function(y) { return x[y] }).join(sep)) });
             } else {
-                data.forEach(function(x) { console.log(JSON.stringify(x)) });
+                data.forEach(function(x) { console.log(JSON.stringify(x, null, spacing)) });
             }
         }
         shell.exit(err);
@@ -89,11 +111,12 @@ shell.cmdDbScan = function(options)
     var sep = this.getArg("-separator", options, "!");
     var fmt = this.getArg("-format", options);
     var cols = Object.keys(db.getColumns(table));
+    var spacing = this.getArgInt("-spacing");
     db.scan(table, query, opts, function(row, next) {
         if (fmt == "text") {
             console.log((cols || Object.keys(row)).map(function(y) { return row[y] }).join(sep));
         } else {
-            console.log(JSON.stringify(row));
+            console.log(JSON.stringify(row, null, spacing));
         }
         next();
     }, function(err) {
@@ -221,27 +244,6 @@ shell.cmdDbRestore = function(options)
     });
 }
 
-// Put config entry
-shell.cmdDbGet = function(options)
-{
-    var query = this.getQuery();
-    var opts = this.getArgs();
-    var table = this.getArg("-table", options);
-    var sep = this.getArg("-separator", options, "!");
-    var fmt = this.getArg("-format", options);
-    var cols = Object.keys(db.getColumns(table))
-    db.get(table, query, opts, function(err, data) {
-        if (data) {
-            if (fmt == "text") {
-                console.log((cols || Object.keys(data)).map(function(y) { return data[y] }).join(sep))
-            } else {
-                console.log(JSON.stringify(data));
-            }
-        }
-        shell.exit(err);
-    });
-}
-
 // Put a record
 shell.cmdDbPut = function(options)
 {
@@ -249,7 +251,7 @@ shell.cmdDbPut = function(options)
     var opts = this.getArgs();
     var table = this.getArg("-table", options);
     db.put(table, query, opts, function(err, data) {
-        shell.exit(err);
+        shell.exit(err, data);
     });
 }
 
@@ -260,7 +262,7 @@ shell.cmdDbDel = function(options)
     var opts = this.getArgs();
     var table = this.getArg("-table", options);
     db.del(table, query, opts, function(err, data) {
-        shell.exit(err);
+        shell.exit(err, data);
     });
 }
 
@@ -271,7 +273,7 @@ shell.cmdDbDelAll = function(options)
     var opts = this.getArgs();
     var table = this.getArg("-table", options);
     db.delAll(table, query, opts, function(err, data) {
-        shell.exit(err);
+        shell.exit(err, data);
     });
 }
 
