@@ -8,7 +8,8 @@
     "globals": {
         "Bkjs": false,
         "$": false,
-        "jQuery": false
+        "jQuery": false,
+        "ko": false
     },
     "extends": "eslint:recommended",
     "rules": {

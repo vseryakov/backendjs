@@ -453,7 +453,7 @@ case "$BKJS_CMD" in
     skip=$(get_arg -skip $BKJS_MOD)
     path=$(get_arg -path .)
     for p in $path; do
-        m=$($NODE_BIN -e "try{skip='$skip'.split(/[ ,]/);console.log(Object.keys(JSON.parse(require('fs').readFileSync('$p/package.json')).$field).filter(function(x){return !x.match(skip)}).join(' '))}catch(e){}")
+        m=$($NODE_BIN -e "try{skip='$skip';console.log(Object.keys(JSON.parse(require('fs').readFileSync('$p/package.json')).$field).filter(function(x){return !x.match(skip)}).join(' '))}catch(e){}")
         [ "$m" != "" ] && modules="$modules $m"
     done
     [[ -z $modules ]] && exit 0
@@ -634,7 +634,7 @@ case "$BKJS_CMD" in
     echo "  watch - run the backend in watcher and master mode with all source files being monitored for changes, the server is restarts on any change automatically"
     echo "  run - run local backend with provided arguments"
     echo "  logwatcher - runs the log watcher and exists, for cases when no $BKJS service is running but the error log must be watched"
-    echo "  deps [-field dependencies] [-path .] [-skip $BKJS_MOD] [-update] [-npm ARGS] - install npm packages from the dependencies list from the package.json"
+    echo "  deps [-field dependencies] [-path .] [-skip REGEXP] [-global] [-update] [-npm ARGS] - install npm packages from the dependencies list from the package.json"
     echo "  sync [-host HOST] [-path PATH] [-user USER] [-ssh-key pem] [-ssh OPTS] [-exclude PATTERN] [-bkcmd CMD] - push the backend code to the remote host using rsync, default path is ~/node_modules/$BKJS_MOD"
     echo "  ssh -host HOST -cmd CMD [-user USER] [-key PEM] [-ssh ARGS] - run a command over ssh on all specified hosts"
     echo "  install-node [-prefix PATH] [-force] [-clean] - install binary release of the node into $BKJS_PREFIX or specified path"
