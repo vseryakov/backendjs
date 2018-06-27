@@ -131,7 +131,7 @@ get_local_config() {
 
 # Local IP address, not localhost
 get_local_ip() {
-  echo $(/sbin/ifconfig eth0|grep 'inet '|sed 's/addr://'|awk '{print $2}')
+  echo $(/sbin/ifconfig eth${1:-0}|grep -o -E 'inet addr:[0-9.]+'|awk -F: '{print $2}')
 }
 
 # Return the value for a property from a json file: get_json file.json name fallback
@@ -564,7 +564,7 @@ case "$BKJS_CMD" in
     ;;
 
   install-node)
-    ver=$(get_arg -version v8.11.2)
+    ver=$(get_arg -version v8.11.3)
     if [ "$(get_flag -force)" != "" -a -f $BKJS_PREFIX/bin/node ]; then
        echo "Uninstalling node from $BKJS_PREFIX ..."
        rm -rf $BKJS_PREFIX/bin/node $BKJS_PREFIX/bin/npm $BKJS_PREFIX/lib/node_modules/npm

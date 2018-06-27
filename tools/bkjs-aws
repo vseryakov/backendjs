@@ -73,7 +73,7 @@ case "$BKJS_CMD" in
     id=$(get_arg -id)
     tag=$(get_arg -tag)
     region=$(get_arg -region)
-    if [ "$id" = "all" -o "$tag" = "all" ]; then
+    if [ "$id" = "all" -o "$tag" = "all" -o "$tag" = "." ]; then
        id=$($0 ec2-show -region "$region" -fmt id|awk '{printf "%s,",$1}'|sed 's/,$//')
        tag=""
     fi
