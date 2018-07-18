@@ -176,6 +176,7 @@ shell.cmdDbBackup = function(options)
 shell.cmdDbRestore = function(options)
 {
     var opts = this.getArgs();
+    var prefix = this.getArg("-prefix", options);
     var root = this.getArg("-path", options);
     var filter = this.getArg("-filter", options);
     var mapping = lib.strSplit(this.getArg("-mapping", options));
@@ -191,6 +192,7 @@ shell.cmdDbRestore = function(options)
     opts.errors = 0;
     lib.forEachSeries(files, function(file, next3) {
         var table = path.basename(file, ".json");
+        if (prefix) table = table.replace(prefix, "");
         if (tables.length && tables.indexOf(table) == -1) return next3();
         if (skip.indexOf(table) > -1) return next3();
         var cap = db.getCapacity(table);
