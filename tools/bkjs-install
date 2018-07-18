@@ -428,13 +428,6 @@ case "$BKJS_CMD" in
     fi
     ;;
 
-  init-devel)
-    # Install development packages for compiling node and modules
-    packages="git svn gdb gcc-c++ make cmake autoconf automake libtool"
-    packages="$packages libuuid-devel openssl-devel libxml2-devel openldap-devel readline-devel libpng-devel libjpeg-turbo-devel"
-    yum -y -q install $packages
-    ;;
-
   help)
     echo ""
     echo "Instance setup commands:"
@@ -453,7 +446,6 @@ case "$BKJS_CMD" in
     echo "  init-dns - install and setup dnsmasq for local cahching DNS server"
     echo "  init-adhoc - configure for running temporary ad-hoc instances"
     echo "  init-packages - install required packges and updates"
-    echo "  init-devel - install development packages for node and modules compiclation"
     echo "  init-home - setup backend home with required folders"
     echo "  init-mfa [-user ec2-user] - initialize EC2 instance with multi-factor authentication using Google authenticator"
     echo "  init-logwatcher - creates a crontab file in /etc/cron.d to periodically run the log watcher, -cron can specify full cron time spec"

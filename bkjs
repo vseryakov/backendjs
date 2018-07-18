@@ -588,6 +588,13 @@ case "$BKJS_CMD" in
     mv $BKJS_PREFIX/README.md $BKJS_PREFIX/LICENSE $BKJS_PREFIX/CHANGELOG.md $BKJS_PREFIX/share/doc
     ;;
 
+  install-devel)
+    # Install development packages for compiling node and modules
+    packages="git svn gdb gcc-c++ make cmake autoconf automake libtool"
+    packages="$packages libuuid-devel openssl-devel libxml2-devel openldap-devel readline-devel libpng-devel libjpeg-turbo-devel"
+    yum -y -q install $packages
+    ;;
+
   bkhelp)
     find_nodebin
     $NODE_BIN -e "require('$BKJS_MOD').core.showHelp()"
@@ -638,6 +645,7 @@ case "$BKJS_CMD" in
     echo "  sync [-host HOST] [-path PATH] [-user USER] [-ssh-key pem] [-ssh OPTS] [-exclude PATTERN] [-bkcmd CMD] - push the backend code to the remote host using rsync, default path is ~/node_modules/$BKJS_MOD"
     echo "  ssh -host HOST -cmd CMD [-user USER] [-key PEM] [-ssh ARGS] - run a command over ssh on all specified hosts"
     echo "  install-node [-prefix PATH] [-force] [-clean] - install binary release of the node into $BKJS_PREFIX or specified path"
+    echo "  install-devel - install development packages for node and modules compiclation"
     echo "  web-bundle -file FILE|(js|css)|BUNDLE.(js|css) [-dev] [-uglifyargs ARGS] [-all] [-list] - produce a web bundle by uglifying js or css files into one file, resolves files from package.json"
     echo ""
     echo "  bkhelp - show all $BKJS_MOD config parameters"
