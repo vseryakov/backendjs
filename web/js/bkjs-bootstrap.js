@@ -24,6 +24,11 @@ Bkjs.showAlert = function(obj, type, text, options)
     if (options.scroll) $(obj).animate({ scrollTop: 0 }, "slow");
 }
 
+Bkjs.hideAlert = function(obj)
+{
+    $(obj || "body").find(".alerts").empty();
+}
+
 // Login UI control
 Bkjs.hideLogin = function()
 {

@@ -441,7 +441,7 @@ case "$BKJS_CMD" in
     echo "  init-ssh - setup SSH permissions, allow only public key auth"
     echo "  init-logrotate - setup logrotate for the backend log files"
     echo "  init-rsyslog - setup rsyslog to use for the backend logging, access log and backend log"
-    echo "  init-system - setup system wide parameters, tuniing, limits, permissions"
+    echo "  init-system - setup system wide parameters, tuning, limits, permissions"
     echo "  init-postfix - [-domain DOMAIN] install and configure postfix for the domain"
     echo "  init-dns - install and setup dnsmasq for local cahching DNS server"
     echo "  init-adhoc - configure for running temporary ad-hoc instances"
