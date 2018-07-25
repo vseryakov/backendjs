@@ -94,7 +94,7 @@ IpcDbClient.prototype.poller = function()
                         });
                     }, self.options.visibilityTimeout * 1000 * 0.9);
                 }
-                if (!self.emit("message", row.data, function(err) {
+                if (!self.emit("message", row, function(err) {
                     clearInterval(timer);
                     // Retain the message only in case of known fatal errors, otherwise delete it after processing, any other error
                     // is considered as undeliverable due to corruption or invalid message format...
