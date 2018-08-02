@@ -21,6 +21,9 @@ var logger = bkjs.logger;
 // Account management
 var mod = {
     name: "bk_data",
+    controls: {
+        region: { type: "string" },
+    },
 };
 module.exports = mod;
 
@@ -32,6 +35,7 @@ mod.init = function(options)
 // Create API endpoints and routes
 mod.configureWeb = function(options, callback)
 {
+    api.registerControlParams(mod.controls);
     this.configureDataAPI();
     callback()
 }
@@ -47,7 +51,8 @@ mod.configureDataAPI = function()
         if (req.params[0]) {
             return res.json(db.getColumns(req.params[0], options));
         }
-        // Cache columns and return
+        // Cache columns and return, only the current region
+        delete options.region;
         db.cacheColumns(options, function() {
             res.json(db.getPool().dbcolumns);
         });
