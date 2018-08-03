@@ -587,9 +587,10 @@ shell.cmdAwsSetRoute53 = function(options)
        },
        function(next) {
            if (!values.length && !current) return next();
-           logger.log("setRoute53:", name, type, values, core.ipaddr);
+           var host = lib.toTemplate(name, core.instance);
+           logger.log("setRoute53:", name, host, type, values, core.ipaddr);
            if (shell.isArg("-dry-run", options)) return next();
-           aws.route53Change(current ? name : { name: name, type: type, ttl: ttl, value: values }, next);
+           aws.route53Change(current ? host : { name: host, type: type, ttl: ttl, value: values }, next);
        },
     ], function(err) {
         shell.exit(err);
@@ -1060,14 +1061,13 @@ shell.cmdAwsCreateLaunchConfig = function(options, callback)
     lib.series([
        function(next) {
            if (!configName) return next();
-           var lname = configName.replace(/-[0-9\.]+$/, "");
-           if (lname != configName) lname += "-";
            aws.queryAS("DescribeLaunchConfigurations", {}, function(err, rc) {
                if (err) return next(err);
                lconfigs = lib.objGet(rc, "DescribeLaunchConfigurationsResponse.DescribeLaunchConfigurationsResult.LaunchConfigurations.member", { list: 1 });
                // Sort by version in descending order, assume name-N.N.N naming convention
                lconfigs = lib.sortByVersion(lconfigs, "LaunchConfigurationName");
-               var rx = new RegExp("^" + lname, "i");
+               var lname = configName.replace(/-[0-9\.]+$/, "");
+               var rx = new RegExp("^" + lname + "-", "i");
                for (var i in lconfigs) {
                    if (rx.test(lconfigs[i].LaunchConfigurationName)) {
                        lconfig = lconfigs[i];
@@ -1106,7 +1106,7 @@ shell.cmdAwsCreateLaunchConfig = function(options, callback)
        },
        function(next) {
            if (req.InstanceId) return next();
-           if (!req.ImageId) req.ImageId = (image && image.imageId) || (config && config.ImageId);
+           if (!req.ImageId) req.ImageId = (image && image.imageId) || (lconfig && lconfig.ImageId);
            if (!lconfig) return next();
            // Reuse config name but replace the version from the image, this is an image upgrade
            if (!req.LaunchConfigurationName && configName && lconfig) {
