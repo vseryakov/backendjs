@@ -316,6 +316,11 @@ Bkjs.isFlag = function(list, name)
     return Array.isArray(list) && (Array.isArray(name) ? name.some(function(x) { return list.indexOf(x) > -1 }) : list.indexOf(name) > -1);
 }
 
+Bkjs.isObject = function(v)
+{
+    return this.typeName(v) == "object";
+}
+
 // Capitalize words
 Bkjs.toTitle = function(name)
 {
@@ -449,6 +454,12 @@ Bkjs.strSplitUnique = function(str, sep, type)
         if (!rc.some(function(y) { return typed ? x == y : x.toLowerCase() == y.toLowerCase() })) rc.push(x);
     });
     return rc;
+}
+
+// Return all property names for an object
+Bkjs.objKeys = function(obj)
+{
+    return this.isObject(obj) ? Object.keys(obj) : [];
 }
 
 // Returns a new object constructed from the arguments pairs
