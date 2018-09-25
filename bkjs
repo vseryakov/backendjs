@@ -567,7 +567,7 @@ case "$BKJS_CMD" in
     ver=$(get_arg -version v8.12.0)
     if [ "$(get_flag -force)" != "" -a -f $BKJS_PREFIX/bin/node ]; then
        echo "Uninstalling node from $BKJS_PREFIX ..."
-       rm -rf $BKJS_PREFIX/bin/node $BKJS_PREFIX/bin/npm $BKJS_PREFIX/lib/node_modules/npm
+       rm -rf $BKJS_PREFIX/bin/node $BKJS_PREFIX/bin/npm $BKJS_PREFIX/bin/npx $BKJS_PREFIX/lib/node_modules/npm
        [ ! -z "$(get_flag -clean)" ] && rm -rf $BKJS_PREFIX/lib/node_modules
     fi
     [ -f $BKJS_PREFIX/bin/node ] && exit 0
