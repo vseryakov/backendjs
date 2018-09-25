@@ -1,9 +1,9 @@
-# Backend platform for node.js
+# Backend library for node.js
 
-General purpose backend framework. The primary goal is to have a scalable platform for running and managing node.js
+General purpose backend library. The primary goal is to have a scalable platform for running and managing node.js
 servers for Web services implementation.
 
-This framework only covers the lower portion of the Web services system:
+This project only covers the lower portion of the Web services ecosystem:
 node.js processes, HTTP servers, basic API functinality, database access, caching, messaging between processes,
 metrics and monitoring, a library of tools for developing node.js servers.
 
@@ -15,9 +15,10 @@ Features:
 * Database API supports Sqlite, PostgreSQL, MySQL, DynamoDB, Cassandra, MongoDB, Redis with all basic operations behaving the
   same way allowing to switch databases without changing the code.
 * Database drivers for LevelDB, LMDB, CouchDB, Riak, ElasticSearch support only a subset of all database operations
-* Easily extendable to support any kind of database, provides a database driver on top of Redis with all supported methods.
+* Database operations (Get, Put, Del, Update, Select) for all supported databases using the same DB API.
+* Easily extendable to support any kind of database, provides a database driver on top of Redis with all supported methods as an example.
 * Provides accounts, connections, locations, messaging and icons APIs with basic functionality for a qucik start.
-* Supports crontab and queue job processing by seperate workers.
+* Supports crontab and queue job processing by separate worker processes.
 * Authentication is based on signed requests using API key and secret, similar to Amazon AWS signing requests.
 * Runs web server as separate processes to utilize multiple CPU cores.
 * Supports WebSockets connections and process them with the same Express routes as HTTP requests
@@ -25,15 +26,13 @@ Features:
   in the clients for failover.
 * Supports several PUB/SUB modes of operations using Redis, RabbitMQ, Hazelcast.
 * Supports async jobs processing using several work queue implementations on top of SQS, Redis, DB, RabbitMQ, Hazelcast.
-* Supports common database operations (Get, Put, Del, Update, Select) for all databases using the same DB API.
-* ImageMagick is compiled as C++ module for in-process image scaling.
+* ImageMagick as a separate C++ module for in-process image scaling, see bkjs-wand on NPM.
 * REPL(command line) interface for debugging and looking into server internals.
-* Geohash based location searches supported by all databases drivers.
 * Supports push notifications for mobile devices, APN and GCM/FCM.
 * Supports HTTP(S) reverse proxy mode where multiple Web workers are load-balanced by the proxy
   server running in the master process instead of relying on the OS scheduling between processes listening on the same port.
 * Can be used with any MVC, MVVC or other types of frameworks that work on top or with the Express server.
-* AWS supports is very well integrated including EC2, S3, DynamoDB, SQS and more.
+* AWS support is very well integrated including EC2, S3, DynamoDB, SQS and more.
 * Includes simple log watcher to monitor the log files including system errors.
 * Supports i18n hooks for request/response objects, easily overriden with any real i18n implementation.
 * Integrated very light unit testing facility which can be used to test modules and API requests
@@ -1065,7 +1064,7 @@ how the environment is setup it is ultimatley 2 ways to specify the port for HTT
   Some config options may be kept in the DNS TXT records and every time a instance is started it will query the local DNS for such parameters. Only a small subset of
   all config parameters support DNS store. To see which parmeteres can be stored in the DNS run `bkjs show-help` and look for 'DNS TXT configurable'.
 
-# Backend framework development (Mac OS X, developers)
+# Backend library development (Mac OS X, developers)
 
 * for DB drivers and ImageMagick to work propely it needs some dependencies to be installed:
 
