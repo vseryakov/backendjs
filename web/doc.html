@@ -2,7 +2,7 @@
 <div class="container"><nav class="navbar"><div class="container-fluid"><div class="navbar-header"><button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar" aria-expanded="false" aria-controls="navbar"><span class="sr-only">Toggle navigation</span><span class="icon-bar"></span><span class="icon-bar"></span><span class="icon-bar"></span></button><a href="/"><img class="logo" style="max-height:30px;" src="img/logo.png"></a><span>Backendjs Documentation</span></div><div id="navbar" class="navbar-collapse collapse"><ul class="nav navbar-nav navbar-right"><li><a href="/"><span class="fa fa-gears fa-fw"></span> Home</a></li><li><a href="http://github.com/vseryakov/backendjs"><span class="fa fa-github fa-fw"></span> Github</a><li></ul></div></div></nav><h1 id="backendjs-documentation">Backendjs Documentation</h1>
 <p>##Table of contents</p>
 <ul>
-<li><a href="#backend-platform-for-node-js"> Backend platform for node.js</a></li>
+<li><a href="#backend-library-for-node-js"> Backend library for node.js</a></li>
 <li><a href="#installation"> Installation</a></li>
 <li><a href="#quick-start"> Quick start</a><ul>
 <li><a href="#to-run-an-example"> To run an example</a></li>
@@ -59,7 +59,7 @@
 <li><a href="#configure-http-port"> Configure HTTP port</a></li>
 </ul>
 </li>
-<li><a href="#backend-framework-development-mac-os-x-developers-"> Backend framework development (Mac OS X, developers)</a></li>
+<li><a href="#backend-library-development-mac-os-x-developers-"> Backend library development (Mac OS X, developers)</a></li>
 <li><a href="#design-considerations"> Design considerations</a></li>
 <li><a href="#api-endpoints-provided-by-the-backend"> API endpoints provided by the backend</a><ul>
 <li><a href="#authentication-and-sessions"> Authentication and sessions</a></li>
@@ -147,10 +147,10 @@
 </ul>
 </li>
 </ul>
-<h1 id="backend-platform-for-node-js">Backend platform for node.js</h1>
-<p>General purpose backend framework. The primary goal is to have a scalable platform for running and managing node.js
+<h1 id="backend-library-for-node-js">Backend library for node.js</h1>
+<p>General purpose backend library. The primary goal is to have a scalable platform for running and managing node.js
 servers for Web services implementation.</p>
-<p>This framework only covers the lower portion of the Web services system:
+<p>This project only covers the lower portion of the Web services ecosystem:
 node.js processes, HTTP servers, basic API functinality, database access, caching, messaging between processes,
 metrics and monitoring, a library of tools for developing node.js servers.</p>
 <p>For the UI and presentation layer there are no restrictions what to use as long as it can run on top of the Express server.</p>
@@ -160,9 +160,10 @@ metrics and monitoring, a library of tools for developing node.js servers.</p>
 <li>Database API supports Sqlite, PostgreSQL, MySQL, DynamoDB, Cassandra, MongoDB, Redis with all basic operations behaving the
 same way allowing to switch databases without changing the code.</li>
 <li>Database drivers for LevelDB, LMDB, CouchDB, Riak, ElasticSearch support only a subset of all database operations</li>
-<li>Easily extendable to support any kind of database, provides a database driver on top of Redis with all supported methods.</li>
+<li>Database operations (Get, Put, Del, Update, Select) for all supported databases using the same DB API.</li>
+<li>Easily extendable to support any kind of database, provides a database driver on top of Redis with all supported methods as an example.</li>
 <li>Provides accounts, connections, locations, messaging and icons APIs with basic functionality for a qucik start.</li>
-<li>Supports crontab and queue job processing by seperate workers.</li>
+<li>Supports crontab and queue job processing by separate worker processes.</li>
 <li>Authentication is based on signed requests using API key and secret, similar to Amazon AWS signing requests.</li>
 <li>Runs web server as separate processes to utilize multiple CPU cores.</li>
 <li>Supports WebSockets connections and process them with the same Express routes as HTTP requests</li>
@@ -170,15 +171,13 @@ same way allowing to switch databases without changing the code.</li>
 in the clients for failover.</li>
 <li>Supports several PUB/SUB modes of operations using Redis, RabbitMQ, Hazelcast.</li>
 <li>Supports async jobs processing using several work queue implementations on top of SQS, Redis, DB, RabbitMQ, Hazelcast.</li>
-<li>Supports common database operations (Get, Put, Del, Update, Select) for all databases using the same DB API.</li>
-<li>ImageMagick is compiled as C++ module for in-process image scaling.</li>
+<li>ImageMagick as a separate C++ module for in-process image scaling, see bkjs-wand on NPM.</li>
 <li>REPL(command line) interface for debugging and looking into server internals.</li>
-<li>Geohash based location searches supported by all databases drivers.</li>
 <li>Supports push notifications for mobile devices, APN and GCM/FCM.</li>
 <li>Supports HTTP(S) reverse proxy mode where multiple Web workers are load-balanced by the proxy
 server running in the master process instead of relying on the OS scheduling between processes listening on the same port.</li>
 <li>Can be used with any MVC, MVVC or other types of frameworks that work on top or with the Express server.</li>
-<li>AWS supports is very well integrated including EC2, S3, DynamoDB, SQS and more.</li>
+<li>AWS support is very well integrated including EC2, S3, DynamoDB, SQS and more.</li>
 <li>Includes simple log watcher to monitor the log files including system errors.</li>
 <li>Supports i18n hooks for request/response objects, easily overriden with any real i18n implementation.</li>
 <li>Integrated very light unit testing facility which can be used to test modules and API requests</li>
@@ -1031,7 +1030,7 @@ Some config options may be kept in the DNS TXT records and every time a instance
 all config parameters support DNS store. To see which parmeteres can be stored in the DNS run <code>bkjs show-help</code> and look for &#39;DNS TXT configurable&#39;.</p>
 </li>
 </ul>
-<h1 id="backend-framework-development-mac-os-x-developers-">Backend framework development (Mac OS X, developers)</h1>
+<h1 id="backend-library-development-mac-os-x-developers-">Backend library development (Mac OS X, developers)</h1>
 <ul>
 <li><p>for DB drivers and ImageMagick to work propely it needs some dependencies to be installed:</p>
 <pre><code>  port install libpng jpeg tiff lcms2 mysql56 postgresql93
@@ -2358,6 +2357,7 @@ Database pool statistics and other diagnostics</p>
 <li><code>email-transport</code> - Send emails via supported transports: ses:, sendgrid://?key=SG, if not set default SMTP settings are used</li>
 <li><code>smtp-(.+)</code> - SMTP server parameters, user, password, host, ssl, tls...see emailjs for details</li>
 <li><code>tmp-watcher-(.+)</code> - How long to keep files per subdirectory in seconds</li>
+<li><code>stop-on-error</code> - Exit the process on any error when loading modules, for dev purposes</li>
 <li><code>aws-key</code> - AWS access key</li>
 <li><code>aws-secret</code> - AWS access secret</li>
 <li><code>aws-token</code> - AWS secuiry token</li>
@@ -2369,6 +2369,7 @@ Database pool statistics and other diagnostics</p>
 <li><code>aws-sns-app-arn</code> - SNS Platform application ARN to be used for push notifications</li>
 <li><code>aws-key-name</code> - AWS instance keypair name for remote job instances or other AWS commands</li>
 <li><code>aws-elb-name</code> - AWS ELB name to be registered with on start up or other AWS commands</li>
+<li><code>aws-target-group</code> - AWS ELB target group to be registered with on start up or other AWS commands</li>
 <li><code>aws-elastic-ip</code> - AWS Elastic IP to be associated on start</li>
 <li><code>aws-host-name</code> - List of hosts to update in Route54 zone with the current private IP address, hosts must be in FQDN format</li>
 <li><code>aws-iam-profile</code> - IAM instance profile name for instances or commands</li>
@@ -2377,14 +2378,15 @@ Database pool statistics and other diagnostics</p>
 <li><code>aws-vpc-id</code> - AWS VPC id to be used for instances or commands</li>
 <li><code>aws-group-id</code> - AWS security group(s) to be used for instances or commands</li>
 <li><code>aws-instance-type</code> - AWS instance type to launch on demand</li>
+<li><code>aws-account-id</code> - AWS account id if not running on an instance</li>
 <li><code>ipc-ping-interval</code> - Interval for a worker keep-alive pings, if not received within this period it will be killed</li>
 <li><code>ipc-system-queue</code> - System queue name to subscribe for control messages, this is a PUB/SUB queue to process system messages like restart, re-init config,...</li>
 <li><code>ipc-lru-max</code> - Max number of items in the LRU cache, this cache is managed by the master Web server process and available to all Web processes maintaining only one copy per machine, Web proceses communicate with LRU cache via IPC mechanism between node processes</li>
 <li><code>ipc-lru-max-(.+)</code> - Max number of items in the local LRU cache by process role, works the same way as the global one but only is set for the specified process role</li>
-<li><code>ipc-cache-?([a-z0-1]+)?</code> - An URL that points to the cache server in the format <code>PROTO://HOST[:PORT]?PARAMS</code>, to use for caching in the API/DB requests, default is local LRU cache, multiple caches can be defined with unique names, all params starting with <code>bk-</code> will be copied into the options without the prefix and removed from the url, the rest of params will be left in the url</li>
-<li><code>ipc-queue-?([a-z0-1]+)?</code> - An URL that points to the queue server in the format <code>PROTO://HOST[:PORT]?PARAMS</code>, to use for PUB/SUB or job queues, default is no local queue, multiple queues can be defined with unique names, params are handled the same way as for cache</li>
-<li><code>ipc-cache(-([a-z0-1]+)?-?options)-(.+)$</code> - Additional parameters for cache clients, specific to each implementation, Example: <code>-ipc-cache-options-ttl 3000</code></li>
-<li><code>ipc-queue(-([a-z0-1]+)?-?options)-(.+)$</code> - Additional parameters for queue clients, specific to each implementation, Example: <code>-ipc-queue-redis-options-max_attempts 3</code></li>
+<li><code>ipc-cache-?([a-z0-9]+)?</code> - An URL that points to the cache server in the format <code>PROTO://HOST[:PORT]?PARAMS</code>, to use for caching in the API/DB requests, default is local LRU cache, multiple caches can be defined with unique names, all params starting with <code>bk-</code> will be copied into the options without the prefix and removed from the url, the rest of params will be left in the url</li>
+<li><code>ipc-queue-?([a-z0-9]+)?</code> - An URL that points to the queue server in the format <code>PROTO://HOST[:PORT]?PARAMS</code>, to use for PUB/SUB or job queues, default is no local queue, multiple queues can be defined with unique names, params are handled the same way as for cache</li>
+<li><code>ipc-cache(-([a-z0-9]+)?-?options)-(.+)$</code> - Additional parameters for cache clients, specific to each implementation, Example: <code>-ipc-cache-options-ttl 3000</code></li>
+<li><code>ipc-queue(-([a-z0-9]+)?-?options)-(.+)$</code> - Additional parameters for queue clients, specific to each implementation, Example: <code>-ipc-queue-redis-options-max_attempts 3</code></li>
 <li><code>db-pool</code> - Default pool to be used for db access without explicit pool specified. DNS TXT configurable.</li>
 <li><code>db-name</code> - Default database name to be used for default connections in cases when no db is specified in the connection url</li>
 <li><code>db-create-tables</code> - Create tables in the database or perform table upgrades for new columns in all pools, only master processes can perform this operation, never workers</li>
@@ -2402,7 +2404,7 @@ Database pool statistics and other diagnostics</p>
 <li><code>db-local</code> - Local database pool for properties, cookies and other local instance only specific stuff</li>
 <li><code>db-config</code> - Configuration database pool to be used to retrieve config parameters from the database, must be defined to use remote db for config parameters, set to <code>default</code> to use current default pool</li>
 <li><code>db-config-interval</code> - Interval between loading configuration from the database configured with -db-config, in minutes, 0 disables refreshing config from the db</li>
-<li><code>db-config-roles</code> - Roles to assume when puling config parameters</li>
+<li><code>db-config-roles</code> - Roles to assume when pulling config parameters from the config table</li>
 <li><code>db-cache-columns-interval</code> - How often in minutes to refresh tables columns from the database, it calls cacheColumns for each pool which supports it</li>
 <li><code>db-([a-z0-9]+)-pool$</code> - A database pool name, depending on the driver it can be an URL, name or pathname, examples of db pools: <code>-db-pgsql-pool, -db-dynamodb-pool</code>, examples of urls: <code>postgresql://[user:password@]hostname[:port]/db, mysql://[user:password@]hostname/db, mongodb://hostname[:port]/dbname, cql://[user:password@]hostname[:port]/dbname</code></li>
 <li><code>db-([a-z0-9]+)-pool-(disabled)$</code> - Disable the specified pool but keep the configuration</li>
@@ -2451,6 +2453,7 @@ Database pool statistics and other diagnostics</p>
 <li><code>api-signature-header-name</code> - Name for the access signature query parameter, header and session cookie</li>
 <li><code>api-lang-header-name</code> - Name for the language query parameter, header and session cookie, primary language for a client</li>
 <li><code>api-signature-age</code> - Max age for request signature in milliseconds, how old the API signature can be to be considered valid, the &#39;expires&#39; field in the signature must be less than current time plus this age, this is to support time drifts</li>
+<li><code>api-no-access-token</code> - Disable access tokens support</li>
 <li><code>api-access-time-interval</code> - Intervals to refresh last access time for accounts, only updates the cache if <code>bk_auth</code> is configured to be cached</li>
 <li><code>api-access-token-name</code> - Name for the access token query parameter or header</li>
 <li><code>api-access-token-secret</code> - A secret to be used for access token signatures, additional enryption on top of the signature to use for API access without signing requests, it is required for access tokens to be used</li>
@@ -2480,7 +2483,8 @@ Database pool statistics and other diagnostics</p>
 <li><code>api-mime-ignore</code> - Ignore the body for the following MIME content types, request body will not be parsed at all</li>
 <li><code>api-mime-map-(.+)</code> - File extension to MIME content type mapping, this is used by static-serve, example: -api-mime-map-mobileconfig application/x-apple-aspen-config</li>
 <li><code>api-collect-host</code> - The backend URL where all collected statistics should be sent over, if set to <code>pool</code> then each web worker will save metrics directly into the statistics database pool</li>
-<li><code>api-collect-pool</code> - Database pool where to save collected statistics</li>
+<li><code>api-collect-pool</code> - Database pool where to save collected statistics, make sure to call -api-collect-create before using this</li>
+<li><code>api-collect-create-tables</code> - Create statistics tables, it is not created by default with -db-create-tables</li>
 <li><code>api-collect-interval</code> - How often to collect statistics and metrics in seconds</li>
 <li><code>api-collect-send-interval</code> - How often to send collected statistics to the master server in seconds</li>
 <li><code>api-secret-policy</code> - An JSON object with list of regexps to validate account password, each regexp comes with an error message to be returned if such regexp fails, <code>api.checkAccountSecret</code> performs the validation, example: { &#39;[a-z]+&#39;: &#39;At least one lowercase letter&#39;, &#39;[A-Z]+&#39;: &#39;At least one upper case letter&#39; }</li>
@@ -2600,50 +2604,6 @@ early with some properties always present:<ul>
           ctime: { type: &quot;now&quot;, readonly: 1 },                // Create time
           mtime: { type: &quot;now&quot; }
       },
-
-      // Collected metrics per worker process, basic columns are defined in the table to be collected like
-      // api and db request rates(.rmean), response times(.hmean) and total number of requests(_0).
-      // Counters ending with `_0` are snapshots, i.e. they must be summed up for any given interval.
-      // All other counters are averages. Only subset of all available API endpoints is defined here
-      // for example purposes, for SQL databases all columns must be defined but for NoSQL this is not required,
-      // depending on the database that is used for collection the metrics must be added to the table. All `url_` columns
-      // are the API requests, not the DB calls made by the app, the length of URL path to be stored is defined in the API module
-      // by the `api-url-metrics-` config parameter.
-      bk_collect: { id: { primary: 1 },
-                     mtime: { type: &quot;now&quot;, primary: 1 },
-                     app: {},
-                     ip: {},
-                     type: {},
-                     instance: {},
-                     worker: {},
-                     pid: { type: &quot;int&quot; },
-                     latency: { type: &quot;int&quot; },
-                     cpus: { type: &quot;int&quot; },
-                     mem: { type: &quot;bigint&quot; },
-                     rss_hmean: { type: &quot;real&quot; },
-                     heap_hmean: { type: &quot;real&quot; },
-                     avg_hmean: { type: &quot;real&quot; },
-                     free_hmean: { type: &quot;real&quot; },
-                     util_hmean: { type: &quot;real&quot; },
-                     api_req_rmean: { type: &quot;real&quot; },
-                     api_req_hmean: { type: &quot;real&quot; },
-                     api_req_0: { type: &quot;real&quot; },
-                     api_err_0: { type: &quot;real&quot; },
-                     api_bad_0: { type: &quot;real&quot; },
-                     api_400_0: { type: &quot;real&quot; },
-                     api_401_0: { type: &quot;real&quot; },
-                     api_403_0: { type: &quot;real&quot; },
-                     api_417_0: { type: &quot;real&quot; },
-                     api_429_0: { type: &quot;real&quot; },
-                     api_que_rmean: { type: &quot;real&quot; },
-                     api_que_hmean: { type: &quot;real&quot; },
-                     pool_req_rmean: { type: &quot;real&quot; },
-                     pool_req_hmean: { type: &quot;real&quot; },
-                     pool_req_0: { type: &quot;real&quot; },
-                     pool_err_0: { type: &quot;real&quot; },
-                     pool_que_rmean: { type: &quot;real&quot; },
-                     pool_que_hmean: { type: &quot;real&quot; },
-                     ctime: { type: &quot;mtime&quot; } },
 </code></pre></li>
 </ul>
 
@@ -3570,6 +3530,61 @@ then the request will be aborted and will not be forwarded to the web processes<
 
 <h2 id="module-api_statistics">Module: API_STATISTICS</h2>
 <ul>
+<li><p><code>api.createStatisticsTables()</code></p>
+<p> Collected metrics per worker process, basic columns are defined in the table to be collected like
+api and db request rates(.rmean), response times(.hmean) and total number of requests(_0).
+Counters ending with <code>_0</code> are snapshots, i.e. they must be summed up for any given interval.
+All other counters are averages. Only subset of all available API endpoints is defined here
+for example purposes, for SQL databases all columns must be defined but for NoSQL this is not required,
+depending on the database that is used for collection the metrics must be added to the table. All <code>url_</code> columns
+are the API requests, not the DB calls made by the app, the length of URL path to be stored is defined in the API module
+by the <code>api-url-metrics-</code> config parameter.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>Database tables</code></p>
+<pre><code>      bk_collect: {
+          id: { primary: 1 },
+          mtime: { type: &quot;now&quot;, primary: 1 },
+          app: {},
+          ip: {},
+          type: {},
+          instance: {},
+          worker: {},
+          pid: { type: &quot;int&quot; },
+          latency: { type: &quot;int&quot; },
+          cpus: { type: &quot;int&quot; },
+          mem: { type: &quot;bigint&quot; },
+          rss_hmean: { type: &quot;real&quot; },
+          heap_hmean: { type: &quot;real&quot; },
+          avg_hmean: { type: &quot;real&quot; },
+          free_hmean: { type: &quot;real&quot; },
+          util_hmean: { type: &quot;real&quot; },
+          api_req_rmean: { type: &quot;real&quot; },
+          api_req_hmean: { type: &quot;real&quot; },
+          api_req_0: { type: &quot;real&quot; },
+          api_err_0: { type: &quot;real&quot; },
+          api_bad_0: { type: &quot;real&quot; },
+          api_400_0: { type: &quot;real&quot; },
+          api_401_0: { type: &quot;real&quot; },
+          api_403_0: { type: &quot;real&quot; },
+          api_417_0: { type: &quot;real&quot; },
+          api_429_0: { type: &quot;real&quot; },
+          api_que_rmean: { type: &quot;real&quot; },
+          api_que_hmean: { type: &quot;real&quot; },
+          pool_req_rmean: { type: &quot;real&quot; },
+          pool_req_hmean: { type: &quot;real&quot; },
+          pool_req_0: { type: &quot;real&quot; },
+          pool_err_0: { type: &quot;real&quot; },
+          pool_que_rmean: { type: &quot;real&quot; },
+          pool_que_hmean: { type: &quot;real&quot; },
+          ctime: { type: &quot;mtime&quot; },
+      }
+</code></pre></li>
+</ul>
+
+<ul>
 <li><p><code>api.initStatistics()</code></p>
 <p> Setup statistics collections</p>
 </li>
@@ -3777,8 +3792,26 @@ will be loaded.</p>
 </ul>
 
 <ul>
+<li><p><code>aws.copyCredentials(obj, options)</code></p>
+<p> Copy all credentials properties from the options into the obj</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>aws.querySQS(action, obj, options, callback)</code></p>
 <p> AWS SQS API request</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.queryIAM(action, obj, options, callback)</code></p>
+<p> AWS AIM API request</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.querySTS(action, obj, options, callback)</code></p>
+<p> AWS STS API request</p>
 </li>
 </ul>
 
@@ -3821,6 +3854,36 @@ will be loaded.</p>
 <ul>
 <li><p><code>aws.queryRekognition(action, obj, options, callback)</code></p>
 <p> Make a request to the Rekognition service</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.querySSM(action, obj, options, callback)</code></p>
+<p> AWS SSM API request</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.queryCWL(action, obj, options, callback)</code></p>
+<p> AWS CloudWatch Log API request</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.queryACM(action, obj, options, callback)</code></p>
+<p> AWS ACM API request</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.getTagValue(obj, key)</code></p>
+<p> Returns a tag value by key, default key is Name</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.stsAssumeRole(options, callback)</code></p>
+<p> Assume a role and return new credentials that can be used in other API calls</p>
 </li>
 </ul>
 
@@ -3992,6 +4055,7 @@ to be the first part of the host name. For CDN/CloudFront cases use the <code>op
 <li>projections - an object with index name and list of projected properties to be included in the index or &quot;ALL&quot; for all properties, if omitted then default KEYS_ONLY is assumed</li>
 <li>readCapacity - read capacity units for provisioned throughput</li>
 <li>writeCapacity - write capacity units</li>
+<li>stream - enable stream support</li>
 </ul>
 </li>
 </ul>
@@ -4004,6 +4068,7 @@ to be the first part of the host name. For CDN/CloudFront cases use the <code>op
                                 global: { name: { name: &#39;HASH&#39;, ProvisionedThroughput: { ReadCapacityUnits: 50 } } },
                                 projections: { mtime: [&#39;gender&#39;,&#39;age&#39;],
                                                name: [&#39;name&#39;,&#39;gender&#39;] },
+                                stream: &quot;NEW_IMAGE&quot;,
                                 readCapacity: 10,
                                 writeCapacity: 10 });
 </code></pre>
@@ -4015,6 +4080,7 @@ Options must provide the following properties:</p>
 <ul>
 <li>name - table name</li>
 <li>readCapacity and writeCapacity - new povisioned throughtput settings, both must be specified</li>
+<li>stream - null to disable or one of the NEW_IMAGE | OLD_IMAGE | NEW_AND_OLD_IMAGES | KEYS_ONLY</li>
 <li>add - an object with indexes to create</li>
 <li>del - delete a global secondary index by name, a string or a list with multiple indexes</li>
 <li>update - an object with indexes to update</li>
@@ -4269,11 +4335,14 @@ Example:</p>
 <li>ip - a static private IP adress to assign</li>
 <li>publicIp - associate with a public IP address</li>
 <li>file - pass contents of a file as user data, contents are read using sync method</li>
+<li>noPrepare - even with additional tasks specified do not wai but return the context for aws.ec2PrepareInstance</li>
 <li>waitTimeout - how long to wait in ms for instance to be runnable</li>
 <li>waitDelay  - now often in ms to poll for status while waiting</li>
 <li>waitRunning - if 1 then wait for instance to be in running state, this is implied also by elbName, name, elasticIp properties in the options</li>
 <li>name - assign a tag to the instance as <code>Name:</code>, any occurences of %i will be replaced with the instance index</li>
+<li>tags - additional tags to be assigned, an object with key:value</li>
 <li>elbName - join elastic balancer after the startup</li>
+<li>targetGroup - join ELB target group after the startup</li>
 <li>elasticIp - asociate with the given Elastic IP address after the start</li>
 <li>iamProfile - IAM profile to assign for instance credentials, if not given use aws.iamProfile or options[&#39;IamInstanceProfile.Name&#39;] attribute</li>
 <li>availabilityZone - availability zone, if not given use aws.zone or options[&#39;Placement.AvailabilityZone&#39;] attribute</li>
@@ -4281,6 +4350,13 @@ Example:</p>
 <li>alarms - a list with CloudWatch alarms to create for the instance, each value of the object represent an object with options to be
   passed to the cwPutMetricAlarm method.</li>
 </ul>
+<p>The callback will take 3 arguments: callback(err, rc, info) where info will contain properties that can be used by `aws.ec2PrepareInstance</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.ec2AfterRunInstances(options, callback)</code></p>
+<p> Perform the final tasks after an instance has been launched like wait for status, assign Elastic IP or tags..</p>
 </li>
 </ul>
 
@@ -4311,6 +4387,7 @@ can be used:</p>
 <li>vpcId - VPC to get instances from</li>
 <li>instanceId - list of instances to show only</li>
 <li>tagName - filter by tag name(s)</li>
+<li>tagKey - filter by tag key(s)</li>
 <li>groupName - filter by group name(s)</li>
 <li>stateName - instances state(s)</li>
 <li>filters - an object with filters to send as is</li>
@@ -4320,9 +4397,11 @@ can be used:</p>
 
 <ul>
 <li><p><code>aws.ec2CreateTags(id, name, options, callback)</code></p>
-<p> Create tags for a resource. Options may contain tags property which is an object with tag key and value</p>
+<p> Create tags for a resource.
+The name is as tring or an object with tags. The options also may contain tags property which is an object with tag key and value</p>
 <p>Example</p>
 <pre><code>aws.ec2CreateTags(&quot;i-1234&quot;,&quot;My Instance&quot;, { tags: { tag2 : &quot;val2&quot;, tag3: &quot;val3&quot; } } )
+aws.ec2CreateTags(&quot;i-1234&quot;, { tag2 : &quot;val2&quot;, tag3: &quot;val3&quot; })
 </code></pre></li>
 </ul>
 
@@ -4357,6 +4436,24 @@ The options can specify the following:</p>
 <ul>
 <li><p><code>aws.elbDeregisterInstances(name, instance, options, callback)</code></p>
 <p> Deregister an instance(s) from ELB, instance can be one id or a list of ids</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.elb2RegisterInstances(target, instance, options, callback)</code></p>
+<p> Register an instance(s) with ELB, instance can be one id or a list of ids</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.ssmSendCommand(cmds, instances, options, callback)</code></p>
+<p> Run a shell command</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.ssmWaitForCommand(cmdId, instanceId, options, callback)</code></p>
+<p> Return a command details</p>
 </li>
 </ul>
 
@@ -4402,8 +4499,14 @@ Options may contain the following properties:</p>
 </ul>
 
 <ul>
-<li><p><code>aws.s3ParseUrl(url)</code></p>
+<li><p><code>aws.s3ParseUrl(link)</code></p>
 <p> Parse an S3 URL and return an object with bucket and path</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.s3Proxy(res, bucket, path, options, callback)</code></p>
+<p> Proxy a file from S3 bucket into the existing HTTP response <code>res</code></p>
 </li>
 </ul>
 
@@ -4631,6 +4734,8 @@ in the options back to the caller.</p>
 <ul>
 <li>allowModules - a regexp of the modules names to be called only</li>
 <li>stopOnError - on first error stop and return, otherwise all errors are ignored and all modules are processed</li>
+<li>errorLogger - options for the logger on error, if not specified an error with status 200 will be reported with
+log level &#39;info&#39; and other errors with level &#39;error&#39;, the level is specified by the &#39;log&#39; property, the rest will be passed to <code>lib.objDescr</code></li>
 <li>stopFilter - a function to be called after each pass to check if the processing must be stopped, it must return true to stop</li>
 <li>parallel - if true run methods for all modules in parallel</li>
 <li>concurrency - if a number greater than 1 run that many methods in parallel</li>
@@ -4890,6 +4995,7 @@ database like DynamoDB for real-time requests and slower SQL database running on
       bk_property: {
           name: { primary: 1 },
           value: {},
+          count: { type: &quot;counter&quot; },      // general purpose counter value
           ttl: { type: &quot;int&quot; },            // time to live, seconds since last update
           mtime: { type: &quot;now&quot; }
       },
@@ -5004,6 +5110,7 @@ the pool by table name if some tables are assigned to any specific pool by confi
 <li>postprocess - function to process rows in the result, return a new result, args are: function(req, row, options), this result will be put in cache
 if requested so this may be used for preparing cached results, it must return an array</li>
 <li>quiet - report errors in debug level</li>
+<li>first - return the first row from the result</li>
 <li>logger_db - log results at the end with this level or debug by default</li>
 <li>logger_error - a log level to report about errors, default is &#39;error&#39;</li>
 <li>ignore_error - clear errors occured as it never happen, do not report in the log, if an array then only matched codes will be cleared</li>
@@ -5240,7 +5347,7 @@ Special properties that can be in the options for this call:</p>
 <li>updateProcess - a function callback that will be called for each row before updating it, this is for some transformations of the record properties
  in case of complex columns that may contain concatenated values as in the case of using DynamoDB. The callback will be called
  as <code>options.updateProcess(row, options)</code></li>
-<li>updateFilter - a function that must return true in order to skip the current record. <code>options.updateFilter(row, options)</code></li>
+<li>updateFilter - a function that must return something to the callback in order to skip the current record. <code>options.updateFilter(row, options, (skip) =&gt; {})</code></li>
 </ul>
 <p>If no <code>options.select</code> is specified only the primary keys will be returned or collected</p>
 <p>Example, update birthday format if not null</p>
@@ -5249,7 +5356,10 @@ Special properties that can be in the options for this call:</p>
                 { mtime: Date.now() },
                 { ops: { birthday: &quot;not null&quot; },
                   updateProcess: function(r, o) {
-                        r.birthday = lib.strftime(new Date(r.birthday, &quot;%Y-%m-D&quot;));
+                     r.birthday = lib.strftime(new Date(r.birthday, &quot;%Y-%m-D&quot;));
+                  },
+                  updateFilter: function(r, o, cb) {
+                     cb(r.status == &#39;ok&#39;);
                   } },
     function(err, count) {
        console.log(count, &quot;rows updated&quot;);
@@ -5287,7 +5397,7 @@ Special properties that can be in the options for this call:</p>
 <li>delProcess - a function callback that will be called for each row before deleting it, this is for some transformations of the record properties
 in case of complex columns that may contain concatenated values as in the case of using DynamoDB. The callback will be called
 as <code>options.delProcess(row, options)</code></li>
-<li>delFilter - a function that must return true in order to skip the current record. <code>options.delFilter(row, options)</code></li>
+<li>delFilter - a function that must return something to the callback in order to skip the current record. <code>options.delFilter(row, options, (skip) =&gt; {})</code></li>
 </ul>
 <p>If no <code>options.select</code> is specified only the primary keys will be returned or collected</p>
 </li>
@@ -5380,7 +5490,7 @@ To hint a driver that scanning is in progress the <code>options.scanning</code> 
 <li>start - the primary key to start the scan from</li>
 <li>search - use search instead of select, for ElasticSearch,...</li>
 <li>batch - if true rowCallback will be called with all rows from the batch, not every row individually, batch size is defined by the count property</li>
-<li>concurrency - how many rows to process at the same time, if not given proxess sequentially</li>
+<li>concurrency - how many rows to process at the same time, if not given process sequentially</li>
 <li>noscan - if 1 no scan will be performed if no prmary keys are specified</li>
 <li>fullscan - if 1 force to scan full table without using any primary key conditons, use all query properties for all records (DynamoDB)</li>
 <li>useCapacity - triggers to use specific capacity, default is <code>read</code></li>
@@ -6829,7 +6939,7 @@ stoppable tasks must check it from time to time to terminate gracefully</p>
 </ul>
 
 <ul>
-<li><p><code>jobs.isJob(jobspec)</code></p>
+<li><p><code>jobs._badJob(jobspec)</code></p>
 <p> Make sure the job is valid and has all required fields, returns a normalized job object or an error, the jobspec
 must be in the following formats:</p>
 <pre><code>  &quot;module.method&quot;
@@ -6856,10 +6966,13 @@ it creates a global lock using the job object as the hash key, no other job can 
 finished, non unique jobs will be kept in the queue and repeated later according to the <code>visibilityTimeeout</code> setting.</p>
 <p><code>jobspec.uniqueKey</code> can define an alternative unique key for this job for cases when different jobs must be run sequentially</p>
 <p>if <code>jobspec.uniqueDrop</code> if true will make non-unique jobs to be silently dropped instead of keeping them in the queue</p>
-<p><code>jobspec.nowait</code> will run the job and delete it from the queue immediately, not at the end, for one-off jobs</p>
 <p><code>jobspec.logger</code> defines the logger level which will be used to log when the job is finished, default is debug</p>
 <p><code>jobspec.maxRuntime</code> defines max number of seconds this job can run, if not specified then the queue default is used</p>
 <p><code>jobspec.uniqueTag</code> defines additional tag to be used for job cancelling, for cases when multiple jobs are running with the same method</p>
+<p><code>jobspec.noWait</code> will run the job and delete it from the queue immediately, not at the end, for one-off jobs</p>
+<p><code>jobspec.startTime</code> and/or <code>jobspec.endTime</code> will define the time period during whihc this job is allowed to run, if
+outside the period it will be dropped</p>
+<p><code>options.delay</code> is only supported by SQS currently, it delays the job execution for the specified amount of ms</p>
 <p>Special queueName: <code>jobs.selfQueue</code> is reserved to run the job immediately inside the current process,
 it will call the <code>runJob</code> directly, this is useful in cases when already inside a worker and instead of submitting a new job
 just run it directly. Any queue can be configured to run in <code>selfQueue</code> by setting <code>-ipc-queue[-NAME]-options-self-queue 1</code>.</p>
@@ -7187,7 +7300,7 @@ properties will be replaced by empty strings.</p>
 <ul>
 <li><p><code>lib.toTemplate(text, obj, options)</code></p>
 <p> Given a template with @..@ placeholders, replace each placeholder with the value from the obj.
-The <code>obj</code> can be an object or an array of objects in which case all object will be checked for the value until non empty.</p>
+The <code>obj</code> can be an object or an array of objects in which case all objects will be checked for the value until non empty.</p>
 <p>The options if given may provide the following:</p>
 <ul>
 <li>allow - placeholders with a name present in this list will be replaced, all other will be replaced with empty string</li>
@@ -7689,11 +7802,17 @@ removal of the matched patterns</p>
 </ul>
 
 <ul>
+<li><p><code>lib.strTrim(str, chars)</code></p>
+<p> Remove all whitespace from the begining and end of the given string, if an array with characters is not given then it trims all whitespace</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>lib.strSplit(str, sep, options)</code></p>
 <p> Split string into array, ignore empty items,</p>
 <ul>
 <li><code>sep</code> is an RegExp to use as a separator instead of default  pattern <code>[,\|]</code>,</li>
-<li><code>options</code> is an object with the same properties as for the <code>toParams</code>, <code>datatype&#39; will be used with</code>toValue` to convert the value for each item</li>
+<li><code>options</code> is an object with the same properties as for the <code>toParams</code>, <code>datatype&#39; will be used with</code>lib.toValue` to convert the value for each item</li>
 </ul>
 <p>If <code>str</code> is an array and type is not specified then all non-string items will be returned as is.</p>
 </li>
@@ -7756,7 +7875,7 @@ that data is not chnaged and was signed with the same secret</p>
 </ul>
 
 <ul>
-<li><p><code>lib.newError(msg, status)</code></p>
+<li><p><code>lib.newError(msg, status, code)</code></p>
 <p> Return a new Error object, msg can be a string or an object with message, code, status properties.
 The default error status is 400 if not specified.</p>
 </li>
@@ -7809,21 +7928,18 @@ Example:<pre><code>  lib.objClone({ 1: 2 }, &quot;3&quot;, 3, &quot;4&quot;, 4)
 </ul>
 
 <ul>
-<li><p><code>lib.objMerge(obj, options)</code></p>
-<p> Merge two objects, all properties from the <code>options</code> override existing properties in the <code>obj</code>, returns a new object, shallow copy,
-only top level properties are reassigned.</p>
-<p>Example</p>
-<pre><code> var o = lib.objMerge({ a:1, b:2, c:3 }, { c:5, d:1 })
- o = { a:1, b:2, c:5, d:1 }
-</code></pre></li>
-</ul>
-
-<ul>
 <li><p><code>lib.objFlatten(obj, options)</code></p>
 <p> Flatten a javascript object into a single-depth object, all nested values will have property names appended separated by comma</p>
+<p>The options properties:</p>
+<ul>
+<li>separator - use something else instead of .</li>
+<li>index - initial index for arrays, 0 is default</li>
+</ul>
 <p>Example</p>
 <pre><code>    &gt; lib.objFlatten({ a: { c: 1 }, b: { d: 1 } } )
     { &#39;a.c&#39;: 1, &#39;b.d&#39;: 1 }
+   &gt; lib.objFlatten({ a: { c: 1 }, b: { d: [1,2,3] } }, { index: 1 })
+    { &#39;a.c&#39;: 1, &#39;b.d.1&#39;: 1, &#39;b.d.2&#39;: 2, &#39;b.d.3&#39;: 3 }
 </code></pre></li>
 </ul>
 
@@ -7856,7 +7972,7 @@ the third argument can be an options object that can control how the properties 
 </ul>
 <p>Options properties:</p>
 <ul>
-<li>allow - a regexp which properties are allowed to be mrged</li>
+<li>allow - a regexp which properties are allowed to be merged</li>
 <li>ignore - a regexp which properties should be ignored</li>
 <li>remove - a regexp to apply to each property name before merging, the matching parts will be removed from the name</li>
 </ul>
@@ -7866,6 +7982,22 @@ the third argument can be an options object that can control how the properties 
      lib.objExtend({ a: 1 }, { b: 2, c: 3 }, {})
      lib.objExtend({ a: 1 }, { b: 2, _c: 3, _d: 4 }, { remove: /^_/ })
 </code></pre>
+<ul>
+<li><p><code>lib.objMerge(obj, val, options)</code></p>
+<p> Merge two objects, all properties from the <code>val</code> override existing properties in the <code>obj</code>, returns a new object, shallow copy,
+only top level properties are reassigned.</p>
+<p>Options properties:</p>
+<ul>
+<li>allow - a regexp which properties are allowed to be merged</li>
+<li>ignore - a regexp which properties should be ignored</li>
+<li>remove - a regexp to apply to each property name before merging, the matching parts will be removed from the name</li>
+</ul>
+<p>Example</p>
+<pre><code> var o = lib.objMerge({ a:1, b:2, c:3 }, { c:5, d:1, _e: 4, x: 2 }, { allow: /^(c|d)/, remove: /^_/ })
+ o = { a:1, b:2, c:5, d:1 }
+</code></pre></li>
+</ul>
+
 <ul>
 <li><p><code>lib.objDel()</code></p>
 <p> Delete properties from the object, first arg is an object, the rest are properties to be deleted</p>
@@ -7944,7 +8076,7 @@ objects will be create automatically. The options can have the folowing properti
 <li><p><code>lib.objDescr(obj, options)</code></p>
 <p> Return an object structure as a string object by showing primitive properties only,
 for arrays it shows the length and <code>options.count</code> or 10 first items,
-strings are limited by <code>options.length</code> or 128 bytes,
+strings are limited by <code>options.length</code> or 256 bytes, if truncated the full string length is shown.
 the object depth is limited by <code>options.depth</code> or 3 levels deep, the number of properties are limited by options.count or 10,
 all properties that match <code>options.ignore</code> will be skipped from the output, if <code>options.allow</code> is a regexp, only properties that
 match it will be output.</p>
@@ -9974,12 +10106,6 @@ use the same names as command line arguments without preceeding <code>test-</cod
 <ul>
 <li><p><code>shell.cmdDbRestore(options)</code></p>
 <p> Restore tables</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.cmdDbGet(options)</code></p>
-<p> Put config entry</p>
 </li>
 </ul>
 
