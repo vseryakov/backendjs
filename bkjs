@@ -236,7 +236,7 @@ case "$BKJS_CMD" in
   restart)
     $0 stop
     sleep 3
-    $0 start
+    [ "$(pgrep "$BKJS:")" = "" ] && $0 start
     ;;
 
   restart-api|stop-api)

@@ -18,7 +18,7 @@ var shell = {
     name: "bk_shell",
     help: [
         "-show-info - show app and version information",
-        "-run-file -file FILE.js - load a script and run it if it exports run function",
+        "-run-file FILE.js - load a script and run it if it exports run function",
         "-login-get LOGIN ... - show login records",
         "-login-add [-noscramble] login LOGIN secret SECRET [name NAME] [type TYPE] ... - add a new login record for API access",
         "-login-update [-noscramble] login LOGIN [name NAME] [type TYPE] ... - update existing login record",
