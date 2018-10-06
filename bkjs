@@ -167,6 +167,8 @@ find_bkjsbin() {
   [ "$BKJS_BIN" = "" -a -f $HOME/bin/$BKJS ] && export BKJS_BIN=$HOME/bin/$BKJS
   [ "$BKJS_BIN" = "" -a -f $BKJS_HOME/bin/$BKJS ] && export BKJS_BIN=$BKJS_HOME/bin/$BKJS
   [ "$BKJS_BIN" = "" -a -f $BKJS_PREFIX/bin/$BKJS ] && export BKJS_BIN=$BKJS_PREFIX/bin/$BKJS
+  [ "$BKJS_BIN" = "" -a -f node_modules/$BKJS_MOD ] && export BKJS_BIN=$(pwd)/node_modules/$BKJS_MOD/$BKJS
+  [ "$BKJS_BIN" = "" -a -d $BKJS_HOME/node_modules/$BKJS_MOD/$BKJS ] && export BKJS_BIN=$BKJS_HOME/node_modules/$BKJS_MOD/$BKJS
   [ "$BKJS_BIN" = "" -a -d $NODE_PATH/$BKJS ] && export BKJS_BIN=$NODE_PATH/$BKJS/bin/$BKJS
   [ "$BKJS_BIN" = "" -a -f /opt/local/bin/$BKJS ] && export BKJS_BIN=/opt/local/bin/$BKJS
   [ "$BKJS_BIN" = "" ] && export BKJS_BIN=$(which $BKJS 2>/dev/null)
@@ -181,7 +183,7 @@ find_nodebin() {
 
 # Use configured or provided user:group, defaults to the current user
 find_user() {
-    echo "Find user: $BKJS_USER, $(get_arg -user)"
+  echo "Find user: $BKJS_USER, $(get_arg -user)"
   export BKJS_USER=$(get_arg -user $BKJS_USER)
   [ "$BKJS_USER" = "" ] && export BKJS_USER=$(whoami)
   export BKJS_GROUP=$(get_arg -group $BKJS_GROUP)
@@ -586,6 +588,7 @@ case "$BKJS_CMD" in
        rm -rf node.tgz
     fi
     mv $BKJS_PREFIX/README.md $BKJS_PREFIX/LICENSE $BKJS_PREFIX/CHANGELOG.md $BKJS_PREFIX/share/doc
+    [ "$(get_flag -npm4)" != "" ] && npm i -g npm@4
     ;;
 
   install-devel)
