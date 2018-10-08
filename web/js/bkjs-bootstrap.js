@@ -218,14 +218,14 @@ Bkjs.showLogin = function(options, callback)
     var login = form.find('input[type=text]');
     var secret = form.find('input[type=password]');
     modal.off().on('shown.bs.modal', function () {
-        $(this).find('input:text:visible:first').focus();
+        login.focus();
     });
     login.off().on("keyup", function(e) {
         if (e.which == 13) { secret.focus(); e.preventDefault(); }
     });
     secret.off().on("keyup", function(e) {
         if (e.which == 13) { form.trigger("submit"); e.preventDefault(); }
-    });
+    }).val("");
     form.find('button[type=submit]').off().on("click", function(e) {
         form.trigger("submit"); e.preventDefault();
     });
