@@ -22,7 +22,7 @@ Bkjs.checkLogin = function(err, status)
 
 Bkjs.koLogin = function(data, event)
 {
-    Bkjs.showLogin(function(err, data, xhr) {
+    Bkjs.showLogin(Bkjs.koLoginOptions, function(err, data, xhr) {
         Bkjs.checkLogin(err, xhr.status);
         if (!err) Bkjs.hideLogin();
     });

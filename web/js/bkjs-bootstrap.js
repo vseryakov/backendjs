@@ -192,8 +192,8 @@ Bkjs.showLogin = function(options, callback)
             <div class="modal-body">\
               <div class="alerts"></div>\
               <div class="form-group">\
-               <label>Login</label>\
-               <input class="form-control" placeholder="Login" type="text" autofocus>\
+               <label>@login@</label>\
+               <input class="form-control" placeholder="@login@" type="text" autofocus>\
               </div>\
               <div class="form-group">\
                <label>Password</label>\
@@ -209,9 +209,10 @@ Bkjs.showLogin = function(options, callback)
            </div>\
           </div>\
         </div>';
-        text = text.replace("@icon@", options.icon || "/img/logo.png");
-        text = text.replace("@title@", options.title || "Please Sign In");
-        text = text.replace("@disclaimer@", options.disclaimer || "");
+        text = text.replace(/@login@/g, options.login || "Login");
+        text = text.replace(/@icon@/g, options.icon || "/img/logo.png");
+        text = text.replace(/@title@/g, options.title || "Please Sign In");
+        text = text.replace(/@disclaimer@/g, options.disclaimer || "");
         modal = $(text).appendTo("body");
     }
     var form = modal.find('form');
