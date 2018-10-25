@@ -108,7 +108,7 @@
         "no-buffer-constructor": "off",
         "no-caller": "error",
         "no-catch-shadow": "error",
-        "no-confusing-arrow": "error",
+        "no-confusing-arrow": ["error", {"allowParens": true}],
         "no-constant-condition": [
             "error",
             {
