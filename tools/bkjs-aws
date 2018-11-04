@@ -29,7 +29,7 @@ case "$BKJS_CMD" in
     [ "$region" != "" ] && region="--region $region"
     tag=$(get_arg -tag)
     [ "$tag" != "" -a "$tag" != "." ] && tags="Name=tag:Name,Values=${tag}"
-    instances=$(aws ec2 describe-instances $region --filter "Name=instance-state-name,Values=running" $tags --query 'Reservations[*].Instances[*].[InstanceId,PrivateIpAddress,PublicIpAddress,KeyName,Tags[?Key==`Name`]]' --output text|awk '{if($4=="None")print $0;else if($1=="Name")print $2;else printf "%s ",$0;}')
+    instances=$(aws ec2 describe-instances $region --filter "Name=instance-state-name,Values=running" $tags --query 'Reservations[*].Instances[*].[InstanceId,PrivateIpAddress,PublicIpAddress,KeyName,Tags[?Key==`Name`]]' --output text|awk '{if($4=="None")print $0;else if($1=="Name")print $2;else printf "%s\t",$0;}')
     skip=$(get_arg -skip-tag)
     [ "$skip" != "" ] && instances=$(echo "$instances"|grep -v $skip)
     fmt=$(get_arg -fmt)
@@ -56,22 +56,24 @@ case "$BKJS_CMD" in
     region=$(get_arg -region)
     index=$(get_arg -index)
     cmd=$(get_arg -cmd)
+    pub=$(get_flag -pub)
     quiet=$(get_flag -quiet)
     sshargs=$(concat_arg -ssh $BKJS_SSH_ARGS)
-    [ "$(get_flag -pub)" != "" ] && host=host
-    instances=$($0 ec2-show -region "$region" -fmt "${host:-ip},key" -tag "$tag")
-    [ "$(get_flag -debug)" != "" ] && echo "$tag: $index: $instances"
-    [ "$index" != "" ] && instances=$(echo "$instances"|head -$index|tail -1)
+    instances=$($0 ec2-show -region "$region" -tag "$tag"|tr '\t' ',')
+    [ "$cmd" = "" -a "$index" = "" ] && index=1
+    [ "$index" != "" -a "$index" != "." ] && instances=$(echo "$instances"|head -$index|tail -1)
     [ "$instances" = "" ] && exit 1
-    IFS=$'\n'
     for h in $instances; do
-        host=$(echo $h|awk '{print $1}')
-        key=$(echo $h|awk '{print $2}')
-        ssh="ssh $sshargs -l $user"
+        [ "$quiet" = "" ] && echo "-- $h --"
+        if [ "$pub" != "" ]; then
+            host=$(echo $h|awk -F, '{print $3}')
+        else
+            host=$(echo $h|awk -F, '{print $2}')
+        fi
+        key=$(echo $h|awk -F, '{print $4}')
+        ssh="$sshargs -l $user"
         [ "$key" != "" -a -f "~/.ssh/$key.pem" ] && ssh="$ssh -i ~/.ssh/$key.pem"
-        ssh="$ssh $host $cmd"
-        [ "$quiet" = "" ] && echo $ssh
-        eval $ssh
+        ssh $ssh $host $cmd
     done
     ;;
 
@@ -188,7 +190,7 @@ case "$BKJS_CMD" in
     echo ""
     echo "  ec2-show [-region region] [-tag NAME] [-skip-tag NAME] [-nomyip] [-line] [-fmt fmt]- show running instances in region, optional tag pattern can be used for filter, FMT may contain: id,ip,host,key,name which will be replaced with actual values"
     echo "  ec2-run -tag NAME [-id ID] -cmd cmd [-region  region] [-user NAME] - run a command over SSM by tag name or instance id, if -tag or -id one is 'all' then all instances will run the command"
-    echo "  ec2-ssh -tag NAME [-region region] [-pub] [-cmd cmd] [-index N] - ssh into hosts by tag name, key name will be used to specify a keypair from ~/.ssh/, -pub tells to use public IP, -cmd if specified will be run on the remote hosts, -index tell which specific host to use only"
+    echo "  ec2-ssh -tag NAME [-region region] [-pub] [-cmd cmd] [-index N|.] - ssh into a host by tag name, key name will be used to specify a keypair from ~/.ssh/, -pub tells to use public IP, -cmd if specified will be run on all matched hosts, -index tell which specific host to use only, dot means all hosts"
     echo "  ec2-host [-tag NAME] [-skip-tag NAME] - show running instances local IP addresses by tag"
     echo "  ec2-region - current instance region"
     echo "  ec2-tag - current instance tag name"
