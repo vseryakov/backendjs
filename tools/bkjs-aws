@@ -54,17 +54,25 @@ case "$BKJS_CMD" in
     [ "$tag" = "" ] && echo "-tag is required" && exit 1
     user=$(get_arg -user ec2-user)
     region=$(get_arg -region)
-    index=$(get_arg -index 1)
-    [ "$(get_flag -ip)" != "" ] && host=ip
-    instance=$($0 ec2-show -region "$region" -fmt "${host:-host},key" -tag "$tag"|head -$index|tail -1)
-    [ "$instance" = "" ] && exit 1
-    host=$(echo $instance|awk '{print $1}')
-    key=$(echo $instance|awk '{print $2}')
-    cmd="ssh -l $user"
-    [ -f "~/.ssh/$key.pem" ] && cmd="$cmd -i ~/.ssh/$key.pem"
-    cmd="$cmd $host $(get_arg -cmd)"
-    [ "$(get_flag -debug)" != "" ] && echo $cmd
-    eval $cmd
+    index=$(get_arg -index)
+    cmd=$(get_arg -cmd)
+    quiet=$(get_flag -quiet)
+    sshargs=$(concat_arg -ssh $BKJS_SSH_ARGS)
+    [ "$(get_flag -pub)" != "" ] && host=host
+    instances=$($0 ec2-show -region "$region" -fmt "${host:-ip},key" -tag "$tag")
+    [ "$(get_flag -debug)" != "" ] && echo "$tag: $index: $instances"
+    [ "$index" != "" ] && instances=$(echo "$instances"|head -$index|tail -1)
+    [ "$instances" = "" ] && exit 1
+    IFS=$'\n'
+    for h in $instances; do
+        host=$(echo $h|awk '{print $1}')
+        key=$(echo $h|awk '{print $2}')
+        ssh="ssh $sshargs -l $user"
+        [ "$key" != "" -a -f "~/.ssh/$key.pem" ] && ssh="$ssh -i ~/.ssh/$key.pem"
+        ssh="$ssh $host $cmd"
+        [ "$quiet" = "" ] && echo $ssh
+        eval $ssh
+    done
     ;;
 
   ec2-run)
@@ -101,7 +109,7 @@ case "$BKJS_CMD" in
 
   create-ami)
     tag=$(get_arg -tag api)
-    [ "`uname -s`" = "Linux" ] && echo 1 > $HOME/var/bkjs.init
+    [ "$(uname -s)" = "Linux" ] && echo 1 > $HOME/var/bkjs.init
     bksh -aws-create-image -wait -instance-id $(bkjs ec2-show -tag $tag -fmt id | head -1)
     rm -f $HOME/var/bkjs.init
     ;;
@@ -178,9 +186,9 @@ case "$BKJS_CMD" in
     echo ""
     echo "AWS provisioning commands using:"
     echo ""
-    echo "  ec2-show [-region region] [-tag NAME] [-skip-tag NAME] [-fmt fmt]- show running instances in region, optional tag pattern can be used for filter, FMT may contain: id,ip,host,key,name which will be replaced with actual values"
+    echo "  ec2-show [-region region] [-tag NAME] [-skip-tag NAME] [-nomyip] [-line] [-fmt fmt]- show running instances in region, optional tag pattern can be used for filter, FMT may contain: id,ip,host,key,name which will be replaced with actual values"
     echo "  ec2-run -tag NAME [-id ID] -cmd cmd [-region  region] [-user NAME] - run a command over SSM by tag name or instance id, if -tag or -id one is 'all' then all instances will run the command"
-    echo "  ec2-ssh -tag NAME [-region region] [-ip] [-cmd cmd] - ssh into a host by tag name, key name will be used to specify a keypair from ~/.ssh/, -cmd if specified will be run on the remote host"
+    echo "  ec2-ssh -tag NAME [-region region] [-pub] [-cmd cmd] [-index N] - ssh into hosts by tag name, key name will be used to specify a keypair from ~/.ssh/, -pub tells to use public IP, -cmd if specified will be run on the remote hosts, -index tell which specific host to use only"
     echo "  ec2-host [-tag NAME] [-skip-tag NAME] - show running instances local IP addresses by tag"
     echo "  ec2-region - current instance region"
     echo "  ec2-tag - current instance tag name"

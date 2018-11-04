@@ -395,8 +395,8 @@ case "$BKJS_CMD" in
     user=$(get_arg -user)
     [ "$user" != "" ] && sshargs="$sshargs -l $user"
     key=$(get_arg -key)
-    [ "$key" != "" ] && sshargs="$sshargs -i $HOME/.ssh/$key.pem"
-    echo "Running 'ssh $sshargs' $h $cmd"
+    [ "$key" != "" -a -f "~/.ssh/$key.pem" ] && sshargs="$sshargs -i $HOME/.ssh/$key.pem"
+    [ "$(get_flag -debug)" != "" ] && echo "ssh $sshargs $host $cmd"
     [ "$(get_flag -dry-run)" != "" ] && exit 0
     for h in $host; do
       ssh $sshargs $h $cmd
