@@ -134,17 +134,18 @@ shell.cmdDbBackup = function(options)
     var table = this.getArg("-table", options);
     var tables = lib.strSplit(this.getArg("-tables", options));
     var skip = lib.strSplit(this.getArg("-skip", options));
+    var concurrency = lib.strSplit(this.getArg("-concurrency", options, 1));
     var incremental = this.getArgInt("-incremental", options);
     var progress = this.getArgInt("-progress", options);
     opts.fullscan = this.getArgInt("-fullscan", options, 1);
     opts.scanRetry = this.getArgInt("-scanRetry", options, 1);
     if (!opts.useCapacity) opts.useCapacity = "read";
-    if (!opts.factorCapacity) opts.factorCapacity = 0.25;
+    if (!opts.factorCapacity) opts.factorCapacity = 0.5;
     if (table) tables.push(table);
     if (!tables.length) tables = db.getPoolTables(db.pool, { names: 1 });
-    lib.forEachSeries(tables, function(table, next) {
+    lib.forEachLimit(tables, concurrency, function(table, next) {
         if (skip.indexOf(table) > -1) return next();
-        var file = path.join(root, table +  ".json");
+        var file = path.join(root, table + ".json");
         if (incremental > 0) {
             var lines = lib.readFileSync(file, { offset: -incremental, list: "\n" });
             for (var i = lines.length - 1; i >= 0; i--) {
@@ -158,7 +159,7 @@ shell.cmdDbBackup = function(options)
             fs.writeFileSync(file, "");
         }
         db.scan(table, query, opts, function(row, next2) {
-            if (filter && app[filter]) app[filter](table, row);
+            if (filter && core.modules.app[filter]) core.modules.app[filter](table, row);
             fs.appendFileSync(file, JSON.stringify(row) + "\n");
             if (progress && opts.nrows % progress == 0) logger.info("cmdDbBackup:", table, opts.nrows, "records");
             next2();
@@ -185,12 +186,13 @@ shell.cmdDbRestore = function(options)
     var skip = lib.strSplit(this.getArg("-skip", options));
     var files = lib.findFileSync(root || core.home, { depth: 1, types: "f", include: /\.json$/ });
     var progress = this.getArgInt("-progress", options);
+    var concurrency = lib.strSplit(this.getArg("-concurrency", options, 1));
     var op = this.getArg("-op", options, "update");
     if (this.isArg("-drop", options)) opts.drop = 1;
     if (this.isArg("-continue", options)) opts.continue = 1;
     if (table) tables.push(table);
     opts.errors = 0;
-    lib.forEachSeries(files, function(file, next3) {
+    lib.forEachLimit(files, concurrency, function(file, next3) {
         var table = path.basename(file, ".json");
         if (prefix) table = table.replace(prefix, "");
         if (tables.length && tables.indexOf(table) == -1) return next3();
@@ -225,7 +227,7 @@ shell.cmdDbRestore = function(options)
                     if (!line) return next2();
                     var row = lib.jsonParse(line, { logger: "error" });
                     if (!row) return next2(opts.continue ? null : "ERROR: parse error, line: " + opts.nlines);
-                    if (filter && app[filter]) app[filter](table, row);
+                    if (filter && core.modules.app[filter]) core.modules.app[filter](table, row);
                     for (var i = 0; i < mapping.length-1; i+= 2) {
                         row[mapping[i+1]] = row[mapping[i]];
                         delete row[mapping[i]];
