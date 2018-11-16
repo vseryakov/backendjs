@@ -1056,7 +1056,7 @@ shell.cmdAwsCreateLaunchConfig = function(options, callback)
         req['BlockDeviceMappings.member.1.Ebs.VolumeSize'] = d[3];
     }
     var udata = this.awsGetUserData(options);
-    if (udata) req.UserData = new Buffer(udata).toString("base64");
+    if (udata) req.UserData = Buffer.from(udata).toString("base64");
 
     lib.series([
        function(next) {
