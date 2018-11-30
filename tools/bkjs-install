@@ -52,7 +52,6 @@ case "$BKJS_CMD" in
 
     # Create global profile
     echo "BKJS_HOME=$BKJS_HOME" > /etc/sysconfig/$BKJS
-    echo "BKJS_TOOLS=$BKJS_HOME/node_modules/backendjs/tools" >> /etc/sysconfig/$BKJS
     domain=$(get_arg -domain)
     [ "$domain" != "" ] && echo "BKJS_DOMAIN=$domain" >> /etc/sysconfig/$BKJS
     [ "$BKJS_USER" != "root" ] && echo "BKJS_USER=$BKJS_USER" >> /etc/sysconfig/$BKJS
@@ -120,7 +119,7 @@ case "$BKJS_CMD" in
        echo 'bcp() { socat readline,history=$HOME/.socat tcp4:localhost:$1; }' >> $LHOME/.bashrc
        echo 'ec2ssh() { ssh -i ~/.ssh/$2.pem -l ec2-user $1 $3; }' >> $LHOME/.bashrc
        echo 'ec2scp() { scp -r -i ~/.ssh/$3.pem $1 ec2-user@$2; }' >> $LHOME/.bashrc
-       echo 'bkssh() { bkjs ec2-ssh -tag $1 -index "$2 -cmd "$3"; }' >> $LHOME/.bashrc
+       echo 'bkssh() { bkjs ec2-ssh -tag $1 -index "$2" -cmd "$3"; }' >> $LHOME/.bashrc
        echo 'bkstop() { bkjs ec2-ssh -tag ${1-api} -index "$2" -cmd "bkjs stop-${3-api}"; }' >> $LHOME/.bashrc
        echo 'bksync() { (cd $HOME/node_modules/$1 && bkjs sync -host $(bkjs ec2-host -tag ${2-api})); }' >> $LHOME/.bashrc
     fi

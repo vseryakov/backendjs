@@ -110,9 +110,11 @@ case "$BKJS_CMD" in
     ;;
 
   create-ami)
-    tag=$(get_arg -tag api)
+    tag=$(get_arg -tag)
+    [ "$tag" != "" ] && instance_id=$(bkjs ec2-show -tag $tag -fmt id | head -1)
+    instance_id=$(get_arg -instance-id $instance_id)
     [ "$(uname -s)" = "Linux" ] && echo 1 > $HOME/var/bkjs.init
-    bksh -aws-create-image -wait -instance-id $(bkjs ec2-show -tag $tag -fmt id | head -1)
+    bksh -aws-create-image -wait -instance-id $instance_id
     rm -f $HOME/var/bkjs.init
     ;;
 
@@ -195,7 +197,7 @@ case "$BKJS_CMD" in
     echo "  ec2-region - current instance region"
     echo "  ec2-tag - current instance tag name"
     echo "  ec2-stop-api [-tag NAME] - restart gracefully on the specified instances by tag"
-    echo "  create-ami [-tag NAME] - create a new AMI from the given running instance by tag(api default)"
+    echo "  create-ami [-tag NAME] - create a new AMI from the given running instance by tag or the current instance"
     echo "  create-launch-config [-name NAME] - create new launch configuration from the latest AMI, if no -name is given all existing configs will be copied"
     echo "  init-sendmail-ses - [-domain DOMAIN] -alert-host HOST -alert-user USER -alert-password PW - configure sendmail as relay to SES SMTP"
     ;;
