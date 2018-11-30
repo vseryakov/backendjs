@@ -19,7 +19,7 @@ case "$BKJS_CMD" in
     $0 install-devel $args
     [ "$NODE_BIN" = "" ] && sudo -H -u $BKJS_USER $0 install-node -prefix $BKJS_PREFIX -npm4 -tools "$(get_arg -tools)"
     [ "$BKJS_BIN" = "" ] && sudo -H -u $BKJS_USER $0 install-bkjs -deps "$(get_arg -deps)" -tools "$(get_arg -tools)"
-    (cd $BKJS_HOME/bin && ln -sf ../node_modules/$BKJS_MOD/$BKJS && ln -sf BKJS bksh)
+    (cd $BKJS_HOME/bin && ln -sf ../node_modules/$BKJS_MOD/$BKJS && ln -sf $BKJS bksh)
     $0 init-server $args
     ;;
 
