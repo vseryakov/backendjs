@@ -17,8 +17,8 @@ case "$BKJS_CMD" in
     find_nodebin
     find_bkjsbin
     $0 install-devel $args
-    [ "$NODE_BIN" = "" ] && sudo -H -u $BKJS_USER $0 install-node -prefix $BKJS_PREFIX -npm4
-    [ "$BKJS_BIN" = "" ] && sudo -H -u $BKJS_USER $0 install-bkjs -deps $(get_arg -deps)
+    [ "$NODE_BIN" = "" ] && sudo -H -u $BKJS_USER $0 install-node -prefix $BKJS_PREFIX -npm4 -tools "$(get_arg -tools)"
+    [ "$BKJS_BIN" = "" ] && sudo -H -u $BKJS_USER $0 install-bkjs -deps "$(get_arg -deps)" -tools "$(get_arg -tools)"
     (cd $BKJS_HOME/bin && ln -sf ../node_modules/$BKJS_MOD/$BKJS && ln -sf BKJS bksh)
     $0 init-server $args
     ;;
@@ -52,6 +52,7 @@ case "$BKJS_CMD" in
 
     # Create global profile
     echo "BKJS_HOME=$BKJS_HOME" > /etc/sysconfig/$BKJS
+    echo "BKJS_TOOLS=$BKJS_HOME/node_modules/backendjs/tools" >> /etc/sysconfig/$BKJS
     domain=$(get_arg -domain)
     [ "$domain" != "" ] && echo "BKJS_DOMAIN=$domain" >> /etc/sysconfig/$BKJS
     [ "$BKJS_USER" != "root" ] && echo "BKJS_USER=$BKJS_USER" >> /etc/sysconfig/$BKJS
