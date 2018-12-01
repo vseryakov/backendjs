@@ -345,7 +345,7 @@ accounts.addAccount = function(req, options, callback)
        function(next) {
            if (options.noauth || api.authTable == "bk_account") return next();
            if (!req.query.login) return next({ status: 400, message: "login is required"});
-           if (!req.query.secret && !req.query.password) return next({ status: 400, message: "secret is required"});
+           if (!req.query.secret) return next({ status: 400, message: "secret is required"});
            // Copy for the auth table in case we have different properties that needs to be cleared
            login = lib.objClone(req.query);
            login.token_secret = true;

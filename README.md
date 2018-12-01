@@ -721,7 +721,7 @@ This is intended for a single server development pusposes only.
 # Security configurations
 
 ## API only
-This is default setup of the backend when all API requests except `/account/add` must provide valid signature and all HTML, Javascript, CSS and image files
+This is default setup of the backend when all API requests except must provide valid signature and all HTML, Javascript, CSS and image files
 are available to everyone. This mode assumes that Web development will be based on 'single-page' design when only data is requested from the Web server and all
 rendering is done using Javascript. This is how the `examples/api/api.html` develpers console is implemented, using JQuery-UI and Knockout.js.
 
@@ -731,11 +731,7 @@ To see current default config parameters run any of the following commands:
 
         node -e 'require("backendjs").core.showHelp()'
 
-To disable open registration in this mode just add config parameter `api-deny-path=^/account/add$` or if developing an application add this in the initMiddleware
-
-        api.initMiddleware = function(callback) {
-            this.allow.splice(this.allow.indexOf('^/account/add$'), 1);
-        }
+To enable open registration in this mode just add config parameter `api-allow-path=^/account/add$`.
 
 ## Secure Web site, client verification
 
@@ -774,7 +770,6 @@ html pages to work after login without singing every API request.
    app.configureMiddleware = function(options, callback) {
       this.allow.splice(this.allow.indexOf('^/$'), 1);
       this.allow.splice(this.allow.indexOf('\\.html$'), 1);
-      this.allow.splice(this.allow.indexOf('^/account/add$'), 1);
       callback();
    }
 ```
@@ -1231,8 +1226,8 @@ There is also native iOS implementation [Bkjs.m](https://raw.githubusercontent.c
 
 - `/login`
 
-   Same as the /auth but it uses cleartext password for user authentication, this request does not need a signature, just simple
-   login and password query parameters to be sent to the backend.
+   Same as the /auth but it uses secret for user authentication, this request does not need a signature, just simple
+   login and secret query parameters to be sent to the backend. This must be sent over SSL.
 
    The intened usage is for Web sessions which use sessions cookies when sent with `_session=1` or to be used with access tokens when
    sent with `_accesstoken=1`.
@@ -1240,7 +1235,7 @@ There is also native iOS implementation [Bkjs.m](https://raw.githubusercontent.c
    Parameters:
 
      - `login` - account login
-     - `password` - cleartext password
+     - `zecret` - account secret
      - `_session=1` - same as in /auth request
      - `_accesstoken=1` - same as in /auth reuest
 
@@ -1248,7 +1243,7 @@ There is also native iOS implementation [Bkjs.m](https://raw.githubusercontent.c
 
    Example:
 
-              $.ajax({ url: "/login?login=test123&password=test123&_session=1",
+              $.ajax({ url: "/login?login=test123&secret=test123&_session=1",
                        success: function(json, status, xhr) { console.log(json) }
               });
 
@@ -1295,11 +1290,10 @@ This is implemented by the `accounts` module from the core. To enable accounts f
 
 - `/account/add`
 
-  Add new account, all parameters are the columns from the `bk_account` table, required columns are: **name, secret or password, login**.
+  Add new account, all parameters are the columns from the `bk_account` table, required columns are: **name, secret, login**.
 
-  By default, this URL is in the list of allowed paths that do not need authentication, this means that anybody can add an account. For the real
-  application this may not be a good choice so the simplest way to disable it to add api-deny-path=^/account/add$ to the config file or
-  specify in the command line. More complex ways to perform registration will require adding pre and.or post callbacks to handle account registration
+  To enable open registration add `api-allow-path=^/account/add$` to the config file or specify in the command line.
+  More complex ways to perform registration will require adding pre and.or post callbacks to handle account registration
   for example with invitation codes....
 
   In the table `bk_auth`, the column `type` is used to distinguish between account roles, by default only account with type `admin` can
@@ -1314,13 +1308,10 @@ This is implemented by the `accounts` module from the core. To enable accounts f
       *In the Web client `web/js/bkjs.js`, if `Bkjs.scramble` is set to 1 then the secret is replaced by the BASE64_HMAC_SHA256(secret, login) automatically,
       no actual secret is ever saved or sent, only used in the login form. This is intended for Web apps not to store the actual secret anywhere in the memory or localStorage,
       for the backend this is still just a secret.*
-    - password based authentication, send cleartext `password` instead of the `secret`, make sure to use https, the backend will store a salt and SHA256 hash of the password. This method is
-      inteded for Web app and will require sessions or access tokens for subsequent requests, the account signature secret is never returned by the backend.
 
   Example:
 
             /account/add?name=test&login=test@test.com&secret=fc4f33bd07a4e6c8e&gender=f&phone=1234567
-            /account/add?name=test&login=test@test.com&password=test123&gender=f&phone=1234567
 
   How to make an account as admin
 

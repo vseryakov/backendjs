@@ -3,6 +3,13 @@
  *  Vlad Seryakov vseryakov@gmail.com 2018
  */
 
+Bkjs.domainName = function(host)
+{
+    if (!host) return "";
+    var name = String(host || "").split('.');
+    return (name.length > 2 ? name.slice(1).join('.') : host).toLowerCase();
+}
+
 // Determine type of the object
 Bkjs.typeName = function(v)
 {
