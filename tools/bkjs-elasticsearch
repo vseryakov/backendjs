@@ -65,19 +65,20 @@ case "$BKJS_CMD" in
     ;;
 
   stop-elasticsearch)
-    kill_proc org.elasticsearch
+    pkill -f org.elasticsearch
     ;;
 
   restart-elasticsearch)
-    kill_proc org.elasticsearch
+    pkill -f org.elasticsearch
     sleep 1
-    kill_proc org.elasticsearch -9
+    pkill -f -9 org.elasticsearch
     $0 run-elasticsearch $(get_all_args)
     ;;
 
   reset-elasticsearch)
-    $0 stop-elasticsearch
+    pkill -f org.elasticsearch
     rm -rf $BKJS_HOME/var/nodes
+    rm -f $BKJS_HOME/log/elasticsearch*
     $0 run-elasticsearch
     ;;
 

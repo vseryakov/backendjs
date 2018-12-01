@@ -64,7 +64,7 @@ case "$BKJS_CMD" in
     ;;
 
   stop-dynamodb)
-    kill_proc DynamoDBLocal
+    pkill -f DynamoDBLocal
     ;;
 
   reset-dynamodb)
@@ -105,13 +105,13 @@ case "$BKJS_CMD" in
 
   stop-hazelcast)
     sig=$(get_arg -signal)
-    kill_proc hazelcast.core.server $sig
+    pkill -f hazelcast.core.server
     ;;
 
   restart-hazelcast)
-    kill_proc hazelcast.core.server
+    pkill -f hazelcast.core.server
     sleep 1
-    kill_proc hazelcast.core.server -9
+    pkill -f -9 hazelcast.core.server
     $0 run-hazelcast $(get_all_args)
     ;;
 
@@ -151,7 +151,7 @@ case "$BKJS_CMD" in
     ;;
 
   stop-cassandra)
-    kill_proc cassandra
+    pkill -f cassandra
     ;;
 
   get-mongodb)
@@ -182,7 +182,7 @@ case "$BKJS_CMD" in
     ;;
 
   stop-mongodb)
-    kill_proc mongod
+    pkill mongod
     ;;
 
   help)

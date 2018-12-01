@@ -144,13 +144,6 @@ get_json_flat() {
   ${NODE_BIN:-node} -e "function f(o){var r={};for(var p in o){if(!Array.isArray(o[p])&&typeof o[p]=='object'){var a=f(o[p]);for(var x in a)r[p+'.'+x]=a[x]}else r[p]=o[p]};return r};try{o=f(JSON.parse(require('fs').readFileSync('$1')));v=o['$2']||o['$3'];if(Array.isArray(v))v=v.join(' ');if(v&&typeof v=='object')v=Object.keys(v).join(' ');if(typeof v!='undefined')console.log(v)}catch(e){}"
 }
 
-# Kill a process by name: kill_proc redis -9
-kill_proc() {
-  pid=$(ps agx|grep "$1"|grep -v grep|awk "{print \$1}")
-  [ "$pid" = "" ] && return
-  kill "$2" $pid
-}
-
 # Resolve package location
 find_bkjs() {
   [ -f node_modules/$BKJS_MOD ] && v=$(pwd)/node_modules/$BKJS_MOD
