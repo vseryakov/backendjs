@@ -111,6 +111,33 @@
                 "web/css/bootstrap.css",
                 "web/css/font-awesome.css"
             ]
+        },
+        "bkjs4": {
+            "js": [
+                "web/js/jquery.js",
+                "web/js/bootstrap4.js",
+                "web/js/knockout.js",
+                "web/js/knockout.mapping.js",
+                "web/js/crypto.js",
+                "web/js/bkjs.js",
+                "web/js/bkjs-lib.js",
+                "web/js/bkjs-ko.js",
+                "web/js/bkjs-bootstrap.js"
+            ],
+            "js.dev": ["web/js/jquery.debug.js",
+                "web/js/bootstrap4.debug.js",
+                "web/js/knockout.debug.js",
+                "web/js/knockout.mapping.js",
+                "web/js/crypto.js",
+                "web/js/bkjs.js",
+                "web/js/bkjs-lib.js",
+                "web/js/bkjs-ko.js",
+                "web/js/bkjs-bootstrap.js"
+            ],
+            "css": [
+                "web/css/bootstrap4.css",
+                "web/css/font-awesome.css"
+            ]
         }
     }
   },
