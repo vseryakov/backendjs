@@ -57,8 +57,8 @@
     "database",
     "API",
     "DynamoDB",
-    "Cassandra",
     "Sqlite",
+    "Elasticsearch",
     "PostgreSQL",
     "MySQL",
     "Redis",
@@ -72,7 +72,7 @@
     "geohash"
   ],
   "engines": {
-    "node": ">=6.0"
+    "node": ">=8.0"
   },
   "license": "BSD-3-Clause",
   "bin": {
@@ -91,16 +91,19 @@
                 "web/js/bootstrap.js",
                 "web/js/knockout.js",
                 "web/js/knockout.mapping.js",
+                "web/js/knockout-es5.js",
                 "web/js/crypto.js",
                 "web/js/bkjs.js",
                 "web/js/bkjs-lib.js",
                 "web/js/bkjs-ko.js",
                 "web/js/bkjs-bootstrap.js"
             ],
-            "js.dev": ["web/js/jquery.debug.js",
+            "js.dev": [
+                "web/js/jquery.debug.js",
                 "web/js/bootstrap.debug.js",
                 "web/js/knockout.debug.js",
-                "web/js/knockout.mapping.js",
+                "web/js/knockout.mapping.debug.js",
+                "web/js/knockout-es5.debug.js",
                 "web/js/crypto.js",
                 "web/js/bkjs.js",
                 "web/js/bkjs-lib.js",
@@ -124,10 +127,11 @@
                 "web/js/bkjs-ko.js",
                 "web/js/bkjs-bootstrap.js"
             ],
-            "js.dev": ["web/js/jquery.debug.js",
+            "js.dev": [
+                "web/js/jquery.debug.js",
                 "web/js/bootstrap4.debug.js",
                 "web/js/knockout.debug.js",
-                "web/js/knockout.mapping.js",
+                "web/js/knockout.mapping.debug.js",
                 "web/js/crypto.js",
                 "web/js/bkjs.js",
                 "web/js/bkjs-lib.js",
