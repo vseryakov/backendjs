@@ -117,7 +117,7 @@
         },
         "bkjs4": {
             "js": [
-                "web/js/jquery.js",
+                "web/js/jquery3.js",
                 "web/js/bootstrap4.js",
                 "web/js/knockout.js",
                 "web/js/knockout.mapping.js",
@@ -128,7 +128,7 @@
                 "web/js/bkjs-bootstrap.js"
             ],
             "js.dev": [
-                "web/js/jquery.debug.js",
+                "web/js/jquery3.debug.js",
                 "web/js/bootstrap4.debug.js",
                 "web/js/knockout.debug.js",
                 "web/js/knockout.mapping.debug.js",
