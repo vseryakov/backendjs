@@ -115,15 +115,15 @@ mod.configureMiddleware = function(options, callback)
 
 mod.configureModule = function(options, callback)
 {
-    db.setProcessRow("post", "bk_message", function(req, row, options) {
+    db.setProcessRow("post", "bk_message", function(req, row) {
         if (row.icon) row.icon = api.iconUrl({ prefix: 'message', id: row.id, type: row.mtime + ":" + row.sender, ext: row.icon_type }); else delete row.icon;
     });
 
-    db.setProcessRow("post", "bk_archive", function(req, row, options) {
+    db.setProcessRow("post", "bk_archive", function(req, row) {
         if (row.icon) row.icon = api.iconUrl({ prefix: 'message', id: row.id, type: row.mtime + ":" + row.sender, ext: row.icon_type  }); else delete row.icon;
     });
 
-    db.setProcessRow("post", "bk_sent", function(req, row, options) {
+    db.setProcessRow("post", "bk_sent", function(req, row) {
         if (row.icon) row.icon = api.iconUrl({ prefix: 'message', id: row.sender, type: row.mtime + ":" + row.id, ext: row.icon_type  }); else delete row.icon;
     });
 

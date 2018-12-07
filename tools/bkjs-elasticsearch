@@ -19,6 +19,7 @@ case "$BKJS_CMD" in
         echo "node.data: true" >> config/elasticsearch.yml
         echo "path.data: $BKJS_HOME/var" >> config/elasticsearch.yml
         echo "path.logs: $BKJS_HOME/log" >> config/elasticsearch.yml
+        echo "action.destructive_requires_name: true" >> config/elasticsearch.yml
         if [ "$OS_TYPE" = "amazon" ]; then
             echo 'network.host: ["_ec2_","_local_"]' >> config/elasticsearch.yml
             echo 'discovery.zen.hosts_provider: ec2' >> config/elasticsearch.yml

@@ -82,7 +82,7 @@ accounts.init = function(options)
 
 accounts.configureMdule = function(options, callback)
 {
-    db.setProcessRow("post", "bk_account", function(req, row, options) {
+    db.setProcessRow("post", "bk_account", function(req, row) {
         if (row.birthday) {
             row.age = Math.floor((Date.now() - lib.toDate(row.birthday))/(86400000*365));
         }

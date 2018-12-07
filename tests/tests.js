@@ -609,7 +609,7 @@ tests.test_db = function(callback)
     var next_token = null;
     var ids = [], rec;
 
-    db.setProcessRow("post", "test4", function(op, row, options, cols) {
+    db.setProcessRow("post", "test4", function(op, row) {
         var type = (row.type || "").split(":");
         row.type = type[0];
         row.mtime = type[1];
