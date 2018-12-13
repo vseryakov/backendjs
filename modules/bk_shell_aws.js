@@ -3,16 +3,12 @@
 //  backendjs 2018
 //
 
-var path = require('path');
-var util = require('util');
-var url = require('url');
-var fs = require('fs');
-var core = require(__dirname + '/../lib/core');
-var lib = require(__dirname + '/../lib/lib');
-var logger = require(__dirname + '/../lib/logger');
-var db = require(__dirname + '/../lib/db');
-var aws = require(__dirname + '/../lib/aws');
-var shell = require(__dirname + '/bk_shell');
+const util = require('util');
+const core = require(__dirname + '/../lib/core');
+const lib = require(__dirname + '/../lib/lib');
+const logger = require(__dirname + '/../lib/logger');
+const aws = require(__dirname + '/../lib/aws');
+const shell = require(__dirname + '/bk_shell');
 
 shell.help.push("-aws-s3-get -path PATH - retrieve a file from S3");
 shell.help.push("-aws-s3-put -path PATH -file FILE - store a file to S3");

@@ -3,15 +3,13 @@
 //  backendjs 2018
 //
 
-var path = require('path');
-var util = require('util');
-var url = require('url');
-var fs = require('fs');
-var core = require(__dirname + '/../lib/core');
-var lib = require(__dirname + '/../lib/lib');
-var logger = require(__dirname + '/../lib/logger');
-var db = require(__dirname + '/../lib/db');
-var shell = require(__dirname + '/bk_shell');
+const path = require('path');
+const fs = require('fs');
+const core = require(__dirname + '/../lib/core');
+const lib = require(__dirname + '/../lib/lib');
+const logger = require(__dirname + '/../lib/logger');
+const db = require(__dirname + '/../lib/db');
+const shell = require(__dirname + '/bk_shell');
 
 shell.help.push("-db-get-config [-separator =] [-format text] [-run-mode MODE] [-app-name NAME] [name VALUE ...] - show all config parameters retrieved from the remote database bk_config table for the current environment, to simulate another environment pass the following arguments as name value pairs: role, network, region, zone, tag");
 shell.help.push("-db-tables [-separator nl] - list all table names for the current db pool");

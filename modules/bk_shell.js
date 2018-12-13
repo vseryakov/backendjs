@@ -3,18 +3,18 @@
 //  backendjs 2018
 //
 
-var cluster = require('cluster');
-var util = require('util');
-var fs = require('fs');
-var core = require(__dirname + '/../lib/core');
-var lib = require(__dirname + '/../lib/lib');
-var logger = require(__dirname + '/../lib/logger');
-var db = require(__dirname + '/../lib/db');
-var ipc = require(__dirname + '/../lib/ipc');
-var api = require(__dirname + '/../lib/api');
-var jobs = require(__dirname + '/../lib/jobs');
+const cluster = require('cluster');
+const util = require('util');
+const fs = require('fs');
+const core = require(__dirname + '/../lib/core');
+const lib = require(__dirname + '/../lib/lib');
+const logger = require(__dirname + '/../lib/logger');
+const db = require(__dirname + '/../lib/db');
+const ipc = require(__dirname + '/../lib/ipc');
+const api = require(__dirname + '/../lib/api');
+const jobs = require(__dirname + '/../lib/jobs');
 
-var shell = {
+const shell = {
     name: "bk_shell",
     help: [
         "-show-info - show app and version information",
