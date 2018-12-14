@@ -3,10 +3,7 @@
 //  backendjs 2018
 //
 
-const util = require('util');
-const core = require(__dirname + '/../lib/core');
 const lib = require(__dirname + '/../lib/lib');
-const logger = require(__dirname + '/../lib/logger');
 const db = require(__dirname + '/../lib/db');
 const aws = require(__dirname + '/../lib/aws');
 
@@ -17,11 +14,11 @@ module.exports = mod;
 
 mod.processTable = function(options, callback)
 {
-    if (!options.table || !options.pool || !options.target_pool) {
-        return lib.tryCall(callback, "table, pool and target_pool must be provided");
+    if (!options.table || !options.source_pool || !options.target_pool) {
+        return lib.tryCall(callback, "table, source_pool and target_pool must be provided");
     }
     options = lib.objClone(options);
-    db.getPool(options.pool).prepareOptions(options);
+    db.getPool(options.source_pool).prepareOptions(options);
     aws.ddbProcessStream(options.table, options, mod.syncProcessor, callback);
 }
 
@@ -45,12 +42,17 @@ mod.syncProcessor = function(cmd, query, options, callback)
 // Get the last processed shard for the stream
 mod.processStream = function(stream, options, callback)
 {
-    db.get("bk_property", { name: stream.StreamArn }, options, (err, row) => {
-        if (row) {
-            stream.ShardId = row.value;
-        }
-        callback(err);
-    });
+    lib.series([
+        function(next) {
+            if (options.force) return next();
+            db.get("bk_property", { name: stream.StreamArn }, options, (err, row) => {
+                if (row) {
+                    stream.ShardId = row.value;
+                }
+                next(err);
+            });
+        },
+    ], callback);
 }
 
 // Get the last processed sequence for the shard
@@ -58,17 +60,22 @@ mod.processShard = function(shard, options, callback)
 {
     lib.series([
         function(next) {
-            db.put("bk_property", { name: shard.StreamArn, value: shard.ShardId, ttl: Date.now() + 86400 }, options, next);
+            if (options.force) return next();
+            db.put("bk_property", { name: shard.StreamArn, value: shard.ShardId, ttl: lib.now() + 86400 }, options, next);
         },
         function(next) {
+            if (options.force) return next();
             db.get("bk_property", { name: shard.ShardId }, options, (err, row) => {
                 if (row) {
                     shard.SequenceNumber = row.value;
                 }
-                shard.ShardIteratorType = shard.SequenceNumber ? "AFTER_SEQUENCE_NUMBER" : "TRIM_HORIZON";
                 next(err);
             });
         },
+        function(next) {
+            shard.ShardIteratorType = shard.SequenceNumber ? "AFTER_SEQUENCE_NUMBER" : "TRIM_HORIZON";
+            next();
+        }
     ], callback);
 }
 
@@ -80,8 +87,7 @@ mod.processRecords = function(result, options, callback)
             db.bulk(bulk, { pool: options.target_pool }, next);
         },
         function(next) {
-            var seq = result.Records[result.Records.length - 1].dynamodb.SequenceNumber;
-            db.put("bk_property", { name: result.ShardId, value: seq, ttl: Date.now() + 86400 }, options, next);
+            db.put("bk_property", { name: result.ShardId, value: result.LastSequenceNumber, ttl: lib.now() + 86400 }, options, next);
         },
     ], callback);
 }
