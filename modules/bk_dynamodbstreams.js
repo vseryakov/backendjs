@@ -3,23 +3,33 @@
 //  backendjs 2018
 //
 
+const logger = require(__dirname + '/../lib/logger');
 const lib = require(__dirname + '/../lib/lib');
 const db = require(__dirname + '/../lib/db');
 const aws = require(__dirname + '/../lib/aws');
 
 const mod = {
-
+    ttl: 86400*2,
 };
 module.exports = mod;
 
 mod.processTable = function(options, callback)
 {
-    if (!options.table || !options.source_pool || !options.target_pool) {
-        return lib.tryCall(callback, "table, source_pool and target_pool must be provided");
-    }
-    options = lib.objClone(options);
-    db.getPool(options.source_pool).prepareOptions(options);
-    aws.ddbProcessStream(options.table, options, mod.syncProcessor, callback);
+    lib.series([
+        function(next) {
+            if (!options.table || !options.source_pool || !options.target_pool) {
+                return next("table, source_pool and target_pool must be provided");
+            }
+            var started = Date.now();
+            options = lib.objClone(options);
+            db.getPool(options.source_pool).prepareOptions(options);
+            aws.ddbProcessStream(options.table, options, mod.syncProcessor, (err) => {
+                options.elapsed = Date.now() - started;
+                logger.info("processTable:", mod.name, err, options);
+                next(err);
+            });
+        },
+    ], callback);
 }
 
 mod.syncProcessor = function(cmd, query, options, callback)
@@ -46,7 +56,7 @@ mod.processStream = function(stream, options, callback)
         function(next) {
             if (options.force) return next();
             db.get("bk_property", { name: stream.StreamArn }, options, (err, row) => {
-                if (row) {
+                if (row && row.value) {
                     stream.ShardId = row.value;
                 }
                 next(err);
@@ -60,22 +70,22 @@ mod.processShard = function(shard, options, callback)
 {
     lib.series([
         function(next) {
+            lib.objIncr(options, "nshards");
             if (options.force) return next();
-            db.put("bk_property", { name: shard.StreamArn, value: shard.ShardId, ttl: lib.now() + 86400 }, options, next);
+            // Do not store still active shards, we will need to revisit for new records
+            if (!lib.getObj(shard, ["SequenceNumberRange", "EndingSequenceNumber"])) return next();
+            db.put("bk_property", { name: shard.StreamArn, value: shard.ShardId, ttl: lib.now() + mod.ttl }, options, next);
         },
         function(next) {
             if (options.force) return next();
             db.get("bk_property", { name: shard.ShardId }, options, (err, row) => {
-                if (row) {
+                if (row && row.value) {
                     shard.SequenceNumber = row.value;
+                    shard.ShardIteratorType = "AFTER_SEQUENCE_NUMBER";
                 }
                 next(err);
             });
         },
-        function(next) {
-            shard.ShardIteratorType = shard.SequenceNumber ? "AFTER_SEQUENCE_NUMBER" : "TRIM_HORIZON";
-            next();
-        }
     ], callback);
 }
 
@@ -83,11 +93,15 @@ mod.processRecords = function(result, options, callback)
 {
     lib.series([
         function(next) {
+            logger.info("processRecords:", mod.name, options.table, result.Shard, result.Records.length);
             var bulk = result.Records.map((x) => ({ op: x.eventName == "REMOVE" ? "del" : "put", obj: x.dynamodb.NewImage || x.dynamodb.Keys }));
             db.bulk(bulk, { pool: options.target_pool }, next);
         },
         function(next) {
-            db.put("bk_property", { name: result.ShardId, value: result.LastSequenceNumber, ttl: lib.now() + 86400 }, options, next);
+            lib.objIncr(options, "nrows", result.Records.length);
+            options.lastShardId = result.Shard.ShardId;
+            options.lastSequenceNumber = result.LastSequenceNumber;
+            db.put("bk_property", { name: options.lastShardId, value: options.lastSequenceNumber, ttl: lib.now() + mod.ttl }, options, next);
         },
     ], callback);
 }
