@@ -39,6 +39,10 @@ mod.syncProcessor = function(cmd, query, options, callback)
         mod.processStream(query, options, callback);
         break;
 
+    case "shards":
+        mod.processShards(query, options, callback);
+        break;
+
     case "shard":
         mod.processShard(query, options, callback);
         break;
@@ -58,6 +62,7 @@ mod.processStream = function(stream, options, callback)
             db.get("bk_property", { name: stream.StreamArn }, options, (err, row) => {
                 if (row && row.value) {
                     stream.ShardId = row.value;
+                    logger.info("processStream:", mod.name, options.table, stream);
                 }
                 next(err);
             });
@@ -70,18 +75,12 @@ mod.processShard = function(shard, options, callback)
 {
     lib.series([
         function(next) {
-            lib.objIncr(options, "nshards");
-            if (options.force) return next();
-            // Do not store still active shards, we will need to revisit for new records
-            if (!lib.getObj(shard, ["SequenceNumberRange", "EndingSequenceNumber"])) return next();
-            db.put("bk_property", { name: shard.StreamArn, value: shard.ShardId, ttl: lib.now() + mod.ttl }, options, next);
-        },
-        function(next) {
             if (options.force) return next();
             db.get("bk_property", { name: shard.ShardId }, options, (err, row) => {
                 if (row && row.value) {
                     shard.SequenceNumber = row.value;
                     shard.ShardIteratorType = "AFTER_SEQUENCE_NUMBER";
+                    logger.info("processShard:", mod.name, options.table, shard);
                 }
                 next(err);
             });
@@ -89,6 +88,18 @@ mod.processShard = function(shard, options, callback)
     ], callback);
 }
 
+// Commit a batch of shards processed
+mod.processShards = function(stream, options, callback)
+{
+    lib.series([
+        function(next) {
+            logger.info("processShards:", mod.name, options.table, stream.lastShardId, stream.shards.length);
+            db.put("bk_property", { name: stream.StreamArn, value: stream.lastShardId, ttl: lib.now() + mod.ttl }, options, next);
+        },
+    ], callback);
+}
+
+// Commit a batch of shard records processed
 mod.processRecords = function(result, options, callback)
 {
     lib.series([
@@ -98,7 +109,6 @@ mod.processRecords = function(result, options, callback)
             db.bulk(bulk, { pool: options.target_pool }, next);
         },
         function(next) {
-            lib.objIncr(options, "nrows", result.Records.length);
             options.lastShardId = result.Shard.ShardId;
             options.lastSequenceNumber = result.LastSequenceNumber;
             db.put("bk_property", { name: options.lastShardId, value: options.lastSequenceNumber, ttl: lib.now() + mod.ttl }, options, next);
