@@ -9,27 +9,42 @@ const db = require(__dirname + '/../lib/db');
 const aws = require(__dirname + '/../lib/aws');
 
 const mod = {
+    args: [
+        { name: "tables", type: "list", descr: "Process streams for given tables in a worker process" },
+        { name: "source-pool", descr: "DynamoDB pool for streams processing" },
+        { name: "target-pool", descr: "A database pool where to sync streams" },
+    ],
     ttl: 86400*2,
 };
 module.exports = mod;
 
+mod.configureWorker = function(options, callback)
+{
+    for (const i in this.tables) {
+        this.processTable({ table: this.tables[i], source_pool: this.source_pool, target_pool: this.target_pool, job: true }, (err, rc) => {
+            logger.logger(err ? "error": "info", "processTable:", mod.name, rc);
+        });
+    }
+    callback();
+}
+
 mod.processTable = function(options, callback)
 {
-    lib.series([
+    if (!options.table || !options.source_pool || !options.target_pool) {
+        return lib.tryCall(callback, "table, source_pool and target_pool must be provided", options);
+    }
+    options = lib.objClone(options);
+    db.getPool(options.source_pool).prepareOptions(options);
+    lib.doWhilst(
         function(next) {
-            if (!options.table || !options.source_pool || !options.target_pool) {
-                return next("table, source_pool and target_pool must be provided");
-            }
-            var started = Date.now();
-            options = lib.objClone(options);
-            db.getPool(options.source_pool).prepareOptions(options);
-            aws.ddbProcessStream(options.table, options, mod.syncProcessor, (err) => {
-                options.elapsed = Date.now() - started;
-                logger.info("processTable:", mod.name, err, options);
-                next(err);
-            });
+            aws.ddbProcessStream(options.table, options, mod.syncProcessor, next);
         },
-    ], callback);
+        function() {
+            return options.job;
+        },
+        (err) => {
+            lib.tryCall(callback, err, options);
+        });
 }
 
 mod.syncProcessor = function(cmd, query, options, callback)
