@@ -1028,6 +1028,102 @@ shell.cmdAwsShowCfnEvents = function(options)
       });
 }
 
+shell.cmdAwsCreateLaunchTemplateVersion = function(options, callback)
+{
+    var appName = this.getArg("-app-name", options, core.appName);
+    var appVersion = this.getArg("-app-version", options, core.appVersion);
+    var name = this.getArg("-name", options);
+    var version = this.getArgInt("-version", options);
+    var imageId = this.getArg("-image-id", options);
+    var tmpl, image;
+
+    lib.series([
+        function(next) {
+            var opts = {
+                LaunchTemplateName: name,
+            };
+            if (version) opts["LaunchTemplateVersion.1"] = version;
+            aws.queryEC2("DescribeLaunchTemplateVersions", opts, function(err, rc) {
+                if (!err) {
+                    tmpl = lib.objGet(rc, "DescribeLaunchTemplateVersionsResponse.launchTemplateVersionSet.item", { list: 1 }).
+                                            sort((a, b) => (a.versionNumber - b.versionNumber)).pop();
+                }
+                next(err);
+            });
+        },
+        function(next) {
+            if (imageId) return next();
+            var filter = shell.getArg("-image-name", options, '*');
+            shell.awsSearchImage(filter, appName, function(err, rc) {
+                if (!err) image = rc;
+                next(err);
+            });
+        },
+        function(next) {
+            var opts = {
+                LaunchTemplateName: name,
+                SourceVersion: tmpl.versionNumber,
+                VersionDescription: image ? image.name : appName + "-" + appVersion,
+            };
+
+            if (image && !imageId) imageId = image.imageId;
+            if (imageId && tmpl.launchTemplateData.imageId != imageId) {
+                opts["LaunchTemplateData.ImageId"] = imageId;
+            }
+
+            var type = shell.getArg("-instance-type", options);
+            if (type && tmpl.launchTemplateData.instanceType != type) {
+                opts["LaunchTemplateData.InstanceType"] = type;
+            }
+
+            var key = shell.getArg("-key-name", options);
+            if (key && tmpl.LaunchTemplateData.keyName != key) {
+                opts["LaunchTemplateData.KeyName"] = key;
+            }
+
+            var profile = shell.getArg("-iam-profile", options);
+            if (profile && (!tmpl.LaunchTemplateData.IamInstanceProfile || tmpl.LaunchTemplateData.IamInstanceProfile.name != profile)) {
+                opts["LaunchTemplateData.IamInstanceProfile.Name"] = profile;
+            }
+
+            var eth0 = lib.objGet(tmpl.LaunchTemplateData, "networkInterfaceSet.item", { list: 1 }).filter((x) => (x.deviceIndex == 0)).pop();
+            var pub = lib.toBool(shell.getArg("-public-ip", options));
+            if (pub && (!eth0 || lib.toBool(eth0.associatePublicIpAddress) != pub)) {
+                opts["LaunchTemplateData.NetworkInterface.1.AssociatePublicIpAddress"] = pub;
+                opts["LaunchTemplateData.NetworkInterface.1.DeviceIndex"] = "0";
+            }
+
+            var groups = lib.strSplit(shell.getArg("-group-id", options)).sort();
+            if (lib.isArray(groups) && (!eth0 || lib.objGet(eth0, "groupSet.groupId", { list: 1 }).sort().join(",") != groups.join(","))) {
+                opts["LaunchTemplateData.NetworkInterface.1.DeviceIndex"] = "0";
+                groups.forEach((x, i) => { opts["LaunchTemplateData.NetworkInterface.1.SecurityGroupId." + (i + 1)] = x });
+            }
+
+            if (tmpl) logger.info("TEMPLATE:", tmpl);
+            if (image) logger.info("IMAGE:", image)
+            logger.log("CreateLaunchTemplateVersion:", opts);
+            if (shell.isArg("-dry-run", options)) return next();
+            if (Object.keys(opts).length == 3) return next();
+            aws.queryEC2("CreateLaunchTemplateVersion", opts, (err, rc) => {
+                if (!err) tmpl = lib.objGet(rc, "CreateLaunchTemplateVersionResponse.launchTemplateVersion");
+                next(err);
+            });
+        },
+        function(next) {
+            if (shell.isArg("-dry-run", options)) return next();
+            if (!shell.isArg("-default", options)) return next();
+            var opts = {
+                LaunchTemplateName: name,
+                SetDefaultVersion: tmpl.versionNumber,
+            };
+            aws.queryEC2("ModifyLaunchTemplate", opts, next);
+        },
+    ], function(err) {
+        if (typeof callback == "function") return callback(err);
+        shell.exit(err);
+    });
+}
+
 shell.cmdAwsCreateLaunchConfig = function(options, callback)
 {
     var appName = this.getArg("-app-name", options, core.appName);
