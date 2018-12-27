@@ -15,6 +15,7 @@ const mod = {
         { name: "source-pool", descr: "DynamoDB pool for streams processing" },
         { name: "target-pool", descr: "A database pool where to sync streams" },
     ],
+    running: 0,
     ttl: 86400*2,
 };
 module.exports = mod;
@@ -31,6 +32,12 @@ mod.configureWorker = function(options, callback)
 
 mod.shutdownWorker = function(options, callback)
 {
+    this.exiting = 1;
+    var timer = setInterval(function() {
+        if (mod.running > 0 && mod.exiting++ < 10) return;
+        clearInterval(timer);
+        callback();
+    }, this.running ? 500 : 0);
 }
 
 mod.processTable = function(options, callback)
@@ -40,6 +47,7 @@ mod.processTable = function(options, callback)
     }
     options = lib.objClone(options, "logger_error", { ResourceNotFoundException: "debug" });
     db.getPool(options.source_pool).prepareOptions(options);
+    this.running++;
     lib.doWhilst(
         function(next) {
             aws.ddbProcessStream(options.table, options, mod.syncProcessor, next);
@@ -48,6 +56,7 @@ mod.processTable = function(options, callback)
             return options.job && mod.syncProcessor("running", options, options);
         },
         (err) => {
+            mod.running--;
             lib.tryCall(callback, err, options);
         });
 }
@@ -77,8 +86,8 @@ mod.processStream = function(stream, options, callback)
             db.get("bk_property", { name: stream.StreamArn }, options, (err, row) => {
                 if (row && row.value && !options.force) {
                     stream.ShardId = row.value;
+                    logger.info("processStream:", mod.name, options.table, stream);
                 }
-                logger.info("processStream:", mod.name, options.table, stream, row);
                 next(err);
             });
         },
@@ -94,8 +103,8 @@ mod.processShard = function(shard, options, callback)
                 if (row && row.value && !options.force) {
                     shard.SequenceNumber = row.value;
                     shard.ShardIteratorType = "AFTER_SEQUENCE_NUMBER";
+                    logger.info("processShard:", mod.name, options.table, shard);
                 }
-                logger.info("processShard:", mod.name, options.table, shard, row);
                 next(err);
             });
         },

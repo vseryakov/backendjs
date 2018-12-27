@@ -101,8 +101,9 @@ case "$BKJS_CMD" in
     ;;
 
   ec2-tag)
+    tag=$(get_arg -tag Name)
     instance=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
-    aws ec2 describe-tags --filter "Name=key,Values=Name" --filter "resource-type=instance" --filter "Name=resource-id,Values=$instance" --output text| cut -f5|head -1
+    aws ec2 describe-tags --filter "Name=key,Values=$tag" "Name=resource-id,Values=$instance" --output text| cut -f5|head -1
     ;;
 
   ec2-stop-api)
@@ -195,7 +196,7 @@ case "$BKJS_CMD" in
     echo "  ec2-ssh -tag NAME [-region region] [-pub] [-cmd cmd] [-index N|.] - ssh into a host by tag name, key name will be used to specify a keypair from ~/.ssh/, -pub tells to use public IP, -cmd if specified will be run on all matched hosts, -index tell which specific host to use only, dot means all hosts"
     echo "  ec2-host [-tag NAME] [-skip-tag NAME] - show running instances local IP addresses by tag"
     echo "  ec2-region - current instance region"
-    echo "  ec2-tag - current instance tag name"
+    echo "  ec2-tag [-tag NAME] - current instance tag name, default key is Name"
     echo "  ec2-stop-api [-tag NAME] - restart gracefully on the specified instances by tag"
     echo "  create-ami [-tag NAME] - create a new AMI from the given running instance by tag or the current instance"
     echo "  create-launch-config [-name NAME] - create new launch configuration from the latest AMI, if no -name is given all existing configs will be copied"
