@@ -8,6 +8,7 @@ const lib = require(__dirname + '/../lib/lib');
 const db = require(__dirname + '/../lib/db');
 const aws = require(__dirname + '/../lib/aws');
 const jobs = require(__dirname + '/../lib/jobs');
+const ipc = require(__dirname + '/../lib/ipc');
 
 const mod = {
     args: [
@@ -15,15 +16,21 @@ const mod = {
         { name: "source-pool", descr: "DynamoDB pool for streams processing" },
         { name: "target-pool", descr: "A database pool where to sync streams" },
     ],
-    running: 0,
+    running: [],
     ttl: 86400*2,
+    lockTtl: 30000,
 };
 module.exports = mod;
+
+mod.processTable = function(table, options, callback)
+{
+    aws.ddbProcessStream(table, options, this.syncProcessor, callback);
+}
 
 mod.configureWorker = function(options, callback)
 {
     for (const i in this.tables) {
-        this.processTable({ table: this.tables[i], source_pool: this.source_pool, target_pool: this.target_pool, job: true }, (err, rc) => {
+        this.runJob({ table: this.tables[i], source_pool: this.source_pool, target_pool: this.target_pool, job: true }, (err, rc) => {
             logger.logger(err ? "error": "info", "processTable:", mod.name, rc);
         });
     }
@@ -34,38 +41,67 @@ mod.shutdownWorker = function(options, callback)
 {
     this.exiting = 1;
     var timer = setInterval(function() {
-        if (mod.running > 0 && mod.exiting++ < 10) return;
+        if (mod.running.length > 0 && mod.exiting++ < 10) return;
         clearInterval(timer);
         callback();
-    }, this.running ? 500 : 0);
+    }, this.running.length ? 500 : 0);
 }
 
-mod.processTable = function(options, callback)
+mod.runJob = function(options, callback)
 {
     if (!options.table || !options.source_pool || !options.target_pool) {
         return lib.tryCall(callback, "table, source_pool and target_pool must be provided", options);
     }
     options = lib.objClone(options, "logger_error", { ResourceNotFoundException: "debug" });
     db.getPool(options.source_pool).prepareOptions(options);
-    this.running++;
+
+    var stream = { table: options.table };
     lib.doWhilst(
         function(next) {
-            aws.ddbProcessStream(options.table, options, mod.syncProcessor, next);
+            mod.jobProcessor(stream, options, next);
         },
         function() {
-            return options.job && mod.syncProcessor("running", options, options);
+            return mod.syncProcessor("running", stream, options);
         },
-        (err) => {
-            mod.running--;
-            lib.tryCall(callback, err, options);
-        });
+        callback);
+}
+
+mod.jobProcessor = function(stream, options, callback)
+{
+    var timer;
+    lib.everySeries([
+        function(next) {
+            mod.running.push(options.table);
+            ipc.lock(mod.name + ":" + stream.table, { ttl: mod.lockTtl, queueName: jobs.uniqueQueue }, next);
+        },
+        function(next, err, locked) {
+            if (!locked) return next();
+            timer = setInterval(function() {
+                ipc.lock(mod.name + ":" + stream.table, { ttl: mod.lockTtl, queueName: jobs.uniqueQueue, set: 1 });
+            }, mod.lockTtl * 0.9);
+            next();
+        },
+        function(next) {
+            if (!timer) return next();
+            aws.ddbProcessStream(stream, options, mod.syncProcessor, next);
+        },
+        function(next) {
+            if (!timer) return next();
+            clearInterval(timer);
+            ipc.unlock(mod.name + ":" + stream.table, { queueName: jobs.uniqueQueue }, next);
+        },
+        function(next) {
+            lib.arrayRemove(mod.running, options.table);
+            setTimeout(next, !stream.StreamArn || !timer ? mod.lockTtl : 1000);
+        },
+    ], callback);
 }
 
 mod.syncProcessor = function(cmd, query, options, callback)
 {
     switch (cmd) {
     case "running":
-        return !this.exiting && !jobs.exiting;
+        return !this.exiting && !jobs.exiting && !jobs.isCancelled(mod.name, query.table);
 
     case "stream":
         return mod.processStream(query, options, callback);
