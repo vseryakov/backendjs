@@ -1099,13 +1099,28 @@ shell.cmdAwsCreateLaunchTemplateVersion = function(options, callback)
                 groups.forEach((x, i) => { opts["LaunchTemplateData.NetworkInterface.1.SecurityGroupId." + (i + 1)] = x });
             }
 
+            var dname = shell.getArg("-dev-name", options, "/dev/xvda");
+            var dsize = shell.getArg("-dev-size", options);
+            var dtype = shell.getArg("-dev-type", options, "gp2");
+            var iops = shell.getArgInt("-dev-iops", options);
+            var dev = lib.objGet(tmpl.LaunchTemplateData, "blockDeviceMappingSet.item", { list: 1 }).filter((x) => (x.deviceName == dname)).pop();
+            if (dsize && (!dev || !dev.ebs || dev.ebs.volumeSize != dsize || dev.ebs.volumeType != dtype || (iops && dev.ebs.iops != iops))) {
+                opts['LaunchTemplateData.BlockDeviceMappings.1.Ebs.VolumeSize'] = dsize;
+                opts['LaunchTemplateData.BlockDeviceMappings.1.Ebs.VolumeType'] = dtype;
+                opts['LaunchTemplateData.BlockDeviceMappings.1.DeviceName'] = dname;
+                if (iops) opts['LaunchTemplateData.BlockDeviceMappings.1.Ebs.Iops'] = iops;
+            }
+
             if (tmpl) logger.info("TEMPLATE:", tmpl);
             if (image) logger.info("IMAGE:", image)
             logger.log("CreateLaunchTemplateVersion:", opts);
             if (shell.isArg("-dry-run", options)) return next();
             if (Object.keys(opts).length == 3) return next();
             aws.queryEC2("CreateLaunchTemplateVersion", opts, (err, rc) => {
-                if (!err) tmpl = lib.objGet(rc, "CreateLaunchTemplateVersionResponse.launchTemplateVersion");
+                if (!err) {
+                    tmpl = lib.objGet(rc, "CreateLaunchTemplateVersionResponse.launchTemplateVersion");
+                    logger.log("CreateLaunchTemplateVersionResponse:", tmpl);
+                }
                 next(err);
             });
         },
