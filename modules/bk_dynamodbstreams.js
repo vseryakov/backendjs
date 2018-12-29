@@ -32,7 +32,7 @@ mod.processTable = function(table, options, callback)
 
 mod.configureWorker = function(options, callback)
 {
-    this.subscribeWorker(options);
+    setTimeout(function() { mod.subscribeWorker() }, lib.toNumber(jobs.workerDelay) + lib.randomShort()/1000);
     callback();
 }
 
@@ -54,7 +54,7 @@ mod.subscribeWorker = function(options)
             jobs.cancelTask(mod.name, { tag: table.substr(1) });
         } else {
             if (lib.isFlag(this.jobs, table)) continue;
-            this.runJob({ table: table, source_pool: this.source_pool, target_pool: this.target_pool, job: true });
+            this.runJob({ table: table, source_pool: this.sourcePool, target_pool: this.targetPool, job: true });
         }
     }
 }
@@ -64,6 +64,7 @@ mod.runJob = function(options, callback)
     if (!options.table || !options.source_pool || !options.target_pool) {
         return lib.tryCall(callback, "table, source_pool and target_pool must be provided", options);
     }
+    logger.info("runJob:", mod.name, "started", options);
     options = lib.objClone(options, "logger_error", { ResourceNotFoundException: "debug" });
     db.getPool(options.source_pool).prepareOptions(options);
     this.jobs.push(options.table);
@@ -120,9 +121,9 @@ mod.jobProcessor = function(stream, options, callback)
 
 mod.syncProcessor = function(cmd, query, options, callback)
 {
+    logger.debug("syncProcessor:", mod.name, cmd, query);
     switch (cmd) {
     case "running":
-        logger.log(query)
         return !mod.exiting && !jobs.exiting && !jobs.isCancelled(mod.name, query.table);
 
     case "stream":
