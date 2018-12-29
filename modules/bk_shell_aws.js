@@ -27,6 +27,7 @@ shell.help.push("-aws-replace-elb -elb-name NAME [-timeout MSECS] [-interval MSE
 shell.help.push("-aws-setup-ssh -group-name NAME [-close] [-dry-run]");
 shell.help.push("-aws-setup-instance [-cmd CMD] [-file FILE ] [-wait] [-dry-run]");
 shell.help.push("-aws-create-launch-config [-name NAME] [-config-name NAME] [-instance-name NAME] [-update-groups] [-dry-run] - create a launch configuration for autoscaling, can copy from an instance or other existing config, optinally update all ASGs with new config name");
+shell.help.push("-aws-create-launch-template-version -name NAME [-version N] [-default] [-dry-run] - create a launch template version with the most recent AMI");
 shell.help.push("-aws-set-route53 -name HOSTNAME [-current] [-filter PATTERN] [-type A|CNAME] [-ttl N] [-public] [-dry-run] - create or update a Route53 record of specified type with IP/hostnames of all instances that satisfy the given filter, -public makes it use public IP/hostnames");
 shell.help.push("-aws-check-cfn -file FILE - verify a CF template");
 shell.help.push("-aws-create-cfn -name NAME -file FILE [-aws-region REGION] [-retain] [-wait] [-PARAM VALUE] ...");

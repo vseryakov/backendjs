@@ -16,6 +16,7 @@ Features:
   same way allowing to switch databases without changing the code.
 * Database drivers for LevelDB, LMDB, CouchDB, Riak, ElasticSearch support only a subset of all database operations
 * Database operations (Get, Put, Del, Update, Select) for all supported databases using the same DB API.
+* DynamoDB Streams processing in background worker processes
 * Easily extendable to support any kind of database, provides a database driver on top of Redis with all supported methods as an example.
 * Provides accounts, connections, locations, messaging and icons APIs with basic functionality for a qucik start.
 * Supports crontab and queue job processing by separate worker processes.

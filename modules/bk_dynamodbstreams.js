@@ -12,13 +12,16 @@ const ipc = require(__dirname + '/../lib/ipc');
 
 const mod = {
     args: [
-        { name: "tables", type: "list", descr: "Process streams for given tables in a worker process" },
+        { name: "tables", type: "list", onupdate: function() {if(ipc.role=="worker")this.subscribeWorker()}, descr: "Process streams for given tables in a worker process" },
         { name: "source-pool", descr: "DynamoDB pool for streams processing" },
         { name: "target-pool", descr: "A database pool where to sync streams" },
+        { name: "max-timeout-([0-9]+)-([0-9]+)", type: "list", obj: "timeouts", make: "$1,$2", regexp: /^[0-9]+$/, reverse: 1, nocamel: 1, descr: "Max timeout on empty records during given time period in 24h format, example: -bk_dynamodbstreams-max-timeout-1-8 30000" },
     ],
+    jobs: [],
     running: [],
     ttl: 86400*2,
     lockTtl: 30000,
+    timeouts: {},
 };
 module.exports = mod;
 
@@ -29,11 +32,7 @@ mod.processTable = function(table, options, callback)
 
 mod.configureWorker = function(options, callback)
 {
-    for (const i in this.tables) {
-        this.runJob({ table: this.tables[i], source_pool: this.source_pool, target_pool: this.target_pool, job: true }, (err, rc) => {
-            logger.logger(err ? "error": "info", "processTable:", mod.name, rc);
-        });
-    }
+    this.subscribeWorker(options);
     callback();
 }
 
@@ -47,6 +46,19 @@ mod.shutdownWorker = function(options, callback)
     }, this.running.length ? 500 : 0);
 }
 
+mod.subscribeWorker = function(options)
+{
+    for (const i in this.tables) {
+        var table = this.tables[i];
+        if (table[0] == "-") {
+            jobs.cancelTask(mod.name, { tag: table.substr(1) });
+        } else {
+            if (lib.isFlag(this.jobs, table)) continue;
+            this.runJob({ table: table, source_pool: this.source_pool, target_pool: this.target_pool, job: true });
+        }
+    }
+}
+
 mod.runJob = function(options, callback)
 {
     if (!options.table || !options.source_pool || !options.target_pool) {
@@ -54,7 +66,7 @@ mod.runJob = function(options, callback)
     }
     options = lib.objClone(options, "logger_error", { ResourceNotFoundException: "debug" });
     db.getPool(options.source_pool).prepareOptions(options);
-
+    this.jobs.push(options.table);
     var stream = { table: options.table };
     lib.doWhilst(
         function(next) {
@@ -63,7 +75,11 @@ mod.runJob = function(options, callback)
         function() {
             return mod.syncProcessor("running", stream, options);
         },
-        callback);
+        (err) => {
+            logger.logger(err ? "error": "info", "runJob:", mod.name, "finished:", err, options);
+            lib.arrayRemove(mod.jobs, options.table);
+            lib.tryCall(callback, err);
+        });
 }
 
 mod.jobProcessor = function(stream, options, callback)
@@ -83,6 +99,11 @@ mod.jobProcessor = function(stream, options, callback)
         },
         function(next) {
             if (!timer) return next();
+            // Allow to wait longer during off hours or be more responsive during hugh activity
+            options.shardRetryMaxTimeout = 0;
+            for (var p in mod.timeouts) {
+                if (lib.isTimeRange(mod.timeouts[0], mod.timeouts[1])) options.shardRetryMaxTimeout = p;
+            }
             aws.ddbProcessStream(stream, options, mod.syncProcessor, next);
         },
         function(next) {
@@ -101,7 +122,8 @@ mod.syncProcessor = function(cmd, query, options, callback)
 {
     switch (cmd) {
     case "running":
-        return !this.exiting && !jobs.exiting && !jobs.isCancelled(mod.name, query.table);
+        logger.log(query)
+        return !mod.exiting && !jobs.exiting && !jobs.isCancelled(mod.name, query.table);
 
     case "stream":
         return mod.processStream(query, options, callback);
@@ -157,6 +179,7 @@ mod.processRecords = function(result, options, callback)
             db.bulk(bulk, { pool: options.target_pool }, next);
         },
         function(next) {
+            lib.objIncr(options, "records", result.Records.length);
             options.lastShardId = result.Shard.ShardId;
             options.lastSequenceNumber = result.LastSequenceNumber;
             db.put("bk_property", { name: options.lastShardId, value: options.lastSequenceNumber, ttl: lib.now() + mod.ttl }, options, next);
