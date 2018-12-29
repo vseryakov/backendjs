@@ -65,7 +65,7 @@ mod.runJob = function(options, callback)
         return lib.tryCall(callback, "table, source_pool and target_pool must be provided", options);
     }
     logger.info("runJob:", mod.name, "started", options);
-    options = lib.objClone(options, "logger_error", { ResourceNotFoundException: "debug" });
+    options = lib.objClone(options, "logger_error", { ResourceNotFoundException: "info", TrimmedDataAccessException: "info", ExpiredIteratorException: "info" });
     db.getPool(options.source_pool).prepareOptions(options);
     this.jobs.push(options.table);
     var stream = { table: options.table };
