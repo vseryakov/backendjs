@@ -15,12 +15,14 @@ const mod = {
         { name: "tables", type: "list", onupdate: function() {if(ipc.role=="worker")this.subscribeWorker()}, descr: "Process streams for given tables in a worker process" },
         { name: "source-pool", descr: "DynamoDB pool for streams processing" },
         { name: "target-pool", descr: "A database pool where to sync streams" },
+        { name: "lock-ttl", type: "int", descr: "Lock timeout and the delay between lock attempts" },
+        { name: "lock-type", descr: "Locking policy, stream or shard to avoid processing to the same resources" },
         { name: "max-timeout-([0-9]+)-([0-9]+)", type: "list", obj: "timeouts", make: "$1,$2", regexp: /^[0-9]+$/, reverse: 1, nocamel: 1, descr: "Max timeout on empty records during given time period in 24h format, example: -bk_dynamodbstreams-max-timeout-1-8 30000" },
     ],
     jobs: [],
-    running: [],
     ttl: 86400*2,
     lockTtl: 30000,
+    lockType: "stream",
     timeouts: {},
 };
 module.exports = mod;
@@ -40,10 +42,10 @@ mod.shutdownWorker = function(options, callback)
 {
     this.exiting = 1;
     var timer = setInterval(function() {
-        if (mod.running.length > 0 && mod.exiting++ < 10) return;
+        if (mod.jobs.length > 0 && mod.exiting++ < 10) return;
         clearInterval(timer);
         callback();
-    }, this.running.length ? 500 : 0);
+    }, this.jobs.length ? 1000 : 0);
 }
 
 mod.subscribeWorker = function(options)
@@ -71,7 +73,13 @@ mod.runJob = function(options, callback)
     var stream = { table: options.table };
     lib.doWhilst(
         function(next) {
-            mod.jobProcessor(stream, options, next);
+            options.shardRetryMaxTimeout = 0;
+            for (var p in mod.timeouts) {
+                if (lib.isTimeRange(mod.timeouts[0], mod.timeouts[1])) options.shardRetryMaxTimeout = p;
+            }
+            aws.ddbProcessStream(stream, options, mod.syncProcessor, () => {
+                setTimeout(next, !stream.StreamArn ? mod.lockTtl : 1000);
+            });
         },
         function() {
             return mod.syncProcessor("running", stream, options);
@@ -83,40 +91,26 @@ mod.runJob = function(options, callback)
         });
 }
 
-mod.jobProcessor = function(stream, options, callback)
+mod.lock = function(key, query, options, callback)
 {
-    var timer;
-    lib.everySeries([
-        function(next) {
-            mod.running.push(options.table);
-            ipc.lock(mod.name + ":" + stream.table, { ttl: mod.lockTtl, queueName: jobs.uniqueQueue }, next);
-        },
-        function(next, err, locked) {
-            if (!locked) return next();
-            timer = setInterval(function() {
-                ipc.lock(mod.name + ":" + stream.table, { ttl: mod.lockTtl, queueName: jobs.uniqueQueue, set: 1 });
+    ipc.lock(mod.name + ":" + query[key], { ttl: mod.lockTtl, queueName: jobs.uniqueQueue }, (err, locked) => {
+        if (locked) {
+            query.lockTimer = setInterval(function() {
+                ipc.lock(mod.name + ":" + query[key], { ttl: mod.lockTtl, queueName: jobs.uniqueQueue, set: 1 });
             }, mod.lockTtl * 0.9);
-            next();
-        },
-        function(next) {
-            if (!timer) return next();
-            // Allow to wait longer during off hours or be more responsive during hugh activity
-            options.shardRetryMaxTimeout = 0;
-            for (var p in mod.timeouts) {
-                if (lib.isTimeRange(mod.timeouts[0], mod.timeouts[1])) options.shardRetryMaxTimeout = p;
-            }
-            aws.ddbProcessStream(stream, options, mod.syncProcessor, next);
-        },
-        function(next) {
-            if (!timer) return next();
-            clearInterval(timer);
-            ipc.unlock(mod.name + ":" + stream.table, { queueName: jobs.uniqueQueue }, next);
-        },
-        function(next) {
-            lib.arrayRemove(mod.running, options.table);
-            setTimeout(next, !stream.StreamArn || !timer ? mod.lockTtl : 1000);
-        },
-    ], callback);
+        } else {
+            delete query.lockTimer;
+        }
+        callback(err, locked);
+    });
+}
+
+mod.unlock = function(key, query, options, callback)
+{
+    if (!query.lockTimer) return callback();
+    clearInterval(query.lockTimer);
+    delete query.lockTimer;
+    ipc.unlock(mod.name + ":" + query[key], { queueName: jobs.uniqueQueue }, callback);
 }
 
 mod.syncProcessor = function(cmd, query, options, callback)
@@ -126,37 +120,57 @@ mod.syncProcessor = function(cmd, query, options, callback)
     case "running":
         return !mod.exiting && !jobs.exiting && !jobs.isCancelled(mod.name, query.table);
 
-    case "stream":
-        return mod.processStream(query, options, callback);
+    case "stream-start":
+        return mod.processStreamStart(query, options, callback);
 
-    case "shard":
-        return mod.processShard(query, options, callback);
+    case "stream-end":
+        return mod.processStreamEnd(query, options, callback);
+
+    case "shard-start":
+        return mod.processShardStart(query, options, callback);
+
+    case "shard-end":
+        return mod.processShardEnd(query, options, callback);
 
     case "records":
         return mod.processRecords(query, options, callback);
     }
 }
 
-// Get the last processed shard for the stream
-mod.processStream = function(stream, options, callback)
+mod.processStreamStart = function(stream, options, callback)
 {
     lib.series([
         function(next) {
-            db.get("bk_property", { name: stream.StreamArn }, options, (err, row) => {
-                if (row && row.value && !options.force) {
-                    stream.ShardId = row.value;
-                    logger.info("processStream:", mod.name, options.table, stream);
-                }
+            if (mod.lockType != "stream") return next();
+            mod.lock("table", stream, options, (err, locked) => {
+                if (!err && !locked) return setTimeout(next, 1000, "not-locked");
                 next(err);
             });
         },
     ], callback);
 }
 
-// Get the last processed sequence for the shard
-mod.processShard = function(shard, options, callback)
+mod.processStreamEnd = function(stream, options, callback)
 {
     lib.series([
+        function(next) {
+            if (mod.lockType != "stream") return next();
+            mod.unlock("table", stream, options, next);
+        },
+    ], callback);
+}
+
+// Get the last processed sequence for the shard
+mod.processShardStart = function(shard, options, callback)
+{
+    lib.series([
+        function(next) {
+            if (mod.lockType != "shard") return next();
+            mod.lock("ShardId", shard, options, (err, locked) => {
+                if (!err && !locked) err = "not-locked";
+                next(err);
+            });
+        },
         function(next) {
             db.get("bk_property", { name: shard.ShardId }, options, (err, row) => {
                 if (row && row.value && !options.force) {
@@ -170,17 +184,29 @@ mod.processShard = function(shard, options, callback)
     ], callback);
 }
 
+mod.processShardEnd = function(shard, options, callback)
+{
+    lib.series([
+        function(next) {
+            if (mod.lockType != "shard") return next();
+            mod.unlock("ShardId", shard, options, next);
+        },
+    ], callback);
+}
+
 // Commit a batch of shard records processed
 mod.processRecords = function(result, options, callback)
 {
     lib.series([
         function(next) {
+            if (!result.Records.length) return next();
+            lib.objIncr(options, "records", result.Records.length);
             logger.info("processRecords:", mod.name, options.table, result.Shard, result.LastSequenceNumber, result.Records.length, "records");
             var bulk = result.Records.map((x) => ({ op: x.eventName == "REMOVE" ? "del" : "put", table: options.table, obj: x.dynamodb.NewImage || x.dynamodb.Keys }));
             db.bulk(bulk, { pool: options.target_pool }, next);
         },
         function(next) {
-            lib.objIncr(options, "records", result.Records.length);
+            if (!result.LastSequenceNumber) return next();
             options.lastShardId = result.Shard.ShardId;
             options.lastSequenceNumber = result.LastSequenceNumber;
             db.put("bk_property", { name: options.lastShardId, value: options.lastSequenceNumber, ttl: lib.now() + mod.ttl }, options, next);
