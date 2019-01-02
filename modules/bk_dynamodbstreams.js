@@ -17,13 +17,15 @@ const mod = {
         { name: "target-pool", descr: "A database pool where to sync streams" },
         { name: "lock-ttl", type: "int", descr: "Lock timeout and the delay between lock attempts" },
         { name: "lock-type", descr: "Locking policy, stream or shard to avoid processing to the same resources" },
-        { name: "max-timeout-([0-9]+)-([0-9]+)", type: "list", obj: "timeouts", make: "$1,$2", regexp: /^[0-9]+$/, reverse: 1, nocamel: 1, descr: "Max timeout on empty records during given time period in 24h format, example: -bk_dynamodbstreams-max-timeout-1-8 30000" },
+        { name: "max-timeout-([0-9]+)-([0-9]+)", type: "list", obj: "periodTimeouts", make: "$1,$2", regexp: /^[0-9]+$/, reverse: 1, nocamel: 1, descr: "Max timeout on empty records during the given hours range in 24h format, example: -bk_dynamodbstreams-max-timeout-1-8 30000" },
+        { name: "max-timeout-([a-z0-9_]+)", type: "int", obj: "maxTimeouts", strip: /max-timeout-/, nocamel: 1, descr: "Max timeout on empty records by table, example: -bk_dynamodbstreams-max-timeout-table_name 30000" },
     ],
     jobs: [],
     ttl: 86400*2,
     lockTtl: 30000,
     lockType: "stream",
-    timeouts: {},
+    periodTimeouts: {},
+    maxTimeouts: {},
 };
 module.exports = mod;
 
@@ -73,9 +75,11 @@ mod.runJob = function(options, callback)
     var stream = { table: options.table };
     lib.doWhilst(
         function(next) {
-            options.shardRetryMaxTimeout = 0;
-            for (var p in mod.timeouts) {
-                if (lib.isTimeRange(mod.timeouts[0], mod.timeouts[1])) options.shardRetryMaxTimeout = p;
+            options.shardRetryMaxTimeout = mod.maxTimeouts[options.table] || 0;
+            for (var p in mod.periodTimeouts) {
+                if (lib.isTimeRange(mod.periodTimeouts[p][0], mod.periodTimeouts[p][1])) {
+                    options.shardRetryMaxTimeout = Math.max(p, options.shardRetryMaxTimeout);
+                }
             }
             aws.ddbProcessStream(stream, options, mod.syncProcessor, () => {
                 setTimeout(next, !stream.StreamArn ? mod.lockTtl : 1000);
