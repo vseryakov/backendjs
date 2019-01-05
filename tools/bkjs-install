@@ -116,6 +116,7 @@ case "$BKJS_CMD" in
        echo 'alias ps="ps augx"' >> $LHOME/.bashrc
        echo 'alias mc="mc -b"' >> $LHOME/.bashrc
        echo 'alias df="df -h"' >> $LHOME/.bashrc
+       echo 'alias als="bkjs ec2-ls"' >> $LHOME/.bashrc
        echo 'bcp() { socat readline,history=$HOME/.socat tcp4:localhost:$1; }' >> $LHOME/.bashrc
        echo 'ec2ssh() { ssh -i ~/.ssh/$2.pem -l ec2-user $1 $3; }' >> $LHOME/.bashrc
        echo 'ec2scp() { scp -r -i ~/.ssh/$3.pem $1 ec2-user@$2; }' >> $LHOME/.bashrc

@@ -208,7 +208,7 @@ case "$BKJS_CMD" in
     echo "  ec2-stop-api [-tag NAME] - restart gracefully on the specified instances by tag"
     echo "  create-ami [-tag NAME] - create a new AMI from the given running instance by tag or the current instance"
     echo "  create-launch-config [-name NAME] - create new launch configuration from the latest AMI, if no -name is given all existing configs will be copied"
-    echo "  create-launch-template-verson [-name NAME] - create new launch template verson with the latest AMI, if no -name is given all existing templates will be updated"
+    echo "  create-launch-template-version [-name NAME] - create new launch template verson with the latest AMI, if no -name is given all existing templates will be updated"
     echo "  init-sendmail-ses - [-domain DOMAIN] -alert-host HOST -alert-user USER -alert-password PW - configure sendmail as relay to SES SMTP"
     ;;
 

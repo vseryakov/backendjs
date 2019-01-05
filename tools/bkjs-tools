@@ -59,7 +59,7 @@ case "$BKJS_CMD" in
   run-dynamodb)
     [ "$DYNAMODB_PREFIX" = "" ] && DYNAMODB_PREFIX=$BKJS_PREFIX/dynamodb
     mkdir -p $BKJS_HOME/var $BKJS_HOME/log
-    params="-Xmx$(get_arg -xmx 512M)"
+    params="-Xmx$(get_arg -memmax 512M)"
     exec nohup java $params -Djava.library.path=$DYNAMODB_PREFIX/DynamoDBLocal_lib -jar $DYNAMODB_PREFIX/DynamoDBLocal.jar -dbPath $BKJS_HOME/var -port 8181 >>$BKJS_HOME/log/message.log 2>&1 &
     ;;
 
@@ -96,9 +96,9 @@ case "$BKJS_CMD" in
     mkdir -p $BKJS_HOME/var $BKJS_HOME/log
     # Percent from the total memory
     memsize=$(get_arg -memsize)
-    [ "$memsize" != "" ] && xmx="$(( ($(free -m|grep Mem:|awk '{print $2}') * $memsize) / 100 ))M"
-    [ "$xmx" = "" ] && xmx=$(get_arg -xmx 512M)
-    params="-Xmx$xmx -Dhazelcast.config=$BKJS_HOME/etc/hazelcast.xml"
+    [ "$memsize" != "" ] && memmax="$(( ($(free -m|grep Mem:|awk '{print $2}') * $memsize) / 100 ))M"
+    [ "$memmax" = "" ] && memmax=$(get_arg -memmax 512M)
+    params="-Xmx$memmax -Dhazelcast.config=$BKJS_HOME/etc/hazelcast.xml"
     cp=$(ls $HAZELCAST_PREFIX/lib/hazelcast-all-*.jar)
     exec nohup java -server $params -cp $cp com.hazelcast.core.server.StartServer >>$BKJS_HOME/log/message.log 2>&1 &
     ;;
@@ -191,7 +191,7 @@ case "$BKJS_CMD" in
     echo ""
     echo "  init-dynamodb - download and install local DynamoDB, start the server"
     echo "  get-dynamodb [-force] - install local DynamoDB server in $BKJS_PREFIX/dynamodb"
-    echo "  run-dynamodb - run local DynamoDB server installed in $BKJS_PREFIX/dynamodb, data files in $BKJS_HOME/var"
+    echo "  run-dynamodb [-memmax SZ] - run local DynamoDB server installed in $BKJS_PREFIX/dynamodb, data files in $BKJS_HOME/var"
     echo "  stop-dynamodb - stop local DynamoDB server"
     echo "  reset-dynamodb - remove local DynamoDB database and restart the server"
     echo "  init-pgsql [-db NAME] - setup and run the PostgreSQL server, install in $PG_PREFIX, data files in $PG_DIR, create initial database"
