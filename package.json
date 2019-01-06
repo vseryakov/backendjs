@@ -88,11 +88,11 @@
     "bundles": {
         "bkjs": {
             "js": [
-                "web/js/jquery.js",
-                "web/js/bootstrap.js",
-                "web/js/knockout.js",
-                "web/js/knockout.mapping.js",
-                "web/js/knockout-es5.js",
+                "web/js/jquery.min.js",
+                "web/js/bootstrap.min.js",
+                "web/js/knockout.min.js",
+                "web/js/knockout-mapping.min.js",
+                "web/js/knockout-es5.min.js",
                 "web/js/crypto.js",
                 "web/js/bkjs.js",
                 "web/js/bkjs-lib.js",
@@ -100,11 +100,11 @@
                 "web/js/bkjs-bootstrap.js"
             ],
             "js.dev": [
-                "web/js/jquery.debug.js",
-                "web/js/bootstrap.debug.js",
-                "web/js/knockout.debug.js",
-                "web/js/knockout.mapping.debug.js",
-                "web/js/knockout-es5.debug.js",
+                "web/js/jquery.js",
+                "web/js/bootstrap.js",
+                "web/js/knockout.js",
+                "web/js/knockout-mapping.js",
+                "web/js/knockout-es5.js",
                 "web/js/crypto.js",
                 "web/js/bkjs.js",
                 "web/js/bkjs-lib.js",
@@ -118,10 +118,11 @@
         },
         "bkjs4": {
             "js": [
-                "web/js/jquery3.js",
-                "web/js/bootstrap4.js",
-                "web/js/knockout.js",
-                "web/js/knockout.mapping.js",
+                "web/js/jquery3.min.js",
+                "web/js/bootstrap4.min.js",
+                "web/js/knockout.min.js",
+                "web/js/knockout-mapping.min.js",
+                "web/js/knockout-es5.min.js",
                 "web/js/crypto.js",
                 "web/js/bkjs.js",
                 "web/js/bkjs-lib.js",
@@ -129,10 +130,11 @@
                 "web/js/bkjs-bootstrap.js"
             ],
             "js.dev": [
-                "web/js/jquery3.debug.js",
-                "web/js/bootstrap4.debug.js",
-                "web/js/knockout.debug.js",
-                "web/js/knockout.mapping.debug.js",
+                "web/js/jquery3.js",
+                "web/js/bootstrap4.js",
+                "web/js/knockout.js",
+                "web/js/knockout-mapping.js",
+                "web/js/knockout-es5.js",
                 "web/js/crypto.js",
                 "web/js/bkjs.js",
                 "web/js/bkjs-lib.js",
