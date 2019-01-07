@@ -143,7 +143,7 @@
             ],
             "css": [
                 "web/css/bootstrap4.css",
-                "web/css/font-awesome.css"
+                "web/css/font-awesome5.css"
             ]
         }
     }
