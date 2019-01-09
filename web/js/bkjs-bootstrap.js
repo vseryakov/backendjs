@@ -29,12 +29,6 @@ Bkjs.hideAlert = function(obj)
     $(obj || "body").find(".alerts").empty();
 }
 
-// Login UI control
-Bkjs.hideLogin = function()
-{
-    $("#bkjs-login-modal").modal("hide");
-}
-
 Bkjs.showConfirm = function(options, callback, cancelled)
 {
     if (typeof options == "string") options = { text: options };
@@ -239,4 +233,9 @@ Bkjs.showLogin = function(options, callback)
         return false;
     });
     modal.modal("show");
+}
+
+Bkjs.hideLogin = function()
+{
+    $("#bkjs-login-modal").modal("hide");
 }
