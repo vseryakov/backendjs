@@ -48,28 +48,6 @@ var accounts = {
             ctime: { type: "now", readonly: 1 },      // Create time
             mtime: { type: "now" },                   // Last update time
         },
-
-        // Account metrics, must correspond to `-api-url-metrics` settings, for images the default is first 2 path components
-        bk_collect: {
-            url_image_account_rmean: { type: "real" },
-            url_image_account_hmean: { type: "real" },
-            url_image_account_0: { type: "real" },
-            url_image_account_bad_0: { type: "real" },
-            url_image_account_err_0: { type: "real" },
-            url_account_get_rmean: { type: "real" },
-            url_account_get_hmean: { type: "real" },
-            url_account_get_0: { type: "real" },
-            url_account_get_bad_0: { type: "real" },
-            url_account_get_err_0: { type: "real" },
-            url_account_select_rmean: { type: "real" },
-            url_account_select_hmean: { type: "real" },
-            url_account_select_0: { type: "real" },
-            url_account_update_rmean: { type: "real" },
-            url_account_update_hmean: { type: "real" },
-            url_account_update_0: { type: "real" },
-            url_account_update_bad_0: { type: "real" },
-            url_account_update_err_0: { type: "real" },
-        },
     },
 };
 module.exports = accounts;

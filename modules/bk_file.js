@@ -21,31 +21,6 @@ var logger = bkjs.logger;
 // Account management
 var files = {
     name: "bk_file",
-    tables: {
-        // Metrics
-        bk_collect: {
-            url_file_get_rmean: { type: "real" },
-            url_file_get_hmean: { type: "real" },
-            url_file_get_0: { type: "real" },
-            url_file_get_bad_0: { type: "real" },
-            url_file_get_err_0: { type: "real" },
-            url_file_put_rmean: { type: "real" },
-            url_file_put_hmean: { type: "real" },
-            url_file_put_0: { type: "real" },
-            url_file_put_bad_0: { type: "real" },
-            url_file_put_err_0: { type: "real" },
-            url_file_add_rmean: { type: "real" },
-            url_file_add_hmean: { type: "real" },
-            url_file_add_0: { type: "real" },
-            url_file_add_bad_0: { type: "real" },
-            url_file_add_err_0: { type: "real" },
-            url_file_del_rmean: { type: "real" },
-            url_file_del_hmean: { type: "real" },
-            url_file_del_0: { type: "real" },
-            url_file_del_bad_0: { type: "real" },
-            url_file_del_err_0: { type: "real" },
-        },
-    },
 };
 module.exports = files;
 

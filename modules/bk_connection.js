@@ -49,33 +49,6 @@ var mod = {
             status: {},
             mtime: { type: "now", pub: 1 }
         },
-
-        // Metrics
-        bk_collect: {
-            url_connection_get_rmean: { type: "real" },
-            url_connection_get_hmean: { type: "real" },
-            url_connection_get_0: { type: "real" },
-            url_connection_get_bad_0: { type: "real" },
-            url_connection_select_rmean: { type: "real" },
-            url_connection_select_hmean: { type: "real" },
-            url_connection_select_0: { type: "real" },
-            url_connection_select_bad_0: { type: "real" },
-            url_connection_add_rmean: { type: "real" },
-            url_connection_add_hmean: { type: "real" },
-            url_connection_add_0: { type: "real" },
-            url_connection_add_bad_0: { type: "real" },
-            url_connection_add_err_0: { type: "real" },
-            url_connection_incr_rmean: { type: "real" },
-            url_connection_incr_hmean: { type: "real" },
-            url_connection_incr_0: { type: "real" },
-            url_connection_incr_bad_0: { type: "real" },
-            url_connection_incr_err_0: { type: "real" },
-            url_connection_del_rmean: { type: "real" },
-            url_connection_del_hmean: { type: "real" },
-            url_connection_del_0: { type: "real" },
-            url_connection_del_bad_0: { type: "real" },
-            url_connection_del_err_0: { type: "real" },
-        },
     },
     allow: {},
     controls: {

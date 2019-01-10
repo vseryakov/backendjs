@@ -17,7 +17,7 @@ Bkjs.checkLogin = function(err, status)
     Bkjs.koName(Bkjs.account.name);
     Bkjs.koAdmin(Bkjs.loggedIn && Bkjs.checkAccountType(Bkjs.account, "admin"));
     $(Bkjs).trigger(Bkjs.loggedIn ? "login" : "nologin", [err, status]);
-    if (!err && Bkjs.koShow) Bkjs.koShow();
+    if (!err && typeof Bkjs.koShow == "function") Bkjs.koShow();
 }
 
 Bkjs.koLogin = function(data, event)

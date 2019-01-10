@@ -39,14 +39,14 @@ Bkjs.showConfirm = function(options, callback, cancelled)
           <div class="modal-dialog">\
             <div class="modal-content">\
               <div class="modal-header">\
-                <a class="close" data-dismiss="modal" >&times;</a>\
                 <h3>' + (options.title || "Confirm") +'</h3>\
+                <a class="close" data-dismiss="modal" >&times;</a>\
               </div>\
               <div class="modal-body">\
                 <p>' + options.text.replace(/\n/g, "<br>") + '</p>\
               </div>\
               <div class="modal-footer">\
-                <a href="#!" id="bkjs-confirm-cancel-button" class="btn" data-dismiss="modal">' +
+                <a href="#!" id="bkjs-confirm-cancel-button" class="btn btn-default" data-dismiss="modal">' +
                   (options.cancel || "Cancel") +
                 '</a>\
                 <a href="#!" id="bkjs-confirm-ok-button" class="btn btn-primary">' +
@@ -83,8 +83,8 @@ Bkjs.showChoice = function(options, callback)
           <div class="modal-dialog">\
             <div class="modal-content">\
               <div class="modal-header">\
-                <a class="close" data-dismiss="modal" >&times;</a>\
                 <h3>' + (options.title || "Choose") +'</h3>\
+                <a class="close" data-dismiss="modal" >&times;</a>\
               </div>\
               <div class="modal-body">\
                 <form role="form">\
@@ -95,7 +95,7 @@ Bkjs.showChoice = function(options, callback)
                 </form>\
               </div>\
               <div class="modal-footer">\
-                <a href="#!" class="btn" data-dismiss="modal">' +
+                <a href="#!" class="btn btn-default" data-dismiss="modal">' +
                   (options.cancel || "Cancel") +
                 '</a>\
                 <a href="#!" id="bkjs-choice-ok-button" class="btn btn-primary">' +
@@ -133,8 +133,8 @@ Bkjs.showPrompt = function(options, callback)
           <div class="modal-dialog">\
             <div class="modal-content">\
               <div class="modal-header">\
-                <a class="close" data-dismiss="modal" >&times;</a>\
                 <h3>' + (options.title || "Prompt") +'</h3>\
+                <a class="close" data-dismiss="modal" >&times;</a>\
               </div>\
               <div class="modal-body">\
                 <form role="form">\
@@ -145,7 +145,7 @@ Bkjs.showPrompt = function(options, callback)
                 </form>\
               </div>\
               <div class="modal-footer">\
-                <a href="#!" class="btn" data-dismiss="modal">' +
+                <a href="#!" class="btn btn-default" data-dismiss="modal">' +
                   (options.cancel || "Cancel") +
                 '</a>\
                 <a href="#!" id="bkjs-prompt-ok-button" class="btn btn-primary">' +
@@ -180,8 +180,8 @@ Bkjs.showLogin = function(options, callback)
            <div class="modal-content">\
             <form role="form">\
             <div class="modal-header">\
-             <button type="button" class="close" onclick="Bkjs.hideLogin()"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>\
              <h4 class="modal-title" id="LoginLabel"><img src=@icon@ class="logo"> @title@</h4>\
+             <button type="button" class="close" onclick="Bkjs.hideLogin()"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>\
             </div>\
             <div class="modal-body">\
               <div class="alerts"></div>\
@@ -225,7 +225,8 @@ Bkjs.showLogin = function(options, callback)
         form.trigger("submit"); e.preventDefault();
     });
     form.off().on("submit", function() {
-        if (typeof options.onSubmit == "function" && !options.onSubmit(form)) return false;
+        if (!Bkjs.checkLogin(form, login.val(), secret.val())) return false;
+        if (typeof options.onSubmit == "function" && !options.onSubmit(form, login.val(), secret.val())) return false;
         Bkjs.login(login.val(), secret.val(), function(err, data, xhr) {
             if (err) Bkjs.showAlert(modal, "danger", err);
             if (typeof callback == "function") callback(err, data, xhr);
@@ -233,6 +234,11 @@ Bkjs.showLogin = function(options, callback)
         return false;
     });
     modal.modal("show");
+}
+
+Bkjs.checkLogin = function(form, login, secret)
+{
+    return 1;
 }
 
 Bkjs.hideLogin = function()

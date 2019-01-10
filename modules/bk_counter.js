@@ -31,14 +31,6 @@ var mod = {
            follow0: { type: "counter", value: 0, autoincr: 1 },      // who i follow
            follow1: { type: "counter", value: 0, autoincr: 1 },      // reversed, who follows me
         },
-        // Metrics
-        bk_collect: {
-           url_counter_incr_rmean: { type: "real" },
-           url_counter_incr_hmean: { type: "real" },
-           url_counter_incr_0: { type: "real" },
-           url_counter_incr_bad_0: { type: "real" },
-           url_counter_incr_err_0: { type: "real" },
-        },
     },
 };
 module.exports = mod;

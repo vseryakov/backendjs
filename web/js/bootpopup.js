@@ -40,8 +40,11 @@ function bootpopup(options) {
         buttons: ["close"],
         class_dialog: "modal-dialog",
         class_title: "modal-title",
+        class_group: "form-group",
         class_close: "",
-        class_form: "form-horizontal",
+        class_form: "",
+        class_label: "",
+        horizontal: true,
 
         before: function() {},
         dismiss: function() {},
@@ -117,8 +120,10 @@ function bootpopup(options) {
         this.content.append(this.header);
 
         // Body
+        var class_form = this.options.class_form;
+        if (!class_form && this.options.horizontal) class_form = "form-horizontal";
         this.body = $('<div class="modal-body"></div>');
-        this.form = $("<form></form>", { id: this.formid, class: this.options.class_form, submit: function(e) { return self.options.submit(e); } });
+        this.form = $("<form></form>", { id: this.formid, class: class_form, submit: function(e) { return self.options.submit(e); } });
         this.body.append(this.form);
         this.content.append(this.body);
 
@@ -126,13 +131,14 @@ function bootpopup(options) {
         for (var i in this.options.content) {
             var entry = this.options.content[i];
             switch(typeof entry) {
-                case "string":        // HTML string
+                case "string":
+                    // HTML string
                     this.form.append(entry);
                     break;
 
                 case "object":
                     for (var type in entry) {
-                        var attrs = entry[type], children = [], input;
+                        var attrs = entry[type], children = [], input, group;
 
                         if (typeof attrs == "string") attrs = { label: attrs };
 
@@ -184,7 +190,7 @@ function bootpopup(options) {
                                             append($('<label></label>', { class: "form-check-label", for: attrs.id }).append(attrs.label));
 
                                 } else {
-                                    attrs.class = attrs.class || "form-control";
+                                    attrs.class = attrs.class || "";
                                     input = $('<div class="' + attrs.type + '"></div>').
                                             append($('<label></label>').append($("<" + type + "/>", attrs)).
                                             append(attrs.label));
@@ -202,16 +208,25 @@ function bootpopup(options) {
                             }
                             for (var i in children) input.append(children[i]);
 
+                            var class_group = this.options.class_group;
                             if (bs4) {
-                                var formGroup = $('<div class="form-group row"></div>').appendTo(this.form);
-                                $("<label></label>", { for: attrs.id, class: "col-form-label " + this.options.size_labels, text: attrs.label }).appendTo(formGroup);
-                                var divInput = $('<div></div>', { class: this.options.size_inputs }).append(input);
-                                formGroup.append(divInput)
+                                if (this.options.horizontal) class_group += " row";
+                                group = $('<div></div>', { class: class_group }).appendTo(this.form);
+                                if (this.options.horizontal) {
+                                    var class_label = "col-form-label " + this.options.class_label + " " + this.options.size_labels;
+                                    group.append($("<label></label>", { for: attrs.id, class: class_label, text: attrs.label }));
+                                    group.append($('<div></div>', { class: this.options.size_inputs }).append(input));
+                                } else {
+                                    if (attrs.class_prefix) group.append($("<i></i>", { class: attrs.class_prefix }));
+                                    group.append(input);
+                                    group.append($("<label></label>", { for: attrs.id, class: this.options.class_label, text: attrs.label }));
+                                }
                             } else {
-                                var formGroup = $('<div class="form-group"></div>').appendTo(this.form);
-                                $("<label></label>", { for: attrs.id, class: "control-label " + this.options.size_labels, text: attrs.label }).appendTo(formGroup);
-                                var divInput = $('<div></div>', { class: this.options.size_inputs }).append(input);
-                                formGroup.append(divInput)
+                                group = $('<div></div>', { class: class_group }).appendTo(this.form);
+                                var class_label = (this.options.class_label || "control-label") + " " +
+                                                  (this.options.horizontal ? this.options.size_labels : "");
+                                group.append($("<label></label>", { for: attrs.id, class: class_label, text: attrs.label }));
+                                group.append(this.options.horizontal ? $('<div></div>', { class: this.options.size_inputs }).append(input) : input);
                             }
                             break;
 

@@ -46,14 +46,6 @@ var mod = {
             mtime: { type: "now" },
         },
 
-        // Metrics
-        bk_collect: {
-            url_icon_get_rmean: { type: "real" },
-            url_icon_get_hmean: { type: "real" },
-            url_icon_get_0: { type: "real" },
-            url_icon_get_bad_0: { type: "real" },
-            url_icon_get_err_0: { type: "real" },
-        },
     },
     limit: { "*": 0 },
     controls: {
