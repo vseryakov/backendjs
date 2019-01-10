@@ -34,14 +34,14 @@ Bkjs.showConfirm = function(options, callback, cancelled)
     if (typeof options == "string") options = { text: options };
     var modal = $('#bkjs-confirm-modal');
     if (!modal.length) {
+        var close = '<a class="close" data-dismiss="modal" >&times;</a>';
+        var title = '<h3 class="modal-title">' + (options.title || "Prompt") +'</h3>';
+        if (window.bootstrap) title = title + close; else title = close + title;
         modal = $(
         '<div class="modal fade">\
           <div class="modal-dialog">\
             <div class="modal-content">\
-              <div class="modal-header">\
-                <h3>' + (options.title || "Confirm") +'</h3>\
-                <a class="close" data-dismiss="modal" >&times;</a>\
-              </div>\
+              <div class="modal-header">' + title + '</div>\
               <div class="modal-body">\
                 <p>' + options.text.replace(/\n/g, "<br>") + '</p>\
               </div>\
@@ -78,14 +78,14 @@ Bkjs.showChoice = function(options, callback)
     if (typeof options == "string") options = { text: options };
     var modal = $('#bkjs-choice-modal');
     if (!modal.length) {
+        var close = '<a class="close" data-dismiss="modal" >&times;</a>';
+        var title = '<h3 class="modal-title">' + (options.title || "Prompt") +'</h3>';
+        if (window.bootstrap) title = title + close; else title = close + title;
         modal = $(
         '<div class="modal fade">\
           <div class="modal-dialog">\
             <div class="modal-content">\
-              <div class="modal-header">\
-                <h3>' + (options.title || "Choose") +'</h3>\
-                <a class="close" data-dismiss="modal" >&times;</a>\
-              </div>\
+              <div class="modal-header">' + title + '</div>\
               <div class="modal-body">\
                 <form role="form">\
                  <div class="form-group">\
@@ -128,14 +128,14 @@ Bkjs.showPrompt = function(options, callback)
     if (typeof options == "string") options = { text: options };
     var modal = $('#bkjs-prompt-modal');
     if (!modal.length) {
+        var close = '<a class="close" data-dismiss="modal" >&times;</a>';
+        var title = '<h3 class="modal-title">' + (options.title || "Prompt") +'</h3>';
+        if (window.bootstrap) title = title + close; else title = close + title;
         modal = $(
         '<div class="modal fade">\
           <div class="modal-dialog">\
             <div class="modal-content">\
-              <div class="modal-header">\
-                <h3>' + (options.title || "Prompt") +'</h3>\
-                <a class="close" data-dismiss="modal" >&times;</a>\
-              </div>\
+              <div class="modal-header">' + title + '</div>\
               <div class="modal-body">\
                 <form role="form">\
                  <div class="form-group">\
@@ -174,15 +174,15 @@ Bkjs.showLogin = function(options, callback)
     if (!options) options = {};
     var modal = $('#bkjs-login-modal');
     if (!modal.length) {
+        var close = '<button type="button" class="close" onclick="Bkjs.hideLogin()"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>';
+        var title = '<h4 class="modal-title" id="LoginLabel"><img src=@icon@ class="logo"> @title@</h4>';
+        if (window.bootstrap) title = title + close; else title = close + title;
         var text =
         '<div id="bkjs-login-modal" class="modal fade" tabindex="-1" role="dialog" aria-labelledby="LoginLabel" aria-hidden="true">\
           <div class="modal-dialog">\
            <div class="modal-content">\
             <form role="form">\
-            <div class="modal-header">\
-             <h4 class="modal-title" id="LoginLabel"><img src=@icon@ class="logo"> @title@</h4>\
-             <button type="button" class="close" onclick="Bkjs.hideLogin()"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>\
-            </div>\
+            <div class="modal-header">' + title + '</div>\
             <div class="modal-body">\
               <div class="alerts"></div>\
               <div class="form-group">\
@@ -211,6 +211,7 @@ Bkjs.showLogin = function(options, callback)
     }
     var form = modal.find('form');
     var login = form.find('input[type=text]');
+    if (!login.length) login = form.find('input[type=email]');
     var secret = form.find('input[type=password]');
     modal.off().on('shown.bs.modal', function () {
         login.focus();

@@ -1,4 +1,6 @@
 /*!
+ * Modified by vlad
+ *
  * Popup dialog boxes for Bootstrap - http://www.bootpopup.tk
  * Copyright (C) 2016  rigon<ricardompgoncalves@gmail.com>
  *
@@ -41,6 +43,7 @@ function bootpopup(options) {
         class_dialog: "modal-dialog",
         class_title: "modal-title",
         class_group: "form-group",
+        class_header: "modal-header",
         class_close: "",
         class_form: "",
         class_label: "",
@@ -106,16 +109,15 @@ function bootpopup(options) {
         this.modal.append(this.dialog);
 
         // Header
-        this.header = $('<div class="modal-header"></div>');
+        this.header = $('<div></div>', { class: this.options.class_header });
         var title = $('<h5></h5>', { class: this.options.class_title, id: "bootpopup-title" });
         title.append(this.options.title);
         this.header.append(title);
 
         if (this.options.showclose) {
-            var button = $('<button type="button" class="close" data-dismiss="modal" aria-label="Close"></button>');
-            var close = $('<span></span>', { class: this.options.class_close, "aria-hidden": "true" }).append("&times;");
-            button.append(close);
-            this.header.append(button);
+            var close = $('<button type="button" class="close" data-dismiss="modal" aria-label="Close"></button>');
+            $('<span></span>', { class: this.options.class_close, "aria-hidden": "true" }).append("&times;").appendTo(close);
+            if (bs4) this.header.append(close); else close.insertBefore(title);
         }
         this.content.append(this.header);
 
@@ -138,9 +140,12 @@ function bootpopup(options) {
 
                 case "object":
                     for (var type in entry) {
-                        var attrs = entry[type], children = [], input, group;
+                        var opts = entry[type], children = [], attrs = {}, input, group;
 
-                        if (typeof attrs == "string") attrs = { label: attrs };
+                        if (typeof opts == "string") opts = { label: opts };
+                        for (var p in opts) {
+                            if (!/^class_/.test(p)) attrs[p] = opts[p];
+                        }
 
                         // Convert functions to string to be used as callback
                         for (var attribute in attrs) {
@@ -165,15 +170,15 @@ function bootpopup(options) {
 
                             if (type == "select" && Array.isArray(attrs.options)) {
                                 for (var i in attrs.options) {
-                                    var opts = {};
+                                    var option = {};
                                     if (typeof attrs.options[i] == "string") {
-                                        if (attrs.value && attrs.value == attrs.options[i]) opts.selected = true;
-                                        children.push($("<option></option>", opts).append(attrs.options[i]));
+                                        if (attrs.value && attrs.value == attrs.options[i]) option.selected = true;
+                                        children.push($("<option></option>", option).append(attrs.options[i]));
                                     } else
                                     if (attrs.options[i].name) {
-                                        opts.value = attrs.options[i].value || "";
-                                        if (attrs.value && attrs.value == opts.value) opts.selected = true;
-                                        children.push($("<option></option>", opts).append(attrs.options[i].name));
+                                        option.value = attrs.options[i].value || "";
+                                        if (attrs.value && attrs.value == option.value) option.selected = true;
+                                        children.push($("<option></option>", option).append(attrs.options[i].name));
                                     }
                                 }
                                 delete attrs.options;
@@ -184,7 +189,7 @@ function bootpopup(options) {
                             if (/radio|checkbox/.test(attrs.type)) {
                                 if (bs4) {
                                     attrs.class = attrs.class || "form-check-input";
-                                    var class_check = attrs.class_check || "form-check";
+                                    var class_check = opts.class_check || "form-check";
                                     input = $('<div class="' + class_check + '"></div>').
                                             append($("<" + type + "/>", attrs)).
                                             append($('<label></label>', { class: "form-check-label", for: attrs.id }).append(attrs.label));
@@ -196,7 +201,7 @@ function bootpopup(options) {
                                             append(attrs.label));
                                 }
                                 // Clear label to not add as header, it was added before
-                                attrs.label = "";
+                                delete attrs.label;
                             } else {
                                 attrs.class = attrs.class || "form-control";
                                 input = $("<" + type + "/>", attrs);
@@ -208,23 +213,23 @@ function bootpopup(options) {
                             }
                             for (var i in children) input.append(children[i]);
 
-                            var class_group = this.options.class_group;
+                            var class_group = this.options.class_group + " " + (opts.class_group || "");
+                            var class_label = this.options.class_label + " " + (opts.class_label || "");
                             if (bs4) {
                                 if (this.options.horizontal) class_group += " row";
                                 group = $('<div></div>', { class: class_group }).appendTo(this.form);
                                 if (this.options.horizontal) {
-                                    var class_label = "col-form-label " + this.options.class_label + " " + this.options.size_labels;
+                                    class_label += " col-form-label " + this.options.size_labels;
                                     group.append($("<label></label>", { for: attrs.id, class: class_label, text: attrs.label }));
                                     group.append($('<div></div>', { class: this.options.size_inputs }).append(input));
                                 } else {
-                                    if (attrs.class_prefix) group.append($("<i></i>", { class: attrs.class_prefix }));
+                                    if (opts.class_prefix) group.append($("<i></i>", { class: opts.class_prefix }));
                                     group.append(input);
                                     group.append($("<label></label>", { for: attrs.id, class: this.options.class_label, text: attrs.label }));
                                 }
                             } else {
                                 group = $('<div></div>', { class: class_group }).appendTo(this.form);
-                                var class_label = (this.options.class_label || "control-label") + " " +
-                                                  (this.options.horizontal ? this.options.size_labels : "");
+                                class_label += " control-label " + (this.options.horizontal ? this.options.size_labels : "");
                                 group.append($("<label></label>", { for: attrs.id, class: class_label, text: attrs.label }));
                                 group.append(this.options.horizontal ? $('<div></div>', { class: this.options.size_inputs }).append(input) : input);
                             }
@@ -235,8 +240,6 @@ function bootpopup(options) {
                         }
                     }
                     break;
-                default:
-                    throw "Invalid entry type";
             }
         }
 
