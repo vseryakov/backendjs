@@ -19,7 +19,7 @@
  */
 
 
-var INPUT_SHORTCUT_TYPES = [ "button", "text", "submit", "color", "url", "password",
+var INPUT_SHORTCUT_TYPES = [ "text", "color", "url", "password",
     "hidden", "file", "number", "email", "reset", "date", "checkbox", "radio" ];
 
 
@@ -33,19 +33,26 @@ function bootpopup(options)
     this.formid = "bootpopup-form" + String(Math.random()).substr(2);
 
     this.options = {
+        id: "",
         title: document.title,
         show_close: true,
         show_header: true,
         size: "normal",
-        size_labels: "col-sm-4",
-        size_inputs: "col-sm-8",
+        size_label: "col-sm-4",
+        size_input: "col-sm-8",
         content: [],
+        footer: [],
         onsubmit: "close",
         buttons: ["close"],
+        class_modal: "modal fade",
         class_dialog: "modal-dialog",
         class_title: "modal-title",
-        class_group: "form-group",
+        class_content: "modal-content",
+        class_body: "modal-body",
         class_header: "modal-header",
+        class_footer: "modal-footer",
+        class_group: "form-group",
+        class_options: "options text-center text-md-right",
         class_x: "",
         class_form: "",
         class_label: "",
@@ -59,6 +66,11 @@ function bootpopup(options)
         text_no: "No",
         text_cancel: "Cancel",
         text_close: "Close",
+        icon_ok: "",
+        icon_yes: "",
+        icon_no: "",
+        icon_cancel: "",
+        icon_close: "",
         centered: false,
         horizontal: true,
 
@@ -69,6 +81,7 @@ function bootpopup(options)
         cancel: function() {},
         yes: function() {},
         no: function() {},
+        shown: function() {},
         complete: function() {},
         submit: function(e) {
             self.callback(self.options.onsubmit, e);
@@ -77,7 +90,6 @@ function bootpopup(options)
     }
 
     this.addOptions = function(options) {
-        var buttons = [];
         if (Array.isArray(options)) {
             options = options.reduce(function(x, y) {
                 for (var p in y) x[p] = y[p];
@@ -86,22 +98,12 @@ function bootpopup(options)
         }
         for (var key in options) {
             if (key in this.options) this.options[key] = options[key];
-            // If an event for a button is given, show the respective button
-            if (["close", "ok", "cancel", "yes", "no"].indexOf(key) >= 0) buttons.push(key);
-        }
-        // Copy news buttons to this.options.buttons
-        if (buttons.length > 0) {
-            // Clear default buttons if new are not given
-            if (!("buttons" in options)) this.options.buttons = [];
-            buttons.forEach(function(item) {
-                if (self.options.buttons.indexOf(item) < 0) self.options.buttons.push(item);
-            });
         }
         // Determine what is the best action if none is given
         if (typeof options.onsubmit !== "string") {
-            if (this.options.buttons.indexOf("close") > 0) this.options.onsubmit = "close";
-            else if (this.options.buttons.indexOf("ok") > 0) this.options.onsubmit = "ok";
-            else if (this.options.buttons.indexOf("yes") > 0) this.options.onsubmit = "yes";
+            if (this.options.buttons.indexOf("close") > 0) this.options.onsubmit = "close"; else
+            if (this.options.buttons.indexOf("ok") > 0) this.options.onsubmit = "ok"; else
+            if (this.options.buttons.indexOf("yes") > 0) this.options.onsubmit = "yes";
         }
         return this.options;
     }
@@ -116,9 +118,9 @@ function bootpopup(options)
         if (this.options.centered) class_dialog += " modal-dialog-centered";
 
         // Create HTML elements for modal dialog
-        this.modal = $('<div class="modal fade" tabindex="-1" role="dialog" aria-labelledby="bootpopup-title" aria-hidden="true"></div>');
+        this.modal = $('<div></div>', { class: this.options.class_modal, id: this.options.id || "", tabindex: "-1", role: "dialog", "aria-labelledby": "bootpopup-title", "aria-hidden": true });
         this.dialog = $('<div></div>', { class: class_dialog, role: "document" });
-        this.content = $('<div class="modal-content"></div>');
+        this.content = $('<div></div>', { class: this.options.class_content });
         this.dialog.append(this.content);
         this.modal.append(this.dialog);
 
@@ -140,8 +142,8 @@ function bootpopup(options)
         // Body
         var class_form = this.options.class_form;
         if (!class_form && this.options.horizontal) class_form = "form-horizontal";
-        this.body = $('<div class="modal-body"></div>');
-        this.form = $("<form></form>", { id: this.formid, class: class_form, submit: function(e) { return self.options.submit(e); } });
+        this.body = $('<div></div>', { class: this.options.class_body });
+        this.form = $("<form></form>", { id: this.formid, class: class_form, role: "form", submit: function(e) { return self.options.submit(e); } });
         this.body.append(this.form);
         this.content.append(this.body);
 
@@ -156,11 +158,11 @@ function bootpopup(options)
 
                 case "object":
                     for (var type in entry) {
-                        var opts = entry[type], children = [], attrs = {}, input, group;
+                        var opts = entry[type], children = [], attrs = {}, elem, group;
 
                         if (typeof opts == "string") opts = { label: opts };
                         for (var p in opts) {
-                            if (!/^(class|text)_/.test(p)) attrs[p] = opts[p];
+                            if (!/^(class|text|icon|size)_/.test(p)) attrs[p] = opts[p];
                         }
 
                         // Convert functions to string to be used as callback
@@ -180,6 +182,8 @@ function bootpopup(options)
                         case "input":
                         case "select":
                         case "textarea":
+                        case "button":
+                        case "submit":
                             // Create a random id for the input if none provided
                             attrs.id = (typeof attrs.id === "undefined" ? "bootpopup-input" + String(Math.random()).substr(2) : attrs.id);
                             attrs.type = (typeof attrs.type === "undefined" ? "text" : attrs.type);
@@ -206,55 +210,73 @@ function bootpopup(options)
                                 if (bs4) {
                                     attrs.class = attrs.class || "form-check-input";
                                     var class_check = opts.class_check || "form-check";
-                                    input = $('<div class="' + class_check + '"></div>').
+                                    var label = $('<label></label>', { class: "form-check-label", for: attrs.id }).append(attrs.label);
+                                    elem = $('<div></div>', { class: class_check }).
                                             append($("<" + type + "/>", attrs)).
-                                            append($('<label></label>', { class: "form-check-label", for: attrs.id }).append(attrs.label));
+                                            append(label);
 
                                 } else {
                                     attrs.class = attrs.class || "";
-                                    input = $('<div class="' + attrs.type + '"></div>').
-                                            append($('<label></label>').append($("<" + type + "/>", attrs)).
-                                            append(attrs.label));
+                                    var label = $('<label></label>').append($("<" + type + "/>", attrs)).append(attrs.label);
+                                    elem = $('<div></div>', { class: attrs.type }).append(label);
+                                }
+                                if (opts.class_append || opts.text_append) {
+                                    label.append($("<span></span>", { class: opts.class_append || "" }).append(opts.text_append || ""));
                                 }
                                 // Clear label to not add as header, it was added before
                                 delete attrs.label;
                             } else {
                                 attrs.class = attrs.class || "form-control";
-                                input = $("<" + type + "/>", attrs);
                                 if (type == "textarea") {
-                                    if (attrs.value) {
-                                        input.append(attrs.value);
+                                    delete attrs.value;
+                                    elem = $("<" + type + "/>", attrs);
+                                    if (opts.value) elem.append(attrs.value);
+                                } else {
+                                    elem = $("<" + type + "/>", attrs);
+                                    if (opts.class_append || opts.text_append) {
+                                        elem.append($("<span></span>", { class: opts.class_append || "" }).append(opts.text_append || ""));
                                     }
                                 }
                             }
-                            for (var i in children) input.append(children[i]);
+                            for (var i in children) elem.append(children[i]);
 
-                            var class_group = this.options.class_group + " " + (opts.class_group || "");
-                            var class_label = this.options.class_label + " " + (opts.class_label || "") + " " + (attrs.value ? "active" : "");
+                            var class_group = opts.class_group || this.options.class_group;
+                            var class_label = (opts.class_label || this.options.class_label) + " " + (attrs.value ? "active" : "");
+                            group = $('<div></div>', { class: class_group }).appendTo(this.form);
+                            if (opts.class_prefix || opts.text_prefix) {
+                                group.append($("<span></span>", { class: opts.class_prefix || "" }).append(opts.text_prefix || ""));
+                            }
                             if (bs4) {
-                                if (this.options.horizontal) class_group += " row";
-                                group = $('<div></div>', { class: class_group }).appendTo(this.form);
                                 if (this.options.horizontal) {
-                                    class_label += " col-form-label " + this.options.size_labels;
+                                    group.addClass("row");
+                                    class_label += " col-form-label " + (opts.size_label || this.options.size_label);
                                     group.append($("<label></label>", { for: attrs.id, class: class_label, text: attrs.label }));
-                                    group.append($('<div></div>', { class: this.options.size_inputs }).append(input));
-                                    if (opts.class_suffix) group.append($("<div></div>", { class: opts.class_suffix }).append(opts.text_suffix || ""));
+                                    group.append($('<div></div>', { class: opts.size_input || this.options.size_input }).append(elem));
                                 } else {
-                                    if (opts.class_prefix) group.append($("<span></span>", { class: opts.class_prefix }).append(opts.text_prefix || ""));
-                                    group.append(input);
-                                    group.append($("<label></label>", { for: attrs.id, class: class_label, text: attrs.label }));
-                                    if (opts.class_suffix) group.append($("<span></span>", { class: opts.class_suffix }).append(opts.text_suffix || ""));
+                                    group.append(elem);
+                                    if (attrs.label) group.append($("<label></label>", { for: attrs.id, class: class_label, text: attrs.label }));
                                 }
                             } else {
-                                group = $('<div></div>', { class: class_group }).appendTo(this.form);
-                                class_label += " control-label " + (this.options.horizontal ? this.options.size_labels : "");
-                                group.append($("<label></label>", { for: attrs.id, class: class_label, text: attrs.label }));
-                                group.append(this.options.horizontal ? $('<div></div>', { class: this.options.size_inputs }).append(input) : input);
+                                class_label += " control-label";
+                                if (this.options.horizontal) {
+                                    class_label += " " + (opts.size_label || this.options.size_label);
+                                    group.append($("<label></label>", { for: attrs.id, class: class_label, text: attrs.label }));
+                                    group.append($('<div></div>', { class: opts.size_input || this.options.size_input }).append(elem));
+                                } else {
+                                    if (attrs.label) group.append($("<label></label>", { for: attrs.id, class: class_label, text: attrs.label }));
+                                    group.append(elem);
+                                }
+                            }
+                            if (opts.class_suffix || opts.text_suffix) {
+                                group.append($("<div></div>", { class: opts.class_suffix || "" }).append(opts.text_suffix || ""));
                             }
                             break;
 
                         default:
-                            this.form.append($("<" + type + "></" + type + ">", attrs));
+                            elem = $("<" + type + "></" + type + ">", attrs).appendTo(this.form);
+                            if (opts.class_append || opts.text_append) {
+                                elem.append($("<span></span>", { class: opts.class_append || "" }).append(opts.text_append || ""));
+                            }
                         }
                     }
                     break;
@@ -262,25 +284,53 @@ function bootpopup(options)
         }
 
         // Footer
-        this.footer = $('<div class="modal-footer"></div>');
+        this.footer = $('<div></div>', { class: this.options.class_footer });
         this.content.append(this.footer);
 
-        for (var key in this.options.buttons) {
-            var item = this.options.buttons[key];
+        for (var i in this.options.footer) {
+            var entry = this.options.footer[i], div;
+            switch(typeof entry) {
+            case "string":
+                this.footer.append(entry);
+                break;
+
+            case "object":
+                div = $('<div></div>', { class: this.options.class_options }).appendTo(this.footer);
+                for (var type in entry) {
+                    var opts = entry[type], attrs = {};
+                    if (typeof opts == "string") opts = { text: opts };
+                    for (var p in opts) {
+                        if (!/^(type|[0-9]+)$|^(class|text|icon|size)_/.test(p)) attrs[p] = opts[p];
+                    }
+                    for (var attribute in attrs) {
+                        if (typeof attrs[attribute] === "function") {
+                            attrs[attribute] = "(" + attrs[attribute] + ")(this)";
+                        }
+                    }
+                    type = opts.type || type;
+                    div.append($("<" + type + "></" + type + ">", attrs));
+                }
+                break;
+            }
+        }
+
+        for (var i in this.options.buttons) {
+            var item = this.options.buttons[i];
             this["btn_" + item] = $("<button></button>", {
                 type: "button",
                 text: this.options["text_" + item],
                 class: this.options["class_" + item],
                 "data-callback": item,
                 "data-form": this.formid,
-                click: function(event) {
-                    var name = $(event.target).data("callback");
-                    self.callback(name, event);
-                }
+                click: function(event) { self.callback($(event.target).data("callback"), event) }
             }).appendTo(this.footer);
+            if (this.options["icon_" + item]) {
+                this["btn_" + item].append($("<i></i>", { class: this.options["icon_" + item] }));
+            }
         }
 
         // Setup events for dismiss and complete
+        this.modal.on('shown.bs.modal', this.options.shown);
         this.modal.on('hide.bs.modal', this.options.dismiss);
         this.modal.on('hidden.bs.modal', function(e) {
             self.options.complete(e);
@@ -320,6 +370,7 @@ function bootpopup(options)
         return ret;
     }
 
+    this.shown = function() { return this.callback("shown"); }
     this.dismiss = function() { return this.callback("dismiss"); }
     this.submit = function() { return this.callback("submit"); }
     this.close = function() { return this.callback("close"); }
