@@ -25,7 +25,7 @@ var INPUT_SHORTCUT_TYPES = [ "button", "text", "submit", "color", "url", "passwo
 
 function bootpopup(options) {
     // Create a new instance if this is not
-    if (!(this instanceof bootpopup)) return new bootpopup(options);
+    if (!(this instanceof bootpopup)) return new bootpopup(Array.prototype.slice.call(arguments));
 
     var self = this;
     // Create a global random ID for the form
@@ -33,7 +33,8 @@ function bootpopup(options) {
 
     this.options = {
         title: document.title,
-        showclose: true,
+        show_close: true,
+        show_header: true,
         size: "normal",
         size_labels: "col-sm-4",
         size_inputs: "col-sm-8",
@@ -44,9 +45,20 @@ function bootpopup(options) {
         class_title: "modal-title",
         class_group: "form-group",
         class_header: "modal-header",
-        class_close: "",
+        class_x: "",
         class_form: "",
         class_label: "",
+        class_ok: "btn btn-primary",
+        class_yes: "btn btn-primary",
+        class_no: "btn btn-primary",
+        class_cancel: "btn btn-default",
+        class_close: "btn btn-primary",
+        text_ok: "OK",
+        text_yes: "Yes",
+        text_no: "No",
+        text_cancel: "Cancel",
+        text_close: "Close",
+        centered: false,
         horizontal: true,
 
         before: function() {},
@@ -65,6 +77,12 @@ function bootpopup(options) {
 
     this.addOptions = function(options) {
         var buttons = [];
+        if (Array.isArray(options)) {
+            options = options.reduce(function(x, y) {
+                for (var p in y) x[p] = y[p];
+                return x;
+            }, {});
+        }
         for (var key in options) {
             if (key in this.options) this.options[key] = options[key];
             // If an event for a button is given, show the respective button
@@ -87,11 +105,6 @@ function bootpopup(options) {
         return this.options;
     }
 
-    this.setOptions = function(options) {
-        this.options = options;
-        return this.options;
-    }
-
     this.create = function() {
         var bs4 = window.bootstrap;
         // Option for modal dialog size
@@ -109,17 +122,19 @@ function bootpopup(options) {
         this.modal.append(this.dialog);
 
         // Header
-        this.header = $('<div></div>', { class: this.options.class_header });
-        var title = $('<h5></h5>', { class: this.options.class_title, id: "bootpopup-title" });
-        title.append(this.options.title);
-        this.header.append(title);
+        if (this.options.show_header) {
+            this.header = $('<div></div>', { class: this.options.class_header });
+            var title = $('<h5></h5>', { class: this.options.class_title, id: "bootpopup-title" });
+            title.append(this.options.title);
+            this.header.append(title);
 
-        if (this.options.showclose) {
-            var close = $('<button type="button" class="close" data-dismiss="modal" aria-label="Close"></button>');
-            $('<span></span>', { class: this.options.class_close, "aria-hidden": "true" }).append("&times;").appendTo(close);
-            if (bs4) this.header.append(close); else close.insertBefore(title);
+            if (this.options.show_close) {
+                var close = $('<button type="button" class="close" data-dismiss="modal" aria-label="Close"></button>');
+                $('<span></span>', { class: this.options.class_x, "aria-hidden": "true" }).append("&times;").appendTo(close);
+                if (bs4) this.header.append(close); else close.insertBefore(title);
+            }
+            this.content.append(this.header);
         }
-        this.content.append(this.header);
 
         // Body
         var class_form = this.options.class_form;
@@ -214,7 +229,7 @@ function bootpopup(options) {
                             for (var i in children) input.append(children[i]);
 
                             var class_group = this.options.class_group + " " + (opts.class_group || "");
-                            var class_label = this.options.class_label + " " + (opts.class_label || "");
+                            var class_label = this.options.class_label + " " + (opts.class_label || "") + " " + (attrs.value ? "active" : "");
                             if (bs4) {
                                 if (this.options.horizontal) class_group += " row";
                                 group = $('<div></div>', { class: class_group }).appendTo(this.form);
@@ -225,7 +240,7 @@ function bootpopup(options) {
                                 } else {
                                     if (opts.class_prefix) group.append($("<i></i>", { class: opts.class_prefix }));
                                     group.append(input);
-                                    group.append($("<label></label>", { for: attrs.id, class: this.options.class_label, text: attrs.label }));
+                                    group.append($("<label></label>", { for: attrs.id, class: class_label, text: attrs.label }));
                                 }
                             } else {
                                 group = $('<div></div>', { class: class_group }).appendTo(this.form);
@@ -249,38 +264,17 @@ function bootpopup(options) {
 
         for (var key in this.options.buttons) {
             var item = this.options.buttons[key];
-            var btnClass = "";
-            var btnText = "";
-
-            switch(item) {
-                case "close": btnClass = "btn-primary"; btnText = "Close"; break;
-                case "ok": btnClass = "btn-primary"; btnText = "OK"; break;
-                case "cancel": btnClass = "btn-default"; btnText = "Cancel"; break;
-                case "yes": btnClass = "btn-primary"; btnText = "Yes"; break;
-                case "no": btnClass = "btn-default"; btnText = "No"; break;
-            }
-
-            var button = $("<button></button>", {
+            this["btn_" + item] = $("<button></button>", {
                 type: "button",
-                text: options[item + "Text"] || btnText,
-                class: "btn " + (options[item + "Class"] || btnClass),
+                text: this.options["text_" + item],
+                class: this.options["class_" + item],
                 "data-callback": item,
                 "data-form": this.formid,
                 click: function(event) {
                     var name = $(event.target).data("callback");
                     self.callback(name, event);
                 }
-            });
-            this.footer.append(button);
-
-            // Reference for buttons
-            switch(item) {
-                case "close": this.btnClose = button; break;
-                case "ok": this.btnOk = button; break;
-                case "cancel": this.btnCancel = button; break;
-                case "yes": this.btnYes = button; break;
-                case "no": this.btnNo = button; break;
-            }
+            }).appendTo(this.footer);
         }
 
         // Setup events for dismiss and complete
@@ -331,7 +325,7 @@ function bootpopup(options) {
     this.yes = function() { return this.callback("yes"); }
     this.no = function() { return this.callback("no"); }
 
-    this.addOptions(options);
+    this.addOptions(Array.isArray(options) ? options: Array.prototype.slice.call(arguments));
     this.create();
     this.show();
 }
