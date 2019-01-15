@@ -23,7 +23,8 @@ var INPUT_SHORTCUT_TYPES = [ "button", "text", "submit", "color", "url", "passwo
     "hidden", "file", "number", "email", "reset", "date", "checkbox", "radio" ];
 
 
-function bootpopup(options) {
+function bootpopup(options)
+{
     // Create a new instance if this is not
     if (!(this instanceof bootpopup)) return new bootpopup(Array.prototype.slice.call(arguments));
 
@@ -159,7 +160,7 @@ function bootpopup(options) {
 
                         if (typeof opts == "string") opts = { label: opts };
                         for (var p in opts) {
-                            if (!/^class_/.test(p)) attrs[p] = opts[p];
+                            if (!/^(class|text)_/.test(p)) attrs[p] = opts[p];
                         }
 
                         // Convert functions to string to be used as callback
@@ -237,10 +238,12 @@ function bootpopup(options) {
                                     class_label += " col-form-label " + this.options.size_labels;
                                     group.append($("<label></label>", { for: attrs.id, class: class_label, text: attrs.label }));
                                     group.append($('<div></div>', { class: this.options.size_inputs }).append(input));
+                                    if (opts.class_suffix) group.append($("<div></div>", { class: opts.class_suffix }).append(opts.text_suffix || ""));
                                 } else {
-                                    if (opts.class_prefix) group.append($("<i></i>", { class: opts.class_prefix }));
+                                    if (opts.class_prefix) group.append($("<span></span>", { class: opts.class_prefix }).append(opts.text_prefix || ""));
                                     group.append(input);
                                     group.append($("<label></label>", { for: attrs.id, class: class_label, text: attrs.label }));
+                                    if (opts.class_suffix) group.append($("<span></span>", { class: opts.class_suffix }).append(opts.text_suffix || ""));
                                 }
                             } else {
                                 group = $('<div></div>', { class: class_group }).appendTo(this.form);
@@ -331,7 +334,8 @@ function bootpopup(options) {
 }
 
 
-bootpopup.alert = function(message, title, callback) {
+bootpopup.alert = function(message, title, callback)
+{
     if (typeof title === "function") callback = title;
     if (typeof title !== "string") title = document.title;
     if (typeof callback !== "function") callback = function() {};
@@ -343,7 +347,8 @@ bootpopup.alert = function(message, title, callback) {
     });
 }
 
-bootpopup.confirm = function(message, title, callback) {
+bootpopup.confirm = function(message, title, callback)
+{
     if (typeof title === "function") callback = title;
     if (typeof title !== "string") title = document.title;
     if (typeof callback !== "function") callback = function() {};
@@ -351,7 +356,7 @@ bootpopup.confirm = function(message, title, callback) {
     var answer = false;
     return bootpopup({
         title: title,
-        showclose: false,
+        show_close: false,
         content: [{ p: { text: message } }],
         buttons: ["no", "yes"],
         yes: function() { answer = true; },
@@ -359,7 +364,8 @@ bootpopup.confirm = function(message, title, callback) {
     });
 }
 
-bootpopup.prompt = function(label, type, message, title, callback) {
+bootpopup.prompt = function(label, type, message, title, callback)
+{
     // Callback can be in any position, except label
     var callback_function = function() {};
     if (typeof type === "function") callback_function = type;

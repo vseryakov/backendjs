@@ -9,6 +9,7 @@
         "Bkjs": false,
         "$": false,
         "jQuery": false,
+        "bootpopup": false,
         "ko": false
     },
     "extends": "eslint:recommended",

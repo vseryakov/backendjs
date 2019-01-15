@@ -226,8 +226,8 @@ Bkjs.showLogin = function(options, callback)
         form.trigger("submit"); e.preventDefault();
     });
     form.off().on("submit", function() {
-        if (!Bkjs.onLogin(form, login.val(), secret.val())) return false;
-        if (typeof options.onSubmit == "function" && !options.onSubmit(form, login.val(), secret.val())) return false;
+        if (!Bkjs.onLogin(modal, form, login.val(), secret.val())) return false;
+        if (typeof options.onSubmit == "function" && !options.onSubmit(modal, form, login.val(), secret.val())) return false;
         Bkjs.login(login.val(), secret.val(), function(err, data, xhr) {
             if (err) Bkjs.showAlert(modal, "danger", err);
             if (typeof callback == "function") callback(err, data, xhr);
