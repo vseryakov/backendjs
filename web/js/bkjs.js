@@ -26,6 +26,7 @@ var Bkjs = {
     tzHeaderName: "bk-tz",
     langHeaderName: "bk-lang",
     appHeaderName: "bk-app",
+    buildHeaderName: "bk-version",
     // HTTP headers to be sent with every request
     headers: {},
 
