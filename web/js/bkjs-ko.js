@@ -11,19 +11,19 @@ Bkjs.koAuth = ko.observable(0);
 Bkjs.koAdmin = ko.observable(0);
 Bkjs.koName = ko.observable();
 
-Bkjs.checkLogin = function(err, status)
+Bkjs.checkLogin = function(err)
 {
     Bkjs.koAuth(Bkjs.loggedIn);
     Bkjs.koName(Bkjs.account.name);
     Bkjs.koAdmin(Bkjs.loggedIn && Bkjs.checkAccountType(Bkjs.account, "admin"));
-    $(Bkjs).trigger(Bkjs.loggedIn ? "login" : "nologin", [err, status]);
+    $(Bkjs).trigger(Bkjs.loggedIn ? "bkjs.login" : "bkjs.nologin", err);
     if (!err && typeof Bkjs.koShow == "function") Bkjs.koShow();
 }
 
 Bkjs.koLogin = function(data, event)
 {
-    Bkjs.showLogin(Bkjs.koLoginOptions, function(err, data, xhr) {
-        Bkjs.checkLogin(err, xhr.status);
+    Bkjs.showLogin(Bkjs.koLoginOptions, function(err) {
+        Bkjs.checkLogin(err);
         if (!err) Bkjs.hideLogin();
     });
 }
@@ -34,7 +34,7 @@ Bkjs.koLogout = function(data, event)
         Bkjs.koAuth(0);
         Bkjs.koAdmin(0);
         Bkjs.koName("");
-        $(Bkjs).trigger('logout');
+        $(Bkjs).trigger('bkjs.logout');
         if (Bkjs.koLogoutUrl) window.location.href = Bkjs.koLogoutUrl;
     });
 }
@@ -42,7 +42,7 @@ Bkjs.koLogout = function(data, event)
 Bkjs.koInit = function()
 {
     ko.applyBindings(Bkjs);
-    Bkjs.login(function(err, data, xhr) {
-        Bkjs.checkLogin(err, xhr.status);
+    Bkjs.login(function(err) {
+        Bkjs.checkLogin(err);
     });
 }

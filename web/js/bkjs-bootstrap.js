@@ -14,7 +14,7 @@ Bkjs.showAlert = function(obj, type, text, options)
     var aid = "alert-" + Bkjs._alertNum++;
     var html = "<div id=" + aid + " class='alert alert-dissmisible alert-" + type + "' role='alert'>";
     if (options.icon) html += '<i class="fa fa-fw ' + options.icon + '"></i>';
-    html += typeof text == "string" ? text : JSON.stringify(text);
+    html += String(typeof text == "string" ? text : text && text.message ? text.message : JSON.stringify(text)).replace(/\n/g, "<br>");
     html += '<button type="button" class="close" data-dismiss="alert"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>';
     html += "</div>";
     if (!$(obj).find(".alerts").length) obj = $("body");
@@ -226,20 +226,14 @@ Bkjs.showLogin = function(options, callback)
         form.trigger("submit"); e.preventDefault();
     });
     form.off().on("submit", function() {
-        if (!Bkjs.onLogin(modal, form, login.val(), secret.val())) return false;
         if (typeof options.onSubmit == "function" && !options.onSubmit(modal, form, login.val(), secret.val())) return false;
-        Bkjs.login(login.val(), secret.val(), function(err, data, xhr) {
+        Bkjs.login({ login: login.val(), secret: secret.val() }, function(err) {
             if (err) Bkjs.showAlert(modal, "danger", err);
-            if (typeof callback == "function") callback(err, data, xhr);
+            if (typeof callback == "function") callback(err);
         });
         return false;
     });
     modal.modal("show");
-}
-
-Bkjs.onLogin = function(form, login, secret)
-{
-    return 1;
 }
 
 Bkjs.hideLogin = function()

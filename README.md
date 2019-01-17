@@ -754,7 +754,7 @@ this assumes the default path '/public' still allowed without the signature:
    <script>
     $(function () {
        Bkjs.session = true;
-       $(Bkjs).on("nologin", function() { window.location='/public/index.html'; });
+       $(Bkjs).on("bkjs.nologin", function() { window.location='/public/index.html'; });
        Bkjs.koInit();
    });
    </script>

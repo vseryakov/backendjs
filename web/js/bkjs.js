@@ -23,8 +23,9 @@ var Bkjs = {
     signatureVersion: 4,
     signatureName: "bk-signature",
     accessTokenName: "bk-access-token",
-    tzName: "bk-tz",
-    langName: "bk-lang",
+    tzHeaderName: "bk-tz",
+    langHeaderName: "bk-lang",
+    appHeaderName: "bk-app",
     // HTTP headers to be sent with every request
     headers: {},
 
@@ -50,19 +51,19 @@ var Bkjs = {
     // i18n locales by 2-letter code, uses account.lang to resolve the translation
     locales: {},
 
-    // Try to authenticate with the supplied credentials, it uses login and secret to sign the reauest, if not specified it uses
+    // Try to authenticate with the supplied credentials, it uses login and secret to sign the request, if not specified it uses
     // already saved credentials
-    login: function(login, secret, callback) {
+    login: function(options, callback) {
         var self = this;
-        if (typeof login == "function") callback = login, login = secret = null;
-        if (typeof login =="string" && typeof secret == "string") this.setCredentials(login, secret);
+        if (typeof options == "function") callback = options, options = null;
+        if (options && typeof options.login =="string" && typeof options.secret == "string") this.setCredentials(options);
 
-        this.send({ url: "/auth?_session=" + this.session, jsonType: "obj" }, function(data, xhr) {
+        this.send({ url: "/auth?_session=" + this.session, jsonType: "obj" }, function(data) {
             self.loggedIn = true;
             self.account = data;
             // Clear credentials from the memory if we use sessions
             if (self.session) self.setCredentials();
-            if (typeof callback == "function") callback(null, data, xhr);
+            if (typeof callback == "function") callback();
         }, function(err, xhr) {
             self.loggedIn = false;
             self.account = {};
@@ -141,29 +142,37 @@ var Bkjs = {
     // Return current credentials
     getCredentials: function() {
         var obj = this.persistent ? localStorage : this;
-        return { login: obj.backendjsLogin || "", secret: obj.backendjsSecret || "" };
+        return { login: obj.bkjsLogin || "", secret: obj.bkjsSecret || "" };
     },
 
-    // Possibly scramble credentials and return as an object
-    checkCredentials: function(login, secret) {
-        login = login ? String(login) : "";
-        secret = secret ? String(secret) : "";
+    // Process credentials, cleanup, scramble... and return as an object
+    checkCredentials: function(options) {
+        var rc = {
+            scramble: options && options.scramble || this.scramble,
+            login: options && options.login ? String(options.login) : "",
+            secret: options && options.secret ? String(options.secret) : "",
+        };
         if (this.trimCredentials) {
             if (!this._trimC) this._trimC = new RegExp("(^[" + this.trimCredentials + "]+)|([" + this.trimCredentials + "]+$)", "gi");
-            login = login.replace(this._trimC, "");
-            secret = secret.replace(this._trimC, "");
+            rc.login = rc.login.replace(this._trimC, "");
+            rc.secret = rc.secret.replace(this._trimC, "");
         }
-        if (this.scramble && login && secret) secret = b64_hmac_sha256(secret, login);
-        return { login: login, secret: secret };
+        if (rc.login && rc.secret) this.scrambleCredentials(rc);
+        return rc;
+    },
+
+    // Scramble credentials if needed
+    scrambleCredentials: function(options) {
+        if (options.scramble) options.secret = b64_hmac_sha256(options.secret, options.login);
     },
 
     // Set new credentials, save in memory or local storage
-    setCredentials: function(login, secret) {
+    setCredentials: function(options) {
         var obj = this.persistent ? localStorage : this;
-        var creds = this.checkCredentials(login, secret);
-        obj.backendjsLogin = creds.login;
-        obj.backendjsSecret = creds.secret;
-        if (this.debug) this.log('setCredentials:', creds);
+        var creds = this.checkCredentials(options);
+        obj.bkjsLogin = creds.login;
+        obj.bkjsSecret = creds.secret;
+        if (this.debug) this.log('setCredentials:', creds, options);
     },
 
     // Verify account secret against the policy
@@ -238,12 +247,6 @@ var Bkjs = {
         })();
     },
 
-    // Return or build the message from the error response object or text
-    parseError: function(err) {
-        if (typeof err == "string") return err;
-        return err && err.message;
-    },
-
     // Send signed AJAX request using jQuery, call callbacks onsuccess or onerror on successful or error response accordingly.
     // - options can be a string with url or an object with options.url, options.data and options.type properties,
     // - for POST set options.type to POST and provide options.data
@@ -253,11 +256,12 @@ var Bkjs = {
         var self = this;
         if (typeof options == "string") options = { url: options };
 
+        if (!options.headers) options.headers = {};
         if (!options.dataType) options.dataType = 'json';
         if (this.locationUrl && !options.url.match(/^https?:/)) options.url = this.locationUrl + options.url;
 
         // Success callback but if it throws exception we call error handler instead
-        options.success = function(json, status, xhr) {
+        options.success = function(json, statusText, xhr) {
             self.loading("hide");
             // Make sure json is of type we requested
             switch (options.jsonType) {
@@ -272,21 +276,20 @@ var Bkjs = {
             if (typeof onsuccess == "function") onsuccess(json, xhr);
         }
         // Parse error message
-        options.error = function(xhr, status, error) {
+        options.error = function(xhr, statusText, errorText) {
             self.loading("hide");
-            var msg = xhr.responseText;
-            try { msg = JSON.parse(xhr.responseText) } catch(e) {}
-            self.log('send:', xhr.status, status, msg, error, options);
-            if (!options.rawError) msg = self.parseError(msg);
-            if (typeof onerror == "function") onerror(msg || error || status, xhr, status, error);
+            var err = xhr.responseText;
+            try { err = JSON.parse(xhr.responseText) } catch(e) {}
+            self.log('send:', xhr.status, err, statusText, errorText, options);
+            if (typeof onerror == "function") onerror(err || errorText || statusText, xhr, statusText, errorText);
         }
         if (!options.nosignature) {
-            options.headers = this.createSignature(options.type, options.url, options.data, { expires: options.expires, checksum: options.checksum });
+            var hdrs = this.createSignature(options.type, options.url, options.data, { expires: options.expires, checksum: options.checksum });
+            for (var p in hdrs) options.headers[p] = hdrs[p];
             // Optional timezone offset for ptoper datetime related operations
-            options.headers[this.tzName] = (new Date()).getTimezoneOffset();
-            if (this.language) options.headers[this.langName] = this.language;
+            options.headers[this.tzHeaderName] = (new Date()).getTimezoneOffset();
+            if (this.language) options.headers[this.langHeaderName] = this.language;
         }
-        if (!options.headers) options.headers = {};
         for (var h in this.headers) options.headers[h] = this.headers[h];
         for (var p in options.data) if (typeof options.data[p] == "undefined") delete options.data[p];
         this.loading("show");
