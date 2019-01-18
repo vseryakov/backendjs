@@ -121,6 +121,7 @@
         "bkjs4": {
             "js": [
                 "web/js/jquery3.min.js",
+                "web/js/popper.min.js",
                 "web/js/bootstrap4.min.js",
                 "web/js/knockout.min.js",
                 "web/js/knockout-mapping.min.js",
@@ -134,6 +135,7 @@
             ],
             "js.dev": [
                 "web/js/jquery3.js",
+                "web/js/popper.js",
                 "web/js/bootstrap4.js",
                 "web/js/knockout.js",
                 "web/js/knockout-mapping.js",
