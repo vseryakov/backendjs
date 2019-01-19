@@ -812,7 +812,7 @@ tools ready to use that will allow to implement such versioning system in the ba
 - Fixed versions
   This is similar to AWS version system when versions are fixed and changed not very often. For such cases the backend exposes `core.bkVersion` which is
   supposed to be a core backend version. This version is returned with every backend reponse in the Server: header. A client also can specify the core version
-  using `bk-version` header. When a request is parsed and the version is provided it will be set in the request options object as `protocolVersion`.
+  using `bk-version` header. When a request is parsed and the version is provided it will be set in the request options object as `apiVersion`.
 
   All API routes are defined using Express middleware and one of the possible ways of dealing with different versions can look like this, by
   appending version to the command it is very simple to call only changed API code.
@@ -821,7 +821,7 @@ tools ready to use that will allow to implement such versioning system in the ba
           api.all(/\/domain\/(get|put|del)/, function(req, res) {
               var options = api.getOptions(req);
               var cmd = req.params[0];
-              if (options.protocolVersion) cmd += "/" + options.protocolVersion;
+              if (options.apiVersion) cmd += "/" + options.apiVersion;
               switch (cmd) {
               case "get":
                   break;

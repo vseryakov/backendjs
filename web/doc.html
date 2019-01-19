@@ -801,7 +801,7 @@ tools ready to use that will allow to implement such versioning system in the ba
 <li><p>Fixed versions
 This is similar to AWS version system when versions are fixed and changed not very often. For such cases the backend exposes <code>core.bkVersion</code> which is
 supposed to be a core backend version. This version is returned with every backend reponse in the Server: header. A client also can specify the core version
-using <code>bk-version</code> header. When a request is parsed and the version is provided it will be set in the request options object as <code>protocolVersion</code>.</p>
+using <code>bk-version</code> header. When a request is parsed and the version is provided it will be set in the request options object as <code>apiVersion</code>.</p>
 <p>All API routes are defined using Express middleware and one of the possible ways of dealing with different versions can look like this, by
 appending version to the command it is very simple to call only changed API code.</p>
 </li>
@@ -809,7 +809,7 @@ appending version to the command it is very simple to call only changed API code
 <pre><code class="language-javascript">          api.all(/\/domain\/(get|put|del)/, function(req, res) {
               var options = api.getOptions(req);
               var cmd = req.params[0];
-              if (options.protocolVersion) cmd += &quot;/&quot; + options.protocolVersion;
+              if (options.apiVersion) cmd += &quot;/&quot; + options.apiVersion;
               switch (cmd) {
               case &quot;get&quot;:
                   break;
@@ -2489,7 +2489,7 @@ early with some properties always present:<ul>
 <li>appVersion - parsed app version from the header or user agent</li>
 <li>appTimezone - milliseconds offset from the UTC provided in the header by the app</li>
 <li>appLocale - a language provided in the header</li>
-<li>protocolVersion - app specific version provided in the header</li>
+<li>apiVersion - app specific version provided in the header</li>
 </ul>
 </li>
 </ul>
@@ -2735,7 +2735,7 @@ conflict with the existing ones.</p>
 </ul>
 <p>These are the reserved names that cannot be used for parameters, they are defined by the engine for every request:</p>
 <ul>
-<li><code>path, apath, ip, host, mtime, cleanup, secure, noscan, appName, appVersion, appPlatform, appLocale, appTimezone, protocolVersion</code></li>
+<li><code>path, apath, ip, host, mtime, cleanup, secure, noscan, appName, appVersion, appPlatform, appLocale, appTimezone, apiVersion</code></li>
 </ul>
 <p>NOTE: <code>noscan</code> is set to 1 in every request to prevent accidental full scans, this means it cannot be enabled via the API but any module
 can do it in the code if needed.</p>
