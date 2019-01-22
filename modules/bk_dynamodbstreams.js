@@ -180,7 +180,7 @@ mod.processShardStart = function(shard, options, callback)
                 if (row && row.value && !options.force) {
                     shard.SequenceNumber = row.value;
                     shard.ShardIteratorType = "AFTER_SEQUENCE_NUMBER";
-                    logger.info("processShard:", mod.name, options.table, shard);
+                    logger.debug("processShard:", mod.name, options.table, shard);
                 }
                 next(err);
             });
