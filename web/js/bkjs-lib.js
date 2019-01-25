@@ -437,6 +437,111 @@ Bkjs.toValue = function(val, type)
     }
 }
 
+Bkjs.toTemplate = function(text, obj, options)
+{
+    if (typeof text != "string" || !text) return "";
+    var rc = [];
+    if (!options) options = {};
+    if (!Array.isArray(obj)) obj = [obj];
+    for (var i = 0; i < obj.length; i++) {
+        if (typeof obj[i] == "object" && obj[i]) rc.push(obj[i]);
+    }
+    var tmpl = "", str = text;
+    while (str) {
+        var start = str.indexOf("@");
+        if (start == -1) {
+            tmpl += str;
+            break;
+        }
+        var end = str.indexOf("@", start + 1);
+        if (end == -1) {
+            tmpl += str;
+            break;
+        }
+        var tag = str.substr(start + 1, end - start - 1);
+        tmpl += str.substr(0, start);
+        str = str.substr(end + 1);
+        var d, i, v = null, dflt = null;
+        if (tag == "exit") {
+            options.exit = 1;
+        } else
+        if (tag == "RAND") {
+            v = Math.random();
+        } else
+        if (/^if/.test(tag)) {
+            // @if type tester,admin@
+            // @endif@
+            end = str.indexOf("@endif@");
+            if (end == -1) continue;
+            var body = str.substr(0, end);
+            str = str.substr(end + 7);
+            d = tag.match(/^(if|ifeq|ifgt|ifge|iflt|ifle|ifnot|ifall|ifstr) ([a-zA-Z0-9]+) +(.+)$/)
+            if (!d) continue;
+            var ok, val = null;
+            for (i = 0; i < rc.length && !val; i++) val = rc[i][d[2]];
+            switch (d[1]) {
+            case "if":
+                ok = val && this.isFlag(this.strSplit(d[3]), this.strSplit(val));
+                break;
+            case "ifnot":
+                ok = !val || !this.isFlag(this.strSplit(d[3]), this.strSplit(val));
+                break;
+            case "ifall":
+                val = this.strSplit(val);
+                ok = this.strSplit(d[3]).every(function(x) { return val.indexOf(x) > -1 });
+                break;
+            case "ifstr":
+                ok = val && String(val).match(new RegExp(d[3], "i"));
+                break;
+            case "ifeq":
+                ok = val == d[3];
+                break;
+            case "ifgt":
+                ok = val > d[3];
+                break;
+            case "iflt":
+                ok = val < d[3];
+                break;
+            case "ifge":
+                ok = val >= d[3];
+                break;
+            case "ifle":
+                ok = val <= d[3];
+                break;
+            }
+            if (ok) {
+                v = this.toTemplate(body, rc, options);
+                tag = d[2];
+            }
+        } else {
+            d = tag.match(/^([a-zA-Z0-9_]+)(\|.+)?$/);
+            if (d) {
+                tag = d[1];
+                dflt = d[2].substr(1);
+                for (i = 0; i < rc.length && !v; i++) v = rc[i][tag];
+            } else {
+                tmpl += "@" + tag + "@";
+            }
+        }
+        if (!v) v = dflt;
+        if (v) {
+            switch (options.encoding) {
+            case "url":
+                v = encodeURIComponent(v);
+                break;
+            }
+        }
+        if (Array.isArray(options.allow) && options.allow.indexOf(tag) == -1) continue;
+        if (Array.isArray(options.skip) && options.skip.indexOf(tag) > -1) continue;
+        if (Array.isArray(options.only) && options.only.indexOf(tag) == -1) continue;
+        if (v !== null && v !== undefined) tmpl += v;
+        if (options.exit) break;
+    }
+    if (options.noline) tmpl = tmpl.replace(/[\r\n]/g, "");
+    if (options.nospace) tmpl = tmpl.replace(/ {2,}/g, " ").trim();
+    return tmpl;
+}
+
 // Split string into array, ignore empty items,
 // - `sep` is an RegExp to use as a separator instead of default  pattern `[,\|]`,
 // - `options` is an object with the same properties as for the `toParams`, `datatype' will be used with
