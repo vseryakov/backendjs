@@ -517,7 +517,7 @@ Bkjs.toTemplate = function(text, obj, options)
             d = tag.match(/^([a-zA-Z0-9_]+)(\|.+)?$/);
             if (d) {
                 tag = d[1];
-                dflt = d[2].substr(1);
+                if (d[2]) dflt = d[2].substr(1);
                 for (i = 0; i < rc.length && !v; i++) v = rc[i][tag];
             } else {
                 tmpl += "@" + tag + "@";
