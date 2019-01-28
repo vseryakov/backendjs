@@ -209,7 +209,8 @@ mod.processRecords = function(result, options, callback)
             var bulk = result.Records.map((x) => ({ op: x.eventName == "REMOVE" ? "del" : "put", table: options.table, obj: x.dynamodb.NewImage || x.dynamodb.Keys }));
             db.bulk(bulk, { pool: options.target_pool }, next);
         },
-        function(next) {
+        function(next, errors) {
+            for (const i in errors) logger.warn("processRecords:", mod.name, errors[i]);
             if (!result.LastSequenceNumber) return next();
             options.lastShardId = result.Shard.ShardId;
             options.lastSequenceNumber = result.LastSequenceNumber;
