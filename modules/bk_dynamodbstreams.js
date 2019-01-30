@@ -26,6 +26,7 @@ const mod = {
     lockType: "stream",
     periodTimeouts: {},
     maxTimeouts: {},
+    shardCache: {},
 };
 module.exports = mod;
 
@@ -81,8 +82,9 @@ mod.runJob = function(options, callback)
                     options.shardRetryMaxTimeout = Math.max(p, options.shardRetryMaxTimeout);
                 }
             }
+            stream.shards = 0;
             aws.ddbProcessStream(stream, options, mod.syncProcessor, () => {
-                setTimeout(next, !stream.StreamArn ? mod.lockTtl : 1000);
+                setTimeout(next, !stream.StreamArn || !stream.shards ? mod.lockTtl : 1000);
             });
         },
         function() {
@@ -165,22 +167,23 @@ mod.processStreamEnd = function(stream, options, callback)
 }
 
 // Get the last processed sequence for the shard
-mod.processShardStart = function(shard, options, callback)
+mod.processShardStart = function(req, options, callback)
 {
     lib.series([
         function(next) {
+            if (mod.shardCache[req.Shard.ShardId]) return next("unknown");
             if (mod.lockType != "shard") return next();
-            mod.lock("ShardId", shard, options, (err, locked) => {
+            mod.lock("ShardId", req.Shard, options, (err, locked) => {
                 if (!err && !locked) err = "not-locked";
                 next(err);
             });
         },
         function(next) {
-            db.get("bk_property", { name: shard.ShardId }, options, (err, row) => {
+            db.get("bk_property", { name: req.Shard.ShardId }, options, (err, row) => {
                 if (row && row.value && !options.force) {
-                    shard.SequenceNumber = row.value;
-                    shard.ShardIteratorType = "AFTER_SEQUENCE_NUMBER";
-                    logger.debug("processShard:", mod.name, options.table, shard);
+                    req.Shard.SequenceNumber = row.value;
+                    req.Shard.ShardIteratorType = "AFTER_SEQUENCE_NUMBER";
+                    logger.debug("processShard:", mod.name, options.table, req.Shard);
                 }
                 next(err);
             });
@@ -188,12 +191,23 @@ mod.processShardStart = function(shard, options, callback)
     ], callback);
 }
 
-mod.processShardEnd = function(shard, options, callback)
+mod.processShardEnd = function(req, options, callback)
 {
     lib.series([
         function(next) {
             if (mod.lockType != "shard") return next();
-            mod.unlock("ShardId", shard, options, next);
+            mod.unlock("ShardId", req.Shard, options, next);
+        },
+        function(next) {
+            if (!req.Shard.error) {
+                req.Stream.shards++;
+            } else {
+                // Skip unknown or stale shards
+                if (req.Shard.error.code == "ResourceNotFoundException" && req.Shard.error.action == "GetShardIterator") {
+                    mod.shardCache[req.Shard.ShardId] = Date.now();
+                }
+            }
+            next();
         },
     ], callback);
 }
