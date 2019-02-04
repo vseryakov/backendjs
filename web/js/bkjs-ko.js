@@ -46,3 +46,22 @@ Bkjs.koInit = function()
         Bkjs.checkLogin(err);
     });
 }
+
+ko.bindingHandlers.hidden = {
+    update: function (element, valueAccessor) {
+        var value = ko.utils.unwrapObservable(valueAccessor());
+        var isCurrentlyHidden = !(element.style.display == "");
+        if (value && !isCurrentlyHidden) element.style.display = "none"; else
+        if ((!value) && isCurrentlyHidden) element.style.display = "";
+    }
+};
+
+// Web bundle naming convention
+ko.components.loaders.unshift({
+    getConfig: function(name, callback) {
+        var tmpl = name.replace(/[^a-zA-Z0-9]/g, "_") + "_tmpl";
+        if (!window[tmpl]) return callback(null);
+        callback({ template: window[tmpl], viewModel: Bkjs[Bkjs.toCamel(name)] });
+    }
+});
+

@@ -307,22 +307,37 @@ var Bkjs = {
         });
     },
 
-    // Send a file as multi-part upload, additional files can be passed in the `files` object.
+    // Send a file as multi-part upload, uses `options.name` or "data" for file namne. Additional files can be passed in the `options.files` object. Optional form inputs
+    // can be specified in the `options.data` object.
     sendFile: function(options, callback) {
-        if (!options || !options.file || !options.file.files || !options.file.files.length) return typeof callback == "function" ? callback() : null;
-        var form = new FormData();
+        var n = 0, form = new FormData(), files = {};
+        if (options.file) files[options.name || "data"] = options.file;
+        for (var p in options.files) files[p] = options.files[p];
+        for (var p in files) {
+            var f = app.getFileInput(files[p]);
+            if (!f) continue;
+            form.append(p, f);
+            n++;
+        }
+        if (!n) return callback && callback();
+
         for (var p in options.data) {
             if (typeof options.data[p] != "undefined") form.append(p, options.data[p])
         }
-        form.append(options.name || "data", options.file.files[0]);
-        for (var i in options.files) form.append(p, options.files[i].files[0])
         // Send within the session, multipart is not supported by signature
         var rc = { url: options.url, type: "POST", processData: false, data: form, contentType: false, nosignature: true };
-        this.send(rc, function(data, xhr) {
-            if (typeof callback == "function") callback(null, data, xhr);
-        }, function(err, xhr) {
-            if (typeof callback == "function") callback(err, null, xhr);
-        });
+        Bkjs.sendRequest(rc, callback);
+    },
+
+    // Return a file object for the selector
+    getFileInput: function(file) {
+        if (typeof file == "string") file = $(file);
+        if (file instanceof jQuery && file.length) file = file[0];
+        if (typeof file == "object") {
+            if (file.files && file.files.length) return file.files[0];
+            if (file.name && file.size) return file;
+        }
+        return "";
     },
 
     // WebSockets helper functions

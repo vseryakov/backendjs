@@ -378,15 +378,10 @@ Bkjs.toNumber = function(val, options)
     return n;
 }
 
-// Return a test representation of a number according to the money formatting rules(US)
-Bkjs.toMoneyNumber = function(num)
+// Return a test representation of a number according to the money formatting rules
+Bkjs.toPrice = function(num)
 {
-    var parts = String(typeof num != "number" || isNaN(num) ? 0 : num < 0 ? -num : num).split(".");
-    var p1 = parts[0], i = p1.length, str = '';
-    while (i--) {
-        str = (i == 0 ? '' : ((p1.length - i) % 3 ? '' : ',')) + p1.charAt(i) + str;
-    }
-    return (num < 0 ? '-' : '') + str + (parts[1] ? '.' + parts[1] : '');
+    return this.toNumber(num).toLocaleString("en", { minimumFractionDigits: 2, maximumFractionDigits: 20 });
 }
 
 Bkjs.toValue = function(val, type)

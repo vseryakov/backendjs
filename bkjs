@@ -467,24 +467,27 @@ case "$BKJS_CMD" in
         bundles=$(get_json $pkg config.bundles)
         alljs="$(echo $(ls web/js/))"
         allcss="$(echo $(ls web/css/))"
+        allhtml="$(echo $(ls web/html/))"
         for b in $bundles; do
             js=$(get_json_flat $pkg config.bundles.$b.js)
             css=$(get_json_flat $pkg config.bundles.$b.css)
-            echo -e "\n$b:\n\tjs:\n\t\t$js\n\tcss:\n\t\t$css"
-            alljs=$(echo $alljs|sed -E "s/$(echo $js|sed 's/ /|/g')//g")
-            allcss=$(echo $allcss|sed -E "s/$(echo $css|sed 's/ /|/g')//g")
+            html=$(get_json_flat $pkg config.bundles.$b.html)
+            echo -e "\n$b:\n\tjs:\n\t\t$js\n\tcss:\n\t\t$css\n\thtml:\n\t\t$html"
+            alljs=$(echo $alljs|sed -E "s!$(echo $js|sed 's/ /|/g')!!g")
+            allcss=$(echo $allcss|sed -E "s!$(echo $css|sed 's/ /|/g')!!g")
+            allhtml=$(echo $allhtml|sed -E "s!$(echo $html|sed 's/ /|/g')!!g")
         done
-        echo -e "\nunbundled:\n\tjs:\n\t\t$(echo $alljs)\n\tcss:\n\t\t$(echo $allcss)"
+        echo -e "\nunbundled:\n\tjs:\n\t\t$(echo $alljs)\n\tcss:\n\t\t$(echo $allcss)\n\thtml:\n\t\t$(echo $allhtml)"
         exit 0
     fi
     if [[ ! -z $(get_flag -all) ]]; then
         pkg=package.json
         bundles=$(get_json $pkg config.bundles)
         for b in $bundles; do
-            $0 web-bundle -file $b.js $(get_all_args "-all -file")
-            [ "$?" != "0" ] && exit 1
-            $0 web-bundle -file $b.css $(get_all_args "-all -file")
-            [ "$?" != "0" ] && exit 1
+            for t in "js css html"; do
+                $0 web-bundle -file $b.$t $(get_all_args "-all -file")
+                [ "$?" != "0" ] && exit 1
+            done
         done
         exit 0
     fi
@@ -495,9 +498,9 @@ case "$BKJS_CMD" in
     quiet=$(get_flag -quiet)
     uglifyargs=$(get_arg -uglifyargs)
 
-    if [[ $file =~ \.bundle\.(js|css)$ ]]; then
+    if [[ $file =~ \.bundle\.(js|css|html)$ ]]; then
        exit
-    elif [[ $file =~ ^([a-zA-Z0-9\._-]+)?(js|css)$ ]]; then
+    elif [[ $file =~ ^([a-zA-Z0-9\._-]+)?(js|css|html)$ ]]; then
        dir=$(pwd)
        type=${file##*.}
        name=${file%.*}
@@ -524,7 +527,7 @@ case "$BKJS_CMD" in
             bundle=$b
             [ "$quiet" = "" ] && echo "$(date): web-bundle $bundle.$type started $dir/$file"
             case $file in
-              *js)
+            *js)
                 mkdir -p web/js
                 if [[ ! -z $(get_flag -cat) ]]; then
                     (cd $dir && cat $files > web/js/$bundle.bundle.js)
@@ -539,7 +542,7 @@ case "$BKJS_CMD" in
                 fi
                 ;;
 
-              *css)
+            *css)
                 mkdir -p web/css
                 if [[ ! -z $(get_flag -cat) ]]; then
                     (cd $dir && cat $files > web/css/$bundle.bundle.css)
@@ -547,6 +550,18 @@ case "$BKJS_CMD" in
                     (cd $dir && uglifycss $files --output web/css/$bundle.bundle.css)
                     [ "$?" != "0" ] && exit 1
                 fi
+                ;;
+
+            *html)
+                find_nodebin
+                mkdir -p web/js
+                echo > web/js/$bundle.bundle.html.js
+                for f in $files; do
+                    (cd $dir && html-minifier --collapse-whitespace --collapse-boolean-attributes --remove-comments --remove-optional-tags --remove-attribute-quotes --remove-empty-attributes $f > /tmp/tmpl)
+                    [ "$?" != "0" ] && exit 1
+                    $NODE_BIN -e "try{var n=require('path').basename('$f','.html'),f=require('fs').readFileSync('/tmp/tmpl').toString();console.log('var '+n.replace(/[^a-zA-Z0-9_]/g,'_')+'_tmpl='+JSON.stringify(f)+';\nko.components.register(\"'+n+'\",{});')}catch(e){}" >>web/js/$bundle.bundle.html.js
+                done
+
                 ;;
             esac
             [ "$quiet" = "" ] && echo "$(date): web-bundle $bundle.$type finished $dir/$file"
@@ -641,7 +656,7 @@ case "$BKJS_CMD" in
     echo "  ssh -host HOST -cmd CMD [-user USER] [-key PEM] [-ssh ARGS] - run a command over ssh on all specified hosts"
     echo "  install-node [-prefix PATH] [-force] [-clean] - install binary release of the node into $BKJS_PREFIX or specified path"
     echo "  install-devel - install development packages for node and modules compiclation"
-    echo "  web-bundle -file FILE|(js|css)|BUNDLE.(js|css) [-dev] [-uglifyargs ARGS] [-all] [-list] - produce a web bundle by uglifying js or css files into one file, resolves files from package.json"
+    echo "  web-bundle -file FILE|(js|css|html)|BUNDLE.(js|css|html) [-dev] [-uglifyargs ARGS] [-all] [-list] - produce a web bundle by uglifying js/css/html files into one file, resolves files from package.json"
     echo ""
     echo "  bkhelp - show all $BKJS_MOD config parameters"
     echo ""
