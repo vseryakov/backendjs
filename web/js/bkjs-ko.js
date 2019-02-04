@@ -2,48 +2,44 @@
 // Vlad Seryakov 2014
 //
 
-// Setup a cookie session
-Bkjs.session = true;
-// Redirect to this url on logout
-Bkjs.koLogoutUrl = "";
 // Status of the current account
-Bkjs.koAuth = ko.observable(0);
-Bkjs.koAdmin = ko.observable(0);
-Bkjs.koName = ko.observable();
+bkjs.koAuth = ko.observable(0);
+bkjs.koAdmin = ko.observable(0);
+bkjs.koName = ko.observable();
 
-Bkjs.checkLogin = function(err)
+bkjs.checkLogin = function(err)
 {
-    Bkjs.koAuth(Bkjs.loggedIn);
-    Bkjs.koName(Bkjs.account.name);
-    Bkjs.koAdmin(Bkjs.loggedIn && Bkjs.checkAccountType(Bkjs.account, "admin"));
-    $(Bkjs).trigger(Bkjs.loggedIn ? "bkjs.login" : "bkjs.nologin", err);
-    if (!err && typeof Bkjs.koShow == "function") Bkjs.koShow();
+    bkjs.koAuth(bkjs.loggedIn);
+    bkjs.koName(bkjs.account.name);
+    bkjs.koAdmin(bkjs.loggedIn && bkjs.checkAccountType(bkjs.account, "admin"));
+    $(bkjs).trigger(bkjs.loggedIn ? "bkjs.login" : "bkjs.nologin", err);
+    if (!err && typeof bkjs.koShow == "function") bkjs.koShow();
 }
 
-Bkjs.koLogin = function(data, event)
+bkjs.koLogin = function(data, event)
 {
-    Bkjs.showLogin(Bkjs.koLoginOptions, function(err) {
-        Bkjs.checkLogin(err);
-        if (!err) Bkjs.hideLogin();
+    bkjs.showLogin(bkjs.koLoginOptions, function(err) {
+        bkjs.checkLogin(err);
+        if (!err) bkjs.hideLogin();
     });
 }
 
-Bkjs.koLogout = function(data, event)
+bkjs.koLogout = function(data, event)
 {
-    Bkjs.logout(function() {
-        Bkjs.koAuth(0);
-        Bkjs.koAdmin(0);
-        Bkjs.koName("");
-        $(Bkjs).trigger('bkjs.logout');
-        if (Bkjs.koLogoutUrl) window.location.href = Bkjs.koLogoutUrl;
+    bkjs.logout(function() {
+        bkjs.koAuth(0);
+        bkjs.koAdmin(0);
+        bkjs.koName("");
+        $(bkjs).trigger('bkjs.logout');
+        if (bkjs.koLogoutUrl) window.location.href = bkjs.koLogoutUrl;
     });
 }
 
-Bkjs.koInit = function()
+bkjs.koInit = function()
 {
-    ko.applyBindings(Bkjs);
-    Bkjs.login(function(err) {
-        Bkjs.checkLogin(err);
+    ko.applyBindings(bkjs);
+    bkjs.login(function(err) {
+        bkjs.checkLogin(err);
     });
 }
 
@@ -59,9 +55,9 @@ ko.bindingHandlers.hidden = {
 // Web bundle naming convention
 ko.components.loaders.unshift({
     getConfig: function(name, callback) {
-        var tmpl = name.replace(/[^a-zA-Z0-9]/g, "_") + "_tmpl";
-        if (!window[tmpl]) return callback(null);
-        callback({ template: window[tmpl], viewModel: Bkjs[Bkjs.toCamel(name)] });
+        name = bkjs.toCamel(name);
+        if (!window[name + "Template"]) return callback(null);
+        callback({ template: window[name + "Template"], viewModel: Bkjs[name + "Model"] });
     }
 });
 

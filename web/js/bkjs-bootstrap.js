@@ -5,13 +5,13 @@
 
 // Bootstrap backend support
 
-Bkjs.showAlert = function(obj, type, text, options)
+bkjs.showAlert = function(obj, type, text, options)
 {
     if (typeof obj == "string") options = text, text = type, type = obj, obj = $("body");
     if (!text) return;
     if (!options) options = {};
-    if (!Bkjs._alertNum) Bkjs._alertNum = 0;
-    var aid = "alert-" + Bkjs._alertNum++;
+    if (!bkjs._alertNum) bkjs._alertNum = 0;
+    var aid = "alert-" + bkjs._alertNum++;
     var html = "<div id=" + aid + " class='alert alert-dissmisible alert-" + type + "' role='alert'>";
     if (options.icon) html += '<i class="fa fa-fw ' + options.icon + '"></i>';
     html += String(typeof text == "string" ? text : text && text.message ? text.message : JSON.stringify(text)).replace(/\n/g, "<br>");
@@ -24,12 +24,12 @@ Bkjs.showAlert = function(obj, type, text, options)
     if (options.scroll) $(obj).animate({ scrollTop: 0 }, "slow");
 }
 
-Bkjs.hideAlert = function(obj)
+bkjs.hideAlert = function(obj)
 {
     $(obj || "body").find(".alerts").empty();
 }
 
-Bkjs.showConfirm = function(options, callback, cancelled)
+bkjs.showConfirm = function(options, callback, cancelled)
 {
     if (typeof options == "string") options = { text: options };
     var modal = $('#bkjs-confirm-modal');
@@ -73,7 +73,7 @@ Bkjs.showConfirm = function(options, callback, cancelled)
     modal.modal("show");
 };
 
-Bkjs.showChoice = function(options, callback)
+bkjs.showChoice = function(options, callback)
 {
     if (typeof options == "string") options = { text: options };
     var modal = $('#bkjs-choice-modal');
@@ -123,7 +123,7 @@ Bkjs.showChoice = function(options, callback)
     modal.modal("show");
 };
 
-Bkjs.showPrompt = function(options, callback)
+bkjs.showPrompt = function(options, callback)
 {
     if (typeof options == "string") options = { text: options };
     var modal = $('#bkjs-prompt-modal');
@@ -168,13 +168,13 @@ Bkjs.showPrompt = function(options, callback)
     modal.modal("show");
 };
 
-Bkjs.showLogin = function(options, callback)
+bkjs.showLogin = function(options, callback)
 {
     if (typeof options == "function") callback = options, options = null;
     if (!options) options = {};
     var modal = $('#bkjs-login-modal');
     if (!modal.length) {
-        var close = '<button type="button" class="close" onclick="Bkjs.hideLogin()"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>';
+        var close = '<button type="button" class="close" onclick="bkjs.hideLogin()"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>';
         var title = '<h4 class="modal-title" id="LoginLabel"><img src=@icon@ class="logo"> @title@</h4>';
         if (window.bootstrap) title = title + close; else title = close + title;
         var text =
@@ -196,7 +196,7 @@ Bkjs.showLogin = function(options, callback)
               @disclaimer@\
             </div>\
             <div class="modal-footer">\
-             <button type="button" class="btn btn-default" onclick="Bkjs.hideLogin()">Close</button>\
+             <button type="button" class="btn btn-default" onclick="bkjs.hideLogin()">Close</button>\
              <button type="submit" class="btn btn-primary">Login</button>\
             </div>\
             </form>\
@@ -227,8 +227,8 @@ Bkjs.showLogin = function(options, callback)
     });
     form.off().on("submit", function() {
         if (typeof options.onSubmit == "function" && !options.onSubmit(modal, form, login.val(), secret.val())) return false;
-        Bkjs.login({ login: login.val(), secret: secret.val() }, function(err) {
-            if (err) Bkjs.showAlert(modal, "danger", err);
+        bkjs.login({ login: login.val(), secret: secret.val() }, function(err) {
+            if (err) bkjs.showAlert(modal, "danger", err);
             if (typeof callback == "function") callback(err);
         });
         return false;
@@ -236,7 +236,7 @@ Bkjs.showLogin = function(options, callback)
     modal.modal("show");
 }
 
-Bkjs.hideLogin = function()
+bkjs.hideLogin = function()
 {
     $("#bkjs-login-modal").modal("hide");
 }
