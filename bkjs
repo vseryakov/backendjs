@@ -222,7 +222,7 @@ export PATH=$BKJS_HOME/bin:$BKJS_HOME/node_modules/.bin:$BKJS_PREFIX/bin:/usr/lo
 
 process_cmds() { process_cmd 1; }
 
-[ ! -z "$(get_flag -debug)" ] && echo "$0: CMD=$BKJS_CMD, USER=$BKJS_USER, HOME=$BKJS_HOME, PREFIX=$BKJS_PREFIX"
+[ ! -z "$(get_flag -debug)" ] && echo "$0: CMD=$BKJS_CMD, USER=$BKJS_USER, HOME=$BKJS_HOME, PREFIX=$BKJS_PREFIX, PWD=$(pwd)"
 
 case "$BKJS_CMD" in
   start)
@@ -528,7 +528,7 @@ case "$BKJS_CMD" in
             [ "$quiet" = "" ] && echo "$(date): web-bundle $bundle.$type started $dir/$file"
             case $file in
             *js)
-                mkdir -p web/js
+                mkdir -p $dir/web/js
                 if [[ ! -z $(get_flag -cat) ]]; then
                     (cd $dir && cat $files > web/js/$bundle.bundle.js)
                 else
@@ -543,7 +543,7 @@ case "$BKJS_CMD" in
                 ;;
 
             *css)
-                mkdir -p web/css
+                mkdir -p $dir/web/css
                 if [[ ! -z $(get_flag -cat) ]]; then
                     (cd $dir && cat $files > web/css/$bundle.bundle.css)
                 else
@@ -554,12 +554,12 @@ case "$BKJS_CMD" in
 
             *html)
                 find_nodebin
-                mkdir -p web/js
-                echo > web/js/$bundle.bundle.html.js
+                mkdir -p $dir/web/js
+                echo > $dir/web/js/$bundle.bundle.html.js
                 for f in $files; do
                     (cd $dir && html-minifier --collapse-whitespace --collapse-boolean-attributes --remove-comments --remove-optional-tags --remove-attribute-quotes --remove-empty-attributes $f > /tmp/tmpl)
                     [ "$?" != "0" ] && exit 1
-                    $NODE_BIN -e "try{var n=require('path').basename('$f','.html').replace(/(?:[-_\\.])(\\w)/g,(_,c)=>(c?c.toUpperCase():'')),f=require('fs').readFileSync('/tmp/tmpl').toString();console.log('var '+n+'Template='+JSON.stringify(f)+';\nko.components.register(\"'+n+'\",{});')}catch(e){}" >>web/js/$bundle.bundle.html.js
+                    $NODE_BIN -e "try{var n=require('path').basename('$f','.html').replace(/(?:[-_\\.])(\\w)/g,(_,c)=>(c?c.toUpperCase():'')),f=require('fs').readFileSync('/tmp/tmpl').toString();console.log('var '+n+'Template='+JSON.stringify(f)+';\nko.components.register(\"'+n+'\",{});')}catch(e){}" >>$dir/web/js/$bundle.bundle.html.js
                 done
 
                 ;;

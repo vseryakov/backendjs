@@ -465,6 +465,13 @@ bootpopup.prompt = function(label, type, message, title, callback)
     });
 }
 
+bootpopup.showError = function(text)
+{
+    if (text && text.message) text = text.message;
+    $("#bootpopup-error").empty().append("<p>" + String(text).replace(/\n/g, "<br>") + "</p>").fadeIn(1000).delay(10000).fadeOut(1000, function () { $(this).hide() });
+    return null;
+}
+
 if (typeof define === "function") {
     define(["jquery", "bootstrap"], function() {
         return bootpopup;
