@@ -71,7 +71,7 @@ bkjs.koSet = function(name, val)
 
 bkjs.koSetObject = function(obj, options)
 {
-    if (!obj || typeof != "obj") obj = {};
+    if (!obj || typeof obj != "object") obj = {};
     for (var p in obj) {
         if (typeof options[p] != "undefined") continue;
         if (ko.isObservable(obj[p])) obj[p](undefined); else obj[p] = undefined;
