@@ -286,6 +286,7 @@ bkjs.send = function(options, onsuccess, onerror)
             if (!json || typeof json != "object") json = {};
             break;
         }
+        if (options.alert_ok) bkjs.showAlert("info", options.alert_ok);
         if (typeof onsuccess == "function") onsuccess(json, xhr);
     }
     // Parse error message
@@ -294,12 +295,13 @@ bkjs.send = function(options, onsuccess, onerror)
         var err = xhr.responseText;
         try { err = JSON.parse(xhr.responseText) } catch(e) {}
         bkjs.log('send:', xhr.status, err, statusText, errorText, options);
+        if (options.alert_ok || options.alert_err) bkjs.showAlert("danger", (typeof options.alert_err == "string" && options.alert_err) || err || errorText || statusText);
         if (typeof onerror == "function") onerror(err || errorText || statusText, xhr, statusText, errorText);
     }
     if (!options.nosignature) {
         var hdrs = this.createSignature(options.type, options.url, options.data, { expires: options.expires, checksum: options.checksum });
         for (var p in hdrs) options.headers[p] = hdrs[p];
-        // Optional timezone offset for ptoper datetime related operations
+        // Optional timezone offset for proper datetime related operations
         options.headers[this.tzHeaderName] = (new Date()).getTimezoneOffset();
         if (this.language) options.headers[this.langHeaderName] = this.language;
     }
@@ -340,6 +342,7 @@ bkjs.sendFile = function(options, callback)
     }
     // Send within the session, multipart is not supported by signature
     var rc = { url: options.url, type: "POST", processData: false, data: form, contentType: false, nosignature: true };
+    for (var p in options) if (typeof rc[p] == "undefined") rc[p] = options[p];
     this.sendRequest(rc, callback);
 }
 

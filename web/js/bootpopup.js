@@ -272,8 +272,11 @@ function bootpopup(options)
                             }
                             break;
 
+                        case "alert":
+                            this.alert = elem = $("<div></div>", attrs).appendTo(this.form);
+
                         default:
-                            elem = $("<" + type + "></" + type + ">", attrs).appendTo(this.form);
+                            if (!elem) elem = $("<" + type + "></" + type + ">", attrs).appendTo(this.form);
                             if (opts.class_append || opts.text_append) {
                                 elem.append($("<span></span>", { class: opts.class_append || "" }).append(opts.text_append || ""));
                             }
@@ -347,6 +350,13 @@ function bootpopup(options)
 
         // Fire the modal window
         this.modal.modal();
+    }
+
+    this.showAlert = function(text) {
+        if (!this.alert) return;
+        if (text && text.message) text = text.message;
+        $(this.alert).empty().append("<p>" + String(text).replace(/\n/g, "<br>") + "</p>").fadeIn(1000).delay(10000).fadeOut(1000, function () { $(this).hide() });
+        return null;
     }
 
     this.data = function() {
@@ -463,13 +473,6 @@ bootpopup.prompt = function(label, type, message, title, callback)
             return callback_function(data);
         }
     });
-}
-
-bootpopup.showError = function(text)
-{
-    if (text && text.message) text = text.message;
-    $("#bootpopup-error").empty().append("<p>" + String(text).replace(/\n/g, "<br>") + "</p>").fadeIn(1000).delay(10000).fadeOut(1000, function () { $(this).hide() });
-    return null;
 }
 
 if (typeof define === "function") {

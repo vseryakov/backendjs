@@ -5,8 +5,8 @@
 // Status of the current account
 bkjs.koAuth = ko.observable(0);
 bkjs.koAdmin = ko.observable(0);
-bkjs.koName = ko.observable();
 bkjs.koState = {};
+bkjs.koTemplate = {};
 
 bkjs.koInit = function()
 {
@@ -19,8 +19,7 @@ bkjs.koInit = function()
 bkjs.checkLogin = function(err)
 {
     bkjs.koAuth(bkjs.loggedIn);
-    bkjs.koName(bkjs.account.name);
-    bkjs.koAdmin(bkjs.loggedIn && bkjs.checkAccountType(bkjs.account, "admin"));
+    bkjs.koAdmin(bkjs.loggedIn && bkjs.checkAccountType(bkjs.account, bkjs.adminType || "admin"));
     $(bkjs).trigger(bkjs.loggedIn ? "bkjs.login" : "bkjs.nologin", err);
     if (!err && typeof bkjs.koShow == "function") bkjs.koShow();
 }
@@ -38,13 +37,23 @@ bkjs.koLogout = function(data, event)
     bkjs.logout(function() {
         bkjs.koAuth(0);
         bkjs.koAdmin(0);
-        bkjs.koName("");
         $(bkjs).trigger('bkjs.logout');
         if (bkjs.koLogoutUrl) window.location.href = bkjs.koLogoutUrl;
     });
 }
 
-bkjs.koSetState = function(name, val)
+bkjs.koGet = function(name, dflt)
+{
+    if (typeof name != "string") name = String(name);
+    name = name.replace(/[^a-zA-z0-9_]/g, "_");
+    var val = bkjs.koState[name];
+    if (typeof val == "undefined") {
+        bkjs.koState[name] = val = Array.isArray(dflt) ? ko.observableArray(dflt) : ko.observable(dflt);
+    }
+    return val;
+}
+
+bkjs.koSet = function(name, val)
 {
     if (!name) return;
     if (!Array.isArray(name)) name = [ name ];
@@ -52,7 +61,7 @@ bkjs.koSetState = function(name, val)
         var key = name[i];
         if (typeof key != "string") continue;
         key = key.replace(/[^a-zA-z0-9_]/g, "_");
-        if (ko.isObservable(app.koState[key])) {
+        if (ko.isObservable(bkjs.koState[key])) {
             bkjs.koState[key](val);
         } else {
             bkjs.koState[key] = Array.isArray(val) ? ko.observableArray(val) : ko.observable(val);
@@ -62,7 +71,7 @@ bkjs.koSetState = function(name, val)
 
 bkjs.koSetObject = function(obj, options)
 {
-    if (!obj) obj = {};
+    if (!obj || typeof != "obj") obj = {};
     for (var p in obj) {
         if (typeof options[p] != "undefined") continue;
         if (ko.isObservable(obj[p])) obj[p](undefined); else obj[p] = undefined;
@@ -87,8 +96,8 @@ ko.bindingHandlers.hidden = {
 ko.components.loaders.unshift({
     getConfig: function(name, callback) {
         name = bkjs.toCamel(name);
-        if (!window[name + "Template"]) return callback(null);
-        callback({ template: window[name + "Template"], viewModel: Bkjs[name + "Model"] });
+        if (!bkjs.koTemplate[name]) return callback(null);
+        callback({ template: bkjs.koTemplate[name], viewModel: bkjs[name + "Model"] });
     }
 });
 
