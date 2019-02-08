@@ -82,6 +82,42 @@ bkjs.koSetObject = function(obj, options)
     return obj;
 }
 
+bkjs.sendEvent = function(name, data)
+{
+    name = bkjs.toCamel(name);
+    name = "on" + name.substr(0, 1).toUpperCase() + name.substr(1);
+    $(bkjs).trigger("bkjs.event", [name, data]);
+}
+
+bkjs.koModel = function(params)
+{
+    this.params = params;
+    $(bkjs).on("bkjs.event", $.proxy(this.handleEvent, this));
+}
+
+bkjs.koModel.prototype.handleEvent = function(ev, name, data)
+{
+    if (typeof this[name] == "function") this[name](data);
+}
+
+bkjs.koModel.prototype.dispose = function()
+{
+    if (typeof this.onDispose == "function") this.onDispose();
+    $(bkjs).off("bkjs.event", $.proxy(this.handleEvent, this));
+}
+
+bkjs.koCreateModel = function(name)
+{
+    if (!name) throw "model name is required";
+    var model = function(params) {
+        this._name = name;
+        bkjs.koModel.call(this, params);
+        if (typeof this.onInit == "function") this.onInit();
+    };
+    this.inherits(model, this.koModel);
+    this.sendEvent("model.created", name);
+    return model;
+}
 
 ko.bindingHandlers.hidden = {
     update: function (element, valueAccessor) {

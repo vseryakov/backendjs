@@ -270,6 +270,7 @@ function bootpopup(options)
                             if (opts.class_suffix || opts.text_suffix) {
                                 group.append($("<div></div>", { class: opts.class_suffix || "" }).append(opts.text_suffix || ""));
                             }
+                            if (opts.autofocus) this.autofocus = elem;
                             break;
 
                         case "alert":
@@ -333,7 +334,11 @@ function bootpopup(options)
         }
 
         // Setup events for dismiss and complete
-        this.modal.on('shown.bs.modal', this.options.shown);
+        this.modal.on('shown.bs.modal', function(e) {
+            var focus = self.autofocus || self.form.find("input,select,textarea").filter(":not([readonly='readonly']):not([disabled='disabled']):not([type='hidden'])").first();
+            if (focus) focus.focus();
+            self.options.shown();
+        });
         this.modal.on('hide.bs.modal', this.options.dismiss);
         this.modal.on('hidden.bs.modal', function(e) {
             self.options.complete(e);

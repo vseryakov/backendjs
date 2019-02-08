@@ -3,6 +3,12 @@
  *  Vlad Seryakov vseryakov@gmail.com 2018
  */
 
+bkjs.inherits = function(ctor, superCtor)
+{
+    ctor.prototype = Object.create(superCtor.prototype);
+    ctor.prototype.constructor = ctor;
+}
+
 // Return value of the query parameter by name
 bkjs.param = function(name, dflt, num)
 {
@@ -376,7 +382,7 @@ bkjs.toTitle = function(name)
 
 bkjs.toCamel = function(name, chars)
 {
-    return typeof name == "string" ? name.replace(/(?:[-_.])(\w)/g, function (_, c) { return c ? c.toUpperCase () : '' }) : "";
+    return typeof name == "string" ? name.replace(/(?:[-_.])(\w)/g, function (_, c) { return c ? c.toUpperCase() : '' }) : "";
 }
 
 // Convert Camel names into names separated by the given separator or dash if not.
