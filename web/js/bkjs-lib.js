@@ -382,7 +382,7 @@ bkjs.toTitle = function(name)
 
 bkjs.toCamel = function(name, chars)
 {
-    return typeof name == "string" ? name.replace(/(?:[-_.])(\w)/g, function (_, c) { return c ? c.toUpperCase() : '' }) : "";
+    return typeof name == "string" ? name.substr(0, 1).toLowerCase() + name.substr(1).replace(/(?:[-_.])(\w)/g, function (_, c) { return c ? c.toUpperCase() : '' }) : "";
 }
 
 // Convert Camel names into names separated by the given separator or dash if not.

@@ -102,8 +102,10 @@ bkjs.koModel.prototype.handleEvent = function(ev, name, data)
 
 bkjs.koModel.prototype.dispose = function()
 {
-    if (typeof this.onDispose == "function") this.onDispose();
+    delete this.params;
+    bkjs.sendEvent("model.disposed", this._name);
     $(bkjs).off("bkjs.event", $.proxy(this.handleEvent, this));
+    if (typeof this.onDispose == "function") this.onDispose();
 }
 
 bkjs.koCreateModel = function(name)
@@ -114,8 +116,8 @@ bkjs.koCreateModel = function(name)
         bkjs.koModel.call(this, params);
         if (typeof this.onInit == "function") this.onInit();
     };
-    this.inherits(model, this.koModel);
-    this.sendEvent("model.created", name);
+    bkjs.inherits(model, bkjs.koModel);
+    bkjs.sendEvent("model.created", name);
     return model;
 }
 
