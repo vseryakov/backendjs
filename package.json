@@ -96,6 +96,7 @@
                 "web/js/bootpopup.js",
                 "web/js/bkjs.js",
                 "web/js/bkjs-lib.js",
+                "web/js/bkjs-account.js",
                 "web/js/bkjs-ko.js",
                 "web/js/bkjs-bootstrap.js"
             ],
@@ -108,6 +109,7 @@
                 "web/js/bootpopup.js",
                 "web/js/bkjs.js",
                 "web/js/bkjs-lib.js",
+                "web/js/bkjs-account.js",
                 "web/js/bkjs-ko.js",
                 "web/js/bkjs-bootstrap.js"
             ],
@@ -127,6 +129,7 @@
                 "web/js/bootpopup.js",
                 "web/js/bkjs.js",
                 "web/js/bkjs-lib.js",
+                "web/js/bkjs-account.js",
                 "web/js/bkjs-ko.js",
                 "web/js/bkjs-bootstrap.js"
             ],
@@ -140,6 +143,7 @@
                 "web/js/bootpopup.js",
                 "web/js/bkjs.js",
                 "web/js/bkjs-lib.js",
+                "web/js/bkjs-account.js",
                 "web/js/bkjs-ko.js",
                 "web/js/bkjs-bootstrap.js"
             ],

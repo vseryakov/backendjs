@@ -9,55 +9,6 @@ bkjs.inherits = function(ctor, superCtor)
     ctor.prototype.constructor = ctor;
 }
 
-// Return value of the query parameter by name
-bkjs.param = function(name, dflt, num)
-{
-    var d = location.search.match(new RegExp(name + "=(.*?)($|\&)", "i"));
-    d = d ? decodeURIComponent(d[1]) : (dflt || "");
-    if (num) {
-        d = parseInt(d);
-        if (isNaN(d)) d = 0;
-    }
-    return d;
-}
-
-// Percent encode with special symbols in addition
-bkjs.encode = function(str)
-{
-    if (typeof str == "undefined") return "";
-    return encodeURIComponent(str).replace(/[!'()*]/g, function(m) {
-        return m == '!' ? '%21' : m == "'" ? '%27' : m == '(' ? '%28' : m == ')' ? '%29' : m == '*' ? '%2A' : m;
-    });
-}
-
-// Return a cookie value by name
-bkjs.cookie = function(name)
-{
-    if (!document.cookie) return "";
-    var cookies = document.cookie.split(';');
-    for (var i = 0; i < cookies.length; i++) {
-        var cookie = jQuery.trim(cookies[i]);
-        if (cookie.substring(0, name.length + 1) == (name + '=')) {
-            return decodeURIComponent(cookie.substring(name.length + 1));
-        }
-    }
-    return "";
-}
-
-// Simple debugging function that outputs arguments in the error console each argument on a separate line
-bkjs.log = function()
-{
-    if (!console || !console.log) return;
-    console.log.apply(console, arguments);
-}
-
-bkjs.domainName = function(host)
-{
-    if (!host) return "";
-    var name = String(host || "").split('.');
-    return (name.length > 2 ? name.slice(1).join('.') : host).toLowerCase();
-}
-
 // Determine type of the object
 bkjs.typeName = function(v)
 {
@@ -480,10 +431,10 @@ bkjs.toValue = function(val, type)
 bkjs.toTemplate = function(text, obj, options)
 {
     if (typeof text != "string" || !text) return "";
-    var rc = [];
+    var i, rc = [];
     if (!options) options = {};
     if (!Array.isArray(obj)) obj = [obj];
-    for (var i = 0; i < obj.length; i++) {
+    for (i = 0; i < obj.length; i++) {
         if (typeof obj[i] == "object" && obj[i]) rc.push(obj[i]);
     }
     var tmpl = "", str = text;
@@ -501,7 +452,7 @@ bkjs.toTemplate = function(text, obj, options)
         var tag = str.substr(start + 1, end - start - 1);
         tmpl += str.substr(0, start);
         str = str.substr(end + 1);
-        var d, i, v = null, dflt = null;
+        var d, v = null, dflt = null;
         if (tag == "exit") {
             options.exit = 1;
         } else
@@ -593,7 +544,7 @@ bkjs.strSplit = function(str, sep, type)
     var self = this;
     if (!str) return [];
     var typed = typeof type != "undefined";
-    return (Array.isArray(str) ? str : String(str).split(sep || /[,\|]/)).
+    return (Array.isArray(str) ? str : String(str).split(sep || /[,|]/)).
     map(function(x) { return typed ? self.toValue(x, type) : typeof x == "string" ? x.trim() : x }).
     filter(function(x) { return typeof x == "string" ? x.length : 1 });
 }
@@ -622,7 +573,7 @@ bkjs.objNew = function()
     return obj;
 }
 
-// Shallow copy of an object, all additional arguments are treted as properties to be added to the new object
+// Shallow copy of an object, all additional arguments are treated as properties to be added to the new object
 bkjs.objClone = function()
 {
     var obj = arguments[0];
@@ -631,11 +582,11 @@ bkjs.objClone = function()
         switch (this.typeName(obj[p])) {
         case "object":
             rc[p] = {};
-            for (var k in obj[p]) rc[p][k] = obj[p][k];
+            for (var o in obj[p]) rc[p][o] = obj[p][o];
             break;
         case "array":
             rc[p] = [];
-            for (var k in obj[p]) rc[p][k] = obj[p][k];
+            for (var a in obj[p]) rc[p][a] = obj[p][a];
             break;
         default:
             rc[p] = obj[p];

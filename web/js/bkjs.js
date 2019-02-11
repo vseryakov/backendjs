@@ -39,13 +39,6 @@ var bkjs = {
     // Websockets
     wsconf: { host: null, port: 8000, errors: 0 },
 
-    // Secret policy for plain text passwords
-    passwordPolicy: {
-        '[a-z]+': 'requires at least one lower case letter',
-        '[A-Z]+': 'requires at least one upper case letter',
-        '[0-9]+': 'requires at least one digit',
-        '.{8,}': 'requires at least 8 characters',
-    },
     // Trim these symbols from login/secret, all whitespace is default
     trimCredentials: " \"\r\n\t\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200A\u202F\u205F\u3000\u008D\u009F\u0080\u0090\u009B\u0010\u0009\u0000\u0003\u0004\u0017\u0019\u0011\u0012\u0013\u0014\u2028\u2029\u2060\u202C",
 
@@ -185,81 +178,6 @@ bkjs.setCredentials = function(options)
     if (this.debug) this.log('setCredentials:', creds, options);
 }
 
-// Verify account secret against the policy
-bkjs.checkPassword = function(secret)
-{
-    secret = secret || "";
-    for (var p in this.passwordPolicy) {
-        if (!secret.match(p)) {
-            return {
-                status: 400,
-                message: this.__(this.passwordPolicy[p]),
-                policy: Object.keys(this.passwordPolicy).map(function(x) {
-                    return bkjs.__(bkjs.passwordPolicy[x])
-                }).join(", ")
-            };
-        }
-    }
-    return "";
-}
-
-// Retrieve current account record, call the callback with the object or error
-bkjs.getAccount = function(callback)
-{
-    this.sendRequest({ url: "/account/get", jsonType: "obj" }, function(err, data, xhr) {
-        for (var p in data) bkjs.account[p] = data[p];
-        if (typeof callback == "function") callback(err, data, xhr);
-    });
-}
-
-// Register new account record, call the callback with the object or error
-bkjs.addAccount = function(obj, callback)
-{
-    // Replace the actual credentials from the storage in case of scrambling in the client
-    if (!obj._scramble) {
-        var creds = this.checkCredentials(obj.login, obj.secret);
-        obj.login = creds.login;
-        obj.secret = creds.secret;
-    }
-    delete obj.secret2;
-    this.sendRequest({ type: "POST", url: "/account/add", data: obj, jsonType: "obj", nosignature: 1 }, callback);
-}
-
-// Update current account
-bkjs.updateAccount = function(obj, callback)
-{
-    // Scramble here if we did not ask the server to do it with _scramble option
-    if (obj.secret && !obj._scramble) {
-        var creds = this.checkCredentials(obj.login || this.account.login, obj.secret);
-        obj.login = creds.login;
-        obj.secret = creds.secret;
-    }
-    delete obj.secret2;
-    this.sendRequest({ url: '/account/update', data: obj, type: "POST", jsonType: "obj" }, callback);
-}
-
-// Return true if the account contains the given type
-bkjs.checkAccountType = function(account, type)
-{
-    if (!account || !account.type) return false;
-    account._types = Array.isArray(account._types) ? account._types : String(account.type).split(",").map(function(x) { return x.trim() });
-    if (Array.isArray(type)) return type.some(function(x) { return account._types.indexOf(x) > -1 });
-    return account._types.indexOf(type) > -1;
-}
-
-// Wait for events and call the callback, this runs until Backend.unsubscribe is set to true
-bkjs.subscribeAccount = function(callback)
-{
-    var errors = 0;
-    (function poll() {
-        bkjs.send({ url: "/account/subscribe", complete: bkjs.unsubscribe ? null : poll }, function(data, xhr) {
-            callback(data, xhr);
-        }, function(err) {
-            if (errors++ > 3) bkjs.unsubscribe = true;
-        });
-    })();
-}
-
 // Send signed AJAX request using jQuery, call callbacks onsuccess or onerror on successful or error response accordingly.
 // - options can be a string with url or an object with options.url, options.data and options.type properties,
 // - for POST set options.type to POST and provide options.data
@@ -275,7 +193,7 @@ bkjs.send = function(options, onsuccess, onerror)
 
     // Success callback but if it throws exception we call error handler instead
     options.success = function(json, statusText, xhr) {
-        bkjs.loading("hide");
+        $(bkjs).trigger("bkjs.loading", "hide");
         // Make sure json is of type we requested
         switch (options.jsonType) {
         case 'list':
@@ -286,16 +204,18 @@ bkjs.send = function(options, onsuccess, onerror)
             if (!json || typeof json != "object") json = {};
             break;
         }
-        if (options.alert_ok) bkjs.showAlert("info", options.alert_ok);
+        if (options.alert_info) $(bkjs).trigger("bkjs.alert", ["info", options.alert_info]);
         if (typeof onsuccess == "function") onsuccess(json, xhr);
     }
     // Parse error message
     options.error = function(xhr, statusText, errorText) {
-        bkjs.loading("hide");
+        $(bkjs).trigger("bkjs.loading", "hide");
         var err = xhr.responseText;
         try { err = JSON.parse(xhr.responseText) } catch(e) {}
         bkjs.log('send:', xhr.status, err, statusText, errorText, options);
-        if (options.alert_ok || options.alert_err) bkjs.showAlert("danger", (typeof options.alert_err == "string" && options.alert_err) || err || errorText || statusText);
+        if (options.alert_info || options.alert) {
+            $(bkjs).trigger("bkjs.alert", ["error", (typeof options.alert == "string" && options.alert) || err || errorText || statusText]);
+        }
         if (typeof onerror == "function") onerror(err || errorText || statusText, xhr, statusText, errorText);
     }
     if (!options.nosignature) {
@@ -306,8 +226,8 @@ bkjs.send = function(options, onsuccess, onerror)
         if (this.language) options.headers[this.langHeaderName] = this.language;
     }
     for (var h in this.headers) options.headers[h] = this.headers[h];
-    for (var p in options.data) if (typeof options.data[p] == "undefined") delete options.data[p];
-    this.loading("show");
+    for (var d in options.data) if (typeof options.data[d] == "undefined") delete options.data[d];
+    $(bkjs).trigger("bkjs.loading", "show");
     $.ajax(options);
 }
 
@@ -326,10 +246,10 @@ bkjs.sendRequest = function(options, callback)
 // can be specified in the `options.data` object.
 bkjs.sendFile = function(options, callback)
 {
-    var n = 0, form = new FormData(), files = {};
+    var p, n = 0, form = new FormData(), files = {};
     if (options.file) files[options.name || "data"] = options.file;
-    for (var p in options.files) files[p] = options.files[p];
-    for (var p in files) {
+    for (p in options.files) files[p] = options.files[p];
+    for (p in files) {
         var f = this.getFileInput(files[p]);
         if (!f) continue;
         form.append(p, f);
@@ -337,12 +257,12 @@ bkjs.sendFile = function(options, callback)
     }
     if (!n) return callback && callback();
 
-    for (var p in options.data) {
+    for (p in options.data) {
         if (typeof options.data[p] != "undefined") form.append(p, options.data[p])
     }
     // Send within the session, multipart is not supported by signature
     var rc = { url: options.url, type: "POST", processData: false, data: form, contentType: false, nosignature: true };
-    for (var p in options) if (typeof rc[p] == "undefined") rc[p] = options[p];
+    for (p in options) if (typeof rc[p] == "undefined") rc[p] = options[p];
     this.sendRequest(rc, callback);
 }
 
@@ -386,27 +306,51 @@ bkjs.wsSend = function(url)
     if (this.ws) this.ws.send(this.signUrl(url));
 }
 
-// Show/hide loading animation
-bkjs.loading = function(op)
+bkjs.domainName = function(host)
 {
-    var img = $(this.loadingElement || '.loading');
-    if (!img.length) return;
-
-    if (!this._loading) this._loading = { count: 0 };
-    var state = this._loading;
-    switch (op) {
-    case "hide":
-        if (--state.count > 0) break;
-        state.count = 0;
-        if (state.display == "none") img.hide(); else img.css("visibility", "hidden");
-        break;
-
-    case "show":
-        if (state.count++ > 0) break;
-        if (!state.display) state.display = img.css("display");
-        if (state.display == "none") img.show(); else img.css("visibility", "visible");
-        break;
-    }
+    if (typeof host != "string" || !host) return "";
+    var name = host.split('.');
+    return (name.length > 2 ? name.slice(1).join('.') : host).toLowerCase();
 }
 
+// Return value of the query parameter by name
+bkjs.param = function(name, dflt, num)
+{
+    var d = location.search.match(new RegExp(name + "=(.*?)($|&)", "i"));
+    d = d ? decodeURIComponent(d[1]) : (dflt || "");
+    if (num) {
+        d = parseInt(d);
+        if (isNaN(d)) d = 0;
+    }
+    return d;
+}
 
+// Percent encode with special symbols in addition
+bkjs.encode = function(str)
+{
+    if (typeof str == "undefined") return "";
+    return encodeURIComponent(str).replace(/[!'()*]/g, function(m) {
+        return m == '!' ? '%21' : m == "'" ? '%27' : m == '(' ? '%28' : m == ')' ? '%29' : m == '*' ? '%2A' : m;
+    });
+}
+
+// Return a cookie value by name
+bkjs.cookie = function(name)
+{
+    if (!document.cookie) return "";
+    var cookies = document.cookie.split(';');
+    for (var i = 0; i < cookies.length; i++) {
+        var cookie = jQuery.trim(cookies[i]);
+        if (cookie.substring(0, name.length + 1) == (name + '=')) {
+            return decodeURIComponent(cookie.substring(name.length + 1));
+        }
+    }
+    return "";
+}
+
+// Simple debugging function that outputs arguments in the error console each argument on a separate line
+bkjs.log = function()
+{
+    if (!console || !console.log) return;
+    console.log.apply(console, arguments);
+}

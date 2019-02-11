@@ -5,6 +5,29 @@
 
 // Bootstrap backend support
 
+// Show/hide loading animation
+bkjs.showLoading = function(op)
+{
+    var img = $(this.loadingElement || '.loading');
+    if (!img.length) return;
+
+    if (!this._loading) this._loading = { count: 0 };
+    var state = this._loading;
+    switch (op) {
+    case "hide":
+        if (--state.count > 0) break;
+        state.count = 0;
+        if (state.display == "none") img.hide(); else img.css("visibility", "hidden");
+        break;
+
+    case "show":
+        if (state.count++ > 0) break;
+        if (!state.display) state.display = img.css("display");
+        if (state.display == "none") img.show(); else img.css("visibility", "visible");
+        break;
+    }
+}
+
 bkjs.showAlert = function(obj, type, text, options)
 {
     if (typeof obj == "string") options = text, text = type, type = obj, obj = $("body");
@@ -240,3 +263,13 @@ bkjs.hideLogin = function()
 {
     $("#bkjs-login-modal").modal("hide");
 }
+
+$(function() {
+    $(bkjs).on("bkjs.alert", function(ev, type, msg) {
+        bkjs.showAlert(type == "error" ? "danger": "info", msg);
+    });
+    $(bkjs).on("bkjs.loading", function(ev, type) {
+        bkjs.showLoading(type);
+    });
+});
+
