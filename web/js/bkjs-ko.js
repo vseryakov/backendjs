@@ -82,29 +82,30 @@ bkjs.koSetObject = function(obj, options)
     return obj;
 }
 
-bkjs.sendEvent = function(name, data)
+bkjs.koEvent = function(name, data)
 {
-    name = bkjs.toCamel(name);
-    name = "on" + name.substr(0, 1).toUpperCase() + name.substr(1);
-    $(bkjs).trigger("bkjs.event", [name, data]);
+    var event = bkjs.toCamel(name);
+    event = "on" + event.substr(0, 1).toUpperCase() + event.substr(1);
+    $(bkjs).trigger("bkjs.event", [name, event, data]);
 }
 
 bkjs.koModel = function(params)
 {
     this.params = params;
-    $(bkjs).on("bkjs.event", $.proxy(this.handleEvent, this));
+    $(bkjs).on("bkjs.event", $.proxy(this._handleEvent, this));
 }
 
-bkjs.koModel.prototype.handleEvent = function(ev, name, data)
+bkjs.koModel.prototype._handleEvent = function(ev, name, event, data)
 {
-    if (typeof this[name] == "function") this[name](data);
+    if (typeof this[event] == "function") this[event](data);
+    if (typeof this.handleEvent == "function") this.handleEvent(name, data);
 }
 
 bkjs.koModel.prototype.dispose = function()
 {
     delete this.params;
-    bkjs.sendEvent("model.disposed", this._name);
-    $(bkjs).off("bkjs.event", $.proxy(this.handleEvent, this));
+    bkjs.koEvent("model.disposed", this._name);
+    $(bkjs).off("bkjs.event", $.proxy(this._handleEvent, this));
     if (typeof this.onDispose == "function") this.onDispose();
 }
 
@@ -117,7 +118,7 @@ bkjs.koCreateModel = function(name)
         if (typeof this.onInit == "function") this.onInit();
     };
     bkjs.inherits(model, bkjs.koModel);
-    bkjs.sendEvent("model.created", name);
+    bkjs.koEvent("model.created", name);
     return model;
 }
 
