@@ -91,7 +91,8 @@ bkjs.koEvent = function(name, data)
 
 bkjs.koModel = function(params)
 {
-    this.params = params;
+    this.params = {};
+    for (var p in params) this.params[p] = params[p];
     $(bkjs).on("bkjs.event", $.proxy(this._handleEvent, this));
 }
 
@@ -122,6 +123,13 @@ bkjs.koCreateModel = function(name)
     return model;
 }
 
+bkjs.koFindModel = function(name)
+{
+    name = bkjs.toCamel(name);
+    return bkjs.koTemplate[name] ? { template: bkjs.koTemplate[name], viewModel: bkjs[name + "Model"] } : null;
+}
+
+
 ko.bindingHandlers.hidden = {
     update: function (element, valueAccessor) {
         var value = ko.utils.unwrapObservable(valueAccessor());
@@ -134,9 +142,7 @@ ko.bindingHandlers.hidden = {
 // Web bundle naming convention
 ko.components.loaders.unshift({
     getConfig: function(name, callback) {
-        name = bkjs.toCamel(name);
-        if (!bkjs.koTemplate[name]) return callback(null);
-        callback({ template: bkjs.koTemplate[name], viewModel: bkjs[name + "Model"] });
+        callback(bkjs.koFindModel(name));
     }
 });
 

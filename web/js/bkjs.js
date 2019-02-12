@@ -52,10 +52,12 @@ var Bkjs = bkjs;
 // already saved credentials
 bkjs.login = function(options, callback)
 {
-    if (typeof options == "function") callback = options, options = null;
-    if (options && typeof options.login =="string" && typeof options.secret == "string") this.setCredentials(options);
-
-    this.send({ url: "/auth?_session=" + this.session, jsonType: "obj" }, function(data) {
+    if (typeof options == "function") callback = options, options = {};
+    if (!options) options = {};
+    if (typeof options.login =="string" && typeof options.secret == "string") this.setCredentials(options);
+    options.url = "/auth?_session=" + this.session;
+    options.jsonType = "obj";
+    this.send(options, function(data) {
         bkjs.loggedIn = true;
         for (var p in data) bkjs.account[p] = data[p];
         // Clear credentials from the memory if we use sessions
@@ -225,7 +227,7 @@ bkjs.send = function(options, onsuccess, onerror)
         options.headers[this.tzHeaderName] = (new Date()).getTimezoneOffset();
         if (this.language) options.headers[this.langHeaderName] = this.language;
     }
-    for (var h in this.headers) options.headers[h] = this.headers[h];
+    for (var h in this.headers) if (typeof options.headers[h] == "undefined") options.headers[h] = this.headers[h];
     for (var d in options.data) if (typeof options.data[d] == "undefined") delete options.data[d];
     $(bkjs).trigger("bkjs.loading", "show");
     $.ajax(options);
