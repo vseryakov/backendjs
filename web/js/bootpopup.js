@@ -337,7 +337,7 @@ function bootpopup(options)
         this.modal.on('shown.bs.modal', function(e) {
             var focus = self.autofocus || self.form.find("input,select,textarea").filter(":not([readonly='readonly']):not([disabled='disabled']):not([type='hidden'])").first();
             if (focus) focus.focus();
-            self.options.shown();
+            self.options.shown(e);
         });
         this.modal.on('hide.bs.modal', this.options.dismiss);
         this.modal.on('hidden.bs.modal', function(e) {
