@@ -49,6 +49,7 @@ mod.configureCountersAPI = function()
 
     api.app.all(/^\/counter\/([a-z]+)$/, function(req, res) {
         var options = api.getOptions(req);
+        options.cleanup = "bk_counter";
 
         switch (req.params[0]) {
         case "put":

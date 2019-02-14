@@ -88,10 +88,10 @@ accounts.configureAccountsAPI = function()
 
     api.app.all(/^\/account\/([a-z\/]+)$/, function(req, res, next) {
         var options = api.getOptions(req);
+        options.cleanup = api.authTable + ",bk_account";
 
         switch (req.params[0]) {
         case "get":
-            options.cleanup = api.authTable + ",bk_account";
             if (!req.query.id || req.query.id == req.account.id) {
                 self.getAccount(req, options, function(err, data, info) {
                     api.sendJSON(req, err, data);
@@ -128,7 +128,6 @@ accounts.configureAccountsAPI = function()
             break;
 
         case "select":
-            options.table = "bk_account";
             self.selectAccount(req, options, function(err, data) {
                 api.sendJSON(req, err, data);
             });
@@ -138,14 +137,6 @@ accounts.configureAccountsAPI = function()
             req.query.id = req.account.id;
             req.query.login = req.account.login;
             api.setAccountSecret(req.query, options, function(err, data) {
-                api.sendJSON(req, err, data);
-            });
-            break;
-
-        case "select/location":
-            options.table = "bk_account";
-            options.cleanup = "bk_location,bk_account";
-            core.modules.bk_location.getLocation(req, options, function(err, data) {
                 api.sendJSON(req, err, data);
             });
             break;

@@ -89,6 +89,7 @@ mod.configureIconsAPI = function()
 {
     api.app.all(/^\/icon\/([a-z]+)$/, function(req, res) {
         var options = api.getOptions(req);
+        options.cleanup = "bk_icon";
 
         if (!req.query.prefix) return api.sendReply(res, 400, "prefix is required");
         if (!req.query.id) req.query.id = req.account.id;

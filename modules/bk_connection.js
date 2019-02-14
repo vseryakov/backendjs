@@ -85,6 +85,7 @@ mod.configureConnectionsAPI = function()
 
     api.app.all(/^\/(connection|reference)\/([a-z]+)$/, function(req, res) {
         var options = api.getOptions(req, mod.controls);
+        options.cleanup = "bk_" + req.params[0];
 
         switch (req.params[1]) {
         case "add":
@@ -128,7 +129,6 @@ mod.configureConnectionsAPI = function()
 // Return one connection for the current account, this function is called by the `/connection/get` API call.
 mod.getConnection = function(req, options, callback)
 {
-    var self = this;
     if (!req.query.peer || !req.query.type) return callback({ status: 400, message: "peer and type are required"});
     this.readConnection(req.account.id, req.query, options, callback);
 }
@@ -136,7 +136,6 @@ mod.getConnection = function(req, options, callback)
 // Return all connections for the current account, this function is called by the `/connection/select` API call.
 mod.selectConnection = function(req, options, callback)
 {
-    var self = this;
     this.queryConnection(req.account.id, req.query, options, function(err, rows, info) {
         callback(null, api.getResultPage(req, options, rows, info));
     });

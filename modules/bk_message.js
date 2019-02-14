@@ -126,6 +126,7 @@ mod.configureMessagesAPI = function()
 
     api.app.all(/^\/message\/([a-z\/]+)$/, function(req, res) {
         var options = api.getOptions(req, mod.controls);
+        options.cleanup = "bk_message";
 
         switch (req.params[0]) {
         case "image":
