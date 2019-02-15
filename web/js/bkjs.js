@@ -237,10 +237,10 @@ bkjs.send = function(options, onsuccess, onerror)
 bkjs.sendRequest = function(options, callback)
 {
     this.send(options, function(data, xhr) {
-        if (typeof callback == "function") callback(null, data, xhr);
+        if (typeof callback == "function") callback.call(options.self || bkjs, null, data, xhr);
     }, function(err, xhr) {
         var data = options.jsonType == "list" ? [] : options.jsonType == "obj" ? {} : null;
-        if (typeof callback == "function") callback(err, data, xhr);
+        if (typeof callback == "function") callback.call(options.self || bkjs, err, data, xhr);
     });
 }
 
