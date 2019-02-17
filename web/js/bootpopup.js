@@ -19,8 +19,7 @@
  */
 
 
-var INPUT_SHORTCUT_TYPES = [ "text", "color", "url", "password",
-    "hidden", "file", "number", "email", "reset", "date", "checkbox", "radio" ];
+var INPUT_SHORTCUT_TYPES = [ "text", "color", "url", "password", "hidden", "file", "number", "email", "reset", "date", "checkbox", "radio" ];
 
 
 function bootpopup(options)
@@ -148,8 +147,8 @@ function bootpopup(options)
         this.content.append(this.body);
 
         // Iterate over entries
-        for (var i in this.options.content) {
-            var entry = this.options.content[i];
+        for (var c in this.options.content) {
+            var entry = this.options.content[c];
             switch(typeof entry) {
                 case "string":
                     // HTML string
@@ -158,7 +157,7 @@ function bootpopup(options)
 
                 case "object":
                     for (var type in entry) {
-                        var opts = entry[type], children = [], attrs = {}, elem, group;
+                        var opts = entry[type], children = [], attrs = {}, elem = null, group = null;
 
                         if (typeof opts == "string") opts = { label: opts };
                         for (var p in opts) {
@@ -189,16 +188,16 @@ function bootpopup(options)
                             attrs.type = (typeof attrs.type === "undefined" ? "text" : attrs.type);
 
                             if (type == "select" && Array.isArray(attrs.options)) {
-                                for (var i in attrs.options) {
+                                for (var j in attrs.options) {
                                     var option = {};
-                                    if (typeof attrs.options[i] == "string") {
-                                        if (attrs.value && attrs.value == attrs.options[i]) option.selected = true;
-                                        children.push($("<option></option>", option).append(attrs.options[i]));
+                                    if (typeof attrs.options[j] == "string") {
+                                        if (attrs.value && attrs.value == attrs.options[j]) option.selected = true;
+                                        children.push($("<option></option>", option).append(attrs.options[j]));
                                     } else
-                                    if (attrs.options[i].name) {
-                                        option.value = attrs.options[i].value || "";
+                                    if (attrs.options[j].name) {
+                                        option.value = attrs.options[j].value || "";
                                         if (attrs.value && attrs.value == option.value) option.selected = true;
-                                        children.push($("<option></option>", option).append(attrs.options[i].name));
+                                        children.push($("<option></option>", option).append(attrs.options[j].name));
                                     }
                                 }
                                 delete attrs.options;
@@ -238,7 +237,7 @@ function bootpopup(options)
                                     }
                                 }
                             }
-                            for (var i in children) elem.append(children[i]);
+                            for (var j in children) elem.append(children[j]);
 
                             var class_group = opts.class_group || this.options.class_group;
                             var class_label = (opts.class_label || this.options.class_label) + " " + (attrs.value ? "active" : "");
