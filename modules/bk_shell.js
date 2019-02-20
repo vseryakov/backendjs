@@ -427,7 +427,7 @@ shell.cmdAccountGet = function(options)
 // Add a user
 shell.cmdAccountAdd = function(options)
 {
-    if (!core.modules.bk_account) exit("accounts module not loaded");
+    if (!core.modules.bk_account) this.exit("accounts module not loaded");
     var query = this.getQuery();
     var opts = api.getOptions({ query: this.getArgs(), options: { path: ["", "", ""], ops: {} } });
     opts.scramble = this.isArg("-noscramble", options) ? 0 : 1;
