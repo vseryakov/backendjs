@@ -616,7 +616,7 @@ tests.test_db = function(callback)
         return row;
     });
 
-    db.allowColumn.test6 = { "action[0-9]+": "counter" };
+    db.customColumn.test6 = { "action[0-9]+": "counter" };
 
     db.describeTables(tables);
 
@@ -1002,7 +1002,7 @@ tests.test_db = function(callback)
         },
         function(next) {
             db.get("test6", { id: id }, {}, function(err, row) {
-                tests.assert(next, err || !row || (!db.getPool(db.pool).configOptions.noAllowColumns && row.action1 != 3), "err38:", row, db.allowColumn);
+                tests.assert(next, err || !row || (!db.getPool(db.pool).configOptions.noCustomColumns && row.action1 != 3), "err38:", row, db.customColumn);
             });
         },
     ],
