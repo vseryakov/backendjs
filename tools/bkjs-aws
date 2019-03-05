@@ -36,7 +36,7 @@ case "$BKJS_CMD" in
     [ "$fmt" != "" ] && instances=$(echo "$instances"|awk "{print $(echo $fmt|sed -e 's/id/\$1/' -e 's/ip/\$2/' -e 's/host/\$3/' -e 's/key/\$4/' -e 's/name/\$5/')}")
     if [ "$PLATFORM" = "Linux" -a "$(get_flag -nomyip)" != "" ]; then
        ip=$(get_local_ip)
-       instances=$(echo $instances|sed "s/$ip//")
+       instances=$(echo "$instances"|sed "s/$ip//")
     fi
     if [ "$(get_flag -line)" != "" ]; then
        echo "$instances" | tr '\n' ' '
