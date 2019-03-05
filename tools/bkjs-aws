@@ -58,8 +58,9 @@ case "$BKJS_CMD" in
     cmd=$(get_arg -cmd)
     pub=$(get_flag -pub)
     quiet=$(get_flag -quiet)
+    skip=$(get_arg -skip-tag)
     sshargs=$(concat_arg -ssh $BKJS_SSH_ARGS)
-    instances=$($0 ec2-show -region "$region" -tag "$tag"|tr '\t' ',')
+    instances=$($0 ec2-show -nomyip -region "$region" -tag "$tag" -skip-tag "$skip"|tr '\t' ',')
     [ "$cmd" = "" -a "$index" = "" ] && index=1
     [ "$index" != "" -a "$index" != "." ] && instances=$(echo "$instances"|head -$index|tail -1)
     [ "$instances" = "" ] && exit 1

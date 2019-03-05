@@ -15,6 +15,8 @@ const mod = {
         { name: "tables", type: "list", onupdate: function() {if(ipc.role=="worker")this.subscribeWorker()}, descr: "Process streams for given tables in a worker process" },
         { name: "source-pool", descr: "DynamoDB pool for streams processing" },
         { name: "target-pool", descr: "A database pool where to sync streams" },
+        { name: "interval", type: "int", descr: "Interval in ms between stream shard processing" },
+        { name: "max-interval", type: "int", descr: "Maximum interval in ms between stream shard processing, for cases when no shards are available" },
         { name: "lock-ttl", type: "int", descr: "Lock timeout and the delay between lock attempts" },
         { name: "lock-type", descr: "Locking policy, stream or shard to avoid processing to the same resources" },
         { name: "max-timeout-([0-9]+)-([0-9]+)", type: "list", obj: "periodTimeouts", make: "$1,$2", regexp: /^[0-9]+$/, reverse: 1, nocamel: 1, descr: "Max timeout on empty records during the given hours range in 24h format, example: -bk_dynamodbstreams-max-timeout-1-8 30000" },
@@ -24,9 +26,11 @@ const mod = {
     ttl: 86400*2,
     lockTtl: 30000,
     lockType: "stream",
+    interval: 3000,
+    maxInterval: 10000,
     periodTimeouts: {},
     maxTimeouts: {},
-    shardCache: {},
+    skipCache: {},
 };
 module.exports = mod;
 
@@ -82,9 +86,10 @@ mod.runJob = function(options, callback)
                     options.shardRetryMaxTimeout = Math.max(p, options.shardRetryMaxTimeout);
                 }
             }
-            stream.shards = 0;
-            aws.ddbProcessStream(stream, options, mod.syncProcessor, () => {
-                setTimeout(next, !stream.StreamArn || !stream.shards ? mod.lockTtl : 1000);
+            stream.shards = stream.error = 0;
+            aws.ddbProcessStream(stream, options, mod.syncProcessor, (err) => {
+                if (err) logger.error("runJob:", mod.name, stream, err);
+                setTimeout(next, !stream.StreamArn || stream.error ? mod.maxInterval*2 : !stream.shards ? mod.maxInterval : mod.interval);
             });
         },
         function() {
@@ -99,10 +104,10 @@ mod.runJob = function(options, callback)
 
 mod.lock = function(key, query, options, callback)
 {
-    ipc.lock(mod.name + ":" + query[key], { ttl: mod.lockTtl, queueName: jobs.uniqueQueue }, (err, locked) => {
+    ipc.lock(mod.name + ":" + key, { ttl: mod.lockTtl, queueName: jobs.uniqueQueue }, (err, locked) => {
         if (locked) {
             query.lockTimer = setInterval(function() {
-                ipc.lock(mod.name + ":" + query[key], { ttl: mod.lockTtl, queueName: jobs.uniqueQueue, set: 1 });
+                ipc.lock(mod.name + ":" + key, { ttl: mod.lockTtl, queueName: jobs.uniqueQueue, set: 1 });
             }, mod.lockTtl * 0.9);
         } else {
             delete query.lockTimer;
@@ -116,7 +121,7 @@ mod.unlock = function(key, query, options, callback)
     if (!query.lockTimer) return callback();
     clearInterval(query.lockTimer);
     delete query.lockTimer;
-    ipc.unlock(mod.name + ":" + query[key], { queueName: jobs.uniqueQueue }, callback);
+    ipc.unlock(mod.name + ":" + key, { queueName: jobs.uniqueQueue }, callback);
 }
 
 mod.syncProcessor = function(cmd, req, options, callback)
@@ -125,6 +130,9 @@ mod.syncProcessor = function(cmd, req, options, callback)
     switch (cmd) {
     case "running":
         return !mod.exiting && !jobs.exiting && !jobs.isCancelled(mod.name, req.table || options.table);
+
+    case "shard-check":
+        return !mod.skipCache[options.table + req.ShardId];
 
     case "stream-start":
         return mod.processStreamStart(req, options, callback);
@@ -147,9 +155,10 @@ mod.processStreamStart = function(req, options, callback)
 {
     lib.series([
         function(next) {
+            logger.debug("processStreamStart:", mod.name, options.table, req.Stream);
             if (mod.lockType != "stream") return next();
-            mod.lock("table", req.Stream, options, (err, locked) => {
-                if (!err && !locked) return setTimeout(next, 1000, "not-locked");
+            mod.lock(options.table, req.Stream, options, (err, locked) => {
+                if (!err && !locked) err = "not-locked";
                 next(err);
             });
         },
@@ -160,8 +169,9 @@ mod.processStreamEnd = function(req, options, callback)
 {
     lib.series([
         function(next) {
+            logger.debug("processStreamEnd:", mod.name, options.table, req.Stream);
             if (mod.lockType != "stream") return next();
-            mod.unlock("table", req.Stream, options, next);
+            mod.unlock(options.table, req.Stream, options, next);
         },
     ], callback);
 }
@@ -171,19 +181,19 @@ mod.processShardStart = function(req, options, callback)
 {
     lib.series([
         function(next) {
-            if (mod.shardCache[req.Shard.ShardId]) return next("unknown");
+            if (mod.skipCache[options.table + req.Shard.ShardId]) return next("unknown");
             if (mod.lockType != "shard") return next();
-            mod.lock("ShardId", req.Shard, options, (err, locked) => {
+            mod.lock(options.table + req.Shard.ShardId, req.Shard, options, (err, locked) => {
                 if (!err && !locked) err = "not-locked";
                 next(err);
             });
         },
         function(next) {
-            db.get("bk_property", { name: req.Shard.ShardId }, options, (err, row) => {
+            db.get("bk_property", { name: options.table + req.Shard.ShardId }, options, (err, row) => {
                 if (row && row.value && !options.force) {
                     req.Shard.SequenceNumber = row.value;
                     req.Shard.ShardIteratorType = "AFTER_SEQUENCE_NUMBER";
-                    logger.debug("processShard:", mod.name, options.table, req.Shard);
+                    logger.debug("processShardStart:", mod.name, options.table, req.Shard, req.Stream);
                 }
                 next(err);
             });
@@ -196,17 +206,20 @@ mod.processShardEnd = function(req, options, callback)
     lib.series([
         function(next) {
             if (mod.lockType != "shard") return next();
-            mod.unlock("ShardId", req.Shard, options, next);
+            mod.unlock(options.table + req.Shard.ShardId, req.Shard, options, next);
         },
         function(next) {
             if (!req.Shard.error) {
                 req.Stream.shards++;
             } else {
                 // Skip unknown or stale shards
-                if (req.Shard.error.code == "ResourceNotFoundException" && req.Shard.error.action == "GetShardIterator") {
-                    mod.shardCache[req.Shard.ShardId] = Date.now();
+                if (req.Shard.error === "skip" ||
+                    req.Shard.error === "unknown" ||
+                    (req.Shard.error.code == "ResourceNotFoundException" && req.Shard.error.action == "GetShardIterator")) {
+                    mod.skipCache[options.table + req.Shard.ShardId] = Date.now();
                 }
             }
+            logger.debug("processShardEnd:", mod.name, options.table, req.Shard, req.Stream);
             next();
         },
     ], callback);
@@ -219,6 +232,7 @@ mod.processRecords = function(req, options, callback)
         function(next) {
             if (!req.Records.length) return next();
             lib.objIncr(options, "records", req.Records.length);
+            lib.objIncr(req.Stream, "records", req.Records.length);
             logger.info("processRecords:", mod.name, options.table, req.Shard, req.LastSequenceNumber, req.Records.length, "records");
             var bulk = req.Records.map((x) => ({ op: x.eventName == "REMOVE" ? "del" : "put", table: options.table, obj: x.dynamodb.NewImage || x.dynamodb.Keys }));
             db.bulk(bulk, { pool: options.target_pool }, next);
@@ -228,7 +242,7 @@ mod.processRecords = function(req, options, callback)
             if (!req.LastSequenceNumber) return next();
             options.lastShardId = req.Shard.ShardId;
             options.lastSequenceNumber = req.LastSequenceNumber;
-            db.put("bk_property", { name: options.lastShardId, value: options.lastSequenceNumber, ttl: lib.now() + mod.ttl }, options, next);
+            db.put("bk_property", { name: options.table + options.lastShardId, value: options.lastSequenceNumber, ttl: lib.now() + mod.ttl }, options, next);
         },
     ], callback);
 }
