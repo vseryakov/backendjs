@@ -2180,7 +2180,8 @@ Database pool statistics and other diagnostics</p>
 <li><code>log</code> - Set debugging level to any of test,dev,debug,info,notice,log,warn,error,none</li>
 <li><code>log-filter</code> - Enable debug filters, format is: label,... to enable, and !label,... to disable. Only first argument is used for label in logger.debug</li>
 <li><code>log-file</code> - Log to a file, if not specified used default logfile, disables syslog</li>
-<li><code>log-ignore</code> - Regexp with property names which must not be exposed in the log</li>
+<li><code>log-ignore</code> - Regexp with property names which must not be exposed in the log when using custom logger inspector</li>
+<li><code>log-inspect</code> - Install custom secure logger inspection instead of util.inspect</li>
 <li><code>syslog</code> - Write all logging messages to syslog, connect to the local syslog server over Unix domain socket</li>
 <li><code>console</code> - All logging goes to the console resetting all previous log related settings, this is used in the development mode mostly</li>
 <li><code>home</code> - Specify home directory for the server, the server will try to chdir there or exit if it is not possible, the directory must exist</li>
@@ -2320,16 +2321,17 @@ Database pool statistics and other diagnostics</p>
 <li><code>db-cache-ttl</code> - Default global TTL for cached tables</li>
 <li><code>db-cache-ttl-(.+)</code> - TTL in milliseconds for each individual table being cached</li>
 <li><code>db-cache-name-(.+)</code> - Cache client name to use for each table instead of the default in order to split cache usage for different tables, it can be just a table name or <code>pool.table</code></li>
-<li><code>db-cache2-(.+)</code> - Tables with TTL for level2 cache, i.e. in the local process LRU memory. It works before the primary cache and keeps records in the local LRU cache for the giben amount of time, the TTL is in ms and must be greater than zero for level 2 cache to work. Make sure <code>ipc-lru-max-</code> is properly configured for each process role</li>
+<li><code>db-cache2-(.+)</code> - Tables with TTL for level2 cache, i.e. in the local process LRU memory. It works before the primary cache and keeps records in the local LRU cache for the given amount of time, the TTL is in ms and must be greater than zero for level 2 cache to work. Make sure <code>ipc-lru-max-</code> is properly configured for each process role</li>
 <li><code>db-jscache2-(.+)</code> - Same as cache2 but keeps references to the actual objects in the heap</li>
 <li><code>db-jscache2-max</code> - Max number of items to keep in the Javascript Level 2 cache</li>
-<li><code>db-allow-column-([a-z0-9_]+)-(.+)</code> - A column that is allowed to be used in any table, the name is a regexp with the value to be a type</li>
+<li><code>db-custom-column-([a-z0-9_]+)-(.+)</code> - A column that is allowed to be used in any table, the name is a regexp with the value to be a type</li>
 <li><code>db-local</code> - Local database pool for properties, cookies and other local instance only specific stuff</li>
 <li><code>db-config</code> - Configuration database pool to be used to retrieve config parameters from the database, must be defined to use remote db for config parameters, set to <code>default</code> to use current default pool</li>
 <li><code>db-config-interval</code> - Interval between loading configuration from the database configured with -db-config, in minutes, 0 disables refreshing config from the db</li>
 <li><code>db-config-roles</code> - Roles to assume when pulling config parameters from the config table</li>
 <li><code>db-cache-columns-interval</code> - How often in minutes to refresh tables columns from the database, it calls cacheColumns for each pool which supports it</li>
 <li><code>db-match-tables-(.+)</code> - Table columns to be returned by matching the regexp, for ad-hoc tables</li>
+<li><code>db-skip-drop</code> - A pattern of table names which will skipped in db.drop operations to prevent accidental table deletion</li>
 <li><code>db-([a-z0-9]+)-pool$</code> - A database pool name, depending on the driver it can be an URL, name or pathname, examples of db pools: <code>-db-pgsql-pool, -db-dynamodb-pool</code>, examples of urls: <code>postgresql://[user:password@]hostname[:port]/db, mysql://[user:password@]hostname/db, mongodb://hostname[:port]/dbname, cql://[user:password@]hostname[:port]/dbname</code></li>
 <li><code>db-([a-z0-9]+)-pool-(disabled)$</code> - Disable the specified pool but keep the configuration</li>
 <li><code>db-([a-z0-9]+)-pool-(max)$</code> - Max number of open connections for a pool, default is Infinity</li>
@@ -2413,12 +2415,12 @@ Database pool statistics and other diagnostics</p>
 <li><code>api-collect-create-tables</code> - Create statistics tables, it is not created by default with -db-create-tables</li>
 <li><code>api-collect-interval</code> - How often to collect statistics and metrics in seconds</li>
 <li><code>api-collect-send-interval</code> - How often to send collected statistics to the master server in seconds</li>
-<li><code>api-secret-policy</code> - An JSON object with list of regexps to validate account password, each regexp comes with an error message to be returned if such regexp fails, <code>api.checkAccountSecret</code> performs the validation, example: { &#39;[a-z]+&#39;: &#39;At least one lowercase letter&#39;, &#39;[A-Z]+&#39;: &#39;At least one upper case letter&#39; }</li>
 <li><code>api-platform-match</code> - An JSON object with list of regexps to match user-agent header for platform detection, example: { &#39;ios|iphone|ipad&#39;: &#39;ios&#39;, &#39;android&#39;: &#39;android&#39; }</li>
 <li><code>api-cors-origin</code> - Origin header for CORS requests</li>
 <li><code>api-no-cors</code> - Disable CORS requests</li>
 <li><code>api-server-header</code> - Custom Server: header to return for all requests</li>
 <li><code>api-error-message</code> - Default error message to return in case of exceptions</li>
+<li><code>api-allow-error-code</code> - Error codes in exceptions to return in the response to the user, if not matched the error-message will be returned</li>
 <li><code>api-url-metrics-ignore</code> - Ignore matched urls from the metrics collection</li>
 <li><code>api-url-metrics-max</code> - Max number of path related metrics objects to keep, the most recent or the most popular urls will be kept only</li>
 <li><code>api-url-metrics-path-(.+)</code> - Defines the length of an API request path to be stored in the statistics by matching the beginning of the request url, the smallest path wins, example: -api-url-metrics-/img 2 -api-url-metrics-/account/get 3</li>
@@ -2436,8 +2438,11 @@ Database pool statistics and other diagnostics</p>
 <li><code>api-proxy-reverse</code> - A Web server where to proxy requests not macthed by the url patterns or host header, in the form: <a href="http://host%5B:port%5D">http://host[:port]</a></li>
 <li><code>api-proxy-url-(.+)</code> - URL regexp to be passed to other web server running behind, each parameter defines an url regexp and the destination in the value in the form <a href="http://host%5B:port%5D">http://host[:port]</a>, example: -api-proxy-url-^/api <a href="http://127.0.0.1:8080">http://127.0.0.1:8080</a></li>
 <li><code>api-proxy-host-(.+)</code> - Virtual host mapping, to match any Host: header, each parameter defines a host name and the destination in the value in the form <a href="http://host%5B:port%5D">http://host[:port]</a>, example: -api-proxy-host-<a href="http://www.myhost.com">www.myhost.com</a> <a href="http://127.0.0.1:8080">http://127.0.0.1:8080</a></li>
-<li><code>api-routing-(.+)</code> - URL path to be re-routed to other path, this is done inside the server, only the path is checked and replaced, example: -api-routing-^/account/get /acount/read</li>
-<li><code>api-login-redirect-(.+)</code> - Define a location where to redirect if no login is provided and it matches host/path regexp, same placeholders as in redirect-url, example: api-login-redirect-^/admin/=/login.html</li>
+<li><code>api-routing-(.+)</code> - URL path to be re-routed to other path, this is done inside the server at the beginning, only the path is replaced, same format and placeholders as in redirect-url, example: -api-routing-^/account/get /acount/read</li>
+<li><code>api-auth-routing-(.+)</code> - URL path to be re-routed to other path after the authentication is successful, this is done inside the server, only the path is replaced, same format and placeholders as in redirect-url, example: -api-routing-auth-^/account/get /acount/read</li>
+<li><code>api-login-redirect-(.+)</code> - Define a location where to redirect if no login is provided, same format and placeholders as in redirect-url, example: api-login-redirect-^/admin/=/login.html</li>
+<li><code>api-auth-status</code> - Default authenticated status, if no auth rules matched but valid signature this is the status returned</li>
+<li><code>api-auth-message:</code> - Default authenticated message to be returned the default auth status</li>
 <li><code>msg-([^-]+)-(cert)(@.+)?</code> - A certificate for APN or similar services in pfx format, can be a file name with .p12 extension or a string with certificate contents encoded with base64, if the suffix is specified in the config parameter name will be used as the app name, otherwise it is global</li>
 <li><code>msg-([^-]+)-authkey-([^-]+)-(.+)</code> - A auth key for APN in p8 format, can be a file name with .p8 extension or a string with the key contents encoded with base64</li>
 <li><code>msg-([^-]+)-(key)(@.+)?</code> - API key for GCM or similar services, if the suffix is specified in the config parameter will be used as the app name, without the suffix it is global</li>
@@ -2520,7 +2525,8 @@ early with some properties always present:<ul>
           flags: { type: &quot;list&quot;, list: 1, admin: 1 },         // Admin assigned flags about the account
           secret: { secure: 1 },                              // Signature secret or scrambled password
           auth_secret: { admin: 1, secure: 1 },               // Code for 2-factor authentication
-          token_secret: { admin: 1, secure: 1 },              // Secret for access tokens
+          session_secret: { admin: 1, secure: 1 },            // Secret for session signatures
+          auth_secret: { admin: 1, secure: 1 },               // Code for 2-factor authentication
           acl_deny: { admin: 1, secure: 1 },                  // Deny access to matched url, a regexp
           acl_allow: { admin: 1, secure: 1 },                 // Only grant access if path matches this regexp
           query_deny: { admin: 1, secure: 1 },                // Ignore these query params, a regexp
@@ -2650,8 +2656,14 @@ will be called at the end to finalize the metrics and call the cleanup handlers<
 </ul>
 
 <ul>
-<li><p><code>api.checkRouting(req)</code></p>
+<li><p><code>api.checkRouting(req, name)</code></p>
 <p> Check if the current request must be re-routed to another endpoint</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.checkRedirectPlaceholders(req, pathname)</code></p>
+<p> Replace redirect placeholders</p>
 </li>
 </ul>
 
@@ -2671,7 +2683,7 @@ The options is expected to contain the following cached request properties:</p>
 </ul>
 
 <ul>
-<li><p><code>api.checkRedirectRules(req, options, rules)</code></p>
+<li><p><code>api.checkRedirectRules(req, options, name)</code></p>
 <p> Redirect rules, supports regexpobj and regexpmap parameters</p>
 </li>
 </ul>
@@ -2902,7 +2914,7 @@ the API route method is called. The <code>req.account</code> object will always 
 <p>The purpose of this hook is to perform some preparations or check permissions of a valid user to resources or in case of error perform any other action
 like redirection or returning something explaining what to do in case of failure. The callback for this call is different then in <code>checkAccess</code> hooks.</p>
 <ul>
-<li>method can be &#39;&#39; in such case all mathods will be matched</li>
+<li>method can be &#39;&#39; in such case all methods will be matched</li>
 <li>path is a string or regexp of the request URL similr to registering Express routes</li>
 <li>callback is a function(req, status, cb) where status is an object { status:..., message: ..} passed from the checkRequestSignature call, if status != 200 it means
 an error condition, the callback must pass the same or modified status object in its own <code>cb</code> callback</li>
@@ -2924,7 +2936,7 @@ an error condition, the callback must pass the same or modified status object in
 results using <code>api.sendJSON</code> or <code>api.sendFormatted</code> methods.</p>
 <p>The purpose is to perform some additional actions after the standard API completed or to customize the result</p>
 <ul>
-<li>method can be &#39;&#39; in such case all mathods will be matched</li>
+<li>method can be &#39;&#39; in such case all methods will be matched</li>
 <li>path is a string or regexp of the request URL similar to registering Express routes</li>
 <li>callback is a function with the following parameters: function(req, res, rows) where rows is the result returned by the API handler,
 the callback may not return data back to the client, in this case next post-process hook will be called and eventually the result will be sent back to the client.
@@ -2964,6 +2976,31 @@ still valid and can be channged.</p>
 <pre><code>    api.registerSendStatus(&#39;&#39;, &#39;/data/&#39;, function(req, data) {
         logger.info(&quot;response&quot;, req.path, data);
     });</code></pre></li>
+</ul>
+
+<ul>
+<li><p><code>api.registerSignature(method, path, callback)</code></p>
+<p> The purpose of this hook is to manage custom signatures.</p>
+<ul>
+<li>method can be &#39;&#39; in such case all methods will be matched</li>
+<li>path is a string or regexp of the request URL similr to registering Express routes</li>
+<li>callback is a function(req, account, sig, cb) where<ul>
+<li>if sig is null it means to generate a new signature for the given account and return in the callback, if multiple hooks are registered the processing
+stops on first signature returned</li>
+<li>if sig is provided that means to verify the signature against given account and return it if valid or return null if it is invalid or
+cannot be verified by current hook, multiple hooks can be supported and it stops on first signature returned in the callback</li>
+</ul>
+</li>
+</ul>
+<p>Example:</p>
+<pre><code>     api.registerSignature(&#39;&#39;, &#39;/&#39;, function(req, account, sig, cb) {
+          if (sig) {
+              if (invalid) sig = null;
+          } else {
+              sig = api.createSignature(.....);
+          }
+          cb(sig)
+     });</code></pre></li>
 </ul>
 
 <ul>
@@ -3083,17 +3120,12 @@ events using account id as a key.</p>
 </ul>
 
 <ul>
-<li><p><code>api.prepareAccountSecret(query, options)</code></p>
+<li><p><code>api.prepareAccountSecret(query, options, callback)</code></p>
 <p> If specified in the options, prepare credentials to be stored in the db, if no error occured return null, otherwise an error object</p>
 <ul>
 <li>scramble is used to encrypt the secret with login as HMAC_SHA256 so the db never stores cleartext credentials</li>
+<li>bcrypt - use bcrypt module to generate password hash</li>
 </ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.checkAccountSecret(query, options)</code></p>
-<p> Verifies the given account secret against the password policy, return an error messsage if any of the checks fails or null if the secret is valid</p>
 </li>
 </ul>
 
@@ -3140,7 +3172,7 @@ otherwise admin properties will not be updated</p>
 </ul>
 
 <ul>
-<li><p><code>api.handleSessionSignature(req, options)</code></p>
+<li><p><code>api.handleSessionSignature(req, callback)</code></p>
 <p> Setup session cookies or access token for automatic authentication without signing, req must be complete with all required
 properties after successful authorization.</p>
 </li>
@@ -3155,19 +3187,13 @@ properties after successful authorization.</p>
 <ul>
 <li><p><code>api.getSignature(req)</code></p>
 <p> Parse incoming request for signature and return all pieces wrapped in an object, this object will be used by <code>verifySignature</code> function.</p>
-<p>If the signature successfully recognized it is saved in the request as <code>req.signature</code></p>
+<p>If the signature successfully recognized it is saved in the request as <code>req.signature</code>,
+it always returns a signature object, a new one or existing</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>api.parseSignature(sig)</code></p>
-<p> Parse and fill all the fields in the signature, return undefined if not recognised, the <code>signature</code>
-property mut be set with the value from the header or session</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.verifySignature(sig, account)</code></p>
+<li><p><code>api.verifySignature(req, sig, account, callback)</code></p>
 <p> Returns true if the signature <code>sig</code> matches given account secret. <code>account</code> object must be a <code>bk_auth</code> record.</p>
 </li>
 </ul>
@@ -3223,7 +3249,9 @@ for statuses 301,302 there should be url property in the object returned</li>
 <li><p><code>api.checkAuthorization(req, status, callback)</code></p>
 <p> Perform authorization checks after the account been checked for valid signature, this is called even if the signature verification failed,
 in case of a custom authentication middlware this must be called at the end and use the status object returned in the callback to
-return an error or proceed with the request. In any case the result of this function is the final.</p>
+return an error or proceed with the request. In any case the result of this function is final.</p>
+<p>If a user has valid login by default access to all API endpoints is granted, to restrict access to specific APIs use any combinations of
+<code>api-allow</code> or <code>api-deny</code> config parameters.</p>
 <ul>
 <li>req is Express request object</li>
 <li>status contains the signature verification status, an object with status: and message: properties, can not be null.
@@ -5337,6 +5365,7 @@ as <code>options.delProcess(row, options)</code>. If it returns non-empty value 
 <li>delFilter - a function that must return something to the callback in order to skip the current record. <code>options.delFilter(row, options, (skip) =&gt; {})</code></li>
 </ul>
 <p>If no <code>options.select</code> is specified only the primary keys will be returned or collected</p>
+<p>If <code>db-skip-drop</code> matches the table name and there is no query provided it will exit with error</p>
 </li>
 </ul>
 
@@ -5482,6 +5511,7 @@ for cases when actual primary keys in the table are different from the rows prop
 <li>options.attach - specifies a property name which will be used to attach joined record to the original record, no merging will occur, for
 non-existing records an empty object will be attached</li>
 <li>options.incr can be a list of property names that need to be summed up with each other, not overriden</li>
+<li>options.nomerge - do not merge lists, just return new rows as is</li>
 </ul>
 <p>A special case when table is empty <code>db.join</code> just returns same rows to the callback, this is
 for convenience of doing joins on some conditions and trigger it by setting the table name or skip the join completely.</p>
@@ -5763,8 +5793,9 @@ callbacks to keep the record consistent.</p>
 <ul>
 <li><p><code>db.getPool(table, options)</code></p>
 <p> Return database pool by table name or default pool, options can be a pool name or an object with { pool: name } to return
-the pool by given name. This call always return valid pool object, in case no requested pool found, it returns
-the default pool. A special pool <code>none</code> always return empty result and no errors.
+the pool by given name. This call always returns a valid pool object, in case no requested pool found, it returns
+the default pool, in case of invalid pool name it returns <code>none</code> pool.
+A special pool <code>none</code> always returns empty result and no errors.
 Pools specific tables will not be returned even if a different pool name is provided, the none pool will be returned.</p>
 </li>
 </ul>
@@ -5840,9 +5871,10 @@ db.getFilteredColumns(&quot;bk_account&quot;, { type: &quot;now&quot; }, { list:
 </ul>
 
 <ul>
-<li><p><code>db.checkAllowColumn(req, name)</code></p>
-<p> Returns type for a global column if exists otherwise null, all resolved
-columns will be saved in <code>req.allow</code> for further reference as name: type</p>
+<li><p><code>db.checkCustomColumn(req, name)</code></p>
+<p> Returns type for a global cusgtom column if exists otherwise null, all resolved
+columns will be saved in <code>req.allow</code> for further reference as name: type.
+For request specific custom columns pass <code>options.custom_columns</code> object in the format: [ RegExp, type, ...]</p>
 </li>
 </ul>
 
@@ -6090,6 +6122,12 @@ this is called during realtime config update</p>
 <ul>
 <li><p><code>db.Pool.prototype.prepareOptions(options)</code></p>
 <p> Update the options with pool config parameters if needed, the options is from the request</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.Pool.prototype.prepareRow(req)</code></p>
+<p> Default prepareRow is to perform pool specific actions for prepared row before passing it to the op specific columns filterting</p>
 </li>
 </ul>
 
@@ -6883,12 +6921,6 @@ must be in the following formats:</p>
   { job: &quot;module.method&quot; }
   { job: { &quot;module.method&quot;: {}, .... } }
   { job: [ &quot;module.method&quot;, { &quot;module.method&quot;: {} ... } ...] }</code></pre><p>any task in string format &quot;module.method&quot; will be converted into { &quot;module.method: {} } automatically</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>jobs.descrJob(jobspec, options)</code></p>
-<p> Returns safe description of the job</p>
 </li>
 </ul>
 
@@ -8137,9 +8169,9 @@ It uses <code>lib.objSet</code> so the property name can be a nested path.</p>
 <ul>
 <li><p><code>lib.objDescr(obj, options)</code></p>
 <p> Return an object structure as a string object by showing primitive properties only,
-for arrays it shows the length and <code>options.count</code> or 10 first items,
+for arrays it shows the length and <code>options.count</code> or 15 first items,
 strings are limited by <code>options.length</code> or 256 bytes, if truncated the full string length is shown.
-the object depth is limited by <code>options.depth</code> or 3 levels deep, the number of properties are limited by options.count or 10,
+the object depth is limited by <code>options.depth</code> or 5 levels deep, the number of properties are limited by options.count or 15,
 all properties that match <code>options.ignore</code> will be skipped from the output, if <code>options.allow</code> is a regexp, only properties that
 match it will be output.</p>
 </li>
@@ -9010,6 +9042,7 @@ delete an account but keep all messages and location: keep:[&quot;bk_message&quo
 
   api.app.all(/^\/(connection|reference)\/([a-z]+)$/, function(req, res) {
       var options = api.getOptions(req, mod.controls);
+      options.cleanup = &quot;bk_&quot; + req.params[0];
 
       switch (req.params[1]) {
       case &quot;add&quot;:
@@ -9113,6 +9146,7 @@ If any of obj.id or obj.type are not specified then perform a query for matching
 
   api.app.all(/^\/counter\/([a-z]+)$/, function(req, res) {
       var options = api.getOptions(req);
+      options.cleanup = &quot;bk_counter&quot;;
 
       switch (req.params[0]) {
       case &quot;put&quot;:
@@ -9261,6 +9295,7 @@ If any of obj.id or obj.type are not specified then perform a query for matching
   {</p>
 <pre><code>  api.app.all(/^\/icon\/([a-z]+)$/, function(req, res) {
       var options = api.getOptions(req);
+      options.cleanup = &quot;bk_icon&quot;;
 
       if (!req.query.prefix) return api.sendReply(res, 400, &quot;prefix is required&quot;);
       if (!req.query.id) req.query.id = req.account.id;
