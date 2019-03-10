@@ -16,7 +16,9 @@ const mod = {
         { name: "source-pool", descr: "DynamoDB pool for streams processing" },
         { name: "target-pool", descr: "A database pool where to sync streams" },
         { name: "interval", type: "int", descr: "Interval in ms between stream shard processing" },
+        { name: "interval-([a-z0-9_]+)", type: "int", obj: "intervals", strip: /interval-/, nocamel: 1, descr: "Interval in ms between stream shard processing by table name" },
         { name: "max-interval", type: "int", descr: "Maximum interval in ms between stream shard processing, for cases when no shards are available" },
+        { name: "max-interval-([a-z0-9_]+)", type: "int", obj: "maxIntervals", strip: /max-interval-/, nocamel: 1, descr: "Maximum interval in ms between stream shard processing by table name, for cases when no shards are available" },
         { name: "lock-ttl", type: "int", descr: "Lock timeout and the delay between lock attempts" },
         { name: "lock-type", descr: "Locking policy, stream or shard to avoid processing to the same resources" },
         { name: "max-timeout-([0-9]+)-([0-9]+)", type: "list", obj: "periodTimeouts", make: "$1,$2", regexp: /^[0-9]+$/, reverse: 1, nocamel: 1, descr: "Max timeout on empty records during the given hours range in 24h format, example: -bk_dynamodbstreams-max-timeout-1-8 30000" },
@@ -27,9 +29,11 @@ const mod = {
     lockTtl: 30000,
     lockType: "stream",
     interval: 3000,
+    intervals: {},
     maxInterval: 10000,
     periodTimeouts: {},
     maxTimeouts: {},
+    maxIntervals: {},
     skipCache: {},
 };
 module.exports = mod;
@@ -80,6 +84,7 @@ mod.runJob = function(options, callback)
     var stream = { table: options.table };
     lib.doWhilst(
         function(next) {
+            options.maxInterval = mod.maxIntervals[options.table] || mod.maxInterval;
             options.shardRetryMaxTimeout = mod.maxTimeouts[options.table] || 0;
             for (var p in mod.periodTimeouts) {
                 if (lib.isTimeRange(mod.periodTimeouts[p][0], mod.periodTimeouts[p][1])) {
@@ -89,7 +94,9 @@ mod.runJob = function(options, callback)
             stream.shards = stream.error = 0;
             aws.ddbProcessStream(stream, options, mod.syncProcessor, (err) => {
                 if (err) logger.error("runJob:", mod.name, stream, err);
-                setTimeout(next, !stream.StreamArn || stream.error ? mod.maxInterval*2 : !stream.shards ? mod.maxInterval : mod.interval);
+                setTimeout(next, !stream.StreamArn || stream.error ? options.maxInterval*2 :
+                                 !stream.shards ? options.maxInterval :
+                                 mod.intervals[options.table] || mod.interval);
             });
         },
         function() {
