@@ -241,7 +241,7 @@ mod.processRecords = function(req, options, callback)
             lib.objIncr(options, "records", req.Records.length);
             lib.objIncr(req.Stream, "records", req.Records.length);
             logger.info("processRecords:", mod.name, options.table, req.Shard, req.LastSequenceNumber, req.Records.length, "records");
-            var bulk = req.Records.map((x) => ({ op: x.eventName == "REMOVE" ? "del" : "put", table: options.table, obj: x.dynamodb.NewImage || x.dynamodb.Keys }));
+            var bulk = req.Records.map((x) => ({ op: x.eventName == "REMOVE" ? "del" : "put", table: options.table, obj: x.dynamodb.NewImage || x.dynamodb.Keys, ddb: x.dynamodb }));
             db.bulk(bulk, { pool: options.target_pool }, next);
         },
         function(next, errors) {
