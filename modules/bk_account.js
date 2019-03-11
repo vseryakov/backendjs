@@ -84,8 +84,6 @@ accounts.configureWeb = function(options, callback)
 // Account management
 accounts.configureAccountsAPI = function()
 {
-    var self = this;
-
     api.app.all(/^\/account\/([a-z\/]+)$/, function(req, res, next) {
         var options = api.getOptions(req);
         options.cleanup = api.authTable + ",bk_account";
@@ -93,7 +91,7 @@ accounts.configureAccountsAPI = function()
         switch (req.params[0]) {
         case "get":
             if (!req.query.id || req.query.id == req.account.id) {
-                self.getAccount(req, options, function(err, data, info) {
+                accounts.getAccount(req, options, function(err, data, info) {
                     api.sendJSON(req, err, data);
                 });
 
@@ -106,19 +104,19 @@ accounts.configureAccountsAPI = function()
 
         case "add":
             options.cleanup = "";
-            self.addAccount(req, options, function(err, data) {
+            accounts.addAccount(req, options, function(err, data) {
                 api.sendJSON(req, err, data);
             });
             break;
 
         case "update":
-            self.updateAccount(req, options, function(err, data) {
+            accounts.updateAccount(req, options, function(err, data) {
                 api.sendJSON(req, err, data);
             });
             break;
 
         case "del":
-            self.deleteAccount(req, function(err, data) {
+            accounts.deleteAccount(req, function(err, data) {
                 api.sendJSON(req, err);
             });
             break;
@@ -128,7 +126,7 @@ accounts.configureAccountsAPI = function()
             break;
 
         case "select":
-            self.selectAccount(req, options, function(err, data) {
+            accounts.selectAccount(req, options, function(err, data) {
                 api.sendJSON(req, err, data);
             });
             break;
@@ -300,66 +298,69 @@ accounts.selectAccount = function(req, options, callback)
     });
 }
 
-// Register new account, used in /account/add API call, but the req does not to be an Express request, it just
+// Register new account, used in /account/add API call, but the req does not have to be an Express request, it just
 // need to have query and options objects.
 accounts.addAccount = function(req, options, callback)
 {
     if (typeof options == "function") callback = options, options = null;
-    if (!options) options = {};
-    if (lib.isEmpty(req.query.name)) return callback({ status: 400, message: "name is required"});
-    delete req.query.id;
+    options = lib.objClone(options);
     var login, account;
 
     lib.series([
-       function(next) {
-           if (options.noauth || api.authTable == "bk_account") return next();
-           if (!req.query.login) return next({ status: 400, message: "login is required"});
-           if (!req.query.secret) return next({ status: 400, message: "secret is required"});
-           // Copy for the auth table in case we have different properties that needs to be cleared
-           login = lib.objClone(req.query);
-           login.token_secret = true;
-           api.prepareAccountSecret(login, options);
-           // Put the secret back to return to the client, if generated or scrambled the client needs to know it for the API access
-           req.query.secret = login.secret;
-           if (!(options.admin || api.checkAccountType(req.account, "admin"))) {
-               api.clearQuery(api.authTable, login, { filter: "admin" });
-               for (var i in options.admin_values) login[options.admin_values[i]] = req.query[options.admin_values[i]];
-           }
-           options.info_obj = 1;
-           db.add(api.authTable, login, options, function(err, rows, info) {
-               if (!err) req.query.id = login.id = info.obj.id;
-               next(err);
-           });
-       },
-       function(next) {
-           account = lib.objClone(req.query);
-           // Only admin can add accounts with admin properties
-           if (!(options.admin || api.checkAccountType(req.account, "admin"))) {
-               api.clearQuery("bk_account", account, { filter: "admin" });
-               for (var i in options.admin_values) account[options.admin_values[i]] = req.query[options.admin_values[i]];
-           }
-           db.add("bk_account", account, options, next);
-       },
-       function(next) {
-           api.metrics.Counter('auth_add_0').inc();
-           // Set all default and computed values because we return in-memory record, not from the database
-           db.runProcessRows("post", "bk_account", { op: "get", table: "bk_account", obj: req.query, options: options }, req.query);
-           var cols = db.getColumns("bk_account", options);
-           for (var p in cols) if (typeof cols[p].value != "undefined") req.query[p] = cols[p].value;
-           req.query._added = true;
-           // Link account record for other middleware
-           api.setCurrentAccount(req, req.query);
-           next();
-       },
-       function(next) {
-           core.runMethods("bkAddAccount", req, function() { next() });
-       },
+        function(next) {
+            delete req.query.id;
+            if (lib.isEmpty(req.query.name)) return next({ status: 400, message: "name is required" });
+            if (options.noauth || api.authTable == "bk_account") return next();
+            if (!req.query.login) return next({ status: 400, message: "username is required" });
+            if (!req.query.secret) return next({ status: 400, message: "secret is required" });
+            // Copy for the auth table in case we have different properties that need to be cleared
+            login = lib.objClone(req.query);
+            login.token_secret = true;
+            api.prepareAccountSecret(login, options, () => {
+                // Put the secret back to return to the client, if generated or scrambled the client needs to know it for the API access
+                req.query.secret = login.secret;
+                if (!(options.admin || api.checkAccountType(req.account, "admin"))) {
+                    api.clearQuery(api.authTable, login, { filter: "admin" });
+                    for (var i in options.admin_values) login[options.admin_values[i]] = req.query[options.admin_values[i]];
+                }
+                options.result_obj = options.first = 1;
+                db.add(api.authTable, login, options, (err, row) => {
+                    if (!err) login.id = req.query.id = row.id;
+                    next(err);
+                });
+            });
+        },
+        function(next) {
+            account = lib.objClone(req.query);
+            // Only admin can add accounts with admin properties
+            if (!(options.admin || api.checkAccountType(req.account, "admin"))) {
+                api.clearQuery("bk_account", account, { filter: "admin" });
+                for (var i in options.admin_values) account[options.admin_values[i]] = req.query[options.admin_values[i]];
+            }
+            options.result_obj = options.first = 1;
+            db.add("bk_account", account, options, (err, row) => {
+                if (err) return next(err);
+                req.query = row;
+                api.metrics.Counter('auth_add_0').inc();
+                var cols = db.getColumns("bk_account", options);
+                for (var p in cols) if (typeof cols[p].value != "undefined") req.query[p] = cols[p].value;
+                req.query._added = true;
+                // Link account record for other middleware
+                api.setCurrentAccount(req, req.query);
+                next();
+            });
+        },
+        function(next) {
+            core.runMethods("bkAddAccount", req, () => { next() });
+        },
     ], function(err) {
         // Remove the record by login to make sure we can recreate it later
         if (err && login && login.id && api.authTable != "bk_account") {
-            return db.del(api.authTable, { login: login.login }, function() { callback(err, req.query) });
+            return db.del(api.authTable, { login: login.login }, () => {
+                lib.tryCall(callback, err, req.query);
+            });
         }
-        callback(err, req.query);
+        lib.tryCall(callback, err, req.query);
     });
 }
 
@@ -375,16 +376,17 @@ accounts.updateAccount = function(req, options, callback)
            if (options.noauth || !req.account.login || api.authTable == "bk_account") return next();
            // Copy for the auth table in case we have different properties that needs to be cleared
            var query = lib.objClone(req.query, "login", req.account.login, "id", req.account.id);
-           api.prepareAccountSecret(query, options);
-           // Skip admin properties if any
-           if (!options.admin && !api.checkAccountType(req.account, "admin")) {
-               api.clearQuery(api.authTable, query, { filter: "admin" });
-               for (var i in options.admin_values) query[options.admin_values[i]] = req.query[options.admin_values[i]];
-           }
-           // Avoid updating auth table and flushing cache if nothing to update
-           var obj = db.getQueryForKeys(Object.keys(db.getColumns(api.authTable, options)), query, { skip_columns: ["id","login","mtime"] });
-           if (!Object.keys(obj).length) return next();
-           db.update(api.authTable, query, options, next);
+           api.prepareAccountSecret(query, options, () => {
+                // Skip admin properties if any
+                if (!options.admin && !api.checkAccountType(req.account, "admin")) {
+                    api.clearQuery(api.authTable, query, { filter: "admin" });
+                    for (var i in options.admin_values) query[options.admin_values[i]] = req.query[options.admin_values[i]];
+                }
+                // Avoid updating auth table and flushing cache if nothing to update
+                var obj = db.getQueryForKeys(Object.keys(db.getColumns(api.authTable, options)), query, { skip_columns: ["id","login","mtime"] });
+                if (!Object.keys(obj).length) return next();
+                db.update(api.authTable, query, options, next);
+            });
        },
        function(next) {
            // Skip admin properties if any

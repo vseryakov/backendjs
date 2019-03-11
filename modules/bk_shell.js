@@ -39,8 +39,7 @@ module.exports = shell;
 // Exit and write to the console a message or error message if non empty
 shell.exit = function(err, msg)
 {
-    if (err) console.log(err);
-    if (msg) console.log(msg);
+    for (var i = 0; i < arguments.length; i++ ) console.log(arguments[i]);
     process.exit(err ? 1 : 0);
 }
 
@@ -48,7 +47,7 @@ shell.exit = function(err, msg)
 shell.getUser = function(obj, callback)
 {
     db.get("bk_account", { id: obj.id }, function(err, row) {
-        if (err) exit(err);
+        if (err) shell.exit(err);
 
         db.get(api.authTable, { login: row ? row.login : obj.login }, function(err, row2) {
             if (err || !(row ||row2)) shell.exit(err, "ERROR: no user found with this id: " + util.inspect(obj));
@@ -138,7 +137,7 @@ shell.runShell = function(options)
     for (var i in mods) require(mods[i]);
 
     core.runMethods("configureShell", options, function(err) {
-        if (options.done) exit();
+        if (options.done) shell.exit();
 
         ipc.initServer();
 
