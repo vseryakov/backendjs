@@ -39,7 +39,10 @@ module.exports = shell;
 // Exit and write to the console a message or error message if non empty
 shell.exit = function(err, msg)
 {
-    for (var i = 0; i < arguments.length; i++ ) console.log(arguments[i]);
+    for (var i = 0; i < arguments.length; i++ ) {
+        if (typeof arguments[i] == "undefined" || arguments[i] === null || arguments[i] === "") continue;
+        console.log(arguments[i]);
+    }
     process.exit(err ? 1 : 0);
 }
 
