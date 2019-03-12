@@ -318,15 +318,15 @@ accounts.addAccount = function(req, options, callback)
             login.token_secret = true;
             api.prepareAccountSecret(login, options, () => {
                 // Put the secret back to return to the client, if generated or scrambled the client needs to know it for the API access
-                req.query.secret = login.secret;
                 if (!(options.admin || api.checkAccountType(req.account, "admin"))) {
                     api.clearQuery(api.authTable, login, { filter: "admin" });
                     for (var i in options.admin_values) login[options.admin_values[i]] = req.query[options.admin_values[i]];
                 }
                 options.result_obj = options.first = 1;
                 db.add(api.authTable, login, options, (err, row) => {
-                    if (!err) login.id = req.query.id = row.id;
-                    next(err);
+                    if (err) return next(err);
+                    for (const p in row) req.query[p] = row[p];
+                    next();
                 });
             });
         },
@@ -340,10 +340,10 @@ accounts.addAccount = function(req, options, callback)
             options.result_obj = options.first = 1;
             db.add("bk_account", account, options, (err, row) => {
                 if (err) return next(err);
-                req.query = row;
+                for (const p in row) req.query[p] = row[p];
                 api.metrics.Counter('auth_add_0').inc();
                 var cols = db.getColumns("bk_account", options);
-                for (var p in cols) if (typeof cols[p].value != "undefined") req.query[p] = cols[p].value;
+                for (const p in cols) if (typeof cols[p].value != "undefined") req.query[p] = cols[p].value;
                 req.query._added = true;
                 // Link account record for other middleware
                 api.setCurrentAccount(req, req.query);
