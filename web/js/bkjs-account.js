@@ -56,9 +56,10 @@ bkjs.addAccount = function(obj, callback)
 {
     // Replace the actual credentials from the storage in case of scrambling in the client
     if (!obj._scramble) {
-        var creds = this.checkCredentials(obj.login, obj.secret);
+        var creds = this.checkCredentials(obj);
         obj.login = creds.login;
         obj.secret = creds.secret;
+        obj.scramble = creds.scramble;
     }
     delete obj.secret2;
     this.sendRequest({ type: "POST", url: "/account/add", data: obj, jsonType: "obj", nosignature: 1 }, callback);
@@ -69,9 +70,10 @@ bkjs.updateAccount = function(obj, callback)
 {
     // Scramble here if we did not ask the server to do it with _scramble option
     if (obj.secret && !obj._scramble) {
-        var creds = this.checkCredentials(obj.login || this.account.login, obj.secret);
+        var creds = this.checkCredentials(obj);
         obj.login = creds.login;
         obj.secret = creds.secret;
+        obj.scramble = creds.scramble;
     }
     delete obj.secret2;
     this.sendRequest({ url: '/account/update', data: obj, type: "POST", jsonType: "obj" }, callback);

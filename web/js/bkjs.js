@@ -151,7 +151,7 @@ bkjs.getCredentials = function()
 bkjs.checkCredentials = function(options)
 {
     var rc = {
-        scramble: options && options.scramble || this.scramble,
+        scramble: options && options.scramble || this.scramble || 0,
         login: options && options.login ? String(options.login) : "",
         secret: options && options.secret ? String(options.secret) : "",
     };
