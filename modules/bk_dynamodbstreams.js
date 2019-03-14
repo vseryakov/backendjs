@@ -15,6 +15,7 @@ const mod = {
         { name: "tables", type: "list", onupdate: function() {if(ipc.role=="worker")this.subscribeWorker()}, descr: "Process streams for given tables in a worker process" },
         { name: "source-pool", descr: "DynamoDB pool for streams processing" },
         { name: "target-pool", descr: "A database pool where to sync streams" },
+        { name: "auto-provision", descr: "To auto enable streams on each table set to  NEW_IMAGE | OLD_IMAGE | NEW_AND_OLD_IMAGES | KEYS_ONLY" },
         { name: "interval", type: "int", descr: "Interval in ms between stream shard processing" },
         { name: "interval-([a-z0-9_]+)", type: "int", obj: "intervals", strip: /interval-/, nocamel: 1, descr: "Interval in ms between stream shard processing by table name" },
         { name: "max-interval", type: "int", descr: "Maximum interval in ms between stream shard processing, for cases when no shards are available" },
@@ -141,6 +142,9 @@ mod.syncProcessor = function(cmd, req, options, callback)
     case "shard-check":
         return !mod.skipCache[options.table + req.ShardId];
 
+    case "stream-prepare":
+        return mod.processStreamPrepare(req, options, callback);
+
     case "stream-start":
         return mod.processStreamStart(req, options, callback);
 
@@ -156,6 +160,23 @@ mod.syncProcessor = function(cmd, req, options, callback)
     case "records":
         return mod.processRecords(req, options, callback);
     }
+}
+
+mod.processStreamPrepare = function(req, options, callback)
+{
+    lib.series([
+        function(next) {
+            if (!mod.autoProvision) return next();
+            if (req.Stream.StreamArn) return next();
+            aws.ddbDescribeTable(options.table, options, next);
+        },
+        function(next, descr) {
+            if (!descr) return next();
+            if (descr.Table && descr.Table.LatestStreamArn) return next();
+            logger.debug("processStreamPrepare:", mod.name, options.table, req.Stream);
+            aws.ddbUpdateTable({ name: options.table, stream: mod.autoProvision }, options, next);
+        },
+    ], callback);
 }
 
 mod.processStreamStart = function(req, options, callback)
