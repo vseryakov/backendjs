@@ -4,6 +4,7 @@
 //
 
 const logger = require(__dirname + '/../lib/logger');
+const core = require(__dirname + '/../lib/core');
 const lib = require(__dirname + '/../lib/lib');
 const db = require(__dirname + '/../lib/db');
 const aws = require(__dirname + '/../lib/aws');
@@ -12,7 +13,7 @@ const ipc = require(__dirname + '/../lib/ipc');
 
 const mod = {
     args: [
-        { name: "tables", type: "list", onupdate: function() {if(ipc.role=="worker")this.subscribeWorker()}, descr: "Process streams for given tables in a worker process" },
+        { name: "tables", type: "list", onupdate: function() {if(core.role=="worker")this.subscribeWorker()}, descr: "Process streams for given tables in a worker process" },
         { name: "source-pool", descr: "DynamoDB pool for streams processing" },
         { name: "target-pool", descr: "A database pool where to sync streams" },
         { name: "auto-provision", descr: "To auto enable streams on each table set to  NEW_IMAGE | OLD_IMAGE | NEW_AND_OLD_IMAGES | KEYS_ONLY" },
@@ -36,12 +37,16 @@ const mod = {
     maxTimeouts: {},
     maxIntervals: {},
     skipCache: {},
+    timers: {},
 };
 module.exports = mod;
 
-mod.processTable = function(table, options, callback)
+mod.processTable = function(options, callback)
 {
-    aws.ddbProcessStream(table, options, this.syncProcessor, callback);
+    var stream = { table: options.table };
+    aws.ddbProcessStream(stream, options, this.syncProcessor, (err) => {
+       lib.tryCall(callback, err, stream);
+    });
 }
 
 mod.configureWorker = function(options, callback)
@@ -95,6 +100,7 @@ mod.runJob = function(options, callback)
             stream.shards = stream.error = 0;
             aws.ddbProcessStream(stream, options, mod.syncProcessor, (err) => {
                 if (err) logger.error("runJob:", mod.name, stream, err);
+                if (stream.error) logger.debug("runJob:", mod.name, stream);
                 setTimeout(next, !stream.StreamArn || stream.error ? options.maxInterval*2 :
                                  !stream.shards ? options.maxInterval :
                                  mod.intervals[options.table] || mod.interval);
@@ -114,11 +120,13 @@ mod.lock = function(key, query, options, callback)
 {
     ipc.lock(mod.name + ":" + key, { ttl: mod.lockTtl, queueName: jobs.uniqueQueue }, (err, locked) => {
         if (locked) {
-            query.lockTimer = setInterval(function() {
+            mod.timers[key] = setInterval(function() {
                 ipc.lock(mod.name + ":" + key, { ttl: mod.lockTtl, queueName: jobs.uniqueQueue, set: 1 });
             }, mod.lockTtl * 0.9);
+            mod.timers[key].mtime = Date.now();
         } else {
-            delete query.lockTimer;
+            clearInterval(mod.timers[key]);
+            delete mod.timers[key];
         }
         callback(err, locked);
     });
@@ -126,9 +134,9 @@ mod.lock = function(key, query, options, callback)
 
 mod.unlock = function(key, query, options, callback)
 {
-    if (!query.lockTimer) return callback();
-    clearInterval(query.lockTimer);
-    delete query.lockTimer;
+    if (!this.timers[key]) return callback();
+    clearInterval(this.timers[key]);
+    delete this.timers[key];
     ipc.unlock(mod.name + ":" + key, { queueName: jobs.uniqueQueue }, callback);
 }
 
@@ -171,10 +179,10 @@ mod.processStreamPrepare = function(req, options, callback)
             aws.ddbDescribeTable(options.table, options, next);
         },
         function(next, descr) {
-            if (!descr) return next();
-            if (descr.Table && descr.Table.LatestStreamArn) return next();
-            logger.debug("processStreamPrepare:", mod.name, options.table, req.Stream);
-            aws.ddbUpdateTable({ name: options.table, stream: mod.autoProvision }, options, next);
+            if (!descr || !descr.Table) return next();
+            if (descr.Table.LatestStreamArn) return next();
+            logger.debug("processStreamPrepare:", mod.name, options.table, req.Stream, descr);
+            aws.ddbUpdateTable({ name: options.table, stream: mod.autoProvision }, next);
         },
     ], callback);
 }
@@ -238,7 +246,7 @@ mod.processShardEnd = function(req, options, callback)
         },
         function(next) {
             if (!req.Shard.error) {
-                req.Stream.shards++;
+                lib.objIncr(req.Stream, "shards");
             } else {
                 // Skip unknown or stale shards
                 if (req.Shard.error === "skip" ||
