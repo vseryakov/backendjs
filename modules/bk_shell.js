@@ -82,22 +82,31 @@ shell.getQueryList = function()
     return query;
 }
 
-// Returns an object with all command line params starting with dash set with the value if the next param does not start with dash or 1
-shell.getArgs = function()
+// Returns an object with all command line params starting with dash set with the value if the next param does not start with dash or 1.
+// By sefault all args are zatored as is with dahses, if `options.camel`` is true then all args will be stored in camel form,
+// if `options.underscor`e is true then all args will be stored with dashes convertyed into underscores.
+shell.getArgs = function(options)
 {
     var query = {};
+    if (!options) options = lib.empty;
     for (var i = process.argv.length - 1; i > this.cmdIndex + 1; i--) {
         var a = process.argv[i - 1], b = process.argv[i];
-        if (b[0] == '-') query[b.substr(1)] = 1; else
-        if (a[0] == '-') query[a.substr(1)] = b || 1, i--;
+        if (b[0] == '-') query[options.camel ? lib.toCamel(b.substr(1)) : options.underscore ? b.substr(1).replace(/-/g, "_") : b.substr(1)] = 1; else
+        if (a[0] == '-') query[options.camel ? lib.toCamel(a.substr(1)) : options.underscore ? a.substr(1).replace(/-/g, "_") : a.substr(1)] = b || 1, i--;
     }
     return query;
 }
 
-// Return first available value for the given name, options first, then command arg and then default
+// Return an argument by name from the options, options may contain parameters in camel form or with underscores, both formats will be checked
+shell.getOption = function(name, options)
+{
+    return name && options ? options[lib.toCamel(name.substr(1))] || options[name.substr(1).replace(/-/g, "_")] : "";
+}
+
+// Return first available value for the given name, options first, then command arg and then default,
 shell.getArg = function(name, options, dflt)
 {
-    return decodeURIComponent(String((options && options[lib.toCamel(name.substr(1))]) || lib.getArg(name, dflt))).trim();
+    return decodeURIComponent(String(this.getOption(name, options) || lib.getArg(name, dflt))).trim();
 }
 
 shell.getArgInt = function(name, options, dflt)
@@ -107,7 +116,9 @@ shell.getArgInt = function(name, options, dflt)
 
 shell.getArgList = function(name, options)
 {
-    var arg = options && options[lib.toCamel(name.substr(1))];
+    if (!name) return [];
+    if (!options) options = lib.empty;
+    var arg = this.getOption(name, options);
     if (arg) return Array.isArray(arg) ? arg : [ arg ];
     var list = [];
     for (var i = 1; i < process.argv.length - 1; i++) {
@@ -118,7 +129,7 @@ shell.getArgList = function(name, options)
 
 shell.isArg = function(name, options)
 {
-    return (options && typeof options[lib.toCamel(name.substr(1))] != "undefined") || lib.isArg(name);
+    return typeof this.getOption(name, options) != "undefined" || lib.isArg(name);
 }
 
 // Start REPL shell or execute any subcommand if specified in the command line.
