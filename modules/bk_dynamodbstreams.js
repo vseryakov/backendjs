@@ -41,14 +41,6 @@ const mod = {
 };
 module.exports = mod;
 
-mod.processTable = function(options, callback)
-{
-    var stream = { table: options.table };
-    aws.ddbProcessStream(stream, options, this.syncProcessor, (err) => {
-       lib.tryCall(callback, err, stream);
-    });
-}
-
 mod.configureWorker = function(options, callback)
 {
     setTimeout(function() { mod.subscribeWorker() }, lib.toNumber(jobs.workerDelay) + lib.randomShort()/1000);
@@ -76,6 +68,18 @@ mod.subscribeWorker = function(options)
             this.runJob({ table: table, source_pool: this.sourcePool, target_pool: this.targetPool, job: true });
         }
     }
+}
+
+mod.processTable = function(options, callback)
+{
+    if (!options.table || !options.source_pool || !options.target_pool) {
+        return lib.tryCall(callback, "table, source_pool and target_pool must be provided", options);
+    }
+    db.getPool(options.source_pool).prepareOptions(options);
+    var stream = { table: options.table };
+    aws.ddbProcessStream(stream, options, this.syncProcessor, (err) => {
+       lib.tryCall(callback, err, stream);
+    });
 }
 
 mod.runJob = function(options, callback)
@@ -182,7 +186,7 @@ mod.processStreamPrepare = function(req, options, callback)
             if (!descr || !descr.Table) return next();
             if (descr.Table.LatestStreamArn) return next();
             logger.debug("processStreamPrepare:", mod.name, options.table, req.Stream, descr);
-            aws.ddbUpdateTable({ name: options.table, stream: mod.autoProvision }, next);
+            aws.ddbUpdateTable({ name: options.table, stream: mod.autoProvision, endpoint: options.endpoint }, next);
         },
     ], callback);
 }
