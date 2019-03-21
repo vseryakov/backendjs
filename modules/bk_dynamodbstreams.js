@@ -25,6 +25,8 @@ const mod = {
         { name: "lock-type", descr: "Locking policy, stream or shard to avoid processing to the same resources" },
         { name: "max-timeout-([0-9]+)-([0-9]+)", type: "list", obj: "periodTimeouts", make: "$1,$2", regexp: /^[0-9]+$/, reverse: 1, nocamel: 1, descr: "Max timeout on empty records during the given hours range in 24h format, example: -bk_dynamodbstreams-max-timeout-1-8 30000" },
         { name: "max-timeout-([a-z0-9_]+)", type: "int", obj: "maxTimeouts", strip: /max-timeout-/, nocamel: 1, descr: "Max timeout on empty records by table, example: -bk_dynamodbstreams-max-timeout-table_name 30000" },
+        { name: "retry-timeout-([a-z0-9_]+)", type: "int", obj: "retryTimeouts", strip: /retry-timeout-/, nocamel: 1, descr: "Number of times to read records from an open shard with no records by table" },
+        { name: "retry-count-([a-z0-9_]+)", type: "int", obj: "retryCounts", strip: /retry-count-/, nocamel: 1, descr: "Min timeout in ms between retries on empty records by table, exponential backoff is used" },
     ],
     jobs: [],
     ttl: 86400*2,
@@ -34,6 +36,8 @@ const mod = {
     intervals: {},
     maxInterval: 10000,
     periodTimeouts: {},
+    retryCounts: {},
+    retryTimeouts: {},
     maxTimeouts: {},
     maxIntervals: {},
     skipCache: {},
@@ -96,6 +100,8 @@ mod.runJob = function(options, callback)
         function(next) {
             options.maxInterval = mod.maxIntervals[options.table] || mod.maxInterval;
             options.shardRetryMaxTimeout = mod.maxTimeouts[options.table] || 0;
+            options.shardRetryTimeout = mod.retryTimeouts[options.table] || 0;
+            options.shardRetryCount = mod.retryCounts[options.table] || 0;
             for (var p in mod.periodTimeouts) {
                 if (lib.isTimeRange(mod.periodTimeouts[p][0], mod.periodTimeouts[p][1])) {
                     options.shardRetryMaxTimeout = Math.max(p, options.shardRetryMaxTimeout);
@@ -202,6 +208,16 @@ mod.processStreamStart = function(req, options, callback)
                 next(err);
             });
         },
+        function(next) {
+            req.Stream.shardId = req.Stream.lastShardId;
+            if (req.Stream.shardId) return next();
+            db.get("bk_property", { name: req.Stream.StreamArn } , (err, row) => {
+                if (row && row.value && !options.force) {
+                    req.Stream.shardId = req.Stream.lastShardId = row.value;
+                }
+                next(err);
+            });
+        },
     ], callback);
 }
 
@@ -210,6 +226,10 @@ mod.processStreamEnd = function(req, options, callback)
     lib.series([
         function(next) {
             logger.debug("processStreamEnd:", mod.name, options.table, req.Stream);
+            if (!req.Stream.lastShardId) return next();
+            db.put("bk_property", { name: req.Stream.StreamArn, value: req.Stream.lastShardId, ttl: lib.now() + mod.ttl }, options, next);
+        },
+        function(next) {
             if (mod.lockType != "stream") return next();
             mod.unlock(options.table, req.Stream, options, next);
         },
@@ -231,10 +251,10 @@ mod.processShardStart = function(req, options, callback)
         function(next) {
             db.get("bk_property", { name: options.table + req.Shard.ShardId }, options, (err, row) => {
                 if (row && row.value && !options.force) {
-                    req.Shard.SequenceNumber = row.value;
-                    req.Shard.ShardIteratorType = "AFTER_SEQUENCE_NUMBER";
-                    logger.debug("processShardStart:", mod.name, options.table, req.Shard, req.Stream);
+                    req.Shard.sequence = row.value;
+                    req.Shard.after = 1;
                 }
+                logger.debug("processShardStart:", mod.name, options.table, req.Shard, req.Stream);
                 next(err);
             });
         },
@@ -251,6 +271,15 @@ mod.processShardEnd = function(req, options, callback)
         function(next) {
             if (!req.Shard.error) {
                 lib.objIncr(req.Stream, "shards");
+                // Keep the last shard id for the next iteration so we can retrieve only latest shards
+                var shardId = req.Shard.SequenceNumberRange.EndingSequenceNumber ? req.Shard.ShardId : req.Shard.ParentShardId;
+                if (!req.Stream.lastShardId || shardId > req.Stream.lastShardId) {
+                    req.Stream.lastShardId = shardId;
+                } else
+                // This is the parent shard processed, do not try it again after the first time
+                if (!req.Shard.SequenceNumberRange.StartingSequenceNumber) {
+                    mod.skipCache[options.table + req.Shard.ShardId] = Date.now();
+                }
             } else {
                 // Skip unknown or stale shards
                 if (req.Shard.error === "skip" ||
