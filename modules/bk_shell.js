@@ -193,6 +193,18 @@ shell.cmdShowInfo = function(options)
     this.exit();
 }
 
+shell.loadFile = function(file)
+{
+    var mod;
+    if (!/\.js$/.test(file)) file += ".js";
+    if (fs.existsSync(core.cwd + "/" + file)) mod = require(core.cwd + "/" + file); else
+    if (!mod &&fs.existsSync(core.home + "/" + file)) mod = require(core.home + "/" + file); else
+    if (!mod && fs.existsSync(__dirname + "/../" + file)) mod = require(__dirname + "/../" + file);
+    if (!mod) core.path.modules.forEach(function(x) { if (!mod && fs.existsSync(x + "/../" + file )) mod = require(x + "/../" + file) });
+    if (!mod) shell.exit("file not found " + file);
+    return mod;
+}
+
 // To be used in the tests, this function takes the following arguments:
 //
 // assert(next, err, ....)
@@ -296,11 +308,7 @@ shell.cmdTestRun = function(options)
     tests.test.delay = tests.getArgInt("-test-delay", options, 0);
     tests.test.cmd = tests.getArg("-test-run", options);
     tests.test.file = tests.getArg("-test-file", options, "tests/tests.js");
-    if (tests.test.file) {
-        if (fs.existsSync(tests.test.file)) require(tests.test.file); else
-        if (fs.existsSync(core.cwd + "/" + tests.test.file)) require(core.cwd + "/" + tests.test.file);
-        if (fs.existsSync(__dirname + "/../" + tests.test.file)) require(__dirname + "/../" + tests.test.file);
-    }
+    if (tests.test.file) this.loadFile(tests.test.file);
 
     var cmds = lib.strSplit(tests.test.cmd);
     for (var i in cmds) {
@@ -374,13 +382,7 @@ shell.cmdRunFile = function(options)
 {
     var file = this.getArg("-run-file", options);
     if (!file) shell.exit("-run-file argument is required");
-    var mod;
-    if (!/\.js$/.test(file)) file += ".js";
-    if (fs.existsSync(core.cwd + "/" + file)) mod = require(core.cwd + "/" + file); else
-    if (!mod &&fs.existsSync(core.home + "/" + file)) mod = require(core.home + "/" + file); else
-    if (!mod && fs.existsSync(__dirname + "/../" + file)) mod = require(__dirname + "/../" + file);
-    if (!mod) core.path.modules.forEach(function(x) { if (!mod && fs.existsSync(x + "/../" + file )) mod = require(x + "/../" + file) });
-    if (!mod) shell.exit("file not found " + file);
+    var mod = this.loadFile(file);
     // Exported functions are set in the shell module
     for (var p in mod) if (typeof mod[p] == "function") shell[p] = mod[p];
     if (typeof mod.run == "function") mod.run(options);
