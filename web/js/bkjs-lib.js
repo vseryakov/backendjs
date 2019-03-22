@@ -432,26 +432,26 @@ bkjs.toTemplate = function(text, obj, options)
 {
     if (typeof text != "string" || !text) return "";
     var i, rc = [];
-    if (!options) options = {};
+    if (!options) options = {}
     if (!Array.isArray(obj)) obj = [obj];
     for (i = 0; i < obj.length; i++) {
         if (typeof obj[i] == "object" && obj[i]) rc.push(obj[i]);
     }
-    var tmpl = "", str = text;
+    var tmpl = "", str = text, sep1 = options.separator1 || "@", sep2 = options.separator2 || sep1;
     while (str) {
-        var start = str.indexOf("@");
+        var start = str.indexOf(sep1);
         if (start == -1) {
             tmpl += str;
             break;
         }
-        var end = str.indexOf("@", start + 1);
+        var end = str.indexOf(sep2, start + sep1.length);
         if (end == -1) {
             tmpl += str;
             break;
         }
-        var tag = str.substr(start + 1, end - start - 1);
+        var tag = str.substr(start + sep1.length, end - start - sep2.length);
         tmpl += str.substr(0, start);
-        str = str.substr(end + 1);
+        str = str.substr(end + sep2.length);
         var d, v = null, dflt = null;
         if (tag == "exit") {
             options.exit = 1;
@@ -462,14 +462,14 @@ bkjs.toTemplate = function(text, obj, options)
         if (/^if/.test(tag)) {
             // @if type tester,admin@
             // @endif@
-            end = str.indexOf("@endif@");
+            end = str.indexOf(sep1 + "endif" + sep2);
             if (end == -1) continue;
             var body = str.substr(0, end);
             str = str.substr(end + 7);
             d = tag.match(/^(if|ifeq|ifgt|ifge|iflt|ifle|ifnot|ifall|ifstr) ([a-zA-Z0-9]+) +(.+)$/)
             if (!d) continue;
             var ok, val = null;
-            for (i = 0; i < rc.length && !val; i++) val = rc[i][d[2]];
+            for (i = 0; i < rc.length && !val; i++) val = typeof rc[i][d[2]] == "function" ? rc[i][d[2]]() : rc[i][d[2]];
             switch (d[1]) {
             case "if":
                 ok = val && this.isFlag(this.strSplit(d[3]), this.strSplit(val));
@@ -509,9 +509,9 @@ bkjs.toTemplate = function(text, obj, options)
             if (d) {
                 tag = d[1];
                 if (d[2]) dflt = d[2].substr(1);
-                for (i = 0; i < rc.length && !v; i++) v = rc[i][tag];
+                for (i = 0; i < rc.length && !v; i++) v = typeof rc[i][tag] == "function" ? rc[i][tag]() : rc[i][tag];
             } else {
-                tmpl += "@" + tag + "@";
+                tmpl += sep1 + tag + sep2;
             }
         }
         if (!v) v = dflt;
