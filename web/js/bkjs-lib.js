@@ -453,6 +453,9 @@ bkjs.toTemplate = function(text, obj, options)
         tmpl += str.substr(0, start);
         str = str.substr(end + sep2.length);
         var d, v = null, dflt = null;
+        if (tag == "") {
+            v = sep1;
+        } else
         if (tag == "exit") {
             options.exit = 1;
         } else
