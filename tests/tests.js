@@ -1385,3 +1385,76 @@ tests.test_dynamodb = function(callback)
     if (JSON.stringify(a) != JSON.stringify(c)) return callback("Invalid convertion from " + JSON.stringify(c) + "to" + JSON.stringify(a));
     callback();
 }
+
+tests.test_auth = function(callback)
+{
+    var argv = [
+        "-api-allow-admin", "^/system",
+        "-api-allow-authenticated", "^/authonly",
+        "-api-allow-include-authenticated", "allow2",
+        "-api-allow-account-manager", "^/manager",
+        "-api-allow-include-manager", "allow1",
+        "-api-allow-account-user", "^/user",
+        "-api-allow-include-user", "allow1",
+        "-api-allow-account-allow1", "^/allow1",
+        "-api-allow-account-allow2", "^/allow2",
+        "-api-deny-account-manager", "^/useronly",
+        "-api-deny-account-user", "^/manageronly",
+        "-api-deny-include-user", "deny1",
+        "-api-deny-account-deny1", "^/deny1",
+        "-api-deny-account-deny2", "^/deny2",
+        "-api-deny-authenticated", "^/authdeny",
+        "-api-deny-include-authenticated", "deny2",
+    ];
+    for (const p in api) {
+        if (!/^(allow|deny)/.test(p)) continue;
+        switch (lib.typeName(api[p])) {
+        case "object":
+            api[p] = {};
+            break;
+        case "array":
+            api[p] = [];
+            break;
+        }
+    }
+    core.parseArgs(argv);
+    for (const p in api) {
+        if (/^(allow|deny)/.test(p) && !lib.isEmpty(api[p]) && typeof api[p] == "object") console.log(p, "=", api[p]);
+    }
+
+    var req = { account: {}, options: {} };
+    var checks = [
+        { status: 401, path: "/system" },
+        { status: 401, path: "/system", type: "user" },
+        { status: 401, path: "/system", type: "manager" },
+        { status: 417, path: "/authonly" },
+        { status: 401, path: "/allow2" },
+        { status: 200, path: "/allow2", type: "user" },
+        { status: 200, path: "/authonly", type: "user" },
+        { status: 200, path: "/allow2", type: "user" },
+        { status: 401, path: "/manager" },
+        { status: 401, path: "/manager", type: "user" },
+        { status: 200, path: "/manager", type: "manager" },
+        { status: 200, path: "/allow1", type: "manager" },
+        { status: 401, path: "/user" },
+        { status: 401, path: "/allow1" },
+        { status: 200, path: "/user", type: "user" },
+        { status: 200, path: "/allow1", type: "user" },
+        { status: 401, path: "/useronly", type: "manager" },
+        { status: 401, path: "/manageronly", type: "user" },
+        { status: 401, path: "/deny2", type: "user" },
+        { status: 401, path: "/authdeny", type: "user" },
+        { status: 401, path: "/deny1", type: "user" },
+        { status: 200, path: "/deny1", type: "manager" },
+    ];
+
+    lib.forEachSeries(checks, (check, next) => {
+        req.account.id = req.account.type = check.type;
+        req.options.path = check.path;
+        api.checkAuthorization(req, { status: check.type ? 200 : 417 }, (err) => {
+            tests.assert(next, err.status != check.status, err, check, req);
+        });
+    }, callback);
+}
+
+

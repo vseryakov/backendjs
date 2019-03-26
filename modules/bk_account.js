@@ -28,7 +28,7 @@ var accounts = {
             id: { primary: 1, pub: 1 },
             login: {},
             status: { type: "text" },
-            type: { type: "text", admin: 1 },
+            type: { type: "text", list: 1, admin: 1 },
             name: { pub: 1, notempty: 1 },
             first_name: { pub: 1 },
             last_name: { pub: 1 },
@@ -422,7 +422,7 @@ accounts.deleteAccount = function(req, callback)
         if (err) return callback(err);
         if (!row && !req.options.force) return callback({ status: 404, message: "No account found" });
         for (var p in row) if (!req.account[p]) req.account[p] = row[p];
-        req.account.type += (req.account.type ? "," : "") + "deleted";
+        req.account.type.push("deleted");
         var rec = lib.objClone(req.obj, "login", req.account.login, "id", req.account.id, "type", req.account.type);
 
         lib.series([

@@ -83,8 +83,8 @@ bkjs.updateAccount = function(obj, callback)
 bkjs.checkAccountType = function(account, type)
 {
     if (!account || !account.type) return false;
-    account._types = Array.isArray(account._types) ? account._types : String(account.type).split(",").map(function(x) { return x.trim() });
-    if (Array.isArray(type)) return type.some(function(x) { return account._types.indexOf(x) > -1 });
-    return account._types.indexOf(type) > -1;
+    if (!Array.isArray(account.type)) account.type = String(account.type).split(",").map(function(x) { return x.trim() });
+    if (Array.isArray(type)) return type.some(function(x) { return account.type.indexOf(x) > -1 });
+    return account.type.indexOf(type) > -1;
 }
 
