@@ -132,6 +132,7 @@
 <li><a href="#module-bk_shell">bk_shell</a></li>
 <li><a href="#module-bk_shell_aws">bk_shell_aws</a></li>
 <li><a href="#module-bk_shell_db">bk_shell_db</a></li>
+<li><a href="#module-bk_shell_test">bk_shell_test</a></li>
 <li><a href="#module-bk_status">bk_status</a></li>
 <li><a href="#module-bk_system">bk_system</a></li>
 <li><a href="#module-db_cassandra">db_cassandra</a></li>
@@ -2253,7 +2254,8 @@ Database pool statistics and other diagnostics</p>
 <li><code>logwatcher-any-range</code> - Number of lines for matched channel <code>any</code> to be attached to the previous matched channel, if more than this number use the channel <code>any</code> on its own</li>
 <li><code>logwatcher-match-[a-z]+</code> - Regexp patterns that match conditions for logwatcher notifications, this is in addition to default backend logger patterns, suffix defines the log channel to use, like error, warning.... Special channel <code>any</code> is reserved to send matched lines to the previously matched channel if within configured range. Example: <code>-logwatcher-match-error=^failed:</code> <code>-logwatcher-match-any=line:[0-9]+</code></li>
 <li><code>logwatcher-send-[a-z]+</code> - Email address or other supported transport for the logwatcher notifications, the monitor process scans system and backend log files for errors and sends them to this email address, if not specified no log watching will happen, each channel must define a transport separately, one of error, warning, info, all. Supported transports: table://TABLE, <a href="http://URL">http://URL</a>, sns://ARN, ses://EMAIL, email@addr. Example: <code>-logwatcher-send-error=help@error.com</code></li>
-<li><code>logwatcher-ignore-[a-z]+</code> - Regexp with patterns that need to be ignored by the logwatcher process, it is added to the list of ignored patterns for each specified channel separately</li>
+<li><code>logwatcher-ignore-[a-z]+</code> - Regexp with patterns that need to be ignored by the logwatcher process, it is added to the list of existing patterns for each specified channel separately</li>
+<li><code>logwatcher-once-[a-z0-9]+</code> - Regexp with patterns that need to be included only once by the logwatcher process, it is added to the list of existng patterns by tag to keep track each pattern separately, example: -logwatcher-once-restart &#39;restarting.+&#39; -logwatcher-once-recon &#39;reconnecting:.+&#39;</li>
 <li><code>logwatcher-file(-[a-z]+)?</code> - Add a file to be watched by the logwatcher, it will use all configured match patterns</li>
 <li><code>user-agent</code> - Add HTTP user-agent header to be used in HTTP requests, for scrapers or other HTTP requests that need to be pretended coming from Web browsers</li>
 <li><code>backend-host</code> - Host of the master backend, can be used for backend nodes communications using core.sendRequest function calls with relative URLs, also used in tests.</li>
@@ -2299,7 +2301,8 @@ Database pool statistics and other diagnostics</p>
 <li><code>aws-ddb-write-capacity</code> - Default DynamoDB write capacity for all tables</li>
 <li><code>aws-ddb-shard-concurrency</code> - DynamoDB Streams number of shards to process in parallel</li>
 <li><code>aws-ddb-shard-records-count</code> - DynamoDB Streams records count in a batch</li>
-<li><code>aws-ddb-shard-retry-count</code> - DynamoDB Streams retry count before exiting on empty records, &lt;=0 to poll indefinitly</li>
+<li><code>aws-ddb-shard-retry-count</code> - DynamoDB Streams number of times to read records from an open shard with no records</li>
+<li><code>aws-ddb-shard-retry-closed-count</code> - DynamoDB Streams number of times to read records from a closed shard</li>
 <li><code>aws-ddb-shard-retry-timeout</code> - DynamoDB Streams min timeout in ms between retries on empty records, exponential backoff is used</li>
 <li><code>aws-ddb-shard-retry-max-timeout</code> - DynamoDB Streams max timeout in ms on empty records, once reached the timeout is reset back to the min and exponential backoff starts again</li>
 <li><code>ipc-ping-interval</code> - Interval for a worker keep-alive pings, if not received within this period it will be killed</li>
@@ -2386,10 +2389,14 @@ Database pool statistics and other diagnostics</p>
 <li><code>api-access-token-age</code> - Access tokens age in milliseconds, for API requests with access tokens only</li>
 <li><code>api-disable-session</code> - Disable access to API endpoints for Web sessions, must be signed properly</li>
 <li><code>api-allow-authenticated</code> - Add URLs which can be accessed by any authenticated user account, can be partial urls or Regexp, it is checked before any other account types, if matched then no account specific paths will be checked anymore(any of the allow-account-...)</li>
+<li><code>api-allow-include-authenticated</code> - Include rules from the named <code>-allow-account-</code> params to the allow ccheks of the authenticated users</li>
 <li><code>api-allow-admin</code> - Add URLs which can be accessed by admin accounts only, can be partial urls or Regexp</li>
-<li><code>api-allow-account-([a-z]+)</code> - Add URLs which can be accessed by specific account type only, can be partial urls or Regexp</li>
-<li><code>api-deny-account-([a-z]+)</code> - Add URLs which CAN NOT be accessed by specific account type, can be partial urls or Regexp, this is checked before any allow parameters</li>
+<li><code>api-allow-account-([a-z0-9_]+)</code> - Add URLs which can be accessed by specific account type only, can be partial urls or Regexp</li>
+<li><code>api-allow-include-([a-z0-9_]+)</code> - Combine multiple allow-account regexps for the specified role, this is for reusing same regexp rules for multiple roles</li>
 <li><code>api-deny-authenticated</code> - Add URLs which CAN NOT be accessed by any authenticated user account, can be partial urls or Regexp, it is checked before any other account types, if matched then no account specific paths will be checked anymore(any of the deny-account-...)</li>
+<li><code>api-deny-include-authenticated</code> - Include rules from the named <code>deny-account-</code> params to the deny checks of the authenticated users</li>
+<li><code>api-deny-account-([a-z0-9_]+)</code> - Add URLs which CAN NOT be accessed by specific account type, can be partial urls or Regexp, this is checked before any allow parameters</li>
+<li><code>api-deny-include-([a-z0-9_]+)</code> - Combine multiple deny-account regexps for the specified role, this is for reusing same regexp rules for multiple roles</li>
 <li><code>api-express-options</code> - Set Express config options during initialization,example: <code>-api-express-options { &quot;trust proxy&quot;: 1, &quot;strict routing&quot;: true }</code></li>
 <li><code>api-allow-ip</code> - Set regexp for IPs that dont need credentials, replaces the whole access list. It is checked before endpoint access list</li>
 <li><code>api-deny-ip</code> - Set regexp for IPs that will be denied access, replaces the whole access list. It is checked before endpoint access list.</li>
@@ -2521,12 +2528,11 @@ early with some properties always present:<ul>
           id: { type: &quot;uuid&quot;, prefix: &quot;u_&quot; },                 // Auto generated UUID to be linked with other records
           name: { type: &quot;text&quot; },                             // Account name
           status: { type: &quot;text&quot; },                           // Status of the account
-          type: { type: &quot;text&quot;, admin: 1 },                   // Account type: admin, ....
+          type: { type: &quot;text&quot;, list: 1, admin: 1 },          // Account roles: admin, ....
           flags: { type: &quot;list&quot;, list: 1, admin: 1 },         // Admin assigned flags about the account
           secret: { secure: 1 },                              // Signature secret or scrambled password
           auth_secret: { admin: 1, secure: 1 },               // Code for 2-factor authentication
           session_secret: { admin: 1, secure: 1 },            // Secret for session signatures
-          auth_secret: { admin: 1, secure: 1 },               // Code for 2-factor authentication
           acl_deny: { admin: 1, secure: 1 },                  // Deny access to matched url, a regexp
           acl_allow: { admin: 1, secure: 1 },                 // Only grant access if path matches this regexp
           query_deny: { admin: 1, secure: 1 },                // Ignore these query params, a regexp
@@ -2690,7 +2696,8 @@ The options is expected to contain the following cached request properties:</p>
 
 <ul>
 <li><p><code>api.checkAccountType(account, type)</code></p>
-<p> Return true if the current user belong to the specified type, account type may contain more than one type</p>
+<p> Return true if the current user belong to the specified type, account type may contain more than one type.
+NOTE: after this call the <code>type</code> property is converted into an array</p>
 </li>
 </ul>
 
@@ -3004,6 +3011,16 @@ cannot be verified by current hook, multiple hooks can be supported and it stops
 </ul>
 
 <ul>
+<li><p><code>api.registerSecret(login, callback)</code></p>
+<p> Register a secret generation method.</p>
+<ul>
+<li>login is a regexp for logins to have a special secret encryption method</li>
+<li>callback is a function(account, options, cb)</li>
+</ul>
+</li>
+</ul>
+
+<ul>
 <li><p><code>api.registerOAuthStrategy(strategy, options, callback)</code></p>
 <p> Given passport strategy setup OAuth callbacks and handle the login process by creating a mapping account for each
 OAUTH authenticated account.
@@ -3120,11 +3137,11 @@ events using account id as a key.</p>
 </ul>
 
 <ul>
-<li><p><code>api.prepareAccountSecret(query, options, callback)</code></p>
+<li><p><code>api.prepareAccountSecret(account, options, callback)</code></p>
 <p> If specified in the options, prepare credentials to be stored in the db, if no error occured return null, otherwise an error object</p>
 <ul>
 <li>scramble is used to encrypt the secret with login as HMAC_SHA256 so the db never stores cleartext credentials</li>
-<li>bcrypt - use bcrypt module to generate password hash</li>
+<li>bcrypt - use bcrypt module to generate password hash with specified number of salt rounds, recommended value is 10</li>
 </ul>
 </li>
 </ul>
@@ -5098,6 +5115,8 @@ for the table to convert values returned from the db into the the format defined
 <li>cached - if true perform cache invalidation for the operations that resulted in modification of the table record(s)</li>
 <li>total - if true then it is supposed to return only one record with property <code>count</code>, skip all post processing and convertion</li>
 <li>info_obj - to return the record just processed in the info object as <code>obj</code> property, it will include all generated and updated columns</li>
+<li>result_obj - to return the query record as result including all post processing and new generated columns, this is not what <code>returning</code> property does, it only
+returns the query record with new columns from memory</li>
 </ul>
 </li>
 <li>callback(err, rows, info) where<ul>
@@ -5426,6 +5445,7 @@ together one by one but different tables will be updated in parallel.</p>
 <p> Bulk operations, it will be noop if the driver does not support it.
 The input format is the same as for the <code>db.batch</code> method.</p>
 <p>On return the second arg to the callback is a list of records with errors, same input record with added property <code>errstatus</code> and <code>errmsg</code></p>
+<p>NOTE: DynamoDB only supports add, put, del</p>
 <p>Example</p>
 <pre><code>    var ops = [ { op: &quot;add&quot;, table: &quot;bk_counter&quot;, obj: { id:1, like:1 } },
                 { op: &quot;del&quot;, table: &quot;bk_auth&quot;, obj: { login: &quot;test1&quot; } },
@@ -7126,6 +7146,8 @@ false</code></pre></li>
 <li>float - treat as floating number</li>
 <li>min - minimal value, clip</li>
 <li>max - maximum value, clip</li>
+<li>incr - a number to add before checking for other conditions</li>
+<li>mult - a number to multiply before checking for other conditions</li>
 <li>novalue - replace this number with default</li>
 <li>zero - replace with this number if result is 0</li>
 </ul>
@@ -7284,6 +7306,8 @@ The <code>obj</code> can be an object or an array of objects in which case all o
 <li>skip - placeholders with a name present in this list will be ignored, the placeholer will be kept</li>
 <li>only - placeholders with a name present in this list will be replaced only, all other will be ignored and kept as placeholders</li>
 <li>encoding - can be url or base64, the replaced values will be encoded accordingly</li>
+<li>separator1 - left side of the placehoder, default is @</li>
+<li>separator2 - right side of the placeholder, default is @</li>
 </ul>
 <p>Example:</p>
 <pre><code>  lib.toTemplate(&quot;http://www.site.com/@code@/@id@&quot;, { id: 123, code: &quot;YYY&quot; }, { encoding: &quot;url&quot; })
@@ -7512,6 +7536,30 @@ passed to the final callback</p>
 </li>
 </ul>
 
+<ul>
+<li><p><code>lib.forEachItem(options, next, iterator, callback)</code></p>
+<p> Apply an iterator function to each item returned by the <code>next(item, cb)</code> function until it returns <code>null</code> or the iterator returns an error in the callback,
+the final callback will be called after all iterators are finished.</p>
+<p>If no item is available the <code>next()</code> should return empty value, it will be called again in <code>options.interval</code> ms if specified or
+immediately in the next tick cycle.</p>
+<p>The max number of iterators to run at the same time is controlled by <code>options.max</code>, default is 1.</p>
+<p>The maximum time waiting for items can be specified by <code>options.timeout</code>, it is not an error condition, just another way to stop
+processing if it takes too long because the <code>next()</code> function is a black box just returning items to process. Timeout will send null
+to the queue and it will stop after all iterators are finished.</p>
+</li>
+</ul>
+<pre><code>    var list = [1, 2, &quot;&quot;, &quot;&quot;, 3, &quot;&quot;, 4, &quot;&quot;, &quot;&quot;, &quot;&quot;, null];
+    lib.forEachItem({ max: 2, interval: 1000, timeout: 30000 },
+        function(next) {
+            next(list.shift());
+        },
+        function(item, next) {
+            console.log(&quot;item:&quot;, item);
+            next();
+        },
+        (err) =&gt; {
+            console.log(&quot;done&quot;, err);
+        });</code></pre>
 <ul>
 <li><p><code>lib.parallel(tasks, callback)</code></p>
 <p> Execute a list of functions in parallel and execute a callback upon completion or occurance of an error. Each function will be passed
@@ -8173,7 +8221,7 @@ for arrays it shows the length and <code>options.count</code> or 15 first items,
 strings are limited by <code>options.length</code> or 256 bytes, if truncated the full string length is shown.
 the object depth is limited by <code>options.depth</code> or 5 levels deep, the number of properties are limited by options.count or 15,
 all properties that match <code>options.ignore</code> will be skipped from the output, if <code>options.allow</code> is a regexp, only properties that
-match it will be output.</p>
+match it will be output. Use <code>options.replace</code> for replacing anything in the final string.</p>
 </li>
 </ul>
 
@@ -8848,7 +8896,7 @@ it runs <code>shutdown[Role]</code> methods before exiting</p>
           id: { primary: 1, pub: 1 },
           login: {},
           status: { type: &quot;text&quot; },
-          type: { type: &quot;text&quot;, admin: 1 },
+          type: { type: &quot;text&quot;, list: 1, admin: 1 },
           name: { pub: 1, notempty: 1 },
           first_name: { pub: 1 },
           last_name: { pub: 1 },
@@ -8946,7 +8994,7 @@ If options.existing is 1 then return only record with found accounts, all other 
 
 <ul>
 <li><p><code>accounts.addAccount(req, options, callback)</code></p>
-<p> Register new account, used in /account/add API call, but the req does not to be an Express request, it just
+<p> Register new account, used in /account/add API call, but the req does not have to be an Express request, it just
 need to have query and options objects.</p>
 </li>
 </ul>
@@ -9678,14 +9726,22 @@ the next_token returned by the previous call and query will be ignored</p>
 </ul>
 
 <ul>
-<li><p><code>shell.getArgs()</code></p>
-<p> Returns an object with all command line params starting with dash set with the value if the next param does not start with dash or 1</p>
+<li><p><code>shell.getArgs(options)</code></p>
+<p> Returns an object with all command line params starting with dash set with the value if the next param does not start with dash or 1.
+By sefault all args are zatored as is with dahses, if <code>options.camel`` is true then all args will be stored in camel form,
+if</code>options.underscor`e is true then all args will be stored with dashes convertyed into underscores.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.getOption(name, options)</code></p>
+<p> Return an argument by name from the options, options may contain parameters in camel form or with underscores, both formats will be checked</p>
 </li>
 </ul>
 
 <ul>
 <li><p><code>shell.getArg(name, options, dflt)</code></p>
-<p> Return first available value for the given name, options first, then command arg and then default</p>
+<p> Return first available value for the given name, options first, then command arg and then default,</p>
 </li>
 </ul>
 
@@ -9704,73 +9760,6 @@ A subcommand may return special string to indicate how to treat the flow:</p>
 <ul>
 <li><p><code>shell.cmdShowInfo(options)</code></p>
 <p> App version</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.assert(next, err)</code></p>
-<p> To be used in the tests, this function takes the following arguments:</p>
-<p>assert(next, err, ....)</p>
-<ul>
-<li>next is a callback to be called after printing error condition if any, it takes err as its argument</li>
-<li>err - an error object from the most recent operation, can be null/undefined or any value that results in Javascript &quot;true&quot; evaluation
-up to the caller, assertion happens if an err is given or this value is true</li>
-<li>all other arguments are printed in case of error or result being false</li>
-</ul>
-<p>NOTES:</p>
-<ul>
-<li>In forever mode <code>-test-forever</code> any error is ignored and not reported</li>
-<li>if <code>tests.test.delay</code> is set it will be used to delay calling the next callback and reset, this is for
-one time delays.</li>
-</ul>
-<p>Example</p>
-<pre><code>    function(next) {
-        db.get(&quot;bk_account&quot;, { id: &quot;123&quot; }, function(err, row) {
-            tests.assert(next, err || !row || row.id != &quot;123&quot;, &quot;Record not found&quot;, row)
-        });
-    }</code></pre></li>
-</ul>
-
-<ul>
-<li><p><code>shell.cmdTestRun(options)</code></p>
-<p> Run the test function which is defined in the tests module, all arguments will be taken from the options or the command line. Options
-use the same names as command line arguments without preceeding <code>test-</code> prefix.</p>
-<p>The common command line arguments that supported:</p>
-<ul>
-<li>-test-run - name of the function to run</li>
-<li>-test-delay - number of milliseconds before starting the test</li>
-<li>-test-workers - number of workers to run the test at the same time</li>
-<li>-test-workers-delay - number of milliseconds before starting worker processes, default is 500ms</li>
-<li>-test-timeout - number of milliseconds between test steps, i.e. between invocations of the check</li>
-<li>-test-interval - number of milliseconds between iterations</li>
-<li>-test-iterations - how many times to run this test function, default is 1</li>
-<li>-test-forever - run forever without reporting any errors, for performance testing</li>
-<li>-test-file - a javascript file to be loaded with additional tests</li>
-</ul>
-<p>All other common command line arguments are used normally, like -db-pool to specify which db to use.</p>
-<p>After finish or in case of error the process exits if no callback is given.</p>
-<p>Example, store it in tests/tests.js:</p>
-<pre><code>    var bkjs = require(&quot;backendjs&quot;);
-    var tests = bkjs.core.modules.tests;
-
-    tests.test_mytest = function(next) {
-       bkjs.db.get(&quot;bk_account&quot;, { id: &quot;123&quot; }, function(err, row) {
-           tests.assert(next, err || !row || row.id != &quot;123&quot;, &quot;Record not found&quot;, row)
-       });
-    }
-
-    # bksh -test-run mytest</code></pre><p>Custom tests:</p>
-<ul>
-<li><p>create a user for backend testing, if the API does not require authentication skip this step:</p>
-<pre><code>  ./app.sh -shell -account-add login testuser secret testpw</code></pre></li>
-<li><p>configure global backend credentials</p>
-<pre><code>  echo &quot;backend-login=testuser&quot; &gt;&gt; etc/config.local
-  echo &quot;backend-secret=testpw&quot; &gt;&gt; etc/config.local</code></pre></li>
-<li><p>to start a test command in the shell using local ./tests.js</p>
-<pre><code>./app.sh -shell -test-run account</code></pre></li>
-<li><p>to start a test command in the shell using custom file with tests</p>
-<pre><code>./app.sh -shell -test-run api -test-file tests/api.js</code></pre></li>
-</ul>
 </li>
 </ul>
 
@@ -10059,6 +10048,74 @@ use the same names as command line arguments without preceeding <code>test-</cod
 <ul>
 <li><p><code>shell.cmdDbDrop(options)</code></p>
 <p> Drop a table</p>
+</li>
+</ul>
+
+<h2 id="module-bk_shell_test">Module: BK_SHELL_TEST</h2>
+<ul>
+<li><p><code>shell.assert(next, err)</code></p>
+<p> To be used in the tests, this function takes the following arguments:</p>
+<p>assert(next, err, ....)</p>
+<ul>
+<li>next is a callback to be called after printing error condition if any, it takes err as its argument</li>
+<li>err - an error object from the most recent operation, can be null/undefined or any value that results in Javascript &quot;true&quot; evaluation
+up to the caller, assertion happens if an err is given or this value is true</li>
+<li>all other arguments are printed in case of error or result being false</li>
+</ul>
+<p>NOTES:</p>
+<ul>
+<li>In forever mode <code>-test-forever</code> any error is ignored and not reported</li>
+<li>if <code>tests.test.delay</code> is set it will be used to delay calling the next callback and reset, this is for
+one time delays.</li>
+</ul>
+<p>Example</p>
+<pre><code>    function(next) {
+        db.get(&quot;bk_account&quot;, { id: &quot;123&quot; }, function(err, row) {
+            tests.assert(next, err || !row || row.id != &quot;123&quot;, &quot;Record not found&quot;, row)
+        });
+    }</code></pre></li>
+</ul>
+
+<ul>
+<li><p><code>shell.cmdTestRun(options)</code></p>
+<p> Run the test function which is defined in the tests module, all arguments will be taken from the options or the command line. Options
+use the same names as command line arguments without preceeding <code>test-</code> prefix.</p>
+<p>The common command line arguments that supported:</p>
+<ul>
+<li>-test-run - name of the function to run</li>
+<li>-test-delay - number of milliseconds before starting the test</li>
+<li>-test-workers - number of workers to run the test at the same time</li>
+<li>-test-workers-delay - number of milliseconds before starting worker processes, default is 500ms</li>
+<li>-test-timeout - number of milliseconds between test steps, i.e. between invocations of the check</li>
+<li>-test-interval - number of milliseconds between iterations</li>
+<li>-test-iterations - how many times to run this test function, default is 1</li>
+<li>-test-forever - run forever without reporting any errors, for performance testing</li>
+<li>-test-file - a javascript file to be loaded with additional tests</li>
+</ul>
+<p>All other common command line arguments are used normally, like -db-pool to specify which db to use.</p>
+<p>After finish or in case of error the process exits if no callback is given.</p>
+<p>Example, store it in tests/tests.js:</p>
+<pre><code>    var bkjs = require(&quot;backendjs&quot;);
+    var tests = bkjs.core.modules.tests;
+
+    tests.test_mytest = function(next) {
+       bkjs.db.get(&quot;bk_account&quot;, { id: &quot;123&quot; }, function(err, row) {
+           tests.assert(next, err || !row || row.id != &quot;123&quot;, &quot;Record not found&quot;, row)
+       });
+    }
+
+    # bksh -test-run mytest</code></pre><p>Custom tests:</p>
+<ul>
+<li><p>create a user for backend testing, if the API does not require authentication skip this step:</p>
+<pre><code>  ./app.sh -shell -account-add login testuser secret testpw</code></pre></li>
+<li><p>configure global backend credentials</p>
+<pre><code>  echo &quot;backend-login=testuser&quot; &gt;&gt; etc/config.local
+  echo &quot;backend-secret=testpw&quot; &gt;&gt; etc/config.local</code></pre></li>
+<li><p>to start a test command in the shell using local ./tests.js</p>
+<pre><code>./app.sh -shell -test-run account</code></pre></li>
+<li><p>to start a test command in the shell using custom file with tests</p>
+<pre><code>./app.sh -shell -test-run api -test-file tests/api.js</code></pre></li>
+</ul>
 </li>
 </ul>
 
