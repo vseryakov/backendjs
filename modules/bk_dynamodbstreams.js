@@ -16,6 +16,7 @@ const mod = {
         { name: "tables", type: "list", onupdate: function() {if(core.role=="worker")this.subscribeWorker()}, descr: "Process streams for given tables in a worker process" },
         { name: "source-pool", descr: "DynamoDB pool for streams processing" },
         { name: "target-pool", descr: "A database pool where to sync streams" },
+        { name: "max-jobs", type: "int", descr: "Max tables to run per process at the same time" },
         { name: "auto-provision", descr: "To auto enable streams on each table set to  NEW_IMAGE | OLD_IMAGE | NEW_AND_OLD_IMAGES | KEYS_ONLY" },
         { name: "interval", type: "int", descr: "Interval in ms between stream shard processing" },
         { name: "interval-([a-z0-9_]+)", type: "int", obj: "intervals", strip: /interval-/, nocamel: 1, descr: "Interval in ms between stream shard processing by table name" },
@@ -29,11 +30,13 @@ const mod = {
         { name: "retry-count-([a-z0-9_]+)", type: "int", obj: "retryCounts", strip: /retry-count-/, nocamel: 1, descr: "Min timeout in ms between retries on empty records by table, exponential backoff is used" },
     ],
     jobs: [],
+    running: [],
     ttl: 86400*2,
     lockTtl: 30000,
     lockType: "stream",
     interval: 3000,
     intervals: {},
+    maxJobs: 0,
     maxInterval: 10000,
     periodTimeouts: {},
     retryCounts: {},
@@ -201,7 +204,8 @@ mod.processStreamStart = function(req, options, callback)
 {
     lib.series([
         function(next) {
-            logger.debug("processStreamStart:", mod.name, options.table, req.Stream);
+            logger.debug("processStreamStart:", mod.name, options.table, mod.running, mod.lockType, mod.maxJobs, req.Stream);
+            if (mod.maxJobs > 0 && mod.running.length >= mod.maxJobs) return next("maxed");
             if (mod.lockType != "stream") return next();
             mod.lock(options.table, req.Stream, options, (err, locked) => {
                 if (!err && !locked) err = "not-locked";
@@ -209,6 +213,7 @@ mod.processStreamStart = function(req, options, callback)
             });
         },
         function(next) {
+            mod.running.push(options.table);
             req.Stream.shardId = req.Stream.lastShardId;
             if (req.Stream.shardId) return next();
             db.get("bk_property", { name: req.Stream.StreamArn } , (err, row) => {
@@ -223,13 +228,14 @@ mod.processStreamStart = function(req, options, callback)
 
 mod.processStreamEnd = function(req, options, callback)
 {
-    lib.series([
+    lib.everySeries([
         function(next) {
-            logger.debug("processStreamEnd:", mod.name, options.table, req.Stream);
+            logger.debug("processStreamEnd:", mod.name, options.table, mod.running, req.Stream);
             if (!req.Stream.lastShardId) return next();
             db.put("bk_property", { name: req.Stream.StreamArn, value: req.Stream.lastShardId, ttl: lib.now() + mod.ttl }, options, next);
         },
         function(next) {
+            lib.arrayRemove(mod.running, options.table);
             if (mod.lockType != "stream") return next();
             mod.unlock(options.table, req.Stream, options, next);
         },
