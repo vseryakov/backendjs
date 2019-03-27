@@ -13,7 +13,7 @@ const ipc = require(__dirname + '/../lib/ipc');
 
 const mod = {
     args: [
-        { name: "tables", type: "list", onupdate: function() {if(core.role=="worker")this.subscribeWorker()}, descr: "Process streams for given tables in a worker process" },
+        { name: "tables", type: "list", onupdate: function() {if(ipc.role=="worker"&&core.role=="worker")this.subscribeWorker()}, descr: "Process streams for given tables in a worker process" },
         { name: "source-pool", descr: "DynamoDB pool for streams processing" },
         { name: "target-pool", descr: "A database pool where to sync streams" },
         { name: "max-jobs", type: "int", descr: "Max tables to run per process at the same time" },
