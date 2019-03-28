@@ -1391,23 +1391,23 @@ tests.test_auth = function(callback)
     var argv = [
         "-api-allow-admin", "^/system",
         "-api-allow-authenticated", "^/authonly",
-        "-api-allow-include-authenticated", "allow2",
+        "-api-allow-acl-authenticated", "allow2",
         "-api-allow-account-manager", "^/manager",
-        "-api-allow-include-manager", "allow1",
+        "-api-allow-acl-manager", "allow1",
         "-api-allow-account-user", "^/user",
-        "-api-allow-include-user", "allow1",
-        "-api-allow-account-allow1", "^/allow1",
-        "-api-allow-account-allow2", "^/allow2",
+        "-api-allow-acl-user", "allow1",
+        "-api-acl-allow1", "^/allow1",
+        "-api-acl-allow2", "^/allow2",
         "-api-deny-account-manager", "^/useronly",
         "-api-deny-account-user", "^/manageronly",
-        "-api-deny-include-user", "deny1",
-        "-api-deny-account-deny1", "^/deny1",
-        "-api-deny-account-deny2", "^/deny2",
+        "-api-deny-acl-user", "deny1",
+        "-api-acl-deny1", "^/deny1",
+        "-api-acl-deny2", "^/deny2",
         "-api-deny-authenticated", "^/authdeny",
-        "-api-deny-include-authenticated", "deny2",
+        "-api-deny-acl-authenticated", "deny2",
     ];
     for (const p in api) {
-        if (!/^(allow|deny)/.test(p)) continue;
+        if (!/^(allow|deny|acl)/.test(p)) continue;
         switch (lib.typeName(api[p])) {
         case "object":
             api[p] = {};
@@ -1419,7 +1419,7 @@ tests.test_auth = function(callback)
     }
     core.parseArgs(argv);
     for (const p in api) {
-        if (/^(allow|deny)/.test(p) && !lib.isEmpty(api[p]) && typeof api[p] == "object") console.log(p, "=", api[p]);
+        if (/^(allow|deny|acl)/.test(p) && !lib.isEmpty(api[p]) && typeof api[p] == "object") console.log(p, "=", api[p]);
     }
 
     var req = { account: {}, options: {} };
