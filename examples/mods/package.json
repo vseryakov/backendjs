@@ -1,0 +1,12 @@
+{
+ "version": "0.1.0",
+ "author": "vlad",
+ "name": "app",
+ "description": "The backend modules collection",
+ "repository": { "type": "git", "url": "http://github.com/vseryakov/backendjs.git" },
+ "main": "app.js",
+ "dependencies": {
+    "backendjs": ">=0.10.0"
+ },
+ "engines": { "node": ">= 0.10" },
+ "license": "BSD-3-Clause" }

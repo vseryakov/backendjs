@@ -27,11 +27,6 @@ var mod = {
 };
 module.exports = mod;
 
-// Initialize the module
-mod.init = function(options)
-{
-}
-
 // Create API endpoints and routes
 mod.configureWeb = function(options, callback)
 {
