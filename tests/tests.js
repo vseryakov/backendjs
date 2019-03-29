@@ -1406,17 +1406,7 @@ tests.test_auth = function(callback)
         "-api-deny-authenticated", "^/authdeny",
         "-api-deny-acl-authenticated", "deny2",
     ];
-    for (const p in api) {
-        if (!/^(allow|deny|acl)/.test(p)) continue;
-        switch (lib.typeName(api[p])) {
-        case "object":
-            api[p] = {};
-            break;
-        case "array":
-            api[p] = [];
-            break;
-        }
-    }
+    api.resetAcl();
     core.parseArgs(argv);
     for (const p in api) {
         if (/^(allow|deny|acl)/.test(p) && !lib.isEmpty(api[p]) && typeof api[p] == "object") console.log(p, "=", api[p]);
