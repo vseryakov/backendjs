@@ -31,13 +31,10 @@ case "$BKJS_CMD" in
     [ "$tag" != "" -a "$tag" != "." ] && tags="Name=tag:Name,Values=${tag}"
     instances=$(aws ec2 describe-instances $region --filter "Name=instance-state-name,Values=running" $tags --query 'Reservations[*].Instances[*].[InstanceId,PrivateIpAddress,PublicIpAddress,KeyName,Tags[?Key==`Name`]]' --output text|awk '{if($4=="None")print $0;else if($1=="Name")print $2;else printf "%s\t",$0;}')
     skip=$(get_arg -skip-tag)
-    [ "$skip" != "" ] && instances=$(echo "$instances"|grep -v $skip)
+    [ "$skip" != "" ] && instances=$(echo "$instances"|grep -v -F "$(echo "$skip"| tr ',' '\n')")
+    [ "$PLATFORM" = "Linux" -a "$(get_flag -nomyip)" != "" ] && instances=$(echo "$instances"|grep -v -F $(get_local_ip))
     fmt=$(get_arg -fmt)
     [ "$fmt" != "" ] && instances=$(echo "$instances"|awk "{print $(echo $fmt|sed -e 's/id/\$1/' -e 's/ip/\$2/' -e 's/host/\$3/' -e 's/key/\$4/' -e 's/name/\$5/')}")
-    if [ "$PLATFORM" = "Linux" -a "$(get_flag -nomyip)" != "" ]; then
-       ip=$(get_local_ip)
-       instances=$(echo "$instances"|sed "s/$ip//")
-    fi
     if [ "$(get_flag -line)" != "" ]; then
        echo "$instances" | tr '\n' ' '
     else
@@ -74,7 +71,7 @@ case "$BKJS_CMD" in
         key=$(echo $h|awk -F, '{print $4}')
         ssh="$sshargs -l $user"
         [ "$key" != "" -a -f "~/.ssh/$key.pem" ] && ssh="$ssh -i ~/.ssh/$key.pem"
-        ssh $ssh $host $cmd
+        ssh $ssh $host "$cmd"
     done
     ;;
 

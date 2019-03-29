@@ -121,13 +121,10 @@
 <li><a href="#module-msg_gcm">msg_gcm</a></li>
 <li><a href="#module-server">server</a></li>
 <li><a href="#module-bk_account">bk_account</a></li>
-<li><a href="#module-bk_connection">bk_connection</a></li>
-<li><a href="#module-bk_counter">bk_counter</a></li>
 <li><a href="#module-bk_data">bk_data</a></li>
 <li><a href="#module-bk_dynamodbstreams">bk_dynamodbstreams</a></li>
 <li><a href="#module-bk_file">bk_file</a></li>
 <li><a href="#module-bk_icon">bk_icon</a></li>
-<li><a href="#module-bk_location">bk_location</a></li>
 <li><a href="#module-bk_message">bk_message</a></li>
 <li><a href="#module-bk_shell">bk_shell</a></li>
 <li><a href="#module-bk_shell_aws">bk_shell_aws</a></li>
@@ -2389,14 +2386,15 @@ Database pool statistics and other diagnostics</p>
 <li><code>api-access-token-age</code> - Access tokens age in milliseconds, for API requests with access tokens only</li>
 <li><code>api-disable-session</code> - Disable access to API endpoints for Web sessions, must be signed properly</li>
 <li><code>api-allow-authenticated</code> - Add URLs which can be accessed by any authenticated user account, can be partial urls or Regexp, it is checked before any other account types, if matched then no account specific paths will be checked anymore(any of the allow-account-...)</li>
-<li><code>api-allow-include-authenticated</code> - Include rules from the named <code>-allow-account-</code> params to the allow ccheks of the authenticated users</li>
+<li><code>api-allow-acl-authenticated</code> - Include rules from the named <code>-allow-account-</code> params to the allow ccheks of the authenticated users</li>
 <li><code>api-allow-admin</code> - Add URLs which can be accessed by admin accounts only, can be partial urls or Regexp</li>
 <li><code>api-allow-account-([a-z0-9_]+)</code> - Add URLs which can be accessed by specific account type only, can be partial urls or Regexp</li>
-<li><code>api-allow-include-([a-z0-9_]+)</code> - Combine multiple allow-account regexps for the specified role, this is for reusing same regexp rules for multiple roles</li>
+<li><code>api-allow-acl-([a-z0-9_]+)</code> - Combine multiple allow-account regexps for the specified role, this is for reusing same regexp rules for multiple roles</li>
 <li><code>api-deny-authenticated</code> - Add URLs which CAN NOT be accessed by any authenticated user account, can be partial urls or Regexp, it is checked before any other account types, if matched then no account specific paths will be checked anymore(any of the deny-account-...)</li>
-<li><code>api-deny-include-authenticated</code> - Include rules from the named <code>deny-account-</code> params to the deny checks of the authenticated users</li>
+<li><code>api-deny-acl-authenticated</code> - Include rules from the named <code>deny-account-</code> params to the deny checks of the authenticated users</li>
 <li><code>api-deny-account-([a-z0-9_]+)</code> - Add URLs which CAN NOT be accessed by specific account type, can be partial urls or Regexp, this is checked before any allow parameters</li>
-<li><code>api-deny-include-([a-z0-9_]+)</code> - Combine multiple deny-account regexps for the specified role, this is for reusing same regexp rules for multiple roles</li>
+<li><code>api-deny-acl-([a-z0-9_]+)</code> - Combine multiple deny-account regexps for the specified role, this is for reusing same regexp rules for multiple roles</li>
+<li><code>api-acl-([a-z0-9_]+)</code> - Add URLs to the named ACL which can be used in allow/deny rules per account</li>
 <li><code>api-express-options</code> - Set Express config options during initialization,example: <code>-api-express-options { &quot;trust proxy&quot;: 1, &quot;strict routing&quot;: true }</code></li>
 <li><code>api-allow-ip</code> - Set regexp for IPs that dont need credentials, replaces the whole access list. It is checked before endpoint access list</li>
 <li><code>api-deny-ip</code> - Set regexp for IPs that will be denied access, replaces the whole access list. It is checked before endpoint access list.</li>
@@ -2407,7 +2405,7 @@ Database pool statistics and other diagnostics</p>
 <li><code>api-ignore-allow-path</code> - Add to the list of URL paths which should e ignored by the allow rules, in order to keep allow/deny rules simple, for example to keep some js files from open to all: -allow-path .js -disallow-path /secure/</li>
 <li><code>api-allow-anonymous</code> - Add to the list of allowed URL paths that can be served with or without valid account, the difference with <code>allow-path</code> is that it will check for signature and an account but will continue if no login is provided, return error in case of wrong account or not account found</li>
 <li><code>api-allow-ssl</code> - Add to the list of allowed URL paths using HTTPs only, plain HTTP requests to these urls will be refused</li>
-<li><code>api-ignore-ssl</code> - Allow plain HTTP from matched IP addresss</li>
+<li><code>api-ignore-ssl</code> - Allow plain HTTP from matched IP addresss or paths</li>
 <li><code>api-redirect-ssl</code> - Add to the list of the URL paths to be redirected to the same path but using HTTPS protocol, for proxy mode the proxy server will perform redirects</li>
 <li><code>api-redirect-url</code> - Add to the list a JSON object with property name defining a host/path regexp to be matched early against in order to redirect using the value of the property, if the regexp starts with !, that means negative match, 2 variables can be used for substitution: @HOST@, @PATH@, @URL@, @BASE@, @DIR@, @QUERY@, example: { &#39;^[^/]+/path/$&#39;: &#39;/path2/index.html&#39;, &#39;.+/$&#39;: &#39;@PATH@/index.html&#39; } </li>
 <li><code>api-deny</code> - Regexp for URLs that will be denied access, replaces the whole access list</li>
@@ -9026,209 +9024,10 @@ delete an account but keep all messages and location: keep:[&quot;bk_message&quo
 </li>
 </ul>
 
-<h2 id="module-bk_connection">Module: BK_CONNECTION</h2>
-<ul>
-<li><p><code>mod</code></p>
-<p> Connections management</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>Database tables</code></p>
-<pre><code>      // All connections between accounts: like,dislike,friend...
-      bk_connection: {
-          id: { primary: 1, pub: 1 },                    // my account_id
-          type: { primary: 1,                            // connection type:peer
-              pub: 1,
-              join: [&quot;type&quot;,&quot;peer&quot;],
-              unjoin: 1,
-              ops: { select: &quot;begins_with&quot; } },
-          peer: { pub: 1 },                              // peer id
-          name: { pub: 1 },                             // peer name
-          status: {},
-          mtime: { type: &quot;now&quot;, pub: 1 }
-      },
-
-      // References from other accounts, likes,dislikes...
-      bk_reference: {
-          id: { primary: 1, pub: 1 },                    // account_id
-          type: { primary: 1,                            // reference type:peer
-              pub: 1,
-              join: [&quot;type&quot;,&quot;peer&quot;],
-              unjoin: 1,
-              ops: { select: &quot;begins_with&quot; } },
-          peer: { pub: 1 },                              // peer id
-          name: { pub: 1 },                             // peer name
-          status: {},
-          mtime: { type: &quot;now&quot;, pub: 1 }
-      },
-  },
-  allow: {},
-  controls: {
-      connected: { type: &quot;bool&quot; },
-  }</code></pre><p>  };
-  module.exports = mod;</p>
-<p>  // Initialize the module
-  mod.init = function(options)
-  {</p>
-<pre><code>  core.describeArgs(&quot;connections&quot;, [
-       { name: &quot;allow&quot;, array: 1, type: &quot;map&quot;, descr: &quot;Map of connection type to operations to be allowed only, once a type is specified, all operations must be defined, the format is: type:op,type:op...&quot; },
-  ]);</code></pre><p>  }</p>
-<p>  mod.configureMiddleware = function(options, callback)
-  {</p>
-<pre><code>  api.registerControlParams(mod.controls);
-  callback();</code></pre><p>  }</p>
-<p>  // Create API endpoints and routes
-  mod.configureWeb = function(options, callback)
-  {</p>
-<pre><code>  this.configureConnectionsAPI();
-  callback()</code></pre><p>  };</p>
-<p>  // Connections management
-  mod.configureConnectionsAPI = function()
-  {</p>
-<pre><code>  var self = this;
-
-  api.app.all(/^\/(connection|reference)\/([a-z]+)$/, function(req, res) {
-      var options = api.getOptions(req, mod.controls);
-      options.cleanup = &quot;bk_&quot; + req.params[0];
-
-      switch (req.params[1]) {
-      case &quot;add&quot;:
-      case &quot;put&quot;:
-      case &quot;incr&quot;:
-      case &quot;update&quot;:
-          options.op = req.params[1];
-          self.putConnection(req, options, function(err, data) {
-              api.sendJSON(req, err, data);</code></pre></li>
-</ul>
-
-<ul>
-<li><p><code>mod.getConnection(req, options, callback)</code></p>
-<p> Return one connection for the current account, this function is called by the <code>/connection/get</code> API call.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>mod.selectConnection(req, options, callback)</code></p>
-<p> Return all connections for the current account, this function is called by the <code>/connection/select</code> API call.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>mod.putConnection(req, options, callback)</code></p>
-<p> Create a connection between 2 accounts, this function is called by the <code>/connection/add</code> API call with query parameters coming from the Express request.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>mod.delConnection(req, options, callback)</code></p>
-<p> Delete a connection, this function is called by the <code>/connection/del</code> API call</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>mod.queryConnection(id, obj, options, callback)</code></p>
-<p> Return all connections for the account id with optional query properties</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>mod.readConnection(id, obj, options, callback)</code></p>
-<p> Return one connection for given id, obj must have .peer and .type properties defined,</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>mod.makeConnection(obj, peer, options, callback)</code></p>
-<p> Lower level connection creation with all counters support, can be used outside of the current account scope for
-any two accounts and arbitrary properties, <code>obj</code> is the primary account, <code>peer</code> contains id and type for other account
-with other properties to be added. Both objects are left untouched.</p>
-<p>Both objects must have at least the <code>id</code> properties.</p>
-<p>Connection <code>type</code> will be taken from the <code>peer</code> object only.</p>
-<p>To maintain names for both sides of the connection, set <code>name</code> property in the both objects.</p>
-<p>Note: All other properties for both tables are treated separately, to make them appear in both they must be copied into the both objects.</p>
-<p>The following options properties can be used:</p>
-<ul>
-<li>connected - return existing connection record for the same type from the peer account</li>
-<li>noreference - do not create reference record for reverse connection</li>
-</ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>mod.deleteConnection(id, obj, options, callback)</code></p>
-<p> Lower level connection deletion, for given account <code>id</code>, the other id and type is in the <code>obj</code>, performs deletion of all connections.
-If any of obj.id or obj.type are not specified then perform a query for matching connections and delete only matched connection.</p>
-</li>
-</ul>
-
-<h2 id="module-bk_counter">Module: BK_COUNTER</h2>
-<ul>
-<li><p><code>mod</code></p>
-<p> Counters management</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>Database tables</code></p>
-<pre><code>      // All accumulated counters for accounts
-      bk_counter: {
-         id: { primary: 1, pub: 1 },                               // account id
-         ping: { type: &quot;counter&quot;, value: 0, pub: 1 },              // public column to ping the buddy with notification
-         like0: { type: &quot;counter&quot;, value: 0, autoincr: 1 },        // who i like
-         like1: { type: &quot;counter&quot;, value: 0, autoincr: 1 },        // reversed, who likes me
-         follow0: { type: &quot;counter&quot;, value: 0, autoincr: 1 },      // who i follow
-         follow1: { type: &quot;counter&quot;, value: 0, autoincr: 1 },      // reversed, who follows me
-      },
-  },</code></pre><p>  };
-  module.exports = mod;</p>
-<p>  // Create API endpoints and routes
-  mod.configureWeb = function(options, callback)
-  {</p>
-<pre><code>  this.configureCountersAPI();
-  callback()</code></pre><p>  }</p>
-<p>  // Counters management
-  mod.configureCountersAPI = function()
-  {</p>
-<pre><code>  var self = this;
-
-  api.app.all(/^\/counter\/([a-z]+)$/, function(req, res) {
-      var options = api.getOptions(req);
-      options.cleanup = &quot;bk_counter&quot;;
-
-      switch (req.params[0]) {
-      case &quot;put&quot;:
-      case &quot;update&quot;:
-          req.query.id = req.account.id;
-
-      case &quot;incr&quot;:
-          options.op = req.params[0];
-          self.incrCounter(req, options, function(err, data) {
-              api.sendJSON(req, err, data);</code></pre></li>
-</ul>
-
-<ul>
-<li><p><code>mod.incrCounter(req, options, callback)</code></p>
-<p> Increase a counter, used in /counter/incr API call, options.op can be set to &#39;put&#39;</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>mod.incrAutoCounter(id, type, num, options, callback)</code></p>
-<p> Update auto counter for account and type</p>
-</li>
-</ul>
-
 <h2 id="module-bk_data">Module: BK_DATA</h2>
 <ul>
 <li><p><code>mod</code></p>
 <p> Account management</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>mod.init(options)</code></p>
-<p> Initialize the module</p>
 </li>
 </ul>
 
@@ -9383,158 +9182,6 @@ an icon file even if there is no record in the bk_icon table.</p>
 <p> Return icon to the client, checks the bk_icon table for existence and permissions</p>
 </li>
 </ul>
-
-<h2 id="module-bk_location">Module: BK_LOCATION</h2>
-<ul>
-<li><p><code>mod</code></p>
-<p> Locations management</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>Database tables</code></p>
-<pre><code>      bk_account: {
-          geohash: {},
-          latitude: { type: &quot;real&quot; },
-          longitude: { type: &quot;real&quot; },
-          location: {},
-          ltime: { type: &quot;mtime&quot; },                   // Last location update time
-      },
-      bk_location: {
-          geohash: { primary: 1 },                    // geohash, api.minDistance defines the size
-          id: { primary: 2, pub: 1 },                 // my account id, part of the primary key for pagination
-          latitude: { type: &quot;real&quot; },
-          longitude: { type: &quot;real&quot; },
-          name: { pub: 1 },
-          mtime: { type: &quot;now&quot; }
-      },
-  },
-  // Geo min distance for the hash key, km
-  minDistance: 1,
-  // Max searchable distance, km
-  maxDistance: 50,</code></pre><p>  };
-  module.exports = mod;</p>
-<p>  // Initialize the module
-  mod.init = function(options)
-  {</p>
-<pre><code>  core.describeArgs(&quot;locations&quot;, [
-       { name: &quot;max-distance&quot;, type: &quot;number&quot;, min: 0.1, max: 999, descr: &quot;Max searchable distance(radius) in km, for location searches to limit the upper bound&quot; },
-       { name: &quot;min-distance&quot;, type: &quot;number&quot;, min: 0.1, max: 999, descr: &quot;Radius for the smallest bounding box in km containing single location, radius searches will combine neighboring boxes of this size to cover the whole area with the given distance request, also this affects the length of geohash keys stored in the bk_location table&quot; },
-  ]);</code></pre><p>  }</p>
-<p>  // Create API endpoints and routes
-  mod.configureWeb = function(options, callback)
-  {</p>
-<pre><code>  this.configureLocationsAPI();
-  callback()</code></pre><p>  }</p>
-<p>  // Geo locations management
-  mod.configureLocationsAPI = function()
-  {</p>
-<pre><code>  var self = this;
-
-  api.app.all(/^\/location\/([a-z]+)$/, function(req, res) {
-      var options = api.getOptions(req);
-
-      switch (req.params[0]) {
-      case &quot;put&quot;:
-          self.put(req, options, function(err, data) {
-              api.sendJSON(req, err, data);</code></pre></li>
-</ul>
-
-<ul>
-<li><p><code>mod.search(req, options, callback)</code></p>
-<p> Perform locations search, request comes from the Express server, callback will takes err and data to be returned back to the client, this function
-is used in <code>/location/search</code> request. It can be used in the applications with customized input and output if neccesary for the application specific logic.</p>
-<p>Example</p>
-<pre><code>    # Request will look like: /recent/locations?latitude=34.1&amp;longitude=-118.1&amp;mtime=123456789
-    api.app.all(/^\/recent\/locations$/, function(req, res) {
-        var options = api.getOptions(req);
-        options.keys = [&quot;geohash&quot;,&quot;mtime&quot;];
-        options.ops = { mtime: &#39;gt&#39; };
-        core.modules.bk_location.search(req, options, function(err, data) {
-            api.sendJSON(req, err, data);
-        });
-    });</code></pre></li>
-</ul>
-
-<ul>
-<li><p><code>mod.put(req, options, callback)</code></p>
-<p> Save location coordinates for current account, this function is called by the <code>/location/put</code> API call</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>mod.select(table, query, options, callback)</code></p>
-<p> Geo locations search, paginate all results until the end.
-table must be defined with the following required columns:</p>
-<ul>
-<li>geohash - location as primary key hash column</li>
-<li>id or other column name to be used as a RANGE key for DynamoDB/Cassandra or part of the composite primary key
- for SQL, the result will be sorted by this column for all databases</li>
-<li>latitude and longitude as floating numbers to store the actual location</li>
-</ul>
-<p>When defining the table for location searches the begining of the table must be defined as the following:</p>
-<pre><code>    db.describeTables({
-            geo: { geohash: { primary: 1, minDistance: 5 },
-                   id: { primary: 2 },
-                   latitude: { type: &quot;real&quot;, projections: 1 },
-                   longitude: { type: &quot;real&quot;, projections: 1 },
-            }
-    });</code></pre><p>the rest of the columns can be defined as needed, no special requirements.</p>
-<p><em><code>id</code> can be any property, it is used for sorting only. For DynamoDB if geohash is an index then lat/long properties must
- use projections: 1 in order to be included in the index projection.</em></p>
-<p><code>query</code> must contain the following:</p>
-<ul>
-<li>latitude</li>
-<li>longitude</li>
-</ul>
-<p>other query parameters:</p>
-<ul>
-<li>distance - in km, the radius around the point, if not given the <code>options.minDistance</code> will be used</li>
-<li>count - if greater than 0 then return this amount with each iteration, if 0 then all matched
-records within the specified distance will be returned, if no specified then defaults to 10</li>
-</ul>
-<p>all other properties will be used as additional conditions</p>
-<p><code>options</code> optional properties:</p>
-<ul>
-<li>minDistance - minimum distance to define how long a geohash will be, if not given it will use the same property from the column definition</li>
-<li>top - number of first &#39;top&#39;th records from each neighboring area, to be used with sorting by the range key to take
- only highest/lowest matches, useful for trending/statistics, count still defines the total number of locations</li>
-<li>geokey - name of the geohash primary key column, by default it is <code>geohash</code>, it is possible to keep several different
- geohash indexes within the same table with different geohash length which will allow to perform
- searches more precisely depending on the distance given</li>
-<li>round - a number that defines the &quot;precision&quot; of  the distance, it rounds the distance to the nearest
-round number and uses decimal point of the round number to limit decimals in the distance</li>
-<li>sort - sorting order, by default the RANGE key is used for DynamoDB, it is possible to specify any Index as well,
-in case of SQL this is the second part of the primary key</li>
-<li>checkLocation - a function(table, query, options) than can be used to check if the current geohash is valid and can be
-scanned, returns false if ican be skipped, this is to make geohash scanning optimized if it is known before the call
-which geohashes contain no records at all.</li>
-</ul>
-<p>On first call, query must contain latitude and longitude of the center and optionally distance for the radius. On subsequent calls options must be the
-the next_token returned by the previous call and query will be ignored</p>
-<p>On return, the callback&#39;s third argument contains the object with next_token that must be provided for subsequent searches until rows array is empty.</p>
-<p>Example</p>
-<pre><code>    var query = { latitude: -118, longitude: 30, distance: 10 };
-    core.modules.bk_location.select(&quot;bk_location&quot;, query, { round: 5 }, function(err, rows, info) {
-        ...
-        // Get next page using previous info object
-        core.modules.bk_location.select(&quot;bk_location&quot;, query, info.next_token, function(err, rows, info) {
-            ...
-        });
-    });</code></pre><p>Geohash grid in general looks like this (2 levels example):</p>
-<pre><code>   left33 left31   top3   right32 right34
-   left13 left11   top1   right12 right14
-   left03 left01  center  right01 rigt04
-   left23 left21  bottom2 right21 right24
-   left43 left41  bottom4 right41 right44</code></pre></li>
-</ul>
-<p> Geo grid for browsing is a list from the center all rows up, this means that records with
- smaller distances will appear again when geohash range is big:
-         center   left01 right01 left02 right02
-         top1     left11 right11 left12 right12
-         bottom2  left21 right21 left22 right22
-         top3     left31 right31 left32 right32
-         bottom4  left41 right41 left42 right42</p>
 
 <h2 id="module-bk_message">Module: BK_MESSAGE</h2>
 <ul>
