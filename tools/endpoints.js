@@ -13,7 +13,8 @@ files = files.concat(fs.readdirSync("modules/").filter(function(x) { return fs.s
 var text = "";
 
 files.forEach(function(file) {
-    var state;
+    if (process.argv.length > 2 && !file.match(process.argv[2])) return;
+    var state, pos;
     var data = fs.readFileSync(file).toString().split("\n");
     for (var i = 0; i < data.length; i++) {
         var line = data[i];
@@ -27,8 +28,21 @@ files.forEach(function(file) {
             continue;
         }
         // switch
-        d = line.match(/^ +switch \((req.params|cmd)/);
+        d = line.match(/^( +)switch \((req.params|cmd)/);
         if (d && state == 1) {
+            state = 2;
+            pos = d[1].length;
+            continue;
+        }
+        // other switch
+        d = line.match(/^( +)switch \(/);
+        if (d && state == 2) {
+            state = d[1].length;
+            continue;
+        }
+        // end switch
+        d = line.match(/^( +)}$/);
+        if (d && state > 2 && state == d[1].length) {
             state = 2;
             continue;
         }
@@ -39,7 +53,12 @@ files.forEach(function(file) {
             continue;
         }
         // default, end of switch
-        d = line.match(/default:|= function/);
+        d = line.match(/^( +)default:/);
+        if (d && state && pos == d[1].length) {
+            state = 0;
+            text += "\n";
+        }
+        d = line.match(/^[a-zA-Z0-9._] = function/);
         if (d && state) {
             state = 0;
             text += "\n";
