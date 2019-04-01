@@ -1396,6 +1396,7 @@ tests.test_auth = function(callback)
         "-api-allow-acl-manager", "allow1",
         "-api-allow-account-user", "^/user",
         "-api-allow-acl-user", "allow1",
+        "-api-only-acl-manager", "only1",
         "-api-acl-allow1", "^/allow1",
         "-api-acl-allow2", "^/allow2",
         "-api-deny-account-manager", "^/useronly",
@@ -1405,11 +1406,12 @@ tests.test_auth = function(callback)
         "-api-acl-deny2", "^/deny2",
         "-api-deny-authenticated", "^/authdeny",
         "-api-deny-acl-authenticated", "deny2",
+        "-api-acl-only1", "^/user/only",
     ];
     api.resetAcl();
     core.parseArgs(argv);
     for (const p in api) {
-        if (/^(allow|deny|acl)/.test(p) && !lib.isEmpty(api[p]) && typeof api[p] == "object") console.log(p, "=", api[p]);
+        if (/^(allow|deny|acl|only)/.test(p) && !lib.isEmpty(api[p]) && typeof api[p] == "object") console.log(p, "=", api[p]);
     }
 
     var req = { account: {}, options: {} };
@@ -1436,6 +1438,8 @@ tests.test_auth = function(callback)
         { status: 401, path: "/authdeny", type: "user" },
         { status: 401, path: "/deny1", type: "user" },
         { status: 200, path: "/deny1", type: "manager" },
+        { status: 200, path: "/user/only", type: "manager" },
+        { status: 401, path: "/user/only", type: "user" },
     ];
 
     lib.forEachSeries(checks, (check, next) => {
