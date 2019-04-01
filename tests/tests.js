@@ -1397,6 +1397,7 @@ tests.test_auth = function(callback)
         "-api-allow-account-user", "^/user",
         "-api-allow-acl-user", "allow1",
         "-api-only-acl-manager", "only1",
+        "-api-only-acl-only", "only1",
         "-api-acl-allow1", "^/allow1",
         "-api-acl-allow2", "^/allow2",
         "-api-deny-account-manager", "^/useronly",
@@ -1440,6 +1441,7 @@ tests.test_auth = function(callback)
         { status: 200, path: "/deny1", type: "manager" },
         { status: 200, path: "/user/only", type: "manager" },
         { status: 401, path: "/user/only", type: "user" },
+        { status: 200, path: "/user/only", type: "only" },
     ];
 
     lib.forEachSeries(checks, (check, next) => {
