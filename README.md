@@ -1,24 +1,24 @@
-# Backend library for node.js
+# Backend library for Node.js
 
-General purpose backend library. The primary goal is to have a scalable platform for running and managing node.js
+General purpose backend library. The primary goal is to have a scalable platform for running and managing Node.js
 servers for Web services implementation.
 
 This project only covers the lower portion of the Web services ecosystem:
-node.js processes, HTTP servers, basic API functinality, database access, caching, messaging between processes,
-metrics and monitoring, a library of tools for developing node.js servers.
+Node.js processes, HTTP servers, basic API functionality, database access, caching, messaging between processes,
+metrics and monitoring, a library of tools for developing Node.js servers.
 
 For the UI and presentation layer there are no restrictions what to use as long as it can run on top of the Express server.
 
 Features:
 
 * Exposes a set of Web service APIs over HTTP(S) using Express framework.
-* Database API supports Sqlite, PostgreSQL, MySQL, DynamoDB, Cassandra, MongoDB, Redis with all basic operations behaving the
-  same way allowing to switch databases without changing the code.
+* Database API supports SQLite, PostgreSQL, MySQL, DynamoDB, Cassandra, MongoDB, Redis with all basic operations behaving the
+  same way allowing you to switch databases without changing the code.
 * Database drivers for LevelDB, LMDB, CouchDB, Riak, ElasticSearch support only a subset of all database operations
 * Database operations (Get, Put, Del, Update, Select) for all supported databases using the same DB API.
 * DynamoDB Streams processing in background worker processes
-* Easily extendable to support any kind of database, provides a database driver on top of Redis with all supported methods as an example.
-* Provides accounts, connections, locations, messaging and icons APIs with basic functionality for a qucik start.
+* Easily extensible to support any kind of database, provides a database driver on top of Redis with all supported methods as an example.
+* Provides accounts, connections, locations, messaging and icons APIs with basic functionality for a quick start.
 * Supports crontab and queue job processing by separate worker processes.
 * Authentication is based on signed requests using API key and secret, similar to Amazon AWS signing requests.
 * Runs web server as separate processes to utilize multiple CPU cores.
@@ -28,11 +28,11 @@ Features:
 * Supports several PUB/SUB modes of operations using Redis, RabbitMQ, Hazelcast.
 * Supports async jobs processing using several work queue implementations on top of SQS, Redis, DB, RabbitMQ, Hazelcast.
 * ImageMagick as a separate C++ module for in-process image scaling, see bkjs-wand on NPM.
-* REPL(command line) interface for debugging and looking into server internals.
+* REPL (command line) interface for debugging and looking into server internals.
 * Supports push notifications for mobile devices, APN and GCM/FCM.
 * Supports HTTP(S) reverse proxy mode where multiple Web workers are load-balanced by the proxy
   server running in the master process instead of relying on the OS scheduling between processes listening on the same port.
-* Can be used with any MVC, MVVC or other types of frameworks that work on top or with the Express server.
+* Can be used with any MVC, MVVC or other types of frameworks that work on top of, or with, the Express server.
 * AWS support is very well integrated including EC2, S3, DynamoDB, SQS and more.
 * Includes simple log watcher to monitor the log files including system errors.
 * Supports i18n hooks for request/response objects, easily overriden with any real i18n implementation.
@@ -67,8 +67,8 @@ or simply
         > var bkjs = require('backendjs')
         > bkjs.server.start()
 
-* Access is allowed only with valid signature except urls that are exlicitely allowed without it (see `api-allow` config parameter below)
-* Same but using the helper tool, by default it will use embedded Sqlite database and listen on port 8000.
+* Access is allowed only with valid signature except urls that are explicitly allowed without it (see `api-allow` config parameter below)
+* Same but using the helper tool, by default it will use embedded SQLite database and listen on port 8000.
 
         bkjs web
 
@@ -108,7 +108,7 @@ or simply
 
         bkjs web -allow-modules bk_
 
-* To start node.js shell with backendjs loaded and initialized, all command line parameters apply to the shell as well
+* To start Node.js shell with backendjs loaded and initialized, all command line parameters apply to the shell as well
 
         ./app.sh -shell
 
@@ -126,31 +126,31 @@ or simply
 
         ./app.sh
 
-* Now login with the new account,
+* Now log in with the new account,
 * Go to http://localhost:8000/api.html and click on *Login* at the top-right corner, then enter 'test' as login and 'test' as secret in the login popup dialog.
 * To see your account details run the command in the console `/account/get`
 * To see current metrics run the command in the console `/system/stats/get`
 * To see charts about accumulated metrics go to http://localhost:8000/metrics.html
 
-* When the web server is starte with `-watch` parameters any change in the source files will make the server restart automatically
+* When the web server is started with `-watch` parameters any change in the source files will make the server restart automatically
   letting you focus on the source code and not server management, this mode is only enabled by default in development mode,
-  check `app.sh` for parameters before running it in the production.
+  check `app.sh` for parameters before running it in production.
 
 
 # Configuration
 
-Almost everything in the backend is configurable using a config files, config database or DNS.
-The whole principle behind it that once deployed in production, even quick restart are impossible to do so
+Almost everything in the backend is configurable using config files, a config database or DNS.
+The whole principle behind it is that once deployed in production, even quick restarts are impossible to do so
 there should be a way to push config changes to the processes without restarting.
 
-Every module defines a set of config parameters that defines the behavior of the code, due to single threaded
-nature of the node.js, it is simple to update any config parameter to a new value so the code can operate differently.
+Every module defines a set of config parameters that defines the behavior of the code, due to the single threaded
+nature of the Node.js. It is simple to update any config parameter to a new value so the code can operate differently.
 To achieve this the code must be written in a special way, like driven by configuration which can be changed at
 any time.
 
 All configuration goes through the configuration process that checks all inputs and produces valid output which
 is applied to the module variables. Config file or database table with configuration can be loaded on demand or
-periodically, for example all local config files are watched for modification and reloaded automaticlaly, the
+periodically, for example all local config files are watched for modification and reloaded automatically, the
 config database is loaded periodically which is defined by another config parameter.
 
 # Backend runtime
@@ -175,23 +175,23 @@ This is the typical output from the ps command on Linux server:
 To enable any task a command line parameter must be provided, it cannot be specified in the config file. The `bkjs` utility supports several
 commands that simplify running the backend in different modes.
 
-- `bkjs start` - this command is supposed to be run at the server startup as a service, it runs in the backgroud and the monitors all tasks,
+- `bkjs start` - this command is supposed to be run at the server startup as a service, it runs in the background and the monitors all tasks,
    the env variable `BKJS_SERVER` can be set in the profile to one of the `master or monitor` to define which run mode to use, default mode is monitor
-- `bkjs monitor` - this command is supposed to be run at the server startup, it runs in the backgroud and the monitors all processes,
+- `bkjs monitor` - this command is supposed to be run at the server startup, it runs in the background and the monitors all processes,
    the command line parameters are: `-daemon -monitor -master -syslog`
-- `bkjs master` - this command is supposed to be run at the server startup, it runs in the backgroud and the monitors all processes,
+- `bkjs master` - this command is supposed to be run at the server startup, it runs in the background and the monitors all processes,
    the command line parameters are: `-daemon -monitor -master -syslog`
 - `bkjs watch` - runs the master and Web server in wather mode checking all source files for changes, this is the common command to be used
    in development, it passes the command line switches: `-watch -master`
 - `bkjs web` - this command runs just web server process.
-- `bkjs run` - this command runs without other parameters, all aditional parameters can be added in the command line, this command
+- `bkjs run` - this command runs without other parameters, all additional parameters can be added in the command line, this command
    is a barebone helper to be used with any other custom settings.
 - `bkjs shell` or `bksh` - start backendjs shell, no API or Web server is initialized, only the database pools
 
 
 # Application structure
 
-The main puspose of the backendjs is to provide API to access the data, the data can be stored in the database or some other way
+The main purpose of the backendjs is to provide API to access the data, the data can be stored in the database or some other way
 but the access to that data will be over HTTP and returned back as JSON. This is default functionality but any custom application
 may return data in whatever format is required.
 
@@ -203,7 +203,7 @@ processing of the data is needed before sending it to the user, it is possible t
 
 When the API layer is initialized, the api module contains `app` object which is an Express server.
 
-Special module/namespace `app` is designated to be used for application development/extension. This module is available the same way as the `api` or `core`
+Special module/namespace `app` is designated to be used for application development/extension. This module is available in the same way as `api` and `core`
 which makes it easy to refer and extend with additional methods and structures.
 
 The typical structure of a backendjs application is the following:
@@ -269,18 +269,18 @@ The typical structure of a backendjs application is the following:
     bkjs.server.start();
 ```
 
-Except the `app.configureWeb` and `server.start()` all other functions are optional, they are here for the sake of completness of the example. Also
+Except the `app.configureWeb` and `server.start()` all other functions are optional, they are here for the sake of completeness of the example. Also
 because running the backend involves more than just running web server many things can be setup using the configuration options like common access permissions,
-configuration of the cron jobs so the amount of code to be written to have fully functionaning production API server is not that much, basically only
+configuration of the cron jobs so the amount of code to be written to have fully functioning production API server is not that much, basically only
 request endpoint callbacks must be provided in the application.
 
-As with any node.js application, node modules are the way to build and extend the functionality, backendjs does not restrict how
+As with any Node.js application, node modules are the way to build and extend the functionality, backendjs does not restrict how
 the application is structured.
 
 ## Modules
 
 Another way to add functionality to the backend is via external modules specific to the backend, these modules are loaded on startup from the backend
-home subdirectory `modules/` and from the backendjs package directory for core modules. The format is the same as for regular node.js modules and
+home subdirectory `modules/` and from the backendjs package directory for core modules. The format is the same as for regular Node.js modules and
 only top level .js files are loaded on the backend startup.
 
 *By default no modules are loaded except `bk_accounts|bk_icons`, it must be configured by the `-allow-modules` config parameter.*
@@ -338,9 +338,9 @@ This is the main app code:
 
 ## NPM packages as modules
 
-In case different modules is better keep separately for maintenance or development purposes they canbe split into
+In case different modules is better keep separately for maintenance or development purposes they can be split into
 separate NPM packages, the structure is the same, modules must be in the modules/ folder and the package must be loadable
-via require as usual. In most cases just empty index.js is enough. Such modules will not be loaded via rrquire though but
+via require as usual. In most cases just empty index.js is enough. Such modules will not be loaded via require though but
 by the backendjs `core.loadModule` machinery, the NPM packages are just keep different module directories separate from each other.
 
 The config parameter `allow-packages` can be used to specify NPM package names to be loaded separated by comma, as with the default
@@ -349,10 +349,10 @@ application structure all subfolders inside each NPM package will be added to th
   - modules will be loaded from the modules/ older
   - locales from the locales/ folder
   - files in the web/ folder will be added to the static search path
-  - all tempates from views/ folder will be used for rendering
+  - all templates from views/ folder will be used for rendering
 
 If there is a config file present as `etc/config` it will be loaded as well, this way each package can maintain its default config parameters if necessary
-without touching other or global configuration. Although such config files will not be reloaded on changes, when NPM installs or updtes packages it
+without touching other or global configuration. Although such config files will not be reloaded on changes, when NPM installs or updates packages it
 moves files around so watching the old config is no point because the updated config file will be different.
 
 # Database schema definition
@@ -364,7 +364,7 @@ access to the database driver and executes given query directly by the db driver
 
 Before the tables can be queried the schema must be defined and created, the backend db layer provides simple functions to do it:
 
-- first the table needs to be described, this is achieved by creating a Javascript object with properties describing each column, multiple tables can be described
+- first the table needs to be described, this is achieved by creating a JavaScript object with properties describing each column, multiple tables can be described
   at the same time, for example lets define album table and make sure it exists when we run our application:
 
 ```javascript
@@ -376,7 +376,7 @@ Before the tables can be queried the schema must be defined and created, the bac
            },
            photo: {
                album_id: { primary: 1 },                   // Combined primary key
-               id: { primary: 1 },                         // consiting of album and photo id
+               id: { primary: 1 },                         // consisting of album and photo id
                name: { pub: 1, index: 1 },                 // Photo name or description, public column with the index for faster search
                mtime: { type: "now" }
            }
@@ -385,7 +385,7 @@ Before the tables can be queried the schema must be defined and created, the bac
 
 - the system will automatically create the album and photos tables, this definition must remain in the app source code
   and be called on every app startup. This allows 1) to see the db schema while working with the app and 2) easily maintain it by adding new columns if
-  necessary, all new columns will be detected and the database tables updated accordingly. And it is all Javascript, no need to learn one more language or syntax
+  necessary, all new columns will be detected and the database tables updated accordingly. And it is all JavaScript, no need to learn one more language or syntax
   to maintain database tables.
 
 Each database may restrict how the schema is defined and used, the db layer does not provide an artificial layer hiding all specifics, it just provides the same
@@ -393,7 +393,7 @@ API and syntax, for example, DynamoDB tables must have only hash primary key or 
 one or two columns can be marked with primary property while for SQL databases the composite primary key can consist of more than 2 columns.
 
 The backendjs always creates several tables in the configured database pools by default, these tables are required to support default API functionality and some
-are required for backend opertions. Refer below for the Javascript modules documenttion that described which tables are created by default. In the custom applications
+are required for backend operations. Refer below for the JavaScript modules documentation that described which tables are created by default. In the custom applications
 the `db.describeTables` method can modify columns in the default table and add more columns if needed.
 
 For example, to make age and some other columns in the accounts table public and visible by other users with additional columns the following can be
@@ -402,7 +402,7 @@ Using the birthday column we make 'age' property automatically calculated and vi
 is registered as post process callback for the bk_account table. The computed property `age` will be returned because it is not present in the table definition
 and all properties not defined and configured are passed as is.
 
-The cleanup of the public columns is done by the `api.sendJSON` which is used by all API routes when ready to send data back to the client. If any postprocess
+The cleanup of the public columns is done by the `api.sendJSON` which is used by all API routes when ready to send data back to the client. If any post-process
 hooks are registered and return data itself then it is the hook responsibility to cleanup non-public columns.
 
 ```javascript
@@ -575,7 +575,7 @@ The backend directory structure is the following:
             To specify other config file: bkjs shell -config-file file
 
     * etc/config.local - same as the config but for the cases when local environment is different than the production or for dev specific parameters
-    * some config parameters can be condigured in DNS as TXT records, the backend on startup will try to resolve such records and use the value if not empty.
+    * some config parameters can be configured in DNS as TXT records, the backend on startup will try to resolve such records and use the value if not empty.
       All params that  marked with DNS TXT can be configured in the DNS server for the domain where the backend is running, the config parameter name is
       concatenated with the domain and queried for the TXT record, for example: `cache-host` parameter will be queried for cache-host.domain.name for TXT record type.
 
@@ -617,11 +617,11 @@ it is required to clear cache manually there is `db.clearCache` method for that.
 Also there is a configuration option `-db-caching` to make any table automatically cached for all requests.
 
 ## Local
-If no cache is configured the local driver is used, it keeps the cache on the master process in the LRU pool and any wroker or Web process
+If no cache is configured the local driver is used, it keeps the cache on the master process in the LRU pool and any worker or Web process
 communicate with it via internal messaging provided by the `cluster` module. This works only for a single server.
 
 ## memcached
-Set `ipc-cache=memcache://HOST[:PORT]` that points to the host running memcached. To support multiple servrs add the option
+Set `ipc-cache=memcache://HOST[:PORT]` that points to the host running memcached. To support multiple servers add the option
 `ipc-cache-options-servers=10.1.1.1,10.2.2.1:5000`.
 
 ## Redis
@@ -664,11 +664,11 @@ the backend provides some partially implemented subscription notifications for W
 The Account API call `/account/subscribe` can use any pub/sub mode.
 
 The flow of the pub/sub operations is the following:
-- a HTTP client makes `/account/subscribe` API request, the connection is made and is kept open indefenitely or as long as configured using `api-subscribe-timeout`.
+- a HTTP client makes `/account/subscribe` API request, the connection is made and is kept open indefinitely or as long as configured using `api-subscribe-timeout`.
 - the API backend receives this request, and runs the `api.subscribe` method with the key being the account id, this will subscribe to the events for the current
-  account and registers a callback to be called if any events occured. The HTTP connection is kept open.
-- some other client makes an API call that triggers an event like makes a connectiopn or sends a message, on such event the backend API handler
-  always runs `ipc.publish` after the DB operation succedes. If the messaging is configured, it publishes the message for the account, the
+  account and registers a callback to be called if any events occurred. The HTTP connection is kept open.
+- some other client makes an API call that triggers an event like makes a connection or sends a message, on such event the backend API handler
+  always runs `ipc.publish` after the DB operation succeeds. If the messaging is configured, it publishes the message for the account, the
   message being a JSON object with the request API path and mtime, other properties depend on the call made.
 - the connection that initiated `/account/subscribe` receives an event
 
@@ -704,7 +704,7 @@ An example of how to perform jobs in the API routes:
 ## RabbitMQ
 To configure the backend to use RabbitMQ for messaging set `ipc-queue=amqp://HOST` and optionally `amqp-options=JSON` with options to the amqp module.
 Additional objects from the config JSON are used for specific AMQP functions: { queueParams: {}, subscribeParams: {}, publishParams: {} }. These
-will be passed to the corresponding AMQP methods: `amqp.queue, amqp.queue.sibcribe, amqp.publish`. See AMQP node.js module for more info.
+will be passed to the corresponding AMQP methods: `amqp.queue, amqp.queue.sibcribe, amqp.publish`. See AMQP Node.js module for more info.
 
 ## DB
 This is a simple queue implementation using the atomic UPDATE, it polls for new jobs in the table and updates the status, only who succeeds
@@ -712,19 +712,19 @@ with the update takes the job and executes it. It is not effective but can be us
 The advantage is that it uses the same database and does not require additional servers.
 
 ## SQS
-To use AWS SQS for job processing set `ipc-queue=https://sqs.amazonaws.com....`, this queue system will poll SQS for new messeges on a worker
-and after succsesful execution will delete the message. For long running jobs it will automatically extend visibility timeout if it is configured.
+To use AWS SQS for job processing set `ipc-queue=https://sqs.amazonaws.com....`, this queue system will poll SQS for new messages on a worker
+and after successful execution will delete the message. For long running jobs it will automatically extend visibility timeout if it is configured.
 
 ## Local
 The local queue is implemented on the master process as a list, communication is done via local sockets between the master and workers.
-This is intended for a single server development pusposes only.
+This is intended for a single server development purposes only.
 
 # Security configurations
 
 ## API only
-This is default setup of the backend when all API requests except must provide valid signature and all HTML, Javascript, CSS and image files
+This is default setup of the backend when all API requests except must provide valid signature and all HTML, JavaScript, CSS and image files
 are available to everyone. This mode assumes that Web development will be based on 'single-page' design when only data is requested from the Web server and all
-rendering is done using Javascript. This is how the `examples/api/api.html` develpers console is implemented, using JQuery-UI and Knockout.js.
+rendering is done using JavaScript. This is how the `examples/api/api.html` developers console is implemented, using JQuery-UI and Knockout.js.
 
 To see current default config parameters run any of the following commands:
 
@@ -737,9 +737,9 @@ To enable open registration in this mode just add config parameter `api-allow-pa
 ## Secure Web site, client verification
 
 This is a mode when the whole Web site is secure by default, even access to the HTML files must be authenticated. In this mode the pages must defined 'Backend.session = true'
-during the initialization on every html page, it will enable Web sessions for the site and then no need to sign every API reauest.
+during the initialization on every html page, it will enable Web sessions for the site and then no need to sign every API request.
 
-The typical client Javascript verification for the html page may look like this, it will redirect to login page if needed,
+The typical client JavaScript verification for the html page may look like this, it will redirect to login page if needed,
 this assumes the default path '/public' still allowed without the signature:
 
 ```javascript
@@ -775,7 +775,7 @@ html pages to work after login without singing every API request.
    }
 ```
 
-2. We define an auth callback in the app and redirect to login if the reauest has no valid signature, we check all html pages, all allowed html pages from the /public
+2. We define an auth callback in the app and redirect to login if the request has no valid signature, we check all html pages, all allowed html pages from the /public
 will never end up in this callback because it is called after the signature check but allowed pages are served before that:
 
 ```javascript
@@ -806,12 +806,12 @@ Example:
 
 # Versioning
 
-There is no ready to use support for different versions of API at the same because there is no just one solution that satifies all applications. But there are
+There is no ready to use support for different versions of API at the same because there is no just one solution that satisfies all applications. But there are
 tools ready to use that will allow to implement such versioning system in the backend. Some examples are provided below:
 
 - Fixed versions
   This is similar to AWS version system when versions are fixed and changed not very often. For such cases the backend exposes `core.bkVersion` which is
-  supposed to be a core backend version. This version is returned with every backend reponse in the Server: header. A client also can specify the core version
+  supposed to be a core backend version. This version is returned with every backend response in the Server: header. A client also can specify the core version
   using `bk-version` header. When a request is parsed and the version is provided it will be set in the request options object as `apiVersion`.
 
   All API routes are defined using Express middleware and one of the possible ways of dealing with different versions can look like this, by
@@ -883,22 +883,22 @@ On Linux, when started the bkjs tries to load and source the following config fi
         /etc/sysconfig/bkjs
         $BKJS_HOME/etc/profile
 
-Any of the following config files can redefine any environmnt variable thus pointing to the correct backend environment directory or
+Any of the following config files can redefine any environment variable thus pointing to the correct backend environment directory or
 customize the running environment, these should be regular shell scripts using bash syntax.
 
 Most common used commands are:
 - bkjs watch - run the backend or the app for development purposes, uses local app.js if exists otherwise runs generic server
 - bkjs shell - start REPL shell with the backend module loaded and available for use, all submodules are available in the shell as well like core, db, api
-- bkjs sync [-path path] [-host host] [-user user] - sync sources of the app with the remote site, this is for developent version of the backend only
+- bkjs sync [-path path] [-host host] [-user user] - sync sources of the app with the remote site, this is for development version of the backend only
 - bkjs init-server [-home path] [-user user] [-host name] [-domain name] - initialize Linux instance(Amazon,CentOS) for backend use, optional -home can be specified where the backend
   home will be instead of ~/.bkjs, optional -user tells to use existing user instead of the current user and not root.
 
    **This command will create `/etc/sysconfig/bkjs` file with BKJS_HOME set to the home of the
-   backendjs app which was pased in the command line. This makes the bkjs or bksh run globally regardless of the current directory.**
+   backendjs app which was passed in the command line. This makes the bkjs or bksh run globally regardless of the current directory.**
 
 # Web development notes
 
-The server supports simple web bundling using uglify-js utility. To enable it just add tyo the local config a list of directories to be
+The server supports simple web bundling using uglify-js utility. To enable it just add to the local config a list of directories to be
 watched for changes. For example adding these lines to the local config will enable the watcher and bundle support
 
      watch-web=web/js,web/css,$HOME/src/js,$HOME/src/css
@@ -925,7 +925,7 @@ To use it call this script instead in the config.local:
 
 ## AWS instance setup with node and backendjs
 
-Here is the example how to setup new custom AWS server, it is not required and completely optional but bkjs provies some helpful commands that may simplify
+Here is the example how to setup new custom AWS server, it is not required and completely optional but bkjs provides some helpful commands that may simplify
 new image configuration.
 
 - start new AWS instance via AWS console, use Amazon Linux
@@ -961,7 +961,7 @@ replacing spaces with %20 is not required.
 
 ## AWS Beanstalk deployment
 
-As with any node.js module, the backendjs app can be packaged into zip file according to AWS docs and deployed the same way as any other node.js app.
+As with any Node.js module, the backendjs app can be packaged into zip file according to AWS docs and deployed the same way as any other Node.js app.
 Inside the app package etc/config file can be setup for any external connections.
 
 ## AWS Provisioning examples
@@ -1022,15 +1022,15 @@ By default the Web proceses spawned by the server are load balanced using defaul
 this is proven not to work properly due to the kernel keeping the context switches to a minimum thus resulting in one process to be very busy while the others
 idle. Node versions 4 and above perform round-robin by default.
 
-For such case the Backendjs implements the proxy mode by setting `proxy-port` config paremeter to any number above 1000, this will be the initial
+For such case the Backendjs implements the proxy mode by setting `proxy-port` config parameter to any number above 1000, this will be the initial
 port for the web processes to listen for incoming requests, for example if use `-proxy-port 3000` and launch 2 web processes they will listen on ports
-3000 and 3001. The main server process will start internal HTTP proxy and will perform round-robin load balancing the incoming requests between the web proceses by forwarding
+3000 and 3001. The main server process will start internal HTTP proxy and will perform round-robin load balancing the incoming requests between the web processes by forwarding
 them to the web processes over TCP and then returning the responses back to the clients.
 
 ## Configure HTTP port
 
 The first thing when deploying the backend into production is to change API HTTP port, by default is is 8000, but we would want port 80 so regardless
-how the environment is setup it is ultimatley 2 ways to specify the port for HTTP server to use:
+how the environment is setup it is ultimately 2 ways to specify the port for HTTP server to use:
 
 - config file
 
@@ -1040,7 +1040,7 @@ how the environment is setup it is ultimatley 2 ways to specify the port for HTT
 
 - command line arguments
 
-  When running node scripts which use the backend, just specify `-home` command line argument with the directory where yor backend should be and the backend will use it
+  When running node scripts which use the backend, just specify `-home` command line argument with the directory where your backend should be and the backend will use it
 
   Example:
 
@@ -1050,7 +1050,7 @@ how the environment is setup it is ultimatley 2 ways to specify the port for HTT
 
   If `-db-config` is specified in the command line or `db-config=` in the local config file, this will trigger loading additional
   config parameters from the specified database pool, it will load all records from the `bk_config` table on that db pool. Using the database to store
-  configuration make it easier to maintain dynamic environment for example in case of auto scaling or lanching on demand, this way
+  configuration make it easier to maintain dynamic environment for example in case of auto scaling or launching on demand, this way
   a new instance will query current config from the database and this eliminates supporting text files and distributing them to all instances.
 
   The config database is refreshed from time to time acording to the `db-config-interval` parameter, also all records with `ttl` property in the bk_config
@@ -1058,7 +1058,7 @@ how the environment is setup it is ultimatley 2 ways to specify the port for HTT
 
 - DNS records
   Some config options may be kept in the DNS TXT records and every time a instance is started it will query the local DNS for such parameters. Only a small subset of
-  all config parameters support DNS store. To see which parmeteres can be stored in the DNS run `bkjs show-help` and look for 'DNS TXT configurable'.
+  all config parameters support DNS store. To see which parameters can be stored in the DNS run `bkjs show-help` and look for 'DNS TXT configurable'.
 
 # Backend library development (Mac OS X, developers)
 
@@ -1072,7 +1072,7 @@ how the environment is setup it is ultimatley 2 ways to specify the port for HTT
 
 * cd backendjs
 
-* if node.js is already installed skip to the next section
+* if Node.js is already installed skip to the next section
 
     * to install binary release run the command, it will install it into /opt/local on Darwin
 
@@ -1094,7 +1094,7 @@ how the environment is setup it is ultimatley 2 ways to specify the port for HTT
 
 * to start the backend in command line mode, the backend environment is prepared and initialized including all database pools.
    This command line access allows you to test and run all functions from all modules of the backend without running full server
-   similar to node.js REPL functionality. All modules are accessible from the command line.
+   similar to Node.js REPL functionality. All modules are accessible from the command line.
 
             $ ./bkjs shell
             > core.version
@@ -1103,8 +1103,8 @@ how the environment is setup it is ultimatley 2 ways to specify the port for HTT
 
 # Design considerations
 
-While creating Backendjs there were many questions and issues to be considered, some i was able to implement, some still not. Below are the thoughts that
-might be useful when desining, developing or choosing the API platform:
+While creating Backendjs there were many questions and issues to be considered, some I was able to implement, some still not. Below are the thoughts that
+might be useful when designing, developing or choosing the API platform:
 
 - purpose of the API:
   - to expose some parts of the existing system to external apps, users...
@@ -1147,7 +1147,7 @@ All API endpoints are optional and can be disabled or replaced easily. By defaul
 
      /namespace/command[/subname[/subcommand]]
 
-Any HTTP methods can be used because its the command in the URL that defines the operation. The payload can be urlencoded query
+Any HTTP methods can be used because its the command in the URL that defines the operation. The payload can be url-encoded query
 parameters or JSON or any other format supported by any particular endpoint. This makes the backend universal and usable with any
 environment, not just a Web browser. Request signature can be passed in the query so it does not require HTTP headers at all.
 
@@ -1174,7 +1174,7 @@ All requests to the API server must be signed with account login/secret pair.
         - Line7: The sorted and joined query parameters as one string, followed by a newline.
         - Line8: The expiration value in milliseconds, required, followed by a newline
         - Line9: The Content-Type HTTP header, lowercase, optional, followed by a newline
-        - Line10: The SHA1 checksum of the body content, optional, for JSON and other forms of requests not supported by query paremeters
+        - Line10: The SHA1 checksum of the body content, optional, for JSON and other forms of requests not supported by query parameters
     * Computed HMAC-SHA1 digest from the canonical string and encode it as BASE64 string, preserve trailing = if any
     * Form the signature HTTP header as the following:
         - The header string consist of multiple fields separated by pipe |
@@ -1186,17 +1186,17 @@ All requests to the API server must be signed with account login/secret pair.
             - Field3: account login or whatever it might be in the login column
             - Field4: HMAC-SHA digest from the canonical string, version 1 uses SHA1, other SHA256
             - Field5: expiration value in milliseconds, same as in the canonical string
-            - Field6: SHA1 checksum of the body content, optional, for JSON and other forms of requests not supported by query paremeters
+            - Field6: SHA1 checksum of the body content, optional, for JSON and other forms of requests not supported by query parameters
             - Field7: empty, reserved for future use
 
 The resulting signature is sent as HTTP header `bk-signature` or in the header specified by the `api-signature-name` config parameter.
 
 For JSON content type, the method must be POST and no query parameters specified, instead everything should be inside the JSON object
-which is placed in the body of the request. For additional safety, SHA1 checksum of the JSON paylod can be calculated and passed in the signature,
+which is placed in the body of the request. For additional safety, SHA1 checksum of the JSON payload can be calculated and passed in the signature,
 this is the only way to ensure the body is not modified when not using query parameters.
 
 See [web/js/bkjs.js](https://github.com/vseryakov/backendjs/blob/master/web/js/bkjs.js) function `Bkjs.createSignature` or
-[api.js](https://github.com/vseryakov/backendjs/blob/master/api.js) function `api.createSignature` for the Javascript implementations.
+[api.js](https://github.com/vseryakov/backendjs/blob/master/api.js) function `api.createSignature` for the JavaScript implementations.
 
 There is also native iOS implementation [Bkjs.m](https://raw.githubusercontent.com/vseryakov/backendjs-ios/master/BKjs.m).
 
@@ -1230,7 +1230,7 @@ There is also native iOS implementation [Bkjs.m](https://raw.githubusercontent.c
    Same as the /auth but it uses secret for user authentication, this request does not need a signature, just simple
    login and secret query parameters to be sent to the backend. This must be sent over SSL.
 
-   The intened usage is for Web sessions which use sessions cookies when sent with `_session=1` or to be used with access tokens when
+   The intended usage is for Web sessions which use sessions cookies when sent with `_session=1` or to be used with access tokens when
    sent with `_accesstoken=1`.
 
    Parameters:
@@ -1305,7 +1305,7 @@ This is implemented by the `accounts` module from the core. To enable accounts f
   Secret and login can be anything, the backend does not require any specific formats and does not process the contents of the login/secret fields.
 
   There are several ways to create authenticated account:
-    - API only access with signed signature, supply a login and secret which will be stord in the database as is, when making requests use the same login and secret to produce the signature.
+    - API only access with signed signature, supply a login and secret which will be stored in the database as is, when making requests use the same login and secret to produce the signature.
       *In the Web client `web/js/bkjs.js`, if `Bkjs.scramble` is set to 1 then the secret is replaced by the BASE64_HMAC_SHA256(secret, login) automatically,
       no actual secret is ever saved or sent, only used in the login form. This is intended for Web apps not to store the actual secret anywhere in the memory or localStorage,
       for the backend this is still just a secret.*
@@ -1435,7 +1435,7 @@ This is implemented by the `accounts` module from the core. To enable accounts f
 
 - `/account/put/icon`
 
-  Upload an account icon, once uploaded, the next `/account/get` call will return propertis in the format `iconN` wheer N is any of the
+  Upload an account icon, once uploaded, the next `/account/get` call will return properties in the format `iconN` where N is any of the
   type query parameters specified here, for example if we uploaded an icon with type 5, then /account/get will return property icon5 with the URL
   to retrieve this icon.
   *By default all icons uploaded only accessible for the account which uploaded them.*
@@ -1452,7 +1452,7 @@ This is implemented by the `accounts` module from the core. To enable accounts f
       - all - public, everybody can see this icon
       - auth - only authenticated users can see this icon
       - id,id.. - list of account ids that can see this account
-    - _width - desired width of the stored icon, if negative this means do not upscale, if th eimage width is less than given keep it as is
+    - _width - desired width of the stored icon, if negative this means do not upscale, if the image width is less than given keep it as is
     - _height - height of the icon, same rules apply as for the width above
     - _ext - image file format, default is jpg, supports: gif, png, jpg, jp2
 
@@ -1474,12 +1474,12 @@ This is implemented by the `accounts` module from the core. To enable accounts f
 
 ### Health enquiry
 When running with AWS load balancer there should be a url that a load balancer polls all the time and this must be very quick and lightweight request. For this
-purpose there is an API endpoint `/ping` that just responds with status 200. It is not open by default, the `allow-path` or other way to allow non-authenticted access
-needs to be configured. This is to be able to control how pinging can be perform in the apps in cae it is not simple open access.
+purpose there is an API endpoint `/ping` that just responds with status 200. It is not open by default, the `allow-path` or other way to allow non-authenticated access
+needs to be configured. This is to be able to control how pinging can be perform in the apps in case it is not simple open access.
 
 ## Public Images endpoint
-This endpoint can server any icon uploaded to the server for any account, it is supposed to be a non-secure method, i.e. no authentication will be performed and no signagture
-will be needed once it is confgiured which prefix can be public using `api-allow` or `api-allow-path` config parameters.
+This endpoint can server any icon uploaded to the server for any account, it is supposed to be a non-secure method, i.e. no authentication will be performed and no signature
+will be needed once it is configured which prefix can be public using `api-allow` or `api-allow-path` config parameters.
 
 The format of the endpoint is:
 
@@ -1505,7 +1505,7 @@ The icons API provides ability for an account to store icons of different types.
 accounts, within the account icons can be separated by `prefix` which is just a namespace assigned to the icons set, for example to keep messages
 icons separate from albums, or use prefix for each separate album. Within the prefix icons can be assigned with unique type which can be any string.
 
-Prefix and type can consist from alphabetical characters and numbers, dots, underscores and dashes: [a-z0-9._-]. This means, they are identificators, not real titles or names,
+Prefix and type can consist from alphabetical characters and numbers, dots, underscores and dashes: [a-z0-9._-]. This means, they are identifiers, not real titles or names,
 a special mapping between prefix/type and album titles for example needs to be created separately.
 
 The supposed usage for type is to concatenate common identifiers first with more specific to form unique icon type which later can be queried
@@ -1518,7 +1518,7 @@ The is implemented by the `icons` module from the core. To enable this functiona
 
    Return icon for the current account in the given prefix, icons are kept on the local disk in the directory
    configured by `-api-images-dir` parameter(default is images/ in the backend directory). Current account id is used to keep icons
-   separate from other accounts. Icon presense is checked in the bk_icon table before returning it and if any permissions are set in
+   separate from other accounts. Icon presence is checked in the bk_icon table before returning it and if any permissions are set in
    the `acl_allow` column it will be checked if this icon can be returned.
 
   The following parameters can be used:
@@ -1528,16 +1528,16 @@ The is implemented by the `icons` module from the core. To enable this functiona
 
 - `/icon/put`
 
-  Upload new icon for the given account in the folder prefix, if type is specified it creates an icons for this type to separate
+  Upload new icon for the given account in the folder prefix, if type is specified it creates an icon for this type to separate
   multiple icons for the same prefix. `type` can be any string consisting from alpha and digits characters. It creates a record in the bk_icon
-  table with all the paramaters passed.
+  table with all the parameters passed.
 
   The following parameters can be used:
-    - prefix - prefix for the icons, requried
+    - prefix - prefix for the icons, required
     - descr - optional description of the icon
     - latitude, longitude - optional coordinates for the icon
     - acl_allow - allow access permissions, see `/account/put/icon` for the format and usage
-    - _width - desired width of the stored icon, if negative this means do not upscale, if th eimage width is less than given keep it as is
+    - _width - desired width of the stored icon, if negative this means do not upscale, if the image width is less than given then keep it as is
     - _height - height of the icon, same rules apply as for the width above
     - _ext - image file format, default is jpg, supports: gif, png, jpg
 
@@ -1553,7 +1553,7 @@ The is implemented by the `icons` module from the core. To enable this functiona
 
 - `/icon/select`
 
-  Return list of available icons for the given prefix adn type, all icons starting with prefix/type will be returned,
+  Return list of available icons for the given prefix and type, all icons starting with prefix/type will be returned,
   the `url` property will provide full URL to retrieve the icon contents
 
   Example:
@@ -1579,7 +1579,7 @@ This is implemented by the `files` module from the core. To enable this function
     Return a file with given prefix and name, the contents are returned in the response body.
 
     The following parameters can be used:
-    - `prefix` - must be provided, defines the namescape where the file is stored
+    - `prefix` - must be provided, defines the namespace where the file is stored
     - `name` - name of the file, required
 
 - `/file/put`
@@ -1587,11 +1587,11 @@ This is implemented by the `files` module from the core. To enable this function
     Store a file on the backend, the file can be sent using form multipart upload or as JSON
 
     The following parameters can be used:
-    - `prefix` - must be provided, defines the namescape where the file is stored
+    - `prefix` - must be provided, defines the namespace where the file is stored
     - `name` - name of the file, required
     - `_name` - name of the property that contains the file contents, for use with JSON or defines the name of the file attribute for multipart upload
     - `_tm` - append the current timestamp to the file name
-    - `_ext` - extention to be assign to the file, otherwise the actual extension from the file name is used
+    - `_ext` - extension to be assign to the file, otherwise the actual extension from the file name is used
 
 - `/file/del`
 
@@ -1600,7 +1600,7 @@ This is implemented by the `files` module from the core. To enable this function
 ## Connections
 
 The connections API maintains two tables `bk_connection` and `bk_reference` for links between accounts of any type. bk_connection table maintains my
-links, i.e. when i make explicit connection to other account, and bk_reference table is automatically updated with reference for that other account that i made
+links, i.e. when i make explicit connection to other account, and bk_reference table is automatically updated with reference for that other account that I made
 a connection with it. No direct operations on bk_reference is allowed.
 
 This is implemented by the `connections` module from the core. To enable this functionality specify `-allow-modules=bk_connections`.
@@ -1713,11 +1713,11 @@ which means all geohashes in bk_location table will have geohash of size 4. Once
 The location search is implemented by using geohash as a primary key in the bk_location table with the account id as the second part of the primary key, for DynamoDB this is the range key.
 When request comes for all matches for the location for example 37.7, -122.4, the search that is executed looks like this:
 - geohash for latitude 37.7 and longitude -122.4 and radius 10 km will be `9q8y`
-- all neoghboring ares around this point within 10 km radius will be '9q8z', '9q8v', '9q8w', '9q8x', '9q8t', '9q9n', '9q9p', '9q9j'
+- all neighboring areas around this point within 10 km radius will be '9q8z', '9q8v', '9q8w', '9q8x', '9q8t', '9q9n', '9q9p', '9q9j'
 - we start the search on the bk_location table by the primary key geohash with the value 9q8y
 - filter out all records beyond our radius by calculating the difference between our point and the candidate record
-- if total number of results expcted is still less than required, continue to the next neighbor area
-- continue untill we visit all neighbors or received required number of macthed records
+- if total number of results expected is still less than required, continue to the next neighbor area
+- continue until we visit all neighbors or received required number of matched records
 - on return the next_token opaque value will be provided if we want to continue the search for more matched for the same location
 
 This is implemented by the `locations` module from the core. To enable this functionality specify `allow-modules=bk_locations`.
@@ -1731,7 +1731,7 @@ This is implemented by the `locations` module from the core. To enable this func
         /location/put?latitude=-188.23232&longitude=23.4545454
 
 - `/location/get`
-  Return matched accounts within the distance(radius) specified by `distance=` parameter in kilometers and current position specified by latitude/longitude paraemeters. This
+  Return matched accounts within the distance(radius) specified by `distance=` parameter in kilometers and current position specified by latitude/longitude parameters. This
   call returns results in chunks and requires navigation through all pages to receive all matched records. Records returned will start with the closest to the current
   point. If there are more matched records than specified by the `_count`, the `next_token` property is set with the token to be used in the subsequent call,
   it must be passed as is as `_token=` parameter with all original query parameters.
@@ -1762,7 +1762,7 @@ This is implemented by the `locations` module from the core. To enable this func
 
 ## Messages
 The messaging API allows sending and receiving messages between accounts, it supports text and images. All new messages arrive into the bk_messsage table, the inbox. The client
-may keep messages there as new, delete or archive them. Archiving means transfering messages into the bk_archive table. All sent messages are kept in the bk_sent table.
+may keep messages there as new, delete or archive them. Archiving means transferring messages into the bk_archive table. All sent messages are kept in the bk_sent table.
 
 This is implemented by the `messages` module from the core. To enable this functionality specify `-allow-modules=bk_messages`.
 
@@ -1806,8 +1806,8 @@ This is implemented by the `messages` module from the core. To enable this funct
   the actual image data must be retrieved separately.
 
   Parameters:
-   - `mtime` - if specified then only messages received since that time will be retirned, it must be in milliseconds since midnight GMT on January 1, 1970, this is what
-     Date.now() return in Javascript.
+   - `mtime` - if specified then only messages received since that time will be returned, it must be in milliseconds since midnight GMT on January 1, 1970, this is what
+     Date.now() return in JavaScript.
   - `sender` - if specified then all messages from the given sender will be returned.
 
   NOTE: The `mtime` is when the backend server received the message, if client and the server clocks are off this may return wrong data or not return anything at all,
@@ -1932,14 +1932,14 @@ This is implemented by the `counters` module from the core. To enable this funct
 - `/counter/get`
   Return counter record for current account with all available columns of if `id` is given return public columns for given account, it works with `bk_counter` table
   which by default defines some common columns:
-    - ping - a counter for general use, can be used to send a notification event to any acount by increasing this counter for an account
+    - ping - a counter for general use, can be used to send a notification event to any account by increasing this counter for an account
     - like0 - how many i liked, how many time i liked someone, i.e. made a new record in bk_connection table with type 'like'
     - like1 - how many liked me, reverse counter, who connected to me with type 'like'
   More columns can be added to the bk_counter table.
 
   NOTE: The columns with suffixes 0 and 1 are special columns that support the Connections API, every time a new connection is created, the type of new connection
-  is checked against any columns in the bk_counter table, if a property type0 exists and marked in the table descriptnio as `autoincr` then the corresponding
-  counter property is increased, this is how every time new connectio like/dislike/invite/follow is added, the counters in the bk_counter table are increased.
+  is checked against any columns in the bk_counter table, if a property type0 exists and marked in the table description as `autoincr` then the corresponding
+  counter property is increased, this is how every time new connection like/dislike/invite/follow is added, the counters in the bk_counter table are increased.
 
 - `/counter/put`
   Replace my counters record, all values if not specified will be set to 0
@@ -2003,7 +2003,7 @@ All .md files will be rendered into html automatically if there is not _raw=1 qu
 This is implemented by the `pages` module from the core. To enable this functionality specify `-allow-modules=bk_accounts`.
 
 - `/pages/get/ID`
-  Return a page with given id or the main page if id is empty. If the query parameter `_render=1` is given, the content will be rendered into html from markdown, otherwie
+  Return a page with given id or the main page if id is empty. If the query parameter `_render=1` is given, the content will be rendered into html from markdown, otherwise
   returns all data as is.
 
 - `/pages/select`
@@ -2017,7 +2017,7 @@ This is implemented by the `pages` module from the core. To enable this function
   Delete a page from the database
 
 - `/pages/show/ID`
-  Render a page with given id, markdown is converted into html using `marked`. A view must be condfigured in order to render to work, by default pages.html view
+  Render a page with given id, markdown is converted into html using `marked`. A view must be configured in order to render to work, by default pages.html view
   is provided to simply wrap the markdown in the page layout.
 
 ## System API
@@ -2067,7 +2067,7 @@ This is implemented by the `system` module from the core. To enable this functio
      - r1m: The rate of the meter biased towards the last 1 minute.
      - r5m: The rate of the meter biased towards the last 5 minutes.
      - r15m: The rate of the meter biased towards the last 15 minutes.
-  - queue or histogram - Keeps a resevoir of statistically relevant values biased towards the last 5 minutes to explore their distribution
+  - queue or histogram - Keeps a reservoir of statistically relevant values biased towards the last 5 minutes to explore their distribution
       - hmin: The lowest observed value.
       - mmax: The highest observed value.
       - hsum: The sum of all observed values.
@@ -2075,7 +2075,7 @@ This is implemented by the `system` module from the core. To enable this functio
       - hmean: The average of all observed values.
       - hdev: The standard deviation of all observed values.
       - hcnt: The number of observed values.
-      - hmed: median, 50% of all values in the resevoir are at or below this value.
+      - hmed: median, 50% of all values in the reservoir are at or below this value.
       - hp75: See median, 75% percentile.
       - hp95: See median, 95% percentile.
       - hp99: See median, 99% percentile.
@@ -2371,4 +2371,3 @@ This is implemented by the `system` module from the core. To enable this functio
   Vlad Seryakov
 
 Check out the [Documentation](http://bkjs.io) for more details.
-
