@@ -59,7 +59,7 @@ case "$BKJS_CMD" in
   run-dynamodb)
     [ "$DYNAMODB_PREFIX" = "" ] && DYNAMODB_PREFIX=$BKJS_PREFIX/dynamodb
     mkdir -p $BKJS_HOME/var $BKJS_HOME/log
-    params="-Xmx$(get_arg -memmax 512M)"
+    params="-Xmx$(get_arg -memmax 256M)"
     exec nohup java $params -Djava.library.path=$DYNAMODB_PREFIX/DynamoDBLocal_lib -jar $DYNAMODB_PREFIX/DynamoDBLocal.jar -dbPath $BKJS_HOME/var -port 8181 >>$BKJS_HOME/log/message.log 2>&1 &
     ;;
 
