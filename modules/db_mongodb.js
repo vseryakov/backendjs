@@ -13,7 +13,7 @@ var pool = {
     name: "mongodb",
     configOptions: {
         jsonColumns: true,
-        skipNull: { add: 1, put: 1 },
+        skipNull: { add: /.+/, put: /.+/ },
         w: 1,
         safe: true
     },
