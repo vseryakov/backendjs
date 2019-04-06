@@ -21,7 +21,7 @@ const shell = {
         "-run-file FILE.js - load a script and run it if it exports run function",
         "-login-get LOGIN ... - show login records",
         "-login-add [-noscramble] login LOGIN secret SECRET [name NAME] [type TYPE] ... - add a new login record for API access",
-        "-login-update [-noscramble] login LOGIN [name NAME] [type TYPE] ... - update existing login record",
+        "-login-update [-scramble 1] login LOGIN [name NAME] [type TYPE] ... - update existing login record, for web use -scramble must be set to 1",
         "-login-del login LOGIN... - delete a login record",
         "-account-get ID|LOGIN ... - show accounts by id or login",
         "-account-add [-noscramble] login LOGIN secret SECRET [name NAME] [email EMAIL] [type TYPE] ... - add a new user for API access, any property from bk_account can be passed in the form: name value",
@@ -304,7 +304,6 @@ shell.cmdAccountUpdate = function(options)
     if (!core.modules.bk_account) this.exit("accounts module not loaded");
     var query = this.getQuery();
     var opts = api.getOptions({ query: this.getArgs(), options: { path: ["", "", ""], ops: {} } });
-    opts.scramble = this.isArg("-noscramble", options) ? 0 : 1;
     this.getUser(query, function(row) {
         core.modules.bk_account.updateAccount({ account: row, query: query }, opts, function(err, data) {
             shell.exit(err, data);
@@ -349,7 +348,6 @@ shell.cmdLoginAdd = function(options)
 {
     var query = this.getQuery();
     var opts = api.getOptions({ query: this.getArgs(), options: { path: ["", "", ""], ops: {} } });
-    opts.scramble = this.isArg("-noscramble", options) ? 0 : 1;
     if (query.login && !query.name) query.name = query.login;
     api.addAccount(query, opts, function(err, data) {
         shell.exit(err, data);
@@ -361,7 +359,6 @@ shell.cmdLoginUpdate = function(options)
 {
     var query = this.getQuery();
     var opts = api.getOptions({ query: this.getArgs(), options: { path: ["", "", ""], ops: {} } });
-    opts.scramble = this.isArg("-noscramble", options) ? 0 : 1;
     api.updateAccount(query, opts, function(err, data) {
         shell.exit(err, data);
     });

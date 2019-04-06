@@ -90,7 +90,7 @@ shell.assert = function(next, err)
 //
 //   - create a user for backend testing, if the API does not require authentication skip this step:
 //
-//           ./app.sh -shell -account-add login testuser secret testpw
+//           bksh -account-add login testuser secret testpw -scramble 1
 //
 //   - configure global backend credentials
 //
@@ -99,11 +99,11 @@ shell.assert = function(next, err)
 //
 //   - to start a test command in the shell using local ./tests.js
 //
-//         ./app.sh -shell -test-run account
+//         bksh -test-run account
 //
 //   - to start a test command in the shell using custom file with tests
 //
-//         ./app.sh -shell -test-run api -test-file tests/api.js
+//         bksh -test-run api -test-file tests/api.js
 //
 shell.cmdTestRun = function(options)
 {

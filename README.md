@@ -64,7 +64,7 @@ or simply
 * Simplest way of using the backendjs, it will start the server listening on port 8000
 
         $ node
-        > var bkjs = require('backendjs')
+        > const bkjs = require('backendjs')
         > bkjs.server.start()
 
 * Access is allowed only with valid signature except urls that are explicitly allowed without it (see `api-allow` config parameter below)
@@ -101,7 +101,7 @@ or simply
 
 * To add users from the command line
 
-        bksh -account-add login test secret test name TestUser email test@test.com
+        bksh -account-add login test secret test name TestUser email test@test.com -scramble 1
 
 * By default no external modules are loaded so it needs the accounts module with a
   parameter `-allow-modules PATTERN`, this will load all modules that match the pattern, default modules start with `bk_`:
@@ -110,14 +110,15 @@ or simply
 
 * To start Node.js shell with backendjs loaded and initialized, all command line parameters apply to the shell as well
 
-        ./app.sh -shell
+        bkjs shell
 
 * To access the database while in the shell
 
-        > db.select("bk_account", {}, function(err, rows, info) { console.log(err, rows) });
+        > db.select("bk_account", {}, function(err, rows, info) { console.log(err, rows, info) });
         > db.select("bk_account", {}, lib.log);
         > db.add("bk_account", { login: 'test2', secret: 'test2', name' Test 2 name', gender: 'f' }, lib.log);
         > db.select("bk_account", { gender: 'm' }, lib.log);
+        > db.select("bk_account", { gender: ['m','f'] }, { ops: { gender: "in" } }, lib.log);
 
 ## To run an example
 
@@ -209,10 +210,10 @@ which makes it easy to refer and extend with additional methods and structures.
 The typical structure of a backendjs application is the following:
 
 ```javascript
-    var bkjs = require('backendjs');
-    var api = bkjs.api;
-    var app = bkjs.app;
-    var db = bkjs.db;
+    const bkjs = require('backendjs');
+    const api = bkjs.api;
+    const app = bkjs.app;
+    const db = bkjs.db;
 
     app.listArg = [];
 
@@ -243,7 +244,7 @@ The typical structure of a backendjs application is the following:
           // are loaded and the request requires it
           api.sendReply(res, err);
           // or with custom status and message, explicitely translated
-          api.sendReply(res, 404, res.__("not found"));
+          api.sendReply(res, 404, res.__({ phrase: "not found", locale: "fr" }));
 
           // with config check
           if (app.intArg > 5) ...
@@ -302,38 +303,41 @@ Once loaded they have the same access to the backend as the rest of the code, th
 can be shipped regardless of the npm, node modules and other env setup. These modules are exposed in the `core.modules` the same way as all other core submodules
 methods.
 
-Let's assume the modules/ contains file facebook.js which implements custom FB logic:
+Let's assume the `modules/` contains file facebook.js which implements custom FB logic:
 
 ```javascript
-     var bkjs = require("backendjs");
-     var fb = {
-     }
-     module.exports = fb;
+    const bkjs = require("backendjs");
+    const fb = {
+        args: [
+            { name: "token", descr: "API token" },
+        ]
+    }
+    module.exports = fb;
 
-     fb.configureWeb = function(options, callback) {
+    fb.configureWeb = function(options, callback) {
        ...
-     }
+    }
 
-     fb.makeRequest = function(options, callback) {
-       ...
-     }
+    fb.makeRequest = function(options, callback) {
+         bkjs.core.sendRequest({ url: options.path, query: { access_token: fb.token } }, callback);
+    }
 ```
 
 This is the main app code:
 
 ```javascript
-    var bkjs = require("backendjs");
-    var core = bkjs.core;
+    const bkjs = require("backendjs");
+    const core = bkjs.core;
 
     // Using facebook module in the main app
     api.app.get("some url", function(req, res) {
 
-       core.modules.facebook.makeRequest({}, function(err, data) {
-          ...
+       core.modules.facebook.makeRequest({ path: "/me" }, function(err, data) {
+          bkjs.api.sendJSON(req, err, data);
        });
     });
 
-    bkj.server.start()
+    bkj.server.start();
 ```
 
 ## NPM packages as modules
@@ -432,7 +436,7 @@ hooks are registered and return data itself then it is the hook responsibility t
 To define tables inside a module just provide a `tables` property in the module object, it will be picked up by database initialization automatically.
 
 ```javascript
-var mod = {
+const mod = {
     name: "billing",
     tables: {
        invoices: {
@@ -487,11 +491,11 @@ operations like add/update/delete a record, show all records.
 Create a file named `app.js` with the code below.
 
 ```javascript
-    var bkjs = require('backendjs');
-    var api = bkjs.api;
-    var lib = bkjs.lib;
-    var app = bkjs.app;
-    var db = bkjs.db;
+    const bkjs = require('backendjs');
+    const api = bkjs.api;
+    const lib = bkjs.lib;
+    const app = bkjs.app;
+    const db = bkjs.db;
 
     // Describe the table to store todo records
     db.describeTables({

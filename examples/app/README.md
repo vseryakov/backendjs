@@ -6,7 +6,7 @@
 
 2. Create a user
 
-        bksh -etc-dir $(pwd)/etc -account-add login admin secret admin
+        bksh -etc-dir $(pwd)/etc -account-add login admin secret admin -scramble 1
 
 3. Run the app
 
