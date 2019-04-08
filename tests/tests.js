@@ -1408,6 +1408,9 @@ tests.test_auth = function(callback)
         "-api-deny-authenticated", "^/authdeny",
         "-api-deny-acl-authenticated", "deny2",
         "-api-acl-only1", "^/user/only",
+        "-api-acl-errmsg-only1", "only1 allowed",
+        "-api-acl-errmsg-manager", "managers only",
+        "-api-path-errmsg-/allow2", "not allowed",
     ];
     api.resetAcl();
     core.parseArgs(argv);
@@ -1448,6 +1451,7 @@ tests.test_auth = function(callback)
         req.account.id = req.account.type = check.type;
         req.options.path = check.path;
         api.checkAuthorization(req, { status: check.type ? 200 : 417 }, (err) => {
+            if (err.status != 200) console.log(check, err);
             tests.assert(next, err.status != check.status, err, check, req);
         });
     }, callback);
