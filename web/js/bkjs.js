@@ -49,14 +49,18 @@ var bkjs = {
 var Bkjs = bkjs;
 
 // Try to authenticate with the supplied credentials, it uses login and secret to sign the request, if not specified it uses
-// already saved credentials
+// already saved credentials. if url is passed then it sends data in POST request to the specified url without any signature.
 bkjs.login = function(options, callback)
 {
     if (typeof options == "function") callback = options, options = {};
-    if (!options) options = {};
-    if (typeof options.login =="string" && typeof options.secret == "string") this.setCredentials(options);
-    options.url = "/auth?_session=" + this.session;
-    options.jsonType = "obj";
+    options = this.objClone(options, "jsonType", "obj");
+    if (options.url) {
+        options.type = "POST";
+        options.nosignature = 1;
+    } else {
+        if (typeof options.login =="string" && typeof options.secret == "string") this.setCredentials(options);
+        options.url = "/auth?_session=" + this.session;
+    }
     this.send(options, function(data) {
         bkjs.loggedIn = true;
         for (var p in data) bkjs.account[p] = data[p];
