@@ -234,13 +234,13 @@ bkjs.send = function(options, onsuccess, onerror)
     for (var h in this.headers) if (typeof options.headers[h] == "undefined") options.headers[h] = this.headers[h];
     for (var d in options.data) if (typeof options.data[d] == "undefined") delete options.data[d];
     $(bkjs).trigger("bkjs.loading", "show");
-    $.ajax(options);
+    return $.ajax(options);
 }
 
 // Make a request and use single callback with error as the first argument or null if no error
 bkjs.sendRequest = function(options, callback)
 {
-    this.send(options, function(data, xhr) {
+    return this.send(options, function(data, xhr) {
         if (typeof callback == "function") callback.call(options.self || bkjs, null, data, xhr);
     }, function(err, xhr) {
         var data = options.jsonType == "list" ? [] : options.jsonType == "obj" ? {} : null;
