@@ -66,6 +66,8 @@ mod.shutdownWorker = function(options, callback)
 
 mod.subscribeWorker = function(options)
 {
+    if (!this.source_pool || !this.target_pool) return;
+
     for (const i in this.tables) {
         var table = this.tables[i];
         if (table[0] == "-") {
