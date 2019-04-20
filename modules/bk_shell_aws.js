@@ -372,7 +372,7 @@ shell.cmdAwsDeleteImage = function(options)
        // Deregister existing image with the same name in the destination region
        function(next) {
            logger.log("DeregisterImage:", images);
-           if (this.isArg("-dry-run", options)) return next();
+           if (shell.isArg("-dry-run", options)) return next();
            lib.forEachSeries(images, function(img, next2) {
                aws.ec2DeregisterImage(img.imageId, { snapshots: 1 }, next2);
            }, next);
