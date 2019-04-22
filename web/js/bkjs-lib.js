@@ -310,6 +310,12 @@ bkjs.toDuration = function(mtime, options)
     return str;
 }
 
+bkjs.toSize = function(size)
+{
+    var i = Math.floor( Math.log(size) / Math.log(1024) );
+    return ( size / Math.pow(1024, i) ).toFixed(2) * 1 + ' ' + [this.__('Bytes'), this.__('KBytes'), this.__('MBytes'), this.__('GBytes'), this.__('TBytes')][i];
+}
+
 bkjs.isArray = function(val, dflt)
 {
     return Array.isArray(val) && val.length ? val : dflt;
