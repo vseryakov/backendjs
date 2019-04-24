@@ -210,7 +210,9 @@ bkjs.send = function(options, onsuccess, onerror)
             if (!json || typeof json != "object") json = {};
             break;
         }
-        if (options.alert_info) $(bkjs).trigger("bkjs.alert", ["info", options.alert_info]);
+        if (options.info_msg || options.success_msg) {
+            $(bkjs).trigger("bkjs.alert", [options.info_msg ? "info" : "success", options.info_msg || options.success_msg]);
+        }
         if (typeof onsuccess == "function") onsuccess(json, xhr);
     }
     // Parse error message
@@ -219,7 +221,7 @@ bkjs.send = function(options, onsuccess, onerror)
         var err = xhr.responseText;
         try { err = JSON.parse(xhr.responseText) } catch(e) {}
         bkjs.log('send:', xhr.status, err, statusText, errorText, options);
-        if (options.alert_info || options.alert) {
+        if (options.alert) {
             $(bkjs).trigger("bkjs.alert", ["error", (typeof options.alert == "string" && options.alert) || err || errorText || statusText]);
         }
         if (typeof onerror == "function") onerror(err || errorText || statusText, xhr, statusText, errorText);

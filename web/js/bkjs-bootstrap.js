@@ -34,6 +34,7 @@ bkjs.showAlert = function(obj, type, text, options)
     if (!text) return;
     if (!options) options = {};
     if (!bkjs._alertNum) bkjs._alertNum = 0;
+    if (type == "error") type = "danger";
     var aid = "alert-" + bkjs._alertNum++;
     var html = "<div id=" + aid + " class='alert alert-dissmisible alert-" + type + "' role='alert'>";
     if (options.icon) html += '<i class="fa fa-fw ' + options.icon + '"></i>';
@@ -266,7 +267,7 @@ bkjs.hideLogin = function()
 
 $(function() {
     $(bkjs).on("bkjs.alert", function(ev, type, msg) {
-        bkjs.showAlert(type == "error" ? "danger": "info", msg);
+        bkjs.showAlert(type, msg);
     });
     $(bkjs).on("bkjs.loading", function(ev, type) {
         bkjs.showLoading(type);
