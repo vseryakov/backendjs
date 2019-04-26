@@ -253,7 +253,7 @@ accounts.notifyAccount = function(options, callback)
           }
           msg.send(options.device_id || account.device_id, options, function(err) {
               if (!err) logger.debug("notifyAccount:", options, account);
-              if (err) logger.error("notifyAccount:", err, lib.objDescr(options), lib.objDescr(account));
+              if (err) logger.error("notifyAccount:", err, options, account);
               next(err);
           });
       },
