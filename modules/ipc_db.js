@@ -98,7 +98,7 @@ IpcDbClient.prototype.poller = function()
                     clearInterval(timer);
                     // Retain the message only in case of known fatal errors, otherwise delete it after processing, any other error
                     // is considered as undeliverable due to corruption or invalid message format...
-                    if (err && err.status >= 500) {
+                    if (!msg.noVisibility && (err && err.status >= 500)) {
                         db.update("bk_queue", { id: row.id, active: 0 }, { pool: this.options.pool });
                     } else {
                         db.del("bk_queue", { id: row.id }, { pool: this.options.pool });
