@@ -324,11 +324,20 @@ mod.addMessage = function(req, options, callback)
     });
 }
 
-mod._putMessage = function(req, query, options, callback)
+mod.putIcon = function(req, query, options, callback)
 {
-    api.putIcon(req, "icon", query.id, { prefix: 'message', type: query.mtime + ":" + query.sender }, function(err, icon, info) {
+    var iopts = lib.objClone(options, "prefix", "message", "type", query.mtime + ":" + query.sender);
+    api.putIcon(req, "icon", query.id, iopts, function(err, icon, info) {
         query.icon = icon ? 1 : 0;
         query.icon_type = icon && info && info.format;
+        query.icon_url = icon ? api.iconUrl({ prefix: iopts.prefix, id: query.id, type: iopts.type, ext: query.icon_type }) : "";
+        callback(err);
+    });
+}
+
+mod._putMessage = function(req, query, options, callback)
+{
+    this.putIcon(req, query, options, function() {
         db.add("bk_message", query, function(err) {
             if (err || options.nosent) return callback(err);
 
