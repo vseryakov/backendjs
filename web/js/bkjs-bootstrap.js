@@ -179,10 +179,16 @@ bkjs.showPrompt = function(options, callback)
             </div>\
           </div>\
         </div>');
+        var form = modal.find('form');
         var input = modal.find('input');
         if (options.value) input.val(options.value);
         modal.off().on('shown.bs.modal', function () {
             if (typeof options.onShown == "function") options.onShown(modal);
+        });
+        form.off().on("submit", function() {
+            if (callback) callback(input.val());
+            modal.modal('hide');
+            return false;
         });
         modal.find('#bkjs-prompt-ok-button').click(function(event) {
             if (callback) callback(input.val());
