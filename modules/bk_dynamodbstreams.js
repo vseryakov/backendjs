@@ -16,6 +16,7 @@ const mod = {
         { name: "tables", type: "list", onupdate: function() {if(ipc.role=="worker"&&core.role=="worker")this.subscribeWorker()}, descr: "Process streams for given tables in a worker process" },
         { name: "source-pool", descr: "DynamoDB pool for streams processing" },
         { name: "target-pool", descr: "A database pool where to sync streams" },
+        { name: "options-(.+)", obj: "options", nocamel: 1, autotype: 1, descr: "Extra options to pass to jobs and DB calls" },
         { name: "max-jobs", type: "int", descr: "Max tables to run per process at the same time" },
         { name: "auto-provision", descr: "To auto enable streams on each table set to  NEW_IMAGE | OLD_IMAGE | NEW_AND_OLD_IMAGES | KEYS_ONLY" },
         { name: "interval", type: "int", descr: "Interval in ms between stream shard processing" },
@@ -31,6 +32,10 @@ const mod = {
     ],
     jobs: [],
     running: [],
+    options: {
+        nocache: 1,
+        logger_error: { ResourceNotFoundException: "info", TrimmedDataAccessException: "info", ExpiredIteratorException: "info" },
+    },
     ttl: 86400*2,
     lockTtl: 30000,
     lockType: "stream",
@@ -97,7 +102,7 @@ mod.runJob = function(options, callback)
         return lib.tryCall(callback, "table, source_pool and target_pool must be provided", options);
     }
     logger.info("runJob:", mod.name, "started", options);
-    options = lib.objClone(options, "logger_error", { ResourceNotFoundException: "info", TrimmedDataAccessException: "info", ExpiredIteratorException: "info" });
+    options = lib.objMerge(options, this.options);
     db.getPool(options.source_pool).prepareOptions(options);
     this.jobs.push(options.table);
     var stream = { table: options.table };
