@@ -87,46 +87,162 @@ bkjs.formatJSON = function(obj, options)
     return text;
 }
 
-// Format a Date object
-bkjs.strftime = function(date, fmt, utc)
+bkjs.weekOfYear = function(date, utc)
 {
-    var self = this;
-    if (typeof date == "string") {
-        if (date.match(/^[0-9]+$/)) date = parseInt(date);
-        try { date = new Date(date); } catch(e) {}
-    } else
-        if (typeof date == "number") {
-            try { date = new Date(date); } catch(e) {}
+    date = this.toDate(date, null);
+    if (!date) return 0;
+    utc = utc ? "UTC": "";
+    var target = new Date(date.valueOf());
+    target[`set${utc}Date`](target[`get${utc}Date`]() - ((date[`get${utc}Day`]() + 6) % 7) + 3);
+    var firstThursday = target.valueOf();
+    target[`set${utc}Month`](0, 1);
+    var day = target[`get${utc}Day`]();
+    if (day != 4) target[`set${utc}Month`](0, 1 + ((4 - day) + 7) % 7);
+    return 1 + Math.ceil((firstThursday - target) / 604800000);
+}
+
+// Returns true if the given date is in DST timezone
+bkjs.isDST = function(date)
+{
+    var jan = new Date(date.getFullYear(), 0, 1).getTimezoneOffset();
+    var jul = new Date(date.getFullYear(), 6, 1).getTimezoneOffset();
+    return Math.max(jan, jul) != date.getTimezoneOffset();
+}
+
+bkjs.zeropad = function(n)
+{
+    return n > 9 ? n : '0' + n;
+}
+
+bkjs.strftimeFormat = "%Y-%m-%d %H:%M:%S %Z";
+bkjs.strftimeMap = {
+        weekDays: {
+            "": [ 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat' ]
+        },
+        weekDaysFull: {
+            "": [ 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday' ]
+        },
+        months: {
+            "": [ 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec' ]
+        },
+        monthsFull: {
+            "": [ 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December' ]
+        },
+};
+bkjs.tzMap = [
+        ["EDT", "GMT-0400", true],
+        ["EST", "GMT-0500", false],
+        ["PDT", "GMT-0700", true],
+        ["PST", "GMT-0800", false],
+        ["CDT", "GMT-0500", true],
+        ["CST", "GMT-0600", false],
+        ["MDT", "GMT-0600", true],
+        ["MST", "GMT-0700", false],
+];
+
+bkjs.strftimeConfig = {
+    a: function(t, utc, lang, tz) {
+        if (lang && !bkjs.strftimeMap.weekDays[lang]) {
+            bkjs.strftimeMap.weekDays[lang] = bkjs.strftimeMap.weekDays[""].map((x) => (bkjs.__({ phrase: x, locale: lang })));
         }
-    if (!date || isNaN(date)) return "";
-    if (!fmt) fmt = "%Y-%m-%d %H:%M:%S";
-    function zeropad(n) { return n > 9 ? n : '0' + n; }
-    var handlers = {
-        a: function(t) { return [ self.__('Sun'), self.__('Mon'), self.__('Tue'), self.__('Wed'), self.__('Thu'), self.__('Fri'), self.__('Sat') ][utc ? t.getUTCDay() : t.getDay()] },
-        A: function(t) { return [ self.__('Sunday'), self.__('Monday'), self.__('Tuesday'), self.__('Wednesday'), self.__('Thursday'), self.__('Friday'), self.__('Saturday') ][utc ? t.getUTCDay() : t.getDay()] },
-        b: function(t) { return [ self.__('Jan'), self.__('Feb'), self.__('Mar'), self.__('Apr'), self.__('May'), self.__('Jun'), self.__('Jul'), self.__('Aug'), self.__('Sep'), self.__('Oct'), self.__('Nov'), self.__('Dec') ][utc ? t.getUTCMonth() : t.getMonth()] },
-        B: function(t) { return [ self.__('January'), self.__('February'), self.__('March'), self.__('April'), self.__('May'), self.__('June'), self.__('July'), self.__('August'), self.__('September'), self.__('October'), self.__('November'), self.__('December') ][utc ? t.getUTCMonth() : t.getMonth()] },
-        c: function(t) { return utc ? t.toUTCString() : t.toString() },
-        d: function(t) { return zeropad(utc ? t.getUTCDate() : t.getDate()) },
-        H: function(t) { return zeropad(utc ? t.getUTCHours() : t.getHours()) },
-        I: function(t) { return zeropad(((utc ? t.getUTCHours() : t.getHours()) + 12) % 12) },
-        m: function(t) { return zeropad((utc ? t.getUTCMonth() : t.getMonth()) + 1) }, // month-1
-        M: function(t) { return zeropad(utc ? t.getUTCMinutes() : t.getMinutes()) },
-        p: function(t) { return this.H(t) < 12 ? 'AM' : 'PM'; },
-        S: function(t) { return zeropad(utc ? t.getUTCSeconds() : t.getSeconds()) },
-        L: function(t) { return zeropad(utc ? t.getUTCMilliseconds() : t.getMilliseconds()) },
-        w: function(t) { return utc ? t.getUTCDay() : t.getDay() }, // 0..6 == sun..sat
-        W: function(t) { var d = utc ? Date.UTC(utc ? t.getUTCFullYear() : t.getFullYear(), 0, 1) : new Date(t.getFullYear(), 0, 1); return Math.ceil((((t - d) / 86400000) + d.getDay() + 1) / 7); },
-        y: function(t) { return zeropad(this.Y(t) % 100); },
-        Y: function(t) { return utc ? t.getUTCFullYear() : t.getFullYear() },
-        t: function(t) { return t.getTime() },
-        u: function(t) { return Math.floor(t.getTime()/1000) },
-        Z: function(t) { return "GMT" + (t.getTimezoneOffset() < 0 ? "+" : "-") + zeropad(Math.abs(-t.getTimezoneOffset()/60)) + "00" },
-        Q: function(t) { var h = utc ? t.getUTCHours() : t.getHours(); return h < 12 ? self.__("Morning") : h < 17 ? self.__("Afternoon") : self.__("Evening") },
-        '%': function(t) { return '%' },
-    };
-    for (var h in handlers) {
-        fmt = fmt.replace('%' + h, handlers[h](date));
+        return bkjs.strftimeMap.weekDays[lang || ""][utc ? t.getUTCDay() : t.getDay()]
+    },
+    A: function(t, utc, lang, tz) {
+        if (lang && !bkjs.strftimeMap.weekDaysFull[lang]) {
+            bkjs.strftimeMap.weekDaysFull[lang] = bkjs.strftimeMap.weekDaysFull[""].map((x) => (bkjs.__({ phrase: x, locale: lang })));
+        }
+        return bkjs.strftimeMap.weekDaysFull[lang || ""][utc ? t.getUTCDay() : t.getDay()]
+    },
+    b: function(t, utc, lang, tz) {
+        if (lang && !bkjs.strftimeMap.months[lang]) {
+            bkjs.strftimeMap.months[lang] = bkjs.strftimeMap.months[""].map((x) => (bkjs.__({ phrase: x, locale: lang })));
+        }
+        return bkjs.strftimeMap.months[lang || ""][utc ? t.getUTCMonth() : t.getMonth()]
+    },
+    B: function(t, utc, lang, tz) {
+        if (lang && !bkjs.strftimeMap.monthsFull[lang]) {
+            bkjs.strftimeMap.monthsFull[lang] = bkjs.strftimeMap.monthsFull[""].map((x) => (bkjs.__({ phrase: x, locale: lang })));
+        }
+        return bkjs.strftimeMap.monthsFull[lang || ""][utc ? t.getUTCMonth() : t.getMonth()]
+    },
+    c: function(t, utc, lang, tz) {
+        return utc ? t.toUTCString() : t.toString()
+    },
+    d: function(t, utc, lang, tz) {
+        return bkjs.zeropad(utc ? t.getUTCDate() : t.getDate())
+    },
+    H: function(t, utc, lang, tz) {
+        return bkjs.zeropad(utc ? t.getUTCHours() : t.getHours())
+    },
+    I: function(t, utc, lang, tz) {
+        return bkjs.zeropad(((utc ? t.getUTCHours() : t.getHours()) + 12) % 12)
+    },
+    L: function(t, utc, lang, tz) {
+        return bkjs.zeropad(utc ? t.getUTCMilliseconds() : t.getMilliseconds())
+    },
+    m: function(t, utc, lang, tz) {
+        return bkjs.zeropad((utc ? t.getUTCMonth() : t.getMonth()) + 1)
+    }, // month-1
+    M: function(t, utc, lang, tz) {
+        return bkjs.zeropad(utc ? t.getUTCMinutes() : t.getMinutes())
+    },
+    p: function(t, utc, lang, tz) {
+        return (utc ? t.getUTCHours() : t.getHours()) < 12 ? 'AM' : 'PM';
+    },
+    S: function(t, utc, lang, tz) {
+       return bkjs.zeropad(utc ? t.getUTCSeconds() : t.getSeconds())
+   },
+    w: function(t, utc, lang, tz) {
+        return utc ? t.getUTCDay() : t.getDay()
+    }, // 0..6 == sun..sat
+    W: function(t, utc, lang, tz) {
+        return bkjs.zeropad(bkjs.weekOfYear(t, utc))
+    },
+    y: function(t, utc, lang, tz) {
+        return bkjs.zeropad(t.getYear() % 100);
+    },
+    Y: function(t, utc, lang, tz) {
+        return utc ? t.getUTCFullYear() : t.getFullYear()
+    },
+    t: function(t, utc, lang, tz) {
+        return t.getTime()
+    },
+    u: function(t, utc, lang, tz) {
+        return Math.floor(t.getTime()/1000)
+    },
+    Z: function(t, utc, lang, tz) {
+        tz = tz ? tz/60000 : t.getTimezoneOffset();
+        return "GMT" + (tz < 0 ? "+" : "-") + bkjs.zeropad(Math.abs(-tz/60)) + "00";
+    },
+    z: function(t, utc, lang, tz) {
+        tz = tz ? tz/60000 : t.getTimezoneOffset();
+        tz = "GMT" + (tz < 0 ? "+" : "-") + bkjs.zeropad(Math.abs(-tz/60)) + "00";
+        var dst = bkjs.isDST(t);
+        for (const i in bkjs.tzMap) {
+            if (tz == bkjs.tzMap[i][1] && (dst === bkjs.tzMap[i][2])) return bkjs.tzMap[i][0];
+        }
+        return tz;
+    },
+    Q: function(t, utc, lang, tz) {
+        var h = utc ? t.getUTCHours() : t.getHours();
+        return h < 12 ? bkjs.__({ phrase: "Morning", locale: lang }) :
+               h < 17 ? bkjs.__({ phrase: "Afternoon", locale: lang }) :
+               bkjs.__({ phrase: "Evening", locale: lang }) },
+    '%': function() { return '%' },
+};
+
+// Format a Date object
+bkjs.strftime = function(date, fmt, options)
+{
+    date = this.toDate(date, null);
+    if (!date) return "";
+    var utc = options && options.utc;
+    var lang = options && options.lang;
+    var tz = options && typeof options.tz == "number" ? options.tz : 0;
+    if (tz) date = new Date(date.getTime() - tz);
+    fmt = fmt || this.strftimeFormat;
+    for (const p in this.strftimeConfig) {
+        fmt = fmt.replace('%' + p, this.strftimeConfig[p](date, utc, lang, tz));
     }
     return fmt;
 }
@@ -218,17 +334,19 @@ bkjs.series = function(tasks, callback)
     });
 }
 
-// Parse the input and convert into a Date object
-bkjs.toDate = function(val, dflt)
+// Return Date object for given text or numeric date representation, for invalid date returns 1969 unless `invalid` parameter is given,
+// in this case invalid date returned as null. If `dflt` is NaN, null or 0 returns null as well.
+bkjs.toDate = function(val, dflt, invalid)
 {
     if (val && typeof val.getTime == "function") return val;
-    var d = null;
+    var d = NaN;
     // String that looks like a number
-    if (typeof val == "string" && /^[0-9\.]+$/.test(val)) val = this.toNumber(val);
+    if (typeof val == "string" && /^[0-9.]+$/.test(val)) val = this.toNumber(val);
     // Assume it is seconds which we use for most mtime columns, convert to milliseconds
     if (typeof val == "number" && val < 2147483647) val *= 1000;
-    try { d = new Date(val); } catch(e) {}
-    return !isNaN(d) ? d : new Date(dflt || 0);
+    if (typeof val != "string" && typeof val != "number") val = d;
+    if (val) try { d = new Date(val); } catch(e) {}
+    return !isNaN(d) ? d : invalid || (dflt !== undefined && isNaN(dflt)) || dflt === null || dflt === 0 ? null : new Date(dflt || 0);
 }
 
 // Returns a human representation of an age for the given timestamp in milliseconds
@@ -608,18 +726,18 @@ bkjs.objClone = function()
 // Simple i18n translation method compatible with other popular modules, supports the following usage:
 // - __(name)
 // - __(fmt, arg,...)
-// - __("", locale: "" }, arg...
+// - __({ phrase: "", locale: "" }, arg...
 //
 bkjs.__ = function()
 {
     var lang = this.account.lang;
     var msg = arguments[0];
 
-    if (typeof arguments[0] === "object" && arguments[0].phrase) {
-        msg = arguments[0].phrase;
-        lang = arguments[0].locale || lang;
+    if (typeof msg === "object" && msg.phrase) {
+        lang = msg.locale || lang;
+        msg = msg.phrase;
     }
-    msg = (this.locales[lang] && this.locales[lang][msg]) || msg;
+    msg = (lang && this.locales[lang] && this.locales[lang][msg]) || msg;
     if (arguments.length == 1) return msg;
     return this.sprintf(msg, Array.prototype.slice.call(arguments, 1));
 }
