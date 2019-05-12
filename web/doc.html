@@ -196,7 +196,7 @@ applications but still part of the core of the system to be available once neede
 <ul>
 <li><p>Simplest way of using the backendjs, it will start the server listening on port 8000</p>
 <pre><code>  $ node
-  &gt; var bkjs = require(&#39;backendjs&#39;)
+  &gt; const bkjs = require(&#39;backendjs&#39;)
   &gt; bkjs.server.start()</code></pre></li>
 <li><p>Access is allowed only with valid signature except urls that are explicitly allowed without it (see <code>api-allow</code> config parameter below)</p>
 </li>
@@ -222,17 +222,18 @@ it is called only inside a master process, a worker never creates tables on star
 <li><p>While the local backendjs is runnning, the documentation is always available at <a href="http://localhost:8000/doc.html">http://localhost:8000/doc.html</a> (or whatever port is the server using)</p>
 </li>
 <li><p>To add users from the command line</p>
-<pre><code>  bksh -account-add login test secret test name TestUser email test@test.com</code></pre></li>
+<pre><code>  bksh -account-add login test secret test name TestUser email test@test.com -scramble 1</code></pre></li>
 <li><p>By default no external modules are loaded so it needs the accounts module with a
 parameter <code>-allow-modules PATTERN</code>, this will load all modules that match the pattern, default modules start with <code>bk_</code>:</p>
 <pre><code>  bkjs web -allow-modules bk_</code></pre></li>
 <li><p>To start Node.js shell with backendjs loaded and initialized, all command line parameters apply to the shell as well</p>
-<pre><code>  ./app.sh -shell</code></pre></li>
+<pre><code>  bkjs shell</code></pre></li>
 <li><p>To access the database while in the shell</p>
-<pre><code>  &gt; db.select(&quot;bk_account&quot;, {}, function(err, rows, info) { console.log(err, rows) });
+<pre><code>  &gt; db.select(&quot;bk_account&quot;, {}, function(err, rows, info) { console.log(err, rows, info) });
   &gt; db.select(&quot;bk_account&quot;, {}, lib.log);
   &gt; db.add(&quot;bk_account&quot;, { login: &#39;test2&#39;, secret: &#39;test2&#39;, name&#39; Test 2 name&#39;, gender: &#39;f&#39; }, lib.log);
-  &gt; db.select(&quot;bk_account&quot;, { gender: &#39;m&#39; }, lib.log);</code></pre></li>
+  &gt; db.select(&quot;bk_account&quot;, { gender: &#39;m&#39; }, lib.log);
+  &gt; db.select(&quot;bk_account&quot;, { gender: [&#39;m&#39;,&#39;f&#39;] }, { ops: { gender: &quot;in&quot; } }, lib.log);</code></pre></li>
 </ul>
 <h2 id="to-run-an-example">To run an example</h2>
 <ul>
@@ -309,10 +310,10 @@ processing of the data is needed before sending it to the user, it is possible t
 <p>Special module/namespace <code>app</code> is designated to be used for application development/extension. This module is available in the same way as <code>api</code> and <code>core</code>
 which makes it easy to refer and extend with additional methods and structures.</p>
 <p>The typical structure of a backendjs application is the following:</p>
-<pre><code class="language-javascript">    var bkjs = require(&#39;backendjs&#39;);
-    var api = bkjs.api;
-    var app = bkjs.app;
-    var db = bkjs.db;
+<pre><code class="language-javascript">    const bkjs = require(&#39;backendjs&#39;);
+    const api = bkjs.api;
+    const app = bkjs.app;
+    const db = bkjs.db;
 
     app.listArg = [];
 
@@ -343,7 +344,7 @@ which makes it easy to refer and extend with additional methods and structures.<
           // are loaded and the request requires it
           api.sendReply(res, err);
           // or with custom status and message, explicitely translated
-          api.sendReply(res, 404, res.__(&quot;not found&quot;));
+          api.sendReply(res, 404, res.__({ phrase: &quot;not found&quot;, locale: &quot;fr&quot; }));
 
           // with config check
           if (app.intArg &gt; 5) ...
@@ -389,32 +390,35 @@ small and because they monitor workers the less code they have the better.</p>
   -allow-modules-master &#39;bk_accounts|bk_debug&#39;</code></pre><p>Once loaded they have the same access to the backend as the rest of the code, the only difference is that they reside in the backend home and
 can be shipped regardless of the npm, node modules and other env setup. These modules are exposed in the <code>core.modules</code> the same way as all other core submodules
 methods.</p>
-<p>Let&#39;s assume the modules/ contains file facebook.js which implements custom FB logic:</p>
-<pre><code class="language-javascript">     var bkjs = require(&quot;backendjs&quot;);
-     var fb = {
-     }
-     module.exports = fb;
+<p>Let&#39;s assume the <code>modules/</code> contains file facebook.js which implements custom FB logic:</p>
+<pre><code class="language-javascript">    const bkjs = require(&quot;backendjs&quot;);
+    const fb = {
+        args: [
+            { name: &quot;token&quot;, descr: &quot;API token&quot; },
+        ]
+    }
+    module.exports = fb;
 
-     fb.configureWeb = function(options, callback) {
+    fb.configureWeb = function(options, callback) {
        ...
-     }
+    }
 
-     fb.makeRequest = function(options, callback) {
-       ...
-     }</code></pre>
+    fb.makeRequest = function(options, callback) {
+         bkjs.core.sendRequest({ url: options.path, query: { access_token: fb.token } }, callback);
+    }</code></pre>
 <p>This is the main app code:</p>
-<pre><code class="language-javascript">    var bkjs = require(&quot;backendjs&quot;);
-    var core = bkjs.core;
+<pre><code class="language-javascript">    const bkjs = require(&quot;backendjs&quot;);
+    const core = bkjs.core;
 
     // Using facebook module in the main app
     api.app.get(&quot;some url&quot;, function(req, res) {
 
-       core.modules.facebook.makeRequest({}, function(err, data) {
-          ...
+       core.modules.facebook.makeRequest({ path: &quot;/me&quot; }, function(err, data) {
+          bkjs.api.sendJSON(req, err, data);
        });
     });
 
-    bkj.server.start()</code></pre>
+    bkj.server.start();</code></pre>
 <h2 id="npm-packages-as-modules">NPM packages as modules</h2>
 <p>In case different modules is better keep separately for maintenance or development purposes they can be split into
 separate NPM packages, the structure is the same, modules must be in the modules/ folder and the package must be loadable
@@ -495,7 +499,7 @@ hooks are registered and return data itself then it is the hook responsibility t
        if (row.birthday) row.age = Math.floor((Date.now() - core.toDate(row.birthday))/(86400000*365));
     }</code></pre>
 <p>To define tables inside a module just provide a <code>tables</code> property in the module object, it will be picked up by database initialization automatically.</p>
-<pre><code class="language-javascript">var mod = {
+<pre><code class="language-javascript">const mod = {
     name: &quot;billing&quot;,
     tables: {
        invoices: {
@@ -537,11 +541,11 @@ the type or ignored.</p>
 <p>Here is an example how to create simple TODO application using any database supported by the backend. It supports basic
 operations like add/update/delete a record, show all records.</p>
 <p>Create a file named <code>app.js</code> with the code below.</p>
-<pre><code class="language-javascript">    var bkjs = require(&#39;backendjs&#39;);
-    var api = bkjs.api;
-    var lib = bkjs.lib;
-    var app = bkjs.app;
-    var db = bkjs.db;
+<pre><code class="language-javascript">    const bkjs = require(&#39;backendjs&#39;);
+    const api = bkjs.api;
+    const lib = bkjs.lib;
+    const app = bkjs.app;
+    const db = bkjs.db;
 
     // Describe the table to store todo records
     db.describeTables({
@@ -2415,6 +2419,8 @@ Database pool statistics and other diagnostics</p>
 <li><code>api-ignore-allow-acl</code> - Combine regexps from the specified acls for the check explained by <code>-ignore-allow-path</code> parameter</li>
 <li><code>api-allow-ip</code> - Set regexp for IPs that dont need credentials, replaces the whole access list. It is checked before endpoint access list</li>
 <li><code>api-deny-ip</code> - Set regexp for IPs that will be denied access, replaces the whole access list. It is checked before endpoint access list.</li>
+<li><code>api-path-errmsg-(.+)</code> - Error message to return for the specified path for authentication failures</li>
+<li><code>api-acl-errmsg-([a-z0-9_]+)</code> - Error message to return for the specified acl for authentication failures</li>
 <li><code>api-redirect-ssl</code> - Add to the list of the URL paths to be redirected to the same path but using HTTPS protocol, for proxy mode the proxy server will perform redirects</li>
 <li><code>api-redirect-url</code> - Add to the list a JSON object with property name defining a host/path regexp to be matched early against in order to redirect using the value of the property, if the regexp starts with !, that means negative match, 2 variables can be used for substitution: @HOST@, @PATH@, @URL@, @BASE@, @DIR@, @QUERY@, example: { &#39;^[^/]+/path/$&#39;: &#39;/path2/index.html&#39;, &#39;.+/$&#39;: &#39;@PATH@/index.html&#39; } </li>
 <li><code>api-subscribe-timeout</code> - Timeout for Long POLL subscribe listener, how long to wait for events before closing the connection, milliseconds</li>
@@ -2504,9 +2510,6 @@ Database pool statistics and other diagnostics</p>
           secret: { secure: 1 },                              // Signature secret or scrambled password
           auth_secret: { admin: 1, secure: 1 },               // Code for 2-factor authentication
           session_secret: { admin: 1, secure: 1 },            // Secret for session signatures
-          acl_deny: { admin: 1, secure: 1 },                  // Deny access to matched url, a regexp
-          acl_allow: { admin: 1, secure: 1 },                 // Only grant access if path matches this regexp
-          query_deny: { admin: 1, secure: 1 },                // Ignore these query params, a regexp
           rlimits_max: { type: &quot;int&quot; },                       // Burst/max reqs/sec rate allowed for this account, 0 to disable
           rlimits_rate: { type: &quot;int&quot; },                      // Fill/normal reqs/sec rate for this account, 0 to disable
           expires: { type: &quot;bigint&quot;, admin: 1, secure: 1 },   // Deny access to the account if this value is before current date, milliseconds
@@ -2652,7 +2655,7 @@ if no redirects or errors happend, otherwise an object with status that is expec
 The options is expected to contain the following cached request properties:</p>
 <ul>
 <li>path - from req.path or the request pathname only</li>
-<li>host - from req.host or the hostname part only</li>
+<li>host - from req.hostname or the hostname part only</li>
 <li>port - port from the host: header if specified</li>
 <li>secure - if the protocol is https</li>
 </ul>
@@ -2770,7 +2773,7 @@ all the supported options are defined in the <code>api.controls</code> and can b
 
 <ul>
 <li><p><code>api.getQuery(req, params, controls)</code></p>
-<p> Parse query parameters according to the <code>params</code>, optionally process control parameters if <code>controls</code> si specified, this call combines
+<p> Parse query parameters according to the <code>params</code>, optionally process control parameters if <code>controls</code> is specified, this call combines
 <code>lib.toParams()</code> with <code>api.getOptions</code>. Returns a query object or an error message, on success all controls will be set in the <code>req.options</code></p>
 <pre><code>  var query = api.getQuery(req, { q: { required: 1 } }, { _count: { type: &quot;int&quot;, min: 10, max: 25 } });</code></pre></li>
 </ul>
@@ -3265,6 +3268,13 @@ The status property is passed to each hook in the chain, the result status will 
 <ul>
 <li><p><code>api.getFile(req, file, options)</code></p>
 <p> Send a file to the client</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.readFile(file, options, callback)</code></p>
+<p> Returns contents of a file, all specific parameters are passed as is, the contents of the file is returned to the callback,
+see <code>lib.readFile</code> or <code>aws.s3GetFile</code> for specific options.</p>
 </li>
 </ul>
 
@@ -3939,6 +3949,23 @@ The argumernts specify the following:</p>
 <li>name - a metric name</li>
 <li>namespace - limit by namespace: AWS/AutoScaling, AWS Billing, AWS/CloudFront, AWS/DynamoDB, AWS/ElastiCache, AWS/EBS, AWS/EC2, AWS/ELB, AWS/ElasticMapReduce, AWS/Kinesis, AWS/OpsWorks, AWS/Redshift, AWS/RDS, AWS/Route53, AWS/SNS, AWS/SQS, AWS/SWF, AWS/StorageGateway</li>
 </ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.cwGetMetricData(options, callback)</code></p>
+<p> Return collected metric statistics</p>
+<p>Options:</p>
+<ul>
+<li>start_time - starting timestamp</li>
+<li>end_time - ending timestamp</li>
+<li>period - aggregation period in seconds, default is 60</li>
+<li>age - number of hours to go back in case end_time is not specified, fraction can be used, default is 1h if no timestamp are given</li>
+<li>namespace - namespace for all metrics, default is AWS/EC2</li>
+<li>metrics - a list with metrics to retrieve: { name: &quot;..&quot;, stat: &quot;..&quot;, dimensions: { key: val, ...}, [namespace: &quot;..&quot;], [label: &quot;..&quot;&quot;] }</li>
+</ul>
+<p>Example:</p>
+<p>   aws.cwGetMetricData({ age: 5, metrics: [{ name: &quot;NetworkOut&quot;, label: &quot;Traffic&quot;, stat: &quot;Average&quot;, dimensions: { InstanceId: &quot;i-1234567&quot; } } ] }, lib.log)</p>
 </li>
 </ul>
 
@@ -4708,8 +4735,7 @@ in the options back to the caller.</p>
 <ul>
 <li>allowModules - a regexp of the modules names to be called only</li>
 <li>stopOnError - on first error stop and return, otherwise all errors are ignored and all modules are processed</li>
-<li>errorLogger - options for the logger on error, if not specified an error with status 200 will be reported with
-log level &#39;info&#39; and other errors with level &#39;error&#39;, the level is specified by the &#39;log&#39; property, the rest will be passed to <code>lib.objDescr</code></li>
+<li>logger_error - logger level, if not specified an error with status 200 will be reported with log level &#39;info&#39; and other errors with level &#39;error&#39;</li>
 <li>stopFilter - a function to be called after each pass to check if the processing must be stopped, it must return true to stop</li>
 <li>parallel - if true run methods for all modules in parallel</li>
 <li>concurrency - if a number greater than 1 run that many methods in parallel</li>
@@ -5147,7 +5173,7 @@ also can be a list where each item is an object with primary key condition. Only
  table for the same id only one instance will be returned</li>
 <li>cacheKey - exlicit key for caching, return from the cche or from the DB and then cache it with this key, works the same as <code>get</code></li>
 <li>cacheKeyName - a name of one of the cache keys to use, it must be defined by a <code>db-cache-keys-table-name</code> parameter</li>
-<li>nocache - do not use cache even if cche key is given</li>
+<li>nocache - do not use cache even if cache key is given</li>
 </ul>
 </li>
 </ul>
@@ -6494,7 +6520,7 @@ supported prefixes are: queue, cache</p>
 
 <ul>
 <li><p><code>Ipc.prototype.getQueue(name)</code></p>
-<p> Return queue object by name, if name is wrong the default queue us returned</p>
+<p> Return queue object by name, if name is wrong the default queue is returned</p>
 </li>
 </ul>
 
@@ -6883,6 +6909,12 @@ A job message is an object that defines what method from which module to run wit
 </ul>
 
 <ul>
+<li><p><code>jobs.exitWorker(options)</code></p>
+<p> Perform graceful worker shutdown and then exit the process</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>jobs.initServer(options, callback)</code></p>
 <p> Initialize a master that will manage jobs workers</p>
 </li>
@@ -6891,12 +6923,6 @@ A job message is an object that defines what method from which module to run wit
 <ul>
 <li><p><code>jobs.initWorker(options, callback)</code></p>
 <p> Initialize a worker for processing jobs</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>jobs.exitWorker(options)</code></p>
-<p> Perform graceful worker shutdown and then exit the process</p>
 </li>
 </ul>
 
@@ -6954,6 +6980,7 @@ finished, non unique jobs will be kept in the queue and repeated later according
 <p><code>jobspec.uniqueTag</code> defines additional tag to be used for job cancelling, for cases when multiple jobs are running with the same method</p>
 <p>if <code>jobspec.uniqueOnce</code> is true than the visibility timeout is not kept alive while the job is running</p>
 <p><code>jobspec.noWait</code> will run the job and delete it from the queue immediately, not at the end, for one-off jobs</p>
+<p><code>jobspec.noVisibility</code> will always delete messages after processing, ignore 600 errors as well</p>
 <p><code>jobspec.startTime</code> and/or <code>jobspec.endTime</code> will define the time period during whihc this job is allowed to run, if
 outside the period it will be dropped</p>
 <p><code>options.delay</code> is only supported by SQS currently, it delays the job execution for the specified amount of ms</p>
@@ -7226,6 +7253,12 @@ flags or an object with the following properties:</p>
 </ul>
 
 <ul>
+<li><p><code>lib.toSize(size)</code></p>
+<p> Return size human readable format</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>lib.toParams(query, schema, options)</code></p>
 <p> Process incoming query and convert parameters according to the type definition, the schema contains the definition of the paramaters against which to
 validate incoming data. It is an object with property names and definitoons that at least must specify the type, all other options are type specific.</p>
@@ -7257,6 +7290,7 @@ or the default message, this is useful for detection of invalid or missing input
                                           internal: { ignore: 1 },
                                           tm: { type:&quot; timestamp&quot;, optional: 1 },
                                           status: { value: &quot;ready&quot; },
+                                          mode: &quot;ok&quot;,
                                           state: { values: [&quot;ok&quot;,&quot;bad&quot;,&quot;good&quot;] },
                                           status: { value: [{ name: &quot;state&quot;, value: &quot;ok&quot;, set: &quot;1&quot; }, { name: &quot;state&quot;, value: [&quot;bad&quot;,&quot;good&quot;], op: &quot;in&quot; }],
                                           obj: { type: &quot;obj&quot;, params: { id: { type: &quot;int&quot; }, name: {} } },
@@ -7868,6 +7902,12 @@ Optional third parameter indicates the number of decimal points to return:</p>
 </ul>
 
 <ul>
+<li><p><code>lib.isDST(date)</code></p>
+<p> Returns true if the given date is in DST timezone</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>lib.strftime(date, fmt, options)</code></p>
 <p> Format date object</p>
 </li>
@@ -7907,6 +7947,12 @@ this is a simple case for oneshot match and only single matched element.</p>
 <ul>
 <li><p><code>lib.testRegexp(str, rx)</code></p>
 <p> Perform test on a regexp for a string and returns true only if matched.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.testRegexpObj(str, rx)</code></p>
+<p> Run test on a regexpObj</p>
 </li>
 </ul>
 
@@ -8100,6 +8146,7 @@ the third argument can be an options object that can control how the properties 
 <li>allow - a regexp which properties are allowed to be merged</li>
 <li>ignore - a regexp which properties should be ignored</li>
 <li>remove - a regexp to apply to each property name before merging, the matching parts will be removed from the name</li>
+<li>deep - extend all objects not just the top level</li>
 </ul>
 </li>
 </ul>
@@ -8273,6 +8320,12 @@ can be used without importing the child_processes module. All fatal errors are l
 <p> Run specified command with the optional arguments, this is similar to child_process.spawn with callback being called after the process exited</p>
 <p>Example</p>
 <pre><code>    lib.spawProcess(&quot;ls&quot;, &quot;-ls&quot;, { cwd: &quot;/tmp&quot; }, lib.log)</code></pre></li>
+</ul>
+
+<ul>
+<li><p><code>lib.checkRespawn(callback)</code></p>
+<p> If respawning too fast, delay otherwise call the callback after a short timeout</p>
+</li>
 </ul>
 
 <ul>
@@ -8861,12 +8914,6 @@ it runs <code>shutdown[Role]</code> methods before exiting</p>
 <ul>
 <li><p><code>server.shutdown(options, callback)</code></p>
 <p> Shutdown the system immediately, mostly to be used in the remote jobs as the last task</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>server.respawn(callback)</code></p>
-<p> If respawning too fast, delay otherwise schedule new process after short timeout</p>
 </li>
 </ul>
 
@@ -9750,14 +9797,14 @@ use the same names as command line arguments without preceeding <code>test-</cod
     # bksh -test-run mytest</code></pre><p>Custom tests:</p>
 <ul>
 <li><p>create a user for backend testing, if the API does not require authentication skip this step:</p>
-<pre><code>  ./app.sh -shell -account-add login testuser secret testpw</code></pre></li>
+<pre><code>  bksh -account-add login testuser secret testpw -scramble 1</code></pre></li>
 <li><p>configure global backend credentials</p>
 <pre><code>  echo &quot;backend-login=testuser&quot; &gt;&gt; etc/config.local
   echo &quot;backend-secret=testpw&quot; &gt;&gt; etc/config.local</code></pre></li>
 <li><p>to start a test command in the shell using local ./tests.js</p>
-<pre><code>./app.sh -shell -test-run account</code></pre></li>
+<pre><code>bksh -test-run account</code></pre></li>
 <li><p>to start a test command in the shell using custom file with tests</p>
-<pre><code>./app.sh -shell -test-run api -test-file tests/api.js</code></pre></li>
+<pre><code>bksh -test-run api -test-file tests/api.js</code></pre></li>
 </ul>
 </li>
 </ul>
