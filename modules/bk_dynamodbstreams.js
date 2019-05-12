@@ -201,6 +201,7 @@ mod.processStreamPrepare = function(req, options, callback)
         function(next, descr) {
             if (!descr || !descr.Table) return next();
             if (descr.Table.LatestStreamArn) return next();
+            if (descr.Table.TableStatus == "UPDATING") return next();
             logger.debug("processStreamPrepare:", mod.name, options.table, req.Stream, descr);
             aws.ddbUpdateTable({ name: options.table, stream: mod.autoProvision, endpoint: options.endpoint }, next);
         },
