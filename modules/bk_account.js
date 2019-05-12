@@ -351,7 +351,7 @@ accounts.addAccount = function(req, options, callback)
             });
         },
         function(next) {
-            core.runMethods("bkAddAccount", req, () => { next() });
+            core.runMethods("bkAddAccount", { account: req.account, query: req.query, options: req.options }, () => { next() });
         },
     ], function(err) {
         // Remove the record by login to make sure we can recreate it later
@@ -398,7 +398,7 @@ accounts.updateAccount = function(req, options, callback)
            db.update("bk_account", query, options, next);
        },
        function(next) {
-           core.runMethods("bkUpdateAccount", req, function() { next() });
+           core.runMethods("bkUpdateAccount", { account: req.account, query: req.query, options: req.options }, function() { next() });
        },
     ], function(err) {
         callback(err, req.query);
@@ -438,7 +438,7 @@ accounts.deleteAccount = function(req, callback)
                db.update("bk_account", rec, req.options, next);
            },
            function(next) {
-               core.runMethods("bkDeleteAccount", req, function() { next() });
+               core.runMethods("bkDeleteAccount", { account: req.account, query: req.query, options: req.options }, function() { next() });
            },
            function(next) {
                if (lib.isFlag(req.options.keep, ["all","account","bk_account"])) return next();
@@ -473,7 +473,7 @@ accounts.renameAccount = function(req, callback)
               db.update("bk_account", { id: req.account.id, name: req.account.name }, next);
           },
           function(next) {
-              core.runMethods("bkRenameAccount", req, function() { next() });
+              core.runMethods("bkRenameAccount", { account: req.account, query: req.query, options: req.options }, function() { next() });
           },
         ], callback);
     });
