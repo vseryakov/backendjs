@@ -422,7 +422,7 @@ accounts.deleteAccount = function(req, callback)
         if (err) return callback(err);
         if (!row && !req.options.force) return callback({ status: 404, message: "No account found" });
         for (var p in row) if (!req.account[p]) req.account[p] = row[p];
-        req.account.type.push("deleted");
+        req.account.type = lib.toFlags("add", req.account.type, "deleted");
         var rec = lib.objClone(req.obj, "login", req.account.login, "id", req.account.id, "type", req.account.type);
 
         lib.series([
