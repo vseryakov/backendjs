@@ -263,12 +263,17 @@ mod.processShardStart = function(req, options, callback)
             });
         },
         function(next) {
+            delete req.Shard.lastSequenceNumber;
             db.get("bk_property", { name: options.table + req.Shard.ShardId }, options, (err, row) => {
                 if (row && row.value && !options.force) {
-                    req.Shard.sequence = row.value;
-                    req.Shard.after = 1;
+                    if (req.Shard.SequenceNumberRange.StartingSequenceNumber < row.value) {
+                        req.Shard.sequence = row.value;
+                        req.Shard.after = 1;
+                    } else {
+                        req.Shard.lastSequenceNumber = row.value;
+                    }
                 }
-                logger.debug("processShardStart:", mod.name, options.table, req.Shard, req.Stream);
+                logger.debug("processShardStart:", mod.name, options.table, req.Shard, req.Stream, row);
                 next(err);
             });
         },
@@ -313,10 +318,15 @@ mod.processRecords = function(req, options, callback)
 {
     lib.series([
         function(next) {
+            // We have last sequence number lesser than starting number(local DynamoDB case),
+            // skip already saved records to keep running until the shard expires
+            if (req.Shard.lastSequenceNumber) {
+                req.Records = req.Records.filter((x) => (x.dynamodb.SequenceNumber > req.Shard.lastSequenceNumber));
+            }
             if (!req.Records.length) return next();
             lib.objIncr(options, "records", req.Records.length);
             lib.objIncr(req.Stream, "records", req.Records.length);
-            logger.info("processRecords:", mod.name, options.table, req.Shard, req.LastSequenceNumber, req.Records.length, "records");
+            logger.info("processRecords:", mod.name, options.table, req.Shard, "seq:", req.LastSequenceNumber, req.Records.length, "records");
             var bulk = req.Records.map((x) => ({ op: x.eventName == "REMOVE" ? "del" : "put", table: options.table, obj: x.dynamodb.NewImage || x.dynamodb.Keys, ddb: x.dynamodb }));
             db.bulk(bulk, { pool: options.target_pool }, next);
         },
