@@ -222,8 +222,6 @@ mod.processStreamStart = function(req, options, callback)
         },
         function(next) {
             mod.running.push(options.table);
-            req.Stream.shardId = req.Stream.lastShardId;
-            if (req.Stream.shardId) return next();
             db.get("bk_property", { name: req.Stream.StreamArn } , (err, row) => {
                 if (row && row.value && !options.force) {
                     req.Stream.shardId = req.Stream.lastShardId = row.value;
@@ -263,15 +261,10 @@ mod.processShardStart = function(req, options, callback)
             });
         },
         function(next) {
-            delete req.Shard.lastSequenceNumber;
             db.get("bk_property", { name: options.table + req.Shard.ShardId }, options, (err, row) => {
                 if (row && row.value && !options.force) {
-                    if (req.Shard.SequenceNumberRange.StartingSequenceNumber < row.value) {
-                        req.Shard.sequence = row.value;
-                        req.Shard.after = 1;
-                    } else {
-                        req.Shard.lastSequenceNumber = row.value;
-                    }
+                    req.Shard.sequence = row.value;
+                    req.Shard.after = 1;
                 }
                 logger.debug("processShardStart:", mod.name, options.table, req.Shard, req.Stream, row);
                 next(err);
@@ -290,8 +283,9 @@ mod.processShardEnd = function(req, options, callback)
         function(next) {
             if (!req.Shard.error) {
                 lib.objIncr(req.Stream, "shards");
-                // Keep the last shard id for the next iteration so we can retrieve only latest shards
-                var shardId = req.Shard.SequenceNumberRange.EndingSequenceNumber ? req.Shard.ShardId : req.Shard.ParentShardId;
+                // Keep the last closed shard id for the next iteration so we can retrieve only latest shards, need to keep
+                // the parent shard so we can be sure we will process all new children shards appeared after this pass.
+                var shardId = req.Shard.ParentShardId || req.Shard.SequenceNumberRange.EndingSequenceNumber && req.Shard.ShardId;
                 if (!req.Stream.lastShardId || shardId > req.Stream.lastShardId) {
                     req.Stream.lastShardId = shardId;
                 } else
@@ -318,11 +312,6 @@ mod.processRecords = function(req, options, callback)
 {
     lib.series([
         function(next) {
-            // We have last sequence number lesser than starting number(local DynamoDB case),
-            // skip already saved records to keep running until the shard expires
-            if (req.Shard.lastSequenceNumber) {
-                req.Records = req.Records.filter((x) => (x.dynamodb.SequenceNumber > req.Shard.lastSequenceNumber));
-            }
             if (!req.Records.length) return next();
             lib.objIncr(options, "records", req.Records.length);
             lib.objIncr(req.Stream, "records", req.Records.length);
