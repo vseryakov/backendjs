@@ -101,9 +101,9 @@ mod.runJob = function(options, callback)
     if (!options.table || !options.source_pool || !options.target_pool) {
         return lib.tryCall(callback, "table, source_pool and target_pool must be provided", options);
     }
-    logger.info("runJob:", mod.name, "started", options);
     options = lib.objMerge(options, this.options);
     db.getPool(options.source_pool).prepareOptions(options);
+    logger.info("runJob:", mod.name, "started:", options);
     this.jobs.push(options.table);
     var stream = { table: options.table };
     lib.doWhilst(
@@ -194,6 +194,7 @@ mod.processStreamPrepare = function(req, options, callback)
 {
     lib.series([
         function(next) {
+            logger.debug("processStreamPrepare:", mod.name, options.table, mod.running, mod.lockType, mod.maxJobs, req.Stream);
             if (!mod.autoProvision) return next();
             if (req.Stream.StreamArn) return next();
             aws.ddbDescribeTable(options.table, options, next);
@@ -212,7 +213,6 @@ mod.processStreamStart = function(req, options, callback)
 {
     lib.series([
         function(next) {
-            logger.debug("processStreamStart:", mod.name, options.table, mod.running, mod.lockType, mod.maxJobs, req.Stream);
             if (mod.maxJobs > 0 && mod.running.length >= mod.maxJobs) return next("maxed");
             if (mod.lockType != "stream") return next();
             mod.lock(options.table, req.Stream, options, (err, locked) => {
@@ -223,9 +223,11 @@ mod.processStreamStart = function(req, options, callback)
         function(next) {
             mod.running.push(options.table);
             db.get("bk_property", { name: req.Stream.StreamArn } , (err, row) => {
-                if (row && row.value && !options.force) {
+                if (row && row.value && !(options.force || options.stream_force || options.stream_force_once)) {
                     req.Stream.shardId = req.Stream.lastShardId = row.value;
                 }
+                delete options.stream_force_once;
+                logger.debug("processStreamStart:", mod.name, options.table, req.Stream, row);
                 next(err);
             });
         },
@@ -262,10 +264,11 @@ mod.processShardStart = function(req, options, callback)
         },
         function(next) {
             db.get("bk_property", { name: options.table + req.Shard.ShardId }, options, (err, row) => {
-                if (row && row.value && !options.force) {
+                if (row && row.value && !(options.force || options.shard_force || options.shard_force_once)) {
                     req.Shard.sequence = row.value;
                     req.Shard.after = 1;
                 }
+                delete options.shard_force_once;
                 logger.debug("processShardStart:", mod.name, options.table, req.Shard, req.Stream, row);
                 next(err);
             });
@@ -285,11 +288,12 @@ mod.processShardEnd = function(req, options, callback)
                 lib.objIncr(req.Stream, "shards");
                 // Keep the last closed shard id for the next iteration so we can retrieve only latest shards, need to keep
                 // the parent shard so we can be sure we will process all new children shards appeared after this pass.
-                var shardId = req.Shard.ParentShardId || req.Shard.SequenceNumberRange.EndingSequenceNumber && req.Shard.ShardId;
-                if (!req.Stream.lastShardId || shardId > req.Stream.lastShardId) {
-                    req.Stream.lastShardId = shardId;
-                } else
-                // This is the parent shard processed, do not try it again after the first time
+                if (req.Shard.SequenceNumberRange.EndingSequenceNumber) {
+                    if (!req.Stream.lastShardId || req.Shard.ParentShardId > req.Stream.lastShardId) {
+                        req.Stream.lastShardId = req.Shard.ParentShardId;
+                    }
+                }
+                // This is a trimed parent shard, do not try it again after the first time
                 if (!req.Shard.SequenceNumberRange.StartingSequenceNumber) {
                     mod.skipCache[options.table + req.Shard.ShardId] = Date.now();
                 }
