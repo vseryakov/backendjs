@@ -200,11 +200,18 @@ mod.processStreamPrepare = function(req, options, callback)
             aws.ddbDescribeTable(options.table, options, next);
         },
         function(next, descr) {
-            if (!descr || !descr.Table) return next();
-            if (descr.Table.LatestStreamArn) return next();
-            if (descr.Table.TableStatus == "UPDATING") return next();
-            logger.debug("processStreamPrepare:", mod.name, options.table, req.Stream, descr);
-            aws.ddbUpdateTable({ name: options.table, stream: mod.autoProvision, endpoint: options.endpoint }, next);
+            if (!descr || !descr.Table || descr.Table.TableStatus == "UPDATING") return next();
+            if (descr.Table.StreamSpecification && descr.Table.StreamSpecification.StreamEnabled) {
+                req.Stream.StreamArn = descr.Table.LatestStreamArn;
+                return next();
+            }
+            mod.lock(options.table, req.Stream, options, (err, locked) => {
+                if (!locked) return next();
+                logger.info("processStreamPrepare:", mod.name, options.table, req.Stream, descr);
+                aws.ddbUpdateTable({ name: options.table, stream: mod.autoProvision }, () => {
+                    mod.unlock(options.table, req.Stream, options, next);
+                });
+            });
         },
     ], callback);
 }
@@ -319,7 +326,7 @@ mod.processRecords = function(req, options, callback)
             if (!req.Records.length) return next();
             lib.objIncr(options, "records", req.Records.length);
             lib.objIncr(req.Stream, "records", req.Records.length);
-            logger.info("processRecords:", mod.name, options.table, req.Shard, "seq:", req.LastSequenceNumber, req.Records.length, "records");
+            logger.info("processRecords:", mod.name, options.table, req.Shard, "seq:", req.LastSequenceNumber, req.Records.length, "records", options.debug ? req.Records : undefined);
             var bulk = req.Records.map((x) => ({ op: x.eventName == "REMOVE" ? "del" : "put", table: options.table, obj: x.dynamodb.NewImage || x.dynamodb.Keys, ddb: x.dynamodb }));
             db.bulk(bulk, { pool: options.target_pool }, next);
         },
