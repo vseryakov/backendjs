@@ -11,6 +11,7 @@ const aws = require(__dirname + '/../lib/aws');
 const jobs = require(__dirname + '/../lib/jobs');
 const ipc = require(__dirname + '/../lib/ipc');
 
+// Default parameters are for rare activity with long intervals, for very active tables the interval and timeout must be much smaller
 const mod = {
     args: [
         { name: "tables", type: "list", onupdate: function() {if(ipc.role=="worker"&&core.role=="worker")this.subscribeWorker()}, descr: "Process streams for given tables in a worker process" },
@@ -24,13 +25,13 @@ const mod = {
         { name: "concurrency", type: "int", min: 1, descr: "Number of shards to process in parallel" },
         { name: "interval", type: "int", descr: "Interval in ms between stream processing" },
         { name: "interval-([a-z0-9_]+)", type: "int", obj: "intervals", strip: /interval-/, nocamel: 1, descr: "Interval in ms between stream processing by table name" },
-        { name: "max-interval", type: "int", descr: "Maximum interval in ms between stream processing iterations, for cases when no shards are available" },
-        { name: "max-interval-([a-z0-9_]+)", type: "int", obj: "maxIntervals", strip: /max-interval-/, nocamel: 1, descr: "Maximum interval in ms between stream processing iterations by table name when no shards or an error" },
+        { name: "max-interval", type: "int", descr: "Maximum interval in ms between stream processing iterations, for cases when no shards are available or an error" },
+        { name: "max-interval-([a-z0-9_]+)", type: "int", obj: "maxIntervals", strip: /max-interval-/, nocamel: 1, descr: "Maximum interval in ms between stream processing iterations by table name when no shards available or an error" },
         { name: "max-interval-([0-9]+)-([0-9]+)", type: "list", obj: "maxIntervalsByTime", make: "$1,$2", regexp: /^[0-9]+$/, reverse: 1, nocamel: 1, descr: "Maximum interval in ms between stream processing iterations when no shard or an error during the given hours range in 24h format, example: -bk_dynamodbstreams-max-intervals-1-8 30000" },
         { name: "retry-count", type: "int", min: 0, descr: "Number of times to read records from an open shard with no records, 0 forever" },
         { name: "retry-closed-count", type: "int", min: 1, descr: "Number of times to read records from a closed shard" },
-        { name: "retry-timeout", type: "int", min: 50, descr: "Min timeout in ms between retries on empty records, exponential backoff is used" },
-        { name: "retry-max-timeout", type: "int", min: 50, descr: "Max timeout in ms on empty records, once reached the timeout is reset back to the min and exponential backoff starts again" },
+        { name: "retry-timeout", type: "int", min: 500, descr: "Min timeout in ms between retries on empty records, exponential backoff is used" },
+        { name: "retry-max-timeout", type: "int", min: 1000, descr: "Max timeout in ms on empty records, once reached the timeout is reset back to the min and exponential backoff starts again" },
     ],
     jobs: [],
     running: [],
@@ -43,11 +44,11 @@ const mod = {
     ttl: 86400*2,
     lockTtl: 30000,
     retryCount: 3,
-    retryTimeout: 500,
+    retryTimeout: 1000,
     retryMaxTimeout: 5000,
     retryClosedCount: 100,
     concurrency: 10,
-    interval: 3000,
+    interval: 5000,
     intervals: {},
     maxInterval: 10000,
     maxIntervals: {},
@@ -261,6 +262,7 @@ mod.processStreamShards = function(stream, shards, options, callback)
         },
         function(shard, next) {
             shards.running.push(shard.ShardId);
+            logger.debug("processStreamShards:", mod.name, options.table, stream, shard, "running:", shards.running);
             mod.processShardRecords(stream, shard, options, () => {
                 lib.arrayRemove(shards.running, shard.ShardId);
                 next();
@@ -272,10 +274,7 @@ mod.processShardRecords = function(stream, shard, options, callback)
 {
     lib.everySeries([
         function(next) {
-            if (mod.skipCache[options.table + shard.ShardId] ||
-                (shard.SequenceNumberRange.EndingSequenceNumber && shard.SequenceNumberRange.EndingSequenceNumber == shard.SequenceNumber)) {
-                return next("skip");
-            }
+            if (mod.skipCache[options.table + shard.ShardId]) return next("skip");
             db.get("bk_property", { name: options.table + shard.ShardId }, options, (err, row) => {
                 if (row && row.value && !(options.force || options.shard_force || options.shard_force_once)) {
                     shard.sequence = row.value;
@@ -287,6 +286,10 @@ mod.processShardRecords = function(stream, shard, options, callback)
         },
         function(next, err) {
             if (err) return next(err);
+            if (shard.SequenceNumberRange.EndingSequenceNumber &&
+                shard.SequenceNumberRange.EndingSequenceNumber == shard.sequence) {
+                return next("skip");
+            }
             var q = lib.objClone(shard, "StreamArn", stream.StreamArn);
             aws.ddbGetShardIterator(q, options, (err, it) => {
                 if (err || !it.ShardIterator) return next(err);
@@ -332,6 +335,7 @@ mod.readShardRecords = function(stream, shard, it, options, callback)
                 res.Records = lib.isArray(res.Records, []);
                 if (!res.Records.length && it.ShardIterator) {
                     if (!mod.isRunning(options)) return next();
+                    logger.debug("readShardRecords:", mod.name, stream, shard, "retry:", retries, timeout);
                     setTimeout(next, lib.toClamp(timeout, mod.retryTimeout, mod.retryMaxTimeout));
                     if (timeout >= mod.retryMaxTimeout) timeout = mod.retryTimeout; else timeout *= 2;
                 } else {
