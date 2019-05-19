@@ -17,6 +17,7 @@ shell.help.push("-db-select -table TABLE [-separator !] [-format text] [name VAL
 shell.help.push("-db-scan -table TABLE [name VALUE ...] - return all records from the table using scan operation, same arg as for db-select");
 shell.help.push("-db-get -table TABLE [name VALUE ...] - return a record from the table for given primary key");
 shell.help.push("-db-put -table TABLE name VALUE ... - add or replace a record in the config table, name value pairs are column name and value to be set for the record to be added");
+shell.help.push("-db-update -table TABLE name VALUE ... - update a record in the config table, name value pairs are column name and value to be set for the record to be added");
 shell.help.push("-db-del -table TABLE name VALUE ... - delete a record from the table, name value pairs must define a primary key for the table");
 shell.help.push("-db-del-all -table TABLE name VALUE ... - delete all records from the table that match the search criteria, name value pairs must define a primary key for the table");
 shell.help.push("-db-drop -table TABLE name [-nowait] - drop a table");
@@ -253,6 +254,17 @@ shell.cmdDbPut = function(options)
     var opts = this.getArgs();
     var table = this.getArg("-table", options);
     db.put(table, query, opts, function(err, data) {
+        shell.exit(err, data);
+    });
+}
+
+// Update a record
+shell.cmdDbUpdate = function(options)
+{
+    var query = this.getQuery();
+    var opts = this.getArgs();
+    var table = this.getArg("-table", options);
+    db.update(table, query, opts, function(err, data) {
         shell.exit(err, data);
     });
 }
