@@ -3,23 +3,16 @@
 //  backendjs 2018
 //
 
-var path = require('path');
-var util = require('util');
-var fs = require('fs');
-var http = require('http');
-var url = require('url');
-var bkjs = require('backendjs');
-var db = bkjs.db;
-var api = bkjs.api;
-var app = bkjs.app;
-var ipc = bkjs.ipc;
-var msg = bkjs.msg;
-var core = bkjs.core;
-var lib = bkjs.lib;
-var logger = bkjs.logger;
+const bkjs = require('backendjs');
+const db = bkjs.db;
+const api = bkjs.api;
+const msg = bkjs.msg;
+const core = bkjs.core;
+const lib = bkjs.lib;
+const logger = bkjs.logger;
 
 // Account management
-var accounts = {
+const mod = {
     name: "bk_account",
     priority: 99999,
     tables: {
@@ -50,15 +43,9 @@ var accounts = {
         },
     },
 };
-module.exports = accounts;
+module.exports = mod;
 
-// Initialize the module
-accounts.init = function(options)
-{
-    db.describeTables();
-}
-
-accounts.configureMdule = function(options, callback)
+mod.configureMdule = function(options, callback)
 {
     db.setProcessRow("post", "bk_account", function(req, row) {
         if (row.birthday) {
@@ -75,23 +62,23 @@ accounts.configureMdule = function(options, callback)
 }
 
 // Create API endpoints and routes
-accounts.configureWeb = function(options, callback)
+mod.configureWeb = function(options, callback)
 {
     this.configureAccountsAPI();
     callback()
 }
 
 // Account management
-accounts.configureAccountsAPI = function()
+mod.configureAccountsAPI = function()
 {
-    api.app.all(/^\/account\/([a-z\/]+)$/, function(req, res, next) {
+    api.app.all(/^\/account\/([a-z/]+)$/, function(req, res, next) {
         var options = api.getOptions(req);
         options.cleanup = api.authTable + ",bk_account";
 
         switch (req.params[0]) {
         case "get":
             if (!req.query.id || req.query.id == req.account.id) {
-                accounts.getAccount(req, options, function(err, data, info) {
+                mod.getAccount(req, options, function(err, data, info) {
                     api.sendJSON(req, err, data);
                 });
 
@@ -104,19 +91,19 @@ accounts.configureAccountsAPI = function()
 
         case "add":
             options.cleanup = "";
-            accounts.addAccount(req, options, function(err, data) {
+            mod.addAccount(req, options, function(err, data) {
                 api.sendJSON(req, err, data);
             });
             break;
 
         case "update":
-            accounts.updateAccount(req, options, function(err, data) {
+            mod.updateAccount(req, options, function(err, data) {
                 api.sendJSON(req, err, data);
             });
             break;
 
         case "del":
-            accounts.deleteAccount(req, function(err, data) {
+            mod.deleteAccount(req, function(err, data) {
                 api.sendJSON(req, err);
             });
             break;
@@ -126,7 +113,7 @@ accounts.configureAccountsAPI = function()
             break;
 
         case "select":
-            accounts.selectAccount(req, options, function(err, data) {
+            mod.selectAccount(req, options, function(err, data) {
                 api.sendJSON(req, err, data);
             });
             break;
@@ -140,6 +127,7 @@ accounts.configureAccountsAPI = function()
             break;
 
         case "get/icon":
+            if (!core.modules.bk_icon) return api.sendReply(res, 400, "invalid request");
             if (!req.query.id) req.query.id = req.account.id;
             req.query.prefix = 'account';
             if (!req.query.type) req.query.type = '0';
@@ -148,6 +136,7 @@ accounts.configureAccountsAPI = function()
             break;
 
         case "select/icon":
+            if (!core.modules.bk_icon) return api.sendReply(res, 400, "invalid request");
             if (!req.query.id) req.query.id = req.account.id;
             req.query.prefix = "account";
             options.cleanup = "bk_icon";
@@ -157,6 +146,7 @@ accounts.configureAccountsAPI = function()
             break;
 
         case "put/icon":
+            if (!core.modules.bk_icon) return api.sendReply(res, 400, "invalid request");
             req.query.prefix = 'account';
             req.query.id = req.account.id;
             if (!req.query.type) req.query.type = '0';
@@ -166,6 +156,7 @@ accounts.configureAccountsAPI = function()
             break;
 
         case "del/icon":
+            if (!core.modules.bk_icon) return api.sendReply(res, 400, "invalid request");
             req.query.prefix = 'account';
             req.query.id = req.account.id;
             if (!req.query.type) req.query.type = '0';
@@ -181,7 +172,7 @@ accounts.configureAccountsAPI = function()
 }
 
 // Returns current account, used in /account/get API call, req.account will be filled with the properties from the db
-accounts.getAccount = function(req, options, callback)
+mod.getAccount = function(req, options, callback)
 {
     if (typeof options == "function") callback = options, options = null;
     if (!req.account || !req.account.id) return callback({ status: 400, message: "invalid account" });
@@ -215,7 +206,7 @@ accounts.getAccount = function(req, options, callback)
 //
 //       bk_account.notifyAccount({ account_id: "123", msg: "test", badge: 1, sound: 1, allow: { notifications0: 1, type: "user" }, enable: { sound: "sound0", badge: "badge0" } })
 //
-accounts.notifyAccount = function(options, callback)
+mod.notifyAccount = function(options, callback)
 {
     if (!options || !options.account_id) {
         return lib.tryCall(callback, { status: 500, message: "invalid account" });
@@ -263,7 +254,7 @@ accounts.notifyAccount = function(options, callback)
 // Return account details for the list of rows, `options.account_key` specified the column to use for the account id in the `rows`, or `id` will be used.
 // The result accounts are cleaned for public columns, all original properties from the `rows` are kept as is.
 // If options.existing is 1 then return only record with found accounts, all other records in the rows will be deleted
-accounts.listAccount = function(rows, options, callback)
+mod.listAccount = function(rows, options, callback)
 {
     if (typeof options == "function") callback = options, options = null;
     if (!options) options = {};
@@ -289,7 +280,7 @@ accounts.listAccount = function(rows, options, callback)
 }
 
 // Query accounts, used in /accout/select API call, simple wrapper around db.select but can be replaced in the apps while using the same API endpoint
-accounts.selectAccount = function(req, options, callback)
+mod.selectAccount = function(req, options, callback)
 {
     if (typeof options == "function") callback = options, options = null;
     db.select("bk_account", req.query, options, function(err, rows, info) {
@@ -300,7 +291,7 @@ accounts.selectAccount = function(req, options, callback)
 
 // Register new account, used in /account/add API call, but the req does not have to be an Express request, it just
 // need to have query and options objects.
-accounts.addAccount = function(req, options, callback)
+mod.addAccount = function(req, options, callback)
 {
     if (typeof options == "function") callback = options, options = null;
     options = lib.objClone(options);
@@ -365,7 +356,7 @@ accounts.addAccount = function(req, options, callback)
 }
 
 // Update existing account, used in /account/update API call
-accounts.updateAccount = function(req, options, callback)
+mod.updateAccount = function(req, options, callback)
 {
     if (typeof options == "function") callback = options, options = null;
     if (!options) options = {};
@@ -410,7 +401,7 @@ accounts.updateAccount = function(req, options, callback)
 // delete an account but keep all messages and location: keep:["bk_message","bk_location"]
 //
 // This methods is suitable for background jobs
-accounts.deleteAccount = function(req, callback)
+mod.deleteAccount = function(req, callback)
 {
     if (!req.account || !req.account.id) return callback({ status: 400, message: "no id provided" });
     if (!req.options) req.options = {};
@@ -453,7 +444,7 @@ accounts.deleteAccount = function(req, callback)
 }
 
 // Rename account alias
-accounts.renameAccount = function(req, callback)
+mod.renameAccount = function(req, callback)
 {
     if (!req.account || !req.account.id || !req.account.name) return callback({ status: 400, message: "no id and name provided" });
     if (!req.options) req.options = {};
@@ -480,7 +471,7 @@ accounts.renameAccount = function(req, callback)
 }
 
 // Override OAuth account management
-accounts.fetchAccount = function(query, options, callback)
+mod.fetchAccount = function(query, options, callback)
 {
     if (typeof options == "function") callback = options, options = null;
     if (!options) options = {};
@@ -488,7 +479,7 @@ accounts.fetchAccount = function(query, options, callback)
         if (err) return callback(err);
 
         if (auth) {
-            accounts.getAccount({ query: {}, account: auth }, options, function(err, row) {
+            mod.getAccount({ query: {}, account: auth }, options, function(err, row) {
                 if (!err) for (var p in row) auth[p] = row[p];
                 callback(err, auth);
             });
@@ -498,7 +489,7 @@ accounts.fetchAccount = function(query, options, callback)
         lib.series([
             function(next) {
                 // Pretend to be an admin
-                accounts.addAccount({ query: query, account: { type: "admin" } }, options, function(err, row) {
+                mod.addAccount({ query: query, account: { type: "admin" } }, options, function(err, row) {
                     if (row) auth = row;
                     next(err);
                 });

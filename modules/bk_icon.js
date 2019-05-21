@@ -3,24 +3,13 @@
 //  backendjs 2018
 //
 
-var path = require('path');
-var util = require('util');
-var fs = require('fs');
-var url = require('url');
-var qs = require('qs');
-var http = require('http');
-var bkjs = require('backendjs');
-var db = bkjs.db;
-var api = bkjs.api;
-var app = bkjs.app;
-var ipc = bkjs.ipc;
-var msg = bkjs.msg;
-var core = bkjs.core;
-var lib = bkjs.lib;
-var logger = bkjs.logger;
+const bkjs = require('backendjs');
+const db = bkjs.db;
+const api = bkjs.api;
+const lib = bkjs.lib;
 
 // Icons management
-var mod = {
+const mod = {
     name: "bk_icon",
     tables: {
         bk_icon: {
@@ -47,7 +36,6 @@ var mod = {
         },
 
     },
-    limit: { "*": 0 },
     controls: {
         width: { type: "number" },
         height: { type: "number" },
@@ -59,17 +47,13 @@ var mod = {
         verify: { type: "bool" },
         extkeep: { type: "regexp" },
         autodel: { type: "bool" },
-    }
+    },
+    args: [
+        { name: "limit", type: "map", datatype: "int", descr: "Set the limit of how many icons by type can be uploaded by an account, type:N,type:N..., type * means global limit for any icon type" },
+    ],
+    limit: { "*": 0 },
 };
 module.exports = mod;
-
-// Initialize the module
-mod.init = function(options)
-{
-    core.describeArgs("icons", [
-         { name: "limit", type: "map", datatype: "int", descr: "Set the limit of how many icons by type can be uploaded by an account, type:N,type:N..., type * means global limit for any icon type" },
-    ]);
-}
 
 mod.configureMiddleware = function(options, callback)
 {
@@ -80,6 +64,8 @@ mod.configureMiddleware = function(options, callback)
 // Create API endpoints and routes
 mod.configureWeb = function(options, callback)
 {
+    db.setProcessRow("post", "bk_icon", mod.checkIcon);
+
     this.configureIconsAPI();
     callback()
 }
@@ -138,8 +124,23 @@ mod.configureIconsAPI = function()
         }
     });
 
-    db.setProcessRow("post", "bk_icon", api.checkIcon);
+}
 
+// Verify icon permissions and format for the result, used in setProcessRow for the bk_icon table
+mod.checkIcon = function(req, row)
+{
+    if (row.acl_allow && row.acl_allow != "all") {
+        var id = req.options && req.options.account && req.options.account.id;
+        if (row.acl_allow == "auth") {
+            if (!id) return true;
+        } else
+        if (row.acl_allow) {
+            if (!row.acl_allow.split(",").some(function(x) { return x == id })) return true;
+        } else
+        if (row.id != id) return true;
+    }
+    // Use direct module reference due to usage in the callback without proper context
+    row.url = api.iconUrl(row, req.options);
 }
 
 // Process icon request, put or del, update table and deal with the actual image data, always overwrite the icon file

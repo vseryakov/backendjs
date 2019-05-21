@@ -61,7 +61,7 @@ module.exports = mod;
 
 mod.configureWorker = function(options, callback)
 {
-    setTimeout(function() { mod.subscribeWorker() }, lib.toNumber(jobs.workerDelay) + lib.randomShort()/1000);
+    setTimeout(mod.subscribeWorker.bind(mod), lib.toNumber(jobs.workerDelay) + lib.randomShort()/1000);
     callback();
 }
 
@@ -85,7 +85,7 @@ mod.subscribeWorker = function(options)
             jobs.cancelTask(mod.name, { tag: table.substr(1) });
         } else {
             if (lib.isFlag(this.jobs, table)) continue;
-            this.runJob({ table: table, source_pool: this.sourcePool, target_pool: this.targetPool, job: true });
+            setTimeout(mod.runJob.bind(mod, { table: table, source_pool: this.sourcePool, target_pool: this.targetPool, job: true }), 100 * (i + 1));
         }
     }
 }
@@ -163,6 +163,7 @@ mod.runJob = function(options, callback)
                     if (err) logger.error("runJob:", mod.name, stream, err);
                     lib.arrayRemove(mod.running, options.table);
                     mod.unlock(options.table, stream, options, () => {
+                        logger.debug("runJob:", mod.name, "done:", options, stream);
                         setTimeout(next, !stream.StreamArn || stream.error || !stream.shards ? maxInterval : interval);
                     });
                 });
@@ -361,7 +362,7 @@ mod.syncShardRecords = function(stream, shard, records, options, callback)
         function(next) {
             if (!records.length) return next();
             lib.objIncr(stream, "records", records.length);
-            logger.info("syncShardRecords:", mod.name, options.table, shard, records.length, "records", options.debug ? records : undefined);
+            logger.debug("syncShardRecords:", mod.name, options.table, shard, records.length, "records", options.debug ? records : undefined);
             var bulk = records.map((x) => ({ op: x.eventName == "REMOVE" ? "del" : "put", table: options.table, obj: x.dynamodb.NewImage || x.dynamodb.Keys, ddb: x.dynamodb }));
             db.bulk(bulk, { pool: options.target_pool }, next);
         },
