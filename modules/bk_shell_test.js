@@ -4,15 +4,10 @@
 //
 
 const cluster = require('cluster');
-const util = require('util');
-const fs = require('fs');
+const util = require("util");
 const core = require(__dirname + '/../lib/core');
 const lib = require(__dirname + '/../lib/lib');
 const logger = require(__dirname + '/../lib/logger');
-const db = require(__dirname + '/../lib/db');
-const ipc = require(__dirname + '/../lib/ipc');
-const api = require(__dirname + '/../lib/api');
-const jobs = require(__dirname + '/../lib/jobs');
 const shell = require(__dirname + '/bk_shell');
 
 shell.help.push("-test-run CMD [-test-file FILE] - run a test command in the shell, autoload ./tests/tests.js if exists, optinally can load other file with tests, all other test params will be used as well");
@@ -44,6 +39,7 @@ shell.assert = function(next, err)
     if (err) {
         var args = [ util.isError(err) ? err : lib.isObject(err) ? lib.objDescr(err) : ("TEST ASSERTION: " + lib.objDescr(arguments[2])) ];
         for (var i = 2; i < arguments.length; i++) args.push(arguments[i]);
+        logger.inspectArgs.errstack = 1;
         logger.oneline = false;
         logger.separator = "\n";
         logger.error.apply(logger, args);
@@ -161,6 +157,7 @@ shell.cmdTestRun = function(options)
           function(err) {
               tests.test.etime = Date.now();
               if (err) {
+                  logger.inspectArgs.errstack = 1;
                   logger.error("FAILED:", tests.test.role, 'cmd:', tests.test.cmd, err);
                   process.exit(1);
               }
