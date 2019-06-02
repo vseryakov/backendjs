@@ -58,7 +58,7 @@ function bootpopup(options)
         class_ok: "btn btn-primary",
         class_yes: "btn btn-primary",
         class_no: "btn btn-primary",
-        class_cancel: "btn btn-default",
+        class_cancel: "btn btn-default btn-secondary",
         class_close: "btn btn-primary",
         text_ok: "OK",
         text_yes: "Yes",
@@ -157,7 +157,7 @@ function bootpopup(options)
 
                 case "object":
                     for (var type in entry) {
-                        var opts = entry[type], children = [], attrs = {}, elem = null, group = null;
+                        var opts = entry[type], children = [], attrs = {}, label, elem = null, group = null;
 
                         if (typeof opts == "string") opts = { label: opts };
                         for (var p in opts) {
@@ -209,14 +209,14 @@ function bootpopup(options)
                                 if (bs4) {
                                     attrs.class = attrs.class || "form-check-input";
                                     var class_check = opts.class_check || "form-check";
-                                    var label = $('<label></label>', { class: "form-check-label", for: attrs.id }).append(attrs.label);
+                                    label = $('<label></label>', { class: "form-check-label", for: attrs.id }).append(attrs.label);
                                     elem = $('<div></div>', { class: class_check }).
                                             append($("<" + type + "/>", attrs)).
                                             append(label);
 
                                 } else {
                                     attrs.class = attrs.class || "";
-                                    var label = $('<label></label>').append($("<" + type + "/>", attrs)).append(attrs.label);
+                                    label = $('<label></label>').append($("<" + type + "/>", attrs)).append(attrs.label);
                                     elem = $('<div></div>', { class: attrs.type }).append(label);
                                 }
                                 if (opts.class_append || opts.text_append) {
@@ -252,8 +252,8 @@ function bootpopup(options)
                                     group.append($("<label></label>", { for: attrs.id, class: class_label, text: attrs.label }));
                                     group.append($('<div></div>', { class: opts.size_input || this.options.size_input }).append(elem));
                                 } else {
-                                    group.append(elem);
                                     if (attrs.label) group.append($("<label></label>", { for: attrs.id, class: class_label, text: attrs.label }));
+                                    group.append(elem);
                                 }
                             } else {
                                 class_label += " control-label";
