@@ -93,11 +93,11 @@ bkjs.weekOfYear = function(date, utc)
     if (!date) return 0;
     utc = utc ? "UTC": "";
     var target = new Date(date.valueOf());
-    target[`set${utc}Date`](target[`get${utc}Date`]() - ((date[`get${utc}Day`]() + 6) % 7) + 3);
+    target["set" + utc + "Date"](target["get" + utc + "Date"]() - ((date["get" + utc + "Day"]() + 6) % 7) + 3);
     var firstThursday = target.valueOf();
-    target[`set${utc}Month`](0, 1);
-    var day = target[`get${utc}Day`]();
-    if (day != 4) target[`set${utc}Month`](0, 1 + ((4 - day) + 7) % 7);
+    target["set" + utc + "Month"](0, 1);
+    var day = target["get" + utc + "Day"]();
+    if (day != 4) target["set" + utc + "Month"](0, 1 + ((4 - day) + 7) % 7);
     return 1 + Math.ceil((firstThursday - target) / 604800000);
 }
 
@@ -143,25 +143,25 @@ bkjs.tzMap = [
 bkjs.strftimeConfig = {
     a: function(t, utc, lang, tz) {
         if (lang && !bkjs.strftimeMap.weekDays[lang]) {
-            bkjs.strftimeMap.weekDays[lang] = bkjs.strftimeMap.weekDays[""].map((x) => (bkjs.__({ phrase: x, locale: lang })));
+            bkjs.strftimeMap.weekDays[lang] = bkjs.strftimeMap.weekDays[""].map(function(x) { return bkjs.__({ phrase: x, locale: lang }) });
         }
         return bkjs.strftimeMap.weekDays[lang || ""][utc ? t.getUTCDay() : t.getDay()]
     },
     A: function(t, utc, lang, tz) {
         if (lang && !bkjs.strftimeMap.weekDaysFull[lang]) {
-            bkjs.strftimeMap.weekDaysFull[lang] = bkjs.strftimeMap.weekDaysFull[""].map((x) => (bkjs.__({ phrase: x, locale: lang })));
+            bkjs.strftimeMap.weekDaysFull[lang] = bkjs.strftimeMap.weekDaysFull[""].map(function(x) { return bkjs.__({ phrase: x, locale: lang }) });
         }
         return bkjs.strftimeMap.weekDaysFull[lang || ""][utc ? t.getUTCDay() : t.getDay()]
     },
     b: function(t, utc, lang, tz) {
         if (lang && !bkjs.strftimeMap.months[lang]) {
-            bkjs.strftimeMap.months[lang] = bkjs.strftimeMap.months[""].map((x) => (bkjs.__({ phrase: x, locale: lang })));
+            bkjs.strftimeMap.months[lang] = bkjs.strftimeMap.months[""].map(function(x) { return bkjs.__({ phrase: x, locale: lang }) });
         }
         return bkjs.strftimeMap.months[lang || ""][utc ? t.getUTCMonth() : t.getMonth()]
     },
     B: function(t, utc, lang, tz) {
         if (lang && !bkjs.strftimeMap.monthsFull[lang]) {
-            bkjs.strftimeMap.monthsFull[lang] = bkjs.strftimeMap.monthsFull[""].map((x) => (bkjs.__({ phrase: x, locale: lang })));
+            bkjs.strftimeMap.monthsFull[lang] = bkjs.strftimeMap.monthsFull[""].map(function(x) { return bkjs.__({ phrase: x, locale: lang }) });
         }
         return bkjs.strftimeMap.monthsFull[lang || ""][utc ? t.getUTCMonth() : t.getMonth()]
     },
@@ -218,7 +218,7 @@ bkjs.strftimeConfig = {
         tz = tz ? tz/60000 : t.getTimezoneOffset();
         tz = "GMT" + (tz < 0 ? "+" : "-") + bkjs.zeropad(Math.abs(-tz/60)) + "00";
         var dst = bkjs.isDST(t);
-        for (const i in bkjs.tzMap) {
+        for (var i in bkjs.tzMap) {
             if (tz == bkjs.tzMap[i][1] && (dst === bkjs.tzMap[i][2])) return bkjs.tzMap[i][0];
         }
         return tz;
@@ -241,7 +241,7 @@ bkjs.strftime = function(date, fmt, options)
     var tz = options && typeof options.tz == "number" ? options.tz : 0;
     if (tz) date = new Date(date.getTime() - tz);
     fmt = fmt || this.strftimeFormat;
-    for (const p in this.strftimeConfig) {
+    for (var p in this.strftimeConfig) {
         fmt = fmt.replace('%' + p, this.strftimeConfig[p](date, utc, lang, tz));
     }
     return fmt;
