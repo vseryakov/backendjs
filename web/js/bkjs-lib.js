@@ -175,7 +175,7 @@ bkjs.strftimeConfig = {
         return bkjs.zeropad(utc ? t.getUTCHours() : t.getHours())
     },
     I: function(t, utc, lang, tz) {
-        return bkjs.zeropad(((utc ? t.getUTCHours() : t.getHours()) + 12) % 12)
+        return bkjs.zeropad((((utc ? t.getUTCHours() : t.getHours()) + 12) % 12) || 12)
     },
     L: function(t, utc, lang, tz) {
         return bkjs.zeropad(utc ? t.getUTCMilliseconds() : t.getMilliseconds())
