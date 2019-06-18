@@ -43,7 +43,6 @@ case "$BKJS_CMD" in
     ($0 init-system $args)
     ($0 init-limits $args)
     ($0 init-sysctl $args)
-    ($0 init-service $args)
     ($0 init-monit-system $args)
     ($0 init-monit-bkjs $args)
     ($0 init-logrotate $args)
