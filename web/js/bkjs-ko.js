@@ -45,6 +45,8 @@ bkjs.koLogout = function(data, event)
     });
 }
 
+bkjs.koVal = ko.utils.unwrapObservable;
+
 bkjs.koGet = function(name, dflt)
 {
     if (typeof name != "string") name = String(name);
@@ -56,19 +58,22 @@ bkjs.koGet = function(name, dflt)
     return val;
 }
 
-bkjs.koSet = function(name, val)
+bkjs.koSet = function(name, val, quiet)
 {
     if (!name) return;
     if (!Array.isArray(name)) name = [ name ];
     for (var i in name) {
-        var key = name[i];
+        var key = name[i], old;
         if (typeof key != "string") continue;
         key = key.replace(/[^a-zA-z0-9_]/g, "_");
         if (ko.isObservable(bkjs.koState[key])) {
+            old = bkjs.koState[key]();
             bkjs.koState[key](val);
         } else {
+            old = bkjs.koState[key];
             bkjs.koState[key] = Array.isArray(val) ? ko.observableArray(val) : ko.observable(val);
         }
+        if (!quiet) bkjs.koEvent(key, { name: name, key: key, value: val, old: old });
     }
 }
 
