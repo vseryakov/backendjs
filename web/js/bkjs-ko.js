@@ -13,11 +13,11 @@ bkjs.koInit = function()
 {
     ko.applyBindings(bkjs);
     bkjs.login(function(err) {
-        bkjs.checkLogin(err);
+        bkjs.koCheckLogin(err);
     });
 }
 
-bkjs.checkLogin = function(err)
+bkjs.koCheckLogin = function(err)
 {
     bkjs.koName(bkjs.account.name || "");
     bkjs.koAuth(bkjs.loggedIn);
@@ -29,7 +29,7 @@ bkjs.checkLogin = function(err)
 bkjs.koLogin = function(data, event)
 {
     bkjs.showLogin(bkjs.koLoginOptions, function(err) {
-        bkjs.checkLogin(err);
+        bkjs.koCheckLogin(err);
         if (!err) bkjs.hideLogin();
     });
 }
@@ -97,7 +97,7 @@ bkjs.koEvent = function(name, data)
     $(bkjs).trigger("bkjs.event", [name, event, data]);
 }
 
-bkjs.koModel = function(params)
+bkjs.koModel = function(params, componentInfo)
 {
     this.params = {};
     for (var p in params) this.params[p] = params[p];
@@ -121,10 +121,9 @@ bkjs.koModel.prototype.dispose = function()
 bkjs.koCreateModel = function(name)
 {
     if (!name) throw "model name is required";
-    var model = function(params) {
+    var model = function(params, componentInfo) {
         this._name = name;
-        bkjs.koModel.call(this, params);
-        if (typeof this.onInit == "function") this.onInit();
+        bkjs.koModel.call(this, params, componentInfo);
     };
     bkjs.inherits(model, bkjs.koModel);
     bkjs.koEvent("model.created", name);
@@ -134,7 +133,22 @@ bkjs.koCreateModel = function(name)
 bkjs.koFindModel = function(name)
 {
     name = bkjs.toCamel(name);
-    return bkjs.koTemplate[name] ? { template: bkjs.koTemplate[name], viewModel: bkjs[name + "Model"] } : null;
+    var tmpl = bkjs.koTemplate[name];
+    if (!tmpl) return null;
+    return {
+        template: tmpl,
+        viewModel: {
+            createViewModel: function(params, componentInfo) {
+                var vm;
+                if (typeof bkjs[name + "Model"] == "function") {
+                    vm = new bkjs[name + "Model"](params, componentInfo);
+                    if (typeof vm.onInit == "function") vm.onInit(params, componentInfo);
+                }
+                bkjs.koEvent("component.created", { name: name, model: vm, info: componentInfo });
+                return vm;
+            }
+        },
+    };
 }
 
 
