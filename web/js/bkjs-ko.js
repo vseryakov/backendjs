@@ -144,7 +144,7 @@ bkjs.koFindModel = function(name)
                     vm = new bkjs[name + "Model"](params, componentInfo);
                     if (typeof vm.onInit == "function") vm.onInit(params, componentInfo);
                 }
-                bkjs.koEvent("component.created", { name: name, model: vm, info: componentInfo });
+                bkjs.koEvent("component.created", { name: name, params: params, model: vm, info: componentInfo });
                 return vm;
             }
         },
