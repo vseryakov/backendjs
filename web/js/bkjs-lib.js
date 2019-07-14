@@ -309,17 +309,17 @@ bkjs.sprintf = function(str, args)
 bkjs.forEachSeries = function(list, iterator, callback)
 {
     callback = typeof callback == "function" ? callback : this.noop;
-    if (!list || !list.length) return callback();
-    function iterate(i) {
-        if (i >= list.length) return callback();
-        iterator(list[i], function(err) {
+    if (!Array.isArray(list) || !list.length) return callback();
+    function iterate(i, data) {
+        if (i >= list.length) return callback(null, data);
+        iterator(list[i], function(err, data) {
             if (err) {
-                callback(err);
-                callback = function() {}
+                callback(err, data);
+                callback = function() {};
             } else {
-                iterate(++i);
+                iterate(++i, data);
             }
-        });
+        }, data);
     }
     iterate(0);
 }
@@ -327,7 +327,39 @@ bkjs.forEachSeries = function(list, iterator, callback)
 // Execute a list of functions serially and execute a callback upon completion or occurance of an error.
 bkjs.series = function(tasks, callback)
 {
-    this.forEachSeries(tasks, function(task, next) {
+    this.forEachSeries(tasks, function(task, next, data1) {
+        task(next, data1);
+    }, function(err, data) {
+        if (typeof callback == "function") callback(err, data);
+    });
+}
+
+// Apply an iterator function to each item in an array in parallel. Execute a callback when all items
+// have been completed or immediately if there is an error provided
+bkjs.forEach = function(list, iterator, callback)
+{
+    callback = typeof callback == "function" ? callback : this.noop;
+    if (!Array.isArray(list) || !list.length) return callback();
+    var count = list.length;
+    for (var i = 0; i < list.length; i++) {
+        iterator(list[i], function(err) {
+            if (err) {
+                callback(err);
+                callback = function() {};
+                i = list.length + 1;
+            } else
+            if (--count == 0) {
+                callback();
+                callback = function() {};
+            }
+        });
+    }
+}
+
+// Execute a list of functions in parallel and execute a callback upon completion or occurance of an error.
+bkjs.parallel = function(tasks, callback)
+{
+    this.forEach(tasks, function(task, next) {
         task(next);
     }, function(err) {
         if (typeof callback == "function") callback(err);
@@ -721,6 +753,13 @@ bkjs.objClone = function()
     }
     for (var i = 1; i < arguments.length - 1; i += 2) rc[arguments[i]] = arguments[i + 1];
     return rc;
+}
+
+// Return a random string
+bkjs.random = function()
+{
+   return (((1 + Math.random()) * 0x100000000) | 0).toString(16).substring(1) +
+          (((1 + Math.random()) * 0x100000000) | 0).toString(16).substring(1);
 }
 
 // Simple i18n translation method compatible with other popular modules, supports the following usage:

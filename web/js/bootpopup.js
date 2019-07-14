@@ -157,11 +157,15 @@ function bootpopup(options)
 
                 case "object":
                     for (var type in entry) {
-                        var opts = entry[type], children = [], attrs = {}, label, elem = null, group = null;
+                        var opts = {}, children = [], attrs = {}, label, elem = null, group = null;
 
-                        if (typeof opts == "string") opts = { label: opts };
+                        if (typeof entry[type] == "string") {
+                            opts.label = entry[type];
+                        } else {
+                            for (var p in entry[type]) opts[p] = entry[type][p];
+                        }
                         for (var p in opts) {
-                            if (!/^(class|text|icon|size)_/.test(p)) attrs[p] = opts[p];
+                            if (!/^(class_|text_|icon_|size_|label|for)/.test(p)) attrs[p] = opts[p];
                         }
 
                         // Convert functions to string to be used as callback
@@ -209,21 +213,21 @@ function bootpopup(options)
                                 if (bs4) {
                                     attrs.class = attrs.class || "form-check-input";
                                     var class_check = opts.class_check || "form-check";
-                                    label = $('<label></label>', { class: "form-check-label", for: attrs.id }).append(attrs.label);
+                                    label = $('<label></label>', { class: "form-check-label", for: opts.for || attrs.id }).append(opts.label);
                                     elem = $('<div></div>', { class: class_check }).
                                             append($("<" + type + "/>", attrs)).
                                             append(label);
 
                                 } else {
                                     attrs.class = attrs.class || "";
-                                    label = $('<label></label>').append($("<" + type + "/>", attrs)).append(attrs.label);
+                                    label = $('<label></label>').append($("<" + type + "/>", attrs)).append(opts.label);
                                     elem = $('<div></div>', { class: attrs.type }).append(label);
                                 }
                                 if (opts.class_append || opts.text_append) {
                                     label.append($("<span></span>", { class: opts.class_append || "" }).append(opts.text_append || ""));
                                 }
                                 // Clear label to not add as header, it was added before
-                                delete attrs.label;
+                                delete opts.label;
                             } else {
                                 attrs.class = attrs.class || "form-control";
                                 if (type == "textarea") {
@@ -249,20 +253,20 @@ function bootpopup(options)
                                 if (this.options.horizontal) {
                                     group.addClass("row");
                                     class_label += " col-form-label " + (opts.size_label || this.options.size_label);
-                                    group.append($("<label></label>", { for: attrs.id, class: class_label, text: attrs.label }));
+                                    group.append($("<label></label>", { for: opts.for || attrs.id, class: class_label, text: opts.label }));
                                     group.append($('<div></div>', { class: opts.size_input || this.options.size_input }).append(elem));
                                 } else {
-                                    if (attrs.label) group.append($("<label></label>", { for: attrs.id, class: class_label, text: attrs.label }));
+                                    if (opts.label) group.append($("<label></label>", { for: opts.for || attrs.id, class: class_label, text: opts.label }));
                                     group.append(elem);
                                 }
                             } else {
                                 class_label += " control-label";
                                 if (this.options.horizontal) {
                                     class_label += " " + (opts.size_label || this.options.size_label);
-                                    group.append($("<label></label>", { for: attrs.id, class: class_label, text: attrs.label }));
+                                    group.append($("<label></label>", { for: opts.for || attrs.id, class: class_label, text: opts.label }));
                                     group.append($('<div></div>', { class: opts.size_input || this.options.size_input }).append(elem));
                                 } else {
-                                    if (attrs.label) group.append($("<label></label>", { for: attrs.id, class: class_label, text: attrs.label }));
+                                    if (opts.label) group.append($("<label></label>", { for: opts.for || attrs.id, class: class_label, text: opts.label }));
                                     group.append(elem);
                                 }
                             }
