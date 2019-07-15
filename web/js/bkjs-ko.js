@@ -7,7 +7,8 @@ bkjs.koAuth = ko.observable(0);
 bkjs.koAdmin = ko.observable(0);
 bkjs.koName = ko.observable("");
 bkjs.koState = {};
-bkjs.koTemplate = {};
+bkjs.koTemplates = {};
+bkjs.koModels = {};
 
 bkjs.koInit = function()
 {
@@ -97,52 +98,52 @@ bkjs.koEvent = function(name, data)
     $(bkjs).trigger("bkjs.event", [name, event, data]);
 }
 
-bkjs.koModel = function(params, componentInfo)
+bkjs.koViewModel = function(params, componentInfo)
 {
     this.params = {};
     for (var p in params) this.params[p] = params[p];
     $(bkjs).on("bkjs.event", $.proxy(this._handleEvent, this));
 }
 
-bkjs.koModel.prototype._handleEvent = function(ev, name, event, data)
+bkjs.koViewModel.prototype._handleEvent = function(ev, name, event, data)
 {
     if (typeof this[event] == "function") this[event](data);
     if (typeof this.handleEvent == "function") this.handleEvent(name, data);
 }
 
-bkjs.koModel.prototype.dispose = function()
+bkjs.koViewModel.prototype.dispose = function()
 {
-    delete this.params;
-    bkjs.koEvent("model.disposed", this._name);
+    bkjs.koEvent("model.disposed", { name: this.name, params: this.params, vm: this });
     $(bkjs).off("bkjs.event", $.proxy(this._handleEvent, this));
     if (typeof this.onDispose == "function") this.onDispose();
+    delete this.params;
 }
 
 bkjs.koCreateModel = function(name)
 {
     if (!name) throw "model name is required";
-    var model = function(params, componentInfo) {
-        this._name = name;
-        bkjs.koModel.call(this, params, componentInfo);
+    bkjs.koModels[name] = function(params, componentInfo) {
+        this.name = name;
+        bkjs.koViewModel.call(this, params, componentInfo);
     };
-    bkjs.inherits(model, bkjs.koModel);
-    bkjs.koEvent("model.created", name);
-    return model;
+    bkjs.inherits(bkjs.koModels[name], bkjs.koViewModel);
+    bkjs.koEvent("model.created", { name: name, vm: bkjs.koModels[name] });
+    return bkjs.koModels[name];
 }
 
 bkjs.koFindModel = function(name)
 {
     name = bkjs.toCamel(name);
-    var tmpl = bkjs.koTemplate[name];
+    var tmpl = bkjs.koTemplates[name];
     if (!tmpl) return null;
     return {
         template: tmpl,
         viewModel: {
             createViewModel: function(params, componentInfo) {
                 var vm;
-                if (typeof bkjs[name + "Model"] == "function") {
-                    vm = new bkjs[name + "Model"](params, componentInfo);
-                    if (typeof vm.onInit == "function") vm.onInit(params, componentInfo);
+                if (typeof bkjs.koModels[name] == "function") {
+                    vm = new bkjs.koModels[name](params, componentInfo);
+                    if (typeof vm.onCreate == "function") vm.onCreate(params, componentInfo);
                 }
                 bkjs.koEvent("component.created", { name: name, params: params, model: vm, info: componentInfo });
                 return vm;

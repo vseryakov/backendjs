@@ -560,7 +560,7 @@ case "$BKJS_CMD" in
                     [ ! -s $f ] && continue
                     (cd $dir && html-minifier --collapse-whitespace --collapse-boolean-attributes --remove-comments --remove-optional-tags --remove-attribute-quotes --remove-empty-attributes $f > /tmp/tmpl)
                     [ "$?" != "0" ] && exit 1
-                    $NODE_BIN -e "try{var n=require('path').basename('$f','.html').replace(/(?:[-_\\.])(\\w)/g,(_,c)=>(c?c.toUpperCase():'')),f=require('fs').readFileSync('/tmp/tmpl').toString();console.log('bkjs.koTemplate[\"'+n+'\"]='+JSON.stringify(f)+';\nko.components.register(\"'+n+'\",{});')}catch(e){}" >>$dir/web/js/$bundle.bundle.html.js
+                    $NODE_BIN -e "try{var n=require('path').basename('$f','.html').replace(/(?:[-_\\.])(\\w)/g,(_,c)=>(c?c.toUpperCase():'')),f=require('fs').readFileSync('/tmp/tmpl').toString();console.log('bkjs.koTemplates[\"'+n+'\"]='+JSON.stringify(f)+';\nko.components.register(\"'+n+'\",{});')}catch(e){}" >>$dir/web/js/$bundle.bundle.html.js
                 done
 
                 ;;
