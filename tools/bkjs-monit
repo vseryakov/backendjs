@@ -6,6 +6,10 @@
 
 case "$BKJS_CMD" in
 
+  restart)
+    [ -f /etc/monit.d/$BKJS.conf ] && monit reload
+    ;;
+
   init-monit-system)
     find_bkjsbin
     $ECHO "set daemon 30 with start delay 60" > /etc/monit.d/system.conf

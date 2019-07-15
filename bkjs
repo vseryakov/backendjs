@@ -233,8 +233,8 @@ case "$BKJS_CMD" in
 
   restart)
     $0 stop
-    sleep 3
-    $0 start
+    sleep 1
+    process_cmds
     ;;
 
   restart-api|stop-api)
@@ -646,7 +646,7 @@ case "$BKJS_CMD" in
     echo "  check-adhoc - to be run on adhoc instances, check for idleness, if no jobs running then shutdown the host"
     echo "  check-hostname - if needed update /etc/hosts with the hostname of eth0 interface IP address for localhost access"
     echo "  shell - run backend REPL in the current backend directory, works with the backend core or local app.js application"
-    echo "  moninor - run the backend monitor process which starts master, web server and job server"
+    echo "  monitor - run the backend monitor process which starts master, web server and job server"
     echo "  master - run the backend master process which starts web server and jobs server"
     echo "  web - run the backend web server only"
     echo "  watch - run the backend in watcher and master mode with all source files being monitored for changes, the server is restarts on any change automatically"

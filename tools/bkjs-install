@@ -6,6 +6,10 @@
 
 case "$BKJS_CMD" in
 
+  restart)
+    [ ! -f /etc/monit.d/$BKJS.conf ] && $0 start
+    ;;
+
   install-bkjs)
     (cd $BKJS_HOME && npm install git+https://github.com/vseryakov/$BKJS_MOD.git $(get_arg -deps))
     ;;
