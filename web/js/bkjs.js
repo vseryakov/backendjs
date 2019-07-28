@@ -213,7 +213,7 @@ bkjs.send = function(options, onsuccess, onerror)
         if (options.info_msg || options.success_msg) {
             $(bkjs).trigger("bkjs.alert", [options.info_msg ? "info" : "success", options.info_msg || options.success_msg]);
         }
-        if (typeof onsuccess == "function") onsuccess(json, xhr);
+        if (typeof onsuccess == "function") onsuccess.call(options.self || bkjs, json, xhr);
     }
     // Parse error message
     options.error = function(xhr, statusText, errorText) {
@@ -224,7 +224,7 @@ bkjs.send = function(options, onsuccess, onerror)
         if (options.alert) {
             $(bkjs).trigger("bkjs.alert", ["error", (typeof options.alert == "string" && options.alert) || err || errorText || statusText]);
         }
-        if (typeof onerror == "function") onerror(err || errorText || statusText, xhr, statusText, errorText);
+        if (typeof onerror == "function") onerror.call(options.self || bkjs, err || errorText || statusText, xhr, statusText, errorText);
     }
     if (!options.nosignature) {
         var hdrs = this.createSignature(options.type, options.url, options.data, { expires: options.expires, checksum: options.checksum });
