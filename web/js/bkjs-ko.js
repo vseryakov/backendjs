@@ -91,6 +91,15 @@ bkjs.koSetObject = function(obj, options)
     return obj;
 }
 
+bkjs.koUpdateObject = function(obj, options)
+{
+    if (!obj || typeof obj != "object") obj = {};
+    for (var p in options) {
+        if (ko.isObservable(obj[p])) obj[p](options[p]); else obj[p] = options[p];
+    }
+    return obj;
+}
+
 bkjs.koEvent = function(name, data)
 {
     var event = bkjs.toCamel(name);
