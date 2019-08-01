@@ -183,25 +183,28 @@ function bootpopup(options)
 
                         switch (type) {
                         case "input":
-                        case "select":
                         case "textarea":
                         case "button":
                         case "submit":
+                            attrs.type = (typeof attrs.type === "undefined" ? "text" : attrs.type);
+
+                        case "select":
                             // Create a random id for the input if none provided
                             attrs.id = (typeof attrs.id === "undefined" ? "bootpopup-input" + String(Math.random()).substr(2) : attrs.id);
-                            attrs.type = (typeof attrs.type === "undefined" ? "text" : attrs.type);
 
                             if (type == "select" && Array.isArray(attrs.options)) {
                                 for (var j in attrs.options) {
-                                    var option = {};
-                                    if (typeof attrs.options[j] == "string") {
-                                        if (attrs.value && attrs.value == attrs.options[j]) option.selected = true;
-                                        children.push($("<option></option>", option).append(attrs.options[j]));
+                                    var option = {}, opt = attrs.options[j];
+                                    if (typeof opt == "string") {
+                                        if (attrs.value && attrs.value == opt) option.selected = true;
+                                        children.push($("<option></option>", option).append(opt));
                                     } else
-                                    if (attrs.options[j].name) {
+                                    if (opt.name) {
                                         option.value = attrs.options[j].value || "";
-                                        if (attrs.value && attrs.value == option.value) option.selected = true;
-                                        children.push($("<option></option>", option).append(attrs.options[j].name));
+                                        option.selected = typeof opt.selected == "boolean" ? opt.selected : attrs.value && attrs.value == option.value;
+                                        if (opt.label) option.label = opt.label;
+                                        if (typeof opt.disabled == "boolean") option.disabled = opt.disabled;
+                                        children.push($("<option></option>", option).append(opt.name));
                                     }
                                 }
                                 delete attrs.options;
