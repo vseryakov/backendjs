@@ -201,7 +201,7 @@ function bootpopup(options)
                                     } else
                                     if (opt.name) {
                                         option.value = attrs.options[j].value || "";
-                                        option.selected = typeof opt.selected == "boolean" ? opt.selected : attrs.value && attrs.value == option.value;
+                                        option.selected = typeof opt.selected == "boolean" ? opt.selected : attrs.value && attrs.value == option.value ? true : false;
                                         if (opt.label) option.label = opt.label;
                                         if (typeof opt.disabled == "boolean") option.disabled = opt.disabled;
                                         children.push($("<option></option>", option).append(opt.name));
