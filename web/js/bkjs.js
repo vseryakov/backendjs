@@ -281,7 +281,7 @@ bkjs.getFileInput = function(file)
     if (file instanceof jQuery && file.length) file = file[0];
     if (typeof file == "object") {
         if (file.files && file.files.length) return file.files[0];
-        if (file.name && file.size) return file;
+        if (file.name && file.size && file.type) return file;
     }
     return "";
 }
