@@ -533,7 +533,7 @@ bkjs.toNumber = function(val, options)
 // Return a test representation of a number according to the money formatting rules
 bkjs.toPrice = function(num)
 {
-    return this.toNumber(num).toLocaleString("en", { minimumFractionDigits: 2, maximumFractionDigits: 20 });
+    return this.toNumber(num).toLocaleString("en", { minimumFractionDigits: 2, maximumFractionDigits: 3 });
 }
 
 bkjs.toValue = function(val, type)
@@ -669,6 +669,7 @@ bkjs.toTemplate = function(text, obj, options)
                 tag = d[1];
                 if (d[2]) dflt = d[2].substr(1);
                 for (i = 0; i < rc.length && !v; i++) v = typeof rc[i][tag] == "function" ? rc[i][tag]() : rc[i][tag];
+                if (typeof options.preprocess == "function") v = options.preprocess(tag, v, dflt);
             } else {
                 tmpl += sep1 + tag + sep2;
             }
