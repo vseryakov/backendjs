@@ -56,7 +56,7 @@ bkjs.hideAlert = function(obj)
 bkjs.showConfirm = function(options, callback, cancelled)
 {
     if (typeof options == "string") options = { text: options };
-    var modal = $('#bkjs-confirm-modal');
+    var modal = $('#bkjs-confirm-modal'), self = this;
     if (!modal.length) {
         var close = '<a class="close" data-dismiss="modal" >&times;</a>';
         var title = '<h3 class="modal-title">' + (options.title || "Prompt") +'</h3>';
@@ -81,10 +81,10 @@ bkjs.showConfirm = function(options, callback, cancelled)
           </div>\
         </div>');
         modal.off().on('shown.bs.modal', function () {
-            if (typeof options.onShown == "function") options.onShown(modal);
+            if (typeof options.onShown == "function") options.onShown.call(self, modal);
         });
         modal.find('#bkjs-confirm-ok-button').click(function(event) {
-            if (callback) callback();
+            if (callback) callback.call(self);
             modal.modal('hide');
         });
         if (typeof cancelled == "function") {
@@ -100,7 +100,7 @@ bkjs.showConfirm = function(options, callback, cancelled)
 bkjs.showChoice = function(options, callback)
 {
     if (typeof options == "string") options = { text: options };
-    var modal = $('#bkjs-choice-modal');
+    var modal = $('#bkjs-choice-modal'), self = this;
     if (!modal.length) {
         var close = '<a class="close" data-dismiss="modal" >&times;</a>';
         var title = '<h3 class="modal-title">' + (options.title || "Prompt") +'</h3>';
@@ -137,10 +137,10 @@ bkjs.showChoice = function(options, callback)
         }
         if (options.value) select.val(options.value);
         modal.off().on('shown.bs.modal', function () {
-            if (typeof options.onShown == "function") options.onShown(modal);
+            if (typeof options.onShown == "function") options.onShown.call(self, modal);
         });
         modal.find('#bkjs-choice-ok-button').click(function(event) {
-            if (callback) callback(select.val());
+            if (callback) callback.call(self, select.val());
             modal.modal('hide');
         });
     }
@@ -150,7 +150,7 @@ bkjs.showChoice = function(options, callback)
 bkjs.showPrompt = function(options, callback)
 {
     if (typeof options == "string") options = { text: options };
-    var modal = $('#bkjs-prompt-modal');
+    var modal = $('#bkjs-prompt-modal'), self = this;
     if (!modal.length) {
         var close = '<a class="close" data-dismiss="modal" >&times;</a>';
         var title = '<h3 class="modal-title">' + (options.title || "Prompt") +'</h3>';
@@ -183,15 +183,15 @@ bkjs.showPrompt = function(options, callback)
         var input = modal.find('input');
         if (options.value) input.val(options.value);
         modal.off().on('shown.bs.modal', function () {
-            if (typeof options.onShown == "function") options.onShown(modal);
+            if (typeof options.onShown == "function") options.onShown.call(self, modal);
         });
         form.off().on("submit", function() {
-            if (callback) callback(input.val());
+            if (callback) callback.call(self, input.val());
             modal.modal('hide');
             return false;
         });
         modal.find('#bkjs-prompt-ok-button').click(function(event) {
-            if (callback) callback(input.val());
+            if (callback) callback.call(self, input.val());
             modal.modal('hide');
         });
     }
@@ -202,7 +202,7 @@ bkjs.showLogin = function(options, callback)
 {
     if (typeof options == "function") callback = options, options = null;
     if (!options) options = {};
-    var modal = $('#bkjs-login-modal');
+    var modal = $('#bkjs-login-modal'), self = this;
     if (!modal.length) {
         var close = '<button type="button" class="close" onclick="bkjs.hideLogin()"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>';
         var title = '<h4 class="modal-title" id="LoginLabel"><img src=@icon@ class="logo"> @title@</h4>';
@@ -259,7 +259,7 @@ bkjs.showLogin = function(options, callback)
         if (typeof options.onSubmit == "function" && !options.onSubmit(modal, form, login.val(), secret.val())) return false;
         bkjs.login({ login: login.val(), secret: secret.val() }, function(err) {
             if (err) bkjs.showAlert(modal, "danger", err);
-            if (typeof callback == "function") callback(err);
+            if (typeof callback == "function") callback.call(self, err);
         });
         return false;
     });

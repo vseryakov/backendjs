@@ -33,6 +33,7 @@ function bootpopup(options)
 
     this.options = {
         id: "",
+        self: self,
         title: document.title,
         show_close: true,
         show_header: true,
@@ -343,11 +344,15 @@ function bootpopup(options)
         this.modal.on('shown.bs.modal', function(e) {
             var focus = self.autofocus || self.form.find("input,select,textarea").filter(":not([readonly='readonly']):not([disabled='disabled']):not([type='hidden'])").first();
             if (focus) focus.focus();
-            self.options.shown(e);
+            self.options.shown.call(self.options.self, e);
         });
-        this.modal.on('hide.bs.modal', this.options.dismiss);
+        this.modal.on('hide.bs.modal', function(e) {
+            e.bootpopupButton = self._callback;
+            self.options.dismiss.call(self.options.self, e);
+        });
         this.modal.on('hidden.bs.modal', function(e) {
-            self.options.complete(e);
+            e.bootpopupButton = self._callback;
+            self.options.complete.call(self.options.self, e);
             self.modal.remove();    // Delete window after complete
         });
 
@@ -382,10 +387,10 @@ function bootpopup(options)
     this.callback = function(name, event) {
         var func = this.options[name];        // Get function to call
         if (typeof func !== "function") return;
-
+        this._callback = name;
         // Perform callback
         var array = this.form.serializeArray();
-        var ret = func(this.data(), array, event);
+        var ret = func.call(this.options.self, this.data(), array, event);
         // Hide window
         if (ret !== null) this.modal.modal("hide");
         return ret;
@@ -413,9 +418,10 @@ bootpopup.alert = function(message, title, callback)
     if (typeof callback !== "function") callback = function() {};
 
     return bootpopup({
+        self: this,
         title: title,
         content: [{ p: { text: message } }],
-        dismiss: function() { return callback(); }
+        dismiss: callback,
     });
 }
 
@@ -425,14 +431,15 @@ bootpopup.confirm = function(message, title, callback)
     if (typeof title !== "string") title = document.title;
     if (typeof callback !== "function") callback = function() {};
 
-    var answer = false;
     return bootpopup({
+        self: this,
         title: title,
         show_close: false,
         content: [{ p: { text: message } }],
         buttons: ["no", "yes"],
-        yes: function() { answer = true; },
-        dismiss: function() { return callback(answer); }
+        dismiss: function(e) {
+            callback.call(this, e.bootpopupButton == "yes")
+        },
     });
 }
 
@@ -473,16 +480,15 @@ bootpopup.prompt = function(label, type, message, title, callback)
         if (typeof type !== "string") type = "text";
         content.push({ input: { type: type, name: "value", label: label } });
         var callback_tmp = callback_function;   // Overload callback function to return "data.value"
-        callback_function = function(data) { return callback_tmp(data.value); };
+        callback_function = function(data) { return callback_tmp.call(this, data.value); };
     }
 
     return bootpopup({
+        self: this,
         title: title,
         content: content,
         buttons: ["cancel", "ok"],
-        ok: function(data) {
-            return callback_function(data);
-        }
+        ok: callback_function,
     });
 }
 
