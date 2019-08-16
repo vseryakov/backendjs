@@ -9,6 +9,7 @@ bkjs.koName = ko.observable("");
 bkjs.koState = {};
 bkjs.koTemplates = {};
 bkjs.koModels = {};
+bkjs.koViewModels = [];
 
 bkjs.koInit = function()
 {
@@ -126,6 +127,7 @@ bkjs.koViewModel.prototype.dispose = function()
     $(bkjs).off("bkjs.event", $.proxy(this._handleEvent, this));
     if (typeof this.onDispose == "function") this.onDispose();
     delete this.params;
+    bkjs.koViewModels.splice(bkjs.koViewModels.indexOf(this));
 }
 
 bkjs.koCreateModel = function(name)
@@ -153,6 +155,7 @@ bkjs.koFindModel = function(name)
                 if (typeof bkjs.koModels[name] == "function") {
                     vm = new bkjs.koModels[name](params, componentInfo);
                     if (typeof vm.onCreate == "function") vm.onCreate(params, componentInfo);
+                    bkjs.koViewModels.push(vm);
                 }
                 bkjs.koEvent("component.created", { name: name, params: params, model: vm, info: componentInfo });
                 return vm;
@@ -161,6 +164,17 @@ bkjs.koFindModel = function(name)
     };
 }
 
+// Run a method in all active view models, returns result from each in an object
+bkjs.koRunMethod = function(method)
+{
+    var rc = {};
+    var args = Array.prototype.slice.apply(arguments).slice(1);
+    for (var i in bkjs.koViewModels) {
+        var m = bkjs.koViewModels[i];
+        if (typeof m[method] == "function") rc[m.name] = m[method].apply(m, args);
+    }
+    return rc;
+}
 
 ko.bindingHandlers.hidden = {
     update: function (element, valueAccessor) {

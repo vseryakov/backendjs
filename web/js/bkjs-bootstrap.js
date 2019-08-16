@@ -42,15 +42,24 @@ bkjs.showAlert = function(obj, type, text, options)
     html += '<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>';
     html += "</div>";
     if (!$(obj).find(".alerts").length) obj = $("body");
-    if (!options.append) $(obj).find(".alerts").empty();
-    $(obj).find(".alerts").append(html);
-    if (!options.dismiss) $(obj).find("#" + aid).hide().fadeIn(200).delay(5000 * (type == "danger" ? 5 : type == "warning" ? 3 : 1)).fadeOut(1000, function () { $(this).remove(); });
+    var alerts = $(obj).find(".alerts");
+    if (options.css) alerts.addClass(options.css);
+    if (!options.append) alerts.empty();
+    alerts.append(html);
+    if (!options.dismiss) {
+        $(obj).find("#" + aid).hide().fadeIn(200).delay(5000 * (type == "danger" ? 5 : type == "warning" ? 3 : 1)).fadeOut(1000, function () {
+            $(this).remove();
+            if (options.css && !alerts.children().length) alerts.removeClass(options.css);
+        });
+    }
     if (options.scroll) $(obj).animate({ scrollTop: 0 }, "slow");
 }
 
-bkjs.hideAlert = function(obj)
+bkjs.hideAlert = function(obj, options)
 {
-    $(obj || "body").find(".alerts").empty();
+    var alerts = $(obj || "body").find(".alerts");
+    alerts.empty();
+    if (options && options.css) alerts.removeClass(options.css);
 }
 
 bkjs.showConfirm = function(options, callback, cancelled)
