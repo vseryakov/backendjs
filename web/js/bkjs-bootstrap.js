@@ -36,18 +36,20 @@ bkjs.showAlert = function(obj, type, text, options)
     if (!bkjs._alertNum) bkjs._alertNum = 0;
     if (type == "error") type = "danger";
     var aid = "alert-" + bkjs._alertNum++;
-    var html = "<div id=" + aid + " class='alert alert-dismissible alert-" + type + "' role='alert'>";
+    var html = "<div id=" + aid + " class='alert alert-dismissible alert-" + type + " fade show' role='alert'>";
     if (options.icon) html += '<i class="fa fa-fw ' + options.icon + '"></i>';
     html += String(typeof text == "string" ? text : text && text.message ? text.message : JSON.stringify(text)).replace(/\n/g, "<br>");
     html += '<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>';
     html += "</div>";
     if (!$(obj).find(".alerts").length) obj = $("body");
     var alerts = $(obj).find(".alerts");
+    if (!alerts.length) return;
+    if (alerts.css("display") == "none") alerts.show();
     if (options.css) alerts.addClass(options.css);
     if (!options.append) alerts.empty();
     alerts.append(html);
     if (!options.dismiss) {
-        $(obj).find("#" + aid).hide().fadeIn(200).delay(5000 * (type == "danger" ? 5 : type == "warning" ? 3 : 1)).fadeOut(1000, function () {
+        $(obj).find("#" + aid).delay((options.delay || 5000) * (type == "danger" ? 5 : type == "warning" ? 3 : 1)).fadeOut(1000, function () {
             $(this).remove();
             if (options.css && !alerts.children().length) alerts.removeClass(options.css);
         });
@@ -58,8 +60,12 @@ bkjs.showAlert = function(obj, type, text, options)
 bkjs.hideAlert = function(obj, options)
 {
     var alerts = $(obj || "body").find(".alerts");
+    if (!alerts.length) return;
     alerts.empty();
-    if (options && options.css) alerts.removeClass(options.css);
+    if (options) {
+        if (options.css) alerts.removeClass(options.css);
+        if (options.hide) alerts.hide();
+    }
 }
 
 bkjs.showConfirm = function(options, callback, cancelled)

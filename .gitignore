@@ -17,6 +17,9 @@
 *.qbs
 *.user
 *.js.map
+*.bundle.js
+*.bundle.css
+*.bundle.html.js
 *xcshareddata*
 *xcuserdata*
 .DS_Store
