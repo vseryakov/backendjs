@@ -41,31 +41,43 @@ bkjs.showAlert = function(obj, type, text, options)
     html += String(typeof text == "string" ? text : text && text.message ? text.message : JSON.stringify(text)).replace(/\n/g, "<br>");
     html += '<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>';
     html += "</div>";
-    if (!$(obj).find(".alerts").length) obj = $("body");
-    var alerts = $(obj).find(".alerts");
+    var element = options.element || ".alerts";
+    if (!$(obj).find(element).length) obj = $("body");
+    var alerts = $(obj).find(element);
     if (!alerts.length) return;
-    if (alerts.css("display") == "none") alerts.show();
+    if (options.hide || alerts.css("display") == "none") {
+        alerts.attr("data-alert", "hide");
+        alerts.show();
+    }
     if (options.css) alerts.addClass(options.css);
     if (!options.append) alerts.empty();
     alerts.append(html);
     if (!options.dismiss) {
         $(obj).find("#" + aid).delay((options.delay || 5000) * (type == "danger" ? 5 : type == "warning" ? 3 : 1)).fadeOut(1000, function () {
-            $(this).remove();
-            if (options.css && !alerts.children().length) alerts.removeClass(options.css);
+            $(this).alert('close');
         });
     }
+    $(obj).find("#" + aid).on('closed.bs.alert', function() {
+        bkjs.cleanupAlerts(alerts, options);
+    });
     if (options.scroll) $(obj).animate({ scrollTop: 0 }, "slow");
 }
 
 bkjs.hideAlert = function(obj, options)
 {
-    var alerts = $(obj || "body").find(".alerts");
+    if (!options) options = {};
+    var alerts = $(obj || "body").find(options.element || ".alerts");
     if (!alerts.length) return;
     alerts.empty();
-    if (options) {
-        if (options.css) alerts.removeClass(options.css);
-        if (options.hide) alerts.hide();
-    }
+    bkjs.cleanupAlerts(alerts, options);
+}
+
+bkjs.cleanupAlerts = function(element, options)
+{
+    if (element.children().length) return;
+    if (options.css) element.removeClass(options.css);
+    if (options.hide || element.attr("data-alert") == "hide") element.hide();
+    element.removeAttr("data-alert");
 }
 
 bkjs.showConfirm = function(options, callback, cancelled)
