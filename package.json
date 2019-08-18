@@ -84,7 +84,13 @@
   "config": {
     "sync": {
       "path": "node_modules",
-      "exclude": "examples/"
+      "exclude": "examples/",
+      "include": [
+        "*.js.map",
+        "*.bundle.html.js",
+        "*.bundle.js",
+        "*.bundle.css"
+      ]
     },
     "bundles": {
         "bkjs": {
