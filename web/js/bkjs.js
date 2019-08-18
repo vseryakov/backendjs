@@ -263,7 +263,7 @@ bkjs.sendFile = function(options, callback)
         form.append(p, f);
         n++;
     }
-    if (!n) return callback && callback();
+    if (!n) return callback && callback.call(options.self || bkjs);
 
     for (p in options.data) {
         if (typeof options.data[p] != "undefined") form.append(p, options.data[p])
