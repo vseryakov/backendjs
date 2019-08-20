@@ -36,7 +36,7 @@ bkjs.showAlert = function(obj, type, text, options)
     if (!bkjs._alertNum) bkjs._alertNum = 0;
     if (type == "error") type = "danger";
     var aid = "alert-" + bkjs._alertNum++;
-    var html = "<div id=" + aid + " class='alert alert-dismissible alert-" + type + " fade show' role='alert'>";
+    var html = '<div id=' + aid + ' class="alert alert-dismissible alert-' + type + ' fade show ' + (options.css || "") + '" role="alert">';
     if (options.icon) html += '<i class="fa fa-fw ' + options.icon + '"></i>';
     html += String(typeof text == "string" ? text : text && text.message ? text.message : JSON.stringify(text)).replace(/\n/g, "<br>");
     html += '<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>';
@@ -86,7 +86,7 @@ bkjs.showConfirm = function(options, callback, cancelled)
     var modal = $('#bkjs-confirm-modal'), self = this;
     if (!modal.length) {
         var close = '<a class="close" data-dismiss="modal" >&times;</a>';
-        var title = '<h3 class="modal-title">' + (options.title || "Prompt") +'</h3>';
+        var title = '<h3 class="modal-title">' + (options.title || "Confirm") +'</h3>';
         if (window.bootstrap) title = title + close; else title = close + title;
         modal = $(
         '<div class="modal fade">\
@@ -94,7 +94,7 @@ bkjs.showConfirm = function(options, callback, cancelled)
             <div class="modal-content">\
               <div class="modal-header">' + title + '</div>\
               <div class="modal-body">\
-                <p>' + options.text.replace(/\n/g, "<br>") + '</p>\
+                <div class="' + (options.css || '') + '">' + options.text.replace(/\n/g, "<br>") + '</div>\
               </div>\
               <div class="modal-footer">\
                 <a href="#!" id="bkjs-confirm-cancel-button" class="btn btn-default" data-dismiss="modal">' +
