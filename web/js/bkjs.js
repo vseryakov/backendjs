@@ -53,36 +53,37 @@ var Bkjs = bkjs;
 bkjs.login = function(options, callback)
 {
     if (typeof options == "function") callback = options, options = {};
-    options = this.objClone(options, "jsonType", "obj");
-    if (options.url) {
-        options.type = "POST";
-        options.nosignature = 1;
-    } else {
-        if (typeof options.login =="string" && typeof options.secret == "string") this.setCredentials(options);
-        options.url = "/auth?_session=" + this.session;
-    }
+    options = this.objClone(options, "jsonType", "obj", "type", "POST");
+    if (!options.data) options.data = {};
+    if (!options.url) options.url = "/auth";
+    if (typeof options.login =="string" && typeof options.secret == "string") this.setCredentials(options);
+    options.data._session = this.session;
+
     this.send(options, function(data) {
         bkjs.loggedIn = true;
         for (var p in data) bkjs.account[p] = data[p];
         // Clear credentials from the memory if we use sessions
         if (bkjs.session) bkjs.setCredentials();
-        if (typeof callback == "function") callback();
+        if (typeof callback == "function") callback.call(options.self || bkjs);
     }, function(err, xhr) {
         bkjs.loggedIn = false;
         for (var p in bkjs.account) delete bkjs.account[p];
         bkjs.setCredentials();
-        if (typeof callback == "function") callback(err, null, xhr);
+        if (typeof callback == "function") callback.call(options.self || bkjs, err, null, xhr);
     });
 }
 
 // Logout and clear all cookies and local credentials
-bkjs.logout = function(callback)
+bkjs.logout = function(options, callback)
 {
+    if (typeof options == "function") callback = options, options = null;
+    options = this.objClone(options, "jsonType", "obj", "type", "POST");
+    if (!options.url) options.url = "/logout";
     this.loggedIn = false;
     for (var p in bkjs.account) delete bkjs.account[p];
-    this.sendRequest("/logout", function(err, data, xhr) {
+    this.sendRequest(options, function(err, data, xhr) {
         bkjs.setCredentials();
-        if (typeof callback == "function") callback(err, data, xhr);
+        if (typeof callback == "function") callback.call(options.self || bkjs, err, data, xhr);
     });
 }
 
@@ -220,7 +221,7 @@ bkjs.send = function(options, onsuccess, onerror)
         $(bkjs).trigger("bkjs.loading", "hide");
         var err = xhr.responseText;
         try { err = JSON.parse(xhr.responseText) } catch(e) {}
-        bkjs.log('send:', xhr.status, err, statusText, errorText, options);
+        if (!options.quiet) bkjs.log('send:', xhr.status, err, statusText, errorText, options);
         if (options.alert) {
             $(bkjs).trigger("bkjs.alert", ["error", (typeof options.alert == "string" && options.alert) || err || errorText || statusText]);
         }
