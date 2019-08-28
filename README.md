@@ -1240,7 +1240,7 @@ There is also native iOS implementation [Bkjs.m](https://raw.githubusercontent.c
    Parameters:
 
      - `login` - account login
-     - `zecret` - account secret
+     - `secret` - account secret
      - `_session=1` - same as in /auth request
      - `_accesstoken=1` - same as in /auth reuest
 
