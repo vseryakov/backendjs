@@ -53,7 +53,7 @@ bkjs.showAlert = function(obj, type, text, options)
     if (!options.append) alerts.empty();
     alerts.append(html);
     if (!options.dismiss) {
-        $(obj).find("#" + aid).delay((options.delay || 5000) * (type == "danger" ? 5 : type == "warning" ? 3 : 1)).fadeOut(1000, function () {
+        $(obj).find("#" + aid).delay((options.delay || 3000) * (type == "danger" ? 3 : type == "warning" ? 3 : type == "info" ? 2 : 1)).fadeOut(1000, function () {
             $(this).alert('close');
         });
     }
