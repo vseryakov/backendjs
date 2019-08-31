@@ -327,6 +327,7 @@ function bootpopup(options)
 
         for (var i in this.options.buttons) {
             var item = this.options.buttons[i];
+            if (!item) continue;
             this["btn_" + item] = $("<button></button>", {
                 type: "button",
                 text: this.options["text_" + item],
