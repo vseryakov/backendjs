@@ -3,6 +3,8 @@
  *  Vlad Seryakov vseryakov@gmail.com 2018
  */
 
+bkjs.noop = function() {}
+
 bkjs.inherits = function(ctor, superCtor)
 {
     ctor.prototype = Object.create(superCtor.prototype);
