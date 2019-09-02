@@ -125,7 +125,7 @@ function bootpopup(options)
         this.modal.append(this.dialog);
 
         // Header
-        if (this.options.show_header) {
+        if (this.options.show_header && this.options.title) {
             this.header = $('<div></div>', { class: this.options.class_header });
             var title = $('<h5></h5>', { class: this.options.class_title, id: "bootpopup-title" });
             title.append(this.options.title);
@@ -421,7 +421,7 @@ bootpopup.alert = function(message, title, callback)
     return bootpopup({
         self: this,
         title: title,
-        content: [{ p: { text: message } }],
+        content: [{ p: { html: message } }],
         dismiss: callback,
     });
 }
@@ -436,8 +436,8 @@ bootpopup.confirm = function(message, title, callback)
         self: this,
         title: title,
         show_close: false,
-        content: [{ p: { text: message } }],
-        buttons: ["no", "yes"],
+        content: [{ p: { html: message } }],
+        buttons: ["yes", "no"],
         dismiss: function(e) {
             callback.call(this, e.bootpopupButton == "yes")
         },
@@ -463,7 +463,7 @@ bootpopup.prompt = function(label, type, message, title, callback)
 
     // Sanitize message and title
     if (typeof message !== "string") message = "";
-    if (typeof title !== "string") title = document.title;
+    if (title !== null && typeof title !== "string") title = document.title;
 
     // Add message to the window
     var content = [{ p: { text: message } }];
