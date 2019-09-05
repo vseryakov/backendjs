@@ -95,7 +95,7 @@
             "js": [
                 "web/js/jquery.min.js",
                 "web/js/bootstrap.min.js",
-                "web/js/knockout.min.js",
+                "web/js/knockout34.min.js",
                 "web/js/knockout-mapping.min.js",
                 "web/js/crypto.js",
                 "web/js/bootpopup.js",
@@ -108,7 +108,7 @@
             "js.dev": [
                 "web/js/jquery.js",
                 "web/js/bootstrap.js",
-                "web/js/knockout.js",
+                "web/js/knockout34.js",
                 "web/js/knockout-mapping.js",
                 "web/js/crypto.js",
                 "web/js/bootpopup.js",
