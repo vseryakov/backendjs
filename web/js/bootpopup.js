@@ -71,7 +71,8 @@ function bootpopup(options)
         icon_no: "",
         icon_cancel: "",
         icon_close: "",
-        centered: false,
+        center: false,
+        scroll: false,
         horizontal: true,
 
         before: function() {},
@@ -115,7 +116,8 @@ function bootpopup(options)
         if (this.options.size == "xlarge") class_dialog += " modal-xl";
         if (this.options.size == "large") class_dialog += " modal-lg";
         if (this.options.size == "small") class_dialog += " modal-sm";
-        if (this.options.centered) class_dialog += " modal-dialog-centered";
+        if (this.options.center) class_dialog += " modal-dialog-centered";
+        if (this.options.scroll) class_dialog += " modal-dialog-scrollable";
 
         // Create HTML elements for modal dialog
         this.modal = $('<div></div>', { class: this.options.class_modal, id: this.options.id || "", tabindex: "-1", role: "dialog", "aria-labelledby": "bootpopup-title", "aria-hidden": true });
