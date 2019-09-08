@@ -168,7 +168,7 @@ function bootpopup(options)
                             for (var p in entry[type]) opts[p] = entry[type][p];
                         }
                         for (var p in opts) {
-                            if (!/^(class_|text_|icon_|size_|label|for)/.test(p)) attrs[p] = opts[p];
+                            if (!/^(click_|list_|class_|text_|icon_|size_|label|for)/.test(p)) attrs[p] = opts[p];
                         }
 
                         // Convert functions to string to be used as callback
@@ -244,6 +244,36 @@ function bootpopup(options)
                                     elem = $("<" + type + "/>", attrs);
                                     if (opts.class_append || opts.text_append) {
                                         elem.append($("<span></span>", { class: opts.class_append || "" }).append(opts.text_append || ""));
+                                    }
+                                }
+                                if (opts.text_input_button) {
+                                    elem = $('<div></div>', { class: 'input-group ' + (opts.class_input_group || "") }).append(elem);
+                                    var append = $('<div></div>"', { class: "input-group-append" }).appendTo(elem);
+                                    if (opts.list_input_button) {
+                                        $('<button></button>', { class: "btn dropdown-toggle " + (opts.class_input_button || ""),
+                                                                 type: "button",
+                                                                 'data-toggle': "dropdown",
+                                                                 'aria-haspopup': "true",
+                                                                 'aria-expanded': "false"
+                                                             }).append(opts.text_input_button).appendTo(append);
+
+                                        var menu = $('<div></div>', { class: "dropdown-menu" }).appendTo(append);
+                                        for (var l in opts.list_input_button) {
+                                            var v, n = opts.list_input_button[l];
+                                            if (typeof n == "object") v = n.value, n = n.name;
+                                            $('<a></a>', { class: "dropdown-item",
+                                                           role: "button",
+                                                           'data-value': v || n,
+                                                           'data-form': this.formid,
+                                                           onclick: "(" + opts.click_input_button + ")(this)"
+                                                       }).append(n).appendTo(menu);
+                                        }
+                                    } else {
+                                        $('<button></button>', { class: "btn " + (opts.class_input_button || ""),
+                                                                 type: "button",
+                                                                 'data-form': this.formid,
+                                                                 onclick: "(" + opts.click_input_button + ")(this)"
+                                                             }).append(opts.text_input_button).appendTo(append);
                                     }
                                 }
                             }
