@@ -758,6 +758,23 @@ bkjs.objClone = function()
     return rc;
 }
 
+// Randomize the list items in place
+bkjs.shuffle = function(list)
+{
+    if (!Array.isArray(list)) return [];
+    if (list.length == 1) return list;
+    for (var i = 0; i < list.length; i++) {
+        var j = Math.round((list.length - 1) * Math.random());
+        if (i == j) {
+            continue;
+        }
+        var item = list[j];
+        list[j] = list[i];
+        list[i] = item;
+    }
+    return list;
+}
+
 // Return a random string
 bkjs.random = function()
 {
