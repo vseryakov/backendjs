@@ -94,41 +94,6 @@ system.configureSystemAPI = function()
             }
             break;
 
-        case "stats":
-            switch (req.params[1]) {
-            case 'get':
-                res.json(api.getStatistics());
-                break;
-
-            case "send":
-                res.json(api.sendStatistics());
-                break;
-
-            case 'put':
-                api.saveStatistics(api.getStatistics({ clear: true }), function(err) {
-                    api.sendReply(res, err);
-                });
-                break;
-
-            case 'collect':
-                if (!req.query.id || !req.query.ip || !req.query.pid || !req.query.mtime) return api.sendReply(res, 400, "invalid format: " + req.query.id +","+ req.query.ip +"," + req.query.pid + ","+ req.query.mtime);
-                api.saveStatistics(req.query, function(err) {
-                    api.sendReply(res, err);
-                });
-                break;
-
-            case 'calc':
-                api.calcStatistics(req.query, options, function(err, data) {
-                    if (err) return api.sendReply(res, err);
-                    res.json(data);
-                });
-                break;
-
-            default:
-                api.sendReply(res, 400, "Invalid command:" + req.params[1]);
-            }
-            break;
-
         case "params":
             var args = [ [ '', core.args ] ];
             Object.keys(core.modules).forEach(function(n) {
