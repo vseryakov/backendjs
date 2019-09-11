@@ -13,7 +13,7 @@ var files = fs.readdirSync(".").filter(function(x) { return fs.statSync(x).isFil
 files = files.concat(fs.readdirSync("lib/").filter(function(x) { return fs.statSync("lib/" + x).isFile() && x.match(/\.js$/); }).map(function(x) { return "lib/" + x }));
 files = files.concat(fs.readdirSync("modules/").filter(function(x) { return fs.statSync("modules/" + x).isFile() && x.match(/\.js$/); }).map(function(x) { return "modules/" + x }));
 
-marked.setOptions({ gfm: true, tables: true, breaks: false, pedantic: false, sanitize: true, smartLists: true, smartypants: false });
+marked.setOptions({ gfm: true, tables: true, breaks: false, pedantic: false, smartLists: true, smartypants: false });
 
 var renderer = new marked.Renderer();
 
