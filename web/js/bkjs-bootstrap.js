@@ -86,14 +86,14 @@ bkjs.showConfirm = function(options, callback, cancelled)
     var modal = $('#bkjs-confirm-modal'), self = this;
     if (!modal.length) {
         var close = '<a class="close" data-dismiss="modal" >&times;</a>';
-        var title = '<h3 class="modal-title">' + (options.title || "Confirm") +'</h3>';
-        if (window.bootstrap) title = title + close; else title = close + title;
+        var title = options.title === null ? "" : '<h3 class="modal-title">' + (options.title || "Confirm") +'</h3>';
+        if (title) title = '<div class="modal-header">' + (window.bootstrap ? title + close : close + title) + '</div>';
         modal = $(
         '<div class="modal fade">\
           <div class="modal-dialog">\
-            <div class="modal-content">\
-              <div class="modal-header">' + title + '</div>\
-              <div class="modal-body">\
+            <div class="modal-content">' +
+              title +
+              '<div class="modal-body">\
                 <div class="' + (options.css || '') + '">' + options.text.replace(/\n/g, "<br>") + '</div>\
               </div>\
               <div class="modal-footer">\
@@ -130,14 +130,14 @@ bkjs.showChoice = function(options, callback)
     var modal = $('#bkjs-choice-modal'), self = this;
     if (!modal.length) {
         var close = '<a class="close" data-dismiss="modal" >&times;</a>';
-        var title = '<h3 class="modal-title">' + (options.title || "Prompt") +'</h3>';
-        if (window.bootstrap) title = title + close; else title = close + title;
+        var title = options.title === null ? "" : '<h3 class="modal-title">' + (options.title || "Choose") +'</h3>';
+        if (title) title = '<div class="modal-header">' + (window.bootstrap ? title + close : close + title) + '</div>';
         modal = $(
         '<div class="modal fade">\
           <div class="modal-dialog">\
-            <div class="modal-content">\
-              <div class="modal-header">' + title + '</div>\
-              <div class="modal-body">\
+            <div class="modal-content">' +
+              title +
+              '<div class="modal-body">\
                 <form role="form">\
                  <div class="form-group">\
                    <label>' + (options.text ? '<p>' + options.text.replace(/\n/g, "<br>") + '</p>' : "") + '</label>\
@@ -180,14 +180,14 @@ bkjs.showPrompt = function(options, callback)
     var modal = $('#bkjs-prompt-modal'), self = this;
     if (!modal.length) {
         var close = '<a class="close" data-dismiss="modal" >&times;</a>';
-        var title = '<h3 class="modal-title">' + (options.title || "Prompt") +'</h3>';
-        if (window.bootstrap) title = title + close; else title = close + title;
+        var title = options.title === null ? "" : '<h3 class="modal-title">' + (options.title || "Prompt") +'</h3>';
+        if (title) title = '<div class="modal-header">' + (window.bootstrap ? title + close : close + title) + '</div>';
         modal = $(
         '<div class="modal fade">\
           <div class="modal-dialog">\
-            <div class="modal-content">\
-              <div class="modal-header">' + title + '</div>\
-              <div class="modal-body">\
+            <div class="modal-content">' +
+              title +
+              '<div class="modal-body">\
                 <form role="form">\
                  <div class="form-group">\
                    <label>' + (options.text ? '<p>' + options.text.replace(/\n/g, "<br>") + '</p>' : "") + '</label>\
