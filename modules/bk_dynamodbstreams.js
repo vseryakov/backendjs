@@ -32,6 +32,9 @@ const mod = {
         { name: "retry-closed-count", type: "int", min: 1, descr: "Number of times to read records from a closed shard" },
         { name: "retry-timeout", type: "int", min: 500, descr: "Min timeout in ms between retries on empty records, exponential backoff is used" },
         { name: "retry-max-timeout", type: "int", min: 1000, descr: "Max timeout in ms on empty records, once reached the timeout is reset back to the min and exponential backoff starts again" },
+        { name: "max-timeout", type: "int", descr: "Max timeout to wait for no shards condition" },
+        { name: "refresh-interval", type: "int", min: 0, descr: "Interval between describe stream discovery" },
+        { name: "refresh-interval-([a-z0-9_]+)", type: "int", obj: "refreshIntervals", strip: /max-interval-/, nocamel: 1, descr: "Interval between describe stream discovery by table name" },
     ],
     jobs: [],
     running: [],
@@ -50,6 +53,9 @@ const mod = {
     concurrency: 10,
     interval: 5000,
     intervals: {},
+    refreshInterval: 0,
+    refreshIntervals: {},
+    maxTimeout: 5000,
     maxInterval: 10000,
     maxIntervals: {},
     maxIntervalsByTime: {},
@@ -219,7 +225,7 @@ mod.processStream = function(stream, options, callback)
 
 mod.getStreamShards = function(stream, options, callback)
 {
-    var shards = { queue: [], map: {}, deps: {} };
+    var shards = { queue: [], map: {}, deps: {}, running: [], done: [], mtime: Date.now() };
 
     aws.ddbDescribeStream(stream, options, (err, info) => {
         info.Shards.forEach((x) => {
@@ -243,29 +249,50 @@ mod.getStreamShards = function(stream, options, callback)
     });
 }
 
+// Return next available shard which has no parents in the list and none of the parents are running
+mod.getNextShard = function(shards)
+{
+    for (var i = 0; i < shards.queue.length; i++) {
+        var shard = shards.queue[i];
+        if (!lib.isFlag(shards.running, shards.deps[shard]) && !lib.isFlag(shards.queue, shards.deps[shard])) {
+            shards.queue.splice(i, 1);
+            return shards.map[shard];
+        }
+    }
+}
+
+// Transfer new shards to process from newshards
+mod.mergeShards = function(shards, newshards)
+{
+
+}
+
 mod.processStreamShards = function(stream, shards, options, callback)
 {
     logger.debug("processStreamShards:", this.name, stream, shards);
 
-    shards.running = [];
-    lib.forEachItem({ max: this.concurrency, interval: this.retryTimeout, timeout: 900000 },
+    lib.forEachItem({ max: this.concurrency, interval: this.retryTimeout, timeout: this.maxTimeout },
         function(next) {
             if (!shards.queue.length || !mod.isRunning(options)) return next(null);
-            // Return next available shard which has no parents in the list and none of the parents are running
-            for (var i = 0; i < shards.queue.length; i++) {
-                var shard = shards.queue[i];
-                if (!lib.isFlag(shards.running, shards.deps[shard]) && !lib.isFlag(shards.queue, shards.deps[shard])) {
-                    shards.queue.splice(i, 1);
-                    return next(shards.map[shard]);
-                }
+            var shard = mod.getNextShard(shards);
+            if (shard) return next(shard);
+            // Retrieve new shards and merge with the current state
+            var refreshInterval = mod.refreshIntervals[options.table] || mod.refreshInterval;
+            if (refreshInterval && Date.now() - shards.mtime > refreshInterval) {
+                mod.getStreamShards(stream, options, (err, newshards) => {
+                    mod.mergeShards(shards, newshards);
+                    next(mod.getNextShard(shards));
+                });
+            } else {
+                next();
             }
-            next();
         },
         function(shard, next) {
             shards.running.push(shard.ShardId);
             logger.debug("processStreamShards:", mod.name, options.table, stream, shard, "running:", shards.running);
             mod.processShardRecords(stream, shard, options, () => {
                 lib.arrayRemove(shards.running, shard.ShardId);
+                shards.done.push(shard.ShardId);
                 next();
             });
         }, callback);
