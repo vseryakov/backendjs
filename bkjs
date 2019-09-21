@@ -496,6 +496,7 @@ case "$BKJS_CMD" in
     [ "$file" = "" ] && echo "-file must be provided" && exit 1
     dev=$(get_flag -dev)
     quiet=$(get_flag -quiet)
+    force=$(get_flag -force)
     uglifyargs=$(get_arg -uglifyargs)
 
     if [[ $file =~ \.bundle\.(js|css|html)$ ]]; then
@@ -554,13 +555,17 @@ case "$BKJS_CMD" in
 
             *html)
                 find_nodebin
-                mkdir -p $dir/web/js
+                mkdir -p $dir/web/js /tmp/bktmp
                 echo > $dir/web/js/$bundle.bundle.html.js
                 for f in $files; do
                     [ ! -s $f ] && continue
-                    (cd $dir && html-minifier --collapse-whitespace --collapse-boolean-attributes --remove-comments --remove-optional-tags --remove-attribute-quotes --remove-empty-attributes $f > /tmp/tmpl)
-                    [ "$?" != "0" ] && exit 1
-                    $NODE_BIN -e "try{var n=require('path').basename('$f','.html').replace(/(?:[-_\\.])(\\w)/g,(_,c)=>(c?c.toUpperCase():'')),f=require('fs').readFileSync('/tmp/tmpl').toString();console.log('bkjs.koTemplates[\"'+n+'\"]='+JSON.stringify(f)+';\nko.components.register(\"'+n+'\",{});')}catch(e){}" >>$dir/web/js/$bundle.bundle.html.js
+                    n=$(basename $f)
+                    if [ "$force" != "" -o $f -nt /tmp/bktmp/$n ]; then
+                        (cd $dir && html-minifier --collapse-whitespace --collapse-boolean-attributes --remove-comments --remove-optional-tags --remove-attribute-quotes --remove-empty-attributes $f > /tmp/bktmp/_$n)
+                        [ "$?" != "0" ] && exit 1
+                        $NODE_BIN -e "try{var n=require('path').basename('$f','.html').replace(/(?:[-_\\.])(\\w)/g,(_,c)=>(c?c.toUpperCase():'')),f=require('fs').readFileSync('/tmp/bktmp/_$n').toString();console.log('bkjs.koTemplates[\"'+n+'\"]='+JSON.stringify(f)+';\nko.components.register(\"'+n+'\",{});')}catch(e){}" > /tmp/bktmp/$n
+                    fi
+                    cat /tmp/bktmp/$n >> $dir/web/js/$bundle.bundle.html.js
                 done
 
                 ;;
