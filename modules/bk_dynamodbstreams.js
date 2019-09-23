@@ -91,7 +91,7 @@ mod.subscribeWorker = function(options)
             jobs.cancelTask(mod.name, { tag: table.substr(1) });
         } else {
             if (lib.isFlag(this.jobs, table)) continue;
-            setTimeout(mod.runJob.bind(mod, { table: table, source_pool: this.sourcePool, target_pool: this.targetPool, job: true }), 100 * (i + 1));
+            setTimeout(mod.runTable.bind(mod, { table: table, source_pool: this.sourcePool, target_pool: this.targetPool, job: true }), 100 * (i + 1));
         }
     }
 }
@@ -139,14 +139,14 @@ mod.processTable = function(options, callback)
     });
 }
 
-mod.runJob = function(options, callback)
+mod.runTable = function(options, callback)
 {
     if (!options.table || !options.source_pool || !options.target_pool) {
         return lib.tryCall(callback, "table, source_pool and target_pool must be provided", options);
     }
     options = lib.objMerge(options, this.options);
     db.getPool(options.source_pool).prepareOptions(options);
-    logger.info("runJob:", mod.name, "started:", options);
+    logger.info("runTable:", mod.name, "started:", options);
     this.jobs.push(options.table);
     var stream = { table: options.table };
     lib.doWhilst(
@@ -166,10 +166,10 @@ mod.runJob = function(options, callback)
                 mod.running.push(options.table);
                 stream.shards = stream.error = 0;
                 mod.processStream(stream, options, (err) => {
-                    if (err) logger.error("runJob:", mod.name, stream, err);
+                    if (err) logger.error("runTable:", mod.name, stream, err);
                     lib.arrayRemove(mod.running, options.table);
                     mod.unlock(options.table, stream, options, () => {
-                        logger.debug("runJob:", mod.name, "done:", options, stream);
+                        logger.debug("runTable:", mod.name, "done:", options, stream);
                         setTimeout(next, !stream.StreamArn || stream.error || !stream.shards ? maxInterval : interval);
                     });
                 });
@@ -179,7 +179,7 @@ mod.runJob = function(options, callback)
             return mod.isRunning(options);
         },
         (err) => {
-            logger.logger(err ? "error": "info", "runJob:", mod.name, "finished:", err, options);
+            logger.logger(err ? "error": "info", "runTable:", mod.name, "finished:", err, options);
             lib.arrayRemove(mod.jobs, options.table);
             lib.tryCall(callback, err);
         });
