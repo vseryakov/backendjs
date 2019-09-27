@@ -210,6 +210,7 @@ bkjs.showPrompt = function(options, callback)
         var input = modal.find('input');
         if (options.value) input.val(options.value);
         modal.off().on('shown.bs.modal', function () {
+            input.focus();
             if (typeof options.onShown == "function") options.onShown.call(self, modal);
         });
         form.off().on("submit", function() {
