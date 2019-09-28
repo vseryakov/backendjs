@@ -12,10 +12,11 @@ bkjs.passwordPolicy = {
 };
 
 // Verify account secret against the policy
-bkjs.checkPassword = function(secret)
+bkjs.checkPassword = function(secret, policy)
 {
     secret = secret || "";
-    for (var p in this.passwordPolicy) {
+    policy = policy || this.passwordPolicy;
+    for (var p in policy) {
         if (!secret.match(p)) {
             return {
                 status: 400,
