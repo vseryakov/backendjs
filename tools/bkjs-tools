@@ -5,6 +5,49 @@
 #
 
 case "$BKJS_CMD" in
+  init-dynamodb)
+    ($0 get-dynamodb)
+    ($0 run-dynamodb)
+    ;;
+
+  get-dynamodb)
+    [ "$DYNAMODB_PREFIX" = "" ] && DYNAMODB_PREFIX=$BKJS_PREFIX/dynamodb
+    [ "$(get_flag -force)" != "" -a "$DYNAMODB_PREFIX" != "" ] && rm -rf $DYNAMODB_PREFIX
+    if [ ! -d $DYNAMODB_PREFIX ]; then
+       mkdir -p $DYNAMODB_PREFIX
+       curl -L -o ddb.tgz http://dynamodb-local.s3-website-us-west-2.amazonaws.com/dynamodb_local_latest.tar.gz
+       tar -C $DYNAMODB_PREFIX -xzf ddb.tgz
+       rm -f ddb.tgz
+    fi
+    ;;
+
+  run-dynamodb)
+    [ "$DYNAMODB_PREFIX" = "" ] && DYNAMODB_PREFIX=$BKJS_PREFIX/dynamodb
+    mkdir -p $BKJS_HOME/var $BKJS_HOME/log
+    params="-Xmx$(get_arg -memmax 256M)"
+    exec nohup java $params -Djava.library.path=$DYNAMODB_PREFIX/DynamoDBLocal_lib -jar $DYNAMODB_PREFIX/DynamoDBLocal.jar -dbPath $BKJS_HOME/var -port 8181 >>$BKJS_HOME/log/message.log 2>&1 &
+    ;;
+
+  stop-dynamodb)
+    pkill -f DynamoDBLocal
+    ;;
+
+  reset-dynamodb)
+    $0 stop-dynamodb
+    rm -rf $BKJS_HOME/var/*_us-east-1.db
+    $0 run-dynamodb
+    ;;
+
+  get-mvn)
+    [ "$MVN_PREFIX" = "" ] && MVN_PREFIX=$BKJS_PREFIX/mvn
+    [ "$(get_flag -force)" != "" -a "$MVN_PREFIX" != "" ] && rm -rf $MVN_PREFIX
+    if [ ! -d $MVN_PREFIX ]; then
+        curl -L -o mvn.tgz ftp://mirror.csclub.uwaterloo.ca/apache/maven/maven-3/3.6.2/binaries/apache-maven-3.6.2-bin.tar.gz
+        mkdir -p $MVN_PREFIX
+        tar -C $MVN_PREFIX --strip-components=1 -xzf mvn.tgz
+        rm -f mvn.tgz
+    fi
+    ;;
 
   run-pgsql)
     mkdir -p $BKJS_HOME/var $BKJS_HOME/log
@@ -38,39 +81,6 @@ case "$BKJS_CMD" in
 
   stop-mysql)
     killall mysqld
-    ;;
-
-  init-dynamodb)
-    ($0 get-dynamodb)
-    ($0 run-dynamodb)
-    ;;
-
-  get-dynamodb)
-    [ "$DYNAMODB_PREFIX" = "" ] && DYNAMODB_PREFIX=$BKJS_PREFIX/dynamodb
-    [ "$(get_flag -force)" != "" -a "$DYNAMODB_PREFIX" != "" ] && rm -rf $DYNAMODB_PREFIX
-    if [ ! -d $DYNAMODB_PREFIX ]; then
-       mkdir -p $DYNAMODB_PREFIX
-       curl -L -o ddb.tgz http://dynamodb-local.s3-website-us-west-2.amazonaws.com/dynamodb_local_latest.tar.gz
-       tar -C $DYNAMODB_PREFIX -xzf ddb.tgz
-       rm -rf ddb.tgz
-    fi
-    ;;
-
-  run-dynamodb)
-    [ "$DYNAMODB_PREFIX" = "" ] && DYNAMODB_PREFIX=$BKJS_PREFIX/dynamodb
-    mkdir -p $BKJS_HOME/var $BKJS_HOME/log
-    params="-Xmx$(get_arg -memmax 256M)"
-    exec nohup java $params -Djava.library.path=$DYNAMODB_PREFIX/DynamoDBLocal_lib -jar $DYNAMODB_PREFIX/DynamoDBLocal.jar -dbPath $BKJS_HOME/var -port 8181 >>$BKJS_HOME/log/message.log 2>&1 &
-    ;;
-
-  stop-dynamodb)
-    pkill -f DynamoDBLocal
-    ;;
-
-  reset-dynamodb)
-    $0 stop-dynamodb
-    rm -rf $BKJS_HOME/var/*_us-east-1.db
-    $0 run-dynamodb
     ;;
 
   get-hazelcast)
