@@ -36,7 +36,7 @@ bkjs.showAlert = function(obj, type, text, options)
     if (!bkjs._alertNum) bkjs._alertNum = 0;
     if (type == "error") type = "danger";
     var aid = "alert-" + bkjs._alertNum++;
-    var html = '<div id=' + aid + ' class="alert alert-dismissible alert-' + type + ' fade show ' + (options.css || "") + '" role="alert">';
+    var html = '<div id=' + aid + ' class="alert alert-dismissible alert-' + type + ' show ' + (options.css || "") + '" role="alert">';
     if (options.icon) html += '<i class="fa fa-fw ' + options.icon + '"></i>';
     html += String(typeof text == "string" ? text : text && text.message ? text.message : JSON.stringify(text)).replace(/\n/g, "<br>");
     html += '<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>';
