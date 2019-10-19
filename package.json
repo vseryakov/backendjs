@@ -1,5 +1,5 @@
 {
-  "version": "0.97.0",
+  "version": "0.98.0",
   "author": "Vlad Seryakov",
   "name": "backendjs",
   "description": "A platform for building backends",
@@ -93,10 +93,10 @@
     "bundles": {
         "bkjs": {
             "js": [
-                "web/js/jquery.min.js",
-                "web/js/bootstrap.min.js",
-                "web/js/knockout34.min.js",
-                "web/js/knockout-mapping.min.js",
+                "web/js/jquery.js",
+                "web/js/bootstrap.js",
+                "web/js/knockout34.js",
+                "web/js/knockout-mapping.js",
                 "web/js/crypto.js",
                 "web/js/bootpopup.js",
                 "web/js/bkjs.js",
@@ -106,10 +106,10 @@
                 "web/js/bkjs-bootstrap.js"
             ],
             "js.dev": [
-                "web/js/jquery.js",
-                "web/js/bootstrap.js",
-                "web/js/knockout34.js",
-                "web/js/knockout-mapping.js",
+                "web/js/jquery.min.js",
+                "web/js/bootstrap.min.js",
+                "web/js/knockout34.min.js",
+                "web/js/knockout-mapping.min.js",
                 "web/js/crypto.js",
                 "web/js/bootpopup.js",
                 "web/js/bkjs.js",
@@ -125,11 +125,11 @@
         },
         "bkjs4": {
             "js": [
-                "web/js/jquery3.min.js",
-                "web/js/popper.min.js",
-                "web/js/bootstrap4.min.js",
-                "web/js/knockout.min.js",
-                "web/js/knockout-mapping.min.js",
+                "web/js/jquery3.js",
+                "web/js/popper.js",
+                "web/js/bootstrap4.js",
+                "web/js/knockout.js",
+                "web/js/knockout-mapping.js",
                 "web/js/crypto.js",
                 "web/js/bootpopup.js",
                 "web/js/bkjs.js",
@@ -139,11 +139,11 @@
                 "web/js/bkjs-bootstrap.js"
             ],
             "js.dev": [
-                "web/js/jquery3.js",
-                "web/js/popper.js",
-                "web/js/bootstrap4.js",
-                "web/js/knockout.js",
-                "web/js/knockout-mapping.js",
+                "web/js/jquery3.min.js",
+                "web/js/popper.min.js",
+                "web/js/bootstrap4.min.js",
+                "web/js/knockout.min.js",
+                "web/js/knockout-mapping.min.js",
                 "web/js/crypto.js",
                 "web/js/bootpopup.js",
                 "web/js/bkjs.js",

@@ -186,7 +186,7 @@ find_user() {
 # Run the command by sourcing all scripts from tools folders, if $1 is not empty then
 # run all tools scripts, otherwise stop once the command is processed
 process_cmd() {
-  dirs="$BKJS_HOME/tools $BKJS_HOME/node_modules/$BKJS_MOD/tools $(find_bkjs tools) $BKJS_TOOLS $(get_arg -tools)"
+  dirs="$BKJS_TOOLS $(get_arg -tools) $BKJS_HOME/tools $BKJS_HOME/node_modules/$BKJS_MOD/tools $(find_bkjs tools)"
   for d in $dirs; do
      if [ -d $d ]; then
         for f in $(find $d -name 'bkjs-*'); do
@@ -520,7 +520,7 @@ case "$BKJS_CMD" in
 
     for b in $bundles; do
         unset f
-        [ "$dev" != "" ] && f=$(get_json_flat $dir/package.json config.bundles.$b.$type.dev)
+        [[ ! -z $dev ]] && f=$(get_json_flat $dir/package.json config.bundles.$b.$type.dev)
         [[ -z $f ]] && f=$(get_json_flat $dir/package.json config.bundles.$b.$type)
         [[ -z $f ]] && continue
         if [[ -z $name || $name = $b || $f =~ $name ]]; then
@@ -530,37 +530,28 @@ case "$BKJS_CMD" in
             case $file in
             *js)
                 mkdir -p $dir/web/js /tmp/bktmp
-                if [[ ! -z $(get_flag -cat) ]]; then
-                    (cd $dir && cat $files > web/js/$bundle.bundle.js)
-                else
-                    uglifyargs=$(get_arg -uglifyargs)
-                    if [ "$dev" = "" ]; then
-                        echo > $dir/web/js/$bundle.bundle.js
-                        for f in $files; do
-                            if [[ $f =~ .min.js ]]; then
-                               cat $dir/$f >> $dir/web/js/$bundle.bundle.js
-                            else
-                                jfiles="$jfiles $f"
-                            fi
-                        done
-                        uglifyargs="-c -m --comments /^!/ $uglifyargs"
-                        (cd $dir && uglifyjs $files $uglifyargs >> web/js/$bundle.bundle.js)
+                if [[ -z $dev ]]; then
+                    if [[ ! -z $(get_flag -gcc) ]]; then
+                        gccargs=" $(get_arg -gccargs)"
+                        (cd $dir && npx google-closure-compiler $gccargs $files > web/js/$bundle.bundle.js)
                         [ "$?" != "0" ] && exit 1
                     else
-                        uglifyargs="--keep-fnames --source-map includeSources,url=$bundle.bundle.js.map $uglifyargs"
+                        uglifyargs="-c -m --comments /^!/ $(get_arg -uglifyargs)"
                         (cd $dir && uglifyjs $files $uglifyargs -o web/js/$bundle.bundle.js)
                         [ "$?" != "0" ] && exit 1
                     fi
+                else
+                    (cd $dir && cat $files > web/js/$bundle.bundle.js)
                 fi
                 ;;
 
             *css)
                 mkdir -p $dir/web/css
-                if [[ ! -z $(get_flag -cat) ]]; then
-                    (cd $dir && cat $files > web/css/$bundle.bundle.css)
-                else
+                if [[ -z $dev ]]; then
                     (cd $dir && uglifycss $files --output web/css/$bundle.bundle.css)
                     [ "$?" != "0" ] && exit 1
+                else
+                    (cd $dir && cat $files > web/css/$bundle.bundle.css)
                 fi
                 ;;
 
