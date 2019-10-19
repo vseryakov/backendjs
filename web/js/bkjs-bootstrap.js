@@ -89,24 +89,24 @@ bkjs.showConfirm = function(options, callback, cancelled)
         var title = options.title === null ? "" : '<h3 class="modal-title">' + (options.title || "Confirm") +'</h3>';
         if (title) title = '<div class="modal-header">' + (window.bootstrap ? title + close : close + title) + '</div>';
         modal = $(
-        '<div class="modal fade">\
-          <div class="modal-dialog">\
-            <div class="modal-content">' +
+        '<div class="modal fade">' +
+          '<div class="modal-dialog">' +
+            '<div class="modal-content">' +
               title +
-              '<div class="modal-body">\
-                <div class="' + (options.css || '') + '">' + options.text.replace(/\n/g, "<br>") + '</div>\
-              </div>\
-              <div class="modal-footer">\
-                <a href="#!" id="bkjs-confirm-cancel-button" class="btn btn-default" data-dismiss="modal">' +
+              '<div class="modal-body">' +
+                '<div class="' + (options.css || '') + '">' + options.text.replace(/\n/g, "<br>") + '</div>' +
+              '</div>' +
+              '<div class="modal-footer">' +
+                '<a href="#!" id="bkjs-confirm-cancel-button" class="btn btn-default" data-dismiss="modal">' +
                   (options.cancel || "Cancel") +
-                '</a>\
-                <a href="#!" id="bkjs-confirm-ok-button" class="btn btn-primary">' +
+                '</a>' +
+                '<a href="#!" id="bkjs-confirm-ok-button" class="btn btn-primary">' +
                   (options.ok || "OK") +
-                '</a> \
-              </div>\
-            </div>\
-          </div>\
-        </div>');
+                '</a> ' +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+        '</div>');
         modal.off().on('shown.bs.modal', function () {
             if (typeof options.onShown == "function") options.onShown.call(self, modal);
         });
@@ -133,29 +133,29 @@ bkjs.showChoice = function(options, callback)
         var title = options.title === null ? "" : '<h3 class="modal-title">' + (options.title || "Choose") +'</h3>';
         if (title) title = '<div class="modal-header">' + (window.bootstrap ? title + close : close + title) + '</div>';
         modal = $(
-        '<div class="modal fade">\
-          <div class="modal-dialog">\
-            <div class="modal-content">' +
+        '<div class="modal fade">' +
+          '<div class="modal-dialog">' +
+            '<div class="modal-content">' +
               title +
-              '<div class="modal-body">\
-                <form role="form">\
-                 <div class="form-group">\
-                   <label>' + (options.text ? '<p>' + options.text.replace(/\n/g, "<br>") + '</p>' : "") + '</label>\
-                   <select class="form-control ' + (options.css || "") + '"></select>\
-                 </div>\
-                </form>\
-              </div>\
-              <div class="modal-footer">\
-                <a href="#!" class="btn btn-default" data-dismiss="modal">' +
+              '<div class="modal-body">' +
+                '<form role="form">' +
+                 '<div class="form-group">' +
+                   '<label>' + (options.text ? '<p>' + options.text.replace(/\n/g, "<br>") + '</p>' : "") + '</label>' +
+                   '<select class="form-control ' + (options.css || "") + '"></select>' +
+                 '</div>' +
+                '</form>' +
+              '</div>' +
+              '<div class="modal-footer">' +
+                '<a href="#!" class="btn btn-default" data-dismiss="modal">' +
                   (options.cancel || "Cancel") +
-                '</a>\
-                <a href="#!" id="bkjs-choice-ok-button" class="btn btn-primary">' +
+                '</a>' +
+                '<a href="#!" id="bkjs-choice-ok-button" class="btn btn-primary">' +
                   (options.ok || "OK") +
-                '</a> \
-              </div>\
-            </div>\
-          </div>\
-        </div>');
+                '</a> ' +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+        '</div>');
         var select = modal.find('select');
         if (Array.isArray(options.values)) {
             options.values.forEach(function(x) {
@@ -183,29 +183,29 @@ bkjs.showPrompt = function(options, callback)
         var title = options.title === null ? "" : '<h3 class="modal-title">' + (options.title || "Prompt") +'</h3>';
         if (title) title = '<div class="modal-header">' + (window.bootstrap ? title + close : close + title) + '</div>';
         modal = $(
-        '<div class="modal fade">\
-          <div class="modal-dialog">\
-            <div class="modal-content">' +
+        '<div class="modal fade">' +
+          '<div class="modal-dialog">' +
+            '<div class="modal-content">' +
               title +
-              '<div class="modal-body">\
-                <form role="form">\
-                 <div class="form-group">\
-                   <label>' + (options.text ? '<p>' + options.text.replace(/\n/g, "<br>") + '</p>' : "") + '</label>\
-                   <input type="text" class="form-control ' + (options.css || "") + '">\
-                 </div>\
-                </form>\
-              </div>\
-              <div class="modal-footer">\
-                <a href="#!" class="btn btn-default" data-dismiss="modal">' +
+              '<div class="modal-body">' +
+                '<form role="form">' +
+                 '<div class="form-group">' +
+                   '<label>' + (options.text ? '<p>' + options.text.replace(/\n/g, "<br>") + '</p>' : "") + '</label>' +
+                   '<input type="text" class="form-control ' + (options.css || "") + '">' +
+                 '</div>' +
+                '</form>' +
+              '</div>' +
+              '<div class="modal-footer">' +
+                '<a href="#!" class="btn btn-default" data-dismiss="modal">' +
                   (options.cancel || "Cancel") +
-                '</a>\
-                <a href="#!" id="bkjs-prompt-ok-button" class="btn btn-primary">' +
+                '</a>' +
+                '<a href="#!" id="bkjs-prompt-ok-button" class="btn btn-primary">' +
                   (options.ok || "OK") +
-                '</a> \
-              </div>\
-            </div>\
-          </div>\
-        </div>');
+                '</a> ' +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+        '</div>');
         var form = modal.find('form');
         var input = modal.find('input');
         if (options.value) input.val(options.value);
@@ -236,31 +236,31 @@ bkjs.showLogin = function(options, callback)
         var title = '<h4 class="modal-title" id="LoginLabel"><img src=@icon@ class="logo"> @title@</h4>';
         if (window.bootstrap) title = title + close; else title = close + title;
         var text =
-        '<div id="bkjs-login-modal" class="modal fade" tabindex="-1" role="dialog" aria-labelledby="LoginLabel" aria-hidden="true">\
-          <div class="modal-dialog">\
-           <div class="modal-content">\
-            <form role="form">\
-            <div class="modal-header">' + title + '</div>\
-            <div class="modal-body">\
-              <div class="alerts"></div>\
-              <div class="form-group">\
-               <label>@login@</label>\
-               <input class="form-control" placeholder="@login@" type="text" autofocus>\
-              </div>\
-              <div class="form-group">\
-               <label>Password</label>\
-               <input class="form-control" placeholder="Password" type="password" value="">\
-              </div>\
-              @disclaimer@\
-            </div>\
-            <div class="modal-footer">\
-             <button type="button" class="btn btn-default" onclick="bkjs.hideLogin()">Close</button>\
-             <button type="submit" class="btn btn-primary">Login</button>\
-            </div>\
-            </form>\
-           </div>\
-          </div>\
-        </div>';
+        '<div id="bkjs-login-modal" class="modal fade" tabindex="-1" role="dialog" aria-labelledby="LoginLabel" aria-hidden="true">' +
+          '<div class="modal-dialog">' +
+           '<div class="modal-content">' +
+            '<form role="form">' +
+            '<div class="modal-header">' + title + '</div>' +
+            '<div class="modal-body">' +
+              '<div class="alerts"></div>' +
+              '<div class="form-group">' +
+               '<label>@login@</label>' +
+               '<input class="form-control" placeholder="@login@" type="text" autofocus>' +
+              '</div>' +
+              '<div class="form-group">' +
+               '<label>Password</label>' +
+               '<input class="form-control" placeholder="Password" type="password" value="">' +
+              '</div>' +
+              '@disclaimer@' +
+            '</div>' +
+            '<div class="modal-footer">' +
+             '<button type="button" class="btn btn-default" onclick="bkjs.hideLogin()">Close</button>' +
+             '<button type="submit" class="btn btn-primary">Login</button>' +
+            '</div>' +
+            '</form>' +
+           '</div>' +
+          '</div>' +
+        '</div>';
         text = text.replace(/@login@/g, options.login || "Login");
         text = text.replace(/@icon@/g, options.icon || "/img/logo.png");
         text = text.replace(/@title@/g, options.title || "Please Sign In");

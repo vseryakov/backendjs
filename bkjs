@@ -497,7 +497,6 @@ case "$BKJS_CMD" in
     dev=$(get_flag -dev)
     quiet=$(get_flag -quiet)
     force=$(get_flag -force)
-    uglifyargs=$(get_arg -uglifyargs)
 
     if [[ $file =~ \.bundle\.(js|css|html)$ ]]; then
        exit
@@ -520,26 +519,38 @@ case "$BKJS_CMD" in
     [ "$quiet" = "" ] && echo "$BKJS_CMD: $dir $type bundles: $bundles"
 
     for b in $bundles; do
+        unset f
         [ "$dev" != "" ] && f=$(get_json_flat $dir/package.json config.bundles.$b.$type.dev)
         [[ -z $f ]] && f=$(get_json_flat $dir/package.json config.bundles.$b.$type)
         [[ -z $f ]] && continue
         if [[ -z $name || $name = $b || $f =~ $name ]]; then
             files=$f
             bundle=$b
-            [ "$quiet" = "" ] && echo "$(date): web-bundle $bundle.$type started $dir/$file"
+            [ "$quiet" = "" ] && echo "$(date): web-bundle $bundle.$type started $dir/$file, files: $files"
             case $file in
             *js)
-                mkdir -p $dir/web/js
+                mkdir -p $dir/web/js /tmp/bktmp
                 if [[ ! -z $(get_flag -cat) ]]; then
                     (cd $dir && cat $files > web/js/$bundle.bundle.js)
                 else
+                    uglifyargs=$(get_arg -uglifyargs)
                     if [ "$dev" = "" ]; then
+                        echo > $dir/web/js/$bundle.bundle.js
+                        for f in $files; do
+                            if [[ $f =~ .min.js ]]; then
+                               cat $dir/$f >> $dir/web/js/$bundle.bundle.js
+                            else
+                                jfiles="$jfiles $f"
+                            fi
+                        done
                         uglifyargs="-c -m --comments /^!/ $uglifyargs"
+                        (cd $dir && uglifyjs $files $uglifyargs >> web/js/$bundle.bundle.js)
+                        [ "$?" != "0" ] && exit 1
                     else
                         uglifyargs="--keep-fnames --source-map includeSources,url=$bundle.bundle.js.map $uglifyargs"
+                        (cd $dir && uglifyjs $files $uglifyargs -o web/js/$bundle.bundle.js)
+                        [ "$?" != "0" ] && exit 1
                     fi
-                    (cd $dir && uglifyjs $files $uglifyargs -o web/js/$bundle.bundle.js)
-                    [ "$?" != "0" ] && exit 1
                 fi
                 ;;
 
