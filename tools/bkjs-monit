@@ -108,6 +108,18 @@ case "$BKJS_CMD" in
     monit reload
     ;;
 
+  init-monit)
+    find_user
+    name=$(get_arg -name)
+    start=$(get_arg -start)
+    stop=$(get_arg -stop)
+    [ "$name" = "" -o "$start" = "" -o "$stop" = "" ] && echo "invalid init-monit arguments" && exit
+    timeout=$(get_arg -timeout 5)
+    cycles=$(get_arg -cycles)
+    [ "$cycles" != "" ] && cycles="for $cycles cycles"
+    echo -e "check process $name with pidfile \"$BKJS_HOME/var/$name.pid\" start program = \"$start\" as uid $BKJS_USER and gid $BKJS_GROUP with timeout $timeout seconds $cycles stop program = \"$stop\"" > /etc/monit.d/$name.conf
+    ;;
+
   help)
     echo ""
     echo "Monit setup commands:"
@@ -119,6 +131,7 @@ case "$BKJS_CMD" in
     echo "  init-monit-elasticsearch [-memsize PERCENT] [-memmax SIZE] [-nodetype TYPE] - setup monit to keep elasticsearch service running"
     echo "  init-monit-sentinel [-host HOST] [-port PORT] - setup Redis Sentinel server to be run on start and to be monitored (Linux only)"
     echo "  init-monit-redis [-memsize PERCENT] [-memmax SIZE] - setup Redis server to be run on start and to be monitored (Linux only)"
+    echo "  init-monit -name NAME -start SCRIPT -stop SCRIPT - generate a monit service config"
     echo ""
     ;;
 
