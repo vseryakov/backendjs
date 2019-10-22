@@ -408,7 +408,7 @@ case "$BKJS_CMD" in
   init-logwatcher)
     find_user
     find_bkjsbin
-    cron=$(get_arg -cron '*/30 * * * *')
+    cron=$(get_arg -cron "*/$(get_arg -interval 5) * * * *")
     echo 'MAILTO=""' > /etc/cron.d/$BKJS-logwatcher
     echo "$cron $BKJS_USER $BKJS_BIN logwatcher" >> /etc/cron.d/$BKJS-logwatcher
     ;;
@@ -462,7 +462,7 @@ case "$BKJS_CMD" in
     echo "  init-packages - install required packges and updates"
     echo "  init-home - setup backend home with required folders"
     echo "  init-mfa [-user ec2-user] - initialize EC2 instance with multi-factor authentication using Google authenticator"
-    echo "  init-logwatcher - creates a crontab file in /etc/cron.d to periodically run the log watcher, -cron can specify full cron time spec"
+    echo "  init-logwatcher [-interval MINS] [-cron CRON] - creates a crontab file in /etc/cron.d to periodically run the log watcher, -cron can specify full cron time spec"
     echo "  init-service [-server NAME] - create $BKJS service to be run on server startup, i.e. makes symlink /etc/init.d/$BKJS after which regular 'service' command can be used to manage the $BKJS service"
     echo "  stop-service - stop $BKJS service from starting on startup"
     ;;
