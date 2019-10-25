@@ -93,7 +93,7 @@ Pool.prototype.prepare = function(req)
     case "upgrade":
         if (!req.text.length) return;
         // Prepare FTS triggers from the projection columns
-        var cols = req.columns, rc = [];
+        var cols = db.getColumns(req.table, req.options), rc = [];
         for (var p in cols) {
             if (cols[p].type == "search" && cols[p].projection) {
                 rc.push("DROP TRIGGER IF EXISTS " + req.table + "_" + p + "_trigger ON " + req.table + " CASCADE");

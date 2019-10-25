@@ -134,7 +134,7 @@ Pool.prototype.query = function(client, req, options, callback)
     var obj = req.obj;
     var table = req.table || "";
     var keys = db.getKeys(table, options);
-    var cols = req.columns || db.getColumns(table, options);
+    var cols = db.getColumns(table, options);
     options = options || lib.empty;
 
     switch (req.op) {

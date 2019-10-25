@@ -120,7 +120,7 @@ Pool.prototype.prepare = function(req)
         req.options = lib.objClone(req.options);
         // Cannot search by non primary keys
         var keys = db.getKeys(req.table);
-        var cols = req.columns || db.getColumns(req.table);
+        var cols = db.getColumns(req.table);
         var lastKey = keys[keys.length - 1], lastOps = req.options.ops && req.options.ops[lastKey];
 
         // Install custom filter if we have other columns in the keys
