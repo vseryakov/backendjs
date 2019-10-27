@@ -23,7 +23,7 @@ case "$BKJS_CMD" in
         echo "action.destructive_requires_name: true" >> config/elasticsearch.yml
         if [ "$OS_TYPE" = "amazon" ]; then
             echo 'network.host: ["_ec2_","_local_"]' >> config/elasticsearch.yml
-            echo 'discovery.zen.hosts_provider: ec2' >> config/elasticsearch.yml
+            echo 'discovery.seed_providers: ec2' >> config/elasticsearch.yml
             echo 'cloud.node.auto_attributes: true' >> config/elasticsearch.yml
             echo 'cluster.routing.allocation.awareness.attributes: aws_availability_zone' >> config/elasticsearch.yml
             bin/elasticsearch-plugin install discovery-ec2 -b
