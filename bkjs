@@ -228,7 +228,9 @@ case "$BKJS_CMD" in
   start)
     cd $BKJS_HOME
     $0 check-server
-    $0 run-${BKJS_SERVER:-monitor}
+    if [ ! -f /etc/monit.d/$BKJS.conf ]; then
+        $0 run-${BKJS_SERVER:-monitor}
+    fi
     ;;
 
   restart)
@@ -278,13 +280,13 @@ case "$BKJS_CMD" in
     # Setup domain from the config, keep the hostname as it is, for EC2 instances it is the IP address
     domain=$(get_arg -domain $BKJS_DOMAIN)
     [ "$domain" != "" ] && $0 init-hostname -domain $domain
+    process_cmds
     # New instance started from existing AMI which might have old log files
     if [ -f $BKJS_HOME/var/bkjs.init ]; then
         echo "Initializing $BKJS_HOME..."
         rm -rf $BKJS_HOME/var/* $BKJS_HOME/log/*
         service rsyslog restart
     fi
-    process_cmds
     find_user
     chown -R $BKJS_USER $BKJS_HOME/etc $BKJS_HOME/var $BKJS_HOME/log
     ;;
