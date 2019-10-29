@@ -228,9 +228,7 @@ case "$BKJS_CMD" in
   start)
     cd $BKJS_HOME
     $0 check-server
-    if [ ! -f /etc/monit.d/$BKJS.conf ]; then
-        $0 run-${BKJS_SERVER:-monitor}
-    fi
+    $0 run-${BKJS_SERVER:-monitor}
     ;;
 
   restart)
