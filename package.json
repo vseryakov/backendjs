@@ -26,7 +26,6 @@
     "ws": ">= 1.0.1",
     "formidable": ">= 1.0.17",
     "cookie-parser": ">= 1.4.3",
-    "cookie-session": ">= 1.2.0",
     "mmmagic": ">= 0.4.5",
     "nan": ">= 2.4.0",
     "bkjs-utils": ">= 0.2.5",
