@@ -70,12 +70,8 @@
 <li><a href="#public-images-endpoint"> Public Images endpoint</a></li>
 <li><a href="#icons"> Icons</a></li>
 <li><a href="#file-api"> File API</a></li>
-<li><a href="#connections"> Connections</a></li>
-<li><a href="#locations"> Locations</a></li>
 <li><a href="#messages"> Messages</a></li>
-<li><a href="#counters"> Counters</a></li>
 <li><a href="#data"> Data</a></li>
-<li><a href="#pages"> Pages</a></li>
 <li><a href="#system-api"> System API</a></li>
 </ul>
 </li>
@@ -121,7 +117,6 @@
 <li><a href="#module-server">server</a></li>
 <li><a href="#module-bk_account">bk_account</a></li>
 <li><a href="#module-bk_data">bk_data</a></li>
-<li><a href="#module-bk_dynamodbstreams">bk_dynamodbstreams</a></li>
 <li><a href="#module-bk_file">bk_file</a></li>
 <li><a href="#module-bk_icon">bk_icon</a></li>
 <li><a href="#module-bk_message">bk_message</a></li>
@@ -131,18 +126,6 @@
 <li><a href="#module-bk_shell_test">bk_shell_test</a></li>
 <li><a href="#module-bk_status">bk_status</a></li>
 <li><a href="#module-bk_system">bk_system</a></li>
-<li><a href="#module-db_cassandra">db_cassandra</a></li>
-<li><a href="#module-db_couchdb">db_couchdb</a></li>
-<li><a href="#module-db_lmdb">db_lmdb</a></li>
-<li><a href="#module-db_mongodb">db_mongodb</a></li>
-<li><a href="#module-db_mysql">db_mysql</a></li>
-<li><a href="#module-db_pgsql">db_pgsql</a></li>
-<li><a href="#module-db_redis">db_redis</a></li>
-<li><a href="#module-db_riak">db_riak</a></li>
-<li><a href="#module-ipc_amqp">ipc_amqp</a></li>
-<li><a href="#module-ipc_db">ipc_db</a></li>
-<li><a href="#module-ipc_hazelcast">ipc_hazelcast</a></li>
-<li><a href="#module-msg_sns">msg_sns</a></li>
 </ul>
 </li>
 </ul>
@@ -156,11 +139,11 @@ metrics and monitoring, a library of tools for developing Node.js servers.</p>
 <p>Features:</p>
 <ul>
 <li>Exposes a set of Web service APIs over HTTP(S) using Express framework.</li>
-<li>Database API supports SQLite, PostgreSQL, MySQL, DynamoDB, Cassandra, MongoDB, Redis with all basic operations behaving the
+<li>Database API supports SQLite, DynamoDB with all basic operations behaving the
 same way allowing you to switch databases without changing the code.</li>
-<li>Database drivers for LevelDB, LMDB, CouchDB, Riak, ElasticSearch support only a subset of all database operations</li>
 <li>Database operations (Get, Put, Del, Update, Select) for all supported databases using the same DB API.</li>
-<li>DynamoDB Streams processing in background worker processes</li>
+<li>Experimental database drivers for PostreSQL, MySQL, Cassandra, Riak, CouchDB</li>
+<li>Experimental DynamoDB Streams processing in background worker processes</li>
 <li>Easily extensible to support any kind of database, provides a database driver on top of Redis with all supported methods as an example.</li>
 <li>Provides accounts, connections, locations, messaging and icons APIs with basic functionality for a quick start.</li>
 <li>Supports crontab and queue job processing by separate worker processes.</li>
@@ -1465,137 +1448,6 @@ the <code>url</code> property will provide full URL to retrieve the icon content
 <p>  Delete file, prefix and name must be given</p>
 </li>
 </ul>
-<h2 id="connections">Connections</h2>
-<p>The connections API maintains two tables <code>bk_connection</code> and <code>bk_reference</code> for links between accounts of any type. bk_connection table maintains my
-links, i.e. when i make explicit connection to other account, and bk_reference table is automatically updated with reference for that other account that I made
-a connection with it. No direct operations on bk_reference is allowed.</p>
-<p>This is implemented by the <code>connections</code> module from the core. To enable this functionality specify <code>-allow-modules=bk_connections</code>.</p>
-<ul>
-<li><p><code>/connection/add</code></p>
-</li>
-<li><p><code>/connection/put</code>
-Create or replace a connection between two accounts, required parameters are:</p>
-<ul>
-<li><code>peer</code> - id of account to connect to</li>
-<li><code>type</code> - type of connection, like,dislike,....</li>
-<li>_connected - the reply will contain a connection record if the other side of our connection is connected to us as well</li>
-</ul>
-<p>This call automatically creates a record in the bk_reference table which is reversed connection for easy access to information like
-&#39;&#39;who is connected to me&#39;&#39;.</p>
-<p>Example:</p>
-<pre><code>  /connection/add?peer=12345&amp;type=invite&amp;state=sent</code></pre></li>
-<li><p><code>/connection/update</code></p>
-</li>
-<li><p><code>/connection/incr</code>
-Update other properties of the existing connection, for connections that may take more than i step or if a connection has other data associated with it beside
-the type of the connection.</p>
-<p>Example:</p>
-<pre><code>  /connection/update?peer=12345&amp;type=invite&amp;state=accepted</code></pre></li>
-<li><p><code>/connection/del</code>
-Delete existing connection(s), <code>id</code> and/or <code>type</code> may be be specified, if not all existing connections will be deleted.</p>
-<p>Example:</p>
-<pre><code>  /connection/del?type=invite&amp;peer=12345</code></pre></li>
-<li><p><code>/connection/get</code>
-Return a single connection for given id</p>
-<p>Parameters:</p>
-<ul>
-<li>peer - account id of the connection, required</li>
-<li>type - connection type, required</li>
-</ul>
-<p>Example:</p>
-<pre><code>  /connection/get?peer=12345&amp;type=like</code></pre><p>Response:</p>
-<pre><code>  { &quot;id&quot;: &quot;1111&quot;,
-    &quot;type: &quot;like&quot;,
-    &quot;peer&quot;: &quot;12345&quot;,
-    &quot;mtime&quot;: &quot;2434343543543&quot; }</code></pre></li>
-<li><p><code>/reference/get</code>
-Return a single reference record for given account id, works the same way as <code>/connection/get</code></p>
-</li>
-</ul>
-<ul>
-<li><p><code>/connection/select</code>
-Receive all my connections of the given type, i.e. connection(s) i made, if <code>id</code> is given only one record for the specified connection will be returned. Supports special
-query parameters <code>_select,_ops,_desc</code>, see docs about <code>db.select</code> for more info.</p>
-<p>Example:</p>
-<pre><code>  # Return all accounts who i invited
-  /connection/select?type=invite
-  # Return connection for specific type and account id
-  /connection/select?type=invite&amp;peer=12345
-  # Return accounts who i invited me after specified mtime
-  /connection/select?type=invite&amp;_ops=mtime,gt&amp;mtime=12334312543
-  # Return accounts who i invited before specified mtime
-  /connection/select?type=invite&amp;_ops=mtime,le&amp;_desc=1&amp;mtime=12334312543</code></pre><p>Response:</p>
-<pre><code>  { &quot;data&quot;: [ { &quot;id&quot;: &quot;111&quot;,
-                &quot;type&quot;: &quot;invite&quot;,
-                &quot;peer&quot;: &quot;12345&quot;,
-                &quot;status&quot;: &quot;&quot;,
-                &quot;mtime&quot;: &quot;12334312543&quot;
-            }],
-    &quot;next_token&quot;: &quot;&quot;
-  }</code></pre></li>
-<li><p><code>/reference/select</code>
-Receive all references that connected with my account, i.e. connections made by somebody else with me, works the same way as for connection query call</p>
-<p>Example:</p>
-<pre><code>  # Return all accounts who invited me
-  /reference/select?type=invite
-  # Return accounts who invited me after specified mtime
-  /reference/select?type=invite&amp;_ops=mtime,gt&amp;mtime=12334312543</code></pre><p>Response:</p>
-<pre><code>  { &quot;data&quot;: [ { &quot;id&quot;: &quot;111&quot;,
-                &quot;type&quot;: &quot;invite&quot;,
-                &quot;peer&quot;: &quot;12345&quot;,
-                &quot;status&quot;: &quot;&quot;,
-                &quot;mtime&quot;: &quot;12334312543&quot;
-            }],
-    &quot;next_token&quot;: &quot;&quot;
-  }</code></pre></li>
-</ul>
-<h2 id="locations">Locations</h2>
-<p>The location API maintains a table <code>bk_location</code> with geolocation coordinates for accounts and allows searching it by distance. The configuration parameter
-<code>min-distance</code> defines the radius for the smallest bounding box in km containing single location, radius searches will combine neighboring boxes of
-this size to cover the whole area with the given distance request, also this affects the length of geohash keys stored in the bk_location table. By default min-distance is 5 km
-which means all geohashes in bk_location table will have geohash of size 4. Once min-distance is set it cannot be changed without rebuilding the bk_location table with new geohash size.</p>
-<p>The location search is implemented by using geohash as a primary key in the bk_location table with the account id as the second part of the primary key, for DynamoDB this is the range key.
-When request comes for all matches for the location for example 37.7, -122.4, the search that is executed looks like this:</p>
-<ul>
-<li>geohash for latitude 37.7 and longitude -122.4 and radius 10 km will be <code>9q8y</code></li>
-<li>all neighboring areas around this point within 10 km radius will be &#39;9q8z&#39;, &#39;9q8v&#39;, &#39;9q8w&#39;, &#39;9q8x&#39;, &#39;9q8t&#39;, &#39;9q9n&#39;, &#39;9q9p&#39;, &#39;9q9j&#39;</li>
-<li>we start the search on the bk_location table by the primary key geohash with the value 9q8y</li>
-<li>filter out all records beyond our radius by calculating the difference between our point and the candidate record</li>
-<li>if total number of results expected is still less than required, continue to the next neighbor area</li>
-<li>continue until we visit all neighbors or received required number of matched records</li>
-<li>on return the next_token opaque value will be provided if we want to continue the search for more matched for the same location</li>
-</ul>
-<p>This is implemented by the <code>locations</code> module from the core. To enable this functionality specify <code>allow-modules=bk_locations</code>.</p>
-<ul>
-<li><p><code>/location/put</code>
-Store currenct location for current account, latitude and longitude parameters must be given, this call will update the bk_account table as well with
-these coordinates</p>
-<p>Example:</p>
-<pre><code>  /location/put?latitude=-188.23232&amp;longitude=23.4545454</code></pre></li>
-<li><p><code>/location/get</code>
-Return matched accounts within the distance(radius) specified by <code>distance=</code> parameter in kilometers and current position specified by latitude/longitude parameters. This
-call returns results in chunks and requires navigation through all pages to receive all matched records. Records returned will start with the closest to the current
-point. If there are more matched records than specified by the <code>_count</code>, the <code>next_token</code> property is set with the token to be used in the subsequent call,
-it must be passed as is as <code>_token=</code> parameter with all original query parameters.</p>
-<p>Note: The current account will not be present in the results  even if it is within the range, to know my own location use <code>/account/get</code> call.</p>
-<p>Example:</p>
-<pre><code>      /location/get?distance=10&amp;latitude=-118.23434&amp;longitude=23.45665656&amp;_count=25
-      /location/get?distance=10&amp;latitude=-118.23434&amp;longitude=23.45665656&amp;_count=25&amp;_token=FGTHTRHRTHRTHTTR.....</code></pre><p>Response:</p>
-<pre><code>     { &quot;data&quot;: [ { &quot;id&quot;: &quot;12345&quot;,
-                   &quot;distance&quot;: 5,
-                   &quot;latitude&quot;: -118.123,
-                   &quot;longitude&quot;: 23.45
-                   &quot;mtime&quot;: &quot;12334312543&quot;
-                 },
-                 { &quot;id&quot;: &quot;45678&quot;,
-                   &quot;distance&quot;: 5,
-                   &quot;latitude&quot;: -118.133,
-                   &quot;longitude&quot;: 23.5
-                   &quot;mtime&quot;: &quot;12334312543&quot;
-                 }],
-       &quot;next_token&quot;: &quot;&quot;
-     }</code></pre></li>
-</ul>
 <h2 id="messages">Messages</h2>
 <p>The messaging API allows sending and receiving messages between accounts, it supports text and images. All new messages arrive into the bk_messsage table, the inbox. The client
 may keep messages there as new, delete or archive them. Archiving means transferring messages into the bk_archive table. All sent messages are kept in the bk_sent table.</p>
@@ -1727,35 +1579,6 @@ Return the image data for the given message, the required parameters are:</p>
 </ul>
 </li>
 </ul>
-<h2 id="counters">Counters</h2>
-<p>The counters API maintains realtime counters for every account records, the counters record may contain many different counter columns for different purposes and
-is always cached with whatever cache service is used, by default it is cached by the Web server process on every machine. Web worker processes ask the master Web server
-process for the cached records thus only one copy of the cache per machine even in the case of multiple CPU cores.</p>
-<p>This is implemented by the <code>counters</code> module from the core. To enable this functionality specify <code>-allow-modules=bk_counters|bk_accounts</code>.</p>
-<ul>
-<li><p><code>/counter/get</code>
-Return counter record for current account with all available columns of if <code>id</code> is given return public columns for given account, it works with <code>bk_counter</code> table
-which by default defines some common columns:</p>
-<ul>
-<li>ping - a counter for general use, can be used to send a notification event to any account by increasing this counter for an account</li>
-<li>like0 - how many i liked, how many time i liked someone, i.e. made a new record in bk_connection table with type &#39;like&#39;</li>
-<li>like1 - how many liked me, reverse counter, who connected to me with type &#39;like&#39;
-More columns can be added to the bk_counter table.</li>
-</ul>
-<p>NOTE: The columns with suffixes 0 and 1 are special columns that support the Connections API, every time a new connection is created, the type of new connection
-is checked against any columns in the bk_counter table, if a property type0 exists and marked in the table description as <code>autoincr</code> then the corresponding
-counter property is increased, this is how every time new connection like/dislike/invite/follow is added, the counters in the bk_counter table are increased.</p>
-</li>
-<li><p><code>/counter/put</code>
-Replace my counters record, all values if not specified will be set to 0</p>
-</li>
-<li><p><code>/counter/incr</code>
-Increase one or more counter fields, each column can provide a numeric value and it will be added to the existing value, negative values will be substracted.
-if <code>id</code> parameter is specified, only public columns will be increased for other account.</p>
-<p>Example:</p>
-<pre><code>  /counter/incr?msg_read=5&amp;
-  /counter/incr?id=12345&amp;ping=1</code></pre></li>
-</ul>
 <h2 id="data">Data</h2>
 <p>The data API is a generic way to access any table in the database with common operations, as oppose to the any specific APIs above this API only deals with
 one table and one record without maintaining any other features like auto counters, cache...</p>
@@ -1791,33 +1614,6 @@ separate fields. To return raw data pass the parameter <code>_noprocessrows=1</c
   /data/put/bk_counter?id=12345&amp;like0=1
   /data/select/bk_account?name=john&amp;_ops=name,gt&amp;_select=name,email
   /data/select/bk_connection?_noscan=0&amp;_noprocessrows=1</code></pre></li>
-</ul>
-<h2 id="pages">Pages</h2>
-<p>The pages API provides a simple Wiki like system with Markdown formatting. It keeps all pages in the database table <code>bk_pages</code> and
-exposes an API to manage and render pages.</p>
-<p>The pages support public mode, all pages with <code>pub</code> set to true will be returning without an account, this must be enabled with <code>api-allow-path=^/pages/(get|select|show)</code>
-to work.</p>
-<p>All .md files will be rendered into html automatically if there is not _raw=1 query parameter and pages view exists (api-pages-view=pages.html by default).</p>
-<p>This is implemented by the <code>pages</code> module from the core. To enable this functionality specify <code>-allow-modules=bk_accounts</code>.</p>
-<ul>
-<li><p><code>/pages/get/ID</code>
-Return a page with given id or the main page if id is empty. If the query parameter <code>_render=1</code> is given, the content will be rendered into html from markdown, otherwise
-returns all data as is.</p>
-</li>
-<li><p><code>/pages/select</code>
-Return all pages or only ones which match the query criteria. This potentially scans the whole table to return all pages and
-is used to show pages index.</p>
-</li>
-<li><p><code>/pages/put</code>
-Replace or add a new page.</p>
-</li>
-<li><p><code>/pages/del</code>
-Delete a page from the database</p>
-</li>
-<li><p><code>/pages/show/ID</code>
-Render a page with given id, markdown is converted into html using <code>marked</code>. A view must be configured in order to render to work, by default pages.html view
-is provided to simply wrap the markdown in the page layout.</p>
-</li>
 </ul>
 <h2 id="system-api">System API</h2>
 <p>The system API returns information about the backend statistics, allows provisioning and configuration commands and other internal maintenance functions. By
@@ -2330,6 +2126,7 @@ Database pool statistics and other diagnostics</p>
 <li><code>db-config</code> - Configuration database pool to be used to retrieve config parameters from the database, must be defined to use remote db for config parameters, set to <code>default</code> to use current default pool</li>
 <li><code>db-config-interval</code> - Interval between loading configuration from the database configured with -db-config, in minutes, 0 disables refreshing config from the db</li>
 <li><code>db-config-roles</code> - Roles to assume when pulling config parameters from the config table</li>
+<li><code>db-no-cache-columns</code> - Do not read/cache table columns</li>
 <li><code>db-cache-columns-interval</code> - How often in minutes to refresh tables columns from the database, it calls cacheColumns for each pool which supports it</li>
 <li><code>db-match-tables-(.+)</code> - Table columns to be returned by matching the regexp, for ad-hoc tables</li>
 <li><code>db-skip-drop</code> - A pattern of table names which will skipped in db.drop operations to prevent accidental table deletion</li>
@@ -2369,7 +2166,7 @@ Database pool statistics and other diagnostics</p>
 <li><code>api-templating</code> - Templating engine to use, see consolidate.js for supported engines, the &#39;consolidate&#39; package must be installed to use this</li>
 <li><code>api-no-session</code> - Disable cookie session support, all requests must be signed for Web clients</li>
 <li><code>api-session-age</code> - Session age in milliseconds, for cookie based authentication</li>
-<li><code>api-session-secret</code> - Secret for session cookies, session support enabled only if it is not empty</li>
+<li><code>api-session-domain-(.+)</code> - Cookie domain by Host: header, if not matched session is bound to the exact host only, example: -api-session-domain-site.com=site.com$</li>
 <li><code>api-query-token-secret</code> - Name of the property to be used for encrypting tokens for pagination or other sensitive data, any property from bk_auth can be used, if empty no secret is used, if not a valid property then it is used as the secret</li>
 <li><code>api-app-header-name</code> - Name for the app name/version query parameter or header, it is can be used to tell the server about the application version</li>
 <li><code>api-version-header-name</code> - Name for the access version query parameter or header, this is the core protocol version that can be sent to specify which core functionality a client expects</li>
@@ -2819,6 +2616,10 @@ can be used to make it an artificial admin.</p>
 new columns or columns created on the fly are returned to the client.</p>
 <p>The <code>options.cleanup_rules</code> can be an object with property names and the values -1, 0, or 1 which correspond to:
 -1 - never return, 0 return only to the owner, 1 always return.</p>
+<p>The <code>pub_max</code> property makes the column to be partialy visible i.e. for purposes not to expose the whole data but only part of it, keep only first
+specified characters and replace the rest with X, must be 2 or greater</p>
+<p>The <code>pub_enc</code> property makes the column to be returned in the encrypted form using the <code>lib.encrypt(api.queryTokenSecret, value)</code> or if a
+function <code>pub_enc</code> in the <code>options</code> exists it will be called: <code>function(name, value, options)</code></p>
 <p>The <code>options.pool</code> property must match the actual rowset to be applied properly, in case the records have been retrieved for the different
 database pool.</p>
 </li>
@@ -3089,6 +2890,18 @@ events using account id as a key.</p>
 <ul>
 <li><p><code>api.sendEvent(req, key, data, next)</code></p>
 <p> Process a message received from subscription server or other event notifier, it is used by <code>api.subscribe</code> method for delivery events to the clients</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.getSessionCookie(req, name)</code></p>
+<p> Return named encrypted cookie</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.setSessionCookie(req, name, value)</code></p>
+<p> Set a cookie by name and domain, the value is always encrypted</p>
 </li>
 </ul>
 
@@ -4995,7 +4808,8 @@ the callback is function(err, rows)</li>
 <li>logger_error - a log level to report about the errors, default is &#39;error&#39;, if an object it can specify different log levels by err.code, * is default level for not matched codes</li>
 <li>ignore_error - clear errors occurred as it never happen, do not report in the log, if an array then only matched codes will be cleared</li>
 <li>noprocessrows - if true then skip post processing result rows, return the data as is, this will result in returning combined columns as it is</li>
-<li>noconvertrows - if true skip converting the data from the database format into Javascript data types, it uses column definitions
+<li>noconvertrows - if true skip converting the data from the database format into Javascript data types, it uses column definitions</li>
+<li>nopreparerow - if true skip row preparation and columns processing, the req.obj is passed as is, useful for syncing between pools
 for the table to convert values returned from the db into the the format defined by the column</li>
 <li>cached - if true perform cache invalidation for the operations that resulted in modification of the table record(s)</li>
 <li>total - if true then it is supposed to return only one record with property <code>count</code>, skip all post processing and convertion</li>
@@ -5258,6 +5072,7 @@ Special properties that can be in the options for this call:</p>
 <ul>
 <li>ops - query operations to retrieve records to be deleted</li>
 <li>count - how many matching records to delete</li>
+<li>delScan - if true force to use db.scan instead of native <code>delAll</code> for the given pool</li>
 <li>delOptions - options to be passed to the db.del if needed, this is useful so select and del options will not be mixed up</li>
 <li>delCollect - if true return all deleted rows in the callback, oherwise just the number of rows deleted</li>
 <li>factorCapacity - write capqcity factor for delete operations, default is 0.35</li>
@@ -5267,6 +5082,7 @@ Special properties that can be in the options for this call:</p>
 in case of complex columns that may contain concatenated values as in the case of using DynamoDB. The callback will be called
 as <code>options.delProcess(row, options)</code>. If it returns non-empty value the scan will stop and return it as the error.</li>
 <li>delFilter - a function that must return something to the callback in order to skip the current record. <code>options.delFilter(row, options, (skip) =&gt; {})</code></li>
+<li>batch - delete using bulk operations, all functions must accept an array of rows instead</li>
 </ul>
 <p>If no <code>options.select</code> is specified only the primary keys will be returned or collected</p>
 <p>If <code>db-skip-drop</code> matches the table name and there is no query provided it will exit with error</p>
@@ -5366,7 +5182,7 @@ To hint a driver that scanning is in progress the <code>options.scanning</code> 
 <li>search - use search instead of select, for ElasticSearch,...</li>
 <li>batch - if true rowCallback will be called with all rows from the batch, not every row individually, batch size is defined by the count property</li>
 <li>concurrency - how many rows to process at the same time, if not given process sequentially</li>
-<li>noscan - if 1 no scan will be performed if no prmary keys are specified</li>
+<li>noscan - if 1 no scan will be performed if no primary keys are specified</li>
 <li>fullscan - if 1 force to scan full table without using any primary key conditons, use all query properties for all records (DynamoDB)</li>
 <li>useCapacity - triggers to use specific capacity, default is <code>read</code></li>
 <li>factorCapacity - a factor to apply for the read capacity limit and triggers the capacity check usage, default is <code>0.9</code></li>
@@ -5808,7 +5624,7 @@ db.getFilteredColumns(&quot;bk_account&quot;, { type: &quot;now&quot; }, { list:
 
 <ul>
 <li><p><code>db.checkCustomColumn(req, name)</code></p>
-<p> Returns type for a global cusgtom column if exists otherwise null, all resolved
+<p> Returns type for a global custom column if exists otherwise null, all resolved
 columns will be saved in <code>req.allow</code> for further reference as name: type.
 For request specific custom columns pass <code>options.custom_columns</code> object in the format: [ RegExp, type, ...]</p>
 </li>
@@ -6452,6 +6268,12 @@ supported prefixes are: queue, cache</p>
 nothing will be returned to signify that a new value assigned.</li>
 <li><code>options.mapName</code> defines a map from which the key will be retrieved if the cache supports maps, to get the whole map
 the key must be set to *</li>
+<li><code>options.listName</code> defines a map from which to get items, if a key is given it will return 1 if it belongs to the list,
+if no key is provided it will return an array with 2 elements:  [a random key, the length of the list], to get the whole list specify * as the key. Specifying
+<code>del</code> in the options will delete returned items from the list.</li>
+<li><code>options.ttl</code> can be used with lists with <code>del</code> and empty key, in such case all popped up keys will be saved in
+the cache with specified time to live, when being popped up every key is checked if it has been served already, i.e.
+it exists in the cache and not expired yet, such keys are ignored and only never seen keys are returned</li>
 </ul>
 <p>If the <code>key</code> is an array then it returns an array with values for each key, for non existent keys an empty
 string will be returned. For maps only if the <code>key</code> is * it will return the whole object, otherise only value(s)
@@ -6464,18 +6286,23 @@ ipc.get(&quot;my:key&quot;, function(err, data) { console.log(data) });
 ipc.get(&quot;my:counter&quot;, { set: 10 }, function(err, data) { console.log(data) });
 ipc.get(&quot;*&quot;, { mapName: &quot;my:map&quot; }, function(err, data) { console.log(data) });
 ipc.get(&quot;key1&quot;, { mapName: &quot;my:map&quot; }, function(err, data) { console.log(data) });
-ipc.get([&quot;key1&quot;, &quot;key2&quot;], { mapName: &quot;my:map&quot; }, function(err, data) { console.log(data) });</code></pre>
+ipc.get([&quot;key1&quot;, &quot;key2&quot;], { mapName: &quot;my:map&quot; }, function(err, data) { console.log(data) });
+ipc.get([&quot;key1&quot;, &quot;key2&quot;], { listName: &quot;my:list&quot; }, function(err, data) { console.log(data) });
+ipc.get(&quot;&quot;, { listName: &quot;my:list&quot;, del: 1 }, function(err, data) { console.log(data) });
+ipc.get(&quot;&quot;, { listName: &quot;my:list&quot;, del: 1, ttl: 30000 }, function(err, data) { console.log(data) });</code></pre>
 <ul>
 <li><p><code>Ipc.prototype.del(key, options, callback)</code></p>
 <p> Delete an item by key(s),  if <code>key</code> is an array all keys will be deleted at once atomically if supported</p>
 <ul>
 <li><code>options.mapName</code> defines a map from which the counter will be deleted if the cache supports maps, to delete the whole map
 the key must be set to *</li>
+<li><code>options.listName</code> defines a list from which an item should be removed</li>
 </ul>
 <p>Example:</p>
 <pre><code>  ipc.del(&quot;my:key&quot;)
   ipc.del(&quot;key1&quot;, { mapName: &quot;my:map&quot; })
-  ipc.del(&quot;*&quot;, { mapName: &quot;my:map&quot; })</code></pre></li>
+  ipc.del(&quot;*&quot;, { mapName: &quot;my:map&quot; })
+  ipc.del(&quot;1&quot;, { listName: &quot;my:list&quot; })</code></pre></li>
 </ul>
 
 <ul>
@@ -6487,11 +6314,14 @@ the key must be set to *</li>
 operation the <code>key</code> must be set to * and the <code>val</code> must be an object</li>
 <li><code>options.setmax</code> if not empty tell the driver to set this new number only if there is no existing
 value or it is less that the new number, only works for numeric values</li>
+<li><code>options.listName</code> defines a list where to add items, <code>val</code> can be a value or an array of values, <code>key</code> is ignored in this case</li>
 </ul>
 <p>Example:</p>
 <pre><code> ipc.put(&quot;my:key&quot;, 2)
  ipc.put(&quot;my:key&quot;, 1, { setmax: 1 })
- ipc.put(&quot;*&quot;, { key1: 1, key2: 2 }, { mapName: &quot;my:map&quot; })</code></pre></li>
+ ipc.put(&quot;key1&quot;, 1, { mapName: &quot;my:map&quot; })
+ ipc.put(&quot;*&quot;, { key1: 1, key2: 2 }, { mapName: &quot;my:map&quot; })
+ ipc.put(&quot;&quot;, [1,2,3], { listName: &quot;my:list&quot; })</code></pre></li>
 </ul>
 
 <ul>
@@ -6874,17 +6704,19 @@ must be in the following formats:</p>
 <p> Submit a job for execution, it will be saved in a queue and will be picked up later and executed.
 The queue and the way how it will be executed depends on the configured queue. See <code>isJob</code> for
 the format of the job objects.</p>
-<p>if <code>jobspec.uniqueTtl</code> is greater than zero it defines number of milliseconds for this job to stay in the queue or run,
+<p><code>jobspec.uniqueTtl</code> if greater than zero it defines number of milliseconds for this job to stay in the queue or run,
 it creates a global lock using the job object as the hash key, no other job can be run until the ttl expires or the job
 finished, non unique jobs will be kept in the queue and repeated later according to the <code>visibilityTimeeout</code> setting.</p>
 <p><code>jobspec.uniqueKey</code> can define an alternative unique key for this job for cases when different jobs must be run sequentially</p>
-<p>if <code>jobspec.uniqueKeep</code> is true then keep the unique lock after the jobs finished, otherwise it is cleared</p>
-<p>if <code>jobspec.uniqueDrop</code> if true will make non-unique jobs to be silently dropped instead of keeping them in the queue</p>
+<p><code>jobspec.uniqueKeep</code> if true then keep the unique lock after the jobs finished, otherwise it is cleared</p>
+<p><code>jobspec.uniqueDrop</code> if true will make non-unique jobs to be silently dropped instead of keeping them in the queue</p>
 <p><code>jobspec.logger</code> defines the logger level which will be used to log when the job is finished, default is debug</p>
 <p><code>jobspec.maxRuntime</code> defines max number of seconds this job can run, if not specified then the queue default is used</p>
 <p><code>jobspec.uniqueTag</code> defines additional tag to be used for job cancelling, for cases when multiple jobs are running with the same method</p>
-<p>if <code>jobspec.uniqueOnce</code> is true than the visibility timeout is not kept alive while the job is running</p>
+<p><code>jobspec.uniqueOnce</code> if true than the visibility timeout is not kept alive while the job is running</p>
 <p><code>jobspec.noWait</code> will run the job and delete it from the queue immediately, not at the end, for one-off jobs</p>
+<p><code>jobspec.noWaitTimeout</code> number of seconds before deleting the job for one-off jobs but taking into account the uniqueKey and visibility timeout giving time
+to check for uniqueness and exit, can be used regardless of the noWait flag</p>
 <p><code>jobspec.noVisibility</code> will always delete messages after processing, ignore 600 errors as well</p>
 <p><code>jobspec.stopOnError</code> will stop tasks processing on first error, otherwise all errors will be just logged. Errors with status &gt;= 600 will
 stop the job regardless of this flag</p>
@@ -7974,6 +7806,7 @@ The default error status is 400 if not specified.</p>
 <li>if obj is null or undefined return false</li>
 <li>if obj is an object, return true if the property is not undefined</li>
 <li>if obj is an array then search for the value with indexOf, only simple values supported,</li>
+<li>if obj is a string then perform indexOf if the name is also a string or a number</li>
 <li>if both are arrays return true if at least one item is in both arrays</li>
 </ul>
 <p>Example:</p>
@@ -8051,13 +7884,14 @@ the third argument can be an options object that can control how the properties 
 <ul>
 <li>allow - a regexp which properties are allowed to be merged</li>
 <li>ignore - a regexp which properties should be ignored</li>
+<li>del - a regexp which properties should be removed</li>
 <li>remove - a regexp to apply to each property name before merging, the matching parts will be removed from the name</li>
 <li>deep - extend all objects not just the top level</li>
 </ul>
 </li>
 </ul>
 <pre><code>     lib.objExtend({ a: 1 }, &#39;b&#39;, 2, &#39;c&#39; 3 )
-     lib.objExtend({ a: 1 }, { b: 2, c: 3 }, {})
+     lib.objExtend({ a: 1 }, { b: 2, c: 3 }, { del: /^a/ })
      lib.objExtend({ a: 1 }, { b: 2, _c: 3, _d: 4 }, { remove: /^_/ })</code></pre>
 <ul>
 <li><p><code>lib.objMerge(obj, val, options)</code></p>
@@ -8067,6 +7901,7 @@ only top level properties are reassigned.</p>
 <ul>
 <li>allow - a regexp which properties are allowed to be merged</li>
 <li>ignore - a regexp which properties should be ignored</li>
+<li>del - a regexp which properties should be removed</li>
 <li>remove - a regexp to apply to each property name before merging, the matching parts will be removed from the name</li>
 </ul>
 <p>Example</p>
@@ -8991,13 +8826,6 @@ delete an account but keep all messages and location: keep:[&quot;bk_message&quo
 </li>
 </ul>
 
-<h2 id="module-bk_dynamodbstreams">Module: BK_DYNAMODBSTREAMS</h2>
-<ul>
-<li><p><code>mod.syncShardRecords(stream, shard, records, options, callback)</code></p>
-<p> Commit a batch of shard records processed</p>
-</li>
-</ul>
-
 <h2 id="module-bk_file">Module: BK_FILE</h2>
 <ul>
 <li><p><code>files</code></p>
@@ -9800,140 +9628,6 @@ longer than <code>status-interval</code> milliseconds ago, keep atime up-to-date
 <ul>
 <li><p><code>system.configureSystemAPI()</code></p>
 <p> API for internal provisioning and configuration</p>
-</li>
-</ul>
-
-<h2 id="module-db_cassandra">Module: DB_CASSANDRA</h2>
-<ul>
-<li><p><code>Pool.prototype.put(table, obj, options, callback)</code></p>
-<p> No REPLACE INTO support but UPDATE creates new record if no primary key exists</p>
-</li>
-</ul>
-
-<h2 id="module-db_couchdb">Module: DB_COUCHDB</h2>
-<ul>
-<li><p><code>pool</code></p>
-<p> Create a database pool that works with CouchDB server.</p>
-<p>In addition to the standard commands it can execute any CouchDB HTTP API directly</p>
-<pre><code>db.query({ op: &quot;GET&quot;, text: &quot;/db/url&quot; }, { pool: &quot;couchdb&quot; }, lib.log)
-db.query({ op: &quot;PUT&quot;, text: &quot;/db/url&quot;, obj: { a: 1 b: 2 } }, { pool: &quot;couchdb&quot; }, lib.log)</code></pre></li>
-</ul>
-
-<h2 id="module-db_lmdb">Module: DB_LMDB</h2>
-<ul>
-<li><p><code>pool</code></p>
-<p> Setup LMDB/LevelDB database driver, this is simplified driver which supports only basic key-value operations,
-table parameter is ignored, the object only supports the properties name and value in the record objects.</p>
-<p>Because this driver supports 2 databases it requires type to be specified, possible values are: <code>lmdb, leveldb</code></p>
-<p>Options are passed to the LMDB low level driver as MDB_ flags according to <a href="http://symas.com/mdb/doc/">http://symas.com/mdb/doc/</a> and
-as properties for LevelDB as described in <a href="http://leveldb.googlecode.com/svn/trunk/doc/index.html">http://leveldb.googlecode.com/svn/trunk/doc/index.html</a></p>
-<p>The LevelDB database can only be shared by one process so if no unique options.url is given, it will create a unique database using core.processId()</p>
-</li>
-</ul>
-
-<h2 id="module-db_mongodb">Module: DB_MONGODB</h2>
-<h2 id="module-db_mysql">Module: DB_MYSQL</h2>
-<h2 id="module-db_pgsql">Module: DB_PGSQL</h2>
-<ul>
-<li><p><code>Pool.prototype.put(table, obj, opts, callback)</code></p>
-<p> No REPLACE INTO support, do it manually</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>Pool.prototype.cacheIndexes(options, callback)</code></p>
-<p> Cache indexes using the information_schema</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>Pool.prototype.bindValue(val, info, options)</code></p>
-<p> Convert JS array into db PostgreSQL array format: {..}</p>
-</li>
-</ul>
-
-<h2 id="module-db_redis">Module: DB_REDIS</h2>
-<ul>
-<li><p><code>pool</code></p>
-<p> Redis database pool, uses Hash to store the records</p>
-</li>
-</ul>
-
-<h2 id="module-db_riak">Module: DB_RIAK</h2>
-<ul>
-<li><p><code>pool</code></p>
-<p> Create a database pool that works with the Riak database.</p>
-<p>By default the driver uses simple key-value mode of operations, to enable bucket-type mode
-pass bucketType in the <code>-db-riak-options</code>:</p>
-<p>To use maps for the object records set <code>useMaps</code> in the <code>-db-riak-options</code></p>
-<pre><code>-db-riak-options &#39;{ &quot;bucketType&quot;: &quot;bk&quot;, &quot;useMaps&quot;: 1 }&#39;</code></pre><p>In addition to the standard commands it can execute any Riak HTTP API directly</p>
-<pre><code>db.query({ op: &quot;GET&quot;, text: &quot;/buckets?buckets=true&quot; }, { pool: &quot;riak&quot; }, lib.log)
-db.query({ op: &quot;POST&quot;, text: &quot;/buckets/bucket/counter/name&quot;, obj: 1 }, { pool: &quot;riak&quot; }, lib.log)</code></pre></li>
-</ul>
-
-<h2 id="module-ipc_amqp">Module: IPC_AMQP</h2>
-<ul>
-<li><p><code>client</code></p>
-<p> Queue client using RabbitMQ server</p>
-</li>
-</ul>
-
-<h2 id="module-ipc_db">Module: IPC_DB</h2>
-<ul>
-<li><p><code>Database tables</code></p>
-<pre><code>      bk_queue: {
-          id: { primary: 1 },
-          active: { type: &quot;int&quot;, index: 1, value: 0 },      // job status, new, running
-          data: { type: &quot;json&quot;, projections: 1 },            // job definition object
-          mtime: { type: &quot;now&quot;, index: 1 }
-      },
-  },</code></pre><p>  };</p>
-<p>  ipc.modules.push(client);</p>
-<p>  client.createClient = function(url, options)
-  {</p>
-<pre><code>  if (url.match(/^db:/)) return new IpcDbClient(url, options);</code></pre><p>  }</p>
-<p>  function IpcDbClient(url, options)
-  {</p>
-<pre><code>  Client.call(this, url, options);
-  this.options.interval = lib.toNumber(this.options.interval, { dflt: 30, min: 1 });
-  this.options.count = lib.toNumber(this.options.count, { dflt: 1, min: 1 });
-  this.options.visibilityTimeout = lib.toNumber(this.options.visibilityTimeout, { min: 0, dflt: this.options.interval });
-  this.emit(&quot;ready&quot;);</code></pre><p>  }
-  util.inherits(IpcDbClient, Client);</p>
-<p>  IpcDbClient.prototype.monitorQueue = function()
-  {</p>
-<pre><code>  var options = { pool: this.options.pool, updateCollect: 1, sort: &quot;active_mtime&quot;, ops: { mtime: &quot;lt&quot; }, expected: { active: 1 } };
-  var query = { active: 1, mtime: Date.now() - this.options.visibilityTimeout * 1000 };
-
-  db.updateAll(&quot;bk_queue&quot;, query, { active: 0 }, options, function(err, rows) {
-      for (var i in rows) logger.error(&quot;ipc.monitor:&quot;, lib.toAge(rows[i].mtime), rows[i]);</code></pre></li>
-</ul>
-
-<h2 id="module-ipc_hazelcast">Module: IPC_HAZELCAST</h2>
-<ul>
-<li><p><code>client</code></p>
-<p> Cache client based on HazelCast server using <a href="https://github.com/hazelcast/hazelcast-nodejs-client">https://github.com/hazelcast/hazelcast-nodejs-client</a></p>
-<p>To support more than one server use either one:</p>
-<p>   ipc-cache=hazelcast://host?bk-servers=host2,host3</p>
-<p>   ipc-cache=memcache://host1
-   ipc-cache-options-servers=host1,host2</p>
-<p>To pass module specific options:</p>
-<p>   ipc-cache-options-map-name=defaultMap
-   ipc-cache-options-map-prefix=|</p>
-</li>
-</ul>
-
-<h2 id="module-msg_sns">Module: MSG_SNS</h2>
-<ul>
-<li><p><code>client.send(dev, options, callback)</code></p>
-<p> Send push notification to a device using AWS SNS service, device_id must be a valid SNS endpoint ARN.</p>
-<p>The options may contain the following properties:</p>
-<ul>
-<li>msg - message text</li>
-<li>badge - badge number</li>
-<li>type - set type of the packet</li>
-<li>id - send id in the user properties</li>
-</ul>
 </li>
 </ul>
 
