@@ -97,10 +97,10 @@ bkjs.showConfirm = function(options, callback, cancelled)
                 '<div class="' + (options.css || '') + '">' + options.text.replace(/\n/g, "<br>") + '</div>' +
               '</div>' +
               '<div class="modal-footer">' +
-                '<a href="#!" id="bkjs-confirm-cancel-button" class="btn btn-default" data-dismiss="modal">' +
+                '<a href="#!" id="bkjs-confirm-cancel-button" class="btn ' + (options.cancel_class || 'btn-default') + '" data-dismiss="modal">' +
                   (options.cancel || "Cancel") +
                 '</a>' +
-                '<a href="#!" id="bkjs-confirm-ok-button" class="btn btn-primary">' +
+                '<a href="#!" id="bkjs-confirm-ok-button" class="btn ' + (options.ok_class || 'btn-primary') + '">' +
                   (options.ok || "OK") +
                 '</a> ' +
               '</div>' +
@@ -116,7 +116,7 @@ bkjs.showConfirm = function(options, callback, cancelled)
         });
         if (typeof cancelled == "function") {
             modal.find('#bkjs-confirm-cancel-button').click(function(event) {
-                cancelled();
+                cancelled.call(self);
                 modal.modal('hide');
             });
         }
