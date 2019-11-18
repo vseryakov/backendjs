@@ -217,10 +217,9 @@ function bootpopup(options)
                             // Special case for checkbox
                             if (/radio|checkbox/.test(attrs.type)) {
                                 if (bs4) {
-                                    attrs.class = attrs.class || "form-check-input";
-                                    var class_check = opts.class_check || "form-check";
-                                    label = $('<label></label>', { class: "form-check-label", for: opts.for || attrs.id }).append(opts.label);
-                                    elem = $('<div></div>', { class: class_check }).
+                                    attrs.class = attrs.class || (opts.switch ? "custom-control-input": "form-check-input");
+                                    label = $('<label></label>', { class: opts.class_label || (opts.switch ?  "custom-control-label" : "form-check-label"), for: opts.for || attrs.id }).append(opts.label);
+                                    elem = $('<div></div>', { class: opts.class_check || (opts.switch ? "custom-control custom-switch" : "form-check") }).
                                             append($("<" + type + "/>", attrs)).
                                             append(label);
 
