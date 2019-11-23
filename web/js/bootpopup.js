@@ -160,7 +160,7 @@ function bootpopup(options)
 
                 case "object":
                     for (var type in entry) {
-                        var opts = {}, children = [], attrs = {}, label, elem = null, group = null;
+                        var opts = {}, children = [], attrs = {}, label, elem = null, group = null, title;
 
                         if (typeof entry[type] == "string") {
                             opts.label = entry[type];
@@ -213,12 +213,14 @@ function bootpopup(options)
                                 delete attrs.options;
                                 delete attrs.value;
                             }
+                            title = attrs.title;
+                            delete attrs.title;
 
                             // Special case for checkbox
                             if (/radio|checkbox/.test(attrs.type)) {
                                 if (bs4) {
                                     attrs.class = attrs.class || (opts.switch ? "custom-control-input": "form-check-input");
-                                    label = $('<label></label>', { class: opts.class_label || (opts.switch ?  "custom-control-label" : "form-check-label"), for: opts.for || attrs.id }).append(opts.label);
+                                    label = $('<label></label>', { class: opts.class_label || (opts.switch ? "custom-control-label" : "form-check-label"), for: opts.for || attrs.id }).append(opts.label);
                                     elem = $('<div></div>', { class: opts.class_check || (opts.switch ? "custom-control custom-switch" : "form-check") }).
                                             append($("<" + type + "/>", attrs)).
                                             append(label);
@@ -276,11 +278,11 @@ function bootpopup(options)
                                     }
                                 }
                             }
-                            for (var j in children) elem.append(children[j]);
+                            for (var k in children) elem.append(children[k]);
 
                             var class_group = opts.class_group || this.options.class_group;
                             var class_label = (opts.class_label || this.options.class_label) + " " + (attrs.value ? "active" : "");
-                            group = $('<div></div>', { class: class_group }).appendTo(this.form);
+                            group = $('<div></div>', { class: class_group, title: title }).appendTo(this.form);
                             if (opts.class_prefix || opts.text_prefix) {
                                 group.append($("<span></span>", { class: opts.class_prefix || "" }).append(opts.text_prefix || ""));
                             }
