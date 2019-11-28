@@ -53,6 +53,7 @@ function bootpopup(options)
         class_footer: "modal-footer",
         class_group: "form-group",
         class_options: "options text-center text-md-right",
+        class_alert: "alert alert-danger collapse",
         class_x: "",
         class_form: "",
         class_label: "",
@@ -74,6 +75,7 @@ function bootpopup(options)
         center: false,
         scroll: false,
         horizontal: true,
+        alert: false,
 
         before: function() {},
         dismiss: function() {},
@@ -149,6 +151,10 @@ function bootpopup(options)
         this.body.append(this.form);
         this.content.append(this.body);
 
+        if (this.options.alert) {
+            this.alert = $("<div></div>", { class: this.options.class_alert }).appendTo(this.form);
+        }
+
         // Iterate over entries
         for (var c in this.options.content) {
             var entry = this.options.content[c];
@@ -174,7 +180,7 @@ function bootpopup(options)
                         // Convert functions to string to be used as callback
                         for (var attribute in attrs) {
                             if (typeof attrs[attribute] === "function") {
-                                attrs[attribute] = "(" + attrs[attribute] + ")(this)";
+                                attrs[attribute] = "return (" + attrs[attribute] + ")(this)";
                             }
                         }
 
