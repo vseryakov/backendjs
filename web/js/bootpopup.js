@@ -37,6 +37,7 @@ function bootpopup(options)
         title: document.title,
         show_close: true,
         show_header: true,
+        show_footer: true,
         size: "normal",
         size_label: "col-sm-4",
         size_input: "col-sm-8",
@@ -335,7 +336,7 @@ function bootpopup(options)
 
         // Footer
         this.footer = $('<div></div>', { class: this.options.class_footer });
-        this.content.append(this.footer);
+        if (this.options.show_footer) this.content.append(this.footer);
 
         for (var i in this.options.footer) {
             var entry = this.options.footer[i], div;
