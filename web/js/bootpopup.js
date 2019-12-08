@@ -269,7 +269,7 @@ function bootpopup(options)
                                         for (var l in opts.list_input_button) {
                                             var v, n = opts.list_input_button[l];
                                             if (typeof n == "object") v = n.value, n = n.name;
-                                            $('<a></a>', { class: "dropdown-item",
+                                            $('<a></a>', { class: "dropdown-item " + (opts.class_list_input_item || ""),
                                                            role: "button",
                                                            'data-value': v || n,
                                                            'data-form': this.formid,
