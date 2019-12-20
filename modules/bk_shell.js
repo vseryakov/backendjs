@@ -27,7 +27,6 @@ const shell = {
         "-account-add [-noscramble] login LOGIN secret SECRET [name NAME] [email EMAIL] [type TYPE] ... - add a new user for API access, any property from bk_account can be passed in the form: name value",
         "-account-update [-noscramble] [login LOGIN|id ID] [name NAME] [email EMAIL] [type TYPE] ... - update existing user properties, any property from bk_account can be passed in the form: name value ",
         "-account-del [login LOGIN|id ID]... - delete a user and login",
-        "-location-put [login LOGIN|id ID] latitude LAT longitude LON ... - update location for an account",
         "-send-request -url URL [-id ID|-login LOGIN] param value param value ... - send API request to the server specified in the url as user specified by login or account id, resolving the user is done directly from the current db pool, param values should not be url-encoded",
         "-log-watch - run logwatcher and exit, send emails in case any errors found",
     ],
@@ -53,7 +52,7 @@ shell.getUser = function(obj, callback)
 
         db.get(api.authTable, { login: row ? row.login : obj.login }, function(err, row2) {
             if (err || !(row ||row2)) shell.exit(err, "ERROR: no user found with this id: " + util.inspect(obj));
-            callback(row || row2);
+            callback(row2 || row, row);
         });
     });
 }
@@ -374,18 +373,6 @@ shell.cmdLoginDel = function(options)
         });
     }, function(err) {
         shell.exit(err);
-    });
-}
-
-// Update location
-shell.cmdLocationPut = function(options)
-{
-    if (!core.modules.bk_location) this.exit("locations module not loaded");
-    var query = this.getQuery();
-    this.getUser(query, function(row) {
-        core.modules.bk_location.putLocation({ account: row, query: query }, {}, function(err, data) {
-            shell.exit(err, data);
-        });
     });
 }
 
