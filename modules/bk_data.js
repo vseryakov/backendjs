@@ -3,26 +3,16 @@
 //  backendjs 2018
 //
 
-var path = require('path');
-var util = require('util');
-var fs = require('fs');
-var http = require('http');
-var url = require('url');
-var bkjs = require('backendjs');
-var db = bkjs.db;
-var api = bkjs.api;
-var app = bkjs.app;
-var ipc = bkjs.ipc;
-var msg = bkjs.msg;
-var core = bkjs.core;
-var lib = bkjs.lib;
-var logger = bkjs.logger;
+const bkjs = require('backendjs');
+const db = bkjs.db;
+const api = bkjs.api;
 
 // Account management
 var mod = {
     name: "bk_data",
     controls: {
         region: { type: "string" },
+        pool: { type: "string" },
     },
 };
 module.exports = mod;
@@ -38,8 +28,6 @@ mod.configureWeb = function(options, callback)
 // API for full access to all tables
 mod.configureDataAPI = function()
 {
-    var self = this;
-
     // Return table columns
     api.app.all(/^\/data\/columns\/?([a-z_0-9]+)?$/, function(req, res) {
         var options = api.getOptions(req);
