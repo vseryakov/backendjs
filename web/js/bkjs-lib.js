@@ -782,6 +782,12 @@ bkjs.random = function()
           (((1 + Math.random()) * 0x100000000) | 0).toString(16).substring(1);
 }
 
+// Return numeric representation of the version string to perfom arithmetic comparions
+bkjs.toVersion = function(str)
+{
+    return str ? String(str).replace("_", ".").replace(/[^0-9.]/g, "").split(".").reduce(function(x,y,i) { return x + Number(y) / Math.pow(10, i * 3) }, 0) : 0;
+}
+
 // Simple i18n translation method compatible with other popular modules, supports the following usage:
 // - __(name)
 // - __(fmt, arg,...)
