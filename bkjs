@@ -530,6 +530,11 @@ case "$BKJS_CMD" in
             case $file in
             *js)
                 mkdir -p $dir/web/js /tmp/bktmp
+                if [[ $files =~ @version@ ]]; then
+                    echo "bkjs.bundleVersion='$(get_json_flat $dir/package.json version)';" > /tmp/bktmp/_version.js
+                    files=$(echo $files|sed 's!@version@!/tmp/bktmp/_version.js!')
+                fi
+
                 if [[ -z $dev ]]; then
                     if [[ ! -z $(get_flag -gcc) ]]; then
                         gccargs=" $(get_arg -gccargs)"
@@ -581,7 +586,7 @@ case "$BKJS_CMD" in
     ;;
 
   install-node)
-    ver=$(get_arg -version v10.17.0)
+    ver=$(get_arg -version v10.18.0)
     if [ "$(get_flag -force)" != "" -a -f $BKJS_PREFIX/bin/node ]; then
        echo "Uninstalling node from $BKJS_PREFIX ..."
        rm -rf $BKJS_PREFIX/bin/node $BKJS_PREFIX/bin/npm $BKJS_PREFIX/bin/npx $BKJS_PREFIX/lib/node_modules/npm
