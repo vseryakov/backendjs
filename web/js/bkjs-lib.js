@@ -626,7 +626,7 @@ bkjs.toTemplate = function(text, obj, options)
             end = str.indexOf(sep1 + "endif" + sep2);
             if (end == -1) continue;
             var body = str.substr(0, end);
-            str = str.substr(end + 7);
+            str = str.substr(end + 5 + sep1.length + sep2.length);
             d = tag.match(/^(if|ifeq|ifgt|ifge|iflt|ifle|ifnot|ifall|ifstr) ([a-zA-Z0-9]+) +(.+)$/)
             if (!d) continue;
             var ok, val = null;
