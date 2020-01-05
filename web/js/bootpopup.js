@@ -175,7 +175,7 @@ function bootpopup(options)
                             for (var p in entry[type]) opts[p] = entry[type][p];
                         }
                         for (var p in opts) {
-                            if (!/^(click_|list_|class_|text_|icon_|size_|label|for)/.test(p)) attrs[p] = opts[p];
+                            if (!/^(attrs_|click_|list_|class_|text_|icon_|size_|label|for)/.test(p)) attrs[p] = opts[p];
                         }
 
                         // Convert functions to string to be used as callback
@@ -277,11 +277,10 @@ function bootpopup(options)
                                                        }).append(n).appendTo(menu);
                                         }
                                     } else {
-                                        $('<button></button>', { class: "btn " + (opts.class_input_button || ""),
-                                                                 type: "button",
-                                                                 'data-form': this.formid,
-                                                                 onclick: "(" + opts.click_input_button + ")(this)"
-                                                             }).append(opts.text_input_button).appendTo(append);
+                                        var bopts = { class: "btn " + (opts.class_input_button || ""), type: "button", 'data-form': this.formid };
+                                        if (opts.click_input_button) bopts.onclick = "(" + opts.click_input_button + ")(this)";
+                                        for (var b in opts.attrs_input_button) bopts[b] = opts.attrs_input_button[b];
+                                        $('<button></button>', bopts).append(opts.text_input_button).appendTo(append);
                                     }
                                 }
                             }
