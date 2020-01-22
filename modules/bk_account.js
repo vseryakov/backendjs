@@ -369,7 +369,7 @@ mod.updateAccount = function(req, options, callback)
            var query = lib.objClone(req.query, "login", req.account.login, "id", req.account.id);
            api.prepareAccountSecret(query, options, () => {
                 // Skip admin properties if any
-                if (!options.admin && !api.checkAccountType(req.account, "admin")) {
+                if (!(options.admin || api.checkAccountType(req.account, "admin"))) {
                     api.clearQuery(api.authTable, query, { filter: "admin" });
                     for (var i in options.admin_values) query[options.admin_values[i]] = req.query[options.admin_values[i]];
                 }
@@ -382,7 +382,7 @@ mod.updateAccount = function(req, options, callback)
        function(next) {
            // Skip admin properties if any
            var query = lib.objClone(req.query, "login", req.account.login, "id", req.account.id);
-           if (!options.admin && !api.checkAccountType(req.account, "admin")) {
+           if (!(options.admin || api.checkAccountType(req.account, "admin"))) {
                api.clearQuery("bk_account", query, { filter: "admin" });
                for (var i in options.admin_values) query[options.admin_values[i]] = req.query[options.admin_values[i]];
            }
