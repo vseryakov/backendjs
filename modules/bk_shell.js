@@ -290,10 +290,10 @@ shell.cmdAccountAdd = function(options)
 {
     if (!core.modules.bk_account) this.exit("accounts module not loaded");
     var query = this.getQuery();
-    var opts = api.getOptions({ query: this.getArgs(), options: { path: ["", "", ""], ops: {} } });
+    var opts = api.getOptions({ query: this.getArgs(), options: { admin: 1, path: ["", "", ""], ops: {} } });
     opts.scramble = this.isArg("-noscramble", options) ? 0 : 1;
     if (query.login && !query.name) query.name = query.login;
-    core.modules.bk_account.addAccount({ query: query, account: { type: 'admin' } }, opts, function(err, data) {
+    core.modules.bk_account.addAccount({ query: query, account: {} }, opts, function(err, data) {
         shell.exit(err, data);
     });
 }
@@ -302,7 +302,7 @@ shell.cmdAccountUpdate = function(options)
 {
     if (!core.modules.bk_account) this.exit("accounts module not loaded");
     var query = this.getQuery();
-    var opts = api.getOptions({ query: this.getArgs(), options: { path: ["", "", ""], ops: {} } });
+    var opts = api.getOptions({ query: this.getArgs(), options: { admin: 1, path: ["", "", ""], ops: {} } });
     this.getUser(query, function(row) {
         core.modules.bk_account.updateAccount({ account: row, query: query }, opts, function(err, data) {
             shell.exit(err, data);
@@ -346,7 +346,7 @@ shell.cmdLoginGet = function(options)
 shell.cmdLoginAdd = function(options)
 {
     var query = this.getQuery();
-    var opts = api.getOptions({ query: this.getArgs(), options: { path: ["", "", ""], ops: {} } });
+    var opts = api.getOptions({ query: this.getArgs(), options: { admin: 1, path: ["", "", ""], ops: {} } });
     if (query.login && !query.name) query.name = query.login;
     api.addAccount(query, opts, function(err, data) {
         shell.exit(err, data);
@@ -357,7 +357,7 @@ shell.cmdLoginAdd = function(options)
 shell.cmdLoginUpdate = function(options)
 {
     var query = this.getQuery();
-    var opts = api.getOptions({ query: this.getArgs(), options: { path: ["", "", ""], ops: {} } });
+    var opts = api.getOptions({ query: this.getArgs(), options: { admin: 1, path: ["", "", ""], ops: {} } });
     api.updateAccount(query, opts, function(err, data) {
         shell.exit(err, data);
     });
