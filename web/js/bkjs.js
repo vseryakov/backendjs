@@ -158,7 +158,7 @@ bkjs.checkCredentials = function(options)
     var rc = {
         scramble: options && options.scramble || this.scramble || 0,
         login: options && options.login ? String(options.login) : "",
-        secret: options && options.secret ? String(options.secret) : "",
+        secret: options && options.secret && options.login ? String(options.secret) : "",
     };
     if (this.trimCredentials) {
         if (!this._trimC) this._trimC = new RegExp("(^[" + this.trimCredentials + "]+)|([" + this.trimCredentials + "]+$)", "gi");
