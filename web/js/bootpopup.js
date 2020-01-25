@@ -267,7 +267,7 @@ function bootpopup(options)
 
                                         var menu = $('<div></div>', { class: "dropdown-menu" }).appendTo(append);
                                         for (var l in opts.list_input_button) {
-                                            var v, n = opts.list_input_button[l];
+                                            var n = opts.list_input_button[l], v = n;
                                             if (typeof n == "object") v = n.value, n = n.name;
                                             $('<a></a>', { class: "dropdown-item " + (opts.class_list_input_item || ""),
                                                            role: "button",
