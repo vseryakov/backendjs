@@ -589,7 +589,7 @@ bkjs.toValue = function(val, type)
 bkjs.toTemplate = function(text, obj, options)
 {
     if (typeof text != "string" || !text) return "";
-    var i, rc = [];
+    var i, j, rc = [];
     if (!options) options = {}
     if (!Array.isArray(obj)) obj = [obj];
     for (i = 0; i < obj.length; i++) {
@@ -637,7 +637,13 @@ bkjs.toTemplate = function(text, obj, options)
             }
             for (i = 0; i < rc.length && !val; i++) {
                 val = typeof rc[i][t] == "function" ? rc[i][t]() : rc[i][t];
-                if (val && field && typeof val == "object") val = val[field];
+                if (val && field && typeof val == "object") {
+                    field = field.split(".");
+                    for (j = 0; val && j < field.length; j++) {
+                        val = val ? val[field[j]] : undefined;
+                        if (typeof val == "function") val = val();
+                    }
+                }
             }
             switch (d[1]) {
             case "if":
@@ -685,7 +691,13 @@ bkjs.toTemplate = function(text, obj, options)
                 }
                 for (i = 0; i < rc.length && !v; i++) {
                     v = typeof rc[i][tag] == "function" ? rc[i][tag]() : rc[i][tag];
-                    if (v && field && typeof v == "object") v = v[field];
+                    if (v && field && typeof v == "object") {
+                        field = field.split(".");
+                        for (j = 0; v && j < field.length; j++) {
+                            v = v ? v[field[j]] : undefined;
+                            if (typeof v == "function") v = v();
+                        }
+                    }
                 }
                 if (typeof options.preprocess == "function") v = options.preprocess(tag, v, dflt);
             } else {
