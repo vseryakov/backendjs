@@ -151,6 +151,7 @@ bkjs.tzMap = [
 // Return a timezone human name if matched (EST, PDT...), tz must be in GMT-NNNN format
 bkjs.tzName = function(tz)
 {
+    if (!tz || typeof tz != "string") return "";
     var t = tz.indexOf(":") > 0 ? tz.replace(":", "") : tz;
     for (const i in bkjs.tzMap) {
         if (t == bkjs.tzMap[i][1]) return bkjs.tzMap[i][0];
