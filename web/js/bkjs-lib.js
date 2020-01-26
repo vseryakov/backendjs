@@ -140,7 +140,23 @@ bkjs.tzMap = [
         ["CST", "GMT-0600", false],
         ["MDT", "GMT-0600", true],
         ["MST", "GMT-0700", false],
+        ["HADT", "GMT-0900", true],
+        ["HAST", "GMT-1000", false],
+        ["AKDT", "GMT-0800", true],
+        ["AKST", "GMT-0900", false],
+        ["ADT", "GMT-0300", true],
+        ["AST", "GMT-0400", false],
 ];
+
+// Return a timezone human name if matched (EST, PDT...), tz must be in GMT-NNNN format
+bkjs.tzName = function(tz)
+{
+    var t = tz.indexOf(":") > 0 ? tz.replace(":", "") : tz;
+    for (const i in bkjs.tzMap) {
+        if (t == bkjs.tzMap[i][1]) return bkjs.tzMap[i][0];
+    }
+    return tz;
+}
 
 bkjs.strftimeConfig = {
     a: function(t, utc, lang, tz) {
