@@ -233,12 +233,17 @@ bkjs.strftimeConfig = {
         tz = tz ? tz/60000 : t.getTimezoneOffset();
         return "GMT" + (tz < 0 ? "+" : "-") + bkjs.zeropad(Math.abs(-tz/60)) + "00";
     },
-    z: function(t, utc, lang, tz) {
+    zz: function(t, utc, lang, tz) {
+        return this.strftimeConfig.z(t, utc, lang, tz, 1);
+    },
+    z: function(t, utc, lang, tz, zz) {
         tz = tz ? tz/60000 : t.getTimezoneOffset();
         tz = "GMT" + (tz < 0 ? "+" : "-") + bkjs.zeropad(Math.abs(-tz/60)) + "00";
         var dst = bkjs.isDST(t);
         for (var i in bkjs.tzMap) {
-            if (tz == bkjs.tzMap[i][1] && (dst === bkjs.tzMap[i][2])) return bkjs.tzMap[i][0];
+            if (tz == bkjs.tzMap[i][1] && (dst === bkjs.tzMap[i][2])) {
+                return zz ? tz + " " + bkjs.tzMap[i][0] : bkjs.tzMap[i][0];
+            }
         }
         return tz;
     },
