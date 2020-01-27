@@ -61,6 +61,9 @@ bkjs.formatJSON = function(obj, options)
         if (type != "array") {
             text += ((nline ? (!options.level && !count ? "" : options.nl1) + options.indent + options.space : " ") + options.quote1 + p + options.quote2 + ": ");
         }
+        if (typeof options.preprocess == "function") {
+            val = options.preprocess(p, val, options);
+        }
         switch (this.typeName(val)) {
         case "array":
         case "object":
