@@ -234,7 +234,7 @@ bkjs.strftimeConfig = {
         return "GMT" + (tz < 0 ? "+" : "-") + bkjs.zeropad(Math.abs(-tz/60)) + "00";
     },
     zz: function(t, utc, lang, tz) {
-        return this.strftimeConfig.z(t, utc, lang, tz, 1);
+        return bkjs.strftimeConfig.z(t, utc, lang, tz, 1);
     },
     z: function(t, utc, lang, tz, zz) {
         tz = tz ? tz/60000 : t.getTimezoneOffset();
