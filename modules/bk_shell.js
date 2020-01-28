@@ -27,7 +27,7 @@ const shell = {
         "-account-add [-noscramble] login LOGIN secret SECRET [name NAME] [email EMAIL] [type TYPE] ... - add a new user for API access, any property from bk_account can be passed in the form: name value",
         "-account-update [-noscramble] [login LOGIN|id ID] [name NAME] [email EMAIL] [type TYPE] ... - update existing user properties, any property from bk_account can be passed in the form: name value ",
         "-account-del [login LOGIN|id ID]... - delete a user and login",
-        "-send-request -url URL [-id ID|-login LOGIN] param value param value ... - send API request to the server specified in the url as user specified by login or account id, resolving the user is done directly from the current db pool, param values should not be url-encoded",
+        "-send-request -url URL [-id ID|-login LOGIN] [-hdr name=value] param value param value ... - send API request to the server specified in the url as user specified by login or account id, resolving the user is done directly from the current db pool, param values should not be url-encoded",
         "-log-watch - run logwatcher and exit, send emails in case any errors found",
     ],
 }
@@ -394,6 +394,7 @@ shell.cmdSendRequest = function(options)
     var select = lib.strSplit(this.getArg("-select", options));
     var json = this.isArg("-json", options);
     var flatten = this.isArg("-flatten", options)
+    var headers = this.getArgList("-hdr", options).reduce((x, y) => { y = y.split("="); x[y[0]] = y[1]; return x }, {});
     lib.series([
       function(next) {
           if (!id && !login) return next();
@@ -402,7 +403,7 @@ shell.cmdSendRequest = function(options)
           });
       },
       function(next, user) {
-        core.sendRequest({ url: url, login: user && user.login, secret: user && user.secret, query: query }, function(err, params) {
+        core.sendRequest({ url: url, login: user && user.login, secret: user && user.secret, query: query, headers: headers }, function(err, params) {
             if (err) shell.exit(err);
             if (select.length) {
                 var obj = {};
