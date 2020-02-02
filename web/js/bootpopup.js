@@ -61,11 +61,13 @@ function bootpopup(options)
         class_ok: "btn btn-primary",
         class_yes: "btn btn-primary",
         class_no: "btn btn-primary",
+        class_agree: "btn btn-primary",
         class_cancel: "btn btn-default btn-secondary",
         class_close: "btn btn-primary",
         text_ok: "OK",
         text_yes: "Yes",
         text_no: "No",
+        text_agree: "Agree",
         text_cancel: "Cancel",
         text_close: "Close",
         icon_ok: "",
@@ -73,6 +75,7 @@ function bootpopup(options)
         icon_no: "",
         icon_cancel: "",
         icon_close: "",
+        icon_agree: "",
         center: false,
         scroll: false,
         horizontal: true,
@@ -85,6 +88,7 @@ function bootpopup(options)
         cancel: function() {},
         yes: function() {},
         no: function() {},
+        agree: function() {},
         shown: function() {},
         complete: function() {},
         submit: function(e) {
@@ -250,9 +254,9 @@ function bootpopup(options)
                                     if (opts.value) elem.append(opts.value);
                                 } else {
                                     elem = $("<" + type + "/>", attrs);
-                                    if (opts.class_append || opts.text_append) {
-                                        elem.append($("<span></span>", { class: opts.class_append || "" }).append(opts.text_append || ""));
-                                    }
+                                }
+                                if (opts.class_append || opts.text_append) {
+                                    elem.append($("<span></span>", { class: opts.class_append || "" }).append(opts.text_append || ""));
                                 }
                                 if (opts.text_input_button) {
                                     elem = $('<div></div>', { class: 'input-group ' + (opts.class_input_group || "") }).append(elem);
@@ -444,6 +448,7 @@ function bootpopup(options)
     this.cancel = function() { return this.callback("cancel"); }
     this.yes = function() { return this.callback("yes"); }
     this.no = function() { return this.callback("no"); }
+    this.agree = function() { return this.callback("agree"); }
 
     this.addOptions(Array.isArray(options) ? options: Array.prototype.slice.call(arguments));
     this.create();
