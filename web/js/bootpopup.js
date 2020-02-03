@@ -269,7 +269,7 @@ function bootpopup(options)
                                                                  'aria-expanded': "false"
                                                              }).append(opts.text_input_button).appendTo(append);
 
-                                        var menu = $('<div></div>', { class: "dropdown-menu" }).appendTo(append);
+                                        var menu = $('<div></div>', { class: "dropdown-menu " + (opts.class_input_menu || "") }).appendTo(append);
                                         for (var l in opts.list_input_button) {
                                             var n = opts.list_input_button[l], v = n;
                                             if (typeof n == "object") v = n.value, n = n.name;
