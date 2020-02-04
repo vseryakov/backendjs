@@ -80,6 +80,7 @@ function bootpopup(options)
         scroll: false,
         horizontal: true,
         alert: false,
+        data: "",
 
         before: function() {},
         dismiss: function() {},
@@ -156,6 +157,9 @@ function bootpopup(options)
         this.body.append(this.form);
         this.content.append(this.body);
 
+        if (this.options.data) {
+            this.form.data("form-data", this.options.data);
+        }
         if (this.options.alert) {
             this.alert = $("<div></div>", { class: this.options.class_alert }).appendTo(this.form);
         }
