@@ -589,7 +589,7 @@ case "$BKJS_CMD" in
     ;;
 
   install-node)
-    ver=$(get_arg -version v10.18.1)
+    ver=$(get_arg -version v10.19.0)
     if [ "$(get_flag -force)" != "" -a -f $BKJS_PREFIX/bin/node ]; then
        echo "Uninstalling node from $BKJS_PREFIX ..."
        rm -rf $BKJS_PREFIX/bin/node $BKJS_PREFIX/bin/npm $BKJS_PREFIX/bin/npx $BKJS_PREFIX/lib/node_modules/npm
