@@ -54,15 +54,17 @@ bkjs.formatJSON = function(obj, options)
     var nline = !options.indentlevel || options.level < options.indentlevel;
 
     for (var p in obj) {
+        if (options.ignore && options.ignore.test(p)) continue;
         var val = obj[p];
+        if (typeof options.preprocess == "function") {
+            val = options.preprocess(p, val, options);
+            if (typeof val == "undefined") continue;
+        }
         if (count > 0) {
             text += type == "array" ? options.sep : options.comma;
         }
         if (type != "array") {
             text += ((nline ? (!options.level && !count ? "" : options.nl1) + options.indent + options.space : " ") + options.quote1 + p + options.quote2 + ": ");
-        }
-        if (typeof options.preprocess == "function") {
-            val = options.preprocess(p, val, options);
         }
         switch (this.typeName(val)) {
         case "array":
