@@ -176,7 +176,6 @@ find_nodebin() {
 
 # Use configured or provided user:group, defaults to the current user
 find_user() {
-  echo "Find user: $BKJS_USER, $(get_arg -user)"
   export BKJS_USER=$(get_arg -user $BKJS_USER)
   [ "$BKJS_USER" = "" ] && export BKJS_USER=$(whoami)
   export BKJS_GROUP=$(get_arg -group $BKJS_GROUP)
@@ -261,15 +260,12 @@ case "$BKJS_CMD" in
     ;;
 
   bkrsync)
-    cmd=""
-    while [ "$1" = "-bkcmd" ]; do
-       cmd=$2
-       shift;shift
-    done
-    rsync "$@"
+    logger -p local0.notice -t bkrsync -- $@
+    cmd=$(get_arg -bkcmd)
+    rsync $(get_all_args "-bkcmd")
     rc=$?
     [ "$rc" != "0" ] && exit $rc
-    [ "$cmd" != "" ] && logger -p local0.notice -t bkrsync "$cmd" && $cmd
+    [ "$cmd" != "" ] && $cmd
     exit 0
     ;;
 
@@ -416,12 +412,12 @@ case "$BKJS_CMD" in
     [ "$user" != "" ] && sshargs="$sshargs -l $user"
     key=$(get_arg -ssh-key)
     [ "$key" != "" -a -f $HOME/.ssh/$key.pem ] && sshargs="$sshargs -i $HOME/.ssh/$key.pem"
+    rsyncargs=$(concat_arg -rsync $BKJS_RSYNC_ARGS)
     bkcmd=$(get_arg -bkcmd)
     if [ "$bkcmd" != "" ]; then
         find_user
         bkcmd="--rsync-path=/home/$BKJS_USER/bin/bkrsync -bkcmd '$bkcmd'"
     fi
-    rsyncargs=$(concat_arg -rsync $BKJS_RSYNC_ARGS)
     include=$(get_json package.json config.sync.include)
     for inc in $include; do
         rsyncargs="$rsyncargs --include=$inc"
@@ -432,10 +428,10 @@ case "$BKJS_CMD" in
     [ -f $HOME/.gitignore_global ] && rsyncargs="$rsyncargs --exclude-from $HOME/.gitignore_global"
     exclude=$(get_json package.json config.sync.exclude)
     [[ ! -z $exclude ]] && rsyncargs="$rsyncargs --exclude=$exclude"
-    echo "Deploying the module $mod: 'ssh $sshargs' $rsyncargs $bkcmd to $host:$path"
+    echo "Deploying the module $mod: ssh $sshargs $rsyncargs $bkcmd to $host:$path"
     [ ! -z "$(get_flag -dry-run)" ] && exit 0
     for h in $host; do
-        rsync -av -e "ssh $sshargs" $rsyncargs "$bkcmd" $h:$path
+        rsync -av -e "ssh $sshargs" "$bkcmd" $rsyncargs . $h:$path
     done
     ;;
 
