@@ -494,7 +494,7 @@ bkjs.toDuration = function(mtime, options)
 
 bkjs.toSize = function(size)
 {
-    var i = Math.floor( Math.log(size) / Math.log(1024) );
+    var i = size > 0 ? Math.floor( Math.log(size) / Math.log(1024) ) : 0;
     return ( size / Math.pow(1024, i) ).toFixed(2) * 1 + ' ' + [this.__('Bytes'), this.__('KBytes'), this.__('MBytes'), this.__('GBytes'), this.__('TBytes')][i];
 }
 
