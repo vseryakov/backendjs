@@ -774,7 +774,9 @@ bkjs.strSplitUnique = function(str, sep, type)
     var rc = [];
     var typed = typeof type != "undefined";
     this.strSplit(str, sep, type).forEach(function(x) {
-        if (!rc.some(function(y) { return typed ? x == y : x.toLowerCase() == y.toLowerCase() })) rc.push(x);
+        if (!rc.some(function(y) {
+            return typed || !(typeof x == "string" && typeof y == "string") ? x == y : x.toLowerCase() == y.toLowerCase()
+        })) rc.push(x);
     });
     return rc;
 }
