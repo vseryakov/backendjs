@@ -513,6 +513,43 @@ bkjs.isObject = function(v)
     return this.typeName(v) == "object";
 }
 
+// Flags command utility, update flags array and returns a new array, the commands are:
+// - add - adds the `name` flags if does not exists
+// - del - removes the flags `name`
+// - present - returns only flags that present in the list `name`
+// - absent - returns only flags that are not present in the list `name`
+bkjs.toFlags = function(cmd, list, name)
+{
+    switch (cmd) {
+    case "add":
+        if (!Array.isArray(list)) list = [];
+        if (!Array.isArray(name)) {
+            if (name && list.indexOf(name) == -1) list.push(name);
+        } else {
+            name.forEach(function(x) { if (list.indexOf(x) == -1) list.push(x) });
+        }
+        break;
+
+    case "del":
+        if (!Array.isArray(list)) return [];
+        list = list.filter(function(x) { return Array.isArray(name) ? name.indexOf(x) == -1 : x != name });
+        break;
+
+    case "present":
+        if (!Array.isArray(list)) return [];
+        if (!Array.isArray(name)) return list;
+        list = list.filter(function(x) { return name.indexOf(x) > -1 });
+        break;
+
+    case "absent":
+        if (!Array.isArray(list)) return [];
+        if (!Array.isArray(name)) return list;
+        list = list.filter(function(x) { return name.indexOf(x) == -1 });
+        break;
+    }
+    return list;
+}
+
 // Capitalize words
 bkjs.toTitle = function(name)
 {
