@@ -112,21 +112,21 @@ bkjs.koViewModel = function(params, componentInfo)
 {
     this.params = {};
     for (var p in params) this.params[p] = params[p];
-    $(bkjs).on("bkjs.event." + this.name, $.proxy(this._handleEvent, this));
+    $(bkjs).on("bkjs.event." + this.koName, $.proxy(this._handleEvent, this));
 }
 
 bkjs.koViewModel.prototype._handleEvent = function(ev, name, event, data)
 {
-    if (bkjs.debug) console.log("handleEvent:", this.name, name, event, data)
+    if (bkjs.debug) console.log("handleEvent:", this.koName, name, event, data)
     if (typeof this[event] == "function") this[event](data);
     if (typeof this.handleEvent == "function") this.handleEvent(name, data);
 }
 
 bkjs.koViewModel.prototype.dispose = function()
 {
-    if (bkjs.debug) console.log("dispose:", this.name);
-    bkjs.koEvent("model.disposed", { name: this.name, params: this.params, vm: this });
-    $(bkjs).off("bkjs.event." + this.name, $.proxy(this._handleEvent, this));
+    if (bkjs.debug) console.log("dispose:", this.koName);
+    bkjs.koEvent("model.disposed", { name: this.koName, params: this.params, vm: this });
+    $(bkjs).off("bkjs.event." + this.koName, $.proxy(this._handleEvent, this));
     if (typeof this.onDispose == "function") this.onDispose();
     delete this.params;
     bkjs.koViewModels.splice(bkjs.koViewModels.indexOf(this));
@@ -136,7 +136,7 @@ bkjs.koCreateModel = function(name)
 {
     if (!name) throw "model name is required";
     bkjs.koModels[name] = function(params, componentInfo) {
-        this.name = name;
+        this.koName = name;
         bkjs.koViewModel.call(this, params, componentInfo);
     };
     bkjs.inherits(bkjs.koModels[name], bkjs.koViewModel);
