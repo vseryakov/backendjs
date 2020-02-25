@@ -64,18 +64,24 @@ function bootpopup(options)
         class_agree: "btn btn-primary",
         class_cancel: "btn btn-default btn-secondary",
         class_close: "btn btn-primary",
+        class_button1: "btn btn-primary",
+        class_button2: "btn btn-primary",
         text_ok: "OK",
         text_yes: "Yes",
         text_no: "No",
         text_agree: "Agree",
         text_cancel: "Cancel",
         text_close: "Close",
+        text_button1: "",
+        text_button2: "",
         icon_ok: "",
         icon_yes: "",
         icon_no: "",
         icon_cancel: "",
         icon_close: "",
         icon_agree: "",
+        icon_button1: "",
+        icon_button2: "",
         center: false,
         scroll: false,
         horizontal: true,
@@ -90,6 +96,8 @@ function bootpopup(options)
         yes: function() {},
         no: function() {},
         agree: function() {},
+        button1: function() {},
+        button2: function() {},
         shown: function() {},
         complete: function() {},
         submit: function(e) {
@@ -453,6 +461,8 @@ function bootpopup(options)
     this.yes = function() { return this.callback("yes"); }
     this.no = function() { return this.callback("no"); }
     this.agree = function() { return this.callback("agree"); }
+    this.button1 = function() { return this.callback("button1"); }
+    this.button2 = function() { return this.callback("button2"); }
 
     this.addOptions(Array.isArray(options) ? options: Array.prototype.slice.call(arguments));
     this.create();
