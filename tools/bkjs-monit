@@ -55,62 +55,6 @@ case "$BKJS_CMD" in
     fi
     ;;
 
-  init-monit-elasticsearch)
-    find_user
-    find_bkjsbin
-    echo "check process elasticsearch with pidfile \"$BKJS_HOME/var/elasticsearch.pid\" start program = \"$BKJS_BIN run-elasticsearch $(get_all_args)\" as uid $BKJS_USER and gid $BKJS_GROUP stop program = \"$BKJS_BIN stop-elasticsearch\" if failed url http://127.0.0.1:9200/ with timeout 15 seconds for 2 cycles then restart" > /etc/monit.d/elasticsearch.conf
-    echo "check file elasticsearch-log with path $BKJS_HOME/log/elasticsearch.log if match 'java.lang.OutOfMemoryError' then exec \"$BKJS_BIN restart-elasticsearch $(get_all_args)\"" >> /etc/monit.d/elasticsearch.conf
-    monit reload
-    ;;
-
-  init-monit-elasticsearch-health)
-    host=$(get_arg -host elasticsearch)
-    echo "check host elasticsearch-health with address $host if failed url http://$host:9200/_cluster/health and content = 'green' with timeout 60 seconds for 2 cycles then alert" > /etc/monit.d/elasticsearch-health.conf
-    monit reload
-    ;;
-
-  init-monit-redis)
-    # There is no startup script because we rely on the monit to handle processes
-    [ "$(whoami)" != "root" ] && echo "Run as root please" && exit 1
-    echo 1 > /proc/sys/vm/overcommit_memory
-    echo never > /sys/kernel/mm/transparent_hugepage/enabled
-    if [ "$(grep -s 'overcommit_memory' /etc/sysctl.conf)" = "" ]; then
-       echo 'vm.overcommit_memory=1' >> /etc/sysctl.conf
-    fi
-    if [ "$(grep -s 'transparent_hugepage' /etc/rc.local)" = "" ]; then
-       echo 'echo never > /sys/kernel/mm/transparent_hugepage/enabled' >> /etc/rc.local
-    fi
-    find_user
-    find_bkjsbin
-    $ECHO "$BKJS_HOME/log/redis.log {\n  weekly\n  rotate 10\n  copytruncate\n  delaycompress\n  compress\n  notifempty\n  missingok\n}" > /etc/logrotate.d/redis
-    $ECHO "check process redis-server with pidfile \"$BKJS_HOME/var/redis.pid\" start program = \"$BKJS_BIN run-redis $(get_all_args)\" as uid $BKJS_USER and gid $BKJS_GROUP stop program = \"$BKJS_BIN stop-redis\" if failed host 127.0.0.1 port 6379 for 2 cycles then restart" > /etc/monit.d/redis.conf
-    monit reload
-    ;;
-
-  init-monit-sentinel)
-    find_user
-    find_bkjsbin
-    host=$(get_arg -host 127.0.0.1)
-    port=$(get_arg -port 6379)
-    quorum=$(get_arg -quorum 2)
-    name=$(get_arg -name redis)
-    dtimeout=$(get_arg -down-timeout 10000)
-    ftimeout=$(get_arg -failover-timeout 180000)
-    conf=$BKJS_HOME/etc/sentinel.conf
-    $ECHO "daemonize yes" > $conf
-    $ECHO "syslog-enabled yes" >> $conf
-    $ECHO "sentinel monitor $name $host $port $quorum" >> $conf
-    $ECHO "sentinel down-after-milliseconds $name $dtimeout" >> $conf
-    $ECHO "sentinel failover-timeout $name $ftimeout" >> $conf
-    $ECHO "sentinel parallel-syncs $name 1" >> $conf
-    $ECHO "dir $BKJS_HOME/var/" >> $conf
-    $ECHO "pidfile $BKJS_HOME/var/sentinel.pid" >> $conf
-    chown $BKJS_USER $conf
-
-    $ECHO "check process redis-sentinel with pidfile \"$BKJS_HOME/var/sentinel.pid\" start program = \"$BKJS_BIN run-sentinel $(get_all_args)\" as uid $BKJS_USER and gid $BKJS_GROUP stop program = \"$BKJS_BIN stop-sentinel\"" > /etc/monit.d/sentinel.conf
-    monit reload
-    ;;
-
   init-monit)
     find_user
     name=$(get_arg -name)
@@ -131,9 +75,6 @@ case "$BKJS_CMD" in
     echo "  init-monit-bkjs - setup monit to keep $BKJS service running without using any other services and monitor"
     echo "  stop-monit-bkjs - stop monitoring $BKJS service by monit"
     echo "  init-monit-alerts - setup monit mail alerts, use DB config for the specified app name"
-    echo "  init-monit-elasticsearch [-memsize PERCENT] [-memmax SIZE] [-nodetype TYPE] - setup monit to keep elasticsearch service running"
-    echo "  init-monit-sentinel [-host HOST] [-port PORT] - setup Redis Sentinel server to be run on start and to be monitored (Linux only)"
-    echo "  init-monit-redis [-memsize PERCENT] [-memmax SIZE] - setup Redis server to be run on start and to be monitored (Linux only)"
     echo "  init-monit -name NAME -start SCRIPT -stop SCRIPT - generate a monit service config"
     echo ""
     ;;

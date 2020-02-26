@@ -6,7 +6,7 @@
 
 case "$BKJS_CMD" in
 
-  get-elasticsearch)
+  get-elasticsearch|es-get)
     [ "$ELASTICSEARCH_PREFIX" = "" ] && ELASTICSEARCH_PREFIX=$BKJS_PREFIX/elasticsearch
     [ "$(get_flag -force)" != "" -a "$ELASTICSEARCH_PREFIX" != "" ] && rm -rf $ELASTICSEARCH_PREFIX
     if [ ! -d $ELASTICSEARCH_PREFIX ]; then
@@ -31,15 +31,35 @@ case "$BKJS_CMD" in
     fi
     ;;
 
-  init-elasticsearch)
+  init-elasticsearch|es-init)
     ($0 get-elasticsearch)
     ($0 run-elasticsearch $(get_all_args))
     if [ "$PLATFORM" = "Linux" ]; then
-       sudo $0 init-monit-elasticsearch $(get_all_args)
+       sudo $0 init-elasticsearch-monit $(get_all_args)
     fi
     ;;
 
-  run-elasticsearch)
+  get-elasticsearch-nodetype)
+    [ "$ELASTICSEARCH_PREFIX" = "" ] && ELASTICSEARCH_PREFIX=$BKJS_PREFIX/elasticsearch
+    d=$(grep -sq "node.data: true" $ELASTICSEARCH_PREFIX/config/elasticsearch.yml && echo d)
+    m=$(grep -sq "node.master: true" $ELASTICSEARCH_PREFIX/config/elasticsearch.yml && echo m)
+    case "$d$m" in
+    dm)
+      echo node
+      ;;
+    d)
+      echo data
+      ;;
+    m)
+      echo master
+      ;;
+    *)
+      echo client
+      ;;
+    esac
+    ;;
+
+  run-elasticsearch|es-run)
     [ "$ELASTICSEARCH_PREFIX" = "" ] && ELASTICSEARCH_PREFIX=$BKJS_PREFIX/elasticsearch
     # Percent from the total memory
     memsize=$(get_arg -memsize)
@@ -66,7 +86,7 @@ case "$BKJS_CMD" in
     $ELASTICSEARCH_PREFIX/bin/elasticsearch -p $BKJS_HOME/var/elasticsearch.pid -d >>$BKJS_HOME/log/message.log 2>&1
     ;;
 
-  stop-elasticsearch)
+  stop-elasticsearch|es-stop)
     pkill -f org.elasticsearch
     ;;
 
@@ -86,13 +106,27 @@ case "$BKJS_CMD" in
 
   stop-elasticsearch-replication)
     host=$(get_arg -host localhost)
-    curl -XPUT -H 'Content-Type: application/json' -d '{"transient":{"cluster.routing.allocation.enable":"none"}}' http://$host:9200/_cluster/settings
-    curl -XPOST $host:9200/_flush/synced
+    curl -XPUT -H 'Content-Type: application/json' -d '{"persistent":{"cluster.routing.allocation.enable":"primaries"}}' http://$host:9200/_cluster/settings
     ;;
 
   start-elasticsearch-replication)
     host=$(get_arg -host localhost)
-    curl -XPUT -H 'Content-Type: application/json' -d '{"transient":{"cluster.routing.allocation.enable":"all"}}' http://$host:9200/_cluster/settings
+    curl -XPUT -H 'Content-Type: application/json' -d '{"persistent":{"cluster.routing.allocation.enable":null}}' http://$host:9200/_cluster/settings
+    ;;
+
+  upgrade-elasticsearch-node)
+    host=$(get_arg -host localhost)
+    memsize=$(get_arg -memsize 50)
+    nodetype=$($0 get-elasticsearch-nodetype)
+    $0 stop-elasticsearch-replication -host $host
+    $0 stop-elasticsearch
+    $0 get-elasticsearch -force
+    if [ -f /etc/monit.d/elasticsearch.conf ]; then
+        sudo monit reload
+    else
+        $0 run-elasticsearch -nodetype "$nodetype" -memsize $memsize
+    fi
+    $0 start-elasticsearch-replication -host $host
     ;;
 
   exclude-elasticsearch-node)
@@ -102,9 +136,28 @@ case "$BKJS_CMD" in
     curl -XPUT -H 'Content-Type: application/json' -d "{\"transient\":{\"cluster.routing.allocation.exclude._ip\":\"$ip\"}}" http://$host:9200/_cluster/settings
     ;;
 
-  elasticsearch-health)
+  elasticsearch-health|es-w)
     host=$(get_arg -host localhost)
-    curl -XGET http://$host:9200/_cluster/health?pretty
+    curl -XGET "http://$host:9200/_cat/health?v"
+    ;;
+
+  elasticsearch-nodes|es-ls)
+    host=$(get_arg -host localhost)
+    curl -XGET "http://$host:9200/_cat/nodes?h=ip,name,version,cpu,ram.percent,node.role,master&v"
+    ;;
+
+  init-monit-elasticsearch|init-elasticsearch-monit)
+    find_user
+    find_bkjsbin
+    echo "check process elasticsearch with pidfile \"$BKJS_HOME/var/elasticsearch.pid\" start program = \"$BKJS_BIN run-elasticsearch $(get_all_args)\" as uid $BKJS_USER and gid $BKJS_GROUP stop program = \"$BKJS_BIN stop-elasticsearch\" if failed url http://127.0.0.1:9200/ with timeout 15 seconds for 2 cycles then restart" > /etc/monit.d/elasticsearch.conf
+    echo "check file elasticsearch-log with path $BKJS_HOME/log/elasticsearch.log if match 'java.lang.OutOfMemoryError' then exec \"$BKJS_BIN restart-elasticsearch $(get_all_args)\"" >> /etc/monit.d/elasticsearch.conf
+    monit reload
+    ;;
+
+  init-monit-elasticsearch-health|init-elasticsearch-health-monit)
+    host=$(get_arg -host elasticsearch)
+    echo "check host elasticsearch-health with address $host if failed url http://$host:9200/_cluster/health and content = 'green' with timeout 60 seconds for 2 cycles then alert" > /etc/monit.d/elasticsearch-health.conf
+    monit reload
     ;;
 
   stop-elasticsearch-monit)
@@ -134,6 +187,7 @@ case "$BKJS_CMD" in
     echo "  run-elasticsearch [-memsize PERCENT] [-memmax SIZE] [-nodetype TYPE] - run local ElasticSearch server installed in $BKJS_PREFIX/elasticsearch, -memmax is max heap size, -memsize is the percent of the total memory to use, -nodetype can be node,master,data,client"
     echo "  stop-elasticsearch - stop local ElasticSearch server"
     echo "  reset-elasticsearch - remove local ElasticSearch database and restart the server"
+    echo "  init-elasticsearch-monit [-memsize PERCENT] [-memmax SIZE] [-nodetype TYPE] - setup monit to keep elasticsearch service running"
     echo ""
     ;;
 
