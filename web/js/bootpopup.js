@@ -98,6 +98,7 @@ function bootpopup(options)
         agree: function() {},
         button1: function() {},
         button2: function() {},
+        show: function() {},
         shown: function() {},
         complete: function() {},
         submit: function(e) {
@@ -397,6 +398,9 @@ function bootpopup(options)
         }
 
         // Setup events for dismiss and complete
+        this.modal.on('show.bs.modal', function(e) {
+            self.options.show.call(self.options.self, e);
+        });
         this.modal.on('shown.bs.modal', function(e) {
             var focus = self.autofocus || self.form.find("input,select,textarea").filter(":not([readonly='readonly']):not([disabled='disabled']):not([type='hidden'])").first();
             if (focus) focus.focus();
