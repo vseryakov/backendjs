@@ -3,13 +3,14 @@
 //  backendjs 2018
 //
 
-const logger = require(__dirname + '/../lib/logger');
-const core = require(__dirname + '/../lib/core');
-const lib = require(__dirname + '/../lib/lib');
-const db = require(__dirname + '/../lib/db');
-const aws = require(__dirname + '/../lib/aws');
-const jobs = require(__dirname + '/../lib/jobs');
-const ipc = require(__dirname + '/../lib/ipc');
+const bkjs = require("backendjs");
+const logger = bkjs.logger;
+const core = bkjs.core;
+const lib = bkjs.lib;
+const db = bkjs.db;
+const aws = bkjs.aws;
+const jobs = bkjs.jobs;
+const ipc = bkjs.ipc;
 
 // Default parameters are for rare activity with long intervals, for very active tables the interval and timeout must be much smaller
 const mod = {
@@ -51,7 +52,7 @@ const mod = {
     retryMaxTimeout: 5000,
     retryClosedCount: 100,
     concurrency: 10,
-    interval: 5000,
+    interval: 2000,
     intervals: {},
     refreshInterval: 0,
     refreshIntervals: {},
