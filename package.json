@@ -1,5 +1,5 @@
 {
-  "version": "0.99.0",
+  "version": "0.100.0",
   "author": "Vlad Seryakov",
   "name": "backendjs",
   "description": "A platform for building backends",
@@ -81,7 +81,6 @@
   "config": {
     "sync": {
       "path": "node_modules",
-      "exclude": "examples/",
       "include": [
         "*.js.map",
         "*.bundle.html.js",
