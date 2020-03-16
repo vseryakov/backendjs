@@ -96,7 +96,7 @@ bkjs.koUpdateObject = function(obj, options)
 {
     if (!obj || typeof obj != "object") obj = {};
     for (var p in options) {
-        if (ko.isObservable(obj[p])) obj[p](options[p]); else obj[p] = options[p];
+        if (ko.isObservable(obj[p])) obj[p](bkjs.koVal(options[p])); else obj[p] = bkjs.koVal(options[p]);
     }
     return obj;
 }
