@@ -86,8 +86,8 @@ bkjs.koSetObject = function(obj, options)
         if (typeof options[p] != "undefined") continue;
         if (ko.isObservable(obj[p])) obj[p](undefined); else obj[p] = undefined;
     }
-    for (var p in options) {
-        if (ko.isObservable(obj[p])) obj[p](options[p]); else obj[p] = options[p];
+    for (var n in options) {
+        if (ko.isObservable(obj[n])) obj[n](bkjs.koVal(options[n])); else obj[n] = bkjs.koVal(options[n]);
     }
     return obj;
 }
@@ -134,7 +134,7 @@ bkjs.koViewModel.prototype.dispose = function()
 
 bkjs.koCreateModel = function(name)
 {
-    if (!name) throw "model name is required";
+    if (!name) throw new Error("model name is required");
     bkjs.koModels[name] = function(params, componentInfo) {
         this.koName = name;
         bkjs.koViewModel.call(this, params, componentInfo);
