@@ -794,6 +794,21 @@ bkjs.toTemplate = function(text, obj, options)
     return tmpl;
 }
 
+// Convert all special symbols into xml entities
+bkjs.textToXml = function(str)
+{
+    return String(str || "").replace(/([&<>'":])/g, function(_, n) {
+      switch (n) {
+      case '&': return '&amp;'
+      case '<': return '&lt;'
+      case '>': return '&gt;'
+      case '"': return '&quot;'
+      case "'": return '&apos;'
+      default: return n;
+      }
+    });
+}
+
 // Split string into array, ignore empty items,
 // - `sep` is an RegExp to use as a separator instead of default  pattern `[,\|]`,
 // - `options` is an object with the same properties as for the `toParams`, `datatype' will be used with
