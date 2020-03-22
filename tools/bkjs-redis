@@ -20,7 +20,7 @@ case "$BKJS_CMD" in
        ;;
     esac
 
-    ver=$(get_arg -version 5.0.5)
+    ver=$(get_arg -version 5.0.8)
     curl -L -o redis.tgz http://download.redis.io/releases/redis-$ver.tar.gz
 
     mkdir -p redis $BKJS_HOME/etc
