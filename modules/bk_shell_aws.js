@@ -21,12 +21,8 @@ shell.help.push("-aws-launch-instances [-count NUM] [-image-name PATTERN] [-name
 shell.help.push("-aws-reboot-instances -filter PATTERN [-dry-run] - reboot instances by tag pattern");
 shell.help.push("-aws-terminate-instances -filter PATTERN [-count NUM] [-dry-run] - terminate instances by tag pattern");
 shell.help.push("-aws-show-instances [-filter PATTERN] [-show-ip] - show running instances by tag pattern");
-shell.help.push("-aws-show-elb -elb-name NAME [-filter PATTERN] - show instances for an ELB");
-shell.help.push("-aws-reboot-elb -elb-name NAME [-timeout MSECS] [-interval MSECS] [-dry-run]");
-shell.help.push("-aws-replace-elb -elb-name NAME [-timeout MSECS] [-interval MSECS] [-dry-run]");
 shell.help.push("-aws-setup-ssh -group-name NAME [-close] [-dry-run]");
 shell.help.push("-aws-setup-instance [-cmd CMD] [-file FILE ] [-wait] [-dry-run]");
-shell.help.push("-aws-create-launch-config [-name NAME] [-config-name NAME] [-instance-name NAME] [-update-groups] [-dry-run] - create a launch configuration for autoscaling, can copy from an instance or other existing config, optinally update all ASGs with new config name");
 shell.help.push("-aws-create-launch-template-version -name NAME [-version N] [-default] [-dry-run] - create a launch template version with the most recent AMI");
 shell.help.push("-aws-set-route53 -name HOSTNAME [-current] [-filter PATTERN] [-type A|CNAME] [-ttl N] [-public] [-dry-run] - create or update a Route53 record of specified type with IP/hostnames of all instances that satisfy the given filter, -public makes it use public IP/hostnames");
 shell.help.push("-aws-check-cfn -file FILE - verify a CF template");
@@ -117,33 +113,6 @@ shell.awsGetAmazonImages = function(options, callback)
         images.sort(function(a, b) { return a.name < b.name ? 1 : a.name > b.name ? -1 : 0 });
         callback(null, images);
     });
-}
-
-// Wait ELB to have instance count equal or not to the expected total
-shell.awsGetElbCount = function(name, equal, total, options, callback)
-{
-    var running = 1, count = 0, expires = Date.now() + (options.timeout || 180000);
-
-    lib.doWhilst(
-        function(next) {
-            aws.queryELB("DescribeInstanceHealth", { LoadBalancerName: name }, function(err, rc) {
-                if (err) return next(err);
-                count = lib.objGet(rc, "DescribeInstanceHealthResponse.DescribeInstanceHealthResult.InstanceStates.member", { list: 1 }).filter(function(x) { return x.State == "InService"}).length;
-                logger.log("awsGetElbCount:", name, "checking(" + (equal ? "=" : "<>") + "):", "in-service", count, "out of", total);
-                if (equal) {
-                    running = total == count && Date.now() < expires;
-                } else {
-                    running = total != count && Date.now() < expires;
-                }
-                setTimeout(next, running ? (options.interval || 5000) : 0);
-            });
-        },
-        function() {
-            return running;
-        },
-        function(err) {
-            callback(err, total, count);
-        });
 }
 
 shell.awsGetUserData = function(options)
@@ -594,147 +563,6 @@ shell.cmdAwsSetRoute53 = function(options)
     });
 }
 
-// Show ELB running instances
-shell.cmdAwsShowElb = function(options)
-{
-    var elbName = this.getArg("-elb-name", options, aws.elbName);
-    if (!elbName) shell.exit("ERROR: -aws-elb-name or -elb-name must be specified")
-    var instances = [];
-    var filter = this.getArg("-filter", options);
-
-    lib.series([
-       function(next) {
-           aws.queryELB("DescribeInstanceHealth", { LoadBalancerName: elbName }, function(err, rc) {
-               if (err) return next(err);
-               instances = lib.objGet(rc, "DescribeInstanceHealthResponse.DescribeInstanceHealthResult.InstanceStates.member", { list: 1 });
-               next();
-           });
-       },
-       function(next) {
-           var req = { instanceId: instances.forEach(function(x, i) { req["InstanceId." + (i + 1)] = x.InstanceId }) };
-           aws.ec2DescribeInstances(req, function(err, list) {
-               list.forEach(function(row) {
-                   instances.forEach(function(x) {
-                       if (x.InstanceId == row.instanceId) x.name = row.name;
-                   });
-               });
-               next(err);
-           });
-       },
-       function(next) {
-           // Show all instances or only for the specified version
-           if (filter) {
-               instances = instances.filter(function(x) { return (x.name && x.State == 'InService' && x.name.match(filter)); });
-           }
-           instances.forEach(function(x) {
-               console.log(Object.keys(x).map(function(y) { return x[y] }).join(" | "));
-           });
-           next();
-       },
-    ], function(err) {
-        shell.exit(err);
-    });
-}
-
-// Reboot instances in the ELB, one by one
-shell.cmdAwsRebootElb = function(options)
-{
-    var elbName = this.getArg("-elb-name", options, aws.elbName);
-    if (!elbName) shell.exit("ERROR: -aws-elb-name or -elb-name must be specified")
-    var total = 0, instances = [];
-    options.timeout = this.getArgInt("-timeout", options);
-    options.interval = this.getArgInt("-interval", options);
-
-    lib.series([
-       function(next) {
-           aws.queryELB("DescribeInstanceHealth", { LoadBalancerName: elbName }, function(err, rc) {
-               if (err) return next(err);
-               instances = lib.objGet(rc, "DescribeInstanceHealthResponse.DescribeInstanceHealthResult.InstanceStates.member", { list: 1 }).filter(function(x) { return x.State == "InService" });
-               total = instances.length;
-               next();
-           });
-       },
-       function(next) {
-           // Reboot first half
-           if (!instances.length) return next();
-           var req = {};
-           instances.splice(0, Math.floor(instances.length/2)).forEach(function(x, i) {
-               req["InstanceId." + (i + 1)] = x.InstanceId;
-           });
-           logger.log("RebootELB:", elbName, "restarting:", req)
-           if (shell.isArg("-dry-run", options)) return next();
-           aws.queryEC2("RebootInstances", req, next);
-       },
-       function(next) {
-           if (shell.isArg("-dry-run", options)) return next();
-           // Wait until one instance is out of service
-           shell.awsGetElbCount(elbName, 1, total, options, next);
-       },
-       function(next) {
-           if (shell.isArg("-dry-run", options)) return next();
-           // Wait until all instances in service again
-           shell.awsGetElbCount(elbName, 0, total, options, next);
-       },
-       function(next) {
-           // Reboot the rest
-           if (!instances.length) return next();
-           var req = {};
-           instances.forEach(function(x, i) { req["InstanceId." + (i + 1)] = x.InstanceId });
-           logger.log("RebootELB:", elbName, 'restarting:', req)
-           if (shell.isArg("-dry-run", options)) return next();
-           aws.queryEC2("RebootInstances", req, next);
-       },
-    ], function(err) {
-        shell.exit(err);
-    });
-}
-
-// Deploy new version in the ELB, terminate the old version
-shell.cmdAwsReplaceElb = function(options)
-{
-    var elbName = this.getArg("-elb-name", options, aws.elbName);
-    if (!elbName) shell.exit("ERROR: -aws-elb-name or -elb-name must be specified")
-    var total = 0, oldInstances = [], newInstances = [], oldInService = [];
-    options.timeout = this.getArgInt("-timeout", options);
-    options.interval = this.getArgInt("-interval", options);
-
-    lib.series([
-       function(next) {
-           aws.queryELB("DescribeInstanceHealth", { LoadBalancerName: elbName }, function(err, rc) {
-               if (err) return next(err);
-               oldInstances = lib.objGet(rc, "DescribeInstanceHealthResponse.DescribeInstanceHealthResult.InstanceStates.member", { list: 1 });
-               oldInService = oldInstances.filter(function(x) { return x.State == "InService" });
-               next();
-           });
-       },
-       function(next) {
-           logger.log("ReplaceELB:", elbName, 'running:', oldInstances)
-           // Launch new instances
-           shell.awsLaunchInstances(options, next);
-       },
-       function(next) {
-           newInstances = instances;
-           if (shell.isArg("-dry-run", options)) return next();
-           // Wait until all instances are online
-           shell.awsGetElbCount(elbName, 0, oldInService.length + newInstances.length, options, function(err, total, count) {
-               if (!err && count != total) err = "Timeout waiting for instances";
-               next(err);
-           })
-       },
-       function(next) {
-           // Terminate old instances
-           if (!oldInstances.length) return next();
-           var req = {};
-           oldInstances.forEach(function(x, i) { req["InstanceId." + (i + 1)] = x.InstanceId });
-           logger.log("ReplaceELB:", elbName, 'terminating:', req)
-           if (shell.isArg("-dry-run", options)) return next();
-           aws.queryEC2("TerminateInstances", req, next);
-       },
-    ], function(err) {
-        shell.exit(err);
-    });
-}
-
 // Open/close SSH access to the specified group for the current external IP address
 shell.cmdAwsSetupSsh = function(options)
 {
@@ -1005,9 +833,9 @@ shell.cmdAwsWaitCfn = function(options, callback)
 shell.cmdAwsShowCfnEvents = function(options)
 {
     var name = this.getArg("-name", options);
-    if (!name) exit("ERROR: -name is required");
+    if (!name) shell.exit("ERROR: -name is required");
 
-    var token = undefined;
+    var token;
 
     lib.doWhilst(
       function(next) {
@@ -1040,6 +868,7 @@ shell.cmdAwsCreateLaunchTemplateVersion = function(options, callback)
 
     lib.series([
         function(next) {
+            if (shell.isArg("-new")) return next();
             var opts = {
                 LaunchTemplateName: name,
             };
@@ -1117,7 +946,8 @@ shell.cmdAwsCreateLaunchTemplateVersion = function(options, callback)
             logger.log("CreateLaunchTemplateVersion:", opts);
             if (shell.isArg("-dry-run", options)) return next();
             if (Object.keys(opts).length == 3) return next();
-            aws.queryEC2("CreateLaunchTemplateVersion", opts, (err, rc) => {
+            opts.region = shell.getArg("-region");
+            aws.queryEC2(shell.isArg("-new") ? "CreateLaunchTemplate" : "CreateLaunchTemplateVersion", opts, (err, rc) => {
                 if (!err) {
                     tmpl = lib.objGet(rc, "CreateLaunchTemplateVersionResponse.launchTemplateVersion");
                     logger.log("CreateLaunchTemplateVersionResponse:", tmpl);
@@ -1134,150 +964,6 @@ shell.cmdAwsCreateLaunchTemplateVersion = function(options, callback)
             };
             aws.queryEC2("ModifyLaunchTemplate", opts, next);
         },
-    ], function(err) {
-        if (typeof callback == "function") return callback(err);
-        shell.exit(err);
-    });
-}
-
-shell.cmdAwsCreateLaunchConfig = function(options, callback)
-{
-    var appName = this.getArg("-app-name", options, core.appName);
-    var appVersion = this.getArg("-app-version", options, core.appVersion);
-    var configName = shell.getArg("-config-name", options);
-
-    var lconfig, lconfigs, image, instance, groups;
-    var req = {
-        LaunchConfigurationName: this.getArg("-name", options),
-        InstanceType: this.getArg("-instance-type", options, aws.instanceType),
-        ImageId: this.getArg("-image-id", options, aws.imageId),
-        InstanceId: this.getArg("-instance-id", options),
-        KeyName: this.getArg("-key-name", options, aws.keyName),
-        IamInstanceProfile: this.getArg("-iam-profile", options, aws.iamProfile),
-        AssociatePublicIpAddress: this.getArg("-public-ip"),
-        "SecurityGroups.member.1": this.getArg("-group-id", options, aws.groupId),
-    };
-    var d = this.getArg("-device", options).match(/^([a-z0-9\/]+):([a-z0-9]+):([0-9]+)$/);
-    if (d) {
-        req['BlockDeviceMappings.member.1.DeviceName'] = d[1];
-        req['BlockDeviceMappings.member.1.Ebs.VolumeType'] = d[2];
-        req['BlockDeviceMappings.member.1.Ebs.VolumeSize'] = d[3];
-    }
-    var udata = this.awsGetUserData(options);
-    if (udata) req.UserData = Buffer.from(udata).toString("base64");
-
-    lib.series([
-       function(next) {
-           if (!configName) return next();
-           aws.queryAS("DescribeLaunchConfigurations", {}, function(err, rc) {
-               if (err) return next(err);
-               lconfigs = lib.objGet(rc, "DescribeLaunchConfigurationsResponse.DescribeLaunchConfigurationsResult.LaunchConfigurations.member", { list: 1 });
-               // Sort by version in descending order, assume name-N.N.N naming convention
-               lconfigs = lib.sortByVersion(lconfigs, "LaunchConfigurationName");
-               var lname = configName.replace(/-[0-9\.]+$/, "");
-               var rx = new RegExp("^" + lname + "-", "i");
-               for (var i in lconfigs) {
-                   if (rx.test(lconfigs[i].LaunchConfigurationName)) {
-                       lconfig = lconfigs[i];
-                       break;
-                   }
-               }
-               next(err);
-           });
-       },
-       function(next) {
-           if (req.InstanceId) return next();
-           var filter = shell.getArg("-instance-name");
-           if (!filter) return next();
-           var q = { tagName: filter, stateName: "running" };
-           aws.ec2DescribeInstances(q, function(err, list) {
-               instance = list[0];
-               if (instance) req.InstanceId = instance.instanceId;
-               next(err);
-           });
-       },
-       function(next) {
-           if (req.ImageId) return next();
-           var filter = shell.getArg("-image-name", options, '*');
-           shell.awsSearchImage(filter, appName, function(err, rc) {
-               image = rc;
-               next(err ? err : !image ? "ERROR: AMI must be specified or discovered by filters" : null);
-           });
-       },
-       function(next) {
-           if (req["SecurityGroups.member.1"]) return next();
-           var filter = shell.getArg("-group-name", options, appName + "|^default$");
-           aws.ec2DescribeSecurityGroups({ filter: filter }, function(err, rc) {
-               groups = rc;
-               next(err);
-           });
-       },
-       function(next) {
-           if (req.InstanceId) return next();
-           if (!req.ImageId) req.ImageId = (image && image.imageId) || (lconfig && lconfig.ImageId);
-           if (!lconfig) return next();
-           // Reuse config name but replace the version from the image, this is an image upgrade
-           if (!req.LaunchConfigurationName && configName && lconfig) {
-               var n = lconfig.LaunchConfigurationName.split(/[ -]/);
-               if (configName == n[0]) req.LaunchConfigurationName = configName + "-" + image.name.split("-").pop();
-           }
-           if (image) {
-               // Attach the image version to the config name
-               if (req.LaunchConfigurationName && /-[0-9\.]+$/.test(image.name) && !/-[0-9\.]+$/.test(req.LaunchConfigurationName)) {
-                   req.LaunchConfigurationName += "-" + image.name.split("-").pop();
-               }
-               if (!req.LaunchConfigurationName) req.LaunchConfigurationName = image.name;
-           }
-           if (!req.LaunchConfigurationName) req.LaunchConfigurationName = appName + "-" + appVersion;
-           if (!req.InstanceType) req.InstanceType = lconfig.InstanceType || aws.instanceType;
-           if (!req.KeyName) req.KeyName = lconfig.KeyName || appName;
-           if (!req.IamInstanceProfile) req.IamInstanceProfile = lconfig.IamInstanceProfile || appName;
-           if (!req.UserData && lconfig.UserData && typeof lconfig.UserData == "string") req.UserData = lconfig.UserData;
-           if (!req['BlockDeviceMappings.member.1.DeviceName']) {
-               lib.objGet(lconfig, "BlockDeviceMappings.member", { list: 1 }).forEach(function(x, i) {
-                   req["BlockDeviceMappings.member." + (i + 1) + ".DeviceName"] = x.DeviceName;
-                   if (x.VirtualName) req["BlockDeviceMappings.member." + (i + 1) + ".VirtualName"] = x.Ebs.VirtualName;
-                   if (x.Ebs && x.Ebs.VolumeSize) req["BlockDeviceMappings.member." + (i + 1) + ".Ebs.VolumeSize"] = x.Ebs.VolumeSize;
-                   if (x.Ebs && x.Ebs.VolumeType) req["BlockDeviceMappings.member." + (i + 1) + ".Ebs.VolumeType"] = x.Ebs.VolumeType;
-                   if (x.Ebs && x.Ebs.Iops) req["BlockDeviceMappings.member." + (i + 1) + ".Ebs.Iops"] = x.Ebs.Iops;
-                   if (x.Ebs && x.Ebs.Encrypted) req["BlockDeviceMappings.member." + (i + 1) + ".Ebs.Encrypted"] = x.Ebs.Encrypted;
-                   if (x.Ebs && typeof x.Ebs.DeleteOnTermination == "boolean") req["BlockDeviceMappings.member." + (i + 1) + ".Ebs.DeleteOnTermination"] = x.Ebs.DeleteOnTermination;
-               });
-           }
-           if (!req["SecurityGroups.member.1"]) {
-               lib.objGet(lconfig, "SecurityGroups.member", { list: 1 }).forEach(function(x, i) {
-                   req["SecurityGroups.member." + (i + 1)] = x;
-               });
-           }
-           if (!req["SecurityGroups.member.1"] && groups) {
-               groups.forEach(function(x, i) { req["SecurityGroups.member." + (i + 1)] = x.groupId });
-           }
-           req.AssociatePublicIpAddress = lib.toBool(req.AssociatePublicIpAddress || lconfig.AssociatePublicIpAddress);
-           next();
-       },
-       function(next) {
-           if (lconfigs.some(function(x) { return x.LaunchConfigurationName == req.LaunchConfigurationName })) return next();
-           if (lconfig) logger.info("CONFIG:", lconfig);
-           if (image) logger.info("IMAGE:", image)
-           if (instance) logger.info("INSTANCE:", instance);
-           logger.log("CreateLaunchConfig:", req);
-           if (shell.isArg("-dry-run", options)) return next();
-           aws.queryAS("CreateLaunchConfiguration", req, next);
-       },
-       function(next) {
-           if (shell.isArg("-dry-run", options)) return next();
-           if (!shell.isArg("-update-groups", options) || !lconfig) return next();
-           aws.queryAS("DescribeAutoScalingGroups", req, function(err, rc) {
-               groups = lib.objGet(rc, "DescribeAutoScalingGroupsResponse.DescribeAutoScalingGroupsResult.AutoScalingGroups.member", { list: 1 });
-               var lname = lconfig.LaunchConfigurationName.replace(/-[0-9\.]+$/, "");
-               lib.forEachSeries(groups, function(group, next2) {
-                   if (group.LaunchConfigurationName.replace(/-[0-9\.]+$/, "") != lname && group.LaunchConfigurationName != lconfig.LaunchConfigurationName) {
-                       return next2();
-                   }
-                   aws.queryAS("UpdateAutoScalingGroup", { AutoScalingGroupName: group.AutoScalingGroupName, LaunchConfigurationName: req.LaunchConfigurationName }, next2);
-               }, next);
-           });
-       },
     ], function(err) {
         if (typeof callback == "function") return callback(err);
         shell.exit(err);
