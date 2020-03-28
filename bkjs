@@ -451,7 +451,7 @@ case "$BKJS_CMD" in
         [ "$m" != "" ] && modules="$modules $m"
     done
     [[ -z $modules ]] && exit 0
-    echo "$cmd: $modules"
+    echo "$NPM_BIN $npm $cmd $modules"
     [ ! -z "$(get_flag -dry-run)" ] && exit 0
     $NPM_BIN $npm $cmd $modules
     ;;
