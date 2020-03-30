@@ -892,9 +892,9 @@ shell.cmdAwsCreateLaunchTemplateVersion = function(options, callback)
         function(next) {
             var opts = {
                 LaunchTemplateName: name,
-                SourceVersion: tmpl.versionNumber,
                 VersionDescription: image ? image.name : appName + "-" + appVersion,
             };
+            if (tmpl) opts.SourceVersion = tmpl.versionNumber;
 
             if (image && !imageId) imageId = image.imageId;
             if (imageId && tmpl.launchTemplateData.imageId != imageId) {

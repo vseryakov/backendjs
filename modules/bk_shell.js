@@ -98,7 +98,7 @@ shell.getArgs = function(options)
 // Return an argument by name from the options, options may contain parameters in camel form or with underscores, both formats will be checked
 shell.getOption = function(name, options)
 {
-    return name && options ? options[lib.toCamel(name.substr(1))] || options[name.substr(1).replace(/-/g, "_")] : "";
+    return name && options ? options[lib.toCamel(name.substr(1))] || options[name.substr(1).replace(/-/g, "_")] : undefined;
 }
 
 // Return first available value for the given name, options first, then command arg and then default,
