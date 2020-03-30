@@ -227,7 +227,7 @@ case "$BKJS_CMD" in
   start)
     cd $BKJS_HOME
     $0 check-server
-    $0 run-${BKJS_SERVER:-monitor}
+    $0 run-${BKJS_SERVER:-master}
     ;;
 
   restart)
@@ -303,23 +303,6 @@ case "$BKJS_CMD" in
       /sbin/halt
    fi
    ;;
-
-  check-hostname)
-    # Check hostname for the eth0 and setup /etc/hosts with EC2 host name
-    addr=$(get_local_ip)
-    [ "$addr" = "" ] && echo "No IP address found" && exit
-    host=ip-$(echo $addr|sed 's/\./-/g')
-    domain=$(get_arg -domain $BKJS_DOMAIN)
-    [ "$domain" = "" ] && domain=$(uname -n|cut -d. -f2-)
-    hostname=$host
-    [ "$domain" != "" ] && hostname="$host.$domain"
-    if [ "$(grep -s $addr /etc/hosts)" = "" -o "$(grep -s $host /etc/hosts)" = "" ]; then
-       echo "127.0.0.1 localhost localhost.localdomain" > /etc/hosts
-       echo "$addr $hostname" >> /etc/hosts
-       echo "$addr localip" >> /etc/hosts
-       $0 init-hostname -host $host -domain $domain
-    fi
-    ;;
 
   send-alert)
     event=$(get_arg -event $MONIT_EVENT)
@@ -655,7 +638,6 @@ case "$BKJS_CMD" in
     echo "  send-alert [-event EVENT] [-descr DESCR] - appends alert message to the error log and runs the command for all tools scripts, if called from the monit then event/descr will be provided"
     echo "  check-server - run the checks before starting the backend, processed by all tools scripts"
     echo "  check-adhoc - to be run on adhoc instances, check for idleness, if no jobs running then shutdown the host"
-    echo "  check-hostname - if needed update /etc/hosts with the hostname of eth0 interface IP address for localhost access"
     echo "  shell - run backend REPL in the current backend directory, works with the backend core or local app.js application"
     echo "  monitor - run the backend monitor process which starts master, web server and job server"
     echo "  master - run the backend master process which starts web server and jobs server"
