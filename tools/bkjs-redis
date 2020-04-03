@@ -58,6 +58,7 @@ case "$BKJS_CMD" in
     if [ "$memmax" != "" ]; then
        sed -r -i -e "s|^maxmemory .+|maxmemory $memmax|" -e "s|^# maxmemory .+|maxmemory $memmax|" $BKJS_HOME/etc/redis.conf
     fi
+    touch $BKJS_HOME/log/redis.log
     redis-server $BKJS_HOME/etc/redis.conf
     slavehost=$(get_arg -slave-host)
     slaveport=$(get_arg -slave-port 6379)
