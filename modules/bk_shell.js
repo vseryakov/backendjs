@@ -39,7 +39,7 @@ shell.exit = function(err, msg)
 {
     for (var i = 0; i < arguments.length; i++ ) {
         if (typeof arguments[i] == "undefined" || arguments[i] === null || arguments[i] === "") continue;
-        console.log(arguments[i]);
+        console.log(util.inspect(arguments[i], { depth: null }));
     }
     process.exit(err ? 1 : 0);
 }
