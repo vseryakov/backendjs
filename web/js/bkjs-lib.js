@@ -499,7 +499,7 @@ bkjs.toDuration = function(mtime, options)
 bkjs.toSize = function(size)
 {
     var i = size > 0 ? Math.floor( Math.log(size) / Math.log(1024) ) : 0;
-    return ( size / Math.pow(1024, i) ).toFixed(2) * 1 + ' ' + [this.__('Bytes'), this.__('KBytes'), this.__('MBytes'), this.__('GBytes'), this.__('TBytes')][i];
+    return (size / Math.pow(1024, i) ).toFixed(2) * 1 + ' ' + [this.__('Bytes'), this.__('KBytes'), this.__('MBytes'), this.__('GBytes'), this.__('TBytes')][i];
 }
 
 bkjs.isArray = function(val, dflt)
@@ -515,6 +515,33 @@ bkjs.isFlag = function(list, name)
 bkjs.isObject = function(v)
 {
     return this.typeName(v) == "object";
+}
+
+// Return true of the given value considered empty
+bkjs.isEmpty = function(val)
+{
+    switch (this.typeName(val)) {
+    case "null":
+    case "undefined":
+        return true;
+    case "buffer":
+    case "array":
+        return val.length == 0;
+    case "number":
+    case "date":
+        return isNaN(val);
+    case "regexp":
+    case "boolean":
+    case "function":
+        return false;
+    case "object":
+        for (const p in val) return false;
+        return true;
+    case "string":
+        return /^\s*$/.test(val) ? true : false;
+    default:
+        return val ? false: true;
+    }
 }
 
 // Flags command utility, update flags array and returns a new array, the commands are:
