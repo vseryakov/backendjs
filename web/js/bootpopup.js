@@ -286,12 +286,16 @@ function bootpopup(options)
                                         for (var l in opts.list_input_button) {
                                             var n = opts.list_input_button[l], v = n;
                                             if (typeof n == "object") v = n.value, n = n.name;
-                                            $('<a></a>', { class: "dropdown-item " + (opts.class_list_input_item || ""),
-                                                           role: "button",
-                                                           'data-value': v || n,
-                                                           'data-form': this.formid,
-                                                           onclick: "(" + opts.click_input_button + ")(this)"
-                                                       }).append(n).appendTo(menu);
+                                            if (n == "-") {
+                                                $('<div></div>', { class: "dropdown-divider" }).appendTo(menu);
+                                            } else {
+                                                $('<a></a>', { class: "dropdown-item " + (opts.class_list_input_item || ""),
+                                                               role: "button",
+                                                               'data-value': v || n,
+                                                               'data-form': this.formid,
+                                                               onclick: "(" + opts.click_input_button + ")(this)"
+                                                           }).append(n).appendTo(menu);
+                                            }
                                         }
                                     } else {
                                         var bopts = { class: "btn " + (opts.class_input_button || ""), type: "button", 'data-form': this.formid };
