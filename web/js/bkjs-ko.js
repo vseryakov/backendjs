@@ -8,6 +8,7 @@ bkjs.koAdmin = ko.observable(0);
 bkjs.koName = ko.observable("");
 bkjs.koState = {};
 bkjs.koTemplates = {};
+bkjs.koAliases = {};
 bkjs.koModels = {};
 bkjs.koViewModels = [];
 
@@ -144,10 +145,19 @@ bkjs.koCreateModel = function(name)
     return bkjs.koModels[name];
 }
 
+bkjs.koCreateModelAlias = function(name, alias)
+{
+    bkjs.koAliases[bkjs.toCamel(alias)] = bkjs.toCamel(name);
+}
+
 bkjs.koFindModel = function(name)
 {
     name = bkjs.toCamel(name);
     var tmpl = bkjs.koTemplates[name];
+    if (!tmpl) {
+        name = bkjs.koAliases[name];
+        if (name) tmpl = bkjs.koTemplates[name];
+    }
     if (!tmpl) return null;
     return {
         template: tmpl,
