@@ -20,12 +20,12 @@ bkjs.koInit = function()
     });
 }
 
-bkjs.koCheckLogin = function(err)
+bkjs.koCheckLogin = function(err, path)
 {
     bkjs.koName(bkjs.account.name || "");
     bkjs.koAuth(bkjs.loggedIn);
     bkjs.koAdmin(bkjs.loggedIn && bkjs.checkAccountType(bkjs.account, bkjs.adminType || "admin"));
-    $(bkjs).trigger(bkjs.loggedIn ? "bkjs.login" : "bkjs.nologin", err);
+    $(bkjs).trigger(bkjs.loggedIn ? "bkjs.login" : "bkjs.nologin", [err, path]);
     if (!err && typeof bkjs.koShow == "function") bkjs.koShow();
 }
 
