@@ -12,7 +12,7 @@ For the UI and presentation layer there are no restrictions what to use as long 
 Features:
 
 * Exposes a set of Web service APIs over HTTP(S) using Express framework.
-* Database API supports SQLite, DynamoDB with all basic operations behaving the
+* Database API supports SQLite, DynamoDB, ElasticSearch with all basic operations behaving the
   same way allowing you to switch databases without changing the code.
 * Database operations (Get, Put, Del, Update, Select) for all supported databases using the same DB API.
 * Experimental database drivers for PostreSQL, MySQL, Cassandra, Riak, CouchDB
@@ -59,7 +59,7 @@ or simply
 
      npm install vseryakov/backendjs
 
-# Quick start
+# Quick start and introduction
 
 * Simplest way of using the backendjs, it will start the server listening on port 8000
 
@@ -80,9 +80,9 @@ or simply
 
         bkjs web -db-pool dynamodb -db-dynamodb-pool default
 
-* or to the PostgreSQL server, database backend
+* or to the ElasticSearch server, database backend
 
-        bkjs web -db-pool pgsql -db-pgsql-pool postgresql://postgres@127.0.0.1/backend
+        bkjs web -db-pool elasticsearch -db-elasticsearch-pool http://127.0.0.1:9200
 
 * All commands above will behave exactly the same
 
@@ -91,11 +91,13 @@ or simply
 
   - prepare the tables in the shell
 
-        bksh -db-pool pgsql -db-pgsql-pool postgresql://postgres@127.0.0.1/backend -db-create-tables
+        bksh -db-pool dynamodb -db-dynamodb-pool default -db-create-tables
 
-  - run the server and create tables on start
+  - run the server and create tables on start, run Elasticsearch locally first on the local machine
 
-        bkjs web -db-pool pgsql -db-pgsql-pool postgresql://postgres@127.0.0.1/backend -db-create-tables
+        bkjs get-elasticsearch
+        bkjs run-elasticsearch
+        bkjs web -db-pool elasticsearch -db-elasticsearch-pool http://127.0.0.1:9200 -db-create-tables
 
 * While the local backendjs is runnning, the documentation is always available at http://localhost:8000/doc.html (or whatever port is the server using)
 
@@ -114,11 +116,15 @@ or simply
 
 * To access the database while in the shell
 
-        > db.select("bk_account", {}, function(err, rows, info) { console.log(err, rows, info) });
+        > db.select("bk_account", {}, (err, rows, info) => { console.log(err, rows, info) });
         > db.select("bk_account", {}, lib.log);
         > db.add("bk_account", { login: 'test2', secret: 'test2', name' Test 2 name', gender: 'f' }, lib.log);
         > db.select("bk_account", { gender: 'm' }, lib.log);
         > db.select("bk_account", { gender: ['m','f'] }, { ops: { gender: "in" } }, lib.log);
+
+* To search using Elasticsearch (assuming it runs on EC2 and it is synced with DynamoDB using streams)
+
+        > db.select("bk_account", { q: 'test' }, { pool: "elasticsearch" }, lib.log);
 
 ## To run an example
 
@@ -131,7 +137,6 @@ or simply
 * Go to http://localhost:8000/api.html and click on *Login* at the top-right corner, then enter 'test' as login and 'test' as secret in the login popup dialog.
 * To see your account details run the command in the console `/account/get`
 * To see current metrics run the command in the console `/system/stats/get`
-* To see charts about accumulated metrics go to http://localhost:8000/metrics.html
 
 * When the web server is started with `-watch` parameters any change in the source files will make the server restart automatically
   letting you focus on the source code and not server management, this mode is only enabled by default in development mode,
@@ -239,7 +244,7 @@ The typical structure of a backendjs application is the following:
     // Register API endpoints, i.e. url callbacks
     app.configureWeb = function(options, callback)
     {
-        api.app.get('/some/api/endpoint', function(req, res) {
+        api.app.get('/some/api/endpoint', (req, res) => {
           // to return an error, the message will be translated with internal i18n module if locales
           // are loaded and the request requires it
           api.sendReply(res, err);
@@ -330,9 +335,9 @@ This is the main app code:
     const core = bkjs.core;
 
     // Using facebook module in the main app
-    api.app.get("some url", function(req, res) {
+    api.app.get("some url", (req, res) => {
 
-       core.modules.facebook.makeRequest({ path: "/me" }, function(err, data) {
+       core.modules.facebook.makeRequest({ path: "/me" }, (err, data) => {
           bkjs.api.sendJSON(req, err, data);
        });
     });
@@ -988,33 +993,29 @@ When launching from an EC2 instance no need to specify any AWS credentials.
 
  - admin (EC2)
 
-    bksh -aws-sdk-profile uc -aws-launch-instances -aws-instance-type t2.small -subnet-name api -name admin -elb-name Admin -alarm-name alarms -public-ip 1 -dry-run
+        bksh -aws-sdk-profile uc -aws-launch-instances -aws-instance-type t2.small -subnet-name api -name admin -elb-name Admin -alarm-name alarms -public-ip 1 -dry-run
 
  - api (EC2)
 
-    bksh -aws-sdk-profile uc -aws-launch-instances -aws-instance-type m3.large -subnet-name api -name api -elb-name api -alarm-name alarms -public-ip 1 -dry-run
+        bksh -aws-sdk-profile uc -aws-launch-instances -aws-instance-type m3.large -subnet-name api -name api -elb-name api -alarm-name alarms -public-ip 1 -dry-run
 
  - jobs (EC2)
 
-    bksh -aws-sdk-profile uc -aws-launch-instances -aws-instance-type t2.small -subnet-name internal -name sync -alarm-name alarms -dry-run
-    bksh -aws-sdk-profile uc -aws-launch-instances -aws-instance-type t2.small -subnet-name internal -name sync -zone 1c -alarm-name alarms -dry-run
+        bksh -aws-sdk-profile uc -aws-launch-instances -aws-instance-type t2.small -subnet-name internal -name sync -alarm-name alarms -dry-run
+        bksh -aws-sdk-profile uc -aws-launch-instances -aws-instance-type t2.small -subnet-name internal -name sync -zone 1c -alarm-name alarms -dry-run
 
  - Elasticsearch
 
-    bksh -aws-sdk-profile uc -aws-launch-instances -aws-instance-type m3.large -subnet-name internal -name elasticsearch -bkjs-cmd stop-service -bkjs-cmd "init-elasticsearch-service -memsize 50" -alarm-name alarms -public-ip 1 -dry-run
+        bksh -aws-sdk-profile uc -aws-launch-instances -aws-instance-type m3.large -subnet-name internal -name elasticsearch -bkjs-cmd stop-service -bkjs-cmd "init-elasticsearch-service -memsize 50" -alarm-name alarms -public-ip 1 -dry-run
 
  - Redis
 
-    bksh -aws-sdk-profile uc -aws-launch-instances -aws-instance-type m3.large -subnet-name internal -name redis -bkjs-cmd stop-service -bkjs-cmd "init-redis-service -memsize 70" -alarm-name alarms -public-ip 1 -dry-run
+        bksh -aws-sdk-profile uc -aws-launch-instances -aws-instance-type m3.large -subnet-name internal -name redis -bkjs-cmd stop-service -bkjs-cmd "init-redis-service -memsize 70" -alarm-name alarms  -public-ip 1 -dry-run
 
-### Launch Configurations
+### Copy Autoscaling launch templates after new AMI is created
 
-    bksh -aws-create-launch-config -config-name elasticsearch -aws-sdk-profile uc -instance-type m3.large -update-groups -bkjs-cmd stop-service -bkjs-cmd init-logwatcher -bkjs-cmd "init-elasticsearch-service -memsize 50" -device /dev/xvda:gp2:16 -dry-run
-
-### Copy Autoscaling launch configs after new AMI is created
-
-    bksh -aws-create-launch-config -config-name jobs -aws-sdk-profile uc -update-groups -dry-run
-    bksh -aws-create-launch-config -config-name api -aws-sdk-profile uc -update-groups -dry-run
+    bksh -aws-create-launch-template-version -name jobs -aws-sdk-profile uc -dry-run
+    bksh -aws-create-launch-template-version -name api -aws-sdk-profile uc -dry-run
 
 ### Update Route53 with all IPs from running instances
 
