@@ -49,6 +49,20 @@ case "$BKJS_CMD" in
     fi
     ;;
 
+  init-pgsql)
+    PG_DIR=$BKJS_HOME/var/postgres
+    if [ ! -f $PG_DIR/postgresql.conf ]; then
+       db=$(get_arg -db backend)
+       mkdir -p $PG_DIR
+       initdb -U postgres -D $PG_DIR
+       $SED "s/#fsync = on/fsync = off/g" $PG_DIR/postgresql.conf
+       $SED "s/#log_destination = 'stderr'/log_destination = 'syslog'/g" $PG_DIR/postgresql.conf
+       postgres -F -D $PG_DIR &
+       sleep 3
+       createdb -U postgres $db
+    fi
+    ;;
+
   run-pgsql)
     mkdir -p $BKJS_HOME/var $BKJS_HOME/log
     exec nohup postgres -F -D $BKJS_HOME/var/postgres >>$BKJS_HOME/log/message.log 2>&1 &
@@ -56,6 +70,26 @@ case "$BKJS_CMD" in
 
   stop-pgsql)
     killall postgres
+    ;;
+
+  run-crdb)
+    mkdir -p $BKJS_HOME/var $BKJS_HOME/log
+    if [ ! -d $BKJS_HOME/var/crdb ]; then
+        db=$(get_arg -db backend)
+        cockroach start --insecure --store=$BKJS_HOME/var/crdb --log-dir $BKJS_HOME/log --listen-addr=localhost:26257 --http-addr=localhost:8080 --join=localhost:26257,localhost:26258,localhost:26259 --background
+        sleep 3
+        cockroach init --insecure --host=localhost:26257
+        sleep 3
+        cockroach sql --insecure --host=localhost:26257 -e "CREATE USER IF NOT EXISTS postgres;CREATE DATABASE $db;GRANT ALL ON DATABASE $db TO postgres;"
+    fi
+    ;;
+
+  shell-crdb)
+    cockroach sql --insecure --host=localhost:26257 $(get_all_args)
+    ;;
+
+  stop-crdb)
+    killall cockroach
     ;;
 
   init-mysql)
@@ -204,22 +238,25 @@ case "$BKJS_CMD" in
     echo "  run-dynamodb [-memmax SZ] - run local DynamoDB server installed in $BKJS_PREFIX/dynamodb, data files in $BKJS_HOME/var"
     echo "  stop-dynamodb - stop local DynamoDB server"
     echo "  reset-dynamodb - remove local DynamoDB database and restart the server"
-    echo "  init-pgsql [-db NAME] - setup and run the PostgreSQL server, install in $PG_PREFIX, data files in $PG_DIR, create initial database"
+    echo "  run-crdb - run local CockroachDB server"
+    echo "  stop-crdb - stop local CockroachDB server"
+    echo "  shell-crdb - run local CockroachDB sql shell"
+    echo "  init-pgsql [-db NAME] - setup and run the PostgreSQL server, data files in $BKJS_HOME/var, create initial database"
     echo "  run-pgsql - run local PostgreSQL server"
     echo "  stop-pgsql - stop local PostgreSQL server"
     echo "  get-hazelcast - install HazelCast server in $BKJS_PREFIX/hazelcast"
     echo "  run-hazelcast - run HazelCast server installed in $BKJS_PREFIX/hazelcast"
     echo "  stop-hazelcast - stop HazelCast server"
-    echo "  get-cassandra - download and install Cassandra server in $CASSANDRA_PREFIX"
+    echo "  get-cassandra - download and install Cassandra server in $BKJS_PREFIX/cassandra"
     echo "  init-cassandra [-db DB] - download and initialize Cassandra, create initial keyspace, run the server"
-    echo "  run-cassandra - run local Cassandra server installed in $CASSANDRA_PREFIX, data files in $CASSANDRA_DIR"
+    echo "  run-cassandra - run local Cassandra server, data files in $BKJS_HOME/var"
     echo "  stop-cassandra - stop local Cassandra server"
     echo "  init-mysql [-db DB] - setup MySQL server for development and create initial database, start the server"
-    echo "  run-mysql - run local MySQL server installed in $MYSQL_DIR"
+    echo "  run-mysql - run local MySQL server"
     echo "  stop-mysql - stop local MySQL server"
     echo "  init-mongodb - download and start the Mongo server"
     echo "  get-mongodb - download Mongo server and install in $BKJS_PREFIX/bin"
-    echo "  run-mongodb - run local Mongo server installed in $BKJS_PREFIX/bin, db path is $MONGO_DIR"
+    echo "  run-mongodb - run local Mongo server installed in $BKJS_PREFIX/bin, db path is $BKJS_HOME/var"
     echo "  stop-mongodb - stop local Mongo server"
     ;;
 
