@@ -465,16 +465,13 @@ tests.test_db_basic = function(callback)
                      num3: { type: "text", join: ["id","num"], join_strict: 1 },
                      email: {},
                      anum: { join: ["anum","num"], unjoin: 1 },
-                     jnum: { join: ["num2","num4"], unjoin: ["num2","num4"], join_strict: 1 },
+                     jnum: { join: ["num2","num4"], unjoin: ["num2","num4"], join_strict: 1, keepjoined: 1 },
                      num4: { hidden: 1 },
                      mtime: { type: "now" },
             },
     };
-    var now = Date.now();
     var id = lib.random(64);
     var id2 = lib.random(64);
-    var next_token = null;
-    var ids = [];
 
     db.describeTables(tables);
 
@@ -577,7 +574,7 @@ tests.test_db = function(callback)
             mtime: { type: "bigint" }
         },
         test3: {
-            id : { primary: 1, pub: 1 },
+            id: { primary: 1, pub: 1 },
             num: { type: "counter", value: 0, pub: 1 }
         },
         test4: {
@@ -587,7 +584,7 @@ tests.test_db = function(callback)
         },
         test5: {
             id: { primary: 1, pub: 1 },
-            hkey: { primary: 1, join: ["type","peer"], ops: { select: "begins_with" }  },
+            hkey: { primary: 1, join: ["type","peer"], ops: { select: "begins_with" } },
             type: { pub: 1 },
             peer: { pub: 1 },
             skipcol: { pub: 1, allow_pools: ["elasticsearch"] },
@@ -595,7 +592,7 @@ tests.test_db = function(callback)
             nojoin: { pub: 1, join: ["id","type"], nojoin_pools: ["elasticsearch"] },
         },
         test6: {
-            id : { primary: 1, pub: 1 },
+            id: { primary: 1, pub: 1 },
             mtime: { type: "now", pub: 1 },
             num: {},
             obj: { type: "obj" },

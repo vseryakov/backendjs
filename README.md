@@ -72,6 +72,10 @@ or simply
 
         bkjs web
 
+* or to the PostgreSQL server, database backend (if not running local server can be started with `bkjs init-pgsql` if postgresql is installed)
+
+        bkjs web -db-pool pgsql -db-pgsql-pool postgresql://postgres@localhost/backend
+
 * To start the server and connect to the DynamoDB (command line parameters can be saved in the `etc/config file`, see below about config files)
 
         bkjs web -db-pool dynamodb -db-dynamodb-pool default -aws-key XXXX -aws-secret XXXX
@@ -97,6 +101,7 @@ or simply
 
         bkjs get-elasticsearch
         bkjs run-elasticsearch
+
         bkjs web -db-pool elasticsearch -db-elasticsearch-pool http://127.0.0.1:9200 -db-create-tables
 
 * While the local backendjs is runnning, the documentation is always available at http://localhost:8000/doc.html (or whatever port is the server using)
