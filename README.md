@@ -12,10 +12,10 @@ For the UI and presentation layer there are no restrictions what to use as long 
 Features:
 
 * Exposes a set of Web service APIs over HTTP(S) using Express framework.
-* Database API supports SQLite, DynamoDB, ElasticSearch with all basic operations behaving the
+* Database API supports SQLite, PostreSQL, DynamoDB, ElasticSearch with all basic operations behaving the
   same way allowing you to switch databases without changing the code.
 * Database operations (Get, Put, Del, Update, Select) for all supported databases using the same DB API.
-* Experimental database drivers for PostreSQL, MySQL, Cassandra, Riak, CouchDB
+* Experimental database drivers for MySQL, Cassandra, Riak, CouchDB
 * Experimental DynamoDB Streams processing in background worker processes
 * Easily extensible to support any kind of database, provides a database driver on top of Redis with all supported methods as an example.
 * Provides accounts, connections, locations, messaging and icons APIs with basic functionality for a quick start.
