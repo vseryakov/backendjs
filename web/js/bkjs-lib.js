@@ -145,12 +145,12 @@ bkjs.tzMap = [
         ["CST", "GMT-0600", false],
         ["MDT", "GMT-0600", true],
         ["MST", "GMT-0700", false],
-        ["HADT", "GMT-0900", true],
-        ["HAST", "GMT-1000", false],
-        ["AKDT", "GMT-0800", true],
-        ["AKST", "GMT-0900", false],
-        ["ADT", "GMT-0300", true],
-        ["AST", "GMT-0400", false],
+        ["HADT", "GMT-0900", true, false],
+        ["HAST", "GMT-1000", false, false],
+        ["AKDT", "GMT-0800", true, false],
+        ["AKST", "GMT-0900", false, false],
+        ["ADT", "GMT-0300", true, false],
+        ["AST", "GMT-0400", false, false],
 ];
 
 // Return a timezone human name if matched (EST, PDT...), tz must be in GMT-NNNN format
@@ -403,8 +403,7 @@ bkjs.toDate = function(val, dflt, invalid)
     var d = NaN;
     // String that looks like a number
     if (typeof val == "string") {
-        if (/^[0-9.]+$/.test(val)) val = this.toNumber(val); else
-        val = val.replace(/([0-9])(AM|PM)/i, "$1 $2");
+        val = /^[0-9.]+$/.test(val) ? this.toNumber(val) : val.replace(/([0-9])(AM|PM)/i, "$1 $2");
     }
    if (typeof val == "number") {
         // Convert nanoseconds to milliseconds
@@ -413,6 +412,15 @@ bkjs.toDate = function(val, dflt, invalid)
         if (val < 2147483647) val *= 1000;
     }
     if (typeof val != "string" && typeof val != "number") val = d;
+    // Remove unsupported timezone names
+    if (typeof val == "string") {
+        var gmt = val.indexOf("GMT") > -1;
+        for (const i in this.tzMap) {
+            if ((gmt || this.tzMap[i][3] === false) && val.indexOf(this.tzMap[i][0]) > -1) {
+                val = val.replace(this.tzMap[i][0], "");
+            }
+        }
+    }
     if (val) try { d = new Date(val); } catch(e) {}
     return !isNaN(d) ? d : invalid || (dflt !== undefined && isNaN(dflt)) || dflt === null || dflt === 0 ? null : new Date(dflt || 0);
 }
