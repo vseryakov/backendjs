@@ -21,15 +21,15 @@ const mod = {
             id: { primary: 1, pub: 1 },
             login: {},
             status: { type: "text" },
-            type: { type: "text", list: 1, admin: 1 },
+            type: { type: "text", list: 1, admin: 1 },   // permissions roles only
+            flags: { type: "list", list: 1 },            // other tags/flags
             name: { pub: 1, notempty: 1 },
-            first_name: { pub: 1 },
-            last_name: { pub: 1 },
+            first_name: {},
+            last_name: {},
             email: { type: "email" },
             phone: { type: "phone" },
             website: {},
             company: {},
-            birthday: { type: "string" },
             gender: {},
             street: {},
             city: {},
@@ -37,7 +37,7 @@ const mod = {
             state: {},
             zipcode: {},
             country: {},
-            device_id: {},                            // Device(s) for notifications the format is: [service://]token[@appname]
+            device_id: { secure: 1 },                 // Device(s) for notifications the format is: [service://]token[@appname]
             ctime: { type: "now", readonly: 1 },      // Create time
             mtime: { type: "now" },                   // Last update time
         },
@@ -110,12 +110,6 @@ mod.configureAccountsAPI = function()
 
         case "subscribe":
             api.subscribe(req);
-            break;
-
-        case "select":
-            mod.selectAccount(req, options, function(err, data) {
-                api.sendJSON(req, err, data);
-            });
             break;
 
         case "put/secret":
@@ -243,8 +237,7 @@ mod.notifyAccount = function(options, callback)
               if (lib.toBool(account[c])) options[p] = 1; else delete options[p];
           }
           msg.send(options.device_id || account.device_id, options, function(err) {
-              if (!err) logger.debug("notifyAccount:", options, account);
-              if (err) logger.error("notifyAccount:", err, options, account);
+              logger.logger(err ? "error" : "debug", "notifyAccount:", err, options, account);
               next(err);
           });
       },
@@ -276,16 +269,6 @@ mod.listAccount = function(rows, options, callback)
         // Remove rows without account info
         if (options.existing) rows = rows.filter(function(x) { return x._id; }).map(function(x) { delete x._id; return x; });
         callback(null, rows, info);
-    });
-}
-
-// Query accounts, used in /accout/select API call, simple wrapper around db.select but can be replaced in the apps while using the same API endpoint
-mod.selectAccount = function(req, options, callback)
-{
-    if (typeof options == "function") callback = options, options = null;
-    db.select("bk_account", req.query, options, function(err, rows, info) {
-        if (err) return callback(err, []);
-        callback(err, api.getResultPage(req, options, rows, info));
     });
 }
 

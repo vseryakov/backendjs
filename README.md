@@ -1332,35 +1332,6 @@ This is implemented by the `accounts` module from the core. To enable accounts f
             # Update record by login
             > db.update("bk_auth", { login: 'login@name', type: 'admin' });
 
-- `/account/select`
-
-  Return list of accounts by the given condition, calls `db.select` for bk_account table. Parameters are the column values to be matched and
-  all parameters starting with underscore are control parameters that goes into options of the `db.select` call with underscore removed. This will work for SQL
-  databases only because DynamoDB or Cassandra will not search by non primary keys. In the DynamoDB case this will run ScanTable action which will be very expensive for
-  large tables. Supports special query parameters `_select,_ops`, see docs about `db.select` for more info.
-
-  Example:
-
-            /account/search?email=test&_ops=email,begins_with
-            /account/search?name=test
-
-  Response:
-
-            {  "data": [{
-                          "id": "57d07a4e28fc4f33bdca9f6c8e04d6c3",
-                          "name": "Test User1",
-                          "mtime": 1391824028,
-                          "login": "test1",
-                        },
-                        {
-                          "id": "57d07a4e2824fc43bd669f6c8e04d6c3",
-                          "name": "Test User2",
-                          "mtime": 1391824028,
-                          "login": "test2",
-                        }],
-                "next_token": ""
-            }
-
 - `/account/del`
 
   Delete current account, after this call no more requests will be authenticated with the current credentials
