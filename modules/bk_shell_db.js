@@ -199,7 +199,7 @@ shell.cmdDbRestore = function(options)
         var cap = db.getCapacity(table);
         opts.readCapacity = cap.readCapacity;
         opts.writeCapacity = cap.writeCapacity;
-        opts.upsert = true;
+        opts.upsert = opts.syncMode = true;
         lib.series([
             function(next) {
                 if (!opts.drop) return next();
