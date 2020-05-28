@@ -1,5 +1,5 @@
 {
-  "version": "0.102.0",
+  "version": "0.103.0",
   "author": "Vlad Seryakov",
   "name": "backendjs",
   "description": "A platform for building backends",
@@ -87,8 +87,9 @@
         "bkjs": {
             "js": [
                 "web/js/jquery.js",
+                "web/js/popper.js",
                 "web/js/bootstrap.js",
-                "web/js/knockout34.js",
+                "web/js/knockout.js",
                 "web/js/knockout-mapping.js",
                 "web/js/crypto.js",
                 "web/js/bootpopup.js",
@@ -100,8 +101,9 @@
             ],
             "js.dev": [
                 "web/js/jquery.min.js",
+                "web/js/popper.min.js",
                 "web/js/bootstrap.min.js",
-                "web/js/knockout34.min.js",
+                "web/js/knockout.min.js",
                 "web/js/knockout-mapping.min.js",
                 "web/js/crypto.js",
                 "web/js/bootpopup.js",
@@ -114,40 +116,6 @@
             "css": [
                 "web/css/bootstrap.css",
                 "web/css/font-awesome.css"
-            ]
-        },
-        "bkjs4": {
-            "js": [
-                "web/js/jquery3.js",
-                "web/js/popper.js",
-                "web/js/bootstrap4.js",
-                "web/js/knockout.js",
-                "web/js/knockout-mapping.js",
-                "web/js/crypto.js",
-                "web/js/bootpopup.js",
-                "web/js/bkjs.js",
-                "web/js/bkjs-lib.js",
-                "web/js/bkjs-account.js",
-                "web/js/bkjs-ko.js",
-                "web/js/bkjs-bootstrap.js"
-            ],
-            "js.dev": [
-                "web/js/jquery3.min.js",
-                "web/js/popper.min.js",
-                "web/js/bootstrap4.min.js",
-                "web/js/knockout.min.js",
-                "web/js/knockout-mapping.min.js",
-                "web/js/crypto.js",
-                "web/js/bootpopup.js",
-                "web/js/bkjs.js",
-                "web/js/bkjs-lib.js",
-                "web/js/bkjs-account.js",
-                "web/js/bkjs-ko.js",
-                "web/js/bkjs-bootstrap.js"
-            ],
-            "css": [
-                "web/css/bootstrap4.css",
-                "web/css/font-awesome5.css"
             ]
         }
     }
