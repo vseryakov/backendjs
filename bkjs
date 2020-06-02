@@ -16,7 +16,7 @@ case "$PLATFORM" in
     [ "$(grep CentOS /etc/issue)" != "" ] && OS_TYPE=centos
     [ "$(grep Amazon /etc/issue)" != "" ] && OS_TYPE=amazon
     [ -f /etc/sysconfig/$BKJS ] && . /etc/sysconfig/$BKJS
-    KILLALL="killall -qr"
+    KILLALL="pkill -f"
     ECHO="echo -e"
     SED="sed -r -i"
     ;;
@@ -25,7 +25,7 @@ case "$PLATFORM" in
     OS_TYPE=macosx
     [ "$BKJS_HOME" = "" ] && export BKJS_HOME=~/.bkjs
     [ "$BKJS_PREFIX" = "" ] && export BKJS_PREFIX=/opt/local
-    KILLALL="killall -m"
+    KILLALL="pkill -f"
     ECHO="echo -e"
     SED="sed -E -i .orig"
     ;;
