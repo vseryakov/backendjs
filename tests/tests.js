@@ -20,6 +20,7 @@ var ipc = bkjs.ipc;
 var api = bkjs.api;
 var db = bkjs.db;
 var aws = bkjs.aws;
+var pool = bkjs.pool;
 var server = bkjs.server;
 var logger = bkjs.logger;
 var tests = bkjs.core.modules.tests;
@@ -1187,7 +1188,7 @@ tests.test_pool = function(callback)
                     create: function(cb) { cb(null,{ id:Date.now()}) }
     }
     var list = [];
-    var pool = new lib.Pool(options)
+    var pool = new pool(options)
     lib.series([
        function(next) {
            console.log('pool0:', pool.stats(), 'list:', list.length);
