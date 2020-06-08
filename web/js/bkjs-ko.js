@@ -159,8 +159,11 @@ bkjs.koFindModel = function(name)
         if (name) tmpl = bkjs.koTemplates[name];
     }
     if (!tmpl) return null;
+    if (tmpl[0] !== "<") {
+        bkjs.koTemplates[name] = tmpl = bkjs.strDecompress(tmpl, "base64");
+    }
     return {
-        template: tmpl[0] !== "<" ? bkjs.strDecompress(tmpl, "base64") : tmpl,
+        template: tmpl,
         viewModel: {
             createViewModel: function(params, componentInfo) {
                 var vm;
