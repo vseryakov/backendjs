@@ -6,6 +6,14 @@
 
 case "$BKJS_CMD" in
 
+  init-redis)
+    ($0 get-redis)
+    ($0 run-redis)
+    if [ "$PLATFORM" = "Linux" ]; then
+       sudo $0 init-monit-redis
+    fi
+    ;;
+
   get-redis)
     # Install redis server
     case "$PLATFORM" in
@@ -19,6 +27,8 @@ case "$BKJS_CMD" in
        REDIS_PREFIX=$BKJS_HOME
        ;;
     esac
+
+    [ -f $REDIS_PREFIX/bin/redis-server ] && exit 0
 
     ver=$(get_arg -version 5.0.8)
     curl -L -o redis.tgz http://download.redis.io/releases/redis-$ver.tar.gz
@@ -40,14 +50,6 @@ case "$BKJS_CMD" in
          -e "s|^# maxmemory-policy .+|maxmemory-policy volatile-lru|" \
          -e 's|^daemonize no|daemonize yes|' \
          $BKJS_HOME/etc/redis.conf
-    ;;
-
-  init-redis)
-    ($0 get-redis)
-    ($0 run-redis)
-    if [ "$PLATFORM" = "Linux" ]; then
-       sudo $0 init-monit-redis
-    fi
     ;;
 
   run-redis)
