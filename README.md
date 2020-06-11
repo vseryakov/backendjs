@@ -133,6 +133,13 @@ or simply
 
 ## To run an example
 
+* The library is packages with copies of Bootstrap, jQuery, Knockout.js for quick Web development
+in web/js and web/css directories, all scripts are available from the browser with /js or /css paths. To use all at once as a bundle
+run the following command:
+
+        npm run devbuild
+
+
 * Go to `examples/api` directory:
 * Run the application, it will start the Web server on port 8000:
 
