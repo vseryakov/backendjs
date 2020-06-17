@@ -21,7 +21,7 @@ const mod = {
             id: { primary: 1, pub: 1 },
             login: {},
             status: { type: "text" },
-            type: { type: "text", list: 1, lower: 1, admin: 1 },   // permission roles only
+            type: { type: "list", list: 1, lower: 1, admin: 1 },   // permission roles only
             flags: { type: "list", list: 1 },                      // other tags/flags
             name: { pub: 1, notempty: 1 },
             first_name: {},
