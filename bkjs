@@ -16,7 +16,6 @@ case "$PLATFORM" in
     [ "$(grep CentOS /etc/issue)" != "" ] && OS_TYPE=centos
     [ "$(grep Amazon /etc/issue)" != "" ] && OS_TYPE=amazon
     [ -f /etc/sysconfig/$BKJS ] && . /etc/sysconfig/$BKJS
-    KILLALL="pkill -f"
     ECHO="echo -e"
     SED="sed -r -i"
     ;;
@@ -25,7 +24,6 @@ case "$PLATFORM" in
     OS_TYPE=macosx
     [ "$BKJS_HOME" = "" ] && export BKJS_HOME=~/.bkjs
     [ "$BKJS_PREFIX" = "" ] && export BKJS_PREFIX=/opt/local
-    KILLALL="pkill -f"
     ECHO="echo -e"
     SED="sed -E -i .orig"
     ;;
@@ -238,15 +236,15 @@ case "$BKJS_CMD" in
     ;;
 
   restart-api|stop-api)
-    $KILLALL -USR2 "$BKJS: server"
-    $KILLALL -USR2 "$BKJS: master"
+    pkill -USR2 -f "$BKJS: server"
+    pkill -USR2 -f "$BKJS: master"
     exit 0
     ;;
 
   stop)
-    $KILLALL $1 "$BKJS:"
+    pkill $1 -f "$BKJS:"
     sleep 1
-    $KILLALL $1 "$BKJS:"
+    pkill $1 -f "$BKJS:"
     exit 0
     ;;
 
@@ -256,7 +254,7 @@ case "$BKJS_CMD" in
   stop-web|stop-server|stop-master|stop-worker)
     name=${BKJS_CMD:5}
     [ "$name" = "" ] && exit 0
-    $KILLALL $1 "$BKJS: $name"
+    pkill $1 -f "$BKJS: $name"
     exit 0
     ;;
 

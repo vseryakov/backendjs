@@ -70,7 +70,7 @@ case "$BKJS_CMD" in
     ;;
 
   stop-redis)
-    $KILLALL redis-server
+    pkill -f redis-server
     ;;
 
   run-sentinel)
@@ -78,7 +78,7 @@ case "$BKJS_CMD" in
     ;;
 
   stop-sentinel)
-    $KILLALL redis-sentinel
+    pkill -f redis-sentinel
     ;;
 
   init-monit-redis|init-redis-monit)
