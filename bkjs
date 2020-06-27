@@ -649,7 +649,7 @@ case "$BKJS_CMD" in
     echo "  ssh -host HOST -cmd CMD [-user USER] [-key PEM] [-ssh ARGS] - run a command over ssh on all specified hosts"
     echo "  install-node [-prefix PATH] [-force] [-clean] - install binary release of the node into $BKJS_PREFIX or specified path"
     echo "  install-devel - install development packages for node and modules compiclation"
-    echo "  web-bundle -file FILE|(js|css|html)|BUNDLE.(js|css|html) [-compress] [-dev] [-uglifyargs ARGS] [-all] [-list] - produce a web bundle by uglifying js/css/html files into one file, resolves files from package.json"
+    echo "  web-bundle -file FILE|(js|css|html)|BUNDLE.(js|css|html) [-compress] [-dev] [-uglifyargs ARGS] [-all] [-list] [-force] - produce a web bundle by uglifying js/css/html files into one file, resolves files from package.json"
     echo ""
     echo "  bkhelp - show all $BKJS_MOD config parameters"
     echo ""
