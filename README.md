@@ -919,7 +919,7 @@ Most common used commands are:
 
 # Web development notes
 
-The server supports simple web bundling using uglify-js utility. To enable it just add to the local config a list of directories to be
+The server supports simple web bundling using uglify-es utility. To enable it just add to the local config a list of directories to be
 watched for changes. For example adding these lines to the local config will enable the watcher and bundle support
 
      watch-web=web/js,web/css,$HOME/src/js,$HOME/src/css
@@ -941,6 +941,11 @@ The simple script below allows to build the bundle and refresh Chrome tab automa
 To use it call this script instead in the config.local:
 
      build-web=web-bundle.sh /website
+
+NOTE: Because the rebuild happens while the watcher is running there are cases like the server is restarting or pulling a large update from the
+repository when the bundle build may not be called or called too early. To force rebuild run the command:
+
+     bkjs web-bundle -dev -all -force
 
 # Deployment use cases
 
