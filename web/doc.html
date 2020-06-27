@@ -114,6 +114,7 @@
 <li><a href="#module-msg_apn">msg_apn</a></li>
 <li><a href="#module-msg_fcm">msg_fcm</a></li>
 <li><a href="#module-msg_gcm">msg_gcm</a></li>
+<li><a href="#module-pool">pool</a></li>
 <li><a href="#module-server">server</a></li>
 <li><a href="#module-bk_account">bk_account</a></li>
 <li><a href="#module-bk_data">bk_data</a></li>
@@ -225,6 +226,12 @@ parameter <code>-allow-modules PATTERN</code>, this will load all modules that m
 <pre><code>  &gt; db.select(&quot;bk_account&quot;, { q: &#39;test&#39; }, { pool: &quot;elasticsearch&quot; }, lib.log);</code></pre></li>
 </ul>
 <h2 id="to-run-an-example">To run an example</h2>
+<ul>
+<li><p>The library is packages with copies of Bootstrap, jQuery, Knockout.js for quick Web development
+in web/js and web/css directories, all scripts are available from the browser with /js or /css paths. To use all at once as a bundle
+run the following command:</p>
+<pre><code>  npm run devbuild</code></pre></li>
+</ul>
 <ul>
 <li><p>Go to <code>examples/api</code> directory:</p>
 </li>
@@ -866,7 +873,7 @@ home will be instead of ~/.bkjs, optional -user tells to use existing user inste
 </li>
 </ul>
 <h1 id="web-development-notes">Web development notes</h1>
-<p>The server supports simple web bundling using uglify-js utility. To enable it just add to the local config a list of directories to be
+<p>The server supports simple web bundling using uglify-es utility. To enable it just add to the local config a list of directories to be
 watched for changes. For example adding these lines to the local config will enable the watcher and bundle support</p>
 <pre><code> watch-web=web/js,web/css,$HOME/src/js,$HOME/src/css
  watch-ignore=.bundle.(js|css)$
@@ -878,7 +885,9 @@ package.json file.</p>
  [ &quot;$?&quot; != &quot;0&quot; ] &amp;&amp; exit
  osascript -e &quot;tell application \&quot;Google Chrome\&quot; to reload (tabs of window 1 whose URL contains \&quot;$1\&quot;)&quot;
  #osascript -e &#39;tell application &quot;Google Chrome&quot; to tell the active tab of its first window to reload&#39;</code></pre><p>To use it call this script instead in the config.local:</p>
-<pre><code> build-web=web-bundle.sh /website</code></pre><h1 id="deployment-use-cases">Deployment use cases</h1>
+<pre><code> build-web=web-bundle.sh /website</code></pre><p>NOTE: Because the rebuild happens while the watcher is running there are cases like the server is restarting or pulling a large update from the
+repository when the bundle build may not be called or called too early. To force rebuild run the command:</p>
+<pre><code> bkjs web-bundle -dev -all -force</code></pre><h1 id="deployment-use-cases">Deployment use cases</h1>
 <h2 id="aws-instance-setup-with-node-and-backendjs">AWS instance setup with node and backendjs</h2>
 <p>Here is the example how to setup new custom AWS server, it is not required and completely optional but bkjs provides some helpful commands that may simplify
 new image configuration.</p>
@@ -1222,28 +1231,6 @@ for the backend this is still just a secret.</em></li>
 
       # Update record by login
       &gt; db.update(&quot;bk_auth&quot;, { login: &#39;login@name&#39;, type: &#39;admin&#39; });</code></pre></li>
-<li><p><code>/account/select</code></p>
-<p>Return list of accounts by the given condition, calls <code>db.select</code> for bk_account table. Parameters are the column values to be matched and
-all parameters starting with underscore are control parameters that goes into options of the <code>db.select</code> call with underscore removed. This will work for SQL
-databases only because DynamoDB or Cassandra will not search by non primary keys. In the DynamoDB case this will run ScanTable action which will be very expensive for
-large tables. Supports special query parameters <code>_select,_ops</code>, see docs about <code>db.select</code> for more info.</p>
-<p>Example:</p>
-<pre><code>      /account/search?email=test&amp;_ops=email,begins_with
-      /account/search?name=test</code></pre><p>Response:</p>
-<pre><code>      {  &quot;data&quot;: [{
-                    &quot;id&quot;: &quot;57d07a4e28fc4f33bdca9f6c8e04d6c3&quot;,
-                    &quot;name&quot;: &quot;Test User1&quot;,
-                    &quot;mtime&quot;: 1391824028,
-                    &quot;login&quot;: &quot;test1&quot;,
-                  },
-                  {
-                    &quot;id&quot;: &quot;57d07a4e2824fc43bd669f6c8e04d6c3&quot;,
-                    &quot;name&quot;: &quot;Test User2&quot;,
-                    &quot;mtime&quot;: 1391824028,
-                    &quot;login&quot;: &quot;test2&quot;,
-                  }],
-          &quot;next_token&quot;: &quot;&quot;
-      }</code></pre></li>
 <li><p><code>/account/del</code></p>
 <p>Delete current account, after this call no more requests will be authenticated with the current credentials</p>
 </li>
@@ -2110,7 +2097,7 @@ Database pool statistics and other diagnostics</p>
 <li><code>ipc-queue(-([a-z0-9]+)?-?options)-(.+)$</code> - Additional parameters for queue clients, specific to each implementation, Example: <code>-ipc-queue-redis-options-max_attempts 3</code></li>
 <li><code>db-pool</code> - Default pool to be used for db access without explicit pool specified. DNS TXT configurable.</li>
 <li><code>db-name</code> - Default database name to be used for default connections in cases when no db is specified in the connection url</li>
-<li><code>db-create-tables</code> - Create tables in the database or perform table upgrades for new columns in all pools, only master processes can perform this operation, never workers</li>
+<li><code>db-create-tables</code> - Create tables in the database or perform table upgrades for new columns in all pools, only shell or server process can perform this operation</li>
 <li><code>db-cache-tables</code> - List of tables that can be cached: bk_auth, bk_counter. This list defines which DB calls will cache data with currently configured cache. This is global for all db pools.</li>
 <li><code>db-cache-pools</code> - List of pools which trigger cache flushes on update.</li>
 <li><code>db-cache-sync</code> - List of tables that perform synchronized cache updates before returning from a DB call, by default cache updates are done in the background</li>
@@ -2132,6 +2119,7 @@ Database pool statistics and other diagnostics</p>
 <li><code>db-cache-columns-interval</code> - How often in minutes to refresh tables columns from the database, it calls cacheColumns for each pool which supports it</li>
 <li><code>db-match-tables-(.+)</code> - Table columns to be returned by matching the regexp, for ad-hoc tables</li>
 <li><code>db-skip-drop</code> - A pattern of table names which will skipped in db.drop operations to prevent accidental table deletion</li>
+<li><code>db-aliases-(.+)</code> - Table aliases to be used instead of the requested table name</li>
 <li><code>db-([a-z0-9]+)-pool$</code> - A database pool name, depending on the driver it can be an URL, name or pathname, examples of db pools: <code>-db-pgsql-pool, -db-dynamodb-pool</code>, examples of urls: <code>postgresql://[user:password@]hostname[:port]/db, mysql://[user:password@]hostname/db, mongodb://hostname[:port]/dbname, cql://[user:password@]hostname[:port]/dbname</code></li>
 <li><code>db-([a-z0-9]+)-pool-(disabled)$</code> - Disable the specified pool but keep the configuration</li>
 <li><code>db-([a-z0-9]+)-pool-(max)$</code> - Max number of open connections for a pool, default is Infinity</li>
@@ -2228,7 +2216,7 @@ Database pool statistics and other diagnostics</p>
 <li><code>api-no-cors</code> - Disable CORS requests</li>
 <li><code>api-server-header</code> - Custom Server: header to return for all requests</li>
 <li><code>api-error-message</code> - Default error message to return in case of exceptions</li>
-<li><code>api-restart</code> - On address in use error condition restart the specified server</li>
+<li><code>api-restart</code> - On address in use error condition restart the specified servers, this assumes an external monitor like monit to handle restarts</li>
 <li><code>api-allow-error-code</code> - Error codes in exceptions to return in the response to the user, if not matched the error-message will be returned</li>
 <li><code>api-rlimits-max-(.+)</code> - Set max/burst rate limit by the given property, it is used by the request rate limiter using Token Bucket algorithm. Predefined types: ip, path, id, login</li>
 <li><code>api-rlimits-rate-(.+)</code> - Set fill/normal rate limit by the given property, it is used by the request rate limiter using Token Bucket algorithm. Predefined types: ip, path, id, login</li>
@@ -2291,19 +2279,19 @@ Database pool statistics and other diagnostics</p>
 <li><p><code>Database tables</code></p>
 <pre><code>      // Authentication by login, only keeps id and secret to check the siganture
       bk_auth: {
-          login: { primary: 1 },                              // Account login
-          id: { type: &quot;uuid&quot;, prefix: &quot;u_&quot; },                 // Auto generated UUID to be linked with other records
-          name: { type: &quot;text&quot; },                             // Account name
-          status: { type: &quot;text&quot; },                           // Status of the account
-          type: { type: &quot;text&quot;, list: 1, admin: 1 },          // Account roles: admin, ....
-          flags: { type: &quot;list&quot;, list: 1, admin: 1 },         // Admin assigned flags about the account
-          secret: { secure: 1 },                              // Signature secret or scrambled password
-          auth_secret: { admin: 1, secure: 1 },               // Code for 2-factor authentication
-          session_secret: { admin: 1, secure: 1 },            // Secret for session signatures
-          rlimits_max: { type: &quot;int&quot; },                       // Burst/max reqs/sec rate allowed for this account, 0 to disable
-          rlimits_rate: { type: &quot;int&quot; },                      // Fill/normal reqs/sec rate for this account, 0 to disable
-          expires: { type: &quot;bigint&quot;, admin: 1, secure: 1 },   // Deny access to the account if this value is before current date, milliseconds
-          ctime: { type: &quot;now&quot;, readonly: 1 },                // Create time
+          login: { primary: 1 },                                  // Account login
+          id: { type: &quot;uuid&quot;, prefix: &quot;u_&quot; },                     // Auto generated UUID to be linked with other records
+          name: { type: &quot;text&quot; },                                 // Account name
+          status: { type: &quot;text&quot; },                               // Status of the account
+          type: { type: &quot;list&quot;, list: 1, lower: 1, admin: 1 },    // Account roles: admin, ....
+          flags: { type: &quot;list&quot;, list: 1 },                       // Tags/flags about the account
+          secret: { secure: 1 },                                  // Signature secret or scrambled password
+          auth_secret: { admin: 1, secure: 1 },                   // Code for 2-factor authentication
+          session_secret: { admin: 1, secure: 1 },                // Secret for session signatures
+          rlimits_max: { type: &quot;int&quot; },                           // Burst/max reqs/sec rate allowed for this account, 0 to disable
+          rlimits_rate: { type: &quot;int&quot; },                          // Fill/normal reqs/sec rate for this account, 0 to disable
+          expires: { type: &quot;bigint&quot;, admin: 1, secure: 1 },       // Deny access to the account if this value is before current date, milliseconds
+          ctime: { type: &quot;now&quot;, readonly: 1 },                    // Create time
           mtime: { type: &quot;now&quot; }
       },</code></pre></li>
 </ul>
@@ -2617,8 +2605,11 @@ is kept in the <code>req.options.cleanup</code> which by default is a table name
 property is used to detect current account but can be specified by the <code>options.account_key</code> property.</p>
 <p>By default primary keys are not kept and must be marked with <code>pub</code> property in the table definition to be returned.</p>
 <p>If any column is marked with <code>secure</code> property this means never return that column in the result even for the owner of the record</p>
+<p>To return data based on the current account roles a special property in the format <code>pub_type_ROLE</code> must be set
+and the <code>ROLE</code> must be present in the current account `type`` field.</p>
 <p>If any column is marked with <code>admin</code> or <code>admins</code> property and the current account is an admin this property will be returned as well. The <code>options.admin</code>
-can be used to make it an artificial admin. Same goes for <code>staff</code> as a second level of admin permissions.</p>
+can be used to make it an artificial admin. Same goes for <code>staff</code> as a second level of admin permissions.
+Thes same can be implemented as properties <code>pub_type_admin: 1</code> or <code>pub_type_staff: 1</code>.</p>
 <p>The <code>options.cleanup_strict</code> will enforce that all columns not present in the table definition will be skipped as well, by default all
 new columns or columns created on the fly are returned to the client.</p>
 <p>The <code>options.cleanup_rules</code> can be an object with property names and the values -1, 0, or 1 which correspond to:
@@ -4721,8 +4712,6 @@ database like DynamoDB for real-time requests and slower SQL database running on
 <li><p><code>db.init(options, callback)</code></p>
 <p> Initialize all database pools. the options may containt the following properties:</p>
 <ul>
-<li>localTables - only initialize default, local and config db pools, other pools are ignored, if not given
- global value is used. Currently it can be set globally from the app only, no config parameter.</li>
 <li>createTables - if true then create new tables or upgrade tables with new columns</li>
 </ul>
 </li>
@@ -4820,6 +4809,7 @@ the pool by table name if some tables are assigned to any specific pool by confi
 if requested so this may be used for preparing cached results, it must return an array</li>
 <li>processasync - function to process result rows via async callback, return a new result in the callback, the function is: function(req, rows, callback),
 the callback is function(err, rows)</li>
+<li>syncMode - skip columns preprocessing and dynamic values for pool sync and backup restore</li>
 <li>quiet - report errors in debug level</li>
 <li>first - return the first row from the result</li>
 <li>logger_db - log results at the end with this level or debug by default</li>
@@ -4895,6 +4885,8 @@ also can be a list where each item is an object with primary key condition. Only
 <li>cacheKey - exlicit key for caching, return from the cache or from the DB and then cache it with this key, works the same as <code>get</code></li>
 <li>cacheKeyName - a name of one of the cache keys to use, it must be defined by a <code>db-cache-keys-table-name</code> parameter</li>
 <li>nocache - do not use cache even if cache key is given</li>
+<li>aliases - an object with mapping between artificial name to real column name, useful in $or/$and conditions with same column but different values</li>
+<li>custom_columns - an array of pairs to define global or artificial columns, the format is: [ RegExp, type, ...], useful with aliases</li>
 </ul>
 </li>
 </ul>
@@ -5003,6 +4995,7 @@ if does not exist yet.</em> To disable upsert pass <code>noupsert</code> in the 
  a property named $or or $and will be treated as a sub-expression if it is an object.</li>
 <li>expectedJoin - how to join expected expressions: OR, AND, default is AND</li>
 <li>upsert - create a new record if it does not exist</li>
+<li>syncMode - skip columns preprocessing and dynamic values for pool sync and backup restore</li>
 <li>updateOps - an object with column names and operations to be performed on the named column<ul>
 <li>incr - increment by given value</li>
 <li>set - to update as it is, for reseting counters forexample</li>
@@ -5241,6 +5234,8 @@ To hint a driver that scanning is in progress the <code>options.scanning</code> 
 <li>reget - if set the actual record will read using db.get, for cases when db.scan returns only partial record as in DynamoDB cases with indexes</li>
 <li>incremental - if set, try to read the latest record in the other table and continue from there, uses <code>sort</code> index in desc order</li>
 <li>batch - a number of records to copy at once using the bulk operation</li>
+<li>syncMode - if set enabled the update mode in which all values are preserved and not pre-processed, default is 1</li>
+<li>updateOptions - pass options to update/bulk operations</li>
 </ul>
 </li>
 </ul>
@@ -5649,7 +5644,7 @@ db.getFilteredColumns(&quot;bk_account&quot;, { type: &quot;now&quot; }, { list:
 <li><p><code>db.checkCustomColumn(req, name)</code></p>
 <p> Returns type for a global custom column if exists otherwise null, all resolved
 columns will be saved in <code>req.allow</code> for further reference as name: type.
-For request specific custom columns pass <code>options.custom_columns</code> object in the format: [ RegExp, type, ...]</p>
+For request specific custom columns pass <code>options.custom_columns</code> array in the format: [ RegExp, type, ...]</p>
 </li>
 </ul>
 
@@ -6845,12 +6840,6 @@ all arguments will be printed in the log</p>
 </ul>
 
 <ul>
-<li><p><code>lib.loadLocale(file, callback)</code></p>
-<p> Load a file with locale translations into memory</p>
-</li>
-</ul>
-
-<ul>
 <li><p><code>lib.getArg(name, dflt)</code></p>
 <p> Return commandline argument value by name</p>
 </li>
@@ -6875,259 +6864,9 @@ all arguments will be printed in the log</p>
 </ul>
 
 <ul>
-<li><p><code>lib.toVersion(str)</code></p>
-<p> Returns a floating number from the version string, it assumes common semver format as major.minor.patch, all non-digits will
-be removed, underscores will be treated as dots. Returns a floating number which can be used in comparing versions.</p>
-<p>Example</p>
-<pre><code>&gt; lib.toVersion(&quot;1.0.3&quot;)
-1.000003
-&gt; lib.toVersion(&quot;1.0.3.4&quot;)
-1.000003004
-&gt; lib.toVersion(&quot;1.0.3.4&quot;) &gt; lib.toVersion(&quot;1.0.3&quot;)
-true
-&gt; lib.toVersion(&quot;1.0.3.4&quot;) &gt; lib.toVersion(&quot;1.0.0&quot;)
-true
-&gt; lib.toVersion(&quot;1.0.3.4&quot;) &gt; lib.toVersion(&quot;1.1.0&quot;)
-false</code></pre></li>
-</ul>
-
-<ul>
 <li><p><code>lib.encodeURIComponent(str)</code></p>
 <p> Encode with additional symbols, convert these into percent encoded:</p>
 <pre><code>    ! -&gt; %21, * -&gt; %2A, &#39; -&gt; %27, ( -&gt; %28, ) -&gt; %29</code></pre></li>
-</ul>
-
-<ul>
-<li><p><code>lib.toTitle(name)</code></p>
-<p> Convert text into capitalized words</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.toCamel(name, chars)</code></p>
-<p> Convert into camelized form, optional chars can define the separators, default is -, _ and .</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.toUncamel(str, sep)</code></p>
-<p> Convert Camel names into names separated by the given separator or dash if not.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.toNumber(val, options)</code></p>
-<p> Safe version, uses 0 instead of NaN, handle booleans, if float specified, returns as float.</p>
-<p>Options:</p>
-<ul>
-<li>dflt - default value</li>
-<li>float - treat as floating number</li>
-<li>min - minimal value, clip</li>
-<li>max - maximum value, clip</li>
-<li>incr - a number to add before checking for other conditions</li>
-<li>mult - a number to multiply before checking for other conditions</li>
-<li>novalue - replace this number with default</li>
-<li>zero - replace with this number if result is 0</li>
-</ul>
-<p>Example:</p>
-<pre><code>         lib.toNumber(&quot;123&quot;)
-         lib.toNumber(&quot;1.23&quot;, { float: 1, dflt: 0, min: 0, max: 2 })</code></pre></li>
-</ul>
-
-<ul>
-<li><p><code>lib.toClamp(num, min, max)</code></p>
-<p> Return a number clamped between the range</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.toBool(val, dflt)</code></p>
-<p> Return true if value represents true condition, i.e. non empty value</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.toDate(val, dflt, invalid)</code></p>
-<p> Return Date object for given text or numeric date representation, for invalid date returns 1969 unless <code>invalid</code> parameter is given,
-in this case invalid date returned as null. If <code>dflt</code> is NaN, null or 0 returns null as well.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.toMtime(val, dflt)</code></p>
-<p> Return milliseconds from the date or date string, only number as dflt is supported, for invalid dates returns 0</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.toBase62(num, alphabet)</code></p>
-<p> Return base62 representation for a number</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.toValue(val, type, options)</code></p>
-<p> Convert value to the proper type</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.toRegexp(str, options)</code></p>
-<p> Safely create a regexp object, if invalid returns undefined, the options can be a string with srandard RegExp
-flags or an object with the following properties:</p>
-<ul>
-<li>ingoreCase - similar to i</li>
-<li>globalMatch - similar to m</li>
-<li>multiLine - similar to m</li>
-<li>unicode - similar to u</li>
-<li>sticky - similar to y</li>
-</ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.toRegexpMap(obj, val, options)</code></p>
-<p> Add a regexp to the list of regexp objects, this is used in the config type <code>regexpmap</code>.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.toRegexpObj(obj, val, options)</code></p>
-<p> Add a regexp to the object that consist of list of patterns and compiled regexp, this is used in the config type <code>regexpobj</code></p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.toDuration(mtime, options)</code></p>
-<p> Return duration in human format, mtime is msecs</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.toAge(mtime, options)</code></p>
-<p> Given time in msecs, return how long ago it happened</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.toSize(size)</code></p>
-<p> Return size human readable format</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.toParams(query, schema, options)</code></p>
-<p> Process incoming query and convert parameters according to the type definition, the schema contains the definition of the paramaters against which to
-validate incoming data. It is an object with property names and definitoons that at least must specify the type, all other options are type specific.</p>
-<p>The options can define the following properties:</p>
-<ul>
-<li>null - always return null on any error</li>
-<li>data - to pass realtime or other custom options for the validation or convertion utilities as the first argument if not defined in the definition.
-This is the place to customize/add/override global parameter conditions without changing it.</li>
-<li>prefix - prefix to be used when searching for the parameters in the query, only properties with this prefix will be processed. The resulting
- object will not have this prefix in the properties.</li>
-<li>name - to save a value with different name than in the original query</li>
-<li>existing - skip properties if not present in the query</li>
-</ul>
-<p>If any of the properties have <code>required:1</code> and the value will not be resolved then the function returns a string with the <code>errmsg</code> message
-or the default message, this is useful for detection of invalid or missing input data.</p>
-<p>Example:</p>
-<pre><code>  var account = lib.toParams(req.query, { id: { type: &quot;int&quot; },
-                                          count: { type: &quot;int&quot;, min: 1, max: 10, dflt: 5 },
-                                          page: { type: &quot;int&quot;, min: 1, max: 10, dflt: NaN, required: 1, errmsg: &quot;Page number between 1 and 10 is required&quot; },
-                                          name: { type: &quot;string&quot;, max: 32, trunc: 1 },
-                                          pair: { type: &quot;map&quot;, separator: &quot;|&quot; },
-                                          code: { type: &quot;string&quot;, regexp: /^[a-z]-[0-9]+$/, errmsg: &quot;Valid code is required&quot; },
-                                          start: { type: &quot;token&quot;, required: 1 },
-                                          email1: { type: &quot;email&quot;, required: { email: null } },
-                                          data: { type: &quot;json&quot;, datatype: &quot;obj&quot; },
-                                          mtime: { type: &quot;mtime&quot;, name: &quot;timestamp&quot; },
-                                          flag: { type: &quot;bool&quot;, novalue: false },
-                                          descr: { novalue: { name: &quot;name&quot;, value: &quot;test&quot; },
-                                          email: { type: &quot;list&quot;, datatype: &quot;email&quot;, novalue: [&quot;a@a&quot;] } },
-                                          internal: { ignore: 1 },
-                                          tm: { type:&quot; timestamp&quot;, optional: 1 },
-                                          status: { value: &quot;ready&quot; },
-                                          mode: &quot;ok&quot;,
-                                          state: { values: [&quot;ok&quot;,&quot;bad&quot;,&quot;good&quot;] },
-                                          status: { value: [{ name: &quot;state&quot;, value: &quot;ok&quot;, set: &quot;1&quot; }, { name: &quot;state&quot;, value: [&quot;bad&quot;,&quot;good&quot;], op: &quot;in&quot; }],
-                                          obj: { type: &quot;obj&quot;, params: { id: { type: &quot;int&quot; }, name: {} } },
-                                          arr: { type: &quot;array&quot;, params: { id: { type: &quot;int&quot; }, name: {} } },
-                                          state: { type: &quot;list&quot;, datatype: &quot;string, values: [&quot;VA&quot;,&quot;DC] } },
-                                          ssn: { type: &quot;string&quot;, regexp: /^[0-9]{3}-[0-9]{3}-[0-9]{4}$/, errmsg: &quot;Valid SSN is required&quot; } },
-                                          phone: { type: &quot;list&quot;, datatype: &quot;number } },
-                                        { data: { start: { secret: req.account.secret },
-                                                  name: { dflt: &quot;test&quot; },
-                                                  count: { max: 100 },
-                                                  email: { ignore: req.account.type != &quot;admin&quot; },
-                                                  &#39;*&#39;: { empty: 1, null: 1 },
-                                        })
-  if (typeof account == &quot;string) return api.sendReply(res, 400, account);</code></pre></li>
-</ul>
-
-<ul>
-<li><p><code>lib.toFormat(format, data, options)</code></p>
-<p> Convert a list of records into the specified format, supported formats are: <code>xml, csv, json</code>.</p>
-<ul>
-<li>For <code>csv</code> the default separator is comma but can be specified with <code>options.separator</code>. To produce columns header specify <code>options.header</code>.</li>
-<li>For <code>json</code> format puts each record as a separate JSON object on each line, so to read it back
-it will require to read every line and parse it and add to the list.</li>
-<li>For <code>xml</code> format the name of the row tag is <code>&lt;row&gt;</code> but can be
-specified with <code>options.tag</code>.</li>
-</ul>
-<p>All formats support the property <code>options.allow</code> which is a list of property names that are allowed only in the output for each record, non-existent
-properties will be replaced by empty strings.</p>
-<p>The <code>mapping</code> object property can redefine different tag/header names to be put into the file instead of the exact column names from the records.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.toTemplate(text, obj, options)</code></p>
-<p> Given a template with @..@ placeholders, replace each placeholder with the value from the obj.
-The <code>obj</code> can be an object or an array of objects in which case all objects will be checked for the value until non empty.</p>
-<p>To use @ in the template specify it as @@</p>
-<p>The options if given may provide the following:</p>
-<ul>
-<li>allow - placeholders with a name present in this list will be replaced, all other will be replaced with empty string</li>
-<li>skip - placeholders with a name present in this list will be ignored, the placeholer will be kept</li>
-<li>only - placeholders with a name present in this list will be replaced only, all other will be ignored and kept as placeholders</li>
-<li>encoding - can be url or base64, the replaced values will be encoded accordingly</li>
-<li>separator1 - left side of the placehoder, default is @</li>
-<li>separator2 - right side of the placeholder, default is @</li>
-</ul>
-<p>Example:</p>
-<pre><code>  lib.toTemplate(&quot;http://www.site.com/@code@/@id@&quot;, { id: 123, code: &quot;YYY&quot; }, { encoding: &quot;url&quot; })
-  lib.toTemplate(&quot;Hello @name|friend@!&quot;, {})</code></pre></li>
-</ul>
-
-<ul>
-<li><p><code>lib.escapeUnicode(text)</code></p>
-<p> Convert all Unicode binary symbols into Javascript text representation</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.unescape(str)</code></p>
-<p> Convert escaped characters into native symbols</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.textToXml(str)</code></p>
-<p> Convert all special symbols into xml entities</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.textToEntity(str)</code></p>
-<p> Convert all special symbols into html entities</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.entityToText(str)</code></p>
-<p> Convert html entities into their original symbols</p>
-</li>
 </ul>
 
 <ul>
@@ -7222,48 +6961,6 @@ if the value begins with ! it means no match is expected, the leading ! will be 
 <li><p><code>lib.isFlag(list, name)</code></p>
 <p> Returns true if <code>name</code> exists in the array <code>list</code>, search is case sensitive. if <code>name</code> is an array it will return true if
 any element in the array exists in the <code>list</code>.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.toFlags(cmd, list, name)</code></p>
-<p> Flags command utility, update flags array and returns a new array, the commands are:</p>
-<ul>
-<li>add - adds the <code>name</code> flags if does not exists</li>
-<li>del - removes the flags <code>name</code></li>
-<li>present - returns only flags that present in the list <code>name</code></li>
-<li>absent - returns only flags that are not present in the list <code>name</code></li>
-</ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.forEachLine(file, options, lineCallback, endCallback)</code></p>
-<p> Call callback for each line in the file
-options may specify the following parameters:</p>
-<ul>
-<li>sync - read file synchronously and call callback for every line</li>
-<li>abort - signal to stop processing</li>
-<li>limit - number of lines to process and exit</li>
-<li>length - amount of data in bytes to process and exit</li>
-<li>count - return this number of lines in an array if greater than 0</li>
-<li>skip - number of lines to skip from the start</li>
-<li>progress - if &gt; 0 report how many lines processed so far every specified lines</li>
-<li>until - skip lines until this regexp matches</li>
-<li>ignore - skip lines that match this regexp</li>
-<li>header - if true then skip first line because it is the a header, if <code>options.header</code> it is a function
-it will be called with the first line as an argument and must return true if this line needs to be skipped</li>
-<li>json - each line represents an JSON object, convert and pass it to the line callback if not null</li>
-<li>split - split every line before calling the callback, it uses phraseSplit</li>
-<li>keepempty - by default is enabled if split is set to keep empty fields in the line array</li>
-<li>separator - a string with characters to be used for splitting, default is <code>,</code></li>
-<li>quotes - a string with characters to be used for phrase splitting, default is <code>&quot;&#39;</code></li>
-</ul>
-<p>Properties updated and returned in the options:</p>
-<ul>
-<li>nlines - number of lines read from the file</li>
-<li>ncalls - number of lines passed to the line callback</li>
-</ul>
 </li>
 </ul>
 
@@ -7679,26 +7376,8 @@ Optional third parameter indicates the number of decimal points to return:</p>
 </ul>
 
 <ul>
-<li><p><code>lib.sprintf(fmt, args)</code></p>
-<p> C-sprintf alike
-based on <a href="http://stackoverflow.com/a/13439711">http://stackoverflow.com/a/13439711</a>
-Usage:</p>
-<ul>
-<li>sprintf(fmt, arg, ...)</li>
-<li>sprintf(fmt, [arg, ...]);</li>
-</ul>
-</li>
-</ul>
-
-<ul>
 <li><p><code>lib.toRFC3339 (date)</code></p>
 <p> Return RFC3339 formatted timestamp for a date or current time</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.zeropad(n, width)</code></p>
-<p> Return a string with leading zeros</p>
 </li>
 </ul>
 
@@ -7736,8 +7415,289 @@ removal of the matched patterns</p>
 </ul>
 
 <ul>
+<li><p><code>lib.domainName(host)</code></p>
+<p> Extract domain from the host name, takes all host parts except the first one</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.newError(msg, status, code)</code></p>
+<p> Return a new Error object, msg can be a string or an object with message, code, status properties.
+The default error status is 400 if not specified.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.traceError(err)</code></p>
+<p> Returns the error stack or the error itself, to be used in error messages</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.toVersion(str)</code></p>
+<p> Returns a floating number from the version string, it assumes common semver format as major.minor.patch, all non-digits will
+be removed, underscores will be treated as dots. Returns a floating number which can be used in comparing versions.</p>
+<p>Example</p>
+<pre><code>&gt; lib.toVersion(&quot;1.0.3&quot;)
+1.000003
+&gt; lib.toVersion(&quot;1.0.3.4&quot;)
+1.000003004
+&gt; lib.toVersion(&quot;1.0.3.4&quot;) &gt; lib.toVersion(&quot;1.0.3&quot;)
+true
+&gt; lib.toVersion(&quot;1.0.3.4&quot;) &gt; lib.toVersion(&quot;1.0.0&quot;)
+true
+&gt; lib.toVersion(&quot;1.0.3.4&quot;) &gt; lib.toVersion(&quot;1.1.0&quot;)
+false</code></pre></li>
+</ul>
+
+<ul>
+<li><p><code>lib.toTitle(name)</code></p>
+<p> Convert text into capitalized words</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.toCamel(name, chars)</code></p>
+<p> Convert into camelized form, optional chars can define the separators, default is -, _ and .</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.toUncamel(str, sep)</code></p>
+<p> Convert Camel names into names separated by the given separator or dash if not.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.toNumber(val, options)</code></p>
+<p> Safe version, uses 0 instead of NaN, handle booleans, if float specified, returns as float.</p>
+<p>Options:</p>
+<ul>
+<li>dflt - default value</li>
+<li>float - treat as floating number</li>
+<li>min - minimal value, clip</li>
+<li>max - maximum value, clip</li>
+<li>incr - a number to add before checking for other conditions</li>
+<li>mult - a number to multiply before checking for other conditions</li>
+<li>novalue - replace this number with default</li>
+<li>zero - replace with this number if result is 0</li>
+</ul>
+<p>Example:</p>
+<pre><code>         lib.toNumber(&quot;123&quot;)
+         lib.toNumber(&quot;1.23&quot;, { float: 1, dflt: 0, min: 0, max: 2 })</code></pre></li>
+</ul>
+
+<ul>
+<li><p><code>lib.toClamp(num, min, max)</code></p>
+<p> Return a number clamped between the range</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.toBool(val, dflt)</code></p>
+<p> Return true if value represents true condition, i.e. non empty value</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.toDate(val, dflt, invalid)</code></p>
+<p> Return Date object for given text or numeric date representation, for invalid date returns 1969 unless <code>invalid</code> parameter is given,
+in this case invalid date returned as null. If <code>dflt</code> is NaN, null or 0 returns null as well.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.toMtime(val, dflt)</code></p>
+<p> Return milliseconds from the date or date string, only number as dflt is supported, for invalid dates returns 0</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.toBase62(num, alphabet)</code></p>
+<p> Return base62 representation for a number</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.toValue(val, type, options)</code></p>
+<p> Convert value to the proper type</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.toRegexp(str, options)</code></p>
+<p> Safely create a regexp object, if invalid returns undefined, the options can be a string with srandard RegExp
+flags or an object with the following properties:</p>
+<ul>
+<li>ingoreCase - similar to i</li>
+<li>globalMatch - similar to m</li>
+<li>multiLine - similar to m</li>
+<li>unicode - similar to u</li>
+<li>sticky - similar to y</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.toRegexpMap(obj, val, options)</code></p>
+<p> Add a regexp to the list of regexp objects, this is used in the config type <code>regexpmap</code>.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.toRegexpObj(obj, val, options)</code></p>
+<p> Add a regexp to the object that consist of list of patterns and compiled regexp, this is used in the config type <code>regexpobj</code></p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.toDuration(mtime, options)</code></p>
+<p> Return duration in human format, mtime is msecs</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.toAge(mtime, options)</code></p>
+<p> Given time in msecs, return how long ago it happened</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.toSize(size)</code></p>
+<p> Return size human readable format</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.toParams(query, schema, options)</code></p>
+<p> Process incoming query and convert parameters according to the type definition, the schema contains the definition of the paramaters against which to
+validate incoming data. It is an object with property names and definitoons that at least must specify the type, all other options are type specific.</p>
+<p>The options can define the following properties:</p>
+<ul>
+<li>null - always return null on any error</li>
+<li>data - to pass realtime or other custom options for the validation or convertion utilities as the first argument if not defined in the definition.
+This is the place to customize/add/override global parameter conditions without changing it.</li>
+<li>prefix - prefix to be used when searching for the parameters in the query, only properties with this prefix will be processed. The resulting
+ object will not have this prefix in the properties.</li>
+<li>name - to save a value with different name than in the original query</li>
+<li>existing - skip properties if not present in the query</li>
+</ul>
+<p>If any of the properties have <code>required:1</code> and the value will not be resolved then the function returns a string with the <code>errmsg</code> message
+or the default message, this is useful for detection of invalid or missing input data.</p>
+<p>Example:</p>
+<pre><code>  var account = lib.toParams(req.query, { id: { type: &quot;int&quot; },
+                                          count: { type: &quot;int&quot;, min: 1, max: 10, dflt: 5 },
+                                          page: { type: &quot;int&quot;, min: 1, max: 10, dflt: NaN, required: 1, errmsg: &quot;Page number between 1 and 10 is required&quot; },
+                                          name: { type: &quot;string&quot;, max: 32, trunc: 1 },
+                                          pair: { type: &quot;map&quot;, separator: &quot;|&quot; },
+                                          code: { type: &quot;string&quot;, regexp: /^[a-z]-[0-9]+$/, errmsg: &quot;Valid code is required&quot; },
+                                          start: { type: &quot;token&quot;, required: 1 },
+                                          email1: { type: &quot;email&quot;, required: { email: null } },
+                                          data: { type: &quot;json&quot;, datatype: &quot;obj&quot; },
+                                          mtime: { type: &quot;mtime&quot;, name: &quot;timestamp&quot; },
+                                          flag: { type: &quot;bool&quot;, novalue: false },
+                                          descr: { novalue: { name: &quot;name&quot;, value: &quot;test&quot; },
+                                          email: { type: &quot;list&quot;, datatype: &quot;email&quot;, novalue: [&quot;a@a&quot;] } },
+                                          internal: { ignore: 1 },
+                                          tm: { type:&quot; timestamp&quot;, optional: 1 },
+                                          status: { value: &quot;ready&quot; },
+                                          mode: &quot;ok&quot;,
+                                          state: { values: [&quot;ok&quot;,&quot;bad&quot;,&quot;good&quot;] },
+                                          status: { value: [{ name: &quot;state&quot;, value: &quot;ok&quot;, set: &quot;1&quot; }, { name: &quot;state&quot;, value: [&quot;bad&quot;,&quot;good&quot;], op: &quot;in&quot; }],
+                                          obj: { type: &quot;obj&quot;, params: { id: { type: &quot;int&quot; }, name: {} } },
+                                          arr: { type: &quot;array&quot;, params: { id: { type: &quot;int&quot; }, name: {} } },
+                                          state: { type: &quot;list&quot;, datatype: &quot;string, values: [&quot;VA&quot;,&quot;DC] } },
+                                          ssn: { type: &quot;string&quot;, regexp: /^[0-9]{3}-[0-9]{3}-[0-9]{4}$/, errmsg: &quot;Valid SSN is required&quot; } },
+                                          phone: { type: &quot;list&quot;, datatype: &quot;number } },
+                                        { data: { start: { secret: req.account.secret },
+                                                  name: { dflt: &quot;test&quot; },
+                                                  count: { max: 100 },
+                                                  email: { ignore: req.account.type != &quot;admin&quot; },
+                                                  &#39;*&#39;: { empty: 1, null: 1 },
+                                        })
+  if (typeof account == &quot;string) return api.sendReply(res, 400, account);</code></pre></li>
+</ul>
+
+<ul>
+<li><p><code>lib.toFormat(format, data, options)</code></p>
+<p> Convert a list of records into the specified format, supported formats are: <code>xml, csv, json</code>.</p>
+<ul>
+<li>For <code>csv</code> the default separator is comma but can be specified with <code>options.separator</code>. To produce columns header specify <code>options.header</code>.</li>
+<li>For <code>json</code> format puts each record as a separate JSON object on each line, so to read it back
+it will require to read every line and parse it and add to the list.</li>
+<li>For <code>xml</code> format the name of the row tag is <code>&lt;row&gt;</code> but can be
+specified with <code>options.tag</code>.</li>
+</ul>
+<p>All formats support the property <code>options.allow</code> which is a list of property names that are allowed only in the output for each record, non-existent
+properties will be replaced by empty strings.</p>
+<p>The <code>mapping</code> object property can redefine different tag/header names to be put into the file instead of the exact column names from the records.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.toTemplate(text, obj, options)</code></p>
+<p> Given a template with @..@ placeholders, replace each placeholder with the value from the obj.
+The <code>obj</code> can be an object or an array of objects in which case all objects will be checked for the value until non empty.</p>
+<p>To use @ in the template specify it as @@</p>
+<p>The options if given may provide the following:</p>
+<ul>
+<li>allow - placeholders with a name present in this list will be replaced, all other will be replaced with empty string</li>
+<li>skip - placeholders with a name present in this list will be ignored, the placeholer will be kept</li>
+<li>only - placeholders with a name present in this list will be replaced only, all other will be ignored and kept as placeholders</li>
+<li>encoding - can be url or base64, the replaced values will be encoded accordingly</li>
+<li>separator1 - left side of the placehoder, default is @</li>
+<li>separator2 - right side of the placeholder, default is @</li>
+</ul>
+<p>Example:</p>
+<pre><code>  lib.toTemplate(&quot;http://www.site.com/@code@/@id@&quot;, { id: 123, code: &quot;YYY&quot; }, { encoding: &quot;url&quot; })
+  lib.toTemplate(&quot;Hello @name|friend@!&quot;, {})</code></pre></li>
+</ul>
+
+<ul>
+<li><p><code>lib.toFlags(cmd, list, name)</code></p>
+<p> Flags command utility, update flags array and returns a new array, the commands are:</p>
+<ul>
+<li>add - adds the <code>name</code> flags if does not exists</li>
+<li>del - removes the flags <code>name</code></li>
+<li>present - returns only flags that present in the list <code>name</code></li>
+<li>absent - returns only flags that are not present in the list <code>name</code></li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.escapeUnicode(text)</code></p>
+<p> Convert all Unicode binary symbols into Javascript text representation</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>lib.unicode2Ascii(str)</code></p>
 <p> Replace Unicode symbols with ASCII equivalents</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.unescape(str)</code></p>
+<p> Convert escaped characters into native symbols</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.textToXml(str)</code></p>
+<p> Convert all special symbols into xml entities</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.textToEntity(str)</code></p>
+<p> Convert all special symbols into html entities</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.entityToText(str)</code></p>
+<p> Convert html entities into their original symbols</p>
 </li>
 </ul>
 
@@ -7772,64 +7732,26 @@ default quotes are both double and single quote. If <code>options.keepempty</cod
 </ul>
 
 <ul>
-<li><p><code>lib.arrayLength(list)</code></p>
-<p> Return the length of an array or 0 if it is not an array</p>
+<li><p><code>lib.zeropad(n, width)</code></p>
+<p> Return a string with leading zeros</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>lib.arrayRemove(list, item)</code></p>
-<p> Remove the given item from the list in place, returns the same list</p>
-</li>
-</ul>
-
+<li><p><code>lib.sprintf(fmt, args)</code></p>
+<p> C-sprintf alike
+based on <a href="http://stackoverflow.com/a/13439711">http://stackoverflow.com/a/13439711</a>
+Usage:</p>
 <ul>
-<li><p><code>lib.arrayUnique(list, key)</code></p>
-<p> Returns only unique items in the array, optional <code>key</code> specified the name of the column to use when determining uniqueness if items are objects.</p>
-</li>
+<li>sprintf(fmt, arg, ...)</li>
+<li>sprintf(fmt, [arg, ...]);</li>
 </ul>
-
-<ul>
-<li><p><code>lib.arrayFlatten(list)</code></p>
-<p> Flatten array of arrays into a single array</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.jsonToBase64(data, secret, options)</code></p>
-<p> Stringify JSON into base64 string, if secret is given, sign the data with it</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.base64ToJson(data, secret, options)</code></p>
-<p> Parse base64 JSON into JavaScript object, in some cases this can be just a number then it is passed as it is, if secret is given verify
-that data is not chnaged and was signed with the same secret</p>
 </li>
 </ul>
 
 <ul>
 <li><p><code>lib.strCompress(data, encoding)</code></p>
 <p> From <a href="https://github.com/pieroxy/lz-string/">https://github.com/pieroxy/lz-string/</a></p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.domainName(host)</code></p>
-<p> Extract domain from the host name, takes all host parts except the first one</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.newError(msg, status, code)</code></p>
-<p> Return a new Error object, msg can be a string or an object with message, code, status properties.
-The default error status is 400 if not specified.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.traceError(err)</code></p>
-<p> Returns the error stack or the error itself, to be used in error messages</p>
 </li>
 </ul>
 
@@ -7850,8 +7772,26 @@ The default error status is 400 if not specified.</p>
 </ul>
 
 <ul>
-<li><p><code>lib.callback()</code></p>
-<p> Returns first valid function object from the arguments, if no function found a placeholder is returned</p>
+<li><p><code>lib.arrayLength(list)</code></p>
+<p> Return the length of an array or 0 if it is not an array</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.arrayRemove(list, item)</code></p>
+<p> Remove the given item from the list in place, returns the same list</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.arrayUnique(list, key)</code></p>
+<p> Returns only unique items in the array, optional <code>key</code> specified the name of the column to use when determining uniqueness if items are objects.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.arrayFlatten(list)</code></p>
+<p> Flatten array of arrays into a single array</p>
 </li>
 </ul>
 
@@ -8043,8 +7983,15 @@ match it will be output. Use <code>options.replace</code> for replacing anything
 </ul>
 
 <ul>
-<li><p><code>lib.stringify(obj, filter)</code></p>
-<p> JSON stringify without exceptions, on error just returns an empty string and logs the error</p>
+<li><p><code>lib.jsonToBase64(data, secret, options)</code></p>
+<p> Stringify JSON into base64 string, if secret is given, sign the data with it</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.base64ToJson(data, secret, options)</code></p>
+<p> Parse base64 JSON into JavaScript object, in some cases this can be just a number then it is passed as it is, if secret is given verify
+that data is not chnaged and was signed with the same secret</p>
 </li>
 </ul>
 
@@ -8052,6 +7999,12 @@ match it will be output. Use <code>options.replace</code> for replacing anything
 <li><p><code>lib.jsonFormat(obj, options)</code></p>
 <p> Nicely format an object with indentations, optional <code>indentlevel</code> can be used to control until which level deep
 to use newlines for objects.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.stringify(obj, filter)</code></p>
+<p> JSON stringify without exceptions, on error just returns an empty string and logs the error</p>
 </li>
 </ul>
 
@@ -8070,6 +8023,42 @@ to use newlines for objects.</p>
 <ul>
 <li><p><code>lib.xmlParse(obj, options)</code></p>
 <p> Same arguments as for <code>jsonParse</code></p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.loadLocale(file, callback)</code></p>
+<p> Load a file with locale translations into memory</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.forEachLine(file, options, lineCallback, endCallback)</code></p>
+<p> Call callback for each line in the file
+options may specify the following parameters:</p>
+<ul>
+<li>sync - read file synchronously and call callback for every line</li>
+<li>abort - signal to stop processing</li>
+<li>limit - number of lines to process and exit</li>
+<li>length - amount of data in bytes to process and exit</li>
+<li>count - return this number of lines in an array if greater than 0</li>
+<li>skip - number of lines to skip from the start</li>
+<li>progress - if &gt; 0 report how many lines processed so far every specified lines</li>
+<li>until - skip lines until this regexp matches</li>
+<li>ignore - skip lines that match this regexp</li>
+<li>header - if true then skip first line because it is the a header, if <code>options.header</code> it is a function
+it will be called with the first line as an argument and must return true if this line needs to be skipped</li>
+<li>json - each line represents an JSON object, convert and pass it to the line callback if not null</li>
+<li>split - split every line before calling the callback, it uses phraseSplit</li>
+<li>keepempty - by default is enabled if split is set to keep empty fields in the line array</li>
+<li>separator - a string with characters to be used for splitting, default is <code>,</code></li>
+<li>quotes - a string with characters to be used for phrase splitting, default is <code>&quot;&#39;</code></li>
+</ul>
+<p>Properties updated and returned in the options:</p>
+<ul>
+<li>nlines - number of lines read from the file</li>
+<li>ncalls - number of lines passed to the line callback</li>
+</ul>
 </li>
 </ul>
 
@@ -8231,97 +8220,6 @@ for this function to work and it is called by the root only, all the rest of the
 <p> Create a directories if do not exist, multiple dirs can be specified, all preceeding directories are not created</p>
 <p>Example:</p>
 <pre><code>       lib.mkdirSync(&quot;dir1&quot;, &quot;dir2&quot;)</code></pre></li>
-</ul>
-
-<ul>
-<li><p><code>lib.Pool(options)</code></p>
-<p> Create a resource pool, <code>create</code> and <code>close</code> callbacks must be given which perform allocation and deallocation of the resources like db connections.</p>
-<p>Options defines the following properties:</p>
-<ul>
-<li>create - method to be called to return a new resource item, takes 1 argument, a callback as <code>function(err, item)</code></li>
-<li>destroy - method to be called to destroy a resource item</li>
-<li>reset - method to bec alled just before releasing an item back to the resource pool, this is a chance to reset the item to the initial state</li>
-<li>validate - method to verify actibe resource item, return false if it needs to be destroyed</li>
-<li>min - min number of active resource items</li>
-<li>max - max number of active resource items</li>
-<li>max_queue - how big the waiting queue can be, above this all requests will be rejected immediately</li>
-<li>timeout - number of milliseconds to wait for the next available resource item, cannot be 0</li>
-<li>idle - number of milliseconds before starting to destroy all active resources above the minimum, 0 to disable.</li>
-</ul>
-<p>If no create implementation callback is given then all operations are basically noop but still cals the callbacks.</p>
-<p>Example:</p>
-<pre><code>  var pool = new lib.Pool({ min: 1, max: 5,
-                            create: function(cb) {
-                               someDb.connect(function(err) { cb(err, this) }
-                            },
-                            destroy: function(client) {
-                               client.close() }
-                            })
-
-  pool.aquire(function(err, client) {
-     ...
-     client.findItem....
-     ...
-     pool.release(client);
-
-  });</code></pre></li>
-</ul>
-
-<ul>
-<li><p><code>lib.Pool.prototype.init(options)</code></p>
-<p> Initialize pool properties, this can be run anytime even on the active pool to override some properties</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.Pool.prototype.acquire(callback)</code></p>
-<p> Return next available resource item, if not available immediately wait for defined amount of time before calling the
-callback with an error. The callback second argument is active resource item.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.Pool.prototype.destroy(item, callback)</code></p>
-<p> Destroy the resource item calling the provided close callback</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.Pool.prototype.release(item)</code></p>
-<p> Return the resource item back to the list of available resources.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.Pool.prototype.destroyAll()</code></p>
-<p> Close all active items</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.Pool.prototype.stats()</code></p>
-<p> Return an object with stats</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.Pool.prototype.shutdown(callback, maxtime)</code></p>
-<p> Close all connections and shutdown the pool, no more items will be open and the pool cannot be used without re-initialization,
-if callback is provided then wait until all items are released and call it, optional maxtime can be used to retsrict how long to wait for
-all items to be released, when expired the callback will be called</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.Pool.prototype._call(name, callback)</code></p>
-<p> Call registered method and catch exceptions, pass it to the callback if given</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.Pool.prototype._timer()</code></p>
-<p> Timer to ensure pool integrity</p>
-</li>
 </ul>
 
 <h2 id="module-logger">Module: LOGGER</h2>
@@ -8567,10 +8465,12 @@ connection to APN gateway.</p>
 <li>alertAction - action to exec per Apple doc, action</li>
 <li>launchImage - image to show per Apple doc, launch-image</li>
 <li>contentAvailable - content indication per Apple doc, content-available</li>
+<li>mutableContent - mark the notification to go via extention for possible modifications</li>
 <li>locKey - localization key per Apple doc, loc-key</li>
 <li>locArgs - localization key per Apple doc, loc-args</li>
 <li>titleLocKey - localization key per Apple doc, title-loc-key</li>
 <li>titleLocArgs - localization key per Apple doc, title-loc-args</li>
+<li>threadId - grouping id, all msgs with the same id will be grouped together</li>
 <li>id - send id in the user properties</li>
 <li>type - set type of the event</li>
 <li>url - launch url</li>
@@ -8626,6 +8526,64 @@ connection to APN gateway.</p>
 <ul>
 <li><p><code>client.retryOnError()</code></p>
 <p> Retry on server error, honor Retry-After header if present, use it only on the first error</p>
+</li>
+</ul>
+
+<h2 id="module-pool">Module: POOL</h2>
+<ul>
+<li><p><code>Pool.prototype.init(options)</code></p>
+<p> Initialize pool properties, this can be run anytime even on the active pool to override some properties</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>Pool.prototype.acquire(callback)</code></p>
+<p> Return next available resource item, if not available immediately wait for defined amount of time before calling the
+callback with an error. The callback second argument is active resource item.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>Pool.prototype.destroy(item, callback)</code></p>
+<p> Destroy the resource item calling the provided close callback</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>Pool.prototype.release(item)</code></p>
+<p> Return the resource item back to the list of available resources.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>Pool.prototype.destroyAll()</code></p>
+<p> Close all active items</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>Pool.prototype.stats()</code></p>
+<p> Return an object with stats</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>Pool.prototype.shutdown(callback, maxtime)</code></p>
+<p> Close all connections and shutdown the pool, no more items will be open and the pool cannot be used without re-initialization,
+if callback is provided then wait until all items are released and call it, optional maxtime can be used to retsrict how long to wait for
+all items to be released, when expired the callback will be called</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>Pool.prototype._call(name, callback)</code></p>
+<p> Call registered method and catch exceptions, pass it to the callback if given</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>Pool.prototype._timer()</code></p>
+<p> Timer to ensure pool integrity</p>
 </li>
 </ul>
 
@@ -8698,20 +8656,26 @@ it runs <code>shutdown[Role]</code> methods before exiting</p>
 </ul>
 
 <ul>
-<li><p><code>server.writePidfile()</code></p>
-<p> Create a pid file for the current process</p>
-</li>
-</ul>
-
-<ul>
 <li><p><code>server.shutdown(options, callback)</code></p>
 <p> Shutdown the system immediately, mostly to be used in the remote jobs as the last task</p>
 </li>
 </ul>
 
 <ul>
+<li><p><code>server.shutdownServer(options, callback)</code></p>
+<p> Graceful shutdown if the api server needs restart</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>server.spawnProcess(args, skip, opts)</code></p>
 <p> Start new process reusing global process arguments, args will be added and args in the skip list will be removed</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>server.writePidfile()</code></p>
+<p> Create a pid file for the current process</p>
 </li>
 </ul>
 
@@ -8723,15 +8687,15 @@ it runs <code>shutdown[Role]</code> methods before exiting</p>
           id: { primary: 1, pub: 1 },
           login: {},
           status: { type: &quot;text&quot; },
-          type: { type: &quot;text&quot;, list: 1, admin: 1 },
+          type: { type: &quot;list&quot;, list: 1, lower: 1, admin: 1 },   // permission roles only
+          flags: { type: &quot;list&quot;, list: 1 },                      // other tags/flags
           name: { pub: 1, notempty: 1 },
-          first_name: { pub: 1 },
-          last_name: { pub: 1 },
+          first_name: {},
+          last_name: {},
           email: { type: &quot;email&quot; },
           phone: { type: &quot;phone&quot; },
           website: {},
           company: {},
-          birthday: { type: &quot;string&quot; },
           gender: {},
           street: {},
           city: {},
@@ -8739,7 +8703,7 @@ it runs <code>shutdown[Role]</code> methods before exiting</p>
           state: {},
           zipcode: {},
           country: {},
-          device_id: {},                            // Device(s) for notifications the format is: [service://]token[@appname]
+          device_id: { secure: 1 },                 // Device(s) for notifications the format is: [service://]token[@appname]
           ctime: { type: &quot;now&quot;, readonly: 1 },      // Create time
           mtime: { type: &quot;now&quot; },                   // Last update time
       },
@@ -8806,12 +8770,6 @@ system will pick the right delivery service depending on the device id, the defa
 <p> Return account details for the list of rows, <code>options.account_key</code> specified the column to use for the account id in the <code>rows</code>, or <code>id</code> will be used.
 The result accounts are cleaned for public columns, all original properties from the <code>rows</code> are kept as is.
 If options.existing is 1 then return only record with found accounts, all other records in the rows will be deleted</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>mod.selectAccount(req, options, callback)</code></p>
-<p> Query accounts, used in /accout/select API call, simple wrapper around db.select but can be replaced in the apps while using the same API endpoint</p>
 </li>
 </ul>
 
