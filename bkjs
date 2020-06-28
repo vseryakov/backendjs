@@ -546,7 +546,7 @@ case "$BKJS_CMD" in
                 echo > $dir/web/js/$bundle.bundle.html.js
                 echo $repo > /tmp/bktmp/_repo
                 for f in $files; do
-                    [ ! -s $f ] && continue
+                    [ ! -s $dir/$f ] && continue
                     n=$(basename $f)
                     if [ "$force" != "" -o $f -nt /tmp/bktmp/$n ]; then
                         (cd $dir && html-minifier --collapse-whitespace --collapse-boolean-attributes --remove-comments --remove-optional-tags --remove-attribute-quotes --remove-empty-attributes $f > /tmp/bktmp/_$n)
