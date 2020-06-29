@@ -60,6 +60,7 @@ bkjs.formatJSON = function(obj, options)
             val = options.preprocess(p, val, options);
             if (typeof val == "undefined") continue;
         }
+        if (options.skipnull && (val === "" || val === null || val === undefined)) continue;
         if (count > 0) {
             text += type == "array" ? options.sep : options.comma;
         }
