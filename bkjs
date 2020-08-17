@@ -13,8 +13,15 @@ BKJS_MOD=backendjs
 PLATFORM=$(uname -s)
 case "$PLATFORM" in
   Linux)
-    [ "$(grep CentOS /etc/issue)" != "" ] && OS_TYPE=centos
-    [ "$(grep Amazon /etc/issue)" != "" ] && OS_TYPE=amazon
+    case "$(uname -r)" in
+     *amzn1*)
+         OS_TYPE=amazon
+         ;;
+
+     *amzn2*)
+         OS_TYPE=amazon2
+         ;;
+    esac
     [ -f /etc/sysconfig/$BKJS ] && . /etc/sysconfig/$BKJS
     ECHO="echo -e"
     SED="sed -r -i"
@@ -577,7 +584,14 @@ case "$BKJS_CMD" in
     [ -f $BKJS_PREFIX/bin/node ] && exit 0
     mkdir -p $BKJS_PREFIX
     if [ "$PLATFORM" = "Linux" ]; then
-       curl -L -o node.tar.xz https://nodejs.org/dist/$ver/node-$ver-linux-x64.tar.xz
+       case "$(uname -m)" in
+        aarch64)
+          arch=arm64
+          ;;
+        *)
+          arch=x64
+       esac
+       curl -L -o node.tar.xz https://nodejs.org/dist/$ver/node-$ver-linux-$arch.tar.xz
        [ "$?" != "0" ] && exit 1
        xz -d node.tar.xz
        tar -C $BKJS_PREFIX --strip-components=1 -xf node.tar

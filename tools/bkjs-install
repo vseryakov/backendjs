@@ -21,7 +21,7 @@ case "$BKJS_CMD" in
     find_nodebin
     find_bkjsbin
     $0 install-devel $args
-    [ "$NODE_BIN" = "" ] && sudo -H -u $BKJS_USER $0 install-node -prefix $BKJS_PREFIX -npm4 -tools "$(get_arg -tools)"
+    [ "$NODE_BIN" = "" ] && sudo -H -u $BKJS_USER $0 install-node -prefix $BKJS_PREFIX -tools "$(get_arg -tools)"
     [ "$BKJS_BIN" = "" ] && sudo -H -u $BKJS_USER $0 install-bkjs -deps "$(get_arg -deps)" -tools "$(get_arg -tools)"
     (cd $BKJS_HOME/bin && ln -sf ../node_modules/$BKJS_MOD/$BKJS && ln -sf $BKJS bksh)
     $0 init-server $args
@@ -198,7 +198,19 @@ case "$BKJS_CMD" in
     if [ "$(grep -s '#Bkjs' /etc/rsyslog.conf)" = "" ]; then
        echo "Configuring rsyslog..."
        echo "#Bkjs" > /etc/rsyslog.conf
-       echo '$ModLoad imklog' >> /etc/rsyslog.conf
+       case "$OS_TYPE" in
+        amazon2)
+          echo '$ModLoad imjournal' >> /etc/rsyslog.conf
+          echo '$OmitLocalLogging on' >> /etc/rsyslog.conf
+          echo '$IMJournalStateFile imjournal.state' >> /etc/rsyslog.conf
+          echo '*.emerg :omusrmsg:*' >> /etc/rsyslog.conf
+          ;;
+
+        *)
+          echo '$ModLoad imklog' >> /etc/rsyslog.conf
+          echo 'kern.*,*.emerg /dev/console' >> /etc/rsyslog.conf
+          ;;
+       esac
        echo '$ModLoad imuxsock' >> /etc/rsyslog.conf
        echo '$ModLoad imudp' >> /etc/rsyslog.conf
        echo '$UDPServerAddress 127.0.0.1' >> /etc/rsyslog.conf
@@ -209,7 +221,6 @@ case "$BKJS_CMD" in
        echo '$SystemLogRateLimitBurst 10000' >> /etc/rsyslog.conf
        echo '$ActionFileDefaultTemplate RSYSLOG_FileFormat' >> /etc/rsyslog.conf
        echo '$IncludeConfig /etc/rsyslog.d/*.conf' >> /etc/rsyslog.conf
-       echo 'kern.*,*.emerg /dev/console' >> /etc/rsyslog.conf
        echo 'cron.* /var/log/cron' >> /etc/rsyslog.conf
        echo 'local7.* /var/log/boot.log' >> /etc/rsyslog.conf
        echo "\$FileOwner $BKJS_USER" >> /etc/rsyslog.conf
@@ -415,29 +426,25 @@ case "$BKJS_CMD" in
 
   init-packages)
     # Install required runtime packages
-    packages="ntp rsync wget socat mc nano man telnet daemonize monit redis"
+    packages="ntp rsync wget socat mc nano man telnet monit"
 
     yum -y -q update
 
     # Linux distro specific actions
     case "$OS_TYPE" in
-      centos)
-         rpm -i http://mirror.pnl.gov/epel/6/x86_64/epel-release-6-8.noarch.rpm
-         ;;
-
       amazon)
          yum-config-manager --enable epel
          yum -y remove java-1.7.0-openjdk
          packages="$packages java-1.8.0"
          ;;
+
+      amazon2)
+         amazon-linux-extras enable epel
+         packages="$packages java-1.8.0-openjdk"
+         ;;
     esac
     sleep 10
     yum -y -q install $packages
-
-    # Daemon superviser with respawn ability
-    if [ "$(which daemon 2>/dev/null)" == "" ]; then
-       rpm -i http://libslack.org/daemon/download/daemon-0.6.4-1.x86_64.rpm
-    fi
     ;;
 
   help)

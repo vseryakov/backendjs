@@ -911,7 +911,7 @@ Most common used commands are:
 - bkjs watch - run the backend or the app for development purposes, uses local app.js if exists otherwise runs generic server
 - bkjs shell - start REPL shell with the backend module loaded and available for use, all submodules are available in the shell as well like core, db, api
 - bkjs sync [-path path] [-host host] [-user user] - sync sources of the app with the remote site, this is for development version of the backend only
-- bkjs init-server [-home path] [-user user] [-host name] [-domain name] - initialize Linux instance(Amazon,CentOS) for backend use, optional -home can be specified where the backend
+- bkjs init-server [-home path] [-user user] [-host name] [-domain name] - initialize Linux instance(Amazon) for backend use, optional -home can be specified where the backend
   home will be instead of ~/.bkjs, optional -user tells to use existing user instead of the current user and not root.
 
    **This command will create `/etc/sysconfig/bkjs` file with BKJS_HOME set to the home of the
@@ -971,7 +971,7 @@ new image configuration.
 
 To make an API appliance by using the backendjs on the AWS instance as user ec2-user with the backend in the user home
 
-- start new AWS instance via AWS console, use Amazon Linux or CentOS 6
+- start new AWS instance via AWS console, use Amazon Linux
 - login as `ec2-user`
 - install commands
 
