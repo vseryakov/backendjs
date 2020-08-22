@@ -131,6 +131,7 @@ shell.cmdDbBackup = function(options)
     var root = this.getArg("-path", options);
     var filter = this.getArg("-filter", options);
     var table = this.getArg("-table", options);
+    var suffix = this.getArg("-suffix", options);
     var tables = lib.strSplit(this.getArg("-tables", options));
     var skip = lib.strSplit(this.getArg("-skip", options));
     var concurrency = this.getArgInt("-concurrency", options, 2);
@@ -144,7 +145,7 @@ shell.cmdDbBackup = function(options)
     if (!tables.length) tables = db.getPoolTables(db.pool, { names: 1 });
     lib.forEachLimit(tables, concurrency, function(table, next) {
         if (skip.indexOf(table) > -1) return next();
-        var file = path.join(root, table + ".json");
+        var file = path.join(root, `${table}${suffix}.json`);
         if (incremental > 0) {
             var lines = lib.readFileSync(file, { offset: -incremental, list: "\n" });
             for (var i = lines.length - 1; i >= 0; i--) {
@@ -176,12 +177,12 @@ shell.cmdDbBackup = function(options)
 shell.cmdDbRestore = function(options)
 {
     var opts = this.getArgs();
-    var prefix = this.getArg("-prefix", options);
     var root = this.getArg("-path", options);
     var filter = this.getArg("-filter", options);
     var mapping = lib.strSplit(this.getArg("-mapping", options));
     var table = this.getArg("-table", options);
     var tables = lib.strSplit(this.getArg("-tables", options));
+    var suffix = this.getArg("-suffix", options);
     var skip = lib.strSplit(this.getArg("-skip", options));
     var files = lib.findFileSync(root || core.home, { depth: 1, types: "f", include: /\.json$/ });
     var progress = this.getArgInt("-progress", options);
@@ -193,7 +194,7 @@ shell.cmdDbRestore = function(options)
     opts.errors = 0;
     lib.forEachLimit(files, concurrency, function(file, next3) {
         var table = path.basename(file, ".json");
-        if (prefix) table = table.replace(prefix, "");
+        if (suffix) table = table.replace(suffix, "");
         if (tables.length && tables.indexOf(table) == -1) return next3();
         if (skip.indexOf(table) > -1) return next3();
         var cap = db.getCapacity(table);
