@@ -22,7 +22,7 @@ shell.help.push("-db-del -table TABLE name VALUE ... - delete a record from the 
 shell.help.push("-db-del-all -table TABLE name VALUE ... - delete all records from the table that match the search criteria, name value pairs must define a primary key for the table");
 shell.help.push("-db-drop -table TABLE name [-nowait] - drop a table");
 shell.help.push("-db-backup [-path PATH] [-tables LIST] [-skip LIST] - save tables into json files in the home or specified path");
-shell.help.push("-db-restore [-path PATH] [-tables LIST] [-skip LIST] [-mapping ID1,ID2...] [-drop] [-continue] [-progress N] [-op add|update|put] [-noexit] [-exitdelay MS] - restore tables from json files located in the home or specified path");
+shell.help.push("-db-restore [-path PATH] [-tables LIST] [-skip LIST] [-mapping ID1,ID2...] [-bulk N] [-drop] [-continue] [-progress N] [-op add|update|put] [-noexit] [-exitdelay MS] - restore tables from json files located in the home or specified path");
 
 // Show all config parameters
 shell.cmdDbGetConfig = function(options)
@@ -32,10 +32,11 @@ shell.cmdDbGetConfig = function(options)
     var fmt = this.getArg("-format", options);
     opts.unique = 1;
     db.getConfig(opts, function(err, data) {
-        var argv = [], args = {};
+        var args = {};
         data = data.filter(function(x) {
             if (args[x.name]) return 0;
-            return args[x.name] = 1;
+            args[x.name] = 1;
+            return 1;
         });
         if (fmt == "value") {
             console.log(data.length && data[0].value || "");
@@ -192,6 +193,7 @@ shell.cmdDbRestore = function(options)
     if (this.isArg("-continue", options)) opts.continue = 1;
     if (table) tables.push(table);
     opts.errors = 0;
+    opts.count = this.getArgInt("-bulk", options);
     lib.forEachLimit(files, concurrency, function(file, next3) {
         var table = path.basename(file, ".json");
         if (suffix) table = table.replace(suffix, "");
@@ -223,6 +225,7 @@ shell.cmdDbRestore = function(options)
                 db.cacheColumns(opts, next);
             },
             function(next) {
+                if (opts.count) return next();
                 lib.forEachLine(file, opts, function(line, next2) {
                     if (!line) return next2();
                     var row = lib.jsonParse(line, { logger: "error" });
@@ -236,6 +239,26 @@ shell.cmdDbRestore = function(options)
                     db[op](table, row, opts, function(err) {
                         if (err && !opts.continue) return next2(err);
                         if (err) opts.errors++;
+                        db.checkCapacity(cap, next2);
+                    });
+                }, next);
+            },
+            function(next) {
+                if (!opts.count) return next();
+                lib.forEachLine(file, opts, function(lines, next2) {
+                    lines = lines.map((l) => {
+                        var row = lib.jsonParse(l, { logger: "error" });
+                        if (!row) return null;
+                        if (filter && core.modules.app[filter]) core.modules.app[filter](table, row);
+                        for (var i = 0; i < mapping.length-1; i+= 2) {
+                            row[mapping[i+1]] = row[mapping[i]];
+                            delete row[mapping[i]];
+                        }
+                        return { op: "put", table: table, obj: row, options: opts };
+                    }).filter((x) => (x));
+                    db.bulk(lines, opts, function(err, rc) {
+                        if (err && !opts.continue) return next2(err);
+                        opts.errors += rc.length;
                         db.checkCapacity(cap, next2);
                     });
                 }, next);
