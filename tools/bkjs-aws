@@ -207,8 +207,8 @@ case "$BKJS_CMD" in
     tag=$($0 ec2-tag)
     if [ ! -d $dir ]; then
         wget https://s3.amazonaws.com/amazoncloudwatch-agent/amazon_linux/amd64/latest/amazon-cloudwatch-agent.rpm
-        sudo rpm -i amazon-cloudwatch-agent.rpm
-        sudo rm amazon-cloudwatch-agent.rpm
+        rpm -i amazon-cloudwatch-agent.rpm
+        rm amazon-cloudwatch-agent.rpm
     fi
     for log in access.log message.log; do
         [ "$logs" != "" ] && logs="$logs,"
@@ -218,7 +218,8 @@ case "$BKJS_CMD" in
     echo " \"logs\": { \"logs_collected\": { \"files\": { \"collect_list\": [ $logs ] } }," >> $conf
     echo " \"log_stream_name\": \"$tag\" } }" >> $conf
     if [ "$(get_flag -restart)" != "" ]; then
-        sudo initctl restart amazon-cloudwatch-agent
+        initctl stop amazon-cloudwatch-agent
+        initctl start amazon-cloudwatch-agent
     fi
     ;;
 
