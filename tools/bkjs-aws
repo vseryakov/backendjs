@@ -200,6 +200,28 @@ case "$BKJS_CMD" in
     fi
     ;;
 
+  init-cloudwatch-agent)
+    dir=/opt/aws/amazon-cloudwatch-agent
+    conf=$dir/etc/amazon-cloudwatch-agent.json
+    user=$(get_arg -user ec2-user)
+    tag=$($0 ec2-tag)
+    if [ ! -d $dir ]; then
+        wget https://s3.amazonaws.com/amazoncloudwatch-agent/amazon_linux/amd64/latest/amazon-cloudwatch-agent.rpm
+        sudo rpm -i amazon-cloudwatch-agent.rpm
+        sudo rm amazon-cloudwatch-agent.rpm
+    fi
+    for log in access.log message.log; do
+        [ "$logs" != "" ] && logs="$logs,"
+        logs="$logs{ \"file_path\": \"/home/$user/log/$log\", \"log_group_name\": \"$log\", \"log_stream_name\": \"$tag-{ip_address}\", \"timestamp_format\": \"%Y-%m-%dT%H:%M:%S.%f%z\" }"
+    done
+    echo "{ \"agent\": { \"logfile\": \"/var/log/cwagent.log\" }," > $conf
+    echo " \"logs\": { \"logs_collected\": { \"files\": { \"collect_list\": [ $logs ] } }," >> $conf
+    echo " \"log_stream_name\": \"$tag\" } }" >> $conf
+    if [ "$(get_flag -restart)" != "" ]; then
+        sudo initctl restart amazon-cloudwatch-agent
+    fi
+    ;;
+
   help)
     echo ""
     echo "AWS provisioning commands using:"
@@ -215,6 +237,7 @@ case "$BKJS_CMD" in
     echo "  create-launch-config [-name NAME] - create new launch configuration from the latest AMI, if no -name is given all existing configs will be copied"
     echo "  create-launch-template-version [-name NAME] - create new launch template verson with the latest AMI, if no -name is given all existing templates will be updated"
     echo "  init-sendmail-ses - [-domain DOMAIN] -alert-host HOST -alert-user USER -alert-password PW - configure sendmail as relay to SES SMTP"
+    echo "  init-cloudwatch-agent [-restart] - install AWS Cloudwatch agent to send backend logs to Cloudwatch Logs"
     ;;
 
   *)
