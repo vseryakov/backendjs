@@ -9,9 +9,10 @@ case "$BKJS_CMD" in
   check-server)
     if [ "$OS_TYPE" = "amazon" ]; then
        region=$(curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone/|sed 's/[a-z]$//')
-       aws configure set region $region
-       [ "$(whoami)" = "root" ] && su ec2-user -c "aws configure set region $region"
-       $0 check-hostname
+       (aws configure set region $region)
+       ([ "$(whoami)" = "root" ] && su ec2-user -c "aws configure set region $region")
+       ($0 check-hostname)
+       ($0 check-cloudwatch-agent)
     fi
     ;;
 
@@ -202,25 +203,32 @@ case "$BKJS_CMD" in
 
   init-cloudwatch-agent)
     dir=/opt/aws/amazon-cloudwatch-agent
-    conf=$dir/etc/amazon-cloudwatch-agent.json
-    user=$(get_arg -user ec2-user)
-    tag=$($0 ec2-tag)
     if [ ! -d $dir ]; then
         wget https://s3.amazonaws.com/amazoncloudwatch-agent/amazon_linux/amd64/latest/amazon-cloudwatch-agent.rpm
         rpm -i amazon-cloudwatch-agent.rpm
         rm amazon-cloudwatch-agent.rpm
     fi
-    for log in access.log message.log; do
+    $0 check-cloudwatch-agent
+    ;;
+
+  check-cloudwatch-agent)
+    dir=/opt/aws/amazon-cloudwatch-agent
+    [ ! -d $dir ] && exit
+    tag=$($0 ec2-tag)
+    [ "$tag" = "" ] && exit
+    user=$(get_arg -user ec2-user)
+    files="access.log message.log $BKJS_CLOUDWATCH_LOGS"
+    for log in $files; do
         [ "$logs" != "" ] && logs="$logs,"
-        logs="$logs{ \"file_path\": \"/home/$user/log/$log\", \"log_group_name\": \"$log\", \"log_stream_name\": \"$tag-{ip_address}\", \"timestamp_format\": \"%Y-%m-%dT%H:%M:%S.%f%z\" }"
+        logs="$logs{ \"file_path\": \"/home/$user/log/$log\", \"log_group_name\": \"$log\", \"log_stream_name\": \"$tag\", \"multi_line_start_pattern\": \"^[^ \\t]\", \"timestamp_format\": \"%Y-%m-%dT%H:%M:%S.%f%z\" }"
     done
+    conf=$dir/etc/amazon-cloudwatch-agent.json
     echo "{ \"agent\": { \"logfile\": \"/var/log/cwagent.log\" }," > $conf
     echo " \"logs\": { \"logs_collected\": { \"files\": { \"collect_list\": [ $logs ] } }," >> $conf
     echo " \"log_stream_name\": \"$tag\" } }" >> $conf
-    if [ "$(get_flag -restart)" != "" ]; then
-        initctl stop amazon-cloudwatch-agent
-        initctl start amazon-cloudwatch-agent
-    fi
+    $dir/bin/config-translator --input $dir/etc/amazon-cloudwatch-agent.json --output $dir/etc/amazon-cloudwatch-agent.toml --mode "auto"
+    initctl stop amazon-cloudwatch-agent
+    initctl start amazon-cloudwatch-agent
     ;;
 
   help)

@@ -178,6 +178,11 @@ case "$BKJS_CMD" in
     done
     ;;
 
+  init-elasticsearch-cloudwatch-logs)
+    echo "BKJS_CLOUDWATCH_LOGS=elasticsearch.log" >> $BKJS_HOME/etc/profile
+    $0 init-cloudwatch-agent
+    ;;
+
   help)
     echo ""
     echo "Elasticsearch commands:"
@@ -188,6 +193,7 @@ case "$BKJS_CMD" in
     echo "  stop-elasticsearch - stop local ElasticSearch server"
     echo "  reset-elasticsearch - remove local ElasticSearch database and restart the server"
     echo "  init-elasticsearch-monit [-memsize PERCENT] [-memmax SIZE] [-nodetype TYPE] - setup monit to keep elasticsearch service running"
+    echo "  init-elasticsearch-cloudwatch-logs - setup elastichsearch.log to be sent to CloudWatch Logs"
     echo ""
     ;;
 

@@ -81,6 +81,7 @@ case "$BKJS_CMD" in
        grep -v HOSTNAME /etc/sysconfig/network >> /tmp/network
        mv /tmp/network /etc/sysconfig/network
     fi
+    service rsyslog restart
     ;;
 
   init-user)

@@ -191,14 +191,15 @@ find_user() {
 # Run the command by sourcing all scripts from tools folders, if $1 is not empty then
 # run all tools scripts, otherwise stop once the command is processed
 process_cmd() {
-  dirs="$BKJS_TOOLS $(get_arg -tools) $BKJS_HOME/tools $BKJS_HOME/node_modules/$BKJS_MOD/tools $(find_bkjs tools)"
+  dirs="$BKJS_TOOLS $(get_arg -tools) $BKJS_HOME/tools $(find_bkjs tools)"
+  [ ! -z "$(get_flag -debug)" ] && echo "process_cmd: $BKJS_CMD: $1 $dirs"
   for d in $dirs; do
      if [ -d $d ]; then
         for f in $(find $d -name 'bkjs-*'); do
             unset BKJS_UNKNOWN
             source $f
             if [ -z "$BKJS_UNKNOWN" ]; then
-                [ ! -z "$(get_flag -debug)" ] && echo "Processed: $BKJS_CMD: $f"
+                [ ! -z "$(get_flag -debug)" ] && echo "process_cmd: $BKJS_CMD: $1 $f: $BKJS_UNKNOWN"
                 [ -z "$1" ] && exit 0
             fi
         done
@@ -232,7 +233,7 @@ process_cmds() { process_cmd 1; }
 case "$BKJS_CMD" in
   start)
     cd $BKJS_HOME
-    $0 check-server
+    ($0 check-server)
     $0 run-${BKJS_SERVER:-master}
     ;;
 
@@ -289,6 +290,7 @@ case "$BKJS_CMD" in
     fi
     find_user
     chown -R $BKJS_USER $BKJS_HOME/etc $BKJS_HOME/var $BKJS_HOME/log
+    exit 0
     ;;
 
   check-adhoc)
