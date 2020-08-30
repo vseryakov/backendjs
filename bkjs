@@ -137,7 +137,7 @@ get_local_config() {
 
 # Local IP address, not localhost
 get_local_ip() {
-  echo $(/sbin/ifconfig eth${1:-0}|grep -o -E 'inet addr:[0-9.]+'|awk -F: '{print $2}')
+  echo $(/sbin/ifconfig eth${1:-0}|grep -o -E '(inet [0-9.]+|inet addr:[0-9.]+)'|tr : ' '|awk -F: '{print $NF}')
 }
 
 # Return the value for a property from a json file: get_json file.json name fallback
