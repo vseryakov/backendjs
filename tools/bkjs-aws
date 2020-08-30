@@ -7,7 +7,7 @@
 case "$BKJS_CMD" in
 
   check-server)
-    if [ "$OS_TYPE" = "amazon" ]; then
+    if [[ $OS_TYPE =~ amazon ]]; then
        region=$(curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone/|sed 's/[a-z]$//')
        (aws configure set region $region)
        ([ "$(whoami)" = "root" ] && su ec2-user -c "aws configure set region $region")
