@@ -241,7 +241,7 @@ process_cmds() { process_cmd 1; }
 case "$BKJS_CMD" in
   start)
     cd $BKJS_HOME
-    ($0 check-server)
+    ([[ $(whoami) = root ]] && $0 check-server)
     $0 run-${BKJS_SERVER:-master}
     ;;
 
@@ -285,7 +285,6 @@ case "$BKJS_CMD" in
     ;;
 
   check-server)
-    [ "$(whoami)" != "root" ] && echo "run as root please" && exit
     # Setup domain from the config, keep the hostname as it is, for EC2 instances it is the IP address
     domain=$(get_arg -domain $BKJS_DOMAIN)
     [ "$domain" != "" ] && $0 init-hostname -domain $domain

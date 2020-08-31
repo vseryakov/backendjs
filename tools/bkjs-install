@@ -84,6 +84,7 @@ case "$BKJS_CMD" in
        mv /tmp/network /etc/sysconfig/network
     fi
     service rsyslog restart
+    monit reload
     ;;
 
   init-user)
@@ -204,14 +205,10 @@ case "$BKJS_CMD" in
        case "$OS_TYPE" in
         amazon2)
           echo '$ModLoad imjournal' >> /etc/rsyslog.conf
-          echo '$OmitLocalLogging on' >> /etc/rsyslog.conf
-          echo '$IMJournalStateFile imjournal.state' >> /etc/rsyslog.conf
-          echo '*.emerg :omusrmsg:*' >> /etc/rsyslog.conf
           ;;
 
         *)
           echo '$ModLoad imklog' >> /etc/rsyslog.conf
-          echo 'kern.*,*.emerg /dev/console' >> /etc/rsyslog.conf
           ;;
        esac
        echo '$ModLoad imuxsock' >> /etc/rsyslog.conf
@@ -223,6 +220,17 @@ case "$BKJS_CMD" in
        echo '$SystemLogRateLimitInterval 1' >> /etc/rsyslog.conf
        echo '$SystemLogRateLimitBurst 10000' >> /etc/rsyslog.conf
        echo '$ActionFileDefaultTemplate RSYSLOG_FileFormat' >> /etc/rsyslog.conf
+       case "$OS_TYPE" in
+        amazon2)
+          echo '$OmitLocalLogging on' >> /etc/rsyslog.conf
+          echo '$IMJournalStateFile imjournal.state' >> /etc/rsyslog.conf
+          echo '*.emerg :omusrmsg:*' >> /etc/rsyslog.conf
+          ;;
+
+        *)
+          echo 'kern.*,*.emerg /dev/console' >> /etc/rsyslog.conf
+          ;;
+       esac
        echo '$IncludeConfig /etc/rsyslog.d/*.conf' >> /etc/rsyslog.conf
        echo 'cron.* /var/log/cron' >> /etc/rsyslog.conf
        echo 'local7.* /var/log/boot.log' >> /etc/rsyslog.conf

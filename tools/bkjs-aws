@@ -10,13 +10,14 @@ case "$BKJS_CMD" in
     if [[ $OS_TYPE =~ amazon ]]; then
        region=$(curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone/|sed 's/[a-z]$//')
        (aws configure set region $region)
-       ([ "$(whoami)" = "root" ] && su ec2-user -c "aws configure set region $region")
-       ($0 check-hostname)
+       ([[ $(whoami) = root ]] && su ec2-user -c "aws configure set region $region")
+       ($0 check-ec2-storage)
+       ($0 check-ec2-hostname)
        ($0 check-cloudwatch-agent)
     fi
     ;;
 
-  check-hostname)
+  check-ec2-hostname)
     addr=$(get_local_ip)
     [ "$addr" = "" ] && echo "No IP address found" && exit
     $0 init-hostname -host ip-$(echo $addr|sed 's/\./-/g')
@@ -234,6 +235,38 @@ case "$BKJS_CMD" in
         initctl start amazon-cloudwatch-agent
         ;;
     esac
+    ;;
+
+  check-ec2-storage)
+    user=$(get_arg -user ec2-user)
+    mnt=$(get_arg -mnt /home/$user/data)
+    dev=$(grep $mnt /etc/fstab|cut -f1 -d' ')
+    if [ "$dev" = "" ]; then
+       echo $mnt not in /etc/fstab
+       exit
+    fi
+    stat $dev
+    [  "$?" != "0" ] && exit
+    mountpoint -q $mnt
+    if [  "$?" = "0" ]; then
+       echo $mnt already mounted
+       exit
+    fi
+    fs=$(blkid |grep $dev)
+    if [ "$fs" != "" ]; then
+       echo mounting $dev to $mnt
+       mount -a
+    else
+       echo creating $mnt on $dev
+       mkdir -p $mnt
+       mkfs.xfs $dev
+       mount -a
+       mkdir -p $mnt/log $mnt/var
+       chown -R $user $mnt
+       ln -sf $mnt/log /home/$user/log
+       ln -sf $mnt/var /home/$user/var
+    fi
+    service rsyslog restart
     ;;
 
   help)
