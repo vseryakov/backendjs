@@ -197,7 +197,9 @@ case "$BKJS_CMD" in
   init-cloudwatch-agent)
     dir=/opt/aws/amazon-cloudwatch-agent
     if [ ! -d $dir ]; then
-        wget https://s3.amazonaws.com/amazoncloudwatch-agent/amazon_linux/amd64/latest/amazon-cloudwatch-agent.rpm
+        arch=$OS_ARCH
+        [ "$arch" = "x64" ] && arch=amd64
+        wget https://s3.amazonaws.com/amazoncloudwatch-agent/amazon_linux/$arch/latest/amazon-cloudwatch-agent.rpm
         rpm -i amazon-cloudwatch-agent.rpm
         rm amazon-cloudwatch-agent.rpm
     fi
@@ -220,8 +222,18 @@ case "$BKJS_CMD" in
     echo " \"logs\": { \"logs_collected\": { \"files\": { \"collect_list\": [ $logs ] } }," >> $conf
     echo " \"log_stream_name\": \"$tag\" } }" >> $conf
     $dir/bin/config-translator --input $dir/etc/amazon-cloudwatch-agent.json --output $dir/etc/amazon-cloudwatch-agent.toml --mode "auto"
-    initctl stop amazon-cloudwatch-agent
-    initctl start amazon-cloudwatch-agent
+    case "$OS_TYPE" in
+      amazon2)
+        systemctl enable amazon-cloudwatch-agent
+        systemctl stop amazon-cloudwatch-agent
+        systemctl start amazon-cloudwatch-agent
+        ;;
+
+      *)
+        initctl stop amazon-cloudwatch-agent
+        initctl start amazon-cloudwatch-agent
+        ;;
+    esac
     ;;
 
   help)

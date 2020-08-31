@@ -22,6 +22,14 @@ case "$PLATFORM" in
          OS_TYPE=amazon2
          ;;
     esac
+    case "$(uname -m)" in
+     aarch64)
+         OS_ARCH=arm64
+         ;;
+     *)
+         OS_ARCH=x64
+         ;;
+    esac
     [ -f /etc/sysconfig/$BKJS ] && . /etc/sysconfig/$BKJS
     ECHO="echo -e"
     SED="sed -r -i"
@@ -586,14 +594,7 @@ case "$BKJS_CMD" in
     [ -f $BKJS_PREFIX/bin/node ] && exit 0
     mkdir -p $BKJS_PREFIX
     if [ "$PLATFORM" = "Linux" ]; then
-       case "$(uname -m)" in
-        aarch64)
-          arch=arm64
-          ;;
-        *)
-          arch=x64
-       esac
-       curl -L -o node.tar.xz https://nodejs.org/dist/$ver/node-$ver-linux-$arch.tar.xz
+       curl -L -o node.tar.xz https://nodejs.org/dist/$ver/node-$ver-linux-$OS_ARCH.tar.xz
        [ "$?" != "0" ] && exit 1
        xz -d node.tar.xz
        tar -C $BKJS_PREFIX --strip-components=1 -xf node.tar
