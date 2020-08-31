@@ -29,6 +29,8 @@ case "$BKJS_CMD" in
 
   install-ec2)
     $0 install -user ec2-user -home /home/ec2-user -prefix /home/ec2-user $(get_all_args "-user -home -prefix")
+    $0 init-service
+    $0 shell -show-info -db-create-tables
     ;;
 
   init-server)
