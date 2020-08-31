@@ -121,16 +121,9 @@ case "$BKJS_CMD" in
     [ "$tag" != "" ] && instance_id=$(bkjs ec2-show -tag $tag -fmt id | head -1)
     instance_id=$(get_arg -instance-id $instance_id)
     [ "$(uname -s)" = "Linux" ] && echo 1 > $HOME/var/bkjs.init
-    bksh -aws-create-image -wait -instance-id $instance_id
-    rm -f $HOME/var/bkjs.init
-    ;;
-
-  create-launch-config)
     name=$(get_arg -name)
-    if [ -z "$name" ]; then
-       name=$(aws autoscaling describe-launch-configurations --query 'LaunchConfigurations[*].LaunchConfigurationName' --output text|sed 's/[0-9\.-]//g'|sed 's/\t/\n/g'|sort|uniq)
-    fi
-    for c in $name; do bksh -aws-create-launch-config -config-name $c -update-groups; done
+    bksh -aws-create-image -wait -instance-id $instance_id -name "$name"
+    rm -f $HOME/var/bkjs.init
     ;;
 
   create-launch-template-version)
@@ -243,7 +236,6 @@ case "$BKJS_CMD" in
     echo "  ec2-tag [-tag NAME] - current instance tag name, default key is Name"
     echo "  ec2-stop-api [-tag NAME] - restart gracefully on the specified instances by tag"
     echo "  create-ami [-tag NAME] - create a new AMI from the given running instance by tag or the current instance"
-    echo "  create-launch-config [-name NAME] - create new launch configuration from the latest AMI, if no -name is given all existing configs will be copied"
     echo "  create-launch-template-version [-name NAME] - create new launch template verson with the latest AMI, if no -name is given all existing templates will be updated"
     echo "  init-sendmail-ses - [-domain DOMAIN] -alert-host HOST -alert-user USER -alert-password PW - configure sendmail as relay to SES SMTP"
     echo "  init-cloudwatch-agent [-restart] - install AWS Cloudwatch agent to send backend logs to Cloudwatch Logs"
