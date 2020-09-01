@@ -121,18 +121,25 @@ case "$BKJS_CMD" in
     tag=$(get_arg -tag)
     [ "$tag" != "" ] && instance_id=$(bkjs ec2-show -tag $tag -fmt id | head -1)
     instance_id=$(get_arg -instance-id $instance_id)
-    [ "$(uname -s)" = "Linux" ] && echo 1 > $HOME/var/bkjs.init
+    [ "$PLATFORM" = "Linux" ] && echo 1 > $HOME/var/bkjs.init
     name=$(get_arg -name)
-    bksh -aws-create-image -wait -instance-id $instance_id -name "$name"
+    prefix=$(get_arg -prefix)
+    bksh -aws-create-image -wait -instance-id $instance_id -name "$name" -prefix "$prefix"
     rm -f $HOME/var/bkjs.init
     ;;
 
   create-launch-template-version)
     name=$(get_arg -name)
+    skip=$(get_arg -skip)
     if [ -z "$name" ]; then
        name=$(aws ec2 describe-launch-templates --query 'LaunchTemplates[*].LaunchTemplateName' --output text|sed 's/\t/\n/g'|sort|uniq)
     fi
-    for c in $name; do bksh -aws-create-launch-template-version -name $c; done
+    for c in $name; do
+        if [ ! -z $skip ]; then
+            [[ $c =~ $skip ]] && continue
+        fi
+        echo bksh -aws-create-launch-template-version -name $c
+    done
     ;;
 
   init-sendmail-ses)
@@ -281,7 +288,7 @@ case "$BKJS_CMD" in
     echo "  ec2-tag [-tag NAME] - current instance tag name, default key is Name"
     echo "  ec2-stop-api [-tag NAME] - restart gracefully on the specified instances by tag"
     echo "  create-ami [-tag NAME] - create a new AMI from the given running instance by tag or the current instance"
-    echo "  create-launch-template-version [-name NAME] - create new launch template verson with the latest AMI, if no -name is given all existing templates will be updated"
+    echo "  create-launch-template-version [-name NAME] [-skip A|B] - create new launch template verson with the latest AMI, if no -name is given all existing templates will be updated"
     echo "  init-sendmail-ses - [-domain DOMAIN] -alert-host HOST -alert-user USER -alert-password PW - configure sendmail as relay to SES SMTP"
     echo "  init-cloudwatch-agent [-restart] - install AWS Cloudwatch agent to send backend logs to Cloudwatch Logs"
     ;;

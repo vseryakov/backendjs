@@ -23,7 +23,7 @@ shell.help.push("-aws-terminate-instances -filter PATTERN [-count NUM] [-dry-run
 shell.help.push("-aws-show-instances [-filter PATTERN] [-show-ip] - show running instances by tag pattern");
 shell.help.push("-aws-setup-ssh -group-name NAME [-close] [-dry-run]");
 shell.help.push("-aws-setup-instance [-cmd CMD] [-file FILE ] [-wait] [-dry-run]");
-shell.help.push("-aws-create-launch-template-version -name NAME [-version N] [-default] [-dry-run] - create a launch template version with the most recent AMI");
+shell.help.push("-aws-create-launch-template-version -name NAME [-image-name *] [-version N] [-default] [-dry-run] - create a launch template version with the most recent AMI");
 shell.help.push("-aws-set-route53 -name HOSTNAME [-current] [-filter PATTERN] [-type A|CNAME] [-ttl N] [-public] [-dry-run] - create or update a Route53 record of specified type with IP/hostnames of all instances that satisfy the given filter, -public makes it use public IP/hostnames");
 shell.help.push("-aws-check-cfn -file FILE - verify a CF template");
 shell.help.push("-aws-create-cfn -name NAME -file FILE [-aws-region REGION] [-retain] [-wait] [-PARAM VALUE] ...");
@@ -355,6 +355,7 @@ shell.cmdAwsDeleteImage = function(options)
 shell.cmdAwsCreateImage = function(options)
 {
     options.name = this.getArg("-name", options);
+    options.prefix = this.getArg("-prefix", options);
     options.descr = this.getArg("-descr", options);
     options.instanceId = this.getArg("-instance-id", options);
     options.noreboot = this.isArg("-no-reboot", options);
