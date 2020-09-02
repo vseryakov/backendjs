@@ -142,9 +142,10 @@ case "$BKJS_CMD" in
        name=$(aws ec2 describe-launch-templates --query 'LaunchTemplates[*].LaunchTemplateName' --output text|sed 's/\t/\n/g'|sort|uniq)
     fi
     for c in $name; do
-        if [ ! -z $skip ]; then
-            [[ $c =~ $skip ]] && continue
-        fi
+        for s in $skip; do
+            [ "$c" = "$s" ] && c=""
+        done
+        [ -z $c ] && continue
         bksh -no-db -aws-create-launch-template-version -name $c -image-name "$image"
     done
     ;;
@@ -295,7 +296,7 @@ case "$BKJS_CMD" in
     echo "  ec2-tag [-tag NAME] - current instance tag name, default key is Name"
     echo "  ec2-stop-api [-tag NAME] - restart gracefully on the specified instances by tag"
     echo "  create-ami [-tag NAME] [-prefix PREFIX] - create a new AMI from the given running instance by tag or the current instance"
-    echo "  create-launch-template-version [-name NAME] [-skip A|B] [-image-name *] - create new launch template verson with the latest AMI, if no -name is given all existing templates will be updated"
+    echo "  create-launch-template-version [-name NAME] [-skip A B] [-image-name *] - create new launch template verson with the latest AMI, if no -name is given all existing templates will be updated"
     echo "  init-sendmail-ses - [-domain DOMAIN] -alert-host HOST -alert-user USER -alert-password PW - configure sendmail as relay to SES SMTP"
     echo "  init-cloudwatch-agent [-restart] - install AWS Cloudwatch agent to send backend logs to Cloudwatch Logs"
     ;;
