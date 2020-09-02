@@ -37,13 +37,15 @@ case "$BKJS_CMD" in
     region=$(get_arg -region)
     [ "$region" != "" ] && region="--region $region"
     tag=$(get_arg -tag)
-    [ "$tag" != "" -a "$tag" != "." ] && tags="Name=tag:Name,Values=${tag}"
-    instances=$(aws ec2 describe-instances $region --filter "Name=instance-state-name,Values=running" $tags --query 'Reservations[*].Instances[*].[InstanceId,PrivateIpAddress,PublicIpAddress,KeyName,Tags[?Key==`Name`]]' --output text|awk '{if($4=="None")print $0;else if($1=="Name")print $2;else printf "%s\t",$0;}')
+    [ "$tag" != "" -a "$tag" != "." ] && filter="Name=tag:Name,Values=${tag}"
+    arch=$(get_arg -arch)
+    [ "$arch" != "" -a "$arch" != "." ] && filter="Name=architecture,Values=${arch}"
+    instances=$(aws ec2 describe-instances $region --filter "Name=instance-state-name,Values=running" $filter --query 'Reservations[*].Instances[*].[InstanceId,PrivateIpAddress,PublicIpAddress,KeyName,Architecture,Tags[?Key==`Name`]]' --output text|awk '{if($4=="None")print $0;else if($1=="Name")print $2;else printf "%s\t",$0;}')
     skip=$(get_arg -skip-tag)
     [ "$skip" != "" ] && instances=$(echo "$instances"|grep -v -F "$(echo "$skip"| tr ',' '\n')")
     [ "$PLATFORM" = "Linux" -a "$(get_flag -nomyip)" != "" ] && instances=$(echo "$instances"|grep -v -F $(get_local_ip))
     fmt=$(get_arg -fmt)
-    [ "$fmt" != "" ] && instances=$(echo "$instances"|awk "{print $(echo $fmt|sed -e 's/id/\$1/' -e 's/ip/\$2/' -e 's/host/\$3/' -e 's/key/\$4/' -e 's/name/\$5/')}")
+    [ "$fmt" != "" ] && instances=$(echo "$instances"|awk "{print $(echo $fmt|sed -e 's/id/\$1/' -e 's/ip/\$2/' -e 's/host/\$3/' -e 's/key/\$4/' -e 's/arch/\$5/' -e 's/name/\$6/')}")
     if [ "$(get_flag -line)" != "" ]; then
        echo "$instances" | tr '\n' ' '
     else
@@ -121,16 +123,21 @@ case "$BKJS_CMD" in
     tag=$(get_arg -tag)
     [ "$tag" != "" ] && instance_id=$(bkjs ec2-show -tag $tag -fmt id | head -1)
     instance_id=$(get_arg -instance-id $instance_id)
-    [ "$PLATFORM" = "Linux" ] && echo 1 > $HOME/var/bkjs.init
+    if [ -z $instance_id ]; then
+        echo 1 > $HOME/var/bkjs.init
+        rm -f $HOME/var/bkjs.tag
+        sync
+    fi
     name=$(get_arg -name)
     prefix=$(get_arg -prefix)
-    bksh -aws-create-image -wait -instance-id $instance_id -name "$name" -prefix "$prefix"
-    rm -f $HOME/var/bkjs.init
+    bksh -no-db -aws-create-image -wait -instance-id $instance_id -name "$name" -prefix "$prefix"
+    [ -z $instance_id ] && rm -f $HOME/var/bkjs.init
     ;;
 
   create-launch-template-version)
     name=$(get_arg -name)
     skip=$(get_arg -skip)
+    image=$(get_arg -image-name)
     if [ -z "$name" ]; then
        name=$(aws ec2 describe-launch-templates --query 'LaunchTemplates[*].LaunchTemplateName' --output text|sed 's/\t/\n/g'|sort|uniq)
     fi
@@ -138,7 +145,7 @@ case "$BKJS_CMD" in
         if [ ! -z $skip ]; then
             [[ $c =~ $skip ]] && continue
         fi
-        bksh -aws-create-launch-template-version -name $c
+        bksh -no-db -aws-create-launch-template-version -name $c -image-name "$image"
     done
     ;;
 
@@ -280,15 +287,15 @@ case "$BKJS_CMD" in
     echo ""
     echo "AWS provisioning commands using:"
     echo ""
-    echo "  ec2-show [-region region] [-tag NAME] [-skip-tag NAME] [-nomyip] [-line] [-fmt fmt]- show running instances in region, optional tag pattern can be used for filter, FMT may contain: id,ip,host,key,name which will be replaced with actual values"
+    echo "  ec2-show [-region region] [-tag NAME] [-skip-tag NAME] [-nomyip] [-line] [-fmt fmt]- show running instances in region, optional tag pattern can be used for filter, FMT may contain: id,ip,host,key,name,arch which will be replaced with actual values"
     echo "  ec2-run -tag NAME [-id ID] -cmd cmd [-region  region] [-user NAME] - run a command over SSM by tag name or instance id, if -tag or -id one is 'all' then all instances will run the command"
     echo "  ec2-ssh -tag NAME [-region region] [-pub] [-cmd cmd] [-index N|.] - ssh into a host by tag name, key name will be used to specify a keypair from ~/.ssh/, -pub tells to use public IP, -cmd if specified will be run on all matched hosts, -index tell which specific host to use only, dot means all hosts"
     echo "  ec2-host [-tag NAME] [-skip-tag NAME] - show running instances local IP addresses by tag"
     echo "  ec2-region - current instance region"
     echo "  ec2-tag [-tag NAME] - current instance tag name, default key is Name"
     echo "  ec2-stop-api [-tag NAME] - restart gracefully on the specified instances by tag"
-    echo "  create-ami [-tag NAME] - create a new AMI from the given running instance by tag or the current instance"
-    echo "  create-launch-template-version [-name NAME] [-skip A|B] - create new launch template verson with the latest AMI, if no -name is given all existing templates will be updated"
+    echo "  create-ami [-tag NAME] [-prefix PREFIX] - create a new AMI from the given running instance by tag or the current instance"
+    echo "  create-launch-template-version [-name NAME] [-skip A|B] [-image-name *] - create new launch template verson with the latest AMI, if no -name is given all existing templates will be updated"
     echo "  init-sendmail-ses - [-domain DOMAIN] -alert-host HOST -alert-user USER -alert-password PW - configure sendmail as relay to SES SMTP"
     echo "  init-cloudwatch-agent [-restart] - install AWS Cloudwatch agent to send backend logs to Cloudwatch Logs"
     ;;
