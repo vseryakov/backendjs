@@ -123,13 +123,16 @@ case "$BKJS_CMD" in
        echo 'alias ps="ps augx"' >> $LHOME/.bashrc
        echo 'alias mc="mc -b"' >> $LHOME/.bashrc
        echo 'alias df="df -h"' >> $LHOME/.bashrc
-       echo 'alias als="bkjs ec2-ls"' >> $LHOME/.bashrc
+       echo 'alias bkls="bkjs ec2-ls"' >> $LHOME/.bashrc
+       echo 'alias bkami="rm \$HOME/var/bkjs.tag && sync && bkjs create-ami && bkjs create-launch-template-version"' >> $LHOME/.bashrc
        echo 'bcp() { socat readline,history=$HOME/.socat tcp4:localhost:$1; }' >> $LHOME/.bashrc
        echo 'ec2ssh() { ssh -i ~/.ssh/$2.pem -l ec2-user $1 $3; }' >> $LHOME/.bashrc
        echo 'ec2scp() { scp -r -i ~/.ssh/$3.pem $1 ec2-user@$2; }' >> $LHOME/.bashrc
-       echo 'bkssh() { bkjs ec2-ssh -tag "$1" -index "$2" -cmd "$3" -skip-tag staging; }' >> $LHOME/.bashrc
-       echo 'bkstop() { bkjs ec2-ssh -tag ${1-api} -index "$2" -cmd "bkjs stop-${3-api}" -skip-tag staging; }' >> $LHOME/.bashrc
-       echo 'bksync() { (cd $HOME/node_modules/$1 && bkjs sync -host $(bkjs ec2-host -tag ${2-api} -skip-tag staging)); }' >> $LHOME/.bashrc
+       echo 'bkssh() { bkjs ec2-ssh -tag "$1" -index "$2" -cmd "$3" -skip-tag dev,staging; }' >> $LHOME/.bashrc
+       echo 'bkstop() { bkjs ec2-ssh -tag ${1-api} -index "$2" -cmd "bkjs stop-${3-api}" -skip-tag dev,staging; }' >> $LHOME/.bashrc
+       echo 'bksync() { (cd $HOME/node_modules/$1 && bkjs sync -host $(bkjs ec2-host -tag ${2-api} -skip-tag dev,staging)); }' >> $LHOME/.bashrc
+       echo 'bkw() { bkssh ${1-api} "" "w"; }' >> $LHOME/.bashrc
+       echo "PROMPT_COMMAND='printf \"\\033]0;\$(cat \$HOME/var/bkjs.tag)\\007\"'" >> $LHOME/.bashrc
        echo '[ ! -s ~/var/bkjs.tag ] && bkjs ec2-tag > ~/var/bkjs.tag' >> $LHOME/.bash_profile
        echo '[ -s ~/var/bkjs.tag ] && export PS1=$(cat ~/var/bkjs.tag)' >> $LHOME/.bash_profile
     fi
