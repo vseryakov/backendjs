@@ -138,38 +138,48 @@ shell.cmdDbBackup = function(options)
     var concurrency = this.getArgInt("-concurrency", options, 2);
     var incremental = this.getArgInt("-incremental", options);
     var progress = this.getArgInt("-progress", options);
+    var segments = this.getArgInt("-segments", options);
+    var parallel = lib.strSplit(this.getArg("-parallel", options));
     opts.fullscan = this.getArgInt("-fullscan", options, 1);
     opts.scanRetry = this.getArgInt("-scanRetry", options, 1);
+    opts.batch = 1;
     if (!opts.useCapacity) opts.useCapacity = "read";
     if (!opts.factorCapacity) opts.factorCapacity = 0.5;
     if (table) tables.push(table);
     if (!tables.length) tables = db.getPoolTables(db.pool, { names: 1 });
     lib.forEachLimit(tables, concurrency, function(table, next) {
         if (skip.indexOf(table) > -1) return next();
+        var opts2 = lib.objClone(opts, "nrows", 0, "parts", [""]);
         var file = path.join(root, `${table}${suffix}.json`);
         if (incremental > 0) {
             var lines = lib.readFileSync(file, { offset: -incremental, list: "\n" });
             for (var i = lines.length - 1; i >= 0; i--) {
                 var line = lib.jsonParse(lines[i]);
-                if (line) opts.start = db.getSearchQuery(table, line);
-                if (opts.start && Object.keys(opts.start).length) break;
-                delete opts.start;
+                if (line) opts2.start = db.getSearchQuery(table, line);
+                if (opts2.start && Object.keys(opts.start).length) break;
+                delete opts2.start;
             }
         } else {
-            delete opts.start;
+            delete opts2.start;
             fs.writeFileSync(file, "");
         }
-        db.scan(table, query, opts, function(row, next2) {
-            if (filter && core.modules.app[filter]) core.modules.app[filter](table, row);
-            fs.appendFileSync(file, JSON.stringify(row) + "\n");
-            if (progress && opts.nrows % progress == 0) logger.info("cmdDbBackup:", table, opts.nrows, "records");
-            next2();
-        }, function(err) {
-            if (err) logger.error("cmdDbBackup:", table, err);
-            next();
-        });
+        if (segments > 1 && parallel.indexOf(table) > -1) {
+            opts2.parts = [];
+            for (let i = 0; i < segments; i++) opts2.parts.push(i);
+        }
+        lib.forEach(opts2.parts, (n, next2) => {
+            var opts3 = typeof n == "number" ? lib.objClone(opts2, "Segment", n, "TotalSegments", segments) : opts2;
+            db.scan(table, query, opts3, function(rows, next3) {
+                opts3.nrows += rows.length;
+                if (progress && opts3.nrows % progress == 0) logger.info("cmdDbBackup:", table, n, opts3.nrows, "records");
+                if (filter && core.modules.app[filter]) core.modules.app[filter](table, rows, opts3);
+                fs.appendFile(file, rows.map((x) => (JSON.stringify(x))).join("\n") + "\n", next3);
+            }, function(err) {
+                logger.logger(err ? "error" : "info", "cmdDbBackup:", table, err, opts3);
+                next2();
+            });
+        }, next);
     }, function(err) {
-        logger.info("cmdDbBackup:", root, tables, opts);
         shell.exit(err);
     });
 }
@@ -256,6 +266,7 @@ shell.cmdDbRestore = function(options)
                         }
                         return { op: "put", table: table, obj: row, options: opts };
                     }).filter((x) => (x));
+                    if (progress && opts.nlines % progress == 0) logger.info("cmdDbRestore:", table, opts.nlines, "records");
                     db.bulk(lines, opts, function(err, rc) {
                         if (err && !opts.continue) return next2(err);
                         opts.errors += rc.length;
