@@ -16,7 +16,7 @@ case "$BKJS_CMD" in
           arm64)
             platform="$platform-aarch64"
             ;;
-          x64)
+          *)
             platform="$platform-x86_64"
             ;;
         esac
