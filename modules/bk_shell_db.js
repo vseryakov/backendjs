@@ -21,7 +21,7 @@ shell.help.push("-db-update -table TABLE name VALUE ... - update a record in the
 shell.help.push("-db-del -table TABLE name VALUE ... - delete a record from the table, name value pairs must define a primary key for the table");
 shell.help.push("-db-del-all -table TABLE name VALUE ... - delete all records from the table that match the search criteria, name value pairs must define a primary key for the table");
 shell.help.push("-db-drop -table TABLE name [-nowait] - drop a table");
-shell.help.push("-db-backup [-path PATH] [-tables LIST] [-skip LIST] - save tables into json files in the home or specified path");
+shell.help.push("-db-backup [-path PATH] [-tables LIST] [-skip LIST] [-parallel-tables LIST] [-parallel-jobs N] [-progress N] [-concurrency N] [-file-suffix TEXT] - save tables into json files in the home or specified path");
 shell.help.push("-db-restore [-path PATH] [-tables LIST] [-skip LIST] [-mapping ID1,ID2...] [-bulk N] [-drop] [-continue] [-progress N] [-op add|update|put] [-noexit] [-exitdelay MS] - restore tables from json files located in the home or specified path");
 
 // Show all config parameters
@@ -132,14 +132,14 @@ shell.cmdDbBackup = function(options)
     var root = this.getArg("-path", options);
     var filter = this.getArg("-filter", options);
     var table = this.getArg("-table", options);
-    var suffix = this.getArg("-suffix", options);
+    var suffix = this.getArg("-file-suffix", options);
     var tables = lib.strSplit(this.getArg("-tables", options));
     var skip = lib.strSplit(this.getArg("-skip", options));
     var concurrency = this.getArgInt("-concurrency", options, 2);
     var incremental = this.getArgInt("-incremental", options);
     var progress = this.getArgInt("-progress", options);
-    var segments = this.getArgInt("-segments", options);
-    var parallel = lib.strSplit(this.getArg("-parallel", options));
+    var jobs = this.getArgInt("-parallel-jobs", options);
+    var parallel = lib.strSplit(this.getArg("-parallel-tables", options));
     opts.fullscan = this.getArgInt("-fullscan", options, 1);
     opts.scanRetry = this.getArgInt("-scanRetry", options, 1);
     opts.batch = 1;
@@ -163,15 +163,15 @@ shell.cmdDbBackup = function(options)
             delete opts2.start;
             fs.writeFileSync(file, "");
         }
-        if (segments > 1 && parallel.indexOf(table) > -1) {
+        if (jobs > 1 && parallel.indexOf(table) > -1) {
             opts2.parts = [];
-            for (let i = 0; i < segments; i++) opts2.parts.push(i);
+            for (let i = 0; i < jobs; i++) opts2.parts.push(i);
         }
         lib.forEach(opts2.parts, (n, next2) => {
-            var opts3 = typeof n == "number" ? lib.objClone(opts2, "Segment", n, "TotalSegments", segments) : opts2;
+            var opts3 = typeof n == "number" ? lib.objClone(opts2, "Segment", n, "TotalSegments", jobs) : opts2;
             db.scan(table, query, opts3, function(rows, next3) {
                 opts3.nrows += rows.length;
-                if (progress && opts3.nrows % progress == 0) logger.info("cmdDbBackup:", table, n, opts3.nrows, "records");
+                if (progress && opts3.nrows % progress == 0) logger.info("cmdDbBackup:", table, n ? "job" + n : "", opts3.nrows, "records");
                 if (filter && core.modules.app[filter]) core.modules.app[filter](table, rows, opts3);
                 fs.appendFile(file, rows.map((x) => (JSON.stringify(x))).join("\n") + "\n", next3);
             }, function(err) {
