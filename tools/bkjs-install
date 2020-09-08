@@ -279,22 +279,26 @@ case "$BKJS_CMD" in
   init-limits)
     # File handles and coredumps for debugging
     conf=/etc/security/limits.d/90-$BKJS.conf
-    [ -s $conf ] && exit
-    echo "Configuring limits..."
-    echo '* soft core unlimited' > $conf
-    echo '* hard core unlimited' >> $conf
-    echo '* soft nofile 512000' >> $conf
-    echo '* hard nofile 512000' >> $conf
-    echo 'root soft nofile 512000' >> $conf
-    echo 'root hard nofile 512000' >> $conf
-    echo '* soft memlock unlimited' >> $conf
-    echo '* hard memlock unlimited' >> $conf
-    echo 'root soft memlock unlimited' >> $conf
-    echo 'root hard memlock unlimited' >> $conf
-    echo '* soft as unlimited' >> $conf
-    echo '* hard as unlimited' >> $conf
-    echo 'root soft as unlimited' >> $conf
-    echo 'root hard as unlimited' >> $conf
+    if [ ! -s $conf ]; then
+        echo "Configuring limits..."
+        echo '* soft core unlimited' > $conf
+        echo '* hard core unlimited' >> $conf
+        echo '* soft nofile 512000' >> $conf
+        echo '* hard nofile 512000' >> $conf
+        echo 'root soft nofile 512000' >> $conf
+        echo 'root hard nofile 512000' >> $conf
+        echo '* soft memlock unlimited' >> $conf
+        echo '* hard memlock unlimited' >> $conf
+        echo 'root soft memlock unlimited' >> $conf
+        echo 'root hard memlock unlimited' >> $conf
+        echo '* soft as unlimited' >> $conf
+        echo '* hard as unlimited' >> $conf
+        echo 'root soft as unlimited' >> $conf
+        echo 'root hard as unlimited' >> $conf
+    fi
+    if [ "$OS_TYPE" = "amazon2" ]; then
+        sed -i -E 's/^#?DefaultLimitNOFILE=.*$/DefaultLimitNOFILE=512000/' /etc/systemd/system.conf
+    fi
     ;;
 
   init-sysctl)
