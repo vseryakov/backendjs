@@ -268,7 +268,9 @@ case "$BKJS_CMD" in
        echo $mnt already mounted
        exit
     fi
-    mkdir -p $mnt/log $mnt/var
+    cd /home/$user
+    ln -sf $mnt/log
+    ln -sf $mnt/var
     fs=$(blkid |grep $dev)
     if [ "$fs" != "" ]; then
        echo mounting $dev to $mnt
@@ -278,9 +280,8 @@ case "$BKJS_CMD" in
        mkfs.xfs $dev
        mount -a
     fi
+    mkdir -p $mnt/log $mnt/var
     chown -R $user $mnt
-    ln -sf $mnt/log /home/$user/log
-    ln -sf $mnt/var /home/$user/var
     service rsyslog restart
     ;;
 
