@@ -25,12 +25,11 @@ case "$BKJS_CMD" in
     [ "$BKJS_BIN" = "" ] && sudo -H -u $BKJS_USER $0 install-bkjs -deps "$(get_arg -deps)" -tools "$(get_arg -tools)"
     (cd $BKJS_HOME/bin && ln -sf ../node_modules/$BKJS_MOD/$BKJS && ln -sf $BKJS bksh)
     $0 init-server $args
+    $0 shell -show-info -db-create-tables
     ;;
 
   install-ec2)
     $0 install -user ec2-user -home /home/ec2-user -prefix /home/ec2-user $(get_all_args "-user -home -prefix")
-    $0 init-service
-    $0 shell -show-info -db-create-tables
     ;;
 
   init-server)
@@ -54,6 +53,7 @@ case "$BKJS_CMD" in
     ($0 init-logrotate $args)
     ($0 init-rsyslog $args)
     ($0 init-home $args)
+    ($0 init-service $args)
 
     # Create global profile
     echo "BKJS_HOME=$BKJS_HOME" > /etc/sysconfig/$BKJS
@@ -380,6 +380,15 @@ case "$BKJS_CMD" in
     echo "$cron root $BKJS_BIN check-adhoc" >> /etc/cron.d/$BKJS-adhoc
     ;;
 
+  init-server)
+    server=$(get_arg -server)
+    [ "$server" = "" ] && exit
+    echo "BKJS_SERVER=$server" > /tmp/profile
+    grep -vs BKJS_SERVER $BKJS_HOME/etc/profile >> /tmp/profile
+    mv /tmp/profile $BKJS_HOME/etc
+    chown $BKJS_USER $BKJS_HOME/etc/profile
+    ;;
+
   init-service)
     # Install service for a script or bkjs service
     find_user
@@ -390,13 +399,7 @@ case "$BKJS_CMD" in
     echo "Init service $service with $path"
     ln -sf $path /etc/init.d/$service
     chkconfig $service on
-    server=$(get_arg -server)
-    if [ "$server" != "" ]; then
-       echo "BKJS_SERVER=$server" > /tmp/profile
-       grep -vs BKJS_SERVER $BKJS_HOME/etc/profile >> /tmp/profile
-       mv /tmp/profile $BKJS_HOME/etc
-       chown $BKJS_USER $BKJS_HOME/etc/profile
-    fi
+    $0 init-server -server $(get_arg -server)
     # Execute a command if given
     cmd=$(get_arg -cmd)
     [ "$cmd" != "" ] && service $service $cmd
@@ -491,7 +494,8 @@ case "$BKJS_CMD" in
     echo "  init-mfa [-user ec2-user] - initialize EC2 instance with multi-factor authentication using Google authenticator"
     echo "  init-logwatcher [-interval MINS] [-cron CRON] - creates a crontab file in /etc/cron.d to periodically run the log watcher, -cron can specify full cron time spec"
     echo "  init-service [-server NAME] - create $BKJS service to be run on server startup, i.e. makes symlink /etc/init.d/$BKJS after which regular 'service' command can be used to manage the $BKJS service"
-    echo "  stop-service - stop $BKJS service from starting on startup"
+    echo "  stop-service - stop $BKJS service from starting on startup and from monit"
+    echo "  init-server -server NAME - on service start run the specified server, any of monitor, master or none, it will always run check-service though"
     ;;
 
   *)

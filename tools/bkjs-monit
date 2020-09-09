@@ -12,7 +12,7 @@ case "$BKJS_CMD" in
 
   init-monit-system)
     find_bkjsbin
-    $ECHO "set daemon 30 with start delay 10" > /etc/monit.d/system.conf
+    $ECHO "set daemon 30 with start delay 15" > /etc/monit.d/system.conf
     $ECHO "check system \$HOST if loadavg(1min) > 5 for 10 cycles then exec \"$BKJS_BIN send-alert\"" >> /etc/monit.d/system.conf
     $ECHO "check filesystem rootfs with path / every 30 cycles if space usage > 90% then exec \"$BKJS_BIN send-alert\"" >> /etc/monit.d/system.conf
     monit reload

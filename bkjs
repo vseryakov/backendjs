@@ -339,7 +339,7 @@ case "$BKJS_CMD" in
     $0 shell -log error -log-watch $@
     ;;
 
-  run|run-master|master|run-monitor|monitor|web|watch|shell|bksh)
+  run|run-master|master|run-monitor|monitor|web|watch|shell|bksh|run-none|none)
     find_nodebin
     [ -f app.js ] && SCRIPT=app.js
     [ -z "$SCRIPT" -a -f lib/app.js ] && SCRIPT=lib/app.js
@@ -351,6 +351,9 @@ case "$BKJS_CMD" in
     [ ! -z "$(get_flag -debug)" ] && echo "Starting $BKJS_CMD: $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME $BKJS_RUN_ARGS $@"
 
     case "$BKJS_CMD" in
+     run-none|none)
+        ;;
+
      run-monitor|monitor)
         $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME -syslog -daemon -monitor -master $BKJS_RUN_ARGS "$@"
         ;;
