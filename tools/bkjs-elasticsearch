@@ -149,6 +149,11 @@ case "$BKJS_CMD" in
     curl -XGET "http://$host:9200/_cat/health?v"
     ;;
 
+  elasticsearch-shards|es-s)
+    host=$(get_arg -host localhost)
+    curl -XGET "http://$host:9200/_cat/shards?v"
+    ;;
+
   elasticsearch-nodes|es-ls)
     host=$(get_arg -host localhost)
     curl -XGET "http://$host:9200/_cat/nodes?h=ip,name,version,cpu,ram.percent,node.role,master&v"

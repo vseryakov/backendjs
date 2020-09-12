@@ -268,7 +268,9 @@ case "$BKJS_CMD" in
 
     # Make sure monit is running all the time
     echo "set logfile syslog" > /etc/monit.d/logging
-    sed -i 's|daemon $prog|ulimit -n 512000\n\tdaemon $prog|' /etc/init.d/monit
+    if [ "$OS_TYPE" = "amazon2" ]; then
+        sed -E -i 's/^After.+$/After=network.target cloud-init.target/' /etc/systemd/system/multi-user.target.wants/monit.service
+    fi
     chkconfig monit on
     service monit restart
 
@@ -295,6 +297,9 @@ case "$BKJS_CMD" in
         echo '* hard as unlimited' >> $conf
         echo 'root soft as unlimited' >> $conf
         echo 'root hard as unlimited' >> $conf
+    fi
+    if [ -f /etc/init.d/monit ]; then
+        sed -i 's|daemon $prog|ulimit -n 512000\n\tdaemon $prog|' /etc/init.d/monit
     fi
     if [ "$OS_TYPE" = "amazon2" ]; then
         sed -i -E 's/^#?DefaultLimitNOFILE=.*$/DefaultLimitNOFILE=512000/' /etc/systemd/system.conf
