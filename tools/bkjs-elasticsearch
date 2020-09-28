@@ -24,8 +24,7 @@ case "$BKJS_CMD" in
         tar -C $ELASTICSEARCH_PREFIX --strip-components=1 -xzf es.tgz
         rm -rf es.tgz
         cd $ELASTICSEARCH_PREFIX
-        echo "node.master: true" >> config/elasticsearch.yml
-        echo "node.data: true" >> config/elasticsearch.yml
+        echo "node.roles: [master,data]" >> config/elasticsearch.yml
         echo "path.data: $BKJS_HOME/var" >> config/elasticsearch.yml
         echo "path.logs: $BKJS_HOME/log" >> config/elasticsearch.yml
         echo "action.destructive_requires_name: true" >> config/elasticsearch.yml
@@ -49,19 +48,18 @@ case "$BKJS_CMD" in
 
   get-elasticsearch-nodetype)
     [ "$ELASTICSEARCH_PREFIX" = "" ] && ELASTICSEARCH_PREFIX=$BKJS_PREFIX/elasticsearch
-    d=$(grep -sq "node.data: true" $ELASTICSEARCH_PREFIX/config/elasticsearch.yml && echo d)
-    m=$(grep -sq "node.master: true" $ELASTICSEARCH_PREFIX/config/elasticsearch.yml && echo m)
-    case "$d$m" in
-    dm)
+    roles=$(grep "node.roles:" $ELASTICSEARCH_PREFIX/config/elasticsearch.yml|awk -F: '{print $2}'|sed 's/[^a-z]//g')
+    case "$roles" in
+    masterdata|datamaster)
       echo node
       ;;
-    d)
+    data)
       echo data
       ;;
-    m)
+    master)
       echo master
       ;;
-    *)
+    "")
       echo client
       ;;
     esac
@@ -79,16 +77,16 @@ case "$BKJS_CMD" in
     fi
     case "$(get_arg -nodetype)" in
     node)
-      $SED -e "s/^node.master.+/node.master: true/" -e "s/^node.data.+/node.data: true/" $ELASTICSEARCH_PREFIX/config/elasticsearch.yml
+      $SED -e "s/^node.roles.+$/node.roles: [master,data]/" $ELASTICSEARCH_PREFIX/config/elasticsearch.yml
       ;;
     master)
-      $SED -e "s/^node.master.+/node.master: true/" -e "s/^node.data.+/node.data: false/" $ELASTICSEARCH_PREFIX/config/elasticsearch.yml
+      $SED -e "s/^node.roles.+$/node.roles: [master]/" $ELASTICSEARCH_PREFIX/config/elasticsearch.yml
       ;;
     data)
-      $SED -e "s/^node.master.+/node.master: false/" -e "s/^node.data.+/node.data: true/" $ELASTICSEARCH_PREFIX/config/elasticsearch.yml
+      $SED -e "s/^node.roles.+$/node.roles: [data]/" $ELASTICSEARCH_PREFIX/config/elasticsearch.yml
       ;;
     client)
-      $SED -e "s/^node.master.+/node.master: false/" -e "s/^node.data.+/node.data: false/" $ELASTICSEARCH_PREFIX/config/elasticsearch.yml
+      $SED -e "s/^node.roles.+$/node.roles: []/" $ELASTICSEARCH_PREFIX/config/elasticsearch.yml
       ;;
     esac
     $ELASTICSEARCH_PREFIX/bin/elasticsearch -p $BKJS_HOME/var/elasticsearch.pid -d >>$BKJS_HOME/log/message.log 2>&1
