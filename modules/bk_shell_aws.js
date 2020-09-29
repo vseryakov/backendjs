@@ -199,19 +199,19 @@ shell.awsLaunchInstances = function(options, callback)
                var topic = new RegExp(alarmName, "i");
                topic = topics.filter(function(x) { return x.match(topic); }).pop();
                if (!topic) return next(err);
-               req.alarms.push({ metric:"CPUUtilization",
+               req.alarms.push({ metric: "CPUUtilization",
                                threshold: shell.getArgInt("-cpu-threshold", options, 80),
                                evaluationPeriods: shell.getArgInt("-periods", options, 3),
-                               alarm:topic });
-               req.alarms.push({ metric:"NetworkOut",
+                               alarm: topic });
+               req.alarms.push({ metric: "NetworkOut",
                                threshold: shell.getArgInt("-net-threshold", options, 10000000),
                                evaluationPeriods: shell.getArgInt("-periods", options, 3),
-                               alarm:topic });
-               req.alarms.push({ metric:"StatusCheckFailed",
+                               alarm: topic });
+               req.alarms.push({ metric: "StatusCheckFailed",
                                threshold: 1,
                                evaluationPeriods: 2,
                                statistic: "Maximum",
-                               alarm:topic });
+                               alarm: topic });
                next(err);
            });
        },
@@ -235,11 +235,11 @@ shell.awsLaunchInstances = function(options, callback)
            // Split between all subnets
            if (shell.isArg("-subnet-split", options)) {
                subnets = shell.awsFilterSubnets(subnets, zone, shell.getArg("-subnet-name", options));
-               if (count <= subnets.length) {
-                   subnets = subnets.slice(0, count);
+               if (req.count <= subnets.length) {
+                   subnets = subnets.slice(0, req.count);
                } else {
                    var n = subnets.length;
-                   for (var i = count - n; i > 0; i--) subnets.push(subnets[i % n]);
+                   for (var i = req.count - n; i > 0; i--) subnets.push(subnets[i % n]);
                }
                options.count = 1;
            } else {
@@ -407,15 +407,15 @@ shell.cmdAwsCopyImage = function(options)
       function(next) {
           shell.awsSearchImage(imageName, appName, function(err, ami) {
               imageId = ami && ami.imageId;
-              imageName = ami && mi.imageName;
+              imageName = ami && ami.imageName;
               next(err ? err : imageId ? "ERROR: AMI must be specified or discovered by filters" : null);
           });
       },
       // Deregister existing image with the same name in the destination region
       function(next) {
-          aws.queryEC2("DescribeImages", { 'ImageId.1': imageId  }, { region: region }, function(err, rc) {
+          aws.queryEC2("DescribeImages", { 'ImageId.1': imageId }, { region: region }, function(err, rc) {
               if (err) return next(err);
-              images = lib.objGet(rc, "DescribeImagesResponse.imagesSet.item", { list: 1 });
+              var images = lib.objGet(rc, "DescribeImagesResponse.imagesSet.item", { list: 1 });
               if (!images.length) return next();
               logger.log("Will deregister existing AMI with the same name", region, images[0].imageName, images[0].imageId, "...");
               if (shell.isArg("-dry-run", options)) return next();
@@ -482,7 +482,7 @@ shell.cmdAwsTerminateInstances = function(options)
            });
        },
        function(next) {
-           if (!instances.length) exit("No instances found");
+           if (!instances.length) shell.exit("No instances found");
            var req = {};
            instances.forEach(function(x, i) { req["InstanceId." + (i + 1)] = x });
            logger.log("TerminateInstances:", req)
@@ -548,6 +548,7 @@ shell.cmdAwsSetRoute53 = function(options)
                    case "CNAME":
                        return public ? x.publicDnsName : x.privateDnsName;
                    }
+                   return 0;
                }).filter(function(x) { return x });
                next(err);
            });
@@ -654,7 +655,7 @@ shell.cmdAwsS3Put = function(options)
     var query = this.getQuery();
     var path = this.getArg("-path", options);
     var uri = this.getArg("-file", options);
-    aws.s3PutFile(uri, file, query, function(err, data) {
+    aws.s3PutFile(uri, path, query, function(err, data) {
         shell.exit(err, data);
     });
 }
@@ -769,7 +770,7 @@ shell.cmdAwsCreateCfn = function(options)
     var policy = shell.getArg("-policy-url", options);
     if (policy) req.StackPolicyURL = policy;
     shell.getArgList("-tags", options).forEach(function(x, i) {
-        req['Tags.member.' + (i + 1)] = tags[i];
+        req['Tags.member.' + (i + 1)] = x;
     });
 
     logger.log(req)
@@ -872,13 +873,10 @@ shell.cmdAwsCreateLaunchTemplateVersion = function(options, callback)
             if (shell.isArg("-new")) return next();
             var opts = {
                 LaunchTemplateName: name,
+                "LaunchTemplateVersion.1": version || "$Latest",
             };
-            if (version) opts["LaunchTemplateVersion.1"] = version;
             aws.queryEC2("DescribeLaunchTemplateVersions", opts, function(err, rc) {
-                if (!err) {
-                    tmpl = lib.objGet(rc, "DescribeLaunchTemplateVersionsResponse.launchTemplateVersionSet.item", { list: 1 }).
-                                            sort((a, b) => (a.versionNumber - b.versionNumber)).pop();
-                }
+                if (!err) tmpl = lib.objGet(rc, "DescribeLaunchTemplateVersionsResponse.launchTemplateVersionSet.item");
                 next(err);
             });
         },
