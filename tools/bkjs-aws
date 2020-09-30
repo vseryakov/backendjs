@@ -127,12 +127,21 @@ case "$BKJS_CMD" in
     if [ -z $instance_id ]; then
         echo 1 > $HOME/var/bkjs.init
         rm -f $HOME/var/bkjs.tag
+        for f in /etc/monit.d/*.conf; do
+            if [[ ! $f =~ (alert|system|bkjs).conf ]]; then
+                sudo mv $f /tmp
+                saved_files="$saved_files /tmp/$(basename $f)"
+            fi
+        done
         sync
     fi
     name=$(get_arg -name)
     prefix=$(get_arg -prefix)
     bksh -no-db -aws-create-image -wait -instance-id $instance_id -name "$name" -prefix "$prefix"
-    [ -z $instance_id ] && rm -f $HOME/var/bkjs.init
+    if [ -z $instance_id ]; then
+        rm -f $HOME/var/bkjs.init
+        for f in $saved_files; do sudo mv $f /etc/monit.d; done
+    fi
     ;;
 
   create-launch-template-version)

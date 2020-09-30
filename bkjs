@@ -227,6 +227,7 @@ to_upper() {
 export BKJS_HOME=$(get_arg -home $BKJS_HOME)
 [ "$BKJS_HOME" = "" ] && export BKJS_HOME=$(sh -c "echo ~$BKJS_USER")
 [ -f $BKJS_HOME/etc/profile ] && . $BKJS_HOME/etc/profile
+[ -f $BKJS_HOME/etc/profile.local ] && . $BKJS_HOME/etc/profile.local
 
 export BKJS_PREFIX=$(get_arg -prefix $BKJS_PREFIX)
 [ "$BKJS_PREFIX" = "" ] && export BKJS_PREFIX=$BKJS_HOME
