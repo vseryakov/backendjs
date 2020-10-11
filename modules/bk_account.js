@@ -45,7 +45,7 @@ const mod = {
 };
 module.exports = mod;
 
-mod.configureMdule = function(options, callback)
+mod.configureModule = function(options, callback)
 {
     db.setProcessRow("post", "bk_account", function(req, row) {
         if (row.birthday) {
