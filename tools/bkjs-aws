@@ -4,6 +4,11 @@
 #  Sep 2013
 #
 
+get_ec2_param() {
+    v=$(aws ssm get-parameter --name $1 |node -e 'var d="";process.stdin.on("data",(c)=>{d+=c});process.stdin.on("end",()=>{try{console.log(JSON.parse(d).Parameter.Value)}catch(e){};process.exit()})')
+    echo ${v-:$2}
+}
+
 case "$BKJS_CMD" in
 
   check-server)
@@ -25,7 +30,7 @@ case "$BKJS_CMD" in
     ;;
 
   send-alert)
-    topic=$(get_config_value alert-topic)
+    topic=$(get_ec2_param bkjs-alert-topic)
     if [ "$topic" != "" ]; then
        region=$(get_arg -region)
        [ "$region" != "" ] && region="--region $region"
