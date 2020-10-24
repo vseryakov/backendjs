@@ -158,9 +158,14 @@ case "$BKJS_CMD" in
     curl -XGET "http://$host:9200/_tasks?pretty&detailed&nodes=$nodes"
     ;;
 
-  elasticsearch-nodes|es-ls)
+  elasticsearch-ls|es-ls)
     host=$(get_arg -host localhost)
-    curl -XGET "http://$host:9200/_cat/nodes?h=ip,name,version,cpu,ram.percent,node.role,master&v"
+    curl -XGET "http://$host:9200/_cat/nodes?h=ip,version,cpu,ram.percent,node.role,master&v"
+    ;;
+
+  elasticsearch-nodes|es-n)
+    host=$(get_arg -host localhost)
+    curl -s -XGET "http://$host:9200/_nodes/process?pretty"|node -e 'var d="";process.stdin.on("data",(c)=>{d+=c});process.stdin.on("end",()=>{try{d=JSON.parse(d).nodes;for(var p in d)console.log(p,"  ",d[p].ip,"          ".substr(0,15-d[p].ip.length),String(d[p].roles))}catch(e){};process.exit()})'
     ;;
 
   init-monit-elasticsearch|init-elasticsearch-monit)
