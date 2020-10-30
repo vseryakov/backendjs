@@ -59,6 +59,15 @@ system.configureSystemAPI = function()
             res.json({});
             break;
 
+        case "check":
+            if (req.query.name) {
+                ["master","server","web","worker"].forEach(function(x) {
+                    ipc.broadcast(core.name + ":" + x, req.query.name + ":check", { queueName: ipc.systemQueue });
+                });
+            }
+            res.json({});
+            break;
+
         case "queue":
             switch (req.params[1]) {
             case "publish":
