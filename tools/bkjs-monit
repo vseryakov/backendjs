@@ -37,6 +37,7 @@ case "$BKJS_CMD" in
     ;;
 
   init-monit-alerts|check-server)
+    [[ $(whoami) = root ]] && rm -f /run/monit.pid
     [ "$(get_flag -force)" != "" ] && rm -f /etc/monit.d/alert.conf
     if [ ! -f /etc/monit.d/alert.conf ]; then
         get_config email -alert-email
