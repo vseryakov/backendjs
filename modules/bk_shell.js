@@ -164,7 +164,7 @@ shell.runShell = function(options)
             if (rc == "continue") continue;
             return;
         }
-        if (cluster.isMaster) core.createRepl({ file: core.repl.file });
+        if (cluster.isMaster) shell.repl = core.createRepl({ file: core.repl.file, size: core.repl.size });
     });
 }
 
