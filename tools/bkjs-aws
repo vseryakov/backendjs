@@ -243,7 +243,7 @@ case "$BKJS_CMD" in
     tag=$($0 ec2-tag)
     [ "$tag" = "" ] && exit
     user=$(get_arg -user ec2-user)
-    files="access.log message.log $BKJS_CLOUDWATCH_LOGS"
+    files="access.log message.log error.log $BKJS_CLOUDWATCH_LOGS"
     for log in $files; do
         [ "$logs" != "" ] && logs="$logs,"
         logs="$logs{ \"file_path\": \"/home/$user/log/$log\", \"log_group_name\": \"$log\", \"log_stream_name\": \"$tag\", \"multi_line_start_pattern\": \"^[^ \\t]\", \"timestamp_format\": \"%Y-%m-%dT%H:%M:%S.%f%z\" }"
