@@ -328,9 +328,9 @@ case "$BKJS_CMD" in
     ip=$(get_local_ip)
     subject="ALERT: $host/$ip $event"
     msg=$($ECHO "$subject\n\n$descr\n\n$(df -h)\n\n$(free)\n\n$(ps agx)")
-    echo "$msg" >> $BKJS_HOME/log/error.log
     process_cmds
-    # If nobody handled it we try to send a plain email
+    # If nobody handled it we log and try to send a plain email
+    echo "$msg" >> $BKJS_HOME/log/error.log
     email=$(grep 'set alert' /etc/monit.d/*|tail -1|awk '{print $NF}')
     if [ "$email" != "" ]; then
        $ECHO "From:$email\nTo:$email\nSubject: $subject\n\n$(echo "$msg")"|sendmail $email
