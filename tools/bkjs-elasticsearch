@@ -88,6 +88,9 @@ case "$BKJS_CMD" in
     client)
       $SED -e "s/^node.roles.+$/node.roles: []/" $ELASTICSEARCH_PREFIX/config/elasticsearch.yml
       ;;
+    any)
+      $SED -e "s/^node.roles.+$/node.roles: [master,data,ingest,ml,transform]/" $ELASTICSEARCH_PREFIX/config/elasticsearch.yml
+      ;;
     esac
     $ELASTICSEARCH_PREFIX/bin/elasticsearch -p $BKJS_HOME/var/elasticsearch.pid -d >>$BKJS_HOME/log/message.log 2>&1
     ;;
@@ -123,7 +126,7 @@ case "$BKJS_CMD" in
   upgrade-elasticsearch-node)
     host=$(get_arg -host localhost)
     memsize=$(get_arg -memsize 50)
-    nodetype=$($0 get-elasticsearch-nodetype)
+    nodetype=$($0 get_arg -nodetype)
     $0 stop-elasticsearch-replication -host $host
     $0 stop-elasticsearch
     $0 get-elasticsearch -force
