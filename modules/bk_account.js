@@ -156,7 +156,7 @@ mod.notifyAccount = function(options, callback)
     ], callback);
 }
 
-// Register new account, used in /account/add API call, but the req does not have to be an Express request, it just
+// Register new account, may be used an API call, but the req does not have to be an Express request, it just
 // need to have query and options objects.
 mod.addAccount = function(req, options, callback)
 {

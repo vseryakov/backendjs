@@ -753,8 +753,6 @@ To see current default config parameters run any of the following commands:
 
         node -e 'require("backendjs").core.showHelp()'
 
-To enable open registration in this mode just add config parameter `api-allow-path=^/account/add$`.
-
 ## Secure Web site, client verification
 
 This is a mode when the whole Web site is secure by default, even access to the HTML files must be authenticated. In this mode the pages must defined 'Backend.session = true'
@@ -1310,31 +1308,6 @@ This is implemented by the `accounts` module from the core. To enable accounts f
             "login": "testuser",
           }
 
-
-- `/account/add`
-
-  Add new account, all parameters are the columns from the `bk_account` table, required columns are: **name, secret, login**.
-
-  To enable open registration add `api-allow-path=^/account/add$` to the config file or specify in the command line.
-  More complex ways to perform registration will require adding pre and.or post callbacks to handle account registration
-  for example with invitation codes....
-
-  In the table `bk_auth`, the column `type` is used to distinguish between account roles, by default only account with type `admin` can
-  add other accounts with this type specified, this column can also be used in account permissions implementations. Because it is in the bk_auth table,
-  all columns of this table are available as `req.account` object after the successful authentication where `req` is an Express request object used in the middleware
-  parameters.
-
-  Secret and login can be anything, the backend does not require any specific formats and does not process the contents of the login/secret fields.
-
-  There are several ways to create authenticated account:
-    - API only access with signed signature, supply a login and secret which will be stored in the database as is, when making requests use the same login and secret to produce the signature.
-      *In the Web client `web/js/bkjs.js`, if `Bkjs.scramble` is set to 1 then the secret is replaced by the BASE64_HMAC_SHA256(secret, login) automatically,
-      no actual secret is ever saved or sent, only used in the login form. This is intended for Web apps not to store the actual secret anywhere in the memory or localStorage,
-      for the backend this is still just a secret.*
-
-  Example:
-
-            /account/add?name=test&login=test@test.com&secret=fc4f33bd07a4e6c8e&gender=f&phone=1234567
 
   How to make an account as admin
 

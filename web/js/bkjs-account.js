@@ -52,20 +52,6 @@ bkjs.getAccount = function(callback)
     });
 }
 
-// Register new account record, call the callback with the object or error
-bkjs.addAccount = function(obj, callback)
-{
-    // Replace the actual credentials from the storage in case of scrambling in the client
-    if (!obj._scramble) {
-        var creds = this.checkCredentials(obj);
-        obj.login = creds.login;
-        obj.secret = creds.secret;
-        obj.scramble = creds.scramble;
-    }
-    delete obj.secret2;
-    this.sendRequest({ type: "POST", url: "/account/add", data: obj, jsonType: "obj", nosignature: 1 }, callback);
-}
-
 // Update current account
 bkjs.updateAccount = function(obj, callback)
 {
