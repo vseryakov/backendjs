@@ -73,7 +73,7 @@ var text = marked(toc, { renderer: renderer });
 
 text += marked(readme, { renderer: renderer });
 text += marked("## Configuration parameters\n", { renderer: renderer });
-text += marked(bkjs.core.showHelp({markdown:1}), { renderer: renderer });
+text += marked(bkjs.core.showHelp({ markdown: 1 }), { renderer: renderer });
 
 files.forEach(function(file) {
     var doc = "";
@@ -110,8 +110,8 @@ files.forEach(function(file) {
         if (d) {
             doc = "* `Database tables`\n\n";
             while (i < data.length) {
-                var line = data[++i];
-                if (line.match(/\}, \/\/ tables$|^ +}\);$/)) break;
+                line = data[++i];
+                if (line.match(/^ {4}\},|^ +\}\);$/)) break;
                 doc += "    " + line + "\n";
             }
             // Precaution

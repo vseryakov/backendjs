@@ -12,6 +12,7 @@ const logger = require(__dirname + '/../lib/logger');
 const db = require(__dirname + '/../lib/db');
 const ipc = require(__dirname + '/../lib/ipc');
 const api = require(__dirname + '/../lib/api');
+const auth = require(__dirname + '/../lib/auth');
 const jobs = require(__dirname + '/../lib/jobs');
 
 const shell = {
@@ -37,7 +38,7 @@ module.exports = shell;
 // Exit and write to the console a message or error message if non empty
 shell.exit = function(err, msg)
 {
-    for (var i = 0; i < arguments.length; i++ ) {
+    for (var i = 0; i < arguments.length; i++) {
         if (typeof arguments[i] == "undefined" || arguments[i] === null || arguments[i] === "") continue;
         console.log(util.inspect(arguments[i], { depth: null }));
     }
@@ -47,13 +48,9 @@ shell.exit = function(err, msg)
 // Resolves a user from `obj.id` or `obj.login` params and return the record in the callback
 shell.getUser = function(obj, callback)
 {
-    db.get("bk_account", { id: obj.id }, function(err, row) {
-        if (err) shell.exit(err);
-
-        db.get(api.authTable, { login: row ? row.login : obj.login }, function(err, row2) {
-            if (err || !(row ||row2)) shell.exit(err, "ERROR: no user found with this id: " + util.inspect(obj));
-            callback(row2 || row, row);
-        });
+    auth.get(obj, function(err, row) {
+        if (err || !row) shell.exit(err, "ERROR: no user found with this id: " + util.inspect(obj));
+        callback(row);
     });
 }
 
@@ -198,7 +195,7 @@ shell.loadFile = function(file)
     if (fs.existsSync(core.cwd + "/" + file)) mod = require(core.cwd + "/" + file); else
     if (!mod &&fs.existsSync(core.home + "/" + file)) mod = require(core.home + "/" + file); else
     if (!mod && fs.existsSync(__dirname + "/../" + file)) mod = require(__dirname + "/../" + file);
-    if (!mod) core.path.modules.forEach(function(x) { if (!mod && fs.existsSync(x + "/../" + file )) mod = require(x + "/../" + file) });
+    if (!mod) core.path.modules.forEach(function(x) { if (!mod && fs.existsSync(x + "/../" + file)) mod = require(x + "/../" + file) });
     if (!mod) shell.exit("file not found " + file);
     return mod;
 }
@@ -257,22 +254,22 @@ shell.cmdRunJobs = function(options)
 shell.cmdAccountGet = function(options)
 {
     lib.forEachSeries(process.argv.slice(2), function(id, next) {
-        if (id.match(/^[-\/]/)) return next();
+        if (id.match(/^[-/]/)) return next();
         db.get("bk_account", { id: id }, function(err, user) {
             if (user) {
-                db.get(api.authTable, { login: user.login }, function(err, auth) {
-                    user.bk_auth = auth;
+                auth.get(user.login, function(err, row) {
+                    user.bk_auth = row;
                     console.log(user);
                     next();
                 });
             } else {
-                db.get(api.authTable, { login: id }, function(err, auth) {
-                    if (!auth) return next();
-                    db.get("bk_account", { id: auth.id }, function(err, user) {
+                auth.get(id, function(err, row) {
+                    if (!row) return next();
+                    db.get("bk_account", { id: row.id }, function(err, user) {
                         if (!user) {
-                            console.log(auth);
+                            console.log(row);
                         } else {
-                            user.bk_auth = auth;
+                            user.bk_auth = row;
                             console.log(user);
                         }
                         next();
@@ -303,8 +300,8 @@ shell.cmdAccountUpdate = function(options)
     if (!core.modules.bk_account) this.exit("accounts module not loaded");
     var query = this.getQuery();
     var opts = api.getOptions({ query: this.getArgs(), options: { admin: 1, path: ["", "", ""], ops: {} } });
-    this.getUser(query, function(row) {
-        core.modules.bk_account.updateAccount({ account: row, query: query }, opts, function(err, data) {
+    this.getUser(query, function(user) {
+        core.modules.bk_account.updateAccount({ account: user, query: query }, opts, function(err, data) {
             shell.exit(err, data);
         });
     });
@@ -320,9 +317,9 @@ shell.cmdAccountDel = function(options)
         if (process.argv[i] == "-keep") opts["keep_" + process.argv[i + 1]] = 1;
     }
     if (this.isArg("-force", options)) opts.force = 1;
-    this.getUser(query, function(row) {
-        opts.id = row.id;
-        core.modules.bk_account.deleteAccount({ account: row, obj: query, options: opts }, function(err) {
+    this.getUser(query, function(user) {
+        opts.id = user.id;
+        core.modules.bk_account.deleteAccount({ account: user, obj: query, options: opts }, function(err) {
             shell.exit(err);
         });
     });
@@ -332,9 +329,9 @@ shell.cmdAccountDel = function(options)
 shell.cmdLoginGet = function(options)
 {
     lib.forEachSeries(process.argv.slice(2), function(login, next) {
-        if (login.match(/^[-\/]/)) return next();
-        db.get(api.authTable, { login: login }, function(err, auth) {
-            if (auth) console.log(auth);
+        if (login.match(/^[-/]/)) return next();
+        auth.get(login, function(err, row) {
+            if (row) console.log(row);
             next();
         });
     }, function(err) {
@@ -348,7 +345,7 @@ shell.cmdLoginAdd = function(options)
     var query = this.getQuery();
     var opts = api.getOptions({ query: this.getArgs(), options: { admin: 1, path: ["", "", ""], ops: {} } });
     if (query.login && !query.name) query.name = query.login;
-    api.addAccount(query, opts, function(err, data) {
+    auth.add(query, opts, function(err, data) {
         shell.exit(err, data);
     });
 }
@@ -358,7 +355,7 @@ shell.cmdLoginUpdate = function(options)
 {
     var query = this.getQuery();
     var opts = api.getOptions({ query: this.getArgs(), options: { admin: 1, path: ["", "", ""], ops: {} } });
-    api.updateAccount(query, opts, function(err, data) {
+    auth.update(query, opts, function(err, data) {
         shell.exit(err, data);
     });
 }
@@ -367,8 +364,8 @@ shell.cmdLoginUpdate = function(options)
 shell.cmdLoginDel = function(options)
 {
     lib.forEachSeries(process.argv.slice(2), function(login, next) {
-        if (login.match(/^[-\/]/)) return next();
-        db.del(api.authTable, { login: login }, function(err) {
+        if (login.match(/^[-/]/)) return next();
+        auth.del(login, function(err) {
             next(err);
         });
     }, function(err) {
@@ -398,8 +395,8 @@ shell.cmdSendRequest = function(options)
     lib.series([
       function(next) {
           if (!id && !login) return next();
-          shell.getUser({ id: id, login: login }, function(row) {
-              next(null, row);
+          shell.getUser({ id: id, login: login }, function(user) {
+              next(null, user);
           });
       },
       function(next, user) {

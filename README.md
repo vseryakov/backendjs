@@ -1329,18 +1329,6 @@ This is implemented by the `accounts` module from the core. To enable accounts f
 
             /account/update?name=New%2BName&gender=m
 
-- `/account/put/secret`
-
-  Change account secret for the current account, no columns except the secret will be updated and expected.
-
-  Parameters:
-    - secret - new secret for the account
-    - token_secret - set to 1 to reset access token secret to a new value thus revoking access from all existing access tokens
-
-  Example:
-
-            /account/put/secret?secret=blahblahblah
-
 
 - `/account/subcribe`
 
@@ -1370,73 +1358,6 @@ This is implemented by the `accounts` module from the core. To enable accounts f
         [ { "path": "/message/add", "mtime:" 1234566566, "type": "1" },
           { "path": "/counter/incr", "mtime:" 1234566566, "type": "like,invite" } },
           { "path": "/connection/add", "mtime": 1223345545, "type": "like" } ]
-
-- `/account/select/icon`
-
-  Return a list of available account icons, icons that have been uploaded previously with /account/put/icon calls. The `url` property is an URL to retrieve this particular icon.
-
-  Parameters:
-    - id - if specified then icons for the given account will be returned
-
-  Example:
-
-        /account/select/icon?id=12345
-
-  Response:
-
-        [ { id: '12345', type: '1', url: '/account/get/icon?id=12345&type=1' },
-          { id: '12345', type: '2', url: '/account/get/icon?id=12345&type=2' } ]
-
-- `/account/get/icon`
-
-  Return an account icon, *the icon is returned in the body as binary BLOB*, if no icon with specified type exists, i.e. never been uploaded then 404 is returned.
-
-  Parameters:
-    - type - a number from 0 to 9 or any single letter a..z which defines which icon to return, if not specified 0 is used
-
-  Example:
-
-        /account/get/icon?type=2
-
-
-- `/account/put/icon`
-
-  Upload an account icon, once uploaded, the next `/account/get` call will return properties in the format `iconN` where N is any of the
-  type query parameters specified here, for example if we uploaded an icon with type 5, then /account/get will return property icon5 with the URL
-  to retrieve this icon.
-  *By default all icons uploaded only accessible for the account which uploaded them.*
-
-  Parameters:
-
-    - type - icon type, a number between 0 and 9 or any single letter a..z, if not specified 0 is used
-    - icon - can be passed as base64 encoded image in the query,
-        - can be passed as base64 encoded string in the body as JSON, like: { type: 0, icon: 'iVBORw0KGgoA...' },
-          for JSON the Content-Type HTTP headers must be set to `application/json` and data should be sent with POST request
-        - can be uploaded from the browser using regular multi-part form
-    - acl_allow - icon access permissions:
-      - "" (empty) - only own account can access
-      - all - public, everybody can see this icon
-      - auth - only authenticated users can see this icon
-      - id,id.. - list of account ids that can see this account
-    - _width - desired width of the stored icon, if negative this means do not upscale, if the image width is less than given keep it as is
-    - _height - height of the icon, same rules apply as for the width above
-    - _ext - image file format, default is jpg, supports: gif, png, jpg, jp2
-
-  Example:
-
-        /account/put/icon?type=1&icon=iVBORw0KGgoAAAANSUhEUgAAAAcAAAAJCAYAAAD+WDajAAAABGdBTUEAALGPC/xhBQAAAAlwSFlzAAAOwgAADs....
-
-- `/account/del/icon`
-
-  Delete account icon
-
-  Parameters:
-
-    - type - what icon to delete, if not specified 0 is used
-
-  Example:
-
-        /account/icon/del?type=1
 
 ### Health enquiry
 When running with AWS load balancer there should be a url that a load balancer polls all the time and this must be very quick and lightweight request. For this

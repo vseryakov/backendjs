@@ -6,6 +6,7 @@
 const bkjs = require('backendjs');
 const db = bkjs.db;
 const api = bkjs.api;
+const auth = bkjs.auth;
 const msg = bkjs.msg;
 const core = bkjs.core;
 const lib = bkjs.lib;
@@ -73,7 +74,7 @@ mod.configureAccountsAPI = function()
 {
     api.app.all(/^\/account\/([a-z/]+)$/, function(req, res, next) {
         var options = api.getOptions(req);
-        options.cleanup = api.authTable + ",bk_account";
+        options.cleanup = auth.table + ",bk_account";
 
         switch (req.params[0]) {
         case "get":
@@ -91,14 +92,6 @@ mod.configureAccountsAPI = function()
         case "del":
             mod.deleteAccount(req, function(err, data) {
                 api.sendJSON(req, err);
-            });
-            break;
-
-        case "put/secret":
-            req.query.id = req.account.id;
-            req.query.login = req.account.login;
-            api.setAccountSecret(req.query, options, function(err, data) {
-                api.sendJSON(req, err, data);
             });
             break;
 
@@ -168,20 +161,19 @@ mod.addAccount = function(req, options, callback)
         function(next) {
             delete req.query.id;
             if (lib.isEmpty(req.query.name)) return next({ status: 400, message: "name is required" });
-            if (options.noauth || api.authTable == "bk_account") return next();
+            if (options.noauth || auth.table == "bk_account") return next();
             if (!req.query.login) return next({ status: 400, message: "username is required" });
             if (!req.query.secret) return next({ status: 400, message: "secret is required" });
             // Copy for the auth table in case we have different properties that need to be cleared
             login = lib.objClone(req.query);
             login.token_secret = true;
-            api.prepareAccountSecret(login, options, () => {
+            auth.prepareSecret(login, options, () => {
                 // Put the secret back to return to the client, if generated or scrambled the client needs to know it for the API access
                 if (!(options.admin || api.checkAccountType(req.account, "admin"))) {
-                    api.clearQuery(api.authTable, login, { filter: "admin" });
-                    for (var i in options.admin_values) login[options.admin_values[i]] = req.query[options.admin_values[i]];
+                    api.clearQuery(auth.table, login, { filter: "admin" });
                 }
                 options.result_obj = options.first = 1;
-                db.add(api.authTable, login, options, (err, row) => {
+                db.add(auth.table, login, options, (err, row) => {
                     if (err) return next(err);
                     for (const p in row) req.query[p] = row[p];
                     next();
@@ -193,16 +185,13 @@ mod.addAccount = function(req, options, callback)
             // Only admin can add accounts with admin properties
             if (!(options.admin || api.checkAccountType(req.account, "admin"))) {
                 api.clearQuery("bk_account", account, { filter: "admin" });
-                for (var i in options.admin_values) account[options.admin_values[i]] = req.query[options.admin_values[i]];
             }
             options.result_obj = options.first = 1;
             db.add("bk_account", account, options, (err, row) => {
                 if (err) return next(err);
                 for (const p in row) req.query[p] = row[p];
-                api.metrics.Counter('auth_add_0').inc();
                 var cols = db.getColumns("bk_account", options);
                 for (const p in cols) if (typeof cols[p].value != "undefined") req.query[p] = cols[p].value;
-                req.query._added = true;
                 // Link account record for other middleware
                 api.setCurrentAccount(req, req.query);
                 next();
@@ -213,8 +202,8 @@ mod.addAccount = function(req, options, callback)
         },
     ], function(err) {
         // Remove the record by login to make sure we can recreate it later
-        if (err && login && login.id && api.authTable != "bk_account") {
-            return db.del(api.authTable, { login: login.login }, () => {
+        if (err && login && login.id && auth.table != "bk_account") {
+            return db.del(auth.table, { login: login.login }, () => {
                 lib.tryCall(callback, err, req.query);
             });
         }
@@ -231,19 +220,18 @@ mod.updateAccount = function(req, options, callback)
     if (!req.query.name) delete req.query.name;
     lib.series([
        function(next) {
-           if (options.noauth || !req.account.login || api.authTable == "bk_account") return next();
+           if (options.noauth || !req.account.login || auth.table == "bk_account") return next();
            // Copy for the auth table in case we have different properties that needs to be cleared
            var query = lib.objClone(req.query, "login", req.account.login, "id", req.account.id);
-           api.prepareAccountSecret(query, options, () => {
+           auth.prepareSecret(query, options, () => {
                 // Skip admin properties if any
                 if (!(options.admin || api.checkAccountType(req.account, "admin"))) {
-                    api.clearQuery(api.authTable, query, { filter: "admin" });
-                    for (var i in options.admin_values) query[options.admin_values[i]] = req.query[options.admin_values[i]];
+                    api.clearQuery(auth.table, query, { filter: "admin" });
                 }
                 // Avoid updating auth table and flushing cache if nothing to update
-                var obj = db.getQueryForKeys(Object.keys(db.getColumns(api.authTable, options)), query, { skip_columns: ["id","login","mtime"] });
+                var obj = db.getQueryForKeys(Object.keys(db.getColumns(auth.table, options)), query, { skip_columns: ["id","login","mtime"] });
                 if (!Object.keys(obj).length) return next();
-                db.update(api.authTable, query, options, next);
+                db.update(auth.table, query, options, next);
             });
        },
        function(next) {
@@ -251,7 +239,6 @@ mod.updateAccount = function(req, options, callback)
            var query = lib.objClone(req.query, "login", req.account.login, "id", req.account.id);
            if (!(options.admin || api.checkAccountType(req.account, "admin"))) {
                api.clearQuery("bk_account", query, { filter: "admin" });
-               for (var i in options.admin_values) query[options.admin_values[i]] = req.query[options.admin_values[i]];
            }
            db.update("bk_account", query, options, next);
        },
@@ -285,11 +272,11 @@ mod.deleteAccount = function(req, callback)
 
         lib.series([
            function(next) {
-               if (!req.account.login || api.authTable == "bk_account") return next();
+               if (!req.account.login || auth.table == "bk_account") return next();
                if (lib.isFlag(req.options.keep, ["all","account","bk_auth"])) {
-                   db.update(api.authTable, rec, req.options, next);
+                   db.update(auth.table, rec, req.options, next);
                } else {
-                   db.del(api.authTable, { login: req.account.login }, req.options, next);
+                   db.del(auth.table, { login: req.account.login }, req.options, next);
                }
            },
            function(next) {
@@ -303,7 +290,6 @@ mod.deleteAccount = function(req, callback)
                db.del("bk_account", { id: req.account.id }, req.options, next);
            },
         ], function(err) {
-            if (!err) api.metrics.Counter('auth_del_0').inc();
             logger.info("deleteAccount:", req.account.id, req.options.keep, lib.toAge(started));
             callback(err);
         });
