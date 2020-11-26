@@ -4,11 +4,12 @@
 //
 
 const util = require('util');
-const core = require(__dirname + '/../lib/core');
-const lib = require(__dirname + '/../lib/lib');
-const logger = require(__dirname + '/../lib/logger');
-const aws = require(__dirname + '/../lib/aws');
-const shell = require(__dirname + '/bk_shell');
+const bkjs = require("backendjs");
+const core = bkjs.core;
+const lib = bkjs.lib;
+const logger = bkjs.logger;
+const aws = bkjs.aws;
+const shell = bkjs.shell;
 
 shell.help.push("-aws-s3-get -path PATH - retrieve a file from S3");
 shell.help.push("-aws-s3-put -path PATH -file FILE - store a file to S3");

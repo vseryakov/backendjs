@@ -76,19 +76,19 @@ Pool.prototype.query = function(client, req, options, callback)
     case "create":
     case "upgrade":
         var keys = [];
-        var cols = lib.objSearch(obj, { exists: 'primary', sort: 1, flag: 1 });
+        var cols = lib.objSearch(obj, { exists: 'primary', sort: 1, value: "primary" });
         var koptions = lib.objMerge(options, { unique: true, background: true });
         // Merge with mongo properties from the column, primary key properties also applied for the collection as well
         Object.keys(cols).forEach(function(x) { for (var p in obj[x].mongodb) options[p] = obj[x].mongodb[p]; });
         keys.push({ cols: cols, options: koptions });
 
         ["", "1", "2", "3", "4", "5"].forEach(function(n) {
-            var cols = lib.objSearch(obj, { exists: "unique" + n, sort: 1, flag: 1 });
+            var cols = lib.objSearch(obj, { exists: "unique" + n, sort: 1, value: "unique" + n });
             var uoptions = lib.objMerge(options, { name: Object.keys(cols).join('_'), unique: true, background: true });
             Object.keys(cols).forEach(function(x) { for (var p in obj[x].mongodb) uoptions[p] = obj[x].mongodb[p]; });
 
             if (Object.keys(cols).length) keys.push({ cols: cols, options: uoptions });
-            cols = lib.objSearch(obj, { exists: "index" + n, sort: 1, flag: 1 });
+            cols = lib.objSearch(obj, { exists: "index" + n, sort: 1, value: "index" + n });
             var ioptions = lib.objMerge(options, { name: Object.keys(cols).join('_'), background: true });
             Object.keys(cols).forEach(function(x) { for (var p in obj[x].mongodb) ioptions[p] = obj[x].mongodb[p]; });
             if (Object.keys(cols).length) keys.push({ cols: cols, options: ioptions });

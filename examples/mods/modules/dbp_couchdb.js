@@ -73,9 +73,9 @@ Pool.prototype.query = function(client, req, options, callback)
         if (cols.length) views.primary = cols;
 
         ["", "1", "2", "3", "4", "5"].forEach(function(n) {
-            var cols = Object.keys(lib.objSearch(req.obj, { exists: "unique" + n, sort: 1, flag: 1 }));
+            var cols = Object.keys(lib.objSearch(req.obj, { exists: "unique" + n, sort: 1, value: "unique" + n }));
             if (cols.length) views[cols.join("_")] = cols;
-            cols = Object.keys(lib.objSearch(req.obj, { exists: "index" + n, sort: 1, flag: 1 }));
+            cols = Object.keys(lib.objSearch(req.obj, { exists: "index" + n, sort: 1, value: "index" + n }));
             if (cols.length) views[cols.join("_")] = cols;
         });
 

@@ -6,34 +6,70 @@
 const cluster = require('cluster');
 const util = require('util');
 const fs = require('fs');
-const core = require(__dirname + '/../lib/core');
-const lib = require(__dirname + '/../lib/lib');
-const logger = require(__dirname + '/../lib/logger');
-const db = require(__dirname + '/../lib/db');
-const ipc = require(__dirname + '/../lib/ipc');
-const api = require(__dirname + '/../lib/api');
-const auth = require(__dirname + '/../lib/auth');
-const jobs = require(__dirname + '/../lib/jobs');
+const bkjs = require("backendjs");
+const core = bkjs.core;
+const lib = bkjs.lib;
+const logger = bkjs.logger;
+const db = bkjs.db;
+const ipc = bkjs.ipc;
+const api = bkjs.api;
+const auth = bkjs.api;
+const jobs = bkjs.jobs;
+const shell = bkjs.shell;
 
-const shell = {
-    name: "bk_shell",
-    help: [
-        "-show-info - show app and version information",
-        "-run-file FILE.js - load a script and run it if it exports run function",
-        "-login-get LOGIN ... - show login records",
-        "-login-add [-noscramble] login LOGIN secret SECRET [name NAME] [type TYPE] ... - add a new login record for API access",
-        "-login-update [-scramble 1] login LOGIN [name NAME] [type TYPE] ... - update existing login record, for web use -scramble must be set to 1",
-        "-login-del login LOGIN... - delete a login record",
-        "-account-get ID|LOGIN ... - show accounts by id or login",
-        "-account-add [-noscramble] login LOGIN secret SECRET [name NAME] [email EMAIL] [type TYPE] ... - add a new user for API access, any property from bk_account can be passed in the form: name value",
-        "-account-update [-noscramble] [login LOGIN|id ID] [name NAME] [email EMAIL] [type TYPE] ... - update existing user properties, any property from bk_account can be passed in the form: name value ",
-        "-account-del [login LOGIN|id ID]... - delete a user and login",
-        "-send-request -url URL [-id ID|-login LOGIN] [-hdr name=value] param value param value ... - send API request to the server specified in the url as user specified by login or account id, resolving the user is done directly from the current db pool, param values should not be url-encoded",
-        "-log-watch - run logwatcher and exit, send emails in case any errors found",
-    ],
+shell.name = "bk_shell";
+shell.help = [
+    "-show-info - show app and version information",
+    "-run-file FILE.js - load a script and run it if it exports run function",
+    "-login-get LOGIN ... - show login records",
+    "-login-add [-noscramble] login LOGIN secret SECRET [name NAME] [type TYPE] ... - add a new login record for API access",
+    "-login-update [-scramble 1] login LOGIN [name NAME] [type TYPE] ... - update existing login record, for web use -scramble must be set to 1",
+    "-login-del login LOGIN... - delete a login record",
+    "-account-get ID|LOGIN ... - show accounts by id or login",
+    "-account-add [-noscramble] login LOGIN secret SECRET [name NAME] [email EMAIL] [type TYPE] ... - add a new user for API access, any property from bk_account can be passed in the form: name value",
+    "-account-update [-noscramble] [login LOGIN|id ID] [name NAME] [email EMAIL] [type TYPE] ... - update existing user properties, any property from bk_account can be passed in the form: name value ",
+    "-account-del [login LOGIN|id ID]... - delete a user and login",
+    "-send-request -url URL [-id ID|-login LOGIN] [-hdr name=value] param value param value ... - send API request to the server specified in the url as user specified by login or account id, resolving the user is done directly from the current db pool, param values should not be url-encoded",
+    "-log-watch - run logwatcher and exit, send emails in case any errors found",
+];
+
+// Start REPL shell or execute any subcommand if specified in the command line.
+// A subcommand may return special string to indicate how to treat the flow:
+// - stop - stop processing commands and create REPL
+// - continue - do not exit and continue processing other commands or end with REPL
+// - all other values will result in returning from the run assuming the command will decide what to do, exit or continue running, no REPL is created
+shell.run = function(options)
+{
+    process.title = core.name + ": shell";
+
+    logger.debug('startShell:', process.argv);
+
+    // Load all default shell modules
+    var mods = lib.findFileSync(__dirname + "/../modules", { include: /bk_shell_[a-z]+\.js$/ });
+    core.path.modules.forEach(function(mod) {
+        mods = mods.concat(lib.findFileSync(mod, { include: /bk_shell_[a-z]+\.js$/ }));
+    });
+    for (var i in mods) require(mods[i]);
+
+    core.runMethods("configureShell", options, function(err) {
+        if (options.done) shell.exit();
+
+        ipc.initServer();
+
+        for (var i = 1; i < process.argv.length; i++) {
+            if (process.argv[i][0] != '-') continue;
+            var name = lib.toCamel("cmd" + process.argv[i]);
+            if (typeof shell[name] != "function") continue;
+            shell.cmdName = name;
+            shell.cmdIndex = i;
+            var rc = shell[name](options);
+            if (rc == "stop") break;
+            if (rc == "continue") continue;
+            return;
+        }
+        if (cluster.isMaster) shell.repl = core.createRepl({ file: core.repl.file, size: core.repl.size });
+    });
 }
-
-module.exports = shell;
 
 // Exit and write to the console a message or error message if non empty
 shell.exit = function(err, msg)
@@ -125,44 +161,6 @@ shell.getArgList = function(name, options)
 shell.isArg = function(name, options)
 {
     return typeof this.getOption(name, options) != "undefined" || lib.isArg(name);
-}
-
-// Start REPL shell or execute any subcommand if specified in the command line.
-// A subcommand may return special string to indicate how to treat the flow:
-// - stop - stop processing commands and create REPL
-// - continue - do not exit and continue processing other commands or end with REPL
-// - all other values will result in returning from the run assuming the command will decide what to do, exit or continue running, no REPL is created
-shell.runShell = function(options)
-{
-    process.title = core.name + ": shell";
-
-    logger.debug('startShell:', process.argv);
-
-    // Load all default shell modules
-    var mods = lib.findFileSync(__dirname + "/../modules", { include: /bk_shell_[a-z]+\.js$/ });
-    core.path.modules.forEach(function(mod) {
-        mods = mods.concat(lib.findFileSync(mod, { include: /bk_shell_[a-z]+\.js$/ }));
-    });
-    for (var i in mods) require(mods[i]);
-
-    core.runMethods("configureShell", options, function(err) {
-        if (options.done) shell.exit();
-
-        ipc.initServer();
-
-        for (var i = 1; i < process.argv.length; i++) {
-            if (process.argv[i][0] != '-') continue;
-            var name = lib.toCamel("cmd" + process.argv[i]);
-            if (typeof shell[name] != "function") continue;
-            shell.cmdName = name;
-            shell.cmdIndex = i;
-            var rc = shell[name](options);
-            if (rc == "stop") break;
-            if (rc == "continue") continue;
-            return;
-        }
-        if (cluster.isMaster) shell.repl = core.createRepl({ file: core.repl.file, size: core.repl.size });
-    });
 }
 
 shell.cmdShellHelp = function()

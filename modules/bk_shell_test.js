@@ -5,10 +5,11 @@
 
 const cluster = require('cluster');
 const util = require("util");
-const core = require(__dirname + '/../lib/core');
-const lib = require(__dirname + '/../lib/lib');
-const logger = require(__dirname + '/../lib/logger');
-const shell = require(__dirname + '/bk_shell');
+const bkjs = require("backendjs");
+const core = bkjs.core;
+const lib = bkjs.lib;
+const logger = bkjs.logger;
+const shell = bkjs.shell;
 
 shell.help.push("-test-run CMD [-test-file FILE] - run a test command in the shell, autoload ./tests/tests.js if exists, optinally can load other file with tests, all other test params will be used as well");
 

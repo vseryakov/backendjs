@@ -248,7 +248,7 @@ Pool.prototype.query = function(client, req, options, callback)
 
     case "incr":
         var key = this.getKey(table, obj, options);
-        var nums = lib.objSearch(options.updateOps, { hasvalue: "incr", names: 1 }).map(function(x) { return { name: x, value: obj[x] } });
+        var nums = lib.objSearch(options.updateOps, { hasValue: "incr" }).map(function(x) { return { name: x, value: obj[x] } });
         var multi = client.multi();
         for (var i = 0; i < nums.length; i++) {
             multi.hincrby(key, nums[i].name, nums[i].value);
