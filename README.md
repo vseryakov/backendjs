@@ -1405,13 +1405,12 @@ The is implemented by the `icons` module from the core. To enable this functiona
 
    Return icon for the current account in the given prefix, icons are kept on the local disk in the directory
    configured by `-api-images-dir` parameter(default is images/ in the backend directory). Current account id is used to keep icons
-   separate from other accounts. Icon presence is checked in the bk_icon table before returning it and if any permissions are set in
-   the `acl_allow` column it will be checked if this icon can be returned.
+   separate from other accounts. Icon presence is checked in the bk_icon table before returning it
 
   The following parameters can be used:
   - `prefix` - must be specified, this defines the icons namespace
   - `type` is used to specify unique icon created with such type which can be any string.
-  - `_ext` - image extension, like png or jpg if it was saved with it previously
+  - `ext` - image extension, like png or jpg if it was saved with it previously
 
 - `/icon/put`
 
@@ -1423,10 +1422,9 @@ The is implemented by the `icons` module from the core. To enable this functiona
     - prefix - prefix for the icons, required
     - descr - optional description of the icon
     - latitude, longitude - optional coordinates for the icon
-    - acl_allow - allow access permissions, see `/account/put/icon` for the format and usage
-    - _width - desired width of the stored icon, if negative this means do not upscale, if the image width is less than given then keep it as is
-    - _height - height of the icon, same rules apply as for the width above
-    - _ext - image file format, default is jpg, supports: gif, png, jpg
+    - width - desired width of the stored icon, if negative this means do not upscale, if the image width is less than given then keep it as is
+    - height - height of the icon, same rules apply as for the width above
+    - ext - image file format, default is jpg, supports: gif, png, jpg
 
 - `/icon/upload`
 
@@ -1454,197 +1452,6 @@ The is implemented by the `icons` module from the core. To enable this functiona
           { id: 'b3dcfd1e63394e769658973f0deaa81a', type: 'me-2', icon: '/icon/get?prefix=album&type=me2' } ]
 
         [ { id: 'b3dcfd1e63394e769658973f0deaa81a', type: '12345-f0deaa81a', icon: '/icon/get?prefix=album&type=12345-f0deaa81a' } ]
-
-## File API
-
-The file API provides ability to store and retrieve files. The operations are similar to the Icon API.
-
-This is implemented by the `files` module from the core. To enable this functionality specify `-allow-modules=bk_files`.
-
-- `/file/get`
-
-    Return a file with given prefix and name, the contents are returned in the response body.
-
-    The following parameters can be used:
-    - `prefix` - must be provided, defines the namespace where the file is stored
-    - `name` - name of the file, required
-
-- `/file/put`
-
-    Store a file on the backend, the file can be sent using form multipart upload or as JSON
-
-    The following parameters can be used:
-    - `prefix` - must be provided, defines the namespace where the file is stored
-    - `name` - name of the file, required
-    - `_name` - name of the property that contains the file contents, for use with JSON or defines the name of the file attribute for multipart upload
-    - `_tm` - append the current timestamp to the file name
-    - `_ext` - extension to be assign to the file, otherwise the actual extension from the file name is used
-
-- `/file/del`
-
-    Delete file, prefix and name must be given
-
-## Messages
-The messaging API allows sending and receiving messages between accounts, it supports text and images. All new messages arrive into the bk_messsage table, the inbox. The client
-may keep messages there as new, delete or archive them. Archiving means transferring messages into the bk_archive table. All sent messages are kept in the bk_sent table.
-
-This is implemented by the `messages` module from the core. To enable this functionality specify `-allow-modules=bk_messages`.
-
-- `/message/get/unread`
-   Return how many unread messages in the inbox, this is just a flag to signal about new messages, the actual number may not be up to date,
-   it is cleared on messages read.
-
-   Example:
-
-       /message/get/unread
-
-   Response:
-
-      { count: 1 }
-
-- `/message/get`
-  Read all messages from the inbox.
-
-  Parameters:
-   - `_archive` - if set to 1, all returned messages will be archived automatically, so no individual /message/read call needed
-   - `_trash` - if set to 1, all returned messages will be deleted, not archived
-   - `_total` - if set to 1 then return how many messages in the inbox
-     the unread flag with the actual number of unread messages.
-
-  Example:
-
-        # Get all new messages
-        /message/get
-
-        # Get all new messages and archive them
-        /message/get?_archive=1
-
-        # Get all new messages from the specific sender
-        /message/get?sender=12345
-
-        # How many new messages
-        /message/get?_total=1
-
-- `/message/get/archive`
-  Receive archived messages. The images are not returned, only link to the image in `icon` property of reach record,
-  the actual image data must be retrieved separately.
-
-  Parameters:
-   - `mtime` - if specified then only messages received since that time will be returned, it must be in milliseconds since midnight GMT on January 1, 1970, this is what
-     Date.now() return in JavaScript.
-  - `sender` - if specified then all messages from the given sender will be returned.
-
-  NOTE: The `mtime` is when the backend server received the message, if client and the server clocks are off this may return wrong data or not return anything at all,
-  also because the arrival order of the messages cannot be guaranteed, sending fast multiple messages may be received in different order by the backend and this will
-  result in mtimes that do not correspond to actual times when the message has been sent.
-
-  Example:
-
-        # Get all messages
-        /message/get/archive
-
-        # Get all messages received after given mtime
-        /message/get/archive?mtime=123475658690
-
-        # Get all messages received before given mtime
-        /message/get/archive?mtime=123475658690&_ops=mtime,lt
-
-        # Get all messages with custom filter: if msg text contains Hi
-        /message/get/archive?_ops=msg,iregexp&msg=Hi
-
-        # Get all messages from the specific sender
-        /message/get/archive?sender=12345
-
-  Response:
-
-        { "data": [ { "sender": "12345",
-                      "msg": "Hi, how r u?",
-                      "mtime": "12334312543"
-                    },
-                    { "sender": "45678",
-                      "msg": "check this out!",
-                      "icon": "/message/image?sender=45678&mtime=12334312543",
-                      "mtime": "12334312543"
-                    }],
-             "next_token": ""
-           }
-
-- `/message/get/sent`
-   Return all messages i sent out. All the same query rules apply as for the archived messages API call.
-
-  Parameters:
-   - `recipient` - id of the recipient where i have sent messages
-   - `mtime` - time before or after messages sent, defined by _ops parametrs
-
-  Example:
-
-        /message/get/sent?recipient=123
-        /message/get/sent?recipient=123&mtime=123475658690&_ops=mtime,le
-
-- `/message/add`
-  Send a message to an account, the following parameters must be specified:
-    - `id` - recipient account id
-    - `msg` - text of the message, can be empty if `icon` property exists
-    - `icon` - icon of the message, it can be base64 encoded image in the query or JSON string if the whole message is posted as JSON or
-      can be a multipart file upload if submitted via browser, can be omitted if `msg/connection/get?type=invite&id=12345` property exists.
-    - _nosent - do not save this message in my sent messages
-
-  Example:
-
-        /message/add?id=12345&msg=Hello
-        /message/add?id=12345&msg=this%2Bis%2Bthe%2Bpic&icon=KHFHTDDKH7676758JFGHFDRDEDET....TGJNK%2D
-
-- `/message/read`
-  Mark a message as read
-
-  Example:
-
-        /message/read?sender=12345&mtime=124345656567676
-
-- `/message/archive`
-  Move a new message to the archive. The required query parameters are `sender` and `mtime`.
-
-  Example:
-
-        /message/read?sender=12345&mtime=12366676434
-
-- `/message/update`
-  Update a message, can be used to keep track of read/unread status, etc...
-
-  Example:
-
-        /message/update?sender=12345&mtime=124345656567676&read=1
-
-- `/message/update/archive`
-  Update a message in the archive.
-
-
-- `/message/del`
-  Delete new message(s) by `sender` and/or `mtime` which must be passed as query parameters. If no mtime is given, all messages from the given sender will be deleted.
-
-  Example:
-
-        /message/del?sender=12345&mtime=124345656567676
-
-- `/message/del/archive`
-  Delete archived message(s) by `sender` and/or `mtime` which must be passed as query parameters. If no mtime is given, all messages from the given sender will be deleted.
-
-  Example:
-
-        /message/del/archive?sender=12345&mtime=124345656567676
-
-- `/message/del/sent`
-  Delete the message(s) by `recipient` and/or `mtime` which must be passed as query parameters. If no mtime is given, all messages to the given recipient will be deleted.
-
-  Example:
-
-        /message/del/sent?recipient=12345&mtime=124345656567676
-
-- `/message/image`
-  Return the image data for the given message, the required parameters are:
-    - sender - id of the sender returned in the by `/message/get` reply results for every message
-    - mtime - exact timestamp of the message
-
 
 ## Data
 The data API is a generic way to access any table in the database with common operations, as oppose to the any specific APIs above this API only deals with
@@ -1912,26 +1719,6 @@ This is implemented by the `system` module from the core. To enable this functio
                   "api_req_h95p": 1,
                   "api_req_h99p": 33.13000000000011,
                   "api_req_h999p": 99.36200000000008,
-                  "url_message_get_rate": 0,
-                  "url_message_get_rcnt": 24,
-                  "url_message_get_rmean": 0.00004299242196761214,
-                  "url_message_get_r1m": 0,
-                  "url_message_get_r5m": 0,
-                  "url_message_get_r15m": 0,
-                  "url_message_get_hmin": 16,
-                  "url_message_get_hmax": 71,
-                  "url_message_get_hsum": 792,
-                  "url_message_get_hvar": 208.34782608695653,
-                  "url_message_get_hmean": 33,
-                  "url_message_get_hdev": 14.434258764722092,
-                  "url_message_get_hcnt": 24,
-                  "url_message_get_hmed": 30.5,
-                  "url_message_get_h75p": 40.75,
-                  "url_message_get_h95p": 68,
-                  "url_message_get_h99p": 71,
-                  "url_message_get_h999p": 71,
-                  "url_message_get_0": 0,
-                  "api_req_0": 20,
                   "url_ping_rate": 0,
                   "url_ping_rcnt": 12407,
                   "url_ping_rmean": 0.022226981327796796,
@@ -1951,84 +1738,6 @@ This is implemented by the `system` module from the core. To enable this functio
                   "url_ping_h99p": 1,
                   "url_ping_h999p": 2,
                   "url_ping_0": 5,
-                  "url_image_account_rate": 0,
-                  "url_image_account_rcnt": 95,
-                  "url_image_account_rmean": 0.00017084907295404685,
-                  "url_image_account_r1m": 0,
-                  "url_image_account_r5m": 0,
-                  "url_image_account_r15m": 0,
-                  "url_image_account_hmin": 17,
-                  "url_image_account_hmax": 121,
-                  "url_image_account_hsum": 4295,
-                  "url_image_account_hvar": 372.42329227323637,
-                  "url_image_account_hmean": 45.21052631578947,
-                  "url_image_account_hdev": 19.29827174317007,
-                  "url_image_account_hcnt": 95,
-                  "url_image_account_hmed": 42,
-                  "url_image_account_h75p": 51,
-                  "url_image_account_h95p": 89.59999999999991,
-                  "url_image_account_h99p": 121,
-                  "url_image_account_h999p": 121,
-                  "url_image_account_0": 0,
-                  "incr_follow_0": 0,
-                  "api_bad_0": 3,
-                  "url_account_update_rate": 0,
-                  "url_account_update_rcnt": 6,
-                  "url_account_update_rmean": 0.000010813705805470248,
-                  "url_account_update_r1m": 0,
-                  "url_account_update_r5m": 0,
-                  "url_account_update_r15m": 0,
-                  "url_account_update_hmin": 53,
-                  "url_account_update_hmax": 182,
-                  "url_account_update_hsum": 573,
-                  "url_account_update_hvar": 2041.5,
-                  "url_account_update_hmean": 95.5,
-                  "url_account_update_hdev": 45.18296139032943,
-                  "url_account_update_hcnt": 6,
-                  "url_account_update_hmed": 82,
-                  "url_account_update_h75p": 120.5,
-                  "url_account_update_h95p": 182,
-                  "url_account_update_h99p": 182,
-                  "url_account_update_h999p": 182,
-                  "url_account_update_0": 0,
-                  "auth_add_0": 0,
-                  "url_account_get_rate": 0,
-                  "url_account_get_rcnt": 9,
-                  "url_account_get_rmean": 0.0001993511695335063,
-                  "url_account_get_r1m": 0,
-                  "url_account_get_r5m": 0,
-                  "url_account_get_r15m": 0,
-                  "url_account_get_hmin": 2,
-                  "url_account_get_hmax": 100,
-                  "url_account_get_hsum": 435,
-                  "url_account_get_hvar": 844.0000000000001,
-                  "url_account_get_hmean": 48.333333333333336,
-                  "url_account_get_hdev": 29.051678092667903,
-                  "url_account_get_hcnt": 9,
-                  "url_account_get_hmed": 46,
-                  "url_account_get_h75p": 67,
-                  "url_account_get_h95p": 100,
-                  "url_account_get_h99p": 100,
-                  "url_account_get_h999p": 100,
-                  "url_account_get_0": 1,
-                  "url_system_stats_rate": 0,
-                  "url_system_stats_rcnt": 1,
-                  "url_system_stats_rmean": 0.04501665616278023,
-                  "url_system_stats_r1m": 0,
-                  "url_system_stats_r5m": 0,
-                  "url_system_stats_r15m": 0,
-                  "url_system_stats_hmin": 3,
-                  "url_system_stats_hmax": 3,
-                  "url_system_stats_hsum": 3,
-                  "url_system_stats_hmean": 3,
-                  "url_system_stats_hdev": 0,
-                  "url_system_stats_hcnt": 1,
-                  "url_system_stats_hmed": 3,
-                  "url_system_stats_h75p": 3,
-                  "url_system_stats_h95p": 3,
-                  "url_system_stats_h99p": 3,
-                  "url_system_stats_h999p": 3,
-                  "url_system_stats_0": 2
               }
 
 # Author

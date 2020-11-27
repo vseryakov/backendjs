@@ -24,7 +24,6 @@ const mod = {
             },
             prefix: {},                                 // icon prefix/namespace
             descr: { pub: 1 },                          // user provided caption
-            acl_allow: {},                              // who can see it: all, auth, id:id...
             tags: { type: "list" },                     // detected or attached tags
             width: { type: "int" },
             height: { type: "int" },
@@ -34,38 +33,13 @@ const mod = {
             longitude: { type: "real" },
             mtime: { type: "now" },
         },
-
     },
-    controls: {
-        width: { type: "number" },
-        height: { type: "number" },
-        rotate: { type: "number" },
-        quality: { type: "number" },
-        brightness: { type: "number" },
-        contrast: { type: "number" },
-        bgcolor: { type: "string" },
-        verify: { type: "bool" },
-        extkeep: { type: "regexp" },
-        autodel: { type: "bool" },
-    },
-    args: [
-        { name: "limit", type: "map", datatype: "int", descr: "Set the limit of how many icons by type can be uploaded by an account, type:N,type:N..., type * means global limit for any icon type" },
-    ],
-    limit: { "*": 0 },
 };
 module.exports = mod;
-
-mod.configureMiddleware = function(options, callback)
-{
-    api.registerControlParams(mod.controls);
-    callback();
-}
 
 // Create API endpoints and routes
 mod.configureWeb = function(options, callback)
 {
-    db.setProcessRow("post", "bk_icon", mod.checkIcon);
-
     this.configureIconsAPI();
     callback()
 }
@@ -80,35 +54,36 @@ mod.configureIconsAPI = function()
         if (!req.query.prefix) return api.sendReply(res, 400, "prefix is required");
         if (!req.query.id) req.query.id = req.account.id;
         if (!req.query.type) req.query.type = "";
+
         switch (req.params[0]) {
         case "get":
-            mod.send(req, options);
+            db.get("bk_icon", { id: req.query.id, type: req.query.type, prefix: req.query.prefix }, (err, row) => {
+                if (err || !row) return api.sendReply(req.res, err || 404);
+                api.sendIcon(req, row.id, row);
+            });
             break;
 
         case "select":
-            mod.select(req.query, function(err, rows) {
+            mod.select(req.query, options, (err, rows) => {
                 api.sendJSON(req, err, rows);
             });
             break;
 
         case "put":
-            mod.upload(req, options, function(err, rows) {
+            mod.upload(req, options, (err, rows) => {
                 api.sendJSON(req, err, rows);
             });
             break;
 
         case "del":
-            mod.del(req.query, function(err) {
+            mod.del(req.query, options, (err) => {
                 api.sendJSON(req, err);
             });
             break;
 
         case "upload":
-            options.type = req.query.type;
-            options.prefix = req.query.prefix;
-            options.name = req.query.name;
-            options.autodel = 1;
-            api.putIcon(req, req.account.id, options, function(err, icon, info) {
+            req.query.autodel = 1;
+            api.putIcon(req, req.account.id, req.query, (err, icon, info) => {
                 if (info) {
                     info.id = req.account.id;
                     info.prefix = req.query.prefix;
@@ -126,70 +101,19 @@ mod.configureIconsAPI = function()
 
 }
 
-// Verify icon permissions and format for the result, used in setProcessRow for the bk_icon table
-mod.checkIcon = function(req, row)
-{
-    if (row.acl_allow && row.acl_allow != "all") {
-        var id = req.options && req.options.account && req.options.account.id;
-        if (row.acl_allow == "auth") {
-            if (!id) return true;
-        } else
-        if (row.acl_allow) {
-            if (!row.acl_allow.split(",").some(function(x) { return x == id })) return true;
-        } else
-        if (row.id != id) return true;
-    }
-    // Use direct module reference due to usage in the callback without proper context
-    row.url = api.iconUrl(row, req.options);
-}
-
-// Process icon request, put or del, update table and deal with the actual image data, always overwrite the icon file
-// Verify icon limits before adding new icons
+// Process icon upload request, update table and deal with the actual image data, always overwrite the icon file
 mod.upload = function(req, options, callback)
 {
-    req.query.type = req.query.type || "";
-    req.query.prefix = req.query.prefix || "account";
+    if (typeof options == "function") callback = options, options = null;
     req.query.id = req.query.id || req.account.id;
-    if (typeof options.autodel == "undefined") options.autodel = 1;
-    var icons = [], meta;
+    req.query.prefix = req.query.prefix || "account";
+    req.query.type = req.query.type || "";
+    if (typeof req.query.autodel == "undefined") req.query.autodel = 1;
 
-    lib.series([
-      function(next) {
-          // All icons with the prefix given
-          db.select("bk_icon", { id: req.query.id, type: req.query.prefix }, options, function(err, rows) {
-              icons = rows;
-              next(err);
-          });
-      },
-      function(next) {
-          // Max number of allowed icons per type or globally
-          var limit = mod.limit[req.query.type] || mod.limit['*'];
-          // We can override existing icon but not add a new one
-          if (limit > 0 && icons.length >= limit && !icons.some(function(x) { return x.type == options.type })) {
-              return next({ status: 403, message: "No more icons allowed" });
-          }
-          next();
-      },
-      function(next) {
-          options.type = req.query.type;
-          options.prefix = req.query.prefix;
-          api.putIcon(req, options.name || "icon", req.query.id, options, function(err, icon, info) {
-              if (err || !icon) return next(err || { status: 400, message: "Upload error" });
-              meta = info;
-              for (var p in info) req.query[p] = info[p];
-              // Add new icons to the list which will be returned back to the client
-              if (!icons.some(function(x) { return x.type == options.type })) {
-                  req.query.url = api.iconUrl(req.query, options);
-                  icons.push(req.query);
-              }
-              next();
-          });
-      },
-      function(next) {
-          db.put("bk_icon", req.query, options, next);
-      },
-    ], function(err) {
-        lib.tryCall(callback, err, icons, meta);
+    api.putIcon(req, req.query.name || "icon", req.query.id, req.query, (err, icon, info) => {
+        if (err || !icon) return lib.tryCall(callback, err || { status: 400, message: "Upload error" });
+        for (const p in info) req.query[p] = info[p];
+        db.put("bk_icon", req.query, callback);
     });
 }
 
@@ -215,35 +139,24 @@ mod.select = function(query, options, callback)
 
 // Delete an icon, only one icon at a time, options must profile id, prefix. It will try to delete
 // an icon file even if there is no record in the bk_icon table.
-mod.del = function(options, callback)
+mod.del = function(query, callback)
 {
-    if (!options.id) return lib.tryCall(callback, { status: 400, message: "no id provided" })
-    if (!options.prefix) return lib.tryCall(callback, { status: 400, message: "no prefix provided" })
-    db.del("bk_icon", options, { returning: "*" }, function(err, rows) {
-        if (err) return lib.tryCall(callback, err);
-        if (rows.length) options = rows[0];
-        api.delIcon(options.id, options, callback);
-    });
-}
-
-// Return icon to the client, checks the bk_icon table for existence and permissions
-mod.send = function(req, options)
-{
-    db.get("bk_icon", { id: req.query.id, type: req.query.type, prefix: req.query.prefix }, function(err, row) {
-        if (err) return api.sendReply(req.res, err);
-        if (!row) return api.sendReply(req.res, 404, "Not found or not allowed");
-        api.sendIcon(req, row.id, row);
+    if (!query.id) return lib.tryCall(callback, { status: 400, message: "no id provided" })
+    if (!query.prefix) return lib.tryCall(callback, { status: 400, message: "no prefix provided" })
+    db.del("bk_icon", query, { returning: "*", first: 1 }, (err, row) => {
+        if (err || !row) return lib.tryCall(callback, err || { status: 404, message: "not found" });
+        api.delIcon(query.id, row, callback);
     });
 }
 
 mod.bkDeleteAccount = function(req, callback)
 {
     if (lib.isFlag(req.options.keep, ["all","account","bk_icon"])) return callback();
-    db.delAll("bk_icon", { id: req.account.id }, { delCollect: 1 }, function(err, rows) {
+    db.delAll("bk_icon", { id: req.account.id }, { delCollect: 1 }, (err, rows) => {
         if (lib.isFlag(req.options.keep, ["all","account","images"])) return callback();
         // Delete all image files
-        lib.forEachSeries(rows, function(row, next) {
-            api.delIcon(req.account.id, row, function() { next() });
+        lib.forEachSeries(rows, (row, next) => {
+            api.delIcon(req.account.id, row, () => (next()));
         }, callback);
     });
 }
