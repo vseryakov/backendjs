@@ -56,8 +56,6 @@
 <li><a href="#health-enquiry"> Health enquiry</a></li>
 <li><a href="#public-images-endpoint"> Public Images endpoint</a></li>
 <li><a href="#icons"> Icons</a></li>
-<li><a href="#file-api"> File API</a></li>
-<li><a href="#messages"> Messages</a></li>
 <li><a href="#data"> Data</a></li>
 <li><a href="#system-api"> System API</a></li>
 <li><a href="#author"> Author</a></li>
@@ -102,6 +100,11 @@
 <li><a href="#module-ipcc_sqs">ipcc_sqs</a></li>
 <li><a href="#module-jobs">jobs</a></li>
 <li><a href="#module-lib">lib</a></li>
+<li><a href="#module-lib_conv">lib_conv</a></li>
+<li><a href="#module-lib_file">lib_file</a></li>
+<li><a href="#module-lib_flow">lib_flow</a></li>
+<li><a href="#module-lib_obj">lib_obj</a></li>
+<li><a href="#module-lib_str">lib_str</a></li>
 <li><a href="#module-logger">logger</a></li>
 <li><a href="#module-metrics">metrics</a></li>
 <li><a href="#module-msg">msg</a></li>
@@ -109,16 +112,14 @@
 <li><a href="#module-msgc_fcm">msgc_fcm</a></li>
 <li><a href="#module-pool">pool</a></li>
 <li><a href="#module-server">server</a></li>
+<li><a href="#module-shell">shell</a></li>
 <li><a href="#module-bk_account">bk_account</a></li>
 <li><a href="#module-bk_data">bk_data</a></li>
-<li><a href="#module-bk_file">bk_file</a></li>
 <li><a href="#module-bk_icon">bk_icon</a></li>
-<li><a href="#module-bk_message">bk_message</a></li>
 <li><a href="#module-bk_shell">bk_shell</a></li>
 <li><a href="#module-bk_shell_aws">bk_shell_aws</a></li>
 <li><a href="#module-bk_shell_db">bk_shell_db</a></li>
 <li><a href="#module-bk_shell_test">bk_shell_test</a></li>
-<li><a href="#module-bk_status">bk_status</a></li>
 <li><a href="#module-bk_system">bk_system</a></li>
 </ul>
 </li>
@@ -1335,13 +1336,12 @@ then retrieving all icons for an album would be only query with album1: prefix.<
 <li><p><code>/icon/get</code></p>
 <p> Return icon for the current account in the given prefix, icons are kept on the local disk in the directory
  configured by <code>-api-images-dir</code> parameter(default is images/ in the backend directory). Current account id is used to keep icons
- separate from other accounts. Icon presence is checked in the bk_icon table before returning it and if any permissions are set in
- the <code>acl_allow</code> column it will be checked if this icon can be returned.</p>
+ separate from other accounts. Icon presence is checked in the bk_icon table before returning it</p>
 <p>The following parameters can be used:</p>
 <ul>
 <li><code>prefix</code> - must be specified, this defines the icons namespace</li>
 <li><code>type</code> is used to specify unique icon created with such type which can be any string.</li>
-<li><code>_ext</code> - image extension, like png or jpg if it was saved with it previously</li>
+<li><code>ext</code> - image extension, like png or jpg if it was saved with it previously</li>
 </ul>
 </li>
 <li><p><code>/icon/put</code></p>
@@ -1353,10 +1353,9 @@ table with all the parameters passed.</p>
 <li>prefix - prefix for the icons, required</li>
 <li>descr - optional description of the icon</li>
 <li>latitude, longitude - optional coordinates for the icon</li>
-<li>acl_allow - allow access permissions, see <code>/account/put/icon</code> for the format and usage</li>
-<li>_width - desired width of the stored icon, if negative this means do not upscale, if the image width is less than given then keep it as is</li>
-<li>_height - height of the icon, same rules apply as for the width above</li>
-<li>_ext - image file format, default is jpg, supports: gif, png, jpg</li>
+<li>width - desired width of the stored icon, if negative this means do not upscale, if the image width is less than given then keep it as is</li>
+<li>height - height of the icon, same rules apply as for the width above</li>
+<li>ext - image file format, default is jpg, supports: gif, png, jpg</li>
 </ul>
 </li>
 <li><p><code>/icon/upload</code></p>
@@ -1378,175 +1377,6 @@ the <code>url</code> property will provide full URL to retrieve the icon content
     { id: &#39;b3dcfd1e63394e769658973f0deaa81a&#39;, type: &#39;me-2&#39;, icon: &#39;/icon/get?prefix=album&amp;type=me2&#39; } ]
 
   [ { id: &#39;b3dcfd1e63394e769658973f0deaa81a&#39;, type: &#39;12345-f0deaa81a&#39;, icon: &#39;/icon/get?prefix=album&amp;type=12345-f0deaa81a&#39; } ]</code></pre>
-</li>
-</ul>
-<h2 id="file-api">File API</h2>
-<p>The file API provides ability to store and retrieve files. The operations are similar to the Icon API.</p>
-<p>This is implemented by the <code>files</code> module from the core. To enable this functionality specify <code>-allow-modules=bk_files</code>.</p>
-<ul>
-<li><p><code>/file/get</code></p>
-<p>  Return a file with given prefix and name, the contents are returned in the response body.</p>
-<p>  The following parameters can be used:</p>
-<ul>
-<li><code>prefix</code> - must be provided, defines the namespace where the file is stored</li>
-<li><code>name</code> - name of the file, required</li>
-</ul>
-</li>
-<li><p><code>/file/put</code></p>
-<p>  Store a file on the backend, the file can be sent using form multipart upload or as JSON</p>
-<p>  The following parameters can be used:</p>
-<ul>
-<li><code>prefix</code> - must be provided, defines the namespace where the file is stored</li>
-<li><code>name</code> - name of the file, required</li>
-<li><code>_name</code> - name of the property that contains the file contents, for use with JSON or defines the name of the file attribute for multipart upload</li>
-<li><code>_tm</code> - append the current timestamp to the file name</li>
-<li><code>_ext</code> - extension to be assign to the file, otherwise the actual extension from the file name is used</li>
-</ul>
-</li>
-<li><p><code>/file/del</code></p>
-<p>  Delete file, prefix and name must be given</p>
-</li>
-</ul>
-<h2 id="messages">Messages</h2>
-<p>The messaging API allows sending and receiving messages between accounts, it supports text and images. All new messages arrive into the bk_messsage table, the inbox. The client
-may keep messages there as new, delete or archive them. Archiving means transferring messages into the bk_archive table. All sent messages are kept in the bk_sent table.</p>
-<p>This is implemented by the <code>messages</code> module from the core. To enable this functionality specify <code>-allow-modules=bk_messages</code>.</p>
-<ul>
-<li><p><code>/message/get/unread</code>
- Return how many unread messages in the inbox, this is just a flag to signal about new messages, the actual number may not be up to date,
- it is cleared on messages read.</p>
-<p> Example:</p>
-<pre><code> /message/get/unread</code></pre>
-<p> Response:</p>
-<pre><code>{ count: 1 }</code></pre>
-</li>
-<li><p><code>/message/get</code>
-Read all messages from the inbox.</p>
-<p>Parameters:</p>
-<ul>
-<li><code>_archive</code> - if set to 1, all returned messages will be archived automatically, so no individual /message/read call needed</li>
-<li><code>_trash</code> - if set to 1, all returned messages will be deleted, not archived</li>
-<li><code>_total</code> - if set to 1 then return how many messages in the inbox
-the unread flag with the actual number of unread messages.</li>
-</ul>
-<p>Example:</p>
-<pre><code>  # Get all new messages
-  /message/get
-
-  # Get all new messages and archive them
-  /message/get?_archive=1
-
-  # Get all new messages from the specific sender
-  /message/get?sender=12345
-
-  # How many new messages
-  /message/get?_total=1</code></pre>
-</li>
-<li><p><code>/message/get/archive</code>
-Receive archived messages. The images are not returned, only link to the image in <code>icon</code> property of reach record,
-the actual image data must be retrieved separately.</p>
-<p>Parameters:</p>
-<ul>
-<li><code>mtime</code> - if specified then only messages received since that time will be returned, it must be in milliseconds since midnight GMT on January 1, 1970, this is what
-Date.now() return in JavaScript.</li>
-<li><code>sender</code> - if specified then all messages from the given sender will be returned.</li>
-</ul>
-<p>NOTE: The <code>mtime</code> is when the backend server received the message, if client and the server clocks are off this may return wrong data or not return anything at all,
-also because the arrival order of the messages cannot be guaranteed, sending fast multiple messages may be received in different order by the backend and this will
-result in mtimes that do not correspond to actual times when the message has been sent.</p>
-<p>Example:</p>
-<pre><code>  # Get all messages
-  /message/get/archive
-
-  # Get all messages received after given mtime
-  /message/get/archive?mtime=123475658690
-
-  # Get all messages received before given mtime
-  /message/get/archive?mtime=123475658690&amp;_ops=mtime,lt
-
-  # Get all messages with custom filter: if msg text contains Hi
-  /message/get/archive?_ops=msg,iregexp&amp;msg=Hi
-
-  # Get all messages from the specific sender
-  /message/get/archive?sender=12345</code></pre>
-<p>Response:</p>
-<pre><code>  { &quot;data&quot;: [ { &quot;sender&quot;: &quot;12345&quot;,
-                &quot;msg&quot;: &quot;Hi, how r u?&quot;,
-                &quot;mtime&quot;: &quot;12334312543&quot;
-              },
-              { &quot;sender&quot;: &quot;45678&quot;,
-                &quot;msg&quot;: &quot;check this out!&quot;,
-                &quot;icon&quot;: &quot;/message/image?sender=45678&amp;mtime=12334312543&quot;,
-                &quot;mtime&quot;: &quot;12334312543&quot;
-              }],
-       &quot;next_token&quot;: &quot;&quot;
-     }</code></pre>
-</li>
-<li><p><code>/message/get/sent</code>
- Return all messages i sent out. All the same query rules apply as for the archived messages API call.</p>
-<p>Parameters:</p>
-<ul>
-<li><code>recipient</code> - id of the recipient where i have sent messages</li>
-<li><code>mtime</code> - time before or after messages sent, defined by _ops parametrs</li>
-</ul>
-<p>Example:</p>
-<pre><code>  /message/get/sent?recipient=123
-  /message/get/sent?recipient=123&amp;mtime=123475658690&amp;_ops=mtime,le</code></pre>
-</li>
-<li><p><code>/message/add</code>
-Send a message to an account, the following parameters must be specified:</p>
-<ul>
-<li><code>id</code> - recipient account id</li>
-<li><code>msg</code> - text of the message, can be empty if <code>icon</code> property exists</li>
-<li><code>icon</code> - icon of the message, it can be base64 encoded image in the query or JSON string if the whole message is posted as JSON or
-can be a multipart file upload if submitted via browser, can be omitted if <code>msg/connection/get?type=invite&amp;id=12345</code> property exists.</li>
-<li>_nosent - do not save this message in my sent messages</li>
-</ul>
-<p>Example:</p>
-<pre><code>  /message/add?id=12345&amp;msg=Hello
-  /message/add?id=12345&amp;msg=this%2Bis%2Bthe%2Bpic&amp;icon=KHFHTDDKH7676758JFGHFDRDEDET....TGJNK%2D</code></pre>
-</li>
-<li><p><code>/message/read</code>
-Mark a message as read</p>
-<p>Example:</p>
-<pre><code>  /message/read?sender=12345&amp;mtime=124345656567676</code></pre>
-</li>
-<li><p><code>/message/archive</code>
-Move a new message to the archive. The required query parameters are <code>sender</code> and <code>mtime</code>.</p>
-<p>Example:</p>
-<pre><code>  /message/read?sender=12345&amp;mtime=12366676434</code></pre>
-</li>
-<li><p><code>/message/update</code>
-Update a message, can be used to keep track of read/unread status, etc...</p>
-<p>Example:</p>
-<pre><code>  /message/update?sender=12345&amp;mtime=124345656567676&amp;read=1</code></pre>
-</li>
-<li><p><code>/message/update/archive</code>
-Update a message in the archive.</p>
-</li>
-</ul>
-<ul>
-<li><p><code>/message/del</code>
-Delete new message(s) by <code>sender</code> and/or <code>mtime</code> which must be passed as query parameters. If no mtime is given, all messages from the given sender will be deleted.</p>
-<p>Example:</p>
-<pre><code>  /message/del?sender=12345&amp;mtime=124345656567676</code></pre>
-</li>
-<li><p><code>/message/del/archive</code>
-Delete archived message(s) by <code>sender</code> and/or <code>mtime</code> which must be passed as query parameters. If no mtime is given, all messages from the given sender will be deleted.</p>
-<p>Example:</p>
-<pre><code>  /message/del/archive?sender=12345&amp;mtime=124345656567676</code></pre>
-</li>
-<li><p><code>/message/del/sent</code>
-Delete the message(s) by <code>recipient</code> and/or <code>mtime</code> which must be passed as query parameters. If no mtime is given, all messages to the given recipient will be deleted.</p>
-<p>Example:</p>
-<pre><code>  /message/del/sent?recipient=12345&amp;mtime=124345656567676</code></pre>
-</li>
-<li><p><code>/message/image</code>
-Return the image data for the given message, the required parameters are:</p>
-<ul>
-<li>sender - id of the sender returned in the by <code>/message/get</code> reply results for every message</li>
-<li>mtime - exact timestamp of the message</li>
-</ul>
 </li>
 </ul>
 <h2 id="data">Data</h2>
@@ -1821,26 +1651,6 @@ Database pool statistics and other diagnostics</p>
             &quot;api_req_h95p&quot;: 1,
             &quot;api_req_h99p&quot;: 33.13000000000011,
             &quot;api_req_h999p&quot;: 99.36200000000008,
-            &quot;url_message_get_rate&quot;: 0,
-            &quot;url_message_get_rcnt&quot;: 24,
-            &quot;url_message_get_rmean&quot;: 0.00004299242196761214,
-            &quot;url_message_get_r1m&quot;: 0,
-            &quot;url_message_get_r5m&quot;: 0,
-            &quot;url_message_get_r15m&quot;: 0,
-            &quot;url_message_get_hmin&quot;: 16,
-            &quot;url_message_get_hmax&quot;: 71,
-            &quot;url_message_get_hsum&quot;: 792,
-            &quot;url_message_get_hvar&quot;: 208.34782608695653,
-            &quot;url_message_get_hmean&quot;: 33,
-            &quot;url_message_get_hdev&quot;: 14.434258764722092,
-            &quot;url_message_get_hcnt&quot;: 24,
-            &quot;url_message_get_hmed&quot;: 30.5,
-            &quot;url_message_get_h75p&quot;: 40.75,
-            &quot;url_message_get_h95p&quot;: 68,
-            &quot;url_message_get_h99p&quot;: 71,
-            &quot;url_message_get_h999p&quot;: 71,
-            &quot;url_message_get_0&quot;: 0,
-            &quot;api_req_0&quot;: 20,
             &quot;url_ping_rate&quot;: 0,
             &quot;url_ping_rcnt&quot;: 12407,
             &quot;url_ping_rmean&quot;: 0.022226981327796796,
@@ -1860,84 +1670,6 @@ Database pool statistics and other diagnostics</p>
             &quot;url_ping_h99p&quot;: 1,
             &quot;url_ping_h999p&quot;: 2,
             &quot;url_ping_0&quot;: 5,
-            &quot;url_image_account_rate&quot;: 0,
-            &quot;url_image_account_rcnt&quot;: 95,
-            &quot;url_image_account_rmean&quot;: 0.00017084907295404685,
-            &quot;url_image_account_r1m&quot;: 0,
-            &quot;url_image_account_r5m&quot;: 0,
-            &quot;url_image_account_r15m&quot;: 0,
-            &quot;url_image_account_hmin&quot;: 17,
-            &quot;url_image_account_hmax&quot;: 121,
-            &quot;url_image_account_hsum&quot;: 4295,
-            &quot;url_image_account_hvar&quot;: 372.42329227323637,
-            &quot;url_image_account_hmean&quot;: 45.21052631578947,
-            &quot;url_image_account_hdev&quot;: 19.29827174317007,
-            &quot;url_image_account_hcnt&quot;: 95,
-            &quot;url_image_account_hmed&quot;: 42,
-            &quot;url_image_account_h75p&quot;: 51,
-            &quot;url_image_account_h95p&quot;: 89.59999999999991,
-            &quot;url_image_account_h99p&quot;: 121,
-            &quot;url_image_account_h999p&quot;: 121,
-            &quot;url_image_account_0&quot;: 0,
-            &quot;incr_follow_0&quot;: 0,
-            &quot;api_bad_0&quot;: 3,
-            &quot;url_account_update_rate&quot;: 0,
-            &quot;url_account_update_rcnt&quot;: 6,
-            &quot;url_account_update_rmean&quot;: 0.000010813705805470248,
-            &quot;url_account_update_r1m&quot;: 0,
-            &quot;url_account_update_r5m&quot;: 0,
-            &quot;url_account_update_r15m&quot;: 0,
-            &quot;url_account_update_hmin&quot;: 53,
-            &quot;url_account_update_hmax&quot;: 182,
-            &quot;url_account_update_hsum&quot;: 573,
-            &quot;url_account_update_hvar&quot;: 2041.5,
-            &quot;url_account_update_hmean&quot;: 95.5,
-            &quot;url_account_update_hdev&quot;: 45.18296139032943,
-            &quot;url_account_update_hcnt&quot;: 6,
-            &quot;url_account_update_hmed&quot;: 82,
-            &quot;url_account_update_h75p&quot;: 120.5,
-            &quot;url_account_update_h95p&quot;: 182,
-            &quot;url_account_update_h99p&quot;: 182,
-            &quot;url_account_update_h999p&quot;: 182,
-            &quot;url_account_update_0&quot;: 0,
-            &quot;auth_add_0&quot;: 0,
-            &quot;url_account_get_rate&quot;: 0,
-            &quot;url_account_get_rcnt&quot;: 9,
-            &quot;url_account_get_rmean&quot;: 0.0001993511695335063,
-            &quot;url_account_get_r1m&quot;: 0,
-            &quot;url_account_get_r5m&quot;: 0,
-            &quot;url_account_get_r15m&quot;: 0,
-            &quot;url_account_get_hmin&quot;: 2,
-            &quot;url_account_get_hmax&quot;: 100,
-            &quot;url_account_get_hsum&quot;: 435,
-            &quot;url_account_get_hvar&quot;: 844.0000000000001,
-            &quot;url_account_get_hmean&quot;: 48.333333333333336,
-            &quot;url_account_get_hdev&quot;: 29.051678092667903,
-            &quot;url_account_get_hcnt&quot;: 9,
-            &quot;url_account_get_hmed&quot;: 46,
-            &quot;url_account_get_h75p&quot;: 67,
-            &quot;url_account_get_h95p&quot;: 100,
-            &quot;url_account_get_h99p&quot;: 100,
-            &quot;url_account_get_h999p&quot;: 100,
-            &quot;url_account_get_0&quot;: 1,
-            &quot;url_system_stats_rate&quot;: 0,
-            &quot;url_system_stats_rcnt&quot;: 1,
-            &quot;url_system_stats_rmean&quot;: 0.04501665616278023,
-            &quot;url_system_stats_r1m&quot;: 0,
-            &quot;url_system_stats_r5m&quot;: 0,
-            &quot;url_system_stats_r15m&quot;: 0,
-            &quot;url_system_stats_hmin&quot;: 3,
-            &quot;url_system_stats_hmax&quot;: 3,
-            &quot;url_system_stats_hsum&quot;: 3,
-            &quot;url_system_stats_hmean&quot;: 3,
-            &quot;url_system_stats_hdev&quot;: 0,
-            &quot;url_system_stats_hcnt&quot;: 1,
-            &quot;url_system_stats_hmed&quot;: 3,
-            &quot;url_system_stats_h75p&quot;: 3,
-            &quot;url_system_stats_h95p&quot;: 3,
-            &quot;url_system_stats_h99p&quot;: 3,
-            &quot;url_system_stats_h999p&quot;: 3,
-            &quot;url_system_stats_0&quot;: 2
         }</code></pre>
 </li>
 </ul>
@@ -3220,16 +2952,6 @@ The filter will keep non-existent columns in the <code>query</code>. To remove s
 </ul>
 
 <h2 id="module-app">Module: APP</h2>
-<ul>
-<li><p><code>app</code></p>
-<p> This is a skeleton module to be extended by the specific application logic. It provides all
-callbacks and hooks that are called by the core backend modules
-during different phases, like initialization, shutting down, etc...</p>
-<p>It should be used for custom functions and methods to be defined, the <code>app</code> module is always available.</p>
-<p>All app modules in the modules/ subdirectory use the same prototype, i.e. all hooks are available for custom app modules as well.</p>
-</li>
-</ul>
-
 <ul>
 <li><p><code>app.configure(options, callback) </code></p>
 <p> Called after all config files are loaded and command line args are parsed, home directory is set but before the db is initialized,
@@ -7064,275 +6786,8 @@ all arguments will be printed in the log</p>
 </ul>
 
 <ul>
-<li><p><code>lib.typeName(v)</code></p>
-<p> Return object type, try to detect any distinguished type</p>
-</li>
-</ul>
-
-<ul>
 <li><p><code>lib.isArg(name)</code></p>
 <p> Returns true of given arg(s) are present in the command line, name can be a string or an array of strings.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.encodeURIComponent(str)</code></p>
-<p> Encode with additional symbols, convert these into percent encoded:</p>
-<pre><code>    ! -&gt; %21, * -&gt; %2A, &#39; -&gt; %27, ( -&gt; %28, ) -&gt; %29</code></pre>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.isObject(v)</code></p>
-<p> Returns true of the argument is a generic object, not a null, Buffer, Date, RegExp or Array</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.isNumber(val)</code></p>
-<p> Return true if the value is a number</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.isPrefix(val, prefix)</code></p>
-<p> Return true if the value is prefixed</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.isUuid(val, prefix)</code></p>
-<p> Returns true if the value represents an UUID</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.isPositive(val)</code></p>
-<p> Returns true if a number is positive, i.e. greater than zero</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.isArray(val, dflt)</code></p>
-<p> Returns the array if the value is non empty array or dflt value if given or undefined</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.isEmpty(val)</code></p>
-<p> Return true of the given value considered empty</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.isNumeric(val)</code></p>
-<p> Returns true if the value is a number or string representing a number</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.isNumericType(type)</code></p>
-<p> Returns true if the given type belongs to the numeric family of data types</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.isDate(d)</code></p>
-<p> Returns true if the given date is valid</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.isTimeRange(time1, time2, options)</code></p>
-<p> Returns 0 if the current time is not within specified valid time range or it is invalid. Only continious time rang eis support, it
-does not handle over the midninght ranges, i.e. time1 is always must be greater than time2.</p>
-<p><code>options.tz</code> to specify timezone, no timezone means current timezone.
-<code>options.date</code> if given must be a list of dates in the format: YYY-MM-DD,...</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.isTrue(val1, val2, op, type)</code></p>
-<p> Evaluate expr, compare 2 values with optional type and operation</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.isMatched(obj, condition)</code></p>
-<p> All properties in the object <code>obj</code> must match all properties in the object <code>condition</code>,
-each value in <code>condition</code> is treated as RegExp,
-if the value is equal to &#39;null&#39; which means an empty or non-existed value,
-if the value begins with ! it means no match is expected, the leading ! will be stripped.</p>
-<p>if <code>condition</code> is an array then returns true if any matched</p>
-<p>empty condition returns true</p>
-<p>Example:</p>
-<pre><code>  lib.isMatched({id:1,name:2,notifications0:1,type:&quot;user,admin&quot;}, {notifications0:0})
-  lib.isMatched({id:1,name:2,notifications0:1,type:&quot;user,admin&quot;}, {notifications0:1,type:&quot;!admin&quot;})</code></pre>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.isFlag(list, name)</code></p>
-<p> Returns true if <code>name</code> exists in the array <code>list</code>, search is case sensitive. if <code>name</code> is an array it will return true if
-any element in the array exists in the <code>list</code>.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.forEach(list, iterator, callback)</code></p>
-<p> Apply an iterator function to each item in an array in parallel. Execute a callback when all items
-have been completed or immediately if there is an error provided.</p>
-<pre><code>    lib.forEach([ 1, 2, 3 ], function (i, next) {
-        console.log(i);
-        next();
-    }, function (err) {
-        console.log(&#39;done&#39;);
-    });</code></pre>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.forEvery(list, iterator, callback)</code></p>
-<p> Same as <code>forEach</code> except that the iterator will be called for every item in the list, all errors will be ignored</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.forEachSeries(list, iterator, callback)</code></p>
-<p> Apply an iterator function to each item in an array serially. Execute a callback when all items
-have been completed or immediately if there is is an error provided.</p>
-<pre><code>    lib.forEachSeries([ 1, 2, 3 ], function (i, next) {
-      console.log(i);
-      next();
-    }, function (err) {
-      console.log(&#39;done&#39;);
-    });</code></pre>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.forEverySeries(list, iterator, callback)</code></p>
-<p> Same as <code>forEachSeries</code> except that the iterator will be called for every item in the list, all errors will be passed to the next
-item with optional additional data argument.</p>
-<pre><code>    lib.forEverySeries([ 1, 2, 3 ], function (i, next, err, data) {
-      console.log(i, err, data);
-      next(err, i, data);
-    }, function (err, data) {
-      console.log(&#39;done&#39;, err, data);
-    });</code></pre>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.forEachLimit(list, limit, iterator, callback)</code></p>
-<p> Apply an iterator function to each item in an array in parallel as many as specified in <code>limit</code> at a time. Execute a callback when all items
-have been completed or immediately if there is is an error provided.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.forEveryLimit(list, limit, iterator, callback)</code></p>
-<p> Same as <code>forEachLimit</code> but does not stop on error, all items will be processed and errors will be collected in an array and
-passed to the final callback</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.forEachItem(options, next, iterator, callback)</code></p>
-<p> Apply an iterator function to each item returned by the <code>next(item, cb)</code> function until it returns <code>null</code> or the iterator returns an error in the callback,
-the final callback will be called after all iterators are finished.</p>
-<p>If no item is available the <code>next()</code> should return empty value, it will be called again in <code>options.interval</code> ms if specified or
-immediately in the next tick cycle.</p>
-<p>The max number of iterators to run at the same time is controlled by <code>options.max</code>, default is 1.</p>
-<p>The maximum time waiting for items can be specified by <code>options.timeout</code>, it is not an error condition, just another way to stop
-processing if it takes too long because the <code>next()</code> function is a black box just returning items to process. Timeout will send null
-to the queue and it will stop after all iterators are finished.</p>
-</li>
-</ul>
-<pre><code>    var list = [1, 2, &quot;&quot;, &quot;&quot;, 3, &quot;&quot;, 4, &quot;&quot;, &quot;&quot;, &quot;&quot;, null];
-    lib.forEachItem({ max: 2, interval: 1000, timeout: 30000 },
-        function(next) {
-            next(list.shift());
-        },
-        function(item, next) {
-            console.log(&quot;item:&quot;, item);
-            next();
-        },
-        (err) =&gt; {
-            console.log(&quot;done&quot;, err);
-        });</code></pre>
-
-<ul>
-<li><p><code>lib.parallel(tasks, callback)</code></p>
-<p> Execute a list of functions in parallel and execute a callback upon completion or occurance of an error. Each function will be passed
-a callback to signal completion. The callback accepts an error for the first argument. The iterator and callback will be
-called via setImmediate function to allow the main loop to process I/O.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.everyParallel(tasks, callback)</code></p>
-<p> Same as <code>lib.parallel</code> but all functions will be called and any error will be ignored</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.series(tasks, callback)</code></p>
-<p> Execute a list of functions serially and execute a callback upon completion or occurance of an error. Each function will be passed
-a callback to signal completion. The callback accepts either an error for the first argument in which case the flow will be aborted
-and the final callback will be called immediately or some optional data to be passed to thr next iterator function as a second argument.</p>
-<p>The iterator and callback will be
-called via setImmediate function to allow the main loop to process I/O.</p>
-<pre><code>    lib.series([
-       function(next) {
-          setTimeout(function () { next(null, &quot;data&quot;); }, 100);
-       },
-       function(next, data) {
-          setTimeout(function () { next(); }, 100);
-       },
-    ], function(err) {
-        console.log(err);
-    });</code></pre>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.everySeries(tasks, callback)</code></p>
-<p> Same as <code>lib.series</code> but all functions will be called with errors passed to the next task, only the last passed error will be returned</p>
-<pre><code>    lib.everySeries([
-       function(next, err) {
-          setTimeout(function () { next(&quot;error1&quot;, &quot;data1&quot;); }, 100);
-       },
-       function(next, err, data) {
-          setTimeout(function () { next(err, &quot;data2&quot;); }, 100);
-       },
-    ], function(err, data) {
-        console.log(err, data);
-    });</code></pre>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.whilst(test, iterator, callback, data)</code></p>
-<p> While the test function returns true keep running the iterator, call the callback at the end if specified. All functions are called via setImmediate.</p>
-<pre><code>    var count = 0;
-    lib.whilst(
-        function() {
-          return count &lt; 5;
-        },
-        function (next) {
-          count++;
-          setTimeout(next, 1000);
-        },
-        function (err, data) {
-          console.log(err, data, count);
-        });</code></pre>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.doWhilst(iterator, test, callback, data)</code></p>
-<p> Keep running iterator while the test function returns true, call the callback at the end if specified. All functions are called via setImmediate.</p>
 </li>
 </ul>
 
@@ -7479,32 +6934,8 @@ The name format is assumed to be: <code>XXXXX-N.N.N</code></p>
 </ul>
 
 <ul>
-<li><p><code>lib.uuid(prefix, options)</code></p>
-<p> Return unique Id without any special characters and in lower case</p>
-</li>
-</ul>
-
-<ul>
 <li><p><code>lib.getHashid(salt, min, alphabet)</code></p>
 <p> Return cached Hashids object for the given configuration</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.suuid(prefix, options)</code></p>
-<p> Returns a short unique id</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.tuuid(prefix, encode)</code></p>
-<p> Returns time sortable unique id, inspired by <a href="https://github.com/paixaop/node-time-uuid">https://github.com/paixaop/node-time-uuid</a></p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.tuuidTime(str)</code></p>
-<p> Return time in milliseconds from the time uuid</p>
 </li>
 </ul>
 
@@ -7557,14 +6988,73 @@ Optional third parameter indicates the number of decimal points to return:</p>
 </ul>
 
 <ul>
-<li><p><code>lib.clock()</code></p>
-<p> Returns current time in microseconds</p>
+<li><p><code>lib.shuffle(list)</code></p>
+<p> Randomize the list items in place</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>lib.shuffle(list)</code></p>
-<p> Randomize the list items in place</p>
+<li><p><code>lib.domainName(host)</code></p>
+<p> Extract domain from the host name, takes all host parts except the first one</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.newError(msg, status, code)</code></p>
+<p> Return a new Error object, msg can be a string or an object with message, code, status properties.
+The default error status is 400 if not specified.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.traceError(err)</code></p>
+<p> Returns the error stack or the error itself, to be used in error messages</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.loadLocale(file, callback)</code></p>
+<p> Load a file with locale translations into memory</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.execProcess(cmd, callback)</code></p>
+<p> Run the process and return all output to the callback, this a simply wrapper around child_processes.exec so the lib.runProcess
+can be used without importing the child_processes module. All fatal errors are logged.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.spawnProcess(cmd, args, options, callback)</code></p>
+<p> Run specified command with the optional arguments, this is similar to child_process.spawn with callback being called after the process exited</p>
+<p>Example</p>
+<pre><code>    lib.spawProcess(&quot;ls&quot;, &quot;-ls&quot;, { cwd: &quot;/tmp&quot; }, lib.log)</code></pre>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.checkRespawn(callback)</code></p>
+<p> If respawning too fast, delay otherwise call the callback after a short timeout</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.spawnSeries(cmds, options, callback)</code></p>
+<p> Run a series of commands, <code>cmds</code> is an object where a property name is a command to execute and the value is an array of arguments or null.
+if <code>options.error</code> is 1, then stop on first error or if non-zero status on a process exit.</p>
+<p>Example:</p>
+<pre><code>    lib.spawnSeries({&quot;ls&quot;: &quot;-la&quot;,
+                      &quot;ps&quot;: &quot;augx&quot;,
+                      &quot;du&quot;: { argv: &quot;-sh&quot;, stdio: &quot;inherit&quot;, cwd: &quot;/tmp&quot; },
+                      &quot;uname&quot;: [&quot;-a&quot;] },
+                     lib.log)</code></pre>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.clock()</code></p>
+<p> Returns current time in microseconds</p>
 </li>
 </ul>
 
@@ -7593,69 +7083,124 @@ Optional third parameter indicates the number of decimal points to return:</p>
 </ul>
 
 <ul>
-<li><p><code>lib.strftime(date, fmt, options)</code></p>
-<p> Format date object</p>
+<li><p><code>lib.isTimeRange(time1, time2, options)</code></p>
+<p> Returns 0 if the current time is not within specified valid time range or it is invalid. Only continious time rang eis support, it
+does not handle over the midninght ranges, i.e. time1 is always must be greater than time2.</p>
+<p><code>options.tz</code> to specify timezone, no timezone means current timezone.
+<code>options.date</code> if given must be a list of dates in the format: YYY-MM-DD,...</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>lib.toRFC3339 (date)</code></p>
-<p> Return RFC3339 formatted timestamp for a date or current time</p>
+<li><p><code>lib.typeName(v)</code></p>
+<p> Return object type, try to detect any distinguished type</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>lib.matchRegexp(str, rx, index)</code></p>
-<p> Perform match on a regexp for a string and returns matched value, if no index is specified returns item 1,
-this is a simple case for oneshot match and only single matched element.
-If the `rx`` object has the &#39;g&#39; flag the result will be all matches in an array.</p>
+<li><p><code>lib.uuid(prefix, options)</code></p>
+<p> Return unique Id without any special characters and in lower case</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>lib.matchAllRegexp(str, rx, index)</code></p>
-<p> Perform match on a regexp and return all matches in an array, if no index is specified returns item 1</p>
+<li><p><code>lib.suuid(prefix, options)</code></p>
+<p> Returns a short unique id</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>lib.testRegexp(str, rx)</code></p>
-<p> Perform test on a regexp for a string and returns true only if matched.</p>
+<li><p><code>lib.tuuid(prefix, encode)</code></p>
+<p> Returns time sortable unique id, inspired by <a href="https://github.com/paixaop/node-time-uuid">https://github.com/paixaop/node-time-uuid</a></p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>lib.testRegexpObj(str, rx)</code></p>
-<p> Run test on a regexpObj</p>
+<li><p><code>lib.tuuidTime(str)</code></p>
+<p> Return time in milliseconds from the time uuid</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>lib.replaceRegexp(str, rx, val)</code></p>
-<p> Safe version of replace for strings, always returns a string, if <code>val</code> is not provided performs
-removal of the matched patterns</p>
+<li><p><code>lib.isObject(v)</code></p>
+<p> Returns true of the argument is a generic object, not a null, Buffer, Date, RegExp or Array</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>lib.domainName(host)</code></p>
-<p> Extract domain from the host name, takes all host parts except the first one</p>
+<li><p><code>lib.isNumber(val)</code></p>
+<p> Return true if the value is a number</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>lib.newError(msg, status, code)</code></p>
-<p> Return a new Error object, msg can be a string or an object with message, code, status properties.
-The default error status is 400 if not specified.</p>
+<li><p><code>lib.isPrefix(val, prefix)</code></p>
+<p> Return true if the value is prefixed</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>lib.traceError(err)</code></p>
-<p> Returns the error stack or the error itself, to be used in error messages</p>
+<li><p><code>lib.isUuid(val, prefix)</code></p>
+<p> Returns true if the value represents an UUID</p>
 </li>
 </ul>
 
+<ul>
+<li><p><code>lib.isTuuid(str)</code></p>
+<p> Returns true if the value represent tuuid</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.isUnicode(str)</code></p>
+<p> Returns true of a string contains Unicode characters</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.isPositive(val)</code></p>
+<p> Returns true if a number is positive, i.e. greater than zero</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.isArray(val, dflt)</code></p>
+<p> Returns the array if the value is non empty array or dflt value if given or undefined</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.isEmpty(val)</code></p>
+<p> Return true of the given value considered empty</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.isNumeric(val)</code></p>
+<p> Returns true if the value is a number or string representing a number</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.isNumericType(type)</code></p>
+<p> Returns true if the given type belongs to the numeric family of data types</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.isDate(d)</code></p>
+<p> Returns true if the given date is valid</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.isFlag(list, name)</code></p>
+<p> Returns true if <code>name</code> exists in the array <code>list</code>, search is case sensitive. if <code>name</code> is an array it will return true if
+any element in the array exists in the <code>list</code>.</p>
+</li>
+</ul>
+
+<h2 id="module-lib_conv">Module: LIB_CONV</h2>
 <ul>
 <li><p><code>lib.toVersion(str)</code></p>
 <p> Returns a floating number from the version string, it assumes common semver format as major.minor.patch, all non-digits will
@@ -7903,6 +7448,63 @@ The <code>obj</code> can be an object or an array of objects in which case all o
 </ul>
 
 <ul>
+<li><p><code>lib.toRFC3339 (date)</code></p>
+<p> Return RFC3339 formatted timestamp for a date or current time</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.jsonToBase64(data, secret, options)</code></p>
+<p> Stringify JSON into base64 string, if secret is given, sign the data with it</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.base64ToJson(data, secret, options)</code></p>
+<p> Parse base64 JSON into JavaScript object, in some cases this can be just a number then it is passed as it is, if secret is given verify
+that data is not chnaged and was signed with the same secret</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.jsonFormat(obj, options)</code></p>
+<p> Nicely format an object with indentations, optional <code>indentlevel</code> can be used to control until which level deep
+to use newlines for objects.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.stringify(obj, filter)</code></p>
+<p> JSON stringify without exceptions, on error just returns an empty string and logs the error</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.jsonParse(obj, options)</code></p>
+<p> Silent JSON parse, returns null on error, no exceptions raised.</p>
+<p>options can specify the following properties:</p>
+<ul>
+<li>datatype - make sure the result is returned as type: obj, list, str</li>
+<li>dflt - return this in case of error</li>
+<li>logger - report in the log with the specified level, log, debug, ...</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.xmlParse(obj, options)</code></p>
+<p> Same arguments as for <code>jsonParse</code></p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.encodeURIComponent(str)</code></p>
+<p> Encode with additional symbols, convert these into percent encoded:</p>
+<pre><code>    ! -&gt; %21, * -&gt; %2A, &#39; -&gt; %27, ( -&gt; %28, ) -&gt; %29</code></pre>
+</li>
+</ul>
+
+<ul>
 <li><p><code>lib.escapeUnicode(text)</code></p>
 <p> Convert all Unicode binary symbols into Javascript text representation</p>
 </li>
@@ -7938,62 +7540,343 @@ The <code>obj</code> can be an object or an array of objects in which case all o
 </li>
 </ul>
 
+<h2 id="module-lib_file">Module: LIB_FILE</h2>
 <ul>
-<li><p><code>lib.strTrim(str, chars)</code></p>
-<p> Remove all whitespace from the begining and end of the given string, if an array with characters is not given then it trims all whitespace</p>
+<li><p><code>lib.forEachLine(file, options, lineCallback, endCallback)</code></p>
+<p> Call callback for each line in the file
+options may specify the following parameters:</p>
+</li>
+</ul>
+<ul>
+<li><p>sync - read file synchronously and call callback for every line</p>
+</li>
+<li><p>abort - signal to stop processing</p>
+</li>
+<li><p>limit - number of lines to process and exit</p>
+</li>
+<li><p>length - amount of data in bytes to process and exit</p>
+</li>
+<li><p>count - return this number of lines in an array if greater than 0</p>
+</li>
+<li><p>skip - number of lines to skip from the start</p>
+</li>
+<li><p>progress - if &gt; 0 report how many lines processed so far every specified lines</p>
+</li>
+<li><p>until - skip lines until this regexp matches</p>
+</li>
+<li><p>ignore - skip lines that match this regexp</p>
+</li>
+<li><p>header - if true then skip first line because it is the a header, if <code>options.header</code> it is a function
+it will be called with the first line as an argument and must return true if this line needs to be skipped</p>
+</li>
+<li><p>json - each line represents an JSON object, convert and pass it to the line callback if not null</p>
+</li>
+<li><p>split - split every line before calling the callback, it uses phraseSplit</p>
+</li>
+<li><p>keepempty - by default is enabled if split is set to keep empty fields in the line array</p>
+</li>
+<li><p>separator - a string with characters to be used for splitting, default is <code>,</code></p>
+</li>
+<li><p>quotes - a string with characters to be used for phrase splitting, default is <code>&quot;&#39;</code></p>
+<p>Properties updated and returned in the options:</p>
+</li>
+<li><p>nlines - number of lines read from the file</p>
+</li>
+<li><p>ncalls - number of lines passed to the line callback</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>lib.strSplit(str, sep, options)</code></p>
-<p> Split string into array, ignore empty items,</p>
-</li>
-</ul>
-<ul>
-<li><p><code>sep</code> is an RegExp to use as a separator instead of default  pattern <code>[,\|]</code>,</p>
-</li>
-<li><p><code>options</code> is an object with the same properties as for the <code>toParams</code>, <code>datatype&#39; will be used with </code>lib.toValue` to convert the value for each item</p>
-<p>If <code>str</code> is an array and type is not specified then all non-string items will be returned as is.</p>
+<li><p><code>lib.moveFile(src, dst, overwrite, callback)</code></p>
+<p> Copy file and then remove the source, do not overwrite existing file</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>lib.strSplitUnique(str, sep, options)</code></p>
-<p> Split as above but keep only unique items, case-insensitive</p>
+<li><p><code>lib.copyFile(src, dst, overwrite, callback)</code></p>
+<p> Copy file, overwrite is optional flag, by default do not overwrite</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>lib.phraseSplit(str, options)</code></p>
-<p> Split a string into phrases separated by <code>options.separator</code> character(s) and surrounded by characters in <code>options.quotes</code>. The default separator is space and
-default quotes are both double and single quote. If <code>options.keepempty</code> is given all empty parts will be kept in the list.</p>
+<li><p><code>lib.statSync(file)</code></p>
+<p> Non-exception version, returns empty object,
+mtime is 0 in case file does not exist or number of seconds of last modified time
+mdate is a Date object with last modified time</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>lib.zeropad(n, width)</code></p>
-<p> Return a string with leading zeros</p>
+<li><p><code>lib.readFileSync(file, options)</code></p>
+<p> Return contents of a file, empty if not exist or on error.</p>
+<p>Options can specify the format:</p>
+</li>
+</ul>
+<ul>
+<li>json - parse file as JSON, return an object, in case of error an empty object</li>
+<li>xml - parse the file as XML, return an object</li>
+<li>list - split contents with the given separator</li>
+<li>encoding - file encoding when converting to string</li>
+<li>logger - log level for error messages</li>
+<li>missingok - if set ENOENT will not be logged</li>
+<li>offset - read from the position in the file, if negative the offset is from the end of file</li>
+<li>length - read only this much of the data, otherwise read till the end of file</li>
+</ul>
+
+<ul>
+<li><p><code>lib.readFile(file, options, callback)</code></p>
+<p> Same as <code>lib.readFileSync</code> but asynchronous</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>lib.sprintf(fmt, args)</code></p>
-<p> C-sprintf alike
-based on <a href="http://stackoverflow.com/a/13439711">http://stackoverflow.com/a/13439711</a>
-Usage:</p>
-<ul>
-<li>sprintf(fmt, arg, ...)</li>
-<li>sprintf(fmt, [arg, ...]);</li>
-</ul>
+<li><p><code>lib.findFilter(file, stat, options)</code></p>
+<p> Filter function to be used in findFile methods</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>lib.strCompress(data, encoding)</code></p>
-<p> From <a href="https://github.com/pieroxy/lz-string/">https://github.com/pieroxy/lz-string/</a></p>
+<li><p><code>lib.findFileSync(file, options)</code></p>
+<p> Return list of files than match filter recursively starting with given path, file is the starting path.</p>
+<p>The options may contain the following:</p>
+<ul>
+<li>include - a regexp with file pattern to include</li>
+<li>exclude - a regexp with file pattern to exclude</li>
+<li>filter - a function(file, stat) that return 1 if the given file matches, stat is a object returned by fs.statSync</li>
+<li>depth - if a number it specifies max depth to go into the subfolders, starts with 1</li>
+<li>types - a string with types of files to include: d - a dir, f - a file, l - a symlink, c - char dev, b - block dev, s - socket, p - a FIFO</li>
+<li>base - if set only keep base file name in the result, not full path</li>
+</ul>
+<p>Example:</p>
+<pre><code>  lib.findFileSync(&quot;modules/&quot;, { depth: 1, types: &quot;f&quot;, include: /\.js$/ }).sort()</code></pre>
 </li>
 </ul>
 
+<ul>
+<li><p><code>lib.findFile(dir, options, callback)</code></p>
+<p> Async version of find file, same options as in the sync version</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.watchFiles(options, fileCallback, endCallback)</code></p>
+<p> Watch files in a dir for changes and call the callback, the parameters:</p>
+</li>
+</ul>
+<ul>
+<li>root - a string with root path</li>
+<li>files - a regexp to watch files individually, if omitted watch the whole dir</li>
+<li>match - a regexp to watch files when using the whole dir, only for matched files the callback will be called</li>
+<li>ignore - a regexp to ignore files</li>
+</ul>
+
+<ul>
+<li><p><code>lib.makePathSync(dir)</code></p>
+<p> Recursively create all directories, return 1 if created or 0 on error or if exists, no exceptions are raised, error is logged only</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.makePath(dir, callback)</code></p>
+<p> Async version of makePath, stops on first error</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.unlink(name, callback)</code></p>
+<p> Unlink a file, no error on non-existent file, callback is optional</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.unlinkPath(dir, callback)</code></p>
+<p> Recursively remove all files and folders in the given path, returns an error to the callback if any</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.unlinkPathSync(dir)</code></p>
+<p> Recursively remove all files and folders in the given path, stops on first error</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.chownSync(uid, gid)</code></p>
+<p> Change file owner, multiples files can be specified, do not report errors about non existent files, the uid/gid must be set to non-root user
+for this function to work and it is called by the root only, all the rest of the arguments are used as files names</p>
+<p>Example:</p>
+<pre><code>     lib.chownSync(1, 1, &quot;/path/file1&quot;, &quot;/path/file2&quot;)</code></pre>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.mkdirSync()</code></p>
+<p> Create a directories if do not exist, multiple dirs can be specified, all preceeding directories are not created</p>
+<p>Example:</p>
+<pre><code>       lib.mkdirSync(&quot;dir1&quot;, &quot;dir2&quot;)</code></pre>
+</li>
+</ul>
+
+<h2 id="module-lib_flow">Module: LIB_FLOW</h2>
+<ul>
+<li><p><code>lib.forEach(list, iterator, callback)</code></p>
+<p> Apply an iterator function to each item in an array in parallel. Execute a callback when all items
+have been completed or immediately if there is an error provided.</p>
+<pre><code>    lib.forEach([ 1, 2, 3 ], function (i, next) {
+        console.log(i);
+        next();
+    }, function (err) {
+        console.log(&#39;done&#39;);
+    });</code></pre>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.forEvery(list, iterator, callback)</code></p>
+<p> Same as <code>forEach</code> except that the iterator will be called for every item in the list, all errors will be ignored</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.forEachSeries(list, iterator, callback)</code></p>
+<p> Apply an iterator function to each item in an array serially. Execute a callback when all items
+have been completed or immediately if there is is an error provided.</p>
+<pre><code>    lib.forEachSeries([ 1, 2, 3 ], function (i, next) {
+      console.log(i);
+      next();
+    }, function (err) {
+      console.log(&#39;done&#39;);
+    });</code></pre>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.forEverySeries(list, iterator, callback)</code></p>
+<p> Same as <code>forEachSeries</code> except that the iterator will be called for every item in the list, all errors will be passed to the next
+item with optional additional data argument.</p>
+<pre><code>    lib.forEverySeries([ 1, 2, 3 ], function (i, next, err, data) {
+      console.log(i, err, data);
+      next(err, i, data);
+    }, function (err, data) {
+      console.log(&#39;done&#39;, err, data);
+    });</code></pre>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.forEachLimit(list, limit, iterator, callback)</code></p>
+<p> Apply an iterator function to each item in an array in parallel as many as specified in <code>limit</code> at a time. Execute a callback when all items
+have been completed or immediately if there is is an error provided.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.forEveryLimit(list, limit, iterator, callback)</code></p>
+<p> Same as <code>forEachLimit</code> but does not stop on error, all items will be processed and errors will be collected in an array and
+passed to the final callback</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.forEachItem(options, next, iterator, callback)</code></p>
+<p> Apply an iterator function to each item returned by the <code>next(item, cb)</code> function until it returns <code>null</code> or the iterator returns an error in the callback,
+the final callback will be called after all iterators are finished.</p>
+<p>If no item is available the <code>next()</code> should return empty value, it will be called again in <code>options.interval</code> ms if specified or
+immediately in the next tick cycle.</p>
+<p>The max number of iterators to run at the same time is controlled by <code>options.max</code>, default is 1.</p>
+<p>The maximum time waiting for items can be specified by <code>options.timeout</code>, it is not an error condition, just another way to stop
+processing if it takes too long because the <code>next()</code> function is a black box just returning items to process. Timeout will send null
+to the queue and it will stop after all iterators are finished.</p>
+</li>
+</ul>
+<pre><code>    var list = [1, 2, &quot;&quot;, &quot;&quot;, 3, &quot;&quot;, 4, &quot;&quot;, &quot;&quot;, &quot;&quot;, null];
+    lib.forEachItem({ max: 2, interval: 1000, timeout: 30000 },
+        function(next) {
+            next(list.shift());
+        },
+        function(item, next) {
+            console.log(&quot;item:&quot;, item);
+            next();
+        },
+        (err) =&gt; {
+            console.log(&quot;done&quot;, err);
+        });</code></pre>
+
+<ul>
+<li><p><code>lib.parallel(tasks, callback)</code></p>
+<p> Execute a list of functions in parallel and execute a callback upon completion or occurance of an error. Each function will be passed
+a callback to signal completion. The callback accepts an error for the first argument. The iterator and callback will be
+called via setImmediate function to allow the main loop to process I/O.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.everyParallel(tasks, callback)</code></p>
+<p> Same as <code>lib.parallel</code> but all functions will be called and any error will be ignored</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.series(tasks, callback)</code></p>
+<p> Execute a list of functions serially and execute a callback upon completion or occurance of an error. Each function will be passed
+a callback to signal completion. The callback accepts either an error for the first argument in which case the flow will be aborted
+and the final callback will be called immediately or some optional data to be passed to thr next iterator function as a second argument.</p>
+<p>The iterator and callback will be
+called via setImmediate function to allow the main loop to process I/O.</p>
+<pre><code>    lib.series([
+       function(next) {
+          setTimeout(function () { next(null, &quot;data&quot;); }, 100);
+       },
+       function(next, data) {
+          setTimeout(function () { next(); }, 100);
+       },
+    ], function(err) {
+        console.log(err);
+    });</code></pre>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.everySeries(tasks, callback)</code></p>
+<p> Same as <code>lib.series</code> but all functions will be called with errors passed to the next task, only the last passed error will be returned</p>
+<pre><code>    lib.everySeries([
+       function(next, err) {
+          setTimeout(function () { next(&quot;error1&quot;, &quot;data1&quot;); }, 100);
+       },
+       function(next, err, data) {
+          setTimeout(function () { next(err, &quot;data2&quot;); }, 100);
+       },
+    ], function(err, data) {
+        console.log(err, data);
+    });</code></pre>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.whilst(test, iterator, callback, data)</code></p>
+<p> While the test function returns true keep running the iterator, call the callback at the end if specified. All functions are called via setImmediate.</p>
+<pre><code>    var count = 0;
+    lib.whilst(
+        function() {
+          return count &lt; 5;
+        },
+        function (next) {
+          count++;
+          setTimeout(next, 1000);
+        },
+        function (err, data) {
+          console.log(err, data, count);
+        });</code></pre>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.doWhilst(iterator, test, callback, data)</code></p>
+<p> Keep running iterator while the test function returns true, call the callback at the end if specified. All functions are called via setImmediate.</p>
+</li>
+</ul>
+
+<h2 id="module-lib_obj">Module: LIB_OBJ</h2>
 <ul>
 <li><p><code>lib.exists(obj, name)</code></p>
 <p> Return true if a variable or property in the object exists,</p>
@@ -8013,6 +7896,26 @@ Usage:</p>
 <pre><code>  lib.exists({ 1: 1 }, &quot;1&quot;)
   lib.exists([ 1, 2, 3 ], 1)
   lib.exists([ 1, 2, 3 ], [ 1, 5 ])</code></pre>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.isMatched(obj, condition)</code></p>
+<p> All properties in the object <code>obj</code> must match all properties in the object <code>condition</code>,
+each value in <code>condition</code> is treated as RegExp,
+if the value is equal to &#39;null&#39; which means an empty or non-existed value,
+if the value begins with ! it means no match is expected, the leading ! will be stripped.</p>
+<p>if <code>condition</code> is an array then returns true if any matched</p>
+<p>empty condition returns true</p>
+<p>Example:</p>
+<pre><code>  lib.isMatched({id:1,name:2,notifications0:1,type:&quot;user,admin&quot;}, {notifications0:0})
+  lib.isMatched({id:1,name:2,notifications0:1,type:&quot;user,admin&quot;}, {notifications0:1,type:&quot;!admin&quot;})</code></pre>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.isTrue(val1, val2, op, type)</code></p>
+<p> Evaluate expr, compare 2 values with optional type and operation</p>
 </li>
 </ul>
 
@@ -8150,30 +8053,38 @@ only top level properties are reassigned.</p>
 
 <ul>
 <li><p><code>lib.objSearch(obj, options)</code></p>
-<p> Return an object consisting of properties that matched given criteria in the given object or object of objects.
-options can define the following properties:</p>
+<p> Return list of objects that matched the given criteria in the given object. Performs the deep search.</p>
+<p>The options can define the following properties:</p>
 </li>
 </ul>
 <ul>
 <li><p>exists - search by property name, return all objects that contain given property</p>
 </li>
-<li><p>hasvalue - search by value, return all objects that have a property with given value</p>
+<li><p>hasValue - return only objects that have a property with given value</p>
 </li>
-<li><p>sort - if set then sort found columns by the property <code>name</code> or if it is a string by the given property</p>
+<li><p>matchValue - return only objects that match the given RegExp by property value</p>
 </li>
-<li><p>names - if true just return list of column names</p>
+<li><p>matchName - return only objects that match the given RegExp by property name</p>
 </li>
-<li><p>flag - if true, return object with all properties set to flag value</p>
+<li><p>sort - sort the result by the given property</p>
 </li>
-<li><p>value - if given return the value of this property, not the whole matched object</p>
+<li><p>value - return an object with this property only, not the whole matched object</p>
 </li>
-<li><p>count - if true return just number of found properties</p>
-<p>Example</p>
-<pre><code>   lib.objSearch({id:{index:1},name:{index:3},type:{index:2},descr:{}}, { exists: &#39;index&#39;, sort: 1 });
-   { id: { index: 1 }, type: { index: 2 }, name: { index: 3 } }
+<li><p>count - return just number of found properties</p>
+<p>Example:</p>
+<pre><code>   var obj = { id: { index: 1 }, name: { index: 3 }, descr: { type: &quot;string&quot;, pub: 1 }, items: [ { name: &quot;test&quot; } ] };
 
-   lib.objSearch({id:1,name:&quot;test&quot;,type:&quot;test&quot;,descr:&quot;descr&quot;}, { hasvalue: &#39;test&#39;, count: 1});
-   2</code></pre>
+   lib.objSearch(obj, { matchValue: /string/ });
+   [ { name: &#39;descr&#39;, value: { type: &quot;string&quot;, pub: 1 } } ]
+
+   lib.objSearch(obj, { matchName: /name/, matchValue: /^t/ });
+   [{ name: &#39;0&#39;: value: { name: &quot;test&quot; }]
+
+   lib.objSearch(obj, { exists: &#39;index&#39;, sort: 1, value: &quot;index&quot; });
+   { id: 1, name: 3 }
+
+   lib.objSearch(obj, { hasValue: &#39;test&#39;, count: 1 });
+   1</code></pre>
 </li>
 </ul>
 
@@ -8258,263 +8169,99 @@ match it will be output. Use <code>options.replace</code> for replacing anything
 </li>
 </ul>
 
+<h2 id="module-lib_str">Module: LIB_STR</h2>
 <ul>
-<li><p><code>lib.jsonToBase64(data, secret, options)</code></p>
-<p> Stringify JSON into base64 string, if secret is given, sign the data with it</p>
+<li><p><code>lib.matchRegexp(str, rx, index)</code></p>
+<p> Perform match on a regexp for a string and returns matched value, if no index is specified returns item 1,
+this is a simple case for oneshot match and only single matched element.
+If the `rx`` object has the &#39;g&#39; flag the result will be all matches in an array.</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>lib.base64ToJson(data, secret, options)</code></p>
-<p> Parse base64 JSON into JavaScript object, in some cases this can be just a number then it is passed as it is, if secret is given verify
-that data is not chnaged and was signed with the same secret</p>
+<li><p><code>lib.matchAllRegexp(str, rx, index)</code></p>
+<p> Perform match on a regexp and return all matches in an array, if no index is specified returns item 1</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>lib.jsonFormat(obj, options)</code></p>
-<p> Nicely format an object with indentations, optional <code>indentlevel</code> can be used to control until which level deep
-to use newlines for objects.</p>
+<li><p><code>lib.testRegexp(str, rx)</code></p>
+<p> Perform test on a regexp for a string and returns true only if matched.</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>lib.stringify(obj, filter)</code></p>
-<p> JSON stringify without exceptions, on error just returns an empty string and logs the error</p>
+<li><p><code>lib.testRegexpObj(str, rx)</code></p>
+<p> Run test on a regexpObj</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>lib.jsonParse(obj, options)</code></p>
-<p> Silent JSON parse, returns null on error, no exceptions raised.</p>
-<p>options can specify the following properties:</p>
+<li><p><code>lib.replaceRegexp(str, rx, val)</code></p>
+<p> Safe version of replace for strings, always returns a string, if <code>val</code> is not provided performs
+removal of the matched patterns</p>
+</li>
+</ul>
+
 <ul>
-<li>datatype - make sure the result is returned as type: obj, list, str</li>
-<li>dflt - return this in case of error</li>
-<li>logger - report in the log with the specified level, log, debug, ...</li>
+<li><p><code>lib.strTrim(str, chars)</code></p>
+<p> Remove all whitespace from the begining and end of the given string, if an array with characters is not given then it trims all whitespace</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.strSplit(str, sep, options)</code></p>
+<p> Split string into array, ignore empty items,</p>
+</li>
+</ul>
+<ul>
+<li><p><code>sep</code> is an RegExp to use as a separator instead of default  pattern <code>[,\|]</code>,</p>
+</li>
+<li><p><code>options</code> is an object with the same properties as for the <code>toParams</code>, <code>datatype&#39; will be used with </code>lib.toValue` to convert the value for each item</p>
+<p>If <code>str</code> is an array and type is not specified then all non-string items will be returned as is.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.strSplitUnique(str, sep, options)</code></p>
+<p> Split as above but keep only unique items, case-insensitive</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.phraseSplit(str, options)</code></p>
+<p> Split a string into phrases separated by <code>options.separator</code> character(s) and surrounded by characters in <code>options.quotes</code>. The default separator is space and
+default quotes are both double and single quote. If <code>options.keepempty</code> is given all empty parts will be kept in the list.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.zeropad(n, width)</code></p>
+<p> Return a string with leading zeros</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.sprintf(fmt, args)</code></p>
+<p> C-sprintf alike
+based on <a href="http://stackoverflow.com/a/13439711">http://stackoverflow.com/a/13439711</a>
+Usage:</p>
+<ul>
+<li>sprintf(fmt, arg, ...)</li>
+<li>sprintf(fmt, [arg, ...]);</li>
 </ul>
 </li>
 </ul>
 
 <ul>
-<li><p><code>lib.xmlParse(obj, options)</code></p>
-<p> Same arguments as for <code>jsonParse</code></p>
+<li><p><code>lib.strftime(date, fmt, options)</code></p>
+<p> Format date object</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>lib.loadLocale(file, callback)</code></p>
-<p> Load a file with locale translations into memory</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.forEachLine(file, options, lineCallback, endCallback)</code></p>
-<p> Call callback for each line in the file
-options may specify the following parameters:</p>
-</li>
-</ul>
-<ul>
-<li><p>sync - read file synchronously and call callback for every line</p>
-</li>
-<li><p>abort - signal to stop processing</p>
-</li>
-<li><p>limit - number of lines to process and exit</p>
-</li>
-<li><p>length - amount of data in bytes to process and exit</p>
-</li>
-<li><p>count - return this number of lines in an array if greater than 0</p>
-</li>
-<li><p>skip - number of lines to skip from the start</p>
-</li>
-<li><p>progress - if &gt; 0 report how many lines processed so far every specified lines</p>
-</li>
-<li><p>until - skip lines until this regexp matches</p>
-</li>
-<li><p>ignore - skip lines that match this regexp</p>
-</li>
-<li><p>header - if true then skip first line because it is the a header, if <code>options.header</code> it is a function
-it will be called with the first line as an argument and must return true if this line needs to be skipped</p>
-</li>
-<li><p>json - each line represents an JSON object, convert and pass it to the line callback if not null</p>
-</li>
-<li><p>split - split every line before calling the callback, it uses phraseSplit</p>
-</li>
-<li><p>keepempty - by default is enabled if split is set to keep empty fields in the line array</p>
-</li>
-<li><p>separator - a string with characters to be used for splitting, default is <code>,</code></p>
-</li>
-<li><p>quotes - a string with characters to be used for phrase splitting, default is <code>&quot;&#39;</code></p>
-<p>Properties updated and returned in the options:</p>
-</li>
-<li><p>nlines - number of lines read from the file</p>
-</li>
-<li><p>ncalls - number of lines passed to the line callback</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.moveFile(src, dst, overwrite, callback)</code></p>
-<p> Copy file and then remove the source, do not overwrite existing file</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.copyFile(src, dst, overwrite, callback)</code></p>
-<p> Copy file, overwrite is optional flag, by default do not overwrite</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.execProcess(cmd, callback)</code></p>
-<p> Run the process and return all output to the callback, this a simply wrapper around child_processes.exec so the lib.runProcess
-can be used without importing the child_processes module. All fatal errors are logged.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.spawnProcess(cmd, args, options, callback)</code></p>
-<p> Run specified command with the optional arguments, this is similar to child_process.spawn with callback being called after the process exited</p>
-<p>Example</p>
-<pre><code>    lib.spawProcess(&quot;ls&quot;, &quot;-ls&quot;, { cwd: &quot;/tmp&quot; }, lib.log)</code></pre>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.checkRespawn(callback)</code></p>
-<p> If respawning too fast, delay otherwise call the callback after a short timeout</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.spawnSeries(cmds, options, callback)</code></p>
-<p> Run a series of commands, <code>cmds</code> is an object where a property name is a command to execute and the value is an array of arguments or null.
-if <code>options.error</code> is 1, then stop on first error or if non-zero status on a process exit.</p>
-<p>Example:</p>
-<pre><code>    lib.spawnSeries({&quot;ls&quot;: &quot;-la&quot;,
-                      &quot;ps&quot;: &quot;augx&quot;,
-                      &quot;du&quot;: { argv: &quot;-sh&quot;, stdio: &quot;inherit&quot;, cwd: &quot;/tmp&quot; },
-                      &quot;uname&quot;: [&quot;-a&quot;] },
-                     lib.log)</code></pre>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.statSync(file)</code></p>
-<p> Non-exception version, returns empty object,
-mtime is 0 in case file does not exist or number of seconds of last modified time
-mdate is a Date object with last modified time</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.readFileSync(file, options)</code></p>
-<p> Return contents of a file, empty if not exist or on error.</p>
-<p>Options can specify the format:</p>
-</li>
-</ul>
-<ul>
-<li>json - parse file as JSON, return an object, in case of error an empty object</li>
-<li>xml - parse the file as XML, return an object</li>
-<li>list - split contents with the given separator</li>
-<li>encoding - file encoding when converting to string</li>
-<li>logger - log level for error messages</li>
-<li>missingok - if set ENOENT will not be logged</li>
-<li>offset - read from the position in the file, if negative the offset is from the end of file</li>
-<li>length - read only this much of the data, otherwise read till the end of file</li>
-</ul>
-
-<ul>
-<li><p><code>lib.readFile(file, options, callback)</code></p>
-<p> Same as <code>lib.readFileSync</code> but asynchronous</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.findFilter(file, stat, options)</code></p>
-<p> Filter function to be used in findFile methods</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.findFileSync(file, options)</code></p>
-<p> Return list of files than match filter recursively starting with given path, file is the starting path.</p>
-<p>The options may contain the following:</p>
-<ul>
-<li>include - a regexp with file pattern to include</li>
-<li>exclude - a regexp with file pattern to exclude</li>
-<li>filter - a function(file, stat) that return 1 if the given file matches, stat is a object returned by fs.statSync</li>
-<li>depth - if a number it specifies max depth to go into the subfolders, starts with 1</li>
-<li>types - a string with types of files to include: d - a dir, f - a file, l - a symlink, c - char dev, b - block dev, s - socket, p - a FIFO</li>
-<li>base - if set only keep base file name in the result, not full path</li>
-</ul>
-<p>Example:</p>
-<pre><code>  lib.findFileSync(&quot;modules/&quot;, { depth: 1, types: &quot;f&quot;, include: /\.js$/ }).sort()</code></pre>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.findFile(dir, options, callback)</code></p>
-<p> Async version of find file, same options as in the sync version</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.watchFiles(options, fileCallback, endCallback)</code></p>
-<p> Watch files in a dir for changes and call the callback, the parameters:</p>
-</li>
-</ul>
-<ul>
-<li>root - a string with root path</li>
-<li>files - a regexp to watch files individually, if omitted watch the whole dir</li>
-<li>match - a regexp to watch files when using the whole dir, only for matched files the callback will be called</li>
-<li>ignore - a regexp to ignore files</li>
-</ul>
-
-<ul>
-<li><p><code>lib.makePathSync(dir)</code></p>
-<p> Recursively create all directories, return 1 if created or 0 on error or if exists, no exceptions are raised, error is logged only</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.makePath(dir, callback)</code></p>
-<p> Async version of makePath, stops on first error</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.unlink(name, callback)</code></p>
-<p> Unlink a file, no error on non-existent file, callback is optional</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.unlinkPath(dir, callback)</code></p>
-<p> Recursively remove all files and folders in the given path, returns an error to the callback if any</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.unlinkPathSync(dir)</code></p>
-<p> Recursively remove all files and folders in the given path, stops on first error</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.chownSync(uid, gid)</code></p>
-<p> Change file owner, multiples files can be specified, do not report errors about non existent files, the uid/gid must be set to non-root user
-for this function to work and it is called by the root only, all the rest of the arguments are used as files names</p>
-<p>Example:</p>
-<pre><code>     lib.chownSync(1, 1, &quot;/path/file1&quot;, &quot;/path/file2&quot;)</code></pre>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.mkdirSync()</code></p>
-<p> Create a directories if do not exist, multiple dirs can be specified, all preceeding directories are not created</p>
-<p>Example:</p>
-<pre><code>       lib.mkdirSync(&quot;dir1&quot;, &quot;dir2&quot;)</code></pre>
+<li><p><code>lib.strCompress(data, encoding)</code></p>
+<p> From <a href="https://github.com/pieroxy/lz-string/">https://github.com/pieroxy/lz-string/</a></p>
 </li>
 </ul>
 
@@ -8951,6 +8698,7 @@ it runs <code>shutdown[Role]</code> methods before exiting</p>
 </li>
 </ul>
 
+<h2 id="module-shell">Module: SHELL</h2>
 <h2 id="module-bk_account">Module: BK_ACCOUNT</h2>
 <ul>
 <li><p><code>Database tables</code></p>
@@ -9058,25 +8806,6 @@ delete an account but keep all messages and location: keep:[&quot;bk_message&quo
 </li>
 </ul>
 
-<h2 id="module-bk_file">Module: BK_FILE</h2>
-<ul>
-<li><p><code>files</code></p>
-<p> Account management</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>files.configureWeb(options, callback)</code></p>
-<p> Create API endpoints and routes</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>files.configureFilesAPI()</code></p>
-<p> Generic file management</p>
-</li>
-</ul>
-
 <h2 id="module-bk_icon">Module: BK_ICON</h2>
 <ul>
 <li><p><code>Database tables</code></p>
@@ -9092,7 +8821,6 @@ delete an account but keep all messages and location: keep:[&quot;bk_message&quo
           },
           prefix: {},                                 // icon prefix/namespace
           descr: { pub: 1 },                          // user provided caption
-          acl_allow: {},                              // who can see it: all, auth, id:id...
           tags: { type: &quot;list&quot; },                     // detected or attached tags
           width: { type: &quot;int&quot; },
           height: { type: &quot;int&quot; },
@@ -9118,15 +8846,8 @@ delete an account but keep all messages and location: keep:[&quot;bk_message&quo
 </ul>
 
 <ul>
-<li><p><code>mod.checkIcon(req, row)</code></p>
-<p> Verify icon permissions and format for the result, used in setProcessRow for the bk_icon table</p>
-</li>
-</ul>
-
-<ul>
 <li><p><code>mod.upload(req, options, callback)</code></p>
-<p> Process icon request, put or del, update table and deal with the actual image data, always overwrite the icon file
-Verify icon limits before adding new icons</p>
+<p> Process icon upload request, update table and deal with the actual image data, always overwrite the icon file</p>
 </li>
 </ul>
 
@@ -9137,162 +8858,25 @@ Verify icon limits before adding new icons</p>
 </ul>
 
 <ul>
-<li><p><code>mod.del(options, callback)</code></p>
+<li><p><code>mod.del(query, callback)</code></p>
 <p> Delete an icon, only one icon at a time, options must profile id, prefix. It will try to delete
 an icon file even if there is no record in the bk_icon table.</p>
 </li>
 </ul>
 
-<ul>
-<li><p><code>mod.send(req, options)</code></p>
-<p> Return icon to the client, checks the bk_icon table for existence and permissions</p>
-</li>
-</ul>
-
-<h2 id="module-bk_message">Module: BK_MESSAGE</h2>
-<ul>
-<li><p><code>mod</code></p>
-<p> Messages management</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>Database tables</code></p>
-<pre><code>      // New messages, the inbox
-      bk_message: {
-          id: { primary: 1 },                           // my account_id
-          mtime: {
-              primary: 1,                               // mtime:sender
-              join: [&quot;mtime&quot;,&quot;sender&quot;],
-              unjoin: 1,
-          },
-          sender: { type: &quot;text&quot; },                      // sender id
-          name: {},                                      // sender name
-          msg: {},                                       // Text of the message
-          icon: { type: &quot;int&quot; },                         // 1 - icon present, 0 - no icon
-          icon_type: {},                                 // png, gif, jpg
-          read: { type: &quot;int&quot; },                         // 1 - read, 0 - unread
-          flags: { type: &quot;list&quot; },
-          ctime: { type: &quot;now&quot;, readonly: 1 },
-      },
-      // Archived messages
-      bk_archive: {
-          id: { primary: 1 },                            // my account_id
-          mtime: {
-              primary: 1,                                // mtime:sender
-              join: [&quot;mtime&quot;,&quot;sender&quot;],
-              unjoin: 1,
-          },
-          sender: { type: &quot;text&quot; },                      // sender id
-          name: {},                                      // sender name
-          msg: {},                                       // text of the message
-          icon: { type: &quot;int&quot; },                         // 1 - icon present, 0 - no icon
-          icon_type: {},                                 // png, gif, jpg
-          flags: { type: &quot;list&quot; },
-          ctime: { type: &quot;now&quot;, readonly: 1 },
-      },
-      // Messages sent
-      bk_sent: {
-          id: { primary: 1 },                            // my account
-          mtime: {
-              primary: 1,                                // mtime:recipient
-              join: [&quot;mtime&quot;,&quot;recipient&quot;],
-              unjoin: 1,
-          },
-          recipient: { type: &quot;text&quot; },                   // recipient id
-          name: {},                                      // recipient name if known
-          msg: {},                                       // text of the message
-          icon: { type: &quot;int&quot; },                         // 1 - icon present, 0 - no icon
-          icon_type: {},                                 // png, gif, jpg
-          flags: { type: &quot;list&quot; },
-          ctime: { type: &quot;now&quot;, readonly: 1 },
-      },</code></pre>
-</li>
-</ul>
-
-<ul>
-<li><p><code>mod.configureWeb(options, callback)</code></p>
-<p> Create API endpoints and routes</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>mod.configureMessagesAPI()</code></p>
-<p> Messaging management</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>mod.getArchiveMessage(req, options, callback)</code></p>
-<p> Return archived messages, used in /message/get API call</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>mod.getSentMessage(req, options, callback)</code></p>
-<p> Return sent messages to the specified account, used in /message/get/sent API call</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>mod.getMessage(req, options, callback)</code></p>
-<p> Return new/unread messages, used in /message/get API call</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>mod.addMessage(req, options, callback)</code></p>
-<p> Add new message(s), used in /message/add API call</p>
-<p>The following options properties can be used:</p>
-</li>
-</ul>
-<ul>
-<li>nosent - do not create a record in the bk_sent table</li>
-</ul>
-
-<ul>
-<li><p><code>mod.archiveMessage(req, options, callback)</code></p>
-<p> Move matched messages to the archive, used in /message/archive API call</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>mod.delMessage(req, options, callback)</code></p>
-<p> Delete matched messages, used in /message/del` API call</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>mod.delArchiveMessage(req, options, callback)</code></p>
-<p> Delete matched messages in the archive, used in /message/del/archive` API call</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>mod.delSentMessage(req, options, callback)</code></p>
-<p> Delete matched messages i sent, used in /message/del/sent` API call</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>mod.updateMessage(req, options, callback)</code></p>
-<p> Update a message or all messages for the given account from the given sender, used in /message/del` API call</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>mod.updateArchiveMessage(req, options, callback)</code></p>
-<p> Update a messages in the archive, used in /message/update/archive` API call</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>mod.readMessage(req, options, callback)</code></p>
-<p> Mark matched messages as read, used in /message/read` API call</p>
-</li>
-</ul>
-
 <h2 id="module-bk_shell">Module: BK_SHELL</h2>
+<ul>
+<li><p><code>shell.run(options)</code></p>
+<p> Start REPL shell or execute any subcommand if specified in the command line.
+A subcommand may return special string to indicate how to treat the flow:</p>
+</li>
+</ul>
+<ul>
+<li>stop - stop processing commands and create REPL</li>
+<li>continue - do not exit and continue processing other commands or end with REPL</li>
+<li>all other values will result in returning from the run assuming the command will decide what to do, exit or continue running, no REPL is created</li>
+</ul>
+
 <ul>
 <li><p><code>shell.exit(err, msg)</code></p>
 <p> Exit and write to the console a message or error message if non empty</p>
@@ -9334,18 +8918,6 @@ By sefault all args are zatored as is with dahses, if <code>options.camel`` is t
 <li><p><code>shell.getArg(name, options, dflt)</code></p>
 <p> Return first available value for the given name, options first, then command arg and then default,</p>
 </li>
-</ul>
-
-<ul>
-<li><p><code>shell.runShell(options)</code></p>
-<p> Start REPL shell or execute any subcommand if specified in the command line.
-A subcommand may return special string to indicate how to treat the flow:</p>
-</li>
-</ul>
-<ul>
-<li>stop - stop processing commands and create REPL</li>
-<li>continue - do not exit and continue processing other commands or end with REPL</li>
-<li>all other values will result in returning from the run assuming the command will decide what to do, exit or continue running, no REPL is created</li>
 </ul>
 
 <ul>
@@ -9701,57 +9273,6 @@ use the same names as command line arguments without preceeding <code>test-</cod
 <pre><code>bksh -test-run api -test-file tests/api.js</code></pre>
 </li>
 </ul>
-</li>
-</ul>
-
-<h2 id="module-bk_status">Module: BK_STATUS</h2>
-<ul>
-<li><p><code>mod</code></p>
-<p> Status management</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>Database tables</code></p>
-<pre><code>      bk_status: {
-          id: { primary: 1, pub: 1 },                       // account id
-          name: { pub: 1 },                                 // account name
-          status: { pub: 1 },                               // status, online, offline, away
-          atime: { type: &quot;bigint&quot;, pub: 1 },                // last access time
-          mtime: { type: &quot;now&quot;, pub: 1 },                   // last update time
-      },</code></pre>
-</li>
-</ul>
-
-<ul>
-<li><p><code>mod.get(id, options, callback)</code></p>
-<p> Returns status record for given account, used in /status/get API call.
-It always returns status object even if it was never set before, on return the record contains
-a property <code>online</code> set to true of false according to the idle period and actual status.</p>
-<p>If status was explicitely set to <code>offline</code> then it is considered offline until changed to other value,
-for other cases <code>status</code> property is not used, it is supposed for the application extention.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>mod.select(ids, options, callback)</code></p>
-<p> Return status records for specified list of account ids.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>mod.update(status, options, callback)</code></p>
-<p> Maintain online status, update to db every status-interval seconds, only update the db if last update happened
-longer than <code>status-interval</code> milliseconds ago, keep atime up-to-date in the cache on every status update.</p>
-<p>On return and if it was flushed to db the <code>atime</code> will be equal to <code>mtime</code>.</p>
-</li>
-<li><p>NOTE: All properties from the <code>obj</code> will be saved in the bk_status record, existing properties will be overriden*</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>mod.bkDeleteAccount(req, callback)</code></p>
-<p> This methods is suitable for background jobs</p>
 </li>
 </ul>
 
