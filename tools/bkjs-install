@@ -251,7 +251,7 @@ case "$BKJS_CMD" in
        bkjsfmt=""
        case "$OS_TYPE" in
         amazon2)
-          echo '$template bkjsfmt,"%msg%\n"' >> /etc/rsyslog.d/$BKJS.conf
+          echo '$template bkjsfmt,"%HOSTNAME% %msg%\n"' >> /etc/rsyslog.d/$BKJS.conf
           bkjsfmt=";bkjsfmt"
           ;;
        esac
