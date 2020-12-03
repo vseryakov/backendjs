@@ -248,8 +248,15 @@ case "$BKJS_CMD" in
        echo "Configuring rsyslog.d/$BKJS ..."
        echo "#Bkjs $BKJS_HOME" > /etc/rsyslog.d/$BKJS.conf
        echo "\$FileOwner $BKJS_USER" >> /etc/rsyslog.d/$BKJS.conf
-       echo "local0.* $BKJS_HOME/log/message.log" >> /etc/rsyslog.d/$BKJS.conf
-       echo "local5.* $BKJS_HOME/log/access.log" >> /etc/rsyslog.d/$BKJS.conf
+       bkjsfmt=""
+       case "$OS_TYPE" in
+        amazon2)
+          echo '$template bkjsfmt,"%msg%\n"' >> /etc/rsyslog.d/$BKJS.conf
+          bkjsfmt=";bkjsfmt"
+          ;;
+       esac
+       echo "local0.* $BKJS_HOME/log/message.log$bkjsfmt" >> /etc/rsyslog.d/$BKJS.conf
+       echo "local5.* $BKJS_HOME/log/access.log$bkjsfmt" >> /etc/rsyslog.d/$BKJS.conf
        mkdir -p $BKJS_HOME/log
        chown -R $BKJS_USER $BKJS_HOME/log
        service rsyslog restart
