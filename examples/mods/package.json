@@ -6,7 +6,8 @@
  "repository": { "type": "git", "url": "http://github.com/vseryakov/backendjs.git" },
  "main": "app.js",
  "dependencies": {
-    "backendjs": ">=0.10.0"
+    "backendjs": ">=0.100.0",
+    "memcached": ">= 2.1.1"
  },
  "engines": { "node": ">= 0.10" },
  "license": "BSD-3-Clause" }
