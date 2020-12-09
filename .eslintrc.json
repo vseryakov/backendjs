@@ -132,7 +132,7 @@
         "no-eq-null": "off",
         "no-fallthrough": "off",
         "no-eval": "error",
-        "no-extend-native": "error",
+        "no-extend-native": "off",
         "no-extra-bind": "error",
         "no-extra-label": "error",
         "no-extra-parens": "off",
