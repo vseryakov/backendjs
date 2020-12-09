@@ -11,9 +11,9 @@ const core = bkjs.core;
 const lib = bkjs.lib;
 const logger = bkjs.logger;
 const db = bkjs.db;
+const auth = bkjs.auth;
 const ipc = bkjs.ipc;
 const api = bkjs.api;
-const auth = bkjs.api;
 const jobs = bkjs.jobs;
 const shell = bkjs.shell;
 
