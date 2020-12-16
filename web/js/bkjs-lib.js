@@ -31,7 +31,7 @@ bkjs.formatJSON = function(obj, options)
     // Shortcut to parse and format json from the string
     if (typeof obj == "string" && obj != "") {
         if (obj[0] != "[" && obj[0] != "{") return obj;
-        try { obj = JSON.parse(obj); } catch(e) { this.log(e) }
+        try { obj = JSON.parse(obj); } catch (e) { this.log(e) }
     }
     if (!options.level) options.level = 0;
     if (!options.indent) options.indent = "";
@@ -66,7 +66,8 @@ bkjs.formatJSON = function(obj, options)
             text += type == "array" ? options.sep : options.comma;
         }
         if (type != "array") {
-            text += ((nline ? (!options.level && !count ? "" : options.nl1) + options.indent + options.space : " ") + options.quote1 + p + options.quote2 + ": ");
+            text += ((nline && options.nl1 ? (!options.level && !count ? "" : options.nl1) + options.indent + options.space : "") +
+                     options.quote1 + p + options.quote2 + ": ");
         }
         switch (this.typeName(val)) {
         case "array":
@@ -92,7 +93,7 @@ bkjs.formatJSON = function(obj, options)
         }
         count++;
     }
-    text += type == "array" ? options.sbracket2 : ((nline ? options.nl2 + options.indent : " ") + options.cbracket2);
+    text += type == "array" ? options.sbracket2 : ((nline && options.nl2 ? options.nl2 + options.indent : "") + options.cbracket2);
     return text;
 }
 
@@ -423,7 +424,7 @@ bkjs.toDate = function(val, dflt, invalid)
             }
         }
     }
-    if (val) try { d = new Date(val); } catch(e) {}
+    if (val) try { d = new Date(val); } catch (e) {}
     return !isNaN(d) ? d : invalid || (dflt !== undefined && isNaN(dflt)) || dflt === null || dflt === 0 ? null : new Date(dflt || 0);
 }
 
