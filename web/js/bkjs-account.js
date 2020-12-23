@@ -44,10 +44,11 @@ bkjs.subscribeAccount = function(callback)
 }
 
 // Retrieve current account record, call the callback with the object or error
-bkjs.getAccount = function(callback)
+bkjs.getAccount = function(query, callback)
 {
-    this.sendRequest({ url: "/account/get", jsonType: "obj" }, function(err, data, xhr) {
-        for (var p in data) bkjs.account[p] = data[p];
+    if (typeof query == "function") callback = query, query = null;
+    this.sendRequest({ url: "/account/get", data: query, jsonType: "obj" }, function(err, data, xhr) {
+        for (const p in data) bkjs.account[p] = data[p];
         if (typeof callback == "function") callback(err, data, xhr);
     });
 }
