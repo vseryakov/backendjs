@@ -10,7 +10,6 @@ const bkjs = require("backendjs");
 const core = bkjs.core;
 const lib = bkjs.lib;
 const logger = bkjs.logger;
-const db = bkjs.db;
 const auth = bkjs.auth;
 const ipc = bkjs.ipc;
 const api = bkjs.api;
@@ -18,19 +17,16 @@ const jobs = bkjs.jobs;
 const shell = bkjs.shell;
 
 shell.name = "bk_shell";
-shell.help = [
+shell.help.push(
     "-show-info - show app and version information",
+    "-show-args ... - show collected query and args for debugging purposes",
     "-run-file FILE.js - load a script and run it if it exports run function",
-    "-auth-get ID|LOGIN ... - show login records",
-    "-auth-add [-noscramble] login LOGIN secret SECRET [name NAME] [type TYPE] ... - add a new login record for API access",
-    "-auth-update [-scramble 1] login LOGIN [name NAME] [type TYPE] ... - update existing login record, for web use -scramble must be set to 1",
-    "-auth-del login LOGIN... - delete a login record",
-    "-user-add [-noscramble] login LOGIN secret SECRET [name NAME] [email EMAIL] [type TYPE] ... - add a new user for API access, any property from bk_user can be passed in the form: name value",
-    "-user-update [-noscramble] [login LOGIN|id ID] [name NAME] [email EMAIL] [type TYPE] ... - update existing user properties, any property from bk_user can be passed in the form: name value ",
-    "-user-del [login LOGIN|id ID]... - delete a user and login",
-    "-send-request -url URL [-id ID|-login LOGIN] [-hdr name=value] param value param value ... - send API request to the server specified in the url as user specified by login or account id, resolving the user is done directly from the current db pool, param values should not be url-encoded",
-    "-log-watch - run logwatcher and exit, send emails in case any errors found",
-];
+    "-auth-add [-scramble 1] [-bcrypt 10] login LOGIN secret SECRET [name NAME] [type TYPE] ... - add a new user record for API access",
+    "-auth-update [-scramble 1] [-bcrypt 10] login LOGIN [name NAME] [type TYPE] ... - update existing user record, for web use -scramble or -bcrypt must used",
+    "-auth-del login LOGIN... - delete a user record",
+    "-auth-get ID|LOGIN ... - show user records",
+    "-send-request -url URL [-user ID|LOGIN] [-hdr name=value] param value param value ... - send API request to the server specified in the url as user specified by login or account id, resolving the user is done directly from the current db pool, param values should not be url-encoded",
+    "-log-watch - run logwatcher and exit, send emails in case any errors found");
 
 // Start REPL shell or execute any subcommand if specified in the command line.
 // A subcommand may return special string to indicate how to treat the flow:
@@ -48,7 +44,7 @@ shell.run = function(options)
     core.path.modules.forEach(function(mod) {
         mods = mods.concat(lib.findFileSync(mod, { include: /bk_shell_[a-z]+\.js$/ }));
     });
-    for (var i in mods) require(mods[i]);
+    for (const i in mods) require(mods[i]);
 
     core.runMethods("configureShell", options, function(err) {
         if (options.done) shell.exit();
@@ -113,8 +109,8 @@ shell.getQueryList = function()
 }
 
 // Returns an object with all command line params starting with dash set with the value if the next param does not start with dash or 1.
-// By sefault all args are zatored as is with dahses, if `options.camel`` is true then all args will be stored in camel form,
-// if `options.underscor`e is true then all args will be stored with dashes convertyed into underscores.
+// By sefault all args are satored as is with dahses, if `options.camel`` is true then all args will be stored in camel form,
+// if `options.underscore is true then all args will be stored with dashes converted into underscores.
 shell.getArgs = function(options)
 {
     var query = {};
@@ -164,7 +160,7 @@ shell.isArg = function(name, options)
 
 shell.cmdShellHelp = function()
 {
-    for (var i in this.help) console.log("  ", this.help[i]);
+    for (const i in this.help) console.log("  ", this.help[i]);
     this.exit();
 }
 
@@ -182,6 +178,13 @@ shell.cmdShowInfo = function(options)
     console.log('network=' + core.network);
     console.log('subnet=' + core.subnet);
     for (var p in core.instance) if (core.instance[p]) console.log(p + '=' + core.instance[p]);
+    this.exit();
+}
+
+shell.cmdShowArgs = function(options)
+{
+    console.log("query:", this.getQuery());
+    console.log("options:", this.getArgs());
     this.exit();
 }
 
@@ -247,101 +250,41 @@ shell.cmdRunJobs = function(options)
     return "continue";
 }
 
-// Add a user
-shell.cmdUserAdd = function(options)
-{
-    if (!core.modules.bk_user) this.exit("bk_user module not loaded");
-    var query = this.getQuery();
-    var opts = api.getOptions({ query: this.getArgs(), options: { admin: 1, path: ["", "", ""], ops: {} } });
-    opts.scramble = this.isArg("-noscramble", options) ? 0 : 1;
-    if (query.login && !query.name) query.name = query.login;
-    core.modules.bk_user.addAccount({ query: query, account: {}, options: opts }, opts, function(err, data) {
-        shell.exit(err, data);
-    });
-}
-
-shell.cmdUserUpdate = function(options)
-{
-    if (!core.modules.bk_user) this.exit("bk_user module not loaded");
-    var query = this.getQuery();
-    var opts = api.getOptions({ query: this.getArgs(), options: { admin: 1, path: ["", "", ""], ops: {} } });
-    this.getUser(query, function(user) {
-        core.modules.bk_user.updateAccount({ account: user, query: query, options: opts }, opts, function(err, data) {
-            shell.exit(err, data);
-        });
-    });
-}
-
-// Delete a user and all its history according to the options
-shell.cmdUserDel = function(options)
-{
-    if (!core.modules.bk_user) this.exit("bk_user module not loaded");
-    var query = this.getQuery();
-    var opts = api.getOptions({ query: this.getArgs(), options: { path: ["", "", ""], ops: {} } });
-    for (var i = 1; i < process.argv.length - 1; i += 2) {
-        if (process.argv[i] == "-keep") opts["keep_" + process.argv[i + 1]] = 1;
-    }
-    if (this.isArg("-force", options)) opts.force = 1;
-    this.getUser(query, function(user) {
-        opts.id = user.id;
-        core.modules.bk_user.deleteAccount({ account: user, obj: query, options: opts }, function(err) {
-            shell.exit(err);
-        });
-    });
-}
-
 // Show account records by id or login
 shell.cmdAuthGet = function(options)
 {
-    lib.forEachSeries(process.argv.slice(2), function(login, next) {
-        if (login.match(/^[-/]/)) return next();
+    lib.forEachSeries(process.argv.slice(2).filter((x) => (x[0] != "-")), function(login, next) {
         auth.get(login, function(err, row) {
             if (row) console.log(row);
             next();
         });
-    }, function(err) {
-        shell.exit(err);
-    });
+    }, this.exit);
 }
 
 // Add a user login
 shell.cmdAuthAdd = function(options)
 {
-    var query = this.getQuery();
-    var opts = api.getOptions({ query: this.getArgs(), options: { admin: 1, path: ["", "", ""], ops: {} } });
-    if (query.login && !query.name) query.name = query.login;
-    auth.add(query, opts, function(err, data) {
-        shell.exit(err, data);
-    });
+    auth.add(this.getQuery(), lib.objExtend(this.getArgs(), { admin: 1 }), this.exit);
 }
 
 // Update a user login
 shell.cmdAuthUpdate = function(options)
 {
-    var query = this.getQuery();
-    var opts = api.getOptions({ query: this.getArgs(), options: { admin: 1, path: ["", "", ""], ops: {} } });
-    auth.update(query, opts, function(err, data) {
-        shell.exit(err, data);
-    });
+    auth.update(this.getQuery(), lib.objExtend(this.getArgs(), { admin: 1 }), this.exit);
 }
 
 // Delete a user login
 shell.cmdAuthDel = function(options)
 {
-    lib.forEachSeries(process.argv.slice(2), function(login, next) {
-        if (login.match(/^[-/]/)) return next();
+    lib.forEachSeries(process.argv.slice(2).filter((x) => (x[0] != "-")), function(login, next) {
         auth.del(login, next);
-    }, function(err) {
-        shell.exit(err);
-    });
+    }, this.exit);
 }
 
 // Run logwatcher and exit
 shell.cmdLogWatch = function(options)
 {
-    core.watchLogs(function(err) {
-        shell.exit(err);
-    });
+    core.watchLogs(this.exit);
 }
 
 // Send API request
@@ -349,16 +292,15 @@ shell.cmdSendRequest = function(options)
 {
     var query = this.getQuery();
     var url = this.getArg("-url", options);
-    var id = this.getArg("-id", options);
-    var login = this.getArg("-login", options);
+    var login = this.getArg("-user", options);
     var select = lib.strSplit(this.getArg("-select", options));
     var json = this.isArg("-json", options);
     var flatten = this.isArg("-flatten", options)
     var headers = this.getArgList("-hdr", options).reduce((x, y) => { y = y.split("="); x[y[0]] = y[1]; return x }, {});
     lib.series([
       function(next) {
-          if (!id && !login) return next();
-          shell.getUser({ id: id, login: login }, function(user) {
+          if (!login) return next();
+          shell.getUser(login, function(user) {
               next(null, user);
           });
       },
@@ -367,7 +309,7 @@ shell.cmdSendRequest = function(options)
             if (err) shell.exit(err);
             if (select.length) {
                 var obj = {};
-                for (var i in select) lib.objSet(obj, select[i], lib.objGet(params.obj, select[i]));
+                for (const i in select) lib.objSet(obj, select[i], lib.objGet(params.obj, select[i]));
                 params.obj = obj;
             }
             if (flatten) params.obj = lib.objFlatten(params.obj);
