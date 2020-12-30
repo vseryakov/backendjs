@@ -51,7 +51,7 @@ core.describeArgs('app',
       ]);
 
 db.describeTables({
-        bk_auth: {
+        bk_user: {
             google_access_token: {},
             google_refresh_token: {},
             github_access_token: {},
@@ -66,7 +66,7 @@ db.describeTables({
 });
 
 // Given a profile data from some other system, check if there is an account or create a new account for the given
-// profile, returns account record in the callback. req.query contains profile fields converted to bk_auth names
+// profile, returns account record in the callback. req.query contains profile fields converted to bk_user names
 // so the whole req.query can be saved as it is. `query.login` must exist.
 //
 // This method is supposed to be called after the user is authenticated and verified, it does not
@@ -83,7 +83,7 @@ db.describeTables({
 //
 app.fetchAccount = function(query, options, callback)
 {
-    db.get("bk_auth", { login: query.login }, function(err, row) {
+    db.get(auth.table, { login: query.login }, function(err, row) {
         if (err || row) return callback(err, row);
 
         // We must be an admin to create full record, make a copy so we will not expose admin

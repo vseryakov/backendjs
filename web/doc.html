@@ -113,7 +113,7 @@
 <li><a href="#module-pool">pool</a></li>
 <li><a href="#module-server">server</a></li>
 <li><a href="#module-shell">shell</a></li>
-<li><a href="#module-bk_account">bk_account</a></li>
+<li><a href="#module-bk_user">bk_user</a></li>
 <li><a href="#module-bk_data">bk_data</a></li>
 <li><a href="#module-bk_icon">bk_icon</a></li>
 <li><a href="#module-bk_shell">bk_shell</a></li>
@@ -225,14 +225,14 @@ parameter <code>-allow-modules PATTERN</code>, this will load all modules that m
 <pre><code>  bkjs shell</code></pre>
 </li>
 <li><p>To access the database while in the shell</p>
-<pre><code>  &gt; db.select(&quot;bk_account&quot;, {}, (err, rows, info) =&gt; { console.log(err, rows, info) });
-  &gt; db.select(&quot;bk_account&quot;, {}, lib.log);
-  &gt; db.add(&quot;bk_account&quot;, { login: &#39;test2&#39;, secret: &#39;test2&#39;, name&#39; Test 2 name&#39;, gender: &#39;f&#39; }, lib.log);
-  &gt; db.select(&quot;bk_account&quot;, { gender: &#39;m&#39; }, lib.log);
-  &gt; db.select(&quot;bk_account&quot;, { gender: [&#39;m&#39;,&#39;f&#39;] }, { ops: { gender: &quot;in&quot; } }, lib.log);</code></pre>
+<pre><code>  &gt; db.select(&quot;bk_user&quot;, {}, (err, rows, info) =&gt; { console.log(err, rows, info) });
+  &gt; db.select(&quot;bk_user&quot;, {}, lib.log);
+  &gt; db.add(&quot;bk_user&quot;, { login: &#39;test2&#39;, secret: &#39;test2&#39;, name&#39; Test 2 name&#39;, gender: &#39;f&#39; }, lib.log);
+  &gt; db.select(&quot;bk_user&quot;, { gender: &#39;m&#39; }, lib.log);
+  &gt; db.select(&quot;bk_user&quot;, { gender: [&#39;m&#39;,&#39;f&#39;] }, { ops: { gender: &quot;in&quot; } }, lib.log);</code></pre>
 </li>
 <li><p>To search using Elasticsearch (assuming it runs on EC2 and it is synced with DynamoDB using streams)</p>
-<pre><code>  &gt; db.select(&quot;bk_account&quot;, { q: &#39;test&#39; }, { pool: &quot;elasticsearch&quot; }, lib.log);</code></pre>
+<pre><code>  &gt; db.select(&quot;bk_user&quot;, { q: &#39;test&#39; }, { pool: &quot;elasticsearch&quot; }, lib.log);</code></pre>
 </li>
 </ul>
 <h2 id="to-run-an-example">To run an example</h2>
@@ -385,7 +385,7 @@ the application is structured.</p>
 <p>Another way to add functionality to the backend is via external modules specific to the backend, these modules are loaded on startup from the backend
 home subdirectory <code>modules/</code> and from the backendjs package directory for core modules. The format is the same as for regular Node.js modules and
 only top level .js files are loaded on the backend startup.</p>
-<p><em>By default no modules are loaded except <code>bk_accounts|bk_icons</code>, it must be configured by the <code>-allow-modules</code> config parameter.</em></p>
+<p><em>By default no modules are loaded except <code>bk_users|bk_icons</code>, it must be configured by the <code>-allow-modules</code> config parameter.</em></p>
 <p>The modules are managed per process role, by default <code>server</code> and <code>master</code> processes do not load any modules at all to keep them
 small and because they monitor workers the less code they have the better.</p>
 <p>The shell process loads all modules, it is configured with <code>.+</code>.</p>
@@ -394,7 +394,7 @@ small and because they monitor workers the less code they have the better.</p>
   -allow-modules &#39;.+&#39;
 
   // Master modules
-  -allow-modules-master &#39;bk_accounts|bk_debug&#39;</code></pre>
+  -allow-modules-master &#39;bk_users|bk_debug&#39;</code></pre>
 <p>Once loaded they have the same access to the backend as the rest of the code, the only difference is that they reside in the backend home and
 can be shipped regardless of the npm, node modules and other env setup. These modules are exposed in the <code>core.modules</code> the same way as all other core submodules
 methods.</p>
@@ -479,14 +479,14 @@ one or two columns can be marked with primary property while for SQL databases t
 are required for backend operations. Refer below for the JavaScript modules documentation that described which tables are created by default. In the custom applications
 the <code>db.describeTables</code> method can modify columns in the default table and add more columns if needed.</p>
 <p>For example, to make age and some other columns in the accounts table public and visible by other users with additional columns the following can be
-done in the <code>api.initApplication</code> method. It will extend the bk_account table and the application can use new columns the same way as the already existing columns.
+done in the <code>api.initApplication</code> method. It will extend the bk_user table and the application can use new columns the same way as the already existing columns.
 Using the birthday column we make &#39;age&#39; property automatically calculated and visible in the result, this is done by the internal method <code>api.processAccountRow</code> which
-is registered as post process callback for the bk_account table. The computed property <code>age</code> will be returned because it is not present in the table definition
+is registered as post process callback for the bk_user table. The computed property <code>age</code> will be returned because it is not present in the table definition
 and all properties not defined and configured are passed as is.</p>
 <p>The cleanup of the public columns is done by the <code>api.sendJSON</code> which is used by all API routes when ready to send data back to the client. If any post-process
 hooks are registered and return data itself then it is the hook responsibility to cleanup non-public columns.</p>
 <pre><code class="language-javascript">    db.describeTables({
-        bk_account: {
+        bk_user: {
             gender: { pub: 1 },
             birthday: {},
             ssn: {},
@@ -498,7 +498,7 @@ hooks are registered and return data itself then it is the hook responsibility t
 
     app.configureWeb = function(options, callback)
     {
-       db.setProcessRow(&quot;post&quot;, &quot;bk_account&quot;, this.processAccountRow);
+       db.setProcessRow(&quot;post&quot;, &quot;bk_user&quot;, this.processAccountRow);
        ...
        callback();
     }
@@ -724,7 +724,7 @@ This driver implements reliable Redis queue, with <code>visibilityTimeout</code>
 process with <code>-jobs-workers 2</code> will launch 2 worker processes which will start pulling jobs from the queue and execute.</p>
 <p>An example of how to perform jobs in the API routes:</p>
 <pre><code class="language-javascript">   app.processAccounts = function(options, callback) {
-       db.select(&quot;bk_account&quot;, { type: options.type || &quot;user&quot; }, function(err, rows) {
+       db.select(&quot;bk_user&quot;, { type: options.type || &quot;user&quot; }, function(err, rows) {
           ...
           callback();
        });
@@ -1178,7 +1178,7 @@ this is the only way to ensure the body is not modified when not using query par
 <h3 id="authentication-api">Authentication API</h3>
 <ul>
 <li><p><code>/auth</code></p>
-<p> This API request returns the current user record from the <code>bk_auth</code> table if the request is verified and the signature provided
+<p> This API request returns the current user record from the <code>bk_user</code> table if the request is verified and the signature provided
  is valid. If no signature or it is invalid the result will be an error with the corresponding error code and message.</p>
 <p> By default this endpoint is secured, i.e. requires a valid signature.</p>
 <p> Parameters:</p>
@@ -1228,7 +1228,7 @@ this is the only way to ensure the body is not modified when not using query par
 </ul>
 <h2 id="accounts">Accounts</h2>
 <p>The accounts API manages accounts and authentication, it provides basic user account features with common fields like email, name, address.</p>
-<p>This is implemented by the <code>accounts</code> module from the core. To enable accounts functionality specify <code>-allow-modules=bk_accounts</code>.</p>
+<p>This is implemented by the <code>accounts</code> module from the core. To enable accounts functionality specify <code>-allow-modules=bk_users</code>.</p>
 <ul>
 <li><p><code>/account/get</code></p>
 <p>Returns information about current account or other accounts, all account columns are returned for the current account and only public columns
@@ -1243,7 +1243,7 @@ verifying if the given login and secret are valid, there is no special login API
  passed in the query or headers with the name <code>bk-access-token</code></li>
 </ul>
 <p>Note: When retrieving current account, all properties will be present including the location, for other accounts only the properties marked as <code>pub</code> in the
-<code>bk_account</code> table will be returned.</p>
+<code>bk_user</code> table will be returned.</p>
 <p>Response:</p>
 <pre><code>    { &quot;id&quot;: &quot;57d07a4e28fc4f33bdca9f6c8e04d6c3&quot;,
       &quot;name&quot;: &quot;Test User&quot;,
@@ -1261,13 +1261,13 @@ verifying if the given login and secret are valid, there is no special login API
         bkjs shell
 
         # Update record by login
-        &gt; db.update(&quot;bk_auth&quot;, { login: &#39;login@name&#39;, type: &#39;admin&#39; });</code></pre>
+        &gt; db.update(&quot;bk_user&quot;, { login: &#39;login@name&#39;, type: &#39;admin&#39; });</code></pre>
 <ul>
 <li><p><code>/account/del</code></p>
 <p>Delete current account, after this call no more requests will be authenticated with the current credentials</p>
 </li>
 <li><p><code>/account/update</code></p>
-<p>Update current account with new values, the parameters are columns of the table <code>bk_account</code>, only columns with non empty values will be updated.</p>
+<p>Update current account with new values, the parameters are columns of the table <code>bk_user</code>, only columns with non empty values will be updated.</p>
 <p>Example:</p>
 <pre><code>      /account/update?name=New%2BName&amp;gender=m</code></pre>
 </li>
@@ -1411,9 +1411,9 @@ For this to work the Data API must be configured as unsecure in the config file 
 <p>Some tables like messages and connections perform data convertion before returning the results, mostly splitting combined columns like type into
 separate fields. To return raw data pass the parameter <code>_noprocessrows=1</code>.</p>
 <p>Example:</p>
-<pre><code>  /data/get/bk_account?id=12345
+<pre><code>  /data/get/bk_user?id=12345
   /data/put/bk_counter?id=12345&amp;like0=1
-  /data/select/bk_account?name=john&amp;_ops=name,gt&amp;_select=name,email
+  /data/select/bk_user?name=john&amp;_ops=name,gt&amp;_select=name,email
   /data/select/bk_connection?_noscan=0&amp;_noprocessrows=1</code></pre>
 </li>
 </ul>
@@ -1827,7 +1827,7 @@ Database pool statistics and other diagnostics</p>
 <li><code>db-name</code> - Default database name to be used for default connections in cases when no db is specified in the connection url</li>
 <li><code>db-create-tables</code> - Create tables in the database or perform table upgrades for new columns in all pools, only shell or server process can perform this operation</li>
 <li><code>db-create-tables-roles</code> - Only processes with these roles can create tables</li>
-<li><code>db-cache-tables</code> - List of tables that can be cached: bk_auth, bk_counter. This list defines which DB calls will cache data with currently configured cache. This is global for all db pools.</li>
+<li><code>db-cache-tables</code> - List of tables that can be cached: bk_user, bk_counter. This list defines which DB calls will cache data with currently configured cache. This is global for all db pools.</li>
 <li><code>db-cache-pools</code> - List of pools which trigger cache flushes on update.</li>
 <li><code>db-cache-sync</code> - List of tables that perform synchronized cache updates before returning from a DB call, by default cache updates are done in the background</li>
 <li><code>db-cache-keys-([a-z0-9_]+)-(.+)</code> - List of columns to be used for the table cache, all update operations will flush the cache if the cache key can be created from the record columns. This is for ad-hoc and caches to be used for custom selects which specified the cache key.</li>
@@ -1888,7 +1888,7 @@ Database pool statistics and other diagnostics</p>
 <li><code>api-no-session</code> - Disable cookie session support, all requests must be signed for Web clients</li>
 <li><code>api-session-age</code> - Session age in milliseconds, for cookie based authentication</li>
 <li><code>api-session-domain-(.+)</code> - Cookie domain by Host: header, if not matched session is bound to the exact host only, example: -api-session-domain-site.com=site.com$</li>
-<li><code>api-query-token-secret</code> - Name of the property to be used for encrypting tokens for pagination or other sensitive data, any property from bk_auth can be used, if empty no secret is used, if not a valid property then it is used as the secret</li>
+<li><code>api-query-token-secret</code> - Name of the property to be used for encrypting tokens for pagination or other sensitive data, any property from bk_user can be used, if empty no secret is used, if not a valid property then it is used as the secret</li>
 <li><code>api-app-header-name</code> - Name for the app name/version query parameter or header, it is can be used to tell the server about the application version</li>
 <li><code>api-version-header-name</code> - Name for the access version query parameter or header, this is the core protocol version that can be sent to specify which core functionality a client expects</li>
 <li><code>api-no-signature</code> - Disable signature verification for requests</li>
@@ -1898,7 +1898,7 @@ Database pool statistics and other diagnostics</p>
 <li><code>api-lang-header-name</code> - Name for the language query parameter, header and session cookie, primary language for a client</li>
 <li><code>api-signature-age</code> - Max age for request signature in milliseconds, how old the API signature can be to be considered valid, the &#39;expires&#39; field in the signature must be less than current time plus this age, this is to support time drifts</li>
 <li><code>api-no-access-token</code> - Disable access tokens support</li>
-<li><code>api-access-time-interval</code> - Intervals to refresh last access time for accounts, only updates the cache if <code>bk_auth</code> is configured to be cached</li>
+<li><code>api-access-time-interval</code> - Intervals to refresh last access time for accounts, only updates the cache if <code>bk_user</code> is configured to be cached</li>
 <li><code>api-access-token-name</code> - Name for the access token query parameter or header</li>
 <li><code>api-access-token-secret</code> - A secret to be used for access token signatures, additional enryption on top of the signature to use for API access without signing requests, it is required for access tokens to be used</li>
 <li><code>api-access-token-age</code> - Access tokens age in milliseconds, for API requests with access tokens only</li>
@@ -2193,7 +2193,7 @@ The options is expected to contain the following cached request properties:</p>
 </li>
 </ul>
 <p>The metrics are kept in the LRU cache in the master process by default.</p>
-<p>When used for accounts, it is possible to override rate limits for each account in the <code>bk_auth</code> table by setting <code>rlimit_max</code> and <code>rlimit_rate</code>
+<p>When used for accounts, it is possible to override rate limits for each account in the <code>bk_user</code> table by setting <code>rlimit_max</code> and <code>rlimit_rate</code>
 columns. To enable account rate limits the global defaults still must be set with the config paramaters <code>-api-rlimit-login-max</code> and <code>-api-rlimit-login-rate</code>
 for example.</p>
 <p>Example:</p>
@@ -2313,7 +2313,7 @@ it always returns a signature object, a new one or existing</p>
 
 <ul>
 <li><p><code>api.verifySignature(req, sig, account, callback)</code></p>
-<p> Returns true if the signature <code>sig</code> matches given account secret. <code>account</code> object must be a <code>bk_auth</code> record.</p>
+<p> Returns true if the signature <code>sig</code> matches given account secret. <code>account</code> object must be a <code>bk_user</code> record.</p>
 </li>
 </ul>
 
@@ -2574,7 +2574,7 @@ in such cases make a copy of the needed objects if it will needed</p>
    });</code></pre>
 <p>Example, add data to the rows and return result after it</p>
 <pre><code>   api.registerPostProcess(&#39;&#39;, &#39;/data/&#39;, function(req, res, row) {
-       db.get(&quot;bk_account&quot;, { id: row.id }, function(err, rec) {
+       db.get(&quot;bk_user&quot;, { id: row.id }, function(err, rec) {
            row.name = rec.name;
            res.json(row);
        });
@@ -2866,7 +2866,7 @@ all the supported options are defined in the <code>api.controls</code> and can b
 <ul>
 <li><p><code>api.getTokenSecret(req)</code></p>
 <p> Return a secret to be used for enrypting tokens, it uses the account property if configured or the global API token
-to be used to encrypt data and pass it to the clients. <code>-api-query-token-secret</code> can be configured and if a column in the <code>bk_auth</code>
+to be used to encrypt data and pass it to the clients. <code>-api-query-token-secret</code> can be configured and if a column in the <code>bk_user</code>
 with such name exists it is used as a secret, otherwise the value of this property is used as a secret.</p>
 </li>
 </ul>
@@ -2892,7 +2892,7 @@ if present in the info. This result object can be used for pagination responses.
 <li><p>allow - a list of properties which can be checked along with the <code>pub</code> property for a column to be considered public</p>
 </li>
 <li><p>disallow - a list of properties which if set will prevent a column to be returned, it is checked before the &#39;allow&#39; rule</p>
-<p>api.getPublicColumns(&quot;bk_account&quot;, { allow: [&quot;admins&quot;], skip: /device_id|0$/ });</p>
+<p>api.getPublicColumns(&quot;bk_user&quot;, { allow: [&quot;admins&quot;], skip: /device_id|0$/ });</p>
 </li>
 </ul>
 </li>
@@ -2904,7 +2904,7 @@ if present in the info. This result object can be used for pagination responses.
 callbacks after all records have been processes and are ready to be returned to the client, the last step would be to cleanup
 all non public columns if necessary.</p>
 <p><code>table</code> can be a single table name or a list of table names which combined public columns need to be kept in the rows. List of request tables
-is kept in the <code>req.options.cleanup</code> which by default is a table name of the API endpoint, for example for /account/get it will contain bk_account, for
+is kept in the <code>req.options.cleanup</code> which by default is a table name of the API endpoint, for example for /account/get it will contain bk_user, for
 /connection/get - bk_connection.</p>
 <p>In the <code>options</code> account object can be present to detect account own records which will not be cleaned and all properties will be returned, by default <code>id</code>
 property is used to detect current account but can be specified by the <code>options.account_key</code> property.</p>
@@ -2934,19 +2934,19 @@ new columns or columns created on the fly are returned to the client.</p>
 <p>The <code>table</code> argument can be a table name or an object with properties as columns.</p>
 <p>If <code>options.filter</code> is not specified the <code>query</code> will only keep existing columns for the given table.</p>
 <p>If <code>options.filter</code> is a list then the <code>query</code> will delete properties for columns that contain any specified
-property from the filter list. This is used for the <code>bk_auth</code> table to remove properties that supposed to be updated by admins only.
+property from the filter list. This is used for the <code>bk_user</code> table to remove properties that supposed to be updated by admins only.
 The filter will keep non-existent columns in the <code>query</code>. To remove such columns when using the filter specify <code>options.force</code>.</p>
 <p>If a name in the filter is prefixed with ! then the logic is reversed, keep all except this property</p>
 <p>If <code>options.keep</code> is a regexp it will be used to keep matched properties by name in the <code>query</code> regardless of any condition.</p>
 <p>If <code>options.clear</code> is a regexp it will be used to remove matched properties by name in the <code>query</code>.</p>
 <p>Example:</p>
-<pre><code>  api.clearQuery(&quot;bk_account&quot;, req.query)
-  api.clearQuery(&quot;bk_auth&quot;, req.query, &quot;admin&quot;)
-  api.clearQuery(&quot;bk_auth&quot;, req.query, { filter: &quot;admin&quot; })
-  api.clearQuery(&quot;bk_auth&quot;, req.query, { filter: [&quot;admin&quot;] })
-  api.clearQuery(&quot;bk_auth&quot;, req.query, { filter: [&quot;!pub&quot;] })
-  api.clearQuery(&quot;bk_account&quot;, req.query, { filter: [&quot;admin&quot;,&quot;secure&quot;] })
-  api.clearQuery(&quot;bk_account&quot;, req.query, { filter: [&quot;admin&quot;,&quot;!secure&quot;], keep: /^__/ })
+<pre><code>  api.clearQuery(&quot;bk_user&quot;, req.query)
+  api.clearQuery(&quot;bk_user&quot;, req.query, &quot;admin&quot;)
+  api.clearQuery(&quot;bk_user&quot;, req.query, { filter: &quot;admin&quot; })
+  api.clearQuery(&quot;bk_user&quot;, req.query, { filter: [&quot;admin&quot;] })
+  api.clearQuery(&quot;bk_user&quot;, req.query, { filter: [&quot;!pub&quot;] })
+  api.clearQuery(&quot;bk_user&quot;, req.query, { filter: [&quot;admin&quot;,&quot;secure&quot;] })
+  api.clearQuery(&quot;bk_user&quot;, req.query, { filter: [&quot;admin&quot;,&quot;!secure&quot;], keep: /^__/ })
   api.clearQuery({ name: {}, id: { admin: 1 } }, req.query, { filter: [&quot;admin&quot;] })</code></pre>
 </li>
 </ul>
@@ -3034,7 +3034,7 @@ been processed.</p>
 <h2 id="module-auth">Module: AUTH</h2>
 <ul>
 <li><p><code>Database tables</code></p>
-<pre><code>          bk_auth: {
+<pre><code>          bk_user: {
               login: { primary: 1 },                                      // Account login/username
               id: { type: &quot;uuid&quot;, prefix: &quot;u_&quot;, admin: 1, unique: 1 },    // Autogenerated ID
               name: { type: &quot;text&quot; },                                     // Account name
@@ -3543,8 +3543,8 @@ Options must provide the following properties:</p>
         aws.ddbUpdateTable({ name: &quot;users&quot;, update: { name: { readCapacity: 10, writeCapacity: 10 } })</code></pre>
 <p>Example of crontab job in etc/crontab:</p>
 <pre><code>        [
-        { &quot;type&quot;: &quot;server&quot;, &quot;cron&quot;: &quot;0 0 1 * * *&quot;, &quot;job&quot;: { &quot;aws.ddbUpdateTable&quot;: { &quot;name&quot;: &quot;bk_account&quot;, &quot;readCapacity&quot;: 1000, &quot;writeCapacity&quot;: 1000 } } },
-        { &quot;type&quot;: &quot;server&quot;, &quot;cron&quot;: &quot;0 0 6 * * *&quot;, &quot;job&quot;: { &quot;aws.ddbUpdateTable&quot;: { &quot;name&quot;: &quot;bk_account&quot;, &quot;readCapacity&quot;: 2000, &quot;writeCapacity&quot;: 2000 } } }
+        { &quot;type&quot;: &quot;server&quot;, &quot;cron&quot;: &quot;0 0 1 * * *&quot;, &quot;job&quot;: { &quot;aws.ddbUpdateTable&quot;: { &quot;name&quot;: &quot;bk_user&quot;, &quot;readCapacity&quot;: 1000, &quot;writeCapacity&quot;: 1000 } } },
+        { &quot;type&quot;: &quot;server&quot;, &quot;cron&quot;: &quot;0 0 6 * * *&quot;, &quot;job&quot;: { &quot;aws.ddbUpdateTable&quot;: { &quot;name&quot;: &quot;bk_user&quot;, &quot;readCapacity&quot;: 2000, &quot;writeCapacity&quot;: 2000 } } }
         ]</code></pre>
 </li>
 </ul>
@@ -4453,8 +4453,8 @@ then default db pool is used, sqlite is default if no -db-pool config parameter 
 Even if the specified pool does not exist, the default pool will be returned, this allows to pre-confgure the app with different pools
 in the code and enable or disable any particular pool at any time.</p>
 <p>Example, use PostgreSQL db pool to get a record and update the current pool</p>
-<pre><code>    db.get(&quot;bk_account&quot;, { id: &quot;123&quot; }, { pool: &quot;pgsql&quot; }, function(err, row) {
-        if (row) db.update(&quot;bk_account&quot;, row);
+<pre><code>    db.get(&quot;bk_user&quot;, { id: &quot;123&quot; }, { pool: &quot;pgsql&quot; }, function(err, row) {
+        if (row) db.update(&quot;bk_user&quot;, row);
     });</code></pre>
 <p>Most database pools can be configured with options <code>min</code> and <code>max</code> for number of connections to be maintained, so no overload will happen and keep warm connection for
 faster responses. Even for DynamoDB which uses HTTPS this can be configured without hitting provisioned limits which will return an error but
@@ -4651,7 +4651,7 @@ returns the query record with new columns from memory</li>
 <li>rows is always returned as a list, even in case of error it is an empty list</li>
 </ul>
 <p>Example with SQL driver</p>
-<pre><code>   db.query({ text: &quot;SELECT a.id,c.type FROM bk_account a,bk_connection c WHERE a.id=c.id and a.id=?&quot;, values: [&#39;123&#39;] }, { pool: &#39;pgsql&#39; }, function(err, rows, info) {
+<pre><code>   db.query({ text: &quot;SELECT a.id,c.type FROM bk_user a,bk_connection c WHERE a.id=c.id and a.id=?&quot;, values: [&#39;123&#39;] }, { pool: &#39;pgsql&#39; }, function(err, rows, info) {
    });</code></pre>
 </li>
 </ul>
@@ -4668,7 +4668,7 @@ Options can use the following special properties:</p>
 </ul>
 <p>NOTE: On return the <code>info.cached</code> will be set to 1 if the record was retrieved from cache or was put in the cache.</p>
 <p>Example</p>
-<pre><code>    db.get(&quot;bk_account&quot;, { id: &#39;12345&#39; }, function(err, row) {
+<pre><code>    db.get(&quot;bk_user&quot;, { id: &#39;12345&#39; }, function(err, row) {
        if (row) console.log(row.name);
     });</code></pre>
 </li>
@@ -4732,14 +4732,14 @@ also can be a list where each item is an object with primary key condition. Only
 
  });</code></pre>
 <p>Example: allow all accounts icons to be visible</p>
-<pre><code> db.select(&quot;bk_account&quot;, {}, function(err, rows) {
+<pre><code> db.select(&quot;bk_user&quot;, {}, function(err, rows) {
      rows.forEach(function(row) {
          row.acl_allow = &#39;auth&#39;;
          db.update(&quot;bk_icon&quot;, row);
      });
  });</code></pre>
 <p>Example: scan accounts with custom filter, not by primary key: all females</p>
-<pre><code> db.select(&quot;bk_account&quot;, { gender: &#39;f&#39; }, function(err, rows) {
+<pre><code> db.select(&quot;bk_user&quot;, { gender: &#39;f&#39; }, function(err, rows) {
 
  });</code></pre>
 <p>Example: select connections using primary key and other filter columns: all likes for the last day</p>
@@ -4759,8 +4759,8 @@ the db module <em>DOES NOT PARSE</em> the query at all if the driver supports fu
 <p>A special query property <code>q</code> may be used for generic search in all fields.</p>
 <p>Without full text search support in the driver this may return nothing or an error.</p>
 <p>Example</p>
-<pre><code>      db.search(&quot;bk_account&quot;, { type: &quot;admin&quot;, q: &quot;john*&quot; }, { pool: &quot;elasticsearch&quot; }, lib.log);
-      db.search(&quot;bk_account&quot;, &quot;john*&quot;, { pool: &quot;elasticsearch&quot; }, lib.log);</code></pre>
+<pre><code>      db.search(&quot;bk_user&quot;, { type: &quot;admin&quot;, q: &quot;john*&quot; }, { pool: &quot;elasticsearch&quot; }, lib.log);
+      db.search(&quot;bk_user&quot;, &quot;john*&quot;, { pool: &quot;elasticsearch&quot; }, lib.log);</code></pre>
 </li>
 </ul>
 
@@ -4784,7 +4784,7 @@ string then it is used as a name of the column instead of default mtime name</li
 <p>On return the <code>obj</code> will contain all new columns generated before adding the record</p>
 <p>Note: SQL, DynamoDB, MongoDB, Redis drivers are fully atomic but other drivers may be subject to race conditions</p>
 <p>Example</p>
-<pre><code>db.add(&quot;bk_account&quot;, { id: &#39;123&#39;, name: &#39;test&#39;, gender: &#39;m&#39; }, function(err, rows, info) {
+<pre><code>db.add(&quot;bk_user&quot;, { id: &#39;123&#39;, name: &#39;test&#39;, gender: &#39;m&#39; }, function(err, rows, info) {
 });</code></pre>
 </li>
 </ul>
@@ -4814,7 +4814,7 @@ if does not exist yet.* To disable upsert pass <code>noupsert</code> in the opti
 </li>
 <li><p>options - same properties as for <code>db.add</code> method</p>
 <p>Example</p>
-<pre><code>db.put(&quot;bk_account&quot;, { id: &#39;123&#39;, name: &#39;test&#39;, gender: &#39;m&#39; }, function(err, rows, info) {
+<pre><code>db.put(&quot;bk_user&quot;, { id: &#39;123&#39;, name: &#39;test&#39;, gender: &#39;m&#39; }, function(err, rows, info) {
 });</code></pre>
 </li>
 </ul>
@@ -4851,19 +4851,19 @@ if does not exist yet.* To disable upsert pass <code>noupsert</code> in the opti
 <p>Note: not all database drivers support atomic update with conditions, all drivers for SQL, DynamoDB, MongoDB, Redis fully atomic, but other drivers
 perform get before put and so subject to race conditions</p>
 <p>Example</p>
-<pre><code>   db.update(&quot;bk_account&quot;, { id: &#39;123&#39;, gender: &#39;m&#39; }, function(err, rows, info) {
+<pre><code>   db.update(&quot;bk_user&quot;, { id: &#39;123&#39;, gender: &#39;m&#39; }, function(err, rows, info) {
        console.log(&#39;updated:&#39;, info.affected_rows);
    });
 
-   db.update(&quot;bk_account&quot;, { id: &#39;123&#39;, gender: &#39;m&#39;, prefix: &#39;Mr&#39; }, { pool: pgsql&#39; }, function(err, rows, info) {
+   db.update(&quot;bk_user&quot;, { id: &#39;123&#39;, gender: &#39;m&#39;, prefix: &#39;Mr&#39; }, { pool: pgsql&#39; }, function(err, rows, info) {
        console.log(&#39;updated:&#39;, info.affected_rows);
    });
 
-   db.update(&quot;bk_account&quot;, { id: &#39;123&#39;, gender: &#39;m&#39;, prefix: &#39;Mr&#39; }, { expected: { gender: &quot;f&quot; } }, function(err, rows, info) {
+   db.update(&quot;bk_user&quot;, { id: &#39;123&#39;, gender: &#39;m&#39;, prefix: &#39;Mr&#39; }, { expected: { gender: &quot;f&quot; } }, function(err, rows, info) {
        console.log(&#39;updated:&#39;, info.affected_rows);
    });
 
-   db.update(&quot;bk_account&quot;, { id: &#39;123&#39;, gender: &#39;m&#39;, prefix: &#39;Mr&#39; }, { expected: { &quot;$or&quot;: { gender: &quot;f&quot;, g1: null }, aliases: { g1: &quot;gender&quot; } }, function(err, rows, info) {
+   db.update(&quot;bk_user&quot;, { id: &#39;123&#39;, gender: &#39;m&#39;, prefix: &#39;Mr&#39; }, { expected: { &quot;$or&quot;: { gender: &quot;f&quot;, g1: null }, aliases: { g1: &quot;gender&quot; } }, function(err, rows, info) {
        console.log(&#39;updated:&#39;, info.affected_rows);
    });</code></pre>
 </li>
@@ -4889,7 +4889,7 @@ Special properties that can be in the options for this call:</p>
 </ul>
 <p>If no <code>options.select</code> is specified only the primary keys will be returned or collected</p>
 <p>Example, update birthday format if not null</p>
-<pre><code>    db.updateAll(&quot;bk_account&quot;,
+<pre><code>    db.updateAll(&quot;bk_user&quot;,
                 { birthday: 1 },
                 { mtime: Date.now() },
                 { ops: { birthday: &quot;not null&quot; },
@@ -4915,7 +4915,7 @@ Special properties that can be in the options for this call:</p>
 </li>
 <li><p>options - same properties as for <code>db.update</code> method</p>
 <p>Example</p>
-<pre><code>db.del(&quot;bk_account&quot;, { id: &#39;123&#39; }, function(err, rows, info) {
+<pre><code>db.del(&quot;bk_user&quot;, { id: &#39;123&#39; }, function(err, rows, info) {
     console.log(&#39;updated:&#39;, info.affected_rows);
 });</code></pre>
 </li>
@@ -4962,9 +4962,9 @@ to check if the object exists in the database and performs <code>db.add</code> o
 if it is an array then check only specified columns</li>
 </ul>
 <p>Example: updates record 123 only if gender is not &#39;m&#39; or adds new record</p>
-<pre><code>   db.replace(&quot;bk_account&quot;, { id: &#39;123&#39;, gender: &#39;m&#39; }, { check_data: true });</code></pre>
+<pre><code>   db.replace(&quot;bk_user&quot;, { id: &#39;123&#39;, gender: &#39;m&#39; }, { check_data: true });</code></pre>
 <p>Example: updates record 123 only if mtime of the record is less or equal yesterday</p>
-<pre><code>   db.replace(&quot;bk_account&quot;, { id: &#39;123&#39;, mtime: Date.now() - 86400000 }, { check_mtime: &#39;mtime&#39; });</code></pre>
+<pre><code>   db.replace(&quot;bk_user&quot;, { id: &#39;123&#39;, mtime: Date.now() - 86400000 }, { check_mtime: &#39;mtime&#39; });</code></pre>
 </li>
 </ul>
 
@@ -4972,8 +4972,8 @@ if it is an array then check only specified columns</li>
 <li><p><code>db.list(table, query, options, callback)</code></p>
 <p> Convenient helper to retrieve all records by primary key, the obj must be a list with key property or a string with list of primary key column
 Example</p>
-<pre><code>db.list(&quot;bk_account&quot;, [&quot;id1&quot;, &quot;id2&quot;], function(err, rows) { console.log(err, rows) });
-db.list(&quot;bk_account&quot;, &quot;id1,id2&quot;, function(err, rows) { console.log(err, rows) });</code></pre>
+<pre><code>db.list(&quot;bk_user&quot;, [&quot;id1&quot;, &quot;id2&quot;], function(err, rows) { console.log(err, rows) });
+db.list(&quot;bk_user&quot;, &quot;id1,id2&quot;, function(err, rows) { console.log(err, rows) });</code></pre>
 </li>
 </ul>
 
@@ -5001,7 +5001,7 @@ together one by one but different tables will be updated in parallel.</p>
 <p>On return the second arg to the callback is a list of records with errors, same input record with added property <code>errstatus</code> and <code>errmsg</code></p>
 <p>Example:</p>
 <pre><code>   var ops = [ { op: &quot;add&quot;, table: &quot;bk_counter&quot;, obj: { id:1, like:1 } },
-               { op: &quot;add&quot;, table: &quot;bk_auth&quot;, obj: { login: &quot;test&quot;, id:1, name:&quot;test&quot; }]
+               { op: &quot;add&quot;, table: &quot;bk_user&quot;, obj: { login: &quot;test&quot;, id:1, name:&quot;test&quot; }]
    db.batch(ops, { factorCapacity: 0.5 }, lib.log);</code></pre>
 </li>
 </ul>
@@ -5014,9 +5014,9 @@ The input format is the same as for the <code>db.batch</code> method.</p>
 <p>NOTE: DynamoDB only supports add/put/del only and 25 at a time, if more specified it will send multiple batches</p>
 <p>Example</p>
 <pre><code>    var ops = [ { op: &quot;add&quot;, table: &quot;bk_counter&quot;, obj: { id:1, like:1 } },
-                { op: &quot;del&quot;, table: &quot;bk_auth&quot;, obj: { login: &quot;test1&quot; } },
+                { op: &quot;del&quot;, table: &quot;bk_user&quot;, obj: { login: &quot;test1&quot; } },
                 { op: &quot;incr&quot;, table: &quot;bk_counter&quot;, obj: { id:2, like:1 } },
-                { op: &quot;add&quot;, table: &quot;bk_auth&quot;, obj: { login: &quot;test2&quot;, id:2, name:&quot;test2&quot; } }]
+                { op: &quot;add&quot;, table: &quot;bk_user&quot;, obj: { login: &quot;test2&quot;, id:2, name:&quot;test2&quot; } }]
     db.bulk(ops, { pool: &quot;elasticsearch&quot; }, lib.log);</code></pre>
 </li>
 </ul>
@@ -5062,9 +5062,9 @@ To hint a driver that scanning is in progress the <code>options.scanning</code> 
 <li>endCallback - end of scan when called like this: `callback(err)</li>
 </ul>
 <p>Example:</p>
-<pre><code>    db.scan(&quot;bk_account&quot;, {}, { count: 10, pool: &quot;dynamodb&quot; }, function(row, next) {
+<pre><code>    db.scan(&quot;bk_user&quot;, {}, { count: 10, pool: &quot;dynamodb&quot; }, function(row, next) {
         // Copy all accounts from one db into another
-        db.add(&quot;bk_account&quot;, row, { pool: &quot;pgsql&quot; }, next);
+        db.add(&quot;bk_user&quot;, row, { pool: &quot;pgsql&quot; }, next);
     }, function(err) { });</code></pre>
 </li>
 </ul>
@@ -5124,9 +5124,9 @@ for cases when actual primary keys in the table are different from the rows prop
 <p>A special case when table is empty <code>db.join</code> just returns same rows to the callback, this is
 for convenience of doing joins on some conditions and trigger it by setting the table name or skip the join completely.</p>
 <p>Example:</p>
-<pre><code>   db.join(&quot;bk_account&quot;, [{id:&quot;123&quot;,key1:1},{id:&quot;234&quot;,key1:2}], lib.log)
-   db.join(&quot;bk_account&quot;, [{aid:&quot;123&quot;,key1:1},{aid:&quot;234&quot;,key1:2}], { keysMap: { id: &quot;aid&quot; }}, lib.log)
-   db.join(&quot;bk_account&quot;, [{id:&quot;123&quot;,state:&quot;NY&quot;},{id:&quot;234&quot;,state:&quot;VA&quot;}], { columnsMap: { state: &quot;astate&quot; }}, lib.log)</code></pre>
+<pre><code>   db.join(&quot;bk_user&quot;, [{id:&quot;123&quot;,key1:1},{id:&quot;234&quot;,key1:2}], lib.log)
+   db.join(&quot;bk_user&quot;, [{aid:&quot;123&quot;,key1:1},{aid:&quot;234&quot;,key1:2}], { keysMap: { id: &quot;aid&quot; }}, lib.log)
+   db.join(&quot;bk_user&quot;, [{id:&quot;123&quot;,state:&quot;NY&quot;},{id:&quot;234&quot;,state:&quot;VA&quot;}], { columnsMap: { state: &quot;astate&quot; }}, lib.log)</code></pre>
 </li>
 </ul>
 
@@ -5148,7 +5148,7 @@ contain the following properties:</p>
 <li><code>maxlength</code> - limit the max column value, the value will be truncated before saving into the DB</li>
 <li><code>pub</code> - columns is public, <em>this is very important property because it allows anybody to see it when used in the default API functions, i.e. anybody with valid
  credentials can retrieve all public columns from all other tables, and if one of the other tables is account table this may expose some personal infoamtion,
- so by default only a few columns are marked as public in the bk_account table</em></li>
+ so by default only a few columns are marked as public in the bk_user table</em></li>
 <li><code>secure</code> - an opposite for the pub property, if defined this property should never be returned to the client by the API handlers</li>
 <li><code>admin</code> - if defined this property can only be updated an admin account</li>
 <li><code>admins</code> - if defined this property can be visible by the owner and an admin if result is returned by <code>api.sendJSON</code></li>
@@ -5295,7 +5295,7 @@ the config parameter will be a string value assigned in the pool&#39;s <code>con
 it is required to call <code>pool.release</code> at the end to return the connection back to the connection pool.</p>
 <pre><code>   var pool = db.getPool(&quot;&quot;, { pool: &quot;mongodb&quot; });
    pool.get(function(err, client) {
-       var collection = client.collection(&#39;bk_account&#39;);
+       var collection = client.collection(&#39;bk_user&#39;);
        collection.findOne({ id: &#39;123&#39; }, function() {
            pool.release(client);
        });
@@ -5576,7 +5576,7 @@ callbacks to keep the record consistent.</p>
 </li>
 </ul>
 <p>  Example</p>
-<pre><code>  db.setProcessRow(&quot;post&quot;, &quot;bk_account&quot;, function(req, row) {
+<pre><code>  db.setProcessRow(&quot;post&quot;, &quot;bk_user&quot;, function(req, row) {
       if (row.birthday) row.age = Math.floor((Date.now() - lib.toDate(row.birthday))/(86400000*365));
   });
 
@@ -5771,7 +5771,7 @@ on startup, the backend read all existing table columns from the database and ca
 like public columns are only specific to the backend so to mark such columns the table with such properties must be described
 using this method. Only columns with changed properties need to be specified, other columns will be left as it is.</p>
 <p>Example</p>
-<pre><code>    db.describeTables({ bk_account: { name: { pub: 1 } },
+<pre><code>    db.describeTables({ bk_user: { name: { pub: 1 } },
                         test: { id: { primary: 1, type: &quot;int&quot; },
                                 name: { pub: 1, index: 1 } });</code></pre>
 </li>
@@ -5864,10 +5864,10 @@ columns will be returned, to pass the list as is to the driver just use <code>op
 any property from the filter list. If the filter is an object then values must match, null means if exists.
 ! at the beginning of the name means empty or does not exist.</p>
 <p>Example:</p>
-<pre><code>db.getFilteredColumns(&quot;bk_account&quot;, &quot;pub&quot;)
-db.getFilteredColumns(&quot;bk_account&quot;, &quot;!internal&quot;)
-db.getFilteredColumns(&quot;bk_account&quot;, { pub: null, index: 2 })
-db.getFilteredColumns(&quot;bk_account&quot;, { type: &quot;now&quot; }, { list: 1 })</code></pre>
+<pre><code>db.getFilteredColumns(&quot;bk_user&quot;, &quot;pub&quot;)
+db.getFilteredColumns(&quot;bk_user&quot;, &quot;!internal&quot;)
+db.getFilteredColumns(&quot;bk_user&quot;, { pub: null, index: 2 })
+db.getFilteredColumns(&quot;bk_user&quot;, { type: &quot;now&quot; }, { list: 1 })</code></pre>
 </li>
 </ul>
 
@@ -5973,7 +5973,7 @@ Additional options:</p>
 <ul>
 <li><p>prefix - prefix to be used for the key instead of table name</p>
 <p>Example:</p>
-<p>   db.getCached(&quot;get&quot;, &quot;bk_account&quot;, { id: req.query.id }, { select: &quot;latitude,longitude&quot; }, function(err, row) {</p>
+<p>   db.getCached(&quot;get&quot;, &quot;bk_user&quot;, { id: req.query.id }, { select: &quot;latitude,longitude&quot; }, function(err, row) {</p>
 <pre><code>   var distance = lib.geoDistance(req.query.latitude, req.query.longitude, row.latitude, row.longitudde);</code></pre>
 <p>   });</p>
 </li>
@@ -8699,11 +8699,11 @@ it runs <code>shutdown[Role]</code> methods before exiting</p>
 </ul>
 
 <h2 id="module-shell">Module: SHELL</h2>
-<h2 id="module-bk_account">Module: BK_ACCOUNT</h2>
+<h2 id="module-bk_user">Module: bk_user</h2>
 <ul>
 <li><p><code>Database tables</code></p>
 <pre><code>      // Basic account information
-      bk_account: {
+      bk_user: {
           id: { primary: 1, pub: 1 },
           login: {},
           status: { type: &quot;text&quot; },
@@ -8761,7 +8761,7 @@ it runs <code>shutdown[Role]</code> methods before exiting</p>
 <p>In addition the device_id can be saved in the format service://id where the service is one of the supported delivery services, this way the notification
 system will pick the right delivery service depending on the device id, the default service is apple.</p>
 <p>Example:</p>
-<pre><code> bk_account.notifyAccount({ account_id: &quot;123&quot;, msg: &quot;test&quot;, badge: 1, sound: 1 } })</code></pre>
+<pre><code> bk_user.notifyAccount({ account_id: &quot;123&quot;, msg: &quot;test&quot;, badge: 1, sound: 1 } })</code></pre>
 </li>
 </ul>
 
@@ -9212,7 +9212,7 @@ one time delays.</li>
 </ul>
 <p>Example</p>
 <pre><code>    function(next) {
-        db.get(&quot;bk_account&quot;, { id: &quot;123&quot; }, function(err, row) {
+        db.get(&quot;bk_user&quot;, { id: &quot;123&quot; }, function(err, row) {
             tests.assert(next, err || !row || row.id != &quot;123&quot;, &quot;Record not found&quot;, row)
         });
     }</code></pre>
@@ -9251,7 +9251,7 @@ use the same names as command line arguments without preceeding <code>test-</cod
    var tests = bkjs.core.modules.tests;
 
    tests.test_mytest = function(next) {
-      bkjs.db.get(&quot;bk_account&quot;, { id: &quot;123&quot; }, function(err, row) {
+      bkjs.db.get(&quot;bk_user&quot;, { id: &quot;123&quot; }, function(err, row) {
           tests.assert(next, err || !row || row.id != &quot;123&quot;, &quot;Record not found&quot;, row)
       });
    }

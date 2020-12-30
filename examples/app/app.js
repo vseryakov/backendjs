@@ -17,18 +17,9 @@ db.describeTables({
         name: {},
         mtime: { type: "now" },
     },
-    // Extend accounts table
-    bk_account: {
-        status: { value: "active" },
-    },
-    // Extend locations table, keep account status for filtering
-    bk_location: {
-        status: { pub: 1 },
-    },
-    // Add out custom counters updated on connections of type 'test'
-    bk_counter: {
-        test0: { type: "counter", value: 0, pub: 1, autoincr: 1 },
-        test1: { type: "counter", value: 0 },
+    // Extend users table
+    bk_user: {
+        test0: { pub: 1 },
     },
 });
 

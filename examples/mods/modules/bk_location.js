@@ -3,17 +3,9 @@
 //  backendjs 2018
 //
 
-var path = require('path');
-var util = require('util');
-var fs = require('fs');
-var http = require('http');
-var url = require('url');
 var bkjs = require('backendjs');
 var db = bkjs.db;
 var api = bkjs.api;
-var app = bkjs.app;
-var ipc = bkjs.ipc;
-var msg = bkjs.msg;
 var core = bkjs.core;
 var lib = bkjs.lib;
 var logger = bkjs.logger;
@@ -22,7 +14,7 @@ var logger = bkjs.logger;
 var mod = {
     name: "bk_location",
     tables: {
-        bk_account: {
+        bk_user: {
             geohash: {},
             latitude: { type: "real" },
             longitude: { type: "real" },
@@ -142,49 +134,44 @@ mod.put = function(req, options, callback)
     var latitude = req.query.latitude, longitude = req.query.longitude;
     if (!latitude || !longitude) return callback({ status: 400, message: "latitude/longitude are required" });
 
-    // Get current location
-    db.get("bk_account", { id: req.account.id }, function(err, old) {
-        if (err || !old) return callback(err ? err : { status: 404, mesage: "account not found"});
+    // Build new location record
+    var geo = lib.geoHash(latitude, longitude, { minDistance: mod.minDistance });
 
-        // Build new location record
-        var geo = lib.geoHash(latitude, longitude, { minDistance: mod.minDistance });
-
-        // Skip if within minimal distance
-        if (old.latitude || old.longitude) {
-            var distance = lib.geoDistance(old.latitude, old.longitude, latitude, longitude);
-            if (distance == null || distance <= mod.minDistance) {
-                return callback({ status: 305, message: "ignored, min distance: " + mod.minDistance});
-            }
+    // Skip if within minimal distance
+    if (req.account.latitude || req.account.longitude) {
+        var distance = lib.geoDistance(req.account.latitude, req.account.longitude, latitude, longitude);
+        if (distance == null || distance <= mod.minDistance) {
+            return callback({ status: 305, message: "ignored, min distance: " + mod.minDistance });
         }
+    }
 
-        req.query.ltime = now;
-        req.query.id = req.account.id;
-        req.query.geohash = geo.geohash;
-        // Return new and old coordinates
-        req.query.old = { geohash: old.geohash, latitude: old.latitude, longitude: old.longtiude };
+    req.query.ltime = now;
+    req.query.id = req.account.id;
+    req.query.geohash = geo.geohash;
+    // Return new and old coordinates
+    req.query.old = { geohash: req.account.geohash, latitude: req.account.latitude, longitude: req.account.longtiude };
 
-        var obj = { id: req.account.id, geohash: geo.geohash, latitude: latitude, longitude: longitude, ltime: now, location: req.query.location };
-        db.update("bk_account", obj, function(err) {
+    var obj = { login: req.account.login, id: req.account.id, geohash: geo.geohash, latitude: latitude, longitude: longitude, ltime: now, location: req.query.location };
+    db.update("bk_user", obj, function(err) {
+        if (err) return callback(err);
+
+        // Just keep accounts with locations or if we use accounts as the location storage
+        if (options.nolocation || table == "bk_user") return callback(null, req.query);
+
+        // Update all account columns in the location, they are very tightly connected and custom filters can
+        // be used for filtering locations based on other account properties like gender.
+        var cols = db.getColumns("bk_location", options);
+        for (var p in cols) if (req.account[p] && !req.query[p]) req.query[p] = req.account[p];
+
+        db.put("bk_location", req.query, function(err) {
             if (err) return callback(err);
 
-            // Just keep accounts with locations or if we use accounts as the location storage
-            if (options.nolocation || table == "bk_account") return callback(null, req.query);
+            // Never been updated yet, nothing to delete
+            if (!req.account.geohash || req.account.geohash == geo.geohash) return callback(null, req.query);
 
-            // Update all account columns in the location, they are very tightly connected and custom filters can
-            // be used for filtering locations based on other account properties like gender.
-            var cols = db.getColumns("bk_location", options);
-            for (var p in cols) if (old[p] && !req.query[p]) req.query[p] = old[p];
-
-            db.put("bk_location", req.query, function(err) {
-                if (err) return callback(err);
-
-                // Never been updated yet, nothing to delete
-                if (!old.geohash || old.geohash == geo.geohash) return callback(null, req.query);
-
-                // Delete the old location, ignore the error but still log it
-                db.del("bk_location", old, function() {
-                    callback(null, req.query);
-                });
+            // Delete the old location, ignore the error but still log it
+            db.del("bk_location", req.account, function() {
+                callback(null, req.query);
             });
         });
     });
@@ -279,7 +266,7 @@ mod.select = function(table, query, options, callback)
     options = lib.objClone(options);
     var cols = db.getColumns(table, options);
     var keys = db.getKeys(table, options);
-    var lcols =  ["geohash", "latitude", "longitude"];
+    var lcols = ["geohash", "latitude", "longitude"];
     var gcols = ["count","sort","top","geohash","geokey","distance","minDistance","latitude","longitude","start","neighbors","gquery","gcount"];
     var rows = [];
 
@@ -369,7 +356,7 @@ mod.select = function(table, query, options, callback)
     });
 }
 
-mod.bkDeleteAccount =  function(req, callback)
+mod.bkDeleteAccount = function(req, callback)
 {
     if (!req.account.geohash || lib.isFlag(req.options.keep, ["all","account","bk_location"])) return callback();
     db.del("bk_location", { id: req.account.id, geohash: req.account.geohash }, callback);

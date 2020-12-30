@@ -121,15 +121,15 @@ or simply
 
 * To access the database while in the shell
 
-        > db.select("bk_account", {}, (err, rows, info) => { console.log(err, rows, info) });
-        > db.select("bk_account", {}, lib.log);
-        > db.add("bk_account", { login: 'test2', secret: 'test2', name' Test 2 name', gender: 'f' }, lib.log);
-        > db.select("bk_account", { gender: 'm' }, lib.log);
-        > db.select("bk_account", { gender: ['m','f'] }, { ops: { gender: "in" } }, lib.log);
+        > db.select("bk_user", {}, (err, rows, info) => { console.log(err, rows, info) });
+        > db.select("bk_user", {}, lib.log);
+        > db.add("bk_user", { id: 'test2', login: 'test2', secret: 'test2', name' Test 2 name' }, lib.log);
+        > db.select("bk_user", { id: 'test2' }, lib.log);
+        > db.select("bk_user", { id: ['test1','test2'] }, { ops: { id: "in" } }, lib.log);
 
 * To search using Elasticsearch (assuming it runs on EC2 and it is synced with DynamoDB using streams)
 
-        > db.select("bk_account", { q: 'test' }, { pool: "elasticsearch" }, lib.log);
+        > db.select("bk_user", { q: 'test' }, { pool: "elasticsearch" }, lib.log);
 
 ## To run an example
 
@@ -301,7 +301,7 @@ Another way to add functionality to the backend is via external modules specific
 home subdirectory `modules/` and from the backendjs package directory for core modules. The format is the same as for regular Node.js modules and
 only top level .js files are loaded on the backend startup.
 
-*By default no modules are loaded except `bk_accounts|bk_icons`, it must be configured by the `-allow-modules` config parameter.*
+*By default no modules are loaded except `bk_user`, it must be configured by the `-allow-modules` config parameter.*
 
 The modules are managed per process role, by default `server` and `master` processes do not load any modules at all to keep them
 small and because they monitor workers the less code they have the better.
@@ -314,7 +314,7 @@ To enable any module to be loaded in any process it can be configured by using a
       -allow-modules '.+'
 
       // Master modules
-      -allow-modules-master 'bk_accounts|bk_debug'
+      -allow-modules-master 'bk_user|bk_system'
 
 Once loaded they have the same access to the backend as the rest of the code, the only difference is that they reside in the backend home and
 can be shipped regardless of the npm, node modules and other env setup. These modules are exposed in the `core.modules` the same way as all other core submodules
@@ -418,9 +418,9 @@ are required for backend operations. Refer below for the JavaScript modules docu
 the `db.describeTables` method can modify columns in the default table and add more columns if needed.
 
 For example, to make age and some other columns in the accounts table public and visible by other users with additional columns the following can be
-done in the `api.initApplication` method. It will extend the bk_account table and the application can use new columns the same way as the already existing columns.
+done in the `api.initApplication` method. It will extend the bk_user table and the application can use new columns the same way as the already existing columns.
 Using the birthday column we make 'age' property automatically calculated and visible in the result, this is done by the internal method `api.processAccountRow` which
-is registered as post process callback for the bk_account table. The computed property `age` will be returned because it is not present in the table definition
+is registered as post process callback for the bk_user table. The computed property `age` will be returned because it is not present in the table definition
 and all properties not defined and configured are passed as is.
 
 The cleanup of the public columns is done by the `api.sendJSON` which is used by all API routes when ready to send data back to the client. If any post-process
@@ -428,8 +428,7 @@ hooks are registered and return data itself then it is the hook responsibility t
 
 ```javascript
     db.describeTables({
-        bk_account: {
-            gender: { pub: 1 },
+        bk_user: {
             birthday: {},
             ssn: {},
             salary: { type: "int" },
@@ -440,7 +439,7 @@ hooks are registered and return data itself then it is the hook responsibility t
 
     app.configureWeb = function(options, callback)
     {
-       db.setProcessRow("post", "bk_account", this.processAccountRow);
+       db.setProcessRow("post", "bk_user", this.processAccountRow);
        ...
        callback();
     }
@@ -708,7 +707,7 @@ An example of how to perform jobs in the API routes:
 
 ```javascript
    app.processAccounts = function(options, callback) {
-       db.select("bk_account", { type: options.type || "user" }, function(err, rows) {
+       db.select("bk_user", { type: options.type || "user" }, function(err, rows) {
           ...
           callback();
        });
@@ -1224,7 +1223,7 @@ There is also native iOS implementation [Bkjs.m](https://raw.githubusercontent.c
 
 - `/auth`
 
-   This API request returns the current user record from the `bk_auth` table if the request is verified and the signature provided
+   This API request returns the current user record from the `bk_user` table if the request is verified and the signature provided
    is valid. If no signature or it is invalid the result will be an error with the corresponding error code and message.
 
    By default this endpoint is secured, i.e. requires a valid signature.
@@ -1277,8 +1276,6 @@ There is also native iOS implementation [Bkjs.m](https://raw.githubusercontent.c
 ## Accounts
 The accounts API manages accounts and authentication, it provides basic user account features with common fields like email, name, address.
 
-This is implemented by the `accounts` module from the core. To enable accounts functionality specify `-allow-modules=bk_accounts`.
-
 - `/account/get`
 
   Returns information about current account or other accounts, all account columns are returned for the current account and only public columns
@@ -1294,18 +1291,15 @@ This is implemented by the `accounts` module from the core. To enable accounts f
        passed in the query or headers with the name `bk-access-token`
 
   Note: When retrieving current account, all properties will be present including the location, for other accounts only the properties marked as `pub` in the
-  `bk_account` table will be returned.
+  `bk_user` table will be returned.
 
   Response:
 
           { "id": "57d07a4e28fc4f33bdca9f6c8e04d6c3",
             "name": "Test User",
-            "name": "Real Name",
             "mtime": 1391824028,
-            "latitude": 34,
-            "longitude": -118,
-            "geohash": "9qh1",
             "login": "testuser",
+            "type": ["user"],
           }
 
 
@@ -1315,7 +1309,7 @@ This is implemented by the `accounts` module from the core. To enable accounts f
             bkjs shell
 
             # Update record by login
-            > db.update("bk_auth", { login: 'login@name', type: 'admin' });
+            > db.update("bk_user", { login: 'login@name', type: 'admin' });
 
 - `/account/del`
 
@@ -1323,7 +1317,7 @@ This is implemented by the `accounts` module from the core. To enable accounts f
 
 - `/account/update`
 
-  Update current account with new values, the parameters are columns of the table `bk_account`, only columns with non empty values will be updated.
+  Update current account with new values, the parameters are columns of the table `bk_user`, only columns with non empty values will be updated.
 
   Example:
 
@@ -1486,10 +1480,10 @@ This is implemented by the `data` module from the core.
 
   Example:
 
-        /data/get/bk_account?id=12345
-        /data/put/bk_counter?id=12345&like0=1
-        /data/select/bk_account?name=john&_ops=name,gt&_select=name,email
-        /data/select/bk_connection?_noscan=0&_noprocessrows=1
+        /data/get/bk_user?login=12345
+        /data/update/bk_user?login=12345&name=Admin
+        /data/select/bk_user?name=john&_ops=name,gt&_select=name,email
+        /data/select/bk_user?_noscan=0&_noprocessrows=1
 
 ## System API
 The system API returns information about the backend statistics, allows provisioning and configuration commands and other internal maintenance functions. By

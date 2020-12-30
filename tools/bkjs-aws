@@ -138,6 +138,7 @@ case "$BKJS_CMD" in
                 saved_files="$saved_files /tmp/$(basename $f)"
             fi
         done
+        [ -f $HOME/etc/profile.local ] && mv $HOME/etc/profile.local /tmp
         sync
     fi
     name=$(get_arg -name)
@@ -146,6 +147,7 @@ case "$BKJS_CMD" in
     if [ -z $instance_id ]; then
         rm -f $HOME/var/bkjs.init
         for f in $saved_files; do sudo mv $f /etc/monit.d; done
+        [ -f /tmp/profile.local ] && mv /tmp/profile.local $HOME/etc
     fi
     ;;
 
@@ -154,7 +156,9 @@ case "$BKJS_CMD" in
     skip=$(get_arg -skip)
     image=$(get_arg -image-name)
     if [ -z "$name" ]; then
-       name=$(aws ec2 describe-launch-templates --query 'LaunchTemplates[*].LaunchTemplateName' --output text|sed 's/\t/\n/g'|sort|uniq)
+        tag=$(get_arg -tag)
+        [ "$tag" != "" ] && filter="--filter Name=tag:Name,Values=${tag}"
+        name=$(aws ec2 describe-launch-templates $filter --query 'LaunchTemplates[*].LaunchTemplateName' --output text|sed 's/\t/\n/g'|sort|uniq)
     fi
     for c in $name; do
         for s in $skip; do

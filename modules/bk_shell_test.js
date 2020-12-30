@@ -29,7 +29,7 @@ shell.help.push("-test-run CMD [-test-file FILE] - run a test command in the she
 // Example
 //
 //          function(next) {
-//              db.get("bk_account", { id: "123" }, function(err, row) {
+//              db.get("bk_user", { login: "123" }, function(err, row) {
 //                  tests.assert(next, err || !row || row.id != "123", "Record not found", row)
 //              });
 //          }
@@ -76,7 +76,7 @@ shell.assert = function(next, err)
 //          var tests = bkjs.core.modules.tests;
 //
 //          tests.test_mytest = function(next) {
-//             bkjs.db.get("bk_account", { id: "123" }, function(err, row) {
+//             bkjs.db.get("bk_user", { login: "123" }, function(err, row) {
 //                 tests.assert(next, err || !row || row.id != "123", "Record not found", row)
 //             });
 //          }

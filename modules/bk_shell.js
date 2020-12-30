@@ -21,14 +21,13 @@ shell.name = "bk_shell";
 shell.help = [
     "-show-info - show app and version information",
     "-run-file FILE.js - load a script and run it if it exports run function",
-    "-login-get LOGIN ... - show login records",
-    "-login-add [-noscramble] login LOGIN secret SECRET [name NAME] [type TYPE] ... - add a new login record for API access",
-    "-login-update [-scramble 1] login LOGIN [name NAME] [type TYPE] ... - update existing login record, for web use -scramble must be set to 1",
-    "-login-del login LOGIN... - delete a login record",
-    "-account-get ID|LOGIN ... - show accounts by id or login",
-    "-account-add [-noscramble] login LOGIN secret SECRET [name NAME] [email EMAIL] [type TYPE] ... - add a new user for API access, any property from bk_account can be passed in the form: name value",
-    "-account-update [-noscramble] [login LOGIN|id ID] [name NAME] [email EMAIL] [type TYPE] ... - update existing user properties, any property from bk_account can be passed in the form: name value ",
-    "-account-del [login LOGIN|id ID]... - delete a user and login",
+    "-auth-get ID|LOGIN ... - show login records",
+    "-auth-add [-noscramble] login LOGIN secret SECRET [name NAME] [type TYPE] ... - add a new login record for API access",
+    "-auth-update [-scramble 1] login LOGIN [name NAME] [type TYPE] ... - update existing login record, for web use -scramble must be set to 1",
+    "-auth-del login LOGIN... - delete a login record",
+    "-user-add [-noscramble] login LOGIN secret SECRET [name NAME] [email EMAIL] [type TYPE] ... - add a new user for API access, any property from bk_user can be passed in the form: name value",
+    "-user-update [-noscramble] [login LOGIN|id ID] [name NAME] [email EMAIL] [type TYPE] ... - update existing user properties, any property from bk_user can be passed in the form: name value ",
+    "-user-del [login LOGIN|id ID]... - delete a user and login",
     "-send-request -url URL [-id ID|-login LOGIN] [-hdr name=value] param value param value ... - send API request to the server specified in the url as user specified by login or account id, resolving the user is done directly from the current db pool, param values should not be url-encoded",
     "-log-watch - run logwatcher and exit, send emails in case any errors found",
 ];
@@ -248,67 +247,35 @@ shell.cmdRunJobs = function(options)
     return "continue";
 }
 
-// Show account records by id or login
-shell.cmdAccountGet = function(options)
-{
-    lib.forEachSeries(process.argv.slice(2), function(id, next) {
-        if (id.match(/^[-/]/)) return next();
-        db.get("bk_account", { id: id }, function(err, user) {
-            if (user) {
-                auth.get(user.login, function(err, row) {
-                    user.bk_auth = row;
-                    console.log(user);
-                    next();
-                });
-            } else {
-                auth.get(id, function(err, row) {
-                    if (!row) return next();
-                    db.get("bk_account", { id: row.id }, function(err, user) {
-                        if (!user) {
-                            console.log(row);
-                        } else {
-                            user.bk_auth = row;
-                            console.log(user);
-                        }
-                        next();
-                    });
-                });
-            }
-        });
-    }, function(err) {
-        shell.exit(err);
-    });
-}
-
 // Add a user
-shell.cmdAccountAdd = function(options)
+shell.cmdUserAdd = function(options)
 {
-    if (!core.modules.bk_account) this.exit("accounts module not loaded");
+    if (!core.modules.bk_user) this.exit("bk_user module not loaded");
     var query = this.getQuery();
     var opts = api.getOptions({ query: this.getArgs(), options: { admin: 1, path: ["", "", ""], ops: {} } });
     opts.scramble = this.isArg("-noscramble", options) ? 0 : 1;
     if (query.login && !query.name) query.name = query.login;
-    core.modules.bk_account.addAccount({ query: query, account: {} }, opts, function(err, data) {
+    core.modules.bk_user.addAccount({ query: query, account: {}, options: opts }, opts, function(err, data) {
         shell.exit(err, data);
     });
 }
 
-shell.cmdAccountUpdate = function(options)
+shell.cmdUserUpdate = function(options)
 {
-    if (!core.modules.bk_account) this.exit("accounts module not loaded");
+    if (!core.modules.bk_user) this.exit("bk_user module not loaded");
     var query = this.getQuery();
     var opts = api.getOptions({ query: this.getArgs(), options: { admin: 1, path: ["", "", ""], ops: {} } });
     this.getUser(query, function(user) {
-        core.modules.bk_account.updateAccount({ account: user, query: query }, opts, function(err, data) {
+        core.modules.bk_user.updateAccount({ account: user, query: query, options: opts }, opts, function(err, data) {
             shell.exit(err, data);
         });
     });
 }
 
 // Delete a user and all its history according to the options
-shell.cmdAccountDel = function(options)
+shell.cmdUserDel = function(options)
 {
-    if (!core.modules.bk_account) this.exit("accounts module not loaded");
+    if (!core.modules.bk_user) this.exit("bk_user module not loaded");
     var query = this.getQuery();
     var opts = api.getOptions({ query: this.getArgs(), options: { path: ["", "", ""], ops: {} } });
     for (var i = 1; i < process.argv.length - 1; i += 2) {
@@ -317,14 +284,14 @@ shell.cmdAccountDel = function(options)
     if (this.isArg("-force", options)) opts.force = 1;
     this.getUser(query, function(user) {
         opts.id = user.id;
-        core.modules.bk_account.deleteAccount({ account: user, obj: query, options: opts }, function(err) {
+        core.modules.bk_user.deleteAccount({ account: user, obj: query, options: opts }, function(err) {
             shell.exit(err);
         });
     });
 }
 
 // Show account records by id or login
-shell.cmdLoginGet = function(options)
+shell.cmdAuthGet = function(options)
 {
     lib.forEachSeries(process.argv.slice(2), function(login, next) {
         if (login.match(/^[-/]/)) return next();
@@ -338,7 +305,7 @@ shell.cmdLoginGet = function(options)
 }
 
 // Add a user login
-shell.cmdLoginAdd = function(options)
+shell.cmdAuthAdd = function(options)
 {
     var query = this.getQuery();
     var opts = api.getOptions({ query: this.getArgs(), options: { admin: 1, path: ["", "", ""], ops: {} } });
@@ -349,7 +316,7 @@ shell.cmdLoginAdd = function(options)
 }
 
 // Update a user login
-shell.cmdLoginUpdate = function(options)
+shell.cmdAuthUpdate = function(options)
 {
     var query = this.getQuery();
     var opts = api.getOptions({ query: this.getArgs(), options: { admin: 1, path: ["", "", ""], ops: {} } });
@@ -359,13 +326,11 @@ shell.cmdLoginUpdate = function(options)
 }
 
 // Delete a user login
-shell.cmdLoginDel = function(options)
+shell.cmdAuthDel = function(options)
 {
     lib.forEachSeries(process.argv.slice(2), function(login, next) {
         if (login.match(/^[-/]/)) return next();
-        auth.del(login, function(err) {
-            next(err);
-        });
+        auth.del(login, next);
     }, function(err) {
         shell.exit(err);
     });

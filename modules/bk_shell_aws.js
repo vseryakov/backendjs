@@ -513,10 +513,10 @@ shell.cmdAwsShowInstances = function(options)
        function(next) {
            logger.debug("showInstances:", instances);
            if (col) {
-               var map = { priv: "privateIpAddress", ip: "ipAddress", id: "instanceId", name: "name", key: "keyName" }
+               var map = { priv: "privateIpAddress", ip: "ipAddress", id: "instanceId", name: "name", key: "keyName", arch: "architecture", az: "availabilityZone" }
                console.log(instances.map(function(x) { return lib.objDescr(x[map[col] || col]) }).join(" "));
            } else {
-               instances.forEach(function(x) { console.log(x.instanceId, x.subnetId, x.privateIpAddress, x.ipAddress, x.name, x.keyName); });
+               instances.forEach(function(x) { console.log(x.instanceId, x.subnetId, x.availabilityZone, x.privateIpAddress, x.ipAddress, x.architecture, x.name, x.keyName); });
            }
            next();
        },
