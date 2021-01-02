@@ -693,8 +693,9 @@ The flow of the pub/sub operations is the following:
 - the connection that initiated `/account/subscribe` receives an event
 
 ## Redis
-To configure the backend to use Redis for PUB/SUB messaging set `ipc-queue=redis://HOST` where HOST is IP address or hostname of the single Redis server.
-This will use native PUB/SUB Redis feature.
+To configure the backend to use Redis for PUB/SUB messaging set `ipc-queue=redis://HOST` and `ipc-cache=redis://HOST` where HOST is IP address or hostname of the single Redis server.
+This will use native PUB/SUB Redis feature. Redis requires both queue and cache defined because in subscribe mode Redis connection does not allow to send any messages so
+publishing will be done using the cache connection in the `ipc.broadcast`.
 
 ## Redis Queue
 To configure the backend to use Redis for job processing set `ipc-queue=redisq://HOST` where HOST is IP address or hostname of the single Redis server.
@@ -761,14 +762,8 @@ The typical client JavaScript verification for the html page may look like this,
 this assumes the default path '/public' still allowed without the signature:
 
 ```javascript
-   <script src="/js/jquery.js"></script>
-   <link href="/css/bootstrap.css" rel="stylesheet">
-   <script src="/js/bootstrap.js"></script>
-   <script src="/js/knockout.js" type="text/javascript"></script>
-   <script src="/js/crypto.js" type="text/javascript"></script>
-   <script src="/js/bkjs.js" type="text/javascript"></script>
-   <script src="/js/bkjs-bootstrap.js" type="text/javascript"></script>
-   <script src="/js/bkjs-ko.js" type="text/javascript"></script>
+   <link href="/css/bkjs.bundle.css" rel="stylesheet">
+   <script src="/js/bkjs.bundle.js" type="text/javascript"></script>
    <script>
     $(function () {
        Bkjs.session = true;
