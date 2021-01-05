@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 #  Author: Vlad Seryakov vseryakov@gmail.com
 #  Sep 2013
@@ -158,27 +158,17 @@ get_json_flat() {
   ${NODE_BIN:-node} -e "function f(o){var r={};for(var p in o){if(!Array.isArray(o[p])&&typeof o[p]=='object'){var a=f(o[p]);for(var x in a)r[p+'.'+x]=a[x]}else r[p]=o[p]};return r};try{o=f(JSON.parse(require('fs').readFileSync('$1')));v=o['$2']||o['$3'];if(Array.isArray(v))v=v.join(' ');if(v&&typeof v=='object')v=Object.keys(v).join(' ');if(typeof v!='undefined')console.log(v)}catch(e){}"
 }
 
-# Resolve package location
-find_bkjs() {
-  [ -f node_modules/$BKJS_MOD ] && v=$(pwd)/node_modules/$BKJS_MOD
-  [ "$v" = "" -a -d $HOME/node_modules/$BKJS_MOD ] && v=$HOME/node_modules/$BKJS_MOD
-  [ "$v" = "" -a -d $BKJS_HOME/node_modules/$BKJS_MOD ] && v=$BKJS_HOME/node_modules/$BKJS_MOD
-  [ "$v" = "" -a -d $BKJS_PREFIX/node_modules/$BKJS_MOD ] && v=$BKJS_PREFIX/node_modules/$BKJS_MOD
-  [ "$v" = "" -a -d /opt/local/lib/node_modules/$BKJS_MOD ] && v=/opt/local/lib/node_modules/$BKJS_MOD
-  [ "$v" = "" -a -d $NODE_PATH/$BKJS_MOD ] && v=$NODE_PATH/$BKJS_MOD
-  [[ ! -z $v ]] && echo "$v/$1"
-}
-
-# Resolve bkjs shell script location
-find_bkjsbin() {
-  [ "$BKJS_BIN" = "" -a -f $HOME/bin/$BKJS ] && export BKJS_BIN=$HOME/bin/$BKJS
-  [ "$BKJS_BIN" = "" -a -f $BKJS_HOME/bin/$BKJS ] && export BKJS_BIN=$BKJS_HOME/bin/$BKJS
-  [ "$BKJS_BIN" = "" -a -f $BKJS_PREFIX/bin/$BKJS ] && export BKJS_BIN=$BKJS_PREFIX/bin/$BKJS
-  [ "$BKJS_BIN" = "" -a -f node_modules/$BKJS_MOD ] && export BKJS_BIN=$(pwd)/node_modules/$BKJS_MOD/$BKJS
-  [ "$BKJS_BIN" = "" -a -d $BKJS_HOME/node_modules/$BKJS_MOD/$BKJS ] && export BKJS_BIN=$BKJS_HOME/node_modules/$BKJS_MOD/$BKJS
-  [ "$BKJS_BIN" = "" -a -d $NODE_PATH/$BKJS ] && export BKJS_BIN=$NODE_PATH/$BKJS/bin/$BKJS
-  [ "$BKJS_BIN" = "" -a -f /opt/local/bin/$BKJS ] && export BKJS_BIN=/opt/local/bin/$BKJS
-  [ "$BKJS_BIN" = "" ] && export BKJS_BIN=$(which $BKJS 2>/dev/null)
+# Return real path a file
+get_realpath() {
+  cd -P "$(dirname -- "$1")"
+  file="$PWD/$(basename -- "$1")"
+  while [[ -h "$file" ]]; do
+    cd -P "$(dirname -- "$file")"
+    file="$(readlink -- "$file")"
+    cd -P "$(dirname -- "$file")"
+    file="$PWD/$(basename -- "$file")"
+  done
+  echo "$file"
 }
 
 # Resolve node binary location
@@ -199,7 +189,7 @@ find_user() {
 # Run the command by sourcing all scripts from tools folders, if $1 is not empty then
 # run all tools scripts, otherwise stop once the command is processed
 process_cmd() {
-  dirs="$BKJS_TOOLS $(get_arg -tools) $BKJS_HOME/tools $(find_bkjs tools)"
+  dirs="$BKJS_TOOLS $(get_arg -tools) $BKJS_HOME/tools $BKJS_DIR/tools"
   [ ! -z "$(get_flag -debug)" ] && echo "process_cmd: $BKJS_CMD: $1 $dirs"
   for d in $dirs; do
      if [ -d $d ]; then
@@ -222,6 +212,11 @@ to_lower() {
 to_upper() {
   echo $1 | tr [:lower:] [:upper:]
 }
+
+# Find our location first
+unset CDPATH
+BKJS_BIN="$(get_realpath "${BASH_SOURCE[0]}")"
+BKJS_DIR="$(cd "${BKJS_BIN%/*}" ; pwd -P)"
 
 # Home and prefix must be specified for the script to work properly
 export BKJS_HOME=$(get_arg -home $BKJS_HOME)
@@ -347,7 +342,7 @@ case "$BKJS_CMD" in
     [ -z "$SCRIPT" -a -f lib/app.js ] && SCRIPT=lib/app.js
     [ -z "$SCRIPT" -a -f $BKJS_HOME/app.js ] && SCRIPT=$BKJS_HOME/app.js
     [ -z "$SCRIPT" -a -f $BKJS_HOME/lib/app.js ] && SCRIPT=$BKJS_HOME/lib/app.js
-    [ -z "$SCRIPT" ] && SCRIPT=$(find_bkjs lib/app.js)
+    [ -z "$SCRIPT" ] && SCRIPT=$BKJS_DIR/lib/app.js
     [ -z $SCRIPT ] && echo "ERROR: Cannot find $BKJS_MOD module or app.js in '.:$BKJS_HOME'" && exit 1
 
     [ ! -z "$(get_flag -debug)" ] && echo "Starting $BKJS_CMD: $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME $BKJS_RUN_ARGS $@"
@@ -631,8 +626,6 @@ case "$BKJS_CMD" in
 
   env)
     find_nodebin
-    find_bkjsbin
-    echo BKJS_PATH=$(find_bkjs)
     set
     ;;
 
