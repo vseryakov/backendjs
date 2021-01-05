@@ -19,7 +19,6 @@ case "$BKJS_CMD" in
     args=$(get_all_args)
     find_user
     find_nodebin
-    find_bkjsbin
     $0 install-devel $args
     [ "$NODE_BIN" = "" ] && sudo -H -u $BKJS_USER $0 install-node -prefix $BKJS_PREFIX -tools "$(get_arg -tools)"
     [ "$BKJS_BIN" = "" ] && sudo -H -u $BKJS_USER $0 install-bkjs -deps "$(get_arg -deps)" -tools "$(get_arg -tools)"
@@ -36,7 +35,6 @@ case "$BKJS_CMD" in
     args=$(get_all_args)
     find_user
     find_nodebin
-    find_bkjsbin
     echo "Setuping server in $BKJS_HOME for $BKJS_USER/$(get_arg -user), prefix: $BKJS_PREFIX, binaries: $NODE_BIN, $BKJS_BIN... ($args)"
 
     # Install required packages and utilities
@@ -379,7 +377,6 @@ case "$BKJS_CMD" in
     ;;
 
   init-adhoc)
-    find_bkjsbin
     # Duplicate messages to the console for easier access
     echo '*.info /dev/console' > /etc/rsyslog.d/console.conf
     truncate -c -s 0 /var/log/messages $BKJS_HOME/log/message.log $BKJS_HOME/log/error.log
@@ -395,7 +392,6 @@ case "$BKJS_CMD" in
   init-service)
     # Install service for a script or bkjs service
     find_user
-    find_bkjsbin
     path=$(get_arg -path $BKJS_BIN)
     [ "$path" = "" ] && echo "no $BKJS path specified or detected" && exit 1
     service=$(basename $path | awk -F. '{print $1}')
@@ -415,7 +411,6 @@ case "$BKJS_CMD" in
     ;;
 
   stop-service)
-    find_bkjsbin
     path=$(get_arg -path $BKJS_BIN)
     [ "$path" = "" ] && echo "no $BKJS path specified or detected" && exit 1
     service=$(basename $path | awk -F. '{print $1}')
@@ -448,7 +443,6 @@ case "$BKJS_CMD" in
 
   init-logwatcher)
     find_user
-    find_bkjsbin
     cron=$(get_arg -cron "*/$(get_arg -interval 5) * * * *")
     echo 'MAILTO=""' > /etc/cron.d/$BKJS-logwatcher
     echo "$cron $BKJS_USER $BKJS_BIN logwatcher" >> /etc/cron.d/$BKJS-logwatcher

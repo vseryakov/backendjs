@@ -37,7 +37,16 @@ var bkjs = {
     account: {},
 
     // Websockets
-    wsconf: { host: null, port: 8000, errors: 0 },
+    wsconf: {
+        host: null,
+        port: 8000,
+        path: "/",
+        retry: 0,
+        retry_max: 100,
+        retry_timeout: 250,
+        max_timeout: 30000,
+        retry_multiplier: 2,
+    },
 
     // Trim these symbols from login/secret, all whitespace is default
     trimCredentials: " \"\r\n\t\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200A\u202F\u205F\u3000\u008D\u009F\u0080\u0090\u009B\u0010\u0009\u0000\u0003\u0004\u0017\u0019\u0011\u0012\u0013\u0014\u2028\u2029\u2060\u202C",
@@ -220,7 +229,7 @@ bkjs.send = function(options, onsuccess, onerror)
     options.error = function(xhr, statusText, errorText) {
         $(bkjs).trigger("bkjs.loading", "hide");
         var err = xhr.responseText;
-        try { err = JSON.parse(xhr.responseText) } catch(e) {}
+        try { err = JSON.parse(xhr.responseText) } catch (e) {}
         if (!options.quiet) bkjs.log('send:', xhr.status, err, statusText, errorText, options);
         if (options.alert) {
             $(bkjs).trigger("bkjs.alert", ["error", (typeof options.alert == "string" && options.alert) || err || errorText || statusText]);
@@ -229,13 +238,13 @@ bkjs.send = function(options, onsuccess, onerror)
     }
     if (!options.nosignature) {
         var hdrs = this.createSignature(options.type, options.url, options.data, { expires: options.expires, checksum: options.checksum });
-        for (var p in hdrs) options.headers[p] = hdrs[p];
+        for (const p in hdrs) options.headers[p] = hdrs[p];
         // Optional timezone offset for proper datetime related operations
         options.headers[this.tzHeaderName] = (new Date()).getTimezoneOffset();
         if (this.language) options.headers[this.langHeaderName] = this.language;
     }
-    for (var h in this.headers) if (typeof options.headers[h] == "undefined") options.headers[h] = this.headers[h];
-    for (var d in options.data) if (typeof options.data[d] == "undefined") delete options.data[d];
+    for (const p in this.headers) if (typeof options.headers[p] == "undefined") options.headers[p] = this.headers[p];
+    for (const p in options.data) if (typeof options.data[p] == "undefined") delete options.data[p];
     $(bkjs).trigger("bkjs.loading", "show");
     return $.ajax(options);
 }
@@ -255,10 +264,10 @@ bkjs.sendRequest = function(options, callback)
 // can be specified in the `options.data` object.
 bkjs.sendFile = function(options, callback)
 {
-    var p, n = 0, form = new FormData(), files = {};
+    var n = 0, form = new FormData(), files = {};
     if (options.file) files[options.name || "data"] = options.file;
-    for (p in options.files) files[p] = options.files[p];
-    for (p in files) {
+    for (const p in options.files) files[p] = options.files[p];
+    for (const p in files) {
         var f = this.getFileInput(files[p]);
         if (!f) continue;
         form.append(p, f);
@@ -266,12 +275,12 @@ bkjs.sendFile = function(options, callback)
     }
     if (!n) return callback && callback.call(options.self || bkjs);
 
-    for (p in options.data) {
+    for (const p in options.data) {
         if (typeof options.data[p] != "undefined") form.append(p, options.data[p])
     }
     // Send within the session, multipart is not supported by signature
     var rc = { url: options.url, type: "POST", processData: false, data: form, contentType: false, nosignature: true };
-    for (p in options) if (typeof rc[p] == "undefined") rc[p] = options[p];
+    for (const p in options) if (typeof rc[p] == "undefined") rc[p] = options[p];
     this.sendRequest(rc, callback);
 }
 
@@ -288,31 +297,44 @@ bkjs.getFileInput = function(file)
 }
 
 // WebSockets helper functions
-bkjs.wsConnect = function(url, options, onmessage, onerror)
+bkjs.wsConnect = function(options)
 {
-    if (typeof options == "function") onmessage = options, onerror = onmessage, options = {};
-    if (!url) url = "ws://" + (this.wsconf.host || window.location.hostname) + ":" + this.wsconf.port;
-    this.wsconf.errors = 0;
-    this.ws = new WebSocket(url);
+    for (const p in options) this.wsconf[p] = options[p];
+    this.ws = new WebSocket("ws://" + (this.wsconf.host || window.location.hostname) + ":" + this.wsconf.port + this.wsconf.path);
     this.ws.onopen = function() {
-        bkjs.ws.onmessage = function(msg) { if (onmessage) return onmessage(msg.data); console.log('ws:', msg) };
+        if (bkjs.wsconf.debug) bkjs.log("ws.open:", this.url);
+        bkjs.wsconf.ctime = Date.now();
+        bkjs.wsconf.retry = bkjs.wsconf.retry_max;
+        bkjs.wsconf.timeout = bkjs.wsconf.retry_timeout;
+        $(bkjs).trigger("bkjs.ws.opened");
     }
     this.ws.onerror = function(err) {
-        bkjs.log('ws:', bkjs.wsconf.errors++, err);
-        if (typeof onerror == "function") onerror(err);
+        bkjs.log('ws.error:', this.url, err);
     }
-    this.ws.onclose = function() { bkjs.ws = null; }
+    this.ws.onclose = function() {
+        if (bkjs.wsconf.debug) bkjs.log("ws.closed:", this.url, bkjs.wsconf.retry, bkjs.wsconf.timeout);
+        bkjs.ws = null;
+        $(bkjs).trigger("bkjs.ws.closed");
+        if (bkjs.wsconf.retry-- > 0) {
+            setTimeout(bkjs.wsConnect.bind(bkjs), Math.min(bkjs.wsconf.max_timeout, bkjs.wsconf.timeout *= bkjs.wsconf.retry_multiplier));
+        }
+    }
+    bkjs.ws.onmessage = function(msg) {
+        var data = msg.data;
+        if (typeof data == "string" && (data[0] == "{" || data[0] == "[")) data = JSON.parse(data);
+        if (bkjs.wsconf.debug) bkjs.log('ws.message:', data);
+        $(bkjs).trigger("bkjs.ws.message", data);
+    }
 }
 
 bkjs.wsClose = function()
 {
-    if (!this.ws) return;
-    this.ws.close();
+    if (this.ws) this.ws.close();
 }
 
-bkjs.wsSend = function(url)
+bkjs.wsSend = function(data)
 {
-    if (this.ws) this.ws.send(this.signUrl(url));
+    if (this.ws) this.ws.send(data);
 }
 
 bkjs.domainName = function(host)

@@ -88,10 +88,6 @@ mod.configureAccountsAPI = function()
             });
             break;
 
-        case "subscribe":
-            api.subscribe(req);
-            break;
-
         default:
             api.sendReply(res, 400, "Invalid command");
         }

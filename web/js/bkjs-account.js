@@ -30,19 +30,6 @@ bkjs.checkPassword = function(secret, policy)
     return "";
 }
 
-// Wait for events and call the callback, this runs until Backend.unsubscribe is set to true
-bkjs.subscribeAccount = function(callback)
-{
-    var errors = bkjs.unsubscribe = 0;
-    (function poll() {
-        bkjs.send({ url: "/account/subscribe", complete: bkjs.unsubscribe ? null : poll }, function(data, xhr) {
-            callback(data, xhr);
-        }, function(err) {
-            if (errors++ > 5) bkjs.unsubscribe = true;
-        });
-    })();
-}
-
 // Retrieve current account record, call the callback with the object or error
 bkjs.getAccount = function(query, callback)
 {

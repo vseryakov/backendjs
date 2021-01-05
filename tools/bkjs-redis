@@ -93,7 +93,6 @@ case "$BKJS_CMD" in
        echo 'echo never > /sys/kernel/mm/transparent_hugepage/enabled' >> /etc/rc.local
     fi
     find_user
-    find_bkjsbin
     $ECHO "$BKJS_HOME/log/redis.log {\n  weekly\n  rotate 10\n  copytruncate\n  delaycompress\n  compress\n  notifempty\n  missingok\n}" > /etc/logrotate.d/redis
     $ECHO "check process redis-server with pidfile \"$BKJS_HOME/var/redis.pid\" start program = \"$BKJS_BIN run-redis $(get_all_args)\" as uid $BKJS_USER and gid $BKJS_GROUP stop program = \"$BKJS_BIN stop-redis\" if failed host 127.0.0.1 port 6379 for 2 cycles then restart" > /etc/monit.d/redis.conf
     monit reload
@@ -101,7 +100,6 @@ case "$BKJS_CMD" in
 
   init-monit-sentinel|init-sentinel-monit)
     find_user
-    find_bkjsbin
     host=$(get_arg -host 127.0.0.1)
     port=$(get_arg -port 6379)
     quorum=$(get_arg -quorum 2)

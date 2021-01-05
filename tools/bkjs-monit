@@ -11,7 +11,6 @@ case "$BKJS_CMD" in
     ;;
 
   init-monit-system)
-    find_bkjsbin
     delay=$(get_arg -delay 15)
     load=$(get_arg -load 7)
     space=$(get_arg -space 90)
@@ -24,7 +23,6 @@ case "$BKJS_CMD" in
 
   init-monit-bkjs)
     find_user
-    find_bkjsbin
     $ECHO "check process $BKJS with pidfile \"$BKJS_HOME/var/master.pid\" start program = \"$BKJS_BIN start $(get_all_args)\" as uid $BKJS_USER and gid $BKJS_GROUP with timeout 60 seconds stop program = \"$BKJS_BIN stop\"" > /etc/monit.d/$BKJS.conf
     monit reload
     ;;
