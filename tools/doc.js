@@ -20,32 +20,27 @@ var renderer = new marked.Renderer();
 var header = '<head><title>Backendjs Documentation</title>' +
         '<link rel="shortcut icon" href="img/logo.png" type="image/png" />' +
         '<link rel="icon" href="img/logo.png" type="image/png" />' +
-        '<link href="css/font-awesome.css" rel="stylesheet">' +
         '<script src="js/jquery.js"></script>' +
         '<link href="css/bootstrap.css" rel="stylesheet">' +
         '<script src="js/bootstrap.js"></script>' +
         '<link rel="stylesheet" href="css/doc.css">' +
+        '<link href="css/font-awesome.css" rel="stylesheet">' +
         '</head>' +
-        '<body class="pages">\n' +
+        '<body>\n' +
         '<div class="container">' +
-        '<nav class="navbar">' +
-        '<div class="container-fluid">' +
-        '<div class="navbar-header">' +
-        '<button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar" aria-expanded="false" aria-controls="navbar">' +
-        '<span class="sr-only">Toggle navigation</span>' +
-        '<span class="icon-bar"></span>' +
-        '<span class="icon-bar"></span>' +
-        '<span class="icon-bar"></span>' +
+        '<nav class="navbar navbar-expand-lg navbar-light">' +
+        '<div class="navbar-brand">' +
+        '<a href="/"><img class="logo" src="img/logo.png"></a>' +
+        '<span>Backend library for Node.js</span>' +
+        '</div>' +
+        '<button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">' +
+        '<span class="navbar-toggler-icon"></span>' +
         '</button>' +
-        '<a href="/"><img class="logo" style="max-height:30px;" src="img/logo.png"></a>' +
-        '<span>Backendjs Documentation</span>' +
-        '</div>' +
         '<div id="navbar" class="navbar-collapse collapse">' +
-        '<ul class="nav navbar-nav navbar-right">' +
-        '<li><a href="/"><span class="fa fa-gears fa-fw"></span> Home</a></li>' +
-        '<li><a href="http://github.com/vseryakov/backendjs"><span class="fa fa-github fa-fw"></span> Github</a><li>' +
+        '<ul class="navbar-nav">' +
+        '<li><a class="nav-link" href="doc.html"><i class="fa fa-gears fa-fw"></i> Documentation</a></li>' +
+        '<li><a class="nav-link" href="http://github.com/vseryakov/backendjs"><i class="fa fa-github fa-fw"></i> Github</a><li>' +
         '</ul>' +
-        '</div>' +
         '</div>' +
         '</nav>';
 
@@ -66,7 +61,7 @@ toc += "* Javascript API functions\n";
 
 files.forEach(function(file) {
     file = path.basename(file, '.js');
-    toc += "    * [" + file + "](#" + "module-" + file + ")\n";
+    toc += "    * [" + file + "](#module-" + file + ")\n";
 });
 
 var text = marked(toc, { renderer: renderer });

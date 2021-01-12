@@ -1,5 +1,5 @@
-<head><title>Backendjs Documentation</title><link rel="shortcut icon" href="img/logo.png" type="image/png" /><link rel="icon" href="img/logo.png" type="image/png" /><link href="css/font-awesome.css" rel="stylesheet"><script src="js/jquery.js"></script><link href="css/bootstrap.css" rel="stylesheet"><script src="js/bootstrap.js"></script><link rel="stylesheet" href="css/doc.css"></head><body class="pages">
-<div class="container"><nav class="navbar"><div class="container-fluid"><div class="navbar-header"><button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar" aria-expanded="false" aria-controls="navbar"><span class="sr-only">Toggle navigation</span><span class="icon-bar"></span><span class="icon-bar"></span><span class="icon-bar"></span></button><a href="/"><img class="logo" style="max-height:30px;" src="img/logo.png"></a><span>Backendjs Documentation</span></div><div id="navbar" class="navbar-collapse collapse"><ul class="nav navbar-nav navbar-right"><li><a href="/"><span class="fa fa-gears fa-fw"></span> Home</a></li><li><a href="http://github.com/vseryakov/backendjs"><span class="fa fa-github fa-fw"></span> Github</a><li></ul></div></div></nav><h1 id="backendjs-documentation">Backendjs Documentation</h1>
+<head><title>Backendjs Documentation</title><link rel="shortcut icon" href="img/logo.png" type="image/png" /><link rel="icon" href="img/logo.png" type="image/png" /><script src="js/jquery.js"></script><link href="css/bootstrap.css" rel="stylesheet"><script src="js/bootstrap.js"></script><link rel="stylesheet" href="css/doc.css"><link href="css/font-awesome.css" rel="stylesheet"></head><body>
+<div class="container"><nav class="navbar navbar-expand-lg navbar-light"><div class="navbar-brand"><a href="/"><img class="logo" src="img/logo.png"></a><span>Backend library for Node.js</span></div><button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation"><span class="navbar-toggler-icon"></span></button><div id="navbar" class="navbar-collapse collapse"><ul class="navbar-nav"><li><a class="nav-link" href="doc.html"><i class="fa fa-gears fa-fw"></i> Documentation</a></li><li><a class="nav-link" href="http://github.com/vseryakov/backendjs"><i class="fa fa-github fa-fw"></i> Github</a><li></ul></div></nav><h1 id="backendjs-documentation">Backendjs Documentation</h1>
 <p>##Table of contents</p>
 <ul>
 <li><a href="#backend-library-for-node-js"> Backend library for Node.js</a></li>
@@ -23,8 +23,6 @@
 <li><a href="#pub-sub-or-queue-configurations"> PUB/SUB or Queue configurations</a></li>
 <li><a href="#redis"> Redis</a></li>
 <li><a href="#redis-queue"> Redis Queue</a></li>
-<li><a href="#rabbitmq"> RabbitMQ</a></li>
-<li><a href="#db"> DB</a></li>
 <li><a href="#sqs"> SQS</a></li>
 <li><a href="#local"> Local</a></li>
 <li><a href="#security-configurations"> Security configurations</a></li>
@@ -55,7 +53,6 @@
 <li><a href="#accounts"> Accounts</a></li>
 <li><a href="#health-enquiry"> Health enquiry</a></li>
 <li><a href="#public-images-endpoint"> Public Images endpoint</a></li>
-<li><a href="#icons"> Icons</a></li>
 <li><a href="#data"> Data</a></li>
 <li><a href="#system-api"> System API</a></li>
 <li><a href="#author"> Author</a></li>
@@ -110,17 +107,17 @@
 <li><a href="#module-msg">msg</a></li>
 <li><a href="#module-msgc_apn">msgc_apn</a></li>
 <li><a href="#module-msgc_fcm">msgc_fcm</a></li>
+<li><a href="#module-msgc_webpush">msgc_webpush</a></li>
 <li><a href="#module-pool">pool</a></li>
 <li><a href="#module-server">server</a></li>
 <li><a href="#module-shell">shell</a></li>
-<li><a href="#module-bk_user">bk_user</a></li>
 <li><a href="#module-bk_data">bk_data</a></li>
-<li><a href="#module-bk_icon">bk_icon</a></li>
 <li><a href="#module-bk_shell">bk_shell</a></li>
 <li><a href="#module-bk_shell_aws">bk_shell_aws</a></li>
 <li><a href="#module-bk_shell_db">bk_shell_db</a></li>
 <li><a href="#module-bk_shell_test">bk_shell_test</a></li>
 <li><a href="#module-bk_system">bk_system</a></li>
+<li><a href="#module-bk_user">bk_user</a></li>
 </ul>
 </li>
 </ul>
@@ -227,9 +224,9 @@ parameter <code>-allow-modules PATTERN</code>, this will load all modules that m
 <li><p>To access the database while in the shell</p>
 <pre><code>  &gt; db.select(&quot;bk_user&quot;, {}, (err, rows, info) =&gt; { console.log(err, rows, info) });
   &gt; db.select(&quot;bk_user&quot;, {}, lib.log);
-  &gt; db.add(&quot;bk_user&quot;, { login: &#39;test2&#39;, secret: &#39;test2&#39;, name&#39; Test 2 name&#39;, gender: &#39;f&#39; }, lib.log);
-  &gt; db.select(&quot;bk_user&quot;, { gender: &#39;m&#39; }, lib.log);
-  &gt; db.select(&quot;bk_user&quot;, { gender: [&#39;m&#39;,&#39;f&#39;] }, { ops: { gender: &quot;in&quot; } }, lib.log);</code></pre>
+  &gt; db.add(&quot;bk_user&quot;, { id: &#39;test2&#39;, login: &#39;test2&#39;, secret: &#39;test2&#39;, name&#39; Test 2 name&#39; }, lib.log);
+  &gt; db.select(&quot;bk_user&quot;, { id: &#39;test2&#39; }, lib.log);
+  &gt; db.select(&quot;bk_user&quot;, { id: [&#39;test1&#39;,&#39;test2&#39;] }, { ops: { id: &quot;in&quot; } }, lib.log);</code></pre>
 </li>
 <li><p>To search using Elasticsearch (assuming it runs on EC2 and it is synced with DynamoDB using streams)</p>
 <pre><code>  &gt; db.select(&quot;bk_user&quot;, { q: &#39;test&#39; }, { pool: &quot;elasticsearch&quot; }, lib.log);</code></pre>
@@ -385,7 +382,7 @@ the application is structured.</p>
 <p>Another way to add functionality to the backend is via external modules specific to the backend, these modules are loaded on startup from the backend
 home subdirectory <code>modules/</code> and from the backendjs package directory for core modules. The format is the same as for regular Node.js modules and
 only top level .js files are loaded on the backend startup.</p>
-<p><em>By default no modules are loaded except <code>bk_users|bk_icons</code>, it must be configured by the <code>-allow-modules</code> config parameter.</em></p>
+<p><em>By default no modules are loaded except <code>bk_user</code>, it must be configured by the <code>-allow-modules</code> config parameter.</em></p>
 <p>The modules are managed per process role, by default <code>server</code> and <code>master</code> processes do not load any modules at all to keep them
 small and because they monitor workers the less code they have the better.</p>
 <p>The shell process loads all modules, it is configured with <code>.+</code>.</p>
@@ -394,7 +391,7 @@ small and because they monitor workers the less code they have the better.</p>
   -allow-modules &#39;.+&#39;
 
   // Master modules
-  -allow-modules-master &#39;bk_users|bk_debug&#39;</code></pre>
+  -allow-modules-master &#39;bk_user|bk_system&#39;</code></pre>
 <p>Once loaded they have the same access to the backend as the rest of the code, the only difference is that they reside in the backend home and
 can be shipped regardless of the npm, node modules and other env setup. These modules are exposed in the <code>core.modules</code> the same way as all other core submodules
 methods.</p>
@@ -487,7 +484,6 @@ and all properties not defined and configured are passed as is.</p>
 hooks are registered and return data itself then it is the hook responsibility to cleanup non-public columns.</p>
 <pre><code class="language-javascript">    db.describeTables({
         bk_user: {
-            gender: { pub: 1 },
             birthday: {},
             ssn: {},
             salary: { type: &quot;int&quot; },
@@ -701,49 +697,39 @@ ipc-cache-backup=redis://host2
 ipc-cache-backup-options-sentinel-servers=host1,host2
 ipc-cache-backup-options-sentinel-max_attempts=5</code></pre>
 <h1 id="pubsub-or-queue-configurations">PUB/SUB or Queue configurations</h1>
-<p>Publish/subscribe functionality allows clients to receive notifications without constantly polling for new events. A client can be anything but
-the backend provides some partially implemented subscription notifications for Web clients using the Long Poll.
-The Account API call <code>/account/subscribe</code> can use any pub/sub mode.</p>
-<p>The flow of the pub/sub operations is the following:</p>
-<ul>
-<li>a HTTP client makes <code>/account/subscribe</code> API request, the connection is made and is kept open indefinitely or as long as configured using <code>api-subscribe-timeout</code>.</li>
-<li>the API backend receives this request, and runs the <code>api.subscribe</code> method with the key being the account id, this will subscribe to the events for the current
-account and registers a callback to be called if any events occurred. The HTTP connection is kept open.</li>
-<li>some other client makes an API call that triggers an event like makes a connection or sends a message, on such event the backend API handler
-always runs <code>ipc.publish</code> after the DB operation succeeds. If the messaging is configured, it publishes the message for the account, the
-message being a JSON object with the request API path and mtime, other properties depend on the call made.</li>
-<li>the connection that initiated <code>/account/subscribe</code> receives an event</li>
-</ul>
 <h2 id="redis-1">Redis</h2>
-<p>To configure the backend to use Redis for PUB/SUB messaging set <code>ipc-queue=redis://HOST</code> where HOST is IP address or hostname of the single Redis server.
-This will use native PUB/SUB Redis feature.</p>
+<p>To configure the backend to use Redis for PUB/SUB messaging and support the system bus configure both queue and cache because in subscribe mode Redis connection does not allow to send any messages,
+publishing will be done using the cache connection in the <code>ipc.broadcast</code>.</p>
+<p>For example to define the system bus:</p>
+<pre><code>ipc-queue-system=redis://
+ipc-cache-system=redis://
+ipc-system-queue=system</code></pre>
 <h2 id="redis-queue">Redis Queue</h2>
 <p>To configure the backend to use Redis for job processing set <code>ipc-queue=redisq://HOST</code> where HOST is IP address or hostname of the single Redis server.
 This driver implements reliable Redis queue, with <code>visibilityTimeout</code> config option works similar to AWS SQS.</p>
 <p>Once configured, then all calls to <code>jobs.submitJob</code> will push jobs to be executed to the Redis queue, starting somewhere a backend master
 process with <code>-jobs-workers 2</code> will launch 2 worker processes which will start pulling jobs from the queue and execute.</p>
+<p>The naming convention is that any function defined as <code>function(options, callback)</code> can be used as a job to be executed in one of the worker processes.</p>
 <p>An example of how to perform jobs in the API routes:</p>
-<pre><code class="language-javascript">   app.processAccounts = function(options, callback) {
-       db.select(&quot;bk_user&quot;, { type: options.type || &quot;user&quot; }, function(err, rows) {
+<pre><code class="language-javascript">
+    core.describeArgs(&#39;app&#39;, [
+        { name: &quot;queue&quot;, descr: &quot;Queue for jobs&quot; },
+    ]);
+    app.queue = &quot;somequeue&quot;;
+
+    app.processAccounts = function(options, callback) {
+        db.select(&quot;bk_user&quot;, { type: options.type || &quot;user&quot; }, (err, rows) =&gt; {
           ...
           callback();
-       });
-   }
+        });
+    }
 
-   api.all(&quot;/process/accounts&quot;, function(req, res) {
-       jobs.submitJob({ job: { &quot;app.processAccounts&quot;: { type: req.query.type } } }, function(err) {
-          api.sendReply(res, err);
-       });
-   });
+    api.all(&quot;/process/accounts&quot;, function(req, res) {
+        jobs.submitJob({ job: { &quot;app.processAccounts&quot;: { type: req.query.type } } }, { queueName: app.queue }, (err) =&gt; {
+            api.sendReply(res, err);
+        });
+    });
 </code></pre>
-<h2 id="rabbitmq">RabbitMQ</h2>
-<p>To configure the backend to use RabbitMQ for messaging set <code>ipc-queue=amqp://HOST</code> and optionally <code>amqp-options=JSON</code> with options to the amqp module.
-Additional objects from the config JSON are used for specific AMQP functions: { queueParams: {}, subscribeParams: {}, publishParams: {} }. These
-will be passed to the corresponding AMQP methods: <code>amqp.queue, amqp.queue.sibcribe, amqp.publish</code>. See AMQP Node.js module for more info.</p>
-<h2 id="db">DB</h2>
-<p>This is a simple queue implementation using the atomic UPDATE, it polls for new jobs in the table and updates the status, only who succeeds
-with the update takes the job and executes it. It is not effective but can be used for simple and not busy systems for more or less long jobs.
-The advantage is that it uses the same database and does not require additional servers.</p>
 <h2 id="sqs">SQS</h2>
 <p>To use AWS SQS for job processing set <code>ipc-queue=https://sqs.amazonaws.com....</code>, this queue system will poll SQS for new messages on a worker
 and after successful execution will delete the message. For long running jobs it will automatically extend visibility timeout if it is configured.</p>
@@ -764,14 +750,8 @@ rendering is done using JavaScript. This is how the <code>examples/api/api.html<
 during the initialization on every html page, it will enable Web sessions for the site and then no need to sign every API request.</p>
 <p>The typical client JavaScript verification for the html page may look like this, it will redirect to login page if needed,
 this assumes the default path &#39;/public&#39; still allowed without the signature:</p>
-<pre><code class="language-javascript">   &lt;script src=&quot;/js/jquery.js&quot;&gt;&lt;/script&gt;
-   &lt;link href=&quot;/css/bootstrap.css&quot; rel=&quot;stylesheet&quot;&gt;
-   &lt;script src=&quot;/js/bootstrap.js&quot;&gt;&lt;/script&gt;
-   &lt;script src=&quot;/js/knockout.js&quot; type=&quot;text/javascript&quot;&gt;&lt;/script&gt;
-   &lt;script src=&quot;/js/crypto.js&quot; type=&quot;text/javascript&quot;&gt;&lt;/script&gt;
-   &lt;script src=&quot;/js/bkjs.js&quot; type=&quot;text/javascript&quot;&gt;&lt;/script&gt;
-   &lt;script src=&quot;/js/bkjs-bootstrap.js&quot; type=&quot;text/javascript&quot;&gt;&lt;/script&gt;
-   &lt;script src=&quot;/js/bkjs-ko.js&quot; type=&quot;text/javascript&quot;&gt;&lt;/script&gt;
+<pre><code class="language-javascript">   &lt;link href=&quot;/css/bkjs.bundle.css&quot; rel=&quot;stylesheet&quot;&gt;
+   &lt;script src=&quot;/js/bkjs.bundle.js&quot; type=&quot;text/javascript&quot;&gt;&lt;/script&gt;
    &lt;script&gt;
     $(function () {
        Bkjs.session = true;
@@ -787,35 +767,74 @@ html pages to work after login without singing every API request.</p>
 <li>We disable all allowed paths to the html and registration:</li>
 </ol>
 <pre><code class="language-javascript">   app.configureMiddleware = function(options, callback) {
-      this.allow.splice(this.allow.indexOf(&#39;^/$&#39;), 1);
-      this.allow.splice(this.allow.indexOf(&#39;\\.html$&#39;), 1);
-      callback();
+       this.allow.splice(this.allow.indexOf(&#39;^/$&#39;), 1);
+       this.allow.splice(this.allow.indexOf(&#39;\\.html$&#39;), 1);
+       callback();
    }</code></pre>
 <ol start="2">
 <li>We define an auth callback in the app and redirect to login if the request has no valid signature, we check all html pages, all allowed html pages from the /public
 will never end up in this callback because it is called after the signature check but allowed pages are served before that:</li>
 </ol>
 <pre><code class="language-javascript">   api.registerPreProcess(&#39;&#39;, /^\/$|\.html$/, function(req, status, callback) {
-      if (status.status != 200) {
-          status.status = 302;
-          status.url = &#39;/public/index.html&#39;;
-      }
-      callback(status);
+       if (status.status != 200) {
+           status.status = 302;
+           status.url = &#39;/public/index.html&#39;;
+       }
+       callback(status);
    });</code></pre>
 <h1 id="websockets-connections">WebSockets connections</h1>
-<p>The simplest way is to configure <code>ws-port</code> to the same value as the HTTP port. This will run WebSockets server along the regular Web server.
-All requests must be properly signed with all parameters encoded as for GET requests.</p>
-<p>Example:</p>
-<pre><code>    wscat --connect ws://localhost:8000
-    connected (press CTRL+C to quit)
-    &gt; /account/get
-    &lt; {
-        &quot;status&quot;: 400,
-        &quot;message&quot;: &quot;Invalid request: no host provided&quot;
+<p>The simplest way is to configure <code>ws-port</code> to the same value as the HTTP port. This will run WebSockets server along the regular Web server.</p>
+<p>In the browser the connection config is stored in the <code>bkjs.wsconf</code> and by default it connects to the local server on port 8000.</p>
+<p>There are two ways to send messages via Websockets to the server from a browser:</p>
+<ul>
+<li><p>as urls, eg. <code>bkjs.wsSend(&#39;/project/update?id=1&amp;name=Test2&#39;)</code></p>
+<p>In this case the url will be parsed and checked for access and authorization before letting it pass via Express routes. This method allows to
+share the same route handlers between HTTP and Websockets requests, the handlers will use the same code and all responses will be sent back,
+only in the Websockets case the response will arrived in the message listener (see an example below)</p>
+</li>
+</ul>
+<pre><code class="language-javascript">        bkjs.wsConnect({ path: &quot;/project/ws?id=1&quot; });
+
+        $(bkjs).on(&quot;bkjs.ws.message&quot;, (msg) =&gt; {
+            switch (msg.op) {
+            case &quot;/project/update&quot;:
+                for (const p in msg.project) app.project[p] = msg.project[p];
+                break;
+
+            case &quot;/message/new&quot;:
+                bkjs.showAlert(&quot;info&quot;, `New message: ${msg.msg}`);
+                break;
+            }
+        });</code></pre>
+<ul>
+<li><p>as JSON objects, eg. <code>bkjs.wsSend({ op: &quot;/project/update&quot;, project: { id: 1, name: &quot;Test2&quot; } })</code></p>
+<p>  In this case the server still have to check for access so it treats all JSON messages as coming from the path which was used during the connect,
+  i.e. the one stored in the <code>bkjs.wsconf.path</code>. The Express route handler for this path will receive all messages from Websocket clients, the response will be
+  received in the event listener the same way as for the first use case.</p>
+<pre><code>  // Notify all clients who is using the project being updated
+  api.app.all(&quot;/project/ws&quot;, (req, res) =&gt; {
+      switch (req.query.op) {
+      case &quot;/project/update&quot;:
+          ....
+          api.wsNotify({ query: { id: req.query.project.id }, { op: &quot;/project/update&quot;, project: req.query.project });
+          break;
       }
-    &gt;</code></pre>
+      res.send(&quot;&quot;);
+  });</code></pre>
+</li>
+</ul>
+<p>In any case all Websocket messages sent from the server will arrive in the event handler and must be formatted properly in order to distinguish what is what, this is
+the application logic. If the server needs to send a message to all or some specific clients for example due to some updates in the DB, it must use the
+<code>api.wsNotify</code> function.</p>
+<pre><code>    // Received a new message for a user from external API service, notify all websocket clients by account id
+    api.app.post(&quot;/api/message&quot;, (req, res) =&gt; {
+        ....
+        ... processing logic
+        ....
+        api.wsNotify({ account_id: req.query.uid }, { op: &quot;/message/new&quot;, msg: req.query.msg });
+    });</code></pre>
 <h1 id="versioning">Versioning</h1>
-<p>There is no ready to use support for different versions of API at the same because there is no just one solution that satisfies all applications. But there are
+<p>There is no ready to use support for different versions of API because there is no just one solution that satisfies all applications. But there are
 tools ready to use that will allow to implement such versioning system in the backend. Some examples are provided below:</p>
 <ul>
 <li><p>Fixed versions
@@ -826,27 +845,27 @@ using <code>bk-version</code> header. When a request is parsed and the version i
 appending version to the command it is very simple to call only changed API code.</p>
 </li>
 </ul>
-<pre><code class="language-javascript">          api.all(/\/domain\/(get|put|del)/, function(req, res) {
-              var options = api.getOptions(req);
-              var cmd = req.params[0];
-              if (options.apiVersion) cmd += &quot;/&quot; + options.apiVersion;
-              switch (cmd) {
-              case &quot;get&quot;:
-                  break;
+<pre><code class="language-javascript">    api.all(/\/domain\/(get|put|del)/, function(req, res) {
+        var options = api.getOptions(req);
+        var cmd = req.params[0];
+        if (options.apiVersion) cmd += &quot;/&quot; + options.apiVersion;
+        switch (cmd) {
+        case &quot;get&quot;:
+            break;
 
-              case &quot;get/2015-01-01&quot;:
-                  break;
+        case &quot;get/2015-01-01&quot;:
+            break;
 
-              case &quot;put&quot;:
-                  break;
+        case &quot;put&quot;:
+            break;
 
-              case &quot;put/2015-02-01&quot;:
-                  break;
+        case &quot;put/2015-02-01&quot;:
+            break;
 
-              case &quot;del&quot;
-                  break;
-              }
-          });</code></pre>
+        case &quot;del&quot;
+            break;
+        }
+    });</code></pre>
 <ul>
 <li><p>Application semver support
 For cases when applications support Semver kind of versioning and it may be too many releases the method above still can be used while the number of versions is
@@ -855,21 +874,21 @@ small, once too many different versions with different minor/patch numbers, it i
 In the middlware, the code can look like this:</p>
 </li>
 </ul>
-<pre><code class="language-javascript">        var options = api.getOptions(req);
-        var version = lib.toVersion(options.appVersion);
-        switch (req.params[0]) {
-        case &quot;get&quot;:
-            if (version &lt; lib.toVersion(&quot;1.2.5&quot;)) {
-                res.json({ id: 1, name: &quot;name&quot;, description: &quot;descr&quot; });
-                break;
-            }
-            if (version &lt; lib.toVersion(&quot;1.1&quot;)) {
-                res.json([id, name]);
-                break;
-            }
-            res.json({ id: 1, name: &quot;name&quot;, descr: &quot;descr&quot; });
+<pre><code class="language-javascript">    var options = api.getOptions(req);
+    var version = lib.toVersion(options.appVersion);
+    switch (req.params[0]) {
+    case &quot;get&quot;:
+        if (version &lt; lib.toVersion(&quot;1.2.5&quot;)) {
+            res.json({ id: 1, name: &quot;name&quot;, description: &quot;descr&quot; });
             break;
-        }</code></pre>
+        }
+        if (version &lt; lib.toVersion(&quot;1.1&quot;)) {
+            res.json([id, name]);
+            break;
+        }
+        res.json({ id: 1, name: &quot;name&quot;, descr: &quot;descr&quot; });
+        break;
+    }</code></pre>
 <p>The actual implementation can be modularized, split into functions, controllers.... there are no restrictions how to build the working backend code,
 the backend just provides all necessary information for the middleware modules.</p>
 <h1 id="the-backend-provisioning-utility-bkjs">The backend provisioning utility: bkjs</h1>
@@ -1228,7 +1247,6 @@ this is the only way to ensure the body is not modified when not using query par
 </ul>
 <h2 id="accounts">Accounts</h2>
 <p>The accounts API manages accounts and authentication, it provides basic user account features with common fields like email, name, address.</p>
-<p>This is implemented by the <code>accounts</code> module from the core. To enable accounts functionality specify <code>-allow-modules=bk_users</code>.</p>
 <ul>
 <li><p><code>/account/get</code></p>
 <p>Returns information about current account or other accounts, all account columns are returned for the current account and only public columns
@@ -1240,19 +1258,16 @@ verifying if the given login and secret are valid, there is no special login API
 <li>id=id,id,... - return information about given account(s), the id parameter can be a single account id or list of ids separated by comma</li>
 <li>_session=1 - after successful login setup a session with cookies so the Web app can perform requests without signing every request anymore</li>
 <li>_accesstoken=1 - after successful login, return new access token that ca be used to make requests without signing every request, it can be
- passed in the query or headers with the name <code>bk-access-token</code></li>
+passed in the query or headers with the name <code>bk-access-token</code></li>
 </ul>
 <p>Note: When retrieving current account, all properties will be present including the location, for other accounts only the properties marked as <code>pub</code> in the
 <code>bk_user</code> table will be returned.</p>
 <p>Response:</p>
 <pre><code>    { &quot;id&quot;: &quot;57d07a4e28fc4f33bdca9f6c8e04d6c3&quot;,
       &quot;name&quot;: &quot;Test User&quot;,
-      &quot;name&quot;: &quot;Real Name&quot;,
       &quot;mtime&quot;: 1391824028,
-      &quot;latitude&quot;: 34,
-      &quot;longitude&quot;: -118,
-      &quot;geohash&quot;: &quot;9qh1&quot;,
       &quot;login&quot;: &quot;testuser&quot;,
+      &quot;type&quot;: [&quot;user&quot;],
     }</code></pre>
 </li>
 </ul>
@@ -1269,38 +1284,12 @@ verifying if the given login and secret are valid, there is no special login API
 <li><p><code>/account/update</code></p>
 <p>Update current account with new values, the parameters are columns of the table <code>bk_user</code>, only columns with non empty values will be updated.</p>
 <p>Example:</p>
-<pre><code>      /account/update?name=New%2BName&amp;gender=m</code></pre>
-</li>
-</ul>
-<ul>
-<li><p><code>/account/subcribe</code></p>
-<p>Subscribe to account events delivered via HTTP Long Poll, a client makes the connection and waits for events to come, whenever
-somebody updates the account&#39;s counter or send a message or creates a connection to this account the event about it will be sent to this HTTP
-connection and delivered as JSON object. This is not a persistent queue so if not listening, all events will just be ignored, only events published
-since the connect will be delivered. To specify what kind of events needs to be delivered, <code>match</code> query parameter can be specified which is a
-RegExp of the whole event body string.</p>
-<p><em>Note: On the server side there is a config parameter <code>api-subscribe-interval</code> which defines how often to deliver notifications, by default it is 5 seconds which means
-only every 5 seconds new events will be delivered to the Web client, if more than one event happened, they all accumulate and will be sent as a JSON list.</em></p>
-<p>Example:</p>
-<pre><code>  /account/subscribe
-  /account/subscribe?match=connection/add.*type:*like
-
-  // To run in the browser:
-  (function poll() {
-      Bkjs.send({ url: &quot;/account/subscribe&quot;, complete: poll }, function(data) {
-          console.log(&quot;received event:&quot;, data);
-       });
-   })();</code></pre>
-<p>Response:</p>
-<pre><code>  [ { &quot;path&quot;: &quot;/message/add&quot;, &quot;mtime:&quot; 1234566566, &quot;type&quot;: &quot;1&quot; },
-    { &quot;path&quot;: &quot;/counter/incr&quot;, &quot;mtime:&quot; 1234566566, &quot;type&quot;: &quot;like,invite&quot; } },
-    { &quot;path&quot;: &quot;/connection/add&quot;, &quot;mtime&quot;: 1223345545, &quot;type&quot;: &quot;like&quot; } ]</code></pre>
+<pre><code>      /account/update?name=New%2BName</code></pre>
 </li>
 </ul>
 <h3 id="health-enquiry">Health enquiry</h3>
 <p>When running with AWS load balancer there should be a url that a load balancer polls all the time and this must be very quick and lightweight request. For this
-purpose there is an API endpoint <code>/ping</code> that just responds with status 200. It is not open by default, the <code>allow-path</code> or other way to allow non-authenticated access
-needs to be configured. This is to be able to control how pinging can be perform in the apps in case it is not simple open access.</p>
+purpose there is an API endpoint <code>/ping</code> that just responds with status 200. It is open by default in the default <code>api-allow-path</code> config parameter.</p>
 <h2 id="public-images-endpoint">Public Images endpoint</h2>
 <p>This endpoint can server any icon uploaded to the server for any account, it is supposed to be a non-secure method, i.e. no authentication will be performed and no signature
 will be needed once it is configured which prefix can be public using <code>api-allow</code> or <code>api-allow-path</code> config parameters.</p>
@@ -1320,63 +1309,6 @@ will be needed once it is configured which prefix can be public using <code>api-
   /image/account/12345/1.jpg
 
   #Return icons for account 12345 for types 0 and 1</code></pre>
-</li>
-</ul>
-<h2 id="icons">Icons</h2>
-<p>The icons API provides ability for an account to store icons of different types. Each account keeps its own icons separate form other
-accounts, within the account icons can be separated by <code>prefix</code> which is just a namespace assigned to the icons set, for example to keep messages
-icons separate from albums, or use prefix for each separate album. Within the prefix icons can be assigned with unique type which can be any string.</p>
-<p>Prefix and type can consist from alphabetical characters and numbers, dots, underscores and dashes: [a-z0-9._-]. This means, they are identifiers, not real titles or names,
-a special mapping between prefix/type and album titles for example needs to be created separately.</p>
-<p>The supposed usage for type is to concatenate common identifiers first with more specific to form unique icon type which later can be queried
-by prefix or exactly by icon type. For example album id can be prefixed first, then sequential con number like album1:icon1, album1:icon2....
-then retrieving all icons for an album would be only query with album1: prefix.</p>
-<p>The is implemented by the <code>icons</code> module from the core. To enable this functionality specify <code>-allow-modules=bk_icons</code>.</p>
-<ul>
-<li><p><code>/icon/get</code></p>
-<p> Return icon for the current account in the given prefix, icons are kept on the local disk in the directory
- configured by <code>-api-images-dir</code> parameter(default is images/ in the backend directory). Current account id is used to keep icons
- separate from other accounts. Icon presence is checked in the bk_icon table before returning it</p>
-<p>The following parameters can be used:</p>
-<ul>
-<li><code>prefix</code> - must be specified, this defines the icons namespace</li>
-<li><code>type</code> is used to specify unique icon created with such type which can be any string.</li>
-<li><code>ext</code> - image extension, like png or jpg if it was saved with it previously</li>
-</ul>
-</li>
-<li><p><code>/icon/put</code></p>
-<p>Upload new icon for the given account in the folder prefix, if type is specified it creates an icon for this type to separate
-multiple icons for the same prefix. <code>type</code> can be any string consisting from alpha and digits characters. It creates a record in the bk_icon
-table with all the parameters passed.</p>
-<p>The following parameters can be used:</p>
-<ul>
-<li>prefix - prefix for the icons, required</li>
-<li>descr - optional description of the icon</li>
-<li>latitude, longitude - optional coordinates for the icon</li>
-<li>width - desired width of the stored icon, if negative this means do not upscale, if the image width is less than given then keep it as is</li>
-<li>height - height of the icon, same rules apply as for the width above</li>
-<li>ext - image file format, default is jpg, supports: gif, png, jpg</li>
-</ul>
-</li>
-<li><p><code>/icon/upload</code></p>
-<p> Upload a new image and store on the server, no record is created in bk_icon table, just simple image upload,
- but all the same query parameters as for /icon/put are accepted. Returns an JSON object with url property being the full path
- to the uploaded image.</p>
-</li>
-<li><p><code>/icon/del</code></p>
-<p> Delete the default icon for the current account in the folder prefix or by type</p>
-</li>
-<li><p><code>/icon/select</code></p>
-<p>Return list of available icons for the given prefix and type, all icons starting with prefix/type will be returned,
-the <code>url</code> property will provide full URL to retrieve the icon contents</p>
-<p>Example:</p>
-<pre><code>  /icon/select?prefix=album&amp;type=me
-  /icon/select?prefix=album&amp;type=12345</code></pre>
-<p>Responses:</p>
-<pre><code>  [ { id: &#39;b3dcfd1e63394e769658973f0deaa81a&#39;, type: &#39;me-1&#39;, icon: &#39;/icon/get?prefix=album&amp;type=me1&#39; },
-    { id: &#39;b3dcfd1e63394e769658973f0deaa81a&#39;, type: &#39;me-2&#39;, icon: &#39;/icon/get?prefix=album&amp;type=me2&#39; } ]
-
-  [ { id: &#39;b3dcfd1e63394e769658973f0deaa81a&#39;, type: &#39;12345-f0deaa81a&#39;, icon: &#39;/icon/get?prefix=album&amp;type=12345-f0deaa81a&#39; } ]</code></pre>
 </li>
 </ul>
 <h2 id="data">Data</h2>
@@ -1411,10 +1343,10 @@ For this to work the Data API must be configured as unsecure in the config file 
 <p>Some tables like messages and connections perform data convertion before returning the results, mostly splitting combined columns like type into
 separate fields. To return raw data pass the parameter <code>_noprocessrows=1</code>.</p>
 <p>Example:</p>
-<pre><code>  /data/get/bk_user?id=12345
-  /data/put/bk_counter?id=12345&amp;like0=1
+<pre><code>  /data/get/bk_user?login=12345
+  /data/update/bk_user?login=12345&amp;name=Admin
   /data/select/bk_user?name=john&amp;_ops=name,gt&amp;_select=name,email
-  /data/select/bk_connection?_noscan=0&amp;_noprocessrows=1</code></pre>
+  /data/select/bk_user?_noscan=0&amp;_noprocessrows=1</code></pre>
 </li>
 </ul>
 <h2 id="system-api">System API</h2>
@@ -1485,192 +1417,6 @@ Database pool statistics and other diagnostics</p>
 </ul>
 </li>
 </ul>
-<p>Response:</p>
-<pre><code>       {
-            &quot;id&quot;: &quot;172.31.31.85-25170&quot;,
-            &quot;ip&quot;: &quot;172.31.31.85&quot;,
-            &quot;mtime&quot;: 1417500027321,
-            &quot;ctime&quot;: 1416941754760,
-            &quot;type&quot;: &quot;&quot;,
-            &quot;host&quot;: &quot;&quot;,
-            &quot;pid&quot;: 25170,
-            &quot;instance&quot;: &quot;i-d4c89eff&quot;,
-            &quot;worker&quot;: 27,
-            &quot;latency&quot;: 0,
-            &quot;cpus&quot;: 4,
-            &quot;mem&quot;: 15774367744,
-            &quot;rss_hmin&quot;: 66879488,
-            &quot;rss_hmax&quot;: 151891968,
-            &quot;rss_hsum&quot;: 2451506479104,
-            &quot;rss_hvar&quot;: 254812067010902.66,
-            &quot;rss_hmean&quot;: 118895507.98312236,
-            &quot;rss_hdev&quot;: 15962833.92793719,
-            &quot;rss_hcnt&quot;: 20619,
-            &quot;rss_hmed&quot;: 147644416,
-            &quot;rss_h75p&quot;: 149262336,
-            &quot;rss_h95p&quot;: 150834585.6,
-            &quot;rss_h99p&quot;: 151550033.92000002,
-            &quot;rss_h999p&quot;: 151886266.368,
-            &quot;heap_hmin&quot;: 25790920,
-            &quot;heap_hmax&quot;: 72316184,
-            &quot;heap_hsum&quot;: 1029889929504,
-            &quot;heap_hvar&quot;: 54374337037311.65,
-            &quot;heap_hmean&quot;: 49948587.68630874,
-            &quot;heap_hdev&quot;: 7373895.648658967,
-            &quot;heap_hcnt&quot;: 20619,
-            &quot;heap_hmed&quot;: 57480704,
-            &quot;heap_h75p&quot;: 61934254,
-            &quot;heap_h95p&quot;: 67752391.2,
-            &quot;heap_h99p&quot;: 70544797.92,
-            &quot;heap_h999p&quot;: 72315029.104,
-            &quot;avg_hmin&quot;: 0.04541015625,
-            &quot;avg_hmax&quot;: 0.06005859375,
-            &quot;avg_hsum&quot;: 938.234375,
-            &quot;avg_hvar&quot;: 4.491222722966496e-7,
-            &quot;avg_hmean&quot;: 0.04550338886463941,
-            &quot;avg_hdev&quot;: 0.0006701658543201448,
-            &quot;avg_hcnt&quot;: 20619,
-            &quot;avg_hmed&quot;: 0.04541015625,
-            &quot;avg_h75p&quot;: 0.04541015625,
-            &quot;avg_h95p&quot;: 0.04541015625,
-            &quot;avg_h99p&quot;: 0.05078125,
-            &quot;avg_h999p&quot;: 0.05997363281250001,
-            &quot;free_hmin&quot;: 12879872000,
-            &quot;free_hmax&quot;: 13228994560,
-            &quot;free_hsum&quot;: 268429937405952,
-            &quot;free_hvar&quot;: 5839592954606286,
-            &quot;free_hmean&quot;: 13018572064.889277,
-            &quot;free_hdev&quot;: 76417229.43555522,
-            &quot;free_hcnt&quot;: 20619,
-            &quot;free_hmed&quot;: 12908707840,
-            &quot;free_h75p&quot;: 12915716096,
-            &quot;free_h95p&quot;: 12919331430.4,
-            &quot;free_h99p&quot;: 12922073088,
-            &quot;free_h999p&quot;: 12922164563.968,
-            &quot;util_hmin&quot;: 0.05905642141342145,
-            &quot;util_hmax&quot;: 0.0607655708794173,
-            &quot;util_hsum&quot;: 1230.6298386264643,
-            &quot;util_hvar&quot;: 2.1530671850148948e-7,
-            &quot;util_hmean&quot;: 0.059684263961708346,
-            &quot;util_hdev&quot;: 0.0004640115499656118,
-            &quot;util_hcnt&quot;: 20619,
-            &quot;util_hmed&quot;: 0.05920415878947068,
-            &quot;util_h75p&quot;: 0.059217278415661254,
-            &quot;util_h95p&quot;: 0.05934395790869296,
-            &quot;util_h99p&quot;: 0.059361851867105964,
-            &quot;util_h999p&quot;: 0.0593659827984017,
-            &quot;pool_name&quot;: &quot;dynamodb&quot;,
-            &quot;pool_que_rate&quot;: 0,
-            &quot;pool_que_rcnt&quot;: 1989,
-            &quot;pool_que_rmean&quot;: 0.0035627883554577716,
-            &quot;pool_que_r1m&quot;: 0,
-            &quot;pool_que_r5m&quot;: 0,
-            &quot;pool_que_r15m&quot;: 0,
-            &quot;pool_que_hmin&quot;: 0,
-            &quot;pool_que_hmax&quot;: 230,
-            &quot;pool_que_hsum&quot;: 45843,
-            &quot;pool_que_hvar&quot;: 366.86587852909315,
-            &quot;pool_que_hmean&quot;: 23.048265460030166,
-            &quot;pool_que_hdev&quot;: 19.15374319889178,
-            &quot;pool_que_hcnt&quot;: 1989,
-            &quot;pool_que_hmed&quot;: 21,
-            &quot;pool_que_h75p&quot;: 23,
-            &quot;pool_que_h95p&quot;: 33,
-            &quot;pool_que_h99p&quot;: 126.42000000000007,
-            &quot;pool_que_h999p&quot;: 225.971,
-            &quot;pool_req_hmin&quot;: 1,
-            &quot;pool_req_hmax&quot;: 2,
-            &quot;pool_req_hsum&quot;: 1991,
-            &quot;pool_req_hvar&quot;: 0.001005024617286425,
-            &quot;pool_req_hmean&quot;: 1.0010055304172951,
-            &quot;pool_req_hdev&quot;: 0.03170212322994195,
-            &quot;pool_req_hcnt&quot;: 1989,
-            &quot;pool_req_hmed&quot;: 1,
-            &quot;pool_req_h75p&quot;: 1,
-            &quot;pool_req_h95p&quot;: 1,
-            &quot;pool_req_h99p&quot;: 1,
-            &quot;pool_req_h999p&quot;: 1.9710000000000036,
-            &quot;pool_count&quot;: 0,
-            &quot;pool_req_0&quot;: 2,
-            &quot;pool_cache_rate&quot;: 0.1303780964797914,
-            &quot;pool_cache_rcnt&quot;: 284,
-            &quot;pool_cache_rmean&quot;: 0.0005087436344326025,
-            &quot;pool_cache_r1m&quot;: 0,
-            &quot;pool_cache_r5m&quot;: 0,
-            &quot;pool_cache_r15m&quot;: 0,
-            &quot;pool_cache_hmin&quot;: 0,
-            &quot;pool_cache_hmax&quot;: 2,
-            &quot;pool_cache_hsum&quot;: 70,
-            &quot;pool_cache_hvar&quot;: 0.19345045538247163,
-            &quot;pool_cache_hmean&quot;: 0.24647887323943662,
-            &quot;pool_cache_hdev&quot;: 0.4398300301053483,
-            &quot;pool_cache_hcnt&quot;: 284,
-            &quot;pool_cache_hmed&quot;: 0,
-            &quot;pool_cache_h75p&quot;: 0,
-            &quot;pool_cache_h95p&quot;: 1,
-            &quot;pool_cache_h99p&quot;: 1,
-            &quot;pool_cache_h999p&quot;: 2,
-            &quot;pool_hits&quot;: 239,
-            &quot;pool_misses&quot;: 45,
-            &quot;cache_inserted&quot;: 484,
-            &quot;cache_deleted&quot;: 310,
-            &quot;cache_cleanups&quot;: 0,
-            &quot;cache_hits&quot;: 7642,
-            &quot;cache_misses&quot;: 1411,
-            &quot;cache_max&quot;: 1000000,
-            &quot;cache_size&quot;: 61586,
-            &quot;cache_count&quot;: 174,
-            &quot;api_que_hmin&quot;: 1,
-            &quot;api_que_hmax&quot;: 6,
-            &quot;api_que_hsum&quot;: 13237,
-            &quot;api_que_hvar&quot;: 0.005674280465987009,
-            &quot;api_que_hmean&quot;: 1.0024992426537414,
-            &quot;api_que_hdev&quot;: 0.07532782000022972,
-            &quot;api_que_hcnt&quot;: 13204,
-            &quot;api_que_hmed&quot;: 1,
-            &quot;api_que_h75p&quot;: 1,
-            &quot;api_que_h95p&quot;: 1,
-            &quot;api_que_h99p&quot;: 1,
-            &quot;api_que_h999p&quot;: 2,
-            &quot;api_nreq&quot;: 1,
-            &quot;api_req_rate&quot;: 0,
-            &quot;api_req_rcnt&quot;: 13203,
-            &quot;api_req_rmean&quot;: 0.02365120609256502,
-            &quot;api_req_r1m&quot;: 0,
-            &quot;api_req_r5m&quot;: 0,
-            &quot;api_req_r15m&quot;: 0,
-            &quot;api_req_hmin&quot;: 0,
-            &quot;api_req_hmax&quot;: 536,
-            &quot;api_req_hsum&quot;: 20115,
-            &quot;api_req_hvar&quot;: 89.12554520926801,
-            &quot;api_req_hmean&quot;: 1.5235173824130879,
-            &quot;api_req_hdev&quot;: 9.440632669968046,
-            &quot;api_req_hcnt&quot;: 13203,
-            &quot;api_req_hmed&quot;: 1,
-            &quot;api_req_h75p&quot;: 1,
-            &quot;api_req_h95p&quot;: 1,
-            &quot;api_req_h99p&quot;: 33.13000000000011,
-            &quot;api_req_h999p&quot;: 99.36200000000008,
-            &quot;url_ping_rate&quot;: 0,
-            &quot;url_ping_rcnt&quot;: 12407,
-            &quot;url_ping_rmean&quot;: 0.022226981327796796,
-            &quot;url_ping_r1m&quot;: 0,
-            &quot;url_ping_r5m&quot;: 0,
-            &quot;url_ping_r15m&quot;: 0,
-            &quot;url_ping_hmin&quot;: 0,
-            &quot;url_ping_hmax&quot;: 4,
-            &quot;url_ping_hsum&quot;: 6915,
-            &quot;url_ping_hvar&quot;: 0.25785489698686204,
-            &quot;url_ping_hmean&quot;: 0.5573466591440316,
-            &quot;url_ping_hdev&quot;: 0.5077941482400737,
-            &quot;url_ping_hcnt&quot;: 12407,
-            &quot;url_ping_hmed&quot;: 1,
-            &quot;url_ping_h75p&quot;: 1,
-            &quot;url_ping_h95p&quot;: 1,
-            &quot;url_ping_h99p&quot;: 1,
-            &quot;url_ping_h999p&quot;: 2,
-            &quot;url_ping_0&quot;: 5,
-        }</code></pre>
 </li>
 </ul>
 <h1 id="author">Author</h1>
@@ -1707,8 +1453,11 @@ Database pool statistics and other diagnostics</p>
 <li><code>port</code> - port to listen for the HTTP server, this is global default</li>
 <li><code>bind</code> - Bind to this address only, if not specified listen on all interfaces</li>
 <li><code>backlog</code> - The maximum length of the queue of pending connections, used by HTTP server in listen.</li>
-<li><code>ws-port</code> - port to listen for WebSocket server, it can be the same as HTTP/S ports to co-exist on existing web servers</li>
+<li><code>ws-port</code> - Port to listen for WebSocket server, it can be the same as HTTP/S ports to co-exist on existing web servers</li>
 <li><code>ws-bind</code> - Bind to this address only for WebSocket, if not specified listen on all interfaces, only when the port is different from existing web ports</li>
+<li><code>ws-ping</code> - How often to ping Websocket connections</li>
+<li><code>ws-path</code> - Websockets will be accepted only if request path maches the pattern</li>
+<li><code>ws-queue</code> - A queue where to publish messages for websockets, API process will listen for messages and proxy it to all macthing connected websockets </li>
 <li><code>ssl-port</code> - port to listen for HTTPS server, this is global default, be advised that proxy-port takes precedence</li>
 <li><code>ssl-bind</code> - Bind to this address only for HTTPS server, if not specified listen on all interfaces</li>
 <li><code>ssl-key</code> - Path to SSL prvate key</li>
@@ -1891,7 +1640,6 @@ Database pool statistics and other diagnostics</p>
 <li><code>api-query-token-secret</code> - Name of the property to be used for encrypting tokens for pagination or other sensitive data, any property from bk_user can be used, if empty no secret is used, if not a valid property then it is used as the secret</li>
 <li><code>api-app-header-name</code> - Name for the app name/version query parameter or header, it is can be used to tell the server about the application version</li>
 <li><code>api-version-header-name</code> - Name for the access version query parameter or header, this is the core protocol version that can be sent to specify which core functionality a client expects</li>
-<li><code>api-no-signature</code> - Disable signature verification for requests</li>
 <li><code>api-no-cache-files</code> - Set cache-control=no-cache header for matching static files</li>
 <li><code>api-tz-header-name</code> - Name for the timezone offset header a client can send for time sensitive requests, the backend decides how to treat this offset</li>
 <li><code>api-signature-header-name</code> - Name for the access signature query parameter, header and session cookie</li>
@@ -1936,8 +1684,6 @@ Database pool statistics and other diagnostics</p>
 <li><code>api-allow-ssl</code> - Add to the list of allowed locations using HTTPs only, plain HTTP requests to these urls will be refused</li>
 <li><code>api-ignore-ssl</code> - Allow plain HTTP from matched IP addresss or locations</li>
 <li><code>api-redirect-ssl</code> - Add to the list of the locations to be redirected to the same path but using HTTPS protocol, for proxy mode the proxy server will perform redirects</li>
-<li><code>api-subscribe-timeout</code> - Timeout for Long POLL subscribe listener, how long to wait for events before closing the connection, milliseconds</li>
-<li><code>api-subscribe-interval</code> - Interval between delivering events to subscribed clients, milliseconds</li>
 <li><code>api-express-options</code> - Set Express config options during initialization,example: <code>-api-express-options { &quot;trust proxy&quot;: 1, &quot;strict routing&quot;: true }</code></li>
 <li><code>api-mime-body</code> - Collect full request body in the req.body property for the given MIME type in addition to json and form posts, this is for custom body processing</li>
 <li><code>api-mime-ignore</code> - Ignore the body for the following MIME content types, request body will not be parsed at all</li>
@@ -1974,11 +1720,12 @@ Database pool statistics and other diagnostics</p>
 <li><code>api-auth-message:</code> - Default authenticated message to be returned the default auth status</li>
 <li><code>api-reset-acl</code> - Reset all ACL related rules and permissions</li>
 <li><code>api-response-headers</code> - An JSON object with list of regexps to match against the location and set response headers defined as a ist of pairs name, value..., api-response-headers={ &quot;^/&quot;: [&quot;x-frame-options&quot;,&quot;sameorigin&quot;,&quot;x-xss-protection&quot;,&quot;1; mode=block&quot;] }</li>
-<li><code>auth-table</code> - Table to use for accounts</li>
-<li><code>msg-([^-]+)-(cert)(@.+)?</code> - A certificate for APN or similar services in pfx format, can be a file name with .p12 extension or a string with certificate contents encoded with base64, if the suffix is specified in the config parameter name will be used as the app name, otherwise it is global</li>
+<li><code>auth-table</code> - Table to use for user accounts</li>
+<li><code>msg-([^-]+)-cert(@.+)?</code> - A certificate for APN or similar services in pfx format, can be a file name with .p12 extension or a string with certificate contents encoded with base64, if the suffix is specified in the config parameter name will be used as the app name, otherwise it is global</li>
+<li><code>msg-([^-]+)-key(@.+)?</code> - API private key for FCM/Webpush or similar services, if the suffix is specified in the config parameter will be used as the app name, without the suffix it is global</li>
+<li><code>msg-([^-]+)-pubkey(@.+)?</code> - API public key for Webpush or similar services, if the suffix is specified in the config parameter will be used as the app name, without the suffix it is global</li>
 <li><code>msg-([^-]+)-authkey-([^-]+)-(.+)</code> - A auth key for APN in p8 format, can be a file name with .p8 extension or a string with the key contents encoded with base64, the format is: -msg-apn-authkey-TEAMID-KEYID KEYDATA</li>
-<li><code>msg-([^-]+)-(key)(@.+)?</code> - API key for GCM or similar services, if the suffix is specified in the config parameter will be used as the app name, without the suffix it is global</li>
-<li><code>msg-([^-]+)-(sandbox)(@.+)?</code> - Enable sandbox for a service, default is production mode</li>
+<li><code>msg-([^-]+)-sandbox(@.+)?</code> - Enable sandbox for a service, default is production mode</li>
 <li><code>msg-([^-]+)-options-([^@]+)(@.+)?</code> - A config property to the specified agent, driver specific</li>
 <li><code>msg-shutdown-timeout</code> - How long to wait for messages draining out in ms on shutdown before exiting</li>
 <li><code>msg-app-default</code> - Default app id(app bundle id) to be used when no app_id is specified</li>
@@ -1995,9 +1742,9 @@ Database pool statistics and other diagnostics</p>
 <li><code>jobs-worker-queue</code> - Queue(s) to subscribe for workers, multiple queues can be processes at the same time, i.e. more than one job can run from different queues</li>
 <li><code>jobs-cron-queue</code> - Default queue to use for cron jobs</li>
 <li><code>jobs-global-queue</code> - Default queue for all jobs, the queueName is ignored</li>
-<li><code>jobs-unique-queue</code> - Default queue name to use for keeping track of unique jobs</li>
 <li><code>jobs-cron</code> - Allow cron jobs to be executed from the local etc/crontab file or via config parameter</li>
 <li><code>jobs-schedule</code> - Cron jobs to be scheduled, the JSON must be in the same format as crontab file</li>
+<li><code>jobs-unique-queue</code> - Default queue name to use for keeping track of unique jobs</li>
 <li><code>jobs-unique-ignore</code> - Ignore all unique parameters if a job&#39;s uniqueKey matches</li>
 <li><code>server-max-processes</code> - Max number of processes to launch for Web servers, 0 means <code>NumberOfCPUs-1</code>, &lt; 0 means <code>NumberOfCPUs*abs(N)</code></li>
 <li><code>server-crash-delay</code> - Delay between respawing the crashed process</li>
@@ -2034,6 +1781,12 @@ also, this will needed only for Express handlers <code>.all</code>, when registe
 </ul>
 
 <ul>
+<li><p><code>api.configureStatic()</code></p>
+<p> Templating and static paths</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>api.configureAccessLog()</code></p>
 <p> Setup access log stream</p>
 </li>
@@ -2042,42 +1795,6 @@ also, this will needed only for Express handlers <code>.all</code>, when registe
 <ul>
 <li><p><code>api.handleServerRequest(req, res)</code></p>
 <p> Start Express middleware processing wrapped in the node domain</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.setupSocketConnection(socket) </code></p>
-<p> Called on new socket connection, supports all type of sockets</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.cleanupSocketConnection(socket) </code></p>
-<p> Called when a socket connections is closed to cleanup all additional resources associated with it</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.checkWebSocketRequest(data, callback) </code></p>
-<p> Called before allowing the WebSocket connection to be authorized</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.handleWebSocketConnect(socket)</code></p>
-<p> Wrap external WeSocket connection into the Express routing, respond on backend command</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.createWebSocketRequest(socket, url, reply)</code></p>
-<p> Wrap WebSocket into HTTP request to be proceses by the Express routes</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.closeWebSocketRequest(socket)</code></p>
-<p> Close all pending requests, this is called on socket close or disconnect</p>
 </li>
 </ul>
 
@@ -2254,40 +1971,56 @@ subject to log throttling configuration.</p>
 </ul>
 
 <ul>
-<li><p><code>api.subscribe(req, options)</code></p>
-<p> Subscribe for events, this is used by <code>/acount/subscribe</code> API call but can be used in generic way, if no options
-provided by default it will listen on req.account.id, the default API implementation for Connection, Counter, Messages publish
-events using account id as a key.</p>
-</li>
-</ul>
-<ul>
-<li>req is always an Express request object</li>
-<li>optons may contain the following propertis:<ul>
-<li>key - alternative key to subscribe for</li>
-<li>timeout - how long to wait before dropping the connection, default 15 mins</li>
-<li>interval - how often send notifications to the client, this allows buffering several events and notify about them at once instead triggering
- event condition every time, useful in case of very frequent events</li>
-<li>match - a regexp that matched the message text, if not matched these events will be dropped</li>
-</ul>
+<li><p><code>api.handleWebSocketUpgrade(req, socket, head)</code></p>
+<p> Check if the request is allowed to upgrade to Websocket</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>api.unsubscribe(req, options)</code></p>
-<p> Disconnect from subscription service. This forces disconnect even for persistent connections like websockets.</p>
+<li><p><code>api.handleWebSocketConnect(ws, req)</code></p>
+<p> Wrap external WebSocket connection into the Express routing, respond on backend command</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>api.publish(key, event, options)</code></p>
-<p> Publish an event for an account, key is account id or other key used for subscription, event is a string or an object</p>
+<li><p><code>api.handleWebSocketRequest(ws, data)</code></p>
+<p> Wrap WebSocket into HTTP request to be proceses by the Express routes</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>api.sendEvent(req, key, data, next)</code></p>
-<p> Process a message received from subscription server or other event notifier, it is used by <code>api.subscribe</code> method for delivery events to the clients</p>
+<li><p><code>api.wsSet(type, req, value)</code></p>
+<p> Update a Websocket connection properties:</p>
 </li>
+</ul>
+<ul>
+<li>query - set query with a new object, this is used in the wsNotify broadcasts to match who can receive messages. Initially it is set to the
+query from the first connection.</li>
+</ul>
+
+<ul>
+<li><p><code>api.wsSend(wsid, msg)</code></p>
+<p> Send to a websocket inside an api server directly</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.wsNotify(options, msg, callback)</code></p>
+<p> Broadcast a message according to the options, if no websocket queue is defined send directly using <code>wsBroadcast</code></p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.wsBroadcast(options, msg)</code></p>
+<p> Send a message to all websockets inside an api process that match the criteria from the options:</p>
+</li>
+</ul>
+<ul>
+<li>path - a regexp to match initial Websocket connection url</li>
+<li>account_id - send to websockets belonginh to the account, can be a list as well to notify multiple accounts</li>
+<li>account - an object to  be used for condition against Websocket&#39;s accounts, <code>lib.isMatched</code> is used for comparison</li>
+<li>wsid - send to the specific websocket(s), can be a list</li>
+<li>query - an object to be used for condition against Websocket&#39;s query, <code>lib.isMatched</code> is used for comparison</li>
 </ul>
 
 <h2 id="module-api_auth">Module: API_AUTH</h2>
@@ -2904,8 +2637,7 @@ if present in the info. This result object can be used for pagination responses.
 callbacks after all records have been processes and are ready to be returned to the client, the last step would be to cleanup
 all non public columns if necessary.</p>
 <p><code>table</code> can be a single table name or a list of table names which combined public columns need to be kept in the rows. List of request tables
-is kept in the <code>req.options.cleanup</code> which by default is a table name of the API endpoint, for example for /account/get it will contain bk_user, for
-/connection/get - bk_connection.</p>
+is kept in the <code>req.options.cleanup</code> which by default is empty.</p>
 <p>In the <code>options</code> account object can be present to detect account own records which will not be cleaned and all properties will be returned, by default <code>id</code>
 property is used to detect current account but can be specified by the <code>options.account_key</code> property.</p>
 <p>By default primary keys are not kept and must be marked with <code>pub</code> property in the table definition to be returned.</p>
@@ -3033,27 +2765,6 @@ been processed.</p>
 
 <h2 id="module-auth">Module: AUTH</h2>
 <ul>
-<li><p><code>Database tables</code></p>
-<pre><code>          bk_user: {
-              login: { primary: 1 },                                      // Account login/username
-              id: { type: &quot;uuid&quot;, prefix: &quot;u_&quot;, admin: 1, unique: 1 },    // Autogenerated ID
-              name: { type: &quot;text&quot; },                                     // Account name
-              status: { type: &quot;text&quot; },                                   // Status of the account
-              type: { type: &quot;list&quot;, list: 1, lower: 1, admin: 1 },        // Account roles: admin, ....
-              flags: { type: &quot;list&quot;, list: 1 },                           // Tags/flags about the account
-              secret: { secure: 1 },                                      // Signature secret or scrambled password
-              auth_secret: { admin: 1, secure: 1 },                       // Passcode for 2-factor authentication
-              session_secret: { admin: 1, secure: 1 },                    // Secret for session signatures
-              rlimits_max: { type: &quot;int&quot;, admin: 1 },                     // Burst/max reqs/sec rate allowed for this account, 0 to disable
-              rlimits_rate: { type: &quot;int&quot;, admin: 1 },                    // Fill/normal reqs/sec rate for this account, 0 to disable
-              expires: { type: &quot;bigint&quot;, admin: 1, secure: 1 },           // Deny access to the account if this value is before current date, ms
-              ctime: { type: &quot;now&quot;, readonly: 1 },                        // Create time
-              mtime: { type: &quot;now&quot; }
-          },</code></pre>
-</li>
-</ul>
-
-<ul>
 <li><p><code>mod.prepareSecret(query, options, callback)</code></p>
 <p> If specified in the options, prepare credentials to be stored in the db, if no error occurred return null, otherwise an error object</p>
 <ul>
@@ -3064,8 +2775,14 @@ been processed.</p>
 </ul>
 
 <ul>
+<li><p><code>mod.checkSecret(user, secret, callback)</code></p>
+<p> Try to verify a secret against a user record, try all methods</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>mod.get(query, options, callback)</code></p>
-<p> Returns an account record by login or id</p>
+<p> Returns an account record by login or id, to make use of a cache add to the config <code>db-cache-keys-bk_user-id=id</code></p>
 </li>
 </ul>
 
@@ -3444,6 +3161,7 @@ Options:</p>
 <li>prefix - log stream prefix pattern</li>
 <li>names - list of log streams to filter</li>
 <li>token - a previous token to start with</li>
+<li>timeout - how long to keep reading or waiting, ms</li>
 </ul>
 </li>
 </ul>
@@ -4453,7 +4171,7 @@ then default db pool is used, sqlite is default if no -db-pool config parameter 
 Even if the specified pool does not exist, the default pool will be returned, this allows to pre-confgure the app with different pools
 in the code and enable or disable any particular pool at any time.</p>
 <p>Example, use PostgreSQL db pool to get a record and update the current pool</p>
-<pre><code>    db.get(&quot;bk_user&quot;, { id: &quot;123&quot; }, { pool: &quot;pgsql&quot; }, function(err, row) {
+<pre><code>    db.get(&quot;bk_user&quot;, { login: &quot;123&quot; }, { pool: &quot;pgsql&quot; }, function(err, row) {
         if (row) db.update(&quot;bk_user&quot;, row);
     });</code></pre>
 <p>Most database pools can be configured with options <code>min</code> and <code>max</code> for number of connections to be maintained, so no overload will happen and keep warm connection for
@@ -4651,7 +4369,7 @@ returns the query record with new columns from memory</li>
 <li>rows is always returned as a list, even in case of error it is an empty list</li>
 </ul>
 <p>Example with SQL driver</p>
-<pre><code>   db.query({ text: &quot;SELECT a.id,c.type FROM bk_user a,bk_connection c WHERE a.id=c.id and a.id=?&quot;, values: [&#39;123&#39;] }, { pool: &#39;pgsql&#39; }, function(err, rows, info) {
+<pre><code>   db.query({ text: &quot;SELECT a.id,c.type FROM bk_user a,bk_icon c WHERE a.id=c.id and a.id=?&quot;, values: [&#39;123&#39;] }, { pool: &#39;pgsql&#39; }, function(err, rows, info) {
    });</code></pre>
 </li>
 </ul>
@@ -4668,7 +4386,7 @@ Options can use the following special properties:</p>
 </ul>
 <p>NOTE: On return the <code>info.cached</code> will be set to 1 if the record was retrieved from cache or was put in the cache.</p>
 <p>Example</p>
-<pre><code>    db.get(&quot;bk_user&quot;, { id: &#39;12345&#39; }, function(err, row) {
+<pre><code>    db.get(&quot;bk_user&quot;, { login: &#39;12345&#39; }, function(err, row) {
        if (row) console.log(row.name);
     });</code></pre>
 </li>
@@ -4738,12 +4456,12 @@ also can be a list where each item is an object with primary key condition. Only
          db.update(&quot;bk_icon&quot;, row);
      });
  });</code></pre>
-<p>Example: scan accounts with custom filter, not by primary key: all females</p>
-<pre><code> db.select(&quot;bk_user&quot;, { gender: &#39;f&#39; }, function(err, rows) {
+<p>Example: scan accounts with custom filter, not by primary key: by exact zipcode</p>
+<pre><code> db.select(&quot;bk_user&quot;, { zipcode: &#39;20000&#39; }, function(err, rows) {
 
  });</code></pre>
-<p>Example: select connections using primary key and other filter columns: all likes for the last day</p>
-<pre><code> db.select(&quot;bk_connection&quot;, { id: &#39;123&#39;, type: &#39;like&#39;, mtime: Date.now()-86400000 }, { ops: { type: &quot;begins_with&quot;, mtime: &quot;gt&quot; } }, function(err, rows) {
+<p>Example: select accounts by type for the last day</p>
+<pre><code> db.select(&quot;bk_user&quot;, { type: &#39;admin&#39;, mtime: Date.now()-86400000 }, { ops: { type: &quot;contains&quot;, mtime: &quot;gt&quot; } }, function(err, rows) {
 
  });</code></pre>
 </li>
@@ -4784,7 +4502,7 @@ string then it is used as a name of the column instead of default mtime name</li
 <p>On return the <code>obj</code> will contain all new columns generated before adding the record</p>
 <p>Note: SQL, DynamoDB, MongoDB, Redis drivers are fully atomic but other drivers may be subject to race conditions</p>
 <p>Example</p>
-<pre><code>db.add(&quot;bk_user&quot;, { id: &#39;123&#39;, name: &#39;test&#39;, gender: &#39;m&#39; }, function(err, rows, info) {
+<pre><code>db.add(&quot;bk_user&quot;, { id: &#39;123&#39;, login: &#39;admin&#39;, name: &#39;test&#39; }, function(err, rows, info) {
 });</code></pre>
 </li>
 </ul>
@@ -4814,7 +4532,7 @@ if does not exist yet.* To disable upsert pass <code>noupsert</code> in the opti
 </li>
 <li><p>options - same properties as for <code>db.add</code> method</p>
 <p>Example</p>
-<pre><code>db.put(&quot;bk_user&quot;, { id: &#39;123&#39;, name: &#39;test&#39;, gender: &#39;m&#39; }, function(err, rows, info) {
+<pre><code>db.put(&quot;bk_user&quot;, { id: &#39;123&#39;, login: &#39;test&#39;, name: &#39;test&#39; }, function(err, rows, info) {
 });</code></pre>
 </li>
 </ul>
@@ -4851,19 +4569,19 @@ if does not exist yet.* To disable upsert pass <code>noupsert</code> in the opti
 <p>Note: not all database drivers support atomic update with conditions, all drivers for SQL, DynamoDB, MongoDB, Redis fully atomic, but other drivers
 perform get before put and so subject to race conditions</p>
 <p>Example</p>
-<pre><code>   db.update(&quot;bk_user&quot;, { id: &#39;123&#39;, gender: &#39;m&#39; }, function(err, rows, info) {
+<pre><code>   db.update(&quot;bk_user&quot;, { login: &#39;test&#39;, id: &#39;123&#39; }, function(err, rows, info) {
        console.log(&#39;updated:&#39;, info.affected_rows);
    });
 
-   db.update(&quot;bk_user&quot;, { id: &#39;123&#39;, gender: &#39;m&#39;, prefix: &#39;Mr&#39; }, { pool: pgsql&#39; }, function(err, rows, info) {
+   db.update(&quot;bk_user&quot;, { login: &#39;test&#39;, id: &#39;123&#39;, first_name: &#39;Mr&#39; }, { pool: pgsql&#39; }, function(err, rows, info) {
        console.log(&#39;updated:&#39;, info.affected_rows);
    });
 
-   db.update(&quot;bk_user&quot;, { id: &#39;123&#39;, gender: &#39;m&#39;, prefix: &#39;Mr&#39; }, { expected: { gender: &quot;f&quot; } }, function(err, rows, info) {
+   db.update(&quot;bk_user&quot;, { login: &#39;test&#39;, first_name: &#39;John&#39; }, { expected: { first_name: &quot;Carl&quot; } }, function(err, rows, info) {
        console.log(&#39;updated:&#39;, info.affected_rows);
    });
 
-   db.update(&quot;bk_user&quot;, { id: &#39;123&#39;, gender: &#39;m&#39;, prefix: &#39;Mr&#39; }, { expected: { &quot;$or&quot;: { gender: &quot;f&quot;, g1: null }, aliases: { g1: &quot;gender&quot; } }, function(err, rows, info) {
+   db.update(&quot;bk_user&quot;, { login: &#39;test&#39;, first_name: &#39;John&#39; }, { expected: { &quot;$or&quot;: { first_name: &quot;Carl&quot;, g1: null }, aliases: { g1: &quot;first_name&quot; } }, function(err, rows, info) {
        console.log(&#39;updated:&#39;, info.affected_rows);
    });</code></pre>
 </li>
@@ -4915,7 +4633,7 @@ Special properties that can be in the options for this call:</p>
 </li>
 <li><p>options - same properties as for <code>db.update</code> method</p>
 <p>Example</p>
-<pre><code>db.del(&quot;bk_user&quot;, { id: &#39;123&#39; }, function(err, rows, info) {
+<pre><code>db.del(&quot;bk_user&quot;, { login: &#39;123&#39; }, function(err, rows, info) {
     console.log(&#39;updated:&#39;, info.affected_rows);
 });</code></pre>
 </li>
@@ -4943,28 +4661,6 @@ as <code>options.delProcess(row, options)</code>. If it returns non-empty value 
 </ul>
 <p>If no <code>options.select</code> is specified only the primary keys will be returned or collected</p>
 <p>If <code>db-skip-drop</code> matches the table name and there is no query provided it will exit with error</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.replace(table, obj, options, callback)</code></p>
-<p> Add/update the object, check existence by the primary key. This is not equivalent of REPLACE INTO, it does <code>db.get</code>
-to check if the object exists in the database and performs <code>db.add</code> or <code>db.update</code> depending on the existence.</p>
-</li>
-</ul>
-<ul>
-<li><p>obj is a JavaScript object with properties that correspond to the table columns</p>
-</li>
-<li><p>options define additional flags that may</p>
-<ul>
-<li>check_mtime - defines a column name to be used for checking modification time and skip if not modified, must be a date value</li>
-<li>check_data - verify every value in the given object with actual value in the database and skip update if the record is the same,
-if it is an array then check only specified columns</li>
-</ul>
-<p>Example: updates record 123 only if gender is not &#39;m&#39; or adds new record</p>
-<pre><code>   db.replace(&quot;bk_user&quot;, { id: &#39;123&#39;, gender: &#39;m&#39; }, { check_data: true });</code></pre>
-<p>Example: updates record 123 only if mtime of the record is less or equal yesterday</p>
-<pre><code>   db.replace(&quot;bk_user&quot;, { id: &#39;123&#39;, mtime: Date.now() - 86400000 }, { check_mtime: &#39;mtime&#39; });</code></pre>
 </li>
 </ul>
 
@@ -5148,7 +4844,7 @@ contain the following properties:</p>
 <li><code>maxlength</code> - limit the max column value, the value will be truncated before saving into the DB</li>
 <li><code>pub</code> - columns is public, <em>this is very important property because it allows anybody to see it when used in the default API functions, i.e. anybody with valid
  credentials can retrieve all public columns from all other tables, and if one of the other tables is account table this may expose some personal infoamtion,
- so by default only a few columns are marked as public in the bk_user table</em></li>
+ so by default only a few columns are marked as public in the <code>bk_user</code> table</em></li>
 <li><code>secure</code> - an opposite for the pub property, if defined this property should never be returned to the client by the API handlers</li>
 <li><code>admin</code> - if defined this property can only be updated an admin account</li>
 <li><code>admins</code> - if defined this property can be visible by the owner and an admin if result is returned by <code>api.sendJSON</code></li>
@@ -5158,8 +4854,8 @@ contain the following properties:</p>
 <li><code>writeonly</code> - only incr/update can change this value, add/put will ignore it</li>
 <li><code>noresult</code> - delete this property from the result, mostly for joined artificial columns which used for indexes only</li>
 <li><code>random</code> - add a random number between 0 and this value, useful with type: &quot;now&quot;</li>
-<li>`lower&#39; - make string value lowercase</li>
-<li>`upper&#39; - make string value uppercase</li>
+<li><code>lower</code> - make string value lowercase</li>
+<li><code>upper</code> - make string value uppercase</li>
 <li><code>strip</code> - if a regexp perform replace on the column value before saving</li>
 <li><code>trim</code> - strim string value of whitespace</li>
 <li><code>cap</code> - capitalize into a title with lib.toTitle</li>
@@ -5175,7 +4871,7 @@ contain the following properties:</p>
 <li><code>autoincr</code> - for counter tables, mark the column to be auto-incremented by the connection API if the connection type has the same name as the column name</li>
 <li><code>join</code> - a list with property names that must be joined together before performing a db operation, it will use the given record to produce new property,
   this will work both ways, to the db and when reading a record from the db it will split joined property and assign individual
-  properties the value from the joined value. See <code>joinColumns</code> for more options.</li>
+  properties the value from the joined value. See <code>db.joinColumns</code> for more options.</li>
 <li><code>unjoin</code> - split the join column into respective columns on retrieval</li>
 <li><code>keepjoined</code> - keep the joined column value, if not specified the joined column is deleted after unjoined</li>
 <li><code>notempty</code> - do not allow empty columns, if not provided it is filled with the default value</li>
@@ -5239,6 +4935,16 @@ then <code>info.affected_rows</code> must be non zero.</p>
 <ul>
 <li><p><code>db.drop(table, options, callback)</code></p>
 <p> Drop a table</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.sql(text, values, options, callback)</code></p>
+<p> Execute arbitrary SQL-like statement if the pool supports it, values must be an Array with query parameters or can be omitted.</p>
+<p>Example:</p>
+<pre><code> db.sql(&quot;SELECT * FROM bk_property WHERE value=? LIMIT 1&quot;, [1], { pool: &quot;sqlite&quot;, count: 10 }, lib.log)
+ db.sql(&quot;SELECT * FROM bk_property&quot;, { pool: &quot;dynamodb&quot; }, lib.log)
+ db.sql(&quot;SELECT * FROM bk_property&quot;, { pool: &quot;dynamodb&quot;, count: 10 }, lib.log)</code></pre>
 </li>
 </ul>
 
@@ -5771,9 +5477,11 @@ on startup, the backend read all existing table columns from the database and ca
 like public columns are only specific to the backend so to mark such columns the table with such properties must be described
 using this method. Only columns with changed properties need to be specified, other columns will be left as it is.</p>
 <p>Example</p>
-<pre><code>    db.describeTables({ bk_user: { name: { pub: 1 } },
-                        test: { id: { primary: 1, type: &quot;int&quot; },
-                                name: { pub: 1, index: 1 } });</code></pre>
+<pre><code>    db.describeTables({
+        bk_user: { name: { pub: 1 },
+                   test: { id: { primary: 1, type: &quot;int&quot; },
+                   name: { pub: 1, index: 1 }
+    }});</code></pre>
 </li>
 </ul>
 
@@ -5973,7 +5681,7 @@ Additional options:</p>
 <ul>
 <li><p>prefix - prefix to be used for the key instead of table name</p>
 <p>Example:</p>
-<p>   db.getCached(&quot;get&quot;, &quot;bk_user&quot;, { id: req.query.id }, { select: &quot;latitude,longitude&quot; }, function(err, row) {</p>
+<p>   db.getCached(&quot;get&quot;, &quot;bk_user&quot;, { login: req.query.login }, { select: &quot;latitude,longitude&quot; }, function(err, row) {</p>
 <pre><code>   var distance = lib.geoDistance(req.query.latitude, req.query.longitude, row.latitude, row.longitudde);</code></pre>
 <p>   });</p>
 </li>
@@ -6356,6 +6064,14 @@ queue cleanup or dealing with stuck messages</p>
 </ul>
 
 <ul>
+<li><p><code>Ipc.prototype.drop(msg, options, callback)</code></p>
+<p> Queue specific message deletion from the queue in case of abnormal shutdown or job running too long in order not to re-run it after the restart, this
+is for queues which require manual message deletion ofter execution(SQS). Each queue client must maintain the mapping or other means to identify messages,
+the options is the message passed to the listener</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>Ipc.prototype.limiter(options, callback)</code></p>
 <p> Check for rate limit using the default or specific queue, by default TokenBucket using local LRU cache is
 used unless a queue client provides its own implementation.</p>
@@ -6481,6 +6197,12 @@ configured number of times per second</p>
 <li><p><code>IpcClient.prototype.monitor()</code></p>
 <p> Queue monitor or cleanup service, when poller is involved this will be started and can be used for cleaning up stale messages or other
 maintainence work the requires.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>IpcClient.prototype.drop(options, callback)</code></p>
+<p> Drop a job in case of abnormal shutdown or exceeded run time</p>
 </li>
 </ul>
 
@@ -6623,7 +6345,9 @@ stoppable tasks must check it from time to time to terminate gracefully</p>
 
 <ul>
 <li><p><code>jobs.checkTimes()</code></p>
-<p> Check how long we run a job and force kill if exceeded, check if total life time is exceeded</p>
+<p> Check how long we run a job and force kill if exceeded, check if total life time is exceeded.</p>
+<p>If exit is required the <code>shundownWorker</code> methods will receive options with <code>shutdownReason</code> property
+set and the name-sake property will contained the value exceeded.</p>
 </li>
 </ul>
 
@@ -6636,6 +6360,12 @@ must be in the following formats:</p>
   { job: { &quot;module.method&quot;: {}, .... } }
   { job: [ &quot;module.method&quot;, { &quot;module.method&quot;: {} ... } ...] }</code></pre>
 <p>any task in string format &quot;module.method&quot; will be converted into { &quot;module.method: {} } automatically</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>jobs.checkOptions(jobspec, options)</code></p>
+<p> Apply special job properties from the options</p>
 </li>
 </ul>
 
@@ -6658,7 +6388,7 @@ finished, non unique jobs will be kept in the queue and repeated later according
 <p><code>jobspec.noWaitTimeout</code> number of seconds before deleting the job for one-off jobs but taking into account the uniqueKey and visibility timeout giving time
 to check for uniqueness and exit, can be used regardless of the noWait flag</p>
 <p><code>jobspec.noVisibility</code> will always delete messages after processing, ignore 600 errors as well</p>
-<p><code>jobspec.visibilityTimeout</code> custom tieout for how long to keep this job invisible, overrides default timeout</p>
+<p><code>jobspec.visibilityTimeout</code> custom timeout for how long to keep this job invisible, overrides the default timeout</p>
 <p><code>jobspec.stopOnError</code> will stop tasks processing on first error, otherwise all errors will be just logged. Errors with status &gt;= 600 will
 stop the job regardless of this flag</p>
 <p><code>jobspec.startTime</code> and/or <code>jobspec.endTime</code> will define the time period during whihc this job is allowed to run, if
@@ -7290,7 +7020,13 @@ in this case invalid date returned as null. If <code>dflt</code> is NaN, null or
 
 <ul>
 <li><p><code>lib.toValue(val, type, options)</code></p>
-<p> Convert value to the proper type</p>
+<p> Convert value to the proper type, default is to return a string or convert the value to a string if no type is specified</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>RegExp.prototype.toJSON()</code></p>
+<p> Serialize regexp with a custom format, `lib.toRegxp`` will be able to use it</p>
 </li>
 </ul>
 
@@ -7901,15 +7637,17 @@ called via setImmediate function to allow the main loop to process I/O.</p>
 
 <ul>
 <li><p><code>lib.isMatched(obj, condition)</code></p>
-<p> All properties in the object <code>obj</code> must match all properties in the object <code>condition</code>,
-each value in <code>condition</code> is treated as RegExp,
-if the value is equal to &#39;null&#39; which means an empty or non-existed value,
-if the value begins with ! it means no match is expected, the leading ! will be stripped.</p>
+<p> All properties in the object <code>obj</code> must match all properties in the object <code>condition</code></p>
+</li>
+</ul>
+<ul>
+<li><p>&#39;null&#39; which means an empty or non-existed value,</p>
+</li>
+<li><p>if the value begins with ! it means no match is expected, the leading ! will be stripped.</p>
 <p>if <code>condition</code> is an array then returns true if any matched</p>
-<p>empty condition returns true</p>
 <p>Example:</p>
-<pre><code>  lib.isMatched({id:1,name:2,notifications0:1,type:&quot;user,admin&quot;}, {notifications0:0})
-  lib.isMatched({id:1,name:2,notifications0:1,type:&quot;user,admin&quot;}, {notifications0:1,type:&quot;!admin&quot;})</code></pre>
+<pre><code> lib.isMatched({id:1,name:2,notifications0:1,type:&quot;user,admin&quot;}, {notifications0:0})
+ lib.isMatched({id:1,name:2,notifications0:1,type:&quot;user,admin&quot;}, {notifications0:1,type:&quot;!admin&quot;})</code></pre>
 </li>
 </ul>
 
@@ -8503,6 +8241,7 @@ connection to APN gateway.</p>
 <p>The options may contain the following properties:</p>
 <ul>
 <li>msg - message text</li>
+<li>title - alert title</li>
 <li>badge - badge number</li>
 <li>sound - 1, true or a sound file to play</li>
 <li>category - a user notification category</li>
@@ -8545,6 +8284,25 @@ connection to APN gateway.</p>
 <ul>
 <li><p><code>client.retryOnError()</code></p>
 <p> Retry on server error, honor Retry-After header if present, use it only on the first error</p>
+</li>
+</ul>
+
+<h2 id="module-msgc_webpush">Module: MSGC_WEBPUSH</h2>
+<ul>
+<li><p><code>client.send(dev, options, callback)</code></p>
+<p> Send a Web push notification using the <code>web-push</code> npm module, referer to it for details how to generate VAPID credentials to
+configure this module with 3 required parameters:</p>
+<ul>
+<li><code>msg-webpush-key</code> - VAPID private key</li>
+<li><code>msg-webpush-pubkey</code> - VAPID public key</li>
+<li><code>msg-webpush-options-email</code> - an admin email for the VAPID subject</li>
+</ul>
+<p>The device token must be generated in the browser after successful subscription:</p>
+<pre><code>    navigator.serviceWorker.register(&quot;/js/webpush.js&quot;, { scope: &quot;/&quot; }).then(function(registration) {
+        registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: vapidKeyPublic }).then(function(subscription) {
+            bkjs.send({ url: &#39;/uc/account/update&#39;, data: { device_id: &quot;wp://&quot; + window.btoa(JSON.stringify(subscription)) }, type: &quot;POST&quot; });
+        }).catch((err) =&gt; {})
+    });</code></pre>
 </li>
 </ul>
 
@@ -8699,94 +8457,6 @@ it runs <code>shutdown[Role]</code> methods before exiting</p>
 </ul>
 
 <h2 id="module-shell">Module: SHELL</h2>
-<h2 id="module-bk_user">Module: bk_user</h2>
-<ul>
-<li><p><code>Database tables</code></p>
-<pre><code>      // Basic account information
-      bk_user: {
-          id: { primary: 1, pub: 1 },
-          login: {},
-          status: { type: &quot;text&quot; },
-          type: { type: &quot;list&quot;, list: 1, lower: 1, admin: 1 },   // permission roles only
-          flags: { type: &quot;list&quot;, list: 1 },                      // other tags/flags
-          name: { pub: 1, notempty: 1 },
-          first_name: {},
-          last_name: {},
-          email: { type: &quot;email&quot; },
-          phone: { type: &quot;phone&quot; },
-          website: {},
-          company: {},
-          gender: {},
-          street: {},
-          city: {},
-          county: {},
-          state: {},
-          zipcode: {},
-          country: {},
-          device_id: { secure: 1 },                 // Device(s) for notifications the format is: [service://]token[@appname]
-          ctime: { type: &quot;now&quot;, readonly: 1 },      // Create time
-          mtime: { type: &quot;now&quot; },                   // Last update time
-      },</code></pre>
-</li>
-</ul>
-
-<ul>
-<li><p><code>mod.configureWeb(options, callback)</code></p>
-<p> Create API endpoints and routes</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>mod.configureAccountsAPI()</code></p>
-<p> Account management</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>mod.getAccount(req, options, callback)</code></p>
-<p> Returns current account, used in /account/get API call, req.account will be filled with the properties from the db</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>mod.notifyAccount(options, callback)</code></p>
-<p> Send Push notification to the account. The delivery is not guaranteed, if the message was queued for delivery, no errors will be returned.</p>
-<p>The options may contain the following:</p>
-<ul>
-<li>account - the account record where to send the notification</li>
-<li>account_id - the id of the account where to send, the record will be retrieved</li>
-<li>device_id - the device to send the message directly</li>
-<li>msg - message text to send</li>
-</ul>
-<p>In addition the device_id can be saved in the format service://id where the service is one of the supported delivery services, this way the notification
-system will pick the right delivery service depending on the device id, the default service is apple.</p>
-<p>Example:</p>
-<pre><code> bk_user.notifyAccount({ account_id: &quot;123&quot;, msg: &quot;test&quot;, badge: 1, sound: 1 } })</code></pre>
-</li>
-</ul>
-
-<ul>
-<li><p><code>mod.addAccount(req, options, callback)</code></p>
-<p> Register new account, may be used an API call, but the req does not have to be an Express request, it just
-need to have query and options objects.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>mod.updateAccount(req, options, callback)</code></p>
-<p> Update existing account, used in /account/update API call</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>mod.deleteAccount(req, callback)</code></p>
-<p> Delete account specified by the obj. Used in <code>/account/del</code> API call.
-The options may contain <code>keep</code> array with tables to be kept, for example
-delete an account but keep all messages and location: keep:[&quot;bk_message&quot;,&quot;bk_location&quot;]</p>
-<p>This methods is suitable for background jobs</p>
-</li>
-</ul>
-
 <h2 id="module-bk_data">Module: BK_DATA</h2>
 <ul>
 <li><p><code>mod</code></p>
@@ -8803,64 +8473,6 @@ delete an account but keep all messages and location: keep:[&quot;bk_message&quo
 <ul>
 <li><p><code>mod.configureDataAPI()</code></p>
 <p> API for full access to all tables</p>
-</li>
-</ul>
-
-<h2 id="module-bk_icon">Module: BK_ICON</h2>
-<ul>
-<li><p><code>Database tables</code></p>
-<pre><code>      bk_icon: {
-          id: { primary: 1 },                         // account id
-          type: {                                     // prefix:type
-              primary: 1,
-              pub: 1,
-              join: [ &quot;prefix&quot;, &quot;type&quot; ],
-              unjoin: 1,
-              separator: &quot;:&quot;,
-              ops: { select: &quot;begins_with&quot; }
-          },
-          prefix: {},                                 // icon prefix/namespace
-          descr: { pub: 1 },                          // user provided caption
-          tags: { type: &quot;list&quot; },                     // detected or attached tags
-          width: { type: &quot;int&quot; },
-          height: { type: &quot;int&quot; },
-          rotation: { type: &quot;int&quot; },                  // rotation angle
-          ext: {},                                    // saved image extension
-          latitude: { type: &quot;real&quot; },
-          longitude: { type: &quot;real&quot; },
-          mtime: { type: &quot;now&quot; },
-      },</code></pre>
-</li>
-</ul>
-
-<ul>
-<li><p><code>mod.configureWeb(options, callback)</code></p>
-<p> Create API endpoints and routes</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>mod.configureIconsAPI()</code></p>
-<p> Generic icon management</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>mod.upload(req, options, callback)</code></p>
-<p> Process icon upload request, update table and deal with the actual image data, always overwrite the icon file</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>mod.select(query, options, callback)</code></p>
-<p> Return list of icons for the account, used in /icon/get API call</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>mod.del(query, callback)</code></p>
-<p> Delete an icon, only one icon at a time, options must profile id, prefix. It will try to delete
-an icon file even if there is no record in the bk_icon table.</p>
 </li>
 </ul>
 
@@ -8904,7 +8516,7 @@ A subcommand may return special string to indicate how to treat the flow:</p>
 <ul>
 <li><p><code>shell.getArgs(options)</code></p>
 <p> Returns an object with all command line params starting with dash set with the value if the next param does not start with dash or 1.
-By sefault all args are zatored as is with dahses, if <code>options.camel`` is true then all args will be stored in camel form, if </code>options.underscor`e is true then all args will be stored with dashes convertyed into underscores.</p>
+By sefault all args are satored as is with dahses, if <code>options.camel`` is true then all args will be stored in camel form, if </code>options.underscore is true then all args will be stored with dashes converted into underscores.</p>
 </li>
 </ul>
 
@@ -8958,43 +8570,25 @@ By sefault all args are zatored as is with dahses, if <code>options.camel`` is t
 </ul>
 
 <ul>
-<li><p><code>shell.cmdAccountGet(options)</code></p>
+<li><p><code>shell.cmdAuthGet(options)</code></p>
 <p> Show account records by id or login</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>shell.cmdAccountAdd(options)</code></p>
-<p> Add a user</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.cmdAccountDel(options)</code></p>
-<p> Delete a user and all its history according to the options</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.cmdLoginGet(options)</code></p>
-<p> Show account records by id or login</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.cmdLoginAdd(options)</code></p>
+<li><p><code>shell.cmdAuthAdd(options)</code></p>
 <p> Add a user login</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>shell.cmdLoginUpdate(options)</code></p>
+<li><p><code>shell.cmdAuthUpdate(options)</code></p>
 <p> Update a user login</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>shell.cmdLoginDel(options)</code></p>
+<li><p><code>shell.cmdAuthDel(options)</code></p>
 <p> Delete a user login</p>
 </li>
 </ul>
@@ -9212,7 +8806,7 @@ one time delays.</li>
 </ul>
 <p>Example</p>
 <pre><code>    function(next) {
-        db.get(&quot;bk_user&quot;, { id: &quot;123&quot; }, function(err, row) {
+        db.get(&quot;bk_user&quot;, { login: &quot;123&quot; }, function(err, row) {
             tests.assert(next, err || !row || row.id != &quot;123&quot;, &quot;Record not found&quot;, row)
         });
     }</code></pre>
@@ -9251,7 +8845,7 @@ use the same names as command line arguments without preceeding <code>test-</cod
    var tests = bkjs.core.modules.tests;
 
    tests.test_mytest = function(next) {
-      bkjs.db.get(&quot;bk_user&quot;, { id: &quot;123&quot; }, function(err, row) {
+      bkjs.db.get(&quot;bk_user&quot;, { login: &quot;123&quot; }, function(err, row) {
           tests.assert(next, err || !row || row.id != &quot;123&quot;, &quot;Record not found&quot;, row)
       });
    }
@@ -9298,6 +8892,65 @@ use the same names as command line arguments without preceeding <code>test-</cod
 <ul>
 <li><p><code>system.configureSystemAPI()</code></p>
 <p> API for internal provisioning and configuration</p>
+</li>
+</ul>
+
+<h2 id="module-bk_user">Module: BK_USER</h2>
+<ul>
+<li><p><code>mod.configureWeb(options, callback)</code></p>
+<p> Create API endpoints and routes</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>mod.configureAccountsAPI()</code></p>
+<p> Account management</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>mod.getAccount(req, options, callback)</code></p>
+<p> Returns current account, used in /account/get API call, req.account will be filled with the properties from the db</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>mod.notifyAccount(options, callback)</code></p>
+<p> Send Push notification to the account. The delivery is not guaranteed, if the message was queued for delivery, no errors will be returned.</p>
+<p>The options may contain the following:</p>
+<ul>
+<li>account - the whole account record where to send the notification</li>
+<li>account_id - the id of the account where to send, the record will be retrieved</li>
+<li>account_login - the login of the account where to send, the record will be retrieved</li>
+<li>device_id - the device to send the message directly</li>
+<li>msg - message text to send</li>
+</ul>
+<p>In addition the device_id can be saved in the format service://id where the service is one of the supported delivery services, this way the notification
+system will pick the right delivery service depending on the device id, the default service is apple.</p>
+<p>Example:</p>
+<pre><code> bk_user.notifyAccount({ account_id: &quot;123&quot;, msg: &quot;test&quot;, badge: 1, sound: 1 } })</code></pre>
+</li>
+</ul>
+
+<ul>
+<li><p><code>mod.addAccount(req, options, callback)</code></p>
+<p> Register new account, may be used an API call, but the req does not have to be an Express request, it just
+need to have query and options objects.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>mod.updateAccount(req, options, callback)</code></p>
+<p> Update existing account, used in /account/update API call</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>mod.deleteAccount(req, callback)</code></p>
+<p> Delete account specified by the obj. Used in <code>/account/del</code> API call.
+The options may contain <code>keep</code> array with tables to be kept, for example
+delete an account but keep all messages and location: keep:[&quot;bk_user&quot;,&quot;bk_location&quot;]</p>
+<p>This methods is suitable for background jobs</p>
 </li>
 </ul>
 

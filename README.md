@@ -29,7 +29,7 @@ Features:
 * Supports async jobs processing using several work queue implementations on top of SQS, Redis, DB, RabbitMQ, Hazelcast.
 * ImageMagick as a separate C++ module for in-process image scaling, see bkjs-wand on NPM.
 * REPL (command line) interface for debugging and looking into server internals.
-* Supports push notifications for mobile devices, APN and GCM/FCM.
+* Supports push notifications via Webpush, APN and FCM.
 * Supports HTTP(S) reverse proxy mode where multiple Web workers are load-balanced by the proxy
   server running in the master process instead of relying on the OS scheduling between processes listening on the same port.
 * Can be used with any MVC, MVVC or other types of frameworks that work on top of, or with, the Express server.
@@ -133,7 +133,7 @@ or simply
 
 ## To run an example
 
-* The library is packages with copies of Bootstrap, jQuery, Knockout.js for quick Web development
+* The library is packaged with copies of Bootstrap, jQuery, Knockout.js for quick Web development
 in web/js and web/css directories, all scripts are available from the browser with /js or /css paths. To use all at once as a bundle
 run the following command:
 
@@ -494,7 +494,8 @@ Example:
    };
 
    api.app.all("/endpoint/test1", function(req, res) {
-      var query = lib.toParams(req.query, params.test1);
+      const query = lib.toParams(req.query, params.test1);
+      if (typeof query == "string") return api.sendReply(res, 400, query);
       ...
    });
 ```
@@ -680,9 +681,15 @@ parameters, to pass options to the sentinel driver prefix them with `sentinel-`:
 # PUB/SUB or Queue configurations
 
 ## Redis
-To configure the backend to use Redis for PUB/SUB messaging set `ipc-queue=redis://HOST` and `ipc-cache=redis://HOST` where HOST is IP address or hostname of the single Redis server.
-This will use native PUB/SUB Redis feature. Redis requires both queue and cache defined because in subscribe mode Redis connection does not allow to send any messages so
+To configure the backend to use Redis for PUB/SUB messaging and support the system bus configure both queue and cache because in subscribe mode Redis connection does not allow to send any messages,
 publishing will be done using the cache connection in the `ipc.broadcast`.
+
+For example to define the system bus:
+
+    ipc-queue-system=redis://
+    ipc-cache-system=redis://
+    ipc-system-queue=system
+
 
 ## Redis Queue
 To configure the backend to use Redis for job processing set `ipc-queue=redisq://HOST` where HOST is IP address or hostname of the single Redis server.
@@ -691,33 +698,31 @@ This driver implements reliable Redis queue, with `visibilityTimeout` config opt
 Once configured, then all calls to `jobs.submitJob` will push jobs to be executed to the Redis queue, starting somewhere a backend master
 process with `-jobs-workers 2` will launch 2 worker processes which will start pulling jobs from the queue and execute.
 
+The naming convention is that any function defined as `function(options, callback)` can be used as a job to be executed in one of the worker processes.
+
 An example of how to perform jobs in the API routes:
 
 ```javascript
-   app.processAccounts = function(options, callback) {
-       db.select("bk_user", { type: options.type || "user" }, function(err, rows) {
+
+    core.describeArgs('app', [
+        { name: "queue", descr: "Queue for jobs" },
+    ]);
+    app.queue = "somequeue";
+
+    app.processAccounts = function(options, callback) {
+        db.select("bk_user", { type: options.type || "user" }, (err, rows) => {
           ...
           callback();
-       });
-   }
+        });
+    }
 
-   api.all("/process/accounts", function(req, res) {
-       jobs.submitJob({ job: { "app.processAccounts": { type: req.query.type } } }, function(err) {
-          api.sendReply(res, err);
-       });
-   });
+    api.all("/process/accounts", function(req, res) {
+        jobs.submitJob({ job: { "app.processAccounts": { type: req.query.type } } }, { queueName: app.queue }, (err) => {
+            api.sendReply(res, err);
+        });
+    });
 
 ```
-
-## RabbitMQ
-To configure the backend to use RabbitMQ for messaging set `ipc-queue=amqp://HOST` and optionally `amqp-options=JSON` with options to the amqp module.
-Additional objects from the config JSON are used for specific AMQP functions: { queueParams: {}, subscribeParams: {}, publishParams: {} }. These
-will be passed to the corresponding AMQP methods: `amqp.queue, amqp.queue.sibcribe, amqp.publish`. See AMQP Node.js module for more info.
-
-## DB
-This is a simple queue implementation using the atomic UPDATE, it polls for new jobs in the table and updates the status, only who succeeds
-with the update takes the job and executes it. It is not effective but can be used for simple and not busy systems for more or less long jobs.
-The advantage is that it uses the same database and does not require additional servers.
 
 ## SQS
 To use AWS SQS for job processing set `ipc-queue=https://sqs.amazonaws.com....`, this queue system will poll SQS for new messages on a worker
@@ -769,9 +774,9 @@ html pages to work after login without singing every API request.
 
 ```javascript
    app.configureMiddleware = function(options, callback) {
-      this.allow.splice(this.allow.indexOf('^/$'), 1);
-      this.allow.splice(this.allow.indexOf('\\.html$'), 1);
-      callback();
+       this.allow.splice(this.allow.indexOf('^/$'), 1);
+       this.allow.splice(this.allow.indexOf('\\.html$'), 1);
+       callback();
    }
 ```
 
@@ -780,33 +785,77 @@ will never end up in this callback because it is called after the signature chec
 
 ```javascript
    api.registerPreProcess('', /^\/$|\.html$/, function(req, status, callback) {
-      if (status.status != 200) {
-          status.status = 302;
-          status.url = '/public/index.html';
-      }
-      callback(status);
+       if (status.status != 200) {
+           status.status = 302;
+           status.url = '/public/index.html';
+       }
+       callback(status);
    });
 ```
 
 # WebSockets connections
 
 The simplest way is to configure `ws-port` to the same value as the HTTP port. This will run WebSockets server along the regular Web server.
-All requests must be properly signed with all parameters encoded as for GET requests.
 
-Example:
+In the browser the connection config is stored in the `bkjs.wsconf` and by default it connects to the local server on port 8000.
 
-        wscat --connect ws://localhost:8000
-        connected (press CTRL+C to quit)
-        > /account/get
-        < {
-            "status": 400,
-            "message": "Invalid request: no host provided"
-          }
-        >
+There are two ways to send messages via Websockets to the server from a browser:
+
+- as urls, eg. ```bkjs.wsSend('/project/update?id=1&name=Test2')```
+
+  In this case the url will be parsed and checked for access and authorization before letting it pass via Express routes. This method allows to
+  share the same route handlers between HTTP and Websockets requests, the handlers will use the same code and all responses will be sent back,
+  only in the Websockets case the response will arrived in the message listener (see an example below)
+
+```javascript
+        bkjs.wsConnect({ path: "/project/ws?id=1" });
+
+        $(bkjs).on("bkjs.ws.message", (msg) => {
+            switch (msg.op) {
+            case "/project/update":
+                for (const p in msg.project) app.project[p] = msg.project[p];
+                break;
+
+            case "/message/new":
+                bkjs.showAlert("info", `New message: ${msg.msg}`);
+                break;
+            }
+        });
+````
+
+- as JSON objects, eg. ```bkjs.wsSend({ op: "/project/update", project: { id: 1, name: "Test2" } })```
+
+    In this case the server still have to check for access so it treats all JSON messages as coming from the path which was used during the connect,
+    i.e. the one stored in the `bkjs.wsconf.path`. The Express route handler for this path will receive all messages from Websocket clients, the response will be
+    received in the event listener the same way as for the first use case.
+
+        // Notify all clients who is using the project being updated
+        api.app.all("/project/ws", (req, res) => {
+            switch (req.query.op) {
+            case "/project/update":
+                ....
+                api.wsNotify({ query: { id: req.query.project.id }, { op: "/project/update", project: req.query.project });
+                break;
+            }
+            res.send("");
+        });
+
+
+In any case all Websocket messages sent from the server will arrive in the event handler and must be formatted properly in order to distinguish what is what, this is
+the application logic. If the server needs to send a message to all or some specific clients for example due to some updates in the DB, it must use the
+`api.wsNotify` function.
+
+        // Received a new message for a user from external API service, notify all websocket clients by account id
+        api.app.post("/api/message", (req, res) => {
+            ....
+            ... processing logic
+            ....
+            api.wsNotify({ account_id: req.query.uid }, { op: "/message/new", msg: req.query.msg });
+        });
 
 # Versioning
 
-There is no ready to use support for different versions of API at the same because there is no just one solution that satisfies all applications. But there are
+There is no ready to use support for different versions of API because there is no just one solution that satisfies all applications. But there are
 tools ready to use that will allow to implement such versioning system in the backend. Some examples are provided below:
 
 - Fixed versions
@@ -818,27 +867,27 @@ tools ready to use that will allow to implement such versioning system in the ba
   appending version to the command it is very simple to call only changed API code.
 
 ```javascript
-          api.all(/\/domain\/(get|put|del)/, function(req, res) {
-              var options = api.getOptions(req);
-              var cmd = req.params[0];
-              if (options.apiVersion) cmd += "/" + options.apiVersion;
-              switch (cmd) {
-              case "get":
-                  break;
+    api.all(/\/domain\/(get|put|del)/, function(req, res) {
+        var options = api.getOptions(req);
+        var cmd = req.params[0];
+        if (options.apiVersion) cmd += "/" + options.apiVersion;
+        switch (cmd) {
+        case "get":
+            break;
 
-              case "get/2015-01-01":
-                  break;
+        case "get/2015-01-01":
+            break;
 
-              case "put":
-                  break;
+        case "put":
+            break;
 
-              case "put/2015-02-01":
-                  break;
+        case "put/2015-02-01":
+            break;
 
-              case "del"
-                  break;
-              }
-          });
+        case "del"
+            break;
+        }
+    });
 ```
 
 - Application semver support
@@ -849,21 +898,21 @@ tools ready to use that will allow to implement such versioning system in the ba
   In the middlware, the code can look like this:
 
 ```javascript
-        var options = api.getOptions(req);
-        var version = lib.toVersion(options.appVersion);
-        switch (req.params[0]) {
-        case "get":
-            if (version < lib.toVersion("1.2.5")) {
-                res.json({ id: 1, name: "name", description: "descr" });
-                break;
-            }
-            if (version < lib.toVersion("1.1")) {
-                res.json([id, name]);
-                break;
-            }
-            res.json({ id: 1, name: "name", descr: "descr" });
+    var options = api.getOptions(req);
+    var version = lib.toVersion(options.appVersion);
+    switch (req.params[0]) {
+    case "get":
+        if (version < lib.toVersion("1.2.5")) {
+            res.json({ id: 1, name: "name", description: "descr" });
             break;
         }
+        if (version < lib.toVersion("1.1")) {
+            res.json([id, name]);
+            break;
+        }
+        res.json({ id: 1, name: "name", descr: "descr" });
+        break;
+    }
 ```
 
 The actual implementation can be modularized, split into functions, controllers.... there are no restrictions how to build the working backend code,
@@ -963,11 +1012,6 @@ To make an API appliance by using the backendjs on the AWS instance as user ec2-
 
 NOTE: if running behind a Load balancer and actual IP address is needed set Express option in the command line `-api-express-options {"trust%20proxy":1}`. In the config file
 replacing spaces with %20 is not required.
-
-## AWS Beanstalk deployment
-
-As with any Node.js module, the backendjs app can be packaged into zip file according to AWS docs and deployed the same way as any other Node.js app.
-Inside the app package etc/config file can be setup for any external connections.
 
 ## AWS Provisioning examples
 
@@ -1260,30 +1304,16 @@ The accounts API manages accounts and authentication, it provides basic user acc
 
 - `/account/get`
 
-  Returns information about current account or other accounts, all account columns are returned for the current account and only public columns
-  returned for other accounts. This ensures that no private fields ever be exposed to other API clients. This call also can used to login into the service or
-  verifying if the given login and secret are valid, there is no special login API call because each call must be signed and all calls are stateless and independent.
-
-  Parameters:
-
-    - no id is given, return only one current account record as JSON
-    - id=id,id,... - return information about given account(s), the id parameter can be a single account id or list of ids separated by comma
-    - _session=1 - after successful login setup a session with cookies so the Web app can perform requests without signing every request anymore
-    - _accesstoken=1 - after successful login, return new access token that ca be used to make requests without signing every request, it can be
-      passed in the query or headers with the name `bk-access-token`
-
-  Note: When retrieving current account, all properties will be present including the location, for other accounts only the properties marked as `pub` in the
-  `bk_user` table will be returned.
+  Returns information about the current account, all account columns are returned except the secret and other table columns with the property `secure`
 
   Response:
 
-          { "id": "57d07a4e28fc4f33bdca9f6c8e04d6c3",
+            { "id": "57d07a4e28fc4f33bdca9f6c8e04d6c3",
             "name": "Test User",
             "mtime": 1391824028,
             "login": "testuser",
             "type": ["user"],
-          }
-
+            }
 
   How to make an account as admin
 
@@ -1308,8 +1338,7 @@ The accounts API manages accounts and authentication, it provides basic user acc
 
 ### Health enquiry
 When running with AWS load balancer there should be a url that a load balancer polls all the time and this must be very quick and lightweight request. For this
-purpose there is an API endpoint `/ping` that just responds with status 200. It is not open by default, the `allow-path` or other way to allow non-authenticated access
-needs to be configured. This is to be able to control how pinging can be perform in the apps in case it is not simple open access.
+purpose there is an API endpoint `/ping` that just responds with status 200. It is open by default in the default `api-allow-path` config parameter.
 
 ## Public Images endpoint
 This endpoint can server any icon uploaded to the server for any account, it is supposed to be a non-secure method, i.e. no authentication will be performed and no signature
@@ -1376,7 +1405,7 @@ This is implemented by the `data` module from the core.
 The system API returns information about the backend statistics, allows provisioning and configuration commands and other internal maintenance functions. By
 default is is open for access to all users but same security considerations apply here as for the Data API.
 
-This is implemented by the `system` module from the core. To enable this functionality specify `-allow-modules=accounts`.
+This is implemented by the `system` module from the core. To enable this functionality specify `-allow-modules=bk_system`.
 
 - `/system/restart`
     Perform restart of the Web processes, this will be done gracefully, only one Web worker process will be restarting while the other processes will keep
