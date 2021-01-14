@@ -452,28 +452,28 @@ hooks are registered and return data itself then it is the hook responsibility t
 To define tables inside a module just provide a `tables` property in the module object, it will be picked up by database initialization automatically.
 
 ```javascript
-const mod = {
-    name: "billing",
-    tables: {
-       invoices: {
-          id: { type: "int", primary: 1 },
-          name: {},
-          price: { type: "real" },
-          mtime: { type: "now" }
-       }
+    const mod = {
+        name: "billing",
+        tables: {
+            invoices: {
+                id: { type: "int", primary: 1 },
+                name: {},
+                price: { type: "real" },
+                mtime: { type: "now" }
+            }
+        }
     }
-}
-module.exports = mod;
+    module.exports = mod;
 
-// Run db setup once all the DB pools are configured, for example produce dynamic icon property
-// for each record retrieved
-mod.configureModule = function(options, callback)
-{
-    db.setProcessRows("post", "invoices", function(req, row, opts) {
-       if (row.id) row.icon = "/images/" + row.id + ".png";
-    });
-    callback();
-}
+    // Run db setup once all the DB pools are configured, for example produce dynamic icon property
+    // for each record retrieved
+    mod.configureModule = function(options, callback)
+    {
+        db.setProcessRows("post", "invoices", function(req, row, opts) {
+         if (row.id) row.icon = "/images/" + row.id + ".png";
+     });
+        callback();
+    }
 ```
 
 # API requests handling
@@ -808,19 +808,23 @@ There are two ways to send messages via Websockets to the server from a browser:
   only in the Websockets case the response will arrived in the message listener (see an example below)
 
 ```javascript
-        bkjs.wsConnect({ path: "/project/ws?id=1" });
+    bkjs.wsConnect({ path: "/project/ws?id=1" });
 
-        $(bkjs).on("bkjs.ws.message", (msg) => {
-            switch (msg.op) {
-            case "/project/update":
-                for (const p in msg.project) app.project[p] = msg.project[p];
-                break;
+    $(bkjs).on("bkjs.ws.message", (msg) => {
+        switch (msg.op) {
+        case "/account/update":
+            bkjs.wsSend("/account/ws/account", "");
+            break;
 
-            case "/message/new":
-                bkjs.showAlert("info", `New message: ${msg.msg}`);
-                break;
-            }
-        });
+        case "/project/update":
+            for (const p in msg.project) app.project[p] = msg.project[p];
+            break;
+
+        case "/message/new":
+            bkjs.showAlert("info", `New message: ${msg.msg}`);
+            break;
+        }
+    });
 ````
 
 - as JSON objects, eg. ```bkjs.wsSend({ op: "/project/update", project: { id: 1, name: "Test2" } })```
@@ -829,29 +833,32 @@ There are two ways to send messages via Websockets to the server from a browser:
     i.e. the one stored in the `bkjs.wsconf.path`. The Express route handler for this path will receive all messages from Websocket clients, the response will be
     received in the event listener the same way as for the first use case.
 
-        // Notify all clients who is using the project being updated
-        api.app.all("/project/ws", (req, res) => {
-            switch (req.query.op) {
-            case "/project/update":
-                ....
-                api.wsNotify({ query: { id: req.query.project.id }, { op: "/project/update", project: req.query.project });
-                break;
-            }
-            res.send("");
-        });
-
+```javascript
+    // Notify all clients who is using the project being updated
+    api.app.all("/project/ws", (req, res) => {
+        switch (req.query.op) {
+        case "/project/update":
+            ....
+           api.wsNotify({ query: { id: req.query.project.id }, { op: "/project/update", project: req.query.project });
+           break;
+       }
+       res.send("");
+   });
+````
 
 In any case all Websocket messages sent from the server will arrive in the event handler and must be formatted properly in order to distinguish what is what, this is
 the application logic. If the server needs to send a message to all or some specific clients for example due to some updates in the DB, it must use the
 `api.wsNotify` function.
 
-        // Received a new message for a user from external API service, notify all websocket clients by account id
-        api.app.post("/api/message", (req, res) => {
-            ....
-            ... processing logic
-            ....
-            api.wsNotify({ account_id: req.query.uid }, { op: "/message/new", msg: req.query.msg });
-        });
+```javascript
+    // Received a new message for a user from external API service, notify all websocket clients by account id
+    api.app.post("/api/message", (req, res) => {
+        ....
+        ... processing logic
+        ....
+        api.wsNotify({ account_id: req.query.uid }, { op: "/message/new", msg: req.query.msg });
+    });
+```
 
 # Versioning
 
@@ -939,41 +946,43 @@ Most common used commands are:
 - bkjs watch - run the backend or the app for development purposes, uses local app.js if exists otherwise runs generic server
 - bkjs shell - start REPL shell with the backend module loaded and available for use, all submodules are available in the shell as well like core, db, api
 - bkjs sync [-path path] [-host host] [-user user] - sync sources of the app with the remote site, this is for development version of the backend only
-- bkjs init-server [-home path] [-user user] [-host name] [-domain name] - initialize Linux instance(Amazon) for backend use, optional -home can be specified where the backend
-  home will be instead of ~/.bkjs, optional -user tells to use existing user instead of the current user and not root.
+- bkjs init-server [-home path] [-user user] [-host name] [-domain name] - initialize Linux instance(Amazon) for backend use,
+  optional -home can be specified where the backend home will be instead of ~/.bkjs,   optional -user tells to use
+  existing user instead of the current user and not root.
 
-   **This command will create `/etc/sysconfig/bkjs` file with BKJS_HOME set to the home of the
-   backendjs app which was passed in the command line. This makes the bkjs or bksh run globally regardless of the current directory.**
+  **This command will create `/etc/sysconfig/bkjs` file with BKJS_HOME set to the home of the
+  backendjs app which was passed in the command line. This makes the bkjs or bksh run globally regardless of the current directory.**
+
 
 # Web development notes
 
 The server supports simple web bundling using uglify-es utility. To enable it just add to the local config a list of directories to be
 watched for changes. For example adding these lines to the local config will enable the watcher and bundle support
 
-     watch-web=web/js,web/css,$HOME/src/js,$HOME/src/css
-     watch-ignore=.bundle.(js|css)$
-     build-web=bkjs web-bundle -dev
+        watch-web=web/js,web/css,$HOME/src/js,$HOME/src/css
+        watch-ignore=.bundle.(js|css)$
+        build-web=bkjs web-bundle -dev
 
-Now instead of incding a bunch of .js or css files in the html pages it only needs /js/bkjs.bundle.js and /css/bkjs.bundle.css. The configuration is in the
+        Now instead of incding a bunch of .js or css files in the html pages it only needs /js/bkjs.bundle.js and /css/bkjs.bundle.css. The configuration is in the
 package.json file.
 
 The simple script below allows to build the bundle and refresh Chrome tab automatically, saves several clicks:
 
-     #!/bin/bash
-     bkjs web-bundle -dev -file $2
-     [ "$?" != "0" ] && exit
-     osascript -e "tell application \"Google Chrome\" to reload (tabs of window 1 whose URL contains \"$1\")"
-     #osascript -e 'tell application "Google Chrome" to tell the active tab of its first window to reload'
+        #!/bin/bash
+        bkjs web-bundle -dev -file $2
+        [ "$?" != "0" ] && exit
+        osascript -e "tell application \"Google Chrome\" to reload (tabs of window 1 whose URL contains \"$1\")"
+        #osascript -e 'tell application "Google Chrome" to tell the active tab of its first window to reload'
 
 
 To use it call this script instead in the config.local:
 
-     build-web=web-bundle.sh /website
+        build-web=web-bundle.sh /website
 
 NOTE: Because the rebuild happens while the watcher is running there are cases like the server is restarting or pulling a large update from the
 repository when the bundle build may not be called or called too early. To force rebuild run the command:
 
-     bkjs web-bundle -dev -all -force
+        bkjs web-bundle -dev -all -force
 
 # Deployment use cases
 
@@ -1021,11 +1030,11 @@ Note: on OS X laptop the `-aws-sdk-profile uc` when AWS credentials are in the ~
 
 On the running machine which will be used for an image:
 
-    bksh -aws-create-image -no-reboot
+        bksh -aws-create-image -no-reboot
 
 Use an instance by tag for an image:
 
-    bksh -aws-create-image -no-reboot -instance-id `bkjs ec2-show -tag api -fmt id | head -1`
+        bksh -aws-create-image -no-reboot -instance-id `bkjs ec2-show -tag api -fmt id | head -1`
 
 ### Launch instances when not using AutoScaling Groups
 
@@ -1121,30 +1130,29 @@ how the environment is setup it is ultimately 2 ways to specify the port for HTT
 
     * to install binary release run the command, it will install it into /opt/local on Darwin
 
-             bkjs install-node
-
-             # To install into different path
-             bkjs install-node -prefix /usr/local/node
+        bkjs install-node
+        # To install into different path
+        bkjs install-node -prefix /usr/local/node
 
     * **Important**: Add NODE_PATH=$BKJS_PREFIX/lib/node_modules to your environment in .profile or .bash_profile so
       node can find global modules, replace $BKJS_PREFIX with the actual path unless this variable is also set in the .profile
 
 * to install all dependencies and make backendjs module and bkjs globally available:
 
-            npm link backendjs
+       npm link backendjs
 
 * to run local server on port 8000 run command:
 
-            bkjs web
+        bkjs web
 
 * to start the backend in command line mode, the backend environment is prepared and initialized including all database pools.
    This command line access allows you to test and run all functions from all modules of the backend without running full server
    similar to Node.js REPL functionality. All modules are accessible from the command line.
 
-            $ ./bkjs shell
-            > core.version
-            '0.70.0'
-            > logger.setLevel('info')
+        $ ./bkjs shell
+        > core.version
+        '0.70.0'
+        > logger.setLevel('info')
 
 # Design considerations
 
@@ -1264,11 +1272,10 @@ There is also native iOS implementation [Bkjs.m](https://raw.githubusercontent.c
 
       Example:
 
-              /auth?_accesstoken=1
-              > { id: "XXXX...", name: "Test User", "bk-access-token": "XXXXX....", "bk-access-token-age": 604800000 }
-
-              /account/get?bk-access-token=XXXXXX...
-              > { id: "XXXX...", name: "Test User", ... }
+        /auth?_accesstoken=1
+        > { id: "XXXX...", name: "Test User", "bk-access-token": "XXXXX....", "bk-access-token-age": 604800000 }
+        /account/get?bk-access-token=XXXXXX...
+        > { id: "XXXX...", name: "Test User", ... }
 
 - `/login`
 
@@ -1289,11 +1296,13 @@ There is also native iOS implementation [Bkjs.m](https://raw.githubusercontent.c
 
    Example:
 
-              $.ajax({ url: "/login?login=test123&secret=test123&_session=1",
-                       success: function(json, status, xhr) { console.log(json) }
-              });
+```javascript
+    $.ajax({ url: "/login?login=test123&secret=test123&_session=1",
+        success: function(json, status, xhr) { console.log(json) }
+    });
 
-              > { id: "XXXX...", name: "Test User", login: "test123", ...}
+    > { id: "XXXX...", name: "Test User", login: "test123", ...}
+```
 
 - `/logout`
 

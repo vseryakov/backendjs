@@ -39,8 +39,9 @@ var bkjs = {
     // Websockets
     wsconf: {
         host: null,
-        port: 8000,
+        port: 0,
         path: "/",
+        query: null,
         retry: 0,
         retry_max: 100,
         retry_timeout: 250,
@@ -300,7 +301,12 @@ bkjs.getFileInput = function(file)
 bkjs.wsConnect = function(options)
 {
     for (const p in options) this.wsconf[p] = options[p];
-    this.ws = new WebSocket("ws://" + (this.wsconf.host || window.location.hostname) + ":" + this.wsconf.port + this.wsconf.path);
+    var url = (this.wsconf.protocol || window.location.protocol.replace("http", "ws")) + "//" +
+              (this.wsconf.host || window.location.hostname) + ":" + (this.wsconf.port || window.location.port) +
+              this.wsconf.path +
+              (this.wsconf.query ? "?" + jQuery.param(this.wsconf.query) : "");
+
+    this.ws = new WebSocket(url);
     this.ws.onopen = function() {
         if (bkjs.wsconf.debug) bkjs.log("ws.open:", this.url);
         bkjs.wsconf.ctime = Date.now();
@@ -319,7 +325,7 @@ bkjs.wsConnect = function(options)
             setTimeout(bkjs.wsConnect.bind(bkjs), Math.min(bkjs.wsconf.max_timeout, bkjs.wsconf.timeout *= bkjs.wsconf.retry_multiplier));
         }
     }
-    bkjs.ws.onmessage = function(msg) {
+    this.ws.onmessage = function(msg) {
         var data = msg.data;
         if (typeof data == "string" && (data[0] == "{" || data[0] == "[")) data = JSON.parse(data);
         if (bkjs.wsconf.debug) bkjs.log('ws.message:', data);

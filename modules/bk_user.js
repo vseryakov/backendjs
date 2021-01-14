@@ -71,20 +71,32 @@ mod.configureAccountsAPI = function()
 
         switch (req.params[0]) {
         case "get":
-            mod.getAccount(req, options, function(err, data, info) {
+            mod.getAccount(req, options, (err, data, info) => {
                 api.sendJSON(req, err, data);
             });
             break;
 
         case "update":
-            mod.updateAccount(req, options, function(err, data) {
+            mod.updateAccount(req, options, (err, data) => {
+                if (!err) api.wsNotify({ account_id: req.account.id }, { op: req.path, account: data });
                 api.sendJSON(req, err, data);
             });
             break;
 
         case "del":
-            mod.deleteAccount(req, function(err, data) {
+            mod.deleteAccount(req, (err, data) => {
+                if (!err) api.wsNotify({ account_id: req.account.id }, { op: req.path, account: null });
                 api.sendJSON(req, err);
+            });
+            break;
+
+        case "ws":
+        case "ws/query":
+        case "ws/account":
+            core.runMethods("bkWebsocketRequest", { wsid: req.wsid, account: req.account, query: req.query, options: req.options }, () => {
+                var key = req.params[0].split("/").pop();
+                if (key) api.wsSet(key, req, req[key]);
+                res.send("");
             });
             break;
 
