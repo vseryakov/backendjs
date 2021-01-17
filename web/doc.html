@@ -36,7 +36,6 @@
 <li><a href="#deployment-use-cases"> Deployment use cases</a></li>
 <li><a href="#aws-instance-setup-with-node-and-backendjs"> AWS instance setup with node and backendjs</a></li>
 <li><a href="#aws-instance-as-an-appliance"> AWS instance as an appliance</a></li>
-<li><a href="#aws-beanstalk-deployment"> AWS Beanstalk deployment</a></li>
 <li><a href="#aws-provisioning-examples"> AWS Provisioning examples</a></li>
 <li><a href="#make-an-ami"> Make an AMI</a></li>
 <li><a href="#launch-instances-when-not-using-autoscaling-groups"> Launch instances when not using AutoScaling Groups</a></li>
@@ -148,7 +147,7 @@ in the clients for failover.</li>
 <li>Supports async jobs processing using several work queue implementations on top of SQS, Redis, DB, RabbitMQ, Hazelcast.</li>
 <li>ImageMagick as a separate C++ module for in-process image scaling, see bkjs-wand on NPM.</li>
 <li>REPL (command line) interface for debugging and looking into server internals.</li>
-<li>Supports push notifications for mobile devices, APN and GCM/FCM.</li>
+<li>Supports push notifications via Webpush, APN and FCM.</li>
 <li>Supports HTTP(S) reverse proxy mode where multiple Web workers are load-balanced by the proxy
 server running in the master process instead of relying on the OS scheduling between processes listening on the same port.</li>
 <li>Can be used with any MVC, MVVC or other types of frameworks that work on top of, or with, the Express server.</li>
@@ -234,7 +233,7 @@ parameter <code>-allow-modules PATTERN</code>, this will load all modules that m
 </ul>
 <h2 id="to-run-an-example">To run an example</h2>
 <ul>
-<li><p>The library is packages with copies of Bootstrap, jQuery, Knockout.js for quick Web development
+<li><p>The library is packaged with copies of Bootstrap, jQuery, Knockout.js for quick Web development
 in web/js and web/css directories, all scripts are available from the browser with /js or /css paths. To use all at once as a bundle
 run the following command:</p>
 <pre><code>  npm run devbuild</code></pre>
@@ -503,28 +502,28 @@ hooks are registered and return data itself then it is the hook responsibility t
        if (row.birthday) row.age = Math.floor((Date.now() - core.toDate(row.birthday))/(86400000*365));
     }</code></pre>
 <p>To define tables inside a module just provide a <code>tables</code> property in the module object, it will be picked up by database initialization automatically.</p>
-<pre><code class="language-javascript">const mod = {
-    name: &quot;billing&quot;,
-    tables: {
-       invoices: {
-          id: { type: &quot;int&quot;, primary: 1 },
-          name: {},
-          price: { type: &quot;real&quot; },
-          mtime: { type: &quot;now&quot; }
-       }
+<pre><code class="language-javascript">    const mod = {
+        name: &quot;billing&quot;,
+        tables: {
+            invoices: {
+                id: { type: &quot;int&quot;, primary: 1 },
+                name: {},
+                price: { type: &quot;real&quot; },
+                mtime: { type: &quot;now&quot; }
+            }
+        }
     }
-}
-module.exports = mod;
+    module.exports = mod;
 
-// Run db setup once all the DB pools are configured, for example produce dynamic icon property
-// for each record retrieved
-mod.configureModule = function(options, callback)
-{
-    db.setProcessRows(&quot;post&quot;, &quot;invoices&quot;, function(req, row, opts) {
-       if (row.id) row.icon = &quot;/images/&quot; + row.id + &quot;.png&quot;;
-    });
-    callback();
-}</code></pre>
+    // Run db setup once all the DB pools are configured, for example produce dynamic icon property
+    // for each record retrieved
+    mod.configureModule = function(options, callback)
+    {
+        db.setProcessRows(&quot;post&quot;, &quot;invoices&quot;, function(req, row, opts) {
+         if (row.id) row.icon = &quot;/images/&quot; + row.id + &quot;.png&quot;;
+     });
+        callback();
+    }</code></pre>
 <h1 id="api-requests-handling">API requests handling</h1>
 <p>All methods will put input parameters in the <code>req.query</code>, GET or POST.</p>
 <p>One way to verify input values is to use <code>lib.toParams</code>, only specified parameters will be returned and converted according to
@@ -538,7 +537,8 @@ the type or ignored.</p>
    };
 
    api.app.all(&quot;/endpoint/test1&quot;, function(req, res) {
-      var query = lib.toParams(req.query, params.test1);
+      const query = lib.toParams(req.query, params.test1);
+      if (typeof query == &quot;string&quot;) return api.sendReply(res, 400, query);
       ...
    });</code></pre>
 <h1 id="example-of-todo-application">Example of TODO application</h1>
@@ -793,40 +793,44 @@ share the same route handlers between HTTP and Websockets requests, the handlers
 only in the Websockets case the response will arrived in the message listener (see an example below)</p>
 </li>
 </ul>
-<pre><code class="language-javascript">        bkjs.wsConnect({ path: &quot;/project/ws?id=1&quot; });
+<pre><code class="language-javascript">    bkjs.wsConnect({ path: &quot;/project/ws?id=1&quot; });
 
-        $(bkjs).on(&quot;bkjs.ws.message&quot;, (msg) =&gt; {
-            switch (msg.op) {
-            case &quot;/project/update&quot;:
-                for (const p in msg.project) app.project[p] = msg.project[p];
-                break;
+    $(bkjs).on(&quot;bkjs.ws.message&quot;, (msg) =&gt; {
+        switch (msg.op) {
+        case &quot;/account/update&quot;:
+            bkjs.wsSend(&quot;/account/ws/account&quot;, &quot;&quot;);
+            break;
 
-            case &quot;/message/new&quot;:
-                bkjs.showAlert(&quot;info&quot;, `New message: ${msg.msg}`);
-                break;
-            }
-        });</code></pre>
+        case &quot;/project/update&quot;:
+            for (const p in msg.project) app.project[p] = msg.project[p];
+            break;
+
+        case &quot;/message/new&quot;:
+            bkjs.showAlert(&quot;info&quot;, `New message: ${msg.msg}`);
+            break;
+        }
+    });</code></pre>
 <ul>
 <li><p>as JSON objects, eg. <code>bkjs.wsSend({ op: &quot;/project/update&quot;, project: { id: 1, name: &quot;Test2&quot; } })</code></p>
 <p>  In this case the server still have to check for access so it treats all JSON messages as coming from the path which was used during the connect,
   i.e. the one stored in the <code>bkjs.wsconf.path</code>. The Express route handler for this path will receive all messages from Websocket clients, the response will be
   received in the event listener the same way as for the first use case.</p>
-<pre><code>  // Notify all clients who is using the project being updated
-  api.app.all(&quot;/project/ws&quot;, (req, res) =&gt; {
-      switch (req.query.op) {
-      case &quot;/project/update&quot;:
-          ....
-          api.wsNotify({ query: { id: req.query.project.id }, { op: &quot;/project/update&quot;, project: req.query.project });
-          break;
-      }
-      res.send(&quot;&quot;);
-  });</code></pre>
 </li>
 </ul>
+<pre><code class="language-javascript">    // Notify all clients who is using the project being updated
+    api.app.all(&quot;/project/ws&quot;, (req, res) =&gt; {
+        switch (req.query.op) {
+        case &quot;/project/update&quot;:
+            ....
+           api.wsNotify({ query: { id: req.query.project.id }, { op: &quot;/project/update&quot;, project: req.query.project });
+           break;
+       }
+       res.send(&quot;&quot;);
+   });</code></pre>
 <p>In any case all Websocket messages sent from the server will arrive in the event handler and must be formatted properly in order to distinguish what is what, this is
 the application logic. If the server needs to send a message to all or some specific clients for example due to some updates in the DB, it must use the
 <code>api.wsNotify</code> function.</p>
-<pre><code>    // Received a new message for a user from external API service, notify all websocket clients by account id
+<pre><code class="language-javascript">    // Received a new message for a user from external API service, notify all websocket clients by account id
     api.app.post(&quot;/api/message&quot;, (req, res) =&gt; {
         ....
         ... processing logic
@@ -910,31 +914,33 @@ customize the running environment, these should be regular shell scripts using b
 </li>
 <li><p>bkjs sync [-path path] [-host host] [-user user] - sync sources of the app with the remote site, this is for development version of the backend only</p>
 </li>
-<li><p>bkjs init-server [-home path] [-user user] [-host name] [-domain name] - initialize Linux instance(Amazon) for backend use, optional -home can be specified where the backend
-home will be instead of ~/.bkjs, optional -user tells to use existing user instead of the current user and not root.</p>
-<p> <strong>This command will create <code>/etc/sysconfig/bkjs</code> file with BKJS_HOME set to the home of the
- backendjs app which was passed in the command line. This makes the bkjs or bksh run globally regardless of the current directory.</strong></p>
+<li><p>bkjs init-server [-home path] [-user user] [-host name] [-domain name] - initialize Linux instance(Amazon) for backend use,
+optional -home can be specified where the backend home will be instead of ~/.bkjs,   optional -user tells to use
+existing user instead of the current user and not root.</p>
+<p><strong>This command will create <code>/etc/sysconfig/bkjs</code> file with BKJS_HOME set to the home of the
+backendjs app which was passed in the command line. This makes the bkjs or bksh run globally regardless of the current directory.</strong></p>
 </li>
 </ul>
 <h1 id="web-development-notes">Web development notes</h1>
 <p>The server supports simple web bundling using uglify-es utility. To enable it just add to the local config a list of directories to be
 watched for changes. For example adding these lines to the local config will enable the watcher and bundle support</p>
-<pre><code> watch-web=web/js,web/css,$HOME/src/js,$HOME/src/css
- watch-ignore=.bundle.(js|css)$
- build-web=bkjs web-bundle -dev</code></pre>
-<p>Now instead of incding a bunch of .js or css files in the html pages it only needs /js/bkjs.bundle.js and /css/bkjs.bundle.css. The configuration is in the
-package.json file.</p>
+<pre><code>    watch-web=web/js,web/css,$HOME/src/js,$HOME/src/css
+    watch-ignore=.bundle.(js|css)$
+    build-web=bkjs web-bundle -dev
+
+    Now instead of incding a bunch of .js or css files in the html pages it only needs /js/bkjs.bundle.js and /css/bkjs.bundle.css. The configuration is in the</code></pre>
+<p>package.json file.</p>
 <p>The simple script below allows to build the bundle and refresh Chrome tab automatically, saves several clicks:</p>
-<pre><code> #!/bin/bash
- bkjs web-bundle -dev -file $2
- [ &quot;$?&quot; != &quot;0&quot; ] &amp;&amp; exit
- osascript -e &quot;tell application \&quot;Google Chrome\&quot; to reload (tabs of window 1 whose URL contains \&quot;$1\&quot;)&quot;
- #osascript -e &#39;tell application &quot;Google Chrome&quot; to tell the active tab of its first window to reload&#39;</code></pre>
+<pre><code>    #!/bin/bash
+    bkjs web-bundle -dev -file $2
+    [ &quot;$?&quot; != &quot;0&quot; ] &amp;&amp; exit
+    osascript -e &quot;tell application \&quot;Google Chrome\&quot; to reload (tabs of window 1 whose URL contains \&quot;$1\&quot;)&quot;
+    #osascript -e &#39;tell application &quot;Google Chrome&quot; to tell the active tab of its first window to reload&#39;</code></pre>
 <p>To use it call this script instead in the config.local:</p>
-<pre><code> build-web=web-bundle.sh /website</code></pre>
+<pre><code>    build-web=web-bundle.sh /website</code></pre>
 <p>NOTE: Because the rebuild happens while the watcher is running there are cases like the server is restarting or pulling a large update from the
 repository when the bundle build may not be called or called too early. To force rebuild run the command:</p>
-<pre><code> bkjs web-bundle -dev -all -force</code></pre>
+<pre><code>    bkjs web-bundle -dev -all -force</code></pre>
 <h1 id="deployment-use-cases">Deployment use cases</h1>
 <h2 id="aws-instance-setup-with-node-and-backendjs">AWS instance setup with node and backendjs</h2>
 <p>Here is the example how to setup new custom AWS server, it is not required and completely optional but bkjs provides some helpful commands that may simplify
@@ -975,16 +981,13 @@ new image configuration.</p>
 </ul>
 <p>NOTE: if running behind a Load balancer and actual IP address is needed set Express option in the command line <code>-api-express-options {&quot;trust%20proxy&quot;:1}</code>. In the config file
 replacing spaces with %20 is not required.</p>
-<h2 id="aws-beanstalk-deployment">AWS Beanstalk deployment</h2>
-<p>As with any Node.js module, the backendjs app can be packaged into zip file according to AWS docs and deployed the same way as any other Node.js app.
-Inside the app package etc/config file can be setup for any external connections.</p>
 <h2 id="aws-provisioning-examples">AWS Provisioning examples</h2>
 <p>Note: on OS X laptop the <code>-aws-sdk-profile uc</code> when AWS credentials are in the ~/.aws/credentials.</p>
 <h3 id="make-an-ami">Make an AMI</h3>
 <p>On the running machine which will be used for an image:</p>
-<pre><code>bksh -aws-create-image -no-reboot</code></pre>
+<pre><code>    bksh -aws-create-image -no-reboot</code></pre>
 <p>Use an instance by tag for an image:</p>
-<pre><code>bksh -aws-create-image -no-reboot -instance-id `bkjs ec2-show -tag api -fmt id | head -1`</code></pre>
+<pre><code>    bksh -aws-create-image -no-reboot -instance-id `bkjs ec2-show -tag api -fmt id | head -1`</code></pre>
 <h3 id="launch-instances-when-not-using-autoscaling-groups">Launch instances when not using AutoScaling Groups</h3>
 <p>When launching from an EC2 instance no need to specify any AWS credentials.</p>
 <ul>
@@ -1059,10 +1062,9 @@ all config parameters support DNS store. To see which parameters can be stored i
 <li><p>if Node.js is already installed skip to the next section</p>
 <ul>
 <li><p>to install binary release run the command, it will install it into /opt/local on Darwin</p>
-<pre><code>   bkjs install-node
-
-   # To install into different path
-   bkjs install-node -prefix /usr/local/node</code></pre>
+<p>  bkjs install-node</p>
+<h1 id="to-install-into-different-path">To install into different path</h1>
+<p>  bkjs install-node -prefix /usr/local/node</p>
 </li>
 <li><p><strong>Important</strong>: Add NODE_PATH=$BKJS_PREFIX/lib/node_modules to your environment in .profile or .bash_profile so
 node can find global modules, replace $BKJS_PREFIX with the actual path unless this variable is also set in the .profile</p>
@@ -1070,18 +1072,18 @@ node can find global modules, replace $BKJS_PREFIX with the actual path unless t
 </ul>
 </li>
 <li><p>to install all dependencies and make backendjs module and bkjs globally available:</p>
-<pre><code>      npm link backendjs</code></pre>
+<pre><code> npm link backendjs</code></pre>
 </li>
 <li><p>to run local server on port 8000 run command:</p>
-<pre><code>      bkjs web</code></pre>
+<pre><code>  bkjs web</code></pre>
 </li>
 <li><p>to start the backend in command line mode, the backend environment is prepared and initialized including all database pools.
  This command line access allows you to test and run all functions from all modules of the backend without running full server
  similar to Node.js REPL functionality. All modules are accessible from the command line.</p>
-<pre><code>      $ ./bkjs shell
-      &gt; core.version
-      &#39;0.70.0&#39;
-      &gt; logger.setLevel(&#39;info&#39;)</code></pre>
+<pre><code>  $ ./bkjs shell
+  &gt; core.version
+  &#39;0.70.0&#39;
+  &gt; logger.setLevel(&#39;info&#39;)</code></pre>
 </li>
 </ul>
 <h1 id="design-considerations">Design considerations</h1>
@@ -1209,11 +1211,12 @@ this is the only way to ensure the body is not modified when not using query par
  the token is short lived with expiration date returned as well. This access token can be used instead of a signature and
  is passed in the query as <code>bk-access-token=TOKEN</code>.</p>
 <p> Example:</p>
-<pre><code>     /auth?_accesstoken=1
-     &gt; { id: &quot;XXXX...&quot;, name: &quot;Test User&quot;, &quot;bk-access-token&quot;: &quot;XXXXX....&quot;, &quot;bk-access-token-age&quot;: 604800000 }
-
-     /account/get?bk-access-token=XXXXXX...
-     &gt; { id: &quot;XXXX...&quot;, name: &quot;Test User&quot;, ... }</code></pre>
+<p>   /auth?_accesstoken=1</p>
+<blockquote>
+<p>{ id: &quot;XXXX...&quot;, name: &quot;Test User&quot;, &quot;bk-access-token&quot;: &quot;XXXXX....&quot;, &quot;bk-access-token-age&quot;: 604800000 }
+   /account/get?bk-access-token=XXXXXX...
+{ id: &quot;XXXX...&quot;, name: &quot;Test User&quot;, ... }</p>
+</blockquote>
 </li>
 </ul>
 </li>
@@ -1233,14 +1236,16 @@ this is the only way to ensure the body is not modified when not using query par
 <li><p><code>_accesstoken=1</code> - same as in /auth reuest</p>
 <p>On successful login, the result contains full account record including the secret, this is the only time when the secret is returned back</p>
 <p>Example:</p>
-<pre><code>   $.ajax({ url: &quot;/login?login=test123&amp;secret=test123&amp;_session=1&quot;,
-            success: function(json, status, xhr) { console.log(json) }
-   });
-
-   &gt; { id: &quot;XXXX...&quot;, name: &quot;Test User&quot;, login: &quot;test123&quot;, ...}</code></pre>
 </li>
 </ul>
 </li>
+</ul>
+<pre><code class="language-javascript">    $.ajax({ url: &quot;/login?login=test123&amp;secret=test123&amp;_session=1&quot;,
+        success: function(json, status, xhr) { console.log(json) }
+    });
+
+    &gt; { id: &quot;XXXX...&quot;, name: &quot;Test User&quot;, login: &quot;test123&quot;, ...}</code></pre>
+<ul>
 <li><p><code>/logout</code></p>
 <p> Logout the current user, clear session cookies if exist. For pure API access with the signature this will not do anything on the backend side.</p>
 </li>
@@ -1249,35 +1254,21 @@ this is the only way to ensure the body is not modified when not using query par
 <p>The accounts API manages accounts and authentication, it provides basic user account features with common fields like email, name, address.</p>
 <ul>
 <li><p><code>/account/get</code></p>
-<p>Returns information about current account or other accounts, all account columns are returned for the current account and only public columns
-returned for other accounts. This ensures that no private fields ever be exposed to other API clients. This call also can used to login into the service or
-verifying if the given login and secret are valid, there is no special login API call because each call must be signed and all calls are stateless and independent.</p>
-<p>Parameters:</p>
-<ul>
-<li>no id is given, return only one current account record as JSON</li>
-<li>id=id,id,... - return information about given account(s), the id parameter can be a single account id or list of ids separated by comma</li>
-<li>_session=1 - after successful login setup a session with cookies so the Web app can perform requests without signing every request anymore</li>
-<li>_accesstoken=1 - after successful login, return new access token that ca be used to make requests without signing every request, it can be
-passed in the query or headers with the name <code>bk-access-token</code></li>
-</ul>
-<p>Note: When retrieving current account, all properties will be present including the location, for other accounts only the properties marked as <code>pub</code> in the
-<code>bk_user</code> table will be returned.</p>
+<p>Returns information about the current account, all account columns are returned except the secret and other table columns with the property <code>secure</code></p>
 <p>Response:</p>
-<pre><code>    { &quot;id&quot;: &quot;57d07a4e28fc4f33bdca9f6c8e04d6c3&quot;,
+<pre><code>      { &quot;id&quot;: &quot;57d07a4e28fc4f33bdca9f6c8e04d6c3&quot;,
       &quot;name&quot;: &quot;Test User&quot;,
       &quot;mtime&quot;: 1391824028,
       &quot;login&quot;: &quot;testuser&quot;,
       &quot;type&quot;: [&quot;user&quot;],
-    }</code></pre>
-</li>
-</ul>
-<p>  How to make an account as admin</p>
-<pre><code>        # Run backend shell
-        bkjs shell
+      }</code></pre>
+<p>How to make an account as admin</p>
+<pre><code>      # Run backend shell
+      bkjs shell
 
-        # Update record by login
-        &gt; db.update(&quot;bk_user&quot;, { login: &#39;login@name&#39;, type: &#39;admin&#39; });</code></pre>
-<ul>
+      # Update record by login
+      &gt; db.update(&quot;bk_user&quot;, { login: &#39;login@name&#39;, type: &#39;admin&#39; });</code></pre>
+</li>
 <li><p><code>/account/del</code></p>
 <p>Delete current account, after this call no more requests will be authenticated with the current credentials</p>
 </li>
@@ -1352,7 +1343,7 @@ separate fields. To return raw data pass the parameter <code>_noprocessrows=1</c
 <h2 id="system-api">System API</h2>
 <p>The system API returns information about the backend statistics, allows provisioning and configuration commands and other internal maintenance functions. By
 default is is open for access to all users but same security considerations apply here as for the Data API.</p>
-<p>This is implemented by the <code>system</code> module from the core. To enable this functionality specify <code>-allow-modules=accounts</code>.</p>
+<p>This is implemented by the <code>system</code> module from the core. To enable this functionality specify <code>-allow-modules=bk_system</code>.</p>
 <ul>
 <li><p><code>/system/restart</code>
   Perform restart of the Web processes, this will be done gracefully, only one Web worker process will be restarting while the other processes will keep
@@ -1995,7 +1986,8 @@ subject to log throttling configuration.</p>
 </ul>
 <ul>
 <li>query - set query with a new object, this is used in the wsNotify broadcasts to match who can receive messages. Initially it is set to the
-query from the first connection.</li>
+ query from the first connection.</li>
+<li>account - update the current socket account object with new properties</li>
 </ul>
 
 <ul>
@@ -2021,6 +2013,9 @@ query from the first connection.</li>
 <li>account - an object to  be used for condition against Websocket&#39;s accounts, <code>lib.isMatched</code> is used for comparison</li>
 <li>wsid - send to the specific websocket(s), can be a list</li>
 <li>query - an object to be used for condition against Websocket&#39;s query, <code>lib.isMatched</code> is used for comparison</li>
+<li>preprocess - a function(ws, options, msg) to be called before sending in order to possibly modify the message for this
+ particular account, i.e. for permissions checks, if it needs to be modified return a copy otherwise the original will be used, returning
+ null will skip this socket</li>
 </ul>
 
 <h2 id="module-api_auth">Module: API_AUTH</h2>
@@ -5606,8 +5601,8 @@ For request specific custom columns pass <code>options.custom_columns</code> arr
 </ul>
 
 <ul>
-<li><p><code>db.filterRows(obj, rows, options)</code></p>
-<p> Given object with data and list of keys perform comparison in memory for all rows, return only rows that match all keys. This method is used
+<li><p><code>db.filterRows(query, rows, options)</code></p>
+<p> Given an object with data and list of keys perform comparison in memory for all rows, return only rows that match all keys. This method is used
 by custom filters in <code>db.select</code> by the drivers which cannot perform comparisons with non-indexes columns like DynamoDb, Cassandra.
 The rows that satisfy primary key conditions are returned and then called this function to eliminate the records that do not satisfy non-indexed column conditions.</p>
 <p>Options support the following propertis:</p>
@@ -7020,7 +7015,8 @@ in this case invalid date returned as null. If <code>dflt</code> is NaN, null or
 
 <ul>
 <li><p><code>lib.toValue(val, type, options)</code></p>
-<p> Convert value to the proper type, default is to return a string or convert the value to a string if no type is specified</p>
+<p> Convert a value to the proper type, default is to return a string or convert the value to a string if no type is specified,
+special case if the type is &quot;&quot; or null return the value as is without any conversion</p>
 </li>
 </ul>
 
@@ -7636,24 +7632,36 @@ called via setImmediate function to allow the main loop to process I/O.</p>
 </ul>
 
 <ul>
-<li><p><code>lib.isMatched(obj, condition)</code></p>
-<p> All properties in the object <code>obj</code> must match all properties in the object <code>condition</code></p>
+<li><p><code>lib.isMatched(obj, condition, options)</code></p>
+<p> All properties in the object <code>obj</code> must match all properties in the object <code>condition</code>, for comparison <code>lib.isTrue</code> is used for each property
+in the condition object.</p>
 </li>
 </ul>
 <ul>
-<li><p>&#39;null&#39; which means an empty or non-existed value,</p>
+<li><p>if a condition value is null it means an empty or non-existed value,</p>
 </li>
-<li><p>if the value begins with ! it means no match is expected, the leading ! will be stripped.</p>
-<p>if <code>condition</code> is an array then returns true if any matched</p>
+<li><p>if a condition property is a string/number or regexp then it must match or be equal</p>
+</li>
+<li><p>if a condition property is a list then the object value must be present in the list</p>
+</li>
+<li><p>if an object property is a list and the condition property is a string/number/list then it must be present in the list</p>
+</li>
+<li><p>a condition can be a RegExp to test patterns</p>
 <p>Example:</p>
-<pre><code> lib.isMatched({id:1,name:2,notifications0:1,type:&quot;user,admin&quot;}, {notifications0:0})
- lib.isMatched({id:1,name:2,notifications0:1,type:&quot;user,admin&quot;}, {notifications0:1,type:&quot;!admin&quot;})</code></pre>
+<pre><code> lib.isMatched({ id: 1, name: &quot;test&quot;, type: [&quot;user&quot;, &quot;admin&quot;] }, { name: /^j/ })
+ true
+ lib.isMatched({ id: 1, name: &quot;test&quot;, type: [&quot;user&quot;, &quot;admin&quot;] }, { type: &quot;admin&quot; }, { ops: { type: &quot;not_in&quot; } })
+ false
+ lib.isMatched({ id: 1, name: &quot;test&quot;, type: [&quot;user&quot;, &quot;admin&quot;] }, { type: [staff&quot;] })
+ false
+ lib.isMatched({ id: 1, name: &quot;test&quot;, type: [&quot;user&quot;, &quot;admin&quot;] }, { id: 1 }, { ops: { id: &quot;ge&quot; } })
+ true</code></pre>
 </li>
 </ul>
 
 <ul>
-<li><p><code>lib.isTrue(val1, val2, op, type)</code></p>
-<p> Evaluate expr, compare 2 values with optional type and operation</p>
+<li><p><code>lib.isTrue(val, cond, op, type)</code></p>
+<p> Evaluate an expr, compare 2 values with optional type and operation, compae a data value <code>val`` against a condtion </code>cond`.</p>
 </li>
 </ul>
 

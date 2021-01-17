@@ -102,6 +102,17 @@ bkjs.koUpdateObject = function(obj, options)
     return obj;
 }
 
+bkjs.koConvert = function(obj, name, val, dflt)
+{
+    if (!obj || typeof obj != "object") obj = {};
+    if (!ko.isObservable(obj[name])) {
+        obj[name] = Array.isArray(val || dflt) ? ko.observableArray(obj[name]) : ko.observable(obj[name]);
+    }
+    if (typeof val != "undefined") obj[name](val);
+    if (typeof dflt != "undefined" && !obj[name]()) obj[name](dflt);
+    return obj;
+}
+
 bkjs.koEvent = function(name, data)
 {
     var event = bkjs.toCamel(name);
