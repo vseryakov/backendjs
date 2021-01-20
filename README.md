@@ -732,6 +732,11 @@ and after successful execution will delete the message. For long running jobs it
 The local queue is implemented on the master process as a list, communication is done via local sockets between the master and workers.
 This is intended for a single server development purposes only.
 
+## RabbitMQ
+To configure the backend to use RabbitMQ for messaging set `ipc-queue=amqp://HOST` and optionally `amqp-options=JSON` with options to the amqp module.
+Additional objects from the config JSON are used for specific AMQP functions: { queueParams: {}, subscribeParams: {}, publishParams: {} }. These
+will be passed to the corresponding AMQP methods: `amqp.queue, amqp.queue.sibcribe, amqp.publish`. See AMQP Node.js module for more info.
+
 # Security configurations
 
 ## API only

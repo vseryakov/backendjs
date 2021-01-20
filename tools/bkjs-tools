@@ -229,6 +229,22 @@ case "$BKJS_CMD" in
     pkill mongod
     ;;
 
+  get-amqp)
+    [ "$RABBITMQ_PREFIX" = "" ] && RABBITMQ_PREFIX=$BKJS_PREFIX/rabbitmq
+    [ "$(get_arg -force)" != "" -a "$RABBITMQ_PREFIX" != "" ] && rm -rf $RABBITMQ_PREFIX
+    if [ ! -d $RABBITMQ_PREFIX ]; then
+        mkdir -p $RABBITMQ_PREFIX/var
+        curl -L -o mq.tar.xz https://github.com/rabbitmq/rabbitmq-server/releases/download/v3.8.10/rabbitmq-server-generic-unix-3.8.10.tar.xz
+        tar -C $RABBITMQ_PREFIX --strip-components=1 -xzf mq.tgz
+        rm -rf mq.tgz
+    fi
+    ;;
+
+run-amqp)
+    [ "$RABBITMQ_PREFIX" = "" ] && RABBITMQ_PREFIX=$BKJS_PREFIX/rabbitmq
+    $RABBITMQ_PREFIX/sbin/rabbitmq-server -detached >>$BKJS_HOME/log/message.log 2>&1
+    ;;
+
   help)
     echo ""
     echo "Servers and tools commands:"
@@ -258,6 +274,8 @@ case "$BKJS_CMD" in
     echo "  get-mongodb - download Mongo server and install in $BKJS_PREFIX/bin"
     echo "  run-mongodb - run local Mongo server installed in $BKJS_PREFIX/bin, db path is $BKJS_HOME/var"
     echo "  stop-mongodb - stop local Mongo server"
+    echo "  get-amqp [-force] - install local RabbitMQ server in $BKJS_PREFIX/rabbitmq"
+    echo "  run-amqp - run local RabbitMQ server installed in $BKJS_PREFIX/rabbitmq"
     ;;
 
   *)
