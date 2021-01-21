@@ -961,15 +961,27 @@ Most common used commands are:
 
 # Web development notes
 
-The server supports simple web bundling using uglify-es utility. To enable it just add to the local config a list of directories to be
+The server supports simple web bundling using uglify-es/uglifycss utilities. To use the bkjs bundle first install dependencies:
+
+        cd backendjs
+        bkjs deps -global -field devDependencies
+
+Then run the dev build script to produce web/js/bkjs.bundle.js and web/css/bkjs.bundle.css
+
+        npm run devbuild
+
+Now instead of including a bunch of .js or css files in the html pages it only needs /js/bkjs.bundle.js and /css/bkjs.bundle.css. The configuration is in the
+package.json file.
+
+The list of files to be used in bundles is in the package.json under `config.bundles`.
+
+To enable auto bundler in your project just add to the local config `~/.bkjs/etc/config.local` a list of directories to be
 watched for changes. For example adding these lines to the local config will enable the watcher and bundle support
 
         watch-web=web/js,web/css,$HOME/src/js,$HOME/src/css
         watch-ignore=.bundle.(js|css)$
         build-web=bkjs web-bundle -dev
 
-        Now instead of incding a bunch of .js or css files in the html pages it only needs /js/bkjs.bundle.js and /css/bkjs.bundle.css. The configuration is in the
-package.json file.
 
 The simple script below allows to build the bundle and refresh Chrome tab automatically, saves several clicks:
 
@@ -977,7 +989,6 @@ The simple script below allows to build the bundle and refresh Chrome tab automa
         bkjs web-bundle -dev -file $2
         [ "$?" != "0" ] && exit
         osascript -e "tell application \"Google Chrome\" to reload (tabs of window 1 whose URL contains \"$1\")"
-        #osascript -e 'tell application "Google Chrome" to tell the active tab of its first window to reload'
 
 
 To use it call this script instead in the config.local:
