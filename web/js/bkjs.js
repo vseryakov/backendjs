@@ -225,6 +225,7 @@ bkjs.send = function(options, onsuccess, onerror)
             $(bkjs).trigger("bkjs.alert", [options.info_msg ? "info" : "success", options.info_msg || options.success_msg]);
         }
         if (typeof onsuccess == "function") onsuccess.call(options.self || bkjs, json, xhr);
+        if (options.trigger) bkjs.trigger(options.trigger, { url: options.url, query: options.data, data: json });
     }
     // Parse error message
     options.error = function(xhr, statusText, errorText) {
@@ -236,6 +237,7 @@ bkjs.send = function(options, onsuccess, onerror)
             $(bkjs).trigger("bkjs.alert", ["error", (typeof options.alert == "string" && options.alert) || err || errorText || statusText]);
         }
         if (typeof onerror == "function") onerror.call(options.self || bkjs, err || errorText || statusText, xhr, statusText, errorText);
+        if (options.trigger) bkjs.trigger(options.trigger, { url: options.url, query: options.data, err: err });
     }
     if (!options.nosignature) {
         var hdrs = this.createSignature(options.type, options.url, options.data, { expires: options.expires, checksum: options.checksum });
@@ -338,9 +340,14 @@ bkjs.wsClose = function()
     if (this.ws) this.ws.close();
 }
 
+// Send a string data or an object in jQuery ajax format { url:.., data:.. }
 bkjs.wsSend = function(data)
 {
-    if (this.ws) this.ws.send(data);
+    if (!this.ws) return;
+    if (typeof data == "object" && data) {
+        data = (data.url || bkjs.wsconf.path) + (data.data ? "?" + $.param(data.data) : "");
+    }
+    this.ws.send(data);
 }
 
 bkjs.domainName = function(host)
