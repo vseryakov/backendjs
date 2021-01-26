@@ -1329,7 +1329,7 @@ The accounts API manages accounts and authentication, it provides basic user acc
 
 - `/account/get`
 
-  Returns information about the current account, all account columns are returned except the secret and other table columns with the property `secure`
+  Returns information about the current account, all account columns are returned except the secret and other table columns with the property `priv`
 
   Response:
 

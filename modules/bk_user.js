@@ -37,7 +37,7 @@ mod.configure = function(options, callback)
             state: {},
             zipcode: {},
             country: {},
-            device_id: { secure: 1 },                 // Device(s) for notifications the format is: [service://]token[@appname]
+            device_id: { priv: 1 },                 // Device(s) for notifications the format is: [service://]token[@appname]
         }
     };
     callback();
