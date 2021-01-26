@@ -264,13 +264,13 @@ shell.cmdAuthGet = function(options)
 // Add a user login
 shell.cmdAuthAdd = function(options)
 {
-    auth.add(this.getQuery(), lib.objExtend(this.getArgs(), { admin: 1 }), this.exit);
+    auth.add(this.getQuery(), lib.objExtend(this.getArgs(), { isInternal: 1 }), this.exit);
 }
 
 // Update a user login
 shell.cmdAuthUpdate = function(options)
 {
-    auth.update(this.getQuery(), lib.objExtend(this.getArgs(), { admin: 1 }), this.exit);
+    auth.update(this.getQuery(), lib.objExtend(this.getArgs(), { isInternal: 1 }), this.exit);
 }
 
 // Delete a user login

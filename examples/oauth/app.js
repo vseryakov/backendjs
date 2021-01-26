@@ -88,7 +88,7 @@ app.fetchAccount = function(query, options, callback)
 
         // We must be an admin to create full record, make a copy so we will not expose admin
         // privileges to other calls that may use the same options
-        options = lib.objMerge(options, "admin", 1);
+        options = lib.objMerge(options, "isInternal", 1);
         // Save new access tokens in the account record
         query[query._profile.provider + "_access_token"] = query._accessToken;
         query[query._profile.provider + "_refresh_token"] = query._refreshToken;

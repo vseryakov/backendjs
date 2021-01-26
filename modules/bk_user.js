@@ -68,6 +68,7 @@ mod.configureAccountsAPI = function()
     api.app.all(/^\/account\/([a-z/]+)$/, function(req, res, next) {
         var options = api.getOptions(req);
         options.cleanup = auth.table;
+        options.isInternal = 1;
 
         switch (req.params[0]) {
         case "get":
@@ -252,14 +253,14 @@ mod.configureShell = function(options, callback)
 mod.cmdUserAdd = function(options)
 {
     var query = this.getQuery();
-    var opts = lib.objExtend(this.getArgs(), { admin: 1 });
+    var opts = lib.objExtend(this.getArgs(), { isInternal: 1 });
     core.modules.bk_user.addAccount({ query: query, account: {}, options: opts }, opts, this.exit);
 }
 
 mod.cmdUserUpdate = function(options)
 {
     var query = this.getQuery();
-    var opts = lib.objExtend(this.getArgs(), { admin: 1 });
+    var opts = lib.objExtend(this.getArgs(), { isInternal: 1 });
     this.getUser(query, function(user) {
         core.modules.bk_user.updateAccount({ account: user, query: query, options: opts }, opts, this.exit);
     });
@@ -268,7 +269,7 @@ mod.cmdUserUpdate = function(options)
 mod.cmdUserDel = function(options)
 {
     var query = this.getQuery();
-    var opts = lib.objExtend(this.getArgs(), { admin: 1 });
+    var opts = lib.objExtend(this.getArgs(), { isInternal: 1 });
     this.getUser(query, function(user) {
         core.modules.bk_user.deleteAccount({ account: user, obj: query, options: opts }, this.exit);
     });
