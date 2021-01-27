@@ -190,14 +190,14 @@ find_user() {
 # run all tools scripts, otherwise stop once the command is processed
 process_cmd() {
   dirs="$BKJS_TOOLS $(get_arg -tools) $BKJS_HOME/tools $BKJS_DIR/tools"
-  [ ! -z "$(get_flag -debug)" ] && echo "process_cmd: $BKJS_CMD: $1 $dirs"
+  [ ! -z "$BKJS_DEBUG" ] && echo "process_cmd: $BKJS_CMD: $1 $dirs"
   for d in $dirs; do
      if [ -d $d ]; then
         for f in $(find $d -name 'bkjs-*'); do
             unset BKJS_UNKNOWN
             source $f
             if [ -z "$BKJS_UNKNOWN" ]; then
-                [ ! -z "$(get_flag -debug)" ] && echo "process_cmd: $BKJS_CMD: $1 $f: $BKJS_UNKNOWN"
+                [ ! -z "$BKJS_DEBUG" ] && echo "process_cmd: $BKJS_CMD: $1 $f: $BKJS_UNKNOWN"
                 [ -z "$1" ] && exit 0
             fi
         done
@@ -227,12 +227,14 @@ export BKJS_HOME=$(get_arg -home $BKJS_HOME)
 export BKJS_PREFIX=$(get_arg -prefix $BKJS_PREFIX)
 [ "$BKJS_PREFIX" = "" ] && export BKJS_PREFIX=$BKJS_HOME
 
+export BKJS_DEBUG=$(get_flag -debug)
+
 # Setup paths
 export PATH=$BKJS_HOME/bin:$BKJS_HOME/node_modules/.bin:$BKJS_PREFIX/bin:/usr/local/bin:/opt/local/bin:/opt/local/node/bin:/sbin:/usr/sbin:$PATH
 
 process_cmds() { process_cmd 1; }
 
-[ ! -z "$(get_flag -debug)" ] && echo "$0: CMD=$BKJS_CMD, USER=$BKJS_USER, HOME=$BKJS_HOME, PREFIX=$BKJS_PREFIX, PWD=$(pwd)"
+[ ! -z "BKJS_DEBUG" ] && echo "$0: CMD=$BKJS_CMD, USER=$BKJS_USER, HOME=$BKJS_HOME, PREFIX=$BKJS_PREFIX, PWD=$(pwd)"
 
 case "$BKJS_CMD" in
   start)
@@ -345,7 +347,7 @@ case "$BKJS_CMD" in
     [ -z "$SCRIPT" ] && SCRIPT=$BKJS_DIR/lib/app.js
     [ -z $SCRIPT ] && echo "ERROR: Cannot find $BKJS_MOD module or app.js in '.:$BKJS_HOME'" && exit 1
 
-    [ ! -z "$(get_flag -debug)" ] && echo "Starting $BKJS_CMD: $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME $BKJS_RUN_ARGS $@"
+    [ ! -z "$BKJS_DEBUG" ] && echo "Starting $BKJS_CMD: $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME $BKJS_RUN_ARGS $@"
 
     case "$BKJS_CMD" in
      run-none|none)
@@ -386,7 +388,7 @@ case "$BKJS_CMD" in
     [ "$user" != "" ] && sshargs="$sshargs -l $user"
     key=$(get_arg -key)
     [ "$key" != "" -a -f "~/.ssh/$key.pem" ] && sshargs="$sshargs -i $HOME/.ssh/$key.pem"
-    [ "$(get_flag -debug)" != "" ] && echo "ssh $sshargs $host $cmd"
+    [ "$BKJS_DEBUG" != "" ] && echo "ssh $sshargs $host $cmd"
     [ "$(get_flag -dry-run)" != "" ] && exit 0
     for h in $host; do
       ssh $sshargs $h $cmd
@@ -441,11 +443,11 @@ case "$BKJS_CMD" in
     [ ! -z "$(get_flag -update)" ] && cmd=update
     npm=$(get_arg -npm)
     [ ! -z "$(get_flag -global)" ] && npm="$npm -g"
-    field=$(get_arg -field dependencies)
+    field=$(get_arg -field dependencies,devDependencies)
     skip=$(get_arg -skip $BKJS_MOD)
     path=$(get_arg -path .)
     for p in $path; do
-        m=$($NODE_BIN -e "try{skip='$skip';console.log(Object.keys(JSON.parse(require('fs').readFileSync('$p/package.json')).$field).filter(function(x){return !x.match(skip)}).join(' '))}catch(e){}")
+        m=$($NODE_BIN -e "try{skip='$skip';p=require('$p/package.json');console.log('dependencies,devDependencies'.split(',').map(f=>(Object.keys(p[f]).filter(x=>(!x.match(skip))).join(' '))).join(' '))}catch(e){if('$BKJS_DEBUG')console.log(e)}")
         [ "$m" != "" ] && modules="$modules $m"
     done
     [[ -z $modules ]] && exit 0
