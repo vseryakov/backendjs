@@ -234,7 +234,7 @@ export PATH=$BKJS_HOME/bin:$BKJS_HOME/node_modules/.bin:$BKJS_PREFIX/bin:/usr/lo
 
 process_cmds() { process_cmd 1; }
 
-[ ! -z "BKJS_DEBUG" ] && echo "$0: CMD=$BKJS_CMD, USER=$BKJS_USER, HOME=$BKJS_HOME, PREFIX=$BKJS_PREFIX, PWD=$(pwd)"
+[ ! -z "$BKJS_DEBUG" ] && echo "$0: CMD=$BKJS_CMD, USER=$BKJS_USER, HOME=$BKJS_HOME, PREFIX=$BKJS_PREFIX, PWD=$(pwd)"
 
 case "$BKJS_CMD" in
   start)
