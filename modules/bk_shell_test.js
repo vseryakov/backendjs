@@ -11,14 +11,16 @@ const lib = bkjs.lib;
 const logger = bkjs.logger;
 const shell = bkjs.shell;
 
-shell.help.push("-test-run CMD [-test-file FILE] - run a test command in the shell, autoload ./tests/tests.js if exists, optinally can load other file with tests, all other test params will be used as well");
+shell.help.push("-test-run CMD [-test-file FILE] - run a test command in the shell, autoload ./tools/tests.js if exists, optinally can load other file with tests, all other test params will be used as well");
 
 // To be used in the tests, this function takes the following arguments:
 //
 // assert(next, err, ....)
-//  - next is a callback to be called after printing error condition if any, it takes err as its argument
+// assert(err, ...)
+//
+//  - next - can be a callback to be called after printing error condition if any, it takes err as its argument
 //  - err - an error object from the most recent operation, can be null/undefined or any value that results in Javascript "true" evaluation
-//    up to the caller, assertion happens if an err is given or this value is true
+//    up to the caller, assertion happens if an err is given or this value is not null or empty
 //  - all other arguments are printed in case of error or result being false
 //
 //  NOTES:
@@ -35,6 +37,7 @@ shell.help.push("-test-run CMD [-test-file FILE] - run a test command in the she
 //          }
 shell.assert = function(next, err)
 {
+    if (typeof next != "function") err = next, next = lib.noop;
     if (this.test.forever) return next();
 
     if (err) {
@@ -70,7 +73,7 @@ shell.assert = function(next, err)
 //
 // After finish or in case of error the process exits if no callback is given.
 //
-// Example, store it in tests/tests.js:
+// Example, store it in tools/tests.js:
 //
 //          var bkjs = require("backendjs");
 //          var tests = bkjs.core.modules.tests;
@@ -117,7 +120,7 @@ shell.cmdTestRun = function(options)
     tests.test.workers_delay = tests.getArgInt("-test-workers-delay", options, 500);
     tests.test.delay = tests.getArgInt("-test-delay", options, 0);
     tests.test.cmd = tests.getArg("-test-run", options);
-    tests.test.file = tests.getArg("-test-file", options, "tests/tests.js");
+    tests.test.file = tests.getArg("-test-file", options, "tools/tests.js");
     if (tests.test.file) this.loadFile(tests.test.file);
 
     var cmds = lib.strSplit(tests.test.cmd);

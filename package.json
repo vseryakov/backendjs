@@ -40,9 +40,9 @@
     "pg": ">=8.4.1"
   },
   "devDependencies": {
-    "html-minifier": ">=3.5.21",
-    "uglify-es": "^3.3.5",
-    "uglifycss": ">=0.0.29"
+    "html-minifier": "^4.0.0",
+    "uglify-es": "^3.3.9",
+    "uglifycss": "0.0.29"
   },
   "keywords": [
     "bkjs",
@@ -85,46 +85,47 @@
       ]
     },
     "bundles": {
-        "bkjs": {
-            "js": [
-                "web/js/jquery.js",
-                "web/js/popper.js",
-                "web/js/bootstrap.js",
-                "web/js/knockout.js",
-                "web/js/knockout-mapping.js",
-                "web/js/crypto.js",
-                "web/js/bootpopup.js",
-                "web/js/bkjs.js",
-                "web/js/bkjs-lib.js",
-                "web/js/bkjs-account.js",
-                "web/js/bkjs-ko.js",
-                "web/js/bkjs-bootstrap.js"
-            ],
-            "js.dev": [
-                "web/js/jquery.min.js",
-                "web/js/popper.min.js",
-                "web/js/bootstrap.min.js",
-                "web/js/knockout.min.js",
-                "web/js/knockout-mapping.min.js",
-                "web/js/crypto.js",
-                "web/js/bootpopup.js",
-                "web/js/bkjs.js",
-                "web/js/bkjs-lib.js",
-                "web/js/bkjs-account.js",
-                "web/js/bkjs-ko.js",
-                "web/js/bkjs-bootstrap.js"
-            ],
-            "css": [
-                "web/css/bootstrap.css",
-                "web/css/font-awesome.css"
-            ]
-        }
+      "bkjs": {
+        "js": [
+          "web/js/jquery.js",
+          "web/js/popper.js",
+          "web/js/bootstrap.js",
+          "web/js/knockout.js",
+          "web/js/knockout-mapping.js",
+          "web/js/crypto.js",
+          "web/js/bootpopup.js",
+          "web/js/bkjs.js",
+          "web/js/bkjs-lib.js",
+          "web/js/bkjs-account.js",
+          "web/js/bkjs-ko.js",
+          "web/js/bkjs-bootstrap.js"
+        ],
+        "js.dev": [
+          "web/js/jquery.min.js",
+          "web/js/popper.min.js",
+          "web/js/bootstrap.min.js",
+          "web/js/knockout.min.js",
+          "web/js/knockout-mapping.min.js",
+          "web/js/crypto.js",
+          "web/js/bootpopup.js",
+          "web/js/bkjs.js",
+          "web/js/bkjs-lib.js",
+          "web/js/bkjs-account.js",
+          "web/js/bkjs-ko.js",
+          "web/js/bkjs-bootstrap.js"
+        ],
+        "css": [
+          "web/css/bootstrap.css",
+          "web/css/font-awesome.css"
+        ]
+      }
     }
   },
   "scripts": {
     "start": "./bkjs run-backend",
     "stop": "./bkjs stop",
     "doc": "node tools/doc.js > web/doc.html",
+    "postinstall": "npm run build",
     "prepublish": "npm run build",
     "build": "./bkjs web-bundle -all",
     "devbuild": "./bkjs web-bundle -all -dev"

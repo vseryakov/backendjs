@@ -6,29 +6,18 @@
 // To run a test execute for example: bksh -run-test db ....
 //
 
-var fs = require("fs");
-var cluster = require('cluster');
-var util = require('util');
-var path = require('path');
-var child_process = require('child_process');
-var bkjs = require('backendjs')
-var bkcache = require('bkjs-cache');
-var bkutils = require("bkjs-utils");
-var core = bkjs.core;
-var lib = bkjs.lib;
-var ipc = bkjs.ipc;
-var api = bkjs.api;
-var db = bkjs.db;
-var aws = bkjs.aws;
-var pool = bkjs.pool;
-var server = bkjs.server;
-var logger = bkjs.logger;
-var tests = bkjs.core.modules.tests;
-
-var locations = { LA: { name: "Los Angeles",  bbox: [ 33.60503975233155, -117.72825045393661, 34.50336024766845, -118.75374954606342 ], },
-                  DC: { name: "Washington", bbox: [ 30.10, -77.5, 38.60, -76.5 ], },
-                  SD: { name: "San Diego", bbox: [ 32.26553975233155, -118.8279466261797, 33.163860247668445, -115.4840533738203 ], },
-                  SF: { name: "San Francisco", bbox: [ 37.32833975233156, -122.86154379633437, 38.22666024766845, -121.96045620366564 ] }, };
+const fs = require("fs");
+const cluster = require('cluster');
+const path = require('path');
+const bkjs = require('backendjs')
+const core = bkjs.core;
+const lib = bkjs.lib;
+const ipc = bkjs.ipc;
+const api = bkjs.api;
+const db = bkjs.db;
+const aws = bkjs.aws;
+const logger = bkjs.logger;
+const tests = bkjs.core.modules.tests;
 
 tests.resetTables = function(tables, callback)
 {
@@ -1035,4 +1024,20 @@ tests.test_auth = function(callback)
     }, callback);
 }
 
+tests.test_cleanup = function(callback)
+{
+    var tables = {
+        test1: { pub: { pub: 1  },
+                 priv: { priv: 1 },
+                 pub_admin: { pub_admin: 1 },
+                 pub_staff: { pub_staff: 1 },
+                 internal: { internal: 1 },
+                 billing: { pub_admin: 1, pub_types: ["billing"] },
+                 nobilling: { pub_admin: 1, priv_types: ["billing"] },
+        },
+    };
+
+    db.describeTables(tables);
+
+}
 

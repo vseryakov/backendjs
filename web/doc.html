@@ -928,9 +928,6 @@ backendjs app which was passed in the command line. This makes the bkjs or bksh 
 </li>
 </ul>
 <h1 id="web-development-notes">Web development notes</h1>
-<p>The server supports simple web bundling using uglify-es/uglifycss utilities. To use the bkjs bundle first install dependencies:</p>
-<pre><code>    cd backendjs
-    bkjs deps -global -field devDependencies</code></pre>
 <p>Then run the dev build script to produce web/js/bkjs.bundle.js and web/css/bkjs.bundle.css</p>
 <pre><code>    npm run devbuild</code></pre>
 <p>Now instead of including a bunch of .js or css files in the html pages it only needs /js/bkjs.bundle.js and /css/bkjs.bundle.css. The configuration is in the
@@ -1264,7 +1261,7 @@ this is the only way to ensure the body is not modified when not using query par
 <p>The accounts API manages accounts and authentication, it provides basic user account features with common fields like email, name, address.</p>
 <ul>
 <li><p><code>/account/get</code></p>
-<p>Returns information about the current account, all account columns are returned except the secret and other table columns with the property <code>secure</code></p>
+<p>Returns information about the current account, all account columns are returned except the secret and other table columns with the property <code>priv</code></p>
 <p>Response:</p>
 <pre><code>      { &quot;id&quot;: &quot;57d07a4e28fc4f33bdca9f6c8e04d6c3&quot;,
       &quot;name&quot;: &quot;Test User&quot;,
@@ -2650,11 +2647,12 @@ all non public columns if necessary.</p>
 <p><code>table</code> can be a single table name or a list of table names which combined public columns need to be kept in the rows. List of request tables
 is kept in the <code>req.options.cleanup</code> which by default is empty.</p>
 <p>By default primary keys are not kept and must be marked with <code>pub</code> property in the table definition to be returned.</p>
-<p>If any column is marked with <code>secure</code> property this means never return that column in the result even for the owner of the record</p>
+<p>If any column is marked with <code>priv</code> property this means never return that column in the result even for the owner of the record</p>
 <p>The <code>options.isInternal</code> allows to return everything except secure columns</p>
 <p>Columns with the <code>pub_admin</code> property will be returned only if the options contains <code>isAdmin</code>, same with the <code>pub_staff</code> property, it requires <code>options.isStaff</code>.</p>
 <p>To return data based on the current account roles a special property in the format <code>pub_types</code> must be set as a string or an array
-with roles to be present in the current account <code>type`` field. This is checked only if the column is allowed, this is an additional restriction, i.e. a column must be allowed by the </code>pub` property or other way</p>
+with roles to be present in the current account <code>type`` field. This is checked only if the column is allowed, this is an additional restriction, i.e. a column must be allowed by the </code>pub` property or other way.</p>
+<p>To retstrict by role define <code>priv_types</code> in a column with a list of roles which should be denied access to the field.</p>
 <p>The <code>options.pool</code> property must match the actual rowset to be applied properly, in case the records
 have been retrieved for the different database pool.</p>
 <p>The <code>options.cleanup_strict</code> will enforce that all columns not present in the table definition will be skipped as well, by default all
@@ -2678,13 +2676,13 @@ The filter will keep non-existent columns in the <code>query</code>. To remove s
 <p>If <code>options.clear</code> is a regexp it will be used to remove matched properties by name in the <code>query</code>.</p>
 <p>Example:</p>
 <pre><code>  api.clearQuery(&quot;bk_user&quot;, req.query)
-  api.clearQuery(&quot;bk_user&quot;, req.query, &quot;admin&quot;)
-  api.clearQuery(&quot;bk_user&quot;, req.query, { filter: &quot;admin&quot; })
-  api.clearQuery(&quot;bk_user&quot;, req.query, { filter: [&quot;admin&quot;] })
+  api.clearQuery(&quot;bk_user&quot;, req.query, &quot;internal&quot;)
+  api.clearQuery(&quot;bk_user&quot;, req.query, { filter: &quot;internal&quot; })
+  api.clearQuery(&quot;bk_user&quot;, req.query, { filter: [&quot;internal&quot;] })
   api.clearQuery(&quot;bk_user&quot;, req.query, { filter: [&quot;!pub&quot;] })
-  api.clearQuery(&quot;bk_user&quot;, req.query, { filter: [&quot;admin&quot;,&quot;secure&quot;] })
-  api.clearQuery(&quot;bk_user&quot;, req.query, { filter: [&quot;admin&quot;,&quot;!secure&quot;], keep: /^__/ })
-  api.clearQuery({ name: {}, id: { admin: 1 } }, req.query, { filter: [&quot;admin&quot;] })</code></pre>
+  api.clearQuery(&quot;bk_user&quot;, req.query, { filter: [&quot;internal&quot;,&quot;priv&quot;] })
+  api.clearQuery(&quot;bk_user&quot;, req.query, { filter: [&quot;internal&quot;,&quot;!priv&quot;], keep: /^__/ })
+  api.clearQuery({ name: {}, id: { admin: 1 } }, req.query, { filter: [&quot;internal&quot;] })</code></pre>
 </li>
 </ul>
 
@@ -4858,7 +4856,9 @@ contain the following properties:</p>
  so by default only a few columns are marked as public in the <code>bk_user</code> table</em></li>
 <li><code>pub_admin</code> - a generic read permission requires <code>options.isAdmin</code> when used with <code>api.cleanResult</code></li>
 <li><code>pub_staff</code> - a generic read permission requires <code>options.isStaff</code> when used with <code>api.cleanResult</code></li>
-<li><code>secure</code> - an opposite for the pub property, if defined this property should never be returned to the client by the API handlers</li>
+<li><code>pub_types</code> - a role or a list of roles which further restrict access to a public column to only users with specified roles</li>
+<li><code>priv_types</code> - a role or a list of roles which excplicitely deny access to a column for users with specified roles</li>
+<li><code>priv</code> - an opposite for the pub property, if defined this property should never be returned to the client by the API handlers</li>
 <li><code>internal</code> - if set then this property can only be updated by admin/root or with <code>isInternal`` property, implemented by the </code>auth` module only</li>
 <li><code>hidden</code> - completely ignored by all update operations but could be used by the public columns cleaning procedure, if it is computed and not stored in the db
  it can contain pub property to be returned to the client</li>
@@ -7937,7 +7937,8 @@ match it will be output. Use <code>options.replace</code> for replacing anything
 <ul>
 <li><p><code>lib.matchRegexp(str, rx, index)</code></p>
 <p> Perform match on a regexp for a string and returns matched value, if no index is specified returns item 1,
-this is a simple case for oneshot match and only single matched element.
+using index 0 retutns the whole matched string.
+This is a simple case for oneshot match and only single matched element.
 If the `rx`` object has the &#39;g&#39; flag the result will be all matches in an array.</p>
 </li>
 </ul>
@@ -8817,11 +8818,12 @@ By sefault all args are satored as is with dahses, if <code>options.camel`` is t
 <ul>
 <li><p><code>shell.assert(next, err)</code></p>
 <p> To be used in the tests, this function takes the following arguments:</p>
-<p>assert(next, err, ....)</p>
+<p>assert(next, err, ....)
+assert(err, ...)</p>
 <ul>
-<li>next is a callback to be called after printing error condition if any, it takes err as its argument</li>
+<li>next - can be a callback to be called after printing error condition if any, it takes err as its argument</li>
 <li>err - an error object from the most recent operation, can be null/undefined or any value that results in Javascript &quot;true&quot; evaluation
-up to the caller, assertion happens if an err is given or this value is true</li>
+up to the caller, assertion happens if an err is given or this value is not null or empty</li>
 <li>all other arguments are printed in case of error or result being false</li>
 </ul>
 <p>NOTES:</p>
@@ -8866,7 +8868,7 @@ use the same names as command line arguments without preceeding <code>test-</cod
 <li><p>-test-file - a javascript file to be loaded with additional tests</p>
 <p>All other common command line arguments are used normally, like -db-pool to specify which db to use.</p>
 <p>After finish or in case of error the process exits if no callback is given.</p>
-<p>Example, store it in tests/tests.js:</p>
+<p>Example, store it in tools/tests.js:</p>
 <pre><code>   var bkjs = require(&quot;backendjs&quot;);
    var tests = bkjs.core.modules.tests;
 

@@ -961,11 +961,6 @@ Most common used commands are:
 
 # Web development notes
 
-The server supports simple web bundling using uglify-es/uglifycss utilities. To use the bkjs bundle first install dependencies:
-
-        cd backendjs
-        bkjs deps -global -field devDependencies
-
 Then run the dev build script to produce web/js/bkjs.bundle.js and web/css/bkjs.bundle.css
 
         npm run devbuild
