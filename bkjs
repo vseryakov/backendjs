@@ -13,23 +13,26 @@ BKJS_MOD=backendjs
 PLATFORM=$(uname -s)
 case "$PLATFORM" in
   Linux)
-    case "$(uname -r)" in
-     *amzn1*)
-         OS_TYPE=amazon
-         ;;
+    OS_NAME=$(grep -s PRETTY_NAME /etc/os-release)
+    case "$OS_NAME" in
+     *Amazon*)
+       OS_TYPE=amazon
+       [[ $os =~ "Linux 2" ]] && OS_TYPE=amazon2
+       ;;
 
-     *amzn2*)
-         OS_TYPE=amazon2
-         ;;
+     *Ubuntu*)
+       OS_TYPE=ubuntu
+       ;;
     esac
     case "$(uname -m)" in
      aarch64)
-         OS_ARCH=arm64
-         ;;
+       OS_ARCH=arm64
+       ;;
      *)
-         OS_ARCH=x64
-         ;;
+       OS_ARCH=x64
+       ;;
     esac
+    [ -f /etc/default/$BKJS ] && . /etc/default/$BKJS
     [ -f /etc/sysconfig/$BKJS ] && . /etc/sysconfig/$BKJS
     ECHO="echo -e"
     SED="sed -r -i"
@@ -443,11 +446,11 @@ case "$BKJS_CMD" in
     [ ! -z "$(get_flag -update)" ] && cmd=update
     npm=$(get_arg -npm)
     [ ! -z "$(get_flag -global)" ] && npm="$npm -g"
-    field=$(get_arg -field dependencies,devDependencies)
+    fields=$(get_arg -fields dependencies,devDependencies)
     skip=$(get_arg -skip $BKJS_MOD)
     path=$(get_arg -path .)
     for p in $path; do
-        m=$($NODE_BIN -e "try{skip='$skip';p=require('$p/package.json');console.log('dependencies,devDependencies'.split(',').map(f=>(Object.keys(p[f]).filter(x=>(!x.match(skip))).join(' '))).join(' '))}catch(e){if('$BKJS_DEBUG')console.log(e)}")
+        m=$($NODE_BIN -e "try{skip='$skip';p=require('$p/package.json');console.log('$fields'.split(',').map(f=>(Object.keys(p[f] || {}).filter(x=>(!x.match(skip))).join(' '))).join(' '))}catch(e){if('$BKJS_DEBUG')console.log(e)}")
         [ "$m" != "" ] && modules="$modules $m"
     done
     [[ -z $modules ]] && exit 0
@@ -664,7 +667,7 @@ case "$BKJS_CMD" in
     echo "  watch - run the backend in watcher and master mode with all source files being monitored for changes, the server is restarts on any change automatically"
     echo "  run - run local backend with provided arguments"
     echo "  logwatcher - runs the log watcher and exists, for cases when no $BKJS service is running but the error log must be watched"
-    echo "  deps [-field dependencies] [-path .] [-skip REGEXP] [-global] [-update] [-npm ARGS] - install npm packages from the dependencies list from the package.json"
+    echo "  deps [-fields dependencies,devDependencies] [-path .] [-skip REGEXP] [-global] [-update] [-npm ARGS] - install npm packages from the dependencies list from the package.json"
     echo "  sync [-host HOST] [-path PATH] [-user USER] [-ssh-key pem] [-ssh OPTS] [-exclude PATTERN] [-bkcmd CMD] - push the backend code to the remote host using rsync, default path is ~/node_modules/$BKJS_MOD"
     echo "  ssh -host HOST -cmd CMD [-user USER] [-key PEM] [-ssh ARGS] - run a command over ssh on all specified hosts"
     echo "  install-node [-prefix PATH] [-force] [-clean] - install binary release of the node into $BKJS_PREFIX or specified path"

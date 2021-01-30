@@ -7,8 +7,8 @@
 case "$BKJS_CMD" in
 
   init-redis)
-    ($0 get-redis)
-    ($0 run-redis)
+    ($0 get-redis $(get_all_args))
+    ($0 run-redis $(get_all_args))
     if [ "$PLATFORM" = "Linux" ]; then
        sudo $0 init-monit-redis
     fi

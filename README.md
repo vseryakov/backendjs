@@ -941,6 +941,7 @@ Running without arguments will bring help screen with description of all availab
 The tool is multi-command utility where the first argument is the command to be executed with optional additional arguments if needed.
 On Linux, when started the bkjs tries to load and source the following config files:
 
+        /etc/default/bkjs
         /etc/sysconfig/bkjs
         $BKJS_HOME/etc/profile
 

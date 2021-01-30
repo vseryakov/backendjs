@@ -6,8 +6,8 @@
 
 case "$BKJS_CMD" in
   init-dynamodb)
-    ($0 get-dynamodb)
-    ($0 run-dynamodb)
+    ($0 get-dynamodb $(get_all_args))
+    ($0 run-dynamodb $(get_all_args))
     ;;
 
   get-dynamodb)
