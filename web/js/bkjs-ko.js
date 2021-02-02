@@ -69,6 +69,7 @@ bkjs.koSet = function(name, val, quiet)
         var key = name[i], old;
         if (typeof key != "string") continue;
         key = key.replace(/[^a-zA-z0-9_]/g, "_");
+        if (ko.isComputed(bkjs.koState[key])) continue;
         if (ko.isObservable(bkjs.koState[key])) {
             old = bkjs.koState[key]();
             bkjs.koState[key](val);
@@ -83,12 +84,14 @@ bkjs.koSet = function(name, val, quiet)
 bkjs.koSetObject = function(obj, options)
 {
     if (!obj || typeof obj != "object") obj = {};
-    for (var p in obj) {
+    for (const p in obj) {
         if (typeof options[p] != "undefined") continue;
+        if (ko.isComputed(obj[p])) continue;
         if (ko.isObservable(obj[p])) obj[p](undefined); else obj[p] = undefined;
     }
-    for (var n in options) {
-        if (ko.isObservable(obj[n])) obj[n](bkjs.koVal(options[n])); else obj[n] = bkjs.koVal(options[n]);
+    for (const p in options) {
+        if (ko.isComputed(obj[p])) continue;
+        if (ko.isObservable(obj[p])) obj[p](bkjs.koVal(options[p])); else obj[p] = bkjs.koVal(options[p]);
     }
     return obj;
 }
@@ -96,7 +99,8 @@ bkjs.koSetObject = function(obj, options)
 bkjs.koUpdateObject = function(obj, options)
 {
     if (!obj || typeof obj != "object") obj = {};
-    for (var p in options) {
+    for (const p in options) {
+        if (ko.isComputed(obj[p])) continue;
         if (ko.isObservable(obj[p])) obj[p](bkjs.koVal(options[p])); else obj[p] = bkjs.koVal(options[p]);
     }
     return obj;
