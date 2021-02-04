@@ -184,7 +184,7 @@ bkjs.koFindModel = function(name)
                 var vm;
                 if (typeof bkjs.koModels[name] == "function") {
                     vm = new bkjs.koModels[name](params, componentInfo);
-                    if (typeof vm.onCreate == "function") vm.onCreate(params, componentInfo);
+                    if (typeof vm.onCreate == "function") vm.onCreate(vm.params, componentInfo);
                     bkjs.koViewModels.push(vm);
                 }
                 if (bkjs.debug) console.log("createViewModel:", name);
