@@ -68,7 +68,7 @@ function bootpopup(options)
         class_button2: "btn btn-primary",
         class_tabs: "nav nav-tabs mb-4",
         class_tablink: "nav-link",
-        class_tabcontent: "tab-content ",
+        class_tabcontent: "tab-content",
         text_ok: "OK",
         text_yes: "Yes",
         text_no: "No",
@@ -178,7 +178,7 @@ function bootpopup(options)
             this.alert = $("<div></div>", { class: this.options.class_alert }).appendTo(this.form);
         }
 
-        var tabs = {}, form = this.form, toggle = /nav-pills/.test(this.options.class_tabs) ? "pills" : "tab";
+        var tabs = {}, form = this.form, toggle = /nav-pills/.test(this.options.class_tabs) ? "pill" : "tab";
         if (this.options.tabs) {
             this.tabs = $("<div></div>", { class: this.options.class_tabs, role: "tablist" }).appendTo(this.form);
             this.tabContent = $("<div></div>", { class: this.options.class_tabcontent }).appendTo(this.form);
