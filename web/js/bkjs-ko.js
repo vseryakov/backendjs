@@ -144,6 +144,15 @@ bkjs.koViewModel.prototype.dispose = function()
     bkjs.koEvent("model.disposed", { name: this.koName, params: this.params, vm: this });
     $(bkjs).off("bkjs.event." + this.koName, $.proxy(this._handleEvent, this));
     if (typeof this.onDispose == "function") this.onDispose();
+    // Auto dispose all subscriptions
+    for (const p in this) {
+        if (typeof this[p] == "object" &&
+            typeof this[p].dispose == "function" &&
+            typeof this[p].disposeWhenNodeIsRemoved == "function") {
+            this[p].dispose();
+        } else
+        if (ko.isComputed(this[p])) this[p].dispose();
+    }
     delete this.params;
     bkjs.koViewModels.splice(bkjs.koViewModels.indexOf(this));
 }
