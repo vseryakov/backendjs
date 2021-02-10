@@ -89,6 +89,8 @@ function bootpopup(options)
         scroll: false,
         horizontal: true,
         alert: false,
+        backdrop: true,
+        keyboard: true,
         data: "",
         tabs: "",
         tab: "",
@@ -142,7 +144,10 @@ function bootpopup(options)
         if (this.options.scroll) class_dialog += " modal-dialog-scrollable";
 
         // Create HTML elements for modal dialog
-        this.modal = $('<div></div>', { class: this.options.class_modal, id: this.options.id || "", tabindex: "-1", role: "dialog", "aria-labelledby": "bootpopup-title", "aria-hidden": true });
+        const opts = { class: this.options.class_modal, id: this.options.id || "", tabindex: "-1", role: "dialog", "aria-labelledby": "bootpopup-title", "aria-hidden": true };
+        if (this.options.backdrop !== true) opts["data-backdrop"] = typeof this.options.backdrop == "string" ? this.options.backdrop : false;
+        if (!this.options.keyboard) opts["data-keyboard"] = false;
+        this.modal = $('<div></div>', opts);
         this.dialog = $('<div></div>', { class: class_dialog, role: "document" });
         this.content = $('<div></div>', { class: this.options.class_content });
         this.dialog.append(this.content);
