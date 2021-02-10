@@ -28,9 +28,14 @@ case "$BKJS_CMD" in
        ;;
     esac
 
-    [ -f $REDIS_PREFIX/bin/redis-server ] && exit 0
+    if [ -f $REDIS_PREFIX/bin/redis-server ]; then
+        [ "$(get_flag -force)" = "" ] && exit
+        echo "Uninstalling redis from $REDIS_PREFIX..."
+        rm -f $REDIS_PREFIX/bin/redis-*
+        cp $BKJS_HOME/etc/redis.conf $BKJS_HOME/etc/redis.conf.old
+    fi
 
-    ver=$(get_arg -version 5.0.8)
+    ver=$(get_arg -version 6.0.10)
     curl -L -o redis.tgz http://download.redis.io/releases/redis-$ver.tar.gz
 
     mkdir -p redis $BKJS_HOME/etc
