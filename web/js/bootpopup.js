@@ -422,7 +422,7 @@ function bootpopup(options)
             if (!item) continue;
             this["btn_" + item] = $("<button></button>", {
                 type: "button",
-                text: this.options["text_" + item],
+                html: this.options["text_" + item],
                 class: this.options["class_" + item],
                 "data-callback": item,
                 "data-form": this.formid,
