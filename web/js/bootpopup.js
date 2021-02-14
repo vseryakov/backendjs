@@ -223,7 +223,7 @@ function bootpopup(options)
                     // Convert functions to string to be used as callback
                     for (const attribute in attrs) {
                         if (typeof attrs[attribute] === "function") {
-                            attrs[attribute] = "return (" + attrs[attribute] + ")(this)";
+                            attrs[attribute] = "return (" + attrs[attribute] + ")(this,arguments[0])";
                         }
                     }
 
@@ -306,11 +306,12 @@ function bootpopup(options)
                                 elem = $('<div></div>', { class: 'input-group ' + (opts.class_input_group || "") }).append(elem);
                                 const append = $('<div></div>"', { class: "input-group-append" }).appendTo(elem);
                                 if (opts.list_input_button) {
-                                    $('<button></button>', { class: "btn dropdown-toggle " + (opts.class_input_button || ""),
-                                       type: "button",
-                                       'data-toggle': "dropdown",
-                                       'aria-haspopup': "true",
-                                       'aria-expanded': "false"
+                                    $('<button></button>', {
+                                        class: "btn dropdown-toggle " + (opts.class_input_button || ""),
+                                        type: "button",
+                                        'data-toggle': "dropdown",
+                                        'aria-haspopup': "true",
+                                        'aria-expanded': "false"
                                     }).append(opts.text_input_button).appendTo(append);
 
                                     var menu = $('<div></div>', { class: "dropdown-menu " + (opts.class_input_menu || "") }).appendTo(append);
@@ -320,17 +321,18 @@ function bootpopup(options)
                                         if (n == "-") {
                                             $('<div></div>', { class: "dropdown-divider" }).appendTo(menu);
                                         } else {
-                                            $('<a></a>', { class: "dropdown-item " + (opts.class_list_input_item || ""),
-                                             role: "button",
-                                             'data-value': v || n,
-                                             'data-form': this.formid,
-                                             onclick: "(" + opts.click_input_button + ")(this)"
-                                         }).append(n).appendTo(menu);
+                                            $('<a></a>', {
+                                                class: "dropdown-item " + (opts.class_list_input_item || ""),
+                                                role: "button",
+                                                'data-value': v || n,
+                                                'data-form': this.formid,
+                                                onclick: "(" + opts.click_input_button + ")(this,arguments[0])"
+                                            }).append(n).appendTo(menu);
                                         }
                                     }
                                 } else {
                                     const bopts = { class: "btn " + (opts.class_input_button || ""), type: "button", 'data-form': this.formid };
-                                    if (opts.click_input_button) bopts.onclick = "(" + opts.click_input_button + ")(this)";
+                                    if (opts.click_input_button) bopts.onclick = "(" + opts.click_input_button + ")(this,arguments[0])";
                                     for (const b in opts.attrs_input_button) bopts[b] = opts.attrs_input_button[b];
                                         $('<button></button>', bopts).append(opts.text_input_button).appendTo(append);
                                 }
@@ -348,20 +350,20 @@ function bootpopup(options)
                             if (this.options.horizontal) {
                                 group.addClass("row");
                                 class_label += " col-form-label " + (opts.size_label || this.options.size_label);
-                                group.append($("<label></label>", { for: opts.for || attrs.id, class: class_label, text: opts.label }));
+                                group.append($("<label></label>", { for: opts.for || attrs.id, class: class_label, html: opts.label }));
                                 group.append($('<div></div>', { class: opts.size_input || this.options.size_input }).append(elem));
                             } else {
-                                if (opts.label) group.append($("<label></label>", { for: opts.for || attrs.id, class: class_label, text: opts.label }));
+                                if (opts.label) group.append($("<label></label>", { for: opts.for || attrs.id, class: class_label, html: opts.label }));
                                 group.append(elem);
                             }
                         } else {
                             class_label += " control-label";
                             if (this.options.horizontal) {
                                 class_label += " " + (opts.size_label || this.options.size_label);
-                                group.append($("<label></label>", { for: opts.for || attrs.id, class: class_label, text: opts.label }));
+                                group.append($("<label></label>", { for: opts.for || attrs.id, class: class_label, html: opts.label }));
                                 group.append($('<div></div>', { class: opts.size_input || this.options.size_input }).append(elem));
                             } else {
-                                if (opts.label) group.append($("<label></label>", { for: opts.for || attrs.id, class: class_label, text: opts.label }));
+                                if (opts.label) group.append($("<label></label>", { for: opts.for || attrs.id, class: class_label, html: opts.label }));
                                 group.append(elem);
                             }
                         }
