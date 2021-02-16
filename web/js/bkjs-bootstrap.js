@@ -97,7 +97,7 @@ bkjs.showConfirm = function(options, callback, cancelled)
         ok: function() {
             if (typeof callback == "function") callback.call(this);
         },
-        dismiss: function() {
+        cancel: function() {
             if (typeof cancelled == "function") cancelled.call(this);
         }
     });
