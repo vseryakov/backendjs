@@ -146,7 +146,7 @@ bkjs.koViewModel.prototype.dispose = function()
     if (typeof this.onDispose == "function") this.onDispose();
     // Auto dispose all subscriptions
     for (const p in this) {
-        if (typeof this[p] == "object" &&
+        if (this[p] && typeof this[p] == "object" &&
             typeof this[p].dispose == "function" &&
             typeof this[p].disposeWhenNodeIsRemoved == "function") {
             this[p].dispose();
