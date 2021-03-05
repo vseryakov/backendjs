@@ -173,7 +173,7 @@ mod.addAccount = function(req, options, callback)
             });
         },
         function(next) {
-            core.runMethods("bkAddAccount", { account: req.account, query: req.query, options: req.options }, next);
+            core.runMethods("bkAddAccount", api.copyRequest(req), next);
         },
     ], function(err) {
         lib.tryCall(callback, err, req.query);
@@ -190,7 +190,7 @@ mod.updateAccount = function(req, options, callback)
             auth.update(req.query, options, next);
         },
         function(next) {
-            core.runMethods("bkUpdateAccount", { account: req.account, query: req.query, options: req.options }, next);
+            core.runMethods("bkUpdateAccount", api.copyRequest(req), next);
         },
     ], function(err) {
         lib.tryCall(callback, err, req.query);
@@ -222,7 +222,7 @@ mod.deleteAccount = function(req, callback)
                auth.update({ id: req.account.id, login: req.account.login, type: req.account.type }, req.options, next);
            },
            function(next) {
-               core.runMethods("bkDeleteAccount", { account: req.account, query: req.query, options: req.options }, next);
+               core.runMethods("bkDeleteAccount", api.copyRequest(req), next);
            },
            function(next) {
                if (lib.isFlag(req.options.keep, ["all", "account", auth.table])) return next();
