@@ -326,7 +326,8 @@ function bootpopup(options)
                                                 role: "button",
                                                 'data-value': v || n,
                                                 'data-form': this.formid,
-                                                onclick: "(" + opts.click_input_button + ")(this,arguments[0])"
+                                                onclick: opts.click_input_button ? "(" + opts.click_input_button + ")(this,arguments[0])" :
+                                                         `$('#${attrs.id}').val('${v || n}')`,
                                             }).append(n).appendTo(menu);
                                         }
                                     }
