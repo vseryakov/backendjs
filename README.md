@@ -818,7 +818,7 @@ There are two ways to send messages via Websockets to the server from a browser:
     $(bkjs).on("bkjs.ws.message", (msg) => {
         switch (msg.op) {
         case "/account/update":
-            bkjs.wsSend("/account/ws/account", "");
+            bkjs.wsSend("/account/ws/account");
             break;
 
         case "/project/update":

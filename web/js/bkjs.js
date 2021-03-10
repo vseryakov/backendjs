@@ -340,12 +340,16 @@ bkjs.wsClose = function()
     if (this.ws) this.ws.close();
 }
 
-// Send a string data or an object in jQuery ajax format { url:.., data:.. }
+// Send a string data or an object in jQuery ajax format { url:.., data:.. } or as an object to be stringified
 bkjs.wsSend = function(data)
 {
     if (!this.ws) return;
     if (typeof data == "object" && data) {
-        data = (data.url || bkjs.wsconf.path) + (data.data ? "?" + $.param(data.data) : "");
+        if (data.url && data.url[0] == "/") {
+            data = data.url + (data.data ? "?" + $.param(data.data) : "");
+        } else {
+            data = JSON.stringified(data);
+        }
     }
     this.ws.send(data);
 }
