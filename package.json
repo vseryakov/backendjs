@@ -37,7 +37,9 @@
     "bkjs-syslog": ">= 0.3.1"
   },
   "modulesDependencies": {
-    "bkjs-wand": ">= 0.5.1"
+    "bkjs-wand": ">= 0.5.1",
+    "amqplib": ">= 0.6.0",
+    "nats": "^1.4.12"
   },
   "devDependencies": {
     "html-minifier": "^4.0.0",

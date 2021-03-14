@@ -5,6 +5,11 @@
 #
 
 case "$BKJS_CMD" in
+  run-nats)
+    mkdir -p $BKJS_HOME/var $BKJS_HOME/log
+    exec nohup nats-server -V -l $BKJS_HOME/log/nats.log >>$BKJS_HOME/log/nats.log 2>&1 &
+    ;;
+
   init-dynamodb)
     ($0 get-dynamodb $(get_all_args))
     ($0 run-dynamodb $(get_all_args))
@@ -25,7 +30,7 @@ case "$BKJS_CMD" in
     [ "$DYNAMODB_PREFIX" = "" ] && DYNAMODB_PREFIX=$BKJS_PREFIX/dynamodb
     mkdir -p $BKJS_HOME/var $BKJS_HOME/log
     params="-Xmx$(get_arg -memmax 256M)"
-    exec nohup java $params -Djava.library.path=$DYNAMODB_PREFIX/DynamoDBLocal_lib -jar $DYNAMODB_PREFIX/DynamoDBLocal.jar -dbPath $BKJS_HOME/var -port 8181 >>$BKJS_HOME/log/message.log 2>&1 &
+    exec nohup java $params -Djava.library.path=$DYNAMODB_PREFIX/DynamoDBLocal_lib -jar $DYNAMODB_PREFIX/DynamoDBLocal.jar -dbPath $BKJS_HOME/var -port 8181 >>$BKJS_HOME/log/ddb.log 2>&1 &
     ;;
 
   stop-dynamodb)
