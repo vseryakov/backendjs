@@ -24,14 +24,6 @@ case "$PLATFORM" in
        OS_TYPE=ubuntu
        ;;
     esac
-    case "$(uname -m)" in
-     aarch64)
-       OS_ARCH=arm64
-       ;;
-     *)
-       OS_ARCH=x64
-       ;;
-    esac
     [ -f /etc/default/$BKJS ] && . /etc/default/$BKJS
     [ -f /etc/sysconfig/$BKJS ] && . /etc/sysconfig/$BKJS
     ECHO="echo -e"
@@ -49,6 +41,15 @@ case "$PLATFORM" in
   *)
     echo "Unsupported platform"
     exit 1
+    ;;
+esac
+
+case "$(uname -m)" in
+  aarch64)
+    OS_ARCH=arm64
+    ;;
+  *)
+    OS_ARCH=x64
     ;;
 esac
 

@@ -5,9 +5,42 @@
 #
 
 case "$BKJS_CMD" in
+  get-nats)
+    platform=$(echo $PLATFORM | tr [:upper:] [:lower:])
+    arch=$OS_ARCH
+    [ "$arch" = "x64" ] && arch=amd64
+    curl -L -o /tmp/nats.tgz https://github.com/nats-io/nats-server/releases/download/v2.1.9/nats-server-v2.1.9-$platform-$arch.tar.gz
+    tar --strip-components=1 -C /tmp -xzf /tmp/nats.tgz
+    mv /tmp/nats-server $BKJS_PREFIX/bin
+    rm -rf /tmp/nats.tgz
+    echo 'listen: localhost:4222' > $BKJS_HOME/etc/nats.conf
+    ;;
+
   run-nats)
     mkdir -p $BKJS_HOME/var $BKJS_HOME/log
-    exec nohup nats-server -V -l $BKJS_HOME/log/nats.log >>$BKJS_HOME/log/nats.log 2>&1 &
+    exec nohup nats-server -c $BKJS_HOME/etc/nats.conf -l $BKJS_HOME/log/nats.log >>$BKJS_HOME/log/nats.log 2>&1 &
+    ;;
+
+  get-stan)
+    platform=$(echo $PLATFORM | tr [:upper:] [:lower:])
+    arch=$OS_ARCH
+    [ "$arch" = "x64" ] && arch=amd64
+    curl -L -o /tmp/stan.tgz https://github.com/nats-io/nats-streaming-server/releases/download/v0.21.1/nats-streaming-server-v0.21.1-$platform-$arch.tar.gz
+    tar --strip-components=1 -C /tmp -xzf /tmp/stan.tgz
+    mv /tmp/nats-streaming-server $BKJS_PREFIX/bin
+    rm -rf /tmp/stan.tgz
+    echo 'listen: localhost:4222' > $BKJS_HOME/etc/stan.conf
+    echo 'streaming: {' >> $BKJS_HOME/etc/stan.conf
+    echo '  cluster_id: bkjs' >> $BKJS_HOME/etc/stan.conf
+    echo '  store: "file"' >> $BKJS_HOME/etc/stan.conf
+    echo "  dir: \"$BKJS_HOME/var/stan\"" >> $BKJS_HOME/etc/stan.conf
+    echo "  log_path: \"$BKJS_HOME/var\"" >> $BKJS_HOME/etc/stan.conf
+    echo '}' >> $BKJS_HOME/etc/stan.conf
+    ;;
+
+  run-stan)
+    mkdir -p $BKJS_HOME/var $BKJS_HOME/log
+    exec nohup nats-streaming-server -c $BKJS_HOME/etc/stan.conf -l $BKJS_HOME/log/stan.log >>$BKJS_HOME/log/stan.log 2>&1 &
     ;;
 
   init-dynamodb)

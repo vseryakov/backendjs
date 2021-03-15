@@ -39,7 +39,8 @@
   "modulesDependencies": {
     "bkjs-wand": ">= 0.5.1",
     "amqplib": ">= 0.6.0",
-    "nats": "^1.4.12"
+    "nats": "^1.4.12",
+    "node-nats-streaming": ">= 0.3.2"
   },
   "devDependencies": {
     "html-minifier": "^4.0.0",
