@@ -136,7 +136,7 @@ bkjs.createSignature = function(method, url, query, options)
     case 2:
     case 3:
         str = this.signatureVersion + '\n' + tag + '\n' + creds.login + "\n*\n" + this.domainName(host) + "\n/\n*\n" + expires + "\n*\n*\n";
-        hmac = b64_hmac_sha1(creds.secret, str);
+        hmac = b64_hmac_sha256(creds.secret, str);
         break;
     default:
         str = this.signatureVersion + "\n" + tag + "\n" + creds.login + "\n" + method + "\n" + host + "\n" + url + "\n" + query + "\n" + expires + "\n" + ctype + "\n" + checksum + "\n";
