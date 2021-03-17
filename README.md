@@ -1000,26 +1000,6 @@ repository when the bundle build may not be called or called too early. To force
 
 ## AWS instance setup with node and backendjs
 
-Here is the example how to setup new custom AWS server, it is not required and completely optional but bkjs provides some helpful commands that may simplify
-new image configuration.
-
-- start new AWS instance via AWS console, use Amazon Linux
-- login as `ec2-user`
-- install commands
-
-        yum-config-manager --enable epel
-        sudo yum install npm
-        npm install backendjs
-        sudo bkjs init-service
-        bkjs restart
-
-- try to access the instance via HTTP port 8000 for the API console or documentation
-- after reboot the server will be started automatically
-
-## AWS instance as an appliance
-
-To make an API appliance by using the backendjs on the AWS instance as user ec2-user with the backend in the user home
-
 - start new AWS instance via AWS console, use Amazon Linux
 - login as `ec2-user`
 - install commands

@@ -269,12 +269,12 @@ case "$BKJS_CMD" in
 
   get-amqp)
     [ "$RABBITMQ_PREFIX" = "" ] && RABBITMQ_PREFIX=$BKJS_PREFIX/rabbitmq
-    [ "$(get_arg -force)" != "" -a "$RABBITMQ_PREFIX" != "" ] && rm -rf $RABBITMQ_PREFIX
+    [ "$(get_flag -force)" != "" -a "$RABBITMQ_PREFIX" != "" ] && rm -rf $RABBITMQ_PREFIX
     if [ ! -d $RABBITMQ_PREFIX ]; then
         mkdir -p $RABBITMQ_PREFIX/var
-        curl -L -o mq.tar.xz https://github.com/rabbitmq/rabbitmq-server/releases/download/v3.8.10/rabbitmq-server-generic-unix-3.8.10.tar.xz
-        tar -C $RABBITMQ_PREFIX --strip-components=1 -xzf mq.tgz
-        rm -rf mq.tgz
+        curl -L -o mq.tar.xz https://github.com/rabbitmq/rabbitmq-server/releases/download/v3.8.14/rabbitmq-server-generic-unix-3.8.14.tar.xz
+        tar -C $RABBITMQ_PREFIX --strip-components=1 -xzf mq.tar.xz
+        rm -rf mq.tar.xz
     fi
     ;;
 
@@ -314,6 +314,10 @@ run-amqp)
     echo "  stop-mongodb - stop local Mongo server"
     echo "  get-amqp [-force] - install local RabbitMQ server in $BKJS_PREFIX/rabbitmq"
     echo "  run-amqp - run local RabbitMQ server installed in $BKJS_PREFIX/rabbitmq"
+    echo "  get-nats - install local NATS server in $BKJS_PREFIX/bin"
+    echo "  run-nats - run local NATS server installed in $BKJS_PREFIX/bin"
+    echo "  get-stan - install local NATS Streaming server in $BKJS_PREFIX/bin"
+    echo "  run-stan - run local NATS Streaming server installed in $BKJS_PREFIX/bin"
     ;;
 
   *)
