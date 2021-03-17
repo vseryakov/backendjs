@@ -55,7 +55,7 @@ case "$BKJS_CMD" in
 
     # Create global profile
     sysconf=/etc/sysconfig
-    [ ! -d $sysconf -a -d /etc/default ] sysconf=/etc/default
+    [ ! -d $sysconf -a -d /etc/default ] && sysconf=/etc/default
     echo "BKJS_HOME=$BKJS_HOME" > $sysconf/$BKJS
     domain=$(get_arg -domain)
     [ "$domain" != "" ] && echo "BKJS_DOMAIN=$domain" >> $sysconf/$BKJS
@@ -471,7 +471,7 @@ case "$BKJS_CMD" in
 
       amazon2)
         yum -y -q update
-        amazon-linux-extras enable epel
+        amazon-linux-extras install epel -y
         packages="$packages java-latest-openjdk-headless"
         yum clean metadata
         yum install epel-release
