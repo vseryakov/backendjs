@@ -24,7 +24,9 @@ case "$BKJS_CMD" in
     [ "$BKJS_BIN" = "" ] && sudo -H -u $BKJS_USER $0 install-bkjs -deps "$(get_arg -deps)" -tools "$(get_arg -tools)"
     (cd $BKJS_HOME/bin && ln -sf ../node_modules/$BKJS_MOD/$BKJS && ln -sf $BKJS bksh)
     $0 init-server $args
-    $0 shell -show-info -db-create-tables
+    if [ -d $BKJS_HOME/backendjs -a ! -d $BKJS_HOME/node_modules/backendjs ]; then
+       ln -sfn $BKJS_HOME/backendjs $BKJS_HOME/node_modules/backendjs
+    fi
     ;;
 
   install-ec2)
@@ -133,10 +135,14 @@ case "$BKJS_CMD" in
        echo 'bkw() { bkssh ${1-api} "" "w"; }' >> $LHOME/.bashrc
        echo 'bkami() { bkjs create-ami && bkjs create-launch-template-version; }' >> $LHOME/.bashrc
        echo "PROMPT_COMMAND='printf \"\\033]0;\$(cat \$HOME/var/bkjs.tag)\\007\"'" >> $LHOME/.bashrc
+    fi
+    if [ "$(grep -s '#Bkjs' $LHOME/.bash_profile)" = "" ]; then
+       echo "Configuring .bashrc..."
+       echo '#Bkjs' >> $LHOME/.bash_profile
        echo '[ ! -s ~/var/bkjs.tag ] && bkjs ec2-tag > ~/var/bkjs.tag' >> $LHOME/.bash_profile
        echo '[ -s ~/var/bkjs.tag ] && export PS1=$(cat ~/var/bkjs.tag)' >> $LHOME/.bash_profile
     fi
-    echo "package-lock=false" > $HOME/.npmrc
+    echo "package-lock=false" > $LHOME/.npmrc
     ;;
 
   init-home)
