@@ -6,18 +6,11 @@
 bkjs.koAuth = ko.observable(0);
 bkjs.koAdmin = ko.observable(0);
 bkjs.koName = ko.observable("");
-bkjs.koState = {};
-bkjs.koTemplates = {};
-bkjs.koAliases = {};
-bkjs.koModels = {};
-bkjs.koViewModels = [];
 
 bkjs.koInit = function()
 {
     ko.applyBindings(bkjs);
-    bkjs.login(function(err) {
-        bkjs.koCheckLogin(err);
-    });
+    bkjs.login(bkjs.koCheckLogin);
 }
 
 bkjs.koCheckLogin = function(err, path)
@@ -44,7 +37,6 @@ bkjs.koLogout = function(data, event)
         bkjs.koAdmin(0);
         bkjs.koName("");
         $(bkjs).trigger('bkjs.logout');
-        if (bkjs.koLogoutUrl) window.location.href = bkjs.koLogoutUrl;
     });
 }
 
@@ -123,6 +115,12 @@ bkjs.koEvent = function(name, data)
     event = "on" + event.substr(0, 1).toUpperCase() + event.substr(1);
     $(bkjs).trigger("bkjs.event", [name, event, data]);
 }
+
+bkjs.koState = {};
+bkjs.koTemplates = {};
+bkjs.koAliases = {};
+bkjs.koModels = {};
+bkjs.koViewModels = [];
 
 bkjs.koViewModel = function(params, componentInfo)
 {
@@ -231,4 +229,94 @@ ko.components.loaders.unshift({
         callback(bkjs.koFindModel(name));
     }
 });
+ko.components.register("none", { template: "<div></div>" });
+
+// Bootstrap compatible breaking points
+bkjs.koBreakpoint = ko.observable();
+bkjs.koDesktop = ko.computed(() => (/lg|xl/.test(bkjs.koBreakpoint())));
+bkjs.koMobile = ko.computed(() => (/xs|sm|md/.test(bkjs.koBreakpoint())));
+
+bkjs.koGetBreakpoint = function()
+{
+    var w = $(document).innerWidth();
+    return w < 576 ? 'xs' : w < 768 ? 'sm' : w < 992 ? 'md' : w < 1200 ? 'lg' : 'xl';
+}
+
+bkjs.koPlugins = [];
+
+bkjs.koApplyPlugins = function(target)
+{
+    if (!target) return;
+    for (const i in bkjs.koPlugins) {
+        if (typeof bkjs.koPlugins[i] == "function") bkjs.koPlugins[i](target);
+    }
+}
+
+$(function() {
+    bkjs.koBreakpoint(bkjs.koGetBreakpoint());
+    $(window).on("resize.bkjs", (event) => {
+        clearTimeout(bkjs._resized);
+        bkjs._resized = setTimeout(() => { bkjs.koBreakpoint(bkjs.koGetBreakpoint()) }, 500);
+    });
+
+    $(bkjs).on("bkjs.event", (ev, name, event, data) => {
+        switch (name) {
+        case "component.created":
+            bkjs.koApplyPlugins(data.info.element);
+            break;
+        }
+    });
+});
+
+// Main component view
+bkjs.koModelName = ko.observable("none");
+bkjs.koModelParams = ko.observable();
+
+ko.components.register("bkjs-model", {
+    viewModel: function(params) {
+        this.koModelName = bkjs.koModelName;
+        this.koModelParams = bkjs.koModelParams;
+    },
+    template: '<div data-bind="component: { name: koModelName, params: koModelParams }"></div>'
+});
+
+bkjs.koShowModel = function(name, params)
+{
+    if (bkjs.debug) console.log("koShowModel:", name, params);
+    bkjs.koModelParams(params || {});
+    bkjs.koModelName(name);
+    bkjs.koSaveModel(name, params);
+    bkjs.koEvent("component.shown", { name: name, params: params });
+}
+
+// Simple router support
+bkjs.koAppPath = (window.location.pathname.replace(/(\/+[^/]+)$|\/+$/, "") + "/").replace(/\/app.+$/, "/") + "app/";
+bkjs.koAppLocation = window.location.origin + bkjs.koAppPath;
+
+window.onpopstate = function(event) {
+    if (event.state && event.state.view) bkjs.koShowModel(event.state.view, event.state.params);
+};
+
+bkjs.koSaveModel = function(name, params)
+{
+    if (!name) return;
+    var url = name;
+    if (params && params.param) {
+        url += "/" + params.param;
+        if (params.value) url += "/" + params.value;
+    }
+    if (url == bkjs._appLocation) return;
+    window.history.pushState({ view: name, params: params }, name, bkjs.koAppLocation + url);
+    bkjs._appLocation = url;
+}
+
+bkjs.koRestoreModel = function(path, dflt)
+{
+    if (path && (window.location.origin + path).indexOf(bkjs.koAppLocation) != 0) path = "";
+    var location = window.location.origin + (path || window.location.pathname);
+    var params = location.substr(bkjs.koAppLocation.length).split("/");
+    if (bkjs.debug) console.log("koRestoreModel:", window.location.pathname, "path:", path, "params:", params);
+    var model = bkjs.koFindModel(params[0]);
+    bkjs.koShowModel(model ? params[0] : dflt || "none", { param: params[1], value: params[2] });
+}
 

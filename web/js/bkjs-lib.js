@@ -528,6 +528,13 @@ bkjs.isObject = function(v)
     return this.typeName(v) == "object";
 }
 
+bkjs.isNumeric = function(val)
+{
+    if (typeof val == "number") return true;
+    if (typeof val != "string") return false;
+    return /^(-|\+)?([0-9]+|[0-9]+\.[0-9]+)$/.test(val);
+}
+
 // Return true of the given value considered empty
 bkjs.isEmpty = function(val)
 {
@@ -647,12 +654,30 @@ bkjs.toPrice = function(num)
     return this.toNumber(num).toLocaleString("en", { minimumFractionDigits: 2, maximumFractionDigits: 3 });
 }
 
-bkjs.toValue = function(val, type)
+bkjs.toValue = function(val, type, options)
 {
     switch ((type || "").trim()) {
+    case "auto":
+        if (typeof val == "undefined" || val === null) return "";
+        if (typeof val == "string") {
+            type = this.isNumeric(val) ? "number":
+                   val == "true" || val == "false" ? "bool":
+                   val[0] == "^" && val.slice(-1) == "$" ? "regexp":
+                   val[0] == "[" && val.slice(-1) == "]" ? "js":
+                   val[0] == "{" && val.slice(-1) == "}" ? "js":
+                   val.indexOf("|") > -1 && !val.match(/[()[\]^$]/) ? "list": "";
+        }
+        return this.toValue(val, type, options);
+
+    case "set":
     case "list":
     case 'array':
-        return Array.isArray(val) ? val : String(val).split(/[,|]/);
+        return this.strSplitUnique(val, options && options.separator, options);
+
+    case "map":
+        return this.strSplit(val, options && options.delimiter || ",").
+               map((y) => (this.strSplit(y, options && options.separator || /[:;]/, options))).
+               reduce((a, b) => { a[b[0]] = b.length == 2 ? b[1] : b.slice(1); return a }, {});
 
     case "expr":
     case "buffer":
@@ -919,14 +944,25 @@ bkjs.entityToText = function(str)
 //   `toValue` to convert the value for each item
 //
 // If `str` is an array and type is not specified then all non-string items will be returned as is.
-bkjs.strSplit = function(str, sep, type)
+bkjs.strSplit = function(str, sep, options)
 {
-    var self = this;
     if (!str) return [];
-    var typed = typeof type != "undefined";
-    return (Array.isArray(str) ? str : String(str).split(sep || /[,|]/)).
-    map(function(x) { return typed ? self.toValue(x, type) : typeof x == "string" ? x.trim() : x }).
-    filter(function(x) { return typeof x == "string" ? x.length : 1 });
+    options = options || {};
+    return (Array.isArray(str) ? str : (typeof str == "string" ? str : String(str)).split(sep || /[,|]/)).
+            map(function(x) {
+                x = options.datatype ? bkjs.toValue(x, options.datatype) : typeof x == "string" ? x.trim() : x;
+                if (typeof x == "string") {
+                    if (options.regexp && !options.regexp.test(x)) return "";
+                    if (options.lower) x = x.toLowerCase();
+                    if (options.upper) x = x.toUpperCase();
+                    if (options.strip) x = x.replace(options.strip, "");
+                    if (options.camel) x = bkjs.toCamel(x, options);
+                    if (options.cap) x = bkjs.toTitle(x);
+                    if (options.trunc > 0) x = x.substr(0, options.trunc);
+                }
+                return x;
+            }).
+            filter(function(x) { return typeof x == "string" ? x.length : 1 });
 }
 
 bkjs.strSplitUnique = function(str, sep, type)

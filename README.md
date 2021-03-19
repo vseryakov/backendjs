@@ -1006,9 +1006,8 @@ repository when the bundle build may not be called or called too early. To force
 
         git clone https://github.com/vseryakov/backendjs.git
         sudo backendjs/bkjs install-ec2 -tools $(pwd)/backendjs/tools
-        bkjs restart
 
-- run `ps agx`, it should show several backend processes running
+- run `ps agx`, it should show several backend processes running after monit started the service
 - try to access the instance via HTTP port for the API console or documentation
 
 NOTE: if running behind a Load balancer and actual IP address is needed set Express option in the command line `-api-express-options {"trust%20proxy":1}`. In the config file

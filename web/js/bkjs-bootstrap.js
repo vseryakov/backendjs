@@ -5,6 +5,11 @@
 
 // Bootstrap backend support
 
+bkjs.plugins.push(function(target) {
+    $(target).find('.carousel').carousel();
+    $(target).find('[data-toggle="popover"]').popover();
+});
+
 // Show/hide loading animation
 bkjs.showLoading = function(op)
 {
@@ -146,7 +151,9 @@ bkjs.showLogin = function(options, callback)
         ],
         ok: function(d) {
             if (typeof options.onSubmit == "function" && !options.onSubmit(popup, d)) return false;
-            bkjs.login({ login: d.login, secret: d.secret }, function(err) {
+            var q = { login: d.login, secret: d.secret };
+            if (options.url) q = { url: options.url, data: q };
+            bkjs.login(q, function(err) {
                 if (err) popup.showAlert("danger", err);
                 if (typeof callback == "function") callback.call(self, err);
             });
