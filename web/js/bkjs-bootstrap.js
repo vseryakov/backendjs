@@ -5,7 +5,7 @@
 
 // Bootstrap backend support
 
-bkjs.plugins.push(function(target) {
+bkjs.koPlugins.push(function(target) {
     $(target).find('.carousel').carousel();
     $(target).find('[data-toggle="popover"]').popover();
 });

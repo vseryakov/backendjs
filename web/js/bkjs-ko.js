@@ -252,6 +252,58 @@ bkjs.koApplyPlugins = function(target)
     }
 }
 
+// Main component view model
+bkjs.koComponentName = ko.observable("none");
+bkjs.koComponentParams = ko.observable();
+
+ko.components.register("bkjs-component", {
+    viewModel: function(params) {
+        this.name = bkjs.koComponentName;
+        this.params = bkjs.koComponentParams;
+    },
+    template: '<div data-bind="component: { name: $root.koComponentName, params: $root.koComponentParams }"></div>'
+});
+
+bkjs.koShowComponent = function(name, params, nosave)
+{
+    if (bkjs.debug) console.log("koShowComponent:", name, params);
+    bkjs.koComponentParams(params || {});
+    bkjs.koComponentName(name);
+    if (!nosave) bkjs.koSaveComponent(name, params);
+    bkjs.koEvent("component.shown", { name: name, params: params });
+}
+
+// Simple router support
+bkjs.koAppPath = (window.location.pathname.replace(/(\/+[^/]+)$|\/+$/, "") + "/").replace(/\/app.+$/, "/") + "app/";
+bkjs.koAppLocation = window.location.origin + bkjs.koAppPath;
+
+window.onpopstate = function(event) {
+    if (event.state && event.state.view) bkjs.koShowComponent(event.state.view, event.state.params);
+};
+
+bkjs.koSaveComponent = function(name, params)
+{
+    if (!name) return;
+    var url = name;
+    if (params && params.param) {
+        url += "/" + params.param;
+        if (params.value) url += "/" + params.value;
+    }
+    if (url == bkjs._appLocation) return;
+    window.history.pushState({ view: name, params: params }, name, bkjs.koAppLocation + url);
+    bkjs._appLocation = url;
+}
+
+bkjs.koRestoreComponent = function(path, dflt)
+{
+    if (path && path.indexOf(bkjs.koAppPath) != 0) path = "";
+    var location = window.location.origin + (path || window.location.pathname);
+    var params = location.substr(bkjs.koAppLocation.length).split("/");
+    if (bkjs.debug) console.log("koRestoreComponent:", window.location.pathname, "path:", path, "dflt:", dflt, "params:", params);
+    var model = bkjs.koFindModel(params[0]);
+    bkjs.koShowComponent(model ? params[0] : dflt || "none", model ? { param: params[1], value: params[2] } : null);
+}
+
 $(function() {
     bkjs.koBreakpoint(bkjs.koGetBreakpoint());
     $(window).on("resize.bkjs", (event) => {
@@ -267,56 +319,3 @@ $(function() {
         }
     });
 });
-
-// Main component view
-bkjs.koModelName = ko.observable("none");
-bkjs.koModelParams = ko.observable();
-
-ko.components.register("bkjs-model", {
-    viewModel: function(params) {
-        this.koModelName = bkjs.koModelName;
-        this.koModelParams = bkjs.koModelParams;
-    },
-    template: '<div data-bind="component: { name: koModelName, params: koModelParams }"></div>'
-});
-
-bkjs.koShowModel = function(name, params)
-{
-    if (bkjs.debug) console.log("koShowModel:", name, params);
-    bkjs.koModelParams(params || {});
-    bkjs.koModelName(name);
-    bkjs.koSaveModel(name, params);
-    bkjs.koEvent("component.shown", { name: name, params: params });
-}
-
-// Simple router support
-bkjs.koAppPath = (window.location.pathname.replace(/(\/+[^/]+)$|\/+$/, "") + "/").replace(/\/app.+$/, "/") + "app/";
-bkjs.koAppLocation = window.location.origin + bkjs.koAppPath;
-
-window.onpopstate = function(event) {
-    if (event.state && event.state.view) bkjs.koShowModel(event.state.view, event.state.params);
-};
-
-bkjs.koSaveModel = function(name, params)
-{
-    if (!name) return;
-    var url = name;
-    if (params && params.param) {
-        url += "/" + params.param;
-        if (params.value) url += "/" + params.value;
-    }
-    if (url == bkjs._appLocation) return;
-    window.history.pushState({ view: name, params: params }, name, bkjs.koAppLocation + url);
-    bkjs._appLocation = url;
-}
-
-bkjs.koRestoreModel = function(path, dflt)
-{
-    if (path && (window.location.origin + path).indexOf(bkjs.koAppLocation) != 0) path = "";
-    var location = window.location.origin + (path || window.location.pathname);
-    var params = location.substr(bkjs.koAppLocation.length).split("/");
-    if (bkjs.debug) console.log("koRestoreModel:", window.location.pathname, "path:", path, "params:", params);
-    var model = bkjs.koFindModel(params[0]);
-    bkjs.koShowModel(model ? params[0] : dflt || "none", { param: params[1], value: params[2] });
-}
-
