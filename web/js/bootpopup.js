@@ -121,8 +121,8 @@ function bootpopup(options)
                 return x;
             }, {});
         }
-        for (var key in options) {
-            if (key in this.options) this.options[key] = options[key];
+        for (const key in options) {
+            if (key in this.options && typeof options[key] != "undefined") this.options[key] = options[key];
         }
         // Determine what is the best action if none is given
         if (typeof options.onsubmit !== "string") {
@@ -134,7 +134,6 @@ function bootpopup(options)
     }
 
     this.create = function() {
-        var bs4 = window.bootstrap;
         // Option for modal dialog size
         var class_dialog = this.options.class_dialog;
         if (this.options.size == "xlarge") class_dialog += " modal-xl";
@@ -163,7 +162,7 @@ function bootpopup(options)
             if (this.options.show_close) {
                 const close = $('<button type="button" class="close" data-dismiss="modal" aria-label="Close"></button>');
                 $('<span></span>', { class: this.options.class_x, "aria-hidden": "true" }).append("&times;").appendTo(close);
-                if (bs4) this.header.append(close); else close.insertBefore(title);
+                this.header.append(close);
             }
             this.content.append(this.header);
         }
@@ -271,20 +270,13 @@ function bootpopup(options)
                         delete attrs.title;
 
                         // Special case for checkbox
-                        if (/radio|checkbox/.test(attrs.type)) {
-                            if (bs4) {
-                                attrs.class = attrs.class || (opts.switch ? "custom-control-input": "form-check-input");
-                                label = $('<label></label>', { class: opts.class_label || (opts.switch ? "custom-control-label" : "form-check-label"), for: opts.for || attrs.id }).
-                                         append(opts.label);
-                                elem = $('<div></div>', { class: opts.class_check || (opts.switch ? "custom-control custom-switch" : "form-check") }).
-                                append($("<" + type + "/>", attrs)).
-                                append(label);
-
-                            } else {
-                                attrs.class = attrs.class || "";
-                                label = $('<label></label>').append($("<" + type + "/>", attrs)).append(opts.label);
-                                elem = $('<div></div>', { class: attrs.type }).append(label);
-                            }
+                        if (/radio|checkbox/.test(attrs.type) && !opts.raw) {
+                            attrs.class = attrs.class || (opts.switch ? "custom-control-input": "form-check-input");
+                            label = $('<label></label>', { class: opts.class_label || (opts.switch ? "custom-control-label" : "form-check-label"), for: opts.for || attrs.id }).
+                                    append(opts.label);
+                            elem = $('<div></div>', { class: opts.class_check || (opts.switch ? "custom-control custom-switch" : "form-check") }).
+                            append($("<" + type + "/>", attrs)).
+                            append(label);
                             if (opts.class_append || opts.text_append) {
                                 label.append($("<span></span>", { class: opts.class_append || "" }).append(opts.text_append || ""));
                             }
@@ -347,26 +339,14 @@ function bootpopup(options)
                         if (opts.class_prefix || opts.text_prefix) {
                             group.append($("<span></span>", { class: opts.class_prefix || "" }).append(opts.text_prefix || ""));
                         }
-                        if (bs4) {
-                            if (this.options.horizontal) {
-                                group.addClass("row");
-                                class_label += " col-form-label " + (opts.size_label || this.options.size_label);
-                                group.append($("<label></label>", { for: opts.for || attrs.id, class: class_label, html: opts.label }));
-                                group.append($('<div></div>', { class: opts.size_input || this.options.size_input }).append(elem));
-                            } else {
-                                if (opts.label) group.append($("<label></label>", { for: opts.for || attrs.id, class: class_label, html: opts.label }));
-                                group.append(elem);
-                            }
+                        if (this.options.horizontal) {
+                            group.addClass("row");
+                            class_label += " col-form-label " + (opts.size_label || this.options.size_label);
+                            group.append($("<label></label>", { for: opts.for || attrs.id, class: class_label, html: opts.label }));
+                            group.append($('<div></div>', { class: opts.size_input || this.options.size_input }).append(elem));
                         } else {
-                            class_label += " control-label";
-                            if (this.options.horizontal) {
-                                class_label += " " + (opts.size_label || this.options.size_label);
-                                group.append($("<label></label>", { for: opts.for || attrs.id, class: class_label, html: opts.label }));
-                                group.append($('<div></div>', { class: opts.size_input || this.options.size_input }).append(elem));
-                            } else {
-                                if (opts.label) group.append($("<label></label>", { for: opts.for || attrs.id, class: class_label, html: opts.label }));
-                                group.append(elem);
-                            }
+                            if (opts.label) group.append($("<label></label>", { for: opts.for || attrs.id, class: class_label, html: opts.label }));
+                            group.append(elem);
                         }
                         if (opts.class_suffix || opts.text_suffix) {
                             group.append($("<div></div>", { class: opts.class_suffix || "" }).append(opts.text_suffix || ""));
