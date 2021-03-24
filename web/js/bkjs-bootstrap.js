@@ -96,8 +96,8 @@ bkjs.showConfirm = function(options, callback, cancelled)
         buttons: ["cancel", "ok"],
         text_ok: options.ok || "OK",
         text_cancel: options.cancel || "Cancel",
-        class_ok: options.ok_class || 'btn btn-primary',
-        class_cancel: options.cancel_class || 'btn btn-default',
+        class_ok: options.ok_class || undefined,
+        class_cancel: options.cancel_class || undefined,
         content: [{ div: { html: String(options.text || "").replace(/\n/g, "<br>"), class: options.css || "" } }],
         ok: function() {
             if (typeof callback == "function") callback.call(this);
