@@ -273,7 +273,7 @@ function bootpopup(options)
                         if (/radio|checkbox/.test(attrs.type) && !opts.raw) {
                             attrs.class = attrs.class || (opts.switch ? "custom-control-input": "form-check-input");
                             label = $('<label></label>', { class: opts.class_label || (opts.switch ? "custom-control-label" : "form-check-label"), for: opts.for || attrs.id }).
-                                    append(opts.label);
+                                    append(opts.input_label || opts.label);
                             elem = $('<div></div>', { class: opts.class_check || (opts.switch ? "custom-control custom-switch" : "form-check") }).
                             append($("<" + type + "/>", attrs)).
                             append(label);
@@ -281,7 +281,7 @@ function bootpopup(options)
                                 label.append($("<span></span>", { class: opts.class_append || "" }).append(opts.text_append || ""));
                             }
                             // Clear label to not add as header, it was added before
-                            delete opts.label;
+                            if (!opts.input_label) delete opts.label;
                         } else {
                             attrs.class = attrs.class || "form-control";
                             if (type == "textarea") {
