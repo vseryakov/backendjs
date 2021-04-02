@@ -148,11 +148,13 @@ shell.cmdTestRun = function(options)
     } else {
         if (!test.workers) return "continue";
     }
-    while (cmds.length < test.concurrency) cmds = cmds.concat(cmds);
-    cmds = cmds.slice(0, test.concurrency);
+
+    while (cmds.length < test.concurrency) {
+        cmds = cmds.concat(cmds.slice(0, Math.min(cmds.length, test.concurrency - cmds.length)));
+    }
 
     setTimeout(() => {
-        logger.log("tests started:", cluster.isMaster ? "master" : "worker", 'cmd:', test.cmd, 'db-pool:', core.modules.db.pool);
+        logger.log("tests started:", cluster.isMaster ? "master" : "worker", 'cmd:', test.cmd, cmds.length, 'db-pool:', core.modules.db.pool);
 
         lib.whilst(
             function() {
