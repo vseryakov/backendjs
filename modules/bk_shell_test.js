@@ -153,8 +153,8 @@ shell.cmdTestRun = function(options)
             },
             function(next) {
                 tests.test.countdown--;
-                lib.forEachLimit(cmds, tests.test.concurrency, function(cmd, next2) {
-                    tests["test_" + cmd](function(err) {
+                lib.forEachLimit(cmds, tests.test.concurrency, (cmd, next2) => {
+                    tests["test_" + cmd]((err) => {
                         tests.test.iterations++;
                         if (tests.test.forever) err = null;
                         setTimeout(next2.bind(null, err), tests.test.interval);
