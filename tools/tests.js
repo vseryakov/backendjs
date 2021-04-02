@@ -1077,14 +1077,37 @@ tests.test_speed = function(next, test)
         test.metrics = new metrics.Metrics();
         test.metrics.errors = 0;
     }
-    var id = lib.tuuid();
-    var sig = tests.getArg("-sig");
-    var lines = lib.readFileSync(tests.getArg("-urls"), { list: "\n" });
+    var login = tests.getArg("-login");
+    var secret = tests.getArg("-secret");
+    var headers = { 'user-agent': `${core.name}/test/${lib.tuuid()}` };
+    lib.strSplit(tests.getArg("-headers"), "|").forEach((x) => {
+        x = lib.strSplit(x, ":");
+        headers[x[0]] = x.slice(1).join(":");
+    });
+    var urls = lib.strSplit(tests.getArg("-url"), "|");
+    lib.readFileSync(tests.getArg("-speed-conf"), { list: "\n" }).forEach((x) => {
+        x = lib.strSplit(x, "=");
+        switch (x[0]) {
+        case "url":
+            urls.push(x[1]);
+            break;
+        case "header":
+            x = lib.strSplit(x.slice(1).join("="), ":");
+            headers[x[0]] = x.slice(1).join(":");
+            break;
+        case "login":
+            login = x[1];
+            break;
+        case "secret":
+            secret = x[1];
+            break;
+        }
+    });
 
-    lib.forEachSeries(lines, (line, next2) => {
-        lib.forEach(lib.strSplit(line, "|"), (url, next3) => {
+    lib.forEachSeries(urls, (url, next2) => {
+        lib.forEach(lib.strSplit(url, "|"), (u, next3) => {
             const t = test.metrics.Timer("t").start();
-            core.httpGet(url, { headers: { cookie: `${api.signatureHeaderName}=${sig}`, 'user-agent': `${core.name}/test/${id}` } }, (err, rc) => {
+            core.sendRequest({ url: u, headers: headers, login: login, secret: secret }, (err, rc) => {
                 if (rc.status >= 400) test.metrics.errors++;
                 t.end();
                 next3();

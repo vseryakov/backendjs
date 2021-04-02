@@ -66,6 +66,8 @@ shell.assert = function(next, err)
 // - -test-timeout - number of milliseconds between test steps, i.e. between invocations of the check
 // - -test-interval - number of milliseconds between iterations
 // - -test-iterations - how many times to run this test function, default is 1
+// - -test-concurrency - how many functions to run at the same time, default is 1
+// - -test-nowait - do not wait for test function to finish to start next iteration, default is 0
 // - -test-forever - run forever without reporting any errors, for performance testing
 // - -test-file - a javascript file to be loaded with additional tests
 //
@@ -115,9 +117,11 @@ shell.cmdTestRun = function(options)
         role: cluster.isMaster ? "master" : "worker",
         elapsed: 0,
         iterations: 0,
+        running: 0,
         countdown: tests.getArgInt("-test-iterations", options, 1),
         forever: tests.getArgInt("-test-forever", options, 0),
         timeout: tests.getArgInt("-test-timeout", options, 0),
+        nowait: tests.getArgInt("-test-nowait", options, 0),
         interval: tests.getArgInt("-test-interval", options, 0),
         concurrency: tests.getArgInt("-test-concurrency", options, 1),
         keepmaster: tests.getArgInt("-test-keepmaster", options, 0),
@@ -142,6 +146,7 @@ shell.cmdTestRun = function(options)
         setTimeout(() => {
             for (let i = 0; i < test.workers; i++) cluster.fork();
         }, test.workers_delay);
+
         cluster.on("exit", (worker) => {
             if (!Object.keys(cluster.workers).length && !test.forever && !test.keepmaster) process.exit(0);
         });
@@ -163,11 +168,15 @@ shell.cmdTestRun = function(options)
             function(next) {
                 test.countdown--;
                 lib.forEachLimit(cmds, test.concurrency, (cmd, next2) => {
+                    test.running++;
                     tests["test_" + cmd]((err) => {
+                        test.running--;
                         test.iterations++;
+                        if (test.nowait) return;
                         if (test.forever) err = null;
                         setTimeout(next2.bind(null, err), test.interval);
                     }, test);
+                    if (test.nowait) next2();
                 }, next);
             },
             function(err) {
@@ -177,8 +186,11 @@ shell.cmdTestRun = function(options)
                     logger.error("FAILED:", test.role, 'cmd:', test.cmd, err);
                     process.exit(1);
                 }
-                logger.log("SUCCESS:", test);
-                process.exit(0);
+                setInterval(function() {
+                    if (test.running > 0) return;
+                    logger.log("SUCCESS:", test);
+                    process.exit(0);
+                }, 100);
         });
     }, test.delay);
 }
