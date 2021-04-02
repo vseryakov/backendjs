@@ -115,6 +115,7 @@ shell.cmdTestRun = function(options)
     tests.test.forever = tests.getArgInt("-test-forever", options, 0);
     tests.test.timeout = tests.getArgInt("-test-timeout", options, 0);
     tests.test.interval = tests.getArgInt("-test-interval", options, 0);
+    tests.test.concurrency = tests.getArgInt("-test-concurrency", options, 1);
     tests.test.keepmaster = tests.getArgInt("-test-keepmaster", options, 0);
     tests.test.workers = tests.getArgInt("-test-workers", options, 0);
     tests.test.workers_delay = tests.getArgInt("-test-workers-delay", options, 500);
@@ -126,47 +127,49 @@ shell.cmdTestRun = function(options)
     var cmds = lib.strSplit(tests.test.cmd);
     for (var i in cmds) {
         if (!this['test_' + cmds[i]]) {
-            var avail = Object.keys(tests).filter(function(x) { return x.substr(0, 5) == "test_" && typeof tests[x] == "function" }).map(function(x) { return x.substr(5) }).join(", ");
+            var avail = Object.keys(tests).filter((x) => (x.substr(0, 5) == "test_" && typeof tests[x] == "function")).map((x) => (x.substr(5))).join(", ");
             logger.error("cmdTestRun:", "invaid test:", cmds[i], "usage: -test-run CMD where CMD is one of:", avail, "ARGS:", process.argv, "TEST:", tests.test);
             process.exit(1);
         }
     }
 
     if (cluster.isMaster) {
-        setTimeout(function() { for (var i = 0; i < tests.test.workers; i++) cluster.fork(); }, tests.test.workers_delay);
-        cluster.on("exit", function(worker) {
+        setTimeout(() => {
+            for (var i = 0; i < tests.test.workers; i++) cluster.fork();
+        }, tests.test.workers_delay);
+        cluster.on("exit", (worker) => {
             if (!Object.keys(cluster.workers).length && !tests.test.forever && !tests.test.keepmaster) process.exit(0);
         });
     } else {
         if (!tests.test.workers) return "continue";
     }
 
-    setTimeout(function() {
+    setTimeout(() => {
         logger.log("tests started:", cluster.isMaster ? "master" : "worker", 'cmd:', tests.test.cmd, 'db-pool:', core.modules.db.pool);
 
         lib.whilst(
-          function () {
-              return tests.test.countdown > 0 || tests.test.forever || options.running
-          },
-          function (next) {
-              tests.test.countdown--;
-              lib.forEachSeries(cmds, function(cmd, next2) {
-                  tests["test_" + cmd](function(err) {
-                      tests.test.iterations++;
-                      if (tests.test.forever) err = null;
-                      setTimeout(next2.bind(null, err), tests.test.interval);
-                  });
-              }, next);
-          },
-          function(err) {
-              tests.test.etime = Date.now();
-              if (err) {
-                  logger.inspectArgs.errstack = 1;
-                  logger.error("FAILED:", tests.test.role, 'cmd:', tests.test.cmd, err);
-                  process.exit(1);
-              }
-              logger.log("SUCCESS:", tests.test.role, 'cmd:', tests.test.cmd, 'db-pool:', core.modules.db.pool, 'time:', tests.test.etime - tests.test.stime, "ms");
-              process.exit(0);
-          });
+            function() {
+                return tests.test.countdown > 0 || tests.test.forever || options.running
+            },
+            function(next) {
+                tests.test.countdown--;
+                lib.forEachLimit(cmds, tests.test.concurrency, function(cmd, next2) {
+                    tests["test_" + cmd](function(err) {
+                        tests.test.iterations++;
+                        if (tests.test.forever) err = null;
+                        setTimeout(next2.bind(null, err), tests.test.interval);
+                    });
+                }, next);
+            },
+            function(err) {
+                tests.test.etime = Date.now();
+                if (err) {
+                    logger.inspectArgs.errstack = 1;
+                    logger.error("FAILED:", tests.test.role, 'cmd:', tests.test.cmd, err);
+                    process.exit(1);
+                }
+                logger.log("SUCCESS:", tests.test.role, 'cmd:', tests.test.cmd, 'db-pool:', core.modules.db.pool, 'time:', tests.test.etime - tests.test.stime, "ms");
+                process.exit(0);
+        });
     }, tests.test.delay);
 }

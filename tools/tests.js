@@ -17,6 +17,7 @@ const api = bkjs.api;
 const db = bkjs.db;
 const aws = bkjs.aws;
 const logger = bkjs.logger;
+const metrics = bkjs.metrics;
 const tests = bkjs.core.modules.tests;
 
 tests.resetTables = function(tables, callback)
@@ -73,7 +74,7 @@ tests.test_db_basic = function(callback)
             });
         },
         function(next) {
-            db.list("test1", String([id,id2]),  {}, function(err, rows) {
+            db.list("test1", String([id,id2]), {}, function(err, rows) {
                 tests.assert(next, err || rows.length!=2, "err5:", rows.length, rows);
             });
         },
@@ -644,7 +645,7 @@ tests.test_busy = function(callback)
 {
     var work = 524288;
     lib.busyTimer("init", lib.getArgInt("-busy", 100));
-    var interval = setInterval(function worky() {
+    setInterval(function worky() {
         var howBusy = lib.busyTimer("busy");
         if (howBusy) {
           work /= 4;
@@ -652,14 +653,12 @@ tests.test_busy = function(callback)
         }
         work *= 2;
         for (var i = 0; i < work;) i++;
-        console.log("worked:",  work);
+        console.log("worked:", work);
       }, 100);
 }
 
 tests.test_cache = function(callback)
 {
-    var self = this;
-
     console.log("testing cache:", ipc.cache, ipc.getCache().name);
 
     lib.series([
@@ -701,7 +700,7 @@ tests.test_cache = function(callback)
           ipc.incr("a", 1, next);
       },
       function(next) {
-          ipc.put("c", {a:1}, next);
+          ipc.put("c", { a: 1 }, next);
       },
       function(next) {
           ipc.get("c", function(e, val) {
@@ -718,24 +717,24 @@ tests.test_cache = function(callback)
           });
       },
       function(next) {
-          ipc.put("*", {a:1,b:2,c:3}, {mapName:"m"}, next);
+          ipc.put("*", { a: 1, b: 2, c: 3 }, { mapName: "m" }, next);
       },
       function(next) {
-          ipc.incr("c", 1, {mapName:"m"}, next);
+          ipc.incr("c", 1, { mapName: "m" }, next);
       },
       function(next) {
-          ipc.put("c", 2, {mapName:"m",setmax:1}, next);
+          ipc.put("c", 2, { mapName: "m", setmax: 1 }, next);
       },
       function(next) {
-          ipc.del("b", {mapName:"m"}, next);
+          ipc.del("b", { mapName: "m" }, next);
       },
       function(next) {
-          ipc.get("c", {mapName:"m"}, function(e, val) {
+          ipc.get("c", { mapName: "m" }, function(e, val) {
               tests.assert(next, val!=4, "value must be 4, got", val)
           });
       },
       function(next) {
-          ipc.get("*", {mapName:"m"}, function(e, val) {
+          ipc.get("*", { mapName: "m" }, function(e, val) {
               tests.assert(next, !val || val.c!=4 || val.a!=1 || val.b, "value must be {a:1,c:4}, got", val)
           });
       },
@@ -754,7 +753,7 @@ tests.test_pool = function(callback)
     var options = { min: lib.getArgInt("-min", 1),
                     max: lib.getArgInt("-max", 5),
                     idle: lib.getArgInt("-idle", 0),
-                    create: function(cb) { cb(null,{ id:Date.now()}) }
+                    create: function(cb) { cb(null,{ id: Date.now() }) }
     }
     var list = [];
     var pool = new pool(options)
@@ -943,7 +942,7 @@ tests.test_dblock = function(callback)
 
 tests.test_dynamodb = function(callback)
 {
-    var a = {a:1,b:2,c:"3",d:{1:1,2:2},e:[1,2],f:[{1:1},{2:2}],g:true,h:null,i:["a","b"]};
+    var a = { a: 1, b: 2, c: "3", d: { 1: 1, 2: 2 }, e: [1,2], f: [{ 1: 1 }, { 2: 2 }], g: true, h: null, i: ["a","b"] };
     var b = aws.toDynamoDB(a);
     var c = aws.fromDynamoDB(b);
     logger.debug("dynamodb: from", a)
@@ -1070,5 +1069,26 @@ tests.test_cleanup = function(callback)
            "status=", res.billing_staff && !res.priv ? "ok" : ++failed);
 
     callback(failed);
+}
+
+tests.test_speed = function(next)
+{
+    var id = lib.tuuid();
+    var errors = 0, m = new metrics.Metrics();
+    var sig = tests.getArg("-sig");
+    var lines = lib.readFileSync(tests.getArg("-urls"), { list: "\n" });
+    lib.forEachSeries(lines, (line, next2) => {
+        lib.forEach(lib.strSplit(line, "|"), (url, next3) => {
+            const t = m.Timer("t").start();
+            core.httpGet(url, { headers: { cookie: `${api.signatureHeaderName}=${sig}`, 'user-agent': `${core.name}/test/${id}` } }, (err, rc) => {
+                if (rc.status >= 400) errors++;
+                t.end();
+                next3();
+            });
+        }, next2);
+    }, (err) => {
+        logger.log("SPEED:", "errors:", errors, m.Timer("t").toJSON(), err);
+        next();
+    });
 }
 
