@@ -1071,24 +1071,25 @@ tests.test_cleanup = function(callback)
     callback(failed);
 }
 
-tests.test_speed = function(next)
+tests.test_speed = function(next, test)
 {
+    if (!test.metrics) {
+        test.metrics = new metrics.Metrics();
+        test.metrics.errors = 0;
+    }
     var id = lib.tuuid();
-    var errors = 0, m = new metrics.Metrics();
     var sig = tests.getArg("-sig");
     var lines = lib.readFileSync(tests.getArg("-urls"), { list: "\n" });
+
     lib.forEachSeries(lines, (line, next2) => {
         lib.forEach(lib.strSplit(line, "|"), (url, next3) => {
-            const t = m.Timer("t").start();
+            const t = test.metrics.Timer("t").start();
             core.httpGet(url, { headers: { cookie: `${api.signatureHeaderName}=${sig}`, 'user-agent': `${core.name}/test/${id}` } }, (err, rc) => {
-                if (rc.status >= 400) errors++;
+                if (rc.status >= 400) test.metrics.errors++;
                 t.end();
                 next3();
             });
         }, next2);
-    }, (err) => {
-        logger.log("SPEED:", "errors:", errors, m.Timer("t").toJSON(), err);
-        next();
-    });
+    }, next);
 }
 

@@ -110,66 +110,73 @@ shell.cmdTestRun = function(options)
     var tests = shell;
     core.addModule("tests", tests);
 
-    tests.test = { role: cluster.isMaster ? "master" : "worker", iterations: 0, stime: Date.now() };
-    tests.test.countdown = tests.getArgInt("-test-iterations", options, 1);
-    tests.test.forever = tests.getArgInt("-test-forever", options, 0);
-    tests.test.timeout = tests.getArgInt("-test-timeout", options, 0);
-    tests.test.interval = tests.getArgInt("-test-interval", options, 0);
-    tests.test.concurrency = tests.getArgInt("-test-concurrency", options, 1);
-    tests.test.keepmaster = tests.getArgInt("-test-keepmaster", options, 0);
-    tests.test.workers = tests.getArgInt("-test-workers", options, 0);
-    tests.test.workers_delay = tests.getArgInt("-test-workers-delay", options, 500);
-    tests.test.delay = tests.getArgInt("-test-delay", options, 0);
-    tests.test.cmd = tests.getArg("-test-run", options);
-    tests.test.file = tests.getArg("-test-file", options, "tools/tests.js");
-    if (tests.test.file) this.loadFile(tests.test.file);
+    var test = tests.test = {
+        cmd: tests.getArg("-test-run", options),
+        role: cluster.isMaster ? "master" : "worker",
+        elapsed: 0,
+        iterations: 0,
+        countdown: tests.getArgInt("-test-iterations", options, 1),
+        forever: tests.getArgInt("-test-forever", options, 0),
+        timeout: tests.getArgInt("-test-timeout", options, 0),
+        interval: tests.getArgInt("-test-interval", options, 0),
+        concurrency: tests.getArgInt("-test-concurrency", options, 1),
+        keepmaster: tests.getArgInt("-test-keepmaster", options, 0),
+        workers: tests.getArgInt("-test-workers", options, 0),
+        workers_delay: tests.getArgInt("-test-workers-delay", options, 500),
+        delay: tests.getArgInt("-test-delay", options, 0),
+        file: tests.getArg("-test-file", options, "tools/tests.js"),
+        stime: Date.now(),
+    };
+    if (test.file) this.loadFile(test.file);
 
-    var cmds = lib.strSplit(tests.test.cmd);
-    for (var i in cmds) {
+    var cmds = lib.strSplit(test.cmd);
+    for (const i in cmds) {
         if (!this['test_' + cmds[i]]) {
             var avail = Object.keys(tests).filter((x) => (x.substr(0, 5) == "test_" && typeof tests[x] == "function")).map((x) => (x.substr(5))).join(", ");
-            logger.error("cmdTestRun:", "invaid test:", cmds[i], "usage: -test-run CMD where CMD is one of:", avail, "ARGS:", process.argv, "TEST:", tests.test);
+            logger.error("cmdTestRun:", "invaid test:", cmds[i], "usage: -test-run CMD where CMD is one of:", avail, "ARGS:", process.argv, "TEST:", test);
             process.exit(1);
         }
     }
 
     if (cluster.isMaster) {
         setTimeout(() => {
-            for (var i = 0; i < tests.test.workers; i++) cluster.fork();
-        }, tests.test.workers_delay);
+            for (let i = 0; i < test.workers; i++) cluster.fork();
+        }, test.workers_delay);
         cluster.on("exit", (worker) => {
-            if (!Object.keys(cluster.workers).length && !tests.test.forever && !tests.test.keepmaster) process.exit(0);
+            if (!Object.keys(cluster.workers).length && !test.forever && !test.keepmaster) process.exit(0);
         });
     } else {
-        if (!tests.test.workers) return "continue";
+        if (!test.workers) return "continue";
     }
+    while (cmds.length < test.concurrency) cmds = cmds.concat(cmds);
+    cmds = cmds.slice(0, test.concurrency);
 
     setTimeout(() => {
-        logger.log("tests started:", cluster.isMaster ? "master" : "worker", 'cmd:', tests.test.cmd, 'db-pool:', core.modules.db.pool);
+        logger.log("tests started:", cluster.isMaster ? "master" : "worker", 'cmd:', test.cmd, 'db-pool:', core.modules.db.pool);
 
         lib.whilst(
             function() {
-                return tests.test.countdown > 0 || tests.test.forever || options.running
+                return test.countdown > 0 || test.forever || options.running
             },
             function(next) {
-                tests.test.countdown--;
-                lib.forEachLimit(cmds, tests.test.concurrency, (cmd, next2) => {
+                test.countdown--;
+                lib.forEachLimit(cmds, test.concurrency, (cmd, next2) => {
                     tests["test_" + cmd]((err) => {
-                        tests.test.iterations++;
-                        if (tests.test.forever) err = null;
-                        setTimeout(next2.bind(null, err), tests.test.interval);
-                    });
+                        test.iterations++;
+                        if (test.forever) err = null;
+                        setTimeout(next2.bind(null, err), test.interval);
+                    }, test);
                 }, next);
             },
             function(err) {
-                tests.test.etime = Date.now();
+                test.elapsed = Date.now() - test.stime;
                 if (err) {
                     logger.inspectArgs.errstack = 1;
-                    logger.error("FAILED:", tests.test.role, 'cmd:', tests.test.cmd, err);
+                    logger.error("FAILED:", test.role, 'cmd:', test.cmd, err);
                     process.exit(1);
                 }
-                logger.log("SUCCESS:", tests.test.role, 'cmd:', tests.test.cmd, 'db-pool:', core.modules.db.pool, 'time:', tests.test.etime - tests.test.stime, "ms");
+                logger.log("SUCCESS:", test);
                 process.exit(0);
         });
-    }, tests.test.delay);
+    }, test.delay);
 }
