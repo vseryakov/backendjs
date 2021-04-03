@@ -1077,12 +1077,14 @@ tests.test_speed = function(next, test)
         test.metrics = new metrics.Metrics();
         test.metrics.errors = 0;
     }
-    var login = tests.getArg("-login");
-    var secret = tests.getArg("-secret");
-    var headers = { 'user-agent': `${core.name}/test/${lib.tuuid()}` };
+    var opts = {
+        headers: { 'user-agent': `${core.name}/test/${lib.tuuid()}` },
+        login: tests.getArg("-login"),
+        secret: tests.getArg("-secret"),
+    };
     lib.strSplit(tests.getArg("-headers"), "|").forEach((x) => {
         x = lib.strSplit(x, ":");
-        headers[x[0]] = x.slice(1).join(":");
+        opts.headers[x[0]] = x.slice(1).join(":");
     });
     var urls = lib.strSplit(tests.getArg("-url"), "|");
     lib.readFileSync(tests.getArg("-speed-conf"), { list: "\n" }).forEach((x) => {
@@ -1093,13 +1095,17 @@ tests.test_speed = function(next, test)
             break;
         case "header":
             x = lib.strSplit(x.slice(1).join("="), ":");
-            headers[x[0]] = x.slice(1).join(":");
+            opts.headers[x[0]] = x.slice(1).join(":");
             break;
         case "login":
-            login = x[1];
+            opts.login = x[1];
             break;
         case "secret":
-            secret = x[1];
+            opts.secret = x[1];
+            break;
+        case "opt":
+            x = lib.strSplit(x.slice(1).join("="), ":");
+            opts[x[0]] = x.slice(1).join(":");
             break;
         }
     });
@@ -1107,10 +1113,10 @@ tests.test_speed = function(next, test)
     lib.forEachSeries(urls, (url, next2) => {
         lib.forEach(lib.strSplit(url, "|"), (u, next3) => {
             const t = test.metrics.Timer("t").start();
-            core.sendRequest({ url: u, headers: headers, login: login, secret: secret }, (err, rc) => {
+            core.sendRequest(lib.objClone(opts, "url", u), (err, rc) => {
                 if (rc.status >= 400) test.metrics.errors++;
                 t.end();
-                next3();
+                setImmediate(next3);
             });
         }, next2);
     }, next);

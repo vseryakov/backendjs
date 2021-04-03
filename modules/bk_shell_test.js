@@ -176,7 +176,7 @@ shell.cmdTestRun = function(options)
                         if (test.forever) err = null;
                         setTimeout(next2.bind(null, err), test.interval);
                     }, test);
-                    if (test.nowait) next2();
+                    if (test.nowait) setImmediate(next2);
                 }, next);
             },
             function(err) {
