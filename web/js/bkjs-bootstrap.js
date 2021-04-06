@@ -117,7 +117,7 @@ bkjs.showPrompt = function(options, callback)
         self: this,
         title: options.title || 'Prompt',
         buttons: ["cancel", "ok"],
-        content: [{ input: { name: "value", label: String(options.text || "").replace(/\n/g, "<br>"), class: `form-control ${options.css ||""}` } }],
+        content: [{ input: { name: "value", label: String(options.text || "").replace(/\n/g, "<br>"), class: `form-control ${options.css ||""}`, value: options.value } }],
         ok: function(d) {
             value = d.value;
         },
