@@ -962,7 +962,7 @@ bkjs.strSplit = function(str, sep, options)
                 }
                 return x;
             }).
-            filter((x) => (options.keepempty || return typeof x == "string" ? x.length : 1));
+            filter((x) => (options.keepempty || typeof x == "string" ? x.length : 1));
 }
 
 bkjs.strSplitUnique = function(str, sep, type)
