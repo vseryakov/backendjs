@@ -949,7 +949,7 @@ bkjs.strSplit = function(str, sep, options)
     if (!str) return [];
     options = options || {};
     return (Array.isArray(str) ? str : (typeof str == "string" ? str : String(str)).split(sep || /[,|]/)).
-            map(function(x) {
+            map((x) => {
                 x = options.datatype ? bkjs.toValue(x, options.datatype) : typeof x == "string" ? x.trim() : x;
                 if (typeof x == "string") {
                     if (options.regexp && !options.regexp.test(x)) return "";
@@ -962,7 +962,7 @@ bkjs.strSplit = function(str, sep, options)
                 }
                 return x;
             }).
-            filter(function(x) { return typeof x == "string" ? x.length : 1 });
+            filter((x) => (options.keepempty || return typeof x == "string" ? x.length : 1));
 }
 
 bkjs.strSplitUnique = function(str, sep, type)
