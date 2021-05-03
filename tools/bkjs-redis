@@ -35,7 +35,7 @@ case "$BKJS_CMD" in
         cp $BKJS_HOME/etc/redis.conf $BKJS_HOME/etc/redis.conf.old
     fi
 
-    ver=$(get_arg -version 6.0.10)
+    ver=$(get_arg -version 6.2.2)
     curl -L -o redis.tgz http://download.redis.io/releases/redis-$ver.tar.gz
 
     mkdir -p redis $BKJS_HOME/etc
