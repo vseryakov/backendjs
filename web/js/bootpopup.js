@@ -282,6 +282,19 @@ function bootpopup(options)
                             }
                             // Clear label to not add as header, it was added before
                             if (!opts.input_label) delete opts.label;
+                        } else
+                        if (attrs.type == "file" && !opts.raw) {
+                            attrs.class = attrs.class || "custom-file-input";
+                            label = $('<label></label>', { class: opts.class_label || "custom-file-label", for: opts.for || attrs.id }).
+                                    append(opts.input_label || opts.label);
+                            elem = $('<div></div>', { class: opts.class_check || "custom-file" }).
+                            append($("<" + type + "/>", attrs)).
+                            append(label);
+                            if (opts.class_append || opts.text_append) {
+                                label.append($("<span></span>", { class: opts.class_append || "" }).append(opts.text_append || ""));
+                            }
+                            // Clear label to not add as header, it was added before
+                            if (!opts.input_label) delete opts.label;
                         } else {
                             attrs.class = attrs.class || "form-control";
                             if (type == "textarea") {
