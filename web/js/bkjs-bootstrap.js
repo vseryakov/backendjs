@@ -89,15 +89,11 @@ bkjs.showConfirm = function(options, callback, cancelled)
 {
     if (typeof options == "string") options = { text: options };
 
-    bootpopup({
+    var opts = {
         self: this,
         title: options.title || 'Confirm',
         show_header: options.title !== null,
         buttons: ["cancel", "ok"],
-        text_ok: options.ok || "OK",
-        text_cancel: options.cancel || "Cancel",
-        class_ok: options.ok_class || undefined,
-        class_cancel: options.cancel_class || undefined,
         content: [{ div: { html: String(options.text || "").replace(/\n/g, "<br>"), class: options.css || "" } }],
         ok: function() {
             if (typeof callback == "function") callback.call(this);
@@ -105,7 +101,11 @@ bkjs.showConfirm = function(options, callback, cancelled)
         cancel: function() {
             if (typeof cancelled == "function") cancelled.call(this);
         }
-    });
+    };
+    for (const p in options) {
+        if (/^(class|text|icon)_/.test(p)) opts[p] = options[p];
+    }
+    bootpopup(opts);
 }
 
 bkjs.showPrompt = function(options, callback)
@@ -113,7 +113,7 @@ bkjs.showPrompt = function(options, callback)
     if (typeof options == "string") options = { text: options };
 
     var value;
-    bootpopup({
+    var opts = {
         self: this,
         title: options.title || 'Prompt',
         buttons: ["cancel", "ok"],
@@ -124,7 +124,11 @@ bkjs.showPrompt = function(options, callback)
         dismiss: function() {
             if (typeof callback == "function") callback.call(this, value);
         }
-    });
+    };
+    for (const p in options) {
+        if (/^(class|text|icon)_/.test(p)) opts[p] = options[p];
+    }
+    bootpopup(opts);
 }
 
 bkjs.showLogin = function(options, callback)
@@ -133,12 +137,12 @@ bkjs.showLogin = function(options, callback)
     if (!options) options = {};
 
     var popup;
-    popup = bootpopup({
+    var opts = {
         self: this,
         id: "bkjs-login-modal",
         show_header: false,
         buttons: ["cancel", "ok"],
-        text_ok: options.login_button || "Login",
+        text_ok: "Login",
         content: [
             { h4: { html: `<img src="${options.logo || "/img/logo.png"}" style="max-height: 3rem;"> ${options.title || 'Please Sign In'}`, class: "text-center py-4" } },
             { input: { name: "login", label: options.login || "Login", placeholder: options.login, autofocus: true,
@@ -159,7 +163,11 @@ bkjs.showLogin = function(options, callback)
             });
             return false;
         },
-    });
+    }
+    for (const p in options) {
+        if (/^(class|text|icon)_/.test(p)) opts[p] = options[p];
+    }
+    popup = bootpopup(opts);
 }
 
 bkjs.hideLogin = function()
