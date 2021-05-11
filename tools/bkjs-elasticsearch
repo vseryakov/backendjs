@@ -123,6 +123,14 @@ case "$BKJS_CMD" in
     curl -XPUT -H 'Content-Type: application/json' -d '{"persistent":{"cluster.routing.allocation.enable":null}}' http://$host:9200/_cluster/settings
     ;;
 
+  set-elasticsearch-disk-watermark)
+    host=$(get_arg -host localhost)
+    high=$(get_arg -high 97)
+    low=$(get_arg -low 95)
+    flood=$(get_arg -flood 99)
+    curl -XPUT -H 'Content-Type: application/json' -d "{\"transient\":{\"cluster.routing.allocation.disk.watermark.flood_stage\":\"$flood%\",\"cluster.routing.allocation.disk.watermark.high\":\"$high%\",\"cluster.routing.allocation.disk.watermark.low\":\"$low%\"}}" http://$host:9200/_cluster/settings
+    ;;
+
   upgrade-elasticsearch-node)
     host=$(get_arg -host localhost)
     memsize=$(get_arg -memsize 50)
