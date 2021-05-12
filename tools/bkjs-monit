@@ -14,10 +14,11 @@ case "$BKJS_CMD" in
     delay=$(get_arg -delay 15)
     load=$(get_arg -load 7)
     space=$(get_arg -space 90)
+    path=$(get_arg -path /)
     [ "$OS_TYPE" = "amazon2" ] && delay=$(($delay*2))
     $ECHO "set daemon 30 with start delay $delay" > /etc/monit.d/system.conf
     $ECHO "check system \$HOST every 3 cycles if loadavg(1min) > $load for 15 cycles then exec \"$BKJS_BIN send-alert\"" >> /etc/monit.d/system.conf
-    $ECHO "check filesystem rootfs with path / every 30 cycles if space usage > ${space}% then exec \"$BKJS_BIN send-alert\"" >> /etc/monit.d/system.conf
+    $ECHO "check filesystem rootfs with path $path every 30 cycles if space usage > ${space}% then exec \"$BKJS_BIN send-alert\"" >> /etc/monit.d/system.conf
     monit reload
     ;;
 
