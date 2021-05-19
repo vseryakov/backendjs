@@ -231,6 +231,13 @@ case "$BKJS_CMD" in
     echo "  reset-elasticsearch - remove local ElasticSearch database and restart the server"
     echo "  init-elasticsearch-monit [-memsize PERCENT] [-memmax SIZE] [-nodetype TYPE] - setup monit to keep elasticsearch service running"
     echo "  init-elasticsearch-cloudwatch-logs - setup elastichsearch.log to be sent to CloudWatch Logs"
+    echo "  exclude-elasticsearch-node [-host HOST] [-ip IP] - disable a node by IP address"
+    echo "  elasticsearch-health|es-w [-host HOST] - show cluster health status"
+    echo "  elasticsearch-space|es-df [-host HOST] - show cluster disk allocations"
+    echo "  elasticsearch-shards|es-s [-host HOST] - show cluster shards allocations and distributions"
+    echo "  elasticsearch-tasks|es-t [-host HOST] [-nodes ID] - show cluster running tasks for all or specific nodes"
+    echo "  elasticsearch-ls|es-ls [-host HOST] - show cluster nodes"
+    echo "  elasticsearch-nodes|es-n [-host HOST] - show cluster nodes IDs to be used for other commands by node id"
     echo ""
     ;;
 
