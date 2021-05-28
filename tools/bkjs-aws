@@ -258,15 +258,10 @@ case "$BKJS_CMD" in
     echo " \"log_stream_name\": \"$tag\" } }" >> $conf
     $dir/bin/config-translator --input $dir/etc/amazon-cloudwatch-agent.json --output $dir/etc/amazon-cloudwatch-agent.toml --mode "auto"
     case "$OS_TYPE" in
-      amazon2)
+      amazon)
         systemctl enable amazon-cloudwatch-agent
         systemctl stop amazon-cloudwatch-agent
         systemctl start amazon-cloudwatch-agent
-        ;;
-
-      *)
-        initctl stop amazon-cloudwatch-agent
-        initctl start amazon-cloudwatch-agent
         ;;
     esac
     ;;

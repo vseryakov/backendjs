@@ -17,7 +17,6 @@ case "$PLATFORM" in
     case "$OS_NAME" in
      *Amazon*)
        OS_TYPE=amazon
-       [[ $os =~ "Linux 2" ]] && OS_TYPE=amazon2
        ;;
 
      *Ubuntu*)

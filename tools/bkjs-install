@@ -33,8 +33,9 @@ case "$BKJS_CMD" in
        sudo -H -u $BKJS_USER $0 install-node -prefix $BKJS_PREFIX -tools "$(get_arg -tools)"
     fi
     if [ -d $BKJS_HOME/backendjs -a ! -d $BKJS_HOME/node_modules/backendjs ]; then
+       mkdir -p $BKJS_HOME/node_modules/
        ln -sfn $BKJS_HOME/backendjs $BKJS_HOME/node_modules/backendjs
-       (cd $BKJS_HOME && backendjs deps -path backendjs)
+       (cd $BKJS_HOME && backendjs/bkjs deps -path backendjs)
     fi
     (cd $BKJS_HOME/bin && ln -sf ../node_modules/$BKJS_MOD/$BKJS && ln -sf $BKJS bksh)
     ;;
@@ -218,7 +219,7 @@ case "$BKJS_CMD" in
        echo "Configuring rsyslog..."
        echo "#Bkjs" > /etc/rsyslog.conf
        case "$OS_TYPE" in
-        amazon2)
+        amazon)
           echo '$ModLoad imjournal' >> /etc/rsyslog.conf
           ;;
 
@@ -236,7 +237,7 @@ case "$BKJS_CMD" in
        echo '$SystemLogRateLimitBurst 10000' >> /etc/rsyslog.conf
        echo '$ActionFileDefaultTemplate RSYSLOG_FileFormat' >> /etc/rsyslog.conf
        case "$OS_TYPE" in
-        amazon2)
+        amazon)
           echo '$OmitLocalLogging on' >> /etc/rsyslog.conf
           echo '$IMJournalStateFile imjournal.state' >> /etc/rsyslog.conf
           echo '*.emerg :omusrmsg:*' >> /etc/rsyslog.conf
@@ -262,7 +263,7 @@ case "$BKJS_CMD" in
        echo "\$FileOwner $BKJS_USER" >> /etc/rsyslog.d/$BKJS.conf
        bkjsfmt=""
        case "$OS_TYPE" in
-        amazon2)
+        amazon)
           echo '$template bkjsfmt,"%HOSTNAME% %msg%\n"' >> /etc/rsyslog.d/$BKJS.conf
           bkjsfmt=";bkjsfmt"
           ;;
@@ -287,7 +288,7 @@ case "$BKJS_CMD" in
 
     # Make sure monit is running all the time
     echo "set logfile syslog" > /etc/monit.d/logging
-    if [ "$OS_TYPE" = "amazon2" ]; then
+    if [ "$OS_TYPE" = "amazon" ]; then
         sed -E -i 's/^After.+$/After=network.target cloud-init.target/' /etc/systemd/system/multi-user.target.wants/monit.service
     fi
     chkconfig monit on
@@ -474,20 +475,12 @@ case "$BKJS_CMD" in
         ;;
 
       amazon)
-        yum -y -q update
-        yum-config-manager --enable epel
-        yum -y remove java-1.8.0-openjdk-headless
-        packages="$packages java-1.8.0"
-        yum -y -q install $packages
-        ;;
-
-      amazon2)
-        yum -y -q update
-        amazon-linux-extras install epel -y
         packages="$packages java-latest-openjdk-headless"
-        yum clean metadata
-        yum install epel-release
+        amazon-linux-extras install epel -y
+        yum -y -q clean metadata
+        yum -y -q install epel-release
         sleep 10
+        yum -y -q update
         yum -y -q install $packages
         ;;
     esac
