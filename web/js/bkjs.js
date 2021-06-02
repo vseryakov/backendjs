@@ -129,18 +129,14 @@ bkjs.createSignature = function(method, url, query, options)
     if (typeof query == "object") query = jQuery.param(query);
     query = query.split("&").sort().filter(function(x) { return x != ""; }).join("&");
     switch (this.signatureVersion) {
-    case 1:
-        str = method + "\n" + host + "\n" + url + "\n" + query + "\n" + expires + "\n" + ctype + "\n" + checksum + "\n";
-        hmac = b64_hmac_sha1(creds.secret, str);
-        break;
     case 2:
     case 3:
         str = this.signatureVersion + '\n' + tag + '\n' + creds.login + "\n*\n" + this.domainName(host) + "\n/\n*\n" + expires + "\n*\n*\n";
-        hmac = b64_hmac_sha256(creds.secret, str);
+        hmac = this.crypto.hmac_sha256(creds.secret, str, "base64");
         break;
     default:
         str = this.signatureVersion + "\n" + tag + "\n" + creds.login + "\n" + method + "\n" + host + "\n" + url + "\n" + query + "\n" + expires + "\n" + ctype + "\n" + checksum + "\n";
-        hmac = b64_hmac_sha256(creds.secret, str);
+        hmac = this.crypto.hmac_sha256(creds.secret, str, "base64");
     }
     rc[this.signatureName] = this.signatureVersion + '|' + tag + '|' + creds.login + '|' + hmac + '|' + expires + '|' + checksum + '|';
     if (this.debug) this.log('sign:', creds, str);
@@ -182,7 +178,7 @@ bkjs.checkCredentials = function(options)
 // Scramble credentials if needed
 bkjs.scrambleCredentials = function(options)
 {
-    if (options.scramble) options.secret = b64_hmac_sha256(options.secret, options.login);
+    if (options.scramble) options.secret = this.crypto.hmac_sha256(options.secret, options.login, "base64");
 }
 
 // Set new credentials, save in memory or local storage
