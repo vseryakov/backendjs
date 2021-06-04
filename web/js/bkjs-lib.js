@@ -1407,11 +1407,20 @@ bkjs.shuffle = function(list)
     return list;
 }
 
-// Return a random string
-bkjs.random = function()
+// Return a random hex string
+bkjs.random = function(size)
 {
-   return (((1 + Math.random()) * 0x100000000) | 0).toString(16).substring(1) +
-          (((1 + Math.random()) * 0x100000000) | 0).toString(16).substring(1);
+    var s = "";
+    if (window.crypto && window.crypto.getRandomValues) {
+        var u = new Uint8Array(size || 16), h = "0123456789abcdef";
+        window.crypto.getRandomValues(u);
+        for (let i = 0; i < u.length; i++) s += h.charAt(u[i] >> 4) + h.charAt(u[i] & 0x0F);
+    } else {
+        var l = (size || 16) * 2;
+        while (s.length < l) s += Math.abs((((1 + Math.random()) * 0x100000000) | 0)).toString(16);
+        if (s.length > l) s = s.substr(0, l);
+    }
+    return s;
 }
 
 // Return numeric representation of the version string to perfom arithmetic comparions

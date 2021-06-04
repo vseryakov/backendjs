@@ -25,7 +25,8 @@ bkjs.crypto = {
         770255983, 1249150122, 1555081692, 1996064986, -1740746414, -1473132947, -1341970488, -1084653625, -958395405, -710438585,
         113926993, 338241895, 666307205, 773529912, 1294757372, 1396182291, 1695183700, 1986661051, -2117940946, -1838011259, -1564481375,
         -1474664885, -1035236496, -949202525, -778901479, -694614492, -200395387, 275423344, 430227734, 506948616, 659060556, 883997877,
-        958139571, 1322822218, 1537002063, 1747873779, 1955562222, 2024104815, -2067236844, -1933114872, -1866530822, -1538233109, -1090935817, -965641998],
+        958139571, 1322822218, 1537002063, 1747873779, 1955562222, 2024104815, -2067236844, -1933114872, -1866530822, -1538233109, -1090935817, -965641998
+    ],
 
     sha256_S: function(X, n) {
         return (X >>> n) | (X << (32 - n));
@@ -83,7 +84,7 @@ bkjs.crypto = {
     },
 
     // Calculate the SHA-1 of an array of big-endian words, and a bit length
-    core_sha1: function(data, len) {
+    coreSha1: function(data, len) {
         var HASH = [1732584193, -271733879, -1732584194, 271733878, -1009589776];
         var w = Array(80);
 
@@ -119,20 +120,20 @@ bkjs.crypto = {
     },
 
     sha1: function(data, enc) {
-        var out = this.core_sha1(this.str2bin(data), data.length * 8);
-        return this.benc(out, enc);
+        if (typeof data == "string") data = this.str2bin(data);
+        return this.bin2enc(this.coreSha1(this.str2bin(data), data._size * 8), enc);
     },
 
     // Calculate the HMAC-SHA1 of a key and some data
-    hmac_sha1: function(key, data, enc) {
-        var hmac = this.hmac_init(key);
+    hmacSha1: function(key, data, enc) {
+        var hmac = this.hmacInit(key);
         if (typeof data == "string") data = this.str2bin(data);
-        var hash = this.core_sha1(hmac.i.concat(data), 512 + data._size * 8);
-        var out = this.core_sha1(hmac.o.concat(hash), 512 + 160);
-        return this.benc(out, enc);
+        var hash = this.coreSha1(hmac.i.concat(data), 512 + data._size * 8);
+        var out = this.coreSha1(hmac.o.concat(hash), 512 + 160);
+        return this.bin2enc(out, enc);
     },
 
-    core_sha256: function(data, len) {
+    coreSha256: function(data, len) {
         var HASH = [1779033703, -1150833019, 1013904242, -1521486534, 1359893119, -1694144372, 528734635, 1541459225];
         var W = new Array(64);
         var a, b, c, d, e, f, g, h, i, j, T1, T2;
@@ -179,13 +180,13 @@ bkjs.crypto = {
 
     sha256: function(data, enc)
     {
-        var out = this.core_sha256(this.str2bin(data), data.length * 8);
-        return this.benc(out, enc);
+        if (typeof data == "string") data = this.str2bin(data);
+        return this.bin2enc(this.coreSha256(this.str2bin(data), data._size * 8), enc);
     },
 
-    hmac_init: function(key) {
+    hmacInit: function(key) {
         key = typeof key == "string" ? this.str2bin(key) : key;
-        if (key.length > 16) key = this.core_sha256(key, key._size * 8);
+        if (key.length > 16) key = this.coreSha256(key, key._size * 8);
 
         var i = Array(16), o = Array(16);
         for (let k = 0; k < 16; k++) {
@@ -196,12 +197,12 @@ bkjs.crypto = {
     },
 
     // Calculate the HMAC-SHA256 of a key and some data
-    hmac_sha256: function(key, data, enc) {
-        var hmac = this.hmac_init(key);
+    hmacSha256: function(key, data, enc) {
+        var hmac = this.hmacInit(key);
         if (typeof data == "string") data = this.str2bin(data);
-        var hash = this.core_sha256(hmac.i.concat(data), 512 + data._size * 8);
-        var out = this.core_sha256(hmac.o.concat(hash), 512 + 256);
-        return this.benc(out, enc);
+        var hash = this.coreSha256(hmac.i.concat(data), 512 + data._size * 8);
+        var out = this.coreSha256(hmac.o.concat(hash), 512 + 256);
+        return this.bin2enc(out, enc);
     },
 
     // Convert an 8-bit or 16-bit string to an array of big-endian word, characters >255 have their hi-byte silently ignored.
@@ -257,6 +258,10 @@ bkjs.crypto = {
         return str;
     },
 
+    bin2enc: function(bin, enc) {
+        return !enc ? bin : enc == "base64" ? this.bin2b64(bin) : enc == "hex" ? this.bin2hex(bin) : enc == "str" ? this.bin2str(bin) : bin;
+    },
+
     bnew: function(list, size) {
         var bin = list.slice(0);
         bin._size = size || bin.length * 4;
@@ -280,10 +285,7 @@ bkjs.crypto = {
         return bin;
     },
 
-    benc: function(out, enc) {
-        return !enc ? out : enc == "base64" ? this.bin2b64(out) : enc == "hex" ? this.bin2hex(out) : enc == "str" ? this.bin2str(out) : out;
-    },
-
+    // Test: password,salt,4096,32 == c5e478d59288c841aa530db6845c4c8d962893a001ce4e11a4963873aa98134a
     pbkdf2: function(key, salt, iterations, length, enc) {
         var u, ui, o = this.bnew([]);
         var b = this.bnew([0x00000001]);
@@ -291,15 +293,16 @@ bkjs.crypto = {
         iterations = iterations || 10000;
 
         for (let k = 1; k <= length; ++k) {
-            u = ui = this.hmac_sha256(key, this.bconcat(salt, b));
+            u = ui = this.hmacSha256(key, this.bconcat(salt, b));
 
             for (let i = 1; i < iterations; ++i) {
-                ui = this.hmac_sha256(key, ui);
+                ui = this.hmacSha256(key, ui);
                 for (let j = 0; j < ui.length; j++) u[j] ^= ui[j];
             }
             o = this.bconcat(o, u);
             b[0]++;
         }
-        return this.benc(o, enc);
+        return this.bin2enc(o, enc);
     },
+
 }

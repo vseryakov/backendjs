@@ -132,11 +132,11 @@ bkjs.createSignature = function(method, url, query, options)
     case 2:
     case 3:
         str = this.signatureVersion + '\n' + tag + '\n' + creds.login + "\n*\n" + this.domainName(host) + "\n/\n*\n" + expires + "\n*\n*\n";
-        hmac = this.crypto.hmac_sha256(creds.secret, str, "base64");
+        hmac = this.crypto.hmacSha256(creds.secret, str, "base64");
         break;
     default:
         str = this.signatureVersion + "\n" + tag + "\n" + creds.login + "\n" + method + "\n" + host + "\n" + url + "\n" + query + "\n" + expires + "\n" + ctype + "\n" + checksum + "\n";
-        hmac = this.crypto.hmac_sha256(creds.secret, str, "base64");
+        hmac = this.crypto.hmacSha256(creds.secret, str, "base64");
     }
     rc[this.signatureName] = this.signatureVersion + '|' + tag + '|' + creds.login + '|' + hmac + '|' + expires + '|' + checksum + '|';
     if (this.debug) this.log('sign:', creds, str);
@@ -178,7 +178,7 @@ bkjs.checkCredentials = function(options)
 // Scramble credentials if needed
 bkjs.scrambleCredentials = function(options)
 {
-    if (options.scramble) options.secret = this.crypto.hmac_sha256(options.secret, options.login, "base64");
+    if (options.scramble) options.secret = this.crypto.hmacSha256(options.secret, options.login, "base64");
 }
 
 // Set new credentials, save in memory or local storage

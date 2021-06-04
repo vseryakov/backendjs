@@ -9,6 +9,7 @@
 <link href="/css/font-awesome.css" rel="stylesheet">
 <link href="/css/bootstrap.css" rel="stylesheet">
 <script src="/js/bkjs.bundle.js"></script>
+<script src="/js/srp.bundle.js"></script>
 
 <style>
 #api-data {
@@ -95,7 +96,7 @@ Bkjs.apiRun = function(data, event)
     $('#api-data').empty();
 
     // Request for an image, re-route to image container
-    if (/^\/image\/|(^\/account\/get\/icon)|(^\/icon\/get)|(^\/message\/image)/.test(url)) {
+    if (/^\/image\/)/.test(url)) {
         $("<img />").attr('src', Bkjs.signUrl(url)).load(function() {
             if (this.complete && this.naturalWidth) $("#api-data").append(this);
         });
@@ -160,56 +161,54 @@ $(function() {
 
 </head>
 <body>
-<nav class="navbar navbar-default">
-   <div class="navbar-header">
-     <a class="navbar-brand" href="#">API Console</a>
-   </div>
-   <ul class='nav navbar-nav navbar-right'>
-     <li><a title="Login into the account" data-bind="click: koLogin">Login</a></li>
-     <li><a title="Logout and clear the session" data-bind="click: koLogout" >Logout</a></li>
-     <li><a title="Documentation" onclick="window.open('doc.html')" >Help</a></li>
-   </ul>
-</nav>
-
-<form data-bind="submit: apiRun">
-<div class="container">
-  <div class="row">
-     <div class="col-lg-8">
-       <div class="input-group">
-         <input id="api-url" type="text" class="form-control" autocomplete="off" placeholder="API endpoint url...">
-         <span class="input-group-btn">
-           <button class="btn btn-default btn-success" type="submit">Run</button>
-         </span>
-       </div>
-       <p/>
-       <div id="api-data"></div>
-     </div>
-
-     <div class="col-lg-4">
-       <ul class="nav nav-pills nav-stacked">
-         <li role="presentation">
-           <input type="checkbox" id="api-encode"> Encode URL
-         </li>
-         <li role="presentation">
-           <input type="checkbox" id="api-table"> Format result as a table
-         </li>
-         <li role="presentation">
-           <input type="checkbox" id="api-win"> Return result in a separate window
-         </li>
-         <li role="presentation">
-           <input type="radio" value="" data-bind="checked: apiFormat"> Return result in JSON format
-         </li>
-         <li role="presentation">
-           <input type="radio" value="csv" data-bind="checked: apiFormat"> Return result in CSV format
-         </li>
-         <li role="presentation">
-           <input type="radio" value="xml" data-bind="checked: apiFormat"> Return result in XML format
-         </li>
+    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+       <a class="navbar-brand" href="#">API Console</a>
+       <ul class="nav navbar-nav ml-auto">
+           <li class="nav-item"><a class="nav-link" title="Login into the account" data-bind="click: koLogin">Login</a></li>
+           <li class="nav-item"><a class="nav-link" title="Logout and clear the session" data-bind="click: koLogout" >Logout</a></li>
+           <li class="nav-item"><a class="nav-link" title="Documentation" onclick="window.open('doc.html')" >Help</a></li>
        </ul>
-     </div>
-  </div>
-</div>
-</form>
+    </nav>
+
+    <form data-bind="submit: apiRun">
+        <div class="container pt-4">
+            <div class="row">
+                <div class="col-lg-8">
+                    <div class="input-group">
+                        <textarea id="api-url" class="form-control" autocomplete="off" placeholder="API endpoint url..."></textarea>
+                        <span class="input-group-append">
+                            <button class="btn btn-outline-primary" type="submit">Run</button>
+                        </span>
+                    </div>
+                    <p/>
+                    <div id="api-data"></div>
+                </div>
+
+                <div class="col-lg-4">
+                    <ul class="nav flex-column">
+                        <li role="presentation">
+                            <input type="checkbox" id="api-encode"> Encode URL
+                        </li>
+                        <li role="presentation">
+                            <input type="checkbox" id="api-table"> Format result as a table
+                        </li>
+                        <li role="presentation">
+                            <input type="checkbox" id="api-win"> Return result in a separate window
+                        </li>
+                        <li role="presentation">
+                            <input type="radio" value="" data-bind="checked: apiFormat"> Return result in JSON format
+                        </li>
+                        <li role="presentation">
+                            <input type="radio" value="csv" data-bind="checked: apiFormat"> Return result in CSV format
+                        </li>
+                        <li role="presentation">
+                            <input type="radio" value="xml" data-bind="checked: apiFormat"> Return result in XML format
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </form>
 
 </body>
 </html>
