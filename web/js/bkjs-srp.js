@@ -25,15 +25,14 @@ bkjs.srp = {
         return n instanceof this.BigInteger ? n : typeof n == "string" ? new this.BigInteger(n, 16) : this.rand();
     },
 
-    toBuffer: function(n, len) {
-        return n instanceof this.BigInteger ? bkjs.crypto.hex2bin(n.toString(16).padStart(len*2, "0")) : Array.isArray(n) ? n : bkjs.crypto.hex2bin(n.padStart(len*2, "0"));
-    },
-
     toBin: function(...args) {
         var h = [];
         for (const i in args) {
             if (args[i] instanceof this.BigInteger) {
-                h = bkjs.crypto.bconcat(h, this.toBuffer(args[i], 256));
+                h = bkjs.crypto.bconcat(h, bkjs.crypto.hex2bin(args[i].toString(16).padStart(512, "0")));
+            } else
+            if (typeof args[i] == "string") {
+                h = bkjs.crypto.bconcat(h, bkjs.crypto.utf82bin(args[i]));
             } else {
                 h = bkjs.crypto.bconcat(h, args[i]);
             }
@@ -42,7 +41,7 @@ bkjs.srp = {
     },
 
     hash: function(...args) {
-        return new this.BigInteger(bkjs.crypto.sha256(this.toBin(Array.from(args)), "hex"), 16);
+        return new this.BigInteger(bkjs.crypto.sha256(this.toBin.apply(this, args), "hex"), 16);
     },
 
     rand: function() {
@@ -50,7 +49,7 @@ bkjs.srp = {
     },
 
     x: function(user, secret, salt) {
-        return this.hash(this.toBuffer(this.toInt(salt), 32), bkjs.crypto.sha256(this.toBin(user, ':', secret)));
+        return this.hash(bkjs.crypto.hex2bin(this.toInt(salt).toString(16).padStart(64, "0")), bkjs.crypto.sha256(this.toBin(user, ':', secret)));
     },
 
     verifier: function(user, secret, salt) {

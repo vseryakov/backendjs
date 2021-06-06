@@ -121,7 +121,7 @@ bkjs.crypto = {
 
     sha1: function(data, enc) {
         if (typeof data == "string") data = this.str2bin(data);
-        return this.bin2enc(this.coreSha1(this.str2bin(data), data._size * 8), enc);
+        return this.bin2enc(this.coreSha1(data, data._size * 8), enc);
     },
 
     // Calculate the HMAC-SHA1 of a key and some data
@@ -181,7 +181,7 @@ bkjs.crypto = {
     sha256: function(data, enc)
     {
         if (typeof data == "string") data = this.str2bin(data);
-        return this.bin2enc(this.coreSha256(this.str2bin(data), data._size * 8), enc);
+        return this.bin2enc(this.coreSha256(data, data._size * 8), enc);
     },
 
     hmacInit: function(key) {
@@ -203,6 +203,38 @@ bkjs.crypto = {
         var hash = this.coreSha256(hmac.i.concat(data), 512 + data._size * 8);
         var out = this.coreSha256(hmac.o.concat(hash), 512 + 256);
         return this.bin2enc(out, enc);
+    },
+
+    // Convert regular Javascript utf-16 string into utf-8 string
+    str2utf8: function(str) {
+        var out = "", i = -1, x, y;
+
+        while (++i < str.length) {
+            x = str.charCodeAt(i);
+            y = i + 1 < str.length ? str.charCodeAt(i + 1) : 0;
+            if (x >= 0xD800 && x <= 0xDBFF && y>= 0xDC00 && y <= 0xDFFF) {
+                x = 0x10000 + ((x & 0x03FF) << 10) + (y & 0x03FF);
+                i++;
+            }
+            if (x <= 0x7F) {
+                out += String.fromCharCode(x);
+            } else
+            if (x <= 0x7FF) {
+                out += String.fromCharCode(0xC0 | ((x >>> 6) & 0x1F), 0x80 | (x & 0x3F));
+            } else
+            if (x <= 0xFFFF) {
+                out += String.fromCharCode(0xE0 | ((x >>> 12) & 0x0F), 0x80 | ((x >>> 6) & 0x3F), 0x80 | (x & 0x3F));
+            } else
+            if (x <= 0x1FFFFF) {
+                out += String.fromCharCode(0xF0 | ((x >>> 18) & 0x07), 0x80 | ((x >>> 12) & 0x3F), 0x80 | ((x >>> 6) & 0x3F), 0x80 | (x & 0x3F));
+            }
+        }
+        return out;
+    },
+
+    // Convert UTF-8 string into an array of big-endian words
+    utf82bin: function(str) {
+        return this.str2bin(this.str2utf8(str));
     },
 
     // Convert an 8-bit or 16-bit string to an array of big-endian word, characters >255 have their hi-byte silently ignored.
