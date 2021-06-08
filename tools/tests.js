@@ -23,8 +23,8 @@ const tests = bkjs.core.modules.tests;
 
 tests.resetTables = function(tables, callback)
 {
-    db.dropTables(tables, function() {
-        db.createTables(callback);
+    db.dropTables(tables, db.pool, function() {
+        db.createTables(db.pool, callback);
     });
 }
 
@@ -330,27 +330,7 @@ tests.test_db = function(callback)
             });
         },
         function(next) {
-            db.update("test2", { id: id, id2: '1', email: id + "@test", json: [1, 9], mtime: now }, function(err) {
-                if (err) return next(err);
-                db.replace("test2", { id: id, id2: '1', email: id + "@test", num: 9, mtime: now }, { check_mtime: 'mtime' }, next);
-            });
-        },
-        function(next) {
-            db.get("test2", { id: id, id2: '1' }, { consistent: true }, function(err, row) {
-                tests.assert(next, err || !row || row.id != id || row.email != id+"@test" || row.num == 9 || !Array.isArray(row.json), "err9:", id, row);
-            });
-        },
-        function(next) {
-            now = Date.now();
-            db.replace("test2", { id: id, id2: '1', email: id + "@test", num: 9, num2: 9, json: { a: 1, b: 2 }, mtime: now }, { check_data: 1 }, next);
-        },
-        function(next) {
-            db.get("test2", { id: id, id2: '1' }, { skip_columns: ['name'], consistent: true }, function(err, row) {
-                tests.assert(next, err || !row || row.id != id || row.name || row.email != id+"@test" || row.num!=9 || lib.typeName(row.json)!="object" || row.json.a!=1, "err9-1:", row);
-            });
-        },
-        function(next) {
-            db.update("test2", { id: id, id2: '1', mtime: now+1 }, next);
+            db.update("test2", { id: id, id2: '1', email: id + "@test", num: 9, num2: 9, json: { a: 1, b: 2 }, mtime: now }, next);
         },
         function(next) {
             db.get("test2", { id: id, id2: '1' }, { consistent: true }, function(err, row) {
