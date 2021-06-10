@@ -38,6 +38,7 @@ Features:
 * Supports i18n hooks for request/response objects, easily overriden with any real i18n implementation.
 * Integrated very light unit testing facility which can be used to test modules and API requests
 * Support runtime metrics about the timing on database, requests, cache, memory and request rate limit control
+* Full implementation of SRP6a protocol in the server and client
 * Hosted on [github](https://github.com/vseryakov/backendjs), BSD licensed.
 
 Check out the [Documentation](http://bkjs.io) for more details.
@@ -121,7 +122,7 @@ or simply
 
 * To access the database while in the shell
 
-        > db.select("bk_user", {}, (err, rows, info) => { console.log(err, rows, info) });
+        > db.select("bk_user", {}, console.log);
         > db.select("bk_user", {}, lib.log);
         > db.add("bk_user", { id: 'test2', login: 'test2', secret: 'test2', name' Test 2 name' }, lib.log);
         > db.select("bk_user", { id: 'test2' }, lib.log);
@@ -533,25 +534,29 @@ Create a file named `app.js` with the code below.
            switch (req.params[0]) {
              case "get":
                 if (!req.query.id) return api.sendReply(res, 400, "id is required");
-                db.get("todo", { id: req.query.id }, options, function(err, rows) { api.sendJSON(req, err, rows); });
+                db.get("todo", { id: req.query.id }, options, (err, rows) => { api.sendJSON(req, err, rows); });
                 break;
+
              case "select":
                 options.noscan = 0; // Allow empty scan of the whole table if no query is given, disabled by default
-                db.select("todo", req.query, options, function(err, rows) { api.sendJSON(req, err, rows); });
+                db.select("todo", req.query, options, (err, rows) => { api.sendJSON(req, err, rows); });
                 break;
+
             case "add":
                 if (!req.query.name) return api.sendReply(res, 400, "name is required");
                 // By default due date is tomorrow
                 if (req.query.due) req.query.due = lib.toDate(req.query.due, Date.now() + 86400000).toISOString();
-                db.add("todo", req.query, options, function(err, rows) { api.sendJSON(req, err, rows); });
+                db.add("todo", req.query, options, (err, rows) => { api.sendJSON(req, err, rows); });
                 break;
+
             case "update":
                 if (!req.query.id) return api.sendReply(res, 400, "id is required");
-                db.update("todo", req.query, options, function(err, rows) { api.sendJSON(req, err, rows); });
+                db.update("todo", req.query, options, (err, rows) => { api.sendJSON(req, err, rows); });
                 break;
+
             case "del":
                 if (!req.query.id) return api.sendReply(res, 400, "id is required");
-                db.del("todo", { id: req.query.id }, options, function(err, rows) { api.sendJSON(req, err, rows); });
+                db.del("todo", { id: req.query.id }, options, (err, rows) => { api.sendJSON(req, err, rows); });
                 break;
             }
         });
