@@ -160,7 +160,7 @@ case "$BKJS_CMD" in
 
   elasticsearch-space|es-df)
     host=$(get_arg -host localhost)
-    curl -XGET "http://$host:9200/_cat/allocations?v"
+    curl -XGET "http://$host:9200/_cat/allocation?v"
     ;;
 
   elasticsearch-shards|es-s)
