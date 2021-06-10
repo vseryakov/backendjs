@@ -10,6 +10,7 @@ const core = bkjs.core;
 const lib = bkjs.lib;
 const logger = bkjs.logger;
 const db = bkjs.db;
+const aws = bkjs.aws;
 const shell = bkjs.shell;
 
 shell.help.push("-db-get-config [-separator =] [-format text] [-run-mode MODE] [-app-name NAME] [name VALUE ...] - show all config parameters retrieved from the remote database bk_config table for the current environment, to simulate another environment pass the following arguments as name value pairs: role, network, region, zone, tag");
@@ -23,7 +24,7 @@ shell.help.push("-db-del -table TABLE name VALUE ... - delete a record from the 
 shell.help.push("-db-del-all -table TABLE name VALUE ... - delete all records from the table that match the search criteria, name value pairs must define a primary key for the table");
 shell.help.push("-db-drop -table TABLE name [-nowait] - drop a table");
 shell.help.push("-db-backup [-path PATH] [-tables LIST] [-skip LIST] [-parallel-tables LIST] [-parallel-jobs N] [-progress N] [-concurrency N] [-file-suffix TEXT] - save tables into json files in the home or specified path");
-shell.help.push("-db-restore [-path PATH] [-tables LIST] [-skip LIST] [-mapping ID1,ID2...] [-bulk N] [-drop] [-continue] [-progress N] [-op add|update|put] [-noexit] [-exitdelay MS] - restore tables from json files located in the home or specified path");
+shell.help.push("-db-restore [-path PATH] [-tables LIST] [-skip LIST] [-mapping ID1,ID2...] [-bulk N] [-drop] [-ddbjson] [-continue] [-progress N] [-op add|update|put] [-noexit] [-exitdelay MS] - restore tables from json files located in the home or specified path");
 
 // Show all config parameters
 shell.cmdDbGetConfig = function(options)
@@ -202,6 +203,7 @@ shell.cmdDbRestore = function(options)
     var op = this.getArg("-op", options, "update");
     if (this.isArg("-drop", options)) opts.drop = 1;
     if (this.isArg("-continue", options)) opts.continue = 1;
+    if (this.isArg("-ddbjson", options)) opts.ddbjson = 1;
     if (table) tables.push(table);
     opts.errors = 0;
     opts.count = this.getArgInt("-bulk", options);
@@ -241,6 +243,7 @@ shell.cmdDbRestore = function(options)
                     if (!line) return next2();
                     var row = lib.jsonParse(line, { logger: "error" });
                     if (!row) return next2(opts.continue ? null : "ERROR: parse error, line: " + opts.nlines);
+                    if (opts.ddbjson && row.Item) row = aws.fromDynamoDB(row.Item);
                     if (filter && core.modules.app[filter]) core.modules.app[filter](table, row);
                     for (var i = 0; i < mapping.length-1; i+= 2) {
                         row[mapping[i+1]] = row[mapping[i]];
