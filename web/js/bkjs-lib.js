@@ -747,7 +747,7 @@ bkjs.toTemplate = function(text, obj, options)
         var tag = str.substr(start + sep1.length, end - start - sep2.length);
         tmpl += str.substr(0, start);
         str = str.substr(end + sep2.length);
-        var d, v = null, dflt = null, field = null;
+        var d, v = null, dflt = null, field = null, enc = options.encoding;
         if (tag == "") {
             v = sep1;
         } else
@@ -826,6 +826,13 @@ bkjs.toTemplate = function(text, obj, options)
                     field = tag.substr(i + 1);
                     tag = tag.substr(0, i);
                 }
+                if (dflt) {
+                    i = dflt.indexOf("|");
+                    if (i >= 0) {
+                        enc = dflt.substr(i + 1);
+                        dflt = dflt.substr(0, i);
+                    }
+                }
                 for (i = 0; i < rc.length && !v; i++) {
                     v = typeof rc[i][tag] == "function" ? rc[i][tag]() : rc[i][tag];
                     if (v && field && typeof v == "object") {
@@ -843,9 +850,12 @@ bkjs.toTemplate = function(text, obj, options)
         }
         if (!v) v = dflt;
         if (v) {
-            switch (options.encoding) {
+            switch (enc) {
             case "url":
                 v = encodeURIComponent(v);
+                break;
+            case "base64":
+                v = window.btoa(v);
                 break;
             }
         }
