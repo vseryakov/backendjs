@@ -129,6 +129,7 @@ shell.cmdTestRun = function(options)
         workers_delay: tests.getArgInt("-test-workers-delay", options, 500),
         delay: tests.getArgInt("-test-delay", options, 0),
         file: tests.getArg("-test-file", options, "tools/tests.js"),
+        config: tests.getArg("-test-config", options),
         stime: Date.now(),
     };
     if (test.file) this.loadFile(test.file);
@@ -140,6 +141,10 @@ shell.cmdTestRun = function(options)
             logger.error("cmdTestRun:", "invaid test:", cmds[i], "usage: -test-run CMD where CMD is one of:", avail, "ARGS:", process.argv, "TEST:", test);
             process.exit(1);
         }
+    }
+
+    if (test.config) {
+        core.parseConfig(lib.readFileSync(test.config), 0, test.config);
     }
 
     if (cluster.isMaster) {
