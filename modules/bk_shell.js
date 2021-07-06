@@ -192,10 +192,11 @@ shell.loadFile = function(file)
 {
     var mod;
     if (!/\.js$/.test(file)) file += ".js";
+    if (fs.existsSync(file)) mod = require(file); else
     if (fs.existsSync(core.cwd + "/" + file)) mod = require(core.cwd + "/" + file); else
     if (!mod &&fs.existsSync(core.home + "/" + file)) mod = require(core.home + "/" + file); else
     if (!mod && fs.existsSync(__dirname + "/../" + file)) mod = require(__dirname + "/../" + file);
-    if (!mod) core.path.modules.forEach(function(x) { if (!mod && fs.existsSync(x + "/../" + file)) mod = require(x + "/../" + file) });
+    if (!mod) core.path.modules.forEach((x) => { if (!mod && fs.existsSync(x + "/../" + file)) mod = require(x + "/../" + file) });
     if (!mod) shell.exit("file not found " + file);
     return mod;
 }

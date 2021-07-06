@@ -129,7 +129,7 @@ shell.cmdTestRun = function(options)
         workers_delay: tests.getArgInt("-test-workers-delay", options, 500),
         delay: tests.getArgInt("-test-delay", options, 0),
         file: tests.getArg("-test-file", options, "tools/tests.js"),
-        config: tests.getArg("-test-config", options),
+        config: tests.getArg("-test-config", options, ""),
         stime: Date.now(),
     };
     if (test.file) this.loadFile(test.file);
@@ -143,8 +143,20 @@ shell.cmdTestRun = function(options)
         }
     }
 
+    // Add all remaining arguments starting with test-
+    var args = this.getArgs();
+    for (const p in args) {
+        if (/^test-/.test(p) && typeof test[p.substr(5)] == "undefined") test[p.substr(5)] = args[p];
+    }
+
     if (test.config) {
-        core.parseConfig(lib.readFileSync(test.config), 0, test.config);
+        args = lib.readFileSync(test.config, { cfg: 1 });
+        core.parseArgs(args, 0, test.config);
+        for (let i = 0; i < args.length - 1; i++) {
+            if (/^-test-/.test(args[i]) && typeof test[args[i].substr(6)] == "undefined") {
+                test[args[i].substr(6)] = args[i + 1][0] != "-" ? args[i + 1] : true;
+            }
+        }
     }
 
     if (cluster.isMaster) {
