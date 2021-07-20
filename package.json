@@ -35,18 +35,16 @@
     "bkjs-utils": ">= 0.2.6",
     "bkjs-cache": ">= 0.5.3",
     "bkjs-sqlite": ">= 0.2.6",
-    "bkjs-syslog": ">= 0.3.1"
+    "bkjs-syslog": ">= 0.3.1",
+    "html-minifier": "^4.0.0",
+    "uglify-es": "^3.3.9",
+    "uglifycss": "0.0.29"
   },
   "modulesDependencies": {
     "bkjs-wand": ">= 0.5.1",
     "amqplib": ">= 0.6.0",
     "nats": "^1.4.12",
     "node-nats-streaming": ">= 0.3.2"
-  },
-  "devDependencies": {
-    "html-minifier": "^4.0.0",
-    "uglify-es": "^3.3.9",
-    "uglifycss": "0.0.29"
   },
   "keywords": [
     "bkjs",
