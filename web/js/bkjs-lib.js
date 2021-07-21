@@ -963,6 +963,7 @@ bkjs.strSplit = function(str, sep, options)
     options = options || {};
     return (Array.isArray(str) ? str : (typeof str == "string" ? str : String(str)).split(sep || /[,|]/)).
             map((x) => {
+                if (x === "" && !options.keepempty) return x;
                 x = options.datatype ? bkjs.toValue(x, options.datatype) : typeof x == "string" ? x.trim() : x;
                 if (typeof x == "string") {
                     if (options.regexp && !options.regexp.test(x)) return "";
