@@ -47,6 +47,7 @@ var bkjs = {
         retry_timeout: 250,
         max_timeout: 30000,
         retry_multiplier: 2,
+        pending: [],
     },
 
     // Trim these symbols from login/secret, all whitespace is default
@@ -311,6 +312,9 @@ bkjs.wsConnect = function(options)
         bkjs.wsconf.retry = bkjs.wsconf.retry_max;
         bkjs.wsconf.timeout = bkjs.wsconf.retry_timeout;
         $(bkjs).trigger("bkjs.ws.opened");
+        while (bkjs.wsconf.pending.length) {
+            bkjs.wsSend(bkjs.wsconf.pending.shift());
+        }
     }
     this.ws.onerror = function(err) {
         bkjs.log('ws.error:', this.url, err);
@@ -339,7 +343,10 @@ bkjs.wsClose = function()
 // Send a string data or an object in jQuery ajax format { url:.., data:.. } or as an object to be stringified
 bkjs.wsSend = function(data)
 {
-    if (!this.ws) return;
+    if (!this.ws || this.ws.readyState != WebSocket.OPEN) {
+        this.wsconf.pending.push(data);
+        return;
+    }
     if (typeof data == "object" && data) {
         if (data.url && data.url[0] == "/") {
             data = data.url + (data.data ? "?" + $.param(data.data) : "");
@@ -384,9 +391,9 @@ bkjs.cookie = function(name)
     if (!document.cookie) return "";
     var cookies = document.cookie.split(';');
     for (var i = 0; i < cookies.length; i++) {
-        var cookie = jQuery.trim(cookies[i]);
-        if (cookie.substring(0, name.length + 1) == (name + '=')) {
-            return decodeURIComponent(cookie.substring(name.length + 1));
+        var cookie = cookies[i].trim();
+        if (cookie.substr(0, name.length) == name && cookie[name.length] == '=') {
+            return decodeURIComponent(cookie.substr(name.length + 1));
         }
     }
     return "";
