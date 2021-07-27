@@ -230,7 +230,7 @@ mod.deleteAccount = function(req, callback)
            },
         ], function(err) {
             logger.info("deleteAccount:", req.account.id, req.options.keep, lib.toAge(started));
-            callback(err);
+            lib.tryCall(callback, err);
         });
     });
 }
