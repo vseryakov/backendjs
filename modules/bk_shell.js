@@ -296,6 +296,7 @@ shell.cmdSendRequest = function(options)
     var login = this.getArg("-user", options);
     var select = lib.strSplit(this.getArg("-select", options));
     var json = this.isArg("-json", options);
+    var raw = this.isArg("-raw", options);
     var flatten = this.isArg("-flatten", options)
     var headers = this.getArgList("-hdr", options).reduce((x, y) => { y = y.split("="); x[y[0]] = y[1]; return x }, {});
     lib.series([
@@ -314,7 +315,7 @@ shell.cmdSendRequest = function(options)
                 params.obj = obj;
             }
             if (flatten) params.obj = lib.objFlatten(params.obj);
-            shell.exit(err, json ? lib.stringify(params.obj) : params.obj);
+            shell.exit(err, raw ? params.data : json ? lib.stringify(params.obj) : params.obj);
         });
       },
     ]);
