@@ -304,6 +304,23 @@ bkjs.koRestoreComponent = function(path, dflt)
     bkjs.koShowComponent(model ? params[0] : dflt || "none", model ? { param: params[1], value: params[2] } : null);
 }
 
+bkjs.koBootpopup = function(options)
+{
+    var _before = options.before;
+    options.before = function(b) {
+        if (typeof _before == "function") _before(b);
+        ko.applyBindings(b.options.data || bkjs, b.modal.get(0));
+    }
+    var _complete = options.complete;
+    options.complete = function(event) {
+        if (typeof _complete == "function") _complete.call(this, event);
+        ko.cleanNode(this.modal.get(0));
+        options.before = _before;
+        options.complete = _complete;
+    }
+    return bootpopup(options);
+}
+
 $(function() {
     bkjs.koBreakpoint(bkjs.koGetBreakpoint());
     $(window).on("resize.bkjs", (event) => {
