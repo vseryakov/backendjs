@@ -538,16 +538,29 @@ case "$BKJS_CMD" in
                     echo "bkjs.bundleVersion='$(get_json_flat $dir/package.json version)';" > /tmp/bktmp/_version.js
                     files=$(echo $files|sed 's!@version@!/tmp/bktmp/_version.js!')
                 fi
-
                 if [[ -z $dev ]]; then
-                    if [[ ! -z $(get_flag -gcc) ]]; then
-                        gccargs=" $(get_arg -gccargs)"
-                        (cd $dir && npx google-closure-compiler $gccargs $files > web/js/$bundle.bundle.js)
-                        [ "$?" != "0" ] && exit 1
-                    else
-                        uglifyargs="-c -m --comments /^!/ $(get_arg -uglifyargs)"
-                        (cd $dir && uglifyjs $files $uglifyargs -o web/js/$bundle.bundle.js)
-                        [ "$?" != "0" ] && exit 1
+                    echo "" > web/js/$bundle.bundle.js
+                    for f in $files; do
+                        if [[ $f =~ min.js ]]; then
+                            mfiles="$mfiles $f"
+                        else
+                            dfiles="$dfiles $f"
+                        fi
+                    done
+                    echo "mfiles $mfiles dfiles $dfiles"
+                    if [[ ! -z $mfiles ]]; then
+                        (cd $dir && cat $mfiles >> web/js/$bundle.bundle.js)
+                    fi
+                    if [[ ! -z $dfiles ]]; then
+                        if [[ ! -z $(get_flag -gcc) ]]; then
+                            gccargs=" $(get_arg -gccargs)"
+                            (cd $dir && npx google-closure-compiler $gccargs $dfiles >> web/js/$bundle.bundle.js)
+                            [ "$?" != "0" ] && exit 1
+                        else
+                            uglifyargs="-c -m --comments /^!/ $(get_arg -uglifyargs)"
+                            (cd $dir && uglifyjs $dfiles $uglifyargs >> web/js/$bundle.bundle.js)
+                            [ "$?" != "0" ] && exit 1
+                        fi
                     fi
                 else
                     (cd $dir && cat $files > web/js/$bundle.bundle.js)
