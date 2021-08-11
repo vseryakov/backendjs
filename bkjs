@@ -541,7 +541,7 @@ case "$BKJS_CMD" in
                 if [[ -z $dev ]]; then
                     echo "" > web/js/$bundle.bundle.js
                     for f in $files; do
-                        if [[ $f =~ min.js ]]; then
+                        if [[ $f =~ \.min\.js ]]; then
                             mfiles="$mfiles $f"
                         else
                             dfiles="$dfiles $f"
