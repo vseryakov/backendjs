@@ -91,6 +91,7 @@ function bootpopup(options)
         alert: false,
         backdrop: true,
         keyboard: true,
+        autofocus: true,
         data: "",
         tabs: "",
         tab: "",
@@ -434,8 +435,10 @@ function bootpopup(options)
             self.options.show.call(self.options.self, e);
         });
         this.modal.on('shown.bs.modal', function(e) {
-            var focus = self.autofocus || self.form.find("input,select,textarea").filter(":not([readonly='readonly']):not([disabled='disabled']):not([type='hidden'])").first();
-            if (focus) focus.focus();
+            if (self.options.autofocus) {
+                var focus = self.autofocus || self.form.find("input,select,textarea").filter(":not([readonly='readonly']):not([disabled='disabled']):not([type='hidden'])").first();
+                if (focus) focus.focus();
+            }
             self.options.shown.call(self.options.self, e);
         });
         this.modal.on('hide.bs.modal', function(e) {
