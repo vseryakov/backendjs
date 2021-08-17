@@ -843,7 +843,7 @@ bkjs.toTemplate = function(text, obj, options)
                         }
                     }
                 }
-                if (typeof options.preprocess == "function") v = options.preprocess(tag, v, dflt);
+                if (typeof options.preprocess == "function") v = options.preprocess(tag, field, v, dflt);
             } else {
                 tmpl += sep1 + tag + sep2;
             }
