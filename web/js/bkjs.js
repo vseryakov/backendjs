@@ -276,7 +276,17 @@ bkjs.sendFile = function(options, callback)
     if (!n) return callback && callback.call(options.self || bkjs);
 
     for (const p in options.data) {
-        if (typeof options.data[p] != "undefined") form.append(p, options.data[p])
+        switch (typeof options.data[p]) {
+        case "undefined":
+            break;
+        case "object":
+            for (const k in options.data[p]) {
+                if (options.data[p][k] !== undefined) form.append(`${p}[${k}]`, options.data[p][k]);
+            }
+            break;
+        default:
+            form.append(p, options.data[p]);
+        }
     }
     // Send within the session, multipart is not supported by signature
     var rc = { url: options.url, type: "POST", processData: false, data: form, contentType: false, nosignature: true };
