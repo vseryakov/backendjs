@@ -42,11 +42,9 @@ var bkjs = {
         port: 0,
         path: "/",
         query: null,
-        retry: 0,
-        retry_max: 100,
-        retry_timeout: 250,
         max_timeout: 30000,
-        retry_multiplier: 2,
+        retry_timeout: 500,
+        retry_mod: 2,
         pending: [],
     },
 
@@ -309,6 +307,21 @@ bkjs.getFileInput = function(file)
 // WebSockets helper functions
 bkjs.wsConnect = function(options)
 {
+    if (this.wsconf.timer) {
+        clearTimeout(this.wsconf.timer);
+        delete this.wsconf.timer;
+    }
+
+    if (!this.wsconf.online) {
+        this.wsconf.online = 1;
+        window.addEventListener('online', (ev) => {
+
+        });
+        window.addEventListener('offline', (ev) => {
+
+        });
+    }
+
     for (const p in options) this.wsconf[p] = options[p];
     var url = (this.wsconf.protocol || window.location.protocol.replace("http", "ws")) + "//" +
               (this.wsconf.host || window.location.hostname) + ":" + (this.wsconf.port || window.location.port) +
@@ -319,23 +332,22 @@ bkjs.wsConnect = function(options)
     this.ws.onopen = function() {
         if (bkjs.wsconf.debug) bkjs.log("ws.open:", this.url);
         bkjs.wsconf.ctime = Date.now();
-        bkjs.wsconf.retry = bkjs.wsconf.retry_max;
         bkjs.wsconf.timeout = bkjs.wsconf.retry_timeout;
-        $(bkjs).trigger("bkjs.ws.opened");
         while (bkjs.wsconf.pending.length) {
             bkjs.wsSend(bkjs.wsconf.pending.shift());
         }
+        $(bkjs).trigger("bkjs.ws.opened");
     }
     this.ws.onerror = function(err) {
-        bkjs.log('ws.error:', this.url, err);
+        if (bkjs.wsconf.debug) bkjs.log('ws.error:', this.url, err);
     }
     this.ws.onclose = function() {
-        if (bkjs.wsconf.debug) bkjs.log("ws.closed:", this.url, bkjs.wsconf.retry, bkjs.wsconf.timeout);
+        if (bkjs.wsconf.debug) bkjs.log("ws.closed:", this.url, bkjs.wsconf.timeout);
         bkjs.ws = null;
+        bkjs.wsconf.timer = setTimeout(bkjs.wsConnect.bind(bkjs), bkjs.wsconf.timeout);
+        bkjs.wsconf.timeout *= bkjs.wsconf.timeout == bkjs.wsconf.max_timeout ? 0 : bkjs.wsconf.retry_mod;
+        bkjs.wsconf.timeout = bkjs.toClamp(bkjs.wsconf.timeout, bkjs.wsconf.retry_timeout, bkjs.wsconf.max_timeout);
         $(bkjs).trigger("bkjs.ws.closed");
-        if (bkjs.wsconf.retry-- > 0) {
-            setTimeout(bkjs.wsConnect.bind(bkjs), Math.min(bkjs.wsconf.max_timeout, bkjs.wsconf.timeout *= bkjs.wsconf.retry_multiplier));
-        }
     }
     this.ws.onmessage = function(msg) {
         var data = msg.data;

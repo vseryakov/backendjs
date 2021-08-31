@@ -628,6 +628,11 @@ bkjs.toBool = function(val, dflt)
     return !val || String(val).trim().match(/^(false|off|f|0$)/i) ? false : true;
 }
 
+bkjs.toClamp = function(num, min, max)
+{
+  return Math.max(this.toNumber(min), Math.min(this.toNumber(num), this.toNumber(max)));
+}
+
 // Convert a string to a number, on invalid input returns 0
 bkjs.toNumber = function(val, options)
 {
