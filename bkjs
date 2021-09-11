@@ -3,7 +3,7 @@
 #  Author: Vlad Seryakov vseryakov@gmail.com
 #  Sep 2013
 #
-# chkconfig: 2345 91 91
+# chkconfig: 2345 51 51
 # description: backendjs server
 #
 
@@ -243,7 +243,7 @@ case "$BKJS_CMD" in
   start)
     cd $BKJS_HOME
     ([[ $(whoami) = root ]] && $0 check-server)
-    $0 run-${BKJS_SERVER:-master}
+    $0 run-${BKJS_SERVER:-none}
     ;;
 
   restart)
@@ -607,7 +607,7 @@ case "$BKJS_CMD" in
     ;;
 
   install-node)
-    ver=$(get_arg -version v16.9.0)
+    ver=$(get_arg -version v16.9.1)
     if [ "$(get_flag -force)" != "" -a -f $BKJS_PREFIX/bin/node ]; then
        echo "Uninstalling node from $BKJS_PREFIX ..."
        rm -rf $BKJS_PREFIX/bin/node $BKJS_PREFIX/bin/npm $BKJS_PREFIX/bin/npx $BKJS_PREFIX/lib/node_modules/npm
