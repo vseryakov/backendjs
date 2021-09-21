@@ -312,19 +312,10 @@ bkjs.wsConnect = function(options)
         delete this.wsconf.timer;
     }
 
-    if (!this.wsconf.online) {
-        this.wsconf.online = 1;
-        window.addEventListener('online', (ev) => {
-
-        });
-        window.addEventListener('offline', (ev) => {
-
-        });
-    }
-
     for (const p in options) this.wsconf[p] = options[p];
     var url = (this.wsconf.protocol || window.location.protocol.replace("http", "ws")) + "//" +
-              (this.wsconf.host || window.location.hostname) + ":" + (this.wsconf.port || window.location.port) +
+              (this.wsconf.host || (this.wsconf.hostname ? this.wsconf.hostname + "." + this.domainName(window.location.hostname) : "") || window.location.hostname) + ":" +
+              (this.wsconf.port || window.location.port) +
               this.wsconf.path +
               (this.wsconf.query ? "?" + jQuery.param(this.wsconf.query) : "");
 
