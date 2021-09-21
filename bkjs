@@ -581,6 +581,7 @@ case "$BKJS_CMD" in
                 find_nodebin
                 tmp=/tmp/bktmp/$bundle
                 mkdir -p $dir/web/js $tmp
+                cc=$(get_flag -compress 0)
                 [ -s $tmp/_repo -a "$(cat $tmp/_repo)" != "$repo" ] && rm -f $tmp/*.html
                 echo > $dir/web/js/$bundle.bundle.html.js
                 echo $repo > $tmp/_repo
@@ -588,14 +589,17 @@ case "$BKJS_CMD" in
                     [ ! -s $dir/$f ] && continue
                     n=$(basename $f)
                     if [ "$force" != "" -o $dir/$f -nt $tmp/$n ]; then
-                        (cd $dir && html-minifier --collapse-whitespace --collapse-boolean-attributes --remove-comments --remove-optional-tags --remove-attribute-quotes --remove-empty-attributes $f > $tmp/_$n)
-                        [ "$?" != "0" ] && exit 1
-                        cc=$(get_flag -compress 0)
-                        $NODE_BIN -e "try{var bk=require('backendjs');var n=require('path').basename('$f','.html').replace(/(?:[-_\\.])(\\w)/g,(_,c)=>(c?c.toUpperCase():'')),f=bk.lib.readFileSync('$tmp/_$n');console.log('bkjs.koTemplates[\"'+n+'\"]='+($cc?'\"'+bk.lib.strCompress(f,\"base64\")+'\"':JSON.stringify(f))+';\nko.components.register(\"'+n+'\",{});');process.exit(0)}catch(e){bk.core.exit(1,'$f',e)}" > $tmp/$n
+                        if [[ -z $dev ]]; then
+                            (cd $dir && html-minifier --collapse-whitespace --collapse-boolean-attributes --remove-comments --remove-optional-tags --remove-attribute-quotes --remove-empty-attributes $f > $tmp/_$n)
+                            [ "$?" != "0" ] && exit 1
+                            tf=$tmp/_$n
+                        else
+                            tf=$f
+                        fi
+                        $NODE_BIN -e "try{var bk=require('backendjs');var n=require('path').basename('$f','.html').replace(/(?:[-_\\.])(\\w)/g,(_,c)=>(c?c.toUpperCase():'')),f=bk.lib.readFileSync('$tf');console.log('bkjs.koTemplates[\"'+n+'\"]='+($cc?'\"'+bk.lib.strCompress(f,\"base64\")+'\"':JSON.stringify(f))+';\nko.components.register(\"'+n+'\",{});');process.exit(0)}catch(e){bk.core.exit(1,'$f',e)}" > $tmp/$n
                     fi
                     cat $tmp/$n >> $dir/web/js/$bundle.bundle.html.js
                 done
-
                 ;;
             esac
             [ "$quiet" = "" ] && echo "$(date): web-bundle $bundle.$type finished $dir/$file"
