@@ -596,7 +596,7 @@ case "$BKJS_CMD" in
                         else
                             tf=$f
                         fi
-                        $NODE_BIN -e "try{var bk=require('backendjs');var n=require('path').basename('$f','.html').replace(/(?:[-_\\.])(\\w)/g,(_,c)=>(c?c.toUpperCase():'')),f=bk.lib.readFileSync('$tf');console.log('bkjs.koTemplates[\"'+n+'\"]='+($cc?'\"'+bk.lib.strCompress(f,\"base64\")+'\"':JSON.stringify(f))+';\nko.components.register(\"'+n+'\",{});');process.exit(0)}catch(e){bk.core.exit(1,'$f',e)}" > $tmp/$n
+                        $NODE_BIN -e "try{var bk=require('backendjs');var n=require('path').basename('$f','.html').replace(/(?:[-_\\.])(\\w)/g,(_,c)=>(c?c.toUpperCase():'')),f=bk.lib.readFileSync('$tf').trim();console.log('bkjs.koTemplates[\"'+n+'\"]='+($cc?'\"'+bk.lib.strCompress(f,\"base64\")+'\"':JSON.stringify(f))+';\nko.components.register(\"'+n+'\",{});');process.exit(0)}catch(e){bk.core.exit(1,'$f',e)}" > $tmp/$n
                     fi
                     cat $tmp/$n >> $dir/web/js/$bundle.bundle.html.js
                 done
