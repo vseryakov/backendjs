@@ -337,7 +337,7 @@ case "$BKJS_CMD" in
     echo 'fs.file-max=512000' > $conf
     echo 'kernel.core_uses_pid=0' >> $conf
     echo 'vm.max_map_count=262144' >> $conf
-    echo 'vm.min_free_kbytes=1048576' >> $conf
+    echo 'vm.min_free_kbytes=65536' >> $conf
     echo 'net.core.somaxconn=65536' >> $conf
     echo 'net.core.netdev_max_backlog=65536' >> $conf
     echo 'net.core.rmem_max=12582912' >> $conf
