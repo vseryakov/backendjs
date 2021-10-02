@@ -14,6 +14,7 @@ case "$BKJS_CMD" in
   check-server)
     if [[ $OS_TYPE =~ amazon ]]; then
        region=$(curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone/|sed 's/[a-z]$//')
+       echo "Setting region $region ..."
        (aws configure set region $region)
        ([[ $(whoami) = root ]] && su ec2-user -c "aws configure set region $region")
        ($0 check-ec2-storage)
@@ -252,16 +253,17 @@ case "$BKJS_CMD" in
         [ "$logs" != "" ] && logs="$logs,"
         logs="$logs{ \"file_path\": \"/home/$user/log/$log\", \"log_group_name\": \"$log\", \"log_stream_name\": \"$tag\", \"multi_line_start_pattern\": \"^[^ \\t]\", \"timestamp_format\": \"%Y-%m-%dT%H:%M:%S.%f%z\" }"
     done
+    tmp=/cwa.json
     conf=$dir/etc/amazon-cloudwatch-agent.json
-    echo "{ \"agent\": { \"logfile\": \"/var/log/cwagent.log\" }," > $conf
-    echo " \"logs\": { \"logs_collected\": { \"files\": { \"collect_list\": [ $logs ] } }," >> $conf
-    echo " \"log_stream_name\": \"$tag\" } }" >> $conf
+    echo "{ \"agent\": { \"logfile\": \"/var/log/cwagent.log\" }, \"logs\": { \"logs_collected\": { \"files\": { \"collect_list\": [ $logs ] } }, \"log_stream_name\": \"$tag\" } }" > $tmp
+    cmp $conf $tmp
+    [ "$?" = "0" ] && exit
+    mv $tmp $conf
     $dir/bin/config-translator --input $dir/etc/amazon-cloudwatch-agent.json --output $dir/etc/amazon-cloudwatch-agent.toml --mode "auto"
     case "$OS_TYPE" in
       amazon)
         systemctl enable amazon-cloudwatch-agent
-        systemctl stop amazon-cloudwatch-agent
-        systemctl start amazon-cloudwatch-agent
+        systemctl restart amazon-cloudwatch-agent
         ;;
     esac
     ;;

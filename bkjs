@@ -295,6 +295,7 @@ case "$BKJS_CMD" in
         echo "Initializing $BKJS_HOME..."
         rm -rf $BKJS_HOME/var/* $BKJS_HOME/log/*
         service rsyslog restart
+        [ "$(pgrep -x monit)" = "" ] && rm -f /var/run/monit.pid
     fi
     find_user
     chown -R $BKJS_USER $BKJS_HOME/etc $BKJS_HOME/var $BKJS_HOME/log

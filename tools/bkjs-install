@@ -419,7 +419,22 @@ case "$BKJS_CMD" in
     service=$(basename $path | awk -F. '{print $1}')
     echo "Init service $service with $path"
     ln -sfn $path /etc/init.d/$service
-    chkconfig $service on
+    if [ -d /etc/systemd ]; then
+        conf=/etc/systemd/system/$service-check.service
+        echo '[Unit]' > $conf
+        echo 'Description=Backendjs system check on startup' >> $conf
+        echo 'Before=monit.service' >> $conf
+        echo 'After=network-online.target' >> $conf
+        echo '[Service]' >> $conf
+        echo "ExecStart=$BKJS_BIN check-server" >> $conf
+        echo 'Type=oneshot' >> $conf
+        echo '[Install]' >> $conf
+        echo 'WantedBy=multi-user.target' >> $conf
+        systemctl enable $service-check
+        chkconfig $service off
+    else
+        chkconfig $service on
+    fi
     server=$(get_arg -server)
     if [ "$server" != "" ]; then
         echo "BKJS_SERVER=$server" > /tmp/profile
@@ -438,6 +453,9 @@ case "$BKJS_CMD" in
     service=$(basename $path | awk -F. '{print $1}')
     echo "Stopping service $service with $path"
     chkconfig $service off
+    if [ -d /etc/systemd ]; then
+        systemctl disable $service-check
+    fi
     $0 stop-monit-$service
     $0 stop
     ;;
