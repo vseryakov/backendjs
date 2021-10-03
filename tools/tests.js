@@ -1145,4 +1145,215 @@ tests.test_srp = function(callback, test)
     callback();
 }
 
+tests.test_flow = function(callback, test)
+{
+    var direct = lib.isArg("-direct");
+    var t = 0;
+    setInterval(() => { if (!t) callback() }, 500);
+
+    t++;
+    var c1 = 0;
+    lib.forEach([ 1, 2, 3 ], (i, next) => {
+        c1++; next()
+    }, (err) => {
+        t--;
+        console.log("forEach", err, c1, c1 == 3 && !err ? "success": "failed")
+    }, direct)
+
+    t++;
+    var c2 = 0;
+    lib.forEach([ 1, 2, 3 ], (i, next) => {
+        c2++; next(i == 2 ? "error" : null)
+    }, (err) => {
+        t--;
+        console.log("forEach", err, c2, c2 == 2 && err ? "success": "failed")
+    }, direct)
+
+    t++;
+    var c3 = 0;
+    lib.forEvery([ 1, 2, 3 ], (i, next) => {
+        c3++; next("ignore")
+    }, (err) => {
+        t--;
+        console.log("forEvery", err, c3, c3 == 3 && err == "ignore" ? "success": "failed")
+    }, direct)
+
+    t++;
+    lib.forEachSeries([ 1, 2, 3 ], (i, next, n) => {
+        next(null, lib.toNumber(n) + i);
+    }, (err, n) => {
+        t--;
+        console.log('forEachSeries', n, err, n == 6 ? "success" : "failed");
+    }, direct);
+
+    t++;
+    lib.forEachSeries([ 1, 2, 3 ], (i, next, n) => {
+        next(i == 2 ? "error" : null, lib.toNumber(n) + i);
+    }, (err, n) => {
+        t--;
+        console.log('forEachSeries', n, err, n == 3 && err == "error" ? "success" : "failed");
+    }, direct);
+
+    t++;
+    lib.forEverySeries([ 1, 2, 3 ], (i, next, err, n) => {
+        next("ignore", lib.toNumber(n) + i);
+    }, (err, n) => {
+        t--;
+        console.log('forEverySeries', n, err, n == 6 && err == "ignore" ? "success" : "failed");
+    }, direct);
+
+    t++;
+    var c4 = 0;
+    lib.forEachLimit([ 1, 2, 3 ], 2, (i, next) => {
+        c4++; next();
+    }, (err) => {
+        t--;
+        console.log('forEachLimit', c4, err, c4 == 3 && !err ? "success" : "failed");
+    }, direct);
+
+    t++;
+    var c5 = 0;
+    lib.forEachLimit([ 1, 2, 3 ], 2, (i, next) => {
+        c5++; next(i == 2 ? "error" : null);
+    }, (err) => {
+        t--;
+        console.log('forEachLimit', c5, err, c5 == 2 && err == "error" ? "success" : "failed");
+    }, direct);
+
+    t++;
+    var c6 = 0;
+    lib.forEveryLimit([ 1, 2, 3 ], 2, (i, next) => {
+        c6++; next("ignore");
+    }, (err) => {
+        t--;
+        console.log('forEveryLimit', c6, err, c6 == 3 && String(err) == "ignore,ignore,ignore" ? "success" : "failed");
+    }, direct);
+
+    t++;
+    var c7 = 0;
+    lib.whilst(
+        function() {
+            return c7 < 5;
+        },
+        function (next) {
+            c7++;
+            next(null, c7);
+        },
+        function (err, d) {
+            t--;
+            console.log('whilst', c7, d, err, c7 == 5 && !err ? "success" : "failed");
+        }, null, direct);
+
+    t++;
+    var c8 = 0;
+    lib.doWhilst(
+        function (next) {
+            c8++;
+            next(null, c8);
+        },
+        function() {
+            return c8 < 5;
+        },
+        function (err, d) {
+            t--;
+            console.log('whilst', c8, d, err, c8 == 5 && !err ? "success" : "failed");
+        }, null, direct);
+
+    t++;
+    var c9 = 0;
+    lib.series([
+        (next) => {
+            c9++
+            next()
+        },
+        (next) => {
+            c9++
+            next(null, 2)
+        }
+    ], (err, d) => {
+        t--;
+        console.log('series', c9, d, err, c9 == 2 && d == 2 && !err ? "success" : "failed");
+    }, direct)
+
+    t++;
+    var c10 = 0;
+    lib.series([
+        (next) => {
+            c10++
+            next("error", 1);
+        },
+        (next) => {
+            c10++
+            next("error", 2)
+        }
+    ], (err, d) => {
+        t--;
+        console.log('series', c10, d, err, c10 == 1 && d == 1 && err ? "success" : "failed");
+    }, direct)
+
+    t++;
+    var c11 = 0;
+    lib.parallel([
+        (next) => {
+            c11++;
+            next()
+        },
+        (next) => {
+            c11++;
+            next()
+        }
+    ], (err) => {
+        t--;
+        console.log('parallel', c11, err, c11 == 2 && !err ? "success" : "failed");
+    }, direct)
+
+    t++;
+    var c12 = 0;
+    lib.parallel([
+        (next) => {
+            c12++
+            next("error");
+        },
+        (next) => {
+            c12++;
+            next();
+        }
+    ], (err) => {
+        t--;
+        console.log('parallel', c12, err, c12 >= 1 && err ? "success" : "failed");
+    }, direct)
+
+    t++;
+    var c13 = 0;
+    lib.everySeries([
+        (next) => {
+            c13++;
+            next("ignore");
+        },
+        (next) => {
+            c13++;
+            next("ignore", 2)
+        }
+    ], (err, d) => {
+        t--;
+        console.log('everySeries', c13, d, err, c13 == 2 && d == 2 && err == "ignore" ? "success" : "failed");
+    }, direct)
+
+    t++;
+    var c14 = 0;
+    lib.everyParallel([
+        (next) => {
+            c14++
+            next("ignore")
+        },
+        (next) => {
+            c14++
+            next()
+        }
+    ], (err) => {
+        t--;
+        console.log('everyParallel', c14, err, c14 == 2 && !err ? "success" : "failed");
+    }, direct)
+
+}
 
