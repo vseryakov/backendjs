@@ -388,7 +388,7 @@ shell.cmdAwsCreateImage = function(options)
              },
              function(err) {
                  next(err);
-             });
+             }, true);
        },
     ], function(err) {
         if (imgId) console.log(imgId);
@@ -819,7 +819,7 @@ shell.cmdAwsWaitCfn = function(options, callback)
                 if (status) logger.log("Status: ", name, status);
                 return complete.indexOf(status) == -1 && Date.now() < expires;
             },
-            next);
+            next, true);
       },
       function(next) {
           logger.log(util.inspect(stacks, { depth: null }));

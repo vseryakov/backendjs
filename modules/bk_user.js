@@ -153,7 +153,7 @@ mod.notifyAccount = function(options, callback)
                 next(err);
             });
         },
-    ], callback);
+    ], callback, true);
 }
 
 // Register new account, may be used an API call, but the req does not have to be an Express request, it just
@@ -177,7 +177,7 @@ mod.addAccount = function(req, options, callback)
         },
     ], function(err) {
         lib.tryCall(callback, err, req.query);
-    });
+    }, true);
 }
 
 // Update existing account, used in /account/update API call
@@ -194,7 +194,7 @@ mod.updateAccount = function(req, options, callback)
         },
     ], function(err) {
         lib.tryCall(callback, err, req.query);
-    });
+    }, true);
 }
 
 // Delete account specified by the obj. Used in `/account/del` API call.
@@ -231,7 +231,7 @@ mod.deleteAccount = function(req, callback)
         ], function(err) {
             logger.info("deleteAccount:", req.account.id, req.options.keep, lib.toAge(started));
             lib.tryCall(callback, err);
-        });
+        }, true);
     });
 }
 

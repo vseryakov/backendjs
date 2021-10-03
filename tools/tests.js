@@ -1157,7 +1157,7 @@ tests.test_flow = function(callback, test)
         c1++; next()
     }, (err) => {
         t--;
-        console.log("forEach", err, c1, c1 == 3 && !err ? "success": "failed")
+        console.log("forEach", err, c1, c1 == 3 && !err ? "success": "FAILED")
     }, direct)
 
     t++;
@@ -1166,7 +1166,7 @@ tests.test_flow = function(callback, test)
         c2++; next(i == 2 ? "error" : null)
     }, (err) => {
         t--;
-        console.log("forEach", err, c2, c2 == 2 && err ? "success": "failed")
+        console.log("forEach", err, c2, c2 == 2 && err ? "success": "FAILED")
     }, direct)
 
     t++;
@@ -1175,7 +1175,7 @@ tests.test_flow = function(callback, test)
         c3++; next("ignore")
     }, (err) => {
         t--;
-        console.log("forEvery", err, c3, c3 == 3 && err == "ignore" ? "success": "failed")
+        console.log("forEvery", err, c3, c3 == 3 && err == "ignore" ? "success": "FAILED")
     }, direct)
 
     t++;
@@ -1183,7 +1183,7 @@ tests.test_flow = function(callback, test)
         next(null, lib.toNumber(n) + i);
     }, (err, n) => {
         t--;
-        console.log('forEachSeries', n, err, n == 6 ? "success" : "failed");
+        console.log('forEachSeries', n, err, n == 6 ? "success" : "FAILED");
     }, direct);
 
     t++;
@@ -1191,7 +1191,7 @@ tests.test_flow = function(callback, test)
         next(i == 2 ? "error" : null, lib.toNumber(n) + i);
     }, (err, n) => {
         t--;
-        console.log('forEachSeries', n, err, n == 3 && err == "error" ? "success" : "failed");
+        console.log('forEachSeries', n, err, n == 3 && err == "error" ? "success" : "FAILED");
     }, direct);
 
     t++;
@@ -1199,7 +1199,7 @@ tests.test_flow = function(callback, test)
         next("ignore", lib.toNumber(n) + i);
     }, (err, n) => {
         t--;
-        console.log('forEverySeries', n, err, n == 6 && err == "ignore" ? "success" : "failed");
+        console.log('forEverySeries', n, err, n == 6 && err == "ignore" ? "success" : "FAILED");
     }, direct);
 
     t++;
@@ -1208,7 +1208,7 @@ tests.test_flow = function(callback, test)
         c4++; next();
     }, (err) => {
         t--;
-        console.log('forEachLimit', c4, err, c4 == 3 && !err ? "success" : "failed");
+        console.log('forEachLimit', c4, err, c4 == 3 && !err ? "success" : "FAILED");
     }, direct);
 
     t++;
@@ -1217,7 +1217,7 @@ tests.test_flow = function(callback, test)
         c5++; next(i == 2 ? "error" : null);
     }, (err) => {
         t--;
-        console.log('forEachLimit', c5, err, c5 == 2 && err == "error" ? "success" : "failed");
+        console.log('forEachLimit', c5, err, c5 == 2 && err == "error" ? "success" : "FAILED");
     }, direct);
 
     t++;
@@ -1226,7 +1226,7 @@ tests.test_flow = function(callback, test)
         c6++; next("ignore");
     }, (err) => {
         t--;
-        console.log('forEveryLimit', c6, err, c6 == 3 && String(err) == "ignore,ignore,ignore" ? "success" : "failed");
+        console.log('forEveryLimit', c6, err, c6 == 3 && String(err) == "ignore,ignore,ignore" ? "success" : "FAILED");
     }, direct);
 
     t++;
@@ -1241,8 +1241,8 @@ tests.test_flow = function(callback, test)
         },
         function (err, d) {
             t--;
-            console.log('whilst', c7, d, err, c7 == 5 && !err ? "success" : "failed");
-        }, null, direct);
+            console.log('whilst', c7, d, err, c7 == 5 && !err ? "success" : "FAILED");
+        }, direct);
 
     t++;
     var c8 = 0;
@@ -1256,8 +1256,8 @@ tests.test_flow = function(callback, test)
         },
         function (err, d) {
             t--;
-            console.log('whilst', c8, d, err, c8 == 5 && !err ? "success" : "failed");
-        }, null, direct);
+            console.log('whilst', c8, d, err, c8 == 5 && !err ? "success" : "FAILED");
+        }, direct);
 
     t++;
     var c9 = 0;
@@ -1272,7 +1272,7 @@ tests.test_flow = function(callback, test)
         }
     ], (err, d) => {
         t--;
-        console.log('series', c9, d, err, c9 == 2 && d == 2 && !err ? "success" : "failed");
+        console.log('series', c9, d, err, c9 == 2 && d == 2 && !err ? "success" : "FAILED");
     }, direct)
 
     t++;
@@ -1288,7 +1288,7 @@ tests.test_flow = function(callback, test)
         }
     ], (err, d) => {
         t--;
-        console.log('series', c10, d, err, c10 == 1 && d == 1 && err ? "success" : "failed");
+        console.log('series', c10, d, err, c10 == 1 && d == 1 && err ? "success" : "FAILED");
     }, direct)
 
     t++;
@@ -1304,7 +1304,7 @@ tests.test_flow = function(callback, test)
         }
     ], (err) => {
         t--;
-        console.log('parallel', c11, err, c11 == 2 && !err ? "success" : "failed");
+        console.log('parallel', c11, err, c11 == 2 && !err ? "success" : "FAILED");
     }, direct)
 
     t++;
@@ -1320,7 +1320,7 @@ tests.test_flow = function(callback, test)
         }
     ], (err) => {
         t--;
-        console.log('parallel', c12, err, c12 >= 1 && err ? "success" : "failed");
+        console.log('parallel', c12, err, c12 >= 1 && err ? "success" : "FAILED");
     }, direct)
 
     t++;
@@ -1336,7 +1336,7 @@ tests.test_flow = function(callback, test)
         }
     ], (err, d) => {
         t--;
-        console.log('everySeries', c13, d, err, c13 == 2 && d == 2 && err == "ignore" ? "success" : "failed");
+        console.log('everySeries', c13, d, err, c13 == 2 && d == 2 && err == "ignore" ? "success" : "FAILED");
     }, direct)
 
     t++;
@@ -1352,7 +1352,7 @@ tests.test_flow = function(callback, test)
         }
     ], (err) => {
         t--;
-        console.log('everyParallel', c14, err, c14 == 2 && !err ? "success" : "failed");
+        console.log('everyParallel', c14, err, c14 == 2 && !err ? "success" : "FAILED");
     }, direct)
 
 }
