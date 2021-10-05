@@ -1264,15 +1264,15 @@ tests.test_flow = function(callback, test)
     lib.series([
         (next) => {
             c9++
-            next()
+            next(null, 1)
         },
-        (next) => {
+        (next, data) => {
             c9++
-            next(null, 2)
+            next(null, data + 1)
         }
     ], (err, d) => {
         t--;
-        console.log('series', c9, d, err, c9 == 2 && d == 2 && !err ? "success" : "FAILED");
+        console.log('series', c9, d, err, c9 == 2 && d === 2 && !err ? "success" : "FAILED");
     }, direct)
 
     t++;
@@ -1282,13 +1282,13 @@ tests.test_flow = function(callback, test)
             c10++
             next("error", 1);
         },
-        (next) => {
+        (next, data) => {
             c10++
-            next("error", 2)
+            next("error", data + 1)
         }
     ], (err, d) => {
         t--;
-        console.log('series', c10, d, err, c10 == 1 && d == 1 && err ? "success" : "FAILED");
+        console.log('series', c10, d, err, c10 == 1 && d == 1 && err == "error" ? "success" : "FAILED");
     }, direct)
 
     t++;
@@ -1328,15 +1328,15 @@ tests.test_flow = function(callback, test)
     lib.everySeries([
         (next) => {
             c13++;
-            next("ignore");
+            next("ignore", 1);
         },
-        (next) => {
+        (next, err, data) => {
             c13++;
-            next("ignore", 2)
+            next(err, data + 1)
         }
     ], (err, d) => {
         t--;
-        console.log('everySeries', c13, d, err, c13 == 2 && d == 2 && err == "ignore" ? "success" : "FAILED");
+        console.log('everySeries', c13, d, err, c13 == 2 && d === 2 && err == "ignore" ? "success" : "FAILED");
     }, direct)
 
     t++;
