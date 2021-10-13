@@ -165,7 +165,7 @@ tests.test_db = function(callback)
             nojoin: { pub: 1, join: ["id","type"], nojoin_pools: ["elasticsearch"] },
         },
         test6: {
-            id: { primary: 1, pub: 1 },
+            id: { primary: 1, pub: 1, trim: 1 },
             mtime: { type: "now", pub: 1 },
             num: {},
             obj: { type: "obj" },
@@ -539,19 +539,24 @@ tests.test_db = function(callback)
             });
         },
         function(next) {
-            db.get("test6", { id: id }, {}, function(err, row) {
+            db.get("test6", { id: id + " " }, {}, function(err, row) {
                 tests.assert(next, err || !row || row.num != 2 || !row.obj || row.obj.n != 1 ||
                              !row.list || !row.list[0] || row.list[0].n != 1, "err36:", row);
             });
         },
         function(next) {
-            db.incr("test6", { id: id, action1: 2 }, function(err, rc, info) {
+            db.incr("test6", { id: id + " ", action1: 2 }, function(err, rc, info) {
                 tests.assert(next, err || !info.affected_rows, "err37:", info);
             });
         },
         function(next) {
             db.get("test6", { id: id }, {}, function(err, row) {
                 tests.assert(next, err || !row || (!configOptions.noCustomColumns && row.action1 != 3), "err38:", row, db.customColumn);
+            });
+        },
+        function(next) {
+            db.list("test6", [id + " "], {}, function(err, rows) {
+                tests.assert(next, err || rows.length != 1, "err38:", rows, db.customColumn);
             });
         },
     ],
