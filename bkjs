@@ -326,9 +326,8 @@ case "$BKJS_CMD" in
     descr=$(get_arg -descr $MONIT_DESCRIPTION)
     [ "$event" = "" -a "$descr" = "" ] && exit
     host=${MONIT_HOST:-$(uname -n)}
-    ip=$(get_local_ip)
-    subject="ALERT: $host/$ip $event"
-    msg=$($ECHO "$subject\n\n$descr\n\n$(df -h)\n\n$(free)\n\n$(ps agx)")
+    subject="ALERT: ${MONIT_SERVICE:-$BKJS} $host $event"
+    msg="$subject\n\n$descr\n\n"
     process_cmds
     # If nobody handled it we log and try to send a plain email
     echo "$msg" >> $BKJS_HOME/log/error.log

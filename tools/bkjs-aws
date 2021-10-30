@@ -31,7 +31,7 @@ case "$BKJS_CMD" in
     ;;
 
   send-alert)
-    topic=$(get_ec2_param bkjs-alert-topic)
+    topic=$(get_arg -topic $(get_ec2_param bkjs-alert-topic))
     if [ "$topic" != "" ]; then
        region=$(get_arg -region)
        [ "$region" != "" ] && region="--region $region"
@@ -47,12 +47,12 @@ case "$BKJS_CMD" in
     [ "$tag" != "" -a "$tag" != "." ] && filter="Name=tag:Name,Values=${tag}"
     arch=$(get_arg -arch)
     [ "$arch" != "" -a "$arch" != "." ] && filter="Name=architecture,Values=${arch}"
-    instances=$(aws ec2 describe-instances $region --filter "Name=instance-state-name,Values=running" $filter --query 'Reservations[*].Instances[*].[InstanceId,PrivateIpAddress,PublicIpAddress,KeyName,Architecture,Tags[?Key==`Name`]]' --output text|awk '{if($6=="None")print $0;else if($1=="Name")print $2;else printf "%s\t",$0;}')
+    instances=$(aws ec2 describe-instances $region --filter "Name=instance-state-name,Values=running" $filter --query 'Reservations[*].Instances[*].[InstanceId,PrivateIpAddress,PublicIpAddress,KeyName,Architecture,InstanceType,Tags[?Key==`Name`]]' --output text|awk '{if($7=="None")print $0;else if($1=="Name")print $2;else printf "%s\t",$0;}')
     skip=$(get_arg -skip-tag)
     [ "$skip" != "" ] && instances=$(echo "$instances"|grep -v -F "$(echo "$skip"| tr ',' '\n')")
     [ "$PLATFORM" = "Linux" -a "$(get_flag -nomyip)" != "" ] && instances=$(echo "$instances"|grep -v -F $(get_local_ip))
     fmt=$(get_arg -fmt)
-    [ "$fmt" != "" ] && instances=$(echo "$instances"|awk "{print $(echo $fmt|sed -e 's/id/\$1/' -e 's/ip/\$2/' -e 's/host/\$3/' -e 's/key/\$4/' -e 's/arch/\$5/' -e 's/name/\$6/')}")
+    [ "$fmt" != "" ] && instances=$(echo "$instances"|awk "{print $(echo $fmt|sed -e 's/id/\$1/' -e 's/ip/\$2/' -e 's/host/\$3/' -e 's/key/\$4/' -e 's/arch/\$5/' -e 's/name/\$6/' -e 's/type/\$7/')}")
     if [ "$(get_flag -line)" != "" ]; then
        echo "$instances" | tr '\n' ' '
     else
