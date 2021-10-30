@@ -113,7 +113,7 @@ case "$BKJS_CMD" in
     $0 run-elasticsearch
     ;;
 
-  configure-elastichsearch)
+  configure-elasticsearch)
     host=$(get_arg -host localhost)
     curl -XPUT -H 'Content-Type: application/json' -d '{"persistent":{"script.max_compilations_rate":"1000/1m"}}' http://$host:9200/_cluster/settings
     ;;
