@@ -194,17 +194,19 @@ This is the typical output from the ps command on Linux server:
 To enable any task a command line parameter must be provided, it cannot be specified in the config file. The `bkjs` utility supports several
 commands that simplify running the backend in different modes.
 
+- `bkjs watch` - runs the master and Web server in wather mode checking all source files for changes, this is the common command to be used
+   in development, it passes the command line switches: `-watch -master`
 - `bkjs start` - this command is supposed to be run at the server startup as a service, it runs in the background and the monitors all tasks,
    the env variable `BKJS_SERVER` can be set in the profile to one of the `master or monitor` to define which run mode to use, default mode is monitor
 - `bkjs monitor` - this command is supposed to be run at the server startup, it runs in the background and the monitors all processes,
    the command line parameters are: `-daemon -monitor -master -syslog`
 - `bkjs master` - this command is supposed to be run at the server startup, it runs in the background and the monitors all processes,
-   the command line parameters are: `-daemon -monitor -master -syslog`
-- `bkjs watch` - runs the master and Web server in wather mode checking all source files for changes, this is the common command to be used
-   in development, it passes the command line switches: `-watch -master`
-- `bkjs web` - this command runs just web server process.
+   the command line parameters are: `-daemon -monitor -master -syslog`, web server and workers are started by default
+- `bkjs web` - this command runs just web server process with child processes as web workers
 - `bkjs run` - this command runs without other parameters, all additional parameters can be added in the command line, this command
    is a barebone helper to be used with any other custom settings.
+- `bkjs run -api` - this command runs a single process as web server, sutable for Docker
+- `bkjs run -worker` - this command runs a single process worker, suatable for Docker
 - `bkjs shell` or `bksh` - start backendjs shell, no API or Web server is initialized, only the database pools
 
 
@@ -225,7 +227,7 @@ When the API layer is initialized, the api module contains `app` object which is
 Special module/namespace `app` is designated to be used for application development/extension. This module is available in the same way as `api` and `core`
 which makes it easy to refer and extend with additional methods and structures.
 
-The typical structure of a backendjs application is the following:
+The typical structure of a single file backendjs application is the following:
 
 ```javascript
     const bkjs = require('backendjs');
@@ -325,19 +327,20 @@ Let's assume the `modules/` contains file facebook.js which implements custom FB
 
 ```javascript
     const bkjs = require("backendjs");
-    const fb = {
+    const core = bkjs.core;
+    const mod = {
         args: [
             { name: "token", descr: "API token" },
         ]
     }
-    module.exports = fb;
+    module.exports = mod;
 
-    fb.configureWeb = function(options, callback) {
+    mod.configureWeb = function(options, callback) {
        ...
     }
 
-    fb.makeRequest = function(options, callback) {
-         bkjs.core.sendRequest({ url: options.path, query: { access_token: fb.token } }, callback);
+    mod.makeRequest = function(options, callback) {
+         core.sendRequest({ url: options.path, query: { access_token: fb.token } }, callback);
     }
 ```
 
