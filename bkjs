@@ -281,7 +281,10 @@ case "$BKJS_CMD" in
     rsync $(get_all_args "-bkcmd")
     rc=$?
     [ "$rc" != "0" ] && exit $rc
-    [ "$cmd" != "" ] && $cmd
+    if [ "$cmd" != "" ]; then
+        BKJS_CMD=$cmd
+        process_cmd
+    fi
     exit 0
     ;;
 
@@ -341,7 +344,7 @@ case "$BKJS_CMD" in
     $0 shell -log error -log-watch $@
     ;;
 
-  run|run-master|master|run-monitor|monitor|web|watch|shell|bksh|run-none|none)
+  run|run-master|master|run-monitor|monitor|run-web|web|watch|shell|bksh|run-none|none)
     find_nodebin
     [ -f app.js ] && SCRIPT=app.js
     [ -z "$SCRIPT" -a -f lib/app.js ] && SCRIPT=lib/app.js
@@ -357,11 +360,11 @@ case "$BKJS_CMD" in
         ;;
 
      run-monitor|monitor)
-        $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME -syslog -daemon -monitor -master $BKJS_RUN_ARGS "$@"
+        exec $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME -syslog -daemon -monitor -master $BKJS_RUN_ARGS "$@"
         ;;
 
      run-master|master)
-        $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME -syslog -daemon -master $BKJS_RUN_ARGS "$@"
+        exec $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME -syslog -daemon -master $BKJS_RUN_ARGS "$@"
         ;;
 
      watch)
@@ -372,12 +375,12 @@ case "$BKJS_CMD" in
         exec $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME -shell "$@"
         ;;
 
-     web)
-       $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME $BKJS_RUN_ARGS -web "$@"
-       ;;
+     run-web|web)
+        exec $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME $BKJS_RUN_ARGS -web "$@"
+        ;;
 
      *)
-        $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME $BKJS_RUN_ARGS "$@"
+        exec $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME $BKJS_RUN_ARGS "$@"
         ;;
     esac
     ;;
@@ -414,12 +417,12 @@ case "$BKJS_CMD" in
     user=$(get_arg -user)
     [ "$user" != "" ] && sshargs="$sshargs -l $user"
     key=$(get_arg -ssh-key)
-    [ "$key" != "" -a -f $HOME/.ssh/$key.pem ] && sshargs="$sshargs -i $HOME/.ssh/$key.pem"
+    [ "$key" != "" -a -f $HOME/.ssh/$key.pem ] && sshargs="$sshargs -i $HOME/.ssh/$key.pem -o IdentitiesOnly=yes"
     rsyncargs=$(concat_arg -rsync $BKJS_RSYNC_ARGS)
     bkcmd=$(get_arg -bkcmd)
     if [ "$bkcmd" != "" ]; then
         find_user
-        bkcmd="--rsync-path=/home/$BKJS_USER/bin/bkrsync -bkcmd '$bkcmd'"
+        bkcmd="--rsync-path=/home/$BKJS_USER/bin/bkrsync -bkcmd $bkcmd"
     fi
     include=$(get_json package.json config.sync.include)
     for inc in $include; do
