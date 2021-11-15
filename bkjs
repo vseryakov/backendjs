@@ -281,10 +281,7 @@ case "$BKJS_CMD" in
     rsync $(get_all_args "-bkcmd")
     rc=$?
     [ "$rc" != "0" ] && exit $rc
-    if [ "$cmd" != "" ]; then
-        BKJS_CMD=$cmd
-        process_cmd
-    fi
+    [ "$cmd" != "" ] && $(dirname $0)/bkjs $cmd
     exit 0
     ;;
 
