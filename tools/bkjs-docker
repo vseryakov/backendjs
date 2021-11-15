@@ -1,0 +1,84 @@
+#!/bin/bash
+#
+#  Author: Vlad Seryakov vseryakov@gmail.com
+#  Nov 2021
+#
+
+case "$BKJS_CMD" in
+
+  docker-build)
+    tag=$(get_arg -tag)
+    version=$(get_arg -version)
+    path=$(get_arg -path $HOME)
+    root=$(get_arg -root $BKJS_HOME/docker)
+
+    [ ! -f $root/$tag.Dockerfile ] && echo "$BKJS_CMD: no $tag.Dockerfile found in $root" && exit 1
+
+    [ -f $root/$tag.path ] && path="$path$(cat $root/$tag.path)"
+    [ ! -d $path ] && echo "$BKJS_CMD: invalid $tag context path: $path" && exit 1
+
+    rm -f $path/.dockerignore
+    [ -f $root/$tag.dockerignore ] && cp $root/$tag.dockerignore $path/.dockerignore
+
+    [ -f $root/$tag.build ] && cmd=$(cat $root/$tag.build)
+    [ ! -z $version ] && cmd="$cmd -t $tag:$version"
+
+    cmd="docker build -t $tag -f $root/$tag.Dockerfile $cmd $path"
+    [ ! -z "$BKJS_DEBUG" ] && echo $cmd
+
+    $cmd
+    rc=$?
+
+    rm -f $path/.dockerignore
+    [ "$rc" != "0" ] && exit $rc
+
+    ecr=$(get_arg -ecr)
+    if [ "$ecr" != "" ]; then
+        region=$(get_arg -region uc-east-1)
+        aws ecr get-login-password --region $region | docker login --username AWS --password-stdin $ecr
+        docker tag $tag $ecr:$tag
+        docker push $ecr:$tag
+    fi
+    ;;
+
+  docker-run)
+    tag=$(get_arg -tag)
+    root=$(get_arg -root $BKJS_HOME/docker)
+
+    [ -z $tag ] && echo "$BKJS_CMD: -tag must be provided" && exit 1
+    [ -f $root/$tag.run ] && cmd=$(cat $root/$tag.run)
+
+    cmd="docker run -d --name $tag $cmd $tag $(get_all_args "-tag -root")"
+    [ ! -z "$BKJS_DEBUG" ] && echo $cmd
+
+    $cmd
+    ;;
+
+  docker-init-rsyslog)
+    if [ "$(grep -s "#Bkjs $BKJS_HOME" /etc/rsyslog.d/bkjs-docker.conf)" = "" ]; then
+       echo "Configuring rsyslog.d/$BKJS-docker ..."
+       echo "#Bkjs $BKJS_HOME" > /etc/rsyslog.d/$BKJS-docker.conf
+       echo "\$FileOwner $BKJS_USER" >> /etc/rsyslog.d/$BKJS-docker.conf
+       bkjsfmt=""
+       if [ -d /etc/systemd ]; then
+          echo '$template bkjsfmt2,"%APP-NAME% %msg%\n"' >> /etc/rsyslog.d/$BKJS-docker.conf
+          bkjsfmt=";bkjsfmt2"
+       fi
+       echo "local1.* $BKJS_HOME/log/message.log$bkjsfmt" >> /etc/rsyslog.d/$BKJS-docker.conf
+       service rsyslog restart
+    fi
+    ;;
+
+  help)
+    echo ""
+    echo "Docker commands:"
+    echo ""
+    echo "docker-build -t tag - build an image for the specified tag"
+    echo "docker-run -t tag - run a container for the specified tag"
+    echo "docker-init-rsyslog - setup rsyslog driver for docker containers"
+    ;;
+
+  *)
+    BKJS_UNKNOWN=1
+    ;;
+esac

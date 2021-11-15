@@ -221,15 +221,11 @@ case "$BKJS_CMD" in
     if [ "$(grep -s '#Bkjs' /etc/rsyslog.conf)" = "" ]; then
        echo "Configuring rsyslog..."
        echo "#Bkjs" > /etc/rsyslog.conf
-       case "$OS_TYPE" in
-        amazon)
+       if [ -d /etc/systemd ]; then
           echo '$ModLoad imjournal' >> /etc/rsyslog.conf
-          ;;
-
-        *)
+       else
           echo '$ModLoad imklog' >> /etc/rsyslog.conf
-          ;;
-       esac
+       fi
        echo '$ModLoad imuxsock' >> /etc/rsyslog.conf
        echo '$ModLoad imudp' >> /etc/rsyslog.conf
        echo '$UDPServerAddress 127.0.0.1' >> /etc/rsyslog.conf
@@ -239,17 +235,13 @@ case "$BKJS_CMD" in
        echo '$SystemLogRateLimitInterval 1' >> /etc/rsyslog.conf
        echo '$SystemLogRateLimitBurst 10000' >> /etc/rsyslog.conf
        echo '$ActionFileDefaultTemplate RSYSLOG_FileFormat' >> /etc/rsyslog.conf
-       case "$OS_TYPE" in
-        amazon)
+       if [ -d /etc/systemd ]; then
           echo '$OmitLocalLogging on' >> /etc/rsyslog.conf
           echo '$IMJournalStateFile imjournal.state' >> /etc/rsyslog.conf
           echo '*.emerg :omusrmsg:*' >> /etc/rsyslog.conf
-          ;;
-
-        *)
+       else
           echo 'kern.*,*.emerg /dev/console' >> /etc/rsyslog.conf
-          ;;
-       esac
+       fi
        echo '$IncludeConfig /etc/rsyslog.d/*.conf' >> /etc/rsyslog.conf
        echo 'cron.* /var/log/cron' >> /etc/rsyslog.conf
        echo 'local7.* /var/log/boot.log' >> /etc/rsyslog.conf
@@ -265,12 +257,10 @@ case "$BKJS_CMD" in
        echo "#Bkjs $BKJS_HOME" > /etc/rsyslog.d/$BKJS.conf
        echo "\$FileOwner $BKJS_USER" >> /etc/rsyslog.d/$BKJS.conf
        bkjsfmt=""
-       case "$OS_TYPE" in
-        amazon)
+       if [ -d /etc/systemd ]; then
           echo '$template bkjsfmt,"%HOSTNAME% %msg%\n"' >> /etc/rsyslog.d/$BKJS.conf
           bkjsfmt=";bkjsfmt"
-          ;;
-       esac
+       fi
        echo "local0.* $BKJS_HOME/log/message.log$bkjsfmt" >> /etc/rsyslog.d/$BKJS.conf
        echo "local5.* $BKJS_HOME/log/access.log$bkjsfmt" >> /etc/rsyslog.d/$BKJS.conf
        mkdir -p $BKJS_HOME/log
@@ -361,6 +351,11 @@ case "$BKJS_CMD" in
     echo 'net.ipv4.tcp_rmem=8192 87380 16777216' >> $conf
     echo 'net.ipv4.tcp_wmem=8192 65536 16777216' >> $conf
     echo 'net.ipv4.tcp_challenge_ack_limit = 999999999' >> $conf
+    if [ "$(get_flag -noipv6)" != "" ]; then
+        echo 'net.ipv6.conf.all.disable_ipv6 = 1' >> $conf
+        echo 'net.ipv6.conf.default.disable_ipv6 = 1' >> $conf
+        echo 'net.ipv6.conf.lo.disable_ipv6 = 1' >> $conf
+    fi
     sysctl -p $conf
     ;;
 
