@@ -251,7 +251,7 @@ case "$BKJS_CMD" in
     files="access.log message.log error.log $BKJS_CLOUDWATCH_LOGS"
     for log in $files; do
         [ "$logs" != "" ] && logs="$logs,"
-        logs="$logs{ \"file_path\": \"/home/$user/log/$log\", \"log_group_name\": \"$log\", \"log_stream_name\": \"$tag\", \"multi_line_start_pattern\": \"^[^ \\t]\", \"timestamp_format\": \"%Y-%m-%dT%H:%M:%S.%f%z\" }"
+        logs="$logs{ \"file_path\": \"/home/$user/log/$log\", \"log_group_name\": \"$log\", \"log_stream_name\": \"$tag\", \"multi_line_start_pattern\": \"^[^ \\t]\", \"timestamp_format\": \"%Y-%m-%dT%H:%M:%S.%f\" }"
     done
     tmp=/cwa.json
     conf=$dir/etc/amazon-cloudwatch-agent.json

@@ -6,7 +6,7 @@
 
 case "$BKJS_CMD" in
 
-  docker-build)
+  docker-build|dbuild)
     tag=$(get_arg -tag)
     version=$(get_arg -version)
     path=$(get_arg -path $HOME)
@@ -39,19 +39,30 @@ case "$BKJS_CMD" in
         docker tag $tag $ecr:$tag
         docker push $ecr:$tag
     fi
+
+    [ "$(get_flag -run)" != "" ] && $0 docker-run -tag $tag -root $root -force
     ;;
 
-  docker-run)
+  docker-run|drun)
     tag=$(get_arg -tag)
     root=$(get_arg -root $BKJS_HOME/docker)
 
     [ -z $tag ] && echo "$BKJS_CMD: -tag must be provided" && exit 1
     [ -f $root/$tag.run ] && cmd=$(cat $root/$tag.run)
 
-    cmd="docker run -d --name $tag $cmd $tag $(get_all_args "-tag -root")"
+    if [ "$(get_flag -force)" != "" ]; then
+       pids=$(docker ps -aq -f name=$tag)
+       [ ! -z $pids ] && docker rm -f $pids
+    fi
+
+    cmd="docker run -d --name $tag $cmd $tag $(get_all_args "-tag -root -force")"
     [ ! -z "$BKJS_DEBUG" ] && echo $cmd
 
     $cmd
+    ;;
+
+  docker-exec|dexec)
+    docker exec $(get_all_args)
     ;;
 
   docker-init-rsyslog)
@@ -64,8 +75,11 @@ case "$BKJS_CMD" in
           echo '$template bkjsfmt2,"%APP-NAME% %msg%\n"' >> /etc/rsyslog.d/$BKJS-docker.conf
           bkjsfmt=";bkjsfmt2"
        fi
-       echo "local1.* $BKJS_HOME/log/message.log$bkjsfmt" >> /etc/rsyslog.d/$BKJS-docker.conf
+       echo "local1.* $BKJS_HOME/log/docker.log$bkjsfmt" >> /etc/rsyslog.d/$BKJS-docker.conf
        service rsyslog restart
+
+       echo '{ "log-driver": "syslog", "log-opts": { "tag": "{{.Name}}", "syslog-facility": "local1", "cache-disabled": "true", "mode": "non-blocking" } }' > /etc/docker/daemon.json
+       service docker restart
     fi
     ;;
 
