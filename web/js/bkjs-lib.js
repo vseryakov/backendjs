@@ -769,7 +769,7 @@ bkjs.toTemplate = function(text, obj, options)
             if (end == -1) continue;
             var body = str.substr(0, end);
             str = str.substr(end + 5 + sep1.length + sep2.length);
-            d = tag.match(/^(if|ifeq|ifgt|ifge|iflt|ifle|ifnot|ifall|ifstr) ([a-zA-Z0-9._-]+) +(.+)$/)
+            d = tag.match(/^(if|ifnull|ifne|ifeq|ifgt|ifge|iflt|ifle|ifnot|ifall|ifstr) ([a-zA-Z0-9._-]+) +(.+)$/)
             if (!d) continue;
             var ok, val = null, t = d[2];
             i = t.indexOf(".");
@@ -790,6 +790,12 @@ bkjs.toTemplate = function(text, obj, options)
             switch (d[1]) {
             case "if":
                 ok = val && this.isFlag(this.strSplit(d[3]), this.strSplit(val));
+                break;
+            case "ifnull":
+                ok = val === null || val === undefined;
+                break;
+            case "ifne":
+                ok = val != d[3];
                 break;
             case "ifnot":
                 ok = !val || !this.isFlag(this.strSplit(d[3]), this.strSplit(val));
