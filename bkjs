@@ -281,7 +281,7 @@ case "$BKJS_CMD" in
     rsync $(get_all_args "-bkcmd")
     rc=$?
     [ "$rc" != "0" ] && exit $rc
-    [ "$cmd" != "" ] && $(dirname $0)/bkjs $cmd
+    [ "$cmd" != "" ] && $(dirname $0)/bkjs $(echo $cmd|sed 's/%20/ /g') 1>&2
     exit 0
     ;;
 
@@ -419,7 +419,7 @@ case "$BKJS_CMD" in
     bkcmd=$(get_arg -bkcmd)
     if [ "$bkcmd" != "" ]; then
         find_user
-        bkcmd="--rsync-path=/home/$BKJS_USER/bin/bkrsync -bkcmd $bkcmd"
+        bkcmd="--rsync-path=/home/$BKJS_USER/bin/bkrsync -bkcmd $(echo $bkcmd|sed 's/ /%20/g')"
     fi
     include=$(get_json package.json config.sync.include)
     for inc in $include; do
