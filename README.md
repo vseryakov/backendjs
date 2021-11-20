@@ -27,7 +27,6 @@ Features:
   in the clients for failover.
 * Supports several PUB/SUB modes of operations using Redis, RabbitMQ, Hazelcast.
 * Supports async jobs processing using several work queue implementations on top of SQS, Redis, DB, RabbitMQ, Hazelcast.
-* ImageMagick as a separate C++ module for in-process image scaling, see bkjs-wand on NPM.
 * REPL (command line) interface for debugging and looking into server internals.
 * Supports push notifications via Webpush, APN and FCM.
 * Supports HTTP(S) reverse proxy mode where multiple Web workers are load-balanced by the proxy
@@ -48,9 +47,6 @@ Check out the [Documentation](http://bkjs.io) for more details.
 To install the module with all optional dependencies if they are available in the system
 
     npm install backendjs
-
-This may take some time because of downloading and compiling required dependencies like ImageMagick. They are not required in all
-applications but still part of the core of the system to be available once needed.
 
 To install from the git
 
@@ -1114,12 +1110,6 @@ how the environment is setup it is ultimately 2 ways to specify the port for HTT
   all config parameters support DNS store. To see which parameters can be stored in the DNS run `bkjs show-help` and look for 'DNS TXT configurable'.
 
 # Backend library development (Mac OS X, developers)
-
-* for DB drivers and ImageMagick to work propely it needs some dependencies to be installed:
-
-        port install libpng jpeg tiff lcms2 mysql56 postgresql93
-
-* make sure there is no openjpeg15 installed, it will conflict with ImageMagick jp2 codec
 
 * `git clone https://github.com/vseryakov/backendjs.git` or `git clone git@github.com:vseryakov/backendjs.git`
 
