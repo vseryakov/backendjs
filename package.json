@@ -41,6 +41,7 @@
     "uglifycss": "0.0.29"
   },
   "modulesDependencies": {
+    "bkjs-wand": ">= 0.5.1",
     "sharp": ">= 0.29.0",
     "amqplib": ">= 0.6.0",
     "nats": "^1.4.12",
