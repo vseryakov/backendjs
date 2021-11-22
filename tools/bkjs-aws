@@ -113,7 +113,13 @@ case "$BKJS_CMD" in
     ;;
 
   ec2-region)
+    [ -f $HOME/.aws/config ] && region=$(awk '/^region/{print $3}' $HOME/.aws/config)
+    [ ! -z $region ] && echo $region && exit
     echo $(curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone/|sed 's/[a-z]$//')
+    ;;
+
+  ec2-account)
+    echo $(curl -s http://169.254.169.254/latest/dynamic/instance-identity/document|grep accountId|sed 's/[",:"]//g'|awk '{print $2}')
     ;;
 
   ec2-tag)
@@ -309,6 +315,7 @@ case "$BKJS_CMD" in
     echo "  ec2-ssh -tag NAME [-region region] [-pub] [-cmd cmd] [-index N|.] - ssh into a host by tag name, key name will be used to specify a keypair from ~/.ssh/, -pub tells to use public IP, -cmd if specified will be run on all matched hosts, -index tell which specific host to use only, dot means all hosts"
     echo "  ec2-host [-tag NAME] [-skip-tag NAME] - show running instances local IP addresses by tag"
     echo "  ec2-region - current instance region"
+    echo "  ec2-account - current instance account id"
     echo "  ec2-tag [-tag NAME] - current instance tag name, default key is Name"
     echo "  ec2-stop-api [-tag NAME] - restart gracefully on the specified instances by tag"
     echo "  create-ami [-tag NAME] [-prefix PREFIX] - create a new AMI from the given running instance by tag or the current instance"
