@@ -51,6 +51,7 @@ case "$BKJS_CMD" in
             $ECHO "set mail-format { from: $email }" >> /etc/monit.d/alert.conf
             if [[ ! -z $host ]]; then
                 server="set mailserver $host"
+                [[ $host =~ amazonaws ]] && server="$server port 465"
                 [[ ! -z $user ]] && server="$server username $user"
                 [[ ! -z $password ]] && server="$server password $password"
                 [[ $host =~ amazonaws ]] && server="$server using tlsv1"
