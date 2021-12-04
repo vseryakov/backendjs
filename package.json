@@ -1,5 +1,5 @@
 {
-  "version": "0.124.0",
+  "version": "0.125.0",
   "author": "Vlad Seryakov",
   "name": "backendjs",
   "description": "A platform for building backends",
@@ -10,35 +10,34 @@
     "url": "https://github.com/vseryakov/backendjs.git"
   },
   "dependencies": {
-    "uuid": ">= 7.0.2",
-    "hashids": ">= 1.1.4",
-    "cron": ">= 1.8.2",
+    "formidable": "^2.0.1",
+    "redis": "^3.1.2",
+    "ws": "^7.2.3",
+    "web-push": "^3.4.4",
     "express": ">= 4.17.1",
-    "emailjs": ">= 2.2.0",
-    "xml2json": ">= 0.12.0",
-    "mime": ">= 2.4.4",
-    "http-proxy": ">= 1.12.1",
-    "redis": ">= 3.0.0",
-    "qs": ">= 6.9.3",
-    "bcrypt": ">= 3.0.4",
-    "argon2": ">= 0.27.1",
-    "ws": ">= 7.2.3",
-    "formidable": "^2.0.0",
     "cookie": ">=0.4.0",
     "cookie-parser": ">= 1.4.5",
+    "qs": ">= 6.10.1",
+    "uuid": ">= 7.0.2",
+    "hashids": ">= 2.2.10",
+    "cron": ">= 1.8.2",
+    "emailjs": ">= 2.2.0",
+    "xml2json": ">= 0.12.0",
+    "mime": ">= 3.0.0",
+    "bcrypt": ">= 3.0.4",
+    "argon2": ">= 0.27.1",
     "mmmagic": ">= 0.5.3",
-    "nan": ">= 2.14.0",
     "consolidate": ">= 0.14.0",
-    "web-push": "^3.4.4",
     "@parse/node-apn": ">= 4.0.0",
-    "pg": ">=8.4.1",
+    "http-proxy": ">= 1.18.1",
+    "pg": ">= 8.4.1",
     "bkjs-utils": ">= 0.2.6",
     "bkjs-cache": ">= 0.5.3",
     "bkjs-sqlite": ">= 0.2.6",
     "bkjs-syslog": ">= 0.3.1",
-    "html-minifier": "^4.0.0",
-    "uglify-es": "^3.3.9",
-    "uglifycss": "0.0.29"
+    "html-minifier": ">= 4.0.0",
+    "uglify-es": ">= 3.3.9",
+    "uglifycss": ">= 0.0.29"
   },
   "modulesDependencies": {
     "bkjs-wand": ">= 0.5.1",
@@ -70,7 +69,7 @@
     "geohash"
   ],
   "engines": {
-    "node": ">=8.0"
+    "node": ">=14.0"
   },
   "license": "BSD-3-Clause",
   "bin": {

@@ -306,6 +306,73 @@ case "$BKJS_CMD" in
     service rsyslog restart
     ;;
 
+  ecr-push)
+    tag=$(get_arg -tag)
+    [ "$tag" = "" ] && echo "-tag are required" && exit 1
+    ecr="$($0 ec2-account).dkr.ecr.$($0 ec2-region).amazonaws.com"
+    aws ecr get-login-password| docker login --username AWS --password-stdin $ecr
+    [ "$?" != "0" ] && exit 1
+    ecr="$ecr/$tag"
+    version=$(get_arg -version)
+    [ ! -z $version ] && ecr="$ecr:$version"
+    docker tag $tag $ecr
+    docker push $ecr
+    ;;
+
+  ecs-run)
+    task=$(get_arg -task)
+    cluster=$(get_arg -cluster default)
+
+    network="assignPublicIp=ENABLED"
+    gid=$(get_arg -gid)
+    group=$(get_arg -group)
+    [ ! -z $group ] && gid=$(aws ec2 describe-security-groups --filters Name=group-name,Values=$group --query "SecurityGroups[*].[GroupId]" --output text|tr '\n' ,|sed s/,$//)
+    [ ! -z $gid ] && network="$network,securityGroups=[$gid]"
+
+    sid=$(get_arg -sid)
+    subnet=$(get_arg -subnet)
+    [ ! -z $subnet ] && sid=$(aws ec2 describe-subnets --query 'Subnets[*].[SubnetId,Tags[?Key==`Name`]]' --output text|awk "/Name/{if(s&&index(\$2,\"$subnet\")==1)print s;s=\"\"} /^subnet/{s=\$0}"|tr '\n' ,|sed s/,$//)
+    [ ! -z $sid ] && network="$network,subnets=[$sid]"
+
+    cpu=$(get_arg -cpu)
+    if [ ! -z $cpu ]; then
+        [ ! -z $overrides ] && overrides="$overrides,"
+        overrides="$overrides\"cpu\":$cpu"
+    fi
+    mem=$(get_arg -mem)
+    if [ ! -z $mem ]; then
+        [ ! -z $overrides ] && overrides="$overrides,"
+        overrides="$overrides\"memory\":$mem"
+    fi
+    arch=$(get_arg -arch)
+    if [ ! -z $arch ]; then
+        [ ! -z $overrides ] && overrides="$overrides,"
+        overrides="$overrides\"runtimePlatform\":{\"cpuArchitecture\":\"$arch\"}"
+    fi
+
+    tag=$(get_arg -tag)
+    if [ ! -z $tag ]; then
+        container=$(aws ecs describe-task-definition --task-definition $task --query taskDefinition.containerDefinitions[*].name --output text)
+        [ ! -z $overrides ] && overrides="$overrides,"
+        overrides="$overrides\"containerOverrides\":[{\"name\":\"$container\",\"environment\":[{\"name\":\"BKJS_TAG\",\"value\":\"$tag\"}]}]"
+    fi
+
+    cmd="aws ecs run-task --cluster $cluster --task-definition $task --count $(get_arg -count 1) --overrides {$overrides} --network-configuration awsvpcConfiguration={$network}"
+    [ ! -z $tag ] && cmd="$cmd --tags key=Name,value=$tag"
+    [ ! -z $(get_flag -exec) ] && cmd="$cmd --enable-execute-command"
+
+    type=$(get_arg -type)
+    if [ ! -z $type ]; then
+        cmd="$cmd --launch-type $type"
+    else
+        cmd="$cmd --capacity-provider-strategy capacityProvider=$(get_arg -provider FARGATE)"
+    fi
+
+    [ ! -z $(get_flag -dry-run) ] && echo $cmd && exit
+
+    $cmd
+    ;;
+
   help)
     echo ""
     echo "AWS provisioning commands using:"
@@ -322,6 +389,7 @@ case "$BKJS_CMD" in
     echo "  create-launch-template-version [-name NAME] [-skip A B] [-image-name *] - create new launch template verson with the latest AMI, if no -name is given all existing templates will be updated"
     echo "  init-sendmail-ses - [-domain DOMAIN] -alert-host HOST -alert-user USER -alert-password PW - configure sendmail as relay to SES SMTP"
     echo "  init-cloudwatch-agent [-restart] - install AWS Cloudwatch agent to send backend logs to Cloudwatch Logs"
+    echo "  ecr-push -t TAG - tag and push a docker image to ECR"
     ;;
 
   *)

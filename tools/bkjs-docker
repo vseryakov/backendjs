@@ -6,7 +6,7 @@
 
 case "$BKJS_CMD" in
 
-  docker-build|dbuild)
+  docker-build)
     tag=$(get_arg -tag)
     version=$(get_arg -version)
     path=$(get_arg -path $HOME)
@@ -35,7 +35,7 @@ case "$BKJS_CMD" in
     [ "$(get_flag -run)" != "" ] && $0 docker-run -tag $tag -root $root -force
     ;;
 
-  docker-run|drun)
+  docker-run)
     tag=$(get_arg -tag)
     root=$(get_arg -root $BKJS_HOME/docker)
 
@@ -51,14 +51,6 @@ case "$BKJS_CMD" in
     [ ! -z "$BKJS_DEBUG" ] && echo $cmd
 
     $cmd
-    ;;
-
-  docker-exec|dexec)
-    docker exec $(get_all_args)
-    ;;
-
-  docker-restart|drestart)
-    docker restart ${BKJS_ARGS[0]}
     ;;
 
   docker-init-rsyslog)
@@ -79,28 +71,18 @@ case "$BKJS_CMD" in
     fi
     ;;
 
-  docker-ecr)
-    tag=$(get_arg -tag)
-    [ "$tag" = "" ] && echo "-tag are required" && exit 1
-    ecr="$($0 ec2-account).dkr.ecr.$($0 ec2-region).amazonaws.com"
-    aws ecr get-login-password| docker login --username AWS --password-stdin $ecr
-    [ "$?" != "0" ] && exit 1
-    ecr="$ecr/$tag"
-    [ ! -z $version ] && ecr="$ecr:$version"
-    docker tag $tag $ecr
-    docker push $ecr
+  drestart)
+    docker restart ${BKJS_ARGS[0]}
     ;;
 
   help)
     echo ""
     echo "Docker commands:"
     echo ""
-    echo "docker-build|dbuild -t TAG - build an image for the specified tag"
-    echo "docker-run|drun -t TAG - run a container for the specified tag"
-    echo "docker-init-rsyslog - setup rsyslog driver for docker containers"
-    echo "docker-exec|dexec NAME .... - send a command to a running container"
-    echo "docker-restart|drestart NAME - restart a container"
-    echo "docker-ecr -t TAG - tag and push an image to ECR"
+    echo "docker-init-rsyslog - store docker container logs in $BKJS_HOME/log/docker.log"
+    echo "docker-build -t TAG - build an image for the specified tag"
+    echo "docker-run -t TAG - run a container for the specified tag"
+    echo "drestart NAME - restart a container, for use with bkrsync"
     ;;
 
   *)
