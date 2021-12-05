@@ -308,13 +308,16 @@ case "$BKJS_CMD" in
 
   ecr-push)
     tag=$(get_arg -tag)
-    [ "$tag" = "" ] && echo "-tag are required" && exit 1
+    [ "$tag" = "" ] && echo "-tag is required" && exit 1
     ecr="$($0 ec2-account).dkr.ecr.$($0 ec2-region).amazonaws.com"
     aws ecr get-login-password| docker login --username AWS --password-stdin $ecr
     [ "$?" != "0" ] && exit 1
     ecr="$ecr/$tag"
     version=$(get_arg -version)
     [ ! -z $version ] && ecr="$ecr:$version"
+    if [ ! -z $(get_flag -force) ]; then
+        aws ecr batch-delete-image --repository-name $tag --image-ids imageTag=${version:-latest}
+    fi
     docker tag $tag $ecr
     docker push $ecr
     ;;
@@ -344,10 +347,10 @@ case "$BKJS_CMD" in
         [ ! -z $overrides ] && overrides="$overrides,"
         overrides="$overrides\"memory\":$mem"
     fi
-    arch=$(get_arg -arch)
-    if [ ! -z $arch ]; then
+    arm=$(get_arg -arm)
+    if [ ! -z $arm ]; then
         [ ! -z $overrides ] && overrides="$overrides,"
-        overrides="$overrides\"runtimePlatform\":{\"cpuArchitecture\":\"$arch\"}"
+        overrides="$overrides\"runtimePlatform\":{\"cpuArchitecture\":\"ARM64\"}"
     fi
 
     tag=$(get_arg -tag)
@@ -368,6 +371,7 @@ case "$BKJS_CMD" in
         cmd="$cmd --capacity-provider-strategy capacityProvider=$(get_arg -provider FARGATE)"
     fi
 
+    [ ! -z "$BKJS_DEBUG" ] && echo $cmd
     [ ! -z $(get_flag -dry-run) ] && echo $cmd && exit
 
     $cmd
@@ -389,7 +393,8 @@ case "$BKJS_CMD" in
     echo "  create-launch-template-version [-name NAME] [-skip A B] [-image-name *] - create new launch template verson with the latest AMI, if no -name is given all existing templates will be updated"
     echo "  init-sendmail-ses - [-domain DOMAIN] -alert-host HOST -alert-user USER -alert-password PW - configure sendmail as relay to SES SMTP"
     echo "  init-cloudwatch-agent [-restart] - install AWS Cloudwatch agent to send backend logs to Cloudwatch Logs"
-    echo "  ecr-push -t TAG - tag and push a docker image to ECR"
+    echo "  ecr-push -tag NAME [-version V] [-force] - tag and push a docker image to ECR"
+    echo "  ecs-run -task NAME [-cluser default] [-type EC2|FARGATE] [-provider FARGATE_SPOT] [-gid ID] [-group NAME] [-sid ID] [-subnet NAME] [-cpu N] [-memory N] [-tag T] [-arm] [-exec] [-dry-tun] - run an ECS task in subnets with security groups, overrides cpu/mem, pass tag to bkjs process as instance tag"
     ;;
 
   *)
