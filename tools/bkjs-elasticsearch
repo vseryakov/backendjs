@@ -35,6 +35,7 @@ case "$BKJS_CMD" in
             echo 'cluster.routing.allocation.awareness.attributes: aws_availability_zone' >> config/elasticsearch.yml
             bin/elasticsearch-plugin install discovery-ec2 -b
         fi
+        echo "-Dlog4j2.formatMsgNoLookups=true" >> config/jvm.options
     fi
     ;;
 
