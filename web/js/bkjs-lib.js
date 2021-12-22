@@ -507,10 +507,10 @@ bkjs.toDuration = function(mtime, options)
     return str;
 }
 
-bkjs.toSize = function(size)
+bkjs.toSize = function(size, decimals)
 {
     var i = size > 0 ? Math.floor(Math.log(size) / Math.log(1024)) : 0;
-    return (size / Math.pow(1024, i)).toFixed(2) * 1 + ' ' + [this.__('Bytes'), this.__('KBytes'), this.__('MBytes'), this.__('GBytes'), this.__('TBytes')][i];
+    return (size / Math.pow(1024, i)).toFixed(typeof decimals == "number" ? decimals : 2) * 1 + ' ' + [this.__('Bytes'), this.__('KBytes'), this.__('MBytes'), this.__('GBytes'), this.__('TBytes')][i];
 }
 
 bkjs.isArray = function(val, dflt)
