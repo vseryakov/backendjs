@@ -797,6 +797,9 @@ bkjs.toTemplate = function(text, obj, options)
             case "ifnotnull":
                 ok = !!val;
                 break;
+            case "ifempty":
+                ok = this.isEmpty(val);
+                break;
             case "ifne":
                 ok = val != d[3];
                 break;
