@@ -3,15 +3,8 @@
 //  backendjs 2018
 //
 
-var path = require('path');
-var util = require('util');
-var fs = require('fs');
-var http = require('http');
-var url = require('url');
 var bkjs = require('backendjs');
-var db = bkjs.db;
 var api = bkjs.api;
-var app = bkjs.app;
 var ipc = bkjs.ipc;
 var msg = bkjs.msg;
 var core = bkjs.core;
@@ -42,11 +35,11 @@ system.configureWeb = function(options, callback)
 system.configureSystemAPI = function()
 {
     // Return current statistics
-    api.app.all(/^\/system\/([^\/]+)\/?(.+)?/, function(req, res) {
+    api.app.all(/^\/system\/([^/]+)\/?(.+)?/, function(req, res) {
         var options = api.getOptions(req);
         switch (req.params[0]) {
         case "restart":
-            ipc.sendMsg("api:restart");
+            ipc.sendMsg(`${req.params[1] || "api"}:restart`);
             res.json({});
             break;
 
@@ -110,25 +103,23 @@ system.configureSystemAPI = function()
             });
             switch (req.params[1]) {
             case 'get':
-                var data = { "-home": core.home, "-log": logger.level };
-                args.forEach(function(x) {
-                    x[1].forEach(function(y) {
+                res.json(args.reduce((data, x) => {
+                    x[1].forEach((y) => {
                         if (!y._name) return;
                         var val = lib.objGet(x[0] ? core.modules[x[0]] : core, y._name);
                         if (val == null && !options.total) return;
                         data[y._key] = typeof val == "undefined" ? null : val;
                     });
-                });
-                res.json(data);
+                    return data;
+                }, { "-home": core.home, "-log": logger.level }));
                 break;
             case "info":
-                var data = {};
-                args.forEach(function(x) {
-                    x[1].forEach(function(y) {
+                res.json(args.reduce((data, x) => {
+                    x[1].forEach((y) => {
                         data[(x[0] ? x[0] + "-" : "") + y.name] = y;
                     });
-                });
-                res.json(data);
+                    return data;
+                }, {}));
                 break;
             default:
                 api.sendReply(res, 400, "Invalid command:" + req.params[1]);
