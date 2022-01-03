@@ -13,6 +13,9 @@
         "bootpopup": false,
         "ko": false
     },
+    "parserOptions": {
+        "ecmaVersion": 2017
+    },
     "extends": "eslint:recommended",
     "rules": {
         "accessor-pairs": "error",
