@@ -251,6 +251,13 @@ shell.cmdRunJobs = function(options)
     return "continue";
 }
 
+// Run jobs workers inside the shell
+shell.cmdRunWorker = function(options)
+{
+    jobs.initWorker();
+    return "continue";
+}
+
 // Show account records by id or login
 shell.cmdAuthGet = function(options)
 {

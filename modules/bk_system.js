@@ -169,30 +169,30 @@ system.configureSystemAPI = function()
         case "cache":
             switch (req.params[1]) {
             case 'stats':
-                ipc.stats({ cacheName: req.query.cache }, function(data) {
+                ipc.stats({ queueName: req.query.cache }, function(data) {
                     res.json(data || {})
                 });
                 break;
             case "get":
-                ipc.get(req.query.name, { cacheName: req.query.cache }, function(err, data) {
+                ipc.get(req.query.name, { queueName: req.query.cache }, function(err, data) {
                     res.json({ value: data });
                 });
                 break;
             case "clear":
-                ipc.clear({ cacheName: req.query.cache });
+                ipc.clear({ queueName: req.query.cache });
                 res.json({});
                 break;
             case "del":
-                ipc.del(req.query.name, { cacheName: req.query.cache });
+                ipc.del(req.query.name, { queueName: req.query.cache });
                 res.json({});
                 break;
             case "incr":
-                ipc.incr(req.query.name, lib.toNumber(req.query.value), { cacheName: req.query.cache }, function(err, val) {
+                ipc.incr(req.query.name, lib.toNumber(req.query.value), { queueName: req.query.cache }, function(err, val) {
                     res.json({ value: val });
                 });
                 break;
             case "put":
-                ipc.put(req.query.name, req.query.value, { cacheName: req.query.cache });
+                ipc.put(req.query.name, req.query.value, { queueName: req.query.cache });
                 res.json({});
                 break;
             case "command":

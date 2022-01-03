@@ -4,9 +4,7 @@
 //
 
 var util = require('util');
-var path = require('path');
 var logger = require(__dirname + '/../lib/logger');
-var core = require(__dirname + '/../lib/core');
 var lib = require(__dirname + '/../lib/lib');
 var ipc = require(__dirname + "/../lib/ipc");
 var Client = require(__dirname + "/../lib/ipc_client");
@@ -35,12 +33,11 @@ ipc.modules.push(client);
 
 client.createClient = function(url, options)
 {
-    if (url.match(/^memcache:/)) return new IpcMemcacheClient(url, options);
+    if (/^memcache:/.test(url)) return new IpcMemcacheClient(url, options);
 }
 
 function IpcMemcacheClient(url, options)
 {
-    var self = this;
     Client.call(this, url, options);
     this.options.servers = lib.strSplitUnique(this.options.servers);
     var h = (this.hostname || "127.0.0.1") + ":" + (this.port || this.options.port || 11211);
@@ -49,9 +46,9 @@ function IpcMemcacheClient(url, options)
 
     var Memcached = require("memcached");
     this.client = new Memcached(this.options.servers, this.options);
-    this.client.on("error", function(err) {
-        logger.error("memcache:", self.url, err);
-        self.emit("error", err);
+    this.client.on("error", (err) => {
+        logger.error("memcache:", this.url, err);
+        this.emit("error", err);
     });
     this.client.on("ready", this.emit.bind(this, "ready"));
 }

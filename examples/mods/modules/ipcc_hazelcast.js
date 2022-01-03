@@ -35,7 +35,7 @@ ipc.modules.push(client);
 
 client.createClient = function(url, options)
 {
-    if (url.match(/^hazelcast:/)) return new HazelCastClient(url, options);
+    if (/^hazelcast:/.test(url)) return new HazelCastClient(url, options);
 }
 
 function HazelCastClient(url, options)

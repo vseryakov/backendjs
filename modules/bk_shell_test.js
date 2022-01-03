@@ -211,3 +211,13 @@ shell.cmdTestRun = function(options)
         });
     }, test.delay);
 }
+
+shell.testJob = function(options, callback)
+{
+    logger.log("testJob:", options);
+    if (options.dead) return;
+    if (options.rand) return setTimeout(callback, lib.randomInt(0, options.rand));
+    if (options.timeout) return setTimeout(callback, options.timeout);
+    callback();
+}
+

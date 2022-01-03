@@ -9,38 +9,49 @@ case "$BKJS_CMD" in
     platform=$(echo $PLATFORM | tr [:upper:] [:lower:])
     arch=$OS_ARCH
     [ "$arch" = "x64" ] && arch=amd64
-    curl -L -o /tmp/nats.tgz https://github.com/nats-io/nats-server/releases/download/v2.1.9/nats-server-v2.1.9-$platform-$arch.tar.gz
+    curl -L -o /tmp/nats.tgz https://github.com/nats-io/nats-server/releases/download/v2.6.6/nats-server-v2.6.6-$platform-$arch.tar.gz
     tar --strip-components=1 -C /tmp -xzf /tmp/nats.tgz
     mv /tmp/nats-server $BKJS_PREFIX/bin
     rm -rf /tmp/nats.tgz
-    echo 'listen: localhost:4222' > $BKJS_HOME/etc/nats.conf
+    echo 'listen: localhost:4222' >> $BKJS_HOME/etc/nats.conf
+    echo 'http: localhost:8222' >> $BKJS_HOME/etc/nats.conf
+    echo 'syslog: false' >> $BKJS_HOME/etc/nats.conf
+    echo 'logtime: true' >> $BKJS_HOME/etc/nats.conf
+    echo "log_file: $BKJS_HOME/log/message.log" >> $BKJS_HOME/etc/nats.conf
+    echo "pid_file: $BKJS_HOME/var/nats.pid" >> $BKJS_HOME/etc/nats.conf
+    echo 'jetstream: {' >> $BKJS_HOME/etc/nats.conf
+    echo "  store_dir: \"$BKJS_HOME/var\"" >> $BKJS_HOME/etc/nats.conf
+    echo '  max_file: 1G' >> $BKJS_HOME/etc/nats.conf
+    echo '}' >> $BKJS_HOME/etc/nats.conf
+    echo 'cluster {' >> $BKJS_HOME/etc/nats.conf
+    echo '  name: nats' >> $BKJS_HOME/etc/nats.conf
+    echo '  listen: localhost:6222' >> $BKJS_HOME/etc/nats.conf
+    echo '  routes: [' >> $BKJS_HOME/etc/nats.conf
+    echo '    nats-route://nats:6222' >> $BKJS_HOME/etc/nats.conf
+    echo '  ]' >> $BKJS_HOME/etc/nats.conf
+    echo '}' >> $BKJS_HOME/etc/nats.conf
+    ;;
+
+  get-natscli)
+    curl -L -o /tmp/nats.zip https://github.com/nats-io/natscli/releases/download/v0.0.28/nats-v0.0.28-$platform-$arch.zip
+    unzip -j /tmp/nats.tgz -d /tmp */nats
+    mv /tmp/nats $BKJS_PREFIX/bin
+    rm -rf /tmp/nats.zip
     ;;
 
   run-nats)
+    name=$(get_arg -name $(uname -n))
     mkdir -p $BKJS_HOME/var $BKJS_HOME/log
-    exec nohup nats-server -c $BKJS_HOME/etc/nats.conf -l $BKJS_HOME/log/nats.log >>$BKJS_HOME/log/nats.log 2>&1 &
+    exec nohup nats-server -n $name -c $BKJS_HOME/etc/nats.conf >>$BKJS_HOME/log/message.log 2>&1 &
     ;;
 
-  get-stan)
-    platform=$(echo $PLATFORM | tr [:upper:] [:lower:])
-    arch=$OS_ARCH
-    [ "$arch" = "x64" ] && arch=amd64
-    curl -L -o /tmp/stan.tgz https://github.com/nats-io/nats-streaming-server/releases/download/v0.21.1/nats-streaming-server-v0.21.1-$platform-$arch.tar.gz
-    tar --strip-components=1 -C /tmp -xzf /tmp/stan.tgz
-    mv /tmp/nats-streaming-server $BKJS_PREFIX/bin
-    rm -rf /tmp/stan.tgz
-    echo 'listen: localhost:4222' > $BKJS_HOME/etc/stan.conf
-    echo 'streaming: {' >> $BKJS_HOME/etc/stan.conf
-    echo '  cluster_id: bkjs' >> $BKJS_HOME/etc/stan.conf
-    echo '  store: "file"' >> $BKJS_HOME/etc/stan.conf
-    echo "  dir: \"$BKJS_HOME/var/stan\"" >> $BKJS_HOME/etc/stan.conf
-    echo "  log_path: \"$BKJS_HOME/var\"" >> $BKJS_HOME/etc/stan.conf
-    echo '}' >> $BKJS_HOME/etc/stan.conf
+  stop-nats)
+    pkill -f nats
     ;;
 
-  run-stan)
-    mkdir -p $BKJS_HOME/var $BKJS_HOME/log
-    exec nohup nats-streaming-server -c $BKJS_HOME/etc/stan.conf -l $BKJS_HOME/log/stan.log >>$BKJS_HOME/log/stan.log 2>&1 &
+  init-nats-monit)
+    $0 init-monit -name nats -start run-nats -stop stop-nats
+    monit reload
     ;;
 
   init-dynamodb)
@@ -315,9 +326,9 @@ run-amqp)
     echo "  get-amqp [-force] - install local RabbitMQ server in $BKJS_PREFIX/rabbitmq"
     echo "  run-amqp - run local RabbitMQ server installed in $BKJS_PREFIX/rabbitmq"
     echo "  get-nats - install local NATS server in $BKJS_PREFIX/bin"
+    echo "  get-natscli - install NATS command line tool in $BKJS_PREFIX/bin"
     echo "  run-nats - run local NATS server installed in $BKJS_PREFIX/bin"
-    echo "  get-stan - install local NATS Streaming server in $BKJS_PREFIX/bin"
-    echo "  run-stan - run local NATS Streaming server installed in $BKJS_PREFIX/bin"
+    echo "  stop-nats - stop local NATS server"
     ;;
 
   *)

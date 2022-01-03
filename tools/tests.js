@@ -797,8 +797,6 @@ tests.test_config = function(callback)
                 "-db-sqlite1-pool-options-test", "test",
                 "-db-sqlite-pool-options-discovery-interval", "30000",
                 "-db-sqlite-pool-options-map.test", "test",
-                "-ipc-cache-options-sentinel-servers", "host1",
-                "-ipc-cache-aaa-options-sentinel-max_attempts", "1",
             ];
     core.parseArgs(argv);
     logger.debug("poolParams:", db.poolParams);
@@ -812,8 +810,6 @@ tests.test_config = function(callback)
     if (db.poolParams.sqlite.configOptions.discoveryInterval != 30000) return callback("invalid sqlite interval:" + lib.stringify(db.poolParams.sqlite));
     if (db.poolParams.sqlite.configOptions['map.test'] != "test") return callback("invalid sqlite map:" + lib.stringify(db.poolParams.sqlite));
     if (db.poolParams.sqlite1.configOptions.test != "test") return callback("invalid sqlite1 map:" + lib.stringify(db.poolParams.sqlite1));
-    if (!ipc.configParams['cache-options'] || !ipc.configParams['cache-options'].sentinel || ipc.configParams['cache-options'].sentinel.servers != 'host1') return callback("invalid ipc sentinel servers:" + lib.stringify(ipc.configParams));
-    if (!ipc.configParams['cache-aaa-options'] || !ipc.configParams['cache-options'].sentinel || ipc.configParams['cache-aaa-options'].sentinel.max_attempts != 1) return callback("invalid ipc max attempts:" + lib.stringify(ipc.configParams));
 
     if (core.logwatcherSend.error != "a") return callback("invalid logwatcher email:" + JSON.stringify(core.logwatcherSend));
     if (core.logwatcherMatch.error.indexOf("a") == -1) return callback("invalid logwatcher match: " + JSON.stringify(core.logwatcherMatch));

@@ -35,7 +35,7 @@ case "$BKJS_CMD" in
         cp $BKJS_HOME/etc/redis.conf $BKJS_HOME/etc/redis.conf.old
     fi
 
-    ver=$(get_arg -version 6.2.2)
+    ver=$(get_arg -version 6.2.6)
     curl -L -o redis.tgz http://download.redis.io/releases/redis-$ver.tar.gz
 
     mkdir -p redis $BKJS_HOME/etc
@@ -78,14 +78,6 @@ case "$BKJS_CMD" in
     pkill -f redis-server
     ;;
 
-  run-sentinel)
-    redis-sentinel $BKJS_HOME/etc/sentinel.conf
-    ;;
-
-  stop-sentinel)
-    pkill -f redis-sentinel
-    ;;
-
   init-monit-redis|init-redis-monit)
     # There is no startup script because we rely on the monit to handle processes
     [ "$(whoami)" != "root" ] && echo "Run as root please" && exit 1
@@ -103,29 +95,6 @@ case "$BKJS_CMD" in
     monit reload
     ;;
 
-  init-monit-sentinel|init-sentinel-monit)
-    find_user
-    host=$(get_arg -host 127.0.0.1)
-    port=$(get_arg -port 6379)
-    quorum=$(get_arg -quorum 2)
-    name=$(get_arg -name redis)
-    dtimeout=$(get_arg -down-timeout 10000)
-    ftimeout=$(get_arg -failover-timeout 180000)
-    conf=$BKJS_HOME/etc/sentinel.conf
-    $ECHO "daemonize yes" > $conf
-    $ECHO "syslog-enabled yes" >> $conf
-    $ECHO "sentinel monitor $name $host $port $quorum" >> $conf
-    $ECHO "sentinel down-after-milliseconds $name $dtimeout" >> $conf
-    $ECHO "sentinel failover-timeout $name $ftimeout" >> $conf
-    $ECHO "sentinel parallel-syncs $name 1" >> $conf
-    $ECHO "dir $BKJS_HOME/var/" >> $conf
-    $ECHO "pidfile $BKJS_HOME/var/sentinel.pid" >> $conf
-    chown $BKJS_USER $conf
-
-    $ECHO "check process redis-sentinel with pidfile \"$BKJS_HOME/var/sentinel.pid\" start program = \"$BKJS_BIN run-sentinel $(get_all_args)\" as uid $BKJS_USER and gid $BKJS_GROUP stop program = \"$BKJS_BIN stop-sentinel\"" > /etc/monit.d/sentinel.conf
-    monit reload
-    ;;
-
   help)
     echo ""
     echo "Redis commands:"
@@ -134,9 +103,6 @@ case "$BKJS_CMD" in
     echo "  init-redis - install and setup Redis server to be run on start and to be monitored (Linux only)"
     echo "  run-redis [-memsize PERCENT] [-memmax SIZE] [-slave-host HOST] - run local Redis server, uses config file $REDIS_CONF"
     echo "  stop-redis - stop local Redis server"
-    echo "  run-sentinel - run local Redis Sentinel server, uses config file $REDIS_PREFIX/sentinel.conf"
-    echo "  stop-sentinel - stop local Redis Sentinel server"
-    echo "  init-sentinel-monit [-host HOST] [-port PORT] - setup Redis Sentinel server to be run on start and to be monitored (Linux only)"
     echo "  init-redis-monit [-memsize PERCENT] [-memmax SIZE] - setup Redis server to be run on start and to be monitored (Linux only)"
     echo ""
     ;;

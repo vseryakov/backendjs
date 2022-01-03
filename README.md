@@ -25,8 +25,8 @@ Features:
 * Supports WebSockets connections and process them with the same Express routes as HTTP requests
 * Supports several cache modes(Redis, Memcache, Hazelcast, LRU) for the database operations, multiple hosts support
   in the clients for failover.
-* Supports several PUB/SUB modes of operations using Redis, RabbitMQ, Hazelcast.
-* Supports async jobs processing using several work queue implementations on top of SQS, Redis, DB, RabbitMQ, Hazelcast.
+* Supports several PUB/SUB modes of operations using Redis, NATS, RabbitMQ, Hazelcast.
+* Supports async jobs processing using several work queue implementations on top of SQS, Redis, NATS, DB, RabbitMQ, Hazelcast.
 * REPL (command line) interface for debugging and looking into server internals.
 * Supports push notifications via Webpush, APN and FCM.
 * Supports HTTP(S) reverse proxy mode where multiple Web workers are load-balanced by the proxy
@@ -645,17 +645,13 @@ Also there is a configuration option `-db-caching` to make any table automatical
 If no cache is configured the local driver is used, it keeps the cache on the master process in the LRU pool and any worker or Web process
 communicate with it via internal messaging provided by the `cluster` module. This works only for a single server.
 
-## memcached
-Set `ipc-cache=memcache://HOST[:PORT]` that points to the host running memcached. To support multiple servers add the option
-`ipc-cache-options-servers=10.1.1.1,10.2.2.1:5000`.
-
 ## Redis
-Set `ipc-cache=redis://HOST[:PORT]` that points to the server running Redis server.
+Set `ipc-client=redis://HOST[:PORT]` that points to the server running Redis server.
 
 To support more than one master Redis server in the client add additional servers in the servers parameter,
-`ipc-cache-options-servers=10.1.1.1,10.2.2.1:5000`, the client will reconnect automatically on every
+`ipc-client-options-servers=10.1.1.1,10.2.2.1:5000`, the client will reconnect automatically on every
 disconnect. To support quick failover it needs a parameter for the `node-redis` module (which is used by the driver) `max_attempts` to be a
-number how many attempts to reconnect before switching to another server like `ipc-cache-options-max_attempts=3`. If there is only one
+number how many attempts to reconnect before switching to another server like `ipc-client-options-max_attempts=3`. If there is only one
 server then it will keep reconnecting until total reconnect time exceeds the `connect_timeout` ms.
 Any other `node-redis` module parameter can be passed as well.
 
@@ -663,40 +659,26 @@ Cache configurations also can be passed in the url, the system supports special 
 
 For example:
 
-    ipc-cache=redis://host1?bk-servers=host2,host3&bk-max_attempts=3
-    ipc-cache-backup=redis://host2
-    ipc-cache-backup-options-max_attempts=3
-
-
-## Redis Sentinel
-
-To enable Redis Sentinel pass in the option `-sentinel-servers`: `ipc-cache=redis://host1?bk-sentinel-servers=host1,host2`.
-
-The system will connect to the sentinel, get the master cache server and connect the cache driver to it, also it will listen constantly on
-sentinel events and failover to a new master autimatically. Sentinel use the regular redis module and supports all the same
-parameters, to pass options to the sentinel driver prefix them with `sentinel-`:
-
-    ipc-cache=redis://host1?bk-servers=host2,host3&bk-max_attempts=3&bk-sentinel-servers=host1,host2,host3
-    ipc-cache-backup=redis://host2
-    ipc-cache-backup-options-sentinel-servers=host1,host2
-    ipc-cache-backup-options-sentinel-max_attempts=5
+    ipc-client=redis://host1?bk-servers=host2,host3&bk-max_attempts=3
+    ipc-client-backup=redis://host2
+    ipc-client-backup-options-max_attempts=3
 
 
 # PUB/SUB or Queue configurations
 
 ## Redis
-To configure the backend to use Redis for PUB/SUB messaging and support the system bus configure both queue and cache because in subscribe mode Redis connection does not allow to send any messages,
-publishing will be done using the cache connection in the `ipc.broadcast`.
+To configure the backend to use Redis for PUB/SUB messaging and support the system bus configure 2 clients because in subscribe mode Redis connection does not allow to send any messages, publishing will be done using the system queue in the `ipc.broadcast` and listening for events will be done using the `broadcast` queue.
 
 For example to define the system bus:
 
-    ipc-queue-system=redis://
-    ipc-cache-system=redis://
-    ipc-system-queue=system
+    ipc-client=redis://
+    ipc-client-system=redis://
+    ipc-system-queue=default
+    ipc-broadcast-queue=system
 
 
 ## Redis Queue
-To configure the backend to use Redis for job processing set `ipc-queue=redisq://HOST` where HOST is IP address or hostname of the single Redis server.
+To configure the backend to use Redis for job processing set `ipc-queue=redis://HOST` where HOST is IP address or hostname of the single Redis server.
 This driver implements reliable Redis queue, with `visibilityTimeout` config option works similar to AWS SQS.
 
 Once configured, then all calls to `jobs.submitJob` will push jobs to be executed to the Redis queue, starting somewhere a backend master
@@ -736,10 +718,14 @@ and after successful execution will delete the message. For long running jobs it
 The local queue is implemented on the master process as a list, communication is done via local sockets between the master and workers.
 This is intended for a single server development purposes only.
 
+## NATS
+To use NATS (https://nats.io) configure a queue like ipc-queue-nats=nats://HOST:PORT, it supports broadcasts and job queues only, visibility timeout is
+supported as well.
+
 ## RabbitMQ
 To configure the backend to use RabbitMQ for messaging set `ipc-queue=amqp://HOST` and optionally `amqp-options=JSON` with options to the amqp module.
 Additional objects from the config JSON are used for specific AMQP functions: { queueParams: {}, subscribeParams: {}, publishParams: {} }. These
-will be passed to the corresponding AMQP methods: `amqp.queue, amqp.queue.sibcribe, amqp.publish`. See AMQP Node.js module for more info.
+will be passed to the corresponding AMQP methods: `amqp.queue, amqp.queue.subcribe, amqp.publish`. See AMQP Node.js module for more info.
 
 # Security configurations
 

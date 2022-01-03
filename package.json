@@ -1,5 +1,5 @@
 {
-  "version": "0.125.0",
+  "version": "0.126.0",
   "author": "Vlad Seryakov",
   "name": "backendjs",
   "description": "A platform for building backends",
@@ -13,7 +13,7 @@
     "formidable": "^2.0.1",
     "redis": "^3.1.2",
     "web-push": ">= 3.4.5",
-    "ws": ">= 8.3.0",
+    "ws": ">= 8.4.0",
     "express": ">= 4.17.1",
     "cookie": ">=0.4.0",
     "cookie-parser": ">= 1.4.5",
