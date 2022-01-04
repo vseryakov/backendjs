@@ -41,10 +41,9 @@
   },
   "modulesDependencies": {
     "bkjs-wand": ">= 0.5.1",
-    "sharp": ">= 0.29.0",
-    "amqplib": ">= 0.6.0",
-    "nats": "^1.4.12",
-    "node-nats-streaming": ">= 0.3.2"
+    "sharp": ">= 0.29.3",
+    "amqplib": ">= 0.8.0",
+    "nats": ">= 2.4.0"
   },
   "keywords": [
     "bkjs",
