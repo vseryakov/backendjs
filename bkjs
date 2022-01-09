@@ -446,24 +446,28 @@ case "$BKJS_CMD" in
     [ ! -z "$(get_flag -update)" ] && cmd=update
     npm=$(get_arg -npm)
     path=$(get_arg -path .)
+    check=$(get_flag -check)
     strict=$(get_flag -strict)
     global=$(get_flag -global)
     skip=$(get_arg -skip $BKJS_MOD)
     fields=$(get_arg -fields dependencies,devDependencies)
+    if [ ! -z $check ]; then
+        strict=1
+        fields="$fields,modDependencies"
+    fi
     for p in $path; do
-        m=$($NODE_BIN -e "try{skip='$skip';p=require('$p/package.json');console.log('$fields'.split(',').map(f=>(Object.keys(p[f]||{}).filter(x=>(!x.match(skip))).map(x=>(x+(!'$strict'&&p[f][x][0]=='^'?'@'+p[f][x].substr(1).split('.')[0]:''))).join(' '))).join(' '))}catch(e){if('$BKJS_DEBUG')console.error(e)}")
+        m=$($NODE_BIN -e "try{skip='$skip';p=require('$p/package.json');console.log('$fields'.split(',').map(f=>(Object.keys(p[f]||{}).filter(x=>(!x.match(skip))).map(x=>(x+(!'$strict'&&p[f][x][0]=='^'?'@'+p[f][x].substr(1).split('.')[0]:'$strict'||/^[0-9]/.test(p[f][x])?'@'+p[f][x].replace(/[=<>^~]/g,''):'')).trim()).join(' '))).join(' '))}catch(e){if('$BKJS_DEBUG')console.error(e)}")
         [ "$m" != "" ] && modules="$modules $m"
     done
     [[ -z $modules ]] && exit 0
-    if [ ! -z $strict ]; then
+    if [ ! -z $check ]; then
         npath=./node_modules
         [ ! -z $global ] && npath=$NODE_PATH
         mods=""
         for m in $modules; do
-            m=$($NODE_BIN -e "try{p=require('$npath/$m/package.json');console.log(p.name+'@'+p.version)}catch(e){console.error(e)}")
-            [ ! -z $m ] && mods="$mods $m"
+            $NODE_BIN -e "m='$m',p=m.split('@').slice(0,-1).join('@');try{var v=require('$npath/'+p+'/package.json').version}catch(e){console.error(e)};l=child_process.execSync('npm v '+p+' version').toString().trim();console.log(m,v,l,v!=l?'!!':'')"
         done
-        modules=$mods
+        exit 0
     fi
     [ ! -z $global ] && npm="$npm -g"
     echo "$NPM_BIN $npm $cmd $modules"
@@ -697,7 +701,7 @@ case "$BKJS_CMD" in
     echo "  watch - run the backend in watcher and master mode with all source files being monitored for changes, the server is restarts on any change automatically"
     echo "  run - run local backend with provided arguments"
     echo "  logwatcher - runs the log watcher and exists, for cases when no $BKJS service is running but the error log must be watched"
-    echo "  deps [-fields dependencies,devDependencies] [-path .] [-skip REGEXP] [-global] [-update] [-strict] [-npm ARGS] - install npm packages from the dependencies list from the package.json"
+    echo "  deps [-fields dependencies,devDependencies] [-path .] [-skip REGEXP] [-global] [-update] [-strict] [-check] [-npm ARGS] - install or show npm dependencies from the package.json"
     echo "  sync [-host HOST] [-path PATH] [-user USER] [-ssh-key pem] [-ssh OPTS] [-exclude PATTERN] [-bkcmd CMD] - push the backend code to the remote host using rsync, default path is ~/node_modules/$BKJS_MOD"
     echo "  ssh -host HOST -cmd CMD [-user USER] [-key PEM] [-ssh ARGS] - run a command over ssh on all specified hosts"
     echo "  install-node [-prefix PATH] [-force] [-clean] - install binary release of the node into $BKJS_PREFIX or specified path"
