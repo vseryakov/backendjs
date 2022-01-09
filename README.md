@@ -648,10 +648,8 @@ communicate with it via internal messaging provided by the `cluster` module. Thi
 ## Redis
 Set `ipc-client=redis://HOST[:PORT]` that points to the server running Redis server.
 
-`max_attempts` is maximum number how many times to try to reconnect before giving up or until total reconnect time exceeds the `connect_timeout` ms.
-Any other `node-redis` module parameter can be passed as well.
-
-Internal config parameters also can be passed in the url, the system supports special parameters that start with `bk-`, it will extract them into options automatically.
+The config option `max_attempts` defines maximum number of times to reconnect before giving up. Any other `node-redis` module parameter can be passed as well in
+the options or url, the system supports special parameters that start with `bk-`, it will extract them into options automatically.
 
 For example:
 
@@ -664,7 +662,8 @@ For example:
 
 ## Redis system bus
 
-For example to define the system bus:
+If configured all processes subscribe to it and listen for system messages, it must support PUB/SUB and does not need to be reliable. Websockets
+in the API server also use the system bus to send broadcasts between multiple api instances.
 
     ipc-client-system=redis://
     ipc-system-queue=system
