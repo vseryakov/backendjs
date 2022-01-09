@@ -648,33 +648,26 @@ communicate with it via internal messaging provided by the `cluster` module. Thi
 ## Redis
 Set `ipc-client=redis://HOST[:PORT]` that points to the server running Redis server.
 
-To support more than one master Redis server in the client add additional servers in the servers parameter,
-`ipc-client-options-servers=10.1.1.1,10.2.2.1:5000`, the client will reconnect automatically on every
-disconnect. To support quick failover it needs a parameter for the `node-redis` module (which is used by the driver) `max_attempts` to be a
-number how many attempts to reconnect before switching to another server like `ipc-client-options-max_attempts=3`. If there is only one
-server then it will keep reconnecting until total reconnect time exceeds the `connect_timeout` ms.
+`max_attempts` is maximum number how many times to try to reconnect before giving up or until total reconnect time exceeds the `connect_timeout` ms.
 Any other `node-redis` module parameter can be passed as well.
 
-Cache configurations also can be passed in the url, the system supports special parameters that start with `bk-`, it will extract them into options automatically.
+Internal config parameters also can be passed in the url, the system supports special parameters that start with `bk-`, it will extract them into options automatically.
 
 For example:
 
-    ipc-client=redis://host1?bk-servers=host2,host3&bk-max_attempts=3
+    ipc-client=redis://host1?bk-max_attempts=3
     ipc-client-backup=redis://host2
     ipc-client-backup-options-max_attempts=3
 
 
 # PUB/SUB or Queue configurations
 
-## Redis
-To configure the backend to use Redis for PUB/SUB messaging and support the system bus configure 2 clients because in subscribe mode Redis connection does not allow to send any messages, publishing will be done using the system queue in the `ipc.broadcast` and listening for events will be done using the `broadcast` queue.
+## Redis system bus
 
 For example to define the system bus:
 
-    ipc-client=redis://
     ipc-client-system=redis://
-    ipc-system-queue=default
-    ipc-broadcast-queue=system
+    ipc-system-queue=system
 
 
 ## Redis Queue
