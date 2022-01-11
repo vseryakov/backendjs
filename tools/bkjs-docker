@@ -14,13 +14,17 @@ case "$BKJS_CMD" in
 
     [ ! -f $path/$tag.Dockerfile ] && echo "$BKJS_CMD: no $tag.Dockerfile found in $path" && exit 1
 
-    [ -f $path/$tag.path ] && path="$root$(cat $path/$tag.path)"
+    [ -f $path/$tag.path ] && path="$root$(head -1 $path/$tag.path)"
     [ ! -d $root ] && echo "$BKJS_CMD: invalid $tag context path: $root" && exit 1
 
     rm -f $root/.dockerignore
-    [ -f $path/$tag.dockerignore ] && cp $path/$tag.dockerignore $root/.dockerignore
+    if [ -f $path/$tag.dockerignore ]; then
+        cp $path/$tag.dockerignore $root/.dockerignore
+    else
+        echo '*' > $root/.dockerignore
+    fi
 
-    [ -f $path/$tag.build ] && cmd=$(cat $path/$tag.build)
+    [ -f $path/$tag.build ] && cmd=$(cat $path/$tag.build|tr '\n' ' ')
     [ ! -z $version ] && cmd="$cmd -t $tag:$version"
 
     cmd="docker build --progress=plain -t $tag -f $path/$tag.Dockerfile $cmd $root"
@@ -40,14 +44,14 @@ case "$BKJS_CMD" in
     path=$(get_arg -path .)
 
     [ -z $tag ] && echo "$BKJS_CMD: -tag must be provided" && exit 1
-    [ -f $path/$tag.run ] && cmd=$(cat $path/$tag.run)
+    [ -f $path/$tag.run ] && cmd=$(cat $path/$tag.run|tr '\n' ' ')
 
     if [ "$(get_flag -force)" != "" ]; then
        pids=$(docker ps -aq -f name=$tag)
        [ ! -z $pids ] && docker rm -f $pids
     fi
 
-    cmd="docker run -d --name $tag $cmd $tag $(get_all_args "-tag -path -force")"
+    cmd="docker run -d --name $tag ${cmd:-$tag} $(get_all_args "-tag -path -force")"
     [ ! -z "$BKJS_DEBUG" ] && echo $cmd
 
     $cmd
