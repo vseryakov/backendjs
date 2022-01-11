@@ -56,27 +56,28 @@ function IpcDbClient(url, options)
 }
 util.inherits(IpcDbClient, Client);
 
-IpcDbClient.prototype._monitorQueue = function()
+IpcDbClient.prototype._monitorQueue = function(options)
 {
-    var options = { pool: this.options.pool, updateCollect: 1, sort: "active_mtime", ops: { mtime: "lt" }, expected: { active: 1 } };
+    var opts = { pool: this.options.pool, updateCollect: 1, sort: "active_mtime", ops: { mtime: "lt" }, expected: { active: 1 } };
     var query = { active: 1, mtime: Date.now() - this.options.visibilityTimeout * 1000 };
 
-    db.updateAll("bk_queue", query, { active: 0 }, options, function(err, rows) {
+    db.updateAll("bk_queue", query, { active: 0 }, opts, function(err, rows) {
         for (var i in rows) logger.error("ipc.monitorQueue:", lib.toAge(rows[i].mtime), rows[i]);
     });
 }
 
-IpcDbClient.prototype.monitorQueue = function()
+IpcDbClient.prototype.monitorQueue = function(options)
 {
     if (!this._monitor && this.options.visibilityTimeout) {
-        this._monitor = setInterval(this._monitorQueue.bind(this), this.options.visibilityTimeout * 1.1 * 1000);
+        this._monitor = setInterval(this._monitorQueue.bind(this, options), this.options.visibilityTimeout * 1.1 * 1000);
         this._monitorQueue();
     }
 }
 
-IpcDbClient.prototype.pollQueue = function()
+IpcDbClient.prototype.pollQueue = function(options)
 {
     var self = this;
+    var queue = this.queue(options);
     db.select("bk_queue", { active: 0 }, { sort: "active_mtime", count: this.options.count, pool: this.options.pool }, function(err, rows) {
         var now = Date.now(), jobs = 0;
         if (!rows) rows = [];
@@ -94,7 +95,7 @@ IpcDbClient.prototype.pollQueue = function()
                         });
                     }, self.options.visibilityTimeout * 1000 * 0.9);
                 }
-                if (!self.emit("message", row, function(err) {
+                if (!self.emit(queue, row, function(err) {
                     clearInterval(timer);
                     // Retain the message only in case of known fatal errors, otherwise delete it after processing, any other error
                     // is considered as undeliverable due to corruption or invalid message format...
@@ -110,11 +111,10 @@ IpcDbClient.prototype.pollQueue = function()
                 }
             });
         }, function(err) {
-            if (!self.isPollingQueue()) return;
             var interval = self.options.interval * 1000, elapsed = Date.now() - now;
             // After the job finish keep polling immediately
             if (jobs || elapsed >= interval) interval = 0; else interval -= elapsed;
-            self.schedulePollQueue(self.options.interval);
+            self.schedulePollQueue(options, self.options.interval);
         });
     });
 }

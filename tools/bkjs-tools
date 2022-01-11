@@ -15,9 +15,9 @@ case "$BKJS_CMD" in
     rm -rf /tmp/nats.tgz
     echo 'listen: localhost:4222' >> $BKJS_HOME/etc/nats.conf
     echo 'http: localhost:8222' >> $BKJS_HOME/etc/nats.conf
-    echo 'syslog: false' >> $BKJS_HOME/etc/nats.conf
-    echo 'logtime: true' >> $BKJS_HOME/etc/nats.conf
-    echo "log_file: $BKJS_HOME/log/message.log" >> $BKJS_HOME/etc/nats.conf
+    echo 'syslog: true' >> $BKJS_HOME/etc/nats.conf
+    echo 'logtime: false' >> $BKJS_HOME/etc/nats.conf
+    echo "#log_file: $BKJS_HOME/log/message.log" >> $BKJS_HOME/etc/nats.conf
     echo "pid_file: $BKJS_HOME/var/nats.pid" >> $BKJS_HOME/etc/nats.conf
     echo 'jetstream: {' >> $BKJS_HOME/etc/nats.conf
     echo "  store_dir: \"$BKJS_HOME/var\"" >> $BKJS_HOME/etc/nats.conf
@@ -25,7 +25,7 @@ case "$BKJS_CMD" in
     echo '}' >> $BKJS_HOME/etc/nats.conf
     echo 'cluster {' >> $BKJS_HOME/etc/nats.conf
     echo '  name: nats' >> $BKJS_HOME/etc/nats.conf
-    echo '  listen: localhost:6222' >> $BKJS_HOME/etc/nats.conf
+    echo '  #listen: localhost:6222' >> $BKJS_HOME/etc/nats.conf
     echo '  routes: [' >> $BKJS_HOME/etc/nats.conf
     echo '    nats-route://nats:6222' >> $BKJS_HOME/etc/nats.conf
     echo '  ]' >> $BKJS_HOME/etc/nats.conf
@@ -50,7 +50,7 @@ case "$BKJS_CMD" in
     ;;
 
   init-nats-monit)
-    $0 init-monit -name nats -start run-nats -stop stop-nats
+    $0 init-monit -name nats -start "$BKJS_BIN run-nats" -stop "$BKJS_BIN stop-nats"
     monit reload
     ;;
 

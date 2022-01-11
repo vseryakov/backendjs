@@ -645,7 +645,7 @@ tests.test_busy = function(callback)
 
 tests.test_cache = function(callback)
 {
-    console.log("testing cache:", ipc.cache, ipc.getCache().name);
+    console.log("testing cache:", ipc.cache, ipc.getClient().name);
 
     lib.series([
       function(next) {
