@@ -17,7 +17,6 @@ case "$BKJS_CMD" in
     echo 'http: localhost:8222' >> $BKJS_HOME/etc/nats.conf
     echo 'syslog: true' >> $BKJS_HOME/etc/nats.conf
     echo 'logtime: false' >> $BKJS_HOME/etc/nats.conf
-    echo "#log_file: $BKJS_HOME/log/message.log" >> $BKJS_HOME/etc/nats.conf
     echo "pid_file: $BKJS_HOME/var/nats.pid" >> $BKJS_HOME/etc/nats.conf
     echo 'jetstream: {' >> $BKJS_HOME/etc/nats.conf
     echo "  store_dir: \"$BKJS_HOME/var\"" >> $BKJS_HOME/etc/nats.conf
@@ -25,7 +24,7 @@ case "$BKJS_CMD" in
     echo '}' >> $BKJS_HOME/etc/nats.conf
     echo 'cluster {' >> $BKJS_HOME/etc/nats.conf
     echo '  name: nats' >> $BKJS_HOME/etc/nats.conf
-    echo '  #listen: localhost:6222' >> $BKJS_HOME/etc/nats.conf
+    echo '  #listen: 0.0.0.0:6222' >> $BKJS_HOME/etc/nats.conf
     echo '  routes: [' >> $BKJS_HOME/etc/nats.conf
     echo '    nats-route://nats:6222' >> $BKJS_HOME/etc/nats.conf
     echo '  ]' >> $BKJS_HOME/etc/nats.conf
@@ -40,7 +39,7 @@ case "$BKJS_CMD" in
     ;;
 
   run-nats)
-    name=$(get_arg -name $(uname -n))
+    name=$(get_arg -name $(uname -n|cut -f1 -d.))
     mkdir -p $BKJS_HOME/var $BKJS_HOME/log
     exec nohup nats-server -n $name -c $BKJS_HOME/etc/nats.conf >>$BKJS_HOME/log/message.log 2>&1 &
     ;;
