@@ -9,26 +9,28 @@ case "$BKJS_CMD" in
     platform=$(echo $PLATFORM | tr [:upper:] [:lower:])
     arch=$OS_ARCH
     [ "$arch" = "x64" ] && arch=amd64
-    curl -L -o /tmp/nats.tgz https://github.com/nats-io/nats-server/releases/download/v2.6.6/nats-server-v2.6.6-$platform-$arch.tar.gz
+    curl -L -o /tmp/nats.tgz https://github.com/nats-io/nats-server/releases/download/v2.7.0/nats-server-v2.7.0-$platform-$arch.tar.gz
     tar --strip-components=1 -C /tmp -xzf /tmp/nats.tgz
     mv /tmp/nats-server $BKJS_PREFIX/bin
     rm -rf /tmp/nats.tgz
-    echo 'listen: localhost:4222' >> $BKJS_HOME/etc/nats.conf
-    echo 'http: localhost:8222' >> $BKJS_HOME/etc/nats.conf
-    echo 'syslog: true' >> $BKJS_HOME/etc/nats.conf
-    echo 'logtime: false' >> $BKJS_HOME/etc/nats.conf
-    echo "pid_file: $BKJS_HOME/var/nats.pid" >> $BKJS_HOME/etc/nats.conf
-    echo 'jetstream: {' >> $BKJS_HOME/etc/nats.conf
-    echo "  store_dir: \"$BKJS_HOME/var\"" >> $BKJS_HOME/etc/nats.conf
-    echo '  max_file: 1G' >> $BKJS_HOME/etc/nats.conf
-    echo '}' >> $BKJS_HOME/etc/nats.conf
-    echo 'cluster {' >> $BKJS_HOME/etc/nats.conf
-    echo '  name: nats' >> $BKJS_HOME/etc/nats.conf
-    echo '  #listen: 0.0.0.0:6222' >> $BKJS_HOME/etc/nats.conf
-    echo '  routes: [' >> $BKJS_HOME/etc/nats.conf
-    echo '    nats-route://nats:6222' >> $BKJS_HOME/etc/nats.conf
-    echo '  ]' >> $BKJS_HOME/etc/nats.conf
-    echo '}' >> $BKJS_HOME/etc/nats.conf
+    if [ ! -f $BKJS_HOME/etc/nats.conf ]; then
+        echo 'listen: localhost:4222' >> $BKJS_HOME/etc/nats.conf
+        echo 'http: localhost:8222' >> $BKJS_HOME/etc/nats.conf
+        echo 'syslog: true' >> $BKJS_HOME/etc/nats.conf
+        echo 'logtime: false' >> $BKJS_HOME/etc/nats.conf
+        echo "pid_file: $BKJS_HOME/var/nats.pid" >> $BKJS_HOME/etc/nats.conf
+        echo 'jetstream: {' >> $BKJS_HOME/etc/nats.conf
+        echo "  store_dir: \"$BKJS_HOME/var\"" >> $BKJS_HOME/etc/nats.conf
+        echo '  max_file: 1G' >> $BKJS_HOME/etc/nats.conf
+        echo '}' >> $BKJS_HOME/etc/nats.conf
+        echo 'cluster {' >> $BKJS_HOME/etc/nats.conf
+        echo '  name: nats' >> $BKJS_HOME/etc/nats.conf
+        echo '  #listen: 0.0.0.0:6222' >> $BKJS_HOME/etc/nats.conf
+        echo '  routes: [' >> $BKJS_HOME/etc/nats.conf
+        echo '    nats-route://nats:6222' >> $BKJS_HOME/etc/nats.conf
+        echo '  ]' >> $BKJS_HOME/etc/nats.conf
+        echo '}' >> $BKJS_HOME/etc/nats.conf
+    fi
     ;;
 
   get-natscli)
