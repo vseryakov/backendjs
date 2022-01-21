@@ -11,7 +11,6 @@ const msg = bkjs.msg;
 const core = bkjs.core;
 const lib = bkjs.lib;
 const logger = bkjs.logger;
-const shell = bkjs.shell;
 
 // Account management
 const mod = {
@@ -237,16 +236,16 @@ mod.deleteAccount = function(req, callback)
 
 mod.configureShell = function(options, callback)
 {
-    shell.help.push(
+    core.modules.shell.help.push(
         "-user-get ID|LOGIN ... - show user records",
         "-user-add [-scramble 1] [-bcrypt 10] login LOGIN secret SECRET [name NAME] [email EMAIL] [type TYPE] ... - add a new user for API access using the bk_user module",
         "-user-update [-scramble 1] [-bcrypt 10] [login LOGIN|id ID] [name NAME] [email EMAIL] [type TYPE] ... - update existing user properties using the bk_user module ",
         "-user-del [login LOGIN|id ID]... - delete a user using the bk_user module");
 
     for (const p in this) {
-        if (p.substr(0, 3) == "cmd") shell[p] = this[p].bind(shell);
+        if (p.substr(0, 3) == "cmd") core.modules.shell[p] = this[p].bind(core.modules.shell);
     }
-    shell.cmdUserGet = shell.cmdAuthGet;
+    core.modules.shell.cmdUserGet = core.modules.shell.cmdAuthGet;
     callback();
 }
 
