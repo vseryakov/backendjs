@@ -87,6 +87,7 @@
 <li><a href="#module-dbp_elasticsearch">dbp_elasticsearch</a></li>
 <li><a href="#module-dbp_pgsql">dbp_pgsql</a></li>
 <li><a href="#module-dbp_sqlite">dbp_sqlite</a></li>
+<li><a href="#module-events">events</a></li>
 <li><a href="#module-http_get">http_get</a></li>
 <li><a href="#module-index">index</a></li>
 <li><a href="#module-ipc">ipc</a></li>
@@ -112,12 +113,7 @@
 <li><a href="#module-msgc_webpush">msgc_webpush</a></li>
 <li><a href="#module-pool">pool</a></li>
 <li><a href="#module-server">server</a></li>
-<li><a href="#module-shell">shell</a></li>
 <li><a href="#module-bk_data">bk_data</a></li>
-<li><a href="#module-bk_shell">bk_shell</a></li>
-<li><a href="#module-bk_shell_aws">bk_shell_aws</a></li>
-<li><a href="#module-bk_shell_db">bk_shell_db</a></li>
-<li><a href="#module-bk_shell_test">bk_shell_test</a></li>
 <li><a href="#module-bk_system">bk_system</a></li>
 <li><a href="#module-bk_user">bk_user</a></li>
 </ul>
@@ -223,12 +219,7 @@ bkjs web -db-pool elasticsearch -db-elasticsearch-pool http://127.0.0.1:9200 -db
 <li><p>While the local backendjs is runnning, the documentation is always available at <a href="http://localhost:8000/doc.html">http://localhost:8000/doc.html</a> (or whatever port is the server using)</p>
 </li>
 <li><p>To add users from the command line</p>
-<pre><code>  bksh -account-add login test secret test name TestUser email test@test.com -scramble 1
-</code></pre>
-</li>
-<li><p>By default no external modules are loaded so it needs the accounts module with a
-parameter <code>-allow-modules PATTERN</code>, this will load all modules that match the pattern, default modules start with <code>bk_</code>:</p>
-<pre><code>  bkjs web -allow-modules bk_
+<pre><code>  bksh -user-add login test secret test name TestUser email test@test.com -scramble 1
 </code></pre>
 </li>
 <li><p>To start Node.js shell with backendjs loaded and initialized, all command line parameters apply to the shell as well</p>
@@ -401,20 +392,10 @@ request endpoint callbacks must be provided in the application.</p>
 <p>As with any Node.js application, node modules are the way to build and extend the functionality, backendjs does not restrict how
 the application is structured.</p>
 <h2 id="modules">Modules</h2>
+<p><em>By default no system modules are loaded except <code>bk_user</code>, it must be configured by the <code>-preload-modules</code> config parameter to
+preload modules from the backendjs/modules/.</em></p>
 <p>Another way to add functionality to the backend is via external modules specific to the backend, these modules are loaded on startup from the backend
-home subdirectory <code>modules/</code> and from the backendjs package directory for core modules. The format is the same as for regular Node.js modules and
-only top level .js files are loaded on the backend startup.</p>
-<p><em>By default no modules are loaded except <code>bk_user</code>, it must be configured by the <code>-allow-modules</code> config parameter.</em></p>
-<p>The modules are managed per process role, by default <code>server</code> and <code>master</code> processes do not load any modules at all to keep them
-small and because they monitor workers the less code they have the better.</p>
-<p>The shell process loads all modules, it is configured with <code>.+</code>.</p>
-<p>To enable any module to be loaded in any process it can be configured by using a role in the config parameter:</p>
-<pre><code>  // Global modules except server and master
-  -allow-modules &#39;.+&#39;
-
-  // Master modules
-  -allow-modules-master &#39;bk_user|bk_system&#39;
-</code></pre>
+home subdirectory <code>modules/</code>. The format is the same as for regular Node.js modules and only top level .js files are loaded on the backend startup.</p>
 <p>Once loaded they have the same access to the backend as the rest of the code, the only difference is that they reside in the backend home and
 can be shipped regardless of the npm, node modules and other env setup. These modules are exposed in the <code>core.modules</code> the same way as all other core submodules
 methods.</p>
@@ -458,7 +439,7 @@ by the backendjs <code>core.loadModule</code> machinery, the NPM packages are ju
 <p>The config parameter <code>allow-packages</code> can be used to specify NPM package names to be loaded separated by comma, as with the default
 application structure all subfolders inside each NPM package will be added to the core:</p>
 <ul>
-<li>modules will be loaded from the modules/ older</li>
+<li>modules will be loaded from the modules/ folder</li>
 <li>locales from the locales/ folder</li>
 <li>files in the web/ folder will be added to the static search path</li>
 <li>all templates from views/ folder will be used for rendering</li>
@@ -1347,7 +1328,7 @@ one table and one record without maintaining any other features like auto counte
 <p><em>Because it exposes the whole database to anybody who has a login it is a good idea to disable this endpoint in the production or provide access callback that verifies
 who can access it.</em></p>
 <ul>
-<li><p>To disable this endpoint completely in the config: <code>deny-modules=data</code></p>
+<li><p>To disable this endpoint completely in the config: <code>deny-modules=bk_data</code></p>
 </li>
 <li><p>To allow admins to access it only in the config: <code>api-allow-admin=^/data</code></p>
 </li>
@@ -1384,7 +1365,7 @@ separate fields. To return raw data pass the parameter <code>_noprocessrows=1</c
 <h2 id="system-api">System API</h2>
 <p>The system API returns information about the backend statistics, allows provisioning and configuration commands and other internal maintenance functions. By
 default is is open for access to all users but same security considerations apply here as for the Data API.</p>
-<p>This is implemented by the <code>system</code> module from the core. To enable this functionality specify <code>-allow-modules=bk_system</code>.</p>
+<p>This is implemented by the <code>system</code> module from the core. To enable this functionality specify <code>-preload-modules=bk_system</code>.</p>
 <ul>
 <li><p><code>/system/restart</code>
   Perform restart of the Web processes, this will be done gracefully, only one Web worker process will be restarting while the other processes will keep
@@ -1533,8 +1514,7 @@ Database pool statistics and other diagnostics</p>
 <li><code>repl-size</code> - Max size to read on start from the end of the history file</li>
 <li><code>worker</code> - Set this process as a worker even it is actually a master, this skips some initializations</li>
 <li><code>allow-packages</code> - NPM packages to load on startup, the modules, locales, viewes, web subfolders from the package will be added automatically to the system paths, modules will be loaded if present, the config file in etc subfolder will be parsed if present</li>
-<li><code>allow-modules-?(.+)?</code> - A regexp with modules name to be loaded on startup, only matched modules will be loaded, basename of the file is matched only, no path or extension, it is per role or global if no role is provided</li>
-<li><code>deny-modules-?(.+)?</code> - A regexp with modules names that will never be loaded even if allowed, this is for blacklisted modules, can be per role or global for all processes</li>
+<li><code>preload-modules</code> - Modules to preload first from any modules/ folders including the system folder, this can be used to preload default bkjs system modules</li>
 <li><code>user-agent</code> - Add HTTP user-agent header to be used in HTTP requests, for scrapers or other HTTP requests that need to be pretended coming from Web browsers</li>
 <li><code>backend-host</code> - Host of the master backend, can be used for backend nodes communications using core.sendRequest function calls with relative URLs, also used in tests.</li>
 <li><code>backend-login</code> - Credentials login for the master backend access when using core.sendRequest</li>
@@ -1587,9 +1567,10 @@ Database pool statistics and other diagnostics</p>
 <li><code>aws-eni-id</code> - AWS Elastic Network Interfaces to attach on start, format is: eni[:index],eni...</li>
 <li><code>aws-config-parameters</code> - Prefix for AWS Config Parameters Store to load and parse as config before initializing the database pools, example: /bkjs/config/</li>
 <li><code>aws-set-parameters</code> - AWS Config Parameters Store to set on start, supports @..@ core.instance placeholders: format is: path:value,....</li>
-<li><code>aws-logwatcher-groups</code> - List of AWS Cloudwatch Logs groups to watch for errors</li>
+<li><code>aws-logwatcher-groups</code> - List of AWS Cloudwatch Logs groups to watch for errors, format is: name:type,...</li>
 <li><code>aws-logwatcher-filters-(.+)</code> - AWS Cloudwatch Logs filter pattern by group, overrides the global filter</li>
 <li><code>aws-logwatcher-filter</code> - AWS Cloudwatch Logs filter pattern, only matched events will be returned and analyzed the the core logwatcher regexps</li>
+<li><code>aws-logwatcher-match-(.+)</code> - Logwatcher line regexp patterns by group, overrides default regexp patterns</li>
 <li><code>aws-ddb-endpoint</code> - Default endpoint to use, for LocalDynamoDB use</li>
 <li><code>aws-ddb-read-capacity</code> - Default DynamoDB read capacity for all tables</li>
 <li><code>aws-ddb-write-capacity</code> - Default DynamoDB write capacity for all tables</li>
@@ -1604,7 +1585,6 @@ Database pool statistics and other diagnostics</p>
 <li><code>ipc-(cache|queue)-?([a-z0-9]+)?</code> - An URL that points to a cache/queue server in the format <code>PROTO://HOST[:PORT]?PARAMS</code>, multiple clients can be defined with unique names, all params starting with <code>bk-</code> will be copied into the options without the prefix and removed from the url, the rest of params will be left in the url, ex: -ipc-client-redis redis://localhost?bk-count=3&amp;bk-ttl=3000</li>
 <li><code>ipc-(cache|queue)-([a-z0-9]+)?-?options</code> - Additional parameters for clients, specific to each implementation, ex: <code>-ipc-client-options {&quot;ttl&quot;:3000}</code></li>
 <li><code>ipc-(cache|queue)(-([a-z0-9]+)?-?options)-(.+)$</code> - Additional parameters for clients, specific to each implementation, ex: <code>-ipc-client-options-ttl 3000</code></li>
-<li><code>ipc-alias-(.+)</code> - Queue alias for a driver that supports sharing the same connection for multiple queues like NATS, only used in <code>ipc.getClient</code></li>
 <li><code>db-pool</code> - Default pool to be used for db access without explicit pool specified. DNS TXT configurable.</li>
 <li><code>db-name</code> - Default database name to be used for default connections in cases when no db is specified in the connection url</li>
 <li><code>db-create-tables</code> - Create tables in the database or perform table upgrades for new columns in all pools, only shell or server process can perform this operation</li>
@@ -1625,6 +1605,7 @@ Database pool statistics and other diagnostics</p>
 <li><code>db-local</code> - Local database pool for properties, cookies and other local instance only specific stuff</li>
 <li><code>db-config</code> - Configuration database pool to be used to retrieve config parameters from the database, must be defined to use remote db for config parameters, set to <code>default</code> to use current default pool</li>
 <li><code>db-config-interval</code> - Interval between loading configuration from the database configured with -db-config, in minutes, 0 disables refreshing config from the db</li>
+<li><code>db-config-count</code> - Max number of records to read fron the config table</li>
 <li><code>db-config-roles</code> - Roles to assume when pulling config parameters from the config table</li>
 <li><code>db-local-tables</code> - Only enable local, default and config pools</li>
 <li><code>db-no-cache-columns</code> - Do not read/cache table columns</li>
@@ -1645,6 +1626,7 @@ Database pool statistics and other diagnostics</p>
 <li><code>db-([a-z0-9]+)-pool-(create-tables)$</code> - Create tables for this pool on startup</li>
 <li><code>db-([a-z0-9]+)-pool-cache2-(.+)</code> - Level 2 cache TTL for the specified pool and table, data is JSON strings in the LRU cache</li>
 <li><code>db-([a-z0-9]+)-pool-jscache2-(.+)</code> - Level 2 cache TTL for the specified pool and table, data is Js objects in the heap</li>
+<li><code>db-([a-z0-9]+)-pool-alias</code> - Pool alias to refer by an alternative name</li>
 <li><code>api-images-url</code> - URL where images are stored, for cases of central image server(s), must be full URL with optional path</li>
 <li><code>api-images-s3</code> - S3 bucket name where to store and retrieve images</li>
 <li><code>api-images-raw</code> - Return raw urls for the images, requires images-url to be configured. The path will reflect the actual 2 level structure and account id in the image name</li>
@@ -1789,7 +1771,7 @@ Database pool statistics and other diagnostics</p>
 <li><code>jobs-max-lifetime</code> - Max number of seconds a worker can live, after that amount of time it will exit once all the jobs are finished, 0 means indefinitely</li>
 <li><code>jobs-shutdown-timeout</code> - Max number of milliseconds to wait for the graceful shutdown sequence to finish, after this timeout the process just exits</li>
 <li><code>jobs-worker-queue</code> - Queue(s) to subscribe for workers, multiple queues can be processes at the same time, i.e. more than one job can run from different queues</li>
-<li><code>jobs-worker-queue-([a-z0-9]+)-options</code> - Custom parameters by queue name, passed to <code>ipc.subscribeQueue</code> on worker start, ex: <code>-jobs-worker-queue-nats-options {&quot;queue&quot;:&quot;q2&quot;}</code></li>
+<li><code>jobs-worker-options-(.+)</code> - Custom parameters by queue name, passed to <code>ipc.subscribeQueue</code> on worker start, useful with channels, ex: <code>-jobs-worker-options-nats#events {&quot;count&quot;:10}</code></li>
 <li><code>jobs-cron-queue</code> - Default queue to use for cron jobs</li>
 <li><code>jobs-global-queue</code> - Default queue for all jobs, the queueName is ignored</li>
 <li><code>jobs-global-ignore</code> - Queue names which ignore the global setting, the queueName is used as usual</li>
@@ -1797,6 +1779,11 @@ Database pool statistics and other diagnostics</p>
 <li><code>jobs-schedule</code> - Cron jobs to be scheduled, the JSON must be in the same format as crontab file</li>
 <li><code>jobs-unique-queue</code> - Default queue name to use for keeping track of unique jobs</li>
 <li><code>jobs-unique-ignore</code> - Ignore all unique parameters if a job&#39;s uniqueKey matches</li>
+<li><code>events-worker-queue-(.+)</code> - Queues to subscribe for workers, same queues can be used at the same time with different functions and channels, ex: -ipc-worker-queue-ticket ticket.processEvents</li>
+<li><code>events-worker-options-(.+)</code> - Custom parameters by queue name, passed to <code>ipc.subscribeQueue</code> on worker start, useful with channels, ex: <code>-events-worker-options-ticket {&quot;count&quot;:3,&quot;raw&quot;:1}</code></li>
+<li><code>events-max-runtime</code> - Max number of seconds an event processing can run before being killed</li>
+<li><code>events-routing-(.+)</code> - Queue routing by event topic</li>
+<li><code>events-properties</code> - List of properties to copy into an event envelope from the provided options</li>
 <li><code>server-max-processes</code> - Max number of processes to launch for Web servers, 0 means <code>NumberOfCPUs-1</code>, &lt; 0 means <code>NumberOfCPUs*abs(N)</code></li>
 <li><code>server-crash-delay</code> - Delay between respawing the crashed process</li>
 <li><code>server-restart-delay</code> - Delay between respawning the server after changes</li>
@@ -3914,8 +3901,7 @@ The following options can be used:</p>
 <li>noWatch - do not watch and reload config files</li>
 <li>noModules - do not load modules</li>
 <li>noLocales - do not load locales</li>
-<li>denyModules - which modules should not be loaded, regexp or regexpobj</li>
-<li>allowModules - which modules to load, regexp or regexpobj</li>
+<li>preloadModules - list of modules to load first</li>
 </ul>
 
 <ul>
@@ -4039,11 +4025,6 @@ This is used the the core itcore to register all internal modules and makes it a
 <p> Modules can be sorted by a priority, if .priority property is defined in the module it will be used to sort the modules, the higher priority the
  closer to the top the module will be. The position of a module in the <code>core.modules</code> will define the order <code>runMethods</code> will call.</p>
 <p> <strong>Caution must be taken for module naming, it is possible to override any default bkjs module which will result in unexpected behaviour</strong></p>
-<p> The following options properties can be specified:</p>
-<ul>
-<li>denyModules - a regexp/regexpobj with modules name(s) to be excluded from loading, the basename of a file is checked only</li>
-<li>allowModules - a regexp/regexpobj with modules name(s) to be loaded only</li>
-</ul>
 <p>  Example, to load all modules from the local relative directory</p>
 <pre><code>   core.loadModules(&quot;modules&quot;)
 </code></pre>
@@ -4211,73 +4192,6 @@ merge with existing cookies from the jar which is a list of cookies before the r
 </ul>
 
 <h2 id="module-db">Module: DB</h2>
-<ul>
-<li><p><code>db</code></p>
-<p> The Database API, a thin abstraction layer on top of SQLite, PostgreSQL, DynamoDB and Cassandra.
-The idea is not to introduce new abstraction layer on top of all databases but to make
-the API usable for common use cases. On the source code level access to all databases will be possible using
-this API but any specific usage like SQL queries syntax or data types available only for some databases will not be
-unified or automatically converted but passed to the database directly. Only conversion between JavaScript types and
-database types is unified to some degree meaning JavaScript data type will be converted into the corresponding
-data type supported by any particular database and vice versa.</p>
-</li>
-</ul>
-<p> Basic operations are supported for all database and modelled after NoSQL usage, this means no SQL joins are supported
- by the API, only single table access. SQL joins can be passed as SQL statements directly to the database using low level db.query
- API call, all high level operations like add/put/del perform SQL generation for single table on the fly.</p>
-<p> The common convention is to pass options object with flags that are common for all drivers along with specific,
- this options object can be modified with new properties but all driver should try not to
- modify or delete existing properties, so the same options object can be reused in subsequent operations.</p>
-<p> All queries and update operations ignore properties that starts with underscore.</p>
-<p> Before the DB functions can be used the <code>core.init</code> MUST be called first, the typical usage:</p>
-<pre><code>      var backend = require(&quot;backendjs&quot;), core = backend.core, db = backend.db;
-      core.init(function(err) {
-          db.add(...
-          ...
-      });
-</code></pre>
-<p> All database methods can use default db pool or any other available db pool by using <code>pool: name</code> in the options. If not specified,
- then default db pool is used, sqlite is default if no -db-pool config parameter specified in the command line or the config file.
- Even if the specified pool does not exist, the default pool will be returned, this allows to pre-confgure the app with different pools
- in the code and enable or disable any particular pool at any time.</p>
-<p>  Example, use PostgreSQL db pool to get a record and update the current pool</p>
-<pre><code>      db.get(&quot;bk_user&quot;, { login: &quot;123&quot; }, { pool: &quot;pgsql&quot; }, function(err, row) {
-          if (row) db.update(&quot;bk_user&quot;, row);
-      });
-</code></pre>
-<p> Most database pools can be configured with options <code>min</code> and <code>max</code> for number of connections to be maintained, so no overload will happen and keep warm connection for
- faster responses. Even for DynamoDB which uses HTTPS this can be configured without hitting provisioned limits which will return an error but
- put extra requests into the waiting queue and execute once some requests finished.</p>
-<p>  Example:</p>
-<pre><code>      db-pgsql-pool-max = 100
-      db-dynamodb-pool-max = 100
-</code></pre>
-<p> Also, to spread functionality between different databases it is possible to assign some tables to the specific pools using <code>db-X-pool-tables</code> parameters
- thus redirecting the requests to one or another databases depending on the table, this for example can be useful when using fast but expensive
- database like DynamoDB for real-time requests and slower SQL database running on some slow instance for rare requests, reports or statistics processing.</p>
-<p>  Example, run the backend with default PostgreSQL database but keep all config parametrs in the DynamoDB table for availability:</p>
-<pre><code>      db-pool = pgsql
-      db-dynamodb-pool = default
-      db-dynamodb-pool-tables = bk_config
-</code></pre>
-<p> The following databases are supported with the basic db API methods:
- Sqlite, PostgreSQL, MySQL, DynamoDB, MongoDB, Elasticsearch, Cassandra, Redis, LMDB, LevelDB, Riak, CouchDB</p>
-<p> All these drivers fully support all methods and operations, some natively, some with emulation in the user space except Redis driver cannot perform sorting
- due to using Hash items for records, sorting can be done in memory but with pagination it is not possible so this part must be mentioned specifically. But the rest of the
- operations on top of Redis are fully supported which makes it a good candidate to use for in-memory tables like sessions with the same database API, later moving to
- other database will not require any application code changes.</p>
-<p> Multiple connections of the same type can be opened, just add -n suffix to all database config parameters where n is a number, referer to such pools in the code as <code>poolN</code>.</p>
-<p> Example:</p>
-<pre><code>      db-sqlite1-pool = billing
-      db-sqlite1-pool-max = 10
-      db-sqlite1-pool-options-path = /data/db
-      db-sqlite1-pool-options-journal_mode = OFF
-
-      in the Javascript:
-
-      db.select(&quot;bills&quot;, { status: &quot;ok&quot; }, { pool: &quot;sqlite1&quot; }, lib.log)
-</code></pre>
-
 <ul>
 <li><p><code>Database tables</code></p>
 <pre><code>      // Configuration store, same parameters as in the commandline or config file, can be placed in separate config groups
@@ -5868,6 +5782,21 @@ is stored in its own index.</p>
 </ul>
 
 <h2 id="module-dbp_sqlite">Module: DBP_SQLITE</h2>
+<h2 id="module-events">Module: EVENTS</h2>
+<ul>
+<li><p><code>mod.shutdownWorker(options, callback)</code></p>
+<p> Perform graceful worker shutdown, to be used for workers restart</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>mod.checkTimes()</code></p>
+<p> Check how long we run a job and force kill if exceeded, check if total life time is exceeded.</p>
+</li>
+</ul>
+<p> If exit is required the <code>shundownWorker</code> methods will receive options with <code>shutdownReason</code> property
+ set and the name-sake property will contained the value exceeded.</p>
+
 <h2 id="module-http_get">Module: HTTP_GET</h2>
 <h2 id="module-index">Module: INDEX</h2>
 <h2 id="module-ipc">Module: IPC</h2>
@@ -5932,7 +5861,7 @@ is stored in its own index.</p>
 </ul>
 
 <ul>
-<li><p><code>Ipc.prototype.getClient(options)</code></p>
+<li><p><code>Ipc.prototype.getQueue(options)</code></p>
 <p> Return a cache or queue client by name if specified in the options or use default client which always exists,
 use <code>queueName</code> to specify a specific queue. If it is an array it will rotate items sequentially.</p>
 </li>
@@ -6093,7 +6022,6 @@ If no client or queue is provided in the options it uses default <code>systemQue
 <p> Listen for messages from the given queue, the callback will be called only on new message received.</p>
 <ul>
 <li><code>options.queueName</code> defines the queue, if not specified then it is sent to the default queue</li>
-<li><code>options.channelName</code> defines an alternative channel to subscribe, this can be a second or greater subscription over the same connection</li>
 </ul>
 </li>
 </ul>
@@ -6117,7 +6045,6 @@ If no client or queue is provided in the options it uses default <code>systemQue
 <p> Stop listening for message, if no callback is provided all listeners for the key will be unsubscribed, otherwise only the specified listener.</p>
 <ul>
 <li><code>options.queueName</code> defines the queue, if not specified then it is sent to the default queue</li>
-<li><code>options.channelName</code> defines a specific channel to unsubscribe in case multiple subscriptions are established</li>
 </ul>
 </li>
 </ul>
@@ -6130,7 +6057,6 @@ If no client or queue is provided in the options it uses default <code>systemQue
 <p> Submit a message to the queue, if the <code>msg</code> is not a string it will be stringified.</p>
 <ul>
 <li><code>options.queueName</code> defines the queue, if not specified then it is sent to the default queue</li>
-<li><code>options.channelName</code> defines a specific channel where to send a message, this can be one of the additional subscriptions on the same connection</li>
 <li><code>options.stime</code> defines when the message should be processed, it will be held in the queue until the time comes</li>
 <li><code>options.etime</code> defines when the message expires, i.e. will be dropped if not executed before this time.</li>
 </ul>
@@ -6224,8 +6150,14 @@ A lock must be uniquely named and the ttl period is specified by <code>options.t
 
 <ul>
 <li><p><code>IpcClient.prototype.channel(options)</code></p>
-<p> Resolve the actual subscription channel to use, the same client can support multiple subscriptions, additional
-subscriptions are specified by the <code>channelName</code> property in the options, default is to use the primary queue name from <code>queueName</code></p>
+<p> Return a subscription channel from the given name or options, the same client can support multiple subscriptions, additional
+subscriptions are specified by appending <code>#channel</code> to the <code>options.queueName</code>, default is to use the primary queue name</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>IpcClient.prototype.canonical(options)</code></p>
+<p> Return canonical queue name, default channel is not appended</p>
 </li>
 </ul>
 
@@ -6362,60 +6294,50 @@ Rate limit check, by default it uses the master LRU cache meaning it works withi
 <h2 id="module-ipcc_sqs">Module: IPCC_SQS</h2>
 <h2 id="module-jobs">Module: JOBS</h2>
 <ul>
-<li><p><code>jobs</code></p>
-<p> Job queue processor</p>
-</li>
-</ul>
-<p> When launched with <code>jobs-workers</code> parameter equal or greater than 0, the master spawns a number of workers which subscribe to
- configured job queues or the default queue and listen for messsges.
- A job message is an object that defines what method from which module to run with the options as the first argument and a callback as the second.</p>
-<p> Multiple job queues can be defined and processed at the same time.</p>
-
-<ul>
-<li><p><code>jobs.configureMaster(options, callback)</code></p>
+<li><p><code>mod.configureMaster(options, callback)</code></p>
 <p> Initialize jobs processing in the master process</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>jobs.configureWorker(options, callback)</code></p>
+<li><p><code>mod.configureWorker(options, callback)</code></p>
 <p> Initialize a worker to be ready for jobs to execute, in instance mode setup timers to exit on no activity.</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>jobs.shutdownWorker(options, callback)</code></p>
+<li><p><code>mod.shutdownWorker(options, callback)</code></p>
 <p> Perform graceful worker shutdown, to be used for workers restart</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>jobs.exitWorker(options)</code></p>
+<li><p><code>mod.exitWorker(options)</code></p>
 <p> Perform graceful worker shutdown and then exit the process</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>jobs.initServer(options, callback)</code></p>
+<li><p><code>mod.initServer(options, callback)</code></p>
 <p> Initialize a master that will manage jobs workers</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>jobs.initWorker(options, callback)</code></p>
+<li><p><code>mod.initWorker(options, callback)</code></p>
 <p> Initialize a worker for processing jobs</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>jobs.isCancelled(name, tag)</code></p>
+<li><p><code>mod.isCancelled(name, tag)</code></p>
 <p> Returns true if a task with given name must be cancelled, this flag is set from the jobs master and
 stoppable tasks must check it from time to time to terminate gracefully</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>jobs.cancelTask(name, options)</code></p>
+<li><p><code>mod.cancelTask(name, options)</code></p>
 <p> Send cancellation request to a worker or all workers, this has to be called from the jobs master.
 <code>options.workers</code> can be a single worker id or a list of worker ids, if not given the request will be sent to all workers for the current process cluster.
 <code>options.tag</code> is an opaque data that will be used to verifying which task should be cancelled, without it all tasks with given name will be cancelled.</p>
@@ -6423,13 +6345,13 @@ stoppable tasks must check it from time to time to terminate gracefully</p>
 </ul>
 
 <ul>
-<li><p><code>jobs.getMaxRuntime()</code></p>
+<li><p><code>mod.getMaxRuntime()</code></p>
 <p> Find the max runtime allowed in seconds</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>jobs.checkTimes()</code></p>
+<li><p><code>mod.checkTimes()</code></p>
 <p> Check how long we run a job and force kill if exceeded, check if total life time is exceeded.</p>
 </li>
 </ul>
@@ -6437,7 +6359,7 @@ stoppable tasks must check it from time to time to terminate gracefully</p>
  set and the name-sake property will contained the value exceeded.</p>
 
 <ul>
-<li><p><code>jobs._badJob(jobspec)</code></p>
+<li><p><code>mod._badJob(jobspec)</code></p>
 <p> Make sure the job is valid and has all required fields, returns a normalized job object or an error, the jobspec
 must be in the following formats:</p>
 <pre><code>  &quot;module.method&quot;
@@ -6450,13 +6372,13 @@ must be in the following formats:</p>
 <p> any task in string format &quot;module.method&quot; will be converted into { &quot;module.method: {} } automatically</p>
 
 <ul>
-<li><p><code>jobs.checkOptions(jobspec, options)</code></p>
+<li><p><code>mod.checkOptions(jobspec, options)</code></p>
 <p> Apply special job properties from the options</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>jobs.submitJob(jobspec, options, callback)</code></p>
+<li><p><code>mod.submitJob(jobspec, options, callback)</code></p>
 <p> Submit a job for execution, it will be saved in a queue and will be picked up later and executed.
 The queue and the way how it will be executed depends on the configured queue. See <code>isJob</code> for
 the format of the job objects.</p>
@@ -6492,31 +6414,31 @@ the format of the job objects.</p>
  just run it directly. Any queue can be configured to run in <code>selfQueue</code> by setting <code>-ipc-queue[-NAME]-options-self-queue 1</code>.</p>
 
 <ul>
-<li><p><code>jobs.runJob(jobspec, options, callback)</code></p>
+<li><p><code>mod.runJob(jobspec, options, callback)</code></p>
 <p> Run all tasks in the job object</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>jobs._runJob(jobspec, options, callback)</code></p>
+<li><p><code>mod._runJob(jobspec, options, callback)</code></p>
 <p> Sequentially execute all tasks in the list, run all subtasks in parallel</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>jobs.runTask(name, jobspec, options, callback)</code></p>
+<li><p><code>mod.runTask(name, jobspec, options, callback)</code></p>
 <p> Execute a task by name, the <code>options</code> will be passed to the function as the first argument, calls the callback on finish or error</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>jobs._finishTask(err, name, jobspec, options, callback)</code></p>
+<li><p><code>mod._finishTask(err, name, jobspec, options, callback)</code></p>
 <p> Complete task execution, cleanup and update the status</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>jobs.scheduleCronjob(jobspec)</code></p>
+<li><p><code>mod.scheduleCronjob(jobspec)</code></p>
 <p> Create a new cron job, for remote jobs additional property args can be used in the object to define
 arguments for the instance backend process, properties must start with -</p>
 </li>
@@ -6528,7 +6450,7 @@ arguments for the instance backend process, properties must start with -</p>
 </code></pre>
 
 <ul>
-<li><p><code>jobs.scheduleCronjobs(type, list)</code></p>
+<li><p><code>mod.scheduleCronjobs(type, list)</code></p>
 <p> Schedule a list of cron jobs, types is used to cleanup previous jobs for the same type for cases when
 a new list needs to replace the existing jobs. Empty list does nothing, to reset the jobs for the particular type and
 empty invalid jobs must be passed, like: <code>[ {} ]</code></p>
@@ -6537,7 +6459,7 @@ empty invalid jobs must be passed, like: <code>[ {} ]</code></p>
 <p> Returns number of cron jobs actually scheduled.</p>
 
 <ul>
-<li><p><code>jobs.loadCronjobs()</code></p>
+<li><p><code>mod.loadCronjobs()</code></p>
 <p> Load crontab from JSON file as list of job specs:</p>
 </li>
 </ul>
@@ -6555,7 +6477,7 @@ empty invalid jobs must be passed, like: <code>[ {} ]</code></p>
 </code></pre>
 
 <ul>
-<li><p><code>jobs.parseCronjobs(type, data)</code></p>
+<li><p><code>mod.parseCronjobs(type, data)</code></p>
 <p> Parse a JSON data with cron jobs and schedule for the given type, this can be used to handle configuration properties</p>
 </li>
 </ul>
@@ -6921,6 +6843,24 @@ does not handle over the midninght ranges, i.e. time1 is always must be greater 
 <li><p><code>lib.isFlag(list, name)</code></p>
 <p> Returns true if <code>name</code> exists in the array <code>list</code>, search is case sensitive. if <code>name</code> is an array it will return true if
 any element in the array exists in the <code>list</code>.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.validNum(...args)</code></p>
+<p> Returns first valid number from the list of arguments or 0</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.validPositive(...args)</code></p>
+<p> Returns first valid positive number from the list of arguments or 0</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.validBool(...args)</code></p>
+<p> Returns first valid boolean from the list of arguments or false</p>
 </li>
 </ul>
 
@@ -8482,6 +8422,18 @@ all items to be released, when expired the callback will be called</p>
 </ul>
 
 <ul>
+<li><p><code>server.startShell(options)</code></p>
+<p> Start REPL shell or execute any subcommand if specified in the command line.
+A subcommand may return special string to indicate how to treat the flow:</p>
+</li>
+</ul>
+<ul>
+<li>stop - stop processing commands and create REPL</li>
+<li>continue - do not exit and continue processing other commands or end with REPL</li>
+<li>all other values will result in returning from the run assuming the command will decide what to do, exit or continue running, no REPL is created</li>
+</ul>
+
+<ul>
 <li><p><code>server.startMaster(options)</code></p>
 <p> Setup worker environment</p>
 </li>
@@ -8560,7 +8512,6 @@ it runs <code>shutdown[Role]</code> methods before exiting</p>
 </li>
 </ul>
 
-<h2 id="module-shell">Module: SHELL</h2>
 <h2 id="module-bk_data">Module: BK_DATA</h2>
 <ul>
 <li><p><code>mod</code></p>
@@ -8577,409 +8528,6 @@ it runs <code>shutdown[Role]</code> methods before exiting</p>
 <ul>
 <li><p><code>mod.configureDataAPI()</code></p>
 <p> API for full access to all tables</p>
-</li>
-</ul>
-
-<h2 id="module-bk_shell">Module: BK_SHELL</h2>
-<ul>
-<li><p><code>shell.run(options)</code></p>
-<p> Start REPL shell or execute any subcommand if specified in the command line.
-A subcommand may return special string to indicate how to treat the flow:</p>
-</li>
-</ul>
-<ul>
-<li>stop - stop processing commands and create REPL</li>
-<li>continue - do not exit and continue processing other commands or end with REPL</li>
-<li>all other values will result in returning from the run assuming the command will decide what to do, exit or continue running, no REPL is created</li>
-</ul>
-
-<ul>
-<li><p><code>shell.exit(err, msg)</code></p>
-<p> Exit and write to the console a message or error message if non empty</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.getUser(obj, callback)</code></p>
-<p> Resolves a user from <code>obj.id</code> or <code>obj.login</code> params and return the record in the callback</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.getQuery()</code></p>
-<p> Returns an object with all command line params that do not start with dash(-), treat 2 subsequent parms without dashes as name value pair</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.getQueryList()</code></p>
-<p> Returns a list with all command line params that do not start with dash(-), only the trailing arguments will be collected</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.getArgs(options)</code></p>
-<p> Returns an object with all command line params starting with dash set with the value if the next param does not start with dash or 1.
-By sefault all args are satored as is with dahses, if <code>options.camel`` is true then all args will be stored in camel form, if </code>options.underscore is true then all args will be stored with dashes converted into underscores.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.getOption(name, options)</code></p>
-<p> Return an argument by name from the options, options may contain parameters in camel form or with underscores, both formats will be checked</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.getArg(name, options, dflt)</code></p>
-<p> Return first available value for the given name, options first, then command arg and then default,</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.cmdShowInfo(options)</code></p>
-<p> App version</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.cmdRunFile(options)</code></p>
-<p> Load a module and optionally execute it</p>
-</li>
-</ul>
-<p> Example:</p>
-<pre><code>    var bkjs = require(&quot;backendjs&quot;)
-    bkjs.app.test = 123;
-    exports.run = function() {
-        console.log(&quot;run&quot;);
-    }
-    exports.newMethod = function() {
-        console.log(bkjs.core.version, &quot;version&quot;);
-    }
-</code></pre>
-<p>  Save into a file a.js and run</p>
-<pre><code>    bksh -run-file a.js
-</code></pre>
-<p>  In the shell now it new methods can be executed</p>
-<pre><code>    &gt; shell.newMethod()
-</code></pre>
-
-<ul>
-<li><p><code>shell.cmdRunApi(options)</code></p>
-<p> Run API server inside the shell</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.cmdRunJobs(options)</code></p>
-<p> Run jobs workers inside the shell</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.cmdRunWorker(options)</code></p>
-<p> Run jobs workers inside the shell</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.cmdAuthGet(options)</code></p>
-<p> Show account records by id or login</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.cmdAuthAdd(options)</code></p>
-<p> Add a user login</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.cmdAuthUpdate(options)</code></p>
-<p> Update a user login</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.cmdAuthDel(options)</code></p>
-<p> Delete a user login</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.cmdLogWatch(options)</code></p>
-<p> Run logwatcher and exit</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.cmdSendRequest(options)</code></p>
-<p> Send API request</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>},(err, opts) </code></p>
-<p> If executed as standalone script directly in the node</p>
-</li>
-</ul>
-
-<h2 id="module-bk_shell_aws">Module: BK_SHELL_AWS</h2>
-<ul>
-<li><p><code>shell.awsCheckTags(obj, name)</code></p>
-<p> Check all names in the tag set for given name pattern(s), all arguments after 0 are checked</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.awsFilterSubnets(subnets, zone, name)</code></p>
-<p> Return matched subnet ids by availability zone and/or name pattern</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.awsGetSelfImages(name, callback)</code></p>
-<p> Retrieve my AMIs for the given name pattern</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.awsSearchImage(filter, appName, callback)</code></p>
-<p> Return an image that matches given app name latest version</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.awsGetAmazonImages(options, callback)</code></p>
-<p> Return Amazon AMIs for the current region, HVM type only</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.awsLaunchInstances(options, callback)</code></p>
-<p> Launch instances by run mode and/or other criteria</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.cmdAwsLaunchInstances(options)</code></p>
-<p> Delete an AMI with the snapshot</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.cmdAwsDeleteImage(options)</code></p>
-<p> Delete an AMI with the snapshot</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.cmdAwsCreateImage(options)</code></p>
-<p> Create an AMI from the current instance of the instance by id</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.cmdAwsRebootInstances(options)</code></p>
-<p> Reboot instances by run mode and/or other criteria</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.cmdAwsTerminateInstances(options)</code></p>
-<p> Terminate instances by run mode and/or other criteria</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.cmdAwsShowInstances(options)</code></p>
-<p> Show running instances by run mode and/or other criteria</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.cmdAwsSetRoute53(options)</code></p>
-<p> Update a Route53 record with IP/names of all instances specified by the filter</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.cmdAwsSetupSsh(options)</code></p>
-<p> Open/close SSH access to the specified group for the current external IP address</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.cmdAwsSetupInstance(options)</code></p>
-<p> Launch an instance and setup it with provisioning script</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.cmdAwsS3Get(options)</code></p>
-<p> Get file</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.cmdAwsS3Put(options)</code></p>
-<p> Put file</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.cmdAwsS3List(options)</code></p>
-<p> List folder</p>
-</li>
-</ul>
-
-<h2 id="module-bk_shell_db">Module: BK_SHELL_DB</h2>
-<ul>
-<li><p><code>shell.cmdDbGetConfig(options)</code></p>
-<p> Show all config parameters</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.cmdDbTables(options)</code></p>
-<p> Show all tables</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.cmdDbSelect(options)</code></p>
-<p> Show record that match the search criteria, return up to <code>-count N</code> records</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.cmdDbScan(options)</code></p>
-<p> Show all records that match search criteria</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.cmdDbBackup(options)</code></p>
-<p> Save all tables to the specified directory or the server home</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.cmdDbRestore(options)</code></p>
-<p> Restore tables</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.cmdDbPut(options)</code></p>
-<p> Put a record</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.cmdDbUpdate(options)</code></p>
-<p> Update a record</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.cmdDbDel(options)</code></p>
-<p> Delete a record</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.cmdDbDelAll(options)</code></p>
-<p> Delete all records</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.cmdDbDrop(options)</code></p>
-<p> Drop a table</p>
-</li>
-</ul>
-
-<h2 id="module-bk_shell_test">Module: BK_SHELL_TEST</h2>
-<ul>
-<li><p><code>shell.assert(next, err)</code></p>
-<p> To be used in the tests, this function takes the following arguments:</p>
-</li>
-</ul>
-<p> assert(next, err, ....)
- assert(err, ...)</p>
-<ul>
-<li>next - can be a callback to be called after printing error condition if any, it takes err as its argument</li>
-<li>err - an error object from the most recent operation, can be null/undefined or any value that results in Javascript &quot;true&quot; evaluation
-up to the caller, assertion happens if an err is given or this value is not null or empty</li>
-<li>all other arguments are printed in case of error or result being false</li>
-</ul>
-<p>  NOTES:</p>
-<ul>
-<li>In forever mode <code>-test-forever</code> any error is ignored and not reported</li>
-<li>if <code>tests.test.delay</code> is set it will be used to delay calling the next callback and reset, this is for
-one time delays.</li>
-</ul>
-<p> Example</p>
-<pre><code>      function(next) {
-          db.get(&quot;bk_user&quot;, { login: &quot;123&quot; }, function(err, row) {
-              tests.assert(next, err || !row || row.id != &quot;123&quot;, &quot;Record not found&quot;, row)
-          });
-      }
-</code></pre>
-
-<ul>
-<li><p><code>shell.cmdTestRun(options)</code></p>
-<p> Run the test function which is defined in the tests module, all arguments will be taken from the options or the command line. Options
-use the same names as command line arguments without preceeding <code>test-</code> prefix.</p>
-</li>
-</ul>
-<p> The common command line arguments that supported:</p>
-<ul>
-<li>-test-run - name of the function to run</li>
-<li>-test-delay - number of milliseconds before starting the test</li>
-<li>-test-workers - number of workers to run the test at the same time</li>
-<li>-test-workers-delay - number of milliseconds before starting worker processes, default is 500ms</li>
-<li>-test-timeout - number of milliseconds between test steps, i.e. between invocations of the check</li>
-<li>-test-interval - number of milliseconds between iterations</li>
-<li>-test-iterations - how many times to run this test function, default is 1</li>
-<li>-test-concurrency - how many functions to run at the same time, default is 1</li>
-<li>-test-nowait - do not wait for test function to finish to start next iteration, default is 0</li>
-<li>-test-forever - run forever without reporting any errors, for performance testing</li>
-<li>-test-file - a javascript file to be loaded with additional tests</li>
-</ul>
-<p> All other common command line arguments are used normally, like -db-pool to specify which db to use.</p>
-<p> After finish or in case of error the process exits if no callback is given.</p>
-<p> Example, store it in tools/tests.js:</p>
-<pre><code>      var bkjs = require(&quot;backendjs&quot;);
-      var tests = bkjs.core.modules.tests;
-
-      tests.test_mytest = function(next) {
-         bkjs.db.get(&quot;bk_user&quot;, { login: &quot;123&quot; }, function(err, row) {
-             tests.assert(next, err || !row || row.id != &quot;123&quot;, &quot;Record not found&quot;, row)
-         });
-      }
-
-      # bksh -test-run mytest
-</code></pre>
-<p> Custom tests:</p>
-<ul>
-<li><p>create a user for backend testing, if the API does not require authentication skip this step:</p>
-<pre><code>  bksh -account-add login testuser secret testpw -scramble 1
-</code></pre>
-</li>
-<li><p>configure global backend credentials</p>
-<pre><code>  echo &quot;backend-login=testuser&quot; &gt;&gt; etc/config.local
-  echo &quot;backend-secret=testpw&quot; &gt;&gt; etc/config.local
-</code></pre>
-</li>
-<li><p>to start a test command in the shell using local ./tests.js</p>
-<pre><code>bksh -test-run account
-</code></pre>
-</li>
-<li><p>to start a test command in the shell using custom file with tests</p>
-<pre><code>bksh -test-run api -test-file tests/api.js
-</code></pre>
 </li>
 </ul>
 
