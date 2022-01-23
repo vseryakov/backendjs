@@ -1,2 +1,2 @@
 api-allow-admin=^/(system|data)
-allow-modules=bk_user|bk_data
+preload-modules=bk_user|bk_data|bk_system

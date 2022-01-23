@@ -105,12 +105,7 @@ or simply
 
 * To add users from the command line
 
-        bksh -account-add login test secret test name TestUser email test@test.com -scramble 1
-
-* By default no external modules are loaded so it needs the accounts module with a
-  parameter `-allow-modules PATTERN`, this will load all modules that match the pattern, default modules start with `bk_`:
-
-        bkjs web -allow-modules bk_
+        bksh -user-add login test secret test name TestUser email test@test.com -scramble 1
 
 * To start Node.js shell with backendjs loaded and initialized, all command line parameters apply to the shell as well
 
@@ -296,24 +291,11 @@ the application is structured.
 
 ## Modules
 
+*By default no system modules are loaded except `bk_user`, it must be configured by the `-preload-modules` config parameter to
+preload modules from the backendjs/modules/.*
+
 Another way to add functionality to the backend is via external modules specific to the backend, these modules are loaded on startup from the backend
-home subdirectory `modules/` and from the backendjs package directory for core modules. The format is the same as for regular Node.js modules and
-only top level .js files are loaded on the backend startup.
-
-*By default no modules are loaded except `bk_user`, it must be configured by the `-allow-modules` config parameter.*
-
-The modules are managed per process role, by default `server` and `master` processes do not load any modules at all to keep them
-small and because they monitor workers the less code they have the better.
-
-The shell process loads all modules, it is configured with `.+`.
-
-To enable any module to be loaded in any process it can be configured by using a role in the config parameter:
-
-      // Global modules except server and master
-      -allow-modules '.+'
-
-      // Master modules
-      -allow-modules-master 'bk_user|bk_system'
+home subdirectory `modules/`. The format is the same as for regular Node.js modules and only top level .js files are loaded on the backend startup.
 
 Once loaded they have the same access to the backend as the rest of the code, the only difference is that they reside in the backend home and
 can be shipped regardless of the npm, node modules and other env setup. These modules are exposed in the `core.modules` the same way as all other core submodules
@@ -367,7 +349,7 @@ by the backendjs `core.loadModule` machinery, the NPM packages are just keep dif
 The config parameter `allow-packages` can be used to specify NPM package names to be loaded separated by comma, as with the default
 application structure all subfolders inside each NPM package will be added to the core:
 
-  - modules will be loaded from the modules/ older
+  - modules will be loaded from the modules/ folder
   - locales from the locales/ folder
   - files in the web/ folder will be added to the static search path
   - all templates from views/ folder will be used for rendering
@@ -1345,7 +1327,7 @@ one table and one record without maintaining any other features like auto counte
 
 *Because it exposes the whole database to anybody who has a login it is a good idea to disable this endpoint in the production or provide access callback that verifies
 who can access it.*
-  - To disable this endpoint completely in the config: `deny-modules=data`
+  - To disable this endpoint completely in the config: `deny-modules=bk_data`
   - To allow admins to access it only in the config: `api-allow-admin=^/data`
   - To allow admins to access it only:
 
@@ -1381,7 +1363,7 @@ This is implemented by the `data` module from the core.
 The system API returns information about the backend statistics, allows provisioning and configuration commands and other internal maintenance functions. By
 default is is open for access to all users but same security considerations apply here as for the Data API.
 
-This is implemented by the `system` module from the core. To enable this functionality specify `-allow-modules=bk_system`.
+This is implemented by the `system` module from the core. To enable this functionality specify `-preload-modules=bk_system`.
 
 - `/system/restart`
     Perform restart of the Web processes, this will be done gracefully, only one Web worker process will be restarting while the other processes will keep
