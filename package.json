@@ -12,7 +12,6 @@
   "dependencies": {
     "formidable": "2.0.1",
     "redis": "3.1.2",
-    "web-push": "3.4.5",
     "ws": "8.4.2",
     "express": "4.17.2",
     "cookie": "0.4.1",
@@ -25,13 +24,9 @@
     "xml2json": "0.12.0",
     "mime": "3.0.0",
     "bcrypt": "5.0.1",
-    "argon2": "0.28.3",
     "mmmagic": "0.5.3",
     "consolidate": "0.16.0",
-    "@parse/node-apn": "5.1.0",
-    "http-proxy": "1.18.1",
     "pg": "8.7.1",
-    "nats": "2.5.0",
     "bkjs-utils": "0.2.9",
     "bkjs-cache": "0.5.3",
     "bkjs-sqlite": "0.2.9",
@@ -41,6 +36,11 @@
     "uglifycss": "0.0.29"
   },
   "modDependencies": {
+    "nats": "2.5.0",
+    "argon2": "0.28.3",
+    "web-push": "3.4.5",
+    "@parse/node-apn": "5.1.0",
+    "http-proxy": "1.18.1",
     "bkjs-wand": "0.5.1",
     "sharp": "0.29.3",
     "amqplib": "0.8.0"
