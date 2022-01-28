@@ -11,7 +11,6 @@
   },
   "dependencies": {
     "formidable": "2.0.1",
-    "redis": "3.1.2",
     "ws": "8.4.2",
     "express": "4.17.2",
     "cookie": "0.4.1",
@@ -26,16 +25,19 @@
     "bcrypt": "5.0.1",
     "mmmagic": "0.5.3",
     "consolidate": "0.16.0",
-    "pg": "8.7.1",
     "bkjs-utils": "0.2.9",
     "bkjs-cache": "0.5.3",
     "bkjs-sqlite": "0.2.9",
-    "bkjs-syslog": "0.3.1",
+    "bkjs-syslog": "0.3.1"
+  },
+  "devDependencies": {
     "html-minifier": "4.0.0",
     "uglify-es": "3.3.9",
     "uglifycss": "0.0.29"
   },
   "modDependencies": {
+    "redis": "3.1.2",
+    "pg": "8.7.1",
     "nats": "2.5.0",
     "argon2": "0.28.3",
     "web-push": "3.4.5",

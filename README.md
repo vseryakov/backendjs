@@ -73,13 +73,13 @@ or simply
 
         bkjs web -db-pool pgsql -db-pgsql-pool postgresql://postgres@localhost/backend
 
+* If running on EC2 instance with IAM profile no need to specify AWS credentials:
+
+        bkjs web -db-pool dynamodb -db-dynamodb-pool default
+
 * To start the server and connect to the DynamoDB (command line parameters can be saved in the `etc/config file`, see below about config files)
 
         bkjs web -db-pool dynamodb -db-dynamodb-pool default -aws-key XXXX -aws-secret XXXX
-
-* If running on EC2 instance with IAM profile then no need to specify AWS credentials:
-
-        bkjs web -db-pool dynamodb -db-dynamodb-pool default
 
 * or to the ElasticSearch server, database backend
 
@@ -142,7 +142,7 @@ run the following command:
 * To see your account details run the command in the console `/account/get`
 * To see current metrics run the command in the console `/system/stats/get`
 
-* When the web server is started with `-watch` parameters any change in the source files will make the server restart automatically
+* When the web server is started with `-watch` parameter or as `bkjs watch` then any change in the source files will make the server restart automatically
   letting you focus on the source code and not server management, this mode is only enabled by default in development mode,
   check `app.sh` for parameters before running it in production.
 
