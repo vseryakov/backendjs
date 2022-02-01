@@ -14,7 +14,7 @@
         "ko": false
     },
     "parserOptions": {
-        "ecmaVersion": 2017
+        "ecmaVersion": 2020
     },
     "extends": "eslint:recommended",
     "rules": {
@@ -168,6 +168,7 @@
         "no-new-require": "error",
         "no-new-wrappers": "error",
         "no-octal-escape": "error",
+        "no-unsafe-optional-chaining": "error",
         "no-param-reassign": "off",
         "no-path-concat": "off",
         "no-plusplus": "off",

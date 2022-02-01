@@ -295,9 +295,8 @@ tests.test_db = function(callback)
             });
         },
         function(next) {
-            ipc.role = "server";
-            db.cacheName.test3 = "local";
             db.cacheTables.push("test3");
+            db.cache2.test3 = 30000;
             tests.test.delay = 100;
             db.get("test3", { id: id }, { cached: 1 }, function(err, row) {
                 tests.assert(next, err || !row || row.id != id || row.num != 2, "err7:", row);
@@ -306,7 +305,7 @@ tests.test_db = function(callback)
         function(next) {
             db.getCache("test3", { id: id }, {}, function(data) {
                 var row = lib.jsonParse(data);
-                tests.assert(next, !data || row.num != 2, "err7-1:", row);
+                tests.assert(next, !data || row.num != 2, "err7-lru-cache:", row);
             });
         },
         function(next) {
@@ -627,25 +626,9 @@ tests.test_cookie = function(callback)
     });
 }
 
-tests.test_busy = function(callback)
-{
-    var work = 524288;
-    lib.busyTimer("init", lib.getArgInt("-busy", 100));
-    setInterval(function worky() {
-        var howBusy = lib.busyTimer("busy");
-        if (howBusy) {
-          work /= 4;
-          console.log("I can't work! I'm too busy:", howBusy + "ms behind");
-        }
-        work *= 2;
-        for (var i = 0; i < work;) i++;
-        console.log("worked:", work);
-      }, 100);
-}
-
 tests.test_cache = function(callback)
 {
-    console.log("testing cache:", ipc.cache, ipc.getClient().name);
+    console.log("testing cache:", ipc.getClient().name);
 
     lib.series([
       function(next) {

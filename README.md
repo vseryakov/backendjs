@@ -65,9 +65,9 @@ or simply
         > bkjs.server.start()
 
 * Access is allowed only with valid signature except urls that are explicitly allowed without it (see `api-allow` config parameter below)
-* Same but using the helper tool, by default it will use embedded SQLite database and listen on port 8000.
+* Same but using the helper tool, by default no database driver are enablked so here we use embedded SQLite database and listen on port 8000.
 
-        bkjs web
+        bkjs web -db-pool sqlite -db-sqlite-pool default
 
 * or to the PostgreSQL server, database backend (if not running local server can be started with `bkjs init-pgsql` if postgresql is installed)
 
