@@ -9,6 +9,7 @@ var api = bkjs.api;
 var core = bkjs.core;
 var lib = bkjs.lib;
 var logger = bkjs.logger;
+const bkutils = require('bkjs-utils');
 
 // Locations management
 var mod = {
@@ -34,6 +35,7 @@ var mod = {
     minDistance: 1,
     // Max searchable distance, km
     maxDistance: 50,
+    geoHashRanges: [ [12, 0], [8, 0.019], [7, 0.076], [6, 0.61], [5, 2.4], [4, 20.0], [3, 78.0], [2, 630.0], [1, 2500.0], [1, 99999] ],
 };
 module.exports = mod;
 
@@ -135,11 +137,11 @@ mod.put = function(req, options, callback)
     if (!latitude || !longitude) return callback({ status: 400, message: "latitude/longitude are required" });
 
     // Build new location record
-    var geo = lib.geoHash(latitude, longitude, { minDistance: mod.minDistance });
+    var geo = mod.geoHash(latitude, longitude, { minDistance: mod.minDistance });
 
     // Skip if within minimal distance
     if (req.account.latitude || req.account.longitude) {
-        var distance = lib.geoDistance(req.account.latitude, req.account.longitude, latitude, longitude);
+        var distance = mod.geoDistance(req.account.latitude, req.account.longitude, latitude, longitude);
         if (distance == null || distance <= mod.minDistance) {
             return callback({ status: 305, message: "ignored, min distance: " + mod.minDistance });
         }
@@ -308,7 +310,7 @@ mod.select = function(table, query, options, callback)
               options.start = info.next_token;
 
               items.forEach(function(row) {
-                  row.distance = lib.geoDistance(options.latitude, options.longitude, row.latitude, row.longitude, options);
+                  row.distance = mod.geoDistance(options.latitude, options.longitude, row.latitude, row.longitude, options);
                   if (row.distance == null) return;
                   // Limit the distance within the allowed range
                   if (options.round > 0 && row.distance - options.distance > options.round) return;
@@ -361,3 +363,50 @@ mod.bkDeleteAccount = function(req, callback)
     if (!req.account.geohash || lib.isFlag(req.options.keep, ["all","account","bk_location"])) return callback();
     db.del("bk_location", { id: req.account.id, geohash: req.account.geohash }, callback);
 }
+
+// Return object with geohash for given coordinates to be used for location search
+//
+// The options may contain the following properties:
+//   - distance - limit the range key with the closest range smaller than then distance, required for search but for updates may be omitted
+//   - minDistance - radius for the smallest bounding box in km containing single location, radius searches will combine neighboring boxes of
+//      this size to cover the whole area with the given distance request, also this affects the length of geohash keys stored in the bk_location table
+//      if not specified default `min-distance` value will be used.
+mod.geoHash = function(latitude, longitude, options)
+{
+    if (!options) options = {};
+    var minDistance = options.minDistance || 0.01;
+    var range = this.geoHashRanges.filter(function(x) { return x[1] > minDistance })[0];
+    var geohash = bkutils.geoHashEncode(latitude, longitude);
+    return { geohash: geohash.substr(0, range[0]),
+             _geohash: geohash,
+             neighbors: options.distance ? bkutils.geoHashGrid(geohash.substr(0, range[0]), Math.ceil(options.distance / range[1])).slice(1) : [],
+             latitude: latitude,
+             longitude: longitude,
+             minRange: range[1],
+             minDistance: minDistance,
+             distance: options.distance || 0 };
+}
+
+// Return distance between two locations
+//
+// The options can specify the following properties:
+// - round - a number how to round the distance
+//
+//  Example: round to the nearest full 5 km and use only 1 decimal point, if the distance is 13, it will be 15.0
+//
+//      lib.geoDistance(34, -188, 34.4, -119, { round: 5.1 })
+//
+mod.geoDistance = function(latitude1, longitude1, latitude2, longitude2, options)
+{
+    var distance = bkutils.geoDistance(latitude1, longitude1, latitude2, longitude2);
+    if (isNaN(distance) || distance === null || typeof distance == "undefined") return null;
+
+    // Round the distance to the closes edge and fixed number of decimals
+    if (options && typeof options.round == "number" && options.round > 0) {
+        var decs = String(options.round).split(".")[1];
+        distance = parseFloat(Number(Math.floor(distance/options.round)*options.round).toFixed(decs ? decs.length : 0));
+        if (isNaN(distance)) return null;
+    }
+    return distance;
+}
+
