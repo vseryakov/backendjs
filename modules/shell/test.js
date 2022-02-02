@@ -110,7 +110,8 @@ shell.assert = function(next, err)
 shell.cmdTestRun = function(options)
 {
     var tests = shell;
-    core.addModule("tests", tests);
+    tests.name = "tests";
+    core.addModule(tests);
 
     var test = tests.test = {
         cmd: tests.getArg("-test-run", options),
