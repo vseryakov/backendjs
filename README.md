@@ -281,6 +281,46 @@ The typical structure of a single file backendjs application is the following:
     bkjs.server.start();
 ```
 
+Another probably easier way to create single file apps is to use your namespace instead of `app`:
+
+```javascript
+    const bkjs = require("backendjs");
+    const api = bkjs.api;
+    const db = bkjs.db;
+
+    const mymod = {
+        name: "mymod",
+        args: [
+            { name: "types", type: "list", descr: "Types allowed" },
+            { name: "size", type: "int", descr: "Records in one page" },
+        ],
+        tables: {
+            mytable: {
+                id: { type: "int", primary: 1 },
+                name: { primary: 2 },
+                type: { type: "list" },
+                descr: {}
+            }
+        }
+    };
+    exports.module = mymod;
+    bkjs.core.addModule(mymod);
+
+    mymod.configureWeb = function(options, callback)
+    {
+        api.app.all("/mymod", function(req, res) {
+            if (!req.query.id) return api.sendReply(res, 400, "id is required");
+            req.query.type = mod.types;
+
+            db.select("mymod", req.query, { ops: { type: "in" }, count: mod.size }, (err, rows) => {
+               api.sendJSON(req, err, rows);
+            });
+        });
+    }
+
+    bkjs.server.start();
+```
+
 Except the `app.configureWeb` and `server.start()` all other functions are optional, they are here for the sake of completeness of the example. Also
 because running the backend involves more than just running web server many things can be setup using the configuration options like common access permissions,
 configuration of the cron jobs so the amount of code to be written to have fully functioning production API server is not that much, basically only
@@ -307,6 +347,7 @@ Let's assume the `modules/` contains file facebook.js which implements custom FB
     const bkjs = require("backendjs");
     const core = bkjs.core;
     const mod = {
+        name: "facebook",
         args: [
             { name: "token", descr: "API token" },
         ]
@@ -329,7 +370,7 @@ This is the main app code:
     const core = bkjs.core;
 
     // Using facebook module in the main app
-    api.app.get("some url", (req, res) => {
+    api.app.get("/me", (req, res) => {
 
        core.modules.facebook.makeRequest({ path: "/me" }, (err, data) => {
           bkjs.api.sendJSON(req, err, data);
