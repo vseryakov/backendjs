@@ -587,14 +587,16 @@ tests.test_limiter = function(callback)
 {
     var opts = {
         name: lib.getArg("-name", "test"),
-        rate: lib.getArgInt("-rate", 10),
-        max: lib.getArgInt("-max", 10),
+        rate: lib.getArgInt("-rate", 1),
+        max: lib.getArgInt("-max", 1),
         interval: lib.getArgInt("-interval", 1000),
         queueName: lib.getArg("-queue"),
         pace: lib.getArgInt("-pace", 5),
+        count: lib.getArgInt("-count", 5),
+        delays: lib.getArgInt("-delays", 4),
     };
-    var list = [];
-    for (var i = 0; i < lib.getArgInt("-count", 10); i++) list.push(i);
+    var list = [], delays = 0;
+    for (var i = 0; i < opts.count; i++) list.push(i);
 
     ipc.initServer();
     setTimeout(function() {
@@ -608,12 +610,15 @@ tests.test_limiter = function(callback)
                   });
               },
               function() {
+                  if (opts.delay) delays++;
                   return opts.delay;
               },
               function() {
                   setTimeout(next, opts.pace);
               });
-        }, callback);
+        }, () => {
+            callback(delays != opts.delays ? `delays mismatch: ${delays} != ${opts.delays}` : "")
+        });
     }, 1000);
 }
 
@@ -761,7 +766,7 @@ tests.test_pool = function(callback)
 
 tests.test_config = function(callback)
 {
-    var argv = ["-uid", "1",
+    var argv = ["-force-uid", "1,1",
                 "-proxy-port", "3000",
                 "-api-allow-path", "^/a",
                 "-api-allow-admin", "^/a",
@@ -783,7 +788,7 @@ tests.test_config = function(callback)
             ];
     core.parseArgs(argv);
     logger.debug("poolParams:", db.poolParams);
-    if (core.uid != 1) return callback("invalid uid");
+    if (core.forceUid[0] != 1) return callback("invalid force-uid")
     if (core.proxy.port != 3000) return callback("invalid proxy-port");
     if (!db._createTables) return callback("invalid create-tables");
     if (!db.poolParams.sqlite || db.poolParams.sqlite.max != 10) return callback("invalid sqlite max");
