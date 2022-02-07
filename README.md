@@ -56,6 +56,33 @@ or simply
 
      npm install vseryakov/backendjs
 
+# Dependencies
+
+Only core required dependencies are installed but there are many modules which require a module to work correctly.
+
+All optional dependencies are listed in the package.json under "modDependencies" so npm cannot use it, only manual install of required modules is supported or
+it is possible to install all optional dependencies for development purposes.
+
+Here is the list of modules required for each internal feature:
+
+- `pg` - PostgreSQL database access
+- `argon2` or `bcrypt` - for user password hashing
+- `mmmagic` - file detection in uploads, only used when `allow` is passed to the `api.putFile`
+- `consolidate` - for API templating, disabled by default
+- `redis` - for Redis queue and cache driver
+- `unix-dgram` - for syslog on Linux to use local syslog
+- `bkjs-sqlite` - to use SQLite database driver
+- `web-push` - for Web push notifications
+- `@parse/node-apn` - for Apple push notifications
+- `bkjs-wand` - for scaling images in uploads using ImageMagick module
+- `sharp` - scaling images in uploads using VPS imaging
+- `nats` - NATS driver for queue and events
+- `amqplib` - RabbitMQ driver for queue and events (alpha)
+
+The command below will show all core and optional dependencies
+
+     bkjs deps -dry-run -mods
+
 # Quick start and introduction
 
 * Simplest way of using the backendjs, it will start the server listening on port 8000
