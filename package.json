@@ -12,7 +12,7 @@
   "dependencies": {
     "express": "4.17.2",
     "formidable": "2.0.1",
-    "cookie": "0.4.1",
+    "cookie": "0.4.2",
     "cookie-parser": "1.4.6",
     "qs": "6.10.3",
     "ws": "8.4.2",
@@ -30,20 +30,20 @@
     "uglifycss": "0.0.29"
   },
   "modDependencies": {
-    "argon2": "0.28.3",
+    "argon2": "0.28.4",
     "bcrypt": "5.0.1",
     "mmmagic": "0.5.3",
     "consolidate": "0.16.0",
     "http-proxy": "1.18.1",
     "redis": "3.1.2",
-    "pg": "8.7.1",
+    "pg": "8.7.3",
     "bkjs-sqlite": "0.2.9",
     "unix-dgram": "2.0.4",
     "web-push": "3.4.5",
     "@parse/node-apn": "5.1.0",
     "bkjs-wand": "0.5.1",
-    "sharp": "0.29.3",
-    "nats": "2.5.0",
+    "sharp": "0.30.0",
+    "nats": "2.6.0",
     "amqplib": "0.8.0"
   },
   "keywords": [

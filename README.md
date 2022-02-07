@@ -71,7 +71,7 @@ or simply
 
 * or to the PostgreSQL server, database backend (if not running local server can be started with `bkjs init-pgsql` if postgresql is installed)
 
-        bkjs web -db-pool pgsql -db-pgsql-pool postgresql://postgres@localhost/backend
+        bkjs web -db-pool pg -db-pg-pool postgresql://postgres@localhost/backend
 
 * If running on EC2 instance with IAM profile no need to specify AWS credentials:
 
@@ -595,7 +595,7 @@ To use a different database, for example PostgresSQL(running localy) or DynamoDB
 all config parametetrs can be stored in the etc/config as well
 
     node app.js -log debug -web -api-allow-path /todo -db-pool dynamodb -db-dynamodb-pool default -db-create-tables
-    node app.js -log debug -web -api-allow-path /todo -db-pool pgsql -db-pgsql-pool default -db-create-tables
+    node app.js -log debug -web -api-allow-path /todo -db-pool pg -db-pg-pool default -db-create-tables
 
 API commands can be executed in the browser or using `curl`:
 
@@ -618,7 +618,7 @@ The backend directory structure is the following:
             debug=1
             db-pool=dynamodb
             db-dynamodb-pool=http://localhost:9000
-            db-pgsql-pool=postgresql://postgres@127.0.0.1/backend
+            db-pg-pool=postgresql://postgres@127.0.0.1/backend
 
             To specify other config file: bkjs shell -config-file file
 
