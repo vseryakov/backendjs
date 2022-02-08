@@ -9,7 +9,7 @@ case "$BKJS_CMD" in
     platform=$(echo $PLATFORM | tr [:upper:] [:lower:])
     arch=$OS_ARCH
     [ "$arch" = "x64" ] && arch=amd64
-    curl -L -o /tmp/nats.tgz https://github.com/nats-io/nats-server/releases/download/v2.7.0/nats-server-v2.7.0-$platform-$arch.tar.gz
+    curl -L -o /tmp/nats.tgz https://github.com/nats-io/nats-server/releases/download/v2.7.2/nats-server-v2.7.2-$platform-$arch.tar.gz
     tar --strip-components=1 -C /tmp -xzf /tmp/nats.tgz
     mv /tmp/nats-server $BKJS_PREFIX/bin
     rm -rf /tmp/nats.tgz
