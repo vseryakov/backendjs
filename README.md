@@ -903,8 +903,7 @@ There is no ready to use support for different versions of API because there is 
 tools ready to use that will allow to implement such versioning system in the backend. Some examples are provided below:
 
 - Fixed versions
-  This is similar to AWS version system when versions are fixed and changed not very often. For such cases the backend exposes `core.bkVersion` which is
-  supposed to be a core backend version. This version is returned with every backend response in the Server: header. A client also can specify the core version
+  This is similar to AWS version system when versions are fixed and changed not very often. A client can specify the core version
   using `bk-version` header. When a request is parsed and the version is provided it will be set in the request options object as `apiVersion`.
 
   All API routes are defined using Express middleware and one of the possible ways of dealing with different versions can look like this, by
