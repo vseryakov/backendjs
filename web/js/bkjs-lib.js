@@ -23,6 +23,10 @@ bkjs.typeName = function(v)
     return "object";
 }
 
+bkjs._formatPresets = {
+    compact: { sbracket1: "", sbracket2: "", cbracket1: "", cbracket2: "", nl1: "<br>", nl2: "", quote1: "", quote2: "", comma: "", space: "&nbsp;&nbsp;&nbsp;", skipnull: 1, skipempty: 1 },
+};
+
 // Format an object into nice JSON formatted text
 bkjs.formatJSON = function(obj, options)
 {
@@ -33,6 +37,9 @@ bkjs.formatJSON = function(obj, options)
         if (obj[0] != "[" && obj[0] != "{") return obj;
         try { obj = JSON.parse(obj); } catch (e) { this.log(e) }
     }
+    var preset = bkjs._formatPresets[options.preset];
+    for (const p in preset) options[p] = preset[p];
+
     if (!options.level) options.level = 0;
     if (!options.indent) options.indent = "";
     if (typeof options.nl1 == "undefined") options.nl1 = "\n";
@@ -860,7 +867,7 @@ bkjs.toTemplate = function(text, obj, options)
                         }
                     }
                 }
-                if (typeof options.preprocess == "function") v = options.preprocess(tag, field, v, dflt);
+                if (typeof options.preprocess == "function") v = options.preprocess(tag, field, v, dflt, enc);
             } else {
                 tmpl += sep1 + tag + sep2;
             }
@@ -886,6 +893,13 @@ bkjs.toTemplate = function(text, obj, options)
                     break;
                 case "d-entity":
                     v = bkjs.entityToText(v);
+                    break;
+                case "strftime":
+                    v = bkjs.strftime(v);
+                    break;
+                case "mtime":
+                    v = bkjs.toDate(v, null);
+                    if (!v) v = 0;
                     break;
                 }
             } catch (e) {}
