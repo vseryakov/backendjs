@@ -307,14 +307,14 @@ bkjs.koRestoreComponent = function(path, dflt)
 bkjs.koBootpopup = function(options)
 {
     var _before = options.before;
-    options.before = function(b) {
-        if (typeof _before == "function") _before(b);
-        ko.applyBindings(b.options.data || bkjs, b.modal.get(0));
+    options.before = function(self) {
+        if (typeof _before == "function") _before(self);
+        ko.applyBindings(self.options.data || bkjs, self.modal.get(0));
     }
     var _complete = options.complete;
-    options.complete = function(event) {
-        if (typeof _complete == "function") _complete.call(this, event);
-        ko.cleanNode(this.modal.get(0));
+    options.complete = function(event, self) {
+        if (typeof _complete == "function") _complete.call(this, event, self);
+        ko.cleanNode(self.modal.get(0));
         options.before = _before;
         options.complete = _complete;
     }
