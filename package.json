@@ -19,7 +19,7 @@
     "uuid": "8.3.2",
     "hashids": "2.2.10",
     "cron": "1.8.2",
-    "emailjs": "3.7.0",
+    "emailjs": "3.8.0",
     "xml2json": "0.12.0",
     "mime": "3.0.0",
     "microtime": "3.0.0"
@@ -42,7 +42,7 @@
     "web-push": "3.4.5",
     "@parse/node-apn": "5.1.0",
     "bkjs-wand": "0.5.1",
-    "sharp": "0.30.2",
+    "sharp": "0.30.3",
     "nats": "2.6.0",
     "amqplib": "0.8.0"
   },
