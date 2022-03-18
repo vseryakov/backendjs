@@ -341,7 +341,7 @@ function bootpopup(options)
                                     const bopts = { class: "btn " + (opts.class_input_button || ""), type: "button", 'data-form': this.formid };
                                     if (opts.click_input_button) bopts.onclick = "(" + opts.click_input_button + ")(this,arguments[0])";
                                     for (const b in opts.attrs_input_button) bopts[b] = opts.attrs_input_button[b];
-                                        $('<button></button>', bopts).append(opts.text_input_button).appendTo(append);
+                                    $('<button></button>', bopts).append(opts.text_input_button).appendTo(append);
                                 }
                             }
                         }
@@ -349,17 +349,23 @@ function bootpopup(options)
 
                         var class_group = opts.class_group || this.options.class_group;
                         var class_label = (opts.class_label || this.options.class_label) + " " + (attrs.value ? "active" : "");
-                        group = $('<div></div>', { class: class_group, title: title }).appendTo(form);
+                        var gopts = { class: class_group, title: title };
+                        for (const p in opts.attrs_group) gopts[p] = opts.attrs_group[p];
+                        group = $('<div></div>', gopts).appendTo(form);
                         if (opts.class_prefix || opts.text_prefix) {
                             group.append($("<span></span>", { class: opts.class_prefix || "" }).append(opts.text_prefix || ""));
                         }
                         if (this.options.horizontal) {
                             group.addClass("row");
                             class_label += " col-form-label " + (opts.size_label || this.options.size_label);
-                            group.append($("<label></label>", { for: opts.for || attrs.id, class: class_label, html: opts.label }));
+                            var lopts = { for: opts.for || attrs.id, class: class_label, html: opts.label };
+                            for (const p in opts.attrs_label) lopts[p] = opts.attrs_label[p];
+                            group.append($("<label></label>", lopts));
                             group.append($('<div></div>', { class: opts.size_input || this.options.size_input }).append(elem));
                         } else {
-                            if (opts.label) group.append($("<label></label>", { for: opts.for || attrs.id, class: class_label, html: opts.label }));
+                            var lopts = { for: opts.for || attrs.id, class: class_label, html: opts.label };
+                            for (const p in opts.attrs_label) lopts[p] = opts.attrs_label[p];
+                            if (opts.label) group.append($("<label></label>", lopts));
                             group.append(elem);
                         }
                         if (opts.class_suffix || opts.text_suffix) {
@@ -432,22 +438,22 @@ function bootpopup(options)
 
         // Setup events for dismiss and complete
         this.modal.on('show.bs.modal', function(e) {
-            self.options.show.call(self.options.self, e);
+            self.options.show.call(self.options.self, e, self);
         });
         this.modal.on('shown.bs.modal', function(e) {
             if (self.options.autofocus) {
                 var focus = self.autofocus || self.form.find("input,select,textarea").filter(":not([readonly='readonly']):not([disabled='disabled']):not([type='hidden'])").first();
                 if (focus) focus.focus();
             }
-            self.options.shown.call(self.options.self, e);
+            self.options.shown.call(self.options.self, e, self);
         });
         this.modal.on('hide.bs.modal', function(e) {
             e.bootpopupButton = self._callback;
-            self.options.dismiss.call(self.options.self, e);
+            self.options.dismiss.call(self.options.self, e, self);
         });
         this.modal.on('hidden.bs.modal', function(e) {
             e.bootpopupButton = self._callback;
-            self.options.complete.call(self.options.self, e);
+            self.options.complete.call(self.options.self, e, self);
             self.modal.remove();    // Delete window after complete
         });
 
