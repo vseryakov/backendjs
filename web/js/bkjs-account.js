@@ -20,10 +20,8 @@ bkjs.checkPassword = function(secret, policy)
         if (!secret.match(p)) {
             return {
                 status: 400,
-                message: this.__(this.passwordPolicy[p]),
-                policy: Object.keys(this.passwordPolicy).map(function(x) {
-                    return bkjs.__(bkjs.passwordPolicy[x])
-                }).join(", ")
+                message: this.__(policy[p]),
+                policy: Object.keys(policy).map((x) => (bkjs.__(policy[x]))).join(", ")
             };
         }
     }
