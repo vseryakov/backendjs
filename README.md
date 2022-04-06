@@ -156,7 +156,7 @@ The command below will show all core and optional dependencies
 in web/js and web/css directories, all scripts are available from the browser with /js or /css paths. To use all at once as a bundle
 run the following command:
 
-        npm run devbuild
+        cd node_modules/backendjs && npm run devbuild
 
 
 * Go to `examples/api` directory:
@@ -995,7 +995,7 @@ Most common used commands are:
 
 Then run the dev build script to produce web/js/bkjs.bundle.js and web/css/bkjs.bundle.css
 
-        npm run devbuild
+        cd node_modules/backendjs && npm run devbuild
 
 Now instead of including a bunch of .js or css files in the html pages it only needs /js/bkjs.bundle.js and /css/bkjs.bundle.css. The configuration is in the
 package.json file.

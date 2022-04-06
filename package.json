@@ -135,8 +135,6 @@
     "start": "./bkjs run-backend",
     "stop": "./bkjs stop",
     "doc": "node tools/doc.js > web/doc.html",
-    "postinstall": "npm run build",
-    "prepublish": "npm run build",
     "build": "./bkjs web-bundle -all",
     "devbuild": "./bkjs web-bundle -all -dev"
   }
