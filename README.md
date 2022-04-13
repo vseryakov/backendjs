@@ -1282,31 +1282,17 @@ There is also native iOS implementation [Bkjs.m](https://raw.githubusercontent.c
 
    - `_session=1` - if the call is authenticated a cookie with the session signature is returned, from now on
       all requests with such cookie will be authenticated, the primary use for this is Web apps
-   - `_accesstoken=1` - returns new access token to be used for subsequent requests without a signature for the current account,
-      the token is short lived with expiration date returned as well. This access token can be used instead of a signature and
-      is passed in the query as `bk-access-token=TOKEN`.
-
-      Example:
-
-        /auth?_accesstoken=1
-        > { id: "XXXX...", name: "Test User", "bk-access-token": "XXXXX....", "bk-access-token-age": 604800000 }
-        /account/get?bk-access-token=XXXXXX...
-        > { id: "XXXX...", name: "Test User", ... }
 
 - `/login`
 
    Same as the /auth but it uses secret for user authentication, this request does not need a signature, just simple
    login and secret query parameters to be sent to the backend. This must be sent over SSL.
 
-   The intended usage is for Web sessions which use sessions cookies when sent with `_session=1` or to be used with access tokens when
-   sent with `_accesstoken=1`.
-
    Parameters:
 
      - `login` - account login
      - `secret` - account secret
      - `_session=1` - same as in /auth request
-     - `_accesstoken=1` - same as in /auth reuest
 
    On successful login, the result contains full account record including the secret, this is the only time when the secret is returned back
 
