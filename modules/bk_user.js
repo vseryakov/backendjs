@@ -260,7 +260,7 @@ mod.cmdUserUpdate = function(options)
 {
     var query = this.getQuery();
     var opts = lib.objExtend(this.getArgs(), { isInternal: 1 });
-    this.getUser(query, function(user) {
+    this.getUser(query, (user) => {
         core.modules.bk_user.updateAccount({ account: user, query: query, options: opts }, opts, this.exit);
     });
 }
@@ -269,7 +269,7 @@ mod.cmdUserDel = function(options)
 {
     var query = this.getQuery();
     var opts = lib.objExtend(this.getArgs(), { isInternal: 1 });
-    this.getUser(query, function(user) {
+    this.getUser(query, (user) => {
         core.modules.bk_user.deleteAccount({ account: user, obj: query, options: opts }, this.exit);
     });
 }
