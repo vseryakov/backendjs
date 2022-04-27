@@ -10,16 +10,16 @@
     "url": "https://github.com/vseryakov/backendjs.git"
   },
   "dependencies": {
-    "express": "4.17.2",
+    "express": "4.18.0",
     "formidable": "2.0.1",
-    "cookie": "0.4.2",
+    "cookie": "0.5.0",
     "cookie-parser": "1.4.6",
     "qs": "6.10.3",
     "ws": "8.5.0",
     "uuid": "8.3.2",
     "hashids": "2.2.10",
     "cron": "1.8.2",
-    "emailjs": "3.8.0",
+    "emailjs": "4.0.0",
     "xml2json": "0.12.0",
     "mime": "3.0.0",
     "microtime": "3.0.0"
@@ -40,10 +40,10 @@
     "bkjs-sqlite": "0.2.9",
     "unix-dgram": "2.0.4",
     "web-push": "3.4.5",
-    "@parse/node-apn": "5.1.0",
+    "@parse/node-apn": "5.1.3",
     "bkjs-wand": "0.5.1",
-    "sharp": "0.30.3",
-    "nats": "2.6.0",
+    "sharp": "0.30.4",
+    "nats": "2.6.1",
     "amqplib": "0.8.0"
   },
   "keywords": [
