@@ -273,7 +273,7 @@ function bootpopup(options)
                         // Special case for checkbox
                         if (/radio|checkbox/.test(attrs.type) && !opts.raw) {
                             attrs.class = attrs.class || (opts.switch ? "custom-control-input": "form-check-input");
-                            label = $('<label></label>', { class: opts.class_label || (opts.switch ? "custom-control-label" : "form-check-label"), for: opts.for || attrs.id }).
+                            label = $('<label></label>', { class: opts.class_input_label || (opts.switch ? "custom-control-label" : "form-check-label"), for: opts.for || attrs.id }).
                                     append(opts.input_label || opts.label);
                             elem = $('<div></div>', { class: opts.class_check || (opts.switch ? "custom-control custom-switch" : "form-check") }).
                             append($("<" + type + "/>", attrs)).
@@ -286,7 +286,7 @@ function bootpopup(options)
                         } else
                         if (attrs.type == "file" && !opts.raw) {
                             attrs.class = attrs.class || "custom-file-input";
-                            label = $('<label></label>', { class: opts.class_label || "custom-file-label", for: opts.for || attrs.id }).
+                            label = $('<label></label>', { class: opts.class_input_label || "custom-file-label", for: opts.for || attrs.id }).
                                     append(opts.input_label || opts.label);
                             elem = $('<div></div>', { class: opts.class_check || "custom-file" }).
                             append($("<" + type + "/>", attrs)).
@@ -358,12 +358,12 @@ function bootpopup(options)
                         if (this.options.horizontal) {
                             group.addClass("row");
                             class_label += " col-form-label " + (opts.size_label || this.options.size_label);
-                            var lopts = { for: opts.for || attrs.id, class: class_label, html: opts.label };
+                            const lopts = { for: opts.for || attrs.id, class: class_label, html: opts.label };
                             for (const p in opts.attrs_label) lopts[p] = opts.attrs_label[p];
                             group.append($("<label></label>", lopts));
                             group.append($('<div></div>', { class: opts.size_input || this.options.size_input }).append(elem));
                         } else {
-                            var lopts = { for: opts.for || attrs.id, class: class_label, html: opts.label };
+                            const lopts = { for: opts.for || attrs.id, class: class_label, html: opts.label };
                             for (const p in opts.attrs_label) lopts[p] = opts.attrs_label[p];
                             if (opts.label) group.append($("<label></label>", lopts));
                             group.append(elem);
