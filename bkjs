@@ -428,6 +428,7 @@ case "$BKJS_CMD" in
     [ -f $HOME/.gitignore_global ] && rsyncargs="$rsyncargs --exclude-from $HOME/.gitignore_global"
     exclude=$(get_json package.json config.sync.exclude)
     [[ ! -z $exclude ]] && rsyncargs="$rsyncargs --exclude=$exclude"
+    [ "$(get_flag -del)" != "" ] && rsyncargs="$rsyncargs --del"
     echo "Deploying the module $mod: ssh $sshargs $rsyncargs $bkcmd to $host:$path/$mod"
     [ ! -z "$(get_flag -dry-run)" ] && exit 0
     for h in $host; do
@@ -702,7 +703,7 @@ case "$BKJS_CMD" in
     echo "  run - run local backend with provided arguments"
     echo "  logwatcher - runs the log watcher and exists, for cases when no $BKJS service is running but the error log must be watched"
     echo "  deps [-fields dependencies,devDependencies] [-path .] [-skip REGEXP] [-global] [-update] [-mods] [-strict] [-check] [-npm ARGS] - install or show npm dependencies from the package.json, optional bkjs modules require -mods flag"
-    echo "  sync [-host HOST] [-path PATH] [-user USER] [-ssh-key pem] [-ssh OPTS] [-exclude PATTERN] [-bkcmd CMD] - push the backend code to the remote host using rsync, default path is ~/node_modules/$BKJS_MOD"
+    echo "  sync [-host HOST] [-path PATH] [-del] [-user USER] [-ssh-key pem] [-ssh OPTS] [-exclude PATTERN] [-bkcmd CMD] - push the backend code to the remote host using rsync, default path is ~/node_modules/$BKJS_MOD"
     echo "  ssh -host HOST -cmd CMD [-user USER] [-key PEM] [-ssh ARGS] - run a command over ssh on all specified hosts"
     echo "  install-node [-prefix PATH] [-force] [-clean] - install binary release of the node into $BKJS_PREFIX or specified path"
     echo "  install-devel - install development packages for node and modules compiclation"
