@@ -228,7 +228,7 @@ bkjs web -db-pool elasticsearch -db-elasticsearch-pool http://127.0.0.1:9200 -db
 <li><p>The library is packaged with copies of Bootstrap, jQuery, Knockout.js for quick Web development
 in web/js and web/css directories, all scripts are available from the browser with /js or /css paths. To use all at once as a bundle
 run the following command:</p>
-<pre><code>  npm run devbuild
+<pre><code>  cd node_modules/backendjs &amp;&amp; npm run devbuild
 </code></pre>
 </li>
 </ul>
@@ -665,11 +665,9 @@ It is also possible to set the default home using BKJS_HOME environment variable
   To specify other config file: bkjs shell -config-file file
 </code></pre>
 </li>
-<li><p>etc/config.local - same as the config but for the cases when local environment is different than the production or for dev specific parameters</p>
+<li><p><code>etc/config.local</code> - same as the config but for the cases when local environment is different than the production or for dev specific parameters</p>
 </li>
-<li><p>some config parameters can be configured in DNS as TXT records, the backend on startup will try to resolve such records and use the value if not empty.
-All params that  marked with DNS TXT can be configured in the DNS server for the domain where the backend is running, the config parameter name is
-concatenated with the domain and queried for the TXT record, for example: <code>cache-host</code> parameter will be queried for cache-host.domain.name for TXT record type.</p>
+<li><p>on startup the following local config files will be loaded if present: <code>etc/config.runMode</code> and <code>etc/config.instance.tag</code>. These will be loaded after the main config but before config.local. The runMode is set to development by default and can be changed with <code>-run-mode</code> config parameter, the instance tag is set with <code>-instance-tag</code> config parameter.</p>
 </li>
 <li><p><code>etc/crontab</code> - jobs to be run with intervals, JSON file with a list of cron jobs objects:</p>
 <p>  Example:</p>
@@ -693,6 +691,10 @@ concatenated with the domain and queried for the TXT record, for example: <code>
 </ol>
 </li>
 <li><p>etc/crontab.local - additional local crontab that is read after the main one, for local or dev environment</p>
+</li>
+<li><p><code>run-mode</code> and <code>db-pool</code> config parameters can be configured in DNS as TXT records, the backend on startup will try to resolve such records and use the value if not empty.
+All params that  marked with DNS TXT can be configured in the DNS server for the domain where the backend is running, the config parameter name is
+concatenated with the domain and queried for the TXT record, for example: <code>run-mode</code> parameter will be queried for run-mode.domain.name for TXT record type.</p>
 </li>
 </ul>
 </li>
@@ -885,8 +887,7 @@ the application logic. If the server needs to send a message to all or some spec
 tools ready to use that will allow to implement such versioning system in the backend. Some examples are provided below:</p>
 <ul>
 <li><p>Fixed versions
-This is similar to AWS version system when versions are fixed and changed not very often. For such cases the backend exposes <code>core.bkVersion</code> which is
-supposed to be a core backend version. This version is returned with every backend response in the Server: header. A client also can specify the core version
+This is similar to AWS version system when versions are fixed and changed not very often. A client can specify the core version
 using <code>bk-version</code> header. When a request is parsed and the version is provided it will be set in the request options object as <code>apiVersion</code>.</p>
 <p>All API routes are defined using Express middleware and one of the possible ways of dealing with different versions can look like this, by
 appending version to the command it is very simple to call only changed API code.</p>
@@ -970,7 +971,7 @@ backendjs app which was passed in the command line. This makes the bkjs or bksh 
 </ul>
 <h1 id="web-development-notes">Web development notes</h1>
 <p>Then run the dev build script to produce web/js/bkjs.bundle.js and web/css/bkjs.bundle.css</p>
-<pre><code>    npm run devbuild
+<pre><code>    cd node_modules/backendjs &amp;&amp; npm run devbuild
 </code></pre>
 <p>Now instead of including a bunch of .js or css files in the html pages it only needs /js/bkjs.bundle.js and /css/bkjs.bundle.css. The configuration is in the
 package.json file.</p>
@@ -1245,33 +1246,18 @@ this is the only way to ensure the body is not modified when not using query par
 <p> By default this endpoint is secured, i.e. requires a valid signature.</p>
 <p> Parameters:</p>
 <ul>
-<li><p><code>_session=1</code> - if the call is authenticated a cookie with the session signature is returned, from now on
- all requests with such cookie will be authenticated, the primary use for this is Web apps</p>
-</li>
-<li><p><code>_accesstoken=1</code> - returns new access token to be used for subsequent requests without a signature for the current account,
- the token is short lived with expiration date returned as well. This access token can be used instead of a signature and
- is passed in the query as <code>bk-access-token=TOKEN</code>.</p>
-<p> Example:</p>
-<p>   /auth?_accesstoken=1</p>
-<blockquote>
-<p>{ id: &quot;XXXX...&quot;, name: &quot;Test User&quot;, &quot;bk-access-token&quot;: &quot;XXXXX....&quot;, &quot;bk-access-token-age&quot;: 604800000 }
-   /account/get?bk-access-token=XXXXXX...
-{ id: &quot;XXXX...&quot;, name: &quot;Test User&quot;, ... }</p>
-</blockquote>
-</li>
+<li><code>_session=1</code> - if the call is authenticated a cookie with the session signature is returned, from now on
+ all requests with such cookie will be authenticated, the primary use for this is Web apps</li>
 </ul>
 </li>
 <li><p><code>/login</code></p>
 <p> Same as the /auth but it uses secret for user authentication, this request does not need a signature, just simple
  login and secret query parameters to be sent to the backend. This must be sent over SSL.</p>
-<p> The intended usage is for Web sessions which use sessions cookies when sent with <code>_session=1</code> or to be used with access tokens when
- sent with <code>_accesstoken=1</code>.</p>
 <p> Parameters:</p>
 <ul>
 <li><code>login</code> - account login</li>
 <li><code>secret</code> - account secret</li>
 <li><code>_session=1</code> - same as in /auth request</li>
-<li><code>_accesstoken=1</code> - same as in /auth reuest</li>
 </ul>
 <p> On successful login, the result contains full account record including the secret, this is the only time when the secret is returned back</p>
 <p> Example:</p>
@@ -1700,6 +1686,7 @@ Database pool statistics and other diagnostics</p>
 <li><code>aws-config-parameters</code> - Prefix for AWS Config Parameters Store to load and parse as config before initializing the database pools, example: /bkjs/config/</li>
 <li><code>aws-set-parameters</code> - AWS Config Parameters Store to set on start, supports @..@ core.instance placeholders: format is: path:value,....</li>
 <li><code>aws-conf-file</code> - S3 url for config file to download on start</li>
+<li><code>aws-conf-file-interval</code> - Load S3 config file every specified interval in minites</li>
 <li><code>aws-logwatcher-groups</code> - List of AWS Cloudwatch Logs groups to watch for errors, format is: name:type,...</li>
 <li><code>aws-logwatcher-filters-(.+)</code> - AWS Cloudwatch Logs filter pattern by group, overrides the global filter</li>
 <li><code>aws-logwatcher-filter</code> - AWS Cloudwatch Logs filter pattern, only matched events will be returned and analyzed the the core logwatcher regexps</li>
@@ -1721,8 +1708,8 @@ Database pool statistics and other diagnostics</p>
 <li><code>db-describe-tables</code> - A JSON object with table descriptions to be merged with the existing definitions</li>
 <li><code>db-cache-ttl</code> - Default global TTL for cached tables</li>
 <li><code>db-cache-ttl-(.+)</code> - TTL in milliseconds for each individual table being cached</li>
-<li><code>db-cache-name-(.+)</code> - Cache client name to use for cache reading and writing for each table instead of the default in order to split cache usage for different tables, it can be just a table name or <code>pool.table</code></li>
-<li><code>db-cache-update-(.+)</code> - Cache client name to use for updating only for each table instead of the default in order to split cache usage for different tables, it can be just a table name or <code>pool.table</code>. This cache takes precedence for updating cache over <code>cache-name</code> parameter</li>
+<li><code>db-cache-name-(.+)</code> - Cache client name to use for cache reading and writing for each table instead of the default in order to split cache usage for different tables, it can be just a table name or <code>pool.table</code>, use <code>*</code> to set default cache for all tables</li>
+<li><code>db-cache-update-(.+)</code> - Cache client name to use for updating only for each table instead of the default in order to split cache usage for different tables, it can be just a table name or <code>pool.table</code> or <code>*</code>. This cache takes precedence for updating cache over <code>cache-name</code> parameter</li>
 <li><code>db-cache2-max</code> - Max number of items to keep in the LRU Level 2 cache</li>
 <li><code>db-cache2-(.+)</code> - Tables with TTL for level2 cache, i.e. in the local process LRU memory. It works before the primary cache and keeps records in the local LRU cache for the given amount of time, the TTL is in ms and must be greater than zero for level 2 cache to work</li>
 <li><code>db-custom-column-([a-z0-9_]+)-(.+)</code> - A column that is allowed to be used in any table, the name is a regexp with the value to be a type</li>
@@ -1801,11 +1788,8 @@ Database pool statistics and other diagnostics</p>
 <li><code>api-signature-header-name</code> - Name for the access signature query parameter, header and session cookie</li>
 <li><code>api-lang-header-name</code> - Name for the language query parameter, header and session cookie, primary language for a client</li>
 <li><code>api-signature-age</code> - Max age for request signature in milliseconds, how old the API signature can be to be considered valid, the &#39;expires&#39; field in the signature must be less than current time plus this age, this is to support time drifts</li>
-<li><code>api-no-access-token</code> - Disable access tokens support</li>
 <li><code>api-access-time-interval</code> - Intervals to refresh last access time for accounts, only updates the cache if <code>bk_user</code> is configured to be cached</li>
-<li><code>api-access-token-name</code> - Name for the access token query parameter or header</li>
-<li><code>api-access-token-secret</code> - A secret to be used for access token signatures, additional enryption on top of the signature to use for API access without signing requests, it is required for access tokens to be used</li>
-<li><code>api-access-token-age</code> - Access tokens age in milliseconds, for API requests with access tokens only</li>
+<li><code>api-access-token-secret</code> - A generic secret to be used for API access or signatures</li>
 <li><code>api-disable-session</code> - Disable access to API endpoints for Web sessions, must be signed properly</li>
 <li><code>api-disable-session-acl</code> - Combine regexps from the specified acls for the check explained by <code>-api-disable-session</code> parameter</li>
 <li><code>api-allow-authenticated</code> - Add URLs which can be accessed by any authenticated user account, can be partial urls or Regexp, it is checked before any other account types, if matched then no account specific paths will be checked anymore(any of the allow-account-...)</li>
@@ -1885,6 +1869,8 @@ Database pool statistics and other diagnostics</p>
 <li><code>auth-bcrypt</code> - Number of iterations for bcrypt</li>
 <li><code>auth-argon2</code> - Argon2 parameteres, ex: type:2,memoryCost:1,hashLength:32</li>
 <li><code>auth-max-length</code> - Max login and name length</li>
+<li><code>auth-users</code> - An object with users</li>
+<li><code>auth-users-file</code> - A JSON file with a list of users</li>
 <li><code>jobs-workers</code> - How many worker processes to launch to process the job queue, -1 disables jobs, 0 means launch as many as the CPUs available</li>
 <li><code>jobs-worker-cpu-factor</code> - A number to multiply the number of CPUs available to make the total number of workers to launch, only used if <code>workers</code> is 0</li>
 <li><code>jobs-worker-args</code> - Node arguments for workers, for passing v8 jobspec, see <code>process</code></li>
@@ -1902,8 +1888,11 @@ Database pool statistics and other diagnostics</p>
 <li><code>jobs-schedule</code> - Cron jobs to be scheduled, the JSON must be in the same format as crontab file</li>
 <li><code>jobs-unique-queue</code> - Default queue name to use for keeping track of unique jobs</li>
 <li><code>jobs-unique-ignore</code> - Ignore all unique parameters if a job&#39;s uniqueKey matches</li>
-<li><code>events-worker-queue-(.+)</code> - Queues to subscribe for workers, same queues can be used at the same time with different functions and channels, ex: -ipc-worker-queue-ticket ticket.processEvents</li>
+<li><code>jobs-unique-set-ttl-([0-9]+)</code> - Override unique TTL to a new value if matches the unique key, ex: -jobs-unique-ttl-100 KEY</li>
+<li><code>jobs-unique-logger</code> - Log level for unique error conditions</li>
+<li><code>events-worker-queue-(.+)</code> - Queues to subscribe for workers, same queues can be used at the same time with different functions and channels and consumers, event queue format is <code>queue#channel@consumer</code>, ex: -ipc-worker-queue-ticket ticket.processEvents, -ipc-worker-queue-ticket#inbox@staff ticket.processInboxEvents, -ipc-worker-queue-ticket@staff ticket.processStaffEvents</li>
 <li><code>events-worker-options-(.+)</code> - Custom parameters by queue name, passed to <code>ipc.subscribeQueue</code> on worker start, useful with channels, ex: <code>-events-worker-options-ticket {&quot;count&quot;:3,&quot;raw&quot;:1}</code></li>
+<li><code>events-worker-delay</code> - Delay in milliseconds for a worker before it will start accepting jobs, for cases when other dependencies may take some time to start</li>
 <li><code>events-max-runtime</code> - Max number of seconds an event processing can run before being killed</li>
 <li><code>events-routing-(.+)</code> - Queue routing by event topic</li>
 <li><code>events-properties</code> - List of properties to copy into an event envelope from the provided options</li>
@@ -2209,6 +2198,12 @@ been processed.</p>
 
 <h2 id="module-auth">Module: AUTH</h2>
 <ul>
+<li><p><code>mod.loadUsers(callback)</code></p>
+<p> Load users from a JSON file, only add or update records</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>mod.prepareSecret(query, options, callback)</code></p>
 <p> If specified in the options, prepare credentials to be stored in the db, if no error occurred return null, otherwise an error object</p>
 <ul>
@@ -2276,6 +2271,12 @@ otherwise internal properties will not be added</p>
 <li><p><code>aws.readCredentials(profile, callback)</code></p>
 <p> Read key and secret from the AWS SDK credentials file, if no profile is given in the config or command line only the default peofile
 will be loaded.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.readConfig(callback)</code></p>
+<p> Read and apply config from S3 bucket</p>
 </li>
 </ul>
 
@@ -2388,12 +2389,6 @@ will be loaded.</p>
 </ul>
 
 <ul>
-<li><p><code>aws.queryRoute53(method, path, data, options, callback)</code></p>
-<p> Make a request to Route53 service</p>
-</li>
-</ul>
-
-<ul>
 <li><p><code>aws.queryRekognition(action, obj, options, callback)</code></p>
 <p> Make a request to the Rekognition service</p>
 </li>
@@ -2491,23 +2486,6 @@ The following options accepted:</p>
 </ul>
 
 <ul>
-<li><p><code>aws.route53Change(names, options, callback)</code></p>
-<p> Create or update a host in the Route53 database.</p>
-</li>
-</ul>
-<ul>
-<li><code>names</code> is a host name to be set with the current IP address or a list with objects in the format<pre><code>[ { name: &quot;..&quot;, value: &quot;1.1.1.1&quot;, type: &quot;A&quot;, ttl: 300 } ...]
-</code></pre>
-</li>
-</ul>
-<p> The <code>options</code> may contain the following:</p>
-<ul>
-<li>type - default record type, A</li>
-<li>ttl - default TTL, 300 seconds</li>
-<li>op - an operation, default is UPSERT</li>
-</ul>
-
-<ul>
 <li><p><code>aws.detectLabels(name, options, callback)</code></p>
 <p> Detect image featires using AWS Rekognition service, the <code>name</code> can be a Buffer, a local file or an url to the S3 bucket. In the latter case
 the url can be just apath to the file inside a bucket if <code>options.bucket</code> is specified, otherwise it must be a public S3 url with the bucket name
@@ -2561,12 +2539,6 @@ it in the spawned web master will fail due to the fact that we already set the h
 </ul>
 
 <ul>
-<li><p><code>core.parseConfig(data, pass, file)</code></p>
-<p> Parse config lines for the file or other place</p>
-</li>
-</ul>
-
-<ul>
 <li><p><code>core.loadConfig(file, callback)</code></p>
 <p> Parse the config file, configFile can point to a file or can be skipped and the default file will be loaded</p>
 </li>
@@ -2581,12 +2553,6 @@ it in the spawned web master will fail due to the fact that we already set the h
 <ul>
 <li><p><code>core.loadDnsConfig(options, callback)</code></p>
 <p> Load configuration from the DNS TXT records</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>core.loadLocales(options, callback)</code></p>
-<p> Load configured locales</p>
 </li>
 </ul>
 
@@ -2689,17 +2655,18 @@ This is used the the core itcore to register all internal modules and makes it a
       // to be used by different backends or workers
       bk_config: {
           name: { primary: 1 },            // name of the parameter
-          type: { primary: 1 },            // config type or tag
+          type: { primary: 2 },            // config type or tag
           value: { type: &quot;text&quot; },         // the value
           status: { value: &quot;ok&quot; },         // ok - availaible
           ttl: { type: &quot;int&quot; },            // refresh interval in seconds since last read
+          version: { type: &quot;text&quot; },       // version conditions, &gt;M.N,&lt;M.N
           mtime: { type: &quot;now&quot; }
       },
 
       // General purpose properties, can be used to store arbitrary values
       bk_property: {
           name: { primary: 1 },
-          value: {},
+          value: { index: 1 },
           count: { type: &quot;counter&quot; },      // general purpose counter value
           ttl: { type: &quot;int&quot; },            // time to live, seconds since last update
           mtime: { type: &quot;now&quot; }
@@ -2711,72 +2678,6 @@ This is used the the core itcore to register all internal modules and makes it a
 <ul>
 <li><p><code>createPool:(opts) </code></p>
 <p> None database driver</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.init(options, callback)</code></p>
-<p> Initialize all database pools. the options may containt the following properties:</p>
-<ul>
-<li>createTables - if true then create new tables or upgrade tables with new columns</li>
-<li>localTables - if true only enable local, default and config pools</li>
-</ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.initConfig(options, callback)</code></p>
-<p> Load configuration from the config database, must be configured with <code>db-config-type</code> pointing to the database pool where bk_config table contains
-configuration parameters.</p>
-</li>
-</ul>
-<p> The priority of the paramaters is fixed and goes from the most broad to the most specific, most specific always wins, this allows
- for very flexible configuration policies defined by the app or place where instances running and separated by the run mode.</p>
-<p> The following list of properties will be queried from the config database and the sorting order is very important, the last values
- will override values received for the earlier properties, for example, if two properties defined in the <code>bk_config</code> table with the
- types <code>myapp</code> and <code>prod-myapp</code>, then the last value will be used only.</p>
-<p> The major elements are the following:</p>
-<ul>
-<li>the run mode specified in the command line <code>-run-mode: production</code></li>
-<li>the application name from the package.json: <code>myapp</code></li>
-<li>the process role: <code>-worker</code></li>
-<li>the instance tag, AWS name tag or other name: <code>-nat</code></li>
-</ul>
-<p> The modifiers which are appended to each major attributes:</p>
-<ul>
-<li>the network where the instance is running, first 2 octets from the current IP address: <code>-192.168</code></li>
-<li>the region where the instance is running, AWS region or other: <code>us-east-1</code></li>
-</ul>
-<p> The top level list is the following:</p>
-<ul>
-<li>runMode</li>
-<li>appName</li>
-<li>runMode-appName</li>
-<li>runMode-role</li>
-<li>runMode-tag</li>
-<li>runMode-tag-role</li>
-<li>runMode-appName-role</li>
-<li>runMode-appName-tag</li>
-</ul>
-<p> All modifiers are appended for every item in the list like <code>runMode-network</code>, <code>runMode-appName-tag-region</code>,...</p>
-<p> The options takes the following properties:</p>
-<ul>
-<li>force - if true then force to refresh and reopen all db pools</li>
-<li>delta - if true then pull only records updated since the last config pull using the max mtime from received records.</li>
-<li>table - a table where to read the config parameters, default is bk_config</li>
-</ul>
-<p> <strong>NOTE: The config parameters from the DB always take precedence even over config.local.</strong></p>
-<p> On return, the callback second argument will receive all parameters received form the database as a list: -name value ...</p>
-
-<ul>
-<li><p><code>db.getConfig(options, callback)</code></p>
-<p> Return all config records for the given instance, the result will be sorted most relevant at the top</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.refreshConfig(options, callback)</code></p>
-<p> Refresh parameters which are configured with a TTL</p>
 </li>
 </ul>
 
@@ -3447,6 +3348,18 @@ then <code>info.affected_rows</code> must be non zero.</p>
 </ul>
 <p> If exit is required the <code>shundownWorker</code> methods will receive options with <code>shutdownReason</code> property
  set and the name-sake property will contained the value exceeded.</p>
+
+<ul>
+<li><p><code>mod.putEvent(topic, data, options)</code></p>
+<p> Place an event into a queue by topic</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>mod.getQueueByHandler(proc)</code></p>
+<p> Return a queue name by the event handler</p>
+</li>
+</ul>
 
 <h2 id="module-http_get">Module: HTTP_GET</h2>
 <h2 id="module-index">Module: INDEX</h2>
@@ -4234,6 +4147,13 @@ any element in the array exists in the <code>list</code>.</p>
 </li>
 </ul>
 
+<ul>
+<li><p><code>lib.validVersion(version, condition)</code></p>
+<p> Return true if the version is within given condition(s), always true if either argument is empty.
+Conditions can be: &gt;=M.N, &gt;M.N, =M.N, &lt;=M.N, &lt;M.N, M.N-M.N</p>
+</li>
+</ul>
+
 <h2 id="module-logger">Module: LOGGER</h2>
 <ul>
 <li><p><code>logger</code></p>
@@ -4515,6 +4435,7 @@ A subcommand may return special string to indicate how to treat the flow:</p>
 <li>stop - stop processing commands and create REPL</li>
 <li>continue - do not exit and continue processing other commands or end with REPL</li>
 <li>all other values will result in returning from the run assuming the command will decide what to do, exit or continue running, no REPL is created</li>
+<li>if `-noexit`` is passed in the command line keep the shell running after executing the command</li>
 </ul>
 
 <ul>

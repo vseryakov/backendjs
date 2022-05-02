@@ -638,6 +638,7 @@ The backend directory structure is the following:
 
 * `etc` - configuration directory, all config files are there
     * `etc/profile` - shell script loaded by the bkjs utility to customize env variables
+
     * `etc/config` - config parameters, same as specified in the command line but without leading -, each config parameter per line:
 
         Example:
@@ -649,10 +650,9 @@ The backend directory structure is the following:
 
             To specify other config file: bkjs shell -config-file file
 
-    * etc/config.local - same as the config but for the cases when local environment is different than the production or for dev specific parameters
-    * some config parameters can be configured in DNS as TXT records, the backend on startup will try to resolve such records and use the value if not empty.
-      All params that  marked with DNS TXT can be configured in the DNS server for the domain where the backend is running, the config parameter name is
-      concatenated with the domain and queried for the TXT record, for example: `cache-host` parameter will be queried for cache-host.domain.name for TXT record type.
+    * `etc/config.local` - same as the config but for the cases when local environment is different than the production or for dev specific parameters
+
+    * on startup the following local config files will be loaded if present: `etc/config.runMode` and `etc/config.instance.tag`. These will be loaded after the main config but before config.local. The runMode is set to development by default and can be changed with `-run-mode` config parameter, the instance tag is set with `-instance-tag` config parameter.
 
     * `etc/crontab` - jobs to be run with intervals, JSON file with a list of cron jobs objects:
 
@@ -675,6 +675,10 @@ The backend directory structure is the following:
                 bkjs master -jobs-workers 1 -jobs-cron
 
     * etc/crontab.local - additional local crontab that is read after the main one, for local or dev environment
+
+    * `run-mode` and `db-pool` config parameters can be configured in DNS as TXT records, the backend on startup will try to resolve such records and use the value if not empty.
+      All params that  marked with DNS TXT can be configured in the DNS server for the domain where the backend is running, the config parameter name is
+      concatenated with the domain and queried for the TXT record, for example: `run-mode` parameter will be queried for run-mode.domain.name for TXT record type.
 
 * `modules` - loadable modules with specific functionality
 * `images` - all images to be served by the API server, every subfolder represent naming space with lots of subfolders for images
