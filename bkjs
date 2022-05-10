@@ -417,6 +417,8 @@ case "$BKJS_CMD" in
     if [ "$bkcmd" != "" ]; then
         find_user
         bkcmd="--rsync-path=/home/$BKJS_USER/bin/bkrsync -bkcmd $(echo $bkcmd|sed 's/ /%20/g')"
+    else
+        bkcmd=-v
     fi
     include=$(get_json package.json config.sync.include)
     for inc in $include; do
