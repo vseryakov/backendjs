@@ -818,13 +818,15 @@ tests.test_logwatcher = function(callback)
                 "-logwatcher-send-warning", email,
                 "-logwatcher-send-any", email,
                 "-logwatcher-match-test", "TEST: ",
+                "-logwatcher-ignore-warning", "warning2",
                 "-logwatcher-once-test2", "test2",
                 "-logwatcher-match-any", "line:[0-9]+",
             ];
     var lines = [
                 " ERROR: error1",
                 " continue error1",
-                "[] WARN: warning1",
+                "]: WARN: warning1",
+                "]: WARN: warning2",
                 " backtrace test line:123",
                 "[] TEST: test1",
                 "[] TEST: test2 shown",
@@ -841,9 +843,9 @@ tests.test_logwatcher = function(callback)
             ];
     core.parseArgs(argv);
     fs.appendFileSync(core.logFile, lines.join("\n"));
-    core.watchLogs(function(err, errors) {
-        if (!err && !Object.keys(errors).length) err = "no errors matched but should";
-        console.log(errors);
+    core.watchLogs(function(err, rc) {
+        if (!err && lib.objKeys(rc.errors).length != 4) err = "no errors matched but should";
+        console.log(rc);
         callback(err);
     });
 }
