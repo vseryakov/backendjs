@@ -9,9 +9,21 @@ var marked = require("marked");
 var bkjs = require('backendjs');
 
 var skip = /tests\//;
-var files = fs.readdirSync(".").filter(function(x) { return fs.statSync(x).isFile() && ["index.js", "doc.js"].indexOf(x) == -1 && x.match(/\.js$/); });
-files = files.concat(fs.readdirSync("lib/").filter(function(x) { return fs.statSync("lib/" + x).isFile() && x.match(/\.js$/); }).map(function(x) { return "lib/" + x }));
-files = files.concat(fs.readdirSync("modules/").filter(function(x) { return fs.statSync("modules/" + x).isFile() && x.match(/\.js$/); }).map(function(x) { return "modules/" + x }));
+var files = fs.readdirSync(".").filter((x) => (fs.statSync(x).isFile() && ["index.js", "doc.js"].indexOf(x) == -1 && x.match(/\.js$/)));
+fs.readdirSync("lib/").forEach((x) => {
+    var s = fs.statSync("lib/" + x);
+    if (s.isFile() && x.slice(-3) == ".js") {
+        files.push("lib/" + x);
+    } else
+    if (s.isDirectory()) {
+        fs.readdirSync("lib/" + x).forEach((y) => {
+            var s = fs.statSync("lib/" + x + "/" + y);
+            if (s.isFile() && y.slice(-3) == ".js") files.push("lib/" + x + "/" + y);
+        });
+    }
+});
+files = files.concat(fs.readdirSync("modules/").filter((x) => (fs.statSync("modules/" + x).isFile() && x.match(/\.js$/))).map((x) => ("modules/" + x)));
+files.sort();
 
 marked.setOptions({ gfm: true, tables: true, breaks: false, pedantic: false, smartLists: true, smartypants: false });
 
