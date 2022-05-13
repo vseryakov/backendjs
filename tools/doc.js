@@ -56,7 +56,7 @@ var header = '<head><title>Backendjs Documentation</title>' +
         '</div>' +
         '</nav>';
 
-var toc = "# Backendjs Documentation\n##Table of contents\n";
+var toc = "# Backendjs Documentation\n## Table of contents\n";
 
 var readme = fs.readFileSync("README.md").toString();
 
@@ -72,8 +72,10 @@ toc += "* [Configuration parameters](#configuration-parameters)\n";
 toc += "* Javascript API functions\n";
 
 files.forEach(function(file) {
-    file = path.basename(file, '.js');
-    toc += "    * [" + file + "](#module-" + file + ")\n";
+    if (/^(lib|modules)\/[a-z0-9_-]+.js$/.test(file)) {
+        file = path.basename(file, '.js');
+        toc += "    * [" + file + "](#module-" + file + ")\n";
+    }
 });
 
 var text = marked(toc, { renderer: renderer });
@@ -82,10 +84,15 @@ text += marked(readme, { renderer: renderer });
 text += marked("## Configuration parameters\n", { renderer: renderer });
 text += marked(bkjs.core.showHelp({ markdown: 1 }), { renderer: renderer });
 
+var base = "";
+
 files.forEach(function(file) {
+    if (/^(lib|modules)\/[a-z0-9_-]+.js$/.test(file)) base = file;
     var doc = "";
     var data = fs.readFileSync(file).toString().split("\n");
-    text += marked("## Module: " + path.basename(file, '.js').toUpperCase() + "\n", { renderer: renderer });
+    if (base == file) {
+        text += marked("## Module: " + path.basename(file, '.js').toUpperCase() + "\n", { renderer: renderer });
+    }
     for (var i = 0; i < data.length; i++) {
         var line = data[i];
         if (!line) continue;
@@ -93,7 +100,7 @@ files.forEach(function(file) {
         // Comments
         var d = line.match(/^\/\//);
         if (d) {
-            doc += line.substr(2) + "\n";
+            doc += " " + line.substr(2) + "\n";
             continue;
         }
         // Function
