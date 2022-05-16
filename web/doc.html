@@ -204,7 +204,7 @@ bkjs web -db-pool elasticsearch -db-elasticsearch-pool http://127.0.0.1:9200 -db
 <li><p>While the local backendjs is runnning, the documentation is always available at <a href="http://localhost:8000/doc.html">http://localhost:8000/doc.html</a> (or whatever port is the server using)</p>
 </li>
 <li><p>To add users from the command line</p>
-<pre><code>  bksh -user-add login test secret test name TestUser email test@test.com -scramble 1
+<pre><code>  bksh -user-add login test secret test name TestUser email test@test.com
 </code></pre>
 </li>
 <li><p>To start Node.js shell with backendjs loaded and initialized, all command line parameters apply to the shell as well</p>
@@ -8991,7 +8991,7 @@ use the same names as command line arguments without preceeding <code>test-</cod
 <p>Custom tests:</p>
 <ul>
 <li><p>create a user for backend testing, if the API does not require authentication skip this step:</p>
-<pre><code>  bksh -account-add login testuser secret testpw -scramble 1
+<pre><code>  bksh -account-add login testuser secret testpw
 </code></pre>
 </li>
 <li><p>configure global backend credentials</p>

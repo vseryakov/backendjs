@@ -6,7 +6,7 @@
 
 2. Create a user
 
-	bksh -home . -account-add login test secret test -scramble 1
+	bksh -home . -account-add login test secret test
 
 3. Run the app
 

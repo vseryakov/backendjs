@@ -132,7 +132,7 @@ The command below will show all core and optional dependencies
 
 * To add users from the command line
 
-        bksh -user-add login test secret test name TestUser email test@test.com -scramble 1
+        bksh -user-add login test secret test name TestUser email test@test.com
 
 * To start Node.js shell with backendjs loaded and initialized, all command line parameters apply to the shell as well
 

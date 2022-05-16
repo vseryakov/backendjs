@@ -42,13 +42,6 @@ bkjs.getAccount = function(query, callback)
 bkjs.updateAccount = function(obj, callback)
 {
     if (!obj.login) obj.login = this.account.login;
-    // Scramble here if we did not ask the server to do it with _scramble option
-    if (obj.secret && !obj._scramble) {
-        var creds = this.checkCredentials(obj);
-        obj.login = creds.login;
-        obj.secret = creds.secret;
-        obj.scramble = creds.scramble;
-    }
     delete obj.secret2;
     this.sendRequest({ url: '/account/update', data: obj, type: "POST", jsonType: "obj" }, callback);
 }

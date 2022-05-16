@@ -14,11 +14,6 @@ var bkjs = {
     // Save credentials in the local storage, by default keep only in memory
     persistent: false,
 
-    // Scramble the secret, use HMAC for the secret instead of the actual value, a user still
-    // needs to enter the real values but the browser will never store them, only hashes.
-    // The value is: 0 - no scramble, 1 - scramble secret as HMAC_SHA256(secret, login)
-    scramble: 1,
-
     // Signature header name and version
     signatureVersion: 4,
     signatureName: "bk-signature",
@@ -46,9 +41,6 @@ var bkjs = {
         retry_mod: 2,
         pending: [],
     },
-
-    // Trim these symbols from login/secret, all whitespace is default
-    trimCredentials: " \"\r\n\t\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200A\u202F\u205F\u3000\u008D\u009F\u0080\u0090\u009B\u0010\u0009\u0000\u0003\u0004\u0017\u0019\u0011\u0012\u0013\u0014\u2028\u2029\u2060\u202C",
 
     // i18n locales by 2-letter code, uses account.lang to resolve the translation
     locales: {},
@@ -156,37 +148,19 @@ bkjs.getCredentials = function()
     return { login: obj.bkjsLogin || "", secret: obj.bkjsSecret || "" };
 }
 
-// Process credentials, cleanup, scramble... and return as an object
-bkjs.checkCredentials = function(options)
+// Scramble credentials and return a new secret
+bkjs.scrambleCredentials = function(login, secret)
 {
-    var rc = {
-        scramble: options && options.scramble || this.scramble || 0,
-        login: options && options.login ? String(options.login) : "",
-        secret: options && options.secret && options.login ? String(options.secret) : "",
-    };
-    if (this.trimCredentials) {
-        if (!this._trimC) this._trimC = new RegExp("(^[" + this.trimCredentials + "]+)|([" + this.trimCredentials + "]+$)", "gi");
-        rc.login = rc.login.replace(this._trimC, "");
-        rc.secret = rc.secret.replace(this._trimC, "");
-    }
-    if (rc.login && rc.secret) this.scrambleCredentials(rc);
-    return rc;
-}
-
-// Scramble credentials if needed
-bkjs.scrambleCredentials = function(options)
-{
-    if (options.scramble) options.secret = this.crypto.hmacSha256(options.secret, options.login, "base64");
+    return this.crypto.hmacSha256(secret, login, "base64");
 }
 
 // Set new credentials, save in memory or local storage
 bkjs.setCredentials = function(options)
 {
     var obj = this.persistent ? localStorage : this;
-    var creds = this.checkCredentials(options);
-    obj.bkjsLogin = creds.login;
-    obj.bkjsSecret = creds.secret;
-    if (this.debug) this.log('setCredentials:', creds, options);
+    obj.bkjsLogin = options?.login;
+    obj.bkjsSecret = options?.secret;
+    if (this.debug) this.log('setCredentials:', options);
 }
 
 // Send signed AJAX request using jQuery, call callbacks onsuccess or onerror on successful or error response accordingly.

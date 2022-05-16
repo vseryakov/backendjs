@@ -13,7 +13,7 @@
 
 3. Create a user for local authentication
 
-        bksh -etc-dir $(pwd)/etc -account-add login admin secret admin -scramble 1
+        bksh -etc-dir $(pwd)/etc -account-add login admin secret admin
 
 4. Run the app
 

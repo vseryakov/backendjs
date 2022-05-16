@@ -1887,3 +1887,16 @@ bkjs.__ = function()
     return this.sprintf(msg, Array.prototype.slice.call(arguments, 1));
 }
 
+// Trim all whitespace
+bkjs.trimChars = " \"\r\n\t\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200A\u202F\u205F\u3000\u008D\u009F\u0080\u0090\u009B\u0010\u0009\u0000\u0003\u0004\u0017\u0019\u0011\u0012\u0013\u0014\u2028\u2029\u2060\u202C"
+
+// Remove whitespaces
+bkjs.trimWhitesspace = function(str)
+{
+    if (this.trimChars) {
+        if (!this._trimC) this._trimC = new RegExp("(^[" + this.trimChars + "]+)|([" + this.trimChars + "]+$)", "gi");
+        if (typeof str == "string") str = str.replace(this._trimC, "");
+    }
+    return str;
+}
+
