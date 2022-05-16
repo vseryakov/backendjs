@@ -237,7 +237,7 @@ export PATH=$BKJS_HOME/bin:$BKJS_HOME/node_modules/.bin:$BKJS_PREFIX/bin:/usr/lo
 
 process_cmds() { process_cmd 1; }
 
-[ ! -z "$BKJS_DEBUG" ] && echo "$0: CMD=$BKJS_CMD, USER=$BKJS_USER, HOME=$BKJS_HOME, PREFIX=$BKJS_PREFIX, PWD=$(pwd)"
+[ ! -z "$BKJS_DEBUG" ] && echo "$(date): $0: CMD=$BKJS_CMD, USER=$BKJS_USER, HOME=$BKJS_HOME, PREFIX=$BKJS_PREFIX, PWD=$(pwd)"
 
 case "$BKJS_CMD" in
   start)
@@ -350,7 +350,7 @@ case "$BKJS_CMD" in
     [ -z "$SCRIPT" ] && SCRIPT=$BKJS_DIR/lib/app.js
     [ -z $SCRIPT ] && echo "ERROR: Cannot find $BKJS_MOD module or app.js in '.:$BKJS_HOME'" && exit 1
 
-    [ ! -z "$BKJS_DEBUG" ] && echo "Starting $BKJS_CMD: $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME $BKJS_RUN_ARGS $@"
+    [ ! -z "$BKJS_DEBUG" ] && echo "$(date): Starting $BKJS_CMD: $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME $BKJS_RUN_ARGS $@"
 
     case "$BKJS_CMD" in
      run-none|none)
@@ -534,12 +534,12 @@ case "$BKJS_CMD" in
        name=${file%.*}
     fi
     if [ ! -f $dir/package.json ]; then
-       [ "$quiet" = "" ] && echo "$BKJS_CMD: package.json is not found"
+       [ "$BKJS_DEBUG" != "" ] && echo "$(date): $BKJS_CMD: package.json is not found"
        exit 1
     fi
     [ -d $dir/.git ] && repo=$(cd $dir && git symbolic-ref --short -q HEAD)
     bundles=$(get_json $dir/package.json config.bundles)
-    [ "$quiet" = "" ] && echo "$BKJS_CMD: $repo: $dir $type bundles: $bundles"
+    [ "$quiet" = "" ] && echo "$(date): $BKJS_CMD: $repo: $dir $type bundles: $bundles"
 
     for b in $bundles; do
         unset f
@@ -549,7 +549,7 @@ case "$BKJS_CMD" in
         if [[ -z $name || $name = $b || $f =~ $name ]]; then
             files=$f
             bundle=$b
-            [ "$quiet" = "" ] && echo "$(date): web-bundle $bundle.$type started $dir/$file, files: $files"
+            [ "$BKJS_DEBUG" != "" ] && echo "$(date): $BKJS_CMD: $bundle.$type started $dir/$file, files: $files"
             case $file in
             *js)
                 mkdir -p $dir/web/js /tmp/bktmp
@@ -566,7 +566,7 @@ case "$BKJS_CMD" in
                             dfiles="$dfiles $f"
                         fi
                     done
-                    echo "mfiles $mfiles dfiles $dfiles"
+                    [ "$BKJS_DEBUG" != "" ] && echo "$(date): $BKJS_CMD: $bundle.$type MFILES: $mfiles DFILES: $dfiles"
                     if [[ ! -z $mfiles ]]; then
                         (cd $dir && cat $mfiles >> web/js/$bundle.bundle.js)
                     fi
@@ -621,11 +621,11 @@ case "$BKJS_CMD" in
                 done
                 ;;
             esac
-            [ "$quiet" = "" ] && echo "$(date): web-bundle $bundle.$type finished $dir/$file"
+            [ "$BKJS_DEBUG" != "" ] && echo "$(date): $BKJS_CMD: $bundle.$type finished $dir/$file"
         fi
     done
     if [ "$files" = "" ]; then
-        [ "$quiet" = "" ] && echo "$BKJS_CMD: no $type config.bundles found in $dir/package.json"
+        [ "$BKJS_DEBUG" != "" ] && echo "$(date): $BKJS_CMD: no $type config.bundles found in $dir/package.json"
     fi
     ;;
 
