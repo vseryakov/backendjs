@@ -627,7 +627,7 @@ case "$BKJS_CMD" in
     if [ "$files" = "" ]; then
         [ "$BKJS_DEBUG" != "" ] && echo "$(date): $BKJS_CMD: no $type config.bundles found in $dir/package.json"
     fi
-    exit
+    exit 0
     ;;
 
   install-node)
