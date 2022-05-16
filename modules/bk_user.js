@@ -78,7 +78,7 @@ mod.configureAccountsAPI = function()
 
         case "update":
             mod.updateAccount(req, options, (err, data) => {
-                if (!err) api.wsNotify({ account_id: req.account.id }, { op: req.path, account: data });
+                if (!err) api.wsNotify({ account_id: req.account.id, cleanup: ["bk_user", "account"] }, { op: req.path, account: data });
                 api.sendJSON(req, err, data);
             });
             break;
@@ -163,6 +163,10 @@ mod.addAccount = function(req, options, callback)
 
     lib.series([
         function(next) {
+            req.stopOnError = 1;
+            core.runMethods("bkPrepareAddAccount", req, { logger_allow: ["query", ...api.requestCleanup] }, next);
+        },
+        function(next) {
             auth.add(req.query, options, (err, row) => {
                 if (!err) {
                     // Link account record for other middleware
@@ -186,9 +190,14 @@ mod.updateAccount = function(req, options, callback)
 
     lib.series([
         function(next) {
+            req.stopOnError = 1;
+            core.runMethods("bkPrepareUpdateAccount", req, { logger_allow: ["query", ...api.requestCleanup] }, next);
+        },
+        function(next) {
             auth.update(req.query, options, next);
         },
         function(next) {
+            delete req.stopOnError;
             core.runMethods("bkUpdateAccount", req, { logger_allow: ["query", ...api.requestCleanup] }, next);
         },
     ], function(err) {
@@ -217,10 +226,15 @@ mod.deleteAccount = function(req, callback)
 
         lib.series([
            function(next) {
+               req.stopOnError = 1;
+               core.runMethods("bkPrepareDeleteAccount", req, { logger_allow: ["query", ...api.requestCleanup] }, next);
+           },
+           function(next) {
                if (!lib.isFlag(req.options.keep, ["all", "account", auth.table])) return next();
                auth.update({ id: req.account.id, login: req.account.login, type: req.account.type }, req.options, next);
            },
            function(next) {
+               delete req.stopOnError;
                core.runMethods("bkDeleteAccount", req, { logger_allow: ["query", ...api.requestCleanup] }, next);
            },
            function(next) {
