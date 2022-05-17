@@ -118,16 +118,6 @@
           "web/css/bootstrap.css",
           "web/css/font-awesome.css"
         ]
-      },
-      "srp": {
-        "js": [
-            "web/js/jsbn.js",
-            "web/js/bkjs-srp.js"
-        ],
-        "js.dev": [
-            "web/js/jsbn.js",
-            "web/js/bkjs-srp.js"
-        ]
       }
     }
   },
