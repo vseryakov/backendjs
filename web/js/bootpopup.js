@@ -244,6 +244,10 @@ function bootpopup(options)
                     case "button":
                     case "submit":
                         attrs.type = (typeof attrs.type === "undefined" ? "text" : attrs.type);
+                        if (attrs.type == "hidden") {
+                            elem = $("<" + type + "></" + type + ">", attrs).appendTo(form);
+                            break;
+                        }
 
                     case "select":
                         // Create a random id for the input if none provided
