@@ -148,12 +148,6 @@ bkjs.getCredentials = function()
     return { login: obj.bkjsLogin || "", secret: obj.bkjsSecret || "" };
 }
 
-// Scramble credentials and return a new secret
-bkjs.scrambleCredentials = function(login, secret)
-{
-    return this.crypto.hmacSha256(secret, login, "base64");
-}
-
 // Set new credentials, save in memory or local storage
 bkjs.setCredentials = function(options)
 {

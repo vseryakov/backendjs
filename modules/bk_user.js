@@ -252,8 +252,8 @@ mod.configureShell = function(options, callback)
 {
     core.modules.shell.help.push(
         "-user-get ID|LOGIN ... - show user records",
-        "-user-add [-scramble 1] [-bcrypt 10] login LOGIN secret SECRET [name NAME] [email EMAIL] [type TYPE] ... - add a new user for API access using the bk_user module",
-        "-user-update [-scramble 1] [-bcrypt 10] [login LOGIN|id ID] [name NAME] [email EMAIL] [type TYPE] ... - update existing user properties using the bk_user module ",
+        "-user-add login LOGIN secret SECRET [name NAME] [email EMAIL] [type TYPE] ... - add a new user for API access using the bk_user module",
+        "-user-update [login LOGIN|id ID] [name NAME] [email EMAIL] [type TYPE] ... - update existing user properties using the bk_user module ",
         "-user-del [login LOGIN|id ID]... - delete a user using the bk_user module");
 
     for (const p in this) {
