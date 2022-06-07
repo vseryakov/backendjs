@@ -9,7 +9,7 @@ case "$BKJS_CMD" in
     platform=$(echo $PLATFORM | tr [:upper:] [:lower:])
     arch=$OS_ARCH
     [ "$arch" = "x64" ] && arch=amd64
-    curl -L -o /tmp/nats.tgz https://github.com/nats-io/nats-server/releases/download/v2.8.1/nats-server-v2.8.1-$platform-$arch.tar.gz
+    curl -L -o /tmp/nats.tgz https://github.com/nats-io/nats-server/releases/download/v2.8.4/nats-server-v2.8.4-$platform-$arch.tar.gz
     tar --strip-components=1 -C /tmp -xzf /tmp/nats.tgz
     mv /tmp/nats-server $BKJS_PREFIX/bin
     rm -rf /tmp/nats.tgz
@@ -37,7 +37,7 @@ case "$BKJS_CMD" in
     platform=$(echo $PLATFORM | tr [:upper:] [:lower:])
     arch=$OS_ARCH
     [ "$arch" = "x64" ] && arch=amd64
-    curl -L -o /tmp/nats.zip https://github.com/nats-io/natscli/releases/download/v0.0.32/nats-0.0.32-$platform-$arch.zip
+    curl -L -o /tmp/nats.zip https://github.com/nats-io/natscli/releases/download/v0.0.33/nats-0.0.33-$platform-$arch.zip
     unzip -j /tmp/nats.zip -d /tmp '*/nats'
     mv /tmp/nats $BKJS_PREFIX/bin
     rm -rf /tmp/nats.zip
