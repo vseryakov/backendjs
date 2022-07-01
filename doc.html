@@ -97,7 +97,6 @@ same way allowing you to switch databases without changing the code.</li>
 <li>Experimental database drivers for MySQL, Cassandra, Riak, CouchDB</li>
 <li>Experimental DynamoDB Streams processing in background worker processes</li>
 <li>Easily extensible to support any kind of database, provides a database driver on top of Redis with all supported methods as an example.</li>
-<li>Provides accounts, connections, locations, messaging and icons APIs with basic functionality for a quick start.</li>
 <li>Supports crontab and queue job processing by separate worker processes.</li>
 <li>Authentication is based on signed requests using API key and secret, similar to Amazon AWS signing requests.</li>
 <li>Runs web server as separate processes to utilize multiple CPU cores.</li>
@@ -211,16 +210,22 @@ bkjs web -db-pool elasticsearch -db-elasticsearch-pool http://127.0.0.1:9200 -db
 <pre><code>  bkjs shell
 </code></pre>
 </li>
-<li><p>To access the database while in the shell</p>
-<pre><code>  &gt; db.select(&quot;bk_user&quot;, {}, console.log);
-  &gt; db.select(&quot;bk_user&quot;, {}, lib.log);
+<li><p>To access the database while in the shell using callbacks</p>
+<pre><code>  &gt; db.select(&quot;bk_user&quot;, {}, lib.log);
   &gt; db.add(&quot;bk_user&quot;, { id: &#39;test2&#39;, login: &#39;test2&#39;, secret: &#39;test2&#39;, name&#39; Test 2 name&#39; }, lib.log);
   &gt; db.select(&quot;bk_user&quot;, { id: &#39;test2&#39; }, lib.log);
   &gt; db.select(&quot;bk_user&quot;, { id: [&#39;test1&#39;,&#39;test2&#39;] }, { ops: { id: &quot;in&quot; } }, lib.log);
 </code></pre>
 </li>
+</ul>
+<p>or the same using async/await, same methods with <code>a</code> prepended to the name</p>
+<pre><code>    &gt; await db.aselect(&quot;bk_user&quot;, {});
+    &gt; await db.aadd(&quot;bk_user&quot;, { id: &#39;test2&#39;, login: &#39;test2&#39;, secret: &#39;test2&#39;, name&#39; Test 2 name&#39; });
+    &gt; await db.aselect(&quot;bk_user&quot;, { id: &#39;test2&#39; });
+</code></pre>
+<ul>
 <li><p>To search using Elasticsearch (assuming it runs on EC2 and it is synced with DynamoDB using streams)</p>
-<pre><code>  &gt; db.select(&quot;bk_user&quot;, { q: &#39;test&#39; }, { pool: &quot;elasticsearch&quot; }, lib.log);
+<pre><code>  &gt; await db.select(&quot;bk_user&quot;, { q: &#39;test&#39; }, { pool: &quot;elasticsearch&quot; });
 </code></pre>
 </li>
 </ul>
@@ -395,13 +400,12 @@ which makes it easy to refer and extend with additional methods and structures.<
 
     mymod.configureWeb = function(options, callback)
     {
-        api.app.all(&quot;/mymod&quot;, function(req, res) {
+        api.app.all(&quot;/mymod&quot;, async function(req, res) {
             if (!req.query.id) return api.sendReply(res, 400, &quot;id is required&quot;);
             req.query.type = mod.types;
 
-            db.select(&quot;mymod&quot;, req.query, { ops: { type: &quot;in&quot; }, count: mod.size }, (err, rows) =&gt; {
-               api.sendJSON(req, err, rows);
-            });
+            const rows = await db.aselect(&quot;mymod&quot;, req.query, { ops: { type: &quot;in&quot; }, count: mod.size });
+            api.sendJSON(req, null, rows);
         });
     }
 
@@ -600,34 +604,41 @@ operations like add/update/delete a record, show all records.</p>
     // API routes
     app.configureWeb = function(options, callback)
     {
-        api.app.get(/^\/todo\/([a-z]+)$/, function(req, res) {
+        api.app.get(/^\/todo\/([a-z]+)$/, async function(req, res) {
            var options = api.getOptions(req);
            switch (req.params[0]) {
              case &quot;get&quot;:
                 if (!req.query.id) return api.sendReply(res, 400, &quot;id is required&quot;);
-                db.get(&quot;todo&quot;, { id: req.query.id }, options, (err, rows) =&gt; { api.sendJSON(req, err, rows); });
+                const rows = await db.aget(&quot;todo&quot;, { id: req.query.id }, options);
+                api.sendJSON(req, null, rows);
                 break;
 
              case &quot;select&quot;:
                 options.noscan = 0; // Allow empty scan of the whole table if no query is given, disabled by default
-                db.select(&quot;todo&quot;, req.query, options, (err, rows) =&gt; { api.sendJSON(req, err, rows); });
+                const rows = await db.aselect(&quot;todo&quot;, req.query, options);
+                api.sendJSON(req, null, rows);
                 break;
 
             case &quot;add&quot;:
                 if (!req.query.name) return api.sendReply(res, 400, &quot;name is required&quot;);
                 // By default due date is tomorrow
                 if (req.query.due) req.query.due = lib.toDate(req.query.due, Date.now() + 86400000).toISOString();
-                db.add(&quot;todo&quot;, req.query, options, (err, rows) =&gt; { api.sendJSON(req, err, rows); });
+                db.add(&quot;todo&quot;, req.query, options, (err, rows) =&gt; {
+                    api.sendJSON(req, err, rows);
+                });
                 break;
 
             case &quot;update&quot;:
                 if (!req.query.id) return api.sendReply(res, 400, &quot;id is required&quot;);
-                db.update(&quot;todo&quot;, req.query, options, (err, rows) =&gt; { api.sendJSON(req, err, rows); });
+                const rows = await db.aupdate(&quot;todo&quot;, req.query, options);
+                api.sendJSON(req, null, rows);
                 break;
 
             case &quot;del&quot;:
                 if (!req.query.id) return api.sendReply(res, 400, &quot;id is required&quot;);
-                db.del(&quot;todo&quot;, { id: req.query.id }, options, (err, rows) =&gt; { api.sendJSON(req, err, rows); });
+                db.del(&quot;todo&quot;, { id: req.query.id }, options, (err, rows) =&gt; {
+                    api.sendJSON(req, err, rows);
+                });
                 break;
             }
         });
@@ -4423,7 +4434,7 @@ returns the query record with new columns from memory</li>
 </li>
 </ul>
 <p> Example with SQL driver</p>
-<pre><code>     db.query({ text: &quot;SELECT a.id,c.type FROM bk_user a,bk_icon c WHERE a.id=c.id and a.id=?&quot;, values: [&#39;123&#39;] }, { pool: &#39;pg&#39; }, function(err, rows, info) {
+<pre><code>     db.query({ text: &quot;SELECT a.id,c.type FROM bk_user a,bk_icon c WHERE a.id=c.id and a.id=?&quot;, values: [&#39;123&#39;] }, { pool: &#39;pg&#39; }, (err, rows, info) =&gt; {
      });
 </code></pre>
 </li>
@@ -4457,6 +4468,7 @@ Options can use the following special properties:</p>
 <pre><code>     db.get(&quot;bk_user&quot;, { login: &#39;12345&#39; }, function(err, row) {
         if (row) console.log(row.name);
      });
+     const user = await db.aget(&quot;bk_user&quot;, { login: &#39;12345&#39; });
 </code></pre>
 </li>
 </ul>
@@ -4504,22 +4516,24 @@ also can be a list where each item is an object with primary key condition. Only
 <li>next_token - next primary key or offset for pagination by passing it as .start property in the options, if null it means there are no more pages availabe for this query</li>
 </ul>
 <p>Example: get by primary key, refer above for default table definitions</p>
-<pre><code>   db.select(&quot;bk_message&quot;, { id: &#39;123&#39; }, { count: 2 }, function(err, rows) {
+<pre><code>   db.select(&quot;bk_message&quot;, { id: &#39;123&#39; }, { count: 2 }, (err, rows) =&gt; {
 
    });
+
+   const rows = await db.aselect(&quot;bk_message&quot;, { id: &#39;123&#39; }, { count: 2 });
 </code></pre>
 <p>Example: get all icons with type greater or equal to 2</p>
-<pre><code>   db.select(&quot;bk_icon&quot;, { id: &#39;123&#39;, type: &#39;2&#39; }, { select: &#39;id,type&#39;, ops: { type: &#39;ge&#39; } }, function(err, rows) {
+<pre><code>   db.select(&quot;bk_icon&quot;, { id: &#39;123&#39;, type: &#39;2&#39; }, { select: &#39;id,type&#39;, ops: { type: &#39;ge&#39; } }, (err, rows) =&gt; {
 
    });
 </code></pre>
 <p>Example: get unread msgs sorted by time, recent first</p>
-<pre><code>   db.select(&quot;bk_message&quot;, { id: &#39;123&#39;, status: &#39;N:&#39; }, { sort: &quot;status&quot;, desc: 1, ops: { status: &quot;begins_with&quot; } }, function(err, rows) {
+<pre><code>   db.select(&quot;bk_message&quot;, { id: &#39;123&#39;, status: &#39;N:&#39; }, { sort: &quot;status&quot;, desc: 1, ops: { status: &quot;begins_with&quot; } }, (err, rows) =&gt; {
 
    });
 </code></pre>
 <p>Example: allow all accounts icons to be visible</p>
-<pre><code>   db.select(&quot;bk_user&quot;, {}, function(err, rows) {
+<pre><code>   db.select(&quot;bk_user&quot;, {}, (err, rows) =&gt; {
        rows.forEach(function(row) {
            row.acl_allow = &#39;auth&#39;;
            db.update(&quot;bk_icon&quot;, row);
@@ -4527,12 +4541,12 @@ also can be a list where each item is an object with primary key condition. Only
    });
 </code></pre>
 <p>Example: scan accounts with custom filter, not by primary key: by exact zipcode</p>
-<pre><code>   db.select(&quot;bk_user&quot;, { zipcode: &#39;20000&#39; }, function(err, rows) {
+<pre><code>   db.select(&quot;bk_user&quot;, { zipcode: &#39;20000&#39; }, (err, rows) =&gt; {
 
    });
 </code></pre>
 <p>Example: select accounts by type for the last day</p>
-<pre><code>   db.select(&quot;bk_user&quot;, { type: &#39;admin&#39;, mtime: Date.now()-86400000 }, { ops: { type: &quot;contains&quot;, mtime: &quot;gt&quot; } }, function(err, rows) {
+<pre><code>   db.select(&quot;bk_user&quot;, { type: &#39;admin&#39;, mtime: Date.now()-86400000 }, { ops: { type: &quot;contains&quot;, mtime: &quot;gt&quot; } }, (err, rows) =&gt; {
 
    });
 </code></pre>
@@ -4551,6 +4565,7 @@ the db module <em>DOES NOT PARSE</em> the query at all if the driver supports fu
 <p> Example</p>
 <pre><code>       db.search(&quot;bk_user&quot;, { type: &quot;admin&quot;, q: &quot;john*&quot; }, { pool: &quot;elasticsearch&quot; }, lib.log);
        db.search(&quot;bk_user&quot;, &quot;john*&quot;, { pool: &quot;elasticsearch&quot; }, lib.log);
+       await db.asearch(&quot;bk_user&quot;, &quot;john*&quot;, { pool: &quot;elasticsearch&quot; });
 </code></pre>
 </li>
 </ul>
@@ -4575,6 +4590,8 @@ string then it is used as a name of the column instead of default mtime name</li
 <p>Example</p>
 <pre><code>  db.add(&quot;bk_user&quot;, { id: &#39;123&#39;, login: &#39;admin&#39;, name: &#39;test&#39; }, function(err, rows, info) {
   });
+
+  await db.aadd(&quot;bk_user&quot;, { id: &#39;123&#39;, login: &#39;admin&#39;, name: &#39;test&#39; })
 </code></pre>
 </li>
 </ul>
@@ -4588,8 +4605,10 @@ all columns with type &#39;counter&#39; will be used for the action <code>incr</
 <p><em>Note: The record must exist already for SQL databases, for DynamoDB and Cassandra a new record will be created
 if does not exist yet.</em> To disable upsert pass <code>noupsert</code> in the options.</p>
 <p>Example</p>
-<pre><code>  db.incr(&quot;bk_counter&quot;, { id: &#39;123&#39;, like0: 1, invite0: 1 }, function(err, rows, info) {
+<pre><code>  db.incr(&quot;bk_counter&quot;, { id: &#39;123&#39;, like0: 1, invite0: 1 }, (err, rows, info) =&gt; {
   });
+
+  await db.aincr(&quot;bk_counter&quot;, { id: &#39;123&#39;, like0: 1, invite0: 1 })
 </code></pre>
 </li>
 </ul>
@@ -4604,6 +4623,8 @@ if does not exist yet.</em> To disable upsert pass <code>noupsert</code> in the 
 <p>Example</p>
 <pre><code>  db.put(&quot;bk_user&quot;, { id: &#39;123&#39;, login: &#39;test&#39;, name: &#39;test&#39; }, function(err, rows, info) {
   });
+
+  await db.aput(&quot;bk_user&quot;, { id: &#39;123&#39;, login: &#39;test&#39;, name: &#39;test&#39; })
 </code></pre>
 </li>
 </ul>
@@ -4645,6 +4666,8 @@ perform get before put and so subject to race conditions</p>
 <pre><code>     db.update(&quot;bk_user&quot;, { login: &#39;test&#39;, id: &#39;123&#39; }, (err, rows, info) =&gt; {
          console.log(&#39;updated:&#39;, info.affected_rows);
      });
+
+     await db.aupdate(&quot;bk_user&quot;, { login: &#39;test&#39;, name: &#39;Test&#39;)
 
      db.update(&quot;bk_user&quot;, { login: &#39;test&#39;, id: &#39;123&#39;, first_name: &#39;Mr&#39; }, { pool: pg&#39; }, (err, rows, info) =&gt; {
          console.log(&#39;updated:&#39;, info.affected_rows);
