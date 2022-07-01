@@ -18,7 +18,6 @@ Features:
 * Experimental database drivers for MySQL, Cassandra, Riak, CouchDB
 * Experimental DynamoDB Streams processing in background worker processes
 * Easily extensible to support any kind of database, provides a database driver on top of Redis with all supported methods as an example.
-* Provides accounts, connections, locations, messaging and icons APIs with basic functionality for a quick start.
 * Supports crontab and queue job processing by separate worker processes.
 * Authentication is based on signed requests using API key and secret, similar to Amazon AWS signing requests.
 * Runs web server as separate processes to utilize multiple CPU cores.
@@ -138,17 +137,22 @@ The command below will show all core and optional dependencies
 
         bkjs shell
 
-* To access the database while in the shell
+* To access the database while in the shell using callbacks
 
-        > db.select("bk_user", {}, console.log);
         > db.select("bk_user", {}, lib.log);
         > db.add("bk_user", { id: 'test2', login: 'test2', secret: 'test2', name' Test 2 name' }, lib.log);
         > db.select("bk_user", { id: 'test2' }, lib.log);
         > db.select("bk_user", { id: ['test1','test2'] }, { ops: { id: "in" } }, lib.log);
 
+or the same using async/await, same methods with `a` prepended to the name
+
+        > await db.aselect("bk_user", {});
+        > await db.aadd("bk_user", { id: 'test2', login: 'test2', secret: 'test2', name' Test 2 name' });
+        > await db.aselect("bk_user", { id: 'test2' });
+
 * To search using Elasticsearch (assuming it runs on EC2 and it is synced with DynamoDB using streams)
 
-        > db.select("bk_user", { q: 'test' }, { pool: "elasticsearch" }, lib.log);
+        > await db.select("bk_user", { q: 'test' }, { pool: "elasticsearch" });
 
 ## To run an example
 
@@ -335,13 +339,12 @@ Another probably easier way to create single file apps is to use your namespace 
 
     mymod.configureWeb = function(options, callback)
     {
-        api.app.all("/mymod", function(req, res) {
+        api.app.all("/mymod", async function(req, res) {
             if (!req.query.id) return api.sendReply(res, 400, "id is required");
             req.query.type = mod.types;
 
-            db.select("mymod", req.query, { ops: { type: "in" }, count: mod.size }, (err, rows) => {
-               api.sendJSON(req, err, rows);
-            });
+            const rows = await db.aselect("mymod", req.query, { ops: { type: "in" }, count: mod.size });
+            api.sendJSON(req, null, rows);
         });
     }
 
@@ -578,34 +581,41 @@ Create a file named `app.js` with the code below.
     // API routes
     app.configureWeb = function(options, callback)
     {
-        api.app.get(/^\/todo\/([a-z]+)$/, function(req, res) {
+        api.app.get(/^\/todo\/([a-z]+)$/, async function(req, res) {
            var options = api.getOptions(req);
            switch (req.params[0]) {
              case "get":
                 if (!req.query.id) return api.sendReply(res, 400, "id is required");
-                db.get("todo", { id: req.query.id }, options, (err, rows) => { api.sendJSON(req, err, rows); });
+                const rows = await db.aget("todo", { id: req.query.id }, options);
+                api.sendJSON(req, null, rows);
                 break;
 
              case "select":
                 options.noscan = 0; // Allow empty scan of the whole table if no query is given, disabled by default
-                db.select("todo", req.query, options, (err, rows) => { api.sendJSON(req, err, rows); });
+                const rows = await db.aselect("todo", req.query, options);
+                api.sendJSON(req, null, rows);
                 break;
 
             case "add":
                 if (!req.query.name) return api.sendReply(res, 400, "name is required");
                 // By default due date is tomorrow
                 if (req.query.due) req.query.due = lib.toDate(req.query.due, Date.now() + 86400000).toISOString();
-                db.add("todo", req.query, options, (err, rows) => { api.sendJSON(req, err, rows); });
+                db.add("todo", req.query, options, (err, rows) => {
+                    api.sendJSON(req, err, rows);
+                });
                 break;
 
             case "update":
                 if (!req.query.id) return api.sendReply(res, 400, "id is required");
-                db.update("todo", req.query, options, (err, rows) => { api.sendJSON(req, err, rows); });
+                const rows = await db.aupdate("todo", req.query, options);
+                api.sendJSON(req, null, rows);
                 break;
 
             case "del":
                 if (!req.query.id) return api.sendReply(res, 400, "id is required");
-                db.del("todo", { id: req.query.id }, options, (err, rows) => { api.sendJSON(req, err, rows); });
+                db.del("todo", { id: req.query.id }, options, (err, rows) => {
+                    api.sendJSON(req, err, rows);
+                });
                 break;
             }
         });
