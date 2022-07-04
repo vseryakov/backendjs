@@ -150,7 +150,8 @@ case "$BKJS_CMD" in
     fi
     name=$(get_arg -name)
     prefix=$(get_arg -prefix)
-    bksh -no-db -aws-create-image -wait -instance-id $instance_id -name "$name" -prefix "$prefix"
+    [ "$(get_flag -force)" != "" ] && force="-force"
+    bksh -no-db -aws-create-image -wait $force -instance-id $instance_id -name "$name" -prefix "$prefix"
     if [ -z $instance_id ]; then
         rm -f $HOME/var/bkjs.init
         for f in $saved_files; do sudo mv $f /etc/monit.d; done
