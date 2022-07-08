@@ -13,28 +13,27 @@ var jobs = bkjs.jobs;
 var logger = bkjs.logger;
 
 // System management
-var system = {
-    name: "bk_system"
+const mod = {
+    name: "bk_system",
+    args: [
+        { name: "perms", type: "map", maptype: "list", descr: "Allowed operations, ex: -bk_system-perms restart:api,init:queue;config;db" },
+    ],
 };
-module.exports = system;
-
-// Initialize the module
-system.init = function(options)
-{
-}
+module.exports = mod;
 
 // Create API endpoints and routes
-system.configureWeb = function(options, callback)
+mod.configureWeb = function(options, callback)
 {
     this.configureSystemAPI();
     callback()
 }
 
 // API for internal provisioning and configuration
-system.configureSystemAPI = function()
+mod.configureSystemAPI = function()
 {
     // Return current statistics
     api.app.all(/^\/system\/([^/]+)\/?(.+)?/, function(req, res) {
+        if (mod.perms && !lib.isFlag(mod.perms[req.params[0]], req.params[1] || "*")) return res.status(403).send("not allowed");
         var options = api.getOptions(req);
         switch (req.params[0]) {
         case "restart":
@@ -43,18 +42,18 @@ system.configureSystemAPI = function()
             break;
 
         case "init":
-            if (req.query.name) {
-                ["master","server","web","worker"].forEach(function(x) {
-                    ipc.broadcast(core.name + ":" + x, req.query.name + ":init", { queueName: ipc.systemQueue });
+            if (req.params[1]) {
+                ["master","server","web","worker"].forEach((x) => {
+                    ipc.broadcast(core.name + ":" + x, req.params[1] + ":init", { queueName: ipc.systemQueue });
                 });
             }
             res.json({});
             break;
 
         case "check":
-            if (req.query.name) {
-                ["master","server","web","worker"].forEach(function(x) {
-                    ipc.broadcast(core.name + ":" + x, req.query.name + ":check", { queueName: ipc.systemQueue });
+            if (req.params[1]) {
+                ["master","server","web","worker"].forEach((x) => {
+                    ipc.broadcast(core.name + ":" + x, req.params[1] + ":check", { queueName: ipc.systemQueue });
                 });
             }
             res.json({});
@@ -63,7 +62,7 @@ system.configureSystemAPI = function()
         case "queue":
             switch (req.params[1]) {
             case "publish":
-                ipc.broadcast(req.query.key, req.query.value, { queueName: req.query.queue }, function(err) { api.sendReply(res, err) });
+                ipc.broadcast(req.query.key, req.query.value, { queueName: req.query.queue }, (err) => { api.sendReply(res, err) });
                 break;
             }
             break;
@@ -71,11 +70,11 @@ system.configureSystemAPI = function()
         case "jobs":
             switch (req.params[1]) {
             case 'submit':
-                jobs.submitJob(req.query, function(err) { api.sendReply(res, err) });
+                jobs.submitJob(req.query, (err) => { api.sendReply(res, err) });
                 break;
 
             case 'cancel':
-                ipc.broadcast(core.name + ":master", ipc.newMsg("jobs:cancel", req.query), { queueName: ipc.systemQueue }, function(err) {
+                ipc.broadcast(core.name + ":master", ipc.newMsg("jobs:cancel", req.query), { queueName: ipc.systemQueue }, (err) => {
                     api.sendReply(res, err)
                 });
                 break;
@@ -90,14 +89,14 @@ system.configureSystemAPI = function()
                 break;
 
             case 'send':
-                msg.send(req.query.device_id, req.query, function(err) { api.sendReply(res, err) });
+                msg.send(req.query.device_id, req.query, (err) => { api.sendReply(res, err) });
                 break;
             }
             break;
 
         case "params":
             var args = [ [ '', core.args ] ];
-            Object.keys(core.modules).forEach(function(n) {
+            Object.keys(core.modules).forEach((n) => {
                 if (core.modules[n].args) args.push([n, core.modules[n].args]);
             });
             switch (req.params[1]) {
@@ -133,12 +132,12 @@ system.configureSystemAPI = function()
         case "cache":
             switch (req.params[1]) {
             case 'stats':
-                ipc.stats({ queueName: req.query.cache }, function(data) {
+                ipc.stats({ queueName: req.query.cache }, (data) => {
                     res.json(data || {})
                 });
                 break;
             case "get":
-                ipc.get(req.query.name, { queueName: req.query.cache }, function(err, data) {
+                ipc.get(req.query.name, { queueName: req.query.cache }, (err, data) => {
                     res.json({ value: data });
                 });
                 break;
@@ -151,7 +150,7 @@ system.configureSystemAPI = function()
                 res.json({});
                 break;
             case "incr":
-                ipc.incr(req.query.name, lib.toNumber(req.query.value), { queueName: req.query.cache }, function(err, val) {
+                ipc.incr(req.query.name, lib.toNumber(req.query.value), { queueName: req.query.cache }, (err, val) => {
                     res.json({ value: val });
                 });
                 break;
@@ -164,7 +163,7 @@ system.configureSystemAPI = function()
                     ipc.sendMsg(req.query.op, req.query);
                     res.json({});
                 } else {
-                    ipc.sendMsg(req.query.op, req.query, function(m) { res.json(m); });
+                    ipc.sendMsg(req.query.op, req.query, (m) => { res.json(m); });
                 }
                 break;
             default:
