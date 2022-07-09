@@ -1900,3 +1900,47 @@ bkjs.trimWhitesspace = function(str)
     return str;
 }
 
+// Based on Bootstrap internal sanitizer
+bkjs.sanitizer = {
+    _attrs: new Set(['background','cite','href','itemtype','longdesc','poster','src','xlink:href']),
+    _urls: /^(?:(?:https?|mailto|ftp|tel|file|sms):|[^#&/:?]*(?:[#/?]|$))/i,
+    _data: /^data:(?:image\/(?:bmp|gif|jpeg|jpg|png|tiff|webp)|video\/(?:mpeg|mp4|ogg|webm)|audio\/(?:mp3|oga|ogg|opus));base64,[\d+/a-z]+=*$/i,
+    _tags: {
+        '*': ['class', 'dir', 'id', 'lang', 'role', /^aria-[\w-]*$/i],
+        a: ['target', 'href', 'title', 'rel'],
+        img: ['src', 'srcset', 'alt', 'title', 'width', 'height'],
+        area: [], b: [], br: [], col: [], code: [], div: [], em: [], hr: [], h1: [], h2: [], h3: [], h4: [], h5: [], h6: [], i: [],
+        li: [], ol: [], p: [], pre: [], s: [], small: [], span: [], sub: [], sup: [], strong: [], u: [], ul: [],
+    },
+
+    isattr: function(attr, list) {
+        const name = attr.nodeName.toLowerCase();
+        if (list.includes(name)) {
+            if (this._attrs.has(name)) {
+                return this._urls.test(attr.nodeValue) || this._data.test(attr.nodeValue);
+            }
+            return true;
+        }
+        return list.some((x) => (x instanceof RegExp && x.test(name)));
+    },
+
+    run: function(html) {
+        if (!html || typeof html != "string") return html;
+        const dom = new window.DOMParser();
+        const doc = dom.parseFromString(html, 'text/html');
+        const elements = [...doc.body.querySelectorAll('*')];
+        for (const el of elements) {
+            const name = el.nodeName.toLowerCase();
+            if (this._tags[name]) {
+                const allow = [...this._tags['*'], ...this._tags[name] || []];
+                for (const attr of [...el.attributes]) {
+                    if (!this.isattr(attr, allow)) el.removeAttribute(attr.nodeName);
+                }
+            } else {
+                el.remove();
+            }
+        }
+        return doc.body.innerHTML;
+    }
+}
+
