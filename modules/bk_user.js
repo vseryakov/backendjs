@@ -4,7 +4,6 @@
 //
 
 const bkjs = require('backendjs');
-const db = bkjs.db;
 const api = bkjs.api;
 const auth = bkjs.auth;
 const msg = bkjs.msg;
@@ -53,7 +52,7 @@ mod.configureAccountsAPI = function()
 
         case "update":
             mod.updateAccount(req, options, (err, data) => {
-                if (!err) api.wsNotify({ account_id: req.account.id, cleanup: ["bk_user", "account"] }, { op: req.path, account: data });
+                if (!err) api.wsNotify({ account_id: req.account.id, cleanup: [auth.table] }, { op: req.path, account: data });
                 api.sendJSON(req, err, data);
             });
             break;
@@ -138,7 +137,7 @@ mod.addAccount = function(req, options, callback)
             auth.add(req.query, options, (err, row) => {
                 if (!err) {
                     // Link account record for other middleware
-                    api.setCurrentAccount(req, req.query);
+                    api.setCurrentAccount(req, row);
                 }
                 next(err);
             });
@@ -176,14 +175,14 @@ mod.updateAccount = function(req, options, callback)
     }, true);
 }
 
-// Delete account specified by the obj. Used in `/account/del` API call.
+// Delete account specified by the obj.
 // The options may contain `keep` array with tables to be kept, for example
 // delete an account but keep all messages and location: keep:["bk_user","bk_location"]
 //
 // This methods is suitable for background jobs
 mod.deleteAccount = function(req, callback)
 {
-    if (!req.account || !req.account.id) return callback({ status: 400, message: "no id provided" });
+    if (!req.account?.login && !req.account?.id) return callback({ status: 400, message: "no id provided" });
     if (!req.options) req.options = {};
     if (!req.query) req.query = {};
     req.options.count = 0;
