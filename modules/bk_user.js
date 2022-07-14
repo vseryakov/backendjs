@@ -24,33 +24,9 @@ mod.configure = function(options, callback)
         [auth.table]: {
             id: { pub: 1 },
             name: { pub: 1, notempty: 1 },
-            first_name: {},
-            last_name: {},
-            email: { type: "email" },
-            phone: { type: "phone" },
-            website: {},
-            company: {},
-            street: {},
-            city: {},
-            county: {},
-            state: {},
-            zipcode: {},
-            country: {},
             device_id: { priv: 1 },                 // Device(s) for notifications the format is: [service://]token[@appname]
         }
     };
-    callback();
-}
-
-mod.configureModule = function(options, callback)
-{
-    db.setProcessRow("post", auth.table, function(req, row) {
-        if (row.name && !row.first_name) {
-            var name = row.name.split(" ");
-            if (name.length > 1) row.last_name = name.pop();
-            row.first_name = name.join(" ");
-        }
-    });
     callback();
 }
 
@@ -67,7 +43,6 @@ mod.configureAccountsAPI = function()
     api.app.all(/^\/account\/([a-z/]+)$/, function(req, res, next) {
         var options = api.getOptions(req);
         options.cleanup = auth.table;
-        options.isInternal = 1;
 
         switch (req.params[0]) {
         case "get":
@@ -80,13 +55,6 @@ mod.configureAccountsAPI = function()
             mod.updateAccount(req, options, (err, data) => {
                 if (!err) api.wsNotify({ account_id: req.account.id, cleanup: ["bk_user", "account"] }, { op: req.path, account: data });
                 api.sendJSON(req, err, data);
-            });
-            break;
-
-        case "del":
-            mod.deleteAccount(req, (err, data) => {
-                if (!err) api.wsNotify({ account_id: req.account.id }, { op: req.path, account: null });
-                api.sendJSON(req, err);
             });
             break;
 
@@ -187,6 +155,9 @@ mod.addAccount = function(req, options, callback)
 mod.updateAccount = function(req, options, callback)
 {
     if (typeof options == "function") callback = options, options = null;
+
+    delete req.query.id;
+    req.query.login = req.account.login;
 
     lib.series([
         function(next) {
