@@ -1348,10 +1348,6 @@ The accounts API manages accounts and authentication, it provides basic user acc
             # Update record by login
             > db.update("bk_user", { login: 'login@name', type: 'admin' });
 
-- `/account/del`
-
-  Delete current account, after this call no more requests will be authenticated with the current credentials
-
 - `/account/update`
 
   Update current account with new values, the parameters are columns of the table `bk_user`, only columns with non empty values will be updated.
