@@ -91,6 +91,7 @@ bkjs.showConfirm = function(options, callback, cancelled)
 
     var opts = {
         self: this,
+        sanitizer: bkjs.sanitizer,
         title: options.title || 'Confirm',
         show_header: options.title !== null,
         buttons: ["cancel", "ok"],
@@ -115,6 +116,7 @@ bkjs.showPrompt = function(options, callback)
     var value;
     var opts = {
         self: this,
+        sanitizer: bkjs.sanitizer,
         title: options.title || 'Prompt',
         buttons: ["cancel", "ok"],
         content: [{ input: { name: "value", label: String(options.text || "").replace(/\n/g, "<br>"), class: `form-control ${options.css ||""}`, value: options.value } }],
@@ -139,6 +141,7 @@ bkjs.showLogin = function(options, callback)
     var popup;
     var opts = {
         self: this,
+        sanitizer: bkjs.sanitizer,
         id: "bkjs-login-modal",
         show_header: false,
         buttons: ["cancel", "ok"],
