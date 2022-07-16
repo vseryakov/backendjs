@@ -1908,9 +1908,9 @@ bkjs.sanitizer = {
     _tags: {
         '*': ['class', 'dir', 'id', 'lang', 'role', /^aria-[\w-]*$/i],
         a: ['target', 'href', 'title', 'rel'],
-        img: ['src', 'srcset', 'alt', 'title', 'width', 'height'],
+        img: ['src', 'srcset', 'alt', 'title', 'width', 'height', 'style'],
         area: [], b: [], br: [], col: [], code: [], div: [], em: [], hr: [], h1: [], h2: [], h3: [], h4: [], h5: [], h6: [], i: [],
-        li: [], ol: [], p: [], pre: [], s: [], small: [], span: [], sub: [], sup: [], strong: [], u: [], ul: [],
+        li: [], ol: [], p: [], pre: [], s: [], small: [], span: [], sub: [], sup: [], strong: [], u: [], ul: [], table: [],
     },
 
     isattr: function(attr, list) {
