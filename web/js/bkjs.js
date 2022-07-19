@@ -215,15 +215,27 @@ bkjs.send = function(options, onsuccess, onerror)
     return $.ajax(options);
 }
 
+bkjs.get = function(options, onsuccess, onerror)
+{
+    if (options) options.type = "GET";
+    bkjs.send(options, onsuccess, onerror);
+}
+
 // Make a request and use single callback with error as the first argument or null if no error
 bkjs.sendRequest = function(options, callback)
 {
-    return this.send(options, function(data, xhr) {
+    return bkjs.send(options, (data, xhr) => {
         if (typeof callback == "function") callback.call(options.self || bkjs, null, data, xhr);
-    }, function(err, xhr) {
+    }, (err, xhr) => {
         var data = options.jsonType == "list" ? [] : options.jsonType == "obj" ? {} : null;
         if (typeof callback == "function") callback.call(options.self || bkjs, err, data, xhr);
     });
+}
+
+bkjs.getRequest = function(options, callback)
+{
+    if (options) options.type = "GET";
+    bkjs.sendRequest(options, callback);
 }
 
 // Send a file as multi-part upload, uses `options.name` or "data" for file namne. Additional files can be passed in the `options.files` object. Optional form inputs
