@@ -167,6 +167,7 @@ bkjs.send = function(options, onsuccess, onerror)
     if (typeof options == "string") options = { url: options };
 
     if (!options.headers) options.headers = {};
+    if (!options.type) options.type = 'POST';
     if (!options.dataType) options.dataType = 'json';
     if (this.locationUrl && !options.url.match(/^https?:/)) options.url = this.locationUrl + options.url;
 

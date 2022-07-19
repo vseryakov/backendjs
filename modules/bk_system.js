@@ -32,7 +32,7 @@ mod.configureWeb = function(options, callback)
 mod.configureSystemAPI = function()
 {
     // Return current statistics
-    api.app.all(/^\/system\/([^/]+)\/?(.+)?/, function(req, res) {
+    api.app.post(/^\/system\/([^/]+)\/?(.+)?/, function(req, res) {
         if (mod.perms && !lib.isFlag(mod.perms[req.params[0]], req.params[1] || "*")) return res.status(403).send("not allowed");
         var options = api.getOptions(req);
         switch (req.params[0]) {

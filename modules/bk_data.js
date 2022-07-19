@@ -50,7 +50,7 @@ mod.configureDataAPI = function()
     });
 
     // Basic operations on a table
-    api.app.all(/^\/data\/(select|scan|search|list|get|add|put|update|del|incr|replace)\/([a-z_0-9]+)$/, function(req, res) {
+    api.app.post(/^\/data\/(select|scan|search|list|get|add|put|update|del|incr|replace)\/([a-z_0-9]+)$/, function(req, res) {
         if (mod.perms && !lib.isFlag(mod.perms[req.params[1]], req.params[0])) return res.status(403).send("not allowed");
 
         var options = api.getOptions(req);

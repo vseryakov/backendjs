@@ -1361,29 +1361,6 @@ The accounts API manages accounts and authentication, it provides basic user acc
 When running with AWS load balancer there should be a url that a load balancer polls all the time and this must be very quick and lightweight request. For this
 purpose there is an API endpoint `/ping` that just responds with status 200. It is open by default in the default `api-allow-path` config parameter.
 
-## Public Images endpoint
-This endpoint can server any icon uploaded to the server for any account, it is supposed to be a non-secure method, i.e. no authentication will be performed and no signature
-will be needed once it is configured which prefix can be public using `api-allow` or `api-allow-path` config parameters.
-
-The format of the endpoint is:
-
-- `/image/prefix/id/type[.png|.jpg]`
-
-    Example:
-
-        # Configure accounts icons to be public in the etc/config
-        api-allow-path=/image/account/
-
-        # Or pass in the command line
-        ./app.sh -api-allow-path /image/account/
-
-        # Make requests
-        /image/account/12345/0
-        /image/account/12345/1
-        /image/account/12345/1.jpg
-
-        #Return icons for account 12345 for types 0 and 1
-
 ## Data
 The data API is a generic way to access any table in the database with common operations, as oppose to the any specific APIs above this API only deals with
 one table and one record without maintaining any other features like auto counters, cache...

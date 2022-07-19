@@ -42,6 +42,23 @@ app.initBlogAPI = function()
 {
     var self = this;
 
+    // Return images by prefix, id and possibly type
+    api.app.all(/^\/image\/([a-zA-Z0-9_.:-]+)\/([^/ ]+)\/?([^/ ]+)?$/, (req, res) => {
+        var options = api.getOptions(req);
+        options.prefix = req.params[0];
+        options.type = req.params[2];
+        var id = req.params[1];
+        // Image extension at the end so it looks like an image path
+        if (options.type) {
+            const d = options.type.match(/^(.+)\.(png|jpg|jpeg|gif)$/);
+            if (d) options.type = d[1], options.ext = d[2];
+        } else {
+            const d = id.match(/^(.+)\.(png|jpg|jpeg|gif)$/);
+            if (d) id = d[1], options.ext = d[2];
+        }
+        api.sendIcon(req, id, options);
+    });
+
     api.app.all(/^\/blog\/([a-z\/]+)$/, function(req, res) {
         var options = api.getOptions(req);
 

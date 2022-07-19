@@ -39,6 +39,17 @@ mod.configureWeb = function(options, callback)
 // Account management
 mod.configureAccountsAPI = function()
 {
+
+    api.app.post("/account/update", function(req, res, next) {
+        var options = api.getOptions(req);
+        options.cleanup = auth.table;
+
+        mod.updateAccount(req, options, (err, data) => {
+            if (!err) api.wsNotify({ account_id: req.account.id, cleanup: [auth.table] }, { op: req.path, account: data });
+            api.sendJSON(req, err, data);
+        });
+    });
+
     api.app.all(/^\/account\/([a-z/]+)$/, function(req, res, next) {
         var options = api.getOptions(req);
         options.cleanup = auth.table;
@@ -50,12 +61,6 @@ mod.configureAccountsAPI = function()
             });
             break;
 
-        case "update":
-            mod.updateAccount(req, options, (err, data) => {
-                if (!err) api.wsNotify({ account_id: req.account.id, cleanup: [auth.table] }, { op: req.path, account: data });
-                api.sendJSON(req, err, data);
-            });
-            break;
 
         case "ws":
         case "ws/query":
