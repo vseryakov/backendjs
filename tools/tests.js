@@ -1011,7 +1011,8 @@ tests.test_cleanup = function(callback)
     };
     var row = { pub: "pub", priv: "priv", pub_admin: "pub_admin", pub_staff: "pub_staff",
                 internal: "internal", billing: "billing",
-                nobilling: "nobilling", billing_staff: "billing_staff" }
+                nobilling: "nobilling", billing_staff: "billing_staff",
+                extra: "extra", extra2: "extra2" }
 
     db.describeTables(tables);
     var res, failed = 0;
@@ -1039,6 +1040,25 @@ tests.test_cleanup = function(callback)
 
     logger.log("billing_staff:", res = api.cleanupResult("cleanup", lib.objClone(row), { isAdmin: 1, account: { type: ["staff"] } }),
            "status=", res.billing_staff && !res.priv ? "ok" : ++failed);
+
+    api.cleanupStrict = 0;
+    logger.log("extra nonstrict:", res = api.cleanupResult("cleanup", lib.objClone(row), {}),
+           "status=", res.extra && res.extra2 ? "ok" : ++failed);
+
+    api.cleanupStrict = 1;
+    logger.log("no extras strict:", res = api.cleanupResult("cleanup", lib.objClone(row, "extra", 1), {}),
+           "status=", !res.extra && !res.extra2? "ok" : ++failed);
+
+    logger.log("no extra2 extra2 cleanup rule strict:", res = api.cleanupResult("cleanup", lib.objClone(row, "extra", 1), { cleanup_rules: { extra: 1 } }),
+           "status=", res.extra && !res.extra2 ? "ok" : ++failed);
+
+    api.cleanupRules = { '*': { extra2: 1 } };
+    logger.log("no extra extra2 * rule strict:", res = api.cleanupResult("cleanup", lib.objClone(row, "extra", 1), {}),
+           "status=", !res.extra && res.extra2 ? "ok" : ++failed);
+
+    api.cleanupRules = { cleanup: { extra2: 1 } };
+    logger.log("no extra extra2 table rule strict:", res = api.cleanupResult("cleanup", lib.objClone(row, "extra", 1), {}),
+           "status=", !res.extra && res.extra2 ? "ok" : ++failed);
 
     callback(failed);
 }

@@ -120,7 +120,7 @@ mod.configureSystemAPI = function()
                 }, {}));
                 break;
             default:
-                api.sendReply(res, 400, "Invalid command:" + req.params[1]);
+                api.sendReply(res, 400, "Invalid command");
             }
             break;
 
@@ -167,12 +167,12 @@ mod.configureSystemAPI = function()
                 }
                 break;
             default:
-                api.sendReply(res, 400, "Invalid command:" + req.params[1]);
+                api.sendReply(res, 400, "Invalid command");
             }
             break;
 
         default:
-            api.sendReply(res, 400, "Invalid command:" + req.params[0]);
+            api.sendReply(res, 400, "Invalid command");
         }
     });
 }
