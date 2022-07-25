@@ -6,7 +6,6 @@
         "node": true
     },
     "globals": {
-        "Bkjs": false,
         "bkjs": false,
         "$": false,
         "jQuery": false,

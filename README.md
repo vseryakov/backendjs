@@ -809,16 +809,16 @@ this assumes the default path '/public' still allowed without the signature:
    <script src="/js/bkjs.bundle.js" type="text/javascript"></script>
    <script>
     $(function () {
-       Bkjs.session = true;
-       $(Bkjs).on("bkjs.nologin", function() { window.location='/public/index.html'; });
-       Bkjs.koInit();
+       bkjs.session = true;
+       $(bkjs).on("bkjs.nologin", function() { window.location='/public/index.html'; });
+       bkjs.koInit();
    });
    </script>
 ```
 
 ## Secure Web site, backend verification
 On the backend side in your application app.js it needs more secure settings defined i.e. no html except /public will be accessible and
-in case of error will be redirected to the login page by the server. Note, in the login page `Bkjs.session` must be set to true for all
+in case of error will be redirected to the login page by the server. Note, in the login page `bkjs.session` must be set to true for all
 html pages to work after login without singing every API request.
 
 1. We disable all allowed paths to the html and registration:
@@ -1278,7 +1278,7 @@ For JSON content type, the method must be POST and no query parameters specified
 which is placed in the body of the request. For additional safety, SHA1 checksum of the JSON payload can be calculated and passed in the signature,
 this is the only way to ensure the body is not modified when not using query parameters.
 
-See [web/js/bkjs.js](https://github.com/vseryakov/backendjs/blob/master/web/js/bkjs.js) function `Bkjs.createSignature` or
+See [web/js/bkjs.js](https://github.com/vseryakov/backendjs/blob/master/web/js/bkjs.js) function `bkjs.createSignature` or
 [api.js](https://github.com/vseryakov/backendjs/blob/master/api.js) function `api.createSignature` for the JavaScript implementations.
 
 There is also native iOS implementation [Bkjs.m](https://raw.githubusercontent.com/vseryakov/backendjs-ios/master/BKjs.m).

@@ -160,7 +160,7 @@ mod.updateAccount = function(req, options, callback)
 {
     if (typeof options == "function") callback = options, options = null;
 
-    delete req.query.id;
+    req.query.id = req.account.id;
     req.query.login = req.account.login;
 
     lib.series([
