@@ -39,14 +39,14 @@ var bkjs = {
         max_timeout: 30000,
         retry_timeout: 500,
         retry_mod: 2,
+        max_retries: 100,
+        retries: 0,
         pending: [],
     },
 
     // i18n locales by 2-letter code, uses account.lang to resolve the translation
     locales: {},
 };
-
-var Bkjs = bkjs;
 
 // Try to authenticate with the supplied credentials, it uses login and secret to sign the request, if not specified it uses
 // already saved credentials. if url is passed then it sends data in POST request to the specified url without any signature.
@@ -59,13 +59,13 @@ bkjs.login = function(options, callback)
     if (typeof options.login =="string" && typeof options.secret == "string") this.setCredentials(options);
     options.data._session = this.session;
 
-    this.send(options, function(data) {
+    this.send(options, (data) => {
         bkjs.loggedIn = true;
         for (var p in data) bkjs.account[p] = data[p];
         // Clear credentials from the memory if we use sessions
         if (bkjs.session) bkjs.setCredentials();
         if (typeof callback == "function") callback.call(options.self || bkjs);
-    }, function(err, xhr) {
+    }, (err, xhr) => {
         bkjs.loggedIn = false;
         for (var p in bkjs.account) delete bkjs.account[p];
         bkjs.setCredentials();
@@ -81,7 +81,7 @@ bkjs.logout = function(options, callback)
     if (!options.url) options.url = "/logout";
     this.loggedIn = false;
     for (var p in bkjs.account) delete bkjs.account[p];
-    this.sendRequest(options, function(err, data, xhr) {
+    this.sendRequest(options, (err, data, xhr) => {
         bkjs.setCredentials();
         if (typeof callback == "function") callback.call(options.self || bkjs, err, data, xhr);
     });
@@ -287,49 +287,56 @@ bkjs.getFileInput = function(file)
 // WebSockets helper functions
 bkjs.wsConnect = function(options)
 {
-    if (this.wsconf.timer) {
-        clearTimeout(this.wsconf.timer);
-        delete this.wsconf.timer;
+    var conf = bkjs.wsconf;
+    if (conf.timer) {
+        clearTimeout(conf.timer);
+        delete conf.timer;
     }
+    if (conf.bye) return;
 
-    for (const p in options) this.wsconf[p] = options[p];
-    var url = (this.wsconf.protocol || window.location.protocol.replace("http", "ws")) + "//" +
-              (this.wsconf.host || (this.wsconf.hostname ? this.wsconf.hostname + "." + this.domainName(window.location.hostname) : "") || window.location.hostname) + ":" +
-              (this.wsconf.port || window.location.port) +
-              this.wsconf.path +
-              (this.wsconf.query ? "?" + jQuery.param(this.wsconf.query) : "");
+    for (const p in options) conf[p] = options[p];
+    var url = (conf.protocol || window.location.protocol.replace("http", "ws")) + "//" +
+              (conf.host || (conf.hostname ? conf.hostname + "." + this.domainName(window.location.hostname) : "") || window.location.hostname) + ":" +
+              (conf.port || window.location.port) +
+              conf.path +
+              (conf.query ? "?" + jQuery.param(conf.query) : "");
 
     this.ws = new WebSocket(url);
     this.ws.onopen = function() {
-        if (bkjs.wsconf.debug) bkjs.log("ws.open:", this.url);
-        bkjs.wsconf.ctime = Date.now();
-        bkjs.wsconf.timeout = bkjs.wsconf.retry_timeout;
-        while (bkjs.wsconf.pending.length) {
-            bkjs.wsSend(bkjs.wsconf.pending.shift());
+        if (conf.debug) bkjs.log("ws.open:", this.url);
+        conf.ctime = Date.now();
+        conf.timeout = bkjs.wsconf.retry_timeout;
+        conf.retries = 0;
+        while (conf.pending.length) {
+            bkjs.wsSend(conf.pending.shift());
         }
         $(bkjs).trigger("bkjs.ws.opened");
     }
     this.ws.onerror = function(err) {
-        if (bkjs.wsconf.debug) bkjs.log('ws.error:', this.url, err);
+        if (conf.debug) bkjs.log('ws.error:', this.url, err);
     }
     this.ws.onclose = function() {
-        if (bkjs.wsconf.debug) bkjs.log("ws.closed:", this.url, bkjs.wsconf.timeout);
+        if (conf.debug) bkjs.log("ws.closed:", this.url, bkjs.wsconf.timeout);
         bkjs.ws = null;
-        bkjs.wsconf.timer = setTimeout(bkjs.wsConnect.bind(bkjs), bkjs.wsconf.timeout);
-        bkjs.wsconf.timeout *= bkjs.wsconf.timeout == bkjs.wsconf.max_timeout ? 0 : bkjs.wsconf.retry_mod;
-        bkjs.wsconf.timeout = bkjs.toClamp(bkjs.wsconf.timeout, bkjs.wsconf.retry_timeout, bkjs.wsconf.max_timeout);
+        if (!conf.bye && ++conf.retries < conf.max_retries) {
+            conf.timer = setTimeout(bkjs.wsConnect.bind(bkjs), conf.timeout);
+            conf.timeout *= conf.timeout == conf.max_timeout ? 0 : conf.retry_mod;
+            conf.timeout = bkjs.toClamp(conf.timeout, conf.retry_timeout, conf.max_timeout);
+        }
         $(bkjs).trigger("bkjs.ws.closed");
     }
     this.ws.onmessage = function(msg) {
         var data = msg.data;
+        if (data === "bye") bkjs.wsClose(1);
         if (typeof data == "string" && (data[0] == "{" || data[0] == "[")) data = JSON.parse(data);
         if (bkjs.wsconf.debug) bkjs.log('ws.message:', data);
         $(bkjs).trigger("bkjs.ws.message", data);
     }
 }
 
-bkjs.wsClose = function()
+bkjs.wsClose = function(bye)
 {
+    this.wsconf.bye = 1;
     if (this.ws) this.ws.close();
 }
 
