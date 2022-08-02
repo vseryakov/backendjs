@@ -44,7 +44,7 @@ case "$PLATFORM" in
 esac
 
 case "$(uname -m)" in
-  aarch64)
+  aarch64|arm64)
     OS_ARCH=arm64
     ;;
   *)
@@ -631,7 +631,7 @@ case "$BKJS_CMD" in
     ;;
 
   install-node)
-    ver=$(get_arg -version v16.16.0)
+    ver=$(get_arg -version v18.7.0)
     if [ "$(get_flag -force)" != "" -a -f $BKJS_PREFIX/bin/node ]; then
        echo "Uninstalling node from $BKJS_PREFIX ..."
        rm -rf $BKJS_PREFIX/bin/node $BKJS_PREFIX/bin/npm $BKJS_PREFIX/bin/npx $BKJS_PREFIX/lib/node_modules/npm
@@ -647,7 +647,7 @@ case "$BKJS_CMD" in
        rm -rf node.tar
     fi
     if [ "$PLATFORM" = "Darwin" ]; then
-       curl -L -o node.tgz https://nodejs.org/dist/$ver/node-$ver-darwin-x64.tar.gz
+       curl -L -o node.tgz https://nodejs.org/dist/$ver/node-$ver-darwin-$OS_ARCH.tar.gz
        [ "$?" != "0" ] && exit 1
        tar -C $BKJS_PREFIX --strip-components=1 -xzf node.tgz
        rm -rf node.tgz
