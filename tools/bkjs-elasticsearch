@@ -20,7 +20,8 @@ case "$BKJS_CMD" in
             platform="$platform-x86_64"
             ;;
         esac
-        curl -L -o es.tgz https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-7.10.2-$platform.tar.gz
+        ver=$(get_arg -vesion 8.3.3)
+        curl -L -o es.tgz https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-$ver-$platform.tar.gz
         tar -C $ELASTICSEARCH_PREFIX --strip-components=1 -xzf es.tgz
         rm -rf es.tgz
         cd $ELASTICSEARCH_PREFIX
@@ -75,6 +76,8 @@ case "$BKJS_CMD" in
     if [ "$memmax" != "" ]; then
        $SED "s/^-Xms.+/-Xms$memmax/" $ELASTICSEARCH_PREFIX/config/jvm.options
        $SED "s/^-Xmx.+/-Xmx$memmax/" $ELASTICSEARCH_PREFIX/config/jvm.options
+       mkdir -p $ELASTICSEARCH_PREFIX/config/jvm.options.d/
+       echo -e "-Xms$memmax\n-Xmx$memmax\n" > $ELASTICSEARCH_PREFIX/config/jvm.options.d/bkjs.options
     fi
     case "$(get_arg -nodetype)" in
     node)
