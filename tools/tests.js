@@ -497,9 +497,9 @@ tests.test_db = function(callback)
         function(next) {
             db.select("test5", { id: id, type: "like" }, {}, function(err, rows) {
                 tests.assert(err || rows.length!=3 , "err21:", rows);
-                next();
                 // New hkey must be created in the list
                 ids = rows.map(function(x) { delete x.hkey; return x });
+                next();
             });
         },
         function(next) {
