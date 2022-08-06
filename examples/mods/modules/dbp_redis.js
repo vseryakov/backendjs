@@ -13,7 +13,6 @@ var logger = require(__dirname + '/logger');
 var pool = {
     name: "redis",
     configOptions: {
-        noJson: 1,
         concurrency: 5,
         sep: "^",
     },

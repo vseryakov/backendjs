@@ -22,7 +22,6 @@ var pool = {
         typesMap: { json: "text", real: "double", counter: "counter", bigint: "bigint", now: "bigint" },
         opsMap: { begins_with: "begins_with" },
         sqlPlaceholder: "?",
-        strictTypes: 1,
         noCoalesce: 1,
         ifExpected: 1,
         noConcat: 1,
@@ -32,7 +31,6 @@ var pool = {
         noLengths: 1,
         noReplace: 1,
         noBetween: 1,
-        noJson: 1,
         noCustomKey: 1,
         noCompositeIndex: 1,
         noMultiSQL: 1
