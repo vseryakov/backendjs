@@ -60,28 +60,33 @@ tests.test_db_basic = function(callback)
         },
         function(next) {
             db.get("test1", { id: id }, function(err, row) {
-                tests.assert(next, err || !row || row.id != id || row.num != 1 || row.num3 != row.id+"|"+row.num || row.anum != "1" || row.jnum || !row.mtime, "err1:", row);
+                tests.assert(err || !row || row.id != id || row.num != 1 || row.num3 != row.id+"|"+row.num || row.anum != "1" || row.jnum || !row.mtime, "err1:", row);
+                next();
             });
         },
         function(next) {
             db.get("test1", { id: id2 }, function(err, row) {
-                tests.assert(next, err || !row || row.num4 != "2" || row.jnum != row.num2 + "|" + row.num4, "err2:", row);
+                tests.assert(err || !row || row.num4 != "2" || row.jnum != row.num2 + "|" + row.num4, "err2:", row);
+                next();
             });
         },
         function(next) {
             // Type conversion for strictTypes
             db.get("test1", { id: id, num: '1' }, function(err, row) {
-                tests.assert(next, err || !row || row.id != id || row.num!=1, "err4:", row);
+                tests.assert(err || !row || row.id != id || row.num!=1, "err4:", row);
+                next();
             });
         },
         function(next) {
             db.list("test1", String([id,id2]), {}, function(err, rows) {
-                tests.assert(next, err || rows.length!=2, "err5:", rows.length, rows);
+                tests.assert(err || rows.length!=2, "err5:", rows.length, rows);
+                next();
             });
         },
         function(next) {
             db.select("test1", { id: id, fake: 1 }, function(err, rows) {
-                tests.assert(next, err || rows.length!=1, "err6:", rows);
+                tests.assert(err || rows.length!=1, "err6:", rows);
+                next();
             });
         },
         function(next) {
@@ -89,33 +94,35 @@ tests.test_db_basic = function(callback)
         },
         function(next) {
             db.get("test1", { id: id }, function(err, row) {
-                tests.assert(next, err || row, "err7:", row);
+                tests.assert(err || row, "err7:", row);
+                next();
             });
         },
         function(next) {
             db.put("test1", { id: id, email: id, num: 1 }, function(err) {
-                tests.assert(next, err || 0, "err8:");
+                tests.assert(err || 0, "err8:");
+                next();
             });
         },
         function(next) {
             db.update("test1", { id: id, email: "test", num: 2, mtime: 123 }, function(err, rc, info) {
-                tests.assert(next, err || info.affected_rows!=1, "err9:", info);
+                tests.assert(err || info.affected_rows!=1, "err9:", info);
+                next();
             });
         },
         function(next) {
             db.incr("test1", { id: id, num2: 2, mtime: 123 }, function(err, rc, info) {
-                tests.assert(next, err || info.affected_rows!=1, "err10:", info);
+                tests.assert(err || info.affected_rows!=1, "err10:", info);
+                next();
             });
         },
         function(next) {
-            db.get("test1", { id: id }, function(err, row) {
-                tests.assert(next, err || !row || row.email != "test" || row.num != 2 || row.num2 != 2 || !row.mtime || row.mtime == 123, "err11:", row);
+            db.get("test1", { id: id }, (err, row) => {
+                tests.assert(err || !row || row.email != "test" || row.num != 2 || row.num2 != 2 || !row.mtime || row.mtime == 123, "err11:", row);
+                next();
             });
         },
-    ],
-    function(err) {
-        callback(err);
-    });
+    ], callback, true);
 }
 
 tests.test_db = function(callback)
@@ -170,6 +177,8 @@ tests.test_db = function(callback)
             num: {},
             obj: { type: "obj" },
             list: { type: "array" },
+            tags: { type: "list" },
+            text: {}
         },
     };
     var now = Date.now();
@@ -206,35 +215,41 @@ tests.test_db = function(callback)
         },
         function(next) {
             db.get("test1", { id: id }, function(err, row) {
-                tests.assert(next, err || !row || row.id != id || row.num != 1 || row.num3 != row.id+"|"+row.num || row.anum != "1" || row.jnum, "err1:", row);
+                tests.assert(err || !row || row.id != id || row.num != 1 || row.num3 != row.id+"|"+row.num || row.anum != "1" || row.jnum, "err1:", row);
+                next();
             });
         },
         function(next) {
             db.get("test1", { id: id2 }, function(err, row) {
-                tests.assert(next, err || !row || row.num4 != "4" || row.jnum || !row.mnum || row.mnum.match(/\|$/), "err1-1:", row);
+                tests.assert(err || !row || row.num4 != "4" || row.jnum || !row.mnum || row.mnum.match(/\|$/), "err1-1:", row);
+                next();
             });
         },
         function(next) {
             db.get("test3", { id: id }, function(err, row) {
-                tests.assert(next, err || !row || row.id != id, "err1-2:", row);
+                tests.assert(err || !row || row.id != id, "err1-2:", row);
+                next();
             });
         },
         function(next) {
             // Type conversion for strictTypes
             db.get("test1", { id: id, num: '1' }, function(err, row) {
-                tests.assert(next, err || !row || row.id != id || row.num!=1, "err2:", row);
+                tests.assert(err || !row || row.id != id || row.num!=1, "err2:", row);
+                next();
             });
         },
         function(next) {
             // Type conversion for strictTypes
             db.join("test1", [{ id: id }, { id: id2 }, { id: "" }], { existing: 1 }, function(err, rows) {
-                tests.assert(next, err || rows.length != 2 || rows[0].id != id || rows[1].id != id2, "err2-1:", rows);
+                tests.assert(err || rows.length != 2 || rows[0].id != id || rows[1].id != id2, "err2-1:", rows);
+                next();
             });
         },
         function(next) {
             db.list("test1", String([id,id2,""]), {}, function(err, rows) {
                 var isok = rows.every(function(x) { return x.id==id || x.id==id2});
-                tests.assert(next, err || rows.length!=2 || !isok, "err3:", rows.length, isok, rows);
+                tests.assert(err || rows.length!=2 || !isok, "err3:", rows.length, isok, rows);
+                next();
             });
         },
         function(next) {
@@ -254,7 +269,8 @@ tests.test_db = function(callback)
         },
         function(next) {
             db.select("test4", { id: id }, function(err, rows) {
-                tests.assert(next, err || rows.length!=1 || rows[0].id != id || rows[0].type!="like" || rows[0].fake, "err4:", rows);
+                tests.assert(err || rows.length!=1 || rows[0].id != id || rows[0].type!="like" || rows[0].fake, "err4:", rows);
+                next();
             });
         },
         function(next) {
@@ -262,27 +278,32 @@ tests.test_db = function(callback)
         },
         function(next) {
             db.get("test1", { id: id }, function(err, row) {
-                tests.assert(next, err || row, "err4-1:", row);
+                tests.assert(err || row, "err4-1:", row);
+                next();
             });
         },
         function(next) {
             db.select("test2", { id: id2 }, { filterrows: function(req, rows, o) { return rows.filter((x) => (x.id2 == '1')) } }, function(err, rows) {
-                tests.assert(next, err || rows.length!=1 || rows[0].id2 != '1' || rows[0].num2 != num2 , "err5:", num2, rows);
+                tests.assert(err || rows.length!=1 || rows[0].id2 != '1' || rows[0].num2 != num2 , "err5:", num2, rows);
+                next();
             });
         },
         function(next) {
             db.select("test2", { id: id2, id2: ["2"] }, { ops: { id2: "in" } }, function(err, rows) {
-                tests.assert(next, err || rows.length!=1 || rows[0].id2!='2', "err5-1:", rows.length, rows);
+                tests.assert(err || rows.length!=1 || rows[0].id2!='2', "err5-1:", rows.length, rows);
+                next();
             });
         },
         function(next) {
             db.select("test2", { id: id2, id2: "" }, { ops: { id2: "in" }, select: ["id","name"] }, function(err, rows) {
-                tests.assert(next, err || rows.length!=2, "err5-2:", rows.length, rows);
+                tests.assert(err || rows.length!=2, "err5-2:", rows.length, rows);
+                next();
             });
         },
         function(next) {
             db.list("test3", String([id,id2]), function(err, rows) {
-                tests.assert(next, err || rows.length!=2, "err6:", rows);
+                tests.assert(err || rows.length!=2, "err6:", rows);
+                next();
             });
         },
         function(next) {
@@ -299,33 +320,39 @@ tests.test_db = function(callback)
             db.cache2.test3 = 30000;
             tests.test.delay = 100;
             db.get("test3", { id: id }, { cached: 1 }, function(err, row) {
-                tests.assert(next, err || !row || row.id != id || row.num != 2, "err7:", row);
+                tests.assert(err || !row || row.id != id || row.num != 2, "err7:", row);
+                next();
             });
         },
         function(next) {
             db.getCache("test3", { id: id }, {}, function(data) {
                 var row = lib.jsonParse(data);
-                tests.assert(next, !data || row.num != 2, "err7-lru-cache:", row);
+                tests.assert(!data || row.num != 2, "err7-lru-cache:", row);
+                next();
             });
         },
         function(next) {
             db.select("test2", { id: id2, id2: '1' }, { ops: { id2: 'gt' }, select: 'id,id2,num2,mtime' }, function(err, rows) {
-                tests.assert(next, err || rows.length!=1 || rows[0].email || rows[0].id2 != '2' || rows[0].num2 != num2, "err8:", rows);
+                tests.assert(err || rows.length!=1 || rows[0].email || rows[0].id2 != '2' || rows[0].num2 != num2, "err8:", rows);
+                next();
             });
         },
         function(next) {
             db.select("test2", { id: id2, id2: '1' }, { ops: { id2: 'begins_with' }, select: 'id,id2,num2,mtime' }, function(err, rows) {
-                tests.assert(next, err || rows.length!=1 || rows[0].email || rows[0].id2 != '1' || rows[0].num2 != num2, "err8-1:", rows);
+                tests.assert(err || rows.length!=1 || rows[0].email || rows[0].id2 != '1' || rows[0].num2 != num2, "err8-1:", rows);
+                next();
             });
         },
         function(next) {
             db.select("test2", { id: id2, id2: "1,2" }, { ops: { id2: 'between' } }, function(err, rows) {
-                tests.assert(next, err || rows.length!=2, "err8-2:", rows);
+                tests.assert(err || rows.length!=2, "err8-2:", rows);
+                next();
             });
         },
         function(next) {
             db.select("test2", { id: id2, num: "1,2" }, { ops: { num: 'between' } }, function(err, rows) {
-                tests.assert(next, err || rows.length!=2, "err8-3:", rows);
+                tests.assert(err || rows.length!=2, "err8-3:", rows);
+                next();
             });
         },
         function(next) {
@@ -333,7 +360,8 @@ tests.test_db = function(callback)
         },
         function(next) {
             db.get("test2", { id: id, id2: '1' }, { consistent: true }, function(err, row) {
-                tests.assert(next, err || !row || row.id != id || row.email != id+"@test" || row.num != 9, "err9-2:", row);
+                tests.assert(err || !row || row.id != id || row.email != id+"@test" || row.num != 9, "err9-2:", row);
+                next();
             });
         },
         function(next) {
@@ -341,7 +369,8 @@ tests.test_db = function(callback)
         },
         function(next) {
             db.get("test2", { id: id2, id2: '1' }, { consistent: true }, function(err, row) {
-                tests.assert(next, err || row, "del:", row);
+                tests.assert(err || row, "del:", row);
+                next();
             });
         },
         function(next) {
@@ -364,7 +393,8 @@ tests.test_db = function(callback)
             }, function(err) {
                 // Redis cannot sort due to hash implementation, known bug
                 var isok = db.pool == "redis" ? rc.length>=5 : rc.length==5 && (rc[0].id2 == 1 && rc[rc.length-1].id2 == 5);
-                tests.assert(next, err || !isok, "err10:", rc.length, isok, rc, next_token);
+                tests.assert(err || !isok, "err10:", rc.length, isok, rc, next_token);
+                next();
             })
         },
         function(next) {
@@ -374,7 +404,8 @@ tests.test_db = function(callback)
                 db.select("test2", { id: id2, id2: '0' }, { sort: "id2", ops: { id2: 'gt' }, start: next_token, count: n, select: 'id,id2' }, function(err, rows, info) {
                     next_token = info.next_token;
                     var isok = db.pool == "redis" ? rows.length>=n : rows.length==n;
-                    tests.assert(next2, err, !isok || !info.next_token, "err11:", rows.length, n, info, rows);
+                    tests.assert(err || !isok || !info.next_token, "err11:", rows.length, n, info, rows);
+                    next2();
                 });
             },
             function(err) {
@@ -383,12 +414,14 @@ tests.test_db = function(callback)
                     next_token = info.next_token;
                     var isnum = db.pool == "redis" ? rows.length>=3 : rows.length==4;
                     var isok = rows.every(function(x) { return x.id2 > '0' });
-                    tests.assert(next, err || !isnum || !isok, "err12:", isok, rows.length, rows, info);
+                    tests.assert(err || !isnum || !isok, "err12:", isok, rows.length, rows, info);
+                    next();
                 });
             });
         },
         function(next) {
-            tests.assert(next, null, next_token, "err13: next_token must be null", next_token);
+            tests.assert(null, next_token, "err13: next_token must be null", next_token);
+            next();
         },
         function(next) {
             db.add("test2", { id: id, id2: '2', email: id, name: id, birthday: id, num: 2, num2: 1, mtime: now }, next);
@@ -396,39 +429,45 @@ tests.test_db = function(callback)
         function(next) {
             // Select by primary key and other filter
             db.select("test2", { id: id, num: 9, num2: 9 }, { ops: { num: 'ge', num2: 'ge' } }, function(err, rows, info) {
-                tests.assert(next, err || rows.length==0 || rows[0].num!=9 || rows[0].num2!=9, "err13:", rows, info);
+                tests.assert(err || rows.length==0 || rows[0].num!=9 || rows[0].num2!=9, "err13:", rows, info);
+                next();
             });
         },
         function(next) {
             // Wrong query property and non-existent value
             db.select("test2", { id: id, num: 9, num2: 9, email: 'fake' }, { sort: "id_num", ops: { num: 'ge' } }, function(err, rows, info) {
-                tests.assert(next, err || rows.length!=0, "err14:", rows, info);
+                tests.assert(err || rows.length!=0, "err14:", rows, info);
+                next();
             });
         },
         function(next) {
             // Scan the whole table with custom filter
             db.select("test2", { num: 9 }, { ops: { num: 'ge' } }, function(err, rows, info) {
                 var isok = rows.every(function(x) { return x.num >= 9 });
-                tests.assert(next, err || rows.length==0 || !isok, "err15:", isok, rows, info);
+                tests.assert(err || rows.length==0 || !isok, "err15:", isok, rows, info);
+                next();
             });
         },
         function(next) {
             // Scan the whole table with custom filter and sorting
             db.select("test2", { id: id2, num: 1 }, { ops: { num: 'gt' }, sort: "num" }, function(err, rows, info) {
                 var isok = rows.every(function(x) { return x.num > 1 });
-                tests.assert(next, err || rows.length==0 || !isok , "err16:", isok, rows, info);
+                tests.assert(err || rows.length==0 || !isok , "err16:", isok, rows, info);
+                next();
             });
         },
         function(next) {
             // Query with sorting with composite key
             db.select("test2", { id: id2 }, { desc: true, sort: "id2" }, function(err, rows, info) {
-                tests.assert(next, err || rows.length==0 || rows[0].id2!='9' , "err17:", rows, info);
+                tests.assert(err || rows.length==0 || rows[0].id2!='9' , "err17:", rows, info);
+                next();
             });
         },
         function(next) {
             // Query with sorting by another column/index
             db.select("test2", { id: id2 }, { desc: true, sort: "num" }, function(err, rows, info) {
-                tests.assert(next, err || rows.length==0 || rows[0].num!=9 , "err18:", rows, info);
+                tests.assert(err || rows.length==0 || rows[0].num!=9 , "err18:", rows, info);
+                next();
             });
         },
         function(next) {
@@ -438,7 +477,8 @@ tests.test_db = function(callback)
                 rows.push(row);
                 next2();
             }, function(err) {
-                tests.assert(next, err || rows.length!=11, "err19:", rows.length);
+                tests.assert(err || rows.length!=11, "err19:", rows.length);
+                next();
             });
         },
         function(next) {
@@ -450,118 +490,157 @@ tests.test_db = function(callback)
         },
         function(next) {
             db.select("test5", { id: id }, {}, function(err, rows) {
-                tests.assert(next, err || rows.length!=3 , "err20:", rows);
+                tests.assert(err || rows.length!=3 , "err20:", rows);
+                next();
             });
         },
         function(next) {
             db.select("test5", { id: id, type: "like" }, {}, function(err, rows) {
-                tests.assert(next, err || rows.length!=3 , "err21:", rows);
+                tests.assert(err || rows.length!=3 , "err21:", rows);
+                next();
                 // New hkey must be created in the list
                 ids = rows.map(function(x) { delete x.hkey; return x });
             });
         },
         function(next) {
             db.list("test5", ids, {}, function(err, rows) {
-                tests.assert(next, err || rows.length!=3 , "err22:", rows);
+                tests.assert(err || rows.length!=3 , "err22:", rows);
+                next();
             });
         },
         function(next) {
             db.get("test5", { id: id, type: "like", peer: 2 }, {}, function(err, row) {
-                tests.assert(next, err || !row || row.skipcol || row.skipjoin || !row.nojoin, "err23:", row);
+                tests.assert(err || !row || row.skipcol || row.skipjoin || !row.nojoin, "err23:", row);
+                next();
             });
         },
         function(next) {
             db.put("test1", { id: id, email: id, num: 1 }, { info_obj: 1 }, function(err, rows, info) {
                 rec = info.obj;
-                tests.assert(next, err || 0, "err24:");
+                tests.assert(err || 0, "err24:");
+                next();
             });
         },
         function(next) {
             db.update("test1", { id: id, email: "test", num: 1 }, { expected: { id: id, email: id }, skip_columns: ["mtime"], updateOps: { num: "incr" } }, function(err, rc, info) {
-                tests.assert(next, err || info.affected_rows!=1, "err25:", info);
+                tests.assert(err || info.affected_rows!=1, "err25:", info);
+                next();
             });
         },
         function(next) {
             db.get("test1", { id: id }, {}, function(err, row) {
-                tests.assert(next, err || !row || row.mtime != rec.mtime, "err25-1:", row, rec);
+                tests.assert(err || !row || row.mtime != rec.mtime, "err25-1:", row, rec);
+                next();
             });
         },
         function(next) {
             db.update("test1", { id: id, email: "test", num: 1 }, { expected: { id: id, email: "test" }, updateOps: { num: "incr" } }, function(err, rc, info) {
-                tests.assert(next, err || info.affected_rows!=1, "err26:", info);
+                tests.assert(err || info.affected_rows!=1, "err26:", info);
+                next();
             });
         },
         function(next) {
             db.update("test1", { id: id, email: "test" }, { expected: { id: id, email: id } }, function(err, rc, info) {
-                tests.assert(next, err || info.affected_rows, "err27:", info);
+                tests.assert(err || info.affected_rows, "err27:", info);
+                next();
             });
         },
         function(next) {
             db.update("test1", { id: id, email: "test", num: 2 }, { expected: { id: id, num: 1 }, ops: { num: "gt" } }, function(err, rc, info) {
-                tests.assert(next, err || !info.affected_rows, "err28:", info);
+                tests.assert(err || !info.affected_rows, "err28:", info);
+                next();
             });
         },
         function(next) {
             db.get("test1", { id: id }, {}, function(err, row) {
-                tests.assert(next, err || !row || row.num != 2, "err29:", row);
+                tests.assert(err || !row || row.num != 2, "err29:", row);
+                next();
             });
         },
         function(next) {
             db.put("test4", { id: id, type: "1", notempty: "" }, { quiet: 1 }, function(err, rc, info) {
-                tests.assert(next, configOptions.noNulls ? err : !err, "err30:", err, info);
+                tests.assert(configOptions.noNulls ? err : !err, "err30:", err, info);
+                next();
             });
         },
         function(next) {
             db.put("test4", { id: id, type: "2", notempty: "notempty" }, function(err, rc, info) {
-                tests.assert(next, err, "err31:", info);
+                tests.assert(err, "err31:", info);
+                next();
             });
         },
         function(next) {
             db.update("test4", { id: id, type: "3", notempty: null }, function(err, rc, info) {
-                tests.assert(next, err || !info.affected_rows, "err32:", info);
+                tests.assert(err || !info.affected_rows, "err32:", info);
+                next();
             });
         },
         function(next) {
             db.get("test4", { id: id }, {}, function(err, row) {
-                tests.assert(next, err || !row || row.notempty != "notempty", "err33:", row);
+                tests.assert(err || !row || row.notempty != "notempty", "err33:", row);
+                next();
             });
         },
         function(next) {
-            db.put("test6", { id: id, num: 1, obj: { n: 1, v: 2 }, list: [{ n: 1 },{ n: 2 }] }, { info_obj: 1 }, function(err, rc, info) {
+            db.put("test6", { id: id, num: 1, obj: { n: 1, v: 2 }, list: [{ n: 1 },{ n: 2 }], tags: "1,2,3", text: "123" }, { info_obj: 1 }, function(err, rc, info) {
                 rec = info.obj;
-                tests.assert(next, err, "err34:", info);
+                tests.assert(err, "err34:", info);
+                next();
             });
         },
         function(next) {
             db.update("test6", { id: id, num: 2, mtime: rec.mtime, obj: "1", action1: 1 }, function(err, rc, info) {
-                tests.assert(next, err || !info.affected_rows, "err35:", info);
+                tests.assert(err || !info.affected_rows, "err35:", info);
+                next();
             });
         },
         function(next) {
             db.get("test6", { id: id + " " }, {}, function(err, row) {
-                tests.assert(next, err || !row || row.num != 2 || !row.obj || row.obj.n != 1 ||
-                             !row.list || !row.list[0] || row.list[0].n != 1, "err36:", row);
+                tests.assert(err || !row || row.num != 2 || !row.obj || row.obj.n != 1 ||
+                             !row.list || !row.list[0] || row.list[0].n != 1 ||
+                             !row.tags || row.tags.length != 3 ||
+                             !row.text, "err36:", row);
+                next();
             });
         },
         function(next) {
             db.incr("test6", { id: id + " ", action1: 2 }, function(err, rc, info) {
-                tests.assert(next, err || !info.affected_rows, "err37:", info);
+                tests.assert(err || !info.affected_rows, "err37:", info);
+                next();
             });
         },
         function(next) {
             db.get("test6", { id: id }, {}, function(err, row) {
-                tests.assert(next, err || !row || (!configOptions.noCustomColumns && row.action1 != 3), "err38:", row, db.customColumn);
+                tests.assert(err || !row || (!configOptions.noCustomColumns && row.action1 != 3), "err38:", row, db.customColumn);
+                next();
             });
         },
         function(next) {
             db.list("test6", [id + " "], {}, function(err, rows) {
-                tests.assert(next, err || rows.length != 1, "err38:", rows, db.customColumn);
+                tests.assert(err || rows.length != 1, "must return 1 row:", rows, db.customColumn);
+                next();
             });
         },
-    ],
-    function(err) {
-        callback(err);
-    });
+        function(next) {
+            configOptions.maxSize = configOptions.maxList = 50;
+            var str = "", list = [];
+            for (let i = 0; i < 128; i++) list.push((str += i));
+            db.update("test6", { id: id, obj: { test: str }, tags: list, list: list, text: str }, function(err, rc, info) {
+                tests.expect(!err && info.affected_rows, "update failed:", info);
+                next();
+            });
+        },
+        function(next) {
+            db.get("test6", { id: id }, {}, function(err, row) {
+                tests.assert(err ||
+                             row?.text != "123" ||
+                             row?.tags?.length != 3 ||
+                             row?.list?.length != 2 ||
+                             row?.obj?.n != 1, "max size limits failed:", row);
+                next();
+            });
+        },
+    ], callback, true);
 }
 
 tests.test_s3icon = function(callback)
@@ -643,12 +722,14 @@ tests.test_cache = function(callback)
       },
       function(next) {
           ipc.get("a", function(e, val) {
-              tests.assert(next, val!="1", "value must be a=1, got", val)
+              tests.assert(val!="1", "value must be a=1, got", val)
+              next();
           });
       },
       function(next) {
           ipc.get(["a","b","c"], function(e, val) {
-              tests.assert(next, !val||val.length!=3||val[0]!="1"||val[1]!="1"||val[2]!="1", "value must be [1,1,1] got", val)
+              tests.assert(!val||val.length!=3||val[0]!="1"||val[1]!="1"||val[2]!="1", "value must be [1,1,1] got", val)
+              next();
           });
       },
       function(next) {
@@ -656,7 +737,8 @@ tests.test_cache = function(callback)
       },
       function(next) {
           ipc.get("a", function(e, val) {
-              tests.assert(next, val!="2", "value must be a=2, got", val)
+              tests.assert(val!="2", "value must be a=2, got", val)
+              next();
           });
       },
       function(next) {
@@ -667,7 +749,8 @@ tests.test_cache = function(callback)
       },
       function(next) {
           ipc.get("a", function(e, val) {
-              tests.assert(next, val!="3", "value must be a=3, got", val)
+              tests.assert(val!="3", "value must be a=3, got", val)
+              next();
           });
       },
       function(next) {
@@ -679,7 +762,8 @@ tests.test_cache = function(callback)
       function(next) {
           ipc.get("c", function(e, val) {
               val = lib.jsonParse(val)
-              tests.assert(next, !val||val.a!=1, "value must be {a:1}, got", val)
+              tests.assert(!val||val.a!=1, "value must be {a:1}, got", val)
+              next();
           });
       },
       function(next) {
@@ -687,7 +771,8 @@ tests.test_cache = function(callback)
       },
       function(next) {
           ipc.get("b", function(e, val) {
-              tests.assert(next, val, "value must be null, got", val)
+              tests.assert(val, "value must be null, got", val)
+              next();
           });
       },
       function(next) {
@@ -704,12 +789,14 @@ tests.test_cache = function(callback)
       },
       function(next) {
           ipc.get("c", { mapName: "m" }, function(e, val) {
-              tests.assert(next, val!=4, "value must be 4, got", val)
+              tests.assert(val!=4, "value must be 4, got", val)
+              next();
           });
       },
       function(next) {
           ipc.get("*", { mapName: "m" }, function(e, val) {
-              tests.assert(next, !val || val.c!=4 || val.a!=1 || val.b, "value must be {a:1,c:4}, got", val)
+              tests.assert(!val || val.c!=4 || val.a!=1 || val.b, "value must be {a:1,c:4}, got", val)
+              next();
           });
       },
     ], function(err) {
@@ -719,7 +806,7 @@ tests.test_cache = function(callback)
         }, function() {
             callback(err);
         });
-    });
+    }, true);
 }
 
 tests.test_pool = function(callback)
@@ -990,7 +1077,8 @@ tests.test_auth = function(callback)
         req.options.path = check.path;
         api.checkAuthorization(req, { status: check.type ? 200 : 417 }, (err) => {
             if (err.status != 200) console.log(check, err);
-            tests.assert(next, err.status != check.status, err, check, req);
+            tests.expect(err.status == check.status, err, check);
+            next();
         });
     }, callback);
 }
@@ -1368,3 +1456,12 @@ tests.test_flow = function(callback, test)
 
 }
 
+tests.test_toparams = function(callback, test)
+{
+    lib.series([
+        function(next) {
+        },
+        function(next) {
+        },
+    ], callback);
+}

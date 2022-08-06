@@ -29,6 +29,7 @@ case "$BKJS_CMD" in
         echo "path.data: $BKJS_HOME/var" >> config/elasticsearch.yml
         echo "path.logs: $BKJS_HOME/log" >> config/elasticsearch.yml
         echo "action.destructive_requires_name: true" >> config/elasticsearch.yml
+        echo 'xpack.security.enabled: false' >> config/elasticsearch.yml
         if [[ $OS_TYPE =~ amazon ]]; then
             echo 'network.host: ["_ec2_","_local_"]' >> config/elasticsearch.yml
             echo 'discovery.seed_providers: ec2' >> config/elasticsearch.yml
