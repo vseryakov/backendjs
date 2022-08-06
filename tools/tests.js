@@ -868,23 +868,44 @@ tests.test_config = function(callback)
                 "-db-sqlite-pool-max", "10",
                 "-db-sqlite1-pool", "a",
                 "-db-sqlite1-pool-max", "10",
-                "-db-sqlite1-pool-cache-columns", "1",
+                "-db-sqlite1-pool-options-cache-columns", "1",
                 "-db-sqlite1-pool-options-test", "test",
                 "-db-sqlite-pool-options-discovery-interval", "30000",
                 "-db-sqlite-pool-options-map.test", "test",
+                "-db-sqlite-pool-options", "arg1:1,arg2:2",
+                "-ipc-queue-q", "local://queue?bk-test=10",
+                "-ipc-queue-q-options", "count:10,interval:100",
+                "-ipc-queue-q-options-visibilityTimeout", "1000",
+                "-api-cleanup-rules-aaa", "one:1,two:2",
+                "-api-cleanup-rules-aaa", "three:3",
             ];
     core.parseArgs(argv);
     logger.debug("poolParams:", db.poolParams);
+
     if (core.forceUid[0] != 1) return callback("invalid force-uid")
     if (core.proxy.port != 3000) return callback("invalid proxy-port");
     if (!db._createTables) return callback("invalid create-tables");
-    if (!db.poolParams.sqlite || db.poolParams.sqlite.max != 10) return callback("invalid sqlite max");
-    if (!db.poolParams.sqlite1 || db.poolParams.sqlite1.url != "a") return callback("invalid sqlite1 url");
+
+    if (db.poolParams.sqlite?.max != 10) return callback("invalid sqlite max");
+    if (db.poolParams.sqlite.configOptions.arg1 != 1 || db.poolParams.sqlite.configOptions.arg2 != 2) return callback("invalid sqlite map with args");
+
+    if (db.poolParams.sqlite1?.url != "a") return callback("invalid sqlite1 url");
     if (db.poolParams.sqlite1.max != 10) return callback("invalid sqlite1 max");
     if (!db.poolParams.sqlite1.configOptions.cacheColumns) return callback("invalid sqlite1 cache-columns");
     if (db.poolParams.sqlite.configOptions.discoveryInterval != 30000) return callback("invalid sqlite interval:" + lib.stringify(db.poolParams.sqlite));
     if (db.poolParams.sqlite.configOptions['map.test'] != "test") return callback("invalid sqlite map:" + lib.stringify(db.poolParams.sqlite));
     if (db.poolParams.sqlite1.configOptions.test != "test") return callback("invalid sqlite1 map:" + lib.stringify(db.poolParams.sqlite1));
+
+    if (ipc.configParams.q?.count != 10 || ipc.configParams.q?.interval != 100) return callback("invalid queue options");
+    if (ipc.configParams.q?.visibilityTimeout != 1000) return callback("invalid queue visibility timeout");
+
+    for (const p in ipc.configParams) if (p != "q") delete ipc.configParams[p];
+    ipc.initClients();
+    var q = ipc.getQueue("q");
+    this.assert(q.options.test != 10, "invalid queue url options", q)
+
+    core.parseArgs(["-ipc-queue-q-options-visibilityTimeout", "99", "-ipc-queue-q-options", "count:99"]);
+    this.assert(q.options.visibilityTimeout != 99 || q.options.count != 99, "invalid queue url options", q)
 
     if (core.logwatcherSend.error != "a") return callback("invalid logwatcher email:" + JSON.stringify(core.logwatcherSend));
     if (core.logwatcherMatch.error.indexOf("a") == -1) return callback("invalid logwatcher match: " + JSON.stringify(core.logwatcherMatch));
@@ -892,6 +913,8 @@ tests.test_config = function(callback)
     if (!core.logwatcherFile.some(function(x) { return x.file == "b"})) return callback("invalid logwatcher file: " + JSON.stringify(core.logwatcherFile));
     if (!api.allow.list.some(function(x) { return x == "^/a"})) return callback("invalid allow path");
     if (!api.allowAdmin.list.some(function(x) { return x == "^/a"})) return callback("invalid allow admin");
+
+    if (api.cleanupRules.aaa?.one != 1 || api.cleanupRules.aaa?.two != 2 || api.cleanupRules.aaa?.three != 3) return callback("invalid api cleanup rules");
     callback();
 }
 

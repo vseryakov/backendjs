@@ -41,7 +41,7 @@
     "unix-dgram": "2.0.4",
     "web-push": "3.5.0",
     "@parse/node-apn": "5.1.3",
-    "bkjs-wand": "0.5.2",
+    "bkjs-wand": "0.5.3",
     "sharp": "0.30.7",
     "nats": "2.7.1",
     "amqplib": "0.10.1"
