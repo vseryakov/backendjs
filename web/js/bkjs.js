@@ -11,16 +11,12 @@ var bkjs = {
     // Support sessions by storing wildcard signature in the cookies
     session: 1,
 
-    // Save credentials in the local storage, by default keep only in memory
-    persistent: false,
-
     // Signature header name and version
-    signatureVersion: 4,
-    signatureName: "bk-signature",
-    tzHeaderName: "bk-tz",
-    langHeaderName: "bk-lang",
-    appHeaderName: "bk-app",
-    versionHeaderName: "bk-version",
+    hver: 4,
+    hsig: "bk-signature",
+    htz: "bk-tz",
+    hcsrf: "bk-csrf",
+
     // HTTP headers to be sent with every request
     headers: {},
 
@@ -56,19 +52,16 @@ bkjs.login = function(options, callback)
     options = this.objClone(options, "jsonType", "obj", "type", "POST");
     if (!options.data) options.data = {};
     if (!options.url) options.url = "/auth";
-    if (typeof options.login =="string" && typeof options.secret == "string") this.setCredentials(options);
     options.data._session = this.session;
 
     this.send(options, (data) => {
         bkjs.loggedIn = true;
-        for (var p in data) bkjs.account[p] = data[p];
+        for (const p in data) bkjs.account[p] = data[p];
         // Clear credentials from the memory if we use sessions
-        if (bkjs.session) bkjs.setCredentials();
         if (typeof callback == "function") callback.call(options.self || bkjs);
     }, (err, xhr) => {
         bkjs.loggedIn = false;
-        for (var p in bkjs.account) delete bkjs.account[p];
-        bkjs.setCredentials();
+        for (const p in bkjs.account) delete bkjs.account[p];
         if (typeof callback == "function") callback.call(options.self || bkjs, err, null, xhr);
     });
 }
@@ -80,81 +73,10 @@ bkjs.logout = function(options, callback)
     options = this.objClone(options, "jsonType", "obj", "type", "POST");
     if (!options.url) options.url = "/logout";
     this.loggedIn = false;
-    for (var p in bkjs.account) delete bkjs.account[p];
+    for (const p in bkjs.account) delete bkjs.account[p];
     this.sendRequest(options, (err, data, xhr) => {
-        bkjs.setCredentials();
         if (typeof callback == "function") callback.call(options.self || bkjs, err, data, xhr);
     });
-}
-
-// Create a signature for the request, the url can be an absolute url or just a path, query can be a form data, an object or a string with already
-// encoded parameters, if not given the parameters in the url will be used.
-// Returns an object with HTTP headers to be sent to the server with the request.
-bkjs.createSignature = function(method, url, query, options)
-{
-    var rc = {};
-    var creds = this.getCredentials();
-    if (!creds.login || !creds.secret) return rc;
-    var now = Date.now(), str, hmac;
-    var host = window.location.hostname.toLowerCase();
-    if (url.indexOf('://') > -1) {
-        var u = url.split('/');
-        host = (u[2] || "").split(":")[0].toLowerCase();
-        url = '/' + u.slice(3).join('/');
-    }
-    if (!options) options = {};
-    if (!method) method = "GET";
-    var tag = options.tag || "";
-    var checksum = options.checksum || "";
-    var expires = options.expires || 0;
-    if (!expires || typeof expires != "number") expires = now + 60000;
-    if (expires < now) expires += now;
-    var ctype = String(options.contentType || "").toLowerCase();
-    if (!ctype && method == "POST") ctype = "application/x-www-form-urlencoded; charset=utf-8";
-    var q = String(url || "/").split("?");
-    url = q[0];
-    if (url[0] != "/") url = "/" + url;
-    if (!query) query = q[1] || "";
-    if (query instanceof FormData) query = "";
-    if (typeof query == "object") query = jQuery.param(query);
-    query = query.split("&").sort().filter(function(x) { return x != ""; }).join("&");
-    switch (this.signatureVersion) {
-    case 2:
-    case 3:
-        str = this.signatureVersion + '\n' + tag + '\n' + creds.login + "\n*\n" + this.domainName(host) + "\n/\n*\n" + expires + "\n*\n*\n";
-        hmac = this.crypto.hmacSha256(creds.secret, str, "base64");
-        break;
-    default:
-        str = this.signatureVersion + "\n" + tag + "\n" + creds.login + "\n" + method + "\n" + host + "\n" + url + "\n" + query + "\n" + expires + "\n" + ctype + "\n" + checksum + "\n";
-        hmac = this.crypto.hmacSha256(creds.secret, str, "base64");
-    }
-    rc[this.signatureName] = this.signatureVersion + '|' + tag + '|' + creds.login + '|' + hmac + '|' + expires + '|' + checksum + '|';
-    if (this.debug) this.log('sign:', creds, str);
-    return rc;
-}
-
-// Produce signed URL to be used in embeded cases or with expiration so the url can be passed and be valid for longer time.
-bkjs.signUrl = function(url, expires)
-{
-    var hdrs = this.createSignature("GET", url, "", { expires: expires });
-    if (!hdrs[this.signatureName]) return url;
-    return url + (url.indexOf("?") == -1 ? "?" : "") + "&" + this.signatureName + "=" + encodeURIComponent(hdrs[this.signatureName]);
-}
-
-// Return current credentials
-bkjs.getCredentials = function()
-{
-    var obj = this.persistent ? localStorage : this;
-    return { login: obj.bkjsLogin || "", secret: obj.bkjsSecret || "" };
-}
-
-// Set new credentials, save in memory or local storage
-bkjs.setCredentials = function(options)
-{
-    var obj = this.persistent ? localStorage : this;
-    obj.bkjsLogin = options?.login;
-    obj.bkjsSecret = options?.secret;
-    if (this.debug) this.log('setCredentials:', options);
 }
 
 // Send signed AJAX request using jQuery, call callbacks onsuccess or onerror on successful or error response accordingly.
@@ -169,8 +91,14 @@ bkjs.send = function(options, onsuccess, onerror)
     if (!options.headers) options.headers = {};
     if (!options.type) options.type = 'POST';
     if (!options.dataType) options.dataType = 'json';
-    if (this.locationUrl && !options.url.match(/^https?:/)) options.url = this.locationUrl + options.url;
+    if (this.locationUrl && !/^https?:/.test(options.url)) options.url = this.locationUrl + options.url;
 
+    const _complete = options.complete;
+    options.complete = function(xhr, status) {
+        var h = xhr.getResponseHeader(bkjs.hcsrf);
+        if (h) bkjs.headers[bkjs.hcsrf] = h;
+        if (typeof _complete == "function") _complete(xhr, status);
+    }
     // Success callback but if it throws exception we call error handler instead
     options.success = function(json, statusText, xhr) {
         $(bkjs).trigger("bkjs.loading", "hide");
@@ -184,6 +112,7 @@ bkjs.send = function(options, onsuccess, onerror)
             if (!json || typeof json != "object") json = {};
             break;
         }
+
         if (options.info_msg || options.success_msg) {
             $(bkjs).trigger("bkjs.alert", [options.info_msg ? "info" : "success", options.info_msg || options.success_msg]);
         }
@@ -202,13 +131,9 @@ bkjs.send = function(options, onsuccess, onerror)
         if (typeof onerror == "function") onerror.call(options.self || bkjs, err || errorText || statusText, xhr, statusText, errorText);
         if (options.trigger) bkjs.trigger(options.trigger, { url: options.url, query: options.data, err: err });
     }
-    if (!options.nosignature) {
-        var hdrs = this.createSignature(options.type, options.url, options.data, { expires: options.expires, checksum: options.checksum });
-        for (const p in hdrs) options.headers[p] = hdrs[p];
-        // Optional timezone offset for proper datetime related operations
-        options.headers[this.tzHeaderName] = (new Date()).getTimezoneOffset();
-        if (this.language) options.headers[this.langHeaderName] = this.language;
-    }
+
+    options.headers[this.htz] = (new Date()).getTimezoneOffset();
+    if (options.login && options.secret) options.headers[this.hsig] = this.createSignature(options);
     for (const p in this.headers) if (typeof options.headers[p] == "undefined") options.headers[p] = this.headers[p];
     for (const p in options.data) if (typeof options.data[p] == "undefined") delete options.data[p];
     $(bkjs).trigger("bkjs.loading", "show");
@@ -230,12 +155,6 @@ bkjs.sendRequest = function(options, callback)
         var data = options.jsonType == "list" ? [] : options.jsonType == "obj" ? {} : null;
         if (typeof callback == "function") callback.call(options.self || bkjs, err, data, xhr);
     });
-}
-
-bkjs.getRequest = function(options, callback)
-{
-    if (options) options.type = "GET";
-    bkjs.sendRequest(options, callback);
 }
 
 // Send a file as multi-part upload, uses `options.name` or "data" for file namne. Additional files can be passed in the `options.files` object. Optional form inputs
@@ -343,7 +262,7 @@ bkjs.wsClose = function(bye)
 // Send a string data or an object in jQuery ajax format { url:.., data:.. } or as an object to be stringified
 bkjs.wsSend = function(data)
 {
-    if (!this.ws || this.ws.readyState != WebSocket.OPEN) {
+    if (this.ws?.readyState != WebSocket.OPEN) {
         this.wsconf.pending.push(data);
         return;
     }
@@ -399,9 +318,47 @@ bkjs.cookie = function(name)
     return "";
 }
 
+// Create a signature for the request, the url can be an absolute url or just a path, query can be a form data, an object or a string with already
+// encoded parameters, if not given the parameters in the url will be used.
+bkjs.createSignature = function(options)
+{
+    var url = options.url || "", query = options.data;
+    var host = window.location.hostname.toLowerCase();
+    if (url.indexOf('://') > -1) {
+        var u = url.split('/');
+        host = (u[2] || "").split(":")[0].toLowerCase();
+        url = '/' + u.slice(3).join('/');
+    }
+    var now = Date.now();
+    var tag = options.tag || "";
+    var checksum = options.checksum || "";
+    var expires = options.expires || 0;
+    if (!expires || typeof expires != "number") expires = now + 60000;
+    if (expires < now) expires += now;
+    var ctype = String(options.contentType || "").toLowerCase();
+    if (!ctype && options.type == "POST") ctype = "application/x-www-form-urlencoded; charset=utf-8";
+    var q = url.split("?");
+    url = q[0];
+    if (url[0] != "/") url = "/" + url;
+    if (!query) query = q[1] || "";
+    if (query instanceof FormData) query = "";
+    if (typeof query == "object") query = jQuery.param(query);
+    query = query.split("&").sort().filter(function(x) { return x != ""; }).join("&");
+    var str = this.hver + "\n" + tag + "\n" + options.login + "\n" + options.type + "\n" + host + "\n" + url + "\n" + query + "\n" + expires + "\n" + ctype + "\n" + checksum + "\n";
+    var hmac = this.crypto.hmacSha256(options.secret, str, "base64");
+    if (this.debug) this.log('sign:', str);
+    return this.hver + '|' + tag + '|' + options.login + '|' + hmac + '|' + expires + '|' + checksum + '|';
+}
+
 // Simple debugging function that outputs arguments in the error console each argument on a separate line
 bkjs.log = function()
 {
-    if (!console || !console.log) return;
-    console.log.apply(console, arguments);
+    if (console?.log) console.log.apply(console, arguments);
 }
+
+$(function() {
+    var h = $(`meta[name="${bkjs.hcsrf}"]`).attr('content');
+    if (h) bkjs.headers[bkjs.hcsrf] = h;
+});
+
+
