@@ -93,14 +93,10 @@ bkjs.send = function(options, onsuccess, onerror)
     if (!options.dataType) options.dataType = 'json';
     if (this.locationUrl && !/^https?:/.test(options.url)) options.url = this.locationUrl + options.url;
 
-    const _complete = options.complete;
-    options.complete = function(xhr, status) {
-        var h = xhr.getResponseHeader(bkjs.hcsrf);
-        if (h) bkjs.headers[bkjs.hcsrf] = h;
-        if (typeof _complete == "function") _complete(xhr, status);
-    }
     // Success callback but if it throws exception we call error handler instead
     options.success = function(json, statusText, xhr) {
+        var h = xhr.getResponseHeader(bkjs.hcsrf);
+        if (h) bkjs.headers[bkjs.hcsrf] = h;
         $(bkjs).trigger("bkjs.loading", "hide");
         // Make sure json is of type we requested
         switch (options.jsonType) {
@@ -121,6 +117,8 @@ bkjs.send = function(options, onsuccess, onerror)
     }
     // Parse error message
     options.error = function(xhr, statusText, errorText) {
+        var h = xhr.getResponseHeader(bkjs.hcsrf);
+        if (h) bkjs.headers[bkjs.hcsrf] = h;
         $(bkjs).trigger("bkjs.loading", "hide");
         var err = xhr.responseText;
         try { err = JSON.parse(xhr.responseText) } catch (e) {}
