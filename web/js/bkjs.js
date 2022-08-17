@@ -140,10 +140,9 @@ bkjs.send = function(options, onsuccess, onerror)
     return $.ajax(options);
 }
 
-bkjs.get = function(options, onsuccess, onerror)
+bkjs.get = function(options, callback)
 {
-    if (options) options.type = "GET";
-    bkjs.send(options, onsuccess, onerror);
+    bkjs.sendRequest($.extend(options, { type: "GET" }), callback);
 }
 
 // Make a request and use single callback with error as the first argument or null if no error
