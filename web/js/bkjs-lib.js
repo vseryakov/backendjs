@@ -1911,7 +1911,7 @@ bkjs.sanitizer = {
         img: ['src', 'srcset', 'alt', 'title', 'width', 'height', 'style'],
         area: [], b: [], br: [], col: [], code: [], div: [], em: [], hr: [], h1: [], h2: [], h3: [], h4: [], h5: [], h6: [], i: [],
         li: [], ol: [], p: [], pre: [], s: [], small: [], span: [], sub: [], sup: [], strong: [], u: [], ul: [],
-        table: [], thead: [], tbody: [], th: [], tr: [], td: [],
+        table: [], thead: [], tbody: [], th: [], tr: [], td: [], blockquote: []
     },
 
     isattr: function(attr, list) {
