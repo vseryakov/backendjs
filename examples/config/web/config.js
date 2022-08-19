@@ -70,8 +70,8 @@ Bkjs.configCollapse = function(data, event)
 
 Bkjs.configShow = function(data, event)
 {
-    Bkjs.send({ url: '/data/scan/bk_config', data: { _count: 1000 }, jsonType: "list" }, function(rows) {
-        Bkjs.configRows = rows;
+    Bkjs.send({ url: '/data/scan/bk_config', data: { _count: 1000 } }, function(rc) {
+        Bkjs.configRows = rc.data;
         Bkjs.configFilter();
     });
 }

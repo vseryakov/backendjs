@@ -46,7 +46,7 @@ mod.configureDataAPI = function()
     api.app.all(/^\/data\/(keys)\/([a-z_0-9]+)$/, function(req, res) {
         if (mod.perms && !lib.isFlag(mod.perms[req.params[1]], req.params[0])) return res.status(403).send("not allowed");
         var options = api.getOptions(req);
-        res.json(db.getKeys(req.params[1], options));
+        res.json({ data: db.getKeys(req.params[1], options) });
     });
 
     // Basic operations on a table
@@ -65,20 +65,13 @@ mod.configureDataAPI = function()
                 rows.push(row);
                 next();
             }, (err) => {
-                api.sendJSON(req, err, rows);
+                api.sendJSON(req, err, { count: rows.length, data: rows });
             });
             break;
 
         default:
             db[req.params[0]](req.params[1], req.query, options, (err, rows, info) => {
-                switch (req.params[0]) {
-                case "select":
-                case "search":
-                    api.sendJSON(req, err, api.getResultPage(req, options, rows, info));
-                    break;
-                default:
-                    api.sendJSON(req, err, rows);
-                }
+                api.sendJSON(req, err, api.getResultPage(req, options, rows, info));
             });
         }
     });
