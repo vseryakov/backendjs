@@ -35,7 +35,7 @@ Bkjs.pagesFilter = function()
 
 Bkjs.pagesSelect = function(callback)
 {
-    Bkjs.send({ url: "/pages/select", data: { _select: "id,title,subtitle,icon,link,mtime" }, jsonType: "list" }, function(rows) {
+    Bkjs.send({ url: "/pages/select", data: { _select: "id,title,subtitle,icon,link,mtime" } }, function(rows) {
         rows.forEach(function(x) {
             x.subtitle = x.subtitle || "";
             x.icon = x.icon || "glyphicon glyphicon-book";
@@ -75,7 +75,7 @@ Bkjs.pagesShow = function(data, event)
     var id = data && typeof data.id == "string" ? data.id : data && typeof data.id == "function" ? data.id() : "";
     var url = id.match(/^$|^[a-z0-9]+$/) ? "/pages/get/" + id : id.replace("/pages/show", "/pages/get");
     if (url.match("^/pages/get")) {
-        var req = { url: url, jsonType: "obj" };
+        var req = { url: url };
     } else {
         var req = { url: url, dataType: "text" };
     }
@@ -109,7 +109,7 @@ Bkjs.pagesNew = function(data, event)
 
 Bkjs.pagesEdit = function(data, event)
 {
-    Bkjs.send({ url: "/pages/get/" + Bkjs.pagesId(), jsonType: "obj" }, function(row) {
+    Bkjs.send({ url: "/pages/get/" + Bkjs.pagesId() }, function(row) {
         Bkjs.pagesMtime = row.mtime;
         for (var p in row) {
             switch ($("#pages-" + p).attr("type")) {
@@ -130,7 +130,7 @@ Bkjs.pagesSave = function(data, event)
 {
     if (!Bkjs.pagesId()) return Bkjs.pagesPut();
 
-    Bkjs.send({ url: "/pages/get/" + Bkjs.pagesId(), data: { _select: "mtime" }, jsonType: "obj" }, function(row) {
+    Bkjs.send({ url: "/pages/get/" + Bkjs.pagesId(), data: { _select: "mtime" } }, function(row) {
         if (row.mtime > Bkjs.pagesMtime && confirm("The page has been modified already, continuing will override previous data with your version of the page.\nDo you want to cancel?")) return;
         Bkjs.pagesPut();
     });

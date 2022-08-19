@@ -32,7 +32,7 @@ bkjs.checkPassword = function(secret, policy)
 bkjs.getAccount = function(query, callback)
 {
     if (typeof query == "function") callback = query, query = null;
-    this.sendRequest({ url: "/account/get", data: query, jsonType: "obj" }, function(err, data, xhr) {
+    this.sendRequest({ url: "/account/get", data: query }, (err, data, xhr) => {
         for (const p in data) bkjs.account[p] = data[p];
         if (typeof callback == "function") callback(err, data, xhr);
     });
@@ -41,9 +41,8 @@ bkjs.getAccount = function(query, callback)
 // Update current account
 bkjs.updateAccount = function(obj, callback)
 {
-    if (!obj.login) obj.login = this.account.login;
     delete obj.secret2;
-    this.sendRequest({ url: '/account/update', data: obj, type: "POST", jsonType: "obj" }, callback);
+    this.sendRequest({ url: '/account/update', data: obj, type: "POST" }, callback);
 }
 
 // Return true if the account contains the given type

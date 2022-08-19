@@ -33,7 +33,7 @@ self.onImageError = function(data, event)
 self.showBlog = function(data, event)
 {
     if (self.blog_token === "") return;
-    self.send({ url: '/blog/select', data: { _start: self.blog_token }, jsonType: "obj" }, function(data) {
+    self.send({ url: '/blog/select', data: { _start: self.blog_token } }, function(data) {
         self.blog_token = data.next_token || "";
         data.data.forEach(function(x) {
             x.tags = x.tags ? x.tags.split(" ") : [];
@@ -77,7 +77,7 @@ self.editBlog = function(data, event)
         $('#blog-form').modal("show");
         return;
     }
-    self.send({ url: '/blog/get', data: { mtime: data.ctime, sender: data.sender, jsonType: "obj"  }, type: "POST" }, function(obj) {
+    self.send({ url: '/blog/get', data: { mtime: data.ctime, sender: data.sender  }, type: "POST" }, function(obj) {
         ["msg","title","tags","mtime","sender"].forEach(function(x) { $("#blog-" + x).val(obj[x]); });
         $('#blog-form').modal("show");
     }, function(err) {

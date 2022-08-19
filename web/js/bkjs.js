@@ -49,7 +49,7 @@ var bkjs = {
 bkjs.login = function(options, callback)
 {
     if (typeof options == "function") callback = options, options = {};
-    options = this.objClone(options, "jsonType", "obj", "type", "POST");
+    options = this.objClone(options, "type", "POST");
     if (!options.data) options.data = {};
     if (!options.url) options.url = "/auth";
     options.data._session = this.session;
@@ -70,13 +70,11 @@ bkjs.login = function(options, callback)
 bkjs.logout = function(options, callback)
 {
     if (typeof options == "function") callback = options, options = null;
-    options = this.objClone(options, "jsonType", "obj", "type", "POST");
+    options = this.objClone("type", "POST");
     if (!options.url) options.url = "/logout";
     this.loggedIn = false;
     for (const p in bkjs.account) delete bkjs.account[p];
-    this.sendRequest(options, (err, data, xhr) => {
-        if (typeof callback == "function") callback.call(options.self || bkjs, err, data, xhr);
-    });
+    this.sendRequest(options, callback);
 }
 
 // Send signed AJAX request using jQuery, call callbacks onsuccess or onerror on successful or error response accordingly.
@@ -98,17 +96,7 @@ bkjs.send = function(options, onsuccess, onerror)
         var h = xhr.getResponseHeader(bkjs.hcsrf);
         if (h) bkjs.headers[bkjs.hcsrf] = h;
         $(bkjs).trigger("bkjs.loading", "hide");
-        // Make sure json is of type we requested
-        switch (options.jsonType) {
-        case 'list':
-            if (!json || !Array.isArray(json)) json = [];
-            break;
-
-        case 'object':
-            if (!json || typeof json != "object") json = {};
-            break;
-        }
-
+        if (!json) json = {};
         if (options.info_msg || options.success_msg) {
             $(bkjs).trigger("bkjs.alert", [options.info_msg ? "info" : "success", options.info_msg || options.success_msg]);
         }
@@ -149,8 +137,7 @@ bkjs.sendRequest = function(options, callback)
     return bkjs.send(options, (data, xhr) => {
         if (typeof callback == "function") callback.call(options.self || bkjs, null, data, xhr);
     }, (err, xhr) => {
-        var data = options.jsonType == "list" ? [] : options.jsonType == "obj" ? {} : null;
-        if (typeof callback == "function") callback.call(options.self || bkjs, err, data, xhr);
+        if (typeof callback == "function") callback.call(options.self || bkjs, err, {}, xhr);
     });
 }
 

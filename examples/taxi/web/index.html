@@ -63,7 +63,7 @@ $(document).ready(function() {
     Bkjs.taxis = {};
 
     Bkjs.doRefresh = function(data, event) {
-        this.send({ url: '/taxi/get', jsonType: "list" }, function(list) {
+        this.send({ url: '/taxi/get' }, function(list) {
             list.forEach(function(x) {
                 var pos = new google.maps.LatLng(x.latitude, x.longitude);
                 if (!Bkjs.taxis[x.id]) {
@@ -78,7 +78,7 @@ $(document).ready(function() {
     }
 
     Bkjs.doConfirm = function(data, event) {
-        Bkjs.send({ url: '/taxi/set?status=Scheduled&id=' + data.id, jsonType: "list" }, function() {
+        Bkjs.send({ url: '/taxi/set?status=Scheduled&id=' + data.id }, function() {
             Bkjs.doRefresh();
         });
     }
