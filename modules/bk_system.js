@@ -43,18 +43,14 @@ mod.configureSystemAPI = function()
 
         case "init":
             if (req.params[1]) {
-                ["master","server","web","worker"].forEach((x) => {
-                    ipc.broadcast(core.name + ":" + x, req.params[1] + ":init", { queueName: ipc.systemQueue });
-                });
+                ipc.sendBroadcast(req.params[1] + ":init");
             }
             res.json({});
             break;
 
         case "check":
             if (req.params[1]) {
-                ["master","server","web","worker"].forEach((x) => {
-                    ipc.broadcast(core.name + ":" + x, req.params[1] + ":check", { queueName: ipc.systemQueue });
-                });
+                ipc.sendBroadcast(req.params[1] + ":check");
             }
             res.json({});
             break;
