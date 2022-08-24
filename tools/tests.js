@@ -882,22 +882,22 @@ tests.test_config = function(callback)
     core.parseArgs(argv);
     logger.debug("poolParams:", db.poolParams);
 
-    if (core.forceUid[0] != 1) return callback("invalid force-uid")
-    if (core.proxy.port != 3000) return callback("invalid proxy-port");
-    if (!db._createTables) return callback("invalid create-tables");
+    this.assert(core.forceUid[0] != 1, "invalid force-uid", core.forceUid)
+    this.assert(core.proxy.port != 3000, "invalid proxy-port", core.proxy);
+    this.assert(!db._createTables, "invalid create-tables");
 
-    if (db.poolParams.sqlite?.max != 10) return callback("invalid sqlite max");
-    if (db.poolParams.sqlite.configOptions.arg1 != 1 || db.poolParams.sqlite.configOptions.arg2 != 2) return callback("invalid sqlite map with args");
+    this.assert(db.poolParams.sqlite?.max != 10, "invalid sqlite max", db.poolParams.sqlite);
+    this.assert(db.poolParams.sqlite.configOptions.arg1 != 1 || db.poolParams.sqlite.configOptions.arg2 != 2, "invalid sqlite map with args", db.poolParams.sqlite);
 
-    if (db.poolParams.sqlite1?.url != "a") return callback("invalid sqlite1 url");
-    if (db.poolParams.sqlite1.max != 10) return callback("invalid sqlite1 max");
-    if (!db.poolParams.sqlite1.configOptions.cacheColumns) return callback("invalid sqlite1 cache-columns");
-    if (db.poolParams.sqlite.configOptions.discoveryInterval != 30000) return callback("invalid sqlite interval:" + lib.stringify(db.poolParams.sqlite));
-    if (db.poolParams.sqlite.configOptions['map.test'] != "test") return callback("invalid sqlite map:" + lib.stringify(db.poolParams.sqlite));
-    if (db.poolParams.sqlite1.configOptions.test != "test") return callback("invalid sqlite1 map:" + lib.stringify(db.poolParams.sqlite1));
+    this.assert(db.poolParams.sqlite1?.url != "a", "invalid sqlite1 url", db.poolParams.sqlite1);
+    this.assert(db.poolParams.sqlite1.max != 10, "invalid sqlite1 max", db.poolParams.sqlite1);
+    this.assert(!db.poolParams.sqlite1.configOptions.cacheColumns, "invalid sqlite1 cache-columns", db.poolParams.sqlite1);
+    this.assert(db.poolParams.sqlite.configOptions.discoveryInterval != 30000, "invalid sqlite interval", db.poolParams.sqlite);
+    this.assert(db.poolParams.sqlite.configOptions['map.test'] != "test", "invalid sqlite map", db.poolParams.sqlite);
+    this.assert(db.poolParams.sqlite1.configOptions.test != "test", "invalid sqlite1 map", db.poolParams.sqlite1);
 
-    if (ipc.configParams.q?.count != 10 || ipc.configParams.q?.interval != 100) return callback("invalid queue options");
-    if (ipc.configParams.q?.visibilityTimeout != 1000) return callback("invalid queue visibility timeout");
+    this.assert(ipc.configParams.q?.count != 10 || ipc.configParams.q?.interval != 100, "invalid queue options", ipc.configParams.q);
+    this.assert(ipc.configParams.q?.visibilityTimeout != 1000, "invalid queue visibility timeout", ipc.configParams.q);
 
     for (const p in ipc.configParams) if (p != "q") delete ipc.configParams[p];
     ipc.initClients();
@@ -907,30 +907,34 @@ tests.test_config = function(callback)
     core.parseArgs(["-ipc-queue-q-options-visibilityTimeout", "99", "-ipc-queue-q-options", "count:99"]);
     this.assert(q.options.visibilityTimeout != 99 || q.options.count != 99, "invalid queue url options", q)
 
-    if (core.logwatcherSend.error != "a") return callback("invalid logwatcher email:" + JSON.stringify(core.logwatcherSend));
-    if (core.logwatcherMatch.error.indexOf("a") == -1) return callback("invalid logwatcher match: " + JSON.stringify(core.logwatcherMatch));
-    if (!core.logwatcherFile.some(function(x) { return x.file == "a" && x.type == "error"})) return callback("invalid logwatcher file: " + JSON.stringify(core.logwatcherFile));
-    if (!core.logwatcherFile.some(function(x) { return x.file == "b"})) return callback("invalid logwatcher file: " + JSON.stringify(core.logwatcherFile));
-    if (!api.allow.list.some(function(x) { return x == "^/a"})) return callback("invalid allow path");
-    if (!api.allowAdmin.list.some(function(x) { return x == "^/a"})) return callback("invalid allow admin");
+    this.assert(core.logwatcherSend.error != "a", "invalid logwatcher email", core.logwatcherSend);
+    this.assert(core.logwatcherMatch.error.indexOf("a") == -1, "invalid logwatcher match", core.logwatcherMatch);
+    this.assert(!core.logwatcherFile.some(function(x) { return x.file == "a" && x.type == "error"}), "invalid logwatcher file", core.logwatcherFile);
+    this.assert(!core.logwatcherFile.some(function(x) { return x.file == "b"}), "invalid logwatcher file", core.logwatcherFile);
 
-    if (api.cleanupRules.aaa?.one != 1 || api.cleanupRules.aaa?.two != 2 || api.cleanupRules.aaa?.three != 3) return callback("invalid api cleanup rules");
+    this.assert(!api.allow.list.some(function(x) { return x == "^/a"}), "invalid allow path", api.allow);
+    this.assert(!api.allowAdmin.list.some(function(x) { return x == "^/a"}), "invalid allow admin", api.allowAdmin);
+
+    this.assert(api.cleanupRules.aaa?.one != 1 || api.cleanupRules.aaa?.two != 2 || api.cleanupRules.aaa?.three != 3, "invalid api cleanup rules", api.cleanupRules);
+
     callback();
 }
 
 tests.test_logwatcher = function(callback)
 {
-    var email = lib.getArg("-email");
-    if (!email) return callback("-email is required")
-
-    var argv = ["-logwatcher-send-error", email,
-                "-logwatcher-send-test", email,
-                "-logwatcher-send-warning", email,
-                "-logwatcher-send-any", email,
+    var argv = ["-logwatcher-send-error", "console://",
+                "-logwatcher-send-test", "console://",
+                "-logwatcher-send-ignore", "console://",
+                "-logwatcher-send-warning", "console://",
+                "-logwatcher-send-any", "console://",
                 "-logwatcher-match-test", "TEST: ",
+                "-logwatcher-ignore-error", "error2",
                 "-logwatcher-ignore-warning", "warning2",
                 "-logwatcher-once-test2", "test2",
                 "-logwatcher-match-any", "line:[0-9]+",
+                "-log-file", "tmp/message.log",
+                "-err-file", "tmp/error.log",
+                "-db-pool", "none",
             ];
     var lines = [
                 " ERROR: error1",
@@ -951,11 +955,14 @@ tests.test_logwatcher = function(callback)
                 "no error string",
                 " backtrace test line:456",
             ];
+
+    core.logwatcherFile = core.logwatcherFile.filter((x) => (x.name));
+
     core.parseArgs(argv);
-    fs.appendFileSync(core.logFile, lines.join("\n"));
-    core.watchLogs(function(err, rc) {
-        if (!err && lib.objKeys(rc.errors).length != 4) err = "no errors matched but should";
-        console.log(rc);
+    fs.writeFileSync(core.errFile, lines.join("\n"));
+    fs.writeFileSync(core.logFile, lines.join("\n"));
+    core.watchLogs((err, rc) => {
+        this.expect(lib.objKeys(rc.errors).length == 4, "no errors matched", rc);
         callback(err);
     });
 }
@@ -1481,10 +1488,39 @@ tests.test_flow = function(callback, test)
 
 tests.test_toparams = function(callback, test)
 {
-    lib.series([
-        function(next) {
-        },
-        function(next) {
-        },
-    ], callback);
+       var account = lib.toParams(req.query, { id: { type: "int" },
+                                               count: { type: "int", min: 1, max: 10, dflt: 5 },
+                                               page: { type: "int", min: 1, max: 10, dflt: NaN, required: 1, errmsg: "Page number between 1 and 10 is required" },
+                                               name: { type: "string", max: 32, trunc: 1 },
+                                               pair: { type: "map", separator: "|" },
+                                               code: { type: "string", regexp: /^[a-z]-[0-9]+$/, errmsg: "Valid code is required" },
+                                               start: { type: "token", required: 1 },
+                                               email1: { type: "email", required: { email: null } },
+                                               data: { type: "json", datatype: "obj" },
+                                               mtime: { type: "mtime", name: "timestamp" },
+                                               flag: { type: "bool", novalue: false },
+                                               descr: { novalue: { name: "name", value: "test" },
+                                               email: { type: "list", datatype: "email", novalue: ["a@a"] } },
+                                               internal: { ignore: 1 },
+                                               tm: { type:" timestamp", optional: 1 },
+                                               status: { value: "ready" },
+                                               mode: "ok",
+                                               state: { values: ["ok","bad","good"] },
+                                               status: { value: [{ name: "state", value: "ok", set: "1" }, { name: "state", value: ["bad","good"], op: "in" }],
+                                               obj: { type: "obj", params: { id: { type: "int" }, name: {} } },
+                                               arr: { type: "array", params: { id: { type: "int" }, name: {} } },
+                                               state: { type: "list", datatype: "string", values: [ "VA", "DC"] } },
+                                               ssn: { type: "string", regexp: /^[0-9]{3}-[0-9]{3}-[0-9]{4}$/, errmsg: "Valid SSN is required" },
+                                               phone: { type: "list", datatype: "number" } },
+                                             { defaults: {
+                                                     start: { secret: req.account.secret },
+                                                     name: { dflt: "test" },
+                                                     count: { max: 100 },
+                                                     email: { ignore: req.account.type != "admin" },
+                                                     '*': { empty: 1, null: 1 },
+                                             }
+
+                                         });
+       callback();
 }
+
