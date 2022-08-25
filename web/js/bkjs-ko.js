@@ -304,7 +304,7 @@ bkjs.koRestoreComponent = function(path, dflt)
     bkjs.koShowComponent(model ? params[0] : dflt || "none", model ? { param: params[1], value: params[2] } : null);
 }
 
-bkjs.koBootpopup = function(options)
+bkjs.koBootpopup = function(options, style)
 {
     var _before = options.before;
     options.before = function(self) {
@@ -318,7 +318,7 @@ bkjs.koBootpopup = function(options)
         options.before = _before;
         options.complete = _complete;
     }
-    return bootpopup(options);
+    return bootpopup(options, style || bkjs.bootpopupStyle);
 }
 
 $(function() {
