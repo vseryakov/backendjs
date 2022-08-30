@@ -26,17 +26,17 @@
   },
   "devDependencies": {
     "html-minifier": "4.0.0",
-    "uglify-js": "3.16.3",
+    "uglify-js": "3.17.0",
     "uglifycss": "0.0.29"
   },
   "modDependencies": {
-    "argon2": "0.28.7",
+    "argon2": "0.29.1",
     "bcrypt": "5.0.1",
     "mmmagic": "0.5.3",
     "consolidate": "0.16.0",
     "http-proxy": "1.18.1",
     "redis": "3.1.2",
-    "pg": "8.7.3",
+    "pg": "8.8.0",
     "bkjs-sqlite": "0.3.0",
     "unix-dgram": "2.0.4",
     "web-push": "3.5.0",
