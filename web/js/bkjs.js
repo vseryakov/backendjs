@@ -96,7 +96,7 @@ bkjs.send = function(options, onsuccess, onerror)
         var h = xhr.getResponseHeader(bkjs.hcsrf);
         if (h) bkjs.headers[bkjs.hcsrf] = h;
         $(bkjs).trigger("bkjs.loading", "hide");
-        if (!json) json = {};
+        if (!json && options.dataType == 'json') json = {};
         if (options.info_msg || options.success_msg) {
             $(bkjs).trigger("bkjs.alert", [options.info_msg ? "info" : "success", options.info_msg || options.success_msg]);
         }
