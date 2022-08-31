@@ -45,7 +45,7 @@ bkjs.showAlert = function(obj, type, text, options)
     if (options.icon) html += '<i class="fa fa-fw ' + options.icon + '"></i>';
     html += bkjs.sanitizer.run(typeof text == "string" ? options.safe ? text : bkjs.textToEntity(text) :
                                text && text.message ? options.safe ? text.message : bkjs.textToEntity(text.message) :
-                               JSON.stringify(text)).replace(/\n/g, "<br>");
+                               JSON.stringify(text).replace(/[<>]/g, "")).replace(/\n/g, "<br>");
     html += '<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>';
     html += "</div>";
     var element = options.element || ".alerts";
