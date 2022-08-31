@@ -260,14 +260,14 @@ function bootpopup(options)
                                 const option = {}, opt = attrs.options[j];
                                 if (typeof opt == "string") {
                                     if (attrs.value && attrs.value == opt) option.selected = true;
-                                    children.push($("<option></option>", option).append(this.sanitize(opt)));
+                                    children.push($("<option></option>", option).append(this.escape(opt)));
                                 } else
                                 if (opt.name) {
                                     option.value = attrs.options[j].value || "";
                                     option.selected = typeof opt.selected == "boolean" ? opt.selected : attrs.value && attrs.value == option.value ? true : false;
                                     if (opt.label) option.label = opt.label;
                                     if (typeof opt.disabled == "boolean") option.disabled = opt.disabled;
-                                    children.push($("<option></option>", option).append(this.sanitize(opt.name)));
+                                    children.push($("<option></option>", option).append(this.escape(opt.name)));
                                 }
                             }
                             delete attrs.options;
@@ -280,12 +280,12 @@ function bootpopup(options)
                         if (/radio|checkbox/.test(attrs.type) && !opts.raw) {
                             attrs.class = attrs.class || (opts.switch ? "custom-control-input": "form-check-input");
                             label = $('<label></label>', { class: opts.class_input_label || (opts.switch ? "custom-control-label" : "form-check-label"), for: opts.for || attrs.id }).
-                                    append(this.sanitize(opts.input_label || opts.label));
+                                    append(opts.input_label || opts.label);
                             elem = $('<div></div>', { class: opts.class_check || (opts.switch ? "custom-control custom-switch" : "form-check") }).
                             append($("<" + type + "/>", attrs)).
                             append(label);
                             if (opts.class_append || opts.text_append) {
-                                label.append($("<span></span>", { class: opts.class_append || "" }).append(this.sanitize(opts.text_append || "")));
+                                label.append($("<span></span>", { class: opts.class_append || "" }).append(opts.text_append));
                             }
                             // Clear label to not add as header, it was added before
                             if (!opts.input_label) delete opts.label;
@@ -296,9 +296,9 @@ function bootpopup(options)
                                     append(opts.input_label || opts.label);
                             elem = $('<div></div>', { class: opts.class_check || "custom-file" }).
                             append($("<" + type + "/>", attrs)).
-                            append(this.sanitize(label));
+                            append(this.escape(label));
                             if (opts.class_append || opts.text_append) {
-                                label.append($("<span></span>", { class: opts.class_append || "" }).append(this.sanitize(opts.text_append || "")));
+                                label.append($("<span></span>", { class: opts.class_append || "" }).append(opts.text_append));
                             }
                             // Clear label to not add as header, it was added before
                             if (!opts.input_label) delete opts.label;
@@ -307,12 +307,12 @@ function bootpopup(options)
                             if (type == "textarea") {
                                 delete attrs.value;
                                 elem = $("<" + type + "/>", attrs);
-                                if (opts.value) elem.append(this.sanitize(opts.value));
+                                if (opts.value) elem.append(document.createTextNode(opts.value));
                             } else {
                                 elem = $("<" + type + "/>", attrs);
                             }
                             if (opts.class_append || opts.text_append) {
-                                elem.append($("<span></span>", { class: opts.class_append || "" }).append(this.sanitize(opts.text_append || "")));
+                                elem.append($("<span></span>", { class: opts.class_append || "" }).append(opts.text_append));
                             }
                             if (opts.text_input_button) {
                                 elem = $('<div></div>', { class: 'input-group ' + (opts.class_input_group || "") }).append(elem);
@@ -324,12 +324,12 @@ function bootpopup(options)
                                         'data-toggle': "dropdown",
                                         'aria-haspopup': "true",
                                         'aria-expanded': "false"
-                                    }).append(this.sanitize(opts.text_input_button)).appendTo(append);
+                                    }).append(opts.text_input_button).appendTo(append);
 
                                     var menu = $('<div></div>', { class: "dropdown-menu " + (opts.class_input_menu || "") }).appendTo(append);
                                     for (const l in opts.list_input_button) {
-                                        let n = opts.list_input_button[l], v = n;
-                                        if (typeof n == "object") v = n.value, n = n.name;
+                                        let n = opts.list_input_button[l], v = this.escape(n);
+                                        if (typeof n == "object") v = this.escape(n.value), n = this.escape(n.name);
                                         if (n == "-") {
                                             $('<div></div>', { class: "dropdown-divider" }).appendTo(menu);
                                         } else {
@@ -339,15 +339,15 @@ function bootpopup(options)
                                                 'data-value': v || n,
                                                 'data-form': this.formid,
                                                 onclick: opts.click_input_button ? "(" + opts.click_input_button + ")(this,arguments[0])" :
-                                                         `$('#${attrs.id}').val('${v || n}')`,
-                                            }).append(this.sanitize(n)).appendTo(menu);
+                                                         `$('#${attrs.id}').val(('${v || n}'))`,
+                                            }).append(n).appendTo(menu);
                                         }
                                     }
                                 } else {
                                     const bopts = { class: "btn " + (opts.class_input_button || ""), type: "button", 'data-form': this.formid };
                                     if (opts.click_input_button) bopts.onclick = "(" + opts.click_input_button + ")(this,arguments[0])";
                                     for (const b in opts.attrs_input_button) bopts[b] = opts.attrs_input_button[b];
-                                    $('<button></button>', bopts).append(this.sanitize(opts.text_input_button)).appendTo(append);
+                                    $('<button></button>', bopts).append(opts.text_input_button).appendTo(append);
                                 }
                             }
                         }
@@ -359,7 +359,7 @@ function bootpopup(options)
                         for (const p in opts.attrs_group) gopts[p] = opts.attrs_group[p];
                         group = $('<div></div>', gopts).appendTo(form);
                         if (opts.class_prefix || opts.text_prefix) {
-                            group.append($("<span></span>", { class: opts.class_prefix || "" }).append(this.sanitize(opts.text_prefix || "")));
+                            group.append($("<span></span>", { class: opts.class_prefix || "" }).append(this.sanitize(opts.text_prefix || "", 1)));
                         }
                         if (this.options.horizontal) {
                             group.addClass("row");
@@ -369,13 +369,13 @@ function bootpopup(options)
                             group.append($("<label></label>", lopts));
                             group.append($('<div></div>', { class: opts.size_input || this.options.size_input }).append(elem));
                         } else {
-                            const lopts = { for: opts.for || attrs.id, class: class_label, html: this.sanitize(opts.label) };
+                            const lopts = { for: opts.for || attrs.id, class: class_label, html: this.sanitize(opts.label, 1) };
                             for (const p in opts.attrs_label) lopts[p] = opts.attrs_label[p];
                             if (opts.label) group.append($("<label></label>", lopts));
                             group.append(elem);
                         }
                         if (opts.class_suffix || opts.text_suffix) {
-                            group.append($("<div></div>", { class: opts.class_suffix || "" }).append(this.sanitize(opts.text_suffix || "")));
+                            group.append($("<div></div>", { class: opts.class_suffix || "" }).append(opts.text_suffix));
                         }
                         if (opts.autofocus) this.autofocus = elem;
                         break;
@@ -387,7 +387,7 @@ function bootpopup(options)
                     default:
                         if (!elem) elem = $("<" + type + "></" + type + ">", attrs).appendTo(form);
                         if (opts.class_append || opts.text_append) {
-                            elem.append($("<span></span>", { class: opts.class_append || "" }).append(this.sanitize(opts.text_append || "")));
+                            elem.append($("<span></span>", { class: opts.class_append || "" }).append(opts.text_append));
                         }
                     }
                 }
@@ -431,7 +431,7 @@ function bootpopup(options)
             if (!item) continue;
             this["btn_" + item] = $("<button></button>", {
                 type: "button",
-                html: this.options["text_" + item],
+                html: this.sanitize(this.options["text_" + item]),
                 class: this.options["class_" + item],
                 "data-callback": item,
                 "data-form": this.formid,
@@ -478,7 +478,7 @@ function bootpopup(options)
     this.showAlert = function(text, type) {
         if (!this[type || "alert"]) return;
         if (text && text.message) text = text.message;
-        $(this[type || "alert"]).empty().append("<p>" + String(self.sanitize(text)).replace(/\n/g, "<br>") + "</p>").fadeIn(1000).delay(10000).fadeOut(1000, function () { $(this).hide() });
+        $(this[type || "alert"]).empty().append("<p>" + String(self.sanitize(text, 1)).replace(/\n/g, "<br>") + "</p>").fadeIn(1000).delay(10000).fadeOut(1000, function () { $(this).hide() });
         return null;
     }
 
@@ -491,8 +491,14 @@ function bootpopup(options)
         return keyval;
     };
 
-    this.sanitize = function(str) {
+    this.sanitize = function(str, esc) {
         return this.options.sanitizer ? this.options.sanitizer.run(str) : str;
+    }
+
+    var _emap = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#x27;', '`': '&#x60;' };
+    this.escape = function(str) {
+        if (typeof str != "string") return str;
+        return str.replace(/([&<>'"`])/g, (_, n) => (_emap[n] || n));
     }
 
     this.callback = function(name, event) {
