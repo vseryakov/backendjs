@@ -307,7 +307,7 @@ function bootpopup(options)
                             if (type == "textarea") {
                                 delete attrs.value;
                                 elem = $("<" + type + "/>", attrs);
-                                if (opts.value) elem.append(document.createTextNode(opts.value));
+                                if (opts.value) elem.append(opts.value);
                             } else {
                                 elem = $("<" + type + "/>", attrs);
                             }
