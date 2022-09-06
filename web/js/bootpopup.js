@@ -475,10 +475,13 @@ function bootpopup(options)
         this.modal.modal();
     }
 
-    this.showAlert = function(text, type) {
-        if (!this[type || "alert"]) return;
-        if (text && text.message) text = text.message;
-        $(this[type || "alert"]).empty().append("<p>" + String(self.sanitize(text, 1)).replace(/\n/g, "<br>") + "</p>").fadeIn(1000).delay(10000).fadeOut(1000, function () { $(this).hide() });
+    this.showAlert = function(text, opts) {
+        if (!this[opts?.type || "alert"]) return;
+        if (text?.message) text = text.message;
+        if (typeof text != "string") return;
+        if (!opts?.safe) text = bkjs.textToEntity(text.replace(/<br>/g, "\n"));
+        text = self.sanitize(text).replace(/\n/g, "<br>");
+        $(this[opts?.type || "alert"]).empty().append(`<p>${text}</p>`).fadeIn(1000).delay(10000).fadeOut(1000, function() { $(this).hide() });
         return null;
     }
 
@@ -491,7 +494,7 @@ function bootpopup(options)
         return keyval;
     };
 
-    this.sanitize = function(str, esc) {
+    this.sanitize = function(str) {
         return this.options.sanitizer ? this.options.sanitizer.run(str) : str;
     }
 

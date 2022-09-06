@@ -112,7 +112,8 @@ bkjs.send = function(options, onsuccess, onerror)
         try { err = JSON.parse(xhr.responseText) } catch (e) {}
         if (!options.quiet) bkjs.log('send:', xhr.status, err, statusText, errorText, options);
         if (options.alert) {
-            $(bkjs).trigger("bkjs.alert", ["error", (typeof options.alert == "string" && options.alert) || err || errorText || statusText]);
+            var a = typeof options.alert == "string" && options.alert;
+            $(bkjs).trigger("bkjs.alert", ["error", a || err || errorText || statusText, { safe: !a }]);
         }
         if (typeof onerror == "function") onerror.call(options.self || bkjs, err || errorText || statusText, xhr, statusText, errorText);
         if (options.trigger) bkjs.trigger(options.trigger, { url: options.url, query: options.data, err: err });

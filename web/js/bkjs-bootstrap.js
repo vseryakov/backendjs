@@ -44,7 +44,7 @@ bkjs.showAlert = function(obj, type, text, options)
     var html = '<div id=' + aid + ' class="alert alert-dismissible alert-' + type + ' show ' + (options.css || "") + '" role="alert">';
     if (options.icon) html += '<i class="fa fa-fw ' + options.icon + '"></i>';
     html += bkjs.sanitizer.run(typeof text == "string" ? options.safe ? text : bkjs.textToEntity(text) :
-                               text && text.message ? options.safe ? text.message : bkjs.textToEntity(text.message) :
+                               text?.message ? options.safe ? text.message : bkjs.textToEntity(text.message) :
                                JSON.stringify(text).replace(/[<>]/g, "")).replace(/\n/g, "<br>");
     html += '<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>';
     html += "</div>";
@@ -163,7 +163,7 @@ bkjs.showLogin = function(options, callback)
             var q = { login: d.login, secret: d.secret };
             if (options.url) q = { url: options.url, data: q };
             bkjs.login(q, function(err) {
-                if (err) popup.showAlert("danger", err);
+                if (err) popup.showAlert(err);
                 if (typeof callback == "function") callback.call(self, err);
             });
             return false;
@@ -181,8 +181,8 @@ bkjs.hideLogin = function()
 }
 
 $(function() {
-    $(bkjs).on("bkjs.alert", function(ev, type, msg) {
-        bkjs.showAlert(type, msg);
+    $(bkjs).on("bkjs.alert", function(ev, type, msg, opts) {
+        bkjs.showAlert(type, msg, opts);
     });
     $(bkjs).on("bkjs.loading", function(ev, type) {
         bkjs.showLoading(type);
