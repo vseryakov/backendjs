@@ -158,7 +158,7 @@ function bootpopup(options)
         if (this.options.show_header && this.options.title) {
             this.header = $('<div></div>', { class: this.options.class_header });
             const title = $('<h5></h5>', { class: this.options.class_title, id: "bootpopup-title" });
-            title.append(this.options.title);
+            title.append(this.sanitize(this.options.title));
             this.header.append(title);
 
             if (this.options.show_close) {
@@ -404,7 +404,7 @@ function bootpopup(options)
             let div;
             switch (typeof entry) {
             case "string":
-                this.footer.append(entry);
+                this.footer.append(this.sanitize(entry));
                 break;
 
             case "object":
