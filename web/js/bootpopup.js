@@ -285,7 +285,7 @@ function bootpopup(options)
                             append($("<" + type + "/>", attrs)).
                             append(label);
                             if (opts.class_append || opts.text_append) {
-                                label.append($("<span></span>", { class: opts.class_append || "" }).append(opts.text_append));
+                                label.append($("<span></span>", { class: opts.class_append || "" }).append(opts.text_append || ""));
                             }
                             // Clear label to not add as header, it was added before
                             if (!opts.input_label) delete opts.label;
@@ -298,7 +298,7 @@ function bootpopup(options)
                             append($("<" + type + "/>", attrs)).
                             append(this.escape(label));
                             if (opts.class_append || opts.text_append) {
-                                label.append($("<span></span>", { class: opts.class_append || "" }).append(opts.text_append));
+                                label.append($("<span></span>", { class: opts.class_append || "" }).append(opts.text_append || ""));
                             }
                             // Clear label to not add as header, it was added before
                             if (!opts.input_label) delete opts.label;
@@ -359,7 +359,7 @@ function bootpopup(options)
                         for (const p in opts.attrs_group) gopts[p] = opts.attrs_group[p];
                         group = $('<div></div>', gopts).appendTo(form);
                         if (opts.class_prefix || opts.text_prefix) {
-                            group.append($("<span></span>", { class: opts.class_prefix || "" }).append(this.sanitize(opts.text_prefix || "", 1)));
+                            group.append($("<span></span>", { class: opts.class_prefix || "" }).append(opts.text_prefix || ""));
                         }
                         if (this.options.horizontal) {
                             group.addClass("row");
