@@ -9,11 +9,17 @@ get_ec2_param() {
     echo ${v-:$2}
 }
 
+get_ec2_meta() {
+    v=$(curl -s http://169.254.169.254/$1)
+    [ "$v" = "" ] && T=`curl -s -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 30"` && v=$(curl -H "X-aws-ec2-metadata-token: $T" -s http://169.254.169.254/$1)
+    echo $v
+}
+
 case "$BKJS_CMD" in
 
   check-server)
     if [[ $OS_TYPE =~ amazon ]]; then
-       region=$(curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone/|sed 's/[a-z]$//')
+       region=$(echo $(get_ec2_meta latest/meta-data/placement/availability-zone/)|sed 's/[a-z]$//')
        echo "Setting region $region ..."
        (aws configure set region $region)
        ([[ $(whoami) = root ]] && su ec2-user -c "aws configure set region $region")
@@ -115,17 +121,17 @@ case "$BKJS_CMD" in
   ec2-region)
     [ -f $HOME/.aws/config ] && region=$(awk '/^region/{print $3}' $HOME/.aws/config)
     [ ! -z $region ] && echo $region && exit
-    echo $(curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone/|sed 's/[a-z]$//')
+    echo $(get_ec2_meta latest/meta-data/placement/availability-zone/)|sed 's/[a-z]$//'
     ;;
 
   ec2-account)
-    echo $(curl -s http://169.254.169.254/latest/dynamic/instance-identity/document|grep accountId|sed 's/[",:"]//g'|awk '{print $2}')
+    echo $(get_ec2_meta latest/dynamic/instance-identity/document)|sed 's/[{}":]//g'|tr , "\n"|grep accountId|awk '{print $2}'
     ;;
 
   ec2-tag)
     tag=$(get_arg -tag Name)
-    instance=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
-    aws ec2 describe-tags --filter "Name=key,Values=$tag" "Name=resource-id,Values=$instance" --output text| cut -f5|head -1
+    id=$(get_ec2_meta latest/meta-data/instance-id)
+    [ "$id" != "" ] && aws ec2 describe-tags --filter "Name=key,Values=$tag" "Name=resource-id,Values=$id" --output text| cut -f5|head -1
     ;;
 
   ec2-stop-api)
