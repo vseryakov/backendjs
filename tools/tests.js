@@ -178,7 +178,10 @@ tests.test_db = function(callback)
             obj: { type: "obj" },
             list: { type: "array" },
             tags: { type: "list" },
-            text: {}
+            text: {},
+            sen1: { regexp: lib.rxSentence },
+            sen2: { regexp: lib.rxSentence },
+            spec: { strip: lib.rxNoSpecial },
         },
     };
     var now = Date.now();
@@ -625,7 +628,13 @@ tests.test_db = function(callback)
             configOptions.maxSize = configOptions.maxList = 50;
             var str = "", list = [];
             for (let i = 0; i < 128; i++) list.push((str += i));
-            db.update("test6", { id: id, obj: { test: str }, tags: list, list: list, text: str }, function(err, rc, info) {
+            var q = {
+                id: id, obj: { test: str }, tags: list, list: list, text: str,
+                sen1: "a b, c!",
+                sen2: "<tag>test",
+                spec: "$t<e>st@/.!"
+            };
+            db.update("test6", q, function(err, rc, info) {
                 tests.expect(!err && info.affected_rows, "update failed:", info);
                 next();
             });
@@ -637,6 +646,9 @@ tests.test_db = function(callback)
                              row?.tags?.length != 3 ||
                              row?.list?.length != 2 ||
                              row?.obj?.n != 1, "max size limits failed:", row);
+                tests.expect(row.spec == "$test@/.", "spec regexp failed", row.spec)
+                tests.expect(row.sen1 == "a b, c!", "sen1 regexp failed", row.sen1)
+                tests.expect(!row.sen2, "sen2 regexp failed", row.sen2)
                 next();
             });
         },
