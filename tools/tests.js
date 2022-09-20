@@ -713,15 +713,6 @@ tests.test_limiter = function(callback)
     }, 1000);
 }
 
-tests.test_cookie = function(callback)
-{
-    // Testing redirect and cookies
-    core.httpGet('http://google.com', { cookies: true }, function(err, params) {
-        console.log('COOKIES:', params.cookies, params.resheaders);
-        callback(err);
-    });
-}
-
 tests.test_cache = function(callback)
 {
     console.log("testing cache:", ipc.getClient().name);
