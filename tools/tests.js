@@ -661,7 +661,7 @@ tests.test_s3icon = function(callback)
     api.saveIcon(core.cwd + "/web/img/loading.gif", id, { prefix: "account", images: api.imagesS3 }, function(err) {
         var icon = api.iconPath(id, { prefix: "account" });
         aws.queryS3(api.imagesS3, icon, { file: "tmp/" + path.basename(icon) }, function(err, params) {
-            console.log('icon:', lib.statSync(params.file));
+            logger.info('icon:', lib.statSync(params.file));
             callback(err);
         });
     });
@@ -715,7 +715,7 @@ tests.test_limiter = function(callback)
 
 tests.test_cache = function(callback)
 {
-    console.log("testing cache:", ipc.getClient().name);
+    logger.info("testing cache:", ipc.getClient().name);
 
     lib.series([
       function(next) {
@@ -805,7 +805,7 @@ tests.test_cache = function(callback)
     ], function(err) {
         if (!err) return callback();
         lib.forEachSeries(["a","b","c"], function(key, next) {
-            ipc.get(key, function(e, val) { console.log(key, val); next(); })
+            ipc.get(key, function(e, val) { logger.info(key, val); next(); })
         }, function() {
             callback(err);
         });
@@ -823,11 +823,11 @@ tests.test_pool = function(callback)
     var pool = new pool(options)
     lib.series([
        function(next) {
-           console.log('pool0:', pool.stats(), 'list:', list.length);
+           logger.info('pool0:', pool.stats(), 'list:', list.length);
            for (var i = 0; i < 5; i++) {
-               pool.acquire(function(err, obj) { list.push(obj); console.log('added:', list.length); });
+               pool.acquire(function(err, obj) { list.push(obj); logger.info('added:', list.length); });
            }
-           console.log('pool1:', pool.stats(), 'list:', list.length);
+           logger.info('pool1:', pool.stats(), 'list:', list.length);
            next();
        },
        function(next) {
@@ -837,18 +837,18 @@ tests.test_pool = function(callback)
            next();
        },
        function(next) {
-           console.log('pool2:', pool.stats(), 'list:', list.length);
-           pool.acquire(function(err, obj) { list.push(obj); console.log('added:', list.length); });
+           logger.info('pool2:', pool.stats(), 'list:', list.length);
+           pool.acquire(function(err, obj) { list.push(obj); logger.info('added:', list.length); });
            next();
        },
        function(next) {
-           console.log('pool3:', pool.stats(), 'list:', list.length);
+           logger.info('pool3:', pool.stats(), 'list:', list.length);
            pool.release(list.shift());
            next();
        },
        function(next) {
            setTimeout(function() {
-               console.log('pool4:', pool.stats(), 'list:', list.length);
+               logger.info('pool4:', pool.stats(), 'list:', list.length);
                next();
            }, options.idle*2);
        }], callback);
@@ -1073,7 +1073,7 @@ tests.test_auth = function(callback)
     api.resetAcl();
     core.parseArgs(argv);
     for (const p in api) {
-        if (/^(allow|deny|acl|only)/.test(p) && !lib.isEmpty(api[p]) && typeof api[p] == "object") console.log(p, "=", api[p]);
+        if (/^(allow|deny|acl|only)/.test(p) && !lib.isEmpty(api[p]) && typeof api[p] == "object") logger.info(p, "=", api[p]);
     }
 
     var req = { account: {}, options: {} };
@@ -1109,7 +1109,7 @@ tests.test_auth = function(callback)
         req.account.id = req.account.type = check.type;
         req.options.path = check.path;
         api.checkAuthorization(req, { status: check.type ? 200 : 417 }, (err) => {
-            if (err.status != 200) console.log(check, err);
+            if (err.status != 200) logger.info(check, err);
             tests.expect(err.status == check.status, err, check);
             next();
         });
@@ -1254,25 +1254,25 @@ tests.test_srp = function(callback, test)
     var u = lib.getArg("-u", "b284aa1064e8775150da6b5e2147b47ca7df505bed94a6f4bb2ad873332ad732");
 
     auth.srp.init();
-    console.log("user:", user, secret, "salt:", salt, "k:", auth.srp.k.toString(16) == k);
+    logger.info("user:", user, secret, "salt:", salt, "k:", auth.srp.k.toString(16) == k);
 
     var r = auth.srp.verifier(user, secret, salt);
-    console.log("r:", r, "v:", r[1] == v, "x:", r[2] == x);
+    logger.info("r:", r, "v:", r[1] == v, "x:", r[2] == x);
 
     var c1 = auth.srp.client1(a)
-    console.log("c1:", c1, "A:", c1[1] == A);
+    logger.info("c1:", c1, "A:", c1[1] == A);
 
     var s1 = auth.srp.server1(r[1], b);
-    console.log("s1:", s1, "B:", s1[1] == B)
+    logger.info("s1:", s1, "B:", s1[1] == B)
 
     var c2 = auth.srp.client2(user, secret, r[0], c1[0], s1[1])
-    console.log("c2:", c2, "K:", c2[0] == K, "M:", c2[1] == M, "S:", c2[2] == S, "u:", c2[3] == u, "x:", c2[4] == x, "A:", c2[5] == A);
+    logger.info("c2:", c2, "K:", c2[0] == K, "M:", c2[1] == M, "S:", c2[2] == S, "u:", c2[3] == u, "x:", c2[4] == x, "A:", c2[5] == A);
 
     var s2 = auth.srp.server2(user, r[1], s1[0], c1[1], c2[1])
-    console.log("s2:", s2, "S:", s2[1] == S, "u:", s2[2] == u)
+    logger.info("s2:", s2, "S:", s2[1] == S, "u:", s2[2] == u)
 
     var c3 = auth.srp.client3(c1[1], c2[1], c2[0], s2[0])
-    console.log("c3:", c3)
+    logger.info("c3:", c3)
 
     callback();
 }
@@ -1289,7 +1289,7 @@ tests.test_flow = function(callback, test)
         c1++; next()
     }, (err) => {
         t--;
-        console.log("forEach", err, c1, c1 == 3 && !err ? "success": "FAILED")
+        logger.info("forEach", err, c1, c1 == 3 && !err ? "success": "FAILED")
     }, direct)
 
     t++;
@@ -1298,7 +1298,7 @@ tests.test_flow = function(callback, test)
         c2++; next(i == 2 ? "error" : null)
     }, (err) => {
         t--;
-        console.log("forEach", err, c2, c2 == 2 && err ? "success": "FAILED")
+        logger.info("forEach", err, c2, c2 == 2 && err ? "success": "FAILED")
     }, direct)
 
     t++;
@@ -1307,7 +1307,7 @@ tests.test_flow = function(callback, test)
         c3++; next("ignore")
     }, (err) => {
         t--;
-        console.log("forEvery", err, c3, c3 == 3 && err == "ignore" ? "success": "FAILED")
+        logger.info("forEvery", err, c3, c3 == 3 && err == "ignore" ? "success": "FAILED")
     }, direct)
 
     t++;
@@ -1315,7 +1315,7 @@ tests.test_flow = function(callback, test)
         next(null, lib.toNumber(n) + i);
     }, (err, n) => {
         t--;
-        console.log('forEachSeries', n, err, n == 6 ? "success" : "FAILED");
+        logger.info('forEachSeries', n, err, n == 6 ? "success" : "FAILED");
     }, direct);
 
     t++;
@@ -1323,7 +1323,7 @@ tests.test_flow = function(callback, test)
         next(i == 2 ? "error" : null, lib.toNumber(n) + i);
     }, (err, n) => {
         t--;
-        console.log('forEachSeries', n, err, n == 3 && err == "error" ? "success" : "FAILED");
+        logger.info('forEachSeries', n, err, n == 3 && err == "error" ? "success" : "FAILED");
     }, direct);
 
     t++;
@@ -1331,7 +1331,7 @@ tests.test_flow = function(callback, test)
         next("ignore", lib.toNumber(n) + i);
     }, (err, n) => {
         t--;
-        console.log('forEverySeries', n, err, n == 6 && err == "ignore" ? "success" : "FAILED");
+        logger.info('forEverySeries', n, err, n == 6 && err == "ignore" ? "success" : "FAILED");
     }, direct);
 
     t++;
@@ -1340,7 +1340,7 @@ tests.test_flow = function(callback, test)
         c4++; next();
     }, (err) => {
         t--;
-        console.log('forEachLimit', c4, err, c4 == 3 && !err ? "success" : "FAILED");
+        logger.info('forEachLimit', c4, err, c4 == 3 && !err ? "success" : "FAILED");
     }, direct);
 
     t++;
@@ -1349,7 +1349,7 @@ tests.test_flow = function(callback, test)
         c5++; next(i == 2 ? "error" : null);
     }, (err) => {
         t--;
-        console.log('forEachLimit', c5, err, c5 == 2 && err == "error" ? "success" : "FAILED");
+        logger.info('forEachLimit', c5, err, c5 == 2 && err == "error" ? "success" : "FAILED");
     }, direct);
 
     t++;
@@ -1358,7 +1358,7 @@ tests.test_flow = function(callback, test)
         c6++; next("ignore");
     }, (err) => {
         t--;
-        console.log('forEveryLimit', c6, err, c6 == 3 && String(err) == "ignore,ignore,ignore" ? "success" : "FAILED");
+        logger.info('forEveryLimit', c6, err, c6 == 3 && String(err) == "ignore,ignore,ignore" ? "success" : "FAILED");
     }, direct);
 
     t++;
@@ -1373,7 +1373,7 @@ tests.test_flow = function(callback, test)
         },
         function (err, d) {
             t--;
-            console.log('whilst', c7, d, err, c7 == 5 && !err ? "success" : "FAILED");
+            logger.info('whilst', c7, d, err, c7 == 5 && !err ? "success" : "FAILED");
         }, direct);
 
     t++;
@@ -1388,7 +1388,7 @@ tests.test_flow = function(callback, test)
         },
         function (err, d) {
             t--;
-            console.log('whilst', c8, d, err, c8 == 5 && !err ? "success" : "FAILED");
+            logger.info('whilst', c8, d, err, c8 == 5 && !err ? "success" : "FAILED");
         }, direct);
 
     t++;
@@ -1404,7 +1404,7 @@ tests.test_flow = function(callback, test)
         }
     ], (err, d) => {
         t--;
-        console.log('series', c9, d, err, c9 == 2 && d === 2 && !err ? "success" : "FAILED");
+        logger.info('series', c9, d, err, c9 == 2 && d === 2 && !err ? "success" : "FAILED");
     }, direct)
 
     t++;
@@ -1420,7 +1420,7 @@ tests.test_flow = function(callback, test)
         }
     ], (err, d) => {
         t--;
-        console.log('series', c10, d, err, c10 == 1 && d == 1 && err == "error" ? "success" : "FAILED");
+        logger.info('series', c10, d, err, c10 == 1 && d == 1 && err == "error" ? "success" : "FAILED");
     }, direct)
 
     t++;
@@ -1436,7 +1436,7 @@ tests.test_flow = function(callback, test)
         }
     ], (err) => {
         t--;
-        console.log('parallel', c11, err, c11 == 2 && !err ? "success" : "FAILED");
+        logger.info('parallel', c11, err, c11 == 2 && !err ? "success" : "FAILED");
     }, direct)
 
     t++;
@@ -1452,7 +1452,7 @@ tests.test_flow = function(callback, test)
         }
     ], (err) => {
         t--;
-        console.log('parallel', c12, err, c12 >= 1 && err ? "success" : "FAILED");
+        logger.info('parallel', c12, err, c12 >= 1 && err ? "success" : "FAILED");
     }, direct)
 
     t++;
@@ -1468,7 +1468,7 @@ tests.test_flow = function(callback, test)
         }
     ], (err, d) => {
         t--;
-        console.log('everySeries', c13, d, err, c13 == 2 && d === 2 && err == "ignore" ? "success" : "FAILED");
+        logger.info('everySeries', c13, d, err, c13 == 2 && d === 2 && err == "ignore" ? "success" : "FAILED");
     }, direct)
 
     t++;
@@ -1484,7 +1484,7 @@ tests.test_flow = function(callback, test)
         }
     ], (err) => {
         t--;
-        console.log('everyParallel', c14, err, c14 == 2 && !err ? "success" : "FAILED");
+        logger.info('everyParallel', c14, err, c14 == 2 && !err ? "success" : "FAILED");
     }, direct)
 
 }
