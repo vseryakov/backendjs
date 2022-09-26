@@ -218,7 +218,7 @@ function bootpopup(options)
                         for (const p in entry[type]) opts[p] = entry[type][p];
                     }
                     for (const p in opts) {
-                        if (p == "html") attrs[p] = this.sanitize(opts[p]); else
+                        if (p == "html" && !opts.nosanitize) attrs[p] = this.sanitize(opts[p]); else
                         if (!/^(tab_|attrs_|click_|list_|class_|text_|icon_|size_|label|for)/.test(p)) attrs[p] = opts[p];
                     }
 
@@ -369,7 +369,7 @@ function bootpopup(options)
                             group.append($("<label></label>", lopts));
                             group.append($('<div></div>', { class: opts.size_input || this.options.size_input }).append(elem));
                         } else {
-                            const lopts = { for: opts.for || attrs.id, class: class_label, html: this.sanitize(opts.label, 1) };
+                            const lopts = { for: opts.for || attrs.id, class: class_label, html: this.sanitize(opts.label) };
                             for (const p in opts.attrs_label) lopts[p] = opts.attrs_label[p];
                             if (opts.label) group.append($("<label></label>", lopts));
                             group.append(elem);
