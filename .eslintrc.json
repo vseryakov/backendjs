@@ -18,10 +18,6 @@
     "extends": "eslint:recommended",
     "rules": {
         "accessor-pairs": "error",
-        "allow-parens": [
-            "error",
-            "as-needed"
-        ],
         "array-bracket-newline": "off",
         "array-bracket-spacing": "off",
         "array-callback-return": "error",
