@@ -721,16 +721,17 @@ tests.test_limiter = function(callback)
             opts.retry = 2;
             ipc.limiter(opts, (delay, info) => {
                 ipc.checkLimiter(opts, (delay, info) => {
-                    tests.expect(!delay, "should wait and continue", info);
+                    tests.expect(!delay && opts._retries == 2, "should wait and continue", opts, info);
                     next();
                 });
             });
         },
         function(next) {
             opts.retry = 1;
+            delete opts._retries;
             ipc.limiter(opts, (delay, info) => {
                 ipc.checkLimiter(opts, (delay, info) => {
-                    tests.expect(delay, "should fail after first run", info);
+                    tests.expect(delay && opts._retries == 1, "should fail after first run", opts, info);
                     next();
                 });
             });
