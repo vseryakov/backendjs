@@ -686,31 +686,56 @@ tests.test_limiter = function(callback)
         count: lib.getArgInt("-count", 5),
         delays: lib.getArgInt("-delays", 4),
     };
-    var list = [], delays = 0;
-    for (var i = 0; i < opts.count; i++) list.push(i);
 
     ipc.initServer();
-    setTimeout(function() {
-        lib.forEachSeries(list, function(i, next) {
-            lib.doWhilst(
-              function(next2) {
-                  ipc.limiter(opts, function(delay) {
-                      opts.delay = delay;
-                      logger.log("limiter:", opts);
-                      setTimeout(next2, delay);
+
+    lib.series([
+        function(next) {
+            setTimeout(next, 1000);
+        },
+        function(next) {
+            var list = [], delays = 0;
+            for (let i = 0; i < opts.count; i++) list.push(i);
+            lib.forEachSeries(list, function(i, next2) {
+                lib.doWhilst(
+                  function(next3) {
+                      ipc.limiter(opts, (delay) => {
+                          opts.delay = delay;
+                          logger.log("limiter:", opts);
+                          setTimeout(next3, delay);
+                      });
+                  },
+                  function() {
+                      if (opts.delay) delays++;
+                      return opts.delay;
+                  },
+                  function() {
+                      setTimeout(next2, opts.pace);
                   });
-              },
-              function() {
-                  if (opts.delay) delays++;
-                  return opts.delay;
-              },
-              function() {
-                  setTimeout(next, opts.pace);
-              });
-        }, () => {
-            callback(delays != opts.delays ? `delays mismatch: ${delays} != ${opts.delays}` : "")
-        });
-    }, 1000);
+            }, () => {
+                tests.expect(delays == opts.delays, `delays mismatch: ${delays} != ${opts.delays}`);
+                next();
+            });
+        },
+        function(next) {
+            opts.retry = 2;
+            ipc.limiter(opts, (delay, info) => {
+                ipc.checkLimiter(opts, (delay, info) => {
+                    tests.expect(!delay, "should wait and continue", info);
+                    next();
+                });
+            });
+        },
+        function(next) {
+            opts.retry = 1;
+            ipc.limiter(opts, (delay, info) => {
+                ipc.checkLimiter(opts, (delay, info) => {
+                    tests.expect(delay, "should fail after first run", info);
+                    next();
+                });
+            });
+        },
+    ], callback);
 }
 
 tests.test_cache = function(callback)
