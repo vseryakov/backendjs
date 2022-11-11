@@ -7,6 +7,7 @@
 //
 
 const fs = require("fs");
+const util = require("util");
 const cluster = require('cluster');
 const path = require('path');
 const bkjs = require('backendjs')
@@ -1553,3 +1554,85 @@ tests.test_toparams = function(callback, test)
        callback();
 }
 
+tests.test_foreachline = async function(callback)
+{
+    const file = core.path.tmp + "/test.txt";
+    const line = "[1,2,3]";
+    const nlines = 10000;
+    const forEachLine = util.promisify(lib.forEachLine.bind(lib))
+
+    fs.writeFileSync(file, "");
+    for (let i = 0; i < nlines-2; i++) fs.appendFileSync(file, line + "\n");
+    fs.appendFileSync(file, "[2,3,4]\n[1,2,3]\n");
+
+    var count = 0, opts = {};
+    lib.forEachLineSync(file, opts, (l) => { count += l.length });
+    tests.expect(count == line.length*nlines, "all lines must be read", count, "!=", nlines*line.length, opts);
+
+    count = 0;
+    opts = { count: 100, skip: 1000 }
+    lib.forEachLineSync(file, opts, (ls) => { for (const l of ls) count += l.length });
+    tests.expect(count == line.length*(nlines-1000), "1000 less lines must be read", count, "!=", line.length*(nlines-1000), opts);
+
+    count = 0;
+    opts = { limit: 100 }
+    lib.forEachLineSync(file, opts, (l) => { count += l.length });
+    tests.expect(count == line.length*(100), "100 lines must be read", count, "!=", line.length*(100), opts);
+
+    count = 0;
+    opts = { length: line.length*10 }
+    lib.forEachLineSync(file, opts, (l) => { count += l.length });
+    tests.expect(count == line.length*(10), "10 lines must be read", count, "!=", line.length*(10), opts);
+
+    count = 0;
+    opts = { until: /^\[2/ }
+    lib.forEachLineSync(file, opts, (l) => { count += l.length });
+    tests.expect(count == line.length, "1 last lines must be read", count, "!=", line.length, opts);
+
+    count = 0;
+    opts = { split: 1 }
+    lib.forEachLineSync(file, opts, (ls) => { for (const l of ls) count += lib.toNumber(l.replace(/[[\]]/g,"")) });
+    tests.expect(count == nlines*6+3, "all sum of splitted lines must be read", count, "!=", nlines*6+3, opts);
+
+    count = 0;
+    opts = { json: 1 }
+    lib.forEachLineSync(file, opts, (ls) => { for (const l of ls) count += lib.toNumber(l) });
+    tests.expect(count == nlines*6+3, "all sum of json lines must be read", count, "!=", nlines*6+3, opts);
+
+    // Async version
+    count = 0, opts = {}
+    await forEachLine(file, opts, (l, next) => { count += l.length; next() });
+    tests.expect(count == line.length*nlines, "async: all lines must be read", count, "!=", nlines*line.length, opts);
+
+    count = 0;
+    opts = { count: 100, skip: 1000 }
+    await forEachLine(file, opts, (ls, next) => { for (const l of ls) count += l.length; next() });
+    tests.expect(count == line.length*(nlines-1000), "async: 1000 less lines must be read", count, "!=", line.length*(nlines-1000), opts);
+
+    count = 0;
+    opts = { limit: 100 }
+    await forEachLine(file, opts, (l, next) => { count += l.length; next() });
+    tests.expect(count == line.length*(100), "async: 100 lines must be read", count, "!=", line.length*(100), opts);
+
+    count = 0;
+    opts = { length: line.length*10 }
+    await forEachLine(file, opts, (l, next) => { count += l.length; next() });
+    tests.expect(count == line.length*(10), "async: 10 lines must be read", count, "!=", line.length*(10), opts);
+
+    count = 0;
+    opts = { until: /^\[2/ }
+    await forEachLine(file, opts, (l, next) => { count += l.length; next() });
+    tests.expect(count == line.length, "async: 1 last lines must be read", count, "!=", line.length, opts);
+
+    count = 0;
+    opts = { split: 1 }
+    await forEachLine(file, opts, (ls, next) => { for (const l of ls) count += lib.toNumber(l.replace(/[[\]]/g,"")); next() });
+    tests.expect(count == nlines*6+3, "async: all sum of splitted lines must be read", count, "!=", nlines*6+3, opts);
+
+    count = 0;
+    opts = { json: 1 }
+    await forEachLine(file, opts, (ls, next) => { for (const l of ls) count += lib.toNumber(l); next() });
+    tests.expect(count == nlines*6+3, "async: all sum of json lines must be read", count, "!=", nlines*6+3, opts);
+
+    callback();
+}
