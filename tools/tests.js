@@ -8,8 +8,6 @@
 
 const fs = require("fs");
 const util = require("util");
-const cluster = require('cluster');
-const path = require('path');
 const bkjs = require('backendjs')
 const core = bkjs.core;
 const lib = bkjs.lib;
@@ -19,7 +17,6 @@ const db = bkjs.db;
 const aws = bkjs.aws;
 const auth = bkjs.auth;
 const logger = bkjs.logger;
-const metrics = bkjs.metrics;
 const tests = bkjs.core.modules.tests;
 
 tests.resetTables = function(tables, callback)
@@ -656,25 +653,6 @@ tests.test_db = function(callback)
     ], callback, true);
 }
 
-tests.test_s3icon = function(callback)
-{
-    var id = lib.getArg("-id", "1");
-    api.saveIcon(core.cwd + "/web/img/loading.gif", id, { prefix: "account", images: api.imagesS3 }, function(err) {
-        var icon = api.iconPath(id, { prefix: "account" });
-        aws.queryS3(api.imagesS3, icon, { file: "tmp/" + path.basename(icon) }, function(err, params) {
-            logger.info('icon:', lib.statSync(params.file));
-            callback(err);
-        });
-    });
-}
-
-tests.test_icon = function(callback)
-{
-    api.putIcon({ body: {}, files: { 1: { path: __dirname + "/../web/img/loading.gif" } } }, "icon", 1, { prefix: "account", width: 100, height: 100 }, function(err) {
-        callback(err);
-    });
-}
-
 tests.test_limiter = function(callback)
 {
     var opts = {
@@ -847,7 +825,7 @@ tests.test_pool = function(callback)
                     create: function(cb) { cb(null,{ id: Date.now() }) }
     }
     var list = [];
-    var pool = new pool(options)
+    var pool = new db.Pool(options)
     lib.series([
        function(next) {
            logger.info('pool0:', pool.stats(), 'list:', list.length);
@@ -997,68 +975,6 @@ tests.test_logwatcher = function(callback)
     });
 }
 
-tests.test_dblock = function(callback)
-{
-    var self = this;
-    var tables = {
-        dbtest: { id: { primary: 1, pub: 1 },
-                  mtime: { type: "bigint" },
-                  status: {}, },
-    };
-
-    var id = "ID";
-    var interval = lib.getArgInt("-interval", 500);
-    var count = lib.getArgInt("-count", 0);
-
-    function queueJob(name, callback) {
-        var now = Date.now(), mtime;
-        db.get("dbtest", { id: id }, function(err, rc) {
-            if (rc) {
-                mtime = rc.mtime;
-                // Ignore if the period is not expired yet
-                if (now - mtime < interval) return callback();
-                // Try to update the record using the time we just retrieved, this must be atomic/consistent in the database
-                db.update("dbtest", { id: id, mtime: now, status: "running" }, { quiet: 1, expected: { id: id, mtime: mtime } }, function(err, rc, info) {
-                    if (err) return callback(err);
-                    if (!info.affected_rows) return callback();
-                    // We updated the record, we can start the job now
-                    logger.log(name, "U: START A JOB", mtime, now);
-                    return callback();
-                });
-            } else {
-                db.add("dbtest", { id: id, mtime: now, status: "running" }, { quiet: 1 }, function(err) {
-                    // Cannot create means somebody was ahead of us, ingore
-                    if (err) return callback(err);
-                    // We created a new record, now we can start the job now
-                    logger.log(name, "A: START A JOB", now, now);
-                    return callback();
-                });
-            }
-        });
-    }
-
-    lib.series([
-        function(next) {
-            if (cluster.isWorker) return next();
-            self.resetTables(tables, next);
-        },
-        function(next) {
-            for (var i = 0; i < count; i++) queueJob(i, lib.noop);
-            queueJob(100, function() { next() });
-        },
-        function(next) {
-            queueJob(200, function() { setTimeout(next, interval - 1) });
-        },
-        function(next) {
-            for (var i = 0; i < count; i++) queueJob(i + 300, lib.noop);
-            queueJob(400, function() { next() });
-        },
-        function(next) {
-            setTimeout(next, 1000)
-        },
-    ], callback);
-}
-
 tests.test_dynamodb = function(callback)
 {
     var a = { a: 1, b: 2, c: "3", d: { 1: 1, 2: 2 }, e: [1,2], f: [{ 1: 1 }, { 2: 2 }], g: true, h: null, i: ["a","b"] };
@@ -1067,7 +983,7 @@ tests.test_dynamodb = function(callback)
     logger.debug("dynamodb: from", a)
     logger.debug("dynamodb: to", b)
     logger.debug("dynamodb: to", c)
-    if (JSON.stringify(a) != JSON.stringify(c)) return callback("Invalid convertion from " + JSON.stringify(c) + "to" + JSON.stringify(a));
+    tests.expect(JSON.stringify(a) == JSON.stringify(c), "Invalid convertion from", JSON.stringify(c), "to", JSON.stringify(a));
     callback();
 }
 
@@ -1209,57 +1125,6 @@ tests.test_cleanup = function(callback)
            "status=", !res.extra && res.extra2 ? "ok" : ++failed);
 
     callback(failed);
-}
-
-tests.test_speed = function(callback, test)
-{
-    if (!test.metrics) {
-        test.metrics = new metrics.Metrics();
-        test.metrics.errors = 0;
-    }
-    var opts = {
-        headers: { 'user-agent': `${core.name}/test/${lib.tuuid()}` },
-        login: tests.getArg("-login"),
-        secret: tests.getArg("-secret"),
-    };
-    lib.strSplit(tests.getArg("-headers"), "|").forEach((x) => {
-        x = lib.strSplit(x, ":");
-        opts.headers[x[0]] = x.slice(1).join(":");
-    });
-    var urls = lib.strSplit(tests.getArg("-url"), "|");
-    lib.readFileSync(tests.getArg("-speed-conf"), { list: "\n" }).forEach((x) => {
-        x = lib.strSplit(x, "=");
-        switch (x[0]) {
-        case "url":
-            urls.push(x[1]);
-            break;
-        case "header":
-            x = lib.strSplit(x.slice(1).join("="), ":");
-            opts.headers[x[0]] = x.slice(1).join(":");
-            break;
-        case "login":
-            opts.login = x[1];
-            break;
-        case "secret":
-            opts.secret = x[1];
-            break;
-        case "opt":
-            x = lib.strSplit(x.slice(1).join("="), ":");
-            opts[x[0]] = x.slice(1).join(":");
-            break;
-        }
-    });
-
-    lib.forEachSeries(urls, (url, next2) => {
-        lib.forEach(lib.strSplit(url, "|"), (u, next3) => {
-            const t = test.metrics.Timer("t").start();
-            core.sendRequest(lib.objClone(opts, "url", u), (err, rc) => {
-                if (rc.status >= 400) test.metrics.errors++;
-                t.end();
-                setImmediate(next3);
-            });
-        }, next2);
-    }, callback);
 }
 
 // Vectors from https://wiki.mozilla.org/Identity/AttachedServices/KeyServerProtocol
@@ -1518,40 +1383,40 @@ tests.test_flow = function(callback, test)
 
 tests.test_toparams = function(callback, test)
 {
-       var account = lib.toParams(req.query, { id: { type: "int" },
-                                               count: { type: "int", min: 1, max: 10, dflt: 5 },
-                                               page: { type: "int", min: 1, max: 10, dflt: NaN, required: 1, errmsg: "Page number between 1 and 10 is required" },
-                                               name: { type: "string", max: 32, trunc: 1 },
-                                               pair: { type: "map", separator: "|" },
-                                               code: { type: "string", regexp: /^[a-z]-[0-9]+$/, errmsg: "Valid code is required" },
-                                               start: { type: "token", required: 1 },
-                                               email1: { type: "email", required: { email: null } },
-                                               data: { type: "json", datatype: "obj" },
-                                               mtime: { type: "mtime", name: "timestamp" },
-                                               flag: { type: "bool", novalue: false },
-                                               descr: { novalue: { name: "name", value: "test" },
-                                               email: { type: "list", datatype: "email", novalue: ["a@a"] } },
-                                               internal: { ignore: 1 },
-                                               tm: { type:" timestamp", optional: 1 },
-                                               status: { value: "ready" },
-                                               mode: "ok",
-                                               state: { values: ["ok","bad","good"] },
-                                               status: { value: [{ name: "state", value: "ok", set: "1" }, { name: "state", value: ["bad","good"], op: "in" }],
-                                               obj: { type: "obj", params: { id: { type: "int" }, name: {} } },
-                                               arr: { type: "array", params: { id: { type: "int" }, name: {} } },
-                                               state: { type: "list", datatype: "string", values: [ "VA", "DC"] } },
-                                               ssn: { type: "string", regexp: /^[0-9]{3}-[0-9]{3}-[0-9]{4}$/, errmsg: "Valid SSN is required" },
-                                               phone: { type: "list", datatype: "number" } },
-                                             { defaults: {
-                                                     start: { secret: req.account.secret },
-                                                     name: { dflt: "test" },
-                                                     count: { max: 100 },
-                                                     email: { ignore: req.account.type != "admin" },
-                                                     '*': { empty: 1, null: 1 },
-                                             }
+    var q = lib.toParams({}, {
+        id: { type: "int" },
+        count: { type: "int", min: 1, max: 10, dflt: 5 },
+        page: { type: "int", min: 1, max: 10, dflt: NaN, required: 1, errmsg: "Page number between 1 and 10 is required" },
+        name: { type: "string", max: 32, trunc: 1 },
+        pair: { type: "map", separator: "|" },
+        code: { type: "string", regexp: /^[a-z]-[0-9]+$/, errmsg: "Valid code is required" },
+        start: { type: "token", required: 1 },
+        email1: { type: "email", required: { email: null } },
+        data: { type: "json", datatype: "obj" },
+        mtime: { type: "mtime", name: "timestamp" },
+        flag: { type: "bool", novalue: false },
+        descr: { novalue: { name: "name", value: "test" },
+        email: { type: "list", datatype: "email", novalue: ["a@a"] } },
+        internal: { ignore: 1 },
+        tm: { type: "timestamp", optional: 1 },
+        const: { value: "ready" },
+        mode: "ok",
+        state: { values: ["ok","bad","good"] },
+        status: { value: [{ name: "state", value: "ok", set: "1" }, { name: "state", value: ["bad","good"], op: "in" }],
+        obj: { type: "obj", params: { id: { type: "int" }, name: {} } },
+        arr: { type: "array", params: { id: { type: "int" }, name: {} } },
+        state: { type: "list", datatype: "string", values: [ "VA", "DC"] } },
+        ssn: { type: "string", regexp: /^[0-9]{3}-[0-9]{3}-[0-9]{4}$/, errmsg: "Valid SSN is required" },
+        phone: { type: "list", datatype: "number" } },
+        {
+            defaults: {
+               name: { dflt: "test" },
+               count: { max: 100 },
+               '*': { empty: 1, null: 1 },
+           }
 
-                                         });
-       callback();
+       });
+    callback();
 }
 
 tests.test_foreachline = async function(callback)
