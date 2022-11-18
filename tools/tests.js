@@ -881,6 +881,7 @@ tests.test_config = function(callback)
                 "-db-sqlite-pool-options-discovery-interval", "30000",
                 "-db-sqlite-pool-options-map.test", "test",
                 "-db-sqlite-pool-options", "arg1:1,arg2:2",
+                "-ipc-queue", "local://default?bk-count=2",
                 "-ipc-queue-q", "local://queue?bk-test=10",
                 "-ipc-queue-q-options", "count:10,interval:100",
                 "-ipc-queue-q-options-visibilityTimeout", "1000",
@@ -909,11 +910,19 @@ tests.test_config = function(callback)
 
     for (const p in ipc.configParams) if (p != "q") delete ipc.configParams[p];
     ipc.initClients();
-    var q = ipc.getQueue("q");
-    this.assert(q.options.test != 10, "invalid queue url options", q)
+    var q = ipc.getQueue("");
+    this.assert(q.options.count != 2, "invalid default queue count", q)
 
+    core.parseArgs(["-ipc-queue--options-visibilityTimeout", "99", "-ipc-queue", "local://default?bk-count=10"]);
+    this.assert(q.options.visibilityTimeout != 99 || q.options.count != 10, "invalid default queue options", q.options)
+
+    core.parseArgs(["-ipc-queue-fake-options-visibilityTimeout", "11"]);
+    this.assert(q.options.visibilityTimeout == 11, "fake queue should be ignored", q.options)
+
+    q = ipc.getQueue("q");
+    this.assert(q.options.test != 10, "invalid queue url options", q)
     core.parseArgs(["-ipc-queue-q-options-visibilityTimeout", "99", "-ipc-queue-q-options", "count:99"]);
-    this.assert(q.options.visibilityTimeout != 99 || q.options.count != 99, "invalid queue url options", q)
+    this.assert(q.options.visibilityTimeout != 99 || q.options.count != 99, "invalid q queue options", q.options)
 
     this.assert(core.logwatcherSend.error != "a", "invalid logwatcher email", core.logwatcherSend);
     this.assert(core.logwatcherMatch.error.indexOf("a") == -1, "invalid logwatcher match", core.logwatcherMatch);
