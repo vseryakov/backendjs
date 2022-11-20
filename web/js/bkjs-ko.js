@@ -118,8 +118,9 @@ bkjs.koEvent = function(name, data)
 
 bkjs.koState = {};
 bkjs.koTemplates = {};
-bkjs.koAliases = {};
+bkjs.koTemplateAliases = {};
 bkjs.koModels = {};
+bkjs.koModelAliases = {};
 bkjs.koViewModels = [];
 
 bkjs.koViewModel = function(params, componentInfo)
@@ -169,21 +170,27 @@ bkjs.koCreateModel = function(name)
 
 bkjs.koCreateModelAlias = function(name, alias)
 {
-    bkjs.koAliases[bkjs.toCamel(alias)] = bkjs.toCamel(name);
+    bkjs.koModelAliases[bkjs.toCamel(alias)] = bkjs.toCamel(name);
+}
+
+bkjs.koCreateTemplateAlias = function(name, alias)
+{
+    bkjs.koTemplateAliases[bkjs.toCamel(alias)] = bkjs.toCamel(name);
 }
 
 bkjs.koFindModel = function(name)
 {
     name = bkjs.toCamel(name);
-    var tmpl = bkjs.koTemplates[name];
+    var tmpl = bkjs.koTemplates[name] || bkjs.koTemplates[bkjs.koTemplateAliases[name]];
     if (!tmpl) {
-        name = bkjs.koAliases[name];
+        name = bkjs.koModelAliases[name];
         if (name) tmpl = bkjs.koTemplates[name];
     }
     if (!tmpl) return null;
     if (tmpl[0] !== "<") {
         bkjs.koTemplates[name] = tmpl = bkjs.strDecompress(tmpl, "base64");
     }
+    if (bkjs.debug) console.log("koFindModel:", name, tmpl.substr(0, 32));
     return {
         template: tmpl,
         viewModel: {
