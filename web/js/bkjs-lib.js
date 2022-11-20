@@ -1900,6 +1900,18 @@ bkjs.trimWhitesspace = function(str)
     return str;
 }
 
+// Inject CSS/Script resources into the current page
+bkjs.loadResources = function(urls, callback)
+{
+    this.forEach(urls, (url, next) => {
+        if (/\.css/.test(url)) {
+            $.ajax({ url: url, complete: setTimeout.bind(null, next), success: (d) => { $("<style>").appendTo("body").html(d) } });
+        } else {
+            $.ajax({ url: url, dataType: "script", cache: true, scriptAttrs: {}, complete: setTimeout.bind(null, next) });
+        }
+    }, callback);
+}
+
 // Based on Bootstrap internal sanitizer
 bkjs.sanitizer = {
     _attrs: new Set(['background','cite','href','itemtype','longdesc','poster','src','xlink:href']),
