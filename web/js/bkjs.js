@@ -42,13 +42,20 @@ var bkjs = {
 
     // i18n locales by 2-letter code, uses account.lang to resolve the translation
     locales: {},
+
+    isF: (x) => (typeof x === "function"),
+    isS: (x) => (typeof x === "string"),
+    isB: (x) => (typeof x === "boolean"),
+    isO: (x) => (typeof x === "object"),
+    isN: (x) => (typeof x === "number"),
+    isU: (x) => (typeof x === "undefined"),
 };
 
 // Try to authenticate with the supplied credentials, it uses login and secret to sign the request, if not specified it uses
 // already saved credentials. if url is passed then it sends data in POST request to the specified url without any signature.
 bkjs.login = function(options, callback)
 {
-    if (typeof options == "function") callback = options, options = {};
+    if (bkjs.isF(options)) callback = options, options = {};
     options = this.objClone(options, "type", "POST");
     if (!options.data) options.data = {};
     if (!options.url) options.url = "/auth";
@@ -58,18 +65,18 @@ bkjs.login = function(options, callback)
         bkjs.loggedIn = true;
         for (const p in data) bkjs.account[p] = data[p];
         // Clear credentials from the memory if we use sessions
-        if (typeof callback == "function") callback.call(options.self || bkjs);
+        if (bkjs.isF(callback)) callback.call(options.self || bkjs);
     }, (err, xhr) => {
         bkjs.loggedIn = false;
         for (const p in bkjs.account) delete bkjs.account[p];
-        if (typeof callback == "function") callback.call(options.self || bkjs, err, null, xhr);
+        if (bkjs.isF(callback)) callback.call(options.self || bkjs, err, null, xhr);
     });
 }
 
 // Logout and clear all cookies and local credentials
 bkjs.logout = function(options, callback)
 {
-    if (typeof options == "function") callback = options, options = null;
+    if (bkjs.isF(options)) callback = options, options = null;
     options = this.objClone("type", "POST");
     if (!options.url) options.url = "/logout";
     this.loggedIn = false;
@@ -84,7 +91,7 @@ bkjs.logout = function(options, callback)
 // If options.nosignature is given the request is sent as is, no credentials and signature will be used.
 bkjs.send = function(options, onsuccess, onerror)
 {
-    if (typeof options == "string") options = { url: options };
+    if (bkjs.isS(options)) options = { url: options };
 
     if (!options.headers) options.headers = {};
     if (!options.type) options.type = 'POST';
@@ -100,7 +107,7 @@ bkjs.send = function(options, onsuccess, onerror)
         if (options.info_msg || options.success_msg) {
             $(bkjs).trigger("bkjs.alert", [options.info_msg ? "info" : "success", options.info_msg || options.success_msg]);
         }
-        if (typeof onsuccess == "function") onsuccess.call(options.self || bkjs, json, xhr);
+        if (bkjs.isF(onsuccess)) onsuccess.call(options.self || bkjs, json, xhr);
         if (options.trigger) bkjs.trigger(options.trigger, { url: options.url, query: options.data, data: json });
     }
     // Parse error message
@@ -112,17 +119,17 @@ bkjs.send = function(options, onsuccess, onerror)
         try { err = JSON.parse(xhr.responseText) } catch (e) {}
         if (!options.quiet) bkjs.log('send:', xhr.status, err, statusText, errorText, options);
         if (options.alert) {
-            var a = typeof options.alert == "string" && options.alert;
+            var a = bkjs.isS(options.alert) && options.alert;
             $(bkjs).trigger("bkjs.alert", ["error", a || err || errorText || statusText, { safe: !a }]);
         }
-        if (typeof onerror == "function") onerror.call(options.self || bkjs, err || errorText || statusText, xhr, statusText, errorText);
+        if (bkjs.isF(onerror)) onerror.call(options.self || bkjs, err || errorText || statusText, xhr, statusText, errorText);
         if (options.trigger) bkjs.trigger(options.trigger, { url: options.url, query: options.data, err: err });
     }
 
     options.headers[this.htz] = (new Date()).getTimezoneOffset();
     if (options.login && options.secret) options.headers[this.hsig] = this.createSignature(options);
-    for (const p in this.headers) if (typeof options.headers[p] == "undefined") options.headers[p] = this.headers[p];
-    for (const p in options.data) if (typeof options.data[p] == "undefined") delete options.data[p];
+    for (const p in this.headers) if (bkjs.isU(options.headers[p])) options.headers[p] = this.headers[p];
+    for (const p in options.data) if (bkjs.isU(options.data[p])) delete options.data[p];
     $(bkjs).trigger("bkjs.loading", "show");
     return $.ajax(options);
 }
@@ -136,9 +143,9 @@ bkjs.get = function(options, callback)
 bkjs.sendRequest = function(options, callback)
 {
     return bkjs.send(options, (data, xhr) => {
-        if (typeof callback == "function") callback.call(options.self || bkjs, null, data, xhr);
+        if (bkjs.isF(callback)) callback.call(options.self || bkjs, null, data, xhr);
     }, (err, xhr) => {
-        if (typeof callback == "function") callback.call(options.self || bkjs, err, {}, xhr);
+        if (bkjs.isF(callback)) callback.call(options.self || bkjs, err, {}, xhr);
     });
 }
 
@@ -172,16 +179,16 @@ bkjs.sendFile = function(options, callback)
     }
     // Send within the session, multipart is not supported by signature
     var rc = { url: options.url, type: "POST", processData: false, data: form, contentType: false, nosignature: true };
-    for (const p in options) if (typeof rc[p] == "undefined") rc[p] = options[p];
+    for (const p in options) if (bkjs.isU(rc[p])) rc[p] = options[p];
     this.sendRequest(rc, callback);
 }
 
 // Return a file object for the selector
 bkjs.getFileInput = function(file)
 {
-    if (typeof file == "string") file = $(file);
+    if (bkjs.isS(file)) file = $(file);
     if (file instanceof jQuery && file.length) file = file[0];
-    if (typeof file == "object") {
+    if (bkjs.isO(file)) {
         if (file.files && file.files.length) return file.files[0];
         if (file.name && file.size && (file.type || file.lastModified)) return file;
     }
@@ -232,7 +239,7 @@ bkjs.wsConnect = function(options)
     this.ws.onmessage = function(msg) {
         var data = msg.data;
         if (data === "bye") bkjs.wsClose(1);
-        if (typeof data == "string" && (data[0] == "{" || data[0] == "[")) data = JSON.parse(data);
+        if (bkjs.isS(data) && (data[0] == "{" || data[0] == "[")) data = JSON.parse(data);
         if (bkjs.wsconf.debug) bkjs.log('ws.message:', data);
         $(bkjs).trigger("bkjs.ws.message", data);
     }
@@ -251,7 +258,7 @@ bkjs.wsSend = function(data)
         this.wsconf.pending.push(data);
         return;
     }
-    if (typeof data == "object" && data) {
+    if (bkjs.isO(data) && data) {
         if (data.url && data.url[0] == "/") {
             data = data.url + (data.data ? "?" + $.param(data.data) : "");
         } else {
@@ -263,7 +270,7 @@ bkjs.wsSend = function(data)
 
 bkjs.domainName = function(host)
 {
-    if (typeof host != "string" || !host) return "";
+    if (!bkjs.isS(host) || !host) return "";
     var name = host.split('.');
     return (name.length > 2 ? name.slice(1).join('.') : host).toLowerCase();
 }
@@ -283,10 +290,8 @@ bkjs.param = function(name, dflt, num)
 // Percent encode with special symbols in addition
 bkjs.encode = function(str)
 {
-    if (typeof str == "undefined") return "";
-    return encodeURIComponent(str).replace(/[!'()*]/g, function(m) {
-        return m == '!' ? '%21' : m == "'" ? '%27' : m == '(' ? '%28' : m == ')' ? '%29' : m == '*' ? '%2A' : m;
-    });
+    if (bkjs.isU(str)) return "";
+    return encodeURIComponent(str).replace(/[!'()*]/g, (m) => (m == '!' ? '%21' : m == "'" ? '%27' : m == '(' ? '%28' : m == ')' ? '%29' : m == '*' ? '%2A' : m));
 }
 
 // Return a cookie value by name
@@ -318,7 +323,7 @@ bkjs.createSignature = function(options)
     var tag = options.tag || "";
     var checksum = options.checksum || "";
     var expires = options.expires || 0;
-    if (!expires || typeof expires != "number") expires = now + 60000;
+    if (!expires || !bkjs.isN(expires)) expires = now + 60000;
     if (expires < now) expires += now;
     var ctype = String(options.contentType || "").toLowerCase();
     if (!ctype && options.type == "POST") ctype = "application/x-www-form-urlencoded; charset=utf-8";
@@ -328,7 +333,7 @@ bkjs.createSignature = function(options)
     if (!query) query = q[1] || "";
     if (query instanceof FormData) query = "";
     if (typeof query == "object") query = jQuery.param(query);
-    query = query.split("&").sort().filter(function(x) { return x != ""; }).join("&");
+    query = query.split("&").sort().filter((x) => (x != "")).join("&");
     var str = this.hver + "\n" + tag + "\n" + options.login + "\n" + options.type + "\n" + host + "\n" + url + "\n" + query + "\n" + expires + "\n" + ctype + "\n" + checksum + "\n";
     var hmac = this.crypto.hmacSha256(options.secret, str, "base64");
     if (this.debug) this.log('sign:', str);

@@ -19,12 +19,12 @@ bkjs.koCheckLogin = function(err, path)
     bkjs.koAuth(bkjs.loggedIn);
     bkjs.koAdmin(bkjs.loggedIn && bkjs.checkAccountType(bkjs.account, bkjs.adminType || "admin"));
     $(bkjs).trigger(bkjs.loggedIn ? "bkjs.login" : "bkjs.nologin", [err, path]);
-    if (!err && typeof bkjs.koShow == "function") bkjs.koShow();
+    if (!err && bkjs.isF(bkjs.koShow)) bkjs.koShow();
 }
 
 bkjs.koLogin = function(data, event)
 {
-    bkjs.showLogin(bkjs.koLoginOptions, function(err) {
+    bkjs.showLogin(bkjs.koLoginOptions, (err) => {
         bkjs.koCheckLogin(err);
         if (!err) bkjs.hideLogin();
     });
@@ -32,7 +32,7 @@ bkjs.koLogin = function(data, event)
 
 bkjs.koLogout = function(data, event)
 {
-    bkjs.logout(function() {
+    bkjs.logout(() => {
         bkjs.koAuth(0);
         bkjs.koAdmin(0);
         bkjs.koName("");
@@ -44,10 +44,10 @@ bkjs.koVal = ko.utils.unwrapObservable;
 
 bkjs.koGet = function(name, dflt)
 {
-    if (typeof name != "string") name = String(name);
+    if (!bkjs.isS(name)) name = String(name);
     name = name.replace(/[^a-zA-z0-9_]/g, "_");
     var val = bkjs.koState[name];
-    if (typeof val == "undefined") {
+    if (bkjs.isU(val)) {
         bkjs.koState[name] = val = Array.isArray(dflt) ? ko.observableArray(dflt) : ko.observable(dflt);
     }
     return val;
@@ -59,7 +59,7 @@ bkjs.koSet = function(name, val, quiet)
     if (!Array.isArray(name)) name = [ name ];
     for (var i in name) {
         var key = name[i], old;
-        if (typeof key != "string") continue;
+        if (!bkjs.isS(key)) continue;
         key = key.replace(/[^a-zA-z0-9_]/g, "_");
         if (ko.isComputed(bkjs.koState[key])) continue;
         if (ko.isObservable(bkjs.koState[key])) {
@@ -75,9 +75,9 @@ bkjs.koSet = function(name, val, quiet)
 
 bkjs.koSetObject = function(obj, options)
 {
-    if (!obj || typeof obj != "object") obj = {};
+    if (!obj || !bkjs.isO(obj)) obj = {};
     for (const p in obj) {
-        if (typeof options[p] != "undefined") continue;
+        if (!bkjs.isU(options[p])) continue;
         if (ko.isComputed(obj[p])) continue;
         if (ko.isObservable(obj[p])) obj[p](undefined); else obj[p] = undefined;
     }
@@ -90,7 +90,7 @@ bkjs.koSetObject = function(obj, options)
 
 bkjs.koUpdateObject = function(obj, options)
 {
-    if (!obj || typeof obj != "object") obj = {};
+    if (!obj || !bkjs.isO(obj)) obj = {};
     for (const p in options) {
         if (ko.isComputed(obj[p])) continue;
         if (ko.isObservable(obj[p])) obj[p](bkjs.koVal(options[p])); else obj[p] = bkjs.koVal(options[p]);
@@ -100,12 +100,12 @@ bkjs.koUpdateObject = function(obj, options)
 
 bkjs.koConvert = function(obj, name, val, dflt)
 {
-    if (!obj || typeof obj != "object") obj = {};
+    if (!obj || !bkjs.isO(obj)) obj = {};
     if (!ko.isObservable(obj[name])) {
         obj[name] = Array.isArray(val || dflt) ? ko.observableArray(obj[name]) : ko.observable(obj[name]);
     }
-    if (typeof val != "undefined") obj[name](val);
-    if (typeof dflt != "undefined" && !obj[name]()) obj[name](dflt);
+    if (!bkjs.isU(val)) obj[name](val);
+    if (!bkjs.isU(dflt) && !obj[name]()) obj[name](dflt);
     return obj;
 }
 
@@ -133,8 +133,8 @@ bkjs.koViewModel = function(params, componentInfo)
 bkjs.koViewModel.prototype._handleEvent = function(ev, name, event, data)
 {
     if (bkjs.debug) console.log("handleEvent:", this.koName, name, event, data)
-    if (typeof this[event] == "function") this[event](data);
-    if (typeof this.handleEvent == "function") this.handleEvent(name, data);
+    if (bkjs.isF(this[event])) this[event](data);
+    if (bkjs.isF(this.handleEvent)) this.handleEvent(name, data);
 }
 
 bkjs.koViewModel.prototype.dispose = function()
@@ -142,12 +142,12 @@ bkjs.koViewModel.prototype.dispose = function()
     if (bkjs.debug) console.log("dispose:", this.koName);
     bkjs.koEvent("model.disposed", { name: this.koName, params: this.params, vm: this });
     $(bkjs).off("bkjs.event." + this.koName, $.proxy(this._handleEvent, this));
-    if (typeof this.onDispose == "function") this.onDispose();
+    if (bkjs.isF(this.onDispose)) this.onDispose();
     // Auto dispose all subscriptions
     for (const p in this) {
-        if (this[p] && typeof this[p] == "object" &&
-            typeof this[p].dispose == "function" &&
-            typeof this[p].disposeWhenNodeIsRemoved == "function") {
+        if (this[p] && bkjs.isO(this[p]) &&
+            bkjs.isF(this[p].dispose) &&
+            bkjs.isF(this[p].disposeWhenNodeIsRemoved)) {
             this[p].dispose();
         } else
         if (ko.isComputed(this[p])) this[p].dispose();
@@ -196,9 +196,9 @@ bkjs.koFindModel = function(name)
         viewModel: {
             createViewModel: function(params, componentInfo) {
                 var vm;
-                if (typeof bkjs.koModels[name] == "function") {
+                if (bkjs.isF(bkjs.koModels[name])) {
                     vm = new bkjs.koModels[name](params, componentInfo);
-                    if (typeof vm.onCreate == "function") vm.onCreate(vm.params, componentInfo);
+                    if (bkjs.isF(vm.onCreate)) vm.onCreate(vm.params, componentInfo);
                     bkjs.koViewModels.push(vm);
                 }
                 if (bkjs.debug) console.log("createViewModel:", name);
@@ -216,7 +216,7 @@ bkjs.koRunMethod = function(method)
     var args = Array.prototype.slice.apply(arguments).slice(1);
     for (var i in bkjs.koViewModels) {
         var m = bkjs.koViewModels[i];
-        if (typeof m[method] == "function") rc[m.name] = m[method].apply(m, args);
+        if (bkjs.isF(m[method])) rc[m.name] = m[method].apply(m, args);
     }
     return rc;
 }
@@ -255,7 +255,7 @@ bkjs.koApplyPlugins = function(target)
 {
     if (!target) return;
     for (const i in bkjs.koPlugins) {
-        if (typeof bkjs.koPlugins[i] == "function") bkjs.koPlugins[i](target);
+        if (bkjs.isF(bkjs.koPlugins[i])) bkjs.koPlugins[i](target);
     }
 }
 
@@ -315,12 +315,12 @@ bkjs.koBootpopup = function(options, style)
 {
     var _before = options.before;
     options.before = function(self) {
-        if (typeof _before == "function") _before(self);
+        if (bkjs.isF(_before)) _before(self);
         ko.applyBindings(self.options.data || bkjs, self.modal.get(0));
     }
     var _complete = options.complete;
     options.complete = function(event, self) {
-        if (typeof _complete == "function") _complete.call(this, event, self);
+        if (bkjs.isF(_complete)) _complete.call(this, event, self);
         ko.cleanNode(self.modal.get(0));
         options.before = _before;
         options.complete = _complete;
