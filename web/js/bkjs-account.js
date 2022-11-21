@@ -31,10 +31,10 @@ bkjs.checkPassword = function(secret, policy)
 // Retrieve current account record, call the callback with the object or error
 bkjs.getAccount = function(query, callback)
 {
-    if (typeof query == "function") callback = query, query = null;
+    if (bkjs.isF(query)) callback = query, query = null;
     this.sendRequest({ url: "/account/get", data: query }, (err, data, xhr) => {
         for (const p in data) bkjs.account[p] = data[p];
-        if (typeof callback == "function") callback(err, data, xhr);
+        if (bkjs.isF(callback)) callback(err, data, xhr);
     });
 }
 
@@ -42,15 +42,15 @@ bkjs.getAccount = function(query, callback)
 bkjs.updateAccount = function(obj, callback)
 {
     delete obj.secret2;
-    this.sendRequest({ url: '/account/update', data: obj, type: "POST" }, callback);
+    this.sendRequest({ url: '/account/update', data: obj }, callback);
 }
 
 // Return true if the account contains the given type
 bkjs.checkAccountType = function(account, type)
 {
     if (!account || !account.type) return false;
-    if (!Array.isArray(account.type)) account.type = String(account.type).split(",").map(function(x) { return x.trim() });
-    if (Array.isArray(type)) return type.some(function(x) { return account.type.indexOf(x) > -1 });
+    if (!Array.isArray(account.type)) account.type = String(account.type).split(",").map((x) => (x.trim()));
+    if (Array.isArray(type)) return type.some((x) => (account.type.indexOf(x) > -1));
     return account.type.indexOf(type) > -1;
 }
 

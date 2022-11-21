@@ -35,7 +35,7 @@ bkjs.showLoading = function(op)
 
 bkjs.showAlert = function(obj, type, text, options)
 {
-    if (typeof obj == "string") options = text, text = type, type = obj, obj = $("body");
+    if (bkjs.isS(obj)) options = text, text = type, type = obj, obj = $("body");
     if (!text) return;
     if (!options) options = {};
     if (!bkjs._alertNum) bkjs._alertNum = 0;
@@ -43,7 +43,7 @@ bkjs.showAlert = function(obj, type, text, options)
     var aid = "alert-" + bkjs._alertNum++;
     var html = '<div id=' + aid + ' class="alert alert-dismissible alert-' + type + ' show ' + (options.css || "") + '" role="alert">';
     if (options.icon) html += '<i class="fa fa-fw ' + options.icon + '"></i>';
-    html += bkjs.sanitizer.run(typeof text == "string" ? options.safe ? text : bkjs.textToEntity(text) :
+    html += bkjs.sanitizer.run(bkjs.isS(text) ? options.safe ? text : bkjs.textToEntity(text) :
                                text?.message ? options.safe ? text.message : bkjs.textToEntity(text.message) :
                                JSON.stringify(text).replace(/[<>]/g, "")).replace(/\n/g, "<br>");
     html += '<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>';
@@ -64,9 +64,7 @@ bkjs.showAlert = function(obj, type, text, options)
             $(this).alert('close');
         });
     }
-    $(obj).find("#" + aid).on('closed.bs.alert', function() {
-        bkjs.cleanupAlerts(alerts, options);
-    });
+    $(obj).find("#" + aid).on('closed.bs.alert', bkjs.cleanupAlerts.bind(bkjs, alerts, options));
     if (options.scroll) $(obj).animate({ scrollTop: 0 }, "slow");
 }
 
@@ -89,7 +87,7 @@ bkjs.cleanupAlerts = function(element, options)
 
 bkjs.showConfirm = function(options, callback, cancelled)
 {
-    if (typeof options == "string") options = { text: options };
+    if (bkjs.isS(options)) options = { text: options };
 
     var opts = {
         self: this,
@@ -99,10 +97,10 @@ bkjs.showConfirm = function(options, callback, cancelled)
         buttons: ["cancel", "ok"],
         content: [{ div: { html: String(options.text || "").replace(/\n/g, "<br>"), class: options.css || "" } }],
         ok: function() {
-            if (typeof callback == "function") callback.call(this);
+            if (bkjs.isF(callback)) callback.call(this);
         },
         cancel: function() {
-            if (typeof cancelled == "function") cancelled.call(this);
+            if (bkjs.isF(cancelled)) cancelled.call(this);
         }
     };
     for (const p in options) {
@@ -113,7 +111,7 @@ bkjs.showConfirm = function(options, callback, cancelled)
 
 bkjs.showPrompt = function(options, callback)
 {
-    if (typeof options == "string") options = { text: options };
+    if (bkjs.isS(options)) options = { text: options };
 
     var value;
     var opts = {
@@ -126,7 +124,7 @@ bkjs.showPrompt = function(options, callback)
             value = d.value;
         },
         dismiss: function() {
-            if (typeof callback == "function") callback.call(this, value);
+            if (bkjs.isF(callback)) callback.call(this, value);
         }
     };
     for (const p in options) {
@@ -137,7 +135,7 @@ bkjs.showPrompt = function(options, callback)
 
 bkjs.showLogin = function(options, callback)
 {
-    if (typeof options == "function") callback = options, options = null;
+    if (bkjs.isF(options)) callback = options, options = null;
     if (!options) options = {};
 
     var popup;
@@ -159,12 +157,12 @@ bkjs.showLogin = function(options, callback)
             options.disclaimer ? { div: { html: options.disclaimer } } : null,
         ],
         ok: function(d) {
-            if (typeof options.onSubmit == "function" && !options.onSubmit(popup, d)) return false;
+            if (bkjs.isF(options.onSubmit) && !options.onSubmit(popup, d)) return false;
             var q = { login: d.login, secret: d.secret };
             if (options.url) q = { url: options.url, data: q };
             bkjs.login(q, function(err) {
                 if (err) popup.showAlert(err);
-                if (typeof callback == "function") callback.call(self, err);
+                if (bkjs.isF(callback)) callback.call(self, err);
             });
             return false;
         },
