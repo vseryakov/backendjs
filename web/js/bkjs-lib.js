@@ -1902,18 +1902,6 @@ bkjs.trimWhitesspace = function(str)
     return str;
 }
 
-// Inject CSS/Script resources into the current page
-bkjs.loadResources = function(urls, callback)
-{
-    this.forEach(urls, (url, next) => {
-        if (/\.css/.test(url)) {
-            $.ajax({ url: url, complete: setTimeout.bind(null, next), success: (d) => { $("<style>").appendTo("body").html(d) } });
-        } else {
-            $.ajax({ url: url, dataType: "script", cache: true, scriptAttrs: {}, complete: setTimeout.bind(null, next) });
-        }
-    }, callback);
-}
-
 // Based on Bootstrap internal sanitizer
 bkjs.sanitizer = {
     _attrs: new Set(['background','cite','href','itemtype','longdesc','poster','src','xlink:href']),
@@ -1957,5 +1945,38 @@ bkjs.sanitizer = {
         }
         return doc.body.innerHTML;
     }
+}
+
+// A shortcut to create an element with attributes, functions will be added as event handlers
+bkjs.createElement = function()
+{
+    const el = document.createElement(arguments[0]);
+    for (let i = 1; i < arguments.length - 1; i+= 2) {
+        if (typeof arguments[i + 1] == "function") {
+            el.addEventListener(arguments[i], arguments[i + 1], false);
+        } else {
+            el[arguments[i]] = arguments[i + 1];
+        }
+    }
+    return el;
+}
+
+// Inject CSS/Script resources into the current page, loading is async, all pages are loaded at the same time,
+// if options.async set then scripts executed as soon as loaded otherwise executing scripts will be in the order provided
+// options.callback will be called with (el, opts) args for customizations after the log or error
+bkjs.loadResources = function(urls, options, callback)
+{
+    if (bkjs.isF(options)) callback = options, options = null;
+    const cb = bkjs.isF(options?.callback) ? options.callback : () => {};
+    this.forEach(urls, (url, next) => {
+        let el;
+        const ev = () => { cb(el, options); next() }
+        if (/\.css/.test(url)) {
+            el = bkjs.createElement("link", "rel", "stylesheet", "type", "text/css", "href", url, "load", ev, "error", ev)
+        } else {
+            el = bkjs.createElement('script', "async", !!options?.async, "src", url, "load", ev, "error", ev)
+        }
+        document.head.appendChild(el);
+    }, callback);
 }
 
