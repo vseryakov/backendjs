@@ -78,11 +78,11 @@ files.forEach(function(file) {
     }
 });
 
-var text = marked(toc, { renderer: renderer });
+var text = marked.parse(toc, { renderer: renderer });
 
-text += marked(readme, { renderer: renderer });
-text += marked("## Configuration parameters\n", { renderer: renderer });
-text += marked(bkjs.core.showHelp({ markdown: 1 }), { renderer: renderer });
+text += marked.parse(readme, { renderer: renderer });
+text += marked.parse("## Configuration parameters\n", { renderer: renderer });
+text += marked.parse(bkjs.core.showHelp({ markdown: 1 }), { renderer: renderer });
 
 var base = "";
 
@@ -91,7 +91,7 @@ files.forEach(function(file) {
     var doc = "";
     var data = fs.readFileSync(file).toString().split("\n");
     if (base == file) {
-        text += marked("## Module: " + path.basename(file, '.js').toUpperCase() + "\n", { renderer: renderer });
+        text += marked.parse("## Module: " + path.basename(file, '.js').toUpperCase() + "\n", { renderer: renderer });
     }
     for (var i = 0; i < data.length; i++) {
         var line = data[i];
@@ -107,7 +107,7 @@ files.forEach(function(file) {
         d = line.match(/([^ =]+)[= ]+function([^{]+)/);
         if (d && doc) {
             if (d[1].match(skip)) continue;
-            text += marked("* `" + d[1] + d[2] + "`\n\n  " + doc, { renderer: renderer }) + "\n";
+            text += marked.parse("* `" + d[1] + d[2] + "`\n\n  " + doc, { renderer: renderer }) + "\n";
             doc = "";
             continue;
         }
@@ -115,7 +115,7 @@ files.forEach(function(file) {
         d = line.match(/^var ([^ ]+)[ =]+{$/);
         if (d && doc) {
             if (d[1].match(skip)) continue;
-            text += marked("* `" + d[1] + "`\n\n  " + doc, { renderer: renderer }) + "\n";
+            text += marked.parse("* `" + d[1] + "`\n\n  " + doc, { renderer: renderer }) + "\n";
             doc = "";
             continue;
         }
@@ -129,7 +129,7 @@ files.forEach(function(file) {
                 doc += "    " + line + "\n";
             }
             // Precaution
-            if (i < data.length) text += marked(doc, { renderer: renderer }) + "\n";
+            if (i < data.length) text += marked.parse(doc, { renderer: renderer }) + "\n";
             doc = "";
         }
         doc = "";

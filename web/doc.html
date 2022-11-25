@@ -51,7 +51,6 @@
 <li><a href="#authentication-api"> Authentication API</a></li>
 <li><a href="#accounts"> Accounts</a></li>
 <li><a href="#health-enquiry"> Health enquiry</a></li>
-<li><a href="#public-images-endpoint"> Public Images endpoint</a></li>
 <li><a href="#data"> Data</a></li>
 <li><a href="#system-api"> System API</a></li>
 <li><a href="#author"> Author</a></li>
@@ -64,7 +63,7 @@
 <li><a href="#module-core">core</a></li>
 <li><a href="#module-db">db</a></li>
 <li><a href="#module-events">events</a></li>
-<li><a href="#module-http_get">http_get</a></li>
+<li><a href="#module-httpget">httpget</a></li>
 <li><a href="#module-index">index</a></li>
 <li><a href="#module-ipc">ipc</a></li>
 <li><a href="#module-jobs">jobs</a></li>
@@ -237,8 +236,6 @@ run the following command:</p>
 <pre><code>  cd node_modules/backendjs &amp;&amp; npm run devbuild
 </code></pre>
 </li>
-</ul>
-<ul>
 <li><p>Go to <code>examples/api</code> directory:</p>
 </li>
 <li><p>Run the application, it will start the Web server on port 8000:</p>
@@ -805,15 +802,15 @@ this assumes the default path &#39;/public&#39; still allowed without the signat
    &lt;script src=&quot;/js/bkjs.bundle.js&quot; type=&quot;text/javascript&quot;&gt;&lt;/script&gt;
    &lt;script&gt;
     $(function () {
-       Bkjs.session = true;
-       $(Bkjs).on(&quot;bkjs.nologin&quot;, function() { window.location=&#39;/public/index.html&#39;; });
-       Bkjs.koInit();
+       bkjs.session = true;
+       $(bkjs).on(&quot;bkjs.nologin&quot;, function() { window.location=&#39;/public/index.html&#39;; });
+       bkjs.koInit();
    });
    &lt;/script&gt;
 </code></pre>
 <h2 id="secure-web-site-backend-verification">Secure Web site, backend verification</h2>
 <p>On the backend side in your application app.js it needs more secure settings defined i.e. no html except /public will be accessible and
-in case of error will be redirected to the login page by the server. Note, in the login page <code>Bkjs.session</code> must be set to true for all
+in case of error will be redirected to the login page by the server. Note, in the login page <code>bkjs.session</code> must be set to true for all
 html pages to work after login without singing every API request.</p>
 <ol>
 <li>We disable all allowed paths to the html and registration:</li>
@@ -1247,7 +1244,7 @@ environment, not just a Web browser. Request signature can be passed in the quer
 <p>For JSON content type, the method must be POST and no query parameters specified, instead everything should be inside the JSON object
 which is placed in the body of the request. For additional safety, SHA1 checksum of the JSON payload can be calculated and passed in the signature,
 this is the only way to ensure the body is not modified when not using query parameters.</p>
-<p>See <a href="https://github.com/vseryakov/backendjs/blob/master/web/js/bkjs.js">web/js/bkjs.js</a> function <code>Bkjs.createSignature</code> or
+<p>See <a href="https://github.com/vseryakov/backendjs/blob/master/web/js/bkjs.js">web/js/bkjs.js</a> function <code>bkjs.createSignature</code> or
 <a href="https://github.com/vseryakov/backendjs/blob/master/api.js">api.js</a> function <code>api.createSignature</code> for the JavaScript implementations.</p>
 <p>There is also native iOS implementation <a href="https://raw.githubusercontent.com/vseryakov/backendjs-ios/master/BKjs.m">Bkjs.m</a>.</p>
 <h3 id="authentication-api">Authentication API</h3>
@@ -1307,9 +1304,6 @@ this is the only way to ensure the body is not modified when not using query par
       &gt; db.update(&quot;bk_user&quot;, { login: &#39;login@name&#39;, type: &#39;admin&#39; });
 </code></pre>
 </li>
-<li><p><code>/account/del</code></p>
-<p>Delete current account, after this call no more requests will be authenticated with the current credentials</p>
-</li>
 <li><p><code>/account/update</code></p>
 <p>Update current account with new values, the parameters are columns of the table <code>bk_user</code>, only columns with non empty values will be updated.</p>
 <p>Example:</p>
@@ -1320,28 +1314,6 @@ this is the only way to ensure the body is not modified when not using query par
 <h3 id="health-enquiry">Health enquiry</h3>
 <p>When running with AWS load balancer there should be a url that a load balancer polls all the time and this must be very quick and lightweight request. For this
 purpose there is an API endpoint <code>/ping</code> that just responds with status 200. It is open by default in the default <code>api-allow-path</code> config parameter.</p>
-<h2 id="public-images-endpoint">Public Images endpoint</h2>
-<p>This endpoint can server any icon uploaded to the server for any account, it is supposed to be a non-secure method, i.e. no authentication will be performed and no signature
-will be needed once it is configured which prefix can be public using <code>api-allow</code> or <code>api-allow-path</code> config parameters.</p>
-<p>The format of the endpoint is:</p>
-<ul>
-<li><p><code>/image/prefix/id/type[.png|.jpg]</code></p>
-<p>  Example:</p>
-<pre><code>  # Configure accounts icons to be public in the etc/config
-  api-allow-path=/image/account/
-
-  # Or pass in the command line
-  ./app.sh -api-allow-path /image/account/
-
-  # Make requests
-  /image/account/12345/0
-  /image/account/12345/1
-  /image/account/12345/1.jpg
-
-  #Return icons for account 12345 for types 0 and 1
-</code></pre>
-</li>
-</ul>
 <h2 id="data">Data</h2>
 <p>The data API is a generic way to access any table in the database with common operations, as oppose to the any specific APIs above this API only deals with
 one table and one record without maintaining any other features like auto counters, cache...</p>
@@ -1459,11 +1431,12 @@ Database pool statistics and other diagnostics</p>
 <ul>
 <li><code>help</code> - Print help and exit</li>
 <li><code>log</code> - Set debugging level to any of test,dev,debug,info,notice,log,warn,error,none</li>
-<li><code>log-filter</code> - Enable debug filters, format is: label,... to enable, and !label,... to disable. Only first argument is used for label in logger.debug</li>
 <li><code>log-file</code> - Log to a file, if not specified used default logfile, disables syslog</li>
 <li><code>log-ignore</code> - Regexp with property names which must not be exposed in the log when using custom logger inspector</li>
 <li><code>log-inspect</code> - Install custom secure logger inspection instead of util.inspect</li>
-<li><code>syslog</code> - Log messages to syslog, pass 0 to disable, 1 or url (tcp|udp|unix):[//host:port]/path[?facility]</li>
+<li><code>log-filter</code> - Enable debug filters, format is: label,... to enable, and !label,... to disable. Only first argument is used for label in logger.debug</li>
+<li><code>no-log-filter</code> - Clear all log filters</li>
+<li><code>syslog</code> - Log messages to syslog, pass 0 to disable, 1 or url (tcp|udp|unix):[//host:port]/path?[facility=F][&amp;tag=T][&amp;retryCount=N]...</li>
 <li><code>console</code> - All logging goes to the console resetting all previous log related settings, this is used in the development mode mostly</li>
 <li><code>home</code> - Specify home directory for the server, the server will try to chdir there or exit if it is not possible, the directory must exist</li>
 <li><code>conf-file</code> - Name of the config file to be loaded instead of the default etc/config, can be relative or absolute path</li>
@@ -1548,6 +1521,7 @@ Database pool statistics and other diagnostics</p>
 <li><code>no-locales</code> - Do not load locales on start</li>
 <li><code>email-from</code> - Email address to be used when sending emails from the backend</li>
 <li><code>email-transport</code> - Send emails via supported transports: ses:, sendgrid://?key=SG, if not set default SMTP settings are used</li>
+<li><code>sendgrid-key</code> - SendGrid API key</li>
 <li><code>smtp-(.+)</code> - SMTP server parameters, user, password, host, ssl, tls...see emailjs for details</li>
 <li><code>tmp-watcher-(.+)</code> - How long to keep files per subdirectory in seconds</li>
 <li><code>stop-on-error</code> - Exit the process on any error when loading modules, for dev purposes</li>
@@ -1564,11 +1538,12 @@ Database pool statistics and other diagnostics</p>
 <li><code>logwatcher-file(-[a-z]+)?</code> - Add a file to be watched by the logwatcher, it will use all configured match patterns</li>
 <li><code>bkjs-help</code> - Print help and exit</li>
 <li><code>bkjs-log</code> - Set debugging level to any of test,dev,debug,info,notice,log,warn,error,none</li>
-<li><code>bkjs-log-filter</code> - Enable debug filters, format is: label,... to enable, and !label,... to disable. Only first argument is used for label in logger.debug</li>
 <li><code>bkjs-log-file</code> - Log to a file, if not specified used default logfile, disables syslog</li>
 <li><code>bkjs-log-ignore</code> - Regexp with property names which must not be exposed in the log when using custom logger inspector</li>
 <li><code>bkjs-log-inspect</code> - Install custom secure logger inspection instead of util.inspect</li>
-<li><code>bkjs-syslog</code> - Log messages to syslog, pass 0 to disable, 1 or url (tcp|udp|unix):[//host:port]/path[?facility]</li>
+<li><code>bkjs-log-filter</code> - Enable debug filters, format is: label,... to enable, and !label,... to disable. Only first argument is used for label in logger.debug</li>
+<li><code>bkjs-no-log-filter</code> - Clear all log filters</li>
+<li><code>bkjs-syslog</code> - Log messages to syslog, pass 0 to disable, 1 or url (tcp|udp|unix):[//host:port]/path?[facility=F][&amp;tag=T][&amp;retryCount=N]...</li>
 <li><code>bkjs-console</code> - All logging goes to the console resetting all previous log related settings, this is used in the development mode mostly</li>
 <li><code>bkjs-home</code> - Specify home directory for the server, the server will try to chdir there or exit if it is not possible, the directory must exist</li>
 <li><code>bkjs-conf-file</code> - Name of the config file to be loaded instead of the default etc/config, can be relative or absolute path</li>
@@ -1653,6 +1628,7 @@ Database pool statistics and other diagnostics</p>
 <li><code>bkjs-no-locales</code> - Do not load locales on start</li>
 <li><code>bkjs-email-from</code> - Email address to be used when sending emails from the backend</li>
 <li><code>bkjs-email-transport</code> - Send emails via supported transports: ses:, sendgrid://?key=SG, if not set default SMTP settings are used</li>
+<li><code>bkjs-sendgrid-key</code> - SendGrid API key</li>
 <li><code>bkjs-smtp-(.+)</code> - SMTP server parameters, user, password, host, ssl, tls...see emailjs for details</li>
 <li><code>bkjs-tmp-watcher-(.+)</code> - How long to keep files per subdirectory in seconds</li>
 <li><code>bkjs-stop-on-error</code> - Exit the process on any error when loading modules, for dev purposes</li>
@@ -1671,9 +1647,9 @@ Database pool statistics and other diagnostics</p>
 <li><code>ipc-ping-interval</code> - Interval for a worker keep-alive pings, if not received within this period it will be killed</li>
 <li><code>ipc-lru-max</code> - Max number of items in the limiter LRU cache, this cache is managed by the master Web server process and available to all Web processes maintaining only one copy per machine</li>
 <li><code>ipc-system-queue</code> - System queue name to send broadcast control messages, this is a PUB/SUB queue to process system messages like restart, re-init config,...</li>
-<li><code>ipc-(cache|queue)-?([a-z0-9]+)?</code> - An URL that points to a cache/queue server in the format <code>PROTO://HOST[:PORT]?PARAMS</code>, multiple clients can be defined with unique names, all params starting with <code>bk-</code> will be copied into the options without the prefix and removed from the url, the rest of params will be left in the url, ex: -ipc-client-redis redis://localhost?bk-count=3&amp;bk-ttl=3000</li>
-<li><code>ipc-(cache|queue)-([a-z0-9]+)?-?options</code> - Additional parameters for clients, specific to each implementation, ex: <code>-ipc-client-options {&quot;ttl&quot;:3000}</code></li>
-<li><code>ipc-(cache|queue)(-([a-z0-9]+)?-?options)-(.+)$</code> - Additional parameters for clients, specific to each implementation, ex: <code>-ipc-client-options-ttl 3000</code></li>
+<li><code>ipc-(cache|queue)-?([a-z0-9]+)?$</code> - An URL that points to a cache/queue server in the format <code>PROTO://HOST[:PORT]?PARAMS</code>, multiple clients can be defined with unique names, all params starting with <code>bk-</code> will be copied into the options without the prefix and removed from the url, the rest of params will be left in the url, ex: -ipc-queue-redis redis://localhost?bk-count=3&amp;bk-ttl=3000</li>
+<li><code>ipc-(cache|queue)(-([a-z0-9]+)?-?options)-(.+)$</code> - Additional parameters for clients, specific to each implementation, ex: <code>-ipc-queue-options-count 10</code></li>
+<li><code>ipc-(cache|queue)-([a-z0-9]*)-options$</code> - Additional parameters for clients, specific to each implementation, ex: `-ipc-queue--options count:10,interval:100</li>
 <li><code>aws-key</code> - AWS access key</li>
 <li><code>aws-secret</code> - AWS access secret</li>
 <li><code>aws-token</code> - AWS security token</li>
@@ -1725,6 +1701,7 @@ Database pool statistics and other diagnostics</p>
 <li><code>db-cache2-max</code> - Max number of items to keep in the LRU Level 2 cache</li>
 <li><code>db-cache2-(.+)</code> - Tables with TTL for level2 cache, i.e. in the local process LRU memory. It works before the primary cache and keeps records in the local LRU cache for the given amount of time, the TTL is in ms and must be greater than zero for level 2 cache to work</li>
 <li><code>db-custom-column-([a-z0-9_]+)-(.+)</code> - A column that is allowed to be used in any table, the name is a regexp with the value to be a type</li>
+<li><code>db-describe-column-([a-z0-9_]+)-([a-z0-9_]+)</code> - Describe a table column properties, can be a new or existing column, overrides existing property, ex: -db-describe-column-bk_user-name max:255</li>
 <li><code>db-local</code> - Local database pool for properties, cookies and other local instance only specific stuff</li>
 <li><code>db-config</code> - Configuration database pool to be used to retrieve config parameters from the database, must be defined to use remote db for config parameters, set to <code>default</code> to use current default pool</li>
 <li><code>db-config-interval</code> - Interval between loading configuration from the database configured with -db-config, in minutes, 0 disables refreshing config from the db</li>
@@ -1733,7 +1710,6 @@ Database pool statistics and other diagnostics</p>
 <li><code>db-local-tables</code> - Only enable local, default and config pools</li>
 <li><code>db-no-cache-columns</code> - Do not read/cache table columns</li>
 <li><code>db-cache-columns-interval</code> - How often in minutes to refresh tables columns from the database, it calls cacheColumns for each pool which supports it</li>
-<li><code>db-match-tables-(.+)</code> - Table columns to be returned by matching the regexp, for ad-hoc tables</li>
 <li><code>db-skip-drop</code> - A pattern of table names which will skipped in db.drop operations to prevent accidental table deletion</li>
 <li><code>db-aliases-(.+)</code> - Table aliases to be used instead of the requested table name</li>
 <li><code>db-([a-z0-9]+)-pool$</code> - A database pool name, depending on the driver it can be an URL, name or pathname, examples of db pools: <code>-db-pg-pool, -db-dynamodb-pool</code>, url format: <code>protocol://[user:password@]hostname[:port]/dbname</code> or <code>default</code></li>
@@ -1742,10 +1718,9 @@ Database pool statistics and other diagnostics</p>
 <li><code>db-([a-z0-9]+)-pool-(min)$</code> - Min number of open connections for a pool</li>
 <li><code>db-([a-z0-9]+)-pool-(idle)$</code> - Number of ms for a db pool connection to be idle before being destroyed</li>
 <li><code>db-([a-z0-9]+)-pool-(tables)$</code> - Tables to be created only in this pool, to prevent creating all tables in every pool</li>
-<li><code>db-([a-z0-9]+)-pool-exclusive-tables$</code> - A DB pool tables, pattern of tables that belong to this pool only</li>
 <li><code>db-([a-z0-9]+)-pool-connect$</code> - Connect options for a DB pool driver for new connection, driver specific</li>
+<li><code>db-([a-z0-9]+)-pool-options$</code> - General options for a DB pool</li>
 <li><code>db-([a-z0-9]+)-pool-options-([a-zA-Z0-9_.-]+)$</code> - General options for a DB pool</li>
-<li><code>db-([a-z0-9]+)-pool-(cache-columns)$</code> - Enable caching table columns for this pool if it supports it</li>
 <li><code>db-([a-z0-9]+)-pool-(create-tables)$</code> - Create tables for this pool on startup</li>
 <li><code>db-([a-z0-9]+)-pool-cache2-(.+)</code> - Level 2 cache TTL for the specified pool and table, data is JSON strings in the LRU cache</li>
 <li><code>db-([a-z0-9]+)-pool-alias</code> - Pool alias to refer by an alternative name</li>
@@ -1802,8 +1777,6 @@ Database pool statistics and other diagnostics</p>
 <li><code>api-signature-age</code> - Max age for request signature in milliseconds, how old the API signature can be to be considered valid, the &#39;expires&#39; field in the signature must be less than current time plus this age, this is to support time drifts</li>
 <li><code>api-access-time-interval</code> - Intervals to refresh last access time for accounts, only updates the cache if <code>bk_user</code> is configured to be cached</li>
 <li><code>api-access-token-secret</code> - A generic secret to be used for API access or signatures</li>
-<li><code>api-disable-session</code> - Disable access to API endpoints for Web sessions, must be signed properly</li>
-<li><code>api-disable-session-acl</code> - Combine regexps from the specified acls for the check explained by <code>-api-disable-session</code> parameter</li>
 <li><code>api-allow-authenticated</code> - Add URLs which can be accessed by any authenticated user account, can be partial urls or Regexp, it is checked before any other account types, if matched then no account specific paths will be checked anymore(any of the allow-account-...)</li>
 <li><code>api-allow-acl-authenticated</code> - Combine regexps from the specified acls for the check explained by <code>-api-allow-authenticated</code> parameter</li>
 <li><code>api-allow-admin</code> - Add URLs which can be accessed by admin accounts only, can be partial urls or Regexp</li>
@@ -1829,10 +1802,8 @@ Database pool statistics and other diagnostics</p>
 <li><code>api-ignore-allow</code> - Regexp for URLs that should be ignored by the allow rules, the processing will continue</li>
 <li><code>api-ignore-allow-path</code> - Add to the list of URL paths which should be ignored by the allow rules, in order to keep allow/deny rules simple, for example to keep some js files from open to all: -allow-path .js -ignore-allow-path /secure/</li>
 <li><code>api-ignore-allow-acl</code> - Combine regexps from the specified acls for the check explained by <code>-ignore-allow-path</code> parameter</li>
-<li><code>api-allow-ip</code> - Add to the list of regexps for IPs that dont need credentials. It is checked before endpoint access list</li>
+<li><code>api-allow-ip</code> - Add to the list of regexps for IPs that only allowed access from. It is checked before endpoint access list</li>
 <li><code>api-deny-ip</code> - Add to the list of regexps for IPs that will be denied access. It is checked before endpoint access list.</li>
-<li><code>api-path-errmsg-(.+)</code> - Error message to return for the specified path for authentication failures</li>
-<li><code>api-acl-errmsg-([a-z0-9_]+)</code> - Error message to return for the specified acl for authentication failures</li>
 <li><code>api-allow-ssl</code> - Add to the list of allowed locations using HTTPs only, plain HTTP requests to these urls will be refused</li>
 <li><code>api-ignore-ssl</code> - Allow plain HTTP from matched IP addresss or locations</li>
 <li><code>api-redirect-ssl</code> - Add to the list of the locations to be redirected to the same path but using HTTPS protocol, for proxy mode the proxy server will perform redirects</li>
@@ -1849,12 +1820,13 @@ Database pool statistics and other diagnostics</p>
 <li><code>api-restart</code> - On address in use error condition restart the specified servers, this assumes an external monitor like monit to handle restarts</li>
 <li><code>api-allow-error-code</code> - Error codes in exceptions to return in the response to the user, if not matched the error-message will be returned</li>
 <li><code>api-rlimits-(rate|max|interval|ttl|ip)-(.+)</code> - Rate limiter parameters for Token Bucket algorithm. <code>ttl</code> is to expire cache entries, <code>ip</code> is to limit by IP address as well, ex. -api-rlimits-ip-ip=10, -api-rlimits-rate-/path=1</li>
+<li><code>api-rlimits-map-(.+)</code> - Rate limiter parameters for Token Bucket algorithm. set all at once, ex. -api-rlimits-map-/url=rate:1,interval:2000</li>
 <li><code>api-rlimits-queue-(.+)</code> - Queue to use for the given path</li>
 <li><code>api-rlimits-(interval|ttl)</code> - Default rate limiter parameters, default interval is 1s, <code>ttl</code> is to expire old cache entries</li>
-<li><code>api-rlimits-total</code> - Total number of servers used in the default rate limiter behind a load balancer, rates will be divided by this number so each server handles only a portion of the total rate limit</li>
 <li><code>api-rlimits-message</code> - Message to show when any limits reached</li>
 <li><code>api-exit-on-error</code> - Exit on uncaught exception in the route handler</li>
 <li><code>api-upload-limit</code> - Max size for uploads, bytes</li>
+<li><code>api-query-limit</code> - Max size for posts and queries, bytes</li>
 <li><code>api-limiter-queue</code> - Name of an ipc queue for API rate limiting</li>
 <li><code>api-errlog-limiter-max</code> - How many error messages to put in the log before throttling kicks in</li>
 <li><code>api-errlog-limiter-interval</code> - Interval for error log limiter, max errors per this interval</li>
@@ -1868,11 +1840,20 @@ Database pool statistics and other diagnostics</p>
 <li><code>api-redirect-url</code> - Add to the list a JSON object with property name defining a location regexp to be matched early against in order to redirect using the value of the property, if the regexp starts with !, that means it must be removed from the list, variables can be used for substitution: @HOST@, @PATH@, @URL@, @BASE@, @DIR@, @QUERY@, status code can be prepended to the location, example: { &#39;^[^/]+/path/$&#39;: &#39;/path2/index.html&#39;, &#39;.+/$&#39;: &#39;301:@PATH@/index.html&#39; } </li>
 <li><code>api-login-redirect-(.+)</code> - Define a location where to redirect if no login is provided, same format and placeholders as in redirect-url, example: api-login-redirect-^/admin/=/login.html</li>
 <li><code>api-auth-status</code> - Default authenticated status, if no auth rules matched but valid signature this is the status returned</li>
-<li><code>api-auth-message:</code> - Default authenticated message to be returned the default auth status</li>
+<li><code>api-auth-message:</code> - Default authenticated message to be returned with default auth status</li>
 <li><code>api-reset-acl</code> - Reset all ACL related rules and permissions</li>
-<li><code>api-response-headers</code> - An JSON object with list of regexps to match against the location and set response headers defined as a ist of pairs name, value..., api-response-headers={ &quot;^/&quot;: [&quot;x-frame-options&quot;,&quot;sameorigin&quot;,&quot;x-xss-protection&quot;,&quot;1; mode=block&quot;] }</li>
+<li><code>api-response-headers</code> - An JSON object with list of regexps to match against the location and set response headers defined as a ist of pairs name, value..., -api-response-headers={ &quot;^/&quot;: [&quot;x-frame-options&quot;,&quot;sameorigin&quot;,&quot;x-xss-protection&quot;,&quot;1; mode=block&quot;] }</li>
 <li><code>api-cleanup-rules-(.+)</code> - Rules for the cleanupResult per table, ex. api-cleanup-rules-bk_user=email:0,phone:1</li>
+<li><code>api-cleanup-strict</code> - Default mode for cleanup results</li>
 <li><code>api-request-cleanup</code> - List of fields to explicitely cleanup on request end</li>
+<li><code>api-query-defaults-([a-z0-9_]+)-(.+)</code> - Global query defaults for getQuery, can be path specific, ex. -api-query-defaults-max-name 128 -api-query-defaults-max-/endpoint-name 255</li>
+<li><code>api-csrf-set-path</code> - Regexp for URLs to set CSRF token for all methods</li>
+<li><code>api-csrf-check-path</code> - Regexp for URLs to set CSRF token for skip methods and verify for others</li>
+<li><code>api-csrf-skip-method</code> - Do not check for CSRF token for specified methods</li>
+<li><code>api-csrf-skip-status</code> - Do not return CSRF token for specified status codes</li>
+<li><code>api-csrf-header-name</code> - Name for the CSRF header</li>
+<li><code>api-csrf-age</code> - CSRF token age in milliseconds</li>
+<li><code>api-err-(.+)</code> - Error messages for various cases</li>
 <li><code>auth-table</code> - Table to use for user accounts</li>
 <li><code>auth-err-(.+)</code> - Error messages for various cases</li>
 <li><code>auth-admin-roles</code> - List of special super admin roles</li>
@@ -2046,7 +2027,7 @@ The options is expected to contain the following cached request properties:</p>
 </li>
 <li><p>opath - same as path but uses original path before routing</p>
 </li>
-<li><p>path - limit number of requests for an API path, * can be used at the end to match only the beginning</p>
+<li><p>path - limit number of requests for an API path by IP address, * can be used at the end to match only the beginning</p>
 <p>  -api-rlimits-rate-ip=100
   -api-rlimits-rate-/api/path=2
   -api-rlimits-ip-/api/path=1
@@ -2064,9 +2045,6 @@ The options is expected to contain the following cached request properties:</p>
 </li>
 <li><p>message - more descriptive text to be used in the error message for the type, if not specified a generic error message is used</p>
 </li>
-<li><p>total - apply this factor to the rate, it is used in case of multiple servers behind a loadbalancer, so for
- total 3 servers in the cluster the factor will be 3, i.e. each individual server checks for a third of the total request rate</p>
-</li>
 <li><p>queue - which queue to use instead of the default, some limits is more useful with global queues like Redis instead of the default</p>
 </li>
 </ul>
@@ -2081,7 +2059,7 @@ The options is expected to contain the following cached request properties:</p>
 </ul>
 
 <ul>
-<li><p><code>api.sendJSON(req, err, rows)</code></p>
+<li><p><code>api.sendJSON(req, err, data)</code></p>
 <p>  Send result back with possibly executing post-process callback, this is used by all API handlers to allow custom post processing in the apps.
 If err is not null the error message is returned immediately.</p>
 </li>
@@ -2177,12 +2155,6 @@ it always returns a signature object, a new one or existing</p>
 </ul>
 
 <ul>
-<li><p><code>api.checkAccountSignature(req, sig, account, callback)</code></p>
-<p>  Check account record against a incoming request signature</p>
-</li>
-</ul>
-
-<ul>
 <li><p><code>api.checkAccess(req, callback)</code></p>
 <p>  Perform URL based access checks, this is called before the signature verification, very early in the request processing step.</p>
 <p>Checks access permissions, calls the callback with the following argument:</p>
@@ -2209,6 +2181,18 @@ return an error or proceed with the request. In any case the result of this func
  The status property is passed to each hook in the chain, the result status will be returned to the client.</li>
 <li>callback is a function(status) to be called with the resulted status where status must be an object with status and message properties as well</li>
 </ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.getCsrfToken(req)</code></p>
+<p>  Return existing or create a new token</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.checkCsrfToken(req)</code></p>
+<p>  For configured endpoints check for a token and fail if not present or invalid</p>
 </li>
 </ul>
 
@@ -2507,6 +2491,15 @@ cannot be verified by current hook, multiple hooks can be supported and it stops
 </ul>
 
 <ul>
+<li><p><code>api.registerPreHeaders(req, callback)</code></p>
+<p>  Register a callback to be called just before HTTP headers are flushed, the callback may update response headers</p>
+<ul>
+<li>callback is a function(req, res, statusCode)</li>
+</ul>
+</li>
+</ul>
+
+<ul>
 <li><p><code>api.scaleIcon(infile, options, callback)</code></p>
 <p>  Scale image using Sharp or Imagemagick, return err if failed</p>
 <ul>
@@ -2692,10 +2685,10 @@ all the supported options are defined in the <code>api.controls</code> and can b
 </ul>
 
 <ul>
-<li><p><code>api.getQuery(req, params, controls)</code></p>
-<p>  Parse query parameters according to the <code>params</code>, optionally process control parameters if <code>controls</code> is specified, this call combines
-<code>lib.toParams()</code> with <code>api.getOptions</code>. Returns a query object or an error message, on success all controls will be set in the <code>req.options</code></p>
-<pre><code>   var query = api.getQuery(req, { q: { required: 1 } }, { _count: { type: &quot;int&quot;, min: 10, max: 25 } });
+<li><p><code>api.getQuery(req, params, options)</code></p>
+<p>  Parse query parameters according to the <code>params</code>. Uses global api defaults, if provided in options as well defaults are all merged.</p>
+<p>Returns a query object or an error message or null</p>
+<pre><code>   var query = api.getQuery(req, { q: { required: 1 } }, { null: 1 });
 </code></pre>
 </li>
 </ul>
@@ -2752,9 +2745,8 @@ with roles to be present in the current account <code>type`` field. This is chec
 <p>The <code>options.pool</code> property must match the actual rowset to be applied properly, in case the records
 have been retrieved for the different database pool.</p>
 <p>The <code>options.cleanup_strict</code> will enforce that all columns not present in the table definition will be skipped as well, by default all
-new columns or columns created on the fly are returned to the client.</p>
-<p>The <code>options.cleanup_rules</code> can be an object with property names and the values 0, or 1 or a
-`function(name, column, options)`` that must return 0 or 1.</p>
+new columns or columns created on the fly are returned to the client. <code>api.cleanupStrict</code> can be configured globbly.</p>
+<p>The <code>options.cleanup_rules</code> can be an object with property names and the values 0, or 1 for <code>pub</code> or <code>2</code> for <code>admin`` or </code>3<code>for</code>staff``</p>
 <p>The <code>options.cleanup_copy</code> means to return a copy of every modified record, the original data is preserved</p>
 </li>
 </ul>
@@ -3167,7 +3159,7 @@ The following options can be specified:</p>
 <li>timeout - how long to wait, in milliseconds, this is for Long Poll</li>
 <li>visibilityTimeout - the duration (in milliseconds) that the received messages are hidden from subsequent retrieve requests</li>
 <li>attempt - request attempt id for FIFO queues
-after being retrieved by a ReceiveMessage request.</li>
+ after being retrieved by a ReceiveMessage request.</li>
 </ul>
 </li>
 </ul>
@@ -3181,7 +3173,7 @@ The options can specify the following:</p>
 <li>group - a group id for FIFO queues</li>
 <li>unique - deduplication id for FIFO queues</li>
 <li>attrs - an object with additional message attributes to send, use only string, numbers or binary values,
-all other types will be converted into strings</li>
+ all other types will be converted into strings</li>
 </ul>
 </li>
 </ul>
@@ -3262,16 +3254,16 @@ The argumernts specify the following:</p>
 <li>namespace - custome namespace, cannot start with <code>AWS</code></li>
 <li>data - an object with metric data:
 { metricName: value }, ...
-{ metricName: {<pre><code>   value: Number,
+{ metricName: {
+   value: Number,
    dimension1: name1,
    ..
 },
-</code></pre>
 }, ...
-{ metricName: {<pre><code>   value: [min, max, sum, sample],
+{ metricName: {
+   value: [min, max, sum, sample],
    dimension1: ...
 },
-</code></pre>
 }, ...</li>
 </ul>
 <p>The options can specify the following:</p>
@@ -3474,17 +3466,14 @@ while the status is equal to it. options.waitDelay can be specified how often to
 <ul>
 <li>item is an object, type will be inferred from the native js type.</li>
 <li>options may contain any valid native property if it starts with capital letter or special properties:<ul>
-<li>expected - an object with column names to be used in Expected clause and value as null to set condition to { Exists: false } or<pre><code>any other exact value to be checked against which corresponds to { Exists: true, Value: value }
-</code></pre>
-</li>
+<li>expected - an object with column names to be used in Expected clause and value as null to set condition to { Exists: false } or
+any other exact value to be checked against which corresponds to { Exists: true, Value: value }</li>
 <li>expectedJoin - how to join conditions, default is AND</li>
 <li>expr - condition expression</li>
-<li>values - an object with values map to be used for in the update and/or condition expressions, to be used<pre><code>for ExpressionAttributeValues parameters
-</code></pre>
-</li>
-<li>names - an object with a map to be used for attribute names in condition and update expressions, to be used<pre><code>for ExpressionAttributeNames parameter
-</code></pre>
-</li>
+<li>values - an object with values map to be used for in the update and/or condition expressions, to be used
+for ExpressionAttributeValues parameters</li>
+<li>names - an object with a map to be used for attribute names in condition and update expressions, to be used
+for ExpressionAttributeNames parameter</li>
 <li>returning - values to be returned on success, any value means ALL_OLD</li>
 </ul>
 </li>
@@ -3516,9 +3505,8 @@ while the status is equal to it. options.waitDelay can be specified how often to
 <li>expected - an object with columns to be used in ConditionExpression, value null means the attribute does not exists,
   any other value to be checked against using regular compare rules. The conditional comparison operator is taken
   from <code>options.ops</code> the same way as for queries.</li>
-<li>returning - values to be returned on success, <code>*</code> or <code>new</code> means ALL_NEW, <code>old</code> means ALL_OLD,<pre><code>        `updated` means UPDATED_NEW, `old_updated` means UPDATED_OLD
-</code></pre>
-</li>
+<li>returning - values to be returned on success, <code>*</code> or <code>new</code> means ALL_NEW, <code>old</code> means ALL_OLD,
+        <code>updated</code> means UPDATED_NEW, <code>old_updated</code> means UPDATED_OLD</li>
 </ul>
 </li>
 </ul>
@@ -3581,12 +3569,9 @@ while the status is equal to it. options.waitDelay can be specified how often to
 <li><p><code>aws.ddbGetItem(name, keys, options, callback)</code></p>
 <p>  Retrieve one item by primary key</p>
 <ul>
-<li><p>keys - an object with primary key attributes name and value.</p>
-</li>
-<li><p>select - list of columns to return, otherwise all columns will be returned</p>
-</li>
-<li><p>options may contain any native property allowed in the request or special properties:</p>
-<ul>
+<li>keys - an object with primary key attributes name and value.</li>
+<li>select - list of columns to return, otherwise all columns will be returned</li>
+<li>options may contain any native property allowed in the request or special properties:<ul>
 <li><p>consistent - set consistency level for the request</p>
 </li>
 <li><p>names - an object with a map to be used for attribute names in condition and update expressions, to be used
@@ -3614,9 +3599,8 @@ Example:</p>
 <li>desc - descending order</li>
 <li>sort - index name to use, indexes are named the same as the corresponding column, with index primary keys for Keycondition will be used</li>
 <li>ops - an object with operators to be used for properties if other than EQ.</li>
-<li>keys - list of primary key columns, if there are other properties in the condition then they will be<pre><code>   put into QueryFilter instead of KeyConditions. If keys are absent, all properties in the condition are treated as primary keys.
-</code></pre>
-</li>
+<li>keys - list of primary key columns, if there are other properties in the condition then they will be
+   put into QueryFilter instead of KeyConditions. If keys are absent, all properties in the condition are treated as primary keys.</li>
 <li>projection - projection expression</li>
 <li>values - an object with values map to be used for in the update and/or condition expressions, to be used
   for ExpressionAttributeValues parameters</li>
@@ -3853,9 +3837,8 @@ The options can specify the following:</p>
 <li><p><code>aws.route53Change(names, options, callback)</code></p>
 <p>  Create or update a host in the Route53 database.</p>
 <ul>
-<li><code>names</code> is a host name to be set with the current IP address or a list with objects in the format<pre><code>[ { name: &quot;..&quot;, value: &quot;1.1.1.1&quot;, type: &quot;A&quot;, ttl: 300 } ...]
-</code></pre>
-</li>
+<li><code>names</code> is a host name to be set with the current IP address or a list with objects in the format
+[ { name: &quot;..&quot;, value: &quot;1.1.1.1&quot;, type: &quot;A&quot;, ttl: 300 } ...]</li>
 </ul>
 <p>The <code>options</code> may contain the following:</p>
 <ul>
@@ -4323,15 +4306,8 @@ Options properties:</p>
 </ul>
 
 <ul>
-<li><p><code>core.cookieGet(domain, callback)</code></p>
-<p>  Return cookies that match given domain</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>core.cookieSave(cookiejar, setcookies, hostname, callback)</code></p>
-<p>  Save new cookies arrived in the request,
-merge with existing cookies from the jar which is a list of cookies before the request</p>
+<li><p><code>core.parseCookies(header)</code></p>
+<p>  Parse Set-Cookie header and return an object of cookies: { NAME: { value: VAL, secure: true, expires: N ... } }</p>
 </li>
 </ul>
 
@@ -4562,11 +4538,10 @@ the db module <em>DOES NOT PARSE</em> the query at all if the driver supports fu
 <p>Options make take the same properties as in the <code>select</code> method.</p>
 <p>A special query property <code>q</code> may be used for generic search in all fields.</p>
 <p>Without full text search support in the driver this may return nothing or an error.</p>
-<p> Example</p>
-<pre><code>       db.search(&quot;bk_user&quot;, { type: &quot;admin&quot;, q: &quot;john*&quot; }, { pool: &quot;elasticsearch&quot; }, lib.log);
+<p> Example
+       db.search(&quot;bk_user&quot;, { type: &quot;admin&quot;, q: &quot;john*&quot; }, { pool: &quot;elasticsearch&quot; }, lib.log);
        db.search(&quot;bk_user&quot;, &quot;john*&quot;, { pool: &quot;elasticsearch&quot; }, lib.log);
-       await db.asearch(&quot;bk_user&quot;, &quot;john*&quot;, { pool: &quot;elasticsearch&quot; });
-</code></pre>
+       await db.asearch(&quot;bk_user&quot;, &quot;john*&quot;, { pool: &quot;elasticsearch&quot; });</p>
 </li>
 </ul>
 
@@ -4931,7 +4906,9 @@ contain the following properties:</p>
 <li><code>indexN</code> - additonal inxdexes where N is 1..5</li>
 <li><code>value</code> - default value for the column</li>
 <li><code>len</code> - column length</li>
-<li><code>maxlength</code> - limit the max column value, the value will be truncated before saving into the DB</li>
+<li><code>max</code> - ignore the column if a <code>text</code>, <code>json</code> or <code>obj</code> value is greater than specified limit, unless <code>trunc</code> is provided</li>
+<li><code>trunc</code> - truncate the column value, the value will be truncated before saving into the DB, uses the <code>max</code> as the limit</li>
+<li><code>maxlist</code> - max number of items in the <code>list</code> or <code>array</code> column types</li>
 <li><code>pub</code> - columns is public, <em>this is very important property because it allows anybody to see it when used in the default API functions, i.e. anybody with valid
  credentials can retrieve all public columns from all other tables, and if one of the other tables is account table this may expose some personal information,
  so by default only a few columns are marked as public in the <code>bk_user</code> table</em></li>
@@ -4959,6 +4936,7 @@ contain the following properties:</p>
 <li><code>multiplier</code> - for numeric columns apply this multipliers before saving</li>
 <li><code>incrememnt</code> - for numeric columns add this value before saving</li>
 <li><code>decimal</code> - for numeric columns convert into fixed number using this number of decimals</li>
+<li><code>format</code> - a function (val, req) =&gt; {} that must return new value for the given column, for custom formatting</li>
 <li><code>prefix</code> - prefix to be prepended for autogenerated columns: <code>uuid</code>, <code>suud</code>, <code>tuud</code></li>
 <li><code>separator</code> - to be used as a separator in join or split depending on the column properties</li>
 <li><code>list</code> - splits the column value into an array, optional <code>separator</code> property can be used, default separator is <code>,|</code></li>
@@ -5009,12 +4987,11 @@ in the example above it was local secondary index for id and name. Also a local 
 </code></pre>
 <p> When using real DynamoDB creating a table may take some time, for such cases if <code>options.waitTimeout</code> is not specified it defaults to 1min,
  so the callback is called as soon as the table is active or after the timeout whichever comes first.</p>
-<p>Pass MongoDB options directly:</p>
-<pre><code>   db.create(&quot;test_table&quot;, { id: { primary: 1, type: &quot;int&quot;, mongodb: { w: 1, capped: true, max: 100, size: 100 } },
-                             type: { primary: 1, pub: 1 },
-                             name: { index: 1, pub: 1, mongodb: { sparse: true, min: 2, max: 5 } }
-                           });
-</code></pre>
+<p>Pass MongoDB options directly:
+       db.create(&quot;test_table&quot;, { id: { primary: 1, type: &quot;int&quot;, mongodb: { w: 1, capped: true, max: 100, size: 100 } },
+                                 type: { primary: 1, pub: 1 },
+                                 name: { index: 1, pub: 1, mongodb: { sparse: true, min: 2, max: 5 } }
+                               });</p>
 </li>
 </ul>
 
@@ -5212,18 +5189,11 @@ every <code>discovery-interval</code> in milliseconds, default is 1h, it can be 
 </ul>
 
 <ul>
-<li><p><code>Pool.prototype.bindValue(req, name, val)</code></p>
-<p>  Convert JS array into db PostgreSQL array format: {..}</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.getPool(table, options)</code></p>
-<p>  Return database pool by table name or default pool, options can be a pool name or an object with { pool: name } to return
+<li><p><code>db.getPool(options)</code></p>
+<p>  Return database pool by name or default pool, options can be a pool name or an object with { pool: name } to return
 the pool by given name. This call always returns a valid pool object, in case no requested pool found, it returns
 the default pool, in case of invalid pool name it returns <code>none</code> pool.
-A special pool <code>none</code> always returns empty result and no errors.
-Pools specific tables will not be returned even if a different pool name is provided, the none pool will be returned.</p>
+A special pool <code>none</code> always returns empty result and no errors.</p>
 </li>
 </ul>
 
@@ -5242,14 +5212,6 @@ given by the application. If <code>options.names</code> is 1 then return just ta
 </ul>
 
 <ul>
-<li><p><code>db.parsePoolOptions(val, options)</code></p>
-<p>  Callback to be called by the config parser to preprocess a config parameter for generic options, the options
-is an object with all the info about the parameter, all values can be modified to change the behavior, if not used
-the config parameter will be a string value assigned in the pool&#39;s <code>configOptions</code>.</p>
-</li>
-</ul>
-
-<ul>
 <li><p><code>db.Pool(options)</code></p>
 <p>  Create a new database pool with default methods and properties</p>
 <ul>
@@ -5258,16 +5220,15 @@ the config parameter will be a string value assigned in the pool&#39;s <code>con
 <li>pool or name - pool name</li>
 <li>watchfile - file path to be watched for changes, all clients will be destroyed gracefully</li>
 <li>min - min number of open database connections</li>
-<li>max - max number of open database connections, all attempts to run more will result in clients waiting for the next available db connection, if set to 0 no<pre><code>  pooling will be enabled and will result in the unlimited connections, this is default for DynamoDB
-</code></pre>
-</li>
+<li>max - max number of open database connections, all attempts to run more will result in clients waiting for the next available db connection, if set to 0 no
+  pooling will be enabled and will result in the unlimited connections, this is default for DynamoDB</li>
 <li>max_queue - how many db requests can be in the waiting queue, above that all requests will be denied instead of putting in the waiting queue</li>
 </ul>
 </li>
 </ul>
 <p>The db methods cover most use cases but in case native driver needs to be used this is how to get the client and use it with its native API,
 it is required to call <code>pool.release</code> at the end to return the connection back to the connection pool.</p>
-<pre><code>     var pool = db.getPool(&quot;&quot;, { pool: &quot;mongodb&quot; });
+<pre><code>     var pool = db.getPool(&quot;mongodb&quot;);
      pool.get(function(err, client) {
          var collection = client.collection(&#39;bk_user&#39;);
          collection.findOne({ id: &#39;123&#39; }, function() {
@@ -5355,13 +5316,6 @@ may convert the value into something different depending on the DB driver requir
 <ul>
 <li><p><code>db.Pool.prototype.processColumns(pool)</code></p>
 <p>  that is called after this pool cached columms from the database, it is called sychnroniously inside the <code>db.cacheColumns</code> method.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.Pool.prototype.resolveTable(op, table, obj, options)</code></p>
-<p>  Return possible different table at the time of the query, it is called by the <code>db.prepare</code> method
-and if exist it must return the same or new table name for the given query parameters.</p>
 </li>
 </ul>
 
@@ -5473,12 +5427,11 @@ The following special properties in the column definition chnage the format:</p>
   separate properties using names from the list, this is the opposite of the <code>join</code> property and is used separately if
   splitting is required, if joined properties already in the record then no need to split it. If not a list
   the names are used form the join property.</p>
-<p>  Example:</p>
-<pre><code>      db.describeTables([ { user: { id: {}, name: {}, pair: { join: [&quot;left&quot;,&quot;right&quot;], unjoin: 1 } } ]);
+<p>  Example:
+      db.describeTables([ { user: { id: {}, name: {}, pair: { join: [&quot;left&quot;,&quot;right&quot;], unjoin: 1 } } ]);
 
       db.put(&quot;test&quot;, { id: &quot;1&quot;, type: &quot;user&quot;, name: &quot;Test&quot;, left: &quot;123&quot;, right: &quot;000&quot; })
-      db.select(&quot;test&quot;, {}, lib.log)
-</code></pre>
+      db.select(&quot;test&quot;, {}, lib.log)</p>
 </li>
 </ul>
 </li>
@@ -5762,7 +5715,7 @@ using this method. Only columns with changed properties need to be specified, ot
 
 <ul>
 <li><p><code>db.refreshColumns(options, callback)</code></p>
-<p>  Refresh columns for all polls which need it</p>
+<p>  Refresh columns for all pools which need it</p>
 </li>
 </ul>
 
@@ -5787,7 +5740,7 @@ if <code>tables</code> property is an arary it asks to refresh only specified ta
 
 <ul>
 <li><p><code>db.tableName(table)</code></p>
-<p>  Return a table name or an alias</p>
+<p>  Return a normalized table name</p>
 </li>
 </ul>
 
@@ -5967,7 +5920,7 @@ set and the name-sake property will contained the value exceeded.</p>
 </li>
 </ul>
 
-<h2 id="module-http_get">Module: HTTP_GET</h2>
+<h2 id="module-httpget">Module: HTTPGET</h2>
 <h2 id="module-index">Module: INDEX</h2>
 <h2 id="module-ipc">Module: IPC</h2>
 <ul>
@@ -6067,12 +6020,12 @@ visible messages in the queue, &#39;queueRunning&#39; with currently in-flight m
 <p>  Retrieve an item from the cache by key.</p>
 <ul>
 <li><code>options.set</code> is given and no value exists in the cache it will be set as the initial value, still
-nothing will be returned to signify that a new value assigned.</li>
+ nothing will be returned to signify that a new value assigned.</li>
 <li><code>options.mapName</code> defines a map from which the key will be retrieved if the cache supports maps, to get the whole map
-the key must be set to *</li>
+ the key must be set to *</li>
 <li><code>options.listName</code> defines a map from which to get items, if a key is given it will return 1 if it belongs to the list,
-if no key is provided it will return an array with 2 elements:  [a random key, the length of the list], to get the whole list specify * as the key. Specifying
-<code>del</code> in the options will delete returned items from the list.</li>
+ if no key is provided it will return an array with 2 elements:  [a random key, the length of the list], to get the whole list specify * as the key. Specifying
+ <code>del</code> in the options will delete returned items from the list.</li>
 <li><code>options.ttl</code> can be used with lists with <code>del</code> and empty key, in such case all popped up keys will be saved in
 the cache with specified time to live, when being popped up every key is checked if it has been served already, i.e.
 it exists in the cache and not expired yet, such keys are ignored and only never seen keys are returned</li>
@@ -6099,7 +6052,7 @@ are returned.</p>
 <p>  Delete an item by key(s),  if <code>key</code> is an array all keys will be deleted at once atomically if supported</p>
 <ul>
 <li><code>options.mapName</code> defines a map from which the counter will be deleted if the cache supports maps, to delete the whole map
-the key must be set to *</li>
+ the key must be set to *</li>
 <li><code>options.listName</code> defines a list from which an item should be removed</li>
 </ul>
 <p>Example:</p>
@@ -6117,7 +6070,7 @@ the key must be set to *</li>
 <ul>
 <li><code>options.ttl</code> can be passed in milliseconds if the driver supports it</li>
 <li><code>options.mapName</code> defines a map where the counter will be stored if the cache supports maps, to store the whole map in one
-operation the <code>key</code> must be set to * and the <code>val</code> must be an object</li>
+ operation the <code>key</code> must be set to * and the <code>val</code> must be an object</li>
 <li><code>options.setmax</code> if not empty tell the driver to set this new number only if there is no existing
 value or it is less that the new number, only works for numeric values</li>
 <li><code>options.listName</code> defines a list where to add items, <code>val</code> can be a value or an array of values, <code>key</code> is ignored in this case</li>
@@ -6183,6 +6136,12 @@ error and the new value will be returned.</p>
 <li><p><code>Ipc.prototype.broadcast(channel, msg, options, callback)</code></p>
 <p>  Send a message to a channel, this is high level routine that uses the corresponding queue, it uses eventually ipc.publish.
 If no client or queue is provided in the options it uses default <code>systemQueue</code>.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>Ipc.prototype.sendBroadcast(msg, options)</code></p>
+<p>  Send a broadcast to all server roles</p>
 </li>
 </ul>
 
@@ -6271,7 +6230,9 @@ used unless a queue client provides its own implementation.</p>
 <ul>
 <li><p><code>Ipc.prototype.checkLimiter(options, callback)</code></p>
 <p>  Keep checking the limiter until it is clear to proceed with the operation, if there is no available tokens in the bucket
-it will wait and try again until the bucket is filled.</p>
+it will wait and try again until the bucket is filled.
+To support the same interface and ability to abort the loop pass <code>options.retry</code> with a number of loops to run before exiting.</p>
+<p>The callback will receive the same arguments as <code>ipc.limiter``.  </code>options.retries`` will be set to how many times it tried.</p>
 </li>
 </ul>
 
@@ -6317,8 +6278,8 @@ otherwise it is already locked by other instance. In case of an error the lock i
 </ul>
 
 <ul>
-<li><p><code>IpcClient.prototype.applyOptions()</code></p>
-<p>  Prepare options to be used safely</p>
+<li><p><code>IpcClient.prototype.applyOptions(options)</code></p>
+<p>  Prepare options to be used safely, parse the reserved params from the url</p>
 </li>
 </ul>
 
@@ -6927,8 +6888,8 @@ Conditions can be: &gt;=M.N, &gt;M.N, =M.N, &lt;=M.N, &lt;M.N, M.N-M.N</p>
 <li><p><code>lib.toVersion(str)</code></p>
 <p>  Returns a floating number from the version string, it assumes common semver format as major.minor.patch, all non-digits will
 be removed, underscores will be treated as dots. Returns a floating number which can be used in comparing versions.</p>
-<p>Example</p>
-<pre><code> &gt; lib.toVersion(&quot;1.0.3&quot;)
+<p>Example
+ &gt; lib.toVersion(&quot;1.0.3&quot;)
  1.000003
  &gt; lib.toVersion(&quot;1.0.3.4&quot;)
  1.000003004
@@ -6937,8 +6898,7 @@ be removed, underscores will be treated as dots. Returns a floating number which
  &gt; lib.toVersion(&quot;1.0.3.4&quot;) &gt; lib.toVersion(&quot;1.0.0&quot;)
  true
  &gt; lib.toVersion(&quot;1.0.3.4&quot;) &gt; lib.toVersion(&quot;1.1.0&quot;)
- false
-</code></pre>
+ false</p>
 </li>
 </ul>
 
@@ -6982,6 +6942,12 @@ be removed, underscores will be treated as dots. Returns a floating number which
 </ul>
 
 <ul>
+<li><p><code>lib.toDigits(str)</code></p>
+<p>  Strip all non-digit characters from a string</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>lib.toClamp(num, min, max)</code></p>
 <p>  Return a number clamped between the range</p>
 </li>
@@ -7009,6 +6975,12 @@ in this case invalid date returned as null. If <code>dflt</code> is NaN, null or
 <ul>
 <li><p><code>lib.toBase62(num, alphabet)</code></p>
 <p>  Return base62 representation for a number</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.toUrl(val, options)</code></p>
+<p>  Return a well formatted and validated url or empty string</p>
 </li>
 </ul>
 
@@ -7085,10 +7057,11 @@ validate incoming data. It is an object with property names and definitoons that
 <ul>
 <li>null - always return null on any error</li>
 <li>setnull - if the value is equal this then set property to null, useful to reset lists, maps...</li>
-<li>data - to pass realtime or other custom options for the validation or convertion utilities as the first argument if not defined in the definition.
+<li>defaults - to pass realtime or other custom options for the validation or convertion utilities as the first argument if not defined in the definition.
 This is the place to customize/add/override global parameter conditions without changing it.</li>
 <li>prefix - prefix to be used when searching for the parameters in the query, only properties with this prefix will be processed. The resulting
  object will not have this prefix in the properties.</li>
+<li>dprefix - prefix to use when checking for defaults, defaults are checks in this order: dprefix+name, name, *.type, *</li>
 <li>name - to save a value with different name than in the original query</li>
 <li>existing - skip properties if not present in the query</li>
 </ul>
@@ -7119,11 +7092,12 @@ or the default message, this is useful for detection of invalid or missing input
                                            state: { type: &quot;list&quot;, datatype: &quot;string, values: [&quot;VA&quot;,&quot;DC] } },
                                            ssn: { type: &quot;string&quot;, regexp: /^[0-9]{3}-[0-9]{3}-[0-9]{4}$/, errmsg: &quot;Valid SSN is required&quot; } },
                                            phone: { type: &quot;list&quot;, datatype: &quot;number } },
-                                         { data: { start: { secret: req.account.secret },
-                                                   name: { dflt: &quot;test&quot; },
-                                                   count: { max: 100 },
-                                                   email: { ignore: req.account.type != &quot;admin&quot; },
-                                                   &#39;*&#39;: { empty: 1, null: 1 },
+                                         { defaults: {
+                                                 start: { secret: req.account.secret },
+                                                 name: { dflt: &quot;test&quot; },
+                                                 count: { max: 100 },
+                                                 email: { ignore: req.account.type != &quot;admin&quot; },
+                                                 &#39;*&#39;: { empty: 1, null: 1 },
                                          })
    if (typeof account == &quot;string) return api.sendReply(res, 400, account);
 </code></pre>
@@ -7383,6 +7357,12 @@ Optional third parameter indicates the number of decimal points to return:</p>
 </ul>
 
 <ul>
+<li><p><code>lib.timingSafeEqual(a, b)</code></p>
+<p>  Timing safe string compare using double HMAC, from suryagh/tsscmp</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>lib.forEachLine(file, options, lineCallback, endCallback)</code></p>
 <p>  Call callback for each line in the file
 options may specify the following parameters:</p>
@@ -7402,13 +7382,30 @@ it will be called with the first line as an argument and must return true if thi
 <li>split - split every line before calling the callback, it uses phraseSplit</li>
 <li>keepempty - by default is enabled if split is set to keep empty fields in the line array</li>
 <li>separator - a string with characters to be used for splitting, default is <code>,</code></li>
+<li>rxLine - a Regexp for line splitting, default is <code>lib.rxLine</code></li>
 <li>quotes - a string with characters to be used for phrase splitting, default is <code>&quot;&#39;</code></li>
+<li>quiet - do not report about open file errors</li>
+<li>direct - to pass to lib.forEachLimit for true async processing</li>
+<li>concurrency - how many lines to process at the samer time</li>
 </ul>
 <p>Properties updated and returned in the options:</p>
 <ul>
 <li>nlines - number of lines read from the file</li>
 <li>ncalls - number of lines passed to the line callback</li>
 </ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.readLines(ctx, options, lineCallback, endCallback)</code></p>
+<p>  Process lines asynchronously, both callbacks must be provided</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.forEachLineSync(file, options, lineCallback)</code></p>
+<p>  Sync version of the <code>forEachLine</code>, read every line and call callback which may not do any async operations
+because they will not be executed right away but only after all lines processed</p>
 </li>
 </ul>
 
@@ -7473,6 +7470,7 @@ mdate is a Date object with last modified time</p>
 <li>depth - if a number it specifies max depth to go into the subfolders, starts with 1</li>
 <li>types - a string with types of files to include: d - a dir, f - a file, l - a symlink, c - char dev, b - block dev, s - socket, p - a FIFO</li>
 <li>base - if set only keep base file name in the result, not full path</li>
+<li>details - return the whole stat structure instead of just names</li>
 </ul>
 <p> Example:</p>
 <pre><code>   lib.findFileSync(&quot;modules/&quot;, { depth: 1, types: &quot;f&quot;, include: /\.js$/ }).sort()
@@ -7494,6 +7492,8 @@ mdate is a Date object with last modified time</p>
 <li>files - a regexp to watch files individually, if omitted watch the whole dir</li>
 <li>match - a regexp to watch files when using the whole dir, only for matched files the callback will be called</li>
 <li>ignore - a regexp to ignore files</li>
+<li>recursive - watch files in root subfolders</li>
+<li>depth - how deep to look for files in case of individual files</li>
 </ul>
 </li>
 </ul>
@@ -7846,9 +7846,8 @@ in the condition object.</p>
 <ul>
 <li>first argument is the object to clone, can be null</li>
 <li>all additional arguments are treated as name value pairs and added to the cloned object as additional properties
-Example:<pre><code>   lib.objClone({ 1: 2 }, &quot;3&quot;, 3, &quot;4&quot;, 4)
-</code></pre>
-</li>
+Example:
+   lib.objClone({ 1: 2 }, &quot;3&quot;, 3, &quot;4&quot;, 4)</li>
 </ul>
 </li>
 </ul>
@@ -7905,16 +7904,21 @@ the third argument can be an options object that can control how the properties 
 </ul>
 <p>Options properties:</p>
 <ul>
-<li>allow - a regexp which properties are allowed to be merged</li>
-<li>ignore - a regexp which properties should be ignored</li>
-<li>del - a regexp which properties should be removed</li>
-<li>remove - a regexp to apply to each property name before merging, the matching parts will be removed from the name</li>
-<li>deep - extend all objects not just the top level</li>
-</ul>
-<pre><code>    lib.objExtend({ a: 1 }, &#39;b&#39;, 2, &#39;c&#39;, 3 )
-    lib.objExtend({ a: 1 }, { b: 2, c: 3 }, { del: /^a/ })
-    lib.objExtend({ a: 1 }, { b: 2, _c: 3, _d: 4 }, { remove: /^_/ })
+<li><p>allow - a regexp which properties are allowed to be merged</p>
+</li>
+<li><p>ignore - a regexp which properties should be ignored</p>
+</li>
+<li><p>del - a regexp which properties should be removed</p>
+</li>
+<li><p>remove - a regexp to apply to each property name before merging, the matching parts will be removed from the name</p>
+</li>
+<li><p>deep - extend all objects not just the top level</p>
+<pre><code> lib.objExtend({ a: 1 }, &#39;b&#39;, 2, &#39;c&#39;, 3 )
+ lib.objExtend({ a: 1 }, { b: 2, c: 3 }, { del: /^a/ })
+ lib.objExtend({ a: 1 }, { b: 2, _c: 3, _d: 4 }, { remove: /^_/ })
 </code></pre>
+</li>
+</ul>
 </li>
 </ul>
 
@@ -8050,6 +8054,18 @@ match it will be output. Use <code>options.replace</code> for replacing anything
 </ul>
 
 <ul>
+<li><p><code>lib.objSize(obj, options, priv)</code></p>
+<p>  Returns the size of the whole object, this is not exact JSON size, for speed it
+summarizes approximate size of each property recursively</p>
+<ul>
+<li><code>depth</code> - limits how deep it goes, on limit returns MAX_SAFE_INTEGER+ number</li>
+<li><code>nan</code> - if true return NaN on reaching the limits</li>
+<li><code>pad</code> - extra padding added for each property, default is 5 to simulate JSON encoding, &quot;..&quot;: &quot;..&quot;</li>
+</ul>
+</li>
+</ul>
+
+<ul>
 <li><p><code>lib.matchRegexp(str, rx, index)</code></p>
 <p>  Perform match on a regexp for a string and returns matched value, if no index is specified returns item 1,
 using index 0 returns the whole matched string, -1 means to return the whole matched array
@@ -8093,9 +8109,15 @@ removal of the matched patterns</p>
 <p>  Split string into array, ignore empty items,</p>
 <ul>
 <li><code>sep</code> is an RegExp to use as a separator instead of default  pattern <code>[,\|]</code>,</li>
-<li><code>options</code> is an object with the same properties as for the <code>toParams</code>, <code>datatype&#39; will be used with </code>lib.toValue` to convert the value for each item</li>
-<li><code>options.keepempty</code> - will preserve empty items, by default empty strings are ignored</li>
-<li><code>options.notrim</code> - will skip trimming strings, trim is the default</li>
+<li><code>options</code> is an object with the same properties as for the <code>toParams</code>,<ul>
+<li><code>datatype&#39; will be used with </code>lib.toValue` to convert the value for each item</li>
+<li><code>keepempty</code> - will preserve empty items, by default empty strings are ignored</li>
+<li><code>notrim</code> - will skip trimming strings, trim is the default</li>
+<li><code>max</code> - will skip strings over the specificed size if no <code>trunc</code></li>
+<li><code>trunc</code> - will truncate strings longer than <code>max</code></li>
+<li><code>regexp</code> - will skip string not matching</li>
+</ul>
+</li>
 </ul>
 <p>If <code>str</code> is an array and type is not specified then all non-string items will be returned as is.</p>
 </li>
@@ -8240,10 +8262,12 @@ the options are available inside the handler.</p>
 </ul>
 
 <ul>
-<li><p><code>logger.setDebugFilter(str)</code></p>
+<li><p><code>logger.setDebugFilter(str, func)</code></p>
 <p>  Enable debugging level for this label, if used with the same debugging level it will be printed regardless of the global level,
 a label is first argument to the <code>logger.debug</code> methods, it is used as is, usually the fist argument is
-the current function name with comma, like <code>logger.debug(&quot;select:&quot;, name, args)</code></p>
+the current function name with comma, like <code>logger.debug(&quot;select:&quot;, name, args)</code>
+The <code>func</code> can be a function to be instead of regular logging, this is for rerouting some output to a custom console or for
+dumping the actual Javascript data without preformatting, most useful to use <code>console.log</code></p>
 </li>
 </ul>
 
@@ -8651,6 +8675,8 @@ A subcommand may return special string to indicate how to treat the flow:</p>
 <li>continue - do not exit and continue processing other commands or end with REPL</li>
 <li>all other values will result in returning from the run assuming the command will decide what to do, exit or continue running, no REPL is created</li>
 <li>if `-noexit`` is passed in the command line keep the shell running after executing the command</li>
+<li><code>-exit-timeout MS</code> will be set to ms to wait before exit</li>
+<li><code>-shell-delay MS</code> will wait before running the command</li>
 </ul>
 </li>
 </ul>
@@ -8836,13 +8862,19 @@ A subcommand may return special string to indicate how to treat the flow:</p>
 </ul>
 
 <ul>
+<li><p><code>shell.die(...args)</code></p>
+<p>  Exit with error code and dump all arguments to the stderr, backtrace as well</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>shell.getUser(obj, callback)</code></p>
 <p>  Resolves a user from <code>obj.id</code> or <code>obj.login</code> params and return the record in the callback</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>shell.getQuery()</code></p>
+<li><p><code>shell.getQuery(options)</code></p>
 <p>  Returns an object with all command line params that do not start with dash(-), treat 2 subsequent parms without dashes as name value pair</p>
 </li>
 </ul>
@@ -8856,7 +8888,9 @@ A subcommand may return special string to indicate how to treat the flow:</p>
 <ul>
 <li><p><code>shell.getArgs(options)</code></p>
 <p>  Returns an object with all command line params starting with dash set with the value if the next param does not start with dash or 1.
-By sefault all args are satored as is with dahses, if <code>options.camel`` is true then all args will be stored in camel form, if </code>options.underscore is true then all args will be stored with dashes converted into underscores.</p>
+By sefault all args are stored as is with dashes, if <code>options.camel`` is true then all args will be stored in camel form, if </code>options.underscore is true then all args will be stored with dashes converted into underscores.
+<code>options.index</code> can be used to get the args from any position, by default it only returns args after the current
+commands processed from <code>shell.cmdIndex</code></p>
 </li>
 </ul>
 
@@ -8869,6 +8903,12 @@ By sefault all args are satored as is with dahses, if <code>options.camel`` is t
 <ul>
 <li><p><code>shell.getArg(name, options, dflt)</code></p>
 <p>  Return first available value for the given name, options first, then command arg and then default,</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.getArgList(name, options)</code></p>
+<p>  Returns a list of all values for the given argument name, it handles duplicate arguments with the same name</p>
 </li>
 </ul>
 
@@ -8897,6 +8937,18 @@ By sefault all args are satored as is with dahses, if <code>options.camel`` is t
 <p> In the shell now it new methods can be executed</p>
 <pre><code>   &gt; shell.newMethod()
 </code></pre>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.cmdRunConfig(options)</code></p>
+<p>  Load a config file</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.cmdRunIpc(options)</code></p>
+<p>  Initialize more IPC clients</p>
 </li>
 </ul>
 
@@ -8955,24 +9007,24 @@ By sefault all args are satored as is with dahses, if <code>options.camel`` is t
 </ul>
 
 <ul>
-<li><p><code>shell.assert(callback, err, ...args)</code></p>
+<li><p><code>shell.expect(ok, ...args)</code></p>
 <p>  To be used in the tests, this function takes the following arguments:</p>
-<p>assert(next, err, ....)</p>
+<p>expect(ok, ....)</p>
 <ul>
-<li>callback - is a callback to be called to continue to the next test or fail with an error</li>
-<li>err - an error object from the most recent operation, can be null/undefined or any value that results in Javascript &quot;true&quot; evaluation,
-assertion happens if an err is given or this value is not null or empty</li>
-<li>all other arguments will be added to the <code>err</code> object or converted into an object to be printed when the test exits on failure</li>
+<li>ok - it must be true or non empty value in order to continue</li>
+<li>all other arguments will be printed to stderr before exiting including the backtrace</li>
 </ul>
-<p> NOTES:</p>
+<p>assert(failed, ....)</p>
 <ul>
-<li>In forever mode <code>-test-forever</code> any error is ignored and not reported</li>
-<li>if <code>tests.test.delay</code> is set it will be used to delay calling the next callback and reset, this is for one time delays.</li>
+<li>failed - it must be false or empty value in order to continue</li>
+<li>all arguments will be printed to stderr before exiting including the backtrace</li>
 </ul>
 <p>Example</p>
-<pre><code>     function testGetUser(callback) {
+<pre><code>     function testGetUser(next) {
          db.get(&quot;bk_user&quot;, { login: &quot;123&quot; }, function(err, row) {
-             tests.assert(callback, err || !row || row.id != &quot;123&quot;, &quot;Record not found or invalid&quot;, row)
+              tests.assert(err, &quot;no error expected&quot;, row);
+              tests.expect(row?.id == &quot;123&quot;, `id must be 123`, row);
+              next();
          });
      }
 </code></pre>
@@ -8983,19 +9035,19 @@ assertion happens if an err is given or this value is not null or empty</li>
 <li><p><code>shell.cmdTestRun(options)</code></p>
 <p>  Run the test function which is defined in the tests module, all arguments will be taken from the options or the command line. Options
 use the same names as command line arguments without preceeding <code>test-</code> prefix.</p>
-<p>The common command line arguments that supported:</p>
+<p>The main commands:</p>
 <ul>
-<li>-test-run - name of the function to run</li>
-<li>-test-delay - number of milliseconds before starting the test</li>
-<li>-test-workers - number of workers to run the test at the same time</li>
-<li>-test-workers-delay - number of milliseconds before starting worker processes, default is 500ms</li>
-<li>-test-timeout - number of milliseconds between test steps, i.e. between invocations of the check</li>
+<li>-test-list - show all available test functions and exit</li>
+<li>-test-config - list of file(s) to load and parse as configs, all test- params will be added to the test object</li>
+<li>-test-file - a javascript file to be loaded with tests</li>
+<li>-test-run - name of the functions to run, can be a list, must be the last command</li>
+</ul>
+<p>Optional parameters for the test-run:</p>
+<ul>
+<li>-test-delay - number of milliseconds before starting the test and exiting the process, default 500ms</li>
+<li>-test-cluster - use a cluster worker to run each test in a separate process</li>
 <li>-test-interval - number of milliseconds between iterations</li>
-<li>-test-iterations - how many times to run this test function, default is 1</li>
-<li>-test-concurrency - how many functions to run at the same time, default is 1</li>
-<li>-test-nowait - do not wait for test function to finish to start next iteration, default is 0</li>
-<li>-test-forever - run forever without reporting any errors, for performance testing</li>
-<li>-test-file - a javascript file to be loaded with additional tests</li>
+<li>-test-concurrency - how many tests to run at the same time, default is 1</li>
 </ul>
 <p>All other common command line arguments are used normally, like -db-pool to specify which db to use.</p>
 <p>After finish or in case of error the process exits if no callback is given.</p>
@@ -9006,7 +9058,9 @@ use the same names as command line arguments without preceeding <code>test-</cod
 
      tests.test_mytest = function(next) {
         db.get(&quot;bk_user&quot;, { login: &quot;123&quot; }, function(err, row) {
-            tests.assert(next, err || !row || row.id != &quot;123&quot;, &quot;Record not found or invalid&quot;, row)
+            tests.expect(!err, err);
+            tests.expect(row?.id != &quot;123&quot;, &quot;Record not found or invalid&quot;, row)
+            next();
         });
      }
 
@@ -9023,25 +9077,40 @@ use the same names as command line arguments without preceeding <code>test-</cod
   echo &quot;backend-secret=testpw&quot; &gt;&gt; etc/config.local
 </code></pre>
 </li>
-<li><p>to start a test command in the shell using local ./tests.js</p>
+<li><p>to start a test command in the shell using local ./tools/tests.js</p>
 <pre><code>bksh -test-run db
 </code></pre>
 </li>
 <li><p>to start a test command in the shell using custom file with tests</p>
-<pre><code>bksh -test-run api -test-file tests/api.js
+<pre><code>bksh -test-file tests/api.js -test-run api
 </code></pre>
 </li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.checkAccess(options, callback)</code></p>
+<p>  Generic access checker to be used in tests, accepts an array in .config with urls to check
+The following properties can be used:</p>
+<ul>
+<li>url - URL to be checked with POST</li>
+<li>get - URL to be check with GET</li>
+<li>method - explicit method for url</li>
+<li>data - query data for GET or postdata for POST</li>
+<li>form - formdata for requests that need urlformencoded data</li>
+<li>user - a user record with login and secret, a signature is send</li>
+<li>status - status to expect, 200 is default</li>
+<li>match - an object to checked against the response, uses lib.isMatched</li>
+<li>nocsrf/nosig - do not use CSRF or signature in request</li>
+<li>preprocess - function(conf, cb) to be called before making request</li>
+<li>postprocess - function(conf, rc, cb) to be called after the request, rc is the response object from the request</li>
+<li>delay - wait before making next request</li>
 </ul>
 </li>
 </ul>
 
 <h2 id="module-bk_data">Module: BK_DATA</h2>
-<ul>
-<li><p><code>mod</code></p>
-<p>  Account management</p>
-</li>
-</ul>
-
 <ul>
 <li><p><code>mod.configureWeb(options, callback)</code></p>
 <p>  Create API endpoints and routes</p>
@@ -9056,25 +9125,13 @@ use the same names as command line arguments without preceeding <code>test-</cod
 
 <h2 id="module-bk_system">Module: BK_SYSTEM</h2>
 <ul>
-<li><p><code>system</code></p>
-<p>  System management</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>system.init(options)</code></p>
-<p>  Initialize the module</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>system.configureWeb(options, callback)</code></p>
+<li><p><code>mod.configureWeb(options, callback)</code></p>
 <p>  Create API endpoints and routes</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>system.configureSystemAPI()</code></p>
+<li><p><code>mod.configureSystemAPI()</code></p>
 <p>  API for internal provisioning and configuration</p>
 </li>
 </ul>
@@ -9132,7 +9189,7 @@ need to have query and options objects.</p>
 
 <ul>
 <li><p><code>mod.deleteAccount(req, callback)</code></p>
-<p>  Delete account specified by the obj. Used in <code>/account/del</code> API call.
+<p>  Delete account specified by the obj.
 The options may contain <code>keep</code> array with tables to be kept, for example
 delete an account but keep all messages and location: keep:[&quot;bk_user&quot;,&quot;bk_location&quot;]</p>
 <p>This methods is suitable for background jobs</p>
