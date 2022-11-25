@@ -118,9 +118,8 @@ bkjs.koEvent = function(name, data)
 
 bkjs.koState = {};
 bkjs.koTemplates = {};
-bkjs.koTemplateAliases = {};
 bkjs.koModels = {};
-bkjs.koModelAliases = {};
+bkjs.koAliases = { template: {}, model: {}, viewModel: {} };
 bkjs.koViewModels = [];
 
 bkjs.koViewModel = function(params, componentInfo)
@@ -168,40 +167,40 @@ bkjs.koCreateModel = function(name)
     return bkjs.koModels[name];
 }
 
-bkjs.koCreateModelAlias = function(name, alias)
+bkjs.koCreateModelAlias = function(type, name, alias)
 {
-    bkjs.koModelAliases[bkjs.toCamel(alias)] = bkjs.toCamel(name);
+    if (type && name && bkjs.isU(alias)) alias = name, name = type, type = "model";
+    if (!bkjs.koAliases[type]) return;
+    bkjs.koAliases[type][bkjs.toCamel(alias)] = bkjs.toCamel(name);
 }
 
-bkjs.koCreateTemplateAlias = function(name, alias)
+bkjs.koFindModel = function(model)
 {
-    bkjs.koTemplateAliases[bkjs.toCamel(alias)] = bkjs.toCamel(name);
-}
-
-bkjs.koFindModel = function(name)
-{
-    name = bkjs.toCamel(name);
-    var tmpl = bkjs.koTemplates[name] || bkjs.koTemplates[bkjs.koTemplateAliases[name]];
+    var name = bkjs.toCamel(model);
+    var tmpl = bkjs.koTemplates[name] || bkjs.koTemplates[bkjs.koAliases.template[name]];
     if (!tmpl) {
-        name = bkjs.koModelAliases[name];
+        name = bkjs.koAliases.model[name];
         if (name) tmpl = bkjs.koTemplates[name];
     }
-    if (!tmpl) return null;
-    if (tmpl[0] !== "<") {
+    if (!tmpl) {
+        if (bkjs.debug) console.log("koFindModel:", model, name, tmpl);
+        return null;
+    }
+    if (tmpl && tmpl[0] !== "<") {
         bkjs.koTemplates[name] = tmpl = bkjs.strDecompress(tmpl, "base64");
     }
-    if (bkjs.debug) console.log("koFindModel:", name, tmpl.substr(0, 32));
+    if (bkjs.debug) console.log("koFindModel:", model, name, tmpl.substr(0, 64));
     return {
         template: tmpl,
         viewModel: {
             createViewModel: function(params, componentInfo) {
-                var vm;
-                if (bkjs.isF(bkjs.koModels[name])) {
-                    vm = new bkjs.koModels[name](params, componentInfo);
+                var VM = bkjs.koModels[bkjs.koAliases.viewModel[name]] || bkjs.koModels[name];
+                if (bkjs.isF(VM)) {
+                    var vm = new VM(params, componentInfo);
                     if (bkjs.isF(vm.onCreate)) vm.onCreate(vm.params, componentInfo);
                     bkjs.koViewModels.push(vm);
                 }
-                if (bkjs.debug) console.log("createViewModel:", name);
+                if (bkjs.debug) console.log("createViewModel:", model, name, !!vm);
                 bkjs.koEvent("component.created", { name: name, params: params, model: vm, info: componentInfo });
                 return vm;
             }
@@ -292,7 +291,7 @@ bkjs.koSaveComponent = function(name, params)
 {
     if (!name) return;
     var url = name;
-    if (params && params.param) {
+    if (params?.param) {
         url += "/" + params.param;
         if (params.value) url += "/" + params.value;
     }

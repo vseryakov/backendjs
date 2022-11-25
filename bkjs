@@ -605,11 +605,12 @@ case "$BKJS_CMD" in
                 echo > $dir/web/js/$bundle.bundle.html.js
                 echo $repo > $tmp/_repo
                 for f in $files; do
-                    [ ! -s $dir/$f ] && continue
+                    [ ! -s $dir/$f ] && echo "$dir/$f not found" && continue
                     n=$(basename $f)
                     if [ "$force" != "" -o $dir/$f -nt $tmp/$n ]; then
                         if [[ -z $dev ]]; then
-                            (cd $dir && html-minifier --collapse-whitespace --collapse-boolean-attributes --remove-comments --remove-optional-tags --remove-attribute-quotes --remove-empty-attributes $f > $tmp/_$n)
+                            htmlminargs="--collapse-whitespace --collapse-boolean-attributes --remove-optional-tags --remove-attribute-quotes --remove-empty-attributes $(get_arg -htmlminargs)"
+                            (cd $dir && html-minifier $htmlminargs $f > $tmp/_$n)
                             [ "$?" != "0" ] && exit 1
                             tf=$tmp/_$n
                         else
