@@ -7,6 +7,9 @@
     },
     "globals": {
         "bkjs": false,
+        "tests": false,
+        "assert": false,
+        "expect": false,
         "$": false,
         "jQuery": false,
         "bootpopup": false,
