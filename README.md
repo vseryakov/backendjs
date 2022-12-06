@@ -285,6 +285,7 @@ The typical structure of a single file backendjs application is the following:
           // to return an error, the message will be translated with internal i18n module if locales
           // are loaded and the request requires it
           api.sendReply(res, err);
+
           // or with custom status and message, explicitely translated
           api.sendReply(res, 404, res.__({ phrase: "not found", locale: "fr" }));
 
@@ -302,12 +303,12 @@ The typical structure of a single file backendjs application is the following:
     }
 
     // Optionally register post processing of the returned data from the default calls
-    api.registerPostProcess('', /^\/account\/([a-z\/]+)$/, function(req, res, rows) { ... });
+    api.registerPostProcess('', /^\/account\/([a-z\/]+)$/, (req, res, rows) => { ... });
      ...
 
     // Optionally register access permissions callbacks
-    api.registerAccessCheck('', /^\/test\/list$/, function(req, status, callback) { ...  });
-    api.registerPreProcess('', /^\/test\/list$/, function(req, status, callback) { ...  });
+    api.registerAccessCheck('', /^\/test\/list$/, (req, status, callback) => { ...  });
+    api.registerPreProcess('', /^\/test\/list$/, (req, status, callback) => { ...  });
      ...
     bkjs.server.start();
 ```
@@ -528,6 +529,23 @@ To define tables inside a module just provide a `tables` property in the module 
         callback();
     }
 ```
+
+## Tables can have aliases
+
+This is useful for easier naming conventions or switching to a different table name on the fly without changinbf the code,
+access to the table by it is real name is always available.
+
+For example:
+
+    bksh -db-aliases-bk_user users
+
+    > await db.aget("bk_user", { login: "u1" })
+    > { login: "u1", name: "user", .... }
+
+    > await db.aget("users", { login: "u1" })
+    > { login: "u1", name: "user", .... }
+
+
 
 # API requests handling
 

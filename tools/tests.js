@@ -647,6 +647,13 @@ tests.test_db = function(callback)
                 next();
             });
         },
+        function(next) {
+            db.aliases.t = "test6";
+            db.get("t", { id: id }, {}, function(err, row) {
+                expect(row.id == id, "must get row by alias", row)
+                next();
+            });
+        }
     ], callback, true);
 }
 
@@ -878,6 +885,7 @@ tests.test_config = function(callback)
                 "-db-sqlite-pool-options-discovery-interval", "30000",
                 "-db-sqlite-pool-options-map.test", "test",
                 "-db-sqlite-pool-options", "arg1:1,arg2:2",
+                "-db-aliases-Test6", "t",
                 "-ipc-queue", "local://default?bk-count=2",
                 "-ipc-queue-q", "local://queue?bk-test=10",
                 "-ipc-queue-q-options", "count:10,interval:100",
@@ -891,6 +899,8 @@ tests.test_config = function(callback)
     assert(core.forceUid[0] != 1, "invalid force-uid", core.forceUid)
     assert(core.proxy.port != 3000, "invalid proxy-port", core.proxy);
     assert(!db._createTables, "invalid create-tables");
+
+    expect(db.aliases.t == "test6", "db alias must be lowercase", db.aliases);
 
     assert(db.poolParams.sqlite?.max != 10, "invalid sqlite max", db.poolParams.sqlite);
     assert(db.poolParams.sqlite.configOptions.arg1 != 1 || db.poolParams.sqlite.configOptions.arg2 != 2, "invalid sqlite map with args", db.poolParams.sqlite);
