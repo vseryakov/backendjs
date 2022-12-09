@@ -982,7 +982,6 @@ tests.test_logwatcher = function(callback)
 
     core.logwatcherFile = core.logwatcherFile.filter((x) => (x.name));
 
-    describe("Test logwatcher rules")
     core.parseArgs(argv);
     fs.writeFileSync(core.errFile, lines.join("\n"));
     fs.writeFileSync(core.logFile, lines.join("\n"));
