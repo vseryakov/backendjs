@@ -20,6 +20,7 @@ case "$BKJS_CMD" in
     $ECHO "check system \$HOST every 3 cycles if loadavg(1min) > $load for 15 cycles then alert" >> /etc/monit.d/system.conf
     $ECHO "check filesystem rootfs with path $path every 30 cycles if space usage > ${space}% then alert" >> /etc/monit.d/system.conf
     monit reload
+    exit
     ;;
 
   init-monit-bkjs)
@@ -27,6 +28,7 @@ case "$BKJS_CMD" in
     timeout=$(get_arg -timeout 30)
     $ECHO "check process $BKJS with pidfile \"$BKJS_HOME/var/master.pid\" start program = \"$BKJS_BIN run-master $(get_all_args)\" as uid $BKJS_USER and gid $BKJS_GROUP with timeout $timeout seconds stop program = \"$BKJS_BIN stop\"" > /etc/monit.d/$BKJS.conf
     monit reload
+    exit
     ;;
 
   stop-monit-bkjs)
@@ -34,6 +36,7 @@ case "$BKJS_CMD" in
        rm /etc/monit.d/$BKJS.conf
        monit reload
     fi
+    exit
     ;;
 
   init-monit-alerts)
@@ -60,6 +63,7 @@ case "$BKJS_CMD" in
             monit reload
         fi
     fi
+    exit
     ;;
 
   init-monit)
@@ -72,6 +76,7 @@ case "$BKJS_CMD" in
     cycles=$(get_arg -cycles)
     [ "$cycles" != "" ] && cycles="for $cycles cycles"
     echo -e "check process $name with pidfile \"$BKJS_HOME/var/$name.pid\" start program = \"$start\" as uid $BKJS_USER and gid $BKJS_GROUP with timeout $timeout seconds $cycles stop program = \"$stop\"" > /etc/monit.d/$name.conf
+    exit
     ;;
 
   help)
@@ -84,9 +89,5 @@ case "$BKJS_CMD" in
     echo "  init-monit-alerts - setup monit mail alerts, use DB config for the specified app name"
     echo "  init-monit -name NAME -start SCRIPT -stop SCRIPT - generate a monit service config"
     echo ""
-    ;;
-
-  *)
-    BKJS_UNKNOWN=1
     ;;
 esac

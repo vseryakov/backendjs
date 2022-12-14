@@ -14,6 +14,7 @@ case "$BKJS_CMD" in
     if [ "$PLATFORM" = "Linux" ]; then
        sudo $0 init-redis-monit
     fi
+    exit
     ;;
 
   get-redis)
@@ -46,6 +47,7 @@ case "$BKJS_CMD" in
     cp redis/redis.conf $BKJS_HOME/etc
     rm -rf redis redis.tgz
     $0 config-redis
+    exit
     ;;
 
   config-redis|config-keydb)
@@ -64,6 +66,7 @@ case "$BKJS_CMD" in
     if [ "$REDIS" = "keydb" ]; then
        $SED 's|dump.rdb|keydb.rdb|' $BKJS_HOME/etc/$REDIS.conf
     fi
+    exit
     ;;
 
   run-redis|run-keydb)
@@ -81,10 +84,12 @@ case "$BKJS_CMD" in
     if [ "$slavehost" != "" ]; then
        $REDIS-cli slaveof $slavehost $slaveport
     fi
+    exit
     ;;
 
   stop-redis)
     pkill -f $REDIS-server
+    exit
     ;;
 
   init-redis-monit|init-keydb-monit)
@@ -102,6 +107,7 @@ case "$BKJS_CMD" in
     $ECHO "$BKJS_HOME/log/$REDIS.log {\n  weekly\n  rotate 10\n  copytruncate\n  delaycompress\n  compress\n  notifempty\n  missingok\n}" > /etc/logrotate.d/$REDIS
     $ECHO "check process $REDIS-server with pidfile \"$BKJS_HOME/var/$REDIS.pid\" start program = \"$BKJS_BIN run-$REDIS $(get_all_args)\" as uid $BKJS_USER and gid $BKJS_GROUP stop program = \"$BKJS_BIN stop-$REDIS\" if failed host 127.0.0.1 port 6379 for 2 cycles then restart" > /etc/monit.d/$REDIS.conf
     monit reload
+    exit
     ;;
 
   help)
@@ -117,10 +123,6 @@ case "$BKJS_CMD" in
     echo "  stop-keydb - stop local KeyDB server"
     echo "  init-keydb-monit [-memsize PERCENT] [-memmax SIZE] - setup KeyDB server to be run on start and to be monitored (Linux only)"
     echo ""
-    ;;
-
-  *)
-    BKJS_UNKNOWN=1
     ;;
 esac
 

@@ -37,6 +37,7 @@ case "$BKJS_CMD" in
     [ "$rc" != "0" ] && exit $rc
 
     [ "$(get_flag -run)" != "" ] && $0 docker-run -tag $tag -path $path -force
+    exit
     ;;
 
   docker-run)
@@ -55,6 +56,7 @@ case "$BKJS_CMD" in
     [ ! -z "$BKJS_DEBUG" ] && echo $cmd
 
     $cmd
+    exit
     ;;
 
   docker-init-rsyslog)
@@ -73,23 +75,20 @@ case "$BKJS_CMD" in
        echo '{ "features": { "buildkit": true }, "log-driver": "syslog", "log-opts": { "tag": "{{.Name}}", "syslog-facility": "local1", "cache-disabled": "true", "mode": "non-blocking" } }' > /etc/docker/daemon.json
        service docker restart
     fi
+    exit
     ;;
 
   drestart)
-    docker restart ${BKJS_ARGS[0]}
+    exec docker restart ${BKJS_ARGS[0]}
     ;;
 
   help)
     echo ""
     echo "Docker commands:"
     echo ""
-    echo "docker-init-rsyslog - store docker container logs in $BKJS_HOME/log/docker.log"
-    echo "docker-build -t TAG [-version V] [-path .] [-root H] - build an image for the specified tag"
-    echo "docker-run -t TAG [-path .] [-force] - run a container for the specified tag"
-    echo "drestart NAME - restart a container, for use with bkrsync"
-    ;;
-
-  *)
-    BKJS_UNKNOWN=1
+    echo "  docker-init-rsyslog - store docker container logs in $BKJS_HOME/log/docker.log"
+    echo "  docker-build -t TAG [-version V] [-path .] [-root H] - build an image for the specified tag"
+    echo "  docker-run -t TAG [-path .] [-force] - run a container for the specified tag"
+    echo "  drestart NAME - restart a container, for use with bkrsync"
     ;;
 esac

@@ -39,6 +39,7 @@ case "$BKJS_CMD" in
         fi
         echo "-Dlog4j2.formatMsgNoLookups=true" >> config/jvm.options
     fi
+    exit
     ;;
 
   init-elasticsearch|es-init)
@@ -47,6 +48,7 @@ case "$BKJS_CMD" in
     if [ "$PLATFORM" = "Linux" ]; then
        sudo $0 init-elasticsearch-monit $(get_all_args)
     fi
+    exit
     ;;
 
   get-elasticsearch-nodetype)
@@ -66,6 +68,7 @@ case "$BKJS_CMD" in
       echo client
       ;;
     esac
+    exit
     ;;
 
   run-elasticsearch|es-run)
@@ -98,10 +101,12 @@ case "$BKJS_CMD" in
       ;;
     esac
     $ELASTICSEARCH_PREFIX/bin/elasticsearch -p $BKJS_HOME/var/elasticsearch.pid -d >>$BKJS_HOME/log/message.log 2>&1
+    exit
     ;;
 
   stop-elasticsearch|es-stop)
     pkill -f org.elasticsearch
+    exit
     ;;
 
   restart-elasticsearch)
@@ -109,6 +114,7 @@ case "$BKJS_CMD" in
     sleep 1
     pkill -f -9 org.elasticsearch
     $0 run-elasticsearch $(get_all_args)
+    exit
     ;;
 
   reset-elasticsearch)
@@ -116,21 +122,25 @@ case "$BKJS_CMD" in
     rm -rf $BKJS_HOME/var/nodes
     rm -f $BKJS_HOME/log/elasticsearch*
     $0 run-elasticsearch
+    exit
     ;;
 
   configure-elasticsearch)
     host=$(get_arg -host localhost)
     curl -XPUT -H 'Content-Type: application/json' -d '{"persistent":{"script.max_compilations_rate":"1000/1m"}}' http://$host:9200/_cluster/settings
+    exit
     ;;
 
   stop-elasticsearch-replication)
     host=$(get_arg -host localhost)
     curl -XPUT -H 'Content-Type: application/json' -d '{"persistent":{"cluster.routing.allocation.enable":"primaries"}}' http://$host:9200/_cluster/settings
+    exit
     ;;
 
   start-elasticsearch-replication)
     host=$(get_arg -host localhost)
     curl -XPUT -H 'Content-Type: application/json' -d '{"persistent":{"cluster.routing.allocation.enable":null}}' http://$host:9200/_cluster/settings
+    exit
     ;;
 
   set-elasticsearch-disk-watermark)
@@ -139,6 +149,7 @@ case "$BKJS_CMD" in
     low=$(get_arg -low 95)
     flood=$(get_arg -flood 95)
     curl -XPUT -H 'Content-Type: application/json' -d "{\"transient\":{\"cluster.routing.allocation.disk.watermark.flood_stage\":\"$flood%\",\"cluster.routing.allocation.disk.watermark.high\":\"$high%\",\"cluster.routing.allocation.disk.watermark.low\":\"$low%\"}}" http://$host:9200/_cluster/settings
+    exit
     ;;
 
   upgrade-elasticsearch-node)
@@ -154,6 +165,7 @@ case "$BKJS_CMD" in
         $0 run-elasticsearch -nodetype "$nodetype" -memsize $memsize
     fi
     $0 start-elasticsearch-replication -host $host
+    exit
     ;;
 
   exclude-elasticsearch-node)
@@ -161,37 +173,44 @@ case "$BKJS_CMD" in
     ip=$(get_arg -ip $(get_local_ip))
     [ "$ip" = "." ] && ip=""
     curl -XPUT -H 'Content-Type: application/json' -d "{\"transient\":{\"cluster.routing.allocation.exclude._ip\":\"$ip\"}}" http://$host:9200/_cluster/settings
+    exit
     ;;
 
   elasticsearch-health|es-w)
     host=$(get_arg -host localhost)
     curl -XGET "http://$host:9200/_cat/health?v"
+    exit
     ;;
 
   elasticsearch-space|es-df)
     host=$(get_arg -host localhost)
     curl -XGET "http://$host:9200/_cat/allocation?v"
+    exit
     ;;
 
   elasticsearch-shards|es-s)
     host=$(get_arg -host localhost)
     curl -XGET "http://$host:9200/_cat/shards?v"
+    exit
     ;;
 
   elasticsearch-tasks|es-t)
     host=$(get_arg -host localhost)
     nodes=$(get_arg -nodes)
     curl -XGET "http://$host:9200/_tasks?pretty&detailed&nodes=$nodes"
+    exit
     ;;
 
   elasticsearch-ls|es-ls)
     host=$(get_arg -host localhost)
     curl -XGET "http://$host:9200/_cat/nodes?h=ip,version,cpu,ram.percent,node.role,master&v"
+    exit
     ;;
 
   elasticsearch-nodes|es-n)
     host=$(get_arg -host localhost)
     curl -s -XGET "http://$host:9200/_nodes/process?pretty"|node -e 'var d="";process.stdin.on("data",(c)=>{d+=c});process.stdin.on("end",()=>{try{d=JSON.parse(d).nodes;for(var p in d)console.log(p,"  ",d[p].ip,"          ".substr(0,15-d[p].ip.length),String(d[p].roles))}catch(e){};process.exit()})'
+    exit
     ;;
 
   init-monit-elasticsearch|init-elasticsearch-monit)
@@ -199,12 +218,14 @@ case "$BKJS_CMD" in
     echo "check process elasticsearch with pidfile \"$BKJS_HOME/var/elasticsearch.pid\" start program = \"$BKJS_BIN run-elasticsearch $(get_all_args)\" as uid $BKJS_USER and gid $BKJS_GROUP stop program = \"$BKJS_BIN stop-elasticsearch\" if failed url http://127.0.0.1:9200/ with timeout 15 seconds for 2 cycles then restart" > /etc/monit.d/elasticsearch.conf
     echo "check file elasticsearch-log with path $BKJS_HOME/log/elasticsearch.log if match 'java.lang.OutOfMemoryError' then exec \"$BKJS_BIN restart-elasticsearch $(get_all_args)\"" >> /etc/monit.d/elasticsearch.conf
     monit reload
+    exit
     ;;
 
   init-monit-elasticsearch-health|init-elasticsearch-health-monit)
     host=$(get_arg -host elasticsearch)
     echo "check host elasticsearch-health with address $host if failed url http://$host:9200/_cluster/health and content = 'green' with timeout 60 seconds for 2 cycles then alert" > /etc/monit.d/elasticsearch-health.conf
     monit reload
+    exit
     ;;
 
   stop-elasticsearch-monit)
@@ -212,6 +233,7 @@ case "$BKJS_CMD" in
     rm -rf /etc/monit.d/elasticsearch*
     monit reload
     $0 stop-elasticsearch
+    exit
     ;;
 
   migrate-elasticsearch)
@@ -223,11 +245,13 @@ case "$BKJS_CMD" in
     do
       elasticdump --bulk=true --limit=$limit --output=$to/$idx --input=$from/$idx
     done
+    exit
     ;;
 
   init-elasticsearch-cloudwatch-logs)
     echo "BKJS_CLOUDWATCH_LOGS=elasticsearch.log" >> $BKJS_HOME/etc/profile
     $0 init-cloudwatch-agent
+    exit
     ;;
 
   help)
@@ -250,10 +274,6 @@ case "$BKJS_CMD" in
     echo "  elasticsearch-ls|es-ls [-host HOST] - show cluster nodes"
     echo "  elasticsearch-nodes|es-n [-host HOST] - show cluster nodes IDs to be used for other commands by node id"
     echo ""
-    ;;
-
-  *)
-    BKJS_UNKNOWN=1
     ;;
 esac
 

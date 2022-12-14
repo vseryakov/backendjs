@@ -31,6 +31,7 @@ case "$BKJS_CMD" in
         echo '  ]' >> $BKJS_HOME/etc/nats.conf
         echo '}' >> $BKJS_HOME/etc/nats.conf
     fi
+    exit
     ;;
 
   get-natscli)
@@ -41,26 +42,31 @@ case "$BKJS_CMD" in
     unzip -j /tmp/nats.zip -d /tmp '*/nats'
     mv /tmp/nats $BKJS_PREFIX/bin
     rm -rf /tmp/nats.zip
+    exit
     ;;
 
   run-nats)
     name=$(get_arg -name $(uname -n|cut -f1 -d.))
     mkdir -p $BKJS_HOME/var $BKJS_HOME/log
     exec nohup nats-server -n $name -c $BKJS_HOME/etc/nats.conf >>$BKJS_HOME/log/message.log 2>&1 &
+    exit
     ;;
 
   stop-nats)
     pkill -f nats
+    exit
     ;;
 
   init-nats-monit)
     $0 init-monit -name nats -start "$BKJS_BIN run-nats" -stop "$BKJS_BIN stop-nats"
     monit reload
+    exit
     ;;
 
   init-dynamodb)
     ($0 get-dynamodb $(get_all_args))
     ($0 run-dynamodb $(get_all_args))
+    exit
     ;;
 
   get-dynamodb)
@@ -72,6 +78,7 @@ case "$BKJS_CMD" in
        tar -C $DYNAMODB_PREFIX -xzf ddb.tgz
        rm -f ddb.tgz
     fi
+    exit
     ;;
 
   run-dynamodb)
@@ -79,16 +86,19 @@ case "$BKJS_CMD" in
     mkdir -p $BKJS_HOME/var $BKJS_HOME/log
     params="-Xmx$(get_arg -memmax 256M)"
     exec nohup java $params -Djava.library.path=$DYNAMODB_PREFIX/DynamoDBLocal_lib -jar $DYNAMODB_PREFIX/DynamoDBLocal.jar -dbPath $BKJS_HOME/var -port 8181 >>$BKJS_HOME/log/ddb.log 2>&1 &
+    exit
     ;;
 
   stop-dynamodb)
     pkill -f DynamoDBLocal
+    exit
     ;;
 
   reset-dynamodb)
     $0 stop-dynamodb
     rm -rf $BKJS_HOME/var/*_us-east-1.db
     $0 run-dynamodb
+    exit
     ;;
 
   get-mvn)
@@ -100,6 +110,7 @@ case "$BKJS_CMD" in
         tar -C $MVN_PREFIX --strip-components=1 -xzf mvn.tgz
         rm -f mvn.tgz
     fi
+    exit
     ;;
 
   init-pgsql)
@@ -114,15 +125,18 @@ case "$BKJS_CMD" in
        sleep 3
        createdb -U postgres $db
     fi
+    exit
     ;;
 
   run-pgsql)
     mkdir -p $BKJS_HOME/var $BKJS_HOME/log
     exec nohup postgres -F -D $BKJS_HOME/var/postgres >>$BKJS_HOME/log/message.log 2>&1 &
+    exit
     ;;
 
   stop-pgsql)
     killall postgres
+    exit
     ;;
 
   run-crdb)
@@ -135,14 +149,17 @@ case "$BKJS_CMD" in
         sleep 3
         cockroach sql --insecure --host=localhost:26257 -e "CREATE USER IF NOT EXISTS postgres;CREATE DATABASE $db;GRANT ALL ON DATABASE $db TO postgres;"
     fi
+    exit
     ;;
 
   shell-crdb)
     cockroach sql --insecure --host=localhost:26257 $(get_all_args)
+    exit
     ;;
 
   stop-crdb)
     killall cockroach
+    exit
     ;;
 
   init-mysql)
@@ -159,15 +176,18 @@ case "$BKJS_CMD" in
        mysql -u root -e "DROP DATABASE test" mysql
        mysql -u root -e "CREATE DATABASE $db" mysql
     fi
+    exit
     ;;
 
   run-mysql)
     mkdir -p $BKJS_HOME/var $BKJS_HOME/log
     exec nohup mysqld >>$BKJS_HOME/log/message.log 2>&1 &
+    exit
     ;;
 
   stop-mysql)
     killall mysqld
+    exit
     ;;
 
   get-hazelcast)
@@ -179,6 +199,7 @@ case "$BKJS_CMD" in
        tar -C $HAZELCAST_PREFIX --strip-components=1 -xf hc.tar
        rm -rf hc.tar
     fi
+    exit
     ;;
 
   init-hazelcast-service)
@@ -186,6 +207,7 @@ case "$BKJS_CMD" in
     echo "check process hazelcast with pidfile \"$BKJS_HOME/var/hazelcast.pid\" start program = \"$0 run-hazelcast $(get_all_args)\" as uid $BKJS_USER and gid $BKJS_GROUP stop program = \"$0 stop-hazelcast\" if failed url http://127.0.0.1:5701/ with timeout 15 seconds for 2 cycles then restart" > /etc/monit.d/hazelcast.conf
     echo "check file hazelcast-log with path $BKJS_HOME/log/hazelcast.log if match 'java.lang.OutOfMemoryError' then exec \"$0 restart-hazelcast $(get_all_args)\"" >> /etc/monit.d/hazelcast.conf
     monit reload
+    exit
     ;;
 
   run-hazelcast)
@@ -198,11 +220,13 @@ case "$BKJS_CMD" in
     params="-Xmx$memmax -Dhazelcast.config=$BKJS_HOME/etc/hazelcast.xml"
     cp=$(ls $HAZELCAST_PREFIX/lib/hazelcast-all-*.jar)
     exec nohup java -server $params -cp $cp com.hazelcast.core.server.StartServer >>$BKJS_HOME/log/message.log 2>&1 &
+    exit
     ;;
 
   stop-hazelcast)
     sig=$(get_arg -signal)
     pkill -f hazelcast.core.server
+    exit
     ;;
 
   restart-hazelcast)
@@ -210,6 +234,7 @@ case "$BKJS_CMD" in
     sleep 1
     pkill -f -9 hazelcast.core.server
     $0 run-hazelcast $(get_all_args)
+    exit
     ;;
 
   get-cassandra)
@@ -231,6 +256,7 @@ case "$BKJS_CMD" in
         $SED "s|#     - $CASSANDRA_DIR|    - $CASSANDRA_DIR|" $CASSANDRA_PREFIX/conf/cassandra.yaml
         chown -R $BKJS_USER $CASSANDRA_PREFIX $CASSANDRA_DIR
     fi
+    exit
     ;;
 
   init-cassandra)
@@ -240,15 +266,18 @@ case "$BKJS_CMD" in
     db=$(get_arg -db backend)
     echo "CREATE KEYSPACE $db WITH REPLICATION = {'class': 'SimpleStrategy' , 'replication_factor': 1 };" > /tmp/cql
     cqlsh -f /tmp/cql
+    exit
     ;;
 
   run-cassandra)
     mkdir -p $BKJS_HOME/var $BKJS_HOME/log
     cassandra >>$BKJS_HOME/log/message.log 2>&1
+    exit
     ;;
 
   stop-cassandra)
     pkill -f cassandra
+    exit
     ;;
 
   get-mongodb)
@@ -265,21 +294,25 @@ case "$BKJS_CMD" in
        tar -C $BKJS_PREFIX/bin --strip-components=1 -xzf mongo.tgz '*/bin/*'
        rm -rf mongo.tgz
     fi
+    exit
     ;;
 
   init-mongodb)
     ($0 get-mongodb)
     ($0 run-mongodb)
+    exit
     ;;
 
   run-mongodb)
     [ "$MONGO_DIR" = "" ] && export MONGO_DIR=$BKJS_HOME/var/mongo
     mkdir -p $MONGO_DIR $BKJS_HOME/var $BKJS_HOME/log
     mongod --fork --dbpath $MONGO_DIR --syslog >>$BKJS_HOME/log/message.log 2>&1
+    exit
     ;;
 
   stop-mongodb)
     pkill mongod
+    exit
     ;;
 
   get-amqp)
@@ -291,11 +324,13 @@ case "$BKJS_CMD" in
         tar -C $RABBITMQ_PREFIX --strip-components=1 -xzf mq.tar.xz
         rm -rf mq.tar.xz
     fi
+    exit
     ;;
 
 run-amqp)
     [ "$RABBITMQ_PREFIX" = "" ] && RABBITMQ_PREFIX=$BKJS_PREFIX/rabbitmq
     $RABBITMQ_PREFIX/sbin/rabbitmq-server -detached >>$BKJS_HOME/log/message.log 2>&1
+    exit
     ;;
 
   help)
@@ -333,10 +368,6 @@ run-amqp)
     echo "  get-natscli - install NATS command line tool in $BKJS_PREFIX/bin"
     echo "  run-nats - run local NATS server installed in $BKJS_PREFIX/bin"
     echo "  stop-nats - stop local NATS server"
-    ;;
-
-  *)
-    BKJS_UNKNOWN=1
     ;;
 esac
 

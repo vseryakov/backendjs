@@ -19,6 +19,10 @@ case "$PLATFORM" in
        OS_TYPE=amazon
        ;;
 
+     *Alpine*)
+       OS_TYPE=alpine
+       ;;
+
      *Ubuntu*)
        OS_TYPE=ubuntu
        ;;
@@ -189,20 +193,14 @@ find_user() {
   [ "$BKJS_GROUP" = "" ] && export BKJS_GROUP=$(id -gn)
 }
 
-# Run the command by sourcing all scripts from tools folders, if $1 is not empty then
-# run all tools scripts, otherwise stop once the command is processed
+# Run the command by sourcing all scripts from tools folders
 process_cmd() {
   dirs="$BKJS_TOOLS $(get_arg -tools) $BKJS_HOME/tools $BKJS_DIR/tools"
-  [ ! -z "$BKJS_DEBUG" ] && echo "process_cmd: $BKJS_CMD: $1 $dirs"
+  [ ! -z "$BKJS_DEBUG" ] && echo "process_cmd: $BKJS_CMD: $dirs"
   for d in $dirs; do
      if [ -d $d ]; then
         for f in $(find $d -name 'bkjs-*'); do
-            unset BKJS_UNKNOWN
             source $f
-            if [ -z "$BKJS_UNKNOWN" ]; then
-                [ ! -z "$BKJS_DEBUG" ] && echo "process_cmd: $BKJS_CMD: $1 $f: $BKJS_UNKNOWN"
-                [ -z "$1" ] && exit 0
-            fi
         done
      fi
   done
@@ -235,8 +233,6 @@ export BKJS_DEBUG=$(get_flag -debug)
 # Setup paths
 export PATH=$BKJS_HOME/bin:$BKJS_HOME/node_modules/.bin:$BKJS_PREFIX/bin:/usr/local/bin:/opt/local/bin:/opt/local/node/bin:/sbin:/usr/sbin:$PATH
 
-process_cmds() { process_cmd 1; }
-
 [ ! -z "$BKJS_DEBUG" ] && echo "$(date): $0: CMD=$BKJS_CMD, USER=$BKJS_USER, HOME=$BKJS_HOME, PREFIX=$BKJS_PREFIX, PWD=$(pwd)"
 
 case "$BKJS_CMD" in
@@ -244,12 +240,13 @@ case "$BKJS_CMD" in
     cd $BKJS_HOME
     ([[ $(whoami) = root ]] && $0 check-server)
     $0 run-${BKJS_SERVER:-none}
+    exit
     ;;
 
   restart)
     $0 stop
     sleep 1
-    process_cmds
+    process_cmd
     ;;
 
   restart-api|stop-api)
@@ -289,7 +286,7 @@ case "$BKJS_CMD" in
     # Setup domain from the config, keep the hostname as it is, for EC2 instances it is the IP address
     domain=$(get_arg -domain $BKJS_DOMAIN)
     [ "$domain" != "" ] && $0 init-hostname -domain $domain
-    process_cmds
+    process_cmd
     # New instance started from existing AMI which might have old log files
     if [ -f $BKJS_HOME/var/bkjs.init ]; then
         echo "Initializing $BKJS_HOME..."
@@ -328,17 +325,19 @@ case "$BKJS_CMD" in
     host=${MONIT_HOST:-$(uname -n)}
     subject="ALERT: ${MONIT_SERVICE:-$BKJS} $host $event"
     msg="$subject\n\n$descr\n\n"
-    process_cmds
+    process_cmd
     # If nobody handled it we log and try to send a plain email
     echo "$msg" >> $BKJS_HOME/log/error.log
     email=$(grep 'set alert' /etc/monit.d/*|tail -1|awk '{print $NF}')
     if [ "$email" != "" ]; then
        $ECHO "From:$email\nTo:$email\nSubject: $subject\n\n$(echo "$msg")"|sendmail $email
     fi
+    exit
     ;;
 
   logwatcher)
     $0 shell -log error -log-watch $@
+    exit
     ;;
 
   run|run-master|master|run-monitor|monitor|run-web|web|watch|shell|bksh|run-none|none)
@@ -380,6 +379,7 @@ case "$BKJS_CMD" in
         exec $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME $BKJS_RUN_ARGS "$@"
         ;;
     esac
+    exit
     ;;
 
   ssh)
@@ -396,6 +396,7 @@ case "$BKJS_CMD" in
     for h in $host; do
       ssh $sshargs $h $cmd
     done
+    exit
     ;;
 
   sync)
@@ -436,6 +437,7 @@ case "$BKJS_CMD" in
     for h in $host; do
         rsync -av -e "ssh $sshargs" "$bkcmd" $rsyncargs . $h:$path/$mod
     done
+    exit
     ;;
 
   deps)
@@ -476,6 +478,7 @@ case "$BKJS_CMD" in
     echo "$NPM_BIN $npm $cmd $modules"
     [ ! -z "$(get_flag -dry-run)" ] && exit 0
     $NPM_BIN $npm $cmd $modules
+    exit
     ;;
 
   web-bundle)
@@ -654,18 +657,13 @@ case "$BKJS_CMD" in
        rm -rf node.tgz
     fi
     mv $BKJS_PREFIX/README.md $BKJS_PREFIX/LICENSE $BKJS_PREFIX/CHANGELOG.md $BKJS_PREFIX/share/doc
-    ;;
-
-  install-devel)
-    # Install development packages for compiling node and modules
-    packages="git svn gdb gcc-c++ make cmake autoconf automake libtool"
-    packages="$packages libuuid-devel openssl-devel libxml2-devel openldap-devel readline-devel libpng-devel libjpeg-turbo-devel"
-    yum -y -q install $packages
+    exit
     ;;
 
   bkhelp)
     find_nodebin
     $NODE_BIN -e "require('$BKJS_MOD').core.showHelp()"
+    exit
     ;;
 
   env)
@@ -675,13 +673,14 @@ case "$BKJS_CMD" in
 
   args)
     echo "$(get_all_args "$(get_arg -skip)" $(get_arg -sep))"
+    exit
     ;;
 
   *)
     # Load tools extensions, the protocol is:
     # - shell file must be in the tools/ and named bkjs-NAME
-    # - it must check for BKJS_CMD and execute its code if it does
-    # - if the command is unknown it must set BKJS_UNKNOWN with any value
+    # - it must check for BKJS_CMD and execute the code
+    # - if the command is final then exit otherwise it will continue trying other tools
     # - it must support help) command to show help about all supported commands
     #
     process_cmd
@@ -696,22 +695,24 @@ case "$BKJS_CMD" in
     echo "  stop-web - kill web processes at once so they will restart with possibly updated modules"
     echo "  stop-worker - kill job worker processes at once so they will restart with possibly updated modules"
     echo "  stop-api - graceful API servers restart, drain all connections and restart one at a time, workers will restart after finishing jobs"
-    echo "  send-alert [-event EVENT] [-descr DESCR] - appends alert message to the error log and runs the command for all tools scripts, if called from the monit then event/descr will be provided"
-    echo "  check-server - run the checks before starting the backend, processed by all tools scripts"
-    echo "  check-adhoc - to be run on adhoc instances, check for idleness, if no jobs running then shutdown the host"
+    echo ""
     echo "  shell - run backend REPL in the current backend directory, works with the backend core or local app.js application"
     echo "  monitor - run the backend monitor process which starts master, web server and job server"
     echo "  master - run the backend master process which starts web server and jobs server"
     echo "  web - run the backend web server only"
     echo "  watch - run the backend in watcher and master mode with all source files being monitored for changes, the server is restarts on any change automatically"
     echo "  run - run local backend with provided arguments"
+    echo ""
+    echo "  check-server - run the checks before starting the backend, processed by all tools scripts"
+    echo "  check-adhoc - to be run on adhoc instances, check for idleness, if no jobs running then shutdown the host"
     echo "  logwatcher - runs the log watcher and exists, for cases when no $BKJS service is running but the error log must be watched"
+    echo "  send-alert [-event EVENT] [-descr DESCR] - appends alert message to the error log and runs the command for all tools scripts, if called from the monit then event/descr will be provided"
+    echo ""
     echo "  deps [-fields dependencies,devDependencies] [-path .] [-skip REGEXP] [-global] [-update] [-mods] [-strict] [-check] [-npm ARGS] - install or show npm dependencies from the package.json, optional bkjs modules require -mods flag"
     echo "  sync [-host HOST] [-path PATH] [-del] [-user USER] [-ssh-key pem] [-ssh OPTS] [-exclude PATTERN] [-bkcmd CMD] - push the backend code to the remote host using rsync, default path is ~/node_modules/$BKJS_MOD"
     echo "  ssh -host HOST -cmd CMD [-user USER] [-key PEM] [-ssh ARGS] - run a command over ssh on all specified hosts"
-    echo "  install-node [-prefix PATH] [-force] [-clean] - install binary release of the node into $BKJS_PREFIX or specified path"
-    echo "  install-devel - install development packages for node and modules compiclation"
     echo "  web-bundle -file FILE|(js|css|html)|BUNDLE.(js|css|html) [-compress] [-dev] [-uglifyargs ARGS] [-all] [-list] [-force] [-clean] - produce a web bundle by uglifying js/css/html files into one file, resolves files from package.json"
+    echo "  install-node [-prefix PATH] [-force] [-clean] - install binary release of the node into $BKJS_PREFIX or specified path"
     echo ""
     echo "  bkhelp - show all $BKJS_MOD config parameters"
     echo ""
@@ -724,7 +725,7 @@ case "$BKJS_CMD" in
     echo ""
 
     BKJS_CMD=help
-    process_cmds
+    process_cmd
     echo ""
     ;;
 esac

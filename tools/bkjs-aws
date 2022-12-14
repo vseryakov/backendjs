@@ -34,6 +34,7 @@ case "$BKJS_CMD" in
     [ "$addr" = "" ] && echo "No IP address found" && exit
     tag=$($0 ec2-tag)
     $0 init-hostname -host ${tag:-ip}-$(echo $addr|sed 's/\./-/g')
+    exit
     ;;
 
   send-alert)
@@ -44,6 +45,7 @@ case "$BKJS_CMD" in
        aws sns publish $region --topic-arn $topic --message "$msg"
        [ "$?" = "0" ] && exit 0
     fi
+    exit
     ;;
 
   ec2-show|ec2-ls)
@@ -64,10 +66,12 @@ case "$BKJS_CMD" in
     else
        echo "$instances"
     fi
+    exit
     ;;
 
   ec2-host)
     $0 ec2-show -line -nomyip -fmt ip -tag "$(get_arg -tag)" -region "$(get_arg -region)" -skip-tag "$(get_arg -skip-tag)"
+    exit
     ;;
 
   ec2-ssh)
@@ -97,6 +101,7 @@ case "$BKJS_CMD" in
         [ "$key" != "" -a -f "~/.ssh/$key.pem" ] && ssh="$ssh -i ~/.ssh/$key.pem"
         ssh $ssh $host "$cmd"
     done
+    exit
     ;;
 
   ec2-run)
@@ -116,26 +121,31 @@ case "$BKJS_CMD" in
     [ "$user" != "" ] && cmd="su -l $user -c '$cmd'"
     [ "$region" != "" ] && region="--region $region"
     aws ssm send-command --targets $targets --document-name "AWS-RunShellScript" --parameters "commands=[\"$cmd\"]" $region
+    exit
     ;;
 
   ec2-region)
     [ -f $HOME/.aws/config ] && region=$(awk '/^region/{print $3}' $HOME/.aws/config)
     [ ! -z $region ] && echo $region && exit
     echo $(get_ec2_meta latest/meta-data/placement/availability-zone/)|sed 's/[a-z]$//'
+    exit
     ;;
 
   ec2-account)
     echo $(get_ec2_meta latest/dynamic/instance-identity/document)|sed 's/[{}":]//g'|tr , "\n"|grep accountId|awk '{print $2}'
+    exit
     ;;
 
   ec2-tag)
     tag=$(get_arg -tag Name)
     id=$(get_ec2_meta latest/meta-data/instance-id)
     [ "$id" != "" ] && aws ec2 describe-tags --filter "Name=key,Values=$tag" "Name=resource-id,Values=$id" --output text| cut -f5|head -1
+    exit
     ;;
 
   ec2-stop-api)
     $0 ec2-run -tag $(get_arg -tag api) -user $(get_arg -user ec2-user) -cmd "bkjs stop-api"
+    exit
     ;;
 
   create-ami)
@@ -163,6 +173,7 @@ case "$BKJS_CMD" in
         for f in $saved_files; do sudo mv $f /etc/monit.d; done
         [ -f /tmp/profile.local ] && mv /tmp/profile.local $HOME/etc
     fi
+    exit
     ;;
 
   create-launch-template-version)
@@ -181,6 +192,7 @@ case "$BKJS_CMD" in
         [ -z $c ] && continue
         bksh -no-db -aws-create-launch-template-version -name $c -image-name "$image"
     done
+    exit
     ;;
 
   init-sendmail-ses)
@@ -226,6 +238,7 @@ case "$BKJS_CMD" in
     egrep '^MAILER' /etc/mail/sendmail.mc >> $file
     m4 $file > /etc/mail/sendmail.cf
     service sendmail restart
+    exit
     ;;
 
   init-sendmail-ses-relay)
@@ -241,6 +254,7 @@ case "$BKJS_CMD" in
           service sendmail restart
        fi
     fi
+    exit
     ;;
 
   init-cloudwatch-agent)
@@ -248,11 +262,12 @@ case "$BKJS_CMD" in
     if [ ! -d $dir ]; then
         arch=$OS_ARCH
         [ "$arch" = "x64" ] && arch=amd64
-        wget https://s3.amazonaws.com/amazoncloudwatch-agent/amazon_linux/$arch/latest/amazon-cloudwatch-agent.rpm
+        curl -OL https://s3.amazonaws.com/amazoncloudwatch-agent/amazon_linux/$arch/latest/amazon-cloudwatch-agent.rpm
         rpm -i amazon-cloudwatch-agent.rpm
         rm amazon-cloudwatch-agent.rpm
     fi
     $0 check-cloudwatch-agent
+    exit
     ;;
 
   check-cloudwatch-agent)
@@ -279,6 +294,7 @@ case "$BKJS_CMD" in
         systemctl restart amazon-cloudwatch-agent
         ;;
     esac
+    exit
     ;;
 
   check-ec2-storage)
@@ -311,6 +327,7 @@ case "$BKJS_CMD" in
     mkdir -p $mnt/log $mnt/var
     chown -R $user $mnt
     service rsyslog restart
+    exit
     ;;
 
   ecr-push)
@@ -327,6 +344,7 @@ case "$BKJS_CMD" in
     fi
     docker tag $tag $ecr
     docker push $ecr
+    exit
     ;;
 
   ecs-run)
@@ -382,6 +400,7 @@ case "$BKJS_CMD" in
     [ ! -z $(get_flag -dry-run) ] && echo $cmd && exit
 
     $cmd
+    exit
     ;;
 
   help)
@@ -402,10 +421,6 @@ case "$BKJS_CMD" in
     echo "  init-cloudwatch-agent [-restart] - install AWS Cloudwatch agent to send backend logs to Cloudwatch Logs"
     echo "  ecr-push -tag NAME [-version V] [-force] - tag and push a docker image to ECR"
     echo "  ecs-run -task NAME [-cluser default] [-type EC2|FARGATE] [-provider FARGATE_SPOT] [-gid ID] [-group NAME] [-sid ID] [-subnet NAME] [-cpu N] [-memory N] [-tag T] [-arm] [-exec] [-dry-tun] - run an ECS task in subnets with security groups, overrides cpu/mem, pass tag to bkjs process as instance tag"
-    ;;
-
-  *)
-    BKJS_UNKNOWN=1
     ;;
 esac
 
