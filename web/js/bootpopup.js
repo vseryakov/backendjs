@@ -189,6 +189,15 @@ function bootpopup(options)
             this.tabs = $("<div></div>", { class: this.options.class_tabs, role: "tablist" }).appendTo(this.form);
             this.tabContent = $("<div></div>", { class: this.options.class_tabcontent }).appendTo(this.form);
             for (const p in this.options.tabs) {
+                // Skip tabs with no elements
+                if (!this.options.content.some((o) => {
+                    for (const k in o) {
+                        for (const l in o[k]) {
+                            if (l == "tab_id" && p == o[k][l]) return 1;
+                        }
+                    }
+                    return 0
+                })) continue;
                 const active = this.options.tab ? this.options.tab == p : !Object.keys(tabs).length;
                 const tid = this.formid + "-tab" + p;
                 $("<a></a>", { class: this.options.class_tablink + (active ? " active" : ""), "data-toggle": toggle, id: tid + "0", href: "#" + tid, role: "tab", "aria-controls": tid, "aria-selected": false }).
@@ -278,10 +287,10 @@ function bootpopup(options)
 
                         // Special case for checkbox
                         if (/radio|checkbox/.test(attrs.type) && !opts.raw) {
-                            attrs.class = attrs.class || (opts.switch ? "custom-control-input": "form-check-input");
-                            label = $('<label></label>', { class: opts.class_input_label || (opts.switch ? "custom-control-label" : "form-check-label"), for: opts.for || attrs.id }).
+                            attrs.class = attrs.class || (opts.custom || opts.switch ? "custom-control-input": "form-check-input");
+                            label = $('<label></label>', { class: opts.class_input_label || (opts.custom || opts.switch ? "custom-control-label" : "form-check-label"), for: opts.for || attrs.id }).
                                     append(opts.input_label || opts.label);
-                            elem = $('<div></div>', { class: opts.class_check || (opts.switch ? "custom-control custom-switch" : "form-check") }).
+                            elem = $('<div></div>', { class: opts.class_check || (opts.custom || opts.switch ? `custom-control custom-${opts.switch ? "switch" : attrs.type}` : "form-check") }).
                             append($("<" + type + "/>", attrs)).
                             append(label);
                             if (opts.class_append || opts.text_append) {
