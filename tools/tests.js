@@ -25,102 +25,6 @@ tests.resetTables = function(tables, callback)
     });
 }
 
-tests.test_db_basic = function(callback)
-{
-    var tables = {
-            test1: { id: { primary: 1, pub: 1 },
-                     num: { type: "int" },
-                     num2: { type: "int" },
-                     num3: { type: "text", join: ["id","num"], join_strict: 1 },
-                     email: {},
-                     anum: { join: ["anum","num"], unjoin: 1 },
-                     jnum: { join: ["num2","num4"], unjoin: ["num2","num4"], join_strict: 1, keepjoined: 1 },
-                     num4: { hidden: 1 },
-                     mtime: { type: "now" },
-            },
-    };
-    var id = lib.random(64);
-    var id2 = lib.random(64);
-
-    db.describeTables(tables);
-
-    lib.series([
-        function(next) {
-             tests.resetTables(tables, next);
-        },
-        function(next) {
-            db.add("test1", { id: id, email: id, num: '1', num3: 1, num4: 1, anum: 1 }, function(err) {
-                if (err) return next(err);
-                db.put("test1", { id: id2, email: id2, num2: "2", num3: 2, num4: "2", anum: 2 }, next);
-            });
-        },
-        function(next) {
-            db.get("test1", { id: id }, function(err, row) {
-                assert(err || !row || row.id != id || row.num != 1 || row.num3 != row.id+"|"+row.num || row.anum != "1" || row.jnum || !row.mtime, "err1:", row);
-                next();
-            });
-        },
-        function(next) {
-            db.get("test1", { id: id2 }, function(err, row) {
-                assert(err || !row || row.num4 != "2" || row.jnum != row.num2 + "|" + row.num4, "err2:", row);
-                next();
-            });
-        },
-        function(next) {
-            // Type conversion for strictTypes
-            db.get("test1", { id: id, num: '1' }, function(err, row) {
-                assert(err || !row || row.id != id || row.num!=1, "err4:", row);
-                next();
-            });
-        },
-        function(next) {
-            db.list("test1", String([id,id2]), {}, function(err, rows) {
-                assert(err || rows.length!=2, "err5:", rows.length, rows);
-                next();
-            });
-        },
-        function(next) {
-            db.select("test1", { id: id, fake: 1 }, function(err, rows) {
-                assert(err || rows.length!=1, "err6:", rows);
-                next();
-            });
-        },
-        function(next) {
-            db.delAll("test1", { id: id }, next);
-        },
-        function(next) {
-            db.get("test1", { id: id }, function(err, row) {
-                assert(err || row, "err7:", row);
-                next();
-            });
-        },
-        function(next) {
-            db.put("test1", { id: id, email: id, num: 1 }, function(err) {
-                assert(err || 0, "err8:");
-                next();
-            });
-        },
-        function(next) {
-            db.update("test1", { id: id, email: "test", num: 2, mtime: 123 }, function(err, rc, info) {
-                assert(err || info.affected_rows!=1, "err9:", info);
-                next();
-            });
-        },
-        function(next) {
-            db.incr("test1", { id: id, num2: 2, mtime: 123 }, function(err, rc, info) {
-                assert(err || info.affected_rows!=1, "err10:", info);
-                next();
-            });
-        },
-        function(next) {
-            db.get("test1", { id: id }, (err, row) => {
-                assert(err || !row || row.email != "test" || row.num != 2 || row.num2 != 2 || !row.mtime || row.mtime == 123, "err11:", row);
-                next();
-            });
-        },
-    ], callback, true);
-}
-
 tests.test_db = function(callback)
 {
     var tables = {
@@ -156,6 +60,7 @@ tests.test_db = function(callback)
             id: { primary: 1, pub: 1 },
             type: { pub: 1 },
             notempty: { notempty: 1 },
+            ddd: { dflt: "1" },
         },
         test5: {
             id: { primary: 1, pub: 1 },
@@ -177,6 +82,7 @@ tests.test_db = function(callback)
             sen1: { regexp: lib.rxSentence },
             sen2: { regexp: lib.rxSentence },
             spec: { strip: lib.rxNoSpecial },
+            mapped: { values_map: ["1", null, "2", "none"] },
         },
     };
     var now = Date.now();
@@ -267,7 +173,7 @@ tests.test_db = function(callback)
         },
         function(next) {
             db.select("test4", { id: id }, function(err, rows) {
-                assert(err || rows.length!=1 || rows[0].id != id || rows[0].type!="like" || rows[0].fake, "err4:", rows);
+                assert(err || rows.length!=1 || rows[0].id != id || rows[0].type!="like" || rows[0].fake || rows[0].ddd != "1", "err4:", rows);
                 next();
             });
         },
@@ -580,7 +486,7 @@ tests.test_db = function(callback)
             });
         },
         function(next) {
-            db.put("test6", { id: id, num: 1, obj: { n: 1, v: 2 }, list: [{ n: 1 },{ n: 2 }], tags: "1,2,3", text: "123" }, { info_obj: 1 }, function(err, rc, info) {
+            db.put("test6", { id: id, num: 1, obj: { n: 1, v: 2 }, list: [{ n: 1 },{ n: 2 }], tags: "1,2,3", text: "123", mapped: "1" }, { info_obj: 1 }, function(err, rc, info) {
                 rec = info.obj;
                 assert(err, "err34:", info);
                 next();
@@ -597,19 +503,19 @@ tests.test_db = function(callback)
                 assert(err || !row || row.num != 2 || !row.obj || row.obj.n != 1 ||
                              !row.list || !row.list[0] || row.list[0].n != 1 ||
                              !row.tags || row.tags.length != 3 ||
-                             !row.text, "err36:", row);
+                             !row.text || row.mapped, "err36:", row);
                 next();
             });
         },
         function(next) {
-            db.incr("test6", { id: id + " ", action1: 2 }, function(err, rc, info) {
+            db.incr("test6", { id: id + " ", action1: 2, mapped: "2" }, function(err, rc, info) {
                 assert(err || !info.affected_rows, "err37:", info);
                 next();
             });
         },
         function(next) {
             db.get("test6", { id: id }, {}, function(err, row) {
-                assert(err || !row || (!configOptions.noCustomColumns && row.action1 != 3), "err38:", row, db.customColumn);
+                assert(err || !row || (!configOptions.noCustomColumns && row.action1 != 3) || row.mapped != "none", "err38:", row, db.customColumn);
                 next();
             });
         },
