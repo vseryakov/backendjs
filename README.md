@@ -17,7 +17,7 @@ Features:
 * Database operations (Get, Put, Del, Update, Select) for all supported databases using the same DB API.
 * Experimental database drivers for MySQL, Cassandra, Riak, CouchDB
 * Experimental DynamoDB Streams processing in background worker processes
-* Easily extensible to support any kind of database, provides a database driver on top of Redis with all supported methods as an example.
+* Easily extensible to support any kind of database, provides an experimental database driver on top of Redis with all supported methods as an example.
 * Supports crontab and queue job processing by separate worker processes.
 * Authentication is based on signed requests using API key and secret, similar to Amazon AWS signing requests.
 * Runs web server as separate processes to utilize multiple CPU cores.
@@ -78,7 +78,7 @@ Here is the list of modules required for each internal feature:
 - `nats` - NATS driver for queue and events
 - `amqplib` - RabbitMQ driver for queue and events (alpha)
 
-The command below will show all core and optional dependencies
+The command below will show all core and optional dependencies, `npm install` will install only the core dependencies
 
      bkjs deps -dry-run -mods
 
@@ -907,12 +907,12 @@ There are two ways to send messages via Websockets to the server from a browser:
     api.app.all("/project/ws", (req, res) => {
         switch (req.query.op) {
         case "/project/update":
-            ....
-           api.wsNotify({ query: { id: req.query.project.id }, { op: "/project/update", project: req.query.project });
+           //  some code ....
+           api.wsNotify({ query: { id: req.query.project.id } }, { op: "/project/update", project: req.query.project });
            break;
        }
        res.send("");
-   });
+    });
 ````
 
 In any case all Websocket messages sent from the server will arrive in the event handler and must be formatted properly in order to distinguish what is what, this is
