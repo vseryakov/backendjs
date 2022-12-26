@@ -152,6 +152,11 @@ case "$BKJS_CMD" in
     exit
     ;;
 
+  demo-crdb)
+    cockroach demo --no-example-database --insecure
+    ;;
+
+
   shell-crdb)
     cockroach sql --insecure --host=localhost:26257 $(get_all_args)
     exit

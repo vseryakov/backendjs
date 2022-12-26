@@ -77,7 +77,7 @@ tests.test_db = function(callback)
             num: {},
             obj: { type: "obj" },
             list: { type: "array" },
-            tags: { type: "list" },
+            tags: { type: "list", datatype: "int" },
             text: {},
             sen1: { regexp: lib.rxSentence },
             sen2: { regexp: lib.rxSentence },
@@ -280,9 +280,7 @@ tests.test_db = function(callback)
         function(next) {
             lib.forEachSeries([1,2,3,4,5,6,7,8,9], function(i, next2) {
                 db.put("test2", { id: id2, id2: String(i), email: id, name: id, birthday: id, num: i, num2: i, mtime: now }, next2);
-            }, function(err) {
-                next(err);
-            });
+            }, next);
         },
         function(next) {
             // Check pagination
@@ -388,9 +386,7 @@ tests.test_db = function(callback)
         function(next) {
             lib.forEachSeries([1,2,3], function(i, next2) {
                 db.put("test5", { id: id, type: "like", peer: i, skipcol: "skip" }, next2);
-            }, function(err) {
-                next(err);
-            });
+            }, next);
         },
         function(next) {
             db.select("test5", { id: id }, {}, function(err, rows) {
@@ -493,35 +489,54 @@ tests.test_db = function(callback)
             });
         },
         function(next) {
-            db.update("test6", { id: id, num: 2, mtime: rec.mtime, obj: "1", action1: 1 }, function(err, rc, info) {
-                assert(err || !info.affected_rows, "err35:", info);
+            var q = { id: id, num: 2, mtime: rec.mtime, obj: "1", action1: 1 };
+            if (!configOptions.noListOps) q.tags = "4";
+            db.update("test6", q, { updateOps: { tags: "add" } }, function(err, rc, info) {
+                assert(err || !info.affected_rows, "must update 1 row:", info);
                 next();
             });
         },
         function(next) {
             db.get("test6", { id: id + " " }, {}, function(err, row) {
-                assert(err || !row || row.num != 2 || !row.obj || row.obj.n != 1 ||
-                             !row.list || !row.list[0] || row.list[0].n != 1 ||
-                             !row.tags || row.tags.length != 3 ||
-                             !row.text || row.mapped, "err36:", row);
+                assert(err || row?.num != 2 || row.obj?.n != 1, "num must be 2 and obj.n must be 1", row)
+                assert(!row.list || !row.list[0] || row.list[0].n != 1, "list must have 0 item n.1", row);
+                if (!configOptions.noListOps) {
+                    expect(row.tags?.length == 4 && row.tags == "1,2,3,4", "tags must be 1,2,3,4", row);
+                }
+                expect(row.text && !row.mapped, "text must be not null but mapped must be null", row);
                 next();
             });
         },
         function(next) {
-            db.incr("test6", { id: id + " ", action1: 2, mapped: "2" }, function(err, rc, info) {
+            db.incr("test6", { id: id + " ", action1: 2, mapped: "2", tags: [3,4,5] }, function(err, rc, info) {
                 assert(err || !info.affected_rows, "err37:", info);
                 next();
             });
         },
         function(next) {
             db.get("test6", { id: id }, {}, function(err, row) {
-                assert(err || !row || (!configOptions.noCustomColumns && row.action1 != 3) || row.mapped != "none", "err38:", row, db.customColumn);
+                assert(err || !row || (!configOptions.noCustomColumns && row.action1 != 3), "action1 must be 3", row, db.customColumn);
+                expect(row.mapped == "none", "mapped must be none", row)
+                expect(row.tags?.length === 3 && row.tags == "3,4,5", "tags must be a list", row)
                 next();
             });
         },
         function(next) {
+            db.update("test6", { id: id, tags: [6,7] }, { updateOps: { tags: "add" } }, next);
+        },
+        function(next) {
             db.list("test6", [id + " "], {}, function(err, rows) {
                 assert(err || rows.length != 1, "must return 1 row:", rows, db.customColumn);
+                expect(configOptions.noListOps || rows[0].tags == "3,4,5,6,7", "tags must have 5 items", rows, configOptions)
+                next();
+            });
+        },
+        function(next) {
+            db.update("test6", { id: id, tags: "6" }, { updateOps: { tags: "del" }, logger_db: "info" }, next);
+        },
+        function(next) {
+            db.get("test6", { id: id }, function(err, row) {
+                expect(configOptions.noListOps || row?.tags == "3,4,5,7", "tags must have 4 items", row, configOptions)
                 next();
             });
         },
@@ -533,7 +548,7 @@ tests.test_db = function(callback)
                 id: id, obj: { test: str }, tags: list, list: list, text: str,
                 sen1: "a b, c!",
                 sen2: "<tag>test",
-                spec: "$t<e>st@/.!"
+                spec: "$t<e>st@/.!",
             };
             db.update("test6", q, function(err, rc, info) {
                 expect(!err && info.affected_rows, "update failed:", info);
@@ -544,7 +559,7 @@ tests.test_db = function(callback)
             db.get("test6", { id: id }, {}, function(err, row) {
                 assert(err ||
                              row?.text != "123" ||
-                             row?.tags?.length != 3 ||
+                             row?.tags?.length > 5 ||
                              row?.list?.length != 2 ||
                              row?.obj?.n != 1, "max size limits failed:", row);
                 expect(row.spec == "$test@/.", "spec regexp failed", row.spec)
@@ -850,7 +865,7 @@ tests.test_config = function(callback)
     callback();
 }
 
-tests.test_logwatcher = function(callback)
+tests._test_logwatcher = function(callback)
 {
     var argv = ["-logwatcher-send-error", "console://",
                 "-logwatcher-send-test", "console://",
@@ -1303,7 +1318,7 @@ tests.test_flow = function(callback, test)
 
 }
 
-tests.test_toparams = function(callback, test)
+tests._test_toparams = function(callback, test)
 {
     var q = lib.toParams({}, {
         id: { type: "int" },
