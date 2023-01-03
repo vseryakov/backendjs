@@ -25,7 +25,6 @@ case "$BKJS_CMD" in
     ($0 init-limits $args)
     ($0 init-sysctl $args)
     ($0 init-monit-system $args)
-    ($0 init-monit-bkjs $args)
     ($0 init-logrotate $args)
     ($0 init-rsyslog $args)
     ($0 init-home $args)
@@ -36,6 +35,7 @@ case "$BKJS_CMD" in
 
    init-profile)
     # Create global profile
+    find_user
     sysconf=/etc/sysconfig
     [ ! -d $sysconf -a -d /etc/default ] && sysconf=/etc/default
     echo "BKJS_HOME=$BKJS_HOME" > $sysconf/$BKJS
@@ -76,27 +76,20 @@ case "$BKJS_CMD" in
     find_user
     LHOME=/home/$BKJS_USER
     if [ "$(grep -s $BKJS_USER /etc/passwd)" = "" ]; then
-       echo "Adding user $BKJS_USER..."
-       case $OS_TYPE in
-        alpine)
-          adduser -D -G wheel -s /bin/bash $BKJS_USER
-          if [ -f /etc/conf.d/tiny-cloud ]; then
-              $SED "s/^#?CLOUD_USER.+/CLOUD_USER=$BKJS_USER/" /etc/conf.d/tiny-cloud
-          fi
-          ;;
+        echo "Adding user $BKJS_USER..."
+        useradd -m -g wheel -s /bin/bash $BKJS_USER
+        mkdir -p -m 700 $LHOME/.ssh && chown $BKJS_USER $LHOME/.ssh
+    fi
 
-        *)
-          useradd -g wheel -m $BKJS_USER
-          ;;
-       esac
-       mkdir -p -m 700 $LHOME/.ssh && chown $BKJS_USER $LHOME/.ssh
-       [ -d /etc/sudoers.d ] && echo "$BKJS_USER ALL = NOPASSWD: ALL" > /etc/sudoers.d/$BKJS
+    if [ -f /etc/conf.d/tiny-cloud ]; then
+        $SED "s/^#?CLOUD_USER.+/CLOUD_USER=$BKJS_USER/" /etc/conf.d/tiny-cloud
     fi
 
     # Allow path in sudo and skip tty for our user so we can run commands via ssh
-    if [ ! -f /etc/sudoers.d/$BKJS -a -d /etc/sudoers.d ]; then
-       echo "Defaults secure_path = /sbin:/bin:/usr/sbin:/usr/bin:/usr/local/bin:$BKJS_PREFIX/bin:$LHOME/bin:$LHOME/node_modules/.bin" >> /etc/sudoers.d/$BKJS
-       echo "Defaults:$BKJS_USER !requiretty" >> /etc/sudoers.d/$BKJS
+    if [ -d /etc/sudoers.d -a ! -f /etc/sudoers.d/$BKJS ]; then
+        echo "Defaults secure_path = /sbin:/bin:/usr/sbin:/usr/bin:/usr/local/bin:$BKJS_PREFIX/bin:$LHOME/bin:$LHOME/node_modules/.bin" >> /etc/sudoers.d/$BKJS
+        echo "Defaults:$BKJS_USER !requiretty" >> /etc/sudoers.d/$BKJS
+        echo "$BKJS_USER ALL = NOPASSWD: ALL" > /etc/sudoers.d/$BKJS
     fi
 
     # Aliases and environment
@@ -118,8 +111,6 @@ case "$BKJS_CMD" in
        echo 'alias df="df -h"' >> $LHOME/.bashrc
        echo 'alias bkls="bkjs ec2-ls"' >> $LHOME/.bashrc
        echo 'bcp() { socat readline,history=$HOME/.socat tcp4:localhost:$1; }' >> $LHOME/.bashrc
-       echo 'ec2ssh() { ssh -i ~/.ssh/$2.pem -l ec2-user $1 $3; }' >> $LHOME/.bashrc
-       echo 'ec2scp() { scp -r -i ~/.ssh/$3.pem $1 ec2-user@$2; }' >> $LHOME/.bashrc
        echo 'bkssh() { bkjs ec2-ssh -tag "$1" -index "$2" -cmd "$3" -skip-tag dev,staging; }' >> $LHOME/.bashrc
        echo 'bkstop() { bkjs ec2-ssh -tag ${1-api} -index "$2" -cmd "bkjs stop-${3-api}" -skip-tag dev,staging; }' >> $LHOME/.bashrc
        echo 'bksync() { (cd $HOME/node_modules/$1 && bkjs sync -host "$(bkjs ec2-host -tag ${2-api} -skip-tag dev,staging)"); }' >> $LHOME/.bashrc
@@ -127,8 +118,14 @@ case "$BKJS_CMD" in
        echo 'bkami() { bkjs create-ami && bkjs create-launch-template-version; }' >> $LHOME/.bashrc
        echo "PROMPT_COMMAND='printf \"\\033]0;\$(cat \$HOME/var/bkjs.tag)\\007\"'" >> $LHOME/.bashrc
     fi
+
+    if [ "$(grep -s bashrc $LHOME/.bash_profile)" = "" ]; then
+        echo "Configuring .bash_profile .bashrc..."
+        echo '[ -f ~/.bashrc ] && . ~/.bashrc' >> $LHOME/.bash_profile
+    fi
+
     if [ "$(grep -s '#Bkjs' $LHOME/.bash_profile)" = "" ]; then
-       echo "Configuring .bashrc..."
+       echo "Configuring .bash_profile..."
        echo '#Bkjs' >> $LHOME/.bash_profile
        echo '[ ! -s ~/var/bkjs.tag ] && bkjs ec2-tag > ~/var/bkjs.tag' >> $LHOME/.bash_profile
        echo '[ -s ~/var/bkjs.tag ] && export PS1=$(cat ~/var/bkjs.tag)#' >> $LHOME/.bash_profile
@@ -156,13 +153,12 @@ case "$BKJS_CMD" in
     egrep -v '^(#Bkjs|PasswordAuth|GSSAPIAuth|MaxAuth|MaxSess|ClientAlive|PermitRootLogin)' /etc/ssh/sshd_config > /tmp/sshd_config
     echo "" >> /tmp/sshd_config
     echo "#Bkjs config" >> /tmp/sshd_config
+    echo "PermitRootLogin no" >> /tmp/sshd_config
     echo "PasswordAuthentication no" >> /tmp/sshd_config
-    echo "GSSAPIAuthentication no" >> /tmp/sshd_config
     echo "MaxAuthTries 10" >> /tmp/sshd_config
     echo "MaxSessions 10" >> /tmp/sshd_config
     echo "ClientAliveInterval 15" >> /tmp/sshd_config
     echo "ClientAliveCountMax 5" >> /tmp/sshd_config
-    echo "PermitRootLogin no" >> /tmp/sshd_config
     mv /tmp/sshd_config /etc/ssh
     chmod 600 /etc/ssh/sshd_config
     service sshd restart
@@ -177,7 +173,7 @@ case "$BKJS_CMD" in
        echo "/var/log/cron /var/log/messages {" >> /etc/logrotate.d/syslog
        echo " missingok" >> /etc/logrotate.d/syslog
        echo " daily" >> /etc/logrotate.d/syslog
-       echo " rotate 30" >> /etc/logrotate.d/$BKJS
+       echo " rotate 90" >> /etc/logrotate.d/$BKJS
        echo " sharedscripts" >> /etc/logrotate.d/syslog
        echo " postrotate" >> /etc/logrotate.d/syslog
        echo "  /usr/bin/killall -q -HUP rsyslogd" >> /etc/logrotate.d/syslog
@@ -190,7 +186,7 @@ case "$BKJS_CMD" in
        echo "$BKJS_HOME/log/message.log $BKJS_HOME/log/access.log {" >> /etc/logrotate.d/$BKJS
        echo " missingok" >> /etc/logrotate.d/$BKJS
        echo " daily" >> /etc/logrotate.d/$BKJS
-       echo " rotate 30" >> /etc/logrotate.d/$BKJS
+       echo " rotate 90" >> /etc/logrotate.d/$BKJS
        echo " sharedscripts" >> /etc/logrotate.d/$BKJS
        echo " postrotate" >> /etc/logrotate.d/$BKJS
        echo "  /usr/bin/killall -q -HUP rsyslogd" >> /etc/logrotate.d/$BKJS
@@ -239,12 +235,12 @@ case "$BKJS_CMD" in
        echo '$MaxMessageSize 64k' >> /etc/rsyslog.conf
        echo '$SystemLogRateLimitInterval 0' >> /etc/rsyslog.conf
        echo '$SystemLogRateLimitBurst 0' >> /etc/rsyslog.conf
-       echo '$imjournalRatelimitInterval 0' >> /etc/rsyslog.conf
-       echo '$imjournalRatelimitBurst 0' >> /etc/rsyslog.conf
        echo '$ActionFileDefaultTemplate RSYSLOG_FileFormat' >> /etc/rsyslog.conf
        if [ -d /etc/systemd ]; then
-          echo '$OmitLocalLogging on' >> /etc/rsyslog.conf
           echo '$IMJournalStateFile imjournal.state' >> /etc/rsyslog.conf
+          echo '$imjournalRatelimitInterval 0' >> /etc/rsyslog.conf
+          echo '$imjournalRatelimitBurst 0' >> /etc/rsyslog.conf
+          echo '$OmitLocalLogging on' >> /etc/rsyslog.conf
           echo '*.emerg :omusrmsg:*' >> /etc/rsyslog.conf
        else
           echo 'kern.*,*.emerg /dev/console' >> /etc/rsyslog.conf
@@ -284,8 +280,6 @@ case "$BKJS_CMD" in
         sed -i 's/SELINUX=(enforcing|permissive)/SELINUX=disabled/' /etc/selinux/config
     fi
 
-    # Make sure monit is running all the time
-    echo "set logfile syslog" > /etc/monit.d/logging
     case "$OS_TYPE" in
       amazon)
         chkconfig monit on
@@ -295,12 +289,16 @@ case "$BKJS_CMD" in
       alpine)
         rc-update add monit
         ln -s /usr/bin/doas /usr/bin/sudo
+        echo "permit nopass :wheel as root" >> /etc/doas.d/doas.conf
         ;;
     esac
+    # Make sure monit is running all the time
+    mkdir -p /etc/monit.d
+    echo "set logfile syslog" > /etc/monit.d/logging
     service monit restart
 
     # Allow sudo use local binaries
-    sed -i 's/requiretty/!requiretty/' /etc/sudoers
+    [ -f /etc/sudoers ] && sed -i 's/requiretty/!requiretty/' /etc/sudoers
     exit
     ;;
 
@@ -434,9 +432,11 @@ case "$BKJS_CMD" in
     echo "Init service $BKJS with $BKJS_BIN"
     case $OS_TYPE in
       alpine)
-        $ECHO "#!/sbin/openrc-run\nname=\"$BKJS\""
-        $ECHO "depend() {\n\tneed logger\n}"
-        $ECHO "start() {\n\t$BKJS_BIN check-server\n}"
+        conf=/etc/init.d/$BKJS
+        $ECHO "#!/sbin/openrc-run\nname=\"$BKJS\"" > $conf
+        $ECHO "depend() {\n\tneed logger\n}" >> $conf
+        $ECHO "start() {\n\t$BKJS_BIN check-server\n}" >> $conf
+        chmod 755 $conf
         ;;
 
       *)
@@ -486,7 +486,6 @@ case "$BKJS_CMD" in
         fi
         ;;
     esac
-    $0 stop-monit-bkjs
     $0 stop
     exit
     ;;
@@ -547,8 +546,8 @@ case "$BKJS_CMD" in
     # Linux distro specific actions
     case "$OS_TYPE" in
       alpine)
-        packages="$packages nodejs-current npm man-pages monit-openrc rsyslog-openrc"
-        packages="$packages g++ python3 libexecinfo-dev libpng-dev"
+        packages="$packages nodejs npm man-pages monit-openrc rsyslog-openrc shadow doas"
+        packages="$packages g++ python3 libpng-dev"
         ver=$(cat /etc/alpine-release|cut -d. -f1,2)
         $SED "s/^# *(.+v$ver\/community)\$/\1/" /etc/apk/repositories
         apk update
@@ -557,7 +556,7 @@ case "$BKJS_CMD" in
 
       amazon)
         packages="$packages gcc-c++ libuuid-devel openssl-devel libxml2-devel openldap-devel readline-devel libpng-devel libjpeg-turbo-devel"
-        packages="$packages ntp man telnet monit java-latest-openjdk-headless"
+        packages="$packages ntp man telnet"
         amazon-linux-extras install epel -y
         yum -y -q clean metadata
         yum -y -q install epel-release
@@ -568,7 +567,7 @@ case "$BKJS_CMD" in
         ;;
 
       ubuntu)
-        packages="$packages ntp man telnet openjdk-15-jre-headless"
+        packages="$packages ntp man telnet"
         apt install build-essential $packages
         ;;
     esac
