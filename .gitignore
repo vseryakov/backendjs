@@ -9,6 +9,8 @@
 *.swp
 *.*~
 *.log
+*.gz
+*.br
 *.tgz
 *.zip
 *.js.map

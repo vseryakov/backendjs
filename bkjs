@@ -299,25 +299,6 @@ case "$BKJS_CMD" in
     exit 0
     ;;
 
-  check-adhoc)
-    [ "$BKJS_IDLETIME" = "" ] && BKJS_IDLETIME=900
-    [ "$BKJS_UPTIME" = "" ] && BKJS_UPTIME=43200
-    uptime=$(</proc/uptime)
-    uptime=${uptime%%.*}
-    if [ $uptime -gt $BKJS_IDLETIME ]; then
-       ps=$(ps agx|grep "$BKJS: worker"|grep -v grep)
-       if [ "$ps" = "" ]; then
-          logger "No backend is running, $uptime/$BKJS_IDLETIME, shutting down..."
-          echo $ps >> /var/log/messages
-          /sbin/halt
-       fi
-   fi
-   if [ $uptime -gt $BKJS_UPTIME ]; then
-      logger "Running too long, $uptime/$BKJS_UPTIME, shutting down..."
-      /sbin/halt
-   fi
-   ;;
-
   send-alert)
     event=$(get_arg -event $MONIT_EVENT)
     descr=$(get_arg -descr $MONIT_DESCRIPTION)
@@ -513,7 +494,7 @@ case "$BKJS_CMD" in
         exit 0
     fi
     if [[ ! -z $(get_flag -clean) ]]; then
-        rm -f web/css/*.bundle.css web/js/*.bundle.*js
+        rm -f web/css/*.bundle.css* web/js/*.bundle.*js*
         exit 0
     fi
 
@@ -522,6 +503,7 @@ case "$BKJS_CMD" in
     dev=$(get_flag -dev)
     quiet=$(get_flag -quiet)
     force=$(get_flag -force)
+    gzip=$(get_flag -gzip)
 
     if [[ $file =~ \.bundle\.(js|css|html)$ ]]; then
        exit
@@ -587,6 +569,7 @@ case "$BKJS_CMD" in
                 else
                     (cd $dir && cat $files > web/js/$bundle.bundle.js)
                 fi
+                [ ! -z "$gzip" ] && gzip -9 -c $dir/web/js/$bundle.bundle.js > $dir/web/js/$bundle.bundle.js.gz
                 ;;
 
             *css)
@@ -597,6 +580,7 @@ case "$BKJS_CMD" in
                 else
                     (cd $dir && cat $files > web/css/$bundle.bundle.css)
                 fi
+                [ ! -z "$gzip" ] && gzip -9 -c $dir/web/css/$bundle.bundle.css > $dir/web/css/$bundle.bundle.css.gz
                 ;;
 
             *html)
@@ -623,6 +607,7 @@ case "$BKJS_CMD" in
                     fi
                     cat $tmp/$n >> $dir/web/js/$bundle.bundle.html.js
                 done
+                [ ! -z "$gzip" ] && gzip -9 -c $dir/web/js/$bundle.bundle.html.js > $dir/web/js/$bundle.bundle.html.js.gz
                 ;;
             esac
             [ "$BKJS_DEBUG" != "" ] && echo "$(date): $BKJS_CMD: $bundle.$type finished $dir/$file"
@@ -704,14 +689,13 @@ case "$BKJS_CMD" in
     echo "  run - run local backend with provided arguments"
     echo ""
     echo "  check-server - run the checks before starting the backend, processed by all tools scripts"
-    echo "  check-adhoc - to be run on adhoc instances, check for idleness, if no jobs running then shutdown the host"
     echo "  logwatcher - runs the log watcher and exists, for cases when no $BKJS service is running but the error log must be watched"
     echo "  send-alert [-event EVENT] [-descr DESCR] - appends alert message to the error log and runs the command for all tools scripts, if called from the monit then event/descr will be provided"
     echo ""
     echo "  deps [-fields dependencies,devDependencies] [-path .] [-skip REGEXP] [-global] [-update] [-mods] [-strict] [-check] [-npm ARGS] - install or show npm dependencies from the package.json, optional bkjs modules require -mods flag"
     echo "  sync [-host HOST] [-path PATH] [-del] [-user USER] [-ssh-key pem] [-ssh OPTS] [-exclude PATTERN] [-bkcmd CMD] - push the backend code to the remote host using rsync, default path is ~/node_modules/$BKJS_MOD"
     echo "  ssh -host HOST -cmd CMD [-user USER] [-key PEM] [-ssh ARGS] - run a command over ssh on all specified hosts"
-    echo "  web-bundle -file FILE|(js|css|html)|BUNDLE.(js|css|html) [-compress] [-dev] [-uglifyargs ARGS] [-all] [-list] [-force] [-clean] - produce a web bundle by uglifying js/css/html files into one file, resolves files from package.json"
+    echo "  web-bundle -file FILE|(js|css|html)|BUNDLE.(js|css|html) [-gzip] [-dev] [-compress] [-uglifyargs ARGS] [-all] [-list] [-force] [-clean] - produce a web bundle by uglifying js/css/html files into one file, resolves files from package.json"
     echo "  install-node [-prefix PATH] [-force] [-clean] - install binary release of the node into $BKJS_PREFIX or specified path"
     echo ""
     echo "  bkhelp - show all $BKJS_MOD config parameters"
