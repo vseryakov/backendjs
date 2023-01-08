@@ -125,7 +125,7 @@
     "start": "./bkjs run-backend",
     "stop": "./bkjs stop",
     "doc": "node tools/doc.js > web/doc.html",
-    "build": "./bkjs web-bundle -all",
+    "build": "./bkjs web-bundle -all -gzip",
     "devbuild": "./bkjs web-bundle -all -dev"
   }
 }
