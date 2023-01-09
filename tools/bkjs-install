@@ -130,7 +130,6 @@ case "$BKJS_CMD" in
        echo '[ ! -s ~/var/bkjs.tag ] && bkjs ec2-tag > ~/var/bkjs.tag' >> $LHOME/.bash_profile
        echo '[ -s ~/var/bkjs.tag ] && export PS1=$(cat ~/var/bkjs.tag)#' >> $LHOME/.bash_profile
     fi
-    echo "package-lock=false" > $LHOME/.npmrc
     exit
     ;;
 
@@ -253,8 +252,13 @@ case "$BKJS_CMD" in
        rm -rf /var/log/maillog* /var/log/secure* /var/log/spooler*
        touch /var/log/messages
        chown -R $BKJS_USER /var/log/messages
+       if [ "$OS_TYPE" = "alpine" ]; then
+          rc-update del syslog boot
+          rc-update add rsyslog boot
+       fi
        service rsyslog restart
     fi
+
     if [ "$(grep -s "#Bkjs $BKJS_HOME" /etc/rsyslog.d/$BKJS.conf)" = "" ]; then
        echo "Configuring rsyslog.d/$BKJS ..."
        mkdir -p /etc/rsyslog.d
@@ -277,13 +281,13 @@ case "$BKJS_CMD" in
   init-system)
     # Disable SELinux
     if [ -f /etc/selinux/config ]; then
-        sed -i 's/SELINUX=(enforcing|permissive)/SELINUX=disabled/' /etc/selinux/config
+        $SED 's/SELINUX=(enforcing|permissive)/SELINUX=disabled/' /etc/selinux/config
     fi
 
     case "$OS_TYPE" in
       amazon)
         chkconfig monit on
-        sed -E -i 's/^After.+$/After=network.target cloud-init.target/' /etc/systemd/system/multi-user.target.wants/monit.service
+        $SED 's/^After.+$/After=network.target cloud-init.target/' /etc/systemd/system/multi-user.target.wants/monit.service
         ;;
 
       alpine)
@@ -298,7 +302,7 @@ case "$BKJS_CMD" in
     service monit restart
 
     # Allow sudo use local binaries
-    [ -f /etc/sudoers ] && sed -i 's/requiretty/!requiretty/' /etc/sudoers
+    [ -f /etc/sudoers ] && $SED 's/requiretty/!requiretty/' /etc/sudoers
     exit
     ;;
 
@@ -325,13 +329,13 @@ case "$BKJS_CMD" in
         fi
     fi
     if [ -f /etc/rc.conf ]; then
-        sed -i 's|^#?rc_ulimit.*|rc_ulimit="-n 512000 -c unlimited -l unlimited"|' /etc/rc.conf
+        $SED 's/^#?rc_ulimit.*/rc_ulimit="-n 512000 -c unlimited -l unlimited"/' /etc/rc.conf
     fi
     if [ -f /etc/init.d/monit ]; then
-        sed -i 's|daemon $prog|ulimit -n 512000\n\tdaemon $prog|' /etc/init.d/monit
+        $SED 's/daemon $prog/ulimit -n 512000\n\tdaemon $prog/' /etc/init.d/monit
     fi
     if [ -f /etc/systemd/system.conf ]; then
-        sed -i -E 's/^#?DefaultLimitNOFILE=.*$/DefaultLimitNOFILE=512000/' /etc/systemd/system.conf
+        $SED 's/^#?DefaultLimitNOFILE=.*$/DefaultLimitNOFILE=512000/' /etc/systemd/system.conf
     fi
     exit
     ;;
@@ -377,55 +381,6 @@ case "$BKJS_CMD" in
     exit
     ;;
 
-  init-postfix)
-    # Setup postfix with origin domain name
-    [ "$(grep -s '#Bkjs' /etc/postfix/main.cf)" != "" ] && exit
-    yum -y -q remove sendmail
-    yum -y -q install postfix
-    echo "Configuring postfix..."
-    echo '#Bkjs' > /tmp/main.cf
-    echo 'myorigin = $mydomain' >> /tmp/main.cf
-    egrep -v '^(#Bkjs|myorigin)' /etc/postfix/main.cf >> /tmp/main.cf
-    mv /tmp/main.cf /etc/postfix
-    chkconfig postfix on
-    postfix start
-    exit
-    ;;
-
-  init-dns)
-    # DNS cache
-    [ "$(grep -s '#Bkjs' /etc/dnsmasq.conf)" != "" ] && exit
-    yum -y -q install dnsmasq
-    echo "#Bkjs" > /etc/dnsmasq.conf
-    echo "domain-needed" >> /etc/dnsmasq.conf
-    echo "bogus-priv" >> /etc/dnsmasq.conf
-    echo "no-resolv" >> /etc/dnsmasq.conf
-    echo "no-poll" >> /etc/dnsmasq.conf
-    grep nameserver /etc/resolv.conf |grep -v 127|sed 's/nameserver /server=/' >> /etc/dnsmasq.conf
-    echo "server=8.8.8.8" >> /etc/dnsmasq.conf
-    echo "server=8.8.4.4" >> /etc/dnsmasq.conf
-    echo "listen-address=127.0.0.1" >> /etc/dnsmasq.conf
-    echo "no-dhcp-interface=" >> /etc/dnsmasq.conf
-    echo "nameserver 127.0.0.1" > /etc/resolv.conf
-    echo "search $BKJS_DNS" >> /etc/resolv.conf
-    chkconfig dnsmasq on
-    service dnsmasq restart
-    exit
-    ;;
-
-  init-adhoc)
-    # Duplicate messages to the console for easier access
-    echo '*.info /dev/console' > /etc/rsyslog.d/console.conf
-    truncate -c -s 0 /var/log/messages $BKJS_HOME/log/message.log $BKJS_HOME/log/error.log
-    service rsyslog restart
-    # Support for shutdown as normal user for instances
-    chmod u+s /sbin/reboot
-    # Make sure instances are not running indefinitely
-    cron=$(get_arg -cron "*/30 * * * *")
-    echo 'MAILTO=""' > /etc/cron.d/$BKJS-adhoc
-    echo "$cron root $BKJS_BIN check-adhoc" >> /etc/cron.d/$BKJS-adhoc
-    ;;
-
   init-service)
     # Install service for a script or bkjs service
     find_user
@@ -437,6 +392,7 @@ case "$BKJS_CMD" in
         $ECHO "depend() {\n\tneed logger\n}" >> $conf
         $ECHO "start() {\n\t$BKJS_BIN check-server\n}" >> $conf
         chmod 755 $conf
+        rc-update add $BKJS
         ;;
 
       *)
@@ -459,16 +415,6 @@ case "$BKJS_CMD" in
         fi
         ;;
     esac
-    server=$(get_arg -server)
-    if [ "$server" != "" ]; then
-        echo "BKJS_SERVER=$server" > /tmp/profile
-        grep -vs BKJS_SERVER $BKJS_HOME/etc/profile >> /tmp/profile
-        mv /tmp/profile $BKJS_HOME/etc
-        chown $BKJS_USER $BKJS_HOME/etc/profile
-    fi
-    # Execute a command if given
-    cmd=$(get_arg -cmd)
-    [ "$cmd" != "" ] && service $BKJS $cmd
     exit
     ;;
 
@@ -507,24 +453,24 @@ case "$BKJS_CMD" in
       *)
         yum install google-authenticator –y
         if [ "$(egrep -s 'pam_google_authenticator' /etc/pam.d/sshd)" = "" ]; then
-            sed -i -r 's|^auth[ \t]+substack[ \t]+password-auth|auth required pam_google_authenticator.so\n#auth substack password-auth|' /etc/pam.d/sshd
+            $SED 's/^auth[ \t]+substack[ \t]+password-auth/auth required pam_google_authenticator.so\n#auth substack password-auth/' /etc/pam.d/sshd
         fi
         if [ "$(egrep -s 'pam_google_authenticator' /etc/pam.d/system-auth)" = "" ]; then
-            sed -i -r 's|^auth[ \t]+sufficient[ \t]+pam_unix.so nullok try_first_pass|auth requisite pam_unix.so nullok try_first_pass\nauth sufficient pam_google_authenticator.so|' /etc/pam.d/system-auth
+            $SED 's/^auth[ \t]+sufficient[ \t]+pam_unix.so nullok try_first_pass/auth requisite pam_unix.so nullok try_first_pass\nauth sufficient pam_google_authenticator.so/' /etc/pam.d/system-auth
         fi
         ;;
     esac
     echo >> /etc/ssh/sshd_config
     if [ "$(egrep -s '^UsePAM yes' /etc/ssh/sshd_config)" = "" ]; then
-        sed -i -r 's|^UsePAM|#UsePAM|' /etc/ssh/sshd_config
+        $SED 's/^UsePAM/#UsePAM/' /etc/ssh/sshd_config
         echo 'UsePAM yes' >> /etc/ssh/sshd_config
     fi
     if [ "$(egrep -s '^ChallengeResponseAuthentication yes' /etc/ssh/sshd_config)" = "" ]; then
-        sed -i -r 's|^ChallengeResponseAuthentication|#ChallengeResponseAuthentication|' /etc/ssh/sshd_config
+        $SED 's/^ChallengeResponseAuthentication/#ChallengeResponseAuthentication/' /etc/ssh/sshd_config
         echo 'ChallengeResponseAuthentication yes' >> /etc/ssh/sshd_config
     fi
     if [ "$(egrep -s '^AuthenticationMethods publickey,keyboard-interactive' /etc/ssh/sshd_config)" = "" ]; then
-        sed -i -r 's|^AuthenticationMethods|#AuthenticationMethods|' /etc/ssh/sshd_config
+        $SED 's/^AuthenticationMethods/#AuthenticationMethods/' /etc/ssh/sshd_config
         echo 'AuthenticationMethods publickey,keyboard-interactive' >> /etc/ssh/sshd_config
     fi
     su $(get_arg -user ec2-user) -c "google-authenticator -d -t -f -r 2 -R 30"
@@ -541,7 +487,7 @@ case "$BKJS_CMD" in
 
   install-packages)
     # Install required development and runtime packages
-    packages="bash git nano rsync rsyslog socat monit mc make gcc cmake autoconf automake libtool"
+    packages="bash git curl nano rsync rsyslog socat monit mc make gcc cmake autoconf automake libtool"
 
     # Linux distro specific actions
     case "$OS_TYPE" in
@@ -593,9 +539,6 @@ case "$BKJS_CMD" in
     echo "  init-system - setup system wide parameters, permissions"
     echo "  init-limits - setup ulimits"
     echo "  init-sysctl - setup sysctl parameters"
-    echo "  init-postfix - [-domain DOMAIN] install and configure postfix for the domain"
-    echo "  init-dns - install and setup dnsmasq for local cahching DNS server"
-    echo "  init-adhoc - configure for running temporary ad-hoc instances"
     echo "  init-home - setup backend home with required folders"
     echo "  init-mfa [-user ec2-user] - initialize EC2 instance with multi-factor authentication using Google authenticator"
     echo "  init-logwatcher [-interval MINS] [-cron CRON] - creates a crontab file in /etc/cron.d to periodically run the log watcher, -cron can specify full cron time spec"

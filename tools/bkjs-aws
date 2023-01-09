@@ -10,16 +10,17 @@ get_ec2_param() {
 }
 
 get_ec2_meta() {
-    v=$(curl -s http://169.254.169.254/$1)
-    [ "$v" = "" ] && T=`curl -s -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 30"` && v=$(curl -H "X-aws-ec2-metadata-token: $T" -s http://169.254.169.254/$1)
+    v=$(curl -m 0.2 -s http://169.254.169.254/$1)
+    [ "$?" != "0" ] && return
+    [ "$v" = "" ] && T=`curl -m 0.2 -s -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 30"` && v=$(curl -m 0.2 -H "X-aws-ec2-metadata-token: $T" -s http://169.254.169.254/$1)
     echo $v
 }
 
 case "$BKJS_CMD" in
 
   check-server)
-    if [[ $OS_TYPE =~ amazon ]]; then
-       region=$(echo $(get_ec2_meta latest/meta-data/placement/availability-zone/)|sed 's/[a-z]$//')
+    region=$(echo $(get_ec2_meta latest/meta-data/placement/availability-zone/)|sed 's/[a-z]$//')
+    if [ ! -z $region ]; then
        echo "Setting region $region ..."
        (aws configure set region $region)
        ([[ $(whoami) = root ]] && su ec2-user -c "aws configure set region $region")
@@ -128,6 +129,11 @@ case "$BKJS_CMD" in
     [ -f $HOME/.aws/config ] && region=$(awk '/^region/{print $3}' $HOME/.aws/config)
     [ ! -z $region ] && echo $region && exit
     echo $(get_ec2_meta latest/meta-data/placement/availability-zone/)|sed 's/[a-z]$//'
+    exit
+    ;;
+
+  ec2-meta)
+    echo $(get_ec2_meta $(get_all_args))
     exit
     ;;
 
@@ -411,6 +417,7 @@ case "$BKJS_CMD" in
     echo "  ec2-run -tag NAME [-id ID] -cmd cmd [-region  region] [-user NAME] - run a command over SSM by tag name or instance id, if -tag or -id one is 'all' then all instances will run the command"
     echo "  ec2-ssh -tag NAME [-region region] [-pub] [-cmd cmd] [-index N|.] - ssh into a host by tag name, key name will be used to specify a keypair from ~/.ssh/, -pub tells to use public IP, -cmd if specified will be run on all matched hosts, -index tell which specific host to use only, dot means all hosts"
     echo "  ec2-host [-tag NAME] [-skip-tag NAME] - show running instances local IP addresses by tag"
+    echo "  ec2-meta PATH - show meta data"
     echo "  ec2-region - current instance region"
     echo "  ec2-account - current instance account id"
     echo "  ec2-tag [-tag NAME] - current instance tag name, default key is Name"
