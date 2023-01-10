@@ -78,6 +78,7 @@
     "sync": {
       "path": "node_modules",
       "include": [
+        "*.gz",
         "*.js.map",
         "*.bundle.html.js",
         "*.bundle.js",
