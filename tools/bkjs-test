@@ -22,7 +22,8 @@ case "$BKJS_CMD" in
     tests=$(pwd)/tests
     [ ! -f tests/$file.js ] && echo "$tests/$file.js is not found" && exit 1
     test=$(get_arg -test $file)
-    exec $0 shell -test-config $tests/config,$tests/config.$file -test-file $tests/$file.js -run-ipc -run-api -run-worker $(get_all_args "-test") -test-run $test
+    config=$(get_arg -test-config)
+    exec $0 shell -test-config $config,$tests/config,$tests/config.$file -test-file $tests/$file.js -run-ipc -run-api -run-worker $(get_all_args "-test -test-config") -test-run $test
     ;;
 
   run-tests)
@@ -41,8 +42,8 @@ case "$BKJS_CMD" in
     echo ""
     echo "Testing commands:"
     echo "  test-all [-path P] [-skip F] - run all tests in the local tests/ folder"
-    echo "  test-FILE [-path P] [-test NAME] - run a test function test-NAME in the script file tests/FILE.js"
-    echo "  run-tests [-path P] [-skip F] - run all tests for all packages"
+    echo "  test-FILE [-path P] [-test NAME] [-test-config C] - run a test function test-NAME in the script file tests/FILE.js"
+    echo "  run-tests [-path P] [-skip F] [-test-config C] - run all tests for all packages"
     echo ""
     echo ""
     ;;
