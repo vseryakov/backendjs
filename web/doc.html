@@ -13,6 +13,7 @@
 <li><a href="#modules"> Modules</a></li>
 <li><a href="#npm-packages-as-modules"> NPM packages as modules</a></li>
 <li><a href="#database-schema-definition"> Database schema definition</a></li>
+<li><a href="#tables-can-have-aliases"> Tables can have aliases</a></li>
 <li><a href="#api-requests-handling"> API requests handling</a></li>
 <li><a href="#example-of-todo-application"> Example of TODO application</a></li>
 <li><a href="#backend-directory-structure"> Backend directory structure</a></li>
@@ -95,7 +96,7 @@ same way allowing you to switch databases without changing the code.</li>
 <li>Database operations (Get, Put, Del, Update, Select) for all supported databases using the same DB API.</li>
 <li>Experimental database drivers for MySQL, Cassandra, Riak, CouchDB</li>
 <li>Experimental DynamoDB Streams processing in background worker processes</li>
-<li>Easily extensible to support any kind of database, provides a database driver on top of Redis with all supported methods as an example.</li>
+<li>Easily extensible to support any kind of database, provides an experimental database driver on top of Redis with all supported methods as an example.</li>
 <li>Supports crontab and queue job processing by separate worker processes.</li>
 <li>Authentication is based on signed requests using API key and secret, similar to Amazon AWS signing requests.</li>
 <li>Runs web server as separate processes to utilize multiple CPU cores.</li>
@@ -148,7 +149,7 @@ it is possible to install all optional dependencies for development purposes.</p
 <li><code>nats</code> - NATS driver for queue and events</li>
 <li><code>amqplib</code> - RabbitMQ driver for queue and events (alpha)</li>
 </ul>
-<p>The command below will show all core and optional dependencies</p>
+<p>The command below will show all core and optional dependencies, <code>npm install</code> will install only the core dependencies</p>
 <pre><code> bkjs deps -dry-run -mods
 </code></pre>
 <h1 id="quick-start-and-introduction">Quick start and introduction</h1>
@@ -346,6 +347,7 @@ which makes it easy to refer and extend with additional methods and structures.<
           // to return an error, the message will be translated with internal i18n module if locales
           // are loaded and the request requires it
           api.sendReply(res, err);
+
           // or with custom status and message, explicitely translated
           api.sendReply(res, 404, res.__({ phrase: &quot;not found&quot;, locale: &quot;fr&quot; }));
 
@@ -363,12 +365,12 @@ which makes it easy to refer and extend with additional methods and structures.<
     }
 
     // Optionally register post processing of the returned data from the default calls
-    api.registerPostProcess(&#39;&#39;, /^\/account\/([a-z\/]+)$/, function(req, res, rows) { ... });
+    api.registerPostProcess(&#39;&#39;, /^\/account\/([a-z\/]+)$/, (req, res, rows) =&gt; { ... });
      ...
 
     // Optionally register access permissions callbacks
-    api.registerAccessCheck(&#39;&#39;, /^\/test\/list$/, function(req, status, callback) { ...  });
-    api.registerPreProcess(&#39;&#39;, /^\/test\/list$/, function(req, status, callback) { ...  });
+    api.registerAccessCheck(&#39;&#39;, /^\/test\/list$/, (req, status, callback) =&gt; { ...  });
+    api.registerPreProcess(&#39;&#39;, /^\/test\/list$/, (req, status, callback) =&gt; { ...  });
      ...
     bkjs.server.start();
 </code></pre>
@@ -558,6 +560,18 @@ hooks are registered and return data itself then it is the hook responsibility t
      });
         callback();
     }
+</code></pre>
+<h2 id="tables-can-have-aliases">Tables can have aliases</h2>
+<p>This is useful for easier naming conventions or switching to a different table name on the fly without changinbf the code,
+access to the table by it is real name is always available.</p>
+<p>For example:</p>
+<pre><code>bksh -db-aliases-bk_user users
+
+&gt; await db.aget(&quot;bk_user&quot;, { login: &quot;u1&quot; })
+&gt; { login: &quot;u1&quot;, name: &quot;user&quot;, .... }
+
+&gt; await db.aget(&quot;users&quot;, { login: &quot;u1&quot; })
+&gt; { login: &quot;u1&quot;, name: &quot;user&quot;, .... }
 </code></pre>
 <h1 id="api-requests-handling">API requests handling</h1>
 <p>All methods will put input parameters in the <code>req.query</code>, GET or POST.</p>
@@ -873,12 +887,12 @@ only in the Websockets case the response will arrived in the message listener (s
     api.app.all(&quot;/project/ws&quot;, (req, res) =&gt; {
         switch (req.query.op) {
         case &quot;/project/update&quot;:
-            ....
-           api.wsNotify({ query: { id: req.query.project.id }, { op: &quot;/project/update&quot;, project: req.query.project });
+           //  some code ....
+           api.wsNotify({ query: { id: req.query.project.id } }, { op: &quot;/project/update&quot;, project: req.query.project });
            break;
        }
        res.send(&quot;&quot;);
-   });
+    });
 </code></pre>
 <p>In any case all Websocket messages sent from the server will arrive in the event handler and must be formatted properly in order to distinguish what is what, this is
 the application logic. If the server needs to send a message to all or some specific clients for example due to some updates in the DB, it must use the
@@ -1473,10 +1487,6 @@ Database pool statistics and other diagnostics</p>
 <li><code>ssl-ciphers</code> - A string describing the ciphers to use or exclude. Consult <a href="http://www.openssl.org/docs/apps/ciphers.html#CIPHER_LIST_FORMAT">http://www.openssl.org/docs/apps/ciphers.html#CIPHER_LIST_FORMAT</a> for details on the format</li>
 <li><code>ssl-request-cert</code> - If true the server will request a certificate from clients that connect and attempt to verify that certificate. </li>
 <li><code>concurrency</code> - How many simultaneous tasks to run at the same time inside one process, this is used by async module only to perform several tasks at once, this is not multithreading but and only makes sense for I/O related tasks</li>
-<li><code>timeout</code> - HTTP request idle timeout for servers in ms, how long to keep the connection socket open, this does not affect Long Poll requests</li>
-<li><code>keep-alive-timeout</code> - Number of milliseconds to keep the HTTP conection alive</li>
-<li><code>request-timeout</code> - Number of milliseconds to receive the entire request from the client</li>
-<li><code>max-requests-per-socket</code> - The maximum number of requests a socket can handle before closing keep alive connection</li>
 <li><code>daemon</code> - Daemonize the process, go to the background, can be specified only in the command line</li>
 <li><code>shell</code> - Run command line shell, load the backend into the memory and prompt for the commands, can be specified only in the command line</li>
 <li><code>monitor</code> - For production use, monitors the master and Web server processes and restarts if crashed or exited, can be specified only in the command line</li>
@@ -1506,6 +1516,8 @@ Database pool statistics and other diagnostics</p>
 <li><code>worker</code> - Set this process as a worker even it is actually a master, this skips some initializations</li>
 <li><code>allow-packages</code> - NPM packages to load on startup, the modules, locales, viewes, web subfolders from the package will be added automatically to the system paths, modules will be loaded if present, the config file in etc subfolder will be parsed if present</li>
 <li><code>preload-modules</code> - Modules to preload first from any modules/ folders including the system folder, this can be used to preload default bkjs system modules</li>
+<li><code>exclude-modules</code> - Modules not to load, the whole path is checked</li>
+<li><code>depth-modules</code> - How deep to go looking for modules, it uses lib.findFileSync to locate all .js files</li>
 <li><code>user-agent</code> - Add HTTP user-agent header to be used in HTTP requests, for scrapers or other HTTP requests that need to be pretended coming from Web browsers</li>
 <li><code>backend-host</code> - Host of the master backend, can be used for backend nodes communications using core.sendRequest function calls with relative URLs, also used in tests.</li>
 <li><code>backend-login</code> - Credentials login for the master backend access when using core.sendRequest</li>
@@ -1522,7 +1534,7 @@ Database pool statistics and other diagnostics</p>
 <li><code>email-from</code> - Email address to be used when sending emails from the backend</li>
 <li><code>email-transport</code> - Send emails via supported transports: ses:, sendgrid://?key=SG, if not set default SMTP settings are used</li>
 <li><code>sendgrid-key</code> - SendGrid API key</li>
-<li><code>smtp-(.+)</code> - SMTP server parameters, user, password, host, ssl, tls...see emailjs for details</li>
+<li><code>smtp-(.+)</code> - SMTP server parameters, user, password, host, ssl, tls...see nodemailer for details</li>
 <li><code>tmp-watcher-(.+)</code> - How long to keep files per subdirectory in seconds</li>
 <li><code>stop-on-error</code> - Exit the process on any error when loading modules, for dev purposes</li>
 <li><code>logwatcher-pool</code> - DB pool to keep track of positions for log files, default is local</li>
@@ -1580,10 +1592,6 @@ Database pool statistics and other diagnostics</p>
 <li><code>bkjs-ssl-ciphers</code> - A string describing the ciphers to use or exclude. Consult <a href="http://www.openssl.org/docs/apps/ciphers.html#CIPHER_LIST_FORMAT">http://www.openssl.org/docs/apps/ciphers.html#CIPHER_LIST_FORMAT</a> for details on the format</li>
 <li><code>bkjs-ssl-request-cert</code> - If true the server will request a certificate from clients that connect and attempt to verify that certificate. </li>
 <li><code>bkjs-concurrency</code> - How many simultaneous tasks to run at the same time inside one process, this is used by async module only to perform several tasks at once, this is not multithreading but and only makes sense for I/O related tasks</li>
-<li><code>bkjs-timeout</code> - HTTP request idle timeout for servers in ms, how long to keep the connection socket open, this does not affect Long Poll requests</li>
-<li><code>bkjs-keep-alive-timeout</code> - Number of milliseconds to keep the HTTP conection alive</li>
-<li><code>bkjs-request-timeout</code> - Number of milliseconds to receive the entire request from the client</li>
-<li><code>bkjs-max-requests-per-socket</code> - The maximum number of requests a socket can handle before closing keep alive connection</li>
 <li><code>bkjs-daemon</code> - Daemonize the process, go to the background, can be specified only in the command line</li>
 <li><code>bkjs-shell</code> - Run command line shell, load the backend into the memory and prompt for the commands, can be specified only in the command line</li>
 <li><code>bkjs-monitor</code> - For production use, monitors the master and Web server processes and restarts if crashed or exited, can be specified only in the command line</li>
@@ -1613,6 +1621,8 @@ Database pool statistics and other diagnostics</p>
 <li><code>bkjs-worker</code> - Set this process as a worker even it is actually a master, this skips some initializations</li>
 <li><code>bkjs-allow-packages</code> - NPM packages to load on startup, the modules, locales, viewes, web subfolders from the package will be added automatically to the system paths, modules will be loaded if present, the config file in etc subfolder will be parsed if present</li>
 <li><code>bkjs-preload-modules</code> - Modules to preload first from any modules/ folders including the system folder, this can be used to preload default bkjs system modules</li>
+<li><code>bkjs-exclude-modules</code> - Modules not to load, the whole path is checked</li>
+<li><code>bkjs-depth-modules</code> - How deep to go looking for modules, it uses lib.findFileSync to locate all .js files</li>
 <li><code>bkjs-user-agent</code> - Add HTTP user-agent header to be used in HTTP requests, for scrapers or other HTTP requests that need to be pretended coming from Web browsers</li>
 <li><code>bkjs-backend-host</code> - Host of the master backend, can be used for backend nodes communications using core.sendRequest function calls with relative URLs, also used in tests.</li>
 <li><code>bkjs-backend-login</code> - Credentials login for the master backend access when using core.sendRequest</li>
@@ -1629,7 +1639,7 @@ Database pool statistics and other diagnostics</p>
 <li><code>bkjs-email-from</code> - Email address to be used when sending emails from the backend</li>
 <li><code>bkjs-email-transport</code> - Send emails via supported transports: ses:, sendgrid://?key=SG, if not set default SMTP settings are used</li>
 <li><code>bkjs-sendgrid-key</code> - SendGrid API key</li>
-<li><code>bkjs-smtp-(.+)</code> - SMTP server parameters, user, password, host, ssl, tls...see emailjs for details</li>
+<li><code>bkjs-smtp-(.+)</code> - SMTP server parameters, user, password, host, ssl, tls...see nodemailer for details</li>
 <li><code>bkjs-tmp-watcher-(.+)</code> - How long to keep files per subdirectory in seconds</li>
 <li><code>bkjs-stop-on-error</code> - Exit the process on any error when loading modules, for dev purposes</li>
 <li><code>bkjs-logwatcher-pool</code> - DB pool to keep track of positions for log files, default is local</li>
@@ -1690,6 +1700,7 @@ Database pool statistics and other diagnostics</p>
 <li><code>db-create-tables</code> - Create tables in the database or perform table upgrades for new columns in all pools, only shell or server process can perform this operation</li>
 <li><code>db-create-tables-roles</code> - Only processes with these roles can create tables</li>
 <li><code>db-cache-tables</code> - List of tables that can be cached: bk_user, bk_counter. This list defines which DB calls will cache data with currently configured cache. This is global for all db pools.</li>
+<li><code>db-skip-tables</code> - List of tables that will not be created or modified, this is global for all pools</li>
 <li><code>db-cache-pools</code> - List of pools which trigger cache flushes on update.</li>
 <li><code>db-cache-sync</code> - List of tables that perform synchronized cache updates before returning from a DB call, by default cache updates are done in the background</li>
 <li><code>db-cache-keys-([a-z0-9_]+)-(.+)</code> - List of columns to be used for the table cache, all update operations will flush the cache if the cache key can be created from the record columns. This is for ad-hoc and caches to be used for custom selects which specified the cache key.</li>
@@ -1700,7 +1711,7 @@ Database pool statistics and other diagnostics</p>
 <li><code>db-cache-update-(.+)</code> - Cache client name to use for updating only for each table instead of the default in order to split cache usage for different tables, it can be just a table name or <code>pool.table</code> or <code>*</code>. This cache takes precedence for updating cache over <code>cache-name</code> parameter</li>
 <li><code>db-cache2-max</code> - Max number of items to keep in the LRU Level 2 cache</li>
 <li><code>db-cache2-(.+)</code> - Tables with TTL for level2 cache, i.e. in the local process LRU memory. It works before the primary cache and keeps records in the local LRU cache for the given amount of time, the TTL is in ms and must be greater than zero for level 2 cache to work</li>
-<li><code>db-custom-column-([a-z0-9_]+)-(.+)</code> - A column that is allowed to be used in any table, the name is a regexp with the value to be a type</li>
+<li><code>db-custom-column-([a-z0-9_]+)-(.+)</code> - A column that is allowed to be used in any table, the name is a column name regexp with the value to be a type, Ex: -db-custom-column-bk_user-^stats=counter</li>
 <li><code>db-describe-column-([a-z0-9_]+)-([a-z0-9_]+)</code> - Describe a table column properties, can be a new or existing column, overrides existing property, ex: -db-describe-column-bk_user-name max:255</li>
 <li><code>db-local</code> - Local database pool for properties, cookies and other local instance only specific stuff</li>
 <li><code>db-config</code> - Configuration database pool to be used to retrieve config parameters from the database, must be defined to use remote db for config parameters, set to <code>default</code> to use current default pool</li>
@@ -1711,7 +1722,7 @@ Database pool statistics and other diagnostics</p>
 <li><code>db-no-cache-columns</code> - Do not read/cache table columns</li>
 <li><code>db-cache-columns-interval</code> - How often in minutes to refresh tables columns from the database, it calls cacheColumns for each pool which supports it</li>
 <li><code>db-skip-drop</code> - A pattern of table names which will skipped in db.drop operations to prevent accidental table deletion</li>
-<li><code>db-aliases-(.+)</code> - Table aliases to be used instead of the requested table name</li>
+<li><code>db-aliases-(.+)</code> - Table aliases to be used instead of the requested table name, only high level db operations will use it, al low level utilities use the real table names</li>
 <li><code>db-([a-z0-9]+)-pool$</code> - A database pool name, depending on the driver it can be an URL, name or pathname, examples of db pools: <code>-db-pg-pool, -db-dynamodb-pool</code>, url format: <code>protocol://[user:password@]hostname[:port]/dbname</code> or <code>default</code></li>
 <li><code>db-([a-z0-9]+)-pool-(disabled)$</code> - Disable the specified pool but keep the configuration</li>
 <li><code>db-([a-z0-9]+)-pool-(max)$</code> - Max number of open connections for a pool, default is Infinity</li>
@@ -1825,6 +1836,10 @@ Database pool statistics and other diagnostics</p>
 <li><code>api-rlimits-(interval|ttl)</code> - Default rate limiter parameters, default interval is 1s, <code>ttl</code> is to expire old cache entries</li>
 <li><code>api-rlimits-message</code> - Message to show when any limits reached</li>
 <li><code>api-exit-on-error</code> - Exit on uncaught exception in the route handler</li>
+<li><code>api-timeout</code> - HTTP request idle timeout for servers in ms, how long to keep the connection socket open, this does not affect Long Poll requests</li>
+<li><code>api-keep-alive-timeout</code> - Number of milliseconds to keep the HTTP conection alive</li>
+<li><code>api-request-timeout</code> - Number of milliseconds to receive the entire request from the client</li>
+<li><code>api-max-requests-per-socket</code> - The maximum number of requests a socket can handle before closing keep alive connection</li>
 <li><code>api-upload-limit</code> - Max size for uploads, bytes</li>
 <li><code>api-query-limit</code> - Max size for posts and queries, bytes</li>
 <li><code>api-limiter-queue</code> - Name of an ipc queue for API rate limiting</li>
@@ -1854,6 +1869,7 @@ Database pool statistics and other diagnostics</p>
 <li><code>api-csrf-header-name</code> - Name for the CSRF header</li>
 <li><code>api-csrf-age</code> - CSRF token age in milliseconds</li>
 <li><code>api-err-(.+)</code> - Error messages for various cases</li>
+<li><code>api-compressed-([^/]+)</code> - Match static paths to be returned compressed, files must exist and be pre-compressed with the given extention , example: -api-compress-bundle.js gz</li>
 <li><code>auth-table</code> - Table to use for user accounts</li>
 <li><code>auth-err-(.+)</code> - Error messages for various cases</li>
 <li><code>auth-admin-roles</code> - List of special super admin roles</li>
@@ -4141,11 +4157,12 @@ modules with the core it makes the module a first class citizen in the backendjs
 <p>  Dynamically load services from the specified directory.</p>
 <p>The modules are loaded using <code>require</code> as a normal nodejs module but in addition if the module exports
 <code>init</code> method it is called immediately with options passed as an argument. This is a synchronous function so it is supposed to be
-called on startup, not dynamically during a request processing. Only top level .js files are loaded, not subdirectories. <code>core.addModule</code> is called
-automatically.</p>
+called on startup, not dynamically during a request processing.</p>
+<p>Only .js files from top level are loaded by default unless the depth is provided. <code>core.addModule</code> is called automatically.</p>
 <p>Each module is put in the global <code>core.modules`` object by name, the name can be a property </code>name` or the module base file name.</p>
 <p>Modules can be sorted by a priority, if .priority property is defined in the module it will be used to sort the modules, the higher priority the
 closer to the top the module will be. The position of a module in the <code>core.modules</code> will define the order <code>runMethods</code> will call.</p>
+<p>it uses lib.findFileSync to locate the modules, options <code>depth</code>, <code>include or </code>exclude` can be provided</p>
 <p><strong>Caution must be taken for module naming, it is possible to override any default bkjs module which will result in unexpected behaviour</strong></p>
 <p> Example, to load all modules from the local relative directory</p>
 <pre><code>  core.loadModules(&quot;modules&quot;)
@@ -4275,6 +4292,7 @@ making it usable for repeating environments or storage solutions.</p>
 <li>keepAliveTimeout - number of milliseconds to keep the HTTP connecton alive</li>
 <li>requestTimeout - number of milliseconds to receive the entire request from the client</li>
 <li>maxRequestsPerSocket - number of requests a socket can handle before closing keep alive connection</li>
+<li>maxHeaderSize - maximum length of request headers in bytes</li>
 <li>name - server name to be assigned</li>
 </ul>
 </li>
@@ -4553,10 +4571,7 @@ the db module <em>DOES NOT PARSE</em> the query at all if the driver supports fu
 <li>options may contain the following properties:<ul>
 <li>no_columns - do not check for actual columns defined in the pool tables and add all properties from the obj, only will work for NoSQL dbs,
 by default all properties in the obj not described in the table definition for the given table will be ignored.</li>
-<li>skip_columns - ignore properties by name listed in the this array</li>
-<li>mtime - if set, mtime column will be added automatically with the current timestamp, if mtime is a
-string then it is used as a name of the column instead of default mtime name</li>
-<li>skip_null - if set, all null values will be skipped, otherwise will be written into the DB as NULLs</li>
+<li>skip_columns - ignore properties by name listed in the this array, the most use case is to skip autogeneratd columns like &quot;now&quot;</li>
 </ul>
 </li>
 </ul>
@@ -5163,26 +5178,6 @@ types <code>myapp</code> and <code>prod-myapp</code>, then the last value will b
 </ul>
 
 <ul>
-<li><p><code>pool</code></p>
-<p>  Create a database pool that works with ElasticSearch server, only the hostname and port will be used, by default each table
-is stored in its own index.</p>
-<p>To define shards and replicas per index:</p>
-<ul>
-<li><code>-db-elasticsearch-pool-options-shards-INDEX_NAME=NUM</code></li>
-<li><code>-db-elasticsearch-pool-options-replicas-INDEX_NAME=NUM</code></li>
-</ul>
-<p>To support multiple seed nodes a parameter <code>-db-elasticsearch-pool-options-servers=1.1.1.1,2.2.2.2</code> can be specified, if the primary node
-fails it will switch to other configured nodes. To control the switch retries and timeout there are options:</p>
-<ul>
-<li><code>-db-elasticsearch-pool-options-retry-count=3</code></li>
-<li><code>-db-elasticsearch-pool-options-retry-timeout=250</code></li>
-</ul>
-<p>On successful connect to any node the driver retrieves full list of nodes in the cluster and switches to a random node, this happens
-every <code>discovery-interval</code> in milliseconds, default is 1h, it can be specified as <code>-db-elasticserch-pool-options-discovery-interval=300000</code></p>
-</li>
-</ul>
-
-<ul>
 <li><p><code>Pool.prototype.cacheIndexes(options, callback)</code></p>
 <p>  Cache indexes using the information_schema</p>
 </li>
@@ -5212,7 +5207,7 @@ given by the application. If <code>options.names</code> is 1 then return just ta
 </ul>
 
 <ul>
-<li><p><code>db.Pool(options)</code></p>
+<li><p><code>db.Pool(options, defaults)</code></p>
 <p>  Create a new database pool with default methods and properties</p>
 <ul>
 <li>options - an object with default pool properties<ul>
@@ -5301,7 +5296,7 @@ this is called during realtime config update</p>
 </ul>
 
 <ul>
-<li><p><code>db.Pool.prototype.bindValue(req, name, value)</code></p>
+<li><p><code>db.Pool.prototype.bindValue(req, name, value, op)</code></p>
 <p>  Return the value to be used in binding, mostly for SQL drivers, on input value and col info are passed, this callback
 may convert the value into something different depending on the DB driver requirements, like timestamp as string into milliseconds</p>
 </li>
@@ -5316,44 +5311,6 @@ may convert the value into something different depending on the DB driver requir
 <ul>
 <li><p><code>db.Pool.prototype.processColumns(pool)</code></p>
 <p>  that is called after this pool cached columms from the database, it is called sychnroniously inside the <code>db.cacheColumns</code> method.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.SqlPool(options)</code></p>
-<p>  Create a database pool for SQL like databases</p>
-<ul>
-<li>options - an object defining the pool, the following properties define the pool:<ul>
-<li>pool - pool name/type, if not specified the SQLite is used</li>
-<li>max - max number of clients to be allocated in the pool</li>
-<li>idle - after how many milliseconds an idle client will be destroyed</li>
-</ul>
-</li>
-</ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.SqlPool.prototype.cacheColumns(options, callback)</code></p>
-<p>  Call column caching callback with our pool name</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.SqlPool.prototype.prepare(req)</code></p>
-<p>  Prepare for execution, return an object with formatted or transformed SQL query for the database driver of this pool</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.SqlPool.prototype.query(client, req, options, callback)</code></p>
-<p>  Execute a query or if req.text is an Array then run all queries in sequence</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>db.SqlPool.prototype.nextToken(client, req, rows)</code></p>
-<p>  Support for pagination, for SQL this is the OFFSET for the next request</p>
 </li>
 </ul>
 
@@ -5380,7 +5337,7 @@ this is for those databases which are very sensitive on the types like DynamoDB.
 </ul>
 
 <ul>
-<li><p><code>db.joinColumn(req, obj, name, col, orig)</code></p>
+<li><p><code>db.joinColumn(req, obj, name, col)</code></p>
 <p>  Join several columns to produce a combined property if configured, given a column description and an object record
 it replaces the column value with joined value if needed. Empty properties will be still joined as empty strings.
 It always uses the original value even if one of the properties has been joined already.</p>
@@ -5510,6 +5467,44 @@ callbacks to keep the record consistent.</p>
      if (row.type == &quot;private&quot; &amp;&amp; row.id != req.options.account.id) return true;
  });
 </code></pre>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.SqlPool(options, defaults)</code></p>
+<p>  Create a database pool for SQL like databases</p>
+<ul>
+<li>options - an object defining the pool, the following properties define the pool:<ul>
+<li>pool - pool name/type, if not specified the SQLite is used</li>
+<li>max - max number of clients to be allocated in the pool</li>
+<li>idle - after how many milliseconds an idle client will be destroyed</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.SqlPool.prototype.cacheColumns(options, callback)</code></p>
+<p>  Call column caching callback with our pool name</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.SqlPool.prototype.prepare(req)</code></p>
+<p>  Prepare for execution, return an object with formatted or transformed SQL query for the database driver of this pool</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.SqlPool.prototype.query(client, req, options, callback)</code></p>
+<p>  Execute a query or if req.text is an Array then run all queries in sequence</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.SqlPool.prototype.nextToken(client, req, rows)</code></p>
+<p>  Support for pagination, for SQL this is the OFFSET for the next request</p>
 </li>
 </ul>
 
@@ -5733,14 +5728,20 @@ if <code>tables</code> property is an arary it asks to refresh only specified ta
 </ul>
 
 <ul>
-<li><p><code>db.existsTable(table, options)</code></p>
-<p>  Returns true if a table exists</p>
+<li><p><code>db.table(table)</code></p>
+<p>  Return a normalized table name</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>db.tableName(table)</code></p>
-<p>  Return a normalized table name</p>
+<li><p><code>db.alias(table)</code></p>
+<p>  Returns a table alias if mapped or the same table name normalized</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.existsTable(table, options)</code></p>
+<p>  Returns true if a table exists</p>
 </li>
 </ul>
 
@@ -5782,7 +5783,7 @@ requests with any database or can be used generically. The <code>cap</code> must
 </ul>
 
 <ul>
-<li><p><code>db.getSelectedColumns(table, options)</code></p>
+<li><p><code>db.getSelectedColumns(req)</code></p>
 <p>  Return list of selected or allowed only columns, empty list if no <code>options.select</code> is specified or it is equal to <code>*</code>. By default only allowed or existing
 columns will be returned, to pass the list as is to the driver just use <code>options.select_all</code> instead.</p>
 </li>
@@ -5790,14 +5791,30 @@ columns will be returned, to pass the list as is to the driver just use <code>op
 
 <ul>
 <li><p><code>db.getFilteredColumns(table, filter, options)</code></p>
-<p>  Return table columns filtered by a property filter, only return columns that contain(or not)
-any property from the filter list. If the filter is an object then values must match, null means if exists.
-! at the beginning of the name means empty or does not exist.</p>
+<p>  Return table columns that match the given filter.
+The filter can be:</p>
+<ul>
+<li>a string, means return all columns that contain the given property</li>
+<li>an object, match column properties by value,<ul>
+<li><code>undefined</code> means skip columns,</li>
+<li><code>null</code> means column does not exist,</li>
+<li><code>Infinity</code> means column is not undefined,</li>
+<li><code>name</code> will match against the column name not a property</li>
+</ul>
+</li>
+</ul>
+<p>The options can contain:</p>
+<ul>
+<li>list - return just column names</li>
+<li>select - an array with properties to return, this will create a new list of columns with specified properties only</li>
+<li>strict - only return columns that match all conditions in the filter, default is at least one</li>
+</ul>
 <p>Example:</p>
 <pre><code> db.getFilteredColumns(&quot;bk_user&quot;, &quot;pub&quot;)
- db.getFilteredColumns(&quot;bk_user&quot;, &quot;!internal&quot;)
- db.getFilteredColumns(&quot;bk_user&quot;, { pub: null, index: 2 })
+ db.getFilteredColumns(&quot;bk_user&quot;, { pub: undefined })
+ db.getFilteredColumns(&quot;bk_user&quot;, { pub: null, internal: 1 })
  db.getFilteredColumns(&quot;bk_user&quot;, { type: &quot;now&quot; }, { list: 1 })
+ db.getFilteredColumns(&quot;bk_user&quot;, { name: /^email/ }, { select: [&quot;type&quot;] })
 </code></pre>
 </li>
 </ul>
@@ -5805,25 +5822,18 @@ any property from the filter list. If the filter is an object then values must m
 <ul>
 <li><p><code>db.checkCustomColumn(req, name)</code></p>
 <p>  Returns type for a global custom column if exists otherwise null, all resolved
-columns will be saved in <code>req.allow</code> for further reference as name: type.
+columns will be saved in <code>req.custom</code> for further reference as name: type.
 For request specific custom columns pass <code>options.custom_columns</code> array in the format: [ RegExp, type, ...]</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>db.skipColumn(name, val, options, columns)</code></p>
+<li><p><code>db.skipColumn(req, name, val)</code></p>
 <p>  Verify column against common options for inclusion/exclusion into the operation, returns 1 if the column must be skipped</p>
 <ul>
 <li>to enable all properties to be saved in the record without column definition set <code>options.no_columns=1</code></li>
-<li>to skip all null values set <code>options.skip_null=1</code></li>
-<li>to skip by value set <code>options.skip_values</code> to a regexp</li>
 <li>to skip specific columns define <code>options.skip_columns=[&quot;a&quot;,&quot;b&quot;]</code></li>
-<li>to restrict to specific columns only define <code>options.allow_columns=[&quot;a&quot;,&quot;b&quot;]</code></li>
-<li>to skip columns based on matched properties define <code>options.skip_matched=[{ admin: 1 }, { owner: 1 }]</code></li>
-<li>to allow only columns based on matched properties define <code>options.allow_matched={ admin: null }</code></li>
 <li>to restrict to specific DB pools only define <code>options.allow_pools=[&quot;sqlite&quot;,&quot;mysql&quot;]</code></li>
-<li>to skip specific DB pools define <code>options.skip_pools=[&quot;sqlite&quot;,&quot;mysql&quot;]</code></li>
-<li>to restrict to specific DB pools for this columns only define <code>name: { allow_pools: [&quot;sqlite&quot;,&quot;mysql&quot;] }</code></li>
 </ul>
 </li>
 </ul>
@@ -6627,13 +6637,13 @@ empty invalid jobs must be passed, like: <code>[ {} ]</code></p>
 
 <h2 id="module-lib">Module: LIB</h2>
 <ul>
-<li><p><code>lib.tryCall(callback)</code></p>
+<li><p><code>lib.tryCall(callback, ...args)</code></p>
 <p>  Run a callback if a valid function, all arguments after the callback will be passed as is</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>lib.tryCatch(callback)</code></p>
+<li><p><code>lib.tryCatch(callback, ...args)</code></p>
 <p>  Run a callback inside try..catch block, all arguments after the callback will be passed as is, in case of error
 all arguments will be printed in the log</p>
 </li>
@@ -7056,7 +7066,7 @@ validate incoming data. It is an object with property names and definitoons that
 <p>The options can define the following properties:</p>
 <ul>
 <li>null - always return null on any error</li>
-<li>setnull - if the value is equal this then set property to null, useful to reset lists, maps...</li>
+<li>setnull - if the value is equal this or any value if an array then set property to null, useful to reset lists, maps...</li>
 <li>defaults - to pass realtime or other custom options for the validation or convertion utilities as the first argument if not defined in the definition.
 This is the place to customize/add/override global parameter conditions without changing it.</li>
 <li>prefix - prefix to be used when searching for the parameters in the query, only properties with this prefix will be processed. The resulting
@@ -7064,6 +7074,8 @@ This is the place to customize/add/override global parameter conditions without 
 <li>dprefix - prefix to use when checking for defaults, defaults are checks in this order: dprefix+name, name, *.type, *</li>
 <li>name - to save a value with different name than in the original query</li>
 <li>existing - skip properties if not present in the query</li>
+<li>dflt - use this value if property does not exists or undefined</li>
+<li>dfltempty - also use the dflt value for empty properties</li>
 </ul>
 <p>If any of the properties have <code>required:1</code> and the value will not be resolved then the function returns a string with the <code>errmsg</code> message
 or the default message, this is useful for detection of invalid or missing input data.</p>
@@ -7255,6 +7267,18 @@ to use newlines for objects.</p>
 </ul>
 
 <ul>
+<li><p><code>lib.toBase32(buf, options)</code></p>
+<p>  Convert a Buffer into base32 string</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.fromBase32(str, options)</code></p>
+<p>  Convert a string in base32 into a Buffer</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>lib.encrypt(key, data, options)</code></p>
 <p>  Encrypt data with the given key code</p>
 </li>
@@ -7359,6 +7383,12 @@ Optional third parameter indicates the number of decimal points to return:</p>
 <ul>
 <li><p><code>lib.timingSafeEqual(a, b)</code></p>
 <p>  Timing safe string compare using double HMAC, from suryagh/tsscmp</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.totp(key, options)</code></p>
+<p>Create a Timed One-Time Password, RFC6328</p>
 </li>
 </ul>
 
@@ -7896,12 +7926,8 @@ Additional options:</p>
 
 <ul>
 <li><p><code>lib.objExtend(obj, val, options)</code></p>
-<p>  Add properties to an existing object, two use cases:</p>
-<ul>
-<li>the first arg is the object, the rest are pairs: name, value,....</li>
-<li>the first arg is the object, the second arg is an object to add properties from. In this case
-the third argument can be an options object that can control how the properties are merged.</li>
-</ul>
+<p>  Add properties to an existing object where the first arg is an object, the second arg is an object to add properties from,
+the third argument can be an options object that can control how the properties are merged.</p>
 <p>Options properties:</p>
 <ul>
 <li><p>allow - a regexp which properties are allowed to be merged</p>
@@ -7913,10 +7939,12 @@ the third argument can be an options object that can control how the properties 
 <li><p>remove - a regexp to apply to each property name before merging, the matching parts will be removed from the name</p>
 </li>
 <li><p>deep - extend all objects not just the top level</p>
-<pre><code> lib.objExtend({ a: 1 }, &#39;b&#39;, 2, &#39;c&#39;, 3 )
- lib.objExtend({ a: 1 }, { b: 2, c: 3 }, { del: /^a/ })
- lib.objExtend({ a: 1 }, { b: 2, _c: 3, _d: 4 }, { remove: /^_/ })
-</code></pre>
+</li>
+<li><p>noempty - skip undefined, default is to keep</p>
+<p>   lib.objExtend({ a:1, c:5 }, { c: { b: 2 }, d: [{ d: 3 }], _e: 4, f: 5, x: 2 }, { allow: /^(c|d|<em>e)/, remove: /^</em>/, del: /^f/ })
+   { a: 1, c: { b: 2 }, d: [ { d: 3 } ], e: 4 }</p>
+<p>   lib.objExtend({ a:1, c:5 }, { c: { b: 2 }, d: [{ d: 3 }], _e: 4, f: 5, x: 2 }, { allow: /^(c|d|<em>e)/, remove: /^</em>/, del: /^f/, deep: 1 })
+   { a: 1, c: {}, d: [ { d: 3 } ], e: 4 }</p>
 </li>
 </ul>
 </li>
@@ -7924,17 +7952,17 @@ the third argument can be an options object that can control how the properties 
 
 <ul>
 <li><p><code>lib.objMerge(obj, val, options)</code></p>
-<p>  Merge two objects, all properties from the <code>val</code> override existing properties in the <code>obj</code>, returns a new object, shallow copy,
-only top level properties are reassigned.</p>
+<p>  Merge two objects, all properties from the <code>val</code> override existing properties in the <code>obj</code>, returns a new object</p>
 <p>Options properties:</p>
 <ul>
 <li>allow - a regexp which properties are allowed to be merged</li>
 <li>ignore - a regexp which properties should be ignored</li>
 <li>del - a regexp which properties should be removed</li>
 <li>remove - a regexp to apply to each property name before merging, the matching parts will be removed from the name</li>
+<li>deep - make a deep copy using objExtend</li>
 </ul>
 <p> Example</p>
-<pre><code>  var o = lib.objMerge({ a:1, b:2, c:3 }, { c:5, d:1, _e: 4, x: 2 }, { allow: /^(c|d)/, remove: /^_/ })
+<pre><code>  var o = lib.objMerge({ a:1, b:2, c:3 }, { c:5, d:1, _e: 4, f: 5, x: 2 }, { allow: /^(c|d)/, remove: /^_/, del: /^f/ })
   o = { a:1, b:2, c:5, d:1 }
 </code></pre>
 </li>
@@ -9007,8 +9035,8 @@ commands processed from <code>shell.cmdIndex</code></p>
 </ul>
 
 <ul>
-<li><p><code>shell.expect(ok, ...args)</code></p>
-<p>  To be used in the tests, this function takes the following arguments:</p>
+<li><p><code>tests.expect(ok, ...args)</code></p>
+<p>  To be used in the tests, these global functions takes the following arguments:</p>
 <p>expect(ok, ....)</p>
 <ul>
 <li>ok - it must be true or non empty value in order to continue</li>
@@ -9020,10 +9048,12 @@ commands processed from <code>shell.cmdIndex</code></p>
 <li>all arguments will be printed to stderr before exiting including the backtrace</li>
 </ul>
 <p>Example</p>
-<pre><code>     function testGetUser(next) {
-         db.get(&quot;bk_user&quot;, { login: &quot;123&quot; }, function(err, row) {
-              tests.assert(err, &quot;no error expected&quot;, row);
-              tests.expect(row?.id == &quot;123&quot;, `id must be 123`, row);
+<pre><code>     tests.test_GetUser = function(next)
+     {
+         describe(&quot;Test user record existence by id&quot;);
+         db.get(&quot;bk_user&quot;, { login: &quot;123&quot; }, (err, row) =&gt; {
+              assert(err, &quot;no error expected&quot;, row);
+              expect(row?.id == &quot;123&quot;, `id must be 123`, row);
               next();
          });
      }
@@ -9032,65 +9062,14 @@ commands processed from <code>shell.cmdIndex</code></p>
 </ul>
 
 <ul>
-<li><p><code>shell.cmdTestRun(options)</code></p>
-<p>  Run the test function which is defined in the tests module, all arguments will be taken from the options or the command line. Options
-use the same names as command line arguments without preceeding <code>test-</code> prefix.</p>
-<p>The main commands:</p>
-<ul>
-<li>-test-list - show all available test functions and exit</li>
-<li>-test-config - list of file(s) to load and parse as configs, all test- params will be added to the test object</li>
-<li>-test-file - a javascript file to be loaded with tests</li>
-<li>-test-run - name of the functions to run, can be a list, must be the last command</li>
-</ul>
-<p>Optional parameters for the test-run:</p>
-<ul>
-<li>-test-delay - number of milliseconds before starting the test and exiting the process, default 500ms</li>
-<li>-test-cluster - use a cluster worker to run each test in a separate process</li>
-<li>-test-interval - number of milliseconds between iterations</li>
-<li>-test-concurrency - how many tests to run at the same time, default is 1</li>
-</ul>
-<p>All other common command line arguments are used normally, like -db-pool to specify which db to use.</p>
-<p>After finish or in case of error the process exits if no callback is given.</p>
-<p>Example, store it in tools/tests.js:</p>
-<pre><code>     const bkjs = require(&quot;backendjs&quot;);
-     const db = bkjs.db;
-     const tests = bkjs.core.modules.tests;
-
-     tests.test_mytest = function(next) {
-        db.get(&quot;bk_user&quot;, { login: &quot;123&quot; }, function(err, row) {
-            tests.expect(!err, err);
-            tests.expect(row?.id != &quot;123&quot;, &quot;Record not found or invalid&quot;, row)
-            next();
-        });
-     }
-
-     # bksh -test-run mytest
-</code></pre>
-<p>Custom tests:</p>
-<ul>
-<li><p>create a user for backend testing, if the API does not require authentication skip this step:</p>
-<pre><code>  bksh -user-add login testuser secret testpw
-</code></pre>
-</li>
-<li><p>configure global backend credentials</p>
-<pre><code>  echo &quot;backend-login=testuser&quot; &gt;&gt; etc/config.local
-  echo &quot;backend-secret=testpw&quot; &gt;&gt; etc/config.local
-</code></pre>
-</li>
-<li><p>to start a test command in the shell using local ./tools/tests.js</p>
-<pre><code>bksh -test-run db
-</code></pre>
-</li>
-<li><p>to start a test command in the shell using custom file with tests</p>
-<pre><code>bksh -test-file tests/api.js -test-run api
-</code></pre>
-</li>
-</ul>
+<li><p><code>tests.describe(...args)</code></p>
+<p>  Set the title and description of the next test, the title will be printed at the beginning of the global test object,
+this is a convenience utility to better document tests</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>shell.checkAccess(options, callback)</code></p>
+<li><p><code>tests.checkAccess(options, callback)</code></p>
 <p>  Generic access checker to be used in tests, accepts an array in .config with urls to check
 The following properties can be used:</p>
 <ul>
@@ -9106,6 +9085,52 @@ The following properties can be used:</p>
 <li>preprocess - function(conf, cb) to be called before making request</li>
 <li>postprocess - function(conf, rc, cb) to be called after the request, rc is the response object from the request</li>
 <li>delay - wait before making next request</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.cmdTestRun(options)</code></p>
+<p>  Run the test function which is defined in the global tests module, all arguments will be taken from the options or the command line. Options
+use the same names as command line arguments without preceeding <code>test-</code> prefix.</p>
+<p>The main commands:</p>
+<ul>
+<li>-test-list - show all available test functions and exit</li>
+<li>-test-config - list of file(s) to load and parse as configs, all test- params will be added to the test object</li>
+<li>-test-file - a javascript file to be loaded with tests or functions, it must reside inside tests/ folder, only the name is expected</li>
+<li>-test-run - name of the functions to run, can be a list, must be the last command</li>
+</ul>
+<p>Optional parameters for the test-run:</p>
+<ul>
+<li>-test-verbose - on error print the context and backtrace</li>
+<li>-test-delay - number of milliseconds before starting the test and exiting the process, default 500ms</li>
+<li>-test-cluster - use a cluster worker to run each test in a separate process</li>
+<li>-test-interval - number of milliseconds between iterations</li>
+<li>-test-concurrency - how many tests to run at the same time, default is 1</li>
+</ul>
+<p>All other common command line arguments are used normally, like -db-pool to specify which db to use.</p>
+<p>After finish or in case of error the process exits if no callback is given.</p>
+<p>Example, store it in tests/index.js:</p>
+<pre><code>     tests.test_mytest = async function(next) {
+        describe(&quot;Check user record existence&quot;)
+        var row = await db.aget(&quot;bk_user&quot;, { login: &quot;123&quot; });
+        expect(row, &quot;record must exists&quot;);
+        expect(row.id != &quot;123&quot;, &quot;Record id must not be 123&quot;, row)
+        next();
+     }
+
+     # bksh -test-run mytest
+</code></pre>
+<p>Custom tests:</p>
+<ul>
+<li><p>to start all test commands in the shell using local ./tests/db.js</p>
+<pre><code>bksh -test-file db -test-run
+</code></pre>
+</li>
+<li><p>to start a specific test</p>
+<pre><code>bksh -test-file db -test-run dynamodb
+</code></pre>
+</li>
 </ul>
 </li>
 </ul>
