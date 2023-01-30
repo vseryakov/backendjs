@@ -1,0 +1,50 @@
+#!/bin/bash
+
+case "$BKJS_CMD" in
+  test-all)
+    log=$(get_arg -log none)
+    skip=$(get_arg -skip)
+    path=$(get_arg -path)
+    [ "$path" != "" ] && cd $path
+    files=$(find tests -name '*.js')
+    [ "$?" != "0" ] && exit 1
+    err=0
+    for file in $files; do
+        [[ ! -z $skip && $file =~ $skip ]] && continue
+        $0 test-$(basename $file .js) -test . -log $log -no-log-filter $(get_all_args "-log -path -skip")
+        [ "$?" != "0" ] && err=1
+    done
+    exit $err
+    ;;
+
+  test-*)
+    file=$(echo $BKJS_CMD | sed 's/^test-//')
+    tests=$(pwd)/tests
+    [ ! -f tests/$file.js ] && echo "$tests/$file.js is not found" && exit 1
+    test=$(get_arg -test $file)
+    exec $0 shell -test-config $tests/config,$tests/config.$file -test-file $tests/$file.js -run-ipc -run-api -run-worker $(get_all_args "-test") -test-run $test
+    ;;
+
+  run-tests)
+    path=$(get_arg -path)
+    dirs=$(find ${path-.} -name tests -type d)
+    [ "$?" != "0" ] && exit 1
+    err=0
+    for d in $dirs; do
+        ($0 test-all -path $(dirname $d) $(get_all_args "-path"))
+        [ "$?" != "0" ] && err=1
+    done
+    exit $err
+    ;;
+
+  help)
+    echo ""
+    echo "Testing commands:"
+    echo "  test-all [-path P] [-skip F] - run all tests in the local tests/ folder"
+    echo "  test-FILE [-path P] [-test NAME] - run a test function test-NAME in the script file tests/FILE.js"
+    echo "  run-tests [-path P] [-skip F] - run all tests for all packages"
+    echo ""
+    echo ""
+    ;;
+esac
+
