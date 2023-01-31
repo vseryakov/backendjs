@@ -1,5 +1,4 @@
 
-
 tests.test_config = function(callback)
 {
     var argv = ["-force-uid", "1,1",
@@ -35,7 +34,7 @@ tests.test_config = function(callback)
 
     assert(core.forceUid[0] != 1, "invalid force-uid", core.forceUid)
     assert(core.proxy.port != 3000, "invalid proxy-port", core.proxy);
-    assert(!db._createTables, "invalid create-tables");
+    assert(!core.workerId && !db._createTables, "invalid db-create-tables");
 
     expect(db.aliases.t == "test6", "db alias must be lowercase", db.aliases);
 

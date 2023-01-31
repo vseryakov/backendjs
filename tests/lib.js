@@ -1,4 +1,7 @@
 
+const fs = require("fs")
+const util = require("util")
+
 tests.test_flow = function(callback, test)
 {
     var direct = lib.isArg("-direct");
