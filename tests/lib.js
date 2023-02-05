@@ -214,44 +214,6 @@ tests.test_flow = function(callback, test)
 
 }
 
-tests._test_toparams = function(callback, test)
-{
-    var q = lib.toParams({}, {
-        id: { type: "int" },
-        count: { type: "int", min: 1, max: 10, dflt: 5 },
-        page: { type: "int", min: 1, max: 10, dflt: NaN, required: 1, errmsg: "Page number between 1 and 10 is required" },
-        name: { type: "string", max: 32, trunc: 1 },
-        pair: { type: "map", separator: "|" },
-        code: { type: "string", regexp: /^[a-z]-[0-9]+$/, errmsg: "Valid code is required" },
-        start: { type: "token", required: 1 },
-        email1: { type: "email", required: { email: null } },
-        data: { type: "json", datatype: "obj" },
-        mtime: { type: "mtime", name: "timestamp" },
-        flag: { type: "bool", novalue: false },
-        descr: { novalue: { name: "name", value: "test" },
-        email: { type: "list", datatype: "email", novalue: ["a@a"] } },
-        internal: { ignore: 1 },
-        tm: { type: "timestamp", optional: 1 },
-        const: { value: "ready" },
-        mode: "ok",
-        state: { values: ["ok","bad","good"] },
-        status: { value: [{ name: "state", value: "ok", set: "1" }, { name: "state", value: ["bad","good"], op: "in" }],
-        obj: { type: "obj", params: { id: { type: "int" }, name: {} } },
-        arr: { type: "array", params: { id: { type: "int" }, name: {} } },
-        state: { type: "list", datatype: "string", values: [ "VA", "DC"] } },
-        ssn: { type: "string", regexp: /^[0-9]{3}-[0-9]{3}-[0-9]{4}$/, errmsg: "Valid SSN is required" },
-        phone: { type: "list", datatype: "number" } },
-        {
-            defaults: {
-               name: { dflt: "test" },
-               count: { max: 100 },
-               '*': { empty: 1, null: 1 },
-           }
-
-       });
-    callback();
-}
-
 tests.test_foreachline = async function(callback)
 {
     const file = core.path.tmp + "/test.txt";
@@ -375,4 +337,110 @@ tests.test_pool = function(callback)
                next();
            }, options.idle*2);
        }], callback);
+}
+
+tests.test_toparams = function(callback, test)
+{
+    var schema = {
+        id: { type: "int" },
+        count: { type: "int", min: 1, dflt: 1 },
+        page: { type: "int", min: 1, max: 10, dflt: NaN, required: 1, errmsg: "Page number between 1 and 10 is required" },
+        name: { type: "string", max: 6, trunc: 1 },
+        pair: { type: "map", maptype: "int" },
+        code: { type: "string", regexp: /^[a-z]-[0-9]+$/, errmsg: "Valid code is required" },
+        code1: { type: "string", noregexp: /[.,!]/, errmsg: "Valid code1 is required" },
+        start: { type: "token", secret: "test" },
+        email: { type: "list", datatype: "email", novalue: ["a@a"] },
+        email1: { type: "email", required: { email: null } },
+        phone: { type: "phone" },
+        mtime: { type: "mtime", name: "timestamp" },
+        flag: { type: "bool", novalue: false },
+        descr: { novalue: { name: "name", value: "test" }, replace: { "<": "!" } },
+        internal: { ignore: 1 },
+        tm: { type: "timestamp", optional: 1 },
+        ready: { value: "ready" },
+        empty: { empty: 1, trim: 1, strip: /[.,!]/ },
+        state: { type: "list", values: [ "ok","bad","good" ] },
+        obj: { type: "obj", params: { id: { type: "int" }, name: {} } },
+        arr: { type: "array", params: { id: { type: "int" }, name: {} } },
+        json: { type: "json", datatype: "obj" },
+        json1: { type: "json", params: { id: { type: "int" }, name: {} } },
+    };
+    var opts = {
+        defaults: {
+            '*.int': { max: 100 },
+            "*.string": { max: 5 },
+            '*': { maxlist: 5 },
+        }
+    };
+
+    var q = lib.toParams({}, schema, opts);
+    expect(/email1 is required/.test(q), "expected email1 required", q);
+
+    q = lib.toParams({ email: "a@a" }, schema, opts);
+    expect(/email1 is required/.test(q), "expected email1 required", q);
+
+    q = lib.toParams({ email1: "a@a" }, schema, opts);
+    expect(/email1 is required/.test(q), "expected email1 required", q);
+
+    q = lib.toParams({ email1: "a@a.com" }, schema, opts);
+    expect(q.page === 1 && q.count === 1, "expected page=1, count=1", q);
+
+    schema.email1.required = 0;
+    q = lib.toParams({ page: 1000, count: 1000 }, schema, opts);
+    expect(q.page === 10 && q.count === 100, "expected page=10, count=100", q);
+
+    q = lib.toParams({ name: "1234567890" }, schema, opts);
+    expect(q.name == "123456", "expected name=123456", q);
+
+    q = lib.toParams({ descr: "1234567890" }, schema, opts);
+    expect(/descr is too long/.test(q), "expected descr is too long", q);
+
+    q = lib.toParams({ descr: "<2345" }, schema, opts);
+    expect(q.descr == "!2345", "expected descr=!2345", q);
+
+    q = lib.toParams({ name: "test", descr: "test" }, schema, opts);
+    expect(!q.descr && q.name == "test", "expected no descr", q);
+
+    q = lib.toParams({ pair: "a:1,b:2" }, schema, opts);
+    expect(q.pair?.a === 1 && q.pair?.b === 2, "expected a=1 and b=2", q);
+
+    q = lib.toParams({ code: "12345" }, schema, opts);
+    expect(/Valid code is required/.test(q), "expected valid code is required", q);
+
+    q = lib.toParams({ code: "q-123" }, schema, opts);
+    expect(q.code === "q-123", "expected code=q-123", q);
+
+    q = lib.toParams({ code1: "q.123" }, schema, opts);
+    expect(/Valid code1 is required/.test(q), "expected valid code1 is required", q);
+
+    q = lib.toParams({ start: "test" }, schema, opts);
+    expect(!q.start, "expected no start", q);
+
+    q = lib.toParams({ start: lib.jsonToBase64("test", "test") }, schema, opts);
+    expect(q.start == "test", "expected start=test", q);
+
+    q = lib.toParams({ tm: 1 }, schema, opts);
+    expect(q.ready == "ready" && q.tm == '1970-01-01T00:00:01.000Z', "expected ready and tm, count=1", q);
+
+    q = lib.toParams({ mtime: '1970-01-01T00:00:01.000Z' }, schema, opts);
+    expect(q.timestamp == 1000, "expected timestamp=1000", q);
+
+    q = lib.toParams({ state: "ok,done,error", flag: false }, schema, opts);
+    expect(q.state == "ok", "expected state=ok", q);
+    expect(q.flag === undefined, "expected flag undefined", q);
+
+    q = lib.toParams({ obj: { id: "1", descr: "1", name: "1" } }, schema, opts);
+    expect(q.obj?.id === 1 && !q.obj?.descr && q.obj?.name == "1", "expected obj{id=1,name=1}", q);
+
+    q = lib.toParams({ json: lib.stringify({ id: "1", descr: "1", name: "1" }) }, schema, opts);
+    expect(q.json?.id == "1" && q.json?.descr == "1" && q.json?.name == "1", "expected json{id=1,descr=1,name=1}", q);
+
+    q = lib.toParams({ json1: lib.stringify({ id: "1", descr: "1", name: "1" }) }, schema, opts);
+    expect(q.json1?.id === 1 && !q.json1?.descr && q.json1?.name == "1", "expected json1{id=1,name=1}", q);
+
+    q = lib.toParams({ empty: "." }, schema, opts);
+    expect(q.empty === "", "expected empty", q);
+
+    callback();
 }

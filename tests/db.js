@@ -58,7 +58,7 @@ tests.test_db = function(callback)
             text: {},
             sen1: { regexp: lib.rxSentence },
             sen2: { regexp: lib.rxSentence },
-            spec: { strip: lib.rxNoSpecial },
+            spec: { strip: lib.rxSpecial },
             mapped: { values_map: ["1", null, "2", "none"] },
         },
     };
