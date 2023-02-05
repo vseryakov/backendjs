@@ -27,8 +27,8 @@ case "$BKJS_CMD" in
     ;;
 
   run-tests)
-    path=$(get_arg -path)
-    dirs=$(find ${path-.} -name tests -type d)
+    path=$(get_arg -path .)
+    dirs=$(find "$path" -name tests -type d)
     [ "$?" != "0" ] && exit 1
     err=0
     for d in $dirs; do
