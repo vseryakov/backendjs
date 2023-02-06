@@ -7063,55 +7063,96 @@ flags or an object with the following properties:</p>
 <li><p><code>lib.toParams(query, schema, options)</code></p>
 <p>  Process incoming query and convert parameters according to the type definition, the schema contains the definition of the paramaters against which to
 validate incoming data. It is an object with property names and definitoons that at least must specify the type, all other options are type specific.</p>
-<p>The options can define the following properties:</p>
+<p>Returns a string message on error or an object</p>
+<p>The options can define the following global properties:</p>
 <ul>
 <li>null - always return null on any error</li>
 <li>setnull - if the value is equal this or any value if an array then set property to null, useful to reset lists, maps...</li>
-<li>defaults - to pass realtime or other custom options for the validation or convertion utilities as the first argument if not defined in the definition.
-This is the place to customize/add/override global parameter conditions without changing it.</li>
+<li>existing - skip properties if not present in the query</li>
 <li>prefix - prefix to be used when searching for the parameters in the query, only properties with this prefix will be processed. The resulting
  object will not have this prefix in the properties.</li>
 <li>dprefix - prefix to use when checking for defaults, defaults are checks in this order: dprefix+name, name, *.type, *</li>
+<li>defaults - to pass realtime or other custom options for the validation or convertion utilities as the first argument if not defined in the definition,
+ this is the place to customize/add/override global parameter conditions without changing it. Exact parameter name is used or a wildcard in the format
+ <code>*.type</code> where type id any valid type supported or just <code>*</code> for all parameters.</li>
+</ul>
+<p>Schema parameter properties:</p>
+<ul>
+<li>type - convert the input to the type format</li>
 <li>name - to save a value with different name than in the original query</li>
-<li>existing - skip properties if not present in the query</li>
 <li>dflt - use this value if property does not exists or undefined</li>
 <li>dfltempty - also use the dflt value for empty properties</li>
+<li>required - if true the target value must not be empty, the check is performed after type conversion,
+   if an object it checks the target object using <code>lib.isMatched</code>, i.e. all up to this moment parsed parameters, not original input</li>
+<li>errmsg - return this error on error or invalid format or required condition</li>
+<li>min - minimum length for the target data, returns an error if smaller, for list type will skip item from the list</li>
+<li>max -  maximum length alowed, returns an error if longer</li>
+<li>trunc - if true and longer than max just truncate the value instead of returning an error or skipping</li>
+<li>separator - for list type default separator is <code>,|</code>, for map type default is <code>:;</code></li>
+<li>delimiter - map type contains elements separated by , by default, use another if commas are expected</li>
+<li>regexp - validate input against this regexp and return an error if not matched, for list type skip items not matched</li>
+<li>noregexp - validate the input against this regexp and return an error if matched, for list type skip items matched</li>
+<li>datatype - convert each value or item into this type, used by string/list types</li>
+<li>maptype - for maps convert each value to this type</li>
+<li>novalue - if the target value equals this ignore the parameter, can be a list of values to be ignored</li>
+<li>ignore - if true skip this parameter</li>
+<li>optional - for date types, if true do not assign the current time for empty values</li>
+<li>value - assign this value unconditionally</li>
+<li>values - a list of allowed values, if not present the parameter is ignored</li>
+<li>values_map - an objexct map for values, replace matching values with a new one</li>
+<li>params - an object with schema to validate for json/obj/array types</li>
+<li>empty - if true and the target value is empty return as empty, by default empty values are ignored</li>
+<li>keepempty - for list type keep empty items in the list, default is skip empty items</li>
+<li>minlist - min allowed length of the target array for list/map types, returns error if less</li>
+<li>maxlist - max allowed length of the target array for list/map types, returns error if longer</li>
+<li>strip - a regexp with characters to strip from the final value</li>
+<li>upper/lower - transform case</li>
+<li>cap - capitalize the value</li>
+<li>trim - trim the final value if a string</li>
+<li>replace - an object map with characters to be replaced with other values</li>
 </ul>
-<p>If any of the properties have <code>required:1</code> and the value will not be resolved then the function returns a string with the <code>errmsg</code> message
-or the default message, this is useful for detection of invalid or missing input data.</p>
+<p>Supported types:</p>
+<ul>
+<li>string types: string, text,</li>
+<li>boolean types: bool, boolean,</li>
+<li>numeric types: int, bigint, long, number, float, real, double, counter, clock, now, random</li>
+<li>object types: list, map, obj, array, json,</li>
+<li>date/time types: mtime, date, time, timestamp, datetime</li>
+<li>special types: set, email, symbol, url, phone, e164, regexp</li>
+</ul>
 <p>Example:</p>
-<pre><code>   var account = lib.toParams(req.query, { id: { type: &quot;int&quot; },
-                                           count: { type: &quot;int&quot;, min: 1, max: 10, dflt: 5 },
-                                           page: { type: &quot;int&quot;, min: 1, max: 10, dflt: NaN, required: 1, errmsg: &quot;Page number between 1 and 10 is required&quot; },
-                                           name: { type: &quot;string&quot;, max: 32, trunc: 1 },
-                                           pair: { type: &quot;map&quot;, separator: &quot;|&quot; },
-                                           code: { type: &quot;string&quot;, regexp: /^[a-z]-[0-9]+$/, errmsg: &quot;Valid code is required&quot; },
-                                           start: { type: &quot;token&quot;, required: 1 },
-                                           email1: { type: &quot;email&quot;, required: { email: null } },
-                                           data: { type: &quot;json&quot;, datatype: &quot;obj&quot; },
-                                           mtime: { type: &quot;mtime&quot;, name: &quot;timestamp&quot; },
-                                           flag: { type: &quot;bool&quot;, novalue: false },
-                                           descr: { novalue: { name: &quot;name&quot;, value: &quot;test&quot; },
-                                           email: { type: &quot;list&quot;, datatype: &quot;email&quot;, novalue: [&quot;a@a&quot;] } },
-                                           internal: { ignore: 1 },
-                                           tm: { type:&quot; timestamp&quot;, optional: 1 },
-                                           status: { value: &quot;ready&quot; },
-                                           mode: &quot;ok&quot;,
-                                           state: { values: [&quot;ok&quot;,&quot;bad&quot;,&quot;good&quot;] },
-                                           status: { value: [{ name: &quot;state&quot;, value: &quot;ok&quot;, set: &quot;1&quot; }, { name: &quot;state&quot;, value: [&quot;bad&quot;,&quot;good&quot;], op: &quot;in&quot; }],
-                                           obj: { type: &quot;obj&quot;, params: { id: { type: &quot;int&quot; }, name: {} } },
-                                           arr: { type: &quot;array&quot;, params: { id: { type: &quot;int&quot; }, name: {} } },
-                                           state: { type: &quot;list&quot;, datatype: &quot;string, values: [&quot;VA&quot;,&quot;DC] } },
-                                           ssn: { type: &quot;string&quot;, regexp: /^[0-9]{3}-[0-9]{3}-[0-9]{4}$/, errmsg: &quot;Valid SSN is required&quot; } },
-                                           phone: { type: &quot;list&quot;, datatype: &quot;number } },
-                                         { defaults: {
-                                                 start: { secret: req.account.secret },
-                                                 name: { dflt: &quot;test&quot; },
-                                                 count: { max: 100 },
-                                                 email: { ignore: req.account.type != &quot;admin&quot; },
-                                                 &#39;*&#39;: { empty: 1, null: 1 },
-                                         })
-   if (typeof account == &quot;string) return api.sendReply(res, 400, account);
+<pre><code>   var query = lib.toParams(req.query, {
+           id: { type: &quot;int&quot; },
+           count: { type: &quot;int&quot;, min: 1, max: 10, dflt: 5 },
+           name: { type: &quot;string&quot;, max: 32, trunc: 1 },
+           pair: { type: &quot;map&quot;, maptype: &quot;int&quot; },
+           code: { type: &quot;string&quot;, regexp: /^[a-z]-[0-9]+$/, errmsg: &quot;Valid code is required&quot; },
+           start: { type: &quot;token&quot;, required: 1 },
+           email: { type: &quot;list&quot;, datatype: &quot;email&quot;, novalue: [&quot;a@a&quot;] },
+           email1: { type: &quot;email&quot;, required: { email: null } },
+           data: { type: &quot;json&quot;, datatype: &quot;obj&quot; },
+           mtime: { type: &quot;mtime&quot;, name: &quot;timestamp&quot; },
+           flag: { type: &quot;bool&quot;, novalue: false },
+           descr: { novalue: { name: &quot;name&quot;, value: &quot;test&quot; }, replace: { &quot;&lt;&quot;: &quot;!&quot; } },
+           internal: { ignore: 1 },
+           tm: { type: &quot;timestamp&quot;, optional: 1 },
+           ready: { value: &quot;ready&quot; },
+           state: { values: [ &quot;ok&quot;,&quot;bad&quot;,&quot;good&quot; ] },
+           status: { value: [ &quot;ok&quot;,&quot;done&quot; ] },
+           obj: { type: &quot;obj&quot;, params: { id: { type: &quot;int&quot; }, name: {} } },
+           arr: { type: &quot;array&quot;, params: { id: { type: &quot;int&quot; }, name: {} } },
+           ssn: { type: &quot;string&quot;, regexp: /^[0-9]{3}-[0-9]{3}-[0-9]{4}$/, errmsg: &quot;Valid SSN is required&quot; },
+           phone: { type: &quot;list&quot;, datatype: &quot;number&quot; },
+   }, {
+           defaults: {
+               start: { secret: req.account.secret },
+               name: { dflt: &quot;test&quot; },
+               count: { max: 100 },
+               email: { ignore: req.account.type != &quot;admin&quot; },
+               &quot;*.string&quot;: { max: 255 },
+               &#39;*&#39;: { maxlist: 255 },
+   })
+   if (typeof query == &quot;string) return api.sendReply(res, 400, query);
 </code></pre>
 </li>
 </ul>
@@ -7936,14 +7977,14 @@ the third argument can be an options object that can control how the properties 
 </li>
 <li><p>del - a regexp which properties should be removed</p>
 </li>
-<li><p>remove - a regexp to apply to each property name before merging, the matching parts will be removed from the name</p>
+<li><p>strip - a regexp to apply to each property name before merging, the matching parts will be removed from the name</p>
 </li>
 <li><p>deep - extend all objects not just the top level</p>
 </li>
 <li><p>noempty - skip undefined, default is to keep</p>
-<p>   lib.objExtend({ a:1, c:5 }, { c: { b: 2 }, d: [{ d: 3 }], _e: 4, f: 5, x: 2 }, { allow: /^(c|d|<em>e)/, remove: /^</em>/, del: /^f/ })
+<p>   lib.objExtend({ a:1, c:5 }, { c: { b: 2 }, d: [{ d: 3 }], _e: 4, f: 5, x: 2 }, { allow: /^(c|d|<em>e)/, strip: /^</em>/, del: /^f/ })
    { a: 1, c: { b: 2 }, d: [ { d: 3 } ], e: 4 }</p>
-<p>   lib.objExtend({ a:1, c:5 }, { c: { b: 2 }, d: [{ d: 3 }], _e: 4, f: 5, x: 2 }, { allow: /^(c|d|<em>e)/, remove: /^</em>/, del: /^f/, deep: 1 })
+<p>   lib.objExtend({ a:1, c:5 }, { c: { b: 2 }, d: [{ d: 3 }], _e: 4, f: 5, x: 2 }, { allow: /^(c|d|<em>e)/, strip: /^</em>/, del: /^f/, deep: 1 })
    { a: 1, c: {}, d: [ { d: 3 } ], e: 4 }</p>
 </li>
 </ul>
@@ -8143,7 +8184,9 @@ removal of the matched patterns</p>
 <li><code>notrim</code> - will skip trimming strings, trim is the default</li>
 <li><code>max</code> - will skip strings over the specificed size if no <code>trunc</code></li>
 <li><code>trunc</code> - will truncate strings longer than <code>max</code></li>
-<li><code>regexp</code> - will skip string not matching</li>
+<li><code>regexp</code> - will skip string if not matching</li>
+<li><code>noregexp</code> - will skip string if matching</li>
+<li><code>replace</code> - an object map which characters to replace with new values</li>
 </ul>
 </li>
 </ul>
@@ -9123,8 +9166,16 @@ use the same names as command line arguments without preceeding <code>test-</cod
 </code></pre>
 <p>Custom tests:</p>
 <ul>
+<li><p>to run al test in tests/</p>
+<pre><code>bkjs test-all
+</code></pre>
+</li>
 <li><p>to start all test commands in the shell using local ./tests/db.js</p>
 <pre><code>bksh -test-file db -test-run
+
+or
+
+bkjs test-db
 </code></pre>
 </li>
 <li><p>to start a specific test</p>
