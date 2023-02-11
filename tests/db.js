@@ -434,7 +434,7 @@ tests.test_db = function(callback)
             });
         },
         function(next) {
-            db.update("test3", { id: id, type: "3", notempty: null }, function(err, rc, info) {
+            db.update("test3", { id: id, type: "3", notempty: null, text: "" }, function(err, rc, info) {
                 assert(err || !info.affected_rows, "err32:", info);
                 next();
             });
@@ -442,6 +442,7 @@ tests.test_db = function(callback)
         function(next) {
             db.get("test3", { id: id }, {}, function(err, row) {
                 assert(err || !row || row.notempty != "notempty", "err33:", row);
+                expect(typeof row?.text == "undefined", "expect text undefined", row)
                 next();
             });
         },
@@ -497,6 +498,9 @@ tests.test_db = function(callback)
         },
         function(next) {
             db.update("test3", { id: id, tags: "6" }, { updateOps: { tags: "del" } }, next);
+        },
+        function(next) {
+            db.update("test3", { id: id, tags: [] }, { updateOps: { tags: "add" } }, next);
         },
         function(next) {
             db.get("test3", { id: id }, function(err, row) {
