@@ -1202,6 +1202,28 @@ how the environment is setup it is ultimately 2 ways to specify the port for HTT
         '0.70.0'
         > logger.setLevel('info')
 
+# Simple testing facility
+
+Included a simple testing tool, it is used for internal bkjs testing but can be used for other applications as well.
+
+The convention is to create a test file in the tests/ folder, each test file can define one or more test
+functions named in the form `tests.test_NAME` where NAME is any custom name for the test, for example:
+
+File `tests/example.js`:
+
+```javascript
+tests.test_example = function(callback)
+{
+    expect(1 == 2, "expect 1 eq 2")
+}
+```
+
+Then to run all tests
+
+    bkjs run-tests
+
+More details are in the documentation or `doc.html`
+
 # Design considerations
 
 While creating Backendjs there were many questions and issues to be considered, some I was able to implement, some still not. Below are the thoughts that

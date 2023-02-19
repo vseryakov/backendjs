@@ -45,6 +45,7 @@
 <li><a href="#proxy-mode"> Proxy mode</a></li>
 <li><a href="#configure-http-port"> Configure HTTP port</a></li>
 <li><a href="#backend-library-development-mac-os-x-developers-"> Backend library development (Mac OS X, developers)</a></li>
+<li><a href="#simple-testing-facility"> Simple testing facility</a></li>
 <li><a href="#design-considerations"> Design considerations</a></li>
 <li><a href="#api-endpoints-provided-by-the-backend"> API endpoints provided by the backend</a></li>
 <li><a href="#authentication-and-sessions"> Authentication and sessions</a></li>
@@ -1150,6 +1151,20 @@ node can find global modules, replace $BKJS_PREFIX with the actual path unless t
 </code></pre>
 </li>
 </ul>
+<h1 id="simple-testing-facility">Simple testing facility</h1>
+<p>Included a simple testing tool, it is used for internal bkjs testing but can be used for other applications as well.</p>
+<p>The convention is to create a test file in the tests/ folder, each test file can define one or more test
+functions named in the form <code>tests.test_NAME</code> where NAME is any custom name for the test, for example:</p>
+<p>File <code>tests/example.js</code>:</p>
+<pre><code class="language-javascript">tests.test_example = function(callback)
+{
+    expect(1 == 2, &quot;expect 1 eq 2&quot;)
+}
+</code></pre>
+<p>Then to run all tests</p>
+<pre><code>bkjs run-tests
+</code></pre>
+<p>More details are in the documentation or <code>doc.html</code></p>
 <h1 id="design-considerations">Design considerations</h1>
 <p>While creating Backendjs there were many questions and issues to be considered, some I was able to implement, some still not. Below are the thoughts that
 might be useful when designing, developing or choosing the API platform:</p>
@@ -4257,7 +4272,14 @@ making it usable for repeating environments or storage solutions.</p>
 
 <ul>
 <li><p><code>core.sendmail(options, callback)</code></p>
-<p>  Send email</p>
+<p>  Send email via <code>nodemailer</code> with SMTP transport, other supported transports:</p>
+<ul>
+<li>fake: - same as json</li>
+<li>json: - return message as JSON</li>
+<li>file: - save to a file in the <code>tmp/</code></li>
+<li>sendgrid: - send via SendGrid</li>
+<li>ses: - send via AWS SES service</li>
+</ul>
 </li>
 </ul>
 
@@ -6998,6 +7020,12 @@ in this case invalid date returned as null. If <code>dflt</code> is NaN, null or
 <li><p><code>lib.toPrice(num, options)</code></p>
 <p>  Return a test representation of a number according to the money formatting rules, default is en-US, options may include:
 currency(USD), display(symbol), sign(standard), min(2), max(3)</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.toEmail(val, options)</code></p>
+<p>  Return an email address if valid, <code>options.parse</code> makes it extract the email from <code>name &lt;email&gt;</code> format</p>
 </li>
 </ul>
 
