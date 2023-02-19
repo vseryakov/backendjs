@@ -11,8 +11,9 @@ case "$BKJS_CMD" in
     [ "$?" != "0" ] && exit 1
     err=0
     for file in $files; do
-        [[ ! -z $skip && $file =~ $skip ]] && continue
-        [[ ! -z $filter && ! $file =~ $filter ]] && continue
+        fn=$path/$file
+        [[ ! -z $skip && $fn =~ $skip ]] && continue
+        [[ ! -z $filter && ! $fn =~ $filter ]] && continue
         $0 test-$(basename $file .js) -test . -log $log -no-log-filter $(get_all_args "-log -path -skip -filter")
         [ "$?" != "0" ] && err=1
     done
@@ -43,7 +44,7 @@ case "$BKJS_CMD" in
   help)
     echo ""
     echo "Testing commands:"
-    echo "  test-all [-path P] [-skip F] [-filter F] - run all tests in the local tests/ folder, skip.filter control which files to run"
+    echo "  test-all [-path P] [-skip F] [-filter F] - run all tests in the local tests/ folder, skip/filter control which files to run"
     echo "  test-FILE [-path P] [-test NAME] [-test-config C] - run a test function test-NAME in the script file tests/FILE.js"
     echo "  run-tests [-path P] [-skip F] [-filter F] [-test-config C] - run all tests for all packages, skip/filter can control what to run/skip"
     echo ""
