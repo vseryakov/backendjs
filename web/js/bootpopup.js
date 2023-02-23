@@ -55,6 +55,7 @@ function bootpopup(options)
         class_group: "form-group",
         class_options: "options text-center text-md-right",
         class_alert: "alert alert-danger collapse",
+        class_info: "alert alert-info collapse",
         class_x: "",
         class_form: "",
         class_label: "",
@@ -89,6 +90,7 @@ function bootpopup(options)
         scroll: false,
         horizontal: true,
         alert: false,
+        info: false,
         backdrop: true,
         keyboard: true,
         autofocus: true,
@@ -183,6 +185,9 @@ function bootpopup(options)
         if (this.options.alert) {
             this.alert = $("<div></div>", { class: this.options.class_alert }).appendTo(this.form);
         }
+        if (this.options.info) {
+            this.info = $("<div></div>", { class: this.options.class_info }).appendTo(this.form);
+        }
 
         var tabs = {}, form = this.form, toggle = /nav-pills/.test(this.options.class_tabs) ? "pill" : "tab";
         if (this.options.tabs) {
@@ -250,6 +255,9 @@ function bootpopup(options)
                     }
 
                     switch (type) {
+                    case "group":
+                        attrs.type = type;
+
                     case "input":
                     case "textarea":
                     case "button":
@@ -291,8 +299,8 @@ function bootpopup(options)
                             label = $('<label></label>', { class: opts.class_input_label || (opts.custom || opts.switch ? "custom-control-label" : "form-check-label"), for: opts.for || attrs.id }).
                                     append(opts.input_label || opts.label);
                             elem = $('<div></div>', { class: opts.class_check || (opts.custom || opts.switch ? `custom-control custom-${opts.switch ? "switch" : attrs.type}` : "form-check") }).
-                            append($("<" + type + "/>", attrs)).
-                            append(label);
+                                   append($("<" + type + "/>", attrs)).
+                                   append(label);
                             if (opts.class_append || opts.text_append) {
                                 label.append($("<span></span>", { class: opts.class_append || "" }).append(opts.text_append || ""));
                             }
@@ -304,13 +312,17 @@ function bootpopup(options)
                             label = $('<label></label>', { class: opts.class_input_label || "custom-file-label", for: opts.for || attrs.id }).
                                     append(opts.input_label || opts.label);
                             elem = $('<div></div>', { class: opts.class_check || "custom-file" }).
-                            append($("<" + type + "/>", attrs)).
-                            append(this.escape(label));
+                                   append($("<" + type + "/>", attrs)).
+                                   append(this.escape(label));
                             if (opts.class_append || opts.text_append) {
                                 label.append($("<span></span>", { class: opts.class_append || "" }).append(opts.text_append || ""));
                             }
                             // Clear label to not add as header, it was added before
                             if (!opts.input_label) delete opts.label;
+                        } else
+                        if (type == "group") {
+                            delete attrs.type;
+                            elem = $('<div></div>', attrs);
                         } else {
                             attrs.class = attrs.class || "form-control";
                             if (type == "textarea") {
