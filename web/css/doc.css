@@ -1,11 +1,6 @@
-.navbar {
- 	margin-bottom: 20px;
- 	border-bottom: 1px solid #ccc;
-}
-
 body {
 	font-family: "Avenir Next", Helvetica, Arial, sans-serif;
-        font-size: 1em;
+    font-size: 1em;
 	padding:1em;
 	margin:auto;
 	max-width:80%;
@@ -13,17 +8,35 @@ body {
 }
 
 h1 {
-	color: #000000;
+    border-bottom: 1px solid #dbdbdb;
+    margin: 1.5rem 0 1.5rem 0;
+    padding-bottom: 7px;
+    color: #000;
 }
 
 h2 {
-	border-bottom: 1px solid #CCCCCC;
-	color: #000000;
+    border-bottom: 1px solid #dbdbdb;
+    margin: 1.5rem 0 1.5rem 0;
+    padding-bottom: 7px;
+    color: #333;
+}
+
+h3, h4 {
+    margin: 1.2rem 0 1.2rem 0;
+    padding-bottom: 5px;
+    color: #333;
+}
+
+h5 {
+    margin: 0.7rem 0 0.7rem 0;
+    padding-bottom: 5px;
+    color: #333;
 }
 
 h6 {
-	color: #777777;
-	background-color: inherit;
+    margin: 0.7rem 0 0.7rem 0;
+    padding-bottom: 5px;
+    color: #333;
 }
 
 hr {
@@ -34,7 +47,13 @@ hr {
 }
 
 p, blockquote, ul, ol, dl, li, table, pre {
-	margin: 15px 0;
+	margin: 12px 0;
+}
+
+blockquote {
+    border-left: 4px solid #dddddd;
+    padding: 0 15px;
+    color: #777777;
 }
 
 li, ul {
@@ -56,34 +75,34 @@ button {
 
 code, pre {
 	font-family: Monaco;
-	border-radius: 3px;
-	background-color: #F8F8F8;
-	color: inherit;
+    border: 0;
+    border-radius: 0;
+}
+
+pre {
+    background-color: #F8F8F8;
+    margin: 2px 0 8px;
+    padding: 18px;
 }
 
 code {
-	border: 1px solid #EAEAEA;
-	margin: 0 2px;
-	padding: 0 5px;
+	color: #BB637F;
+    padding: 4px 4px 2px 0;
+    letter-spacing: -0.3px;
 }
 
 li p:first-child code:first-child {
 	font-size: 1.3em;
 	font-family: "Avenir Next", Helvetica, Arial, sans-serif;
 	font-weight: 500;
-        background-color: inherit;
-        border: inherit;
+    background-color: inherit;
+    border: inherit;
 }
 
-pre {
-	border: 1px solid #CCCCCC;
-	overflow: auto;
-	padding: 4px 8px;
-}
-
-pre > code {
-	border: 0;
-	margin: 0;
+pre code {
 	padding: 0;
+    color: inherit;
+    white-space: pre-wrap;
+    background-color: transparent;
 }
 

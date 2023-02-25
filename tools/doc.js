@@ -3,10 +3,11 @@
 //  Jan 2014
 //
 
-var fs = require('fs')
-var path = require("path");
 var marked = require("marked");
-var bkjs = require('backendjs');
+const fs = require('fs')
+const path = require("path");
+const bkjs = require('backendjs');
+const lib = bkjs.lib;
 
 function readDir(dir)
 {
@@ -27,48 +28,33 @@ function readDir(dir)
     });
 }
 
-var dirs = bkjs.lib.strSplit(bkjs.lib.getArg("-dirs", "lib,modules"));
-
-var files = [];
-for (const d of dirs) readDir(d);
-
-var skip = new RegExp(bkjs.lib.getArg("-skip", "index.js$"));
-
-files = files.filter((x) => (!skip.test(x))).sort();
+var header = "", footer = "", renderer;
 
 var name = bkjs.lib.getArg("-name", "Backendjs");
 
-var header = `<head><title>${name} Documentation</title>` +
-        '<link rel="shortcut icon" href="img/logo.png" type="image/png" />' +
-        '<link rel="icon" href="img/logo.png" type="image/png" />' +
-        '<script src="js/jquery.js"></script>' +
-        '<link href="css/bootstrap.css" rel="stylesheet">' +
-        '<script src="js/bootstrap.js"></script>' +
-        '<link rel="stylesheet" href="css/doc.css">' +
-        '<link href="css/font-awesome.css" rel="stylesheet">' +
-        '</head>' +
-        '<body>\n' +
-        '<div class="container">' +
-        '<nav class="navbar navbar-expand-lg navbar-light">' +
-        '<div class="navbar-brand">' +
-        '<a href="/"><img class="logo" src="img/logo.png"></a>' +
-        '<span>Backend library for Node.js</span>' +
-        '</div>' +
-        '<button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">' +
-        '<span class="navbar-toggler-icon"></span>' +
-        '</button>' +
-        '<div id="navbar" class="navbar-collapse collapse">' +
-        '<ul class="navbar-nav">' +
-        '<li><a class="nav-link" href="doc.html"><i class="fa fa-gears fa-fw"></i> Documentation</a></li>' +
-        '<li><a class="nav-link" href="http://github.com/vseryakov/backendjs"><i class="fa fa-github fa-fw"></i> Github</a><li>' +
-        '</ul>' +
-        '</div>' +
-        '</nav>';
+if (!lib.isArg("-nohdr")) {
+    header =
+`<head>
+   <title>${name} Documentation</title>
+   <link rel="shortcut icon" href="img/logo.png" type="image/png" />
+   <link rel="icon" href="img/logo.png" type="image/png" />
+   <link href="css/bootstrap.css" rel="stylesheet">
+   <link rel="stylesheet" href="css/doc.css">
+</head>
+<body>
+    <div class="container">
+        <div class="d-flex justify-content-between align-items-center w-100 pb-4">
+            <div><a href="/"><img class="logo" height=22 src="img/logo.png"></a>
+                <span class="px-2">Backend library for Node.js</span>
+            </div>
+            <a href="http://github.com/${lib.getArg("-github", "vseryakov/backendjs")}">[Github]</a>
+        </div>`;
+    footer = "</div></body>";
+}
 
-var toc = `# ${name} Documentation\n## Table of contents\n`;
+var toc = `# ${name} Documentation\n\n## Table of contents\n\n`;
 
-var readme = fs.readFileSync("README.md").toString();
-
+var readme = lib.isArg("-noreadme") ? "" : lib.readFileSync("README.md");
 readme.split("\n").forEach((x) => {
     var d = x.match(/^([#]+) (.+)/);
     if (!d) return;
@@ -77,42 +63,37 @@ readme.split("\n").forEach((x) => {
     toc += "* [ " + d[2] + "](#" + d[2].toLowerCase().replace(/[^\w]+/g, '-') + ")\n";
 });
 
-if (bkjs.lib.isArg("-args")) {
+if (lib.isArg("-args")) {
     toc += "* [Configuration parameters](#configuration-parameters)\n";
 }
 
 toc += "* Javascript Modules\n";
 
-files.forEach((file) => {
-    if (/^[a-zA-Z0-9_]+\/[a-z0-9_-]+.js$/.test(file)) {
-        file = path.basename(file, '.js');
-        toc += "    * [" + file + "](#module-" + file + ")\n";
-    }
-});
+var files = [];
+bkjs.lib.strSplit(bkjs.lib.getArg("-dirs", "lib,modules")).forEach(readDir);
 
-marked.setOptions({ gfm: true, tables: true, breaks: false, pedantic: false, smartLists: true, smartypants: false });
+var skip = new RegExp(lib.getArg("-skip", "index.js$"));
+files = files.filter((x) => (!skip.test(x))).sort()
 
-var renderer = new marked.Renderer();
-
-var text = marked.parse(toc, { renderer: renderer });
-
-text += marked.parse(readme, { renderer: renderer });
-
-if (bkjs.lib.isArg("-args")) {
-    text += marked.parse("## Configuration parameters\n", { renderer: renderer });
-    text += marked.parse(bkjs.core.showHelp({ markdown: 1 }), { renderer: renderer });
+if (lib.isArg("-md")) {
+    header = footer = "";
+    marked = { parse: (s) => (s) };
+} else {
+    marked.setOptions({ gfm: true, tables: true, breaks: false, pedantic: false, smartLists: true, smartypants: false });
+    renderer = new marked.Renderer();
 }
 
-var base = "", mod;
+var mod, text = "";
 
 files.forEach((file) => {
-    if (/^[a-zA-Z0-9_]+\/[a-z0-9_-]+.js$/.test(file)) base = file;
-    var doc = "", overview;
-    var data = fs.readFileSync(file).toString().split("\n");
-    if (base == file) {
-        mod = path.basename(file, '.js');
-        text += marked.parse("## Module: " + mod + "\n", { renderer: renderer });
+    var base = path.basename(file, '.js');
+    if (/^[a-zA-Z0-9_]+\/[a-z0-9_-]+.js$/.test(file)) {
+        mod = base;
+        toc += "    * [" + base + "](#module-" + base + ")\n";
+        text += marked.parse("## Module: " + mod + "\n\n", { renderer: renderer });
     }
+    var doc = "", overview, submod;
+    var data = fs.readFileSync(file).toString().split("\n");
     for (var i = 0; i < data.length; i++) {
         var line = data[i];
         if (!line) continue;
@@ -126,7 +107,13 @@ files.forEach((file) => {
 
         // Module overview
         d = line.match(/^(const|var) ([^ ]+)[ =]+{$|^function [^(]+\([^)]*\)$/);
-        if (d && doc && !overview) {
+        if (d && !overview) {
+            // Check for submodule
+            if (d[2] == "mod" && base != mod) {
+                submod = base;
+                toc += "    * [" + base + "](#module-" + base + ")\n";
+                text += marked.parse("### Module: " + submod + "\n\n", { renderer: renderer });
+            }
             text += marked.parse(doc, { renderer: renderer }) + "\n";
             doc = "";
             overview = 1;
@@ -137,8 +124,8 @@ files.forEach((file) => {
         if (d && doc) {
             if (d[1].match(skip)) continue;
             d = d[1] + d[2];
-            if (mod) {
-                d = d.replace(/^mod\./, mod +".");
+            if (mod || submod) {
+                d = d.replace(/^mod\./, (submod || mod) + ".");
             }
             text += marked.parse("* `" + d + "`\n\n  " + doc, { renderer: renderer }) + "\n";
             doc = "";
@@ -147,7 +134,7 @@ files.forEach((file) => {
         // Args
         d = line.match(/^ +args: \[$|^ +this.args = \[$|^ *core.describeArgs\(["']([a-z0-9_]+)["'],/);
         if (d) {
-            let m = d[1] || mod;
+            let m = d[1] || submod || mod;
             m = m == "core" ? "" : m + "-";
             doc = "* `Config parameters`\n\n";
             while (i < data.length) {
@@ -167,7 +154,7 @@ files.forEach((file) => {
             while (i < data.length) {
                 line = data[++i];
                 if (!line || line.match(/^ {4}\},|^ +\}\);$/)) break;
-                doc += "    " + line + "\n";
+                doc += "    " + line.substr(4) + "\n";
             }
             // Precaution
             if (i < data.length) text += marked.parse(doc, { renderer: renderer }) + "\n";
@@ -178,6 +165,11 @@ files.forEach((file) => {
     }
 });
 
-console.log(header + text + "</div></body>");
+if (lib.isArg("-notoc")) toc = ""; else toc = marked.parse(toc + readme, { renderer: renderer });
+
+console.log(header);
+console.log(toc);
+console.log(text);
+console.log(footer);
 process.exit(0);
 
