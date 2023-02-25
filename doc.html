@@ -1,5 +1,19 @@
-<head><title>Backendjs Documentation</title><link rel="shortcut icon" href="img/logo.png" type="image/png" /><link rel="icon" href="img/logo.png" type="image/png" /><script src="js/jquery.js"></script><link href="css/bootstrap.css" rel="stylesheet"><script src="js/bootstrap.js"></script><link rel="stylesheet" href="css/doc.css"><link href="css/font-awesome.css" rel="stylesheet"></head><body>
-<div class="container"><nav class="navbar navbar-expand-lg navbar-light"><div class="navbar-brand"><a href="/"><img class="logo" src="img/logo.png"></a><span>Backend library for Node.js</span></div><button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation"><span class="navbar-toggler-icon"></span></button><div id="navbar" class="navbar-collapse collapse"><ul class="navbar-nav"><li><a class="nav-link" href="doc.html"><i class="fa fa-gears fa-fw"></i> Documentation</a></li><li><a class="nav-link" href="http://github.com/vseryakov/backendjs"><i class="fa fa-github fa-fw"></i> Github</a><li></ul></div></nav><h1 id="backendjs-documentation">Backendjs Documentation</h1>
+<head>
+   <title>Backendjs Documentation</title>
+   <link rel="shortcut icon" href="img/logo.png" type="image/png" />
+   <link rel="icon" href="img/logo.png" type="image/png" />
+   <link href="css/bootstrap.css" rel="stylesheet">
+   <link rel="stylesheet" href="css/doc.css">
+</head>
+<body>
+    <div class="container">
+        <div class="d-flex justify-content-between align-items-center w-100 pb-4">
+            <div><a href="/"><img class="logo" height=22 src="img/logo.png"></a>
+                <span class="px-2">Backend library for Node.js</span>
+            </div>
+            <a href="http://github.com/vseryakov/backendjs">[Github]</a>
+        </div>
+<h1 id="backendjs-documentation">Backendjs Documentation</h1>
 <h2 id="table-of-contents">Table of contents</h2>
 <ul>
 <li><a href="#backend-library-for-node-js"> Backend library for Node.js</a></li>
@@ -66,9 +80,11 @@
 <li><a href="#module-events">events</a></li>
 <li><a href="#module-httpget">httpget</a></li>
 <li><a href="#module-ipc">ipc</a></li>
+<li><a href="#module-nats">nats</a></li>
 <li><a href="#module-jobs">jobs</a></li>
 <li><a href="#module-lib">lib</a></li>
 <li><a href="#module-logger">logger</a></li>
+<li><a href="#module-syslog">syslog</a></li>
 <li><a href="#module-metrics">metrics</a></li>
 <li><a href="#module-msg">msg</a></li>
 <li><a href="#module-pool">pool</a></li>
@@ -1454,6 +1470,7 @@ Database pool statistics and other diagnostics</p>
 <h1 id="author">Author</h1>
 <p>  Vlad Seryakov</p>
 <p>Check out the <a href="http://bkjs.io">Documentation</a> for more details.</p>
+
 <h2 id="module-api">Module: api</h2>
 <p>  HTTP API to the server from the clients, this module implements the basic HTTP(S) API functionality with some common features. The API module
   incorporates the Express server which is exposed as api.app object, the master server spawns Web workers which perform actual operations and monitors
@@ -2558,7 +2575,7 @@ All properties starting with <code>is`` or </code>cleanup_`` will be passed to t
 </ul>
 
 <h2 id="module-app">Module: app</h2>
-<p>   Author: Vlad Seryakov <a href="mailto:&#x76;&#x73;&#101;&#x72;&#x79;&#x61;&#x6b;&#x6f;&#x76;&#64;&#103;&#109;&#97;&#x69;&#108;&#x2e;&#99;&#111;&#109;">&#x76;&#x73;&#101;&#x72;&#x79;&#x61;&#x6b;&#x6f;&#x76;&#64;&#103;&#109;&#97;&#x69;&#108;&#x2e;&#99;&#111;&#109;</a>
+<p>   Author: Vlad Seryakov <a href="mailto:&#118;&#115;&#101;&#114;&#x79;&#x61;&#x6b;&#111;&#x76;&#64;&#x67;&#109;&#97;&#105;&#108;&#x2e;&#99;&#x6f;&#x6d;">&#118;&#115;&#101;&#114;&#x79;&#x61;&#x6b;&#111;&#x76;&#64;&#x67;&#109;&#97;&#105;&#108;&#x2e;&#99;&#x6f;&#x6d;</a>
    backendjs 2018</p>
 <p>  This is a skeleton module to be extended by the specific application logic. It provides all
   callbacks and hooks that are called by the core backend modules
@@ -2646,6 +2663,7 @@ been processed.</p>
 </ul>
 
 <h2 id="module-auth">Module: auth</h2>
+
 <ul>
 <li><p><code>Config parameters</code></p>
 <ul>
@@ -4109,6 +4127,7 @@ type can be bool, number, list, json</p>
 </li>
 </ul>
 
+
 <ul>
 <li><p><code>core.processName()</code></p>
 <p>  Return unique process name based on the cluster status, worker or master and the role. This is can be reused by other workers within the role thus
@@ -4322,18 +4341,18 @@ Options properties:</p>
 
 <ul>
 <li><p><code>Database tables</code></p>
-<pre><code>      // Configuration store, same parameters as in the commandline or config file, can be placed in separate config groups
-      // to be used by different backends or workers
-      bk_config: {
-          name: { primary: 1 },            // name of the parameter
-          type: { primary: 2 },            // config type or tag
-          value: { type: &quot;text&quot; },         // the value
-          status: { value: &quot;ok&quot; },         // ok - availaible
-          ttl: { type: &quot;int&quot; },            // refresh interval in seconds since last read
-          version: { type: &quot;text&quot; },       // version conditions, &gt;M.N,&lt;M.N
-          ctime: { type: &quot;now&quot;, readonly: 1 },
-          mtime: { type: &quot;now&quot; }
-      },
+<pre><code>  // Configuration store, same parameters as in the commandline or config file, can be placed in separate config groups
+  // to be used by different backends or workers
+  bk_config: {
+      name: { primary: 1 },            // name of the parameter
+      type: { primary: 2 },            // config type or tag
+      value: { type: &quot;text&quot; },         // the value
+      status: { value: &quot;ok&quot; },         // ok - availaible
+      ttl: { type: &quot;int&quot; },            // refresh interval in seconds since last read
+      version: { type: &quot;text&quot; },       // version conditions, &gt;M.N,&lt;M.N
+      ctime: { type: &quot;now&quot;, readonly: 1 },
+      mtime: { type: &quot;now&quot; }
+  },
 </code></pre>
 </li>
 </ul>
@@ -5140,6 +5159,7 @@ types <code>myapp</code> and <code>prod-myapp</code>, then the last value will b
 </li>
 </ul>
 
+
 <ul>
 <li><p><code>Pool.prototype.convertError(table, op, err, options)</code></p>
 <p>  Convert into recognizable error codes</p>
@@ -5167,6 +5187,7 @@ types <code>myapp</code> and <code>prod-myapp</code>, then the last value will b
 </ul>
 <p>  On successful connect to any node the driver retrieves full list of nodes in the cluster and switches to a random node, this happens
   every <code>discovery-interval</code> in milliseconds, default is 1h, it can be specified as <code>-db-elasticserch-pool-options-discovery-interval=300000</code></p>
+
 
 <ul>
 <li><p><code>Pool.prototype.cacheIndexes(options, callback)</code></p>
@@ -5664,6 +5685,7 @@ options may define the following properties:</p>
 <p>  Build SQL statement for delete</p>
 </li>
 </ul>
+
 
 <ul>
 <li><p><code>db.initTables()</code></p>
@@ -6382,6 +6404,7 @@ otherwise it is already locked by other instance. In case of an error the lock i
 <pre><code>   npm i -g amqplib
 </code></pre>
 
+
 <ul>
 <li><p><code>IpcClient.prototype.close()</code></p>
 <p>  Close current connection, ports.... not valid after this call</p>
@@ -6547,6 +6570,8 @@ Rate limit check, by default it uses the master LRU cache meaning it works withi
 </li>
 </ul>
 
+
+<h3 id="module-nats">Module: nats</h3>
 <p>  Queue client using NATS server</p>
 <p>  To enable install the npm modules:</p>
 <pre><code>   npm i -g nats
@@ -7416,6 +7441,7 @@ that data is not chnaged and was signed with the same secret</p>
 </li>
 </ul>
 
+
 <ul>
 <li><p><code>lib.jsonFormat(obj, options)</code></p>
 <p>  Nicely format an object with indentations, optional <code>indentlevel</code> can be used to control until which level deep
@@ -7452,8 +7478,6 @@ to use newlines for objects.</p>
 <p>  Same arguments as for <code>jsonParse</code></p>
 </li>
 </ul>
-
-<p>  Combined parser with type validation</p>
 
 <ul>
 <li><p><code>lib.encodeURIComponent(str)</code></p>
@@ -7851,6 +7875,7 @@ if <code>options.error</code> is 1, then stop on first error or if non-zero stat
 </code></pre>
 </li>
 </ul>
+
 
 <ul>
 <li><p><code>lib.forEach(list, iterator, callback, direct)</code></p>
@@ -8480,6 +8505,7 @@ does not handle over the midninght ranges, i.e. time1 is always must be greater 
 </li>
 </ul>
 
+
 <ul>
 <li><p><code>lib.strftime(date, fmt, options)</code></p>
 <p>  Format date object</p>
@@ -8567,7 +8593,10 @@ the default is to use the <code>error</code> level.</li>
 </li>
 </ul>
 
+<h3 id="module-syslog">Module: syslog</h3>
+
 <h2 id="module-metrics">Module: metrics</h2>
+
 <ul>
 <li><p><code>TokenBucket.prototype.configure(rate, max, interval, total)</code></p>
 <p>  Initialize existing token with numbers for rate calculations</p>
@@ -8704,6 +8733,7 @@ Each item in the list is an object with the following properties: key, secret, a
 </li>
 </ul>
 
+
 <ul>
 <li><p><code>client.check(dev)</code></p>
 <p>  Returns true if given device is supported by APN</p>
@@ -8751,6 +8781,7 @@ connection to APN gateway.</p>
 </li>
 </ul>
 
+
 <ul>
 <li><p><code>client.init(options)</code></p>
 <p>  Initialize Google Cloud Messaging service to send push notifications to mobile devices</p>
@@ -8774,6 +8805,7 @@ connection to APN gateway.</p>
 <p>  Retry on server error, honor Retry-After header if present, use it only on the first error</p>
 </li>
 </ul>
+
 
 <ul>
 <li><p><code>client.send(dev, options, callback)</code></p>
@@ -9347,6 +9379,7 @@ commands processed from <code>shell.cmdIndex</code></p>
 </li>
 </ul>
 
+
 <ul>
 <li><p><code>tests.expect(ok, ...args)</code></p>
 <p>  To be used in the tests, these global functions takes the following arguments:</p>
@@ -9563,5 +9596,6 @@ delete an account but keep all messages and location: keep:[&quot;bk_user&quot;,
 <p>This methods is suitable for background jobs</p>
 </li>
 </ul>
+
 
 </div></body>
