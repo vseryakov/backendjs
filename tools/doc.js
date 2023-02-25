@@ -107,7 +107,7 @@ var base = "", mod;
 
 files.forEach((file) => {
     if (/^[a-zA-Z0-9_]+\/[a-z0-9_-]+.js$/.test(file)) base = file;
-    var doc = "";
+    var doc = "", overview;
     var data = fs.readFileSync(file).toString().split("\n");
     if (base == file) {
         mod = path.basename(file, '.js');
@@ -121,6 +121,15 @@ files.forEach((file) => {
         var d = line.match(/^\/\//);
         if (d) {
             doc += " " + line.substr(2) + "\n";
+            continue;
+        }
+
+        // Module overview
+        d = line.match(/^(const|var) ([^ ]+)[ =]+{$|^function [^(]+\([^)]*\)$/);
+        if (d && doc && !overview) {
+            text += marked.parse(doc, { renderer: renderer }) + "\n";
+            doc = "";
+            overview = 1;
             continue;
         }
         // Function
