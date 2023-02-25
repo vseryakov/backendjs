@@ -9,6 +9,7 @@ case "$BKJS_CMD" in
     filter=$(get_arg -filter)
     path=$(get_arg -path)
     [ "$path" != "" ] && cd $path
+    test=$(get_arg -test .)
     files=$(find tests -name '*.js')
     [ "$?" != "0" ] && exit 1
     err=0
@@ -17,7 +18,7 @@ case "$BKJS_CMD" in
         fn=$path/$file
         [[ ! -z $skip && $fn =~ $skip ]] && continue
         [[ ! -z $filter && ! $fn =~ $filter ]] && continue
-        $0 test-$(basename $file .js) -test . -log $log $nolog $(get_all_args "-log -path -skip -filter")
+        $0 test-$(basename $file .js) -test $test -log $log $nolog $(get_all_args "-log -path -skip -filter -test")
         [ "$?" != "0" ] && err=1
     done
     exit $err
