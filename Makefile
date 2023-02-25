@@ -6,7 +6,7 @@
 pages:
 	git-new-workdir backendjs bkjs-pages gh-pages
 
-update:
+doc:
 	(cd ../backendjs && npm run doc)
 	cp ../backendjs/web/doc.html .
 	git commit -a -m docs && git push

@@ -56,8 +56,7 @@
 <li><a href="#data"> Data</a></li>
 <li><a href="#system-api"> System API</a></li>
 <li><a href="#author"> Author</a></li>
-<li><a href="#configuration-parameters">Configuration parameters</a></li>
-<li>Javascript API functions<ul>
+<li>Javascript Modules<ul>
 <li><a href="#module-api">api</a></li>
 <li><a href="#module-app">app</a></li>
 <li><a href="#module-auth">auth</a></li>
@@ -66,7 +65,6 @@
 <li><a href="#module-db">db</a></li>
 <li><a href="#module-events">events</a></li>
 <li><a href="#module-httpget">httpget</a></li>
-<li><a href="#module-index">index</a></li>
 <li><a href="#module-ipc">ipc</a></li>
 <li><a href="#module-jobs">jobs</a></li>
 <li><a href="#module-lib">lib</a></li>
@@ -1456,473 +1454,164 @@ Database pool statistics and other diagnostics</p>
 <h1 id="author">Author</h1>
 <p>  Vlad Seryakov</p>
 <p>Check out the <a href="http://bkjs.io">Documentation</a> for more details.</p>
-<h2 id="configuration-parameters">Configuration parameters</h2>
+<h2 id="module-api">Module: api</h2>
+<p>  HTTP API to the server from the clients, this module implements the basic HTTP(S) API functionality with some common features. The API module
+  incorporates the Express server which is exposed as api.app object, the master server spawns Web workers which perform actual operations and monitors
+  the worker processes if they die and restart them automatically. How many processes to spawn can be configured via <code>-server-max-workers</code> config parameter.</p>
+<p>  When an HTTP request arrives it goes over Express middleware, but before processing any registered routes there are several steps performed:</p>
 <ul>
-<li><code>help</code> - Print help and exit</li>
-<li><code>log</code> - Set debugging level to any of test,dev,debug,info,notice,log,warn,error,none</li>
-<li><code>log-file</code> - Log to a file, if not specified used default logfile, disables syslog</li>
-<li><code>log-ignore</code> - Regexp with property names which must not be exposed in the log when using custom logger inspector</li>
-<li><code>log-inspect</code> - Install custom secure logger inspection instead of util.inspect</li>
-<li><code>log-filter</code> - Enable debug filters, format is: label,... to enable, and !label,... to disable. Only first argument is used for label in logger.debug</li>
-<li><code>no-log-filter</code> - Clear all log filters</li>
-<li><code>syslog</code> - Log messages to syslog, pass 0 to disable, 1 or url (tcp|udp|unix):[//host:port]/path?[facility=F][&amp;tag=T][&amp;retryCount=N]...</li>
-<li><code>console</code> - All logging goes to the console resetting all previous log related settings, this is used in the development mode mostly</li>
-<li><code>home</code> - Specify home directory for the server, the server will try to chdir there or exit if it is not possible, the directory must exist</li>
-<li><code>conf-file</code> - Name of the config file to be loaded instead of the default etc/config, can be relative or absolute path</li>
-<li><code>err-file</code> - Path to the error log file where daemon will put app errors and crash stacks</li>
-<li><code>etc-dir</code> - Path where to keep config files</li>
-<li><code>tmp-dir</code> - Path where to keep temp files</li>
-<li><code>spool-dir</code> - Path where to keep modifiable files</li>
-<li><code>log-dir</code> - Path where to keep other log files, log-file and err-file are not affected by this</li>
-<li><code>files-dir</code> - Path where to keep uploaded files</li>
-<li><code>images-dir</code> - Path where to keep images</li>
-<li><code>web-path</code> - Path where to keep web pages and other static files to be served by the web servers</li>
-<li><code>views-path</code> - Path where to keep virtual hosts web pages, every subdirectory name is a host name to match with Host: header, www. is always stripped before matching vhost directory</li>
-<li><code>modules-path</code> - Directory from where to load modules, these are the backendjs modules but in the same format and same conventions as regular node.js modules, the format of the files is NAME_{web,worker,shell}.js. The modules can load any other files or directories, this is just an entry point</li>
-<li><code>locales-path</code> - Path where to keep locale translations</li>
-<li><code>role</code> - Override servers roles, this may have very strange side effects and should only be used for testing purposes</li>
-<li><code>umask</code> - Permissions mask for new files, calls system umask on startup, if not specified the current umask is used</li>
-<li><code>force-uid</code> - Drop privileges if running as root by all processes as early as possibly, this reqiures uid being set to non-root user. A convenient switch to start the backend without using any other tools like su or sudo.</li>
-<li><code>port</code> - port to listen for the HTTP server, this is global default</li>
-<li><code>bind</code> - Bind to this address only, if not specified listen on all interfaces</li>
-<li><code>backlog</code> - The maximum length of the queue of pending connections, used by HTTP server in listen.</li>
-<li><code>ws-port</code> - Port to listen for WebSocket server, it can be the same as HTTP/S ports to co-exist on existing web servers</li>
-<li><code>ws-bind</code> - Bind to this address only for WebSocket, if not specified listen on all interfaces, only when the port is different from existing web ports</li>
-<li><code>ws-ping</code> - How often to ping Websocket connections</li>
-<li><code>ws-path</code> - Websockets will be accepted only if request path maches the pattern</li>
-<li><code>ws-queue</code> - A queue where to publish messages for websockets, API process will listen for messages and proxy it to all macthing connected websockets </li>
-<li><code>ssl-port</code> - port to listen for HTTPS server, this is global default, be advised that proxy-port takes precedence</li>
-<li><code>ssl-bind</code> - Bind to this address only for HTTPS server, if not specified listen on all interfaces</li>
-<li><code>ssl-key</code> - Path to SSL prvate key</li>
-<li><code>ssl-cert</code> - Path to SSL certificate</li>
-<li><code>ssl-pfx</code> - A string or Buffer containing the private key, certificate and CA certs of the server in PFX or PKCS12 format. (Mutually exclusive with the key, cert and ca options.)</li>
-<li><code>ssl-ca</code> - An array of strings or Buffers of trusted certificates in PEM format. If this is omitted several well known root CAs will be used, like VeriSign. These are used to authorize connections.</li>
-<li><code>ssl-passphrase</code> - A string of passphrase for the private key or pfx</li>
-<li><code>ssl-crl</code> - Either a string or list of strings of PEM encoded CRLs (Certificate Revocation List)</li>
-<li><code>ssl-ciphers</code> - A string describing the ciphers to use or exclude. Consult <a href="http://www.openssl.org/docs/apps/ciphers.html#CIPHER_LIST_FORMAT">http://www.openssl.org/docs/apps/ciphers.html#CIPHER_LIST_FORMAT</a> for details on the format</li>
-<li><code>ssl-request-cert</code> - If true the server will request a certificate from clients that connect and attempt to verify that certificate. </li>
-<li><code>concurrency</code> - How many simultaneous tasks to run at the same time inside one process, this is used by async module only to perform several tasks at once, this is not multithreading but and only makes sense for I/O related tasks</li>
-<li><code>daemon</code> - Daemonize the process, go to the background, can be specified only in the command line</li>
-<li><code>shell</code> - Run command line shell, load the backend into the memory and prompt for the commands, can be specified only in the command line</li>
-<li><code>monitor</code> - For production use, monitors the master and Web server processes and restarts if crashed or exited, can be specified only in the command line</li>
-<li><code>master</code> - Start the master server, can be specified only in the command line, this process handles job schedules and starts Web server, keeps track of failed processes and restarts them</li>
-<li><code>web</code> - Start Web server processes, spawn workers that listen on the same port, for use without master process which starts Web servers automatically</li>
-<li><code>proxy-port</code> - Start the HTTP reverse proxy server, all Web workers will listen on different ports and will be load-balanced by the proxy, the proxy server will listen on global HTTP port and all workers will listen on ports starting with the proxy-port</li>
-<li><code>proxy-ssl</code> - Start HTTPS reverse proxy to accept incoming SSL requests, ssl-key/cert must be defined</li>
-<li><code>salt</code> - Set random or specific salt value to be used for consistent suuid generation</li>
-<li><code>app-name</code> - Set appName and version explicitely an skip reading it from package.json, it can be just a name or name-version</li>
-<li><code>app-package</code> - NPM package containing the application package.json, it will be added to the list of package.json files for app name and version discovery. The package must be included in the -allow-packages list.</li>
-<li><code>instance-(.+)</code> - Set instance properties explicitly: tag, region, zone</li>
-<li><code>run-mode</code> - Running mode for the app, used to separate different running environment and configurations. DNS TXT configurable.</li>
-<li><code>no-monitor</code> - Disable monitor process, for cases when the master will be monitored by other tool like monit...</li>
-<li><code>no-master</code> - Do not start the master process</li>
-<li><code>no-watch</code> - Disable source code watcher</li>
-<li><code>no-web</code> - Disable Web server processes, without this flag Web servers start by default</li>
-<li><code>no-db</code> - Do not initialize DB drivers</li>
-<li><code>no-db-config</code> - Do not retrieve config from the DB</li>
-<li><code>no-dns</code> - Do not use DNS configuration during the initialization</li>
-<li><code>no-modules</code> - Do not load any external modules</li>
-<li><code>no-packages</code> - Do not load any NPM packages</li>
-<li><code>no-configure</code> - Do not run configure hooks during the initialization</li>
-<li><code>repl-port-([a-z]+)$</code> - Base REPL port for process role (server, master, web, worker), if specified it initializes REPL in the processes, for workers the port is computed by adding a worker id to the base port, for example if specified <code>-repl-port-web 2090</code> then a web worker will use any available 2091,2092...</li>
-<li><code>repl-bind</code> - Listen only on specified address for REPL server in the master process</li>
-<li><code>repl-file</code> - User specified file for REPL history</li>
-<li><code>repl-size</code> - Max size to read on start from the end of the history file</li>
-<li><code>worker</code> - Set this process as a worker even it is actually a master, this skips some initializations</li>
-<li><code>allow-packages</code> - NPM packages to load on startup, the modules, locales, viewes, web subfolders from the package will be added automatically to the system paths, modules will be loaded if present, the config file in etc subfolder will be parsed if present</li>
-<li><code>preload-modules</code> - Modules to preload first from any modules/ folders including the system folder, this can be used to preload default bkjs system modules</li>
-<li><code>exclude-modules</code> - Modules not to load, the whole path is checked</li>
-<li><code>depth-modules</code> - How deep to go looking for modules, it uses lib.findFileSync to locate all .js files</li>
-<li><code>user-agent</code> - Add HTTP user-agent header to be used in HTTP requests, for scrapers or other HTTP requests that need to be pretended coming from Web browsers</li>
-<li><code>backend-host</code> - Host of the master backend, can be used for backend nodes communications using core.sendRequest function calls with relative URLs, also used in tests.</li>
-<li><code>backend-login</code> - Credentials login for the master backend access when using core.sendRequest</li>
-<li><code>backend-secret</code> - Credentials secret for the master backend access when using core.sendRequest</li>
-<li><code>host-name</code> - Hostname/domain to use for communications, default is current domain of the host machine</li>
-<li><code>config-domain</code> - Domain to query for configuration TXT records, must be specified to enable DNS configuration</li>
-<li><code>watch</code> - Watch sources directory for file changes to restart the server, for development only, the backend module files will be added to the watch list automatically, so only app specific directores should be added. In the production -monitor must be used.</li>
-<li><code>watch-ignore</code> - Files to be ignored by the watcher</li>
-<li><code>watch-match</code> - Files to be watched, .js and .css is the default</li>
-<li><code>watch-web</code> - List of directories to be watched for file modifications and execute a <code>buildWeb</code> command to produce bundles, apps, etc... Relative paths will be applied to all packages, example: web/js,web/css</li>
-<li><code>build-web</code> - Command to run on web files modifications, to be used with tools like minify/uglify</li>
-<li><code>locales</code> - A list of locales to load from the locales/ directory, only language name must be specified, example: en,es. It enables internal support for <code>res.__</code> and <code>req.__</code> methods that can be used for translations, for each request the internal language header will be honored forst, then HTTP Accept-Language</li>
-<li><code>no-locales</code> - Do not load locales on start</li>
-<li><code>email-from</code> - Email address to be used when sending emails from the backend</li>
-<li><code>email-transport</code> - Send emails via supported transports: ses:, sendgrid://?key=SG, if not set default SMTP settings are used</li>
-<li><code>sendgrid-key</code> - SendGrid API key</li>
-<li><code>smtp-(.+)</code> - SMTP server parameters, user, password, host, ssl, tls...see nodemailer for details</li>
-<li><code>tmp-watcher-(.+)</code> - How long to keep files per subdirectory in seconds</li>
-<li><code>stop-on-error</code> - Exit the process on any error when loading modules, for dev purposes</li>
-<li><code>logwatcher-pool</code> - DB pool to keep track of positions for log files, default is local</li>
-<li><code>logwatcher-mod</code> - Alternative module to be used for watching logs, it must have the <code>watchLogs</code> method, if no such method defined there the logwatcher does not run at all</li>
-<li><code>logwatcher-from</code> - Email address to send logwatcher notifications from, for cases with strict mail servers accepting only from known addresses</li>
-<li><code>logwatcher-subject</code> - Email subject template, all placeholders have access to the core module only</li>
-<li><code>logwatcher-interval</code> - How often to check for errors in the log files in seconds</li>
-<li><code>logwatcher-any-range</code> - Number of lines for matched channel <code>any</code> to be attached to the previous matched channel, if more than this number use the channel <code>any</code> on its own</li>
-<li><code>logwatcher-match-[a-z]+</code> - Regexp patterns that match conditions for logwatcher notifications, this is in addition to default backend logger patterns, suffix defines the log channel to use, like error, warning.... Special channel <code>any</code> is reserved to send matched lines to the previously matched channel if within configured range. Example: <code>-logwatcher-match-error=^failed:</code> <code>-logwatcher-match-any=line:[0-9]+</code></li>
-<li><code>logwatcher-send-[a-z]+</code> - Email address or other supported transport for the logwatcher notifications, the monitor process scans system and backend log files for errors and sends them to this email address, if not specified no log watching will happen, each channel must define a transport separately, one of error, warning, info, all. Supported transports: table://TABLE, <a href="http://URL">http://URL</a>, sns://ARN, ses://EMAIL, email@addr. Example: <code>-logwatcher-send-error=help@error.com</code></li>
-<li><code>logwatcher-ignore-[a-z]+</code> - Regexp with patterns that need to be ignored by the logwatcher process, it is added to the list of existing patterns for each specified channel separately</li>
-<li><code>logwatcher-once-[a-z0-9]+</code> - Regexp with patterns that need to be included only once by the logwatcher process, it is added to the list of existng patterns by tag to keep track each pattern separately, example: -logwatcher-once-restart &#39;restarting.+&#39; -logwatcher-once-recon &#39;reconnecting:.+&#39;</li>
-<li><code>logwatcher-file(-[a-z]+)?</code> - Add a file to be watched by the logwatcher, it will use all configured match patterns</li>
-<li><code>bkjs-help</code> - Print help and exit</li>
-<li><code>bkjs-log</code> - Set debugging level to any of test,dev,debug,info,notice,log,warn,error,none</li>
-<li><code>bkjs-log-file</code> - Log to a file, if not specified used default logfile, disables syslog</li>
-<li><code>bkjs-log-ignore</code> - Regexp with property names which must not be exposed in the log when using custom logger inspector</li>
-<li><code>bkjs-log-inspect</code> - Install custom secure logger inspection instead of util.inspect</li>
-<li><code>bkjs-log-filter</code> - Enable debug filters, format is: label,... to enable, and !label,... to disable. Only first argument is used for label in logger.debug</li>
-<li><code>bkjs-no-log-filter</code> - Clear all log filters</li>
-<li><code>bkjs-syslog</code> - Log messages to syslog, pass 0 to disable, 1 or url (tcp|udp|unix):[//host:port]/path?[facility=F][&amp;tag=T][&amp;retryCount=N]...</li>
-<li><code>bkjs-console</code> - All logging goes to the console resetting all previous log related settings, this is used in the development mode mostly</li>
-<li><code>bkjs-home</code> - Specify home directory for the server, the server will try to chdir there or exit if it is not possible, the directory must exist</li>
-<li><code>bkjs-conf-file</code> - Name of the config file to be loaded instead of the default etc/config, can be relative or absolute path</li>
-<li><code>bkjs-err-file</code> - Path to the error log file where daemon will put app errors and crash stacks</li>
-<li><code>bkjs-etc-dir</code> - Path where to keep config files</li>
-<li><code>bkjs-tmp-dir</code> - Path where to keep temp files</li>
-<li><code>bkjs-spool-dir</code> - Path where to keep modifiable files</li>
-<li><code>bkjs-log-dir</code> - Path where to keep other log files, log-file and err-file are not affected by this</li>
-<li><code>bkjs-files-dir</code> - Path where to keep uploaded files</li>
-<li><code>bkjs-images-dir</code> - Path where to keep images</li>
-<li><code>bkjs-web-path</code> - Path where to keep web pages and other static files to be served by the web servers</li>
-<li><code>bkjs-views-path</code> - Path where to keep virtual hosts web pages, every subdirectory name is a host name to match with Host: header, www. is always stripped before matching vhost directory</li>
-<li><code>bkjs-modules-path</code> - Directory from where to load modules, these are the backendjs modules but in the same format and same conventions as regular node.js modules, the format of the files is NAME_{web,worker,shell}.js. The modules can load any other files or directories, this is just an entry point</li>
-<li><code>bkjs-locales-path</code> - Path where to keep locale translations</li>
-<li><code>bkjs-role</code> - Override servers roles, this may have very strange side effects and should only be used for testing purposes</li>
-<li><code>bkjs-umask</code> - Permissions mask for new files, calls system umask on startup, if not specified the current umask is used</li>
-<li><code>bkjs-force-uid</code> - Drop privileges if running as root by all processes as early as possibly, this reqiures uid being set to non-root user. A convenient switch to start the backend without using any other tools like su or sudo.</li>
-<li><code>bkjs-port</code> - port to listen for the HTTP server, this is global default</li>
-<li><code>bkjs-bind</code> - Bind to this address only, if not specified listen on all interfaces</li>
-<li><code>bkjs-backlog</code> - The maximum length of the queue of pending connections, used by HTTP server in listen.</li>
-<li><code>bkjs-ws-port</code> - Port to listen for WebSocket server, it can be the same as HTTP/S ports to co-exist on existing web servers</li>
-<li><code>bkjs-ws-bind</code> - Bind to this address only for WebSocket, if not specified listen on all interfaces, only when the port is different from existing web ports</li>
-<li><code>bkjs-ws-ping</code> - How often to ping Websocket connections</li>
-<li><code>bkjs-ws-path</code> - Websockets will be accepted only if request path maches the pattern</li>
-<li><code>bkjs-ws-queue</code> - A queue where to publish messages for websockets, API process will listen for messages and proxy it to all macthing connected websockets </li>
-<li><code>bkjs-ssl-port</code> - port to listen for HTTPS server, this is global default, be advised that proxy-port takes precedence</li>
-<li><code>bkjs-ssl-bind</code> - Bind to this address only for HTTPS server, if not specified listen on all interfaces</li>
-<li><code>bkjs-ssl-key</code> - Path to SSL prvate key</li>
-<li><code>bkjs-ssl-cert</code> - Path to SSL certificate</li>
-<li><code>bkjs-ssl-pfx</code> - A string or Buffer containing the private key, certificate and CA certs of the server in PFX or PKCS12 format. (Mutually exclusive with the key, cert and ca options.)</li>
-<li><code>bkjs-ssl-ca</code> - An array of strings or Buffers of trusted certificates in PEM format. If this is omitted several well known root CAs will be used, like VeriSign. These are used to authorize connections.</li>
-<li><code>bkjs-ssl-passphrase</code> - A string of passphrase for the private key or pfx</li>
-<li><code>bkjs-ssl-crl</code> - Either a string or list of strings of PEM encoded CRLs (Certificate Revocation List)</li>
-<li><code>bkjs-ssl-ciphers</code> - A string describing the ciphers to use or exclude. Consult <a href="http://www.openssl.org/docs/apps/ciphers.html#CIPHER_LIST_FORMAT">http://www.openssl.org/docs/apps/ciphers.html#CIPHER_LIST_FORMAT</a> for details on the format</li>
-<li><code>bkjs-ssl-request-cert</code> - If true the server will request a certificate from clients that connect and attempt to verify that certificate. </li>
-<li><code>bkjs-concurrency</code> - How many simultaneous tasks to run at the same time inside one process, this is used by async module only to perform several tasks at once, this is not multithreading but and only makes sense for I/O related tasks</li>
-<li><code>bkjs-daemon</code> - Daemonize the process, go to the background, can be specified only in the command line</li>
-<li><code>bkjs-shell</code> - Run command line shell, load the backend into the memory and prompt for the commands, can be specified only in the command line</li>
-<li><code>bkjs-monitor</code> - For production use, monitors the master and Web server processes and restarts if crashed or exited, can be specified only in the command line</li>
-<li><code>bkjs-master</code> - Start the master server, can be specified only in the command line, this process handles job schedules and starts Web server, keeps track of failed processes and restarts them</li>
-<li><code>bkjs-web</code> - Start Web server processes, spawn workers that listen on the same port, for use without master process which starts Web servers automatically</li>
-<li><code>bkjs-proxy-port</code> - Start the HTTP reverse proxy server, all Web workers will listen on different ports and will be load-balanced by the proxy, the proxy server will listen on global HTTP port and all workers will listen on ports starting with the proxy-port</li>
-<li><code>bkjs-proxy-ssl</code> - Start HTTPS reverse proxy to accept incoming SSL requests, ssl-key/cert must be defined</li>
-<li><code>bkjs-salt</code> - Set random or specific salt value to be used for consistent suuid generation</li>
-<li><code>bkjs-app-name</code> - Set appName and version explicitely an skip reading it from package.json, it can be just a name or name-version</li>
-<li><code>bkjs-app-package</code> - NPM package containing the application package.json, it will be added to the list of package.json files for app name and version discovery. The package must be included in the -allow-packages list.</li>
-<li><code>bkjs-instance-(.+)</code> - Set instance properties explicitly: tag, region, zone</li>
-<li><code>bkjs-run-mode</code> - Running mode for the app, used to separate different running environment and configurations. DNS TXT configurable.</li>
-<li><code>bkjs-no-monitor</code> - Disable monitor process, for cases when the master will be monitored by other tool like monit...</li>
-<li><code>bkjs-no-master</code> - Do not start the master process</li>
-<li><code>bkjs-no-watch</code> - Disable source code watcher</li>
-<li><code>bkjs-no-web</code> - Disable Web server processes, without this flag Web servers start by default</li>
-<li><code>bkjs-no-db</code> - Do not initialize DB drivers</li>
-<li><code>bkjs-no-db-config</code> - Do not retrieve config from the DB</li>
-<li><code>bkjs-no-dns</code> - Do not use DNS configuration during the initialization</li>
-<li><code>bkjs-no-modules</code> - Do not load any external modules</li>
-<li><code>bkjs-no-packages</code> - Do not load any NPM packages</li>
-<li><code>bkjs-no-configure</code> - Do not run configure hooks during the initialization</li>
-<li><code>bkjs-repl-port-([a-z]+)$</code> - Base REPL port for process role (server, master, web, worker), if specified it initializes REPL in the processes, for workers the port is computed by adding a worker id to the base port, for example if specified <code>-repl-port-web 2090</code> then a web worker will use any available 2091,2092...</li>
-<li><code>bkjs-repl-bind</code> - Listen only on specified address for REPL server in the master process</li>
-<li><code>bkjs-repl-file</code> - User specified file for REPL history</li>
-<li><code>bkjs-repl-size</code> - Max size to read on start from the end of the history file</li>
-<li><code>bkjs-worker</code> - Set this process as a worker even it is actually a master, this skips some initializations</li>
-<li><code>bkjs-allow-packages</code> - NPM packages to load on startup, the modules, locales, viewes, web subfolders from the package will be added automatically to the system paths, modules will be loaded if present, the config file in etc subfolder will be parsed if present</li>
-<li><code>bkjs-preload-modules</code> - Modules to preload first from any modules/ folders including the system folder, this can be used to preload default bkjs system modules</li>
-<li><code>bkjs-exclude-modules</code> - Modules not to load, the whole path is checked</li>
-<li><code>bkjs-depth-modules</code> - How deep to go looking for modules, it uses lib.findFileSync to locate all .js files</li>
-<li><code>bkjs-user-agent</code> - Add HTTP user-agent header to be used in HTTP requests, for scrapers or other HTTP requests that need to be pretended coming from Web browsers</li>
-<li><code>bkjs-backend-host</code> - Host of the master backend, can be used for backend nodes communications using core.sendRequest function calls with relative URLs, also used in tests.</li>
-<li><code>bkjs-backend-login</code> - Credentials login for the master backend access when using core.sendRequest</li>
-<li><code>bkjs-backend-secret</code> - Credentials secret for the master backend access when using core.sendRequest</li>
-<li><code>bkjs-host-name</code> - Hostname/domain to use for communications, default is current domain of the host machine</li>
-<li><code>bkjs-config-domain</code> - Domain to query for configuration TXT records, must be specified to enable DNS configuration</li>
-<li><code>bkjs-watch</code> - Watch sources directory for file changes to restart the server, for development only, the backend module files will be added to the watch list automatically, so only app specific directores should be added. In the production -monitor must be used.</li>
-<li><code>bkjs-watch-ignore</code> - Files to be ignored by the watcher</li>
-<li><code>bkjs-watch-match</code> - Files to be watched, .js and .css is the default</li>
-<li><code>bkjs-watch-web</code> - List of directories to be watched for file modifications and execute a <code>buildWeb</code> command to produce bundles, apps, etc... Relative paths will be applied to all packages, example: web/js,web/css</li>
-<li><code>bkjs-build-web</code> - Command to run on web files modifications, to be used with tools like minify/uglify</li>
-<li><code>bkjs-locales</code> - A list of locales to load from the locales/ directory, only language name must be specified, example: en,es. It enables internal support for <code>res.__</code> and <code>req.__</code> methods that can be used for translations, for each request the internal language header will be honored forst, then HTTP Accept-Language</li>
-<li><code>bkjs-no-locales</code> - Do not load locales on start</li>
-<li><code>bkjs-email-from</code> - Email address to be used when sending emails from the backend</li>
-<li><code>bkjs-email-transport</code> - Send emails via supported transports: ses:, sendgrid://?key=SG, if not set default SMTP settings are used</li>
-<li><code>bkjs-sendgrid-key</code> - SendGrid API key</li>
-<li><code>bkjs-smtp-(.+)</code> - SMTP server parameters, user, password, host, ssl, tls...see nodemailer for details</li>
-<li><code>bkjs-tmp-watcher-(.+)</code> - How long to keep files per subdirectory in seconds</li>
-<li><code>bkjs-stop-on-error</code> - Exit the process on any error when loading modules, for dev purposes</li>
-<li><code>bkjs-logwatcher-pool</code> - DB pool to keep track of positions for log files, default is local</li>
-<li><code>bkjs-logwatcher-mod</code> - Alternative module to be used for watching logs, it must have the <code>watchLogs</code> method, if no such method defined there the logwatcher does not run at all</li>
-<li><code>bkjs-logwatcher-from</code> - Email address to send logwatcher notifications from, for cases with strict mail servers accepting only from known addresses</li>
-<li><code>bkjs-logwatcher-subject</code> - Email subject template, all placeholders have access to the core module only</li>
-<li><code>bkjs-logwatcher-interval</code> - How often to check for errors in the log files in seconds</li>
-<li><code>bkjs-logwatcher-any-range</code> - Number of lines for matched channel <code>any</code> to be attached to the previous matched channel, if more than this number use the channel <code>any</code> on its own</li>
-<li><code>bkjs-logwatcher-match-[a-z]+</code> - Regexp patterns that match conditions for logwatcher notifications, this is in addition to default backend logger patterns, suffix defines the log channel to use, like error, warning.... Special channel <code>any</code> is reserved to send matched lines to the previously matched channel if within configured range. Example: <code>-logwatcher-match-error=^failed:</code> <code>-logwatcher-match-any=line:[0-9]+</code></li>
-<li><code>bkjs-logwatcher-send-[a-z]+</code> - Email address or other supported transport for the logwatcher notifications, the monitor process scans system and backend log files for errors and sends them to this email address, if not specified no log watching will happen, each channel must define a transport separately, one of error, warning, info, all. Supported transports: table://TABLE, <a href="http://URL">http://URL</a>, sns://ARN, ses://EMAIL, email@addr. Example: <code>-logwatcher-send-error=help@error.com</code></li>
-<li><code>bkjs-logwatcher-ignore-[a-z]+</code> - Regexp with patterns that need to be ignored by the logwatcher process, it is added to the list of existing patterns for each specified channel separately</li>
-<li><code>bkjs-logwatcher-once-[a-z0-9]+</code> - Regexp with patterns that need to be included only once by the logwatcher process, it is added to the list of existng patterns by tag to keep track each pattern separately, example: -logwatcher-once-restart &#39;restarting.+&#39; -logwatcher-once-recon &#39;reconnecting:.+&#39;</li>
-<li><code>bkjs-logwatcher-file(-[a-z]+)?</code> - Add a file to be watched by the logwatcher, it will use all configured match patterns</li>
-<li><code>ipc-none</code> - disable all IPC subsystems</li>
-<li><code>ipc-ping-interval</code> - Interval for a worker keep-alive pings, if not received within this period it will be killed</li>
-<li><code>ipc-lru-max</code> - Max number of items in the limiter LRU cache, this cache is managed by the master Web server process and available to all Web processes maintaining only one copy per machine</li>
-<li><code>ipc-system-queue</code> - System queue name to send broadcast control messages, this is a PUB/SUB queue to process system messages like restart, re-init config,...</li>
-<li><code>ipc-(cache|queue)-?([a-z0-9]+)?$</code> - An URL that points to a cache/queue server in the format <code>PROTO://HOST[:PORT]?PARAMS</code>, multiple clients can be defined with unique names, all params starting with <code>bk-</code> will be copied into the options without the prefix and removed from the url, the rest of params will be left in the url, ex: -ipc-queue-redis redis://localhost?bk-count=3&amp;bk-ttl=3000</li>
-<li><code>ipc-(cache|queue)(-([a-z0-9]+)?-?options)-(.+)$</code> - Additional parameters for clients, specific to each implementation, ex: <code>-ipc-queue-options-count 10</code></li>
-<li><code>ipc-(cache|queue)-([a-z0-9]*)-options$</code> - Additional parameters for clients, specific to each implementation, ex: `-ipc-queue--options count:10,interval:100</li>
-<li><code>aws-key</code> - AWS access key</li>
-<li><code>aws-secret</code> - AWS access secret</li>
-<li><code>aws-token</code> - AWS security token</li>
-<li><code>aws-region</code> - AWS region</li>
-<li><code>aws-zone</code> - AWS availability zone</li>
-<li><code>aws-meta</code> - Retrieve instance metadata, 0 to disable</li>
-<li><code>aws-sdk-profile</code> - AWS SDK profile to use when reading credentials file</li>
-<li><code>aws-sns-app-arn</code> - SNS Platform application ARN to be used for push notifications</li>
-<li><code>aws-key-name</code> - AWS instance keypair name for remote job instances or other AWS commands</li>
-<li><code>aws-elb-name</code> - AWS ELB name to be registered with on start up or other AWS commands</li>
-<li><code>aws-target-group</code> - AWS ELB target group to be registered with on start up or other AWS commands</li>
-<li><code>aws-elastic-ip</code> - AWS Elastic IP to be associated on start</li>
-<li><code>aws-host-name</code> - List of hosts to update in Route54 zone with the current private IP address, hosts must be in FQDN format, supports @..@ core.instance placeholders</li>
-<li><code>aws-iam-profile</code> - IAM instance profile name for instances or commands</li>
-<li><code>aws-image-id</code> - AWS image id to be used for instances or commands</li>
-<li><code>aws-subnet-id</code> - AWS subnet id to be used for instances or commands</li>
-<li><code>aws-vpc-id</code> - AWS VPC id to be used for instances or commands</li>
-<li><code>aws-group-id</code> - AWS security group(s) to be used for instances or commands</li>
-<li><code>aws-instance-type</code> - AWS instance type to launch on demand</li>
-<li><code>aws-account-id</code> - AWS account id if not running on an instance</li>
-<li><code>aws-eni-id</code> - AWS Elastic Network Interfaces to attach on start, format is: eni[:index],eni...</li>
-<li><code>aws-config-parameters</code> - Prefix for AWS Config Parameters Store to load and parse as config before initializing the database pools, example: /bkjs/config/</li>
-<li><code>aws-set-parameters</code> - AWS Config Parameters Store to set on start, supports @..@ core.instance placeholders: format is: path:value,....</li>
-<li><code>aws-conf-file</code> - S3 url for config file to download on start</li>
-<li><code>aws-conf-file-interval</code> - Load S3 config file every specified interval in minites</li>
-<li><code>aws-logwatcher-groups</code> - List of AWS Cloudwatch Logs groups to watch for errors, format is: name:type,...</li>
-<li><code>aws-logwatcher-filters-(.+)</code> - AWS Cloudwatch Logs filter pattern by group, overrides the global filter</li>
-<li><code>aws-logwatcher-filter</code> - AWS Cloudwatch Logs filter pattern, only matched events will be returned and analyzed the the core logwatcher regexps</li>
-<li><code>aws-logwatcher-match-(.+)</code> - Logwatcher line regexp patterns by group, overrides default regexp patterns</li>
-<li><code>aws-ddb-endpoint</code> - Default endpoint to use, for LocalDynamoDB use</li>
-<li><code>aws-ddb-read-capacity</code> - Default DynamoDB read capacity for all tables</li>
-<li><code>aws-ddb-write-capacity</code> - Default DynamoDB write capacity for all tables</li>
-<li><code>aws-ddb-retry-count</code> - Default DynamoDB number of retries in case of throttling event</li>
-<li><code>aws-ddb-retry-timeout</code> - Default DynamoDB min timeout for retry backoff in case of throttling event</li>
-<li><code>aws-ddb-retry-status</code> - Default DynamoDB HTTP statuses to retry in case of throttling event or an error</li>
-<li><code>db-pool</code> - Default pool to be used for db access without explicit pool specified. DNS TXT configurable.</li>
-<li><code>db-name</code> - Default database name to be used for default connections in cases when no db is specified in the connection url</li>
-<li><code>db-create-tables</code> - Create tables in the database or perform table upgrades for new columns in all pools, only shell or server process can perform this operation</li>
-<li><code>db-create-tables-roles</code> - Only processes with these roles can create tables</li>
-<li><code>db-cache-tables</code> - List of tables that can be cached: bk_user, bk_counter. This list defines which DB calls will cache data with currently configured cache. This is global for all db pools.</li>
-<li><code>db-skip-tables</code> - List of tables that will not be created or modified, this is global for all pools</li>
-<li><code>db-cache-pools</code> - List of pools which trigger cache flushes on update.</li>
-<li><code>db-cache-sync</code> - List of tables that perform synchronized cache updates before returning from a DB call, by default cache updates are done in the background</li>
-<li><code>db-cache-keys-([a-z0-9_]+)-(.+)</code> - List of columns to be used for the table cache, all update operations will flush the cache if the cache key can be created from the record columns. This is for ad-hoc and caches to be used for custom selects which specified the cache key.</li>
-<li><code>db-describe-tables</code> - A JSON object with table descriptions to be merged with the existing definitions</li>
-<li><code>db-cache-ttl</code> - Default global TTL for cached tables</li>
-<li><code>db-cache-ttl-(.+)</code> - TTL in milliseconds for each individual table being cached</li>
-<li><code>db-cache-name-(.+)</code> - Cache client name to use for cache reading and writing for each table instead of the default in order to split cache usage for different tables, it can be just a table name or <code>pool.table</code>, use <code>*</code> to set default cache for all tables</li>
-<li><code>db-cache-update-(.+)</code> - Cache client name to use for updating only for each table instead of the default in order to split cache usage for different tables, it can be just a table name or <code>pool.table</code> or <code>*</code>. This cache takes precedence for updating cache over <code>cache-name</code> parameter</li>
-<li><code>db-cache2-max</code> - Max number of items to keep in the LRU Level 2 cache</li>
-<li><code>db-cache2-(.+)</code> - Tables with TTL for level2 cache, i.e. in the local process LRU memory. It works before the primary cache and keeps records in the local LRU cache for the given amount of time, the TTL is in ms and must be greater than zero for level 2 cache to work</li>
-<li><code>db-custom-column-([a-z0-9_]+)-(.+)</code> - A column that is allowed to be used in any table, the name is a column name regexp with the value to be a type, Ex: -db-custom-column-bk_user-^stats=counter</li>
-<li><code>db-describe-column-([a-z0-9_]+)-([a-z0-9_]+)</code> - Describe a table column properties, can be a new or existing column, overrides existing property, ex: -db-describe-column-bk_user-name max:255</li>
-<li><code>db-local</code> - Local database pool for properties, cookies and other local instance only specific stuff</li>
-<li><code>db-config</code> - Configuration database pool to be used to retrieve config parameters from the database, must be defined to use remote db for config parameters, set to <code>default</code> to use current default pool</li>
-<li><code>db-config-interval</code> - Interval between loading configuration from the database configured with -db-config, in minutes, 0 disables refreshing config from the db</li>
-<li><code>db-config-count</code> - Max number of records to read fron the config table</li>
-<li><code>db-config-roles</code> - Roles to assume when pulling config parameters from the config table</li>
-<li><code>db-local-tables</code> - Only enable local, default and config pools</li>
-<li><code>db-no-cache-columns</code> - Do not read/cache table columns</li>
-<li><code>db-cache-columns-interval</code> - How often in minutes to refresh tables columns from the database, it calls cacheColumns for each pool which supports it</li>
-<li><code>db-skip-drop</code> - A pattern of table names which will skipped in db.drop operations to prevent accidental table deletion</li>
-<li><code>db-aliases-(.+)</code> - Table aliases to be used instead of the requested table name, only high level db operations will use it, al low level utilities use the real table names</li>
-<li><code>db-([a-z0-9]+)-pool$</code> - A database pool name, depending on the driver it can be an URL, name or pathname, examples of db pools: <code>-db-pg-pool, -db-dynamodb-pool</code>, url format: <code>protocol://[user:password@]hostname[:port]/dbname</code> or <code>default</code></li>
-<li><code>db-([a-z0-9]+)-pool-(disabled)$</code> - Disable the specified pool but keep the configuration</li>
-<li><code>db-([a-z0-9]+)-pool-(max)$</code> - Max number of open connections for a pool, default is Infinity</li>
-<li><code>db-([a-z0-9]+)-pool-(min)$</code> - Min number of open connections for a pool</li>
-<li><code>db-([a-z0-9]+)-pool-(idle)$</code> - Number of ms for a db pool connection to be idle before being destroyed</li>
-<li><code>db-([a-z0-9]+)-pool-(tables)$</code> - Tables to be created only in this pool, to prevent creating all tables in every pool</li>
-<li><code>db-([a-z0-9]+)-pool-connect$</code> - Connect options for a DB pool driver for new connection, driver specific</li>
-<li><code>db-([a-z0-9]+)-pool-options$</code> - General options for a DB pool</li>
-<li><code>db-([a-z0-9]+)-pool-options-([a-zA-Z0-9_.-]+)$</code> - General options for a DB pool</li>
-<li><code>db-([a-z0-9]+)-pool-(create-tables)$</code> - Create tables for this pool on startup</li>
-<li><code>db-([a-z0-9]+)-pool-cache2-(.+)</code> - Level 2 cache TTL for the specified pool and table, data is JSON strings in the LRU cache</li>
-<li><code>db-([a-z0-9]+)-pool-alias</code> - Pool alias to refer by an alternative name</li>
-<li><code>msg-([^-]+)-key(@.+)?</code> - API private key for FCM/Webpush or similar services, if the suffix is specified in the config parameter will be used as the app name, without the suffix it is global</li>
-<li><code>msg-([^-]+)-pubkey(@.+)?</code> - API public key for Webpush or similar services, if the suffix is specified in the config parameter will be used as the app name, without the suffix it is global</li>
-<li><code>msg-([^-]+)-authkey-([^-]+)-(.+)</code> - A auth key for APN in p8 format, can be a file name with .p8 extension or a string with the key contents encoded with base64, the format is: -msg-apn-authkey-TEAMID-KEYID KEYDATA</li>
-<li><code>msg-([^-]+)-sandbox(@.+)?</code> - Enable sandbox for a service, default is production mode</li>
-<li><code>msg-([^-]+)-options-([^@]+)(@.+)?</code> - A config property to the specified agent, driver specific</li>
-<li><code>msg-shutdown-timeout</code> - How long to wait for messages draining out in ms on shutdown before exiting</li>
-<li><code>msg-app-default</code> - Default app id(app bundle id) to be used when no app_id is specified</li>
-<li><code>msg-app-dependency@(.+)</code> - List of other apps that are considered in the same app family, sending to the primary app will also send to all dependent apps</li>
-<li><code>msg-app-team-(.+)</code> - Regexp that identifies all app bundles for a team</li>
-<li><code>server-workers</code> - Max number of processes to launch for Web servers, 0 means <code>NumberOfCPUs-1</code>, &lt; 0 means <code>NumberOfCPUs*abs(N)</code></li>
-<li><code>server-crash-delay</code> - Delay between respawing the crashed process</li>
-<li><code>server-restart-delay</code> - Delay between respawning the server after changes</li>
-<li><code>server-no-restart</code> - Do not restart any processes terminated, for debugging crashes only</li>
-<li><code>server-log-errors</code> - If true, log crash errors from child processes by the logger, otherwise write to the daemon err-file. The reason for this is that the logger puts everything into one line thus breaking formatting for stack traces.</li>
-<li><code>server-process-name</code> - Path to the command to spawn by the monitor instead of node, for external processes guarded by this monitor</li>
-<li><code>server-process-args</code> - Arguments for spawned processes, for passing v8 options or other flags in case of external processes</li>
-<li><code>server-worker-args</code> - Node arguments for workers, job and web processes, for passing v8 options</li>
-<li><code>api-images-url</code> - URL where images are stored, for cases of central image server(s), must be full URL with optional path</li>
-<li><code>api-images-s3</code> - S3 bucket name where to store and retrieve images</li>
-<li><code>api-images-raw</code> - Return raw urls for the images, requires images-url to be configured. The path will reflect the actual 2 level structure and account id in the image name</li>
-<li><code>api-images-s3-options</code> - S3 options to sign images urls, may have expires:, key:, secret: properties</li>
-<li><code>api-images-ext</code> - Default image extension to use when saving images</li>
-<li><code>api-images-mod</code> - Images scaling module, sharp or default bkjs-wand</li>
-<li><code>api-files-raw</code> - Return raw urls for the files, requires files-url to be configured. The path will reflect the actual 2 level structure and account id in the file name</li>
-<li><code>api-files-url</code> - URL where files are stored, for cases of central file server(s), must be full URL with optional path</li>
-<li><code>api-files-s3</code> - S3 bucket name where to store files uploaded with the File API</li>
-<li><code>api-max-request-queue</code> - Max number of requests in the processing queue, if exceeds this value server returns too busy error</li>
-<li><code>api-no-access-log</code> - Disable access logging in both file or syslog</li>
-<li><code>api-access-log-file</code> - File for access logging</li>
-<li><code>api-access-log-level</code> - Syslog level priority, default is local5.info, 21 * 8 + 6</li>
-<li><code>api-access-log-fields</code> - Additional fields from the request or account to put in the access log, prefix defines where the field is lcoated: q: - query, h: - headers, a: - account otherwise from the request, Example: -api-log-fields h:Referer,a:name,q:action</li>
-<li><code>api-salt</code> - Salt to be used for scrambling credentials or other hashing activities</li>
-<li><code>api-qs-options-(.+)</code> - Options to pass to qs.parse: depth, arrayLimit, allowDots, comma, plainObjects, allowPrototypes, parseArrays</li>
-<li><code>api-no-static</code> - Disable static files from /web folder, no .js or .html files will be served by the server</li>
-<li><code>api-static-options-(.+)</code> - Options to pass to serve-static module: maxAge, dotfiles, etag, redirect, fallthrough, extensions, index, lastModified</li>
-<li><code>api-vhost-path-([^/]+)</code> - Define a virtual host regexp to be matched against the hostname header to serve static content from a different root, a vhost path must be inside the web directory, if the regexp starts with !, that means negative match, example: api-vhost-path-test_dir=test.com$</li>
-<li><code>api-no-vhost-path</code> - Add to the list of URL paths that should be served for all virtual hosts</li>
-<li><code>api-templating</code> - Templating engine to use, see consolidate.js for supported engines, the &#39;consolidate&#39; package must be installed to use this</li>
-<li><code>api-no-session</code> - Disable cookie session support, all requests must be signed for Web clients</li>
-<li><code>api-session-age</code> - Session age in milliseconds, for cookie based authentication</li>
-<li><code>api-session-domain-(.+)</code> - Cookie domain by Host: header, if not matched session is bound to the exact host only, example: -api-session-domain-site.com=site.com$</li>
-<li><code>api-session-same-site</code> - Session SameSite option, for cookie based authentication</li>
-<li><code>api-session-cache</code> - Cache name for session control</li>
-<li><code>api-query-token-secret</code> - Name of the property to be used for encrypting tokens for pagination or other sensitive data, any property from bk_user can be used, if empty no secret is used, if not a valid property then it is used as the secret</li>
-<li><code>api-app-header-name</code> - Name for the app name/version query parameter or header, it is can be used to tell the server about the application version</li>
-<li><code>api-version-header-name</code> - Name for the access version query parameter or header, this is the core protocol version that can be sent to specify which core functionality a client expects</li>
-<li><code>api-no-cache-files</code> - Set cache-control=no-cache header for matching static files</li>
-<li><code>api-tz-header-name</code> - Name for the timezone offset header a client can send for time sensitive requests, the backend decides how to treat this offset</li>
-<li><code>api-signature-header-name</code> - Name for the access signature query parameter, header and session cookie</li>
-<li><code>api-lang-header-name</code> - Name for the language query parameter, header and session cookie, primary language for a client</li>
-<li><code>api-signature-age</code> - Max age for request signature in milliseconds, how old the API signature can be to be considered valid, the &#39;expires&#39; field in the signature must be less than current time plus this age, this is to support time drifts</li>
-<li><code>api-access-time-interval</code> - Intervals to refresh last access time for accounts, only updates the cache if <code>bk_user</code> is configured to be cached</li>
-<li><code>api-access-token-secret</code> - A generic secret to be used for API access or signatures</li>
-<li><code>api-allow-authenticated</code> - Add URLs which can be accessed by any authenticated user account, can be partial urls or Regexp, it is checked before any other account types, if matched then no account specific paths will be checked anymore(any of the allow-account-...)</li>
-<li><code>api-allow-acl-authenticated</code> - Combine regexps from the specified acls for the check explained by <code>-api-allow-authenticated</code> parameter</li>
-<li><code>api-allow-admin</code> - Add URLs which can be accessed by admin accounts only, can be partial urls or Regexp</li>
-<li><code>api-allow-acl-admin</code> - Combine regexps from the specified acls for the check explained by <code>-api-allow-admin</code> parameter</li>
-<li><code>api-allow-account-([a-z0-9_]+)</code> - Add URLs which can be accessed by specific account type, can be partial urls or Regexp</li>
-<li><code>api-allow-acl-([a-z0-9_]+)</code> - Combine regexps from the specified acls for allow checks for the specified account type</li>
-<li><code>api-only-account-([a-z0-9_,]+)</code> - Add URLs which can be accessed by specific account type only, can be partial urls or Regexp</li>
-<li><code>api-only-acl-([a-z0-9_,]+)</code> - Combine regexps from the specified acls allowed for the specified account type only</li>
-<li><code>api-deny-authenticated</code> - Add URLs which CAN NOT be accessed by any authenticated user account, can be partial urls or Regexp, it is checked before any other account types, if matched then no account specific paths will be checked anymore(any of the deny-account-...)</li>
-<li><code>api-deny-acl-authenticated</code> - Combine regexps from the specified acls for the check explained by <code>-api-deny-authenticated</code> parameter</li>
-<li><code>api-deny-account-([a-z0-9_]+)</code> - Add URLs which CAN NOT be accessed by specific account type, can be partial urls or Regexp, this is checked before any allow parameters</li>
-<li><code>api-deny-acl-([a-z0-9_]+)</code> - Combine regexps from the specified acls for deny checks for the specified account type</li>
-<li><code>api-acl-([a-z0-9_]+)</code> - Add URLs to the named ACL which can be used in allow/deny rules per account</li>
-<li><code>api-allow</code> - Regexp for URLs that dont need credentials, replaces the whole access list</li>
-<li><code>api-allow-path</code> - Add to the list of allowed URL paths without authentication, adds to the <code>-api-allow</code> parameter</li>
-<li><code>api-allow-acl</code> - Combine regexps from the specified acls for the check explained by <code>-api-allow</code> parameter</li>
-<li><code>api-deny</code> - Regexp for URLs that will be denied access, replaces the whole access list</li>
-<li><code>api-deny-path</code> - Add to the list of URL paths to be denied without authentication, adds to the <code>-api-deny</code> parameter</li>
-<li><code>api-deny-acl</code> - Combine regexps from the specified acls for the check explained by <code>-api-deny</code> parameter</li>
-<li><code>api-allow-anonymous</code> - Add to the list of allowed URL paths that can be served with or without valid account, the difference with <code>-api-allow-path</code> is that it will check for signature and an account but will continue if no login is provided, return error in case of wrong account or not account found</li>
-<li><code>api-allow-acl-anonymous</code> - Combine regexps from the specified acls for the check explained by <code>-allow-anonymous</code> parameter</li>
-<li><code>api-allow-empty</code> - Regexp for URLs that should return empty responses if not found, for example return nothing for non-existent javascript files or css files</li>
-<li><code>api-ignore-allow</code> - Regexp for URLs that should be ignored by the allow rules, the processing will continue</li>
-<li><code>api-ignore-allow-path</code> - Add to the list of URL paths which should be ignored by the allow rules, in order to keep allow/deny rules simple, for example to keep some js files from open to all: -allow-path .js -ignore-allow-path /secure/</li>
-<li><code>api-ignore-allow-acl</code> - Combine regexps from the specified acls for the check explained by <code>-ignore-allow-path</code> parameter</li>
-<li><code>api-allow-ip</code> - Add to the list of regexps for IPs that only allowed access from. It is checked before endpoint access list</li>
-<li><code>api-deny-ip</code> - Add to the list of regexps for IPs that will be denied access. It is checked before endpoint access list.</li>
-<li><code>api-allow-ssl</code> - Add to the list of allowed locations using HTTPs only, plain HTTP requests to these urls will be refused</li>
-<li><code>api-ignore-ssl</code> - Allow plain HTTP from matched IP addresss or locations</li>
-<li><code>api-redirect-ssl</code> - Add to the list of the locations to be redirected to the same path but using HTTPS protocol, for proxy mode the proxy server will perform redirects</li>
-<li><code>api-express-options</code> - Set Express config options during initialization,example: <code>-api-express-options { &quot;trust proxy&quot;: 1, &quot;strict routing&quot;: true }</code></li>
-<li><code>api-mime-body</code> - Collect full request body in the req.body property for the given MIME type in addition to json and form posts, this is for custom body processing</li>
-<li><code>api-mime-ignore</code> - Ignore the body for the following MIME content types, request body will not be parsed at all</li>
-<li><code>api-mime-map-(.+)</code> - File extension to MIME content type mapping, this is used by static-serve, example: -api-mime-map-mobileconfig application/x-apple-aspen-config</li>
-<li><code>api-ignore-content-type</code> - Ignore the content type for the following endpoint paths, keep the body unparsed</li>
-<li><code>api-platform-match</code> - An JSON object with list of regexps to match user-agent header for platform detection, example: { &#39;ios|iphone|ipad&#39;: &#39;ios&#39;, &#39;android&#39;: &#39;android&#39; }</li>
-<li><code>api-cors-origin</code> - Origin header for CORS requests</li>
-<li><code>api-cors-allow</code> - Enable CORS requests if a request host/path matches the given regexp</li>
-<li><code>api-server-header</code> - Custom Server: header to return for all requests</li>
-<li><code>api-error-message</code> - Default error message to return in case of exceptions</li>
-<li><code>api-restart</code> - On address in use error condition restart the specified servers, this assumes an external monitor like monit to handle restarts</li>
-<li><code>api-allow-error-code</code> - Error codes in exceptions to return in the response to the user, if not matched the error-message will be returned</li>
-<li><code>api-rlimits-(rate|max|interval|ttl|ip)-(.+)</code> - Rate limiter parameters for Token Bucket algorithm. <code>ttl</code> is to expire cache entries, <code>ip</code> is to limit by IP address as well, ex. -api-rlimits-ip-ip=10, -api-rlimits-rate-/path=1</li>
-<li><code>api-rlimits-map-(.+)</code> - Rate limiter parameters for Token Bucket algorithm. set all at once, ex. -api-rlimits-map-/url=rate:1,interval:2000</li>
-<li><code>api-rlimits-queue-(.+)</code> - Queue to use for the given path</li>
-<li><code>api-rlimits-(interval|ttl)</code> - Default rate limiter parameters, default interval is 1s, <code>ttl</code> is to expire old cache entries</li>
-<li><code>api-rlimits-message</code> - Message to show when any limits reached</li>
-<li><code>api-exit-on-error</code> - Exit on uncaught exception in the route handler</li>
-<li><code>api-timeout</code> - HTTP request idle timeout for servers in ms, how long to keep the connection socket open, this does not affect Long Poll requests</li>
-<li><code>api-keep-alive-timeout</code> - Number of milliseconds to keep the HTTP conection alive</li>
-<li><code>api-request-timeout</code> - Number of milliseconds to receive the entire request from the client</li>
-<li><code>api-max-requests-per-socket</code> - The maximum number of requests a socket can handle before closing keep alive connection</li>
-<li><code>api-upload-limit</code> - Max size for uploads, bytes</li>
-<li><code>api-query-limit</code> - Max size for posts and queries, bytes</li>
-<li><code>api-limiter-queue</code> - Name of an ipc queue for API rate limiting</li>
-<li><code>api-errlog-limiter-max</code> - How many error messages to put in the log before throttling kicks in</li>
-<li><code>api-errlog-limiter-interval</code> - Interval for error log limiter, max errors per this interval</li>
-<li><code>api-errlog-limiter-ignore</code> - Do not show errors that match the regexp</li>
-<li><code>api-proxy-reverse</code> - A Web server where to proxy requests not macthed by the url patterns or host header, in the form: <a href="http://host%5B:port%5D">http://host[:port]</a></li>
-<li><code>api-proxy-url-(.+)</code> - URL regexp to be passed to other web server running behind, each parameter defines an url regexp and the destination in the value in the form <a href="http://host%5B:port%5D">http://host[:port]</a>, example: -api-proxy-url-^/api <a href="http://127.0.0.1:8080">http://127.0.0.1:8080</a></li>
-<li><code>api-proxy-host-(.+)</code> - Virtual host mapping, to match any Host: header, each parameter defines a host name and the destination in the value in the form <a href="http://host%5B:port%5D">http://host[:port]</a>, example: -api-proxy-host-<a href="http://www.myhost.com">www.myhost.com</a> <a href="http://127.0.0.1:8080">http://127.0.0.1:8080</a></li>
-<li><code>api-routing-(.+)</code> - Locations to be re-routed to other path, this is done inside the server at the beginning, only the path is replaced, same format and placeholders as in redirect-url, use ! in front of regexp to remove particular redirect from the list, example: -api-routing-^/account/get /acount/read</li>
-<li><code>api-ignore-routing</code> - Ignore locations from the routing</li>
-<li><code>api-auth-routing-(.+)</code> - URL path to be re-routed to other path after the authentication is successful, this is done inside the server, only the path is replaced, same format and placeholders as in redirect-url, example: -api-routing-auth-^/account/get /acount/read</li>
-<li><code>api-redirect-url</code> - Add to the list a JSON object with property name defining a location regexp to be matched early against in order to redirect using the value of the property, if the regexp starts with !, that means it must be removed from the list, variables can be used for substitution: @HOST@, @PATH@, @URL@, @BASE@, @DIR@, @QUERY@, status code can be prepended to the location, example: { &#39;^[^/]+/path/$&#39;: &#39;/path2/index.html&#39;, &#39;.+/$&#39;: &#39;301:@PATH@/index.html&#39; } </li>
-<li><code>api-login-redirect-(.+)</code> - Define a location where to redirect if no login is provided, same format and placeholders as in redirect-url, example: api-login-redirect-^/admin/=/login.html</li>
-<li><code>api-auth-status</code> - Default authenticated status, if no auth rules matched but valid signature this is the status returned</li>
-<li><code>api-auth-message:</code> - Default authenticated message to be returned with default auth status</li>
-<li><code>api-reset-acl</code> - Reset all ACL related rules and permissions</li>
-<li><code>api-response-headers</code> - An JSON object with list of regexps to match against the location and set response headers defined as a ist of pairs name, value..., -api-response-headers={ &quot;^/&quot;: [&quot;x-frame-options&quot;,&quot;sameorigin&quot;,&quot;x-xss-protection&quot;,&quot;1; mode=block&quot;] }</li>
-<li><code>api-cleanup-rules-(.+)</code> - Rules for the cleanupResult per table, ex. api-cleanup-rules-bk_user=email:0,phone:1</li>
-<li><code>api-cleanup-strict</code> - Default mode for cleanup results</li>
-<li><code>api-request-cleanup</code> - List of fields to explicitely cleanup on request end</li>
-<li><code>api-query-defaults-([a-z0-9_]+)-(.+)</code> - Global query defaults for getQuery, can be path specific, ex. -api-query-defaults-max-name 128 -api-query-defaults-max-/endpoint-name 255</li>
-<li><code>api-csrf-set-path</code> - Regexp for URLs to set CSRF token for all methods</li>
-<li><code>api-csrf-check-path</code> - Regexp for URLs to set CSRF token for skip methods and verify for others</li>
-<li><code>api-csrf-skip-method</code> - Do not check for CSRF token for specified methods</li>
-<li><code>api-csrf-skip-status</code> - Do not return CSRF token for specified status codes</li>
-<li><code>api-csrf-header-name</code> - Name for the CSRF header</li>
-<li><code>api-csrf-age</code> - CSRF token age in milliseconds</li>
-<li><code>api-err-(.+)</code> - Error messages for various cases</li>
-<li><code>api-compressed-([^/]+)</code> - Match static paths to be returned compressed, files must exist and be pre-compressed with the given extention , example: -api-compress-bundle.js gz</li>
-<li><code>auth-table</code> - Table to use for user accounts</li>
-<li><code>auth-err-(.+)</code> - Error messages for various cases</li>
-<li><code>auth-admin-roles</code> - List of special super admin roles</li>
-<li><code>auth-sigversion</code> - Signature version for secrets</li>
-<li><code>auth-hash</code> - Hashing method to use by default: bcrypt, argon2, none</li>
-<li><code>auth-bcrypt</code> - Number of iterations for bcrypt</li>
-<li><code>auth-argon2</code> - Argon2 parameteres, ex: type:2,memoryCost:1,hashLength:32</li>
-<li><code>auth-max-length</code> - Max login and name length</li>
-<li><code>auth-users</code> - An object with users</li>
-<li><code>auth-users-file</code> - A JSON file with a list of users</li>
-<li><code>jobs-workers</code> - How many worker processes to launch to process the job queue, -1 disables jobs, 0 means launch as many as the CPUs available</li>
-<li><code>jobs-worker-cpu-factor</code> - A number to multiply the number of CPUs available to make the total number of workers to launch, only used if <code>workers</code> is 0</li>
-<li><code>jobs-worker-args</code> - Node arguments for workers, for passing v8 jobspec, see <code>process</code></li>
-<li><code>jobs-worker-env</code> - Environment to be passed to the worker via fork, see <code>cluster.fork</code></li>
-<li><code>jobs-worker-delay</code> - Delay in milliseconds for a worker before it will start accepting jobs, for cases when other dependencies may take some time to start</li>
-<li><code>jobs-max-runtime</code> - Max number of seconds a job can run before being killed</li>
-<li><code>jobs-max-lifetime</code> - Max number of seconds a worker can live, after that amount of time it will exit once all the jobs are finished, 0 means indefinitely</li>
-<li><code>jobs-shutdown-timeout</code> - Max number of milliseconds to wait for the graceful shutdown sequence to finish, after this timeout the process just exits</li>
-<li><code>jobs-worker-queue</code> - Queue(s) to subscribe for workers, multiple queues can be processes at the same time, i.e. more than one job can run from different queues</li>
-<li><code>jobs-worker-options-(.+)</code> - Custom parameters by queue name, passed to <code>ipc.subscribeQueue</code> on worker start, useful with channels, ex: <code>-jobs-worker-options-nats#events {&quot;count&quot;:10}</code></li>
-<li><code>jobs-cron-queue</code> - Default queue to use for cron jobs</li>
-<li><code>jobs-global-queue</code> - Default queue for all jobs, the queueName is ignored</li>
-<li><code>jobs-global-ignore</code> - Queue names which ignore the global setting, the queueName is used as usual</li>
-<li><code>jobs-cron</code> - Allow cron jobs to be executed from the local etc/crontab file or via config parameter</li>
-<li><code>jobs-schedule</code> - Cron jobs to be scheduled, the JSON must be in the same format as crontab file</li>
-<li><code>jobs-unique-queue</code> - Default queue name to use for keeping track of unique jobs</li>
-<li><code>jobs-unique-ignore</code> - Ignore all unique parameters if a job&#39;s uniqueKey matches</li>
-<li><code>jobs-unique-set-ttl-([0-9]+)</code> - Override unique TTL to a new value if matches the unique key, ex: -jobs-unique-ttl-100 KEY</li>
-<li><code>jobs-unique-logger</code> - Log level for unique error conditions</li>
-<li><code>jobs-retry-visibility-timeout</code> - Visibility timeout by error code &gt;= 500 for queues that support it</li>
-<li><code>events-worker-queue-(.+)</code> - Queues to subscribe for workers, same queues can be used at the same time with different functions and channels and consumers, event queue format is <code>queue#channel@consumer</code>, ex: -ipc-worker-queue-ticket ticket.processEvents, -ipc-worker-queue-ticket#inbox@staff ticket.processInboxEvents, -ipc-worker-queue-ticket@staff ticket.processStaffEvents</li>
-<li><code>events-worker-options-(.+)</code> - Custom parameters by queue name, passed to <code>ipc.subscribeQueue</code> on worker start, useful with channels, ex: <code>-events-worker-options-ticket {&quot;count&quot;:3,&quot;raw&quot;:1}</code></li>
-<li><code>events-worker-delay</code> - Delay in milliseconds for a worker before it will start accepting jobs, for cases when other dependencies may take some time to start</li>
-<li><code>events-max-runtime</code> - Max number of seconds an event processing can run before being killed</li>
-<li><code>events-routing-(.+)</code> - Queue routing by event topic</li>
-<li><code>events-properties</code> - List of properties to copy into an event envelope from the provided options</li>
+<li>the <code>req</code> object which is by convention is a Request object, assigned with common backend properties to be used later:<ul>
+<li>account - an empty object which will be filled after by signature verification method, if successful, properties from the <code>bk_user</code> table will be set</li>
+<li>options - an object with internal state and control parameters. Every request always has an options object attached very
+early with some properties always present:<ul>
+<li>ip - cached IP address</li>
+<li>host - cached host header from the request</li>
+<li>path - parsed request url path</li>
+<li>apath - an array with the path split by /</li>
+<li>secure - if the request is encrypted, like https</li>
+<li>appName - parsed app version provided in the header or user agent</li>
+<li>appVersion - parsed app version from the header or user agent</li>
+<li>appTimezone - milliseconds offset from the UTC provided in the header by the app</li>
+<li>appLocale - a language provided in the header</li>
+<li>apiVersion - app specific version provided in the header</li>
 </ul>
-<h2 id="module-api">Module: API</h2>
+</li>
+</ul>
+</li>
+<li>access verification, can the request be satisfied without proper signature, i.e. is this a public request</li>
+<li>autherization, check the signature and other global or account specific checks</li>
+<li>when a API route found by the request url, it is called as any regular Connect middlware<ul>
+<li>if there are registered pre processing callback they will be called during access or autherization phases</li>
+<li>if inside the route a response was returned using <code>api.sendJSON</code> method, registered post process callbacks will be called for such response</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>Config parameters</code></p>
+<ul>
+<li><code>api-images-url</code>, descr: &quot;URL where images are stored, for cases of central image server(s), must be full URL with optional path&quot;</li>
+<li><code>api-images-s3</code>, descr: &quot;S3 bucket name where to store and retrieve images&quot;</li>
+<li><code>api-images-raw</code>, type: &quot;bool&quot;, descr: &quot;Return raw urls for the images, requires images-url to be configured. The path will reflect the actual 2 level structure and account id in the image name&quot;</li>
+<li><code>api-images-s3-options</code>, type: &quot;json&quot;, logger: &quot;warn&quot;, descr: &quot;S3 options to sign images urls, may have expires:, key:, secret: properties&quot;</li>
+<li><code>api-images-ext</code>, descr: &quot;Default image extension to use when saving images&quot;</li>
+<li><code>api-images-mod</code>, descr: &quot;Images scaling module, sharp or default bkjs-wand&quot;</li>
+<li><code>api-files-raw</code>, type: &quot;bool&quot;, descr: &quot;Return raw urls for the files, requires files-url to be configured. The path will reflect the actual 2 level structure and account id in the file name&quot;</li>
+<li><code>api-files-url</code>, descr: &quot;URL where files are stored, for cases of central file server(s), must be full URL with optional path&quot;</li>
+<li><code>api-files-s3</code>, descr: &quot;S3 bucket name where to store files uploaded with the File API&quot;</li>
+<li><code>api-max-request-queue</code>, type: &quot;number&quot;, min: 0, descr: &quot;Max number of requests in the processing queue, if exceeds this value server returns too busy error&quot;</li>
+<li><code>api-no-access-log</code>, type: &quot;bool&quot;, descr: &quot;Disable access logging in both file or syslog&quot;</li>
+<li><code>api-access-log-file</code>, descr: &quot;File for access logging&quot;</li>
+<li><code>api-access-log-level</code>, type: &quot;int&quot;, descr: &quot;Syslog level priority, default is local5.info, 21 * 8 + 6&quot;</li>
+<li><code>api-access-log-fields</code>, array: 1, type: &quot;list&quot;, descr: &quot;Additional fields from the request or account to put in the access log, prefix defines where the field is lcoated: q: - query, h: - headers, a: - account otherwise from the request, Example: -api-log-fields h:Referer,a:name,q:action&quot;</li>
+<li><code>api-salt</code>, descr: &quot;Salt to be used for scrambling credentials or other hashing activities&quot;</li>
+<li><code>api-qs-options-(.+)</code>, autotype: 1, obj: &quot;qsOptions&quot;, strip: &quot;qs-options-&quot;, nocamel: 1, descr: &quot;Options to pass to qs.parse: depth, arrayLimit, allowDots, comma, plainObjects, allowPrototypes, parseArrays&quot;</li>
+<li><code>api-no-static</code>, type: &quot;bool&quot;, descr: &quot;Disable static files from /web folder, no .js or .html files will be served by the server&quot;</li>
+<li><code>api-static-options-(.+)</code>, autotype: 1, obj: &quot;staticOptions&quot;, strip: &quot;static-options-&quot;, nocamel: 1, descr: &quot;Options to pass to serve-static module: maxAge, dotfiles, etag, redirect, fallthrough, extensions, index, lastModified&quot;</li>
+<li><code>api-vhost-path-([^/]+)</code>, type: &quot;regexp&quot;, obj: &quot;vhostPath&quot;, nocamel: 1, strip: &quot;vhost-path-&quot;, regexp: &quot;i&quot;, descr: &quot;Define a virtual host regexp to be matched against the hostname header to serve static content from a different root, a vhost path must be inside the web directory, if the regexp starts with !, that means negative match, example: api-vhost-path-test_dir=test.com$&quot;</li>
+<li><code>api-no-vhost-path</code>, type: &quot;regexpobj&quot;, descr: &quot;Add to the list of URL paths that should be served for all virtual hosts&quot;</li>
+<li><code>api-templating</code>, descr: &quot;Templating engine to use, see consolidate.js for supported engines, the &#39;consolidate&#39; package must be installed to use this&quot;</li>
+<li><code>api-no-session</code>, type: &quot;bool&quot;, descr: &quot;Disable cookie session support, all requests must be signed for Web clients&quot;</li>
+<li><code>api-session-age</code>, type: &quot;int&quot;, min: 0, descr: &quot;Session age in milliseconds, for cookie based authentication&quot;</li>
+<li><code>api-session-domain-(.+)</code>, type: &quot;regexp&quot;, obj: &quot;session-domain&quot;, nocamel: 1, regexp: &quot;i&quot;, descr: &quot;Cookie domain by Host: header, if not matched session is bound to the exact host only, example: -api-session-domain-site.com=site.com$&quot;</li>
+<li><code>api-session-same-site</code>, descr: &quot;Session SameSite option, for cookie based authentication&quot;</li>
+<li><code>api-session-cache</code>, descr: &quot;Cache name for session control&quot;</li>
+<li><code>api-query-token-secret</code>, descr: &quot;Name of the property to be used for encrypting tokens for pagination or other sensitive data, any property from bk_user can be used, if empty no secret is used, if not a valid property then it is used as the secret&quot;</li>
+<li><code>api-app-header-name</code>, descr: &quot;Name for the app name/version query parameter or header, it is can be used to tell the server about the application version&quot;</li>
+<li><code>api-version-header-name</code>, descr: &quot;Name for the access version query parameter or header, this is the core protocol version that can be sent to specify which core functionality a client expects&quot;</li>
+<li><code>api-no-cache-files</code>, type: &quot;regexpobj&quot;, descr: &quot;Set cache-control=no-cache header for matching static files&quot;,</li>
+<li><code>api-tz-header-name</code>, descr: &quot;Name for the timezone offset header a client can send for time sensitive requests, the backend decides how to treat this offset&quot;</li>
+<li><code>api-signature-header-name</code>, descr: &quot;Name for the access signature query parameter, header and session cookie&quot;</li>
+<li><code>api-lang-header-name</code>, descr: &quot;Name for the language query parameter, header and session cookie, primary language for a client&quot;</li>
+<li><code>api-signature-age</code>, type: &quot;int&quot;, descr: &quot;Max age for request signature in milliseconds, how old the API signature can be to be considered valid, the &#39;expires&#39; field in the signature must be less than current time plus this age, this is to support time drifts&quot;</li>
+<li><code>api-access-time-interval</code>, type: &quot;int&quot;, min: 0, descr: &quot;Intervals to refresh last access time for accounts, only updates the cache if <code>bk_user</code> is configured to be cached&quot;</li>
+<li><code>api-access-token-secret</code>, descr: &quot;A generic secret to be used for API access or signatures&quot;</li>
+<li><code>api-allow-authenticated</code>, type: &quot;regexpobj&quot;, descr: &quot;Add URLs which can be accessed by any authenticated user account, can be partial urls or Regexp, it is checked before any other account types, if matched then no account specific paths will be checked anymore(any of the allow-account-...)&quot;</li>
+<li><code>api-allow-acl-authenticated</code>, type: &quot;list&quot;, descr: &quot;Combine regexps from the specified acls for the check explained by <code>-api-allow-authenticated</code> parameter&quot;</li>
+<li><code>api-allow-admin</code>, type: &quot;regexpobj&quot;, descr: &quot;Add URLs which can be accessed by admin accounts only, can be partial urls or Regexp&quot;</li>
+<li><code>api-allow-acl-admin</code>, type: &quot;list&quot;, descr: &quot;Combine regexps from the specified acls for the check explained by <code>-api-allow-admin</code> parameter&quot;</li>
+<li><code>api-allow-account-([a-z0-9_]+)</code>, type: &quot;regexpobj&quot;, obj: &quot;allow-account&quot;, descr: &quot;Add URLs which can be accessed by specific account type, can be partial urls or Regexp&quot;</li>
+<li><code>api-allow-acl-([a-z0-9_]+)</code>, type: &quot;rlist&quot;, obj: &quot;allow-acl&quot;, descr: &quot;Combine regexps from the specified acls for allow checks for the specified account type&quot;</li>
+<li><code>api-only-account-([a-z0-9_,]+)</code>, type: &quot;regexpobj&quot;, obj: &quot;only-account&quot;, descr: &quot;Add URLs which can be accessed by specific account type only, can be partial urls or Regexp&quot;</li>
+<li><code>api-only-acl-([a-z0-9_,]+)</code>, type: &quot;rlist&quot;, obj: &quot;only-acl&quot;, descr: &quot;Combine regexps from the specified acls allowed for the specified account type only&quot;</li>
+<li><code>api-deny-authenticated</code>, type: &quot;regexpobj&quot;, descr: &quot;Add URLs which CAN NOT be accessed by any authenticated user account, can be partial urls or Regexp, it is checked before any other account types, if matched then no account specific paths will be checked anymore(any of the deny-account-...)&quot;</li>
+<li><code>api-deny-acl-authenticated</code>, type: &quot;list&quot;, descr: &quot;Combine regexps from the specified acls for the check explained by <code>-api-deny-authenticated</code> parameter&quot;</li>
+<li><code>api-deny-account-([a-z0-9_]+)</code>, type: &quot;regexpobj&quot;, obj: &quot;deny-account&quot;, descr: &quot;Add URLs which CAN NOT be accessed by specific account type, can be partial urls or Regexp, this is checked before any allow parameters&quot;</li>
+<li><code>api-deny-acl-([a-z0-9_]+)</code>, type: &quot;list&quot;, obj: &quot;deny-acl&quot;, descr: &quot;Combine regexps from the specified acls for deny checks for the specified account type&quot;</li>
+<li><code>api-acl-([a-z0-9_]+)</code>, type: &quot;regexpobj&quot;, obj: &quot;acl&quot;, descr: &quot;Add URLs to the named ACL which can be used in allow/deny rules per account&quot;</li>
+<li><code>api-allow</code>, type: &quot;regexpobj&quot;, set: 1, descr: &quot;Regexp for URLs that dont need credentials, replaces the whole access list&quot;</li>
+<li><code>api-allow-path</code>, type: &quot;regexpobj&quot;, key: &quot;allow&quot;, descr: &quot;Add to the list of allowed URL paths without authentication, adds to the <code>-api-allow</code> parameter&quot;</li>
+<li><code>api-allow-acl</code>, type: &quot;list&quot;, descr: &quot;Combine regexps from the specified acls for the check explained by <code>-api-allow</code> parameter&quot;</li>
+<li><code>api-deny</code>, type: &quot;regexpobj&quot;, set: 1, descr: &quot;Regexp for URLs that will be denied access, replaces the whole access list&quot;</li>
+<li><code>api-deny-path</code>, type: &quot;regexpobj&quot;, key: &quot;deny&quot;, descr: &quot;Add to the list of URL paths to be denied without authentication, adds to the <code>-api-deny</code> parameter&quot;</li>
+<li><code>api-deny-acl</code>, type: &quot;list&quot;, descr: &quot;Combine regexps from the specified acls for the check explained by <code>-api-deny</code> parameter&quot;</li>
+<li><code>api-allow-anonymous</code>, type: &quot;regexpobj&quot;, descr: &quot;Add to the list of allowed URL paths that can be served with or without valid account, the difference with <code>-api-allow-path</code> is that it will check for signature and an account but will continue if no login is provided, return error in case of wrong account or not account found&quot;</li>
+<li><code>api-allow-acl-anonymous</code>, type: &quot;list&quot;, descr: &quot;Combine regexps from the specified acls for the check explained by <code>-allow-anonymous</code> parameter&quot;</li>
+<li><code>api-allow-empty</code>, type: &quot;regexpobj&quot;, descr: &quot;Regexp for URLs that should return empty responses if not found, for example return nothing for non-existent javascript files or css files&quot;</li>
+<li><code>api-ignore-allow</code>, type: &quot;regexpobj&quot;, descr: &quot;Regexp for URLs that should be ignored by the allow rules, the processing will continue&quot;</li>
+<li><code>api-ignore-allow-path</code>, type: &quot;regexpobj&quot;, key: &quot;ignore-allow&quot;, descr: &quot;Add to the list of URL paths which should be ignored by the allow rules, in order to keep allow/deny rules simple, for example to keep some js files from open to all: -allow-path \.js -ignore-allow-path /secure/&quot;</li>
+<li><code>api-ignore-allow-acl</code>, type: &quot;list&quot;, descr: &quot;Combine regexps from the specified acls for the check explained by <code>-ignore-allow-path</code> parameter&quot;</li>
+<li><code>api-allow-ip</code>, type: &quot;regexpobj&quot;, descr: &quot;Add to the list of regexps for IPs that only allowed access from. It is checked before endpoint access list&quot;</li>
+<li><code>api-deny-ip</code>, type: &quot;regexpobj&quot;, descr: &quot;Add to the list of regexps for IPs that will be denied access. It is checked before endpoint access list.&quot;</li>
+<li><code>api-allow-ssl</code>, type: &quot;regexpobj&quot;, descr: &quot;Add to the list of allowed locations using HTTPs only, plain HTTP requests to these urls will be refused&quot;</li>
+<li><code>api-ignore-ssl</code>, type: &quot;regexpobj&quot;, descr: &quot;Allow plain HTTP from matched IP addresss or locations&quot;</li>
+<li><code>api-redirect-ssl</code>, type: &quot;regexpobj&quot;, descr: &quot;Add to the list of the locations to be redirected to the same path but using HTTPS protocol, for proxy mode the proxy server will perform redirects&quot;</li>
+<li><code>api-express-options</code>, type: &quot;json&quot;, logger: &quot;warn&quot;, descr: &quot;Set Express config options during initialization,example: <code>-api-express-options { \&quot;trust proxy\&quot;: 1, \&quot;strict routing\&quot;: true }</code>&quot;</li>
+<li><code>api-mime-body</code>, type: &quot;regexpobj&quot;, descr: &quot;Collect full request body in the req.body property for the given MIME type in addition to json and form posts, this is for custom body processing&quot;</li>
+<li><code>api-mime-ignore</code>, type: &quot;regexpobj&quot;, descr: &quot;Ignore the body for the following MIME content types, request body will not be parsed at all&quot;</li>
+<li><code>api-mime-map-(.+)</code>, obj: &quot;mime-map&quot;, descr: &quot;File extension to MIME content type mapping, this is used by static-serve, example: -api-mime-map-mobileconfig application/x-apple-aspen-config&quot;</li>
+<li><code>api-ignore-content-type</code>, type: &quot;regexpobj&quot;, descr: &quot;Ignore the content type for the following endpoint paths, keep the body unparsed&quot;</li>
+<li><code>api-platform-match</code>, type: &quot;regexpmap&quot;, regexp: &quot;i&quot;, descr: &quot;An JSON object with list of regexps to match user-agent header for platform detection, example: { &#39;ios|iphone|ipad&#39;: &#39;ios&#39;, &#39;android&#39;: &#39;android&#39; }&quot;</li>
+<li><code>api-cors-origin</code>, descr: &quot;Origin header for CORS requests&quot;</li>
+<li><code>api-cors-allow</code>, type: &quot;regexpobj&quot;, descr: &quot;Enable CORS requests if a request host/path matches the given regexp&quot;</li>
+<li><code>api-server-header</code>, descr: &quot;Custom Server: header to return for all requests&quot;</li>
+<li><code>api-error-message</code>, descr: &quot;Default error message to return in case of exceptions&quot;</li>
+<li><code>api-restart</code>, descr: &quot;On address in use error condition restart the specified servers, this assumes an external monitor like monit to handle restarts&quot;</li>
+<li><code>api-allow-error-code</code>, type: &quot;regexpobj&quot;, descr: &quot;Error codes in exceptions to return in the response to the user, if not matched the error-message will be returned&quot;</li>
+<li><code>api-rlimits-(rate|max|interval|ttl|ip)-(.+)</code>, type: &quot;int&quot;, obj: &quot;rlimitsMap.$2&quot;, make: &quot;$1&quot;, descr: &quot;Rate limiter parameters for Token Bucket algorithm. <code>ttl</code> is to expire cache entries, <code>ip</code> is to limit by IP address as well, ex. -api-rlimits-ip-ip=10, -api-rlimits-rate-/path=1&quot;</li>
+<li><code>api-rlimits-map-(.+)</code>, type: &quot;map&quot;, obj: &quot;rlimitsMap&quot;, make: &quot;$1&quot;, maptype: &quot;int&quot;, descr: &quot;Rate limiter parameters for Token Bucket algorithm. set all at once, ex. -api-rlimits-map-/url=rate:1,interval:2000&quot;</li>
+<li><code>api-rlimits-queue-(.+)</code>, obj: &quot;rlimitsMap.$1&quot;, make: &quot;queue&quot;, descr: &quot;Queue to use for the given path&quot;</li>
+<li><code>api-rlimits-(interval|ttl)</code>, type: &quot;int&quot;, obj: &quot;rlimits&quot;, make: &quot;$1&quot;, descr: &quot;Default rate limiter parameters, default interval is 1s, <code>ttl</code> is to expire old cache entries&quot;</li>
+<li><code>api-rlimits-message</code>, obj: &quot;rlimits&quot;, descr: &quot;Message to show when any limits reached&quot;</li>
+<li><code>api-exit-on-error</code>, type: &quot;bool&quot;, descr: &quot;Exit on uncaught exception in the route handler&quot;</li>
+<li><code>api-timeout</code>, type: &quot;number&quot;, min: 0, max: 3600000, descr: &quot;HTTP request idle timeout for servers in ms, how long to keep the connection socket open, this does not affect Long Poll requests&quot;</li>
+<li><code>api-keep-alive-timeout</code>, type: &quot;int&quot;, descr: &quot;Number of milliseconds to keep the HTTP conection alive&quot;</li>
+<li><code>api-request-timeout</code>, type: &quot;int&quot;, min: 0, descr: &quot;Number of milliseconds to receive the entire request from the client&quot;</li>
+<li><code>api-max-requests-per-socket</code>, type: &quot;int&quot;, min: 0, descr: &quot;The maximum number of requests a socket can handle before closing keep alive connection&quot;</li>
+<li><code>api-upload-limit</code>, type: &quot;number&quot;, descr: &quot;Max size for uploads, bytes&quot;</li>
+<li><code>api-query-limit</code>, type: &quot;number&quot;, descr: &quot;Max size for posts and queries, bytes&quot;</li>
+<li><code>api-limiter-queue</code>, descr: &quot;Name of an ipc queue for API rate limiting&quot;</li>
+<li><code>api-errlog-limiter-max</code>, type: &quot;int&quot;, descr: &quot;How many error messages to put in the log before throttling kicks in&quot;</li>
+<li><code>api-errlog-limiter-interval</code>, type: &quot;int&quot;, descr: &quot;Interval for error log limiter, max errors per this interval&quot;</li>
+<li><code>api-errlog-limiter-ignore</code>, type: &quot;regexpobj&quot;, descr: &quot;Do not show errors that match the regexp&quot;</li>
+<li><code>api-proxy-reverse</code>, type: &quot;url&quot;, descr: &quot;A Web server where to proxy requests not macthed by the url patterns or host header, in the form: <a href="http://host%5B:port%5D&quot;">http://host[:port]&quot;</a></li>
+<li><code>api-proxy-url-(.+)</code>, type: &quot;regexpobj&quot;, reverse: 1, nocamel: 1, obj: &#39;proxy-url&#39;, descr: &quot;URL regexp to be passed to other web server running behind, each parameter defines an url regexp and the destination in the value in the form <a href="http://host%5B:port%5D">http://host[:port]</a>, example: -api-proxy-url-^/api <a href="http://127.0.0.1:8080&quot;">http://127.0.0.1:8080&quot;</a></li>
+<li><code>api-proxy-host-(.+)</code>, type: &quot;regexpobj&quot;, reverse: 1, obj: &#39;proxy-host&#39;, lower: /.+/, descr: &quot;Virtual host mapping, to match any Host: header, each parameter defines a host name and the destination in the value in the form <a href="http://host%5B:port%5D">http://host[:port]</a>, example: -api-proxy-host-<a href="http://www.myhost.com">www.myhost.com</a> <a href="http://127.0.0.1:8080&quot;">http://127.0.0.1:8080&quot;</a></li>
+<li><code>api-routing-(.+)</code>, type: &quot;regexpobj&quot;, reverse: 1, nocamel: 1, obj: &#39;routing&#39;, descr: &quot;Locations to be re-routed to other path, this is done inside the server at the beginning, only the path is replaced, same format and placeholders as in redirect-url, use ! in front of regexp to remove particular redirect from the list, example: -api-routing-^/account/get /acount/read&quot;</li>
+<li><code>api-ignore-routing</code>, type: &quot;regexpobj&quot;, descr: &quot;Ignore locations from the routing&quot;</li>
+<li><code>api-auth-routing-(.+)</code>, type: &quot;regexpobj&quot;, reverse: 1, nocamel: 1, obj: &#39;auth-routing&#39;, descr: &quot;URL path to be re-routed to other path after the authentication is successful, this is done inside the server, only the path is replaced, same format and placeholders as in redirect-url, example: -api-routing-auth-^/account/get /acount/read&quot;</li>
+<li><code>api-redirect-url</code>, type: &quot;regexpmap&quot;, descr: &quot;Add to the list a JSON object with property name defining a location regexp to be matched early against in order to redirect using the value of the property, if the regexp starts with !, that means it must be removed from the list, variables can be used for substitution: @HOST@, @PATH@, @URL@, @BASE@, @DIR@, @QUERY@, status code can be prepended to the location, example: { &#39;^[^/]+/path/$&#39;: &#39;/path2/index.html&#39;, &#39;.+/$&#39;: &#39;301:@PATH@/index.html&#39; } &quot;</li>
+<li><code>api-login-redirect-(.+)</code>, type: &quot;regexpobj&quot;, reverse: 1, nocamel: 1, obj: &quot;login-redirect&quot;, descr: &quot;Define a location where to redirect if no login is provided, same format and placeholders as in redirect-url, example: api-login-redirect-^/admin/=/login.html&quot;</li>
+<li><code>api-auth-status</code>, type: &quot;int&quot;, descr: &quot;Default authenticated status, if no auth rules matched but valid signature this is the status returned&quot;</li>
+<li><code>api-auth-message:</code>, descr: &quot;Default authenticated message to be returned with default auth status&quot;</li>
+<li><code>api-reset-acl</code>, type: &quot;callback&quot;, callback: function(v) { if (v) this.resetAcl()  descr: &quot;Reset all ACL related rules and permissions&quot;</li>
+<li><code>api-response-headers</code>, type: &quot;regexpmap&quot;, json: 1, descr: &quot;An JSON object with list of regexps to match against the location and set response headers defined as a ist of pairs name, value..., -api-response-headers={ &quot;^/&quot;: [&quot;x-frame-options&quot;,&quot;sameorigin&quot;,&quot;x-xss-protection&quot;,&quot;1; mode=block&quot;] }&quot;</li>
+<li><code>api-cleanup-rules-(.+)</code>, obj: &quot;cleanupRules.$1&quot;, type: &quot;map&quot;, datatype: &quot;auto&quot;, merge: 1, nocamel: 1, descr: &quot;Rules for the cleanupResult per table, ex. api-cleanup-rules-bk_user=email:0,phone:1&quot;</li>
+<li><code>api-cleanup-strict</code>, type: &quot;bool&quot;, descr: &quot;Default mode for cleanup results&quot;</li>
+<li><code>api-request-cleanup</code>, type: &quot;list&quot;, array: 1, descr: &quot;List of fields to explicitely cleanup on request end&quot;</li>
+<li><code>api-query-defaults-([a-z0-9_]+)-(.+)</code>, obj: &quot;queryDefaults.$2&quot;, make: &quot;$1&quot;, autotype: 1, descr: &quot;Global query defaults for getQuery, can be path specific, ex. -api-query-defaults-max-name 128 -api-query-defaults-max-/endpoint-name 255&quot;</li>
+<li><code>api-csrf-set-path</code>, type: &quot;regexpobj&quot;, descr: &quot;Regexp for URLs to set CSRF token for all methods&quot;</li>
+<li><code>api-csrf-check-path</code>, type: &quot;regexpobj&quot;, descr: &quot;Regexp for URLs to set CSRF token for skip methods and verify for others&quot;</li>
+<li><code>api-csrf-skip-method</code>, type: &quot;regexp&quot;, descr: &quot;Do not check for CSRF token for specified methods&quot;</li>
+<li><code>api-csrf-skip-status</code>, type: &quot;regexp&quot;, descr: &quot;Do not return CSRF token for specified status codes&quot;</li>
+<li><code>api-csrf-header-name</code>, descr: &quot;Name for the CSRF header&quot;</li>
+<li><code>api-csrf-age</code>, type: &quot;int&quot;, min: 0, descr: &quot;CSRF token age in milliseconds&quot;</li>
+<li><code>api-err-(.+)</code>, descr: &quot;Error messages for various cases&quot;</li>
+<li><code>api-compressed-([^/]+)</code>, type: &quot;regexp&quot;, obj: &quot;compressed&quot;, nocamel: 1, strip: &quot;compressed-&quot;, reverse: 1, regexp: &quot;i&quot;, descr: &quot;Match static paths to be returned compressed, files must exist and be pre-compressed with the given extention , example: -api-compress-bundle.js gz&quot;</li>
+</ul>
+</li>
+</ul>
+
 <ul>
 <li><p><code>api.init(options, callback)</code></p>
 <p>  Initialize API layer, this must be called before the <code>api</code> module can be used but it is called by the server module automatically so <code>api.init</code> is
@@ -2868,7 +2557,15 @@ All properties starting with <code>is`` or </code>cleanup_`` will be passed to t
 </li>
 </ul>
 
-<h2 id="module-app">Module: APP</h2>
+<h2 id="module-app">Module: app</h2>
+<p>   Author: Vlad Seryakov <a href="mailto:&#x76;&#x73;&#101;&#x72;&#x79;&#x61;&#x6b;&#x6f;&#x76;&#64;&#103;&#109;&#97;&#x69;&#108;&#x2e;&#99;&#111;&#109;">&#x76;&#x73;&#101;&#x72;&#x79;&#x61;&#x6b;&#x6f;&#x76;&#64;&#103;&#109;&#97;&#x69;&#108;&#x2e;&#99;&#111;&#109;</a>
+   backendjs 2018</p>
+<p>  This is a skeleton module to be extended by the specific application logic. It provides all
+  callbacks and hooks that are called by the core backend modules
+  during different phases, like initialization, shutting down, etc...</p>
+<p>  It should be used for custom functions and methods to be defined, the <code>app</code> module is always available.</p>
+<p>  All app modules in the modules/ subdirectory use the same prototype, i.e. all hooks are available for custom app modules as well.</p>
+
 <ul>
 <li><p><code>app.configure(options, callback) </code></p>
 <p>  Called after all config files are loaded and command line args are parsed, home directory is set but before the db is initialized,
@@ -2948,15 +2645,32 @@ been processed.</p>
 </li>
 </ul>
 
-<h2 id="module-auth">Module: AUTH</h2>
+<h2 id="module-auth">Module: auth</h2>
 <ul>
-<li><p><code>mod.loadUsers(callback)</code></p>
+<li><p><code>Config parameters</code></p>
+<ul>
+<li><code>auth-table</code>, descr: &quot;Table to use for user accounts&quot;</li>
+<li><code>auth-err-(.+)</code>, descr: &quot;Error messages for various cases&quot;</li>
+<li><code>auth-admin-roles</code>, type: &quot;list&quot;, descr: &quot;List of special super admin roles&quot;</li>
+<li><code>auth-sigversion</code>, type: &quot;int&quot;, descr: &quot;Signature version for secrets&quot;</li>
+<li><code>auth-hash</code>, descr: &quot;Hashing method to use by default: bcrypt, argon2, none&quot;</li>
+<li><code>auth-bcrypt</code>, type: &quot;int&quot;, min: 12, descr: &quot;Number of iterations for bcrypt&quot;</li>
+<li><code>auth-argon2</code>, type: &quot;map&quot;, datatype: &quot;auto&quot;, nocamel: 1, descr: &quot;Argon2 parameteres, ex: type:2,memoryCost:1,hashLength:32&quot;</li>
+<li><code>auth-max-length</code>, type: &quot;int&quot;, descr: &quot;Max login and name length&quot;</li>
+<li><code>auth-users</code>, type: &quot;json&quot;, logger: &quot;error&quot;, descr: &quot;An object with users&quot;</li>
+<li><code>auth-users-file</code>, descr: &quot;A JSON file with a list of users&quot;</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>auth.loadUsers(callback)</code></p>
 <p>  Load users from a JSON file, only add or update records</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>mod.prepareSecret(query, options, callback)</code></p>
+<li><p><code>auth.prepareSecret(query, options, callback)</code></p>
 <p>  If specified in the options, prepare credentials to be stored in the db, if no error occurred return null, otherwise an error object</p>
 <ul>
 <li>hash - use bcrypt or argon2 explicitely, otherwise use the config</li>
@@ -2965,7 +2679,7 @@ been processed.</p>
 </ul>
 
 <ul>
-<li><p><code>mod.checkSecret(user, password, callback)</code></p>
+<li><p><code>auth.checkSecret(user, password, callback)</code></p>
 <p>  Verify an existing user record with given password,</p>
 <ul>
 <li>user - if a string it is a hashed secret from an existing user record, otherwise must be an user object</li>
@@ -2975,31 +2689,65 @@ been processed.</p>
 </ul>
 
 <ul>
-<li><p><code>mod.get(query, options, callback)</code></p>
+<li><p><code>auth.get(query, options, callback)</code></p>
 <p>  Returns an account record by login or id, to make use of a cache add to the config <code>db-cache-keys-bk_user-id=id</code></p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>mod.add(query, options, callback)</code></p>
+<li><p><code>auth.add(query, options, callback)</code></p>
 <p>  Registers a new account, returns new record in the callback, when <code>options.isInternal</code> is true then allow to set all properties
 otherwise internal properties will not be added</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>mod.update(query, options, callback)</code></p>
+<li><p><code>auth.update(query, options, callback)</code></p>
 <p>  Updates an existing account by login or id, if <code>options.isInternal</code> is true then allow to update all properties, returns a new record in the callback</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>mod.del(query, options, callback)</code></p>
+<li><p><code>auth.del(query, options, callback)</code></p>
 <p>  Deletes an existing account by login or id, no admin checks, returns the old record in the callback</p>
 </li>
 </ul>
 
-<h2 id="module-aws">Module: AWS</h2>
+<h2 id="module-aws">Module: aws</h2>
+<p>  AWS Cloud API interface</p>
+
+<ul>
+<li><p><code>Config parameters</code></p>
+<ul>
+<li><code>aws-key</code>, descr: &quot;AWS access key&quot;</li>
+<li><code>aws-secret</code>, descr: &quot;AWS access secret&quot;</li>
+<li><code>aws-token</code>, descr: &quot;AWS security token&quot;</li>
+<li><code>aws-region</code>, descr: &quot;AWS region&quot;, pass: 1</li>
+<li><code>aws-zone</code>, descr: &quot;AWS availability zone&quot;</li>
+<li><code>aws-meta</code>, type: &quot;bool&quot;, descr: &quot;Retrieve instance metadata, 0 to disable&quot;</li>
+<li><code>aws-sdk-profile</code>, descr: &quot;AWS SDK profile to use when reading credentials file&quot;</li>
+<li><code>aws-sns-app-arn</code>, descr: &quot;SNS Platform application ARN to be used for push notifications&quot;</li>
+<li><code>aws-key-name</code>, descr: &quot;AWS instance keypair name for remote job instances or other AWS commands&quot;</li>
+<li><code>aws-elb-name</code>, descr: &quot;AWS ELB name to be registered with on start up or other AWS commands&quot;</li>
+<li><code>aws-target-group</code>, descr: &quot;AWS ELB target group to be registered with on start up or other AWS commands&quot;</li>
+<li><code>aws-elastic-ip</code>, descr: &quot;AWS Elastic IP to be associated on start&quot;</li>
+<li><code>aws-host-name</code>, type: &quot;list&quot;, descr: &quot;List of hosts to update in Route54 zone with the current private IP address, hosts must be in FQDN format, supports @..@ core.instance placeholders&quot;</li>
+<li><code>aws-iam-profile</code>, descr: &quot;IAM instance profile name for instances or commands&quot;</li>
+<li><code>aws-image-id</code>, descr: &quot;AWS image id to be used for instances or commands&quot;</li>
+<li><code>aws-subnet-id</code>, descr: &quot;AWS subnet id to be used for instances or commands&quot;</li>
+<li><code>aws-vpc-id</code>, descr: &quot;AWS VPC id to be used for instances or commands&quot;</li>
+<li><code>aws-group-id</code>, array: 1, descr: &quot;AWS security group(s) to be used for instances or commands&quot;</li>
+<li><code>aws-instance-type</code>, descr: &quot;AWS instance type to launch on demand&quot;</li>
+<li><code>aws-account-id</code>, descr: &quot;AWS account id if not running on an instance&quot;</li>
+<li><code>aws-eni-id</code>, type: &quot;list&quot;, descr: &quot;AWS Elastic Network Interfaces to attach on start, format is: eni[:index],eni...&quot;</li>
+<li><code>aws-config-parameters</code>, descr: &quot;Prefix for AWS Config Parameters Store to load and parse as config before initializing the database pools, example: /bkjs/config/&quot;</li>
+<li><code>aws-set-parameters</code>, type: &quot;list&quot;, descr: &quot;AWS Config Parameters Store to set on start, supports @..@ core.instance placeholders: format is: path:value,....&quot;</li>
+<li><code>aws-conf-file</code>, descr: &quot;S3 url for config file to download on start&quot;</li>
+<li><code>aws-conf-file-interval</code>, type: &quot;int&quot;, descr: &quot;Load S3 config file every specified interval in minites&quot;</li>
+</ul>
+</li>
+</ul>
+
 <ul>
 <li><p><code>aws.configure(options, callback)</code></p>
 <p>  Initialization of metadata</p>
@@ -4053,7 +3801,111 @@ The following options can be used:</p>
 </li>
 </ul>
 
-<h2 id="module-core">Module: CORE</h2>
+<h2 id="module-core">Module: core</h2>
+<p>  The primary object containing all config options and common functions</p>
+
+<ul>
+<li><p><code>Config parameters</code></p>
+<ul>
+<li><code>help</code>, type: &quot;callback&quot;, callback: function() { this.showHelp()  descr: &quot;Print help and exit&quot;</li>
+<li><code>log</code>, type: &quot;callback&quot;, callback: function(v) { logger.setLevel(v)  descr: &quot;Set debugging level to any of &quot; + Object.keys(logger.levels), pass: 2</li>
+<li><code>log-file</code>, type: &quot;callback&quot;, callback: function(v) { if (v) this.logFile=v;logger.setFile(this.logFile, this)  descr: &quot;Log to a file, if not specified used default logfile, disables syslog&quot;, pass: 1</li>
+<li><code>log-ignore</code>, type: &quot;regexp&quot;, obj: &quot;logInspect&quot;, strip: /log-/, nocamel: 1, descr: &quot;Regexp with property names which must not be exposed in the log when using custom logger inspector&quot;</li>
+<li><code>log-inspect</code>, type: &quot;callback&quot;, callback: function(v) { this.setLogInspect(v)  descr: &quot;Install custom secure logger inspection instead of util.inspect&quot;</li>
+<li><code>log-filter</code>, type: &quot;callback&quot;, callback: function(v) { if (v) logger.setDebugFilter(v)  descr: &quot;Enable debug filters, format is: label,... to enable, and !label,... to disable. Only first argument is used for label in logger.debug&quot;, pass: 1</li>
+<li><code>no-log-filter</code>, type: &quot;bool&quot;, onupdate: function(v) { if (v) logger.filters={}  descr: &quot;Clear all log filters&quot;, pass: 1</li>
+<li><code>syslog</code>, type: &quot;callback&quot;, callback: function(v) { logger.setSyslog(v || 1, this.name)  descr: &quot;Log messages to syslog, pass 0 to disable, 1 or url (tcp|udp|unix):[//host:port]/path?[facility=F][&amp;tag=T][&amp;retryCount=N]...&quot;, pass: 1</li>
+<li><code>console</code>, type: &quot;callback&quot;, callback: function() { logger.setFile(null)  descr: &quot;All logging goes to the console resetting all previous log related settings, this is used in the development mode mostly&quot;, pass: 1</li>
+<li><code>home</code>, type: &quot;callback&quot;, callback: &quot;setHome&quot;, descr: &quot;Specify home directory for the server, the server will try to chdir there or exit if it is not possible, the directory must exist&quot;, pass: 2</li>
+<li><code>conf-file</code>, descr: &quot;Name of the config file to be loaded instead of the default etc/config, can be relative or absolute path&quot;, pass: 1</li>
+<li><code>err-file</code>, type: &quot;path&quot;, descr: &quot;Path to the error log file where daemon will put app errors and crash stacks&quot;, pass: 1</li>
+<li><code>etc-dir</code>, type: &quot;path&quot;, obj: &quot;path&quot;, strip: /Dir/, descr: &quot;Path where to keep config files&quot;, pass: 1</li>
+<li><code>tmp-dir</code>, type: &quot;path&quot;, obj: &quot;path&quot;, strip: /Dir/, descr: &quot;Path where to keep temp files&quot;</li>
+<li><code>spool-dir</code>, type: &quot;path&quot;, obj: &quot;path&quot;, strip: /Dir/, descr: &quot;Path where to keep modifiable files&quot;</li>
+<li><code>log-dir</code>, type: &quot;path&quot;, obj: &quot;path&quot;, strip: /Dir/, descr: &quot;Path where to keep other log files, log-file and err-file are not affected by this&quot;, pass: 1</li>
+<li><code>files-dir</code>, type: &quot;path&quot;, obj: &quot;path&quot;, strip: /Dir/, descr: &quot;Path where to keep uploaded files&quot;</li>
+<li><code>images-dir</code>, type: &quot;path&quot;, obj: &quot;path&quot;, strip: /Dir/, descr: &quot;Path where to keep images&quot;</li>
+<li><code>web-path</code>, type: &quot;path&quot;, array: 1, obj: &quot;path&quot;, strip: /Path/, descr: &quot;Path where to keep web pages and other static files to be served by the web servers&quot;</li>
+<li><code>views-path</code>, type: &quot;path&quot;, array: 1, obj: &quot;path&quot;, strip: /Path/, descr: &quot;Path where to keep virtual hosts web pages, every subdirectory name is a host name to match with Host: header, www. is always stripped before matching vhost directory&quot;</li>
+<li><code>modules-path</code>, type: &quot;path&quot;, array: 1, obj: &quot;path&quot;, strip: /Path/, descr: &quot;Directory from where to load modules, these are the backendjs modules but in the same format and same conventions as regular node.js modules, the format of the files is NAME_{web,worker,shell}.js. The modules can load any other files or directories, this is just an entry point&quot;, pass: 1</li>
+<li><code>locales-path</code>, type: &quot;path&quot;, array: 1, obj: &quot;path&quot;, strip: /Path/, descr: &quot;Path where to keep locale translations&quot;</li>
+<li><code>role</code>, descr: &quot;Override servers roles, this may have very strange side effects and should only be used for testing purposes&quot;</li>
+<li><code>umask</code>, descr: &quot;Permissions mask for new files, calls system umask on startup, if not specified the current umask is used&quot;, pass: 1</li>
+<li><code>force-uid</code>, type: &quot;list&quot;, onupdate: function(v) { lib.dropPrivileges(v[0], v[1])  descr: &quot;Drop privileges if running as root by all processes as early as possibly, this reqiures uid being set to non-root user. A convenient switch to start the backend without using any other tools like su or sudo.&quot;, pass: 1</li>
+<li><code>port</code>, type: &quot;number&quot;, min: 0, descr: &quot;port to listen for the HTTP server, this is global default&quot;</li>
+<li><code>bind</code>, descr: &quot;Bind to this address only, if not specified listen on all interfaces&quot;</li>
+<li><code>backlog</code>, type: &quot;int&quot;, descr: &quot;The maximum length of the queue of pending connections, used by HTTP server in listen.&quot;</li>
+<li><code>ws-port</code>, type: &quot;number&quot;, obj: &#39;ws&#39;, min: 0, descr: &quot;Port to listen for WebSocket server, it can be the same as HTTP/S ports to co-exist on existing web servers&quot;</li>
+<li><code>ws-bind</code>, obj: &#39;ws&#39;, descr: &quot;Bind to this address only for WebSocket, if not specified listen on all interfaces, only when the port is different from existing web ports&quot;</li>
+<li><code>ws-ping</code>, type: &quot;number&quot;, obj: &#39;ws&#39;, min: 0, descr: &quot;How often to ping Websocket connections&quot;</li>
+<li><code>ws-path</code>, type: &quot;regexp&quot;, obj: &#39;ws&#39;, descr: &quot;Websockets will be accepted only if request path maches the pattern&quot;</li>
+<li><code>ws-queue</code>, obj: &quot;ws&quot;, descr: &quot;A queue where to publish messages for websockets, API process will listen for messages and proxy it to all macthing connected websockets &quot;</li>
+<li><code>ssl-port</code>, type: &quot;number&quot;, obj: &#39;ssl&#39;, min: 0, descr: &quot;port to listen for HTTPS server, this is global default, be advised that proxy-port takes precedence&quot;</li>
+<li><code>ssl-bind</code>, obj: &#39;ssl&#39;, descr: &quot;Bind to this address only for HTTPS server, if not specified listen on all interfaces&quot;</li>
+<li><code>ssl-key</code>, type: &quot;file&quot;, obj: &#39;ssl&#39;, descr: &quot;Path to SSL prvate key&quot;</li>
+<li><code>ssl-cert</code>, type: &quot;file&quot;, obj: &#39;ssl&#39;, descr: &quot;Path to SSL certificate&quot;</li>
+<li><code>ssl-pfx</code>, type: &quot;file&quot;, obj: &#39;ssl&#39;, descr: &quot;A string or Buffer containing the private key, certificate and CA certs of the server in PFX or PKCS12 format. (Mutually exclusive with the key, cert and ca options.)&quot;</li>
+<li><code>ssl-ca</code>, type: &quot;file&quot;, obj: &#39;ssl&#39;, array: 1, descr: &quot;An array of strings or Buffers of trusted certificates in PEM format. If this is omitted several well known root CAs will be used, like VeriSign. These are used to authorize connections.&quot;</li>
+<li><code>ssl-passphrase</code>, obj: &#39;ssl&#39;, descr: &quot;A string of passphrase for the private key or pfx&quot;</li>
+<li><code>ssl-crl</code>, type: &quot;file&quot;, obj: &#39;ssl&#39;, array: 1, descr: &quot;Either a string or list of strings of PEM encoded CRLs (Certificate Revocation List)&quot;</li>
+<li><code>ssl-ciphers</code>, obj: &#39;ssl&#39;, descr: &quot;A string describing the ciphers to use or exclude. Consult <a href="http://www.openssl.org/docs/apps/ciphers.html#CIPHER_LIST_FORMAT">http://www.openssl.org/docs/apps/ciphers.html#CIPHER_LIST_FORMAT</a> for details on the format&quot;</li>
+<li><code>ssl-request-cert</code>, type: &quot;bool&quot;, obj: &#39;ssl&#39;, descr: &quot;If true the server will request a certificate from clients that connect and attempt to verify that certificate. &quot;</li>
+<li><code>ssl-reject-unauthorized</code>, type: &quot;bool&quot;, obj: &#39;ssl&#39;, decr: &quot;If true the server will reject any connection which is not authorized with the list of supplied CAs. This option only has an effect if ssl-request-cert is true&quot;</li>
+<li><code>concurrency</code>, type: &quot;number&quot;, min: 1, max: 4, descr: &quot;How many simultaneous tasks to run at the same time inside one process, this is used by async module only to perform several tasks at once, this is not multithreading but and only makes sense for I/O related tasks&quot;</li>
+<li><code>daemon</code>, type: &quot;none&quot;, descr: &quot;Daemonize the process, go to the background, can be specified only in the command line&quot;</li>
+<li><code>shell</code>, type: &quot;none&quot;, descr: &quot;Run command line shell, load the backend into the memory and prompt for the commands, can be specified only in the command line&quot;</li>
+<li><code>monitor</code>, type: &quot;none&quot;, descr: &quot;For production use, monitors the master and Web server processes and restarts if crashed or exited, can be specified only in the command line&quot;</li>
+<li><code>master</code>, type: &quot;none&quot;, descr: &quot;Start the master server, can be specified only in the command line, this process handles job schedules and starts Web server, keeps track of failed processes and restarts them&quot;</li>
+<li><code>web</code>, type: &quot;callback&quot;, callback: function() { this.noWeb=0  descr: &quot;Start Web server processes, spawn workers that listen on the same port, for use without master process which starts Web servers automatically&quot;</li>
+<li><code>proxy-port</code>, type: &quot;number&quot;, min: 0, obj: &#39;proxy&#39;, descr: &quot;Start the HTTP reverse proxy server, all Web workers will listen on different ports and will be load-balanced by the proxy, the proxy server will listen on global HTTP port and all workers will listen on ports starting with the proxy-port&quot;</li>
+<li><code>proxy-ssl</code>, type: &quot;bool&quot;, obj: &quot;proxy&quot;, descr: &quot;Start HTTPS reverse proxy to accept incoming SSL requests, ssl-key/cert must be defined&quot;</li>
+<li><code>salt</code>, type: &quot;callback&quot;, callback: function(v) { this.salt=lib.salt=v;  descr: &quot;Set random or specific salt value to be used for consistent suuid generation&quot;, pass: 1</li>
+<li><code>app-name</code>, type: &quot;callback&quot;, callback: function(v) { if (!v) return;v = v.split(/[/-]/);this.appName=v[0].trim();if (v[1]) this.appVersion=v[1].trim(); descr: &quot;Set appName and version explicitely an skip reading it from package.json, it can be just a name or name-version&quot;, pass: 1</li>
+<li><code>app-package</code>, descr: &quot;NPM package containing the application package.json, it will be added to the list of package.json files for app name and version discovery. The package must be included in the -allow-packages list.&quot;, pass: 1</li>
+<li><code>instance-(.+)</code>, obj: &#39;instance&#39;, make: &quot;$1&quot;, descr: &quot;Set instance properties explicitly: tag, region, zone&quot;, pass: 1</li>
+<li><code>run-mode</code>, dns: 1, descr: &quot;Running mode for the app, used to separate different running environment and configurations&quot;, pass: 1</li>
+<li><code>no-monitor</code>, type: &quot;none&quot;, descr: &quot;Disable monitor process, for cases when the master will be monitored by other tool like monit...&quot;</li>
+<li><code>no-master</code>, type: &quot;none&quot;, descr: &quot;Do not start the master process&quot;</li>
+<li><code>no-watch</code>, type: &quot;bool&quot;, descr: &quot;Disable source code watcher&quot;</li>
+<li><code>no-web</code>, type: &quot;bool&quot;, descr: &quot;Disable Web server processes, without this flag Web servers start by default&quot;</li>
+<li><code>no-db</code>, type: &quot;bool&quot;, descr: &quot;Do not initialize DB drivers&quot;, pass: 1</li>
+<li><code>no-db-config</code>, type: &quot;bool&quot;, descr: &quot;Do not retrieve config from the DB&quot;, pass: 1</li>
+<li><code>no-dns</code>, type: &quot;bool&quot;, descr: &quot;Do not use DNS configuration during the initialization&quot;, pass: 1</li>
+<li><code>no-modules</code>, type: &quot;bool&quot;, descr: &quot;Do not load any external modules&quot;, pass: 1</li>
+<li><code>no-packages</code>, type: &quot;bool&quot;, descr: &quot;Do not load any NPM packages&quot;, pass: 1</li>
+<li><code>no-configure</code>, type: &quot;bool&quot;, descr: &quot;Do not run configure hooks during the initialization&quot;, pass: 1</li>
+<li><code>repl-port-([a-z]+)$</code>, type: &quot;number&quot;, obj: &quot;repl&quot;, make: &quot;$1Port&quot;, min: 1001, descr: &quot;Base REPL port for process role (server, master, web, worker), if specified it initializes REPL in the processes, for workers the port is computed by adding a worker id to the base port, for example if specified <code>-repl-port-web 2090</code> then a web worker will use any available 2091,2092...&quot;</li>
+<li><code>repl-bind</code>, obj: &quot;repl&quot;, descr: &quot;Listen only on specified address for REPL server in the master process&quot;</li>
+<li><code>repl-file</code>, obj: &quot;repl&quot;, descr: &quot;User specified file for REPL history&quot;</li>
+<li><code>repl-size</code>, obj: &quot;repl&quot;, type: &quot;int&quot;, descr: &quot;Max size to read on start from the end of the history file&quot;</li>
+<li><code>worker</code>, type: &quot;bool&quot;, descr: &quot;Set this process as a worker even it is actually a master, this skips some initializations&quot;</li>
+<li><code>allow-packages</code>, type: &quot;list&quot;, array: 1, push: 1, descr: &quot;NPM packages to load on startup, the modules, locales, viewes, web subfolders from the package will be added automatically to the system paths, modules will be loaded if present, the config file in etc subfolder will be parsed if present&quot;, pass: 1</li>
+<li><code>preload-modules</code>, type: &quot;regexp&quot;, descr: &quot;Modules to preload first from any modules/ folders including the system folder, this can be used to preload default bkjs system modules&quot;, pass: 1</li>
+<li><code>exclude-modules</code>, type: &quot;regexp&quot;, descr: &quot;Modules not to load, the whole path is checked&quot;, pass: 1</li>
+<li><code>depth-modules</code>, type: &quot;int&quot;, descr: &quot;How deep to go looking for modules, it uses lib.findFileSync to locate all .js files&quot;, pass: 1</li>
+<li><code>user-agent</code>, array: 1, descr: &quot;Add HTTP user-agent header to be used in HTTP requests, for scrapers or other HTTP requests that need to be pretended coming from Web browsers&quot;</li>
+<li><code>backend-host</code>, descr: &quot;Host of the master backend, can be used for backend nodes communications using core.sendRequest function calls with relative URLs, also used in tests.&quot;</li>
+<li><code>backend-login</code>, descr: &quot;Credentials login for the master backend access when using core.sendRequest&quot;</li>
+<li><code>backend-secret</code>, descr: &quot;Credentials secret for the master backend access when using core.sendRequest&quot;</li>
+<li><code>host-name</code>, type: &quot;callback&quot;, callback: function(v) { if (v) this.hostName=v;this.domain = lib.domainName(this.hostName);this._name = &quot;hostName&quot;  descr: &quot;Hostname/domain to use for communications, default is current domain of the host machine&quot;</li>
+<li><code>config-domain</code>, descr: &quot;Domain to query for configuration TXT records, must be specified to enable DNS configuration&quot;</li>
+<li><code>watch</code>, type: &quot;callback&quot;, callback: function(v) { this.watch = true; this.watchdirs.push(v ? v : __dirname)  descr: &quot;Watch sources directory for file changes to restart the server, for development only, the backend module files will be added to the watch list automatically, so only app specific directores should be added. In the production -monitor must be used.&quot;</li>
+<li><code>watch-ignore</code>, type: &quot;regexpobj&quot;, descr: &quot;Files to be ignored by the watcher&quot;</li>
+<li><code>watch-match</code>, type: &quot;regexpobj&quot;, descr: &quot;Files to be watched, .js and .css is the default&quot;</li>
+<li><code>watch-web</code>, type: &quot;list&quot;, array: 1, descr: &quot;List of directories to be watched for file modifications and execute a <code>buildWeb</code> command to produce bundles, apps, etc... Relative paths will be applied to all packages, example: web/js,web/css&quot;</li>
+<li><code>build-web</code>, descr: &quot;Command to run on web files modifications, to be used with tools like minify/uglify&quot;</li>
+<li><code>locales</code>, array: 1, type: &quot;list&quot;, descr: &quot;A list of locales to load from the locales/ directory, only language name must be specified, example: en,es. It enables internal support for <code>res.__</code> and <code>req.__</code> methods that can be used for translations, for each request the internal language header will be honored forst, then HTTP Accept-Language&quot;</li>
+<li><code>no-locales</code>, type: &quot;bool&quot;, descr: &quot;Do not load locales on start&quot;</li>
+<li><code>email-from</code>, descr: &quot;Email address to be used when sending emails from the backend&quot;</li>
+<li><code>email-transport</code>, descr: &quot;Send emails via supported transports: ses:, sendgrid://?key=SG, if not set default SMTP settings are used&quot;</li>
+<li><code>sendgrid-key</code>, descr: &quot;SendGrid API key&quot;</li>
+<li><code>smtp-(.+)</code>, obj: &quot;smtp&quot;, make: &quot;$1&quot;, descr: &quot;SMTP server parameters, user, password, host, ssl, tls...see nodemailer for details&quot;</li>
+<li><code>tmp-watcher-(.+)</code>, obj: &quot;tmp-watcher&quot;, type: &quot;int&quot;, strip: &quot;tmpWatcher&quot;, descr: &quot;How long to keep files per subdirectory in seconds&quot;</li>
+<li><code>stop-on-error</code>, type: &quot;bool&quot;, descr: &quot;Exit the process on any error when loading modules, for dev purposes&quot;, pass: 1</li>
+</ul>
+</li>
+</ul>
+
 <ul>
 <li><p><code>core.init(options, callback)</code></p>
 <p>  Main initialization, must be called prior to perform any actions.</p>
@@ -4357,7 +4209,117 @@ Options properties:</p>
 </li>
 </ul>
 
-<h2 id="module-db">Module: DB</h2>
+<h2 id="module-db">Module: db</h2>
+<p>  The Database API, a thin abstraction layer on top of SQLite, PostgreSQL, DynamoDB and Cassandra.
+  The idea is not to introduce new abstraction layer on top of all databases but to make
+  the API usable for common use cases. On the source code level access to all databases will be possible using
+  this API but any specific usage like SQL queries syntax or data types available only for some databases will not be
+  unified or automatically converted but passed to the database directly. Only conversion between JavaScript types and
+  database types is unified to some degree meaning JavaScript data type will be converted into the corresponding
+  data type supported by any particular database and vice versa.</p>
+<p>  Basic operations are supported for all database and modelled after NoSQL usage, this means no SQL joins are supported
+  by the API, only single table access. SQL joins can be passed as SQL statements directly to the database using low level db.query
+  API call, all high level operations like add/put/del perform SQL generation for single table on the fly.</p>
+<p>  The common convention is to pass options object with flags that are common for all drivers along with specific,
+  this options object can be modified with new properties but all driver should try not to
+  modify or delete existing properties, so the same options object can be reused in subsequent operations.</p>
+<p>  All queries and update operations ignore properties that starts with underscore.</p>
+<p>  Before the DB functions can be used the <code>core.init</code> MUST be called first, the typical usage:</p>
+<pre><code>       var backend = require(&quot;backendjs&quot;), core = backend.core, db = backend.db;
+       core.init(function(err) {
+           db.add(...
+           ...
+       });
+</code></pre>
+<p>  All database methods can use default db pool or any other available db pool by using <code>pool: name</code> in the options. If not specified,
+  then default db pool is used, sqlite is default if no -db-pool config parameter specified in the command line or the config file.
+  Even if the specified pool does not exist, the default pool will be returned, this allows to pre-confgure the app with different pools
+  in the code and enable or disable any particular pool at any time.</p>
+<p>   Example, use PostgreSQL db pool to get a record and update the current pool</p>
+<pre><code>       db.get(&quot;bk_user&quot;, { login: &quot;123&quot; }, { pool: &quot;pg&quot; }, (err, row) =&gt; {
+           if (row) db.update(&quot;bk_user&quot;, row);
+       });
+
+       const user = await db.aget(&quot;bk_user&quot;, { login: &quot;123&quot; });
+</code></pre>
+<p>  Most database pools can be configured with options <code>min</code> and <code>max</code> for number of connections to be maintained, so no overload will happen and keep warm connection for
+  faster responses. Even for DynamoDB which uses HTTPS this can be configured without hitting provisioned limits which will return an error but
+  put extra requests into the waiting queue and execute once some requests finished.</p>
+<p>   Example:</p>
+<pre><code>       db-pg-pool-max = 100
+       db-dynamodb-pool-max = 100
+</code></pre>
+<p>  Also, to spread functionality between different databases it is possible to assign some tables to the specific pools using <code>db-X-pool-tables</code> parameters
+  thus redirecting the requests to one or another databases depending on the table, this for example can be useful when using fast but expensive
+  database like DynamoDB for real-time requests and slower SQL database running on some slow instance for rare requests, reports or statistics processing.</p>
+<p>   Example, run the backend with default PostgreSQL database but keep all config parametrs in the DynamoDB table for availability:</p>
+<pre><code>       db-pool = pg
+       db-dynamodb-pool = default
+       db-dynamodb-pool-tables = bk_config
+</code></pre>
+<p>  The following databases are supported with the basic db API methods: Sqlite, PostgreSQL, DynamoDB, Elasticsearch</p>
+<p>  Multiple connections of the same type can be opened, just add <code>N</code> suffix to all database config parameters where N is a number,
+  referer to such pools in the code as <code>poolN</code> or by an alias.</p>
+<p>  Example:</p>
+<pre><code>       db-sqlite1-pool = billing
+       db-sqlite1-pool-max = 10
+       db-sqlite1-pool-options-path = /data/db
+       db-sqlite1-pool-options-journal_mode = OFF
+       db-sqlite1-pool-alias = billing
+
+       in the Javascript:
+
+       db.select(&quot;bills&quot;, { status: &quot;ok&quot; }, { pool: &quot;billing&quot; }, lib.log)
+       await db.aselect(&quot;bills&quot;, { status: &quot;ok&quot; }, { pool: &quot;billing&quot; })
+</code></pre>
+
+<ul>
+<li><p><code>Config parameters</code></p>
+<ul>
+<li><code>db-pool</code>, dns: 1, descr: &quot;Default pool to be used for db access without explicit pool specified&quot;</li>
+<li><code>db-name</code>, key: &quot;db-name&quot;, descr: &quot;Default database name to be used for default connections in cases when no db is specified in the connection url&quot;</li>
+<li><code>db-create-tables</code>, key: &quot;_createTables&quot;, type: &quot;bool&quot;, nocamel: 1, master: 1, pass: 1, descr: &quot;Create tables in the database or perform table upgrades for new columns in all pools, only shell or server process can perform this operation&quot;</li>
+<li><code>db-create-tables-roles</code>, type: &quot;list&quot;, pass: 1, descr: &quot;Only processes with these roles can create tables&quot;</li>
+<li><code>db-cache-tables</code>, array: 1, type: &quot;list&quot;, descr: &quot;List of tables that can be cached: bk_user, bk_counter. This list defines which DB calls will cache data with currently configured cache. This is global for all db pools.&quot;</li>
+<li><code>db-skip-tables</code>, array: 1, type: &quot;list&quot;, descr: &quot;List of tables that will not be created or modified, this is global for all pools&quot;</li>
+<li><code>db-cache-pools</code>, array: 1, type: &quot;list&quot;, descr: &quot;List of pools which trigger cache flushes on update.&quot;</li>
+<li><code>db-cache-sync</code>, array: 1, type: &quot;list&quot;, descr: &quot;List of tables that perform synchronized cache updates before returning from a DB call, by default cache updates are done in the background&quot;</li>
+<li><code>db-cache-keys-([a-z0-9_]+)-(.+)</code>, obj: &quot;cacheKeys.$1&quot;, make: &quot;$2&quot;, nocamel: 1, type: &quot;list&quot;, descr: &quot;List of columns to be used for the table cache, all update operations will flush the cache if the cache key can be created from the record columns. This is for ad-hoc and caches to be used for custom selects which specified the cache key.&quot;</li>
+<li><code>db-describe-tables</code>, type: &quot;callback&quot;, callback: function(v) { this.describeTables(lib.jsonParse(v, { datatype: &quot;obj&quot;,logger: &quot;error&quot; }))  descr: &quot;A JSON object with table descriptions to be merged with the existing definitions&quot;</li>
+<li><code>db-cache-ttl</code>, type: &quot;int&quot;, obj: &quot;cacheTtl&quot;, key: &quot;default&quot;, descr: &quot;Default global TTL for cached tables&quot;,</li>
+<li><code>db-cache-ttl-(.+)</code>, type: &quot;int&quot;, obj: &quot;cacheTtl&quot;, nocamel: 1, strip: /cache-ttl-/, descr: &quot;TTL in milliseconds for each individual table being cached&quot;,</li>
+<li><code>db-cache-name-(.+)</code>, obj: &quot;cacheName&quot;, nocamel: 1, make: &quot;$1&quot;, descr: &quot;Cache client name to use for cache reading and writing for each table instead of the default in order to split cache usage for different tables, it can be just a table name or <code>pool.table</code>, use <code>*</code> to set default cache for all tables&quot;,</li>
+<li><code>db-cache-update-(.+)</code>, obj: &quot;cacheUpdate&quot;, nocamel: 1, make: &quot;$1&quot;, descr: &quot;Cache client name to use for updating only for each table instead of the default in order to split cache usage for different tables, it can be just a table name or <code>pool.table</code> or <code>*</code>. This cache takes precedence for updating cache over <code>cache-name</code> parameter&quot;,</li>
+<li><code>db-cache2-max</code>, type: &quot;int&quot;, min: 1, obj: &quot;lru&quot;, make: &quot;max&quot;, descr: &quot;Max number of items to keep in the LRU Level 2 cache&quot;</li>
+<li><code>db-cache2-(.+)</code>, obj: &quot;cache2&quot;, type: &quot;int&quot;, nocamel: 1, strip: /cache2-/, min: 0, descr: &quot;Tables with TTL for level2 cache, i.e. in the local process LRU memory. It works before the primary cache and keeps records in the local LRU cache for the given amount of time, the TTL is in ms and must be greater than zero for level 2 cache to work&quot;</li>
+<li><code>db-custom-column-([a-z0-9_]+)-(.+)</code>, obj: &quot;customColumn.$1&quot;, make: &quot;$2&quot;, nocamel: 1, descr: &quot;A column that is allowed to be used in any table, the name is a column name regexp with the value to be a type, Ex: -db-custom-column-bk_user-^stats=counter&quot;,</li>
+<li><code>db-describe-column-([a-z0-9_]+)-([a-z0-9_]+)</code>, obj: &quot;columns.$1&quot;, make: &quot;$2&quot;, type: &quot;map&quot;, maptype: &quot;auto&quot;, nocamel: 1, descr: &quot;Describe a table column properties, can be a new or existing column, overrides existing property, ex: -db-describe-column-bk_user-name max:255&quot;,</li>
+<li><code>db-local</code>, descr: &quot;Local database pool for properties, cookies and other local instance only specific stuff&quot;</li>
+<li><code>db-config</code>, descr: &quot;Configuration database pool to be used to retrieve config parameters from the database, must be defined to use remote db for config parameters, set to <code>default</code> to use current default pool&quot;</li>
+<li><code>db-config-interval</code>, type: &quot;number&quot;, min: 0, descr: &quot;Interval between loading configuration from the database configured with -db-config, in minutes, 0 disables refreshing config from the db&quot;</li>
+<li><code>db-config-count</code>, type: &quot;number&quot;, min: 0, descr: &quot;Max number of records to read fron the config table&quot;</li>
+<li><code>db-config-roles</code>, type: &quot;list&quot;, descr: &quot;Roles to assume when pulling config parameters from the config table&quot;</li>
+<li><code>db-local-tables</code>, type: &quot;bool&quot;, key: &quot;_localTables&quot;, descr: &quot;Only enable local, default and config pools&quot;</li>
+<li><code>db-no-cache-columns</code>, type: &quot;bool&quot;, descr: &quot;Do not read/cache table columns&quot;</li>
+<li><code>db-cache-columns-interval</code>, type: &quot;int&quot;, min: 0, descr: &quot;How often in minutes to refresh tables columns from the database, it calls cacheColumns for each pool which supports it&quot;</li>
+<li><code>db-skip-drop</code>, type: &quot;regexpobj&quot;, descr: &quot;A pattern of table names which will skipped in db.drop operations to prevent accidental table deletion&quot;</li>
+<li><code>db-aliases-(.+)</code>, obj: &quot;aliases&quot;, nocamel: 1, reverse: 1, onparse: function(v,o) { o.name=this.table(o.name); return this.table(v)  descr: &quot;Table aliases to be used instead of the requested table name, only high level db operations will use it, al low level utilities use the real table names&quot;</li>
+<li><code>db-([a-z0-9]+)-pool$</code>, obj: &#39;poolParams.$1&#39;, make: &quot;url&quot;, novalue: &quot;default&quot;, descr: &quot;A database pool name, depending on the driver it can be an URL, name or pathname, examples of db pools: <code>-db-pg-pool, -db-dynamodb-pool</code>, url format: <code>protocol://[user:password@]hostname[:port]/dbname</code> or <code>default</code>&quot;</li>
+<li><code>db-([a-z0-9]+)-pool-(disabled)$</code>, obj: &#39;poolParams.$1&#39;, make: &quot;$2&quot;, type: &quot;bool&quot;, descr: &quot;Disable the specified pool but keep the configuration&quot;</li>
+<li><code>db-([a-z0-9]+)-pool-(max)$</code>, obj: &#39;poolParams.$1&#39;, make: &quot;$2&quot;, type: &quot;number&quot;, min: 1, descr: &quot;Max number of open connections for a pool, default is Infinity&quot;</li>
+<li><code>db-([a-z0-9]+)-pool-(min)$</code>, obj: &#39;poolParams.$1&#39;, make: &quot;$2&quot;, type: &quot;number&quot;, min: 1, descr: &quot;Min number of open connections for a pool&quot;</li>
+<li><code>db-([a-z0-9]+)-pool-(idle)$</code>, obj: &#39;poolParams.$1&#39;, make: &quot;$2&quot;, type: &quot;number&quot;, min: 1000, descr: &quot;Number of ms for a db pool connection to be idle before being destroyed&quot;</li>
+<li><code>db-([a-z0-9]+)-pool-(tables)$</code>, obj: &#39;poolParams.$1.configOptions&#39;, make: &quot;$2&quot;, array: 1, type: &quot;list&quot;, onupdate: function(v,o) {this.applyPoolOptions(v,o) descr: &quot;Tables to be created only in this pool, to prevent creating all tables in every pool&quot;</li>
+<li><code>db-([a-z0-9]+)-pool-connect$</code>, obj: &#39;poolParams.$1.connectOptions&#39;, type: &quot;json&quot;, logger: &quot;warn&quot;, descr: &quot;Connect options for a DB pool driver for new connection, driver specific&quot;</li>
+<li><code>db-([a-z0-9]+)-pool-options$</code>, obj: &#39;poolParams.$1.configOptions&#39;, type: &quot;map&quot;, maptype: &quot;auto&quot;, merge: 1, onupdate: function(v,o) {this.applyPoolOptions(v,o) descr: &quot;General options for a DB pool&quot;</li>
+<li><code>db-([a-z0-9]+)-pool-options-([a-zA-Z0-9_.-]+)$</code>, obj: &#39;poolParams.$1.configOptions&#39;, camel: &#39;-&#39;, autotype: 1, make: &quot;$2&quot;, onupdate: function(v,o) {this.applyPoolOptions(v,o) descr: &quot;General options for a DB pool&quot;</li>
+<li><code>db-([a-z0-9]+)-pool-(create-tables)$</code>, master: 1, obj: &#39;poolParams.$1.configOptions&#39;, make: &quot;$2&quot;, type: &quot;bool&quot;, descr: &quot;Create tables for this pool on startup&quot;</li>
+<li><code>db-([a-z0-9]+)-pool-cache2-(.+)</code>, obj: &#39;cache2&#39;, nocamel: 1, strip: /pool-cache2-/, type: &quot;int&quot;, descr: &quot;Level 2 cache TTL for the specified pool and table, data is JSON strings in the LRU cache&quot;</li>
+<li><code>db-([a-z0-9]+)-pool-alias</code>, obj: &#39;poolAliases&#39;, make: &quot;$1&quot;, reverse: 1, descr: &quot;Pool alias to refer by an alternative name&quot;</li>
+</ul>
+</li>
+</ul>
+
 <ul>
 <li><p><code>Database tables</code></p>
 <pre><code>      // Configuration store, same parameters as in the commandline or config file, can be placed in separate config groups
@@ -4370,15 +4332,6 @@ Options properties:</p>
           ttl: { type: &quot;int&quot; },            // refresh interval in seconds since last read
           version: { type: &quot;text&quot; },       // version conditions, &gt;M.N,&lt;M.N
           ctime: { type: &quot;now&quot;, readonly: 1 },
-          mtime: { type: &quot;now&quot; }
-      },
-
-      // General purpose properties, can be used to store arbitrary values
-      bk_property: {
-          name: { primary: 1 },
-          value: { index: 1 },
-          count: { type: &quot;counter&quot; },      // general purpose counter value
-          ttl: { type: &quot;int&quot; },            // time to live, seconds since last update
           mtime: { type: &quot;now&quot; }
       },
 </code></pre>
@@ -5199,6 +5152,22 @@ types <code>myapp</code> and <code>prod-myapp</code>, then the last value will b
 </li>
 </ul>
 
+<p>  Create a database pool that works with ElasticSearch server, only the hostname and port will be used, by default each table
+  is stored in its own index.</p>
+<p>  To define shards and replicas per index:</p>
+<ul>
+<li><code>-db-elasticsearch-pool-options-shards-INDEX_NAME=NUM</code></li>
+<li><code>-db-elasticsearch-pool-options-replicas-INDEX_NAME=NUM</code></li>
+</ul>
+<p>  To support multiple seed nodes a parameter <code>-db-elasticsearch-pool-options-servers=1.1.1.1,2.2.2.2</code> can be specified, if the primary node
+  fails it will switch to other configured nodes. To control the switch retries and timeout there are options:</p>
+<ul>
+<li><code>-db-elasticsearch-pool-options-retry-count=3</code></li>
+<li><code>-db-elasticsearch-pool-options-retry-timeout=250</code></li>
+</ul>
+<p>  On successful connect to any node the driver retrieves full list of nodes in the cluster and switches to a random node, this happens
+  every <code>discovery-interval</code> in milliseconds, default is 1h, it can be specified as <code>-db-elasticserch-pool-options-discovery-interval=300000</code></p>
+
 <ul>
 <li><p><code>Pool.prototype.cacheIndexes(options, callback)</code></p>
 <p>  Cache indexes using the information_schema</p>
@@ -5925,15 +5894,35 @@ will be returned in the query object</p>
 </li>
 </ul>
 
-<h2 id="module-events">Module: EVENTS</h2>
+<h2 id="module-events">Module: events</h2>
+<p>  Event queue processor</p>
+<p>  If any of <code>events-worker-queue-XXX</code> parameters are defined then workers subscribe to configured event queues and listen for events.</p>
+<p>  Each event queue can run multiple functions idependently but will ack/nack for all functions so to deal with replay dups it is advised to
+  split between multiple consumers using the syntax: <code>queue#channel@consumer</code></p>
+<p>  Multiple event queues can be defined and processed at the same time.</p>
+<p>  An event processing function takes 2 arguments, an event and callback to call on finish</p>
+
 <ul>
-<li><p><code>mod.shutdownWorker(options, callback)</code></p>
+<li><p><code>Config parameters</code></p>
+<ul>
+<li><code>events-worker-queue-(.+)</code>, obj: &quot;worker-queue&quot;, type: &quot;list&quot;, onupdate: function() { if (ipc.role==&quot;worker&quot;&amp;&amp;core.role==&quot;worker&quot;) this.subscribeWorker() descr: &quot;Queues to subscribe for workers, same queues can be used at the same time with different functions and channels and consumers, event queue format is <code>queue#channel@consumer</code>, ex: -ipc-worker-queue-ticket ticket.processEvents, -ipc-worker-queue-ticket#inbox@staff ticket.processInboxEvents, -ipc-worker-queue-ticket@staff ticket.processStaffEvents&quot;</li>
+<li><code>events-worker-options-(.+)</code>, obj: &quot;workerOptions&quot;, make: &quot;$1&quot;, type: &quot;json&quot;, logger: &quot;error&quot;, descr: &quot;Custom parameters by queue name, passed to <code>ipc.subscribeQueue</code> on worker start, useful with channels, ex: <code>-events-worker-options-ticket {\&quot;count\&quot;:3,\&quot;raw\&quot;:1}</code>&quot;</li>
+<li><code>events-worker-delay</code>, type: &quot;int&quot;, descr: &quot;Delay in milliseconds for a worker before it will start accepting jobs, for cases when other dependencies may take some time to start&quot;</li>
+<li><code>events-max-runtime</code>, type: &quot;int&quot;, min: 0, multiplier: 1000, descr: &quot;Max number of seconds an event processing can run before being killed&quot;</li>
+<li><code>events-routing-(.+)</code>, obj: &quot;routing&quot;, type: &quot;regexp&quot;, empty: 1, descr: &quot;Queue routing by event topic&quot;</li>
+<li><code>events-properties</code>, type: &quot;list&quot;, descr: &quot;List of properties to copy into an event envelope from the provided options&quot;</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>events.shutdownWorker(options, callback)</code></p>
 <p>  Perform graceful worker shutdown, to be used for workers restart</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>mod.checkTimes()</code></p>
+<li><p><code>events.checkTimes()</code></p>
 <p>  Check how long we run a job and force kill if exceeded, check if total life time is exceeded.</p>
 <p>If exit is required the <code>shundownWorker</code> methods will receive options with <code>shutdownReason</code> property
 set and the name-sake property will contained the value exceeded.</p>
@@ -5941,20 +5930,105 @@ set and the name-sake property will contained the value exceeded.</p>
 </ul>
 
 <ul>
-<li><p><code>mod.putEvent(topic, data, options)</code></p>
+<li><p><code>events.putEvent(topic, data, options)</code></p>
 <p>  Place an event into a queue by topic</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>mod.getQueueByHandler(proc)</code></p>
+<li><p><code>events.getQueueByHandler(proc)</code></p>
 <p>  Return a queue name by the event handler</p>
 </li>
 </ul>
 
-<h2 id="module-httpget">Module: HTTPGET</h2>
-<h2 id="module-index">Module: INDEX</h2>
-<h2 id="module-ipc">Module: IPC</h2>
+<h2 id="module-httpget">Module: httpget</h2>
+<p>  Downloads file using HTTP and pass it to the callback if provided</p>
+<ul>
+<li>uri can be full URL or an object with parts of the url, same format as in url.format</li>
+<li>params can contain the following options:<ul>
+<li>method - GET, POST</li>
+<li>headers - object with headers to pass to HTTP request, properties must be all lower case</li>
+<li>cookies - an object with cookies to send with request, if even empty rescookies will be set in the response</li>
+<li>file - file name where to save response, in case of error response the error body will be saved as well, it uses sync file operations</li>
+<li>stream - a writable stream where to save data</li>
+<li>formdata - date to be sent with the request as x-www-form-urlencoded</li>
+<li>postdata - data to be sent with the request in the body as JSON</li>
+<li>postfile - file to be uploaded in the POST body, not as multipart</li>
+<li>postsize - file size to be uploaded if obtained separately</li>
+<li>posttype - content type for post data</li>
+<li>multipart - an array of objects for multipart/form-data post, { name: &quot;..&quot;, data: &quot;..&quot; [ file: &quot;..&quot;] }, for files a Buffer can be used in data</li>
+<li>noparse - do not parse known content types like json, xml</li>
+<li>chunked - post files using chunked encoding</li>
+<li>qsopts - an object to be passed to <code>qs.stringify</code></li>
+<li>query - additional query parameters to be added to the url as an object or as encoded string</li>
+<li>sign - sign request with provided email/secret properties</li>
+<li>checksum - 1 if the body needs a checksum in the signature</li>
+<li>mtime - a Date or timestamp to be used in conditional requests</li>
+<li>conditional - add If-Modified-Since header using <code>params.mtime</code> if present or if <code>file</code> is given use file last modified timestamp, mtime</li>
+<li>httpTimeout - timeout in milliseconds after which the request is aborted if no data received</li>
+<li>hardTimeout - abort the request after this amount of time in ms, must be big enough to allow for all data to be received</li>
+<li>maxSize - if the content being downloaded becomes greater than this size the request will be aborted</li>
+<li>retryCount - how many times to retry the request on error or timeout</li>
+<li>retryTimeout - timeout in milliseconds for retries, with every subsequent timeout it will be multiplied by <code>retryMultiplier</code></li>
+<li>retryOnError - retry request if received non 2xx response status,
+  if this is a function then it must return true in order to retry the request,
+  otherwise it is treated as a boolean value, if true then retry on all non-2xx responses</li>
+<li>retryPrepare - a function to be called before retrying, it can update any parameter, most related: _uri, retryTimeout, retryMultiplier</li>
+<li>errorCount - how many times to retry on aborted connections, default is retryCount</li>
+<li>noredirects - if true then do not follow redirect locations for 30-[1,2,3,7] statuses</li>
+<li>preparse -  a function to be called before parsing the xml/json content, called in the context of the http object</li>
+<li>passheaders -  a list of headers to be passed in redirects</li>
+<li>user - authorization user, if also `password`` is provided then it will use Basic authorization, if only user is provided then Bearer</li>
+</ul>
+</li>
+<li>callback will be called with the arguments:
+  first argument is error object if any
+  second is the params object itself with updated fields</li>
+</ul>
+<p>  On end, the object params will contain the following updated properties:</p>
+<ul>
+<li>data if file was not specified, data will contain collected response body as string</li>
+<li>obj - if the content type is a known type like json or xml this property will hold a reference to the parsed document or null in case or parse error</li>
+<li>status - HTTP response status code</li>
+<li>date - Date object with the last modified time of the requested file</li>
+<li>resheaders - response headers as an object</li>
+<li>rescookies - parsed cookies from the response if request `cookies`` is not empty</li>
+<li>size - size of the response body or file</li>
+<li>type - response content type</li>
+</ul>
+<p>  Note: SIDE EFFECT: the params object is modified in place so many options will be changed/removed or added</p>
+
+<h2 id="module-ipc">Module: ipc</h2>
+<p>  IPC communications between processes and support for caching and subscriptions via queues.</p>
+<p>  The module is EventEmitter and emits messages received.</p>
+<p>  Some drivers may support TTL so global <code>options.ttl</code> or local <code>options.ttl</code> can be used for <code>put/incr</code> operations and it will honored if it is suported.</p>
+<p>  For caches that support maps, like Redis or Hazelcast the <code>options.mapName</code> can be used with get/put/incr/del to
+  work with maps and individual keys inside maps.</p>
+<p>  All methods use <code>options.queueName</code> or <code>options.cacheName</code> for non-default queue or cache.
+  If it is an array then a client will be picked sequentially by maintaining internal sequence number.</p>
+<p>  To specify a channel within a queue use the format <code>queueName#channelName</code>, for drivers that support multiple channels like NATS/Redis
+  the channel will be used for another subscription within the same connection.</p>
+<p>  For drivers (NATS) that support multiple consumers the full queue syntax is <code>queueName#channelName@groupName</code> or <code>queueName@groupName</code>,
+  as well as the <code>groupName</code> property in the subscribe options.</p>
+<p>  A special system queue can be configured and it will be used by all processes to listen for messages on the channel <code>bkjs:role</code>, where the role
+  is the process role, the same messages that are processed by the server/worker message handlers like api:restart, config:init,....
+  All instances will be listening and processing these messages at once, the most usefull use case is refreshing the DB config on demand or
+  restarting without configuring any other means like SSH, keys....</p>
+
+<ul>
+<li><p><code>Config parameters</code></p>
+<ul>
+<li><code>ipc-none</code>, type: &quot;bool&quot;, descr: &quot;disable all IPC subsystems&quot;</li>
+<li><code>ipc-ping-interval</code>, type: &quot;int&quot;, min: 0, descr: &quot;Interval for a worker keep-alive pings, if not received within this period it will be killed&quot;</li>
+<li><code>ipc-lru-max</code>, type: &quot;int&quot;, obj: &quot;lru&quot;, descr: &quot;Max number of items in the limiter LRU cache, this cache is managed by the master Web server process and available to all Web processes maintaining only one copy per machine&quot;</li>
+<li><code>ipc-system-queue</code>, descr: &quot;System queue name to send broadcast control messages, this is a PUB/SUB queue to process system messages like restart, re-init config,...&quot;</li>
+<li><code>ipc-(cache|queue)-?([a-z0-9]+)?$</code>, obj: &quot;configParams.$2&quot;, make: &quot;_url&quot;, nocamel: 1, onupdate: function(v,o) {this.applyOptions(v,o) descr: &quot;An URL that points to a cache/queue server in the format <code>PROTO://HOST[:PORT]?PARAMS</code>, multiple clients can be defined with unique names, all params starting with <code>bk-</code> will be copied into the options without the prefix and removed from the url, the rest of params will be left in the url, ex: -ipc-queue-redis redis://localhost?bk-count=3&amp;bk-ttl=3000&quot;</li>
+<li><code>ipc-(cache|queue)(-([a-z0-9]+)?-?options)-(.+)$</code>, obj: &quot;configParams.$3&quot;, make: &quot;$4&quot;, camel: &#39;-&#39;, autotype: 1, onupdate: function(v,o) {this.applyOptions(v,o) descr: &quot;Additional parameters for clients, specific to each implementation, ex: <code>-ipc-queue-options-count 10</code>&quot;</li>
+<li><code>ipc-(cache|queue)-([a-z0-9]*)-options$</code>, obj: &quot;configParams.$2&quot;, type: &quot;map&quot;, merge: 1, maptype: &quot;auto&quot;, onupdate: function(v,o) {this.applyOptions(v,o) descr: &quot;Additional parameters for clients, specific to each implementation, ex: `-ipc-queue--options count:10,interval:100&quot;</li>
+</ul>
+</li>
+</ul>
+
 <ul>
 <li><p><code>Ipc.prototype.handleServerMessages(worker, msg)</code></p>
 <p>  To be used in messages processing that came from the clients or other way</p>
@@ -6303,6 +6377,11 @@ otherwise it is already locked by other instance. In case of an error the lock i
 </li>
 </ul>
 
+<p>  Queue client using RabbitMQ server</p>
+<p>  To enable install the npm module:</p>
+<pre><code>   npm i -g amqplib
+</code></pre>
+
 <ul>
 <li><p><code>IpcClient.prototype.close()</code></p>
 <p>  Close current connection, ports.... not valid after this call</p>
@@ -6468,52 +6547,133 @@ Rate limit check, by default it uses the master LRU cache meaning it works withi
 </li>
 </ul>
 
-<h2 id="module-jobs">Module: JOBS</h2>
+<p>  Queue client using NATS server</p>
+<p>  To enable install the npm modules:</p>
+<pre><code>   npm i -g nats
+</code></pre>
+<p>  Configuration:</p>
+<pre><code> ipc-queue-nats=nats://localhost:4222
+</code></pre>
+
+<p>  Cache/queue client based on Redis server using <a href="https://github.com/NodeRedis/node_redis">https://github.com/NodeRedis/node_redis</a></p>
+<p>  The queue client implements reliable queue using sorted sets, one for the new messages and one for the
+  messages that are being processed if timeout is provided. With the timeout this queue works similar to AWS SQS.</p>
+<p>  The <code>interval</code> config property defines in ms how often to check for new messages after processing a message, i.e. after a messages processed
+  it can poll immediately or after this amount of time</p>
+<p>  The <code>retryInterval</code> config property defines in ms how often to check for new messages after an error or no data, i.e. on empty
+  pool when no messages are processed it can poll immediately or after this amount of time</p>
+<p>  The <code>visibilityTimeout</code> property specifies to use a shadow queue where all messages that are being processed are stored,
+  while the message is processed the timestamp will be updated so the message stays in the queue, if a worker exists or crashes without
+  confirming the message finished it will be put back into the work queue after <code>visibilityTimeout</code> milliseconds. The queue name that
+  keeps active messages is appended with #.</p>
+<p>  The <code>threshold</code> property defines the upper limit of how many active messages can be in the queue when to show an error message, this is
+  for monitoring queue performance</p>
+<p>  The rate limiter implementes Tocken Bucket algorithm using Lua script inside Redis, the only requirement is that
+  all workers to use NTP for time synchronization</p>
+<p>  Examples:</p>
+<pre><code>   ipc-client=redis://host1
+   ipc-client-options-interval=1000
+   ipc-client=redis://host1?bk-visibilityTimeout=30000&amp;bk-count=2
+</code></pre>
+
+<p>  Queue client using AWS SQS, full queue url can be used or just the name as sqs://queuename</p>
+<p>  The <code>count</code> config property specifies how messages to process at the same time, default is 1.</p>
+<p>  The <code>interval</code> config property defines in ms how often to check for new messages after processing a message, i.e. after a messages processed
+  it can poll immediately or after this amount of time, default is 1000 milliseconds.</p>
+<p>  The <code>retryInterval</code> config property defines in ms how often to check for new messages after an error or no data, i.e. on empty
+  pool when no messages are processed it can poll immediately or after this amount of time, default is 5000 mulliseconds.</p>
+<p>  The <code>visibilityTimeout</code> property specifies how long the messages being processed stay hidden, in milliseconds.</p>
+<p>  The <code>timeout</code> property defines how long to wait for new messages, i.e. the long poll, in milliseconds</p>
+<p>  The <code>retryCount</code> and <code>retryTimeout</code> define how many times to retry failed AWS HTTP requests, default is 5 times starting
+   with the backoff starting at 500 milliseconds.</p>
+<p>  For messages that have <code>startTime</code> property which is the time in the future when a message must be actually processed there
+  is a parameter <code>maxTimeout</code> which defines in milliseconds the max time a messsage can stay invisible while waiting for its scheduled date,
+  default is 6 hours, the AWS max is 12 hours. The scheduling is implemented using AWS <code>visibilityTimeout</code> feature, keep
+  scheduled messages hidden until the actual time.</p>
+<p>  Examples:</p>
+<pre><code>   ipc-queue=sqs://messages?bk-interval=60000
+   ipc-queue=https://sqs.us-east-1.amazonaws.com/123456/messages?bk-visibilityTimeout=300&amp;bk-count=2
+</code></pre>
+
+<h2 id="module-jobs">Module: jobs</h2>
+<p>  Job queue processor</p>
+<p>  When launched with <code>jobs-workers</code> parameter equal or greater than 0, the master spawns a number of workers which subscribe to
+  configured job queues or the default queue and listen for messsges.
+  A job message is an object that defines what method from which module to run with the options as the first argument and a callback as the second.</p>
+<p>  Multiple job queues can be defined and processed at the same time.</p>
+
 <ul>
-<li><p><code>mod.configureMaster(options, callback)</code></p>
+<li><p><code>Config parameters</code></p>
+<ul>
+<li><code>jobs-workers</code>, type: &quot;number&quot;, min: -1, max: 32, descr: &quot;How many worker processes to launch to process the job queue, -1 disables jobs, 0 means launch as many as the CPUs available&quot;</li>
+<li><code>jobs-worker-cpu-factor</code>, type: &quot;real&quot;, min: 0, descr: &quot;A number to multiply the number of CPUs available to make the total number of workers to launch, only used if <code>workers</code> is 0&quot;</li>
+<li><code>jobs-worker-args</code>, type: &quot;list&quot;, descr: &quot;Node arguments for workers, for passing v8 jobspec, see <code>process</code>&quot;</li>
+<li><code>jobs-worker-env</code>, type: &quot;json&quot;, logger: &quot;warn&quot;, descr: &quot;Environment to be passed to the worker via fork, see <code>cluster.fork</code>&quot;</li>
+<li><code>jobs-worker-delay</code>, type: &quot;int&quot;, descr: &quot;Delay in milliseconds for a worker before it will start accepting jobs, for cases when other dependencies may take some time to start&quot;</li>
+<li><code>jobs-max-runtime</code>, type: &quot;int&quot;, min: 0, descr: &quot;Max number of seconds a job can run before being killed&quot;</li>
+<li><code>jobs-max-lifetime</code>, type: &quot;int&quot;, min: 0, descr: &quot;Max number of seconds a worker can live, after that amount of time it will exit once all the jobs are finished, 0 means indefinitely&quot;</li>
+<li><code>jobs-shutdown-timeout</code>, type: &quot;int&quot;, min: 500, descr: &quot;Max number of milliseconds to wait for the graceful shutdown sequence to finish, after this timeout the process just exits&quot;</li>
+<li><code>jobs-worker-queue</code>, type: &quot;list&quot;, onupdate: function() { if (ipc.role==&quot;worker&quot;&amp;&amp;core.role==&quot;worker&quot;) this.subscribeWorker() descr: &quot;Queue(s) to subscribe for workers, multiple queues can be processes at the same time, i.e. more than one job can run from different queues&quot;</li>
+<li><code>jobs-worker-options-(.+)</code>, obj: &quot;workerOptions&quot;, make: &quot;$1&quot;, type: &quot;json&quot;, descr: &quot;Custom parameters by queue name, passed to <code>ipc.subscribeQueue</code> on worker start, useful with channels, ex: <code>-jobs-worker-options-nats#events {\&quot;count\&quot;:10}</code>&quot;</li>
+<li><code>jobs-cron-queue</code>, type: &quot;list&quot;, min: 1, descr: &quot;Default queue to use for cron jobs&quot;</li>
+<li><code>jobs-global-queue</code>, type: &quot;list&quot;, min: 1, descr: &quot;Default queue for all jobs, the queueName is ignored&quot;</li>
+<li><code>jobs-global-ignore</code>, type: &quot;list&quot;, descr: &quot;Queue names which ignore the global setting, the queueName is used as usual&quot;</li>
+<li><code>jobs-cron</code>, type: &quot;bool&quot;, descr: &quot;Allow cron jobs to be executed from the local etc/crontab file or via config parameter&quot;</li>
+<li><code>jobs-schedule</code>, type: &quot;json&quot;, onupdate: function() { if (core.role == &quot;master&quot; &amp;&amp; this.cron) this.scheduleCronjobs(&quot;config&quot;, this.schedule)  logger: &quot;error&quot;, descr: &quot;Cron jobs to be scheduled, the JSON must be in the same format as crontab file&quot;</li>
+<li><code>jobs-unique-queue</code>, descr: &quot;Default queue name to use for keeping track of unique jobs&quot;</li>
+<li><code>jobs-unique-ignore</code>, type: &quot;regexp&quot;, descr: &quot;Ignore all unique parameters if a job&#39;s uniqueKey matches&quot;</li>
+<li><code>jobs-unique-set-ttl-([0-9]+)</code>, type: &quot;regexp&quot;, obj: &quot;uniqueSetTtl&quot;, make: &quot;$1&quot;, descr: &quot;Override unique TTL to a new value if matches the unique key, ex: -jobs-unique-ttl-100 KEY&quot;</li>
+<li><code>jobs-unique-logger</code>, descr: &quot;Log level for unique error conditions&quot;</li>
+<li><code>jobs-retry-visibility-timeout</code>, type: &quot;map&quot;, maptype: &quot;int&quot;, descr: &quot;Visibility timeout by error code &gt;= 500 for queues that support it&quot;</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>jobs.configureMaster(options, callback)</code></p>
 <p>  Initialize jobs processing in the master process</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>mod.configureWorker(options, callback)</code></p>
+<li><p><code>jobs.configureWorker(options, callback)</code></p>
 <p>  Initialize a worker to be ready for jobs to execute, in instance mode setup timers to exit on no activity.</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>mod.shutdownWorker(options, callback)</code></p>
+<li><p><code>jobs.shutdownWorker(options, callback)</code></p>
 <p>  Perform graceful worker shutdown, to be used for workers restart</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>mod.exitWorker(options)</code></p>
+<li><p><code>jobs.exitWorker(options)</code></p>
 <p>  Perform graceful worker shutdown and then exit the process</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>mod.initServer(options, callback)</code></p>
+<li><p><code>jobs.initServer(options, callback)</code></p>
 <p>  Initialize a master that will manage jobs workers</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>mod.initWorker(options, callback)</code></p>
+<li><p><code>jobs.initWorker(options, callback)</code></p>
 <p>  Initialize a worker for processing jobs</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>mod.isCancelled(name, tag)</code></p>
+<li><p><code>jobs.isCancelled(name, tag)</code></p>
 <p>  Returns true if a task with given name must be cancelled, this flag is set from the jobs master and
 stoppable tasks must check it from time to time to terminate gracefully</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>mod.cancelTask(name, options)</code></p>
+<li><p><code>jobs.cancelTask(name, options)</code></p>
 <p>  Send cancellation request to a worker or all workers, this has to be called from the jobs master.
 <code>options.workers</code> can be a single worker id or a list of worker ids, if not given the request will be sent to all workers for the current process cluster.
 <code>options.tag</code> is an opaque data that will be used to verifying which task should be cancelled, without it all tasks with given name will be cancelled.</p>
@@ -6521,13 +6681,13 @@ stoppable tasks must check it from time to time to terminate gracefully</p>
 </ul>
 
 <ul>
-<li><p><code>mod.getMaxRuntime()</code></p>
+<li><p><code>jobs.getMaxRuntime()</code></p>
 <p>  Find the max runtime allowed in seconds</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>mod.checkTimes()</code></p>
+<li><p><code>jobs.checkTimes()</code></p>
 <p>  Check how long we run a job and force kill if exceeded, check if total life time is exceeded.</p>
 <p>If exit is required the <code>shundownWorker</code> methods will receive options with <code>shutdownReason</code> property
 set and the name-sake property will contained the value exceeded.</p>
@@ -6535,7 +6695,7 @@ set and the name-sake property will contained the value exceeded.</p>
 </ul>
 
 <ul>
-<li><p><code>mod._badJob(jobspec)</code></p>
+<li><p><code>jobs._badJob(jobspec)</code></p>
 <p>  Make sure the job is valid and has all required fields, returns a normalized job object or an error, the jobspec
 must be in the following formats:</p>
 <pre><code>   &quot;module.method&quot;
@@ -6548,13 +6708,13 @@ must be in the following formats:</p>
 </ul>
 
 <ul>
-<li><p><code>mod.checkOptions(jobspec, options)</code></p>
+<li><p><code>jobs.checkOptions(jobspec, options)</code></p>
 <p>  Apply special job properties from the options</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>mod.submitJob(jobspec, options, callback)</code></p>
+<li><p><code>jobs.submitJob(jobspec, options, callback)</code></p>
 <p>  Submit a job for execution, it will be saved in a queue and will be picked up later and executed.
 The queue and the way how it will be executed depends on the configured queue. See <code>isJob</code> for
 the format of the job objects.</p>
@@ -6589,31 +6749,31 @@ just run it directly. Any queue can be configured to run in <code>selfQueue</cod
 </ul>
 
 <ul>
-<li><p><code>mod.runJob(jobspec, options, callback)</code></p>
+<li><p><code>jobs.runJob(jobspec, options, callback)</code></p>
 <p>  Run all tasks in the job object</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>mod._runJob(jobspec, options, callback)</code></p>
+<li><p><code>jobs._runJob(jobspec, options, callback)</code></p>
 <p>  Sequentially execute all tasks in the list, run all subtasks in parallel</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>mod.runTask(name, jobspec, options, callback)</code></p>
+<li><p><code>jobs.runTask(name, jobspec, options, callback)</code></p>
 <p>  Execute a task by name, the <code>options</code> will be passed to the function as the first argument, calls the callback on finish or error</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>mod._finishTask(err, name, jobspec, options, callback)</code></p>
+<li><p><code>jobs._finishTask(err, name, jobspec, options, callback)</code></p>
 <p>  Complete task execution, cleanup and update the status</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>mod.scheduleCronjob(jobspec)</code></p>
+<li><p><code>jobs.scheduleCronjob(jobspec)</code></p>
 <p>  Create a new cron job, for remote jobs additional property args can be used in the object to define
 arguments for the instance backend process, properties must start with -</p>
 <p>Example:</p>
@@ -6625,7 +6785,7 @@ arguments for the instance backend process, properties must start with -</p>
 </ul>
 
 <ul>
-<li><p><code>mod.scheduleCronjobs(type, list)</code></p>
+<li><p><code>jobs.scheduleCronjobs(type, list)</code></p>
 <p>  Schedule a list of cron jobs, types is used to cleanup previous jobs for the same type for cases when
 a new list needs to replace the existing jobs. Empty list does nothing, to reset the jobs for the particular type and
 empty invalid jobs must be passed, like: <code>[ {} ]</code></p>
@@ -6634,7 +6794,7 @@ empty invalid jobs must be passed, like: <code>[ {} ]</code></p>
 </ul>
 
 <ul>
-<li><p><code>mod.loadCronjobs()</code></p>
+<li><p><code>jobs.loadCronjobs()</code></p>
 <p>  Load crontab from JSON file as list of job specs:</p>
 <ul>
 <li>cron - cron time interval spec: &#39;second&#39; &#39;minute&#39; &#39;hour&#39; &#39;dayOfMonth&#39; &#39;month&#39; &#39;dayOfWeek&#39;</li>
@@ -6652,12 +6812,14 @@ empty invalid jobs must be passed, like: <code>[ {} ]</code></p>
 </ul>
 
 <ul>
-<li><p><code>mod.parseCronjobs(type, data)</code></p>
+<li><p><code>jobs.parseCronjobs(type, data)</code></p>
 <p>  Parse a JSON data with cron jobs and schedule for the given type, this can be used to handle configuration properties</p>
 </li>
 </ul>
 
-<h2 id="module-lib">Module: LIB</h2>
+<h2 id="module-lib">Module: lib</h2>
+<p>  Common utilities and useful functions</p>
+
 <ul>
 <li><p><code>lib.tryCall(callback, ...args)</code></p>
 <p>  Run a callback if a valid function, all arguments after the callback will be passed as is</p>
@@ -7290,6 +7452,8 @@ to use newlines for objects.</p>
 <p>  Same arguments as for <code>jsonParse</code></p>
 </li>
 </ul>
+
+<p>  Combined parser with type validation</p>
 
 <ul>
 <li><p><code>lib.encodeURIComponent(str)</code></p>
@@ -8322,12 +8486,8 @@ does not handle over the midninght ranges, i.e. time1 is always must be greater 
 </li>
 </ul>
 
-<h2 id="module-logger">Module: LOGGER</h2>
-<ul>
-<li><p><code>logger</code></p>
+<h2 id="module-logger">Module: logger</h2>
 <p>  Simple logger utility for debugging</p>
-</li>
-</ul>
 
 <ul>
 <li><p><code>logger.registerLevel(level, callback, options)</code></p>
@@ -8407,7 +8567,7 @@ the default is to use the <code>error</code> level.</li>
 </li>
 </ul>
 
-<h2 id="module-metrics">Module: METRICS</h2>
+<h2 id="module-metrics">Module: metrics</h2>
 <ul>
 <li><p><code>TokenBucket.prototype.configure(rate, max, interval, total)</code></p>
 <p>  Initialize existing token with numbers for rate calculations</p>
@@ -8453,7 +8613,27 @@ the default is to use the <code>error</code> level.</li>
 </li>
 </ul>
 
-<h2 id="module-msg">Module: MSG</h2>
+<h2 id="module-msg">Module: msg</h2>
+<p>  Messaging and push notifications for mobile and other clients, supports Apple, Google and AWS/SNS push notifications.</p>
+<p>  Emits a signal <code>uninstall(client, device_id, account_id)</code> on device invalidation or if a device token is invalid as reported by the server, account_id
+  may not be available.</p>
+
+<ul>
+<li><p><code>Config parameters</code></p>
+<ul>
+<li><code>msg-([^-]+)-key(@.+)?</code>, obj: &quot;config&quot;, make: &quot;$1$2|_key&quot;, nocamel: 1, trim: 1, descr: &quot;API private key for FCM/Webpush or similar services, if the suffix is specified in the config parameter will be used as the app name, without the suffix it is global&quot;</li>
+<li><code>msg-([^-]+)-pubkey(@.+)?</code>, obj: &quot;config&quot;, make: &quot;$1$2|_pubkey&quot;, nocamel: 1, trim: 1, descr: &quot;API public key for Webpush or similar services, if the suffix is specified in the config parameter will be used as the app name, without the suffix it is global&quot;</li>
+<li><code>msg-([^-]+)-authkey-([^-]+)-(.+)</code>, obj: &quot;config&quot;, make: &quot;$1@$2-$3|_authkey&quot;, nocamel: 1, descr: &quot;A auth key for APN in p8 format, can be a file name with .p8 extension or a string with the key contents encoded with base64, the format is: -msg-apn-authkey-TEAMID-KEYID KEYDATA&quot;</li>
+<li><code>msg-([^-]+)-sandbox(@.+)?</code>, obj: &quot;config&quot;, make: &quot;$1$2|_sandbox&quot;, nocamel: 1, type: &quot;bool&quot;, descr: &quot;Enable sandbox for a service, default is production mode&quot;</li>
+<li><code>msg-([^-]+)-options-([^@]+)(@.+)?</code>, obj: &quot;config&quot;, make: &quot;$1$3|$2&quot;, autotype: 1, nocamel: 1, descr: &quot;A config property to the specified agent, driver specific&quot;</li>
+<li><code>msg-shutdown-timeout</code>, type: &quot;int&quot;, min: 0, descr: &quot;How long to wait for messages draining out in ms on shutdown before exiting&quot;</li>
+<li><code>msg-app-default</code>, descr: &quot;Default app id(app bundle id) to be used when no app_id is specified&quot;</li>
+<li><code>msg-app-dependency@(.+)</code>, obj: &quot;dependency&quot;, make: &quot;$1&quot;, type: &quot;list&quot;, nocamel: 1, descr: &quot;List of other apps that are considered in the same app family, sending to the primary app will also send to all dependent apps&quot;</li>
+<li><code>msg-app-team-(.+)</code>, obj: &quot;teams&quot;, make: &quot;$1&quot;, type: &quot;regexp&quot;, nocamel: 1, descr: &quot;Regexp that identifies all app bundles for a team&quot;</li>
+</ul>
+</li>
+</ul>
+
 <ul>
 <li><p><code>Msg.prototype.init(options, callback)</code></p>
 <p>  Initialize supported notification services, it supports jobs arguments convention so can be used in the jobs that
@@ -8614,7 +8794,38 @@ configure this module with 3 required parameters:</p>
 </li>
 </ul>
 
-<h2 id="module-pool">Module: POOL</h2>
+<h2 id="module-pool">Module: pool</h2>
+<p>  Create a resource pool, <code>create</code> and <code>close</code> callbacks must be given which perform allocation and deallocation of the resources like db connections.</p>
+<p>  Options defines the following properties:</p>
+<ul>
+<li>create - method to be called to return a new resource item, takes 1 argument, a callback as <code>function(err, item)</code></li>
+<li>destroy - method to be called to destroy a resource item</li>
+<li>reset - method to bec alled just before releasing an item back to the resource pool, this is a chance to reset the item to the initial state</li>
+<li>validate - method to verify actibe resource item, return false if it needs to be destroyed</li>
+<li>min - min number of active resource items</li>
+<li>max - max number of active resource items</li>
+<li>max_queue - how big the waiting queue can be, above this all requests will be rejected immediately</li>
+<li>timeout - number of milliseconds to wait for the next available resource item, cannot be 0</li>
+<li>idle - number of milliseconds before starting to destroy all active resources above the minimum, 0 to disable.</li>
+</ul>
+<p>  If no create implementation callback is given then all operations are basically noop but still cals the callbacks.</p>
+<p>  Example:
+         var pool = new Pool({ min: 1, max: 5,
+                                   create: function(cb) {
+                                      someDb.connect(function(err) { cb(err, this) }
+                                   },
+                                   destroy: function(client) {
+                                      client.close() }
+                                   })</p>
+<pre><code>     pool.aquire(function(err, client) {
+        ...
+        client.findItem....
+        ...
+        pool.release(client);
+
+     });
+</code></pre>
+
 <ul>
 <li><p><code>Pool.prototype.init(options)</code></p>
 <p>  Initialize pool properties, this can be run anytime even on the active pool to override some properties</p>
@@ -8672,7 +8883,25 @@ all items to be released, when expired the callback will be called</p>
 </li>
 </ul>
 
-<h2 id="module-server">Module: SERVER</h2>
+<h2 id="module-server">Module: server</h2>
+<p>  The main server class that starts various processes</p>
+
+<ul>
+<li><p><code>Config parameters</code></p>
+<ul>
+<li><code>server-max-processes</code>, type: &quot;callback&quot;, callback: setWorkers</li>
+<li><code>server-workers</code>, type: &quot;callback&quot;, callback: setWorkers, descr: &quot;Max number of processes to launch for Web servers, 0 means <code>NumberOfCPUs-1</code>, &lt; 0 means <code>NumberOfCPUs*abs(N)</code>&quot;</li>
+<li><code>server-crash-delay</code>, type: &quot;number&quot;, max: 30000, obj: &quot;crash&quot;, descr: &quot;Delay between respawing the crashed process&quot;</li>
+<li><code>server-restart-delay</code>, type: &quot;number&quot;, max: 30000, descr: &quot;Delay between respawning the server after changes&quot;</li>
+<li><code>server-no-restart</code>, type: &quot;bool&quot;, descr: &quot;Do not restart any processes terminated, for debugging crashes only&quot;</li>
+<li><code>server-log-errors</code> , type: &quot;bool&quot;, descr: &quot;If true, log crash errors from child processes by the logger, otherwise write to the daemon err-file. The reason for this is that the logger puts everything into one line thus breaking formatting for stack traces.&quot;</li>
+<li><code>server-process-name</code>, descr: &quot;Path to the command to spawn by the monitor instead of node, for external processes guarded by this monitor&quot;</li>
+<li><code>server-process-args</code>, type: &quot;list&quot;, re_map: [&quot;%20&quot;, &quot; &quot;], descr: &quot;Arguments for spawned processes, for passing v8 options or other flags in case of external processes&quot;</li>
+<li><code>server-worker-args</code>, type: &quot;list&quot;, re_map: [&quot;%20&quot;, &quot; &quot;], descr: &quot;Node arguments for workers, job and web processes, for passing v8 options&quot;</li>
+</ul>
+</li>
+</ul>
+
 <ul>
 <li><p><code>server.start()</code></p>
 <p>  Start the server process, call the callback to perform some initialization before launchng any server, just after core.init</p>
@@ -8764,9 +8993,22 @@ it runs <code>shutdown[Role]</code> methods before exiting</p>
 </li>
 </ul>
 
-<h2 id="module-shell">Module: SHELL</h2>
+<h2 id="module-shell">Module: shell</h2>
+<p>  Shell command interface for <code>bksh</code></p>
+<p>  This module is supposed to be extended with commands, the format is `shell.cmdNAME``</p>
+<p>  where <code>NAME</code> is he commnd name in camel case</p>
+<p>  For example:</p>
+<pre><code class="language-javascript"> const bkjs = require(&quot;backendjs&quot;);
+ const shell = bkjs.shell;
+ 
+ shell.cmdMyCommand = function(options) { console.log(&quot;hello&quot;); return &quot;continue&quot; }
+</code></pre>
+<p>  Now if i call <code>bksh -my-command</code> it will print hello and launch the repl,
+  instead of retuning continue if the command must exit jut call <code>process.exit()</code></p>
+<p>  Run <code>bksh -shell-help</code> to see all registered shell commands</p>
+
 <ul>
-<li><p><code>mod.start(options)</code></p>
+<li><p><code>shell.start(options)</code></p>
 <p>  Start REPL shell or execute any subcommand if specified in the command line.
 A subcommand may return special string to indicate how to treat the flow:</p>
 <ul>
@@ -9214,53 +9456,75 @@ bkjs test-db
 </li>
 </ul>
 
-<h2 id="module-bk_data">Module: BK_DATA</h2>
+<h2 id="module-bk_data">Module: bk_data</h2>
+<p>  Account management</p>
+
 <ul>
-<li><p><code>mod.configureWeb(options, callback)</code></p>
+<li><p><code>Config parameters</code></p>
+<ul>
+<li><code>bk_data-perms</code>, type: &quot;map&quot;, maptype: &quot;list&quot;, descr: &quot;Tables and allowed operations, ex: -bk_data-perms bk_config:select;put&quot;</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>bk_data.configureWeb(options, callback)</code></p>
 <p>  Create API endpoints and routes</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>mod.configureDataAPI()</code></p>
+<li><p><code>bk_data.configureDataAPI()</code></p>
 <p>  API for full access to all tables</p>
 </li>
 </ul>
 
-<h2 id="module-bk_system">Module: BK_SYSTEM</h2>
+<h2 id="module-bk_system">Module: bk_system</h2>
+<p>  System management</p>
+
 <ul>
-<li><p><code>mod.configureWeb(options, callback)</code></p>
+<li><p><code>Config parameters</code></p>
+<ul>
+<li><code>bk_system-perms</code>, type: &quot;map&quot;, maptype: &quot;list&quot;, descr: &quot;Allowed operations, ex: -bk_system-perms restart:api,init:queue;config;db&quot;</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>bk_system.configureWeb(options, callback)</code></p>
 <p>  Create API endpoints and routes</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>mod.configureSystemAPI()</code></p>
+<li><p><code>bk_system.configureSystemAPI()</code></p>
 <p>  API for internal provisioning and configuration</p>
 </li>
 </ul>
 
-<h2 id="module-bk_user">Module: BK_USER</h2>
+<h2 id="module-bk_user">Module: bk_user</h2>
+<p>  Account management</p>
+
 <ul>
-<li><p><code>mod.configureWeb(options, callback)</code></p>
+<li><p><code>bk_user.configureWeb(options, callback)</code></p>
 <p>  Create API endpoints and routes</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>mod.configureAccountsAPI()</code></p>
+<li><p><code>bk_user.configureAccountsAPI()</code></p>
 <p>  Account management</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>mod.getAccount(req, options, callback)</code></p>
+<li><p><code>bk_user.getAccount(req, options, callback)</code></p>
 <p>  Returns current account, used in /account/get API call, req.account will be filled with the properties from the db</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>mod.notifyAccount(options, callback)</code></p>
+<li><p><code>bk_user.notifyAccount(options, callback)</code></p>
 <p>  Send Push notification to the account. The delivery is not guaranteed, if the message was queued for delivery, no errors will be returned.</p>
 <p>The options may contain the following:</p>
 <ul>
@@ -9279,20 +9543,20 @@ system will pick the right delivery service depending on the device id, the defa
 </ul>
 
 <ul>
-<li><p><code>mod.addAccount(req, options, callback)</code></p>
+<li><p><code>bk_user.addAccount(req, options, callback)</code></p>
 <p>  Register new account, may be used an API call, but the req does not have to be an Express request, it just
 need to have query and options objects.</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>mod.updateAccount(req, options, callback)</code></p>
+<li><p><code>bk_user.updateAccount(req, options, callback)</code></p>
 <p>  Update existing account, used in /account/update API call</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>mod.deleteAccount(req, callback)</code></p>
+<li><p><code>bk_user.deleteAccount(req, callback)</code></p>
 <p>  Delete account specified by the obj.
 The options may contain <code>keep</code> array with tables to be kept, for example
 delete an account but keep all messages and location: keep:[&quot;bk_user&quot;,&quot;bk_location&quot;]</p>
