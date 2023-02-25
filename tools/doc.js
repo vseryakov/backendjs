@@ -8,28 +8,37 @@ var path = require("path");
 var marked = require("marked");
 var bkjs = require('backendjs');
 
-var skip = /tests\//;
-var files = fs.readdirSync(".").filter((x) => (fs.statSync(x).isFile() && ["index.js", "doc.js"].indexOf(x) == -1 && x.match(/\.js$/)));
-fs.readdirSync("lib/").forEach((x) => {
-    var s = fs.statSync("lib/" + x);
-    if (s.isFile() && x.slice(-3) == ".js") {
-        files.push("lib/" + x);
-    } else
-    if (s.isDirectory()) {
-        fs.readdirSync("lib/" + x).forEach((y) => {
-            var s = fs.statSync("lib/" + x + "/" + y);
-            if (s.isFile() && y.slice(-3) == ".js") files.push("lib/" + x + "/" + y);
-        });
-    }
-});
-files = files.concat(fs.readdirSync("modules/").filter((x) => (fs.statSync("modules/" + x).isFile() && x.match(/\.js$/))).map((x) => ("modules/" + x)));
-files.sort();
+function readDir(dir)
+{
+    if (dir.slice(-1) != "/") dir += "/";
+    fs.readdirSync(dir).forEach((x) => {
+        var s = fs.statSync(dir + x);
+        if (s.isFile() && x.slice(-3) == ".js") {
+            files.push(dir + x);
+        } else
+        if (s.isDirectory()) {
+            fs.readdirSync(dir + x).forEach((y) => {
+                var s = fs.statSync(dir + x + "/" + y);
+                if (s.isFile() && y.slice(-3) == ".js") {
+                    files.push(dir + x + "/" + y);
+                }
+            });
+        }
+    });
+}
 
-marked.setOptions({ gfm: true, tables: true, breaks: false, pedantic: false, smartLists: true, smartypants: false });
+var dirs = bkjs.lib.strSplit(bkjs.lib.getArg("-dirs", "lib,modules"));
 
-var renderer = new marked.Renderer();
+var files = [];
+for (const d of dirs) readDir(d);
 
-var header = '<head><title>Backendjs Documentation</title>' +
+var skip = new RegExp(bkjs.lib.getArg("-skip", "index.js$"));
+
+files = files.filter((x) => (!skip.test(x))).sort();
+
+var name = bkjs.lib.getArg("-name", "Backendjs");
+
+var header = `<head><title>${name} Documentation</title>` +
         '<link rel="shortcut icon" href="img/logo.png" type="image/png" />' +
         '<link rel="icon" href="img/logo.png" type="image/png" />' +
         '<script src="js/jquery.js"></script>' +
@@ -56,11 +65,11 @@ var header = '<head><title>Backendjs Documentation</title>' +
         '</div>' +
         '</nav>';
 
-var toc = "# Backendjs Documentation\n## Table of contents\n";
+var toc = `# ${name} Documentation\n## Table of contents\n`;
 
 var readme = fs.readFileSync("README.md").toString();
 
-readme.split("\n").forEach(function(x) {
+readme.split("\n").forEach((x) => {
     var d = x.match(/^([#]+) (.+)/);
     if (!d) return;
     d[2] = d[2].trim();
@@ -68,30 +77,41 @@ readme.split("\n").forEach(function(x) {
     toc += "* [ " + d[2] + "](#" + d[2].toLowerCase().replace(/[^\w]+/g, '-') + ")\n";
 });
 
-toc += "* [Configuration parameters](#configuration-parameters)\n";
-toc += "* Javascript API functions\n";
+if (bkjs.lib.isArg("-args")) {
+    toc += "* [Configuration parameters](#configuration-parameters)\n";
+}
 
-files.forEach(function(file) {
-    if (/^(lib|modules)\/[a-z0-9_-]+.js$/.test(file)) {
+toc += "* Javascript Modules\n";
+
+files.forEach((file) => {
+    if (/^[a-zA-Z0-9_]+\/[a-z0-9_-]+.js$/.test(file)) {
         file = path.basename(file, '.js');
         toc += "    * [" + file + "](#module-" + file + ")\n";
     }
 });
 
+marked.setOptions({ gfm: true, tables: true, breaks: false, pedantic: false, smartLists: true, smartypants: false });
+
+var renderer = new marked.Renderer();
+
 var text = marked.parse(toc, { renderer: renderer });
 
 text += marked.parse(readme, { renderer: renderer });
-text += marked.parse("## Configuration parameters\n", { renderer: renderer });
-text += marked.parse(bkjs.core.showHelp({ markdown: 1 }), { renderer: renderer });
 
-var base = "";
+if (bkjs.lib.isArg("-args")) {
+    text += marked.parse("## Configuration parameters\n", { renderer: renderer });
+    text += marked.parse(bkjs.core.showHelp({ markdown: 1 }), { renderer: renderer });
+}
 
-files.forEach(function(file) {
-    if (/^(lib|modules)\/[a-z0-9_-]+.js$/.test(file)) base = file;
+var base = "", mod;
+
+files.forEach((file) => {
+    if (/^[a-zA-Z0-9_]+\/[a-z0-9_-]+.js$/.test(file)) base = file;
     var doc = "";
     var data = fs.readFileSync(file).toString().split("\n");
     if (base == file) {
-        text += marked.parse("## Module: " + path.basename(file, '.js').toUpperCase() + "\n", { renderer: renderer });
+        mod = path.basename(file, '.js');
+        text += marked.parse("## Module: " + mod + "\n", { renderer: renderer });
     }
     for (var i = 0; i < data.length; i++) {
         var line = data[i];
@@ -107,15 +127,27 @@ files.forEach(function(file) {
         d = line.match(/([^ =]+)[= ]+function([^{]+)/);
         if (d && doc) {
             if (d[1].match(skip)) continue;
-            text += marked.parse("* `" + d[1] + d[2] + "`\n\n  " + doc, { renderer: renderer }) + "\n";
+            d = d[1] + d[2];
+            if (mod) {
+                d = d.replace(/^mod\./, mod +".");
+            }
+            text += marked.parse("* `" + d + "`\n\n  " + doc, { renderer: renderer }) + "\n";
             doc = "";
             continue;
         }
-        // Object
-        d = line.match(/^var ([^ ]+)[ =]+{$/);
-        if (d && doc) {
-            if (d[1].match(skip)) continue;
-            text += marked.parse("* `" + d[1] + "`\n\n  " + doc, { renderer: renderer }) + "\n";
+        // Args
+        d = line.match(/^ +args: \[$|^ +this.args = \[$|^ *core.describeArgs\(["']([a-z0-9_]+)["'],/);
+        if (d) {
+            let m = d[1] || mod;
+            m = m == "core" ? "" : m + "-";
+            doc = "* `Config parameters`\n\n";
+            while (i < data.length) {
+                line = data[++i];
+                if (!line || line.match(/^ *\]\)?[,;]$/)) break;
+                doc += "   - " + line.replace(/^ *\{|\},/g, "").replace(/name: *"([^"]+)"/g, `\`${m}$1\``).trim() + "\n";
+            }
+            // Precaution
+            if (i < data.length) text += marked.parse(doc, { renderer: renderer }) + "\n";
             doc = "";
             continue;
         }
@@ -125,12 +157,13 @@ files.forEach(function(file) {
             doc = "* `Database tables`\n\n";
             while (i < data.length) {
                 line = data[++i];
-                if (line.match(/^ {4}\},|^ +\}\);$/)) break;
+                if (!line || line.match(/^ {4}\},|^ +\}\);$/)) break;
                 doc += "    " + line + "\n";
             }
             // Precaution
             if (i < data.length) text += marked.parse(doc, { renderer: renderer }) + "\n";
             doc = "";
+            continue;
         }
         doc = "";
     }
