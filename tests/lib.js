@@ -467,6 +467,9 @@ tests.test_search = function(callback, test)
     rc = lib.findWords(words, text.replace("keyword2", "akeyword2"));
     expect(rc.length == 1 && rc[0] == "keyword1", "expected word keyword1 only in the result", rc);
 
+    rc = lib.findWords(words, "keyword2");
+    expect(rc.length == 1 && rc[0] == "keyword2", "expected single keyword2 in the result", rc);
+
     callback();
 }
 
