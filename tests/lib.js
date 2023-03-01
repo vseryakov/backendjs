@@ -444,3 +444,29 @@ tests.test_toparams = function(callback, test)
 
     callback();
 }
+
+tests.test_search = function(callback, test)
+{
+    var words = ['keyword1', 'keyword2', 'etc'];
+    var text = 'should find keyword1 at position 19 and keyword2 at position 47.';
+    var ac = new lib.AhoCorasick(words);
+    var rc = ac.search(text);
+
+    expect(rc.length && rc[0][0] == 19 && rc[0][1] == "keyword1", "expected keyword1 in the result", rc);
+    expect(rc.length == 2 && rc[1][0] == 47 && rc[1][1] == "keyword2", "expected keyword2 in the result", rc);
+
+    rc = ac.search(text, { list: 1 });
+    expect(rc.length == 2 && rc[0] == "keyword1" && rc[1] == "keyword2", "expected keyword1,keyword2 in the result", rc);
+
+    rc = ac.search(text.replace("keyword2", "akeyword2"), { list: 1, delimiters: "" });
+    expect(rc.length == 1 && rc[0] == "keyword1", "expected keyword1 only in the result", rc);
+
+    rc = lib.findWords(words, text);
+    expect(rc.length == 2 && rc[0] == "keyword1" && rc[1] == "keyword2", "expected words keyword1,keyword2 in the result", rc);
+
+    rc = lib.findWords(words, text.replace("keyword2", "akeyword2"));
+    expect(rc.length == 1 && rc[0] == "keyword1", "expected word keyword1 only in the result", rc);
+
+    callback();
+}
+
