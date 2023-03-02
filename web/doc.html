@@ -2042,7 +2042,7 @@ conflict with the existing ones.</p>
 </ul>
 <p>These are the reserved names that cannot be used for parameters, they are defined by the engine for every request:</p>
 <ul>
-<li><code>path, apath, ip, host, mtime, cleanup, secure, noscan, appName, appVersion, appPlatform, appLocale, appTimezone, apiVersion</code></li>
+<li><code>path, apath, ip, host, mtime, cleanup, secure, noscan, appName, appVersion, appLocale, appTimezone, apiVersion</code></li>
 </ul>
 <p>NOTE: <code>noscan</code> is set to 1 in every request to prevent accidental full scans, this means it cannot be enabled via the API but any module
 can do it in the code if needed.</p>
@@ -2575,7 +2575,7 @@ All properties starting with <code>is`` or </code>cleanup_`` will be passed to t
 </ul>
 
 <h2 id="module-app">Module: app</h2>
-<p>   Author: Vlad Seryakov <a href="mailto:&#118;&#115;&#101;&#114;&#x79;&#x61;&#x6b;&#111;&#x76;&#64;&#x67;&#109;&#97;&#105;&#108;&#x2e;&#99;&#x6f;&#x6d;">&#118;&#115;&#101;&#114;&#x79;&#x61;&#x6b;&#111;&#x76;&#64;&#x67;&#109;&#97;&#105;&#108;&#x2e;&#99;&#x6f;&#x6d;</a>
+<p>   Author: Vlad Seryakov <a href="mailto:&#118;&#x73;&#101;&#114;&#121;&#97;&#107;&#x6f;&#118;&#x40;&#x67;&#109;&#97;&#x69;&#108;&#46;&#99;&#111;&#x6d;">&#118;&#x73;&#101;&#114;&#121;&#97;&#107;&#x6f;&#118;&#x40;&#x67;&#109;&#97;&#x69;&#108;&#46;&#99;&#111;&#x6d;</a>
    backendjs 2018</p>
 <p>  This is a skeleton module to be extended by the specific application logic. It provides all
   callbacks and hooks that are called by the core backend modules
@@ -4451,7 +4451,12 @@ Options can use the following special properties:</p>
 <li>cached - if specified it runs getCached version</li>
 <li>nocache - disable caching even if configured for the table</li>
 </ul>
-<p>NOTE: On return the <code>info.cached</code> will be set to 1 if the record was retrieved from cache or was put in the cache.</p>
+<p>NOTE: On return the <code>info.cached</code> will be set to</p>
+<ul>
+<li>1 if retrieved from top level cache</li>
+<li>2 if retrieved from level 2 cache</li>
+<li>0 if retrieved from db and put in the cache</li>
+</ul>
 <p>Example</p>
 <pre><code>     db.get(&quot;bk_user&quot;, { login: &#39;12345&#39; }, function(err, row) {
         if (row) console.log(row.name);
@@ -7079,6 +7084,15 @@ any element in the array exists in the <code>list</code>.</p>
 </ul>
 
 <ul>
+<li><p><code>lib.isWord(text, start, end, delimiters)</code></p>
+<p>  Returns true if it is a word at the position <code>start</code> and <code>end</code> in the <code>text</code> string,</p>
+<ul>
+<li><code>delimiters</code> define a character set to be used for words boundaries, if not given or empty string the default will be used</li>
+</ul>
+</li>
+</ul>
+
+<ul>
 <li><p><code>lib.validNum(...args)</code></p>
 <p>  Returns first valid number from the list of arguments or 0</p>
 </li>
@@ -8457,6 +8471,37 @@ The default algorithm is JaroWrinkler, options.type can be used to specify a dif
 <li>sd - Sorensent Dice</li>
 <li>cs - Cosine Similarity</li>
 </ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.AhoCorasick(keywords)</code></p>
+<p>  Text search using Aho-Corasick algorithm, based on <a href="https://github.com/BrunoRB/ahocorasick">https://github.com/BrunoRB/ahocorasick</a></p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.AhoCorasick.prototype.search(text, options)</code></p>
+<p>  Search given text for keywords, returns a list of matches in the format [ index, [ keywords] ]
+where the index points to the last character of the found keywords. When <code>options.list</code> is true it returns
+the matched keywords only.</p>
+<p>Example:
+ var ac = new lib.AhoCorasick([&#39;keyword1&#39;, &#39;keyword2&#39;, &#39;etc&#39;]);
+ ac.search(&#39;should find keyword1 at position 19 and keyword2 at position 47.&#39;);
+ [ [ 19, [ &#39;keyword1&#39; ] ], [ 47, [ &#39;keyword2&#39; ] ] ]
+
+ ac.search(&#39;should find keyword1 at position 19 and keyword2 at position 47.&#39;, { list: 1 });
+ [ &#39;keyword1&#39;, &#39;keyword2&#39; ]
+If <code>options.delimiters</code> is a string then return words only if surrounded by characters in the delimiters, this is
+to return true words and not substrings, empty string means use the default delimiters which are all punctuation characters</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.findWords(words, text, delimiters)</code></p>
+<p>  Return an array of <code>words`` found in the given </code>text`` separated by delimiters, this a brute force search for every keyword and
+using <code>lib.isWord</code> to detect boundaries.
+This is an alternative to AhoCorasick if number of words is less than 50-70.</p>
 </li>
 </ul>
 
