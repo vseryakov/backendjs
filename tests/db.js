@@ -198,22 +198,6 @@ tests.test_db = function(callback)
             });
         },
         function(next) {
-            db.cacheTables.push("test3");
-            db.cache2.test3 = 30000;
-            tests.test.delay = 100;
-            db.get("test3", { id: id }, { cached: 1 }, function(err, row) {
-                assert(err || !row || row.id != id || row.num != 2, "err7:", row);
-                next();
-            });
-        },
-        function(next) {
-            db.getCache("test3", { id: id }, {}, function(data) {
-                var row = lib.jsonParse(data);
-                assert(!data || row.num != 2, "err7-lru-cache:", row);
-                next();
-            });
-        },
-        function(next) {
             db.select("test2", { id: id2, id2: '1' }, { ops: { id2: 'gt' }, select: 'id,id2,num2,mtime' }, function(err, rows) {
                 assert(err || rows.length!=1 || rows[0].email || rows[0].id2 != '2' || rows[0].num2 != num2, "err8:", rows);
                 next();
@@ -540,6 +524,38 @@ tests.test_db = function(callback)
             db.aliases.t = "test3";
             db.get("t", { id: id }, {}, function(err, row) {
                 expect(row.id == id, "must get row by alias", row)
+                next();
+            });
+        },
+        function(next) {
+            db.cacheTables.push("test1","test3");
+            db.cache2.test3 = 30000;
+            db.get("test3", { id: id }, { cached: 1 }, (err, row, info) => {
+                assert(err || row?.id != id || row?.num != 2, "err7:", row);
+                expect(info.cached === 0, "expect test3 cached = 0", row, info)
+
+                db.get("test1", { id: id }, (err, row, info) => {
+                    expect(info.cached === 0, "expect test1 cached = 0", row, info)
+                    setTimeout(next, 100);
+                });
+            });
+        },
+        function(next) {
+            db.getCache("test3", { id: id }, {}, (data, cached) => {
+                var row = lib.jsonParse(data);
+                assert(!data || cached != 2 || row?.num != 2, "err7-lru-cache:", row, cached);
+                next();
+            });
+        },
+        function(next) {
+            db.get("test1", { id: id }, (err, row, info) => {
+                expect(info.cached === 1, "expect test1 cached = 1", row, info)
+                next();
+            });
+        },
+        function(next) {
+            db.get("test3", { id: id }, (err, row, info) => {
+                expect(info.cached === 2, "expect test3 cached = 2", row, info)
                 next();
             });
         }
