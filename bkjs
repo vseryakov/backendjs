@@ -505,6 +505,7 @@ case "$BKJS_CMD" in
        [ "$BKJS_DEBUG" != "" ] && echo "$(date): $BKJS_CMD: package.json is not found"
        exit 1
     fi
+    [ "$type" = "html" ] && type=js
     repo=$(cd $dir && git symbolic-ref --short -q HEAD 2>/dev/null)
     bundles=$(get_json $dir/package.json config.bundles)
     [ "$quiet" = "" ] && echo "$(date): $BKJS_CMD: $repo: $dir $type bundles: $bundles"
@@ -515,13 +516,13 @@ case "$BKJS_CMD" in
         [[ -z $f ]] && f=$(get_json_flat $dir/package.json config.bundles.$b.$type)
         [[ -z $f ]] && continue
         if [[ -z $name || $name = $b || $f =~ $name ]]; then
+            hash=$(echo "$repo$bundle$dir" | $SHASUM | cut -d' ' -f1)
+            tmp=/tmp/bktmp/$hash
             files=$f
             bundle=$b
             [ "$BKJS_DEBUG" != "" ] && echo "$(date): $BKJS_CMD: $bundle.$type started $dir/$file, files: $files"
             case $file in
             *.js|*.html)
-                hash=$(echo "$repo$bundle$dir" | $SHASUM | cut -d' ' -f1)
-                tmp=/tmp/bktmp/$hash
                 mkdir -p $tmp $dir/web/js
                 echo "" > $dir/web/js/$bundle.bundle.js
                 if [[ $files =~ @version@ ]]; then
@@ -530,35 +531,33 @@ case "$BKJS_CMD" in
                 fi
                 for f in $files; do
                     [ ! -s $dir/$f ] && echo "$dir/$f not found" && continue
+                    [ "$BKJS_DEBUG" != "" ] && echo "$(date): $BKJS_CMD: $bundle.$type $dir/$f"
                     case $f in
                     *.min.js)
-                      cat $dir/$f >> $dir/web/js/$bundle.bundle.js
-                      ;;
+                        cat $dir/$f >> $dir/web/js/$bundle.bundle.js
+                        ;;
 
                     *.js)
-                      if [[ -z $dev ]]; then
-                        jsfiles="$jsfiles $dir/$f"
-                      else
-                        cat $dir/$f >> $dir/web/js/$bundle.bundle.js
-                      fi
-                      ;;
+                        if [[ -z $dev ]]; then
+                            jsfiles="$jsfiles $dir/$f"
+                        else
+                            cat $dir/$f >> $dir/web/js/$bundle.bundle.js
+                        fi
+                        ;;
 
                     *.html)
-                      n=$(basename $f .html)
-                      if [ "$force" != "" -o $dir/$f -nt $tmp/$n.html ]; then
+                        n=$(basename $f .html)
                         if [[ -z $dev ]]; then
                             htmlminargs="--collapse-whitespace --collapse-inline-tag-whitespace --collapse-boolean-attributes --remove-attribute-quotes --remove-empty-attributes $(get_arg -htmlminargs)"
-                            (cd $dir && html-minifier $htmlminargs $f > $tmp/_$n.html)
+                            html-minifier $htmlminargs $dir/$f > $tmp/$n.html
                             [ "$?" != "0" ] && exit 1
-                            tf=$tmp/_$n.html
+                            tf=$tmp/$n.html
                         else
-                            tf=$f
+                            tf=$dir/$f
                         fi
-                        echo "bkjs.koTemplates[\"$n\"]='$(cat $tf|tr -d '\r\n'|sed "s/['\\]/\\\&/g")';"> $tmp/$n.html
-                        echo "ko.components.register(\"$n\",{});" >> $tmp/$n.html
-                      fi
-                      cat $tmp/$n.html >> $dir/web/js/$bundle.bundle.js
-                      ;;
+                        echo "bkjs.koTemplates[\"$n\"]='$(cat $tf|tr -d '\r\n'|sed "s/['\\]/\\\&/g")';" >> $dir/web/js/$bundle.bundle.js
+                        echo "ko.components.register(\"$n\",{});" >> $dir/web/js/$bundle.bundle.js
+                        ;;
                     esac
                 done
                 if [[ -z $dev ]]; then
@@ -586,7 +585,7 @@ case "$BKJS_CMD" in
                 [ ! -z "$gzip" ] && gzip -9 -c $dir/web/css/$bundle.bundle.css > $dir/web/css/$bundle.bundle.css.gz
                 ;;
             esac
-            [ "$BKJS_DEBUG" != "" ] && echo "$(date): $BKJS_CMD: $bundle.$type finished $dir/$file"
+            [ "$BKJS_DEBUG" != "" ] && echo "$(date): $BKJS_CMD: $dir/web/js/$bundle.bundle.$type finished"
         fi
     done
     if [ "$files" = "" ]; then
