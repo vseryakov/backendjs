@@ -186,9 +186,6 @@ bkjs.koFindModel = function(model)
         if (bkjs.debug) console.log("koFindModel:", model, name, tmpl);
         return null;
     }
-    if (tmpl && tmpl[0] !== "<") {
-        bkjs.koTemplates[name] = tmpl = bkjs.strDecompress(tmpl, "base64");
-    }
     if (bkjs.debug) console.log("koFindModel:", model, name, tmpl.substr(0, 64));
     return {
         template: tmpl,

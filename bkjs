@@ -465,30 +465,11 @@ case "$BKJS_CMD" in
     ;;
 
   web-bundle)
-    # show info about all files
-    if [[ ! -z $(get_flag -list) ]]; then
-        pkg=package.json
-        bundles=$(get_json $pkg config.bundles)
-        alljs="$(echo $(ls web/js/))"
-        allcss="$(echo $(ls web/css/))"
-        allhtml="$(echo $(ls web/html/))"
-        for b in $bundles; do
-            js=$(get_json_flat $pkg config.bundles.$b.js)
-            css=$(get_json_flat $pkg config.bundles.$b.css)
-            html=$(get_json_flat $pkg config.bundles.$b.html)
-            echo -e "\n$b:\n\tjs:\n\t\t$js\n\tcss:\n\t\t$css\n\thtml:\n\t\t$html"
-            alljs=$(echo $alljs|sed -E "s!$(echo $js|sed 's/ /|/g')!!g")
-            allcss=$(echo $allcss|sed -E "s!$(echo $css|sed 's/ /|/g')!!g")
-            allhtml=$(echo $allhtml|sed -E "s!$(echo $html|sed 's/ /|/g')!!g")
-        done
-        echo -e "\nunbundled:\n\tjs:\n\t\t$(echo $alljs)\n\tcss:\n\t\t$(echo $allcss)\n\thtml:\n\t\t$(echo $allhtml)"
-        exit 0
-    fi
     if [[ ! -z $(get_flag -all) ]]; then
         pkg=package.json
         bundles=$(get_json $pkg config.bundles)
         for b in $bundles; do
-            for t in js css html; do
+            for t in css js; do
                 $0 web-bundle -file $b.$t $(get_all_args "-all -file")
                 [ "$?" != "0" ] && exit 1
             done
@@ -538,43 +519,63 @@ case "$BKJS_CMD" in
             bundle=$b
             [ "$BKJS_DEBUG" != "" ] && echo "$(date): $BKJS_CMD: $bundle.$type started $dir/$file, files: $files"
             case $file in
-            *js)
-                mkdir -p $dir/web/js /tmp/bktmp
+            *.js|*.html)
+                hash=$(echo "$repo$bundle$dir" | $SHASUM | cut -d' ' -f1)
+                tmp=/tmp/bktmp/$hash
+                mkdir -p $tmp $dir/web/js
+                echo "" > $dir/web/js/$bundle.bundle.js
                 if [[ $files =~ @version@ ]]; then
-                    echo "bkjs.bundleVersion='$(get_json_flat $dir/package.json version)';" > /tmp/bktmp/_version.js
-                    files=$(echo $files|sed 's!@version@!/tmp/bktmp/_version.js!')
+                    files=$(echo $files|sed "s!@version@!!")
+                    echo "bkjs.bundleVersion='$(get_json_flat $dir/package.json version)';" >> $dir/web/js/$bundle.bundle.js
                 fi
+                for f in $files; do
+                    [ ! -s $dir/$f ] && echo "$dir/$f not found" && continue
+                    case $f in
+                    *.min.js)
+                      cat $dir/$f >> $dir/web/js/$bundle.bundle.js
+                      ;;
+
+                    *.js)
+                      if [[ -z $dev ]]; then
+                        jsfiles="$jsfiles $dir/$f"
+                      else
+                        cat $dir/$f >> $dir/web/js/$bundle.bundle.js
+                      fi
+                      ;;
+
+                    *.html)
+                      n=$(basename $f .html)
+                      if [ "$force" != "" -o $dir/$f -nt $tmp/$n.html ]; then
+                        if [[ -z $dev ]]; then
+                            htmlminargs="--collapse-whitespace --collapse-inline-tag-whitespace --collapse-boolean-attributes --remove-attribute-quotes --remove-empty-attributes $(get_arg -htmlminargs)"
+                            (cd $dir && html-minifier $htmlminargs $f > $tmp/_$n.html)
+                            [ "$?" != "0" ] && exit 1
+                            tf=$tmp/_$n.html
+                        else
+                            tf=$f
+                        fi
+                        echo "bkjs.koTemplates[\"$n\"]='$(cat $tf|tr -d '\r\n'|sed "s/['\\]/\\\&/g")';"> $tmp/$n.html
+                        echo "ko.components.register(\"$n\",{});" >> $tmp/$n.html
+                      fi
+                      cat $tmp/$n.html >> $dir/web/js/$bundle.bundle.js
+                      ;;
+                    esac
+                done
                 if [[ -z $dev ]]; then
-                    echo "" > web/js/$bundle.bundle.js
-                    for f in $files; do
-                        if [[ $f =~ \.min\.js ]]; then
-                            mfiles="$mfiles $f"
-                        else
-                            dfiles="$dfiles $f"
-                        fi
-                    done
-                    [ "$BKJS_DEBUG" != "" ] && echo "$(date): $BKJS_CMD: $bundle.$type MFILES: $mfiles DFILES: $dfiles"
-                    if [[ ! -z $mfiles ]]; then
-                        (cd $dir && cat $mfiles >> web/js/$bundle.bundle.js)
+                    if [[ ! -z $(get_flag -gcc) ]]; then
+                        gccargs=" $(get_arg -gccargs)"
+                        npx google-closure-compiler $gccargs $jsfiles >> $dir/web/js/$bundle.bundle.js
+                        [ "$?" != "0" ] && exit 1
+                    else
+                        uglifyargs="-c -m --comments /^!/ $(get_arg -uglifyargs)"
+                        uglifyjs $jsfiles $uglifyargs >> $dir/web/js/$bundle.bundle.js
+                        [ "$?" != "0" ] && exit 1
                     fi
-                    if [[ ! -z $dfiles ]]; then
-                        if [[ ! -z $(get_flag -gcc) ]]; then
-                            gccargs=" $(get_arg -gccargs)"
-                            (cd $dir && npx google-closure-compiler $gccargs $dfiles >> web/js/$bundle.bundle.js)
-                            [ "$?" != "0" ] && exit 1
-                        else
-                            uglifyargs="-c -m --comments /^!/ $(get_arg -uglifyargs)"
-                            (cd $dir && uglifyjs $dfiles $uglifyargs >> web/js/$bundle.bundle.js)
-                            [ "$?" != "0" ] && exit 1
-                        fi
-                    fi
-                else
-                    (cd $dir && cat $files > web/js/$bundle.bundle.js)
                 fi
                 [ ! -z "$gzip" ] && gzip -9 -c $dir/web/js/$bundle.bundle.js > $dir/web/js/$bundle.bundle.js.gz
                 ;;
 
-            *css)
+            *.css)
                 mkdir -p $dir/web/css
                 if [[ -z $dev ]]; then
                     (cd $dir && uglifycss $files --output web/css/$bundle.bundle.css)
@@ -583,32 +584,6 @@ case "$BKJS_CMD" in
                     (cd $dir && cat $files > web/css/$bundle.bundle.css)
                 fi
                 [ ! -z "$gzip" ] && gzip -9 -c $dir/web/css/$bundle.bundle.css > $dir/web/css/$bundle.bundle.css.gz
-                ;;
-
-            *html)
-                find_nodebin
-                hash=$(echo "$repo$bundle$dir" | $SHASUM | cut -d' ' -f1)
-                tmp=/tmp/bktmp/$hash
-                mkdir -p $dir/web/js $tmp
-                cc=$(get_flag -compress 0)
-                echo > $dir/web/js/$bundle.bundle.html.js
-                for f in $files; do
-                    [ ! -s $dir/$f ] && echo "$dir/$f not found" && continue
-                    n=$(basename $f)
-                    if [ "$force" != "" -o $dir/$f -nt $tmp/$n ]; then
-                        if [[ -z $dev ]]; then
-                            htmlminargs="--collapse-whitespace --collapse-boolean-attributes --remove-optional-tags --remove-attribute-quotes --remove-empty-attributes $(get_arg -htmlminargs)"
-                            (cd $dir && html-minifier $htmlminargs $f > $tmp/_$n)
-                            [ "$?" != "0" ] && exit 1
-                            tf=$tmp/_$n
-                        else
-                            tf=$f
-                        fi
-                        $NODE_BIN -e "try{var bk=require('backendjs');var n=require('path').basename('$f','.html').replace(/(?:[-_\\.])(\\w)/g,(_,c)=>(c?c.toUpperCase():'')),f=bk.lib.readFileSync('$tf').trim();console.log('bkjs.koTemplates[\"'+n+'\"]='+($cc?'\"'+bk.lib.strCompress(f,\"base64\")+'\"':JSON.stringify(f))+';\nko.components.register(\"'+n+'\",{});');process.exit(0)}catch(e){bk.core.exit(1,'$f',e)}" > $tmp/$n
-                    fi
-                    cat $tmp/$n >> $dir/web/js/$bundle.bundle.html.js
-                done
-                [ ! -z "$gzip" ] && gzip -9 -c $dir/web/js/$bundle.bundle.html.js > $dir/web/js/$bundle.bundle.html.js.gz
                 ;;
             esac
             [ "$BKJS_DEBUG" != "" ] && echo "$(date): $BKJS_CMD: $bundle.$type finished $dir/$file"
