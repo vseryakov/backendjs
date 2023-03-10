@@ -18,12 +18,12 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-
-var INPUT_SHORTCUT_TYPES = [ "text", "color", "url", "password", "hidden", "file", "number", "email", "reset", "date", "checkbox", "radio" ];
-
-
 function bootpopup(options)
 {
+    var inputs = [ "text", "color", "url", "password", "hidden", "file", "number",
+       "email", "reset", "date", "time", "checkbox", "radio", "datetime-local",
+       "week", "tel", "search", "range", "reset", "month", "image", "button" ];
+
     // Create a new instance if this is not
     if (!(this instanceof bootpopup)) return new bootpopup(Array.prototype.slice.call(arguments));
 
@@ -249,7 +249,7 @@ function bootpopup(options)
                     }
 
                     // Check if type is a shortcut for input
-                    if (INPUT_SHORTCUT_TYPES.indexOf(type) >= 0) {
+                    if (inputs.indexOf(type) >= 0) {
                         attrs.type = type;  // Add attribute for type
                         type = "input";     // Continue to input
                     }
@@ -507,12 +507,10 @@ function bootpopup(options)
     }
 
     this.data = function() {
-        var keyval = {};
+        var d = {};
         var array = this.form.serializeArray();
-        for (var i in array) {
-            keyval[array[i].name] = array[i].value;
-        }
-        return keyval;
+        for (const v of array) d[v.name] = v.value;
+        return d;
     };
 
     this.sanitize = function(str) {
@@ -530,8 +528,9 @@ function bootpopup(options)
         if (typeof func !== "function") return;
         this._callback = name;
         // Perform callback
-        var array = this.form.serializeArray();
-        var ret = func.call(this.options.self, this.data(), array, event);
+        var array = this.form.serializeArray(), d = {};
+        for (const v of array) d[v.name] = v.value;
+        var ret = func.call(this.options.self, d, array, event);
         // Hide window
         if (ret !== null) this.modal.modal("hide");
         return ret;
