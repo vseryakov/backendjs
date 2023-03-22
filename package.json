@@ -80,7 +80,6 @@
       "include": [
         "*.gz",
         "*.js.map",
-        "*.bundle.html.js",
         "*.bundle.js",
         "*.bundle.css"
       ]

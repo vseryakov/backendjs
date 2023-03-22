@@ -7,6 +7,8 @@ bkjs.koAuth = ko.observable(0);
 bkjs.koAdmin = ko.observable(0);
 bkjs.koName = ko.observable("");
 
+
+// Login/UI utils
 bkjs.koInit = function()
 {
     ko.applyBindings(bkjs);
@@ -40,6 +42,24 @@ bkjs.koLogout = function(data, event)
     });
 }
 
+bkjs.koBootpopup = function(options, style)
+{
+    var _before = options.before;
+    options.before = function(self) {
+        if (bkjs.isF(_before)) _before(self);
+        ko.applyBindings(self.options.data || bkjs, self.modal.get(0));
+    }
+    var _complete = options.complete;
+    options.complete = function(event, self) {
+        if (bkjs.isF(_complete)) _complete.call(this, event, self);
+        ko.cleanNode(self.modal.get(0));
+        options.before = _before;
+        options.complete = _complete;
+    }
+    return bootpopup(options, style || bkjs.bootpopupStyle);
+}
+
+// Variable utils
 bkjs.koVal = ko.utils.unwrapObservable;
 
 bkjs.koGet = function(name, dflt)
@@ -111,13 +131,13 @@ bkjs.koConvert = function(obj, name, val, dflt)
 
 bkjs.koEvent = function(name, data)
 {
-    var event = bkjs.toCamel(name);
-    event = "on" + event.substr(0, 1).toUpperCase() + event.substr(1);
+    var event = bkjs.toCamel("on_" + name);
     $(bkjs).trigger("bkjs.event", [name, event, data]);
 }
 
+// View model templating and utils
 bkjs.koState = {};
-bkjs.koTemplates = {};
+bkjs.koTemplates = { none: "<div></div>" };
 bkjs.koModels = {};
 bkjs.koAliases = { template: {}, model: {}, viewModel: {} };
 bkjs.koViewModels = [];
@@ -155,16 +175,22 @@ bkjs.koViewModel.prototype.dispose = function()
     bkjs.koViewModels.splice(bkjs.koViewModels.indexOf(this));
 }
 
-bkjs.koCreateModel = function(name)
+bkjs.koGetModel = function(name)
+{
+    return bkjs.koModels[bkjs.koAliases.viewModel[name]] || bkjs.koModels[name];
+}
+
+bkjs.koCreateModel = function(name, options)
 {
     if (!name) throw new Error("model name is required");
-    bkjs.koModels[name] = function(params, componentInfo) {
+    var m = bkjs.koModels[name] = function(params, componentInfo) {
         this.koName = name;
         bkjs.koViewModel.call(this, params, componentInfo);
     };
-    bkjs.inherits(bkjs.koModels[name], bkjs.koViewModel);
-    bkjs.koEvent("model.created", { name: name, vm: bkjs.koModels[name] });
-    return bkjs.koModels[name];
+    for (const p in options) m[p] = options[p];
+    bkjs.inherits(m, bkjs.koViewModel);
+    bkjs.koEvent("model.created", { name: name, vm: m });
+    return m;
 }
 
 bkjs.koCreateModelAlias = function(type, name, alias)
@@ -174,7 +200,7 @@ bkjs.koCreateModelAlias = function(type, name, alias)
     bkjs.koAliases[type][bkjs.toCamel(alias)] = bkjs.toCamel(name);
 }
 
-bkjs.koFindModel = function(model)
+bkjs.koFindComponent = function(model)
 {
     var name = bkjs.toCamel(model);
     var tmpl = bkjs.koTemplates[name] || bkjs.koTemplates[bkjs.koAliases.template[name]];
@@ -183,21 +209,22 @@ bkjs.koFindModel = function(model)
         if (name) tmpl = bkjs.koTemplates[name];
     }
     if (!tmpl) {
-        if (bkjs.debug) console.log("koFindModel:", model, name, tmpl);
+        if (bkjs.debug) console.log("koFindComponent:", model, name);
         return null;
     }
-    if (bkjs.debug) console.log("koFindModel:", model, name, tmpl.substr(0, 64));
+    if (bkjs.debug) console.log("koFindComponent:", model, name, tmpl.substr(0, 64));
     return {
+        name: name,
         template: tmpl,
         viewModel: {
             createViewModel: function(params, componentInfo) {
-                var VM = bkjs.koModels[bkjs.koAliases.viewModel[name]] || bkjs.koModels[name];
+                var VM = bkjs.koGetModel(name);
                 if (bkjs.isF(VM)) {
                     var vm = new VM(params, componentInfo);
                     if (bkjs.isF(vm.onCreate)) vm.onCreate(vm.params, componentInfo);
                     bkjs.koViewModels.push(vm);
                 }
-                if (bkjs.debug) console.log("createViewModel:", model, name, !!vm);
+                if (bkjs.debug) console.log("koFindComponent:", model, name, !!vm);
                 bkjs.koEvent("component.created", { name: name, params: params, model: vm, info: componentInfo });
                 return vm;
             }
@@ -226,10 +253,14 @@ ko.bindingHandlers.hidden = {
     }
 };
 
+ko.bindingHandlers.html.update = function (element, valueAccessor) {
+    ko.utils.setHtml(element, bkjs.sanitizer.run(ko.utils.unwrapObservable(valueAccessor())));
+};
+
 // Web bundle naming convention
 ko.components.loaders.unshift({
     getConfig: function(name, callback) {
-        callback(bkjs.koFindModel(name));
+        callback(bkjs.koFindComponent(name));
     }
 });
 ko.components.register("none", { template: "<div></div>" });
@@ -245,6 +276,18 @@ bkjs.koGetBreakpoint = function()
     return w < 576 ? 'xs' : w < 768 ? 'sm' : w < 992 ? 'md' : w < 1200 ? 'lg' : 'xl';
 }
 
+bkjs.koSetBreakpoint = function()
+{
+    bkjs.koBreakpoint(bkjs.koGetBreakpoint());
+    document.documentElement.style.setProperty('--height', (window.innerHeight * 0.01) + "px");
+}
+
+bkjs.koResized = function(event)
+{
+    clearTimeout(bkjs._koResized);
+    bkjs._koResized = setTimeout(bkjs.koSetBreakpoint, 500);
+}
+
 bkjs.koPlugins = [];
 
 bkjs.koApplyPlugins = function(target)
@@ -256,80 +299,65 @@ bkjs.koApplyPlugins = function(target)
 }
 
 // Main component view model
-bkjs.koComponentName = ko.observable("none");
-bkjs.koComponentParams = ko.observable();
+bkjs.koAppModel = ko.observable("none");
+bkjs.koAppOptions = ko.observable();
 
-ko.components.register("bkjs-component", {
-    viewModel: function(params) {
-        this.name = bkjs.koComponentName;
-        this.params = bkjs.koComponentParams;
-    },
-    template: '<div data-bind="component: { name: $root.koComponentName, params: $root.koComponentParams }"></div>'
-});
-
-bkjs.koShowComponent = function(name, params, nosave)
+bkjs.koShowComponent = function(name, options, nosave)
 {
-    if (bkjs.debug) console.log("koShowComponent:", name, params);
-    bkjs.koComponentParams(params || {});
-    bkjs.koComponentName(name);
-    if (!nosave) bkjs.koSaveComponent(name, params);
-    bkjs.koEvent("component.shown", { name: name, params: params });
+    if (bkjs.debug) console.log("koShowComponent:", name, options);
+    var rc = bkjs.koRunMethod("beforeDispose", name, options);
+    for (const p in rc) if (rc[p] === false) return false;
+    bkjs.koAppOptions(options || {});
+    bkjs.koAppModel(name);
+    var m = bkjs.koGetModel(name);
+    if (!nosave && !m?.nohistory) bkjs.koSaveLocation(name, options);
+    bkjs.koEvent("component.shown", { name: name, options: options });
 }
 
 // Simple router support
 bkjs.koAppPath = (window.location.pathname.replace(/(\/+[^/]+)$|\/+$/, "") + "/").replace(/\/app.+$/, "/") + "app/";
 bkjs.koAppLocation = window.location.origin + bkjs.koAppPath;
 
-window.onpopstate = function(event) {
-    if (event.state && event.state.view) bkjs.koShowComponent(event.state.view, event.state.params);
-};
-
-bkjs.koSaveComponent = function(name, params)
+window.onpopstate = function(event)
 {
-    if (!name) return;
-    var url = name;
-    if (params?.param) {
-        url += "/" + params.param;
-        if (params.value) url += "/" + params.value;
-    }
-    if (url == bkjs._appLocation) return;
-    window.history.pushState({ view: name, params: params }, name, bkjs.koAppLocation + url);
-    bkjs._appLocation = url;
+    if (event?.state?.name) bkjs.koShowComponent(event.state.name, event.state.options);
 }
 
-bkjs.koRestoreComponent = function(path, dflt)
+bkjs.koSaveLocation = function(name, options)
 {
-    if (path && path.indexOf(bkjs.koAppPath) != 0) path = "";
+    var url = name && bkjs.koSaveModel(name, options);
+    if (!url) return;
+    if (url == bkjs._koAppLocation) return;
+    window.history.pushState({ name: name, options: options }, name, bkjs.koAppLocation + url);
+    bkjs._koAppLocation = url;
+}
+
+bkjs.koSaveModel = function(name, options)
+{
+    if (options?.param) name += "/" + options.param;
+    if (options?.param2) name += "/" + options.param2;
+    return name;
+}
+
+bkjs.koRestoreLocation = function(path, dflt)
+{
+    if (path && (window.location.origin + path).indexOf(bkjs.koAppLocation) != 0) path = "";
     var location = window.location.origin + (path || window.location.pathname);
     var params = location.substr(bkjs.koAppLocation.length).split("/");
-    if (bkjs.debug) console.log("koRestoreComponent:", window.location.pathname, "path:", path, "dflt:", dflt, "params:", params);
-    var model = bkjs.koFindModel(params[0]);
-    bkjs.koShowComponent(model ? params[0] : dflt || "none", model ? { param: params[1], value: params[2] } : null);
+
+    if (bkjs.debug) console.log("koRestoreLocation:", window.location.pathname, "path:", path, "dflt:", dflt, "params:", params);
+    var model = bkjs.koFindComponent(params[0]);
+    bkjs.koRestoreModel({ model: model, path: path, dflt: dflt, params: params });
 }
 
-bkjs.koBootpopup = function(options, style)
+bkjs.koRestoreModel = function(options)
 {
-    var _before = options.before;
-    options.before = function(self) {
-        if (bkjs.isF(_before)) _before(self);
-        ko.applyBindings(self.options.data || bkjs, self.modal.get(0));
-    }
-    var _complete = options.complete;
-    options.complete = function(event, self) {
-        if (bkjs.isF(_complete)) _complete.call(this, event, self);
-        ko.cleanNode(self.modal.get(0));
-        options.before = _before;
-        options.complete = _complete;
-    }
-    return bootpopup(options, style || bkjs.bootpopupStyle);
+    bkjs.koShowComponent(options.model?.name || options.dflt || "none", { param: options.params[1], param2: options.params[2] });
 }
 
 $(function() {
-    bkjs.koBreakpoint(bkjs.koGetBreakpoint());
-    $(window).on("resize.bkjs", (event) => {
-        clearTimeout(bkjs._resized);
-        bkjs._resized = setTimeout(() => { bkjs.koBreakpoint(bkjs.koGetBreakpoint()) }, 500);
-    });
+    bkjs.koSetBreakpoint();
+    $(window).on("resize.bkjs", bkjs.koResized.bind(bkjs));
 
     $(bkjs).on("bkjs.event", (ev, name, event, data) => {
         switch (name) {

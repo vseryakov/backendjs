@@ -548,7 +548,7 @@ case "$BKJS_CMD" in
                     *.html)
                         n=$(basename $f .html)
                         if [[ -z $dev ]]; then
-                            htmlminargs="--collapse-whitespace --collapse-inline-tag-whitespace --collapse-boolean-attributes --remove-attribute-quotes --remove-empty-attributes $(get_arg -htmlminargs)"
+                            htmlminargs="--collapse-whitespace --collapse-boolean-attributes --remove-optional-tags --remove-attribute-quotes --remove-empty-attributes $(get_arg -htmlminargs)"
                             html-minifier $htmlminargs $dir/$f > $tmp/$n.html
                             [ "$?" != "0" ] && exit 1
                             tf=$tmp/$n.html
