@@ -33,7 +33,6 @@
     "argon2": "0.30.3",
     "bcrypt": "5.1.0",
     "mmmagic": "0.5.3",
-    "consolidate": "0.16.0",
     "http-proxy": "1.18.1",
     "redis": "3.1.2",
     "pg": "8.10.0",
