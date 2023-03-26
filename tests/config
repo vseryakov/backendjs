@@ -1,0 +1,6 @@
+port=8999
+ws-port=8999
+api-restart=~~
+
+ipc-queue=redis://redis
+ipc-queue-redis=redis://redis

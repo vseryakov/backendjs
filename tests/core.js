@@ -30,7 +30,7 @@ tests.test_config = function(callback)
                 "-api-cleanup-rules-aaa", "three:3",
             ];
     core.parseArgs(argv);
-    logger.debug("poolParams:", db.poolParams);
+    logger.debug("config:", db.poolParams);
 
     assert(core.forceUid[0] != 1, "invalid force-uid", core.forceUid)
     assert(core.proxy.port != 3000, "invalid proxy-port", core.proxy);
@@ -48,24 +48,26 @@ tests.test_config = function(callback)
     assert(db.poolParams.sqlite.configOptions['map.test'] != "test", "invalid sqlite map", db.poolParams.sqlite);
     assert(db.poolParams.sqlite1.configOptions.test != "test", "invalid sqlite1 map", db.poolParams.sqlite1);
 
+    logger.debug("config:", ipc.configParams);
     assert(ipc.configParams.q?.count != 10 || ipc.configParams.q?.interval != 100, "invalid queue options", ipc.configParams.q);
     assert(ipc.configParams.q?.visibilityTimeout != 1000, "invalid queue visibility timeout", ipc.configParams.q);
 
-    for (const p in ipc.configParams) if (p != "q") delete ipc.configParams[p];
+    for (const p in ipc.configParams) if (p && p != "q") delete ipc.configParams[p];
+    ipc.closeClients();
     ipc.initClients();
     var q = ipc.getQueue("");
-    assert(q.options.count != 2, "invalid default queue count", q)
+    assert(q.options.count != 2, "invalid default queue count", q, ipc.configParams)
 
     core.parseArgs(["-ipc-queue--options-visibilityTimeout", "99", "-ipc-queue", "local://default?bk-count=10"]);
-    assert(q.options.visibilityTimeout != 99 || q.options.count != 10, "invalid default queue options", q.options)
+    assert(q.options.visibilityTimeout != 99 || q.options.count != 10, "invalid default queue options", q, ipc.configParams)
 
     core.parseArgs(["-ipc-queue-fake-options-visibilityTimeout", "11"]);
-    assert(q.options.visibilityTimeout == 11, "fake queue should be ignored", q.options)
+    assert(q.options.visibilityTimeout == 11, "fake queue should be ignored", q, ipc.configParams)
 
     q = ipc.getQueue("q");
-    assert(q.options.test != 10, "invalid queue url options", q)
+    assert(q.options.test != 10, "invalid queue url options", q, ipc.configParams)
     core.parseArgs(["-ipc-queue-q-options-visibilityTimeout", "99", "-ipc-queue-q-options", "count:99"]);
-    assert(q.options.visibilityTimeout != 99 || q.options.count != 99, "invalid q queue options", q.options)
+    assert(q.options.visibilityTimeout != 99 || q.options.count != 99, "invalid q queue options", q, ipc.configParams)
 
     assert(core.logwatcherSend.error != "a", "invalid logwatcher email", core.logwatcherSend);
     assert(core.logwatcherMatch.error.indexOf("a") == -1, "invalid logwatcher match", core.logwatcherMatch);
