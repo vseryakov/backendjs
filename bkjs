@@ -595,26 +595,32 @@ case "$BKJS_CMD" in
     ;;
 
   install-node)
-    ver=$(get_arg -version v18.15.0)
     if [ "$(get_flag -force)" != "" -a -f $BKJS_PREFIX/bin/node ]; then
-       echo "Uninstalling node from $BKJS_PREFIX ..."
-       rm -rf $BKJS_PREFIX/bin/node $BKJS_PREFIX/bin/npm $BKJS_PREFIX/bin/npx $BKJS_PREFIX/lib/node_modules/npm
-       [ ! -z "$(get_flag -clean)" ] && rm -rf $BKJS_PREFIX/lib/node_modules
+        echo "Uninstalling node from $BKJS_PREFIX ..."
+        rm -rf $BKJS_PREFIX/bin/node $BKJS_PREFIX/bin/npm $BKJS_PREFIX/bin/npx $BKJS_PREFIX/lib/node_modules/npm $BKJS_PREFIX/include/node
+        [ ! -z "$(get_flag -clean)" ] && rm -rf $BKJS_PREFIX/lib/node_modules
     fi
     [ -f $BKJS_PREFIX/bin/node ] && exit 0
     mkdir -p $BKJS_PREFIX
-    if [ "$PLATFORM" = "Linux" ]; then
-       curl -L -o node.tar.xz https://nodejs.org/dist/$ver/node-$ver-linux-$OS_ARCH.tar.xz
-       [ "$?" != "0" ] && exit 1
-       xz -d node.tar.xz
-       tar -C $BKJS_PREFIX --strip-components=1 -xf node.tar
-       rm -rf node.tar
-    fi
-    if [ "$PLATFORM" = "Darwin" ]; then
-       curl -L -o node.tgz https://nodejs.org/dist/$ver/node-$ver-darwin-$OS_ARCH.tar.gz
-       [ "$?" != "0" ] && exit 1
-       tar -C $BKJS_PREFIX --strip-components=1 -xzf node.tgz
-       rm -rf node.tgz
+    tgz=$(get_arg -tgz)
+    if [ ! -z "$tgz" ]; then
+        tar -C $BKJS_PREFIX --strip-components=1 -xzf $tgz
+        [ "$?" != "0" ] && exit 1
+    else
+        ver=$(get_arg -version v18.15.0)
+        if [ "$PLATFORM" = "Linux" ]; then
+            curl -L -o node.tar.xz https://nodejs.org/dist/$ver/node-$ver-linux-$OS_ARCH.tar.xz
+            [ "$?" != "0" ] && exit 1
+            xz -d node.tar.xz
+            tar -C $BKJS_PREFIX --strip-components=1 -xf node.tar
+            rm -rf node.tar
+        fi
+        if [ "$PLATFORM" = "Darwin" ]; then
+            curl -L -o node.tgz https://nodejs.org/dist/$ver/node-$ver-darwin-$OS_ARCH.tar.gz
+            [ "$?" != "0" ] && exit 1
+            tar -C $BKJS_PREFIX --strip-components=1 -xzf node.tgz
+            rm -rf node.tgz
+        fi
     fi
     mv $BKJS_PREFIX/README.md $BKJS_PREFIX/LICENSE $BKJS_PREFIX/CHANGELOG.md $BKJS_PREFIX/share/doc
     exit
@@ -671,7 +677,7 @@ case "$BKJS_CMD" in
     echo "  sync [-host HOST] [-path PATH] [-del] [-user USER] [-ssh-key pem] [-ssh OPTS] [-exclude PATTERN] [-bkcmd CMD] - push the backend code to the remote host using rsync, default path is ~/node_modules/$BKJS_MOD"
     echo "  ssh -host HOST -cmd CMD [-user USER] [-key PEM] [-ssh ARGS] - run a command over ssh on all specified hosts"
     echo "  web-bundle -file FILE|(js|css|html)|BUNDLE.(js|css|html) [-gzip] [-dev] [-compress] [-uglifyargs ARGS] [-all] [-list] [-force] [-clean] - produce a web bundle by uglifying js/css/html files into one file, resolves files from package.json"
-    echo "  install-node [-prefix PATH] [-force] [-clean] - install binary release of the node into $BKJS_PREFIX or specified path"
+    echo "  install-node [-prefix PATH] [-force] [-clean] [-tgz TGZ] - install binary release of the node into $BKJS_PREFIX or specified path"
     echo ""
     echo "  bkhelp - show all $BKJS_MOD config parameters"
     echo ""
