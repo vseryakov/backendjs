@@ -153,11 +153,23 @@ tests.test_cache = function(callback)
               next();
           });
       },
+      function(next) {
+          ipc.incr("m1", { count: 1, a: "a", mtime: Date.now().toString() }, next)
+      },
+      function(next) {
+          ipc.incr("*", { count: 1, b: "b", mtime: Date.now().toString() }, { mapName: "m1" }, next)
+      },
+      function(next) {
+          ipc.get("*", { mapName: "m1" }, function(e, val) {
+              assert(val?.count!=2 || val?.a != "a" || val?.b != "b", "value must be {count:2,a:a,b:b}, got", val)
+              next();
+          });
+      },
     ], function(err) {
         if (!err) return callback();
-        lib.forEachSeries(["a","b","c"], function(key, next) {
-            ipc.get(key, function(e, val) { logger.info(key, val); next(); })
-        }, function() {
+        lib.forEachSeries(["a","b","c"], (key, next) => {
+            ipc.get(key, (e, val) => { logger.info(key, val); next(); })
+        }, () => {
             callback(err);
         });
     }, true);
