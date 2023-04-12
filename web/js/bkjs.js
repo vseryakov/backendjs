@@ -102,41 +102,41 @@ bkjs.send = function(options, onsuccess, onerror)
     options.success = function(json, statusText, xhr) {
         var h = xhr.getResponseHeader(bkjs.hcsrf);
         if (h) bkjs.headers[bkjs.hcsrf] = h;
-        $(bkjs).trigger("bkjs.loading", "hide");
+        bkjs.event("bkjs.loading", "hide");
         if (!json && options.dataType == 'json') json = {};
         if (options.info_msg || options.success_msg) {
-            $(bkjs).trigger("bkjs.alert", [options.info_msg ? "info" : "success", options.info_msg || options.success_msg]);
+            bkjs.event("bkjs.alert", [options.info_msg ? "info" : "success", options.info_msg || options.success_msg]);
         }
         if (bkjs.isF(onsuccess)) onsuccess.call(options.self || bkjs, json, xhr);
-        if (options.trigger) bkjs.trigger(options.trigger, { url: options.url, query: options.data, data: json });
+        if (options.trigger) bkjs.event(options.trigger, { url: options.url, query: options.data, data: json });
     }
     // Parse error message
     options.error = function(xhr, statusText, errorText) {
         var h = xhr.getResponseHeader(bkjs.hcsrf);
         if (h) bkjs.headers[bkjs.hcsrf] = h;
-        $(bkjs).trigger("bkjs.loading", "hide");
+        bkjs.event("bkjs.loading", "hide");
         var err = xhr.responseText;
         try { err = JSON.parse(xhr.responseText) } catch (e) {}
         if (!options.quiet) bkjs.log('send:', xhr.status, err, statusText, errorText, options);
         if (options.alert) {
             var a = bkjs.isS(options.alert) && options.alert;
-            $(bkjs).trigger("bkjs.alert", ["error", a || err || errorText || statusText, { safe: !a }]);
+            bkjs.event("bkjs.alert", ["error", a || err || errorText || statusText, { safe: !a }]);
         }
         if (bkjs.isF(onerror)) onerror.call(options.self || bkjs, err || errorText || statusText, xhr, statusText, errorText);
-        if (options.trigger) bkjs.trigger(options.trigger, { url: options.url, query: options.data, err: err });
+        if (options.trigger) bkjs.event(options.trigger, { url: options.url, query: options.data, err: err });
     }
 
     options.headers[this.htz] = (new Date()).getTimezoneOffset();
     if (options.login && options.secret) options.headers[this.hsig] = this.createSignature(options);
     for (const p in this.headers) if (bkjs.isU(options.headers[p])) options.headers[p] = this.headers[p];
     for (const p in options.data) if (bkjs.isU(options.data[p])) delete options.data[p];
-    $(bkjs).trigger("bkjs.loading", "show");
+    bkjs.event("bkjs.loading", "show");
     return $.ajax(options);
 }
 
 bkjs.get = function(options, callback)
 {
-    bkjs.sendRequest($.extend(options, { type: "GET" }), callback);
+    bkjs.sendRequest(bkjs.objExtend(options, { type: "GET" }), callback);
 }
 
 // Make a request and use single callback with error as the first argument or null if no error
@@ -221,7 +221,7 @@ bkjs.wsConnect = function(options)
         while (conf.pending.length) {
             bkjs.wsSend(conf.pending.shift());
         }
-        $(bkjs).trigger("bkjs.ws.opened");
+        bkjs.event("bkjs.ws.opened");
     }
     this.ws.onerror = function(err) {
         if (conf.debug) bkjs.log('ws.error:', this.url, err);
@@ -234,14 +234,14 @@ bkjs.wsConnect = function(options)
             conf.timeout *= conf.timeout == conf.max_timeout ? 0 : conf.retry_mod;
             conf.timeout = bkjs.toClamp(conf.timeout, conf.retry_timeout, conf.max_timeout);
         }
-        $(bkjs).trigger("bkjs.ws.closed");
+        bkjs.event("bkjs.ws.closed");
     }
     this.ws.onmessage = function(msg) {
         var data = msg.data;
         if (data === "bye") bkjs.wsClose(1);
         if (bkjs.isS(data) && (data[0] == "{" || data[0] == "[")) data = JSON.parse(data);
         if (bkjs.wsconf.debug) bkjs.log('ws.message:', data);
-        $(bkjs).trigger("bkjs.ws.message", data);
+        bkjs.event("bkjs.ws.message", data);
     }
 }
 
@@ -260,7 +260,7 @@ bkjs.wsSend = function(data)
     }
     if (bkjs.isO(data) && data) {
         if (data.url && data.url[0] == "/") {
-            data = data.url + (data.data ? "?" + $.param(data.data) : "");
+            data = data.url + (data.data ? "?" + bkjs.toQuery(data.data) : "");
         } else {
             data = JSON.stringified(data);
         }
@@ -338,6 +338,83 @@ bkjs.createSignature = function(options)
     var hmac = this.crypto.hmacSha256(options.secret, str, "base64");
     if (this.debug) this.log('sign:', str);
     return this.hver + '|' + tag + '|' + options.login + '|' + hmac + '|' + expires + '|' + checksum + '|';
+}
+
+bkjs.event = function(name, data)
+{
+    $(bkjs).trigger(name, data);
+}
+
+bkjs.on = function(name, callback)
+{
+    $(bkjs).on(name, callback);
+}
+
+bkjs.off = function(name, callback)
+{
+    $(bkjs).off(name, callback);
+}
+
+bkjs.fetch = function(options, callback)
+{
+    try {
+        var body = null;
+        var headers = options.headers || {};
+
+        if (bkjs.isS(options.data)) {
+            body = options.data;
+            headers["content-type"] = options.contentType || 'application/x-www-form-urlencoded; charset=UTF-8';
+        } else
+        if (options.data instanceof FormData) {
+            body = options.data;
+            delete headers["content-type"];
+        } else
+        if (bkjs.isO(options.data)) {
+            headers["content-type"] = "application/x-json; charset=UTF-8";
+            body = JSON.stringify(options.data);
+        } else
+        if (options.data) {
+            body = options.data;
+            headers["content-type"] = options.contentType || "application/octet-stream";
+        }
+        var opts = bkjs.objExtend({
+            headers: headers,
+            method: options.type || "POST",
+            body: body
+        }, options.fetchOptions);
+
+        window.fetch(options.url, opts).
+        then(async (res) => {
+            var err, data, ctype = res.headers.get("content-type");
+            if (!res.ok) {
+                if (/json/.test(ctype)) {
+                    const d = await res.json();
+                    err = { status: res.status };
+                    for (const p in d) err[p] = d[p];
+                } else {
+                    err = { message: await res.text(), status: res.status };
+                }
+                return bkjs.isF(callback) && callback(err);
+            }
+            switch (options.dataType) {
+            case "text":
+                data = await res.text();
+                break;
+            case "blob":
+                data = await res.blob();
+                break;
+            default:
+                data = /json/.test(ctype) ? await res.json() : await res.text();
+            }
+            headers = {};
+            for (const h of res.headers) headers[h[0].toLowerCase()] = h[1];
+            bkjs.isF(callback) && callback(null, data, { status: res.status, headers: headers, type: res.type });
+        }).catch((err) => {
+            bkjs.isF(callback) && callback(err);
+        });
+    } catch (err) {
+        bkjs.isF(callback) && callback(err);
+    }
 }
 
 // Simple debugging function that outputs arguments in the error console each argument on a separate line

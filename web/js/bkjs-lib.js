@@ -733,6 +733,29 @@ bkjs.toValue = function(val, type, options)
     }
 }
 
+// Convert an object into a query string
+bkjs.toQuery = function(obj)
+{
+    var rc = [];
+
+    function add(k, v) {
+       rc.push(encodeURIComponent(k) + "=" + encodeURIComponent(bkjs.isF(v) ? v() : v === null || v === true ? "" : v));
+    }
+
+    function build(key, val) {
+        if (Array.isArray(val)) {
+            for (const i in val) build(`${key}[${typeof val[i] === "object" && val[i] != null ? i : ""}]`, val[i]);
+        } else
+        if (bkjs.isObject(val)) {
+            for (const n in val) build(`${key}[${n}]`, val[n]);
+        } else {
+            add(key, val);
+        }
+    }
+    for (const p in obj) build(p, obj[p]);
+    return rc.join("&");
+}
+
 bkjs.toTemplate = function(text, obj, options)
 {
     if (!bkjs.isS(text) || !text) return "";
@@ -1456,6 +1479,49 @@ bkjs.objClone = function()
     }
     for (let i = 1; i < arguments.length - 1; i += 2) rc[arguments[i]] = arguments[i + 1];
     return rc;
+}
+
+bkjs.objExtend = function(obj, val, options)
+{
+    obj = typeof obj == "object" || typeof obj == "function" ? obj || {} : {};
+    if (options) {
+        const a = Array.isArray(val);
+        for (let p in val) {
+            const v = val[p];
+            if (v === obj) continue;
+            if (v === undefined && options.noempty) continue;
+            if (!a) {
+                if (typeof options.ignore?.test == "function" && options.ignore.test(p)) continue;
+                if (typeof options.allow?.test == "function" && !options.allow.test(p)) continue;
+                if (typeof options.strip?.test == "function") p = p.replace(options.strip, ""); else
+                if (typeof options.remove?.test == "function") p = p.replace(options.remove, "");
+            }
+            if (p === "__proto__") continue;
+            if (options.deep && v) {
+                if (Array.isArray(v)) {
+                    obj[p] = bkjs.objExtend(Array.isArray(obj[p]) ? obj[p] : [], v, options);
+                    continue;
+                } else
+                if (bkjs.typeName(v) === "object") {
+                    obj[p] = bkjs.objExtend(obj[p], v, options);
+                    continue;
+                }
+            }
+            obj[p] = v;
+        }
+    } else {
+        for (const p in val) obj[p] = val[p];
+    }
+    return obj;
+}
+
+// Delete properties from the object, first arg is an object, the rest are properties to be deleted
+bkjs.objDel = function()
+{
+    const a = arguments;
+    if (!bkjs.isObject(a[0])) return;
+    for (let i = 1; i < a.length; i++) delete a[0][a[i]];
+    return a[0];
 }
 
 // Randomize the list items in place

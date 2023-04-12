@@ -20,7 +20,7 @@ bkjs.koCheckLogin = function(err, path)
     bkjs.koName(bkjs.account.name || "");
     bkjs.koAuth(bkjs.loggedIn);
     bkjs.koAdmin(bkjs.loggedIn && bkjs.checkAccountType(bkjs.account, bkjs.adminType || "admin"));
-    $(bkjs).trigger(bkjs.loggedIn ? "bkjs.login" : "bkjs.nologin", [err, path]);
+    bkjs.event(bkjs.loggedIn ? "bkjs.login" : "bkjs.nologin", [err, path]);
     if (!err && bkjs.isF(bkjs.koShow)) bkjs.koShow();
 }
 
@@ -38,7 +38,7 @@ bkjs.koLogout = function(data, event)
         bkjs.koAuth(0);
         bkjs.koAdmin(0);
         bkjs.koName("");
-        $(bkjs).trigger('bkjs.logout');
+        bkjs.event('bkjs.logout');
     });
 }
 
@@ -132,7 +132,7 @@ bkjs.koConvert = function(obj, name, val, dflt)
 bkjs.koEvent = function(name, data)
 {
     var event = bkjs.toCamel("on_" + name);
-    $(bkjs).trigger("bkjs.event", [name, event, data]);
+    bkjs.event("bkjs.event", [name, event, data]);
 }
 
 // View model templating and utils
@@ -146,7 +146,7 @@ bkjs.koViewModel = function(params, componentInfo)
 {
     this.params = {};
     for (var p in params) this.params[p] = params[p];
-    $(bkjs).on("bkjs.event." + this.koName, $.proxy(this._handleEvent, this));
+    bkjs.on("bkjs.event." + this.koName, $.proxy(this._handleEvent, this));
 }
 
 bkjs.koViewModel.prototype._handleEvent = function(ev, name, event, data)
@@ -160,7 +160,7 @@ bkjs.koViewModel.prototype.dispose = function()
 {
     if (bkjs.debug) console.log("dispose:", this.koName);
     bkjs.koEvent("model.disposed", { name: this.koName, params: this.params, vm: this });
-    $(bkjs).off("bkjs.event." + this.koName, $.proxy(this._handleEvent, this));
+    bkjs.off("bkjs.event." + this.koName, $.proxy(this._handleEvent, this));
     if (bkjs.isF(this.onDispose)) this.onDispose();
     // Auto dispose all subscriptions
     for (const p in this) {
@@ -357,9 +357,9 @@ bkjs.koRestoreModel = function(options)
 
 $(function() {
     bkjs.koSetBreakpoint();
-    $(window).on("resize.bkjs", bkjs.koResized.bind(bkjs));
+    window.addEventListener("resize", bkjs.koResized.bind(bkjs));
 
-    $(bkjs).on("bkjs.event", (ev, name, event, data) => {
+    bkjs.on("bkjs.event", (ev, name, event, data) => {
         switch (name) {
         case "component.created":
             bkjs.koApplyPlugins(data.info.element);

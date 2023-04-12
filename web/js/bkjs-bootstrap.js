@@ -179,10 +179,10 @@ bkjs.hideLogin = function()
 }
 
 $(function() {
-    $(bkjs).on("bkjs.alert", function(ev, type, msg, opts) {
+    bkjs.on("bkjs.alert", function(ev, type, msg, opts) {
         bkjs.showAlert(type, msg, opts);
     });
-    $(bkjs).on("bkjs.loading", function(ev, type) {
+    bkjs.on("bkjs.loading", function(ev, type) {
         bkjs.showLoading(type);
     });
 });
