@@ -607,7 +607,7 @@ case "$BKJS_CMD" in
         tar -C $BKJS_PREFIX --strip-components=1 -xzf $tgz
         [ "$?" != "0" ] && exit 1
     else
-        ver=$(get_arg -version v18.15.0)
+        ver=$(get_arg -version v18.16.0)
         if [ "$PLATFORM" = "Linux" ]; then
             curl -L -o node.tar.xz https://nodejs.org/dist/$ver/node-$ver-linux-$OS_ARCH.tar.xz
             [ "$?" != "0" ] && exit 1
