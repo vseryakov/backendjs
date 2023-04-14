@@ -380,6 +380,7 @@ bkjs.fetch = function(options, callback)
         var opts = bkjs.objExtend({
             headers: headers,
             method: options.type || "POST",
+            cache: "default",
             body: body
         }, options.fetchOptions);
 
@@ -402,6 +403,12 @@ bkjs.fetch = function(options, callback)
                 break;
             case "blob":
                 data = await res.blob();
+                break;
+            case "script":
+                data = await res.text();
+                var script = document.createElement("script");
+                script.text = data;
+                document.head.appendChild(script).parentNode.removeChild(script);
                 break;
             default:
                 data = /json/.test(ctype) ? await res.json() : await res.text();

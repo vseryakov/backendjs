@@ -144,8 +144,8 @@ bkjs.koViewModels = [];
 
 bkjs.koViewModel = function(params, componentInfo)
 {
-    this.params = {};
-    for (var p in params) this.params[p] = params[p];
+    this.element = componentInfo?.element;
+    this.params = bkjs.objExtend({}, params);
     bkjs.on("bkjs.event." + this.koName, $.proxy(this._handleEvent, this));
 }
 
@@ -171,6 +171,7 @@ bkjs.koViewModel.prototype.dispose = function()
         } else
         if (ko.isComputed(this[p])) this[p].dispose();
     }
+    delete this.element;
     delete this.params;
     bkjs.koViewModels.splice(bkjs.koViewModels.indexOf(this));
 }
