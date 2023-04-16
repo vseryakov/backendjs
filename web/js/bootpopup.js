@@ -54,8 +54,8 @@ function bootpopup(options)
         class_footer: "modal-footer",
         class_group: "form-group",
         class_options: "options text-center text-md-right",
-        class_alert: "alert alert-danger collapse",
-        class_info: "alert alert-info collapse",
+        class_alert: "alert alert-danger collapse fade",
+        class_info: "alert alert-info collapse fade",
         class_x: "",
         class_form: "",
         class_label: "",
@@ -249,7 +249,7 @@ function bootpopup(options)
                     }
 
                     // Check if type is a shortcut for input
-                    if (inputs.indexOf(type) >= 0) {
+                    if (inputs.includes(type)) {
                         attrs.type = type;  // Add attribute for type
                         type = "input";     // Continue to input
                     }
@@ -502,7 +502,8 @@ function bootpopup(options)
         if (typeof text != "string") return;
         if (!opts?.safe) text = bkjs.textToEntity(text.replace(/<br>/g, "\n"));
         text = self.sanitize(text).replace(/\n/g, "<br>");
-        $(this[opts?.type || "alert"]).empty().append(`<p>${text}</p>`).fadeIn(1000).delay(10000).fadeOut(1000, function() { $(this).hide() });
+        $(this[opts?.type || "alert"]).empty().append(`<p>${text}</p>`).show();
+        setTimeout(() => { $(this[opts?.type || "alert"]).hide() }, this.delay || 10000);
         return null;
     }
 

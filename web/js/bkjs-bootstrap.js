@@ -41,7 +41,7 @@ bkjs.showAlert = function(obj, type, text, options)
     if (!bkjs._alertNum) bkjs._alertNum = 0;
     if (type == "error") type = "danger";
     var aid = "alert-" + bkjs._alertNum++;
-    var html = '<div id=' + aid + ' class="alert alert-dismissible alert-' + type + ' show ' + (options.css || "") + '" role="alert">';
+    var html = '<div id=' + aid + ' class="alert alert-dismissible alert-' + type + ' show fade" role="alert">';
     if (options.icon) html += '<i class="fa fa-fw ' + options.icon + '"></i>';
     html += bkjs.sanitizer.run(bkjs.isS(text) ? options.safe ? text : bkjs.textToEntity(text) :
                                text?.message ? options.safe ? text.message : bkjs.textToEntity(text.message) :
@@ -60,12 +60,10 @@ bkjs.showAlert = function(obj, type, text, options)
     if (!options.append) alerts.empty();
     alerts.append(html);
     if (!options.dismiss) {
-        $(obj).find("#" + aid).delay((options.delay || 3000) * (type == "danger" ? 3 : type == "warning" ? 3 : type == "info" ? 2 : 1)).fadeOut(1000, function () {
-            $(this).alert('close');
-        });
+        setTimeout(() => { $("#" + aid).alert('close') }, (options.delay || 3000) * (type == "danger" ? 3 : type == "warning" ? 3 : type == "info" ? 2 : 1));
     }
     $(obj).find("#" + aid).on('closed.bs.alert', bkjs.cleanupAlerts.bind(bkjs, alerts, options));
-    if (options.scroll) $(obj).animate({ scrollTop: 0 }, "slow");
+    if (options.scroll) alerts[0].scrollIntoView();
 }
 
 bkjs.hideAlert = function(obj, options)

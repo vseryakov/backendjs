@@ -85,7 +85,7 @@
     "bundles": {
       "bkjs": {
         "js": [
-          "web/js/jquery.min.js",
+          "web/js/jquery.slim.min.js",
           "web/js/popper.min.js",
           "web/js/bootstrap.min.js",
           "web/js/knockout.min.js",
@@ -99,7 +99,7 @@
           "web/js/bkjs-bootstrap.js"
         ],
         "js.dev": [
-          "web/js/jquery.js",
+          "web/js/jquery.slim.js",
           "web/js/popper.js",
           "web/js/bootstrap.js",
           "web/js/knockout.js",
