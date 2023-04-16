@@ -154,6 +154,9 @@ tests.test_cache = function(callback)
           });
       },
       function(next) {
+          ipc.del("m1", next)
+      },
+      function(next) {
           ipc.incr("m1", { count: 1, a: "a", mtime: Date.now().toString() }, next)
       },
       function(next) {
