@@ -14,7 +14,7 @@ case "$BKJS_CMD" in
     [ "$?" != "0" ] && exit 1
     err=0
     for file in $files; do
-        [[ $file =~ ^_ ]] && continue
+        [[ $file =~ tests/_ ]] && continue
         fn=$path/$file
         [[ ! -z $skip && $fn =~ $skip ]] && continue
         [[ ! -z $filter && ! $fn =~ $filter ]] && continue
