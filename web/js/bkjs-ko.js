@@ -42,7 +42,7 @@ bkjs.koLogout = function(data, event)
     });
 }
 
-bkjs.koBootpopup = function(options, style)
+bkjs.koBootpopup = function(options, ...args)
 {
     var _before = options.before;
     options.before = function(self) {
@@ -56,7 +56,12 @@ bkjs.koBootpopup = function(options, style)
         options.before = _before;
         options.complete = _complete;
     }
-    return bootpopup(options, style || bkjs.bootpopupStyle);
+    var _shown = options.shown;
+    options.shown = function(e) {
+        if (bkjs.isF(_shown)) _shown.call(this, e, self);
+        bkjs.koApplyPlugins(e.target);
+    }
+    return bootpopup(options, ...args, bkjs.bootpopupStyle);
 }
 
 // Variable utils

@@ -92,9 +92,10 @@
           "web/js/knockout-mapping.min.js",
           "web/js/bootpopup.js",
           "web/js/bkjs.js",
-          "web/js/bkjs-crypto.js",
+          "web/js/bkjs-event.js",
           "web/js/bkjs-lib.js",
           "web/js/bkjs-account.js",
+          "web/js/bkjs-conv.js",
           "web/js/bkjs-ko.js",
           "web/js/bkjs-bootstrap.js"
         ],
@@ -106,9 +107,10 @@
           "web/js/knockout-mapping.js",
           "web/js/bootpopup.js",
           "web/js/bkjs.js",
-          "web/js/bkjs-crypto.js",
+          "web/js/bkjs-event.js",
           "web/js/bkjs-lib.js",
           "web/js/bkjs-account.js",
+          "web/js/bkjs-conv.js",
           "web/js/bkjs-ko.js",
           "web/js/bkjs-bootstrap.js"
         ],
