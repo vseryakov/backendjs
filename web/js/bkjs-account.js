@@ -11,6 +11,37 @@ bkjs.passwordPolicy = {
     '.{8,}': 'requires at least 8 characters',
 };
 
+// Try to authenticate with the supplied login and secret
+bkjs.login = function(options, callback)
+{
+    if (bkjs.isF(options)) callback = options, options = {};
+    options = options || {};
+    if (!options.data) options.data = {};
+    if (!options.url) options.url = "/auth";
+    options.data._session = bkjs.session;
+
+    this.send(options, (data) => {
+        bkjs.loggedIn = true;
+        for (const p in data) bkjs.account[p] = data[p];
+        if (bkjs.isF(callback)) callback.call(options.self || bkjs);
+    }, (err, xhr) => {
+        bkjs.loggedIn = false;
+        for (const p in bkjs.account) delete bkjs.account[p];
+        if (bkjs.isF(callback)) callback.call(options.self || bkjs, err, null, xhr);
+    });
+}
+
+// Logout and clear all cookies and local credentials
+bkjs.logout = function(options, callback)
+{
+    if (bkjs.isF(options)) callback = options, options = {};
+    options = options || {};
+    if (!options.url) options = { url: "/logout" };
+    this.loggedIn = false;
+    for (const p in bkjs.account) delete bkjs.account[p];
+    this.sendRequest(options, callback);
+}
+
 // Verify account secret against the policy
 bkjs.checkPassword = function(secret, policy)
 {
@@ -50,7 +81,7 @@ bkjs.checkAccountType = function(account, type)
 {
     if (!account || !account.type) return false;
     if (!Array.isArray(account.type)) account.type = String(account.type).split(",").map((x) => (x.trim()));
-    if (Array.isArray(type)) return type.some((x) => (account.type.indexOf(x) > -1));
-    return account.type.indexOf(type) > -1;
+    if (Array.isArray(type)) return type.some((x) => (account.type.includes(x)));
+    return account.type.includes(type);
 }
 

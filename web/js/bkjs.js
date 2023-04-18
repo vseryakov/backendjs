@@ -11,9 +11,6 @@ var bkjs = {
     // Support sessions by storing wildcard signature in the cookies
     session: 1,
 
-    // Signature header name and version
-    hver: 4,
-    hsig: "bk-signature",
     htz: "bk-tz",
     hcsrf: "bk-csrf",
 
@@ -51,79 +48,50 @@ var bkjs = {
     isU: (x) => (typeof x === "undefined"),
 };
 
-// Try to authenticate with the supplied credentials, it uses login and secret to sign the request, if not specified it uses
-// already saved credentials. if url is passed then it sends data in POST request to the specified url without any signature.
-bkjs.login = function(options, callback)
+bkjs.fetchOpts = function(options)
 {
-    if (bkjs.isF(options)) callback = options, options = {};
-    options = this.objClone(options, "type", "POST");
-    if (!options.data) options.data = {};
-    if (!options.url) options.url = "/auth";
-    options.data._session = this.session;
+    var headers = options.headers || {};
+    var opts = bkjs.objExtend({
+        headers: headers,
+        method: options.type || "POST",
+        cache: "default",
+    }, options.fetchOptions);
 
-    this.send(options, (data) => {
-        bkjs.loggedIn = true;
-        for (const p in data) bkjs.account[p] = data[p];
-        // Clear credentials from the memory if we use sessions
-        if (bkjs.isF(callback)) callback.call(options.self || bkjs);
-    }, (err, xhr) => {
-        bkjs.loggedIn = false;
-        for (const p in bkjs.account) delete bkjs.account[p];
-        if (bkjs.isF(callback)) callback.call(options.self || bkjs, err, null, xhr);
-    });
-}
-
-// Logout and clear all cookies and local credentials
-bkjs.logout = function(options, callback)
-{
-    if (bkjs.isF(options)) callback = options, options = null;
-    options = this.objClone("type", "POST");
-    if (!options.url) options.url = "/logout";
-    this.loggedIn = false;
-    for (const p in bkjs.account) delete bkjs.account[p];
-    this.sendRequest(options, callback);
+    if (opts.method == "GET" || opts.method == "HEAD") {
+        if (bkjs.isO(options.data)) {
+            options.url += "?" + this.toQuery(options.data);
+        }
+    } else
+    if (bkjs.isS(options.data)) {
+        opts.body = options.data;
+        headers["content-type"] = options.contentType || 'application/x-www-form-urlencoded; charset=UTF-8';
+    } else
+    if (options.data instanceof FormData) {
+        opts.body = options.data;
+        delete headers["content-type"];
+    } else
+    if (bkjs.isO(options.data)) {
+        opts.body = JSON.stringify(options.data);
+        headers["content-type"] = "application/json; charset=UTF-8";
+    } else
+    if (options.data) {
+        opts.body = options.data;
+        headers["content-type"] = options.contentType || "application/octet-stream";
+    }
+    return opts;
 }
 
 bkjs.fetch = function(options, callback)
 {
     try {
-        var headers = options.headers || {};
-
-        var opts = bkjs.objExtend({
-            headers: headers,
-            method: options.type || "POST",
-            cache: "default",
-        }, options.fetchOptions);
-
-        if (opts.method == "GET" || opts.method == "HEAD") {
-            if (bkjs.isO(options.data)) {
-                options.url += "?" + this.toQuery(options.data);
-            }
-        } else
-        if (bkjs.isS(options.data)) {
-            opts.body = options.data;
-            headers["content-type"] = options.contentType || 'application/x-www-form-urlencoded; charset=UTF-8';
-        } else
-        if (options.data instanceof FormData) {
-            opts.body = options.data;
-            delete headers["content-type"];
-        } else
-        if (bkjs.isO(options.data)) {
-            opts.body = JSON.stringify(options.data);
-            headers["content-type"] = "application/json; charset=UTF-8";
-        } else
-        if (options.data) {
-            opts.body = options.data;
-            headers["content-type"] = options.contentType || "application/octet-stream";
-        }
-
+        const opts = this.fetchOpts(options);
         window.fetch(options.url, opts).
         then(async (res) => {
-            var err, data, ctype = res.headers.get("content-type");
-            var info = { status: res.status, headers: {}, type: res.type, ctype: ctype };
+            var err, data;
+            var info = { status: res.status, headers: {}, type: res.type };
             for (const h of res.headers) info.headers[h[0].toLowerCase()] = h[1];
             if (!res.ok) {
-                if (/json/.test(ctype)) {
+                if (/\/json/.test(info.headers["content-type"])) {
                     const d = await res.json();
                     err = { status: res.status };
                     for (const p in d) err[p] = d[p];
@@ -139,17 +107,11 @@ bkjs.fetch = function(options, callback)
             case "blob":
                 data = await res.blob();
                 break;
-            case "script":
-                data = await res.text();
-                var script = document.createElement("script");
-                script.text = data;
-                document.head.appendChild(script).parentNode.removeChild(script);
-                break;
             default:
-                data = /json/.test(ctype) ? await res.json() : await res.text();
+                data = /\/json/.test(info.headers["content-type"]) ? await res.json() : await res.text();
             }
             bkjs.isF(callback) && callback(null, data, info);
-        }).catch((err) => {
+        }).catch ((err) => {
             bkjs.isF(callback) && callback(err);
         });
     } catch (err) {
@@ -167,14 +129,12 @@ bkjs.send = function(options, onsuccess, onerror)
     if (this.locationUrl && !/^https?:/.test(options.url)) options.url = this.locationUrl + options.url;
     if (!options.headers) options.headers = {};
     if (!options.type) options.type = 'POST';
-    if (!options.dataType) options.dataType = 'json';
     options.headers[this.htz] = (new Date()).getTimezoneOffset();
-    if (options.login && options.secret) options.headers[this.hsig] = this.createSignature(options);
     for (const p in this.headers) if (bkjs.isU(options.headers[p])) options.headers[p] = this.headers[p];
     for (const p in options.data) if (bkjs.isU(options.data[p])) delete options.data[p];
     bkjs.event("bkjs.loading", "show");
 
-    this.fetch(options, (err, data, info) => {
+    bkjs[options.xhr ? "xhr" : "fetch"](options, (err, data, info) => {
         bkjs.event("bkjs.loading", "hide");
 
         var h = info?.headers[bkjs.hcsrf];
@@ -371,53 +331,6 @@ bkjs.cookie = function(name)
         }
     }
     return "";
-}
-
-// Create a signature for the request, the url can be an absolute url or just a path, query can be a form data, an object or a string with already
-// encoded parameters, if not given the parameters in the url will be used.
-bkjs.createSignature = function(options)
-{
-    var url = options.url || "", query = options.data;
-    var host = window.location.hostname.toLowerCase();
-    if (url.indexOf('://') > -1) {
-        var u = url.split('/');
-        host = (u[2] || "").split(":")[0].toLowerCase();
-        url = '/' + u.slice(3).join('/');
-    }
-    var now = Date.now();
-    var tag = options.tag || "";
-    var checksum = options.checksum || "";
-    var expires = options.expires || 0;
-    if (!expires || !bkjs.isN(expires)) expires = now + 60000;
-    if (expires < now) expires += now;
-    var ctype = String(options.contentType || "").toLowerCase();
-    if (!ctype && options.type == "POST") ctype = "application/x-www-form-urlencoded; charset=utf-8";
-    var q = url.split("?");
-    url = q[0];
-    if (url[0] != "/") url = "/" + url;
-    if (!query) query = q[1] || "";
-    if (query instanceof FormData) query = "";
-    if (typeof query == "object") query = jQuery.param(query);
-    query = query.split("&").sort().filter((x) => (x != "")).join("&");
-    var str = this.hver + "\n" + tag + "\n" + options.login + "\n" + options.type + "\n" + host + "\n" + url + "\n" + query + "\n" + expires + "\n" + ctype + "\n" + checksum + "\n";
-    var hmac = this.crypto.hmacSha256(options.secret, str, "base64");
-    if (this.debug) this.log('sign:', str);
-    return this.hver + '|' + tag + '|' + options.login + '|' + hmac + '|' + expires + '|' + checksum + '|';
-}
-
-bkjs.event = function(name, data)
-{
-    $(bkjs).trigger(name, data);
-}
-
-bkjs.on = function(name, callback)
-{
-    $(bkjs).on(name, callback);
-}
-
-bkjs.off = function(name, callback)
-{
-    $(bkjs).off(name, callback);
 }
 
 // Simple debugging function that outputs arguments in the error console each argument on a separate line
