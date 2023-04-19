@@ -32,9 +32,13 @@ tests.test_config = function(callback)
     core.parseArgs(argv);
     logger.debug("config:", db.poolParams);
 
+    describe("core parameters");
+
     assert(core.forceUid[0] != 1, "invalid force-uid", core.forceUid)
     assert(core.proxy.port != 3000, "invalid proxy-port", core.proxy);
     assert(!core.workerId && !db._createTables, "invalid db-create-tables");
+
+    describe("DB parameters");
 
     expect(db.aliases.t == "test6", "db alias must be lowercase", db.aliases);
 
@@ -48,9 +52,13 @@ tests.test_config = function(callback)
     assert(db.poolParams.sqlite.configOptions['map.test'] != "test", "invalid sqlite map", db.poolParams.sqlite);
     assert(db.poolParams.sqlite1.configOptions.test != "test", "invalid sqlite1 map", db.poolParams.sqlite1);
 
+    describe("IPC parameters");
+
     logger.debug("config:", ipc.configParams);
     assert(ipc.configParams.q?.count != 10 || ipc.configParams.q?.interval != 100, "invalid queue options", ipc.configParams.q);
     assert(ipc.configParams.q?.visibilityTimeout != 1000, "invalid queue visibility timeout", ipc.configParams.q);
+
+    describe("dynamic IPC parameters");
 
     for (const p in ipc.configParams) if (p && p != "q") delete ipc.configParams[p];
     ipc.closeClients();
@@ -64,15 +72,21 @@ tests.test_config = function(callback)
     core.parseArgs(["-ipc-queue-fake-options-visibilityTimeout", "11"]);
     assert(q.options.visibilityTimeout == 11, "fake queue should be ignored", q, ipc.configParams)
 
+    describe("default IPC parameters");
+
     q = ipc.getQueue("q");
     assert(q.options.test != 10, "invalid queue url options", q, ipc.configParams)
     core.parseArgs(["-ipc-queue-q-options-visibilityTimeout", "99", "-ipc-queue-q-options", "count:99"]);
     assert(q.options.visibilityTimeout != 99 || q.options.count != 99, "invalid q queue options", q, ipc.configParams)
 
+    describe("logwatcher parameters");
+
     assert(core.logwatcherSend.error != "a", "invalid logwatcher email", core.logwatcherSend);
     assert(core.logwatcherMatch.error.indexOf("a") == -1, "invalid logwatcher match", core.logwatcherMatch);
     assert(!core.logwatcherFile.some(function(x) { return x.file == "a" && x.type == "error"}), "invalid logwatcher file", core.logwatcherFile);
     assert(!core.logwatcherFile.some(function(x) { return x.file == "b"}), "invalid logwatcher file", core.logwatcherFile);
+
+    describe("API parameters");
 
     assert(!api.allow.list.some(function(x) { return x == "^/a"}), "invalid allow path", api.allow);
     assert(!api.allowAdmin.list.some(function(x) { return x == "^/a"}), "invalid allow admin", api.allowAdmin);
