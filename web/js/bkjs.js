@@ -231,11 +231,12 @@ bkjs.wsConnect = function(options)
     if (conf.bye) return;
 
     for (const p in options) conf[p] = options[p];
+    if (!conf.query) conf.query = {};
+    for (const p in conf.headers) if (bkjs.isU(conf.query[p])) conf.query[p] = conf.headers[p];
     var url = (conf.protocol || window.location.protocol.replace("http", "ws")) + "//" +
               (conf.host || (conf.hostname ? conf.hostname + "." + this.domainName(window.location.hostname) : "") || window.location.hostname) + ":" +
               (conf.port || window.location.port) +
-              conf.path +
-              (conf.query ? "?" + jQuery.param(conf.query) : "");
+              conf.path + "?" + bkjs.toQuery(conf.query);
 
     this.ws = new WebSocket(url);
     this.ws.onopen = function() {
