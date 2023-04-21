@@ -186,6 +186,12 @@ bkjs.koGetModel = function(name)
     return bkjs.koModels[bkjs.koAliases.viewModel[name]] || bkjs.koModels[name];
 }
 
+bkjs.koGetTemplate = function(name)
+{
+    name = bkjs.toCamel(name);
+    return bkjs.koTemplates[name] || bkjs.koTemplates[bkjs.koAliases.template[name]];
+}
+
 bkjs.koCreateModel = function(name, options)
 {
     if (!name) throw new Error("model name is required");
@@ -209,7 +215,7 @@ bkjs.koCreateModelAlias = function(type, name, alias)
 bkjs.koFindComponent = function(model)
 {
     var name = bkjs.toCamel(model);
-    var tmpl = bkjs.koTemplates[name] || bkjs.koTemplates[bkjs.koAliases.template[name]];
+    var tmpl = bkjs.koGetTemplate(name);
     if (!tmpl) {
         name = bkjs.koAliases.model[name];
         if (name) tmpl = bkjs.koTemplates[name];
