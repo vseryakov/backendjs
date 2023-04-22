@@ -1202,7 +1202,7 @@ bkjs.xhr = function(options, callback)
 {
     const opts = this.fetchOpts(options);
     const r = new XMLHttpRequest();
-    r.open(opts.method, options.url);
+    r.open(opts.method, options.url, options.sync ? false : true);
     if (options.dataType == "blob") r.responseType = "blob";
     for (const h in opts.headers) r.setRequestHeader(h, opts.headers[h]);
     r.onloadend = (ev) => {

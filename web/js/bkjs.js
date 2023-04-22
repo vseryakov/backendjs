@@ -46,6 +46,7 @@ var bkjs = {
     isO: (x) => (typeof x === "object"),
     isN: (x) => (typeof x === "number"),
     isU: (x) => (typeof x === "undefined"),
+    isE: (x) => (x === null || typeof x === "undefined"),
 };
 
 bkjs.fetchOpts = function(options)
