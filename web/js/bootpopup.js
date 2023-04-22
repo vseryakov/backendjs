@@ -333,7 +333,7 @@ function bootpopup(...args)
                                     if (attrs.value && attrs.value == opt) option.selected = true;
                                     children.push($("<option></option>", option).append(this.escape(opt)));
                                 } else
-                                if (opt.name) {
+                                if (opt?.name) {
                                     option.value = attrs.options[j].value || "";
                                     option.selected = typeof opt.selected == "boolean" ? opt.selected : attrs.value && attrs.value == option.value ? true : false;
                                     if (opt.label) option.label = opt.label;
