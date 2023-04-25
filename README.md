@@ -1038,7 +1038,7 @@ watched for changes. For example adding these lines to the local config will ena
 
         watch-web=web/js,web/css,$HOME/src/js,$HOME/src/css
         watch-ignore=.bundle.(js|css)$
-        build-web=bkjs web-bundle -dev
+        watch-build=bkjs web-bundle -dev
 
 
 The simple script below allows to build the bundle and refresh Chrome tab automatically, saves several clicks:
@@ -1051,7 +1051,7 @@ The simple script below allows to build the bundle and refresh Chrome tab automa
 
 To use it call this script instead in the config.local:
 
-        build-web=web-bundle.sh /website
+        watch-build=web-bundle.sh /website
 
 NOTE: Because the rebuild happens while the watcher is running there are cases like the server is restarting or pulling a large update from the
 repository when the bundle build may not be called or called too early. To force rebuild run the command:
