@@ -18,6 +18,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+var bootpopupPlugins = [];
+
 function bootpopup(...args)
 {
     var inputs = [ "text", "color", "url", "password", "hidden", "file", "number",
@@ -54,8 +56,8 @@ function bootpopup(...args)
         class_footer: "modal-footer",
         class_group: "form-group",
         class_options: "options text-center text-md-right",
-        class_alert: "alert alert-danger collapse fade",
-        class_info: "alert alert-info collapse fade",
+        class_alert: "alert alert-danger fade show",
+        class_info: "alert alert-info fade show",
         class_x: "",
         class_form: "",
         class_label: "",
@@ -165,10 +167,10 @@ function bootpopup(...args)
             this.form.data("form-data", this.options.data);
         }
         if (this.options.alert) {
-            this.alert = $("<div></div>", { class: this.options.class_alert }).appendTo(this.form);
+            this.alert = $("<div></div>").appendTo(this.form);
         }
         if (this.options.info) {
-            this.info = $("<div></div>", { class: this.options.class_info }).appendTo(this.form);
+            this.info = $("<div></div>").appendTo(this.form);
         }
 
         var tabs = {}, form = this.form, toggle = /nav-pills/.test(this.options.class_tabs) ? "pill" : "tab";
@@ -486,13 +488,14 @@ function bootpopup(...args)
     }
 
     this.showAlert = function(text, opts) {
-        if (!this[opts?.type || "alert"]) return;
+        var type = opts?.type || "alert";
+        if (!this[type]) return;
         if (text?.message) text = text.message;
         if (typeof text != "string") return;
         if (!opts?.safe) text = bkjs.textToEntity(text.replace(/<br>/g, "\n"));
         text = self.sanitize(text).replace(/\n/g, "<br>");
-        $(this[opts?.type || "alert"]).empty().append(`<p>${text}</p>`).show();
-        setTimeout(() => { $(this[opts?.type || "alert"]).hide() }, this.delay || 10000);
+        $(this[type]).empty().append($(`<div></div>`, { class: this.options['class_' + type], text: text }));
+        setTimeout(() => { $(this[type]).empty() }, this.delay || 10000);
         return null;
     }
 
@@ -526,7 +529,7 @@ function bootpopup(...args)
 
     this.callback = function(name, event) {
         var func = this.options[name];        // Get function to call
-        if (typeof func !== "function") return;
+        if (!bkjs.isF(func)) return;
         this._callback = name;
         // Perform callback
         var a = this.data(), d = {};
@@ -540,7 +543,18 @@ function bootpopup(...args)
     this.addOptions = function(...args) {
         for (const opts of args) {
             for (const key in opts) {
-                if (key in this.options && typeof opts[key] != "undefined") this.options[key] = opts[key];
+                if (key in this.options && typeof opts[key] != "undefined") {
+                    // Chaining all callbacks together, not replacing
+                    if (bkjs.isF(this.options[key])) {
+                        const _o = this.options[key], _n = opts[key];
+                        this.options[key] = function(e) {
+                            if (bkjs.isF(_o)) _o.call(this, e, self);
+                            return _n.call(this, e, self);
+                        }
+                    } else {
+                        this.options[key] = opts[key];
+                    }
+                }
             }
         }
         // Determine what is the best action if none is given
@@ -550,19 +564,9 @@ function bootpopup(...args)
         return this.options;
     }
 
-    this.shown = function() { return this.callback("shown"); }
-    this.dismiss = function() { return this.callback("dismiss"); }
-    this.submit = function() { return this.callback("submit"); }
     this.close = function() { return this.callback("close"); }
-    this.ok = function() { return this.callback("ok"); }
-    this.cancel = function() { return this.callback("cancel"); }
-    this.yes = function() { return this.callback("yes"); }
-    this.no = function() { return this.callback("no"); }
-    this.agree = function() { return this.callback("agree"); }
-    this.button1 = function() { return this.callback("button1"); }
-    this.button2 = function() { return this.callback("button2"); }
 
-    this.addOptions(...args, window.bootpopupOptions);
+    this.addOptions(...args, ...bootpopupPlugins);
     this.create();
     this.show();
 }

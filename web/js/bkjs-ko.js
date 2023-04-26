@@ -42,27 +42,20 @@ bkjs.koLogout = function(data, event)
     });
 }
 
-bkjs.koBootpopup = function(options, ...args)
-{
-    var _before = options.before;
-    options.before = function(self) {
-        if (bkjs.isF(_before)) _before(self);
+// Apply KO to all bootpopups
+bkjs.koBootpopup = bootpopup;
+
+bootpopupPlugins.push({
+    before: function(self) {
         ko.applyBindings(self.options.data || bkjs, self.modal.get(0));
-    }
-    var _complete = options.complete;
-    options.complete = function(event, self) {
-        if (bkjs.isF(_complete)) _complete.call(this, event, self);
+    },
+    complete: function(event, self) {
         ko.cleanNode(self.modal.get(0));
-        options.before = _before;
-        options.complete = _complete;
+    },
+    shown: function(event) {
+        bkjs.koApplyPlugins(event.target);
     }
-    var _shown = options.shown;
-    options.shown = function(e) {
-        if (bkjs.isF(_shown)) _shown.call(this, e, self);
-        bkjs.koApplyPlugins(e.target);
-    }
-    return bootpopup(options, ...args, bkjs.bootpopupStyle);
-}
+});
 
 // Variable utils
 bkjs.koVal = ko.utils.unwrapObservable;
