@@ -547,9 +547,9 @@ function bootpopup(...args)
                     // Chaining all callbacks together, not replacing
                     if (bkjs.isF(this.options[key])) {
                         const _o = this.options[key], _n = opts[key];
-                        this.options[key] = function(e) {
-                            if (bkjs.isF(_o)) _o.call(this, e, self);
-                            return _n.call(this, e, self);
+                        this.options[key] = function(...args) {
+                            if (bkjs.isF(_o)) _o.apply(this, args);
+                            return _n.apply(this, args);
                         }
                     } else {
                         this.options[key] = opts[key];
