@@ -47,10 +47,10 @@ bkjs.koBootpopup = bootpopup;
 
 bootpopupPlugins.push({
     before: function(self) {
-        ko.applyBindings(self.options.data || bkjs, self.modal.get(0));
+        if (self.options.data) ko.applyBindings(self.options.data, self.modal.get(0));
     },
     complete: function(event, self) {
-        ko.cleanNode(self.modal.get(0));
+        if (self.options.data) ko.cleanNode(self.modal.get(0));
     },
     shown: function(event) {
         bkjs.koApplyPlugins(event.target);
