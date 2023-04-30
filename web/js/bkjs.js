@@ -179,32 +179,36 @@ bkjs.sendRequest = function(options, callback)
 // can be specified in the `options.data` object.
 bkjs.sendFile = function(options, callback)
 {
-    var n = 0, form = new FormData(), files = {};
+    var v, n = 0, form = new FormData(), files = {};
     if (options.file) files[options.name || "data"] = options.file;
     for (const p in options.files) files[p] = options.files[p];
     for (const p in files) {
-        var f = this.getFileInput(files[p]);
-        if (!f) continue;
-        form.append(p, f);
+        v = this.getFileInput(files[p]);
+        if (!v) continue;
+        form.append(p, v);
         n++;
     }
     if (!n) return callback && callback.call(options.self || bkjs);
 
-    for (const p in options.data) {
-        switch (typeof options.data[p]) {
-        case "undefined":
-            break;
-        case "object":
-            for (const k in options.data[p]) {
-                if (options.data[p][k] !== undefined) form.append(`${p}[${k}]`, options.data[p][k]);
-            }
-            break;
-        default:
-            form.append(p, options.data[p]);
+    function add(k, v) {
+       form.append(k, bkjs.isF(v) ? v() : v === null || v === true ? "" : v);
+    }
+
+    function build(key, val) {
+        if (val === undefined) return;
+        if (Array.isArray(val)) {
+            for (const i in val) build(`${key}[${typeof val[i] === "object" && val[i] != null ? i : ""}]`, val[i]);
+        } else
+        if (bkjs.isObject(val)) {
+            for (const n in val) build(`${key}[${n}]`, val[n]);
+        } else {
+            add(key, val);
         }
     }
+    for (const p in options.data) build(p, options.data[p]);
+
     // Send within the session, multipart is not supported by signature
-    var rc = { url: options.url, processData: false, data: form, contentType: false };
+    var rc = { url: options.url, data: form };
     for (const p in options) if (bkjs.isU(rc[p])) rc[p] = options[p];
     this.sendRequest(rc, callback);
 }
