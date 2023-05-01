@@ -185,7 +185,7 @@ bkjs.koGetTemplate = function(name)
     return bkjs.koTemplates[name] || bkjs.koTemplates[bkjs.koAliases.template[name]];
 }
 
-bkjs.koCreateModel = function(name, options)
+bkjs.koCreateModel = function(name, options, methods)
 {
     if (!name) throw new Error("model name is required");
     var m = bkjs.koModels[name] = function(params, componentInfo) {
@@ -195,6 +195,7 @@ bkjs.koCreateModel = function(name, options)
     for (const p in options) m[p] = options[p];
     bkjs.inherits(m, bkjs.koViewModel);
     bkjs.koEvent("model.created", { name: name, vm: m });
+    for (const p in methods) if (bkjs.isF(methods[p])) m.prototype[p] = methods[p];
     return m;
 }
 
