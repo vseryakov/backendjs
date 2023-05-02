@@ -739,7 +739,7 @@ bkjs.toQuery = function(obj)
     var rc = [];
 
     function add(k, v) {
-       rc.push(encodeURIComponent(k) + "=" + encodeURIComponent(bkjs.isF(v) ? v() : v === null || v === true ? "" : v));
+       rc.push(encodeURIComponent(k) + "=" + encodeURIComponent(bkjs.isF(v) ? v() : v === null ? v: v === true ? "1" : v));
     }
 
     function build(key, val) {
