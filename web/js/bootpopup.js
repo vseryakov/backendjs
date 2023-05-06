@@ -24,7 +24,7 @@ function bootpopup(...args)
 {
     var inputs = [ "text", "color", "url", "password", "hidden", "file", "number",
        "email", "reset", "date", "time", "checkbox", "radio", "datetime-local",
-       "week", "tel", "search", "range", "reset", "month", "image", "button" ];
+       "week", "tel", "search", "range", "month", "image", "button" ];
 
     // Create a new instance if this is not
     if (!(this instanceof bootpopup)) return new bootpopup(...args);
@@ -518,11 +518,7 @@ function bootpopup(...args)
             if (/radio|checkbox/i.test(e.type) && !e.checked) continue;
             v = $(e).val();
             if (v === undefined || v === "") continue;
-            if (Array.isArray(v)) {
-                for (const a of v) d.push({ name: n, value: a })
-            } else {
-                d.push({ name: n, value: v })
-            }
+            d.push({ name: n, value: v })
         }
         return d;
     },
