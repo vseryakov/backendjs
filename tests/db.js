@@ -473,9 +473,7 @@ tests.test_db = function(callback)
         },
         function(next) {
             db.get("test3", { id: id }, {}, function(err, row) {
-                if (db.pool != "elasticsearch") {
-                    assert(err || !row || (!configOptions.noCustomColumns && row.action1 != 3), "action1 must be 3", row, db.customColumn);
-                }
+                assert(err || !row || (!configOptions.noCustomColumns && row.action1 != 3), "action1 must be 3", row, db.customColumn);
                 expect(row.mapped == "none", "mapped must be none", row)
                 expect(row.tags?.length === 3 && row.tags == "3,4,5", "tags must be a list", row)
                 next();
