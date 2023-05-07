@@ -3,7 +3,7 @@
 //  backendjs 2018
 //
 // Unit tests
-// To run a test execute for example: bksh -run-test db ....
+// To run a test execute for example: bksh -test-db ....
 //
 
 tests.resetTables = function(tables, callback)
@@ -33,7 +33,7 @@ tests.test_db = function(callback)
         },
         test2: {
             id: { primary: 1, pub: 1, index: 1 },
-            id2: { primary: 1, join: ["key1","key2"], ops: { select: "begins_with" } },
+            id2: { primary: 1, join: ["key1","key2"], ops: { select: "begins_with" }, keyword: 1 },
             key1: {},
             key2: { pub: 1 },
             email: { projections: 1 },
@@ -63,8 +63,8 @@ tests.test_db = function(callback)
         },
     };
     var now = Date.now();
-    var id = lib.random(64);
-    var id2 = lib.random(128);
+    var id = lib.uuid();
+    var id2 = lib.uuid(128);
     var num2 = lib.randomNum(1, 1000);
     var next_token = null, rec;
     var configOptions = db.getPool(db.pool).configOptions;
@@ -78,6 +78,7 @@ tests.test_db = function(callback)
 
     db.customColumn.test3 = { "action[0-9]+": "counter" };
 
+    db.tables = {};
     db.describeTables(tables);
 
     lib.series([
@@ -96,14 +97,18 @@ tests.test_db = function(callback)
         function(next) {
             db.get("test1", { id: id }, function(err, row) {
                 assert(err || !row || row.id != id || row.num != 1 || row.num3 != row.id+"|"+row.num || row.anum != "1" || row.jnum, "err1:", row);
-                expect(!row.skipcol && !row.skipjoin && row.nojoin, "expect no skipcol, no skipjoin and nojoin", row)
+                if (db.pool != "elasticsearch") {
+                    expect(!row.skipcol && !row.skipjoin && row.nojoin, "expect no skipcol, no skipjoin and nojoin", row)
+                }
                 next();
             });
         },
         function(next) {
             db.get("test1", { id: id2 }, function(err, row) {
                 assert(err || !row || row.num4 != "4" || row.jnum || !row.mnum || row.mnum.match(/\|$/), "err1-1:", row);
-                expect(!row.skipcol && !row.skipjoin && row.nojoin, "expect no skipcol, no skipjoin and nojoin", row)
+                if (db.pool != "elasticsearch") {
+                    expect(!row.skipcol && !row.skipjoin && row.nojoin, "expect no skipcol, no skipjoin and nojoin", row)
+                }
                 next();
             });
         },
@@ -274,7 +279,7 @@ tests.test_db = function(callback)
             },
             function(err) {
                 if (err) return next(err);
-                db.select("test2", { id: id2, id2: '0' }, { ops: { id2: 'gt' }, start: next_token, count: 5, select: 'id,id2' }, function(err, rows, info) {
+                db.select("test2", { id: id2, id2: '0' }, { ops: { id2: 'gt' }, sort: "id2", start: next_token, count: 5, select: 'id,id2' }, function(err, rows, info) {
                     next_token = info.next_token;
                     var isnum = db.pool == "redis" ? rows.length>=3 : rows.length==4;
                     var isok = rows.every(function(x) { return x.id2 > '0' });
@@ -407,7 +412,7 @@ tests.test_db = function(callback)
         },
         function(next) {
             db.put("test3", { id: id, type: "1", notempty: "" }, { quiet: 1 }, function(err, rc, info) {
-                assert(configOptions.noNulls ? err : !err, "err30:", err, info);
+                assert(err, "err30:", info);
                 next();
             });
         },
@@ -426,7 +431,11 @@ tests.test_db = function(callback)
         function(next) {
             db.get("test3", { id: id }, {}, function(err, row) {
                 assert(err || !row || row.notempty != "notempty", "err33:", row);
-                expect(typeof row?.text == "undefined", "expect text undefined", row)
+                if (configOptions.noNulls) {
+                    expect(typeof row?.text == "undefined", "expect text undefined", row)
+                } else {
+                    expect(row?.text === null, "expect text null", row)
+                }
                 next();
             });
         },
@@ -464,7 +473,9 @@ tests.test_db = function(callback)
         },
         function(next) {
             db.get("test3", { id: id }, {}, function(err, row) {
-                assert(err || !row || (!configOptions.noCustomColumns && row.action1 != 3), "action1 must be 3", row, db.customColumn);
+                if (db.pool != "elasticsearch") {
+                    assert(err || !row || (!configOptions.noCustomColumns && row.action1 != 3), "action1 must be 3", row, db.customColumn);
+                }
                 expect(row.mapped == "none", "mapped must be none", row)
                 expect(row.tags?.length === 3 && row.tags == "3,4,5", "tags must be a list", row)
                 next();

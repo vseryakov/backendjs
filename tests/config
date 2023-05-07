@@ -4,3 +4,6 @@ api-restart=~~
 
 ipc-queue=redis://redis
 ipc-queue-redis=redis://redis
+
+db-elasticsearch-pool-tables=test1,test2,test3
+db-elasticsearch-pool-options-defaultParams={"refresh":true}
