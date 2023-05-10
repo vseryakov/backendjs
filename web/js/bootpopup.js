@@ -494,7 +494,7 @@ function bootpopup(...args)
         if (typeof text != "string") return;
         if (!opts?.safe) text = bkjs.textToEntity(text.replace(/<br>/g, "\n"));
         text = self.sanitize(text).replace(/\n/g, "<br>");
-        $(this[type]).empty().append($(`<div></div>`, { class: this.options['class_' + type], text: text }));
+        $(this[type]).empty().append($(`<div></div>`, { class: this.options['class_' + type], html: text }));
         setTimeout(() => { $(this[type]).empty() }, this.delay || 10000);
         return null;
     }
