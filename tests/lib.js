@@ -362,6 +362,7 @@ tests.test_toparams = function(callback, test)
         empty: { empty: 1, trim: 1, strip: /[.,!]/ },
         state: { type: "list", values: [ "ok","bad","good" ] },
         obj: { type: "obj", params: { id: { type: "int" }, name: {} } },
+        object: { type: "object" },
         arr: { type: "array", params: { id: { type: "int" }, name: {} } },
         json: { type: "json", datatype: "obj" },
         json1: { type: "json", params: { id: { type: "int" }, name: {} } },
@@ -432,6 +433,9 @@ tests.test_toparams = function(callback, test)
 
     q = lib.toParams({ obj: { id: "1", descr: "1", name: "1" } }, schema, opts);
     expect(q.obj?.id === 1 && !q.obj?.descr && q.obj?.name == "1", "expected obj{id=1,name=1}", q);
+
+    q = lib.toParams({ object: { id: "1", descr: "1", name: "1" } }, schema, opts);
+    expect(q.object?.id == "1" && q.object?.descr == "1" && q.object?.name == "1", "expected object{id=1,descr=1,name=1}", q);
 
     q = lib.toParams({ json: lib.stringify({ id: "1", descr: "1", name: "1" }) }, schema, opts);
     expect(q.json?.id == "1" && q.json?.descr == "1" && q.json?.name == "1", "expected json{id=1,descr=1,name=1}", q);
