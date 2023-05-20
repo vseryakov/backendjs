@@ -137,7 +137,7 @@ bkjs.koEvent = function(name, data)
 bkjs.koState = {};
 bkjs.koTemplates = { none: "<div></div>" };
 bkjs.koModels = {};
-bkjs.koAliases = { template: {}, model: {}, viewModel: {} };
+bkjs.koAliases = { template: {}, model: {}, viewModel: {}, instance: {} };
 bkjs.koViewModels = [];
 
 bkjs.koViewModel = function(params, componentInfo)
@@ -185,6 +185,11 @@ bkjs.koGetTemplate = function(name)
     return bkjs.koTemplates[name] || bkjs.koTemplates[bkjs.koAliases.template[name]];
 }
 
+bkjs.koGetViewModel = function(name)
+{
+    return bkjs.koViewModels.filter((x) => (x.koName == name)).pop();
+}
+
 bkjs.koCreateModel = function(name, options)
 {
     if (!name) throw new Error("model name is required");
@@ -220,16 +225,22 @@ bkjs.koFindComponent = function(model)
         return null;
     }
     if (bkjs.debug) console.log("koFindComponent:", model, name, tmpl.substr(0, 64));
+
     return {
         name: name,
         template: tmpl,
         viewModel: {
             createViewModel: function(params, componentInfo) {
-                var VM = bkjs.koGetModel(name);
-                if (bkjs.isF(VM)) {
-                    var vm = new VM(params, componentInfo);
-                    if (bkjs.isF(vm.onCreate)) vm.onCreate(vm.params, componentInfo);
-                    bkjs.koViewModels.push(vm);
+                var vm;
+                if (bkjs.koAliases.instance[name]) {
+                    vm = bkjs.koGetViewModel(bkjs.koAliases.instance[name]);
+                } else {
+                    var VM = bkjs.koGetModel(name);
+                    if (bkjs.isF(VM)) {
+                        vm = new VM(params, componentInfo);
+                        if (bkjs.isF(vm.onCreate)) vm.onCreate(vm.params, componentInfo);
+                        bkjs.koViewModels.push(vm);
+                    }
                 }
                 if (bkjs.debug) console.log("koFindComponent:", model, name, !!vm);
                 bkjs.koEvent("component.created", { name: name, params: params, model: vm, info: componentInfo });
@@ -271,6 +282,21 @@ ko.components.loaders.unshift({
     }
 });
 ko.components.register("none", { template: "<div></div>" });
+
+ko.templateEngine.prototype.makeTemplateSource = function(template, doc) {
+    if (typeof template == "string") {
+        var elem = (doc || document).getElementById(template);
+        if (!elem && bkjs.koTemplates[template]) {
+            elem = ko.utils.parseHtmlFragment(`<template id="${template}">` + bkjs.koTemplates[template] + "</template>", doc)[0];
+        }
+        if (!elem) throw new Error("Cannot find template with ID " + template);
+        return new ko.templateSources.domElement(elem);
+    } else
+    if ((template.nodeType == 1) || (template.nodeType == 8)) {
+        return new ko.templateSources.anonymousTemplate(template);
+    } else
+        throw new Error("Unknown template type: " + template);
+}
 
 // Bootstrap compatible breaking points
 bkjs.koBreakpoint = ko.observable();
