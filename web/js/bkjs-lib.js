@@ -662,9 +662,12 @@ bkjs.toNumber = function(val, options)
 }
 
 // Return a test representation of a number according to the money formatting rules
-bkjs.toPrice = function(num)
+bkjs.toPrice = function(num, options)
 {
-    return this.toNumber(num).toLocaleString("en", { minimumFractionDigits: 2, maximumFractionDigits: 3 });
+    return this.toNumber(num).toLocaleString("en", {
+        minimumFractionDigits: options?.min || 2,
+        maximumFractionDigits: options?.max || 5
+    });
 }
 
 bkjs.toValue = function(val, type, options)
