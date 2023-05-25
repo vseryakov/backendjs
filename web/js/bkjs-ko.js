@@ -34,7 +34,8 @@ bkjs.koLogin = function(data, event)
 
 bkjs.koLogout = function(data, event)
 {
-    bkjs.logout(() => {
+    bkjs.logout((err) => {
+        if (err) return bkjs.showAlert("error", err);
         bkjs.koAuth(0);
         bkjs.koAdmin(0);
         bkjs.koName("");
