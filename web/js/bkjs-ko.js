@@ -145,7 +145,9 @@ bkjs.koViewModel = function(params, componentInfo)
 {
     this.element = componentInfo?.element;
     this.params = bkjs.objExtend({}, params);
-    bkjs.on("bkjs.event." + this.koName, $.proxy(this._handleEvent, this));
+    if (!bkjs.koModels[this.koName].noevents) {
+        bkjs.on("bkjs.event." + this.koName, $.proxy(this._handleEvent, this));
+    }
 }
 
 bkjs.koViewModel.prototype._handleEvent = function(ev, name, event, data)
