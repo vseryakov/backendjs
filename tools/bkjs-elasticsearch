@@ -152,6 +152,16 @@ case "$BKJS_CMD" in
     exit
     ;;
 
+  reindex-elasticsearch)
+    host=$(get_arg -host localhost)
+    index=$(get_arg -index)
+    dest=$(get_arg -dest $index)
+    remote=$(get_arg -remote $host)
+    d='{ "source": { "index": "'$index'", "remote": { "host": "http://'$remote':9200" } }, "dest": {"index": "'$dest'" } }'
+    curl -XPOST -H 'Content-Type:application/json' -d "'$d'" "http://$host:9200/_reindex?wait_for_completion=false"
+    exit
+    ;;
+
   upgrade-elasticsearch-node)
     host=$(get_arg -host localhost)
     memsize=$(get_arg -memsize 50)
@@ -196,8 +206,9 @@ case "$BKJS_CMD" in
 
   elasticsearch-tasks|es-t)
     host=$(get_arg -host localhost)
+    task=$(get_arg -task)
     nodes=$(get_arg -nodes)
-    curl -XGET "http://$host:9200/_tasks?pretty&detailed&nodes=$nodes"
+    curl -XGET "http://$host:9200/_tasks/$task?pretty&detailed&nodes=$nodes"
     exit
     ;;
 
@@ -270,7 +281,7 @@ case "$BKJS_CMD" in
     echo "  elasticsearch-health|es-w [-host HOST] - show cluster health status"
     echo "  elasticsearch-space|es-df [-host HOST] - show cluster disk allocations"
     echo "  elasticsearch-shards|es-s [-host HOST] - show cluster shards allocations and distributions"
-    echo "  elasticsearch-tasks|es-t [-host HOST] [-nodes ID] - show cluster running tasks for all or specific nodes"
+    echo "  elasticsearch-tasks|es-t [-host HOST] [-task ID] [-nodes ID] - show cluster running task(s) for all or specific nodes"
     echo "  elasticsearch-ls|es-ls [-host HOST] - show cluster nodes"
     echo "  elasticsearch-nodes|es-n [-host HOST] - show cluster nodes IDs to be used for other commands by node id"
     echo ""
