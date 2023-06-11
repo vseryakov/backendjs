@@ -207,8 +207,13 @@ case "$BKJS_CMD" in
   elasticsearch-tasks|es-t)
     host=$(get_arg -host localhost)
     task=$(get_arg -task)
-    nodes=$(get_arg -nodes)
-    curl -XGET "http://$host:9200/_tasks/$task?pretty&detailed&nodes=$nodes"
+    if [ "$task" != "" ]; then
+        curl -XGET "http://$host:9200/_tasks/$task?pretty"
+    else
+        nodes=$(get_arg -nodes)
+        actions=$(get_arg -actions)
+        curl -XGET "http://$host:9200/_tasks?pretty&detailed&nodes=$nodes&actions=$actions"
+    fi
     exit
     ;;
 
@@ -247,18 +252,6 @@ case "$BKJS_CMD" in
     exit
     ;;
 
-  migrate-elasticsearch)
-    limit=$(get_arg -limit 250)
-    from=$(get_arg -from)
-    to=$(get_arg -to http://localhost:9200)
-    list="$(curl -XGET $from/_cat/indices?pretty=true -v | cut -d $' ' -f3)"
-    for idx in $list
-    do
-      elasticdump --bulk=true --limit=$limit --output=$to/$idx --input=$from/$idx
-    done
-    exit
-    ;;
-
   init-elasticsearch-cloudwatch-logs)
     echo "BKJS_CLOUDWATCH_LOGS=elasticsearch.log" >> $BKJS_HOME/etc/profile
     $0 init-cloudwatch-agent
@@ -278,10 +271,11 @@ case "$BKJS_CMD" in
     echo "  init-elasticsearch-monit [-memsize PERCENT] [-memmax SIZE] [-nodetype TYPE] - setup monit to keep elasticsearch service running"
     echo "  init-elasticsearch-cloudwatch-logs - setup elastichsearch.log to be sent to CloudWatch Logs"
     echo "  exclude-elasticsearch-node [-host HOST] [-ip IP] - disable a node by IP address"
+    echo "  reindex-elasticsearch -index INDEX [-dest INDEX] [-host HOST] [-remote HOST] - reindex an index from remote host"
     echo "  elasticsearch-health|es-w [-host HOST] - show cluster health status"
     echo "  elasticsearch-space|es-df [-host HOST] - show cluster disk allocations"
     echo "  elasticsearch-shards|es-s [-host HOST] - show cluster shards allocations and distributions"
-    echo "  elasticsearch-tasks|es-t [-host HOST] [-task ID] [-nodes ID] - show cluster running task(s) for all or specific nodes"
+    echo "  elasticsearch-tasks|es-t [-host HOST] [-task ID] [-nodes ID] [-actions FILTER] - show cluster running task(s) for all or specific nodes"
     echo "  elasticsearch-ls|es-ls [-host HOST] - show cluster nodes"
     echo "  elasticsearch-nodes|es-n [-host HOST] - show cluster nodes IDs to be used for other commands by node id"
     echo ""
