@@ -73,7 +73,6 @@ Here is the list of modules required for each internal feature:
 - `web-push` - for Web push notifications
 - `@parse/node-apn` - for Apple push notifications
 - `sharp` - scaling images in uploads using VPS imaging
-- `bkjs-wand` - for scaling images in uploads using ImageMagick module (deprecated)
 - `nats` - NATS driver for queue and events
 - `amqplib` - RabbitMQ driver for queue and events (alpha)
 
