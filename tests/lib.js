@@ -479,6 +479,9 @@ tests.test_search = function(callback, test)
 
 tests.test_totemplate = function(callback, test)
 {
+    var m = lib.toTemplate("email@id@@@com", { id: 1 }, { allow: ["id"] });
+    expect(m == "email1@com", "expected email1@com", "got", m)
+
     var m = lib.toTemplate("/@code@/@id@", { id: 1, code: "A" });
     expect(m == "/A/1", "expected /A/1", "got", m)
 
@@ -508,6 +511,11 @@ tests.test_totemplate = function(callback, test)
 
     var m = lib.toTemplate("/@if code A@@code@/@id@@endif@", { id: 1, code: "A" });
     expect(m == "/A/1", "expected /A/1", "got", m)
+
+    var o = { allow: ["id"] };
+    var m = lib.toTemplate("/@if code AA@@code@@id@/@exit@-@id@@endif@ ", { id: 1, code: "AA" }, o);
+    expect(m == "/1/", "expected /1/", "got", m)
+    expect(o.__exit === undefined, "expected no __exit", o)
 
     var m = lib.toTemplate("/@if code B@@code@/@id@@endif@", { id: 1, code: "A" });
     expect(m == "/", "expected /", "got", m)

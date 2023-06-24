@@ -761,12 +761,57 @@ bkjs.toQuery = function(obj)
 
 bkjs.toTemplate = function(text, obj, options)
 {
-    if (!bkjs.isS(text) || !text) return "";
-    var i, j, rc = [];
-    if (!options) options = {}
+    function encoder(enc, v) {
+        try {
+            switch (enc) {
+            case "url":
+                if (typeof v != "string") v = String(v);
+                v = encodeURIComponent(v);
+                break;
+            case "d-url":
+                if (typeof v != "string") v = String(v);
+                v = decodeURIComponent(v);
+                break;
+            case "base64":
+                if (typeof v != "string") v = String(v);
+                v = window.btoa(v);
+                break;
+            case "d-base64":
+                if (typeof v != "string") v = String(v);
+                v = window.atob(v);
+                break;
+            case "entity":
+                v = bkjs.textToEntity(v);
+                break;
+            case "d-entity":
+                v = bkjs.entityToText(v);
+                break;
+            case "strftime":
+                v = bkjs.strftime(v);
+                break;
+            case "mtime":
+                v = bkjs.toDate(v, null);
+                if (!v) v = 0;
+                break;
+            }
+        } catch (e) {}
+        return v;
+    }
+    return this._toTemplate(text, obj, options, encoder);
+}
+
+bkjs._toTemplate = function(text, obj, options, encoder)
+{
+    if (typeof text != "string" || !text) return "";
+    var i, j, rc = [], top;
+    if (!options) options = {};
+    if (options.__exit === undefined) {
+        top = 1;
+        options.__exit = 0;
+    }
     if (!Array.isArray(obj)) obj = [obj];
     for (i = 0; i < obj.length; i++) {
-        if (bkjs.isO(obj[i]) && obj[i]) rc.push(obj[i]);
+        if (typeof obj[i] == "object" && obj[i]) rc.push(obj[i]);
     }
     var tmpl = "", str = text, sep1 = options.separator1 || "@", sep2 = options.separator2 || sep1;
     while (str) {
@@ -788,6 +833,7 @@ bkjs.toTemplate = function(text, obj, options)
             v = sep1;
         } else
         if (tag == "exit") {
+            options.__exit = 1;
             break;
         } else
         if (tag == "RAND") {
@@ -816,18 +862,18 @@ bkjs.toTemplate = function(text, obj, options)
                 t = t.substr(0, i);
             }
             for (i = 0; i < rc.length && !val; i++) {
-                val = bkjs.isF(rc[i][t]) ? rc[i][t]() : rc[i][t];
-                if (val && field && bkjs.isO(val)) {
+                val = typeof rc[i][t] == "function" ? rc[i][t]() : rc[i][t];
+                if (val && field && typeof val == "object") {
                     field = field.split(".");
                     for (j = 0; val && j < field.length; j++) {
                         val = val ? val[field[j]] : undefined;
-                        if (bkjs.isF(val)) val = val();
+                        if (typeof val == "function") val = val();
                     }
                 }
             }
             switch (d[1]) {
             case "if":
-                ok = val && this.isFlag(this.strSplit(d[3]), this.strSplit(val));
+                ok = val && bkjs.isFlag(bkjs.strSplit(d[3]), bkjs.strSplit(val));
                 break;
             case "ifnull":
                 ok = val === null || val === undefined;
@@ -836,20 +882,20 @@ bkjs.toTemplate = function(text, obj, options)
                 ok = !!val;
                 break;
             case "ifempty":
-                ok = this.isEmpty(val);
+                ok = bkjs.isEmpty(val);
                 break;
             case "ifne":
                 ok = val != d[3];
                 break;
             case "ifnot":
-                ok = !val || !this.isFlag(this.strSplit(d[3]), this.strSplit(val));
+                ok = !val || !bkjs.isFlag(bkjs.strSplit(d[3]), bkjs.strSplit(val));
                 break;
             case "ifall":
-                val = this.strSplit(val);
-                ok = this.strSplit(d[3]).every((x) => (val.indexOf(x) > -1));
+                val = bkjs.strSplit(val);
+                ok = bkjs.strSplit(d[3]).every((x) => (val.includes(x)));
                 break;
             case "ifstr":
-                ok = val && String(val).match(new RegExp(d[3], "i"));
+                ok = bkjs.testRegexp(val || "", bkjs.toRegexp(d[3], "i"));
                 break;
             case "ifeq":
                 ok = val == d[3];
@@ -889,63 +935,32 @@ bkjs.toTemplate = function(text, obj, options)
                     }
                 }
                 for (i = 0; i < rc.length && !v; i++) {
-                    v = bkjs.isF(rc[i][tag]) ? rc[i][tag]() : rc[i][tag];
-                    if (v && field && bkjs.isO(v)) {
+                    v = typeof rc[i][tag] == "function" ? rc[i][tag]() : rc[i][tag];
+                    if (v && field && typeof v == "object") {
                         field = field.split(".");
                         for (j = 0; v && j < field.length; j++) {
                             v = v ? v[field[j]] : undefined;
-                            if (bkjs.isF(v)) v = v();
+                            if (typeof v == "function") v = v();
                         }
                     }
                 }
-                if (bkjs.isF(options.preprocess)) v = options.preprocess(tag, field, v, dflt, enc);
+                if (typeof options.preprocess == "function") v = options.preprocess(tag, field, v, dflt, enc);
             } else {
                 tmpl += sep1 + tag + sep2;
+                continue;
             }
+            if (Array.isArray(options.allow) && !options.allow.includes(tag)) continue;
+            if (Array.isArray(options.skip) && options.skip.includes(tag)) continue;
+            if (Array.isArray(options.only) && !options.only.includes(tag)) v = sep1 + tag + sep2;
         }
         if (!v) v = dflt;
-        if (v) {
-            try {
-                switch (enc) {
-                case "url":
-                    if (typeof v != "string") v = String(v);
-                    v = encodeURIComponent(v);
-                    break;
-                case "d-url":
-                    if (typeof v != "string") v = String(v);
-                    v = decodeURIComponent(v);
-                    break;
-                case "base64":
-                    if (typeof v != "string") v = String(v);
-                    v = window.btoa(v);
-                    break;
-                case "d-base64":
-                    if (typeof v != "string") v = String(v);
-                    v = window.atob(v);
-                    break;
-                case "entity":
-                    v = bkjs.textToEntity(v);
-                    break;
-                case "d-entity":
-                    v = bkjs.entityToText(v);
-                    break;
-                case "strftime":
-                    v = bkjs.strftime(v);
-                    break;
-                case "mtime":
-                    v = bkjs.toDate(v, null);
-                    if (!v) v = 0;
-                    break;
-                }
-            } catch (e) {}
-        }
-        if (Array.isArray(options.allow) && !options.allow.includes(tag)) continue;
-        if (Array.isArray(options.skip) && options.skip.includes(tag)) continue;
-        if (Array.isArray(options.only) && !options.only.includes(tag)) v = sep1 + tag + sep2;
+        if (v && encoder) v = encoder(enc, v, options);
         if (v !== null && v !== undefined) tmpl += v;
+        if (options.__exit) break;
     }
     if (options.noline) tmpl = tmpl.replace(/[\r\n]/g, "");
     if (options.nospace) tmpl = tmpl.replace(/ {2,}/g, " ").trim();
+    if (top) delete options.__exit;
     return tmpl;
 }
 
