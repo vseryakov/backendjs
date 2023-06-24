@@ -477,3 +477,42 @@ tests.test_search = function(callback, test)
     callback();
 }
 
+tests.test_totemplate = function(callback, test)
+{
+    var m = lib.toTemplate("/@code@/@id@", { id: 1, code: "A" });
+    expect(m == "/A/1", "expected /A/1", "got", m)
+
+    var m = lib.toTemplate("/@code@/@id@@n@", { id: 1, code: "A" });
+    expect(m == "/A/1\n", "expected /A/1\\n", "got", m)
+
+    var m = lib.toTemplate("/@code@/@id@ @exit@", { id: 1, code: "A" });
+    expect(m == "/A/1 ", "expected /A/ ", "got", m)
+
+    var m = lib.toTemplate("/@code@/@id@", { id: 1, code: "A" } , { allow: ["id"] });
+    expect(m == "//1", "expected //1", "got", m)
+
+    var m = lib.toTemplate("/@code@/@id@", { id: 1, code: "A" }, { skip: ["id"] });
+    expect(m == "/A/", "expected /A/", "got", m)
+
+    var m = lib.toTemplate("/@code@/@id@", { id: 1, code: "A" }, { only: ["id"] });
+    expect(m == "/@code@/1", "expected /@code@/2", "got", m)
+
+    m = lib.toTemplate("/@code@/@id@", { id: " ", code: "A" }, { encoding: "url" });
+    expect(m == "/A/%20", "expected /A/%20", "got", m)
+
+    m = lib.toTemplate("Hello @name|friend@!", {});
+    expect(m == "Hello friend!", "expected default freind", "got", m)
+
+    var m = lib.toTemplate("/@deep.code@/@id@", { id: 1, deep: { code: "A" } });
+    expect(m == "/A/1", "expected /A/1", "got", m)
+
+    var m = lib.toTemplate("/@if code A@@code@/@id@@endif@", { id: 1, code: "A" });
+    expect(m == "/A/1", "expected /A/1", "got", m)
+
+    var m = lib.toTemplate("/@if code B@@code@/@id@@endif@", { id: 1, code: "A" });
+    expect(m == "/", "expected /", "got", m)
+
+    callback();
+}
+
+

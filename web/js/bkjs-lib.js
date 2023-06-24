@@ -788,10 +788,17 @@ bkjs.toTemplate = function(text, obj, options)
             v = sep1;
         } else
         if (tag == "exit") {
-            options.exit = 1;
+            break;
         } else
         if (tag == "RAND") {
             v = Math.random();
+            tmpl += v;
+            continue;
+        } else
+        if (tag == "n" || tag == "p") {
+            v = tag == "p" ? "\n\n" : "\n";
+            tmpl += v;
+            continue;
         } else
         if (/^if/.test(tag)) {
             // @if type tester,admin@
@@ -901,15 +908,19 @@ bkjs.toTemplate = function(text, obj, options)
             try {
                 switch (enc) {
                 case "url":
+                    if (typeof v != "string") v = String(v);
                     v = encodeURIComponent(v);
                     break;
                 case "d-url":
+                    if (typeof v != "string") v = String(v);
                     v = decodeURIComponent(v);
                     break;
                 case "base64":
+                    if (typeof v != "string") v = String(v);
                     v = window.btoa(v);
                     break;
                 case "d-base64":
+                    if (typeof v != "string") v = String(v);
                     v = window.atob(v);
                     break;
                 case "entity":
@@ -928,11 +939,10 @@ bkjs.toTemplate = function(text, obj, options)
                 }
             } catch (e) {}
         }
-        if (Array.isArray(options.allow) && options.allow.indexOf(tag) == -1) continue;
-        if (Array.isArray(options.skip) && options.skip.indexOf(tag) > -1) continue;
-        if (Array.isArray(options.only) && options.only.indexOf(tag) == -1) continue;
+        if (Array.isArray(options.allow) && !options.allow.includes(tag)) continue;
+        if (Array.isArray(options.skip) && options.skip.includes(tag)) continue;
+        if (Array.isArray(options.only) && !options.only.includes(tag)) v = sep1 + tag + sep2;
         if (v !== null && v !== undefined) tmpl += v;
-        if (options.exit) break;
     }
     if (options.noline) tmpl = tmpl.replace(/[\r\n]/g, "");
     if (options.nospace) tmpl = tmpl.replace(/ {2,}/g, " ").trim();
