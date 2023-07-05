@@ -693,7 +693,11 @@ bkjs.toValue = function(val, type, options)
     case "map":
         return this.strSplit(val, options?.delimiter || ",").
                map((y) => (this.strSplit(y, options?.separator || /[:;]/, options))).
-               reduce((a, b) => { a[b[0]] = b.length == 2 ? b[1] : b.slice(1); return a }, {});
+               reduce((a, b) => {
+                a[b[0]] = b.length == 2 ? b[1] : b.slice(1);
+                if (options?.maptype) a[b[0]] = this.toValue(a[b[0]], options.maptype);
+                return a
+            }, {});
 
     case "expr":
     case "buffer":
