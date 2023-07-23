@@ -868,14 +868,14 @@ bkjs._toTemplate = function(text, obj, options, encoder)
             tmpl += v;
             continue;
         } else
-        if (/^if/.test(tag)) {
+        if (tag.startsWith("if")) {
             // @if type tester,admin@
             // @endif@
             end = str.indexOf(sep1 + "endif" + sep2);
             if (end == -1) continue;
             var body = str.substr(0, end);
             str = str.substr(end + 5 + sep1.length + sep2.length);
-            d = tag.match(/^(if|ifnull|ifnotnull|ifne|ifeq|ifgt|ifge|iflt|ifle|ifnot|ifall|ifstr) ([a-zA-Z0-9._-]+) +(.+)$/)
+            d = tag.match(/^(if|ifnull|ifnotnull|ifempty|ifnotempty|ifne|ifeq|ifgt|ifge|iflt|ifle|ifnot|ifall|ifstr) ([a-zA-Z0-9._-]+) *(.*)$/)
             if (!d) continue;
             var ok, val = null, t = d[2];
             i = t.indexOf(".");
@@ -894,9 +894,6 @@ bkjs._toTemplate = function(text, obj, options, encoder)
                 }
             }
             switch (d[1]) {
-            case "if":
-                ok = val && bkjs.isFlag(bkjs.strSplit(d[3]), bkjs.strSplit(val));
-                break;
             case "ifnull":
                 ok = val === null || val === undefined;
                 break;
@@ -905,6 +902,12 @@ bkjs._toTemplate = function(text, obj, options, encoder)
                 break;
             case "ifempty":
                 ok = bkjs.isEmpty(val);
+                break;
+            case "ifnotempty":
+                ok = !bkjs.isEmpty(val);
+                break;
+            case "if":
+                ok = val && bkjs.isFlag(bkjs.strSplit(d[3]), bkjs.strSplit(val));
                 break;
             case "ifne":
                 ok = val != d[3];

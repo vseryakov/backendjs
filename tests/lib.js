@@ -520,6 +520,12 @@ tests.test_totemplate = function(callback, test)
     var m = lib.toTemplate("/@if code B@@code@/@id@@endif@", { id: 1, code: "A" });
     expect(m == "/", "expected /", "got", m)
 
+    var m = lib.toTemplate("/@ifempty code@@id@@endif@", { id: 1 });
+    expect(m == "/1", "empty, expected /1", "got", m)
+
+    var m = lib.toTemplate("/@ifempty v@@ifnotempty code@@id@@endif@@endif@", { id: 1, code: 1 });
+    expect(m == "/1", "notempty expected /1", "got", m)
+
     callback();
 }
 
