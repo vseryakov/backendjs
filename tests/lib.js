@@ -477,6 +477,20 @@ tests.test_search = function(callback, test)
     callback();
 }
 
+tests.test_skip32 = function(callback)
+{
+    // these are the default test values from the original C code
+    var KEY = [ 0x00,0x99,0x88,0x77,0x66,0x55,0x44,0x33,0x22,0x11 ];
+    var INPUT = parseInt("33221100", 16)
+    var ENCRYPTED = parseInt("819d5f1f", 16);
+    var e = lib.toSkip32("",KEY,INPUT)
+    var d = lib.toSkip32("d",KEY,e)
+    expect(ENCRYPTED === e, "expected", ENCRYPTED, "got", e);
+    expect(INPUT === d, "expected", INPUT, "got", d);
+
+    callback();
+}
+
 tests.test_totemplate = function(callback, test)
 {
     var m = lib.toTemplate("email@id@@@com", { id: 1 }, { allow: ["id"] });
