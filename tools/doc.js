@@ -47,7 +47,7 @@ if (!lib.isArg("-nohdr")) {
             <div><a href="/"><img class="logo" height=22 src="img/logo.png"></a>
                 <span class="px-2">Backend library for Node.js</span>
             </div>
-            <a href="http://github.com/${lib.getArg("-github", "vseryakov/backendjs")}">[Github]</a>
+            <a href="${lib.getArg("-repo", "https://github.com/vseryakov/backendjs")}">[Repository]</a>
         </div>`;
     footer = "</div></body>";
 }
