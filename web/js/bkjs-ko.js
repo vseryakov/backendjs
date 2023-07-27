@@ -174,7 +174,7 @@ bkjs.koViewModel.prototype.dispose = function()
     }
     delete this.element;
     delete this.params;
-    bkjs.koViewModels.splice(bkjs.koViewModels.indexOf(this));
+    bkjs.koViewModels = bkjs.koViewModels.filter((x) => (x !== this));
 }
 
 bkjs.koGetModel = function(name)
