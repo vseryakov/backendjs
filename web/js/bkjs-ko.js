@@ -188,9 +188,17 @@ bkjs.koGetTemplate = function(name)
     return bkjs.koTemplates[name] || bkjs.koTemplates[bkjs.koAliases.template[name]];
 }
 
-bkjs.koGetViewModel = function(name)
+bkjs.koGetViewModel = function(options)
 {
-    return bkjs.koViewModels.filter((x) => (x.koName == name)).pop();
+    if (typeof options == "string") {
+        return bkjs.koViewModels.filter((x) => (x.koName === options)).shift();
+    }
+    if (options?.nodeType) {
+        return bkjs.koViewModels.filter((x) => (x.element === options)).shift();
+    }
+    if (this.isObject(options)) {
+        return bkjs.koViewModels.filter((x) => (Object.keys(options).every((y) => (x.params[y] === options[y])))).shift();
+    }
 }
 
 bkjs.koCreateModel = function(name, options)
