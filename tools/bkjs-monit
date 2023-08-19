@@ -57,7 +57,7 @@ case "$BKJS_CMD" in
                 [[ $host =~ amazonaws ]] && server="$server port 465"
                 [[ ! -z $user ]] && server="$server username $user"
                 [[ ! -z $password ]] && server="$server password $password"
-                [[ $host =~ amazonaws ]] && server="$server using tlsv1"
+                [[ $host =~ amazonaws ]] && server="$server using tlsv12"
                 $ECHO $server >> /etc/monit.d/alert.conf
             fi
             monit reload
