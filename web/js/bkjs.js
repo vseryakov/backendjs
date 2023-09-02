@@ -138,8 +138,16 @@ bkjs.send = function(options, onsuccess, onerror)
     bkjs[options.xhr ? "xhr" : "fetch"](options, (err, data, info) => {
         bkjs.event("bkjs.loading", "hide");
 
-        var h = info?.headers[bkjs.hcsrf];
-        if (h) bkjs.headers[bkjs.hcsrf] = h;
+        var h = info?.headers[bkjs.hcsrf] || "";
+        switch (h) {
+        case "":
+            break;
+        case "0":
+            delete bkjs.headers[bkjs.hcsrf];
+            break;
+        default:
+            bkjs.headers[bkjs.hcsrf] = h;
+        }
 
         if (err) {
             if (!options.quiet) bkjs.log('send:', err, options);
