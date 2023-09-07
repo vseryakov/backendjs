@@ -15,11 +15,11 @@
     "cookie": "0.5.0",
     "cookie-parser": "1.4.6",
     "qs": "6.11.2",
-    "ws": "8.13.0",
+    "ws": "8.14.0",
     "uuid": "9.0.0",
     "hashids": "2.3.0",
-    "cron": "2.4.1",
-    "nodemailer": "6.9.4",
+    "cron": "2.4.3",
+    "nodemailer": "6.9.5",
     "xml2json": "0.12.0",
     "mime": "3.0.0",
     "microtime": "3.1.1"
@@ -30,7 +30,7 @@
     "uglifycss": "0.0.29"
   },
   "modDependencies": {
-    "argon2": "0.31.0",
+    "argon2": "0.31.1",
     "bcrypt": "5.1.1",
     "mmmagic": "0.5.3",
     "http-proxy": "1.18.1",
@@ -38,7 +38,7 @@
     "pg": "8.11.3",
     "bkjs-sqlite": "0.3.0",
     "unix-dgram": "2.0.6",
-    "web-push": "3.6.4",
+    "web-push": "3.6.5",
     "@parse/node-apn": "5.2.3",
     "sharp": "0.32.5",
     "nats": "2.16.0",
