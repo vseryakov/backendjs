@@ -28,7 +28,6 @@ Features:
 * Supports async jobs processing using several work queue implementations on top of SQS, Redis, NATS, DB, RabbitMQ, Hazelcast.
 * REPL (command line) interface for debugging and looking into server internals.
 * Supports push notifications via Webpush, APN and FCM.
-* Supports HTTP(S) reverse proxy mode where multiple Web workers are load-balanced by the proxy
   server running in the master process instead of relying on the OS scheduling between processes listening on the same port.
 * Can be used with any MVC, MVVC or other types of frameworks that work on top of, or with, the Express server.
 * AWS support is very well integrated including EC2, S3, DynamoDB, SQS and more.
@@ -1121,17 +1120,6 @@ When launching from an EC2 instance no need to specify any AWS credentials.
 ### Update Route53 with all IPs from running instances
 
     bksh -aws-set-route53 -name elasticsearch.ec-internal -filter elasticsearch
-
-## Proxy mode
-
-By default the Web proceses spawned by the server are load balanced using default cluster module which relies on the OS to do scheduling. On Linux with node 0.10
-this is proven not to work properly due to the kernel keeping the context switches to a minimum thus resulting in one process to be very busy while the others
-idle. Node versions 4 and above perform round-robin by default.
-
-For such case the Backendjs implements the proxy mode by setting `proxy-port` config parameter to any number above 1000, this will be the initial
-port for the web processes to listen for incoming requests, for example if use `-proxy-port 3000` and launch 2 web processes they will listen on ports
-3000 and 3001. The main server process will start internal HTTP proxy and will perform round-robin load balancing the incoming requests between the web processes by forwarding
-them to the web processes over TCP and then returning the responses back to the clients.
 
 ## Configure HTTP port
 

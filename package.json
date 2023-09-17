@@ -33,7 +33,6 @@
     "argon2": "0.31.1",
     "bcrypt": "5.1.1",
     "mmmagic": "0.5.3",
-    "http-proxy": "1.18.1",
     "redis": "3.1.2",
     "pg": "8.11.3",
     "bkjs-sqlite": "0.3.0",
