@@ -188,7 +188,7 @@ case "$BKJS_CMD" in
 
   elasticsearch-map|es-map)
     host=$(get_arg -host localhost)
-    table=$(echo $(get_all_args -table))
+    table=$(get_arg -table)
     curl -sS http://$host:9200/$table/_mappings|node -e "console.log(util.inspect(JSON.parse(fs.readFileSync(0).toString()),null,null))"
     exit
     ;;
