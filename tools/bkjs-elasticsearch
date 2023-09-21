@@ -188,7 +188,7 @@ case "$BKJS_CMD" in
 
   elasticsearch-map|es-map)
     host=$(get_arg -host localhost)
-    table=$(echo $(get_all_args -host))
+    table=$(echo $(get_all_args -table))
     curl -sS http://$host:9200/$table/_mappings|node -e "console.log(util.inspect(JSON.parse(fs.readFileSync(0).toString()),null,null))"
     exit
     ;;
@@ -285,7 +285,7 @@ case "$BKJS_CMD" in
     echo "  elasticsearch-tasks|es-t [-host HOST] [-task ID] [-nodes ID] [-actions FILTER] - show cluster running task(s) for all or specific nodes"
     echo "  elasticsearch-ls|es-ls [-host HOST] - show cluster nodes"
     echo "  elasticsearch-nodes|es-n [-host HOST] - show cluster nodes IDs to be used for other commands by node id"
-    echo "  elasticsearch-map|es-mqp [-host HOST] TABLE - show mappings for a table"
+    echo "  elasticsearch-map|es-map [-host HOST] TABLE - show mappings for a table"
     echo ""
     ;;
 esac
