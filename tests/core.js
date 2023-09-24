@@ -2,7 +2,6 @@
 tests.test_config = function(callback)
 {
     var argv = ["-force-uid", "1,1",
-                "-proxy-port", "3000",
                 "-api-allow-path", "^/a",
                 "-api-allow-admin", "^/a",
                 "-api-allow-account-dev=^/a",
@@ -35,7 +34,6 @@ tests.test_config = function(callback)
     describe("core parameters");
 
     assert(core.forceUid[0] != 1, "invalid force-uid", core.forceUid)
-    assert(core.proxy.port != 3000, "invalid proxy-port", core.proxy);
     assert(!core.workerId && !db._createTables, "invalid db-create-tables");
 
     describe("DB parameters");
