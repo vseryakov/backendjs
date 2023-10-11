@@ -561,7 +561,11 @@ case "$BKJS_CMD" in
                     esac
                 done
                 if [[ -z $dev ]]; then
-                    if [[ ! -z $(get_flag -gcc) ]]; then
+                    if [[ ! -z $(get_flag -esbuild) ]]; then
+                        esbuildargs="--minify $(get_arg -esbuildargs)"
+                        esbuild $esbuildargs $jsfiles >> $dir/web/js/$bundle.bundle.js
+                        [ "$?" != "0" ] && exit 1
+                    elif [[ ! -z $(get_flag -gcc) ]]; then
                         gccargs=" $(get_arg -gccargs)"
                         npx google-closure-compiler $gccargs $jsfiles >> $dir/web/js/$bundle.bundle.js
                         [ "$?" != "0" ] && exit 1
