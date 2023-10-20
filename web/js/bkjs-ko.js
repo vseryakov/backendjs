@@ -60,6 +60,8 @@ bootpopupPlugins.push({
 
 // Variable utils
 bkjs.koVal = ko.utils.unwrapObservable;
+bkjs.isKo = (v) => (ko.isObservable(v))
+bkjs.isKa = (v) => (ko.isObservableArray(v))
 
 bkjs.koGet = function(name, dflt)
 {
@@ -81,7 +83,7 @@ bkjs.koSet = function(name, val, quiet)
         if (!bkjs.isS(key)) continue;
         key = key.replace(/[^a-zA-z0-9_]/g, "_");
         if (ko.isComputed(bkjs.koState[key])) continue;
-        if (ko.isObservable(bkjs.koState[key])) {
+        if (bkjs.isKo(bkjs.koState[key])) {
             old = bkjs.koState[key]();
             bkjs.koState[key](val);
         } else {
@@ -98,11 +100,11 @@ bkjs.koSetObject = function(obj, options)
     for (const p in obj) {
         if (!bkjs.isU(options[p])) continue;
         if (ko.isComputed(obj[p])) continue;
-        if (ko.isObservable(obj[p])) obj[p](undefined); else obj[p] = undefined;
+        if (bkjs.isKo(obj[p])) obj[p](undefined); else obj[p] = undefined;
     }
     for (const p in options) {
         if (ko.isComputed(obj[p])) continue;
-        if (ko.isObservable(obj[p])) obj[p](bkjs.koVal(options[p])); else obj[p] = bkjs.koVal(options[p]);
+        if (bkjs.isKo(obj[p])) obj[p](bkjs.koVal(options[p])); else obj[p] = bkjs.koVal(options[p]);
     }
     return obj;
 }
@@ -112,7 +114,7 @@ bkjs.koUpdateObject = function(obj, options)
     if (!obj || !bkjs.isO(obj)) obj = {};
     for (const p in options) {
         if (ko.isComputed(obj[p])) continue;
-        if (ko.isObservable(obj[p])) obj[p](bkjs.koVal(options[p])); else obj[p] = bkjs.koVal(options[p]);
+        if (bkjs.isKo(obj[p])) obj[p](bkjs.koVal(options[p])); else obj[p] = bkjs.koVal(options[p]);
     }
     return obj;
 }
@@ -120,7 +122,7 @@ bkjs.koUpdateObject = function(obj, options)
 bkjs.koConvert = function(obj, name, val, dflt)
 {
     if (!obj || !bkjs.isO(obj)) obj = {};
-    if (!ko.isObservable(obj[name])) {
+    if (!bkjs.isKo(obj[name])) {
         obj[name] = Array.isArray(val || dflt) ? ko.observableArray(obj[name]) : ko.observable(obj[name]);
     }
     if (!bkjs.isU(val)) obj[name](val);
