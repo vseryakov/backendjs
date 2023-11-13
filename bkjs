@@ -127,44 +127,19 @@ get_value() {
   echo "${v:-$3}"
 }
 
-# Return config parameter value by name from the commandline or database
-get_config() {
-  for ((i = 0;i < ${#BKJS_ARGS[@]}; ++i)); do
-    [ "$2" = "${BKJS_ARGS[i]}" ] && eval "$1=${BKJS_ARGS[i+1]}" && return 0
-  done
-  json=$BKJS_HOME/tmp/config.json
-  [ ! -f $json -o "$(find $BKJS_HOME/tmp -name config.json -mmin +60)" != "" ] && $0 shell -log none -db-get-config -ipc-none -no-modules -no-db-config -db-no-cache-columns -db-local-tables > $json
-  v=$(node -e "try{var v=JSON.parse(fs.readFileSync('$json')).filter(x=>(x.name=='${2:1}')).pop();if(v&&v.value)console.log(v.value)}catch(e){}")
-  [ "$v" != "" ] && eval "$1=$v" && return
-  [ "$3" != "" ] && eval "$1=$3"
-}
-
-# Return the value for the given named config parameter from the database
-get_config_value() {
-  [ "$1" == "" ] && return
-  echo $($0 shell -log none -db-get-config -ipc-none -no-modules -no-db-config -db-no-cache-columns -db-local-tables -format value name "$1")
-}
-
-# Return a config parameter by name from local config files
-get_local_config() {
-  for f in $BKJS_HOME/etc/config $BKJS_HOME/etc/config.local; do [ -f $f ] && cfg="$cfg $f"; done
-  [ "$cfg" != "" ] && v=$(cat $cfg|egrep -Eo "$1=.+"|tail -1|sed "s/$1=//")
-  echo ${v:-$2}
-}
-
 # Local IP address, not localhost
 get_local_ip() {
   echo $(/sbin/ifconfig eth${1:-0}|grep -o -E '(inet [0-9.]+|inet addr:[0-9.]+)'|tr : ' '|awk '{print $NF}')
 }
 
-# Return the value for a property from a json file: get_json file.json name fallback
+# Return the value for a property from a json file: get_json file.json name fallback realpath
 get_json() {
-  ${NODE_BIN:-node} -e "try{o=JSON.parse(fs.readFileSync('$1'));v=o.$2||o['$3'];if(Array.isArray(v))v=v.join(' ');if(v&&typeof v=='object')v=Object.keys(v).join(' ');if(typeof v!='undefined')console.log(v)}catch(e){}"
+  ${NODE_BIN:-node} -e "try{o=JSON.parse(fs.readFileSync('$1'));v=o.$2||o['$3'];if(Array.isArray(v)){if('$4'.includes('realpath'))v=v.map(x=>(!x.includes('@')&&fs.realpathSync(x)||x));v=v.join(' ')};if(v&&typeof v=='object')v=Object.keys(v).join(' ');if(typeof v!='undefined')console.log(v)}catch(e){if('$BKJS_DEBUG')console.error(e)}"
 }
 
 # Return the value for a property from a json file, object properties are flattened first to support property names with spaces or dashes
 get_json_flat() {
-  ${NODE_BIN:-node} -e "function f(o){var r={};for(var p in o){if(!Array.isArray(o[p])&&typeof o[p]=='object'){var a=f(o[p]);for(var x in a)r[p+'.'+x]=a[x]}else r[p]=o[p]};return r};try{o=f(JSON.parse(fs.readFileSync('$1')));v=o['$2']||o['$3'];if(Array.isArray(v))v=v.join(' ');if(v&&typeof v=='object')v=Object.keys(v).join(' ');if(typeof v!='undefined')console.log(v)}catch(e){}"
+  ${NODE_BIN:-node} -e "function f(o){var r={};for(var p in o){if(!Array.isArray(o[p])&&typeof o[p]=='object'){var a=f(o[p]);for(var x in a)r[p+'.'+x]=a[x]}else r[p]=o[p]};return r};try{o=f(JSON.parse(fs.readFileSync('$1')));v=o['$2']||o['$3'];if(Array.isArray(v)){if('$4'.includes('realpath'))v=v.map(x=>(!x.includes('@')&&fs.realpathSync(x)||x));v=v.join(' ')};if(v&&typeof v=='object')v=Object.keys(v).join(' ');if(typeof v!='undefined')console.log(v)}catch(e){if('$BKJS_DEBUG')console.error(e)}"
 }
 
 # Return real path a file
@@ -497,9 +472,9 @@ case "$BKJS_CMD" in
     else
        dir=$(dirname $file)
        while ! [ -e "$dir/package.json" ] && [ -n "$dir" ] && [ "$dir" != "." ]; do dir=${dir%/*}; done
-       file=$(echo $file|sed "s|$dir/||")
-       type=${file##*.}
-       name=${file%.*}
+       base=$(echo $file|sed "s|$dir/||")
+       type=${base##*.}
+       name=${base%.*}
     fi
     if [ ! -f $dir/package.json ]; then
        [ "$BKJS_DEBUG" != "" ] && echo "$(date): $BKJS_CMD: package.json is not found"
@@ -512,10 +487,10 @@ case "$BKJS_CMD" in
 
     for b in $bundles; do
         unset f
-        [[ ! -z $dev ]] && f=$(get_json_flat $dir/package.json config.bundles.$b.$type.dev)
-        [[ -z $f ]] && f=$(get_json_flat $dir/package.json config.bundles.$b.$type)
+        [[ ! -z $dev ]] && f=$(cd $dir && echo $(get_json_flat package.json config.bundles.$b.$type.dev "" realpath))
+        [[ -z $f ]] && f=$(cd $dir && echo $(get_json_flat package.json config.bundles.$b.$type "" realpath))
         [[ -z $f ]] && continue
-        if [[ -z $name || $name = $b || $f =~ $name ]]; then
+        if [[ -z $name || $name = $b || $f =~ $file ]]; then
             hash=$(echo "$repo$bundle$dir" | $SHASUM | cut -d' ' -f1)
             tmp=/tmp/bktmp/$hash
             files=$f
@@ -530,18 +505,18 @@ case "$BKJS_CMD" in
                     echo "bkjs.bundleVersion='$(get_json_flat $dir/package.json version)';" >> $dir/web/js/$bundle.bundle.js
                 fi
                 for f in $files; do
-                    [ ! -s $dir/$f ] && echo "$dir/$f not found" && continue
-                    [ "$BKJS_DEBUG" != "" ] && echo "$(date): $BKJS_CMD: $bundle.$type $dir/$f"
+                    [ ! -s $f ] && echo "$f not found" && continue
+                    [ "$BKJS_DEBUG" != "" ] && echo "$(date): $BKJS_CMD: $bundle.$type $f"
                     case $f in
                     *.min.js)
-                        cat $dir/$f >> $dir/web/js/$bundle.bundle.js
+                        cat $f >> $dir/web/js/$bundle.bundle.js
                         ;;
 
                     *.js)
                         if [[ -z $dev ]]; then
-                            jsfiles="$jsfiles $dir/$f"
+                            jsfiles="$jsfiles $f"
                         else
-                            cat $dir/$f >> $dir/web/js/$bundle.bundle.js
+                            cat $f >> $dir/web/js/$bundle.bundle.js
                         fi
                         ;;
 
@@ -549,11 +524,11 @@ case "$BKJS_CMD" in
                         n=$(basename $f .html)
                         if [[ -z $dev ]]; then
                             htmlminargs="--collapse-whitespace --collapse-boolean-attributes --remove-optional-tags --remove-attribute-quotes --remove-empty-attributes $(get_arg -htmlminargs)"
-                            html-minifier $htmlminargs $dir/$f > $tmp/$n.html
+                            html-minifier $htmlminargs $f > $tmp/$n.html
                             [ "$?" != "0" ] && exit 1
                             tf=$tmp/$n.html
                         else
-                            tf=$dir/$f
+                            tf=$f
                         fi
                         echo "bkjs.koTemplates[\"$n\"]='$(cat $tf|tr -d '\r\n'|sed "s/['\\]/\\\&/g")';" >> $dir/web/js/$bundle.bundle.js
                         echo "ko.components.register(\"$n\",{});" >> $dir/web/js/$bundle.bundle.js
@@ -589,7 +564,7 @@ case "$BKJS_CMD" in
                 [ ! -z "$gzip" ] && gzip -9 -c $dir/web/css/$bundle.bundle.css > $dir/web/css/$bundle.bundle.css.gz
                 ;;
             esac
-            [ "$BKJS_DEBUG" != "" ] && echo "$(date): $BKJS_CMD: $dir/web/js/$bundle.bundle.$type finished"
+            [ "$BKJS_DEBUG" != "" ] && echo "$(date): $BKJS_CMD: $dir/web/$type/$bundle.bundle.$type finished"
         fi
     done
     if [ "$files" = "" ]; then
