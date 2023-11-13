@@ -42,11 +42,11 @@ case "$BKJS_CMD" in
   init-monit-alerts)
     [ "$(get_flag -force)" != "" ] && rm -f /etc/monit.d/alert.conf
     if [ ! -f /etc/monit.d/alert.conf ]; then
-        get_config email -alert-email
+        email=$(get_arg -alert-email)
         if [[ ! -z $email ]]; then
-            get_config user -alert-user
-            get_config host -alert-host
-            get_config password -alert-password
+            user=$(get_arg -alert-user)
+            host=$(get_arg -alert-host)
+            password=$(get_arg -alert-password)
             events=$(get_arg -events "action,connection,data,pid,ppid,exec,content,resource,status,timeout")
             echo "Init monit alert: $email $events, $host, $user"
             [ "$events" != "" ] && events="only on { $events }"

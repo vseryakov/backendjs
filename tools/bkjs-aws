@@ -202,9 +202,9 @@ case "$BKJS_CMD" in
     ;;
 
   init-sendmail-ses)
-    get_config user -alert-user
-    get_config host -alert-host
-    get_config password -alert-password
+    user=$(get_arg -user)
+    host=$(get_arg -host)
+    password=$(get_arg -password)
     [ "$user" = "" -o "$password" = "" -o "$host" = "" ] && echo "-host,-user,-password must be provided" && exit
     [ "$(whoami)" != "root" ] && echo "must run by root" && exit 1
     yum -y install sendmail-cf
@@ -235,7 +235,7 @@ case "$BKJS_CMD" in
     echo "define(\`RELAY_MAILER_ARGS', \`TCP \$h 587')dnl" >> $file
     echo "define(\`confAUTH_MECHANISMS', \`LOGIN PLAIN')dnl" >> $file
     echo "FEATURE(\`authinfo', \`hash -o /etc/mail/authinfo.db')dnl" >> $file
-    get_config domain -domain
+    domain=$(get_arg -domain)
     if [ "$domain" != "" ]; then
        echo "MASQUERADE_AS(\`$domain')dnl" >> $file
        echo "FEATURE(masquerade_envelope)dnl" >> $file
