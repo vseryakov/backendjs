@@ -500,6 +500,7 @@ case "$BKJS_CMD" in
             *.js|*.html)
                 mkdir -p $tmp $dir/web/js
                 echo "" > $dir/web/js/$bundle.bundle.js
+                jsfiles=""
                 if [[ $files =~ @version@ ]]; then
                     files=$(echo $files|sed "s!@version@!!")
                     echo "bkjs.bundleVersion='$(get_json_flat $dir/package.json version)';" >> $dir/web/js/$bundle.bundle.js
