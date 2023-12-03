@@ -1,5 +1,6 @@
 {
   "version": "0.151.0",
+  "type": "commonjs",
   "author": "Vlad Seryakov",
   "name": "backendjs",
   "description": "A platform for building backends",
@@ -39,7 +40,7 @@
     "unix-dgram": "2.0.6",
     "web-push": "3.6.6",
     "@parse/node-apn": "5.2.3",
-    "sharp": "0.32.6",
+    "sharp": "0.33.0",
     "nats": "2.18.0",
     "amqplib": "0.10.3"
   },
