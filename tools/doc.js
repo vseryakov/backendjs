@@ -9,21 +9,15 @@ const path = require("path");
 const bkjs = require('backendjs');
 const lib = bkjs.lib;
 
-function readDir(dir)
-{
-    if (dir.slice(-1) != "/") dir += "/";
+function readDir(dir) {
+    if (dir.slice(-1) !== "/") dir += "/";
     fs.readdirSync(dir).forEach((x) => {
-        var s = fs.statSync(dir + x);
-        if (s.isFile() && x.slice(-3) == ".js") {
-            files.push(dir + x);
-        } else
-        if (s.isDirectory()) {
-            fs.readdirSync(dir + x).forEach((y) => {
-                var s = fs.statSync(dir + x + "/" + y);
-                if (s.isFile() && y.slice(-3) == ".js") {
-                    files.push(dir + x + "/" + y);
-                }
-            });
+        var fullPath = path.join(dir, x);
+        var s = fs.statSync(fullPath);
+        if (s.isFile() && x.slice(-3) === ".js") {
+            files.push(fullPath);
+        } else if (s.isDirectory()) {
+            readDir(fullPath); // Recursive call for subdirectories
         }
     });
 }
