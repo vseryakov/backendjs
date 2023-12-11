@@ -773,7 +773,7 @@ An example of how to perform jobs in the API routes:
         });
     }
 
-    api.all("/process/accounts", function(req, res) {
+    api.all("/process/accounts", (req, res) => {
         jobs.submitJob({ job: { "app.processAccounts": { type: req.query.type } } }, { queueName: app.queue }, (err) => {
             api.sendReply(res, err);
         });
@@ -850,7 +850,7 @@ html pages to work after login without singing every API request.
 will never end up in this callback because it is called after the signature check but allowed pages are served before that:
 
 ```javascript
-   api.registerPreProcess('', /^\/$|\.html$/, function(req, status, callback) {
+   api.registerPreProcess('', /^\/$|\.html$/, (req, status, callback) => {
        if (status.status != 200) {
            status.status = 302;
            status.url = '/public/index.html';
@@ -1007,6 +1007,9 @@ On Linux, when started the bkjs tries to load and source the following config fi
 
 Any of the following config files can redefine any environment variable thus pointing to the correct backend environment directory or
 customize the running environment, these should be regular shell scripts using bash syntax.
+
+The utility is extended via external scripts that reside in the tools/ folder, by default it sources all files that start with bkjs- and looks into
+$BKJS_TOOLS, $BKJS_HOME/tools, backendjs/tools. BLKJS_TOOLS env variable may contain a list of directories seperated by spaces.
 
 Most common used commands are:
 - bkjs watch - run the backend or the app for development purposes, uses local app.js if exists otherwise runs generic server
@@ -1201,6 +1204,8 @@ File `tests/example.js`:
 tests.test_example = function(callback)
 {
     expect(1 == 2, "expect 1 eq 2")
+
+    callback();
 }
 ```
 
