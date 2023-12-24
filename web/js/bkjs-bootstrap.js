@@ -5,9 +5,11 @@
 
 // Bootstrap backend support
 
+bkjs.isBS4 = !!window.bootstrap?.Util?.getUID;
+
 bkjs.koPlugins.push(function(target) {
     $(target).find('.carousel').carousel();
-    $(target).find('[data-toggle="popover"]').popover();
+    $(target).find(`[data-${bkjs.isBS4?"":"bs-"}toggle="popover"]`).popover();
 });
 
 // Show/hide loading animation
@@ -46,7 +48,8 @@ bkjs.showAlert = function(obj, type, text, options)
     html += bkjs.sanitizer.run(bkjs.isS(text) ? options.safe ? text : bkjs.textToEntity(text) :
                                text?.message ? options.safe ? text.message : bkjs.textToEntity(text.message) :
                                JSON.stringify(text).replace(/[<>]/g, "")).replace(/\n/g, "<br>");
-    html += '<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>';
+    html += this.isBS4 ? '<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>' :
+                         '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>';
     html += "</div>";
     var element = options.element || ".alerts";
     if (!$(obj).find(element).length) obj = $("body");
@@ -177,10 +180,10 @@ bkjs.hideLogin = function()
 }
 
 $(function() {
-    bkjs.on("bkjs.alert", function(ev, type, msg, opts) {
+    bkjs.on("bkjs.alert", (ev, type, msg, opts) => {
         bkjs.showAlert(type, msg, opts);
     });
-    bkjs.on("bkjs.loading", function(ev, type) {
+    bkjs.on("bkjs.loading", (ev, type) => {
         bkjs.showLoading(type);
     });
 });
