@@ -152,7 +152,7 @@ function bootpopup(...args)
             this.header.append(title);
 
             if (this.options.show_close) {
-                const close = $('<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>');
+                const close = $('<button></button>', { type: "button", class: "btn-close", "data-bs-dismiss": "modal", "aria-label": "Close" });
                 this.header.append(close);
             }
             this.content.append(this.header);
@@ -276,8 +276,20 @@ function bootpopup(...args)
             } else {
                 const lopts = { for: opts.for || attrs.id, class: "form-label " + class_label, html: this.sanitize(opts.label) };
                 for (const p in opts.attrs_label) lopts[p] = opts.attrs_label[p];
-                if (opts.label) group.append($("<label></label>", lopts));
-                group.append(elem);
+                if (opts.floating) {
+                    if (!opts.placeholder) elem.attr("placeholder", "");
+                    group.addClass("form-floating").append(elem);
+                    if (opts.label) group.append($("<label></label>", lopts));
+                } else {
+                    if (opts.label) group.append($("<label></label>", lopts));
+                    group.append(elem);
+                }
+            }
+            if (opts.text_valid) {
+                group.append($("<div></div>", { class: "valid-feedback" }).append(opts.text_valid));
+            }
+            if (opts.text_invalid) {
+                group.append($("<div></div>", { class: "invalid-feedback" }).append(opts.text_invalid));
             }
             if (opts.class_suffix || opts.text_suffix) {
                 group.append($("<div></div>", { class: opts.class_suffix || this.options.class_suffix }).append(opts.text_suffix || ""));
@@ -357,13 +369,12 @@ function bootpopup(...args)
                                     children.push($("<option></option>", option).append(this.escape(opt.name)));
                                 }
                             }
-                            attrs.class = "form-select " + (attrs.class || "");
                             delete attrs.options;
                             delete attrs.value;
                         }
 
                         // Special case for checkbox
-                        if (/radio|checkbox/.test(attrs.type) && !opts.raw) {
+                        if (["radio", "checkbox"].includes(attrs.type) && !opts.raw) {
                             label = $('<label></label>', { class: opts.class_input_btn || opts.class_input_label || "form-check-label", for: opts.for || attrs.id }).
                                     append(opts.input_label || opts.label);
                             let class_check = opts.class_check || "form-check";
@@ -378,6 +389,9 @@ function bootpopup(...args)
                             // Clear label to not add as header, it was added before
                             if (!opts.input_label) delete opts.label;
                         } else {
+                            if (["select", "range"].includes(attrs.type)) {
+                                attrs.class = `form-${attrs.type} ${attrs.class || ""}`;
+                            }
                             attrs.class = attrs.class || "form-control";
                             if (type == "textarea") {
                                 delete attrs.value;
@@ -508,6 +522,11 @@ function bootpopup(...args)
             setTimeout(() => { $(this[type]).empty() }, this.delay || 10000);
         }
         return null;
+    }
+
+    this.validate = function() {
+        this.form.addClass('was-validated')
+        return this.form[0].checkValidity();
     }
 
     this.sanitize = function(str) {
