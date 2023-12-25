@@ -3,6 +3,16 @@
  *  Vlad Seryakov vseryakov@gmail.com 2018
  */
 
+bkjs.plugins = [];
+
+bkjs.applyPlugins = function(target)
+{
+    if (!target) return;
+    for (const i in bkjs.plugins) {
+        if (bkjs.isF(bkjs.plugins[i])) bkjs.plugins[i](target);
+    }
+}
+
 // Based on Bootstrap internal sanitizer
 bkjs.sanitizer = {
     _attrs: new Set(['background','cite','href','itemtype','longdesc','poster','src','xlink:href']),
@@ -134,3 +144,79 @@ bkjs.xhr = function(options, callback)
         bkjs.isF(callback) && callback(err);
     }
 }
+
+// Simple router support
+bkjs.appPath = (window.location.pathname.replace(/(\/+[^/]+)$|\/+$/, "") + "/").replace(/\/app.+$/, "/") + "app/";
+bkjs.appLocation = window.location.origin + bkjs.appPath;
+
+bkjs.appEvent = function(name, data)
+{
+    bkjs.event("bkjs.event", [name, bkjs.toCamel("on_" + name), data]);
+}
+
+bkjs.getBreakpoint = function()
+{
+    var w = $(document).innerWidth();
+    return w < 576 ? 'xs' : w < 768 ? 'sm' : w < 992 ? 'md' : w < 1200 ? 'lg' : w < 1400 ? 'xl' : 'xxl';
+}
+
+bkjs.setBreakpoint = function()
+{
+    bkjs.breakpoint = bkjs.getBreakpoint();
+    document.documentElement.style.setProperty('--height', (window.innerHeight * 0.01) + "px");
+}
+
+bkjs.resized = function(event)
+{
+    clearTimeout(bkjs._resized);
+    bkjs._koResized = setTimeout(bkjs.setBreakpoint, 500);
+}
+
+bkjs.saveLocation = function(name, options)
+{
+    var path = name && bkjs.saveComponent(name, options);
+    if (!path || path == bkjs._appLocation) return;
+    window.history.pushState({ name: name, options: options }, name, bkjs.appLocation + path);
+    bkjs._appLocation = path;
+}
+
+bkjs.restoreLocation = function(path, dflt)
+{
+    var loc = window.location;
+    if (path && (loc.origin + path).indexOf(bkjs.appLocation) != 0) path = "";
+    var location = loc.origin + (path || loc.pathname);
+    var params = location.substr(bkjs.appLocation.length).split("/");
+    if (bkjs.debug) console.log("restoreLocation:", loc.pathname, "path:", path, "dflt:", dflt, "params:", params);
+
+    bkjs.restoreComponent({
+        model: bkjs.findComponent(params[0]),
+        path: path,
+        dflt: dflt,
+        params: params
+    });
+}
+
+bkjs.saveComponent = function(name, options)
+{
+    if (name) {
+        if (options?.param) name += "/" + options.param;
+        if (options?.param2) name += "/" + options.param2;
+    }
+    return name;
+}
+
+bkjs.restoreComponent = function(options)
+{
+    bkjs.showComponent(options.model?.name || options.dflt || "none", { param: options.params[1], param2: options.params[2] });
+}
+
+window.onpopstate = function(event)
+{
+    if (event?.state?.name) bkjs.showComponent(event.state.name, event.state.options);
+}
+
+$(function() {
+    bkjs.setBreakpoint();
+    window.addEventListener("resize", bkjs.resized.bind(bkjs));
+});
+

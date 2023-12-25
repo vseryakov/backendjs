@@ -7,7 +7,7 @@
 
 bkjs.isBS4 = !!window.bootstrap?.Util?.getUID;
 
-bkjs.koPlugins.push(function(target) {
+bkjs.plugins.push(function(target) {
     $(target).find('.carousel').carousel();
     $(target).find(`[data-${bkjs.isBS4?"":"bs-"}toggle="popover"]`).popover();
 });

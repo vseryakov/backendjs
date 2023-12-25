@@ -4,9 +4,7 @@
 
 // Status of the current account
 bkjs.koAuth = ko.observable(0);
-bkjs.koAdmin = ko.observable(0);
 bkjs.koName = ko.observable("");
-
 
 // Login/UI utils
 bkjs.koInit = function()
@@ -19,7 +17,6 @@ bkjs.koCheckLogin = function(err, path)
 {
     bkjs.koName(bkjs.account.name || "");
     bkjs.koAuth(bkjs.loggedIn);
-    bkjs.koAdmin(bkjs.loggedIn && bkjs.checkAccountType(bkjs.account, bkjs.adminType || "admin"));
     bkjs.event(bkjs.loggedIn ? "bkjs.login" : "bkjs.nologin", [err, path]);
     if (!err && bkjs.isF(bkjs.koShow)) bkjs.koShow();
 }
@@ -37,14 +34,12 @@ bkjs.koLogout = function(data, event)
     bkjs.logout((err) => {
         if (err) return bkjs.showAlert("error", err);
         bkjs.koAuth(0);
-        bkjs.koAdmin(0);
         bkjs.koName("");
         bkjs.event('bkjs.logout');
     });
 }
 
 // Apply KO to all bootpopups
-bkjs.koBootpopup = bootpopup;
 
 bootpopupPlugins.push({
     before: function(self) {
@@ -54,7 +49,7 @@ bootpopupPlugins.push({
         if (self.options.data) ko.cleanNode(self.modal.get(0));
     },
     shown: function(event) {
-        bkjs.koApplyPlugins(event.target);
+        bkjs.applyPlugins(event.target);
     }
 });
 
@@ -90,7 +85,7 @@ bkjs.koSet = function(name, val, quiet)
             old = bkjs.koState[key];
             bkjs.koState[key] = Array.isArray(val) ? ko.observableArray(val) : ko.observable(val);
         }
-        if (!quiet) bkjs.koEvent(key, { name: name, key: key, value: val, old: old });
+        if (!quiet) bkjs.appEvent(key, { name: name, key: key, value: val, old: old });
     }
 }
 
@@ -130,12 +125,6 @@ bkjs.koConvert = function(obj, name, val, dflt)
     return obj;
 }
 
-bkjs.koEvent = function(name, data)
-{
-    var event = bkjs.toCamel("on_" + name);
-    bkjs.event("bkjs.event", [name, event, data]);
-}
-
 // View model templating and utils
 bkjs.koState = {};
 bkjs.koTemplates = { none: "<div></div>" };
@@ -162,7 +151,7 @@ bkjs.koViewModel.prototype._handleEvent = function(ev, name, event, data)
 bkjs.koViewModel.prototype.dispose = function()
 {
     if (bkjs.debug) console.log("dispose:", this.koName);
-    bkjs.koEvent("model.disposed", { name: this.koName, params: this.params, vm: this });
+    bkjs.appEvent("model.disposed", { name: this.koName, params: this.params, vm: this });
     bkjs.off("bkjs.event." + this.koName, $.proxy(this._handleEvent, this));
     if (bkjs.isF(this.onDispose)) this.onDispose();
     // Auto dispose all subscriptions
@@ -214,7 +203,7 @@ bkjs.koCreateModel = function(name, options)
     for (const p in options) {
         if (bkjs.isF(options[p])) m.prototype[p] = options[p]; else m[p] = options[p];
     }
-    bkjs.koEvent("model.created", { name: name, vm: m });
+    bkjs.appEvent("model.created", { name: name, vm: m });
     return m;
 }
 
@@ -256,7 +245,7 @@ bkjs.koFindComponent = function(model)
                     }
                 }
                 if (bkjs.debug) console.log("koFindComponent:", model, name, !!vm);
-                bkjs.koEvent("component.created", { name: name, params: params, model: vm, info: componentInfo });
+                bkjs.appEvent("component.created", { name: name, params: params, model: vm, info: componentInfo });
                 return vm;
             }
         },
@@ -311,104 +300,39 @@ ko.templateEngine.prototype.makeTemplateSource = function(template, doc) {
         throw new Error("Unknown template type: " + template);
 }
 
-// Bootstrap compatible breaking points
-bkjs.koBreakpoint = ko.observable();
-bkjs.koDesktop = ko.computed(() => (/lg|xl/.test(bkjs.koBreakpoint())));
-bkjs.koMobile = ko.computed(() => (/xs|sm|md/.test(bkjs.koBreakpoint())));
-
-bkjs.koGetBreakpoint = function()
-{
-    var w = $(document).innerWidth();
-    return w < 576 ? 'xs' : w < 768 ? 'sm' : w < 992 ? 'md' : w < 1200 ? 'lg' : 'xl';
-}
-
-bkjs.koSetBreakpoint = function()
-{
-    bkjs.koBreakpoint(bkjs.koGetBreakpoint());
-    document.documentElement.style.setProperty('--height', (window.innerHeight * 0.01) + "px");
-}
-
-bkjs.koResized = function(event)
-{
-    clearTimeout(bkjs._koResized);
-    bkjs._koResized = setTimeout(bkjs.koSetBreakpoint, 500);
-}
-
-bkjs.koPlugins = [];
-
-bkjs.koApplyPlugins = function(target)
-{
-    if (!target) return;
-    for (const i in bkjs.koPlugins) {
-        if (bkjs.isF(bkjs.koPlugins[i])) bkjs.koPlugins[i](target);
-    }
-}
-
 // Main component view model
 bkjs.koAppModel = ko.observable("none");
 bkjs.koAppOptions = ko.observable();
 
 bkjs.koShowComponent = function(name, options, nosave)
 {
-    if (bkjs.debug) console.log("koShowComponent:", name, options);
+    if (bkjs.debug) console.log("showComponent:", name, options);
     var rc = bkjs.koRunMethod("beforeDispose", name, options);
     for (const p in rc) if (rc[p] === false) return false;
     bkjs.koAppOptions(options || {});
     bkjs.koAppModel(name);
     var m = bkjs.koGetModel(name);
-    if (!nosave && !m?.nohistory) bkjs.koSaveLocation(name, options);
-    bkjs.koEvent("component.shown", { name: name, options: options });
+    if (!nosave && !m?.nohistory) bkjs.saveLocation(name, options);
+    bkjs.appEvent("component.shown", { name: name, options: options });
 }
 
-// Simple router support
-bkjs.koAppPath = (window.location.pathname.replace(/(\/+[^/]+)$|\/+$/, "") + "/").replace(/\/app.+$/, "/") + "app/";
-bkjs.koAppLocation = window.location.origin + bkjs.koAppPath;
+bkjs.findComponent = bkjs.koFindComponent;
+bkjs.showComponent = bkjs.koShowComponent;
 
-window.onpopstate = function(event)
+bkjs.koMobile = ko.observable();
+
+bkjs.koSetMobile = function()
 {
-    if (event?.state?.name) bkjs.koShowComponent(event.state.name, event.state.options);
-}
-
-bkjs.koSaveLocation = function(name, options)
-{
-    var url = name && bkjs.koSaveModel(name, options);
-    if (!url) return;
-    if (url == bkjs._koAppLocation) return;
-    window.history.pushState({ name: name, options: options }, name, bkjs.koAppLocation + url);
-    bkjs._koAppLocation = url;
-}
-
-bkjs.koSaveModel = function(name, options)
-{
-    if (options?.param) name += "/" + options.param;
-    if (options?.param2) name += "/" + options.param2;
-    return name;
-}
-
-bkjs.koRestoreLocation = function(path, dflt)
-{
-    if (path && (window.location.origin + path).indexOf(bkjs.koAppLocation) != 0) path = "";
-    var location = window.location.origin + (path || window.location.pathname);
-    var params = location.substr(bkjs.koAppLocation.length).split("/");
-
-    if (bkjs.debug) console.log("koRestoreLocation:", window.location.pathname, "path:", path, "dflt:", dflt, "params:", params);
-    var model = bkjs.koFindComponent(params[0]);
-    bkjs.koRestoreModel({ model: model, path: path, dflt: dflt, params: params });
-}
-
-bkjs.koRestoreModel = function(options)
-{
-    bkjs.koShowComponent(options.model?.name || options.dflt || "none", { param: options.params[1], param2: options.params[2] });
+    bkjs.koMobile(/xs|sm|md/.test(bkjs.getBreakpoint()))
 }
 
 $(function() {
-    bkjs.koSetBreakpoint();
-    window.addEventListener("resize", bkjs.koResized.bind(bkjs));
-
+    bkjs.koSetMobile();
+    window.addEventListener("resize", bkjs.koSetMobile);
     bkjs.on("bkjs.event", (ev, name, event, data) => {
         switch (name) {
         case "component.created":
-            bkjs.koApplyPlugins(data.info.element);
+            bkjs.applyPlugins(data.info.element);
             break;
         }
     });
