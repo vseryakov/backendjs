@@ -353,6 +353,12 @@ bkjs.log = function()
     if (console?.log) console.log.apply(console, arguments);
 }
 
+// Console output if debugging is enabled
+bkjs.trace = function(...args)
+{
+    if (bkjs.debug) bkjs.log(...args);
+}
+
 $(function() {
     var h = $(`meta[name="${bkjs.hcsrf}"]`).attr('content');
     if (h) bkjs.headers[bkjs.hcsrf] = h;

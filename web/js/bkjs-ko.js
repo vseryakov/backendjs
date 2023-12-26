@@ -4,7 +4,6 @@
 
 // Status of the current account
 bkjs.koAuth = ko.observable(0);
-bkjs.koName = ko.observable("");
 
 // Login/UI utils
 bkjs.koInit = function()
@@ -15,7 +14,6 @@ bkjs.koInit = function()
 
 bkjs.koCheckLogin = function(err, path)
 {
-    bkjs.koName(bkjs.account.name || "");
     bkjs.koAuth(bkjs.loggedIn);
     bkjs.event(bkjs.loggedIn ? "bkjs.login" : "bkjs.nologin", [err, path]);
     if (!err && bkjs.isF(bkjs.koShow)) bkjs.koShow();
@@ -34,7 +32,6 @@ bkjs.koLogout = function(data, event)
     bkjs.logout((err) => {
         if (err) return bkjs.showAlert("error", err);
         bkjs.koAuth(0);
-        bkjs.koName("");
         bkjs.event('bkjs.logout');
     });
 }
@@ -143,14 +140,14 @@ bkjs.koViewModel = function(params, componentInfo)
 
 bkjs.koViewModel.prototype._handleEvent = function(ev, name, event, data)
 {
-    if (bkjs.debug) console.log("handleEvent:", this.koName, name, event, data)
+    bkjs.trace("handleEvent:", this.koName, name, event, data)
     if (bkjs.isF(this[event])) this[event](data);
     if (bkjs.isF(this.handleEvent)) this.handleEvent(name, data);
 }
 
 bkjs.koViewModel.prototype.dispose = function()
 {
-    if (bkjs.debug) console.log("dispose:", this.koName);
+    bkjs.trace("dispose:", this.koName);
     bkjs.appEvent("model.disposed", { name: this.koName, params: this.params, vm: this });
     bkjs.off("bkjs.event." + this.koName, $.proxy(this._handleEvent, this));
     if (bkjs.isF(this.onDispose)) this.onDispose();
@@ -223,10 +220,10 @@ bkjs.koFindComponent = function(model)
         if (name) tmpl = bkjs.koTemplates[name];
     }
     if (!tmpl) {
-        if (bkjs.debug) console.log("koFindComponent:", model, name);
+        bkjs.trace("koFindComponent:", model, name);
         return null;
     }
-    if (bkjs.debug) console.log("koFindComponent:", model, name, tmpl.substr(0, 64));
+    bkjs.trace("koFindComponent:", model, name, tmpl.substr(0, 64));
 
     return {
         name: name,
@@ -244,7 +241,7 @@ bkjs.koFindComponent = function(model)
                         bkjs.koViewModels.push(vm);
                     }
                 }
-                if (bkjs.debug) console.log("koFindComponent:", model, name, !!vm);
+                bkjs.trace("koFindComponent:", model, name, !!vm);
                 bkjs.appEvent("component.created", { name: name, params: params, model: vm, info: componentInfo });
                 return vm;
             }
@@ -306,18 +303,23 @@ bkjs.koAppOptions = ko.observable();
 
 bkjs.koShowComponent = function(name, options, nosave)
 {
-    if (bkjs.debug) console.log("showComponent:", name, options);
+    bkjs.trace("koShowComponent:", name, options);
     var rc = bkjs.koRunMethod("beforeDispose", name, options);
     for (const p in rc) if (rc[p] === false) return false;
     bkjs.koAppOptions(options || {});
     bkjs.koAppModel(name);
     var m = bkjs.koGetModel(name);
-    if (!nosave && !m?.nohistory) bkjs.saveLocation(name, options);
+    if (!nosave && !m?.nohistory) bkjs.koSaveComponent(name, options);
     bkjs.appEvent("component.shown", { name: name, options: options });
 }
 
-bkjs.findComponent = bkjs.koFindComponent;
-bkjs.showComponent = bkjs.koShowComponent;
+bkjs.koSaveCompnent = function(name, options)
+{
+    var path = name || "";
+    if (options?.param) path += "/" + options.param;
+    if (options?.param2) path += "/" + options.param2;
+    bkjs.pushLocation(path, name, options);
+}
 
 bkjs.koMobile = ko.observable();
 

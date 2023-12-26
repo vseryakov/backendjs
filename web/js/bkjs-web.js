@@ -172,42 +172,27 @@ bkjs.resized = function(event)
     bkjs._koResized = setTimeout(bkjs.setBreakpoint, 500);
 }
 
-bkjs.saveLocation = function(name, options)
+bkjs.pushLocation = function(path, name, options)
 {
-    var path = name && bkjs.saveComponent(name, options);
-    if (!path || path == bkjs._appLocation) return;
+    if (!path || !name || path == bkjs._appLocation) return;
     window.history.pushState({ name: name, options: options }, name, bkjs.appLocation + path);
     bkjs._appLocation = path;
 }
 
-bkjs.restoreLocation = function(path, dflt)
+bkjs.parseLocation = function(path, dflt)
 {
     var loc = window.location;
     if (path && (loc.origin + path).indexOf(bkjs.appLocation) != 0) path = "";
     var location = loc.origin + (path || loc.pathname);
     var params = location.substr(bkjs.appLocation.length).split("/");
-    if (bkjs.debug) console.log("restoreLocation:", loc.pathname, "path:", path, "dflt:", dflt, "params:", params);
-
-    bkjs.restoreComponent({
-        model: bkjs.findComponent(params[0]),
-        path: path,
-        dflt: dflt,
-        params: params
-    });
+    bkjs.trace("parseLocation:", loc.pathname, "path:", path, "dflt:", dflt, "params:", params);
+    return { path: path, dflt: dflt, params: params, component: bkjs.findComponent(params[0]) };
 }
 
-bkjs.saveComponent = function(name, options)
+bkjs.restoreComponent = function(path, dflt)
 {
-    if (name) {
-        if (options?.param) name += "/" + options.param;
-        if (options?.param2) name += "/" + options.param2;
-    }
-    return name;
-}
-
-bkjs.restoreComponent = function(options)
-{
-    bkjs.showComponent(options.model?.name || options.dflt || "none", { param: options.params[1], param2: options.params[2] });
+    var loc = bkjs.parseLocation(path, dflt);
+    bkjs.showComponent(loc.component?.name || loc.dflt || "none", { param: loc.params[1], param2: loc.params[2], param3: loc.params[3] });
 }
 
 window.onpopstate = function(event)
