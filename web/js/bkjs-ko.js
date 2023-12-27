@@ -313,11 +313,9 @@ bkjs.koShowComponent = function(name, options, nosave)
     bkjs.appEvent("component.shown", { name: name, options: options });
 }
 
-bkjs.koSaveCompnent = function(name, options)
+bkjs.koSaveComponent = function(name, options)
 {
-    var path = name || "";
-    if (options?.param) path += "/" + options.param;
-    if (options?.param2) path += "/" + options.param2;
+    var path = [name || "", options?.param || "", options?.param2 || ""].filter((x) => (x)).join("/");
     bkjs.pushLocation(path, name, options);
 }
 

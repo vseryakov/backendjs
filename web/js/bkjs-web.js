@@ -177,6 +177,7 @@ bkjs.pushLocation = function(path, name, options)
     if (!path || !name || path == bkjs._appLocation) return;
     window.history.pushState({ name: name, options: options }, name, bkjs.appLocation + path);
     bkjs._appLocation = path;
+    bkjs.trace("pushLocation:", path, name, options)
 }
 
 bkjs.parseLocation = function(path, dflt)
