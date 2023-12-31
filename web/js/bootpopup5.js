@@ -47,6 +47,7 @@ function bootpopup(...args)
         footer: [],
         onsubmit: "close",
         buttons: ["close"],
+        class_h: "",
         class_modal: "modal fade",
         class_dialog: "modal-dialog",
         class_title: "modal-title",
@@ -140,7 +141,7 @@ function bootpopup(...args)
         if (!this.options.keyboard) opts["data-keyboard"] = false;
         this.modal = $('<div></div>', opts);
         this.dialog = $('<div></div>', { class: class_dialog, role: "document" });
-        this.content = $('<div></div>', { class: this.options.class_content });
+        this.content = $('<div></div>', { class: this.options.class_content + " " + this.options.class_h });
         this.dialog.append(this.content);
         this.modal.append(this.dialog);
 
