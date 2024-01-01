@@ -61,7 +61,7 @@ function bootpopup(...args)
         class_info: "alert alert-info fade show",
         class_form: "",
         class_label: "",
-        class_suffix: "form-text text-end",
+        class_suffix: "form-text text-muted text-end",
         class_ok: "btn btn-primary",
         class_yes: "btn btn-primary",
         class_no: "btn btn-primary",
@@ -219,42 +219,51 @@ function bootpopup(...args)
             if (opts.class_append || opts.text_append) {
                 elem.append($("<span></span>", { class: opts.class_append || "" }).append(opts.text_append));
             }
-            if (opts.text_input_button || opts.list_input_button) {
+            if (opts.list_input_button || opts.list_input_tags) {
                 elem = $('<div></div>', { class: `input-group ${opts.class_input_group || ""}` }).append(elem);
-                if (opts.list_input_button) {
-                    $('<button></button>', {
-                        class: opts.class_list_button || this.options.class_list_button,
-                        type: "button",
-                        'data-bs-toggle': "dropdown",
-                        'aria-haspopup': "true",
-                        'aria-expanded': "false"
-                    }).append(opts.text_input_button || " ").appendTo(elem);
+                $('<button></button>', {
+                    class: opts.class_list_button || this.options.class_list_button,
+                    type: "button",
+                    'data-bs-toggle': "dropdown",
+                    'aria-haspopup': "true",
+                    'aria-expanded': "false"
+                }).append(opts.text_input_button || " ").appendTo(elem);
 
-                    var menu = $('<div></div>', { class: opts.class_input_menu || this.options.class_input_menu, style: "overflow-y:auto" }).
-                               css("max-height", opts.list_input_mh || this.options.list_input_mh).
-                               appendTo(elem)
-                    for (const l in opts.list_input_button) {
-                        let n = opts.list_input_button[l], v = this.escape(n);
-                        if (typeof n == "object") v = this.escape(n.value), n = this.escape(n.name);
-                        if (n == "-") {
-                            $('<div></div>', { class: "dropdown-divider" }).appendTo(menu);
-                        } else {
-                            $('<a></a>', {
-                                class: "dropdown-item " + (opts.class_list_input_item || ""),
-                                role: "button",
-                                'data-value': v || n,
-                                'data-form': this.formid,
-                                onclick: opts.click_input_button ? "(" + opts.click_input_button + ")(this,arguments[0])" :
-                                         `$('#${attrs.id}').val(('${v || n}'))`,
-                            }).append(n).appendTo(menu);
-                        }
+                var menu = $('<div></div>', { class: opts.class_input_menu || this.options.class_input_menu, style: "overflow-y:auto" }).
+                            css("max-height", opts.list_input_mh || this.options.list_input_mh).
+                            appendTo(elem);
+
+                var onclick = opts.click_input_button && `(${opts.click_input_button})(this,$('#${attrs.id}'))`;
+                var list = opts.list_input_button || opts.list_input_tags || [];
+                for (const l of list) {
+                    let n = l, v = this.escape(n);
+                    if (typeof n == "object") v = this.escape(n.value), n = this.escape(n.name);
+                    if (n == "-") {
+                        $('<div></div>', { class: "dropdown-divider" }).appendTo(menu);
+                    } else
+                    if (opts.list_input_tags) {
+                        $('<a></a>', {
+                            class: "dropdown-item " + (opts.class_list_input_item || ""),
+                            role: "button",
+                            onclick: `$('#${attrs.id}').val(bkjs.toFlags("add", bkjs.strSplit($('#${attrs.id}').val()), '${v || n}'))`
+                        }).append(n).appendTo(menu);
+                    } else {
+                        $('<a></a>', {
+                            class: "dropdown-item " + (opts.class_list_input_item || ""),
+                            role: "button",
+                            'data-value': v || n,
+                            'data-form': this.formid,
+                            onclick: onclick || `$('#${attrs.id}').val(('${v || n}'))`,
+                        }).append(n).appendTo(menu);
                     }
-                } else {
-                    const bopts = { class: opts.class_input_button || this.options.class_input_button, type: "button", 'data-form': this.formid };
-                    if (opts.click_input_button) bopts.onclick = "(" + opts.click_input_button + ")(this,arguments[0])";
-                    for (const b in opts.attrs_input_button) bopts[b] = opts.attrs_input_button[b];
-                    $('<button></button>', bopts).append(opts.text_input_button).appendTo(elem);
                 }
+            } else
+            if (opts.text_input_button) {
+                elem = $('<div></div>', { class: `input-group ${opts.class_input_group || ""}` }).append(elem);
+                const bopts = { class: opts.class_input_button || this.options.class_input_button, type: "button", 'data-form': this.formid };
+                if (opts.click_input_button) bopts.onclick = `(${opts.click_input_button})(this,$('#${attrs.id}'))`;
+                for (const b in opts.attrs_input_button) bopts[b] = opts.attrs_input_button[b];
+                $('<button></button>', bopts).append(opts.text_input_button).appendTo(elem);
             }
 
             for (const k in children) elem.append(children[k]);
