@@ -245,7 +245,7 @@ function bootpopup(...args)
                         $('<a></a>', {
                             class: "dropdown-item " + (opts.class_list_input_item || ""),
                             role: "button",
-                            onclick: `$('#${attrs.id}').val(bkjs.toFlags("add", bkjs.strSplit($('#${attrs.id}').val()), '${v || n}'))`
+                            onclick: `$('#${attrs.id}').val(bkjs.toFlags("add", bkjs.strSplit($('#${attrs.id}').val()), '${v || n}').join(', '))`
                         }).append(n).appendTo(menu);
                     } else {
                         $('<a></a>', {
