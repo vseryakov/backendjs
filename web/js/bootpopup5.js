@@ -220,6 +220,9 @@ function bootpopup(...args)
                 elem.append($("<span></span>", { class: opts.class_append || "" }).append(opts.text_append));
             }
             if (opts.list_input_button || opts.list_input_tags) {
+                if (attrs.value && opts.list_input_tags) {
+                    elem.attr('value', bkjs.strSplit(attrs.value).join(', '));
+                }
                 elem = $('<div></div>', { class: `input-group ${opts.class_input_group || ""}` }).append(elem);
                 $('<button></button>', {
                     class: opts.class_list_button || this.options.class_list_button,
