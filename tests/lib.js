@@ -360,6 +360,8 @@ tests.test_toparams = function(callback, test)
         tm: { type: "timestamp", optional: 1 },
         ready: { value: "ready" },
         empty: { empty: 1, trim: 1, strip: /[.,!]/ },
+        nospecial: { strip: lib.rxSpecial },
+        special: { strip: lib.rxNoSpecial },
         state: { type: "list", values: [ "ok","bad","good" ] },
         obj: { type: "obj", params: { id: { type: "int" }, name: {} } },
         object: { type: "object" },
@@ -445,6 +447,10 @@ tests.test_toparams = function(callback, test)
 
     q = lib.toParams({ empty: "." }, schema, opts);
     expect(q.empty === "", "expected empty", q);
+
+    q = lib.toParams({ nospecial: "a<b>c", special: "a<b>c" }, schema, opts);
+    expect(q.special === "<>", "expected <> with only specials", q);
+    expect(q.nospecial === "abc", "expected abc without specials", q);
 
     callback();
 }
