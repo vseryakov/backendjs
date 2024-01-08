@@ -85,12 +85,10 @@
     "bundles": {
       "bkjs": {
         "js": [
-          "web/js/jquery.slim.min.js",
+          "web/js/jquery3.slim.min.js",
           "web/js/popper.min.js",
-          "web/js/bootstrap.min.js",
+          "web/js/bootstrap4.min.js",
           "web/js/knockout.min.js",
-          "web/js/knockout-mapping.min.js",
-          "web/js/bootpopup.js",
           "web/js/bkjs.js",
           "web/js/bkjs-event.js",
           "web/js/bkjs-web.js",
@@ -98,37 +96,20 @@
           "web/js/bkjs-account.js",
           "web/js/bkjs-conv.js",
           "web/js/bkjs-ko.js",
-          "web/js/bkjs-bootstrap.js"
-        ],
-        "js.dev": [
-          "web/js/jquery.slim.js",
-          "web/js/popper.js",
-          "web/js/bootstrap.js",
-          "web/js/knockout.js",
-          "web/js/knockout-mapping.js",
-          "web/js/bootpopup.js",
-          "web/js/bkjs.js",
-          "web/js/bkjs-event.js",
-          "web/js/bkjs-web.js",
-          "web/js/bkjs-lib.js",
-          "web/js/bkjs-account.js",
-          "web/js/bkjs-conv.js",
-          "web/js/bkjs-ko.js",
-          "web/js/bkjs-bootstrap.js"
+          "web/js/bkjs-bootstrap.js",
+          "web/js/bootpopup4.js"
         ],
         "css": [
-          "web/css/bootstrap.css",
+          "web/css/bootstrap4.css",
           "web/css/font-awesome.css"
         ]
       },
       "bkjs5": {
         "js": [
-          "web/js/jquery.slim.min.js",
+          "web/js/jquery3.slim.min.js",
           "web/js/popper2.min.js",
           "web/js/bootstrap5.min.js",
           "web/js/knockout.min.js",
-          "web/js/knockout-mapping.min.js",
-          "web/js/bootpopup5.js",
           "web/js/bkjs.js",
           "web/js/bkjs-event.js",
           "web/js/bkjs-web.js",
@@ -136,15 +117,14 @@
           "web/js/bkjs-account.js",
           "web/js/bkjs-conv.js",
           "web/js/bkjs-ko.js",
-          "web/js/bkjs-bootstrap.js"
+          "web/js/bkjs-bootstrap.js",
+          "web/js/bootpopup5.js"
         ],
         "js.dev": [
-          "web/js/jquery.slim.js",
+          "web/js/jquery3.slim.js",
           "web/js/popper2.js",
           "web/js/bootstrap5.js",
-          "web/js/knockout.js",
-          "web/js/knockout-mapping.js",
-          "web/js/bootpopup5.js",
+          "web/js/knockout-dev.js",
           "web/js/bkjs.js",
           "web/js/bkjs-event.js",
           "web/js/bkjs-web.js",
@@ -152,7 +132,8 @@
           "web/js/bkjs-account.js",
           "web/js/bkjs-conv.js",
           "web/js/bkjs-ko.js",
-          "web/js/bkjs-bootstrap.js"
+          "web/js/bkjs-bootstrap.js",
+          "web/js/bootpopup5.js"
         ],
         "css": [
           "web/css/bootstrap5.css",
