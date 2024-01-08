@@ -38,7 +38,7 @@ bkjs.showLoading = function(op)
 bkjs.getAlertText = function(text, options)
 {
     text = text?.message || text?.text || text?.msg || text;
-    text = bkjs.isS(text) ? options.safe ? text : bkjs.textToEntity(text) : bkjs.formatJSON(text, { preset: "compact" }).replace(/[<>]/g, "");
+    text = bkjs.isS(text) ? options?.safe ? text : bkjs.textToEntity(text) : bkjs.formatJSON(text, { preset: "compact" }).replace(/[<>]/g, "");
     return bkjs.sanitizer.run(text).replace(/\n/g, "<br>");
 }
 

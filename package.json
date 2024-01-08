@@ -89,6 +89,7 @@
           "web/js/popper.min.js",
           "web/js/bootstrap4.min.js",
           "web/js/knockout.min.js",
+          "web/js/bootpopup4.js",
           "web/js/bkjs.js",
           "web/js/bkjs-event.js",
           "web/js/bkjs-web.js",
@@ -96,8 +97,7 @@
           "web/js/bkjs-account.js",
           "web/js/bkjs-conv.js",
           "web/js/bkjs-ko.js",
-          "web/js/bkjs-bootstrap.js",
-          "web/js/bootpopup4.js"
+          "web/js/bkjs-bootstrap.js"
         ],
         "css": [
           "web/css/bootstrap4.css",
@@ -110,6 +110,7 @@
           "web/js/popper2.min.js",
           "web/js/bootstrap5.min.js",
           "web/js/knockout.min.js",
+          "web/js/bootpopup5.js",
           "web/js/bkjs.js",
           "web/js/bkjs-event.js",
           "web/js/bkjs-web.js",
@@ -117,14 +118,14 @@
           "web/js/bkjs-account.js",
           "web/js/bkjs-conv.js",
           "web/js/bkjs-ko.js",
-          "web/js/bkjs-bootstrap.js",
-          "web/js/bootpopup5.js"
+          "web/js/bkjs-bootstrap.js"
         ],
         "js.dev": [
           "web/js/jquery3.slim.js",
           "web/js/popper2.js",
           "web/js/bootstrap5.js",
           "web/js/knockout-dev.js",
+          "web/js/bootpopup5.js",
           "web/js/bkjs.js",
           "web/js/bkjs-event.js",
           "web/js/bkjs-web.js",
@@ -132,8 +133,7 @@
           "web/js/bkjs-account.js",
           "web/js/bkjs-conv.js",
           "web/js/bkjs-ko.js",
-          "web/js/bkjs-bootstrap.js",
-          "web/js/bootpopup5.js"
+          "web/js/bkjs-bootstrap.js"
         ],
         "css": [
           "web/css/bootstrap5.css",

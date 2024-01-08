@@ -337,7 +337,7 @@ function bootpopup(...args)
                     // Convert functions to string to be used as callback
                     for (const a in attrs) {
                         if (typeof attrs[a] === "function") {
-                            attrs[a] = `return (" + attrs[a] + ")(this,arguments[0],$('#${form.id}')`;
+                            attrs[a] = `return (${attrs[a]})(this,arguments[0],$('#${this.formid}'))`;
                         }
                     }
 
