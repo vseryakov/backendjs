@@ -228,7 +228,7 @@ bkjs.showToast = function(obj, type, text, options)
     obj.prepend(el);
     var timer = !o.notimer ? setInterval(() => {
         if (!$(el)[0].parentElement) return clearInterval(timer);
-        $(el).find(".timer").text(o.countdown ? Math.round((delay - (Date.now() - o.now))/1000) + "s" : Math.round((Date.now() - o.now)/1000) +"s ago");
+        $(el).find(".timer").text(o.countdown ? bkjs.toDuration(delay - (Date.now() - o.now)) : bkjs.toAge(o.now) + " ago");
     }, o.countdown ? o.delay/2 : o.delay) : "";
     el.on("hidden.bs.toast", () => { clearInterval(timer); el.remove() });
     return el;
