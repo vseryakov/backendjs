@@ -71,7 +71,7 @@ fi
 BKJS_ARGS=("$@")
 get_arg() {
   for ((i = 0;i < ${#BKJS_ARGS[@]}; ++i)); do
-    [ "$1" = "${BKJS_ARGS[i]}" ] && echo "${BKJS_ARGS[i+1]}" && return 0
+    [[ $1 = ${BKJS_ARGS[i]} && ! ${BKJS_ARGS[i+1]} =~ ^\- ]] && echo "${BKJS_ARGS[i+1]}" && return 0
   done
   echo "$2"
 }
@@ -458,10 +458,13 @@ case "$BKJS_CMD" in
 
     file=$(get_arg -file)
     [ "$file" = "" ] && echo "-file must be provided" && exit 1
-    dev=$(get_flag -dev)
     quiet=$(get_flag -quiet)
     force=$(get_flag -force)
     gzip=$(get_flag -gzip)
+    dev=$(get_arg -dev)
+    # Default or named dev bundle
+    [ "$dev" = "" ] && dev=$(get_flag -dev)
+    [ "$dev" = "1" ] && dev=dev
 
     if [[ $file =~ \.bundle\.(js|css|html)$ ]]; then
        exit
@@ -483,11 +486,11 @@ case "$BKJS_CMD" in
     [ "$type" = "html" ] && type=js
     repo=$(cd $dir && git symbolic-ref --short -q HEAD 2>/dev/null)
     bundles=$(get_json $dir/package.json config.bundles)
-    [ "$quiet" = "" ] && echo "$(date): $BKJS_CMD: $([ ! -z "$dev" ] && echo dev) $repo: $dir: $name $type bundles: $bundles"
+    [ "$quiet" = "" ] && echo "$(date): $BKJS_CMD: $repo: $dir: $name $type $dev bundles: $bundles"
 
     for b in $bundles; do
         unset f
-        [[ ! -z $dev ]] && f=$(cd $dir && echo $(get_json_flat package.json config.bundles.$b.$type.dev "" realpath))
+        [[ ! -z $dev ]] && f=$(cd $dir && echo $(get_json_flat package.json config.bundles.$b.$type.$dev "" realpath))
         [[ -z $f ]] && f=$(cd $dir && echo $(get_json_flat package.json config.bundles.$b.$type "" realpath))
         [[ -z $f ]] && continue
         if [[ -z $name || $name = $b || $f =~ $file ]]; then
@@ -661,7 +664,7 @@ case "$BKJS_CMD" in
     echo "  deps [-fields dependencies,devDependencies] [-path .] [-skip REGEXP] [-global] [-update] [-mods] [-strict] [-check] [-npm ARGS] - install or show npm dependencies from the package.json, optional bkjs modules require -mods flag"
     echo "  sync [-host HOST] [-path PATH] [-del] [-user USER] [-ssh-key pem] [-ssh OPTS] [-exclude PATTERN] [-bkcmd CMD] - push the backend code to the remote host using rsync, default path is ~/node_modules/$BKJS_MOD"
     echo "  ssh -host HOST -cmd CMD [-user USER] [-key PEM] [-ssh ARGS] - run a command over ssh on all specified hosts"
-    echo "  web-bundle -file FILE|(js|css|html)|BUNDLE.(js|css|html) [-gzip] [-dev] [-compress] [-uglifyargs ARGS] [-all] [-list] [-force] [-clean] - produce a web bundle by uglifying js/css/html files into one file, resolves files from package.json"
+    echo "  web-bundle -file FILE|(js|css|html)|BUNDLE.(js|css|html) [-gzip] [-dev DEV] [-compress] [-uglifyargs ARGS] [-all] [-list] [-force] [-clean] - produce a web bundle by uglifying js/css/html files into one file, resolves files from package.json"
     echo "  install-node [-prefix PATH] [-force] [-clean] [-tgz TGZ] - install binary release of the node into $BKJS_PREFIX or specified path"
     echo ""
     echo "  bkhelp - show all $BKJS_MOD config parameters"

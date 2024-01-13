@@ -51,7 +51,7 @@ bootpopupPlugins.push({
 });
 
 // Variable utils
-bkjs.koVal = ko.utils.unwrapObservable;
+bkjs.koVal = ko.unwrap;
 bkjs.isKo = (v) => (ko.isObservable(v))
 bkjs.isKa = (v) => (ko.isObservableArray(v))
 
