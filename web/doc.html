@@ -48,6 +48,7 @@
 <li><a href="#websockets-connections"> WebSockets connections</a></li>
 <li><a href="#versioning"> Versioning</a></li>
 <li><a href="#the-backend-provisioning-utility-bkjs"> The backend provisioning utility: bkjs</a></li>
+<li><a href="#extending-bkjs"> Extending bkjs</a></li>
 <li><a href="#web-development-notes"> Web development notes</a></li>
 <li><a href="#deployment-use-cases"> Deployment use cases</a></li>
 <li><a href="#aws-instance-setup-with-node-and-backendjs"> AWS instance setup with node and backendjs</a></li>
@@ -981,31 +982,89 @@ the backend just provides all necessary information for the middleware modules.<
 and as well to be used in operations on production systems. It is not required for the backend operations and provided as a convenience tool
 which is used in the backend development and can be useful for others running or testing the backend.</p>
 <p>Running without arguments will bring help screen with description of all available commands.</p>
-<p>The tool is multi-command utility where the first argument is the command to be executed with optional additional arguments if needed.
-On Linux, when started the bkjs tries to load and source the following config files:</p>
+<p>The tool is multi-command utility where the first argument is the command to be executed with optional additional arguments if needed.</p>
+<p>On Linux, when started the bkjs tries to load and source the following config files:</p>
 <pre><code>    /etc/default/bkjs
     /etc/sysconfig/bkjs
     $BKJS_HOME/etc/profile
+    $BKJS_HOME/etc/profile.local
 </code></pre>
+<p>On Darwin only the <code>$BKJS_HOME/etc/profile</code> is loaded where BKJS_HOME points to <code>~/.bkjs</code> by default.</p>
 <p>Any of the following config files can redefine any environment variable thus pointing to the correct backend environment directory or
 customize the running environment, these should be regular shell scripts using bash syntax.</p>
-<p>The utility is extended via external scripts that reside in the tools/ folder, by default it sources all files that start with bkjs- and looks into
-$BKJS_TOOLS, $BKJS_HOME/tools, backendjs/tools. BLKJS_TOOLS env variable may contain a list of directories seperated by spaces.</p>
-<p>Most common used commands are:</p>
+<p>To check all env variables inside bkjs just run the command <code>bkjs env</code></p>
+<p>The utility provides some simple functions to parse comamndline arguments,
+the convention is that argument name must start with a single dash followed by a value.</p>
 <ul>
-<li><p>bkjs watch - run the backend or the app for development purposes, uses local app.js if exists otherwise runs generic server</p>
+<li><p><code>get_arg(name, dflt)</code> - returns the value for the arg <code>name</code> or default value if specified</p>
 </li>
-<li><p>bkjs shell - start REPL shell with the backend module loaded and available for use, all submodules are available in the shell as well like core, db, api</p>
+<li><p><code>get_flag(name, dflt)</code> - returns 1 if there is a command lione arg with the <code>name</code> or default value
+Example:</p>
+<pre><code>bkjs shell -log debug
+</code></pre>
 </li>
-<li><p>bkjs sync [-path path] [-host host] [-user user] - sync sources of the app with the remote site, this is for development version of the backend only</p>
+<li><p><code>concat_arg(name, value)</code> - returns concatenated value from the arg and provided value, to combine values from multiple sources
+Example:</p>
+<pre><code>ssh=$(concat_arg -ssh $BKJS_SSH_ARGS)
+</code></pre>
 </li>
-<li><p>bkjs init-server [-home path] [-user user] [-host name] [-domain name] - initialize Linux instance(Amazon) for backend use,
-optional -home can be specified where the backend home will be instead of ~/.bkjs,   optional -user tells to use
-existing user instead of the current user and not root.</p>
-<p><strong>This command will create <code>/etc/sysconfig/bkjs</code> file with BKJS_HOME set to the home of the
-backendjs app which was passed in the command line. This makes the bkjs or bksh run globally regardless of the current directory.</strong></p>
+<li><p><code>get_json(file, name, dflt, realpath)</code> - returns a value from the json file, <code>name</code> can be path deep into object, <code>realpath</code> flag if nonempty will treat all values as paths and convert each into actual real path (this is used by the internal web bundler)</p>
+</li>
+<li><p><code>get_json_flat</code> - similar to get_json but the values are flattened
+Example:</p>
+<pre><code>$(get_json package.json config.sync.path)
+$(get_json package.json name)
+</code></pre>
+</li>
+<li><p><code>get_all_args(except)</code> - returns all args not present in the <code>except</code> list, this is to pass all arguments to other script, for command development
+ Example:</p>
+<pre><code>The script is called: `bkjs cmd1 -skip 1 -filter 2 -log 3`
+
+Your command handler process -skip but must pass all other args to another except -skip
+
+cmd1)
+  skip=$(get_arg -skip)
+  ...
+  other_script $(get_all_args &quot;-skip&quot;)
+  ;;
+</code></pre>
 </li>
 </ul>
+<h2 id="extending-bkjs">Extending bkjs</h2>
+<p>The utility is extended via external scripts that reside in the <code>tools/</code> folders.</p>
+<p>When bkjs is running it treats the first arg as a command, it is set to <code>$BKJS_CMD</code> var, them it matches internal commands first,
+if not found it starts loading external scripts that start with <code>bkjs-</code> from the following directories:</p>
+<ul>
+<li><code>$BKJS_TOOLS</code>,</li>
+<li>via <code>-tools</code> command line argument</li>
+<li><code>$BKJS_HOME/tools</code></li>
+<li><code>$BKJS_DIR/tools</code></li>
+</ul>
+<p><code>BKJS_DIR</code> always points to the backendjs installation directory, thus internal backendjs commands will be checked first.</p>
+<p><code>BLKJS_TOOLS</code> env variable may contain a list of directories separated by <code>spaces</code>, this variable or command line arg <code>-tools</code> is the way to add
+custom commands to bkjs. BKJS_TOOLS var is usually set in one of the profile config files mentioned above.</p>
+<p>Example of a typical bkjs command:</p>
+<p>We need to set BKJS_TOOLS to point to our package(s), on Darwin add it to ~/.bkjs/etc/profile as</p>
+<pre><code>BKJS_TOOLS=&quot;/Users/user/src/node-pkg/tools&quot;
+</code></pre>
+<p>Create a file <code>/Users/user/src/node-pkg/tools/bkjs-cmd1</code></p>
+<pre><code>#!/bin/bash
+
+case &quot;$BKJS_CMD&quot; in
+  cmd1)
+   arg1=$(get_arg -arg1)
+   arg2=$(get_arg -arg1 1)
+   [ -z $arg1 ] &amp;&amp; echo &quot;-arg1 is required&quot; &amp;&amp; exit 1
+   ...
+   exit
+   ;;
+
+  help)
+   echo &quot;&quot;
+   echo &quot;$0 cmd1 -arg1 ARG -arg2 ARG&quot;
+   ;;
+esac
+</code></pre>
 <h1 id="web-development-notes">Web development notes</h1>
 <p>Then run the dev build script to produce web/js/bkjs.bundle.js and web/css/bkjs.bundle.css</p>
 <pre><code>    cd node_modules/backendjs &amp;&amp; npm run devbuild
@@ -2566,7 +2625,7 @@ All properties starting with <code>is`` or </code>cleanup_`` will be passed to t
 </ul>
 
 <h2 id="module-app">Module: app</h2>
-<p>   Author: Vlad Seryakov <a href="mailto:&#x76;&#115;&#x65;&#x72;&#x79;&#97;&#107;&#111;&#118;&#x40;&#103;&#109;&#97;&#x69;&#x6c;&#x2e;&#x63;&#111;&#109;">&#x76;&#115;&#x65;&#x72;&#x79;&#97;&#107;&#111;&#118;&#x40;&#103;&#109;&#97;&#x69;&#x6c;&#x2e;&#x63;&#111;&#109;</a>
+<p>   Author: Vlad Seryakov <a href="mailto:&#118;&#115;&#x65;&#x72;&#121;&#97;&#x6b;&#111;&#118;&#x40;&#103;&#x6d;&#x61;&#x69;&#x6c;&#x2e;&#x63;&#x6f;&#109;">&#118;&#115;&#x65;&#x72;&#121;&#97;&#x6b;&#111;&#118;&#x40;&#103;&#x6d;&#x61;&#x69;&#x6c;&#x2e;&#x63;&#x6f;&#109;</a>
    backendjs 2018</p>
 <p>  This is a skeleton module to be extended by the specific application logic. It provides all
   callbacks and hooks that are called by the core backend modules
@@ -8589,6 +8648,13 @@ This is an alternative to AhoCorasick if number of words is less than 50-70.</p>
 <ul>
 <li><p><code>lib.tzName(tz)</code></p>
 <p>  Return a timezone human name if matched (EST, PDT...), tz must be in GMT-NNNN format</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.parseTime(time)</code></p>
+<p>  Parses a string with time and return an array [hour, min], accepts 12 and 24hrs formats,
+a single hour is accepted as well, returns undefined if cannot parse</p>
 </li>
 </ul>
 

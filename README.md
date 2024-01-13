@@ -999,28 +999,99 @@ which is used in the backend development and can be useful for others running or
 Running without arguments will bring help screen with description of all available commands.
 
 The tool is multi-command utility where the first argument is the command to be executed with optional additional arguments if needed.
+
 On Linux, when started the bkjs tries to load and source the following config files:
 
         /etc/default/bkjs
         /etc/sysconfig/bkjs
         $BKJS_HOME/etc/profile
+        $BKJS_HOME/etc/profile.local
+
+On Darwin only the `$BKJS_HOME/etc/profile` is loaded where BKJS_HOME points to `~/.bkjs` by default.
 
 Any of the following config files can redefine any environment variable thus pointing to the correct backend environment directory or
 customize the running environment, these should be regular shell scripts using bash syntax.
 
-The utility is extended via external scripts that reside in the tools/ folder, by default it sources all files that start with bkjs- and looks into
-$BKJS_TOOLS, $BKJS_HOME/tools, backendjs/tools. BLKJS_TOOLS env variable may contain a list of directories seperated by spaces.
+To check all env variables inside bkjs just run the command `bkjs env`
 
-Most common used commands are:
-- bkjs watch - run the backend or the app for development purposes, uses local app.js if exists otherwise runs generic server
-- bkjs shell - start REPL shell with the backend module loaded and available for use, all submodules are available in the shell as well like core, db, api
-- bkjs sync [-path path] [-host host] [-user user] - sync sources of the app with the remote site, this is for development version of the backend only
-- bkjs init-server [-home path] [-user user] [-host name] [-domain name] - initialize Linux instance(Amazon) for backend use,
-  optional -home can be specified where the backend home will be instead of ~/.bkjs,   optional -user tells to use
-  existing user instead of the current user and not root.
+The utility provides some simple functions to parse comamndline arguments,
+the convention is that argument name must start with a single dash followed by a value.
 
-  **This command will create `/etc/sysconfig/bkjs` file with BKJS_HOME set to the home of the
-  backendjs app which was passed in the command line. This makes the bkjs or bksh run globally regardless of the current directory.**
+- `get_arg(name, dflt)` - returns the value for the arg `name` or default value if specified
+- `get_flag(name, dflt)` - returns 1 if there is a command lione arg with the `name` or default value
+  Example:
+
+      bkjs shell -log debug
+
+- `concat_arg(name, value)` - returns concatenated value from the arg and provided value, to combine values from multiple sources
+  Example:
+
+      ssh=$(concat_arg -ssh $BKJS_SSH_ARGS)
+
+
+- `get_json(file, name, dflt, realpath)` - returns a value from the json file, `name` can be path deep into object, `realpath` flag if nonempty will treat all values as paths and convert each into actual real path (this is used by the internal web bundler)
+- `get_json_flat` - similar to get_json but the values are flattened
+  Example:
+
+      $(get_json package.json config.sync.path)
+      $(get_json package.json name)
+
+- `get_all_args(except)` - returns all args not present in the `except` list, this is to pass all arguments to other script, for command development
+   Example:
+
+      The script is called: `bkjs cmd1 -skip 1 -filter 2 -log 3`
+
+      Your command handler process -skip but must pass all other args to another except -skip
+
+      cmd1)
+        skip=$(get_arg -skip)
+        ...
+        other_script $(get_all_args "-skip")
+        ;;
+
+
+## Extending bkjs
+
+The utility is extended via external scripts that reside in the `tools/` folders.
+
+When bkjs is running it treats the first arg as a command, it is set to `$BKJS_CMD` var, them it matches internal commands first,
+if not found it starts loading external scripts that start with `bkjs-` from the following directories:
+
+- `$BKJS_TOOLS`,
+- via `-tools` command line argument
+- `$BKJS_HOME/tools`
+- `$BKJS_DIR/tools`
+
+`BKJS_DIR` always points to the backendjs installation directory, thus internal backendjs commands will be checked first.
+
+`BLKJS_TOOLS` env variable may contain a list of directories separated by `spaces`, this variable or command line arg `-tools` is the way to add
+custom commands to bkjs. BKJS_TOOLS var is usually set in one of the profile config files mentioned above.
+
+Example of a typical bkjs command:
+
+We need to set BKJS_TOOLS to point to our package(s), on Darwin add it to ~/.bkjs/etc/profile as
+
+    BKJS_TOOLS="/Users/user/src/node-pkg/tools"
+
+
+Create a file `/Users/user/src/node-pkg/tools/bkjs-cmd1`
+
+    #!/bin/bash
+
+    case "$BKJS_CMD" in
+      cmd1)
+       arg1=$(get_arg -arg1)
+       arg2=$(get_arg -arg1 1)
+       [ -z $arg1 ] && echo "-arg1 is required" && exit 1
+       ...
+       exit
+       ;;
+
+      help)
+       echo ""
+       echo "$0 cmd1 -arg1 ARG -arg2 ARG"
+       ;;
+    esac
 
 
 # Web development notes
