@@ -711,6 +711,18 @@ The backend directory structure is the following:
 * `tmp` - temporary files
 * `web` - Web pages served by the static Express middleware
 
+# Environment variables
+
+On startup some env variable will be used for initial configuration:
+
+  - BKJS_HOME - home directory where to cd and find files, `-home` config parameter overrides it
+  - BKJS_RUNMODE - initial run mode, `-run-mode` overrides it
+  - BKJS_CONFFILE - config gfile to use instesd of 'config', `-conf-file` overrides it
+  - BKJS_APPNAME - default app name
+  - BKJS_TAG - initial instance tag, `-instance-tag` overrides it, it may be also overridden by AWS instance tag
+  - BKJS_PORT - port for web server
+  - BKJS_WSPORT - port for web sockets
+
 # Cache configurations
 Database layer support caching of the responses using `db.getCached` call, it retrieves exactly one record from the configured cache, if no record exists it
 will pull it from the database and on success will store it in the cache before returning to the client. When dealing with cached records, there is a special option

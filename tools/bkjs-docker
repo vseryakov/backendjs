@@ -10,7 +10,7 @@ case "$BKJS_CMD" in
     tag=$(get_arg -tag)
     version=$(get_arg -version)
     path=$(get_arg -path .)
-    root=$(get_arg -root $HOME)
+    root=$(get_arg -root .)
 
     [ ! -f $path/$tag.Dockerfile ] && echo "$BKJS_CMD: no $tag.Dockerfile found in $path" && exit 1
 
