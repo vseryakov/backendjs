@@ -415,7 +415,7 @@ separate NPM packages, the structure is the same, modules must be in the modules
 via require as usual. In most cases just empty index.js is enough. Such modules will not be loaded via require though but
 by the backendjs `core.loadModule` machinery, the NPM packages are just keep different module directories separate from each other.
 
-The config parameter `allow-packages` can be used to specify NPM package names to be loaded separated by comma, as with the default
+The config parameter `preload-packages` can be used to specify NPM package names to be loaded separated by comma, as with the default
 application structure all subfolders inside each NPM package will be added to the core:
 
   - modules will be loaded from the modules/ folder
@@ -717,7 +717,8 @@ On startup some env variable will be used for initial configuration:
 
   - BKJS_HOME - home directory where to cd and find files, `-home` config parameter overrides it
   - BKJS_RUNMODE - initial run mode, `-run-mode` overrides it
-  - BKJS_CONFFILE - config gfile to use instesd of 'config', `-conf-file` overrides it
+  - BKJS_CONFFILE - config file to use instead of 'config', `-conf-file` overrides it
+  - BKJS_PACKAGES - packags to preload, `-preload-packages` overrieds it
   - BKJS_APPNAME - default app name
   - BKJS_TAG - initial instance tag, `-instance-tag` overrides it, it may be also overridden by AWS instance tag
   - BKJS_PORT - port for web server

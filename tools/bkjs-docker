@@ -17,23 +17,25 @@ case "$BKJS_CMD" in
     [ -f $path/$tag.path ] && path="$root$(head -1 $path/$tag.path)"
     [ ! -d $root ] && echo "$BKJS_CMD: invalid $tag context path: $root" && exit 1
 
-    rm -f $root/.dockerignore
-    if [ -f $path/$tag.dockerignore ]; then
-        cp $path/$tag.dockerignore $root/.dockerignore
-    else
-        echo '*' > $root/.dockerignore
+    if [ ! -f $root/.dockerignore ]; then
+        if [ -f $path/$tag.dockerignore ]; then
+            cp $path/$tag.dockerignore $root/.dockerignore
+        else
+            echo '*' > $root/.dockerignore
+        fi
+        dockerignore=yes
     fi
 
     [ -f $path/$tag.build ] && cmd=$(cat $path/$tag.build|tr '\n' ' ')
     [ ! -z $version ] && cmd="$cmd -t $tag:$version"
 
-    cmd="docker build --progress=plain -t $tag -f $path/$tag.Dockerfile $cmd $root"
+    cmd="docker build --rm --progress=plain -t $tag -f $path/$tag.Dockerfile $cmd $root"
     [ ! -z "$BKJS_DEBUG" ] && echo $cmd
 
     $cmd
     rc=$?
 
-    rm -f $root/.dockerignore
+    [ "$dockerignore" = "yes" ] && rm -f $root/.dockerignore
     [ "$rc" != "0" ] && exit $rc
 
     [ "$(get_flag -run)" != "" ] && $0 docker-run -tag $tag -path $path -force
