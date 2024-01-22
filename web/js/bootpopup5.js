@@ -65,11 +65,12 @@ function bootpopup(...args)
         class_ok: "btn btn-primary",
         class_yes: "btn btn-primary",
         class_no: "btn btn-primary",
+        class_help: "btn btn-outline-secondary",
         class_agree: "btn btn-primary",
         class_cancel: "btn btn-secondary",
-        class_close: "btn btn-secondary",
-        class_button1: "btn btn-primary",
-        class_button2: "btn btn-primary",
+        class_close: "btn btn-outline-secondary",
+        class_button1: "btn btn-outline-secondary",
+        class_button2: "btn btn-outline-secondary",
         class_tabs: "nav nav-tabs mb-4",
         class_tablink: "nav-link",
         class_tabcontent: "tab-content",
@@ -80,6 +81,7 @@ function bootpopup(...args)
         text_ok: "OK",
         text_yes: "Yes",
         text_no: "No",
+        text_help: "Help",
         text_agree: "Agree",
         text_cancel: "Cancel",
         text_close: "Close",
@@ -281,7 +283,7 @@ function bootpopup(...args)
             }
             if (this.options.horizontal) {
                 group.addClass("row");
-                class_label += " col-form-label " + (opts.size_label || this.options.size_label);
+                class_label = " col-form-label " + (opts.size_label || this.options.size_label) + " " + class_label;
                 const lopts = { for: opts.for || attrs.id, class: class_label, html: this.sanitize(opts.label) };
                 for (const p in opts.attrs_label) lopts[p] = opts.attrs_label[p];
                 group.append($("<label></label>", lopts));
@@ -390,11 +392,12 @@ function bootpopup(...args)
                         if (["radio", "checkbox"].includes(attrs.type) && !opts.raw) {
                             label = $('<label></label>', { class: opts.class_input_btn || opts.class_input_label || "form-check-label", for: opts.for || attrs.id }).
                                     append(opts.input_label || opts.label);
-                            let class_check = opts.class_check || "form-check";
+                            let class_check = "form-check";
                             if (opts.switch) class_check += " form-switch", attrs.role = "switch";
                             if (opts.inline) class_check += " form-check-inline";
                             if (opts.reverse) class_check += " form-check-reverse";
-                            attrs.class = (opts.class_input_btn ? "btn-check " : "form-check-input ") + attrs.class;
+                            if (opts.class_check) class_check += " " + opts.class_check;
+                            attrs.class = (opts.class_input_btn ? "btn-check " : "form-check-input ") + (attrs.class || "");
                             elem = $('<div></div>', { class: class_check }).append($("<" + type + "/>", attrs)).append(label);
                             if (opts.class_append || opts.text_append) {
                                 label.append($("<span></span>", { class: opts.class_append || "" }).append(opts.text_append || ""));
@@ -417,6 +420,32 @@ function bootpopup(...args)
                         addElement(type);
                         break;
 
+                    case "checkboxes":
+                        elem = $("<div></div>", { class: opts.class_container });
+                        for (const i in attrs.options) {
+                            let o = attrs.options[i];
+                            if (!o?.name) continue;
+                            const title = o.title;
+                            const label = $('<label></label>', { class: "form-check-label", for: attrs.id + "-" + i }).append(o.label || o.name);
+                            o = Object.assign(o, {
+                                id: attrs.id + "-" + i,
+                                class: `form-check-input ${o.class || ""}`,
+                                role: opts.switch && "switch",
+                                type: attrs.type || "checkbox",
+                                label: undefined,
+                                title: undefined,
+                            });
+                            let c = "form-check";
+                            if (o.switch || opts.switch) c += " form-switch";
+                            if (o.inline || opts.inline) c += " form-check-inline";
+                            if (o.reverse || opts.reverse) c += " form-check-reverse";
+                            if (o.class_check || opts.class_check) c += " " + (o.class_check || opts.class_check);
+                            children.push($('<div></div>', { class: c, title: title }).append($(`<input/>`, o)).append(label));
+                        }
+                        bkjs.objDel(attrs, "switch", "inline", "reverse", "options", "value", "type");
+                        addElement(type);
+                        break;
+
                     case "alert":
                     case "success":
                         this[type] = elem = $("<div></div>", attrs).appendTo(form);
@@ -424,13 +453,13 @@ function bootpopup(...args)
 
                     default:
                         elem = $("<" + type + "></" + type + ">", attrs);
+                        if (opts.class_append || opts.text_append) {
+                            elem.append($("<span></span>", { class: opts.class_append || "" }).append(opts.text_append));
+                        }
                         if (opts.name && opts.label) {
                             addElement(type);
                         } else {
                             elem.appendTo(form);
-                            if (opts.class_append || opts.text_append) {
-                                elem.append($("<span></span>", { class: opts.class_append || "" }).append(opts.text_append));
-                            }
                         }
                     }
                 }
