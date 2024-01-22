@@ -31,6 +31,7 @@
 <li><a href="#api-requests-handling"> API requests handling</a></li>
 <li><a href="#example-of-todo-application"> Example of TODO application</a></li>
 <li><a href="#backend-directory-structure"> Backend directory structure</a></li>
+<li><a href="#environment-variables"> Environment variables</a></li>
 <li><a href="#cache-configurations"> Cache configurations</a></li>
 <li><a href="#local"> Local</a></li>
 <li><a href="#redis"> Redis</a></li>
@@ -475,7 +476,7 @@ methods.</p>
 separate NPM packages, the structure is the same, modules must be in the modules/ folder and the package must be loadable
 via require as usual. In most cases just empty index.js is enough. Such modules will not be loaded via require though but
 by the backendjs <code>core.loadModule</code> machinery, the NPM packages are just keep different module directories separate from each other.</p>
-<p>The config parameter <code>allow-packages</code> can be used to specify NPM package names to be loaded separated by comma, as with the default
+<p>The config parameter <code>preload-packages</code> can be used to specify NPM package names to be loaded separated by comma, as with the default
 application structure all subfolders inside each NPM package will be added to the core:</p>
 <ul>
 <li>modules will be loaded from the modules/ folder</li>
@@ -744,6 +745,21 @@ concatenated with the domain and queried for the TXT record, for example: <code>
 </li>
 <li><p><code>web</code> - Web pages served by the static Express middleware</p>
 </li>
+</ul>
+<h1 id="environment-variables">Environment variables</h1>
+<p>On startup some env variable will be used for initial configuration:</p>
+<ul>
+<li>BKJS_HOME - home directory where to cd and find files, <code>-home</code> config parameter overrides it</li>
+<li>BKJS_RUNMODE - initial run mode, <code>-run-mode</code> overrides it</li>
+<li>BKJS_CONFFILE - config file to use instead of &#39;config&#39;, <code>-conf-file</code> overrides it</li>
+<li>BKJS_PACKAGES - packags to preload, <code>-preload-packages</code> overrieds it</li>
+<li>BKJS_DB_CONFIG_ROLES - db config roles to use, <code>-db-config-roles</code> overrides it</li>
+<li>BKJS_DB_POOL - default db pool, <code>-db-pool</code> overrides it</li>
+<li>BKJS_DB_CONFIG - config db pool, <code>-db-config</code> overrides it</li>
+<li>BKJS_APPNAME - default app name</li>
+<li>BKJS_TAG - initial instance tag, <code>-instance-tag</code> overrides it, it may be also overridden by AWS instance tag</li>
+<li>BKJS_PORT - port for web server</li>
+<li>BKJS_WSPORT - port for web sockets</li>
 </ul>
 <h1 id="cache-configurations">Cache configurations</h1>
 <p>Database layer support caching of the responses using <code>db.getCached</code> call, it retrieves exactly one record from the configured cache, if no record exists it
@@ -2625,7 +2641,7 @@ All properties starting with <code>is`` or </code>cleanup_`` will be passed to t
 </ul>
 
 <h2 id="module-app">Module: app</h2>
-<p>   Author: Vlad Seryakov <a href="mailto:&#118;&#x73;&#101;&#114;&#x79;&#97;&#107;&#x6f;&#118;&#x40;&#x67;&#x6d;&#97;&#x69;&#x6c;&#46;&#x63;&#111;&#x6d;">&#118;&#x73;&#101;&#114;&#x79;&#97;&#107;&#x6f;&#118;&#x40;&#x67;&#x6d;&#97;&#x69;&#x6c;&#46;&#x63;&#111;&#x6d;</a>
+<p>   Author: Vlad Seryakov <a href="mailto:&#118;&#115;&#101;&#114;&#121;&#x61;&#107;&#111;&#x76;&#64;&#x67;&#x6d;&#x61;&#x69;&#108;&#46;&#x63;&#111;&#109;">&#118;&#115;&#101;&#114;&#121;&#x61;&#107;&#111;&#x76;&#64;&#x67;&#x6d;&#x61;&#x69;&#108;&#46;&#x63;&#111;&#109;</a>
    backendjs 2018</p>
 <p>  This is a skeleton module to be extended by the specific application logic. It provides all
   callbacks and hooks that are called by the core backend modules
@@ -3937,7 +3953,7 @@ The following options can be used:</p>
 <li><code>web</code>, type: &quot;callback&quot;, callback: function() { this.noWeb=0  descr: &quot;Start Web server processes, spawn workers that listen on the same port, for use without master process which starts Web servers automatically&quot;</li>
 <li><code>salt</code>, type: &quot;callback&quot;, callback: function(v) { this.salt=lib.salt=v;  descr: &quot;Set random or specific salt value to be used for consistent suuid generation&quot;, pass: 1</li>
 <li><code>app-name</code>, type: &quot;callback&quot;, callback: function(v) { if (!v) return;v = v.split(/[/-]/);this.appName=v[0].trim();if (v[1]) this.appVersion=v[1].trim(); descr: &quot;Set appName and version explicitely an skip reading it from package.json, it can be just a name or name-version&quot;, pass: 1</li>
-<li><code>app-package</code>, descr: &quot;NPM package containing the application package.json, it will be added to the list of package.json files for app name and version discovery. The package must be included in the -allow-packages list.&quot;, pass: 1</li>
+<li><code>app-package</code>, descr: &quot;NPM package containing the application package.json, it will be added to the list of package.json files for app name and version discovery. The package must be included in the -preload-packages list.&quot;, pass: 1</li>
 <li><code>instance-(.+)</code>, obj: &#39;instance&#39;, make: &quot;$1&quot;, descr: &quot;Set instance properties explicitly: tag, region, zone&quot;, pass: 1</li>
 <li><code>run-mode</code>, dns: 1, descr: &quot;Running mode for the app, used to separate different running environment and configurations&quot;, pass: 1</li>
 <li><code>no-monitor</code>, type: &quot;none&quot;, descr: &quot;Disable monitor process, for cases when the master will be monitored by other tool like monit...&quot;</li>
@@ -3955,7 +3971,7 @@ The following options can be used:</p>
 <li><code>repl-file</code>, obj: &quot;repl&quot;, descr: &quot;User specified file for REPL history&quot;</li>
 <li><code>repl-size</code>, obj: &quot;repl&quot;, type: &quot;int&quot;, descr: &quot;Max size to read on start from the end of the history file&quot;</li>
 <li><code>worker</code>, type: &quot;bool&quot;, descr: &quot;Set this process as a worker even it is actually a master, this skips some initializations&quot;</li>
-<li><code>allow-packages</code>, type: &quot;list&quot;, array: 1, push: 1, descr: &quot;NPM packages to load on startup, the modules, locales, viewes, web subfolders from the package will be added automatically to the system paths, modules will be loaded if present, the config file in etc subfolder will be parsed if present&quot;, pass: 1</li>
+<li><code>preload-packages</code>, type: &quot;list&quot;, array: 1, push: 1, descr: &quot;NPM packages to load on startup, the modules, locales, viewes, web subfolders from the package will be added automatically to the system paths, modules will be loaded if present, the config file in etc subfolder will be parsed if present&quot;, pass: 1</li>
 <li><code>preload-modules</code>, type: &quot;regexp&quot;, descr: &quot;Modules to preload first from any modules/ folders including the system folder, this can be used to preload default bkjs system modules&quot;, pass: 1</li>
 <li><code>exclude-modules</code>, type: &quot;regexp&quot;, descr: &quot;Modules not to load, the whole path is checked&quot;, pass: 1</li>
 <li><code>depth-modules</code>, type: &quot;int&quot;, descr: &quot;How deep to go looking for modules, it uses lib.findFileSync to locate all .js files&quot;, pass: 1</li>
@@ -7440,6 +7456,12 @@ to use newlines for objects.</p>
 </ul>
 
 <ul>
+<li><p><code>lib.decodeURIComponent(str)</code></p>
+<p>  No-exception version of the global function, on error returen empty string</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>lib.escapeUnicode(text)</code></p>
 <p>  Convert all Unicode binary symbols into Javascript text representation</p>
 </li>
@@ -9608,6 +9630,12 @@ commands processed from <code>shell.cmdIndex</code></p>
 
 <ul>
 <li><p><code>shell.cmdSendRequest(options)</code></p>
+<p>  Send API request</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.cmdSubmitJob(options)</code></p>
 <p>  Send API request</p>
 </li>
 </ul>

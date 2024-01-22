@@ -719,6 +719,9 @@ On startup some env variable will be used for initial configuration:
   - BKJS_RUNMODE - initial run mode, `-run-mode` overrides it
   - BKJS_CONFFILE - config file to use instead of 'config', `-conf-file` overrides it
   - BKJS_PACKAGES - packags to preload, `-preload-packages` overrieds it
+  - BKJS_DB_CONFIG_ROLES - db config roles to use, `-db-config-roles` overrides it
+  - BKJS_DB_POOL - default db pool, `-db-pool` overrides it
+  - BKJS_DB_CONFIG - config db pool, `-db-config` overrides it
   - BKJS_APPNAME - default app name
   - BKJS_TAG - initial instance tag, `-instance-tag` overrides it, it may be also overridden by AWS instance tag
   - BKJS_PORT - port for web server
