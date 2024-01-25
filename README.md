@@ -679,6 +679,8 @@ The backend directory structure is the following:
 
     * on startup the following local config files will be loaded if present: `etc/config.runMode` and `etc/config.instance.tag`. These will be loaded after the main config but before config.local. The runMode is set to development by default and can be changed with `-run-mode` config parameter, the instance tag is set with `-instance-tag` config parameter.
 
+    * config files support sections that can be used for conditions, see `lib.configParse` description for details
+
     * `etc/crontab` - jobs to be run with intervals, JSON file with a list of cron jobs objects:
 
         Example:
@@ -719,7 +721,7 @@ On startup some env variable will be used for initial configuration:
   - BKJS_RUNMODE - initial run mode, `-run-mode` overrides it
   - BKJS_CONFFILE - config file to use instead of 'config', `-conf-file` overrides it
   - BKJS_PACKAGES - packags to preload, `-preload-packages` overrieds it
-  - BKJS_DB_CONFIG_ROLES - db config roles to use, `-db-config-roles` overrides it
+  - BKJS_CONFIG_ROLES - config roles to use, `-config-roles` overrides it
   - BKJS_DB_POOL - default db pool, `-db-pool` overrides it
   - BKJS_DB_CONFIG - config db pool, `-db-config` overrides it
   - BKJS_APPNAME - default app name

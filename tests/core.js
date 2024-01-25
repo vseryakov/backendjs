@@ -3,12 +3,24 @@ tests.test_config_sections = function(callback)
 {
     var data = `
 line1=line1
-[tag:test1]
+[tag=test1]
 line3=line3
-[runMode:test2]
+[runMode=test2]
 line4=line4
-[tag:test]
+[tag=test]
 line5=line5
+[instance.tag=tag]
+line6=line6
+[configRoles=dev,staging]
+line7=line7
+[aws.key=]
+line8=line8
+[instance.tag!=]
+line9=line9
+[none.test=1]
+line10=line10
+[instance.tag!=aaa]
+line11=line11
 [global]
 line2=line2
 `;
@@ -33,6 +45,14 @@ line2=line2
     expect(args.includes("-line4"), "runMode: expects line4", args)
     expect(args.includes("-line5"), "runMode: expects line5", args)
 
+    core.instance.tag = "tag";
+    core.configRoles = ["dev", "staging", "prod"];
+    args = lib.configParse(data, core);
+    expect(args.includes("-line6"), "instance tag: expects line6", args, core.instance)
+    expect(!args.includes("-line8"), "no aws key: not expects line8", args, aws.key)
+    expect(args.includes("-line9"), "instance tag not empty: expects line9", args, core.instance)
+    expect(!args.includes("-line10"), "bad module: not expects line10", args)
+    expect(args.includes("-line11"), "instance tags != aaa: not expects line11", args)
 
     callback();
 }
