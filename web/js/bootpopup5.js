@@ -117,6 +117,7 @@ function bootpopup(...args)
         yes: function() {},
         no: function() {},
         agree: function() {},
+        help: function() {},
         button1: function() {},
         button2: function() {},
         show: function() {},

@@ -1,4 +1,42 @@
 
+tests.test_config_sections = function(callback)
+{
+    var data = `
+line1=line1
+[tag:test1]
+line3=line3
+[runMode:test2]
+line4=line4
+[tag:test]
+line5=line5
+[global]
+line2=line2
+`;
+
+    var args = lib.configParse(data);
+    expect(args.includes("-line1"), "expects line1", args)
+    expect(args.includes("-line2"), "expects line2", args)
+    expect(!args.includes("-line3"), "not expects line3", args)
+    expect(!args.includes("-line4"), "not expects line4", args)
+
+    args = lib.configParse(data, { tag: "test1" });
+    expect(args.includes("-line1"), "tag: expects line1", args)
+    expect(args.includes("-line2"), "tag: expects line2", args)
+    expect(args.includes("-line3"), "tag: expects line3", args)
+    expect(!args.includes("-line4"), "tag: not expects line4", args)
+    expect(!args.includes("-line5"), "tag: not expects line5", args)
+
+    args = lib.configParse(data, { tag: "test", runMode: "test2" });
+    expect(args.includes("-line1"), "runMode: expects line1", args)
+    expect(args.includes("-line2"), "runMode: expects line2", args)
+    expect(!args.includes("-line3"), "runMode: expects line3", args)
+    expect(args.includes("-line4"), "runMode: expects line4", args)
+    expect(args.includes("-line5"), "runMode: expects line5", args)
+
+
+    callback();
+}
+
 tests.test_config = function(callback)
 {
     var argv = ["-force-uid", "1,1",
