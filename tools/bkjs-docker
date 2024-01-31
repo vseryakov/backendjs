@@ -12,24 +12,24 @@ case "$BKJS_CMD" in
     path=$(get_arg -path .)
     root=$(get_arg -root .)
 
-    [ ! -f $path/$tag.Dockerfile ] && echo "$BKJS_CMD: no $tag.Dockerfile found in $path" && exit 1
+    [ ! -f $path/Dockerfile.$tag ] && echo "$BKJS_CMD: no Dockerfile.$tag found in $path" && exit 1
 
-    [ -f $path/$tag.path ] && path="$root$(head -1 $path/$tag.path)"
+    [ -f $path/path.$tag ] && path="$root$(head -1 $path/path.$tag)"
     [ ! -d $root ] && echo "$BKJS_CMD: invalid $tag context path: $root" && exit 1
 
     if [ ! -f $root/.dockerignore ]; then
-        if [ -f $path/$tag.dockerignore ]; then
-            cp $path/$tag.dockerignore $root/.dockerignore
+        if [ -f $path/dockerignore.$tag ]; then
+            cp $path/dockerignore.$tag $root/.dockerignore
         else
             echo '*' > $root/.dockerignore
         fi
         dockerignore=yes
     fi
 
-    [ -f $path/$tag.build ] && cmd=$(cat $path/$tag.build|tr '\n' ' ')
+    [ -f $path/build.$tag ] && cmd=$(cat $path/build.$tag|tr '\n' ' ')
     [ ! -z $version ] && cmd="$cmd -t $tag:$version"
 
-    cmd="docker build --rm --progress=plain -t $tag -f $path/$tag.Dockerfile $cmd $root"
+    cmd="docker build --rm --progress=plain -t $tag -f $path/Dockerfile.$tag $cmd $root"
     [ ! -z "$BKJS_DEBUG" ] && echo $cmd
 
     $cmd
@@ -47,7 +47,7 @@ case "$BKJS_CMD" in
     path=$(get_arg -path .)
 
     [ -z $tag ] && echo "$BKJS_CMD: -tag must be provided" && exit 1
-    [ -f $path/$tag.run ] && cmd=$(cat $path/$tag.run|tr '\n' ' ')
+    [ -f $path/run.$tag ] && cmd=$(cat $path/run.$tag|tr '\n' ' ')
 
     if [ "$(get_flag -force)" != "" ]; then
        pids=$(docker ps -aq -f name=$tag)
@@ -84,13 +84,124 @@ case "$BKJS_CMD" in
     exec docker restart ${BKJS_ARGS[0]}
     ;;
 
+  ecr-get)
+    id=$(get_arg -id)
+    [ -z $id ] && id=$($0 ec2-account)
+    region=$(get_arg -region)
+    [ -z $region ] && region=$($0 ec2-region)
+
+    ecr="$id.dkr.ecr.$region.amazonaws.com"
+    echo $ecr
+
+    [ "$(get_flag -login $BKJS_LOGIN_ECR)" = "" ] && exit
+    aws ecr get-login-password| docker login --username AWS --password-stdin $ecr
+    [ "$?" != "0" ] && exit 1
+    exit 0
+    ;;
+
+  ecr-push)
+    repo=$(get_arg -repo)
+    image=$(get_arg -image)
+    [ "$repo" = "" -o "$image" = "" ] && echo "-repo and -image are required" && exit 1
+
+    ecr=$($0 ecr-get $(get_all_args))
+    [ "$?" != "0" ] && exit 1
+
+    if [ "$(get_flag -create)" != "" ]; then
+        aws ecr describe-repositories --repository-names $repo --query repositories[*].repositoryUri --output text 2>/dev/null
+        if [ "$?" != "0" ]; then
+            aws ecr create-repository --repository-name $repo
+            [ "$?" != "0" ] && exit 1
+        fi
+    fi
+
+    tag=$(get_arg -tag latest)
+    docker tag $image $ecr/$repo:$tag
+    docker push $ecr/$repo:$tag
+
+    if [ "$(get_flag -latest)" -a "$tag" != "latest" ]; then
+        docker tag $image $ecr/$repo:latest
+        docker push $ecr/$repo:latest
+    fi
+    exit
+    ;;
+
+  ecr-del)
+    repo=$(get_arg -repo)
+    tag=$(get_arg -tag)
+    [ "$repo" = "" -o $tag == "" ] && echo "-repo and -tag are required" && exit 1
+
+    aws ecr batch-delete-image --repository-name $repo --image-ids imageTag=$tag
+    exit
+    ;;
+
+  ecs-run)
+    task=$(get_arg -task)
+    cluster=$(get_arg -cluster default)
+
+    network="assignPublicIp=ENABLED"
+    gid=$(get_arg -gid)
+    group=$(get_arg -group)
+    [ ! -z $group ] && gid=$(aws ec2 describe-security-groups --filters Name=group-name,Values=$group --query "SecurityGroups[*].[GroupId]" --output text|tr '\n' ,|sed s/,$//)
+    [ ! -z $gid ] && network="$network,securityGroups=[$gid]"
+
+    sid=$(get_arg -sid)
+    subnet=$(get_arg -subnet)
+    [ ! -z $subnet ] && sid=$(aws ec2 describe-subnets --query 'Subnets[*].[SubnetId,Tags[?Key==`Name`]]' --output text|awk "/Name/{if(s&&index(\$2,\"$subnet\")==1)print s;s=\"\"} /^subnet/{s=\$0}"|tr '\n' ,|sed s/,$//)
+    [ ! -z $sid ] && network="$network,subnets=[$sid]"
+
+    cpu=$(get_arg -cpu)
+    if [ ! -z $cpu ]; then
+        [ ! -z $overrides ] && overrides="$overrides,"
+        overrides="$overrides\"cpu\":$cpu"
+    fi
+    mem=$(get_arg -mem)
+    if [ ! -z $mem ]; then
+        [ ! -z $overrides ] && overrides="$overrides,"
+        overrides="$overrides\"memory\":$mem"
+    fi
+    arm=$(get_arg -arm)
+    if [ ! -z $arm ]; then
+        [ ! -z $overrides ] && overrides="$overrides,"
+        overrides="$overrides\"runtimePlatform\":{\"cpuArchitecture\":\"ARM64\"}"
+    fi
+
+    tag=$(get_arg -tag)
+    if [ ! -z $tag ]; then
+        container=$(aws ecs describe-task-definition --task-definition $task --query taskDefinition.containerDefinitions[*].name --output text)
+        [ ! -z $overrides ] && overrides="$overrides,"
+        overrides="$overrides\"containerOverrides\":[{\"name\":\"$container\",\"environment\":[{\"name\":\"BKJS_TAG\",\"value\":\"$tag\"}]}]"
+    fi
+
+    cmd="aws ecs run-task --cluster $cluster --task-definition $task --count $(get_arg -count 1) --overrides {$overrides} --network-configuration awsvpcConfiguration={$network}"
+    [ ! -z $tag ] && cmd="$cmd --tags key=Name,value=$tag"
+    [ ! -z $(get_flag -exec) ] && cmd="$cmd --enable-execute-command"
+
+    type=$(get_arg -type)
+    if [ ! -z $type ]; then
+        cmd="$cmd --launch-type $type"
+    else
+        cmd="$cmd --capacity-provider-strategy capacityProvider=$(get_arg -provider FARGATE)"
+    fi
+
+    [ ! -z "$BKJS_DEBUG" ] && echo $cmd
+    [ ! -z $(get_flag -dry-run) ] && echo $cmd && exit
+
+    $cmd
+    exit
+    ;;
+
   help)
     echo ""
-    echo "Docker commands:"
+    echo "Docker/ECR commands:"
     echo ""
     echo "  docker-init-rsyslog - store docker container logs in $BKJS_HOME/log/docker.log"
     echo "  docker-build -t TAG [-version V] [-path .] [-root H] - build an image for the specified tag"
     echo "  docker-run -t TAG [-path .] [-force] - run a container for the specified tag"
     echo "  drestart NAME - restart a container, for use with bkrsync"
+    echo "  ecr-get [-id ID] [-region REPO] [-login] - login into ECR if required or return ECR host name"
+    echo "  ecr-push -repo REPO -image IMAGE [-tag TAG|VERSION] [-latest] [-create] [-login] - tag and push a docker image to ECR, -latest also pushes it as :latest if -tag is different"
+    echo "  ecr-del -tag NAME -repo REPO - delete an image from repo by tag"
+    echo "  ecs-run -task NAME [-cluser default] [-type EC2|FARGATE] [-provider FARGATE_SPOT] [-gid ID] [-group NAME] [-sid ID] [-subnet NAME] [-cpu N] [-memory N] [-tag T] [-arm] [-exec] [-dry-tun] - run an ECS task in subnets with security groups, overrides cpu/mem, pass tag to bkjs process as instance tag"
     ;;
 esac

@@ -639,7 +639,6 @@ case "$BKJS_CMD" in
     #
     process_cmd
 
-    [ "$BKJS_CMD" != "" ] && echo "error: unrecognized command: $BKJS_CMD: $@" >&2
     echo ""
     echo "General commands:"
     echo ""
@@ -679,9 +678,12 @@ case "$BKJS_CMD" in
     echo "  -group name - set backend group on the remote or local side, default is ${BKJS_GROUP:-`id -gn`}"
     echo ""
 
+    cmd=$BKJS_CMD
     BKJS_CMD=help
     process_cmd
     echo ""
+    [ "$cmd" != "" ] && echo "error: unrecognized command: $cmd: $@" >&2 && exit 1
+    exit 0
     ;;
 esac
 

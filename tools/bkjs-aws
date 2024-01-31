@@ -138,6 +138,8 @@ case "$BKJS_CMD" in
     ;;
 
   ec2-account)
+    [ -f $HOME/.aws/config ] && id=$(awk '/^account-id/{print $3}' $HOME/.aws/config)
+    [ ! -z $id ] && echo $id && exit
     echo $(get_ec2_meta latest/dynamic/instance-identity/document)|sed 's/[{}":]//g'|tr , "\n"|grep accountId|awk '{print $2}'
     exit
     ;;
@@ -336,82 +338,9 @@ case "$BKJS_CMD" in
     exit
     ;;
 
-  ecr-push)
-    tag=$(get_arg -tag)
-    [ "$tag" = "" ] && echo "-tag is required" && exit 1
-    ecr="$($0 ec2-account).dkr.ecr.$($0 ec2-region).amazonaws.com"
-    aws ecr get-login-password| docker login --username AWS --password-stdin $ecr
-    [ "$?" != "0" ] && exit 1
-    ecr="$ecr/$tag"
-    version=$(get_arg -version)
-    [ ! -z $version ] && ecr="$ecr:$version"
-    if [ ! -z $(get_flag -force) ]; then
-        aws ecr batch-delete-image --repository-name $tag --image-ids imageTag=${version:-latest}
-    fi
-    docker tag $tag $ecr
-    docker push $ecr
-    exit
-    ;;
-
-  ecs-run)
-    task=$(get_arg -task)
-    cluster=$(get_arg -cluster default)
-
-    network="assignPublicIp=ENABLED"
-    gid=$(get_arg -gid)
-    group=$(get_arg -group)
-    [ ! -z $group ] && gid=$(aws ec2 describe-security-groups --filters Name=group-name,Values=$group --query "SecurityGroups[*].[GroupId]" --output text|tr '\n' ,|sed s/,$//)
-    [ ! -z $gid ] && network="$network,securityGroups=[$gid]"
-
-    sid=$(get_arg -sid)
-    subnet=$(get_arg -subnet)
-    [ ! -z $subnet ] && sid=$(aws ec2 describe-subnets --query 'Subnets[*].[SubnetId,Tags[?Key==`Name`]]' --output text|awk "/Name/{if(s&&index(\$2,\"$subnet\")==1)print s;s=\"\"} /^subnet/{s=\$0}"|tr '\n' ,|sed s/,$//)
-    [ ! -z $sid ] && network="$network,subnets=[$sid]"
-
-    cpu=$(get_arg -cpu)
-    if [ ! -z $cpu ]; then
-        [ ! -z $overrides ] && overrides="$overrides,"
-        overrides="$overrides\"cpu\":$cpu"
-    fi
-    mem=$(get_arg -mem)
-    if [ ! -z $mem ]; then
-        [ ! -z $overrides ] && overrides="$overrides,"
-        overrides="$overrides\"memory\":$mem"
-    fi
-    arm=$(get_arg -arm)
-    if [ ! -z $arm ]; then
-        [ ! -z $overrides ] && overrides="$overrides,"
-        overrides="$overrides\"runtimePlatform\":{\"cpuArchitecture\":\"ARM64\"}"
-    fi
-
-    tag=$(get_arg -tag)
-    if [ ! -z $tag ]; then
-        container=$(aws ecs describe-task-definition --task-definition $task --query taskDefinition.containerDefinitions[*].name --output text)
-        [ ! -z $overrides ] && overrides="$overrides,"
-        overrides="$overrides\"containerOverrides\":[{\"name\":\"$container\",\"environment\":[{\"name\":\"BKJS_TAG\",\"value\":\"$tag\"}]}]"
-    fi
-
-    cmd="aws ecs run-task --cluster $cluster --task-definition $task --count $(get_arg -count 1) --overrides {$overrides} --network-configuration awsvpcConfiguration={$network}"
-    [ ! -z $tag ] && cmd="$cmd --tags key=Name,value=$tag"
-    [ ! -z $(get_flag -exec) ] && cmd="$cmd --enable-execute-command"
-
-    type=$(get_arg -type)
-    if [ ! -z $type ]; then
-        cmd="$cmd --launch-type $type"
-    else
-        cmd="$cmd --capacity-provider-strategy capacityProvider=$(get_arg -provider FARGATE)"
-    fi
-
-    [ ! -z "$BKJS_DEBUG" ] && echo $cmd
-    [ ! -z $(get_flag -dry-run) ] && echo $cmd && exit
-
-    $cmd
-    exit
-    ;;
-
   help)
     echo ""
-    echo "AWS provisioning commands using:"
+    echo "AWS provisioning commands:"
     echo ""
     echo "  ec2-show [-region region] [-tag NAME] [-skip-tag NAME] [-nomyip] [-line] [-fmt fmt]- show running instances in region, optional tag pattern can be used for filter, FMT may contain: id,ip,host,key,name,arch which will be replaced with actual values"
     echo "  ec2-run -tag NAME [-id ID] -cmd cmd [-region  region] [-user NAME] - run a command over SSM by tag name or instance id, if -tag or -id one is 'all' then all instances will run the command"
@@ -426,8 +355,6 @@ case "$BKJS_CMD" in
     echo "  create-launch-template-version [-name NAME] [-skip A B] [-image-name *] - create new launch template verson with the latest AMI, if no -name is given all existing templates will be updated"
     echo "  init-sendmail-ses - [-domain DOMAIN] -alert-host HOST -alert-user USER -alert-password PW - configure sendmail as relay to SES SMTP"
     echo "  init-cloudwatch-agent [-restart] - install AWS Cloudwatch agent to send backend logs to Cloudwatch Logs"
-    echo "  ecr-push -tag NAME [-version V] [-force] - tag and push a docker image to ECR"
-    echo "  ecs-run -task NAME [-cluser default] [-type EC2|FARGATE] [-provider FARGATE_SPOT] [-gid ID] [-group NAME] [-sid ID] [-subnet NAME] [-cpu N] [-memory N] [-tag T] [-arm] [-exec] [-dry-tun] - run an ECS task in subnets with security groups, overrides cpu/mem, pass tag to bkjs process as instance tag"
     ;;
 esac
 
