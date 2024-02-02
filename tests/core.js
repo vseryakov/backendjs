@@ -21,6 +21,10 @@ line9=line9
 line10=line10
 [instance.tag!=aaa]
 line11=line11
+[configRoles=dev]
+line12=line12
+[configRoles=beta]
+line13=line13
 [global]
 line2=line2
 `;
@@ -53,6 +57,8 @@ line2=line2
     expect(args.includes("-line9"), "instance tag not empty: expects line9", args, core.instance)
     expect(!args.includes("-line10"), "bad module: not expects line10", args)
     expect(args.includes("-line11"), "instance tags != aaa: not expects line11", args)
+    expect(args.includes("-line12"), "config roles = dev: expects line12", args)
+    expect(!args.includes("-line13"), "config roles != beta: not expects line13", args)
 
     callback();
 }
