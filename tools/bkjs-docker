@@ -135,6 +135,23 @@ case "$BKJS_CMD" in
     exit
     ;;
 
+  ecr-manifest)
+    repo=$(get_arg -repo)
+    tag=$(get_arg -tag)
+    arm=$(get_arg -arm)
+    amd=$(get_arg -amd)
+    [ "$repo" = "" -o $tag == "" ] && echo "-repo and -tag are required" && exit 1
+    [ "$arm" = "" -o $amd == "" ] && echo "-arm and -amd are required" && exit 1
+
+    set -e
+    docker manifest create $repo:$tag $repo:$arm $repo:$amd
+    docker manifest annotate --arch arm64 $repo:$tag $repo:$arm
+    docker manifest annotate --arch amd64 $repo:$tag $repo:$amd
+    docker manifest inspect $repo:$tag
+    docker manifest push $repo:$tag
+    exit
+    ;;
+
   ecs-run)
     task=$(get_arg -task)
     cluster=$(get_arg -cluster default)
@@ -202,6 +219,7 @@ case "$BKJS_CMD" in
     echo "  ecr-get [-id ID] [-region REPO] [-login] - login into ECR if required or return ECR host name"
     echo "  ecr-push -repo REPO -image IMAGE [-tag TAG|VERSION] [-latest] [-create] [-login] - tag and push a docker image to ECR, -latest also pushes it as :latest if -tag is different"
     echo "  ecr-del -tag NAME -repo REPO - delete an image from repo by tag"
+    echo "  ecr-manifest -tag NAME -repo REPO -arm ARMTAG -amd AMDTAG - combine ARM and AMD platforms into one container using manifest"
     echo "  ecs-run -task NAME [-cluser default] [-type EC2|FARGATE] [-provider FARGATE_SPOT] [-gid ID] [-group NAME] [-sid ID] [-subnet NAME] [-cpu N] [-memory N] [-tag T] [-arm] [-exec] [-dry-tun] - run an ECS task in subnets with security groups, overrides cpu/mem, pass tag to bkjs process as instance tag"
     ;;
 esac
