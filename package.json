@@ -11,19 +11,19 @@
     "url": "https://github.com/vseryakov/backendjs.git"
   },
   "dependencies": {
-    "express": "4.18.2",
-    "formidable": "2.1.1",
     "cookie": "0.6.0",
     "cookie-parser": "1.4.6",
-    "qs": "6.11.2",
-    "ws": "8.16.0",
-    "uuid": "9.0.1",
-    "hashids": "2.3.0",
     "croner": "8.0.0",
-    "nodemailer": "6.9.9",
-    "xml2json": "0.12.0",
+    "express": "4.18.2",
+    "formidable": "2.1.1",
+    "hashids": "2.3.0",
+    "microtime": "3.1.1",
     "mime": "3.0.0",
-    "microtime": "3.1.1"
+    "nodemailer": "6.9.9",
+    "qs": "6.11.2",
+    "uuid": "9.0.1",
+    "ws": "8.16.0",
+    "xml2json": "0.12.0"
   },
   "devDependencies": {
     "html-minifier": "4.0.0",
@@ -31,18 +31,18 @@
     "uglifycss": "0.0.29"
   },
   "modDependencies": {
+    "@parse/node-apn": "5.2.3",
+    "amqplib": "0.10.3",
     "argon2": "0.31.1",
     "bcrypt": "5.1.1",
-    "mmmagic": "0.5.3",
-    "redis": "3.1.2",
-    "pg": "8.11.3",
     "bkjs-sqlite": "0.3.0",
-    "unix-dgram": "2.0.6",
-    "web-push": "3.6.6",
-    "@parse/node-apn": "5.2.3",
-    "sharp": "0.33.2",
+    "mmmagic": "0.5.3",
     "nats": "2.18.0",
-    "amqplib": "0.10.3"
+    "pg": "8.11.3",
+    "redis": "3.1.2",
+    "sharp": "0.33.2",
+    "unix-dgram": "2.0.6",
+    "web-push": "3.6.6"
   },
   "keywords": [
     "bkjs",

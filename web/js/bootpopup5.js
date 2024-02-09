@@ -61,6 +61,8 @@ function bootpopup(...args)
         class_info: "alert alert-info fade show",
         class_form: "",
         class_label: "",
+        class_row: "",
+        class_col: "",
         class_suffix: "form-text text-muted text-end",
         class_ok: "btn btn-primary",
         class_yes: "btn btn-primary",
@@ -213,7 +215,7 @@ function bootpopup(...args)
             }
         }
 
-        var children, attrs, label, elem, group;
+        var parent = form, children, attrs, label, elem, group;
 
         const addElement = (type) => {
             if (!this.options.inputs.includes(type)) {
@@ -278,11 +280,11 @@ function bootpopup(...args)
             var gopts = { class: class_group, title: attrs.title };
             for (const p in opts.attrs_group) gopts[p] = opts.attrs_group[p];
 
-            group = $('<div></div>', gopts).appendTo(form);
+            group = $('<div></div>', gopts).appendTo(parent);
             if (opts.class_prefix || opts.text_prefix) {
                 group.append($("<span></span>", { class: opts.class_prefix || "" }).append(opts.text_prefix || ""));
             }
-            if (this.options.horizontal) {
+            if (opts.horizontal !== undefined ? opts.horizontal : this.options.horizontal) {
                 group.addClass("row");
                 class_label = " col-form-label " + (opts.size_label || this.options.size_label) + " " + class_label;
                 const lopts = { for: opts.for || attrs.id, class: class_label, html: this.sanitize(opts.label) };
@@ -313,6 +315,164 @@ function bootpopup(...args)
             if (opts.autofocus) this.autofocus = elem;
         }
 
+        const processEntry = (type, entry) => {
+            opts = {}, children = [], attrs = {};
+            label = elem = group = undefined;
+
+            if (Array.isArray(entry)) {
+                children = entry;
+            } else if (typeof entry == "string") {
+                opts.label = entry;
+            } else {
+                for (const p in entry) opts[p] = entry[p];
+            }
+            for (const p in opts) {
+                if (p == "html" && !opts.nosanitize) attrs[p] = this.sanitize(opts[p]); else
+                if (!/^(tab_|attrs_|click_|list_|class_|text_|icon_|size_|label|for)/.test(p)) attrs[p] = opts[p];
+            }
+
+            // Convert functions to string to be used as callback
+            for (const a in attrs) {
+                if (typeof attrs[a] === "function") {
+                    attrs[a] = `return (${attrs[a]})(this,arguments[0],$('#${this.formid}'))`;
+                }
+            }
+
+            // Create a random id for the input if none provided
+            if (!attrs.id) attrs.id = "bpi" + String(Math.random()).substr(2);
+
+            // Choose to the current tab content
+            if (opts.tab_id && tabs[opts.tab_id]) {
+                parent = tabs[opts.tab_id];
+            }
+
+            // Check if type is a shortcut for input
+            if (inputs.includes(type)) {
+                attrs.type = type;
+                type = "input";
+            }
+
+            switch (type) {
+            case "input":
+            case "textarea":
+            case "button":
+            case "submit":
+                attrs.type = (typeof attrs.type === "undefined" ? "text" : attrs.type);
+                if (attrs.type == "hidden") {
+                    elem = $("<" + type + "></" + type + ">", attrs).appendTo(parent);
+                    break;
+                }
+
+            case "select":
+                if (type == "select" && Array.isArray(attrs.options)) {
+                    for (const j in attrs.options) {
+                        const option = {}, opt = attrs.options[j];
+                        if (typeof opt == "string") {
+                            if (attrs.value && attrs.value == opt) option.selected = true;
+                            children.push($("<option></option>", option).append(this.escape(opt)));
+                        } else
+                        if (opt?.name) {
+                            option.value = attrs.options[j].value || "";
+                            option.selected = typeof opt.selected == "boolean" ? opt.selected : attrs.value && attrs.value == option.value ? true : false;
+                            if (opt.label) option.label = opt.label;
+                            if (typeof opt.disabled == "boolean") option.disabled = opt.disabled;
+                            children.push($("<option></option>", option).append(this.escape(opt.name)));
+                        }
+                    }
+                    delete attrs.options;
+                    delete attrs.value;
+                }
+
+                // Special case for checkbox
+                if (["radio", "checkbox"].includes(attrs.type) && !opts.raw) {
+                    label = $('<label></label>', { class: opts.class_input_btn || opts.class_input_label || "form-check-label", for: opts.for || attrs.id }).
+                            append(opts.input_label || opts.label);
+                    let class_check = "form-check";
+                    if (opts.switch) class_check += " form-switch", attrs.role = "switch";
+                    if (opts.inline) class_check += " form-check-inline";
+                    if (opts.reverse) class_check += " form-check-reverse";
+                    if (opts.class_check) class_check += " " + opts.class_check;
+                    attrs.class = (opts.class_input_btn ? "btn-check " : "form-check-input ") + (attrs.class || "");
+                    elem = $('<div></div>', { class: class_check }).append($("<" + type + "/>", attrs)).append(label);
+                    if (opts.class_append || opts.text_append) {
+                        label.append($("<span></span>", { class: opts.class_append || "" }).append(opts.text_append || ""));
+                    }
+                    // Clear label to not add as header, it was added before
+                    if (!opts.input_label) delete opts.label;
+                } else {
+                    if (["select", "range"].includes(attrs.type)) {
+                        attrs.class = `form-${attrs.type} ${attrs.class || ""}`;
+                    }
+                    attrs.class = attrs.class || "form-control";
+                    if (type == "textarea") {
+                        delete attrs.value;
+                        elem = $("<" + type + "/>", attrs);
+                        if (opts.value) elem.append(opts.value);
+                    } else {
+                        elem = $("<" + type + "/>", attrs);
+                    }
+                }
+                addElement(type);
+                break;
+
+            case "checkboxes":
+                elem = $("<div></div>", { class: opts.class_container });
+                for (const i in attrs.options) {
+                    let o = attrs.options[i];
+                    if (!o?.name) continue;
+                    const title = o.title;
+                    const label = $('<label></label>', { class: "form-check-label", for: attrs.id + "-" + i }).append(o.label || o.name);
+                    o = Object.assign(o, {
+                        id: attrs.id + "-" + i,
+                        class: `form-check-input ${o.class || ""}`,
+                        role: opts.switch && "switch",
+                        type: attrs.type || "checkbox",
+                        label: undefined,
+                        title: undefined,
+                    });
+                    let c = "form-check";
+                    if (o.switch || opts.switch) c += " form-switch";
+                    if (o.inline || opts.inline) c += " form-check-inline";
+                    if (o.reverse || opts.reverse) c += " form-check-reverse";
+                    if (o.class_check || opts.class_check) c += " " + (o.class_check || opts.class_check);
+                    children.push($('<div></div>', { class: c, title: title }).append($(`<input/>`, o)).append(label));
+                }
+                bkjs.objDel(attrs, "switch", "inline", "reverse", "options", "value", "type");
+                addElement(type);
+                break;
+
+            case "alert":
+            case "success":
+                this[type] = elem = $("<div></div>", attrs).appendTo(parent);
+                break;
+
+            case "row":
+                var row = $("<div></div>", { class: opts.class_row || this.options.class_row || "row" }).appendTo(parent);
+                for (const subEntry of children) {
+                    var col = $("<div></div>", { class: subEntry.class_col || this.options.class_col || "col-auto" }).appendTo(row);
+                    var oldParent = parent;
+                    parent = col;
+                    for (const type in subEntry) {
+                        // Process the element
+                        processEntry(type, subEntry[type]);
+                    }
+                    parent = oldParent;
+                }
+                break;
+
+            default:
+                elem = $("<" + type + "></" + type + ">", attrs);
+                if (opts.class_append || opts.text_append) {
+                    elem.append($("<span></span>", { class: opts.class_append || "" }).append(opts.text_append));
+                }
+                if (opts.name && opts.label) {
+                    addElement(type);
+                } else {
+                    elem.appendTo(parent);
+                }
+            }
+        }
+
         // Iterate over entries
         for (const c in this.options.content) {
             const entry = this.options.content[c];
@@ -323,146 +483,9 @@ function bootpopup(...args)
                 break;
 
             case "object":
-                for (let type in entry) {
-                    opts = {}, children = [], attrs = {};
-                    label = elem = group = undefined;
-
-                    if (typeof entry[type] == "string") {
-                        opts.label = entry[type];
-                    } else {
-                        for (const p in entry[type]) opts[p] = entry[type][p];
-                    }
-                    for (const p in opts) {
-                        if (p == "html" && !opts.nosanitize) attrs[p] = this.sanitize(opts[p]); else
-                        if (!/^(tab_|attrs_|click_|list_|class_|text_|icon_|size_|label|for)/.test(p)) attrs[p] = opts[p];
-                    }
-
-                    // Convert functions to string to be used as callback
-                    for (const a in attrs) {
-                        if (typeof attrs[a] === "function") {
-                            attrs[a] = `return (${attrs[a]})(this,arguments[0],$('#${this.formid}'))`;
-                        }
-                    }
-
-                    // Create a random id for the input if none provided
-                    if (!attrs.id) attrs.id = "bpi" + String(Math.random()).substr(2);
-
-                    // Choose to the current tab content
-                    if (opts.tab_id && tabs[opts.tab_id]) {
-                        form = tabs[opts.tab_id];
-                    }
-
-                    // Check if type is a shortcut for input
-                    if (inputs.includes(type)) {
-                        attrs.type = type;
-                        type = "input";
-                    }
-
-                    switch (type) {
-                    case "input":
-                    case "textarea":
-                    case "button":
-                    case "submit":
-                        attrs.type = (typeof attrs.type === "undefined" ? "text" : attrs.type);
-                        if (attrs.type == "hidden") {
-                            elem = $("<" + type + "></" + type + ">", attrs).appendTo(form);
-                            break;
-                        }
-
-                    case "select":
-                        if (type == "select" && Array.isArray(attrs.options)) {
-                            for (const j in attrs.options) {
-                                const option = {}, opt = attrs.options[j];
-                                if (typeof opt == "string") {
-                                    if (attrs.value && attrs.value == opt) option.selected = true;
-                                    children.push($("<option></option>", option).append(this.escape(opt)));
-                                } else
-                                if (opt?.name) {
-                                    option.value = attrs.options[j].value || "";
-                                    option.selected = typeof opt.selected == "boolean" ? opt.selected : attrs.value && attrs.value == option.value ? true : false;
-                                    if (opt.label) option.label = opt.label;
-                                    if (typeof opt.disabled == "boolean") option.disabled = opt.disabled;
-                                    children.push($("<option></option>", option).append(this.escape(opt.name)));
-                                }
-                            }
-                            delete attrs.options;
-                            delete attrs.value;
-                        }
-
-                        // Special case for checkbox
-                        if (["radio", "checkbox"].includes(attrs.type) && !opts.raw) {
-                            label = $('<label></label>', { class: opts.class_input_btn || opts.class_input_label || "form-check-label", for: opts.for || attrs.id }).
-                                    append(opts.input_label || opts.label);
-                            let class_check = "form-check";
-                            if (opts.switch) class_check += " form-switch", attrs.role = "switch";
-                            if (opts.inline) class_check += " form-check-inline";
-                            if (opts.reverse) class_check += " form-check-reverse";
-                            if (opts.class_check) class_check += " " + opts.class_check;
-                            attrs.class = (opts.class_input_btn ? "btn-check " : "form-check-input ") + (attrs.class || "");
-                            elem = $('<div></div>', { class: class_check }).append($("<" + type + "/>", attrs)).append(label);
-                            if (opts.class_append || opts.text_append) {
-                                label.append($("<span></span>", { class: opts.class_append || "" }).append(opts.text_append || ""));
-                            }
-                            // Clear label to not add as header, it was added before
-                            if (!opts.input_label) delete opts.label;
-                        } else {
-                            if (["select", "range"].includes(attrs.type)) {
-                                attrs.class = `form-${attrs.type} ${attrs.class || ""}`;
-                            }
-                            attrs.class = attrs.class || "form-control";
-                            if (type == "textarea") {
-                                delete attrs.value;
-                                elem = $("<" + type + "/>", attrs);
-                                if (opts.value) elem.append(opts.value);
-                            } else {
-                                elem = $("<" + type + "/>", attrs);
-                            }
-                        }
-                        addElement(type);
-                        break;
-
-                    case "checkboxes":
-                        elem = $("<div></div>", { class: opts.class_container });
-                        for (const i in attrs.options) {
-                            let o = attrs.options[i];
-                            if (!o?.name) continue;
-                            const title = o.title;
-                            const label = $('<label></label>', { class: "form-check-label", for: attrs.id + "-" + i }).append(o.label || o.name);
-                            o = Object.assign(o, {
-                                id: attrs.id + "-" + i,
-                                class: `form-check-input ${o.class || ""}`,
-                                role: opts.switch && "switch",
-                                type: attrs.type || "checkbox",
-                                label: undefined,
-                                title: undefined,
-                            });
-                            let c = "form-check";
-                            if (o.switch || opts.switch) c += " form-switch";
-                            if (o.inline || opts.inline) c += " form-check-inline";
-                            if (o.reverse || opts.reverse) c += " form-check-reverse";
-                            if (o.class_check || opts.class_check) c += " " + (o.class_check || opts.class_check);
-                            children.push($('<div></div>', { class: c, title: title }).append($(`<input/>`, o)).append(label));
-                        }
-                        bkjs.objDel(attrs, "switch", "inline", "reverse", "options", "value", "type");
-                        addElement(type);
-                        break;
-
-                    case "alert":
-                    case "success":
-                        this[type] = elem = $("<div></div>", attrs).appendTo(form);
-                        break;
-
-                    default:
-                        elem = $("<" + type + "></" + type + ">", attrs);
-                        if (opts.class_append || opts.text_append) {
-                            elem.append($("<span></span>", { class: opts.class_append || "" }).append(opts.text_append));
-                        }
-                        if (opts.name && opts.label) {
-                            addElement(type);
-                        } else {
-                            elem.appendTo(form);
-                        }
-                    }
+                for (const type in entry) {
+                    // Process the element
+                    processEntry(type, entry[type]);
                 }
                 break;
             }
