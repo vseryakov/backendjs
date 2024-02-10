@@ -37,6 +37,7 @@ function bootpopup(...args)
         id: "",
         self: self,
         title: document.title,
+        debug: false,
         show_close: true,
         show_header: true,
         show_footer: true,
@@ -620,6 +621,7 @@ function bootpopup(...args)
     },
 
     this.callback = function(name, event) {
+        if (this.options.debug) console.log("callback:", name, event);
         var func = this.options[name];        // Get function to call
         if (!bkjs.isF(func)) return;
         this._callback = name;
@@ -650,8 +652,10 @@ function bootpopup(...args)
             }
         }
         // Determine what is the best action if none is given
-        if (this.options.buttons.includes("ok")) this.options.onsubmit = "ok"; else
-        if (this.options.buttons.includes("yes")) this.options.onsubmit = "yes";
+        if (this.options.onsubmit == "close") {
+            if (this.options.buttons.includes("ok")) this.options.onsubmit = "ok"; else
+            if (this.options.buttons.includes("yes")) this.options.onsubmit = "yes";
+        }
 
         return this.options;
     }
