@@ -76,10 +76,13 @@ get_arg() {
   echo "$2"
 }
 
-# Returns 1 if an argument exists
+# Returns 1 if an argument exists or the value is 0,1
 get_flag() {
   for ((i = 0;i < ${#BKJS_ARGS[@]}; ++i)); do
-    [ "$1" = "${BKJS_ARGS[i]}" ] && echo "1" && return 0
+    if [ "$1" = "${BKJS_ARGS[i]}" ]; then
+        [[ ! ${BKJS_ARGS[i+1]} =~ ^\- ]] && echo "${BKJS_ARGS[i+1]:-1}" && return 0
+        echo "1" && return 0
+    fi
   done
   echo "$2"
 }
@@ -199,6 +202,7 @@ BKJS_DIR="$(cd "${BKJS_BIN%/*}" ; pwd -P)"
 # Home and prefix must be specified for the script to work properly
 export BKJS_HOME=$(get_arg -home $BKJS_HOME)
 [ "$BKJS_HOME" = "" ] && export BKJS_HOME=$(sh -c "echo ~$BKJS_USER")
+[ -f $BKJS_HOME/.env ] && . $BKJS_HOME/.env
 [ -f $BKJS_HOME/etc/profile ] && . $BKJS_HOME/etc/profile
 [ -f $BKJS_HOME/etc/profile.local ] && . $BKJS_HOME/etc/profile.local
 

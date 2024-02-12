@@ -85,15 +85,16 @@ case "$BKJS_CMD" in
     ;;
 
   ecr-get)
-    id=$(get_arg -id)
+    id=$(get_arg -account $BKJS_ECR_ACCOUNT)
     [ -z $id ] && id=$($0 ec2-account)
-    region=$(get_arg -region)
+    region=$(get_arg -region $BKJS_ECR_REGION)
     [ -z $region ] && region=$($0 ec2-region)
 
     ecr="$id.dkr.ecr.$region.amazonaws.com"
     echo $ecr
 
-    [ "$(get_flag -login $BKJS_LOGIN_ECR)" = "" ] && exit
+    login=$(get_flag -login $BKJS_ECR_LOGIN)
+    [ "$login" != "1" ] && exit
     aws ecr get-login-password| docker login --username AWS --password-stdin $ecr
     [ "$?" != "0" ] && exit 1
     exit 0
@@ -108,9 +109,10 @@ case "$BKJS_CMD" in
     [ "$?" != "0" ] && exit 1
 
     if [ "$(get_flag -create)" != "" ]; then
-        aws ecr describe-repositories --repository-names $repo --query repositories[*].repositoryUri --output text 2>/dev/null
+        region=$(echo $ecr|grep -o -E 'ecr.([a-z0-9-]+).amazonaws'|cut -d. -f2)
+        aws ecr describe-repositories --region $region --repository-names $repo --query repositories[*].repositoryUri --output text 2>/dev/null
         if [ "$?" != "0" ]; then
-            aws ecr create-repository --repository-name $repo
+            aws ecr create-repository --region $region --repository-name $repo
             [ "$?" != "0" ] && exit 1
         fi
     fi
@@ -138,15 +140,15 @@ case "$BKJS_CMD" in
   ecr-manifest)
     repo=$(get_arg -repo)
     tag=$(get_arg -tag)
-    arm=$(get_arg -arm)
-    amd=$(get_arg -amd)
+    arm64=$(get_arg -arm64)
+    amd64=$(get_arg -amd64)
     [ "$repo" = "" -o $tag == "" ] && echo "-repo and -tag are required" && exit 1
-    [ "$arm" = "" -o $amd == "" ] && echo "-arm and -amd are required" && exit 1
+    [ "$arm64" = "" -o $amd64 == "" ] && echo "-arm64 and -amd64 are required" && exit 1
 
     set -e
-    docker manifest create $repo:$tag $repo:$arm $repo:$amd
-    docker manifest annotate --arch arm64 $repo:$tag $repo:$arm
-    docker manifest annotate --arch amd64 $repo:$tag $repo:$amd
+    docker manifest create $repo:$tag $repo:$arm64 $repo:$amd64
+    docker manifest annotate --arch arm64 $repo:$tag $repo:$arm64
+    docker manifest annotate --arch amd64 $repo:$tag $repo:$amd64
     docker manifest inspect $repo:$tag
     docker manifest push $repo:$tag
     exit
@@ -156,16 +158,24 @@ case "$BKJS_CMD" in
     task=$(get_arg -task)
     cluster=$(get_arg -cluster default)
 
-    network="assignPublicIp=ENABLED"
+    ip=$(get_flag -ip)
+    [ ! -z $ip ] && network="assignPublicIp=ENABLED"
+
     gid=$(get_arg -gid)
     group=$(get_arg -group)
     [ ! -z $group ] && gid=$(aws ec2 describe-security-groups --filters Name=group-name,Values=$group --query "SecurityGroups[*].[GroupId]" --output text|tr '\n' ,|sed s/,$//)
-    [ ! -z $gid ] && network="$network,securityGroups=[$gid]"
+    if [ ! -z $gid ]; then
+        [ ! -z $network ] && network="$network,"
+        network="${network}securityGroups=[$gid]"
+    fi
 
     sid=$(get_arg -sid)
     subnet=$(get_arg -subnet)
     [ ! -z $subnet ] && sid=$(aws ec2 describe-subnets --query 'Subnets[*].[SubnetId,Tags[?Key==`Name`]]' --output text|awk "/Name/{if(s&&index(\$2,\"$subnet\")==1)print s;s=\"\"} /^subnet/{s=\$0}"|tr '\n' ,|sed s/,$//)
-    [ ! -z $sid ] && network="$network,subnets=[$sid]"
+    if [ ! -z $sid ]; then
+        [ ! -z $network ] && network="$network,"
+        network="${network}subnets=[$sid]"
+    fi
 
     cpu=$(get_arg -cpu)
     if [ ! -z $cpu ]; then
@@ -177,7 +187,7 @@ case "$BKJS_CMD" in
         [ ! -z $overrides ] && overrides="$overrides,"
         overrides="$overrides\"memory\":$mem"
     fi
-    arm=$(get_arg -arm)
+    arm=$(get_arg -arm64)
     if [ ! -z $arm ]; then
         [ ! -z $overrides ] && overrides="$overrides,"
         overrides="$overrides\"runtimePlatform\":{\"cpuArchitecture\":\"ARM64\"}"
@@ -190,7 +200,9 @@ case "$BKJS_CMD" in
         overrides="$overrides\"containerOverrides\":[{\"name\":\"$container\",\"environment\":[{\"name\":\"BKJS_TAG\",\"value\":\"$tag\"}]}]"
     fi
 
-    cmd="aws ecs run-task --cluster $cluster --task-definition $task --count $(get_arg -count 1) --overrides {$overrides} --network-configuration awsvpcConfiguration={$network}"
+    cmd="aws ecs run-task --cluster $cluster --task-definition $task --count $(get_arg -count 1)"
+    [ ! -z $overrides ] && cmd="$cmd --overrides {$overrides}"
+    [ ! -z $network ] && cmd="$cmd --network-configuration awsvpcConfiguration={$network}"
     [ ! -z $tag ] && cmd="$cmd --tags key=Name,value=$tag"
     [ ! -z $(get_flag -exec) ] && cmd="$cmd --enable-execute-command"
 
@@ -216,10 +228,10 @@ case "$BKJS_CMD" in
     echo "  docker-build -t TAG [-version V] [-path .] [-root H] - build an image for the specified tag"
     echo "  docker-run -t TAG [-path .] [-force] - run a container for the specified tag"
     echo "  drestart NAME - restart a container, for use with bkrsync"
-    echo "  ecr-get [-id ID] [-region REPO] [-login] - login into ECR if required or return ECR host name"
-    echo "  ecr-push -repo REPO -image IMAGE [-tag TAG|VERSION] [-latest] [-create] [-login] - tag and push a docker image to ECR, -latest also pushes it as :latest if -tag is different"
+    echo "  ecr-get [-account ID] [-region REPO] [-login] - login into ECR if required or return ECR host name"
+    echo "  ecr-push -repo REPO -image IMAGE [-tag TAG|VERSION] [-latest] [-create] [-login 0|1] - tag and push a docker image to ECR, -latest also pushes it as :latest if -tag is different"
     echo "  ecr-del -tag NAME -repo REPO - delete an image from repo by tag"
     echo "  ecr-manifest -tag NAME -repo REPO -arm ARMTAG -amd AMDTAG - combine ARM and AMD platforms into one container using manifest"
-    echo "  ecs-run -task NAME [-cluser default] [-type EC2|FARGATE] [-provider FARGATE_SPOT] [-gid ID] [-group NAME] [-sid ID] [-subnet NAME] [-cpu N] [-memory N] [-tag T] [-arm] [-exec] [-dry-tun] - run an ECS task in subnets with security groups, overrides cpu/mem, pass tag to bkjs process as instance tag"
+    echo "  ecs-run -task NAME [-cluser default] [-type EC2|FARGATE] [-provider FARGATE_SPOT] [-ip] [-gid ID] [-group NAME] [-sid ID] [-subnet NAME] [-cpu N] [-memory N] [-tag T] [-arm64] [-exec] [-dry-tun] - run an ECS task in subnets with security groups, overrides cpu/mem, pass tag to bkjs process as instance tag"
     ;;
 esac
