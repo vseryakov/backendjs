@@ -498,14 +498,12 @@ case "$BKJS_CMD" in
         [[ -z $f ]] && f=$(cd $dir && echo $(get_json_flat package.json config.bundles.$b.$type "" realpath))
         [[ -z $f ]] && continue
         if [[ -z $name || $name = $b || $f =~ $file ]]; then
-            hash=$(echo "$repo$bundle$dir" | $SHASUM | cut -d' ' -f1)
-            tmp=/tmp/bktmp/$hash
             files=$f
             bundle=$b
             [ "$BKJS_DEBUG" != "" ] && echo "$(date): $BKJS_CMD: $bundle.$type started $dir/$file, files: $files"
             case $file in
             *.js|*.html)
-                mkdir -p $tmp $dir/web/js
+                mkdir -p $dir/web/js
                 echo "" > $dir/web/js/$bundle.bundle.js
                 jsfiles=""
                 if [[ $files =~ @version@ ]]; then
@@ -529,16 +527,7 @@ case "$BKJS_CMD" in
                         ;;
 
                     *.html)
-                        n=$(basename $f .html)
-                        if [[ -z $dev ]]; then
-                            htmlminargs="--collapse-whitespace --collapse-boolean-attributes --remove-optional-tags --remove-attribute-quotes --remove-empty-attributes $(get_arg -htmlminargs)"
-                            html-minifier $htmlminargs $f > $tmp/$n.html
-                            [ "$?" != "0" ] && exit 1
-                            tf=$tmp/$n.html
-                        else
-                            tf=$f
-                        fi
-                        echo "bkjs.koTemplates[\"$n\"]='$(cat $tf|tr -d '\r\n'|sed "s/['\\]/\\\&/g")';" >> $dir/web/js/$bundle.bundle.js
+                        echo "bkjs.koTemplates[\"$n\"]='$(cat $f|tr -d '\r\n'|sed "s/['\\]/\\\&/g")';" >> $dir/web/js/$bundle.bundle.js
                         echo "ko.components.register(\"$n\",{});" >> $dir/web/js/$bundle.bundle.js
                         ;;
                     esac
@@ -563,12 +552,7 @@ case "$BKJS_CMD" in
 
             *.css)
                 mkdir -p $dir/web/css
-                if [[ -z $dev ]]; then
-                    (cd $dir && uglifycss $files --output web/css/$bundle.bundle.css)
-                    [ "$?" != "0" ] && exit 1
-                else
-                    (cd $dir && cat $files > web/css/$bundle.bundle.css)
-                fi
+                (cd $dir && cat $files > web/css/$bundle.bundle.css)
                 [ ! -z "$gzip" ] && gzip -9 -c $dir/web/css/$bundle.bundle.css > $dir/web/css/$bundle.bundle.css.gz
                 ;;
             esac
