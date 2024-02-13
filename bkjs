@@ -527,6 +527,7 @@ case "$BKJS_CMD" in
                         ;;
 
                     *.html)
+                        n=$(basename $f .html)
                         echo "bkjs.koTemplates[\"$n\"]='$(cat $f|tr -d '\r\n'|sed "s/['\\]/\\\&/g")';" >> $dir/web/js/$bundle.bundle.js
                         echo "ko.components.register(\"$n\",{});" >> $dir/web/js/$bundle.bundle.js
                         ;;
