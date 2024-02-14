@@ -444,6 +444,25 @@ case "$BKJS_CMD" in
     ;;
 
   web-bundle)
+    # Rebuild all inside of the specified folders
+    dirs=$(get_arg -dirs)
+    if [[ ! -z $dirs ]]; then
+        fail=$(get_flag -fail)
+        skip=$(get_arg -skip)
+        filter=$(get_arg -filter)
+        args=$(get_all_args "-dirs -fail -skip -filter")
+        dirs=$(find $dirs -maxdepth 1 -type d)
+        for dir in $dirs; do
+            [[ ! -z $skip && $dir =~ $skip ]] && continue
+            [[ ! -z $filter && ! $dir =~ $filter ]] && continue
+            (cd $dir && $0 web-bundle -all $args)
+            [ "$?" != "0" -a "$fail" != "" ] && echo "$dir failed" && exit 1
+        done
+        exit 0
+    fi
+
+    # Rebuild all bundles
+    gzip=$(get_flag -gzip)
     if [[ ! -z $(get_flag -all) ]]; then
         pkg=package.json
         bundles=$(get_json $pkg config.bundles)
@@ -453,6 +472,11 @@ case "$BKJS_CMD" in
                 [ "$?" != "0" ] && exit 1
             done
         done
+        if [ ! -z $gzip ]; then
+            for f in $(find web -name '*.min.js' -or -name '*.min.css'); do
+                gzip -9 -c $f > $f.gz
+            done
+        fi
         exit 0
     fi
     if [[ ! -z $(get_flag -clean) ]]; then
@@ -464,7 +488,6 @@ case "$BKJS_CMD" in
     [ "$file" = "" ] && echo "-file must be provided" && exit 1
     quiet=$(get_flag -quiet)
     force=$(get_flag -force)
-    gzip=$(get_flag -gzip)
     dev=$(get_arg -dev)
     # Default or named dev bundle
     [ "$dev" = "" ] && dev=$(get_flag -dev)
@@ -652,7 +675,7 @@ case "$BKJS_CMD" in
     echo "  deps [-fields dependencies,devDependencies] [-path .] [-skip REGEXP] [-global] [-update] [-mods] [-strict] [-check] [-npm ARGS] - install or show npm dependencies from the package.json, optional bkjs modules require -mods flag"
     echo "  sync [-host HOST] [-path PATH] [-del] [-user USER] [-ssh-key pem] [-ssh OPTS] [-exclude PATTERN] [-bkcmd CMD] - push the backend code to the remote host using rsync, default path is ~/node_modules/$BKJS_MOD"
     echo "  ssh -host HOST -cmd CMD [-user USER] [-key PEM] [-ssh ARGS] - run a command over ssh on all specified hosts"
-    echo "  web-bundle -file FILE|(js|css|html)|BUNDLE.(js|css|html) [-gzip] [-dev DEV] [-compress] [-uglifyargs ARGS] [-all] [-list] [-force] [-clean] - produce a web bundle by uglifying js/css/html files into one file, resolves files from package.json"
+    echo "  web-bundle [-file FILE|(js|css|html)|BUNDLE.(js|css|html)] [-dirs DIRS...] [-gzip] [-dev DEV] [-compress] [-uglifyargs ARGS] [-all] [-list] [-force] [-clean] - produce a web bundle by uglifying js/css/html files into one file, resolves files from package.json"
     echo "  install-node [-prefix PATH] [-force] [-clean] [-tgz TGZ] - install binary release of the node into $BKJS_PREFIX or specified path"
     echo ""
     echo "  bkhelp - show all $BKJS_MOD config parameters"
