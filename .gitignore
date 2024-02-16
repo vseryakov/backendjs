@@ -16,6 +16,5 @@
 *.js.map
 *.bundle.js
 *.bundle.css
-*.bundle.html.js
 node_modules/
 
