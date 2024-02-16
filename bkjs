@@ -446,12 +446,16 @@ case "$BKJS_CMD" in
   web-bundle)
     # Rebuild all inside of the specified folders
     dirs=$(get_arg -dirs)
+    if [[ -z $dirs ]]; then
+        dirs=$(get_arg -find)
+        depth=$(get_arg -depth 1)
+        [[ ! -z $dirs ]] && dirs=$(find $dirs -maxdepth $depth -type d)
+    fi
     if [[ ! -z $dirs ]]; then
         fail=$(get_flag -fail)
         skip=$(get_arg -skip)
         filter=$(get_arg -filter)
-        args=$(get_all_args "-dirs -fail -skip -filter")
-        [ ! -z $(get_flag -find) ] && dirs=$(find $dirs -maxdepth 1 -type d)
+        args=$(get_all_args "-dirs -find -fail -skip -filter")
         for dir in $dirs; do
             [[ ! -z $skip && $dir =~ $skip ]] && continue
             [[ ! -z $filter && ! $dir =~ $filter ]] && continue
@@ -539,7 +543,7 @@ case "$BKJS_CMD" in
                 jsfiles=""
                 if [[ $files =~ @version@ ]]; then
                     files=$(echo $files|sed "s!@version@!!")
-                    echo "bkjs.bundleVersion='$(get_json_flat $dir/package.json version)';" >> $dir/web/js/$bundle.bundle.js
+                    echo "bkjs.bundleVersion='$(get_json $dir/package.json version)';" >> $dir/web/js/$bundle.bundle.js
                 fi
                 for f in $files; do
                     [ ! -s $f ] && echo "$f not found" && continue
@@ -645,6 +649,11 @@ case "$BKJS_CMD" in
     exec $NODE_BIN -e "console.log(util.inspect(JSON.parse(fs.readFileSync(0).toString()),null,null))"
     ;;
 
+  jq)
+    echo $(get_json_flat "$1" "$2" "$3" $4)
+    exit
+    ;;
+
   args)
     echo "$(get_all_args "$(get_arg -skip)" $(get_arg -sep))"
     exit
@@ -683,11 +692,12 @@ case "$BKJS_CMD" in
     echo "  deps [-fields dependencies,devDependencies] [-path .] [-skip REGEXP] [-global] [-update] [-mods] [-strict] [-check] [-npm ARGS] - install or show npm dependencies from the package.json, optional bkjs modules require -mods flag"
     echo "  sync [-host HOST] [-path PATH] [-del] [-user USER] [-ssh-key pem] [-ssh OPTS] [-exclude PATTERN] [-bkcmd CMD] - push the backend code to the remote host using rsync, default path is ~/node_modules/$BKJS_MOD"
     echo "  ssh -host HOST -cmd CMD [-user USER] [-key PEM] [-ssh ARGS] - run a command over ssh on all specified hosts"
-    echo "  web-bundle [-file FILE|(js|css|html)|BUNDLE.(js|css|html)] [-dirs DIRS...] [-gzip] [-dev DEV] [-uglifyargs ARGS] [-all] [-find] [-force] [-clean] - produce a web bundle by uglifying js/css/html files into one file, resolves files from package.json"
+    echo "  web-bundle [-file FILE|(js|css|html)|BUNDLE.(js|css|html)] [-dirs DIRS...] [-find DIRS...] [-gzip] [-dev DEV] [-uglifyargs ARGS] [-all] [-force] [-clean] - produce a web bundle by uglifying js/css/html files into one file, resolves files from package.json"
     echo "  install-node [-prefix PATH] [-force] [-clean] [-tgz TGZ] - install binary release of the node into $BKJS_PREFIX or specified path"
     echo ""
     echo "  bkhelp - show all $BKJS_MOD config parameters"
     echo "  json - read JSON from the input and show it nicely formatted"
+    echo "  jq FILE PROP [DFLT] [realpath] - return a value from a JSON file by property name"
     echo "  env - show all environment variables"
     echo ""
     echo "Common options:"

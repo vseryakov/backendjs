@@ -1048,7 +1048,7 @@ the convention is that argument name must start with a single dash followed by a
 
 
 - `get_json(file, name, dflt, realpath)` - returns a value from the json file, `name` can be path deep into object, `realpath` flag if nonempty will treat all values as paths and convert each into actual real path (this is used by the internal web bundler)
-- `get_json_flat` - similar to get_json but the values are flattened
+- `get_json_flat` - similar to get_json but property names are flattened for deep access
   Example:
 
       $(get_json package.json config.sync.path)
