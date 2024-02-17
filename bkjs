@@ -124,25 +124,19 @@ concat_arg() {
   echo "$_v"
 }
 
-# Return value of the named pair from the variable that holds all them
-get_value() {
-  v=$(echo "$1"|awk -F= "{if(\$1==\"$2\" && \$2!=\"\") print \$2}")
-  echo "${v:-$3}"
-}
-
 # Local IP address, not localhost
 get_local_ip() {
   echo $(/sbin/ifconfig eth${1:-0}|grep -o -E '(inet [0-9.]+|inet addr:[0-9.]+)'|tr : ' '|awk '{print $NF}')
 }
 
-# Return the value for a property from a json file: get_json file.json name fallback realpath
+# Return the value for a property from a json file: get_json file.json name fallback realpath VAR
 get_json() {
-  ${NODE_BIN:-node} -e "try{o=JSON.parse(fs.readFileSync('$1'));v=o.$2||o['$3'];if(Array.isArray(v)){if('$4'.includes('realpath'))v=v.map(x=>(!x.includes('@')&&fs.realpathSync(x)||x));v=v.join(' ')};if(v&&typeof v=='object')v=Object.keys(v).join(' ');if(typeof v!='undefined')console.log(v)}catch(e){if('$BKJS_DEBUG')console.error(e)}"
+  ${NODE_BIN:-node} -e "try{o=JSON.parse(fs.readFileSync('$1'));v=o.$2||o['$3'];if(Array.isArray(v)){if('$4'.includes('realpath'))v=v.map(x=>(!x.includes('@')&&fs.realpathSync(x)||x));v=v.join(' ')};if(v&&typeof v=='object')v=Object.keys(v).join(' ');if(typeof v!='undefined')console.log(v)}catch(e){if('$BKJS_DEBUG')console.error('get_json:','$1','$2',e);process.exit(1)}"
 }
 
-# Return the value for a property from a json file, object properties are flattened first to support property names with spaces or dashes
+# Same as get_json but object properties are flattened first to support property names with spaces or dashes
 get_json_flat() {
-  ${NODE_BIN:-node} -e "function f(o){var r={};for(var p in o){if(!Array.isArray(o[p])&&typeof o[p]=='object'){var a=f(o[p]);for(var x in a)r[p+'.'+x]=a[x]}else r[p]=o[p]};return r};try{o=f(JSON.parse(fs.readFileSync('$1')));v=o['$2']||o['$3'];if(Array.isArray(v)){if('$4'.includes('realpath'))v=v.map(x=>(!x.includes('@')&&fs.realpathSync(x)||x));v=v.join(' ')};if(v&&typeof v=='object')v=Object.keys(v).join(' ');if(typeof v!='undefined')console.log(v)}catch(e){if('$BKJS_DEBUG')console.error(e)}"
+  ${NODE_BIN:-node} -e "function f(o){var r={};for(var p in o){if(!Array.isArray(o[p])&&typeof o[p]=='object'){var a=f(o[p]);r[p]=Object.keys(o[p]);for(var x in a)r[p+'.'+x]=a[x]}else r[p]=o[p]};return r};try{o=f(JSON.parse(fs.readFileSync('$1')));v=o['$2']||o['$3'];if(Array.isArray(v)){if('$4'.includes('realpath'))v=v.map(x=>(!x.includes('@')&&fs.realpathSync(x)||x));v=v.join(' ')};if(v&&typeof v=='object')v=Object.keys(v).join(' ');if(typeof v!='undefined')console.log(v)}catch(e){if('$BKJS_DEBUG')console.error('get_json_flat:','$1','$2',e);process.exit(1)}"
 }
 
 # Return real path a file
@@ -176,7 +170,7 @@ find_user() {
 # Run the command by sourcing all scripts from tools folders
 process_cmd() {
   dirs="$BKJS_TOOLS $(get_arg -tools) $BKJS_HOME/tools $BKJS_DIR/tools"
-  [ ! -z "$BKJS_DEBUG" ] && echo "process_cmd: $BKJS_CMD: $dirs"
+  [[ ! -z $BKJS_DEBUG ]] && echo "process_cmd: $BKJS_CMD: $dirs"
   for d in $dirs; do
      if [ -d $d ]; then
         for f in $(find $d -name 'bkjs-*'); do
@@ -214,7 +208,7 @@ export BKJS_DEBUG=$(get_flag -debug)
 # Setup paths
 export PATH=$BKJS_HOME/bin:$BKJS_HOME/node_modules/.bin:$BKJS_PREFIX/bin:/usr/local/bin:/opt/local/bin:/opt/local/node/bin:/sbin:/usr/sbin:$PATH
 
-[ ! -z "$BKJS_DEBUG" ] && echo "$(date): $0: CMD=$BKJS_CMD, USER=$BKJS_USER, HOME=$BKJS_HOME, PREFIX=$BKJS_PREFIX, PWD=$(pwd)"
+[[ ! -z $BKJS_DEBUG ]] && echo "$(date): $0: HOME=$BKJS_HOME, PREFIX=$BKJS_PREFIX, PWD=$(pwd), USER=$(whoami): CMD=$BKJS_CMD $@"
 
 case "$BKJS_CMD" in
   start)
@@ -311,7 +305,7 @@ case "$BKJS_CMD" in
     [ -z "$SCRIPT" ] && SCRIPT=$BKJS_DIR/lib/app.js
     [ -z $SCRIPT ] && echo "ERROR: Cannot find $BKJS_MOD module or app.js in '.:$BKJS_HOME'" && exit 1
 
-    [ ! -z "$BKJS_DEBUG" ] && echo "$(date): Starting $BKJS_CMD: $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME $BKJS_RUN_ARGS $@"
+    [[ ! -z $BKJS_DEBUG ]] && echo "$(date): Starting $BKJS_CMD: $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME $BKJS_RUN_ARGS $@"
 
     case "$BKJS_CMD" in
      run-none|none)
@@ -353,7 +347,7 @@ case "$BKJS_CMD" in
     [ "$user" != "" ] && sshargs="$sshargs -l $user"
     key=$(get_arg -key)
     [ "$key" != "" -a -f "~/.ssh/$key.pem" ] && sshargs="$sshargs -i $HOME/.ssh/$key.pem"
-    [ "$BKJS_DEBUG" != "" ] && echo "ssh $sshargs $host $cmd"
+    [[ ! -z $BKJS_DEBUG ]] && echo "ssh $sshargs $host $cmd"
     [ "$(get_flag -dry-run)" != "" ] && exit 0
     for h in $host; do
       ssh $sshargs $h $cmd
@@ -449,18 +443,18 @@ case "$BKJS_CMD" in
     if [[ -z $dirs ]]; then
         dirs=$(get_arg -find)
         depth=$(get_arg -depth 1)
-        [[ ! -z $dirs ]] && dirs=$(find $dirs -maxdepth $depth -type d)
+        [[ ! -z $dirs ]] && dirs=$(find $dirs -maxdepth $depth -mindepth 1 -type d)
     fi
     if [[ ! -z $dirs ]]; then
-        fail=$(get_flag -fail)
+        [ ! -z $BKJS_DEBUG ] && echo "$(date): $BKJS_CMD: dirs: $dirs"
         skip=$(get_arg -skip)
         filter=$(get_arg -filter)
-        args=$(get_all_args "-dirs -find -fail -skip -filter")
+        args=$(get_all_args "-dirs -find -skip -filter")
         for dir in $dirs; do
             [[ ! -z $skip && $dir =~ $skip ]] && continue
             [[ ! -z $filter && ! $dir =~ $filter ]] && continue
             (cd $dir && $0 web-bundle $args)
-            [ "$?" != "0" -a "$fail" != "" ] && echo "$dir failed" && exit 1
+            [ "$?" != "0" ] && echo "$(date): $BKJS_CMD: dir $dir failed" && exit 1
         done
         exit 0
     fi
@@ -469,15 +463,22 @@ case "$BKJS_CMD" in
     gzip=$(get_flag -gzip)
     if [[ ! -z $(get_flag -all) ]]; then
         dir=$(get_arg -dir)
-        [ "$dir" != "" ] && cd $dir
-        pkg=package.json
-        bundles=$(get_json $pkg config.bundles)
+        if [ "$dir" != "" ]; then
+            cd $dir
+            [ "$?" != "0" ] && exit 1
+        fi
+
+        [ -f package.json ] && bundles=$(get_json_flat package.json config.bundles)
+
+        [ ! -z $BKJS_DEBUG ] && echo "$(date): $BKJS_CMD: all: $bundles"
+
         for b in $bundles; do
             for t in css js; do
                 $0 web-bundle -file $b.$t $(get_all_args "-all -file")
-                [ "$?" != "0" ] && exit 1
+                [ "$?" != "0" ] && echo "$(date): $BKJS_CMD: bundle $b failed" && exit 1
             done
         done
+
         if [ ! -z $gzip ]; then
             for f in $(find web -name '*.min.js' -or -name '*.min.css'); do
                 gzip -9 -c $f > $f.gz
@@ -497,6 +498,8 @@ case "$BKJS_CMD" in
     quiet=$(get_flag -quiet)
     force=$(get_flag -force)
     dev=$(get_arg -dev)
+    fopts=$(get_arg -fopts)
+
     # Default or named dev bundle
     [ "$dev" = "" ] && dev=$(get_flag -dev)
     [ "$dev" = "1" ] && dev=dev
@@ -517,25 +520,39 @@ case "$BKJS_CMD" in
        base=$(echo $file|sed "s|$dir/||")
        type=${base##*.}
        name=${base%.*}
+       fopts="$fopts realpath"
     fi
     if [ ! -f $dir/package.json ]; then
-       [ "$BKJS_DEBUG" != "" ] && echo "$(date): $BKJS_CMD: package.json is not found"
+       echo "$(date): $BKJS_CMD: package.json is not found"
        exit 1
     fi
     [ "$type" = "html" ] && type=js
     repo=$(cd $dir && git symbolic-ref --short -q HEAD 2>/dev/null)
-    bundles=$(get_json $dir/package.json config.bundles)
+
+    [ -f $dir/package.json ] && bundles=$(get_json_flat $dir/package.json config.bundles)
+
     [ "$quiet" = "" ] && echo "$(date): $BKJS_CMD: $repo: $dir: $name $type $dev bundles: $bundles"
 
     for b in $bundles; do
-        unset f
-        [[ ! -z $dev ]] && f=$(cd $dir && echo $(get_json_flat package.json config.bundles.$b.$type.$dev "" realpath))
-        [[ -z $f ]] && f=$(cd $dir && echo $(get_json_flat package.json config.bundles.$b.$type "" realpath))
-        [[ -z $f ]] && continue
-        if [[ -z $name || $name = $b || $f =~ $file ]]; then
-            files=$f
+        unset sources
+        cd $dir
+        [ "$?" != "0" ] && exit 1
+        if [[ ! -z $dev ]]; then
+            sources=$(get_json_flat package.json config.bundles.$b.$type.$dev "" "$fopts")
+            [ "$?" != "0" ] && exit 1
+        fi
+        if [[ -z $sources ]]; then
+            sources=$(get_json_flat package.json config.bundles.$b.$type "" "$fopts")
+            [ "$?" != "0" ] && exit 1
+        fi
+        [[ -z $sources ]] && continue
+
+        if [[ -z $name || $name = $b || $sources =~ $file ]]; then
+            files=$sources
             bundle=$b
-            [ "$BKJS_DEBUG" != "" ] && echo "$(date): $BKJS_CMD: $bundle.$type started $dir/$file, files: $files"
+
+            [[ ! -z $BKJS_DEBUG ]] && echo "$(date): $BKJS_CMD: $bundle.$type: started $dir/$file, files: $files"
+
             case $file in
             *.js|*.html)
                 mkdir -p $dir/web/js
@@ -546,8 +563,10 @@ case "$BKJS_CMD" in
                     echo "bkjs.bundleVersion='$(get_json $dir/package.json version)';" >> $dir/web/js/$bundle.bundle.js
                 fi
                 for f in $files; do
-                    [ ! -s $f ] && echo "$f not found" && continue
-                    [ "$BKJS_DEBUG" != "" ] && echo "$(date): $BKJS_CMD: $bundle.$type $f"
+                    [ ! -s $f ] && echo "$(date): $BKJS_CMD: $bundle.$type: $f not found" && exit 1
+
+                    [[ ! -z $BKJS_DEBUG ]] && echo "$(date): $BKJS_CMD: $bundle.$type: $f"
+
                     case $f in
                     *.min.js)
                         cat $f >> $dir/web/js/$bundle.bundle.js
@@ -568,6 +587,7 @@ case "$BKJS_CMD" in
                         ;;
                     esac
                 done
+
                 if [[ -z $dev ]]; then
                     if [[ ! -z $(get_flag -esbuild) ]]; then
                         esbuildargs="--minify $(get_arg -esbuildargs)"
@@ -589,15 +609,16 @@ case "$BKJS_CMD" in
             *.css)
                 mkdir -p $dir/web/css
                 (cd $dir && cat $files > web/css/$bundle.bundle.css)
+                [ "$?" != "0" ] && exit 1
                 [ ! -z "$gzip" ] && gzip -9 -c $dir/web/css/$bundle.bundle.css > $dir/web/css/$bundle.bundle.css.gz
                 ;;
             esac
-            [ "$BKJS_DEBUG" != "" ] && echo "$(date): $BKJS_CMD: $dir/web/$type/$bundle.bundle.$type finished"
+
+            [[ ! -z $BKJS_DEBUG ]] && echo "$(date): $BKJS_CMD: $dir/web/$type/$bundle.bundle.$type finished"
         fi
     done
-    if [ "$files" = "" ]; then
-        [ "$BKJS_DEBUG" != "" ] && echo "$(date): $BKJS_CMD: no $type config.bundles found in $dir/package.json"
-    fi
+    [[ ! -z $BKJS_DEBUG && -z $files ]] && echo "$(date): $BKJS_CMD: no $type config.bundles found in $dir/package.json"
+
     exit 0
     ;;
 
@@ -650,7 +671,7 @@ case "$BKJS_CMD" in
     ;;
 
   jq)
-    echo $(get_json_flat "$1" "$2" "$3" $4)
+    echo $(get_json_flat "$1" "$2" "$3" "$4")
     exit
     ;;
 
