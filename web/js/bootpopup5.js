@@ -125,6 +125,7 @@ function bootpopup(...args)
         button2: function() {},
         show: function() {},
         shown: function() {},
+        showtab: function() {},
         complete: function() {},
         submit: function(e) {
             self.callback(self.options.onsubmit, e);
@@ -202,11 +203,15 @@ function bootpopup(...args)
                 $("<a></a>", {
                     class: this.options.class_tablink + (active ? " active" : ""),
                     "data-bs-toggle": toggle,
-                    id: tid + "0", href: "#" + tid,
+                    id: tid + "0",
+                    href: "#" + tid,
                     role: "tab",
                     "aria-controls": tid,
-                    "aria-selected": false
+                    "aria-selected": false,
+                    "data-callback": p,
+                    click: function(event) { self.options.showtab($(event.target).data("callback"), event) }
                 }).append(this.options.tabs[p]).appendTo(this.tabs);
+
                 tabs[p] = $("<div></div", {
                     class: "tab-pane fade" + (active ? " show active": ""),
                     id: tid,
@@ -334,7 +339,7 @@ function bootpopup(...args)
 
             // Convert functions to string to be used as callback
             for (const a in attrs) {
-                if (typeof attrs[a] === "function") {
+                if (a.startsWith("on") && typeof attrs[a] === "function") {
                     attrs[a] = `return (${attrs[a]})(this,arguments[0],$('#${this.formid}'))`;
                 }
             }
