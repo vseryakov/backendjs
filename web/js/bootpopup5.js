@@ -56,8 +56,9 @@ function bootpopup(...args)
         class_body: "modal-body",
         class_header: "modal-header",
         class_footer: "modal-footer",
+        class_footer_block: "modal-footer d-block text-end",
         class_group: "mb-3",
-        class_options: "options text-center text-md-end",
+        class_options: "options flex-grow-1 text-start",
         class_alert: "alert alert-danger fade show",
         class_info: "alert alert-info fade show",
         class_form: "",
@@ -65,15 +66,18 @@ function bootpopup(...args)
         class_row: "",
         class_col: "",
         class_suffix: "form-text text-muted text-end",
-        class_ok: "btn btn-primary",
-        class_yes: "btn btn-primary",
-        class_no: "btn btn-primary",
-        class_help: "btn btn-outline-secondary",
-        class_agree: "btn btn-primary",
-        class_cancel: "btn btn-secondary",
-        class_close: "btn btn-outline-secondary",
-        class_button1: "btn btn-outline-secondary",
-        class_button2: "btn btn-outline-secondary",
+        class_button: "btn btn-rounded btn-primary",
+        class_submit: "btn btn-rounded btn-primary",
+        class_ok: "btn btn-rounded btn-primary",
+        class_yes: "btn btn-rounded btn-primary",
+        class_no: "btn btn-rounded btn-secondary",
+        class_help: "btn btn-rounded btn-outline-secondary",
+        class_agree: "btn btn-rounded btn-primary",
+        class_cancel: "btn btn-rounded text-muted",
+        class_close: "btn btn-rounded text-muted",
+        class_button1: "btn btn-rounded btn-outline-secondary",
+        class_button2: "btn btn-rounded btn-outline-secondary",
+
         class_tabs: "nav nav-tabs mb-4",
         class_tablink: "nav-link",
         class_tabcontent: "tab-content",
@@ -88,16 +92,6 @@ function bootpopup(...args)
         text_agree: "Agree",
         text_cancel: "Cancel",
         text_close: "Close",
-        text_button1: "",
-        text_button2: "",
-        icon_ok: "",
-        icon_yes: "",
-        icon_no: "",
-        icon_cancel: "",
-        icon_close: "",
-        icon_agree: "",
-        icon_button1: "",
-        icon_button2: "",
         center: false,
         scroll: false,
         horizontal: true,
@@ -359,15 +353,16 @@ function bootpopup(...args)
             }
 
             switch (type) {
-            case "input":
-            case "textarea":
             case "button":
             case "submit":
+            case "input":
+            case "textarea":
                 attrs.type = (typeof attrs.type === "undefined" ? "text" : attrs.type);
                 if (attrs.type == "hidden") {
                     elem = $("<" + type + "></" + type + ">", attrs).appendTo(parent);
                     break;
                 }
+                if (!attrs.class) attrs.class = this.options["class_" + attrs.type];
 
             case "select":
                 if (type == "select" && Array.isArray(attrs.options)) {
@@ -516,9 +511,9 @@ function bootpopup(...args)
                     for (const p in opts) {
                         if (!/^(type|[0-9]+)$|^(class|text|icon|size)_/.test(p)) attrs[p] = opts[p];
                     }
-                    for (const attribute in attrs) {
-                        if (typeof attrs[attribute] === "function") {
-                            attrs[attribute] = "(" + attrs[attribute] + ")(this)";
+                    for (const a in attrs) {
+                        if (a.startsWith("on") && typeof attrs[a] === "function") {
+                            attrs[a] = "(" + attrs[a] + ")(this)";
                         }
                     }
                     type = opts.type || type;
@@ -529,19 +524,20 @@ function bootpopup(...args)
         }
 
         for (const i in this.options.buttons) {
-            var item = this.options.buttons[i];
-            if (!item) continue;
-            this["btn_" + item] = $("<button></button>", {
+            var name = this.options.buttons[i];
+            if (!name) continue;
+            const btn = $("<button></button>", {
                 type: "button",
-                html: this.sanitize(this.options["text_" + item]),
-                class: this.options["class_" + item],
-                "data-callback": item,
+                html: this.sanitize(this.options["text_" + name] || name),
+                class: this.options["class_" + name] || this.options.class_button,
+                "data-callback": name,
                 "data-form": this.formid,
                 click: function(event) { self.callback($(event.target).data("callback"), event) }
-            }).appendTo(this.footer);
-            if (this.options["icon_" + item]) {
-                this["btn_" + item].append($("<i></i>", { class: this.options["icon_" + item] }));
+            })
+            if (this.options["icon_" + name]) {
+                btn.append($("<i></i>", { class: this.options["icon_" + name] }));
             }
+            this["btn_" + name] = btn.appendTo(this.footer);
         }
 
         // Setup events for dismiss and complete
@@ -612,7 +608,7 @@ function bootpopup(...args)
     }
 
     this.data = function() {
-        var d = [], e, n, v, l = this.form.find(this.options.inputs.join(","));
+        var d = { list: [], obj: {} }, e, n, v, l = this.form.find(this.options.inputs.join(","));
         for (let i = 0; i < l.length; i++) {
             e = l[i];
             n = e.name || $(e).attr("name");
@@ -620,8 +616,9 @@ function bootpopup(...args)
             if (/radio|checkbox/i.test(e.type) && !e.checked) continue;
             v = $(e).val();
             if (v === undefined || v === "") continue;
-            d.push({ name: n, value: v })
+            d.list.push({ name: n, value: v })
         }
+        for (const v of d.list) d.obj[v.name] = v.value;
         return d;
     },
 
@@ -631,9 +628,8 @@ function bootpopup(...args)
         if (!bkjs.isF(func)) return;
         this._callback = name;
         // Perform callback
-        var a = this.data(), d = {};
-        for (const v of a) d[v.name] = v.value;
-        var ret = func.call(this.options.self, d, a, event);
+        var a = this.data();
+        var ret = func.call(this.options.self, a.obj, a.list, event);
         // Hide window
         if (ret !== null) this.modal.modal("hide");
         return ret;
@@ -642,7 +638,7 @@ function bootpopup(...args)
     this.addOptions = function(...args) {
         for (const opts of args) {
             for (const key in opts) {
-                if (key in this.options && typeof opts[key] != "undefined") {
+                if (typeof opts[key] != "undefined") {
                     // Chaining all callbacks together, not replacing
                     if (bkjs.isF(this.options[key])) {
                         const _o = this.options[key], _n = opts[key];
