@@ -1,0 +1,70 @@
+#!/bin/sh
+#
+#  Author: Vlad Seryakov vseryakov@gmail.com
+#  Sep 2013
+#
+
+case "$BKJS_CMD" in
+
+  es-map)
+    host=$(get_arg -host localhost)
+    table=$(get_arg -table)
+    curl -sS http://$host:9200/$table/_mappings|node -e "console.log(util.inspect(JSON.parse(fs.readFileSync(0).toString()),null,null))"
+    exit
+    ;;
+
+  es-w)
+    host=$(get_arg -host localhost)
+    curl -XGET "http://$host:9200/_cat/health?v"
+    exit
+    ;;
+
+  es-df)
+    host=$(get_arg -host localhost)
+    curl -XGET "http://$host:9200/_cat/allocation?v"
+    exit
+    ;;
+
+  es-s)
+    host=$(get_arg -host localhost)
+    curl -XGET "http://$host:9200/_cat/shards?v"
+    exit
+    ;;
+
+  es-t)
+    host=$(get_arg -host localhost)
+    task=$(get_arg -task)
+    if [ "$task" != "" ]; then
+        curl -XGET "http://$host:9200/_tasks/$task?pretty"
+    else
+        nodes=$(get_arg -nodes)
+        actions=$(get_arg -actions)
+        curl -XGET "http://$host:9200/_tasks?pretty&detailed&nodes=$nodes&actions=$actions"
+    fi
+    exit
+    ;;
+
+  es-ls)
+    host=$(get_arg -host localhost)
+    curl -XGET "http://$host:9200/_cat/nodes?h=ip,version,cpu,ram.percent,node.role,master&v"
+    exit
+    ;;
+
+  es-n)
+    host=$(get_arg -host localhost)
+    curl -s -XGET "http://$host:9200/_nodes/process?pretty"|node -e 'var d="";process.stdin.on("data",(c)=>{d+=c});process.stdin.on("end",()=>{try{d=JSON.parse(d).nodes;for(var p in d)console.log(p,"  ",d[p].ip,"          ".substr(0,15-d[p].ip.length),String(d[p].roles))}catch(e){};process.exit()})'
+    exit
+    ;;
+    
+  help)
+    echo ""
+    echo "  es-w [-host HOST] - show Elasticsearch cluster health status"
+    echo "  es-df [-host HOST] - show Elasticsearch cluster disk allocations"
+    echo "  es-s [-host HOST] - show Elasticsearch cluster shards allocations and distributions"
+    echo "  es-t [-host HOST] [-task ID] [-nodes ID] [-actions FILTER] - show Elasticsearch cluster running task(s) for all or specific nodes"
+    echo "  es-ls [-host HOST] - show Elasticsearch cluster nodes"
+    echo "  es-n [-host HOST] - show Elasticsearch cluster nodes IDs to be used for other commands by node id"
+    echo "  es-map [-host HOST] TABLE - show Elasticsearch mappings for a table"
+    ;;
+esac
+

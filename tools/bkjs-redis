@@ -1,23 +1,23 @@
-#!/bin/bash
+#!/bin/sh
 #
 #  Author: Vlad Seryakov vseryakov@gmail.com
 #  Sep 2013
 #
 
-REDIS=$([[ $BKJS_CMD =~ redis ]] && echo redis || echo keydb)
+REDIS=$(get_arg -redis redis)
 
 case "$BKJS_CMD" in
 
-  init-redis)
-    ($0 get-redis $(get_all_args))
-    ($0 run-redis $(get_all_args))
+  redis-init)
+    ($0 redis-get $(get_all_args))
+    ($0 redis-run $(get_all_args))
     if [ "$PLATFORM" = "Linux" ]; then
-       sudo $0 init-redis-monit
+       sudo $0 redis-init-monit
     fi
     exit
     ;;
 
-  get-redis)
+  redis-get)
     # Install redis server
     case "$PLATFORM" in
      Darwin)
@@ -46,11 +46,11 @@ case "$BKJS_CMD" in
     make -C redis install PREFIX=$REDIS_PREFIX
     cp redis/redis.conf $BKJS_HOME/etc
     rm -rf redis redis.tgz
-    $0 config-redis
+    $0 redis-config
     exit
     ;;
 
-  config-redis|config-keydb)
+  redis-config)
     $SED -e 's|^# syslog-enabled no|syslog-enabled yes|' \
          -e "s|^dir ./|dir $BKJS_HOME/var/|" \
          -e "s|^timeout 0|timeout 3600|" \
@@ -69,7 +69,7 @@ case "$BKJS_CMD" in
     exit
     ;;
 
-  run-redis|run-keydb)
+  redis-run)
     # Percent from the total memory
     memsize=$(get_arg -memsize)
     [ "$memsize" != "" ] && memmax="$(( ($(free -m|grep Mem:|awk '{print $2}') * $memsize) / 100 ))mb"
@@ -87,12 +87,12 @@ case "$BKJS_CMD" in
     exit
     ;;
 
-  stop-redis)
+  redis-stop)
     pkill -f $REDIS-server
     exit
     ;;
 
-  init-redis-monit|init-keydb-monit)
+  redis-init-monit)
     # There is no startup script because we rely on the monit to handle processes
     [ "$(whoami)" != "root" ] && echo "Run as root please" && exit 1
     echo 1 > /proc/sys/vm/overcommit_memory
@@ -112,16 +112,11 @@ case "$BKJS_CMD" in
 
   help)
     echo ""
-    echo "Redis/KeyDB commands:"
-    echo ""
-    echo "  get-redis - install Redis server into $BKJS_PREFIX, removes current redis package if installed (Linux only)"
-    echo "  init-redis - install and setup Redis server to be run on start and to be monitored (Linux only)"
-    echo "  run-redis [-memsize PERCENT] [-memmax SIZE] [-slave-host HOST] - run local Redis server, uses config file $$BKJS_HOME/etc/redis.conf"
-    echo "  stop-redis - stop local Redis server"
-    echo "  init-redis-monit [-memsize PERCENT] [-memmax SIZE] - setup Redis server to be run on start and to be monitored (Linux only)"
-    echo "  run-keydb [-memsize PERCENT] [-memmax SIZE] [-slave-host HOST] - run local KeyDB server, uses config file $$BKJS_HOME/etc/keydb.conf"
-    echo "  stop-keydb - stop local KeyDB server"
-    echo "  init-keydb-monit [-memsize PERCENT] [-memmax SIZE] - setup KeyDB server to be run on start and to be monitored (Linux only)"
+    echo "  redis-get - install Redis server into $BKJS_PREFIX, removes current redis package if installed (Linux only)"
+    echo "  redis-init - install and setup Redis server to be run on start and to be monitored (Linux only)"
+    echo "  redis-run [-redis keydb] [-memsize PERCENT] [-memmax SIZE] [-slave-host HOST] - run local Redis server, uses config file $$BKJS_HOME/etc/redis.conf"
+    echo "  redis-stop [-redis keydb] - stop local Redis server"
+    echo "  redis-init-monit [-redis keydb] [-memsize PERCENT] [-memmax SIZE] - setup Redis/Keydb server to be run on start and to be monitored (Linux only)"
     echo ""
     ;;
 esac

@@ -1,0 +1,79 @@
+#!/bin/sh
+#
+#  Author: Vlad Seryakov vseryakov@gmail.com
+#  Nov 2021
+#
+
+case "$BKJS_CMD" in
+
+  ecs-run)
+    task=$(get_arg -task)
+    cluster=$(get_arg -cluster default)
+
+    ip=$(get_flag -ip)
+    [ ! -z $ip ] && network="assignPublicIp=ENABLED"
+
+    gid=$(get_arg -gid)
+    group=$(get_arg -group)
+    [ ! -z $group ] && gid=$(aws ec2 describe-security-groups --filters Name=group-name,Values=$group --query "SecurityGroups[*].[GroupId]" --output text|tr '\n' ,|sed s/,$//)
+    if [ ! -z $gid ]; then
+        [ ! -z $network ] && network="$network,"
+        network="${network}securityGroups=[$gid]"
+    fi
+
+    sid=$(get_arg -sid)
+    subnet=$(get_arg -subnet)
+    [ ! -z $subnet ] && sid=$(aws ec2 describe-subnets --query 'Subnets[*].[SubnetId,Tags[?Key==`Name`]]' --output text|awk "/Name/{if(s&&index(\$2,\"$subnet\")==1)print s;s=\"\"} /^subnet/{s=\$0}"|tr '\n' ,|sed s/,$//)
+    if [ ! -z $sid ]; then
+        [ ! -z $network ] && network="$network,"
+        network="${network}subnets=[$sid]"
+    fi
+
+    cpu=$(get_arg -cpu)
+    if [ ! -z $cpu ]; then
+        [ ! -z $overrides ] && overrides="$overrides,"
+        overrides="$overrides\"cpu\":$cpu"
+    fi
+    mem=$(get_arg -mem)
+    if [ ! -z $mem ]; then
+        [ ! -z $overrides ] && overrides="$overrides,"
+        overrides="$overrides\"memory\":$mem"
+    fi
+    arm=$(get_arg -arm64)
+    if [ ! -z $arm ]; then
+        [ ! -z $overrides ] && overrides="$overrides,"
+        overrides="$overrides\"runtimePlatform\":{\"cpuArchitecture\":\"ARM64\"}"
+    fi
+
+    tag=$(get_arg -tag)
+    if [ ! -z $tag ]; then
+        container=$(aws ecs describe-task-definition --task-definition $task --query taskDefinition.containerDefinitions[*].name --output text)
+        [ ! -z $overrides ] && overrides="$overrides,"
+        overrides="$overrides\"containerOverrides\":[{\"name\":\"$container\",\"environment\":[{\"name\":\"BKJS_TAG\",\"value\":\"$tag\"}]}]"
+    fi
+
+    cmd="aws ecs run-task --cluster $cluster --task-definition $task --count $(get_arg -count 1)"
+    [ ! -z $overrides ] && cmd="$cmd --overrides {$overrides}"
+    [ ! -z $network ] && cmd="$cmd --network-configuration awsvpcConfiguration={$network}"
+    [ ! -z $tag ] && cmd="$cmd --tags key=Name,value=$tag"
+    [ ! -z $(get_flag -exec) ] && cmd="$cmd --enable-execute-command"
+
+    type=$(get_arg -type)
+    if [ ! -z $type ]; then
+        cmd="$cmd --launch-type $type"
+    else
+        cmd="$cmd --capacity-provider-strategy capacityProvider=$(get_arg -provider FARGATE)"
+    fi
+
+    [ ! -z "$BKJS_DEBUG" ] && echo $cmd
+    [ ! -z $(get_flag -dry-run) ] && echo $cmd && exit
+
+    $cmd
+    exit
+    ;;
+
+  help)
+    echo ""
+    echo "  ecs-run -task NAME [-cluser default] [-type EC2|FARGATE] [-provider FARGATE_SPOT] [-ip] [-gid ID] [-group NAME] [-sid ID] [-subnet NAME] [-cpu N] [-memory N] [-tag T] [-arm64] [-exec] [-dry-tun] - run an ECS task in subnets with security groups, overrides cpu/mem, pass tag to bkjs process as instance tag"
+    ;;
+esac

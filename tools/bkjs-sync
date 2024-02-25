@@ -1,0 +1,55 @@
+#!/bin/sh
+#
+#  Author: Vlad Seryakov vseryakov@gmail.com
+#  Sep 2013
+#
+
+case "$BKJS_CMD" in
+
+  sync)
+    # Put backend code to the remote site
+    host=$(get_arg -host $BKJS_HOST)
+    [ "$host" = "" ] && echo "no sync without -host" && exit
+    mod=$(get_json package.json name)
+    [[ -z $mod ]] && echo "no sync without package.json" && exit 1
+    path=$(get_arg -path)
+    [ -z "$path" ] && path=$(get_json package.json config.sync.path)
+    [ -z "$path" ] && echo "no sync without -path or config.sync.path" && exit 1
+    sshargs=$(concat_arg -ssh $BKJS_SSH_ARGS)
+    user=$(get_arg -user)
+    [ "$user" != "" ] && sshargs="$sshargs -l $user"
+    key=$(get_arg -ssh-key)
+    [ "$key" != "" -a -f $HOME/.ssh/$key.pem ] && sshargs="$sshargs -i $HOME/.ssh/$key.pem -o IdentitiesOnly=yes"
+    rsyncargs=$(concat_arg -rsync $BKJS_RSYNC_ARGS)
+    bkcmd=$(get_arg -bkcmd)
+    if [ "$bkcmd" != "" ]; then
+        find_user
+        bkcmd="--rsync-path=/home/$BKJS_USER/bin/bkrsync -bkcmd $(echo $bkcmd|sed 's/ /%20/g')"
+    else
+        bkcmd=-a
+    fi
+    include=$(get_json package.json config.sync.include)
+    for inc in $include; do
+        rsyncargs="$rsyncargs --include=$inc"
+    done
+    if [ -f .gitignore ]; then
+        rsyncargs="$rsyncargs --exclude-from .gitignore"
+    fi
+    [ -f $HOME/.gitignore_global ] && rsyncargs="$rsyncargs --exclude-from $HOME/.gitignore_global"
+    exclude=$(get_json package.json config.sync.exclude)
+    [[ ! -z $exclude ]] && rsyncargs="$rsyncargs --exclude=$exclude"
+    [ "$(get_flag -del)" != "" ] && rsyncargs="$rsyncargs --del"
+    echo "Deploying the module $mod: ssh $sshargs $rsyncargs $bkcmd to $host:$path/$mod"
+    [ ! -z "$(get_flag -dry-run)" ] && exit 0
+    for h in $host; do
+        rsync -av -e "ssh $sshargs" "$bkcmd" $rsyncargs . $h:$path/$mod
+    done
+    exit
+    ;;
+
+  help)
+    echo
+    echo "  sync [-host HOST] [-path PATH] [-del] [-user USER] [-ssh-key pem] [-ssh OPTS] [-exclude PATTERN] [-bkcmd CMD] - push the backend code to the remote host using rsync, default path is ~/node_modules/$BKJS_MOD"
+    ;;
+    
+esac

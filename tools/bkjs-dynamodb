@@ -1,0 +1,55 @@
+#!/bin/sh
+#
+#  Author: Vlad Seryakov vseryakov@gmail.com
+#  Sep 2013
+#
+
+case "$BKJS_CMD" in
+  dynamodb-init)
+    ($0 dynamodb-get $(get_all_args))
+    ($0 dynamodb-run $(get_all_args))
+    exit
+    ;;
+
+  dynamodb-get)
+    [ "$DYNAMODB_PREFIX" = "" ] && DYNAMODB_PREFIX=$BKJS_PREFIX/dynamodb
+    [ "$(get_flag -force)" != "" -a "$DYNAMODB_PREFIX" != "" ] && rm -rf $DYNAMODB_PREFIX
+    if [ ! -d $DYNAMODB_PREFIX ]; then
+       mkdir -p $DYNAMODB_PREFIX
+       curl -L -o ddb.tgz http://dynamodb-local.s3-website-us-west-2.amazonaws.com/dynamodb_local_latest.tar.gz
+       tar -C $DYNAMODB_PREFIX -xzf ddb.tgz
+       rm -f ddb.tgz
+    fi
+    exit
+    ;;
+
+  dynamodb-run)
+    [ "$DYNAMODB_PREFIX" = "" ] && DYNAMODB_PREFIX=$BKJS_PREFIX/dynamodb
+    mkdir -p $BKJS_HOME/var $BKJS_HOME/log
+    params="-Xmx$(get_arg -memmax 256M)"
+    exec nohup java $params -Djava.library.path=$DYNAMODB_PREFIX/DynamoDBLocal_lib -jar $DYNAMODB_PREFIX/DynamoDBLocal.jar -dbPath $BKJS_HOME/var -port 8181 >>$BKJS_HOME/log/ddb.log 2>&1 &
+    exit
+    ;;
+
+  dynamodb-stop)
+    pkill -f DynamoDBLocal
+    exit
+    ;;
+
+  dynamodb-reset)
+    $0 dynamodb-stop
+    rm -rf $BKJS_HOME/var/*_us-east-1.db
+    $0 dynamodb-run
+    exit
+    ;;
+
+  help)
+    echo ""
+    echo "  dynamodb-init - download and install local DynamoDB, start the server"
+    echo "  dynamodb-get [-force] - install local DynamoDB server in $BKJS_PREFIX/dynamodb"
+    echo "  dynamodb-run [-memmax SZ] - run local DynamoDB server installed in $BKJS_PREFIX/dynamodb, data files in $BKJS_HOME/var"
+    echo "  dynamodb-stop - stop local DynamoDB server"
+    echo "  dynamodb-reset - remove local DynamoDB database and restart the server"
+    ;;
+esac
+

@@ -44,6 +44,7 @@ bkjs.getAlertText = function(text, options)
 
 bkjs.showAlert = function(obj, type, text, options)
 {
+    if (!obj || !obj.length) obj = null;
     if (bkjs.isS(obj)) options = text, text = type, type = obj, obj = $("body");
     if (!text) return;
     var o = Object.assign({}, options);

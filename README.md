@@ -1022,6 +1022,7 @@ On Linux, when started the bkjs tries to load and source the following config fi
 
         /etc/default/bkjs
         /etc/sysconfig/bkjs
+        $HOME/.env
         $BKJS_HOME/etc/profile
         $BKJS_HOME/etc/profile.local
 
@@ -1072,11 +1073,14 @@ the convention is that argument name must start with a single dash followed by a
 
 The utility is extended via external scripts that reside in the `tools/` folders.
 
-When bkjs is running it treats the first arg as a command, it is set to `$BKJS_CMD` var, them it matches internal commands first,
-if not found it starts loading external scripts that start with `bkjs-` from the following directories:
+When bkjs is running it treats the first arg as a command:
+- `$BKJS_CMD` set to the whole comamnd
+- `$BKJS_SPACE` set to the first part of the command split by dash, i.e. command namespace
+
+if not internal commands match it starts loading external scripts that start with `bkjs-$BKJS_SPACE` from the following directories:
 
 - `$BKJS_TOOLS`,
-- via `-tools` command line argument
+- via `-tools` command line argument if provided
 - `$BKJS_HOME/tools`
 - `$BKJS_DIR/tools`
 
@@ -1092,25 +1096,29 @@ We need to set BKJS_TOOLS to point to our package(s), on Darwin add it to ~/.bkj
     BKJS_TOOLS="/Users/user/src/node-pkg/tools"
 
 
-Create a file `/Users/user/src/node-pkg/tools/bkjs-cmd1`
+Create a file `/Users/user/src/node-pkg/tools/bkjs-cmd`
 
-    #!/bin/bash
+    #!/bin/sh
 
     case "$BKJS_CMD" in
-      cmd1)
+      cmd)
        arg1=$(get_arg -arg1)
        arg2=$(get_arg -arg1 1)
        [ -z $arg1 ] && echo "-arg1 is required" && exit 1
        ...
        exit
+
+      cmd-all)
        ;;
 
       help)
        echo ""
-       echo "$0 cmd1 -arg1 ARG -arg2 ARG"
+       echo "$0 cmd -arg1 ARG -arg2 ARG ..."
+       echo "$0 cmd-all ...."
        ;;
     esac
 
+Now calling `bkjs cmd` or `bkjs cmd-all` will use the new bkjs-cmd file
 
 # Web development notes
 
@@ -1128,25 +1136,25 @@ watched for changes. For example adding these lines to the local config will ena
 
         watch-web=web/js,web/css,$HOME/src/js,$HOME/src/css
         watch-ignore=.bundle.(js|css)$
-        watch-build=bkjs web-bundle -dev
+        watch-build=bkjs bundle -dev
 
 
 The simple script below allows to build the bundle and refresh Chrome tab automatically, saves several clicks:
 
-        #!/bin/bash
-        bkjs web-bundle -dev -file $2
+        #!/bin/sh
+        bkjs bundle -dev -file $2
         [ "$?" != "0" ] && exit
         osascript -e "tell application \"Google Chrome\" to reload (tabs of window 1 whose URL contains \"$1\")"
 
 
 To use it call this script instead in the config.local:
 
-        watch-build=web-bundle.sh /website
+        watch-build=bundle.sh /website
 
 NOTE: Because the rebuild happens while the watcher is running there are cases like the server is restarting or pulling a large update from the
 repository when the bundle build may not be called or called too early. To force rebuild run the command:
 
-        bkjs web-bundle -dev -all -force
+        bkjs bundle -dev -all -force
 
 # Deployment use cases
 
@@ -1198,11 +1206,11 @@ When launching from an EC2 instance no need to specify any AWS credentials.
 
  - Elasticsearch
 
-        bksh -aws-sdk-profile uc -aws-launch-instances -aws-instance-type m3.large -subnet-name internal -name elasticsearch -bkjs-cmd stop-service -bkjs-cmd "init-elasticsearch-service -memsize 50" -alarm-name alarms -public-ip 1 -dry-run
+        bksh -aws-sdk-profile uc -aws-launch-instances -aws-instance-type m3.large -subnet-name internal -name elasticsearch -bkjs-cmd init-stop-service -bkjs-cmd "init-elasticsearch-service -memsize 50" -alarm-name alarms -public-ip 1 -dry-run
 
  - Redis
 
-        bksh -aws-sdk-profile uc -aws-launch-instances -aws-instance-type m3.large -subnet-name internal -name redis -bkjs-cmd stop-service -bkjs-cmd "init-redis-service -memsize 70" -alarm-name alarms  -public-ip 1 -dry-run
+        bksh -aws-sdk-profile uc -aws-launch-instances -aws-instance-type m3.large -subnet-name internal -name redis -bkjs-cmd init-stop-service -bkjs-cmd "init-redis-service -memsize 70" -alarm-name alarms  -public-ip 1 -dry-run
 
 ### Copy Autoscaling launch templates after new AMI is created
 
@@ -1300,7 +1308,7 @@ tests.test_example = function(callback)
 
 Then to run all tests
 
-    bkjs run-tests
+    bkjs test-all
 
 More details are in the documentation or `doc.html`
 

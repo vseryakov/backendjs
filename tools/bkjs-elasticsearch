@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 #
 #  Author: Vlad Seryakov vseryakov@gmail.com
 #  Sep 2013
@@ -6,7 +6,7 @@
 
 case "$BKJS_CMD" in
 
-  get-elasticsearch|es-get)
+  elasticsearch-get)
     [ "$ELASTICSEARCH_PREFIX" = "" ] && ELASTICSEARCH_PREFIX=$BKJS_PREFIX/elasticsearch
     [ "$(get_flag -force)" != "" -a "$ELASTICSEARCH_PREFIX" != "" ] && rm -rf $ELASTICSEARCH_PREFIX
     if [ ! -d $ELASTICSEARCH_PREFIX ]; then
@@ -42,16 +42,16 @@ case "$BKJS_CMD" in
     exit
     ;;
 
-  init-elasticsearch|es-init)
-    ($0 get-elasticsearch $(get_all_args))
-    ($0 run-elasticsearch $(get_all_args))
+  elasticsearch-init)
+    ($0 elasticsearch-get $(get_all_args))
+    ($0 elasticsearch-run $(get_all_args))
     if [ "$PLATFORM" = "Linux" ]; then
-       sudo $0 init-elasticsearch-monit $(get_all_args)
+       sudo $0 elasticsearch-init-monit $(get_all_args)
     fi
     exit
     ;;
 
-  get-elasticsearch-nodetype)
+  elasticsearch-get-nodetype)
     [ "$ELASTICSEARCH_PREFIX" = "" ] && ELASTICSEARCH_PREFIX=$BKJS_PREFIX/elasticsearch
     roles=$(grep "node.roles:" $ELASTICSEARCH_PREFIX/config/elasticsearch.yml|awk -F: '{print $2}'|sed 's/[^a-z]//g')
     case "$roles" in
@@ -71,7 +71,7 @@ case "$BKJS_CMD" in
     exit
     ;;
 
-  run-elasticsearch|es-run)
+  elasticsearch-run)
     [ "$ELASTICSEARCH_PREFIX" = "" ] && ELASTICSEARCH_PREFIX=$BKJS_PREFIX/elasticsearch
     # Percent from the total memory
     memsize=$(get_arg -memsize)
@@ -104,46 +104,46 @@ case "$BKJS_CMD" in
     exit
     ;;
 
-  stop-elasticsearch|es-stop)
+  elasticsearch-stop)
     pkill -f org.elasticsearch
     exit
     ;;
 
-  restart-elasticsearch)
+  elasticsearch-restart)
     pkill -f org.elasticsearch
     sleep 1
     pkill -f -9 org.elasticsearch
-    $0 run-elasticsearch $(get_all_args)
+    $0 elasticsearch-run $(get_all_args)
     exit
     ;;
 
-  reset-elasticsearch)
+  elasticsearch-reset)
     pkill -f org.elasticsearch
     rm -rf $BKJS_HOME/var/nodes
     rm -f $BKJS_HOME/log/elasticsearch*
-    $0 run-elasticsearch
+    $0 elasticsearch-run
     exit
     ;;
 
-  configure-elasticsearch)
+  elasticsearch-configure)
     host=$(get_arg -host localhost)
     curl -XPUT -H 'Content-Type: application/json' -d '{"persistent":{"script.max_compilations_rate":"1000/1m"}}' http://$host:9200/_cluster/settings
     exit
     ;;
 
-  stop-elasticsearch-replication)
+  elasticsearch-stop-replication)
     host=$(get_arg -host localhost)
     curl -XPUT -H 'Content-Type: application/json' -d '{"persistent":{"cluster.routing.allocation.enable":"primaries"}}' http://$host:9200/_cluster/settings
     exit
     ;;
 
-  start-elasticsearch-replication)
+  elasticsearch-start-replication)
     host=$(get_arg -host localhost)
     curl -XPUT -H 'Content-Type: application/json' -d '{"persistent":{"cluster.routing.allocation.enable":null}}' http://$host:9200/_cluster/settings
     exit
     ;;
 
-  set-elasticsearch-disk-watermark)
+  elasticsearch-set-disk-watermark)
     host=$(get_arg -host localhost)
     high=$(get_arg -high 95)
     low=$(get_arg -low 95)
@@ -152,7 +152,7 @@ case "$BKJS_CMD" in
     exit
     ;;
 
-  reindex-elasticsearch)
+  elasticsearch-reindex)
     host=$(get_arg -host localhost)
     index=$(get_arg -index)
     dest=$(get_arg -dest $index)
@@ -162,23 +162,23 @@ case "$BKJS_CMD" in
     exit
     ;;
 
-  upgrade-elasticsearch-node)
+  elasticsearch-upgrade-node)
     host=$(get_arg -host localhost)
     memsize=$(get_arg -memsize 50)
     nodetype=$($0 get_arg -nodetype)
-    $0 stop-elasticsearch-replication -host $host
-    $0 stop-elasticsearch
-    $0 get-elasticsearch -force
+    $0 elasticsearch-stop-replication -host $host
+    $0 elasticsearch-stop
+    $0 elasticsearch-get -force
     if [ -f /etc/monit.d/elasticsearch.conf ]; then
         sudo monit reload
     else
-        $0 run-elasticsearch -nodetype "$nodetype" -memsize $memsize
+        $0 elasticsearch-run -nodetype "$nodetype" -memsize $memsize
     fi
-    $0 start-elasticsearch-replication -host $host
+    $0 elasticsearch-start-replication -host $host
     exit
     ;;
 
-  exclude-elasticsearch-node)
+  elasticsearch-exclude-node)
     host=$(get_arg -host localhost)
     ip=$(get_arg -ip $(get_local_ip))
     [ "$ip" = "." ] && ip=""
@@ -186,57 +186,7 @@ case "$BKJS_CMD" in
     exit
     ;;
 
-  elasticsearch-map|es-map)
-    host=$(get_arg -host localhost)
-    table=$(get_arg -table)
-    curl -sS http://$host:9200/$table/_mappings|node -e "console.log(util.inspect(JSON.parse(fs.readFileSync(0).toString()),null,null))"
-    exit
-    ;;
-
-  elasticsearch-health|es-w)
-    host=$(get_arg -host localhost)
-    curl -XGET "http://$host:9200/_cat/health?v"
-    exit
-    ;;
-
-  elasticsearch-space|es-df)
-    host=$(get_arg -host localhost)
-    curl -XGET "http://$host:9200/_cat/allocation?v"
-    exit
-    ;;
-
-  elasticsearch-shards|es-s)
-    host=$(get_arg -host localhost)
-    curl -XGET "http://$host:9200/_cat/shards?v"
-    exit
-    ;;
-
-  elasticsearch-tasks|es-t)
-    host=$(get_arg -host localhost)
-    task=$(get_arg -task)
-    if [ "$task" != "" ]; then
-        curl -XGET "http://$host:9200/_tasks/$task?pretty"
-    else
-        nodes=$(get_arg -nodes)
-        actions=$(get_arg -actions)
-        curl -XGET "http://$host:9200/_tasks?pretty&detailed&nodes=$nodes&actions=$actions"
-    fi
-    exit
-    ;;
-
-  elasticsearch-ls|es-ls)
-    host=$(get_arg -host localhost)
-    curl -XGET "http://$host:9200/_cat/nodes?h=ip,version,cpu,ram.percent,node.role,master&v"
-    exit
-    ;;
-
-  elasticsearch-nodes|es-n)
-    host=$(get_arg -host localhost)
-    curl -s -XGET "http://$host:9200/_nodes/process?pretty"|node -e 'var d="";process.stdin.on("data",(c)=>{d+=c});process.stdin.on("end",()=>{try{d=JSON.parse(d).nodes;for(var p in d)console.log(p,"  ",d[p].ip,"          ".substr(0,15-d[p].ip.length),String(d[p].roles))}catch(e){};process.exit()})'
-    exit
-    ;;
-
-  init-monit-elasticsearch|init-elasticsearch-monit)
+  elasticsearch-init-monit)
     find_user
     echo "check process elasticsearch with pidfile \"$BKJS_HOME/var/elasticsearch.pid\" start program = \"$BKJS_BIN run-elasticsearch $(get_all_args)\" as uid $BKJS_USER and gid $BKJS_GROUP stop program = \"$BKJS_BIN stop-elasticsearch\" if failed url http://127.0.0.1:9200/ with timeout 15 seconds for 2 cycles then restart" > /etc/monit.d/elasticsearch.conf
     echo "check file elasticsearch-log with path $BKJS_HOME/log/elasticsearch.log if match 'java.lang.OutOfMemoryError' then exec \"$BKJS_BIN restart-elasticsearch $(get_all_args)\"" >> /etc/monit.d/elasticsearch.conf
@@ -244,49 +194,39 @@ case "$BKJS_CMD" in
     exit
     ;;
 
-  init-monit-elasticsearch-health|init-elasticsearch-health-monit)
+  elasticsearch-init-monit-health)
     host=$(get_arg -host elasticsearch)
     echo "check host elasticsearch-health with address $host if failed url http://$host:9200/_cluster/health and content = 'green' with timeout 60 seconds for 2 cycles then alert" > /etc/monit.d/elasticsearch-health.conf
     monit reload
     exit
     ;;
 
-  stop-elasticsearch-monit)
+  elasticsearch-stop-monit)
     [ "$(whoami)" != "root" ] && echo "Not root, skipping setup" && exit 1
     rm -rf /etc/monit.d/elasticsearch*
     monit reload
-    $0 stop-elasticsearch
+    $0 elasticsearch-stop
     exit
     ;;
 
-  init-elasticsearch-cloudwatch-logs)
+  elasticsearch-init-cloudwatch-logs)
     echo "BKJS_CLOUDWATCH_LOGS=elasticsearch.log" >> $BKJS_HOME/etc/profile
-    $0 init-cloudwatch-agent
+    $0 ec2-init-cloudwatch-agent
     exit
     ;;
 
   help)
     echo ""
-    echo "Elasticsearch commands:"
-    echo ""
-    echo "  get-elasticsearch [-force] - install local ElasticSearch server in $BKJS_PREFIX/elasticsearch"
-    echo "  init-elasticsearch - download and install local ElasticSearch, start the server, configure monit"
-    echo "  run-elasticsearch [-memsize PERCENT] [-memmax SIZE] [-nodetype TYPE] - run local ElasticSearch server installed in $BKJS_PREFIX/elasticsearch, -memmax is max heap size, -memsize is the percent of the total memory to use, -nodetype can be node,master,data,client"
-    echo "  stop-elasticsearch - stop local ElasticSearch server"
-    echo "  reset-elasticsearch - remove local ElasticSearch database and restart the server"
-    echo "  configure-elasticsearch - configure ElasticSearch common parameters for scalability"
-    echo "  init-elasticsearch-monit [-memsize PERCENT] [-memmax SIZE] [-nodetype TYPE] - setup monit to keep elasticsearch service running"
-    echo "  init-elasticsearch-cloudwatch-logs - setup elastichsearch.log to be sent to CloudWatch Logs"
-    echo "  exclude-elasticsearch-node [-host HOST] [-ip IP] - disable a node by IP address"
-    echo "  reindex-elasticsearch -index INDEX [-dest INDEX] [-host HOST] [-remote HOST] - reindex an index from remote host"
-    echo "  elasticsearch-health|es-w [-host HOST] - show cluster health status"
-    echo "  elasticsearch-space|es-df [-host HOST] - show cluster disk allocations"
-    echo "  elasticsearch-shards|es-s [-host HOST] - show cluster shards allocations and distributions"
-    echo "  elasticsearch-tasks|es-t [-host HOST] [-task ID] [-nodes ID] [-actions FILTER] - show cluster running task(s) for all or specific nodes"
-    echo "  elasticsearch-ls|es-ls [-host HOST] - show cluster nodes"
-    echo "  elasticsearch-nodes|es-n [-host HOST] - show cluster nodes IDs to be used for other commands by node id"
-    echo "  elasticsearch-map|es-map [-host HOST] TABLE - show mappings for a table"
-    echo ""
+    echo "  elasticsearch-get [-force] - install local ElasticSearch server in $BKJS_PREFIX/elasticsearch"
+    echo "  elasticsearch-init - download and install local ElasticSearch, start the server, configure monit"
+    echo "  elasticsearch-run [-memsize PERCENT] [-memmax SIZE] [-nodetype TYPE] - run local ElasticSearch server installed in $BKJS_PREFIX/elasticsearch, -memmax is max heap size, -memsize is the percent of the total memory to use, -nodetype can be node,master,data,client"
+    echo "  elasticsearch-stop - stop local ElasticSearch server"
+    echo "  elasticsearch-reset - remove local ElasticSearch database and restart the server"
+    echo "  elasticsearch-configure - configure ElasticSearch common parameters for scalability"
+    echo "  elasticsearch-init-monit [-memsize PERCENT] [-memmax SIZE] [-nodetype TYPE] - setup monit to keep elasticsearch service running"
+    echo "  elasticsearch-init-cloudwatch-logs - setup elastichsearch.log to be sent to CloudWatch Logs"
+    echo "  elasticsearch-exclude-node [-host HOST] [-ip IP] - disable a node by IP address"
+    echo "  elasticsearch-reindex -index INDEX [-dest INDEX] [-host HOST] [-remote HOST] - reindex an index from remote host"
     ;;
 esac
 

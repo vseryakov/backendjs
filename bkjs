@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/sh
 #
 #  Author: Vlad Seryakov vseryakov@gmail.com
 #  Sep 2013
@@ -67,61 +67,81 @@ else
    shift
 fi
 
+# Command namespace
+BKJS_SPACE=$(echo $BKJS_CMD|cut -d- -f1)
+
+# Word splitting like in sh
+[ -n "$ZSH_VERSION" ] && setopt shwordsplit
+
+# Save all cmdline args
+BKJS_ARGC=0
+for arg in "$@"; do
+    eval "BKJS_ARGV$BKJS_ARGC=\$arg"
+    BKJS_ARGC=$((BKJS_ARGC + 1))
+done
+
 # Returns an argument value by name, format is -name value
-BKJS_ARGS=("$@")
 get_arg() {
-  for ((i = 0;i < ${#BKJS_ARGS[@]}; ++i)); do
-    [[ $1 = ${BKJS_ARGS[i]} && ! ${BKJS_ARGS[i+1]} =~ ^\- ]] && echo "${BKJS_ARGS[i+1]}" && return 0
+  local i=0
+  while [ $i -lt $BKJS_ARGC ]; do
+    local n=$(eval "echo \$BKJS_ARGV$i")
+    local v=$(eval "echo \"\$BKJS_ARGV$((i+1))\"")
+    if [[ $1 = $n ]]; then
+        if [[ -n "$v" ]] && ! match "$v" "^\-"; then echo "$v" && return 0; fi
+        [[ ! -z $3 ]] && echo "$3" && return 0
+    fi
+    i=$((i + 1))
   done
   echo "$2"
 }
 
 # Returns 1 if an argument exists or the value is 0,1
 get_flag() {
-  for ((i = 0;i < ${#BKJS_ARGS[@]}; ++i)); do
-    if [ "$1" = "${BKJS_ARGS[i]}" ]; then
-        [[ ! ${BKJS_ARGS[i+1]} =~ ^\- ]] && echo "${BKJS_ARGS[i+1]:-1}" && return 0
-        echo "1" && return 0
-    fi
-  done
-  echo "$2"
+  echo $(get_arg $1 "$2" 1)
 }
 
 # Returns all commandline arguments not present in the first arg
 get_all_args() {
-  sep=${2:-"\""}
-  for ((i = 0;i < ${#BKJS_ARGS[@]}; ++i)); do
-    found=""
-    n=${BKJS_ARGS[i]}
-    v=${BKJS_ARGS[i+1]}
+  local i=0 sep=${2:-"\""}
+  while [ $i -lt $BKJS_ARGC ]; do
+    local found=""
+    local n=$(eval "echo \$BKJS_ARGV$i")
+    local v=$(eval "echo \"\$BKJS_ARGV$((i+1))\"")
     for a in $1; do
       [ "$n" = "$a" ] && found=1
     done
     if [ "$found" = "" ]; then
-       if [[ ! $n =~ "[ '\"]" ]]; then
+       if ! match "$n" "[ '\"]"; then
           args="$args $n"
        else
           args="$args $sep$n$sep"
        fi
        if [ "$v" != "" -a "${v:0:1}" != "-" ]; then
-          if [[ ! $v =~ "[ '\"]" ]]; then
+          if ! match "$v" "[ '\"]"; then
              args="$args $v"
           else
              args="$args $sep$v$sep"
           fi
        fi
     fi
-    [ "${v:0:1}" != "-" ] && ((++i))
+    i=$((i + 1))
+    [ "${v:0:1}" != "-" ] && i=$((i + 1))
   done
   echo "$args"
 }
 
 # Concatenate args
 concat_arg() {
-  _v=$(get_arg $1)
+  local _v=$(get_arg $1)
   [ "$_v" == "" ] && echo $2
   [ "$2" != "" ] && _v="$2 $_v"
   echo "$_v"
+}
+
+# Return 1 if 1st arg matches regexp in 2nd arg
+match() {
+    if [[ -n "$1" && -n "$2" ]] && echo "$1" | egrep -E -q "$2"; then return 0; fi
+    return 1
 }
 
 # Local IP address, not localhost
@@ -137,19 +157,6 @@ get_json() {
 # Same as get_json but object properties are flattened first to support property names with spaces or dashes
 get_json_flat() {
   ${NODE_BIN:-node} -e "function f(o){var r={};for(var p in o){if(!Array.isArray(o[p])&&typeof o[p]=='object'){var a=f(o[p]);r[p]=Object.keys(o[p]);for(var x in a)r[p+'.'+x]=a[x]}else r[p]=o[p]};return r};try{o=f(JSON.parse(fs.readFileSync('$1')));v=o['$2']||o['$3'];if(Array.isArray(v)){if('$4'.includes('realpath'))v=v.map(x=>(!x.includes('@')&&fs.realpathSync(x)||x));v=v.join(' ')};if(v&&typeof v=='object')v=Object.keys(v).join(' ');if(typeof v!='undefined')console.log(v)}catch(e){if('$BKJS_DEBUG')console.error('get_json_flat:','$1','$2',e);process.exit(1)}"
-}
-
-# Return real path a file
-get_realpath() {
-  cd -P "$(dirname -- "$1")"
-  file="$PWD/$(basename -- "$1")"
-  while [[ -h "$file" ]]; do
-    cd -P "$(dirname -- "$file")"
-    file="$(readlink -- "$file")"
-    cd -P "$(dirname -- "$file")"
-    file="$PWD/$(basename -- "$file")"
-  done
-  echo "$file"
 }
 
 # Resolve node binary location
@@ -169,11 +176,14 @@ find_user() {
 
 # Run the command by sourcing all scripts from tools folders
 process_cmd() {
-  dirs="$BKJS_TOOLS $(get_arg -tools) $BKJS_HOME/tools $BKJS_DIR/tools"
-  [[ ! -z $BKJS_DEBUG ]] && echo "process_cmd: $BKJS_CMD: $dirs"
+  local d= f= dirs="$BKJS_TOOLS $(get_arg -tools) $BKJS_HOME/tools $BKJS_DIR/tools"
+  [[ -n "$BKJS_ALLCMD" ]] && filter='bkjs-*' || filter="bkjs-$BKJS_SPACE*"
+  [[ ! -z $BKJS_DEBUG ]] && echo "$(date): $BKJS_CMD: process_cmd: $filter: dirs: $dirs"
   for d in $dirs; do
      if [ -d $d ]; then
-        for f in $(find $d -name 'bkjs-*'); do
+        local files=$(find $d \( -type f -o -type l \) -name "$filter")
+        [[ ! -z $BKJS_DEBUG ]] && echo "$(date): $BKJS_CMD: process_cmd: files: $files"
+        for f in $files; do
             source $f
         done
      fi
@@ -190,7 +200,7 @@ to_upper() {
 
 # Find our location first
 unset CDPATH
-BKJS_BIN="$(get_realpath "${BASH_SOURCE[0]}")"
+BKJS_BIN="$(readlink -f $0)"
 BKJS_DIR="$(cd "${BKJS_BIN%/*}" ; pwd -P)"
 
 # Home and prefix must be specified for the script to work properly
@@ -206,28 +216,19 @@ export BKJS_PREFIX=$(get_arg -prefix $BKJS_PREFIX)
 export BKJS_DEBUG=$(get_flag -debug)
 
 # Setup paths
-export PATH=$BKJS_HOME/bin:$BKJS_HOME/node_modules/.bin:$BKJS_PREFIX/bin:/usr/local/bin:/opt/local/bin:/opt/local/node/bin:/sbin:/usr/sbin:$PATH
+export PATH=$BKJS_HOME/bin:$BKJS_HOME/node_modules/.bin:$BKJS_PREFIX/bin:/app/bin:/usr/local/bin:/opt/local/bin:/opt/local/node/bin:/sbin:/usr/sbin:$PATH
 
-[[ ! -z $BKJS_DEBUG ]] && echo "$(date): $0: HOME=$BKJS_HOME, PREFIX=$BKJS_PREFIX, PWD=$(pwd), USER=$(whoami): CMD=$BKJS_CMD $@"
+[[ ! -z $BKJS_DEBUG ]] && echo "$(date): $0: HOME=$BKJS_HOME, PREFIX=$BKJS_PREFIX, PWD=$(pwd), USER=$(whoami), CMD=$BKJS_CMD, ARGS=$@"
 
 case "$BKJS_CMD" in
+  status|restart)
+    ;;
+
   start)
     cd $BKJS_HOME
-    ([[ $(whoami) = root ]] && $0 check-server)
+    ([[ $(whoami) = root ]] && $0 start-instance)
     $0 run-${BKJS_SERVER:-none}
     exit
-    ;;
-
-  restart)
-    $0 stop
-    sleep 1
-    process_cmd
-    ;;
-
-  restart-api|stop-api)
-    pkill -USR2 -f "$BKJS: server"
-    pkill -USR2 -f "$BKJS: master"
-    exit 0
     ;;
 
   stop)
@@ -237,7 +238,10 @@ case "$BKJS_CMD" in
     exit 0
     ;;
 
-  status)
+  restart-api|stop-api)
+    pkill -USR2 -f "$BKJS: server"
+    pkill -USR2 -f "$BKJS: master"
+    exit 0
     ;;
 
   stop-web|stop-server|stop-master|stop-worker)
@@ -247,20 +251,11 @@ case "$BKJS_CMD" in
     exit 0
     ;;
 
-  bkrsync)
-    logger -p local0.notice -t bkrsync -- $@
-    cmd=$(get_arg -bkcmd)
-    rsync $(get_all_args "-bkcmd")
-    rc=$?
-    [ "$rc" != "0" ] && exit $rc
-    [ "$cmd" != "" ] && $(dirname $0)/bkjs $(echo $cmd|sed 's/%20/ /g') 1>&2
-    exit 0
-    ;;
-
-  check-server)
+  start-instance)
     # Setup domain from the config, keep the hostname as it is, for EC2 instances it is the IP address
     domain=$(get_arg -domain $BKJS_DOMAIN)
     [ "$domain" != "" ] && $0 init-hostname -domain $domain
+    BKJS_ALLCMD=1
     process_cmd
     # New instance started from existing AMI which might have old log files
     if [ -f $BKJS_HOME/var/bkjs.init ]; then
@@ -272,28 +267,6 @@ case "$BKJS_CMD" in
     find_user
     chown -R $BKJS_USER $BKJS_HOME/etc $BKJS_HOME/var $BKJS_HOME/log
     exit 0
-    ;;
-
-  send-alert)
-    event=$(get_arg -event $MONIT_EVENT)
-    descr=$(get_arg -descr $MONIT_DESCRIPTION)
-    [ "$event" = "" -a "$descr" = "" ] && exit
-    host=${MONIT_HOST:-$(uname -n)}
-    subject="ALERT: ${MONIT_SERVICE:-$BKJS} $host $event"
-    msg="$subject\n\n$descr\n\n"
-    process_cmd
-    # If nobody handled it we log and try to send a plain email
-    echo "$msg" >> $BKJS_HOME/log/error.log
-    email=$(grep 'set alert' /etc/monit.d/*|tail -1|awk '{print $NF}')
-    if [ "$email" != "" ]; then
-       $ECHO "From:$email\nTo:$email\nSubject: $subject\n\n$(echo "$msg")"|sendmail $email
-    fi
-    exit
-    ;;
-
-  logwatcher)
-    $0 shell -log error -log-watch $@
-    exit
     ;;
 
   run|run-master|master|run-monitor|monitor|run-web|web|watch|shell|bksh|run-none|none)
@@ -338,320 +311,14 @@ case "$BKJS_CMD" in
     exit
     ;;
 
-  ssh)
-    host=$(get_arg -host $BKJS_HOST)
-    cmd=$(get_arg -cmd)
-    [ "$host" = "" -o "$cmd" = "" ] && echo "-host and -cmd are required" && exit
-    sshargs=$(concat_arg -ssh $BKJS_SSH_ARGS)
-    user=$(get_arg -user)
-    [ "$user" != "" ] && sshargs="$sshargs -l $user"
-    key=$(get_arg -key)
-    [ "$key" != "" -a -f "~/.ssh/$key.pem" ] && sshargs="$sshargs -i $HOME/.ssh/$key.pem"
-    [[ ! -z $BKJS_DEBUG ]] && echo "ssh $sshargs $host $cmd"
-    [ "$(get_flag -dry-run)" != "" ] && exit 0
-    for h in $host; do
-      ssh $sshargs $h $cmd
-    done
-    exit
-    ;;
-
-  sync)
-    # Put backend code to the remote site
-    host=$(get_arg -host $BKJS_HOST)
-    [ "$host" = "" ] && echo "no sync without -host" && exit
-    mod=$(get_json package.json name)
-    [[ -z $mod ]] && echo "no sync without package.json" && exit 1
-    path=$(get_arg -path)
-    [ -z "$path" ] && path=$(get_json package.json config.sync.path)
-    [ -z "$path" ] && echo "no sync without -path or config.sync.path" && exit 1
-    sshargs=$(concat_arg -ssh $BKJS_SSH_ARGS)
-    user=$(get_arg -user)
-    [ "$user" != "" ] && sshargs="$sshargs -l $user"
-    key=$(get_arg -ssh-key)
-    [ "$key" != "" -a -f $HOME/.ssh/$key.pem ] && sshargs="$sshargs -i $HOME/.ssh/$key.pem -o IdentitiesOnly=yes"
-    rsyncargs=$(concat_arg -rsync $BKJS_RSYNC_ARGS)
-    bkcmd=$(get_arg -bkcmd)
-    if [ "$bkcmd" != "" ]; then
-        find_user
-        bkcmd="--rsync-path=/home/$BKJS_USER/bin/bkrsync -bkcmd $(echo $bkcmd|sed 's/ /%20/g')"
-    else
-        bkcmd=-a
-    fi
-    include=$(get_json package.json config.sync.include)
-    for inc in $include; do
-        rsyncargs="$rsyncargs --include=$inc"
-    done
-    if [ -f .gitignore ]; then
-        rsyncargs="$rsyncargs --exclude-from .gitignore"
-    fi
-    [ -f $HOME/.gitignore_global ] && rsyncargs="$rsyncargs --exclude-from $HOME/.gitignore_global"
-    exclude=$(get_json package.json config.sync.exclude)
-    [[ ! -z $exclude ]] && rsyncargs="$rsyncargs --exclude=$exclude"
-    [ "$(get_flag -del)" != "" ] && rsyncargs="$rsyncargs --del"
-    echo "Deploying the module $mod: ssh $sshargs $rsyncargs $bkcmd to $host:$path/$mod"
-    [ ! -z "$(get_flag -dry-run)" ] && exit 0
-    for h in $host; do
-        rsync -av -e "ssh $sshargs" "$bkcmd" $rsyncargs . $h:$path/$mod
-    done
-    exit
-    ;;
-
-  deps)
-    find_nodebin
-    [ "$NPM_BIN" = "" -a ! -f $BKJS_PREFIX/bin/npm ] && NPM_BIN=$(which npm 2>/dev/null)
-    [ "$NPM_BIN" = "" ] && NPM_BIN=$BKJS_PREFIX/bin/npm
-    cmd=install
-    [ ! -z "$(get_flag -update)" ] && cmd=update
-    npm=$(get_arg -npm)
-    path=$(get_arg -path .)
-    check=$(get_flag -check)
-    strict=$(get_flag -strict)
-    global=$(get_flag -global)
-    skip=$(get_arg -skip $BKJS_MOD)
-    filter=$(get_arg -filter)
-    fields=$(get_arg -fields dependencies,devDependencies)
-    if [[ ! -z $check ]]; then
-        strict=1
-        fields="$fields,modDependencies"
-    else
-        [[ ! -z $(get_flag -mods) ]] && fields="$fields,modDependencies"
-    fi
-    for p in $path; do
-        m=$($NODE_BIN -e "try{skip='$skip';filter='$filter';p=require('$p/package.json');console.log('$fields'.split(',').map(f=>(Object.keys(p[f]||{}).filter(x=>((!filter||x.match(filter))&&!x.match(skip))).map(x=>(x+(!'$strict'&&p[f][x][0]=='^'?'@'+p[f][x].substr(1).split('.')[0]:'$strict'||/^[0-9]/.test(p[f][x])?'@'+p[f][x].replace(/[=<>^~]/g,''):'')).trim()).join(' '))).join(' '))}catch(e){if('$BKJS_DEBUG')console.error(e)}")
-        [ "$m" != "" ] && modules="$modules $m"
-    done
-    [[ -z $modules ]] && exit 0
-    if [ ! -z $check ]; then
-        npath=./node_modules
-        [ ! -z $global ] && npath=$NODE_PATH
-        mods=""
-        for m in $modules; do
-            $NODE_BIN -e "m='$m',p=m.split('@').slice(0,-1).join('@');try{var v=require('$npath/'+p+'/package.json').version}catch(e){console.error(e)};l=child_process.execSync('npm v '+p+' version').toString().trim();console.log(v!=l?'!':'',m,v,l)"
-        done
-        exit 0
-    fi
-    [ ! -z $global ] && npm="$npm -g"
-    echo "$NPM_BIN $npm $cmd $modules"
-    [ ! -z "$(get_flag -dry-run)" ] && exit 0
-    $NPM_BIN $npm $cmd $modules
-    exit
-    ;;
-
-  web-bundle)
-    # Rebuild all inside of the specified folders
-    dirs=$(get_arg -dirs)
-    if [[ -z $dirs ]]; then
-        dirs=$(get_arg -find)
-        depth=$(get_arg -depth 1)
-        [[ ! -z $dirs ]] && dirs=$(find $dirs -maxdepth $depth -mindepth 1 -type d)
-    fi
-    if [[ ! -z $dirs ]]; then
-        [ ! -z $BKJS_DEBUG ] && echo "$(date): $BKJS_CMD: dirs: $dirs"
-        skip=$(get_arg -skip)
-        filter=$(get_arg -filter)
-        args=$(get_all_args "-dirs -find -skip -filter")
-        for dir in $dirs; do
-            [[ ! -z $skip && $dir =~ $skip ]] && continue
-            [[ ! -z $filter && ! $dir =~ $filter ]] && continue
-            (cd $dir && $0 web-bundle $args)
-            [ "$?" != "0" ] && echo "$(date): $BKJS_CMD: dir $dir failed" && exit 1
-        done
-        exit 0
-    fi
-
-    # Rebuild all bundles
-    gzip=$(get_flag -gzip)
-    if [[ ! -z $(get_flag -all) ]]; then
-        dir=$(get_arg -dir)
-        if [ "$dir" != "" ]; then
-            cd $dir
-            [ "$?" != "0" ] && exit 1
-        fi
-
-        [ -f package.json ] && bundles=$(get_json_flat package.json config.bundles)
-
-        [ ! -z $BKJS_DEBUG ] && echo "$(date): $BKJS_CMD: all: $bundles"
-
-        for b in $bundles; do
-            for t in css js; do
-                $0 web-bundle -file $b.$t $(get_all_args "-all -file")
-                [ "$?" != "0" ] && echo "$(date): $BKJS_CMD: bundle $b failed" && exit 1
-            done
-        done
-
-        if [ ! -z $gzip ]; then
-            for f in $(find web -name '*.min.js' -or -name '*.min.css'); do
-                gzip -9 -c $f > $f.gz
-            done
-        fi
-        exit 0
-    fi
-
-    # Delete all bundles
-    if [[ ! -z $(get_flag -clean) ]]; then
-        rm -f web/css/*.bundle.css* web/css/*.min.css.gz web/js/*.bundle.*js* web/js/*.min.js.gz
-        exit 0
-    fi
-
-    file=$(get_arg -file)
-    [ "$file" = "" ] && echo "-file must be provided" && exit 1
-    quiet=$(get_flag -quiet)
-    force=$(get_flag -force)
-    dev=$(get_arg -dev)
-    fopts=$(get_arg -fopts)
-
-    # Default or named dev bundle
-    [ "$dev" = "" ] && dev=$(get_flag -dev)
-    [ "$dev" = "1" ] && dev=dev
-
-    if [[ $file =~ \.bundle\.(js|css|html)$ ]]; then
-       exit
-    elif [[ $file =~ ^([a-zA-Z0-9\._-]+)?(js|css|html)$ ]]; then
-       dir=$(pwd)
-       type=${file##*.}
-       name=${file%.*}
-    else
-       dir=$(dirname $file)
-       while ! [ -e "$dir/package.json" ] && [ -n "$dir" ] && [ "$dir" != "." ]; do
-           dir=${dir%/*}
-           [ "$dir" = "$_dir" ] && break
-           _dir=$dir
-       done
-       base=$(echo $file|sed "s|$dir/||")
-       type=${base##*.}
-       name=${base%.*}
-       fopts="$fopts realpath"
-    fi
-    if [ ! -f $dir/package.json ]; then
-       echo "$(date): $BKJS_CMD: package.json is not found"
-       exit 1
-    fi
-    [ "$type" = "html" ] && type=js
-    repo=$(cd $dir && git symbolic-ref --short -q HEAD 2>/dev/null)
-
-    [ -f $dir/package.json ] && bundles=$(get_json_flat $dir/package.json config.bundles)
-
-    [ "$quiet" = "" ] && echo "$(date): $BKJS_CMD: $repo: $dir: $name $type $dev bundles: $bundles"
-
-    for b in $bundles; do
-        unset sources
-        cd $dir
-        [ "$?" != "0" ] && exit 1
-        if [[ ! -z $dev ]]; then
-            sources=$(get_json_flat package.json config.bundles.$b.$type.$dev "" "$fopts")
-            [ "$?" != "0" ] && exit 1
-        fi
-        if [[ -z $sources ]]; then
-            sources=$(get_json_flat package.json config.bundles.$b.$type "" "$fopts")
-            [ "$?" != "0" ] && exit 1
-        fi
-        [[ -z $sources ]] && continue
-
-        if [[ -z $name || $name = $b || $sources =~ $file ]]; then
-            files=$sources
-            bundle=$b
-
-            [[ ! -z $BKJS_DEBUG ]] && echo "$(date): $BKJS_CMD: $bundle.$type: started $dir/$file, files: $files"
-
-            case $file in
-            *.js|*.html)
-                mkdir -p $dir/web/js
-                echo "" > $dir/web/js/$bundle.bundle.js
-                jsfiles=""
-                if [[ $files =~ @version@ ]]; then
-                    files=$(echo $files|sed "s!@version@!!")
-                    echo "bkjs.bundleVersion='$(get_json $dir/package.json version)';" >> $dir/web/js/$bundle.bundle.js
-                fi
-                for f in $files; do
-                    [ ! -s $f ] && echo "$(date): $BKJS_CMD: $bundle.$type: $f not found" && exit 1
-
-                    [[ ! -z $BKJS_DEBUG ]] && echo "$(date): $BKJS_CMD: $bundle.$type: $f"
-
-                    case $f in
-                    *.min.js)
-                        cat $f >> $dir/web/js/$bundle.bundle.js
-                        ;;
-
-                    *.js)
-                        if [[ -z $dev ]]; then
-                            jsfiles="$jsfiles $f"
-                        else
-                            cat $f >> $dir/web/js/$bundle.bundle.js
-                        fi
-                        ;;
-
-                    *.html)
-                        n=$(basename $f .html)
-                        echo "bkjs.koTemplates[\"$n\"]='$(cat $f|tr -d '\r\n'|sed "s/['\\]/\\\&/g")';" >> $dir/web/js/$bundle.bundle.js
-                        echo "ko.components.register(\"$n\",{});" >> $dir/web/js/$bundle.bundle.js
-                        ;;
-                    esac
-                done
-
-                if [[ -z $dev ]]; then
-                    if [[ ! -z $(get_flag -esbuild) ]]; then
-                        esbuildargs="--minify $(get_arg -esbuildargs)"
-                        esbuild $esbuildargs $jsfiles >> $dir/web/js/$bundle.bundle.js
-                        [ "$?" != "0" ] && exit 1
-                    elif [[ ! -z $(get_flag -gcc) ]]; then
-                        gccargs=" $(get_arg -gccargs)"
-                        npx google-closure-compiler $gccargs $jsfiles >> $dir/web/js/$bundle.bundle.js
-                        [ "$?" != "0" ] && exit 1
-                    else
-                        uglifyargs="-c -m --comments /^!/ $(get_arg -uglifyargs)"
-                        uglifyjs $jsfiles $uglifyargs >> $dir/web/js/$bundle.bundle.js
-                        [ "$?" != "0" ] && exit 1
-                    fi
-                fi
-                [ ! -z "$gzip" ] && gzip -9 -c $dir/web/js/$bundle.bundle.js > $dir/web/js/$bundle.bundle.js.gz
-                ;;
-
-            *.css)
-                mkdir -p $dir/web/css
-                (cd $dir && cat $files > web/css/$bundle.bundle.css)
-                [ "$?" != "0" ] && exit 1
-                [ ! -z "$gzip" ] && gzip -9 -c $dir/web/css/$bundle.bundle.css > $dir/web/css/$bundle.bundle.css.gz
-                ;;
-            esac
-
-            [[ ! -z $BKJS_DEBUG ]] && echo "$(date): $BKJS_CMD: $dir/web/$type/$bundle.bundle.$type finished"
-        fi
-    done
-    [[ ! -z $BKJS_DEBUG && -z $files ]] && echo "$(date): $BKJS_CMD: no $type config.bundles found in $dir/package.json"
-
+  bkrsync)
+    logger -p local0.notice -t bkrsync -- $@
+    cmd=$(get_arg -bkcmd)
+    rsync $(get_all_args "-bkcmd")
+    rc=$?
+    [ "$rc" != "0" ] && exit $rc
+    [ "$cmd" != "" ] && $(dirname $0)/bkjs $(echo $cmd|sed 's/%20/ /g') 1>&2
     exit 0
-    ;;
-
-  install-node)
-    if [ "$(get_flag -force)" != "" -a -f $BKJS_PREFIX/bin/node ]; then
-        echo "Uninstalling node from $BKJS_PREFIX ..."
-        rm -rf $BKJS_PREFIX/bin/node $BKJS_PREFIX/bin/npm $BKJS_PREFIX/bin/npx $BKJS_PREFIX/lib/node_modules/npm $BKJS_PREFIX/include/node
-        [ ! -z "$(get_flag -clean)" ] && rm -rf $BKJS_PREFIX/lib/node_modules
-    fi
-    [ -f $BKJS_PREFIX/bin/node ] && exit 0
-    mkdir -p $BKJS_PREFIX
-    tgz=$(get_arg -tgz)
-    if [ ! -z "$tgz" ]; then
-        tar -C $BKJS_PREFIX --strip-components=1 -xzf $tgz
-        [ "$?" != "0" ] && exit 1
-    else
-        ver=$(get_arg -version v20.10.0)
-        if [ "$PLATFORM" = "Linux" ]; then
-            curl -L -o node.tar.xz https://nodejs.org/dist/$ver/node-$ver-linux-$OS_ARCH.tar.xz
-            [ "$?" != "0" ] && exit 1
-            xz -d node.tar.xz
-            tar -C $BKJS_PREFIX --strip-components=1 -xf node.tar
-            rm -rf node.tar
-        fi
-        if [ "$PLATFORM" = "Darwin" ]; then
-            curl -L -o node.tgz https://nodejs.org/dist/$ver/node-$ver-darwin-$OS_ARCH.tar.gz
-            [ "$?" != "0" ] && exit 1
-            tar -C $BKJS_PREFIX --strip-components=1 -xzf node.tgz
-            rm -rf node.tgz
-        fi
-    fi
-    mv $BKJS_PREFIX/README.md $BKJS_PREFIX/LICENSE $BKJS_PREFIX/CHANGELOG.md $BKJS_PREFIX/share/doc
-    exit
     ;;
 
   bkhelp)
@@ -662,22 +329,8 @@ case "$BKJS_CMD" in
 
   env)
     find_nodebin
+    find_user
     set
-    ;;
-
-  json)
-    find_nodebin
-    exec $NODE_BIN -e "console.log(util.inspect(JSON.parse(fs.readFileSync(0).toString()),null,null))"
-    ;;
-
-  jq)
-    echo $(get_json_flat "$1" "$2" "$3" "$4")
-    exit
-    ;;
-
-  args)
-    echo "$(get_all_args "$(get_arg -skip)" $(get_arg -sep))"
-    exit
     ;;
 
   *)
@@ -689,15 +342,14 @@ case "$BKJS_CMD" in
     #
     process_cmd
 
-    echo ""
-    echo "General commands:"
-    echo ""
+    echo "Available commands:"
+    echo
     echo "  start - start the backend service"
-    echo "  restart - restart the backend service"
     echo "  stop - stop the backend service"
     echo "  stop-web - kill web processes at once so they will restart with possibly updated modules"
     echo "  stop-worker - kill job worker processes at once so they will restart with possibly updated modules"
     echo "  stop-api - graceful API servers restart, drain all connections and restart one at a time, workers will restart after finishing jobs"
+    echo "  start-instance - run the checks before starting the backend, processed by all tools scripts"
     echo ""
     echo "  shell - run backend REPL in the current backend directory, works with the backend core or local app.js application"
     echo "  monitor - run the backend monitor process which starts master, web server and job server"
@@ -706,24 +358,11 @@ case "$BKJS_CMD" in
     echo "  watch - run the backend in watcher and master mode with all source files being monitored for changes, the server is restarts on any change automatically"
     echo "  run - run local backend with provided arguments"
     echo ""
-    echo "  check-server - run the checks before starting the backend, processed by all tools scripts"
-    echo "  logwatcher - runs the log watcher and exists, for cases when no $BKJS service is running but the error log must be watched"
-    echo "  send-alert [-event EVENT] [-descr DESCR] - appends alert message to the error log and runs the command for all tools scripts, if called from the monit then event/descr will be provided"
-    echo ""
-    echo "  deps [-fields dependencies,devDependencies] [-path .] [-skip REGEXP] [-global] [-update] [-mods] [-strict] [-check] [-npm ARGS] - install or show npm dependencies from the package.json, optional bkjs modules require -mods flag"
-    echo "  sync [-host HOST] [-path PATH] [-del] [-user USER] [-ssh-key pem] [-ssh OPTS] [-exclude PATTERN] [-bkcmd CMD] - push the backend code to the remote host using rsync, default path is ~/node_modules/$BKJS_MOD"
-    echo "  ssh -host HOST -cmd CMD [-user USER] [-key PEM] [-ssh ARGS] - run a command over ssh on all specified hosts"
-    echo "  web-bundle [-file FILE|(js|css|html)|BUNDLE.(js|css|html)] [-dirs DIRS...] [-find DIRS...] [-gzip] [-dev DEV] [-uglifyargs ARGS] [-all] [-force] [-clean] - produce a web bundle by uglifying js/css/html files into one file, resolves files from package.json"
-    echo "  install-node [-prefix PATH] [-force] [-clean] [-tgz TGZ] - install binary release of the node into $BKJS_PREFIX or specified path"
-    echo ""
     echo "  bkhelp - show all $BKJS_MOD config parameters"
-    echo "  json - read JSON from the input and show it nicely formatted"
-    echo "  jq FILE PROP [DFLT] [realpath] - return a value from a JSON file by property name"
     echo "  env - show all environment variables"
     echo ""
     echo "Common options:"
-    echo "  -root path - path to the backend home directory, default is $BKJS_HOME"
-    echo "  -home path - same as -root"
+    echo "  -home path - path to the backend home directory, default is $BKJS_HOME"
     echo "  -prefix path - path to the local binaries directory, default is $BKJS_PREFIX"
     echo "  -user name - set backend user on the remote or local side, default is ${BKJS_USER:-`whoami`}"
     echo "  -group name - set backend group on the remote or local side, default is ${BKJS_GROUP:-`id -gn`}"
@@ -731,9 +370,10 @@ case "$BKJS_CMD" in
 
     cmd=$BKJS_CMD
     BKJS_CMD=help
+    BKJS_ALLCMD=1
     process_cmd
     echo ""
-    [ "$cmd" != "" ] && echo "error: unrecognized command: $cmd: $@" >&2 && exit 1
+    [ "$cmd" != "" -a "$cmd" != "help" ] && echo "error: unrecognized command: $cmd: $@" >&2 && exit 1
     exit 0
     ;;
 esac

@@ -6,11 +6,7 @@
 
 case "$BKJS_CMD" in
 
-  restart)
-    [ -f /etc/monit.d/$BKJS.conf ] && monit reload
-    ;;
-
-  init-monit-system)
+  monit-init-system)
     delay=$(get_arg -delay 5)
     load=$(get_arg -load 7)
     space=$(get_arg -space 90)
@@ -23,7 +19,7 @@ case "$BKJS_CMD" in
     exit
     ;;
 
-  init-monit-bkjs)
+  monit-init-bkjs)
     find_user
     timeout=$(get_arg -timeout 30)
     $ECHO "check process $BKJS with pidfile \"$BKJS_HOME/var/master.pid\" start program = \"$BKJS_BIN run-master $(get_all_args)\" as uid $BKJS_USER and gid $BKJS_GROUP with timeout $timeout seconds stop program = \"$BKJS_BIN stop\"" > /etc/monit.d/$BKJS.conf
@@ -31,7 +27,7 @@ case "$BKJS_CMD" in
     exit
     ;;
 
-  stop-monit-bkjs)
+  monit-stop-bkjs)
     if [ -f /etc/monit.d/$BKJS.conf ]; then
        rm /etc/monit.d/$BKJS.conf
        monit reload
@@ -39,7 +35,7 @@ case "$BKJS_CMD" in
     exit
     ;;
 
-  init-monit-alerts)
+  monit-init-alerts)
     [ "$(get_flag -force)" != "" ] && rm -f /etc/monit.d/alert.conf
     if [ ! -f /etc/monit.d/alert.conf ]; then
         email=$(get_arg -alert-email)
@@ -66,7 +62,7 @@ case "$BKJS_CMD" in
     exit
     ;;
 
-  init-monit)
+  monit-init)
     find_user
     name=$(get_arg -name)
     start=$(get_arg -start)
@@ -81,13 +77,10 @@ case "$BKJS_CMD" in
 
   help)
     echo ""
-    echo "Monit setup commands:"
-    echo ""
-    echo "  init-monit-system - setup system monitoring with monit, CPU, disk, send alert via '$0 send-alert' command"
-    echo "  init-monit-bkjs - setup monit to keep $BKJS service running without using any other services and monitor"
-    echo "  stop-monit-bkjs - stop monitoring $BKJS service by monit"
-    echo "  init-monit-alerts - setup monit mail alerts, use DB config for the specified app name"
-    echo "  init-monit -name NAME -start SCRIPT -stop SCRIPT - generate a monit service config"
-    echo ""
+    echo "  monit-init-system - setup system monitoring with monit, CPU, disk"
+    echo "  monit-init-bkjs - setup monit to keep $BKJS service running without using any other services and monitor"
+    echo "  monit-stop-bkjs - stop monitoring $BKJS service by monit"
+    echo "  monit-init-alerts - setup monit mail alerts, use DB config for the specified app name"
+    echo "  monit-init -name NAME -start SCRIPT -stop SCRIPT - generate a monit service config"
     ;;
 esac

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 case "$BKJS_CMD" in
   test-all)
@@ -14,26 +14,17 @@ case "$BKJS_CMD" in
     [ "$?" != "0" ] && exit 1
     err=0
     for file in $files; do
-        [[ $file =~ tests/_ ]] && continue
+        if match $file tests/_; then continue; fi
         fn=$path/$file
-        [[ ! -z $skip && $fn =~ $skip ]] && continue
-        [[ ! -z $filter && ! $fn =~ $filter ]] && continue
+        if match $fn $skip; then continue; fi
+        if [[ -n "$filter" ]] && ! match $fn $filter; then continue; fi
         $0 test-$(basename $file .js) -test $test -log $log $nolog $(get_all_args "-log -path -skip -filter -test")
         [ "$?" != "0" ] && err=1
     done
     exit $err
     ;;
 
-  test-*)
-    file=$(echo $BKJS_CMD | sed 's/^test-//')
-    tests=$(pwd)/tests
-    [ ! -f tests/$file.js ] && echo "$tests/$file.js is not found" && exit 1
-    test=$(get_arg -test $file)
-    config=$(get_arg -test-config)
-    exec $0 shell -test-config $config,$tests/config,$tests/config.$file -test-file $tests/$file.js -run-ipc -run-api -run-worker $(get_all_args "-test -test-config") -test-run $test
-    ;;
-
-  run-tests)
+  test-packages)
     path=$(get_arg -path .)
     dirs=$(find "$path" -name tests -type d)
     [ "$?" != "0" ] && exit 1
@@ -45,14 +36,28 @@ case "$BKJS_CMD" in
     exit $err
     ;;
 
+  test-args)
+    echo 'usage: bkjs test-args -skip " -a" -a -b b -flag -arg'
+    echo 'result: "all:  -b b -flag -arg arg: dflt flag: 1 skip:  -a"'
+    echo
+    echo "all: $(get_all_args "-skip $(get_arg -skip)") arg: $(get_arg -arg dflt) flag: $(get_flag -flag) skip: $(get_arg -skip)"
+    exit
+    ;;
+
+  test-*)
+    file=$(echo $BKJS_CMD | sed 's/^test-//')
+    tests=$(pwd)/tests
+    [ ! -f tests/$file.js ] && echo "$tests/$file.js is not found" && exit 1
+    test=$(get_arg -test $file)
+    config=$(get_arg -test-config)
+    exec $0 shell -test-config $config,$tests/config,$tests/config.$file -test-file $tests/$file.js -run-ipc -run-api -run-worker $(get_all_args "-test -test-config") -test-run $test
+    ;;
+
   help)
     echo ""
-    echo "Testing commands:"
     echo "  test-all [-path P] [-skip F] [-filter F] [-log L] - run all tests in the local tests/ folder, skip/filter control which files to run"
+    echo "  test-packages [-path P] [-skip F] [-filter F] [-test-config C] - run all tests for all packages, skip/filter can control what to run/skip"
     echo "  test-FILE [-path P] [-test NAME] [-test-config C] - run a test function test-NAME in the script file tests/FILE.js"
-    echo "  run-tests [-path P] [-skip F] [-filter F] [-test-config C] - run all tests for all packages, skip/filter can control what to run/skip"
-    echo ""
-    echo ""
     ;;
 esac
 

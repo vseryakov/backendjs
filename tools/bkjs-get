@@ -1,0 +1,23 @@
+#!/bin/sh
+
+[ "$BKJS_CMD" = "" ] && BKJS_CMD=$1
+
+case "$BKJS_CMD" in
+
+  get-json)
+    find_nodebin
+    exec $NODE_BIN -e "console.log(util.inspect(JSON.parse(fs.readFileSync(0).toString()),null,null))"
+    ;;
+
+  get-jsval)
+    echo $(get_json_flat "$1" "$2" "$3" "$4")
+    exit
+    ;;
+
+  help)
+    echo ""
+    echo "  get-json - read JSON from the input and show it nicely formatted"
+    echo "  get-jsval FILE PROP [DFLT] [realpath] - return a value from a JSON file by property name"
+    ;;
+esac
+

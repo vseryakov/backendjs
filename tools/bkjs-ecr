@@ -1,0 +1,86 @@
+#!/bin/sh
+#
+#  Author: Vlad Seryakov vseryakov@gmail.com
+#  Nov 2021
+#
+
+case "$BKJS_CMD" in
+
+ ecr-get)
+    id=$(get_arg -account $BKJS_ECR_ACCOUNT)
+    [ -z $id ] && id=$($0 ec2-account)
+    region=$(get_arg -region $BKJS_ECR_REGION)
+    [ -z $region ] && region=$($0 ec2-region)
+
+    ecr="$id.dkr.ecr.$region.amazonaws.com"
+    echo $ecr
+
+    login=$(get_flag -login $BKJS_ECR_LOGIN)
+    [ "$login" != "1" ] && exit
+    aws ecr get-login-password| docker login --username AWS --password-stdin $ecr
+    [ "$?" != "0" ] && exit 1
+    exit 0
+    ;;
+
+  ecr-push)
+    repo=$(get_arg -repo)
+    image=$(get_arg -image)
+    [ "$repo" = "" -o "$image" = "" ] && echo "-repo and -image are required" && exit 1
+
+    ecr=$($0 ecr-get $(get_all_args))
+    [ "$?" != "0" ] && exit 1
+
+    if [ "$(get_flag -create)" != "" ]; then
+        region=$(echo $ecr|grep -o -E 'ecr.([a-z0-9-]+).amazonaws'|cut -d. -f2)
+        aws ecr describe-repositories --region $region --repository-names $repo --query repositories[*].repositoryUri --output text 2>/dev/null
+        if [ "$?" != "0" ]; then
+            aws ecr create-repository --region $region --repository-name $repo
+            [ "$?" != "0" ] && exit 1
+        fi
+    fi
+
+    tag=$(get_arg -tag latest)
+    docker tag $image $ecr/$repo:$tag
+    docker push $ecr/$repo:$tag
+
+    if [ "$(get_flag -latest)" -a "$tag" != "latest" ]; then
+        docker tag $image $ecr/$repo:latest
+        docker push $ecr/$repo:latest
+    fi
+    exit
+    ;;
+
+  ecr-del)
+    repo=$(get_arg -repo)
+    tag=$(get_arg -tag)
+    [ "$repo" = "" -o $tag == "" ] && echo "-repo and -tag are required" && exit 1
+
+    aws ecr batch-delete-image --repository-name $repo --image-ids imageTag=$tag
+    exit
+    ;;
+
+  ecr-manifest)
+    repo=$(get_arg -repo)
+    tag=$(get_arg -tag)
+    arm64=$(get_arg -arm64)
+    amd64=$(get_arg -amd64)
+    [ "$repo" = "" -o $tag == "" ] && echo "-repo and -tag are required" && exit 1
+    [ "$arm64" = "" -o $amd64 == "" ] && echo "-arm64 and -amd64 are required" && exit 1
+
+    set -e
+    docker manifest create $repo:$tag $repo:$arm64 $repo:$amd64
+    docker manifest annotate --arch arm64 $repo:$tag $repo:$arm64
+    docker manifest annotate --arch amd64 $repo:$tag $repo:$amd64
+    docker manifest inspect $repo:$tag
+    docker manifest push $repo:$tag
+    exit
+    ;;
+
+  help)
+    echo ""
+    echo "  ecr-get [-account ID] [-region REPO] [-login] - login into ECR if required or return ECR host name"
+    echo "  ecr-push -repo REPO -image IMAGE [-tag TAG|VERSION] [-latest] [-create] [-login 0|1] - tag and push a docker image to ECR, -latest also pushes it as :latest if -tag is different"
+    echo "  ecr-del -tag NAME -repo REPO - delete an image from repo by tag"
+    echo "  ecr-manifest -tag NAME -repo REPO -arm ARMTAG -amd AMDTAG - combine ARM and AMD platforms into one container using manifest"
+    ;;
+esac

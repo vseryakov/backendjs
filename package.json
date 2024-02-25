@@ -13,13 +13,13 @@
   "dependencies": {
     "cookie": "0.6.0",
     "cookie-parser": "1.4.6",
-    "croner": "8.0.0",
+    "croner": "8.0.1",
     "express": "4.18.2",
     "formidable": "2.1.1",
     "hashids": "2.3.0",
     "microtime": "3.1.1",
     "mime": "3.0.0",
-    "nodemailer": "6.9.9",
+    "nodemailer": "6.9.10",
     "qs": "6.11.2",
     "uuid": "9.0.1",
     "ws": "8.16.0",
@@ -31,7 +31,7 @@
   "modDependencies": {
     "@parse/node-apn": "5.2.3",
     "amqplib": "0.10.3",
-    "argon2": "0.31.1",
+    "argon2": "0.40.1",
     "bcrypt": "5.1.1",
     "bkjs-sqlite": "0.3.0",
     "mmmagic": "0.5.3",
@@ -81,27 +81,6 @@
       ]
     },
     "bundles": {
-      "bkjs": {
-        "js": [
-          "web/js/jquery3.slim.min.js",
-          "web/js/popper.min.js",
-          "web/js/bootstrap4.min.js",
-          "web/js/knockout.min.js",
-          "web/js/bootpopup4.js",
-          "web/js/bkjs.js",
-          "web/js/bkjs-event.js",
-          "web/js/bkjs-web.js",
-          "web/js/bkjs-lib.js",
-          "web/js/bkjs-account.js",
-          "web/js/bkjs-conv.js",
-          "web/js/bkjs-ko.js",
-          "web/js/bkjs-bootstrap.js"
-        ],
-        "css": [
-          "web/css/bootstrap4.css",
-          "web/css/font-awesome.css"
-        ]
-      },
       "bkjs5": {
         "js": [
           "web/js/jquery3.slim.min.js",
@@ -159,8 +138,8 @@
     "start": "./bkjs run-backend",
     "stop": "./bkjs stop",
     "doc": "node tools/doc.js > web/doc.html",
-    "build": "./bkjs web-bundle -all -gzip",
-    "devbuild": "./bkjs web-bundle -all -dev",
+    "build": "./bkjs bundle -all -gzip",
+    "devbuild": "./bkjs bundle -all -dev",
     "test": "./bkjs test-all"
   }
 }
