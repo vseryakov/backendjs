@@ -663,7 +663,7 @@ function bootpopup(...args)
 
     this.close = function() { return this.callback("close"); }
 
-    this.addOptions(...args, ...bootpopupPlugins);
+    this.addOptions(...bootpopupPlugins, ...args);
     this.create();
     this.show();
 
