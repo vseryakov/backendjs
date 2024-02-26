@@ -66,7 +66,7 @@ function bootpopup(...args)
         class_row: "",
         class_col: "",
         class_suffix: "form-text text-muted text-end",
-        class_button: "btn btn-primary",
+        class_button: "btn btn-outline-secondary",
         class_submit: "btn btn-primary",
         class_ok: "btn btn-primary",
         class_yes: "btn btn-primary",
