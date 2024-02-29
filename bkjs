@@ -88,7 +88,7 @@ get_arg() {
     local v=$(eval "echo \"\$BKJS_ARGV$((i+1))\"")
     if [[ $1 = $n ]]; then
         if [[ -n "$v" ]] && ! match "$v" "^\-"; then echo "$v" && return 0; fi
-        [[ ! -z $3 ]] && echo "$3" && return 0
+        [[ -n "$3" ]] && echo "$3" && return 0
     fi
     i=$((i + 1))
   done
@@ -178,11 +178,11 @@ find_user() {
 process_cmd() {
   local d= f= dirs="$BKJS_TOOLS $(get_arg -tools) $BKJS_HOME/tools $BKJS_DIR/tools"
   [[ -n "$BKJS_ALLCMD" ]] && filter='bkjs-*' || filter="bkjs-$BKJS_SPACE*"
-  [[ ! -z $BKJS_DEBUG ]] && echo "$(date): $BKJS_CMD: process_cmd: $filter: dirs: $dirs"
+  [[ -n "$BKJS_DEBUG" ]] && echo "$(date): $BKJS_CMD: process_cmd: $filter: dirs: $dirs"
   for d in $dirs; do
      if [ -d $d ]; then
         local files=$(find $d \( -type f -o -type l \) -name "$filter")
-        [[ ! -z $BKJS_DEBUG ]] && echo "$(date): $BKJS_CMD: process_cmd: files: $files"
+        [[ -n "$BKJS_DEBUG" ]] && echo "$(date): $BKJS_CMD: process_cmd: files: $files"
         for f in $files; do
             source $f
         done
@@ -218,7 +218,7 @@ export BKJS_DEBUG=$(get_flag -debug)
 # Setup paths
 export PATH=$BKJS_HOME/bin:$BKJS_HOME/node_modules/.bin:$BKJS_PREFIX/bin:/app/bin:/usr/local/bin:/opt/local/bin:/opt/local/node/bin:/sbin:/usr/sbin:$PATH
 
-[[ ! -z $BKJS_DEBUG ]] && echo "$(date): $0: HOME=$BKJS_HOME, PREFIX=$BKJS_PREFIX, PWD=$(pwd), USER=$(whoami), CMD=$BKJS_CMD, ARGS=$@"
+[[ -n "$BKJS_DEBUG" ]] && echo "$(date): $0: HOME=$BKJS_HOME, PREFIX=$BKJS_PREFIX, PWD=$(pwd), USER=$(whoami), CMD=$BKJS_CMD, ARGS=$@"
 
 case "$BKJS_CMD" in
   status|restart)
@@ -278,7 +278,7 @@ case "$BKJS_CMD" in
     [ -z "$SCRIPT" ] && SCRIPT=$BKJS_DIR/lib/app.js
     [ -z $SCRIPT ] && echo "ERROR: Cannot find $BKJS_MOD module or app.js in '.:$BKJS_HOME'" && exit 1
 
-    [[ ! -z $BKJS_DEBUG ]] && echo "$(date): Starting $BKJS_CMD: $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME $BKJS_RUN_ARGS $@"
+    [[ -n "$BKJS_DEBUG" ]] && echo "$(date): Starting $BKJS_CMD: $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME $BKJS_RUN_ARGS $@"
 
     case "$BKJS_CMD" in
      run-none|none)

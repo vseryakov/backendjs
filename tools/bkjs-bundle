@@ -18,7 +18,7 @@ case "$BKJS_CMD" in
         skip=$(get_arg -skip)
         filter=$(get_arg -filter)
         args=$(get_all_args "-dirs -find -skip -filter")
-        [ ! -z $BKJS_DEBUG ] && echo "$(date): $BKJS_CMD: dirs: $dirs, args: $args"
+        [ -n "$BKJS_DEBUG" ] && echo "$(date): $BKJS_CMD: dirs: $dirs, args: $args"
         for dir in $dirs; do
             if match $dir $skip; then continue; fi
             if [ -n "$filter" ] && match $dir $filter; then continue; fi
@@ -39,7 +39,7 @@ case "$BKJS_CMD" in
 
         [ -f package.json ] && bundles=$(get_json_flat package.json config.bundles)
 
-        [ ! -z $BKJS_DEBUG ] && echo "$(date): $BKJS_CMD: all: $bundles"
+        [ -n "$BKJS_DEBUG" ] && echo "$(date): $BKJS_CMD: all: $bundles"
 
         for b in $bundles; do
             for t in css js; do
@@ -106,23 +106,23 @@ case "$BKJS_CMD" in
         unset sources
         cd $dir
         [ "$?" != "0" ] && exit 1
-        if [[ ! -z $dev ]]; then
+        if [[ -n "$dev" ]]; then
             sources=$(get_json_flat package.json config.bundles.$b.$type.$dev "" "$fopts")
             [ "$?" != "0" ] && exit 1
         fi
-        if [[ -z $sources ]]; then
+        if [[ -z "$sources" ]]; then
             sources=$(get_json_flat package.json config.bundles.$b.$type "" "$fopts")
             [ "$?" != "0" ] && exit 1
         fi
-        [[ ! -z $BKJS_DEBUG ]] && echo "$(date): $BKJS_CMD: $b.$type.$dev: $fopts FILES: $sources"
+        [[ -n "$BKJS_DEBUG" ]] && echo "$(date): $BKJS_CMD: $b.$type.$dev: $fopts FILES: $sources"
 
-        [[ -z $sources ]] && continue
+        [[ -z "$sources" ]] && continue
 
-        if [[ -z $name || $name = $b ]] || match "$sources" $file; then
+        if [[ -z "$name" || $name = $b ]] || match "$sources" $file; then
             files=$sources
             bundle=$b
 
-            [[ ! -z $BKJS_DEBUG ]] && echo "$(date): $BKJS_CMD: $bundle.$type: started $dir/$file, files: $files"
+            [[ -n "$BKJS_DEBUG" ]] && echo "$(date): $BKJS_CMD: $bundle.$type: started $dir/$file, files: $files"
 
             case $file in
             *.js|*.html)
@@ -132,7 +132,7 @@ case "$BKJS_CMD" in
                 for f in $files; do
                     [ ! -s $f ] && echo "$(date): $BKJS_CMD: $bundle.$type: $f not found" && exit 1
 
-                    [[ ! -z $BKJS_DEBUG ]] && echo "$(date): $BKJS_CMD: $bundle.$type: $f"
+                    [[ -n "$BKJS_DEBUG" ]] && echo "$(date): $BKJS_CMD: $bundle.$type: $f"
 
                     case $f in
                     *.min.js)
@@ -140,7 +140,7 @@ case "$BKJS_CMD" in
                         ;;
 
                     *.js)
-                        if [[ -z $dev ]]; then
+                        if [[ -z "$dev" ]]; then
                             jsfiles="$jsfiles $f"
                         else
                             cat $f >> $dir/web/js/$bundle.bundle.js
@@ -155,12 +155,12 @@ case "$BKJS_CMD" in
                     esac
                 done
 
-                if [[ -z $dev ]]; then
-                    if [[ ! -z $(get_flag -esbuild) ]]; then
+                if [[ -z "$dev" ]]; then
+                    if [[ -n "$(get_flag -esbuild)" ]]; then
                         esbuildargs="--minify $(get_arg -esbuildargs)"
                         esbuild $esbuildargs $jsfiles >> $dir/web/js/$bundle.bundle.js
                         [ "$?" != "0" ] && exit 1
-                    elif [[ ! -z $(get_flag -gcc) ]]; then
+                    elif [[ -n "$(get_flag -gcc)" ]]; then
                         gccargs=" $(get_arg -gccargs)"
                         npx google-closure-compiler $gccargs $jsfiles >> $dir/web/js/$bundle.bundle.js
                         [ "$?" != "0" ] && exit 1
@@ -169,7 +169,7 @@ case "$BKJS_CMD" in
                         uglifyjs $jsfiles $uglifyargs >> $dir/web/js/$bundle.bundle.js
                         [ "$?" != "0" ] && exit 1
                     fi
-                    [ ! -z "$gzip" ] && gzip -9 -c $dir/web/js/$bundle.bundle.js > $dir/web/js/$bundle.bundle.js.gz
+                    [ -n "$gzip" ] && gzip -9 -c $dir/web/js/$bundle.bundle.js > $dir/web/js/$bundle.bundle.js.gz
                 fi
                 ;;
 
@@ -177,16 +177,16 @@ case "$BKJS_CMD" in
                 mkdir -p $dir/web/css
                 (cd $dir && cat $files > web/css/$bundle.bundle.css)
                 [ "$?" != "0" ] && exit 1
-                if [[ -z $dev ]]; then
-                    [ ! -z "$gzip" ] && gzip -9 -c $dir/web/css/$bundle.bundle.css > $dir/web/css/$bundle.bundle.css.gz
+                if [[ -z "$dev" ]]; then
+                    [ -n "$gzip" ] && gzip -9 -c $dir/web/css/$bundle.bundle.css > $dir/web/css/$bundle.bundle.css.gz
                 fi
                 ;;
             esac
 
-            [[ ! -z $BKJS_DEBUG ]] && echo "$(date): $BKJS_CMD: $dir/web/$type/$bundle.bundle.$type finished"
+            [[ -n "$BKJS_DEBUG" ]] && echo "$(date): $BKJS_CMD: $dir/web/$type/$bundle.bundle.$type finished"
         fi
     done
-    [[ ! -z $BKJS_DEBUG && -z $files ]] && echo "$(date): $BKJS_CMD: no $type config.bundles found in $dir/package.json"
+    [[ -n "$BKJS_DEBUG" && -z "$files" ]] && echo "$(date): $BKJS_CMD: no $type config.bundles found in $dir/package.json"
 
     exit 0
     ;;
