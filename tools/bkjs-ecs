@@ -6,9 +6,33 @@
 
 case "$BKJS_CMD" in
 
+  ecs-ls)
+    cluster=$(get_arg -cluster $BKJS_CLUSTER)
+    service=$(get_arg -service)
+    status=$(get_arg -status RUNNING)
+    [ -n "$service"] && service="--service-name \"$service\""
+    aws ecs list-tasks --cluster "$cluster" $service --desired-status "$status" --output yaml
+    exit
+    ;;
+
+  ecs-ps)
+    cluster=$(get_arg -cluster $BKJS_CLUSTER)
+    task=$(get_arg -task)
+    aws ecs describe-tasks --task "$task" --cluster "$cluster" --output yaml
+    exit
+    ;;
+
+  ecs-sh)
+    cluster=$(get_arg -cluster $BKJS_CLUSTER)
+    service=$(get_arg -service)
+    task=$(get_arg -task)
+    aws ecs execute-command --cluster "$cluster" --task "$task" --container "$service" --interactive --command "/bin/sh"
+    exit
+    ;;
+
   ecs-run)
     task=$(get_arg -task)
-    cluster=$(get_arg -cluster default)
+    cluster=$(get_arg -cluster $BKJS_CLUSTER)
 
     ip=$(get_flag -ip)
     [ ! -z $ip ] && network="assignPublicIp=ENABLED"
@@ -74,6 +98,9 @@ case "$BKJS_CMD" in
 
   help)
     echo ""
+    echo "  ecs-ls -cluster CN [-service SN] [-status RUNNING|STOPPED] - show running tasks in the cluster for a service"
+    echo "  ecs-ps -cluster CN -task ID - show task details"
+    echo "  ecs-sh -cluster CN -service SN -task ID - run shell in the given task for the given service"
     echo "  ecs-run -task NAME [-cluser default] [-type EC2|FARGATE] [-provider FARGATE_SPOT] [-ip] [-gid ID] [-group NAME] [-sid ID] [-subnet NAME] [-cpu N] [-memory N] [-tag T] [-arm64] [-exec] [-dry-tun] - run an ECS task in subnets with security groups, overrides cpu/mem, pass tag to bkjs process as instance tag"
     ;;
 esac

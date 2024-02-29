@@ -176,15 +176,15 @@ find_user() {
 
 # Run the command by sourcing all scripts from tools folders
 process_cmd() {
-  local d= f= dirs="$BKJS_TOOLS $(get_arg -tools) $BKJS_HOME/tools $BKJS_DIR/tools"
-  [[ -n "$BKJS_ALLCMD" ]] && filter='bkjs-*' || filter="bkjs-$BKJS_SPACE*"
-  [[ -n "$BKJS_DEBUG" ]] && echo "$(date): $BKJS_CMD: process_cmd: $filter: dirs: $dirs"
-  for d in $dirs; do
-     if [ -d $d ]; then
-        local files=$(find $d \( -type f -o -type l \) -name "$filter")
-        [[ -n "$BKJS_DEBUG" ]] && echo "$(date): $BKJS_CMD: process_cmd: files: $files"
-        for f in $files; do
-            source $f
+  local _cmddir= _cmdscope= _cmdtools="$BKJS_TOOLS $(get_arg -tools) $BKJS_HOME/tools $BKJS_DIR/tools"
+  [[ -n "$BKJS_ALLCMD" ]] && _cmdscope='bkjs-*' || _cmdscope="bkjs-$BKJS_SPACE*"
+  [[ -n "$BKJS_DEBUG" ]] && echo "$(date): $BKJS_CMD: process_cmd: $_cmdscope: tools: $_cmdtools"
+  for _cmddir in $_cmdtools; do
+     if [ -d $_cmddir ]; then
+        local _cmdfiles=$(find $_cmddir \( -type f -o -type l \) -name "$_cmdscope")
+        [[ -n "$BKJS_DEBUG" ]] && echo "$(date): $BKJS_CMD: process_cmd: $_cmddir: files: $_cmdfiles"
+        for _cmdfile in $_cmdfiles; do
+            source $_cmdfile
         done
      fi
   done
@@ -330,6 +330,7 @@ case "$BKJS_CMD" in
   env)
     find_nodebin
     find_user
+    process_cmd
     set
     ;;
 
