@@ -9,12 +9,12 @@ case "$BKJS_CMD" in
   bundle)
     # Rebuild all inside of the specified folders
     dirs=$(get_arg -dirs)
-    if [[ -z $dirs ]]; then
+    if [[ -z "$dirs" ]]; then
         dirs=$(get_arg -find)
         depth=$(get_arg -depth 1)
-        [[ ! -z $dirs ]] && dirs=$(find $dirs -maxdepth $depth -mindepth 1 -type d)
+        [[ -n "$dirs" ]] && dirs=$(find $dirs -maxdepth $depth -mindepth 1 -type d)
     fi
-    if [[ ! -z $dirs ]]; then
+    if [[ -n "$dirs" ]]; then
         skip=$(get_arg -skip)
         filter=$(get_arg -filter)
         args=$(get_all_args "-dirs -find -skip -filter")
@@ -30,7 +30,7 @@ case "$BKJS_CMD" in
 
     # Rebuild all bundles
     gzip=$(get_flag -gzip)
-    if [[ ! -z $(get_flag -all) ]]; then
+    if [[ -n "$(get_flag -all)" ]]; then
         dir=$(get_arg -dir)
         if [ "$dir" != "" ]; then
             cd $dir
@@ -48,7 +48,7 @@ case "$BKJS_CMD" in
             done
         done
 
-        if [ ! -z $gzip ]; then
+        if [ -n "$gzip" ]; then
             for f in $(find web -name '*.min.js' -or -name '*.min.css'); do
                 gzip -9 -c $f > $f.gz
             done
@@ -57,7 +57,7 @@ case "$BKJS_CMD" in
     fi
 
     # Delete all bundles
-    if [[ ! -z $(get_flag -clean) ]]; then
+    if [[ -n "$(get_flag -clean)" ]]; then
         rm -f web/css/*.bundle.css* web/css/*.min.css.gz web/js/*.bundle.*js* web/js/*.min.js.gz
         exit 0
     fi

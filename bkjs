@@ -68,7 +68,7 @@ else
 fi
 
 # Command namespace
-BKJS_SPACE=$(echo $BKJS_CMD|cut -d- -f1)
+BKJS_SPACE=$(echo "$BKJS_CMD"|cut -d- -f1)
 
 # Word splitting like in sh
 [ -n "$ZSH_VERSION" ] && setopt shwordsplit
@@ -86,7 +86,7 @@ get_arg() {
   while [ $i -lt $BKJS_ARGC ]; do
     local n=$(eval "echo \$BKJS_ARGV$i")
     local v=$(eval "echo \"\$BKJS_ARGV$((i+1))\"")
-    if [[ $1 = $n ]]; then
+    if [[ "$1" = "$n" ]]; then
         if [[ -n "$v" ]] && ! match "$v" "^\-"; then echo "$v" && return 0; fi
         [[ -n "$3" ]] && echo "$3" && return 0
     fi

@@ -15,7 +15,7 @@ case "$BKJS_CMD" in
     [ -f $BKJS_PREFIX/bin/node ] && exit 0
     mkdir -p $BKJS_PREFIX
     tgz=$(get_arg -tgz)
-    if [ ! -z "$tgz" ]; then
+    if [ -n "$tgz" ]; then
         tar -C $BKJS_PREFIX --strip-components=1 -xzf $tgz
         [ "$?" != "0" ] && exit 1
     else

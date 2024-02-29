@@ -11,7 +11,7 @@ case "$BKJS_CMD" in
     host=$(get_arg -host $BKJS_HOST)
     [ "$host" = "" ] && echo "no sync without -host" && exit
     mod=$(get_json package.json name)
-    [[ -z $mod ]] && echo "no sync without package.json" && exit 1
+    [[ -z "$mod" ]] && echo "no sync without package.json" && exit 1
     path=$(get_arg -path)
     [ -z "$path" ] && path=$(get_json package.json config.sync.path)
     [ -z "$path" ] && echo "no sync without -path or config.sync.path" && exit 1
@@ -37,10 +37,10 @@ case "$BKJS_CMD" in
     fi
     [ -f $HOME/.gitignore_global ] && rsyncargs="$rsyncargs --exclude-from $HOME/.gitignore_global"
     exclude=$(get_json package.json config.sync.exclude)
-    [[ ! -z $exclude ]] && rsyncargs="$rsyncargs --exclude=$exclude"
+    [[ -n "$exclude" ]] && rsyncargs="$rsyncargs --exclude=$exclude"
     [ "$(get_flag -del)" != "" ] && rsyncargs="$rsyncargs --del"
     echo "Deploying the module $mod: ssh $sshargs $rsyncargs $bkcmd to $host:$path/$mod"
-    [ ! -z "$(get_flag -dry-run)" ] && exit 0
+    [ -n "$(get_flag -dry-run)" ] && exit 0
     for h in $host; do
         rsync -av -e "ssh $sshargs" "$bkcmd" $rsyncargs . $h:$path/$mod
     done
