@@ -1,7 +1,5 @@
 #!/bin/sh
 
-[ "$BKJS_CMD" = "" ] && BKJS_CMD=$1
-
 case "$BKJS_CMD" in
 
   get-json)
@@ -10,7 +8,7 @@ case "$BKJS_CMD" in
     ;;
 
   get-jsval)
-    echo $(get_json_flat "$1" "$2" "$3" "$4")
+    echo $(get_json_flat "$BKJS_ARGV0" "$BKJS_ARGV1" "$BKJS_ARGV2" "$BKJS_ARGV3")
     exit
     ;;
 

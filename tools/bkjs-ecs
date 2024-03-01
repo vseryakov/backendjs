@@ -30,67 +30,147 @@ case "$BKJS_CMD" in
     exit
     ;;
 
-  ecs-run)
-    task=$(get_arg -task)
+  ecs-update)
     cluster=$(get_arg -cluster $BKJS_CLUSTER)
+    service=$(get_arg -service)
+
+    cmd="aws ecs update-service --cluster $cluster --service $service"
+
+    count=$(get_arg -count)
+    [ -n "$count" ] && cmd="$cmd --desired-count $count"
+
+    [ -n "$(get_flag -force)" ] && cmd="$cmd --force-new-deployment"
+
+    [ -n "$(get_flag -exec)" ] && cmd="$cmd --enable-execute-command"
+
+    task=$(get_arg -task)
+    [ -n "$task" ] && cmd="$cmd --task-definition $task"
+
+    provider=$(get_arg -provider)
+    [ -n "$provider" ] && cmd="$cmd --capacity-provider-strategy capacityProvider=$provider"
+
+    healthcheck=$(get_arg -healthcheck)
+    [ -n "$healthcheck" ] && cmd="$cmd --health-check-grace-period-seconds $healthcheck"
+
+    placement=$(get_arg -placement)
+    [ -n "$placement" ] && cmd="$cmd --placement-strategy $placement"
+
+    constraints=$(get_arg -constraints)
+    [ -n "$constraints" ] && cmd="$cmd --placement-constraints $constraints"
+
+    breaker=$(get_arg -circuit-breaker)
+    [ -n "$breaker" ] && deployment="deploymentCircuitBreaker={enable=$breaker,rollback=$(get_arg -rollback false)}"
+    max=$(get_arg -max-percent)
+    if [ -n "$max" ]; then
+        [ -n "$deployment" ] && deployment="$deployment,"
+        deployment="${deployment}maximumPercent=$max"
+    fi
+    min=$(get_arg -min-healthy)
+    if [ -n "$min" ]; then
+        [ -n "$deployment" ] && deployment="$deployment,"
+        deployment="${deployment}minimumHealthyPercent=$min"
+    fi
+
+    [ -n "$deployment" ] && cmd="$cmd --deployment-configuration $deployment"
 
     ip=$(get_flag -ip)
-    [ ! -z $ip ] && network="assignPublicIp=ENABLED"
+    [ -n "$ip" ] && network="assignPublicIp=ENABLED"
 
     gid=$(get_arg -gid)
     group=$(get_arg -group)
-    [ ! -z $group ] && gid=$(aws ec2 describe-security-groups --filters Name=group-name,Values=$group --query "SecurityGroups[*].[GroupId]" --output text|tr '\n' ,|sed s/,$//)
-    if [ ! -z $gid ]; then
-        [ ! -z $network ] && network="$network,"
+    [ -n "$group" ] && gid=$(aws ec2 describe-security-groups --filters Name=group-name,Values=$group --query "SecurityGroups[*].[GroupId]" --output text|tr '\n' ,|sed s/,$//)
+    if [ -n "$gid" ]; then
+        [ -n "$network" ] && network="$network,"
         network="${network}securityGroups=[$gid]"
     fi
 
     sid=$(get_arg -sid)
     subnet=$(get_arg -subnet)
-    [ ! -z $subnet ] && sid=$(aws ec2 describe-subnets --query 'Subnets[*].[SubnetId,Tags[?Key==`Name`]]' --output text|awk "/Name/{if(s&&index(\$2,\"$subnet\")==1)print s;s=\"\"} /^subnet/{s=\$0}"|tr '\n' ,|sed s/,$//)
-    if [ ! -z $sid ]; then
-        [ ! -z $network ] && network="$network,"
+    [ -n "$subnet" ] && sid=$(aws ec2 describe-subnets --query 'Subnets[*].[SubnetId,Tags[?Key==`Name`]]' --output text|awk "/Name/{if(s&&index(\$2,\"$subnet\")==1)print s;s=\"\"} /^subnet/{s=\$0}"|tr '\n' ,|sed s/,$//)
+    if [ -n "$sid" ]; then
+        [ -n "$network" ] && network="$network,"
         network="${network}subnets=[$sid]"
     fi
+    [ -n "$network" ] && cmd="$cmd --network-configuration awsvpcConfiguration={$network}"
+
+    [ ! -z "$BKJS_DEBUG" ] && echo $cmd
+    [ ! -z $(get_flag -dry-run) ] && echo $cmd && exit
+
+    $cmd
+    exit
+    ;;
+
+  ecs-run)
+    task=$(get_arg -task)
+    cluster=$(get_arg -cluster $BKJS_CLUSTER)
+
+    cmd="aws ecs run-task --cluster $cluster --task-definition $task --count $(get_arg -count 1)"
+
+    [ -n "$(get_flag -exec)" ] && cmd="$cmd --enable-execute-command"
+
+    ip=$(get_flag -ip)
+    [ -n "$ip" ] && network="assignPublicIp=ENABLED"
+
+    gid=$(get_arg -gid)
+    group=$(get_arg -group)
+    [ -n "$group" ] && gid=$(aws ec2 describe-security-groups --filters Name=group-name,Values=$group --query "SecurityGroups[*].[GroupId]" --output text|tr '\n' ,|sed s/,$//)
+    if [ -n "$gid" ]; then
+        [ -n "$network" ] && network="$network,"
+        network="${network}securityGroups=[$gid]"
+    fi
+
+    sid=$(get_arg -sid)
+    subnet=$(get_arg -subnet)
+    [ -n "$subnet" ] && sid=$(aws ec2 describe-subnets --query 'Subnets[*].[SubnetId,Tags[?Key==`Name`]]' --output text|awk "/Name/{if(s&&index(\$2,\"$subnet\")==1)print s;s=\"\"} /^subnet/{s=\$0}"|tr '\n' ,|sed s/,$//)
+    if [ -n "$sid" ]; then
+        [ -n "$network" ] && network="$network,"
+        network="${network}subnets=[$sid]"
+    fi
+    [ -n "$network" ] && cmd="$cmd --network-configuration awsvpcConfiguration={$network}"
 
     cpu=$(get_arg -cpu)
-    if [ ! -z $cpu ]; then
-        [ ! -z $overrides ] && overrides="$overrides,"
+    if [ -n "$cpu" ]; then
+        [ -n "$overrides" ] && overrides="$overrides,"
         overrides="$overrides\"cpu\":$cpu"
     fi
     mem=$(get_arg -mem)
-    if [ ! -z $mem ]; then
-        [ ! -z $overrides ] && overrides="$overrides,"
+    if [ -n "$mem" ]; then
+        [ -n "$overrides" ] && overrides="$overrides,"
         overrides="$overrides\"memory\":$mem"
     fi
     arm=$(get_arg -arm64)
-    if [ ! -z $arm ]; then
-        [ ! -z $overrides ] && overrides="$overrides,"
+    if [ -n "$arm" ]; then
+        [ -n "$overrides" ] && overrides="$overrides,"
         overrides="$overrides\"runtimePlatform\":{\"cpuArchitecture\":\"ARM64\"}"
     fi
 
     tag=$(get_arg -tag)
-    if [ ! -z $tag ]; then
-        container=$(aws ecs describe-task-definition --task-definition $task --query taskDefinition.containerDefinitions[*].name --output text)
-        [ ! -z $overrides ] && overrides="$overrides,"
-        overrides="$overrides\"containerOverrides\":[{\"name\":\"$container\",\"environment\":[{\"name\":\"BKJS_TAG\",\"value\":\"$tag\"}]}]"
+    env=$(get_arg -env)
+    if [ -n "$tag" -o -n "$env" ]; then
+        [ -n "tag" ] && env="$env BKJS_TAG=$tag"
+        local vars=
+        for t in $env; do
+            [ -n "$vars" ] && vars="$vars,"
+            vars="$vars{\"name\":\"$(echo "$t"|cut -d= -f1)\",\"value\":\"$(echo "$t"|cut -d= -f2)\"}"
+        done
+        name=$(get_arg -name)
+        [ -z "$name" ] && name=$(aws ecs describe-task-definition --task-definition $task --query taskDefinition.containerDefinitions[*].name --output text)
+        [ -n "$overrides" ] && overrides="$overrides,"
+        overrides="$overrides\"containerOverrides\":[{\"name\":\"$name\",\"environment\":[$vars]}]"
     fi
 
-    cmd="aws ecs run-task --cluster $cluster --task-definition $task --count $(get_arg -count 1)"
-    [ ! -z $overrides ] && cmd="$cmd --overrides {$overrides}"
-    [ ! -z $network ] && cmd="$cmd --network-configuration awsvpcConfiguration={$network}"
-    [ ! -z $tag ] && cmd="$cmd --tags key=Name,value=$tag"
-    [ ! -z $(get_flag -exec) ] && cmd="$cmd --enable-execute-command"
+    [ -n "$overrides" ] && cmd="$cmd --overrides {$overrides}"
+    [ -n "$tag" ] && cmd="$cmd --tags key=Name,value=$tag"
 
     type=$(get_arg -type)
-    if [ ! -z $type ]; then
+    if [ -n "$type" ]; then
         cmd="$cmd --launch-type $type"
     else
         cmd="$cmd --capacity-provider-strategy capacityProvider=$(get_arg -provider FARGATE)"
     fi
 
-    [ ! -z "$BKJS_DEBUG" ] && echo $cmd
-    [ ! -z $(get_flag -dry-run) ] && echo $cmd && exit
+    [ -n "$BKJS_DEBUG" ] && echo $cmd
+    [ -n "$(get_flag -dry-run)" ] && echo $cmd && exit
 
     $cmd
     exit
@@ -101,6 +181,7 @@ case "$BKJS_CMD" in
     echo "  ecs-ls -cluster CN [-service SN] [-status RUNNING|STOPPED] - show running tasks in the cluster for a service"
     echo "  ecs-ps -cluster CN -task ID - show task details"
     echo "  ecs-sh -cluster CN -service SN -task ID - run shell in the given task for the given service"
-    echo "  ecs-run -task NAME [-cluser default] [-type EC2|FARGATE] [-provider FARGATE_SPOT] [-ip] [-gid ID] [-group NAME] [-sid ID] [-subnet NAME] [-cpu N] [-memory N] [-tag T] [-arm64] [-exec] [-dry-tun] - run an ECS task in subnets with security groups, overrides cpu/mem, pass tag to bkjs process as instance tag"
+    echo "  ecs-run -task NAME [-cluser $BKJS_CLUSTER] [-type EC2|FARGATE] [-provider FARGATE_SPOT] [-ip] [-gid ID] [-group NAME] [-sid ID] [-subnet NAME] [-cpu N] [-memory N] [-tag T] [-arm64] [-exec] [-tag T] [-env VARS] [-name N] [-dry-tun] - run an ECS task in subnets with security groups, overrides cpu/mem, pass tag to bkjs process as instance tag"
+    echo "  ecs-update -service NAME [-cluser $BKJS_CLUSTER] [-force] [-healthcheck SECS] [-placement LIST] [-constraints LIST] [-max-percent P] [-min-healthy P] [-circuit-breaker true|false] [-rollback true|false] [-provider FARGATE_SPOT] [-ip] [-gid ID] [-group NAME] [-sid ID] [-subnet NAME] [-dry-tun] - update an ECS service deployment"
     ;;
 esac

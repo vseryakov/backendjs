@@ -1079,8 +1079,8 @@ When bkjs is running it treats the first arg as a command:
 
 if not internal commands match it starts loading external scripts that start with `bkjs-$BKJS_SPACE` from the following directories:
 
-- `$BKJS_TOOLS`,
 - via `-tools` command line argument if provided
+- `$BKJS_TOOLS`,
 - `$BKJS_HOME/tools`
 - `$BKJS_DIR/tools`
 

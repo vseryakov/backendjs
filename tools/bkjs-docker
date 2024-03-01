@@ -81,7 +81,7 @@ case "$BKJS_CMD" in
     ;;
 
   docker-restart)
-    exec docker restart $BKJS_ARG0
+    exec docker restart $BKJS_ARGV0
     ;;
 
   help)
