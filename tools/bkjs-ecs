@@ -10,7 +10,7 @@ case "$BKJS_CMD" in
     cluster=$(get_arg -cluster $BKJS_CLUSTER)
     service=$(get_arg -service)
     status=$(get_arg -status RUNNING)
-    [ -n "$service"] && service="--service-name \"$service\""
+    [ -n "$service" ] && service="--service-name \"$service\""
     aws ecs list-tasks --cluster "$cluster" $service --desired-status "$status" --output yaml
     exit
     ;;
