@@ -13,7 +13,6 @@ case "$BKJS_CMD" in
     cmd=install
     [ -n "$(get_flag -update)" ] && cmd=update
     npm=$(get_arg -npm)
-    path=$(get_arg -path .)
     check=$(get_flag -check)
     strict=$(get_flag -strict)
     global=$(get_flag -global)
@@ -26,7 +25,15 @@ case "$BKJS_CMD" in
     else
         [[ -n "$(get_flag -mods)" ]] && fields="$fields,modDependencies"
     fi
-    for p in $path; do
+    path=$(get_arg -path)
+    dirs=$(get_arg -dirs)
+    if [[ -n "$dirs" ]]; then
+        depth=$(get_arg -depth 1)
+        path=$(find $dirs -maxdepth $depth -mindepth 1 -type d)
+    fi
+    for p in ${path:-.}; do
+        [ ! -f $p/package.json ] && continue
+        [[ "${p:0:1}" != "/" && "${p:0:1}" != "." ]] && p="./$p"
         m=$($NODE_BIN -e "try{skip='$skip';filter='$filter';p=require('$p/package.json');console.log('$fields'.split(',').map(f=>(Object.keys(p[f]||{}).filter(x=>((!filter||x.match(filter))&&!x.match(skip))).map(x=>(x+(!'$strict'&&p[f][x][0]=='^'?'@'+p[f][x].substr(1).split('.')[0]:'$strict'||/^[0-9]/.test(p[f][x])?'@'+p[f][x].replace(/[=<>^~]/g,''):'')).trim()).join(' '))).join(' '))}catch(e){if('$BKJS_DEBUG')console.error(e)}")
         [ "$m" != "" ] && modules="$modules $m"
     done
@@ -49,7 +56,7 @@ case "$BKJS_CMD" in
 
   help)
     echo
-    echo "  deps [-fields dependencies,devDependencies] [-path .] [-skip REGEXP] [-global] [-update] [-mods] [-strict] [-check] [-npm ARGS] - install or show npm dependencies from the package.json, optional bkjs modules require -mods flag"
+    echo "  deps [-fields dependencies,devDependencies] [-path .] [-dirs LIST] [-skip REGEXP] [-global] [-update] [-mods] [-strict] [-check] [-npm ARGS] - install or show npm dependencies from the package.json, optional bkjs modules require -mods flag"
     ;;
     
 esac
