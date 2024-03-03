@@ -8,17 +8,18 @@ case "$BKJS_CMD" in
 
   ecs-ls)
     cluster=$(get_arg -cluster $BKJS_CLUSTER)
-    service=$(get_arg -service)
     status=$(get_arg -status RUNNING)
-    [ -n "$service" ] && service="--service-name \"$service\""
-    aws ecs list-tasks --cluster "$cluster" $service --desired-status "$status" --output yaml
+    service=$(get_arg -service)
+    [ -n "$service" ] && service="--service-name $service"
+    aws ecs list-tasks --cluster "$cluster" $service --desired-status "$status" --output $(get_arg -output yaml)
     exit
     ;;
 
   ecs-ps)
     cluster=$(get_arg -cluster $BKJS_CLUSTER)
     task=$(get_arg -task)
-    aws ecs describe-tasks --task "$task" --cluster "$cluster" --output yaml
+    [ -z "$task" ] && task=$(ecs-ls -service $service|cut -s -d/ -f3|head -$(get_arg -index 1)|tail -1)
+    aws ecs describe-tasks --task "$task" --cluster "$cluster" --output $(get_arg -output yaml)
     exit
     ;;
 
@@ -26,6 +27,7 @@ case "$BKJS_CMD" in
     cluster=$(get_arg -cluster $BKJS_CLUSTER)
     service=$(get_arg -service)
     task=$(get_arg -task)
+    [ -z "$task" ] && task=$(ecs-ls -service $service|cut -s -d/ -f3|head -$(get_arg -index 1)|tail -1)
     aws ecs execute-command --cluster "$cluster" --task "$task" --container "$service" --interactive --command "/bin/sh"
     exit
     ;;
@@ -34,7 +36,7 @@ case "$BKJS_CMD" in
     cluster=$(get_arg -cluster $BKJS_CLUSTER)
     service=$(get_arg -service)
 
-    cmd="aws ecs update-service --cluster $cluster --service $service"
+    cmd="aws ecs update-service --cluster $cluster --service $service --output $(get_arg -output yaml)"
 
     count=$(get_arg -count)
     [ -n "$count" ] && cmd="$cmd --desired-count $count"
@@ -104,7 +106,7 @@ case "$BKJS_CMD" in
     task=$(get_arg -task)
     cluster=$(get_arg -cluster $BKJS_CLUSTER)
 
-    cmd="aws ecs run-task --cluster $cluster --task-definition $task --count $(get_arg -count 1)"
+    cmd="aws ecs run-task --cluster $cluster --task-definition $task --count $(get_arg -count 1) --output $(get_arg -output yaml)"
 
     [ -n "$(get_flag -exec)" ] && cmd="$cmd --enable-execute-command"
 
@@ -178,9 +180,9 @@ case "$BKJS_CMD" in
 
   help)
     echo ""
-    echo "  ecs-ls -cluster CN [-service SN] [-status RUNNING|STOPPED] - show running tasks in the cluster for a service"
-    echo "  ecs-ps -cluster CN -task ID - show task details"
-    echo "  ecs-sh -cluster CN -service SN -task ID - run shell in the given task for the given service"
+    echo "  ecs-ls [-cluser $BKJS_CLUSTER] [-service SN] [-status RUNNING|STOPPED] - show running tasks in the cluster for a service"
+    echo "  ecs-ps [-cluser $BKJS_CLUSTER] [-task ID] [-service S] [-index I] - show task details"
+    echo "  ecs-sh [-cluser $BKJS_CLUSTER] [-service SN] [-task ID] [-index I] - run shell in the given task for the given service, for multiple tasks -index can use specific task"
     echo "  ecs-run -task NAME [-cluser $BKJS_CLUSTER] [-type EC2|FARGATE] [-provider FARGATE_SPOT] [-ip] [-gid ID] [-group NAME] [-sid ID] [-subnet NAME] [-cpu N] [-memory N] [-tag T] [-arm64] [-exec] [-tag T] [-env VARS] [-name N] [-dry-tun] - run an ECS task in subnets with security groups, overrides cpu/mem, pass tag to bkjs process as instance tag"
     echo "  ecs-update -service NAME [-cluser $BKJS_CLUSTER] [-force] [-healthcheck SECS] [-placement LIST] [-constraints LIST] [-max-percent P] [-min-healthy P] [-circuit-breaker true|false] [-rollback true|false] [-provider FARGATE_SPOT] [-ip] [-gid ID] [-group NAME] [-sid ID] [-subnet NAME] [-dry-tun] - update an ECS service deployment"
     ;;
