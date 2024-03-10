@@ -39,29 +39,29 @@ bkjs._formatPresets = {
 // Format an object into nice JSON formatted text
 bkjs.formatJSON = function(obj, options)
 {
-    if (bkjs.isS(options)) options = { indent: options };
+    if (this.isS(options)) options = { indent: options };
     if (!options) options = {};
     // Shortcut to parse and format json from the string
-    if (bkjs.isS(obj) && obj != "") {
+    if (this.isS(obj) && obj != "") {
         if (obj[0] != "[" && obj[0] != "{") return obj;
         try { obj = JSON.parse(obj); } catch (e) { this.log(e) }
     }
-    var preset = bkjs._formatPresets[options.preset];
+    var preset = this._formatPresets[options.preset];
     for (const p in preset) options[p] = preset[p];
 
     if (!options.level) options.level = 0;
     if (!options.indent) options.indent = "";
-    if (bkjs.isU(options.nl1)) options.nl1 = "\n";
-    if (bkjs.isU(options.nl2)) options.nl2 = "\n";
-    if (bkjs.isU(options.sbracket1)) options.sbracket1 = "[";
-    if (bkjs.isU(options.sbracket2)) options.sbracket2 = "]";
-    if (bkjs.isU(options.cbracket1)) options.cbracket1 = "{";
-    if (bkjs.isU(options.cbracket2)) options.cbracket2 = "}";
-    if (bkjs.isU(options.quote1)) options.quote1 = '"';
-    if (bkjs.isU(options.quote2)) options.quote2 = '"';
-    if (bkjs.isU(options.space)) options.space = "    ";
-    if (bkjs.isU(options.comma)) options.comma = ", ";
-    if (bkjs.isU(options.sep)) options.sep = ", ";
+    if (this.isU(options.nl1)) options.nl1 = "\n";
+    if (this.isU(options.nl2)) options.nl2 = "\n";
+    if (this.isU(options.sbracket1)) options.sbracket1 = "[";
+    if (this.isU(options.sbracket2)) options.sbracket2 = "]";
+    if (this.isU(options.cbracket1)) options.cbracket1 = "{";
+    if (this.isU(options.cbracket2)) options.cbracket2 = "}";
+    if (this.isU(options.quote1)) options.quote1 = '"';
+    if (this.isU(options.quote2)) options.quote2 = '"';
+    if (this.isU(options.space)) options.space = "    ";
+    if (this.isU(options.comma)) options.comma = ", ";
+    if (this.isU(options.sep)) options.sep = ", ";
 
     var type = this.typeName(obj);
     var count = 0;
@@ -72,9 +72,9 @@ bkjs.formatJSON = function(obj, options)
     for (var p in obj) {
         if (options.ignore && options.ignore.test(p)) continue;
         var val = obj[p];
-        if (bkjs.isF(options.preprocess)) {
+        if (this.isF(options.preprocess)) {
             val = options.preprocess(p, val, options);
-            if (bkjs.isU(val)) continue;
+            if (this.isU(val)) continue;
         }
         if (options.skipnull && (val === "" || val === null || val === undefined)) continue;
         if (options.skipempty && this.isEmpty(val)) continue;
@@ -175,120 +175,88 @@ bkjs.tzMap = [
 // Return a timezone human name if matched (EST, PDT...), tz must be in GMT-NNNN format
 bkjs.tzName = function(tz)
 {
-    if (!tz || !bkjs.isS(tz)) return "";
+    if (!tz || !this.isS(tz)) return "";
     var t = tz.indexOf(":") > 0 ? tz.replace(":", "") : tz;
-    for (const i in bkjs.tzMap) {
-        if (t == bkjs.tzMap[i][1]) return bkjs.tzMap[i][0];
+    for (const i in this.tzMap) {
+        if (t == this.tzMap[i][1]) return this.tzMap[i][0];
     }
     return tz;
 }
-
-bkjs.strftimeConfig = {
-    a: function(t, utc, lang, tz) {
-        if (lang && !bkjs.strftimeMap.weekDays[lang]) {
-            bkjs.strftimeMap.weekDays[lang] = bkjs.strftimeMap.weekDays[""].map((x) => (bkjs.__({ phrase: x, locale: lang })));
-        }
-        return bkjs.strftimeMap.weekDays[lang || ""][utc ? t.getUTCDay() : t.getDay()]
-    },
-    A: function(t, utc, lang, tz) {
-        if (lang && !bkjs.strftimeMap.weekDaysFull[lang]) {
-            bkjs.strftimeMap.weekDaysFull[lang] = bkjs.strftimeMap.weekDaysFull[""].map((x) => (bkjs.__({ phrase: x, locale: lang })));
-        }
-        return bkjs.strftimeMap.weekDaysFull[lang || ""][utc ? t.getUTCDay() : t.getDay()]
-    },
-    b: function(t, utc, lang, tz) {
-        if (lang && !bkjs.strftimeMap.months[lang]) {
-            bkjs.strftimeMap.months[lang] = bkjs.strftimeMap.months[""].map((x) => (bkjs.__({ phrase: x, locale: lang })));
-        }
-        return bkjs.strftimeMap.months[lang || ""][utc ? t.getUTCMonth() : t.getMonth()]
-    },
-    B: function(t, utc, lang, tz) {
-        if (lang && !bkjs.strftimeMap.monthsFull[lang]) {
-            bkjs.strftimeMap.monthsFull[lang] = bkjs.strftimeMap.monthsFull[""].map((x) => (bkjs.__({ phrase: x, locale: lang })));
-        }
-        return bkjs.strftimeMap.monthsFull[lang || ""][utc ? t.getUTCMonth() : t.getMonth()]
-    },
-    c: function(t, utc, lang, tz) {
-        return utc ? t.toUTCString() : t.toString()
-    },
-    d: function(t, utc, lang, tz) {
-        return bkjs.zeropad(utc ? t.getUTCDate() : t.getDate())
-    },
-    H: function(t, utc, lang, tz) {
-        return bkjs.zeropad(utc ? t.getUTCHours() : t.getHours())
-    },
-    I: function(t, utc, lang, tz) {
-        return bkjs.zeropad((((utc ? t.getUTCHours() : t.getHours()) + 12) % 12) || 12)
-    },
-    L: function(t, utc, lang, tz) {
-        return bkjs.zeropad(utc ? t.getUTCMilliseconds() : t.getMilliseconds())
-    },
-    m: function(t, utc, lang, tz) {
-        return bkjs.zeropad((utc ? t.getUTCMonth() : t.getMonth()) + 1)
-    }, // month-1
-    M: function(t, utc, lang, tz) {
-        return bkjs.zeropad(utc ? t.getUTCMinutes() : t.getMinutes())
-    },
-    p: function(t, utc, lang, tz) {
-        return (utc ? t.getUTCHours() : t.getHours()) < 12 ? 'AM' : 'PM';
-    },
-    S: function(t, utc, lang, tz) {
-       return bkjs.zeropad(utc ? t.getUTCSeconds() : t.getSeconds())
-   },
-    w: function(t, utc, lang, tz) {
-        return utc ? t.getUTCDay() : t.getDay()
-    }, // 0..6 == sun..sat
-    W: function(t, utc, lang, tz) {
-        return bkjs.zeropad(bkjs.weekOfYear(t, utc))
-    },
-    y: function(t, utc, lang, tz) {
-        return bkjs.zeropad(t.getYear() % 100);
-    },
-    Y: function(t, utc, lang, tz) {
-        return utc ? t.getUTCFullYear() : t.getFullYear()
-    },
-    t: function(t, utc, lang, tz) {
-        return t.getTime()
-    },
-    u: function(t, utc, lang, tz) {
-        return Math.floor(t.getTime()/1000)
-    },
-    Z: function(t, utc, lang, tz) {
-        tz = tz ? tz/60000 : t.getTimezoneOffset();
-        return "GMT" + (tz < 0 ? "+" : "-") + bkjs.zeropad(Math.abs(-tz/60)) + "00";
-    },
-    zz: function(t, utc, lang, tz) {
-        return bkjs.strftimeConfig.z(t, utc, lang, tz, 1);
-    },
-    z: function(t, utc, lang, tz, zz) {
-        tz = tz ? tz/60000 : t.getTimezoneOffset();
-        tz = "GMT" + (tz < 0 ? "+" : "-") + bkjs.zeropad(Math.abs(-tz/60)) + "00";
-        var dst = bkjs.isDST(t);
-        for (var i in bkjs.tzMap) {
-            if (tz == bkjs.tzMap[i][1] && (dst === bkjs.tzMap[i][2])) {
-                return zz ? tz + " " + bkjs.tzMap[i][0] : bkjs.tzMap[i][0];
-            }
-        }
-        return tz;
-    },
-    Q: function(t, utc, lang, tz) {
-        var h = utc ? t.getUTCHours() : t.getHours();
-        return h < 12 ? bkjs.__({ phrase: "Morning", locale: lang }) :
-               h < 17 ? bkjs.__({ phrase: "Afternoon", locale: lang }) :
-               bkjs.__({ phrase: "Evening", locale: lang }) },
-    '%': function() { return '%' },
-};
 
 // Format a Date object
 bkjs.strftime = function(date, fmt, options)
 {
     date = this.toDate(date, null);
     if (!date) return "";
-    var tz = bkjs.isN(options?.tz) ? options.tz : 0;
+    const tz = this.isN(options?.tz) ? options.tz : 0;
     if (tz) date = new Date(date.getTime() - tz);
     fmt = fmt || this.strftimeFormat;
-    for (var p in this.strftimeConfig) {
-        fmt = fmt.replace('%' + p, this.strftimeConfig[p](date, options?.utc, options?.lang, tz));
+    const cmds = {
+        a: (t, utc, lang, tz) => {
+            if (lang && !this.strftimeMap.weekDays[lang]) {
+                this.strftimeMap.weekDays[lang] = this.strftimeMap.weekDays[""].map((x) => (this.__({ phrase: x, locale: lang })));
+            }
+            return this.strftimeMap.weekDays[lang || ""][utc ? t.getUTCDay() : t.getDay()]
+        },
+        A: (t, utc, lang, tz) => {
+            if (lang && !this.strftimeMap.weekDaysFull[lang]) {
+                this.strftimeMap.weekDaysFull[lang] = this.strftimeMap.weekDaysFull[""].map((x) => (this.__({ phrase: x, locale: lang })));
+            }
+            return this.strftimeMap.weekDaysFull[lang || ""][utc ? t.getUTCDay() : t.getDay()]
+        },
+        b: (t, utc, lang, tz) => {
+            if (lang && !this.strftimeMap.months[lang]) {
+                this.strftimeMap.months[lang] = this.strftimeMap.months[""].map((x) => (this.__({ phrase: x, locale: lang })));
+            }
+            return this.strftimeMap.months[lang || ""][utc ? t.getUTCMonth() : t.getMonth()]
+        },
+        B: (t, utc, lang, tz) => {
+            if (lang && !this.strftimeMap.monthsFull[lang]) {
+                this.strftimeMap.monthsFull[lang] = this.strftimeMap.monthsFull[""].map((x) => (this.__({ phrase: x, locale: lang })));
+            }
+            return this.strftimeMap.monthsFull[lang || ""][utc ? t.getUTCMonth() : t.getMonth()]
+        },
+        c: (t, utc, lang, tz) => (utc ? t.toUTCString() : t.toString()),
+        d: (t, utc, lang, tz) => (this.zeropad(utc ? t.getUTCDate() : t.getDate())),
+        H: (t, utc, lang, tz) => (this.zeropad(utc ? t.getUTCHours() : t.getHours())),
+        I: (t, utc, lang, tz) => (this.zeropad((((utc ? t.getUTCHours() : t.getHours()) + 12) % 12) || 12)),
+        L: (t, utc, lang, tz) => (this.zeropad(utc ? t.getUTCMilliseconds() : t.getMilliseconds())),
+        m: (t, utc, lang, tz) => (this.zeropad((utc ? t.getUTCMonth() : t.getMonth()) + 1)), // month-1
+        M: (t, utc, lang, tz) => (this.zeropad(utc ? t.getUTCMinutes() : t.getMinutes())),
+        p: (t, utc, lang, tz) => ((utc ? t.getUTCHours() : t.getHours()) < 12 ? 'AM' : 'PM'),
+        S: (t, utc, lang, tz) => (this.zeropad(utc ? t.getUTCSeconds() : t.getSeconds())),
+        w: (t, utc, lang, tz) => (utc ? t.getUTCDay() : t.getDay()), // 0..6 == sun..sat
+        W: (t, utc, lang, tz) => (this.zeropad(this.weekOfYear(t, utc))),
+        y: (t, utc, lang, tz) => (this.zeropad(t.getYear() % 100)),
+        Y: (t, utc, lang, tz) => (utc ? t.getUTCFullYear() : t.getFullYear()),
+        t: (t, utc, lang, tz) => (t.getTime()),
+        u: (t, utc, lang, tz) => (Math.floor(t.getTime()/1000)),
+        Z: (t, utc, lang, tz) => {
+            tz = tz ? tz/60000 : t.getTimezoneOffset();
+            return "GMT" + (tz < 0 ? "+" : "-") + this.zeropad(Math.abs(-tz/60)) + "00";
+        },
+        zz: (t, utc, lang, tz) => (cmds.z(t, utc, lang, tz, 1)),
+        z: (t, utc, lang, tz, zz) => {
+            tz = tz ? tz/60000 : t.getTimezoneOffset();
+            tz = "GMT" + (tz < 0 ? "+" : "-") + this.zeropad(Math.abs(-tz/60)) + "00";
+            var dst = this.isDST(t);
+            for (var i in this.tzMap) {
+                if (tz == this.tzMap[i][1] && (dst === this.tzMap[i][2])) {
+                    return zz ? tz + " " + this.tzMap[i][0] : this.tzMap[i][0];
+                }
+            }
+            return tz;
+        },
+        Q: (t, utc, lang, tz) => {
+            var h = utc ? t.getUTCHours() : t.getHours();
+            return h < 12 ? this.__({ phrase: "Morning", locale: lang }) :
+                   h < 17 ? this.__({ phrase: "Afternoon", locale: lang }) :
+                   this.__({ phrase: "Evening", locale: lang }) },
+                   '%': function() { return '%' },
+    };
+
+    for (var c in cmds) {
+        fmt = fmt.replace('%' + c, cmds[c](date, options?.utc, options?.lang, tz));
     }
     return fmt;
 }
@@ -298,7 +266,7 @@ bkjs.sprintf = function(str, args)
     var i = 0, arr = arguments;
     if (arguments.length == 2 && Array.isArray(args)) i = -1, arr = args;
 
-    function format(sym, p0, p1, p2, p3, p4) {
+    const format = (sym, p0, p1, p2, p3, p4) => {
         if (sym == '%%') return '%';
         if (arr[++i] === undefined) return undefined;
         var exp = p2 ? parseInt(p2.substr(1)) : undefined;
@@ -340,7 +308,7 @@ bkjs.sprintf = function(str, args)
             if (isNaN(val)) val = 0;
             break;
         }
-        val = bkjs.isO(val) ? JSON.stringify(val) : val.toString(base);
+        val = this.isO(val) ? JSON.stringify(val) : val.toString(base);
         var sz = parseInt(p1); /* padding size */
         var ch = p1 && p1[0] == '0' ? '0' : ' '; /* isnull? */
         while (val.length < sz) val = p0 !== undefined ? val + ch : ch + val; /* isminus? */
@@ -354,7 +322,7 @@ bkjs.sprintf = function(str, args)
 // have been completed or immediately if there is is an error provided.
 bkjs.forEachSeries = function(list, iterator, callback)
 {
-    callback = bkjs.isF(callback) ? callback : this.noop;
+    callback = this.isF(callback) ? callback : this.noop;
     if (!Array.isArray(list) || !list.length) return callback();
     function iterate(i, data) {
         if (i >= list.length) return callback(null, data);
@@ -376,7 +344,7 @@ bkjs.series = function(tasks, callback)
     this.forEachSeries(tasks, (task, next, data1) => {
         task(next, data1);
     }, (err, data) => {
-        if (bkjs.isF(callback)) callback(err, data);
+        if (this.isF(callback)) callback(err, data);
     });
 }
 
@@ -384,7 +352,7 @@ bkjs.series = function(tasks, callback)
 // have been completed or immediately if there is an error provided
 bkjs.forEach = function(list, iterator, callback)
 {
-    callback = bkjs.isF(callback) ? callback : this.noop;
+    callback = this.isF(callback) ? callback : this.noop;
     if (!Array.isArray(list) || !list.length) return callback();
     var count = list.length;
     for (var i = 0; i < list.length; i++) {
@@ -408,7 +376,7 @@ bkjs.parallel = function(tasks, callback)
     this.forEach(tasks, (task, next) => {
         task(next);
     }, (err) => {
-        if (bkjs.isF(callback)) callback(err);
+        if (this.isF(callback)) callback(err);
     });
 }
 
@@ -416,21 +384,21 @@ bkjs.parallel = function(tasks, callback)
 // in this case invalid date returned as null. If `dflt` is NaN, null or 0 returns null as well.
 bkjs.toDate = function(val, dflt, invalid)
 {
-    if (bkjs.isF(val?.getTime)) return val;
+    if (this.isF(val?.getTime)) return val;
     var d = NaN;
     // String that looks like a number
-    if (bkjs.isS(val)) {
+    if (this.isS(val)) {
         val = /^[0-9.]+$/.test(val) ? this.toNumber(val) : val.replace(/([0-9])(AM|PM)/i, "$1 $2");
     }
-   if (bkjs.isN(val)) {
+   if (this.isN(val)) {
         // Convert nanoseconds to milliseconds
         if (val > 2147485547000) val = Math.round(val / 1000);
         // Convert seconds to milliseconds
         if (val < 2147483647) val *= 1000;
     }
-    if (!bkjs.isS(val) && !bkjs.isN(val)) val = d;
+    if (!this.isS(val) && !this.isN(val)) val = d;
     // Remove unsupported timezone names
-    if (bkjs.isS(val)) {
+    if (this.isS(val)) {
         var gmt = val.indexOf("GMT") > -1;
         for (const i in this.tzMap) {
             if ((gmt || this.tzMap[i][3] === false) && val.indexOf(this.tzMap[i][0]) > -1) {
@@ -446,7 +414,7 @@ bkjs.toDate = function(val, dflt, invalid)
 bkjs.toAge = function(mtime, options)
 {
     var str = "";
-    mtime = bkjs.isN(mtime) ? mtime : this.toNumber(mtime);
+    mtime = this.isN(mtime) ? mtime : this.toNumber(mtime);
     if (mtime > 0) {
         var secs = Math.floor((Date.now() - mtime)/1000);
         var d = Math.floor(secs / 86400);
@@ -487,7 +455,7 @@ bkjs.toAge = function(mtime, options)
 bkjs.toDuration = function(mtime, options)
 {
     var str = "";
-    mtime = bkjs.isN(mtime) ? mtime : this.toNumber(mtime);
+    mtime = this.isN(mtime) ? mtime : this.toNumber(mtime);
     if (mtime > 0) {
         var seconds = Math.floor(mtime/1000);
         var d = Math.floor(seconds / 86400);
@@ -524,7 +492,7 @@ bkjs.toDuration = function(mtime, options)
 bkjs.toSize = function(size, decimals)
 {
     var i = size > 0 ? Math.floor(Math.log(size) / Math.log(1024)) : 0;
-    return (size / Math.pow(1024, i)).toFixed(bkjs.isN(decimals) ? decimals : 2) * 1 + ' ' + [this.__('Bytes'), this.__('KBytes'), this.__('MBytes'), this.__('GBytes'), this.__('TBytes')][i];
+    return (size / Math.pow(1024, i)).toFixed(this.isN(decimals) ? decimals : 2) * 1 + ' ' + [this.__('Bytes'), this.__('KBytes'), this.__('MBytes'), this.__('GBytes'), this.__('TBytes')][i];
 }
 
 bkjs.isArray = function(val, dflt)
@@ -544,8 +512,8 @@ bkjs.isObject = function(v)
 
 bkjs.isNumeric = function(val)
 {
-    if (bkjs.isN(val)) return true;
-    if (!bkjs.isS(val)) return false;
+    if (this.isN(val)) return true;
+    if (!this.isS(val)) return false;
     return /^(-|\+)?([0-9]+|[0-9]+\.[0-9]+)$/.test(val);
 }
 
@@ -637,26 +605,26 @@ bkjs.toFlags = function(cmd, list, name)
 // Capitalize words
 bkjs.toTitle = function(name)
 {
-    return bkjs.isS(name) ? name.replace(/_/g, " ").split(/[ ]+/).reduce((x,y) => (x + y.substr(0,1).toUpperCase() + y.substr(1) + " "), "").trim() : "";
+    return this.isS(name) ? name.replace(/_/g, " ").split(/[ ]+/).reduce((x,y) => (x + y.substr(0,1).toUpperCase() + y.substr(1) + " "), "").trim() : "";
 }
 
 bkjs.toCamel = function(name, chars)
 {
-    return bkjs.isS(name) ? name.substr(0, 1).toLowerCase() + name.substr(1).replace(/(?:[-_.])(\w)/g, (_, c) => (c ? c.toUpperCase() : '')) : "";
+    return this.isS(name) ? name.substr(0, 1).toLowerCase() + name.substr(1).replace(/(?:[-_.])(\w)/g, (_, c) => (c ? c.toUpperCase() : '')) : "";
 }
 
 // Convert Camel names into names separated by the given separator or dash if not.
 bkjs.toUncamel = function(str, sep)
 {
-    return bkjs.isS(str) ? str.replace(/([A-Z])/g, (letter) => ((sep || '-') + letter.toLowerCase())) : "";
+    return this.isS(str) ? str.replace(/([A-Z])/g, (letter) => ((sep || '-') + letter.toLowerCase())) : "";
 }
 
 // Interpret the value as a boolean
 bkjs.toBool = function(val, dflt)
 {
-    if (bkjs.isB(val)) return val;
-    if (bkjs.isN(val)) return !!val;
-    if (bkjs.isU(val)) val = dflt;
+    if (this.isB(val)) return val;
+    if (this.isN(val)) return !!val;
+    if (this.isU(val)) val = dflt;
     return !val || String(val).trim().match(/^(false|off|f|0$)/i) ? false : true;
 }
 
@@ -669,21 +637,21 @@ bkjs.toClamp = function(num, min, max)
 bkjs.toNumber = function(val, options)
 {
     var n = 0;
-    if (bkjs.isN(val)) {
+    if (this.isN(val)) {
         n = val;
     } else {
-        if (!bkjs.isS(val)) {
+        if (!this.isS(val)) {
             n = options?.dflt || 0;
         } else {
             // Autodetect floating number
-            var f = !options || bkjs.isU(options.float) || options.float == null ? /^[0-9-]+\.[0-9]+$/.test(val) : options.float;
+            var f = !options || this.isU(options.float) || options.float == null ? /^[0-9-]+\.[0-9]+$/.test(val) : options.float;
             n = val[0] == 't' ? 1 : val[0] == 'f' ? 0 : val == "infinity" ? Infinity : (f ? parseFloat(val, 10) : parseInt(val, 10));
         }
     }
     n = isNaN(n) ? (options?.dflt || 0) : n;
     if (options) {
-        if (bkjs.isN(options.min) && n < options.min) n = options.min;
-        if (bkjs.isN(options.max) && n > options.max) n = options.max;
+        if (this.isN(options.min) && n < options.min) n = options.min;
+        if (this.isN(options.max) && n > options.max) n = options.max;
     }
     return n;
 }
@@ -701,8 +669,8 @@ bkjs.toValue = function(val, type, options)
 {
     switch ((type || "").trim()) {
     case "auto":
-        if (bkjs.isU(val) || val === null) return "";
-        if (bkjs.isS(val)) {
+        if (this.isU(val) || val === null) return "";
+        if (this.isS(val)) {
             type = this.isNumeric(val) ? "number":
                    val == "true" || val == "false" ? "bool":
                    val[0] == "^" && val.slice(-1) == "$" ? "regexp":
@@ -762,14 +730,14 @@ bkjs.toValue = function(val, type, options)
         return String(val).replace(/[^0-9]+/g, "");
 
     default:
-        if (bkjs.isS(val)) return val;
+        if (this.isS(val)) return val;
         return String(val);
     }
 }
 
 bkjs.toTemplate = function(text, obj, options)
 {
-    function encoder(enc, v) {
+    const encoder = (enc, v) => {
         try {
             switch (enc) {
             case "url":
@@ -789,16 +757,16 @@ bkjs.toTemplate = function(text, obj, options)
                 v = window.atob(v);
                 break;
             case "entity":
-                v = bkjs.textToEntity(v);
+                v = this.textToEntity(v);
                 break;
             case "d-entity":
-                v = bkjs.entityToText(v);
+                v = this.entityToText(v);
                 break;
             case "strftime":
-                v = bkjs.strftime(v);
+                v = this.strftime(v);
                 break;
             case "mtime":
-                v = bkjs.toDate(v, null);
+                v = this.toDate(v, null);
                 if (!v) v = 0;
                 break;
             }
@@ -887,26 +855,26 @@ bkjs._toTemplate = function(text, obj, options, encoder)
                 ok = !!val;
                 break;
             case "ifempty":
-                ok = bkjs.isEmpty(val);
+                ok = this.isEmpty(val);
                 break;
             case "ifnotempty":
-                ok = !bkjs.isEmpty(val);
+                ok = !this.isEmpty(val);
                 break;
             case "if":
-                ok = val && bkjs.isFlag(bkjs.strSplit(d[3]), bkjs.strSplit(val));
+                ok = val && this.isFlag(this.strSplit(d[3]), this.strSplit(val));
                 break;
             case "ifne":
                 ok = val != d[3];
                 break;
             case "ifnot":
-                ok = !val || !bkjs.isFlag(bkjs.strSplit(d[3]), bkjs.strSplit(val));
+                ok = !val || !this.isFlag(this.strSplit(d[3]), this.strSplit(val));
                 break;
             case "ifall":
-                val = bkjs.strSplit(val);
-                ok = bkjs.strSplit(d[3]).every((x) => (val.includes(x)));
+                val = this.strSplit(val);
+                ok = this.strSplit(d[3]).every((x) => (val.includes(x)));
                 break;
             case "ifstr":
-                ok = bkjs.testRegexp(val || "", bkjs.toRegexp(d[3], "i"));
+                ok = this.testRegexp(val || "", this.toRegexp(d[3], "i"));
                 break;
             case "ifeq":
                 ok = val == d[3];
@@ -985,29 +953,29 @@ bkjs.strSplit = function(str, sep, options)
 {
     if (!str) return [];
     options = options || {};
-    return (Array.isArray(str) ? str : (bkjs.isS(str) ? str : String(str)).split(sep || /[,|]/)).
+    return (Array.isArray(str) ? str : (this.isS(str) ? str : String(str)).split(sep || /[,|]/)).
             map((x) => {
                 if (x === "" && !options.keepempty) return x;
-                x = options.datatype ? bkjs.toValue(x, options.datatype) : bkjs.isS(x) ? x.trim() : x;
-                if (!bkjs.isS(x)) return x;
+                x = options.datatype ? this.toValue(x, options.datatype) : this.isS(x) ? x.trim() : x;
+                if (!this.isS(x)) return x;
                 if (options.regexp && !options.regexp.test(x)) return "";
                 if (options.lower) x = x.toLowerCase();
                 if (options.upper) x = x.toUpperCase();
                 if (options.strip) x = x.replace(options.strip, "");
-                if (options.camel) x = bkjs.toCamel(x, options);
-                if (options.cap) x = bkjs.toTitle(x);
+                if (options.camel) x = this.toCamel(x, options);
+                if (options.cap) x = this.toTitle(x);
                 if (options.trunc > 0) x = x.substr(0, options.trunc);
                 return x;
             }).
-            filter((x) => (options.keepempty || bkjs.isS(x) ? x.length : 1));
+            filter((x) => (options.keepempty || this.isS(x) ? x.length : 1));
 }
 
 bkjs.strSplitUnique = function(str, sep, type)
 {
     var rc = [];
-    var typed = !bkjs.isU(type);
+    var typed = !this.isU(type);
     this.strSplit(str, sep, type).forEach((x) => {
-        if (!rc.some((y) => (typed || !(bkjs.isS(x) && bkjs.isS(y)) ? x == y : x.toLowerCase() == y.toLowerCase()))) rc.push(x);
+        if (!rc.some((y) => (typed || !(this.isS(x) && this.isS(y)) ? x == y : x.toLowerCase() == y.toLowerCase()))) rc.push(x);
     });
     return rc;
 }
@@ -1016,7 +984,7 @@ bkjs.strSplitUnique = function(str, sep, type)
 bkjs.objNew = function()
 {
     var obj = {};
-    for (var i = 0; i < arguments.length - 1; i += 2) if (!bkjs.isU(arguments[i + 1])) obj[arguments[i]] = arguments[i + 1];
+    for (var i = 0; i < arguments.length - 1; i += 2) if (!this.isU(arguments[i + 1])) obj[arguments[i]] = arguments[i + 1];
     return obj;
 }
 
@@ -1076,11 +1044,11 @@ bkjs.objExtend = function(obj, val, options)
             if (p === "__proto__") continue;
             if (options.deep && v) {
                 if (Array.isArray(v)) {
-                    obj[p] = bkjs.objExtend(Array.isArray(obj[p]) ? obj[p] : [], v, options);
+                    obj[p] = this.objExtend(Array.isArray(obj[p]) ? obj[p] : [], v, options);
                     continue;
                 } else
-                if (bkjs.typeName(v) === "object") {
-                    obj[p] = bkjs.objExtend(obj[p], v, options);
+                if (this.typeName(v) === "object") {
+                    obj[p] = this.objExtend(obj[p], v, options);
                     continue;
                 }
             }
@@ -1096,7 +1064,7 @@ bkjs.objExtend = function(obj, val, options)
 bkjs.objDel = function()
 {
     const a = arguments;
-    if (!bkjs.isObject(a[0])) return;
+    if (!this.isObject(a[0])) return;
     for (let i = 1; i < a.length; i++) delete a[0][a[i]];
     return a[0];
 }
@@ -1150,7 +1118,7 @@ bkjs.__ = function()
     var lang = this.account.lang;
     var msg = arguments[0];
 
-    if (bkjs.isO(msg) && msg.phrase) {
+    if (this.isO(msg) && msg.phrase) {
         lang = msg.locale || lang;
         msg = msg.phrase;
     }

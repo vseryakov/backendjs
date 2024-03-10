@@ -14,31 +14,31 @@ bkjs.passwordPolicy = {
 // Try to authenticate with the supplied login and secret
 bkjs.login = function(options, callback)
 {
-    if (bkjs.isF(options)) callback = options, options = {};
+    if (this.isF(options)) callback = options, options = {};
     options = options || {};
     if (!options.data) options.data = {};
     if (!options.url) options.url = "/auth";
-    options.data._session = bkjs.session;
+    options.data._session = this.session;
 
     this.send(options, (data) => {
-        bkjs.loggedIn = true;
-        for (const p in data) bkjs.account[p] = data[p];
-        if (bkjs.isF(callback)) callback.call(options.self || bkjs);
+        this.loggedIn = true;
+        for (const p in data) this.account[p] = data[p];
+        if (this.isF(callback)) callback.call(options.self || this);
     }, (err, xhr) => {
-        bkjs.loggedIn = false;
-        for (const p in bkjs.account) delete bkjs.account[p];
-        if (bkjs.isF(callback)) callback.call(options.self || bkjs, err, null, xhr);
+        this.loggedIn = false;
+        for (const p in this.account) delete this.account[p];
+        if (this.isF(callback)) callback.call(options.self || this, err, null, xhr);
     });
 }
 
 // Logout and clear all cookies and local credentials
 bkjs.logout = function(options, callback)
 {
-    if (bkjs.isF(options)) callback = options, options = {};
+    if (this.isF(options)) callback = options, options = {};
     options = options || {};
     if (!options.url) options = { url: "/logout" };
     this.loggedIn = false;
-    for (const p in bkjs.account) delete bkjs.account[p];
+    for (const p in this.account) delete this.account[p];
     this.sendRequest(options, callback);
 }
 
@@ -52,7 +52,7 @@ bkjs.checkPassword = function(secret, policy)
             return {
                 status: 400,
                 message: this.__(policy[p]),
-                policy: Object.keys(policy).map((x) => (bkjs.__(policy[x]))).join(", ")
+                policy: Object.keys(policy).map((x) => (this.__(policy[x]))).join(", ")
             };
         }
     }
@@ -62,10 +62,10 @@ bkjs.checkPassword = function(secret, policy)
 // Retrieve current account record, call the callback with the object or error
 bkjs.getAccount = function(query, callback)
 {
-    if (bkjs.isF(query)) callback = query, query = null;
+    if (this.isF(query)) callback = query, query = null;
     this.sendRequest({ url: "/account/get", data: query }, (err, data, xhr) => {
-        for (const p in data) bkjs.account[p] = data[p];
-        if (bkjs.isF(callback)) callback(err, data, xhr);
+        for (const p in data) this.account[p] = data[p];
+        if (this.isF(callback)) callback(err, data, xhr);
     });
 }
 

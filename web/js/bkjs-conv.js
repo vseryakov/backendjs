@@ -20,21 +20,21 @@ bkjs.textToXml = function(str)
 
 bkjs.textToEntity = function(str)
 {
-    if (!bkjs.isS(str)) return "";
+    if (!this.isS(str)) return "";
     if (!this.textEntities) {
         this.textEntities = {};
         for (var p in this.htmlEntities) this.textEntities[this.htmlEntities[p]] = "&" + p + ";";
     }
-    return str.replace(/([&<>'":])/g, (_, n) => (bkjs.textEntities[n] || n));
+    return str.replace(/([&<>'":])/g, (_, n) => (this.textEntities[n] || n));
 }
 
 // Convert html entities into their original symbols
 bkjs.entityToText = function(str)
 {
-    if (!bkjs.isS(str)) return "";
+    if (!this.isS(str)) return "";
     return str.replace(/&(#?[a-zA-Z0-9]+);/g, (_, n) => {
         if (n[0] === '#') return n.charAt(1) === 'x' ? String.fromCharCode(parseInt(n.substring(2), 16)) : String.fromCharCode(+n.substring(1));
-        return bkjs.htmlEntities[n] || "";
+        return this.htmlEntities[n] || "";
     });
 }
 

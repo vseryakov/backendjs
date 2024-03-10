@@ -5,15 +5,15 @@
 
 bkjs.event = function(name, data)
 {
-    $(bkjs).trigger(name, data);
+    $(this).trigger(name, data);
 }
 
 bkjs.on = function(name, callback)
 {
-    $(bkjs).on(name, callback);
+    $(this).on(name, callback);
 }
 
 bkjs.off = function(name, callback)
 {
-    $(bkjs).off(name, callback);
+    $(this).off(name, callback);
 }

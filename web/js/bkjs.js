@@ -23,20 +23,6 @@ var bkjs = {
     // Current account record
     account: {},
 
-    // Websockets
-    wsconf: {
-        host: null,
-        port: 0,
-        path: "/",
-        query: null,
-        max_timeout: 30000,
-        retry_timeout: 500,
-        retry_mod: 2,
-        max_retries: 100,
-        retries: 0,
-        pending: [],
-    },
-
     // i18n locales by 2-letter code, uses account.lang to resolve the translation
     locales: {},
 
@@ -52,18 +38,18 @@ var bkjs = {
 bkjs.fetchOpts = function(options)
 {
     var headers = options.headers || {};
-    var opts = bkjs.objExtend({
+    var opts = this.objExtend({
         headers: headers,
         method: options.type || "POST",
         cache: "default",
     }, options.fetchOptions);
 
     if (opts.method == "GET" || opts.method == "HEAD") {
-        if (bkjs.isO(options.data)) {
+        if (this.isO(options.data)) {
             options.url += "?" + this.toQuery(options.data);
         }
     } else
-    if (bkjs.isS(options.data)) {
+    if (this.isS(options.data)) {
         opts.body = options.data;
         headers["content-type"] = options.contentType || 'application/x-www-form-urlencoded; charset=UTF-8';
     } else
@@ -71,7 +57,7 @@ bkjs.fetchOpts = function(options)
         opts.body = options.data;
         delete headers["content-type"];
     } else
-    if (bkjs.isO(options.data)) {
+    if (this.isO(options.data)) {
         opts.body = JSON.stringify(options.data);
         headers["content-type"] = "application/json; charset=UTF-8";
     } else
@@ -99,7 +85,7 @@ bkjs.fetch = function(options, callback)
                 } else {
                     err = { message: await res.text(), status: res.status };
                 }
-                return bkjs.isF(callback) && callback(err, data, info);
+                return this.isF(callback) && callback(err, data, info);
             }
             switch (options.dataType) {
             case "text":
@@ -111,12 +97,12 @@ bkjs.fetch = function(options, callback)
             default:
                 data = /\/json/.test(info.headers["content-type"]) ? await res.json() : await res.text();
             }
-            bkjs.isF(callback) && callback(null, data, info);
+            this.isF(callback) && callback(null, data, info);
         }).catch ((err) => {
-            bkjs.isF(callback) && callback(err);
+            this.isF(callback) && callback(err);
         });
     } catch (err) {
-        bkjs.isF(callback) && callback(err);
+        this.isF(callback) && callback(err);
     }
 }
 
@@ -126,60 +112,60 @@ bkjs.fetch = function(options, callback)
 //
 bkjs.send = function(options, onsuccess, onerror)
 {
-    if (bkjs.isS(options)) options = { url: options };
+    if (this.isS(options)) options = { url: options };
     if (this.locationUrl && !/^https?:/.test(options.url)) options.url = this.locationUrl + options.url;
     if (!options.headers) options.headers = {};
     if (!options.type) options.type = 'POST';
     options.headers[this.htz] = (new Date()).getTimezoneOffset();
-    for (const p in this.headers) if (bkjs.isU(options.headers[p])) options.headers[p] = this.headers[p];
-    for (const p in options.data) if (bkjs.isU(options.data[p])) delete options.data[p];
-    bkjs.event("bkjs.loading", "show");
+    for (const p in this.headers) if (this.isU(options.headers[p])) options.headers[p] = this.headers[p];
+    for (const p in options.data) if (this.isU(options.data[p])) delete options.data[p];
+    this.event("bkjs.loading", "show");
 
-    bkjs[options.xhr ? "xhr" : "fetch"](options, (err, data, info) => {
-        bkjs.event("bkjs.loading", "hide");
+    this[options.xhr ? "xhr" : "fetch"](options, (err, data, info) => {
+        this.event("bkjs.loading", "hide");
 
-        var h = info?.headers[bkjs.hcsrf] || "";
+        var h = info?.headers[this.hcsrf] || "";
         switch (h) {
         case "":
             break;
         case "0":
-            delete bkjs.headers[bkjs.hcsrf];
+            delete this.headers[this.hcsrf];
             break;
         default:
-            bkjs.headers[bkjs.hcsrf] = h;
+            this.headers[this.hcsrf] = h;
         }
 
         if (err) {
-            if (!options.quiet) bkjs.log('send:', err, options);
+            if (!options.quiet) this.log('send:', err, options);
             if (options.alert) {
-                var a = bkjs.isS(options.alert) && options.alert;
-                bkjs.event("bkjs.alert", ["error", a || err, { safe: !a }]);
+                var a = this.isS(options.alert) && options.alert;
+                this.event("bkjs.alert", ["error", a || err, { safe: !a }]);
             }
-            if (bkjs.isF(onerror)) onerror.call(options.self || bkjs, err, info);
-            if (options.trigger) bkjs.event(options.trigger, { url: options.url, query: options.data, err: err });
+            if (this.isF(onerror)) onerror.call(options.self || this, err, info);
+            if (options.trigger) this.event(options.trigger, { url: options.url, query: options.data, err: err });
         } else {
             if (!data && options.dataType == 'json') data = {};
             if (options.info_msg || options.success_msg) {
-                bkjs.event("bkjs.alert", [options.info_msg ? "info" : "success", options.info_msg || options.success_msg]);
+                this.event("bkjs.alert", [options.info_msg ? "info" : "success", options.info_msg || options.success_msg]);
             }
-            if (bkjs.isF(onsuccess)) onsuccess.call(options.self || bkjs, data, info);
-            if (options.trigger) bkjs.event(options.trigger, { url: options.url, query: options.data, data: data });
+            if (this.isF(onsuccess)) onsuccess.call(options.self || this, data, info);
+            if (options.trigger) this.event(options.trigger, { url: options.url, query: options.data, data: data });
         }
     });
 }
 
 bkjs.get = function(options, callback)
 {
-    bkjs.sendRequest(bkjs.objExtend(options, { type: "GET" }), callback);
+    this.sendRequest(this.objExtend(options, { type: "GET" }), callback);
 }
 
 // Make a request and use single callback with error as the first argument or null if no error
 bkjs.sendRequest = function(options, callback)
 {
-    return bkjs.send(options, (data, info) => {
-        if (bkjs.isF(callback)) callback.call(options.self || bkjs, null, data, info);
+    return this.send(options, (data, info) => {
+        if (this.isF(callback)) callback.call(options.self || this, null, data, info);
     }, (err, info) => {
-        if (bkjs.isF(callback)) callback.call(options.self || bkjs, err, {}, info);
+        if (this.isF(callback)) callback.call(options.self || this, err, {}, info);
     });
 }
 
@@ -196,18 +182,18 @@ bkjs.sendFile = function(options, callback)
         form.append(p, v);
         n++;
     }
-    if (!n) return callback && callback.call(options.self || bkjs);
+    if (!n) return callback && callback.call(options.self || this);
 
-    function add(k, v) {
-       form.append(k, bkjs.isF(v) ? v() : v === null || v === true ? "" : v);
+    const add = (k, v) => {
+       form.append(k, this.isF(v) ? v() : v === null || v === true ? "" : v);
     }
 
-    function build(key, val) {
+    const build = (key, val) => {
         if (val === undefined) return;
         if (Array.isArray(val)) {
             for (const i in val) build(`${key}[${typeof val[i] === "object" && val[i] != null ? i : ""}]`, val[i]);
         } else
-        if (bkjs.isObject(val)) {
+        if (this.isObject(val)) {
             for (const n in val) build(`${key}[${n}]`, val[n]);
         } else {
             add(key, val);
@@ -217,99 +203,25 @@ bkjs.sendFile = function(options, callback)
 
     // Send within the session, multipart is not supported by signature
     var rc = { url: options.url, data: form };
-    for (const p in options) if (bkjs.isU(rc[p])) rc[p] = options[p];
+    for (const p in options) if (this.isU(rc[p])) rc[p] = options[p];
     this.sendRequest(rc, callback);
 }
 
 // Return a file object for the selector
 bkjs.getFileInput = function(file)
 {
-    if (bkjs.isS(file)) file = $(file);
+    if (this.isS(file)) file = $(file);
     if (file instanceof jQuery && file.length) file = file[0];
-    if (bkjs.isO(file)) {
+    if (this.isO(file)) {
         if (file.files && file.files.length) return file.files[0];
         if (file.name && file.size && (file.type || file.lastModified)) return file;
     }
     return "";
 }
 
-// WebSockets helper functions
-bkjs.wsConnect = function(options)
-{
-    var conf = bkjs.wsconf;
-    if (conf.timer) {
-        clearTimeout(conf.timer);
-        delete conf.timer;
-    }
-    if (conf.bye) return;
-
-    for (const p in options) conf[p] = options[p];
-    if (!conf.query) conf.query = {};
-    for (const p in conf.headers) if (bkjs.isU(conf.query[p])) conf.query[p] = conf.headers[p];
-    var url = (conf.protocol || window.location.protocol.replace("http", "ws")) + "//" +
-              (conf.host || (conf.hostname ? conf.hostname + "." + this.domainName(window.location.hostname) : "") || window.location.hostname) + ":" +
-              (conf.port || window.location.port) +
-              conf.path + "?" + bkjs.toQuery(conf.query);
-
-    this.ws = new WebSocket(url);
-    this.ws.onopen = function() {
-        if (conf.debug) bkjs.log("ws.open:", this.url);
-        conf.ctime = Date.now();
-        conf.timeout = bkjs.wsconf.retry_timeout;
-        conf.retries = 0;
-        while (conf.pending.length) {
-            bkjs.wsSend(conf.pending.shift());
-        }
-        bkjs.event("bkjs.ws.opened");
-    }
-    this.ws.onerror = function(err) {
-        if (conf.debug) bkjs.log('ws.error:', this.url, err);
-    }
-    this.ws.onclose = function() {
-        if (conf.debug) bkjs.log("ws.closed:", this.url, bkjs.wsconf.timeout);
-        bkjs.ws = null;
-        if (!conf.bye && ++conf.retries < conf.max_retries) {
-            conf.timer = setTimeout(bkjs.wsConnect.bind(bkjs), conf.timeout);
-            conf.timeout *= conf.timeout == conf.max_timeout ? 0 : conf.retry_mod;
-            conf.timeout = bkjs.toClamp(conf.timeout, conf.retry_timeout, conf.max_timeout);
-        }
-        bkjs.event("bkjs.ws.closed");
-    }
-    this.ws.onmessage = function(msg) {
-        var data = msg.data;
-        if (data === "bye") bkjs.wsClose(1);
-        if (bkjs.isS(data) && (data[0] == "{" || data[0] == "[")) data = JSON.parse(data);
-        if (bkjs.wsconf.debug) bkjs.log('ws.message:', data);
-        bkjs.event("bkjs.ws.message", data);
-    }
-}
-
-bkjs.wsClose = function(bye)
-{
-    this.wsconf.bye = 1;
-    if (this.ws) this.ws.close();
-}
-
-// Send a string data or an object in jQuery ajax format { url:.., data:.. } or as an object to be stringified
-bkjs.wsSend = function(data)
-{
-    if (this.ws?.readyState != WebSocket.OPEN) {
-        this.wsconf.pending.push(data);
-        return;
-    }
-    if (bkjs.isO(data) && data) {
-        if (data.url && data.url[0] == "/") {
-            data = data.url + (data.data ? "?" + bkjs.toQuery(data.data) : "");
-        } else {
-            data = JSON.stringified(data);
-        }
-    }
-    this.ws.send(data);
-}
-
 bkjs.domainName = function(host)
 {
-    if (!bkjs.isS(host) || !host) return "";
+    if (!this.isS(host) || !host) return "";
     var name = host.split('.');
     return (name.length > 2 ? name.slice(1).join('.') : host).toLowerCase();
 }
@@ -329,7 +241,7 @@ bkjs.param = function(name, dflt, num)
 // Percent encode with special symbols in addition
 bkjs.encode = function(str)
 {
-    if (bkjs.isU(str)) return "";
+    if (this.isU(str)) return "";
     return encodeURIComponent(str).replace(/[!'()*]/g, (m) => (m == '!' ? '%21' : m == "'" ? '%27' : m == '(' ? '%28' : m == ')' ? '%29' : m == '*' ? '%2A' : m));
 }
 
@@ -356,7 +268,7 @@ bkjs.log = function()
 // Console output if debugging is enabled
 bkjs.trace = function(...args)
 {
-    if (bkjs.debug) bkjs.log(...args);
+    if (this.debug) this.log(...args);
 }
 
 $(function() {

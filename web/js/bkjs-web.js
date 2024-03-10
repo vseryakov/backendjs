@@ -8,8 +8,8 @@ bkjs.plugins = [];
 bkjs.applyPlugins = function(target)
 {
     if (!target) return;
-    for (const i in bkjs.plugins) {
-        if (bkjs.isF(bkjs.plugins[i])) bkjs.plugins[i](target);
+    for (const i in this.plugins) {
+        if (this.isF(this.plugins[i])) this.plugins[i](target);
     }
 }
 
@@ -39,7 +39,7 @@ bkjs.sanitizer = {
     },
 
     run: function(html) {
-        if (!html || !bkjs.isS(html)) return html;
+        if (!html || typeof html != "string") return html;
         const dom = new window.DOMParser();
         const doc = dom.parseFromString(html, 'text/html');
         const elements = [...doc.body.querySelectorAll('*')];
@@ -63,15 +63,15 @@ bkjs.toQuery = function(obj)
 {
     var rc = [];
 
-    function add(k, v) {
-       rc.push(encodeURIComponent(k) + "=" + encodeURIComponent(bkjs.isF(v) ? v() : v === null ? v: v === true ? "1" : v));
+    const add = (k, v) => {
+       rc.push(encodeURIComponent(k) + "=" + encodeURIComponent(this.isF(v) ? v() : v === null ? v: v === true ? "1" : v));
     }
 
-    function build(key, val) {
+    const build = (key, val) => {
         if (Array.isArray(val)) {
             for (const i in val) build(`${key}[${typeof val[i] === "object" && val[i] != null ? i : ""}]`, val[i]);
         } else
-        if (bkjs.isObject(val)) {
+        if (this.isObject(val)) {
             for (const n in val) build(`${key}[${n}]`, val[n]);
         } else {
             add(key, val);
@@ -100,15 +100,15 @@ bkjs.createElement = function()
 // options.callback will be called with (el, opts) args for customizations after the log or error
 bkjs.loadResources = function(urls, options, callback)
 {
-    if (bkjs.isF(options)) callback = options, options = null;
-    const cb = bkjs.isF(options?.callback) ? options.callback : () => {};
+    if (this.isF(options)) callback = options, options = null;
+    const cb = this.isF(options?.callback) ? options.callback : () => {};
     this.forEach(urls, (url, next) => {
         let el;
         const ev = () => { cb(el, options); next() }
         if (/\.css/.test(url)) {
-            el = bkjs.createElement("link", "rel", "stylesheet", "type", "text/css", "href", url, "load", ev, "error", ev)
+            el = this.createElement("link", "rel", "stylesheet", "type", "text/css", "href", url, "load", ev, "error", ev)
         } else {
-            el = bkjs.createElement('script', "async", !!options?.async, "src", url, "load", ev, "error", ev)
+            el = this.createElement('script', "async", !!options?.async, "src", url, "load", ev, "error", ev)
         }
         for (const p in options?.attrs) el[p] = options.attrs[p];
         document.head.appendChild(el);
@@ -124,7 +124,7 @@ bkjs.xhr = function(options, callback)
     for (const h in opts.headers) r.setRequestHeader(h, opts.headers[h]);
     r.onloadend = (ev) => {
         var info = { status: r.status, headers: {}, readyState: r.readyState };
-        bkjs.strSplit(r.getAllResponseHeaders(), /[\r\n]+/).forEach((line) => {
+        this.strSplit(r.getAllResponseHeaders(), /[\r\n]+/).forEach((line) => {
             line = line.split(': ');
             info.headers[line.shift()] = line.join(': ');
         });
@@ -133,15 +133,15 @@ bkjs.xhr = function(options, callback)
             try { data = JSON.parse(data) } catch (e) {}
         }
         if (r.status >= 200 && r.status < 300) {
-            bkjs.isF(callback) && callback(null, data, info);
+            this.isF(callback) && callback(null, data, info);
         } else {
-            bkjs.isF(callback) && callback({ status: r.status, message: data.message || data || r.statusText }, data, info);
+            this.isF(callback) && callback({ status: r.status, message: data.message || data || r.statusText }, data, info);
         }
     }
     try {
         r.send(opts.body || null);
     } catch (err) {
-        bkjs.isF(callback) && callback(err);
+        this.isF(callback) && callback(err);
     }
 }
 
@@ -151,7 +151,7 @@ bkjs.appLocation = window.location.origin + bkjs.appPath;
 
 bkjs.appEvent = function(name, data)
 {
-    bkjs.event("bkjs.event", [name, bkjs.toCamel("on_" + name), data]);
+    this.event("bkjs.event", [name, this.toCamel("on_" + name), data]);
 }
 
 bkjs.getBreakpoint = function()
@@ -162,43 +162,43 @@ bkjs.getBreakpoint = function()
 
 bkjs.setBreakpoint = function()
 {
-    bkjs.breakpoint = bkjs.getBreakpoint();
+    this.breakpoint = this.getBreakpoint();
     document.documentElement.style.setProperty('--height', (window.innerHeight * 0.01) + "px");
 }
 
 bkjs.resized = function(event)
 {
-    clearTimeout(bkjs._resized);
-    bkjs._koResized = setTimeout(bkjs.setBreakpoint, 500);
+    clearTimeout(this._resized);
+    this._koResized = setTimeout(this.setBreakpoint.bind(this), 500);
 }
 
 bkjs.pushLocation = function(path, name, options)
 {
-    if (!path || !name || path == bkjs._appLocation) return;
-    window.history.pushState({ name: name, options: options }, name, bkjs.appLocation + path);
-    bkjs._appLocation = path;
-    bkjs.trace("pushLocation:", path, name, options)
+    if (!path || !name || path == this._appLocation) return;
+    window.history.pushState({ name: name, options: options }, name, this.appLocation + path);
+    this._appLocation = path;
+    this.trace("pushLocation:", path, name, options)
 }
 
 bkjs.parseLocation = function(path, dflt)
 {
     var loc = window.location;
-    if (path && (loc.origin + path).indexOf(bkjs.appLocation) != 0) path = "";
+    if (path && (loc.origin + path).indexOf(this.appLocation) != 0) path = "";
     var location = loc.origin + (path || loc.pathname);
-    var params = location.substr(bkjs.appLocation.length).split("/");
-    bkjs.trace("parseLocation:", loc.pathname, "path:", path, "dflt:", dflt, "params:", params);
-    return { path: path, dflt: dflt, params: params, component: bkjs.findComponent(params[0]) };
+    var params = location.substr(this.appLocation.length).split("/");
+    this.trace("parseLocation:", loc.pathname, "path:", path, "dflt:", dflt, "params:", params);
+    return { path: path, dflt: dflt, params: params, component: this.findComponent(params[0]) };
 }
 
 bkjs.restoreComponent = function(path, dflt)
 {
-    var loc = bkjs.parseLocation(path, dflt);
-    bkjs.showComponent(loc.component?.name || loc.dflt || "none", { param: loc.params[1], param2: loc.params[2], param3: loc.params[3] });
+    var loc = this.parseLocation(path, dflt);
+    this.showComponent(loc.component?.name || loc.dflt || "none", { param: loc.params[1], param2: loc.params[2], param3: loc.params[3] });
 }
 
 window.onpopstate = function(event)
 {
-    if (event?.state?.name) bkjs.showComponent(event.state.name, event.state.options);
+    if (event?.state?.name) this.showComponent(event.state.name, event.state.options);
 }
 
 $(function() {
