@@ -31,23 +31,35 @@ case "$BKJS_CMD" in
     [ "$?" != "0" ] && exit 1
 
     if [ "$(get_flag -create)" != "" ]; then
-        region=$(echo $ecr|grep -o -E 'ecr.([a-z0-9-]+).amazonaws'|cut -d. -f2)
-        aws ecr describe-repositories --region $region --repository-names $repo --query repositories[*].repositoryUri --output text 2>/dev/null
-        if [ "$?" != "0" ]; then
-            aws ecr create-repository --region $region --repository-name $repo
-            [ "$?" != "0" ] && exit 1
-        fi
+        $ecr-create -repo $repo
+        [ "$?" != "0" ] && exit 1
     fi
 
     tag=$(get_arg -tag latest)
     docker tag $image $ecr/$repo:$tag
     docker push $ecr/$repo:$tag
+    [ "$?" != "0" ] && exit 1
 
     if [ "$(get_flag -latest)" -a "$tag" != "latest" ]; then
         docker tag $image $ecr/$repo:latest
         docker push $ecr/$repo:latest
+        [ "$?" != "0" ] && exit 1
     fi
-    exit
+    exit 0
+    ;;
+
+  ecr-create)
+    repo=$(get_arg -repo)
+    [ "$repo" = "" ] && echo "-repo is required" && exit 1
+    region=$(get_arg -region $BKJS_ECR_REGION)
+    [ -z $region ] && region=$($0 ec2-region)
+
+    aws ecr describe-repositories --region $region --repository-names $repo --query repositories[*].repositoryUri --output text 2>/dev/null
+    if [ "$?" != "0" ]; then
+        aws ecr create-repository --region $region --repository-name $repo
+        [ "$?" != "0" ] && exit 1
+    fi
+    exit 0
     ;;
 
   ecr-del)
@@ -78,8 +90,9 @@ case "$BKJS_CMD" in
 
   help)
     echo ""
-    echo "  ecr-get [-account ID] [-region REPO] [-login] - login into ECR if required or return ECR host name"
+    echo "  ecr-get [-account ID] [-region R] [-login] - login into ECR if required or return ECR host name"
     echo "  ecr-push -repo REPO -image IMAGE [-tag TAG|VERSION] [-latest] [-create] [-login 0|1] - tag and push a docker image to ECR, -latest also pushes it as :latest if -tag is different"
+    echo "  ecr-create -repo REPO [-region R] - create a repo if not exist"
     echo "  ecr-del -tag NAME -repo REPO - delete an image from repo by tag"
     echo "  ecr-manifest -tag NAME -repo REPO -arm ARMTAG -amd AMDTAG - combine ARM and AMD platforms into one container using manifest"
     ;;
