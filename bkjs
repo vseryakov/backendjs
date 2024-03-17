@@ -176,7 +176,7 @@ find_user() {
 
 # Run the command by sourcing all scripts from tools folders
 process_cmd() {
-  local _cmddir= _cmdscope= _cmdtools="$(get_arg -tools) $BKJS_TOOLS $BKJS_HOME/tools $BKJS_DIR/tools"
+  local _cmddir= _cmdscope= _cmdtools="$(get_arg -tools) ./tools $BKJS_TOOLS $BKJS_HOME/tools $BKJS_DIR/tools"
   [[ -n "$BKJS_ALLCMD" ]] && _cmdscope='bkjs-*' || _cmdscope="bkjs-$BKJS_SPACE*"
   [[ -n "$BKJS_DEBUG" ]] && echo "$(date): $BKJS_CMD: process_cmd: $_cmdscope: tools: $_cmdtools"
   for _cmddir in $_cmdtools; do
