@@ -105,7 +105,7 @@ case "$BKJS_CMD" in
     fi
     find_user
     $ECHO "$BKJS_HOME/log/$REDIS.log {\n  weekly\n  rotate 10\n  copytruncate\n  delaycompress\n  compress\n  notifempty\n  missingok\n}" > /etc/logrotate.d/$REDIS
-    $ECHO "check process $REDIS-server with pidfile \"$BKJS_HOME/var/$REDIS.pid\" start program = \"$BKJS_BIN $REDIS-run $(get_all_args)\" as uid $BKJS_USER and gid $BKJS_GROUP stop program = \"$BKJS_BIN $REDIS-stop\" if failed host 127.0.0.1 port 6379 for 2 cycles then restart" > /etc/monit.d/$REDIS.conf
+    $ECHO "check process $REDIS-server with pidfile \"$BKJS_HOME/var/$REDIS.pid\" start program = \"$BKJS_BIN redis-run $(get_all_args)\" as uid $BKJS_USER and gid $BKJS_GROUP stop program = \"$BKJS_BIN redis-stop\" if failed host 127.0.0.1 port 6379 for 2 cycles then restart" > /etc/monit.d/$REDIS.conf
     monit reload
     exit
     ;;
