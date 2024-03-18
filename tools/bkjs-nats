@@ -59,7 +59,7 @@ case "$BKJS_CMD" in
     ;;
 
   nats-init-monit)
-    $0 monit-init -name nats -start "$BKJS_BIN run-nats" -stop "$BKJS_BIN stop-nats"
+    $0 monit-init -name nats -start "$BKJS_BIN nats-run" -stop "$BKJS_BIN nats-stop"
     monit reload
     exit
     ;;
