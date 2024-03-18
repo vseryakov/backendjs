@@ -7,7 +7,7 @@
 case "$BKJS_CMD" in
 
   ecs-ls)
-    cluster=$(get_arg -cluster $BKJS_CLUSTER)
+    cluster=$(get_arg -cluster $BKJS_ECS_CLUSTER)
     status=$(get_arg -status RUNNING)
     service=$(get_arg -service)
     [ -n "$service" ] && service="--service-name $service"
@@ -16,7 +16,7 @@ case "$BKJS_CMD" in
     ;;
 
   ecs-ps)
-    cluster=$(get_arg -cluster $BKJS_CLUSTER)
+    cluster=$(get_arg -cluster $BKJS_ECS_CLUSTER)
     task=$(get_arg -task)
     [ -z "$task" ] && task=$(ecs-ls -service $service|cut -s -d/ -f3|head -$(get_arg -index 1)|tail -1)
     aws ecs describe-tasks --task "$task" --cluster "$cluster" --output $(get_arg -output yaml)
@@ -24,7 +24,7 @@ case "$BKJS_CMD" in
     ;;
 
   ecs-sh)
-    cluster=$(get_arg -cluster $BKJS_CLUSTER)
+    cluster=$(get_arg -cluster $BKJS_ECS_CLUSTER)
     service=$(get_arg -service)
     task=$(get_arg -task)
     [ -z "$task" ] && task=$(ecs-ls -service $service|cut -s -d/ -f3|head -$(get_arg -index 1)|tail -1)
@@ -33,7 +33,7 @@ case "$BKJS_CMD" in
     ;;
 
   ecs-update)
-    cluster=$(get_arg -cluster $BKJS_CLUSTER)
+    cluster=$(get_arg -cluster $BKJS_ECS_CLUSTER)
     service=$(get_arg -service)
 
     cmd="aws ecs update-service --cluster $cluster --service $service --output $(get_arg -output yaml)"
@@ -104,7 +104,7 @@ case "$BKJS_CMD" in
 
   ecs-run)
     task=$(get_arg -task)
-    cluster=$(get_arg -cluster $BKJS_CLUSTER)
+    cluster=$(get_arg -cluster $BKJS_ECS_CLUSTER)
 
     cmd="aws ecs run-task --cluster $cluster --task-definition $task --count $(get_arg -count 1) --output $(get_arg -output yaml)"
 

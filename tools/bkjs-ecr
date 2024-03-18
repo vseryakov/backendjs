@@ -15,8 +15,9 @@ case "$BKJS_CMD" in
     ecr="$id.dkr.ecr.$region.amazonaws.com"
     echo $ecr
 
-    login=$(get_flag -login $BKJS_ECR_LOGIN)
-    [ "$login" != "1" ] && exit
+    login=$(get_flag -login ${BKJS_ECR_LOGIN:-1})
+    [ "$login" != "1" ] && exit 0
+
     aws ecr get-login-password| docker login --username AWS --password-stdin $ecr
     [ "$?" != "0" ] && exit 1
     exit 0
@@ -30,22 +31,36 @@ case "$BKJS_CMD" in
     ecr=$($0 ecr-get $(get_all_args))
     [ "$?" != "0" ] && exit 1
 
-    if [ "$(get_flag -create)" != "" ]; then
-        $ecr-create -repo $repo
+    if [ -n "$(get_flag -create)" ]; then
+        $0 ecr-create -repo $repo
         [ "$?" != "0" ] && exit 1
     fi
 
-    tag=$(get_arg -tag latest)
-    docker tag $image $ecr/$repo:$tag
-    docker push $ecr/$repo:$tag
+    $0 ecr-tag -ecr $ecr $(get_all_args)
     [ "$?" != "0" ] && exit 1
 
-    if [ "$(get_flag -latest)" -a "$tag" != "latest" ]; then
-        docker tag $image $ecr/$repo:latest
-        docker push $ecr/$repo:latest
+    if [ -n "$(get_flag -latest)" -a "$(get_arg -tag)" != "latest" ]; then
+        $0 ecr-tag -ecr $ecr $(get_all_args "-tag")
         [ "$?" != "0" ] && exit 1
     fi
     exit 0
+    ;;
+
+  ecr-tag)
+    repo=$(get_arg -repo)
+    image=$(get_arg -image)
+    [ "$repo" = "" -o "$image" = "" ] && echo "-repo and -image are required" && exit 1
+    tag=$(get_arg -tag latest)
+
+    ecr=$(get_arg -ecr)
+    if [ -z "$ecr" ]; then
+        ecr=$($0 ecr-get $(get_all_args))
+        [ "$?" != "0" ] && exit 1
+    fi
+
+    docker tag $image $ecr/$repo:$tag
+    docker push $ecr/$repo:$tag
+    exit
     ;;
 
   ecr-create)
@@ -91,7 +106,8 @@ case "$BKJS_CMD" in
   help)
     echo ""
     echo "  ecr-get [-account ID] [-region R] [-login] - login into ECR if required or return ECR host name"
-    echo "  ecr-push -repo REPO -image IMAGE [-tag TAG|VERSION] [-latest] [-create] [-login 0|1] - tag and push a docker image to ECR, -latest also pushes it as :latest if -tag is different"
+    echo "  ecr-push -repo REPO -image IMAGE [-tag latest|TAG|VERSION] [-latest] [-create] [-login 0|1] - tag and push a docker image to ECR, create if needed, -latest also pushes it as :latest if -tag is different"
+    echo "  ecr-tag -repo REPO -image IMAGE [-ecr ECR] [-tag latest] - tag and push a docker image to ECR, repository must exist"
     echo "  ecr-create -repo REPO [-region R] - create a repo if not exist"
     echo "  ecr-del -tag NAME -repo REPO - delete an image from repo by tag"
     echo "  ecr-manifest -tag NAME -repo REPO -arm ARMTAG -amd AMDTAG - combine ARM and AMD platforms into one container using manifest"
