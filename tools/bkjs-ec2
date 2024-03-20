@@ -20,10 +20,10 @@ case "$BKJS_CMD" in
 
   start-instance)
     region=$(echo $(get_ec2_meta latest/meta-data/placement/availability-zone/)|sed 's/[a-z]$//')
-    if [ ! -z $region ]; then
+    if [ -n "$region" ]; then
        echo "Setting region $region ..."
        (aws configure set region $region)
-       ([[ $(whoami) = root ]] && su ec2-user -c "aws configure set region $region")
+       ([ "$(whoami)" = "root" ] && su ec2-user -c "aws configure set region $region")
        ($0 ec2-check-storage)
        ($0 ec2-check-hostname)
        ($0 ec2-check-cloudwatch-agent)
@@ -116,7 +116,7 @@ case "$BKJS_CMD" in
 
   ec2-region)
     [ -f $HOME/.aws/config ] && region=$(awk '/^region/{print $3}' $HOME/.aws/config)
-    [ ! -z $region ] && echo $region && exit
+    [ -n "$region" ] && echo $region && exit
     echo $(get_ec2_meta latest/meta-data/placement/availability-zone/)|sed 's/[a-z]$//'
     exit
     ;;
@@ -128,13 +128,15 @@ case "$BKJS_CMD" in
 
   ec2-account)
     [ -f $HOME/.aws/config ] && id=$(awk '/^account-id/{print $3}' $HOME/.aws/config)
-    [ ! -z $id ] && echo $id && exit
+    [ -n "$id" ] && echo $id && exit
     echo $(get_ec2_meta latest/dynamic/instance-identity/document)|sed 's/[{}":]//g'|tr , "\n"|grep accountId|awk '{print $2}'
     exit
     ;;
 
   ec2-tag)
     tag=$(get_arg -tag Name)
+    v=$(get_ec2_meta latest/meta-data/tags/instance/$tag)
+    [ -n "$v" ] && echo $v && exit
     id=$(get_ec2_meta latest/meta-data/instance-id)
     [ "$id" != "" ] && aws ec2 describe-tags --filter "Name=key,Values=$tag" "Name=resource-id,Values=$id" --output text| cut -f5|head -1
     exit
@@ -149,7 +151,7 @@ case "$BKJS_CMD" in
     tag=$(get_arg -tag)
     [ "$tag" != "" ] && instance_id=$(bkjs ec2-show -tag $tag -fmt id | head -1)
     instance_id=$(get_arg -instance-id $instance_id)
-    if [ -z $instance_id ]; then
+    if [ -z "$instance_id" ]; then
         echo 1 > $HOME/var/bkjs.init
         rm -f $HOME/var/bkjs.tag
         for f in /etc/monit.d/*.conf; do
@@ -165,7 +167,7 @@ case "$BKJS_CMD" in
     prefix=$(get_arg -prefix)
     [ "$(get_flag -force)" != "" ] && force="-force"
     bksh -no-db -aws-create-image -wait $force -instance-id $instance_id -name "$name" -prefix "$prefix"
-    if [ -z $instance_id ]; then
+    if [ -z "$instance_id" ]; then
         rm -f $HOME/var/bkjs.init
         for f in $saved_files; do sudo mv $f /etc/monit.d; done
         [ -f /tmp/profile.local ] && mv /tmp/profile.local $HOME/etc
@@ -186,7 +188,7 @@ case "$BKJS_CMD" in
         for s in $skip; do
             [ "$c" = "$s" ] && c=""
         done
-        [ -z $c ] && continue
+        [ -z "$c" ] && continue
         bksh -no-db -aws-create-launch-template-version -name $c -image-name "$image"
     done
     exit
@@ -227,7 +229,10 @@ case "$BKJS_CMD" in
     conf=$dir/etc/amazon-cloudwatch-agent.json
     echo "{ \"agent\": { \"logfile\": \"/var/log/cwagent.log\" }, \"logs\": { \"logs_collected\": { \"files\": { \"collect_list\": [ $logs ] } }, \"log_stream_name\": \"$tag\" } }" > $tmp
     cmp $conf $tmp
-    [ "$?" = "0" ] && exit
+    if [ "$?" = "0" ]; then
+        rm -f $tmp
+        exit
+    fi
     mv $tmp $conf
     $dir/bin/config-translator --input $dir/etc/amazon-cloudwatch-agent.json --output $dir/etc/amazon-cloudwatch-agent.toml --mode "auto"
     case "$OS_TYPE" in
