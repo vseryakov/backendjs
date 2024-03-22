@@ -213,10 +213,11 @@ This is the typical output from the ps command on Linux server:
 To enable any task a command line parameter must be provided, it cannot be specified in the config file. The `bkjs` utility supports several
 commands that simplify running the backend in different modes.
 
+- `bkjs start` - this command is supposed to be run at the server startup as a service, it runs in the background and the monitors all tasks,
+   the env variable `BKJS_SERVER` must be set in the profile to one of the `master or monitor` to define which run mode to use
+- `bkjs start-instance` - this command is supposed to be run at the server startup to perform system adjustments, it is run in `bkjs start`
 - `bkjs watch` - runs the master and Web server in wather mode checking all source files for changes, this is the common command to be used
    in development, it passes the command line switches: `-watch -master`
-- `bkjs start` - this command is supposed to be run at the server startup as a service, it runs in the background and the monitors all tasks,
-   the env variable `BKJS_SERVER` can be set in the profile to one of the `master or monitor` to define which run mode to use, default mode is monitor
 - `bkjs monitor` - this command is supposed to be run at the server startup, it runs in the background and the monitors all processes,
    the command line parameters are: `-daemon -monitor -master -syslog`
 - `bkjs master` - this command is supposed to be run at the server startup, it runs in the background and the monitors all processes,

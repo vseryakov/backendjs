@@ -12,9 +12,9 @@ case "$BKJS_CMD" in
     space=$(get_arg -space 90)
     path=$(get_arg -path /)
     [ "$OS_TYPE" = "amazon" ] && delay=$(($delay*2))
-    $ECHO "set daemon 30 with start delay $delay" > /etc/monit.d/system.conf
-    $ECHO "check system \$HOST every 3 cycles if loadavg(1min) > $load for 15 cycles then alert" >> /etc/monit.d/system.conf
-    $ECHO "check filesystem rootfs with path $path every 30 cycles if space usage > ${space}% then alert" >> /etc/monit.d/system.conf
+    echo -e "set daemon 30 with start delay $delay" > /etc/monit.d/system.conf
+    echo -e "check system \$HOST every 3 cycles if loadavg(1min) > $load for 15 cycles then alert" >> /etc/monit.d/system.conf
+    echo -e "check filesystem rootfs with path $path every 30 cycles if space usage > ${space}% then alert" >> /etc/monit.d/system.conf
     monit reload
     exit
     ;;
@@ -22,7 +22,7 @@ case "$BKJS_CMD" in
   monit-init-bkjs)
     find_user
     timeout=$(get_arg -timeout 30)
-    $ECHO "check process $BKJS with pidfile \"$BKJS_HOME/var/master.pid\" start program = \"$BKJS_BIN run-master $(get_all_args)\" as uid $BKJS_USER and gid $BKJS_GROUP with timeout $timeout seconds stop program = \"$BKJS_BIN stop\"" > /etc/monit.d/$BKJS.conf
+    echo -e "check process $BKJS with pidfile \"$BKJS_HOME/var/master.pid\" start program = \"$BKJS_BIN run-master $(get_all_args)\" as uid $BKJS_USER and gid $BKJS_GROUP with timeout $timeout seconds stop program = \"$BKJS_BIN stop\"" > /etc/monit.d/$BKJS.conf
     monit reload
     exit
     ;;
@@ -31,6 +31,7 @@ case "$BKJS_CMD" in
     if [ -f /etc/monit.d/$BKJS.conf ]; then
        rm /etc/monit.d/$BKJS.conf
        monit reload
+       $0 stop
     fi
     exit
     ;;
@@ -46,15 +47,15 @@ case "$BKJS_CMD" in
             events=$(get_arg -events "action,connection,data,pid,ppid,exec,content,resource,status,timeout")
             echo "Init monit alert: $email $events, $host, $user"
             [ "$events" != "" ] && events="only on { $events }"
-            $ECHO "set alert $email $events" > /etc/monit.d/alert.conf
-            $ECHO "set mail-format { from: $email }" >> /etc/monit.d/alert.conf
+            echo -e "set alert $email $events" > /etc/monit.d/alert.conf
+            echo -e "set mail-format { from: $email }" >> /etc/monit.d/alert.conf
             if [[ ! -z $host ]]; then
                 server="set mailserver $host"
                 if match $host amazonaws; then server="$server port 465"; fi
                 [[ ! -z $user ]] && server="$server username $user"
                 [[ ! -z $password ]] && server="$server password $password"
                 if match $host amazonaws; then server="$server using tlsv12"; fi
-                $ECHO $server >> /etc/monit.d/alert.conf
+                echo -e $server >> /etc/monit.d/alert.conf
             fi
             monit reload
         fi

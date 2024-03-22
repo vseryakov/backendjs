@@ -3,9 +3,6 @@
 #  Author: Vlad Seryakov vseryakov@gmail.com
 #  Sep 2013
 #
-# chkconfig: 2345 51 51
-# description: backendjs server
-#
 
 BKJS=bkjs
 BKJS_MOD=backendjs
@@ -29,7 +26,6 @@ case "$PLATFORM" in
     esac
     [ -f /etc/default/$BKJS ] && . /etc/default/$BKJS
     [ -f /etc/sysconfig/$BKJS ] && . /etc/sysconfig/$BKJS
-    ECHO="echo -e"
     SED="sed -r -i"
     SHASUM=sha1sum
     ;;
@@ -38,7 +34,6 @@ case "$PLATFORM" in
     OS_TYPE=macosx
     [ "$BKJS_HOME" = "" ] && export BKJS_HOME=~/.bkjs
     [ "$BKJS_PREFIX" = "" ] && export BKJS_PREFIX=/opt/local
-    ECHO="echo -e"
     SED="sed -E -i .orig"
     SHASUM=shasum
     ;;
@@ -221,14 +216,37 @@ export PATH=$BKJS_HOME/bin:$BKJS_HOME/node_modules/.bin:$BKJS_PREFIX/bin:/app/bi
 [[ -n "$BKJS_DEBUG" ]] && echo "$(date): $0: HOME=$BKJS_HOME, PREFIX=$BKJS_PREFIX, PWD=$(pwd), USER=$(whoami), CMD=$BKJS_CMD, ARGS=$@"
 
 case "$BKJS_CMD" in
-  status|restart)
-    ;;
 
   start)
     cd $BKJS_HOME
-    ([[ $(whoami) = root ]] && $0 start-instance)
-    $0 run-${BKJS_SERVER:-none}
+    [ "$(whoami)" = "root" ] && ($0 start-instance)
+    [ -n "$BKJS_SERVER" -a "$BKJS_SERVER" != "none" ] && $0 run-$BKJS_SERVER
     exit
+    ;;
+
+  start-instance)
+    # Fresh start, reset monit
+    if [ -f $BKJS_HOME/var/bkjs.init ]; then
+        [ -z "$(pgrep -x monit)" ] && rm -f /var/run/monit.pid /root/.monit.state /root/.monit.id
+    fi
+
+    # Setup domain from the config, keep the hostname as it is, for EC2 instances it is the IP address
+    domain=$(get_arg -domain $BKJS_DOMAIN)
+    [ "$domain" != "" ] && $0 init-hostname -domain $domain
+
+    # Allow other tools to run
+    BKJS_ALLCMD=1
+    process_cmd
+
+    # New instance started from existing AMI which might have old log files
+    if [ -f $BKJS_HOME/var/bkjs.init ]; then
+        echo "Initializing $BKJS_HOME..."
+        rm -rf $BKJS_HOME/var/* $BKJS_HOME/log/*
+        service rsyslog restart
+    fi
+    find_user
+    chown -R $BKJS_USER $BKJS_HOME/etc $BKJS_HOME/var $BKJS_HOME/log
+    exit 0
     ;;
 
   stop)
@@ -248,24 +266,6 @@ case "$BKJS_CMD" in
     name=${BKJS_CMD:5}
     [ "$name" = "" ] && exit 0
     pkill $1 -f "$BKJS: $name"
-    exit 0
-    ;;
-
-  start-instance)
-    # Setup domain from the config, keep the hostname as it is, for EC2 instances it is the IP address
-    domain=$(get_arg -domain $BKJS_DOMAIN)
-    [ "$domain" != "" ] && $0 init-hostname -domain $domain
-    BKJS_ALLCMD=1
-    process_cmd
-    # New instance started from existing AMI which might have old log files
-    if [ -f $BKJS_HOME/var/bkjs.init ]; then
-        echo "Initializing $BKJS_HOME..."
-        rm -rf $BKJS_HOME/var/* $BKJS_HOME/log/*
-        service rsyslog restart
-        [ "$(pgrep -x monit)" = "" ] && rm -f /var/run/monit.pid
-    fi
-    find_user
-    chown -R $BKJS_USER $BKJS_HOME/etc $BKJS_HOME/var $BKJS_HOME/log
     exit 0
     ;;
 
@@ -345,12 +345,11 @@ case "$BKJS_CMD" in
 
     echo "Available commands:"
     echo
-    echo "  start - start the backend service"
-    echo "  stop - stop the backend service"
+    echo "  start-instance - run on instance start, processed by all scripts"
+    echo "  stop - kill the backend service"
     echo "  stop-web - kill web processes at once so they will restart with possibly updated modules"
     echo "  stop-worker - kill job worker processes at once so they will restart with possibly updated modules"
     echo "  stop-api - graceful API servers restart, drain all connections and restart one at a time, workers will restart after finishing jobs"
-    echo "  start-instance - run the checks before starting the backend, processed by all tools scripts"
     echo ""
     echo "  shell - run backend REPL in the current backend directory, works with the backend core or local app.js application"
     echo "  monitor - run the backend monitor process which starts master, web server and job server"
@@ -367,7 +366,7 @@ case "$BKJS_CMD" in
     echo "  -prefix path - path to the local binaries directory, default is $BKJS_PREFIX"
     echo "  -user name - set backend user on the remote or local side, default is ${BKJS_USER:-`whoami`}"
     echo "  -group name - set backend group on the remote or local side, default is ${BKJS_GROUP:-`id -gn`}"
-    echo ""
+    echo "  -debug - be verbose about what is happening"
 
     cmd=$BKJS_CMD
     BKJS_CMD=help
