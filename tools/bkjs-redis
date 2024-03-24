@@ -4,8 +4,6 @@
 #  Sep 2013
 #
 
-REDIS=$(get_arg -redis redis)
-
 case "$BKJS_CMD" in
 
   redis-init)
@@ -24,9 +22,8 @@ case "$BKJS_CMD" in
        OS=osx
        REDIS_PREFIX=$BKJS_PREFIX
        ;;
+
      Linux)
-       sudo yum remove -y redis
-       sudo yum install -y jemalloc
        REDIS_PREFIX=$BKJS_HOME
        ;;
     esac
@@ -35,10 +32,10 @@ case "$BKJS_CMD" in
         [ "$(get_flag -force)" = "" ] && exit
         echo "Uninstalling redis from $REDIS_PREFIX..."
         rm -f $REDIS_PREFIX/bin/redis-*
-        cp $BKJS_HOME/etc/redis.conf $BKJS_HOME/etc/redis.conf.old
+        cp $BKJS_HOME/etc/redis.local.conf $BKJS_HOME/etc/redis.local.conf.old
     fi
 
-    ver=$(get_arg -version 6.2.6)
+    ver=$(get_arg -version 7.2.4)
     curl -L -o redis.tgz http://download.redis.io/releases/redis-$ver.tar.gz
 
     mkdir -p redis $BKJS_HOME/etc
@@ -51,21 +48,26 @@ case "$BKJS_CMD" in
     ;;
 
   redis-config)
-    $SED -e 's|^# syslog-enabled no|syslog-enabled yes|' \
-         -e "s|^dir ./|dir $BKJS_HOME/var/|" \
-         -e "s|^timeout 0|timeout 3600|" \
-         -e "s|^bind|# bind|" \
-         -e "s|^protected-mode yes|protected-mode no|" \
-         -e "s|^pidfile /var/run/$REDIS.+|pidfile $BKJS_HOME/var/$REDIS.pid|" \
-         -e "s|^logfile \"\"|logfile $BKJS_HOME/log/$REDIS.log|" \
-         -e "s|^tcp-keepalive .+|tcp-keepalive 60|" \
-         -e "s|^maxmemory-policy .+|maxmemory-policy volatile-lru|" \
-         -e "s|^# maxmemory-policy .+|maxmemory-policy volatile-lru|" \
-         -e 's|^daemonize no|daemonize yes|' \
-         $BKJS_HOME/etc/$REDIS.conf
-    if [ "$REDIS" = "keydb" ]; then
-       $SED 's|dump.rdb|keydb.rdb|' $BKJS_HOME/etc/$REDIS.conf
+    conf=$BKJS_HOME/etc/$REDIS.conf
+    [ ! -f $conf ] && conf=/etc/$REDIS.conf
+    local=$BKJS_HOME/etc/redis.local.conf
+
+    if [ -z "$(grep -s $local $conf)" ]; then
+        echo "include $local" >> $conf
     fi
+
+    echo 'syslog-enabled yes' > $local
+    echo "dir $BKJS_HOME/var/" >> $local
+    echo "timeout 3600" >> $local
+    echo "bind *" >> $local
+    echo "protected-mode no" >> $local
+    echo "pidfile $BKJS_HOME/var/redis.pid" >> $local
+    echo "logfile $BKJS_HOME/log/redis.log" >> $local
+    echo "tcp-keepalive 60" >> $local
+    echo "maxmemory-policy volatile-lru" >> $local
+    echo 'daemonize yes' >> $local
+
+    [ "$(whoami)" = "root" -a -n "$BKJS_USER" ] && chown $BKJS_USER $local
     exit
     ;;
 
@@ -75,48 +77,50 @@ case "$BKJS_CMD" in
     [ "$memsize" != "" ] && memmax="$(( ($(free -m|grep Mem:|awk '{print $2}') * $memsize) / 100 ))mb"
     memmax=$(get_arg -memmax $memmax)
     if [ "$memmax" != "" ]; then
-       sed -r -i -e "s|^maxmemory .+|maxmemory $memmax|" -e "s|^# maxmemory .+|maxmemory $memmax|" $BKJS_HOME/etc/$REDIS.conf
+        conf=$BKJS_HOME/etc/redis.local.conf
+        if [ -z "$(grep -s "maxmemory $memmax" $conf)" ]; then
+            echo "maxmemory $memmax" >> $conf
+        fi
     fi
-    touch $BKJS_HOME/log/$REDIS.log
-    $REDIS-server $BKJS_HOME/etc/$REDIS.conf
+
+    if [ "$PLATFORM" = "Linux" ]; then
+        echo 1 > /proc/sys/vm/overcommit_memory
+        echo never > /sys/kernel/mm/transparent_hugepage/enabled
+    fi
+
+    conf=$BKJS_HOME/etc/redis.conf
+    [ ! -f $conf ] && conf=/etc/redis.conf
+
+    touch $BKJS_HOME/log/redis.log
+    redis-server $conf
+
     slavehost=$(get_arg -slave-host)
     slaveport=$(get_arg -slave-port 6379)
     if [ "$slavehost" != "" ]; then
-       $REDIS-cli slaveof $slavehost $slaveport
+       redis-cli slaveof $slavehost $slaveport
     fi
     exit
     ;;
 
   redis-stop)
-    pkill -f $REDIS-server
+    pkill -f redis-server
     exit
     ;;
 
   redis-init-monit)
-    # There is no startup script because we rely on the monit to handle processes
-    [ "$(whoami)" != "root" ] && echo "Run as root please" && exit 1
-    echo 1 > /proc/sys/vm/overcommit_memory
-    echo never > /sys/kernel/mm/transparent_hugepage/enabled
-    if [ "$(grep -s 'overcommit_memory' /etc/sysctl.conf)" = "" ]; then
-       echo 'vm.overcommit_memory=1' >> /etc/sysctl.conf
-    fi
-    if [ "$(grep -s 'transparent_hugepage' /etc/rc.local)" = "" ]; then
-       echo 'echo never > /sys/kernel/mm/transparent_hugepage/enabled' >> /etc/rc.local
-    fi
     find_user
-    echo -e "$BKJS_HOME/log/$REDIS.log {\n  weekly\n  rotate 10\n  copytruncate\n  delaycompress\n  compress\n  notifempty\n  missingok\n}" > /etc/logrotate.d/$REDIS
-    echo -e "check process $REDIS-server with pidfile \"$BKJS_HOME/var/$REDIS.pid\" start program = \"$BKJS_BIN redis-run $(get_all_args)\" as uid $BKJS_USER and gid $BKJS_GROUP stop program = \"$BKJS_BIN redis-stop\" if failed host 127.0.0.1 port 6379 for 2 cycles then restart" > /etc/monit.d/$REDIS.conf
-    monit reload
+    echo -e "$BKJS_HOME/log/redis.log {\n  weekly\n  rotate 10\n  copytruncate\n  delaycompress\n  compress\n  notifempty\n  missingok\n}" > /etc/logrotate.d/redis
+    echo -e "check process redis-server with pidfile \"$BKJS_HOME/var/redis.pid\" start program = \"$BKJS_BIN redis-run $(get_all_args)\" as uid $BKJS_USER and gid $BKJS_GROUP stop program = \"$BKJS_BIN redis-stop\" if failed host 127.0.0.1 port 6379 for 2 cycles then restart" > /etc/monit.d/redis.conf
     exit
     ;;
 
   help)
     echo ""
-    echo "  redis-get - install Redis server into $BKJS_PREFIX, removes current redis package if installed (Linux only)"
+    echo "  redis-get - install Redis server into $BKJS_PREFIX"
     echo "  redis-init - install and setup Redis server to be run on start and to be monitored (Linux only)"
-    echo "  redis-run [-redis keydb] [-memsize PERCENT] [-memmax SIZE] [-slave-host HOST] - run local Redis server, uses config file $$BKJS_HOME/etc/redis.conf"
-    echo "  redis-stop [-redis keydb] - stop local Redis server"
-    echo "  redis-init-monit [-redis keydb] [-memsize PERCENT] [-memmax SIZE] - setup Redis/Keydb server to be run on start and to be monitored (Linux only)"
+    echo "  redis-run [-memsize PERCENT] [-memmax SIZE] [-slave-host HOST] - run local Redis server, uses config file $BKJS_HOME/etc/redis.conf"
+    echo "  redis-stop - stop local Redis server"
+    echo "  redis-init-monit [-memsize PERCENT] [-memmax SIZE] - setup Redis server to be run on start and to be monitored (Linux only)"
     echo ""
     ;;
 esac

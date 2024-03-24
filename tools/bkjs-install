@@ -20,62 +20,19 @@ case "$BKJS_CMD" in
         [ "$?" != "0" ] && exit 1
     else
         ver=$(get_arg -version v20.11.1)
-        if [ "$PLATFORM" = "Linux" ]; then
-            curl -L -o node.tar.xz https://nodejs.org/dist/$ver/node-$ver-linux-$OS_ARCH.tar.xz
-            [ "$?" != "0" ] && exit 1
-            xz -d node.tar.xz
-            tar -C $BKJS_PREFIX --strip-components=1 -xf node.tar
-            rm -rf node.tar
-        fi
-        if [ "$PLATFORM" = "Darwin" ]; then
-            curl -L -o node.tgz https://nodejs.org/dist/$ver/node-$ver-darwin-$OS_ARCH.tar.gz
-            [ "$?" != "0" ] && exit 1
-            tar -C $BKJS_PREFIX --strip-components=1 -xzf node.tgz
-            rm -rf node.tgz
-        fi
+        [ "$OS_ARCH" = "amd64" ] && arch=x64 || arch=$OS_ARCH
+        platform=$(to_lower $PLATFORM)
+        curl -L -o node.tgz https://nodejs.org/dist/$ver/node-$ver-$platform-$arch.tar.gz
+        [ "$?" != "0" ] && exit 1
+        tar -C $BKJS_PREFIX --strip-components=1 -xzf node.tgz
+        rm -rf node.tgz
     fi
     mv $BKJS_PREFIX/README.md $BKJS_PREFIX/LICENSE $BKJS_PREFIX/CHANGELOG.md $BKJS_PREFIX/share/doc
-    exit
-    ;;
-
-  install-packages)
-    # Install required development and runtime packages
-    packages="bash git curl nano rsync rsyslog socat monit mc make gcc cmake autoconf automake libtool"
-
-    # Linux distro specific actions
-    case "$OS_TYPE" in
-      alpine)
-        packages="$packages nodejs npm man-pages monit-openrc rsyslog-openrc shadow doas"
-        packages="$packages g++ python3 libpng-dev"
-        ver=$(cat /etc/alpine-release|cut -d. -f1,2)
-        $SED "s/^# *(.+v$ver\/community)\$/\1/" /etc/apk/repositories
-        apk update
-        apk add $packages
-        ;;
-
-      amazon)
-        packages="$packages gcc-c++ libuuid-devel openssl-devel libxml2-devel openldap-devel readline-devel libpng-devel libjpeg-turbo-devel"
-        packages="$packages ntp man telnet"
-        amazon-linux-extras install epel -y
-        yum -y -q clean metadata
-        yum -y -q install epel-release
-        sleep 5
-        yum -y -q update
-        sleep 5
-        yum -y -q install $packages
-        ;;
-
-      ubuntu)
-        packages="$packages ntp man telnet"
-        apt install build-essential $packages
-        ;;
-    esac
     exit
     ;;
 
   help)
     echo ""
     echo "  install-node [-prefix PATH] [-force] [-clean] [-tgz TGZ] - install binary release of the node into $BKJS_PREFIX or specified path"
-    echo "  install-packages - install required packages and updates"
     ;;
 esac

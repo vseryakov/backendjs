@@ -6,142 +6,157 @@
 
 case "$BKJS_CMD" in
 
-  init-server)
+  setup-ec2)
+    $0 setup-server -user ec2-user -home /home/ec2-user -prefix /home/ec2-user $(get_all_args "-user -home -prefix")
+    exit
+    ;;
+
+  setup-server)
     [ "$(whoami)" != "root" ] && echo "Run as root please" && exit 1
     args=$(get_all_args)
     find_user
     find_nodebin
     echo "Setuping server in $BKJS_HOME for $BKJS_USER/$(get_arg -user), prefix: $BKJS_PREFIX, binaries: $NODE_BIN, $BKJS_BIN... ($args)"
 
-    ($0 install-packages $args)
-    ($0 init-hostname $args)
-    ($0 init-ssh $args)
-    ($0 init-user $args)
-    ($0 init-system $args)
-    ($0 init-limits $args)
-    ($0 init-sysctl $args)
+    ($0 setup-packages $args)
+    ($0 setup-hostname $args)
+    ($0 setup-ssh $args)
+    ($0 setup-user $args)
+    ($0 setup-limits $args)
+    ($0 setup-sysctl $args)
+    ($0 setup-logrotate $args)
+    ($0 setup-rsyslog $args)
+    ($0 setup-profile $args)
+    ($0 setup-home $args)
+    ($0 setup-service $args)
     ($0 monit-init-system $args)
-    ($0 init-logrotate $args)
-    ($0 init-rsyslog $args)
-    ($0 init-home $args)
-    ($0 init-service-start $args)
-    ($0 init-profile $args)
+
+    if [ "$OS_TYPE" = "alpine" ]; then
+        rc-update add sshd
+        rc-update add monit default
+    fi
     exit
     ;;
 
-   init-profile)
+   setup-profile)
     # Create global profile
     find_user
-    sysconf=/etc/sysconfig
-    [ ! -d $sysconf -a -d /etc/default ] && sysconf=/etc/default
+    sysconf=/etc/conf.d
+    [ ! -d $sysconf -a -d /etc/sysconfig ] && sysconf=/etc/sysconfig
     echo "BKJS_HOME=$BKJS_HOME" > $sysconf/$BKJS
     domain=$(get_arg -domain)
-    [ "$domain" != "" ] && echo "BKJS_DOMAIN=$domain" >> $sysconf/$BKJS
+    [ -n "$domain" ] && echo "BKJS_DOMAIN=$domain" >> $sysconf/$BKJS
     [ "$BKJS_USER" != "root" ] && echo "BKJS_USER=$BKJS_USER" >> $sysconf/$BKJS
-    chown -R $BKJS_USER $BKJS_HOME
     exit
     ;;
 
-  init-hostname)
+  setup-hostname)
     host=$(get_arg -host $BKJS_HOST)
-    [ "$host" = "" ] && host=$(uname -n|awk -F. '{print $1}')
+    [ -z "$host" ] && host=$(uname -n|awk -F. '{print $1}')
     domain=$(get_arg -domain $BKJS_DOMAIN)
+
     # Set hostname with name and domain
-    if [ "$domain" = "" ]; then
+    if [ -z "$domain" ]; then
        host=$(get_arg -host)
-       [ "$host" = "" ] && exit
+       [ -z "$host" ] && exit
        domain=$(uname -n|cut -d. -f2-)
     fi
     host=$host.$domain
     [ "$(uname -n)" = "$host" ] && exit
-    echo "Configuring hostname $host ..."
+
+    echo "Setting hostname to $host"
     hostname $host
     echo $host > /etc/hostname
+
     if [ -f /etc/sysconfig/network ]; then
        echo "HOSTNAME=$host" > /tmp/network
        grep -v HOSTNAME /etc/sysconfig/network >> /tmp/network
        mv /tmp/network /etc/sysconfig/network
     fi
-    service rsyslog restart
-    monit reload
     exit
     ;;
 
-  init-user)
+  setup-user)
     # Add local user
     find_user
-    LHOME=/home/$BKJS_USER
+    UHOME=/home/$BKJS_USER
+
     if [ "$(grep -s $BKJS_USER /etc/passwd)" = "" ]; then
-        echo "Adding user $BKJS_USER..."
+        echo "Adding user $BKJS_USER"
         useradd -m -g wheel -s /bin/bash $BKJS_USER
-        mkdir -p -m 700 $LHOME/.ssh && chown $BKJS_USER $LHOME/.ssh
+        mkdir -p -m 700 $UHOME/.ssh && chown $BKJS_USER $UHOME/.ssh
     fi
 
-    if [ -f /etc/conf.d/tiny-cloud ]; then
-        $SED "s/^#?CLOUD_USER.+/CLOUD_USER=$BKJS_USER/" /etc/conf.d/tiny-cloud
+    if [ -f /etc/tiny-cloud.conf ]; then
+        $SED "s/^#?CLOUD_USER=.+/CLOUD_USER=$BKJS_USER/" /etc/tiny-cloud.conf
+    fi
+
+    if [ -d /etc/doas.d ]; then
+        echo "permit nopass :wheel as root" >> /etc/doas.d/$BKJS.conf
     fi
 
     # Allow path in sudo and skip tty for our user so we can run commands via ssh
     if [ -d /etc/sudoers.d -a ! -f /etc/sudoers.d/$BKJS ]; then
-        echo "Defaults secure_path = /sbin:/bin:/usr/sbin:/usr/bin:/usr/local/bin:$BKJS_PREFIX/bin:$LHOME/bin:$LHOME/node_modules/.bin" >> /etc/sudoers.d/$BKJS
+        echo "Defaults secure_path = /sbin:/bin:/usr/sbin:/usr/bin:/usr/local/bin:$BKJS_PREFIX/bin:$UHOME/bin:$UHOME/node_modules/.bin" >> /etc/sudoers.d/$BKJS
         echo "Defaults:$BKJS_USER !requiretty" >> /etc/sudoers.d/$BKJS
-        echo "$BKJS_USER ALL = NOPASSWD: ALL" > /etc/sudoers.d/$BKJS
+        echo "$BKJS_USER ALL = NOPASSWD: ALL" >> /etc/sudoers.d/$BKJS
     fi
 
     # Aliases and environment
-    if [ "$(grep -s '#Bkjs' $LHOME/.bashrc)" = "" ]; then
+    if [ "$(grep -s '#Bkjs' $UHOME/.bashrc)" = "" ]; then
        echo "Configuring .bashrc..."
-       echo '#Bkjs' >> $LHOME/.bashrc
-       echo "umask 022" >> $LHOME/.bashrc
-       echo "BKJS_HOME=$BKJS_HOME" >> $LHOME/.bashrc
-       echo "export PATH=\$PATH:$LHOME/bin:$LHOME/node_modules/.bin" >> $LHOME/.bashrc
-       echo 'alias slog="tail -100 /var/log/messages"' >> $LHOME/.bashrc
-       echo "alias clog=\"sudo tail -100 /var/log/cron\"" >> $LHOME/.bashrc
-       echo "alias mlog=\"tail -100 $BKJS_HOME/log/message.log\"" >> $LHOME/.bashrc
-       echo "alias elog=\"tail -100 $BKJS_HOME/log/error.log\"" >> $LHOME/.bashrc
-       echo "alias alog=\"tail -100 $BKJS_HOME/log/access.log\"" >> $LHOME/.bashrc
-       echo 'alias h="history"' >> $LHOME/.bashrc
-       echo 'alias ll="ls -la"' >> $LHOME/.bashrc
-       echo 'alias ps="ps augx"' >> $LHOME/.bashrc
-       echo 'alias mc="mc -b"' >> $LHOME/.bashrc
-       echo 'alias df="df -h"' >> $LHOME/.bashrc
-       echo 'alias bkls="bkjs ec2-ls"' >> $LHOME/.bashrc
-       echo 'bcp() { socat readline,history=$HOME/.socat tcp4:localhost:$1; }' >> $LHOME/.bashrc
-       echo 'bkssh() { bkjs ec2-ssh -tag "$1" -index "$2" -cmd "$3" -skip-tag dev,staging; }' >> $LHOME/.bashrc
-       echo 'bkstop() { bkjs ec2-ssh -tag ${1-api} -index "$2" -cmd "bkjs stop-${3-api}" -skip-tag dev,staging; }' >> $LHOME/.bashrc
-       echo 'bksync() { (cd $HOME/node_modules/$1 && bkjs sync -host "$(bkjs ec2-host -tag ${2-api} -skip-tag dev,staging)"); }' >> $LHOME/.bashrc
-       echo 'bkw() { bkssh ${1-api} "" "w"; }' >> $LHOME/.bashrc
-       echo 'bkami() { bkjs create-ami && bkjs create-launch-template-version; }' >> $LHOME/.bashrc
-       echo "PROMPT_COMMAND='printf \"\\033]0;\$(cat \$HOME/var/bkjs.tag)\\007\"'" >> $LHOME/.bashrc
+       echo '#Bkjs' >> $UHOME/.bashrc
+       echo "umask 022" >> $UHOME/.bashrc
+       echo "BKJS_HOME=$BKJS_HOME" >> $UHOME/.bashrc
+       echo "export PATH=\$PATH:$UHOME/bin:$UHOME/node_modules/.bin" >> $UHOME/.bashrc
+       echo 'alias slog="tail -100 /var/log/messages"' >> $UHOME/.bashrc
+       echo "alias clog=\"sudo tail -100 /var/log/cron\"" >> $UHOME/.bashrc
+       echo "alias mlog=\"tail -100 $BKJS_HOME/log/message.log\"" >> $UHOME/.bashrc
+       echo "alias elog=\"tail -100 $BKJS_HOME/log/error.log\"" >> $UHOME/.bashrc
+       echo "alias alog=\"tail -100 $BKJS_HOME/log/access.log\"" >> $UHOME/.bashrc
+       echo 'alias h="history"' >> $UHOME/.bashrc
+       echo 'alias ll="ls -la"' >> $UHOME/.bashrc
+       echo 'alias ps="ps augx"' >> $UHOME/.bashrc
+       echo 'alias mc="mc -b"' >> $UHOME/.bashrc
+       echo 'alias df="df -h"' >> $UHOME/.bashrc
+       echo 'alias bkls="bkjs ec2-ls"' >> $UHOME/.bashrc
+       echo 'alias d=docker' >> $UHOME/.bashrc
+       echo 'alias g=git' >> $UHOME/.bashrc
+       echo 'alias di="docker images"' >> $UHOME/.bashrc
+       echo 'alias dexec="docker exec -ti"' >> $UHOME/.bashrc
+       echo 'bcp() { socat readline,history=$HOME/.socat tcp4:localhost:$1; }' >> $UHOME/.bashrc
+       echo 'bkssh() { bkjs ec2-ssh -tag "$1" -index "$2" -cmd "$3" -skip-tag dev; }' >> $UHOME/.bashrc
+       echo 'bkw() { bkssh ${1-api} "" "w"; }' >> $UHOME/.bashrc
+       echo "PROMPT_COMMAND='printf \"\\033]0;\$(cat \$HOME/var/bkjs.tag)\\007\"'" >> $UHOME/.bashrc
     fi
 
-    if [ "$(grep -s bashrc $LHOME/.bash_profile)" = "" ]; then
+    if [ "$(grep -s bashrc $UHOME/.bash_profile)" = "" ]; then
         echo "Configuring .bash_profile .bashrc..."
-        echo '[ -f ~/.bashrc ] && . ~/.bashrc' >> $LHOME/.bash_profile
+        echo '[ -f ~/.bashrc ] && . ~/.bashrc' >> $UHOME/.bash_profile
     fi
 
-    if [ "$(grep -s '#Bkjs' $LHOME/.bash_profile)" = "" ]; then
+    if [ "$(grep -s '#Bkjs' $UHOME/.bash_profile)" = "" ]; then
        echo "Configuring .bash_profile..."
-       echo '#Bkjs' >> $LHOME/.bash_profile
-       echo '[ ! -s ~/var/bkjs.tag ] && bkjs ec2-tag > ~/var/bkjs.tag' >> $LHOME/.bash_profile
-       echo '[ -s ~/var/bkjs.tag ] && export PS1=$(cat ~/var/bkjs.tag)#' >> $LHOME/.bash_profile
+       echo '#Bkjs' >> $UHOME/.bash_profile
+       echo 'export HISTSIZE=500000' >> $UHOME/.bash_profile
+       echo 'export HISTFILESIZE=50000000' >> $UHOME/.bash_profile
+       echo '[ -f ~/etc/profile ] && . ~/etc/profile' >> $UHOME/.bash_profile
+       echo '[ ! -s ~/var/bkjs.tag ] && bkjs ec2-tag > ~/var/bkjs.tag' >> $UHOME/.bash_profile
+       echo '[ -s ~/var/bkjs.tag ] && export PS1=$(cat ~/var/bkjs.tag)#' >> $UHOME/.bash_profile
+       echo '[ "$TMUX_PANE" != "" ] && PS1=$(echo $PS1|sed "s/#/${TMUX_PANE}#/")' >> $UHOME/.bash_profile
     fi
     exit
     ;;
 
-  init-home)
+  setup-home)
     # Create required directories
     find_user
     mkdir -p $BKJS_HOME/node_modules $BKJS_HOME/bin $BKJS_HOME/log $BKJS_HOME/etc $BKJS_HOME/var
-    if [ "$BKJS_USER" != "root" -a ! -f $BKJS_HOME/etc/config ]; then
-       echo "Creating default $BKJS config ..."
-       echo -e "uid=$BKJS_USER\nforce-uid=1" > $BKJS_HOME/etc/config
-    fi
     chown -R $BKJS_USER $BKJS_HOME
     exit
     ;;
 
-  init-ssh)
+  setup-ssh)
     # Allow only pubkey auth
     [ "$(grep -s '#Bkjs' /etc/ssh/sshd_config)" != "" ] && exit
     echo "Configuring ssh..."
@@ -156,24 +171,24 @@ case "$BKJS_CMD" in
     echo "ClientAliveCountMax 5" >> /tmp/sshd_config
     mv /tmp/sshd_config /etc/ssh
     chmod 600 /etc/ssh/sshd_config
-    service sshd restart
     exit
     ;;
 
-  init-logrotate)
+  setup-logrotate)
     # Setup logrotate for backend log files
-    if [ "$(grep -s '#Bkjs' /etc/logrotate.d/syslog)" = "" ]; then
+    [ -f /etc/logrotate.d/syslog ] && rm /etc/logrotate.d/syslog
+    if [ "$(grep -s '#Bkjs' /etc/logrotate.d/rsyslog)" = "" ]; then
        echo "Configuring logrotate..."
-       echo "#Bkjs" > /etc/logrotate.d/syslog
-       echo "/var/log/cron /var/log/messages {" >> /etc/logrotate.d/syslog
-       echo " missingok" >> /etc/logrotate.d/syslog
-       echo " daily" >> /etc/logrotate.d/syslog
-       echo " rotate 90" >> /etc/logrotate.d/$BKJS
-       echo " sharedscripts" >> /etc/logrotate.d/syslog
-       echo " postrotate" >> /etc/logrotate.d/syslog
-       echo "  /usr/bin/killall -q -HUP rsyslogd" >> /etc/logrotate.d/syslog
-       echo " endscript" >> /etc/logrotate.d/syslog
-       echo "}" >> /etc/logrotate.d/syslog
+       echo "#Bkjs" > /etc/logrotate.d/rsyslog
+       echo "/var/log/cron /var/log/messages {" >> /etc/logrotate.d/rsyslog
+       echo " missingok" >> /etc/logrotate.d/rsyslog
+       echo " daily" >> /etc/logrotate.d/rsyslog
+       echo " rotate 90" >> /etc/logrotate.d/rsyslog
+       echo " sharedscripts" >> /etc/logrotate.d/rsyslog
+       echo " postrotate" >> /etc/logrotate.d/rsyslog
+       echo "  /usr/bin/killall -q -HUP rsyslogd" >> /etc/logrotate.d/rsyslog
+       echo " endscript" >> /etc/logrotate.d/rsyslog
+       echo "}" >> /etc/logrotate.d/rsyslog
     fi
     if [ "$(grep -s "#Bkjs $BKJS_HOME" /etc/logrotate.d/$BKJS)" = "" ]; then
        echo "Configuring logrotate.d/$BKJS..."
@@ -191,11 +206,11 @@ case "$BKJS_CMD" in
     exit
     ;;
 
-  init-syslog)
+  setup-syslog)
     # Setup syslog config for backend logging
     find_user
 
-    if [ "$(grep -s '#Bkjs' /etc/syslog.conf)" = "" ]; then
+    if [ -z "$(grep -s '#Bkjs' /etc/syslog.conf)" ]; then
        echo "Configuring syslog..."
        echo "#Bkjs" > /etc/syslog.conf
        echo 'kern.*,*.emerg /dev/console' >> /etc/syslog.conf
@@ -206,16 +221,15 @@ case "$BKJS_CMD" in
        echo "local5.* $BKJS_HOME/log/access.log" >> /etc/syslog.conf
        mkdir -p $BKJS_HOME/log
        chown -R $BKJS_USER $BKJS_HOME/log
-       service syslog restart
     fi
     exit
     ;;
 
-  init-rsyslog)
+  setup-rsyslog)
     # Setup rsyslog config for backend logging
     find_user
 
-    if [ "$(grep -s '#Bkjs' /etc/rsyslog.conf)" = "" ]; then
+    if [ -z "$(grep -s '#Bkjs' /etc/rsyslog.conf)" ]; then
        echo "Configuring rsyslog..."
        echo "#Bkjs" > /etc/rsyslog.conf
        if [ -d /etc/systemd ]; then
@@ -248,14 +262,14 @@ case "$BKJS_CMD" in
        rm -rf /var/log/maillog* /var/log/secure* /var/log/spooler*
        touch /var/log/messages
        chown -R $BKJS_USER /var/log/messages
+
        if [ "$OS_TYPE" = "alpine" ]; then
-          rc-update del syslog boot
+          rc-update -a del syslog
           rc-update add rsyslog boot
        fi
-       service rsyslog restart
     fi
 
-    if [ "$(grep -s "#Bkjs $BKJS_HOME" /etc/rsyslog.d/$BKJS.conf)" = "" ]; then
+    if [ -z "$(grep -s "#Bkjs $BKJS_HOME" /etc/rsyslog.d/$BKJS.conf)" ]; then
        echo "Configuring rsyslog.d/$BKJS ..."
        mkdir -p /etc/rsyslog.d
        echo "#Bkjs $BKJS_HOME" > /etc/rsyslog.d/$BKJS.conf
@@ -269,40 +283,11 @@ case "$BKJS_CMD" in
        echo "local5.* $BKJS_HOME/log/access.log$bkjsfmt" >> /etc/rsyslog.d/$BKJS.conf
        mkdir -p $BKJS_HOME/log
        chown -R $BKJS_USER $BKJS_HOME/log
-       service rsyslog restart
     fi
     exit
     ;;
 
-  init-system)
-    # Disable SELinux
-    if [ -f /etc/selinux/config ]; then
-        $SED 's/SELINUX=(enforcing|permissive)/SELINUX=disabled/' /etc/selinux/config
-    fi
-
-    case "$OS_TYPE" in
-      amazon)
-        chkconfig monit on
-        $SED 's/^After.+$/After=network.target cloud-init.target/' /etc/systemd/system/multi-user.target.wants/monit.service
-        ;;
-
-      alpine)
-        rc-update add monit
-        ln -s /usr/bin/doas /usr/bin/sudo
-        echo "permit nopass :wheel as root" >> /etc/doas.d/doas.conf
-        ;;
-    esac
-    # Make sure monit is running all the time
-    mkdir -p /etc/monit.d
-    echo "set logfile syslog" > /etc/monit.d/logging
-    service monit restart
-
-    # Allow sudo use local binaries
-    [ -f /etc/sudoers ] && $SED 's/requiretty/!requiretty/' /etc/sudoers
-    exit
-    ;;
-
-  init-limits)
+  setup-limits)
     # File handles and coredumps for debugging
     if [ -d /etc/security/limits.d ]; then
         conf=/etc/security/limits.d/90-$BKJS.conf
@@ -336,7 +321,7 @@ case "$BKJS_CMD" in
     exit
     ;;
 
-  init-sysctl)
+  setup-sysctl)
     # System tuning
     conf=/etc/sysctl.d/90-$BKJS.conf
     [ -s $conf ] && exit
@@ -377,44 +362,43 @@ case "$BKJS_CMD" in
     exit
     ;;
 
-  init-service-start)
+  setup-service)
     # Install service for a script or bkjs service
     find_user
-    echo "Init service $BKJS with $BKJS_BIN"
-    case $OS_TYPE in
-      alpine)
-        conf=/etc/init.d/$BKJS
-        echo -e "#!/sbin/openrc-run\nname=\"$BKJS\"\ndepend() {\n\tneed logger\n}\nstart() {\n\t$BKJS_BIN start\n}" > $conf
-        chmod 755 $conf
-        rc-update add $BKJS
-        ;;
+    if [ -z "$(get_flag -stop)" ]; then
+        echo "Starting $BKJS with $BKJS_BIN"
+        case $OS_TYPE in
+          alpine)
+            conf=/etc/init.d/$BKJS
+            echo -e "#!/sbin/openrc-run\nname=\"$BKJS\"\ndepend() {\n\tneed logger\n}\nstart() {\n\t$BKJS_BIN start\n}" > $conf
+            chmod 755 $conf
+            rc-update add $BKJS boot
+            ;;
 
-      *)
-        [ ! -d /etc/init.d ] && echo "SysV init scripts are not supported" && exit
-        path=$(get_arg -path $BKJS_BIN)
-        ln -sfn $path /etc/init.d/$BKJS
-        ln -sfn /etc/init.d/$BKJS /etc/rc5.d/S51$BKJS
-        ;;
-    esac
+          *)
+            [ ! -d /etc/init.d ] && echo "SysV init scripts are not supported" && exit
+            path=$(get_arg -path $BKJS_BIN)
+            ln -sfn $path /etc/init.d/$BKJS
+            ln -sfn /etc/init.d/$BKJS /etc/rc5.d/S31$BKJS
+            ;;
+        esac
+    else
+        echo "Stopping service $BKJS"
+        case $OS_TYPE in
+          alpine)
+            rc-update del $BKJS
+            ;;
+
+          *)
+            rm -f /etc/init.d/$BKJS /etc/rc5.d/S31$BKJS
+            ;;
+        esac
+        $0 stop
+    fi
     exit
     ;;
 
-  init-service-stop)
-    echo "Stopping service $BKJS"
-    case $OS_TYPE in
-      alpine)
-        rc-update del $BKJS
-        ;;
-
-      *)
-        rm -f /etc/init.d/$BKJS /etc/rc5.d/S51$BKJS
-        ;;
-    esac
-    $0 stop
-    exit
-    ;;
-
-  init-mfa)
+  setup-mfa)
     [ "$(whoami)" != "root" ] && echo "Run as root please" && exit 1
     case "$OS_TYPE" in
       alpine)
@@ -425,10 +409,10 @@ case "$BKJS_CMD" in
         echo -e "auth required /lib/security/pam_google_authenticator.so echo_verification_code grace_period=57600 nullok" >> /etc/pam.d/sshd
         echo -e "auth required pam_unix.so\tmd5 sha512" >> /etc/pam.d/sshd
         ln /etc/pam.d/sshd /etc/pam.d/sshd.pam
-        $0 init-limits
+        $0 setup-limits
         ;;
 
-      *)
+      amazon)
         yum install google-authenticator –y
         if [ "$(egrep -s 'pam_google_authenticator' /etc/pam.d/sshd)" = "" ]; then
             $SED 's/^auth[ \t]+substack[ \t]+password-auth/auth required pam_google_authenticator.so\n#auth substack password-auth/' /etc/pam.d/sshd
@@ -455,7 +439,7 @@ case "$BKJS_CMD" in
     exit
     ;;
 
-  init-logwatcher)
+  setup-logwatcher)
     find_user
     cron=$(get_arg -cron "*/$(get_arg -interval 5) * * * *")
     echo 'MAILTO=""' > /etc/cron.d/$BKJS-logwatcher
@@ -463,29 +447,42 @@ case "$BKJS_CMD" in
     exit
     ;;
 
-  init-ec2)
-    $0 init-server -user ec2-user -home /home/ec2-user -prefix /home/ec2-user $(get_all_args "-user -home -prefix")
-    $0 check-server $(get_all_args)
+  setup-packages)
+    # Install required development and runtime packages
+
+    # Linux distro specific actions
+    case "$OS_TYPE" in
+      alpine)
+        ver=$(cat /etc/alpine-release|cut -d. -f1,2)
+        $SED "s/^# *(.+v$ver\/community)\$/\1/" /etc/apk/repositories
+        apk update
+        apk add bash curl wget nano mc
+        apk add make git gcc g++ cmake autoconf automake libtool man-pages
+        apk add shadow doas doas-sudo-shim rsync socat
+        apk add nodejs npm python3 openrc openssh monit monit-openrc rsyslog rsyslog-openrc redis
+        apk add tiny-cloud tiny-cloud-aws tiny-cloud-openrc nvme-cli aws-cli
+        ;;
+    esac
     exit
     ;;
 
   help)
     echo ""
-    echo "  init-server [-user USER] [-home HOME] [-prefix $PREFIX] [-doman DOMAIN] [-host HOST] - initialize the backend environment, setup the Linux server with packages and change system config files for production use (AmazonAMI, Alpoine, Ubuntu)"
-    echo "  init-hostname [-host HOST] [-domain DOMAIN] - set the hostname"
-    echo "  init-user [-user NAME] - create a new user for the backend"
-    echo "  init-ssh - setup SSH permissions, allow only public key auth"
-    echo "  init-logrotate - setup logrotate for the backend log files"
-    echo "  init-rsyslog - setup rsyslog to use for the backend logging, access log and backend log"
-    echo "  init-system - setup system wide parameters, permissions"
-    echo "  init-limits - setup ulimits"
-    echo "  init-sysctl - setup sysctl parameters"
-    echo "  init-home - setup backend home with required folders"
-    echo "  init-mfa [-user ec2-user] - initialize EC2 instance with multi-factor authentication using Google authenticator"
-    echo "  init-logwatcher [-interval MINS] [-cron CRON] - creates a crontab file in /etc/cron.d to periodically run the log watcher, -cron can specify full cron time spec"
-    echo "  init-ec2 - setup server on EC2 instance in the ec2-user home"
-    echo "  init-service-start - create a service to be run bkjs start-instance on server startup"
-    echo "  init-service-stop - stop $BKJS service from starting on startup and from monit"
+    echo "  setup-hostname [-host HOST] [-domain DOMAIN] - set the hostname"
+    echo "  setup-user [-user NAME] - create a new user for the backend"
+    echo "  setup-ssh - setup SSH permissions, allow only public key auth"
+    echo "  setup-logrotate - setup logrotate for the backend log files"
+    echo "  setup-rsyslog - setup rsyslog to use for the backend logging, access log and backend log"
+    echo "  setup-system - setup system wide parameters, permissions"
+    echo "  setup-limits - setup ulimits"
+    echo "  setup-sysctl - setup sysctl parameters"
+    echo "  setup-home - setup backend home with required folders"
+    echo "  setup-mfa [-user ec2-user] - initialize EC2 instance with multi-factor authentication using Google authenticator"
+    echo "  setup-logwatcher [-interval MINS] [-cron CRON] - creates a crontab file in /etc/cron.d to periodically run the log watcher, -cron can specify full cron time spec"
+    echo "  setup-ec2 - setup server on EC2 instance in the ec2-user home"
+    echo "  setup-service [-stop] - start/stop service to be run bkjs start on server boot"
+    echo "  setup-packages - install required packages and updates for supported distros (Alpine)"
+    echo "  setup-server [-user USER] [-home HOME] [-prefix $PREFIX] [-doman DOMAIN] [-host HOST] - setup the backend environment with packages and change system config files for production use (Amazon2, Alpine)"
     ;;
 
 esac

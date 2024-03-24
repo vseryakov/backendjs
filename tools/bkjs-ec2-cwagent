@@ -1,0 +1,84 @@
+#!/bin/bash
+#
+#  Author: Vlad Seryakov vseryakov@gmail.com
+#  Sep 2013
+#
+
+case "$BKJS_CMD" in
+
+  ec2-get-cwagent)
+    root=$(get_arg -root /opt/aws/amazon-cloudwatch-agent)
+    if [ ! -d $root ]; then
+        case "$OS_TYPE" in
+          alpine)
+            url=$(get_arg -url)
+            [ -z "$url" ] && exit
+            tar=amazon-cloudwatch-agent-$OS_ARCH.tar.gz
+            curl -OL $url/$tar
+            mkdir -p $root/bin $root/etc $root/logs $root/var
+            tar -C $root/bin -xzf $tar
+            rm $tar
+            ;;
+
+          amazon)
+            curl -OL https://s3.amazonaws.com/amazoncloudwatch-agent/amazon_linux/$OS_ARCH/latest/amazon-cloudwatch-agent.rpm
+            rpm -i amazon-cloudwatch-agent.rpm
+            rm amazon-cloudwatch-agent.rpm
+            ;;
+        esac
+    fi
+    exit
+    ;;
+
+  ec2-check-cwagent)
+    root=$(get_arg -root /opt/aws/amazon-cloudwatch-agent)
+    [ ! -d $root ] && exit
+    tag=$($0 ec2-tag)
+    [ "$tag" = "" ] && exit
+    user=$(get_arg -user ec2-user)
+    files="access.log message.log error.log $BKJS_CLOUDWATCH_LOGS"
+    for log in $files; do
+        [ -n "$logs" ] && logs="$logs,"
+        logs="$logs{ \"file_path\": \"/home/$user/log/$log\", \"log_group_name\": \"$log\", \"log_stream_name\": \"$tag\", \"multi_line_start_pattern\": \"^[^ \\t]\", \"timestamp_format\": \"%Y-%m-%dT%H:%M:%S.%f\" }"
+    done
+    tmp=$root/etc/cwagent.json
+    echo "{ \"agent\": { \"usage_data\": false, \"logfile\": \"$BKJS_HOME/log/cwagent.log\" }, \"logs\": { \"logs_collected\": { \"files\": { \"collect_list\": [ $logs ] } }, \"log_stream_name\": \"$tag\" } }" > $tmp
+    json=$root/etc/amazon-cloudwatch-agent.json
+    cmp $json $tmp
+    if [ "$?" = "0" ]; then
+        rm -f $tmp
+        exit
+    fi
+
+    mv $tmp $json
+    toml=$(echo $json|sed 's/json/toml/')
+    $root/bin/config-translator --input $json --output $toml --mode auto
+
+    env=$root/etc/env-config.json
+    echo "{ \"CWAGENT_LOG_LEVEL\": \"$(get_arg -log ERROR)\" }" > $env
+
+    case "$OS_TYPE" in
+      alpine)
+        if [ ! -f /etc/monit.d/cwagent.conf ]; then
+            echo -e "check process cwagent matching \"amazon-cloudwatch-agent\" start program = \"$root/bin/amazon-cloudwatch-agent -config $toml -envconfig $env\" as uid $BKJS_USER and gid $BKJS_GROUP stop program = \"pkill -f amazon-cloudwatch-agent\"" > /etc/monit.d/cwagent.conf
+            monit reload
+        else
+            pkill -f amazon-cloudwatch-agent
+        fi
+        ;;
+
+      amazon)
+        systemctl enable amazon-cloudwatch-agent
+        systemctl restart amazon-cloudwatch-agent
+        ;;
+    esac
+    exit
+    ;;
+
+  help)
+    echo ""
+    echo "  ec2-get-cwagent - install AWS Cloudwatch agent to send backend logs to Cloudwatch Logs"
+    echo "  ec2-check-cwagent - check AWS Cloudwatch agent config and restart if different"
+    ;;
+
+esac

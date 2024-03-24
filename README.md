@@ -92,7 +92,7 @@ The command below will show all core and optional dependencies, `npm install` wi
 
         bkjs web -db-pool sqlite -db-sqlite-pool default
 
-* or to the PostgreSQL server, database backend (if not running local server can be started with `bkjs init-pgsql` if postgresql is installed)
+* or to the PostgreSQL server, database backend
 
         bkjs web -db-pool pg -db-pg-pool postgresql://postgres@localhost/backend
 
@@ -1126,7 +1126,7 @@ Now calling `bkjs cmd` or `bkjs cmd-all` will use the new bkjs-cmd file
 
 Then run the dev build script to produce web/js/bkjs.bundle.js and web/css/bkjs.bundle.css
 
-        cd node_modules/backendjs && npm run devbuild
+    cd node_modules/backendjs && npm run devbuild
 
 Now instead of including a bunch of .js or css files in the html pages it only needs /js/bkjs.bundle.js and /css/bkjs.bundle.css. The configuration is in the
 package.json file.
@@ -1136,33 +1136,33 @@ The list of files to be used in bundles is in the package.json under `config.bun
 To enable auto bundler in your project just add to the local config `~/.bkjs/etc/config.local` a list of directories to be
 watched for changes. For example adding these lines to the local config will enable the watcher and bundle support
 
-        watch-web=web/js,web/css,$HOME/src/js,$HOME/src/css
-        watch-ignore=.bundle.(js|css)$
-        watch-build=bkjs bundle -dev
+    watch-web=web/js,web/css,$HOME/src/js,$HOME/src/css
+    watch-ignore=.bundle.(js|css)$
+    watch-build=bkjs bundle -dev
 
 
 The simple script below allows to build the bundle and refresh Chrome tab automatically, saves several clicks:
 
-        #!/bin/sh
-        bkjs bundle -dev -file $2
-        [ "$?" != "0" ] && exit
-        osascript -e "tell application \"Google Chrome\" to reload (tabs of window 1 whose URL contains \"$1\")"
+    #!/bin/sh
+    bkjs bundle -dev -file $2
+    [ "$?" != "0" ] && exit
+    osascript -e "tell application \"Google Chrome\" to reload (tabs of window 1 whose URL contains \"$1\")"
 
 
 To use it call this script instead in the config.local:
 
-        watch-build=bundle.sh /website
+    watch-build=bundle.sh /website
 
 NOTE: Because the rebuild happens while the watcher is running there are cases like the server is restarting or pulling a large update from the
 repository when the bundle build may not be called or called too early. To force rebuild run the command:
 
-        bkjs bundle -dev -all -force
+    bkjs bundle -dev -all -force
 
 # Deployment use cases
 
 ## AWS instance setup with node and backendjs
 
-- start new AWS instance via AWS console, use Amazon Linux
+- start new AWS instance via AWS console, use Amazon Linux 2 or Alpine
 - login as `ec2-user`
 - install commands
 
@@ -1183,41 +1183,11 @@ Note: on OS X laptop the `-aws-sdk-profile uc` when AWS credentials are in the ~
 
 On the running machine which will be used for an image:
 
-        bksh -aws-create-image -no-reboot
+    bksh -aws-create-image -no-reboot
 
 Use an instance by tag for an image:
 
-        bksh -aws-create-image -no-reboot -instance-id `bkjs ec2-show -tag api -fmt id | head -1`
-
-### Launch instances when not using AutoScaling Groups
-
-When launching from an EC2 instance no need to specify any AWS credentials.
-
- - admin (EC2)
-
-        bksh -aws-sdk-profile uc -aws-launch-instances -aws-instance-type t2.small -subnet-name api -name admin -elb-name Admin -alarm-name alarms -public-ip 1 -dry-run
-
- - api (EC2)
-
-        bksh -aws-sdk-profile uc -aws-launch-instances -aws-instance-type m3.large -subnet-name api -name api -elb-name api -alarm-name alarms -public-ip 1 -dry-run
-
- - jobs (EC2)
-
-        bksh -aws-sdk-profile uc -aws-launch-instances -aws-instance-type t2.small -subnet-name internal -name sync -alarm-name alarms -dry-run
-        bksh -aws-sdk-profile uc -aws-launch-instances -aws-instance-type t2.small -subnet-name internal -name sync -zone 1c -alarm-name alarms -dry-run
-
- - Elasticsearch
-
-        bksh -aws-sdk-profile uc -aws-launch-instances -aws-instance-type m3.large -subnet-name internal -name elasticsearch -bkjs-cmd init-stop-service -bkjs-cmd "init-elasticsearch-service -memsize 50" -alarm-name alarms -public-ip 1 -dry-run
-
- - Redis
-
-        bksh -aws-sdk-profile uc -aws-launch-instances -aws-instance-type m3.large -subnet-name internal -name redis -bkjs-cmd init-stop-service -bkjs-cmd "init-redis-service -memsize 70" -alarm-name alarms  -public-ip 1 -dry-run
-
-### Copy Autoscaling launch templates after new AMI is created
-
-    bksh -aws-create-launch-template-version -name jobs -aws-sdk-profile uc -dry-run
-    bksh -aws-create-launch-template-version -name api -aws-sdk-profile uc -dry-run
+    bksh -aws-create-image -no-reboot -instance-id `bkjs ec2-show -tag api -fmt id | head -1`
 
 ### Update Route53 with all IPs from running instances
 
@@ -1232,7 +1202,7 @@ how the environment is setup it is ultimately 2 ways to specify the port for HTT
 
   The config file is always located in the etc/ folder in the backend home directory, how the home is specified depends on the system but basically it can be
   defined via command line arguments as `-home` or via environment variables when using bkjs. See bkjs documentation but on AWS instances created with bkjs
-  `init-server` command, for non-standard home use `/etc/sysconfig/bkjs` profile, specify `BKJS_HOME=/home/backend` there and the rest will be taken care of
+  `setup-server` command, for non-standard home use `/etc/sysconfig/bkjs` profile, specify `BKJS_HOME=/home/backend` there and the rest will be taken care of
 
 - command line arguments
 
@@ -1266,29 +1236,33 @@ how the environment is setup it is ultimately 2 ways to specify the port for HTT
 
     * to install binary release run the command, it will install it into /opt/local on Darwin
 
+        ```
         bkjs install-node
         # To install into different path
         bkjs install-node -prefix /usr/local/node
+        ```
 
     * **Important**: Add NODE_PATH=$BKJS_PREFIX/lib/node_modules to your environment in .profile or .bash_profile so
       node can find global modules, replace $BKJS_PREFIX with the actual path unless this variable is also set in the .profile
 
 * to install all dependencies and make backendjs module and bkjs globally available:
 
-       npm link backendjs
+    ```npm link backendjs```
 
 * to run local server on port 8000 run command:
 
-        bkjs web
+    ```bkjs web```
 
 * to start the backend in command line mode, the backend environment is prepared and initialized including all database pools.
    This command line access allows you to test and run all functions from all modules of the backend without running full server
    similar to Node.js REPL functionality. All modules are accessible from the command line.
 
-        $ ./bkjs shell
-        > core.version
-        '0.70.0'
-        > logger.setLevel('info')
+    ```
+    $ ./bkjs shell
+    > core.version
+    '0.70.0'
+    > logger.setLevel('info')
+    ```
 
 # Simple testing facility
 

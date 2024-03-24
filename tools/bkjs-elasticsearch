@@ -190,28 +190,12 @@ case "$BKJS_CMD" in
     find_user
     echo "check process elasticsearch with pidfile \"$BKJS_HOME/var/elasticsearch.pid\" start program = \"$BKJS_BIN elasticsearch-run $(get_all_args)\" as uid $BKJS_USER and gid $BKJS_GROUP stop program = \"$BKJS_BIN elasticsearch-stop\" if failed url http://127.0.0.1:9200/ with timeout 15 seconds for 2 cycles then restart" > /etc/monit.d/elasticsearch.conf
     echo "check file elasticsearch-log with path $BKJS_HOME/log/elasticsearch.log if match 'java.lang.OutOfMemoryError' then exec \"$BKJS_BIN restart-elasticsearch $(get_all_args)\"" >> /etc/monit.d/elasticsearch.conf
-    monit reload
     exit
     ;;
 
   elasticsearch-init-monit-health)
     host=$(get_arg -host elasticsearch)
     echo "check host elasticsearch-health with address $host if failed url http://$host:9200/_cluster/health and content = 'green' with timeout 60 seconds for 2 cycles then alert" > /etc/monit.d/elasticsearch-health.conf
-    monit reload
-    exit
-    ;;
-
-  elasticsearch-stop-monit)
-    [ "$(whoami)" != "root" ] && echo "Not root, skipping setup" && exit 1
-    rm -rf /etc/monit.d/elasticsearch*
-    monit reload
-    $0 elasticsearch-stop
-    exit
-    ;;
-
-  elasticsearch-init-cloudwatch-logs)
-    echo "BKJS_CLOUDWATCH_LOGS=elasticsearch.log" >> $BKJS_HOME/etc/profile
-    $0 ec2-init-cloudwatch-agent
     exit
     ;;
 
@@ -224,7 +208,6 @@ case "$BKJS_CMD" in
     echo "  elasticsearch-reset - remove local ElasticSearch database and restart the server"
     echo "  elasticsearch-configure - configure ElasticSearch common parameters for scalability"
     echo "  elasticsearch-init-monit [-memsize PERCENT] [-memmax SIZE] [-nodetype TYPE] - setup monit to keep elasticsearch service running"
-    echo "  elasticsearch-init-cloudwatch-logs - setup elastichsearch.log to be sent to CloudWatch Logs"
     echo "  elasticsearch-exclude-node [-host HOST] [-ip IP] - disable a node by IP address"
     echo "  elasticsearch-reindex -index INDEX [-dest INDEX] [-host HOST] [-remote HOST] - reindex an index from remote host"
     ;;

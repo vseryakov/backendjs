@@ -12,7 +12,7 @@ get_ec2_param() {
 get_ec2_meta() {
     local T= v=$(curl -m 0.2 -s http://169.254.169.254/$1)
     [ "$?" != "0" ] && return
-    [ "$v" = "" ] && T=`curl -m 0.2 -s -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 30"` && v=$(curl -m 0.2 -H "X-aws-ec2-metadata-token: $T" -s http://169.254.169.254/$1)
+    [ -z "$v" ] && T=`curl -m 0.2 -s -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 30"` && v=$(curl -m 0.2 -H "X-aws-ec2-metadata-token: $T" -s http://169.254.169.254/$1)
     echo $v
 }
 
@@ -20,22 +20,13 @@ case "$BKJS_CMD" in
 
   start-instance)
     region=$(echo $(get_ec2_meta latest/meta-data/placement/availability-zone/)|sed 's/[a-z]$//')
-    if [ -n "$region" ]; then
-       echo "Setting region $region ..."
-       (aws configure set region $region)
-       ([ "$(whoami)" = "root" ] && su ec2-user -c "aws configure set region $region")
-       ($0 ec2-check-storage)
-       ($0 ec2-check-hostname)
-       ($0 ec2-check-cloudwatch-agent)
-    fi
-    ;;
-
-  ec2-check-hostname)
-    addr=$(get_local_ip)
-    [ "$addr" = "" ] && echo "No IP address found" && exit
-    tag=$($0 ec2-tag)
-    $0 init-hostname -host ${tag:-ip}-$(echo $addr|sed 's/\./-/g')
-    exit
+    [ -z "$region" ] && return
+    echo "Setting region $region ..."
+    (aws configure set region $region)
+    ([ "$(whoami)" = "root" ] && su ec2-user -c "aws configure set region $region")
+    ($0 ec2-check-storage)
+    ($0 ec2-check-hostname)
+    ($0 ec2-check-cwagent)
     ;;
 
   ec2-show|ec2-ls)
@@ -136,7 +127,7 @@ case "$BKJS_CMD" in
   ec2-tag)
     tag=$(get_arg -tag Name)
     v=$(get_ec2_meta latest/meta-data/tags/instance/$tag)
-    [ -n "$v" ] && echo $v && exit
+    [ -n "$v" -a "$?" = "0" ] && echo $v && exit
     id=$(get_ec2_meta latest/meta-data/instance-id)
     [ "$id" != "" ] && aws ec2 describe-tags --filter "Name=key,Values=$tag" "Name=resource-id,Values=$id" --output text| cut -f5|head -1
     exit
@@ -151,26 +142,34 @@ case "$BKJS_CMD" in
     tag=$(get_arg -tag)
     [ "$tag" != "" ] && instance_id=$(bkjs ec2-show -tag $tag -fmt id | head -1)
     instance_id=$(get_arg -instance-id $instance_id)
+
     if [ -z "$instance_id" ]; then
         echo 1 > $HOME/var/bkjs.init
         rm -f $HOME/var/bkjs.tag
         for f in /etc/monit.d/*.conf; do
-            if match $f "(alert|system|bkjs).conf"; then
+            if ! match $f "(alert|system|bkjs).conf"; then
                 sudo mv $f /tmp
                 saved_files="$saved_files /tmp/$(basename $f)"
             fi
         done
         [ -f $HOME/etc/profile.local ] && mv $HOME/etc/profile.local /tmp
         sync
+        # Run hooks before making an image
+        $0 ec2-create-ami-prepare
     fi
+
     name=$(get_arg -name)
     prefix=$(get_arg -prefix)
-    [ "$(get_flag -force)" != "" ] && force="-force"
+    [ -n "$(get_flag -force)" ] && force="-force"
     bksh -no-db -aws-create-image -wait $force -instance-id $instance_id -name "$name" -prefix "$prefix"
+
     if [ -z "$instance_id" ]; then
         rm -f $HOME/var/bkjs.init
         for f in $saved_files; do sudo mv $f /etc/monit.d; done
         [ -f /tmp/profile.local ] && mv /tmp/profile.local $HOME/etc
+
+        # Restore state afterwards
+        $0 ec2-create-ami-finish
     fi
     exit
     ;;
@@ -181,7 +180,8 @@ case "$BKJS_CMD" in
     image=$(get_arg -image-name)
     if [ -z "$name" ]; then
         tag=$(get_arg -tag)
-        [ "$tag" != "" ] && filter="--filter Name=tag:Name,Values=${tag}"
+        key=$(get_arg -key Name)
+        [ "$tag" != "" ] && filter="--filter Name=tag:$key,Values=${tag}"
         name=$(aws ec2 describe-launch-templates $filter --query 'LaunchTemplates[*].LaunchTemplateName' --output text|sed 's/\t/\n/g'|sort|uniq)
     fi
     for c in $name; do
@@ -194,53 +194,12 @@ case "$BKJS_CMD" in
     exit
     ;;
 
-  ec2-replace-ami)
-    rm -rf $HOME/tmp/*
-    $0 ec2-create-ami -force -prefix $OS_ARCH-
-    $0 ec2-create-launch-template-version -tag $OS_ARCH -image-name "$OS_ARCH-*"
-    exit
-    ;;
-
-  ec2-init-cloudwatch-agent)
-    dir=/opt/aws/amazon-cloudwatch-agent
-    if [ ! -d $dir ]; then
-        arch=$OS_ARCH
-        [ "$arch" = "x64" ] && arch=amd64
-        curl -OL https://s3.amazonaws.com/amazoncloudwatch-agent/amazon_linux/$arch/latest/amazon-cloudwatch-agent.rpm
-        rpm -i amazon-cloudwatch-agent.rpm
-        rm amazon-cloudwatch-agent.rpm
-    fi
-    $0 ec2-check-cloudwatch-agent
-    exit
-    ;;
-
-  ec2-check-cloudwatch-agent)
-    dir=/opt/aws/amazon-cloudwatch-agent
-    [ ! -d $dir ] && exit
+  ec2-check-hostname)
+    addr=$(get_local_ip)
+    [ "$addr" = "" ] && echo "No IP address found" && exit
     tag=$($0 ec2-tag)
-    [ "$tag" = "" ] && exit
-    user=$(get_arg -user ec2-user)
-    files="access.log message.log error.log $BKJS_CLOUDWATCH_LOGS"
-    for log in $files; do
-        [ "$logs" != "" ] && logs="$logs,"
-        logs="$logs{ \"file_path\": \"/home/$user/log/$log\", \"log_group_name\": \"$log\", \"log_stream_name\": \"$tag\", \"multi_line_start_pattern\": \"^[^ \\t]\", \"timestamp_format\": \"%Y-%m-%dT%H:%M:%S.%f\" }"
-    done
-    tmp=/cwa.json
-    conf=$dir/etc/amazon-cloudwatch-agent.json
-    echo "{ \"agent\": { \"logfile\": \"/var/log/cwagent.log\" }, \"logs\": { \"logs_collected\": { \"files\": { \"collect_list\": [ $logs ] } }, \"log_stream_name\": \"$tag\" } }" > $tmp
-    cmp $conf $tmp
-    if [ "$?" = "0" ]; then
-        rm -f $tmp
-        exit
-    fi
-    mv $tmp $conf
-    $dir/bin/config-translator --input $dir/etc/amazon-cloudwatch-agent.json --output $dir/etc/amazon-cloudwatch-agent.toml --mode "auto"
-    case "$OS_TYPE" in
-      amazon)
-        systemctl enable amazon-cloudwatch-agent
-        systemctl restart amazon-cloudwatch-agent
-        ;;
-    esac
+    host=$($0 setup-hostname -host ${tag:-ip}-$(echo $addr|sed 's/\./-/g'))
+    [ -n "$host" ] && service rsyslog restart
     exit
     ;;
 
@@ -289,9 +248,7 @@ case "$BKJS_CMD" in
     echo "  ec2-tag [-tag NAME] - current instance tag name, default key is Name"
     echo "  ec2-stop-api [-tag NAME] - restart gracefully on the specified instances by tag"
     echo "  ec2-create-ami [-tag NAME] [-prefix PREFIX] - create a new AMI from the given running instance by tag or the current instance"
-    echo "  ec2-create-launch-template-version [-name NAME] [-skip A B] [-image-name *] - create new launch template verson with the latest AMI, if no -name is given all existing templates will be updated"
-    echo "  ec2-replace-ami - replace current AMI for x86 and arm64 platforms, uses OS_ARCH"
-    echo "  ec2-init-cloudwatch-agent [-restart] - install AWS Cloudwatch agent to send backend logs to Cloudwatch Logs"
+    echo "  ec2-create-launch-template-version [-name NAME] [-tag TAG] [-skip A B] [-image-name *] - create new launch template verson with the latest AMI, if no -name is given all existing templates matched by tag if given will be updated"
     ;;
 esac
 

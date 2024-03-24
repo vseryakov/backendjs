@@ -19,28 +19,17 @@ case "$PLATFORM" in
      *Alpine*)
        OS_TYPE=alpine
        ;;
-
-     *Ubuntu*)
-       OS_TYPE=ubuntu
-       ;;
     esac
-    [ -f /etc/default/$BKJS ] && . /etc/default/$BKJS
+    [ -f /etc/conf.d/$BKJS ] && . /etc/conf.d/$BKJS
     [ -f /etc/sysconfig/$BKJS ] && . /etc/sysconfig/$BKJS
     SED="sed -r -i"
-    SHASUM=sha1sum
     ;;
 
   Darwin)
     OS_TYPE=macosx
-    [ "$BKJS_HOME" = "" ] && export BKJS_HOME=~/.bkjs
-    [ "$BKJS_PREFIX" = "" ] && export BKJS_PREFIX=/opt/local
+    [ -z "$BKJS_HOME" ] && export BKJS_HOME=~/.bkjs
+    [ -z "$BKJS_PREFIX" ] && export BKJS_PREFIX=/opt/local
     SED="sed -E -i .orig"
-    SHASUM=shasum
-    ;;
-
-  *)
-    echo "Unsupported platform"
-    exit 1
     ;;
 esac
 
@@ -49,7 +38,7 @@ case "$(uname -m)" in
     OS_ARCH=arm64
     ;;
   *)
-    OS_ARCH=x64
+    OS_ARCH=amd64
     ;;
 esac
 
@@ -105,13 +94,13 @@ get_all_args() {
     for a in $1; do
       [ "$n" = "$a" ] && found=1
     done
-    if [ "$found" = "" ]; then
+    if [ -z "$found" ]; then
        if ! match "$n" "[ '\"]"; then
           args="$args $n"
        else
           args="$args $sep$n$sep"
        fi
-       if [ "$v" != "" -a "${v:0:1}" != "-" ]; then
+       if [ -n "$v" -a "${v:0:1}" != "-" ]; then
           if ! match "$v" "[ '\"]"; then
              args="$args $v"
           else
@@ -128,8 +117,8 @@ get_all_args() {
 # Concatenate args
 concat_arg() {
   local _v=$(get_arg $1)
-  [ "$_v" == "" ] && echo $2
-  [ "$2" != "" ] && _v="$2 $_v"
+  [ -z "$_v" ] && echo $2
+  [ -n "$2" ] && _v="$2 $_v"
   echo "$_v"
 }
 
@@ -156,17 +145,17 @@ get_json_flat() {
 
 # Resolve node binary location
 find_nodebin() {
-  [ "$NODE_BIN" = "" -a -f $BKJS_HOME/bin/node ] && export NODE_BIN=$BKJS_HOME/bin/node
-  [ "$NODE_BIN" = "" -a -f $BKJS_PREFIX/bin/node ] && export NODE_BIN=$BKJS_PREFIX/bin/node
-  [ "$NODE_BIN" = "" ] && export NODE_BIN=$(which node 2>/dev/null)
+  [ -z "$NODE_BIN" -a -f $BKJS_HOME/bin/node ] && export NODE_BIN=$BKJS_HOME/bin/node
+  [ -z "$NODE_BIN" -a -f $BKJS_PREFIX/bin/node ] && export NODE_BIN=$BKJS_PREFIX/bin/node
+  [ -z "$NODE_BIN" ] && export NODE_BIN=$(which node 2>/dev/null)
 }
 
 # Use configured or provided user:group, defaults to the current user
 find_user() {
   export BKJS_USER=$(get_arg -user $BKJS_USER)
-  [ "$BKJS_USER" = "" ] && export BKJS_USER=$(whoami)
+  [ -z "$BKJS_USER" ] && export BKJS_USER=$(whoami)
   export BKJS_GROUP=$(get_arg -group $BKJS_GROUP)
-  [ "$BKJS_GROUP" = "" ] && export BKJS_GROUP=$(id -gn)
+  [ -z "$BKJS_GROUP" ] && export BKJS_GROUP=$(id -gn)
 }
 
 # Run the command by sourcing all scripts from tools folders
@@ -200,13 +189,13 @@ BKJS_DIR="$(cd "${BKJS_BIN%/*}" ; pwd -P)"
 
 # Home and prefix must be specified for the script to work properly
 export BKJS_HOME=$(get_arg -home $BKJS_HOME)
-[ "$BKJS_HOME" = "" ] && export BKJS_HOME=$(sh -c "echo ~$BKJS_USER")
+[ -z "$BKJS_HOME" ] && export BKJS_HOME=$(sh -c "echo ~$BKJS_USER")
 [ -f $BKJS_HOME/.env ] && . $BKJS_HOME/.env
 [ -f $BKJS_HOME/etc/profile ] && . $BKJS_HOME/etc/profile
 [ -f $BKJS_HOME/etc/profile.local ] && . $BKJS_HOME/etc/profile.local
 
 export BKJS_PREFIX=$(get_arg -prefix $BKJS_PREFIX)
-[ "$BKJS_PREFIX" = "" ] && export BKJS_PREFIX=$BKJS_HOME
+[ -z "$BKJS_PREFIX" ] && export BKJS_PREFIX=$BKJS_HOME
 
 export BKJS_DEBUG=$(get_flag -debug)
 
@@ -225,14 +214,11 @@ case "$BKJS_CMD" in
     ;;
 
   start-instance)
-    # Fresh start, reset monit
-    if [ -f $BKJS_HOME/var/bkjs.init ]; then
-        [ -z "$(pgrep -x monit)" ] && rm -f /var/run/monit.pid /root/.monit.state /root/.monit.id
-    fi
+    echo "$(date -R): Running start instance..."
 
     # Setup domain from the config, keep the hostname as it is, for EC2 instances it is the IP address
     domain=$(get_arg -domain $BKJS_DOMAIN)
-    [ "$domain" != "" ] && $0 init-hostname -domain $domain
+    [ -n "$domain" ] && $0 setup-hostname -domain $domain
 
     # Allow other tools to run
     BKJS_ALLCMD=1
@@ -240,7 +226,7 @@ case "$BKJS_CMD" in
 
     # New instance started from existing AMI which might have old log files
     if [ -f $BKJS_HOME/var/bkjs.init ]; then
-        echo "Initializing $BKJS_HOME..."
+        echo "$(date): Initializing $BKJS_HOME..."
         rm -rf $BKJS_HOME/var/* $BKJS_HOME/log/*
         service rsyslog restart
     fi
@@ -264,7 +250,7 @@ case "$BKJS_CMD" in
 
   stop-web|stop-server|stop-master|stop-worker)
     name=${BKJS_CMD:5}
-    [ "$name" = "" ] && exit 0
+    [ -z "$name" ] && exit 0
     pkill $1 -f "$BKJS: $name"
     exit 0
     ;;
@@ -317,7 +303,7 @@ case "$BKJS_CMD" in
     rsync $(get_all_args "-bkcmd")
     rc=$?
     [ "$rc" != "0" ] && exit $rc
-    [ "$cmd" != "" ] && $(dirname $0)/bkjs $(echo $cmd|sed 's/%20/ /g') 1>&2
+    [ -n "$cmd" ] && $(dirname $0)/bkjs $(echo $cmd|sed 's/%20/ /g') 1>&2
     exit 0
     ;;
 
@@ -373,7 +359,7 @@ case "$BKJS_CMD" in
     BKJS_ALLCMD=1
     process_cmd
     echo ""
-    [ "$cmd" != "" -a "$cmd" != "help" ] && echo "error: unrecognized command: $cmd: $@" >&2 && exit 1
+    [ -n "$cmd" -a "$cmd" != "help" ] && echo "error: unrecognized command: $cmd: $@" >&2 && exit 1
     exit 0
     ;;
 esac

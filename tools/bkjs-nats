@@ -7,10 +7,8 @@
 case "$BKJS_CMD" in
 
   nats-get)
-    platform=$(echo $PLATFORM | tr [:upper:] [:lower:])
-    arch=$OS_ARCH
-    [ "$arch" = "x64" ] && arch=amd64
-    curl -L -o /tmp/nats.tgz https://github.com/nats-io/nats-server/releases/download/v2.9.15/nats-server-v2.9.15-$platform-$arch.tar.gz
+    platform=$(to_lower $PLATFORM)
+    curl -L -o /tmp/nats.tgz https://github.com/nats-io/nats-server/releases/download/v2.9.15/nats-server-v2.9.15-$platform-$OS_ARCH.tar.gz
     tar --strip-components=1 -C /tmp -xzf /tmp/nats.tgz
     mv /tmp/nats-server $BKJS_PREFIX/bin
     rm -rf /tmp/nats.tgz
@@ -36,10 +34,8 @@ case "$BKJS_CMD" in
     ;;
 
   nats-getcli)
-    platform=$(echo $PLATFORM | tr [:upper:] [:lower:])
-    arch=$OS_ARCH
-    [ "$arch" = "x64" ] && arch=amd64
-    curl -L -o /tmp/nats.zip https://github.com/nats-io/natscli/releases/download/v0.0.35/nats-0.0.35-$platform-$arch.zip
+    platform=$(to_lower $PLATFORM)
+    curl -L -o /tmp/nats.zip https://github.com/nats-io/natscli/releases/download/v0.0.35/nats-0.0.35-$platform-$OS_ARCH.zip
     unzip -j /tmp/nats.zip -d /tmp '*/nats'
     mv /tmp/nats $BKJS_PREFIX/bin
     rm -rf /tmp/nats.zip
@@ -60,7 +56,6 @@ case "$BKJS_CMD" in
 
   nats-init-monit)
     $0 monit-init -name nats -start "$BKJS_BIN nats-run" -stop "$BKJS_BIN nats-stop"
-    monit reload
     exit
     ;;
 
