@@ -32,7 +32,6 @@ case "$BKJS_CMD" in
     ($0 monit-init-system $args)
 
     if [ "$OS_TYPE" = "alpine" ]; then
-        rc-update add sshd
         rc-update add crond
 
         if [ -z "$(grep -s monit /etc/inittab)" ]; then
@@ -42,8 +41,10 @@ case "$BKJS_CMD" in
         # Force to gen SSH keys for new user
         /sbin/tiny-cloud --bootstrap incomplete
 
-        mv $BKJS_DIR /home/$BKJS_USER/node_modules
-        chown -R $BKJS_USER /home/$BKJS_USER
+        if [ "$(pwd)" != "$BKJS_HOME" -a -d backendjs ]; then
+            mv backendjs $BKJS_HOME/node_modules
+            chown -R $BKJS_USER.$BKJS_USER $BKJS_HOME
+        fi
     fi
     exit
     ;;
@@ -97,7 +98,7 @@ case "$BKJS_CMD" in
        ln -sfn bkjs bksh &&
        ln -sfn bkjs bkrsync)
 
-    chown -R $BKJS_USER $BKJS_HOME
+    chown -R $BKJS_USER.$BKJS_USER $BKJS_HOME
     exit
     ;;
 
