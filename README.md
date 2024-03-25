@@ -1166,6 +1166,7 @@ repository when the bundle build may not be called or called too early. To force
 - login as `alpine`
 - install commands
 
+        doas apk add git
         git clone https://github.com/vseryakov/backendjs.git
         doas backendjs/bkjs setup-ec2
         doas reboot
