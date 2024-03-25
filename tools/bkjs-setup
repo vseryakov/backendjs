@@ -16,7 +16,7 @@ case "$BKJS_CMD" in
     args=$(get_all_args)
     find_user
     find_nodebin
-    echo "Setuping server in $BKJS_HOME for $BKJS_USER/$(get_arg -user), prefix: $BKJS_PREFIX, binaries: $NODE_BIN, $BKJS_BIN... ($args)"
+    echo "Setuping server in $BKJS_HOME for $BKJS_USER, prefix: $BKJS_PREFIX, binaries: $NODE_BIN, $BKJS_BIN... ($args)"
 
     ($0 setup-packages $args)
     ($0 setup-hostname $args)
@@ -40,7 +40,10 @@ case "$BKJS_CMD" in
         fi
 
         # Force to gen SSH keys for new user
-        /sbin/tiny-cloud --bootstrap status --bootstrap incomplete
+        /sbin/tiny-cloud --bootstrap incomplete
+
+        mv $BKJS_DIR /home/$BKJS_USER/node_modules
+        chown -R $BKJS_USER /home/$BKJS_USER
     fi
     exit
     ;;
@@ -88,10 +91,12 @@ case "$BKJS_CMD" in
     find_user
 
     mkdir -p $BKJS_HOME/node_modules $BKJS_HOME/bin $BKJS_HOME/log $BKJS_HOME/etc $BKJS_HOME/var
+
     (cd $BKJS_HOME/bin &&
        ln -sfn ../node_modules/backendjs/bkjs bkjs &&
        ln -sfn bkjs bksh &&
        ln -sfn bkjs bkrsync)
+
     chown -R $BKJS_USER $BKJS_HOME
     exit
     ;;
@@ -386,9 +391,9 @@ case "$BKJS_CMD" in
         case $OS_TYPE in
           alpine)
             conf=/etc/init.d/$BKJS
-            echo -e "#!/sbin/openrc-run\nname=\"$BKJS\"\ndepend() {\n\need net\n}\nstart() {\n\t$bin start\n}" > $conf
+            echo -e "#!/sbin/openrc-run\nname=\"$BKJS\"\ndepend() {\n\tneed net\n}\nstart() {\n\t$bin start\n}" > $conf
             chmod 755 $conf
-            rc-update add $BKJS boot
+            rc-update add $BKJS
             ;;
 
           *)
@@ -401,7 +406,7 @@ case "$BKJS_CMD" in
         echo "Stopping service $BKJS"
         case $OS_TYPE in
           alpine)
-            rc-update del $BKJS
+            rc-update -a del $BKJS
             ;;
 
           *)

@@ -1162,22 +1162,20 @@ repository when the bundle build may not be called or called too early. To force
 
 ## AWS instance setup with node and backendjs
 
-- start new AWS instance via AWS console, use Amazon Linux 2 or Alpine
-- login as `ec2-user`
+- start new AWS instance via AWS console, use Alpine 3.19 or later
+- login as `alpine`
 - install commands
 
         git clone https://github.com/vseryakov/backendjs.git
-        sudo backendjs/bkjs install-ec2 -tools $(pwd)/backendjs/tools
+        doas backendjs/bkjs setup-ec2
+        doas reboot
 
-- run `ps agx`, it should show several backend processes running after monit started the service
-- try to access the instance via HTTP port for the API console or documentation
+- now login as `ec2-user`
 
 NOTE: if running behind a Load balancer and actual IP address is needed set Express option in the command line `-api-express-options {"trust%20proxy":1}`. In the config file
 replacing spaces with %20 is not required.
 
 ## AWS Provisioning examples
-
-Note: on OS X laptop the `-aws-sdk-profile uc` when AWS credentials are in the ~/.aws/credentials.
 
 ### Make an AMI
 
