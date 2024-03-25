@@ -72,10 +72,8 @@ case "$BKJS_CMD" in
           bkjsfmt=";bkjsfmt2"
        fi
        echo "local1.* $BKJS_HOME/log/docker.log$bkjsfmt" >> /etc/rsyslog.d/$BKJS-docker.conf
-       service rsyslog restart
 
        echo '{ "features": { "buildkit": true }, "log-driver": "syslog", "log-opts": { "tag": "{{.Name}}", "syslog-facility": "local1", "cache-disabled": "true", "mode": "non-blocking" } }' > /etc/docker/daemon.json
-       service docker restart
     fi
     exit
     ;;

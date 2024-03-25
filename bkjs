@@ -5,7 +5,6 @@
 #
 
 BKJS=bkjs
-BKJS_MOD=backendjs
 
 PLATFORM=$(uname -s)
 case "$PLATFORM" in
@@ -210,7 +209,7 @@ case "$BKJS_CMD" in
     cd $BKJS_HOME
     [ "$(whoami)" = "root" ] && ($0 start-instance)
     [ -n "$BKJS_SERVER" -a "$BKJS_SERVER" != "none" ] && $0 run-$BKJS_SERVER
-    exit
+    exit 0
     ;;
 
   start-instance)
@@ -262,7 +261,7 @@ case "$BKJS_CMD" in
     [ -z "$SCRIPT" -a -f $BKJS_HOME/app.js ] && SCRIPT=$BKJS_HOME/app.js
     [ -z "$SCRIPT" -a -f $BKJS_HOME/lib/app.js ] && SCRIPT=$BKJS_HOME/lib/app.js
     [ -z "$SCRIPT" ] && SCRIPT=$BKJS_DIR/lib/app.js
-    [ -z $SCRIPT ] && echo "ERROR: Cannot find $BKJS_MOD module or app.js in '.:$BKJS_HOME'" && exit 1
+    [ -z $SCRIPT ] && echo "ERROR: Cannot find app.js in '.:$BKJS_HOME'" && exit 1
 
     [[ -n "$BKJS_DEBUG" ]] && echo "$(date): Starting $BKJS_CMD: $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME $BKJS_RUN_ARGS $@"
 
@@ -309,7 +308,7 @@ case "$BKJS_CMD" in
 
   bkhelp)
     find_nodebin
-    $NODE_BIN -e "require('$BKJS_MOD').core.showHelp()"
+    $NODE_BIN -e "require('backendjs').core.showHelp()"
     exit
     ;;
 
@@ -344,7 +343,7 @@ case "$BKJS_CMD" in
     echo "  watch - run the backend in watcher and master mode with all source files being monitored for changes, the server is restarts on any change automatically"
     echo "  run - run local backend with provided arguments"
     echo ""
-    echo "  bkhelp - show all $BKJS_MOD config parameters"
+    echo "  bkhelp - show all config parameters"
     echo "  env - show all environment variables"
     echo ""
     echo "Common options:"

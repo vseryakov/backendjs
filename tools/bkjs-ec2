@@ -198,8 +198,7 @@ case "$BKJS_CMD" in
     addr=$(get_local_ip)
     [ "$addr" = "" ] && echo "No IP address found" && exit
     tag=$($0 ec2-tag)
-    host=$($0 setup-hostname -host ${tag:-ip}-$(echo $addr|sed 's/\./-/g'))
-    [ -n "$host" ] && service rsyslog restart
+    $0 setup-hostname -host ${tag:-ip}-$(echo $addr|sed 's/\./-/g')
     exit
     ;;
 
@@ -232,7 +231,6 @@ case "$BKJS_CMD" in
     fi
     mkdir -p $mnt/log $mnt/var
     chown -R $user $mnt
-    service rsyslog restart
     exit
     ;;
 

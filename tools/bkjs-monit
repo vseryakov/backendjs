@@ -33,15 +33,17 @@ case "$BKJS_CMD" in
     ;;
 
   monit-init-start-instance)
+    bin=$(get_arg -bin $BKJS_BIN)
     mkdir -p /etc/monit.d
-    echo -e "check program start-instance with path \"$BKJS_BIN monit-start-instance\" if status > -1 then unmonitor" > /etc/monit.d/start-instance.conf
+    echo -e "check program start-instance with path \"$bin monit-start-instance\" if status > -1 then unmonitor" > /etc/monit.d/start-instance.conf
     exit
     ;;
 
   monit-init-bkjs)
     find_user
     timeout=$(get_arg -timeout 30)
-    echo -e "check process $BKJS with pidfile \"$BKJS_HOME/var/master.pid\" start program = \"$BKJS_BIN run-master $(get_all_args)\" as uid $BKJS_USER and gid $BKJS_GROUP with timeout $timeout seconds stop program = \"$BKJS_BIN stop\"" > /etc/monit.d/$BKJS.conf
+    bin=$(get_arg -bin $BKJS_BIN)
+    echo -e "check process $BKJS with pidfile \"$BKJS_HOME/var/master.pid\" start program = \"$bin run-master $(get_all_args)\" as uid $BKJS_USER and gid $BKJS_GROUP with timeout $timeout seconds stop program = \"$bin stop\"" > /etc/monit.d/$BKJS.conf
     exit
     ;;
 

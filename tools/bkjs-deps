@@ -16,7 +16,7 @@ case "$BKJS_CMD" in
     check=$(get_flag -check)
     strict=$(get_flag -strict)
     global=$(get_flag -global)
-    skip=$(get_arg -skip $BKJS_MOD)
+    skip=$(get_arg -skip backendjs)
     filter=$(get_arg -filter)
     fields=$(get_arg -fields dependencies,devDependencies)
     if [[ -n "$check" ]]; then

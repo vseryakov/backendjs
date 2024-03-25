@@ -49,7 +49,7 @@ case "$BKJS_CMD" in
 
   help)
     echo
-    echo "  sync [-host HOST] [-path PATH] [-del] [-user USER] [-ssh-key pem] [-ssh OPTS] [-exclude PATTERN] [-bkcmd CMD] - push the backend code to the remote host using rsync, default path is ~/node_modules/$BKJS_MOD"
+    echo "  sync [-host HOST] [-path PATH] [-del] [-user USER] [-ssh-key pem] [-ssh OPTS] [-exclude PATTERN] [-bkcmd CMD] - push the backend code to the remote host using rsync, default path is ~/node_modules"
     ;;
     
 esac

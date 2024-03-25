@@ -28,12 +28,19 @@ case "$BKJS_CMD" in
     ($0 setup-rsyslog $args)
     ($0 setup-profile $args)
     ($0 setup-home $args)
-    ($0 setup-service $args)
+    ($0 setup-service $args -bin $BKJS_HOME/bin/$BKJS)
     ($0 monit-init-system $args)
 
     if [ "$OS_TYPE" = "alpine" ]; then
         rc-update add sshd
-        rc-update add monit default
+        rc-update add crond
+
+        if [ -z "$(grep -s monit /etc/inittab)" ]; then
+            echo "::respawn:/usr/bin/monit -I" >> /etc/inittab
+        fi
+
+        # Force to gen SSH keys for new user
+        /sbin/tiny-cloud --bootstrap status --bootstrap incomplete
     fi
     exit
     ;;
@@ -76,6 +83,19 @@ case "$BKJS_CMD" in
     exit
     ;;
 
+  setup-home)
+    # Create required directories
+    find_user
+
+    mkdir -p $BKJS_HOME/node_modules $BKJS_HOME/bin $BKJS_HOME/log $BKJS_HOME/etc $BKJS_HOME/var
+    (cd $BKJS_HOME/bin &&
+       ln -sfn ../node_modules/backendjs/bkjs bkjs &&
+       ln -sfn bkjs bksh &&
+       ln -sfn bkjs bkrsync)
+    chown -R $BKJS_USER $BKJS_HOME
+    exit
+    ;;
+
   setup-user)
     # Add local user
     find_user
@@ -83,7 +103,8 @@ case "$BKJS_CMD" in
 
     if [ "$(grep -s $BKJS_USER /etc/passwd)" = "" ]; then
         echo "Adding user $BKJS_USER"
-        useradd -m -g wheel -s /bin/bash $BKJS_USER
+        useradd -m -G wheel -s /bin/bash $BKJS_USER
+        sh -c "echo '$BKJS_USER:*' | /usr/sbin/chpasswd -e"
         mkdir -p -m 700 $UHOME/.ssh && chown $BKJS_USER $UHOME/.ssh
     fi
 
@@ -91,8 +112,8 @@ case "$BKJS_CMD" in
         $SED "s/^#?CLOUD_USER=.+/CLOUD_USER=$BKJS_USER/" /etc/tiny-cloud.conf
     fi
 
-    if [ -d /etc/doas.d ]; then
-        echo "permit nopass :wheel as root" >> /etc/doas.d/$BKJS.conf
+    if [ -d /etc/doas.d -a ! -f /etc/doas.d/wheel.conf ]; then
+        echo "permit nopass :wheel" >> /etc/doas.d/wheel.conf
     fi
 
     # Allow path in sudo and skip tty for our user so we can run commands via ssh
@@ -145,14 +166,6 @@ case "$BKJS_CMD" in
        echo '[ -s ~/var/bkjs.tag ] && export PS1=$(cat ~/var/bkjs.tag)#' >> $UHOME/.bash_profile
        echo '[ "$TMUX_PANE" != "" ] && PS1=$(echo $PS1|sed "s/#/${TMUX_PANE}#/")' >> $UHOME/.bash_profile
     fi
-    exit
-    ;;
-
-  setup-home)
-    # Create required directories
-    find_user
-    mkdir -p $BKJS_HOME/node_modules $BKJS_HOME/bin $BKJS_HOME/log $BKJS_HOME/etc $BKJS_HOME/var
-    chown -R $BKJS_USER $BKJS_HOME
     exit
     ;;
 
@@ -367,18 +380,20 @@ case "$BKJS_CMD" in
     find_user
     if [ -z "$(get_flag -stop)" ]; then
         echo "Starting $BKJS with $BKJS_BIN"
+
+        bin=$(get_arg -bin $BKJS_BIN)
+
         case $OS_TYPE in
           alpine)
             conf=/etc/init.d/$BKJS
-            echo -e "#!/sbin/openrc-run\nname=\"$BKJS\"\ndepend() {\n\tneed logger\n}\nstart() {\n\t$BKJS_BIN start\n}" > $conf
+            echo -e "#!/sbin/openrc-run\nname=\"$BKJS\"\ndepend() {\n\before logger\n}\nstart() {\n\t$bin start\n}" > $conf
             chmod 755 $conf
             rc-update add $BKJS boot
             ;;
 
           *)
             [ ! -d /etc/init.d ] && echo "SysV init scripts are not supported" && exit
-            path=$(get_arg -path $BKJS_BIN)
-            ln -sfn $path /etc/init.d/$BKJS
+            ln -sfn $bin /etc/init.d/$BKJS
             ln -sfn /etc/init.d/$BKJS /etc/rc5.d/S31$BKJS
             ;;
         esac
@@ -459,7 +474,7 @@ case "$BKJS_CMD" in
         apk add bash curl wget nano mc
         apk add make git gcc g++ cmake autoconf automake libtool man-pages
         apk add shadow doas doas-sudo-shim rsync socat
-        apk add nodejs npm python3 openrc openssh monit monit-openrc rsyslog rsyslog-openrc redis
+        apk add nodejs npm python3 openrc openssh monit rsyslog rsyslog-openrc redis
         apk add tiny-cloud tiny-cloud-aws tiny-cloud-openrc nvme-cli aws-cli
         ;;
     esac

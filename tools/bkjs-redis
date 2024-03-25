@@ -48,8 +48,8 @@ case "$BKJS_CMD" in
     ;;
 
   redis-config)
-    conf=$BKJS_HOME/etc/$REDIS.conf
-    [ ! -f $conf ] && conf=/etc/$REDIS.conf
+    conf=$BKJS_HOME/etc/redis.conf
+    [ ! -f $conf ] && conf=/etc/redis.conf
     local=$BKJS_HOME/etc/redis.local.conf
 
     if [ -z "$(grep -s $local $conf)" ]; then
