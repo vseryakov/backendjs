@@ -69,9 +69,9 @@ get_arg() {
   while [ $i -lt $BKJS_ARGC ]; do
     local n=$(eval "echo \$BKJS_ARGV$i")
     local v=$(eval "echo \"\$BKJS_ARGV$((i+1))\"")
-    if [[ "$1" = "$n" ]]; then
-        if [[ -n "$v" ]] && ! match "$v" "^\-"; then echo "$v" && return 0; fi
-        [[ -n "$3" ]] && echo "$3" && return 0
+    if [ "$1" = "$n" ]; then
+        if [ -n "$v" ] && ! match "$v" "^\-"; then echo "$v" && return 0; fi
+        [ -n "$3" ] && echo "$3" && return 0
     fi
     i=$((i + 1))
   done
@@ -160,12 +160,12 @@ find_user() {
 # Run the command by sourcing all scripts from tools folders
 process_cmd() {
   local _cmddir= _cmdscope= _cmdtools="$(get_arg -tools) ./tools $BKJS_TOOLS $BKJS_HOME/tools $BKJS_DIR/tools"
-  [[ -n "$BKJS_ALLCMD" ]] && _cmdscope='bkjs-*' || _cmdscope="bkjs-$BKJS_SPACE*"
-  [[ -n "$BKJS_DEBUG" ]] && echo "$(date): $BKJS_CMD: process_cmd: $_cmdscope: tools: $_cmdtools"
+  [ -n "$BKJS_ALLCMD" ] && _cmdscope='bkjs-*' || _cmdscope="bkjs-$BKJS_SPACE*"
+  [ -n "$BKJS_DEBUG" ] && echo "$(date): $PPID: $BKJS_CMD: process_cmd: $_cmdscope: tools: $_cmdtools"
   for _cmddir in $_cmdtools; do
      if [ -d $_cmddir ]; then
         local _cmdfiles=$(find $_cmddir \( -type f -o -type l \) -name "$_cmdscope")
-        [[ -n "$BKJS_DEBUG" ]] && echo "$(date): $BKJS_CMD: process_cmd: $_cmddir: files: $_cmdfiles"
+        [ -n "$BKJS_DEBUG" ] && echo "$(date): $PPID: $BKJS_CMD: process_cmd: $_cmddir: files: $_cmdfiles"
         for _cmdfile in $_cmdfiles; do
             source $_cmdfile
         done
@@ -198,22 +198,24 @@ export BKJS_PREFIX=$(get_arg -prefix $BKJS_PREFIX)
 
 export BKJS_DEBUG=$(get_flag -debug)
 
+[ -n "$(get_flag -trace)" ] && exec 2>&1 1> >(tee -a /tmp/bkjs-trace.log)
+
 # Setup paths
 export PATH=$BKJS_HOME/bin:$BKJS_HOME/node_modules/.bin:$BKJS_PREFIX/bin:/app/bin:/usr/local/bin:/opt/local/bin:/opt/local/node/bin:/sbin:/usr/sbin:$PATH
 
-[[ -n "$BKJS_DEBUG" ]] && echo "$(date): $0: HOME=$BKJS_HOME, PREFIX=$BKJS_PREFIX, PWD=$(pwd), USER=$(whoami), CMD=$BKJS_CMD, ARGS=$@"
+[ -n "$BKJS_DEBUG" ] && echo "$(date): $PPID: $0: HOME=$BKJS_HOME, PREFIX=$BKJS_PREFIX, PWD=$(pwd), USER=$(whoami), CMD=$BKJS_CMD, ARGS=$@"
 
 case "$BKJS_CMD" in
 
   start)
     cd $BKJS_HOME
-    [ "$(whoami)" = "root" ] && ($0 start-instance)
+    [ "$(whoami)" = "root" ] && ($0 start-instance $(get_all_args))
     [ -n "$BKJS_SERVER" -a "$BKJS_SERVER" != "none" ] && $0 run-$BKJS_SERVER
     exit 0
     ;;
 
   start-instance)
-    echo "$(date -R): Running start instance..."
+    echo "$(date -R): $PPID: Running start instance..."
 
     # Setup domain from the config, keep the hostname as it is, for EC2 instances it is the IP address
     domain=$(get_arg -domain $BKJS_DOMAIN)
@@ -225,7 +227,7 @@ case "$BKJS_CMD" in
 
     # New instance started from existing AMI which might have old log files
     if [ -f $BKJS_HOME/var/bkjs.init ]; then
-        echo "$(date): Initializing $BKJS_HOME..."
+        echo "$(date): $PPID: Initializing $BKJS_HOME..."
         rm -rf $BKJS_HOME/var/* $BKJS_HOME/log/*
         service rsyslog restart
     fi
@@ -261,9 +263,9 @@ case "$BKJS_CMD" in
     [ -z "$SCRIPT" -a -f $BKJS_HOME/app.js ] && SCRIPT=$BKJS_HOME/app.js
     [ -z "$SCRIPT" -a -f $BKJS_HOME/lib/app.js ] && SCRIPT=$BKJS_HOME/lib/app.js
     [ -z "$SCRIPT" ] && SCRIPT=$BKJS_DIR/lib/app.js
-    [ -z $SCRIPT ] && echo "ERROR: Cannot find app.js in '.:$BKJS_HOME'" && exit 1
+    [ -z $SCRIPT ] && echo "ERROR: $(date): $PPID: Cannot find app.js in '.:$BKJS_HOME'" && exit 1
 
-    [[ -n "$BKJS_DEBUG" ]] && echo "$(date): Starting $BKJS_CMD: $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME $BKJS_RUN_ARGS $@"
+    [ -n "$BKJS_DEBUG" ] && echo "$(date): $PPID: Starting $BKJS_CMD: $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME $BKJS_RUN_ARGS $@"
 
     case "$BKJS_CMD" in
      run-none|none)

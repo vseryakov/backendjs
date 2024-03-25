@@ -379,14 +379,14 @@ case "$BKJS_CMD" in
     # Install service for a script or bkjs service
     find_user
     if [ -z "$(get_flag -stop)" ]; then
-        echo "Starting $BKJS with $BKJS_BIN"
-
         bin=$(get_arg -bin $BKJS_BIN)
+
+        echo "Starting service $BKJS with $bin"
 
         case $OS_TYPE in
           alpine)
             conf=/etc/init.d/$BKJS
-            echo -e "#!/sbin/openrc-run\nname=\"$BKJS\"\ndepend() {\n\before logger\n}\nstart() {\n\t$bin start\n}" > $conf
+            echo -e "#!/sbin/openrc-run\nname=\"$BKJS\"\ndepend() {\n\need net\n}\nstart() {\n\t$bin start\n}" > $conf
             chmod 755 $conf
             rc-update add $BKJS boot
             ;;
