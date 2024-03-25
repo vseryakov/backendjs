@@ -8,7 +8,7 @@ bkjs.passwordPolicy = {
     '[a-z]+': 'requires at least one lower case letter',
     '[A-Z]+': 'requires at least one upper case letter',
     '[0-9]+': 'requires at least one digit',
-    '.{8,}': 'requires at least 8 characters',
+    '.{9,}': 'requires at least 9 characters',
 };
 
 // Try to authenticate with the supplied login and secret
@@ -43,7 +43,7 @@ bkjs.logout = function(options, callback)
 }
 
 // Verify account secret against the policy
-bkjs.checkPassword = function(secret, policy)
+bkjs.checkPassword = function(secret, policy, options)
 {
     secret = secret || "";
     policy = policy || this.passwordPolicy;
@@ -52,7 +52,7 @@ bkjs.checkPassword = function(secret, policy)
             return {
                 status: 400,
                 message: this.__(policy[p]),
-                policy: Object.keys(policy).map((x) => (this.__(policy[x]))).join(", ")
+                policy: Object.keys(policy).map((x) => (this.__(policy[x]))),
             };
         }
     }
