@@ -28,13 +28,13 @@ case "$BKJS_CMD" in
     ($0 setup-profile $args)
     ($0 setup-service $args -bin $BKJS_HOME/bin/$BKJS)
     ($0 monit-init-system $args)
-    ($0 setup-finalize $args)
     ($0 setup-home $args)
+    ($0 setup-finalize $args)
     exit
     ;;
 
   setup-home)
-    # Create required directories
+    # Create required directories and set permissions
     find_user
 
     mkdir -p $BKJS_HOME/node_modules $BKJS_HOME/bin $BKJS_HOME/log $BKJS_HOME/etc $BKJS_HOME/var
@@ -50,6 +50,8 @@ case "$BKJS_CMD" in
 
   setup-finalize)
     # Post setup actions
+    find_user
+
     case $OS_TYPE in
       alpine)
         rc-update add crond
@@ -65,7 +67,8 @@ case "$BKJS_CMD" in
 
     # Move git repo to the home
     if [ "$(pwd)" != "$BKJS_HOME" -a -d backendjs ]; then
-        mv backendjs $BKJS_HOME/node_modules
+        mv backendjs $BKJS_HOME/node_modules/backendjs
+        chown -R $BKJS_USER $BKJS_HOME
     fi
     exit
     ;;
@@ -115,7 +118,7 @@ case "$BKJS_CMD" in
 
     if [ "$(grep -s $BKJS_USER /etc/passwd)" = "" ]; then
         echo "Adding user $BKJS_USER"
-        useradd -m -G wheel -s /bin/bash $BKJS_USER
+        useradd -m -g wheel -s /bin/bash $BKJS_USER
         sh -c "echo '$BKJS_USER:*' | /usr/sbin/chpasswd -e"
         mkdir -p -m 700 $UHOME/.ssh && chown $BKJS_USER $UHOME/.ssh
     fi
