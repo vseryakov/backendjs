@@ -17,21 +17,10 @@ case "$BKJS_CMD" in
 
   redis-get)
     # Install redis server
-    case "$PLATFORM" in
-     Darwin)
-       OS=osx
-       REDIS_PREFIX=$BKJS_PREFIX
-       ;;
-
-     Linux)
-       REDIS_PREFIX=$BKJS_HOME
-       ;;
-    esac
-
-    if [ -f $REDIS_PREFIX/bin/redis-server ]; then
+    if [ -f $BKJS_HOME/bin/redis-server ]; then
         [ "$(get_flag -force)" = "" ] && exit
-        echo "Uninstalling redis from $REDIS_PREFIX..."
-        rm -f $REDIS_PREFIX/bin/redis-*
+        echo "Uninstalling redis from $BKJS_HOME..."
+        rm -f $BKJS_HOME/bin/redis-*
         cp $BKJS_HOME/etc/redis.local.conf $BKJS_HOME/etc/redis.local.conf.old
     fi
 
@@ -40,7 +29,7 @@ case "$BKJS_CMD" in
 
     mkdir -p redis $BKJS_HOME/etc
     tar -C redis --strip-components=1 -xzf redis.tgz
-    make -C redis install PREFIX=$REDIS_PREFIX
+    make -C redis install PREFIX=$BKJS_HOME
     cp redis/redis.conf $BKJS_HOME/etc
     rm -rf redis redis.tgz
     $0 redis-config
@@ -116,7 +105,7 @@ case "$BKJS_CMD" in
 
   help)
     echo ""
-    echo "  redis-get - install Redis server into $BKJS_PREFIX"
+    echo "  redis-get - install Redis server into $BKJS_HOME"
     echo "  redis-init - install and setup Redis server to be run on start and to be monitored (Linux only)"
     echo "  redis-run [-memsize PERCENT] [-memmax SIZE] [-slave-host HOST] - run local Redis server, uses config file $BKJS_HOME/etc/redis.conf"
     echo "  redis-stop - stop local Redis server"

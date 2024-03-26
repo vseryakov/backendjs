@@ -3,8 +3,7 @@
 case "$BKJS_CMD" in
 
   get-json)
-    find_nodebin
-    exec $NODE_BIN -e "console.log(util.inspect(JSON.parse(fs.readFileSync(0).toString()),null,null))"
+    exec node -e "console.log(util.inspect(JSON.parse(fs.readFileSync(0).toString()),null,null))"
     ;;
 
   get-jsval)

@@ -27,7 +27,6 @@ case "$PLATFORM" in
   Darwin)
     OS_TYPE=macosx
     [ -z "$BKJS_HOME" ] && export BKJS_HOME=~/.bkjs
-    [ -z "$BKJS_PREFIX" ] && export BKJS_PREFIX=/opt/local
     SED="sed -E -i .orig"
     ;;
 esac
@@ -49,6 +48,11 @@ else
    BKJS_CMD=$1
    shift
 fi
+
+# Find our real location
+unset CDPATH
+BKJS_BIN="$(readlink -f $0)"
+BKJS_DIR="$(cd "${BKJS_BIN%/*}" ; pwd -P)"
 
 # Command namespace
 BKJS_SPACE=$(echo "$BKJS_CMD"|cut -d- -f1)
@@ -123,8 +127,8 @@ concat_arg() {
 
 # Return 1 if 1st arg matches regexp in 2nd arg
 match() {
-    if [[ -n "$1" && -n "$2" ]] && echo "$1" | egrep -E -q "$2"; then return 0; fi
-    return 1
+  if [[ -n "$1" && -n "$2" ]] && echo "$1" | egrep -E -q "$2"; then return 0; fi
+  return 1
 }
 
 # Local IP address, not localhost
@@ -134,19 +138,12 @@ get_local_ip() {
 
 # Return the value for a property from a json file: get_json file.json name fallback realpath VAR
 get_json() {
-  ${NODE_BIN:-node} -e "try{o=JSON.parse(fs.readFileSync('$1'));v=o.$2||o['$3'];if(Array.isArray(v)){if('$4'.includes('realpath'))v=v.map(x=>(!x.includes('@')&&fs.realpathSync(x)||x));v=v.join(' ')};if(v&&typeof v=='object')v=Object.keys(v).join(' ');if(typeof v!='undefined')console.log(v)}catch(e){if('$BKJS_DEBUG')console.error('get_json:','$1','$2',e);process.exit(1)}"
+  node -e "try{o=JSON.parse(fs.readFileSync('$1'));v=o.$2||o['$3'];if(Array.isArray(v)){if('$4'.includes('realpath'))v=v.map(x=>(!x.includes('@')&&fs.realpathSync(x)||x));v=v.join(' ')};if(v&&typeof v=='object')v=Object.keys(v).join(' ');if(typeof v!='undefined')console.log(v)}catch(e){if('$BKJS_DEBUG')console.error('get_json:','$1','$2',e);process.exit(1)}"
 }
 
 # Same as get_json but object properties are flattened first to support property names with spaces or dashes
 get_json_flat() {
-  ${NODE_BIN:-node} -e "function f(o){var r={};for(var p in o){if(!Array.isArray(o[p])&&typeof o[p]=='object'){var a=f(o[p]);r[p]=Object.keys(o[p]);for(var x in a)r[p+'.'+x]=a[x]}else r[p]=o[p]};return r};try{o=f(JSON.parse(fs.readFileSync('$1')));v=o['$2']||o['$3'];if(Array.isArray(v)){if('$4'.includes('realpath'))v=v.map(x=>(!x.includes('@')&&fs.realpathSync(x)||x));v=v.join(' ')};if(v&&typeof v=='object')v=Object.keys(v).join(' ');if(typeof v!='undefined')console.log(v)}catch(e){if('$BKJS_DEBUG')console.error('get_json_flat:','$1','$2',e);process.exit(1)}"
-}
-
-# Resolve node binary location
-find_nodebin() {
-  [ -z "$NODE_BIN" -a -f $BKJS_HOME/bin/node ] && export NODE_BIN=$BKJS_HOME/bin/node
-  [ -z "$NODE_BIN" -a -f $BKJS_PREFIX/bin/node ] && export NODE_BIN=$BKJS_PREFIX/bin/node
-  [ -z "$NODE_BIN" ] && export NODE_BIN=$(which node 2>/dev/null)
+  node -e "function f(o){var r={};for(var p in o){if(!Array.isArray(o[p])&&typeof o[p]=='object'){var a=f(o[p]);r[p]=Object.keys(o[p]);for(var x in a)r[p+'.'+x]=a[x]}else r[p]=o[p]};return r};try{o=f(JSON.parse(fs.readFileSync('$1')));v=o['$2']||o['$3'];if(Array.isArray(v)){if('$4'.includes('realpath'))v=v.map(x=>(!x.includes('@')&&fs.realpathSync(x)||x));v=v.join(' ')};if(v&&typeof v=='object')v=Object.keys(v).join(' ');if(typeof v!='undefined')console.log(v)}catch(e){if('$BKJS_DEBUG')console.error('get_json_flat:','$1','$2',e);process.exit(1)}"
 }
 
 # Use configured or provided user:group, defaults to the current user
@@ -181,29 +178,24 @@ to_upper() {
   echo $1 | tr [:lower:] [:upper:]
 }
 
-# Find our location first
-unset CDPATH
-BKJS_BIN="$(readlink -f $0)"
-BKJS_DIR="$(cd "${BKJS_BIN%/*}" ; pwd -P)"
+# Start trace as soon as possible
+trace=$(get_arg -trace $BKJS_TRACE)
+[ -n "$trace" ] && exec >>$trace 2>&1
 
 # Home and prefix must be specified for the script to work properly
 export BKJS_HOME=$(get_arg -home $BKJS_HOME)
 [ -z "$BKJS_HOME" ] && export BKJS_HOME=$(sh -c "echo ~$BKJS_USER")
+
+# Load user profiles
 [ -f $BKJS_HOME/.env ] && . $BKJS_HOME/.env
 [ -f $BKJS_HOME/etc/profile ] && . $BKJS_HOME/etc/profile
 [ -f $BKJS_HOME/etc/profile.local ] && . $BKJS_HOME/etc/profile.local
 
-export BKJS_PREFIX=$(get_arg -prefix $BKJS_PREFIX)
-[ -z "$BKJS_PREFIX" ] && export BKJS_PREFIX=$BKJS_HOME
-
 export BKJS_DEBUG=$(get_flag -debug)
-
-[ -n "$(get_flag -trace)" ] && exec 2>&1 1> >(tee -a /tmp/bkjs-trace.log)
+[ -n "$BKJS_DEBUG" ] && echo "$(date): $PPID: $BKJS_BIN: HOME=$BKJS_HOME, PWD=$(pwd), USER=$(whoami), CMD=$BKJS_CMD, ARGS=$@"
 
 # Setup paths
-export PATH=$BKJS_HOME/bin:$BKJS_HOME/node_modules/.bin:$BKJS_PREFIX/bin:/app/bin:/usr/local/bin:/opt/local/bin:/opt/local/node/bin:/sbin:/usr/sbin:$PATH
-
-[ -n "$BKJS_DEBUG" ] && echo "$(date): $PPID: $0: HOME=$BKJS_HOME, PREFIX=$BKJS_PREFIX, PWD=$(pwd), USER=$(whoami), CMD=$BKJS_CMD, ARGS=$@"
+export PATH=$BKJS_HOME/bin:$BKJS_HOME/node_modules/.bin:/app/bin:/usr/local/bin:/opt/local/bin:/sbin:/usr/sbin:$PATH
 
 case "$BKJS_CMD" in
 
@@ -216,10 +208,6 @@ case "$BKJS_CMD" in
 
   start-instance)
     echo "$(date -R): $PPID: Running start instance..."
-
-    # Setup domain from the config, keep the hostname as it is, for EC2 instances it is the IP address
-    domain=$(get_arg -domain $BKJS_DOMAIN)
-    [ -n "$domain" ] && $0 setup-hostname -domain $domain
 
     # Allow other tools to run
     BKJS_ALLCMD=1
@@ -257,42 +245,40 @@ case "$BKJS_CMD" in
     ;;
 
   run|run-master|master|run-monitor|monitor|run-web|web|watch|shell|bksh|run-none|none)
-    find_nodebin
     [ -f app.js ] && SCRIPT=app.js
     [ -z "$SCRIPT" -a -f lib/app.js ] && SCRIPT=lib/app.js
     [ -z "$SCRIPT" -a -f $BKJS_HOME/app.js ] && SCRIPT=$BKJS_HOME/app.js
     [ -z "$SCRIPT" -a -f $BKJS_HOME/lib/app.js ] && SCRIPT=$BKJS_HOME/lib/app.js
-    [ -z "$SCRIPT" ] && SCRIPT=$BKJS_DIR/lib/app.js
-    [ -z $SCRIPT ] && echo "ERROR: $(date): $PPID: Cannot find app.js in '.:$BKJS_HOME'" && exit 1
+    [ -z "$SCRIPT" ] && SCRIPT=$BKJS_DIR/lib/run.js
 
-    [ -n "$BKJS_DEBUG" ] && echo "$(date): $PPID: Starting $BKJS_CMD: $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME $BKJS_RUN_ARGS $@"
+    [ -n "$BKJS_DEBUG" ] && echo "$(date): $PPID: Starting $BKJS_CMD: $NODE_ARGS $SCRIPT -home $BKJS_HOME $BKJS_RUN_ARGS $@"
 
     case "$BKJS_CMD" in
      run-none|none)
         ;;
 
      run-monitor|monitor)
-        exec $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME -syslog -daemon -monitor -master $BKJS_RUN_ARGS "$@"
+        exec node $NODE_ARGS $SCRIPT -home $BKJS_HOME -syslog -daemon -monitor -master $BKJS_RUN_ARGS "$@"
         ;;
 
      run-master|master)
-        exec $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME -syslog -daemon -master $BKJS_RUN_ARGS "$@"
+        exec node $NODE_ARGS $SCRIPT -home $BKJS_HOME -syslog -daemon -master $BKJS_RUN_ARGS "$@"
         ;;
 
      watch)
-        exec $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME -master -watch $BKJS_RUN_ARGS "$@"
+        exec node $NODE_ARGS $SCRIPT -home $BKJS_HOME -master -watch $BKJS_RUN_ARGS "$@"
         ;;
 
      shell|bksh)
-        exec $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME -shell "$@"
+        exec node $NODE_ARGS $SCRIPT -home $BKJS_HOME -shell "$@"
         ;;
 
      run-web|web)
-        exec $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME $BKJS_RUN_ARGS -web "$@"
+        exec node $NODE_ARGS $SCRIPT -home $BKJS_HOME $BKJS_RUN_ARGS -web "$@"
         ;;
 
      *)
-        exec $NODE_BIN $NODE_ARGS $SCRIPT -home $BKJS_HOME $BKJS_RUN_ARGS "$@"
+        exec node $NODE_ARGS $SCRIPT -home $BKJS_HOME $BKJS_RUN_ARGS "$@"
         ;;
     esac
     exit
@@ -304,32 +290,22 @@ case "$BKJS_CMD" in
     rsync $(get_all_args "-bkcmd")
     rc=$?
     [ "$rc" != "0" ] && exit $rc
-    [ -n "$cmd" ] && $(dirname $0)/bkjs $(echo $cmd|sed 's/%20/ /g') 1>&2
+    [ -n "$cmd" ] && $BKJS_BIN $(echo $cmd|sed 's/%20/ /g') 1>&2
     exit 0
     ;;
 
   bkhelp)
-    find_nodebin
-    $NODE_BIN -e "require('backendjs').core.showHelp()"
+    node -e "require('backendjs').core.showHelp()"
     exit
     ;;
 
   env)
-    find_nodebin
     find_user
     process_cmd
     set
     ;;
 
-  *)
-    # Load tools extensions, the protocol is:
-    # - shell file must be in the tools/ and named bkjs-NAME
-    # - it must check for BKJS_CMD and execute the code
-    # - if the command is final then exit otherwise it will continue trying other tools
-    # - it must support help) command to show help about all supported commands
-    #
-    process_cmd
-
+  help)
     echo "Available commands:"
     echo
     echo "  start-instance - run on instance start, processed by all scripts"
@@ -345,23 +321,33 @@ case "$BKJS_CMD" in
     echo "  watch - run the backend in watcher and master mode with all source files being monitored for changes, the server is restarts on any change automatically"
     echo "  run - run local backend with provided arguments"
     echo ""
-    echo "  bkhelp - show all config parameters"
+    echo "  help - show all bkjs commands"
+    echo "  bkhelp - show all backendjs module config parameters"
     echo "  env - show all environment variables"
     echo ""
     echo "Common options:"
     echo "  -home path - path to the backend home directory, default is $BKJS_HOME"
-    echo "  -prefix path - path to the local binaries directory, default is $BKJS_PREFIX"
     echo "  -user name - set backend user on the remote or local side, default is ${BKJS_USER:-`whoami`}"
     echo "  -group name - set backend group on the remote or local side, default is ${BKJS_GROUP:-`id -gn`}"
     echo "  -debug - be verbose about what is happening"
+    echo "  -trace file - redirect all output to a file"
+    echo ""
 
-    cmd=$BKJS_CMD
-    BKJS_CMD=help
     BKJS_ALLCMD=1
     process_cmd
-    echo ""
-    [ -n "$cmd" -a "$cmd" != "help" ] && echo "error: unrecognized command: $cmd: $@" >&2 && exit 1
     exit 0
+    ;;
+
+  *)
+    # Load tools extensions, the protocol is:
+    # - shell file must be in the tools/ and named bkjs-NAME
+    # - it must check for BKJS_CMD and execute the code
+    # - if the command is final then exit otherwise it will continue trying other tools
+    # - it must support help) command to show help about all supported commands
+    #
+    process_cmd
+    echo "$BKJS_BIN: $BKJS_CMD: command not found: $@" >&2
+    exit 1
     ;;
 esac
 

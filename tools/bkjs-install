@@ -7,16 +7,16 @@
 case "$BKJS_CMD" in
 
   install-node)
-    if [ "$(get_flag -force)" != "" -a -f $BKJS_PREFIX/bin/node ]; then
-        echo "Uninstalling node from $BKJS_PREFIX ..."
-        rm -rf $BKJS_PREFIX/bin/node $BKJS_PREFIX/bin/npm $BKJS_PREFIX/bin/npx $BKJS_PREFIX/lib/node_modules/npm $BKJS_PREFIX/include/node
-        [ ! -z "$(get_flag -clean)" ] && rm -rf $BKJS_PREFIX/lib/node_modules
+    if [ "$(get_flag -force)" != "" -a -f $BKJS_HOME/bin/node ]; then
+        echo "Uninstalling node from $BKJS_HOME ..."
+        rm -rf $BKJS_HOME/bin/node $BKJS_HOME/bin/npm $BKJS_HOME/bin/npx $BKJS_HOME/lib/node_modules/npm $BKJS_HOME/include/node
+        [ ! -z "$(get_flag -clean)" ] && rm -rf $BKJS_HOME/lib/node_modules
     fi
-    [ -f $BKJS_PREFIX/bin/node ] && exit 0
-    mkdir -p $BKJS_PREFIX
+    [ -f $BKJS_HOME/bin/node ] && exit 0
+    mkdir -p $BKJS_HOME
     tgz=$(get_arg -tgz)
     if [ -n "$tgz" ]; then
-        tar -C $BKJS_PREFIX --strip-components=1 -xzf $tgz
+        tar -C $BKJS_HOME --strip-components=1 -xzf $tgz
         [ "$?" != "0" ] && exit 1
     else
         ver=$(get_arg -version v20.11.1)
@@ -24,15 +24,15 @@ case "$BKJS_CMD" in
         platform=$(to_lower $PLATFORM)
         curl -L -o node.tgz https://nodejs.org/dist/$ver/node-$ver-$platform-$arch.tar.gz
         [ "$?" != "0" ] && exit 1
-        tar -C $BKJS_PREFIX --strip-components=1 -xzf node.tgz
+        tar -C $BKJS_HOME --strip-components=1 -xzf node.tgz
         rm -rf node.tgz
     fi
-    mv $BKJS_PREFIX/README.md $BKJS_PREFIX/LICENSE $BKJS_PREFIX/CHANGELOG.md $BKJS_PREFIX/share/doc
+    mv $BKJS_HOME/README.md $BKJS_HOME/LICENSE $BKJS_HOME/CHANGELOG.md $BKJS_HOME/share/doc
     exit
     ;;
 
   help)
     echo ""
-    echo "  install-node [-prefix PATH] [-force] [-clean] [-tgz TGZ] - install binary release of the node into $BKJS_PREFIX or specified path"
+    echo "  install-node [-prefix PATH] [-force] [-clean] [-tgz TGZ] - install binary release of the node into $BKJS_HOME or specified path"
     ;;
 esac

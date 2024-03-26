@@ -6,7 +6,7 @@
 
 case "$BKJS_CMD" in
 
-  ec2-get-cwagent)
+  ec2-cwagent-get)
     root=$(get_arg -root /opt/aws/amazon-cloudwatch-agent)
     if [ ! -d $root ]; then
         case "$OS_TYPE" in
@@ -30,7 +30,7 @@ case "$BKJS_CMD" in
     exit
     ;;
 
-  ec2-check-cwagent)
+  ec2-cwagent-check)
     root=$(get_arg -root /opt/aws/amazon-cloudwatch-agent)
     [ ! -d $root ] && exit
     tag=$($0 ec2-tag)
@@ -77,8 +77,8 @@ case "$BKJS_CMD" in
 
   help)
     echo ""
-    echo "  ec2-get-cwagent - install AWS Cloudwatch agent to send backend logs to Cloudwatch Logs"
-    echo "  ec2-check-cwagent - check AWS Cloudwatch agent config and restart if different"
+    echo "  ec2-cwagent-get - install AWS Cloudwatch agent to send backend logs to Cloudwatch Logs"
+    echo "  ec2-cwagent-check - check AWS Cloudwatch agent config and restart if different"
     ;;
 
 esac

@@ -26,7 +26,7 @@ case "$BKJS_CMD" in
     ([ "$(whoami)" = "root" ] && su ec2-user -c "aws configure set region $region")
     ($0 ec2-check-storage)
     ($0 ec2-check-hostname)
-    ($0 ec2-check-cwagent)
+    ($0 ec2-cwagent-check)
     ;;
 
   ec2-show|ec2-ls)
@@ -155,7 +155,9 @@ case "$BKJS_CMD" in
         [ -f $HOME/etc/profile.local ] && mv $HOME/etc/profile.local /tmp
         sync
         # Run hooks before making an image
-        $0 ec2-create-ami-prepare
+        BKJS_CMD=ec2-create-ami-prepare
+        BKJS_ALLCMD=1
+        process_cmds
     fi
 
     name=$(get_arg -name)
@@ -169,7 +171,9 @@ case "$BKJS_CMD" in
         [ -f /tmp/profile.local ] && mv /tmp/profile.local $HOME/etc
 
         # Restore state afterwards
-        $0 ec2-create-ami-finish
+        BKJS_CMD=ec2-create-ami-finish
+        BKJS_ALLCMD=1
+        process_cmds
     fi
     exit
     ;;
@@ -198,7 +202,9 @@ case "$BKJS_CMD" in
     addr=$(get_local_ip)
     [ "$addr" = "" ] && echo "No IP address found" && exit
     tag=$($0 ec2-tag)
-    $0 setup-hostname -host ${tag:-ip}-$(echo $addr|sed 's/\./-/g')
+    domain=$(get_arg -domain $BKJS_DOMAIN)
+    host=${tag:-ip}-$(echo $addr|sed 's/\./-/g')
+    $0 setup-hostname -host $host -domain $domain
     exit
     ;;
 

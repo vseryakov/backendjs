@@ -12,7 +12,7 @@ case "$BKJS_CMD" in
     ;;
 
   dynamodb-get)
-    [ "$DYNAMODB_PREFIX" = "" ] && DYNAMODB_PREFIX=$BKJS_PREFIX/dynamodb
+    [ "$DYNAMODB_PREFIX" = "" ] && DYNAMODB_PREFIX=$BKJS_HOME/dynamodb
     [ "$(get_flag -force)" != "" -a "$DYNAMODB_PREFIX" != "" ] && rm -rf $DYNAMODB_PREFIX
     if [ ! -d $DYNAMODB_PREFIX ]; then
        mkdir -p $DYNAMODB_PREFIX
@@ -24,7 +24,7 @@ case "$BKJS_CMD" in
     ;;
 
   dynamodb-run)
-    [ "$DYNAMODB_PREFIX" = "" ] && DYNAMODB_PREFIX=$BKJS_PREFIX/dynamodb
+    [ "$DYNAMODB_PREFIX" = "" ] && DYNAMODB_PREFIX=$BKJS_HOME/dynamodb
     mkdir -p $BKJS_HOME/var $BKJS_HOME/log
     params="-Xmx$(get_arg -memmax 256M)"
     exec nohup java $params -Djava.library.path=$DYNAMODB_PREFIX/DynamoDBLocal_lib -jar $DYNAMODB_PREFIX/DynamoDBLocal.jar -dbPath $BKJS_HOME/var -port 8181 >>$BKJS_HOME/log/ddb.log 2>&1 &
@@ -46,8 +46,8 @@ case "$BKJS_CMD" in
   help)
     echo ""
     echo "  dynamodb-init - download and install local DynamoDB, start the server"
-    echo "  dynamodb-get [-force] - install local DynamoDB server in $BKJS_PREFIX/dynamodb"
-    echo "  dynamodb-run [-memmax SZ] - run local DynamoDB server installed in $BKJS_PREFIX/dynamodb, data files in $BKJS_HOME/var"
+    echo "  dynamodb-get [-force] - install local DynamoDB server in $BKJS_HOME/dynamodb"
+    echo "  dynamodb-run [-memmax SZ] - run local DynamoDB server installed in $BKJS_HOME/dynamodb, data files in $BKJS_HOME/var"
     echo "  dynamodb-stop - stop local DynamoDB server"
     echo "  dynamodb-reset - remove local DynamoDB database and restart the server"
     ;;

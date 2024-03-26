@@ -7,31 +7,51 @@
 case "$BKJS_CMD" in
 
   setup-ec2)
-    $0 setup-server -user ec2-user -home /home/ec2-user -prefix /home/ec2-user $(get_all_args "-user -home -prefix")
+    home=$(get_arg -home /home/ec2-user)
+    $0 setup-user -user ec2-user -home $home (get_all_args "-user -home")
+    $0 setup-server -user ec2-user -home $home $(get_all_args "-user -home")
     exit
     ;;
 
   setup-server)
     [ "$(whoami)" != "root" ] && echo "Run as root please" && exit 1
     args=$(get_all_args)
-    find_user
-    find_nodebin
-    echo "Setuping server in $BKJS_HOME for $BKJS_USER, prefix: $BKJS_PREFIX, binaries: $NODE_BIN, $BKJS_BIN... ($args)"
+    echo "Setuping server in $BKJS_HOME ($args)"
 
     ($0 setup-packages $args)
     ($0 setup-hostname $args)
     ($0 setup-ssh $args)
-    ($0 setup-user $args)
     ($0 setup-limits $args)
     ($0 setup-sysctl $args)
     ($0 setup-logrotate $args)
     ($0 setup-rsyslog $args)
     ($0 setup-profile $args)
-    ($0 setup-home $args)
     ($0 setup-service $args -bin $BKJS_HOME/bin/$BKJS)
     ($0 monit-init-system $args)
+    ($0 setup-finalize $args)
+    ($0 setup-home $args)
+    exit
+    ;;
 
-    if [ "$OS_TYPE" = "alpine" ]; then
+  setup-home)
+    # Create required directories
+    find_user
+
+    mkdir -p $BKJS_HOME/node_modules $BKJS_HOME/bin $BKJS_HOME/log $BKJS_HOME/etc $BKJS_HOME/var
+
+    (cd $BKJS_HOME/bin &&
+       ln -sfn ../node_modules/backendjs/bkjs bkjs &&
+       ln -sfn bkjs bksh &&
+       ln -sfn bkjs bkrsync)
+
+    chown -R $BKJS_USER.$BKJS_GROUP $BKJS_HOME
+    exit
+    ;;
+
+  setup-finalize)
+    # Post setup actions
+    case $OS_TYPE in
+      alpine)
         rc-update add crond
 
         if [ -z "$(grep -s monit /etc/inittab)" ]; then
@@ -40,11 +60,12 @@ case "$BKJS_CMD" in
 
         # Force to gen SSH keys for new user
         /sbin/tiny-cloud --bootstrap incomplete
+        ;;
+    esac
 
-        if [ "$(pwd)" != "$BKJS_HOME" -a -d backendjs ]; then
-            mv backendjs $BKJS_HOME/node_modules
-            chown -R $BKJS_USER.$BKJS_USER $BKJS_HOME
-        fi
+    # Move git repo to the home
+    if [ "$(pwd)" != "$BKJS_HOME" -a -d backendjs ]; then
+        mv backendjs $BKJS_HOME/node_modules
     fi
     exit
     ;;
@@ -87,21 +108,6 @@ case "$BKJS_CMD" in
     exit
     ;;
 
-  setup-home)
-    # Create required directories
-    find_user
-
-    mkdir -p $BKJS_HOME/node_modules $BKJS_HOME/bin $BKJS_HOME/log $BKJS_HOME/etc $BKJS_HOME/var
-
-    (cd $BKJS_HOME/bin &&
-       ln -sfn ../node_modules/backendjs/bkjs bkjs &&
-       ln -sfn bkjs bksh &&
-       ln -sfn bkjs bkrsync)
-
-    chown -R $BKJS_USER.$BKJS_USER $BKJS_HOME
-    exit
-    ;;
-
   setup-user)
     # Add local user
     find_user
@@ -124,7 +130,7 @@ case "$BKJS_CMD" in
 
     # Allow path in sudo and skip tty for our user so we can run commands via ssh
     if [ -d /etc/sudoers.d -a ! -f /etc/sudoers.d/$BKJS ]; then
-        echo "Defaults secure_path = /sbin:/bin:/usr/sbin:/usr/bin:/usr/local/bin:$BKJS_PREFIX/bin:$UHOME/bin:$UHOME/node_modules/.bin" >> /etc/sudoers.d/$BKJS
+        echo "Defaults secure_path = /sbin:/bin:/usr/sbin:/usr/bin:/usr/local/bin:$UHOME/bin:$UHOME/node_modules/.bin" >> /etc/sudoers.d/$BKJS
         echo "Defaults:$BKJS_USER !requiretty" >> /etc/sudoers.d/$BKJS
         echo "$BKJS_USER ALL = NOPASSWD: ALL" >> /etc/sudoers.d/$BKJS
     fi
@@ -238,8 +244,6 @@ case "$BKJS_CMD" in
        echo '*.info;cron.none,local0.none,local5.none /var/log/messages' >> /etc/syslog.conf
        echo "local0.* $BKJS_HOME/log/message.log" >> /etc/syslog.conf
        echo "local5.* $BKJS_HOME/log/access.log" >> /etc/syslog.conf
-       mkdir -p $BKJS_HOME/log
-       chown -R $BKJS_USER $BKJS_HOME/log
     fi
     exit
     ;;
@@ -300,8 +304,6 @@ case "$BKJS_CMD" in
        fi
        echo "local0.* $BKJS_HOME/log/message.log$bkjsfmt" >> /etc/rsyslog.d/$BKJS.conf
        echo "local5.* $BKJS_HOME/log/access.log$bkjsfmt" >> /etc/rsyslog.d/$BKJS.conf
-       mkdir -p $BKJS_HOME/log
-       chown -R $BKJS_USER $BKJS_HOME/log
     fi
     exit
     ;;
