@@ -8,7 +8,6 @@ case "$BKJS_CMD" in
 
   setup-ec2)
     home=$(get_arg -home /home/ec2-user)
-    $0 setup-user -user ec2-user -home $home (get_all_args "-user -home")
     $0 setup-server -user ec2-user -home $home $(get_all_args "-user -home")
     exit
     ;;
@@ -19,6 +18,7 @@ case "$BKJS_CMD" in
     echo "Setuping server in $BKJS_HOME ($args)"
 
     ($0 setup-packages $args)
+    ($0 setup-user $args)
     ($0 setup-hostname $args)
     ($0 setup-ssh $args)
     ($0 setup-limits $args)
