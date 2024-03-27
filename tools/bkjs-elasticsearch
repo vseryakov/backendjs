@@ -81,7 +81,8 @@ case "$BKJS_CMD" in
        $SED "s/^-Xms.+/-Xms$memmax/" $ELASTICSEARCH_PREFIX/config/jvm.options
        $SED "s/^-Xmx.+/-Xmx$memmax/" $ELASTICSEARCH_PREFIX/config/jvm.options
        mkdir -p $ELASTICSEARCH_PREFIX/config/jvm.options.d/
-       echo -e "-Xms$memmax\n-Xmx$memmax\n" > $ELASTICSEARCH_PREFIX/config/jvm.options.d/bkjs.options
+       echo "-Xms$memmax" > $ELASTICSEARCH_PREFIX/config/jvm.options.d/bkjs.options
+       echo "-Xmx$memmax" >> $ELASTICSEARCH_PREFIX/config/jvm.options.d/bkjs.options
     fi
     case "$(get_arg -nodetype)" in
     node)

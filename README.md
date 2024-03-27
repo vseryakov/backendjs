@@ -678,7 +678,7 @@ The backend directory structure is the following:
 
     * `etc/config.local` - same as the config but for the cases when local environment is different than the production or for dev specific parameters
 
-    * on startup the following local config files will be loaded if present: `etc/config.runMode` and `etc/config.instance.tag`. These will be loaded after the main config but before config.local. The runMode is set to development by default and can be changed with `-run-mode` config parameter, the instance tag is set with `-instance-tag` config parameter.
+    * on startup the following local config files will be loaded if present: `etc/config.runMode` and `etc/config.instance.tag`. These will be loaded after the main config but before config.local. The runMode is set to `dev` by default and can be changed with `-run-mode` config parameter, the instance tag is set with `-instance-tag` config parameter.
 
     * config files support sections that can be used for conditions, see `lib.configParse` description for details
 
@@ -1009,32 +1009,33 @@ tools ready to use that will allow to implement such versioning system in the ba
 The actual implementation can be modularized, split into functions, controllers.... there are no restrictions how to build the working backend code,
 the backend just provides all necessary information for the middleware modules.
 
-# The backend provisioning utility: bkjs
+# The backend tool: bkjs
 
 The purpose of the `bkjs` shell script is to act as a helper tool in configuring and managing the backend environment
 and as well to be used in operations on production systems. It is not required for the backend operations and provided as a convenience tool
 which is used in the backend development and can be useful for others running or testing the backend.
 
-Running without arguments will bring help screen with description of all available commands.
+Run `bkjs help` to see description of all available commands.
 
 The tool is multi-command utility where the first argument is the command to be executed with optional additional arguments if needed.
 
-On Linux, when started the bkjs tries to load and source the following config files:
+On Linux, when started the bkjs tries to load and source the following global config files:
 
-        /etc/default/bkjs
+        /etc/conf.d/bkjs
         /etc/sysconfig/bkjs
+
+Then it try to source all local config files:
+
         $HOME/.env
         $BKJS_HOME/etc/profile
         $BKJS_HOME/etc/profile.local
-
-On Darwin only the `$BKJS_HOME/etc/profile` is loaded where BKJS_HOME points to `~/.bkjs` by default.
 
 Any of the following config files can redefine any environment variable thus pointing to the correct backend environment directory or
 customize the running environment, these should be regular shell scripts using bash syntax.
 
 To check all env variables inside bkjs just run the command `bkjs env`
 
-The utility provides some simple functions to parse comamndline arguments,
+The tool provides some simple functions to parse comamndline arguments,
 the convention is that argument name must start with a single dash followed by a value.
 
 - `get_arg(name, dflt)` - returns the value for the arg `name` or default value if specified
@@ -1075,13 +1076,14 @@ the convention is that argument name must start with a single dash followed by a
 The utility is extended via external scripts that reside in the `tools/` folders.
 
 When bkjs is running it treats the first arg as a command:
-- `$BKJS_CMD` set to the whole comamnd
-- `$BKJS_SPACE` set to the first part of the command split by dash, i.e. command namespace
 
-if not internal commands match it starts loading external scripts that start with `bkjs-$BKJS_SPACE` from the following directories:
+- `$BKJS_CMD` set to the whole comamnd
+- `$BKJS_MODULE` set to the first part of the command split by dash, i.e. command module
+
+if no internal commands match it starts loading external scripts that start with `bkjs-$BKJS_MODULE` from the following directories:
 
 - via `-tools` command line argument if provided
-- $(pwd)./tools
+- $(pwd)/tools
 - `$BKJS_TOOLS`,
 - `$BKJS_HOME/tools`
 - `$BKJS_DIR/tools`
@@ -1095,7 +1097,7 @@ Example of a typical bkjs command:
 
 We need to set BKJS_TOOLS to point to our package(s), on Darwin add it to ~/.bkjs/etc/profile as
 
-    BKJS_TOOLS="/Users/user/src/node-pkg/tools"
+    BKJS_TOOLS="$HOME/src/node-pkg/tools"
 
 
 Create a file `/Users/user/src/node-pkg/tools/bkjs-cmd`
@@ -1111,6 +1113,8 @@ Create a file `/Users/user/src/node-pkg/tools/bkjs-cmd`
        exit
 
       cmd-all)
+       ...
+       exit
        ;;
 
       help)
@@ -1167,7 +1171,7 @@ repository when the bundle build may not be called or called too early. To force
 - install commands
 
         doas apk add git
-        git clone https://github.com/vseryakov/backendjs.git
+        git clone --depth=1 https://github.com/vseryakov/backendjs.git
         doas backendjs/bkjs setup-ec2
         doas reboot
 

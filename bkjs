@@ -40,25 +40,25 @@ case "$(uname -m)" in
     ;;
 esac
 
-# There are special commands that can be used as the script name
-NAME=$(basename $0)
-if [ "${NAME:0:2}" = "bk" -a "$NAME" != $BKJS ]; then
-   BKJS_CMD=$NAME
-else
-   BKJS_CMD=$1
-   shift
-fi
+# Word splitting like in sh
+[ -n "$ZSH_VERSION" ] && setopt shwordsplit
 
 # Find our real location
 unset CDPATH
 BKJS_BIN="$(readlink -f $0)"
 BKJS_DIR="$(cd "${BKJS_BIN%/*}" ; pwd -P)"
 
-# Command namespace
-BKJS_SPACE=$(echo "$BKJS_CMD"|cut -d- -f1)
+# There are special commands that can be used as the script name
+BKJS_NAME=$(basename $0)
+if [ "${BKJS_NAME:0:2}" = "bk" -a "$BKJS_NAME" != $BKJS ]; then
+   BKJS_CMD=$BKJS_NAME
+else
+   BKJS_CMD=$1
+   shift
+fi
 
-# Word splitting like in sh
-[ -n "$ZSH_VERSION" ] && setopt shwordsplit
+# Command module
+BKJS_MODULE=$(echo "$BKJS_CMD"|cut -d- -f1)
 
 # Save all cmdline args
 BKJS_ARGC=0
@@ -157,7 +157,7 @@ find_user() {
 # Run the command by sourcing all scripts from tools folders
 process_cmd() {
   local _cmddir= _cmdscope= _cmdtools="$(get_arg -tools) ./tools $BKJS_TOOLS $BKJS_HOME/tools $BKJS_DIR/tools"
-  [ -n "$BKJS_ALLCMD" ] && _cmdscope='bkjs-*' || _cmdscope="bkjs-$BKJS_SPACE*"
+  [ -z "$BKJS_MODULE" ] && _cmdscope='bkjs-*' || _cmdscope="bkjs-$BKJS_MODULE*"
   [ -n "$BKJS_DEBUG" ] && echo "$(date): $PPID: $BKJS_CMD: process_cmd: $_cmdscope: tools: $_cmdtools"
   for _cmddir in $_cmdtools; do
      if [ -d $_cmddir ]; then
@@ -208,19 +208,8 @@ case "$BKJS_CMD" in
 
   start-instance)
     echo "$(date -R): $PPID: Running start instance..."
-
-    # Allow other tools to run
-    BKJS_ALLCMD=1
+    BKJS_MODULE=
     process_cmd
-
-    # New instance started from existing AMI which might have old log files
-    if [ -f $BKJS_HOME/var/bkjs.init ]; then
-        echo "$(date): $PPID: Initializing $BKJS_HOME..."
-        rm -rf $BKJS_HOME/var/* $BKJS_HOME/log/*
-        service rsyslog restart
-    fi
-    find_user
-    chown -R $BKJS_USER $BKJS_HOME/etc $BKJS_HOME/var $BKJS_HOME/log
     exit 0
     ;;
 
@@ -333,7 +322,7 @@ case "$BKJS_CMD" in
     echo "  -trace file - redirect all output to a file"
     echo ""
 
-    BKJS_ALLCMD=1
+    BKJS_MODULE=
     process_cmd
     exit 0
     ;;

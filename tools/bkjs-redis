@@ -29,7 +29,10 @@ case "$BKJS_CMD" in
 
     mkdir -p redis $BKJS_HOME/etc
     tar -C redis --strip-components=1 -xzf redis.tgz
-    make -C redis install PREFIX=$BKJS_HOME
+
+    [ -n "$(get_flag -tls)" ] && tls="BUILD_TLS=yes"
+    make -C redis $tls install PREFIX=$BKJS_HOME
+
     cp redis/redis.conf $BKJS_HOME/etc
     rm -rf redis redis.tgz
     $0 redis-config

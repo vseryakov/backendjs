@@ -26,7 +26,6 @@ case "$BKJS_CMD" in
     ([ "$(whoami)" = "root" ] && su ec2-user -c "aws configure set region $region")
     ($0 ec2-check-storage)
     ($0 ec2-check-hostname)
-    ($0 ec2-cwagent-check)
     ;;
 
   ec2-show|ec2-ls)
@@ -133,48 +132,14 @@ case "$BKJS_CMD" in
     exit
     ;;
 
-  ec2-stop-api)
-    $0 ec2-run -tag $(get_arg -tag api) -user $(get_arg -user ec2-user) -cmd "bkjs stop-api"
-    exit
-    ;;
-
   ec2-create-ami)
     tag=$(get_arg -tag)
-    [ "$tag" != "" ] && instance_id=$(bkjs ec2-show -tag $tag -fmt id | head -1)
+    [ -n "$tag" ] && instance_id=$(bkjs ec2-show -tag $tag -fmt id | head -1)
     instance_id=$(get_arg -instance-id $instance_id)
-
-    if [ -z "$instance_id" ]; then
-        echo 1 > $HOME/var/bkjs.init
-        rm -f $HOME/var/bkjs.tag
-        for f in /etc/monit.d/*.conf; do
-            if ! match $f "(alert|system|bkjs).conf"; then
-                sudo mv $f /tmp
-                saved_files="$saved_files /tmp/$(basename $f)"
-            fi
-        done
-        [ -f $HOME/etc/profile.local ] && mv $HOME/etc/profile.local /tmp
-        sync
-        # Run hooks before making an image
-        BKJS_CMD=ec2-create-ami-prepare
-        BKJS_ALLCMD=1
-        process_cmds
-    fi
-
     name=$(get_arg -name)
     prefix=$(get_arg -prefix)
     [ -n "$(get_flag -force)" ] && force="-force"
     bksh -no-db -aws-create-image -wait $force -instance-id $instance_id -name "$name" -prefix "$prefix"
-
-    if [ -z "$instance_id" ]; then
-        rm -f $HOME/var/bkjs.init
-        for f in $saved_files; do sudo mv $f /etc/monit.d; done
-        [ -f /tmp/profile.local ] && mv /tmp/profile.local $HOME/etc
-
-        # Restore state afterwards
-        BKJS_CMD=ec2-create-ami-finish
-        BKJS_ALLCMD=1
-        process_cmds
-    fi
     exit
     ;;
 
@@ -250,7 +215,6 @@ case "$BKJS_CMD" in
     echo "  ec2-region - current instance region"
     echo "  ec2-account - current instance account id"
     echo "  ec2-tag [-tag NAME] - current instance tag name, default key is Name"
-    echo "  ec2-stop-api [-tag NAME] - restart gracefully on the specified instances by tag"
     echo "  ec2-create-ami [-tag NAME] [-prefix PREFIX] - create a new AMI from the given running instance by tag or the current instance"
     echo "  ec2-create-launch-template-version [-name NAME] [-tag TAG] [-skip A B] [-image-name *] - create new launch template verson with the latest AMI, if no -name is given all existing templates matched by tag if given will be updated"
     ;;

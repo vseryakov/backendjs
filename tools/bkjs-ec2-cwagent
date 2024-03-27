@@ -6,6 +6,10 @@
 
 case "$BKJS_CMD" in
 
+  start-instance)
+    ($0 ec2-cwagent-check)
+    ;;
+
   ec2-cwagent-get)
     root=$(get_arg -root /opt/aws/amazon-cloudwatch-agent)
     if [ ! -d $root ]; then

@@ -33,21 +33,6 @@ case "$BKJS_CMD" in
     exit
     ;;
 
-  setup-home)
-    # Create required directories and set permissions
-    find_user
-
-    mkdir -p $BKJS_HOME/node_modules $BKJS_HOME/bin $BKJS_HOME/log $BKJS_HOME/etc $BKJS_HOME/var
-
-    (cd $BKJS_HOME/bin &&
-       ln -sfn ../node_modules/backendjs/bkjs bkjs &&
-       ln -sfn bkjs bksh &&
-       ln -sfn bkjs bkrsync)
-
-    chown -R $BKJS_USER.$BKJS_GROUP $BKJS_HOME
-    exit
-    ;;
-
   setup-finalize)
     # Post setup actions
     find_user
@@ -65,23 +50,12 @@ case "$BKJS_CMD" in
         ;;
     esac
 
-    # Move git repo to the home
+    # Move the source git repo to the home
     if [ "$(pwd)" != "$BKJS_HOME" -a -d backendjs ]; then
-        mv backendjs $BKJS_HOME/node_modules/backendjs
-        chown -R $BKJS_USER $BKJS_HOME
+        bkdir=$BKJS_HOME/node_modules/backendjs
+        mv backendjs $bkdir
+        chown -R $BKJS_USER $bkdir
     fi
-    exit
-    ;;
-
-   setup-profile)
-    # Create global profile
-    find_user
-    sysconf=/etc/conf.d
-    [ ! -d $sysconf -a -d /etc/sysconfig ] && sysconf=/etc/sysconfig
-    echo "BKJS_HOME=$BKJS_HOME" > $sysconf/$BKJS
-    domain=$(get_arg -domain)
-    [ -n "$domain" ] && echo "BKJS_DOMAIN=$domain" >> $sysconf/$BKJS
-    [ "$BKJS_USER" != "root" ] && echo "BKJS_USER=$BKJS_USER" >> $sysconf/$BKJS
     exit
     ;;
 
@@ -108,6 +82,33 @@ case "$BKJS_CMD" in
        grep -v HOSTNAME /etc/sysconfig/network >> /tmp/network
        mv /tmp/network /etc/sysconfig/network
     fi
+    exit
+    ;;
+
+   setup-profile)
+    # Create global profile
+    find_user
+    sysconf=/etc/conf.d
+    [ ! -d $sysconf -a -d /etc/sysconfig ] && sysconf=/etc/sysconfig
+    echo "BKJS_HOME=$BKJS_HOME" > $sysconf/$BKJS
+    domain=$(get_arg -domain)
+    [ -n "$domain" ] && echo "BKJS_DOMAIN=$domain" >> $sysconf/$BKJS
+    [ "$BKJS_USER" != "root" ] && echo "BKJS_USER=$BKJS_USER" >> $sysconf/$BKJS
+    exit
+    ;;
+
+  setup-home)
+    # Create required directories and set permissions
+    find_user
+
+    mkdir -p $BKJS_HOME/node_modules $BKJS_HOME/bin $BKJS_HOME/log $BKJS_HOME/etc $BKJS_HOME/var $BKJS_HOME/tmp
+
+    (cd $BKJS_HOME/bin &&
+       ln -sfn ../node_modules/backendjs/bkjs bkjs &&
+       ln -sfn bkjs bksh &&
+       ln -sfn bkjs bkrsync)
+
+    chown -R $BKJS_USER.$BKJS_GROUP $BKJS_HOME $BKJS_HOME/.*
     exit
     ;;
 
@@ -144,7 +145,7 @@ case "$BKJS_CMD" in
        echo '#Bkjs' >> $UHOME/.bashrc
        echo "umask 022" >> $UHOME/.bashrc
        echo "BKJS_HOME=$BKJS_HOME" >> $UHOME/.bashrc
-       echo "export PATH=\$PATH:$UHOME/bin:$UHOME/node_modules/.bin" >> $UHOME/.bashrc
+       echo "export PATH=$BKJS_HOME/bin:$UHOME/bin:\$PATH" >> $UHOME/.bashrc
        echo 'alias slog="tail -100 /var/log/messages"' >> $UHOME/.bashrc
        echo "alias clog=\"sudo tail -100 /var/log/cron\"" >> $UHOME/.bashrc
        echo "alias mlog=\"tail -100 $BKJS_HOME/log/message.log\"" >> $UHOME/.bashrc
@@ -163,7 +164,6 @@ case "$BKJS_CMD" in
        echo 'bcp() { socat readline,history=$HOME/.socat tcp4:localhost:$1; }' >> $UHOME/.bashrc
        echo 'bkssh() { bkjs ec2-ssh -tag "$1" -index "$2" -cmd "$3" -skip-tag dev; }' >> $UHOME/.bashrc
        echo 'bkw() { bkssh ${1-api} "" "w"; }' >> $UHOME/.bashrc
-       echo "PROMPT_COMMAND='printf \"\\033]0;\$(cat \$HOME/var/bkjs.tag)\\007\"'" >> $UHOME/.bashrc
     fi
 
     if [ "$(grep -s bashrc $UHOME/.bash_profile)" = "" ]; then
@@ -176,9 +176,8 @@ case "$BKJS_CMD" in
        echo '#Bkjs' >> $UHOME/.bash_profile
        echo 'export HISTSIZE=500000' >> $UHOME/.bash_profile
        echo 'export HISTFILESIZE=50000000' >> $UHOME/.bash_profile
+       echo "export PS1=\"[\\h:\\W]#\"" >> $UHOME/.bash_profile
        echo '[ -f ~/etc/profile ] && . ~/etc/profile' >> $UHOME/.bash_profile
-       echo '[ ! -s ~/var/bkjs.tag ] && bkjs ec2-tag > ~/var/bkjs.tag' >> $UHOME/.bash_profile
-       echo '[ -s ~/var/bkjs.tag ] && export PS1=$(cat ~/var/bkjs.tag)#' >> $UHOME/.bash_profile
        echo '[ "$TMUX_PANE" != "" ] && PS1=$(echo $PS1|sed "s/#/${TMUX_PANE}#/")' >> $UHOME/.bash_profile
     fi
     exit
@@ -424,6 +423,25 @@ case "$BKJS_CMD" in
     exit
     ;;
 
+  setup-packages)
+    # Install required development and runtime packages
+
+    # Linux distro specific actions
+    case "$OS_TYPE" in
+      alpine)
+        ver=$(cat /etc/alpine-release|cut -d. -f1,2)
+        $SED "s/^# *(.+v$ver\/community)\$/\1/" /etc/apk/repositories
+        apk update
+        apk add bash curl wget nano mc
+        apk add make git gcc g++ cmake autoconf automake libtool man-pages
+        apk add shadow doas doas-sudo-shim rsync socat
+        apk add nodejs npm python3 openrc openssh monit rsyslog rsyslog-openrc redis
+        apk add tiny-cloud tiny-cloud-aws tiny-cloud-openrc nvme-cli aws-cli
+        ;;
+    esac
+    exit
+    ;;
+
   setup-mfa)
     [ "$(whoami)" != "root" ] && echo "Run as root please" && exit 1
     case "$OS_TYPE" in
@@ -473,42 +491,23 @@ case "$BKJS_CMD" in
     exit
     ;;
 
-  setup-packages)
-    # Install required development and runtime packages
-
-    # Linux distro specific actions
-    case "$OS_TYPE" in
-      alpine)
-        ver=$(cat /etc/alpine-release|cut -d. -f1,2)
-        $SED "s/^# *(.+v$ver\/community)\$/\1/" /etc/apk/repositories
-        apk update
-        apk add bash curl wget nano mc
-        apk add make git gcc g++ cmake autoconf automake libtool man-pages
-        apk add shadow doas doas-sudo-shim rsync socat
-        apk add nodejs npm python3 openrc openssh monit rsyslog rsyslog-openrc redis
-        apk add tiny-cloud tiny-cloud-aws tiny-cloud-openrc nvme-cli aws-cli
-        ;;
-    esac
-    exit
-    ;;
-
   help)
     echo ""
-    echo "  setup-hostname [-host HOST] [-domain DOMAIN] - set the hostname"
+    echo "  setup-ec2 - setup server on EC2 instance in the ec2-user home"
+    echo "  setup-server [-user USER] [-home HOME] [-prefix $PREFIX] [-doman DOMAIN] [-host HOST] - setup the backend environment with packages and change system config files for production use (Amazon2, Alpine)"
+    echo "  setup-home - setup backend home with required folders"
+    echo "  setup-hostname [-host HOST] [-domain DOMAIN] - set EC2 hostname from IP and domain"
+    echo "  setup-mfa [-user ec2-user] - initialize EC2 instance with multi-factor authentication using Google authenticator"
+    echo "  setup-logwatcher [-interval MINS] [-cron CRON] - creates a crontab file to periodically run the log watcher, -cron can specify full cron time spec"
     echo "  setup-user [-user NAME] - create a new user for the backend"
     echo "  setup-ssh - setup SSH permissions, allow only public key auth"
-    echo "  setup-logrotate - setup logrotate for the backend log files"
     echo "  setup-rsyslog - setup rsyslog to use for the backend logging, access log and backend log"
     echo "  setup-system - setup system wide parameters, permissions"
     echo "  setup-limits - setup ulimits"
     echo "  setup-sysctl - setup sysctl parameters"
-    echo "  setup-home - setup backend home with required folders"
-    echo "  setup-mfa [-user ec2-user] - initialize EC2 instance with multi-factor authentication using Google authenticator"
-    echo "  setup-logwatcher [-interval MINS] [-cron CRON] - creates a crontab file in /etc/cron.d to periodically run the log watcher, -cron can specify full cron time spec"
-    echo "  setup-ec2 - setup server on EC2 instance in the ec2-user home"
+    echo "  setup-logrotate - setup logrotate for the backend log files"
     echo "  setup-service [-stop] - start/stop service to be run bkjs start on server boot"
     echo "  setup-packages - install required packages and updates for supported distros (Alpine)"
-    echo "  setup-server [-user USER] [-home HOME] [-prefix $PREFIX] [-doman DOMAIN] [-host HOST] - setup the backend environment with packages and change system config files for production use (Amazon2, Alpine)"
     ;;
 
 esac

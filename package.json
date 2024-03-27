@@ -29,9 +29,6 @@
     "uglify-js": "3.17.4"
   },
   "modDependencies": {
-    "@parse/node-apn": "5.2.3",
-    "amqplib": "0.10.3",
-    "argon2": "0.40.1",
     "bcrypt": "5.1.1",
     "bkjs-sqlite": "0.3.0",
     "mmmagic": "0.5.3",

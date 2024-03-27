@@ -7,13 +7,17 @@
 case "$BKJS_CMD" in
 
   install-node)
-    if [ "$(get_flag -force)" != "" -a -f $BKJS_HOME/bin/node ]; then
+    if [ -n "$(get_flag -force)" -a -f $BKJS_HOME/bin/node ]; then
         echo "Uninstalling node from $BKJS_HOME ..."
         rm -rf $BKJS_HOME/bin/node $BKJS_HOME/bin/npm $BKJS_HOME/bin/npx $BKJS_HOME/lib/node_modules/npm $BKJS_HOME/include/node
-        [ ! -z "$(get_flag -clean)" ] && rm -rf $BKJS_HOME/lib/node_modules
+        [ -n "$(get_flag -clean)" ] && rm -rf $BKJS_HOME/lib/node_modules
     fi
-    [ -f $BKJS_HOME/bin/node ] && exit 0
+    [ -f $BKJS_HOME/bin/node ] && echo "already installed as $BKJS_HOME/bin/node" && exit 1
+
     mkdir -p $BKJS_HOME
+    [ "$?" != "0" ] && exit "echo failed to create $BKJS_HOME" && exit 1
+    echo "Installing node into $BKJS_HOME ..."
+
     tgz=$(get_arg -tgz)
     if [ -n "$tgz" ]; then
         tar -C $BKJS_HOME --strip-components=1 -xzf $tgz
