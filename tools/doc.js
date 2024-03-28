@@ -10,21 +10,25 @@ const bkjs = require('backendjs');
 const lib = bkjs.lib;
 
 function readDir(dir) {
-    if (dir.slice(-1) !== "/") dir += "/";
-    fs.readdirSync(dir).forEach((x) => {
-        var fullPath = path.join(dir, x);
-        var s = fs.statSync(fullPath);
-        if (s.isFile() && x.slice(-3) === ".js") {
-            files.push(fullPath);
-        } else if (s.isDirectory()) {
-            readDir(fullPath); // Recursive call for subdirectories
-        }
-    });
+    try {
+        if (dir.slice(-1) !== "/") dir += "/";
+        fs.readdirSync(dir).forEach((x) => {
+            var fullPath = path.join(dir, x);
+            var s = fs.statSync(fullPath);
+            if (s.isFile() && x.slice(-3) === ".js") {
+                files.push(fullPath);
+            } else
+            if (s.isDirectory()) {
+                readDir(fullPath); // Recursive call for subdirectories
+            }
+        });
+    } catch (e) {}
 }
 
-var header = "", footer = "", renderer;
+var header = "", footer = "";
 
 var name = bkjs.lib.getArg("-name", "Backendjs");
+var title = bkjs.lib.getArg("-title", "Backend library for Node.js");
 
 if (!lib.isArg("-nohdr")) {
     header =
@@ -32,17 +36,15 @@ if (!lib.isArg("-nohdr")) {
    <title>${name} Documentation</title>
    <link rel="shortcut icon" href="img/logo.png" type="image/png" />
    <link rel="icon" href="img/logo.png" type="image/png" />
-   <link href="css/bootstrap.css" rel="stylesheet">
-   <link rel="stylesheet" href="css/doc.css">
+   <link href="css/bootstrap5.css" rel="stylesheet">
+   <link href="css/doc.css" rel="stylesheet" >
 </head>
 <body>
-    <div class="container">
-        <div class="d-flex justify-content-between align-items-center w-100 pb-4">
-            <div><a href="/"><img class="logo" height=22 src="img/logo.png"></a>
-                <span class="px-2">Backend library for Node.js</span>
-            </div>
-            <a href="${lib.getArg("-repo", "https://github.com/vseryakov/backendjs")}">[Repository]</a>
-        </div>`;
+    <div class="d-flex justify-content-between align-items-center w-100 pb-4">
+      <div><img class="logo" height=22 src="img/logo.png"><span class="px-2">${title}</span></div>
+      <a href="${lib.getArg("-repo", "https://github.com/vseryakov/backendjs")}">[Repository]</a>
+    </div>
+`;
     footer = "</div></body>";
 }
 
@@ -53,7 +55,7 @@ readme.split("\n").forEach((x) => {
     var d = x.match(/^([#]+) (.+)/);
     if (!d) return;
     d[2] = d[2].trim();
-    for (var i = 0; i < d[1].length - 1; i++) toc += " ";
+    toc += " ".repeat(d[1].length);
     toc += "* [ " + d[2] + "](#" + d[2].toLowerCase().replace(/[^\w]+/g, '-') + ")\n";
 });
 
@@ -61,10 +63,10 @@ if (lib.isArg("-args")) {
     toc += "* [Configuration parameters](#configuration-parameters)\n";
 }
 
-toc += "* Javascript Modules\n";
-
 var files = [];
 bkjs.lib.strSplit(bkjs.lib.getArg("-dirs", "lib,modules")).forEach(readDir);
+
+if (files.length) toc += "* Javascript Modules\n";
 
 var skip = new RegExp(lib.getArg("-skip", "index.js$"));
 files = files.filter((x) => (!skip.test(x))).sort()
@@ -73,8 +75,13 @@ if (lib.isArg("-md")) {
     header = footer = "";
     marked = { parse: (s) => (s) };
 } else {
-    marked.setOptions({ gfm: true, tables: true, breaks: false, pedantic: false, smartLists: true, smartypants: false });
-    renderer = new marked.Renderer();
+    marked.setOptions({ gfm: true, tables: true, breaks: false, pedantic: false, smartLists: true });
+    marked.use({ renderer: {
+        heading(text, level) {
+            var id = text.toLowerCase().trim().replace(/[^\w]+/g, '-');
+            return `<h${level} id="${id}">${text}</h${level}>\n`;
+        }
+    } });
 }
 
 var mod, text = "";
@@ -84,7 +91,7 @@ files.forEach((file) => {
     if (/^[a-zA-Z0-9_]+\/[a-z0-9_-]+.js$/.test(file)) {
         mod = base;
         toc += "    * [" + base + "](#module-" + base + ")\n";
-        text += marked.parse("## Module: " + mod + "\n\n", { renderer: renderer });
+        text += marked.parse("## Module: " + mod + "\n\n");
     }
     var doc = "", overview, submod;
     var data = fs.readFileSync(file).toString().split("\n");
@@ -106,9 +113,9 @@ files.forEach((file) => {
             if (d[2] == "mod" && base != mod) {
                 submod = base;
                 toc += "    * [" + base + "](#module-" + base + ")\n";
-                text += marked.parse("### Module: " + submod + "\n\n", { renderer: renderer });
+                text += marked.parse("### Module: " + submod + "\n\n");
             }
-            text += marked.parse(doc, { renderer: renderer }) + "\n";
+            text += marked.parse(doc) + "\n";
             doc = "";
             overview = 1;
             continue;
@@ -121,7 +128,7 @@ files.forEach((file) => {
             if (mod || submod) {
                 d = d.replace(/^mod\./, (submod || mod) + ".");
             }
-            text += marked.parse("* `" + d + "`\n\n  " + doc, { renderer: renderer }) + "\n";
+            text += marked.parse("* `" + d + "`\n\n  " + doc) + "\n";
             doc = "";
             continue;
         }
@@ -137,7 +144,7 @@ files.forEach((file) => {
                 doc += "   - " + line.replace(/^ *\{|\},/g, "").replace(/name: *"([^"]+)"/g, `\`${m}$1\``).trim() + "\n";
             }
             // Precaution
-            if (i < data.length) text += marked.parse(doc, { renderer: renderer }) + "\n";
+            if (i < data.length) text += marked.parse(doc) + "\n";
             doc = "";
             continue;
         }
@@ -151,7 +158,7 @@ files.forEach((file) => {
                 doc += "    " + line.substr(4) + "\n";
             }
             // Precaution
-            if (i < data.length) text += marked.parse(doc, { renderer: renderer }) + "\n";
+            if (i < data.length) text += marked.parse(doc) + "\n";
             doc = "";
             continue;
         }
@@ -159,7 +166,7 @@ files.forEach((file) => {
     }
 });
 
-if (lib.isArg("-notoc")) toc = ""; else toc = marked.parse(toc + readme, { renderer: renderer });
+if (lib.isArg("-notoc")) toc = ""; else toc = marked.parse(toc + readme);
 
 console.log(header);
 console.log(toc);

@@ -2,17 +2,15 @@
    <title>Backendjs Documentation</title>
    <link rel="shortcut icon" href="img/logo.png" type="image/png" />
    <link rel="icon" href="img/logo.png" type="image/png" />
-   <link href="css/bootstrap.css" rel="stylesheet">
-   <link rel="stylesheet" href="css/doc.css">
+   <link href="css/bootstrap5.css" rel="stylesheet">
+   <link href="css/doc.css" rel="stylesheet" >
 </head>
 <body>
-    <div class="container">
-        <div class="d-flex justify-content-between align-items-center w-100 pb-4">
-            <div><a href="/"><img class="logo" height=22 src="img/logo.png"></a>
-                <span class="px-2">Backend library for Node.js</span>
-            </div>
-            <a href="https://github.com/vseryakov/backendjs">[Repository]</a>
-        </div>
+    <div class="d-flex justify-content-between align-items-center w-100 pb-4">
+      <div><img class="logo" height=22 src="img/logo.png"><span class="px-2">Backend library for Node.js</span></div>
+      <a href="https://github.com/vseryakov/backendjs">[Repository]</a>
+    </div>
+
 <h1 id="backendjs-documentation">Backendjs Documentation</h1>
 <h2 id="table-of-contents">Table of contents</h2>
 <ul>
@@ -48,15 +46,13 @@
 <li><a href="#secure-web-site-backend-verification"> Secure Web site, backend verification</a></li>
 <li><a href="#websockets-connections"> WebSockets connections</a></li>
 <li><a href="#versioning"> Versioning</a></li>
-<li><a href="#the-backend-provisioning-utility-bkjs"> The backend provisioning utility: bkjs</a></li>
+<li><a href="#the-backend-tool-bkjs"> The backend tool: bkjs</a></li>
 <li><a href="#extending-bkjs"> Extending bkjs</a></li>
 <li><a href="#web-development-notes"> Web development notes</a></li>
 <li><a href="#deployment-use-cases"> Deployment use cases</a></li>
 <li><a href="#aws-instance-setup-with-node-and-backendjs"> AWS instance setup with node and backendjs</a></li>
 <li><a href="#aws-provisioning-examples"> AWS Provisioning examples</a></li>
 <li><a href="#make-an-ami"> Make an AMI</a></li>
-<li><a href="#launch-instances-when-not-using-autoscaling-groups"> Launch instances when not using AutoScaling Groups</a></li>
-<li><a href="#copy-autoscaling-launch-templates-after-new-ami-is-created"> Copy Autoscaling launch templates after new AMI is created</a></li>
 <li><a href="#update-route53-with-all-ips-from-running-instances"> Update Route53 with all IPs from running instances</a></li>
 <li><a href="#configure-http-port"> Configure HTTP port</a></li>
 <li><a href="#backend-library-development-mac-os-x-developers-"> Backend library development (Mac OS X, developers)</a></li>
@@ -89,6 +85,7 @@
 <li><a href="#module-metrics">metrics</a></li>
 <li><a href="#module-msg">msg</a></li>
 <li><a href="#module-pool">pool</a></li>
+<li><a href="#module-run">run</a></li>
 <li><a href="#module-server">server</a></li>
 <li><a href="#module-shell">shell</a></li>
 <li><a href="#module-watch">watch</a></li>
@@ -98,7 +95,7 @@
 </ul>
 </li>
 </ul>
-<h1 id="backend-library-for-nodejs">Backend library for Node.js</h1>
+<h1 id="backend-library-for-node-js">Backend library for Node.js</h1>
 <p>General purpose backend library. The primary goal is to have a scalable platform for running and managing Node.js
 servers for Web services implementation.</p>
 <p>This project only covers the lower portion of the Web services ecosystem:
@@ -180,7 +177,7 @@ it is possible to install all optional dependencies for development purposes.</p
 <pre><code>  bkjs web -db-pool sqlite -db-sqlite-pool default
 </code></pre>
 </li>
-<li><p>or to the PostgreSQL server, database backend (if not running local server can be started with <code>bkjs init-pgsql</code> if postgresql is installed)</p>
+<li><p>or to the PostgreSQL server, database backend</p>
 <pre><code>  bkjs web -db-pool pg -db-pg-pool postgresql://postgres@localhost/backend
 </code></pre>
 </li>
@@ -301,10 +298,11 @@ ec2-user    921  0.0  0.7 1072120 40721 ?  Sl   14:33   0:02 bkjs: worker
 <p>To enable any task a command line parameter must be provided, it cannot be specified in the config file. The <code>bkjs</code> utility supports several
 commands that simplify running the backend in different modes.</p>
 <ul>
+<li><code>bkjs start</code> - this command is supposed to be run at the server startup as a service, it runs in the background and the monitors all tasks,
+ the env variable <code>BKJS_SERVER</code> must be set in the profile to one of the <code>master or monitor</code> to define which run mode to use</li>
+<li><code>bkjs start-instance</code> - this command is supposed to be run at the server startup to perform system adjustments, it is run in <code>bkjs start</code></li>
 <li><code>bkjs watch</code> - runs the master and Web server in wather mode checking all source files for changes, this is the common command to be used
  in development, it passes the command line switches: <code>-watch -master</code></li>
-<li><code>bkjs start</code> - this command is supposed to be run at the server startup as a service, it runs in the background and the monitors all tasks,
- the env variable <code>BKJS_SERVER</code> can be set in the profile to one of the <code>master or monitor</code> to define which run mode to use, default mode is monitor</li>
 <li><code>bkjs monitor</code> - this command is supposed to be run at the server startup, it runs in the background and the monitors all processes,
  the command line parameters are: <code>-daemon -monitor -master -syslog</code></li>
 <li><code>bkjs master</code> - this command is supposed to be run at the server startup, it runs in the background and the monitors all processes,
@@ -704,7 +702,9 @@ It is also possible to set the default home using BKJS_HOME environment variable
 </li>
 <li><p><code>etc/config.local</code> - same as the config but for the cases when local environment is different than the production or for dev specific parameters</p>
 </li>
-<li><p>on startup the following local config files will be loaded if present: <code>etc/config.runMode</code> and <code>etc/config.instance.tag</code>. These will be loaded after the main config but before config.local. The runMode is set to development by default and can be changed with <code>-run-mode</code> config parameter, the instance tag is set with <code>-instance-tag</code> config parameter.</p>
+<li><p>on startup the following local config files will be loaded if present: <code>etc/config.runMode</code> and <code>etc/config.instance.tag</code>. These will be loaded after the main config but before config.local. The runMode is set to <code>dev</code> by default and can be changed with <code>-run-mode</code> config parameter, the instance tag is set with <code>-instance-tag</code> config parameter.</p>
+</li>
+<li><p>config files support sections that can be used for conditions, see <code>lib.configParse</code> description for details</p>
 </li>
 <li><p><code>etc/crontab</code> - jobs to be run with intervals, JSON file with a list of cron jobs objects:</p>
 <p>  Example:</p>
@@ -753,7 +753,7 @@ concatenated with the domain and queried for the TXT record, for example: <code>
 <li>BKJS_RUNMODE - initial run mode, <code>-run-mode</code> overrides it</li>
 <li>BKJS_CONFFILE - config file to use instead of &#39;config&#39;, <code>-conf-file</code> overrides it</li>
 <li>BKJS_PACKAGES - packags to preload, <code>-preload-packages</code> overrieds it</li>
-<li>BKJS_DB_CONFIG_ROLES - db config roles to use, <code>-db-config-roles</code> overrides it</li>
+<li>BKJS_CONFIG_ROLES - config roles to use, <code>-config-roles</code> overrides it</li>
 <li>BKJS_DB_POOL - default db pool, <code>-db-pool</code> overrides it</li>
 <li>BKJS_DB_CONFIG - config db pool, <code>-db-config</code> overrides it</li>
 <li>BKJS_APPNAME - default app name</li>
@@ -780,7 +780,7 @@ the options or url, the system supports special parameters that start with <code
 ipc-client-backup=redis://host2
 ipc-client-backup-options-max_attempts=3
 </code></pre>
-<h1 id="pubsub-or-queue-configurations">PUB/SUB or Queue configurations</h1>
+<h1 id="pub-sub-or-queue-configurations">PUB/SUB or Queue configurations</h1>
 <h2 id="redis-system-bus">Redis system bus</h2>
 <p>If configured all processes subscribe to it and listen for system messages, it must support PUB/SUB and does not need to be reliable. Websockets
 in the API server also use the system bus to send broadcasts between multiple api instances.</p>
@@ -816,7 +816,7 @@ process with <code>-jobs-workers 2</code> will launch 2 worker processes which w
 <h2 id="sqs">SQS</h2>
 <p>To use AWS SQS for job processing set <code>ipc-queue=https://sqs.amazonaws.com....</code>, this queue system will poll SQS for new messages on a worker
 and after successful execution will delete the message. For long running jobs it will automatically extend visibility timeout if it is configured.</p>
-<h2 id="local-1">Local</h2>
+<h2 id="local">Local</h2>
 <p>The local queue is implemented on the master process as a list, communication is done via local sockets between the master and workers.
 This is intended for a single server development purposes only.</p>
 <h2 id="nats">NATS</h2>
@@ -993,23 +993,25 @@ In the middlware, the code can look like this:</p>
 </code></pre>
 <p>The actual implementation can be modularized, split into functions, controllers.... there are no restrictions how to build the working backend code,
 the backend just provides all necessary information for the middleware modules.</p>
-<h1 id="the-backend-provisioning-utility-bkjs">The backend provisioning utility: bkjs</h1>
+<h1 id="the-backend-tool-bkjs">The backend tool: bkjs</h1>
 <p>The purpose of the <code>bkjs</code> shell script is to act as a helper tool in configuring and managing the backend environment
 and as well to be used in operations on production systems. It is not required for the backend operations and provided as a convenience tool
 which is used in the backend development and can be useful for others running or testing the backend.</p>
-<p>Running without arguments will bring help screen with description of all available commands.</p>
+<p>Run <code>bkjs help</code> to see description of all available commands.</p>
 <p>The tool is multi-command utility where the first argument is the command to be executed with optional additional arguments if needed.</p>
-<p>On Linux, when started the bkjs tries to load and source the following config files:</p>
-<pre><code>    /etc/default/bkjs
+<p>On Linux, when started the bkjs tries to load and source the following global config files:</p>
+<pre><code>    /etc/conf.d/bkjs
     /etc/sysconfig/bkjs
+</code></pre>
+<p>Then it try to source all local config files:</p>
+<pre><code>    $HOME/.env
     $BKJS_HOME/etc/profile
     $BKJS_HOME/etc/profile.local
 </code></pre>
-<p>On Darwin only the <code>$BKJS_HOME/etc/profile</code> is loaded where BKJS_HOME points to <code>~/.bkjs</code> by default.</p>
 <p>Any of the following config files can redefine any environment variable thus pointing to the correct backend environment directory or
 customize the running environment, these should be regular shell scripts using bash syntax.</p>
 <p>To check all env variables inside bkjs just run the command <code>bkjs env</code></p>
-<p>The utility provides some simple functions to parse comamndline arguments,
+<p>The tool provides some simple functions to parse comamndline arguments,
 the convention is that argument name must start with a single dash followed by a value.</p>
 <ul>
 <li><p><code>get_arg(name, dflt)</code> - returns the value for the arg <code>name</code> or default value if specified</p>
@@ -1026,7 +1028,7 @@ Example:</p>
 </li>
 <li><p><code>get_json(file, name, dflt, realpath)</code> - returns a value from the json file, <code>name</code> can be path deep into object, <code>realpath</code> flag if nonempty will treat all values as paths and convert each into actual real path (this is used by the internal web bundler)</p>
 </li>
-<li><p><code>get_json_flat</code> - similar to get_json but the values are flattened
+<li><p><code>get_json_flat</code> - similar to get_json but property names are flattened for deep access
 Example:</p>
 <pre><code>$(get_json package.json config.sync.path)
 $(get_json package.json name)
@@ -1048,11 +1050,16 @@ cmd1)
 </ul>
 <h2 id="extending-bkjs">Extending bkjs</h2>
 <p>The utility is extended via external scripts that reside in the <code>tools/</code> folders.</p>
-<p>When bkjs is running it treats the first arg as a command, it is set to <code>$BKJS_CMD</code> var, them it matches internal commands first,
-if not found it starts loading external scripts that start with <code>bkjs-</code> from the following directories:</p>
+<p>When bkjs is running it treats the first arg as a command:</p>
 <ul>
+<li><code>$BKJS_CMD</code> set to the whole comamnd</li>
+<li><code>$BKJS_MODULE</code> set to the first part of the command split by dash, i.e. command module</li>
+</ul>
+<p>if no internal commands match it starts loading external scripts that start with <code>bkjs-$BKJS_MODULE</code> from the following directories:</p>
+<ul>
+<li>via <code>-tools</code> command line argument if provided</li>
+<li>$(pwd)/tools</li>
 <li><code>$BKJS_TOOLS</code>,</li>
-<li>via <code>-tools</code> command line argument</li>
 <li><code>$BKJS_HOME/tools</code></li>
 <li><code>$BKJS_DIR/tools</code></li>
 </ul>
@@ -1061,108 +1068,84 @@ if not found it starts loading external scripts that start with <code>bkjs-</cod
 custom commands to bkjs. BKJS_TOOLS var is usually set in one of the profile config files mentioned above.</p>
 <p>Example of a typical bkjs command:</p>
 <p>We need to set BKJS_TOOLS to point to our package(s), on Darwin add it to ~/.bkjs/etc/profile as</p>
-<pre><code>BKJS_TOOLS=&quot;/Users/user/src/node-pkg/tools&quot;
+<pre><code>BKJS_TOOLS=&quot;$HOME/src/node-pkg/tools&quot;
 </code></pre>
-<p>Create a file <code>/Users/user/src/node-pkg/tools/bkjs-cmd1</code></p>
-<pre><code>#!/bin/bash
+<p>Create a file <code>/Users/user/src/node-pkg/tools/bkjs-cmd</code></p>
+<pre><code>#!/bin/sh
 
 case &quot;$BKJS_CMD&quot; in
-  cmd1)
+  cmd)
    arg1=$(get_arg -arg1)
    arg2=$(get_arg -arg1 1)
    [ -z $arg1 ] &amp;&amp; echo &quot;-arg1 is required&quot; &amp;&amp; exit 1
+   ...
+   exit
+
+  cmd-all)
    ...
    exit
    ;;
 
   help)
    echo &quot;&quot;
-   echo &quot;$0 cmd1 -arg1 ARG -arg2 ARG&quot;
+   echo &quot;$0 cmd -arg1 ARG -arg2 ARG ...&quot;
+   echo &quot;$0 cmd-all ....&quot;
    ;;
 esac
 </code></pre>
+<p>Now calling <code>bkjs cmd</code> or <code>bkjs cmd-all</code> will use the new bkjs-cmd file</p>
 <h1 id="web-development-notes">Web development notes</h1>
 <p>Then run the dev build script to produce web/js/bkjs.bundle.js and web/css/bkjs.bundle.css</p>
-<pre><code>    cd node_modules/backendjs &amp;&amp; npm run devbuild
+<pre><code>cd node_modules/backendjs &amp;&amp; npm run devbuild
 </code></pre>
 <p>Now instead of including a bunch of .js or css files in the html pages it only needs /js/bkjs.bundle.js and /css/bkjs.bundle.css. The configuration is in the
 package.json file.</p>
 <p>The list of files to be used in bundles is in the package.json under <code>config.bundles</code>.</p>
 <p>To enable auto bundler in your project just add to the local config <code>~/.bkjs/etc/config.local</code> a list of directories to be
 watched for changes. For example adding these lines to the local config will enable the watcher and bundle support</p>
-<pre><code>    watch-web=web/js,web/css,$HOME/src/js,$HOME/src/css
-    watch-ignore=.bundle.(js|css)$
-    watch-build=bkjs web-bundle -dev
+<pre><code>watch-web=web/js,web/css,$HOME/src/js,$HOME/src/css
+watch-ignore=.bundle.(js|css)$
+watch-build=bkjs bundle -dev
 </code></pre>
 <p>The simple script below allows to build the bundle and refresh Chrome tab automatically, saves several clicks:</p>
-<pre><code>    #!/bin/bash
-    bkjs web-bundle -dev -file $2
-    [ &quot;$?&quot; != &quot;0&quot; ] &amp;&amp; exit
-    osascript -e &quot;tell application \&quot;Google Chrome\&quot; to reload (tabs of window 1 whose URL contains \&quot;$1\&quot;)&quot;
+<pre><code>#!/bin/sh
+bkjs bundle -dev -file $2
+[ &quot;$?&quot; != &quot;0&quot; ] &amp;&amp; exit
+osascript -e &quot;tell application \&quot;Google Chrome\&quot; to reload (tabs of window 1 whose URL contains \&quot;$1\&quot;)&quot;
 </code></pre>
 <p>To use it call this script instead in the config.local:</p>
-<pre><code>    watch-build=web-bundle.sh /website
+<pre><code>watch-build=bundle.sh /website
 </code></pre>
 <p>NOTE: Because the rebuild happens while the watcher is running there are cases like the server is restarting or pulling a large update from the
 repository when the bundle build may not be called or called too early. To force rebuild run the command:</p>
-<pre><code>    bkjs web-bundle -dev -all -force
+<pre><code>bkjs bundle -dev -all -force
 </code></pre>
 <h1 id="deployment-use-cases">Deployment use cases</h1>
 <h2 id="aws-instance-setup-with-node-and-backendjs">AWS instance setup with node and backendjs</h2>
 <ul>
-<li><p>start new AWS instance via AWS console, use Amazon Linux</p>
+<li><p>start new AWS instance via AWS console, use Alpine 3.19 or later</p>
 </li>
-<li><p>login as <code>ec2-user</code></p>
+<li><p>login as <code>alpine</code></p>
 </li>
 <li><p>install commands</p>
-<pre><code>  git clone https://github.com/vseryakov/backendjs.git
-  sudo backendjs/bkjs install-ec2 -tools $(pwd)/backendjs/tools
+<pre><code>  doas apk add git
+  git clone --depth=1 https://github.com/vseryakov/backendjs.git
+  doas backendjs/bkjs setup-ec2
+  doas reboot
 </code></pre>
 </li>
-<li><p>run <code>ps agx</code>, it should show several backend processes running after monit started the service</p>
-</li>
-<li><p>try to access the instance via HTTP port for the API console or documentation</p>
+<li><p>now login as <code>ec2-user</code></p>
 </li>
 </ul>
 <p>NOTE: if running behind a Load balancer and actual IP address is needed set Express option in the command line <code>-api-express-options {&quot;trust%20proxy&quot;:1}</code>. In the config file
 replacing spaces with %20 is not required.</p>
 <h2 id="aws-provisioning-examples">AWS Provisioning examples</h2>
-<p>Note: on OS X laptop the <code>-aws-sdk-profile uc</code> when AWS credentials are in the ~/.aws/credentials.</p>
 <h3 id="make-an-ami">Make an AMI</h3>
 <p>On the running machine which will be used for an image:</p>
-<pre><code>    bksh -aws-create-image -no-reboot
+<pre><code>bksh -aws-create-image -no-reboot
 </code></pre>
 <p>Use an instance by tag for an image:</p>
-<pre><code>    bksh -aws-create-image -no-reboot -instance-id `bkjs ec2-show -tag api -fmt id | head -1`
-</code></pre>
-<h3 id="launch-instances-when-not-using-autoscaling-groups">Launch instances when not using AutoScaling Groups</h3>
-<p>When launching from an EC2 instance no need to specify any AWS credentials.</p>
-<ul>
-<li><p>admin (EC2)</p>
-<pre><code> bksh -aws-sdk-profile uc -aws-launch-instances -aws-instance-type t2.small -subnet-name api -name admin -elb-name Admin -alarm-name alarms -public-ip 1 -dry-run
-</code></pre>
-</li>
-<li><p>api (EC2)</p>
-<pre><code> bksh -aws-sdk-profile uc -aws-launch-instances -aws-instance-type m3.large -subnet-name api -name api -elb-name api -alarm-name alarms -public-ip 1 -dry-run
-</code></pre>
-</li>
-<li><p>jobs (EC2)</p>
-<pre><code> bksh -aws-sdk-profile uc -aws-launch-instances -aws-instance-type t2.small -subnet-name internal -name sync -alarm-name alarms -dry-run
- bksh -aws-sdk-profile uc -aws-launch-instances -aws-instance-type t2.small -subnet-name internal -name sync -zone 1c -alarm-name alarms -dry-run
-</code></pre>
-</li>
-<li><p>Elasticsearch</p>
-<pre><code> bksh -aws-sdk-profile uc -aws-launch-instances -aws-instance-type m3.large -subnet-name internal -name elasticsearch -bkjs-cmd stop-service -bkjs-cmd &quot;init-elasticsearch-service -memsize 50&quot; -alarm-name alarms -public-ip 1 -dry-run
-</code></pre>
-</li>
-<li><p>Redis</p>
-<pre><code> bksh -aws-sdk-profile uc -aws-launch-instances -aws-instance-type m3.large -subnet-name internal -name redis -bkjs-cmd stop-service -bkjs-cmd &quot;init-redis-service -memsize 70&quot; -alarm-name alarms  -public-ip 1 -dry-run
-</code></pre>
-</li>
-</ul>
-<h3 id="copy-autoscaling-launch-templates-after-new-ami-is-created">Copy Autoscaling launch templates after new AMI is created</h3>
-<pre><code>bksh -aws-create-launch-template-version -name jobs -aws-sdk-profile uc -dry-run
-bksh -aws-create-launch-template-version -name api -aws-sdk-profile uc -dry-run
+<pre><code>bksh -aws-create-image -no-reboot -instance-id `bkjs ec2-show -tag api -fmt id | head -1`
 </code></pre>
 <h3 id="update-route53-with-all-ips-from-running-instances">Update Route53 with all IPs from running instances</h3>
 <pre><code>bksh -aws-set-route53 -name elasticsearch.ec-internal -filter elasticsearch
@@ -1174,7 +1157,7 @@ how the environment is setup it is ultimately 2 ways to specify the port for HTT
 <li><p>config file</p>
 <p>The config file is always located in the etc/ folder in the backend home directory, how the home is specified depends on the system but basically it can be
 defined via command line arguments as <code>-home</code> or via environment variables when using bkjs. See bkjs documentation but on AWS instances created with bkjs
-<code>init-server</code> command, for non-standard home use <code>/etc/sysconfig/bkjs</code> profile, specify <code>BKJS_HOME=/home/backend</code> there and the rest will be taken care of</p>
+<code>setup-server</code> command, for non-standard home use <code>/etc/sysconfig/bkjs</code> profile, specify <code>BKJS_HOME=/home/backend</code> there and the rest will be taken care of</p>
 </li>
 <li><p>command line arguments</p>
 <p>When running node scripts which use the backend, just specify <code>-home</code> command line argument with the directory where your backend should be and the backend will use it</p>
@@ -1195,7 +1178,7 @@ Some config options may be kept in the DNS TXT records and every time a instance
 all config parameters support DNS store. To see which parameters can be stored in the DNS run <code>bkjs show-help</code> and look for &#39;DNS TXT configurable&#39;.</p>
 </li>
 </ul>
-<h1 id="backend-library-development-mac-os-x-developers">Backend library development (Mac OS X, developers)</h1>
+<h1 id="backend-library-development-mac-os-x-developers-">Backend library development (Mac OS X, developers)</h1>
 <ul>
 <li><p><code>git clone https://github.com/vseryakov/backendjs.git</code> or <code>git clone git@github.com:vseryakov/backendjs.git</code></p>
 </li>
@@ -1203,31 +1186,30 @@ all config parameters support DNS store. To see which parameters can be stored i
 </li>
 <li><p>if Node.js is already installed skip to the next section</p>
 <ul>
-<li><p>to install binary release run the command, it will install it into /opt/local on Darwin</p>
-<p>  bkjs install-node</p>
-<h1 id="to-install-into-different-path">To install into different path</h1>
-<p>  bkjs install-node -prefix /usr/local/node</p>
+<li><p>to install binary release run the command, it will install it into ~/.bkjs on Darwin</p>
+<pre><code>bkjs install-node
+# To install into different path
+bkjs install-node -home ~/.local
+</code></pre>
 </li>
-<li><p><strong>Important</strong>: Add NODE_PATH=$BKJS_PREFIX/lib/node_modules to your environment in .profile or .bash_profile so
-node can find global modules, replace $BKJS_PREFIX with the actual path unless this variable is also set in the .profile</p>
+<li><p><strong>Important</strong>: Add NODE_PATH=$BKJS_HOME/lib/node_modules to your environment in .profile or .bash_profile so
+node can find global modules, replace $BKJS_HOME with the actual path unless this variable is also set in the .profile</p>
 </li>
 </ul>
 </li>
 <li><p>to install all dependencies and make backendjs module and bkjs globally available:</p>
-<pre><code> npm link backendjs
-</code></pre>
+<p>  <code>npm link backendjs</code></p>
 </li>
 <li><p>to run local server on port 8000 run command:</p>
-<pre><code>  bkjs web
-</code></pre>
+<p>  <code>bkjs web</code></p>
 </li>
 <li><p>to start the backend in command line mode, the backend environment is prepared and initialized including all database pools.
  This command line access allows you to test and run all functions from all modules of the backend without running full server
  similar to Node.js REPL functionality. All modules are accessible from the command line.</p>
-<pre><code>  $ ./bkjs shell
-  &gt; core.version
-  &#39;0.70.0&#39;
-  &gt; logger.setLevel(&#39;info&#39;)
+<pre><code>$ ./bkjs shell
+&gt; core.version
+&#39;0.70.0&#39;
+&gt; logger.setLevel(&#39;info&#39;)
 </code></pre>
 </li>
 </ul>
@@ -1244,7 +1226,7 @@ functions named in the form <code>tests.test_NAME</code> where NAME is any custo
 }
 </code></pre>
 <p>Then to run all tests</p>
-<pre><code>bkjs run-tests
+<pre><code>bkjs test-all
 </code></pre>
 <p>More details are in the documentation or <code>doc.html</code></p>
 <h1 id="design-considerations">Design considerations</h1>
@@ -2107,8 +2089,9 @@ see <code>lib.readFile</code> or <code>aws.s3GetFile</code> for specific options
 </ul>
 
 <ul>
-<li><p><code>api.detectFile(file, callback)</code></p>
-<p>  Returns detected mime type and ext for a file, requires <code>mmmagic</code> package</p>
+<li><p><code>api.detectFile(file, flags, callback)</code></p>
+<p>  Returns detected mime type and ext for a file, requires <code>mmmagic</code> package,
+if no flags given uses MAGIC_MIME_TYPE by default</p>
 </li>
 </ul>
 
@@ -2641,7 +2624,7 @@ All properties starting with <code>is`` or </code>cleanup_`` will be passed to t
 </ul>
 
 <h2 id="module-app">Module: app</h2>
-<p>   Author: Vlad Seryakov <a href="mailto:&#118;&#115;&#101;&#114;&#121;&#x61;&#107;&#111;&#x76;&#64;&#x67;&#x6d;&#x61;&#x69;&#108;&#46;&#x63;&#111;&#109;">&#118;&#115;&#101;&#114;&#121;&#x61;&#107;&#111;&#x76;&#64;&#x67;&#x6d;&#x61;&#x69;&#108;&#46;&#x63;&#111;&#109;</a>
+<p>   Author: Vlad Seryakov <a href="mailto:vseryakov@gmail.com">vseryakov@gmail.com</a>
    backendjs 2018</p>
 <p>  This is a skeleton module to be extended by the specific application logic. It provides all
   callbacks and hooks that are called by the core backend modules
@@ -2851,87 +2834,9 @@ otherwise internal properties will not be added</p>
 </ul>
 
 <ul>
-<li><p><code>aws.readCredentials(profile, callback)</code></p>
-<p>  Read key and secret from the AWS SDK credentials file, if no profile is given in the config or command line only the default peofile
-will be loaded.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>aws.readConfig(callback)</code></p>
-<p>  Read and apply config from S3 bucket</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>aws.getInstanceMeta(path, callback)</code></p>
-<p>  Retrieve instance meta data</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>aws.getInstanceCredentials(path, callback)</code></p>
-<p>  Retrieve instance credentials using EC2 instance profile and setup for AWS access</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>aws.getInstanceInfo(options, callback)</code></p>
-<p>  Retrieve instance launch index from the meta data if running on AWS instance</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>aws.parseXMLResponse(err, params, options, callback)</code></p>
-<p>  Parse AWS response and try to extract error code and message, convert XML into an object.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>aws.querySign(region, service, host, method, path, body, headers, credentials, options)</code></p>
-<p>  Build version 4 signature headers</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>aws.queryPrepare(action, version, obj, options)</code></p>
-<p>  Return a request object ready to be sent to AWS, properly formatted</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>aws.querySigner()</code></p>
-<p>  It is called in the context of a http request</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>aws.queryAWS(region, service, proto, host, path, obj, options, callback)</code></p>
-<p>  Make AWS request, return parsed response as Javascript object or null in case of error</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>aws.queryEndpoint(service, version, action, obj, options, callback)</code></p>
-<p>  AWS generic query interface</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>aws.getServiceRegion(service, region)</code></p>
-<p>  Check for supported regions per service, return the first one if the given region is not supported</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>aws.copyCredentials(obj, options)</code></p>
-<p>  Copy all credentials properties from the options into the obj</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>aws.querySQS(action, obj, options, callback)</code></p>
-<p>  AWS SQS API request</p>
+<li><p><code>aws.configureJob(options, callback)</code></p>
+<p>  Process AWS alarms and state notifications, if such a job is pulled from SQS queue it is handled here and never get to the jobs.
+SNS alarms or EventBridge events must use a SQS qeue as the target.</p>
 </li>
 </ul>
 
@@ -2944,12 +2849,6 @@ will be loaded.</p>
 <ul>
 <li><p><code>aws.querySTS(action, obj, options, callback)</code></p>
 <p>  AWS STS API request</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>aws.querySES(action, obj, options, callback)</code></p>
-<p>  AWS SES API request</p>
 </li>
 </ul>
 
@@ -3002,86 +2901,20 @@ will be loaded.</p>
 </ul>
 
 <ul>
+<li><p><code>aws.queryECS(action, obj, options, callback)</code></p>
+<p>  AWS ECS API request</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.queryECR(action, obj, options, callback)</code></p>
+<p>  AWS ECR API request</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>aws.getTagValue(obj, key)</code></p>
 <p>  Returns a tag value by key, default key is Name</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>aws.stsAssumeRole(options, callback)</code></p>
-<p>  Assume a role and return new credentials that can be used in other API calls</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>aws.sqsReceiveMessage(url, options, callback)</code></p>
-<p>  Receive message(s) from the SQS queue, the callback will receive a list with messages if no error.
-The following options can be specified:</p>
-<ul>
-<li>count - how many messages to receive</li>
-<li>timeout - how long to wait, in milliseconds, this is for Long Poll</li>
-<li>visibilityTimeout - the duration (in milliseconds) that the received messages are hidden from subsequent retrieve requests</li>
-<li>attempt - request attempt id for FIFO queues
- after being retrieved by a ReceiveMessage request.</li>
-</ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>aws.sqsSendMessage(url, body, options, callback)</code></p>
-<p>  Send a message to the SQS queue.
-The options can specify the following:</p>
-<ul>
-<li>delay - how long to delay this message in milliseconds</li>
-<li>group - a group id for FIFO queues</li>
-<li>unique - deduplication id for FIFO queues</li>
-<li>attrs - an object with additional message attributes to send, use only string, numbers or binary values,
- all other types will be converted into strings</li>
-</ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>aws.sesSendEmail(to, subject, body, options, callback)</code></p>
-<p>  Send an email via SES
-The following options supported:</p>
-<ul>
-<li>from - an email to use in the From: header</li>
-<li>cc - list of email to use in CC: header</li>
-<li>bcc - list of emails to use in Bcc: header</li>
-<li>replyTo - list of emails to ue in ReplyTo: header</li>
-<li>returnPath - email where to send bounces</li>
-<li>charset - charset to use, default is UTF-8</li>
-<li>html - if set the body is sent as MIME HTML</li>
-</ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>aws.sesSendRawEmail(body, options, callback)</code></p>
-<p>  Send raw email
-The following options accepted:</p>
-<ul>
-<li>to - list of email addresses to use in RCPT TO</li>
-<li>from - an email to use in from header</li>
-</ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>aws.detectLabels(name, options, callback)</code></p>
-<p>  Detect image featires using AWS Rekognition service, the <code>name</code> can be a Buffer, a local file or an url to the S3 bucket. In the latter case
-the url can be just apath to the file inside a bucket if <code>options.bucket</code> is specified, otherwise it must be a public S3 url with the bucket name
-to be the first part of the host name. For CDN/CloudFront cases use the <code>option.bucket</code> option.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>aws.listCertificates(options, callback)</code></p>
-<p>  Return a list of certificates,</p>
-<ul>
-<li><code>status</code> can limit which certs to return, PENDING_VALIDATION | ISSUED | INACTIVE | EXPIRED | VALIDATION_TIMED_OUT | REVOKED | FAILED</li>
-</ul>
 </li>
 </ul>
 
@@ -3444,16 +3277,15 @@ for ExpressionAttributeNames parameter</li>
 <li>keys - an object with primary key attributes name and value.</li>
 <li>select - list of columns to return, otherwise all columns will be returned</li>
 <li>options may contain any native property allowed in the request or special properties:<ul>
-<li><p>consistent - set consistency level for the request</p>
-</li>
-<li><p>names - an object with a map to be used for attribute names in condition and update expressions, to be used
-  for ExpressionAttributeNames parameter
-Example:</p>
-<p> ddbGetItem(&quot;users&quot;, { id: 1, name: &quot;john&quot; }, { select: &#39;id,name&#39; })</p>
-</li>
+<li>consistent - set consistency level for the request</li>
+<li>names - an object with a map to be used for attribute names in condition and update expressions, to be used
+  for ExpressionAttributeNames parameter</li>
 </ul>
 </li>
 </ul>
+<p>Example:</p>
+<pre><code>  ddbGetItem(&quot;users&quot;, { id: 1, name: &quot;john&quot; }, { select: &#39;id,name&#39; })
+</code></pre>
 </li>
 </ul>
 
@@ -3688,6 +3520,108 @@ The options can specify the following:</p>
 </ul>
 
 <ul>
+<li><p><code>aws.readCredentials(profile, callback)</code></p>
+<p>  Read key and secret from the AWS SDK credentials file, if no profile is given in the config or command line only the default peofile
+will be loaded.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.readConfig(callback)</code></p>
+<p>  Read and apply config from S3 bucket</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.getInstanceMeta(path, callback)</code></p>
+<p>  Retrieve instance meta data</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.getInstanceCredentials(path, callback)</code></p>
+<p>  Retrieve instance credentials using EC2 instance profile and setup for AWS access</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.getInstanceInfo(options, callback)</code></p>
+<p>  Retrieve instance launch index from the meta data if running on AWS instance</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.stsAssumeRole(options, callback)</code></p>
+<p>  Assume a role and return new credentials that can be used in other API calls</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.detectLabels(name, options, callback)</code></p>
+<p>  Detect image featires using AWS Rekognition service, the <code>name</code> can be a Buffer, a local file or an url to the S3 bucket. In the latter case
+the url can be just apath to the file inside a bucket if <code>options.bucket</code> is specified, otherwise it must be a public S3 url with the bucket name
+to be the first part of the host name. For CDN/CloudFront cases use the <code>option.bucket</code> option.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.listCertificates(options, callback)</code></p>
+<p>  Return a list of certificates,</p>
+<ul>
+<li><code>status</code> can limit which certs to return, PENDING_VALIDATION | ISSUED | INACTIVE | EXPIRED | VALIDATION_TIMED_OUT | REVOKED | FAILED</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.parseXMLResponse(err, params, options, callback)</code></p>
+<p>  Parse AWS response and try to extract error code and message, convert XML into an object.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.getServiceRegion(service, region)</code></p>
+<p>  Check for supported regions per service, return the first one if the given region is not supported</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.copyCredentials(obj, options)</code></p>
+<p>  Copy all credentials properties from the options into the obj</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.querySign(region, service, host, method, path, body, headers, credentials, options)</code></p>
+<p>  Build version 4 signature headers</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.queryPrepare(action, version, obj, options)</code></p>
+<p>  Return a request object ready to be sent to AWS, properly formatted</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.querySigner()</code></p>
+<p>  It is called in the context of a http request</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.queryAWS(region, service, proto, host, path, obj, options, callback)</code></p>
+<p>  Make AWS request, return parsed response as Javascript object or null in case of error</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.queryEndpoint(service, version, action, obj, options, callback)</code></p>
+<p>  AWS generic query interface</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>aws.queryRoute53(method, path, data, options, callback)</code></p>
 <p>  Make a request to Route53 service</p>
 </li>
@@ -3776,6 +3710,39 @@ Options may contain the following properties:</p>
 <ul>
 <li><p><code>aws.s3Proxy(res, bucket, file, options, callback)</code></p>
 <p>  Proxy a file from S3 bucket into the existing HTTP response <code>res</code></p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.querySES(action, obj, options, callback)</code></p>
+<p>  AWS SES API request</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.sesSendEmail(to, subject, body, options, callback)</code></p>
+<p>  Send an email via SES
+The following options supported:</p>
+<ul>
+<li>from - an email to use in the From: header</li>
+<li>cc - list of email to use in CC: header</li>
+<li>bcc - list of emails to use in Bcc: header</li>
+<li>replyTo - list of emails to ue in ReplyTo: header</li>
+<li>returnPath - email where to send bounces</li>
+<li>charset - charset to use, default is UTF-8</li>
+<li>html - if set the body is sent as MIME HTML</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.sesSendRawEmail(body, options, callback)</code></p>
+<p>  Send raw email
+The following options accepted:</p>
+<ul>
+<li>to - list of email addresses to use in RCPT TO</li>
+<li>from - an email to use in from header</li>
+</ul>
 </li>
 </ul>
 
@@ -3894,6 +3861,40 @@ The following options can be used:</p>
 </li>
 </ul>
 
+<ul>
+<li><p><code>aws.querySQS(action, obj, options, callback)</code></p>
+<p>  AWS SQS API request</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.sqsReceiveMessage(url, options, callback)</code></p>
+<p>  Receive message(s) from the SQS queue, the callback will receive a list with messages if no error.
+The following options can be specified:</p>
+<ul>
+<li>count - how many messages to receive</li>
+<li>timeout - how long to wait, in milliseconds, this is for Long Poll</li>
+<li>visibilityTimeout - the duration (in milliseconds) that the received messages are hidden from subsequent retrieve requests</li>
+<li>attempt - request attempt id for FIFO queues
+ after being retrieved by a ReceiveMessage request.</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.sqsSendMessage(url, body, options, callback)</code></p>
+<p>  Send a message to the SQS queue.
+The options can specify the following:</p>
+<ul>
+<li>delay - how long to delay this message in milliseconds</li>
+<li>group - a group id for FIFO queues</li>
+<li>unique - deduplication id for FIFO queues</li>
+<li>attrs - an object with additional message attributes to send, use only string, numbers or binary values,
+ all other types will be converted into strings</li>
+</ul>
+</li>
+</ul>
+
 <h2 id="module-core">Module: core</h2>
 <p>  The primary object containing all config options and common functions</p>
 
@@ -3981,6 +3982,7 @@ The following options can be used:</p>
 <li><code>backend-secret</code>, descr: &quot;Credentials secret for the master backend access when using core.sendRequest&quot;</li>
 <li><code>host-name</code>, type: &quot;callback&quot;, callback: function(v) { if (v) this.hostName=v;this.domain = lib.domainName(this.hostName);this._name = &quot;hostName&quot;  descr: &quot;Hostname/domain to use for communications, default is current domain of the host machine&quot;</li>
 <li><code>config-domain</code>, descr: &quot;Domain to query for configuration TXT records, must be specified to enable DNS configuration&quot;</li>
+<li><code>config-roles</code>, type: &quot;list&quot;, array: 1, descr: &quot;Roles to assume when pulling config parameters from the config, used in config files or config database&quot;</li>
 <li><code>locales</code>, array: 1, type: &quot;list&quot;, descr: &quot;A list of locales to load from the locales/ directory, only language name must be specified, example: en,es. It enables internal support for <code>res.__</code> and <code>req.__</code> methods that can be used for translations, for each request the internal language header will be honored forst, then HTTP Accept-Language&quot;</li>
 <li><code>no-locales</code>, type: &quot;bool&quot;, descr: &quot;Do not load locales on start&quot;</li>
 <li><code>email-from</code>, descr: &quot;Email address to be used when sending emails from the backend&quot;</li>
@@ -4126,6 +4128,14 @@ closer to the top the module will be. The position of a module in the <code>core
 </ul>
 
 <ul>
+<li><p><code>core.loadPackages(list, options)</code></p>
+<p>  Load NPM packages and auto configure paths from each package,
+etc/config file inside each package will be parsed immediately.
+Returns all config files concatenated.</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>core.httpGet(uri, params, callback)</code></p>
 <p>  Make a HTTP request, see <code>httpGet</code> module for more details.</p>
 </li>
@@ -4151,7 +4161,10 @@ like <a href="http://localhost:8000">http://localhost:8000</a>, this is when <co
 
 <ul>
 <li><p><code>core.parseConfig(data, pass, file)</code></p>
-<p>  Parse config lines for the file or other place</p>
+<p>  Parse config lines for the file or other place,
+Examples of sections from modules:</p>
+<pre><code>tag=T, instance.tag=T, runMode=M, appName=N, role=R, db.configRoles=dev, aws.region=R, aws.tags=T
+</code></pre>
 </li>
 </ul>
 
@@ -4168,6 +4181,7 @@ a string which defines text parameter or an object with the properties: name, ty
 type can be bool, number, list, json</p>
 </li>
 </ul>
+
 
 <ul>
 <li><p><code>core.describeArgs(module, args)</code></p>
@@ -4365,6 +4379,7 @@ Options properties:</p>
 <ul>
 <li><p><code>Config parameters</code></p>
 <ul>
+<li><code>db-none</code>, type: &quot;bool&quot;, descr: &quot;disable all db pools&quot;</li>
 <li><code>db-pool</code>, dns: 1, descr: &quot;Default pool to be used for db access without explicit pool specified&quot;</li>
 <li><code>db-name</code>, key: &quot;db-name&quot;, descr: &quot;Default database name to be used for default connections in cases when no db is specified in the connection url&quot;</li>
 <li><code>db-create-tables</code>, key: &quot;_createTables&quot;, type: &quot;bool&quot;, nocamel: 1, master: 1, pass: 1, descr: &quot;Create tables in the database or perform table upgrades for new columns in all pools, only shell or server process can perform this operation&quot;</li>
@@ -4387,7 +4402,6 @@ Options properties:</p>
 <li><code>db-config</code>, descr: &quot;Configuration database pool to be used to retrieve config parameters from the database, must be defined to use remote db for config parameters, set to <code>default</code> to use current default pool&quot;</li>
 <li><code>db-config-interval</code>, type: &quot;number&quot;, min: 0, descr: &quot;Interval between loading configuration from the database configured with -db-config, in minutes, 0 disables refreshing config from the db&quot;</li>
 <li><code>db-config-count</code>, type: &quot;number&quot;, min: 0, descr: &quot;Max number of records to read fron the config table&quot;</li>
-<li><code>db-config-roles</code>, type: &quot;list&quot;, descr: &quot;Roles to assume when pulling config parameters from the config table&quot;</li>
 <li><code>db-local-tables</code>, type: &quot;bool&quot;, key: &quot;_localTables&quot;, descr: &quot;Only enable local, default and config pools&quot;</li>
 <li><code>db-no-cache-columns</code>, type: &quot;bool&quot;, descr: &quot;Do not read/cache table columns&quot;</li>
 <li><code>db-cache-columns-interval</code>, type: &quot;int&quot;, min: 0, descr: &quot;How often in minutes to refresh tables columns from the database, it calls cacheColumns for each pool which supports it&quot;</li>
@@ -7423,31 +7437,6 @@ to use newlines for objects.</p>
 </ul>
 
 <ul>
-<li><p><code>lib.configParse(data, options)</code></p>
-<p>  Parse data as config format name=value per line, return an array of arguments in comand line format [&quot;-name&quot;, value,....]</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.jsonParse(obj, options)</code></p>
-<p>  Silent JSON parse, returns null on error, no exceptions raised.</p>
-<p>options can specify the following properties:</p>
-<ul>
-<li>datatype - make sure the result is returned as type: obj, list, str</li>
-<li>dflt - return this in case of error</li>
-<li>empty - if true silent about empty input, no logging</li>
-<li>logger - report in the log with the specified level, log, debug, ...</li>
-</ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.xmlParse(obj, options)</code></p>
-<p>  Same arguments as for <code>jsonParse</code></p>
-</li>
-</ul>
-
-<ul>
 <li><p><code>lib.encodeURIComponent(str)</code></p>
 <p>  Encode with additional symbols, convert these into percent encoded:</p>
 <pre><code>     ! -&gt; %21, * -&gt; %2A, &#39; -&gt; %27, ( -&gt; %28, ) -&gt; %29
@@ -7644,6 +7633,18 @@ it will be called with the first line as an argument and must return true if thi
 <li><p><code>lib.forEachLineSync(file, options, lineCallback)</code></p>
 <p>  Sync version of the <code>forEachLine</code>, read every line and call callback which may not do any async operations
 because they will not be executed right away but only after all lines processed</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.writeLines(file, lines, options, callback)</code></p>
+<p>  Write given lines into a file, lines can be a string or list of strings or numbers</p>
+<ul>
+<li>size - rotate if the file is larger, keep 2 files</li>
+<li>ext - file ext to append on rotation, without dot, <code>old</code> is default, it can be in the <code>strftime</code> format to use date, like %w, %d, %m</li>
+<li>mode - open file mode, usually a or w</li>
+<li>newline - if true newlines are added for each line</li>
+</ul>
 </li>
 </ul>
 
@@ -8444,6 +8445,47 @@ Options properties:</p>
 </ul>
 
 <ul>
+<li><p><code>lib.configParse(data, options)</code></p>
+<p>  Parse data as config format name=value per line,
+return an array of arguments in command line format [&quot;-name&quot;, value,....]</p>
+<p>Supports sections:</p>
+<ul>
+<li>The format is: <code>[name=value,...]</code> or <code>[name!=value,...]</code>
+where name is a property name with optional value(s).</li>
+<li>if the value is empty then it just checks if the property is empty.</li>
+<li><code>!=</code> denotes negative condition, i.e. not matching or NOT empty</li>
+<li>section names may refer deep into objects like <code>aws.region</code> or <code>instance.tag</code>,
+all modules will be checked inside <code>options.modules</code> object only,
+all other names are checked in the top level options.</li>
+</ul>
+<p>Sections work like a filter, only if a property matches it is used otherwise skipped completely, it uses <code>lib.isTrue</code> for matching
+so checking an item in an array will work as well.
+The [global] section can appear anytime to return to global mode</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.jsonParse(obj, options)</code></p>
+<p>  Silent JSON parse, returns null on error, no exceptions raised.</p>
+<p>options can specify the following properties:</p>
+<ul>
+<li>datatype - make sure the result is returned as type: obj, list, str</li>
+<li>dflt - return this in case of error</li>
+<li>empty - if true silent about empty input, no logging</li>
+<li>logger - report in the log with the specified level, log, debug, ...</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.xmlParse(obj, options)</code></p>
+<p>  Same arguments as for <code>jsonParse</code></p>
+</li>
+</ul>
+
+<p>  Combined parser with type validation</p>
+
+<ul>
 <li><p><code>lib.matchRegexp(str, rx, index)</code></p>
 <p>  Perform match on a regexp for a string and returns matched value, if no index is specified returns item 1,
 using index 0 returns the whole matched string, -1 means to return the whole matched array
@@ -9087,7 +9129,9 @@ configure this module with 3 required parameters:</p>
 <li>create - method to be called to return a new resource item, takes 1 argument, a callback as <code>function(err, item)</code></li>
 <li>destroy - method to be called to destroy a resource item</li>
 <li>reset - method to bec alled just before releasing an item back to the resource pool, this is a chance to reset the item to the initial state</li>
-<li>validate - method to verify actibe resource item, return false if it needs to be destroyed</li>
+<li>validate - method to verify active resource item, return false if it needs to be destroyed</li>
+<li>init - method to cal on pool.init, it may be called multiple times</li>
+<li>shutdown - method to call on pool shutdown to clear other resources</li>
 <li>min - min number of active resource items</li>
 <li>max - max number of active resource items</li>
 <li>max_queue - how big the waiting queue can be, above this all requests will be rejected immediately</li>
@@ -9169,6 +9213,7 @@ all items to be released, when expired the callback will be called</p>
 </li>
 </ul>
 
+<h2 id="module-run">Module: run</h2>
 <h2 id="module-server">Module: server</h2>
 <p>  The main server class that starts various processes</p>
 
@@ -9184,6 +9229,7 @@ all items to be released, when expired the callback will be called</p>
 <li><code>server-process-name</code>, descr: &quot;Path to the command to spawn by the monitor instead of node, for external processes guarded by this monitor&quot;</li>
 <li><code>server-process-args</code>, type: &quot;list&quot;, re_map: [&quot;%20&quot;, &quot; &quot;], descr: &quot;Arguments for spawned processes, for passing v8 options or other flags in case of external processes&quot;</li>
 <li><code>server-worker-args</code>, type: &quot;list&quot;, re_map: [&quot;%20&quot;, &quot; &quot;], descr: &quot;Node arguments for workers, job and web processes, for passing v8 options&quot;</li>
+<li><code>server-api-restart-hours</code>, type: &quot;list&quot;, datatype: &quot;int&quot;, descr: &quot;List of hours when to restart api workers, only done once for each hour&quot;</li>
 </ul>
 </li>
 </ul>
@@ -9270,6 +9316,12 @@ it runs <code>shutdown[Role]</code> methods before exiting</p>
 <ul>
 <li><p><code>server.writePidfile()</code></p>
 <p>  Create a pid file for the current process</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>server.restartWebWorkers()</code></p>
+<p>  Performs graceful web worker restart</p>
 </li>
 </ul>
 
