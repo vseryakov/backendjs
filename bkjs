@@ -235,9 +235,9 @@ case "$BKJS_CMD" in
 
   run|run-master|master|run-monitor|monitor|run-web|web|watch|shell|bksh|run-none|none)
     [ -f app.js ] && SCRIPT=app.js
-    [ -z "$SCRIPT" -a -f lib/app.js ] && SCRIPT=lib/app.js
+    [ -z "$SCRIPT" -a -f lib/run.js ] && SCRIPT=lib/run.js
     [ -z "$SCRIPT" -a -f $BKJS_HOME/app.js ] && SCRIPT=$BKJS_HOME/app.js
-    [ -z "$SCRIPT" -a -f $BKJS_HOME/lib/app.js ] && SCRIPT=$BKJS_HOME/lib/app.js
+    [ -z "$SCRIPT" -a -f $BKJS_HOME/lib/run.js ] && SCRIPT=$BKJS_HOME/lib/run.js
     [ -z "$SCRIPT" ] && SCRIPT=$BKJS_DIR/lib/run.js
 
     [ -n "$BKJS_DEBUG" ] && echo "$(date): $PPID: Starting $BKJS_CMD: $NODE_ARGS $SCRIPT -home $BKJS_HOME $BKJS_RUN_ARGS $@"
