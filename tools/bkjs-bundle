@@ -22,7 +22,7 @@ case "$BKJS_CMD" in
         for dir in $dirs; do
             if match $dir $skip; then continue; fi
             if [ -n "$filter" ] && match $dir $filter; then continue; fi
-            $0 $BKJS_CMD -dir $dir $args
+            $BKJS_BIN $BKJS_CMD -dir $dir $args
             [ "$?" != "0" ] && echo "$(date): $BKJS_CMD: dir $dir failed" && exit 1
         done
         exit 0
@@ -43,7 +43,7 @@ case "$BKJS_CMD" in
 
         for b in $bundles; do
             for t in css js; do
-                $0 $BKJS_CMD -file $b.$t $(get_all_args "-all -file")
+                $BKJS_BIN $BKJS_CMD -file $b.$t $(get_all_args "-all -file")
                 [ "$?" != "0" ] && echo "$(date): $BKJS_CMD: bundle $b failed" && exit 1
             done
         done

@@ -145,7 +145,7 @@ case "$BKJS_CMD" in
        echo '#Bkjs' >> $UHOME/.bashrc
        echo "umask 022" >> $UHOME/.bashrc
        echo "BKJS_HOME=$BKJS_HOME" >> $UHOME/.bashrc
-       echo "export PATH=$BKJS_HOME/bin:$UHOME/bin:\$PATH" >> $UHOME/.bashrc
+       echo 'export PATH=$BKJS_HOME/bin:$BKJS_HOME/node_modules/.bin:$HOME/bin:$PATH' >> $UHOME/.bashrc
        echo 'alias slog="tail -100 /var/log/messages"' >> $UHOME/.bashrc
        echo "alias clog=\"sudo tail -100 /var/log/cron\"" >> $UHOME/.bashrc
        echo "alias mlog=\"tail -100 $BKJS_HOME/log/message.log\"" >> $UHOME/.bashrc
