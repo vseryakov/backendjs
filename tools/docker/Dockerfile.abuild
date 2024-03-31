@@ -1,0 +1,29 @@
+ARG ALPINE=3.19.1
+
+FROM alpine:$ALPINE
+
+RUN apk --no-cache add \
+  alpine-conf \
+  alpine-sdk \
+  coreutils \
+  cmake \
+  sudo \
+  ccache \
+  mc \
+  nodejs=~20.11 \
+  npm=~10.2 \
+  python3=~3.11 \
+  curl \
+  file \
+  zip \
+  rsync \
+  zlib-dev \
+  zimg-dev \
+  fontconfig-dev \
+  freetype-dev \
+  imlib2-dev \
+  nasm
+
+RUN adduser -D alpine && \
+    addgroup alpine abuild && \
+    echo 'alpine ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers

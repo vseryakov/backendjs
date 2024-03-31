@@ -215,7 +215,7 @@ commands that simplify running the backend in different modes.
 
 - `bkjs start` - this command is supposed to be run at the server startup as a service, it runs in the background and the monitors all tasks,
    the env variable `BKJS_SERVER` must be set in the profile to one of the `master or monitor` to define which run mode to use
-- `bkjs start-instance` - this command is supposed to be run at the server startup to perform system adjustments, it is run in `bkjs start`
+- `bkjs start-instance` - this command is supposed to be run at the server startup to perform system adjustments, it is run by `bkjs start`
 - `bkjs watch` - runs the master and Web server in wather mode checking all source files for changes, this is the common command to be used
    in development, it passes the command line switches: `-watch -master`
 - `bkjs monitor` - this command is supposed to be run at the server startup, it runs in the background and the monitors all processes,
@@ -839,8 +839,8 @@ The typical client JavaScript verification for the html page may look like this,
 this assumes the default path '/public' still allowed without the signature:
 
 ```javascript
-   <link href="/css/bkjs.bundle.css" rel="stylesheet">
-   <script src="/js/bkjs.bundle.js" type="text/javascript"></script>
+   <link href="/css/bkjs5.bundle.css" rel="stylesheet">
+   <script src="/js/bkjs5.bundle.js" type="text/javascript"></script>
    <script>
     $(function () {
        bkjs.session = true;
@@ -1291,46 +1291,6 @@ Then to run all tests
 
 More details are in the documentation or `doc.html`
 
-# Design considerations
-
-While creating Backendjs there were many questions and issues to be considered, some I was able to implement, some still not. Below are the thoughts that
-might be useful when designing, developing or choosing the API platform:
-
-- purpose of the API:
-  - to expose some parts of the existing system to external apps, users...
-  - to make it the only way to access services
-  - to complement another system
-- scalability considerations:
-  - unlimited/uncontrolled access like mobile, web, more users the better
-  - enterprise level, controlled growth
-  - not to be horizontally scalable, just vertically
-- security:
-  - support authentication, users, accounts, profiles...
-  - just for robots, limited by api key only
-  - signed requests only
-  - support all access, web, mobile, desktop
-  - user access controls, how to distinguish users, grant access to only parts of the API
-  - ability to run custom/specific filters during processing API requests, independently and ability to extend the app without rewriting/rebuilding the whole system
-  - third party authentication, OAUTH, user mapping
-- platform/framework:
-  - one for all, same language/SDK/framework to cover all aspects
-  - multiple languages/frameworks for different tasks, then how to integrate, how to communicate, share code
-  - availability of the third party modules, libraries
-  - support, forums, docs, how easy to learn for new developers
-  - modularity, ability to develop by multiple developers, teams
-  - flexibility in extending, how simple/easy to add custom stuff
-  - maintenance, support,how easy to scale, change, replace parts
-- database layer:
-  - one central database for everything
-  - multiple database for different parts of the system according to scalability/other requirements
-  - switch databases behind the scene in order to scale, adding to features, easier to maintain
-  - caching, needs to be independent from other parts and easily enabled/disabled for different components preferably via config
-  - to have or not ORM
-- process management, easy to deploy, monitor
-- logging, metrics, profiling
-- agnostic to the frontends or to be included with some kind of MVC/server based tools
-- ability to support simple Web development for simple web pages without installing/supporting general purpose tools like Apache/PHP/nginx
-
 # API endpoints provided by the backend
 
 All API endpoints are optional and can be disabled or replaced easily. By default the naming convention is:
@@ -1386,9 +1346,7 @@ which is placed in the body of the request. For additional safety, SHA1 checksum
 this is the only way to ensure the body is not modified when not using query parameters.
 
 See [web/js/bkjs.js](https://github.com/vseryakov/backendjs/blob/master/web/js/bkjs.js) function `bkjs.createSignature` or
-[api.js](https://github.com/vseryakov/backendjs/blob/master/api.js) function `api.createSignature` for the JavaScript implementations.
-
-There is also native iOS implementation [Bkjs.m](https://raw.githubusercontent.com/vseryakov/backendjs-ios/master/BKjs.m).
+[api.js](https://github.com/vseryakov/backendjs/blob/master/api/auth.js) function `api.createSignature` for the JavaScript implementations.
 
 ### Authentication API
 
@@ -1432,6 +1390,7 @@ There is also native iOS implementation [Bkjs.m](https://raw.githubusercontent.c
    Logout the current user, clear session cookies if exist. For pure API access with the signature this will not do anything on the backend side.
 
 ## Accounts
+
 The accounts API manages accounts and authentication, it provides basic user account features with common fields like email, name, address.
 
 - `/account/get`
@@ -1465,6 +1424,7 @@ The accounts API manages accounts and authentication, it provides basic user acc
 
 
 ### Health enquiry
+
 When running with AWS load balancer there should be a url that a load balancer polls all the time and this must be very quick and lightweight request. For this
 purpose there is an API endpoint `/ping` that just responds with status 200. It is open by default in the default `api-allow-path` config parameter.
 
@@ -1533,39 +1493,6 @@ This is implemented by the `system` module from the core. To enable this functio
 
 - `/system/params/get`
     Return all config parameters applied from the config file(s) or remote database.
-
-- `/system/stats/get`
-  Database pool statistics and other diagnostics
-  - latency - how long a pending request waits in queue at this moment
-  - busy - how many busy error responses have been returned so far
-  - pool - database metrics
-    - response - stats about how long it takes between issuing the db request and till the final moment all records are ready to be sent to the client
-    - queue - stats about db requests at any given moment queued for the execution
-    - cache - db cache response time and metrics
-  - api - Web requests metrics, same structure as for the db pool metrics
-  - url - metrics per url endpoints
-
-  Individual sub-objects:
-  - meter - Things that are measured as events / interval.
-     - rmean: The average rate since the meter was started.
-     - rcnt: The total of all values added to the meter.
-     - rate: The rate of the meter since the last toJSON() call.
-     - r1m: The rate of the meter biased towards the last 1 minute.
-     - r5m: The rate of the meter biased towards the last 5 minutes.
-     - r15m: The rate of the meter biased towards the last 15 minutes.
-  - queue or histogram - Keeps a reservoir of statistically relevant values biased towards the last 5 minutes to explore their distribution
-      - hmin: The lowest observed value.
-      - mmax: The highest observed value.
-      - hsum: The sum of all observed values.
-      - hvar: The variance of all observed values.
-      - hmean: The average of all observed values.
-      - hdev: The standard deviation of all observed values.
-      - hcnt: The number of observed values.
-      - hmed: median, 50% of all values in the reservoir are at or below this value.
-      - hp75: See median, 75% percentile.
-      - hp95: See median, 95% percentile.
-      - hp99: See median, 99% percentile.
-      - hp999: See median, 99.9% percentile.
 
 
 # Author
