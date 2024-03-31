@@ -99,16 +99,19 @@ case "$BKJS_CMD" in
 
   setup-home)
     # Create required directories and set permissions
-    find_user
+    dirs=$(get_arg -dirs)
 
-    mkdir -p $BKJS_HOME/node_modules $BKJS_HOME/bin $BKJS_HOME/log $BKJS_HOME/etc $BKJS_HOME/var $BKJS_HOME/tmp
+    (cd $BKJS_HOME && mkdir -p bin etc node_modules log var tmp)
+
+    for d in $dirs; do mkdir -p $BKJS_HOME/$d; done
 
     (cd $BKJS_HOME/bin &&
        ln -sfn ../node_modules/backendjs/bkjs bkjs &&
        ln -sfn bkjs bksh &&
        ln -sfn bkjs bkrsync)
 
-    chown -R $BKJS_USER.$BKJS_GROUP $BKJS_HOME $BKJS_HOME/.*
+    find_user
+    chown -R $BKJS_USER:$BKJS_GROUP $BKJS_HOME $BKJS_HOME/.*
     exit
     ;;
 
@@ -494,8 +497,8 @@ case "$BKJS_CMD" in
   help)
     echo ""
     echo "  setup-ec2 - setup server on EC2 instance in the ec2-user home"
-    echo "  setup-server [-user USER] [-home HOME] [-prefix $PREFIX] [-doman DOMAIN] [-host HOST] - setup the backend environment with packages and change system config files for production use (Amazon2, Alpine)"
-    echo "  setup-home - setup backend home with required folders"
+    echo "  setup-server [-user USER] [-home HOME] [-doman DOMAIN] [-host HOST] - setup the backend environment with packages and change system config files for production use (Amazon2, Alpine)"
+    echo "  setup-home [-dirs DIRS] - setup backend home with required folders, optional dirs will be created if given"
     echo "  setup-hostname [-host HOST] [-domain DOMAIN] - set EC2 hostname from IP and domain"
     echo "  setup-mfa [-user ec2-user] - initialize EC2 instance with multi-factor authentication using Google authenticator"
     echo "  setup-logwatcher [-interval MINS] [-cron CRON] - creates a crontab file to periodically run the log watcher, -cron can specify full cron time spec"
