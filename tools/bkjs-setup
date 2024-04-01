@@ -101,7 +101,8 @@ case "$BKJS_CMD" in
     # Create required directories and set permissions
     dirs=$(get_arg -dirs)
 
-    (cd $BKJS_HOME &&
+    (mkdir -p $BKJS_HOME &&
+        cd $BKJS_HOME &&
         mkdir -p bin etc node_modules log var tmp &&
         cd $BKJS_HOME/bin &&
         ln -sfn ../node_modules/backendjs/bkjs bkjs &&
@@ -111,7 +112,7 @@ case "$BKJS_CMD" in
     for d in $dirs; do mkdir -p $BKJS_HOME/$d; done
 
     find_user
-    chown -R $BKJS_USER:$BKJS_GROUP $BKJS_HOME $BKJS_HOME/.*
+    chown -R $BKJS_USER:$BKJS_GROUP $BKJS_HOME
     exit
     ;;
 
@@ -183,6 +184,7 @@ case "$BKJS_CMD" in
        echo '[ -f ~/etc/profile ] && . ~/etc/profile' >> $UHOME/.bash_profile
        echo '[ "$TMUX_PANE" != "" ] && PS1=$(echo $PS1|sed "s/#/${TMUX_PANE}#/")' >> $UHOME/.bash_profile
     fi
+    chown -R $BKJS_USER:$BKJS_GROUP $UHOME $UHOME/.ssh $UHOME/.bash*
     exit
     ;;
 
