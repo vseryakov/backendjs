@@ -6,7 +6,7 @@
 
 case "$BKJS_CMD" in
 
-  start-instance)
+  start-hook)
     ($0 ec2-cwagent-check)
     ;;
 
@@ -15,7 +15,7 @@ case "$BKJS_CMD" in
     if [ ! -d $root ]; then
         case "$OS_TYPE" in
           alpine)
-            url=$(get_arg -url)
+            url=$(get_arg -url $BKJS_CWAGENT_URL)
             [ -z "$url" ] && exit
             tar=amazon-cloudwatch-agent-$OS_ARCH.tar.gz
             curl -OL $url/$tar

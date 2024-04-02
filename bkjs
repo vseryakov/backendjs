@@ -155,14 +155,14 @@ find_user() {
 }
 
 # Run the command by sourcing all scripts from tools folders
-process_cmd() {
+run_bkjs_cmd() {
   local _cmddir= _cmdscope= _cmdtools="$(get_arg -tools) ./tools $BKJS_TOOLS $BKJS_HOME/tools $BKJS_DIR/tools"
   [ -z "$BKJS_MODULE" ] && _cmdscope='bkjs-*' || _cmdscope="bkjs-$BKJS_MODULE*"
-  [ -n "$BKJS_DEBUG" ] && echo "$(date): $PPID: $BKJS_CMD: process_cmd: $_cmdscope: tools: $_cmdtools"
+  [ -n "$BKJS_DEBUG" ] && $BKJS_ECHO "$(date): $PPID: $BKJS_CMD: run_bkjs_cmd: $_cmdscope: tools: $_cmdtools"
   for _cmddir in $_cmdtools; do
      if [ -d $_cmddir ]; then
         local _cmdfiles=$(find $_cmddir \( -type f -o -type l \) -name "$_cmdscope")
-        [ -n "$BKJS_DEBUG" ] && echo "$(date): $PPID: $BKJS_CMD: process_cmd: $_cmddir: files: $_cmdfiles"
+        [ -n "$BKJS_DEBUG" ] && $BKJS_ECHO "$(date): $PPID: $BKJS_CMD: run_bkjs_cmd: $_cmddir: files: $_cmdfiles"
         for _cmdfile in $_cmdfiles; do
             source $_cmdfile
         done
@@ -191,8 +191,10 @@ export BKJS_HOME=$(get_arg -home $BKJS_HOME)
 [ -f $BKJS_HOME/etc/profile ] && . $BKJS_HOME/etc/profile
 [ -f $BKJS_HOME/etc/profile.local ] && . $BKJS_HOME/etc/profile.local
 
+[ -n "$(get_flag -syslog)" ] && export BKJS_ECHO="logger -s" || export BKJS_ECHO=echo
+
 export BKJS_DEBUG=$(get_flag -debug)
-[ -n "$BKJS_DEBUG" ] && echo "$(date): $PPID: $BKJS_BIN: HOME=$BKJS_HOME, PWD=$(pwd), USER=$(whoami), CMD=$BKJS_CMD, ARGS=$@"
+[ -n "$BKJS_DEBUG" ] && $BKJS_ECHO "$(date): $PPID: $BKJS_BIN: HOME=$BKJS_HOME, PWD=$(pwd), USER=$(whoami), CMD=$BKJS_CMD, ARGS=$@"
 
 # Setup paths
 export PATH=$BKJS_HOME/bin:$BKJS_HOME/node_modules/.bin:/app/bin:/usr/local/bin:/opt/local/bin:/sbin:/usr/sbin:$PATH
@@ -201,15 +203,13 @@ case "$BKJS_CMD" in
 
   start)
     cd $BKJS_HOME
-    [ "$(whoami)" = "root" ] && ($0 start-instance $(get_all_args))
+    if [ "$(whoami)" = "root" ]; then
+        logger -s "$(date -R): $PPID: Running start hook..."
+        BKJS_MODULE=
+        BKJS_CMD=start-hook
+        run_bkjs_cmd
+    fi
     [ -n "$BKJS_SERVER" -a "$BKJS_SERVER" != "none" ] && $0 run-$BKJS_SERVER
-    exit 0
-    ;;
-
-  start-instance)
-    echo "$(date -R): $PPID: Running start instance..."
-    BKJS_MODULE=
-    process_cmd
     exit 0
     ;;
 
@@ -240,7 +240,7 @@ case "$BKJS_CMD" in
     [ -z "$SCRIPT" -a -f $BKJS_HOME/lib/run.js ] && SCRIPT=$BKJS_HOME/lib/run.js
     [ -z "$SCRIPT" ] && SCRIPT=$BKJS_DIR/lib/run.js
 
-    [ -n "$BKJS_DEBUG" ] && echo "$(date): $PPID: Starting $BKJS_CMD: $NODE_ARGS $SCRIPT -home $BKJS_HOME $BKJS_RUN_ARGS $@"
+    [ -n "$BKJS_DEBUG" ] && $BKJS_ECHO "$(date): $PPID: Starting $BKJS_CMD: $NODE_ARGS $SCRIPT -home $BKJS_HOME $BKJS_RUN_ARGS $@"
 
     case "$BKJS_CMD" in
      run-none|none)
@@ -290,14 +290,14 @@ case "$BKJS_CMD" in
 
   env)
     find_user
-    process_cmd
+    run_bkjs_cmd
     set
     ;;
 
   help)
     echo "Available commands:"
     echo
-    echo "  start-instance - run on instance start, processed by all scripts"
+    echo "  start - run on instance start, processed by all scripts as start-hook"
     echo "  stop - kill the backend service"
     echo "  stop-web - kill web processes at once so they will restart with possibly updated modules"
     echo "  stop-worker - kill job worker processes at once so they will restart with possibly updated modules"
@@ -323,7 +323,7 @@ case "$BKJS_CMD" in
     echo ""
 
     BKJS_MODULE=
-    process_cmd
+    run_bkjs_cmd
     exit 0
     ;;
 
@@ -334,8 +334,8 @@ case "$BKJS_CMD" in
     # - if the command is final then exit otherwise it will continue trying other tools
     # - it must support help) command to show help about all supported commands
     #
-    process_cmd
-    echo "$BKJS_BIN: $BKJS_CMD: command not found: $@" >&2
+    run_bkjs_cmd
+    $BKJS_ECHO "$BKJS_BIN: $BKJS_CMD: command not found: $@" >&2
     exit 1
     ;;
 esac

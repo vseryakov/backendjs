@@ -1,8 +1,23 @@
 #!/bin/sh
 
+run_ssh_command() {
+    [ -z "$1" -o -z "$2" -o -z "$3" -o -z "$4" ] && echo "run ssh: invalid args: $@" && return 1
+    if ! match $1 "[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+"; then echo "run ssh: invalid IP: $@" && return 1; fi
+    i=0
+    ready=
+    while [ $i -lt 10 ]; do
+        ready=$(ssh -o StrictHostKeyChecking=no -o CheckHostIP=no -o ConnectTimeout=2 $2@$1 "$3")
+        if match "$ready" "$4"; then return 0; fi
+        sleep 5
+        i=$((i + 1))
+    done
+    echo "run ssh: $2@$1 is not ready: $ready"
+    return 1
+}
+
 case "$BKJS_CMD" in
 
-  alpine-build)
+  alpine-abuild)
     name=$(get_arg -name)
     [ -z "$name" ] && echo "-name is required" && exit 1
     [ ! -f tools/alpine/APKBUILD.$name ] && echo "tools/alpine/APKBUILD.$name is required" && exit 1
@@ -11,7 +26,7 @@ case "$BKJS_CMD" in
     mkdir -p $repo
 
     cmd=$(get_arg -cmd)
-    [ -z "$cmd" ] && cmd="/src/packages/backendjs/bkjs alpine-abuild -name $name -tools /src/tools $(get_all_args "-name -repo -image -cmd")"
+    [ -z "$cmd" ] && cmd="/src/packages/backendjs/bkjs alpine-run-abuild -name $name -tools /src/tools $(get_all_args "-name -repo -image -cmd")"
 
     volumes="-v $HOME/.abuild:/root/.abuild -v $(pwd):/src -v $repo:/repo"
 
@@ -31,7 +46,7 @@ case "$BKJS_CMD" in
     exit
     ;;
 
-  alpine-abuild)
+  alpine-run-abuild)
     name=$(get_arg -name)
     [ -z "$name" ] && echo "-name is required" && exit 1
     repo=$(get_arg -repo /repo)
@@ -66,11 +81,50 @@ case "$BKJS_CMD" in
     exit
     ;;
 
+  alpine-build-ami)
+    ami=$(get_arg -ami ami-036e04f38993310a3)
+    tag=$(get_arg -tag alpine-$(date +%s))
+    type=$(get_arg -instance-type t4g.micro)
+    size=$(get_arg -dev-size 10)
+
+    ALPINE_INFO=$($BKJS_BIN shell -no-db -ipc-none -aws-launch-instances -name $tag -image-id $ami -instance-type $type -dev-size $size -public-ip -wait)
+    echo "$ALPINE_INFO"
+
+    ALPINE_HOST=$(echo "$ALPINE_INFO"|egrep -E "^EC2-Instance:"|cut -d' ' -f3)
+    [ -z "$ALPINE_HOST" ] && echo "no instance host detected" && exit 1
+
+    # Remove existing host due to recyling in the same VPC
+    hosts=~/.ssh/known_hosts
+    if [ -n "$(grep -s "^$ALPINE_HOST " $hosts)" ]; then
+        mv $hosts $hosts.old
+        grep -v "^$ALPINE_HOST " $hosts.old > $hosts
+        chmod 644 $hosts
+    fi
+
+    echo "Connecting to $ALPINE_HOST"
+    run_ssh_command $ALPINE_HOST alpine "uname -s" Linux
+    [ "$?" != "0" ] && exit 1
+
+    # Run the hooks to do the actual work now
+    ALPINE_INSTANCE=$(echo "$ALPINE_INFO"|egrep -E "^EC2-Instance:"|cut -d' ' -f2)
+    BKJS_CMD=alpine-build-ami-hook
+    bkjs_cmd
+    exit
+    ;;
+
+  alpine-build-ami-hook)
+    ssh alpine@$ALPINE_HOST "doas apk add git && git clone --depth=1 https://github.com/vseryakov/backendjs.git && doas backendjs/bkjs setup-ec2 && doas reboot"
+    echo
+    echo "now you can ssh into $ALPINE_INSTANCE AS ec2-user@$ALPINE_HOST"
+    exit
+    ;;
+
   help)
     echo
-    echo "  alpine-build -name N [-repo REPO] [-image abuild] [-sync S3] - build a package with alpine docker. Place the .apk into -repo folder and -sync to S3 if provided"
-    echo "  alpine-abuild -name N [-pkgname PKG] [-repo /repo] [-src /src] [-tmp /tmp] - call abuild for given APKBUILD.N file, place in -repo dir and run inside -tmp dir"
+    echo "  alpine-abuild -name N [-repo REPO] [-image abuild] [-sync S3] - build a package with alpine docker. Place the .apk into -repo folder and -sync to S3 if provided"
+    echo "  alpine-run-abuild -name N [-pkgname PKG] [-repo /repo] [-src /src] [-tmp /tmp] - call abuild for given APKBUILD.N file, place in -repo dir and run inside -tmp dir"
     echo "  alpine-prepare-abuild - build Docker image abuild for faster builds"
+    echo "  alpine-build-ami - [-ami ID] [-size G] - build a new AMI for Alpine Linux, runs alpine-build-ami-hook for actual setup"
     echo
     ;;
 esac

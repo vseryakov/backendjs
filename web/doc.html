@@ -57,7 +57,6 @@
 <li><a href="#configure-http-port"> Configure HTTP port</a></li>
 <li><a href="#backend-library-development-mac-os-x-developers-"> Backend library development (Mac OS X, developers)</a></li>
 <li><a href="#simple-testing-facility"> Simple testing facility</a></li>
-<li><a href="#design-considerations"> Design considerations</a></li>
 <li><a href="#api-endpoints-provided-by-the-backend"> API endpoints provided by the backend</a></li>
 <li><a href="#authentication-and-sessions"> Authentication and sessions</a></li>
 <li><a href="#signature"> Signature</a></li>
@@ -300,7 +299,7 @@ commands that simplify running the backend in different modes.</p>
 <ul>
 <li><code>bkjs start</code> - this command is supposed to be run at the server startup as a service, it runs in the background and the monitors all tasks,
  the env variable <code>BKJS_SERVER</code> must be set in the profile to one of the <code>master or monitor</code> to define which run mode to use</li>
-<li><code>bkjs start-instance</code> - this command is supposed to be run at the server startup to perform system adjustments, it is run in <code>bkjs start</code></li>
+<li><code>bkjs start-instance</code> - this command is supposed to be run at the server startup to perform system adjustments, it is run by <code>bkjs start</code></li>
 <li><code>bkjs watch</code> - runs the master and Web server in wather mode checking all source files for changes, this is the common command to be used
  in development, it passes the command line switches: <code>-watch -master</code></li>
 <li><code>bkjs monitor</code> - this command is supposed to be run at the server startup, it runs in the background and the monitors all processes,
@@ -841,8 +840,8 @@ rendering is done using JavaScript. This is how the <code>examples/api/api.html<
 during the initialization on every html page, it will enable Web sessions for the site and then no need to sign every API request.</p>
 <p>The typical client JavaScript verification for the html page may look like this, it will redirect to login page if needed,
 this assumes the default path &#39;/public&#39; still allowed without the signature:</p>
-<pre><code class="language-javascript">   &lt;link href=&quot;/css/bkjs.bundle.css&quot; rel=&quot;stylesheet&quot;&gt;
-   &lt;script src=&quot;/js/bkjs.bundle.js&quot; type=&quot;text/javascript&quot;&gt;&lt;/script&gt;
+<pre><code class="language-javascript">   &lt;link href=&quot;/css/bkjs5.bundle.css&quot; rel=&quot;stylesheet&quot;&gt;
+   &lt;script src=&quot;/js/bkjs5.bundle.js&quot; type=&quot;text/javascript&quot;&gt;&lt;/script&gt;
    &lt;script&gt;
     $(function () {
        bkjs.session = true;
@@ -1229,55 +1228,6 @@ functions named in the form <code>tests.test_NAME</code> where NAME is any custo
 <pre><code>bkjs test-all
 </code></pre>
 <p>More details are in the documentation or <code>doc.html</code></p>
-<h1 id="design-considerations">Design considerations</h1>
-<p>While creating Backendjs there were many questions and issues to be considered, some I was able to implement, some still not. Below are the thoughts that
-might be useful when designing, developing or choosing the API platform:</p>
-<ul>
-<li>purpose of the API:<ul>
-<li>to expose some parts of the existing system to external apps, users...</li>
-<li>to make it the only way to access services</li>
-<li>to complement another system</li>
-</ul>
-</li>
-<li>scalability considerations:<ul>
-<li>unlimited/uncontrolled access like mobile, web, more users the better</li>
-<li>enterprise level, controlled growth</li>
-<li>not to be horizontally scalable, just vertically</li>
-</ul>
-</li>
-<li>security:<ul>
-<li>support authentication, users, accounts, profiles...</li>
-<li>just for robots, limited by api key only</li>
-<li>signed requests only</li>
-<li>support all access, web, mobile, desktop</li>
-<li>user access controls, how to distinguish users, grant access to only parts of the API</li>
-<li>ability to run custom/specific filters during processing API requests, independently and ability to extend the app without rewriting/rebuilding the whole system</li>
-<li>third party authentication, OAUTH, user mapping</li>
-</ul>
-</li>
-<li>platform/framework:<ul>
-<li>one for all, same language/SDK/framework to cover all aspects</li>
-<li>multiple languages/frameworks for different tasks, then how to integrate, how to communicate, share code</li>
-<li>availability of the third party modules, libraries</li>
-<li>support, forums, docs, how easy to learn for new developers</li>
-<li>modularity, ability to develop by multiple developers, teams</li>
-<li>flexibility in extending, how simple/easy to add custom stuff</li>
-<li>maintenance, support,how easy to scale, change, replace parts</li>
-</ul>
-</li>
-<li>database layer:<ul>
-<li>one central database for everything</li>
-<li>multiple database for different parts of the system according to scalability/other requirements</li>
-<li>switch databases behind the scene in order to scale, adding to features, easier to maintain</li>
-<li>caching, needs to be independent from other parts and easily enabled/disabled for different components preferably via config</li>
-<li>to have or not ORM</li>
-</ul>
-</li>
-<li>process management, easy to deploy, monitor</li>
-<li>logging, metrics, profiling</li>
-<li>agnostic to the frontends or to be included with some kind of MVC/server based tools</li>
-<li>ability to support simple Web development for simple web pages without installing/supporting general purpose tools like Apache/PHP/nginx</li>
-</ul>
 <h1 id="api-endpoints-provided-by-the-backend">API endpoints provided by the backend</h1>
 <p>All API endpoints are optional and can be disabled or replaced easily. By default the naming convention is:</p>
 <pre><code> /namespace/command[/subname[/subcommand]]
@@ -1338,8 +1288,7 @@ environment, not just a Web browser. Request signature can be passed in the quer
 which is placed in the body of the request. For additional safety, SHA1 checksum of the JSON payload can be calculated and passed in the signature,
 this is the only way to ensure the body is not modified when not using query parameters.</p>
 <p>See <a href="https://github.com/vseryakov/backendjs/blob/master/web/js/bkjs.js">web/js/bkjs.js</a> function <code>bkjs.createSignature</code> or
-<a href="https://github.com/vseryakov/backendjs/blob/master/api.js">api.js</a> function <code>api.createSignature</code> for the JavaScript implementations.</p>
-<p>There is also native iOS implementation <a href="https://raw.githubusercontent.com/vseryakov/backendjs-ios/master/BKjs.m">Bkjs.m</a>.</p>
+<a href="https://github.com/vseryakov/backendjs/blob/master/api/auth.js">api.js</a> function <code>api.createSignature</code> for the JavaScript implementations.</p>
 <h3 id="authentication-api">Authentication API</h3>
 <ul>
 <li><p><code>/auth</code></p>
@@ -1473,48 +1422,6 @@ default is is open for access to all users but same security considerations appl
 </li>
 <li><p><code>/system/params/get</code>
   Return all config parameters applied from the config file(s) or remote database.</p>
-</li>
-<li><p><code>/system/stats/get</code>
-Database pool statistics and other diagnostics</p>
-<ul>
-<li>latency - how long a pending request waits in queue at this moment</li>
-<li>busy - how many busy error responses have been returned so far</li>
-<li>pool - database metrics<ul>
-<li>response - stats about how long it takes between issuing the db request and till the final moment all records are ready to be sent to the client</li>
-<li>queue - stats about db requests at any given moment queued for the execution</li>
-<li>cache - db cache response time and metrics</li>
-</ul>
-</li>
-<li>api - Web requests metrics, same structure as for the db pool metrics</li>
-<li>url - metrics per url endpoints</li>
-</ul>
-<p>Individual sub-objects:</p>
-<ul>
-<li>meter - Things that are measured as events / interval.<ul>
-<li>rmean: The average rate since the meter was started.</li>
-<li>rcnt: The total of all values added to the meter.</li>
-<li>rate: The rate of the meter since the last toJSON() call.</li>
-<li>r1m: The rate of the meter biased towards the last 1 minute.</li>
-<li>r5m: The rate of the meter biased towards the last 5 minutes.</li>
-<li>r15m: The rate of the meter biased towards the last 15 minutes.</li>
-</ul>
-</li>
-<li>queue or histogram - Keeps a reservoir of statistically relevant values biased towards the last 5 minutes to explore their distribution<ul>
-<li>hmin: The lowest observed value.</li>
-<li>mmax: The highest observed value.</li>
-<li>hsum: The sum of all observed values.</li>
-<li>hvar: The variance of all observed values.</li>
-<li>hmean: The average of all observed values.</li>
-<li>hdev: The standard deviation of all observed values.</li>
-<li>hcnt: The number of observed values.</li>
-<li>hmed: median, 50% of all values in the reservoir are at or below this value.</li>
-<li>hp75: See median, 75% percentile.</li>
-<li>hp95: See median, 95% percentile.</li>
-<li>hp99: See median, 99% percentile.</li>
-<li>hp999: See median, 99.9% percentile.</li>
-</ul>
-</li>
-</ul>
 </li>
 </ul>
 <h1 id="author">Author</h1>
@@ -3396,13 +3303,14 @@ for ExpressionAttributeNames parameter</li>
 <li>name - assign a tag to the instance as <code>Name:</code>, any occurences of %i will be replaced with the instance index</li>
 <li>tags - additional tags to be assigned, an object with key:value</li>
 <li>elbName - join elastic balancer after the startup</li>
-<li>targetGroup - join ELB target group after the startup</li>
+<li>targetGroup - join ELB target groups after the startup</li>
 <li>elasticIp - asociate with the given Elastic IP address after the start</li>
 <li>iamProfile - IAM profile to assign for instance credentials, if not given use aws.iamProfile or options[&#39;IamInstanceProfile.Name&#39;] attribute</li>
 <li>availabilityZone - availability zone, if not given use aws.zone or options[&#39;Placement.AvailabilityZone&#39;] attribute</li>
 <li>subnetId - subnet id, if not given use aws.subnetId or options.SubnetId attribute</li>
 <li>alarms - a list with CloudWatch alarms to create for the instance, each value of the object represent an object with options to be
   passed to the cwPutMetricAlarm method.</li>
+<li>device - an object for BlockDeviceMapping specification: { name, size, type, iosp, keep, virtual }</li>
 </ul>
 <p>The callback will take 3 arguments: callback(err, rc, info) where info will contain properties that can be used by `aws.ec2PrepareInstance</p>
 </li>
@@ -6685,7 +6593,7 @@ Rate limit check, by default it uses the master LRU cache meaning it works withi
 <pre><code> ipc-queue-nats=nats://localhost:4222
 </code></pre>
 
-<p>  Cache/queue client based on Redis server using <a href="https://github.com/NodeRedis/node_redis">https://github.com/NodeRedis/node_redis</a></p>
+<p>  Cache/queue client based on Redis server using <a href="https://github.com/NodeRedis/node_redis3">https://github.com/NodeRedis/node_redis3</a></p>
 <p>  The queue client implements reliable queue using sorted sets, one for the new messages and one for the
   messages that are being processed if timeout is provided. With the timeout this queue works similar to AWS SQS.</p>
 <p>  The <code>interval</code> config property defines in ms how often to check for new messages after processing a message, i.e. after a messages processed
@@ -6696,6 +6604,7 @@ Rate limit check, by default it uses the master LRU cache meaning it works withi
   while the message is processed the timestamp will be updated so the message stays in the queue, if a worker exists or crashes without
   confirming the message finished it will be put back into the work queue after <code>visibilityTimeout</code> milliseconds. The queue name that
   keeps active messages is appended with #.</p>
+<p>  Protocol rediss: will use TLS to connect to Redis servers, this is required for RedisCche Serverless</p>
 <p>  The <code>threshold</code> property defines the upper limit of how many active messages can be in the queue when to show an error message, this is
   for monitoring queue performance</p>
 <p>  The rate limiter implementes Tocken Bucket algorithm using Lua script inside Redis, the only requirement is that
@@ -9380,7 +9289,7 @@ A subcommand may return special string to indicate how to treat the flow:</p>
 
 <ul>
 <li><p><code>shell.awsGetAmazonImages(options, callback)</code></p>
-<p>  Return Amazon AMIs for the current region, HVM type only</p>
+<p>  Return Amazon AMIs for the current region</p>
 </li>
 </ul>
 

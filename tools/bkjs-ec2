@@ -18,14 +18,14 @@ get_ec2_meta() {
 
 case "$BKJS_CMD" in
 
-  start-instance)
+  start-hook)
     region=$(echo $(get_ec2_meta latest/meta-data/placement/availability-zone/)|sed 's/[a-z]$//')
     [ -z "$region" ] && return
-    echo "Setting region $region ..."
+    logger -s "Setting region $region ..."
     (aws configure set region $region)
     ([ "$(whoami)" = "root" ] && su ec2-user -c "aws configure set region $region")
-    ($0 ec2-check-storage)
-    ($0 ec2-check-hostname)
+    ($BKJS_BIN ec2-check-storage)
+    ($BKJS_BIN ec2-check-hostname)
     ;;
 
   ec2-show|ec2-ls)
@@ -91,7 +91,7 @@ case "$BKJS_CMD" in
     tag=$(get_arg -tag)
     region=$(get_arg -region)
     if [ "$id" = "all" -o "$tag" = "all" -o "$tag" = "." ]; then
-       id=$($0 ec2-show -region "$region" -fmt id|awk '{printf "%s,",$1}'|sed 's/,$//')
+       id=$($BKJS_BIN ec2-show -region "$region" -fmt id|awk '{printf "%s,",$1}'|sed 's/,$//')
        tag=""
     fi
     [ "$id" != "" ] && targets="Key=instanceIds,Values=$id"
@@ -139,7 +139,7 @@ case "$BKJS_CMD" in
     name=$(get_arg -name)
     prefix=$(get_arg -prefix)
     [ -n "$(get_flag -force)" ] && force="-force"
-    bksh -no-db -aws-create-image -wait $force -instance-id $instance_id -name "$name" -prefix "$prefix"
+    $BKJS_BIN shell -no-db -ipc-none -aws-create-image -wait $force -instance-id $instance_id -name "$name" -prefix "$prefix"
     exit
     ;;
 
@@ -158,18 +158,18 @@ case "$BKJS_CMD" in
             [ "$c" = "$s" ] && c=""
         done
         [ -z "$c" ] && continue
-        bksh -no-db -aws-create-launch-template-version -name $c -image-name "$image"
+        $BKJS_BIN shell -no-db -ipc-none -aws-create-launch-template-version -name $c -image-name "$image"
     done
     exit
     ;;
 
   ec2-check-hostname)
     addr=$(get_local_ip)
-    [ "$addr" = "" ] && echo "No IP address found" && exit
+    [ "$addr" = "" ] && logger -s "No IP address found" && exit
     tag=$($0 ec2-tag)
     domain=$(get_arg -domain $BKJS_DOMAIN)
     host=${tag:-ip}-$(echo $addr|sed 's/\./-/g')
-    $0 setup-hostname -host $host -domain $domain
+    $BKJS_BIN setup-hostname -host $host -domain $domain
     exit
     ;;
 
@@ -178,7 +178,7 @@ case "$BKJS_CMD" in
     mnt=$(get_arg -mnt /home/$user/data)
     dev=$(grep $mnt /etc/fstab|cut -f1 -d' ')
     if [ "$dev" = "" ]; then
-       echo $mnt not in /etc/fstab
+       logger -s $mnt not in /etc/fstab
        exit
     fi
     stat $dev
@@ -193,10 +193,10 @@ case "$BKJS_CMD" in
     ln -sf $mnt/var
     fs=$(blkid |grep $dev)
     if [ "$fs" != "" ]; then
-       echo mounting $dev to $mnt
+       logger -s mounting $dev to $mnt
        mount -a
     else
-       echo creating $mnt on $dev
+       logger -s creating $mnt on $dev
        mkfs.xfs $dev
        mount -a
     fi

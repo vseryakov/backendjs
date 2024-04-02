@@ -35,7 +35,6 @@ case "$BKJS_CMD" in
 
   setup-finalize)
     # Post setup actions
-    find_user
 
     case $OS_TYPE in
       alpine)
@@ -52,9 +51,10 @@ case "$BKJS_CMD" in
 
     # Move the source git repo to the home
     if [ "$(pwd)" != "$BKJS_HOME" -a -d backendjs ]; then
+        find_user
         bkdir=$BKJS_HOME/node_modules/backendjs
         mv backendjs $bkdir
-        chown -R $BKJS_USER $bkdir
+        chown -R $BKJS_USER:$BKJS_GROUP $bkdir
     fi
     exit
     ;;

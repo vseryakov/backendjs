@@ -28,7 +28,9 @@ case "$BKJS_CMD" in
     uptime=$(stat -c %Z /proc/1/cmdline)
     [ -f $file -a "$(cat $file)" = "$uptime" ] && exit
     echo $uptime > $file
-    $0 start-instance
+    BKJS_MODULE=
+    BKJS_CMD=start-hook
+    run_bkjs_cmd
     exit
     ;;
 
