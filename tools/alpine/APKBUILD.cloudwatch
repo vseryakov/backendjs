@@ -1,0 +1,36 @@
+# Maintainer: Vlad Seryakov <vseryakov@gmail.com>
+pkgname=amazon-cloudwatch-agent
+pkgver=1.300034.0
+pkgrel=0
+pkgdesc="Amazon Cloudwatch Agent"
+url="https://github.com/aws/amazon-cloudwatch-agent"
+arch="all"
+license="MIT"
+makedepends="
+    go
+	"
+source="$pkgname-$pkgver.tar.gz::https://github.com/aws/amazon-cloudwatch-agent/archive/refs/tags/v$pkgver.tar.gz"
+
+options="!check"
+
+build() {
+    cd $srcdir/$pkgname-$pkgver
+    go mod download -x
+    export CWARCH=$(uname -m)
+    [ "$CWARCH" = "x86_64" ] && export CWARCH=amd64
+    [ "$CWARCH" = "aarch64" ] && export CWARCH=arm64
+    echo $pkgver > CWAGENT_VERSION
+    make build-for-docker-$CWARCH
+}
+
+package() {
+    cd $srcdir/$pkgname-$pkgver
+    mkdir -p $pkgdir/bin $pkgdir/etc $pkgdir/logs $pkgdir/var $pkgdir/doc
+    cp build/bin/linux_$CWARCH/* $pkgdir/bin
+    cp licensing/* $pkgdir
+    cp translator/config/schema.json $pkgdir/doc/amazon-cloudwatch-agent-schema.json
+}
+
+sha512sums="
+cda2f5523e7ec052c00fa45e416505ff21034a76f9466942227bb8b8f9e52d4c73e6b2a7df9dc49e4db01497f278cf7e7073e3582ef116a537110ff12e4b37d9  amazon-cloudwatch-agent-1.300034.0.tar.gz
+"

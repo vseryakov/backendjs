@@ -42,39 +42,36 @@ case "$BKJS_CMD" in
     ;;
 
   monit-init-bkjs)
-    find_user
     timeout=$(get_arg -timeout 30)
     bin=$(get_arg -bin $BKJS_BIN)
-    echo -e "check process $BKJS with pidfile \"$BKJS_HOME/var/master.pid\" start program = \"$bin run-master $(get_all_args)\" as uid $BKJS_USER and gid $BKJS_GROUP with timeout $timeout seconds stop program = \"$bin stop\"" > /etc/monit.d/$BKJS.conf
+    echo -e "check process $BKJS with pidfile \"$BKJS_HOME/var/master.pid\" start program = \"$bin run-master $(get_all_args)\" as uid $BKJS_USER with timeout $timeout seconds stop program = \"$bin stop\"" > /etc/monit.d/$BKJS.conf
     exit
     ;;
 
   monit-init-alerts)
     [ -n "$(get_flag -force)" ] && rm -f /etc/monit.d/alert.conf
     [ -f /etc/monit.d/alert.conf ] && exit
-    email=$(get_arg -alert-email)
-    [ -z $email ] && exit
-    user=$(get_arg -alert-user)
-    host=$(get_arg -alert-host)
-    password=$(get_arg -alert-password)
+    email=$(get_arg -email)
+    [ -z "$email" ] && exit
+    user=$(get_arg -user)
+    host=$(get_arg -host)
+    password=$(get_arg -password)
     events=$(get_arg -events "action,connection,data,pid,ppid,exec,content,resource,status,timeout")
     echo "Init monit alert: $email $events, $host, $user"
     [ "$events" != "" ] && events="only on { $events }"
     echo -e "set alert $email $events" > /etc/monit.d/alert.conf
     echo -e "set mail-format { from: $email }" >> /etc/monit.d/alert.conf
-    if [[ ! -z $host ]]; then
-        server="set mailserver $host"
-        if match $host amazonaws; then server="$server port 465"; fi
-        [[ ! -z $user ]] && server="$server username $user"
-        [[ ! -z $password ]] && server="$server password $password"
-        if match $host amazonaws; then server="$server using tlsv12"; fi
-        echo -e $server >> /etc/monit.d/alert.conf
-    fi
+    [ -z "$host" ] && exit
+    server="set mailserver $host"
+    if match $host amazonaws; then server="$server port 465"; fi
+    [ -n "$user" ] && server="$server username $user"
+    [ -n "$password" ] && server="$server password $password"
+    if match $host amazonaws; then server="$server using tlsv12"; fi
+    echo -e $server >> /etc/monit.d/alert.conf
     exit
     ;;
 
   monit-init)
-    find_user
     name=$(get_arg -name)
     start=$(get_arg -start)
     stop=$(get_arg -stop)
@@ -82,7 +79,9 @@ case "$BKJS_CMD" in
     timeout=$(get_arg -timeout 30)
     cycles=$(get_arg -cycles)
     [ -n "$cycles" ] && cycles="for $cycles cycles"
-    echo -e "check process $name with pidfile \"$BKJS_HOME/var/$name.pid\" start program = \"$start\" as uid $BKJS_USER and gid $BKJS_GROUP with timeout $timeout seconds $cycles stop program = \"$stop\"" > /etc/monit.d/$name.conf
+    gid=$(get_arg -gid)
+    [ -n "$gid" ] && gid="and gid $gid"
+    echo -e "check process $name with pidfile \"$BKJS_HOME/var/$name.pid\" start program = \"$start\" as uid $BKJS_USER $gid with timeout $timeout seconds $cycles stop program = \"$stop\"" > /etc/monit.d/$name.conf
     exit
     ;;
 
@@ -90,7 +89,7 @@ case "$BKJS_CMD" in
     echo ""
     echo "  monit-init-system - setup system monitoring with monit, CPU, disk"
     echo "  monit-init-bkjs - setup monit to keep $BKJS service running without using any other services and monitor"
-    echo "  monit-init-alerts - setup monit mail alerts, use DB config for the specified app name"
-    echo "  monit-init -name NAME -start SCRIPT -stop SCRIPT - generate a monit service config"
+    echo "  monit-init-alerts - setup monit mail alerts"
+    echo "  monit-init -name NAME [-gid G] [-timeout 30] [-cycles N] -start SCRIPT -stop SCRIPT - generate a monit service config"
     ;;
 esac

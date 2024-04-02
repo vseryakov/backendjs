@@ -15,13 +15,14 @@ case "$BKJS_CMD" in
     if [ ! -d $root ]; then
         case "$OS_TYPE" in
           alpine)
-            url=$(get_arg -url $BKJS_CWAGENT_URL)
-            [ -z "$url" ] && exit
-            tar=amazon-cloudwatch-agent-$OS_ARCH.tar.gz
-            curl -OL $url/$tar
+            arch=$(uname -m)
+            [ "$arch" = "x86_64" ] && arch=amd64
+            [ "$arch" = "aarch64" ] && arch=arm64
             mkdir -p $root/bin $root/etc $root/logs $root/var
-            tar -C $root/bin -xzf $tar
-            rm $tar
+            (cd $root/bin &&
+                curl -OL https://amazoncloudwatch-agent.s3.amazonaws.com/nightly-build/latest/linux_$arch/amazon-cloudwatch-agent &&
+                curl -OL https://amazoncloudwatch-agent.s3.amazonaws.com/nightly-build/latest/linux_$arch/config-translator &&
+                chmod 755 $root/bin/*)
             ;;
 
           amazon)
@@ -64,7 +65,7 @@ case "$BKJS_CMD" in
     case "$OS_TYPE" in
       alpine)
         if [ ! -f /etc/monit.d/cwagent.conf ]; then
-            echo -e "check process cwagent matching \"amazon-cloudwatch-agent\" start program = \"$root/bin/amazon-cloudwatch-agent -config $toml -envconfig $env\" as uid $BKJS_USER and gid $BKJS_GROUP stop program = \"pkill -f amazon-cloudwatch-agent\"" > /etc/monit.d/cwagent.conf
+            echo -e "check process cwagent matching \"amazon-cloudwatch-agent\" start program = \"$root/bin/amazon-cloudwatch-agent -config $toml -envconfig $env\" as uid $BKJS_USER stop program = \"pkill -f amazon-cloudwatch-agent\"" > /etc/monit.d/cwagent.conf
             monit reload
         else
             pkill -f amazon-cloudwatch-agent

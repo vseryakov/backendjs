@@ -26,7 +26,6 @@ case "$PLATFORM" in
 
   Darwin)
     OS_TYPE=macosx
-    [ -z "$BKJS_HOME" ] && export BKJS_HOME=~/.bkjs
     SED="sed -E -i .orig"
     ;;
 esac
@@ -146,14 +145,6 @@ get_json_flat() {
   node -e "function f(o){var r={};for(var p in o){if(!Array.isArray(o[p])&&typeof o[p]=='object'){var a=f(o[p]);r[p]=Object.keys(o[p]);for(var x in a)r[p+'.'+x]=a[x]}else r[p]=o[p]};return r};try{o=f(JSON.parse(fs.readFileSync('$1')));v=o['$2']||o['$3'];if(Array.isArray(v)){if('$4'.includes('realpath'))v=v.map(x=>(!x.includes('@')&&fs.realpathSync(x)||x));v=v.join(' ')};if(v&&typeof v=='object')v=Object.keys(v).join(' ');if(typeof v!='undefined')console.log(v)}catch(e){if('$BKJS_DEBUG')console.error('get_json_flat:','$1','$2',e);process.exit(1)}"
 }
 
-# Use configured or provided user:group, defaults to the current user
-find_user() {
-  export BKJS_USER=$(get_arg -user $BKJS_USER)
-  [ -z "$BKJS_USER" ] && export BKJS_USER=$(whoami)
-  export BKJS_GROUP=$(get_arg -group $BKJS_GROUP)
-  [ -z "$BKJS_GROUP" ] && export BKJS_GROUP=$(id -gn)
-}
-
 # Run the command by sourcing all scripts from tools folders
 run_bkjs_cmd() {
   local _cmddir= _cmdscope= _cmdtools="$(get_arg -tools) ./tools $BKJS_TOOLS $BKJS_HOME/tools $BKJS_DIR/tools"
@@ -184,17 +175,17 @@ trace=$(get_arg -trace $BKJS_TRACE)
 
 # Home and prefix must be specified for the script to work properly
 export BKJS_HOME=$(get_arg -home $BKJS_HOME)
-[ -z "$BKJS_HOME" ] && export BKJS_HOME=$(sh -c "echo ~$BKJS_USER")
+[ -z "$BKJS_HOME" ] && export BKJS_HOME=~/.bkjs
+export BKJS_USER=$(get_arg -user ${BKJS_USER:-$(whoami)})
 
 # Load user profiles
-[ -f $BKJS_HOME/.env ] && . $BKJS_HOME/.env
 [ -f $BKJS_HOME/etc/profile ] && . $BKJS_HOME/etc/profile
 [ -f $BKJS_HOME/etc/profile.local ] && . $BKJS_HOME/etc/profile.local
 
 [ -n "$(get_flag -syslog)" ] && export BKJS_ECHO="logger -s" || export BKJS_ECHO=echo
 
 export BKJS_DEBUG=$(get_flag -debug)
-[ -n "$BKJS_DEBUG" ] && $BKJS_ECHO "$(date): $PPID: $BKJS_BIN: HOME=$BKJS_HOME, PWD=$(pwd), USER=$(whoami), CMD=$BKJS_CMD, ARGS=$@"
+[ -n "$BKJS_DEBUG" ] && $BKJS_ECHO "$(date): $PPID: $BKJS_BIN: HOME=$BKJS_HOME, PWD=$(pwd), USER=$BKJS_USER, CMD=$BKJS_CMD, ARGS=$@"
 
 # Setup paths
 export PATH=$BKJS_HOME/bin:$BKJS_HOME/node_modules/.bin:/app/bin:/usr/local/bin:/opt/local/bin:/sbin:/usr/sbin:$PATH
@@ -289,7 +280,6 @@ case "$BKJS_CMD" in
     ;;
 
   env)
-    find_user
     run_bkjs_cmd
     set
     ;;
@@ -317,7 +307,6 @@ case "$BKJS_CMD" in
     echo "Common options:"
     echo "  -home path - path to the backend home directory, default is $BKJS_HOME"
     echo "  -user name - set backend user on the remote or local side, default is ${BKJS_USER:-`whoami`}"
-    echo "  -group name - set backend group on the remote or local side, default is ${BKJS_GROUP:-`id -gn`}"
     echo "  -debug - be verbose about what is happening"
     echo "  -trace file - redirect all output to a file"
     echo ""

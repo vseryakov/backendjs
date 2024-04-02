@@ -1026,7 +1026,6 @@ On Linux, when started the bkjs tries to load and source the following global co
 
 Then it try to source all local config files:
 
-        $HOME/.env
         $BKJS_HOME/etc/profile
         $BKJS_HOME/etc/profile.local
 

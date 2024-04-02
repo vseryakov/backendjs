@@ -10,9 +10,10 @@ RUN apk --no-cache add \
   sudo \
   ccache \
   mc \
-  nodejs=~20.11 \
-  npm=~10.2 \
-  python3=~3.11 \
+  nodejs=~20 \
+  npm=~10 \
+  python3=~3 \
+  go \
   curl \
   file \
   zip \

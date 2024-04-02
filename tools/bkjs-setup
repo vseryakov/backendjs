@@ -51,10 +51,10 @@ case "$BKJS_CMD" in
 
     # Move the source git repo to the home
     if [ "$(pwd)" != "$BKJS_HOME" -a -d backendjs ]; then
-        find_user
         bkdir=$BKJS_HOME/node_modules/backendjs
         mv backendjs $bkdir
-        chown -R $BKJS_USER:$BKJS_GROUP $bkdir
+        rm -rf $bkdir/backendjs/.git
+        chown -R $BKJS_USER $bkdir
     fi
     exit
     ;;
@@ -87,10 +87,10 @@ case "$BKJS_CMD" in
 
    setup-profile)
     # Create global profile
-    find_user
     sysconf=/etc/conf.d
     [ ! -d $sysconf -a -d /etc/sysconfig ] && sysconf=/etc/sysconfig
-    echo "BKJS_HOME=$BKJS_HOME" > $sysconf/$BKJS
+    echo "export NODE_ENV=production" > $sysconf/$BKJS
+    echo "BKJS_HOME=$BKJS_HOME" >> $sysconf/$BKJS
     domain=$(get_arg -domain)
     [ -n "$domain" ] && echo "BKJS_DOMAIN=$domain" >> $sysconf/$BKJS
     [ "$BKJS_USER" != "root" ] && echo "BKJS_USER=$BKJS_USER" >> $sysconf/$BKJS
@@ -111,14 +111,12 @@ case "$BKJS_CMD" in
 
     for d in $dirs; do mkdir -p $BKJS_HOME/$d; done
 
-    find_user
-    chown -R $BKJS_USER:$BKJS_GROUP $BKJS_HOME
+    chown -R $BKJS_USER $BKJS_HOME
     exit
     ;;
 
   setup-user)
     # Add local user
-    find_user
     UHOME=/home/$BKJS_USER
 
     if [ "$(grep -s $BKJS_USER /etc/passwd)" = "" ]; then
@@ -184,7 +182,7 @@ case "$BKJS_CMD" in
        echo '[ -f ~/etc/profile ] && . ~/etc/profile' >> $UHOME/.bash_profile
        echo '[ "$TMUX_PANE" != "" ] && PS1=$(echo $PS1|sed "s/#/${TMUX_PANE}#/")' >> $UHOME/.bash_profile
     fi
-    chown -R $BKJS_USER:$BKJS_GROUP $UHOME $UHOME/.ssh $UHOME/.bash*
+    chown -R $BKJS_USER $UHOME $UHOME/.ssh $UHOME/.bash*
     exit
     ;;
 
@@ -240,7 +238,6 @@ case "$BKJS_CMD" in
 
   setup-syslog)
     # Setup syslog config for backend logging
-    find_user
 
     if [ -z "$(grep -s '#Bkjs' /etc/syslog.conf)" ]; then
        echo "Configuring syslog..."
@@ -257,7 +254,6 @@ case "$BKJS_CMD" in
 
   setup-rsyslog)
     # Setup rsyslog config for backend logging
-    find_user
 
     if [ -z "$(grep -s '#Bkjs' /etc/rsyslog.conf)" ]; then
        echo "Configuring rsyslog..."
@@ -392,7 +388,7 @@ case "$BKJS_CMD" in
 
   setup-service)
     # Install service for a script or bkjs service
-    find_user
+
     if [ -z "$(get_flag -stop)" ]; then
         bin=$(get_arg -bin $BKJS_BIN)
 
@@ -489,7 +485,6 @@ case "$BKJS_CMD" in
     ;;
 
   setup-logwatcher)
-    find_user
     cron=$(get_arg -cron "*/$(get_arg -interval 5) * * * *")
     echo 'MAILTO=""' > /etc/cron.d/$BKJS-logwatcher
     echo "$cron $BKJS_USER $BKJS_BIN logwatcher" >> /etc/cron.d/$BKJS-logwatcher

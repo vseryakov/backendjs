@@ -100,9 +100,8 @@ case "$BKJS_CMD" in
     ;;
 
   redis-init-monit)
-    find_user
     echo -e "$BKJS_HOME/log/redis.log {\n  weekly\n  rotate 10\n  copytruncate\n  delaycompress\n  compress\n  notifempty\n  missingok\n}" > /etc/logrotate.d/redis
-    echo -e "check process redis-server with pidfile \"$BKJS_HOME/var/redis.pid\" start program = \"$BKJS_BIN redis-run $(get_all_args)\" as uid $BKJS_USER and gid $BKJS_GROUP stop program = \"$BKJS_BIN redis-stop\" if failed host 127.0.0.1 port 6379 for 2 cycles then restart" > /etc/monit.d/redis.conf
+    echo -e "check process redis-server with pidfile \"$BKJS_HOME/var/redis.pid\" start program = \"$BKJS_BIN redis-run $(get_all_args)\" as uid $BKJS_USER stop program = \"$BKJS_BIN redis-stop\" if failed host 127.0.0.1 port 6379 for 2 cycles then restart" > /etc/monit.d/redis.conf
     exit
     ;;
 

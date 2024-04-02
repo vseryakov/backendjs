@@ -23,7 +23,6 @@ case "$BKJS_CMD" in
     rsyncargs=$(concat_arg -rsync $BKJS_RSYNC_ARGS)
     bkcmd=$(get_arg -bkcmd)
     if [ "$bkcmd" != "" ]; then
-        find_user
         bkcmd="--rsync-path=/home/$BKJS_USER/bin/bkrsync -bkcmd $(echo $bkcmd|sed 's/ /%20/g')"
     else
         bkcmd=-a

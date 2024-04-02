@@ -132,37 +132,6 @@ case "$BKJS_CMD" in
     exit
     ;;
 
-  ec2-create-ami)
-    tag=$(get_arg -tag)
-    [ -n "$tag" ] && instance_id=$(bkjs ec2-show -tag $tag -fmt id | head -1)
-    instance_id=$(get_arg -instance-id $instance_id)
-    name=$(get_arg -name)
-    prefix=$(get_arg -prefix)
-    [ -n "$(get_flag -force)" ] && force="-force"
-    $BKJS_BIN shell -no-db -ipc-none -aws-create-image -wait $force -instance-id $instance_id -name "$name" -prefix "$prefix"
-    exit
-    ;;
-
-  ec2-create-launch-template-version)
-    name=$(get_arg -name)
-    skip=$(get_arg -skip)
-    image=$(get_arg -image-name)
-    if [ -z "$name" ]; then
-        tag=$(get_arg -tag)
-        key=$(get_arg -key Name)
-        [ "$tag" != "" ] && filter="--filter Name=tag:$key,Values=${tag}"
-        name=$(aws ec2 describe-launch-templates $filter --query 'LaunchTemplates[*].LaunchTemplateName' --output text|sed 's/\t/\n/g'|sort|uniq)
-    fi
-    for c in $name; do
-        for s in $skip; do
-            [ "$c" = "$s" ] && c=""
-        done
-        [ -z "$c" ] && continue
-        $BKJS_BIN shell -no-db -ipc-none -aws-create-launch-template-version -name $c -image-name "$image"
-    done
-    exit
-    ;;
-
   ec2-check-hostname)
     addr=$(get_local_ip)
     [ "$addr" = "" ] && logger -s "No IP address found" && exit
@@ -215,8 +184,6 @@ case "$BKJS_CMD" in
     echo "  ec2-region - current instance region"
     echo "  ec2-account - current instance account id"
     echo "  ec2-tag [-tag NAME] - current instance tag name, default key is Name"
-    echo "  ec2-create-ami [-tag NAME] [-prefix PREFIX] - create a new AMI from the given running instance by tag or the current instance"
-    echo "  ec2-create-launch-template-version [-name NAME] [-tag TAG] [-skip A B] [-image-name *] - create new launch template verson with the latest AMI, if no -name is given all existing templates matched by tag if given will be updated"
     ;;
 esac
 
