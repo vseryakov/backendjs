@@ -50,7 +50,7 @@ if (!lib.isArg("-nohdr")) {
 
 var toc = `# ${name} Documentation\n\n## Table of contents\n\n`;
 
-var readme = lib.isArg("-noreadme") ? "" : lib.readFileSync("README.md");
+var readme = lib.readFileSync(bkjs.lib.getArg("-readme", "README.md"));
 readme.split("\n").forEach((x) => {
     var d = x.match(/^([#]+) (.+)/);
     if (!d) return;

@@ -6,6 +6,17 @@
 
 case "$BKJS_CMD" in
 
+  help|es-help)
+    echo ""
+    echo "  es-w [-host HOST] - show Elasticsearch cluster health status"
+    echo "  es-df [-host HOST] - show Elasticsearch cluster disk allocations"
+    echo "  es-s [-host HOST] - show Elasticsearch cluster shards allocations and distributions"
+    echo "  es-t [-host HOST] [-task ID] [-nodes ID] [-actions FILTER] - show Elasticsearch cluster running task(s) for all or specific nodes"
+    echo "  es-ls [-host HOST] - show Elasticsearch cluster nodes"
+    echo "  es-n [-host HOST] - show Elasticsearch cluster nodes IDs to be used for other commands by node id"
+    echo "  es-map [-host HOST] TABLE - show Elasticsearch mappings for a table"
+    ;;
+
   es-map)
     host=$(get_arg -host localhost)
     table=$(get_arg -table)
@@ -56,15 +67,5 @@ case "$BKJS_CMD" in
     exit
     ;;
     
-  help)
-    echo ""
-    echo "  es-w [-host HOST] - show Elasticsearch cluster health status"
-    echo "  es-df [-host HOST] - show Elasticsearch cluster disk allocations"
-    echo "  es-s [-host HOST] - show Elasticsearch cluster shards allocations and distributions"
-    echo "  es-t [-host HOST] [-task ID] [-nodes ID] [-actions FILTER] - show Elasticsearch cluster running task(s) for all or specific nodes"
-    echo "  es-ls [-host HOST] - show Elasticsearch cluster nodes"
-    echo "  es-n [-host HOST] - show Elasticsearch cluster nodes IDs to be used for other commands by node id"
-    echo "  es-map [-host HOST] TABLE - show Elasticsearch mappings for a table"
-    ;;
 esac
 

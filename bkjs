@@ -1,43 +1,8 @@
 #!/bin/sh
 #
 #  Author: Vlad Seryakov vseryakov@gmail.com
-#  Sep 2013
+#  Apr 2024
 #
-
-BKJS=bkjs
-
-PLATFORM=$(uname -s)
-case "$PLATFORM" in
-  Linux)
-    OS_NAME=$(grep -s PRETTY_NAME /etc/os-release)
-    case "$OS_NAME" in
-     *Amazon*)
-       OS_TYPE=amazon
-       ;;
-
-     *Alpine*)
-       OS_TYPE=alpine
-       ;;
-    esac
-    [ -f /etc/conf.d/$BKJS ] && . /etc/conf.d/$BKJS
-    [ -f /etc/sysconfig/$BKJS ] && . /etc/sysconfig/$BKJS
-    SED="sed -r -i"
-    ;;
-
-  Darwin)
-    OS_TYPE=macosx
-    SED="sed -E -i .orig"
-    ;;
-esac
-
-case "$(uname -m)" in
-  aarch64|arm64)
-    OS_ARCH=arm64
-    ;;
-  *)
-    OS_ARCH=amd64
-    ;;
-esac
 
 # Word splitting like in sh
 [ -n "$ZSH_VERSION" ] && setopt shwordsplit
@@ -49,146 +14,17 @@ BKJS_DIR="$(cd "${BKJS_BIN%/*}" ; pwd -P)"
 
 # There are special commands that can be used as the script name
 BKJS_NAME=$(basename $0)
-if [ "${BKJS_NAME:0:2}" = "bk" -a "$BKJS_NAME" != $BKJS ]; then
+if [ "${BKJS_NAME:0:2}" = "bk" -a "$BKJS_NAME" != "bkjs" ]; then
    BKJS_CMD=$BKJS_NAME
 else
    BKJS_CMD=$1
    shift
 fi
 
-# Command module
-BKJS_MODULE=$(echo "$BKJS_CMD"|cut -d- -f1)
+source $BKJS_DIR/tools/bkjs-functions
+bkjs_init $@
 
-# Save all cmdline args
-BKJS_ARGC=0
-for arg in "$@"; do
-    eval "BKJS_ARGV$BKJS_ARGC=\$arg"
-    BKJS_ARGC=$((BKJS_ARGC + 1))
-done
-
-# Returns an argument value by name, format is -name value
-get_arg() {
-  local i=0
-  while [ $i -lt $BKJS_ARGC ]; do
-    local n=$(eval "echo \$BKJS_ARGV$i")
-    local v=$(eval "echo \"\$BKJS_ARGV$((i+1))\"")
-    if [ "$1" = "$n" ]; then
-        if [ -n "$v" ] && ! match "$v" "^\-"; then echo "$v" && return 0; fi
-        [ -n "$3" ] && echo "$3" && return 0
-    fi
-    i=$((i + 1))
-  done
-  echo "$2"
-}
-
-# Returns 1 if an argument exists or the value is 0,1
-get_flag() {
-  echo $(get_arg $1 "$2" 1)
-}
-
-# Returns all commandline arguments not present in the first arg
-get_all_args() {
-  local i=0 sep=${2:-"\""}
-  while [ $i -lt $BKJS_ARGC ]; do
-    local found=""
-    local n=$(eval "echo \$BKJS_ARGV$i")
-    local v=$(eval "echo \"\$BKJS_ARGV$((i+1))\"")
-    for a in $1; do
-      [ "$n" = "$a" ] && found=1
-    done
-    if [ -z "$found" ]; then
-       if ! match "$n" "[ '\"]"; then
-          args="$args $n"
-       else
-          args="$args $sep$n$sep"
-       fi
-       if [ -n "$v" -a "${v:0:1}" != "-" ]; then
-          if ! match "$v" "[ '\"]"; then
-             args="$args $v"
-          else
-             args="$args $sep$v$sep"
-          fi
-       fi
-    fi
-    i=$((i + 1))
-    [ "${v:0:1}" != "-" ] && i=$((i + 1))
-  done
-  echo "$args"
-}
-
-# Concatenate args
-concat_arg() {
-  local _v=$(get_arg $1)
-  [ -z "$_v" ] && echo $2
-  [ -n "$2" ] && _v="$2 $_v"
-  echo "$_v"
-}
-
-# Return 1 if 1st arg matches regexp in 2nd arg
-match() {
-  if [[ -n "$1" && -n "$2" ]] && echo "$1" | egrep -E -q "$2"; then return 0; fi
-  return 1
-}
-
-# Local IP address, not localhost
-get_local_ip() {
-  echo $(/sbin/ifconfig eth${1:-0}|grep -o -E '(inet [0-9.]+|inet addr:[0-9.]+)'|tr : ' '|awk '{print $NF}')
-}
-
-# Return the value for a property from a json file: get_json file.json name fallback realpath VAR
-get_json() {
-  node -e "try{o=JSON.parse(fs.readFileSync('$1'));v=o.$2||o['$3'];if(Array.isArray(v)){if('$4'.includes('realpath'))v=v.map(x=>(!x.includes('@')&&fs.realpathSync(x)||x));v=v.join(' ')};if(v&&typeof v=='object')v=Object.keys(v).join(' ');if(typeof v!='undefined')console.log(v)}catch(e){if('$BKJS_DEBUG')console.error('get_json:','$1','$2',e);process.exit(1)}"
-}
-
-# Same as get_json but object properties are flattened first to support property names with spaces or dashes
-get_json_flat() {
-  node -e "function f(o){var r={};for(var p in o){if(!Array.isArray(o[p])&&typeof o[p]=='object'){var a=f(o[p]);r[p]=Object.keys(o[p]);for(var x in a)r[p+'.'+x]=a[x]}else r[p]=o[p]};return r};try{o=f(JSON.parse(fs.readFileSync('$1')));v=o['$2']||o['$3'];if(Array.isArray(v)){if('$4'.includes('realpath'))v=v.map(x=>(!x.includes('@')&&fs.realpathSync(x)||x));v=v.join(' ')};if(v&&typeof v=='object')v=Object.keys(v).join(' ');if(typeof v!='undefined')console.log(v)}catch(e){if('$BKJS_DEBUG')console.error('get_json_flat:','$1','$2',e);process.exit(1)}"
-}
-
-# Run the command by sourcing all scripts from tools folders
-run_bkjs_cmd() {
-  local _cmddir= _cmdscope= _cmdtools="$(get_arg -tools) ./tools $BKJS_TOOLS $BKJS_HOME/tools $BKJS_DIR/tools"
-  [ -z "$BKJS_MODULE" ] && _cmdscope='bkjs-*' || _cmdscope="bkjs-$BKJS_MODULE*"
-  [ -n "$BKJS_DEBUG" ] && $BKJS_ECHO "$(date): $PPID: $BKJS_CMD: run_bkjs_cmd: $_cmdscope: tools: $_cmdtools"
-  for _cmddir in $_cmdtools; do
-     if [ -d $_cmddir ]; then
-        local _cmdfiles=$(find $_cmddir \( -type f -o -type l \) -name "$_cmdscope")
-        [ -n "$BKJS_DEBUG" ] && $BKJS_ECHO "$(date): $PPID: $BKJS_CMD: run_bkjs_cmd: $_cmddir: files: $_cmdfiles"
-        for _cmdfile in $_cmdfiles; do
-            source $_cmdfile
-        done
-     fi
-  done
-}
-
-# Utility functions
-to_lower() {
-  echo $1 | tr [:upper:] [:lower:]
-}
-to_upper() {
-  echo $1 | tr [:lower:] [:upper:]
-}
-
-# Start trace as soon as possible
-trace=$(get_arg -trace $BKJS_TRACE)
-[ -n "$trace" ] && exec >>$trace 2>&1
-
-# Home and prefix must be specified for the script to work properly
-export BKJS_HOME=$(get_arg -home $BKJS_HOME)
-[ -z "$BKJS_HOME" ] && export BKJS_HOME=~/.bkjs
-export BKJS_USER=$(get_arg -user ${BKJS_USER:-$(whoami)})
-
-# Load user profiles
-[ -f $BKJS_HOME/etc/profile ] && . $BKJS_HOME/etc/profile
-[ -f $BKJS_HOME/etc/profile.local ] && . $BKJS_HOME/etc/profile.local
-
-[ -n "$(get_flag -syslog)" ] && export BKJS_ECHO="logger -s" || export BKJS_ECHO=echo
-
-export BKJS_DEBUG=$(get_flag -debug)
-[ -n "$BKJS_DEBUG" ] && $BKJS_ECHO "$(date): $PPID: $BKJS_BIN: HOME=$BKJS_HOME, PWD=$(pwd), USER=$BKJS_USER, CMD=$BKJS_CMD, ARGS=$@"
-
-# Setup paths
-export PATH=$BKJS_HOME/bin:$BKJS_HOME/node_modules/.bin:/app/bin:/usr/local/bin:/opt/local/bin:/sbin:/usr/sbin:$PATH
+debug HOME=$BKJS_HOME, USER=$BKJS_USER, ARGS=$@
 
 case "$BKJS_CMD" in
 
@@ -196,31 +32,29 @@ case "$BKJS_CMD" in
     cd $BKJS_HOME
     if [ "$(whoami)" = "root" ]; then
         logger -s "$(date -R): $PPID: Running start hook..."
-        BKJS_MODULE=
-        BKJS_CMD=start-hook
-        run_bkjs_cmd
+        run_bkjs_cmd start-hook
     fi
     [ -n "$BKJS_SERVER" -a "$BKJS_SERVER" != "none" ] && $0 run-$BKJS_SERVER
     exit 0
     ;;
 
   stop)
-    pkill $1 -f "$BKJS:"
+    pkill $1 -f "bkjs:"
     sleep 1
-    pkill $1 -f "$BKJS:"
+    pkill $1 -f "bkjs:"
     exit 0
     ;;
 
   restart-api|stop-api)
-    pkill -USR2 -f "$BKJS: server"
-    pkill -USR2 -f "$BKJS: master"
+    pkill -USR2 -f "bkjs: server"
+    pkill -USR2 -f "bkjs: master"
     exit 0
     ;;
 
   stop-web|stop-server|stop-master|stop-worker)
     name=${BKJS_CMD:5}
     [ -z "$name" ] && exit 0
-    pkill $1 -f "$BKJS: $name"
+    pkill $1 -f "bkjs: $name"
     exit 0
     ;;
 
@@ -231,7 +65,7 @@ case "$BKJS_CMD" in
     [ -z "$SCRIPT" -a -f $BKJS_HOME/lib/run.js ] && SCRIPT=$BKJS_HOME/lib/run.js
     [ -z "$SCRIPT" ] && SCRIPT=$BKJS_DIR/lib/run.js
 
-    [ -n "$BKJS_DEBUG" ] && $BKJS_ECHO "$(date): $PPID: Starting $BKJS_CMD: $NODE_ARGS $SCRIPT -home $BKJS_HOME $BKJS_RUN_ARGS $@"
+    debug Starting $NODE_ARGS $SCRIPT $BKJS_HOME $BKJS_RUN_ARGS $@
 
     case "$BKJS_CMD" in
      run-none|none)
@@ -280,7 +114,6 @@ case "$BKJS_CMD" in
     ;;
 
   env)
-    run_bkjs_cmd
     set
     ;;
 
@@ -307,12 +140,12 @@ case "$BKJS_CMD" in
     echo "Common options:"
     echo "  -home path - path to the backend home directory, default is $BKJS_HOME"
     echo "  -user name - set backend user on the remote or local side, default is ${BKJS_USER:-`whoami`}"
-    echo "  -debug - be verbose about what is happening"
+    echo "  -debug - show debugging messages"
     echo "  -trace file - redirect all output to a file"
+    echo "  -syslog - use logger -s for all messages "
     echo ""
 
-    BKJS_MODULE=
-    run_bkjs_cmd
+    run_bkjs_cmd help
     exit 0
     ;;
 
@@ -323,8 +156,8 @@ case "$BKJS_CMD" in
     # - if the command is final then exit otherwise it will continue trying other tools
     # - it must support help) command to show help about all supported commands
     #
-    run_bkjs_cmd
-    $BKJS_ECHO "$BKJS_BIN: $BKJS_CMD: command not found: $@" >&2
+    run_bkjs_cmd $BKJS_CMD 1
+    msg command not found: $@
     exit 1
     ;;
 esac

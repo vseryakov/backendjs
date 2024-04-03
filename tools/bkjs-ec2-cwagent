@@ -6,6 +6,12 @@
 
 case "$BKJS_CMD" in
 
+  help|ec2-help)
+    echo ""
+    echo "  ec2-cwagent-get - install AWS Cloudwatch agent to send backend logs to Cloudwatch Logs"
+    echo "  ec2-cwagent-check - check AWS Cloudwatch agent config and restart if different"
+    ;;
+
   start-hook)
     ($0 ec2-cwagent-check)
     ;;
@@ -15,13 +21,10 @@ case "$BKJS_CMD" in
     if [ ! -d $root ]; then
         case "$OS_TYPE" in
           alpine)
-            arch=$(uname -m)
-            [ "$arch" = "x86_64" ] && arch=amd64
-            [ "$arch" = "aarch64" ] && arch=arm64
             mkdir -p $root/bin $root/etc $root/logs $root/var
             (cd $root/bin &&
-                curl -OL https://amazoncloudwatch-agent.s3.amazonaws.com/nightly-build/latest/linux_$arch/amazon-cloudwatch-agent &&
-                curl -OL https://amazoncloudwatch-agent.s3.amazonaws.com/nightly-build/latest/linux_$arch/config-translator &&
+                curl -OL https://amazoncloudwatch-agent.s3.amazonaws.com/nightly-build/latest/linux_$OS_ARCH/amazon-cloudwatch-agent &&
+                curl -OL https://amazoncloudwatch-agent.s3.amazonaws.com/nightly-build/latest/linux_$OS_ARCH/config-translator &&
                 chmod 755 $root/bin/*)
             ;;
 
@@ -78,12 +81,6 @@ case "$BKJS_CMD" in
         ;;
     esac
     exit
-    ;;
-
-  help)
-    echo ""
-    echo "  ec2-cwagent-get - install AWS Cloudwatch agent to send backend logs to Cloudwatch Logs"
-    echo "  ec2-cwagent-check - check AWS Cloudwatch agent config and restart if different"
     ;;
 
 esac

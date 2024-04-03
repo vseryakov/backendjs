@@ -6,6 +6,11 @@
 
 case "$BKJS_CMD" in
 
+  help|install-help)
+    echo ""
+    echo "  install-node [-prefix PATH] [-force] [-clean] [-tgz TGZ] - install binary release of the node into $BKJS_HOME or specified path"
+    ;;
+
   install-node)
     if [ -n "$(get_flag -force)" -a -f $BKJS_HOME/bin/node ]; then
         echo "Uninstalling node from $BKJS_HOME ..."
@@ -35,8 +40,4 @@ case "$BKJS_CMD" in
     exit
     ;;
 
-  help)
-    echo ""
-    echo "  install-node [-prefix PATH] [-force] [-clean] [-tgz TGZ] - install binary release of the node into $BKJS_HOME or specified path"
-    ;;
 esac

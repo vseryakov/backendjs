@@ -6,6 +6,11 @@
 
 case "$BKJS_CMD" in
 
+  help|sync-help)
+    echo
+    echo "  sync [-host HOST] [-path PATH] [-del] [-user USER] [-ssh-key pem] [-ssh OPTS] [-exclude PATTERN] [-bkcmd CMD] - push the backend code to the remote host using rsync, default path is ~/node_modules"
+    ;;
+
   sync)
     # Put backend code to the remote site
     host=$(get_arg -host $BKJS_HOST)
@@ -46,9 +51,4 @@ case "$BKJS_CMD" in
     exit
     ;;
 
-  help)
-    echo
-    echo "  sync [-host HOST] [-path PATH] [-del] [-user USER] [-ssh-key pem] [-ssh OPTS] [-exclude PATTERN] [-bkcmd CMD] - push the backend code to the remote host using rsync, default path is ~/node_modules"
-    ;;
-    
 esac

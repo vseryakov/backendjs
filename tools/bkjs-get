@@ -2,6 +2,12 @@
 
 case "$BKJS_CMD" in
 
+  help|get-help)
+    echo ""
+    echo "  get-json - read JSON from the input and show it nicely formatted"
+    echo "  get-jsval FILE PROP [DFLT] [realpath] - return a value from a JSON file by property name"
+    ;;
+
   get-json)
     exec node -e "console.log(util.inspect(JSON.parse(fs.readFileSync(0).toString()),null,null))"
     ;;
@@ -11,10 +17,5 @@ case "$BKJS_CMD" in
     exit
     ;;
 
-  help)
-    echo ""
-    echo "  get-json - read JSON from the input and show it nicely formatted"
-    echo "  get-jsval FILE PROP [DFLT] [realpath] - return a value from a JSON file by property name"
-    ;;
 esac
 

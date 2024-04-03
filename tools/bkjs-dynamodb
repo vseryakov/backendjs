@@ -5,6 +5,16 @@
 #
 
 case "$BKJS_CMD" in
+
+  help|dynamodb-help)
+    echo ""
+    echo "  dynamodb-init - download and install local DynamoDB, start the server"
+    echo "  dynamodb-get [-force] - install local DynamoDB server in $BKJS_HOME/dynamodb"
+    echo "  dynamodb-run [-memmax SZ] - run local DynamoDB server installed in $BKJS_HOME/dynamodb, data files in $BKJS_HOME/var"
+    echo "  dynamodb-stop - stop local DynamoDB server"
+    echo "  dynamodb-reset - remove local DynamoDB database and restart the server"
+    ;;
+
   dynamodb-init)
     ($0 dynamodb-get $(get_all_args))
     ($0 dynamodb-run $(get_all_args))
@@ -44,13 +54,5 @@ case "$BKJS_CMD" in
     exit
     ;;
 
-  help)
-    echo ""
-    echo "  dynamodb-init - download and install local DynamoDB, start the server"
-    echo "  dynamodb-get [-force] - install local DynamoDB server in $BKJS_HOME/dynamodb"
-    echo "  dynamodb-run [-memmax SZ] - run local DynamoDB server installed in $BKJS_HOME/dynamodb, data files in $BKJS_HOME/var"
-    echo "  dynamodb-stop - stop local DynamoDB server"
-    echo "  dynamodb-reset - remove local DynamoDB database and restart the server"
-    ;;
 esac
 

@@ -6,6 +6,14 @@
 
 case "$BKJS_CMD" in
 
+  help|nats-help)
+    echo ""
+    echo "  nats-get - install local NATS server in $BKJS_HOME/bin"
+    echo "  nats-getcli - install NATS command line tool in $BKJS_HOME/bin"
+    echo "  nats-run - run local NATS server installed in $BKJS_HOME/bin"
+    echo "  nats-stop - stop local NATS server"
+    ;;
+
   nats-get)
     platform=$(to_lower $PLATFORM)
     curl -L -o /tmp/nats.tgz https://github.com/nats-io/nats-server/releases/download/v2.9.15/nats-server-v2.9.15-$platform-$OS_ARCH.tar.gz
@@ -59,12 +67,5 @@ case "$BKJS_CMD" in
     exit
     ;;
 
-  help)
-    echo ""
-    echo "  nats-get - install local NATS server in $BKJS_HOME/bin"
-    echo "  nats-getcli - install NATS command line tool in $BKJS_HOME/bin"
-    echo "  nats-run - run local NATS server installed in $BKJS_HOME/bin"
-    echo "  nats-stop - stop local NATS server"
-    ;;
 esac
 

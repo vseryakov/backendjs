@@ -6,6 +6,11 @@
 
 case "$BKJS_CMD" in
 
+  help|bundle-help)
+    echo
+    echo "  bundle [-file FILE|(js|css|html)|BUNDLE.(js|css|html)] [-dirs DIRS...] [-find DIRS...] [-gzip] [-dev DEV] [-uglifyargs ARGS] [-all] [-force] [-clean] - produce a web bundle by uglifying js/css/html files into one file, resolves files from package.json"
+    ;;
+
   bundle)
     # Rebuild all inside of the specified folders
     dirs=$(get_arg -dirs)
@@ -18,12 +23,12 @@ case "$BKJS_CMD" in
         skip=$(get_arg -skip)
         filter=$(get_arg -filter)
         args=$(get_all_args "-dirs -find -skip -filter")
-        [ -n "$BKJS_DEBUG" ] && echo "$(date): $BKJS_CMD: dirs: $dirs, args: $args"
+        debug dirs: $dirs, args: $args
         for dir in $dirs; do
             if match $dir $skip; then continue; fi
             if [ -n "$filter" ] && match $dir $filter; then continue; fi
             $BKJS_BIN $BKJS_CMD -dir $dir $args
-            [ "$?" != "0" ] && echo "$(date): $BKJS_CMD: dir $dir failed" && exit 1
+            [ "$?" != "0" ] && msg "dir $dir failed" && exit 1
         done
         exit 0
     fi
@@ -39,12 +44,12 @@ case "$BKJS_CMD" in
 
         [ -f package.json ] && bundles=$(get_json_flat package.json config.bundles)
 
-        [ -n "$BKJS_DEBUG" ] && echo "$(date): $BKJS_CMD: all: $bundles"
+        debug all: $bundles
 
         for b in $bundles; do
             for t in css js; do
                 $BKJS_BIN $BKJS_CMD -file $b.$t $(get_all_args "-all -file")
-                [ "$?" != "0" ] && echo "$(date): $BKJS_CMD: bundle $b failed" && exit 1
+                [ "$?" != "0" ] && msg "bundle $b failed" && exit 1
             done
         done
 
@@ -92,7 +97,7 @@ case "$BKJS_CMD" in
        fopts="$fopts realpath"
     fi
     if [ ! -f $dir/package.json ]; then
-       echo "$(date): $BKJS_CMD: package.json is not found"
+       msg "package.json is not found"
        exit 1
     fi
     [ "$type" = "html" ] && type=js
@@ -100,7 +105,7 @@ case "$BKJS_CMD" in
 
     [ -f $dir/package.json ] && bundles=$(get_json_flat $dir/package.json config.bundles)
 
-    [ "$quiet" = "" ] && echo "$(date): $BKJS_CMD: $repo: $dir: $name.$type.$dev FILE: $file BUNDLES: $bundles"
+    [ "$quiet" = "" ] && msg "$repo: $dir: $name.$type.$dev FILE: $file BUNDLES: $bundles"
 
     for b in $bundles; do
         unset sources
@@ -114,7 +119,7 @@ case "$BKJS_CMD" in
             sources=$(get_json_flat package.json config.bundles.$b.$type "" "$fopts")
             [ "$?" != "0" ] && exit 1
         fi
-        [[ -n "$BKJS_DEBUG" ]] && echo "$(date): $BKJS_CMD: $b.$type.$dev: $fopts FILES: $sources"
+        debug $b.$type.$dev: $fopts FILES: $sources
 
         [[ -z "$sources" ]] && continue
 
@@ -122,7 +127,7 @@ case "$BKJS_CMD" in
             files=$sources
             bundle=$b
 
-            [[ -n "$BKJS_DEBUG" ]] && echo "$(date): $BKJS_CMD: $bundle.$type: started $dir/$file, files: $files"
+            debug $bundle.$type: started $dir/$file, files: $files
 
             case $file in
             *.js|*.html)
@@ -130,9 +135,9 @@ case "$BKJS_CMD" in
                 echo "" > $dir/web/js/$bundle.bundle.js
                 jsfiles=""
                 for f in $files; do
-                    [ ! -s $f ] && echo "$(date): $BKJS_CMD: $bundle.$type: $f not found" && exit 1
+                    [ ! -s $f ] && msg "$bundle.$type: $f not found" && exit 1
 
-                    [[ -n "$BKJS_DEBUG" ]] && echo "$(date): $BKJS_CMD: $bundle.$type: $f"
+                    debug $bundle.$type: $f
 
                     case $f in
                     *.min.js)
@@ -183,17 +188,12 @@ case "$BKJS_CMD" in
                 ;;
             esac
 
-            [[ -n "$BKJS_DEBUG" ]] && echo "$(date): $BKJS_CMD: $dir/web/$type/$bundle.bundle.$type finished"
+            debug $dir/web/$type/$bundle.bundle.$type finished
         fi
     done
-    [[ -n "$BKJS_DEBUG" && -z "$files" ]] && echo "$(date): $BKJS_CMD: no $type config.bundles found in $dir/package.json"
+    [ -z "$files" ] && debug no $type config.bundles found in $dir/package.json
 
     exit 0
-    ;;
-
-  help)
-    echo
-    echo "  bundle [-file FILE|(js|css|html)|BUNDLE.(js|css|html)] [-dirs DIRS...] [-find DIRS...] [-gzip] [-dev DEV] [-uglifyargs ARGS] [-all] [-force] [-clean] - produce a web bundle by uglifying js/css/html files into one file, resolves files from package.json"
     ;;
 
 esac

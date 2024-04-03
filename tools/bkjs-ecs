@@ -6,6 +6,15 @@
 
 case "$BKJS_CMD" in
 
+  help|ecs-help)
+    echo ""
+    echo "  ecs-ls [-cluser $BKJS_CLUSTER] [-service SN] [-status RUNNING|STOPPED] - show running tasks in the cluster for a service"
+    echo "  ecs-ps [-cluser $BKJS_CLUSTER] [-task ID] [-service S] [-index I] - show task details"
+    echo "  ecs-sh [-cluser $BKJS_CLUSTER] [-service SN] [-task ID] [-index I] - run shell in the given task for the given service, for multiple tasks -index can use specific task"
+    echo "  ecs-run -task NAME [-cluser $BKJS_CLUSTER] [-type EC2|FARGATE] [-provider FARGATE_SPOT] [-ip] [-gid ID] [-group NAME] [-sid ID] [-subnet NAME] [-cpu N] [-memory N] [-tag T] [-arm64] [-exec] [-tag T] [-env VARS] [-name N] [-dry-tun] - run an ECS task in subnets with security groups, overrides cpu/mem, pass tag to bkjs process as instance tag"
+    echo "  ecs-update -service NAME [-cluser $BKJS_CLUSTER] [-force] [-healthcheck SECS] [-placement LIST] [-constraints LIST] [-max-percent P] [-min-healthy P] [-circuit-breaker true|false] [-rollback true|false] [-provider FARGATE_SPOT] [-ip] [-gid ID] [-group NAME] [-sid ID] [-subnet NAME] [-dry-tun] - update an ECS service deployment"
+    ;;
+
   ecs-ls)
     cluster=$(get_arg -cluster $BKJS_ECS_CLUSTER)
     status=$(get_arg -status RUNNING)
@@ -95,7 +104,7 @@ case "$BKJS_CMD" in
     fi
     [ -n "$network" ] && cmd="$cmd --network-configuration awsvpcConfiguration={$network}"
 
-    [ ! -z "$BKJS_DEBUG" ] && echo $cmd
+    debug $cmd
     [ ! -z $(get_flag -dry-run) ] && echo $cmd && exit
 
     $cmd
@@ -171,19 +180,11 @@ case "$BKJS_CMD" in
         cmd="$cmd --capacity-provider-strategy capacityProvider=$(get_arg -provider FARGATE)"
     fi
 
-    [ -n "$BKJS_DEBUG" ] && echo $cmd
+    debug $cmd
     [ -n "$(get_flag -dry-run)" ] && echo $cmd && exit
 
     $cmd
     exit
     ;;
 
-  help)
-    echo ""
-    echo "  ecs-ls [-cluser $BKJS_CLUSTER] [-service SN] [-status RUNNING|STOPPED] - show running tasks in the cluster for a service"
-    echo "  ecs-ps [-cluser $BKJS_CLUSTER] [-task ID] [-service S] [-index I] - show task details"
-    echo "  ecs-sh [-cluser $BKJS_CLUSTER] [-service SN] [-task ID] [-index I] - run shell in the given task for the given service, for multiple tasks -index can use specific task"
-    echo "  ecs-run -task NAME [-cluser $BKJS_CLUSTER] [-type EC2|FARGATE] [-provider FARGATE_SPOT] [-ip] [-gid ID] [-group NAME] [-sid ID] [-subnet NAME] [-cpu N] [-memory N] [-tag T] [-arm64] [-exec] [-tag T] [-env VARS] [-name N] [-dry-tun] - run an ECS task in subnets with security groups, overrides cpu/mem, pass tag to bkjs process as instance tag"
-    echo "  ecs-update -service NAME [-cluser $BKJS_CLUSTER] [-force] [-healthcheck SECS] [-placement LIST] [-constraints LIST] [-max-percent P] [-min-healthy P] [-circuit-breaker true|false] [-rollback true|false] [-provider FARGATE_SPOT] [-ip] [-gid ID] [-group NAME] [-sid ID] [-subnet NAME] [-dry-tun] - update an ECS service deployment"
-    ;;
 esac

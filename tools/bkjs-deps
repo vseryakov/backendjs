@@ -6,6 +6,11 @@
 
 case "$BKJS_CMD" in
 
+  help|deps-help)
+    echo
+    echo "  deps [-fields dependencies,devDependencies] [-path .] [-dirs LIST] [-skip REGEXP] [-prod] [-global] [-update] [-mods] [-strict] [-check] [-npm ARGS] - install or show npm dependencies from the package.json, optional bkjs modules require -mods flag"
+    ;;
+
   deps)
     NPM_BIN=$BKJS_HOME/bin/npm
     [ ! -f $NPM_BIN ] && NPM_BIN=$(which npm 2>/dev/null)
@@ -54,9 +59,4 @@ case "$BKJS_CMD" in
     exit
     ;;
 
-  help)
-    echo
-    echo "  deps [-fields dependencies,devDependencies] [-path .] [-dirs LIST] [-skip REGEXP] [-prod] [-global] [-update] [-mods] [-strict] [-check] [-npm ARGS] - install or show npm dependencies from the package.json, optional bkjs modules require -mods flag"
-    ;;
-    
 esac

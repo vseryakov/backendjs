@@ -1,21 +1,14 @@
 #!/bin/sh
 
-run_ssh_command() {
-    [ -z "$1" -o -z "$2" -o -z "$3" -o -z "$4" ] && echo "run ssh: invalid args: $@" && return 1
-    if ! match $1 "[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+"; then echo "run ssh: invalid IP: $@" && return 1; fi
-    i=0
-    ready=
-    while [ $i -lt 10 ]; do
-        ready=$(ssh -o StrictHostKeyChecking=no -o CheckHostIP=no -o ConnectTimeout=2 $2@$1 "$3")
-        if match "$ready" "$4"; then return 0; fi
-        sleep 5
-        i=$((i + 1))
-    done
-    echo "run ssh: $2@$1 is not ready: $ready"
-    return 1
-}
-
 case "$BKJS_CMD" in
+
+  help|ec2-help)
+    echo
+    echo "  ec2-create-ami [-tag NAME] [-prefix PREFIX] - create a new AMI from the given running instance by tag or the current instance"
+    echo "  ec2-create-launch-template-version [-name NAME] [-tag TAG] [-skip A B] [-image-name *] - create new launch template verson with the latest AMI, if no -name is given all existing templates matched by tag if given will be updated"
+    echo "  ec2-build-ami - [-ami ID] [-size G] [-ami-user alpine] - build a new AMI for Alpine Linux, runs alpine-build-ami-hook for actual setup"
+    echo "  ec2-build-ami-hook - actual new AMI build script after it is launched and ssh is ready: INSTANCE_USER, INSTANCE_HOST, INSTANCE_ID, INSTANCE_IP, INSTANCE_ARCH are set"
+    ;;
 
   ec2-create-ami)
     tag=$(get_arg -tag)
@@ -54,10 +47,12 @@ case "$BKJS_CMD" in
     type=$(get_arg -instance-type t4g.micro)
     size=$(get_arg -dev-size 10)
 
-    INSTANCE_INFO=$($BKJS_BIN shell -no-db -ipc-none -aws-launch-instances -name $tag -image-id $ami -instance-type $type -dev-size $size -public-ip -wait)
-    echo "$INSTANCE_INFO"
+    INFO=$($BKJS_BIN shell -no-db -ipc-none -aws-launch-instances -name $tag -image-id $ami -instance-type $type -dev-size $size -public-ip -wait)
+    echo "$INFO"
 
-    INSTANCE_HOST=$(echo "$INSTANCE_INFO"|egrep -E "^EC2-Instance:"|cut -d' ' -f3)
+    INSTANCE_INFO=$(echo "$INFO"|egrep -E "^EC2-Instance:")
+    INSTANCE_ID=$(echo "$INSTANCE_INFO"|cut -d' ' -f2)
+    INSTANCE_HOST=$(echo "$INSTANCE_INFO"|cut -d' ' -f3)
     [ -z "$INSTANCE_HOST" ] && echo "no instance host detected" && exit 1
 
     # Remove existing host due to recyling in the same VPC
@@ -70,30 +65,24 @@ case "$BKJS_CMD" in
 
     INSTANCE_USER=$(get_arg -ami-user alpine)
 
-    echo "Connecting to $INSTANCE_HOST as $INSTANCE_USER"
-    run_ssh_command $INSTANCE_HOST $INSTANCE_USER "uname -s" Linux
+    echo "Connecting to $INSTANCE_ID as $INSTANCE_USER@$INSTANCE_HOST"
+    run_ssh_cmd $INSTANCE_HOST $INSTANCE_USER "uname -s" Linux
     [ "$?" != "0" ] && exit 1
 
     # Run the hooks to do the actual work now
-    INSTANCE_ID=$(echo "$INSTANCE_INFO"|egrep -E "^EC2-Instance:"|cut -d' ' -f2)
-    BKJS_CMD=ec2-build-ami-hook
-    bkjs_cmd
+    INSTANCE_IP=$(echo "$INSTANCE_INFO"|cut -d' ' -f4)
+    INSTANCE_ARCH=$(echo "$INSTANCE_INFO"|cut -d' ' -f5)
+    INSTANCE_TAG=$(echo "$INSTANCE_INFO"|cut -d' ' -f6)
+    run_bkjs_cmd $BKJS_CMD-hook 1
     exit
     ;;
 
   ec2-build-ami-hook)
+    # Default hooks to build Alpine image
     ssh $INSTANCE_USER@$INSTANCE_HOST "doas apk add git && git clone --depth=1 https://github.com/vseryakov/backendjs.git && doas backendjs/bkjs setup-ec2 && doas reboot"
     echo
     echo "now you can ssh into $INSTANCE_ID AS ec2-user@$INSTANCE_HOST"
     exit
-    ;;
-
-  help)
-    echo
-    echo "  ec2-create-ami [-tag NAME] [-prefix PREFIX] - create a new AMI from the given running instance by tag or the current instance"
-    echo "  ec2-create-launch-template-version [-name NAME] [-tag TAG] [-skip A B] [-image-name *] - create new launch template verson with the latest AMI, if no -name is given all existing templates matched by tag if given will be updated"
-    echo "  ec2-build-ami - [-ami ID] [-size G] [-ami-user alpine] - build a new AMI for Alpine Linux, runs alpine-build-ami-hook for actual setup"
-    echo "  ec2-build-ami-hook - actual new AMI build script after it is launched and ssh is ready: INSTANCE_USER, INSTANCE_HOST, INSTANCE_ID, INSTANCE_INFO are set"
     ;;
     
 esac

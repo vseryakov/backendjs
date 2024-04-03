@@ -1077,20 +1077,29 @@ The utility is extended via external scripts that reside in the `tools/` folders
 When bkjs is running it treats the first arg as a command:
 
 - `$BKJS_CMD` set to the whole comamnd
-- `$BKJS_MODULE` set to the first part of the command split by dash, i.e. command module
 
-if no internal commands match it starts loading external scripts that start with `bkjs-$BKJS_MODULE` from the following directories:
+if no internal commands match it starts loading external scripts that match with `bkjs-PART1-*` where
+PART1 is the first part of the command before first dash.
 
-- via `-tools` command line argument if provided
+For example, when called:
+
+    bkjs ec2-check-hostname
+
+it will check the command in main bkjs cript, not found it will search for all files that
+match `bkjs-ec2-*` in all known folders.
+
+The file are loaded from following directories in this particular order:
+
+- in the filder specified by the `-tools` command line argument
 - $(pwd)/tools
 - `$BKJS_TOOLS`,
 - `$BKJS_HOME/tools`
 - `$BKJS_DIR/tools`
 
-`BKJS_DIR` always points to the backendjs installation directory, thus internal backendjs commands will be checked first.
+`BKJS_DIR` always points to the backendjs installation directory.
 
 `BLKJS_TOOLS` env variable may contain a list of directories separated by `spaces`, this variable or command line arg `-tools` is the way to add
-custom commands to bkjs. BKJS_TOOLS var is usually set in one of the profile config files mentioned above.
+custom commands to bkjs. `BKJS_TOOLS` var is usually set in one of the profile config files mentioned above.
 
 Example of a typical bkjs command:
 
@@ -1099,31 +1108,31 @@ We need to set BKJS_TOOLS to point to our package(s), on Darwin add it to ~/.bkj
     BKJS_TOOLS="$HOME/src/node-pkg/tools"
 
 
-Create a file `/Users/user/src/node-pkg/tools/bkjs-cmd`
+Create a file `$HOME/tools/bkjs-super`
 
     #!/bin/sh
 
     case "$BKJS_CMD" in
-      cmd)
+      super)
        arg1=$(get_arg -arg1)
        arg2=$(get_arg -arg1 1)
        [ -z $arg1 ] && echo "-arg1 is required" && exit 1
        ...
        exit
 
-      cmd-all)
+      super-all)
        ...
        exit
        ;;
 
       help)
        echo ""
-       echo "$0 cmd -arg1 ARG -arg2 ARG ..."
-       echo "$0 cmd-all ...."
+       echo "$0 super -arg1 ARG -arg2 ARG ..."
+       echo "$0 super-all ...."
        ;;
     esac
 
-Now calling `bkjs cmd` or `bkjs cmd-all` will use the new bkjs-cmd file
+Now calling `bkjs super` or `bkjs super-all` will use the new `$HOME/tools/bkjs-super` file.
 
 # Web development notes
 

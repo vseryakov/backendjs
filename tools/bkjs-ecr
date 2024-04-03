@@ -6,6 +6,16 @@
 
 case "$BKJS_CMD" in
 
+  help|ecr-help)
+    echo ""
+    echo "  ecr-get [-account ID] [-region R] [-login] - login into ECR if required or return ECR host name"
+    echo "  ecr-push -repo REPO -image IMAGE [-tag latest|TAG|VERSION] [-latest] [-create] [-login 0|1] - tag and push a docker image to ECR, create if needed, -latest also pushes it as :latest if -tag is different"
+    echo "  ecr-tag -repo REPO -image IMAGE [-ecr ECR] [-tag latest] - tag and push a docker image to ECR, repository must exist"
+    echo "  ecr-create -repo REPO [-region R] - create a repo if not exist"
+    echo "  ecr-del -tag NAME -repo REPO - delete an image from repo by tag"
+    echo "  ecr-manifest -tag NAME -repo REPO -arm ARMTAG -amd AMDTAG - combine ARM and AMD platforms into one container using manifest"
+    ;;
+
  ecr-get)
     id=$(get_arg -account $BKJS_ECR_ACCOUNT)
     [ -z $id ] && id=$($0 ec2-account)
@@ -103,13 +113,4 @@ case "$BKJS_CMD" in
     exit
     ;;
 
-  help)
-    echo ""
-    echo "  ecr-get [-account ID] [-region R] [-login] - login into ECR if required or return ECR host name"
-    echo "  ecr-push -repo REPO -image IMAGE [-tag latest|TAG|VERSION] [-latest] [-create] [-login 0|1] - tag and push a docker image to ECR, create if needed, -latest also pushes it as :latest if -tag is different"
-    echo "  ecr-tag -repo REPO -image IMAGE [-ecr ECR] [-tag latest] - tag and push a docker image to ECR, repository must exist"
-    echo "  ecr-create -repo REPO [-region R] - create a repo if not exist"
-    echo "  ecr-del -tag NAME -repo REPO - delete an image from repo by tag"
-    echo "  ecr-manifest -tag NAME -repo REPO -arm ARMTAG -amd AMDTAG - combine ARM and AMD platforms into one container using manifest"
-    ;;
 esac

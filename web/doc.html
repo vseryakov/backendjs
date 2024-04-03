@@ -1003,8 +1003,7 @@ which is used in the backend development and can be useful for others running or
     /etc/sysconfig/bkjs
 </code></pre>
 <p>Then it try to source all local config files:</p>
-<pre><code>    $HOME/.env
-    $BKJS_HOME/etc/profile
+<pre><code>    $BKJS_HOME/etc/profile
     $BKJS_HOME/etc/profile.local
 </code></pre>
 <p>Any of the following config files can redefine any environment variable thus pointing to the correct backend environment directory or
@@ -1052,47 +1051,53 @@ cmd1)
 <p>When bkjs is running it treats the first arg as a command:</p>
 <ul>
 <li><code>$BKJS_CMD</code> set to the whole comamnd</li>
-<li><code>$BKJS_MODULE</code> set to the first part of the command split by dash, i.e. command module</li>
 </ul>
-<p>if no internal commands match it starts loading external scripts that start with <code>bkjs-$BKJS_MODULE</code> from the following directories:</p>
+<p>if no internal commands match it starts loading external scripts that match with <code>bkjs-PART1-*</code> where
+PART1 is the first part of the command before first dash.</p>
+<p>For example, when called:</p>
+<pre><code>bkjs ec2-check-hostname
+</code></pre>
+<p>it will check the command in main bkjs cript, not found it will search for all files that
+match <code>bkjs-ec2-*</code> in all known folders.</p>
+<p>The file are loaded from following directories in this particular order:</p>
 <ul>
-<li>via <code>-tools</code> command line argument if provided</li>
+<li>in the filder specified by the <code>-tools</code> command line argument</li>
 <li>$(pwd)/tools</li>
 <li><code>$BKJS_TOOLS</code>,</li>
 <li><code>$BKJS_HOME/tools</code></li>
 <li><code>$BKJS_DIR/tools</code></li>
 </ul>
-<p><code>BKJS_DIR</code> always points to the backendjs installation directory, thus internal backendjs commands will be checked first.</p>
+<p><code>BKJS_DIR</code> always points to the backendjs installation directory.</p>
 <p><code>BLKJS_TOOLS</code> env variable may contain a list of directories separated by <code>spaces</code>, this variable or command line arg <code>-tools</code> is the way to add
-custom commands to bkjs. BKJS_TOOLS var is usually set in one of the profile config files mentioned above.</p>
+custom commands to bkjs. <code>BKJS_TOOLS</code> var is usually set in one of the profile config files mentioned above.</p>
 <p>Example of a typical bkjs command:</p>
 <p>We need to set BKJS_TOOLS to point to our package(s), on Darwin add it to ~/.bkjs/etc/profile as</p>
 <pre><code>BKJS_TOOLS=&quot;$HOME/src/node-pkg/tools&quot;
 </code></pre>
-<p>Create a file <code>/Users/user/src/node-pkg/tools/bkjs-cmd</code></p>
+<p>Create a file <code>$HOME/tools/bkjs-super</code></p>
 <pre><code>#!/bin/sh
 
 case &quot;$BKJS_CMD&quot; in
-  cmd)
+  super)
    arg1=$(get_arg -arg1)
    arg2=$(get_arg -arg1 1)
    [ -z $arg1 ] &amp;&amp; echo &quot;-arg1 is required&quot; &amp;&amp; exit 1
    ...
    exit
 
-  cmd-all)
+  super-all)
    ...
    exit
    ;;
 
   help)
    echo &quot;&quot;
-   echo &quot;$0 cmd -arg1 ARG -arg2 ARG ...&quot;
-   echo &quot;$0 cmd-all ....&quot;
+   echo &quot;$0 super -arg1 ARG -arg2 ARG ...&quot;
+   echo &quot;$0 super-all ....&quot;
    ;;
 esac
 </code></pre>
-<p>Now calling <code>bkjs cmd</code> or <code>bkjs cmd-all</code> will use the new bkjs-cmd file</p>
+<p>Now calling <code>bkjs super</code> or <code>bkjs super-all</code> will use the new <code>$HOME/tools/bkjs-super</code> file.</p>
 <h1 id="web-development-notes">Web development notes</h1>
 <p>Then run the dev build script to produce web/js/bkjs.bundle.js and web/css/bkjs.bundle.css</p>
 <pre><code>cd node_modules/backendjs &amp;&amp; npm run devbuild

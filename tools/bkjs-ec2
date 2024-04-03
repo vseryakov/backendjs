@@ -4,18 +4,6 @@
 #  Sep 2013
 #
 
-get_ec2_param() {
-    local v=$(aws ssm get-parameter --name $1 |node -e 'var d="";process.stdin.on("data",(c)=>{d+=c});process.stdin.on("end",()=>{try{console.log(JSON.parse(d).Parameter.Value)}catch(e){};process.exit()})')
-    echo ${v-:$2}
-}
-
-get_ec2_meta() {
-    local T= v=$(curl -m 0.2 -s http://169.254.169.254/$1)
-    [ "$?" != "0" ] && return
-    [ -z "$v" ] && T=`curl -m 0.2 -s -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 30"` && v=$(curl -m 0.2 -H "X-aws-ec2-metadata-token: $T" -s http://169.254.169.254/$1)
-    echo $v
-}
-
 case "$BKJS_CMD" in
 
   start-hook)

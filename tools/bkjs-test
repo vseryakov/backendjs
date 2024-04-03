@@ -1,6 +1,14 @@
 #!/bin/sh
 
 case "$BKJS_CMD" in
+
+  help|test-help)
+    echo ""
+    echo "  test-all [-path P] [-skip F] [-filter F] [-log L] - run all tests in the local tests/ folder, skip/filter control which files to run"
+    echo "  test-packages [-path P] [-skip F] [-filter F] [-test-config C] - run all tests for all packages, skip/filter can control what to run/skip"
+    echo "  test-FILE [-path P] [-test NAME] [-test-config C] - run a test function test-NAME in the script file tests/FILE.js"
+    ;;
+
   test-all)
     nolog=-no-log-filter
     log=$(get_arg -log none)
@@ -53,11 +61,5 @@ case "$BKJS_CMD" in
     exec $0 shell -test-config $config,$tests/config,$tests/config.$file -test-file $tests/$file.js -run-ipc -run-api -run-worker $(get_all_args "-test -test-config") -test-run $test
     ;;
 
-  help)
-    echo ""
-    echo "  test-all [-path P] [-skip F] [-filter F] [-log L] - run all tests in the local tests/ folder, skip/filter control which files to run"
-    echo "  test-packages [-path P] [-skip F] [-filter F] [-test-config C] - run all tests for all packages, skip/filter can control what to run/skip"
-    echo "  test-FILE [-path P] [-test NAME] [-test-config C] - run a test function test-NAME in the script file tests/FILE.js"
-    ;;
 esac
 

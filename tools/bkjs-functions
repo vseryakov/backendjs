@@ -1,0 +1,233 @@
+#!/bin/sh
+#
+#  Author: Vlad Seryakov vseryakov@gmail.com
+#  Apr 2024
+#
+
+# Initial bootstraping, pass original args as $@
+bkjs_init() {
+
+    # Save all cmdline args
+    BKJS_ARGC=0
+    for arg in "$@"; do
+        eval "BKJS_ARGV$BKJS_ARGC=\$arg"
+        BKJS_ARGC=$((BKJS_ARGC + 1))
+    done
+
+    # Detect platforms
+    PLATFORM=$(uname -s)
+    case "$PLATFORM" in
+    Linux)
+        export OS_NAME=$(grep -s PRETTY_NAME /etc/os-release)
+        case "$OS_NAME" in
+        *Amazon*)
+            export OS_TYPE=amazon
+            ;;
+
+        *Alpine*)
+            export OS_TYPE=alpine
+            ;;
+        esac
+        for d in /etc/conf.d /etc/sysconfig; do
+            [ -f $d/bkjs ] && . $d/bkjs
+        done
+        SED="sed -r -i"
+        ;;
+
+    Darwin)
+        export OS_TYPE=macosx
+        SED="sed -E -i .orig"
+        ;;
+    esac
+
+    MACHINE=$(uname -m)
+    export OS_ARCH=$(to_docker_arch $MACHINE)
+
+    # Home and prefix must be specified for the script to work properly
+    export BKJS_HOME=$(get_arg -home ${BKJS_HOME:-~/.bkjs})
+    export BKJS_USER=$(get_arg -user ${BKJS_USER:-$(whoami)})
+
+    # Load user profiles
+    for f in profile profile.local; do
+        [ -f $BKJS_HOME/etc/$f ] && . $BKJS_HOME/etc/$f
+    done
+
+    # Start trace as soon as possible
+    trace=$(get_arg -trace $BKJS_TRACE)
+    [ -n "$trace" ] && exec >>$trace 2>&1
+
+    [ -n "$(get_flag -syslog)" ] && export BKJS_ECHO="logger -s" || export BKJS_ECHO=echo
+
+    export BKJS_DEBUG=$(get_flag -debug)
+
+    export PATH=$BKJS_HOME/bin:$BKJS_HOME/node_modules/.bin:/app/bin:/usr/local/bin:/opt/local/bin:/sbin:/usr/sbin:$PATH
+}
+
+# Standard logger
+msg() {
+    $BKJS_ECHO $(date): $PPID: $BKJS_BIN: $BKJS_CMD: $@
+}
+
+# Output only if -debug is on
+debug() {
+    [ -n "$BKJS_DEBUG" ] && msg $@
+}
+
+# Returns an argument value by name in $1 or default in $2, format is -name value
+get_arg() {
+  local i=0
+  while [ $i -lt $BKJS_ARGC ]; do
+    local n=$(eval "echo \$BKJS_ARGV$i")
+    local v=$(eval "echo \"\$BKJS_ARGV$((i+1))\"")
+    if [ "$1" = "$n" ]; then
+        if [ -n "$v" ] && ! match "$v" "^\-"; then echo "$v" && return 0; fi
+        [ -n "$3" ] && echo "$3" && return 0
+    fi
+    i=$((i + 1))
+  done
+  echo "$2"
+}
+
+# Returns 1 if an $1 exists or the value is 0,1
+get_flag() {
+    echo $(get_arg $1 "$2" 1)
+}
+
+# Returns all commandline arguments not present in $1
+get_all_args() {
+    local i=0 sep=${2:-"\""}
+    while [ $i -lt $BKJS_ARGC ]; do
+        local found=""
+        local n=$(eval "echo \$BKJS_ARGV$i")
+        local v=$(eval "echo \"\$BKJS_ARGV$((i+1))\"")
+        for a in $1; do
+            [ "$n" = "$a" ] && found=1
+        done
+        if [ -z "$found" ]; then
+            if ! match "$n" "[ '\"]"; then
+                args="$args $n"
+            else
+                args="$args $sep$n$sep"
+            fi
+            if [ -n "$v" -a "${v:0:1}" != "-" ]; then
+                if ! match "$v" "[ '\"]"; then
+                    args="$args $v"
+                else
+                    args="$args $sep$v$sep"
+                fi
+            fi
+        fi
+        i=$((i + 1))
+        [ "${v:0:1}" != "-" ] && i=$((i + 1))
+    done
+    echo "$args"
+}
+
+# Concatenate args
+concat_arg() {
+    local _v=$(get_arg $1)
+    [ -z "$_v" ] && echo $2
+    [ -n "$2" ] && _v="$2 $_v"
+    echo "$_v"
+}
+
+# Return 1 if 1st arg matches regexp in 2nd arg
+match() {
+    if [[ -n "$1" && -n "$2" ]] && echo "$1" | egrep -E -q "$2"; then return 0; fi
+      return 1
+}
+
+# Local IP address, not localhost
+get_local_ip() {
+    echo $(/sbin/ifconfig eth${1:-0}|grep -o -E '(inet [0-9.]+|inet addr:[0-9.]+)'|tr : ' '|awk '{print $NF}')
+}
+
+# Return the value for a property from a json file: get_json file.json name fallback realpath VAR
+get_json() {
+    node -e "try{o=JSON.parse(fs.readFileSync('$1'));v=o.$2||o['$3'];if(Array.isArray(v)){if('$4'.includes('realpath'))v=v.map(x=>(!x.includes('@')&&fs.realpathSync(x)||x));v=v.join(' ')};if(v&&typeof v=='object')v=Object.keys(v).join(' ');if(typeof v!='undefined')console.log(v)}catch(e){if('$BKJS_DEBUG')console.error('get_json:','$1','$2',e);process.exit(1)}"
+}
+
+# Same as get_json but object properties are flattened first to support property names with spaces or dashes
+get_json_flat() {
+    node -e "function f(o){var r={};for(var p in o){if(!Array.isArray(o[p])&&typeof o[p]=='object'){var a=f(o[p]);r[p]=Object.keys(o[p]);for(var x in a)r[p+'.'+x]=a[x]}else r[p]=o[p]};return r};try{o=f(JSON.parse(fs.readFileSync('$1')));v=o['$2']||o['$3'];if(Array.isArray(v)){if('$4'.includes('realpath'))v=v.map(x=>(!x.includes('@')&&fs.realpathSync(x)||x));v=v.join(' ')};if(v&&typeof v=='object')v=Object.keys(v).join(' ');if(typeof v!='undefined')console.log(v)}catch(e){if('$BKJS_DEBUG')console.error('get_json_flat:','$1','$2',e);process.exit(1)}"
+}
+
+# Utility functions
+to_lower() {
+    echo $1 | tr [:upper:] [:lower:]
+}
+to_upper() {
+    echo $1 | tr [:lower:] [:upper:]
+}
+
+# Return Alpine arch
+to_alpine_arch() {
+    case "$1" in
+    arm64|aarch64)
+        echo aarch64
+        ;;
+    amd64|x86_64)
+        echo x86_64
+        ;;
+    esac
+}
+
+# Return Docker arch
+to_docker_arch() {
+    case "$1" in
+    aarch64|arm64)
+        echo arm64
+        ;;
+    x86_64|amd64)
+        echo amd64
+        ;;
+    esac
+}
+
+# Run the command $1 by sourcing all scripts from tools folders for the module if $2 is not empty or for all
+run_bkjs_cmd() {
+    local _cmddir= _cmdscope= _cmdtools="$(get_arg -tools) ./tools $BKJS_TOOLS $BKJS_HOME/tools $BKJS_DIR/tools"
+    BKJS_CMD=$1
+    [ -z "$2" ] && _cmdscope='bkjs-*' || _cmdscope="bkjs-$(echo "$BKJS_CMD"|cut -d- -f1)*"
+    debug run_bkjs_cmd: $_cmdscope: tools: $_cmdtools
+    for _cmddir in $_cmdtools; do
+        if [ -d $_cmddir ]; then
+            local _cmdfiles=$(find $_cmddir \( -type f -o -type l \) -name "$_cmdscope")
+            debug run_bkjs_cmd: $_cmddir: files: $_cmdfiles
+            for _cmdfile in $_cmdfiles; do
+                source $_cmdfile
+            done
+        fi
+    done
+}
+
+# Run a command over ssh and match the output against regexp, try 10 times
+# arguments: IP user cmd expect
+run_ssh_cmd() {
+    [ -z "$1" -o -z "$2" -o -z "$3" -o -z "$4" ] && echo "run ssh: invalid args: $@" && return 1
+    if ! match $1 "[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+"; then echo "run ssh: invalid IP: $@" && return 1; fi
+    i=0
+    rc=
+    while [ $i -lt 10 ]; do
+        rc=$(ssh -o StrictHostKeyChecking=no -o CheckHostIP=no -o ConnectTimeout=2 $2@$1 "$3")
+        if match "$rc" "$4"; then return 0; fi
+        sleep 5
+        i=$((i + 1))
+    done
+    echo "run ssh: $2@$1 output not matched '$4' got: '$rc'"
+    return 1
+}
+
+# EC2 SSM paramater by $1 or default in $2
+get_ec2_param() {
+    local v=$(aws ssm get-parameter --name $1 |node -e 'var d="";process.stdin.on("data",(c)=>{d+=c});process.stdin.on("end",()=>{try{console.log(JSON.parse(d).Parameter.Value)}catch(e){};process.exit()})')
+    echo ${v-:$2}
+}
+
+# EC2 metadata value by $1
+get_ec2_meta() {
+    local T= v=$(curl -m 0.2 -s http://169.254.169.254/$1)
+    [ "$?" != "0" ] && return
+    [ -z "$v" ] && T=`curl -m 0.2 -s -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 30"` && v=$(curl -m 0.2 -H "X-aws-ec2-metadata-token: $T" -s http://169.254.169.254/$1)
+    echo $v
+}

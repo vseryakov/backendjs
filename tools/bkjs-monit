@@ -6,6 +6,14 @@
 
 case "$BKJS_CMD" in
 
+  help|monit-help)
+    echo ""
+    echo "  monit-init-system - setup system monitoring with monit, CPU, disk"
+    echo "  monit-init-bkjs - setup monit to keep bkjs service running without using any other services and monitor"
+    echo "  monit-init-alerts - setup monit mail alerts"
+    echo "  monit-init -name NAME [-gid G] [-timeout 30] [-cycles N] -start SCRIPT -stop SCRIPT - generate a monit service config"
+    ;;
+
   monit-init-system)
     interval=$(get_arg -interval 15)
     delay=$(get_arg -delay 0)
@@ -28,9 +36,7 @@ case "$BKJS_CMD" in
     uptime=$(stat -c %Z /proc/1/cmdline)
     [ -f $file -a "$(cat $file)" = "$uptime" ] && exit
     echo $uptime > $file
-    BKJS_MODULE=
-    BKJS_CMD=start-hook
-    run_bkjs_cmd
+    run_bkjs_cmd start-hook
     exit
     ;;
 
@@ -44,7 +50,7 @@ case "$BKJS_CMD" in
   monit-init-bkjs)
     timeout=$(get_arg -timeout 30)
     bin=$(get_arg -bin $BKJS_BIN)
-    echo -e "check process $BKJS with pidfile \"$BKJS_HOME/var/master.pid\" start program = \"$bin run-master $(get_all_args)\" as uid $BKJS_USER with timeout $timeout seconds stop program = \"$bin stop\"" > /etc/monit.d/$BKJS.conf
+    echo -e "check process bkjs with pidfile \"$BKJS_HOME/var/master.pid\" start program = \"$bin run-master $(get_all_args)\" as uid $BKJS_USER with timeout $timeout seconds stop program = \"$bin stop\"" > /etc/monit.d/bkjs.conf
     exit
     ;;
 
@@ -85,11 +91,4 @@ case "$BKJS_CMD" in
     exit
     ;;
 
-  help)
-    echo ""
-    echo "  monit-init-system - setup system monitoring with monit, CPU, disk"
-    echo "  monit-init-bkjs - setup monit to keep $BKJS service running without using any other services and monitor"
-    echo "  monit-init-alerts - setup monit mail alerts"
-    echo "  monit-init -name NAME [-gid G] [-timeout 30] [-cycles N] -start SCRIPT -stop SCRIPT - generate a monit service config"
-    ;;
 esac
