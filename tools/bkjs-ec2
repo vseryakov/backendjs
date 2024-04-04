@@ -114,9 +114,9 @@ case "$BKJS_CMD" in
   ec2-tag)
     tag=$(get_arg -tag Name)
     v=$(get_ec2_meta latest/meta-data/tags/instance/$tag)
-    [ -n "$v" -a "$?" = "0" ] && echo $v && exit
+    [ -n "$v" ] && echo $v && exit
     id=$(get_ec2_meta latest/meta-data/instance-id)
-    [ "$id" != "" ] && aws ec2 describe-tags --filter "Name=key,Values=$tag" "Name=resource-id,Values=$id" --output text| cut -f5|head -1
+    [ -n "$id" ] && aws ec2 describe-tags --filter "Name=key,Values=$tag" "Name=resource-id,Values=$id" --output text| cut -f5|head -1
     exit
     ;;
 

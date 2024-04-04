@@ -191,9 +191,14 @@ get_ec2_param() {
 
 # EC2 metadata value by $1
 get_ec2_meta() {
-    local T= v=$(curl -m 0.2 -s http://169.254.169.254/$1)
+    local T= v=$(curl -m 0.2 -s -f http://169.254.169.254/$1)
     [ "$?" != "0" ] && return
-    [ -z "$v" ] && T=`curl -m 0.2 -s -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 30"` && v=$(curl -m 0.2 -H "X-aws-ec2-metadata-token: $T" -s http://169.254.169.254/$1)
+    if [ -z "$v" ]; then
+        T=$(curl -m 0.2 -s -f -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 30")
+        [ "$?" != "0" ] && return
+        v=$(curl -m 0.2 -H "X-aws-ec2-metadata-token: $T" -s -f http://169.254.169.254/$1)
+        [ "$?" != "0" ] && return
+    fi
     echo $v
 }
 
