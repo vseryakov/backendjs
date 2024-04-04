@@ -64,15 +64,15 @@ case "$BKJS_CMD" in
 
   docker-init-rsyslog)
     if [ "$(grep -s "#Bkjs $BKJS_HOME" /etc/rsyslog.d/bkjs-docker.conf)" = "" ]; then
-       echo "Configuring rsyslog.d/$BKJS-docker ..."
-       echo "#Bkjs $BKJS_HOME" > /etc/rsyslog.d/$BKJS-docker.conf
-       echo "\$FileOwner $BKJS_USER" >> /etc/rsyslog.d/$BKJS-docker.conf
+       echo "Configuring rsyslog.d/bkjs-docker ..."
+       echo "#Bkjs $BKJS_HOME" > /etc/rsyslog.d/bkjs-docker.conf
+       echo "\$FileOwner $BKJS_USER" >> /etc/rsyslog.d/bkjs-docker.conf
        bkjsfmt=""
        if [ -d /etc/systemd ]; then
-          echo '$template bkjsfmt2,"%APP-NAME% %msg%\n"' >> /etc/rsyslog.d/$BKJS-docker.conf
+          echo '$template bkjsfmt2,"%APP-NAME% %msg%\n"' >> /etc/rsyslog.d/bkjs-docker.conf
           bkjsfmt=";bkjsfmt2"
        fi
-       echo "local1.* $BKJS_HOME/log/docker.log$bkjsfmt" >> /etc/rsyslog.d/$BKJS-docker.conf
+       echo "local1.* $BKJS_HOME/log/docker.log$bkjsfmt" >> /etc/rsyslog.d/bkjs-docker.conf
 
        echo '{ "features": { "buildkit": true }, "log-driver": "syslog", "log-opts": { "tag": "{{.Name}}", "syslog-facility": "local1", "cache-disabled": "true", "mode": "non-blocking" } }' > /etc/docker/daemon.json
     fi
