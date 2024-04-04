@@ -258,7 +258,8 @@ case "$BKJS_CMD" in
   start)
     cd $BKJS_HOME
     if [ "$(whoami)" = "root" ]; then
-        logger -s "$(date -R): $PPID: Running start hook..."
+        BKJS_ECHO="logger -s"
+        msg Running start hook...
         run_bkjs_cmd start-hook
     fi
     [ -n "$BKJS_SERVER" -a "$BKJS_SERVER" != "none" ] && $0 run-$BKJS_SERVER

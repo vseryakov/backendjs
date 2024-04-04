@@ -128,7 +128,7 @@ case "$BKJS_CMD" in
     domain=$(get_arg -domain $BKJS_DOMAIN)
     host=${tag:-ip}-$(echo $addr|sed 's/\./-/g')
     $BKJS_BIN setup-hostname -host $host -domain $domain
-    [ "$uname" != "$(uname -n)" ] && killall -q -HUP rsyslogd
+    [ "$uname" != "$(uname -n)" ] && killall -HUP rsyslogd
     exit
     ;;
 

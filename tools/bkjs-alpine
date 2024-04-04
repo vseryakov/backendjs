@@ -4,7 +4,7 @@ case "$BKJS_CMD" in
 
   help|alpine-help)
     echo
-    echo "  alpine-abuild -name N [-repo REPO] [-image abuild] [-sync S3] [-checksum] [-noexit] - build a package with alpine docker. Place the .apk into -repo folder and -sync to S3 if provided"
+    echo "  alpine-abuild -name N [-repo REPO] [-image abuild] [-sync S3] [-checksum] [-noexit] [-i] [-docker args] - build a package with alpine docker. Place the .apk into -repo folder and -sync to S3 if provided"
     echo "  alpine-run-abuild -name N [-pkgname PKG] [-repo /repo] [-src /src] [-tmp /tmp] - call abuild for given APKBUILD.N file, place in -repo dir and run inside -tmp dir"
     echo "  alpine-prepare-abuild - build Docker image abuild for faster builds"
     echo
@@ -26,7 +26,7 @@ case "$BKJS_CMD" in
         [ -z "$bkjs" -a -f $cwd/bin/bkjs ] && bkjs=bin/bkjs
         [ -z "$bkjs" -a -f $cwd/packages/backendjs/bkjs ] && bkjs=packages/backendjs/bkjs
         [ -z "$bkjs" ] && echo "bkjs is not found" && exit 1
-        cmd="/src/$bkjs alpine-run-abuild -name $name -tools /src/tools $(get_all_args "-name -repo -image -cmd -pkgver")"
+        cmd="/src/$bkjs alpine-run-abuild -name $name -tools /src/tools $(get_all_args "-name -repo -image -cmd -pkgver -docker")"
     fi
 
     # Special case for version from package.json
@@ -36,11 +36,14 @@ case "$BKJS_CMD" in
         cmd="$cmd -pkgver $pkgver"
     fi
 
-    volumes="-v $HOME/.abuild:/root/.abuild -v $cwd:/src -v $repo:/repo"
+    args=$(get_arg -docker)
+    [ -n "$(get_flag -i)" -o -n "$(get_flag -noexit)" ] && args="$args -i"
+
+    args="$args -v $HOME/.abuild:/root/.abuild -v $cwd:/src -v $repo:/repo"
 
     image=$(get_arg -image abuild)
 
-    docker run --rm -ti $volumes $image $cmd
+    docker run --rm -t $args $image $cmd
     [ "$?" != "0" ] && exit 2
 
     sync=$(get_arg -sync $BKJS_APKSYNC)
