@@ -25,10 +25,11 @@ build() {
 
 package() {
     cd $srcdir/$pkgname-$pkgver
-    mkdir -p $pkgdir/bin $pkgdir/etc $pkgdir/logs $pkgdir/var $pkgdir/doc
-    cp build/bin/linux_$CWARCH/* $pkgdir/bin
-    cp licensing/* $pkgdir
-    cp translator/config/schema.json $pkgdir/doc/amazon-cloudwatch-agent-schema.json
+    destdir=$pkgdir/opt/aws/amazon-cloudwatch-agent
+    mkdir -p $destdir/bin $destdir/etc $destdir/logs $destdir/var $destdir/doc
+    cp build/bin/linux_$CWARCH/* $destdir/bin
+    cp licensing/* $destdir
+    cp translator/config/schema.json $destdir/doc/amazon-cloudwatch-agent-schema.json
 }
 
 sha512sums="
