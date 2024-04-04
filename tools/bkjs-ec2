@@ -123,10 +123,12 @@ case "$BKJS_CMD" in
   ec2-check-hostname)
     addr=$(get_local_ip)
     [ "$addr" = "" ] && logger -s "No IP address found" && exit
+    uname=$(uname -n)
     tag=$($0 ec2-tag)
     domain=$(get_arg -domain $BKJS_DOMAIN)
     host=${tag:-ip}-$(echo $addr|sed 's/\./-/g')
     $BKJS_BIN setup-hostname -host $host -domain $domain
+    [ "$uname" != "$(uname -n)" ] && killall -q -HUP rsyslogd
     exit
     ;;
 
