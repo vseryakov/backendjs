@@ -18,8 +18,16 @@ case "$BKJS_CMD" in
     repo=$(get_arg -repo ${BKJS_APKDIR:-$HOME/alpine})
     mkdir -p $repo
 
+    cwd=$(pwd)
     cmd=$(get_arg -cmd)
-    [ -z "$cmd" ] && cmd="/src/packages/backendjs/bkjs alpine-run-abuild -name $name -tools /src/tools $(get_all_args "-name -repo -image -cmd -pkgver")"
+    if [ -z "$cmd" ]; then
+        bkjs=
+        [ -f $cwd/bkjs ] && bkjs=bkjs
+        [ -z "$bkjs" -a -f $cwd/bin/bkjs ] && bkjs=bin/bkjs
+        [ -z "$bkjs" -a -f $cwd/packages/backendjs/bkjs ] && bkjs=packages/backendjs/bkjs
+        [ -z "$bkjs" ] && echo "bkjs is not found" && exit 1
+        cmd="/src/$bkjs alpine-run-abuild -name $name -tools /src/tools $(get_all_args "-name -repo -image -cmd -pkgver")"
+    fi
 
     # Special case for version from package.json
     pkgver=$(get_flag -pkgver)
@@ -28,7 +36,7 @@ case "$BKJS_CMD" in
         cmd="$cmd -pkgver $pkgver"
     fi
 
-    volumes="-v $HOME/.abuild:/root/.abuild -v $(pwd):/src -v $repo:/repo"
+    volumes="-v $HOME/.abuild:/root/.abuild -v $cwd:/src -v $repo:/repo"
 
     image=$(get_arg -image abuild)
 
