@@ -9,6 +9,8 @@ case "$BKJS_CMD" in
   start-hook)
     region=$(echo $(get_ec2_meta latest/meta-data/placement/availability-zone/)|sed 's/[a-z]$//')
     [ -z "$region" ] && return
+    # Keep THP disabled by default
+    echo never > /sys/kernel/mm/transparent_hugepage/enabled
     logger -s "Setting region $region ..."
     (aws configure set region $region)
     ([ "$(whoami)" = "root" ] && su ec2-user -c "aws configure set region $region")

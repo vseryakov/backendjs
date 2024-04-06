@@ -1,6 +1,6 @@
 # Maintainer: Vlad Seryakov <vseryakov@gmail.com>
 pkgname=amazon-cloudwatch-agent
-pkgver=1.300034.0
+pkgver=1.300034.1
 pkgrel=0
 pkgdesc="Amazon Cloudwatch Agent"
 url="https://github.com/aws/amazon-cloudwatch-agent"
@@ -25,13 +25,15 @@ build() {
 
 package() {
     cd $srcdir/$pkgname-$pkgver
-    destdir=$pkgdir/opt/aws/amazon-cloudwatch-agent
-    mkdir -p $destdir/bin $destdir/etc $destdir/logs $destdir/var $destdir/doc
+    CWAGENT=amazon-cloudwatch-agent
+    destdir=$pkgdir/opt/aws/$CWAGENT
+    mkdir -p $destdir/bin $destdir/etc/$CWAGENT.d $destdir/logs $destdir/var $destdir/doc
     cp build/bin/linux_$CWARCH/* $destdir/bin
+    rm -f $destdir/bin/start-$CWAGENT
     cp licensing/* $destdir
-    cp translator/config/schema.json $destdir/doc/amazon-cloudwatch-agent-schema.json
+    cp translator/config/schema.json $destdir/doc/$CWAGENT-schema.json
 }
 
 sha512sums="
-cda2f5523e7ec052c00fa45e416505ff21034a76f9466942227bb8b8f9e52d4c73e6b2a7df9dc49e4db01497f278cf7e7073e3582ef116a537110ff12e4b37d9  amazon-cloudwatch-agent-1.300034.0.tar.gz
+6616d70ce4a0d54055d623b385ceeb05a0dc577410a088cea7732551ba616f489e69125caadb15787b63f5e0d0407026fd45526c26b12cb18f8ca14675d5805f  amazon-cloudwatch-agent-1.300034.1.tar.gz
 "

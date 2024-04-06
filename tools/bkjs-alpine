@@ -4,29 +4,30 @@ case "$BKJS_CMD" in
 
   help|alpine-help)
     echo
-    echo "  alpine-abuild -name N [-repo REPO] [-image abuild] [-sync S3] [-checksum] [-noexit] [-i] [-docker args] - build a package with alpine docker. Place the .apk into -repo folder and -sync to S3 if provided"
+    echo "  alpine-abuild -file APKBUILD [-src .] [-repo REPO] [-image abuild] [-sync S3] [-checksum] [-noexit] [-i] [-arch A] [-docker args] - build a package with alpine docker. Place the .apk into -repo folder and -sync to S3 if provided"
     echo "  alpine-run-abuild -name N [-pkgname PKG] [-repo /repo] [-src /src] [-tmp /tmp] - call abuild for given APKBUILD.N file, place in -repo dir and run inside -tmp dir"
     echo "  alpine-prepare-abuild - build Docker image abuild for faster builds"
     echo
     ;;
 
   alpine-abuild)
-    name=$(get_arg -name)
-    [ -z "$name" ] && echo "-name is required" && exit 1
-    [ ! -f tools/alpine/APKBUILD.$name ] && echo "tools/alpine/APKBUILD.$name is required" && exit 1
+    file=$(get_arg -file)
+    [ -z "$file" -o ! -f "$file" ] && echo "-file is required and must exist" && exit 1
 
     repo=$(get_arg -repo ${BKJS_APKDIR:-$HOME/alpine})
     mkdir -p $repo
 
-    cwd=$(pwd)
+    file=$(readlink -f $file)
+    src=$(readlink -f $(get_arg -src .))
+
     cmd=$(get_arg -cmd)
     if [ -z "$cmd" ]; then
-        bkjs=
-        [ -f $cwd/bkjs ] && bkjs=bkjs
-        [ -z "$bkjs" -a -f $cwd/bin/bkjs ] && bkjs=bin/bkjs
-        [ -z "$bkjs" -a -f $cwd/packages/backendjs/bkjs ] && bkjs=packages/backendjs/bkjs
-        [ -z "$bkjs" ] && echo "bkjs is not found" && exit 1
-        cmd="/src/$bkjs alpine-run-abuild -name $name -tools /src/tools $(get_all_args "-name -repo -image -cmd -pkgver -docker")"
+    	bkjs=
+        [ -f $src/bkjs ] && bkjs=bkjs
+        [ -z "$bkjs" -a -f $src/bin/bkjs ] && bkjs=bin/bkjs
+        [ -z "$bkjs" -a -f $src/packages/backendjs/bkjs ] && bkjs=packages/backendjs/bkjs
+        [ -z "$bkjs" ] && echo "bkjs is not found in $src" && exit 1
+        cmd="/src/$bkjs alpine-run-abuild -tools /bkjs/tools $(get_all_args "-file -repo -image -cmd -pkgver -docker -arch")"
     fi
 
     # Special case for version from package.json
@@ -36,14 +37,20 @@ case "$BKJS_CMD" in
         cmd="$cmd -pkgver $pkgver"
     fi
 
+    # Custom docker run args
     args=$(get_arg -docker)
-    [ -n "$(get_flag -i)" -o -n "$(get_flag -noexit)" ] && args="$args -i"
 
-    args="$args -v $HOME/.abuild:/root/.abuild -v $cwd:/src -v $repo:/repo"
+    # No interactive mode by default for CI runners
+    [ -n "$(get_flag -i)" -o -n "$(get_flag -noexit)" ] && args="$args -ti"
+
+    arch=$(get_arg -arch)
+    [ -n "$arch" ] && args="$args --platform=linux/$arch"
+
+    args="$args -v $HOME/.abuild:/root/.abuild -v $file:/APKBUILD -v $src:/src -v $repo:/repo"
 
     image=$(get_arg -image abuild)
 
-    docker run --rm -t $args $image $cmd
+    docker run --rm $args $image $cmd
     [ "$?" != "0" ] && exit 2
 
     sync=$(get_arg -sync $BKJS_APKSYNC)
@@ -58,13 +65,12 @@ case "$BKJS_CMD" in
     ;;
 
   alpine-run-abuild)
-    name=$(get_arg -name)
-    [ -z "$name" ] && echo "-name is required" && exit 1
+	file=$(get_arg -file APKBUILD)
     repo=$(get_arg -repo /repo)
-    src=$(get_arg -src /src)
     tmp=$(get_arg -tmp /tmp)
     args=$(get_arg -abuild " -Kk ")
 
+    # Required dependencies
     apk add --update-cache alpine-sdk coreutils cmake sudo
 
     # generate new abuild key if not set
@@ -75,13 +81,14 @@ case "$BKJS_CMD" in
 
     apk -U upgrade -a
 
-    cp $src/tools/alpine/APKBUILD.$name $tmp/APKBUILD
+    cp $file $tmp/APKBUILD
+    [ "$?" != "0" ] && echo "invalid $file" && exit 1
+
     cd $tmp
 
     # Update checksum and exit
     if [ -n "$(get_flag -checksum)" ]; then
         abuild -F checksum
-        mv APKBUILD $src/tools/alpine/APKBUILD.$name
         exit
     fi
 
@@ -96,13 +103,14 @@ case "$BKJS_CMD" in
     fi
 
     abuild -P $repo -F -r $args
+    rc=$?
 
     [ -n "$(get_flag -noexit)" ] && echo "Starting shell.." && /bin/sh -i
-    exit
+    exit $rc
     ;;
 
   alpine-prepare-abuild)
-    docker build --rm -t abuild -f tools/docker/Dockerfile.abuild .
+    docker build --no-cache --rm -t abuild -f tools/docker/Dockerfile.abuild .
     exit
     ;;
 

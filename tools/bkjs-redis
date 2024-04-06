@@ -63,13 +63,21 @@ case "$BKJS_CMD" in
     echo "timeout 3600" >> $local
     echo "bind *" >> $local
     echo "protected-mode no" >> $local
+    echo "unixsocket $BKJS_HOME/var/redis.sock" >> $local
     echo "pidfile $BKJS_HOME/var/redis.pid" >> $local
     echo "logfile $BKJS_HOME/log/redis.log" >> $local
     echo "tcp-keepalive 60" >> $local
     echo "maxmemory-policy volatile-lru" >> $local
     echo 'daemonize yes' >> $local
 
-    [ "$(whoami)" = "root" -a -n "$BKJS_USER" ] && chown $BKJS_USER $local
+    if [ "$(whoami)" = "root" ]; then
+    	[ -n "$BKJS_USER" ] && chown $BKJS_USER $local
+
+    	if [ "$PLATFORM" = "Linux" ]; then
+    		echo 1 > /proc/sys/vm/overcommit_memory
+    		echo never > /sys/kernel/mm/transparent_hugepage/enabled
+    	fi
+    fi
     exit
     ;;
 
@@ -83,11 +91,6 @@ case "$BKJS_CMD" in
         if [ -z "$(grep -s "maxmemory $memmax" $conf)" ]; then
             echo "maxmemory $memmax" >> $conf
         fi
-    fi
-
-    if [ "$PLATFORM" = "Linux" ]; then
-        echo 1 > /proc/sys/vm/overcommit_memory
-        echo never > /sys/kernel/mm/transparent_hugepage/enabled
     fi
 
     conf=$BKJS_HOME/etc/redis.conf

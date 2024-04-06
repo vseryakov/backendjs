@@ -5,6 +5,7 @@ FROM alpine:$ALPINE
 RUN apk --no-cache add \
   alpine-conf \
   alpine-sdk \
+  apk-tools \
   coreutils \
   cmake \
   sudo \
@@ -23,7 +24,8 @@ RUN apk --no-cache add \
   fontconfig-dev \
   freetype-dev \
   imlib2-dev \
-  nasm
+  nasm && \
+  apk -U upgrade -a
 
 RUN adduser -D alpine && \
     addgroup alpine abuild && \

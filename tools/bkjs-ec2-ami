@@ -45,7 +45,7 @@ case "$BKJS_CMD" in
     ami=$(get_arg -ami ami-036e04f38993310a3)
     tag=$(get_arg -tag ec2-ami-$(date +%s))
     type=$(get_arg -instance-type t4g.micro)
-    size=$(get_arg -dev-size 10)
+    size=$(get_arg -dev-size 32)
 
     INFO=$($BKJS_BIN shell -no-db -ipc-none -aws-launch-instances -name $tag -image-id $ami -instance-type $type -dev-size $size -public-ip -wait)
     echo "$INFO"

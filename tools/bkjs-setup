@@ -177,7 +177,7 @@ case "$BKJS_CMD" in
         echo 'alias dexec="docker exec -ti"' >> $log
         echo 'bcp() { socat readline,history=$HOME/.socat tcp4:localhost:$1; }' >> $log
         echo 'bkssh() { bkjs ec2-ssh -tag "$1" -index "$2" -cmd "$3" -skip-tag dev; }' >> $log
-        echo 'bkw() { bkssh ${1-api} "" "w"; }' >> $log
+        echo '[ -f ~/.aliases ] && . ~/.aliases' >> $log
     fi
 
     if [ "$(grep -s bashrc $UHOME/.bash_profile)" = "" ]; then
@@ -191,7 +191,7 @@ case "$BKJS_CMD" in
         echo '#Bkjs' >> $log
         echo 'export HISTSIZE=500000' >> $log
         echo 'export HISTFILESIZE=50000000' >> $log
-        echo "export PS1=\"[\\h:\\W]#\"" >> $log
+        echo 'export PS1="\h \w#"' >> $log
         echo '[ -f ~/etc/profile ] && . ~/etc/profile' >> $log
         echo '[ "$TMUX_PANE" != "" ] && PS1=$(echo $PS1|sed "s/#/${TMUX_PANE}#/")' >> $log
     fi
@@ -220,6 +220,8 @@ case "$BKJS_CMD" in
 
   setup-logrotate)
     # Setup logrotate for backend log files
+    days=$(get_arg -logrotate-days 60)
+
     [ -f /etc/logrotate.d/syslog ] && rm /etc/logrotate.d/syslog
     if [ "$(grep -s '#Bkjs' /etc/logrotate.d/rsyslog)" = "" ]; then
         log=/etc/logrotate.d/rsyslog
@@ -228,7 +230,7 @@ case "$BKJS_CMD" in
         echo "/var/log/cron /var/log/messages {" >> $log
         echo " missingok" >> $log
         echo " daily" >> $log
-        echo " rotate 90" >> $log
+        echo " rotate $days" >> $log
         echo " sharedscripts" >> $log
         echo " postrotate" >> $log
         echo "  /usr/bin/killall -q -HUP rsyslogd" >> $log
@@ -242,7 +244,7 @@ case "$BKJS_CMD" in
         echo "$BKJS_HOME/log/message.log $BKJS_HOME/log/access.log {" >> $log
         echo " missingok" >> $log
         echo " daily" >> $log
-        echo " rotate 90" >> $log
+        echo " rotate $days" >> $log
         echo " sharedscripts" >> $log
         echo " postrotate" >> $log
         echo "  /usr/bin/killall -q -HUP rsyslogd" >> $log
@@ -448,7 +450,7 @@ case "$BKJS_CMD" in
 
     # Linux distro specific actions
     case "$OS_TYPE" in
-      alpine)
+    alpine)
         ver=$(cat /etc/alpine-release|cut -d. -f1,2)
         $SED "s/^# *(.+v$ver\/community)\$/\1/" /etc/apk/repositories
         apk update
@@ -504,9 +506,18 @@ case "$BKJS_CMD" in
     ;;
 
   setup-logwatcher)
-    cron=$(get_arg -cron "*/$(get_arg -interval 5) * * * *")
-    echo 'MAILTO=""' > /etc/cron.d/bkjs-logwatcher
-    echo "$cron $BKJS_USER $BKJS_BIN logwatcher" >> /etc/cron.d/bkjs-logwatcher
+	cron=$(get_arg -cron "*/$(get_arg -interval 5) * * * *")
+	case "$OS_TYPE" in
+    alpine)
+	    echo "$cron $BKJS_BIN logwatcher" >> /etc/crontabs/$BKJS_USER
+        ;;
+    *)
+        if [ -d /etc/cron.d ]; then
+        	echo 'MAILTO=""' > /etc/cron.d/bkjs-logwatcher
+        	echo "$cron $BKJS_USER $BKJS_BIN logwatcher" >> /etc/cron.d/bkjs-logwatcher
+        fi
+	    ;;
+	esac
     exit
     ;;
 
