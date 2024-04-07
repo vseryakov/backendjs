@@ -11,7 +11,7 @@ case "$BKJS_CMD" in
     [ -z "$region" ] && return
     # Keep THP disabled by default
     echo never > /sys/kernel/mm/transparent_hugepage/enabled
-    logger -s "Setting region $region ..."
+    msg Setting region $region ...
     (aws configure set region $region)
     ([ "$(whoami)" = "root" ] && su ec2-user -c "aws configure set region $region")
     ($BKJS_BIN ec2-check-storage)
@@ -40,7 +40,7 @@ case "$BKJS_CMD" in
     ;;
 
   ec2-host)
-    $0 ec2-show -line -nomyip -fmt ip -tag "$(get_arg -tag)" -region "$(get_arg -region)" -skip-tag "$(get_arg -skip-tag)"
+    $BKJS_BIN ec2-show -line -nomyip -fmt ip -tag "$(get_arg -tag)" -region "$(get_arg -region)" -skip-tag "$(get_arg -skip-tag)"
     exit
     ;;
 
@@ -55,7 +55,7 @@ case "$BKJS_CMD" in
     quiet=$(get_flag -quiet)
     skip=$(get_arg -skip-tag)
     sshargs=$(concat_arg -ssh $BKJS_SSH_ARGS)
-    instances=$($0 ec2-show -nomyip -region "$region" -tag "$tag" -skip-tag "$skip"|tr '\t' ',')
+    instances=$($BKJS_BIN ec2-show -nomyip -region "$region" -tag "$tag" -skip-tag "$skip"|tr '\t' ',')
     [ "$cmd" = "" -a "$index" = "" ] && index=1
     [ "$index" != "" -a "$index" != "." ] && instances=$(echo "$instances"|head -$index|tail -1)
     [ "$instances" = "" ] && exit 1
@@ -126,9 +126,10 @@ case "$BKJS_CMD" in
     addr=$(get_local_ip)
     [ "$addr" = "" ] && logger -s "No IP address found" && exit
     uname=$(uname -n)
-    tag=$($0 ec2-tag)
+    tag=$($BKJS_BIN ec2-tag)
     domain=$(get_arg -domain $BKJS_DOMAIN)
     host=${tag:-ip}-$(echo $addr|sed 's/\./-/g')
+    msg Checking $host@$domain ...
     $BKJS_BIN setup-hostname -host $host -domain $domain
     [ "$uname" != "$(uname -n)" ] && killall -HUP rsyslogd
     exit
@@ -146,7 +147,7 @@ case "$BKJS_CMD" in
     [  "$?" != "0" ] && exit
     mountpoint -q $mnt
     if [  "$?" = "0" ]; then
-       echo $mnt already mounted
+       msg $mnt already mounted
        exit
     fi
     cd /home/$user
@@ -154,10 +155,10 @@ case "$BKJS_CMD" in
     ln -sf $mnt/var
     fs=$(blkid |grep $dev)
     if [ "$fs" != "" ]; then
-       logger -s mounting $dev to $mnt
+       msg mounting $dev to $mnt
        mount -a
     else
-       logger -s creating $mnt on $dev
+       msg creating $mnt on $dev
        mkfs.xfs $dev
        mount -a
     fi

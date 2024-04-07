@@ -27,28 +27,28 @@ case "$BKJS_CMD" in
 
   setup-ec2)
     home=$(get_arg -home /home/ec2-user)
-    $0 setup-server -user ec2-user -home $home $(get_all_args "-user -home")
+    $BKJS_BIN setup-server -user ec2-user -home $home $(get_all_args "-user -home")
     exit
     ;;
 
   setup-server)
     [ "$(whoami)" != "root" ] && echo "Run as root please" && exit 1
     args=$(get_all_args)
-    echo "Setuping server in $BKJS_HOME ($args)"
+    msg "Setuping server in $BKJS_HOME ($args)"
 
-    ($0 setup-packages $args)
-    ($0 setup-user $args)
-    ($0 setup-hostname $args)
-    ($0 setup-ssh $args)
-    ($0 setup-limits $args)
-    ($0 setup-sysctl $args)
-    ($0 setup-logrotate $args)
-    ($0 setup-rsyslog $args)
-    ($0 setup-profile $args)
-    ($0 monit-init-system $args)
-    ($0 setup-home $args)
-    ($0 setup-service $args -bin $BKJS_HOME/bin/bkjs)
-    ($0 setup-boot $args)
+    ($BKJS_BIN setup-packages $args)
+    ($BKJS_BIN setup-user $args)
+    ($BKJS_BIN setup-hostname $args)
+    ($BKJS_BIN setup-ssh $args)
+    ($BKJS_BIN setup-limits $args)
+    ($BKJS_BIN setup-sysctl $args)
+    ($BKJS_BIN setup-logrotate $args)
+    ($BKJS_BIN setup-rsyslog $args)
+    ($BKJS_BIN setup-profile $args)
+    ($BKJS_BIN monit-init-system $args)
+    ($BKJS_BIN setup-home $args)
+    ($BKJS_BIN setup-service $args -bin $BKJS_HOME/bin/bkjs)
+    ($BKJS_BIN setup-boot $args)
     exit
     ;;
 
@@ -59,8 +59,11 @@ case "$BKJS_CMD" in
       alpine)
         rc-update add crond
 
+        # Monit will start after all openrc levels
         if [ -z "$(grep -s monit /etc/inittab)" ]; then
-            echo "::respawn:/usr/bin/monit -I" >> /etc/inittab
+        	echo -e '#!/bin/sh\nulimit -n 512000\nexec /usr/bin/monit -I\n' > /etc/init.d/rc.monit
+        	chmod 755 /etc/init.d/rc.monit
+            echo "::respawn:/etc/init.d/rc.monit" >> /etc/inittab
         fi
 
         # Force to gen SSH keys for new user
@@ -84,7 +87,7 @@ case "$BKJS_CMD" in
     host=$host.$domain
     [ "$(uname -n)" = "$host" ] && exit
 
-    echo "Setting hostname to $host"
+    msg "Setting hostname to $host"
     hostname $host
     echo $host > /etc/hostname
 
@@ -413,7 +416,7 @@ case "$BKJS_CMD" in
     if [ -z "$(get_flag -stop)" ]; then
         bin=$(get_arg -bin $BKJS_BIN)
 
-        echo "Starting service bkjs with $bin"
+        msg "Starting service bkjs with $bin"
 
         case $OS_TYPE in
           alpine)
@@ -430,7 +433,7 @@ case "$BKJS_CMD" in
             ;;
         esac
     else
-        echo "Stopping service bkjs"
+        msg "Stopping service bkjs"
         case $OS_TYPE in
           alpine)
             rc-update -a del bkjs
@@ -440,7 +443,7 @@ case "$BKJS_CMD" in
             rm -f /etc/init.d/bkjs /etc/rc5.d/S31bkjs
             ;;
         esac
-        $0 stop
+        $BKJS_BIN stop
     fi
     exit
     ;;
@@ -475,7 +478,7 @@ case "$BKJS_CMD" in
         echo -e "auth required /lib/security/pam_google_authenticator.so echo_verification_code grace_period=57600 nullok" >> /etc/pam.d/sshd
         echo -e "auth required pam_unix.so\tmd5 sha512" >> /etc/pam.d/sshd
         ln /etc/pam.d/sshd /etc/pam.d/sshd.pam
-        $0 setup-limits
+        $BKJS_BIN setup-limits
         ;;
 
       amazon)
