@@ -30,18 +30,20 @@ done
 
 # Run the command $1 by sourcing all scripts from tools folders for the module if $2 is not empty or for all
 run_bkjs_cmd() {
-    local _cmddir= _cmdscope= _cmdtools="$(get_arg -tools) ./tools $BKJS_TOOLS $BKJS_HOME/tools $BKJS_DIR/tools"
+    local _cmddir= _cmdseen= _cmdscope= _cmdtools="$(get_arg -tools) ./tools $BKJS_TOOLS $BKJS_HOME/tools $BKJS_DIR/tools"
     BKJS_CMD=$1
     [ -z "$2" ] && _cmdscope='bkjs-*' || _cmdscope="bkjs-$(echo "$BKJS_CMD"|cut -d- -f1)*"
     debug run_bkjs_cmd: $_cmdscope: tools: $_cmdtools
     for _cmddir in $_cmdtools; do
-        if [ -d $_cmddir ]; then
-            local _cmdfiles=$(find $_cmddir \( -type f -o -type l \) -name "$_cmdscope")
-            debug run_bkjs_cmd: $_cmddir: files: $_cmdfiles
-            for _cmdfile in $_cmdfiles; do
-                source $_cmdfile
-            done
-        fi
+    	_cmddir=$(readlink -f $_cmddir)
+        [ -z "$_cmddir" -o ! -d "$_cmddir" ] && continue
+        list_has $_cmddir $_cmdseen && continue
+        _cmdseen="$_cmdseen $_cmddir"
+        local _cmdfiles=$(find $_cmddir \( -type f -o -type l \) -name "$_cmdscope")
+        debug run_bkjs_cmd: $_cmddir: files: $_cmdfiles
+        for _cmdfile in $_cmdfiles; do
+        	source $_cmdfile
+        done
     done
 }
 
@@ -142,6 +144,17 @@ to_upper() {
     echo $1 | tr [:lower:] [:upper:]
 }
 
+# Returns 0 if given list has the $1
+list_has() {
+	local v="$1"
+	local i
+	shift
+	for i in $@; do
+		[ "$v" = "$i" ] && return 0
+	done
+	return 1
+}
+
 # Return Alpine arch
 to_alpine_arch() {
     case "$1" in
@@ -233,8 +246,9 @@ MACHINE=$(uname -m)
 export OS_ARCH=$(to_docker_arch $MACHINE)
 
 # Detect our home
+whoami=$(whoami)
 export BKJS_HOME=$(get_arg -home ${BKJS_HOME:-~/.bkjs})
-export BKJS_USER=$(get_arg -user ${BKJS_USER:-$(whoami)})
+export BKJS_USER=$(get_arg -user ${BKJS_USER:-$whoami})
 
 # Load user profiles
 for f in profile profile.local; do
@@ -246,8 +260,8 @@ BKJS_TRACE=$(get_arg -trace $BKJS_TRACE)
 [ -n "$BKJS_TRACE" ] && exec >>$BKJS_TRACE 2>&1
 
 # Setup the logger level
-[ -n "$(get_flag -syslog)" ] && export BKJS_ECHO="logger -s" || export BKJS_ECHO=echo
-export BKJS_DEBUG=$(get_flag -debug)
+[ -n "$(get_flag -syslog)" -o "$whoami" = "root" ] && export BKJS_ECHO="logger -s" || export BKJS_ECHO=echo
+export BKJS_DEBUG=$(get_flag -debug $BKJS_DEBUG)
 
 export PATH=$BKJS_HOME/bin:$BKJS_HOME/node_modules/.bin:/app/bin:/usr/local/bin:/opt/local/bin:/sbin:/usr/sbin:$PATH
 
@@ -257,8 +271,7 @@ case "$BKJS_CMD" in
 
   start)
     cd $BKJS_HOME
-    if [ "$(whoami)" = "root" ]; then
-        BKJS_ECHO="logger -s"
+    if [ "$whoami" = "root" ]; then
         msg Running start hook...
         run_bkjs_cmd start-hook
     fi

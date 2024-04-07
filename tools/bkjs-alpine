@@ -4,7 +4,7 @@ case "$BKJS_CMD" in
 
   help|alpine-help)
     echo
-    echo "  alpine-abuild -file APKBUILD [-src .] [-repo REPO] [-image abuild] [-sync S3] [-checksum] [-noexit] [-i] [-arch A] [-docker args] - build a package with alpine docker. Place the .apk into -repo folder and -sync to S3 if provided"
+    echo "  alpine-abuild -file APKBUILD [-src .] [-repo REPO] [-image abuild] [-pkgver V] [-pkgname N] [-sync S3] [-checksum] [-noexit] [-i] [-arch A] [-docker args] - build a package with alpine docker. Place the .apk into -repo folder and -sync to S3 if provided"
     echo "  alpine-run-abuild -name N [-pkgname PKG] [-repo /repo] [-src /src] [-tmp /tmp] - call abuild for given APKBUILD.N file, place in -repo dir and run inside -tmp dir"
     echo "  alpine-prepare-abuild - build Docker image abuild for faster builds"
     echo
@@ -20,6 +20,19 @@ case "$BKJS_CMD" in
     file=$(readlink -f $file)
     src=$(readlink -f $(get_arg -src .))
 
+    # Custom docker run args
+    dargs=$(get_arg -docker)
+
+    # No interactive mode by default for CI runners
+    [ -n "$(get_flag -i)" -o -n "$(get_flag -noexit)" ] && dargs="$dargs -ti"
+
+    arch=$(get_arg -arch)
+    [ -n "$arch" ] && dargs="$dargs --platform=linux/$arch"
+
+    dargs="$dargs -v $HOME/.abuild:/root/.abuild -v $file:/APKBUILD -v $src:/src -v $repo:/repo"
+
+    image=$(get_arg -image abuild)
+
     cmd=$(get_arg -cmd)
     if [ -z "$cmd" ]; then
     	bkjs=
@@ -27,30 +40,17 @@ case "$BKJS_CMD" in
         [ -z "$bkjs" -a -f $src/bin/bkjs ] && bkjs=bin/bkjs
         [ -z "$bkjs" -a -f $src/packages/backendjs/bkjs ] && bkjs=packages/backendjs/bkjs
         [ -z "$bkjs" ] && echo "bkjs is not found in $src" && exit 1
-        cmd="/src/$bkjs alpine-run-abuild -tools /bkjs/tools $(get_all_args "-file -repo -image -cmd -pkgver -docker -arch")"
+        cmd="/src/$bkjs alpine-run-abuild -tools /src/tools"
+
+        # Special case for version from package.json
+        pkgver=$(get_flag -pkgver)
+        [ -z "$pkgver" ] && pkgver=$($BKJS_BIN get-jsval package.json version)
+        [ -n "$pkgver" ] && cmd="$cmd -pkgver $pkgver"
+
+        cargs=$(get_all_args "-file -repo -image -docker -pkgver")
     fi
 
-    # Special case for version from package.json
-    pkgver=$(get_flag -pkgver)
-    if [ -n "$pkgver" ]; then
-        [ "$pkgver" = "1" ] && pkgver=$($BKJS_BIN get-jsval package.json version)
-        cmd="$cmd -pkgver $pkgver"
-    fi
-
-    # Custom docker run args
-    args=$(get_arg -docker)
-
-    # No interactive mode by default for CI runners
-    [ -n "$(get_flag -i)" -o -n "$(get_flag -noexit)" ] && args="$args -ti"
-
-    arch=$(get_arg -arch)
-    [ -n "$arch" ] && args="$args --platform=linux/$arch"
-
-    args="$args -v $HOME/.abuild:/root/.abuild -v $file:/APKBUILD -v $src:/src -v $repo:/repo"
-
-    image=$(get_arg -image abuild)
-
-    docker run --rm $args $image $cmd
+    docker run --rm $dargs $image $cmd $cargs
     [ "$?" != "0" ] && exit 2
 
     sync=$(get_arg -sync $BKJS_APKSYNC)
@@ -68,7 +68,6 @@ case "$BKJS_CMD" in
 	file=$(get_arg -file APKBUILD)
     repo=$(get_arg -repo /repo)
     tmp=$(get_arg -tmp /tmp)
-    args=$(get_arg -abuild " -Kk ")
 
     # Required dependencies
     apk add --update-cache alpine-sdk coreutils cmake sudo
@@ -102,7 +101,7 @@ case "$BKJS_CMD" in
         $SED "s/^pkgver=.+/pkgver=$pkgver/" APKBUILD
     fi
 
-    abuild -P $repo -F -r $args
+    abuild -P $repo -rFkK
     rc=$?
 
     [ -n "$(get_flag -noexit)" ] && echo "Starting shell.." && /bin/sh -i
