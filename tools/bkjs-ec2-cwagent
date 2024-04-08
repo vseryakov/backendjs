@@ -7,42 +7,14 @@
 CWAGENT=amazon-cloudwatch-agent
 CWAROOT=/opt/aws/$CWAGENT
 
-cwagent_check_config() {
-	tag=${2:-$($BKJS_BIN ec2-tag)}
-    files="access.log message.log error.log $BKJS_CLOUDWATCH_LOGS"
-    for log in $files; do
-        [ -n "$logs" ] && logs="$logs,"
-        logs="$logs{ \"file_path\": \"$BKJS_HOME/log/$log\", \"log_group_name\": \"$log\", \"log_stream_name\": \"$tag\", \"multi_line_start_pattern\": \"^[^ \\t]\", \"timestamp_format\": \"%Y-%m-%dT%H:%M:%S.%f\" }"
-    done
-    tmp=$1/etc/cwagent.json
-    echo "{ \"agent\": { \"usage_data\": false, \"logfile\": \"$CWAROOT/logs/cwagent.log\" }, \"logs\": { \"logs_collected\": { \"files\": { \"collect_list\": [ $logs ] } }, \"log_stream_name\": \"$tag\" } }" > $tmp
-
-    json=$1/etc/$CWAGENT.json
-    toml=$1/etc/$CWAGENT.toml
-
-    if [ -f $json ]; then
-    	cmp $json $tmp
-    	[ "$?" = "0" ] && return 0
-    fi
-
-    mv $tmp $json
-    $1/bin/config-translator --input $json --output $toml --mode auto
-    [ "$?" != "0" ] && return 1
-    return 2
-}
-
 case "$BKJS_CMD" in
 
   help|ec2-help)
     echo ""
     echo "  ec2-cwagent-get - install AWS Cloudwatch agent"
-    echo "  ec2-cwagent-check [-root D] - check AWS Cloudwatch agent config and restart if different, to be run in the start-hook"
     echo "  ec2-cwagent-check-config [-root D] - check AWS Cloudwatch agent config for changes, exists with code 2 if changed"
     echo "  ec2-cwagent-start [-root D] - start AWS Cloudwatch agent"
-    ;;
-
-  start-hook)
-    ($0 ec2-cwagent-check)
+    echo "  ec2-cwagent-init-monit [-root D] - setup agent to be run on start and to be monitored"
     ;;
 
   ec2-cwagent-get)
@@ -69,45 +41,41 @@ case "$BKJS_CMD" in
 
   ec2-cwagent-start)
     root=$(get_arg -root $CWAROOT)
-    [ ! -d $root ] && exit
+    [ ! -d $root ] && exit 2
 
-    cwagent_check_config $root
-    [ "$?" = "1" ] && exit 1
+	tag=$(get_arg -tag)
+	[ -z "$tag" ] && tag=$($BKJS_BIN ec2-tag)
+
+    files="access.log message.log error.log $BKJS_CLOUDWATCH_LOGS"
+    for log in $files; do
+        [ -n "$logs" ] && logs="$logs,"
+        logs="$logs{ \"file_path\": \"$BKJS_HOME/log/$log\", \"log_group_name\": \"$log\", \"log_stream_name\": \"$tag\", \"multi_line_start_pattern\": \"^[^ \\t]\", \"timestamp_format\": \"%Y-%m-%dT%H:%M:%S.%f\" }"
+    done
+    tmp=$root/etc/cwagent.json
+    echo "{ \"agent\": { \"usage_data\": false, \"logfile\": \"$CWAROOT/logs/cwagent.log\" }, \"logs\": { \"logs_collected\": { \"files\": { \"collect_list\": [ $logs ] } }, \"log_stream_name\": \"$tag\" } }" > $tmp
+
+    json=$root/etc/$CWAGENT.json
+    toml=$root/etc/$CWAGENT.toml
+
+    cmp $json $tmp
+    if [ "$?" != "0" ]; then
+    	mv $tmp $json
+    	$root/bin/config-translator --input $json --output $toml --mode auto
+    	[ "$?" != "0" ] && exit 1
+    fi
 
     toml=$root/etc/$CWAGENT.toml
     env=$root/etc/env-config.json
     echo "{ \"CWAGENT_LOG_LEVEL\": \"$(get_arg -log ERROR)\" }" > $env
 
-    nohup $root/bin/$CWAGENT -config $toml -envconfig $env -pidfile $root/logs/cwagent.pid 2>&1 &
+    exec nohup $root/bin/$CWAGENT -config $toml -envconfig $env -pidfile $root/logs/cwagent.pid >> $CWAROOT/logs/cwagent.log 2>&1 &
     exit 0
     ;;
 
-  ec2-cwagent-check)
-    root=$(get_arg -root $CWAROOT)
-    [ ! -d $root ] && exit
-    tag=$($0 ec2-tag)
-    [ -z "$tag" ] && exit
-
-    cwagent_check_config $root $tag
-    [ "$?" != "2" ] && exit
-
-    case "$OS_TYPE" in
-      alpine)
-        chown -R $BKJS_USER $root
-        if [ ! -f /etc/monit.d/cwagent.conf ]; then
-            echo -e "check process cwagent with pidfile $root/logs/cwagent.pid start program = \"$BKJS_BIN ec2-cwagent-start\" as uid $BKJS_USER with timeout 60 seconds stop program = \"pkill -f $CWAGENT\"" > /etc/monit.d/cwagent.conf
-            monit reload
-        else
-            pkill -f $CWAGENT
-        fi
-        ;;
-
-      amazon)
-        systemctl enable $CWAGENT
-        systemctl restart $CWAGENT
-        ;;
-    esac
-    exit
-    ;;
+  ec2-cwagent-init-monit)
+	root=$(get_arg -root $CWAROOT)
+	echo -e "check process cwagent with pidfile $root/logs/cwagent.pid start program = \"$BKJS_BIN ec2-cwagent-start\" as uid $BKJS_USER stop program = \"/usr/bin/pkill -f $CWAGENT\"" > /etc/monit.d/cwagent.conf
+	exit
+	;;
 
 esac

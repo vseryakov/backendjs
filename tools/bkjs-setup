@@ -135,7 +135,7 @@ case "$BKJS_CMD" in
 
     if [ "$(grep -s $BKJS_USER /etc/passwd)" = "" ]; then
         echo "Adding user $BKJS_USER"
-        useradd -m -g wheel -s /bin/bash $BKJS_USER
+        useradd -m -g wheel -G docker -s /bin/bash $BKJS_USER
         sh -c "echo '$BKJS_USER:*' | /usr/sbin/chpasswd -e"
         mkdir -p -m 700 $UHOME/.ssh && chown $BKJS_USER $UHOME/.ssh
     fi
@@ -457,7 +457,7 @@ case "$BKJS_CMD" in
         ver=$(cat /etc/alpine-release|cut -d. -f1,2)
         $SED "s/^# *(.+v$ver\/community)\$/\1/" /etc/apk/repositories
         apk update
-        apk add bash curl wget nano mc
+        apk add bash curl wget nano mc props docker
         apk add make git gcc g++ cmake autoconf automake libtool man-pages
         apk add shadow doas doas-sudo-shim rsync socat
         apk add nodejs npm python3 openrc openssh monit rsyslog rsyslog-openrc redis
