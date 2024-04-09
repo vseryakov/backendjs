@@ -99,12 +99,12 @@ get_all_args() {
 
 # Standard logger
 msg() {
-    $BKJS_ECHO $(date): $PPID: $BKJS_BIN: $BKJS_CMD: $@
+    $BKJS_ECHO "$(date): $PPID: $BKJS_BIN: $BKJS_CMD: $@"
 }
 
 # Output only if -debug is on
 debug() {
-    [ -n "$BKJS_DEBUG" ] && msg $@
+    [ -n "$BKJS_DEBUG" ] && msg "$@"
 }
 
 # Concatenate args

@@ -457,7 +457,7 @@ case "$BKJS_CMD" in
         ver=$(cat /etc/alpine-release|cut -d. -f1,2)
         $SED "s/^# *(.+v$ver\/community)\$/\1/" /etc/apk/repositories
         apk update
-        apk add bash curl wget nano mc props docker
+        apk add bash curl wget nano mc procps docker
         apk add make git gcc g++ cmake autoconf automake libtool man-pages
         apk add shadow doas doas-sudo-shim rsync socat
         apk add nodejs npm python3 openrc openssh monit rsyslog rsyslog-openrc redis
