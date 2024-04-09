@@ -260,7 +260,7 @@ BKJS_TRACE=$(get_arg -trace $BKJS_TRACE)
 [ -n "$BKJS_TRACE" ] && exec >>$BKJS_TRACE 2>&1
 
 # Setup the logger level
-[ -n "$(get_flag -syslog)" -o "$whoami" = "root" ] && export BKJS_ECHO="logger -s" || export BKJS_ECHO=echo
+[ -n "$(get_flag -syslog)" -o "$whoami" = "root" ] && export BKJS_ECHO="logger -s --" || export BKJS_ECHO=echo
 export BKJS_DEBUG=$(get_flag -debug $BKJS_DEBUG)
 
 export PATH=$BKJS_HOME/bin:$BKJS_HOME/node_modules/.bin:/app/bin:/usr/local/bin:/opt/local/bin:/sbin:/usr/sbin:$PATH
