@@ -14,17 +14,13 @@ case "$BKJS_CMD" in
     tag=$(get_arg -tag)
     [ -n "$tag" ] && instance_id=$(bkjs ec2-show -tag $tag -fmt id | head -1)
     instance_id=$(get_arg -instance-id $instance_id)
-    name=$(get_arg -name)
-    prefix=$(get_arg -prefix)
-    [ -n "$(get_flag -force)" ] && force="-force"
-    $BKJS_BIN shell -no-db -ipc-none -aws-create-image -wait $force -instance-id $instance_id -name "$name" -prefix "$prefix"
+    $BKJS_BIN shell -no-db -ipc-none -aws-create-image -wait -instance-id $instance_id $(get_all_args "-instance-id -tag")
     exit
     ;;
 
   ec2-create-launch-template-version)
     name=$(get_arg -name)
     skip=$(get_arg -skip)
-    image=$(get_arg -image-name)
     if [ -z "$name" ]; then
         tag=$(get_arg -tag)
         key=$(get_arg -key Name)
@@ -32,11 +28,8 @@ case "$BKJS_CMD" in
         name=$(aws ec2 describe-launch-templates $filter --query 'LaunchTemplates[*].LaunchTemplateName' --output text|sed 's/\t/\n/g'|sort|uniq)
     fi
     for c in $name; do
-        for s in $skip; do
-            [ "$c" = "$s" ] && c=""
-        done
-        [ -z "$c" ] && continue
-        $BKJS_BIN shell -no-db -ipc-none -aws-create-launch-template-version -name $c -image-name "$image"
+        if list_has $c $skip; then continue; fi
+        $BKJS_BIN shell -no-db -ipc-none -aws-create-launch-template-version -name $c $(get_all_args "-name -skip -tag -key")
     done
     exit
     ;;
