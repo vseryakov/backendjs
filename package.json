@@ -13,13 +13,13 @@
   "dependencies": {
     "cookie": "0.6.0",
     "cookie-parser": "1.4.6",
-    "croner": "8.0.1",
+    "croner": "8.0.2",
     "express": "4.19.2",
     "formidable": "2.1.1",
     "hashids": "2.3.0",
     "microtime": "3.1.1",
     "mime": "3.0.0",
-    "nodemailer": "6.9.12",
+    "nodemailer": "6.9.13",
     "qs": "6.12.0",
     "uuid": "9.0.1",
     "ws": "8.16.0",
@@ -32,12 +32,12 @@
     "bcrypt": "5.1.1",
     "bkjs-sqlite": "0.3.0",
     "mmmagic": "0.5.3",
-    "nats": "2.19.0",
-    "pg": "8.11.3",
+    "nats": "2.22.0",
+    "pg": "8.11.5",
     "redis": "3.1.2",
     "sharp": "0.33.3",
     "unix-dgram": "2.0.6",
-    "web-push": "3.6.6"
+    "web-push": "3.6.7"
   },
   "keywords": [
     "bkjs",
