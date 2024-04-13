@@ -14,7 +14,7 @@ case "$BKJS_CMD" in
     tag=$(get_arg -tag)
     [ -n "$tag" ] && instance_id=$(bkjs ec2-show -tag $tag -fmt id | head -1)
     instance_id=$(get_arg -instance-id $instance_id)
-    $BKJS_BIN shell -no-db -ipc-none -aws-create-image -wait -instance-id $instance_id $(get_all_args "-instance-id -tag")
+    $BKJS_BIN shell -no db,ipc -aws-create-image -wait -instance-id $instance_id $(get_all_args "-instance-id -tag")
     exit
     ;;
 
@@ -29,7 +29,7 @@ case "$BKJS_CMD" in
     fi
     for c in $name; do
         if list_has $c $skip; then continue; fi
-        $BKJS_BIN shell -no-db -ipc-none -aws-create-launch-template-version -name $c $(get_all_args "-name -skip -tag -key")
+        $BKJS_BIN shell -no db,ipc -aws-create-launch-template-version -name $c $(get_all_args "-name -skip -tag -key")
     done
     exit
     ;;
@@ -37,7 +37,7 @@ case "$BKJS_CMD" in
   ec2-build-ami)
     ami=$(get_arg -image-id ami-036e04f38993310a3)
 
-    INFO=$($BKJS_BIN shell -no-db -ipc-none -aws-launch-instances -image-id $ami -public-ip -wait $(get_all_args "-image-id"))
+    INFO=$($BKJS_BIN shell -no db,ipc -aws-launch-instances -image-id $ami -public-ip -wait $(get_all_args "-image-id"))
     echo "$INFO"
 
     INSTANCE_INFO=$(echo "$INFO"|egrep -E "^EC2-Instance:")
