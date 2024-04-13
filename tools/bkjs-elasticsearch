@@ -8,15 +8,13 @@ case "$BKJS_CMD" in
 
   help|elasticsearch-help)
     echo ""
-    echo "  elasticsearch-get [-force] - install local ElasticSearch server in $BKJS_HOME/elasticsearch"
+    echo "  elasticsearch-get [-force] [-ec2] - install local ElasticSearch server in $BKJS_HOME/elasticsearch"
     echo "  elasticsearch-init - download and install local ElasticSearch, start the server, configure monit"
     echo "  elasticsearch-run [-memsize PERCENT] [-memmax SIZE] [-nodetype TYPE] - run local ElasticSearch server installed in $BKJS_HOME/elasticsearch, -memmax is max heap size, -memsize is the percent of the total memory to use, -nodetype can be node,master,data,client"
     echo "  elasticsearch-stop - stop local ElasticSearch server"
+    echo "  elasticsearch-upgrade-node - rolling upgrade of a node with new version"
     echo "  elasticsearch-reset - remove local ElasticSearch database and restart the server"
-    echo "  elasticsearch-configure - configure ElasticSearch common parameters for scalability"
     echo "  elasticsearch-init-monit [-memsize PERCENT] [-memmax SIZE] [-nodetype TYPE] - setup monit to keep elasticsearch service running"
-    echo "  elasticsearch-exclude-node [-host HOST] [-ip IP] - disable a node by IP address"
-    echo "  elasticsearch-reindex -index INDEX [-dest INDEX] [-host HOST] [-remote HOST] - reindex an index from remote host"
     ;;
 
   elasticsearch-get)
@@ -34,16 +32,21 @@ case "$BKJS_CMD" in
             ;;
         esac
         ver=$(get_arg -vesion 8.8.1)
-        curl -L -o es.tgz https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-$ver-$platform.tar.gz
-        tar -C $ELASTICSEARCH_PREFIX --strip-components=1 -xzf es.tgz
-        rm -rf es.tgz
+        tar=elasticsearch-$ver-$platform.tar.gz
+        if [ ! -f $tar ]; the
+            curl -L https://artifacts.elastic.co/downloads/elasticsearch/$tar
+        fi
+        tar -C $ELASTICSEARCH_PREFIX --strip-components=1 -xzf $tar
+        [ "$?" != "0" ] && exit 1
+        rm -rf $tar
         cd $ELASTICSEARCH_PREFIX
         echo "node.roles: [master,data]" >> config/elasticsearch.yml
         echo "path.data: $BKJS_HOME/var" >> config/elasticsearch.yml
         echo "path.logs: $BKJS_HOME/log" >> config/elasticsearch.yml
         echo "action.destructive_requires_name: true" >> config/elasticsearch.yml
         echo 'xpack.security.enabled: false' >> config/elasticsearch.yml
-        if match $OS_TYPE amazon; then
+
+        if [ -n "$(get_flag -ec2)" ]; then
             echo 'network.host: ["_ec2_","_local_"]' >> config/elasticsearch.yml
             echo 'discovery.seed_providers: ec2' >> config/elasticsearch.yml
             echo 'cloud.node.auto_attributes: true' >> config/elasticsearch.yml
@@ -61,26 +64,6 @@ case "$BKJS_CMD" in
     if [ "$PLATFORM" = "Linux" ]; then
        sudo $0 elasticsearch-init-monit $(get_all_args)
     fi
-    exit
-    ;;
-
-  elasticsearch-get-nodetype)
-    [ "$ELASTICSEARCH_PREFIX" = "" ] && ELASTICSEARCH_PREFIX=$BKJS_HOME/elasticsearch
-    roles=$(grep "node.roles:" $ELASTICSEARCH_PREFIX/config/elasticsearch.yml|awk -F: '{print $2}'|sed 's/[^a-z]//g')
-    case "$roles" in
-    masterdata|datamaster)
-      echo node
-      ;;
-    data)
-      echo data
-      ;;
-    master)
-      echo master
-      ;;
-    "")
-      echo client
-      ;;
-    esac
     exit
     ;;
 
@@ -139,64 +122,15 @@ case "$BKJS_CMD" in
     exit
     ;;
 
-  elasticsearch-configure)
-    host=$(get_arg -host localhost)
-    curl -XPUT -H 'Content-Type: application/json' -d '{"persistent":{"script.max_compilations_rate":"1000/1m"}}' http://$host:9200/_cluster/settings
-    exit
-    ;;
-
-  elasticsearch-stop-replication)
-    host=$(get_arg -host localhost)
-    curl -XPUT -H 'Content-Type: application/json' -d '{"persistent":{"cluster.routing.allocation.enable":"primaries"}}' http://$host:9200/_cluster/settings
-    exit
-    ;;
-
-  elasticsearch-start-replication)
-    host=$(get_arg -host localhost)
-    curl -XPUT -H 'Content-Type: application/json' -d '{"persistent":{"cluster.routing.allocation.enable":null}}' http://$host:9200/_cluster/settings
-    exit
-    ;;
-
-  elasticsearch-set-disk-watermark)
-    host=$(get_arg -host localhost)
-    high=$(get_arg -high 95)
-    low=$(get_arg -low 95)
-    flood=$(get_arg -flood 95)
-    curl -XPUT -H 'Content-Type: application/json' -d "{\"transient\":{\"cluster.routing.allocation.disk.watermark.flood_stage\":\"$flood%\",\"cluster.routing.allocation.disk.watermark.high\":\"$high%\",\"cluster.routing.allocation.disk.watermark.low\":\"$low%\"}}" http://$host:9200/_cluster/settings
-    exit
-    ;;
-
-  elasticsearch-reindex)
-    host=$(get_arg -host localhost)
-    index=$(get_arg -index)
-    dest=$(get_arg -dest $index)
-    remote=$(get_arg -remote $host)
-    d='{ "source": { "index": "'$index'", "remote": { "host": "http://'$remote':9200" } }, "dest": {"index": "'$dest'" } }'
-    curl -XPOST -H 'Content-Type:application/json' -d "'$d'" "http://$host:9200/_reindex?wait_for_completion=false"
-    exit
-    ;;
-
   elasticsearch-upgrade-node)
     host=$(get_arg -host localhost)
     memsize=$(get_arg -memsize 50)
-    nodetype=$($0 get_arg -nodetype)
-    $0 elasticsearch-stop-replication -host $host
+    nodetype=$($get_arg -nodetype)
+    $0 es-stop-replication -host $host
     $0 elasticsearch-stop
     $0 elasticsearch-get -force
-    if [ -f /etc/monit.d/elasticsearch.conf ]; then
-        sudo monit reload
-    else
-        $0 elasticsearch-run -nodetype "$nodetype" -memsize $memsize
-    fi
-    $0 elasticsearch-start-replication -host $host
-    exit
-    ;;
-
-  elasticsearch-exclude-node)
-    host=$(get_arg -host localhost)
-    ip=$(get_arg -ip $(get_local_ip))
-    [ "$ip" = "." ] && ip=""
-    curl -XPUT -H 'Content-Type: application/json' -d "{\"transient\":{\"cluster.routing.allocation.exclude._ip\":\"$ip\"}}" http://$host:9200/_cluster/settings
+    $0 elasticsearch-run -nodetype "$nodetype" -memsize $memsize
+    $0 es-start-replication -host $host
     exit
     ;;
 

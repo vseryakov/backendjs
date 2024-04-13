@@ -15,6 +15,12 @@ case "$BKJS_CMD" in
     echo "  es-ls [-host HOST] - show Elasticsearch cluster nodes"
     echo "  es-n [-host HOST] - show Elasticsearch cluster nodes IDs to be used for other commands by node id"
     echo "  es-map [-host HOST] TABLE - show Elasticsearch mappings for a table"
+    echo "  es-set-script-rate [-rate 1000] - set ElasticSearch script compilation rate"
+    echo "  es-set-disk-watermark [-high 95] [-low 95] [-flood 95] - set ElasticSearch disk allocations threshold"
+    echo "  es-exclude-node [-host HOST] [-ip IP] - disable a node by IP address"
+    echo "  es-reindex -index INDEX [-dest INDEX] [-host HOST] [-remote HOST] - reindex a single index from remote host"
+    echo "  es-stop-replication - stop replication for upgrade"
+    echo "  es-start-replication - start replication between nodes"
     ;;
 
   es-map)
@@ -64,6 +70,52 @@ case "$BKJS_CMD" in
   es-n)
     host=$(get_arg -host localhost)
     curl -s -XGET "http://$host:9200/_nodes/process?pretty"|node -e 'var d="";process.stdin.on("data",(c)=>{d+=c});process.stdin.on("end",()=>{try{d=JSON.parse(d).nodes;for(var p in d)console.log(p,"  ",d[p].ip,"          ".substr(0,15-d[p].ip.length),String(d[p].roles))}catch(e){};process.exit()})'
+    exit
+    ;;
+
+  es-set-script-rate)
+    host=$(get_arg -host localhost)
+    rate=$(get_arg -rate 1000)
+    curl -XPUT -H 'Content-Type: application/json' -d "{\"persistent":{\"script.max_compilations_rate\":\"$rate/1m\"}}" http://$host:9200/_cluster/settings
+    exit
+    ;;
+
+  es-stop-replication)
+    host=$(get_arg -host localhost)
+    curl -XPUT -H 'Content-Type: application/json' -d '{"persistent":{"cluster.routing.allocation.enable":"primaries"}}' http://$host:9200/_cluster/settings
+    exit
+    ;;
+
+  es-start-replication)
+    host=$(get_arg -host localhost)
+    curl -XPUT -H 'Content-Type: application/json' -d '{"persistent":{"cluster.routing.allocation.enable":null}}' http://$host:9200/_cluster/settings
+    exit
+    ;;
+
+  es-set-disk-watermark)
+    host=$(get_arg -host localhost)
+    high=$(get_arg -high 95)
+    low=$(get_arg -low 95)
+    flood=$(get_arg -flood 95)
+    curl -XPUT -H 'Content-Type: application/json' -d "{\"transient\":{\"cluster.routing.allocation.disk.watermark.flood_stage\":\"$flood%\",\"cluster.routing.allocation.disk.watermark.high\":\"$high%\",\"cluster.routing.allocation.disk.watermark.low\":\"$low%\"}}" http://$host:9200/_cluster/settings
+    exit
+    ;;
+
+  es-reindex)
+    host=$(get_arg -host localhost)
+    index=$(get_arg -index)
+    dest=$(get_arg -dest $index)
+    remote=$(get_arg -remote $host)
+    d='{ "source": { "index": "'$index'", "remote": { "host": "http://'$remote':9200" } }, "dest": {"index": "'$dest'" } }'
+    curl -XPOST -H 'Content-Type:application/json' -d "'$d'" "http://$host:9200/_reindex?wait_for_completion=false"
+    exit
+    ;;
+
+  es-exclude-node)
+    host=$(get_arg -host localhost)
+    ip=$(get_arg -ip $(get_local_ip))
+    [ "$ip" = "." ] && ip=""
+    curl -XPUT -H 'Content-Type: application/json' -d "{\"transient\":{\"cluster.routing.allocation.exclude._ip\":\"$ip\"}}" http://$host:9200/_cluster/settings
     exit
     ;;
     
