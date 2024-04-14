@@ -460,7 +460,7 @@ case "$BKJS_CMD" in
         $SED "s/^# *(.+v$ver\/community)\$/\1/" /etc/apk/repositories
         apk update
         apk add bash curl wget nano mc procps docker
-        apk add make git gcc g++ cmake autoconf automake libtool man-pages
+        apk add make git gcc g++ cmake autoconf automake libtool man-pages go
         apk add shadow doas doas-sudo-shim rsync socat
         apk add nodejs npm python3 openrc openssh monit rsyslog rsyslog-openrc redis
         apk add tiny-cloud tiny-cloud-aws tiny-cloud-openrc nvme-cli aws-cli
@@ -474,11 +474,12 @@ case "$BKJS_CMD" in
     case "$OS_TYPE" in
       alpine)
         apk add google-authenticator openssh-server-pam
-        echo -e "account include base-account" > /etc/pam.d/sshd
-        echo -e "auth required pam_env.so" >> /etc/pam.d/sshd
+
+        echo -e "auth required pam_env.so" > /etc/pam.d/sshd
         echo -e "auth required pam_nologin.so successok" >> /etc/pam.d/sshd
-        echo -e "auth required /lib/security/pam_google_authenticator.so echo_verification_code grace_period=57600 nullok" >> /etc/pam.d/sshd
-        echo -e "auth required pam_unix.so\tmd5 sha512" >> /etc/pam.d/sshd
+        echo -e "auth required /lib/security/pam_google_authenticator.so echo_verification_code grace_period=900 nullok" >> /etc/pam.d/sshd
+        echo -e "account include base-account" >> /etc/pam.d/sshd
+        echo -e "password include base-password" >> /etc/pam.d/sshd
         ln /etc/pam.d/sshd /etc/pam.d/sshd.pam
         $BKJS_BIN setup-limits
         ;;
@@ -493,6 +494,7 @@ case "$BKJS_CMD" in
         fi
         ;;
     esac
+
     echo >> /etc/ssh/sshd_config
     if [ "$(egrep -s '^UsePAM yes' /etc/ssh/sshd_config)" = "" ]; then
         $SED 's/^UsePAM/#UsePAM/' /etc/ssh/sshd_config
