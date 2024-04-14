@@ -21,7 +21,7 @@ case "$BKJS_CMD" in
     echo "  setup-system - setup system wide parameters, permissions"
     echo "  setup-limits - setup ulimits"
     echo "  setup-sysctl - setup sysctl parameters"
-    echo "  setup-logrotate - setup logrotate for the backend log files"
+    echo "  setup-logrotate [-force] [-sysfiles F] [-logfiles F] - setup logrotate for the backend log files"
     echo "  setup-packages - install required packages and updates for supported distros (Alpine)"
     ;;
 
@@ -225,12 +225,12 @@ case "$BKJS_CMD" in
     # Setup logrotate for backend log files
     days=$(get_arg -logrotate-days 60)
 
-    [ -f /etc/logrotate.d/syslog ] && rm /etc/logrotate.d/syslog
+    [ -f /etc/logrotate.d/syslog ] && rm -f /etc/logrotate.d/syslog
     if [ "$(grep -s '#Bkjs' /etc/logrotate.d/rsyslog)" = "" ]; then
         log=/etc/logrotate.d/rsyslog
         echo "Configuring $log..."
         echo "#Bkjs" > $log
-        echo "/var/log/cron /var/log/messages {" >> $log
+        echo "/var/log/cron /var/log/messages $(get_arg -sysfiles) {" >> $log
         echo " missingok" >> $log
         echo " daily" >> $log
         echo " rotate $days" >> $log
@@ -240,11 +240,13 @@ case "$BKJS_CMD" in
         echo " endscript" >> $log
         echo "}" >> $log
     fi
+
+    [ -n "$(get_flag -force)" ] && rm -f /etc/logrotate.d/bkjs
     if [ "$(grep -s "#Bkjs $BKJS_HOME" /etc/logrotate.d/bkjs)" = "" ]; then
         log=/etc/logrotate.d/bkjs
         echo "Configuring $log..."
         echo "#Bkjs $BKJS_HOME" > $log
-        echo "$BKJS_HOME/log/message.log $BKJS_HOME/log/access.log {" >> $log
+        echo "$BKJS_HOME/log/message.log $BKJS_HOME/log/access.log $(get_arg -logfiles) {" >> $log
         echo " missingok" >> $log
         echo " daily" >> $log
         echo " rotate $days" >> $log
