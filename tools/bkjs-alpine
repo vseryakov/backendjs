@@ -44,8 +44,10 @@ case "$BKJS_CMD" in
 
         # Special case for version from package.json
         pkgver=$(get_flag -pkgver)
-        [ -z "$pkgver" ] && pkgver=$($BKJS_BIN get-jsval package.json version)
-        [ -n "$pkgver" ] && cmd="$cmd -pkgver $pkgver"
+        if [ -n "$pkgver" ]; then
+            [ "$pkgver" = "1" ] && pkgver=$($BKJS_BIN get-jsval package.json version)
+            [ -n "$pkgver" ] && cmd="$cmd -pkgver $pkgver"
+        fi
 
         cargs=$(get_all_args "-file -repo -image -docker -pkgver")
     fi
@@ -109,7 +111,7 @@ case "$BKJS_CMD" in
     ;;
 
   alpine-prepare-abuild)
-    docker build --no-cache --rm -t abuild -f tools/docker/Dockerfile.abuild .
+    docker build --no-cache --rm -t abuild -f $BKJS_DIR/tools/docker/Dockerfile.abuild .
     exit
     ;;
 

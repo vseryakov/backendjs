@@ -16,6 +16,8 @@ case "$BKJS_CMD" in
     echo "  ec2-region - current instance region"
     echo "  ec2-account - current instance account id"
     echo "  ec2-tag [-tag NAME] - current instance tag name, default key is Name"
+    echo "  ec2-check-storage - runs on start to check for external disk mounted to $BKJS_HOME/data, links log/var to it"
+    echo "  ec2-check-hostname - runs on start to set the hostname to the EC2 tag"
     ;;
 
   start-hook)
@@ -138,9 +140,12 @@ case "$BKJS_CMD" in
     addr=$(get_local_ip)
     [ "$addr" = "" ] && logger -s "No IP address found" && exit
     uname=$(uname -n)
-    tag=$($BKJS_BIN ec2-tag)
+    host=$(get_arg -host $BKJS_HOST)
+    if [ -z "$host" ]; then
+        tag=$($BKJS_BIN ec2-tag)
+        host=${tag:-ip}-$(echo $addr|sed 's/\./-/g')
+    fi
     domain=$(get_arg -domain $BKJS_DOMAIN)
-    host=${tag:-ip}-$(echo $addr|sed 's/\./-/g')
     msg Checking $host@$domain ...
     $BKJS_BIN setup-hostname -host $host -domain $domain
     [ "$uname" != "$(uname -n)" ] && killall -HUP rsyslogd

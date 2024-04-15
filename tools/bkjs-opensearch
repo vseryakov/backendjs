@@ -31,14 +31,15 @@ case "$BKJS_CMD" in
             platform="$platform-$OS_ARCH"
             ;;
         esac
-        ver=$(get_arg -vesion 2.13.0)
+        ver=$(get_arg -version 2.13.0)
         tar=opensearch-min--$ver-$platform.tar.gz
-        if [ ! -f $tar ]; the
-            curl -L https://artifacts.opensearch.org/releases/core/opensearch/$tar
+        if [ ! -f $tar ]; then
+            curl -OL https://artifacts.opensearch.org/releases/core/opensearch/$tar
         fi
         tar -C $OPENSEARCH_PREFIX --strip-components=1 -xzf $tar
         [ "$?" != "0" ] && exit 1
         rm -rf $tar
+
         cd $OPENSEARCH_PREFIX
         cfg=config/opensearch.yml
         echo "node.roles: [master,data]" >> $cfg
@@ -102,6 +103,7 @@ case "$BKJS_CMD" in
       $SED -e "s/^node.roles.+$/node.roles: [master,data,ingest,ml,transform]/" $OPENSEARCH_PREFIX/config/opensearch.yml
       ;;
     esac
+    [ "$OS_TYPE" = "alpine" ] && ES_JAVA_HOME=/usr
     $OPENSEARCH_PREFIX/bin/opensearch -p $BKJS_HOME/var/opensearch.pid -d >>$BKJS_HOME/log/message.log 2>&1
     exit
     ;;

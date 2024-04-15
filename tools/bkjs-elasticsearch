@@ -31,26 +31,33 @@ case "$BKJS_CMD" in
             platform="$platform-x86_64"
             ;;
         esac
-        ver=$(get_arg -vesion 8.8.1)
+        ver=$(get_arg -version 7.17.19)
         tar=elasticsearch-$ver-$platform.tar.gz
-        if [ ! -f $tar ]; the
-            curl -L https://artifacts.elastic.co/downloads/elasticsearch/$tar
+        if [ ! -f $tar ]; then
+            curl -OL https://artifacts.elastic.co/downloads/elasticsearch/$tar
         fi
         tar -C $ELASTICSEARCH_PREFIX --strip-components=1 -xzf $tar
         [ "$?" != "0" ] && exit 1
         rm -rf $tar
+
         cd $ELASTICSEARCH_PREFIX
-        echo "node.roles: [master,data]" >> config/elasticsearch.yml
-        echo "path.data: $BKJS_HOME/var" >> config/elasticsearch.yml
-        echo "path.logs: $BKJS_HOME/log" >> config/elasticsearch.yml
-        echo "action.destructive_requires_name: true" >> config/elasticsearch.yml
-        echo 'xpack.security.enabled: false' >> config/elasticsearch.yml
+        cfg=config/elasticsearch.yml
+        echo "node.roles: [master,data]" >> $cfg
+        echo "path.data: $BKJS_HOME/var" >> $cfg
+        echo "path.logs: $BKJS_HOME/log" >> $cfg
+        echo "action.destructive_requires_name: true" >> $cfg
+        echo 'xpack.security.enabled: false' >> $cfg
+
+        if [ "$OS_TYPE" = "alpine" ]; then
+            echo "xpack.ml.enabled: false" >> $cfg
+            rm -rf jdk modules/x-pack-ml
+        fi
 
         if [ -n "$(get_flag -ec2)" ]; then
-            echo 'network.host: ["_ec2_","_local_"]' >> config/elasticsearch.yml
-            echo 'discovery.seed_providers: ec2' >> config/elasticsearch.yml
-            echo 'cloud.node.auto_attributes: true' >> config/elasticsearch.yml
-            echo 'cluster.routing.allocation.awareness.attributes: aws_availability_zone' >> config/elasticsearch.yml
+            echo 'network.host: ["_ec2_","_local_"]' >> $cfg
+            echo 'discovery.seed_providers: ec2' >> $cfg
+            echo 'cloud.node.auto_attributes: true' >> $cfg
+            echo 'cluster.routing.allocation.awareness.attributes: aws_availability_zone' >> $cfg
             bin/elasticsearch-plugin install discovery-ec2 -b
         fi
         echo "-Dlog4j2.formatMsgNoLookups=true" >> config/jvm.options
@@ -97,6 +104,7 @@ case "$BKJS_CMD" in
       $SED -e "s/^node.roles.+$/node.roles: [master,data,ingest,ml,transform]/" $ELASTICSEARCH_PREFIX/config/elasticsearch.yml
       ;;
     esac
+    [ "$OS_TYPE" = "alpine" ] && ES_JAVA_HOME=/usr
     $ELASTICSEARCH_PREFIX/bin/elasticsearch -p $BKJS_HOME/var/elasticsearch.pid -d >>$BKJS_HOME/log/message.log 2>&1
     exit
     ;;
