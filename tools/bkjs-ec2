@@ -6,6 +6,18 @@
 
 case "$BKJS_CMD" in
 
+  help)
+    echo ""
+    echo "  ec2-show [-region region] [-tag NAME] [-skip-tag NAME] [-nomyip] [-line] [-fmt fmt]- show running instances in region, optional tag pattern can be used for filter, FMT may contain: id,ip,host,key,name,arch which will be replaced with actual values"
+    echo "  ec2-run -tag NAME [-id ID] -cmd cmd [-region  region] [-user NAME] - run a command over SSM by tag name or instance id, if -tag or -id one is 'all' then all instances will run the command"
+    echo "  ec2-ssh -tag NAME [-region region] [-pub] [-cmd cmd] [-index N|.] - ssh into a host by tag name, key name will be used to specify a keypair from ~/.ssh/, -pub tells to use public IP, -cmd if specified will be run on all matched hosts, -index tell which specific host to use only, dot means all hosts"
+    echo "  ec2-host [-tag NAME] [-skip-tag NAME] - show running instances local IP addresses by tag"
+    echo "  ec2-meta PATH - show meta data"
+    echo "  ec2-region - current instance region"
+    echo "  ec2-account - current instance account id"
+    echo "  ec2-tag [-tag NAME] - current instance tag name, default key is Name"
+    ;;
+
   start-hook)
     region=$(echo $(get_ec2_meta latest/meta-data/placement/availability-zone/)|sed 's/[a-z]$//')
     [ -z "$region" ] && return
@@ -137,7 +149,7 @@ case "$BKJS_CMD" in
 
   ec2-check-storage)
     user=$(get_arg -user ec2-user)
-    mnt=$(get_arg -mnt /home/$user/data)
+    mnt=$(get_arg -mnt $BKJS_HOME/data)
     dev=$(grep $mnt /etc/fstab|cut -f1 -d' ')
     if [ "$dev" = "" ]; then
        logger -s $mnt not in /etc/fstab
@@ -150,7 +162,7 @@ case "$BKJS_CMD" in
        msg $mnt already mounted
        exit
     fi
-    cd /home/$user
+    cd $BKJS_HOME
     ln -sf $mnt/log
     ln -sf $mnt/var
     fs=$(blkid |grep $dev)
@@ -167,16 +179,5 @@ case "$BKJS_CMD" in
     exit
     ;;
 
-  help)
-    echo ""
-    echo "  ec2-show [-region region] [-tag NAME] [-skip-tag NAME] [-nomyip] [-line] [-fmt fmt]- show running instances in region, optional tag pattern can be used for filter, FMT may contain: id,ip,host,key,name,arch which will be replaced with actual values"
-    echo "  ec2-run -tag NAME [-id ID] -cmd cmd [-region  region] [-user NAME] - run a command over SSM by tag name or instance id, if -tag or -id one is 'all' then all instances will run the command"
-    echo "  ec2-ssh -tag NAME [-region region] [-pub] [-cmd cmd] [-index N|.] - ssh into a host by tag name, key name will be used to specify a keypair from ~/.ssh/, -pub tells to use public IP, -cmd if specified will be run on all matched hosts, -index tell which specific host to use only, dot means all hosts"
-    echo "  ec2-host [-tag NAME] [-skip-tag NAME] - show running instances local IP addresses by tag"
-    echo "  ec2-meta PATH - show meta data"
-    echo "  ec2-region - current instance region"
-    echo "  ec2-account - current instance account id"
-    echo "  ec2-tag [-tag NAME] - current instance tag name, default key is Name"
-    ;;
 esac
 
