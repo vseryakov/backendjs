@@ -51,6 +51,7 @@ case "$BKJS_CMD" in
         if [ "$OS_TYPE" = "alpine" ]; then
             echo "xpack.ml.enabled: false" >> $cfg
             rm -rf jdk modules/x-pack-ml
+            export ES_JAVA_HOME=/usr
         fi
 
         if [ -n "$(get_flag -ec2)" ]; then
@@ -104,7 +105,7 @@ case "$BKJS_CMD" in
       $SED -e "s/^node.roles.+$/node.roles: [master,data,ingest,ml,transform]/" $ELASTICSEARCH_PREFIX/config/elasticsearch.yml
       ;;
     esac
-    [ "$OS_TYPE" = "alpine" ] && ES_JAVA_HOME=/usr
+    [ "$OS_TYPE" = "alpine" ] && export ES_JAVA_HOME=/usr
     $ELASTICSEARCH_PREFIX/bin/elasticsearch -p $BKJS_HOME/var/elasticsearch.pid -d >>$BKJS_HOME/log/message.log 2>&1
     exit
     ;;
