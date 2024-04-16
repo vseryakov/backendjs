@@ -7,7 +7,7 @@
 case "$BKJS_CMD" in
 
   help|es-help)
-    echo ""
+    echo
     echo "  es-w [-host HOST] - show Elasticsearch cluster health status"
     echo "  es-df [-host HOST] - show Elasticsearch cluster disk allocations"
     echo "  es-s [-host HOST] - show Elasticsearch cluster shards allocations and distributions"
@@ -76,7 +76,7 @@ case "$BKJS_CMD" in
   es-set-script-rate)
     host=$(get_arg -host localhost)
     rate=$(get_arg -rate 1000)
-    curl -XPUT -H 'Content-Type: application/json' -d "{\"persistent":{\"script.max_compilations_rate\":\"$rate/1m\"}}" http://$host:9200/_cluster/settings
+    curl -XPUT -H 'Content-Type: application/json' -d "{\"persistent\":{\"script.max_compilations_rate\":\"${rate}/1m\"}}" http://$host:9200/_cluster/settings
     exit
     ;;
 
