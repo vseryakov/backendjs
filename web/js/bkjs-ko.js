@@ -210,10 +210,17 @@ bkjs.koExtendModel = function(name, options)
     if (!m) throw new Error("model not found")
     for (const p in options) {
         if (bkjs.isF(options[p])) {
-            if (p == "onCreate") {
+            switch (p) {
+            case "onExtend":
+                options[p].call(m);
+                break;
+
+            case "onCreate":
                 if (!m.__onCreate) m.__onCreate = [];
                 m.__onCreate.push(options[p]);
-            } else {
+                break;
+
+            default:
                 m.prototype[p] = options[p];
             }
         } else {
