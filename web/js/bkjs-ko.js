@@ -204,6 +204,24 @@ bkjs.koCreateModel = function(name, options)
     return m;
 }
 
+bkjs.koExtendModel = function(name, options)
+{
+    var m = bkjs.koModels[name];
+    if (!m) throw new Error("model not found")
+    for (const p in options) {
+        if (bkjs.isF(options[p])) {
+            if (p == "onCreate") {
+                if (!m.__onCreate) m.__onCreate = [];
+                m.__onCreate.push(options[p]);
+            } else {
+                m.prototype[p] = options[p];
+            }
+        } else {
+            m[p] = options[p];
+        }
+    }
+}
+
 bkjs.koCreateModelAlias = function(type, name, alias)
 {
     if (type && name && bkjs.isU(alias)) alias = name, name = type, type = "model";
@@ -238,6 +256,7 @@ bkjs.koFindComponent = function(model)
                     if (bkjs.isF(VM)) {
                         vm = new VM(params, componentInfo);
                         if (bkjs.isF(vm.onCreate)) vm.onCreate(vm.params, componentInfo);
+                        for (const i in VM.__onCreate) VM.__onCreate[i].call(vm, vm.params, componentInfo);
                         bkjs.koViewModels.push(vm);
                     }
                 }
@@ -332,6 +351,7 @@ $(function() {
     bkjs.on("bkjs.event", (ev, name, event, data) => {
         switch (name) {
         case "component.created":
+            bkjs.trigger("component.created." + data.name, data);
             bkjs.applyPlugins(data.info.element);
             break;
         }
