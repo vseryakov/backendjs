@@ -4,7 +4,7 @@ case "$BKJS_CMD" in
 
   help|alpine-help)
     echo
-    echo "  alpine-abuild -file APKBUILD [-src .] [-repo REPO] [-image abuild] [-pkgver V] [-pkgname N] [-sync S3] [-checksum] [-noexit] [-i] [-arch A] [-docker args] - build a package with alpine docker. Place the .apk into -repo folder and -sync to S3 if provided"
+    echo "  alpine-abuild -file APKBUILD [-src .] [-repo REPO] [-image abuild] [-pkgver V] [-pkgname N] [-sync S3] [-checksum] [-force] [-noexit] [-i] [-arch A] [-docker args] - build a package with alpine docker. Place the .apk into -repo folder and -sync to S3 if provided"
     echo "  alpine-run-abuild -name N [-pkgname PKG] [-repo /repo] [-src /src] [-tmp /tmp] - call abuild for given APKBUILD.N file, place in -repo dir and run inside -tmp dir"
     echo "  alpine-prepare-abuild - build Docker image abuild for faster builds"
     echo
@@ -45,7 +45,7 @@ case "$BKJS_CMD" in
         # Special case for version from package.json
         pkgver=$(get_flag -pkgver)
         if [ -n "$pkgver" ]; then
-            [ "$pkgver" = "1" ] && pkgver=$($BKJS_BIN get-jsval package.json version)
+            [ "$pkgver" = "1" ] && pkgver=$(get_json_flat package.json version)
             [ -n "$pkgver" ] && cmd="$cmd -pkgver $pkgver"
         fi
 
@@ -55,13 +55,15 @@ case "$BKJS_CMD" in
     docker run --rm $dargs $image $cmd $cargs
     [ "$?" != "0" ] && exit 2
 
-    sync=$(get_arg -sync $BKJS_APKSYNC)
     if [ -d $repo ]; then
-        case $sync in
-          s3*)
-            aws s3 sync $repo/ $sync
-            ;;
-        esac
+        sync=$(get_arg -sync "$BKJS_APKSYNC")
+        for s in $sync; do
+            case $s in
+            s3:*)
+              aws s3 sync $repo/ $s
+              ;;
+            esac
+        done
     fi
     exit
     ;;
@@ -101,6 +103,14 @@ case "$BKJS_CMD" in
     pkgver=$(get_arg -pkgver)
     if [ -n "$pkgver" ]; then
         $SED "s/^pkgver=.+/pkgver=$pkgver/" APKBUILD
+    fi
+
+    if [ -n "$(get_flag -force)" ]; then
+        pkgfile=$(source APKBUILD && echo $pkgname-$pkgver-r$pkgrel.apk)
+        if [ -n "$pkgfile" ]; then
+            msg Rebuilding $repo/$MACHINE/$pkgfile ...
+            rm -f $repo/$MACHINE/$pkgfile
+        fi
     fi
 
     abuild -P $repo -rFkK
