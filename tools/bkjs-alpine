@@ -4,7 +4,7 @@ case "$BKJS_CMD" in
 
   help|alpine-help)
     echo
-    echo "  alpine-abuild -file APKBUILD [-src .] [-repo REPO] [-image abuild] [-pkgver V] [-pkgname N] [-sync S3] [-checksum] [-force] [-noexit] [-i] [-arch A] [-docker args] - build a package with alpine docker. Place the .apk into -repo folder and -sync to S3 if provided"
+    echo "  alpine-abuild -file APKBUILD [-src .] [-repo REPO] [-image abuild] [-pkgver VER|PATH] [-pkgname N] [-sync S3] [-checksum] [-force] [-noexit] [-i] [-arch A] [-docker args] - build a package with alpine docker. Place the .apk into -repo folder and -sync to S3 if provided"
     echo "  alpine-run-abuild -name N [-pkgname PKG] [-repo /repo] [-src /src] [-tmp /tmp] - call abuild for given APKBUILD.N file, place in -repo dir and run inside -tmp dir"
     echo "  alpine-prepare-abuild - build Docker image abuild for faster builds"
     echo
@@ -45,7 +45,11 @@ case "$BKJS_CMD" in
         # Special case for version from package.json
         pkgver=$(get_flag -pkgver)
         if [ -n "$pkgver" ]; then
-            [ "$pkgver" = "1" ] && pkgver=$(get_json_flat package.json version)
+            if [ "$pkgver" = "1" ]; then
+                pkgver=$(get_json_flat package.json version)
+            elif match $pkgver /; then
+                pkgver=$(get_json_flat $pkgver version)
+            fi
             [ -n "$pkgver" ] && cmd="$cmd -pkgver $pkgver"
         fi
 
