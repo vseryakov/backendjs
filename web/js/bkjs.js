@@ -154,6 +154,13 @@ bkjs.send = function(options, onsuccess, onerror)
     });
 }
 
+bkjs.asend = function(options)
+{
+    return new Promise((resolve, reject) => {
+        bkjs.send(options, resolve, reject);
+    });
+}
+
 bkjs.get = function(options, callback)
 {
     this.sendRequest(this.objExtend(options, { type: "GET" }), callback);
@@ -166,6 +173,15 @@ bkjs.sendRequest = function(options, callback)
         if (this.isF(callback)) callback.call(options.self || this, null, data, info);
     }, (err, info) => {
         if (this.isF(callback)) callback.call(options.self || this, err, {}, info);
+    });
+}
+
+bkjs.asendRequest = function(options)
+{
+    return new Promise((resolve, reject) => {
+        bkjs.sendRequest(options, (err, rc, info) => {
+            if (err) reject(err, info); else resolve(rc, info);
+        });
     });
 }
 
@@ -205,6 +221,15 @@ bkjs.sendFile = function(options, callback)
     var rc = { url: options.url, data: form };
     for (const p in options) if (this.isU(rc[p])) rc[p] = options[p];
     this.sendRequest(rc, callback);
+}
+
+bkjs.asendFile = function(options)
+{
+    return new Promise((resolve, reject) => {
+        bkjs.sendFile(options, (err, rc, info) => {
+            if (err) reject(err, info); else resolve(rc, info);
+        });
+    });
 }
 
 // Return a file object for the selector
