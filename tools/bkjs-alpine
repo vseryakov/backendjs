@@ -92,10 +92,9 @@ case "$BKJS_CMD" in
 
     apk -U upgrade -a
 
-    cd $tmp
-
     # Update index using fake build file and exit
     if [ -n "$(get_flag -reindex)" ]; then
+        cd $tmp
         echo -e "pkgname=fake\npkgver=0.0.0\npkgrel=0\npkgdesc=fake\narch=noarch\n" > APKBUILD
         abuild -P $repo -F -f index
         exit
@@ -103,6 +102,8 @@ case "$BKJS_CMD" in
 
     cp $file $tmp/APKBUILD
     [ "$?" != "0" ] && echo "invalid $file" && exit 1
+
+    cd $tmp
 
     # Update checksum and exit
     if [ -n "$(get_flag -checksum)" ]; then
