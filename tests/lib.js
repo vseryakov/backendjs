@@ -228,16 +228,23 @@ tests.test_foreachline = async function(callback)
     var count = 0, opts = {};
     lib.forEachLineSync(file, opts, (l) => { count += l.length });
     expect(count == line.length*nlines, "all lines must be read", count, "!=", nlines*line.length, opts);
+    expect(opts.ncalls == nlines, "expects ncalls =", nlines, opts)
 
     count = 0;
     opts = { count: 100, skip: 1000 }
     lib.forEachLineSync(file, opts, (ls) => { for (const l of ls) count += l.length });
     expect(count == line.length*(nlines-1000), "1000 less lines must be read", count, "!=", line.length*(nlines-1000), opts);
+    expect(opts.ncalls == nlines/100 - 1000/100, "expects 10 less batches", opts)
 
     count = 0;
     opts = { limit: 100 }
     lib.forEachLineSync(file, opts, (l) => { count += l.length });
     expect(count == line.length*(100), "100 lines must be read", count, "!=", line.length*(100), opts);
+
+    count = 0;
+    opts = { count: 10, batchsize: 10, limit: 10 }
+    lib.forEachLineSync(file, opts, (ls) => { count = ls.length });
+    expect(count == 2, "2 lines must be read in batch", count, "!=", 2, opts);
 
     count = 0;
     opts = { length: line.length*10 }
@@ -263,11 +270,18 @@ tests.test_foreachline = async function(callback)
     count = 0, opts = {}
     await forEachLine(file, opts, (l, next) => { count += l.length; next() });
     expect(count == line.length*nlines, "async: all lines must be read", count, "!=", nlines*line.length, opts);
+    expect(opts.ncalls == nlines, "expects ncalls =", nlines, opts)
 
     count = 0;
     opts = { count: 100, skip: 1000 }
-    await forEachLine(file, opts, (ls, next) => { for (const l of ls) count += l.length; next() });
+    await forEachLine(file, opts, (ls, next, ctx) => { for (const l of ls) count += l.length; next() });
     expect(count == line.length*(nlines-1000), "async: 1000 less lines must be read", count, "!=", line.length*(nlines-1000), opts);
+    expect(opts.ncalls == nlines/100 - 1000/100, "expects 10 less batches", opts)
+
+    count = 0;
+    opts = { count: 10, batchsize: 10, limit: 10 }
+    await forEachLine(file, opts, (ls, next) => { count = ls.length; next() });
+    expect(count == 2, "2 lines must be read in batch", count, "!=", 2, opts);
 
     count = 0;
     opts = { limit: 100 }
