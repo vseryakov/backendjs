@@ -15,7 +15,7 @@
     "cookie-parser": "1.4.6",
     "croner": "8.0.2",
     "express": "4.19.2",
-    "formidable": "2.1.1",
+    "formidable": "3.2.4",
     "hashids": "2.3.0",
     "microtime": "3.1.1",
     "mime": "3.0.0",
