@@ -26,7 +26,7 @@ case "$BKJS_CMD" in
         fn=$path/$file
         if match $fn $skip; then continue; fi
         if [[ -n "$filter" ]] && ! match $fn $filter; then continue; fi
-        $0 test-$(basename $file .js) -test $test -log $log $nolog $(get_all_args "-log -path -skip -filter -test")
+        $BKJS_BIN test-$(basename $file .js) -test $test -log $log $nolog $(get_all_args "-log -path -skip -filter -test")
         [ "$?" != "0" ] && err=1
     done
     exit $err
@@ -38,7 +38,7 @@ case "$BKJS_CMD" in
     [ "$?" != "0" ] && exit 1
     err=0
     for d in $dirs; do
-        ($0 test-all -path $(dirname $d) $(get_all_args "-path"))
+        ($BKJS_BIN test-all -path $(dirname $d) $(get_all_args "-path"))
         [ "$?" != "0" ] && err=1
     done
     exit $err
@@ -58,7 +58,7 @@ case "$BKJS_CMD" in
     [ ! -f tests/$file.js ] && echo "$tests/$file.js is not found" && exit 1
     test=$(get_arg -test $file)
     config=$(get_arg -test-config)
-    exec $0 shell -test-config $config,$tests/config,$tests/config.$file -test-file $tests/$file.js -run-ipc -run-api -run-worker $(get_all_args "-test -test-config") -test-run $test
+    exec $BKJS_BIN shell -test-config $config,$tests/config,$tests/config.$file -test-file $tests/$file.js -run-ipc -run-api -run-worker $(get_all_args "-test -test-config") -test-run $test
     ;;
 
 esac

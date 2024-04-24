@@ -20,7 +20,7 @@ case "$BKJS_CMD" in
     ($0 redis-get $(get_all_args))
     ($0 redis-run $(get_all_args))
     if [ "$PLATFORM" = "Linux" ]; then
-       sudo $0 redis-init-monit
+       sudo $BKJS_BIN redis-init-monit
     fi
     exit
     ;;
@@ -45,7 +45,7 @@ case "$BKJS_CMD" in
 
     cp redis/redis.conf $BKJS_HOME/etc
     rm -rf redis redis.tgz
-    $0 redis-config
+    $BKJS_BIN redis-config
     exit
     ;;
 
