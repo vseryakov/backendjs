@@ -7,6 +7,7 @@ case "$BKJS_CMD" in
     echo "  alpine-abuild -file APKBUILD [-checksum] [-reindex] [-src .] [-repo REPO] [-image abuild] [-pkgver VER|PATH] [-pkgname N] [-sync S3] [-force] [-noexit] [-i] [-arch A] [-docker args] - build a package with alpine docker. Place the .apk into -repo folder and -sync to S3 if provided"
     echo "  alpine-run-abuild -name N [-pkgname PKG] [-repo /repo] [-src /src] [-tmp /tmp] - call abuild for given APKBUILD.N file, place in -repo dir and run inside -tmp dir"
     echo "  alpine-prepare-abuild - build Docker image abuild for faster builds"
+    echo "  alpine-reindex [-repo R] - rebuild index using local abuild"
     echo
     ;;
 
@@ -94,9 +95,7 @@ case "$BKJS_CMD" in
 
     # Update index using fake build file and exit
     if [ -n "$(get_flag -reindex)" ]; then
-        cd $tmp
-        echo -e "pkgname=fake\npkgver=0.0.0\npkgrel=0\npkgdesc=fake\narch=noarch\n" > APKBUILD
-        abuild -P $repo -F -f index
+        $BKJS_BIN alpine-reindex -repo $repo
         exit
     fi
 
@@ -141,6 +140,13 @@ case "$BKJS_CMD" in
 
   alpine-prepare-abuild)
     docker build --no-cache --rm -t abuild -f $BKJS_DIR/tools/docker/Dockerfile.abuild .
+    exit
+    ;;
+
+  alpine-reindex)
+    repo=$(get_arg -repo ${BKJS_APKDIR:-$HOME/alpine})
+    echo -e "pkgname=fake\npkgver=0.0.0\npkgrel=0\npkgdesc=fake\narch=noarch\n" > /tmp/APKBUILD
+    (cd /tmp && abuild -P $repo -F -f index)
     exit
     ;;
 
