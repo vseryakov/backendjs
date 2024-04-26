@@ -6,7 +6,7 @@ case "$BKJS_CMD" in
     echo
     echo "  ec2-create-ami [-tag NAME] [-prefix PREFIX] - create a new AMI from the given running instance by tag or the current instance"
     echo "  ec2-create-launch-template-version [-name NAME] [-tag TAG] [-skip A B] [-image-name *] - create new launch template verson with the latest AMI, if no -name is given all existing templates matched by tag if given will be updated"
-    echo "  ec2-build-ami - [-image-id ID] [-ami-user alpine] - build a new AMI for Alpine Linux, runs alpine-build-ami-hook for actual setup, uses -aws-launch-instances"
+    echo "  ec2-build-ami - [-image-id ID] [-image-name N] [-ami-user alpine] - build a new AMI for Alpine Linux, runs alpine-build-ami-hook for actual setup, uses -aws-launch-instances, either -image-id or -image-name is required"
     echo "  ec2-build-ami-hook - actual new AMI build script after it is launched and ssh is ready: INSTANCE_USER, INSTANCE_HOST, INSTANCE_ID, INSTANCE_IP, INSTANCE_ARCH are set"
     ;;
 
@@ -35,9 +35,7 @@ case "$BKJS_CMD" in
     ;;
 
   ec2-build-ami)
-    ami=$(get_arg -image-id ami-036e04f38993310a3)
-
-    INFO=$($BKJS_BIN shell -no db,ipc -aws-launch-instances -image-id $ami -public-ip -wait $(get_all_args "-image-id"))
+    INFO=$($BKJS_BIN shell -no db,ipc -aws-launch-instances -public-ip -wait $(get_all_args))
     echo "$INFO"
 
     INSTANCE_INFO=$(echo "$INFO"|egrep -E "^EC2-Instance:")
