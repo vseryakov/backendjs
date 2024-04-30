@@ -589,6 +589,7 @@ function bootpopup(...args)
             $(this[type]).empty().append($(`<div></div>`, { class: this.options['class_' + type], role: "alert", html: text }));
             setTimeout(() => { $(this[type]).empty() }, this.delay || 10000);
         }
+        if (this.options.scroll) $(this[type])[0].scrollIntoView();
         return null;
     }
 
