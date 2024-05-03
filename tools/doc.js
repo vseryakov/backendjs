@@ -36,7 +36,7 @@ if (!lib.isArg("-nohdr")) {
    <title>${name} Documentation</title>
    <link rel="shortcut icon" href="img/logo.png" type="image/png" />
    <link rel="icon" href="img/logo.png" type="image/png" />
-   <link href="css/bootstrap5.css" rel="stylesheet">
+   <link href="css/bootstrap.css" rel="stylesheet">
    <link href="css/doc.css" rel="stylesheet" >
 </head>
 <body>
