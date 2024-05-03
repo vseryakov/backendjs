@@ -839,8 +839,8 @@ The typical client JavaScript verification for the html page may look like this,
 this assumes the default path '/public' still allowed without the signature:
 
 ```javascript
-   <link href="/css/bkjs5.bundle.css" rel="stylesheet">
-   <script src="/js/bkjs5.bundle.js" type="text/javascript"></script>
+   <link href="/css/bkjs.bundle.css" rel="stylesheet">
+   <script src="/js/bkjs.bundle.js" type="text/javascript"></script>
    <script>
     $(function () {
        bkjs.session = true;
