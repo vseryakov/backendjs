@@ -1,5 +1,5 @@
 {
-  "version": "0.155.0",
+  "version": "0.156.0",
   "type": "commonjs",
   "author": "Vlad Seryakov",
   "name": "backendjs",
@@ -78,13 +78,13 @@
       ]
     },
     "bundles": {
-      "bkjs5": {
+      "bkjs": {
         "js": [
           "web/js/jquery3.slim.min.js",
           "web/js/popper2.min.js",
-          "web/js/bootstrap5.min.js",
+          "web/js/bootstrap.min.js",
           "web/js/knockout.min.js",
-          "web/js/bootpopup5.js",
+          "web/js/bootpopup.js",
           "web/js/bkjs.js",
           "web/js/bkjs-ws.js",
           "web/js/bkjs-event.js",
@@ -98,9 +98,9 @@
         "js.dev": [
           "web/js/jquery3.slim.js",
           "web/js/popper2.js",
-          "web/js/bootstrap5.js",
+          "web/js/bootstrap.js",
           "web/js/knockout.js",
-          "web/js/bootpopup5.js",
+          "web/js/bootpopup.js",
           "web/js/bkjs.js",
           "web/js/bkjs-ws.js",
           "web/js/bkjs-event.js",
@@ -114,9 +114,9 @@
         "js.mod": [
           "web/js/jquery3.slim.js",
           "web/js/popper2.js",
-          "web/js/bootstrap5.js",
+          "web/js/bootstrap.js",
           "web/js/knockout.mod.js",
-          "web/js/bootpopup5.js",
+          "web/js/bootpopup.js",
           "web/js/bkjs.js",
           "web/js/bkjs-ws.js",
           "web/js/bkjs-event.js",
@@ -128,7 +128,7 @@
           "web/js/bkjs-bootstrap.js"
         ],
         "css": [
-          "web/css/bootstrap5.css",
+          "web/css/bootstrap.css",
           "web/css/font-awesome.css"
         ]
       }
