@@ -1069,6 +1069,36 @@ bkjs.objDel = function()
     return a[0];
 }
 
+// Return a value from object, can go deep inside, name is a list of parts or a string like part1.part2.part3...
+bkjs.objGet = function(obj, name, options)
+{
+    if (!obj) {
+        if (!options) return null;
+        return options.list ? [] : options.obj ? {} : options.str ? "" : options.num ? options.dflt || 0 : null;
+    }
+    var path = !Array.isArray(name) ? String(name).split(".") : name, owner = obj;
+    for (var i = 0; i < path.length; i++) {
+        if (i && owner) owner = owner[path[i - 1]];
+        obj = obj ? obj[path[i]] : undefined;
+        if (typeof obj == "function") obj = obj();
+        if (typeof obj == "undefined") {
+            if (!options) return obj;
+            return options.owner && i == path.length - 1 ? owner : options.list ? [] : options.obj ? {} : options.str ? "" : options.num ? options.dflt || 0 : undefined;
+        }
+    }
+    if (options) {
+        if (options.owner) return owner;
+        if (obj) {
+            if (options.func && typeof obj != "function") return null;
+            if (options.list && !Array.isArray(obj)) return [ obj ];
+            if (options.obj && typeof obj != "object") return { name: name, value: obj };
+            if (options.str && typeof obj != "string") return String(obj);
+            if (options.num && typeof obj != "number") return this.toNumber(obj, options);
+        }
+    }
+    return obj;
+}
+
 // Randomize the list items in place
 bkjs.shuffle = function(list)
 {
