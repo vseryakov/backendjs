@@ -6241,6 +6241,7 @@ error and the new value will be returned.</p>
 <ul>
 <li><code>options.ttl</code> in milliseconds can be used if the driver supports it</li>
 <li><code>options.mapName</code> defines a map where the counter will be stored if the cache supports maps</li>
+<li><code>options.returning</code> - return old or new map object, if <code>new or *</code> it will be the first item in the result array, if `old`` the last</li>
 <li>if <code>val</code> is an object then the key is treated as a map and all numeric properties will be incremented, other properties just set,
 this is the same as to set key to &#39;*&#39; and define mapName in the options</li>
 </ul>
