@@ -45,7 +45,6 @@
 <li><a href="#secure-web-site-client-verification"> Secure Web site, client verification</a></li>
 <li><a href="#secure-web-site-backend-verification"> Secure Web site, backend verification</a></li>
 <li><a href="#websockets-connections"> WebSockets connections</a></li>
-<li><a href="#versioning"> Versioning</a></li>
 <li><a href="#the-backend-tool-bkjs"> The backend tool: bkjs</a></li>
 <li><a href="#extending-bkjs"> Extending bkjs</a></li>
 <li><a href="#web-development-notes"> Web development notes</a></li>
@@ -933,65 +932,6 @@ the application logic. If the server needs to send a message to all or some spec
         api.wsNotify({ account_id: req.query.uid }, { op: &quot;/message/new&quot;, msg: req.query.msg });
     });
 </code></pre>
-<h1 id="versioning">Versioning</h1>
-<p>There is no ready to use support for different versions of API because there is no just one solution that satisfies all applications. But there are
-tools ready to use that will allow to implement such versioning system in the backend. Some examples are provided below:</p>
-<ul>
-<li><p>Fixed versions
-This is similar to AWS version system when versions are fixed and changed not very often. A client can specify the core version
-using <code>bk-version</code> header. When a request is parsed and the version is provided it will be set in the request options object as <code>apiVersion</code>.</p>
-<p>All API routes are defined using Express middleware and one of the possible ways of dealing with different versions can look like this, by
-appending version to the command it is very simple to call only changed API code.</p>
-</li>
-</ul>
-<pre><code class="language-javascript">    api.all(/\/domain\/(get|put|del)/, function(req, res) {
-        var options = api.getOptions(req);
-        var cmd = req.params[0];
-        if (options.apiVersion) cmd += &quot;/&quot; + options.apiVersion;
-        switch (cmd) {
-        case &quot;get&quot;:
-            break;
-
-        case &quot;get/2015-01-01&quot;:
-            break;
-
-        case &quot;put&quot;:
-            break;
-
-        case &quot;put/2015-02-01&quot;:
-            break;
-
-        case &quot;del&quot;
-            break;
-        }
-    });
-</code></pre>
-<ul>
-<li><p>Application semver support
-For cases when applications support Semver kind of versioning and it may be too many releases the method above still can be used while the number of versions is
-small, once too many different versions with different minor/patch numbers, it is easier to support greater/less comparisons.</p>
-<p>The application version <code>bk-app</code> can be supplied in the query or as a header or in the user-agent HTTP header which is the easiest case for mobile apps.
-In the middlware, the code can look like this:</p>
-</li>
-</ul>
-<pre><code class="language-javascript">    var options = api.getOptions(req);
-    var version = lib.toVersion(options.appVersion);
-    switch (req.params[0]) {
-    case &quot;get&quot;:
-        if (version &lt; lib.toVersion(&quot;1.2.5&quot;)) {
-            res.json({ id: 1, name: &quot;name&quot;, description: &quot;descr&quot; });
-            break;
-        }
-        if (version &lt; lib.toVersion(&quot;1.1&quot;)) {
-            res.json([id, name]);
-            break;
-        }
-        res.json({ id: 1, name: &quot;name&quot;, descr: &quot;descr&quot; });
-        break;
-    }
-</code></pre>
-<p>The actual implementation can be modularized, split into functions, controllers.... there are no restrictions how to build the working backend code,
-the backend just provides all necessary information for the middleware modules.</p>
 <h1 id="the-backend-tool-bkjs">The backend tool: bkjs</h1>
 <p>The purpose of the <code>bkjs</code> shell script is to act as a helper tool in configuring and managing the backend environment
 and as well to be used in operations on production systems. It is not required for the backend operations and provided as a convenience tool
@@ -1448,11 +1388,7 @@ early with some properties always present:<ul>
 <li>path - parsed request url path</li>
 <li>apath - an array with the path split by /</li>
 <li>secure - if the request is encrypted, like https</li>
-<li>appName - parsed app version provided in the header or user agent</li>
-<li>appVersion - parsed app version from the header or user agent</li>
 <li>appTimezone - milliseconds offset from the UTC provided in the header by the app</li>
-<li>appLocale - a language provided in the header</li>
-<li>apiVersion - app specific version provided in the header</li>
 </ul>
 </li>
 </ul>
@@ -1537,12 +1473,12 @@ early with some properties always present:<ul>
 <li><code>api-allow-ssl</code>, type: &quot;regexpobj&quot;, descr: &quot;Add to the list of allowed locations using HTTPs only, plain HTTP requests to these urls will be refused&quot;</li>
 <li><code>api-ignore-ssl</code>, type: &quot;regexpobj&quot;, descr: &quot;Allow plain HTTP from matched IP addresss or locations&quot;</li>
 <li><code>api-redirect-ssl</code>, type: &quot;regexpobj&quot;, descr: &quot;Add to the list of the locations to be redirected to the same path but using HTTPS protocol&quot;</li>
-<li><code>api-express-options</code>, type: &quot;json&quot;, logger: &quot;warn&quot;, descr: &quot;Set Express config options during initialization,example: <code>-api-express-options { \&quot;trust proxy\&quot;: 1, \&quot;strict routing\&quot;: true }</code>&quot;</li>
-<li><code>api-mime-body</code>, type: &quot;regexpobj&quot;, descr: &quot;Collect full request body in the req.body property for the given MIME type in addition to json and form posts, this is for custom body processing&quot;</li>
-<li><code>api-mime-ignore</code>, type: &quot;regexpobj&quot;, descr: &quot;Ignore the body for the following MIME content types, request body will not be parsed at all&quot;</li>
-<li><code>api-mime-map-(.+)</code>, obj: &quot;mime-map&quot;, descr: &quot;File extension to MIME content type mapping, this is used by static-serve, example: -api-mime-map-mobileconfig application/x-apple-aspen-config&quot;</li>
-<li><code>api-ignore-content-type</code>, type: &quot;regexpobj&quot;, descr: &quot;Ignore the content type for the following endpoint paths, keep the body unparsed&quot;</li>
-<li><code>api-platform-match</code>, type: &quot;regexpmap&quot;, regexp: &quot;i&quot;, descr: &quot;An JSON object with list of regexps to match user-agent header for platform detection, example: { &#39;ios|iphone|ipad&#39;: &#39;ios&#39;, &#39;android&#39;: &#39;android&#39; }&quot;</li>
+<li><code>api-express-options</code>, type: &quot;json&quot;, logger: &quot;warn&quot;, descr: &quot;Set Express config options during initialization, ex: <code>-api-express-options { \&quot;trust proxy\&quot;: 1, \&quot;strict routing\&quot;: true }</code>&quot;</li>
+<li><code>api-body-methods</code>, type: &quot;list&quot;, upper: 1, descr: &quot;HTTP methods allowed to have body&quot;</li>
+<li><code>api-body-types</code>, type: &quot;regexpobj&quot;, descr: &quot;Collect full request body in the req.body property for the given MIME types in addition to default json/form posts, this is for custom body processing&quot;</li>
+<li><code>api-body-raw</code>, type: &quot;regexpobj&quot;, descr: &quot;Do not parse the collected body for the following MIME content types, keep it as a string&quot;</li>
+<li><code>api-body-multipart</code>, type: &quot;regexpobj&quot;, descr: &quot;URLs that expect multipart/form-data payloads, parsing will happend after the signature processed&quot;</li>
+<li><code>api-mime-map-(.+)</code>, obj: &quot;mime-map&quot;, descr: &quot;File extension to MIME content type mapping, this is used by static-serve, ex: -api-mime-map-mobileconfig application/x-apple-aspen-config&quot;</li>
 <li><code>api-cors-origin</code>, descr: &quot;Origin header for CORS requests&quot;</li>
 <li><code>api-cors-allow</code>, type: &quot;regexpobj&quot;, descr: &quot;Enable CORS requests if a request host/path matches the given regexp&quot;</li>
 <li><code>api-server-header</code>, descr: &quot;Custom Server: header to return for all requests&quot;</li>
@@ -1667,14 +1603,30 @@ will be called at the end to finalize the metrics and call the cleanup handlers<
 </ul>
 
 <ul>
-<li><p><code>api.checkQuery(req, res, next)</code></p>
-<p>  Parse incoming query parameters</p>
+<li><p><code>api.handleBody(req, res, next)</code></p>
+<p>  Parse incoming query parameters in the request body, this is default middleware called early before authenticatoion.
+ Only methods in <code>-api-body-methods</code> processed, defaults are POST/PUT/PATCH.
+Store parsed parameters in the <code>req.body</code>, if <code>req.query</code> is empty it will point to the req.body for convenience.</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>api.checkBody(req, res, next)</code></p>
-<p>  Parse multipart forms for uploaded files</p>
+<li><p><code>api.handleMultipart(req, res, next)</code></p>
+<p>  Parse multipart forms for uploaded files, this must be called explicitly by the endpoints that need uploads.</p>
+<p>Example</p>
+<pre><code>   api.app.post(&quot;/upload&quot;, api.handleMultipart, (req, res, next) =&gt; {
+       if (req.files.file) ....
+   })
+</code></pre>
+<p>Another global way to handle uploads for many endpoints is to call it for all known paths at once before the actual
+upload handlers.</p>
+<pre><code>   api.app.post(/^\/upload\//, api.handleMultipart, (req, res, next) =&gt; (next(&quot;route&quot;)));
+   ...
+   api.app.post(&quot;/upload/icon&quot;, (req, res, next) =&gt; {
+   ...
+   api.app.post(&quot;/upload/icon&quot;, (req, res, next) =&gt; {
+</code></pre>
+<p>The api module handles uploads automatically for configured paths via <code>-api-allow-multipart</code> config parameter.</p>
 </li>
 </ul>
 
