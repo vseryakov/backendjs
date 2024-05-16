@@ -265,6 +265,8 @@ export BKJS_DEBUG=$(get_flag -debug $BKJS_DEBUG)
 
 export PATH=$BKJS_HOME/bin:$BKJS_HOME/node_modules/.bin:/app/bin:/usr/local/bin:/opt/local/bin:/sbin:/usr/sbin:$PATH
 
+[ -n "$(get_flag -showenv)" ] && echo "$(set|egrep -E '^(BKJS_|PATH|NODE)')"
+
 debug HOME=$BKJS_HOME, USER=$BKJS_USER, ARGS=$@
 
 case "$BKJS_CMD" in
@@ -384,6 +386,7 @@ case "$BKJS_CMD" in
     echo "  -debug - show debugging messages"
     echo "  -trace file - redirect all output to a file"
     echo "  -syslog - use logger -s for all messages "
+    echo "  -showenv - show all BKJS env variables before running a command"
     echo ""
 
     run_bkjs_cmd help
