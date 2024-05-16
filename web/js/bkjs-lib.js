@@ -876,6 +876,9 @@ bkjs._toTemplate = function(text, obj, options, encoder)
             case "ifstr":
                 ok = this.testRegexp(val || "", this.toRegexp(d[3], "i"));
                 break;
+            case "ifnotstr":
+                ok = !this.testRegexp(val || "", this.toRegexp(d[3], "i"));
+                break;
             case "ifeq":
                 ok = val == d[3];
                 break;
