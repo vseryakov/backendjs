@@ -1,5 +1,5 @@
 {
-  "version": "0.156.0",
+  "version": "0.157.0",
   "type": "commonjs",
   "author": "Vlad Seryakov",
   "name": "backendjs",
@@ -32,10 +32,10 @@
     "bcrypt": "5.1.1",
     "bkjs-sqlite": "0.3.0",
     "mmmagic": "0.5.3",
-    "nats": "2.23.0",
+    "nats": "2.25.0",
     "pg": "8.11.5",
     "redis": "3.1.2",
-    "sharp": "0.33.3",
+    "sharp": "0.33.4",
     "unix-dgram": "2.0.6",
     "web-push": "3.6.7"
   },
