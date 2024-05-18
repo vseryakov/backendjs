@@ -1,4 +1,41 @@
 
+tests.test_session = function(callback)
+{
+    api.sessionCookie = {
+        '/': { secure: true },
+        '/pub': { maxAge: 123 },
+        '/iframe/': { sameSite: 'None' },
+        'host.com': { domain: 'host.com' },
+        'www.host.com': { secure: false }
+    }
+
+    var c = api.makeSessionCookie({ options: { path: "/" } })
+    expect(c?.secure === true, "expect secure: true for /", c);
+
+    c = api.makeSessionCookie({ options: { path: "/test" } })
+    expect(c?.secure === true, "expect secure: true for /test", c);
+
+    c = api.makeSessionCookie({ options: { path: "/pub/" } })
+    expect(c?.maxAge === 123, "expect maxAge: 123 for /pub/", c);
+
+    c = api.makeSessionCookie({ options: { path: "/iframe/" } })
+    expect(c?.sameSite === "None", "expect sameSite: None for /iframe/", c);
+
+    c = api.makeSessionCookie({ options: { path: "/", domain: "host.com" } })
+    expect(c?.secure === true, "expect secure: true for host.com/", c);
+    expect(c?.domain === "host.com", "expect domain:host.com for host.com/", c);
+
+    c = api.makeSessionCookie({ options: { path: "/", host: "www.host.com", domain: "host.com" } })
+    expect(c?.secure === false, "expect secure: false for www.host.com/", c);
+    expect(!c?.domain, "expect no domain for www.host.com/", c);
+
+    c = api.makeSessionCookie({ options: { path: "/", host: "api.host.com", domain: "host.com" } })
+    expect(c?.domain === "host.com", "expect domain:host.com for api.host.com/", c);
+    expect(c?.secure === true, "expect secure: true for api.host.com/", c);
+
+    callback()
+}
+
 tests.test_cleanup = function(callback)
 {
     var tables = {
