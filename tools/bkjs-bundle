@@ -160,19 +160,21 @@ case "$BKJS_CMD" in
                     esac
                 done
 
-                if [[ -z "$dev" ]]; then
-                    if [[ -n "$(get_flag -esbuild)" ]]; then
-                        esbuildargs="--minify $(get_arg -esbuildargs)"
-                        esbuild $esbuildargs $jsfiles >> $dir/web/js/$bundle.bundle.js
-                        [ "$?" != "0" ] && exit 1
-                    elif [[ -n "$(get_flag -gcc)" ]]; then
-                        gccargs=" $(get_arg -gccargs)"
-                        npx google-closure-compiler $gccargs $jsfiles >> $dir/web/js/$bundle.bundle.js
-                        [ "$?" != "0" ] && exit 1
-                    else
-                        uglifyargs="-c -m --comments /^!/ $(get_arg -uglifyargs)"
-                        uglifyjs $jsfiles $uglifyargs >> $dir/web/js/$bundle.bundle.js
-                        [ "$?" != "0" ] && exit 1
+                if [ -z "$dev" ]; then
+                    if [ -n "$jsfiles" ]; then
+                        if [ -n "$(get_flag -esbuild)" ]; then
+                            esbuildargs="--minify $(get_arg -esbuildargs)"
+                            esbuild $esbuildargs $jsfiles >> $dir/web/js/$bundle.bundle.js
+                            [ "$?" != "0" ] && exit 1
+                        elif [ -n "$(get_flag -gcc)" ]; then
+                            gccargs=" $(get_arg -gccargs)"
+                            npx google-closure-compiler $gccargs $jsfiles >> $dir/web/js/$bundle.bundle.js
+                            [ "$?" != "0" ] && exit 1
+                        else
+                            uglifyargs="-c -m --comments /^!/ $(get_arg -uglifyargs)"
+                            uglifyjs $jsfiles $uglifyargs >> $dir/web/js/$bundle.bundle.js
+                            [ "$?" != "0" ] && exit 1
+                        fi
                     fi
                     [ -n "$gzip" ] && gzip -9 -c $dir/web/js/$bundle.bundle.js > $dir/web/js/$bundle.bundle.js.gz
                 fi
@@ -182,7 +184,7 @@ case "$BKJS_CMD" in
                 mkdir -p $dir/web/css
                 (cd $dir && cat $files > web/css/$bundle.bundle.css)
                 [ "$?" != "0" ] && exit 1
-                if [[ -z "$dev" ]]; then
+                if [ -z "$dev" ]; then
                     [ -n "$gzip" ] && gzip -9 -c $dir/web/css/$bundle.bundle.css > $dir/web/css/$bundle.bundle.css.gz
                 fi
                 ;;
