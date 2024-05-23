@@ -91,6 +91,7 @@ tests.test_config = function(callback)
                 "-ipc-queue-q-options-visibilityTimeout", "1000",
                 "-api-cleanup-rules-aaa", "one:1,two:2",
                 "-api-cleanup-rules-aaa", "three:3",
+                "-log-inspect-map", "length:222,b:true,s:s%20%3a%2c,ignore:^/test/$",
             ];
     core.parseArgs(argv);
     logger.debug("config:", db.poolParams);
@@ -155,6 +156,10 @@ tests.test_config = function(callback)
 
     assert(api.cleanupRules.aaa?.one != 1 || api.cleanupRules.aaa?.two != 2 || api.cleanupRules.aaa?.three != 3, "invalid api cleanup rules", api.cleanupRules);
 
+    expect(core.logInspect.length === 222, "Expect logInspect.length 222", core.logInspect)
+    expect(core.logInspect.b === true, "Expect logInspect.b true", core.logInspect)
+    expect(core.logInspect.s === "s :,", "Expect logInspect.s 's :,'", core.logInspect)
+    expect(String(core.logInspect.ignore) === "/test/", "Expect logInspect.ignore '/test/", core.logInspect)
     callback();
 }
 
