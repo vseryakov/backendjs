@@ -198,7 +198,7 @@ bkjs.restoreComponent = function(path, dflt)
 
 window.onpopstate = function(event)
 {
-    if (event?.state?.name) this.showComponent(event.state.name, event.state.options);
+    if (event?.state?.name) bkjs.showComponent(event.state.name, event.state.options);
 }
 
 $(function() {
