@@ -107,6 +107,7 @@ case "$BKJS_CMD" in
     # Update checksum and exit
     if [ -n "$(get_flag -checksum)" ]; then
         abuild -F checksum
+        cat APKBUILD
         exit
     fi
 
