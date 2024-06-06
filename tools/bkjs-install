@@ -28,7 +28,7 @@ case "$BKJS_CMD" in
         tar -C $BKJS_HOME --strip-components=1 -xzf $tgz
         [ "$?" != "0" ] && exit 1
     else
-        ver=$(get_arg -version v20.13.1)
+        ver=$(get_arg -version v20.14.0)
         [ "$OS_ARCH" = "amd64" ] && arch=x64 || arch=$OS_ARCH
         platform=$(to_lower $PLATFORM)
         curl -L -o node.tgz https://nodejs.org/dist/$ver/node-$ver-$platform-$arch.tar.gz
