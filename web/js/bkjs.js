@@ -33,6 +33,7 @@ var bkjs = {
     isN: (x) => (typeof x === "number"),
     isU: (x) => (typeof x === "undefined"),
     isE: (x) => (x === null || typeof x === "undefined"),
+    cb: (c, e, ...a) => (bkjs.isF(c) && c(e, ...a)),
 };
 
 bkjs.fetchOpts = function(options)
@@ -85,7 +86,7 @@ bkjs.fetch = function(options, callback)
                 } else {
                     err = { message: await res.text(), status: res.status };
                 }
-                return this.isF(callback) && callback(err, data, info);
+                return this.cb(callback, err, data, info);
             }
             switch (options.dataType) {
             case "text":
@@ -97,12 +98,12 @@ bkjs.fetch = function(options, callback)
             default:
                 data = /\/json/.test(info.headers["content-type"]) ? await res.json() : await res.text();
             }
-            this.isF(callback) && callback(null, data, info);
+            this.cb(callback, null, data, info);
         }).catch ((err) => {
-            this.isF(callback) && callback(err);
+            this.cb(callback, err);
         });
     } catch (err) {
-        this.isF(callback) && callback(err);
+        this.cb(callback, err);
     }
 }
 
