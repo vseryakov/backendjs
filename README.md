@@ -15,17 +15,14 @@ Features:
 * Database API supports SQLite, PostreSQL, DynamoDB, ElasticSearch with all basic operations behaving the
   same way allowing you to switch databases without changing the code.
 * Database operations (Get, Put, Del, Update, Select) for all supported databases using the same DB API.
-* Experimental database drivers for MySQL, Cassandra, Riak, CouchDB
-* Experimental DynamoDB Streams processing in background worker processes
 * Easily extensible to support any kind of database, provides an experimental database driver on top of Redis with all supported methods as an example.
 * Supports crontab and queue job processing by separate worker processes.
 * Authentication is based on signed requests using API key and secret, similar to Amazon AWS signing requests.
 * Runs web server as separate processes to utilize multiple CPU cores.
 * Supports WebSockets connections and process them with the same Express routes as HTTP requests
-* Supports several cache modes(Redis, Memcache, Hazelcast, LRU) for the database operations, multiple hosts support
-  in the clients for failover.
-* Supports several PUB/SUB modes of operations using Redis, NATS, RabbitMQ, Hazelcast.
-* Supports async jobs processing using several work queue implementations on top of SQS, Redis, NATS, DB, RabbitMQ, Hazelcast.
+* Supports cache/rate-limiter mode using Redis.
+* Supports PUB/SUB modes of operations using Redis, NATS.
+* Supports async jobs processing using several work queue implementations on top of SQS, Redis, NATS.
 * REPL (command line) interface for debugging and looking into server internals.
 * Supports push notifications via Webpush, APN and FCM.
   server running in the master process instead of relying on the OS scheduling between processes listening on the same port.
@@ -34,8 +31,8 @@ Features:
 * Includes simple log watcher to monitor the log files including system errors.
 * Supports i18n hooks for request/response objects, easily overriden with any real i18n implementation.
 * Integrated very light unit testing facility which can be used to test modules and API requests
-* Support runtime metrics about the timing on database, requests, cache, memory and request rate limit control
-* Full implementation of SRP6a protocol in the server and client
+* Supports runtime metrics about the timing on database, requests, cache, memory and request rate limit control
+* Support for Webauthn/Passkeys
 * Hosted on [github](https://github.com/vseryakov/backendjs), BSD licensed.
 
 Check out the [Documentation](http://bkjs.io) for more details.
@@ -360,7 +357,7 @@ the application is structured.
 
 ## Modules
 
-*By default no system modules are loaded except `bk_user`, it must be configured by the `-preload-modules` config parameter to
+*By default no system modules are loaded, it must be configured by the `-preload-modules` config parameter to
 preload modules from the backendjs/modules/.*
 
 Another way to add functionality to the backend is via external modules specific to the backend, these modules are loaded on startup from the backend
