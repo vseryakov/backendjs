@@ -6,7 +6,7 @@ var bkjs = require('backendjs');
 var api = bkjs.api;
 var app = bkjs.app;
 var logger = bkjs.logger;
-var auth = bkjs.auth;
+var auth = bkjs.account;
 var lib = bkjs.lib;
 
 var srp = {

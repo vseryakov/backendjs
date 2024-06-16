@@ -18,21 +18,21 @@ Features:
 * Easily extensible to support any kind of database, provides an experimental database driver on top of Redis with all supported methods as an example.
 * Supports crontab and queue job processing by separate worker processes.
 * Authentication is based on signed requests using API key and secret, similar to Amazon AWS signing requests.
+* Supports Web sessions with CSRF protection
+* Supports Webauthn/Passkeys
 * Runs web server as separate processes to utilize multiple CPU cores.
 * Supports WebSockets connections and process them with the same Express routes as HTTP requests
-* Supports cache/rate-limiter mode using Redis.
+* Supports cache/rate-limiter using Redis.
 * Supports PUB/SUB modes of operations using Redis, NATS.
 * Supports async jobs processing using several work queue implementations on top of SQS, Redis, NATS.
 * REPL (command line) interface for debugging and looking into server internals.
 * Supports push notifications via Webpush, APN and FCM.
-  server running in the master process instead of relying on the OS scheduling between processes listening on the same port.
 * Can be used with any MVC, MVVC or other types of frameworks that work on top of, or with, the Express server.
 * AWS support is very well integrated including EC2, S3, DynamoDB, SQS and more.
 * Includes simple log watcher to monitor the log files including system errors.
 * Supports i18n hooks for request/response objects, easily overriden with any real i18n implementation.
-* Integrated very light unit testing facility which can be used to test modules and API requests
+* Integrated very light unit testing facility which can be used to test modules and API requests.
 * Supports runtime metrics about the timing on database, requests, cache, memory and request rate limit control
-* Support for Webauthn/Passkeys
 * Hosted on [github](https://github.com/vseryakov/backendjs), BSD licensed.
 
 Check out the [Documentation](http://bkjs.io) for more details.
@@ -43,7 +43,7 @@ To install the module with all optional dependencies if they are available in th
 
     npm install backendjs
 
-To install from the git
+To install from the git because NPM versions are always behind the cutting edge:
 
      npm install git+https://github.com/vseryakov/backendjs.git
 
@@ -85,7 +85,7 @@ The command below will show all core and optional dependencies, `npm install` wi
         > bkjs.server.start()
 
 * Access is allowed only with valid signature except urls that are explicitly allowed without it (see `api-allow` config parameter below)
-* Same but using the helper tool, by default no database driver are enablked so here we use embedded SQLite database and listen on port 8000.
+* Same but using the helper tool, by default no database driver are enabled so here we use embedded SQLite database and listen on port 8000.
 
         bkjs web -db-pool sqlite -db-sqlite-pool default
 
@@ -99,7 +99,7 @@ The command below will show all core and optional dependencies, `npm install` wi
 
 * To start the server and connect to the DynamoDB (command line parameters can be saved in the `etc/config file`, see below about config files)
 
-        bkjs web -db-pool dynamodb -db-dynamodb-pool default -aws-key XXXX -aws-secret XXXX
+        bkjs web -db-pool dynamodb -db-dynamodb-pool default
 
 * or to the ElasticSearch server, database backend
 
@@ -157,15 +157,10 @@ run the following command:
         cd node_modules/backendjs && npm run devbuild
 
 
-* Go to `examples/api` directory:
-* Run the application, it will start the Web server on port 8000:
+* Go to `examples` directory, it has several apps with README.md explaining how to run each.
+* Go to an application directory and run:
 
         ./app.sh
-
-* Now log in with the new account,
-* Go to http://localhost:8000/api.html and click on *Login* at the top-right corner, then enter 'test' as login and 'test' as secret in the login popup dialog.
-* To see your account details run the command in the console `/account/get`
-* To see current metrics run the command in the console `/system/stats/get`
 
 * When the web server is started with `-watch` parameter or as `bkjs watch` then any change in the source files will make the server restart automatically
   letting you focus on the source code and not server management, this mode is only enabled by default in development mode,

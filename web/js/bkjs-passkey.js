@@ -18,7 +18,7 @@ bkjs.passkey = {
     },
 
     register: function(options, callback) {
-        bkjs.get({ url: "/passkey/register" }, async (err, rc) => {
+        bkjs.get({ url: "/passkey/challenge" }, async (err, rc) => {
             if (err) return bkjs.cb(callback, err);
 
             try {
@@ -30,12 +30,12 @@ bkjs.passkey = {
             } catch (e) {
                 return bkjs.cb(callback, e);
             }
-            bkjs.sendRequest({ url: "/passkey/register", data: data }, callback);
+            bkjs.sendRequest({ url: "/passkey/register", data: Object.assign(data, options?.query) }, callback);
         });
     },
 
     login: function(options, callback) {
-        bkjs.get({ url: "/passkey/login" }, async (err, rc) => {
+        bkjs.get({ url: "/passkey/challenge" }, async (err, rc) => {
             if (err) return bkjs.cb(callback, err);
 
             try {
@@ -47,7 +47,7 @@ bkjs.passkey = {
             } catch (e) {
                 return bkjs.cb(callback, e);
             }
-            bkjs.sendRequest({ url: "/passkey/login", data: data }, callback);
+            bkjs.sendRequest({ url: "/passkey/login", data: Object.assign(data, options?.query) }, callback);
         });
     }
 };
