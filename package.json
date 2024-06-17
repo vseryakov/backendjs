@@ -93,7 +93,8 @@
           "web/js/bkjs-account.js",
           "web/js/bkjs-conv.js",
           "web/js/bkjs-ko.js",
-          "web/js/bkjs-bootstrap.js"
+          "web/js/bkjs-bootstrap.js",
+          "web/js/bkjs-passkey.js"
         ],
         "js.dev": [
           "web/js/jquery3.slim.js",
@@ -109,7 +110,8 @@
           "web/js/bkjs-account.js",
           "web/js/bkjs-conv.js",
           "web/js/bkjs-ko.js",
-          "web/js/bkjs-bootstrap.js"
+          "web/js/bkjs-bootstrap.js",
+          "web/js/bkjs-passkey.js"
         ],
         "js.mod": [
           "web/js/jquery3.slim.js",
