@@ -33,6 +33,7 @@ var bkjs = {
     isN: (x) => (typeof x === "number"),
     isU: (x) => (typeof x === "undefined"),
     isE: (x) => (x === null || typeof x === "undefined"),
+    isH: (x) => (x instanceof HTMLElement),
     cb: (c, e, ...a) => (bkjs.isF(c) && c(e, ...a)),
 };
 
@@ -240,7 +241,7 @@ bkjs.getFileInput = function(file)
     if (file instanceof jQuery && file.length) file = file[0];
     if (this.isO(file)) {
         if (file.files && file.files.length) return file.files[0];
-        if (file.name && file.size && (file.type || file.lastModified)) return file;
+        if (!this.isH(file) && file.name && file.size && (file.type || file.lastModified)) return file;
     }
     return "";
 }
