@@ -21,19 +21,19 @@
     "mime-types": "2.1.35",
     "nodemailer": "6.9.13",
     "qs": "6.12.1",
-    "uuid": "9.0.1",
+    "uuid": "10.0.0",
     "ws": "8.17.1",
     "xml2json": "0.12.0"
   },
   "devDependencies": {
-    "uglify-js": "3.17.4"
+    "uglify-js": "3.18.0"
   },
   "modDependencies": {
     "bcrypt": "5.1.1",
     "bkjs-sqlite": "0.3.0",
     "mmmagic": "0.5.3",
-    "nats": "2.25.0",
-    "pg": "8.11.5",
+    "nats": "2.26.0",
+    "pg": "8.12.0",
     "redis": "3.1.2",
     "sharp": "0.33.4",
     "unix-dgram": "2.0.6",
