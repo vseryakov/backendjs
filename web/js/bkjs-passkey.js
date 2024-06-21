@@ -18,6 +18,7 @@ bkjs.passkey = {
     },
 
     register: function(options, callback) {
+        if (bkjs.isF(options)) callback = options, options = null;
         bkjs.get({ url: "/passkey/challenge" }, async (err, rc) => {
             if (err) return bkjs.cb(callback, err);
 
@@ -35,6 +36,7 @@ bkjs.passkey = {
     },
 
     login: function(options, callback) {
+        if (bkjs.isF(options)) callback = options, options = null;
         bkjs.get({ url: "/passkey/challenge" }, async (err, rc) => {
             if (err) return bkjs.cb(callback, err);
 
@@ -43,11 +45,10 @@ bkjs.passkey = {
                     domain: rc.domain,
                 });
                 data.challenge = rc.challenge;
-                data._session = bkjs.session;
             } catch (e) {
                 return bkjs.cb(callback, e);
             }
-            bkjs.sendRequest({ url: "/passkey/login", data: Object.assign(data, options?.query) }, callback);
+            bkjs.login({ url: "/passkey/login", data: Object.assign(data, options?.query) }, callback);
         });
     }
 };
