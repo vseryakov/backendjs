@@ -11,44 +11,47 @@ bkjs.passkey = {
         import("/js/webauthn.min.mjs").then((mod) => {
             bkjs.passkey.client = mod.client;
             bkjs.cb(callback)
-        }).catch((e) => {
-            console.log(e);
-            bkjs.cb(callback, e)
+        }).catch((err) => {
+            bkjs.cb(callback, err);
+        });
+    },
+
+    registerStart: function(options, callback)
+    {
+        bkjs.get({ url: "/passkey/register", data: options?.query }, callback);
+    },
+
+    registerFinish: function(config, options, callback)
+    {
+        bkjs.passkey.client.register(options?.name || bkjs.account?.name, config?.challenge, {
+            attestation: true,
+            userHandle: config?.id,
+            domain: config?.domain,
+        }).then((data) => {
+            bkjs.sendRequest({ url: "/passkey/register", data: Object.assign(data || {}, options?.query) }, callback);
+        }).catch((err) => {
+            bkjs.cb(callback, err);
         });
     },
 
     register: function(options, callback) {
-        if (bkjs.isF(options)) callback = options, options = null;
-        bkjs.get({ url: "/passkey/challenge" }, async (err, rc) => {
+        bkjs.passkey.registerStart(options, (err, config) => {
             if (err) return bkjs.cb(callback, err);
-
-            try {
-                var data = await bkjs.passkey.client.register(options?.name || bkjs.account?.name, rc.challenge, {
-                    attestation: true,
-                    userHandle: rc.id,
-                    domain: rc.domain,
-                });
-            } catch (e) {
-                return bkjs.cb(callback, e);
-            }
-            bkjs.sendRequest({ url: "/passkey/register", data: Object.assign(data, options?.query) }, callback);
+            bkjs.passkey.registerFinish(config, options, callback);
         });
     },
 
     login: function(options, callback) {
-        if (bkjs.isF(options)) callback = options, options = null;
-        bkjs.get({ url: "/passkey/challenge" }, async (err, rc) => {
+        bkjs.get({ url: "/passkey/login" }, (err, config) => {
             if (err) return bkjs.cb(callback, err);
 
-            try {
-                var data = await bkjs.passkey.client.authenticate(bkjs.strSplit(options?.ids), rc.challenge, {
-                    domain: rc.domain,
-                });
-                data.challenge = rc.challenge;
-            } catch (e) {
-                return bkjs.cb(callback, e);
-            }
-            bkjs.login({ url: "/passkey/login", data: Object.assign(data, options?.query) }, callback);
+            bkjs.passkey.client.authenticate(bkjs.strSplit(options?.ids), config.challenge, {
+                domain: config.domain,
+            }).then((data) => {
+                bkjs.login({ url: "/passkey/login", data: Object.assign(data, options?.query) }, callback);
+            }).catch((err) => {
+                bkjs.cb(callback, err);
+            });
         });
     }
 };
