@@ -139,8 +139,8 @@ function bootpopup(...args)
 
         // Create HTML elements for modal dialog
         var opts = { class: this.options.class_modal, id: this.options.id || "", tabindex: "-1", role: "dialog", "aria-labelledby": "bootpopup-title", "aria-hidden": true };
-        if (this.options.backdrop !== true) opts["data-backdrop"] = typeof this.options.backdrop == "string" ? this.options.backdrop : false;
-        if (!this.options.keyboard) opts["data-keyboard"] = false;
+        if (this.options.backdrop !== true) opts["data-bs-backdrop"] = typeof this.options.backdrop == "string" ? this.options.backdrop : false;
+        if (!this.options.keyboard) opts["data-bs-keyboard"] = false;
         this.modal = $('<div></div>', opts);
         this.dialog = $('<div></div>', { class: class_dialog, role: "document" });
         this.content = $('<div></div>', { class: this.options.class_content + " " + this.options.class_h });
