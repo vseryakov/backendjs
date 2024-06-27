@@ -163,6 +163,7 @@ case "$BKJS_CMD" in
         echo "umask 022" >> $log
         echo "BKJS_HOME=$BKJS_HOME" >> $log
         echo 'export PATH=$BKJS_HOME/bin:$BKJS_HOME/node_modules/.bin:$HOME/bin:$PATH' >> $log
+        echo 'export AWS_PAGER=""' >> $log
         echo 'alias slog="tail -100 /var/log/messages"' >> $log
         echo "alias clog=\"sudo tail -100 /var/log/cron\"" >> $log
         echo "alias mlog=\"tail -100 $BKJS_HOME/log/message.log\"" >> $log
