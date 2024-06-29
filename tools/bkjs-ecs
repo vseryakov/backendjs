@@ -27,8 +27,9 @@ case "$BKJS_CMD" in
   ecs-ps)
     cluster=$(get_arg -cluster $BKJS_ECS_CLUSTER)
     task=$(get_arg -task)
+    service=$(get_arg -service)
     [ -z "$task" ] && task=$($BKJS_BIN ecs-ls -service $service|cut -s -d/ -f3|head -$(get_arg -index 1)|tail -1)
-    aws ecs describe-tasks --task "$task" --cluster "$cluster" --output $(get_arg -output yaml)
+    aws ecs describe-tasks --tasks "$task" --cluster "$cluster" --output $(get_arg -output yaml)
     exit
     ;;
 

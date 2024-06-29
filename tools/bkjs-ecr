@@ -18,9 +18,9 @@ case "$BKJS_CMD" in
 
  ecr-get)
     id=$(get_arg -account $BKJS_ECR_ACCOUNT)
-    [ -z $id ] && id=$($0 ec2-account)
+    [ -z $id ] && id=$($BKJS_BIN ec2-account)
     region=$(get_arg -region $BKJS_ECR_REGION)
-    [ -z $region ] && region=$($0 ec2-region)
+    [ -z $region ] && region=$($BKJS_BIN ec2-region)
 
     ecr="$id.dkr.ecr.$region.amazonaws.com"
     echo $ecr
@@ -38,19 +38,19 @@ case "$BKJS_CMD" in
     image=$(get_arg -image)
     [ "$repo" = "" -o "$image" = "" ] && echo "-repo and -image are required" && exit 1
 
-    ecr=$($0 ecr-get $(get_all_args))
+    ecr=$($BKJS_BIN ecr-get $(get_all_args))
     [ "$?" != "0" ] && exit 1
 
     if [ -n "$(get_flag -create)" ]; then
-        $0 ecr-create -repo $repo
+        $BKJS_BIN ecr-create -repo $repo
         [ "$?" != "0" ] && exit 1
     fi
 
-    $0 ecr-tag -ecr $ecr $(get_all_args)
+    $BKJS_BIN ecr-tag -ecr $ecr $(get_all_args)
     [ "$?" != "0" ] && exit 1
 
     if [ -n "$(get_flag -latest)" -a "$(get_arg -tag)" != "latest" ]; then
-        $0 ecr-tag -ecr $ecr $(get_all_args "-tag")
+        $BKJS_BIN ecr-tag -ecr $ecr $(get_all_args "-tag")
         [ "$?" != "0" ] && exit 1
     fi
     exit 0
@@ -64,7 +64,7 @@ case "$BKJS_CMD" in
 
     ecr=$(get_arg -ecr)
     if [ -z "$ecr" ]; then
-        ecr=$($0 ecr-get $(get_all_args))
+        ecr=$($BKJS_BIN ecr-get $(get_all_args))
         [ "$?" != "0" ] && exit 1
     fi
 
@@ -77,7 +77,7 @@ case "$BKJS_CMD" in
     repo=$(get_arg -repo)
     [ "$repo" = "" ] && echo "-repo is required" && exit 1
     region=$(get_arg -region $BKJS_ECR_REGION)
-    [ -z $region ] && region=$($0 ec2-region)
+    [ -z $region ] && region=$($BKJS_BIN ec2-region)
 
     aws ecr describe-repositories --region $region --repository-names $repo --query repositories[*].repositoryUri --output text 2>/dev/null
     if [ "$?" != "0" ]; then

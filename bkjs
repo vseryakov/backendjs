@@ -104,7 +104,7 @@ msg() {
 
 # Output only if -debug is on
 debug() {
-    [ -n "$BKJS_DEBUG" ] && msg "$@"
+    [ -n "$BKJS_DEBUG" ] && msg "$@" 1>&2
 }
 
 # Concatenate args
@@ -118,7 +118,7 @@ concat_arg() {
 # Return 1 if 1st arg matches regexp in 2nd arg
 match() {
     if [[ -n "$1" && -n "$2" ]] && echo "$1" | egrep -E -q "$2"; then return 0; fi
-      return 1
+    return 1
 }
 
 # Local IP address, not localhost
@@ -265,8 +265,6 @@ export BKJS_DEBUG=$(get_flag -debug $BKJS_DEBUG)
 
 export PATH=$BKJS_HOME/bin:$BKJS_HOME/node_modules/.bin:/app/bin:/usr/local/bin:/opt/local/bin:/sbin:/usr/sbin:$PATH
 
-[ -n "$(get_flag -showenv)" ] && echo "$(set|egrep -E '^(BKJS_|PATH|NODE)')"
-
 debug HOME=$BKJS_HOME, USER=$BKJS_USER, ARGS=$@
 
 case "$BKJS_CMD" in
@@ -383,10 +381,9 @@ case "$BKJS_CMD" in
     echo "Common options:"
     echo "  -home path - path to the backend home directory, default is $BKJS_HOME"
     echo "  -user name - set backend user on the remote or local side, default is ${BKJS_USER:-`whoami`}"
-    echo "  -debug - show debugging messages"
+    echo "  -debug - show debugging messages in stderr"
     echo "  -trace file - redirect all output to a file"
     echo "  -syslog - use logger -s for all messages "
-    echo "  -showenv - show all BKJS env variables before running a command"
     echo ""
 
     run_bkjs_cmd help
