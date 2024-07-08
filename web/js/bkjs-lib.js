@@ -652,6 +652,7 @@ bkjs.toNumber = function(val, options)
     if (options) {
         if (this.isN(options.min) && n < options.min) n = options.min;
         if (this.isN(options.max) && n > options.max) n = options.max;
+        if (this.isN(options.digits)) n = parseFloat(n.toFixed(options.digits));
     }
     return n;
 }
