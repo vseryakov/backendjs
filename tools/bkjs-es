@@ -8,7 +8,7 @@ case "$BKJS_CMD" in
 
   help|es-help)
     echo
-    echo "  es-w [-host HOST] - show Elasticsearch cluster health status"
+    echo "  es-w [-host HOST] [port 9200] - show Elasticsearch cluster health status"
     echo "  es-df [-host HOST] - show Elasticsearch cluster disk allocations"
     echo "  es-s [-host HOST] - show Elasticsearch cluster shards allocations and distributions"
     echo "  es-t [-host HOST] [-task ID] [-nodes ID] [-actions FILTER] - show Elasticsearch cluster running task(s) for all or specific nodes"
@@ -24,98 +24,110 @@ case "$BKJS_CMD" in
     ;;
 
   es-map)
+    port=$(get_arg -port 9200)
     host=$(get_arg -host localhost)
     table=$(get_arg -table)
-    curl -sS http://$host:9200/$table/_mappings|node -e "console.log(util.inspect(JSON.parse(fs.readFileSync(0).toString()),null,null))"
+    curl -sS http://$host:$port/$table/_mappings|node -e "console.log(util.inspect(JSON.parse(fs.readFileSync(0).toString()),null,null))"
     exit
     ;;
 
   es-w)
+    port=$(get_arg -port 9200)
     host=$(get_arg -host localhost)
-    curl -XGET "http://$host:9200/_cat/health?v"
+    curl -XGET "http://$host:$port/_cat/health?v"
     exit
     ;;
 
   es-df)
+    port=$(get_arg -port 9200)
     host=$(get_arg -host localhost)
-    curl -XGET "http://$host:9200/_cat/allocation?v"
+    curl -XGET "http://$host:$port/_cat/allocation?v"
     exit
     ;;
 
   es-s)
+    port=$(get_arg -port 9200)
     host=$(get_arg -host localhost)
-    curl -XGET "http://$host:9200/_cat/shards?v"
+    curl -XGET "http://$host:$port/_cat/shards?v"
     exit
     ;;
 
   es-t)
+    port=$(get_arg -port 9200)
     host=$(get_arg -host localhost)
     task=$(get_arg -task)
     if [ "$task" != "" ]; then
-        curl -XGET "http://$host:9200/_tasks/$task?pretty"
+        curl -XGET "http://$host:$port/_tasks/$task?pretty"
     else
         nodes=$(get_arg -nodes)
         actions=$(get_arg -actions)
-        curl -XGET "http://$host:9200/_tasks?pretty&detailed&nodes=$nodes&actions=$actions"
+        curl -XGET "http://$host:$port/_tasks?pretty&detailed&nodes=$nodes&actions=$actions"
     fi
     exit
     ;;
 
   es-ls)
+    port=$(get_arg -port 9200)
     host=$(get_arg -host localhost)
-    curl -XGET "http://$host:9200/_cat/nodes?h=ip,version,cpu,ram.percent,node.role,master&v"
+    curl -XGET "http://$host:$port/_cat/nodes?h=ip,version,cpu,ram.percent,node.role,master&v"
     exit
     ;;
 
   es-n)
+    port=$(get_arg -port 9200)
     host=$(get_arg -host localhost)
-    curl -s -XGET "http://$host:9200/_nodes/process?pretty"|node -e 'var d="";process.stdin.on("data",(c)=>{d+=c});process.stdin.on("end",()=>{try{d=JSON.parse(d).nodes;for(var p in d)console.log(p,"  ",d[p].ip,"          ".substr(0,15-d[p].ip.length),String(d[p].roles))}catch(e){};process.exit()})'
+    curl -s -XGET "http://$host:$port/_nodes/process?pretty"|node -e 'var d="";process.stdin.on("data",(c)=>{d+=c});process.stdin.on("end",()=>{try{d=JSON.parse(d).nodes;for(var p in d)console.log(p,"  ",d[p].ip,"          ".substr(0,15-d[p].ip.length),String(d[p].roles))}catch(e){};process.exit()})'
     exit
     ;;
 
   es-set-script-rate)
+    port=$(get_arg -port 9200)
     host=$(get_arg -host localhost)
     rate=$(get_arg -rate 1000)
-    curl -XPUT -H 'Content-Type: application/json' -d "{\"persistent\":{\"script.max_compilations_rate\":\"${rate}/1m\"}}" http://$host:9200/_cluster/settings
+    curl -XPUT -H 'Content-Type: application/json' -d "{\"persistent\":{\"script.max_compilations_rate\":\"${rate}/1m\"}}" http://$host:$port/_cluster/settings
     exit
     ;;
 
   es-stop-replication)
     host=$(get_arg -host localhost)
-    curl -XPUT -H 'Content-Type: application/json' -d '{"persistent":{"cluster.routing.allocation.enable":"primaries"}}' http://$host:9200/_cluster/settings
+    curl -XPUT -H 'Content-Type: application/json' -d '{"persistent":{"cluster.routing.allocation.enable":"primaries"}}' http://$host:$port/_cluster/settings
     exit
     ;;
 
   es-start-replication)
+    port=$(get_arg -port 9200)
     host=$(get_arg -host localhost)
-    curl -XPUT -H 'Content-Type: application/json' -d '{"persistent":{"cluster.routing.allocation.enable":null}}' http://$host:9200/_cluster/settings
+    curl -XPUT -H 'Content-Type: application/json' -d '{"persistent":{"cluster.routing.allocation.enable":null}}' http://$host:$port/_cluster/settings
     exit
     ;;
 
   es-set-disk-watermark)
+    port=$(get_arg -port 9200)
     host=$(get_arg -host localhost)
     high=$(get_arg -high 95)
     low=$(get_arg -low 95)
     flood=$(get_arg -flood 95)
-    curl -XPUT -H 'Content-Type: application/json' -d "{\"transient\":{\"cluster.routing.allocation.disk.watermark.flood_stage\":\"$flood%\",\"cluster.routing.allocation.disk.watermark.high\":\"$high%\",\"cluster.routing.allocation.disk.watermark.low\":\"$low%\"}}" http://$host:9200/_cluster/settings
+    curl -XPUT -H 'Content-Type: application/json' -d "{\"transient\":{\"cluster.routing.allocation.disk.watermark.flood_stage\":\"$flood%\",\"cluster.routing.allocation.disk.watermark.high\":\"$high%\",\"cluster.routing.allocation.disk.watermark.low\":\"$low%\"}}" http://$host:$port/_cluster/settings
     exit
     ;;
 
   es-reindex)
+    port=$(get_arg -port 9200)
     host=$(get_arg -host localhost)
     index=$(get_arg -index)
     dest=$(get_arg -dest $index)
     remote=$(get_arg -remote $host)
-    d='{ "source": { "index": "'$index'", "remote": { "host": "http://'$remote':9200" } }, "dest": {"index": "'$dest'" } }'
-    curl -XPOST -H 'Content-Type:application/json' -d "'$d'" "http://$host:9200/_reindex?wait_for_completion=false"
+    d='{ "source": { "index": "'$index'", "remote": { "host": "http://'$remote':$port" } }, "dest": {"index": "'$dest'" } }'
+    curl -XPOST -H 'Content-Type:application/json' -d "'$d'" "http://$host:$port/_reindex?wait_for_completion=false"
     exit
     ;;
 
   es-exclude-node)
+    port=$(get_arg -port 9200)
     host=$(get_arg -host localhost)
     ip=$(get_arg -ip $(get_local_ip))
     [ "$ip" = "." ] && ip=""
-    curl -XPUT -H 'Content-Type: application/json' -d "{\"transient\":{\"cluster.routing.allocation.exclude._ip\":\"$ip\"}}" http://$host:9200/_cluster/settings
+    curl -XPUT -H 'Content-Type: application/json' -d "{\"transient\":{\"cluster.routing.allocation.exclude._ip\":\"$ip\"}}" http://$host:$port/_cluster/settings
     exit
     ;;
     

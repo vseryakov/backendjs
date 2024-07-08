@@ -150,8 +150,9 @@ case "$BKJS_CMD" in
     ;;
 
   elasticsearch-init-monit-health)
+    port=$(get_arg -port 9200)
     host=$(get_arg -host elasticsearch)
-    echo "check host elasticsearch-health with address $host if failed url http://$host:9200/_cluster/health and content = 'green' with timeout 60 seconds for 2 cycles then alert" > /etc/monit.d/elasticsearch-health.conf
+    echo "check host elasticsearch-health with address $host if failed url http://$host:$port/_cluster/health and content = 'green' with timeout 60 seconds for 2 cycles then alert" > /etc/monit.d/elasticsearch-health.conf
     exit
     ;;
 
