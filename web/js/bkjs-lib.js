@@ -936,9 +936,13 @@ bkjs._toTemplate = function(text, obj, options, encoder)
             if (Array.isArray(options.skip) && options.skip.includes(tag)) continue;
             if (Array.isArray(options.only) && !options.only.includes(tag)) v = sep1 + tag + sep2;
         }
-        if (!v) v = dflt;
-        if (v && encoder) v = encoder(enc, v, options);
-        if (v !== null && v !== undefined) tmpl += v;
+        v ??= dflt;
+        if (v) {
+            if (Array.isArray(v) && (typeof v[0] == "string" || typeof v[0] == "number")) v = v.toString(); else
+            if (typeof v == "object") v = this.stringify(v);
+            if (encoder) v = encoder(enc, v, options);
+        }
+        if (v !== null && v !== undefined && v !== "") tmpl += v;
         if (options.__exit) break;
     }
     if (options.noline) tmpl = tmpl.replace(/[\r\n]/g, "");

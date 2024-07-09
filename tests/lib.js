@@ -566,6 +566,18 @@ tests.test_totemplate = function(callback, test)
     var m = lib.toTemplate("/@ifnotstr code A@@code@/@id@@endif@", { id: 1, code: "B" });
     expect(m == "/B/1", "expected /B/1", "got", m)
 
+    var m = lib.toTemplate("/@aaa|dflt@", {});
+    expect(m == "/dflt", "expected dflt", "got", m)
+
+    var m = lib.toTemplate("/@aaa||url@", { aaa: "a=" });
+    expect(m == "/a%3D", "expected /a%3D", "got", m)
+
+    var m = lib.toTemplate("/@aaa||url@", { aaa: [1,2,3] });
+    expect(m == "/1%2C2%2C3", "expected /1%2C2%2C3", "got", m)
+
+    var m = lib.toTemplate("/@aaa@", { aaa: { a: 1, b: 2 } });
+    expect(m == `/{"a":1,"b":2}`, `expected /{"a":1,"b":2}`, "got", m)
+
     callback();
 }
 
