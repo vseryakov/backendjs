@@ -21,6 +21,7 @@ case "$BKJS_CMD" in
     echo "  es-reindex -index INDEX [-dest INDEX] [-host HOST] [-remote HOST] - reindex a single index from remote host"
     echo "  es-stop-replication - stop replication for upgrade"
     echo "  es-start-replication - start replication between nodes"
+    echo "  es-prepare-stats -table N - create an index for stats collector"
     ;;
 
   es-map)
@@ -128,6 +129,15 @@ case "$BKJS_CMD" in
     ip=$(get_arg -ip $(get_local_ip))
     [ "$ip" = "." ] && ip=""
     curl -XPUT -H 'Content-Type: application/json' -d "{\"transient\":{\"cluster.routing.allocation.exclude._ip\":\"$ip\"}}" http://$host:$port/_cluster/settings
+    exit
+    ;;
+
+  es-prepare-stats)
+    table=$(get_arg -table)
+    port=$(get_arg -port 9200)
+    host=$(get_arg -host localhost)
+    d='"mappings":{"date_detection":false,"properties":{"timestamp":{"type":"date","format":"epoch_millis"},"@timestamp":{"type":"alias","path":"timestamp"},"ip":{"type":"ip"}},"dynamic_templates":[{"keywords":{"match_mapping_type":"string","mapping":{"ignore_above":128,"type":"keyword"}}}]}'
+    curl -XPUT -H 'Content-Type: application/json' -d "{$d}" http://$host:$port/$table
     exit
     ;;
     
