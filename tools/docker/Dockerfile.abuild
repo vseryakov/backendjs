@@ -29,4 +29,5 @@ RUN apk --no-cache add \
 
 RUN adduser -D alpine && \
     addgroup alpine abuild && \
-    echo 'alpine ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers
+    echo 'alpine ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers && \
+    node-gyp install
