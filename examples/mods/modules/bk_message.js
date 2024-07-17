@@ -168,7 +168,6 @@ mod.configureMessagesAPI = function()
             // Return full message with new properties
             options.cleanup = "";
             self.addMessage(req, options, function(err, data) {
-                if (!err) api.metrics.Counter('msg_add_0').inc();
                 api.sendJSON(req, err, data);
             });
             break;

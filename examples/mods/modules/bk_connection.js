@@ -219,7 +219,6 @@ mod.makeConnection = function(obj, peer, options, callback)
             // Primary connection
             db[op]("bk_connection", obj1, function(err) {
                 if (err) return next(err);
-                api.metrics.Counter(op + "_" + obj1.type + '_0').inc();
                 next();
             });
         },
@@ -253,7 +252,6 @@ mod.deleteConnection = function(id, obj, options, callback)
     var now = Date.now();
 
     function del(row, cb) {
-        api.metrics.Counter('del_' + row.type + '_0').inc();
 
         lib.series([
            function(next) {
