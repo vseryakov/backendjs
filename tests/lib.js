@@ -1,3 +1,4 @@
+/* global lib logger core db */
 
 const fs = require("fs")
 const util = require("util")
@@ -367,11 +368,11 @@ tests.test_toparams = function(callback, test)
         email: { type: "list", datatype: "email", novalue: ["a@a"] },
         email1: { type: "email", required: { email: null } },
         phone: { type: "phone" },
-        mtime: { type: "mtime", name: "timestamp" },
+        mtime: { type: "mtime", name: "timestamp", mindate: Date.now() - 86400000 },
         flag: { type: "bool", novalue: false },
         descr: { novalue: { name: "name", value: "test" }, replace: { "<": "!" } },
         internal: { ignore: 1 },
-        tm: { type: "timestamp", optional: 1 },
+        tm: { type: "timestamp", optional: 1, maxdate: new Date(1970, 1, 1) },
         ready: { value: "ready" },
         empty: { empty: 1, trim: 1, strip: /[.,!]/ },
         nospecial: { strip: lib.rxSpecial },
@@ -382,6 +383,7 @@ tests.test_toparams = function(callback, test)
         arr: { type: "array", params: { id: { type: "int" }, name: {} } },
         json: { type: "json", datatype: "obj" },
         json1: { type: "json", params: { id: { type: "int" }, name: {} } },
+        minnum: { type: "int", minnum: 10 },
     };
     var opts = {
         defaults: {
@@ -440,6 +442,13 @@ tests.test_toparams = function(callback, test)
     q = lib.toParams({ tm: 1 }, schema, opts);
     expect(q.ready == "ready" && q.tm == '1970-01-01T00:00:01.000Z', "expected ready and tm, count=1", q);
 
+    q = lib.toParams({ tm: Date.now() }, schema, opts);
+    expect(/is too late/.test(q), "expected maxdate error", q);
+
+    q = lib.toParams({ mtime: '1970-01-01T00:00:01.000Z' }, schema, opts);
+    expect(/is too soon/.test(q), "expected mindate error", q);
+
+    schema.mtime.mindate = 0;
     q = lib.toParams({ mtime: '1970-01-01T00:00:01.000Z' }, schema, opts);
     expect(q.timestamp == 1000, "expected timestamp=1000", q);
 
@@ -466,6 +475,11 @@ tests.test_toparams = function(callback, test)
     expect(q.special === "<>", "expected <> with only specials", q);
     expect(q.nospecial === "abc", "expected abc without specials", q);
 
+    q = lib.toParams({ minnum: 2 }, schema, opts);
+    expect(/too small/.test(q), "expected minnum error", q);
+
+    q = lib.toParams({ minnum: 20 }, schema, opts);
+    expect(q.minnum === 20, "expected minnum=20", q);
     callback();
 }
 
@@ -516,22 +530,22 @@ tests.test_totemplate = function(callback, test)
     var m = lib.toTemplate("email@id@@@com", { id: 1 }, { allow: ["id"] });
     expect(m == "email1@com", "expected email1@com", "got", m)
 
-    var m = lib.toTemplate("/@code@/@id@", { id: 1, code: "A" });
+    m = lib.toTemplate("/@code@/@id@", { id: 1, code: "A" });
     expect(m == "/A/1", "expected /A/1", "got", m)
 
-    var m = lib.toTemplate("/@code@/@id@@n@", { id: 1, code: "A" });
+    m = lib.toTemplate("/@code@/@id@@n@", { id: 1, code: "A" });
     expect(m == "/A/1\n", "expected /A/1\\n", "got", m)
 
-    var m = lib.toTemplate("/@code@/@id@ @exit@", { id: 1, code: "A" });
+    m = lib.toTemplate("/@code@/@id@ @exit@", { id: 1, code: "A" });
     expect(m == "/A/1 ", "expected /A/ ", "got", m)
 
-    var m = lib.toTemplate("/@code@/@id@", { id: 1, code: "A" } , { allow: ["id"] });
+    m = lib.toTemplate("/@code@/@id@", { id: 1, code: "A" } , { allow: ["id"] });
     expect(m == "//1", "expected //1", "got", m)
 
-    var m = lib.toTemplate("/@code@/@id@", { id: 1, code: "A" }, { skip: ["id"] });
+    m = lib.toTemplate("/@code@/@id@", { id: 1, code: "A" }, { skip: ["id"] });
     expect(m == "/A/", "expected /A/", "got", m)
 
-    var m = lib.toTemplate("/@code@/@id@", { id: 1, code: "A" }, { only: ["id"] });
+    m = lib.toTemplate("/@code@/@id@", { id: 1, code: "A" }, { only: ["id"] });
     expect(m == "/@code@/1", "expected /@code@/2", "got", m)
 
     m = lib.toTemplate("/@code@/@id@", { id: " ", code: "A" }, { encoding: "url" });
@@ -540,42 +554,42 @@ tests.test_totemplate = function(callback, test)
     m = lib.toTemplate("Hello @name|friend@!", {});
     expect(m == "Hello friend!", "expected default freind", "got", m)
 
-    var m = lib.toTemplate("/@deep.code@/@id@", { id: 1, deep: { code: "A" } });
+    m = lib.toTemplate("/@deep.code@/@id@", { id: 1, deep: { code: "A" } });
     expect(m == "/A/1", "expected /A/1", "got", m)
 
-    var m = lib.toTemplate("/@if code A@@code@/@id@@endif@", { id: 1, code: "A" });
+    m = lib.toTemplate("/@if code A@@code@/@id@@endif@", { id: 1, code: "A" });
     expect(m == "/A/1", "expected /A/1", "got", m)
 
     var o = { allow: ["id"] };
-    var m = lib.toTemplate("/@if code AA@@code@@id@/@exit@-@id@@endif@ ", { id: 1, code: "AA" }, o);
+    m = lib.toTemplate("/@if code AA@@code@@id@/@exit@-@id@@endif@ ", { id: 1, code: "AA" }, o);
     expect(m == "/1/", "expected /1/", "got", m)
     expect(o.__exit === undefined, "expected no __exit", o)
 
-    var m = lib.toTemplate("/@if code B@@code@/@id@@endif@", { id: 1, code: "A" });
+    m = lib.toTemplate("/@if code B@@code@/@id@@endif@", { id: 1, code: "A" });
     expect(m == "/", "expected /", "got", m)
 
-    var m = lib.toTemplate("/@ifempty code@@id@@endif@", { id: 1 });
+    m = lib.toTemplate("/@ifempty code@@id@@endif@", { id: 1 });
     expect(m == "/1", "empty, expected /1", "got", m)
 
-    var m = lib.toTemplate("/@ifempty v@@ifnotempty code@@id@@endif@@endif@", { id: 1, code: 1 });
+    m = lib.toTemplate("/@ifempty v@@ifnotempty code@@id@@endif@@endif@", { id: 1, code: 1 });
     expect(m == "/1", "notempty expected /1", "got", m)
 
-    var m = lib.toTemplate("/@ifstr code A@@code@/@id@@endif@", { id: 1, code: "A" });
+    m = lib.toTemplate("/@ifstr code A@@code@/@id@@endif@", { id: 1, code: "A" });
     expect(m == "/A/1", "expected /A/1", "got", m)
 
-    var m = lib.toTemplate("/@ifnotstr code A@@code@/@id@@endif@", { id: 1, code: "B" });
+    m = lib.toTemplate("/@ifnotstr code A@@code@/@id@@endif@", { id: 1, code: "B" });
     expect(m == "/B/1", "expected /B/1", "got", m)
 
-    var m = lib.toTemplate("/@aaa|dflt@", {});
+    m = lib.toTemplate("/@aaa|dflt@", {});
     expect(m == "/dflt", "expected dflt", "got", m)
 
-    var m = lib.toTemplate("/@aaa||url@", { aaa: "a=" });
+    m = lib.toTemplate("/@aaa||url@", { aaa: "a=" });
     expect(m == "/a%3D", "expected /a%3D", "got", m)
 
-    var m = lib.toTemplate("/@aaa||url@", { aaa: [1,2,3] });
+    m = lib.toTemplate("/@aaa||url@", { aaa: [1,2,3] });
     expect(m == "/1%2C2%2C3", "expected /1%2C2%2C3", "got", m)
 
-    var m = lib.toTemplate("/@aaa@", { aaa: { a: 1, b: 2 } });
+    m = lib.toTemplate("/@aaa@", { aaa: { a: 1, b: 2 } });
     expect(m == `/{"a":1,"b":2}`, `expected /{"a":1,"b":2}`, "got", m)
 
     callback();
