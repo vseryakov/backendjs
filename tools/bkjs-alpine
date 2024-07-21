@@ -4,7 +4,7 @@ case "$BKJS_CMD" in
 
   help|alpine-help)
     echo
-    echo "  alpine-abuild -file APKBUILD [-checksum] [-reindex] [-src .] [-repo REPO] [-image abuild] [-pkgver VER|PATH] [-pkgname N] [-sync S3] [-force] [-noexit] [-i] [-arch A] [-docker args] - build a package with alpine docker. Place the .apk into -repo folder and -sync to S3 if provided"
+    echo "  alpine-abuild -file APKBUILD [-checksum] [-reindex] [-local] [-src .] [-repo REPO] [-image abuild] [-pkgver VER|PATH] [-pkgname N] [-sync S3] [-force] [-noexit] [-i] [-arch A] [-docker args] - build a package with alpine docker. Place the .apk into -repo folder and -sync to S3 if provided"
     echo "  alpine-run-abuild -name N [-pkgname PKG] [-repo /repo] [-src /src] [-tmp /tmp] - call abuild for given APKBUILD.N file, place in -repo dir and run inside -tmp dir"
     echo "  alpine-prepare-abuild [-alpine 3.20] - build Docker image abuild for faster builds"
     echo "  alpine-reindex [-repo R] - rebuild index using local abuild"
@@ -25,43 +25,44 @@ case "$BKJS_CMD" in
     file=$(readlink -f $file)
     src=$(readlink -f $(get_arg -src .))
 
-    # Custom docker run args
-    dargs=$(get_arg -docker)
+    args=$(get_all_args "-file -repo -image -docker -pkgver")
 
-    # No interactive mode by default for CI runners
-    [ -n "$(get_flag -i)" -o -n "$(get_flag -noexit)" ] && dargs="$dargs -ti"
+    # Special case for version from package.json
+    pkgver=$(get_flag -pkgver)
+    if [ -n "$pkgver" ]; then
+        if [ "$pkgver" = "1" ]; then
+            pkgver=$(get_json_flat package.json version)
+        elif match $pkgver /; then
+            pkgver=$(get_json_flat $pkgver version)
+        fi
+        [ -n "$pkgver" ] && args="$args -pkgver $pkgver"
+    fi
 
-    arch=$(get_arg -arch)
-    [ -n "$arch" ] && dargs="$dargs --platform=linux/$arch"
-
-    dargs="$dargs -v $HOME/.abuild:/root/.abuild -v $file:/APKBUILD -v $src:/src -v $repo:/repo"
-
-    image=$(get_arg -image abuild)
-
-    cmd=$(get_arg -cmd)
-    if [ -z "$cmd" ]; then
-    	bkjs=
+    if [ -n "$(get_flag -local)" ]; then
+        $BKJS_BIN alpine-run-abuild $args -file "$file" -repo "$repo" -src "$src"
+    else
+        bkjs=
         [ -f $src/bkjs ] && bkjs=bkjs
         [ -z "$bkjs" -a -f $src/bin/bkjs ] && bkjs=bin/bkjs
         [ -z "$bkjs" -a -f $src/packages/backendjs/bkjs ] && bkjs=packages/backendjs/bkjs
         [ -z "$bkjs" ] && echo "bkjs is not found in $src" && exit 1
-        cmd="/src/$bkjs alpine-run-abuild -tools /src/tools"
 
-        # Special case for version from package.json
-        pkgver=$(get_flag -pkgver)
-        if [ -n "$pkgver" ]; then
-            if [ "$pkgver" = "1" ]; then
-                pkgver=$(get_json_flat package.json version)
-            elif match $pkgver /; then
-                pkgver=$(get_json_flat $pkgver version)
-            fi
-            [ -n "$pkgver" ] && cmd="$cmd -pkgver $pkgver"
-        fi
+        # Custom docker run args
+        dargs=$(get_arg -docker)
 
-        cargs=$(get_all_args "-file -repo -image -docker -pkgver")
+        # No interactive mode by default for CI runners
+        [ -n "$(get_flag -i)" -o -n "$(get_flag -noexit)" ] && dargs="$dargs -ti"
+
+        arch=$(get_arg -arch)
+        [ -n "$arch" ] && dargs="$dargs --platform=linux/$arch"
+
+        dargs="$dargs -v $HOME/.abuild:/root/.abuild -v $file:/APKBUILD -v $src:/src -v $repo:/repo"
+
+        image=$(get_arg -image abuild)
+
+        docker run --rm $dargs $image /src/$bkjs alpine-run-abuild -tools /src/tools $args
     fi
 
-    docker run --rm $dargs $image $cmd $cargs
     [ "$?" != "0" ] && exit 2
 
     if [ -d $repo ]; then
@@ -83,15 +84,19 @@ case "$BKJS_CMD" in
     tmp=$(get_arg -tmp /tmp)
 
     # Required dependencies
-    apk add --update-cache alpine-sdk coreutils cmake sudo
+    if [ "$(whoami)" = "root" ]; then
+        apk add --update-cache alpine-sdk coreutils cmake doas-sudo-shim
+    fi
 
     # generate new abuild key if not set
     if ! grep -sq "^PACKAGER_PRIVKEY=" "$HOME"/.abuild/abuild.conf; then
-        USER=alpine abuild-keygen -n -a
+        abuild-keygen -n -a
     fi
-    cp -v "$HOME"/.abuild/*.rsa.pub /etc/apk/keys/
 
-    apk -U upgrade -a
+    if [ "$(whoami)" = "root" ]; then
+        cp -v "$HOME"/.abuild/*.rsa.pub /etc/apk/keys/
+        apk -U upgrade
+    fi
 
     # Update index using fake build file and exit
     if [ -n "$(get_flag -reindex)" ]; then
@@ -127,6 +132,13 @@ case "$BKJS_CMD" in
             msg Rebuilding $repo/$MACHINE/$pkgfile ...
             rm -f $repo/$MACHINE/$pkgfile
         fi
+    fi
+
+    # Top source directory for build scripts
+    src=$(get_arg -src)
+    if [ -n "$src" ]; then
+        src=$(readlink -f $src)
+        export BKJS_SRC=$src
     fi
 
     # Inside docker no point to cleanup if container is destroyed anyway

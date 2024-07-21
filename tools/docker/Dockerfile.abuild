@@ -8,7 +8,7 @@ RUN apk --no-cache add \
   apk-tools \
   coreutils \
   cmake \
-  sudo \
+  doas-sudo-shim \
   ccache \
   mc \
   nodejs=~20 \
