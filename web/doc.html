@@ -66,9 +66,9 @@
 <li><a href="#system-api"> System API</a></li>
 <li><a href="#author"> Author</a></li>
 <li>Javascript Modules<ul>
+<li><a href="#module-account">account</a></li>
 <li><a href="#module-api">api</a></li>
 <li><a href="#module-app">app</a></li>
-<li><a href="#module-auth">auth</a></li>
 <li><a href="#module-aws">aws</a></li>
 <li><a href="#module-core">core</a></li>
 <li><a href="#module-db">db</a></li>
@@ -86,10 +86,10 @@
 <li><a href="#module-run">run</a></li>
 <li><a href="#module-server">server</a></li>
 <li><a href="#module-shell">shell</a></li>
+<li><a href="#module-stats">stats</a></li>
 <li><a href="#module-watch">watch</a></li>
 <li><a href="#module-bk_data">bk_data</a></li>
 <li><a href="#module-bk_system">bk_system</a></li>
-<li><a href="#module-bk_user">bk_user</a></li>
 </ul>
 </li>
 </ul>
@@ -106,27 +106,24 @@ metrics and monitoring, a library of tools for developing Node.js servers.</p>
 <li>Database API supports SQLite, PostreSQL, DynamoDB, ElasticSearch with all basic operations behaving the
 same way allowing you to switch databases without changing the code.</li>
 <li>Database operations (Get, Put, Del, Update, Select) for all supported databases using the same DB API.</li>
-<li>Experimental database drivers for MySQL, Cassandra, Riak, CouchDB</li>
-<li>Experimental DynamoDB Streams processing in background worker processes</li>
 <li>Easily extensible to support any kind of database, provides an experimental database driver on top of Redis with all supported methods as an example.</li>
 <li>Supports crontab and queue job processing by separate worker processes.</li>
 <li>Authentication is based on signed requests using API key and secret, similar to Amazon AWS signing requests.</li>
+<li>Supports Web sessions with CSRF protection</li>
+<li>Supports Webauthn/Passkeys</li>
 <li>Runs web server as separate processes to utilize multiple CPU cores.</li>
 <li>Supports WebSockets connections and process them with the same Express routes as HTTP requests</li>
-<li>Supports several cache modes(Redis, Memcache, Hazelcast, LRU) for the database operations, multiple hosts support
-in the clients for failover.</li>
-<li>Supports several PUB/SUB modes of operations using Redis, NATS, RabbitMQ, Hazelcast.</li>
-<li>Supports async jobs processing using several work queue implementations on top of SQS, Redis, NATS, DB, RabbitMQ, Hazelcast.</li>
+<li>Supports cache/rate-limiter using Redis.</li>
+<li>Supports PUB/SUB modes of operations using Redis, NATS.</li>
+<li>Supports async jobs processing using several work queue implementations on top of SQS, Redis, NATS.</li>
 <li>REPL (command line) interface for debugging and looking into server internals.</li>
-<li>Supports push notifications via Webpush, APN and FCM.
-server running in the master process instead of relying on the OS scheduling between processes listening on the same port.</li>
+<li>Supports push notifications via Webpush, APN and FCM.</li>
 <li>Can be used with any MVC, MVVC or other types of frameworks that work on top of, or with, the Express server.</li>
 <li>AWS support is very well integrated including EC2, S3, DynamoDB, SQS and more.</li>
 <li>Includes simple log watcher to monitor the log files including system errors.</li>
 <li>Supports i18n hooks for request/response objects, easily overriden with any real i18n implementation.</li>
-<li>Integrated very light unit testing facility which can be used to test modules and API requests</li>
-<li>Support runtime metrics about the timing on database, requests, cache, memory and request rate limit control</li>
-<li>Full implementation of SRP6a protocol in the server and client</li>
+<li>Integrated very light unit testing facility which can be used to test modules and API requests.</li>
+<li>Supports runtime metrics about the timing on database, requests, cache, memory and request rate limit control</li>
 <li>Hosted on <a href="https://github.com/vseryakov/backendjs">github</a>, BSD licensed.</li>
 </ul>
 <p>Check out the <a href="http://bkjs.io">Documentation</a> for more details.</p>
@@ -134,7 +131,7 @@ server running in the master process instead of relying on the OS scheduling bet
 <p>To install the module with all optional dependencies if they are available in the system</p>
 <pre><code>npm install backendjs
 </code></pre>
-<p>To install from the git</p>
+<p>To install from the git because NPM versions are always behind the cutting edge:</p>
 <pre><code> npm install git+https://github.com/vseryakov/backendjs.git
 </code></pre>
 <p>or simply</p>
@@ -171,7 +168,7 @@ it is possible to install all optional dependencies for development purposes.</p
 </li>
 <li><p>Access is allowed only with valid signature except urls that are explicitly allowed without it (see <code>api-allow</code> config parameter below)</p>
 </li>
-<li><p>Same but using the helper tool, by default no database driver are enablked so here we use embedded SQLite database and listen on port 8000.</p>
+<li><p>Same but using the helper tool, by default no database driver are enabled so here we use embedded SQLite database and listen on port 8000.</p>
 <pre><code>  bkjs web -db-pool sqlite -db-sqlite-pool default
 </code></pre>
 </li>
@@ -184,7 +181,7 @@ it is possible to install all optional dependencies for development purposes.</p
 </code></pre>
 </li>
 <li><p>To start the server and connect to the DynamoDB (command line parameters can be saved in the <code>etc/config file</code>, see below about config files)</p>
-<pre><code>  bkjs web -db-pool dynamodb -db-dynamodb-pool default -aws-key XXXX -aws-secret XXXX
+<pre><code>  bkjs web -db-pool dynamodb -db-dynamodb-pool default
 </code></pre>
 </li>
 <li><p>or to the ElasticSearch server, database backend</p>
@@ -246,19 +243,11 @@ run the following command:</p>
 <pre><code>  cd node_modules/backendjs &amp;&amp; npm run devbuild
 </code></pre>
 </li>
-<li><p>Go to <code>examples/api</code> directory:</p>
+<li><p>Go to <code>examples</code> directory, it has several apps with README.md explaining how to run each.</p>
 </li>
-<li><p>Run the application, it will start the Web server on port 8000:</p>
+<li><p>Go to an application directory and run:</p>
 <pre><code>  ./app.sh
 </code></pre>
-</li>
-<li><p>Now log in with the new account,</p>
-</li>
-<li><p>Go to <a href="http://localhost:8000/api.html">http://localhost:8000/api.html</a> and click on <em>Login</em> at the top-right corner, then enter &#39;test&#39; as login and &#39;test&#39; as secret in the login popup dialog.</p>
-</li>
-<li><p>To see your account details run the command in the console <code>/account/get</code></p>
-</li>
-<li><p>To see current metrics run the command in the console <code>/system/stats/get</code></p>
 </li>
 <li><p>When the web server is started with <code>-watch</code> parameter or as <code>bkjs watch</code> then any change in the source files will make the server restart automatically
 letting you focus on the source code and not server management, this mode is only enabled by default in development mode,
@@ -427,7 +416,7 @@ request endpoint callbacks must be provided in the application.</p>
 <p>As with any Node.js application, node modules are the way to build and extend the functionality, backendjs does not restrict how
 the application is structured.</p>
 <h2 id="modules">Modules</h2>
-<p><em>By default no system modules are loaded except <code>bk_user</code>, it must be configured by the <code>-preload-modules</code> config parameter to
+<p><em>By default no system modules are loaded, it must be configured by the <code>-preload-modules</code> config parameter to
 preload modules from the backendjs/modules/.</em></p>
 <p>Another way to add functionality to the backend is via external modules specific to the backend, these modules are loaded on startup from the backend
 home subdirectory <code>modules/</code>. The format is the same as for regular Node.js modules and only top level .js files are loaded on the backend startup.</p>
@@ -1373,6 +1362,152 @@ default is is open for access to all users but same security considerations appl
 <p>  Vlad Seryakov</p>
 <p>Check out the <a href="http://bkjs.io">Documentation</a> for more details.</p>
 
+<h2 id="module-account">Module: account</h2>
+<p>  User and account management</p>
+
+<ul>
+<li><p><code>Config parameters</code></p>
+<ul>
+<li><code>account-table</code>, descr: &quot;Table to use for user accounts&quot;</li>
+<li><code>account-err-(.+)</code>, descr: &quot;Error messages for various cases&quot;</li>
+<li><code>account-cap-(.+)</code>, type: &quot;int&quot;, strip: &quot;cap-&quot;, descr: &quot;Capability parameters&quot;</li>
+<li><code>account-admin-roles</code>, type: &quot;list&quot;, descr: &quot;List of special super admin roles&quot;</li>
+<li><code>account-sigversion</code>, type: &quot;int&quot;, descr: &quot;Signature version for secrets&quot;</li>
+<li><code>account-hash</code>, descr: &quot;Hashing method to use by default: bcrypt, argon2, none&quot;</li>
+<li><code>account-bcrypt</code>, type: &quot;int&quot;, min: 12, descr: &quot;Number of iterations for bcrypt&quot;</li>
+<li><code>account-argon2</code>, type: &quot;map&quot;, maptype: &quot;auto&quot;, nocamel: 1, descr: &quot;Argon2 parameteres, ex: type:2,memoryCost:1,hashLength:32&quot;</li>
+<li><code>account-max-length</code>, type: &quot;int&quot;, descr: &quot;Max login and name length&quot;</li>
+<li><code>account-users</code>, type: &quot;json&quot;, logger: &quot;error&quot;, descr: &quot;An object with users&quot;</li>
+<li><code>account-file</code>, descr: &quot;A JSON file with users&quot;</li>
+<li><code>account-passkey-(.+)</code>, obj: &quot;passkey&quot;, autotype: 1, descr: &quot;Passkey numeric parameters: path, secret, queue, max, ttl, disabled&quot;</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>account.configureAccountAPI(options)</code></p>
+<p>  Account methods below use request context and fire bk...Account hooks</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>account.getAccount(req, options, callback)</code></p>
+<p>  Returns current account, used in /account/get API call, req.account will be filled with the properties from the db</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>account.addAccount(req, options, callback)</code></p>
+<p>  Register new account, may be used an API call, but the req does not have to be an Express request, it just
+need to have query and options objects.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>account.updateAccount(req, options, callback)</code></p>
+<p>  Update existing account, used in /account/update API call</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>account.deleteAccount(req, callback)</code></p>
+<p>  Delete account specified by the obj.
+The options may contain <code>keep</code> array with tables to be kept, for example
+delete an account but keep all messages and location: keep:[&quot;bk_user&quot;,&quot;bk_location&quot;]</p>
+<p>This methods is suitable for background jobs</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>account.configurePasskeyAPI(options)</code></p>
+<p>  Passkey management</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>account.passkey.get(user)</code></p>
+<p>  Return a list of all passkyes for the account</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>account.passkey.read(user, passkeyId, callback)</code></p>
+<p>  Read a user and passkey, user can be id/login or an user object</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>account.passkey.update(options, callback)</code></p>
+<p>  Add/delete a passkey,</p>
+<ul>
+<li>account - full user record</li>
+<li>passkey - a registration credential object to add or just { id: id } to remove</li>
+<li>query - optional additional fields to update</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>account.get(query, options, callback)</code></p>
+<p>  Returns an account record by login or id, to make use of a cache add to the config <code>db-cache-keys-bk_user-id=id</code></p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>account.add(query, options, callback)</code></p>
+<p>  Registers a new account, returns new record in the callback,
+if <code>options.isInternal</code> is true then allow to set all properties
+<code>options.internalQuery</code> can be used to add restricted properties if not in isInternal mode
+otherwise internal properties will not be added</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>account.update(query, options, callback)</code></p>
+<p>  Updates an existing account by login or id,
+if <code>options.isInternal</code> is true then allow to update all properties,
+<code>options.internalQuery</code> can be used to add restricted properties if not in isInternal mode
+returns a new record in the callback</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>account.del(query, options, callback)</code></p>
+<p>  Deletes an existing account by login or id, no admin checks, returns the old record in the callback</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>account.isUid(id)</code></p>
+<p>  Returns true of the given id is a valid user uuid</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>account.prepareSecret(query, options, callback)</code></p>
+<p>  If specified in the options, prepare credentials to be stored in the db, if no error occurred return null, otherwise an error object</p>
+<ul>
+<li>hash - use bcrypt or argon2 explicitely, otherwise use the config</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>account.checkSecret(user, password, callback)</code></p>
+<p>  Verify an existing user record with given password,</p>
+<ul>
+<li>user - if a string it is a hashed secret from an existing user record, otherwise must be an user object</li>
+<li>password - plain text password or other secret passed to be verified</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>account.loadFile(callback)</code></p>
+<p>  Load users from a JSON file, only add or update records</p>
+</li>
+</ul>
+
 <h2 id="module-api">Module: api</h2>
 <p>  HTTP API to the server from the clients, this module implements the basic HTTP(S) API functionality with some common features. The API module
   incorporates the Express server which is exposed as api.app object, the master server spawns Web workers which perform actual operations and monitors
@@ -1428,11 +1563,11 @@ early with some properties always present:<ul>
 <li><code>api-no-vhost-path</code>, type: &quot;regexpobj&quot;, descr: &quot;Add to the list of URL paths that should be served for all virtual hosts&quot;</li>
 <li><code>api-templating</code>, descr: &quot;Templating engine package to use, it assumes it supports Expres by exposing __express or renderfile methods&quot;</li>
 <li><code>api-no-session</code>, type: &quot;bool&quot;, descr: &quot;Disable cookie session support, all requests must be signed for Web clients&quot;</li>
-<li><code>api-session-age</code>, type: &quot;int&quot;, min: 0, descr: &quot;Session age in milliseconds, for cookie based authentication&quot;</li>
-<li><code>api-session-domain-(.+)</code>, type: &quot;regexp&quot;, obj: &quot;session-domain&quot;, nocamel: 1, regexp: &quot;i&quot;, descr: &quot;Cookie domain by Host: header, if not matched session is bound to the exact host only, example: -api-session-domain-site.com=site.com$&quot;</li>
-<li><code>api-session-same-site</code>, descr: &quot;Session SameSite option, for cookie based authentication&quot;</li>
 <li><code>api-session-cache</code>, descr: &quot;Cache name for session control&quot;</li>
+<li><code>api-session-age</code>, type: &quot;int&quot;, min: 0, descr: &quot;Session age in milliseconds, for cookie based authentication&quot;</li>
+<li><code>api-session-same-site</code>, descr: &quot;Session SameSite option, for cookie based authentication&quot;</li>
 <li><code>api-session-secure</code>, type: &quot;bool&quot;, descr: &quot;Set cookie Secure flag&quot;</li>
+<li><code>api-session-cookie-(.+)</code>, obj: &quot;session-cookie&quot;, type: &quot;map&quot;, maptype: &quot;auto&quot;, nocamel: 1, descr: &quot;Cookie values for requests that match beginning of the path, ex -api-session-cookie-/testing secure:false,sameSite:None&quot;</li>
 <li><code>api-query-token-secret</code>, descr: &quot;Name of the property to be used for encrypting tokens for pagination or other sensitive data, any property from bk_user can be used, if empty no secret is used, if not a valid property then it is used as the secret&quot;</li>
 <li><code>api-app-header-name</code>, descr: &quot;Name for the app name/version query parameter or header, it is can be used to tell the server about the application version&quot;</li>
 <li><code>api-version-header-name</code>, descr: &quot;Name for the access version query parameter or header, this is the core protocol version that can be sent to specify which core functionality a client expects&quot;</li>
@@ -1486,8 +1621,8 @@ early with some properties always present:<ul>
 <li><code>api-restart</code>, descr: &quot;On address in use error condition restart the specified servers, this assumes an external monitor like monit to handle restarts&quot;</li>
 <li><code>api-allow-error-code</code>, type: &quot;regexpobj&quot;, descr: &quot;Error codes in exceptions to return in the response to the user, if not matched the error-message will be returned&quot;</li>
 <li><code>api-rlimits-([a-z]+)$</code>, obj: &quot;rlimits&quot;, make: &quot;$1&quot;, autotype: 1, descr: &quot;Default rate limiter parameters, default interval is 1s, <code>ttl</code> is to expire old cache entries, message for error&quot;</li>
-<li><code>api-rlimits-(rate|max|interval|ttl|ip|delay|multiplier|queue)-(.+)</code>, autotype: 1, obj: &quot;rlimitsMap.$2&quot;, make: &quot;$1&quot;, descr: &quot;Rate limiter parameters for Token Bucket algorithm. <code>queue</code> to use specific queue, ttl<code>is to expire cache entries,</code>ip` is to limit by IP address as well, ex. -api-rlimits-ip-ip=10, -api-rlimits-rate-/path=1&quot;</li>
-<li><code>api-rlimits-map-(.+)</code>, type: &quot;map&quot;, obj: &quot;rlimitsMap.$1&quot;, make: &quot;$1&quot;, maptype: &quot;auto&quot;, merge: 1, descr: &quot;Rate limiter parameters for Token Bucket algorithm. set all at once, ex. -api-rlimits-map-/url=rate:1,interval:2000&quot;</li>
+<li><code>api-rlimits-(rate|max|interval|ttl|ip|delay|multiplier|queue)-(.+)</code>, autotype: 1, obj: &quot;rlimitsMap.$2&quot;, make: &quot;$1&quot;, descr: &quot;Rate limiter parameters for Token Bucket algorithm. <code>queue</code> to use specific queue, ttl<code>is to expire cache entries,</code>ip` is to limit by IP address as well, ex. -api-rlimits-ip-ip=10, -api-rlimits-rate-/path=1, , -api-rlimits-rate-GET/path=1&quot;</li>
+<li><code>api-rlimits-map-(.+)</code>, type: &quot;map&quot;, obj: &quot;rlimitsMap.$1&quot;, make: &quot;$1&quot;, maptype: &quot;auto&quot;, merge: 1, descr: &quot;Rate limiter parameters for Token Bucket algorithm. set all at once, ex. -api-rlimits-map-/url=rate:1,interval:2000 -api-rlimits-map-GET/url=rate:10&quot;</li>
 <li><code>api-exit-on-error</code>, type: &quot;bool&quot;, descr: &quot;Exit on uncaught exception in the route handler&quot;</li>
 <li><code>api-timeout</code>, type: &quot;number&quot;, min: 0, max: 3600000, descr: &quot;HTTP request idle timeout for servers in ms, how long to keep the connection socket open, this does not affect Long Poll requests&quot;</li>
 <li><code>api-keep-alive-timeout</code>, type: &quot;int&quot;, descr: &quot;Number of milliseconds to keep the HTTP conection alive&quot;</li>
@@ -1519,10 +1654,11 @@ early with some properties always present:<ul>
 <li><code>api-csrf-skip-status</code>, type: &quot;regexp&quot;, descr: &quot;Do not return CSRF token for specified status codes&quot;</li>
 <li><code>api-csrf-header-name</code>, descr: &quot;Name for the CSRF header&quot;</li>
 <li><code>api-csrf-age</code>, type: &quot;int&quot;, min: 0, descr: &quot;CSRF token age in milliseconds&quot;</li>
-<li><code>api-delays-([0-9]+)</code>, type: &quot;int&quot;, obj: &quot;delays&quot;, nocamel: 1, descr: &quot;Delays in ms by status code, useful for delaying error responses to slow down brute force attacks, ex. -api-delays-401 1000&quot;</li>
+<li><code>api-delays-(.+)</code>, type: &quot;int&quot;, obj: &quot;delays&quot;, nocamel: 1, descr: &quot;Delays in ms by status and code, useful for delaying error responses to slow down brute force attacks, ex. -api-delays-401 1000 -api-delays-403:DENY -1&quot;</li>
 <li><code>api-err-(.+)</code>, descr: &quot;Error messages for various cases&quot;</li>
 <li><code>api-compressed-([^/]+)</code>, type: &quot;regexp&quot;, obj: &quot;compressed&quot;, nocamel: 1, strip: &quot;compressed-&quot;, reverse: 1, regexp: &quot;i&quot;, descr: &quot;Match static paths to be returned compressed, files must exist and be pre-compressed with the given extention , example: -api-compress-bundle.js gz&quot;</li>
 <li><code>api-allow-configure-(web|middleware)</code>, type: &quot;regexp&quot;, descr: &quot;Modules allowed to call configureWeb or Middleware, i.e. only allowed endpoints&quot;</li>
+<li><code>api-restart-hours</code>, type: &quot;list&quot;, datatype: &quot;int&quot;, descr: &quot;List of hours when to restart api workers, only done once for each hour&quot;</li>
 </ul>
 </li>
 </ul>
@@ -1591,7 +1727,7 @@ will be called at the end to finalize the metrics and call the cleanup handlers<
 </ul>
 
 <ul>
-<li><p><code>api.handleMetrics(req, elapsed)</code></p>
+<li><p><code>api.handleMetrics(req)</code></p>
 <p>  Finish metrics collection about the current rquest</p>
 </li>
 </ul>
@@ -1678,9 +1814,11 @@ The options is expected to contain the following cached request properties:</p>
 </li>
 <li><p>opath - same as path but uses original path before routing</p>
 </li>
-<li><p>path - limit number of requests for an API path by IP address, * can be used at the end to match only the beginning</p>
+<li><p>path - limit number of requests for an API path by IP address, * can be used at the end to match only the beginning,
+  method can be placed before the path to use different rates for the same path by request method</p>
 <p>  -api-rlimits-rate-ip=100
   -api-rlimits-rate-/api/path=2
+  -api-rlimits-rate-GET/api/path=10
   -api-rlimits-ip-/api/path=1
   -api-rlimits-rate-/api/path/*=1</p>
 </li>
@@ -1705,7 +1843,7 @@ if the multiplier is positive then the interval will keep increasing indefinitel
 value on first successful consumption</p>
 </li>
 </ul>
-<p>The metrics are kept in the LRU cache in the master process by default.</p>
+<p>The metrics are kept in the LRU cache in the process by default or in cluster mode in the server process.</p>
 <p>Example:</p>
 <pre><code>  api.checkRateLimits(req, { type: &quot;ip&quot;, rate: 100, interval: 60000 }, (err, info) =&gt; {
      if (err) return api.sendReply(err);
@@ -2290,6 +2428,12 @@ Valid properties in the options:</p>
 </ul>
 
 <ul>
+<li><p><code>api.makeSessionCookie(req, options)</code></p>
+<p>  Find a closest cookie by host/domain/path, longest takes precedence, returns found cookie merged with the options</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>api.getSessionCookie(req, name)</code></p>
 <p>  Return named encrypted cookie</p>
 </li>
@@ -2342,6 +2486,12 @@ all the supported options are defined in the <code>api.controls</code> and can b
 <p>Returns a query object or an error message or null</p>
 <pre><code>   var query = api.getQuery(req, { q: { required: 1 } }, { null: 1 });
 </code></pre>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.getBody(req, params, options)</code></p>
+<p>  Same as getQuery but uses <code>req.body</code>, this is for cases when postdata and query both present</p>
 </li>
 </ul>
 
@@ -2577,75 +2727,6 @@ been processed.</p>
 </li>
 </ul>
 
-<h2 id="module-auth">Module: auth</h2>
-
-<ul>
-<li><p><code>Config parameters</code></p>
-<ul>
-<li><code>auth-table</code>, descr: &quot;Table to use for user accounts&quot;</li>
-<li><code>auth-err-(.+)</code>, descr: &quot;Error messages for various cases&quot;</li>
-<li><code>auth-admin-roles</code>, type: &quot;list&quot;, descr: &quot;List of special super admin roles&quot;</li>
-<li><code>auth-sigversion</code>, type: &quot;int&quot;, descr: &quot;Signature version for secrets&quot;</li>
-<li><code>auth-hash</code>, descr: &quot;Hashing method to use by default: bcrypt, argon2, none&quot;</li>
-<li><code>auth-bcrypt</code>, type: &quot;int&quot;, min: 12, descr: &quot;Number of iterations for bcrypt&quot;</li>
-<li><code>auth-argon2</code>, type: &quot;map&quot;, maptype: &quot;auto&quot;, nocamel: 1, descr: &quot;Argon2 parameteres, ex: type:2,memoryCost:1,hashLength:32&quot;</li>
-<li><code>auth-max-length</code>, type: &quot;int&quot;, descr: &quot;Max login and name length&quot;</li>
-<li><code>auth-users</code>, type: &quot;json&quot;, logger: &quot;error&quot;, descr: &quot;An object with users&quot;</li>
-<li><code>auth-users-file</code>, descr: &quot;A JSON file with a list of users&quot;</li>
-</ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>auth.loadUsers(callback)</code></p>
-<p>  Load users from a JSON file, only add or update records</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>auth.prepareSecret(query, options, callback)</code></p>
-<p>  If specified in the options, prepare credentials to be stored in the db, if no error occurred return null, otherwise an error object</p>
-<ul>
-<li>hash - use bcrypt or argon2 explicitely, otherwise use the config</li>
-</ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>auth.checkSecret(user, password, callback)</code></p>
-<p>  Verify an existing user record with given password,</p>
-<ul>
-<li>user - if a string it is a hashed secret from an existing user record, otherwise must be an user object</li>
-<li>password - plain text password or other secret passed to be verified</li>
-</ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>auth.get(query, options, callback)</code></p>
-<p>  Returns an account record by login or id, to make use of a cache add to the config <code>db-cache-keys-bk_user-id=id</code></p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>auth.add(query, options, callback)</code></p>
-<p>  Registers a new account, returns new record in the callback, when <code>options.isInternal</code> is true then allow to set all properties
-otherwise internal properties will not be added</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>auth.update(query, options, callback)</code></p>
-<p>  Updates an existing account by login or id, if <code>options.isInternal</code> is true then allow to update all properties, returns a new record in the callback</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>auth.del(query, options, callback)</code></p>
-<p>  Deletes an existing account by login or id, no admin checks, returns the old record in the callback</p>
-</li>
-</ul>
-
 <h2 id="module-aws">Module: aws</h2>
 <p>  AWS Cloud API interface</p>
 
@@ -2670,6 +2751,8 @@ otherwise internal properties will not be added</p>
 <li><code>aws-subnet-id</code>, descr: &quot;AWS subnet id to be used for instances or commands&quot;</li>
 <li><code>aws-vpc-id</code>, descr: &quot;AWS VPC id to be used for instances or commands&quot;</li>
 <li><code>aws-group-id</code>, array: 1, descr: &quot;AWS security group(s) to be used for instances or commands&quot;</li>
+<li><code>aws-public-ip</code>, type: &quot;bool&quot;, descr: &quot;AWS public IP option for instances or commands&quot;</li>
+<li><code>aws-ecs-cluster</code>, descr: &quot;AWS ECS cluster to use as default&quot;</li>
 <li><code>aws-instance-type</code>, descr: &quot;AWS instance type to launch on demand&quot;</li>
 <li><code>aws-account-id</code>, descr: &quot;AWS account id if not running on an instance&quot;</li>
 <li><code>aws-eni-id</code>, type: &quot;list&quot;, descr: &quot;AWS Elastic Network Interfaces to attach on start, format is: eni[:index],eni...&quot;</li>
@@ -2763,12 +2846,6 @@ SNS alarms or EventBridge events must use a SQS qeue as the target.</p>
 <ul>
 <li><p><code>aws.queryTranscribe(action, obj, options, callback)</code></p>
 <p>  AWS Transcribe API request</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>aws.queryECS(action, obj, options, callback)</code></p>
-<p>  AWS ECS API request</p>
 </li>
 </ul>
 
@@ -3308,6 +3385,13 @@ return list of groups to the callback</p>
 </ul>
 
 <ul>
+<li><p><code>aws.ec2DescribeSubnets(options, callback)</code></p>
+<p>  Describe VPC subnets, optionally if <code>options.filter</code> regexp is provided then limit the result to the matched subnets only,
+return list of subnets to the callback</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>aws.ec2DescribeInstances(options, callback)</code></p>
 <p>  Describe instances according to the query filters, returns a list with instances, the following properties
 can be used:</p>
@@ -3382,6 +3466,12 @@ The options can specify the following:</p>
 </ul>
 
 <ul>
+<li><p><code>aws.queryECS(action, obj, options, callback)</code></p>
+<p>  AWS ECS API request</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>aws.readCredentials(profile, callback)</code></p>
 <p>  Read key and secret from the AWS SDK credentials file, if no profile is given in the config or command line only the default peofile
 will be loaded.</p>
@@ -3395,7 +3485,7 @@ will be loaded.</p>
 </ul>
 
 <ul>
-<li><p><code>aws.getInstanceMeta(path, callback)</code></p>
+<li><p><code>aws.getInstanceMeta(path, options, callback)</code></p>
 <p>  Retrieve instance meta data</p>
 </li>
 </ul>
@@ -3774,6 +3864,7 @@ The options can specify the following:</p>
 <li><code>log-file</code>, type: &quot;callback&quot;, callback: function(v) { if (v) this.logFile=v;logger.setFile(this.logFile, this)  descr: &quot;Log to a file, if not specified used default logfile, disables syslog&quot;, pass: 1</li>
 <li><code>log-ignore</code>, type: &quot;regexp&quot;, obj: &quot;logInspect&quot;, strip: /log-/, nocamel: 1, descr: &quot;Regexp with property names which must not be exposed in the log when using custom logger inspector&quot;</li>
 <li><code>log-inspect</code>, type: &quot;callback&quot;, callback: function(v) { this.setLogInspect(v)  descr: &quot;Install custom secure logger inspection instead of util.inspect&quot;</li>
+<li><code>log-inspect-map</code>, type: &quot;map&quot;, obj: &quot;log-inspect&quot;, maptype: &quot;auto&quot;, merge: 1, replace: { &quot;%20&quot;: &quot; &quot;, &quot;%2c&quot;: &quot;,&quot;, &quot;%3a&quot;: &quot;:&quot;, &quot;%3b&quot;: &quot;;&quot;  descr: &quot;Properties for the custom log inspect via objDescr&quot;</li>
 <li><code>log-filter</code>, type: &quot;callback&quot;, callback: function(v) { if (v) logger.setDebugFilter(v)  descr: &quot;Enable debug filters, format is: label,... to enable, and !label,... to disable. Only first argument is used for label in logger.debug&quot;, pass: 1</li>
 <li><code>no-log-filter</code>, type: &quot;bool&quot;, onupdate: function(v) { if (v) logger.filters={}  descr: &quot;Clear all log filters&quot;, pass: 1</li>
 <li><code>syslog</code>, type: &quot;callback&quot;, callback: function(v) { logger.setSyslog(v || 1, this.name)  descr: &quot;Log messages to syslog, pass 0 to disable, 1 or url (tcp|udp|unix):[//host:port][/path]?[facility=F][&amp;tag=T][&amp;retryCount=N][&amp;bsd=1][&amp;rfc5424=1][&amp;rfc3164=1]...&quot;, pass: 1</li>
@@ -3794,7 +3885,7 @@ The options can specify the following:</p>
 <li><code>locales-path</code>, type: &quot;path&quot;, array: 1, obj: &quot;path&quot;, strip: /Path/, descr: &quot;Path where to keep locale translations&quot;</li>
 <li><code>role</code>, descr: &quot;Override servers roles, this may have very strange side effects and should only be used for testing purposes&quot;</li>
 <li><code>umask</code>, descr: &quot;Permissions mask for new files, calls system umask on startup, if not specified the current umask is used&quot;, pass: 1</li>
-<li><code>force-uid</code>, type: &quot;list&quot;, onupdate: function(v) { lib.dropPrivileges(v[0], v[1])  descr: &quot;Drop privileges if running as root by all processes as early as possibly, this reqiures uid being set to non-root user. A convenient switch to start the backend without using any other tools like su or sudo.&quot;, pass: 1</li>
+<li><code>force-uid</code>, type: &quot;list&quot;, nouniq: 1, onupdate: function(v) { lib.dropPrivileges(v[0], v[1])  descr: &quot;Drop privileges if running as root by all processes as early as possibly, this reqiures uid being set to non-root user. A convenient switch to start the backend without using any other tools like su or sudo.&quot;, pass: 1</li>
 <li><code>port</code>, type: &quot;number&quot;, min: 0, descr: &quot;port to listen for the HTTP server, this is global default&quot;</li>
 <li><code>bind</code>, descr: &quot;Bind to this address only, if not specified listen on all interfaces&quot;</li>
 <li><code>backlog</code>, type: &quot;int&quot;, descr: &quot;The maximum length of the queue of pending connections, used by HTTP server in listen.&quot;</li>
@@ -3854,7 +3945,7 @@ The options can specify the following:</p>
 <li><code>backend-host</code>, descr: &quot;Host of the master backend, can be used for backend nodes communications using core.sendRequest function calls with relative URLs, also used in tests.&quot;</li>
 <li><code>backend-login</code>, descr: &quot;Credentials login for the master backend access when using core.sendRequest&quot;</li>
 <li><code>backend-secret</code>, descr: &quot;Credentials secret for the master backend access when using core.sendRequest&quot;</li>
-<li><code>host-name</code>, type: &quot;callback&quot;, callback: function(v) { if (v) this.hostName=v;this.domain = lib.domainName(this.hostName);this._name = &quot;hostName&quot;  descr: &quot;Hostname/domain to use for communications, default is current domain of the host machine&quot;</li>
+<li><code>host-name</code>, type: &quot;callback&quot;, callback: function(v) { if (v) this.hostName=v;this.domain = lib.domainName(v);this._name = &quot;hostName&quot;  descr: &quot;Hostname/domain to use for communications, default is current domain of the host machine&quot;</li>
 <li><code>config-domain</code>, descr: &quot;Domain to query for configuration TXT records, must be specified to enable DNS configuration&quot;</li>
 <li><code>config-roles</code>, type: &quot;list&quot;, array: 1, descr: &quot;Roles to assume when pulling config parameters from the config, used in config files or config database&quot;</li>
 <li><code>locales</code>, array: 1, type: &quot;list&quot;, descr: &quot;A list of locales to load from the locales/ directory, only language name must be specified, example: en,es. It enables internal support for <code>res.__</code> and <code>req.__</code> methods that can be used for translations, for each request the internal language header will be honored forst, then HTTP Accept-Language&quot;</li>
@@ -5901,6 +5992,7 @@ will be returned in the query object</p>
 <li><code>events-max-runtime</code>, type: &quot;int&quot;, min: 0, multiplier: 1000, descr: &quot;Max number of seconds an event processing can run before being killed&quot;</li>
 <li><code>events-routing-(.+)</code>, obj: &quot;routing&quot;, type: &quot;regexp&quot;, empty: 1, descr: &quot;Queue routing by event topic&quot;</li>
 <li><code>events-properties</code>, type: &quot;list&quot;, descr: &quot;List of properties to copy into an event envelope from the provided options&quot;</li>
+<li><code>events-shutdown-timeout</code>, type: &quot;int&quot;, min: 500, descr: &quot;Max number of milliseconds to wait for the graceful shutdown sequence to finish, after this timeout the process just exits&quot;</li>
 </ul>
 </li>
 </ul>
@@ -6120,6 +6212,7 @@ visible messages in the queue, &#39;queueRunning&#39; with currently in-flight m
 <li><p><code>Ipc.prototype.get(key, options, callback)</code></p>
 <p>  Retrieve an item from the cache by key.</p>
 <ul>
+<li><code>options.del</code> is given then it will delete the key after returning, i.e. Redis GETDEL op</li>
 <li><code>options.set</code> is given and no value exists in the cache it will be set as the initial value, still
  nothing will be returned to signify that a new value assigned.</li>
 <li><code>options.mapName</code> defines a map from which the key will be retrieved if the cache supports maps, to get the whole map
@@ -6551,6 +6644,7 @@ Rate limit check, by default it uses the master LRU cache meaning it works withi
 </li>
 </ul>
 
+<p>  Client that uses the local process or master process for jobs or rate limiter.</p>
 
 <h3 id="module-nats">Module: nats</h3>
 <p>  Queue client using NATS server</p>
@@ -6602,12 +6696,16 @@ Rate limit check, by default it uses the master LRU cache meaning it works withi
    ipc-queue=https://sqs.us-east-1.amazonaws.com/123456/messages?bk-visibilityTimeout=300&amp;bk-count=2
 </code></pre>
 
+<p>  Client that uses master process rate limiter and workers for jobs.</p>
+
 <h2 id="module-jobs">Module: jobs</h2>
 <p>  Job queue processor</p>
 <p>  When launched with <code>jobs-workers</code> parameter equal or greater than 0, the master spawns a number of workers which subscribe to
-  configured job queues or the default queue and listen for messsges.
-  A job message is an object that defines what method from which module to run with the options as the first argument and a callback as the second.</p>
+  configured job queues or the default queue and listen for messages.</p>
+<p>  A job message is an object that defines what method from which module to run with the options as the first argument and a callback as the second.</p>
 <p>  Multiple job queues can be defined and processed at the same time.</p>
+<p>  By default <code>local</code> and <code>worker</code> queues are always created and ready to be used, jobs sent to local always run inside the local process
+  but jobs sent to worker queue will be run locally if the current process is not master.</p>
 
 <ul>
 <li><p><code>Config parameters</code></p>
@@ -6617,16 +6715,18 @@ Rate limit check, by default it uses the master LRU cache meaning it works withi
 <li><code>jobs-worker-args</code>, type: &quot;list&quot;, descr: &quot;Node arguments for workers, for passing v8 jobspec, see <code>process</code>&quot;</li>
 <li><code>jobs-worker-env</code>, type: &quot;json&quot;, logger: &quot;warn&quot;, descr: &quot;Environment to be passed to the worker via fork, see <code>cluster.fork</code>&quot;</li>
 <li><code>jobs-worker-delay</code>, type: &quot;int&quot;, descr: &quot;Delay in milliseconds for a worker before it will start accepting jobs, for cases when other dependencies may take some time to start&quot;</li>
+<li><code>jobs-worker-queue</code>, type: &quot;list&quot;, onupdate: function() { if (ipc.role==&quot;worker&quot;&amp;&amp;core.role==&quot;worker&quot;) this.subscribeWorker() descr: &quot;Queue(s) to subscribe for workers, multiple queues can be processes at the same time, i.e. more than one job can run from different queues&quot;</li>
+<li><code>jobs-worker-options-(.+)</code>, obj: &quot;workerOptions&quot;, make: &quot;$1&quot;, type: &quot;json&quot;, descr: &quot;Custom parameters by queue name, passed to <code>ipc.subscribeQueue</code> on worker start, useful with channels, ex: <code>-jobs-worker-options-nats#events {\&quot;count\&quot;:10}</code>&quot;</li>
+<li><code>jobs-no-restart</code>, type: &quot;bool&quot;, descr: &quot;Do not restart workers&quot;</li>
+<li><code>jobs-exit-on-empty</code>, type: &quot;int&quot;, descr: &quot;Duration in ms to exit the jobs server process after last worker terminated&quot;</li>
 <li><code>jobs-max-runtime</code>, type: &quot;int&quot;, min: 0, descr: &quot;Max number of seconds a job can run before being killed&quot;</li>
 <li><code>jobs-max-lifetime</code>, type: &quot;int&quot;, min: 0, descr: &quot;Max number of seconds a worker can live, after that amount of time it will exit once all the jobs are finished, 0 means indefinitely&quot;</li>
 <li><code>jobs-shutdown-timeout</code>, type: &quot;int&quot;, min: 500, descr: &quot;Max number of milliseconds to wait for the graceful shutdown sequence to finish, after this timeout the process just exits&quot;</li>
-<li><code>jobs-worker-queue</code>, type: &quot;list&quot;, onupdate: function() { if (ipc.role==&quot;worker&quot;&amp;&amp;core.role==&quot;worker&quot;) this.subscribeWorker() descr: &quot;Queue(s) to subscribe for workers, multiple queues can be processes at the same time, i.e. more than one job can run from different queues&quot;</li>
-<li><code>jobs-worker-options-(.+)</code>, obj: &quot;workerOptions&quot;, make: &quot;$1&quot;, type: &quot;json&quot;, descr: &quot;Custom parameters by queue name, passed to <code>ipc.subscribeQueue</code> on worker start, useful with channels, ex: <code>-jobs-worker-options-nats#events {\&quot;count\&quot;:10}</code>&quot;</li>
 <li><code>jobs-cron-queue</code>, type: &quot;list&quot;, min: 1, descr: &quot;Default queue to use for cron jobs&quot;</li>
 <li><code>jobs-global-queue</code>, type: &quot;list&quot;, min: 1, descr: &quot;Default queue for all jobs, the queueName is ignored&quot;</li>
-<li><code>jobs-global-ignore</code>, type: &quot;list&quot;, descr: &quot;Queue names which ignore the global setting, the queueName is used as usual&quot;</li>
+<li><code>jobs-global-ignore</code>, type: &quot;list&quot;, array: 1, descr: &quot;Queue names which ignore the global setting, the queueName is used as usual, local and worker are ignored by default&quot;</li>
 <li><code>jobs-cron</code>, type: &quot;bool&quot;, descr: &quot;Allow cron jobs to be executed from the local etc/crontab file or via config parameter&quot;</li>
-<li><code>jobs-schedule</code>, type: &quot;json&quot;, onupdate: function() { if (core.role == &quot;master&quot; &amp;&amp; this.cron) this.scheduleCronjobs(&quot;config&quot;, this.schedule)  logger: &quot;error&quot;, descr: &quot;Cron jobs to be scheduled, the JSON must be in the same format as crontab file&quot;</li>
+<li><code>jobs-schedule</code>, type: &quot;json&quot;, onupdate: function() { if (core.role == &quot;master&quot; &amp;&amp; this.cron) this.scheduleCronjobs(&quot;config&quot;, this.schedule)  logger: &quot;error&quot;, descr: &quot;Cron jobs to be scheduled, the JSON must be in the same format as crontab file, cron format by <a href="https://croner.56k.guru">https://croner.56k.guru</a>&quot;</li>
 <li><code>jobs-unique-queue</code>, descr: &quot;Default queue name to use for keeping track of unique jobs&quot;</li>
 <li><code>jobs-unique-ignore</code>, type: &quot;regexp&quot;, descr: &quot;Ignore all unique parameters if a job&#39;s uniqueKey matches&quot;</li>
 <li><code>jobs-unique-set-ttl-([0-9]+)</code>, type: &quot;regexp&quot;, obj: &quot;uniqueSetTtl&quot;, make: &quot;$1&quot;, descr: &quot;Override unique TTL to a new value if matches the unique key, ex: -jobs-unique-ttl-100 KEY&quot;</li>
@@ -6673,25 +6773,26 @@ Rate limit check, by default it uses the master LRU cache meaning it works withi
 </ul>
 
 <ul>
-<li><p><code>jobs.isCancelled(job, tag, value)</code></p>
-<p>  Returns true if a task with given name must be cancelled, this flag is set from the jobs master and
-stoppable tasks must check it from time to time to terminate gracefully.
-if <code>value</code> is given it will return true only if it exactly equals to the set value in the task cancel state.
-The cancel state is cleared only if tag is given, if only name is matched the cancel state remains for other tasks</p>
+<li><p><code>jobs.markCancelled(msg)</code></p>
+<p>  Mark all running jobs with the cancel key, it is up to any job to check for cancel keys and exit</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>jobs.cancelTask(name, options)</code></p>
-<p>  Send cancellation request to a worker or all workers, this has to be called from the jobs master.
-<code>options.workers</code> can be a single worker id or a list of worker ids, if not given the request will be sent to all workers for the current process cluster.
-<code>options.tag</code> is an opaque data that will be used to verifying which task should be cancelled, without it all tasks with given name will be cancelled.</p>
+<li><p><code>jobs.isCancelled(key)</code></p>
+<p>  Returns true if a cancel job key is set, this is called inside a job</p>
 </li>
 </ul>
 
 <ul>
 <li><p><code>jobs.getMaxRuntime()</code></p>
 <p>  Find the max runtime allowed in seconds</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>jobs.getRunningJobs()</code></p>
+<p>  Return a list of unique job names currently running</p>
 </li>
 </ul>
 
@@ -6708,9 +6809,7 @@ set and the name-sake property will contained the value exceeded.</p>
 <p>  Make sure the job is valid and has all required fields, returns a normalized job object or an error, the jobspec
 must be in the following formats:</p>
 <pre><code>   &quot;module.method&quot;
-   { job: &quot;module.method&quot; }
    { job: { &quot;module.method&quot;: {}, .... } }
-   { job: [ &quot;module.method&quot;, { &quot;module.method&quot;: {} ... } ...] }
 </code></pre>
 <p>any task in string format &quot;module.method&quot; will be converted into { &quot;module.method: {} } automatically</p>
 </li>
@@ -6735,7 +6834,6 @@ finished, non unique jobs will be kept in the queue and repeated later according
 <p><code>jobspec.uniqueDrop</code> if true will make non-unique jobs to be silently dropped instead of keeping them in the queue</p>
 <p><code>jobspec.logger</code> defines the logger level which will be used to log when the job is finished, default is debug</p>
 <p><code>jobspec.maxRuntime</code> defines max number of seconds this job can run, if not specified then the queue default is used</p>
-<p><code>jobspec.uniqueTag</code> defines additional tag to be used for job cancelling, for cases when multiple jobs are running with the same method</p>
 <p><code>jobspec.uniqueOnce</code> if true than the visibility timeout is not kept alive while the job is running</p>
 <p><code>jobspec.noWait</code> will run the job and delete it from the queue immediately, not at the end, for one-off jobs</p>
 <p><code>jobspec.noWaitTimeout</code> number of seconds before deleting the job for one-off jobs but taking into account the uniqueKey and visibility timeout giving time
@@ -6751,9 +6849,6 @@ finished, non unique jobs will be kept in the queue and repeated later according
 <p><code>options.dedup_ttl</code> - if set it defines number of ms to keep track of duplicate messages, it tries to preserver only-once behaviour. To make
  some queue to automatically use dedup mode it can be set in the queue options: <code>-ipc-queue[-NAME]-options-dedup_ttl 86400000</code>.
  Note: <code>uniqueTtl</code> settings take precedence and if present dedup is ignored.</p>
-<p>Special queue name: <code>jobs.selfQueue</code> is reserved to run the job immediately inside the current process,
-it will call the <code>runJob</code> directly, this is useful in cases when already inside a worker and instead of submitting a new job
-just run it directly. Any queue can be configured to run in <code>selfQueue</code> by setting <code>-ipc-queue[-NAME]-options-self-queue 1</code>.</p>
 </li>
 </ul>
 
@@ -6764,19 +6859,13 @@ just run it directly. Any queue can be configured to run in <code>selfQueue</cod
 </ul>
 
 <ul>
-<li><p><code>jobs.cancelJob(options, callback)</code></p>
-<p>  Send a cancellation request to the given <code>job</code> with optional <code>tag</code> and <code>value</code>. The value must mtach exactly.</p>
+<li><p><code>jobs.cancelJob(key, callback)</code></p>
+<p>  Send a cancellation request for given key to all workers</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>jobs._runJob(jobspec, options, callback)</code></p>
-<p>  Sequentially execute all tasks in the list, run all subtasks in parallel</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>jobs.runTask(name, jobspec, options, callback)</code></p>
+<li><p><code>jobs._runTask(name, jobspec, options, callback)</code></p>
 <p>  Execute a task by name, the <code>options</code> will be passed to the function as the first argument, calls the callback on finish or error</p>
 </li>
 </ul>
@@ -6792,7 +6881,7 @@ just run it directly. Any queue can be configured to run in <code>selfQueue</cod
 <p>  Create a new cron job, for remote jobs additional property args can be used in the object to define
 arguments for the instance backend process, properties must start with -</p>
 <p>Example:</p>
-<pre><code>     { &quot;cron&quot;: &quot;0 */10 * * * *&quot;, &quot;job&quot;: &quot;server.processQueue&quot; },
+<pre><code>     { &quot;cron&quot;: &quot;0 */10 * * * *&quot;, &quot;croner&quot;: { maxRun: 3 }, job&quot;: &quot;server.processQueue&quot; },
      { &quot;cron&quot;: &quot;0 */30 * * * *&quot;, &quot;job&quot;: { &quot;server.processQueue&quot;: { name: &quot;queue1&quot; } } },
      { &quot;cron&quot;: &quot;0 5 * * * *&quot;, &quot;job&quot;: [ { &quot;scraper.run&quot;: { &quot;url&quot;: &quot;host1&quot; } }, { &quot;scraper.run&quot;: { &quot;url&quot;: &quot;host2&quot; } } ] }
 </code></pre>
@@ -6813,6 +6902,7 @@ empty invalid jobs must be passed, like: <code>[ {} ]</code></p>
 <p>  Load crontab from JSON file as list of job specs:</p>
 <ul>
 <li>cron - cron time interval spec: &#39;second&#39; &#39;minute&#39; &#39;hour&#39; &#39;dayOfMonth&#39; &#39;month&#39; &#39;dayOfWeek&#39;</li>
+<li>croner - optional object with additional properties for the Croner object</li>
 <li>job - a string as obj.method or an object with job name as property name and the value is an object with
  additional jobspec for the job passed as first argument, a job callback always takes jobspec and callback as 2 arguments</li>
 <li>disabled - disable the job but keep in the cron file, it will be ignored</li>
@@ -6820,6 +6910,16 @@ empty invalid jobs must be passed, like: <code>[ {} ]</code></p>
 <li>uniqueTtl - defines that this job must be the only one in the queue for the number of milliseconds specified, after that
  time another job with the same arguments can be submitted.</li>
 </ul>
+<p>The expressions used by Croner(<a href="https://croner.56k.guru">https://croner.56k.guru</a>) are very similar to those of Vixie Cron, but with a few additions and changes as outlined below:</p>
+<p>┌──────────────── (optional) second (0 - 59)
+│ ┌────────────── minute (0 - 59)
+│ │ ┌──────────── hour (0 - 23)
+│ │ │ ┌────────── day of month (1 - 31)
+│ │ │ │ ┌──────── month (1 - 12, JAN-DEC)
+│ │ │ │ │ ┌────── day of week (0 - 6, SUN-Mon)
+│ │ │ │ │ │       (0 to 6 are Sunday to Saturday; 7 is Sunday, the same as 0)
+│ │ │ │ │ │</p>
+<hr>
 <p>Example:</p>
 <pre><code>     [ { cron: &quot;0 0 * * * *&quot;, job: &quot;scraper.run&quot; }, ..]
 </code></pre>
@@ -6838,6 +6938,12 @@ empty invalid jobs must be passed, like: <code>[ {} ]</code></p>
 <ul>
 <li><p><code>lib.tryCall(callback, ...args)</code></p>
 <p>  Run a callback if a valid function, all arguments after the callback will be passed as is</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.tryLater(callback, timeout, ...args)</code></p>
+<p>  Run a callback after timeout, returns a function so it can be used instead of actual callback</p>
 </li>
 </ul>
 
@@ -6996,6 +7102,7 @@ be removed, underscores will be treated as dots. Returns a floating number which
 <li>mult - a number to multiply before checking for other conditions</li>
 <li>novalue - replace this number with default</li>
 <li>zero - replace with this number if result is 0</li>
+<li>digits - how many digits to keep after the floating point</li>
 </ul>
 <p>Example:</p>
 <pre><code>          lib.toNumber(&quot;123&quot;)
@@ -7164,17 +7271,22 @@ validate incoming data. It is an object with property names and definitoons that
 <li>optional - for date types, if true do not assign the current time for empty values</li>
 <li>value - assign this value unconditionally</li>
 <li>values - a list of allowed values, if not present the parameter is ignored</li>
-<li>values_map - an objexct map for values, replace matching values with a new one</li>
+<li>values_map - an object map for values, replace matching values with a new one</li>
 <li>params - an object with schema to validate for json/obj/array types</li>
 <li>empty - if true and the target value is empty return as empty, by default empty values are ignored</li>
 <li>keepempty - for list type keep empty items in the list, default is skip empty items</li>
 <li>minlist - min allowed length of the target array for list/map types, returns error if less</li>
 <li>maxlist - max allowed length of the target array for list/map types, returns error if longer</li>
+<li>minnum - min allowed number after convertion by toNumber, for numbers and mtime</li>
+<li>maxnum - max allowed number after convertion by toNumber, for numbers and mtime</li>
+<li>mindate - min allowed date after convertion by toDate, can be a Date or number</li>
+<li>maxdate - max allowed date after convertion by toDate, can be a Date or number</li>
 <li>strip - a regexp with characters to strip from the final value</li>
 <li>upper/lower - transform case</li>
 <li>cap - capitalize the value</li>
 <li>trim - trim the final value if a string</li>
 <li>replace - an object map with characters to be replaced with other values</li>
+<li>base64 - decode from base64</li>
 </ul>
 <p>Supported types:</p>
 <ul>
@@ -7189,6 +7301,7 @@ validate incoming data. It is an object with property names and definitoons that
 <pre><code>   var query = lib.toParams(req.query, {
            id: { type: &quot;int&quot; },
            count: { type: &quot;int&quot;, min: 1, max: 10, dflt: 5 },
+           age: { type: &quot;int&quot;, minnum: 10, maxnum: 99 },
            name: { type: &quot;string&quot;, max: 32, trunc: 1 },
            pair: { type: &quot;map&quot;, maptype: &quot;int&quot; },
            code: { type: &quot;string&quot;, regexp: /^[a-z]-[0-9]+$/, errmsg: &quot;Valid code is required&quot; },
@@ -7197,6 +7310,7 @@ validate incoming data. It is an object with property names and definitoons that
            email1: { type: &quot;email&quot;, required: { email: null } },
            data: { type: &quot;json&quot;, datatype: &quot;obj&quot; },
            mtime: { type: &quot;mtime&quot;, name: &quot;timestamp&quot; },
+           date: { type: &quot;date&quot;, mindate: new Date(2000,1,1) },
            flag: { type: &quot;bool&quot;, novalue: false },
            descr: { novalue: { name: &quot;name&quot;, value: &quot;test&quot; }, replace: { &quot;&lt;&quot;: &quot;!&quot; } },
            internal: { ignore: 1 },
@@ -7243,6 +7357,17 @@ properties will be replaced by empty strings.</p>
 <p>  Given a template with @..@ placeholders, replace each placeholder with the value from the obj.
 The <code>obj</code> can be an object or an array of objects in which case all objects will be checked for the value until non empty.</p>
 <p>To use @ in the template specify it as @@</p>
+<p>Placeholders can have default or/and encoding</p>
+<ul>
+<li>default only: <code>@name|dflt@</code></li>
+<li>encoding with default: <code>@name|dflt|encoding@</code></li>
+<li>encoding no default: <code>@name||encoding@</code></li>
+</ul>
+<p>Encoding options:</p>
+<ul>
+<li>url, base64, entity, strftime, mtime</li>
+<li>d-url, d-base64, d-entity - decode value instead of encode it</li>
+</ul>
 <p>The options if given may provide the following:</p>
 <ul>
 <li>allow - placeholders with a name present in this list will be replaced, all other will be replaced with empty string</li>
@@ -7302,8 +7427,23 @@ that data is not chnaged and was signed with the same secret</p>
 
 <ul>
 <li><p><code>lib.jsonFormat(obj, options)</code></p>
-<p>  Nicely format an object with indentations, optional <code>indentlevel</code> can be used to control until which level deep
-to use newlines for objects.</p>
+<p>  Nicely format an object with indentations, optional <code>indentlevel</code> can be used to control until which level deep to use newlines for objects.
+Options:</p>
+<ul>
+<li>preset - predefined set of options, currently only <code>compact</code> which prints text version</li>
+<li>ignore - regexp with properties to ingore</li>
+<li>skipnull - do not print null/undefined/&quot;&quot;</li>
+<li>skipempty - skip all empty object accorsding to <code>lib.isEmpty</code></li>
+<li>map - an object to map property names</li>
+<li>replace - an object for string values replacement: { ORIG: REPL... }</li>
+<li>preprocess - a function(name, val, options) to run before prints, return undefined to skip</li>
+<li>sbracket1, sbracket2 - open/close brackets for arrays, [ ]</li>
+<li>cbracket1, cbracket2 - open close brackets for obejcts, { }</li>
+<li>nl1, nl2 - newline chars before and after a single property</li>
+<li>quote1, quote2 - quotes for strings</li>
+<li>comma - comma separator between items</li>
+<li>space - indentation spaces before objects</li>
+</ul>
 </li>
 </ul>
 
@@ -7334,8 +7474,9 @@ to use newlines for objects.</p>
 </ul>
 
 <ul>
-<li><p><code>lib.unicode2Ascii(str)</code></p>
-<p>  Replace Unicode symbols with ASCII equivalents</p>
+<li><p><code>lib.unicode2Ascii(str, types)</code></p>
+<p>  Replace Unicode symbols with ASCII equivalents, types is a string with list of types of characters to
+replace, default is: opqs, for quotes,other,punctuations,spaces</p>
 </li>
 </ul>
 
@@ -7897,6 +8038,12 @@ All functions are called via setImmediate unless the <code>direct</code> argumen
 </ul>
 
 <ul>
+<li><p><code>lib.autoType(val)</code></p>
+<p>  Detect type from the value</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>lib.isObject(v)</code></p>
 <p>  Returns true of the argument is a generic object, not a null, Buffer, Date, RegExp or Array</p>
 </li>
@@ -8044,6 +8191,7 @@ in the condition object.</p>
 <li>if an object property is a list and the condition property is a string/number/list then it must be present in the list</li>
 <li>a condition can be a RegExp to test patterns</li>
 </ul>
+<p>The options can provide specific <code>ops</code> and <code>types</code> per property.</p>
 <p>Example:</p>
 <pre><code>   lib.isMatched({ id: 1, name: &quot;test&quot;, type: [&quot;user&quot;, &quot;admin&quot;] }, { name: /^j/ })
    true
@@ -8118,6 +8266,7 @@ Example:
 <ul>
 <li>separator - use something else instead of .</li>
 <li>index - initial index for arrays, 0 is default</li>
+<li>ignore - regexp with properties to ignore</li>
 </ul>
 <p>Example</p>
 <pre><code>     &gt; lib.objFlatten({ a: { c: 1 }, b: { d: 1 } } )
@@ -8510,7 +8659,7 @@ This is an alternative to AhoCorasick if number of words is less than 50-70.</p>
 
 <ul>
 <li><p><code>lib.networkInterfaces(options)</code></p>
-<p>  Return a list of local interfaces, default is all active IPv4 unless `IPv6`` property is set</p>
+<p>  Return a list of local interfaces, default is all active IPv4 unless <code>IPv6`` property is set. Skips 169.254 unless </code>all` is set.</p>
 </li>
 </ul>
 
@@ -8547,6 +8696,19 @@ This is an alternative to AhoCorasick if number of words is less than 50-70.</p>
 <ul>
 <li><p><code>lib.domainName(host, toplevel)</code></p>
 <p>  Extract domain from the host name, takes all host parts except the first one, if toplevel is true return 2 levels only</p>
+</li>
+</ul>
+
+
+<ul>
+<li><p><code>lib.processStats()</code></p>
+<p>  Return CPU/mem process stats in an object</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.networkStats(netdev, callback)</code></p>
+<p>  Return network stats for the instance, if not netdev is given it uses eth0 (Linux)</p>
 </li>
 </ul>
 
@@ -8636,8 +8798,8 @@ Properties:</p>
 </ul>
 
 <ul>
-<li><p><code>lib.uuid(prefix, options)</code></p>
-<p>  Return unique Id without any special characters and in lower case</p>
+<li><p><code>lib.uuid(prefix)</code></p>
+<p>  Return unique Id (UUID v4) without any special characters and in lower case</p>
 </li>
 </ul>
 
@@ -8781,6 +8943,18 @@ the default is to use the <code>error</code> level.</li>
 <h3 id="module-syslog">Module: syslog</h3>
 
 <h2 id="module-metrics">Module: metrics</h2>
+<ul>
+<li><p><code>exports.incr(obj, name, count)</code></p>
+<p>  Increments a counter in an object, creates a new var if not exist</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>exports.toJSON(obj)</code></p>
+<p>  Returns all properties in an object, convert all metrics if necessary</p>
+</li>
+</ul>
+
 
 <ul>
 <li><p><code>TokenBucket.prototype.configure(rate, max, interval, total)</code></p>
@@ -9118,7 +9292,6 @@ all items to be released, when expired the callback will be called</p>
 <li><code>server-process-name</code>, descr: &quot;Path to the command to spawn by the monitor instead of node, for external processes guarded by this monitor&quot;</li>
 <li><code>server-process-args</code>, type: &quot;list&quot;, re_map: [&quot;%20&quot;, &quot; &quot;], descr: &quot;Arguments for spawned processes, for passing v8 options or other flags in case of external processes&quot;</li>
 <li><code>server-worker-args</code>, type: &quot;list&quot;, re_map: [&quot;%20&quot;, &quot; &quot;], descr: &quot;Node arguments for workers, job and web processes, for passing v8 options&quot;</li>
-<li><code>server-api-restart-hours</code>, type: &quot;list&quot;, datatype: &quot;int&quot;, descr: &quot;List of hours when to restart api workers, only done once for each hour&quot;</li>
 </ul>
 </li>
 </ul>
@@ -9179,14 +9352,8 @@ all items to be released, when expired the callback will be called</p>
 
 <ul>
 <li><p><code>server.onProcessTerminate()</code></p>
-<p>  Terminates the server process, it is called on SIGTERM signal but can be called manually for graceful shitdown,
+<p>  Terminates the server process, it is called on SIGTERM signal but can be called manually for graceful shutdown,
 it runs <code>shutdown[Role]</code> methods before exiting</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>server.shutdown(options, callback)</code></p>
-<p>  Shutdown the system immediately, mostly to be used in the remote jobs as the last task</p>
 </li>
 </ul>
 
@@ -9205,12 +9372,6 @@ it runs <code>shutdown[Role]</code> methods before exiting</p>
 <ul>
 <li><p><code>server.writePidfile()</code></p>
 <p>  Create a pid file for the current process</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>server.restartWebWorkers()</code></p>
-<p>  Performs graceful web worker restart</p>
 </li>
 </ul>
 
@@ -9301,6 +9462,12 @@ A subcommand may return special string to indicate how to treat the flow:</p>
 <ul>
 <li><p><code>shell.cmdAwsShowInstances(options)</code></p>
 <p>  Show running instances by run mode and/or other criteria</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.cmdAwsShowTasks(options)</code></p>
+<p>  Show running tasks by run mode and/or other criteria</p>
 </li>
 </ul>
 
@@ -9523,30 +9690,6 @@ commands processed from <code>shell.cmdIndex</code></p>
 </ul>
 
 <ul>
-<li><p><code>shell.cmdAuthGet(options)</code></p>
-<p>  Show account records by id or login</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.cmdAuthAdd(options)</code></p>
-<p>  Add a user login</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.cmdAuthUpdate(options)</code></p>
-<p>  Update a user login</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>shell.cmdAuthDel(options)</code></p>
-<p>  Delete a user login</p>
-</li>
-</ul>
-
-<ul>
 <li><p><code>shell.cmdLogWatch(options)</code></p>
 <p>  Run logwatcher and exit</p>
 </li>
@@ -9600,6 +9743,12 @@ this is a convenience utility to better document tests</p>
 </ul>
 
 <ul>
+<li><p><code>tests.sleep(delay)</code></p>
+<p>  Async sleep version</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>tests.checkAccess(options, callback)</code></p>
 <p>  Generic access checker to be used in tests, accepts an array in .config with urls to check
 The following properties can be used:</p>
@@ -9636,7 +9785,7 @@ use the same names as command line arguments without preceeding <code>test-</cod
 <ul>
 <li>-test-verbose - on error print the context and backtrace</li>
 <li>-test-delay - number of milliseconds before starting the test and exiting the process, default 500ms</li>
-<li>-test-cluster - use a cluster worker to run each test in a separate process</li>
+<li>-test-cluster - use a cluster worker to run each test in a separate process, if 2 skip worker for a single command</li>
 <li>-test-interval - number of milliseconds between iterations</li>
 <li>-test-concurrency - how many tests to run at the same time, default is 1</li>
 </ul>
@@ -9672,6 +9821,53 @@ bkjs test-db
 </code></pre>
 </li>
 </ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.cmdUserGet(options)</code></p>
+<p>  Show account records by id or login</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.cmdUserAdd(options)</code></p>
+<p>  Add a user login</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.cmdUserUpdate(options)</code></p>
+<p>  Update a user login</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>shell.cmdUserDel(options)</code></p>
+<p>  Delete a user login</p>
+</li>
+</ul>
+
+<h2 id="module-stats">Module: stats</h2>
+<p>  Collects metrics about host and processes like CPU, memory, network, API rates...
+  All metrics are stored in a single object and sent to the confgured destination</p>
+<p>  To use Elasticsearch run <code>bkjs es-prepare-stats -table bk_stats</code> in order to
+  map @timestamp for Kibana and make all strings as keywords for aggregations.
+  Then set in config <code>stats-target={ &quot;url&quot;: &quot;http://localhost:9200/bk_stats/_doc/&quot; }</code></p>
+
+<ul>
+<li><p><code>Config parameters</code></p>
+<ul>
+<li><code>stats-interval</code>, type: &quot;int&quot;, descr: &quot;Interval for process stats collection&quot;</li>
+<li><code>stats-target</code>, type: &quot;json&quot;, descr: &quot;Target options, one of file, url, db, log...&quot;</li>
+<li><code>stats-roles</code>, type: &quot;list&quot;, descr: &quot;Process roles that report stats only&quot;</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>stats.collect(options, callback)</code></p>
+<p>  Collect process stats</p>
 </li>
 </ul>
 
@@ -9735,68 +9931,6 @@ bkjs test-db
 <ul>
 <li><p><code>bk_system.configureSystemAPI()</code></p>
 <p>  API for internal provisioning and configuration</p>
-</li>
-</ul>
-
-<h2 id="module-bk_user">Module: bk_user</h2>
-<p>  Account management</p>
-
-<ul>
-<li><p><code>bk_user.configureWeb(options, callback)</code></p>
-<p>  Create API endpoints and routes</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>bk_user.configureAccountsAPI()</code></p>
-<p>  Account management</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>bk_user.getAccount(req, options, callback)</code></p>
-<p>  Returns current account, used in /account/get API call, req.account will be filled with the properties from the db</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>bk_user.notifyAccount(options, callback)</code></p>
-<p>  Send Push notification to the account. The delivery is not guaranteed, if the message was queued for delivery, no errors will be returned.</p>
-<p>The options may contain the following:</p>
-<ul>
-<li>account - the whole account record where to send the notification</li>
-<li>account_id - the id of the account where to send, the record will be retrieved</li>
-<li>account_login - the login of the account where to send, the record will be retrieved</li>
-<li>device_id - the device to send the message directly</li>
-<li>msg - message text to send</li>
-</ul>
-<p>In addition the device_id can be saved in the format service://id where the service is one of the supported delivery services, this way the notification
-system will pick the right delivery service depending on the device id, the default service is apple.</p>
-<p> Example:</p>
-<pre><code>  bk_user.notifyAccount({ account_id: &quot;123&quot;, msg: &quot;test&quot;, badge: 1, sound: 1 } })
-</code></pre>
-</li>
-</ul>
-
-<ul>
-<li><p><code>bk_user.addAccount(req, options, callback)</code></p>
-<p>  Register new account, may be used an API call, but the req does not have to be an Express request, it just
-need to have query and options objects.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>bk_user.updateAccount(req, options, callback)</code></p>
-<p>  Update existing account, used in /account/update API call</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>bk_user.deleteAccount(req, callback)</code></p>
-<p>  Delete account specified by the obj.
-The options may contain <code>keep</code> array with tables to be kept, for example
-delete an account but keep all messages and location: keep:[&quot;bk_user&quot;,&quot;bk_location&quot;]</p>
-<p>This methods is suitable for background jobs</p>
 </li>
 </ul>
 
