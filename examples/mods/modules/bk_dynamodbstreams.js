@@ -88,12 +88,8 @@ mod.subscribeWorker = function(options)
 
     for (const i in this.tables) {
         var table = this.tables[i];
-        if (table[0] == "-") {
-            jobs.cancelTask(mod.name, { tag: table.substr(1) });
-        } else {
-            if (lib.isFlag(this.jobs, table)) continue;
-            setTimeout(mod.runTable.bind(mod, { table: table, source_pool: this.sourcePool, target_pool: this.targetPool, job: true }), 100 * (i + 1));
-        }
+        if (lib.isFlag(this.jobs, table)) continue;
+        setTimeout(mod.runTable.bind(mod, { table: table, source_pool: this.sourcePool, target_pool: this.targetPool, job: true }), 100 * (i + 1));
     }
 }
 
@@ -124,7 +120,7 @@ mod.unlock = function(key, query, options, callback)
 
 mod.isRunning = function(options)
 {
-    return !mod.exiting && !jobs.exiting && !jobs.isCancelled(mod.name, options.table);
+    return !mod.exiting && !jobs.exiting && !jobs.isCancelled(`${mod.name}.${options.table}`);
 }
 
 mod.processTable = function(options, callback)

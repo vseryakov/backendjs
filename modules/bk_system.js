@@ -70,7 +70,7 @@ mod.configureSystemAPI = function()
                 break;
 
             case 'cancel':
-                ipc.broadcast(core.name + ":master", ipc.newMsg("jobs:cancel", req.query), { queueName: ipc.systemQueue }, (err) => {
+                ipc.broadcast(core.name + ":master", ipc.newMsg("jobs:cancel", req.query), (err) => {
                     api.sendReply(res, err)
                 });
                 break;
