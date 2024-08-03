@@ -18,9 +18,9 @@ case "$BKJS_CMD" in
     interval=$(get_arg -interval 15)
     delay=$(get_arg -delay 0)
     load=$(get_arg -load 7)
-    cyclesl=$(get_arg -cyclesl 20)
+    lcycles=$(get_arg -lcycles 4)
     space=$(get_arg -space 90)
-    cycless=$(get_arg -cycless 50)
+    fscycles=$(get_arg -fscycles 50)
     path=$(get_arg -path /)
     mkdir -p /etc/monit.d
     if [ -z "$(egrep -Es '^include /etc/monit.d' /etc/monitrc)" ]; then
@@ -28,8 +28,8 @@ case "$BKJS_CMD" in
     fi
     echo "set logfile syslog" > /etc/monit.d/system.conf
     echo "set daemon $interval with start delay $delay" > /etc/monit.d/system.conf
-    echo "check system \$HOST every 5 cycles if loadavg(1min) > $load for $cyclesl cycles then alert" >> /etc/monit.d/system.conf
-    echo "check filesystem rootfs with path $path every $cycless cycles if space usage > ${space}% then alert" >> /etc/monit.d/system.conf
+    echo "check system \$HOST every $lcycles cycles if loadavg(5min) > $load then alert" >> /etc/monit.d/system.conf
+    echo "check filesystem rootfs with path $path every $fscycles cycles if space usage > ${space}% then alert" >> /etc/monit.d/system.conf
     exit
     ;;
 
@@ -74,7 +74,7 @@ case "$BKJS_CMD" in
     if match $host amazonaws; then server="$server port 465"; fi
     [ -n "$user" ] && server="$server username $user"
     [ -n "$password" ] && server="$server password $password"
-    if match $host amazonaws; then server="$server using tlsv12"; fi
+    if match $host amazonaws; then server="$server using tlsv13"; fi
     echo -e $server >> /etc/monit.d/alert.conf
     exit
     ;;
