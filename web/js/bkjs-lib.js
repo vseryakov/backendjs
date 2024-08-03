@@ -33,7 +33,21 @@ bkjs.typeName = function(v)
 }
 
 bkjs._formatPresets = {
-    compact: { sbracket1: "", sbracket2: "", cbracket1: "", cbracket2: "", nl1: "<br>", nl2: "", quote1: "", quote2: "", comma: "", space: "&nbsp;&nbsp;&nbsp;", skipnull: 1, skipempty: 1 },
+    compact: {
+        sbracket1: "",
+        sbracket2: "",
+        cbracket1: "",
+        cbracket2: "",
+        nl1: "<br>",
+        nl2: "",
+        quote1: "",
+        quote2: "",
+        comma: "",
+        prefix: "&nbsp;&nbsp;-&nbsp;",
+        space: "&nbsp;",
+        skipnull: 1,
+        skipempty: 1
+    },
 };
 
 // Format an object into nice JSON formatted text
@@ -59,15 +73,21 @@ bkjs.formatJSON = function(obj, options)
     if (this.isU(options.cbracket2)) options.cbracket2 = "}";
     if (this.isU(options.quote1)) options.quote1 = '"';
     if (this.isU(options.quote2)) options.quote2 = '"';
-    if (this.isU(options.space)) options.space = "    ";
+    if (this.isU(options.space)) options.space = " ";
+    if (this.isU(options.nspace)) options.nspace = 4;
     if (this.isU(options.comma)) options.comma = ", ";
     if (this.isU(options.sep)) options.sep = ", ";
+    if (this.isU(options.prefix)) options.prefix = "";
 
     var type = this.typeName(obj);
-    var count = 0;
+    var count = 0, indent;
     var text = type == "array" ? options.sbracket1 : options.cbracket1;
+    var map = options.map || "";
     // Insert newlines only until specified level deep
     var nline = !options.indentlevel || options.level < options.indentlevel;
+    // Top level prefix set, skip new line for the first item
+    var prefix = options.__prefix;
+    delete options.__prefix;
 
     for (var p in obj) {
         if (options.ignore && options.ignore.test(p)) continue;
@@ -78,21 +98,35 @@ bkjs.formatJSON = function(obj, options)
         }
         if (options.skipnull && (val === "" || val === null || val === undefined)) continue;
         if (options.skipempty && this.isEmpty(val)) continue;
+        if (options.skipvalue && options.skipvalue.test(val)) continue;
+
         if (count > 0) {
             text += type == "array" ? options.sep : options.comma;
         }
         if (type != "array") {
-            text += ((nline && options.nl1 ? (!options.level && !count ? "" : options.nl1) + options.indent + options.space : "") +
-                     options.quote1 + p + options.quote2 + ": ");
+            if (nline && options.nl1) {
+                text += !count && (prefix || !options.level) ? "" : options.nl1;
+            }
+            if (!prefix || count) text += options.indent;
+            if (!prefix) text += options.space.repeat(options.nspace);
+            text += options.quote1 + (map[p] || p) + options.quote2 + ": ";
+        } else
+        if (options.prefix && options.nl1) {
+            text += options.nl1 + options.indent + options.prefix;
         }
         switch (this.typeName(val)) {
         case "array":
         case "object":
-            options.indent += options.space;
+            if (type == "array" && options.prefix && options.nl1) {
+                indent = options.__prefix = options.space.repeat(options.prefix.length);
+            } else {
+                indent = options.space.repeat(options.nspace);
+            }
+            options.indent += indent;
             options.level++;
             text += this.formatJSON(val, options);
             options.level--;
-            options.indent = options.indent.substr(0, options.indent.length - options.space.length);
+            options.indent = options.indent.substr(0, options.indent.length - indent.length);
             break;
         case "boolean":
         case "number":
