@@ -42,11 +42,13 @@ bkjs._formatPresets = {
         nl2: "",
         quote1: "",
         quote2: "",
+        squote1: "",
+        squote2: "",
         comma: "",
         prefix: "&nbsp;&nbsp;-&nbsp;",
         space: "&nbsp;",
         skipnull: 1,
-        skipempty: 1
+        skipempty: 1,
     },
 };
 
@@ -73,6 +75,8 @@ bkjs.formatJSON = function(obj, options)
     if (this.isU(options.cbracket2)) options.cbracket2 = "}";
     if (this.isU(options.quote1)) options.quote1 = '"';
     if (this.isU(options.quote2)) options.quote2 = '"';
+    if (this.isU(options.squote1)) options.squote1 = '"';
+    if (this.isU(options.squote2)) options.squote2 = '"';
     if (this.isU(options.space)) options.space = " ";
     if (this.isU(options.nspace)) options.nspace = 4;
     if (this.isU(options.comma)) options.comma = ", ";
@@ -136,7 +140,7 @@ bkjs.formatJSON = function(obj, options)
             text += "null";
             break;
         case "string":
-            text += (options.quote1 + val + options.quote2);
+            text += (options.squote1 + val + options.squote2);
             break;
         default:
             text += ("unknown: " + typeof(val));
