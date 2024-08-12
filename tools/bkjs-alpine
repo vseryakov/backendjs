@@ -83,11 +83,6 @@ case "$BKJS_CMD" in
     repo=$(get_arg -repo /repo)
     tmp=$(get_arg -tmp /tmp)
 
-    # Required dependencies
-    if [ "$(whoami)" = "root" ]; then
-        apk add --update-cache alpine-sdk coreutils cmake doas-sudo-shim
-    fi
-
     # generate new abuild key if not set
     if ! grep -sq "^PACKAGER_PRIVKEY=" "$HOME"/.abuild/abuild.conf; then
         abuild-keygen -n -a
@@ -95,7 +90,6 @@ case "$BKJS_CMD" in
 
     if [ "$(whoami)" = "root" ]; then
         cp -v "$HOME"/.abuild/*.rsa.pub /etc/apk/keys/
-        apk -U upgrade
     fi
 
     # Update index using fake build file and exit
