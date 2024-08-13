@@ -46,7 +46,7 @@ case "$BKJS_CMD" in
 	tag=$(get_arg -tag)
 	[ -z "$tag" ] && tag=$($BKJS_BIN ec2-tag)
 
-    files="access.log message.log error.log $BKJS_CLOUDWATCH_LOGS"
+    files="access.log message.log error.log docker.log $BKJS_CLOUDWATCH_LOGS"
     for log in $files; do
         [ -n "$logs" ] && logs="$logs,"
         logs="$logs{ \"file_path\": \"$BKJS_HOME/log/$log\", \"log_group_name\": \"$log\", \"log_stream_name\": \"$tag\", \"multi_line_start_pattern\": \"^[^ \\t]\", \"timestamp_format\": \"%Y-%m-%dT%H:%M:%S.%f\" }"
@@ -74,7 +74,7 @@ case "$BKJS_CMD" in
 
   ec2-cwagent-init-monit)
 	root=$(get_arg -root $CWAROOT)
-	echo -e "check process cwagent with pidfile $root/logs/cwagent.pid start program = \"$BKJS_BIN ec2-cwagent-start\" as uid $BKJS_USER stop program = \"/usr/bin/pkill -f $CWAGENT\"" > /etc/monit.d/cwagent.conf
+	echo -e "check process cwagent with pidfile $root/logs/cwagent.pid start program = \"$BKJS_BIN ec2-cwagent-start\" as uid $BKJS_USER with timeout 30 seconds stop program = \"/usr/bin/pkill -f $CWAGENT\"" > /etc/monit.d/cwagent.conf
 	exit
 	;;
 
