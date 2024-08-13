@@ -1,0 +1,64 @@
+#!/bin/sh
+#
+#  Author: Vlad Seryakov vseryakov@gmail.com
+#  Aug 2024
+#
+
+case "$BKJS_CMD" in
+
+  help|docker-help)
+    echo ""
+    echo "  ecs-setup-agent - setup ECS agent to start in the current runlevel later, updates iptables"
+    echo "  ecs-start-agent - start ECS agent as a docker container"
+    echo "  ecs-stop-agent - stop ECS agent"
+    ;;
+
+  ecs-setup-agent)
+    $BKJS_BIN docker-init-rsyslog
+    killall -HUP rsyslog
+
+    conf=/etc/init.d/ecs-agent
+    echo -e "#!/sbin/openrc-run\nname=\"ecs-agent\"\ndepend() {\n\tneed docker\n}\nstart() {\n\t$BKJS_BIN ecs-start-agent\n}" > $conf
+    chmod 755 $conf
+    rc-update add ecs-agent
+
+    sysctl -w net.ipv4.conf.all.route_localnet=1
+    iptables -t nat -A PREROUTING -p tcp -d 169.254.170.2 --dport 80 -j DNAT --to-destination 127.0.0.1:51679
+    iptables -t nat -A OUTPUT -d 169.254.170.2 -p tcp -m tcp --dport 80 -j REDIRECT --to-ports 51679
+    exit
+    ;;
+
+  ecs-start-agent)
+    mkdir -p /etc/ecs/ /var/log/ecs /var/lib/ecs/data
+    touch /etc/ecs/ecs.config
+
+    docker rm -f ecs-agent
+
+    exec docker run -d --rm --name ecs-agent \
+      --restart=unless-stopped \
+      --volume=/var/run:/var/run \
+      --volume=/var/log/ecs/:/log:Z \
+      --volume=/var/lib/ecs/data:/data:Z \
+      --volume=/etc/ecs:/etc/ecs \
+      --volume=/sbin:/host/sbin \
+      --volume=/lib:/lib \
+      --volume=/usr/lib:/usr/lib \
+      --volume=/proc:/host/proc \
+      --volume=/sys/fs/cgroup:/sys/fs/cgroup \
+      --net=host \
+      --env-file=/etc/ecs/ecs.config \
+      --env=ECS_LOGFILE=/log/ecs-agent.log \
+      --env=ECS_ENABLE_TASK_IAM_ROLE=true \
+      --env=ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST=true \
+      --env=ECS_AVAILABLE_LOGGING_DRIVERS=["json-file","awslogs","syslog","none"] \
+      --env=ECS_ENABLE_AWSLOGS_EXECUTIONROLE_OVERRIDE=true \
+      --cap-add=sys_admin \
+      --cap-add=net_admin \
+      public.ecr.aws/ecs/amazon-ecs-agent:latest
+    ;;
+
+  ecs-stop-agent)
+    exec docker rm -f ecs-agent
+    ;;
+    
+esac
