@@ -74,7 +74,7 @@ case "$BKJS_CMD" in
 
   ec2-cwagent-init-monit)
 	root=$(get_arg -root $CWAROOT)
-	echo -e "check process cwagent with pidfile $root/logs/cwagent.pid start program = \"$BKJS_BIN ec2-cwagent-start\" as uid $BKJS_USER with timeout 30 seconds stop program = \"/usr/bin/pkill -f $CWAGENT\"" > /etc/monit.d/cwagent.conf
+	echo -e "check process cwagent with pidfile $root/logs/cwagent.pid start program = \"$BKJS_BIN ec2-cwagent-start\" as uid $BKJS_USER with timeout 60 seconds stop program = \"/usr/bin/pkill -f $CWAGENT\"" > /etc/monit.d/cwagent.conf
 	exit
 	;;
 

@@ -10,6 +10,7 @@ case "$BKJS_CMD" in
     echo ""
     echo "  monit-init-system - setup system monitoring with monit, CPU, disk"
     echo "  monit-init-bkjs - setup monit to keep bkjs service running without using any other services and monitor"
+    echo "  monit-stop-bkjs - remove and stop bkjs, reload monit"
     echo "  monit-init-alerts - setup monit mail alerts"
     echo "  monit-init -name NAME [-gid G] [-timeout 30] [-cycles N] -start SCRIPT -stop SCRIPT - generate a monit service config"
     ;;
@@ -53,6 +54,13 @@ case "$BKJS_CMD" in
     timeout=$(get_arg -timeout 30)
     bin=$(get_arg -bin $BKJS_BIN)
     echo -e "check process bkjs with pidfile \"$BKJS_HOME/var/master.pid\" start program = \"$bin run-master $(get_all_args)\" as uid $BKJS_USER with timeout $timeout seconds stop program = \"$bin stop\"" > /etc/monit.d/bkjs.conf
+    exit
+    ;;
+
+  monit-stop-bkjs)
+    rm -f /etc/monit.d/bkjs.conf
+    killall -HUP monit
+    $BKJS_BIN stop
     exit
     ;;
 

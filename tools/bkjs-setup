@@ -14,10 +14,10 @@ case "$BKJS_CMD" in
     echo "  setup-home [-dirs DIRS] - setup backend home with required folders, optional dirs will be created if given"
     echo "  setup-hostname [-host HOST] [-domain DOMAIN] - set EC2 hostname from IP and domain"
     echo "  setup-mfa [-user ec2-user] - initialize EC2 instance with multi-factor authentication using Google authenticator"
-    echo "  setup-logwatcher [-interval MINS] [-cron CRON] - creates a crontab file to periodically run the log watcher, -cron can specify full cron time spec"
     echo "  setup-user [-user NAME] - create a new user for the backend"
     echo "  setup-ssh - setup SSH permissions, allow only public key auth"
     echo "  setup-rsyslog - setup rsyslog to use for the backend logging, access log and backend log"
+    echo "  setup-rsyslog-docker [-restart] - store all docker container logs in $BKJS_HOME/log/docker.log via syslog local1 facility"
     echo "  setup-system - setup system wide parameters, permissions"
     echo "  setup-limits - setup ulimits"
     echo "  setup-sysctl - setup sysctl parameters"
@@ -224,7 +224,7 @@ case "$BKJS_CMD" in
 
   setup-logrotate)
     # Setup logrotate for backend log files
-    days=$(get_arg -logrotate-days 60)
+    days=$(get_arg -logrotate-days 30)
 
     [ -f /etc/logrotate.d/syslog ] && rm -f /etc/logrotate.d/syslog
     if [ "$(grep -s '#Bkjs' /etc/logrotate.d/rsyslog)" = "" ]; then
@@ -233,6 +233,7 @@ case "$BKJS_CMD" in
         echo "#Bkjs" > $log
         echo "/var/log/cron /var/log/messages $(get_arg -sysfiles) {" >> $log
         echo " missingok" >> $log
+        echo " nocompress" >> $log
         echo " daily" >> $log
         echo " rotate $days" >> $log
         echo " sharedscripts" >> $log
@@ -249,6 +250,7 @@ case "$BKJS_CMD" in
         echo "#Bkjs $BKJS_HOME" > $log
         echo "$BKJS_HOME/log/message.log $BKJS_HOME/log/access.log $(get_arg -logfiles) {" >> $log
         echo " missingok" >> $log
+        echo " nocompress" >> $log
         echo " daily" >> $log
         echo " rotate $days" >> $log
         echo " sharedscripts" >> $log
@@ -280,8 +282,8 @@ case "$BKJS_CMD" in
   setup-rsyslog)
     # Setup rsyslog config for backend logging
 
-    if [ -z "$(grep -s '#Bkjs' /etc/rsyslog.conf)" ]; then
-        log=/etc/rsyslog.conf
+    log=/etc/rsyslog.conf
+    if [ -z "$(grep -s '#Bkjs' $log)" ]; then
         echo "Configuring rsyslog..."
         echo "#Bkjs" > $log
         if [ -d /etc/systemd ]; then
@@ -321,8 +323,8 @@ case "$BKJS_CMD" in
         fi
     fi
 
-    if [ -z "$(grep -s "#Bkjs $BKJS_HOME" /etc/rsyslog.d/bkjs.conf)" ]; then
-        log=/etc/rsyslog.d/bkjs.conf
+    log=/etc/rsyslog.d/bkjs.conf
+    if [ -z "$(grep -s "#Bkjs $BKJS_HOME" $log)" ]; then
         echo "Configuring $log ..."
         mkdir -p /etc/rsyslog.d
         echo "#Bkjs $BKJS_HOME" > $log
@@ -334,6 +336,41 @@ case "$BKJS_CMD" in
         fi
         echo "local0.* $BKJS_HOME/log/message.log$bkjsfmt" >> $log
         echo "local5.* $BKJS_HOME/log/access.log$bkjsfmt" >> $log
+    fi
+    exit
+    ;;
+
+  setup-rsyslog-docker)
+    log=/etc/rsyslog.d/bkjs-docker.conf
+    if [ -z "$(grep -s "#Bkjs $BKJS_HOME" $log)" ]; then
+        echo Configuring $log ...
+        echo "#Bkjs $BKJS_HOME" > $log
+        echo "\$FileOwner $BKJS_USER" >> $log
+        bkjsfmt=""
+        if [ -d /etc/systemd ]; then
+            echo '$template bkjsfmt2,"%APP-NAME% %msg%\n"' >> $log
+            bkjsfmt=";bkjsfmt2"
+        fi
+        echo "local1.* $BKJS_HOME/log/docker.log$bkjsfmt" >> $log
+
+        $SED 's/local0.none/local0.none,local1.none/' /etc/rsyslog.conf
+
+        $BKJS_BIN setup-logrotate -force -logfiles $BKJS_HOME/log/docker.log
+
+        mkdir -p /etc/docker
+        json=/etc/docker/daemon.json
+
+        echo '{ "features": { "buildkit": true },' >> $json
+        echo '  "log-driver": "syslog", ' >> $json
+        echo '  "log-opts": { ' >> $json
+        echo '     "tag": "{{.Name}}", ' >> $json
+        echo '     "syslog-facility": "local1",' >> $json
+        echo '     "cache-disabled": "true",' >> $json
+        echo '     "mode": "non-blocking"' >> $json
+        echo '  }' >> $json
+        echo '}' >> $json
+
+        [ -n "$(get_flag -restart)" ] && killall -HUP rsyslogd
     fi
     exit
     ;;
@@ -424,7 +461,7 @@ case "$BKJS_CMD" in
         case $OS_TYPE in
           alpine)
             conf=/etc/init.d/bkjs
-            echo -e "#!/sbin/openrc-run\nname=\"bkjs\"\ndepend() {\n\tneed net\n}\nstart() {\n\t$bin start\n}" > $conf
+            echo -e "#!/sbin/openrc-run\nname=\"bkjs\"\ncommand=$bin\ncommand_args=start\ndepend() {\n\need net\nbefore sshd\n}" > $conf
             chmod 755 $conf
             rc-update add bkjs
             ;;
@@ -460,10 +497,10 @@ case "$BKJS_CMD" in
         ver=$(cat /etc/alpine-release|cut -d. -f1,2)
         $SED "s/^# *(.+v$ver\/community)\$/\1/" /etc/apk/repositories
         apk update
-        apk add bash curl wget nano mc procps docker logrotate
+        apk add bash curl curl-doc wget nano mc procps docker logrotate
         apk add make git gcc g++ cmake autoconf automake libtool man-pages go
         apk add shadow doas doas-sudo-shim rsync socat
-        apk add nodejs npm python3 openrc openssh monit rsyslog rsyslog-openrc redis
+        apk add nodejs npm python3 openrc openrc-doc openssh monit rsyslog rsyslog-openrc redis
         apk add tiny-cloud tiny-cloud-aws tiny-cloud-openrc nvme-cli aws-cli
         ;;
     esac
@@ -510,22 +547,6 @@ case "$BKJS_CMD" in
         echo 'AuthenticationMethods publickey,keyboard-interactive' >> /etc/ssh/sshd_config
     fi
     su $(get_arg -user ec2-user) -c "google-authenticator -d -t -f -r 2 -R 30"
-    exit
-    ;;
-
-  setup-logwatcher)
-	cron=$(get_arg -cron "*/$(get_arg -interval 5) * * * *")
-	case "$OS_TYPE" in
-    alpine)
-	    echo "$cron $BKJS_BIN logwatcher" >> /etc/crontabs/$BKJS_USER
-        ;;
-    *)
-        if [ -d /etc/cron.d ]; then
-        	echo 'MAILTO=""' > /etc/cron.d/bkjs-logwatcher
-        	echo "$cron $BKJS_USER $BKJS_BIN logwatcher" >> /etc/cron.d/bkjs-logwatcher
-        fi
-	    ;;
-	esac
     exit
     ;;
 

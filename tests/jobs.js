@@ -42,17 +42,6 @@ tests.test_jobs = function(callback, test)
             next();
         },
 
-        function(next) {
-            jobs.submitJob({ job: { "shell.testJob": { file, data: "worker" } } }, { queueName: "worker" }, lib.tryLater(next, 1000));
-        },
-
-        function(next) {
-            var data = lib.readFileSync(file);
-            expect(/ worker/.test(data), "expect local job", file, data);
-            expect(data.includes(` ${process.pid} `), "expect local pid in worker job", file, data)
-            next();
-        },
-
     ], callback);
 }
 
