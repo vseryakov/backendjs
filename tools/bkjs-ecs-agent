@@ -9,7 +9,7 @@ case "$BKJS_CMD" in
   help|docker-help)
     echo ""
     echo "  ecs-setup-agent - setup ECS agent to start in the current runlevel later, updates iptables"
-    echo "  ecs-start-agent - start ECS agent as a docker container if not running"
+    echo "  ecs-start-agent - start ECS agent as a docker container if not running, start docker if not running"
     echo "  ecs-stop-agent - stop ECS agent"
     ;;
 
@@ -25,8 +25,14 @@ case "$BKJS_CMD" in
     if [ ! -f $conf ]; then
         msg Setup ECS agent...
 
+        $BKJS_BIN setup-rsyslog-docker
+        killall -HUP rsyslogd
+
         mkdir -p /etc/monit.d
-        echo -e "check program ecs-agent with path \"$BKJS_BIN ecs-start-agent\" every 3 cycles if status != 0 then alert" > $conf
+        cycles=$(get_arg -cycles 2)
+        cycles2=$(( $cycles*2 ))
+        echo "check program ecs-agent with path \"$BKJS_BIN ecs-start-agent\" every $cycles cycles" >$conf
+        echo "  if status != 0 for 2 times within ${cycles2} cycles then alert" >> $conf
 
         rc-update add docker
     fi
@@ -36,7 +42,7 @@ case "$BKJS_CMD" in
   ecs-start-agent)
     if ! rc-service docker status; then
         rc-service docker start
-        sleep 5
+        exit 0
     fi
 
     if docker top ecs-agent; then

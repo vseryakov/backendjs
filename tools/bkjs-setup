@@ -17,7 +17,7 @@ case "$BKJS_CMD" in
     echo "  setup-user [-user NAME] - create a new user for the backend"
     echo "  setup-ssh - setup SSH permissions, allow only public key auth"
     echo "  setup-rsyslog - setup rsyslog to use for the backend logging, access log and backend log"
-    echo "  setup-rsyslog-docker [-restart] - store all docker container logs in $BKJS_HOME/log/docker.log via syslog local1 facility"
+    echo "  setup-rsyslog-docker - store all docker container logs in $BKJS_HOME/log/docker.log via syslog local1 facility"
     echo "  setup-system - setup system wide parameters, permissions"
     echo "  setup-limits - setup ulimits"
     echo "  setup-sysctl - setup sysctl parameters"
@@ -286,11 +286,7 @@ case "$BKJS_CMD" in
     if [ -z "$(grep -s '#Bkjs' $log)" ]; then
         echo "Configuring rsyslog..."
         echo "#Bkjs" > $log
-        if [ -d /etc/systemd ]; then
-            echo '$ModLoad imjournal' >> $log
-        else
-            echo '$ModLoad imklog' >> $log
-        fi
+        echo '$ModLoad imklog' >> $log
         echo '$ModLoad imuxsock' >> $log
         echo '$ModLoad imudp' >> $log
         echo '$UDPServerAddress 127.0.0.1' >> $log
@@ -299,15 +295,7 @@ case "$BKJS_CMD" in
         echo '$SystemLogRateLimitInterval 0' >> $log
         echo '$SystemLogRateLimitBurst 0' >> $log
         echo '$ActionFileDefaultTemplate RSYSLOG_FileFormat' >> $log
-        if [ -d /etc/systemd ]; then
-            echo '$IMJournalStateFile imjournal.state' >> $log
-            echo '$imjournalRatelimitInterval 0' >> $log
-            echo '$imjournalRatelimitBurst 0' >> $log
-            echo '$OmitLocalLogging on' >> $log
-            echo '*.emerg :omusrmsg:*' >> $log
-        else
-            echo 'kern.*,*.emerg /dev/console' >> $log
-        fi
+        echo 'kern.*,*.emerg /dev/console' >> $log
         echo '$IncludeConfig /etc/rsyslog.d/*.conf' >> $log
         echo 'cron.* /var/log/cron' >> $log
         echo 'local7.* /var/log/boot.log' >> $log
@@ -329,13 +317,8 @@ case "$BKJS_CMD" in
         mkdir -p /etc/rsyslog.d
         echo "#Bkjs $BKJS_HOME" > $log
         echo "\$FileOwner $BKJS_USER" >> $log
-        bkjsfmt=""
-        if [ -d /etc/systemd ]; then
-            echo '$template bkjsfmt,"%HOSTNAME% %msg%\n"' >> $log
-            bkjsfmt=";bkjsfmt"
-        fi
-        echo "local0.* $BKJS_HOME/log/message.log$bkjsfmt" >> $log
-        echo "local5.* $BKJS_HOME/log/access.log$bkjsfmt" >> $log
+        echo "local0.* $BKJS_HOME/log/message.log" >> $log
+        echo "local5.* $BKJS_HOME/log/access.log" >> $log
     fi
     exit
     ;;
@@ -346,12 +329,7 @@ case "$BKJS_CMD" in
         echo Configuring $log ...
         echo "#Bkjs $BKJS_HOME" > $log
         echo "\$FileOwner $BKJS_USER" >> $log
-        bkjsfmt=""
-        if [ -d /etc/systemd ]; then
-            echo '$template bkjsfmt2,"%APP-NAME% %msg%\n"' >> $log
-            bkjsfmt=";bkjsfmt2"
-        fi
-        echo "local1.* $BKJS_HOME/log/docker.log$bkjsfmt" >> $log
+        echo "local1.* $BKJS_HOME/log/docker.log" >> $log
 
         $SED 's/local0.none/local0.none,local1.none/' /etc/rsyslog.conf
 
@@ -369,8 +347,6 @@ case "$BKJS_CMD" in
         echo '     "mode": "non-blocking"' >> $json
         echo '  }' >> $json
         echo '}' >> $json
-
-        [ -n "$(get_flag -restart)" ] && killall -HUP rsyslogd
     fi
     exit
     ;;
@@ -399,12 +375,6 @@ case "$BKJS_CMD" in
     fi
     if [ -f /etc/rc.conf ]; then
         $SED 's/^#?rc_ulimit.*/rc_ulimit="-n 512000 -c unlimited -l unlimited"/' /etc/rc.conf
-    fi
-    if [ -f /etc/init.d/monit ]; then
-        $SED 's/daemon $prog/ulimit -n 512000\n\tdaemon $prog/' /etc/init.d/monit
-    fi
-    if [ -f /etc/systemd/system.conf ]; then
-        $SED 's/^#?DefaultLimitNOFILE=.*$/DefaultLimitNOFILE=512000/' /etc/systemd/system.conf
     fi
     exit
     ;;
