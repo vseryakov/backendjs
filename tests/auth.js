@@ -37,7 +37,7 @@ tests.test_auth = function(callback)
         { status: 401, path: "/system", type: "user" },
         { status: 401, path: "/system", type: "manager" },
         { status: 417, path: "/authonly" },
-        { status: 401, path: "/allow2" },
+        { status: 417, path: "/allow2" },
         { status: 200, path: "/allow2", type: "user" },
         { status: 200, path: "/authonly", type: "user" },
         { status: 200, path: "/allow2", type: "user" },
