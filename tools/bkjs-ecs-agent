@@ -25,7 +25,7 @@ case "$BKJS_CMD" in
     if [ ! -f $conf ]; then
         msg Setup ECS agent...
 
-        $BKJS_BIN setup-rsyslog-docker
+        $BKJS_BIN setup-rsyslog-docker -tag ID
         killall -HUP rsyslogd
 
         mkdir -p /etc/monit.d
