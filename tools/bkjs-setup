@@ -169,6 +169,7 @@ case "$BKJS_CMD" in
         echo "alias mlog=\"tail -100 $BKJS_HOME/log/message.log\"" >> $log
         echo "alias elog=\"tail -100 $BKJS_HOME/log/error.log\"" >> $log
         echo "alias alog=\"tail -100 $BKJS_HOME/log/access.log\"" >> $log
+        echo "alias dlog=\"tail -100 $BKJS_HOME/log/docker.log\"" >> $log
         echo 'alias h="history"' >> $log
         echo 'alias ll="ls -la"' >> $log
         echo 'alias ps="ps augx"' >> $log
@@ -435,7 +436,7 @@ case "$BKJS_CMD" in
         case $OS_TYPE in
           alpine)
             conf=/etc/init.d/bkjs
-            echo -e "#!/sbin/openrc-run\nname=\"bkjs\"\ncommand=$bin\ncommand_args=start\ndepend() {\n\need net\nbefore sshd\n}" > $conf
+            echo -e "#!/sbin/openrc-run\nname=\"bkjs\"\ncommand=$bin\ncommand_args=start\ndepend() {\nafter net\nbefore sshd\n}" > $conf
             chmod 755 $conf
             rc-update add bkjs
             ;;
