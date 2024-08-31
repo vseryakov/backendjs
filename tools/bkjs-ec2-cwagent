@@ -46,13 +46,19 @@ case "$BKJS_CMD" in
 	tag=$(get_arg -tag)
 	[ -z "$tag" ] && tag=$($BKJS_BIN ec2-tag)
 
+    config="\"agent\": { \"usage_data\": false, \"logfile\": \"$CWAROOT/logs/cwagent.log\" }"
+
     files="access.log message.log error.log docker.log $BKJS_CLOUDWATCH_LOGS"
     for log in $files; do
         [ -n "$logs" ] && logs="$logs,"
         logs="$logs{ \"file_path\": \"$BKJS_HOME/log/$log\", \"log_group_name\": \"$log\", \"log_stream_name\": \"$tag\", \"multi_line_start_pattern\": \"^[^ \\t]\", \"timestamp_format\": \"%Y-%m-%dT%H:%M:%S.%f\" }"
     done
+    config="$config, \"logs\": { \"logs_collected\": { \"files\": { \"collect_list\": [ $logs ] } }, \"log_stream_name\": \"$tag\" }"
+
+    config="$config, \"traces\": { \"local_mode\": true, \"traces_collected\": { \"xray\": {} } }"
+
     tmp=$root/etc/cwagent.json
-    echo "{ \"agent\": { \"usage_data\": false, \"logfile\": \"$CWAROOT/logs/cwagent.log\" }, \"logs\": { \"logs_collected\": { \"files\": { \"collect_list\": [ $logs ] } }, \"log_stream_name\": \"$tag\" } }" > $tmp
+    echo "{ $config }" > $tmp
 
     json=$root/etc/$CWAGENT.json
     toml=$root/etc/$CWAGENT.toml
