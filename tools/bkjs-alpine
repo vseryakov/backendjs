@@ -23,6 +23,8 @@ case "$BKJS_CMD" in
     mkdir -p $repo
 
     file=$(readlink -f $file)
+    files=$(dirname $file)
+
     src=$(readlink -f $(get_arg -src .))
 
     args=$(get_all_args "-file -repo -image -docker -pkgver")
@@ -39,7 +41,7 @@ case "$BKJS_CMD" in
     fi
 
     if [ -n "$(get_flag -local)" ]; then
-        $BKJS_BIN alpine-run-abuild $args -file "$file" -repo "$repo" -src "$src"
+        $BKJS_BIN alpine-run-abuild $args -file "$file" -files "$files" -repo "$repo" -src "$src"
     else
         bkjs=
         [ -f $src/bkjs ] && bkjs=bkjs
@@ -56,7 +58,7 @@ case "$BKJS_CMD" in
         arch=$(get_arg -arch)
         [ -n "$arch" ] && dargs="$dargs --platform=linux/$arch"
 
-        dargs="$dargs -v $HOME/.abuild:/root/.abuild -v $file:/APKBUILD -v $src:/src -v $repo:/repo"
+        dargs="$dargs -v $HOME/.abuild:/root/.abuild -v $file:/APKBUILD -v $files:/files -v $src:/src -v $repo:/repo"
 
         image=$(get_arg -image abuild)
 
@@ -80,6 +82,7 @@ case "$BKJS_CMD" in
 
   alpine-run-abuild)
 	file=$(get_arg -file APKBUILD)
+    files=$(get_arg -files /files)
     repo=$(get_arg -repo /repo)
     tmp=$(get_arg -tmp /tmp)
 
@@ -100,6 +103,14 @@ case "$BKJS_CMD" in
 
     cp $file $tmp/APKBUILD
     [ "$?" != "0" ] && echo "invalid $file" && exit 1
+
+    source=$(source APKBUILD && echo $source)
+    for s in $source; do
+        if ! match "$s" '^http'; then
+            msg Copying $files/$s to $tmp...
+            cp $files/$s $tmp
+        fi
+    done
 
     cd $tmp
 
