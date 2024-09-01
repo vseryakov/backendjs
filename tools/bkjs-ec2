@@ -34,20 +34,21 @@ case "$BKJS_CMD" in
 
   ec2-show|ec2-ls)
     region=$(get_arg -region)
-    [ "$region" != "" ] && region="--region $region"
+    [ -n "$region" ] && region="--region $region"
     tag=$(get_arg -tag)
-    [ "$tag" != "" -a "$tag" != "." ] && filter="Name=tag:Name,Values=${tag}"
+    [ -n "$tag" -a "$tag" != "." ] && filter="Name=tag:Name,Values=${tag}"
     arch=$(get_arg -arch)
-    [ "$arch" != "" -a "$arch" != "." ] && filter="Name=architecture,Values=${arch}"
-    instances=$(aws ec2 describe-instances $region --filter "Name=instance-state-name,Values=running" $filter --query 'Reservations[*].Instances[*].[InstanceId,PrivateIpAddress,PublicIpAddress,KeyName,Architecture,InstanceType,Tags[?Key==`Name`].Value]' --output yaml|awk -F'- ' '{if($4!="")printf "\n%s\t",$4;else printf "%-10s\t",$2?$2:$3;}')
+    [ -n "$arch" -a "$arch" != "." ] && filter="Name=architecture,Values=${arch}"
+    instances=$(aws ec2 describe-instances $region --filter "Name=instance-state-name,Values=running" $filter --query 'Reservations[*].Instances[*].[InstanceId,PrivateIpAddress,PublicIpAddress,KeyName,Architecture,InstanceType,Tags[?Key==`Name`].Value]' --output yaml|awk -F'- ' '{if($4!="")printf "\n%s\t",$4;else printf "%-10s\t",$2?$2:$3;}'|egrep -v '^$')
     skip=$(get_arg -skip-tag)
-    [ "$skip" != "" ] && instances=$(echo "$instances"|grep -v -F "$(echo "$skip"| tr ',' '\n')")
-    [ "$PLATFORM" = "Linux" -a "$(get_flag -nomyip)" != "" ] && instances=$(echo "$instances"|grep -v -F $(get_local_ip))
+    [ -n "$skip" ] && instances=$(echo "$instances"|grep -v -F "$(echo "$skip"| tr ',' '\n')")
+    [ "$PLATFORM" = "Linux" -a -n "$(get_flag -nomyip)" ] && instances=$(echo "$instances"|grep -v -F $(get_local_ip))
     fmt=$(get_arg -fmt)
     [ "$fmt" != "" ] && instances=$(echo "$instances"|awk "{print $(echo $fmt|sed -e 's/id/\$1/' -e 's/ip/\$2/' -e 's/host/\$3/' -e 's/key/\$4/' -e 's/arch/\$5/' -e 's/name/\$6/' -e 's/type/\$7/')}")
-    if [ "$(get_flag -line)" != "" ]; then
+    if [ -n "$(get_flag -line)" ]; then
        echo "$instances" | tr '\n' ' '
     else
+        [ -n "$(get_flag -list)" ] && instances=$(echo "$instances"|sed -e 's/\t/,/g' -e 's/ //g')
        echo "$instances"
     fi
     exit
@@ -60,7 +61,7 @@ case "$BKJS_CMD" in
 
   ec2-ssh)
     tag=$(get_arg -tag)
-    [ "$tag" = "" ] && echo "-tag is required" && exit 1
+    [ -z "$tag" ] && echo "-tag is required" && exit 1
     user=$(get_arg -user ec2-user)
     region=$(get_arg -region)
     index=$(get_arg -index)
@@ -69,12 +70,12 @@ case "$BKJS_CMD" in
     quiet=$(get_flag -quiet)
     skip=$(get_arg -skip-tag)
     sshargs=$(concat_arg -ssh $BKJS_SSH_ARGS)
-    instances=$($BKJS_BIN ec2-show -nomyip -region "$region" -tag "$tag" -skip-tag "$skip"|tr '\t' ',')
-    [ "$cmd" = "" -a "$index" = "" ] && index=1
-    [ "$index" != "" -a "$index" != "." ] && instances=$(echo "$instances"|head -$index|tail -1)
-    [ "$instances" = "" ] && exit 1
+    instances=$($BKJS_BIN ec2-show -nomyip -list -region "$region" -tag "$tag" -skip-tag "$skip")
+    [ -z "$cmd" -a -z "$index" ] && index=1
+    [ -n "$index" -a "$index" != "." ] && instances=$(echo "$instances"|head -$index|tail -1)
+    [ -z "$instances" ] && exit 1
     for h in $instances; do
-        [ "$quiet" = "" ] && echo "-- $h --"
+        [ -z "$quiet" ] && echo "-- $h --"
         if [ "$pub" != "" ]; then
             host=$(echo $h|awk -F, '{print $3}')
         else
