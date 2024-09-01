@@ -343,7 +343,7 @@ case "$BKJS_CMD" in
 
         tag=$(get_arg -tag Name)
 
-        echo '{ "features": { "buildkit": true },' >> $json
+        echo '{ "features": { "buildkit": true },' > $json
         echo '  "log-driver": "syslog", ' >> $json
         echo '  "log-opts": { ' >> $json
         echo "     \"tag\": \"{{.$tag}}\", " >> $json
