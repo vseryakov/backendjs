@@ -195,7 +195,6 @@ These features can be run standalone or under the guard of the monitor which tra
 
 This is the typical output from the ps command on Linux server:
 
-    ec2-user    891  0.0  0.6 1071632 49504 ?  Ssl  14:33   0:01 bkjs: monitor
     ec2-user    899  0.0  0.6 1073844 52892 ?  Sl   14:33   0:01 bkjs: master
     ec2-user    908  0.0  0.8 1081020 68780 ?  Sl   14:33   0:02 bkjs: server
     ec2-user    917  0.0  0.7 1072820 59008 ?  Sl   14:33   0:01 bkjs: web
@@ -210,10 +209,8 @@ commands that simplify running the backend in different modes.
 - `bkjs start-instance` - this command is supposed to be run at the server startup to perform system adjustments, it is run by `bkjs start`
 - `bkjs watch` - runs the master and Web server in wather mode checking all source files for changes, this is the common command to be used
    in development, it passes the command line switches: `-watch -master`
-- `bkjs monitor` - this command is supposed to be run at the server startup, it runs in the background and the monitors all processes,
-   the command line parameters are: `-daemon -monitor -master -syslog`
 - `bkjs master` - this command is supposed to be run at the server startup, it runs in the background and the monitors all processes,
-   the command line parameters are: `-daemon -monitor -master -syslog`, web server and workers are started by default
+   the command line parameters are: `-daemon -master -syslog`, web server and workers are started by default
 - `bkjs web` - this command runs just web server process with child processes as web workers
 - `bkjs run` - this command runs without other parameters, all additional parameters can be added in the command line, this command
    is a barebone helper to be used with any other custom settings.

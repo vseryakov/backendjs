@@ -299,7 +299,7 @@ case "$BKJS_CMD" in
     exit 0
     ;;
 
-  run|run-master|master|run-monitor|monitor|run-web|web|watch|shell|bksh|run-none|none)
+  run|run-master|master|run-web|web|watch|shell|bksh|run-none|none)
     [ -f app.js ] && SCRIPT=app.js
     [ -z "$SCRIPT" -a -f lib/run.js ] && SCRIPT=lib/run.js
     [ -z "$SCRIPT" -a -f $BKJS_HOME/app.js ] && SCRIPT=$BKJS_HOME/app.js
@@ -310,10 +310,6 @@ case "$BKJS_CMD" in
 
     case "$BKJS_CMD" in
      run-none|none)
-        ;;
-
-     run-monitor|monitor)
-        exec node $NODE_ARGS $SCRIPT -home $BKJS_HOME -syslog -daemon -monitor -master $BKJS_RUN_ARGS "$@"
         ;;
 
      run-master|master)
@@ -368,7 +364,6 @@ case "$BKJS_CMD" in
     echo "  stop-api - graceful API servers restart, drain all connections and restart one at a time, workers will restart after finishing jobs"
     echo ""
     echo "  shell - run backend REPL in the current backend directory, works with the backend core or local app.js application"
-    echo "  monitor - run the backend monitor process which starts master, web server and job server"
     echo "  master - run the backend master process which starts web server and jobs server"
     echo "  web - run the backend web server only"
     echo "  watch - run the backend in watcher and master mode with all source files being monitored for changes, the server is restarts on any change automatically"
