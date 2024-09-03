@@ -1,3 +1,4 @@
+/* global core lib api aws logwatcher db ipc fs logger describe */
 
 tests.test_config_sections = function(callback)
 {
@@ -72,9 +73,9 @@ tests.test_config = function(callback)
                 "-api-allow-anonymous=^/a",
                 "-api-redirect-url", '{ "^a/$": "a", "^b": "b" }',
                 "-logwatcher-send-error", "a",
-                "-logwatcher-file-error", "a",
-                "-logwatcher-file", "b",
-                "-logwatcher-match-error", "a",
+                "-logwatcher-files-error", "a",
+                "-logwatcher-files", "b",
+                "-logwatcher-matches-error", "a",
                 "-db-create-tables",
                 "-db-sqlite-pool-max", "10",
                 "-db-sqlite1-pool", "a",
@@ -144,10 +145,10 @@ tests.test_config = function(callback)
 
     describe("logwatcher parameters");
 
-    assert(core.logwatcherSend.error != "a", "invalid logwatcher email", core.logwatcherSend);
-    assert(core.logwatcherMatch.error.indexOf("a") == -1, "invalid logwatcher match", core.logwatcherMatch);
-    assert(!core.logwatcherFile.some(function(x) { return x.file == "a" && x.type == "error"}), "invalid logwatcher file", core.logwatcherFile);
-    assert(!core.logwatcherFile.some(function(x) { return x.file == "b"}), "invalid logwatcher file", core.logwatcherFile);
+    assert(logwatcher.send.error != "a", "invalid logwatcher email", logwatcher.send);
+    assert(logwatcher.matches.error.indexOf("a") == -1, "invalid logwatcher match", logwatcher.matches);
+    assert(!logwatcher.files.some(function(x) { return x.file == "a" && x.type == "error"}), "invalid logwatcher file", logwatcher.files);
+    assert(!logwatcher.files.some(function(x) { return x.file == "b"}), "invalid logwatcher file", logwatcher.files);
 
     describe("API parameters");
 
@@ -170,11 +171,11 @@ tests._test_logwatcher = function(callback)
                 "-logwatcher-send-ignore", "console://",
                 "-logwatcher-send-warning", "console://",
                 "-logwatcher-send-any", "console://",
-                "-logwatcher-match-test", "TEST: ",
+                "-logwatcher-matches-test", "TEST: ",
                 "-logwatcher-ignore-error", "error2",
                 "-logwatcher-ignore-warning", "warning2",
                 "-logwatcher-once-test2", "test2",
-                "-logwatcher-match-any", "line:[0-9]+",
+                "-logwatcher-matches-any", "line:[0-9]+",
                 "-log-file", "tmp/message.log",
                 "-err-file", "tmp/error.log",
                 "-db-pool", "none",
@@ -199,12 +200,12 @@ tests._test_logwatcher = function(callback)
                 " backtrace test line:456",
             ];
 
-    core.logwatcherFile = core.logwatcherFile.filter((x) => (x.name));
+    logwatcher.files = logwatcher.files.filter((x) => (x.name));
 
     core.parseArgs(argv);
     fs.writeFileSync(core.errFile, lines.join("\n"));
     fs.writeFileSync(core.logFile, lines.join("\n"));
-    core.watchLogs((err, rc) => {
+    logwatcher.run((err, rc) => {
         expect(lib.objKeys(rc.errors).length == 4, "no errors matched", rc);
         callback(err);
     });
