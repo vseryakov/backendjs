@@ -49,10 +49,20 @@ case "$BKJS_CMD" in
     config="\"agent\": { \"usage_data\": false, \"logfile\": \"$CWAROOT/logs/cwagent.log\" }"
 
     files="access.log message.log error.log docker.log $BKJS_CLOUDWATCH_LOGS"
-    for log in $files; do
+    for file in $files; do
         [ -n "$logs" ] && logs="$logs,"
-        logs="$logs{ \"file_path\": \"$BKJS_HOME/log/$log\", \"log_group_name\": \"$log\", \"log_stream_name\": \"$tag\", \"multi_line_start_pattern\": \"^[^ \\t]\", \"timestamp_format\": \"%Y-%m-%dT%H:%M:%S.%f\" }"
+        logs="$logs{ \"file_path\": \"$BKJS_HOME/log/$file\", \"log_group_name\": \"$file\", \"multi_line_start_pattern\": \"^[^ \\t]\", \"timestamp_format\": \"%Y-%m-%dT%H:%M:%S.%f\" }"
     done
+
+    # Streams format: tag_group.log
+    streams="$BKJS_CLOUDWATCH_STREAMS"
+    for file in $streams; do
+        [ -n "$logs" ] && logs="$logs,"
+        log=$(echo $file|awk -F_ '{print $2}')
+        str=$(echo $file|awk -F_ '{print $1}')
+        logs="$logs{ \"file_path\": \"$BKJS_HOME/log/$file\", \"log_group_name\": \"$log\", \"log_stream_name\": \"$str\", \"multi_line_start_pattern\": \"^[^ \\t]\", \"timestamp_format\": \"%Y-%m-%dT%H:%M:%S.%f\" }"
+    done
+
     config="$config, \"logs\": { \"logs_collected\": { \"files\": { \"collect_list\": [ $logs ] } }, \"log_stream_name\": \"$tag\" }"
 
     config="$config, \"traces\": { \"local_mode\": true, \"traces_collected\": { \"xray\": {} } }"
