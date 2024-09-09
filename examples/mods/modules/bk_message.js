@@ -77,7 +77,7 @@ var mod = {
         trash: { type: "bool" },
         nosent: { type: "bool" },
     },
-    cacheOptions: { cacheName: "messages", ttl: 3600000 },
+    cacheOptions: { queueName: "messages", ttl: 3600000 },
 };
 module.exports = mod;
 

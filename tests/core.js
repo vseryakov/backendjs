@@ -1,4 +1,4 @@
-/* global core lib api aws logwatcher db ipc fs logger describe */
+/* global core lib api aws logwatcher db ipc cache fs logger describe */
 
 tests.test_config_sections = function(callback)
 {
@@ -86,10 +86,10 @@ tests.test_config = function(callback)
                 "-db-sqlite-pool-options-map.test", "test",
                 "-db-sqlite-pool-options", "arg1:1,arg2:2",
                 "-db-aliases-Test6", "t",
-                "-ipc-queue", "local://default?bk-count=2",
-                "-ipc-queue-q", "local://queue?bk-test=10",
-                "-ipc-queue-q-options", "count:10,interval:100",
-                "-ipc-queue-q-options-visibilityTimeout", "1000",
+                "-cache-default", "local://default?bk-count=2",
+                "-cache-q", "local://queue?bk-test=10",
+                "-cache-q-options", "count:10,interval:100",
+                "-cache-q-options-visibilityTimeout", "1000",
                 "-api-cleanup-rules-aaa", "one:1,two:2",
                 "-api-cleanup-rules-aaa", "three:3",
                 "-log-inspect-map", "length:222,b:true,s:s%20%3a%2c,ignore:^/test/$",
@@ -118,30 +118,29 @@ tests.test_config = function(callback)
 
     describe("IPC parameters");
 
-    logger.debug("config:", ipc.configParams);
-    assert(ipc.configParams.q?.count != 10 || ipc.configParams.q?.interval != 100, "invalid queue options", ipc.configParams.q);
-    assert(ipc.configParams.q?.visibilityTimeout != 1000, "invalid queue visibility timeout", ipc.configParams.q);
+    logger.debug("config:", cache._config);
+    assert(cache._config.q?.count != 10 || cache._config.q?.interval != 100, "invalid queue q options", cache._config.q);
+    assert(cache._config.q?.visibilityTimeout != 1000, "invalid queue visibility timeout", cache._config.q);
 
-    describe("dynamic IPC parameters");
+    describe("dynamic cache parameters");
 
-    for (const p in ipc.configParams) if (p && p != "q") delete ipc.configParams[p];
-    ipc.closeClients();
-    ipc.initClients();
-    var q = ipc.getQueue("");
-    assert(q.options.count != 2, "invalid default queue count", q, ipc.configParams)
+    cache.closeClients();
+    cache.initClients();
+    var q = cache.getQueue("");
+    assert(q.options.count != 2, "invalid default queue count", q, cache._config)
 
-    core.parseArgs(["-ipc-queue--options-visibilityTimeout", "99", "-ipc-queue", "local://default?bk-count=10"]);
-    assert(q.options.visibilityTimeout != 99 || q.options.count != 10, "invalid default queue options", q, ipc.configParams)
+    core.parseArgs(["-cache-default-options-visibilityTimeout", "99", "-cache-default", "local://default?bk-count=10"]);
+    assert(q.options.visibilityTimeout != 99 || q.options.count != 10, "invalid default queue options", q, cache._config)
 
-    core.parseArgs(["-ipc-queue-fake-options-visibilityTimeout", "11"]);
-    assert(q.options.visibilityTimeout == 11, "fake queue should be ignored", q, ipc.configParams)
+    core.parseArgs(["-cache-fake-options-visibilityTimeout", "11"]);
+    assert(q.options.visibilityTimeout == 11, "fake queue should be ignored", q, cache._config)
 
-    describe("default IPC parameters");
+    describe("default cache parameters");
 
-    q = ipc.getQueue("q");
-    assert(q.options.test != 10, "invalid queue url options", q, ipc.configParams)
-    core.parseArgs(["-ipc-queue-q-options-visibilityTimeout", "99", "-ipc-queue-q-options", "count:99"]);
-    assert(q.options.visibilityTimeout != 99 || q.options.count != 99, "invalid q queue options", q, ipc.configParams)
+    q = cache.getQueue("q");
+    assert(q.options.test != 10, "invalid queue url options", q, cache._config)
+    core.parseArgs(["-cache-q-options-visibilityTimeout", "99", "-cache-q-options", "count:99"]);
+    assert(q.options.visibilityTimeout != 99 || q.options.count != 99, "invalid q queue options", q, cache._config)
 
     describe("logwatcher parameters");
 

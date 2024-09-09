@@ -1,5 +1,5 @@
 {
-  "version": "0.165.0",
+  "version": "0.166.0",
   "type": "commonjs",
   "author": "Vlad Seryakov",
   "name": "backendjs",
@@ -136,6 +136,13 @@
       }
     }
   },
+  "files": [
+    "bkjs",
+    "lib/",
+    "web/",
+    "tools/",
+    "modules/"
+  ],
   "scripts": {
     "start": "./bkjs run-backend",
     "stop": "./bkjs stop",

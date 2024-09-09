@@ -16,6 +16,8 @@
 
 5. Login as admin:admin
 
+NOTE: Some modules are very old and may not work
+
 # Authors
 vlad
 

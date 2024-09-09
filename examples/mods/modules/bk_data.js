@@ -8,7 +8,7 @@ const db = bkjs.db;
 const api = bkjs.api;
 const lib = bkjs.lib;
 
-// Account management
+// Data management
 const mod = {
     name: "bk_data",
     args: [
@@ -33,8 +33,10 @@ mod.configureWeb = function(options, callback)
 mod.configureDataAPI = function()
 {
     // Return table columns
-    api.app.all(/^\/data\/(columns)\/?([a-z_0-9]+)?$/, function(req, res) {
-        if (mod.perms && !lib.isFlag(mod.perms[req.params[1] || "*"], req.params[0])) return res.status(403).send("not allowed");
+    api.app.all(/^\/data\/(columns)\/?([a-z_0-9]+)?$/, (req, res) => {
+        if (mod.perms && !lib.isFlag(mod.perms[req.params[1] || "*"], req.params[0])) {
+            return res.status(403).send("not allowed");
+        }
         var options = api.getOptions(req);
         if (req.params[1]) {
             return res.json(db.getColumns(req.params[1], options));
@@ -43,14 +45,16 @@ mod.configureDataAPI = function()
     });
 
     // Return table keys
-    api.app.all(/^\/data\/(keys)\/([a-z_0-9]+)$/, function(req, res) {
-        if (mod.perms && !lib.isFlag(mod.perms[req.params[1]], req.params[0])) return res.status(403).send("not allowed");
+    api.app.all(/^\/data\/(keys)\/([a-z_0-9]+)$/, (req, res) => {
+        if (mod.perms && !lib.isFlag(mod.perms[req.params[1]], req.params[0])) {
+            return res.status(403).send("not allowed");
+        }
         var options = api.getOptions(req);
         res.json({ data: db.getKeys(req.params[1], options) });
     });
 
     // Basic operations on a table
-    api.app.post(/^\/data\/(select|scan|search|list|get|add|put|update|del|incr|replace)\/([a-z_0-9]+)$/, function(req, res) {
+    api.app.post(/^\/data\/(select|scan|search|list|get|add|put|update|del|incr|replace)\/([a-z_0-9]+)$/, (req, res) => {
         if (mod.perms && !lib.isFlag(mod.perms[req.params[1]], req.params[0])) return res.status(403).send("not allowed");
 
         var options = api.getOptions(req);

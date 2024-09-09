@@ -169,7 +169,7 @@ run the following command:
 
 # Configuration
 
-Almost everything in the backend is configurable using config files, a config database or DNS.
+Almost everything in the backend is configurable using config files, a config database.
 The whole principle behind it is that once deployed in production, even quick restarts are impossible to do so
 there should be a way to push config changes to the processes without restarting.
 
@@ -196,7 +196,6 @@ These features can be run standalone or under the guard of the monitor which tra
 This is the typical output from the ps command on Linux server:
 
     ec2-user    899  0.0  0.6 1073844 52892 ?  Sl   14:33   0:01 bkjs: master
-    ec2-user    908  0.0  0.8 1081020 68780 ?  Sl   14:33   0:02 bkjs: server
     ec2-user    917  0.0  0.7 1072820 59008 ?  Sl   14:33   0:01 bkjs: web
     ec2-user    919  0.0  0.7 1072820 60792 ?  Sl   14:33   0:02 bkjs: web
     ec2-user    921  0.0  0.7 1072120 40721 ?  Sl   14:33   0:02 bkjs: worker
@@ -205,13 +204,11 @@ To enable any task a command line parameter must be provided, it cannot be speci
 commands that simplify running the backend in different modes.
 
 - `bkjs start` - this command is supposed to be run at the server startup as a service, it runs in the background and the monitors all tasks,
-   the env variable `BKJS_SERVER` must be set in the profile to one of the `master or monitor` to define which run mode to use
-- `bkjs start-instance` - this command is supposed to be run at the server startup to perform system adjustments, it is run by `bkjs start`
+   the env variable `BKJS_SERVER` must be set in the profile to `master` to start the server
 - `bkjs watch` - runs the master and Web server in wather mode checking all source files for changes, this is the common command to be used
    in development, it passes the command line switches: `-watch -master`
 - `bkjs master` - this command is supposed to be run at the server startup, it runs in the background and the monitors all processes,
    the command line parameters are: `-daemon -master -syslog`, web server and workers are started by default
-- `bkjs web` - this command runs just web server process with child processes as web workers
 - `bkjs run` - this command runs without other parameters, all additional parameters can be added in the command line, this command
    is a barebone helper to be used with any other custom settings.
 - `bkjs run -api` - this command runs a single process as web server, sutable for Docker
@@ -348,9 +345,6 @@ As with any Node.js application, node modules are the way to build and extend th
 the application is structured.
 
 ## Modules
-
-*By default no system modules are loaded, it must be configured by the `-preload-modules` config parameter to
-preload modules from the backendjs/modules/.*
 
 Another way to add functionality to the backend is via external modules specific to the backend, these modules are loaded on startup from the backend
 home subdirectory `modules/`. The format is the same as for regular Node.js modules and only top level .js files are loaded on the backend startup.
@@ -693,10 +687,6 @@ The backend directory structure is the following:
 
     * etc/crontab.local - additional local crontab that is read after the main one, for local or dev environment
 
-    * `run-mode` and `db-pool` config parameters can be configured in DNS as TXT records, the backend on startup will try to resolve such records and use the value if not empty.
-      All params that  marked with DNS TXT can be configured in the DNS server for the domain where the backend is running, the config parameter name is
-      concatenated with the domain and queried for the TXT record, for example: `run-mode` parameter will be queried for run-mode.domain.name for TXT record type.
-
 * `modules` - loadable modules with specific functionality
 * `images` - all images to be served by the API server, every subfolder represent naming space with lots of subfolders for images
 * `var` - database files created by the server
@@ -722,6 +712,7 @@ On startup some env variable will be used for initial configuration:
   - BKJS_WSPORT - port for web sockets
 
 # Cache configurations
+
 Database layer support caching of the responses using `db.getCached` call, it retrieves exactly one record from the configured cache, if no record exists it
 will pull it from the database and on success will store it in the cache before returning to the client. When dealing with cached records, there is a special option
 that must be passed to all put/update/del database methods in order to clear local cache, so next time the record will be retrieved with new changes from the database
@@ -735,16 +726,16 @@ If no cache is configured the local driver is used, it keeps the cache on the ma
 communicate with it via internal messaging provided by the `cluster` module. This works only for a single server.
 
 ## Redis
-Set `ipc-client=redis://HOST[:PORT]` that points to the server running Redis server.
+Set `cache-NAME=redis://HOST[:PORT]` that points to the server running Redis server.
 
 The config option `max_attempts` defines maximum number of times to reconnect before giving up. Any other `node-redis` module parameter can be passed as well in
 the options or url, the system supports special parameters that start with `bk-`, it will extract them into options automatically.
 
 For example:
 
-    ipc-client=redis://host1?bk-max_attempts=3
-    ipc-client-backup=redis://host2
-    ipc-client-backup-options-max_attempts=3
+    cache-default=redis://host1?bk-max_attempts=3
+    cache-backup=redis://host2
+    cache-backup-options-max_attempts=3
 
 
 # PUB/SUB or Queue configurations
@@ -754,12 +745,12 @@ For example:
 If configured all processes subscribe to it and listen for system messages, it must support PUB/SUB and does not need to be reliable. Websockets
 in the API server also use the system bus to send broadcasts between multiple api instances.
 
-    ipc-client-system=redis://
+    cache-system=redis://
     ipc-system-queue=system
 
 
 ## Redis Queue
-To configure the backend to use Redis for job processing set `ipc-queue=redis://HOST` where HOST is IP address or hostname of the single Redis server.
+To configure the backend to use Redis for job processing set `cache-redis=redis://HOST` where HOST is IP address or hostname of the single Redis server.
 This driver implements reliable Redis queue, with `visibilityTimeout` config option works similar to AWS SQS.
 
 Once configured, then all calls to `jobs.submitJob` will push jobs to be executed to the Redis queue, starting somewhere a backend master
@@ -792,19 +783,18 @@ An example of how to perform jobs in the API routes:
 ```
 
 ## SQS
-To use AWS SQS for job processing set `ipc-queue=https://sqs.amazonaws.com....`, this queue system will poll SQS for new messages on a worker
+To use AWS SQS for job processing set `cache-default=https://sqs.amazonaws.com....`, this queue system will poll SQS for new messages on a worker
 and after successful execution will delete the message. For long running jobs it will automatically extend visibility timeout if it is configured.
 
 ## Local
-The local queue is implemented on the master process as a list, communication is done via local sockets between the master and workers.
-This is intended for a single server development purposes only.
+The local queue run in the process.
 
 ## NATS
-To use NATS (https://nats.io) configure a queue like ipc-queue-nats=nats://HOST:PORT, it supports broadcasts and job queues only, visibility timeout is
+To use NATS (https://nats.io) configure a queue like cache-nats=nats://HOST:PORT, it supports broadcasts and job queues only, visibility timeout is
 supported as well.
 
 ## RabbitMQ
-To configure the backend to use RabbitMQ for messaging set `ipc-queue=amqp://HOST` and optionally `amqp-options=JSON` with options to the amqp module.
+To configure the backend to use RabbitMQ for messaging set `cache-rabbit=amqp://HOST` and optionally `cache-rabbit-options=JSON` with options to the amqp module.
 Additional objects from the config JSON are used for specific AMQP functions: { queueParams: {}, subscribeParams: {}, publishParams: {} }. These
 will be passed to the corresponding AMQP methods: `amqp.queue, amqp.queue.subcribe, amqp.publish`. See AMQP Node.js module for more info.
 
@@ -1160,10 +1150,6 @@ how the environment is setup it is ultimately 2 ways to specify the port for HTT
   The config database is refreshed from time to time acording to the `db-config-interval` parameter, also all records with `ttl` property in the bk_config
   will be pulled every ttl interval and updated in place.
 
-- DNS records
-  Some config options may be kept in the DNS TXT records and every time a instance is started it will query the local DNS for such parameters. Only a small subset of
-  all config parameters support DNS store. To see which parameters can be stored in the DNS run `bkjs show-help` and look for 'DNS TXT configurable'.
-
 # Backend library development (Mac OS X, developers)
 
 * `git clone https://github.com/vseryakov/backendjs.git` or `git clone git@github.com:vseryakov/backendjs.git`
@@ -1362,72 +1348,6 @@ The accounts API manages accounts and authentication, it provides basic user acc
 
 When running with AWS load balancer there should be a url that a load balancer polls all the time and this must be very quick and lightweight request. For this
 purpose there is an API endpoint `/ping` that just responds with status 200. It is open by default in the default `api-allow-path` config parameter.
-
-## Data
-The data API is a generic way to access any table in the database with common operations, as oppose to the any specific APIs above this API only deals with
-one table and one record without maintaining any other features like auto counters, cache...
-
-*Because it exposes the whole database to anybody who has a login it is a good idea to disable this endpoint in the production or provide access callback that verifies
-who can access it.*
-  - To disable this endpoint completely in the config: `deny-modules=bk_data`
-  - To allow admins to access it only in the config: `api-allow-admin=^/data`
-  - To allow admins to access it only:
-
-        api.registerPreProcess('GET', '/data', function(req, status, cb) { if (req.account.type != "admin") return cb({ status: 401, message: 'access denied' }; cb(status)); });
-
-This is implemented by the `data` module from the core.
-
-- `/data/columns`
-- `/data/columns/TABLE`
-  Return columns for all tables or the specific TABLE
-
-- `/data/keys/TABLE`
-  Return primary keys for the given TABLE
-
-- `/data/(select|search|list|get|add|put|update|del|incr|replace)/TABLE`
-  Perform database operation on the given TABLE, all options for the `db` functiobns are passed as query parametrrs prepended with underscore,
-  regular parameters are the table columns.
-
-  By default the API does not allow table scans without a condition to avoid expensive and long queries, to enable a scan pass `_noscan=0`.
-  For this to work the Data API must be configured as unsecure in the config file using the parameter `api-unsecure=data`.
-
-  Some tables like messages and connections perform data convertion before returning the results, mostly splitting combined columns like type into
-  separate fields. To return raw data pass the parameter `_noprocessrows=1`.
-
-  Example:
-
-        /data/get/bk_user?login=12345
-        /data/update/bk_user?login=12345&name=Admin
-        /data/select/bk_user?name=john&_ops=name,gt&_select=name,email
-        /data/select/bk_user?_noscan=0&_noprocessrows=1
-
-## System API
-The system API returns information about the backend statistics, allows provisioning and configuration commands and other internal maintenance functions. By
-default is is open for access to all users but same security considerations apply here as for the Data API.
-
-This is implemented by the `system` module from the core. To enable this functionality specify `-preload-modules=bk_system`.
-
-- `/system/restart`
-    Perform restart of the Web processes, this will be done gracefully, only one Web worker process will be restarting while the other processes will keep
-    serving requests. The intention is to allow code updates on live systems without service interruption.
-
-- `/system/cache/(init|stats|keys|get|set|put|incr|del|clear)`
-    Access to the caching functions
-
-- `/system/config/(init)`
-    Access to the config functions
-
-- `/system/msg/(init|send)`
-    Access to the messaging functions
-
-- `/system/jobs/(send)`
-    Access to the jobs functions
-
-- `/system/queue/(init|publish)`
-    Access to the queue functions
-
-- `/system/params/get`
-    Return all config parameters applied from the config file(s) or remote database.
 
 
 # Author

@@ -11,6 +11,7 @@ const db = bkjs.db;
 const aws = bkjs.aws;
 const jobs = bkjs.jobs;
 const ipc = bkjs.ipc;
+const cache = bkjs.cache;
 
 // Default parameters are for rare activity with long intervals, for very active tables the interval and timeout must be much smaller
 const mod = {
@@ -96,10 +97,10 @@ mod.subscribeWorker = function(options)
 mod.lock = function(key, query, options, callback)
 {
     if (options.lockSkip) return callback(null, 1);
-    ipc.lock(mod.name + ":" + key, { ttl: mod.lockTtl, queueName: jobs.uniqueQueue }, (err, locked) => {
+    cache.lock(mod.name + ":" + key, { ttl: mod.lockTtl, queueName: jobs.uniqueQueue }, (err, locked) => {
         if (locked) {
             mod.timers[key] = setInterval(function() {
-                ipc.lock(mod.name + ":" + key, { ttl: mod.lockTtl, queueName: jobs.uniqueQueue, set: 1 });
+                cache.lock(mod.name + ":" + key, { ttl: mod.lockTtl, queueName: jobs.uniqueQueue, set: 1 });
             }, mod.lockTtl * 0.9);
             mod.timers[key].mtime = Date.now();
         } else {
@@ -115,7 +116,7 @@ mod.unlock = function(key, query, options, callback)
     if (!this.timers[key]) return callback();
     clearInterval(this.timers[key]);
     delete this.timers[key];
-    ipc.unlock(mod.name + ":" + key, { queueName: jobs.uniqueQueue }, callback);
+    cache.unlock(mod.name + ":" + key, { queueName: jobs.uniqueQueue }, callback);
 }
 
 mod.isRunning = function(options)

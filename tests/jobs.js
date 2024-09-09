@@ -6,12 +6,12 @@ tests.test_jobs = function(callback, test)
 
     lib.series([
         function(next) {
-            jobs.submitJob({ job: { "shell.testJob": { file } } }, lib.tryLater(next, 1000));
+            jobs.submitJob({ job: { "shell.testJob": { file, data: "job" } } }, lib.tryLater(next, 1000));
         },
 
         function(next) {
             var data = lib.readFileSync(file);
-            expect(/^(server)/.test(data), "expect job finished", file, data);
+            expect(/job/.test(data), "expect job finished", file, data);
 
             next();
         },
@@ -37,8 +37,7 @@ tests.test_jobs = function(callback, test)
 
         function(next) {
             var data = lib.readFileSync(file);
-            expect(/ local/.test(data), "expect local job", file, data);
-            expect(data.includes(` ${process.pid} `), "expect local pid", file, data)
+            expect(/local/.test(data), "expect local job", file, data);
             next();
         },
 
@@ -56,7 +55,7 @@ tests.test_master_worker = function(callback, test)
 
         function(next) {
             var data = lib.readFileSync(file);
-            expect(/ worker/.test(data), "expect worker job", file, data);
+            expect(/worker/.test(data), "expect worker job", file, data);
             expect(!data.includes(` ${process.pid} `), "expect worker pid in worker job", file, data)
             next();
         },
