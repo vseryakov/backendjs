@@ -54,6 +54,7 @@ case "$BKJS_CMD" in
 
   test-*)
     file=$(echo $BKJS_CMD | sed 's/^test-//')
+    [ -n "$(get_flag -dry-run)" ] && echo "$0 $(pwd)/$file.js $(get_all_args)" && exit 0
     tests=$(pwd)/tests
     [ ! -f tests/$file.js ] && echo "$tests/$file.js is not found" && exit 1
     test=$(get_arg -test $file)

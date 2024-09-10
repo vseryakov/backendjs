@@ -93,9 +93,13 @@ tests.test_config = function(callback)
                 "-api-cleanup-rules-aaa", "one:1,two:2",
                 "-api-cleanup-rules-aaa", "three:3",
                 "-log-inspect-map", "length:222,b:true,s:s%20%3a%2c,ignore:^/test/$",
-            ];
+    ];
+
+    cache._config = {};
+    db._config = {};
+
     core.parseArgs(argv);
-    logger.debug("config:", db.poolParams);
+    logger.debug("config:", db._config);
 
     describe("core parameters");
 
@@ -106,15 +110,15 @@ tests.test_config = function(callback)
 
     expect(db.aliases.t == "test6", "db alias must be lowercase", db.aliases);
 
-    assert(db.poolParams.sqlite?.max != 10, "invalid sqlite max", db.poolParams.sqlite);
-    assert(db.poolParams.sqlite.configOptions.arg1 != 1 || db.poolParams.sqlite.configOptions.arg2 != 2, "invalid sqlite map with args", db.poolParams.sqlite);
+    assert(db._config.sqlite?.max != 10, "invalid sqlite max", db._config.sqlite);
+    assert(db._config.sqlite.configOptions.arg1 != 1 || db._config.sqlite.configOptions.arg2 != 2, "invalid sqlite map with args", db._config.sqlite);
 
-    assert(db.poolParams.sqlite1?.url != "a", "invalid sqlite1 url", db.poolParams.sqlite1);
-    assert(db.poolParams.sqlite1.max != 10, "invalid sqlite1 max", db.poolParams.sqlite1);
-    assert(!db.poolParams.sqlite1.configOptions.cacheColumns, "invalid sqlite1 cache-columns", db.poolParams.sqlite1);
-    assert(db.poolParams.sqlite.configOptions.discoveryInterval != 30000, "invalid sqlite interval", db.poolParams.sqlite);
-    assert(db.poolParams.sqlite.configOptions['map.test'] != "test", "invalid sqlite map", db.poolParams.sqlite);
-    assert(db.poolParams.sqlite1.configOptions.test != "test", "invalid sqlite1 map", db.poolParams.sqlite1);
+    assert(db._config.sqlite1?.url != "a", "invalid sqlite1 url", db._config.sqlite1);
+    assert(db._config.sqlite1.max != 10, "invalid sqlite1 max", db._config.sqlite1);
+    assert(!db._config.sqlite1.configOptions.cacheColumns, "invalid sqlite1 cache-columns", db._config.sqlite1);
+    assert(db._config.sqlite.configOptions.discoveryInterval != 30000, "invalid sqlite interval", db._config.sqlite);
+    assert(db._config.sqlite.configOptions['map.test'] != "test", "invalid sqlite map", db._config.sqlite);
+    assert(db._config.sqlite1.configOptions.test != "test", "invalid sqlite1 map", db._config.sqlite1);
 
     describe("IPC parameters");
 

@@ -3,7 +3,5 @@ ws-port=8999
 api-restart=~~
 no=packages
 
-cache-default=redis://redis?bk-visibilityTimeout=1000&bk-interval=50&bk-retryInterval=50&bk-queue-name=test
-
 db-elasticsearch-pool-tables=test1,test2,test3
 db-elasticsearch-pool-options-defaultParams={"refresh":true}
