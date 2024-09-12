@@ -1,6 +1,6 @@
 # Maintainer: Vlad Seryakov <vseryakov@gmail.com>
 pkgname=amazon-cloudwatch-agent
-pkgver=1.300045.0
+pkgver=1.300046.2
 pkgrel=0
 pkgdesc="Amazon Cloudwatch Agent"
 url="https://github.com/aws/amazon-cloudwatch-agent"
@@ -35,6 +35,6 @@ package() {
 }
 
 sha512sums="
-d6a299c256165abb39392581e114aa1a5b3c3193dfd1b28c2bb4d3e3a8275f2884dceee7336c373a2750d27935691249120333edcf51f7d1244503dd9c248c49  amazon-cloudwatch-agent-1.300045.0.tar.gz
+82a2aff4515b16d83e8c073139fc67d3302735fd62603daf8388a7f68d7a00ef955d2d562c4b76c5d4467e19a4020b38142748e9947027afe098d9543d9fcc80  amazon-cloudwatch-agent-1.300046.2.tar.gz
 "
 
