@@ -594,9 +594,9 @@ operations like add/update/delete a record, show all records.</p>
     db.describeTables({
        todo: {
            id: { type: &quot;uuid&quot;, primary: 1 },  // Store unique task id
-           due: {},                           // Due date
-           name: {},                          // Short task name
-           descr: {},                         // Full description
+           due: { type: &quot;mtime&quot; },            // Due date
+           name: { strip: lib.rxXss },        // Short task name
+           descr: { strip: lib.rxXss },       // Full description
            mtime: { type: &quot;now&quot; }             // Last update time in ms
        }
     });
@@ -605,32 +605,59 @@ operations like add/update/delete a record, show all records.</p>
     app.configureWeb = function(options, callback)
     {
         api.app.get(/^\/todo\/([a-z]+)$/, async function(req, res) {
-           var options = api.getOptions(req);
+           var options = api.getOptions(req), query;
+
            switch (req.params[0]) {
              case &quot;get&quot;:
                 if (!req.query.id) return api.sendReply(res, 400, &quot;id is required&quot;);
-                const rows = await db.aget(&quot;todo&quot;, { id: req.query.id }, options);
-                api.sendJSON(req, null, rows);
+                const row = await db.aget(&quot;todo&quot;, { id: req.query.id }, options);
+                api.sendJSON(req, null, row);
                 break;
 
              case &quot;select&quot;:
-                options.noscan = 0; // Allow empty scan of the whole table if no query is given, disabled by default
-                const rows = await db.aselect(&quot;todo&quot;, req.query, options);
+                // Get input, use defaults to check size limits (see api.queryDefault)
+                query = api.getQuery(req, {
+                    id: {},
+                    name: {},
+                    due: {},
+                });
+                // Query condition by column
+                options.ops = {
+                    id: &quot;in&quot;,
+                    name: &quot;contains&quot;,
+                    due: &quot;gt&quot;,
+                }
+                // Allow empty scan of the whole table if no query is given, disabled by default
+                options.noscan = 0;
+
+                const rows = await db.aselect(&quot;todo&quot;, query, options);
                 api.sendJSON(req, null, rows);
                 break;
 
             case &quot;add&quot;:
-                if (!req.query.name) return api.sendReply(res, 400, &quot;name is required&quot;);
                 // By default due date is tomorrow
-                if (req.query.due) req.query.due = lib.toDate(req.query.due, Date.now() + 86400000).toISOString();
-                db.add(&quot;todo&quot;, req.query, options, (err, rows) =&gt; {
+                query = api.getQuery(req, {
+                    name: { required: 1 },
+                    due: { type: &quot;mtime&quot;, dflt: Date.now() + 86400000 },
+                    descr: {}
+                });
+                if (typeof query == &quot;string&quot;) return api.sendReply(res, 400, query);
+
+                db.add(&quot;todo&quot;, query, options, (err, rows) =&gt; {
                     api.sendJSON(req, err, rows);
                 });
                 break;
 
             case &quot;update&quot;:
-                if (!req.query.id) return api.sendReply(res, 400, &quot;id is required&quot;);
-                const rows = await db.aupdate(&quot;todo&quot;, req.query, options);
+                query = api.getQuery(req, {
+                    id: { required: 1 },
+                    due: { type: &quot;mtime&quot; },
+                    name: {},
+                    descr: {}
+                });
+                if (typeof query == &quot;string&quot;) return api.sendReply(res, 400, query);
+
+                const rows = await db.aupdate(&quot;todo&quot;, query, options);
                 api.sendJSON(req, null, rows);
                 break;
 
@@ -7123,12 +7150,20 @@ flags or an object with the following properties:</p>
 <ul>
 <li><p><code>lib.toDuration(mtime, options)</code></p>
 <p>  Return duration in human format, mtime is msecs</p>
+<ul>
+<li>short - if true use first letters only</li>
+<li>round - a number, 1 return only 1st part, 2 - 1st and 2nd parts</li>
+</ul>
 </li>
 </ul>
 
 <ul>
 <li><p><code>lib.toAge(mtime, options)</code></p>
 <p>  Given time in msecs, return how long ago it happened</p>
+<ul>
+<li>short - if true use first letters only</li>
+<li>round - a number, 1 return only 1st part, 2 - 1st and 2nd parts</li>
+</ul>
 </li>
 </ul>
 
@@ -7163,7 +7198,7 @@ validate incoming data. It is an object with property names and definitoons that
 <li>dfltempty - also use the dflt value for empty properties</li>
 <li>required - if true the target value must not be empty, the check is performed after type conversion,
    if an object it checks the target object using <code>lib.isMatched</code> at the end</li>
-<li>errmsg - return this error on error or invalid format or required condition</li>
+<li>errmsg - return this error on error or invalid format or required condition, it may contain %s sprintf-like placeholders depending on the error</li>
 <li>min - minimum length for the target data, returns an error if smaller, for list type will skip item from the list</li>
 <li>max -  maximum length alowed, returns an error if longer</li>
 <li>trunc - if true and longer than max just truncate the value instead of returning an error or skipping</li>
@@ -7188,6 +7223,8 @@ validate incoming data. It is an object with property names and definitoons that
 <li>maxnum - max allowed number after convertion by toNumber, for numbers and mtime</li>
 <li>mindate - min allowed date after convertion by toDate, can be a Date or number</li>
 <li>maxdate - max allowed date after convertion by toDate, can be a Date or number</li>
+<li>label - alternative name to use in error messages which uses sprintf-like placeholders,
+   all min/max like errors have name as first and threshold as second arg, label can be set to use friendlier name</li>
 <li>strip - a regexp with characters to strip from the final value</li>
 <li>upper/lower - transform case</li>
 <li>cap - capitalize the value</li>

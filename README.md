@@ -570,9 +570,9 @@ Create a file named `app.js` with the code below.
     db.describeTables({
        todo: {
            id: { type: "uuid", primary: 1 },  // Store unique task id
-           due: {},                           // Due date
-           name: {},                          // Short task name
-           descr: {},                         // Full description
+           due: { type: "mtime" },            // Due date
+           name: { strip: lib.rxXss },        // Short task name
+           descr: { strip: lib.rxXss },       // Full description
            mtime: { type: "now" }             // Last update time in ms
        }
     });
@@ -581,32 +581,59 @@ Create a file named `app.js` with the code below.
     app.configureWeb = function(options, callback)
     {
         api.app.get(/^\/todo\/([a-z]+)$/, async function(req, res) {
-           var options = api.getOptions(req);
+           var options = api.getOptions(req), query;
+
            switch (req.params[0]) {
              case "get":
                 if (!req.query.id) return api.sendReply(res, 400, "id is required");
-                const rows = await db.aget("todo", { id: req.query.id }, options);
-                api.sendJSON(req, null, rows);
+                const row = await db.aget("todo", { id: req.query.id }, options);
+                api.sendJSON(req, null, row);
                 break;
 
              case "select":
-                options.noscan = 0; // Allow empty scan of the whole table if no query is given, disabled by default
-                const rows = await db.aselect("todo", req.query, options);
+                // Get input, use defaults to check size limits (see api.queryDefault)
+                query = api.getQuery(req, {
+                    id: {},
+                    name: {},
+                    due: {},
+                });
+                // Query condition by column
+                options.ops = {
+                    id: "in",
+                    name: "contains",
+                    due: "gt",
+                }
+                // Allow empty scan of the whole table if no query is given, disabled by default
+                options.noscan = 0;
+
+                const rows = await db.aselect("todo", query, options);
                 api.sendJSON(req, null, rows);
                 break;
 
             case "add":
-                if (!req.query.name) return api.sendReply(res, 400, "name is required");
                 // By default due date is tomorrow
-                if (req.query.due) req.query.due = lib.toDate(req.query.due, Date.now() + 86400000).toISOString();
-                db.add("todo", req.query, options, (err, rows) => {
+                query = api.getQuery(req, {
+                    name: { required: 1 },
+                    due: { type: "mtime", dflt: Date.now() + 86400000 },
+                    descr: {}
+                });
+                if (typeof query == "string") return api.sendReply(res, 400, query);
+
+                db.add("todo", query, options, (err, rows) => {
                     api.sendJSON(req, err, rows);
                 });
                 break;
 
             case "update":
-                if (!req.query.id) return api.sendReply(res, 400, "id is required");
-                const rows = await db.aupdate("todo", req.query, options);
+                query = api.getQuery(req, {
+                    id: { required: 1 },
+                    due: { type: "mtime" },
+                    name: {},
+                    descr: {}
+                });
+                if (typeof query == "string") return api.sendReply(res, 400, query);
+
+                const rows = await db.aupdate("todo", query, options);
                 api.sendJSON(req, null, rows);
                 break;
 
