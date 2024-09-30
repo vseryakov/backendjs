@@ -1,5 +1,10 @@
 /* global lib jobs core ipc sleep */
 
+// To run in clear environment
+//
+// cache-test=redis://?bk-interval=250&bk-count=1&bk-retryInterval=250
+// jobs-worker-queue=test
+//
 tests.test_jobs = function(callback, test)
 {
     var file = core.path.tmp + "/" + process.pid + ".test";
@@ -23,7 +28,7 @@ tests.test_jobs = function(callback, test)
 
         async function(next) {
             // cancelJob only sends to workers
-            ipc.broadcast(core.name + ":shell", ipc.newMsg("jobs:cancel", { key: process.pid }));
+            ipc.broadcast(core.name + ":shell", ipc.newMsg("jobs:cancel", { key: process.pid }), opts);
             await sleep(1000);
 
             var data = lib.readFileSync(file);
