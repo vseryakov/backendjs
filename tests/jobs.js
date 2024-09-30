@@ -3,10 +3,11 @@
 tests.test_jobs = function(callback, test)
 {
     var file = core.path.tmp + "/" + process.pid + ".test";
+    var opts = { queueName: test.queue || lib.getArg("-test-queue", "test") };
 
     lib.series([
         function(next) {
-            jobs.submitJob({ job: { "shell.testJob": { file, data: "job" } } }, lib.tryLater(next, 1000));
+            jobs.submitJob({ job: { "shell.testJob": { file, data: "job" } } }, opts, lib.tryLater(next, 1000));
         },
 
         function(next) {
@@ -17,7 +18,7 @@ tests.test_jobs = function(callback, test)
         },
 
         function(next) {
-            jobs.submitJob({ job: { "shell.testJob": { file, cancel: process.pid, timeout: 5000 } } }, lib.tryLater(next, 1000));
+            jobs.submitJob({ job: { "shell.testJob": { file, cancel: process.pid, timeout: 5000 } } }, opts, lib.tryLater(next, 1000));
         },
 
         async function(next) {
