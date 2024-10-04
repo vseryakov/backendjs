@@ -11,9 +11,9 @@
     "url": "https://github.com/vseryakov/backendjs.git"
   },
   "dependencies": {
-    "cookie": "0.6.0",
+    "cookie": "0.7.1",
     "cookie-parser": "1.4.6",
-    "croner": "8.1.1",
+    "croner": "8.1.2",
     "express": "4.21.0",
     "formidable": "3.5.1",
     "hashids": "2.3.0",
