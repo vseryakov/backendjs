@@ -165,6 +165,20 @@ bkjs.koViewModel.prototype.dispose = function()
     bkjs.koViewModels = bkjs.koViewModels.filter((x) => (x !== this));
 }
 
+bkjs.koViewModel.prototype.subscribe = function(obj, extend, callback)
+{
+    if (!bkjs.isKo(obj)) return;
+    if (!this.__subidx) this.__subidx = 0;
+    if (typeof extend == "function") {
+        this["__sub" + this.__subidx++] = obj.subscribe(extend);
+    } else {
+        if (typeof extend == "number") {
+            extend = { rateLimit: { method: "notifyWhenChangesStop", timeout: extend } };
+        }
+        this["__sub" + this.__subidx++] = obj.extend(extend).subscribe(callback);
+    }
+}
+
 bkjs.koGetModel = function(name)
 {
     return bkjs.koModels[bkjs.koAliases.viewModel[name]] || bkjs.koModels[name];
