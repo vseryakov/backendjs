@@ -157,9 +157,15 @@ bkjs.koViewModel.prototype.dispose = function()
             bkjs.isF(this[p].dispose) &&
             bkjs.isF(this[p].disposeWhenNodeIsRemoved)) {
             this[p].dispose();
+            delete this[p];
         } else
-        if (ko.isComputed(this[p])) this[p].dispose();
+        if (ko.isComputed(this[p])) {
+            this[p].dispose();
+            delete this[p];
+        }
     }
+    for (const i in this.__sub) this.__sub[i].dispose();
+    delete this.__sub;
     delete this.element;
     delete this.params;
     bkjs.koViewModels = bkjs.koViewModels.filter((x) => (x !== this));
@@ -168,15 +174,17 @@ bkjs.koViewModel.prototype.dispose = function()
 bkjs.koViewModel.prototype.subscribe = function(obj, extend, callback)
 {
     if (!bkjs.isKo(obj)) return;
-    if (!this.__subidx) this.__subidx = 0;
+    if (!this.__sub) this.__sub = [];
     if (typeof extend == "function") {
-        this["__sub" + this.__subidx++] = obj.subscribe(extend);
+        var sub = obj.subscribe(extend);
     } else {
         if (typeof extend == "number") {
             extend = { rateLimit: { method: "notifyWhenChangesStop", timeout: extend } };
         }
-        this["__sub" + this.__subidx++] = obj.extend(extend).subscribe(callback);
+        sub = obj.extend(extend).subscribe(callback);
     }
+    this.__sub.push(sub);
+    return sub;
 }
 
 bkjs.koGetModel = function(name)
