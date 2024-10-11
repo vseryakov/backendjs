@@ -218,6 +218,10 @@ bkjs.sendFile = function(options, callback)
         }
     }
     for (const p in options.data) build(p, options.data[p]);
+    for (const p in options.json) {
+        const blob = new Blob([JSON.stringify(options.json[p])], { type: "application/json" });
+        form.append(p, blob);
+    }
 
     // Send within the session, multipart is not supported by signature
     var rc = { url: options.url, data: form };
