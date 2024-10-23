@@ -1,5 +1,5 @@
 {
-  "version": "0.169.0",
+  "version": "0.170.0",
   "type": "commonjs",
   "author": "Vlad Seryakov",
   "name": "backendjs",
@@ -15,7 +15,7 @@
     "cookie-parser": "1.4.7",
     "croner": "9.0.0",
     "express": "4.21.1",
-    "formidable": "3.5.1",
+    "formidable": "3.5.2",
     "hashids": "2.3.0",
     "microtime": "3.1.1",
     "mime-types": "2.1.35",
