@@ -178,6 +178,11 @@ bkjs.zeropad = function(n)
     return n > 9 ? n : '0' + n;
 }
 
+bkjs.spacepad = function (n)
+{
+    return n > 9 ? n : ' ' + n
+}
+
 bkjs.strftimeFormat = "%Y-%m-%d %H:%M:%S %Z";
 bkjs.strftimeMap = {
         weekDays: {
@@ -256,12 +261,15 @@ bkjs.strftime = function(date, fmt, options)
         },
         c: (t, utc, lang, tz) => (utc ? t.toUTCString() : t.toString()),
         d: (t, utc, lang, tz) => (this.zeropad(utc ? t.getUTCDate() : t.getDate())),
+        e: (t, utc, lang, tz) => (this.spacepad(utc ? t.getUTCDate() : t.getDate())),
         H: (t, utc, lang, tz) => (this.zeropad(utc ? t.getUTCHours() : t.getHours())),
         I: (t, utc, lang, tz) => (this.zeropad((((utc ? t.getUTCHours() : t.getHours()) + 12) % 12) || 12)),
+        k: (t, utc, lang, tz) => (this.spacepad(utc ? t.getUTCHours() : t.getHours())),
+        l: (t, utc, lang, tz) => (this.spacepad((((utc ? t.getUTCHours() : t.getHours()) + 12) % 12) || 12)),
         L: (t, utc, lang, tz) => (this.zeropad(utc ? t.getUTCMilliseconds() : t.getMilliseconds())),
         m: (t, utc, lang, tz) => (this.zeropad((utc ? t.getUTCMonth() : t.getMonth()) + 1)), // month-1
         M: (t, utc, lang, tz) => (this.zeropad(utc ? t.getUTCMinutes() : t.getMinutes())),
-        p: (t, utc, lang, tz) => ((utc ? t.getUTCHours() : t.getHours()) < 12 ? 'AM' : 'PM'),
+        p: (t, utc, lang, tz) => ((utc ? t.getUTCHours() : t.getHours()) < 12 ? 'am' : 'pm'),
         S: (t, utc, lang, tz) => (this.zeropad(utc ? t.getUTCSeconds() : t.getSeconds())),
         w: (t, utc, lang, tz) => (utc ? t.getUTCDay() : t.getDay()), // 0..6 == sun..sat
         W: (t, utc, lang, tz) => (this.zeropad(this.weekOfYear(t, utc))),
