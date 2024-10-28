@@ -49,7 +49,7 @@ case "$BKJS_CMD" in
   es-s)
     port=$(get_arg -port 9200)
     host=$(get_arg -host localhost)
-    curl -XGET "http://$host:$port/_cat/shards?v"
+    curl -XGET "http://$host:$port/_cat/shards?v&s=index,ip"
     exit
     ;;
 

@@ -533,6 +533,17 @@ bkjs.toSize = function(size, decimals)
     return (size / Math.pow(1024, i)).toFixed(this.isN(decimals) ? decimals : 2) * 1 + ' ' + [this.__('Bytes'), this.__('KBytes'), this.__('MBytes'), this.__('GBytes'), this.__('TBytes')][i];
 }
 
+bkjs.autoType = function(val)
+{
+    return this.isNumeric(val) ? "number":
+           typeof val == "boolean" || val == "true" || val == "false" ? "bool":
+           typeof val == "string" ?
+           val[0] == "^" && val.slice(-1) == "$" ? "regexp":
+           val[0] == "[" && val.slice(-1) == "]" ? "js":
+           val[0] == "{" && val.slice(-1) == "}" ? "js":
+           val.includes("|") && !/[()[\]^$]/.test(val) ? "list": "" : "";
+}
+
 bkjs.isArray = function(val, dflt)
 {
     return Array.isArray(val) && val.length ? val : dflt;
@@ -709,14 +720,7 @@ bkjs.toValue = function(val, type, options)
     switch ((type || "").trim()) {
     case "auto":
         if (this.isU(val) || val === null) return "";
-        if (this.isS(val)) {
-            type = this.isNumeric(val) ? "number":
-                   val == "true" || val == "false" ? "bool":
-                   val[0] == "^" && val.slice(-1) == "$" ? "regexp":
-                   val[0] == "[" && val.slice(-1) == "]" ? "js":
-                   val[0] == "{" && val.slice(-1) == "}" ? "js":
-                   val.indexOf("|") > -1 && !val.match(/[()[\]^$]/) ? "list": "";
-        }
+        type = this.autoType(val);
         return this.toValue(val, type, options);
 
     case "set":
@@ -725,12 +729,19 @@ bkjs.toValue = function(val, type, options)
         return this.strSplitUnique(val, options && options.separator, options);
 
     case "map":
-        return this.strSplit(val, options?.delimiter || ",").
-               map((y) => (this.strSplit(y, options?.separator || /[:;]/, options))).
-               reduce((a, b) => {
-                a[b[0]] = b.length == 2 ? b[1] : b.slice(1);
-                if (options?.maptype) a[b[0]] = this.toValue(a[b[0]], options.maptype);
-                return a
+        return bkjs.strSplit(val, options?.delimiter || ",").
+            map((y) => (bkjs.strSplit(y, options?.separator || /[:;]/, options))).
+            reduce((a, b) => {
+                let v;
+                if (b.length < 2) {
+                    if (options?.empty) v = "";
+                } else {
+                    v = b.length == 2 ? b[1] : b.slice(1);
+                    if (options?.maptype) v = bkjs.toValue(v, options.maptype, options);
+                }
+                if (options?.noempty && bkjs.isEmpty(v)) return a;
+                a[b[0]] = v;
+                return a;
             }, {});
 
     case "expr":
@@ -1010,6 +1021,11 @@ bkjs.strSplit = function(str, sep, options)
                 if (options.strip) x = x.replace(options.strip, "");
                 if (options.camel) x = this.toCamel(x, options);
                 if (options.cap) x = this.toTitle(x);
+                if (options.replace) {
+                    for (const p in options.replace) {
+                        x = x.replaceAll(p, options.replace[p]);
+                    }
+                }
                 if (options.trunc > 0) x = x.substr(0, options.trunc);
                 return x;
             }).
@@ -1023,6 +1039,50 @@ bkjs.strSplitUnique = function(str, sep, type)
     this.strSplit(str, sep, type).forEach((x) => {
         if (!rc.some((y) => (typed || !(this.isS(x) && this.isS(y)) ? x == y : x.toLowerCase() == y.toLowerCase()))) rc.push(x);
     });
+    return rc;
+}
+
+bkjs.phraseSplit = function(str, options)
+{
+    if (typeof str != "string" || !str) return [];
+    var delim = typeof options?.separator == "string" ? options.separator : " ";
+    var quotes = typeof options?.quotes == "string" ? options.quotes : `"'`;
+    var keepempty = options?.keepempty || null;
+
+    var rc = [], i = 0, q, len = str.length;
+    while (i < len) {
+        while (i < len && delim.indexOf(str[i]) != -1) {
+            if (keepempty) rc.push("");
+            i++;
+        }
+        if (i >= len) break;
+        // Opening quote
+        if (quotes.indexOf(str[i]) > -1) {
+            q = ++i;
+            while (q < len) {
+                while (q < len && quotes.indexOf(str[q]) == -1) q++;
+                // Ignore escaped quotes
+                if (q >= len || str[q - 1] != '\\') break;
+                q++;
+            }
+            if (q < len) {
+                if (keepempty || q - i > 0) rc.push(str.substr(i, q - i));
+                while (q < len && delim.indexOf(str[q]) == -1) q++;
+                if (q >= len) break;
+                i = q + 1;
+                continue;
+            }
+        }
+        // End of the word
+        for (q = i; q < len && delim.indexOf(str[q]) == -1; q++);
+        if (q >= len) {
+            if (keepempty || len - i > 0) rc.push(str.substr(i, len - i));
+            break;
+        } else {
+            if (keepempty || q - i > 0) rc.push(str.substr(i, q - i));
+        }
+        i = q + 1;
+    }
     return rc;
 }
 
