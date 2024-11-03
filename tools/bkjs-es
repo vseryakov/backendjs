@@ -118,8 +118,8 @@ case "$BKJS_CMD" in
     index=$(get_arg -index)
     dest=$(get_arg -dest $index)
     remote=$(get_arg -remote $host)
-    d='{ "source": { "index": "'$index'", "remote": { "host": "http://'$remote':$port" } }, "dest": {"index": "'$dest'" } }'
-    curl -XPOST -H 'Content-Type:application/json' -d "'$d'" "http://$host:$port/_reindex?wait_for_completion=false"
+    d="{ \"source\": { \"index\": \"$index\", \"remote\": { \"host\": \"http://$remote:$port\" } }, \"dest\": { \"index\": \"$dest\" } }"
+    curl -XPOST -H 'Content-Type:application/json' -d "$d" "http://$host:$port/_reindex?wait_for_completion=false"
     exit
     ;;
 
@@ -129,6 +129,18 @@ case "$BKJS_CMD" in
     ip=$(get_arg -ip $(get_local_ip))
     [ "$ip" = "." ] && ip=""
     curl -XPUT -H 'Content-Type: application/json' -d "{\"transient\":{\"cluster.routing.allocation.exclude._ip\":\"$ip\"}}" http://$host:$port/_cluster/settings
+    exit
+    ;;
+
+  es-move-shard)
+    port=$(get_arg -port 9200)
+    host=$(get_arg -host localhost)
+    index=$(get_arg -index)
+    shard=$(get_arg -shard)
+    from=$(get_arg -from)
+    to=$(get_arg -to)
+    d="{ \"commands\": [ { \"move\": { \"index\": \"$index\", \"shard\": $shard, \"from_node\": \"$from\", \"to_node\": \"$to\" } }] }"
+    curl -XPOST -H 'Content-Type: application/json' -d "$d" http://$host:$port/_cluster/reroute
     exit
     ;;
 
