@@ -90,8 +90,9 @@ case "$BKJS_CMD" in
     ;;
 
   es-stop-replication)
+    port=$(get_arg -port 9200)
     host=$(get_arg -host localhost)
-    curl -XPUT -H 'Content-Type: application/json' -d '{"persistent":{"cluster.routing.allocation.enable":"primaries"}}' http://$host:$port/_cluster/settings
+    curl -XPUT -H 'Content-Type: application/json' -d '{"persistent":{"cluster.routing.allocation.enable":"none"}}' http://$host:$port/_cluster/settings
     exit
     ;;
 
