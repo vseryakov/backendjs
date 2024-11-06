@@ -132,7 +132,7 @@ case "$BKJS_CMD" in
     ;;
 
   elasticsearch-upgrade-node)
-    host=$(get_arg -host localhost)
+    host=$(get_arg -host ${ES_HOST:-localhost})
     memsize=$(get_arg -memsize 50)
     nodetype=$($get_arg -nodetype)
     $0 es-stop-replication -host $host
