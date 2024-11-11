@@ -58,7 +58,7 @@ Only core required dependencies are installed but there are many modules which r
 All optional dependencies are listed in the package.json under "modDependencies" so npm cannot use it, only manual install of required modules is supported or
 it is possible to install all optional dependencies for development purposes.
 
-Here is the list of modules required for each internal feature:
+Here is the list of modules for each internal feature:
 
 - `pg` - PostgreSQL database access
 - `argon2` or `bcrypt` - for user password hashing
@@ -728,9 +728,9 @@ On startup some env variable will be used for initial configuration:
   - BKJS_RUNMODE - initial run mode, `-run-mode` overrides it
   - BKJS_CONFFILE - config file to use instead of 'config', `-conf-file` overrides it
   - BKJS_PACKAGES - packags to preload, `-preload-packages` overrieds it
-  - BKJS_CONFIG_ROLES - config roles to use, `-config-roles` overrides it
   - BKJS_DB_POOL - default db pool, `-db-pool` overrides it
   - BKJS_DB_CONFIG - config db pool, `-db-config` overrides it
+  - BKJS_ROLES - additonal roles to use for config, `-roles` overrides it
   - BKJS_APP_NAME - default app name
   - BKJS_APP_PACKAGE - default app package from preloaded packages
   - BKJS_TAG - initial instance tag, `-instance-tag` overrides it, it may be also overridden by AWS instance tag

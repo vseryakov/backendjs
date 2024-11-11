@@ -12,7 +12,7 @@ line4=line4
 line5=line5
 [instance.tag=tag]
 line6=line6
-[configRoles=dev,staging]
+[roles=dev,staging]
 line7=line7
 [aws.key=]
 line8=line8
@@ -22,9 +22,9 @@ line9=line9
 line10=line10
 [instance.tag!=aaa]
 line11=line11
-[configRoles=dev]
+[roles=dev]
 line12=line12
-[configRoles=beta]
+[roles=beta]
 line13=line13
 [global]
 line2=line2
@@ -51,7 +51,7 @@ line2=line2
     expect(args.includes("-line5"), "runMode: expects line5", args)
 
     core.instance.tag = "tag";
-    core.configRoles = ["dev", "staging", "prod"];
+    core.roles = ["dev", "staging", "prod"];
     args = lib.configParse(data, core);
     expect(args.includes("-line6"), "instance tag: expects line6", args, core.instance)
     expect(!args.includes("-line8"), "no aws key: not expects line8", args, aws.key)

@@ -1,3 +1,5 @@
+/* global lib db aws logger */
+
 //
 //  Author: Vlad Seryakov vseryakov@gmail.com
 //  backendjs 2018
@@ -365,6 +367,14 @@ tests.test_db = function(callback)
             var ids = rows.map((x) => { delete x.id2; return x });
             rows = await db.alist("test2", ids);
             assert(rows?.length!=3 , "expcted 3 rows by exact joined secondary key:", rows, ids);
+
+
+            rows = await db.aselect("test2", { id: key, $or: { key2: 2, kkey2: 3 } }, { aliases: { kkey2: "key2" } });
+            assert(rows?.length!=2 , "must be 2 records by OR condition with aliases", rows);
+
+            rows = await db.aselect("test2", { id: key, $or: { key2: 2, $key2: 3 } } );
+            assert(rows?.length!=2 , "must be 2 records by OR condition with $ as alias", rows);
+
             next();
         },
         function(next) {
@@ -393,8 +403,8 @@ tests.test_db = function(callback)
             });
         },
         function(next) {
-            db.update("test1", { id: id, email: "test" }, { expected: { id: id, email: id } }, function(err, rc, info) {
-                assert(err || info.affected_rows, "err27:", info);
+            db.update("test1", { id: id, email: "test", num: 100 }, { expected: { id: id, email: id }, returning: "*" }, function(err, rc, info) {
+                assert(err || info.affected_rows, "err27:", info, rc);
                 next();
             });
         },
@@ -568,7 +578,7 @@ tests.test_db = function(callback)
                 next();
             });
         }
-    ], callback, true);
+    ], callback);
 }
 
 tests.test_dynamodb = function(callback)
