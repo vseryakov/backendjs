@@ -1,4 +1,4 @@
-/* global lib db aws logger */
+/* global core lib db aws logger sleep */
 
 //
 //  Author: Vlad Seryakov vseryakov@gmail.com
@@ -593,4 +593,67 @@ tests.test_dynamodb = function(callback)
     callback();
 }
 
+tests.test_dbconfig = async function(callback)
+{
+    core.appName = "app";
+    core.appVersion = "1.0.0";
+    core.runMode = "test";
+    core.role = "shell";
+    core.tag = "qa";
+    core.region = "us-east-1";
+
+    db.configMap = {
+        top: "runMode",
+        main: "role, tag",
+        other: "role, region",
+    }
+
+    var types = db.configTypes();
+
+    expect(types.includes(core.runMode), "expect runMode", types);
+    expect(types.includes(core.runMode+"-"+core.role), "expect runMode-role", types);
+    expect(types.includes(core.runMode+"-"+core.role+"-"+core.role), "expect runMode-role-role", types);
+    expect(types.includes(core.runMode+"-"+core.role+"-"+core.region), "expect runMode-role-region", types);
+    expect(types.includes(core.runMode+"-"+core.tag), "expect runMode-tag", types);
+    expect(types.includes(core.runMode+"-"+core.tag+"-"+core.role), "expect runMode-tag-role", types);
+    expect(types.includes(core.runMode+"-"+core.tag+"-"+core.region), "expect runMode-tag-region", types);
+
+    db.configMap.top = "runMode,appName";
+    types = db.configTypes();
+
+    expect(types.includes(core.appName), "expect appName", types);
+    expect(types.includes(core.appName+"-"+core.role+"-"+core.region), "expect appName-role-region", types);
+    expect(types.includes(core.appName+"-"+core.tag+"-"+core.region), "expect appName-tag-region", types);
+
+    const getConfig = promisify(db.getConfig.bind(db));
+
+    var type1 = core.runMode+"-"+core.role;
+    var type2 = core.runMode+"-"+core.tag;
+
+    await db.adelAll("bk_config", { type: [type1, type2], name: [] }, { ops: { type: "in", name: "in" } });
+
+    await db.put("bk_config", { type: type1, name: "param1", value: "ok" })
+    await db.put("bk_config", { type: type1, name: "param2", value: "hidden", status: "hidden" })
+    await sleep(100);
+    await db.put("bk_config", { type: type2, name: "param2", value: "version", version: ">1.0.0" })
+    await db.put("bk_config", { type: type1, name: "param3", value: "stime", stime: Date.now()+2000 })
+    await sleep(100);
+    await db.put("bk_config", { type: type2, name: "param3", value: "etime", etime: Date.now()+2000 })
+
+    var rows = await getConfig();
+    expect(rows?.length == 2 && rows[0].name == "param1" && rows[1].name == "param3" && rows[1].value == "etime", "expect 2 rows, param1, param3", rows);
+
+    core.appVersion = "1.1.0";
+    rows = await getConfig();
+    expect(rows?.length == 3 && rows[0].name == "param1" && rows[1].name == "param2", "expect 3 rows, param1 and param2, param3/etime", rows);
+
+    await sleep(2000);
+
+    core.appVersion = "1.0.0";
+    rows = await getConfig();
+    expect(rows?.length == 2 && rows[0].name == "param1" && rows[1].name == "param3" && rows[1].value == "stime", "expect 2 rows, param1, param3/stime", rows);
+
+    callback();
+
+}
 

@@ -101,6 +101,7 @@ function bootpopup(...args)
         backdrop: true,
         keyboard: true,
         autofocus: true,
+        empty: false,
         data: "",
         tabs: "",
         tab: "",
@@ -617,7 +618,10 @@ function bootpopup(...args)
             if (!n || e.disabled) continue;
             if (/radio|checkbox/i.test(e.type) && !e.checked) continue;
             v = $(e).val();
-            if (v === undefined || v === "") continue;
+            if (v === undefined || v === "") {
+                if (!this.options.empty) continue;
+                v = "";
+            }
             d.list.push({ name: n, value: v })
         }
         for (const v of d.list) d.obj[v.name] = v.value;
