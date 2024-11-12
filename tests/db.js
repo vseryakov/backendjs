@@ -8,13 +8,6 @@
 // To run a test execute for example: bksh -test-db ....
 //
 
-tests.resetTables = function(tables, callback)
-{
-    db.dropTables(tables, db.pool, function() {
-        db.createTables(db.pool, callback);
-    });
-}
-
 tests.test_db = function(callback)
 {
     var tables = {
@@ -80,12 +73,15 @@ tests.test_db = function(callback)
 
     db.customColumn.test3 = { "action[0-9]+": "counter" };
 
+    var old = db.tables;
     db.tables = {};
     db.describeTables(tables);
 
     lib.series([
         function(next) {
-             tests.resetTables(tables, next);
+            db.dropTables(tables, db.pool, () => {
+                db.createTables(db.pool, next);
+            });
         },
         function(next) {
             db.add("test1", { id: id, email: id, num: '1', num2: null, num3: 1, num4: 1, anum: 1, skipcol: "skip" }, function(err) {
@@ -578,7 +574,10 @@ tests.test_db = function(callback)
                 next();
             });
         }
-    ], callback);
+    ], (err) => {
+        db.tables = old;
+        callback(err);
+    });
 }
 
 tests.test_dynamodb = function(callback)
@@ -630,7 +629,7 @@ tests.test_dbconfig = async function(callback)
     var type1 = core.runMode+"-"+core.role;
     var type2 = core.runMode+"-"+core.tag;
 
-    await db.adelAll("bk_config", { type: [type1, type2], name: [] }, { ops: { type: "in", name: "in" } });
+    await db.adelAll("bk_config", { type: [type1, type2] }, { ops: { type: "in" } });
 
     await db.put("bk_config", { type: type1, name: "param1", value: "ok" })
     await db.put("bk_config", { type: type1, name: "param2", value: "hidden", status: "hidden" })
