@@ -12,7 +12,7 @@ tests.test_jobs = function(callback, test)
 
         function(next) {
             var data = lib.readFileSync(file);
-            expect(/job/.test(data), "expect job finished", file, data);
+            expect(/job/.test(data), "expect job finished", file, data, opts);
 
             next();
         },
