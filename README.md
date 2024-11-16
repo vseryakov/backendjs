@@ -1174,8 +1174,7 @@ how the environment is setup it is ultimately 2 ways to specify the port for HTT
   configuration make it easier to maintain dynamic environment for example in case of auto scaling or launching on demand, this way
   a new instance will query current config from the database and this eliminates supporting text files and distributing them to all instances.
 
-  The config database is refreshed from time to time acording to the `db-config-interval` parameter, also all records with `ttl` property in the bk_config
-  will be pulled every ttl interval and updated in place.
+  The config database is refreshed from time to time according to the `db-config-map=interval:N` parameter. See `db/config.js` for more details.
 
 # Backend library development (Mac OS X, developers)
 
