@@ -130,7 +130,7 @@ tests.test_config = function(callback)
 
     cache.closeClients();
     cache.initClients();
-    var q = cache.getQueue("");
+    var q = cache.getClient("");
     assert(q.options.count != 2, "invalid default queue count", q, cache._config)
 
     core.parseArgs(["-cache-default-options-visibilityTimeout", "99", "-cache-default", "local://default?bk-count=10"]);
@@ -141,7 +141,7 @@ tests.test_config = function(callback)
 
     describe("default cache parameters");
 
-    q = cache.getQueue("q");
+    q = cache.getClient("q");
     assert(q.options.test != 10, "invalid queue url options", q.options, cache._config)
     core.parseArgs(["-cache-q-options-visibilityTimeout", "99", "-cache-q-options", "count:99"]);
     assert(q.options.visibilityTimeout != 99 || q.options.count != 99, "invalid q queue options", q.options, cache._config)

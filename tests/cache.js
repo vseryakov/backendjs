@@ -3,7 +3,7 @@
 tests.test_cache = function(callback, test)
 {
     var opts = {
-        queueName: test.cache || lib.getArg("-test-cache") || cache.getClient().queueName
+        cacheName: test.cache || lib.getArg("-test-cache") || cache.getClient().cacheName
     };
 
     logger.info("testing cache:", opts);

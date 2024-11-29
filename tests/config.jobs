@@ -1,4 +1,0 @@
-
-test-queue=jtest
-cache-jtest=redis://?bk-interval=250&bk-count=1&bk-retryInterval=250
-jobs-worker-queue=jtest

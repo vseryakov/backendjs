@@ -628,8 +628,9 @@ tests.test_dbconfig = async function(callback)
 
     var type1 = core.runMode+"-"+core.role;
     var type2 = core.runMode+"-"+core.tag;
+    var type3 = type1+"-"+core.role;
 
-    await db.adelAll("bk_config", { type: [type1, type2] }, { ops: { type: "in" } });
+    await db.adelAll("bk_config", { type: [type1, type2, type3] }, { ops: { type: "in" } });
 
     await db.put("bk_config", { type: type1, name: "param1", value: "ok" })
     await db.put("bk_config", { type: type1, name: "param2", value: "hidden", status: "hidden" })
@@ -651,6 +652,12 @@ tests.test_dbconfig = async function(callback)
     core.appVersion = "1.0.0";
     rows = await getConfig();
     expect(rows?.length == 2 && rows[0].name == "param1" && rows[1].name == "param3" && rows[1].value == "stime", "expect 2 rows, param1, param3/stime", rows);
+
+    await db.put("bk_config", { type: type3, name: "param1", value: "zero", stime: 0, etime: 0 })
+    await sleep(100);
+
+    rows = await getConfig();
+    expect(rows?.length == 3 && rows[0].name == "param1" && rows[2].value == "zero", "expect 3 rows, param1/ok, param1/zero, param3/stime", rows);
 
     callback();
 

@@ -772,7 +772,7 @@ For example:
 If configured all processes subscribe to it and listen for system messages, it must support PUB/SUB and does not need to be reliable. Websockets
 in the API server also use the system bus to send broadcasts between multiple api instances.
 
-    cache-system=redis://
+    queue-system=redis://
     ipc-system-queue=system
 
 

@@ -18,6 +18,7 @@ case "$BKJS_CMD" in
     echo "  ec2-tag [-tag NAME] - current instance tag name, default key is Name"
     echo "  ec2-check-storage - runs on start to check for external disk mounted to $BKJS_HOME/data, links log/var to it"
     echo "  ec2-check-hostname - runs on start to set the hostname to the EC2 tag"
+    echo "  ec2-launch-instance - launch an instance via -aws-launch-instances, wait and return env variables set: INSTANCE_HOST, INSTANCE_ID...."
     ;;
 
   start-hook)
@@ -177,11 +178,38 @@ case "$BKJS_CMD" in
        mount -a
     else
        msg creating $mnt on $dev
-       mkfs.xfs $dev
+       mkfs.ext4 $dev
        mount -a
     fi
     mkdir -p $mnt/log $mnt/var
     chown -R $user $mnt
+    exit
+    ;;
+
+  ec2-launch-instance)
+    INFO=$($BKJS_BIN shell -no db,ipc -aws-run-instances -public-ip -wait $(get_all_args))
+    echo "$INFO"
+
+    INSTANCE_INFO=$(echo "$INFO"|egrep -E "^EC2-Instance:")
+    export INSTANCE_HOST=$(echo "$INSTANCE_INFO"|cut -d' ' -f3)
+    [ -z "$INSTANCE_HOST" ] && echo "no instance host detected" && exit 1
+
+    # Remove existing host due to recyling in the same VPC
+    hosts=~/.ssh/known_hosts
+    if [ -n "$(grep -s "^$INSTANCE_HOST " $hosts)" ]; then
+        mv $hosts $hosts.old
+        grep -v "^$INSTANCE_HOST " $hosts.old > $hosts
+        chmod 644 $hosts
+    fi
+
+    export INSTANCE_ID=$(echo "$INSTANCE_INFO"|cut -d' ' -f2)
+    export INSTANCE_IP=$(echo "$INSTANCE_INFO"|cut -d' ' -f4)
+    export INSTANCE_ARCH=$(echo "$INSTANCE_INFO"|cut -d' ' -f5)
+    export INSTANCE_TAG=$(echo "$INSTANCE_INFO"|cut -d' ' -f6)
+    export INSTANCE_USER=$(get_arg -ssh-user $whoami)
+
+    echo "Connecting to $INSTANCE_ID as $INSTANCE_USER@$INSTANCE_HOST"
+    run_ssh_cmd $INSTANCE_HOST $INSTANCE_USER "uname -s" Linux
     exit
     ;;
 

@@ -3,29 +3,20 @@
 //  backendjs 2018
 //
 
-var logger = require(__dirname + '/../logger');
-var core = require(__dirname + '/../core');
-var lib = require(__dirname + '/../lib');
-var Msg = require(__dirname + '/../msg');
+const logger = require(__dirname + '/../logger');
+const core = require(__dirname + '/../core');
+const lib = require(__dirname + '/../lib');
 
-var client = {
+const client = {
     name: "fcm",
     priority: 10,
     agents: {},
 };
 module.exports = client;
 
-Msg.modules.push(client);
-
-client.check = function(dev)
-{
-    return dev.service == "fcm" || (dev.service == "gcm" && this.agents.default && this.agents.default.gcm);
-}
-
 // Initialize Google Cloud Messaging service to send push notifications to mobile devices
-client.init = function(options)
+client.init = function(config)
 {
-    var config = Msg.getConfig(this.name);
     for (var i in config) {
         if (this.agents[config[i]._app]) continue;
         this.agents[config[i]._app] = lib.objClone(config[i], "_sent", 0, "_queue", 0);
@@ -36,10 +27,9 @@ client.init = function(options)
 // Close GCM connection, flush the queue
 client.close = function(callback)
 {
-    var self = this;
-    lib.forEach(Object.keys(this.agents), function(key, next) {
-        var agent = self.agents[key];
-        delete self.agents[key];
+    lib.forEach(Object.keys(this.agents), (key, next) => {
+        var agent = this.agents[key];
+        delete this.agents[key];
         logger.info('close:', "fcm", key, 'queue:', agent._queue, 'sent:', agent._sent);
 
         var n = 0;
@@ -58,7 +48,7 @@ client.close = function(callback)
 // Send push notification to an Android device, return true if queued.
 client.send = function(dev, options, callback)
 {
-    if (!dev || !dev.id) return typeof callback == "function" && callback(lib.newError("invalid device:" + dev.id));
+    if (!dev?.id) return typeof callback == "function" && callback(lib.newError("invalid device:" + dev.id));
 
     var agent = this.agents[dev.app] || this.agents.default;
     if (!agent) return typeof callback == "function" && callback(lib.newError("FCM is not initialized for " + dev.id, 415));

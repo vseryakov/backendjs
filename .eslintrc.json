@@ -1,7 +1,7 @@
 {
     "root": true,
     "env": {
-        "es2020": true,
+        "es2022": true,
         "browser": true,
         "es6": true,
         "node": true
@@ -17,7 +17,7 @@
         "ko": false
     },
     "parserOptions": {
-        "ecmaVersion": 2021
+        "ecmaVersion": 2022
     },
     "extends": "eslint:recommended",
     "rules": {
@@ -35,7 +35,7 @@
         "callback-return": "off",
         "camelcase": "off",
         "capitalized-comments": "off",
-        "class-methods-use-this": "error",
+        "class-methods-use-this": "off",
         "comma-dangle": "off",
         "comma-spacing": "off",
         "comma-style": [

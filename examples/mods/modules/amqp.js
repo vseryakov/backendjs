@@ -6,7 +6,6 @@
 var util = require('util');
 var logger = require(__dirname + '/../logger');
 var lib = require(__dirname + '/../lib');
-var cache = require(__dirname + "/../cache");
 var Client = require(__dirname + "/client");
 
 // Queue client using RabbitMQ server
@@ -17,15 +16,12 @@ var Client = require(__dirname + "/client");
 //
 const client = {
     name: "amqp",
+
+    createClient: function(options) {
+        if (/^amqps?:/.test(options?.url)) return new AmqpClient(options);
+    }
 };
 module.exports = client;
-
-cache.modules.push(client);
-
-client.createClient = function(options)
-{
-    if (/^amqps?:/.test(options?.url)) return new AmqpClient(options);
-}
 
 function AmqpClient(options)
 {

@@ -19,9 +19,10 @@ case "$BKJS_CMD" in
     echo "  es-set-disk-watermark [-high 95] [-low 95] [-flood 95] - set ElasticSearch disk allocations threshold"
     echo "  es-exclude-node [-host HOST] [-ip IP] - disable a node by IP address"
     echo "  es-reindex -index INDEX [-dest INDEX] [-host HOST] [-remote HOST] - reindex a single index from remote host"
-    echo "  es-stop-replication - stop replication for upgrade"
-    echo "  es-start-replication - start replication between nodes"
+    echo "  es-set-replication [-mode MODE] - stop/start replication for upgrade, mode can be null,all,none,primaries"
     echo "  es-prepare-stats -table N - create an index for stats collector"
+    echo "  es-register-repo -repo R -bucket B [-path P] - register a S3 snapshot repository"
+    echo "  es-snapshot -repo R -name N - create a snapshot in the given repository"
     ;;
 
   es-map)
@@ -35,21 +36,21 @@ case "$BKJS_CMD" in
   es-w)
     port=$(get_arg -port 9200)
     host=$(get_arg -host ${ES_HOST:-localhost})
-    curl -XGET "http://$host:$port/_cat/health?v"
+    curl -sS -XGET "http://$host:$port/_cat/health?v"
     exit
     ;;
 
   es-df)
     port=$(get_arg -port 9200)
     host=$(get_arg -host ${ES_HOST:-localhost})
-    curl -XGET "http://$host:$port/_cat/allocation?v"
+    curl -sS -XGET "http://$host:$port/_cat/allocation?v"
     exit
     ;;
 
   es-s)
     port=$(get_arg -port 9200)
     host=$(get_arg -host ${ES_HOST:-localhost})
-    curl -XGET "http://$host:$port/_cat/shards?v&s=index,ip"
+    curl -sS -XGET "http://$host:$port/_cat/shards?v&s=index,ip"
     exit
     ;;
 
@@ -58,11 +59,11 @@ case "$BKJS_CMD" in
     host=$(get_arg -host ${ES_HOST:-localhost})
     task=$(get_arg -task)
     if [ "$task" != "" ]; then
-        curl -XGET "http://$host:$port/_tasks/$task?pretty"
+        curl -sS -XGET "http://$host:$port/_tasks/$task?pretty"
     else
         nodes=$(get_arg -nodes)
         actions=$(get_arg -actions)
-        curl -XGET "http://$host:$port/_tasks?pretty&detailed&nodes=$nodes&actions=$actions"
+        curl -sS -XGET "http://$host:$port/_tasks?pretty&detailed&nodes=$nodes&actions=$actions"
     fi
     exit
     ;;
@@ -70,14 +71,14 @@ case "$BKJS_CMD" in
   es-ls)
     port=$(get_arg -port 9200)
     host=$(get_arg -host ${ES_HOST:-localhost})
-    curl -XGET "http://$host:$port/_cat/nodes?h=ip,version,cpu,ram.percent,node.role,master&v"
+    curl -sS -XGET "http://$host:$port/_cat/nodes?h=ip,version,cpu,ram.percent,node.role,master&v"
     exit
     ;;
 
   es-n)
     port=$(get_arg -port 9200)
     host=$(get_arg -host ${ES_HOST:-localhost})
-    curl -s -XGET "http://$host:$port/_nodes/process?pretty"|node -e 'var d="";process.stdin.on("data",(c)=>{d+=c});process.stdin.on("end",()=>{try{d=JSON.parse(d).nodes;for(var p in d)console.log(p,"  ",d[p].ip,"          ".substr(0,15-d[p].ip.length),String(d[p].roles))}catch(e){};process.exit()})'
+    curl -sS -XGET "http://$host:$port/_nodes/process?pretty"|node -e 'var d="";process.stdin.on("data",(c)=>{d+=c});process.stdin.on("end",()=>{try{d=JSON.parse(d).nodes;for(var p in d)console.log(p,"  ",d[p].ip,"          ".substr(0,15-d[p].ip.length),String(d[p].roles))}catch(e){};process.exit()})'
     exit
     ;;
 
@@ -85,21 +86,17 @@ case "$BKJS_CMD" in
     port=$(get_arg -port 9200)
     host=$(get_arg -host ${ES_HOST:-localhost})
     rate=$(get_arg -rate 1000)
-    curl -XPUT -H 'Content-Type: application/json' -d "{\"persistent\":{\"script.max_compilations_rate\":\"${rate}/1m\"}}" http://$host:$port/_cluster/settings
+    curl -sS -XPUT -H 'Content-Type: application/json' -d "{\"persistent\":{\"script.max_compilations_rate\":\"${rate}/1m\"}}" http://$host:$port/_cluster/settings
     exit
     ;;
 
-  es-stop-replication)
+  es-set-replication)
     port=$(get_arg -port 9200)
     host=$(get_arg -host ${ES_HOST:-localhost})
-    curl -XPUT -H 'Content-Type: application/json' -d '{"persistent":{"cluster.routing.allocation.enable":"none"}}' http://$host:$port/_cluster/settings
-    exit
-    ;;
-
-  es-start-replication)
-    port=$(get_arg -port 9200)
-    host=$(get_arg -host ${ES_HOST:-localhost})
-    curl -XPUT -H 'Content-Type: application/json' -d '{"persistent":{"cluster.routing.allocation.enable":null}}' http://$host:$port/_cluster/settings
+    mode=$(get_arg -mode null)
+    [ "$mode" = "all" ] && mode=null
+    [ "$mode" != "null" ] && mode="\"$mode\""
+    curl -sS -XPUT -H 'Content-Type: application/json' -d "{\"persistent\":{\"cluster.routing.allocation.enable\":$mode}}" http://$host:$port/_cluster/settings
     exit
     ;;
 
@@ -109,7 +106,7 @@ case "$BKJS_CMD" in
     high=$(get_arg -high 95)
     low=$(get_arg -low 95)
     flood=$(get_arg -flood 95)
-    curl -XPUT -H 'Content-Type: application/json' -d "{\"transient\":{\"cluster.routing.allocation.disk.watermark.flood_stage\":\"$flood%\",\"cluster.routing.allocation.disk.watermark.high\":\"$high%\",\"cluster.routing.allocation.disk.watermark.low\":\"$low%\"}}" http://$host:$port/_cluster/settings
+    curl -sS -XPUT -H 'Content-Type: application/json' -d "{\"transient\":{\"cluster.routing.allocation.disk.watermark.flood_stage\":\"$flood%\",\"cluster.routing.allocation.disk.watermark.high\":\"$high%\",\"cluster.routing.allocation.disk.watermark.low\":\"$low%\"}}" http://$host:$port/_cluster/settings
     exit
     ;;
 
@@ -120,7 +117,7 @@ case "$BKJS_CMD" in
     dest=$(get_arg -dest $index)
     remote=$(get_arg -remote $host)
     d="{ \"source\": { \"index\": \"$index\", \"remote\": { \"host\": \"http://$remote:$port\" } }, \"dest\": { \"index\": \"$dest\" } }"
-    curl -XPOST -H 'Content-Type:application/json' -d "$d" "http://$host:$port/_reindex?wait_for_completion=false"
+    curl -sS -XPOST -H 'Content-Type:application/json' -d "$d" "http://$host:$port/_reindex?wait_for_completion=false"
     exit
     ;;
 
@@ -129,7 +126,7 @@ case "$BKJS_CMD" in
     host=$(get_arg -host ${ES_HOST:-localhost})
     ip=$(get_arg -ip $(get_local_ip))
     [ "$ip" = "." ] && ip=""
-    curl -XPUT -H 'Content-Type: application/json' -d "{\"transient\":{\"cluster.routing.allocation.exclude._ip\":\"$ip\"}}" http://$host:$port/_cluster/settings
+    curl -sS -XPUT -H 'Content-Type: application/json' -d "{\"transient\":{\"cluster.routing.allocation.exclude._ip\":\"$ip\"}}" http://$host:$port/_cluster/settings
     exit
     ;;
 
@@ -141,7 +138,7 @@ case "$BKJS_CMD" in
     from=$(get_arg -from)
     to=$(get_arg -to)
     d="{ \"commands\": [ { \"move\": { \"index\": \"$index\", \"shard\": $shard, \"from_node\": \"$from\", \"to_node\": \"$to\" } }] }"
-    curl -XPOST -H 'Content-Type: application/json' -d "$d" http://$host:$port/_cluster/reroute
+    curl -sS -XPOST -H 'Content-Type: application/json' -d "$d" http://$host:$port/_cluster/reroute
     exit
     ;;
 
@@ -150,9 +147,62 @@ case "$BKJS_CMD" in
     port=$(get_arg -port 9200)
     host=$(get_arg -host ${ES_HOST:-localhost})
     d='"mappings":{"date_detection":false,"properties":{"timestamp":{"type":"date","format":"epoch_millis"},"@timestamp":{"type":"alias","path":"timestamp"},"ip":{"type":"ip"}},"dynamic_templates":[{"keywords":{"match_mapping_type":"string","mapping":{"ignore_above":128,"type":"keyword"}}}]}'
-    curl -XPUT -H 'Content-Type: application/json' -d "{$d}" http://$host:$port/$table
+    curl -sS -XPUT -H 'Content-Type: application/json' -d "{$d}" http://$host:$port/$table
     exit
     ;;
-    
+
+  es-register-repo)
+    port=$(get_arg -port 9200)
+    host=$(get_arg -host ${ES_HOST:-localhost})
+    repo=$(get_arg -repo)
+    bucket=$(get_arg -bucket)
+    path=$(get_arg -path)
+    d="{ \"type\": \"s3\", \"settings\": { \"bucket": \"${bucket}\", \"base-path\": \"${path} " } }"
+    curl -sS -XPUT -H 'Content-Type: application/json' -d "${d}" http://$host:$port/_snapshot/$repo
+    exit
+    ;;
+
+  es-snapshot)
+    port=$(get_arg -port 9200)
+    host=$(get_arg -host ${ES_HOST:-localhost})
+    repo=$(get_arg -repo)
+    name=$(get_arg -name)
+    curl -sS -XPUT -H 'Content-Type: application/json' -d "${d}" http://$host:$port/_snapshot/$repo/$name
+    exit
+    ;;
+
+  es-settings)
+    port=$(get_arg -port 9200)
+    host=$(get_arg -host ${ES_HOST:-localhost})
+    table=$(get_arg -table)
+    d=""
+
+    refresh=$(get_arg -refresh)
+    if [ -n "$refresh" ]; then
+        [ "$refresh" != "null" ] && refresh="\"$refresh\""
+        d="\"refresh_interval\": $refresh"
+    fi
+
+    replicas=$(get_arg -replicas)
+    if [ -n "$replicas" ]; then
+        [ -n "$d" ] && d="$d,"
+        d="$d \"number_of_replicas\" : $replicas"
+    fi
+
+    repl=$(get_arg -replication)
+    if [ -n "$repl" ]; then
+        [ -n "$d" ] && d="$d,"
+        [ "$repl" = "all" ] && repl=null
+        [ "$repl" != "null" ] && repl="\"$repl\""
+        d="$d \"index.routing.allocation.enable\": $repl"
+    fi
+
+    if [ -z "$d" ]; then
+        curl -sS "http://$host:$port/$table/_settings?flat_settings&pretty"
+    else
+        curl -sS -XPUT -H 'Content-Type: application/json' -d "{ \"index\": { ${d} } }" "http://$host:$port/$table/_settings"
+    fi
+    exit
+    ;;
 esac
 

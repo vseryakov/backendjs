@@ -5,7 +5,6 @@
 
 const logger = require(__dirname + '/../logger');
 const lib = require(__dirname + '/../lib');
-const Msg = require(__dirname + '/../msg');
 
 const client = {
     name: "apn",
@@ -14,20 +13,11 @@ const client = {
 };
 module.exports = client;
 
-Msg.modules.push(client);
-
-// Returns true if given device is supported by APN
-client.check = function(dev)
-{
-    return dev.service == client.name || (!dev.service && dev.id.match(/^[0-9a-f]+$/i));
-}
-
 // Initialize Apple Push Notification service in the current process, Apple supports multiple connections to the APN gateway but
 // not too many so this should be called on the dedicated backend hosts, on multi-core servers every spawn web process will initialize a
 // connection to APN gateway.
-client.init = function(options)
+client.init = function(config)
 {
-    var config = Msg.getConfig(this.name);
     for (var i in config) {
         if (this.agents[config[i]._app]) continue;
 
@@ -60,9 +50,9 @@ client.init = function(options)
 // Close APN agent, try to send all pending messages before closing the gateway connection
 client.close = function(callback)
 {
-    lib.forEach(Object.keys(this.agents), function(key, next) {
-        var agent = client.agents[key];
-        delete client.agents[key];
+    lib.forEach(Object.keys(this.agents), (key, next) => {
+        var agent = this.agents[key];
+        delete this.agents[key];
         logger.info('close:', client.name, key, agent.options, 'sent:', agent._sent);
         agent.shutdown();
         logger.info('close:', client.name, "done", key);
@@ -93,20 +83,18 @@ client.close = function(callback)
 //  - payload - an object with additional fileds to send in the message payload
 client.send = function(dev, options, callback)
 {
-    if (!dev || !dev.id) return lib.tryCall(callback, lib.newError("invalid device:" + dev));
+    if (!dev?.id) return lib.tryCall(callback, lib.newError("invalid device:" + dev));
 
     // Catch invalid devices before they go into the queue where is it impossible to get the exact source of the error
     var hex = null;
     try { hex = Buffer.from(dev.id, "hex"); } catch (e) {}
     if (!hex) return lib.tryCall(callback, lib.newError("invalid device token:" + dev.id));
 
-    var agent = this.agents[dev.app] ||
-                this.agents[Msg.getTeam(dev.app)] ||
-                this.agents.default;
+    var agent = this.agents[dev.app] || this.agents.default;
     if (!agent) return lib.tryCall(callback, lib.newError("APN is not initialized for " + dev.id, 415));
 
     var msg = new this.apn.Notification();
-    msg.topic = dev.app && dev.app != "default" ? dev.app : Msg.appDefault;
+    msg.topic = dev.app;
     if (options.msg) msg.setAlert(options.msg);
     if (options.title) msg.setTitle(options.title);
     if (options.expires) msg.setExpiry(options.expires);

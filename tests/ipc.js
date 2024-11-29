@@ -7,7 +7,7 @@ tests.test_limiter = function(callback, test)
         rate: lib.getArgInt("-rate", 1),
         max: lib.getArgInt("-max", 1),
         interval: lib.getArgInt("-interval", 1000),
-        queueName: test.queue || lib.getArg("-test-queue", "test"),
+        cacheName: test.cache || lib.getArg("-test-cache", "test"),
         pace: lib.getArgInt("-pace", 5),
         count: lib.getArgInt("-count", 5),
         delays: lib.getArgInt("-delays", 4),

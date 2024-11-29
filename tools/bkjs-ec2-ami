@@ -6,7 +6,7 @@ case "$BKJS_CMD" in
     echo
     echo "  ec2-create-ami [-tag NAME] [-prefix PREFIX] - create a new AMI from the given running instance by tag or the current instance"
     echo "  ec2-create-launch-template-version [-name NAME] [-tag TAG] [-skip A B] [-image-name *] - create new launch template verson with the latest AMI, if no -name is given all existing templates matched by tag if given will be updated"
-    echo "  ec2-build-ami - [-image-id ID] [-image-name N] [-ami-user alpine] - build a new AMI for Alpine Linux, runs alpine-build-ami-hook for actual setup, uses -aws-launch-instances, either -image-id or -image-name is required"
+    echo "  ec2-build-ami - [-image-id ID] [-image-name N] [-ssh-user alpine] - build a new AMI for Alpine Linux, runs alpine-build-ami-hook for actual setup, uses -aws-launch-instance, either -image-id or -image-name is required"
     echo "  ec2-build-ami-hook - actual new AMI build script after it is launched and ssh is ready: INSTANCE_USER, INSTANCE_HOST, INSTANCE_ID, INSTANCE_IP, INSTANCE_ARCH are set"
     ;;
 
@@ -35,32 +35,11 @@ case "$BKJS_CMD" in
     ;;
 
   ec2-build-ami)
-    INFO=$($BKJS_BIN shell -no db,ipc -aws-launch-instances -public-ip -wait $(get_all_args))
-    echo "$INFO"
-
-    INSTANCE_INFO=$(echo "$INFO"|egrep -E "^EC2-Instance:")
-    INSTANCE_ID=$(echo "$INSTANCE_INFO"|cut -d' ' -f2)
-    INSTANCE_HOST=$(echo "$INSTANCE_INFO"|cut -d' ' -f3)
-    [ -z "$INSTANCE_HOST" ] && echo "no instance host detected" && exit 1
-
-    # Remove existing host due to recyling in the same VPC
-    hosts=~/.ssh/known_hosts
-    if [ -n "$(grep -s "^$INSTANCE_HOST " $hosts)" ]; then
-        mv $hosts $hosts.old
-        grep -v "^$INSTANCE_HOST " $hosts.old > $hosts
-        chmod 644 $hosts
-    fi
-
-    INSTANCE_USER=$(get_arg -ami-user alpine)
-
-    echo "Connecting to $INSTANCE_ID as $INSTANCE_USER@$INSTANCE_HOST"
-    run_ssh_cmd $INSTANCE_HOST $INSTANCE_USER "uname -s" Linux
+    INSTANCE_USER=$(get_arg -ssh-user alpine)
+    $BKJS_BIN ec2-launch-instance -ssh-user "$INSTANCE_USER" $(get_all_args "-ssh-user")
     [ "$?" != "0" ] && exit 1
 
     # Run the hooks to do the actual work now
-    INSTANCE_IP=$(echo "$INSTANCE_INFO"|cut -d' ' -f4)
-    INSTANCE_ARCH=$(echo "$INSTANCE_INFO"|cut -d' ' -f5)
-    INSTANCE_TAG=$(echo "$INSTANCE_INFO"|cut -d' ' -f6)
     run_bkjs_cmd $BKJS_CMD-hook 1
     exit
     ;;

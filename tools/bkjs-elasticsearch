@@ -31,7 +31,7 @@ case "$BKJS_CMD" in
             platform="$platform-x86_64"
             ;;
         esac
-        ver=$(get_arg -version 7.17.19)
+        ver=$(get_arg -version 7.17.25)
         tar=elasticsearch-$ver-$platform.tar.gz
         if [ ! -f $tar ]; then
             curl -OL https://artifacts.elastic.co/downloads/elasticsearch/$tar
@@ -60,6 +60,7 @@ case "$BKJS_CMD" in
             echo 'cloud.node.auto_attributes: true' >> $cfg
             echo 'cluster.routing.allocation.awareness.attributes: aws_availability_zone' >> $cfg
             bin/elasticsearch-plugin install discovery-ec2 -b
+            bin/elasticsearch-plugin install repository-s3 -b
         fi
         echo "-Dlog4j2.formatMsgNoLookups=true" >> config/jvm.options
     fi
@@ -128,18 +129,6 @@ case "$BKJS_CMD" in
     rm -rf $BKJS_HOME/var/nodes
     rm -f $BKJS_HOME/log/elasticsearch*
     $0 elasticsearch-run
-    exit
-    ;;
-
-  elasticsearch-upgrade-node)
-    host=$(get_arg -host ${ES_HOST:-localhost})
-    memsize=$(get_arg -memsize 50)
-    nodetype=$($get_arg -nodetype)
-    $0 es-stop-replication -host $host
-    $0 elasticsearch-stop
-    $0 elasticsearch-get -force
-    $0 elasticsearch-run -nodetype "$nodetype" -memsize $memsize
-    $0 es-start-replication -host $host
     exit
     ;;
 
