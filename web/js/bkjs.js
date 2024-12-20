@@ -11,300 +11,271 @@ var bkjs = {
     // Support sessions by storing wildcard signature in the cookies
     session: 1,
 
-    htz: "bk-tz",
-    hcsrf: "bk-csrf",
-
     // HTTP headers to be sent with every request
     headers: {},
-
-    // For urls without host this will be used to make a full absolute URL, can be used for CORS
-    locationUrl: "",
 
     // Current account record
     account: {},
 
-    // i18n locales by 2-letter code, uses account.lang to resolve the translation
-    locales: {},
+    // App base
+    appPath: "/app/",
+    appLocation: window.location.origin + "/app/",
 
-    isF: (x) => (typeof x === "function"),
-    isS: (x) => (typeof x === "string"),
-    isB: (x) => (typeof x === "boolean"),
-    isO: (x) => (typeof x === "object"),
-    isN: (x) => (typeof x === "number"),
-    isU: (x) => (typeof x === "undefined"),
-    isE: (x) => (x === null || typeof x === "undefined"),
-    isH: (x) => (x instanceof HTMLElement),
-    cb: (c, e, ...a) => (bkjs.isF(c) && c(e, ...a)),
+    // Component definitions
+    components: {},
+    templates: { none: "<span></span>" },
+
+    // Short functions
+    noop: () => {},
+    log: (...args) => console.log(...args),
+    trace: (...args) => (bkjs.debug && console.log(...args)),
+
+    // Private fields
+    _ready: [],
+    _events: {},
+    _plugins: [],
+
 };
 
-bkjs.fetchOpts = function(options)
+// EVENT EMITTER PROTOCOL
+bkjs.on = function(event, callback)
 {
-    var headers = options.headers || {};
-    var opts = this.objExtend({
-        headers: headers,
-        method: options.type || "POST",
-        cache: "default",
-    }, options.fetchOptions);
-
-    if (opts.method == "GET" || opts.method == "HEAD") {
-        if (this.isO(options.data)) {
-            options.url += "?" + this.toQuery(options.data);
-        }
-    } else
-    if (this.isS(options.data)) {
-        opts.body = options.data;
-        headers["content-type"] = options.contentType || 'application/x-www-form-urlencoded; charset=UTF-8';
-    } else
-    if (options.data instanceof FormData) {
-        opts.body = options.data;
-        delete headers["content-type"];
-    } else
-    if (this.isO(options.data)) {
-        opts.body = JSON.stringify(options.data);
-        headers["content-type"] = "application/json; charset=UTF-8";
-    } else
-    if (options.data) {
-        opts.body = options.data;
-        headers["content-type"] = options.contentType || "application/octet-stream";
-    }
-    return opts;
+    if (typeof event != "string" || typeof callback != "function") return;
+    if (!bkjs._events[event]) bkjs._events[event] = [];
+    bkjs._events[event].push(callback);
 }
 
-bkjs.fetch = function(options, callback)
+bkjs.off = function(event, callback)
 {
-    try {
-        const opts = this.fetchOpts(options);
-        window.fetch(options.url, opts).
-        then(async (res) => {
-            var err, data;
-            var info = { status: res.status, headers: {}, type: res.type };
-            for (const h of res.headers) info.headers[h[0].toLowerCase()] = h[1];
-            if (!res.ok) {
-                if (/\/json/.test(info.headers["content-type"])) {
-                    const d = await res.json();
-                    err = { status: res.status };
-                    for (const p in d) err[p] = d[p];
-                } else {
-                    err = { message: await res.text(), status: res.status };
-                }
-                return this.cb(callback, err, data, info);
+    if (!bkjs._events[event] || typeof callback != "function") return;
+    const i = bkjs._events[event].indexOf(callback);
+    if (i > -1) return bkjs._events[event].splice(i, 1);
+}
+
+bkjs.emit = function(event, ...args)
+{
+    if (!bkjs._events[event]) return;
+    for (const cb of bkjs._events[event]) cb(...args);
+}
+
+// READY CALLBACKS
+bkjs.ready = function(callback)
+{
+    if (typeof callback == "function") bkjs._ready.push(callback);
+    if (document.readyState == "loading") return;
+    while (bkjs._ready.length) setTimeout(bkjs._ready.shift());
+}
+
+// ROUTER
+
+// Save a path in the history
+bkjs.pushLocation = function(path)
+{
+    if (!path || path == bkjs._appLocation) return;
+    bkjs.trace("pushLocation:", path)
+    window.history.pushState({}, "", bkjs.appLocation + path);
+    bkjs._appLocation = path;
+}
+
+// Parse the path and return an object to show as component, path can be an URL with params
+// /name/param/param2/param3 -> { name, params: { param, param2, params3... } }
+bkjs.parseLocation = function(path, query)
+{
+    var rc = { name: path, params: {} };
+
+    if (typeof path == "string") {
+        const q = path.indexOf("?");
+        if (q > 0) {
+            query = path.substr(q + 1);
+            rc.name = path = path.substr(0, q);
+        }
+        if (path.includes("/")) {
+            path = path.split("/").slice(0, 5);
+            rc.name = path.shift();
+            for (let i = 0; i < path.length; i++) {
+                if (!path[i]) continue;
+                rc.params[`param${i ? i + 1 : ""}`] = path[i];
             }
-            switch (options.dataType) {
-            case "text":
-                data = await res.text();
-                break;
-            case "blob":
-                data = await res.blob();
-                break;
-            default:
-                data = /\/json/.test(info.headers["content-type"]) ? await res.json() : await res.text();
-            }
-            this.cb(callback, null, data, info);
-        }).catch ((err) => {
-            this.cb(callback, err);
+        }
+    }
+    if (typeof query == "string") {
+        query.split("&").forEach((x) => {
+            x = x.split("=");
+            rc.params[x[0]] = decodeURIComponent(x[1]);
         });
-    } catch (err) {
-        this.cb(callback, err);
+    }
+    return rc;
+}
+
+// Parse given path againbst current location
+bkjs.restoreLocation = function(path)
+{
+    var loc = window.location;
+    if (path && !bkjs.appLocation.startsWith(loc.origin + path)) path = "";
+    var location = loc.origin + (path || loc.pathname);
+    var rc = bkjs.parseLocation(location.substr(bkjs.appLocation.length));
+    bkjs.trace("restoreLocation:", location, rc);
+    return rc;
+}
+
+// COMPONENTS
+
+// Returns a template and component by name
+bkjs.findComponent = function(name)
+{
+    if (!name) return;
+    const rc = bkjs.parseLocation(name);
+
+    rc.template = bkjs.templates[rc.name];
+    if (!rc.template) {
+        rc.template = document.getElementById(rc.name)?.innerHTML;
+    }
+    if (rc.template?.startsWith("#")) {
+        rc.template = document.getElementById(rc.template.substr(1))?.innerHTML;
+    } else
+    if (rc.template?.startsWith("$")) {
+        rc.template = bkjs.templates[rc.template.substr(1)];
+    }
+    if (!rc.template) return;
+    rc.component = bkjs.components[rc.name];
+    return rc;
+}
+
+// For the given path or current location show a component or default one
+bkjs.restoreComponent = function(path, dflt)
+{
+    var loc = bkjs.restoreLocation(path);
+    dflt = dflt || bkjs.appIndex;
+    if (dflt) Object.assign(loc.params, { $index: dflt });
+    bkjs.showComponent(loc.name, loc.params);
+}
+
+// Store the given component in the history as /name/param/param2/param3/...
+bkjs.saveComponent = function(name, options)
+{
+    if (!name || options?.$nohistory || options?.$target) return;
+    var path = [name];
+    for (let i = 0; i < 5; i++) path.push(options[`param${i ? i + 1 : ""}`] || "");
+    while (!path.at(-1)) path.length--;
+    bkjs.pushLocation(path.join("/"));
+}
+
+// PLUGINS
+bkjs.plugin = function(callback)
+{
+    if (typeof callback != "function") return;
+    bkjs._plugins.push(callback);
+}
+
+bkjs.applyPlugins = function(target)
+{
+    if (!target) return;
+    for (const cb of bkjs._plugins) cb(target);
+}
+
+// DOM SHORTCUTS
+bkjs.$ = function(selector)
+{
+    return document.querySelector(bkjs.$esc(selector));
+}
+
+bkjs.$all = function(selector)
+{
+    return document.querySelectorAll(bkjs.$esc(selector));
+}
+
+bkjs.$esc = function(selector)
+{
+    return typeof selector == "string" ? selector.replace(/#([^\s"#']+)/g, (_, id) => `#${CSS.escape(id)}`) : "";
+}
+
+bkjs.$on = function(element, event, callback, ...arg)
+{
+    return typeof callback == "function" && element.addEventListener(event, callback, ...arg);
+}
+
+bkjs.$off = function(element, event, callback, ...arg)
+{
+    return typeof callback == "function" && element.removeEventListener(event, callback, ...arg);
+}
+
+bkjs.$attr = function(element, attr, value)
+{
+    if (!(element instanceof HTMLElement)) return;
+    return value === undefined ? element.getAttribute(attr) :
+           value === null ? element.removeAttribute(attr) :
+           element.setAttribute(attr, value);
+}
+
+bkjs.$empty = function(element, callback)
+{
+    if (!(element instanceof HTMLElement)) return;
+    while (element.firstChild) {
+        const node = element.firstChild;
+        node.remove();
+        bkjs.call(callback, node);
     }
 }
 
-// Send signed AJAX request using jQuery, call callbacks onsuccess or onerror on successful or error response accordingly.
-// - options can be a string with url or an object with options.url, options.data and options.type properties,
-// - for POST set options.type to POST and provide options.data
-//
-bkjs.send = function(options, onsuccess, onerror)
+// Create a DOM elements with attributes, .name is style.name, :name is a property otherwise an attribute
+bkjs.$create = function(name, ...arg)
 {
-    if (this.isS(options)) options = { url: options };
-    if (this.locationUrl && !/^https?:/.test(options.url)) options.url = this.locationUrl + options.url;
-    if (!options.headers) options.headers = {};
-    if (!options.type) options.type = 'POST';
-    options.headers[this.htz] = (new Date()).getTimezoneOffset();
-    for (const p in this.headers) if (this.isU(options.headers[p])) options.headers[p] = this.headers[p];
-    for (const p in options.data) if (this.isU(options.data[p])) delete options.data[p];
-    this.event("bkjs.loading", "show");
-
-    this[options.xhr ? "xhr" : "fetch"](options, (err, data, info) => {
-        this.event("bkjs.loading", "hide");
-
-        var h = info?.headers[this.hcsrf] || "";
-        switch (h) {
-        case "":
-            break;
-        case "0":
-            delete this.headers[this.hcsrf];
-            break;
-        default:
-            this.headers[this.hcsrf] = h;
-        }
-
-        if (err) {
-            if (!options.quiet) this.log('send:', err, options);
-            if (options.alert) {
-                var a = this.isS(options.alert) && options.alert;
-                this.event("bkjs.alert", ["error", a || err, { safe: !a }]);
-            }
-            if (this.isF(onerror)) onerror.call(options.self || this, err, info);
-            if (options.trigger) this.event(options.trigger, { url: options.url, query: options.data, err: err });
-        } else {
-            if (!data && options.dataType == 'json') data = {};
-            if (options.info_msg || options.success_msg) {
-                this.event("bkjs.alert", [options.info_msg ? "info" : "success", options.info_msg || options.success_msg]);
-            }
-            if (this.isF(onsuccess)) onsuccess.call(options.self || this, data, info);
-            if (options.trigger) this.event(options.trigger, { url: options.url, query: options.data, data: data });
-        }
-    });
-}
-
-bkjs.asend = function(options)
-{
-    return new Promise((resolve, reject) => {
-        bkjs.send(options, resolve, reject);
-    });
-}
-
-bkjs.get = function(options, callback)
-{
-    this.sendRequest(this.objExtend(options, { type: "GET" }), callback);
-}
-
-// Make a request and use single callback with error as the first argument or null if no error
-bkjs.sendRequest = function(options, callback)
-{
-    return this.send(options, (data, info) => {
-        if (this.isF(callback)) callback.call(options.self || this, null, data, info);
-    }, (err, info) => {
-        if (this.isF(callback)) callback.call(options.self || this, err, {}, info);
-    });
-}
-
-bkjs.asendRequest = function(options)
-{
-    return new Promise((resolve, reject) => {
-        bkjs.sendRequest(options, (err, rc, info) => {
-            if (err) reject(err, info); else resolve(rc, info);
-        });
-    });
-}
-
-// Send a file as multi-part upload, uses `options.name` or "data" for file namne. Additional files can be passed in the `options.files` object. Optional form inputs
-// can be specified in the `options.data` object.
-bkjs.sendFile = function(options, callback)
-{
-    var v, n = 0, form = new FormData(), files = {};
-    if (options.file) files[options.name || "data"] = options.file;
-    for (const p in options.files) files[p] = options.files[p];
-    for (const p in files) {
-        v = this.getFileInput(files[p]);
-        if (!v) continue;
-        form.append(p, v);
-        n++;
-    }
-    if (!n) return callback && callback.call(options.self || this);
-
-    const add = (k, v) => {
-       form.append(k, this.isF(v) ? v() : v === null || v === true ? "" : v);
-    }
-
-    const build = (key, val) => {
-        if (val === undefined) return;
-        if (Array.isArray(val)) {
-            for (const i in val) build(`${key}[${typeof val[i] === "object" && val[i] != null ? i : ""}]`, val[i]);
+    var el = document.createElement(name), key;
+    for (let i = 0; i < arg.length - 1; i += 2) {
+        key = arg[i];
+        if (typeof key != "string") continue;
+        if (typeof arg[i + 1] == "function") {
+            bkjs.$on(el, key, arg[i + 1], false);
         } else
-        if (this.isObject(val)) {
-            for (const n in val) build(`${key}[${n}]`, val[n]);
+        if (key.startsWith(".")) {
+            el.style[key.substr(1)] = arg[i + 1];
+        } else
+        if (key.startsWith("data-")) {
+            el.dataset[key.substr(5)] = arg[i + 1];
+        } else
+        if (key.startsWith(":")) {
+            el[key.substr(1)] = arg[i + 1];
         } else {
-            add(key, val);
+            el.setAttribute(key, arg[i + 1] ?? "");
         }
     }
-    for (const p in options.data) build(p, options.data[p]);
-    for (const p in options.json) {
-        const blob = new Blob([JSON.stringify(options.json[p])], { type: "application/json" });
-        form.append(p, blob);
-    }
-
-    // Send within the session, multipart is not supported by signature
-    var rc = { url: options.url, data: form };
-    for (const p in options) if (this.isU(rc[p])) rc[p] = options[p];
-    this.sendRequest(rc, callback);
+    return el;
 }
 
-bkjs.asendFile = function(options)
+// UTILS
+
+// Call a function safely with context:
+// bkjs.call(func,..)
+// bkjs.call(context, func, ...)
+// bkjs.call(context, method, ...)
+bkjs.call = function(obj, method, ...arg)
 {
-    return new Promise((resolve, reject) => {
-        bkjs.sendFile(options, (err, rc, info) => {
-            if (err) reject(err, info); else resolve(rc, info);
-        });
-    });
+    if (typeof obj == "function") return obj(method, ...arg);
+    if (typeof obj != "object") return;
+    if (typeof method == "function") return method.call(obj, ...arg);
+    if (typeof obj[method] == "function") return obj[method].call(obj, ...arg);
 }
 
-// Return a file object for the selector
-bkjs.getFileInput = function(file)
-{
-    if (this.isS(file)) file = $(file);
-    if (file instanceof jQuery && file.length) file = file[0];
-    if (this.isO(file)) {
-        if (file.files && file.files.length) return file.files[0];
-        if (!this.isH(file) && file.name && file.size && (file.type || file.lastModified)) return file;
-    }
-    return "";
-}
-
-bkjs.domainName = function(host)
-{
-    if (!this.isS(host) || !host) return "";
-    var name = host.split('.');
-    return (name.length > 2 ? name.slice(1).join('.') : host).toLowerCase();
-}
-
-// Return value of the query parameter by name
-bkjs.param = function(name, dflt, num)
+// Return value of a query parameter by name
+bkjs.param = function(name, dflt)
 {
     var d = location.search.match(new RegExp(name + "=(.*?)($|&)", "i"));
-    d = d ? decodeURIComponent(d[1]) : (dflt || "");
-    if (num) {
-        d = parseInt(d);
-        if (isNaN(d)) d = 0;
-    }
-    return d;
+    return d ? decodeURIComponent(d[1]) : dflt || "";
 }
 
-// Percent encode with special symbols in addition
-bkjs.encode = function(str)
-{
-    if (this.isU(str)) return "";
-    return encodeURIComponent(str).replace(/[!'()*]/g, (m) => (m == '!' ? '%21' : m == "'" ? '%27' : m == '(' ? '%28' : m == ')' ? '%29' : m == '*' ? '%2A' : m));
-}
-
-// Return a cookie value by name
-bkjs.cookie = function(name)
-{
-    if (!document.cookie) return "";
-    var cookies = document.cookie.split(';');
-    for (var i = 0; i < cookies.length; i++) {
-        var cookie = cookies[i].trim();
-        if (cookie.substr(0, name.length) == name && cookie[name.length] == '=') {
-            return decodeURIComponent(cookie.substr(name.length + 1));
-        }
-    }
-    return "";
-}
-
-// Simple debugging function that outputs arguments in the error console each argument on a separate line
-bkjs.log = function()
-{
-    if (console?.log) console.log.apply(console, arguments);
-}
-
-// Console output if debugging is enabled
-bkjs.trace = function(...args)
-{
-    if (this.debug) this.log(...args);
-}
-
-$(function() {
-    var h = $(`meta[name="${bkjs.hcsrf}"]`).attr('content');
-    if (h) bkjs.headers[bkjs.hcsrf] = h;
+bkjs.$on(window, "DOMContentLoaded", () => {
+    while (bkjs._ready.length) setTimeout(bkjs._ready.shift());
 });
 
+bkjs.ready(() => {
+
+    bkjs.$on(window, "popstate", () => (bkjs.restoreComponent()));
+
+    bkjs.on("component:created", (data) => {
+        bkjs.trace("component:created", data);
+        bkjs.applyPlugins(data?.element);
+        bkjs.saveComponent(data?.name, data?.params);
+    });
+
+});
 

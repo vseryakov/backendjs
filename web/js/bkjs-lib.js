@@ -3,12 +3,17 @@
  *  Vlad Seryakov vseryakov@gmail.com 2018
  */
 
-bkjs.noop = function() {}
-
-bkjs.inherits = function(ctor, superCtor)
+bkjs.inherits = function(ctor, superCtor, options)
 {
-    ctor.prototype = Object.create(superCtor.prototype);
-    ctor.prototype.constructor = ctor;
+    if (superCtor?.prototype) {
+        ctor.prototype = Object.create(superCtor.prototype);
+        ctor.prototype.constructor = ctor;
+    }
+    for (const p in options) {
+        if (typeof options[p] != "function") ctor[p] = options[p]; else
+        if (ctor.prototype) ctor.prototype[p] = options[p];
+    }
+    return ctor;
 }
 
 // Determine type of the object
@@ -30,6 +35,13 @@ bkjs.typeName = function(v)
         }
     }
     return t;
+}
+
+// Percent encode with special symbols in addition
+bkjs.encode = function(str)
+{
+    if (str === undefined) return "";
+    return encodeURIComponent(str).replace(/[!'()*]/g, (m) => (m == '!' ? '%21' : m == "'" ? '%27' : m == '(' ? '%28' : m == ')' ? '%29' : m == '*' ? '%2A' : m));
 }
 
 bkjs._formatPresets = {
@@ -55,35 +67,35 @@ bkjs._formatPresets = {
 // Format an object into nice JSON formatted text
 bkjs.formatJSON = function(obj, options)
 {
-    if (this.isS(options)) options = { indent: options };
+    if (typeof options == "string") options = { indent: options };
     if (!options) options = {};
     // Shortcut to parse and format json from the string
-    if (this.isS(obj) && obj != "") {
+    if (typeof obj == "string" && obj != "") {
         if (obj[0] != "[" && obj[0] != "{") return obj;
-        try { obj = JSON.parse(obj); } catch (e) { this.log(e) }
+        try { obj = JSON.parse(obj); } catch (e) { bkjs.log(e) }
     }
-    var preset = this._formatPresets[options.preset];
+    var preset = bkjs._formatPresets[options.preset];
     for (const p in preset) options[p] = preset[p];
 
     if (!options.level) options.level = 0;
     if (!options.indent) options.indent = "";
-    if (this.isU(options.nl1)) options.nl1 = "\n";
-    if (this.isU(options.nl2)) options.nl2 = "\n";
-    if (this.isU(options.sbracket1)) options.sbracket1 = "[";
-    if (this.isU(options.sbracket2)) options.sbracket2 = "]";
-    if (this.isU(options.cbracket1)) options.cbracket1 = "{";
-    if (this.isU(options.cbracket2)) options.cbracket2 = "}";
-    if (this.isU(options.quote1)) options.quote1 = '"';
-    if (this.isU(options.quote2)) options.quote2 = '"';
-    if (this.isU(options.squote1)) options.squote1 = '"';
-    if (this.isU(options.squote2)) options.squote2 = '"';
-    if (this.isU(options.space)) options.space = " ";
-    if (this.isU(options.nspace)) options.nspace = 4;
-    if (this.isU(options.comma)) options.comma = ", ";
-    if (this.isU(options.sep)) options.sep = ", ";
-    if (this.isU(options.prefix)) options.prefix = "";
+    if (options.nl1 === undefined) options.nl1 = "\n";
+    if (options.nl2 === undefined) options.nl2 = "\n";
+    if (options.sbracket1 === undefined) options.sbracket1 = "[";
+    if (options.sbracket2 === undefined) options.sbracket2 = "]";
+    if (options.cbracket1 === undefined) options.cbracket1 = "{";
+    if (options.cbracket2 === undefined) options.cbracket2 = "}";
+    if (options.quote1 === undefined) options.quote1 = '"';
+    if (options.quote2 === undefined) options.quote2 = '"';
+    if (options.squote1 === undefined) options.squote1 = '"';
+    if (options.squote2 === undefined) options.squote2 = '"';
+    if (options.space === undefined) options.space = " ";
+    if (options.nspace === undefined) options.nspace = 4;
+    if (options.comma === undefined) options.comma = ", ";
+    if (options.sep === undefined) options.sep = ", ";
+    if (options.prefix === undefined) options.prefix = "";
 
-    var type = this.typeName(obj);
+    var type = bkjs.typeName(obj);
     var count = 0, indent;
     var text = type == "array" ? options.sbracket1 : options.cbracket1;
     var map = options.map || "";
@@ -93,15 +105,15 @@ bkjs.formatJSON = function(obj, options)
     var prefix = options.__prefix;
     delete options.__prefix;
 
-    for (var p in obj) {
+    for (const p in obj) {
         if (options.ignore && options.ignore.test(p)) continue;
         var val = obj[p];
-        if (this.isF(options.preprocess)) {
+        if (typeof options.preprocess == "function") {
             val = options.preprocess(p, val, options);
-            if (this.isU(val)) continue;
+            if (val === undefined) continue;
         }
         if (options.skipnull && (val === "" || val === null || val === undefined)) continue;
-        if (options.skipempty && this.isEmpty(val)) continue;
+        if (options.skipempty && bkjs.isEmpty(val)) continue;
         if (options.skipvalue && options.skipvalue.test(val)) continue;
 
         if (count > 0) {
@@ -118,7 +130,7 @@ bkjs.formatJSON = function(obj, options)
         if (options.prefix && options.nl1) {
             text += options.nl1 + options.indent + options.prefix;
         }
-        switch (this.typeName(val)) {
+        switch (bkjs.typeName(val)) {
         case "array":
         case "object":
             if (type == "array" && options.prefix && options.nl1) {
@@ -128,7 +140,7 @@ bkjs.formatJSON = function(obj, options)
             }
             options.indent += indent;
             options.level++;
-            text += this.formatJSON(val, options);
+            text += bkjs.formatJSON(val, options);
             options.level--;
             options.indent = options.indent.substr(0, options.indent.length - indent.length);
             break;
@@ -153,7 +165,7 @@ bkjs.formatJSON = function(obj, options)
 
 bkjs.weekOfYear = function(date, utc)
 {
-    date = this.toDate(date, null);
+    date = bkjs.toDate(date, null);
     if (!date) return 0;
     utc = utc ? "UTC": "";
     var target = new Date(date.valueOf());
@@ -218,10 +230,10 @@ bkjs.tzMap = [
 // Return a timezone human name if matched (EST, PDT...), tz must be in GMT-NNNN format
 bkjs.tzName = function(tz)
 {
-    if (!tz || !this.isS(tz)) return "";
+    if (!tz || typeof tz != "string") return "";
     var t = tz.indexOf(":") > 0 ? tz.replace(":", "") : tz;
-    for (const i in this.tzMap) {
-        if (t == this.tzMap[i][1]) return this.tzMap[i][0];
+    for (const i in bkjs.tzMap) {
+        if (t == bkjs.tzMap[i][1]) return bkjs.tzMap[i][0];
     }
     return tz;
 }
@@ -229,75 +241,75 @@ bkjs.tzName = function(tz)
 // Format a Date object
 bkjs.strftime = function(date, fmt, options)
 {
-    date = this.toDate(date, null);
+    date = bkjs.toDate(date, null);
     if (!date) return "";
-    const tz = this.isN(options?.tz) ? options.tz : 0;
+    const tz = typeof options?.tz == "number" ? options.tz : 0;
     if (tz) date = new Date(date.getTime() - tz);
-    fmt = fmt || this.strftimeFormat;
+    fmt = fmt || bkjs.strftimeFormat;
     const cmds = {
         a: (t, utc, lang, tz) => {
-            if (lang && !this.strftimeMap.weekDays[lang]) {
-                this.strftimeMap.weekDays[lang] = this.strftimeMap.weekDays[""].map((x) => (this.__({ phrase: x, locale: lang })));
+            if (lang && !bkjs.strftimeMap.weekDays[lang]) {
+                bkjs.strftimeMap.weekDays[lang] = bkjs.strftimeMap.weekDays[""].map((x) => (bkjs.__({ phrase: x, locale: lang })));
             }
-            return this.strftimeMap.weekDays[lang || ""][utc ? t.getUTCDay() : t.getDay()]
+            return bkjs.strftimeMap.weekDays[lang || ""][utc ? t.getUTCDay() : t.getDay()]
         },
         A: (t, utc, lang, tz) => {
-            if (lang && !this.strftimeMap.weekDaysFull[lang]) {
-                this.strftimeMap.weekDaysFull[lang] = this.strftimeMap.weekDaysFull[""].map((x) => (this.__({ phrase: x, locale: lang })));
+            if (lang && !bkjs.strftimeMap.weekDaysFull[lang]) {
+                bkjs.strftimeMap.weekDaysFull[lang] = bkjs.strftimeMap.weekDaysFull[""].map((x) => (bkjs.__({ phrase: x, locale: lang })));
             }
-            return this.strftimeMap.weekDaysFull[lang || ""][utc ? t.getUTCDay() : t.getDay()]
+            return bkjs.strftimeMap.weekDaysFull[lang || ""][utc ? t.getUTCDay() : t.getDay()]
         },
         b: (t, utc, lang, tz) => {
-            if (lang && !this.strftimeMap.months[lang]) {
-                this.strftimeMap.months[lang] = this.strftimeMap.months[""].map((x) => (this.__({ phrase: x, locale: lang })));
+            if (lang && !bkjs.strftimeMap.months[lang]) {
+                bkjs.strftimeMap.months[lang] = bkjs.strftimeMap.months[""].map((x) => (bkjs.__({ phrase: x, locale: lang })));
             }
-            return this.strftimeMap.months[lang || ""][utc ? t.getUTCMonth() : t.getMonth()]
+            return bkjs.strftimeMap.months[lang || ""][utc ? t.getUTCMonth() : t.getMonth()]
         },
         B: (t, utc, lang, tz) => {
-            if (lang && !this.strftimeMap.monthsFull[lang]) {
-                this.strftimeMap.monthsFull[lang] = this.strftimeMap.monthsFull[""].map((x) => (this.__({ phrase: x, locale: lang })));
+            if (lang && !bkjs.strftimeMap.monthsFull[lang]) {
+                bkjs.strftimeMap.monthsFull[lang] = bkjs.strftimeMap.monthsFull[""].map((x) => (bkjs.__({ phrase: x, locale: lang })));
             }
-            return this.strftimeMap.monthsFull[lang || ""][utc ? t.getUTCMonth() : t.getMonth()]
+            return bkjs.strftimeMap.monthsFull[lang || ""][utc ? t.getUTCMonth() : t.getMonth()]
         },
         c: (t, utc, lang, tz) => (utc ? t.toUTCString() : t.toString()),
-        d: (t, utc, lang, tz) => (this.zeropad(utc ? t.getUTCDate() : t.getDate())),
-        e: (t, utc, lang, tz) => (this.spacepad(utc ? t.getUTCDate() : t.getDate())),
-        H: (t, utc, lang, tz) => (this.zeropad(utc ? t.getUTCHours() : t.getHours())),
-        I: (t, utc, lang, tz) => (this.zeropad((((utc ? t.getUTCHours() : t.getHours()) + 12) % 12) || 12)),
-        k: (t, utc, lang, tz) => (this.spacepad(utc ? t.getUTCHours() : t.getHours())),
-        l: (t, utc, lang, tz) => (this.spacepad((((utc ? t.getUTCHours() : t.getHours()) + 12) % 12) || 12)),
-        L: (t, utc, lang, tz) => (this.zeropad(utc ? t.getUTCMilliseconds() : t.getMilliseconds())),
-        m: (t, utc, lang, tz) => (this.zeropad((utc ? t.getUTCMonth() : t.getMonth()) + 1)), // month-1
-        M: (t, utc, lang, tz) => (this.zeropad(utc ? t.getUTCMinutes() : t.getMinutes())),
+        d: (t, utc, lang, tz) => (bkjs.zeropad(utc ? t.getUTCDate() : t.getDate())),
+        e: (t, utc, lang, tz) => (bkjs.spacepad(utc ? t.getUTCDate() : t.getDate())),
+        H: (t, utc, lang, tz) => (bkjs.zeropad(utc ? t.getUTCHours() : t.getHours())),
+        I: (t, utc, lang, tz) => (bkjs.zeropad((((utc ? t.getUTCHours() : t.getHours()) + 12) % 12) || 12)),
+        k: (t, utc, lang, tz) => (bkjs.spacepad(utc ? t.getUTCHours() : t.getHours())),
+        l: (t, utc, lang, tz) => (bkjs.spacepad((((utc ? t.getUTCHours() : t.getHours()) + 12) % 12) || 12)),
+        L: (t, utc, lang, tz) => (bkjs.zeropad(utc ? t.getUTCMilliseconds() : t.getMilliseconds())),
+        m: (t, utc, lang, tz) => (bkjs.zeropad((utc ? t.getUTCMonth() : t.getMonth()) + 1)), // month-1
+        M: (t, utc, lang, tz) => (bkjs.zeropad(utc ? t.getUTCMinutes() : t.getMinutes())),
         p: (t, utc, lang, tz) => ((utc ? t.getUTCHours() : t.getHours()) < 12 ? 'am' : 'pm'),
-        S: (t, utc, lang, tz) => (this.zeropad(utc ? t.getUTCSeconds() : t.getSeconds())),
+        S: (t, utc, lang, tz) => (bkjs.zeropad(utc ? t.getUTCSeconds() : t.getSeconds())),
         w: (t, utc, lang, tz) => (utc ? t.getUTCDay() : t.getDay()), // 0..6 == sun..sat
-        W: (t, utc, lang, tz) => (this.zeropad(this.weekOfYear(t, utc))),
-        y: (t, utc, lang, tz) => (this.zeropad(t.getYear() % 100)),
+        W: (t, utc, lang, tz) => (bkjs.zeropad(bkjs.weekOfYear(t, utc))),
+        y: (t, utc, lang, tz) => (bkjs.zeropad(t.getYear() % 100)),
         Y: (t, utc, lang, tz) => (utc ? t.getUTCFullYear() : t.getFullYear()),
         t: (t, utc, lang, tz) => (t.getTime()),
         u: (t, utc, lang, tz) => (Math.floor(t.getTime()/1000)),
         Z: (t, utc, lang, tz) => {
             tz = tz ? tz/60000 : t.getTimezoneOffset();
-            return "GMT" + (tz < 0 ? "+" : "-") + this.zeropad(Math.abs(-tz/60)) + "00";
+            return "GMT" + (tz < 0 ? "+" : "-") + bkjs.zeropad(Math.abs(-tz/60)) + "00";
         },
         zz: (t, utc, lang, tz) => (cmds.z(t, utc, lang, tz, 1)),
         z: (t, utc, lang, tz, zz) => {
             tz = tz ? tz/60000 : t.getTimezoneOffset();
-            tz = "GMT" + (tz < 0 ? "+" : "-") + this.zeropad(Math.abs(-tz/60)) + "00";
-            var dst = this.isDST(t);
-            for (var i in this.tzMap) {
-                if (tz == this.tzMap[i][1] && (dst === this.tzMap[i][2])) {
-                    return zz ? tz + " " + this.tzMap[i][0] : this.tzMap[i][0];
+            tz = "GMT" + (tz < 0 ? "+" : "-") + bkjs.zeropad(Math.abs(-tz/60)) + "00";
+            var dst = bkjs.isDST(t);
+            for (var i in bkjs.tzMap) {
+                if (tz == bkjs.tzMap[i][1] && (dst === bkjs.tzMap[i][2])) {
+                    return zz ? tz + " " + bkjs.tzMap[i][0] : bkjs.tzMap[i][0];
                 }
             }
             return tz;
         },
         Q: (t, utc, lang, tz) => {
             var h = utc ? t.getUTCHours() : t.getHours();
-            return h < 12 ? this.__({ phrase: "Morning", locale: lang }) :
-                   h < 17 ? this.__({ phrase: "Afternoon", locale: lang }) :
-                   this.__({ phrase: "Evening", locale: lang }) },
+            return h < 12 ? bkjs.__({ phrase: "Morning", locale: lang }) :
+                   h < 17 ? bkjs.__({ phrase: "Afternoon", locale: lang }) :
+                   bkjs.__({ phrase: "Evening", locale: lang }) },
                    '%': function() { return '%' },
     };
 
@@ -307,30 +319,31 @@ bkjs.strftime = function(date, fmt, options)
     return fmt;
 }
 
-bkjs.sprintf = function(str, args)
+bkjs.sprintf = function(fmt, args)
 {
-    var i = 0, arr = arguments;
-    if (arguments.length == 2 && Array.isArray(args)) i = -1, arr = args;
+    if (typeof fmt != "string") return "";
+    var i = -1, regex = /%(-)?(0?[0-9]+)?([.][0-9]+)?([#][0-9]+)?([scfpexdz])/g;
 
-    const format = (sym, p0, p1, p2, p3, p4) => {
+    return fmt.replace(regex, (sym, p0, p1, p2, p3, p4) => {
         if (sym == '%%') return '%';
-        if (arr[++i] === undefined) return undefined;
+        if (args[++i] === undefined) return undefined;
+        var arg = args[i];
         var exp = p2 ? parseInt(p2.substr(1)) : undefined;
         var base = p3 ? parseInt(p3.substr(1)) : undefined;
         var val;
         switch (p4) {
         case 's':
-            val = arr[i];
+            val = arg;
             break;
         case 'c':
-            val = arr[i][0];
+            val = arg[0];
             break;
         case 'f':
-            val = parseFloat(arr[i]).toFixed(exp);
+            val = parseFloat(arg).toFixed(exp);
             if (isNaN(val)) val = 0;
             break;
         case 'g':
-            val = parseFloat(arr[i]).toFixed(exp);
+            val = parseFloat(arg).toFixed(exp);
             if (isNaN(val)) val = 0;
             if (val.indexOf(".") > -1) {
                 while (val[val.length - 1] == "0") val = val.slice(0, -1);
@@ -338,117 +351,111 @@ bkjs.sprintf = function(str, args)
             }
             break;
         case 'p':
-            val = parseFloat(arr[i]).toPrecision(exp);
+            val = parseFloat(arg).toPrecision(exp);
             if (isNaN(val)) val = 0;
             break;
         case 'e':
-            val = parseFloat(arr[i]).toExponential(exp);
+            val = parseFloat(arg).toExponential(exp);
             if (isNaN(val)) val = 0;
             break;
         case 'x':
-            val = parseInt(arr[i]).toString(base ? base : 16);
+            val = parseInt(arg).toString(base ? base : 16);
             if (isNaN(val)) val = 0;
             break;
         case 'd':
-            val = parseFloat(parseInt(arr[i], base ? base : 10).toPrecision(exp)).toFixed(0);
+            val = parseFloat(parseInt(arg, base ? base : 10).toPrecision(exp)).toFixed(0);
             if (isNaN(val)) val = 0;
             break;
         }
-        val = this.isO(val) ? JSON.stringify(val) : val.toString(base);
+        val = typeof val == "object" ? JSON.stringify(val) : val.toString(base);
         var sz = parseInt(p1); /* padding size */
         var ch = p1 && p1[0] == '0' ? '0' : ' '; /* isnull? */
         while (val.length < sz) val = p0 !== undefined ? val + ch : ch + val; /* isminus? */
         return val;
-    }
-    var regex = /%(-)?(0?[0-9]+)?([.][0-9]+)?([#][0-9]+)?([scfpexdg])/g;
-    return str.replace(regex, format);
+    });
 }
 
 // Apply an iterator function to each item in an array serially. Execute a callback when all items
 // have been completed or immediately if there is is an error provided.
-bkjs.forEachSeries = function(list, iterator, callback)
+bkjs.forEachSeries = function(list, iterator, callback, direct = true)
 {
-    callback = this.isF(callback) ? callback : this.noop;
+    callback = typeof callback == "function" ? callback : bkjs.noop;
     if (!Array.isArray(list) || !list.length) return callback();
-    function iterate(i, data) {
-        if (i >= list.length) return callback(null, data);
-        iterator(list[i], (err, data) => {
-            if (err) {
-                callback(err, data);
-                callback = function() {};
+    function iterate(i, ...args) {
+        if (i >= list.length) return direct ? callback(null, ...args) : setTimeout(callback, 0, null, ...args);
+        iterator(list[i], (...args) => {
+            if (args[0]) {
+                if (direct) callback(...args); else setTimeout(callback, 0, ...args);
+                callback = bkjs.noop;
             } else {
-                iterate(++i, data);
+                iterate(++i, ...args.slice(1));
             }
-        }, data);
+        }, ...args);
     }
     iterate(0);
 }
 
 // Execute a list of functions serially and execute a callback upon completion or occurance of an error.
-bkjs.series = function(tasks, callback)
+bkjs.series = function(tasks, callback, direct = true)
 {
-    this.forEachSeries(tasks, (task, next, data1) => {
-        task(next, data1);
-    }, (err, data) => {
-        if (this.isF(callback)) callback(err, data);
-    });
+    bkjs.forEachSeries(tasks, (task, next, ...args) => {
+        if (direct) task(next, ...args); else setTimeout(task, 0, next, ...args);
+    }, callback, direct);
 }
 
 // Apply an iterator function to each item in an array in parallel. Execute a callback when all items
 // have been completed or immediately if there is an error provided
-bkjs.forEach = function(list, iterator, callback)
+bkjs.forEach = function(list, iterator, callback, direct = true)
 {
-    callback = this.isF(callback) ? callback : this.noop;
+    callback = typeof callback == "function" ? callback : bkjs.noop;
     if (!Array.isArray(list) || !list.length) return callback();
     var count = list.length;
     for (var i = 0; i < list.length; i++) {
         iterator(list[i], (err) => {
             if (err) {
-                callback(err);
-                callback = function() {};
+                if (direct) callback(err); else setTimeout(callback, 0, err);
+                callback = bkjs.noop;
                 i = list.length + 1;
             } else
             if (--count == 0) {
-                callback();
-                callback = function() {};
+                if (direct) callback(); else setTimeout(callback, 0);
+                callback = bkjs.noop;
             }
         });
     }
 }
 
 // Execute a list of functions in parallel and execute a callback upon completion or occurance of an error.
-bkjs.parallel = function(tasks, callback)
+bkjs.parallel = function(tasks, callback, direct = true)
 {
-    this.forEach(tasks, (task, next) => {
+    bkjs.forEach(tasks, (task, next) => {
         task(next);
-    }, (err) => {
-        if (this.isF(callback)) callback(err);
-    });
+    }, callback, direct);
 }
 
 // Return Date object for given text or numeric date representation, for invalid date returns 1969 unless `invalid` parameter is given,
 // in this case invalid date returned as null. If `dflt` is NaN, null or 0 returns null as well.
 bkjs.toDate = function(val, dflt, invalid)
 {
-    if (this.isF(val?.getTime)) return val;
+    if (typeof val?.getTime == "function") return val;
     var d = NaN;
     // String that looks like a number
-    if (this.isS(val)) {
-        val = /^[0-9.]+$/.test(val) ? this.toNumber(val) : val.replace(/([0-9])(AM|PM)/i, "$1 $2");
+    if (typeof val == "string") {
+        val = /^[0-9.]+$/.test(val) ? bkjs.toNumber(val) : val.replace(/([0-9])(AM|PM)/i, "$1 $2");
     }
-   if (this.isN(val)) {
+   if (typeof val == "number") {
         // Convert nanoseconds to milliseconds
         if (val > 2147485547000) val = Math.round(val / 1000);
         // Convert seconds to milliseconds
         if (val < 2147483647) val *= 1000;
     }
-    if (!this.isS(val) && !this.isN(val)) val = d;
+    if (typeof val != "string" && typeof val != "number") val = d;
     // Remove unsupported timezone names
-    if (this.isS(val)) {
+    if (typeof val == "string") {
         var gmt = val.indexOf("GMT") > -1;
-        for (const i in this.tzMap) {
-            if ((gmt || this.tzMap[i][3] === false) && val.indexOf(this.tzMap[i][0]) > -1) {
-                val = val.replace(this.tzMap[i][0], "");
+        for (const i in bkjs.tzMap) {
+            if ((gmt || bkjs.tzMap[i][3] === false) && val.indexOf(bkjs.tzMap[i][0]) > -1) {
+                val = val.replace(bkjs.tzMap[i][0], "");
             }
         }
     }
@@ -460,7 +467,7 @@ bkjs.toDate = function(val, dflt, invalid)
 bkjs.toAge = function(mtime, options)
 {
     var str = "";
-    mtime = this.isN(mtime) ? mtime : this.toNumber(mtime);
+    mtime = typeof mtime == "number" ? mtime : bkjs.toNumber(mtime);
     if (mtime > 0) {
         var secs = Math.floor((Date.now() - mtime)/1000);
         var d = Math.floor(secs / 86400);
@@ -470,29 +477,29 @@ bkjs.toAge = function(mtime, options)
         var m = Math.floor((secs - d * 86400 - h * 3600) / 60);
         var s = Math.floor(secs - d * 86400 - h * 3600 - m * 60);
         if (mm > 0) {
-            str = mm > 1 ? this.__("%s months", mm) : this.__("1 month");
-            if (d > 0) str += " " + (d > 1 ? this.__("%s days", d) : this.__("1 day"));
-            if (h > 0) str += " " + (h > 1 ? this.__("%s hours", h) : this.__("1 hour"));
+            str = mm > 1 ? bkjs.__("%s months", mm) : bkjs.__("1 month");
+            if (d > 0) str += " " + (d > 1 ? bkjs.__("%s days", d) : bkjs.__("1 day"));
+            if (h > 0) str += " " + (h > 1 ? bkjs.__("%s hours", h) : bkjs.__("1 hour"));
         } else
             if (w > 0) {
-                str = w > 1 ? this.__("%s weeks", w) : this.__("1 week");
-                if (d > 0) str += " " + (d > 1 ? this.__("%s days", d) : this.__("1 day"));
-                if (h > 0) str += " " + (h > 1 ? this.__("%s hours", h) : this.__("1 hour"));
+                str = w > 1 ? bkjs.__("%s weeks", w) : bkjs.__("1 week");
+                if (d > 0) str += " " + (d > 1 ? bkjs.__("%s days", d) : bkjs.__("1 day"));
+                if (h > 0) str += " " + (h > 1 ? bkjs.__("%s hours", h) : bkjs.__("1 hour"));
             } else
                 if (d > 0) {
-                    str = d > 1 ? this.__("%s days", d) : this.__("1 day");
-                    if (h > 0) str += " " + (h > 1 ? this.__("%s hours", h) : this.__("1 hour"));
-                    if (m > 0) str += " " + (m > 1 ? this.__("%s minutes", m) : this.__("1 minute"));
+                    str = d > 1 ? bkjs.__("%s days", d) : bkjs.__("1 day");
+                    if (h > 0) str += " " + (h > 1 ? bkjs.__("%s hours", h) : bkjs.__("1 hour"));
+                    if (m > 0) str += " " + (m > 1 ? bkjs.__("%s minutes", m) : bkjs.__("1 minute"));
                 } else
                     if (h > 0) {
-                        str = h > 1 ? this.__("%s hours", h) : this.__("1 hour");
-                        if (m > 0) str += " " + (m > 1 ? this.__("%s minutes", m) : this.__("1 minute"));
+                        str = h > 1 ? bkjs.__("%s hours", h) : bkjs.__("1 hour");
+                        if (m > 0) str += " " + (m > 1 ? bkjs.__("%s minutes", m) : bkjs.__("1 minute"));
                     } else
                         if (m > 0) {
-                            str = m > 1 ? this.__("%s minutes", m) : this.__("1 minute");
-                            if (s > 0) str += " " + (s > 1 ? this.__("%s seconds", s) : this.__("1 second"));
+                            str = m > 1 ? bkjs.__("%s minutes", m) : bkjs.__("1 minute");
+                            if (s > 0) str += " " + (s > 1 ? bkjs.__("%s seconds", s) : bkjs.__("1 second"));
                         } else {
-                            str = secs > 1 ? this.__("%s seconds", secs) : this.__("1 second");
+                            str = secs > 1 ? bkjs.__("%s seconds", secs) : bkjs.__("1 second");
                         }
     }
     return str;
@@ -501,7 +508,7 @@ bkjs.toAge = function(mtime, options)
 bkjs.toDuration = function(mtime, options)
 {
     var str = "";
-    mtime = this.isN(mtime) ? mtime : this.toNumber(mtime);
+    mtime = typeof mtime == "number" ? mtime : bkjs.toNumber(mtime);
     if (mtime > 0) {
         var seconds = Math.floor(mtime/1000);
         var d = Math.floor(seconds / 86400);
@@ -509,27 +516,27 @@ bkjs.toDuration = function(mtime, options)
         var m = Math.floor((seconds - d * 86400 - h * 3600) / 60);
         var s = Math.floor(seconds - d * 86400 - h * 3600 - m * 60);
         if (d > 0) {
-            str = d > 1 ? this.__("%s days", d) :
-                          this.__("1 day");
-            if (h > 0) str += " " + (h > 1 ? this.__("%s hours", h) :
-                                             this.__("1 hour"));
-            if (m > 0) str += " " + (m > 1 ? this.__("%s minutes", m) :
-                                             this.__("1 minute"));
+            str = d > 1 ? bkjs.__("%s days", d) :
+                          bkjs.__("1 day");
+            if (h > 0) str += " " + (h > 1 ? bkjs.__("%s hours", h) :
+                                             bkjs.__("1 hour"));
+            if (m > 0) str += " " + (m > 1 ? bkjs.__("%s minutes", m) :
+                                             bkjs.__("1 minute"));
         } else
             if (h > 0) {
-                str = h > 1 ? this.__("%s hours", h) :
-                              this.__("1 hour");
-                if (m > 0) str += " " + (m > 1 ? this.__("%s minutes", m) :
-                                                 this.__("1 minute"));
+                str = h > 1 ? bkjs.__("%s hours", h) :
+                              bkjs.__("1 hour");
+                if (m > 0) str += " " + (m > 1 ? bkjs.__("%s minutes", m) :
+                                                 bkjs.__("1 minute"));
             } else
                 if (m > 0) {
-                    str = m > 1 ? this.__("%s minutes", m) :
-                                  this.__("1 minute");
-                    if (s > 0) str += " " + (s > 1 ? this.__("%s seconds", s) :
-                                                     this.__("1 second"));
+                    str = m > 1 ? bkjs.__("%s minutes", m) :
+                                  bkjs.__("1 minute");
+                    if (s > 0) str += " " + (s > 1 ? bkjs.__("%s seconds", s) :
+                                                     bkjs.__("1 second"));
                 } else {
-                    str = seconds > 1 ? this.__("%s seconds", seconds) :
-                                        this.__("1 second");
+                    str = seconds > 1 ? bkjs.__("%s seconds", seconds) :
+                                        bkjs.__("1 second");
                 }
     }
     return str;
@@ -538,12 +545,12 @@ bkjs.toDuration = function(mtime, options)
 bkjs.toSize = function(size, decimals)
 {
     var i = size > 0 ? Math.floor(Math.log(size) / Math.log(1024)) : 0;
-    return (size / Math.pow(1024, i)).toFixed(this.isN(decimals) ? decimals : 2) * 1 + ' ' + [this.__('Bytes'), this.__('KBytes'), this.__('MBytes'), this.__('GBytes'), this.__('TBytes')][i];
+    return (size / Math.pow(1024, i)).toFixed(typeof decimals == "number" ? decimals : 2) * 1 + ' ' + [bkjs.__('Bytes'), bkjs.__('KBytes'), bkjs.__('MBytes'), bkjs.__('GBytes'), bkjs.__('TBytes')][i];
 }
 
 bkjs.autoType = function(val)
 {
-    return this.isNumeric(val) ? "number":
+    return bkjs.isNumeric(val) ? "number":
            typeof val == "boolean" || val == "true" || val == "false" ? "bool":
            typeof val == "string" ?
            val[0] == "^" && val.slice(-1) == "$" ? "regexp":
@@ -564,20 +571,20 @@ bkjs.isFlag = function(list, name)
 
 bkjs.isObject = function(v)
 {
-    return this.typeName(v) == "object";
+    return bkjs.typeName(v) == "object";
 }
 
 bkjs.isNumeric = function(val)
 {
-    if (this.isN(val)) return true;
-    if (!this.isS(val)) return false;
+    if (typeof val == "number") return true;
+    if (typeof val != "string") return false;
     return /^(-|\+)?([0-9]+|[0-9]+\.[0-9]+)$/.test(val);
 }
 
 // Return true of the given value considered empty
 bkjs.isEmpty = function(val)
 {
-    switch (this.typeName(val)) {
+    switch (bkjs.typeName(val)) {
     case "null":
     case "undefined":
         return true;
@@ -662,54 +669,55 @@ bkjs.toFlags = function(cmd, list, name)
 // Capitalize words
 bkjs.toTitle = function(name)
 {
-    return this.isS(name) ? name.replace(/_/g, " ").split(/[ ]+/).reduce((x,y) => (x + y.substr(0,1).toUpperCase() + y.substr(1) + " "), "").trim() : "";
+    return typeof name == "string" ? name.replace(/_/g, " ").split(/[ ]+/).reduce((x,y) => (x + y.substr(0,1).toUpperCase() + y.substr(1) + " "), "").trim() : "";
 }
 
 bkjs.toCamel = function(name, chars)
 {
-    return this.isS(name) ? name.substr(0, 1).toLowerCase() + name.substr(1).replace(/(?:[-_.])(\w)/g, (_, c) => (c ? c.toUpperCase() : '')) : "";
+    var rx = typeof chars == "string" ? new RegExp("(?:[" + chars + "])(\\w)", "g") : /(?:[_.:-])(\w)/g;
+    return typeof name == "string" ? name.substr(0, 1).toLowerCase() + name.substr(1).replace(rx, (_, c) => (c ? c.toUpperCase() : '')) : "";
 }
 
 // Convert Camel names into names separated by the given separator or dash if not.
 bkjs.toUncamel = function(str, sep)
 {
-    return this.isS(str) ? str.replace(/([A-Z])/g, (letter) => ((sep || '-') + letter.toLowerCase())) : "";
+    return typeof str == "string" ? str.replace(/([A-Z])/g, (letter) => ((sep || '-') + letter.toLowerCase())) : "";
 }
 
 // Interpret the value as a boolean
 bkjs.toBool = function(val, dflt)
 {
-    if (this.isB(val)) return val;
-    if (this.isN(val)) return !!val;
-    if (this.isU(val)) val = dflt;
+    if (typeof val == "boolean") return val;
+    if (typeof val == "number") return !!val;
+    if (val === undefined) val = dflt;
     return !val || String(val).trim().match(/^(false|off|f|0$)/i) ? false : true;
 }
 
 bkjs.toClamp = function(num, min, max)
 {
-  return Math.max(this.toNumber(min), Math.min(this.toNumber(num), this.toNumber(max)));
+  return Math.max(bkjs.toNumber(min), Math.min(bkjs.toNumber(num), bkjs.toNumber(max)));
 }
 
 // Convert a string to a number, on invalid input returns 0
 bkjs.toNumber = function(val, options)
 {
     var n = 0;
-    if (this.isN(val)) {
+    if (typeof val == "number") {
         n = val;
     } else {
-        if (!this.isS(val)) {
+        if (typeof val != "string") {
             n = options?.dflt || 0;
         } else {
             // Autodetect floating number
-            var f = !options || this.isU(options.float) || options.float == null ? /^[0-9-]+\.[0-9]+$/.test(val) : options.float;
+            var f = !options || options.float === undefined || options.float == null ? /^[0-9-]+\.[0-9]+$/.test(val) : options.float;
             n = val[0] == 't' ? 1 : val[0] == 'f' ? 0 : val == "infinity" ? Infinity : (f ? parseFloat(val, 10) : parseInt(val, 10));
         }
     }
     n = isNaN(n) ? (options?.dflt || 0) : n;
     if (options) {
-        if (this.isN(options.min) && n < options.min) n = options.min;
-        if (this.isN(options.max) && n > options.max) n = options.max;
-        if (this.isN(options.digits)) n = parseFloat(n.toFixed(options.digits));
+        if (typeof options.min == "number" && n < options.min) n = options.min;
+        if (typeof options.max == "number" && n > options.max) n = options.max;
+        if (typeof options.digits == "number") n = parseFloat(n.toFixed(options.digits));
     }
     return n;
 }
@@ -717,7 +725,7 @@ bkjs.toNumber = function(val, options)
 // Return a test representation of a number according to the money formatting rules
 bkjs.toPrice = function(num, options)
 {
-    return this.toNumber(num).toLocaleString("en", {
+    return bkjs.toNumber(num).toLocaleString("en", {
         minimumFractionDigits: options?.min || 2,
         maximumFractionDigits: options?.max || 5
     });
@@ -727,14 +735,14 @@ bkjs.toValue = function(val, type, options)
 {
     switch ((type || "").trim()) {
     case "auto":
-        if (this.isU(val) || val === null) return "";
-        type = this.autoType(val);
-        return this.toValue(val, type, options);
+        if (val === undefined || val === null) return "";
+        type = bkjs.autoType(val);
+        return bkjs.toValue(val, type, options);
 
     case "set":
     case "list":
     case 'array':
-        return this.strSplitUnique(val, options && options.separator, options);
+        return bkjs.strSplitUnique(val, options && options.separator, options);
 
     case "map":
         return bkjs.strSplit(val, options?.delimiter || ",").
@@ -759,7 +767,7 @@ bkjs.toValue = function(val, type, options)
     case "real":
     case "float":
     case "double":
-        return this.toNumber(val, { float: 1 });
+        return bkjs.toNumber(val, { float: 1 });
 
     case "int":
     case "smallint":
@@ -768,18 +776,18 @@ bkjs.toValue = function(val, type, options)
     case "bigint":
     case "numeric":
     case "counter":
-        return this.toNumber(val);
+        return bkjs.toNumber(val);
 
     case "bool":
     case "boolean":
-        return this.toBool(val);
+        return bkjs.toBool(val);
 
     case "date":
     case "time":
-        return this.toDate(val);
+        return bkjs.toDate(val);
 
     case "mtime":
-        return /^[0-9.]+$/.test(String(val)) ? this.toNumber(val) : (new Date(val));
+        return /^[0-9.]+$/.test(String(val)) ? bkjs.toNumber(val) : (new Date(val));
 
     case "json":
         return JSON.stringify(val);
@@ -788,7 +796,7 @@ bkjs.toValue = function(val, type, options)
         return String(val).replace(/[^0-9]+/g, "");
 
     default:
-        if (this.isS(val)) return val;
+        if (typeof val == "string") return val;
         return String(val);
     }
 }
@@ -815,23 +823,23 @@ bkjs.toTemplate = function(text, obj, options)
                 v = window.atob(v);
                 break;
             case "entity":
-                v = this.textToEntity(v);
+                v = bkjs.textToEntity(v);
                 break;
             case "d-entity":
-                v = this.entityToText(v);
+                v = bkjs.entityToText(v);
                 break;
             case "strftime":
-                v = this.strftime(v);
+                v = bkjs.strftime(v);
                 break;
             case "mtime":
-                v = this.toDate(v, null);
+                v = bkjs.toDate(v, null);
                 if (!v) v = 0;
                 break;
             }
         } catch (e) {}
         return v;
     }
-    return this._toTemplate(text, obj, options, encoder);
+    return bkjs._toTemplate(text, obj, options, encoder);
 }
 
 bkjs._toTemplate = function(text, obj, options, encoder)
@@ -913,29 +921,29 @@ bkjs._toTemplate = function(text, obj, options, encoder)
                 ok = !!val;
                 break;
             case "ifempty":
-                ok = this.isEmpty(val);
+                ok = bkjs.isEmpty(val);
                 break;
             case "ifnotempty":
-                ok = !this.isEmpty(val);
+                ok = !bkjs.isEmpty(val);
                 break;
             case "if":
-                ok = val && this.isFlag(this.strSplit(d[3]), this.strSplit(val));
+                ok = val && bkjs.isFlag(bkjs.strSplit(d[3]), bkjs.strSplit(val));
                 break;
             case "ifne":
                 ok = val != d[3];
                 break;
             case "ifnot":
-                ok = !val || !this.isFlag(this.strSplit(d[3]), this.strSplit(val));
+                ok = !val || !bkjs.isFlag(bkjs.strSplit(d[3]), bkjs.strSplit(val));
                 break;
             case "ifall":
-                val = this.strSplit(val);
-                ok = this.strSplit(d[3]).every((x) => (val.includes(x)));
+                val = bkjs.strSplit(val);
+                ok = bkjs.strSplit(d[3]).every((x) => (val.includes(x)));
                 break;
             case "ifstr":
-                ok = this.testRegexp(val || "", this.toRegexp(d[3], "i"));
+                ok = bkjs.testRegexp(val || "", bkjs.toRegexp(d[3], "i"));
                 break;
             case "ifnotstr":
-                ok = !this.testRegexp(val || "", this.toRegexp(d[3], "i"));
+                ok = !bkjs.testRegexp(val || "", bkjs.toRegexp(d[3], "i"));
                 break;
             case "ifeq":
                 ok = val == d[3];
@@ -954,7 +962,7 @@ bkjs._toTemplate = function(text, obj, options, encoder)
                 break;
             }
             if (ok) {
-                v = this.toTemplate(body, rc, options);
+                v = bkjs.toTemplate(body, rc, options);
                 tag = d[2];
             }
         } else {
@@ -996,8 +1004,8 @@ bkjs._toTemplate = function(text, obj, options, encoder)
         v ??= dflt;
         if (v) {
             if (Array.isArray(v) && (typeof v[0] == "string" || typeof v[0] == "number")) v = v.toString(); else
-            if (typeof v == "object") v = this.stringify(v);
-            if (encoder) v = encoder(enc, v, options);
+            if (typeof v == "object") v = bkjs.stringify(v);
+            if (typeof encoder == "function") v = encoder(enc, v, options);
         }
         if (v !== null && v !== undefined && v !== "") tmpl += v;
         if (options.__exit) break;
@@ -1017,18 +1025,18 @@ bkjs._toTemplate = function(text, obj, options, encoder)
 bkjs.strSplit = function(str, sep, options)
 {
     if (!str) return [];
-    options = options || {};
-    return (Array.isArray(str) ? str : (this.isS(str) ? str : String(str)).split(sep || /[,|]/)).
+    return (Array.isArray(str) ? str : (typeof str == "string" ? str : String(str)).split(sep || /[,|]/)).
             map((x) => {
-                if (x === "" && !options.keepempty) return x;
-                x = options.datatype ? this.toValue(x, options.datatype) : this.isS(x) ? x.trim() : x;
-                if (!this.isS(x)) return x;
+                if (x === "" && !options?.keepempty) return x;
+                x = options?.datatype ? bkjs.toValue(x, options?.datatype) : typeof x == "string" ? x.trim() : x;
+                if (typeof x != "string") return x;
+                if (!options) return x;
                 if (options.regexp && !options.regexp.test(x)) return "";
                 if (options.lower) x = x.toLowerCase();
                 if (options.upper) x = x.toUpperCase();
                 if (options.strip) x = x.replace(options.strip, "");
-                if (options.camel) x = this.toCamel(x, options);
-                if (options.cap) x = this.toTitle(x);
+                if (options.camel) x = bkjs.toCamel(x, options);
+                if (options.cap) x = bkjs.toTitle(x);
                 if (options.replace) {
                     for (const p in options.replace) {
                         x = x.replaceAll(p, options.replace[p]);
@@ -1037,15 +1045,15 @@ bkjs.strSplit = function(str, sep, options)
                 if (options.trunc > 0) x = x.substr(0, options.trunc);
                 return x;
             }).
-            filter((x) => (options.keepempty || this.isS(x) ? x.length : 1));
+            filter((x) => (options?.keepempty || typeof x == "string" ? x.length : 1));
 }
 
 bkjs.strSplitUnique = function(str, sep, type)
 {
     var rc = [];
-    var typed = !this.isU(type);
-    this.strSplit(str, sep, type).forEach((x) => {
-        if (!rc.some((y) => (typed || !(this.isS(x) && this.isS(y)) ? x == y : x.toLowerCase() == y.toLowerCase()))) rc.push(x);
+    var typed = type !== undefined;
+    bkjs.strSplit(str, sep, type).forEach((x) => {
+        if (!rc.some((y) => (typed || !(typeof x == "string" && typeof y == "string") ? x == y : x.toLowerCase() == y.toLowerCase()))) rc.push(x);
     });
     return rc;
 }
@@ -1095,31 +1103,31 @@ bkjs.phraseSplit = function(str, options)
 }
 
 // Returns a new object constructed from the arguments pairs
-bkjs.objNew = function()
+bkjs.objNew = function(...args)
 {
     var obj = {};
-    for (var i = 0; i < arguments.length - 1; i += 2) if (!this.isU(arguments[i + 1])) obj[arguments[i]] = arguments[i + 1];
+    for (var i = 0; i < args.length - 1; i += 2) {
+        if (args[i + 1] !== undefined) obj[args[i]] = args[i + 1];
+    }
     return obj;
 }
 
 // Return all object properties
 bkjs.objKeys = function(obj)
 {
-    return this.isObject(obj) ? Object.keys(obj) : [];
+    return bkjs.isObject(obj) ? Object.keys(obj) : [];
 }
 
 // Shallow copy of an object, all additional arguments are treated as properties to be added to the new object
-bkjs.objClone = function()
+bkjs.objClone = function(obj, ...args)
 {
-    var obj = arguments[0];
     var rc = Array.isArray(obj) ? [] : {}, o1, o2;
     for (const p in obj) {
         if (!obj.hasOwnProperty(p)) continue;
         o1 = obj[p];
-        switch (this.typeName(o1)) {
+        switch (bkjs.typeName(o1)) {
         case "object":
-            rc[p] = o2 = {};
-            for (const k in o1) o2[k] = o1[k];
+            rc[p] = Object.assign({}, o1);
             break;
         case "map":
             rc[p] = o2 = new Map();
@@ -1136,79 +1144,28 @@ bkjs.objClone = function()
             rc[p] = o1;
         }
     }
-    for (let i = 1; i < arguments.length - 1; i += 2) rc[arguments[i]] = arguments[i + 1];
+    for (let i = 0; i < args.length - 1; i += 2) {
+        if (args[i] === "__proto__") continue;
+        rc[args[i]] = args[i + 1];
+    }
     return rc;
 }
 
-bkjs.objExtend = function(obj, val, options)
+// Delete properties from the object, first arg is an object, the rest are properties to be deleted
+bkjs.objDel = function(obj, ...args)
 {
-    obj = typeof obj == "object" || typeof obj == "function" ? obj || {} : {};
-    if (options) {
-        const a = Array.isArray(val);
-        for (let p in val) {
-            const v = val[p];
-            if (v === obj) continue;
-            if (v === undefined && options.noempty) continue;
-            if (!a) {
-                if (typeof options.ignore?.test == "function" && options.ignore.test(p)) continue;
-                if (typeof options.allow?.test == "function" && !options.allow.test(p)) continue;
-                if (typeof options.strip?.test == "function") p = p.replace(options.strip, ""); else
-                if (typeof options.remove?.test == "function") p = p.replace(options.remove, "");
-            }
-            if (p === "__proto__") continue;
-            if (options.deep && v) {
-                if (Array.isArray(v)) {
-                    obj[p] = this.objExtend(Array.isArray(obj[p]) ? obj[p] : [], v, options);
-                    continue;
-                } else
-                if (this.typeName(v) === "object") {
-                    obj[p] = this.objExtend(obj[p], v, options);
-                    continue;
-                }
-            }
-            obj[p] = v;
-        }
-    } else {
-        for (const p in val) obj[p] = val[p];
-    }
+    if (!bkjs.isObject(obj)) return;
+    for (let i = 0; i < args.length; i++) delete obj[args[i]];
     return obj;
 }
 
-// Delete properties from the object, first arg is an object, the rest are properties to be deleted
-bkjs.objDel = function()
-{
-    const a = arguments;
-    if (!this.isObject(a[0])) return;
-    for (let i = 1; i < a.length; i++) delete a[0][a[i]];
-    return a[0];
-}
-
 // Return a value from object, can go deep inside, name is a list of parts or a string like part1.part2.part3...
-bkjs.objGet = function(obj, name, options)
+bkjs.objGet = function(obj, path)
 {
-    if (!obj) {
-        if (!options) return null;
-        return options.list ? [] : options.obj ? {} : options.str ? "" : options.num ? options.dflt || 0 : null;
-    }
-    var path = !Array.isArray(name) ? String(name).split(".") : name, owner = obj;
+    if (!Array.isArray(path)) path = String(path).split(".");
     for (var i = 0; i < path.length; i++) {
-        if (i && owner) owner = owner[path[i - 1]];
         obj = obj ? obj[path[i]] : undefined;
-        if (typeof obj == "function") obj = obj();
-        if (typeof obj == "undefined") {
-            if (!options) return obj;
-            return options.owner && i == path.length - 1 ? owner : options.list ? [] : options.obj ? {} : options.str ? "" : options.num ? options.dflt || 0 : undefined;
-        }
-    }
-    if (options) {
-        if (options.owner) return owner;
-        if (obj) {
-            if (options.func && typeof obj != "function") return null;
-            if (options.list && !Array.isArray(obj)) return [ obj ];
-            if (options.obj && typeof obj != "object") return { name: name, value: obj };
-            if (options.str && typeof obj != "string") return String(obj);
-            if (options.num && typeof obj != "number") return this.toNumber(obj, options);
-        }
+        if (obj === undefined) break;
     }
     return obj;
 }
@@ -1233,23 +1190,10 @@ bkjs.shuffle = function(list)
 // Return a random hex string
 bkjs.random = function(size)
 {
-    var s = "";
-    if (window.crypto && window.crypto.getRandomValues) {
-        var u = new Uint8Array(size || 16), h = "0123456789abcdef";
-        window.crypto.getRandomValues(u);
-        for (let i = 0; i < u.length; i++) s += h.charAt(u[i] >> 4) + h.charAt(u[i] & 0x0F);
-    } else {
-        var l = (size || 16) * 2;
-        while (s.length < l) s += Math.abs((((1 + Math.random()) * 0x100000000) | 0)).toString(16);
-        if (s.length > l) s = s.substr(0, l);
-    }
+    var s = "", u = new Uint8Array(size || 16), h = "0123456789abcdef";
+    window.crypto.getRandomValues(u);
+    for (let i = 0; i < u.length; i++) s += h.charAt(u[i] >> 4) + h.charAt(u[i] & 0x0F);
     return s;
-}
-
-// Return numeric representation of the version string to perfom arithmetic comparions
-bkjs.toVersion = function(str)
-{
-    return str ? String(str).replace("_", ".").replace(/[^0-9.]/g, "").split(".").reduce((x,y,i) => (x + Number(y) / Math.pow(10, i * 3)), 0) : 0;
 }
 
 // Simple i18n translation method compatible with other popular modules, supports the following usage:
@@ -1257,17 +1201,121 @@ bkjs.toVersion = function(str)
 // - __(fmt, arg,...)
 // - __({ phrase: "", locale: "" }, arg...
 //
-bkjs.__ = function()
+bkjs.__ = function(msg, ...args)
 {
-    var lang = this.account.lang;
-    var msg = arguments[0];
+    var lang = bkjs.lang, locales = bkjs.locales || "";
 
-    if (this.isO(msg) && msg.phrase) {
+    if (typeof msg == "object" && msg.phrase) {
         lang = msg.locale || lang;
         msg = msg.phrase;
     }
-    msg = (lang && this.locales[lang] && this.locales[lang][msg]) || msg;
-    if (arguments.length == 1) return msg;
-    return this.sprintf(msg, Array.prototype.slice.call(arguments, 1));
+    msg = (lang && locales[lang] && locales[lang][msg]) || msg;
+    if (args.length == 1) return msg;
+    return bkjs.sprintf(msg, ...args);
+}
+
+// Based on Bootstrap internal sanitizer
+bkjs.sanitizer = {
+    _attrs: new Set(['background','cite','href','itemtype','longdesc','poster','src','xlink:href']),
+    _urls: /^(?:(?:https?|mailto|ftp|tel|file|sms):|[^#&/:?]*(?:[#/?]|$))/i,
+    _data: /^data:(?:image\/(?:bmp|gif|jpeg|jpg|png|tiff|webp)|video\/(?:mpeg|mp4|ogg|webm)|audio\/(?:mp3|oga|ogg|opus));base64,[\d+/a-z]+=*$/i,
+    _tags: {
+        '*': ['class', 'dir', 'id', 'lang', 'role', /^aria-[\w-]*$/i,
+              'data-bs-toggle', 'data-bs-target', 'data-bs-dismiss', 'data-bs-parent'],
+        a: ['target', 'href', 'title', 'rel'], area: [],
+        b: [], blockquote: [], br: [], button: [],
+        col: [], code: [],
+        div: [], em: [], hr: [],
+        img: ['src', 'srcset', 'alt', 'title', 'width', 'height', 'style'],
+        h1: [], h2: [], h3: [], h4: [], h5: [], h6: [],
+        i: [], li: [], ol: [], p: [], pre: [],
+        s: [], small: [], span: [], sub: [], sup: [], strong: [],
+        table: [], thead: [], tbody: [], th: [], tr: [], td: [],
+        u: [], ul: [],
+    },
+
+    isattr: function(attr, list) {
+        const name = attr.nodeName.toLowerCase();
+        if (list.includes(name)) {
+            if (bkjs._attrs.has(name)) {
+                return bkjs._urls.test(attr.nodeValue) || bkjs._data.test(attr.nodeValue);
+            }
+            return true;
+        }
+        return list.some((x) => (x instanceof RegExp && x.test(name)));
+    },
+
+    run: function(html) {
+        if (!html || typeof html != "string") return html;
+        const dom = new window.DOMParser();
+        const doc = dom.parseFromString(html, 'text/html');
+        const elements = [...doc.body.querySelectorAll('*')];
+        for (const el of elements) {
+            const name = el.nodeName.toLowerCase();
+            if (bkjs._tags[name]) {
+                const allow = [...bkjs._tags['*'], ...bkjs._tags[name] || []];
+                for (const attr of [...el.attributes]) {
+                    if (!bkjs.isattr(attr, allow)) el.removeAttribute(attr.nodeName);
+                }
+            } else {
+                el.remove();
+            }
+        }
+        return doc.body.innerHTML;
+    }
+}
+
+// Convert an object into a query string
+bkjs.toQueryString = function(obj)
+{
+    var rc = [];
+
+    const add = (k, v) => {
+       rc.push(encodeURIComponent(k) + "=" + encodeURIComponent(typeof v == "function" ? v() : v === null ? v: v === true ? "1" : v));
+    }
+
+    const build = (key, val) => {
+        if (Array.isArray(val)) {
+            for (const i in val) build(`${key}[${typeof val[i] === "object" && val[i] != null ? i : ""}]`, val[i]);
+        } else
+        if (bkjs.isObject(val)) {
+            for (const n in val) build(`${key}[${n}]`, val[n]);
+        } else {
+            add(key, val);
+        }
+    }
+    for (const p in obj) build(p, obj[p]);
+    return rc.join("&");
+}
+
+// Inject CSS/Script resources into the current page, loading is async, all pages are loaded at the same time,
+// if options.async set then scripts executed as soon as loaded otherwise executing scripts will be in the order provided
+// options.callback will be called with (el, opts) args for customizations after the log or error
+bkjs.loadResources = function(urls, options, callback)
+{
+    if (typeof options == "function") callback = options, options = null;
+    bkjs.forEach(urls, (url, next) => {
+        let el;
+        const ev = () => { bkjs.call(options?.callback, el, options); next() }
+        if (/\.css/.test(url)) {
+            el = bkjs.$create("link", "rel", "stylesheet", "type", "text/css", "href", url, "load", ev, "error", ev)
+        } else {
+            el = bkjs.$create('script', "async", !!options?.async, "src", url, "load", ev, "error", ev)
+        }
+        for (const p in options?.attrs) el[p] = options.attrs[p];
+        document.head.appendChild(el);
+    }, callback);
+}
+
+// Return a file object for the selector
+bkjs.getFileInput = function(file)
+{
+    if (typeof file == "string") file = bkjs.$(file);
+    if (file?.jquery !== undefined && file.length) file = file[0];
+    if (typeof file == "object") {
+        if (file.files?.length) return file.files[0];
+        if (!(file instanceof HTMLElement) && file.name && file.size && (file.type || file.lastModified)) return file;
+    }
+    return "";
 }
 

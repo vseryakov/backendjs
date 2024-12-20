@@ -2,75 +2,75 @@
 // Vlad Seryakov 2014
 //
 
-Bkjs.pages = [];
-Bkjs.pagesHistory = [];
-Bkjs.pagesList = ko.observableArray();
-Bkjs.pagesTitle = ko.observable();
-Bkjs.pagesSubtitle = ko.observable();
-Bkjs.pagesToc = ko.observable();
-Bkjs.pagesContent = ko.observable();
-Bkjs.pagesId = ko.observable();
+bkjs.pages = [];
+bkjs.pagesHistory = [];
+bkjs.pagesList = ko.observableArray();
+bkjs.pagesTitle = ko.observable();
+bkjs.pagesSubtitle = ko.observable();
+bkjs.pagesToc = ko.observable();
+bkjs.pagesContent = ko.observable();
+bkjs.pagesId = ko.observable();
 
-Bkjs.pagesQuery = ko.observable("");
-Bkjs.pagesQuery.subscribe(function(val) {
-    if (!Bkjs.pages.length) return Bkjs.pagesIndex();
-    Bkjs.pagesFilter();
+bkjs.pagesQuery = ko.observable("");
+bkjs.pagesQuery.subscribe(function(val) {
+    if (!bkjs.pages.length) return bkjs.pagesIndex();
+    bkjs.pagesFilter();
 });
 
-Bkjs.pagesFilter = function()
+bkjs.pagesFilter = function()
 {
-    var list = Bkjs.pages;
-    if (Bkjs.pagesQuery()) {
-        var rx = new RegExp(Bkjs.pagesQuery(), "i")
+    var list = bkjs.pages;
+    if (bkjs.pagesQuery()) {
+        var rx = new RegExp(bkjs.pagesQuery(), "i")
         list = list.filter(function(x) {
             return (x.title && x.title.match(rx)) || (x.subtitle && x.subtitle.match(rx));
         });
     }
-    Bkjs.pagesId("");
-    Bkjs.pagesToc("");
-    Bkjs.pagesTitle("Index of all pages");
-    Bkjs.pagesContent("");
-    Bkjs.pagesList(list);
+    bkjs.pagesId("");
+    bkjs.pagesToc("");
+    bkjs.pagesTitle("Index of all pages");
+    bkjs.pagesContent("");
+    bkjs.pagesList(list);
 }
 
-Bkjs.pagesSelect = function(callback)
+bkjs.pagesSelect = function(callback)
 {
-    Bkjs.send({ url: "/pages/select", data: { _select: "id,title,subtitle,icon,link,mtime" } }, function(rows) {
+    bkjs.send({ url: "/pages/select", data: { _select: "id,title,subtitle,icon,link,mtime" } }, function(rows) {
         rows.forEach(function(x) {
             x.subtitle = x.subtitle || "";
             x.icon = x.icon || "glyphicon glyphicon-book";
-            x.time = Bkjs.strftime(x.mtime, "%Y-%m-%d %H:%M");
+            x.time = bkjs.strftime(x.mtime, "%Y-%m-%d %H:%M");
         });
-        Bkjs.pages = rows;
+        bkjs.pages = rows;
         if (callback) callback();
     });
 }
 
-Bkjs.pagesIndex = function(data, event)
+bkjs.pagesIndex = function(data, event)
 {
-    Bkjs.pagesSelect(function() {
-        Bkjs.pagesFilter();
+    bkjs.pagesSelect(function() {
+        bkjs.pagesFilter();
     }, function(err) {
-        Bkjs.showAlert("danger", err);
+        bkjs.showAlert("danger", err);
     });
 }
 
-Bkjs.pagesBack = function(data, event)
+bkjs.pagesBack = function(data, event)
 {
-    var id = Bkjs.pagesHistory.pop();
-    if (!Bkjs.pagesHistory.length) return;
-    Bkjs.pagesShow({ id: Bkjs.pagesHistory[Bkjs.pagesHistory.length - 1] });
+    var id = bkjs.pagesHistory.pop();
+    if (!bkjs.pagesHistory.length) return;
+    bkjs.pagesShow({ id: bkjs.pagesHistory[bkjs.pagesHistory.length - 1] });
 }
 
-Bkjs.pagesLink = function(data, event)
+bkjs.pagesLink = function(data, event)
 {
     event.preventDefault();
     // External link
     if (data.link) window.location.href = data.link;
-    Bkjs.pagesShow(data);
+    bkjs.pagesShow(data);
 }
 
-Bkjs.pagesShow = function(data, event)
+bkjs.pagesShow = function(data, event)
 {
     var id = data && typeof data.id == "string" ? data.id : data && typeof data.id == "function" ? data.id() : "";
     var url = id.match(/^$|^[a-z0-9]+$/) ? "/pages/get/" + id : id.replace("/pages/show", "/pages/get");
@@ -79,38 +79,38 @@ Bkjs.pagesShow = function(data, event)
     } else {
         var req = { url: url, dataType: "text" };
     }
-    Bkjs.send(req, function(row) {
+    bkjs.send(req, function(row) {
         if (typeof row == "string") {
             document.title = url;
-            Bkjs.pagesContent(marked(row));
+            bkjs.pagesContent(marked(row));
         } else {
             document.title = row.title;
-            Bkjs.pagesId(row.id);
-            Bkjs.pagesToc(marked(row.toc));
-            Bkjs.pagesTitle(marked(row.title));
-            Bkjs.pagesContent(marked(row.content));
+            bkjs.pagesId(row.id);
+            bkjs.pagesToc(marked(row.toc));
+            bkjs.pagesTitle(marked(row.title));
+            bkjs.pagesContent(marked(row.content));
         }
-        Bkjs.pagesList([]);
+        bkjs.pagesList([]);
 
         // Keep the browsing history
-        if (id != Bkjs.pagesHistory[Bkjs.pagesHistory.length - 1]) Bkjs.pagesHistory.push(id);
-        if (Bkjs.pagesHistory.length > 10) Bkjs.pagesHistory.splice(0, Bkjs.pagesHistory.length - 10);
+        if (id != bkjs.pagesHistory[bkjs.pagesHistory.length - 1]) bkjs.pagesHistory.push(id);
+        if (bkjs.pagesHistory.length > 10) bkjs.pagesHistory.splice(0, bkjs.pagesHistory.length - 10);
     }, function(err) {
-        Bkjs.showAlert("danger", err);
+        bkjs.showAlert("danger", err);
     });
 }
 
-Bkjs.pagesNew = function(data, event)
+bkjs.pagesNew = function(data, event)
 {
     $(".pages-field").val("");
     $("input[type=checkbox]").attr("checked", false);
     $('#pages-form').modal('show');
 }
 
-Bkjs.pagesEdit = function(data, event)
+bkjs.pagesEdit = function(data, event)
 {
-    Bkjs.send({ url: "/pages/get/" + Bkjs.pagesId() }, function(row) {
-        Bkjs.pagesMtime = row.mtime;
+    bkjs.send({ url: "/pages/get/" + bkjs.pagesId() }, function(row) {
+        bkjs.pagesMtime = row.mtime;
         for (var p in row) {
             switch ($("#pages-" + p).attr("type")) {
             case "checkbox":
@@ -122,21 +122,21 @@ Bkjs.pagesEdit = function(data, event)
         }
         $('#pages-form').modal('show');
     }, function(err) {
-        Bkjs.showAlert("danger", err);
+        bkjs.showAlert("danger", err);
     });
 }
 
-Bkjs.pagesSave = function(data, event)
+bkjs.pagesSave = function(data, event)
 {
-    if (!Bkjs.pagesId()) return Bkjs.pagesPut();
+    if (!bkjs.pagesId()) return bkjs.pagesPut();
 
-    Bkjs.send({ url: "/pages/get/" + Bkjs.pagesId(), data: { _select: "mtime" } }, function(row) {
-        if (row.mtime > Bkjs.pagesMtime && confirm("The page has been modified already, continuing will override previous data with your version of the page.\nDo you want to cancel?")) return;
-        Bkjs.pagesPut();
+    bkjs.send({ url: "/pages/get/" + bkjs.pagesId(), data: { _select: "mtime" } }, function(row) {
+        if (row.mtime > bkjs.pagesMtime && confirm("The page has been modified already, continuing will override previous data with your version of the page.\nDo you want to cancel?")) return;
+        bkjs.pagesPut();
     });
 }
 
-Bkjs.pagesPut = function(data, event)
+bkjs.pagesPut = function(data, event)
 {
     var obj = {};
     $(".pages-field").each(function() {
@@ -149,38 +149,38 @@ Bkjs.pagesPut = function(data, event)
             obj[name] = $(this).val();
         }
     });
-    Bkjs.send({ url: '/pages/put/' + (obj.id || ""), data: obj, type: "POST" }, function() {
-        Bkjs.pagesShow(obj.id)
+    bkjs.send({ url: '/pages/put/' + (obj.id || ""), data: obj, type: "POST" }, function() {
+        bkjs.pagesShow(obj.id)
         $('#pages-form').modal("hide");
     }, function(err) {
-        Bkjs.showAlert($("#pages-form"), "danger", err);
+        bkjs.showAlert($("#pages-form"), "danger", err);
     });
 }
 
-Bkjs.pagesDelete = function(data, event)
+bkjs.pagesDelete = function(data, event)
 {
     if (!confirm("Delete this page?")) return;
-    Bkjs.send({ url: '/pages/del/' + Bkjs.pagesId, type: "POST" }, function() {
-        Bkjs.pagesBack();
+    bkjs.send({ url: '/pages/del/' + bkjs.pagesId, type: "POST" }, function() {
+        bkjs.pagesBack();
     }, function(err) {
-        Bkjs.showAlert($("#pages-form"), "danger", err);
+        bkjs.showAlert($("#pages-form"), "danger", err);
     });
 }
 
-Bkjs.pagesPickerList = ko.observableArray();
-Bkjs.pagesPickerQuery = ko.observable("");
-Bkjs.pagesPickerQuery.subscribe(function(val) {
-    if (Bkjs.pages.length) return Bkjs.pagesPickerFilter();
-    Bkjs.pagesSelect(function() { Bkjs.pagesPickerFilter() })
+bkjs.pagesPickerList = ko.observableArray();
+bkjs.pagesPickerQuery = ko.observable("");
+bkjs.pagesPickerQuery.subscribe(function(val) {
+    if (bkjs.pages.length) return bkjs.pagesPickerFilter();
+    bkjs.pagesSelect(function() { bkjs.pagesPickerFilter() })
 });
 
-Bkjs.pagesShowPicker = function(event)
+bkjs.pagesShowPicker = function(event)
 {
-    Bkjs.pagesPickerFilter();
+    bkjs.pagesPickerFilter();
     $("#pages-picker").toggle();
 }
 
-Bkjs.pagesPickerLink = function(data, event)
+bkjs.pagesPickerLink = function(data, event)
 {
     event.preventDefault();
     var md = $('#pages-content').data().markdown;
@@ -192,22 +192,22 @@ Bkjs.pagesPickerLink = function(data, event)
     $("#pages-picker").hide();
 }
 
-Bkjs.pagesPickerFilter = function()
+bkjs.pagesPickerFilter = function()
 {
-    var list = Bkjs.pages;
-    if (Bkjs.pagesPickerQuery()) {
-        list = Bkjs.pages.filter(function(x) {
-            return (x.title && x.title.indexOf(Bkjs.pagesPickerQuery()) > -1) ||
-                   (x.subtitle && x.subtitle.indexOf(Bkjs.pagesPickerQuery()) > -1);
+    var list = bkjs.pages;
+    if (bkjs.pagesPickerQuery()) {
+        list = bkjs.pages.filter(function(x) {
+            return (x.title && x.title.indexOf(bkjs.pagesPickerQuery()) > -1) ||
+                   (x.subtitle && x.subtitle.indexOf(bkjs.pagesPickerQuery()) > -1);
         });
     }
-    Bkjs.pagesPickerList(list);
+    bkjs.pagesPickerList(list);
 }
 
-Bkjs.koShow = function()
+bkjs.koShow = function()
 {
-    Bkjs.pagesSelect(function() {
-        Bkjs.pagesShow();
+    bkjs.pagesSelect(function() {
+        bkjs.pagesShow();
     });
 }
 
@@ -220,7 +220,7 @@ $(function()
 
     $("body").on("click", 'a[href^="/pages/get"], a[href^="/pages/show"], a[href$=".md"]', function(e) {
         e.preventDefault()
-        Bkjs.pagesLink({ id: $(this).attr('href') }, e);
+        bkjs.pagesLink({ id: $(this).attr('href') }, e);
     });
 
     $('#pages-content').markdown(
@@ -233,7 +233,7 @@ $(function()
                            title: "Pick a page to link",
                            icon: "fa fa-file-text-o",
                            callback: function(e) {
-                               Bkjs.pagesShowPicker(e);
+                               bkjs.pagesShowPicker(e);
                            }
                        }]
                }]

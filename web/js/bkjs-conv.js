@@ -20,21 +20,21 @@ bkjs.textToXml = function(str)
 
 bkjs.textToEntity = function(str)
 {
-    if (!this.isS(str)) return "";
-    if (!this.textEntities) {
-        this.textEntities = {};
-        for (var p in this.htmlEntities) this.textEntities[this.htmlEntities[p]] = "&" + p + ";";
+    if (typeof str != "string") return "";
+    if (!bkjs.textEntities) {
+        bkjs.textEntities = {};
+        for (const p in bkjs.htmlEntities) bkjs.textEntities[bkjs.htmlEntities[p]] = "&" + p + ";";
     }
-    return str.replace(/([&<>'":])/g, (_, n) => (this.textEntities[n] || n));
+    return str.replace(/([&<>'":])/g, (_, n) => (bkjs.textEntities[n] || n));
 }
 
 // Convert html entities into their original symbols
 bkjs.entityToText = function(str)
 {
-    if (!this.isS(str)) return "";
+    if (typeof str != "string") return "";
     return str.replace(/&(#?[a-zA-Z0-9]+);/g, (_, n) => {
         if (n[0] === '#') return n.charAt(1) === 'x' ? String.fromCharCode(parseInt(n.substring(2), 16)) : String.fromCharCode(+n.substring(1));
-        return this.htmlEntities[n] || "";
+        return bkjs.htmlEntities[n] || "";
     });
 }
 
@@ -46,11 +46,11 @@ bkjs.unicode2Ascii = function(str, types)
 {
     if (typeof str != "string") return "";
     types = typeof types == "string" && types || "opqs";
-    var map = this._unicodeCache[types];
+    var map = bkjs._unicodeCache[types];
     if (!map) {
-        map = this._unicodeCache[types] = {};
+        map = bkjs._unicodeCache[types] = {};
         for (var t of types) {
-            Object.assign(this._unicodeCache[types], this.unicodeAsciiMap[t]);
+            Object.assign(bkjs._unicodeCache[types], bkjs.unicodeAsciiMap[t]);
         }
     }
     var rc = "";

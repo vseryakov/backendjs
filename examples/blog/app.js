@@ -23,11 +23,12 @@ db.describeTables({
 // icon properties for each record on every read
 app.configureModule = function(options, callback)
 {
-    db.setProcessRows("post", "bk_message", function(req, row, options) {
+    db.setProcessRow("post", "bk_message", function(req, row, options) {
        if (!row.sender) return;
        row.avatar = '/image/account/' + row.sender + "/0";
        if (row.icon) row.icon = '/image/blog/' + row.id + '/' + row.mtime + ':' + row.sender;
     });
+    callback();
 }
 
 app.configureWeb = function(options, callback)

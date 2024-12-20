@@ -187,12 +187,16 @@ case "$BKJS_CMD" in
     ;;
 
   ec2-launch-instance)
+    export INSTANCE_USER=$(get_arg -ssh-user $whoami)
     INFO=$($BKJS_BIN shell -no db,ipc -aws-run-instances -public-ip -wait $(get_all_args))
     echo "$INFO"
 
     INSTANCE_INFO=$(echo "$INFO"|egrep -E "^EC2-Instance:")
     export INSTANCE_HOST=$(echo "$INSTANCE_INFO"|cut -d' ' -f3)
-    [ -z "$INSTANCE_HOST" ] && echo "no instance host detected" && exit 1
+    if [ -z "$INSTANCE_HOST" ]; then
+        echo "no instance host detected"
+        [ -n "$BKJS_RUNCMD" ] && exit 1 || return 1
+    fi
 
     # Remove existing host due to recyling in the same VPC
     hosts=~/.ssh/known_hosts
@@ -210,7 +214,8 @@ case "$BKJS_CMD" in
 
     echo "Connecting to $INSTANCE_ID as $INSTANCE_USER@$INSTANCE_HOST"
     run_ssh_cmd $INSTANCE_HOST $INSTANCE_USER "uname -s" Linux
-    exit
+    rc=$?
+    [ -n "$BKJS_RUNCMD" ] && exit $rc || return $rc
     ;;
 
 esac

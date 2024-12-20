@@ -1716,6 +1716,49 @@ ${expression ? 'Expression: "' + expression + '"\n\n' : ""}`, el);
   };
   var alpine_default = Alpine;
 
+  // packages/csp/src/evaluator.js
+  function cspEvaluator(el, expression) {
+    let dataStack = generateDataStack(el);
+    if (typeof expression === "function") {
+      return generateEvaluatorFromFunction(dataStack, expression);
+    }
+    let evaluator = generateEvaluator(el, expression, dataStack);
+    return tryCatch.bind(null, el, expression, evaluator);
+  }
+  function generateDataStack(el) {
+    let overriddenMagics = {};
+    injectMagics(overriddenMagics, el);
+    return [overriddenMagics, ...closestDataStack(el)];
+  }
+  function generateEvaluator(el, expression, dataStack) {
+    return (receiver = () => {
+    }, { scope: scope2 = {}, params = [] } = {}) => {
+      let completeScope = mergeProxies([scope2, ...dataStack]);
+      let evaluatedExpression = expression.split(".").reduce(
+        (currentScope, currentExpression) => {
+          if (currentScope[currentExpression] === void 0) {
+            throwExpressionError(el, expression);
+          }
+          return currentScope[currentExpression];
+        },
+        completeScope
+      );
+      runIfTypeOfFunction(receiver, evaluatedExpression, completeScope, params);
+    };
+  }
+  function throwExpressionError(el, expression) {
+    console.warn(
+      `Alpine Error: Alpine is unable to interpret the following expression using the CSP-friendly build:
+
+"${expression}"
+
+Read more about the Alpine's CSP-friendly build restrictions here: https://alpinejs.dev/advanced/csp
+
+`,
+      el
+    );
+  }
+
   // node_modules/@vue/shared/dist/shared.esm-bundler.js
   function makeMap(str, expectsLowerCase) {
     const map = /* @__PURE__ */ Object.create(null);
@@ -3396,12 +3439,12 @@ ${expression ? 'Expression: "' + expression + '"\n\n' : ""}`, el);
     directive(directiveName, (el) => warn(`You can't use [x-${directiveName}] without first installing the "${name}" plugin here: https://alpinejs.dev/plugins/${slug}`, el));
   }
 
-  // packages/alpinejs/src/index.js
-  alpine_default.setEvaluator(normalEvaluator);
+  // packages/csp/src/index.js
+  alpine_default.setEvaluator(cspEvaluator);
   alpine_default.setReactivityEngine({ reactive: reactive2, effect: effect2, release: stop, raw: toRaw });
   var src_default = alpine_default;
 
-  // packages/alpinejs/builds/cdn.js
+  // packages/csp/builds/cdn.js
   window.Alpine = src_default;
   queueMicrotask(() => {
     src_default.start();

@@ -12,6 +12,7 @@
         "assert": false,
         "expect": false,
         "$": false,
+        "Alpine": false,
         "jQuery": false,
         "bootpopup": false,
         "ko": false
@@ -69,7 +70,8 @@
         "func-names": "off",
         "func-style": [
             "error",
-            "declaration"
+            "declaration",
+            { "allowArrowFunctions": true }
         ],
         "function-paren-newline": "off",
         "generator-star-spacing": "error",
@@ -94,7 +96,7 @@
         ],
         "lines-around-comment": "error",
         "lines-around-directive": "error",
-        "lines-between-class-members": "error",
+        "lines-between-class-members": "off",
         "max-depth": "off",
         "max-len": "off",
         "max-lines": "off",

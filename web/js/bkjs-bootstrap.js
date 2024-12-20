@@ -5,21 +5,31 @@
 
 // Bootstrap backend support
 
-bkjs.isBS4 = !!window.bootstrap?.Util?.getUID;
+bkjs.getBreakpoint = function()
+{
+    var w = document.documentElement.clientWidth;
+    return w < 576 ? 'xs' : w < 768 ? 'sm' : w < 992 ? 'md' : w < 1200 ? 'lg' : w < 1400 ? 'xl' : 'xxl';
+}
 
-bkjs.plugins.push(function(target) {
-    $(target).find('.carousel').carousel();
-    $(target).find(`[data-${bkjs.isBS4?"":"bs-"}toggle="popover"]`).popover();
-});
+bkjs.setBreakpoint = function()
+{
+    bkjs.isMobile = /xs|sm|md/.test(bkjs.getBreakpoint());
+    document.documentElement.style.setProperty('--height', (window.innerHeight * 0.01) + "px");
+}
+
+bkjs.setColorScheme = function()
+{
+    document.documentElement.setAttribute("data-bs-theme", window.matchMedia('(prefers-color-scheme: dark)').matches ? "dark" : "light");
+}
 
 // Show/hide loading animation
 bkjs.showLoading = function(op)
 {
-    var img = $(this.loadingElement || '.loading');
+    var img = $(bkjs.loadingElement || '.loading');
     if (!img.length) return;
 
-    if (!this._loading) this._loading = { count: 0 };
-    var state = this._loading;
+    if (!bkjs._loading) bkjs._loading = { count: 0 };
+    var state = bkjs._loading;
     switch (op) {
     case "hide":
         if (--state.count > 0) break;
@@ -38,14 +48,14 @@ bkjs.showLoading = function(op)
 bkjs.getAlertText = function(text, options)
 {
     text = text?.message || text?.text || text?.msg || text;
-    text = bkjs.isS(text) ? options?.safe ? text : bkjs.textToEntity(text) : bkjs.formatJSON(text, { preset: "compact" }).replace(/[<>]/g, "");
+    text = typeof text == "string" ? options?.safe ? text : bkjs.textToEntity(text) : bkjs.formatJSON(text, { preset: "compact" }).replace(/[<>]/g, "");
     return bkjs.sanitizer.run(text).replace(/\n/g, "<br>");
 }
 
 bkjs.showAlert = function(obj, type, text, options)
 {
     if (!obj || !obj.length) obj = null;
-    if (bkjs.isS(obj)) options = text, text = type, type = obj, obj = $("body");
+    if (typeof obj == "string") options = text, text = type, type = obj, obj = $("body");
     if (!text) return;
     var o = Object.assign({}, options);
     o.type = o.type == "error" ? "danger" : o.type || "info";
@@ -59,9 +69,7 @@ bkjs.showAlert = function(obj, type, text, options)
     <div class="alert alert-dismissible alert-${o.type} show fade" role="alert">
         ${o.icon ? `<i class="fa fa-fw ${o.icon}"></i>` : ""}
         ${bkjs.getAlertText(text, o)}
-        <button type="button" class="${!bkjs.isBS4 ? "btn-" : ""}close" data-dismiss="alert" aria-label="Close">
-            ${bkjs.isBS4 ? '<span aria-hidden="true">&times;</span>' : ""}
-        </button>
+        <button type="button" class="btn-close" data-dismiss="alert" aria-label="Close"></button>
     </div>`;
     if (o.hide || alerts.css("display") == "none") {
         alerts.attr("data-alert", "hide");
@@ -99,7 +107,7 @@ bkjs.cleanupAlerts = function(element, options)
 
 bkjs.showConfirm = function(options, callback, cancelled)
 {
-    if (bkjs.isS(options)) options = { text: options };
+    if (typeof options == "string") options = { text: options };
 
     var opts = {
         self: this,
@@ -109,10 +117,10 @@ bkjs.showConfirm = function(options, callback, cancelled)
         buttons: ["cancel", "ok"],
         content: [{ div: { html: String(options.text || "").replace(/\n/g, "<br>"), class: options.css || "" } }],
         ok: function() {
-            if (bkjs.isF(callback)) callback.call(this);
+            bkjs.call(this, callback);
         },
         cancel: function() {
-            if (bkjs.isF(cancelled)) cancelled.call(this);
+            bkjs.call(this, cancelled);
         }
     };
     for (const p in options) {
@@ -123,7 +131,7 @@ bkjs.showConfirm = function(options, callback, cancelled)
 
 bkjs.showPrompt = function(options, callback)
 {
-    if (bkjs.isS(options)) options = { text: options };
+    if (typeof options == "string") options = { text: options };
 
     var value;
     var opts = {
@@ -136,7 +144,7 @@ bkjs.showPrompt = function(options, callback)
             value = d.value;
         },
         dismiss: function() {
-            if (bkjs.isF(callback)) callback.call(this, value);
+            bkjs.call(this, callback, value);
         }
     };
     for (const p in options) {
@@ -147,7 +155,7 @@ bkjs.showPrompt = function(options, callback)
 
 bkjs.showLogin = function(options, callback)
 {
-    if (bkjs.isF(options)) callback = options, options = null;
+    if (typeof options == "function") callback = options, options = null;
     if (!options) options = {};
 
     var popup;
@@ -169,12 +177,12 @@ bkjs.showLogin = function(options, callback)
             options.disclaimer ? { div: { html: options.disclaimer } } : null,
         ],
         ok: function(d) {
-            if (bkjs.isF(options.onSubmit) && !options.onSubmit(popup, d)) return false;
+            if (typeof options.onSubmit == "function" && !options.onSubmit(popup, d)) return false;
             var q = { login: d.login, secret: d.secret };
             if (options.url) q = { url: options.url, data: q };
             bkjs.login(q, function(err) {
                 if (err) popup.showAlert(err);
-                if (bkjs.isF(callback)) callback.call(self, err);
+                bkjs.call(self, callback, err);
             });
             return false;
         },
@@ -192,9 +200,9 @@ bkjs.hideLogin = function()
 
 bkjs.showToast = function(obj, type, text, options)
 {
-    if (bkjs.isS(obj)) options = text, text = type, type = obj, obj = null;
+    if (typeof obj == "string") options = text, text = type, type = obj, obj = null;
     if (!text) return;
-    var o = Object.assign({ type: type == "error" ? "danger" : bkjs.isS(type) && type || "info", now: Date.now(), delay: 5000, role: "alert" }, options || {});
+    var o = Object.assign({ type: type == "error" ? "danger" : typeof type == "string" && type || "info", now: Date.now(), delay: 5000, role: "alert" }, options || {});
     var t = o.type[0];
     var delay = o.delay * (t == "d" || t == "w" ? 3 : t == "i" ? 2 : 1);
     var icon = o.icon || t == "s" ? "fa-check-circle" : t == "d" ? "fa-exclamation-circle" : t == "w" ? "fa-exclamation-triangle": "fa-info-circle";
@@ -235,11 +243,24 @@ bkjs.showToast = function(obj, type, text, options)
     return el;
 }
 
-$(function() {
-    bkjs.on("bkjs.alert", (ev, type, msg, opts) => {
+bkjs.plugin((target) => {
+    $(target).find('.carousel').carousel();
+    $(target).find(`[data-bs-toggle="popover"]`).popover();
+});
+
+bkjs.ready(() => {
+    bkjs.setBreakpoint();
+
+    bkjs.$on(window, "resize", () => {
+        clearTimeout(bkjs._resized);
+        bkjs._resized = setTimeout(bkjs.setBreakpoint.bind(bkjs), 250);
+    });
+
+    bkjs.on("alert", (type, msg, opts) => {
         bkjs.showAlert(type, msg, opts);
     });
-    bkjs.on("bkjs.loading", (ev, type) => {
+
+    bkjs.on("loading", (type) => {
         bkjs.showLoading(type);
     });
 });

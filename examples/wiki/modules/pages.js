@@ -4,20 +4,13 @@
 //
 
 var path = require('path');
-var util = require('util');
 var fs = require('fs');
-var http = require('http');
-var url = require('url');
 var marked = require('marked');
 var bkjs = require('backendjs');
 var db = bkjs.db;
 var api = bkjs.api;
-var app = bkjs.app;
-var ipc = bkjs.ipc;
-var msg = bkjs.msg;
 var core = bkjs.core;
 var lib = bkjs.lib;
-var logger = bkjs.logger;
 
 // Wiki pages management
 var pages = {
@@ -31,7 +24,7 @@ var pages = {
           icon: { pub: 1 },                            // icon class, glyphicon, fa....
           link: { pub: 1 },                            // external link to the content
           content: { pub: 1 },                         // the page content
-          toc: { type:" bool", pub: 1 },               // produce table of content
+          toc: { type: "bool", pub: 1 },               // produce table of content
           pub: { type: "bool", pub: 1 },               // no account to see thos page
           userid: { pub: 1 },                          // id of the last user
           mtime: { type: "now", pub: 1 }
@@ -143,8 +136,7 @@ pages.configurePagesAPI = function()
 //  - render - if true render into html, otherwise return just markdown
 pages.preparePages = function(options)
 {
-    var self = this;
-    var pages = { title: "", subtitle: "", toc: "", content: "", id: "" };
+    var pages = { title: "", subtitle: "", toc: "", content: "", id: "" }, op;
     for (var p in options) pages[p] = options[p];
     var toc = "";
     if (pages.toc || !pages.title) {
@@ -173,5 +165,5 @@ pages.preparePages = function(options)
 // Send rendered markdown to the client response
 pages.sendPages = function(req, options)
 {
-    req.res.render(this.view, { pages: this.preparePages(lib.objExtend(options, 'render', 1)) });
+    req.res.render(this.view, { pages: this.preparePages(Object.assign(options, { render: 1 })) });
 }

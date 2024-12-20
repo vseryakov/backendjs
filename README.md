@@ -32,7 +32,7 @@ Features:
 * Includes simple log watcher to monitor the log files including system errors.
 * Supports i18n hooks for request/response objects, easily overriden with any real i18n implementation.
 * Integrated very light unit testing facility which can be used to test modules and API requests.
-* Supports runtime metrics about the timing on database, requests, cache, memory and request rate limit control
+* Supports runtime metrics about the timing on database, requests, cache, memory and request rate limit control, AWS X-Ray spans
 * Hosted on [github](https://github.com/vseryakov/backendjs), BSD licensed.
 
 Check out the [Documentation](http://bkjs.io) for more details.
@@ -150,7 +150,7 @@ or the same using async/await, same methods with `a` prepended to the name
 
 ## To run an example
 
-* The library is packaged with copies of Bootstrap, jQuery, Knockout.js for quick Web development
+* The library is packaged with copies of Bootstrap, jQuery, Knockout.js, Alpine.js for quick Web development
 in web/js and web/css directories, all scripts are available from the browser with /js or /css paths. To use all at once as a bundle
 run the following command:
 
@@ -236,10 +236,7 @@ which makes it easy to refer and extend with additional methods and structures.
 The typical structure of a single file backendjs application is the following:
 
 ```javascript
-    const bkjs = require('backendjs');
-    const api = bkjs.api;
-    const app = bkjs.app;
-    const db = bkjs.db;
+    const { api, core, db, app } = require('backendjs');
 
     app.listArg = [];
 
@@ -300,9 +297,7 @@ The typical structure of a single file backendjs application is the following:
 Another probably easier way to create single file apps is to use your namespace instead of `app`:
 
 ```javascript
-    const bkjs = require("backendjs");
-    const api = bkjs.api;
-    const db = bkjs.db;
+    const { api, db } = require("backendjs");
 
     const mymod = {
         name: "mymod",
@@ -320,7 +315,7 @@ Another probably easier way to create single file apps is to use your namespace 
         }
     };
     exports.module = mymod;
-    bkjs.core.addModule(mymod);
+    core.addModule(mymod);
 
     mymod.configureWeb = function(options, callback)
     {
@@ -356,8 +351,8 @@ methods.
 Let's assume the `modules/` contains file facebook.js which implements custom FB logic:
 
 ```javascript
-    const bkjs = require("backendjs");
-    const core = bkjs.core;
+    const { core } = require("backendjs");
+
     const mod = {
         name: "facebook",
         args: [
@@ -378,18 +373,17 @@ Let's assume the `modules/` contains file facebook.js which implements custom FB
 This is the main app code:
 
 ```javascript
-    const bkjs = require("backendjs");
-    const core = bkjs.core;
+    const { api, core, server } = require("backendjs");
 
     // Using facebook module in the main app
     api.app.get("/me", (req, res) => {
 
        core.modules.facebook.makeRequest({ path: "/me" }, (err, data) => {
-          bkjs.api.sendJSON(req, err, data);
+          api.sendJSON(req, err, data);
        });
     });
 
-    bkj.server.start();
+    server.start();
 ```
 
 ## NPM packages as modules
@@ -399,7 +393,7 @@ separate NPM packages, the structure is the same, modules must be in the modules
 via require as usual. In most cases just empty index.js is enough. Such modules will not be loaded via require though but
 by the backendjs `core.loadModule` machinery, the NPM packages are just keep different module directories separate from each other.
 
-The config parameter `preload-packages` can be used to specify NPM package names to be loaded separated by comma, as with the default
+The config parameter `use-packages` can be used to specify NPM package names to be loaded separated by comma, as with the default
 application structure all subfolders inside each NPM package will be added to the core:
 
   - modules will be loaded from the modules/ folder
@@ -560,11 +554,7 @@ operations like add/update/delete a record, show all records.
 Create a file named `app.js` with the code below.
 
 ```javascript
-    const bkjs = require('backendjs');
-    const api = bkjs.api;
-    const lib = bkjs.lib;
-    const app = bkjs.app;
-    const db = bkjs.db;
+    const { api, lib, ap, db } = require('backendjs');
 
     // Describe the table to store todo records
     db.describeTables({
@@ -727,7 +717,7 @@ On startup some env variable will be used for initial configuration:
   - BKJS_HOME - home directory where to cd and find files, `-home` config parameter overrides it
   - BKJS_RUNMODE - initial run mode, `-run-mode` overrides it
   - BKJS_CONFFILE - config file to use instead of 'config', `-conf-file` overrides it
-  - BKJS_PACKAGES - packags to preload, `-preload-packages` overrieds it
+  - BKJS_PACKAGES - packags to use, `-use-packages` overrieds it
   - BKJS_DB_POOL - default db pool, `-db-pool` overrides it
   - BKJS_DB_CONFIG - config db pool, `-db-config` overrides it
   - BKJS_ROLES - additonal roles to use for config, `-roles` overrides it
@@ -852,7 +842,7 @@ this assumes the default path '/public' still allowed without the signature:
    <script>
     $(function () {
        bkjs.session = true;
-       $(bkjs).on("bkjs.nologin", function() { window.location='/public/index.html'; });
+       bkjs.on("nologin", () => { window.location='/public/index.html'; });
        bkjs.koInit();
    });
    </script>
@@ -903,7 +893,7 @@ There are two ways to send messages via Websockets to the server from a browser:
 ```javascript
     bkjs.wsConnect({ path: "/project/ws?id=1" });
 
-    $(bkjs).on("bkjs.ws.message", (msg) => {
+    bkjs.on("ws:message", (msg) => {
         switch (msg.op) {
         case "/account/update":
             bkjs.wsSend("/account/ws/account");

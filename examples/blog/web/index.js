@@ -2,7 +2,7 @@
 // Vlad Seryakov 20014
 //
 
-var self = Bkjs;
+var self = bkjs;
 self.session = true;
 self.auth = ko.observable(0);
 self.blog = ko.observableArray([]);

@@ -631,7 +631,7 @@ function bootpopup(...args)
     this.callback = function(name, event) {
         if (this.options.debug) console.log("callback:", name, event);
         var func = this.options[name];        // Get function to call
-        if (!bkjs.isF(func)) return;
+        if (typeof func != "function") return;
         this._callback = name;
         // Perform callback
         var a = this.data();
@@ -646,10 +646,10 @@ function bootpopup(...args)
             for (const key in opts) {
                 if (typeof opts[key] != "undefined") {
                     // Chaining all callbacks together, not replacing
-                    if (bkjs.isF(this.options[key])) {
+                    if (typeof this.options[key] == "function") {
                         const _o = this.options[key], _n = opts[key];
                         this.options[key] = function(...args) {
-                            if (bkjs.isF(_o)) _o.apply(this, args);
+                            if (typeof _o == "function") _o.apply(this, args);
                             return _n.apply(this, args);
                         }
                     } else {

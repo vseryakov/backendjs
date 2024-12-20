@@ -154,8 +154,7 @@ case "$BKJS_CMD" in
 
                     *.html)
                         n=$(basename $f .html)
-                        echo "bkjs.koTemplates[\"$n\"]='$(cat $f|tr -d '\r\n'|sed "s/['\\]/\\\&/g")';" >> $dir/web/js/$bundle.bundle.js
-                        echo "ko.components.register(\"$n\",{});" >> $dir/web/js/$bundle.bundle.js
+                        echo "bkjs.templates[\"$n\"]='$(cat $f|tr -d '\r\n'|sed "s/['\\]/\\\&/g")';" >> $dir/web/js/$bundle.bundle.js
                         ;;
                     esac
                 done
@@ -165,10 +164,6 @@ case "$BKJS_CMD" in
                         if [ -n "$(get_flag -esbuild)" ]; then
                             esbuildargs="--minify $(get_arg -esbuildargs)"
                             esbuild $esbuildargs $jsfiles >> $dir/web/js/$bundle.bundle.js
-                            [ "$?" != "0" ] && exit 1
-                        elif [ -n "$(get_flag -gcc)" ]; then
-                            gccargs=" $(get_arg -gccargs)"
-                            npx google-closure-compiler $gccargs $jsfiles >> $dir/web/js/$bundle.bundle.js
                             [ "$?" != "0" ] && exit 1
                         else
                             uglifyargs="-c -m --comments /^!/ $(get_arg -uglifyargs)"

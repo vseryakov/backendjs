@@ -28,11 +28,19 @@ for arg in "$@"; do
     BKJS_ARGC=$((BKJS_ARGC + 1))
 done
 
-# Run the command $1 by sourcing all scripts from tools folders for the module if $2 is not empty or for all
+# Run the command $1 by sourcing all scripts from tools folders for the module if $2 is not empty or for all, the rest of
+# of arguments are appended to the global args list, last arg takes precedence
 run_bkjs_cmd() {
     local _cmddir= _cmdseen= _cmdscope= _cmdtools="$(get_arg -tools) ./tools $BKJS_TOOLS $BKJS_HOME/tools $BKJS_DIR/tools"
     BKJS_CMD=$1
+    BKJS_RUNCMD=1
     [ -z "$2" ] && _cmdscope='bkjs-*' || _cmdscope="bkjs-$(echo "$BKJS_CMD"|cut -d- -f1)*"
+
+    # Append local args to global list
+    shift; shift
+    local argc=$BKJS_ARGC
+    for arg in "$@"; do eval "BKJS_ARGV$BKJS_ARGC=\$arg"; BKJS_ARGC=$((BKJS_ARGC + 1)); done
+
     debug run_bkjs_cmd: $_cmdscope: tools: $_cmdtools
     for _cmddir in $_cmdtools; do
     	_cmddir=$(readlink -f $_cmddir)
@@ -45,19 +53,24 @@ run_bkjs_cmd() {
         	source $_cmdfile
         done
     done
+
+    # Reset back the global args position
+    while [ $BKJS_ARGC -ge $argc ]; do eval unset "BKJS_ARGV$BKJS_ARGC"; BKJS_ARGC=$((BKJS_ARGC - 1)); done
+    BKJS_ARGC=$argc
+    unset BKJS_RUNCMD
 }
 
 # Returns an argument value by name in $1 or default in $2, format is -name value
 get_arg() {
-  local i=0
-  while [ $i -lt $BKJS_ARGC ]; do
+  local i=$BKJS_ARGC
+  while [ $i -ge 0 ]; do
     local n=$(eval "echo \$BKJS_ARGV$i")
     local v=$(eval "echo \"\$BKJS_ARGV$((i+1))\"")
     if [ "$1" = "$n" ]; then
         if [ -n "$v" ] && ! match "$v" "^\-"; then echo "$v" && return 0; fi
         [ -n "$3" ] && echo "$3" && return 0
     fi
-    i=$((i + 1))
+    i=$((i - 1))
   done
   echo "$2"
 }
@@ -187,7 +200,7 @@ run_ssh_cmd() {
     i=0
     rc=
     while [ $i -lt ${5:-25} ]; do
-        rc=$(ssh -o StrictHostKeyChecking=no -o CheckHostIP=no -o ConnectTimeout=2 $2@$1 "$3")
+        rc=$(ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o CheckHostIP=no -o ConnectTimeout=2 $2@$1 "$3")
         if match "$rc" "$4"; then return 0; fi
         sleep ${6:-5}
         i=$((i + 1))

@@ -1,0 +1,108 @@
+<head>
+    <title>Alpine Components</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+
+    <link rel="shortcut icon" href="/img/logo.png" type="image/png" />
+    <link rel="icon" href="/img/logo.png" type="image/png" />
+
+    <link href="/css/bkjs.bundle.css" rel="stylesheet">
+    <script src="/js/bkjs.bundle.js"></script>
+    <script src="/js/alpine.js" defer></script>
+
+    <script src="/js/bkjs-alpine.js"></script>
+    <script src="/components.js"></script>
+
+</head>
+
+<body>
+    <div class="h-100 w-100">
+        <x-app></x-app>
+    </div>
+</body>
+
+<template id=index>
+    <div class="card border-0">
+        <div class="d-flex justify-content-between align-items-top">
+            <div class="d-flex flex-row align-items-center">
+                <img class="h5 me-2" src=/img/logo.png>
+                <span class="h5 font-slab fw-bold">Alpine Components</span>
+            </div>
+        </div>
+        <div class="py-3 text-center">
+            <a role="button" class="nav-link my-2" x-link="template"><i class="fa fa-cog fa-fw"></i> Show Config from index.template var</a>
+            <a role="button" class="nav-link my-2" @click="toggle"><i class="fa fa-cog fa-fw"></i> Toggle index.template</a>
+
+            Template is set to <span x-text="template"></span>
+
+            <a role="button" class="nav-link my-2" x-link="'config/1/2?a=1'"><i class="fa fa-cog fa-fw"></i> Show Config with static x-render</a>
+            <br>
+
+            <a role="button" class="nav-link my-2" x-link="'config/1?$target=#section'"><i class="fa fa-cog fa-fw"></i> Render Config below</a>
+            <a role="button" class="nav-link my-2" @click="$render('config2', { $target: '#section', mobile: bkjs.isMobile })"><i class="fa fa-cog fa-fw"></i> Render Config2 below</a>
+        </div>
+    </div>
+
+    <div x-template></div>
+
+    <div class="py-2" id=section></div>
+</template>
+
+<template id=config>
+    <div class="card border-0">
+        <div class="d-flex justify-content-between align-items-top">
+            <div class="d-flex flex-row align-items-center">
+                <template x-if="!params.$target">
+                    <img class="h5 me-2" src=/img/logo.png>
+                </template>
+                <template x-if="params.$target">
+                    <i class="fa fa-fw fa-cogs mx-1"></i>
+                </template>
+                <span class="h5 font-slab fw-bold mx-1" x-text=title></span> <span x-text="refreshed"></span>
+            </div>
+            <div class="nav pt-3">
+                <a role="button" class="nav-link my-2" @click="edit"><i class="fa fa-plus fa-fw"></i> Create</a>
+                <a role="button" class="nav-link my-2" @click="refresh"><i class="fa fa-database fa-fw"></i> Refresh</a>
+                <a role="button" class="nav-link my-2" @click="close"><i class="fa fa-database fa-fw"></i> Close</a>
+                <a role="button" class="nav-link my-2" @click="visible=!visible"><i class="fa fa-database fa-fw"></i> Toggle</a>
+
+                <template x-if="$name=='config2'">
+                    <a role="button" class="nav-link my-2" @click="$render('test', { $target: '#section' })">
+                        <i class="fa fa-database fa-fw"></i>
+                        Test
+                        <span x-text=visible></span>
+                    </a>
+                </template>
+            </div>
+        </div>
+
+        <div class="card-body" x-show=visible x-transition>
+            <div class="row pt-1 pb-3">
+                <div class="col-6 d-flex justify-content-left">
+                    <input type="text" class="form-control custom max-vw-35" placeholder="Search" x-model.debounce="query"/>
+                    <button type="button" class="btn btn-default" title="Clear search" @click="query=''"><span class="fa fa-fw fa-times"></span> </button>
+                </div>
+            </div>
+
+            <div class="py-2">
+                <template x-for="type in filter">
+                    <div>
+                        <button class="btn" :data-bs-target="'#' + type.type" data-bs-toggle="collapse" aria-expanded="false">
+                            <i class="fa fa-fw fa-folder m-1"></i>
+                            <span x-text="type.type"></span>
+                        </button>
+
+                        <div class="ms-4 collapse" :class="{ 'show': type.q }" :id="type.type">
+                            <template x-for="row in type.rows">
+                                <div class="py-1" role="button" @click="edit">
+                                    <i class="fa fa-fw m-1" :class="row.icon"></i>
+                                    <span class="m-1" x-text="row.text"></span>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </div>
+</template>
+

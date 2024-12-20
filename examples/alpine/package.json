@@ -9,5 +9,5 @@
     "backendjs": ">=0.9.0"
  },
  "engines": { "node": ">= 0.10" },
- "scripts": { "start": "node app.js" },
+ "scripts": { "start": "app.sh" },
  "license": "BSD-3-Clause" }

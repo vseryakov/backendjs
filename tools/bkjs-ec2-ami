@@ -35,8 +35,7 @@ case "$BKJS_CMD" in
     ;;
 
   ec2-build-ami)
-    INSTANCE_USER=$(get_arg -ssh-user alpine)
-    $BKJS_BIN ec2-launch-instance -ssh-user "$INSTANCE_USER" $(get_all_args "-ssh-user")
+    run_bkjs_cmd ec2-launch-instance 1 -ssh-user alpine
     [ "$?" != "0" ] && exit 1
 
     # Run the hooks to do the actual work now
