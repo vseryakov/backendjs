@@ -156,7 +156,7 @@ case "$BKJS_CMD" in
 
                     *.html)
                         n=$(basename $f .html)
-                        echo "bkjs.templates[\"$n\"]='$(cat $f|tr -d '\r\n'|sed "s/['\\]/\\\&/g")';" >> $dir/web/js/$bundle.bundle.js
+                        echo "app.templates[\"$n\"]='$(cat $f|tr -d '\r\n'|sed "s/['\\]/\\\&/g")';" >> $dir/web/js/$bundle.bundle.js
                         ;;
                     esac
                 done

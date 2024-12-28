@@ -12,7 +12,7 @@ app.koMobile = ko.observable();
 app.koVal = ko.unwrap;
 app.isKo = (v) => (ko.isObservable(v))
 app.isKa = (v) => (ko.isObservableArray(v))
-app.koReg = (v) => ko.components.register(v, {})
+app.koRegister = (...args) => args.forEach(x => ko.components.register(x, {}))
 
 app.koSetObject = function(obj, options)
 {

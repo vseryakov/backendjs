@@ -1,5 +1,5 @@
 (() => {
-  // src/index.js
+  // packages/mask/src/index.js
   function src_default(Alpine) {
     Alpine.directive("mask", (el, { value, expression }, { effect, evaluateLater, cleanup }) => {
       let templateFn = () => expression;
@@ -27,8 +27,10 @@
           processInputValue(el, false);
         }
         if (el._x_model) {
-          if (el._x_model.get() === el.value) return;
-          if (el._x_model.get() === null && el.value === "") return;
+          if (el._x_model.get() === el.value)
+            return;
+          if (el._x_model.get() === null && el.value === "")
+            return;
           el._x_model.set(el.value);
         }
       });
@@ -46,7 +48,8 @@
       function processInputValue(el2, shouldRestoreCursor = true) {
         let input = el2.value;
         let template = templateFn(input);
-        if (!template || template === "false") return false;
+        if (!template || template === "false")
+          return false;
         if (lastInputValue.length - el2.value.length === 1) {
           return lastInputValue = el2.value;
         }
@@ -62,7 +65,8 @@
         }
       }
       function formatInput(input, template) {
-        if (input === "") return "";
+        if (input === "")
+          return "";
         let strippedDownInput = stripDown(template, input);
         let rebuiltInput = buildUp(template, strippedDownInput);
         return rebuiltInput;
@@ -114,7 +118,8 @@
           break;
         }
       }
-      if (!found) break;
+      if (!found)
+        break;
     }
     return output;
   }
@@ -126,14 +131,17 @@
         output += template[i];
         continue;
       }
-      if (clean.length === 0) break;
+      if (clean.length === 0)
+        break;
       output += clean.shift();
     }
     return output;
   }
   function formatMoney(input, delimiter = ".", thousands, precision = 2) {
-    if (input === "-") return "-";
-    if (/^\D+$/.test(input)) return "9";
+    if (input === "-")
+      return "-";
+    if (/^\D+$/.test(input))
+      return "9";
     if (thousands === null || thousands === void 0) {
       thousands = delimiter === "," ? "." : ",";
     }
@@ -141,7 +149,8 @@
       let output = "";
       let counter = 0;
       for (let i = input2.length - 1; i >= 0; i--) {
-        if (input2[i] === thousands2) continue;
+        if (input2[i] === thousands2)
+          continue;
         if (counter === 3) {
           output = input2[i] + thousands2 + output;
           counter = 0;
@@ -159,7 +168,8 @@
     if (precision > 0 && input.includes(delimiter))
       template += `${delimiter}` + "9".repeat(precision);
     queueMicrotask(() => {
-      if (this.el.value.endsWith(delimiter)) return;
+      if (this.el.value.endsWith(delimiter))
+        return;
       if (this.el.value[this.el.selectionStart - 1] === delimiter) {
         this.el.setSelectionRange(this.el.selectionStart - 1, this.el.selectionStart - 1);
       }
@@ -167,7 +177,7 @@
     return template;
   }
 
-  // builds/cdn.js
+  // packages/mask/builds/cdn.js
   document.addEventListener("alpine:init", () => {
     window.Alpine.plugin(src_default);
   });

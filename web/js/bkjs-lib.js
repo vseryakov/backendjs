@@ -661,14 +661,7 @@ app.toTitle = function(name)
 
 app.toCamel = function(name, chars)
 {
-    var rx = typeof chars == "string" ? new RegExp("(?:[" + chars + "])(\\w)", "g") : /(?:[_.:-])(\w)/g;
-    return typeof name == "string" ? name.substr(0, 1).toLowerCase() + name.substr(1).replace(rx, (_, c) => (c ? c.toUpperCase() : '')) : "";
-}
-
-// Convert Camel names into names separated by the given separator or dash if not.
-app.toUncamel = function(str, sep)
-{
-    return typeof str == "string" ? str.replace(/([A-Z])/g, (letter) => ((sep || '-') + letter.toLowerCase())) : "";
+    return typeof name == "string" ? name.toLowerCase().replace(/([_.:-])(\w)/g, (_, c) => c.toUpperCase()) : "";
 }
 
 // Interpret the value as a boolean
@@ -1251,29 +1244,6 @@ var sanitizer = {
     }
 }
 app.sanitizer = sanitizer;
-
-// Convert an object into a query string
-app.toQueryString = function(obj)
-{
-    var rc = [];
-
-    const add = (k, v) => {
-       rc.push(encodeURIComponent(k) + "=" + encodeURIComponent(typeof v == "function" ? v() : v === null ? v: v === true ? "1" : v));
-    }
-
-    const build = (key, val) => {
-        if (Array.isArray(val)) {
-            for (const i in val) build(`${key}[${typeof val[i] === "object" && val[i] != null ? i : ""}]`, val[i]);
-        } else
-        if (val && typeof val == "object") {
-            for (const n in val) build(`${key}[${n}]`, val[n]);
-        } else {
-            add(key, val);
-        }
-    }
-    for (const p in obj) build(p, obj[p]);
-    return rc.join("&");
-}
 
 // Inject CSS/Script resources into the current page, loading is async, all pages are loaded at the same time,
 // if options.async set then scripts executed as soon as loaded otherwise executing scripts will be in the order provided

@@ -44,7 +44,7 @@ app.wsConnect = function(options)
 
     var port = conf.port || window.location.port;
     var proto = conf.protocol || window.location.protocol.replace("http", "ws");
-    var url = `${proto}//${host}:${port}${conf.path}?${app.toQueryString(conf.query)}`;
+    var url = `${proto}//${host}:${port}${conf.path}?${conf.query ? new URLSearchParams(conf.query).toString() : ""}`;
 
     app.ws = new WebSocket(url);
     app.ws.onopen = () => {
