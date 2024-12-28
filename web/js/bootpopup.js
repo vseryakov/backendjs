@@ -18,8 +18,6 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-var bootpopupPlugins = [];
-
 function bootpopup(...args)
 {
     var inputs = [ "text", "color", "url", "password", "hidden", "file", "number",
@@ -228,7 +226,7 @@ function bootpopup(...args)
             }
             if (opts.list_input_button || opts.list_input_tags) {
                 if (attrs.value && opts.list_input_tags) {
-                    elem.attr('value', bkjs.strSplit(attrs.value).join(', '));
+                    elem.attr('value', app.strSplit(attrs.value).join(', '));
                 }
                 elem = $('<div></div>', { class: `input-group ${opts.class_input_group || ""}` }).append(elem);
                 $('<button></button>', {
@@ -255,7 +253,7 @@ function bootpopup(...args)
                         $('<a></a>', {
                             class: "dropdown-item " + (opts.class_list_input_item || ""),
                             role: "button",
-                            onclick: `$('#${attrs.id}').val(bkjs.toFlags("add", bkjs.strSplit($('#${attrs.id}').val()), '${v || n}').join(', '))`
+                            onclick: `$('#${attrs.id}').val(app.toFlags("add", app.strSplit($('#${attrs.id}').val()), '${v || n}').join(', '))`
                         }).append(n).appendTo(menu);
                     } else {
                         $('<a></a>', {
@@ -440,7 +438,7 @@ function bootpopup(...args)
                     if (o.class_check || opts.class_check) c += " " + (o.class_check || opts.class_check);
                     children.push($('<div></div>', { class: c, title: title }).append($(`<input/>`, o)).append(label));
                 }
-                bkjs.objDel(attrs, "switch", "inline", "reverse", "options", "value", "type");
+                app.objDel(attrs, "switch", "inline", "reverse", "options", "value", "type");
                 addElement(type);
                 break;
 
@@ -580,7 +578,7 @@ function bootpopup(...args)
         if (!this[type]) return;
         if (text?.message) text = text.message;
         if (typeof text != "string") return;
-        if (!opts?.safe) text = bkjs.textToEntity(text.replace(/<br>/g, "\n"));
+        if (!opts?.safe) text = app.textToEntity(text.replace(/<br>/g, "\n"));
         text = self.sanitize(text).replace(/\n/g, "<br>");
         if (opts?.dismiss) {
             $(this[type]).empty().
@@ -669,10 +667,10 @@ function bootpopup(...args)
 
     this.close = function() { return this.callback("close"); }
 
-    this.addOptions(...bootpopupPlugins, ...args);
+    this.addOptions(...bootpopup.plugins, ...args);
     this.create();
     this.show();
 
     return this;
 }
-
+bootpopup.plugins = [];

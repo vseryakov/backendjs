@@ -1656,7 +1656,7 @@ ${expression ? 'Expression: "' + expression + '"\n\n' : ""}`, el);
     get raw() {
       return raw;
     },
-    version: "3.14.6",
+    version: "3.14.8",
     flushAndStopDeferringMutations,
     dontAutoEvaluateFunctions,
     disableEffectScheduling,
@@ -2597,7 +2597,6 @@ ${expression ? 'Expression: "' + expression + '"\n\n' : ""}`, el);
       placeInDom(clone2, target, modifiers);
       skipDuringClone(() => {
         initTree(clone2);
-        clone2._x_ignore = true;
       })();
     });
     el._x_teleportPutBack = () => {

@@ -1,9 +1,0 @@
-
-repl-port-api=2090
-
-api-allow-path=/
-api-routing-^/app=/index.html
-
-db-pool=dynamodb
-db-dynamodb-pool=http://localhost:8181
-

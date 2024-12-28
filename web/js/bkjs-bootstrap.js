@@ -5,31 +5,34 @@
 
 // Bootstrap backend support
 
-bkjs.getBreakpoint = function()
+(() => {
+var app = window.app;
+
+app.getBreakpoint = function()
 {
     var w = document.documentElement.clientWidth;
     return w < 576 ? 'xs' : w < 768 ? 'sm' : w < 992 ? 'md' : w < 1200 ? 'lg' : w < 1400 ? 'xl' : 'xxl';
 }
 
-bkjs.setBreakpoint = function()
+app.setBreakpoint = function()
 {
-    bkjs.isMobile = /xs|sm|md/.test(bkjs.getBreakpoint());
+    app.isMobile = /xs|sm|md/.test(app.getBreakpoint());
     document.documentElement.style.setProperty('--height', (window.innerHeight * 0.01) + "px");
 }
 
-bkjs.setColorScheme = function()
+app.setColorScheme = function()
 {
     document.documentElement.setAttribute("data-bs-theme", window.matchMedia('(prefers-color-scheme: dark)').matches ? "dark" : "light");
 }
 
 // Show/hide loading animation
-bkjs.showLoading = function(op)
+app.showLoading = function(op)
 {
-    var img = $(bkjs.loadingElement || '.loading');
+    var img = $(app.loadingElement || '.loading');
     if (!img.length) return;
 
-    if (!bkjs._loading) bkjs._loading = { count: 0 };
-    var state = bkjs._loading;
+    if (!app._loading) app._loading = { count: 0 };
+    var state = app._loading;
     switch (op) {
     case "hide":
         if (--state.count > 0) break;
@@ -45,14 +48,14 @@ bkjs.showLoading = function(op)
     }
 }
 
-bkjs.getAlertText = function(text, options)
+app.getAlertText = function(text, options)
 {
     text = text?.message || text?.text || text?.msg || text;
-    text = typeof text == "string" ? options?.safe ? text : bkjs.textToEntity(text) : bkjs.formatJSON(text, { preset: "compact" }).replace(/[<>]/g, "");
-    return bkjs.sanitizer.run(text).replace(/\n/g, "<br>");
+    text = typeof text == "string" ? options?.safe ? text : app.textToEntity(text) : app.formatJSON(text, { preset: "compact" }).replace(/[<>]/g, "");
+    return app.sanitizer.run(text).replace(/\n/g, "<br>");
 }
 
-bkjs.showAlert = function(obj, type, text, options)
+app.showAlert = function(obj, type, text, options)
 {
     if (!obj || !obj.length) obj = null;
     if (typeof obj == "string") options = text, text = type, type = obj, obj = $("body");
@@ -68,7 +71,7 @@ bkjs.showAlert = function(obj, type, text, options)
     var html = `
     <div class="alert alert-dismissible alert-${o.type} show fade" role="alert">
         ${o.icon ? `<i class="fa fa-fw ${o.icon}"></i>` : ""}
-        ${bkjs.getAlertText(text, o)}
+        ${app.getAlertText(text, o)}
         <button type="button" class="btn-close" data-dismiss="alert" aria-label="Close"></button>
     </div>`;
     if (o.hide || alerts.css("display") == "none") {
@@ -83,21 +86,21 @@ bkjs.showAlert = function(obj, type, text, options)
         o.delay = (o.delay || 3000) * (type == "danger" || type == "warning" ? 3 : type == "info" ? 2 : 1);
         setTimeout(() => { el.alert('close') }, o.delay);
     }
-    el.on('closed.bs.alert', bkjs.cleanupAlerts.bind(bkjs, alerts, o));
+    el.on('closed.bs.alert', app.cleanupAlerts.bind(app, alerts, o));
     if (o.scroll) alerts[0].scrollIntoView();
     return el;
 }
 
-bkjs.hideAlert = function(obj, options)
+app.hideAlert = function(obj, options)
 {
     if (!options) options = {};
     var alerts = $(obj || "body").find(options.element || ".alerts");
     if (!alerts.length) return;
     alerts.empty();
-    bkjs.cleanupAlerts(alerts, options);
+    app.cleanupAlerts(alerts, options);
 }
 
-bkjs.cleanupAlerts = function(element, options)
+app.cleanupAlerts = function(element, options)
 {
     if (element.children().length) return;
     if (options.css) element.removeClass(options.css);
@@ -105,22 +108,22 @@ bkjs.cleanupAlerts = function(element, options)
     element.removeAttr("data-alert");
 }
 
-bkjs.showConfirm = function(options, callback, cancelled)
+app.showConfirm = function(options, callback, cancelled)
 {
     if (typeof options == "string") options = { text: options };
 
     var opts = {
         self: this,
-        sanitizer: bkjs.sanitizer,
+        sanitizer: app.sanitizer,
         title: options.title || 'Confirm',
         show_header: options.title !== null,
         buttons: ["cancel", "ok"],
         content: [{ div: { html: String(options.text || "").replace(/\n/g, "<br>"), class: options.css || "" } }],
         ok: function() {
-            bkjs.call(this, callback);
+            app.call(this, callback);
         },
         cancel: function() {
-            bkjs.call(this, cancelled);
+            app.call(this, cancelled);
         }
     };
     for (const p in options) {
@@ -129,14 +132,14 @@ bkjs.showConfirm = function(options, callback, cancelled)
     bootpopup(opts);
 }
 
-bkjs.showPrompt = function(options, callback)
+app.showPrompt = function(options, callback)
 {
     if (typeof options == "string") options = { text: options };
 
     var value;
     var opts = {
         self: this,
-        sanitizer: bkjs.sanitizer,
+        sanitizer: app.sanitizer,
         title: options.title || 'Prompt',
         buttons: ["cancel", "ok"],
         content: [{ input: { name: "value", label: String(options.text || "").replace(/\n/g, "<br>"), class: `form-control ${options.css ||""}`, value: options.value } }],
@@ -144,7 +147,7 @@ bkjs.showPrompt = function(options, callback)
             value = d.value;
         },
         dismiss: function() {
-            bkjs.call(this, callback, value);
+            app.call(this, callback, value);
         }
     };
     for (const p in options) {
@@ -153,7 +156,7 @@ bkjs.showPrompt = function(options, callback)
     bootpopup(opts);
 }
 
-bkjs.showLogin = function(options, callback)
+app.showLogin = function(options, callback)
 {
     if (typeof options == "function") callback = options, options = null;
     if (!options) options = {};
@@ -161,8 +164,8 @@ bkjs.showLogin = function(options, callback)
     var popup;
     var opts = {
         self: this,
-        sanitizer: bkjs.sanitizer,
-        id: "bkjs-login-modal",
+        sanitizer: app.sanitizer,
+        id: "app-login-modal",
         show_header: false,
         buttons: ["cancel", "ok"],
         text_ok: "Login",
@@ -180,9 +183,9 @@ bkjs.showLogin = function(options, callback)
             if (typeof options.onSubmit == "function" && !options.onSubmit(popup, d)) return false;
             var q = { login: d.login, secret: d.secret };
             if (options.url) q = { url: options.url, data: q };
-            bkjs.login(q, function(err) {
+            app.login(q, function(err) {
                 if (err) popup.showAlert(err);
-                bkjs.call(self, callback, err);
+                app.call(self, callback, err);
             });
             return false;
         },
@@ -193,12 +196,12 @@ bkjs.showLogin = function(options, callback)
     popup = bootpopup(opts);
 }
 
-bkjs.hideLogin = function()
+app.hideLogin = function()
 {
-    $("#bkjs-login-modal").modal("hide");
+    $("#app-login-modal").modal("hide");
 }
 
-bkjs.showToast = function(obj, type, text, options)
+app.showToast = function(obj, type, text, options)
 {
     if (typeof obj == "string") options = text, text = type, type = obj, obj = null;
     if (!text) return;
@@ -210,12 +213,12 @@ bkjs.showToast = function(obj, type, text, options)
     <div class="toast fade show ${o.type} ${o.css || ""}" role="${o.role}" aria-live="polite" aria-atomic="true" data-bs-autohide="${!o.dismiss}" data-bs-delay="${delay}">
         <div class="toast-header ${o.css_header || ""}">
             <span class="fa fa-fw ${icon} me-2 text-${o.type}" aria-hidden="true"></span>
-            <strong class="me-auto toast-title">${o.title || bkjs.toTitle(type)}</strong>
+            <strong class="me-auto toast-title">${o.title || app.toTitle(type)}</strong>
             <small class="timer" aria-hidden="true">${o.countdown ? Math.round(delay/1000)+"s" : !o.notimer ? "just now" : ""}</small>
             <button type="button" class="btn-close ms-2" data-bs-dismiss="toast" aria-label="Close"></button>
         </div>
         <div class="toast-body ${o.css_body || ""}">
-            ${bkjs.getAlertText(text, o)}
+            ${app.getAlertText(text, o)}
         </div>
     </div>`;
     if (!obj) {
@@ -237,31 +240,34 @@ bkjs.showToast = function(obj, type, text, options)
     obj.prepend(el);
     var timer = !o.notimer ? setInterval(() => {
         if (!$(el)[0].parentElement) return clearInterval(timer);
-        $(el).find(".timer").text(o.countdown ? bkjs.toDuration(delay - (Date.now() - o.now)) : bkjs.toAge(o.now) + " ago");
+        $(el).find(".timer").text(o.countdown ? app.toDuration(delay - (Date.now() - o.now)) : app.toAge(o.now) + " ago");
     }, o.countdown ? o.delay/2 : o.delay) : "";
     el.on("hidden.bs.toast", () => { clearInterval(timer); el.remove() });
     return el;
 }
 
-bkjs.plugin((target) => {
-    $(target).find('.carousel').carousel();
-    $(target).find(`[data-bs-toggle="popover"]`).popover();
+app.$ready(() => {
+    app.setBreakpoint();
+
+    app.$on(window, "resize", () => {
+        clearTimeout(app._resized);
+        app._resized = setTimeout(app.setBreakpoint, 250);
+    });
+
+    app.on("component:created", (data) => {
+        if (data?.element instanceof HTMLElement) {
+            app.$all(".carousel", data.element).forEach(el => (bootstrap.Carousel.getOrCreateInstance(el)));
+            app.$all(`[data-bs-toggle="popover"]`, data.element).forEach(el => (bootstrap.Popover.getOrCreateInstance(el)));
+        }
+    });
+
+    app.on("alert", (type, msg, opts) => {
+        app.showAlert(type, msg, opts);
+    });
+
+    app.on("loading", (type) => {
+        app.showLoading(type);
+    });
 });
 
-bkjs.ready(() => {
-    bkjs.setBreakpoint();
-
-    bkjs.$on(window, "resize", () => {
-        clearTimeout(bkjs._resized);
-        bkjs._resized = setTimeout(bkjs.setBreakpoint.bind(bkjs), 250);
-    });
-
-    bkjs.on("alert", (type, msg, opts) => {
-        bkjs.showAlert(type, msg, opts);
-    });
-
-    bkjs.on("loading", (type) => {
-        bkjs.showLoading(type);
-    });
-});
-
+})();

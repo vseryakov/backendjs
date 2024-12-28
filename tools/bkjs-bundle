@@ -8,7 +8,7 @@ case "$BKJS_CMD" in
 
   help|bundle-help)
     echo
-    echo "  bundle [-file FILE|(js|css|html)|BUNDLE.(js|css|html)] [-dirs DIRS...] [-find DIRS...] [-gzip] [-dev DEV] [-uglifyargs ARGS] [-all] [-force] [-clean] - produce a web bundle by uglifying js/css/html files into one file, resolves files from package.json"
+    echo "  bundle [-file FILE|(js|css|html)|BUNDLE.(js|css|html)] [-dir D] [-dirs DIRS...] [-find DIRS...] [-gzip] [-dev DEV] [-uglifyargs ARGS] [-all] [-force] [-clean] - produce a web bundle by uglifying js/css/html files into one file, resolves files from package.json"
     ;;
 
   bundle)
@@ -33,14 +33,16 @@ case "$BKJS_CMD" in
         exit 0
     fi
 
+    # Force the current dir
+    dir=$(get_arg -dir)
+    if [ "$dir" != "" ]; then
+        cd $dir
+        [ "$?" != "0" ] && exit 1
+    fi
+
     # Rebuild all bundles
     gzip=$(get_flag -gzip)
     if [[ -n "$(get_flag -all)" ]]; then
-        dir=$(get_arg -dir)
-        if [ "$dir" != "" ]; then
-            cd $dir
-            [ "$?" != "0" ] && exit 1
-        fi
 
         [ -f package.json ] && bundles=$(get_json_flat package.json config.bundles)
 

@@ -3,8 +3,11 @@
  *  Vlad Seryakov vseryakov@gmail.com 2018
  */
 
+(() => {
+var app = window.app;
+
 // Websockets
-bkjs.wsconf = {
+app.wsconf = {
     host: null,
     port: 0,
     path: "/",
@@ -20,9 +23,9 @@ bkjs.wsconf = {
 };
 
 // Open a new websocket connection, updates the wsconf from the options
-bkjs.wsConnect = function(options)
+app.wsConnect = function(options)
 {
-    var conf = bkjs.wsconf;
+    var conf = app.wsconf;
     if (conf._timer) {
         clearTimeout(conf._timer);
         delete conf._timer;
@@ -33,7 +36,7 @@ bkjs.wsConnect = function(options)
     var host = conf.host || window.location.hostname;
 
     if (navigator.onLine === false && !/^(localhost|127.0.0.1)$/.test(host)) {
-        return bkjs.wsTimer(0);
+        return app.wsTimer(0);
     }
 
     if (!conf.query) conf.query = {};
@@ -41,77 +44,77 @@ bkjs.wsConnect = function(options)
 
     var port = conf.port || window.location.port;
     var proto = conf.protocol || window.location.protocol.replace("http", "ws");
-    var url = `${proto}//${host}:${port}${conf.path}?${bkjs.toQueryString(conf.query)}`;
+    var url = `${proto}//${host}:${port}${conf.path}?${app.toQueryString(conf.query)}`;
 
-    bkjs.ws = new WebSocket(url);
-    bkjs.ws.onopen = () => {
-        if (conf.debug) bkjs.log("ws.open:", url);
-        bkjs.emit("ws:open", url);
+    app.ws = new WebSocket(url);
+    app.ws.onopen = () => {
+        if (conf.debug) app.log("ws.open:", url);
+        app.emit("ws:open", url);
         conf._ctime = Date.now();
         conf._timeout = conf.retry_timeout;
         conf._retries = 0;
         while (conf._pending.length) {
-            bkjs.wsSend(conf.pending.shift());
+            app.wsSend(conf.pending.shift());
         }
-        bkjs.wsPing();
+        app.wsPing();
     }
-    bkjs.ws.onclose = () => {
-        if (conf.debug) bkjs.log("ws.closed:", url, conf._timeout, conf._retries);
-        bkjs.ws = null;
-        bkjs.emit("ws:close", url);
-        if (++conf._retries < conf.max_retries) bkjs.wsTimer();
+    app.ws.onclose = () => {
+        if (conf.debug) app.log("ws.closed:", url, conf._timeout, conf._retries);
+        app.ws = null;
+        app.emit("ws:close", url);
+        if (++conf._retries < conf.max_retries) app.wsTimer();
     }
-    bkjs.ws.onmessage = (msg) => {
+    app.ws.onmessage = (msg) => {
         var data = msg.data;
-        if (data === "bye") return bkjs.wsClose(1);
+        if (data === "bye") return app.wsClose(1);
         if (typeof data == "string" && (data[0] == "{" || data[0] == "[")) data = JSON.parse(data);
-        if (conf.debug) bkjs.log('ws.message:', data);
-        bkjs.emit("ws:message", data);
+        if (conf.debug) app.log('ws.message:', data);
+        app.emit("ws:message", data);
     }
-    bkjs.ws.onerror = (err) => {
-        if (conf.debug) bkjs.log('ws.error:', url, err);
+    app.ws.onerror = (err) => {
+        if (conf.debug) app.log('ws.error:', url, err);
     }
 }
 
 // Restart websocket reconnect timer, increase conf.timeout according to reconnect policy conf.(retry_factor, max_timeout)
-bkjs.wsTimer = function(timeout)
+app.wsTimer = function(timeout)
 {
-    var conf = bkjs.wsconf;
+    var conf = app.wsconf;
     clearTimeout(conf._timer);
     if (conf.disabled) return;
     if (typeof timeout == "number") conf._timeout = timeout;
-    conf._timer = setTimeout(bkjs.wsConnect.bind(this), conf._timeout);
+    conf._timer = setTimeout(app.wsConnect.bind(this), conf._timeout);
     conf._timeout *= conf._timeout == conf.max_timeout ? 0 : conf.retry_factor;
-    conf._timeout = bkjs.toClamp(conf._timeout, conf.retry_timeout, conf.max_timeout);
+    conf._timeout = app.toClamp(conf._timeout, conf.retry_timeout, conf.max_timeout);
 }
 
 // Send a ping and shcedule next one
-bkjs.wsPing = function()
+app.wsPing = function()
 {
-    var conf = bkjs.wsconf;
+    var conf = app.wsconf;
     clearTimeout(conf._ping);
     if (conf.disabled || !conf.ping_interval) return;
-    if (bkjs.ws?.readyState === WebSocket.OPEN) {
-        bkjs.ws.send(conf.ping_path || "/ping");
+    if (app.ws?.readyState === WebSocket.OPEN) {
+        app.ws.send(conf.ping_path || "/ping");
     }
-    conf._ping = setTimeout(bkjs.wsPing.bind(this), conf.ping_interval);
+    conf._ping = setTimeout(app.wsPing.bind(this), conf.ping_interval);
 }
 
 // Closes and possibly disables WS connection, to reconnect again must delete .disabled property from wsconf
-bkjs.wsClose = function(disable)
+app.wsClose = function(disable)
 {
-    bkjs.wsconf.disabled = disable;
-    if (bkjs.ws) {
-        bkjs.ws.close();
-        delete bkjs.ws;
+    app.wsconf.disabled = disable;
+    if (app.ws) {
+        app.ws.close();
+        delete app.ws;
     }
 }
 
 // Send a string data or an object in jQuery ajax format { url:.., data:.. } or as an object to be stringified
-bkjs.wsSend = function(data)
+app.wsSend = function(data)
 {
-    var conf = bkjs.wsconf;
-    if (bkjs.ws?.readyState != WebSocket.OPEN) {
+    var conf = app.wsconf;
+    if (app.ws?.readyState != WebSocket.OPEN) {
         if (!conf.max_pending || conf._pending.length < conf.max_pending) {
             conf._pending.push(data);
         }
@@ -119,24 +122,28 @@ bkjs.wsSend = function(data)
     }
     if (typeof data == "object" && data) {
         if (data.url && data.url[0] == "/") {
-            data = data.url + (data.data ? "?" + bkjs.toQueryString(data.data) : "");
+            data = data.url;
+            if (typeof data.data == "object" && data.data) {
+                data += "?" + new URLSearchParams(data.data).toString();
+            }
         } else {
             data = JSON.stringified(data);
         }
     }
-    bkjs.ws.send(data);
+    app.ws.send(data);
 }
 
 // Check the status of websocket connection, reconnect if needed
-bkjs.wsOnline = function()
+app.wsOnline = function()
 {
-    if (bkjs.wsconf.debug) bkjs.log('ws.online:', navigator.onLine, bkjs.ws?.readyState, bkjs.wsconf.path, bkjs.wsconf._ctime);
-    if (bkjs.ws?.readyState !== WebSocket.OPEN && bkjs.wsconf._ctime) {
-        bkjs.wsConnect();
+    if (app.wsconf.debug) app.log('ws.online:', navigator.onLine, app.ws?.readyState, app.wsconf.path, app.wsconf._ctime);
+    if (app.ws?.readyState !== WebSocket.OPEN && app.wsconf._ctime) {
+        app.wsConnect();
     }
 }
 
-bkjs.ready(() => {
-    bkjs.$on(window, "online", bkjs.wsOnline.bind(bkjs));
+app.$ready(() => {
+    app.$on(window, "online", app.wsOnline);
 });
 
+})();

@@ -3,8 +3,11 @@
  *  Vlad Seryakov vseryakov@gmail.com 2018
  */
 
+(() => {
+var app = window.app;
+
 // Convert all special symbols into xml entities
-bkjs.textToXml = function(str)
+app.textToXml = function(str)
 {
     return String(str || "").replace(/([&<>'":])/g, (_, n) => {
       switch (n) {
@@ -18,39 +21,39 @@ bkjs.textToXml = function(str)
     });
 }
 
-bkjs.textToEntity = function(str)
+app.textToEntity = function(str)
 {
     if (typeof str != "string") return "";
-    if (!bkjs.textEntities) {
-        bkjs.textEntities = {};
-        for (const p in bkjs.htmlEntities) bkjs.textEntities[bkjs.htmlEntities[p]] = "&" + p + ";";
+    if (!app.textEntities) {
+        app.textEntities = {};
+        for (const p in app.htmlEntities) app.textEntities[app.htmlEntities[p]] = "&" + p + ";";
     }
-    return str.replace(/([&<>'":])/g, (_, n) => (bkjs.textEntities[n] || n));
+    return str.replace(/([&<>'":])/g, (_, n) => (app.textEntities[n] || n));
 }
 
 // Convert html entities into their original symbols
-bkjs.entityToText = function(str)
+app.entityToText = function(str)
 {
     if (typeof str != "string") return "";
     return str.replace(/&(#?[a-zA-Z0-9]+);/g, (_, n) => {
         if (n[0] === '#') return n.charAt(1) === 'x' ? String.fromCharCode(parseInt(n.substring(2), 16)) : String.fromCharCode(+n.substring(1));
-        return bkjs.htmlEntities[n] || "";
+        return app.htmlEntities[n] || "";
     });
 }
 
-bkjs._unicodeCache = {};
+app._unicodeCache = {};
 
 // Replace Unicode symbols with ASCII equivalents, types is a string with list of types of characters to
 // replace, default is: opqs, for quotes,other,punctuations,spaces
-bkjs.unicode2Ascii = function(str, types)
+app.unicode2Ascii = function(str, types)
 {
     if (typeof str != "string") return "";
     types = typeof types == "string" && types || "opqs";
-    var map = bkjs._unicodeCache[types];
+    var map = app._unicodeCache[types];
     if (!map) {
-        map = bkjs._unicodeCache[types] = {};
+        map = app._unicodeCache[types] = {};
         for (var t of types) {
-            Object.assign(bkjs._unicodeCache[types], bkjs.unicodeAsciiMap[t]);
+            Object.assign(app._unicodeCache[types], app.unicodeAsciiMap[t]);
         }
     }
     var rc = "";
@@ -58,7 +61,7 @@ bkjs.unicode2Ascii = function(str, types)
     return rc.trim();
 }
 
-bkjs.htmlEntities = {
+app.htmlEntities = {
     'AElig': 'Æ','AMP': '','Aacute': 'Á','Abreve': 'Ă','Acirc': 'Â',
     'Acy': 'А','Afr': '𝔄','Agrave': 'À','Alpha': 'Α','Amacr': 'Ā',
     'And': '⩓','Aogon': 'Ą','Aopf': '𝔸','ApplyFunction': '','Aring': 'Å',
@@ -485,7 +488,7 @@ bkjs.htmlEntities = {
     'zdot': 'ż','zeetrf': 'ℨ','zeta': 'ζ','zfr': '𝔷','zhcy': 'ж',
 };
 
-bkjs.unicodeAsciiMap = {
+app.unicodeAsciiMap = {
     d: {
         "\uFF10": "0", "\uFF11": "1", "\uFF12": "2", "\uFF13": "3", "\uFF14": "4",
         "\uFF15": "5", "\uFF16": "6", "\uFF17": "7", "\uFF18": "8", "\uFF19": "9",
@@ -570,3 +573,5 @@ bkjs.unicodeAsciiMap = {
         "\u2060": " ", "\u202C": " ", "\u3000": " ",
     }
 };
+
+})();

@@ -1,5 +1,5 @@
 <head>
-    <title>Alpine Components</title>
+    <title>App Components Playground</title>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
 
     <link rel="shortcut icon" href="/img/logo.png" type="image/png" />
@@ -9,14 +9,15 @@
     <script src="/js/bkjs.bundle.js"></script>
     <script src="/js/alpine.js" defer></script>
 
-    <script src="/js/bkjs-alpine.js"></script>
+    <script src="/js/app.ko.js"></script>
     <script src="/components.js"></script>
 
 </head>
 
 <body>
     <div class="h-100 w-100">
-        <x-app></x-app>
+        <div class="alerts"></div>
+        <div id="app-main"></div>
     </div>
 </body>
 
@@ -25,20 +26,34 @@
         <div class="d-flex justify-content-between align-items-top">
             <div class="d-flex flex-row align-items-center">
                 <img class="h5 me-2" src=/img/logo.png>
-                <span class="h5 font-slab fw-bold">Alpine Components</span>
+                <span class="h5 font-slab fw-bold">Alpine Components Playground</span>
             </div>
         </div>
         <div class="py-3 text-center">
-            <a role="button" class="nav-link my-2" x-link="template"><i class="fa fa-cog fa-fw"></i> Show Config from index.template var</a>
-            <a role="button" class="nav-link my-2" @click="toggle"><i class="fa fa-cog fa-fw"></i> Toggle index.template</a>
+            <a class="nav-link my-2" x-render="template"><i class="fa fa-cog fa-fw"></i> Replace index from `index.template`</a>
 
-            Template is set to <span x-text="template"></span>
+            <a class="nav-link my-2" role=button @click="toggle" data-bs-toggle="popover" data-bs-trigger="hover focus" data-bs-content="Click to go over templates">
+                <i class="fa fa-cog fa-fw"></i> Toggle `index.template` ->
+                (Template is set to <span x-text="template||'none'"></span>)
+            </a>
 
-            <a role="button" class="nav-link my-2" x-link="'config/1/2?a=1'"><i class="fa fa-cog fa-fw"></i> Show Config with static x-render</a>
+            <a class="nav-link my-2" x-render="'config/1/2?a=1'"><i class="fa fa-cog fa-fw"></i> Show Config with static x-render</a>
+
             <br>
 
-            <a role="button" class="nav-link my-2" x-link="'config/1?$target=#section'"><i class="fa fa-cog fa-fw"></i> Render Config below</a>
-            <a role="button" class="nav-link my-2" @click="$render('config2', { $target: '#section', mobile: bkjs.isMobile })"><i class="fa fa-cog fa-fw"></i> Render Config2 below</a>
+            <a class="nav-link my-2" x-render="'config/1?$target=#section'"><i class="fa fa-cog fa-fw"></i> Render Config below</a>
+
+            <a role=button class="nav-link my-2" @click="$app.render({ name: 'config2', params: { $target: '#section', mobile: app.isMobile }})"><i class="fa fa-cog fa-fw"></i> Render Config2 below</a>
+
+            <a class="nav-link my-2" x-render="'test?$target=#section'"><i class="fa fa-cog fa-fw"></i> Render Test HTML plugin below</a>
+
+            <hr>
+
+            <a class="nav-link my-2" x-render="'config3/1/2?a=1'"><i class="fa fa-cog fa-fw"></i> Show KO Config </a>
+
+            <a class="nav-link my-2" x-render="'config3/1/2?a=1&$target=#section'"><i class="fa fa-cog fa-fw"></i> Show KO Config below</a>
+
+
         </div>
     </div>
 
@@ -66,7 +81,7 @@
                 <a role="button" class="nav-link my-2" @click="visible=!visible"><i class="fa fa-database fa-fw"></i> Toggle</a>
 
                 <template x-if="$name=='config2'">
-                    <a role="button" class="nav-link my-2" @click="$render('test', { $target: '#section' })">
+                    <a role="button" class="nav-link my-2" @click="$app.render('test?$target=#section')">
                         <i class="fa fa-database fa-fw"></i>
                         Test
                         <span x-text=visible></span>
@@ -102,6 +117,55 @@
                     </div>
                 </template>
             </div>
+        </div>
+
+        <div class="py-1">
+            <div x-template="'test'"></div>
+        </div>
+    </div>
+</template>
+
+<template id=config3>
+    <div class="card border-0 p-2 p-lg-3">
+        <div class="d-flex justify-content-between align-items-top">
+            <div class="d-flex flex-row align-items-center">
+                <img class="h5 me-2" src=/img/logo.png>
+                <span class="h5 font-slab fw-bold">System Config3</span> <span data-bind="text: refreshed"></span>
+            </div>
+            <div class="nav pt-3">
+                <a role="button" class="nav-link my-2" data-bind='click: show'><i class="fa fa-database fa-fw"></i> Refresh</a>
+                <a role="button" class="nav-link my-2" data-bind="click: close"><i class="fa fa-database fa-fw"></i> Close</a>
+            </div>
+        </div>
+
+        <div class="card-body">
+            <div class="row pt-1 pb-3">
+                <div class="col-6 d-flex justify-content-left">
+                    <input type="text" class="form-control custom max-vw-35" placeholder="Search" data-bind='textInput: query, hasFocus: true'/>
+                    <button type="button" class="btn btn-default" title="Clear search" data-bind="click: function(){query('')}"><span class="fa fa-fw fa-times"></span> </button>
+                </div>
+            </div>
+
+            <div class="py-2" data-bind="foreach: types">
+                <div>
+                    <button class="btn" data-bind="attr: { 'data-bs-target': '#' + type }" data-bs-toggle="collapse" aria-expanded="false">
+                        <i class="fa fa-fw fa-folder m-1"></i>
+                        <span data-bind="text: type"></span>
+                    </button>
+
+                    <div class="ms-4 collapse" data-bind="css: q ? 'show': '', foreach: rows, attr: { id: type }">
+                        <div class="py-1" role=button data-bind="click: $component.edit.bind($component)">
+                            <i class="fa fa-fw m-1" data-bind="class: icon"></i>
+                            <span class="m-1" data-bind="text: text"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="py-1">
+                <kotest></kotest>
+            </div>
+
         </div>
     </div>
 </template>

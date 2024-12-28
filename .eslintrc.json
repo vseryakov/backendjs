@@ -7,6 +7,7 @@
         "node": true
     },
     "globals": {
+        "app": false,
         "bkjs": false,
         "tests": false,
         "assert": false,
@@ -14,6 +15,7 @@
         "$": false,
         "Alpine": false,
         "jQuery": false,
+        "bootstrap": false,
         "bootpopup": false,
         "ko": false
     },

@@ -5,55 +5,59 @@
 
 // Passkey support
 
-bkjs.passkeyInit = function(callback)
+(() => {
+var app = window.app;
+
+app.passkeyInit = function(callback)
 {
-    if (bkjs.passkey.client) return;
+    if (app.passkey.client) return;
     import("/js/webauthn.min.mjs").then((mod) => {
-        bkjs.passkey.client = mod.client;
-        bkjs.call(callback)
+        app.passkey.client = mod.client;
+        app.call(callback)
     }).catch((err) => {
-        bkjs.call(callback, err);
+        app.call(callback, err);
     });
 }
 
-bkjs.passkeyRegisterStart = function(options, callback)
+app.passkeyRegisterStart = function(options, callback)
 {
-    bkjs.get({ url: "/passkey/register", data: options?.query }, callback);
+    app.get({ url: "/passkey/register", data: options?.query }, callback);
 }
 
-bkjs.passkeyRegisterFinish = function(config, options, callback)
+app.passkeyRegisterFinish = function(config, options, callback)
 {
-    bkjs.passkey.client.register(options?.name || bkjs.account?.name, config?.challenge, {
+    app.passkey.client.register(options?.name || app.account?.name, config?.challenge, {
         attestation: true,
         userHandle: config?.id,
         domain: config?.domain,
     }).then((data) => {
-        bkjs.sendRequest({ url: "/passkey/register", data: Object.assign(data || {}, options?.query) }, callback);
+        app.sendRequest({ url: "/passkey/register", data: Object.assign(data || {}, options?.query) }, callback);
     }).catch((err) => {
-        bkjs.call(callback, err);
+        app.call(callback, err);
     });
 }
 
-bkjs.passkeyRegister = function(options, callback)
+app.passkeyRegister = function(options, callback)
 {
-    bkjs.passkey.registerStart(options, (err, config) => {
-        if (err) return bkjs.call(callback, err);
-        bkjs.passkey.registerFinish(config, options, callback);
+    app.passkey.registerStart(options, (err, config) => {
+        if (err) return app.call(callback, err);
+        app.passkey.registerFinish(config, options, callback);
     });
 }
 
-bkjs.passkeyLogin = function(options, callback)
+app.passkeyLogin = function(options, callback)
 {
-    bkjs.get({ url: "/passkey/login" }, (err, config) => {
-        if (err) return bkjs.call(callback, err);
+    app.get({ url: "/passkey/login" }, (err, config) => {
+        if (err) return app.call(callback, err);
 
-        bkjs.passkey.client.authenticate(bkjs.strSplit(options?.ids), config.challenge, {
+        app.passkey.client.authenticate(app.strSplit(options?.ids), config.challenge, {
             domain: config.domain,
         }).then((data) => {
-            bkjs.login({ url: "/passkey/login", data: Object.assign(data, options?.query) }, callback);
+            app.login({ url: "/passkey/login", data: Object.assign(data, options?.query) }, callback);
         }).catch((err) => {
-            bkjs.call(callback, err);
+            app.call(callback, err);
         });
     });
 }
 
+})();

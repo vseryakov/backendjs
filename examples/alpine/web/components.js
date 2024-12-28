@@ -3,17 +3,20 @@
  *  Vlad Seryakov vseryakov@gmail.com 2024
  */
 
-bkjs.debug = 1;
+app.debug = 1;
 
-bkjs.templates.test = `<div class="py-3 border">Rendering just text templates</div>`;
+app.templates.empty = `<div class="py-3 border">Empty</div>`;
 
-bkjs.components.index = class Index extends bkjs.AlpineComponent {
+app.templates.test = `<div class="py-3 border">Rendering just text templates: <span x-text=template></span> <span x-text=title></span></div>`;
+
+app.components.index = class extends app.AlpineComponent {
+    title = "Index"
     toggle() {
-        this.template = !this.template ? "config" : this.template == "config" ? "test" : "";
+        this.template = !this.template ? "config" : this.template == "config" ? "empty" : "";
     }
 };
 
-bkjs.components.config = class Config extends bkjs.AlpineComponent {
+app.components.config = class Config extends app.AlpineComponent {
 
     visible = true;
     title = "System Config";
@@ -22,54 +25,60 @@ bkjs.components.config = class Config extends bkjs.AlpineComponent {
     query = "";
     refreshed = "";
 
-    onInit() {
-        console.log("init", this.$key)
+    onCreate() {
+        console.log("create", this.$_id, this.params.param)
+
+        if (app.$param("quiet")) this.params.$nohistory = 1;
+
+        this.query = this.params.param;
 
         this.show();
+
+        app.$("input", this.$el).focus();
     }
 
-    onDestroy() {
-        console.log("destroy", this.$key)
+    onDelete() {
+        console.log("delete", this.$_id)
     }
 
-    canDestroy() {
-        console.log("beforeDestroy:", this.params.$nohistory, this.refreshed)
+    beforeDelete() {
+        console.log("beforeDelete:", this.params.$nohistory, this.refreshed)
         if (!this.params.$nohistory && !this.refreshed) {
-            this.refreshed = "(click Refresh)";
+            this.refreshed = "(click Close again)";
             return false;
         }
     }
 
     onEvent(name, data) {
-        console.log("event:", this.$key, name, data)
+        console.log("event:", this.$_id, name, data)
     }
 
     onRefreshed(name, data) {
-        console.log("refreshed:", this.$key, name, data, this.refreshed)
+        console.log("refreshed:", this.$_id, name, data, this.refreshed)
         this.refreshed = "(refreshed)";
     }
 
     refresh() {
-        bkjs.emit("component:event", "refreshed")
+        app.emit("component:event", "refreshed")
     }
 
     close() {
-        if (this.params.$nohistory) return this.$show("none", { $target: "#section" })
-        this.$render("index")
+        if (this.params.$nohistory) return app.render("none?$target=#section")
+        app.render("index")
     }
 
     filter() {
         var list = this.rows, q = this.query;
         if (q) list = this.rows.filter((x) => (x.type.includes(q) || x.name.includes(q) || x.value.includes(q)));
-        list.sort((a,b) => (a.type < b.type ? -1 : a.type > b.type ? 1 : bkjs.toNumber(a.sort) - bkjs.toNumber(b.sort) || (a.ctime - b.ctime)));
+        list.sort((a,b) => (a.type < b.type ? -1 : a.type > b.type ? 1 : app.toNumber(a.sort) - app.toNumber(b.sort) || (a.ctime - b.ctime)));
 
         var types = {};
         list.forEach((x) => {
             x.icon = x.status == "ok" ? "fa-check" : "fa-ban";
-            x.text = x.name + " = " + bkjs.textToXml(x.value);
-            x.mtime = x.mtime ? bkjs.strftime(x.mtime, "%m/%d/%Y %I:%M:%S %p") : "";
-            x.stime = x.stime ? bkjs.strftime(x.stime, "%m/%d/%Y %I:%M %p %z") : "";
-            x.etime = x.etime ? bkjs.strftime(x.etime, "%m/%d/%Y %I:%M %p %z") : "";
+            x.text = x.name + " = " + app.textToXml(x.value);
+            x.mtime = x.mtime ? app.strftime(x.mtime, "%m/%d/%Y %I:%M:%S %p") : "";
+            x.stime = x.stime ? app.strftime(x.stime, "%m/%d/%Y %I:%M %p %z") : "";
+            x.etime = x.etime ? app.strftime(x.etime, "%m/%d/%Y %I:%M %p %z") : "";
             if (!types[x.type]) types[x.type] = [];
             types[x.type].push(x);
         });
@@ -77,8 +86,8 @@ bkjs.components.config = class Config extends bkjs.AlpineComponent {
     }
 
     show() {
-        bkjs.send({ url: '/data/scan/bk_config', data: { _count: 1000 } }, (rc) => {
-            this.rows = bkjs.isArray(rc.data, []);
+        app.send({ url: '/data/scan/bk_config', data: { _count: 1000 } }, (rc) => {
+            this.rows = app.isArray(rc.data, []);
         });
     }
 
@@ -97,26 +106,17 @@ bkjs.components.config = class Config extends bkjs.AlpineComponent {
             size_label: "col-sm-3",
             size_input: "col-sm-9",
             class_content: "modal-content border-3 border-blue bg-light min-vh-70",
-            tabs: { gen: "General", adv: "Advanced" },
             content: [
-                { input: { name: "type", label: "Type:", value: data.type, tab_id: "gen" } },
+                { input: { name: "type", label: "Type:", value: data.type } },
                 { input: { name: "name", label: "Name:", value: data.name, } },
-                { textarea: { name: "value", class: "form-control", label: "Value:", rows: 5, value: bkjs.textToXml(data.value) } },
-
-                { select: { name: "status", label: "Status:", value: data.status, options: ["ok","hidden"], tab_id: "adv" } },
-                { input: { name: "version", class: "form-control", label: "Version:", value: data.version, placeholder: ">=1.2, <2.0, 1.0 - 2.1" } },
-                { input: { name: "stime", class: "form-control", label: "Start Time:", value: data.stime, placeholder: "mm/dd/YYYY HH:MM Z" } },
-                { input: { name: "etime", class: "form-control", label: "End Time:", value: data.etime, placeholder: "mm/dd/YYYY HH:MM Z" } },
-                { number: { name: "sort", class: "form-control", label: "Sorting Order:", value: data.sort, placeholder: "1,2,...." } },
-                data.ctime ? { div: { class: "text-muted", text: `Created: ${bkjs.strftime(data.ctime)}` } } : null,
-                data.mtime ? { div: { class: "text-muted", text: `Updated: ${data.mtime} ${data.uname ? " by " + data.uname : ""}` } } : null,
-                ],
+                { textarea: { name: "value", class: "form-control", label: "Value:", rows: 5, value: app.textToXml(data.value) } },
+            ],
             buttons: ["cancel", "Save", data.name && "Copy", data.name && "Delete"],
             Save: function(d) {
-                d.value = bkjs.unicode2Ascii(d.value, "qs");
+                d.value = app.unicode2Ascii(d.value, "qs");
                 if (!d.type || !d.name || !d.value) return popup.showAlert("Type, name and value are required");
                 d.ctime = data.ctime;
-                bkjs.sendRequest({ url: `/data/${d.ctime ? "update" : "put"}/bk_config`, data: d, self: this }, (err) => {
+                app.sendRequest({ url: `/data/${d.ctime ? "update" : "put"}/bk_config`, data: d, self: this }, (err) => {
                     if (err) return popup.showAlert(err);
                     this.show();
                     popup.close();
@@ -124,7 +124,7 @@ bkjs.components.config = class Config extends bkjs.AlpineComponent {
                 return null;
             },
             Copy: function(d) {
-                bkjs.sendRequest({ url: '/data/put/bk_config', data: d, self: this }, (err) => {
+                app.sendRequest({ url: '/data/put/bk_config', data: d, self: this }, (err) => {
                     if (err) return popup.showAlert(err);
                     this.show();
                     popup.close();
@@ -132,8 +132,8 @@ bkjs.components.config = class Config extends bkjs.AlpineComponent {
                 return null;
             },
             Delete: function(d) {
-                bkjs.showConfirm.call(this, "Delete this parameter?", () => {
-                    bkjs.sendRequest({ url: '/data/del/bk_config', data: { ctime: data.ctime, name: data.name }, self: this }, (err) => {
+                app.showConfirm.call(this, "Delete this parameter?", () => {
+                    app.sendRequest({ url: '/data/del/bk_config', data: { ctime: data.ctime, name: data.name }, self: this }, (err) => {
                         if (err) return popup.showAlert(err);
                         this.show();
                         popup.close();
@@ -146,26 +146,88 @@ bkjs.components.config = class Config extends bkjs.AlpineComponent {
 }
 
 
-bkjs.templates.config2 = "#config";
-bkjs.components.config2 = class extends bkjs.components.config {
+app.templates.config2 = "#config";
+app.components.config2 = class extends app.components.config {
 
     title = "System Config2"
 
-    onInit() {
-        super.onInit();
-        console.log("init2", this.$key)
+    onCreate() {
+        super.onCreate();
+        console.log("init2", this.$_id)
 
         this.show();
     }
 
     onRefreshed(name, data) {
-        console.log("refreshed2:", this.$key, name, data, this.refreshed)
+        console.log("refreshed2:", this.$_id, name, data, this.refreshed)
         this.refreshed = "(refreshed2)";
     }
 }
 
-bkjs.ready(() => {
-    bkjs.setColorScheme();
-    bkjs.restoreComponent(bkjs.param("path"), "index");
+app.koReg("kotest");
+app.templates.kotest = `<div class="py-3 border">Registered custom tag: <span data-bind="text:$parent.query"></span></div>`;
+
+app.templates.config3 = "#config3";
+app.components.config3 = class extends app.KoComponent {
+
+    onCreate(params) {
+        this.rows = [];
+        this.types = ko.observableArray();
+
+        this.query = ko.observable("");
+        this.subscribe(this.query, 500, this.filter.bind(this));
+        this.refreshed = ko.observable();
+
+        this.show();
+    }
+
+    beforeDelete() {
+        console.log("beforeDestroy:", this.$_id, this.refreshed())
+        if (!this.refreshed()) {
+            this.refreshed("(click Close again)");
+            return false;
+        }
+    }
+
+    close() {
+        app.render({ name: "index", render: "ko" })
+    }
+
+    edit() {
+        app.showAlert("error", "no edit in this mode")
+    }
+
+    filter() {
+        var list = this.rows, q = this.query();
+        if (q) list = this.rows.filter((x) => (x.type.includes(q) || x.name.includes(q) || x.value.includes(q)));
+        list.sort((a,b) => (a.type < b.type ? -1 : a.type > b.type ? 1 : app.toNumber(a.sort) - app.toNumber(b.sort) || (a.ctime - b.ctime)));
+
+        var types = {};
+        list.forEach((x) => {
+            x.icon = x.status == "ok" ? "fa-check" : "fa-ban";
+            x.text = x.name + " = " + app.textToXml(x.value);
+            x.mtime = x.mtime ? app.strftime(x.mtime, "%m/%d/%Y %I:%M:%S %p") : "";
+            x.stime = x.stime ? app.strftime(x.stime, "%m/%d/%Y %I:%M %p %z") : "";
+            x.etime = x.etime ? app.strftime(x.etime, "%m/%d/%Y %I:%M %p %z") : "";
+            if (!types[x.type]) types[x.type] = [];
+            types[x.type].push(x);
+        });
+        this.types(Object.keys(types).map(x => ({ type: x, rows: types[x], q })));
+    }
+
+    show() {
+        app.send({ url: '/data/scan/bk_config', data: { _count: 1000 }, self: this }, (rc) => {
+            this.rows = app.isArray(rc.data, []);
+            this.filter();
+        });
+    }
+
+
+}
+
+app.$ready(() => {
+    app.setColorScheme();
+    ko.applyBindings(app);
+    app.restorePath();
 });
 

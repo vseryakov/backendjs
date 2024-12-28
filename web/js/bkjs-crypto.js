@@ -17,7 +17,7 @@
  * Distributed under the MIT License See http://github.com/brix/crypto-js for details
  */
 
-bkjs.crypto = {
+app.crypto = {
     hex: "0123456789abcdef",
     b64: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/",
     K: [1116352408, 1899447441, -1245643825, -373957723, 961987163, 1508970993, -1841331548, -1424204075, -670586216, 310598401,

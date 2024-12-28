@@ -28,9 +28,8 @@ Features:
 * REPL (command line) interface for debugging and looking into server internals.
 * Supports push notifications via Webpush, APN and FCM.
 * Can be used with any MVC, MVVC or other types of frameworks that work on top of, or with, the Express server.
-* AWS support is very well integrated including EC2, S3, DynamoDB, SQS and more.
+* AWS support is very well integrated including EC2, S3, DynamoDB, SQS, CloudWatch and more.
 * Includes simple log watcher to monitor the log files including system errors.
-* Supports i18n hooks for request/response objects, easily overriden with any real i18n implementation.
 * Integrated very light unit testing facility which can be used to test modules and API requests.
 * Supports runtime metrics about the timing on database, requests, cache, memory and request rate limit control, AWS X-Ray spans
 * Hosted on [github](https://github.com/vseryakov/backendjs), BSD licensed.
@@ -393,7 +392,7 @@ separate NPM packages, the structure is the same, modules must be in the modules
 via require as usual. In most cases just empty index.js is enough. Such modules will not be loaded via require though but
 by the backendjs `core.loadModule` machinery, the NPM packages are just keep different module directories separate from each other.
 
-The config parameter `use-packages` can be used to specify NPM package names to be loaded separated by comma, as with the default
+The config parameter `import-packages` can be used to specify NPM package names to be loaded separated by comma, as with the default
 application structure all subfolders inside each NPM package will be added to the core:
 
   - modules will be loaded from the modules/ folder
@@ -717,7 +716,7 @@ On startup some env variable will be used for initial configuration:
   - BKJS_HOME - home directory where to cd and find files, `-home` config parameter overrides it
   - BKJS_RUNMODE - initial run mode, `-run-mode` overrides it
   - BKJS_CONFFILE - config file to use instead of 'config', `-conf-file` overrides it
-  - BKJS_PACKAGES - packags to use, `-use-packages` overrieds it
+  - BKJS_PACKAGES - packags to use, `-import-packages` overrieds it
   - BKJS_DB_POOL - default db pool, `-db-pool` overrides it
   - BKJS_DB_CONFIG - config db pool, `-db-config` overrides it
   - BKJS_ROLES - additonal roles to use for config, `-roles` overrides it
@@ -818,6 +817,7 @@ will be passed to the corresponding AMQP methods: `amqp.queue, amqp.queue.subcri
 # Security configurations
 
 ## API only
+
 This is default setup of the backend when all API requests except must provide valid signature and all HTML, JavaScript, CSS and image files
 are available to everyone. This mode assumes that Web development will be based on 'single-page' design when only data is requested from the Web server and all
 rendering is done using JavaScript. This is how the `examples/api/api.html` developers console is implemented, using JQuery-UI and Knockout.js.
@@ -830,8 +830,7 @@ To see current default config parameters run any of the following commands:
 
 ## Secure Web site, client verification
 
-This is a mode when the whole Web site is secure by default, even access to the HTML files must be authenticated. In this mode the pages must defined 'Backend.session = true'
-during the initialization on every html page, it will enable Web sessions for the site and then no need to sign every API request.
+This is a mode when the whole Web site is secure by default, even access to the HTML files must be authenticated.
 
 The typical client JavaScript verification for the html page may look like this, it will redirect to login page if needed,
 this assumes the default path '/public' still allowed without the signature:
@@ -841,17 +840,16 @@ this assumes the default path '/public' still allowed without the signature:
    <script src="/js/bkjs.bundle.js" type="text/javascript"></script>
    <script>
     $(function () {
-       bkjs.session = true;
-       bkjs.on("nologin", () => { window.location='/public/index.html'; });
-       bkjs.koInit();
+       app.on("nologin", () => { window.location='/public/index.html'; });
+       app.koInit();
    });
    </script>
 ```
 
 ## Secure Web site, backend verification
+
 On the backend side in your application app.js it needs more secure settings defined i.e. no html except /public will be accessible and
-in case of error will be redirected to the login page by the server. Note, in the login page `bkjs.session` must be set to true for all
-html pages to work after login without singing every API request.
+in case of error will be redirected to the login page by the server.
 
 1. We disable all allowed paths to the html and registration:
 
@@ -880,23 +878,23 @@ will never end up in this callback because it is called after the signature chec
 
 The simplest way is to configure `ws-port` to the same value as the HTTP port. This will run WebSockets server along the regular Web server.
 
-In the browser the connection config is stored in the `bkjs.wsconf` and by default it connects to the local server on port 8000.
+In the browser the connection config is stored in the `app.wsconf` and by default it connects to the local server on port 8000.
 
 There are two ways to send messages via Websockets to the server from a browser:
 
-- as urls, eg. ```bkjs.wsSend('/project/update?id=1&name=Test2')```
+- as urls, eg. ```app.wsSend('/project/update?id=1&name=Test2')```
 
   In this case the url will be parsed and checked for access and authorization before letting it pass via Express routes. This method allows to
   share the same route handlers between HTTP and Websockets requests, the handlers will use the same code and all responses will be sent back,
   only in the Websockets case the response will arrived in the message listener (see an example below)
 
 ```javascript
-    bkjs.wsConnect({ path: "/project/ws?id=1" });
+    app.wsConnect({ path: "/project/ws?id=1" });
 
-    bkjs.on("ws:message", (msg) => {
+    app.on("ws:message", (msg) => {
         switch (msg.op) {
         case "/account/update":
-            bkjs.wsSend("/account/ws/account");
+            app.wsSend("/account/ws/account");
             break;
 
         case "/project/update":
@@ -904,16 +902,16 @@ There are two ways to send messages via Websockets to the server from a browser:
             break;
 
         case "/message/new":
-            bkjs.showAlert("info", `New message: ${msg.msg}`);
+            app.showAlert("info", `New message: ${msg.msg}`);
             break;
         }
     });
 ````
 
-- as JSON objects, eg. ```bkjs.wsSend({ op: "/project/update", project: { id: 1, name: "Test2" } })```
+- as JSON objects, eg. ```app.wsSend({ op: "/project/update", project: { id: 1, name: "Test2" } })```
 
     In this case the server still have to check for access so it treats all JSON messages as coming from the path which was used during the connect,
-    i.e. the one stored in the `bkjs.wsconf.path`. The Express route handler for this path will receive all messages from Websocket clients, the response will be
+    i.e. the one stored in the `app.wsconf.path`. The Express route handler for this path will receive all messages from Websocket clients, the response will be
     received in the event listener the same way as for the first use case.
 
 ```javascript
@@ -1004,7 +1002,7 @@ the convention is that argument name must start with a single dash followed by a
         ;;
 
 
-## Extending bkjs
+## Extending bkjs tool
 
 The utility is extended via external scripts that reside in the `tools/` folders.
 
@@ -1074,8 +1072,9 @@ Then run the dev build script to produce web/js/bkjs.bundle.js and web/css/bkjs.
 
     cd node_modules/backendjs && npm run devbuild
 
-Now instead of including a bunch of .js or css files in the html pages it only needs /js/bkjs.bundle.js and /css/bkjs.bundle.css. The configuration is in the
-package.json file.
+Now instead of including a bunch of .js or css files in the html pages it only needs /js/bkjs.bundle.js and /css/bkjs.bundle.css.
+
+The bundle configuration is in the package.json file.
 
 The list of files to be used in bundles is in the package.json under `config.bundles`.
 
@@ -1095,7 +1094,7 @@ The simple script below allows to build the bundle and refresh Chrome tab automa
     osascript -e "tell application \"Google Chrome\" to reload (tabs of window 1 whose URL contains \"$1\")"
 
 
-To use it call this script instead in the config.local:
+To use it, call this script instead in the config.local:
 
     watch-build=bundle.sh /website
 
@@ -1108,7 +1107,7 @@ repository when the bundle build may not be called or called too early. To force
 
 ## AWS instance setup with node and backendjs
 
-- start new AWS instance via AWS console, use Alpine 3.19 or later
+- start new AWS instance via AWS console, use Alpine 3.21 or later
 - login as `alpine`
 - install commands
 
@@ -1282,7 +1281,7 @@ For JSON content type, the method must be POST and no query parameters specified
 which is placed in the body of the request. For additional safety, SHA1 checksum of the JSON payload can be calculated and passed in the signature,
 this is the only way to ensure the body is not modified when not using query parameters.
 
-See [web/js/bkjs.js](https://github.com/vseryakov/backendjs/blob/master/web/js/bkjs.js) function `bkjs.createSignature` or
+See [web/js/bkjs.js](https://github.com/vseryakov/backendjs/blob/master/web/js/bkjs.js) function `app.createSignature` or
 [api.js](https://github.com/vseryakov/backendjs/blob/master/api/auth.js) function `api.createSignature` for the JavaScript implementations.
 
 ### Authentication API
@@ -1315,9 +1314,8 @@ See [web/js/bkjs.js](https://github.com/vseryakov/backendjs/blob/master/web/js/b
    Example:
 
 ```javascript
-    $.ajax({ url: "/login?login=test123&secret=test123&_session=1",
-        success: function(json, status, xhr) { console.log(json) }
-    });
+    var res = await fetch("/login", { metod: "POST", body: "login=test123&secret=test123&_session=1" });
+    await res.json()
 
     > { id: "XXXX...", name: "Test User", login: "test123", ...}
 ```
