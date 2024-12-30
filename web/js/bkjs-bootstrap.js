@@ -246,6 +246,13 @@ app.showToast = function(obj, type, text, options)
     return el;
 }
 
+app.applyPlugins = function(element)
+{
+    if (!(element instanceof HTMLElement)) return;
+    app.$all(".carousel", element).forEach(el => (bootstrap.Carousel.getOrCreateInstance(el)));
+    app.$all(`[data-bs-toggle="popover"]`, element).forEach(el => (bootstrap.Popover.getOrCreateInstance(el)));
+}
+
 app.$ready(() => {
     app.setBreakpoint();
 
@@ -254,12 +261,7 @@ app.$ready(() => {
         app._resized = setTimeout(app.setBreakpoint, 250);
     });
 
-    app.on("component:created", (data) => {
-        if (data?.element instanceof HTMLElement) {
-            app.$all(".carousel", data.element).forEach(el => (bootstrap.Carousel.getOrCreateInstance(el)));
-            app.$all(`[data-bs-toggle="popover"]`, data.element).forEach(el => (bootstrap.Popover.getOrCreateInstance(el)));
-        }
-    });
+    app.on("component:create", (data) => { app.applyPlugins(data?.element) });
 
     app.on("alert", (type, msg, opts) => {
         app.showAlert(type, msg, opts);

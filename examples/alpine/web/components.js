@@ -41,11 +41,11 @@ app.components.config = class Config extends app.AlpineComponent {
         console.log("delete", this.$_id)
     }
 
-    beforeDelete() {
-        console.log("beforeDelete:", this.params.$nohistory, this.refreshed)
+    onPrepareDelete(event) {
+        console.log("prepareDelete:", this.params.$nohistory, this.refreshed)
         if (!this.params.$nohistory && !this.refreshed) {
             this.refreshed = "(click Close again)";
-            return false;
+            event.stop = 1;
         }
     }
 
@@ -164,7 +164,7 @@ app.components.config2 = class extends app.components.config {
     }
 }
 
-app.koReg("kotest");
+app.koRegister("kotest");
 app.templates.kotest = `<div class="py-3 border">Registered custom tag: <span data-bind="text:$parent.query"></span></div>`;
 
 app.templates.config3 = "#config3";
@@ -181,11 +181,11 @@ app.components.config3 = class extends app.KoComponent {
         this.show();
     }
 
-    beforeDelete() {
-        console.log("beforeDestroy:", this.$_id, this.refreshed())
+    onPrepareDelete(event) {
+        console.log("prepareDelete:", this.$_id, this.refreshed())
         if (!this.refreshed()) {
             this.refreshed("(click Close again)");
-            return false;
+            event.stop = 1;
         }
     }
 

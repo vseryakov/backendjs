@@ -44,15 +44,15 @@ app.checkPassword = function(secret, policy, options)
 app.login = function(options, callback)
 {
     if (typeof options == "function") callback = options, options = null;
-    app.send({ url: options?.url | "/auth", data: options?.data }, (data) => {
+    app.send({ url: options?.url || "/auth", data: options?.data }, (data) => {
         app.loggedIn = true;
         Object.assign(app.account, data);
-        app.call(options.self || this, callback);
-        app.emit("login");
+        app.call(callback);
+        app.emit("login", options?.path);
     }, (err) => {
         app.loggedIn = false;
         for (const p in app.account) delete app.account[p];
-        app.call(options.self || this, callback, err);
+        app.call(callback, err);
         app.emit("nologin", err);
     });
 }

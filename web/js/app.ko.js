@@ -83,9 +83,12 @@ function create(name)
         viewModel: {
             createViewModel: function(params, componentInfo) {
                 if (typeof tmpl.component != "function") return;
-                params = componentInfo?.element?._x_params || params || {};
+                params = componentInfo.element?._x_params || params || {};
+                delete componentInfo.element?._x_params;
 
                 const component = new tmpl.component(name, params, componentInfo);
+                params = component.params;
+
                 app.call(component, "onCreate", params, componentInfo);
                 app.emit("component:create", { type: _type, name, component, element: componentInfo.element, params });
                 return component;
@@ -115,12 +118,6 @@ function render(element, options)
     const node = app.$elem("div", "data-bind", `component: '${options.name}'`, ":_x_params", options.params);
     element.appendChild(node);
     ko.applyBindings(dataFor(element), node);
-    delete node._x_params;
-}
-
-function context(element)
-{
-    return ko.dataFor(element?.firstElementChild?.firstElementChild);
 }
 
 ko.components.loaders.unshift({
@@ -142,6 +139,6 @@ ko.templateEngine.prototype.makeTemplateSource = function(template, doc) {
     throw new Error("Unknown template type: " + template);
 }
 
-app.plugin(_type, { render, context, cleanup: cleanup, Component });
+app.plugin(_type, { render, cleanup: cleanup, Component });
 
 })();

@@ -8,9 +8,9 @@ var app = window.app;
 
 app.inherits = function(ctor, superCtor, options)
 {
-    if (superCtor?.prototype) {
-        ctor.prototype = Object.create(superCtor.prototype);
-        ctor.prototype.constructor = ctor;
+    if (!ctor) return;
+    if (ctor.prototype && superCtor?.prototype) {
+        Object.setPrototypeOf(ctor.prototype, superCtor.prototype);
     }
     for (const p in options) {
         if (typeof options[p] != "function") ctor[p] = options[p]; else
@@ -308,7 +308,7 @@ app.strftime = function(date, fmt, options)
     return fmt;
 }
 
-app.sprintf = function(fmt, args)
+app.sprintf = function(fmt, ...args)
 {
     if (typeof fmt != "string") return "";
     var i = -1, regex = /%(-)?(0?[0-9]+)?([.][0-9]+)?([#][0-9]+)?([scfpexdz])/g;

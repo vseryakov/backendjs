@@ -113,7 +113,7 @@
       rc.name = path.shift();
       for (let i = 0; i < path.length; i++) {
         if (!path[i]) continue;
-        rc.params[`param${i ? i + 1 : ""}`] = path[i];
+        rc.params[`param${i + 1}`] = path[i];
       }
     } else {
       rc.name = path || "";
@@ -130,7 +130,7 @@
     if (!options?.name) return;
     var path = [options.name];
     if (options?.params) {
-      for (let i = 0; i < 5; i++) path.push(options.params[`param${i ? i + 1 : ""}`] || "");
+      for (let i = 1; i < 5; i++) path.push(options.params[`param${i}`] || "");
     }
     while (!path.at(-1)) path.length--;
     path = path.join("/");
@@ -145,9 +145,9 @@
   app_default.$on(window, "popstate", () => app_default.restorePath());
   app_default.on("component:create", (event) => {
     app_default.trace("component:create", event);
-    if (event.params?.$history) {
-      app_default.savePath(event);
-    }
+    queueMicrotask(() => {
+      if (event?.params?.$history) app_default.savePath(event);
+    });
   });
 
   // src/render.js
@@ -156,7 +156,7 @@
   app_default.plugin = (name, options) => {
     if (!name || typeof name != "string") throw Error("type must be defined");
     if (options) {
-      for (const p of ["render", "context", "cleanup"]) {
+      for (const p of ["render", "cleanup"]) {
         if (options[p] && typeof options[p] != "function") throw Error(p + " must be a function");
       }
       if (typeof options?.Component == "function") {
@@ -197,19 +197,20 @@
     const element = app_default.$(params.$target || app_default.main);
     if (!element) return;
     if (!params.$target || params.$target == app_default.main) {
+      var ev = { name: tmpl.name, params };
+      app_default.emit(app_default.event, "prepare:delete", ev);
+      if (ev.stop) return;
       var plugins = Object.values(_plugins);
-      for (const p of plugins.filter((x) => x.context)) {
-        if (app_default.call(p.context(element), "beforeDelete", tmpl) === false) return false;
-      }
       for (const p of plugins.filter((x) => x.cleanup)) {
         app_default.call(p.cleanup, element);
       }
-      params.$history = 1;
+      if (!(options.nohistory || params.$nohistory)) params.$history = 1;
     }
     var plugin = tmpl.component?.$type || options.plugin || params.$plugin;
     plugin = _plugins[plugin] || _default_plugin;
     if (!plugin?.render) return;
-    return plugin.render(element, tmpl);
+    plugin.render(element, tmpl);
+    return tmpl;
   };
 
   // src/alpine.js
@@ -285,10 +286,7 @@
       });
     }
   }
-  function context(element) {
-    return element?.firstElementChild && Alpine.closestDataStack(element.firstElementChild)[0];
-  }
-  app_default.plugin(_alpine, { render, context, Component, default: 1 });
+  app_default.plugin(_alpine, { render, Component, default: 1 });
   app_default.$on(document, "alpine:init", () => {
     for (const [name, obj] of Object.entries(app_default.components)) {
       if (obj?.$type != _alpine) continue;
