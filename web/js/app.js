@@ -25,7 +25,7 @@
   };
   var _events = {};
   app_default.on = (event, callback) => {
-    if (!callback) return;
+    if (typeof callback != "function") return;
     if (!_events[event]) _events[event] = [];
     _events[event].push(callback);
   };
@@ -35,8 +35,17 @@
     if (i > -1) return _events[event].splice(i, 1);
   };
   app_default.emit = (event, ...args) => {
-    if (!_events[event]) return;
-    for (const cb of _events[event]) app_default.call(cb, ...args);
+    app_default.trace("emit:", event, ...args);
+    if (_events[event]) {
+      for (const cb of _events[event]) cb(...args);
+    } else if (typeof event == "string" && event.endsWith(":*")) {
+      event = event.slice(0, -1);
+      for (const p in _events) {
+        if (p.startsWith(event)) {
+          for (const cb of _events[p]) cb(...args);
+        }
+      }
+    }
   };
 
   // src/dom.js
@@ -138,17 +147,16 @@
     if (!path) return;
     window.history.pushState(null, "", window.location.origin + app_default.base + path);
   };
-  app_default.restorePath = (path, dflt) => {
-    app_default.trace("restorePath:", path || window.location.href, dflt || app_default.index);
-    app_default.render(path || window.location.href, dflt || app_default.index);
+  app_default.restorePath = (path) => {
+    app_default.trace("restorePath:", path, app_default.index);
+    app_default.render(path, app_default.index);
   };
-  app_default.$on(window, "popstate", () => app_default.restorePath());
-  app_default.on("component:create", (event) => {
-    app_default.trace("component:create", event);
-    queueMicrotask(() => {
-      if (event?.params?.$history) app_default.savePath(event);
-    });
-  });
+  app_default.start = () => {
+    app_default.on("path:save", app_default.savePath);
+    app_default.on("path:restore", app_default.restorePath);
+    app_default.$ready(app_default.restorePath.bind(app_default, window.location.href));
+  };
+  app_default.$on(window, "popstate", () => app_default.emit("path:restore", window.location.href));
 
   // src/render.js
   var _plugins = {};
@@ -196,6 +204,9 @@
     app_default.trace("render:", options, tmpl.name, tmpl.params);
     const element = app_default.$(params.$target || app_default.main);
     if (!element) return;
+    var plugin = tmpl.component?.$type || options?.plugin || params.$plugin;
+    plugin = _plugins[plugin] || _default_plugin;
+    if (!plugin?.render) return;
     if (!params.$target || params.$target == app_default.main) {
       var ev = { name: tmpl.name, params };
       app_default.emit(app_default.event, "prepare:delete", ev);
@@ -204,11 +215,13 @@
       for (const p of plugins.filter((x) => x.cleanup)) {
         app_default.call(p.cleanup, element);
       }
-      if (!(options.nohistory || params.$nohistory)) params.$history = 1;
+      if (!(options?.nohistory || params.$nohistory)) {
+        queueMicrotask(() => {
+          app_default.emit("path:save", tmpl);
+        });
+      }
     }
-    var plugin = tmpl.component?.$type || options.plugin || params.$plugin;
-    plugin = _plugins[plugin] || _default_plugin;
-    if (!plugin?.render) return;
+    app_default.emit("component:render", tmpl);
     plugin.render(element, tmpl);
     return tmpl;
   };
@@ -226,15 +239,15 @@
       this.$name = name;
       this.$_id = `${name}:${_alpine}:${_Component._id++}`;
       Object.assign(this.params, params);
-      if (!this.params.$noevents) {
-        this._handleEvent = this.handleEvent.bind(this);
-      }
+      this._handleEvent = this.handleEvent.bind(this);
     }
     init() {
       app_default.trace("init:", this.$_id);
       Object.assign(this.params, this.$el._x_params);
       app_default.call(this.onCreate?.bind(this));
-      app_default.on(app_default.event, this._handleEvent);
+      if (!this.params.$noevents) {
+        app_default.on(app_default.event, this._handleEvent);
+      }
       app_default.emit("component:create", { type: _alpine, name: this.$name, component: this, element: this.$el, params: Alpine.raw(this.params) });
     }
     destroy() {

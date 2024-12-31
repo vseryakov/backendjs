@@ -86,6 +86,7 @@ function create(name)
                 params = componentInfo.element?._x_params || params || {};
                 delete componentInfo.element?._x_params;
 
+                if (tmpl.component.$noevents) params.$noevents = 1;
                 const component = new tmpl.component(name, params, componentInfo);
                 params = component.params;
 
