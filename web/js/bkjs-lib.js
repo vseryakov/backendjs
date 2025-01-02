@@ -1190,7 +1190,7 @@ app.__ = function(msg, ...args)
         msg = msg.phrase;
     }
     msg = (lang && locales[lang] && locales[lang][msg]) || msg;
-    if (args.length == 1) return msg;
+    if (args.length == 0) return msg;
     return app.sprintf(msg, ...args);
 }
 
@@ -1227,7 +1227,7 @@ var sanitizer = {
 
     run: function(html, dom) {
         if (!html || typeof html != "string") return html;
-        const body = new window.DOMParser().parseFromString(html, 'text/html').body;
+        const body = app.$parse(html);
         const elements = [...body.querySelectorAll('*')];
         for (const el of elements) {
             const name = el.nodeName.toLowerCase();

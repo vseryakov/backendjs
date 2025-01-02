@@ -102,6 +102,9 @@
     }
     return el;
   };
+  app_default.$parse = (text) => {
+    return new window.DOMParser().parseFromString(text, "text/html").body;
+  };
   var _ready = [];
   app_default.$ready = (callback) => {
     _ready.push(callback);
@@ -286,7 +289,7 @@
       if (!options) return;
     }
     app_default.$empty(element);
-    const body = new DOMParser().parseFromString(options.template, "text/html").body;
+    const body = app_default.$parse(options.template);
     if (!options.component) {
       Alpine.mutateDom(() => {
         while (body.firstChild) {

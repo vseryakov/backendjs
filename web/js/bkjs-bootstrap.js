@@ -25,25 +25,25 @@ app.setColorScheme = function()
     document.documentElement.setAttribute("data-bs-theme", window.matchMedia('(prefers-color-scheme: dark)').matches ? "dark" : "light");
 }
 
-// Show/hide loading animation
+// Show/hide loading animation, only first element
+var loading = { count: 0 };
+
 app.showLoading = function(op)
 {
-    var img = $(app.loadingElement || '.loading');
-    if (!img.length) return;
+    var img = app.$('.loading');
+    if (!img) return;
 
-    if (!app._loading) app._loading = { count: 0 };
-    var state = app._loading;
     switch (op) {
     case "hide":
-        if (--state.count > 0) break;
-        state.count = 0;
-        if (state.display == "none") img.hide(); else img.css("visibility", "hidden");
+        if (--loading.count > 0) break;
+        loading.count = 0;
+        if (loading.display == "none") img.style.display = 'none'; else img.style.visibility = "hidden";
         break;
 
     case "show":
-        if (state.count++ > 0) break;
-        if (!state.display) state.display = img.css("display");
-        if (state.display == "none") img.show(); else img.css("visibility", "visible");
+        if (loading.count++ > 0) break;
+        if (!loading.display) loading.display = img.style.display;
+        if (loading.display == "none") img.style.display = 'inline-block'; else img.style.visibility = "visible";
         break;
     }
 }
@@ -246,11 +246,22 @@ app.showToast = function(obj, type, text, options)
     return el;
 }
 
-app.applyPlugins = function(element)
+app.hideToast = function()
+{
+    app.$empty(app.$(".toast-container"));
+}
+
+var _plugins = [];
+app.elementPlugin = function(callback)
+{
+    if (typeof callback == "function") _plugins.push(callback);
+}
+app.applyElementPlugins = function(element)
 {
     if (!(element instanceof HTMLElement)) return;
     app.$all(".carousel", element).forEach(el => (bootstrap.Carousel.getOrCreateInstance(el)));
     app.$all(`[data-bs-toggle="popover"]`, element).forEach(el => (bootstrap.Popover.getOrCreateInstance(el)));
+    for (const cb of _plugins) cb(element);
 }
 
 app.$ready(() => {
@@ -261,15 +272,11 @@ app.$ready(() => {
         app._resized = setTimeout(app.setBreakpoint, 250);
     });
 
-    app.on("component:create", (data) => { app.applyPlugins(data?.element) });
+    app.on("component:create", (data) => { app.applyElementPlugins(data?.element) });
 
-    app.on("alert", (type, msg, opts) => {
-        app.showAlert(type, msg, opts);
-    });
+    app.on("alert", app.showAlert);
 
-    app.on("loading", (type) => {
-        app.showLoading(type);
-    });
+    app.on("loading", app.showLoading);
 });
 
 })();
