@@ -8,47 +8,62 @@
     templates: {},
     components: {}
   };
-  var app_default = app;
+  function isFunc(callback) {
+    return typeof callback == "function";
+  }
+  function isStr(str) {
+    return typeof str == "string";
+  }
+  function isObj(obj) {
+    return typeof obj == "object" && obj;
+  }
+  function isElement(element) {
+    return element instanceof HTMLElement ? element : void 0;
+  }
+  function toCamel(key) {
+    return key.toLowerCase().replace(/-(\w)/g, (_, c) => c.toUpperCase());
+  }
 
   // src/util.js
-  app_default.noop = () => {
+  app.noop = () => {
   };
-  app_default.log = (...args) => console.log(...args);
-  app_default.trace = (...args) => {
-    app_default.debug && console.log(...args);
+  app.log = (...args) => console.log(...args);
+  app.trace = (...args) => {
+    app.debug && app.log(...args);
   };
-  app_default.call = (obj, method, ...arg) => {
-    if (typeof obj == "function") return obj(method, ...arg);
+  app.call = (obj, method, ...arg) => {
+    if (isFunc(obj)) return obj(method, ...arg);
     if (typeof obj != "object") return;
-    if (typeof method == "function") return method.call(obj, ...arg);
-    if (obj && typeof obj[method] == "function") return obj[method].call(obj, ...arg);
+    if (isFunc(method)) return method.call(obj, ...arg);
+    if (obj && isFunc(obj[method])) return obj[method].call(obj, ...arg);
   };
   var _events = {};
-  app_default.on = (event, callback) => {
-    if (typeof callback != "function") return;
+  app.on = (event, callback) => {
+    if (!isFunc(callback)) return;
     if (!_events[event]) _events[event] = [];
     _events[event].push(callback);
   };
-  app_default.once = (event, callback) => {
-    if (typeof callback != "function") return;
-    app_default.on(event, (...args) => {
-      app_default.off(event, callback);
+  app.once = (event, callback) => {
+    if (!isFunc(callback)) return;
+    const cb = (...args) => {
+      app.off(event, cb);
       callback(...args);
-    });
+    };
+    app.on(event, cb);
   };
-  app_default.only = (event, callback) => {
-    _events[event] = typeof callback == "function" ? [callback] : [];
+  app.only = (event, callback) => {
+    _events[event] = isFunc(callback) ? [callback] : [];
   };
-  app_default.off = (event, callback) => {
+  app.off = (event, callback) => {
     if (!_events[event] || !callback) return;
     const i = _events[event].indexOf(callback);
     if (i > -1) return _events[event].splice(i, 1);
   };
-  app_default.emit = (event, ...args) => {
-    app_default.trace("emit:", event, ...args);
+  app.emit = (event, ...args) => {
+    app.trace("emit:", event, ...args);
     if (_events[event]) {
       for (const cb of _events[event]) cb(...args);
-    } else if (typeof event == "string" && event.endsWith(":*")) {
+    } else if (isStr(event) && event.endsWith(":*")) {
       event = event.slice(0, -1);
       for (const p in _events) {
         if (p.startsWith(event)) {
@@ -59,67 +74,76 @@
   };
 
   // src/dom.js
-  var esc = (selector) => typeof selector == "string" ? selector.replace(/#([^\s"#']+)/g, (_, id) => `#${CSS.escape(id)}`) : "";
-  app_default.$ = (selector, doc) => (doc || document).querySelector(esc(selector));
-  app_default.$all = (selector, doc) => (doc || document).querySelectorAll(esc(selector));
-  app_default.$on = (element, event, callback, ...arg) => {
-    return typeof callback == "function" && element.addEventListener(event, callback, ...arg);
+  app.$param = (name, dflt) => {
+    return new URLSearchParams(location.search).get(name) || dflt || "";
   };
-  app_default.$off = (element, event, callback, ...arg) => {
-    return typeof callback == "function" && element.removeEventListener(event, callback, ...arg);
+  var esc = (selector) => isStr(selector) ? selector.replace(/#([^\s"#']+)/g, (_, id) => `#${CSS.escape(id)}`) : "";
+  app.$ = (selector, doc) => (isElement(doc) || document).querySelector(esc(selector));
+  app.$all = (selector, doc) => (isElement(doc) || document).querySelectorAll(esc(selector));
+  app.$event = (element, name, detail = {}) => isElement(element) && element.dispatchEvent(new CustomEvent(name, { detail, bubbles: true, composed: true, cancelable: true }));
+  app.$on = (element, event, callback, ...arg) => {
+    return isFunc(callback) && element.addEventListener(event, callback, ...arg);
   };
-  app_default.$attr = (element, attr, value) => {
-    if (!(element instanceof HTMLElement)) return;
+  app.$off = (element, event, callback, ...arg) => {
+    return isFunc(callback) && element.removeEventListener(event, callback, ...arg);
+  };
+  app.$attr = (element, attr, value) => {
+    if (isStr(element) && element) element = app.$(element);
+    if (!isElement(element)) return;
     return value === void 0 ? element.getAttribute(attr) : value === null ? element.removeAttribute(attr) : element.setAttribute(attr, value);
   };
-  app_default.$empty = (element, cleanup) => {
-    if (!(element instanceof HTMLElement)) return;
+  app.$empty = (element, cleanup) => {
+    if (!isElement(element)) return;
     while (element.firstChild) {
       const node = element.firstChild;
       node.remove();
-      app_default.call(cleanup, node);
+      app.call(cleanup, node);
     }
+    return element;
   };
-  app_default.$param = (name, dflt) => {
-    return new URLSearchParams(location.search).get(name) || dflt || "";
-  };
-  app_default.$elem = (name, ...arg) => {
-    var el = document.createElement(name), key;
+  app.$elem = (name, ...arg) => {
+    var element = document.createElement(name), key, val;
+    if (isObj(arg[0])) {
+      arg = Object.entries(arg[0]).flatMap((x) => x);
+    }
     for (let i = 0; i < arg.length - 1; i += 2) {
-      key = arg[i];
-      if (typeof key != "string") continue;
-      if (typeof arg[i + 1] == "function") {
-        app_default.$on(el, key, arg[i + 1], false);
+      key = arg[i], val = arg[i + 1];
+      if (!isStr(key)) continue;
+      if (isFunc(val)) {
+        app.$on(element, key, val);
       } else if (key.startsWith(".")) {
-        el.style[key.substr(1)] = arg[i + 1];
-      } else if (key.startsWith("data-")) {
-        el.dataset[key.substr(5)] = arg[i + 1];
+        element.style[key.substr(1)] = val;
       } else if (key.startsWith(":")) {
-        el[key.substr(1)] = arg[i + 1];
+        element[key.substr(1)] = val;
+      } else if (key.startsWith("data-")) {
+        element.dataset[toCamel(key.substr(5))] = val;
+      } else if (key == "text") {
+        element.textContent = val || "";
       } else {
-        el.setAttribute(key, arg[i + 1] ?? "");
+        element.setAttribute(key, val ?? "");
       }
     }
-    return el;
+    return element;
   };
-  app_default.$parse = (text) => {
-    return new window.DOMParser().parseFromString(text, "text/html").body;
+  app.$parse = (html, list) => {
+    html = new window.DOMParser().parseFromString(html || "", "text/html").body;
+    return list ? Array.from(html.childNodes) : html;
   };
   var _ready = [];
-  app_default.$ready = (callback) => {
+  app.$ready = (callback) => {
     _ready.push(callback);
     if (document.readyState == "loading") return;
-    while (_ready.length) setTimeout(app_default.call, 0, _ready.shift());
+    while (_ready.length) setTimeout(app.call, 0, _ready.shift());
   };
-  app_default.$on(window, "DOMContentLoaded", () => {
-    while (_ready.length) setTimeout(app_default.call, 0, _ready.shift());
+  app.$on(window, "DOMContentLoaded", () => {
+    while (_ready.length) setTimeout(app.call, 0, _ready.shift());
   });
 
   // src/router.js
-  app_default.parsePath = (path) => {
+  app.parsePath = (path) => {
     var rc = { name: "", params: {} }, query, loc = window.location;
-    if (typeof path != "string") return rc;
-    var base = app_default.base;
+    if (!isStr(path)) return rc;
+    var base = app.base;
     if (path.startsWith(loc.origin)) path = path.substr(loc.origin.length);
     if (path.includes("://")) path = path.replace(/^(.*:\/\/[^\/]*)/, "");
     if (path.startsWith(base)) path = path.substr(base.length);
@@ -147,8 +171,8 @@
     }
     return rc;
   };
-  app_default.savePath = (options) => {
-    if (typeof options == "string") options = { name: options };
+  app.savePath = (options) => {
+    if (isStr(options)) options = { name: options };
     if (!options?.name) return;
     var path = [options.name];
     if (options?.params) {
@@ -156,42 +180,42 @@
     }
     while (!path.at(-1)) path.length--;
     path = path.join("/");
-    app_default.trace("savePath:", path, options);
+    app.trace("savePath:", path, options);
     if (!path) return;
-    window.history.pushState(null, "", window.location.origin + app_default.base + path);
+    window.history.pushState(null, "", window.location.origin + app.base + path);
   };
-  app_default.restorePath = (path) => {
-    app_default.trace("restorePath:", path, app_default.index);
-    app_default.render(path, app_default.index);
+  app.restorePath = (path) => {
+    app.trace("restorePath:", path, app.index);
+    app.render(path, app.index);
   };
-  app_default.start = () => {
-    app_default.on("path:save", app_default.savePath);
-    app_default.on("path:restore", app_default.restorePath);
-    app_default.$ready(app_default.restorePath.bind(app_default, window.location.href));
+  app.start = () => {
+    app.on("path:save", app.savePath);
+    app.on("path:restore", app.restorePath);
+    app.$ready(app.restorePath.bind(app, window.location.href));
   };
-  app_default.$on(window, "popstate", () => app_default.emit("path:restore", window.location.href));
+  app.$on(window, "popstate", () => app.emit("path:restore", window.location.href));
 
   // src/render.js
   var _plugins = {};
   var _default_plugin;
-  app_default.plugin = (name, options) => {
-    if (!name || typeof name != "string") throw Error("type must be defined");
+  app.plugin = (name, options) => {
+    if (!name || !isStr(name)) throw Error("type must be defined");
     if (options) {
       for (const p of ["render", "cleanup"]) {
-        if (options[p] && typeof options[p] != "function") throw Error(p + " must be a function");
+        if (options[p] && !isFunc(options[p])) throw Error(p + " must be a function");
       }
-      if (typeof options?.Component == "function") {
-        app_default[`${name.substr(0, 1).toUpperCase() + name.substr(1).toLowerCase()}Component`] = options.Component;
+      if (isFunc(options?.Component)) {
+        app[`${name.substr(0, 1).toUpperCase() + name.substr(1).toLowerCase()}Component`] = options.Component;
       }
     }
     var plugin = _plugins[name] = _plugins[name] || {};
     if (options?.default) _default_plugin = plugin;
     return Object.assign(plugin, options);
   };
-  app_default.resolve = (path, dflt) => {
-    const rc = app_default.parsePath(path);
-    app_default.trace("resolve:", path, dflt, rc);
-    var name = rc.name, templates = app_default.templates, components = app_default.components;
+  app.resolve = (path, dflt) => {
+    const rc = app.parsePath(path);
+    app.trace("resolve:", path, dflt, rc);
+    var name = rc.name, templates = app.templates, components = app.components;
     var template = templates[name] || document.getElementById(name)?.innerHTML;
     if (!template && dflt) {
       template = templates[dflt] || document.getElementById(dflt)?.innerHTML;
@@ -205,36 +229,36 @@
     if (!template) return;
     rc.template = template;
     var component = components[name] || components[rc.name];
-    if (typeof component == "string") component = components[component];
+    if (isStr(component)) component = components[component];
     rc.component = component;
     return rc;
   };
-  app_default.render = (options, dflt) => {
-    var tmpl = app_default.resolve(options?.name || options, dflt);
+  app.render = (options, dflt) => {
+    var tmpl = app.resolve(options?.name || options, dflt);
     if (!tmpl) return;
     var params = tmpl.params;
     Object.assign(params, options?.params);
-    app_default.trace("render:", options, tmpl.name, tmpl.params);
-    const element = app_default.$(params.$target || app_default.main);
+    app.trace("render:", options, tmpl.name, tmpl.params);
+    const element = app.$(params.$target || app.main);
     if (!element) return;
     var plugin = tmpl.component?.$type || options?.plugin || params.$plugin;
     plugin = _plugins[plugin] || _default_plugin;
     if (!plugin?.render) return;
-    if (!params.$target || params.$target == app_default.main) {
+    if (!params.$target || params.$target == app.main) {
       var ev = { name: tmpl.name, params };
-      app_default.emit(app_default.event, "prepare:delete", ev);
+      app.emit(app.event, "prepare:delete", ev);
       if (ev.stop) return;
       var plugins = Object.values(_plugins);
       for (const p of plugins.filter((x) => x.cleanup)) {
-        app_default.call(p.cleanup, element);
+        app.call(p.cleanup, element);
       }
       if (!(options?.nohistory || params.$nohistory)) {
         queueMicrotask(() => {
-          app_default.emit("path:save", tmpl);
+          app.emit("path:save", tmpl);
         });
       }
     }
-    app_default.emit("component:render", tmpl);
+    app.emit("component:render", tmpl);
     plugin.render(element, tmpl);
     return tmpl;
   };
@@ -255,27 +279,27 @@
       this._handleEvent = this.handleEvent.bind(this);
     }
     init() {
-      app_default.trace("init:", this.$_id);
+      app.trace("init:", this.$_id);
       Object.assign(this.params, this.$el._x_params);
-      app_default.call(this.onCreate?.bind(this));
+      app.call(this.onCreate?.bind(this));
       if (!this.params.$noevents) {
-        app_default.on(app_default.event, this._handleEvent);
+        app.on(app.event, this._handleEvent);
       }
-      app_default.emit("component:create", { type: _alpine, name: this.$name, component: this, element: this.$el, params: Alpine.raw(this.params) });
+      app.emit("component:create", { type: _alpine, name: this.$name, component: this, element: this.$el, params: Alpine.raw(this.params) });
     }
     destroy() {
-      app_default.trace("destroy:", this.$_id);
-      app_default.off(app_default.event, this._handleEvent);
-      app_default.emit("component:delete", { type: _alpine, name: this.$name, component: this, element: this.$el, params: Alpine.raw(this.params) });
-      app_default.call(this.onDelete?.bind(this));
+      app.trace("destroy:", this.$_id);
+      app.off(app.event, this._handleEvent);
+      app.emit("component:delete", { type: _alpine, name: this.$name, component: this, element: this.$el, params: Alpine.raw(this.params) });
+      app.call(this.onDelete?.bind(this));
       this.params = {};
     }
     handleEvent(event, ...args) {
-      app_default.trace("event:", this.$_id, ...args);
-      app_default.call(this.onEvent?.bind(this.$data), event, ...args);
-      if (typeof event != "string") return;
-      var method = ("on_" + event).toLowerCase().replace(/[.:_-](\w)/g, (_, char) => char.toUpperCase());
-      app_default.call(this[method]?.bind(this.$data), ...args);
+      app.trace("event:", this.$_id, ...args);
+      app.call(this.onEvent?.bind(this.$data), event, ...args);
+      if (!isStr(event)) return;
+      var method = toCamel("on_" + event);
+      app.call(this[method]?.bind(this.$data), ...args);
     }
   };
   var Element = class extends HTMLElement {
@@ -284,12 +308,12 @@
     }
   };
   function render(element, options) {
-    if (typeof options == "string") {
-      options = app_default.resolve(options);
+    if (isStr(options)) {
+      options = app.resolve(options);
       if (!options) return;
     }
-    app_default.$empty(element);
-    const body = app_default.$parse(options.template);
+    app.$empty(element);
+    const body = app.$parse(options.template);
     if (!options.component) {
       Alpine.mutateDom(() => {
         while (body.firstChild) {
@@ -302,7 +326,7 @@
       });
     } else {
       Alpine.data(options.name, () => new options.component(options.name));
-      const node = app_default.$elem("div", "x-data", options.name, ":_x_params", options.params);
+      const node = app.$elem("div", "x-data", options.name, ":_x_params", options.params);
       while (body.firstChild) {
         node.appendChild(body.firstChild);
       }
@@ -313,34 +337,34 @@
       });
     }
   }
-  app_default.plugin(_alpine, { render, Component, default: 1 });
-  app_default.on("alpine:init", () => {
-    for (const [name, obj] of Object.entries(app_default.components)) {
+  app.plugin(_alpine, { render, Component, default: 1 });
+  app.on("alpine:init", () => {
+    for (const [name, obj] of Object.entries(app.components)) {
       if (obj?.$type != _alpine || customElements.get(Alpine.prefixed(name))) continue;
       customElements.define(Alpine.prefixed(name), class extends Element {
       });
       Alpine.data(name, () => new obj(name));
     }
   });
-  app_default.$on(document, "alpine:init", () => {
-    app_default.emit("alpine:init");
-    Alpine.magic("app", (el) => app_default);
+  app.$on(document, "alpine:init", () => {
+    app.emit("alpine:init");
+    Alpine.magic("app", (el) => app);
     Alpine.directive("render", (el, { modifiers, expression }, { evaluate, cleanup }) => {
       const click = (e) => {
         e.preventDefault();
-        app_default.render(evaluate(expression));
+        app.render(evaluate(expression));
       };
-      app_default.$on(el, "click", click);
+      app.$on(el, "click", click);
       el.style.cursor = "pointer";
       cleanup(() => {
-        app_default.$off(el, "click", click);
+        app.$off(el, "click", click);
       });
     });
     Alpine.directive("template", (el, { expression }, { effect, cleanup }) => {
       const evaluate = Alpine.evaluateLater(el, expression || "template");
       const hide = () => {
         Alpine.mutateDom(() => {
-          app_default.$empty(el, (node) => Alpine.destroyTree(node));
+          app.$empty(el, (node) => Alpine.destroyTree(node));
         });
       };
       effect(() => evaluate((value) => {
@@ -351,7 +375,7 @@
   });
 
   // src/fetch.js
-  app_default.fetchOpts = function(options) {
+  app.fetchOpts = function(options) {
     var headers = options.headers || {};
     var opts = Object.assign({
       headers,
@@ -360,16 +384,16 @@
     }, options.fetchOptions);
     var data = options.data;
     if (opts.method == "GET" || opts.method == "HEAD") {
-      if (typeof data == "object" && data) {
+      if (isObj(data)) {
         options.url += "?" + new URLSearchParams(data).toString();
       }
-    } else if (typeof data == "string") {
+    } else if (isStr(data)) {
       opts.body = data;
       headers["content-type"] = options.contentType || "application/x-www-form-urlencoded; charset=UTF-8";
     } else if (data instanceof FormData) {
       opts.body = data;
       delete headers["content-type"];
-    } else if (typeof data == "object") {
+    } else if (isObj(data)) {
       opts.body = JSON.stringify(data);
       headers["content-type"] = "application/json; charset=UTF-8";
     } else if (data) {
@@ -378,9 +402,9 @@
     }
     return opts;
   };
-  app_default.fetch = function(options, callback) {
+  app.fetch = function(options, callback) {
     try {
-      const opts = app_default.fetchOpts(options);
+      const opts = app.fetchOpts(options);
       window.fetch(options.url, opts).then(async (res) => {
         var err, data;
         var info = { status: res.status, headers: {}, type: res.type };
@@ -393,7 +417,7 @@
           } else {
             err = { message: await res.text(), status: res.status };
           }
-          return app_default.call(callback, err, data, info);
+          return app.call(callback, err, data, info);
         }
         switch (options.dataType) {
           case "text":
@@ -405,17 +429,17 @@
           default:
             data = /\/json/.test(info.headers["content-type"]) ? await res.json() : await res.text();
         }
-        app_default.call(callback, null, data, info);
+        app.call(callback, null, data, info);
       }).catch((err) => {
-        app_default.call(callback, err);
+        app.call(callback, err);
       });
     } catch (err) {
-      app_default.call(callback, err);
+      app.call(callback, err);
     }
   };
 
   // src/index.js
-  var src_default = app_default;
+  var src_default = app;
 
   // builds/cdn.js
   window.app = src_default;

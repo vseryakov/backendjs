@@ -1,7 +1,8 @@
 /*!
- * Modified by vlad
+ * Modified by vlad, more options, no jQuery
  *
- * Popup dialog boxes for Bootstrap - http://www.bootpopup.tk
+ *
+ * Popup dialog boxes for Bootstrap - https://github.com/rigon/bootpopup
  * Copyright (C) 2016  rigon<ricardompgoncalves@gmail.com>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -20,14 +21,19 @@
 
 function bootpopup(...args)
 {
-    var inputs = [ "text", "color", "url", "password", "hidden", "file", "number",
-       "email", "reset", "date", "time", "checkbox", "radio", "datetime-local",
-       "week", "tel", "search", "range", "month", "image", "button" ];
+    const app = window.app;
+
+    const inputs = [
+        "text", "color", "url", "password", "hidden", "file", "number",
+        "email", "reset", "date", "time", "checkbox", "radio", "datetime-local",
+        "week", "tel", "search", "range", "month", "image", "button"
+    ];
 
     // Create a new instance if this is not
     if (!(this instanceof bootpopup)) return new bootpopup(...args);
 
-    var self = this;
+    const self = this;
+
     // Create a global random ID for the form
     this.formid = "bpf" + String(Math.random()).substr(2);
 
@@ -123,7 +129,7 @@ function bootpopup(...args)
         complete: function() {},
         submit: function(e) {
             self.callback(self.options.onsubmit, e);
-            return false;    // Cancel form submision
+            e.preventDefault();
         },
     }
 
@@ -140,21 +146,20 @@ function bootpopup(...args)
         var opts = { class: this.options.class_modal, id: this.options.id || "", tabindex: "-1", role: "dialog", "aria-labelledby": "bootpopup-title", "aria-hidden": true };
         if (this.options.backdrop !== true) opts["data-bs-backdrop"] = typeof this.options.backdrop == "string" ? this.options.backdrop : false;
         if (!this.options.keyboard) opts["data-bs-keyboard"] = false;
-        this.modal = $('<div></div>', opts);
-        this.dialog = $('<div></div>', { class: class_dialog, role: "document" });
-        this.content = $('<div></div>', { class: this.options.class_content + " " + this.options.class_h });
+        this.modal = app.$elem('div', opts);
+        this.dialog = app.$elem('div', { class: class_dialog, role: "document" });
+        this.content = app.$elem('div', { class: this.options.class_content + " " + this.options.class_h });
         this.dialog.append(this.content);
         this.modal.append(this.dialog);
 
         // Header
         if (this.options.show_header && this.options.title) {
-            this.header = $('<div></div>', { class: this.options.class_header });
-            const title = $('<h5></h5>', { class: this.options.class_title, id: "bootpopup-title" });
-            title.append(this.sanitize(this.options.title));
+            this.header = app.$elem('div', { class: this.options.class_header });
+            const title = app.$elem('h5', { class: this.options.class_title, id: "bootpopup-title", text: this.options.title });
             this.header.append(title);
 
             if (this.options.show_close) {
-                const close = $('<button></button>', { type: "button", class: "btn-close", "data-bs-dismiss": "modal", "aria-label": "Close" });
+                const close = app.$elem('button', { type: "button", class: "btn-close", "data-bs-dismiss": "modal", "aria-label": "Close" });
                 this.header.append(close);
             }
             this.content.append(this.header);
@@ -163,25 +168,30 @@ function bootpopup(...args)
         // Body
         var class_form = this.options.class_form;
         if (!class_form && this.options.horizontal) class_form = "form-horizontal";
-        this.body = $('<div></div>', { class: this.options.class_body });
-        this.form = $("<form></form>", { id: this.formid, class: class_form, role: "form", submit: function(e) { return self.options.submit(e); } });
+        this.body = app.$elem('div', { class: this.options.class_body });
+        this.form = app.$elem("form", { id: this.formid, class: class_form, role: "form", submit: (e) => (self.options.submit(e)) });
         this.body.append(this.form);
         this.content.append(this.body);
 
         if (this.options.data) {
-            this.form.data("form-data", this.options.data);
+            this.form.dataset.formData = this.options.data;
         }
         if (this.options.alert) {
-            this.alert = $("<div></div>").appendTo(this.form);
+            this.alert = app.$elem("div");
+            this.form.append(this.alert);
         }
         if (this.options.info) {
-            this.info = $("<div></div>").appendTo(this.form);
+            this.info = app.$elem("div");
+            this.form.append(this.info);
         }
 
-        var tabs = {}, form = this.form, toggle = /nav-pills/.test(this.options.class_tabs) ? "pill" : "tab";
+        var tabs = {}, toggle = /nav-pills/.test(this.options.class_tabs) ? "pill" : "tab";
         if (this.options.tabs) {
-            this.tabs = $("<div></div>", { class: this.options.class_tabs, role: "tablist" }).appendTo(this.form);
-            this.tabContent = $("<div></div>", { class: this.options.class_tabcontent }).appendTo(this.form);
+            this.tabs = app.$elem("div", { class: this.options.class_tabs, role: "tablist" });
+            this.form.append(this.tabs);
+            this.tabContent = app.$elem("div", { class: this.options.class_tabcontent });
+            this.form.append(this.tabContent);
+
             for (const p in this.options.tabs) {
                 // Skip tabs with no elements
                 if (!this.options.content.some((o) => {
@@ -194,7 +204,8 @@ function bootpopup(...args)
                 })) continue;
                 const active = this.options.tab ? this.options.tab == p : !Object.keys(tabs).length;
                 const tid = this.formid + "-tab" + p;
-                $("<a></a>", {
+
+                const a = app.$elem("a", {
                     class: this.options.class_tablink + (active ? " active" : ""),
                     "data-bs-toggle": toggle,
                     id: tid + "0",
@@ -203,75 +214,98 @@ function bootpopup(...args)
                     "aria-controls": tid,
                     "aria-selected": false,
                     "data-callback": p,
-                    click: function(event) { self.options.showtab($(event.target).data("callback"), event) }
-                }).append(this.options.tabs[p]).appendTo(this.tabs);
+                    click: (event) => { self.options.showtab(event.target.dataset.callback, event) },
+                    text: this.options.tabs[p],
+                });
+                this.tabs.append(a);
 
-                tabs[p] = $("<div></div", {
+                tabs[p] = app.$elem("div", {
                     class: "tab-pane fade" + (active ? " show active": ""),
                     id: tid,
                     role: "tabpanel", "aria-labelledby":
                     tid + "0"
-                }).appendTo(this.tabContent);
+                });
+                this.tabContent.append(tabs[p]);
             }
         }
 
-        var parent = form, children, attrs, label, elem, group;
+        var parent = this.form, children, attrs, label, elem, group, html;
 
         const addElement = (type) => {
             if (!this.options.inputs.includes(type)) {
                 this.options.inputs.push(type);
             }
             if (opts.class_append || opts.text_append) {
-                elem.append($("<span></span>", { class: opts.class_append || "" }).append(opts.text_append));
+                const span = app.$elem("span", { class: opts.class_append, text: opts.text_append });
+                elem.append(span);
             }
             if (opts.list_input_button || opts.list_input_tags) {
                 if (attrs.value && opts.list_input_tags) {
-                    elem.attr('value', app.strSplit(attrs.value).join(', '));
+                    app.$attr(elem, 'value', app.strSplit(attrs.value).join(', '));
                 }
-                elem = $('<div></div>', { class: `input-group ${opts.class_input_group || ""}` }).append(elem);
-                $('<button></button>', {
+                const group = app.$elem('div', { class: `input-group ${opts.class_input_group || ""}` });
+                group.append(elem);
+                elem = group;
+
+                const button = app.$elem('button', {
                     class: opts.class_list_button || this.options.class_list_button,
                     type: "button",
                     'data-bs-toggle': "dropdown",
                     'aria-haspopup': "true",
-                    'aria-expanded': "false"
-                }).append(opts.text_input_button || " ").appendTo(elem);
+                    'aria-expanded': "false",
+                    text: opts.text_input_button,
+                });
+                elem.append(button);
 
-                var menu = $('<div></div>', { class: opts.class_input_menu || this.options.class_input_menu, style: "overflow-y:auto" }).
-                            css("max-height", opts.list_input_mh || this.options.list_input_mh).
-                            appendTo(elem);
+                var menu = app.$elem('div', {
+                    class: opts.class_input_menu || this.options.class_input_menu,
+                    ".overflowY": "auto",
+                    ".maxHeight": opts.list_input_mh || this.options.list_input_mh
+                });
+                elem.append(menu);
 
-                var onclick = opts.click_input_button && `(${opts.click_input_button})(this,$('#${attrs.id}'))`;
                 var list = opts.list_input_button || opts.list_input_tags || [];
                 for (const l of list) {
                     let n = l, v = this.escape(n);
                     if (typeof n == "object") v = this.escape(n.value), n = this.escape(n.name);
                     if (n == "-") {
-                        $('<div></div>', { class: "dropdown-divider" }).appendTo(menu);
+                        menu.appendTo(app.$elem('div', { class: "dropdown-divider" }));
                     } else
                     if (opts.list_input_tags) {
-                        $('<a></a>', {
+                        const a = app.$elem('a', {
                             class: "dropdown-item " + (opts.class_list_input_item || ""),
                             role: "button",
-                            onclick: `$('#${attrs.id}').val(app.toFlags("add", app.strSplit($('#${attrs.id}').val()), '${v || n}').join(', '))`
-                        }).append(n).appendTo(menu);
+                            'data-attrid': '#' + attrs.id,
+                            click: (ev) => {
+                                var el = app.$(ev.target.dataset.attrid);
+                                el.value = app.toFlags("add", app.strSplit(el.value), ev.target.textContent).join(', ')
+                            },
+                            text: n
+                        });
+                        menu.append(a);
                     } else {
-                        $('<a></a>', {
+                        const a = app.$elem('a', {
                             class: "dropdown-item " + (opts.class_list_input_item || ""),
                             role: "button",
                             'data-value': v || n,
-                            'data-form': this.formid,
-                            onclick: onclick || `$('#${attrs.id}').val(('${v || n}'))`,
-                        }).append(n).appendTo(menu);
+                            'data-attrid': '#' + attrs.id,
+                            click: (ev) => {
+                                app.$(ev.target.dataset.attrid).value = ev.target.dataset.value
+                            },
+                            text: n
+                        });
+                        menu.append(a);
                     }
                 }
             } else
             if (opts.text_input_button) {
-                elem = $('<div></div>', { class: `input-group ${opts.class_input_group || ""}` }).append(elem);
-                const bopts = { class: opts.class_input_button || this.options.class_input_button, type: "button", 'data-form': this.formid };
-                if (opts.click_input_button) bopts.onclick = `(${opts.click_input_button})(this,$('#${attrs.id}'))`;
+                const group = app.$elem('div', { class: `input-group ${opts.class_input_group || ""}` });
+                elem.append(group);
+                elem = group;
+                const bopts = { class: opts.class_input_button || this.options.class_input_button, type: "button", 'data-formid': '#'+this.formid, text: opts.text_input_button };
                 for (const b in opts.attrs_input_button) bopts[b] = opts.attrs_input_button[b];
-                $('<button></button>', bopts).append(opts.text_input_button).appendTo(elem);
+                const button = app.$elem('button', bopts);
+                elem.append(button);
             }
 
             for (const k in children) elem.append(children[k]);
@@ -280,44 +314,54 @@ function bootpopup(...args)
             var gopts = { class: class_group, title: attrs.title };
             for (const p in opts.attrs_group) gopts[p] = opts.attrs_group[p];
 
-            group = $('<div></div>', gopts).appendTo(parent);
+            group = app.$elem('div', gopts)
+            parent.append(group);
+
             if (opts.class_prefix || opts.text_prefix) {
-                group.append($("<span></span>", { class: opts.class_prefix || "" }).append(opts.text_prefix || ""));
+                group.append(app.$elem("span", { class: opts.class_prefix || "", text: opts.text_prefix }));
             }
             if (opts.horizontal !== undefined ? opts.horizontal : this.options.horizontal) {
-                group.addClass("row");
+                group.classList.add("row");
                 class_label = " col-form-label " + (opts.size_label || this.options.size_label) + " " + class_label;
-                const lopts = { for: opts.for || attrs.id, class: class_label, html: this.sanitize(opts.label) };
+                const lopts = { for: opts.for || attrs.id, class: class_label };
                 for (const p in opts.attrs_label) lopts[p] = opts.attrs_label[p];
-                group.append($("<label></label>", lopts));
-                group.append($('<div></div>', { class: opts.size_input || this.options.size_input }).append(elem));
+                const label = app.$elem("label", lopts);
+                label.append(...Array.from(this.sanitize(opts.label)));
+
+                const input = app.$elem('div', { class: opts.size_input || this.options.size_input });
+                input.append(elem);
+                group.append(label, input);
             } else {
-                const lopts = { for: opts.for || attrs.id, class: "form-label " + class_label, html: this.sanitize(opts.label) };
+                const lopts = { for: opts.for || attrs.id, class: "form-label " + class_label };
                 for (const p in opts.attrs_label) lopts[p] = opts.attrs_label[p];
+                const label = app.$elem("label", lopts);
+                label.append(...Array.from(this.sanitize(opts.label)));
+
                 if (opts.floating) {
-                    if (!opts.placeholder) elem.attr("placeholder", "");
-                    group.addClass("form-floating").append(elem);
-                    if (opts.label) group.append($("<label></label>", lopts));
+                    if (!opts.placeholder) app.$attr(elem, "placeholder", "");
+                    group.classList.add("form-floating");
+                    group.append(elem);
+                    if (opts.label) group.append(label);
                 } else {
-                    if (opts.label) group.append($("<label></label>", lopts));
+                    if (opts.label) group.append(label);
                     group.append(elem);
                 }
             }
             if (opts.text_valid) {
-                group.append($("<div></div>", { class: "valid-feedback" }).append(opts.text_valid));
+                group.append(app.$eem("div", { class: "valid-feedback", text: opts.text_valid }));
             }
             if (opts.text_invalid) {
-                group.append($("<div></div>", { class: "invalid-feedback" }).append(opts.text_invalid));
+                group.append(app.$elem("div", { class: "invalid-feedback", text: opts.text_invalid }));
             }
             if (opts.class_suffix || opts.text_suffix) {
-                group.append($("<div></div>", { class: opts.class_suffix || this.options.class_suffix }).append(opts.text_suffix || ""));
+                group.append(app.$elem("div", { class: opts.class_suffix || this.options.class_suffix, text: opts.text_suffix }));
             }
             if (opts.autofocus) this.autofocus = elem;
         }
 
         const processEntry = (type, entry) => {
             opts = {}, children = [], attrs = {};
-            label = elem = group = undefined;
+            label = elem = group = html = undefined;
 
             if (Array.isArray(entry)) {
                 children = entry;
@@ -327,19 +371,17 @@ function bootpopup(...args)
                 for (const p in entry) opts[p] = entry[p];
             }
             for (const p in opts) {
-                if (p == "html" && !opts.nosanitize) attrs[p] = this.sanitize(opts[p]); else
-                if (!/^(tab_|attrs_|click_|list_|class_|text_|icon_|size_|label|for)/.test(p)) attrs[p] = opts[p];
-            }
-
-            // Convert functions to string to be used as callback
-            for (const a in attrs) {
-                if (a.startsWith("on") && typeof attrs[a] === "function") {
-                    attrs[a] = `return (${attrs[a]})(this,arguments[0],$('#${this.formid}'))`;
+                if (p == "html") {
+                    html = opts.nosanitize ? app.$parse(opts[p], 1) : this.sanitize(opts[p]);
+                } else
+                if (!/^(tab_|attrs_|click_|list_|class_|text_|icon_|size_|label|for)/.test(p)) {
+                    attrs[p] = opts[p];
                 }
             }
 
             // Create a random id for the input if none provided
             if (!attrs.id) attrs.id = "bpi" + String(Math.random()).substr(2);
+            attrs["data-formid"] = "#" + this.formid;
 
             // Choose to the current tab content
             if (opts.tab_id && tabs[opts.tab_id]) {
@@ -359,7 +401,8 @@ function bootpopup(...args)
             case "textarea":
                 attrs.type = (typeof attrs.type === "undefined" ? "text" : attrs.type);
                 if (attrs.type == "hidden") {
-                    elem = $("<" + type + "></" + type + ">", attrs).appendTo(parent);
+                    elem = app.$elem(type, attrs);
+                    parent.append(elem);
                     break;
                 }
                 if (!attrs.class) attrs.class = this.options["class_" + attrs.type];
@@ -370,14 +413,16 @@ function bootpopup(...args)
                         const option = {}, opt = attrs.options[j];
                         if (typeof opt == "string") {
                             if (attrs.value && attrs.value == opt) option.selected = true;
-                            children.push($("<option></option>", option).append(this.escape(opt)));
+                            option.text = this.escape(opt);
+                            children.push(app.$elem("option", option));
                         } else
                         if (opt?.name) {
                             option.value = attrs.options[j].value || "";
                             option.selected = typeof opt.selected == "boolean" ? opt.selected : attrs.value && attrs.value == option.value ? true : false;
                             if (opt.label) option.label = opt.label;
                             if (typeof opt.disabled == "boolean") option.disabled = opt.disabled;
-                            children.push($("<option></option>", option).append(this.escape(opt.name)));
+                            option.text = this.escape(opt.name);
+                            children.push(app.$elem("option", option));
                         }
                     }
                     delete attrs.options;
@@ -386,17 +431,22 @@ function bootpopup(...args)
 
                 // Special case for checkbox
                 if (["radio", "checkbox"].includes(attrs.type) && !opts.raw) {
-                    label = $('<label></label>', { class: opts.class_input_btn || opts.class_input_label || "form-check-label", for: opts.for || attrs.id }).
-                            append(opts.input_label || opts.label);
+                    label = app.$elem('label', {
+                        class: opts.class_input_btn || opts.class_input_label || "form-check-label",
+                        for: opts.for || attrs.id,
+                        text: opts.input_label || opts.label
+                    });
                     let class_check = "form-check";
                     if (opts.switch) class_check += " form-switch", attrs.role = "switch";
                     if (opts.inline) class_check += " form-check-inline";
                     if (opts.reverse) class_check += " form-check-reverse";
                     if (opts.class_check) class_check += " " + opts.class_check;
                     attrs.class = (opts.class_input_btn ? "btn-check " : "form-check-input ") + (attrs.class || "");
-                    elem = $('<div></div>', { class: class_check }).append($("<" + type + "/>", attrs)).append(label);
+                    elem = app.$elem('div', { class: class_check });
+                    elem.append(app.$elem(type, attrs), label);
+
                     if (opts.class_append || opts.text_append) {
-                        label.append($("<span></span>", { class: opts.class_append || "" }).append(opts.text_append || ""));
+                        label.append(app.$elem("span", { class: opts.class_append || "", text: opts.text_append }));
                     }
                     // Clear label to not add as header, it was added before
                     if (!opts.input_label) delete opts.label;
@@ -407,22 +457,22 @@ function bootpopup(...args)
                     attrs.class = attrs.class || "form-control";
                     if (type == "textarea") {
                         delete attrs.value;
-                        elem = $("<" + type + "/>", attrs);
+                        elem = app.$elem(type, attrs);
                         if (opts.value) elem.append(opts.value);
                     } else {
-                        elem = $("<" + type + "/>", attrs);
+                        elem = app.$elem(type, attrs);
                     }
                 }
                 addElement(type);
                 break;
 
             case "checkboxes":
-                elem = $("<div></div>", { class: opts.class_container });
+                elem = app.$elem("div", { class: opts.class_container });
                 for (const i in attrs.options) {
                     let o = attrs.options[i];
                     if (!o?.name) continue;
                     const title = o.title;
-                    const label = $('<label></label>', { class: "form-check-label", for: attrs.id + "-" + i }).append(o.label || o.name);
+                    const label = app.$elem('label', { class: "form-check-label", for: attrs.id + "-" + i, text: o.label || o.name });
                     o = Object.assign(o, {
                         id: attrs.id + "-" + i,
                         class: `form-check-input ${o.class || ""}`,
@@ -436,22 +486,27 @@ function bootpopup(...args)
                     if (o.inline || opts.inline) c += " form-check-inline";
                     if (o.reverse || opts.reverse) c += " form-check-reverse";
                     if (o.class_check || opts.class_check) c += " " + (o.class_check || opts.class_check);
-                    children.push($('<div></div>', { class: c, title: title }).append($(`<input/>`, o)).append(label));
+                    const div = app.$elem('div', { class: c, title: title });
+                    div.append(app.$elem(`input`, o), label);
+                    children.push(div);
                 }
-                app.objDel(attrs, "switch", "inline", "reverse", "options", "value", "type");
+                for (const p of ["switch", "inline", "reverse", "options", "value", "type"]) delete attrs[p];
                 addElement(type);
                 break;
 
             case "alert":
             case "success":
-                this[type] = elem = $("<div></div>", attrs).appendTo(parent);
+                this[type] = elem = app.$elem("div", attrs);
+                parent.append(elem);
                 break;
 
             case "row":
-                var row = $("<div></div>", { class: opts.class_row || this.options.class_row || "row" }).appendTo(parent);
+                var row = app.$elem("div", { class: opts.class_row || this.options.class_row || "row" });
+                parent.append(row);
                 for (const subEntry of children) {
-                    var col = $("<div></div>", { class: subEntry.class_col || this.options.class_col || "col-auto" }).appendTo(row);
-                    var oldParent = parent;
+                    const col = app.$elem("div", { class: subEntry.class_col || this.options.class_col || "col-auto" });
+                    row.append(col);
+                    const oldParent = parent;
                     parent = col;
                     for (const type in subEntry) {
                         // Process the element
@@ -462,14 +517,15 @@ function bootpopup(...args)
                 break;
 
             default:
-                elem = $("<" + type + "></" + type + ">", attrs);
+                elem = app.$elem(type, attrs);
+                if (html) elem.append(...html);
                 if (opts.class_append || opts.text_append) {
-                    elem.append($("<span></span>", { class: opts.class_append || "" }).append(opts.text_append));
+                    elem.append(app.$elem("span", { class: opts.class_append || "", text: opts.text_append }));
                 }
                 if (opts.name && opts.label) {
                     addElement(type);
                 } else {
-                    elem.appendTo(parent);
+                    parent.append(elem);
                 }
             }
         }
@@ -480,7 +536,7 @@ function bootpopup(...args)
             switch (typeof entry) {
             case "string":
                 // HTML string
-                form.append(this.sanitize(entry));
+                this.form.append(...this.sanitize(entry));
                 break;
 
             case "object":
@@ -493,7 +549,7 @@ function bootpopup(...args)
         }
 
         // Footer
-        this.footer = $('<div></div>', { class: this.options.class_footer });
+        this.footer = app.$elem('div', { class: this.options.class_footer });
         if (this.options.show_footer) this.content.append(this.footer);
 
         for (const i in this.options.footer) {
@@ -501,23 +557,18 @@ function bootpopup(...args)
             let div;
             switch (typeof entry) {
             case "string":
-                this.footer.append(this.sanitize(entry));
+                this.footer.append(...this.sanitize(entry));
                 break;
 
             case "object":
-                div = $('<div></div>', { class: this.options.class_options }).appendTo(this.footer);
-                for (let type in entry) {
+                div = app.$elem('div', { class: this.options.class_options });
+                this.footer.append(div)
+                for (const type in entry) {
                     const opts = typeof entry[type] == "string" ? { text: entry[type] } : entry[type], attrs = {};
                     for (const p in opts) {
                         if (!/^(type|[0-9]+)$|^(class|text|icon|size)_/.test(p)) attrs[p] = opts[p];
                     }
-                    for (const a in attrs) {
-                        if (a.startsWith("on") && typeof attrs[a] === "function") {
-                            attrs[a] = "(" + attrs[a] + ")(this)";
-                        }
-                    }
-                    type = opts.type || type;
-                    div.append($("<" + type + "></" + type + ">", attrs));
+                    div.append(app.$elem(opts.type || type, attrs));
                 }
                 break;
             }
@@ -526,43 +577,46 @@ function bootpopup(...args)
         for (const i in this.options.buttons) {
             var name = this.options.buttons[i];
             if (!name) continue;
-            const btn = $("<button></button>", {
+            const btn = app.$elem("button", {
                 type: "button",
-                html: this.sanitize(this.options["text_" + name] || name),
                 class: `${this.options.class_buttons} ${this.options["class_" + name] || this.options.class_button}`,
                 "data-callback": name,
-                "data-form": this.formid,
-                click: function(event) { self.callback($(event.target).data("callback"), event) }
-            })
+                "data-formid": this.formid,
+                click: (event) => { self.callback(event.target.dataset.callback, event) }
+            });
+            btn.append(...this.sanitize(this.options["text_" + name] || name));
             if (this.options["icon_" + name]) {
-                btn.append($("<i></i>", { class: this.options["icon_" + name] }));
+                btn.append(app.$elem("i", { class: this.options["icon_" + name] }));
             }
-            this["btn_" + name] = btn.appendTo(this.footer);
+            this["btn_" + name] = btn;
+            this.footer.append(btn);
         }
 
         // Setup events for dismiss and complete
-        this.modal.on('show.bs.modal', function(e) {
+        app.$on(this.modal, 'show.bs.modal', (e) => {
             self.options.show.call(self.options.self, e, self);
         });
-        this.modal.on('shown.bs.modal', function(e) {
+        app.$on(this.modal, 'shown.bs.modal', (e) => {
             if (self.options.autofocus) {
-                var focus = self.autofocus || self.form.find("input,select,textarea").filter(":not([readonly='readonly']):not([disabled='disabled']):not([type='hidden'])").first();
+                var focus = self.autofocus ||
+                            Array.from(app.$all("input,select,textarea", this.form)).
+                                  find(el => !(el.readOnly||el.disabled||el.type=='hidden'));
                 if (focus) focus.focus();
             }
             self.options.shown.call(self.options.self, e, self);
         });
-        this.modal.on('hide.bs.modal', function(e) {
+        app.$on(this.modal, 'hide.bs.modal', (e) => {
             e.bootpopupButton = self._callback;
             self.options.dismiss.call(self.options.self, e, self);
         });
-        this.modal.on('hidden.bs.modal', function(e) {
+        app.$on(this.modal, 'hidden.bs.modal', (e) => {
             e.bootpopupButton = self._callback;
             self.options.complete.call(self.options.self, e, self);
-            self.modal.remove();    // Delete window after complete
+            bootstrap.Modal.getOrCreateInstance(self.modal).dispose();
         });
 
         // Add window to body
-        $(document.body).append(this.modal);
+        document.body.append(this.modal);
     }
 
     this.show = function() {
@@ -570,36 +624,35 @@ function bootpopup(...args)
         this.options.before(this);
 
         // Fire the modal window
-        this.modal.modal("show");
+        bootstrap.Modal.getOrCreateInstance(this.modal).show();
     }
 
     this.showAlert = function(text, opts) {
-        var type = opts?.type || "alert";
-        if (!this[type]) return;
+        const type = opts?.type || "alert", element = this[type];
+        if (!element) return;
         if (text?.message) text = text.message;
         if (typeof text != "string") return;
         if (!opts?.safe) text = app.textToEntity(text.replace(/<br>/g, "\n"));
-        text = self.sanitize(text).replace(/\n/g, "<br>");
+        const alert = app.$elem(`div`, { class: this.options['class_' + type], role: "alert" });
+        alert.append(...self.sanitize(text));
         if (opts?.dismiss) {
-            $(this[type]).empty().
-                        append($(`<div></div>`, { class: this.options['class_' + type] + " alert-dismissible", role: "alert" }).
-                        append($("<div></div>", { html: text })).
-                        append($(`<button></button>`, { type: "button", class: "btn-close", 'data-bs-dismiss': "alert", 'aria-label': "Close" })));
+            alert.classList.add("alert-dismissibl");
+            alert.append(app.$elem(`button`, { type: "button", class: "btn-close", 'data-bs-dismiss': "alert", 'aria-label': "Close" }));
         } else {
-            $(this[type]).empty().append($(`<div></div>`, { class: this.options['class_' + type], role: "alert", html: text }));
-            setTimeout(() => { $(this[type]).empty() }, this.delay || 10000);
+            setTimeout(() => { app.$empty(element) }, this.delay || 10000);
         }
-        if (this.options.scroll) $(this[type])[0].scrollIntoView();
+        app.$empty(element).append(alert);
+        if (this.options.scroll) element.scrollIntoView();
         return null;
     }
 
     this.validate = function() {
-        this.form.addClass('was-validated')
-        return this.form[0].checkValidity();
+        this.form.classList.add('was-validated')
+        return this.form.checkValidity();
     }
 
     this.sanitize = function(str) {
-        return this.options.sanitizer ? this.options.sanitizer.run(str) : str;
+        return !str ? [] : this.options.sanitizer?.run(str, 1) || [str];
     }
 
     var _emap = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#x27;', '`': '&#x60;' };
@@ -609,13 +662,13 @@ function bootpopup(...args)
     }
 
     this.data = function() {
-        var d = { list: [], obj: {} }, e, n, v, l = this.form.find(this.options.inputs.join(","));
+        var d = { list: [], obj: {} }, e, n, v, l = app.$all(this.options.inputs.join(","), this.form);
         for (let i = 0; i < l.length; i++) {
             e = l[i];
-            n = e.name || $(e).attr("name");
+            n = e.name || app.$attr(e, "name");
             if (!n || e.disabled) continue;
             if (/radio|checkbox/i.test(e.type) && !e.checked) continue;
-            v = $(e).val();
+            v = e.value;
             if (v === undefined || v === "") {
                 if (!this.options.empty) continue;
                 v = "";
@@ -635,7 +688,7 @@ function bootpopup(...args)
         var a = this.data();
         var ret = func.call(this.options.self, a.obj, a.list, event);
         // Hide window
-        if (ret !== null) this.modal.modal("hide");
+        if (ret !== null) bootstrap.Modal.getOrCreateInstance(this.modal).hide();
         return ret;
     }
 
@@ -665,7 +718,7 @@ function bootpopup(...args)
         return this.options;
     }
 
-    this.close = function() { return this.callback("close"); }
+    this.close = function() { return this.callback("close") }
 
     this.addOptions(...bootpopup.plugins, ...args);
     this.create();

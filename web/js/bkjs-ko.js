@@ -72,10 +72,10 @@ ko.bindingHandlers.html.update = function (element, valueAccessor) {
 // Apply KO to all bootpopups
 bootpopup.plugins.push({
     before: function(self) {
-        if (self.options.data) ko.applyBindings(self.options.data, self.modal.get(0));
+        if (self.options.data) ko.applyBindings(self.options.data, self.modal);
     },
     complete: function(event, self) {
-        if (self.options.data) ko.cleanNode(self.modal.get(0));
+        if (self.options.data) ko.cleanNode(self.modal);
     },
 });
 

@@ -57,16 +57,16 @@ app.getAlertText = function(text, options)
 
 app.showAlert = function(obj, type, text, options)
 {
-    if (!obj || !obj.length) obj = null;
-    if (typeof obj == "string") options = text, text = type, type = obj, obj = $("body");
+    if (obj?.jquery !== undefined) obj = obj[0];
+    if (typeof obj == "string") options = text, text = type, type = obj, obj = document.body;
     if (!text) return;
     var o = Object.assign({}, options);
     o.type = o.type == "error" ? "danger" : o.type || "info";
 
     var element = o.element || ".alerts";
-    if (!$(obj).find(element).length) obj = $("body");
-    var alerts = $(obj).find(element);
-    if (!alerts.length) return;
+    if (!(obj instanceof HTMLElement) || !app.$(element, obj)) obj = document.body;
+    var alerts = app.$(element, obj);
+    if (!alerts) return;
 
     var html = `
     <div class="alert alert-dismissible alert-${o.type} show fade" role="alert">
@@ -74,38 +74,37 @@ app.showAlert = function(obj, type, text, options)
         ${app.getAlertText(text, o)}
         <button type="button" class="btn-close" data-dismiss="alert" aria-label="Close"></button>
     </div>`;
-    if (o.hide || alerts.css("display") == "none") {
-        alerts.attr("data-alert", "hide");
-        alerts.show();
+    if (o.hide || alerts.style.display == "none") {
+        alerts.dataset.alert = "hide";
+        alerts.style.display = "block";
     }
-    if (o.css) alerts.addClass(o.css);
-    if (o.clear) alerts.empty();
-    var el = $(html);
-    alerts.append(el);
+    if (o.css) alerts.classList.add(o.css);
+    if (o.clear) app.$empty(alerts);
+    var alert = app.$parse(html).firstElementChild;
+    var instance = bootstrap.Alert.getOrCreateInstance(alert);
+    alerts.prepend(alert);
     if (!o.dismiss) {
         o.delay = (o.delay || 3000) * (type == "danger" || type == "warning" ? 3 : type == "info" ? 2 : 1);
-        setTimeout(() => { el.alert('close') }, o.delay);
+        setTimeout(() => { instance.close() }, o.delay);
     }
-    el.on('closed.bs.alert', app.cleanupAlerts.bind(app, alerts, o));
-    if (o.scroll) alerts[0].scrollIntoView();
-    return el;
+    app.$on(alert, 'closed.bs.alert', (ev) => { cleanupAlerts(alerts, o) });
+    if (o.scroll) alerts.scrollIntoView();
+    return alert;
 }
 
 app.hideAlert = function(obj, options)
 {
-    if (!options) options = {};
-    var alerts = $(obj || "body").find(options.element || ".alerts");
-    if (!alerts.length) return;
-    alerts.empty();
-    app.cleanupAlerts(alerts, options);
+    var alerts = app.$(options?.element || ".alerts", obj);
+    if (!alerts) return;
+    app.$empty(alerts);
+    cleanupAlerts(alerts, options);
 }
 
-app.cleanupAlerts = function(element, options)
-{
-    if (element.children().length) return;
-    if (options.css) element.removeClass(options.css);
-    if (options.hide || element.attr("data-alert") == "hide") element.hide();
-    element.removeAttr("data-alert");
+const cleanupAlerts = (alerts, options) => {
+    if (alerts.firstElementChild) return;
+    if (options.css) alerts.classList.remove(options.css);
+    if (options.hide || alerts.dataset.alert == "hide") alerts.style.display = "none";
+    delete alerts.dataset.alert;
 }
 
 app.showConfirm = function(options, callback, cancelled)
@@ -119,12 +118,8 @@ app.showConfirm = function(options, callback, cancelled)
         show_header: options.title !== null,
         buttons: ["cancel", "ok"],
         content: [{ div: { html: String(options.text || "").replace(/\n/g, "<br>"), class: options.css || "" } }],
-        ok: function() {
-            app.call(this, callback);
-        },
-        cancel: function() {
-            app.call(this, cancelled);
-        }
+        ok: callback,
+        cancel: cancelled
     };
     for (const p in options) {
         if (/^(class|text|icon)_/.test(p)) opts[p] = options[p];
@@ -143,12 +138,8 @@ app.showPrompt = function(options, callback)
         title: options.title || 'Prompt',
         buttons: ["cancel", "ok"],
         content: [{ input: { name: "value", label: String(options.text || "").replace(/\n/g, "<br>"), class: `form-control ${options.css ||""}`, value: options.value } }],
-        ok: function(d) {
-            value = d.value;
-        },
-        dismiss: function() {
-            app.call(this, callback, value);
-        }
+        ok: (d) => { value = d.value },
+        dismiss: () => { app.call(callback, value) }
     };
     for (const p in options) {
         if (/^(class|text|icon)_/.test(p)) opts[p] = options[p];
@@ -159,7 +150,6 @@ app.showPrompt = function(options, callback)
 app.showLogin = function(options, callback)
 {
     if (typeof options == "function") callback = options, options = null;
-    if (!options) options = {};
 
     var popup;
     var opts = {
@@ -170,22 +160,23 @@ app.showLogin = function(options, callback)
         buttons: ["cancel", "ok"],
         text_ok: "Login",
         content: [
-            { h4: { html: `<img src="${options.logo || "/img/logo.png"}" style="max-height: 3rem;"> ${options.title || 'Please Sign In'}`, class: "text-center py-4" } },
-            { input: { name: "login", label: options.login || "Login", placeholder: options.login, autofocus: true,
-                       onkeyup: function(f,e) { if (e.which == 13) { $(f).closest("form").find('input[type="password"]').focus(); e.preventDefault() } }
+            { h4: {
+                html: `<img src="${options?.logo || "/img/logo.png"}" style="max-height: 3rem;"> ${options?.title || 'Please Sign In'}`,
+                class: "text-center py-4"
             } },
-            { password: { name: "secret", label: options.password || "Password", placeholder: "Password",
-                          onkeyup: function(f,e) { if (e.which == 13) { $(f).closest("form").trigger("submit"); e.preventDefault() } }
+            { input: { name: "login", label: options?.login || "Login", placeholder: options?.login, autofocus: true,
+                       keyup: (ev) => { if (ev.which == 13) { app.$('input[type="password"]', popup.form).focus(); ev.preventDefault() } }
             } },
-            options.disclaimer ? { div: { html: options.disclaimer } } : null,
+            { password: { name: "secret", label: options?.password || "Password", placeholder: "Password",
+                          keyup: (ev) => { if (ev.which == 13) { popup.form.submit(); ev.preventDefault() } }
+            } },
+            options?.disclaimer ? { div: { html: options.disclaimer } } : null,
         ],
         ok: function(d) {
-            if (typeof options.onSubmit == "function" && !options.onSubmit(popup, d)) return false;
-            var q = { login: d.login, secret: d.secret };
-            if (options.url) q = { url: options.url, data: q };
-            app.login(q, function(err) {
+            if (typeof options?.onSubmit == "function" && !options.onSubmit(popup, d)) return false;
+            app.login({ url: options.url, data: d }, (err) => {
                 if (err) popup.showAlert(err);
-                app.call(self, callback, err);
+                app.call(callback, err);
             });
             return false;
         },
@@ -194,16 +185,12 @@ app.showLogin = function(options, callback)
         if (/^(class|text|icon)_/.test(p)) opts[p] = options[p];
     }
     popup = bootpopup(opts);
+    return popup;
 }
 
-app.hideLogin = function()
+app.showToast = function(element, type, text, options)
 {
-    $("#app-login-modal").modal("hide");
-}
-
-app.showToast = function(obj, type, text, options)
-{
-    if (typeof obj == "string") options = text, text = type, type = obj, obj = null;
+    if (typeof element == "string") options = text, text = type, type = element, element = null;
     if (!text) return;
     var o = Object.assign({ type: type == "error" ? "danger" : typeof type == "string" && type || "info", now: Date.now(), delay: 5000, role: "alert" }, options || {});
     var t = o.type[0];
@@ -221,9 +208,12 @@ app.showToast = function(obj, type, text, options)
             ${app.getAlertText(text, o)}
         </div>
     </div>`;
-    if (!obj) {
-        obj = $("body").find(".toast-container");
-        if (!obj.length) obj = $("<div></div>", { "aria-live": "polite" }).appendTo($("body"));
+    if (!element) {
+        element = app.$(".toast-container");
+        if (!element) {
+            element = app.$elem("div", "aria-live", "polite");
+            document.body.append(element);
+        }
         var pos = o.pos == "tl" ? "top-0 start-0" :
                   o.pos == "tr" ? "top-0 end-0" :
                   o.pos == "ml" ? "top-50 start-0  translate-middle-y" :
@@ -232,18 +222,18 @@ app.showToast = function(obj, type, text, options)
                   o.pos == "bl" ? "bottom-0 start-0" :
                   o.pos == "bc" ? "bottom-0 start-50 translate-middle-x" :
                   o.pos == "br" ? "bottom-0 end-0" : "top-0 start-50 translate-middle-x";
-        obj[0].className = `toast-container position-fixed ${pos} p-3`;
+        element.className = `toast-container position-fixed ${pos} p-3`;
     }
-    if (o.clear) obj.empty();
-    var el = $(html);
-    $(el).toast("show");
-    obj.prepend(el);
-    var timer = !o.notimer ? setInterval(() => {
-        if (!$(el)[0].parentElement) return clearInterval(timer);
-        $(el).find(".timer").text(o.countdown ? app.toDuration(delay - (Date.now() - o.now)) : app.toAge(o.now) + " ago");
-    }, o.countdown ? o.delay/2 : o.delay) : "";
-    el.on("hidden.bs.toast", () => { clearInterval(timer); el.remove() });
-    return el;
+    if (o.clear) app.$empty(element);
+    var toast = app.$parse(html).firstElementChild;
+    bootstrap.Toast.getOrCreateInstance(toast).show();
+    element.prepend(toast);
+    toast._timer = o.notimer ? "" : setInterval(() => {
+        if (!toast.parentElement) return clearInterval(toast._timer);
+        app.$(".timer", toast).textContent = o.countdown ? app.toDuration(delay - (Date.now() - o.now)) : app.toAge(o.now) + " ago";
+    }, o.countdown ? o.delay/2 : o.delay);
+    app.$on(toast, "hidden.bs.toast", (ev) => { clearInterval(ev.target._timer); ev.target.remove() });
+    return toast;
 }
 
 app.hideToast = function()

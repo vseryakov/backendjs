@@ -1225,7 +1225,7 @@ var sanitizer = {
         return list.some((x) => (x instanceof RegExp && x.test(name)));
     },
 
-    run: function(html, dom) {
+    run: function(html, list) {
         if (!html || typeof html != "string") return html;
         const body = app.$parse(html);
         const elements = [...body.querySelectorAll('*')];
@@ -1240,7 +1240,7 @@ var sanitizer = {
                 el.remove();
             }
         }
-        return dom ? body : body.innerHTML;
+        return list ? Array.from(body.childNodes) : body.innerHTML;
     }
 }
 app.sanitizer = sanitizer;
