@@ -12,7 +12,7 @@ var app = window.app;
 //
 app.send = function(options, onsuccess, onerror)
 {
-    if (typeof options == "string") options = { url: options };
+    if (app.isS(options)) options = { url: options };
     if (!options.headers) options.headers = {};
     if (!options.type) options.type = 'POST';
     options.headers["bk-tz"] = (new Date()).getTimezoneOffset();
@@ -39,7 +39,7 @@ app.send = function(options, onsuccess, onerror)
         if (err) {
             if (!options.quiet) app.log('send:', err, options);
             if (options.alert) {
-                var a = typeof options.alert == "string" && options.alert;
+                var a = app.isS(options.alert) && options.alert;
                 app.emit("alert", ["error", a || err, { safe: !a }]);
             }
             app.call(options.self || this, onerror, err, info);
@@ -86,13 +86,13 @@ app.sendFile = function(options, callback)
     if (!n) return app.call(options.self || this, callback);
 
     const add = (k, v) => {
-       form.append(k, typeof v == "function" ? v() : v === null || v === true ? "" : v);
+       form.append(k, app.isF(v) ? v() : v === null || v === true ? "" : v);
     }
 
     const build = (key, val) => {
         if (val === undefined) return;
         if (Array.isArray(val)) {
-            for (const i in val) build(`${key}[${typeof val[i] === "object" && val[i] != null ? i : ""}]`, val[i]);
+            for (const i in val) build(`${key}[${app.isO(val[i]) ? i : ""}]`, val[i]);
         } else
         if (app.isObject(val)) {
             for (const n in val) build(`${key}[${n}]`, val[n]);

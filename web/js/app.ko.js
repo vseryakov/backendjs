@@ -112,6 +112,12 @@ function dataFor(element)
     }
 }
 
+function data(element)
+{
+    if (!app.isE(element)) element = app.$(app.main + " div")?.firstElementChild;
+    return ko.dataFor(element);
+}
+
 function render(element, options)
 {
     cleanup(element);
@@ -140,6 +146,6 @@ ko.templateEngine.prototype.makeTemplateSource = function(template, doc) {
     throw new Error("Unknown template type: " + template);
 }
 
-app.plugin(_type, { render, cleanup: cleanup, Component });
+app.plugin(_type, { render, cleanup, data, Component });
 
 })();

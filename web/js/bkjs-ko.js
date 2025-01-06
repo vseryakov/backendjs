@@ -16,7 +16,7 @@ app.koRegister = (...args) => args.forEach(x => ko.components.register(x, {}))
 
 app.koSetObject = function(obj, options)
 {
-    if (!obj || typeof obj != "object") obj = {};
+    if (!app.isO(obj)) obj = {};
     for (const p in obj) {
         if (options[p] !== undefined) continue;
         if (ko.isComputed(obj[p])) continue;
@@ -31,7 +31,7 @@ app.koSetObject = function(obj, options)
 
 app.koUpdateObject = function(obj, options)
 {
-    if (!obj || typeof obj != "object") obj = {};
+    if (!app.isO(obj)) obj = {};
     for (const p in options) {
         if (ko.isComputed(obj[p])) continue;
         if (app.isKo(obj[p])) obj[p](app.koVal(options[p])); else obj[p] = app.koVal(options[p]);
@@ -41,7 +41,7 @@ app.koUpdateObject = function(obj, options)
 
 app.koConvert = function(obj, name, val, dflt)
 {
-    if (!obj || typeof obj != "object") obj = {};
+    if (!app.isO(obj)) obj = {};
     if (!app.isKo(obj[name])) {
         obj[name] = Array.isArray(val || dflt) ? ko.observableArray(obj[name]) : ko.observable(obj[name]);
     }

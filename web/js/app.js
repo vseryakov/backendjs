@@ -6,12 +6,16 @@
     index: "index",
     event: "component:event",
     templates: {},
-    components: {}
+    components: {},
+    isF: isFunction,
+    isS: isString,
+    isE: isElement,
+    isO: isObj
   };
-  function isFunc(callback) {
+  function isFunction(callback) {
     return typeof callback == "function";
   }
-  function isStr(str) {
+  function isString(str) {
     return typeof str == "string";
   }
   function isObj(obj) {
@@ -32,19 +36,19 @@
     app.debug && app.log(...args);
   };
   app.call = (obj, method, ...arg) => {
-    if (isFunc(obj)) return obj(method, ...arg);
+    if (isFunction(obj)) return obj(method, ...arg);
     if (typeof obj != "object") return;
-    if (isFunc(method)) return method.call(obj, ...arg);
-    if (obj && isFunc(obj[method])) return obj[method].call(obj, ...arg);
+    if (isFunction(method)) return method.call(obj, ...arg);
+    if (obj && isFunction(obj[method])) return obj[method].call(obj, ...arg);
   };
   var _events = {};
   app.on = (event, callback) => {
-    if (!isFunc(callback)) return;
+    if (!isFunction(callback)) return;
     if (!_events[event]) _events[event] = [];
     _events[event].push(callback);
   };
   app.once = (event, callback) => {
-    if (!isFunc(callback)) return;
+    if (!isFunction(callback)) return;
     const cb = (...args) => {
       app.off(event, cb);
       callback(...args);
@@ -52,7 +56,7 @@
     app.on(event, cb);
   };
   app.only = (event, callback) => {
-    _events[event] = isFunc(callback) ? [callback] : [];
+    _events[event] = isFunction(callback) ? [callback] : [];
   };
   app.off = (event, callback) => {
     if (!_events[event] || !callback) return;
@@ -63,7 +67,7 @@
     app.trace("emit:", event, ...args);
     if (_events[event]) {
       for (const cb of _events[event]) cb(...args);
-    } else if (isStr(event) && event.endsWith(":*")) {
+    } else if (isString(event) && event.endsWith(":*")) {
       event = event.slice(0, -1);
       for (const p in _events) {
         if (p.startsWith(event)) {
@@ -77,22 +81,23 @@
   app.$param = (name, dflt) => {
     return new URLSearchParams(location.search).get(name) || dflt || "";
   };
-  var esc = (selector) => isStr(selector) ? selector.replace(/#([^\s"#']+)/g, (_, id) => `#${CSS.escape(id)}`) : "";
+  var esc = (selector) => isString(selector) ? selector.replace(/#([^\s"#']+)/g, (_, id) => `#${CSS.escape(id)}`) : "";
   app.$ = (selector, doc) => (isElement(doc) || document).querySelector(esc(selector));
   app.$all = (selector, doc) => (isElement(doc) || document).querySelectorAll(esc(selector));
   app.$event = (element, name, detail = {}) => isElement(element) && element.dispatchEvent(new CustomEvent(name, { detail, bubbles: true, composed: true, cancelable: true }));
   app.$on = (element, event, callback, ...arg) => {
-    return isFunc(callback) && element.addEventListener(event, callback, ...arg);
+    return isFunction(callback) && element.addEventListener(event, callback, ...arg);
   };
   app.$off = (element, event, callback, ...arg) => {
-    return isFunc(callback) && element.removeEventListener(event, callback, ...arg);
+    return isFunction(callback) && element.removeEventListener(event, callback, ...arg);
   };
   app.$attr = (element, attr, value) => {
-    if (isStr(element) && element) element = app.$(element);
+    if (isString(element) && element) element = app.$(element);
     if (!isElement(element)) return;
     return value === void 0 ? element.getAttribute(attr) : value === null ? element.removeAttribute(attr) : element.setAttribute(attr, value);
   };
   app.$empty = (element, cleanup) => {
+    if (isString(element) && element) element = app.$(element);
     if (!isElement(element)) return;
     while (element.firstChild) {
       const node = element.firstChild;
@@ -108,8 +113,8 @@
     }
     for (let i = 0; i < arg.length - 1; i += 2) {
       key = arg[i], val = arg[i + 1];
-      if (!isStr(key)) continue;
-      if (isFunc(val)) {
+      if (!isString(key)) continue;
+      if (isFunction(val)) {
         app.$on(element, key, val);
       } else if (key.startsWith(".")) {
         element.style[key.substr(1)] = val;
@@ -142,7 +147,7 @@
   // src/router.js
   app.parsePath = (path) => {
     var rc = { name: "", params: {} }, query, loc = window.location;
-    if (!isStr(path)) return rc;
+    if (!isString(path)) return rc;
     var base = app.base;
     if (path.startsWith(loc.origin)) path = path.substr(loc.origin.length);
     if (path.includes("://")) path = path.replace(/^(.*:\/\/[^\/]*)/, "");
@@ -172,7 +177,7 @@
     return rc;
   };
   app.savePath = (options) => {
-    if (isStr(options)) options = { name: options };
+    if (isString(options)) options = { name: options };
     if (!options?.name) return;
     var path = [options.name];
     if (options?.params) {
@@ -199,18 +204,26 @@
   var _plugins = {};
   var _default_plugin;
   app.plugin = (name, options) => {
-    if (!name || !isStr(name)) throw Error("type must be defined");
+    if (!name || !isString(name)) throw Error("type must be defined");
     if (options) {
-      for (const p of ["render", "cleanup"]) {
-        if (options[p] && !isFunc(options[p])) throw Error(p + " must be a function");
+      for (const p of ["render", "cleanup", "data"]) {
+        if (options[p] && !isFunction(options[p])) throw Error(p + " must be a function");
       }
-      if (isFunc(options?.Component)) {
+      if (isFunction(options?.Component)) {
         app[`${name.substr(0, 1).toUpperCase() + name.substr(1).toLowerCase()}Component`] = options.Component;
       }
     }
     var plugin = _plugins[name] = _plugins[name] || {};
     if (options?.default) _default_plugin = plugin;
     return Object.assign(plugin, options);
+  };
+  app.$data = (element) => {
+    if (isString(element) && element) element = app.$(element);
+    for (const p in _plugins) {
+      if (!_plugins[p].data) continue;
+      const d = _plugins[p].data(element);
+      if (d) return d;
+    }
   };
   app.resolve = (path, dflt) => {
     const rc = app.parsePath(path);
@@ -229,7 +242,7 @@
     if (!template) return;
     rc.template = template;
     var component = components[name] || components[rc.name];
-    if (isStr(component)) component = components[component];
+    if (isString(component)) component = components[component];
     rc.component = component;
     return rc;
   };
@@ -297,7 +310,7 @@
     handleEvent(event, ...args) {
       app.trace("event:", this.$_id, ...args);
       app.call(this.onEvent?.bind(this.$data), event, ...args);
-      if (!isStr(event)) return;
+      if (!isString(event)) return;
       var method = toCamel("on_" + event);
       app.call(this[method]?.bind(this.$data), ...args);
     }
@@ -308,7 +321,7 @@
     }
   };
   function render(element, options) {
-    if (isStr(options)) {
+    if (isString(options)) {
       options = app.resolve(options);
       if (!options) return;
     }
@@ -337,7 +350,11 @@
       });
     }
   }
-  app.plugin(_alpine, { render, Component, default: 1 });
+  function data(element) {
+    if (!isElement(element)) element = app.$(app.main + " div");
+    return element && Alpine.closestDataStack(element)[0];
+  }
+  app.plugin(_alpine, { render, Component, data, default: 1 });
   app.on("alpine:init", () => {
     for (const [name, obj] of Object.entries(app.components)) {
       if (obj?.$type != _alpine || customElements.get(Alpine.prefixed(name))) continue;
@@ -382,22 +399,22 @@
       method: options.type || "POST",
       cache: "default"
     }, options.fetchOptions);
-    var data = options.data;
+    var data2 = options.data;
     if (opts.method == "GET" || opts.method == "HEAD") {
-      if (isObj(data)) {
-        options.url += "?" + new URLSearchParams(data).toString();
+      if (isObj(data2)) {
+        options.url += "?" + new URLSearchParams(data2).toString();
       }
-    } else if (isStr(data)) {
-      opts.body = data;
+    } else if (isString(data2)) {
+      opts.body = data2;
       headers["content-type"] = options.contentType || "application/x-www-form-urlencoded; charset=UTF-8";
-    } else if (data instanceof FormData) {
-      opts.body = data;
+    } else if (data2 instanceof FormData) {
+      opts.body = data2;
       delete headers["content-type"];
-    } else if (isObj(data)) {
-      opts.body = JSON.stringify(data);
+    } else if (isObj(data2)) {
+      opts.body = JSON.stringify(data2);
       headers["content-type"] = "application/json; charset=UTF-8";
-    } else if (data) {
-      opts.body = data;
+    } else if (data2) {
+      opts.body = data2;
       headers["content-type"] = options.contentType || "application/octet-stream";
     }
     return opts;
@@ -406,7 +423,7 @@
     try {
       const opts = app.fetchOpts(options);
       window.fetch(options.url, opts).then(async (res) => {
-        var err, data;
+        var err, data2;
         var info = { status: res.status, headers: {}, type: res.type };
         for (const h of res.headers) info.headers[h[0].toLowerCase()] = h[1];
         if (!res.ok) {
@@ -417,19 +434,19 @@
           } else {
             err = { message: await res.text(), status: res.status };
           }
-          return app.call(callback, err, data, info);
+          return app.call(callback, err, data2, info);
         }
         switch (options.dataType) {
           case "text":
-            data = await res.text();
+            data2 = await res.text();
             break;
           case "blob":
-            data = await res.blob();
+            data2 = await res.blob();
             break;
           default:
-            data = /\/json/.test(info.headers["content-type"]) ? await res.json() : await res.text();
+            data2 = /\/json/.test(info.headers["content-type"]) ? await res.json() : await res.text();
         }
-        app.call(callback, null, data, info);
+        app.call(callback, null, data2, info);
       }).catch((err) => {
         app.call(callback, err);
       });

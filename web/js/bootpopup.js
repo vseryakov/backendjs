@@ -365,7 +365,8 @@ function bootpopup(...args)
 
             if (Array.isArray(entry)) {
                 children = entry;
-            } else if (typeof entry == "string") {
+            } else
+            if (typeof entry == "string") {
                 opts.label = entry;
             } else {
                 for (const p in entry) opts[p] = entry[p];
@@ -399,7 +400,7 @@ function bootpopup(...args)
             case "submit":
             case "input":
             case "textarea":
-                attrs.type = (typeof attrs.type === "undefined" ? "text" : attrs.type);
+                attrs.type = (attrs.type === undefined ? "text" : attrs.type);
                 if (attrs.type == "hidden") {
                     elem = app.$elem(type, attrs);
                     parent.append(elem);
@@ -509,7 +510,6 @@ function bootpopup(...args)
                     const oldParent = parent;
                     parent = col;
                     for (const type in subEntry) {
-                        // Process the element
                         processEntry(type, subEntry[type]);
                     }
                     parent = oldParent;
@@ -541,7 +541,6 @@ function bootpopup(...args)
 
             case "object":
                 for (const type in entry) {
-                    // Process the element
                     processEntry(type, entry[type]);
                 }
                 break;
@@ -665,7 +664,7 @@ function bootpopup(...args)
         var d = { list: [], obj: {} }, e, n, v, l = app.$all(this.options.inputs.join(","), this.form);
         for (let i = 0; i < l.length; i++) {
             e = l[i];
-            n = e.name || app.$attr(e, "name");
+            n = e.name;
             if (!n || e.disabled) continue;
             if (/radio|checkbox/i.test(e.type) && !e.checked) continue;
             v = e.value;

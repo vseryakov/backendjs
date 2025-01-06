@@ -120,10 +120,10 @@ app.wsSend = function(data)
         }
         return;
     }
-    if (typeof data == "object" && data) {
+    if (app.isO(data)) {
         if (data.url && data.url[0] == "/") {
             data = data.url;
-            if (typeof data.data == "object" && data.data) {
+            if (app.isO(data.data)) {
                 data += "?" + new URLSearchParams(data.data).toString();
             }
         } else {

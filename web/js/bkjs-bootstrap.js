@@ -102,8 +102,8 @@ app.hideAlert = function(obj, options)
 
 const cleanupAlerts = (alerts, options) => {
     if (alerts.firstElementChild) return;
-    if (options.css) alerts.classList.remove(options.css);
-    if (options.hide || alerts.dataset.alert == "hide") alerts.style.display = "none";
+    if (options?.css) alerts.classList.remove(options.css);
+    if (options?.hide || alerts.dataset.alert == "hide") alerts.style.display = "none";
     delete alerts.dataset.alert;
 }
 
