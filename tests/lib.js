@@ -397,10 +397,10 @@ tests.test_toparams = function(callback, test)
     expect(/email1 is required/.test(q), "expected email1 required", q);
 
     q = lib.toParams({ email: "a@a" }, schema, opts);
-    expect(/email1 is required/.test(q), "expected email1 required", q);
+    expect(/email1 is required/.test(q), "expected email1 required, 1", q);
 
     q = lib.toParams({ email1: "a@a" }, schema, opts);
-    expect(/email1 is required/.test(q), "expected email1 required", q);
+    expect(/email1 is required/.test(q), "expected email1 required, 2", q);
 
     q = lib.toParams({ email1: "a@a.com" }, schema, opts);
     expect(q.page === 1 && q.count === 1, "expected page=1, count=1", q);

@@ -59,7 +59,7 @@ case "$BKJS_CMD" in
     [ ! -f tests/$file.js ] && echo "$tests/$file.js is not found" && exit 1
     test=$(get_arg -test $file)
     config=$(get_arg -test-config)
-    exec $BKJS_BIN shell -test-config $tests/config,$tests/config.$file,$config -test-file $tests/$file.js -run-ipc -run-api -run-worker $(get_all_args "-test -test-config") -test-run $test
+    exec $BKJS_BIN shell -test-config $config,$tests/config,$tests/config.$file -test-file $tests/$file.js -run-ipc -run-api -run-worker $(get_all_args "-test -test-config") -test-run $test
     ;;
 
 esac
