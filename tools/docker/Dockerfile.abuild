@@ -11,9 +11,9 @@ RUN apk --no-cache add \
   doas-sudo-shim \
   ccache \
   mc \
-  nodejs=~22 \
-  npm=~10 \
-  python3=~3 \
+  nodejs \
+  npm \
+  python3 \
   go \
   curl \
   file \

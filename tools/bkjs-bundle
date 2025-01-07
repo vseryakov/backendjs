@@ -33,16 +33,15 @@ case "$BKJS_CMD" in
         exit 0
     fi
 
-    # Force the current dir
-    dir=$(get_arg -dir)
-    if [ "$dir" != "" ]; then
-        cd $dir
-        [ "$?" != "0" ] && exit 1
-    fi
+    gzip=$(get_flag -gzip)
 
     # Rebuild all bundles
-    gzip=$(get_flag -gzip)
     if [[ -n "$(get_flag -all)" ]]; then
+        dir=$(get_arg -dir)
+        if [ "$dir" != "" ]; then
+            cd $dir
+            [ "$?" != "0" ] && exit 1
+        fi
 
         [ -f package.json ] && bundles=$(get_json_flat package.json config.bundles)
 

@@ -155,7 +155,8 @@ function bootpopup(...args)
         // Header
         if (this.options.show_header && this.options.title) {
             this.header = app.$elem('div', { class: this.options.class_header });
-            const title = app.$elem('h5', { class: this.options.class_title, id: "bootpopup-title", text: this.options.title });
+            const title = app.$elem('h5', { class: this.options.class_title, id: "bootpopup-title" });
+            title.append(...this.sanitize(this.options.title));
             this.header.append(title);
 
             if (this.options.show_close) {
@@ -326,7 +327,7 @@ function bootpopup(...args)
                 const lopts = { for: opts.for || attrs.id, class: class_label };
                 for (const p in opts.attrs_label) lopts[p] = opts.attrs_label[p];
                 const label = app.$elem("label", lopts);
-                label.append(...Array.from(this.sanitize(opts.label)));
+                label.append(...this.sanitize(opts.label));
 
                 const input = app.$elem('div', { class: opts.size_input || this.options.size_input });
                 input.append(elem);
@@ -335,7 +336,7 @@ function bootpopup(...args)
                 const lopts = { for: opts.for || attrs.id, class: "form-label " + class_label };
                 for (const p in opts.attrs_label) lopts[p] = opts.attrs_label[p];
                 const label = app.$elem("label", lopts);
-                label.append(...Array.from(this.sanitize(opts.label)));
+                label.append(...this.sanitize(opts.label));
 
                 if (opts.floating) {
                     if (!opts.placeholder) app.$attr(elem, "placeholder", "");
