@@ -174,9 +174,6 @@ function bootpopup(...args)
         this.body.append(this.form);
         this.content.append(this.body);
 
-        if (this.options.data) {
-            this.form.dataset.formData = this.options.data;
-        }
         if (this.options.alert) {
             this.alert = app.$elem("div");
             this.form.append(this.alert);

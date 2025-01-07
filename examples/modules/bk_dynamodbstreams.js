@@ -97,10 +97,10 @@ mod.subscribeWorker = function(options)
 mod.lock = function(key, query, options, callback)
 {
     if (options.lockSkip) return callback(null, 1);
-    cache.lock(mod.name + ":" + key, { ttl: mod.lockTtl, queueName: jobs.uniqueQueue }, (err, locked) => {
+    cache.lock(mod.name + ":" + key, { ttl: mod.lockTtl, cacheName: jobs.uniqueCache }, (err, locked) => {
         if (locked) {
             mod.timers[key] = setInterval(function() {
-                cache.lock(mod.name + ":" + key, { ttl: mod.lockTtl, queueName: jobs.uniqueQueue, set: 1 });
+                cache.lock(mod.name + ":" + key, { ttl: mod.lockTtl, cacheName: jobs.uniqueCache, set: 1 });
             }, mod.lockTtl * 0.9);
             mod.timers[key].mtime = Date.now();
         } else {
@@ -116,7 +116,7 @@ mod.unlock = function(key, query, options, callback)
     if (!this.timers[key]) return callback();
     clearInterval(this.timers[key]);
     delete this.timers[key];
-    cache.unlock(mod.name + ":" + key, { queueName: jobs.uniqueQueue }, callback);
+    cache.unlock(mod.name + ":" + key, { cacheName: jobs.uniqueCache }, callback);
 }
 
 mod.isRunning = function(options)
